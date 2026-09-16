@@ -29,6 +29,7 @@ describe('cssInHtmlLoader', () => {
           String(r.test) === String(/\.module\.css$/) && r.type === 'css/module'
       )
     ).toBe(true)
+
     expect(
       rules.some(
         (r: any) =>

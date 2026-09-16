@@ -9,6 +9,7 @@ const resolveNpmPackageManager = vi.fn()
 
 vi.mock('../package-manager', async (importOriginal) => {
   const actual = (await importOriginal()) as any
+
   return {
     ...actual,
     execInstallCommand: (...args: any[]) => execInstallCommand(...args),
@@ -20,6 +21,7 @@ vi.mock('../package-manager', async (importOriginal) => {
 
 vi.mock('../paths', async (importOriginal) => {
   const actual = (await importOriginal()) as any
+
   return {...actual, needsInstall: vi.fn(() => true)}
 })
 
@@ -58,6 +60,7 @@ describe('ensureUserProjectDependencies', () => {
     await expect(
       ensureUserProjectDependencies('/project' as any)
     ).rejects.toThrow('exit code 1')
+
     expect(execInstallCommand).toHaveBeenCalledTimes(1)
   })
 
@@ -73,17 +76,20 @@ describe('ensureUserProjectDependencies', () => {
 
   it('installs a pnpm workspace member from the workspace root, filtered, never in the member dir', async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-eda-ws-'))
+
     try {
       fs.writeFileSync(
         path.join(root, 'pnpm-workspace.yaml'),
         'packages: ["apps/*"]\n'
       )
+
       const member = path.join(root, 'apps', 'ext')
       fs.mkdirSync(member, {recursive: true})
       fs.writeFileSync(
         path.join(member, 'package.json'),
         JSON.stringify({name: 'ext', dependencies: {vue: '^3.0.0'}})
       )
+
       resolvePackageManager.mockReturnValue({name: 'pnpm'})
       execInstallCommand.mockResolvedValueOnce(undefined)
 
@@ -97,6 +103,7 @@ describe('ensureUserProjectDependencies', () => {
         '--filter',
         '{apps/ext}...'
       ])
+
       expect(options.cwd).toBe(root)
       const warned = (console.warn as any).mock.calls
         .map((call: any[]) => String(call[0]))
@@ -134,6 +141,7 @@ describe('ensureUserProjectDependencies', () => {
 
   it('runs lifecycle scripts when EXTENSION_ALLOW_INSTALL_SCRIPTS=true', async () => {
     process.env.EXTENSION_ALLOW_INSTALL_SCRIPTS = 'true'
+
     try {
       resolvePackageManager.mockReturnValue({name: 'npm'})
       execInstallCommand.mockResolvedValueOnce(undefined)

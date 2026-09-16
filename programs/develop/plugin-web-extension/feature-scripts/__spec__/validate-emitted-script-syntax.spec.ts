@@ -18,6 +18,7 @@ function makeCompilation(assets: Record<string, string>) {
       thisCompilation: {tap: (_n: string, fn: any) => fn(compilation)}
     }
   }
+
   return {compiler, compilation}
 }
 
@@ -32,9 +33,11 @@ describe('ValidateEmittedScriptSyntax', () => {
     expect(String(compilation.errors[0].message)).toContain(
       'not valid JavaScript'
     )
+
     expect(String(compilation.errors[0].message)).toContain(
       'silently skip an unparsable content script'
     )
+
     expect(compilation.errors[0].file).toBe(
       'content_scripts/content-0.abc123.js'
     )

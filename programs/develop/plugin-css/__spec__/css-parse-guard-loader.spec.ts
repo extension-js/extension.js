@@ -34,6 +34,7 @@ function writeTemp(name: string, content: string) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'css-guard-'))
   const file = path.join(dir, name)
   fs.writeFileSync(file, content)
+
   return file
 }
 
@@ -68,6 +69,7 @@ describe('css-parse-guard-loader', () => {
     expect(String(result)).toMatch(
       /^\.__extjs_verbatim_[a-z0-9]+__\{--extjs-verbatim:1\}/
     )
+
     const id = /__extjs_verbatim_([a-z0-9]+)__/.exec(
       String(result)
     )?.[1] as string

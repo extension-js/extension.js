@@ -8,6 +8,7 @@ function makeTmp(name: string) {
   const tmp = path.join(__dirname, `.tmp-${name}`)
   fs.rmSync(tmp, {recursive: true, force: true})
   fs.mkdirSync(tmp, {recursive: true})
+
   return tmp
 }
 
@@ -74,6 +75,7 @@ describe('patchHtml static attribute rewrites', () => {
     expect(updated).toContain(
       'srcset="/assets/hero.png 1x, /assets/hero-2x.png 2x"'
     )
+
     expect(updated).not.toContain('src="/assets/hero-2x.png"')
   })
 
@@ -120,6 +122,7 @@ describe('patchHtml static attribute rewrites', () => {
     expect(preload).toContain(
       'imagesrcset="/assets/hero.png 1x, /assets/hero-2x.png 2x"'
     )
+
     expect(preload).not.toMatch(/\shref=/)
   })
 

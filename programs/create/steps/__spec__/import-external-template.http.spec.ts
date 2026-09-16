@@ -31,13 +31,15 @@ describe('importExternalTemplate refuses plain HTTP template URLs', () => {
     vi.mocked(axios.get).mockRejectedValue(
       new Error('network is disabled in this test')
     )
+
     vi.mocked(goGitIt).mockClear()
   })
 
   afterEach(async () => {
-    if (prevAllow === undefined)
+    if (prevAllow === undefined) {
       delete process.env.EXTENSION_ALLOW_HTTP_TEMPLATE
-    else process.env.EXTENSION_ALLOW_HTTP_TEMPLATE = prevAllow
+    } else process.env.EXTENSION_ALLOW_HTTP_TEMPLATE = prevAllow
+
     while (tempDirs.length > 0) {
       await fsp.rm(tempDirs.pop()!, {recursive: true, force: true})
     }
@@ -46,6 +48,7 @@ describe('importExternalTemplate refuses plain HTTP template URLs', () => {
   async function makeProjectPath() {
     const tmpRoot = await fsp.mkdtemp(path.join(os.tmpdir(), 'extjs-http-'))
     tempDirs.push(tmpRoot)
+
     return path.join(tmpRoot, 'my-ext')
   }
 
@@ -116,8 +119,10 @@ describe('importExternalTemplate refuses plain HTTP template URLs', () => {
         protocol: 'http:',
         href: 'http://mirror.example.com/t.zip'
       })
+
       return {data: new ArrayBuffer(0), headers: {}}
     })
+
     const projectPath = await makeProjectPath()
     const errors: string[] = []
 
@@ -139,6 +144,7 @@ describe('importExternalTemplate refuses plain HTTP template URLs', () => {
     const prevUrl = process.env.EXTENSION_CREATE_TEMPLATE_URL
     process.env.EXTENSION_CREATE_TEMPLATE_URL =
       'http://mirror.example.com/x.zip'
+
     try {
       const projectPath = await makeProjectPath()
       const errors: string[] = []
@@ -157,17 +163,19 @@ describe('importExternalTemplate refuses plain HTTP template URLs', () => {
       expect(errors.join('\n')).toContain('http://mirror.example.com/x.zip')
       expect(fs.existsSync(projectPath)).toBe(false)
     } finally {
-      if (prevUrl === undefined)
+      if (prevUrl === undefined) {
         delete process.env.EXTENSION_CREATE_TEMPLATE_URL
-      else process.env.EXTENSION_CREATE_TEMPLATE_URL = prevUrl
+      } else process.env.EXTENSION_CREATE_TEMPLATE_URL = prevUrl
     }
   })
 
   it('stops a catalog download that redirects to http, with no retry or fallback', async () => {
     vi.mocked(axios.get).mockImplementation(async () => {
       refuseHttpRedirect({href: 'http://mirror.example.com/x.zip'})
+
       return {data: new ArrayBuffer(0), headers: {}}
     })
+
     const projectPath = await makeProjectPath()
 
     await expect(
@@ -185,6 +193,7 @@ describe('importExternalTemplate refuses plain HTTP template URLs', () => {
     expect(
       (config as {beforeRedirect?: unknown} | undefined)?.beforeRedirect
     ).toBe(refuseHttpRedirect)
+
     expect(fs.existsSync(projectPath)).toBe(false)
   })
 
@@ -195,9 +204,11 @@ describe('importExternalTemplate refuses plain HTTP template URLs', () => {
         href: 'https://cdn.example/t.zip'
       })
     ).not.toThrow()
+
     expect(() =>
       refuseHttpRedirect({protocol: 'http:', href: 'http://cdn.example/t.zip'})
     ).toThrow(InsecureTemplateUrlError)
+
     expect(() => refuseHttpRedirect({protocol: 'http:'})).toThrow(
       InsecureTemplateUrlError
     )

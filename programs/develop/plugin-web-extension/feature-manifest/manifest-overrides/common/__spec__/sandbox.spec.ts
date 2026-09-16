@@ -6,18 +6,21 @@ import {sandbox} from '../sandbox'
 
 const dirs: string[] = []
 afterEach(() => {
-  for (const dir of dirs.splice(0))
+  for (const dir of dirs.splice(0)) {
     fs.rmSync(dir, {recursive: true, force: true})
+  }
 })
 
 function project(files: string[]) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-sandbox-override-'))
   dirs.push(dir)
+
   for (const file of files) {
     const abs = path.join(dir, file)
     fs.mkdirSync(path.dirname(abs), {recursive: true})
     fs.writeFileSync(abs, '<html></html>')
   }
+
   return path.join(dir, 'manifest.json')
 }
 

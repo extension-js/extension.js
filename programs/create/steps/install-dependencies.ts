@@ -41,12 +41,14 @@ function getTagFallback(version: string) {
   }
 
   const cleaned = version.replace(/^[~^]/, '')
+
   return cleaned.includes('-') ? 'next' : 'latest'
 }
 
 async function pathExists(target: string): Promise<boolean> {
   try {
     await fs.promises.access(target)
+
     return true
   } catch {
     return false
@@ -61,6 +63,7 @@ async function resolveDenoConfigPath(
     const full = path.join(projectPath, candidate)
     if (await pathExists(full)) return full
   }
+
   return undefined
 }
 
@@ -80,6 +83,7 @@ async function updatePackageJsonExtensionTag(
   }
 
   const tag = getTagFallback(currentVersion)
+
   if (!tag || currentVersion === tag) {
     return false
   }
@@ -106,25 +110,32 @@ function replaceExtensionSpecifierInDenoConfig(
   nextSpecifier: string
 ): string | undefined {
   if (currentSpecifier === nextSpecifier) return undefined
+
   // Anchor on the quoted value site, not the first raw occurrence: a JSONC
   // comment quoting the same specifier earlier in the file must stay put.
   const quoted = `"${currentSpecifier}"`
   let from = 0
+
   while (from < raw.length) {
     const at = raw.indexOf(quoted, from)
     if (at === -1) return undefined
+
     const lineStart = raw.lastIndexOf('\n', at) + 1
     const lineBefore = raw.slice(lineStart, at)
+
     if (/:\s*$/.test(lineBefore) && !lineBefore.includes('//')) {
       const index = at + 1
+
       return (
         raw.slice(0, index) +
         nextSpecifier +
         raw.slice(index + currentSpecifier.length)
       )
     }
+
     from = at + quoted.length
   }
+
   return undefined
 }
 
@@ -141,8 +152,10 @@ async function updateDenoConfigExtensionTag(
 
   let next = raw
   let updated = false
+
   for (const specifier of Object.values(imports as Record<string, unknown>)) {
     if (typeof specifier !== 'string') continue
+
     const parsed = parseNpmSpecifier(specifier)
     if (!parsed || parsed.name !== 'extension') continue
 
@@ -155,6 +168,7 @@ async function updateDenoConfigExtensionTag(
       `npm:extension@${tag}`
     )
     if (rewritten === undefined) continue
+
     next = rewritten
     updated = true
   }
@@ -162,6 +176,7 @@ async function updateDenoConfigExtensionTag(
   if (!updated) return false
 
   await fs.promises.writeFile(configPath, next)
+
   return true
 }
 
@@ -177,9 +192,11 @@ async function updateExtensionDependencyTag(
   try {
     const updatedPackageJson = await updatePackageJsonExtensionTag(projectPath)
     const updatedDenoConfig = await updateDenoConfigExtensionTag(projectPath)
+
     return updatedPackageJson || updatedDenoConfig
   } catch (error) {
     logger.error(messages.cantInstallDependencies(projectName, error))
+
     return false
   }
 }
@@ -188,6 +205,7 @@ async function updateExtensionDependencyTag(
 // Network flakiness, generic 404s, and other packages must not rewrite the pin.
 function shouldRetryWithTagFallback(output: string) {
   const text = output.toLowerCase()
+
   return (
     text.includes('no matching version found for extension@') ||
     (text.includes('notarget') && text.includes('extension@')) ||
@@ -213,6 +231,7 @@ async function hasDependenciesToInstall(projectPath: string) {
   // fail loudly rather than be treated as "no deps".
   const packageJsonPath = path.join(projectPath, 'package.json')
   let raw: string
+
   try {
     raw = await fs.promises.readFile(packageJsonPath, 'utf8')
   } catch (error) {
@@ -221,12 +240,14 @@ async function hasDependenciesToInstall(projectPath: string) {
       // Deno imports map declares nothing to fetch either.
       return Object.keys(readDenoConfigDependencies(projectPath)).length > 0
     }
+
     throw error
   }
 
   const packageJson = JSON.parse(raw)
   const depsCount = Object.keys(packageJson?.dependencies || {}).length
   const devDepsCount = Object.keys(packageJson?.devDependencies || {}).length
+
   return depsCount + devDepsCount > 0
 }
 
@@ -300,7 +321,9 @@ export async function installDependencies(
     logger.error(
       messages.installingDependenciesProcessError(projectName, error)
     )
+
     logger.error(messages.cantInstallDependencies(projectName, error))
+
     throw error
   }
 }

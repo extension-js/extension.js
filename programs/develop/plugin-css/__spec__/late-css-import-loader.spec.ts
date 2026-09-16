@@ -19,6 +19,7 @@ function runLoader(source: string, map?: unknown) {
     source,
     map
   )
+
   return {warnings, result: result!}
 }
 

@@ -19,6 +19,7 @@ function project(schema: string, spelling = 'schema.json') {
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'schema', version: '0.0.0'})
   )
+
   fs.writeFileSync(
     path.join(root, 'manifest.json'),
     JSON.stringify({
@@ -29,9 +30,11 @@ function project(schema: string, spelling = 'schema.json') {
       storage: {managed_schema: spelling}
     })
   )
+
   const abs = path.join(root, spelling.replace(/^\//, 'public/'))
   fs.mkdirSync(path.dirname(abs), {recursive: true})
   fs.writeFileSync(abs, schema)
+
   return root
 }
 
@@ -39,6 +42,7 @@ async function build(root: string) {
   const {extensionBuild} = await import('../command-build')
   const previous = process.env.VITEST
   process.env.VITEST = 'true'
+
   try {
     return await extensionBuild(root, {
       browser: 'chrome',

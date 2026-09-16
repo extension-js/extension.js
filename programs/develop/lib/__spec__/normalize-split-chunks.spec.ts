@@ -20,6 +20,7 @@ function selectorAt(config: Configuration, path: string[]): Selector {
   let node: any = config.optimization?.splitChunks
   for (const key of path) node = node?.[key]
   expect(typeof node).toBe('function')
+
   return node as Selector
 }
 
@@ -41,6 +42,7 @@ describe('isPageChunkName', () => {
     ]) {
       expect(isPageChunkName(name)).toBe(true)
     }
+
     for (const name of [
       'background/service_worker',
       'background/scripts',
@@ -51,6 +53,7 @@ describe('isPageChunkName', () => {
     ]) {
       expect(isPageChunkName(name)).toBe(false)
     }
+
     expect(isPageChunkName(undefined)).toBe(false)
     expect(isPageChunkName('')).toBe(false)
   })
@@ -77,6 +80,7 @@ describe('defaultSplitChunks', () => {
     expect(config.cacheGroups.framework.filename).toBe('shared/framework.js')
     expect(config.cacheGroups.commons.filename).toBe('shared/commons.js')
     expect(config.cacheGroups.commons.minChunks).toBe(2)
+
     for (const file of [
       '/p/node_modules/react/index.js',
       '/p/node_modules/react-dom/client.js',
@@ -90,6 +94,7 @@ describe('defaultSplitChunks', () => {
     ]) {
       expect(config.cacheGroups.framework.test.test(file)).toBe(true)
     }
+
     for (const file of [
       '/p/node_modules/react-refresh/runtime.js',
       '/p/node_modules/lodash/index.js',
@@ -152,6 +157,7 @@ describe('normalizeSplitChunks', () => {
     expect(normalizeSplitChunks(off).config.optimization?.splitChunks).toBe(
       false
     )
+
     const bare: Configuration = {}
     expect(normalizeSplitChunks(bare).config).toBe(bare)
   })
@@ -178,6 +184,7 @@ describe('normalizeSplitChunks', () => {
       'splitChunks.cacheGroups.vendors.chunks',
       'splitChunks.cacheGroups.shared.chunks'
     ])
+
     const split = config.optimization?.splitChunks as any
     expect(split.chunks).toBe('async')
     expect(split.minSize).toBe(0)
@@ -198,6 +205,7 @@ describe('normalizeSplitChunks', () => {
     expect(
       (input.optimization?.splitChunks as any).cacheGroups.vendors.chunks
     ).toBe('all')
+
     expect(config.mode).toBe('production')
     expect(config.optimization?.minimize).toBe(true)
   })
@@ -223,6 +231,7 @@ describe('applySplitChunksGuard', () => {
         splitChunks: {chunks: 'all', cacheGroups: {shared: {chunks: 'initial'}}}
       }
     })
+
     expect(log).toHaveBeenCalledTimes(1)
     expect(log).toHaveBeenCalledWith(
       messages.debugSplitChunksNarrowed([
@@ -230,6 +239,7 @@ describe('applySplitChunksGuard', () => {
         'splitChunks.cacheGroups.shared.chunks'
       ])
     )
+
     expect(String(log.mock.calls[0][0])).toContain(
       'single-file=background,content_scripts/,scripts/'
     )

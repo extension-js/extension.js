@@ -67,14 +67,17 @@ export async function writeGitignore(
     }
 
     logger.error(err)
+
     throw err
   })
 
   for (const rawLine of currentContents.split(/\r?\n/)) {
     const line = rawLine.trim()
+
     if (line.length === 0) {
       continue
     }
+
     paths.add(line)
   }
 
@@ -96,6 +99,7 @@ export async function writeGitignore(
 
   await fs.appendFile(gitIgnorePath, contentToAppend).catch((err) => {
     logger.error(err)
+
     throw err
   })
 }

@@ -20,6 +20,7 @@ function project() {
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'cs-hash', version: '0.0.0'})
   )
+
   fs.writeFileSync(path.join(root, 'content-a.js'), 'console.log("a v1")\n')
   fs.writeFileSync(path.join(root, 'content-b.js'), 'console.log("b v1")\n')
   fs.writeFileSync(path.join(root, 'background.js'), 'console.log("bg")\n')
@@ -36,6 +37,7 @@ function project() {
       ]
     })
   )
+
   return root
 }
 
@@ -43,6 +45,7 @@ async function build(root: string, extra: Record<string, unknown> = {}) {
   const {extensionBuild} = await import('../command-build')
   const previous = process.env.VITEST
   process.env.VITEST = 'true'
+
   try {
     const summary = await extensionBuild(root, {
       browser: 'chrome',
@@ -53,6 +56,7 @@ async function build(root: string, extra: Record<string, unknown> = {}) {
       exitOnError: false,
       ...extra
     } as any)
+
     return summary
   } finally {
     if (previous === undefined) delete process.env.VITEST
@@ -71,6 +75,7 @@ function readDist(root: string) {
   const missing = named.filter(
     (file) => !fs.existsSync(path.join(distDir, file))
   )
+
   return {distDir, manifest, named, missing}
 }
 
@@ -112,11 +117,13 @@ describe('development content-script hashing across rebuilds', () => {
     expect((await build(root, {hashContentScripts: false})).errors_count).toBe(
       0
     )
+
     const dist = readDist(root)
     expect(dist.named).toEqual([
       'content_scripts/content-0.js',
       'content_scripts/content-1.js'
     ])
+
     expect(dist.missing).toEqual([])
   }, 180_000)
 })

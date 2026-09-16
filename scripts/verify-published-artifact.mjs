@@ -29,11 +29,13 @@ export function findMissingMarkers(readArtifactFile, markers) {
 
   for (const marker of required) {
     let contents = null
+
     try {
       contents = readArtifactFile(marker.file)
     } catch {
       contents = null
     }
+
     if (typeof contents !== 'string' || !contents.includes(marker.pattern)) {
       missing.push(marker)
     }
@@ -45,6 +47,7 @@ export function findMissingMarkers(readArtifactFile, markers) {
 function getArg(flag) {
   const index = process.argv.indexOf(flag)
   if (index === -1) return undefined
+
   return process.argv[index + 1]
 }
 
@@ -64,6 +67,7 @@ function getArg(flag) {
  */
 function fetchPublishedPackage(name, version, destination) {
   const attempts = 3
+
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
       execFileSync(
@@ -77,12 +81,15 @@ function fetchPublishedPackage(name, version, destination) {
         ],
         {stdio: ['ignore', 'pipe', 'inherit']}
       )
+
       break
     } catch (error) {
       if (attempt === attempts) throw error
+
       console.log(
         `npm pack could not see ${name}@${version} yet, retrying (${attempt}/${attempts})`
       )
+
       execFileSync('sleep', [String(attempt * 5)], {stdio: 'ignore'})
     }
   }
@@ -90,6 +97,7 @@ function fetchPublishedPackage(name, version, destination) {
   const tarball = readdirSync(destination).find((entry) =>
     entry.endsWith('.tgz')
   )
+
   if (!tarball) {
     throw new Error(`npm pack produced no tarball for ${name}@${version}`)
   }
@@ -123,10 +131,12 @@ function main() {
     const manifest = JSON.parse(
       readFileSync(path.join(packageDir, 'package.json'), 'utf8')
     )
+
     if (manifest.version !== version) {
       console.error(
         `error: ${name}@${version} unpacks to version ${manifest.version}`
       )
+
       process.exit(1)
     }
 
@@ -139,15 +149,19 @@ function main() {
       console.error(
         `\nerror: the published ${name}@${version} tarball is missing ${missing.length} required marker(s).`
       )
+
       for (const marker of missing) {
         console.error(
           `  ${marker.file} has no ${JSON.stringify(marker.pattern)}`
         )
+
         console.error(`    invariant: ${marker.invariant}`)
       }
+
       console.error(
         '\nA green release run is not a shipped fix. Publish a version built from a commit that carries these.'
       )
+
       process.exit(1)
     }
 
@@ -156,6 +170,7 @@ function main() {
         `ok: ${marker.file} carries ${JSON.stringify(marker.pattern)} (${marker.invariant})`
       )
     }
+
     console.log(`\nPublished ${name}@${version} carries every required marker.`)
   } finally {
     rmSync(workDir, {recursive: true, force: true})

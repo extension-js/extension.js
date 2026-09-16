@@ -14,6 +14,7 @@ function asPolicyObject(policy: unknown): PolicyObject | undefined {
   if (!policy || typeof policy !== 'object' || Array.isArray(policy)) {
     return undefined
   }
+
   return policy as PolicyObject
 }
 
@@ -21,9 +22,11 @@ function asPolicyObject(policy: unknown): PolicyObject | undefined {
 // form fails AMO validation. The extension_pages slot is that string.
 export function contentSecurityPolicy(manifest: Manifest) {
   if (manifest.manifest_version !== 2) return undefined
+
   const policy = asPolicyObject(manifest.content_security_policy)
   if (!policy) return undefined
   if (typeof policy.extension_pages !== 'string') return undefined
+
   return {content_security_policy: policy.extension_pages}
 }
 
@@ -31,7 +34,9 @@ export function contentSecurityPolicy(manifest: Manifest) {
 // an object that carries one loses it on the way to the string form.
 export function hasMv2SandboxPolicy(manifest: Manifest) {
   if (manifest.manifest_version !== 2) return false
+
   const policy = asPolicyObject(manifest.content_security_policy)
+
   return typeof policy?.sandbox === 'string'
 }
 
@@ -42,6 +47,8 @@ export function dropMv2ObjectPolicy<T extends Record<string, unknown>>(
 ): T {
   if (manifest.manifest_version !== 2) return manifest
   if (!asPolicyObject(manifest.content_security_policy)) return manifest
+
   const {content_security_policy: _dropped, ...rest} = manifest
+
   return rest as unknown as T
 }

@@ -69,6 +69,7 @@ export class ValidateThemeValues {
                   'manifest.json'
                 )
               }
+
               return
             }
 

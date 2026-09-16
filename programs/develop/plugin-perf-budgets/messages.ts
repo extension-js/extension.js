@@ -11,6 +11,7 @@ import type {AssetCategory} from './categorize'
 function fmtKiB(bytes: number): string {
   const kib = bytes / 1024
   if (kib >= 1024) return `${(kib / 1024).toFixed(2)} MiB`
+
   return `${kib.toFixed(1)} KiB`
 }
 
@@ -31,6 +32,7 @@ export function perfBudgetWarning(assets: OversizedAsset[]): string {
 
   const lines = assets.map((a) => {
     const over = ((a.size / a.budget) * 100 - 100).toFixed(0)
+
     return (
       `  ${a.name}\n` +
       `    size:   ${fmtKiB(a.size)}\n` +

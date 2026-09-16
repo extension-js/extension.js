@@ -46,10 +46,12 @@ export class BoringPlugin {
       // A throw here escapes hooks.done into Watching._done and kills the watch loop
       // (a mid-save manifest is routinely invalid JSON); never propagate.
       let manifestName: string | undefined
+
       try {
         const parsedName = parseJsonSafe(
           fs.readFileSync(this.manifestPath, 'utf-8')
         ).name
+
         if (typeof parsedName === 'string' && parsedName) {
           this.lastKnownManifestName = parsedName
           manifestName = parsedName
@@ -61,6 +63,7 @@ export class BoringPlugin {
       } catch {
         manifestName = this.lastKnownManifestName
       }
+
       const line = messages.boring(manifestName || 'Extension', duration, stats)
 
       try {
@@ -74,6 +77,7 @@ export class BoringPlugin {
         const modifiedFiles = [
           ...new Set([...fromCompilation, ...fromCompiler])
         ].map((file) => String(file).replace(/\\/g, '/'))
+
         if (!this.sawUserInvalidation && modifiedFiles.length > 0) {
           const context = String(compiler?.options?.context || '').replace(
             /\\/g,
@@ -95,6 +99,7 @@ export class BoringPlugin {
               isUnderRoot(file, outputPath) ||
               isUnderRoot(file, distRoot) ||
               file.includes('/extension-js/profiles/')
+
             return inProject && !isGenerated
           })
           if (hasUserFileChange) this.sawUserInvalidation = true
@@ -106,9 +111,11 @@ export class BoringPlugin {
         if (browserLaunchEnabled && !hasErrors && !this.sawUserInvalidation) {
           if (hasWarnings) {
             if (this.printedStartupWarning) return
+
             this.printedStartupWarning = true
           } else {
             if (this.printedStartupSuccess) return
+
             this.printedStartupSuccess = true
           }
         }

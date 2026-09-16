@@ -10,19 +10,24 @@ const runWaitMode = vi.fn(async () => ({
 vi.mock('../browsers', () => ({
   launchBrowser: vi.fn(async () => {})
 }))
+
 vi.mock('../helpers/extension-develop-runtime', () => ({
   loadExtensionDevelopModule: vi.fn(async () => ({extensionDev}))
 }))
+
 vi.mock('../browsers/run-safari/safari-launch', () => ({
   packageSafariExtension: vi.fn(async () => {}),
   safariPreflightError: () => null
 }))
+
 vi.mock('../browsers/run-safari/safari-launch/safari-config', () => ({
   isValidBundleId: (id: string) => id.includes('.') && !id.includes(' ')
 }))
+
 // Only runWaitMode is stubbed: describeWaitError is the code under test here.
 vi.mock('../commands/dev-wait', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../commands/dev-wait')>()
+
   return {...actual, runWaitMode: (input: unknown) => runWaitMode(input as any)}
 })
 
@@ -69,6 +74,7 @@ describe('extension dev --output json', () => {
       error: null,
       warnings: []
     })
+
     expect(emitted[0].value).toMatchObject({
       browser: 'chromium',
       browsers: ['chromium'],
@@ -76,6 +82,7 @@ describe('extension dev --output json', () => {
       pid: process.pid,
       noBrowser: false
     })
+
     // The startup frame must not stand in for running the dev server.
     expect(extensionDev).toHaveBeenCalledTimes(1)
   })
@@ -85,6 +92,7 @@ describe('extension dev --output json', () => {
     expect(await run(['dev', '.', '--output', 'json', '--port', '9331'])).toBe(
       0
     )
+
     expect(frames()[0].value).toMatchObject({port: 9331, noBrowser: true})
   })
 
@@ -97,6 +105,7 @@ describe('extension dev --output json', () => {
     expect(
       await run(['dev', '.', '--browser', 'netscape', '--output', 'json'])
     ).toBe(1)
+
     const emitted = frames()
     expect(emitted).toHaveLength(1)
     expect(emitted[0]).toMatchObject({
@@ -107,6 +116,7 @@ describe('extension dev --output json', () => {
       value: null,
       error: {code: CODES.E_UNSUPPORTED_BROWSER}
     })
+
     expect(String(emitted[0].error.message)).toContain('netscape')
     expect(extensionDev).not.toHaveBeenCalled()
   })
@@ -115,6 +125,7 @@ describe('extension dev --output json', () => {
     expect(
       await run(['dev', '.', '--parent-pid', 'zero', '--output', 'json'])
     ).toBe(1)
+
     expect(frames()[0]).toMatchObject({
       ok: false,
       status: 'usage',
@@ -145,9 +156,11 @@ describe('extension dev --output json', () => {
         CODES.E_READY_TIMEOUT
       )
     )
+
     await expect(
       run(['dev', '.', '--wait', '--output', 'json'])
     ).rejects.toThrow('Timed out')
+
     expect(frames()[0]).toMatchObject({
       schema: 1,
       ok: false,
@@ -156,6 +169,7 @@ describe('extension dev --output json', () => {
       value: null,
       error: {code: CODES.E_READY_TIMEOUT}
     })
+
     expect(typeof frames()[0].hint).toBe('string')
   })
 
@@ -166,9 +180,11 @@ describe('extension dev --output json', () => {
         CODES.E_ARGS
       )
     )
+
     await expect(
       run(['dev', 'https://example.com/ext.zip', '--wait', '--output', 'json'])
     ).rejects.toThrow('remote URLs')
+
     expect(frames()[0]).toMatchObject({
       ok: false,
       command: 'dev',
@@ -194,6 +210,7 @@ describe('extension dev --output json', () => {
         'json'
       ])
     ).toBe(0)
+
     expect(logSpy).not.toHaveBeenCalled()
   })
 
@@ -220,6 +237,7 @@ describe('extension dev --output json', () => {
         message: 'dev server start failed'
       }
     })
+
     expect(typeof emitted[1].hint).toBe('string')
   })
 

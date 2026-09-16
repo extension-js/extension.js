@@ -78,10 +78,12 @@ function writePublicJsonFixture() {
     'public/rules.json',
     'public/schema.json'
   )
+
   fs.writeFileSync(
     path.join(PUBLIC_PREFIX_ROOT, 'public', 'rules.json'),
     RULESET
   )
+
   fs.writeFileSync(
     path.join(PUBLIC_PREFIX_ROOT, 'public', 'schema.json'),
     SCHEMA
@@ -97,10 +99,12 @@ function writePublicSlashFixture() {
     '/rules.json',
     '/schema.json'
   )
+
   fs.writeFileSync(
     path.join(PUBLIC_SLASH_ROOT, 'public', 'rules.json'),
     RULESET
   )
+
   fs.writeFileSync(
     path.join(PUBLIC_SLASH_ROOT, 'public', 'schema.json'),
     SCHEMA
@@ -116,6 +120,7 @@ function writeInProjectFixture() {
     'src/rules.json',
     'src/schema.json'
   )
+
   fs.writeFileSync(path.join(IN_PROJECT_ROOT, 'src', 'rules.json'), RULESET)
   fs.writeFileSync(path.join(IN_PROJECT_ROOT, 'src', 'schema.json'), SCHEMA)
 }
@@ -148,6 +153,7 @@ function readDist(root: string) {
   const manifest = JSON.parse(
     fs.readFileSync(path.join(distDir, 'manifest.json'), 'utf8')
   )
+
   return {distDir, manifest}
 }
 
@@ -173,12 +179,14 @@ describe('build: public JSON references (real rspack)', () => {
     expect(manifest.declarative_net_request.rule_resources[0].path).toBe(
       'rules.json'
     )
+
     expect(manifest.storage.managed_schema).toBe('schema.json')
     expect(fs.existsSync(path.join(distDir, 'rules.json'))).toBe(true)
     expect(fs.existsSync(path.join(distDir, 'schema.json'))).toBe(true)
     expect(
       fs.existsSync(path.join(distDir, 'declarative_net_request', 'block.json'))
     ).toBe(false)
+
     expect(
       fs.existsSync(path.join(distDir, 'storage', 'managed_schema.json'))
     ).toBe(false)
@@ -193,12 +201,14 @@ describe('build: public JSON references (real rspack)', () => {
     expect(manifest.declarative_net_request.rule_resources[0].path).toBe(
       'rules.json'
     )
+
     expect(manifest.storage.managed_schema).toBe('schema.json')
     expect(fs.existsSync(path.join(distDir, 'rules.json'))).toBe(true)
     expect(fs.existsSync(path.join(distDir, 'schema.json'))).toBe(true)
     expect(
       fs.existsSync(path.join(distDir, 'declarative_net_request', 'block.json'))
     ).toBe(false)
+
     expect(
       fs.existsSync(path.join(distDir, 'storage', 'managed_schema.json'))
     ).toBe(false)
@@ -213,10 +223,12 @@ describe('build: public JSON references (real rspack)', () => {
     expect(manifest.declarative_net_request.rule_resources[0].path).toBe(
       'declarative_net_request/block.json'
     )
+
     expect(manifest.storage.managed_schema).toBe('storage/managed_schema.json')
     expect(
       fs.existsSync(path.join(distDir, 'declarative_net_request', 'block.json'))
     ).toBe(true)
+
     expect(
       fs.existsSync(path.join(distDir, 'storage', 'managed_schema.json'))
     ).toBe(true)

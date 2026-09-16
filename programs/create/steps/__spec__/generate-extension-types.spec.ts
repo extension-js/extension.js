@@ -15,6 +15,7 @@ afterEach(() => {
       // Ignore
     }
   }
+
   created.length = 0
 })
 

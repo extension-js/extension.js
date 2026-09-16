@@ -38,6 +38,7 @@ describe('deriveExtensionIdFromTargetsHelper', () => {
 
   afterEach(() => {
     vi.restoreAllMocks()
+
     for (const dir of createdDirs.splice(0, createdDirs.length)) {
       try {
         fs.rmSync(dir, {recursive: true, force: true})
@@ -78,6 +79,7 @@ describe('deriveExtensionIdFromTargetsHelper', () => {
             manifestVersion: 3
           }
         }
+
         return {
           id: 'userid',
           name: 'User Extension',
@@ -184,6 +186,7 @@ describe('deriveExtensionIdFromTargetsHelper', () => {
             manifestVersion: 3
           }
         }
+
         return {
           id: 'userid',
           name: 'User Extension',
@@ -235,6 +238,7 @@ describe('deriveExtensionIdFromTargetsHelper', () => {
             manifestVersion: 3
           }
         }
+
         return {
           id: 'userid',
           name: 'JavaScript Action Example',
@@ -259,6 +263,7 @@ describe('deriveExtensionIdFromTargetsHelper', () => {
     const cdp: any = {
       getTargets: vi.fn(async () => {
         targetCall += 1
+
         if (targetCall === 1) {
           return [
             {
@@ -268,6 +273,7 @@ describe('deriveExtensionIdFromTargetsHelper', () => {
             }
           ]
         }
+
         return [
           {
             targetId: 'target-manager',
@@ -292,6 +298,7 @@ describe('deriveExtensionIdFromTargetsHelper', () => {
             manifestVersion: 3
           }
         }
+
         return {
           id: 'userid',
           name: 'User Extension',

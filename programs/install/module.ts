@@ -51,6 +51,7 @@ export function getManagedBrowsersCacheRoot(): string {
 
 export function getManagedBrowserInstallDir(browser: string): string {
   const target = normalizeBrowserName(browser)
+
   return resolveBrowserInstallDir(target)
 }
 
@@ -77,6 +78,7 @@ export async function extensionInstall({
 
       if (systemEdge) {
         console.log(messages.edgeInstallUsingSystemBinary(systemEdge))
+
         return
       }
 

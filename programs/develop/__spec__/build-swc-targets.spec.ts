@@ -35,6 +35,7 @@ function project(extra: Record<string, unknown>) {
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'targets', version: '0.0.0'})
   )
+
   fs.writeFileSync(path.join(root, 'background.js'), WORKER)
   fs.writeFileSync(
     path.join(root, 'manifest.json'),
@@ -46,6 +47,7 @@ function project(extra: Record<string, unknown>) {
       ...extra
     })
   )
+
   return root
 }
 
@@ -53,6 +55,7 @@ async function build(root: string, browser: 'firefox' | 'chrome') {
   const {extensionBuild} = await import('../command-build')
   const previous = process.env.VITEST
   process.env.VITEST = 'true'
+
   try {
     const summary = await extensionBuild(root, {
       browser,
@@ -66,6 +69,7 @@ async function build(root: string, browser: 'firefox' | 'chrome') {
     if (previous === undefined) delete process.env.VITEST
     else process.env.VITEST = previous
   }
+
   const distDir = path.join(root, 'dist', browser)
   const worker = fs.readFileSync(
     path.join(distDir, 'background', 'service_worker.js'),
@@ -74,6 +78,7 @@ async function build(root: string, browser: 'firefox' | 'chrome') {
   const manifest = JSON.parse(
     fs.readFileSync(path.join(distDir, 'manifest.json'), 'utf8')
   )
+
   return {worker, size: Buffer.byteLength(worker), manifest}
 }
 

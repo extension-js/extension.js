@@ -8,9 +8,11 @@ import {afterEach, describe, expect, it} from 'vitest'
 
 function makeZip(structure: Record<string, string>): Buffer {
   const entries: Record<string, Uint8Array> = {}
+
   for (const [name, content] of Object.entries(structure)) {
     entries[name] = strToU8(content)
   }
+
   return Buffer.from(zipSync(entries))
 }
 
@@ -24,6 +26,7 @@ describe('extension create from remote', () => {
         resolve()
       }
     })
+
     server = undefined
   })
 
@@ -47,8 +50,10 @@ describe('extension create from remote', () => {
           res.statusCode = 200
           res.setHeader('Content-Type', 'application/zip')
           res.end(zip)
+
           return
         }
+
         res.statusCode = 404
         res.end('not found')
       })
@@ -80,17 +85,20 @@ describe('extension create from remote', () => {
         } catch {
           // Ignore
         }
+
         reject(new Error('Timed out creating from remote zip'))
       }, 60000)
       child.stderr.on('data', (d) => (err += String(d)))
       child.on('exit', (code) => {
         clearTimeout(timeout)
+
         if (code === 0 && fs.existsSync(path.join(dest, 'manifest.json'))) {
           resolve()
         } else {
           reject(new Error(`create failed: code=${code}\n${err}`))
         }
       })
+
       child.on('error', reject)
     })
 
@@ -118,8 +126,10 @@ describe('extension create from remote', () => {
           res.statusCode = 200
           res.setHeader('Content-Type', 'application/zip')
           res.end(zip)
+
           return
         }
+
         res.statusCode = 404
         res.end('not found')
       })
@@ -151,17 +161,20 @@ describe('extension create from remote', () => {
         } catch {
           // Ignore
         }
+
         reject(new Error('Timed out creating from remote zip'))
       }, 60000)
       child.stderr.on('data', (d) => (err += String(d)))
       child.on('exit', (code) => {
         clearTimeout(timeout)
+
         if (code === 0) {
           resolve()
         } else {
           reject(new Error(`create failed: code=${code}\n${err}`))
         }
       })
+
       child.on('error', reject)
     })
 
@@ -198,8 +211,10 @@ describe('extension create from remote', () => {
             res.statusCode = 200
             res.setHeader('Content-Type', 'application/zip')
             res.end(zip)
+
             return
           }
+
           res.statusCode = 404
           res.end('not found')
         })
@@ -231,6 +246,7 @@ describe('extension create from remote', () => {
           } catch {
             // Ignore
           }
+
           reject(
             new Error('Timed out creating from browser-suffixed remote zip')
           )
@@ -238,12 +254,14 @@ describe('extension create from remote', () => {
         child.stderr.on('data', (d) => (err += String(d)))
         child.on('exit', (code) => {
           clearTimeout(timeout)
+
           if (code === 0) {
             resolve()
           } else {
             reject(new Error(`create failed: code=${code}\n${err}`))
           }
         })
+
         child.on('error', reject)
       })
 

@@ -11,20 +11,6 @@ import {isWebkitBasedBrowser} from '../../../lib/constants'
 import type {DevOptions, Manifest} from '../../../types'
 import * as messages from '../messages'
 
-/**
- * Safari inherits `chromium:` manifest keys by design, which is what makes one
- * manifest serve every browser. The cost is that a Safari build used to ship
- * config Safari has no code for: a `side_panel` whose toolbar button opens
- * nothing, a `sandbox` page that cannot run, permissions Safari refuses.
- *
- * The lists below are derived from `xcrun safari-web-extension-converter`
- * (Xcode 26.6, macOS 26.5.2) run against probe extensions that declare each
- * candidate key, then reconciled against MDN browser-compat-data. Only keys
- * BOTH sources call unsupported, or that MDN records as inert on Safari, are
- * dropped here. The converter alone over-reports: its table still flags keys
- * Safari has supported for years.
- */
-
 export interface WebkitDroppedKey {
   // Dotted location of what was dropped, like permissions.sidePanel
   path: string
@@ -118,17 +104,6 @@ const UNSUPPORTED_PERMISSIONS = new Set<string>([
 // Both arrays carry the same permission strings, so both get filtered.
 const PERMISSION_LISTS = ['permissions', 'optional_permissions'] as const
 
-/**
- * DELIBERATELY NOT DROPPED: `content_scripts[].world`.
- *
- * The converter rejects `world`, but MDN records Safari as supporting it from
- * Safari 18 and this machine runs Safari 26.5.2. Dropping it would silently
- * demote a MAIN world content script to ISOLATED on a Safari that can honor
- * it, which is a worse failure than the warning. The converter's table is the
- * stale side here: it also still flags `options_ui.open_in_tab`, which Safari
- * has accepted since Safari 14. Flip this to true only if a live Safari is
- * shown to ignore the key.
- */
 const DROP_CONTENT_SCRIPT_WORLD = false
 
 // Nested properties that are inert on Safari. `open_in_tab` is accepted but
@@ -141,13 +116,6 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value)
 }
 
-/**
- * Strip every manifest key and permission Safari has no code for. Runs on the
- * canonical manifest, after `chromium:` prefixes resolved and the overrides
- * had their say, so an override cannot reintroduce a dropped key.
- *
- * Non-webkit targets are returned untouched.
- */
 export function dropWebkitUnsupportedKeys(
   manifest: Manifest,
   browser: DevOptions['browser']
@@ -159,6 +127,7 @@ export function dropWebkitUnsupportedKeys(
 
   for (const [key, reason] of Object.entries(UNSUPPORTED_TOP_LEVEL_KEYS)) {
     if (!(key in next)) continue
+
     delete next[key]
     dropped.push({path: key, reason})
   }
@@ -171,10 +140,12 @@ export function dropWebkitUnsupportedKeys(
       if (typeof entry !== 'string' || !UNSUPPORTED_PERMISSIONS.has(entry)) {
         return true
       }
+
       dropped.push({
         path: `${listName}.${entry}`,
         reason: `Safari has no ${entry} API`
       })
+
       return false
     })
 
@@ -186,15 +157,19 @@ export function dropWebkitUnsupportedKeys(
   }
 
   const optionsUi = next.options_ui
+
   if (isPlainObject(optionsUi)) {
     const patched = {...optionsUi}
     let changed = false
+
     for (const [key, reason] of Object.entries(UNSUPPORTED_OPTIONS_UI_KEYS)) {
       if (!(key in patched)) continue
+
       delete patched[key]
       changed = true
       dropped.push({path: `options_ui.${key}`, reason})
     }
+
     // The options page itself works on Safari, so only the inert flag goes.
     if (changed) next.options_ui = patched
   }
@@ -203,12 +178,14 @@ export function dropWebkitUnsupportedKeys(
     next.content_scripts = next.content_scripts.map(
       (entry: unknown, index: number) => {
         if (!isPlainObject(entry) || !('world' in entry)) return entry
+
         const {world: _world, ...rest} = entry
         // The entry survives without its world, so the script still injects.
         dropped.push({
           path: `content_scripts[${String(index)}].world`,
           reason: 'Safari injects every content script into the isolated world'
         })
+
         return rest
       }
     )
@@ -232,6 +209,7 @@ export function reportWebkitDroppedKeys(
     .map((entry) => entry.path)
     .join(',')}`
   if (reportedDrops.has(signature)) return
+
   reportedDrops.add(signature)
 
   humanLine(messages.webkitUnsupportedKeysDropped(String(browser), dropped))

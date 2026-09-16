@@ -6,7 +6,6 @@
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-// Batch 2: edge cases that decide the exact grammar of the static checks.
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {fileURLToPath} from 'node:url'
@@ -130,12 +129,14 @@ for (const f of fixtures) {
     path.join(dir, 'manifest.json'),
     JSON.stringify(f.manifest, null, 2)
   )
+
   for (const [rel, content] of Object.entries(f.files || {})) {
     const abs = path.join(dir, rel)
     fs.mkdirSync(path.dirname(abs), {recursive: true})
     fs.writeFileSync(abs, content)
   }
 }
+
 fs.writeFileSync(
   path.join(root, 'index.json'),
   JSON.stringify(
@@ -144,4 +145,5 @@ fs.writeFileSync(
     2
   )
 )
+
 console.log(`built ${fixtures.length} fixtures in ${root}`)

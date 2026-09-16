@@ -14,17 +14,21 @@ export function trackLocaleDependencies(
   // the file whose fix must trigger the next rebuild.
   const localesFields = getLocales(manifestPath, projectRoot) || []
   let added = 0
+
   for (const thisResource of localesFields) {
     if (path.extname(thisResource) !== '.json') continue
+
     if (!fs.existsSync(thisResource)) {
       compilation.missingDependencies?.add(thisResource)
       continue
     }
+
     if (!compilation.fileDependencies.has(thisResource)) {
       compilation.fileDependencies.add(thisResource)
       added++
     }
   }
+
   if (isDebug()) {
     console.log(messages.localesDepsTracked(added))
   }

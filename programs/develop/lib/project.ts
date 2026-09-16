@@ -27,6 +27,7 @@ const isUrl = (url: string) => {
   try {
     // eslint-disable-next-line no-new
     new URL(url)
+
     return true
   } catch (e) {
     return false
@@ -35,6 +36,7 @@ const isUrl = (url: string) => {
 
 const REMOTE_FETCH_TIMEOUT_MS = (() => {
   const raw = parseInt(String(process.env.EXTENSION_FETCH_TIMEOUT_MS || ''), 10)
+
   return Number.isFinite(raw) && raw > 0 ? raw : 60_000
 })()
 
@@ -102,6 +104,7 @@ async function importUrlSourceFromGithub(
   if (fs.existsSync(expectedPath)) {
     try {
       const entries = fs.readdirSync(expectedPath)
+
       if (entries.length === 0) {
         fs.rmSync(expectedPath, {recursive: true, force: true})
       } else {
@@ -109,11 +112,14 @@ async function importUrlSourceFromGithub(
         // remove it and re-fetch to avoid stale/partial folders.
         const hasManifest = (dir: string): boolean => {
           const stack: string[] = [dir]
+
           while (stack.length) {
             const current = stack.pop() as string
             const items = fs.readdirSync(current, {withFileTypes: true})
+
             for (const it of items) {
               if (it.isFile() && it.name === 'manifest.json') return true
+
               if (
                 it.isDirectory() &&
                 it.name !== 'node_modules' &&
@@ -124,6 +130,7 @@ async function importUrlSourceFromGithub(
               }
             }
           }
+
           return false
         }
 
@@ -143,6 +150,7 @@ async function importUrlSourceFromGithub(
     // go-git-it echoes the progress text itself, but that echo is silenced
     // with the rest of its output, so the user still sees activity from here.
     if (!isDebug()) console.log(text)
+
     // The timeout races inside the silencer so a hung clone restores stdout
     // before the timeout error has to print.
     await withSuppressedOutput(() =>
@@ -242,6 +250,7 @@ async function importUrlSourceFromZip(pathOrRemoteUrl: string) {
     REMOTE_FETCH_TIMEOUT_MS,
     pathOrRemoteUrl
   )
+
   return extractedPath
 }
 
@@ -328,19 +337,24 @@ function collectManifestCandidates(
     '.vercel'
   ])
   const results: string[] = []
+
   const walk = (dir: string, depth: number) => {
     if (depth > maxDepth || results.length >= 10) return
+
     let entries: fs.Dirent[]
+
     try {
       entries = fs.readdirSync(dir, {withFileTypes: true})
     } catch {
       return
     }
+
     for (const entry of entries) {
       if (entry.isFile() && entry.name === 'manifest.json') {
         results.push(path.join(dir, entry.name))
         continue
       }
+
       if (
         entry.isDirectory() &&
         !entry.name.startsWith('.') &&
@@ -350,7 +364,9 @@ function collectManifestCandidates(
       }
     }
   }
+
   walk(rootDir, 0)
+
   return results
 }
 
@@ -358,6 +374,7 @@ export async function getProjectStructure(
   pathOrRemoteUrl: string | undefined
 ): Promise<ProjectStructure> {
   const projectPath = await getProjectPath(pathOrRemoteUrl)
+
   return resolveProjectStructureSync(projectPath)
 }
 
@@ -373,6 +390,7 @@ export function resolveProjectStructureSync(
 
   const isUnderDir = (baseDir: string, candidatePath: string): boolean => {
     const rel = path.relative(baseDir, candidatePath)
+
     return Boolean(rel && !rel.startsWith('..') && !path.isAbsolute(rel))
   }
 
@@ -416,6 +434,7 @@ export function resolveProjectStructureSync(
         if (depth > MAX_DEPTH) return null
 
         let files: fs.Dirent[]
+
         try {
           files = fs.readdirSync(dir, {withFileTypes: true})
         } catch {
@@ -438,10 +457,12 @@ export function resolveProjectStructureSync(
             if (found) return found
           }
         }
+
         return null
       }
 
       const foundManifest = findManifest(projectPath, 0)
+
       if (foundManifest) {
         manifestPath = foundManifest
       } else {
@@ -457,20 +478,25 @@ export function resolveProjectStructureSync(
   ): ParsedJson | undefined => {
     try {
       const parsed = parseJsonSafe(fs.readFileSync(candidatePath))
+
       if (
         parsed === null ||
         typeof parsed !== 'object' ||
         Array.isArray(parsed)
-      )
+      ) {
         return undefined
+      }
+
       return parsed
     } catch {
       return undefined
     }
   }
+
   const isPwaManifest = (candidatePath: string): boolean => {
     const parsed = readManifestObject(candidatePath)
     if (!parsed || parsed.manifest_version != null) return false
+
     return (
       Array.isArray(parsed.icons) ||
       typeof parsed.start_url === 'string' ||
@@ -486,6 +512,7 @@ export function resolveProjectStructureSync(
         path.resolve(candidate) !== path.resolve(manifestPath) &&
         readManifestObject(candidate)?.manifest_version != null
     )
+
     if (alternatives.length === 1) {
       manifestPath = alternatives[0]
       log(messages.resolvedWorkspaceManifest(projectPath, manifestPath))
@@ -510,11 +537,14 @@ export function resolveProjectStructureSync(
   // Guard: never allow manifest.json to be resolved from <packageRoot>/public
   const projectRootDir =
     packageJsonDir ?? (denoJsonPath ? path.dirname(denoJsonPath) : undefined)
+
   if (projectRootDir) {
     const publicRoot = path.join(projectRootDir, 'public')
+
     if (isUnderDir(publicRoot, manifestPath)) {
       const fallbackSrc = path.join(projectRootDir, 'src', 'manifest.json')
       const fallbackRoot = path.join(projectRootDir, 'manifest.json')
+
       if (fs.existsSync(fallbackSrc)) {
         manifestPath = fallbackSrc
       } else if (fs.existsSync(fallbackRoot)) {

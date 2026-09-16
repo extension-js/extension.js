@@ -55,6 +55,7 @@ export function reloadSurvivingPackage(
   instruction: ReloadInstruction | undefined
 ): ReloadInstruction | undefined {
   if (!instruction) return undefined
+
   // 'page' is notify-only, it restarts nothing and carries the announcement.
   if (instruction.type === 'content-scripts' || instruction.type === 'page') {
     return instruction
@@ -93,6 +94,7 @@ function mergeInstructions(
     previous.changedScriptFiles,
     next.changedScriptFiles
   )
+
   if (entries.length === 0) {
     return scriptFiles.length > 0
       ? {...next, changedScriptFiles: scriptFiles}
@@ -102,6 +104,7 @@ function mergeInstructions(
   // Keep the newest instruction that names content work, so the label points at
   // a content edit rather than at a page edit that rode along with it.
   const base = next.type === 'content-scripts' ? next : previous
+
   return {
     ...base,
     changedContentScriptEntries: entries,
@@ -145,6 +148,7 @@ export class SafariDevPlugin implements RunnerPlugin {
             typeof e === 'string' ? e : e.message || String(e)
           )
         })
+
         return
       }
 
@@ -154,6 +158,7 @@ export class SafariDevPlugin implements RunnerPlugin {
       // Classify from changed sources, like the launched-browser path. The
       // first package has nothing to reload, it is the state the browser loads.
       let instruction: ReloadInstruction | undefined
+
       if (!this.firstRun && changedSources) {
         const {forcedFull, changedSources: sources} = changedSources.snapshot()
         // Safari takes the same granularity as Chromium. A content-script
@@ -183,6 +188,7 @@ export class SafariDevPlugin implements RunnerPlugin {
       // step finishes before the dev server reports ready, unchanged UX.
       if (this.firstRun) {
         await this.runOne(target, 'full')
+
         return
       }
 
@@ -196,6 +202,7 @@ export class SafariDevPlugin implements RunnerPlugin {
             target.instruction
           )
         }
+
         return
       }
 
@@ -208,12 +215,14 @@ export class SafariDevPlugin implements RunnerPlugin {
   // callers that need to wait for the watch loop to settle.
   idle(): Promise<void> {
     if (!this.active && !this.pending) return Promise.resolve()
+
     return new Promise<void>((resolve) => this.idleWaiters.push(resolve))
   }
 
   private async drain(target: SafariPackageTarget) {
     try {
       let next: SafariPackageTarget | null = target
+
       while (next) {
         await this.runOne(next, 'resync')
         // Collapse everything queued during the run into one follow-up.
@@ -228,6 +237,7 @@ export class SafariDevPlugin implements RunnerPlugin {
 
   private async runOne(target: SafariPackageTarget, mode: 'full' | 'resync') {
     const wasFirstRun = mode === 'full'
+
     try {
       await this.packager(target.outputPath, mode)
     } catch (error) {
@@ -236,6 +246,7 @@ export class SafariDevPlugin implements RunnerPlugin {
       this.emitter.emit('error', {
         errors: [error instanceof Error ? error.message : String(error)]
       })
+
       return
     }
 
@@ -262,6 +273,7 @@ export class SafariDevPlugin implements RunnerPlugin {
 
   private settleIdle() {
     if (this.active || this.pending) return
+
     const waiters = this.idleWaiters
     this.idleWaiters = []
     for (const resolve of waiters) resolve()

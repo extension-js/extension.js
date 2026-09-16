@@ -6,12 +6,6 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-/**
- * What the injected Safari packager reports back about the app it produced.
- * `bundleIdDerived` is the load-bearing one: a generated `dev.extensionjs.*`
- * identifier comes from the app name, so every project built from the same
- * source shares it and the first registration takes it.
- */
 export interface SafariPackageSummary {
   appName?: string
   bundleId?: string
@@ -23,18 +17,13 @@ export interface SafariPackageSummary {
 
 export type BuildSummary = {
   browser: string
-  /** Absolute dist directory the build emitted into. Hosts that shell out
-   * would otherwise have to re-derive `<project>/dist/<browser>` themselves. */
   output_path?: string
   total_assets: number
   total_bytes: number
   largest_asset_bytes: number
   warnings_count: number
   errors_count: number
-  /** Plain-text warning messages (ANSI-stripped, capped) so programmatic
-   * consumers get a structured channel instead of scraping stdout. */
   warnings?: string[]
-  /** Present only for safari/webkit-based builds that ran the packager. */
   safari?: SafariPackageSummary
 }
 
@@ -60,6 +49,7 @@ export function getBuildSummary(
         warning && typeof warning === 'object'
           ? String((warning as {message?: unknown}).message ?? '')
           : String(warning ?? '')
+
       return message.replace(ANSI_PATTERN, '').trim()
     })
     .filter(Boolean)

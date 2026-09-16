@@ -35,15 +35,19 @@ export function isEmitTimeWarning(
   warning: {code?: unknown} | string | null | undefined
 ): boolean {
   if (!warning || typeof warning === 'string') return false
+
   return EMIT_TIME_WARNING_CODES.has(String(warning.code || ''))
 }
 
 function collectEmitTimeWarningTexts(stats: StatsToStringLike): Set<string> {
   const texts = new Set<string>()
+
   try {
     const warnings = stats.toJson?.({all: false, warnings: true})?.warnings
+
     for (const warning of warnings || []) {
       if (!isEmitTimeWarning(warning)) continue
+
       const text = String(warning?.message ?? '')
         .replace(ANSI_PATTERN, '')
         .trim()
@@ -52,6 +56,7 @@ function collectEmitTimeWarningTexts(stats: StatsToStringLike): Set<string> {
   } catch {
     // Ignore
   }
+
   return texts
 }
 
@@ -63,33 +68,40 @@ function dropEmitTimeWarningBlocks(raw: string, excluded: Set<string>): string {
 
   const flush = () => {
     if (!block) return
+
     const body = block
       .slice(1)
       .map((line) => line.replace(ANSI_PATTERN, ''))
       .join('\n')
       .trim()
     if (!excluded.has(body)) kept.push(...block)
+
     block = null
   }
 
   for (const line of String(raw).split('\n')) {
     const plain = line.replace(ANSI_PATTERN, '')
+
     if (/^WARNING(?: in .+)?$/.test(plain)) {
       flush()
       block = [line]
       continue
     }
+
     if (/^ERROR(?: in .+)?$/.test(plain)) {
       flush()
       kept.push(line)
       continue
     }
+
     if (block) {
       block.push(line)
       continue
     }
+
     kept.push(line)
   }
+
   flush()
 
   return kept.join('\n')
@@ -119,12 +131,14 @@ export function humanizeCaseMismatchBlocks(
         `  × \`${reference}\` does not match its casing on disk: \`${onDisk}\`.`,
         `    Case-sensitive filesystems fail this reference. Rename the file or the import so both agree.`
       )
+
       droppingStack = !showStack
       continue
     }
 
     if (droppingStack) {
       if (plain.trim().startsWith('│')) continue
+
       droppingStack = false
     }
 
@@ -180,10 +194,12 @@ export function renderStatsBlocks(
     warnings: opts.warnings
   })
   if (!raw) return ''
+
   const filtered = opts.warnings
     ? dropEmitTimeWarningBlocks(raw, collectEmitTimeWarningTexts(stats))
     : raw
   if (!filtered.trim()) return ''
+
   return wrapStatsBlocks(scrubBrand(humanizeCaseMismatchBlocks(filtered)))
 }
 

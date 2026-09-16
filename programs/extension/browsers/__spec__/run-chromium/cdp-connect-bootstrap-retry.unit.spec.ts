@@ -26,6 +26,7 @@ vi.mock('../../run-chromium/cdp/cdp-client', () => {
     {type: 'iframe', exclude: true},
     {}
   ]
+
   return {CDPClient, EXTENSION_AUTO_ATTACH_FILTER}
 })
 
@@ -59,6 +60,7 @@ describe('connectToChromeCdp', () => {
         discover: true
       }
     )
+
     expect(mocks.sendCommandMock).toHaveBeenCalledWith('Target.setAutoAttach', {
       autoAttach: true,
       waitForDebuggerOnStart: false,
@@ -79,6 +81,7 @@ describe('connectToChromeCdp', () => {
     await expect(connectToChromeCdp(9222)).rejects.toThrow(
       'certificate validation failed'
     )
+
     expect(mocks.connectMock).toHaveBeenCalledTimes(1)
   })
 
@@ -89,6 +92,7 @@ describe('connectToChromeCdp', () => {
       9222,
       '0.0.0.0'
     )
+
     expect(mocks.cdpCtorMock).toHaveBeenCalledWith(9222, '0.0.0.0')
   })
 
@@ -99,6 +103,7 @@ describe('connectToChromeCdp', () => {
       9222,
       '127.0.0.1'
     )
+
     expect(mocks.cdpCtorMock).toHaveBeenCalledWith(9222, '127.0.0.1')
   })
 })

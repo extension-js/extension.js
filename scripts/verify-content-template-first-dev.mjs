@@ -26,8 +26,10 @@ const args = process.argv.slice(2)
 function parseArg(name, fallback) {
   const idx = args.indexOf(name)
   if (idx === -1) return fallback
+
   const next = args[idx + 1]
   if (!next || next.startsWith('--')) return fallback
+
   return next
 }
 
@@ -74,8 +76,10 @@ const devBrowser = (() => {
     (value) => value === '--browser' || value.startsWith('--browser=')
   )
   if (flagIndex === -1) return 'chromium'
+
   const flag = devArgs[flagIndex]
   if (flag.includes('=')) return flag.split('=')[1] || 'chromium'
+
   return devArgs[flagIndex + 1] || 'chromium'
 })()
 
@@ -92,6 +96,7 @@ function commandFor(tool) {
   if (process.platform !== 'win32') return tool
   if (tool === 'npm') return 'npm.cmd'
   if (tool === 'npx') return 'npx.cmd'
+
   return tool
 }
 
@@ -106,6 +111,7 @@ function hasOutputMatch(text, patterns) {
 function pathExists(targetPath) {
   try {
     fsSync.accessSync(targetPath)
+
     return true
   } catch {
     return false
@@ -116,15 +122,18 @@ async function removeDirectoryWithRetries(targetDir, maxAttempts = 20) {
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
       await fs.rm(targetDir, {recursive: true, force: true})
+
       return true
     } catch (error) {
       const code = error && typeof error === 'object' ? error.code : undefined
       const retryable =
         code === 'EPERM' || code === 'EBUSY' || code === 'ENOTEMPTY'
       if (!retryable || attempt === maxAttempts) return false
+
       await wait(Math.min(250 * attempt, 1500))
     }
   }
+
   return false
 }
 
@@ -146,6 +155,7 @@ function runCommand(command, commandArgs, cwd, env) {
       output += text
       process.stdout.write(text)
     })
+
     child.stderr?.on('data', (chunk) => {
       const text = chunk.toString()
       output += text
@@ -160,8 +170,10 @@ function runCommand(command, commandArgs, cwd, env) {
             `Command failed with exit code ${code}: ${rendered}\n\n${output}`
           )
         )
+
         return
       }
+
       resolve(output)
     })
   })
@@ -183,13 +195,16 @@ async function terminateChild(child) {
       killer.once('close', () => resolve())
       killer.once('error', () => resolve())
     })
+
     return
   }
 
   try {
     child.kill('SIGTERM')
   } catch {}
+
   await wait(1000)
+
   if (child.exitCode === null && child.signalCode === null) {
     try {
       child.kill('SIGKILL')
@@ -201,9 +216,11 @@ function runDevOnce(projectDir, env, timeout) {
   return new Promise((resolve, reject) => {
     const command = commandFor('npm')
     const cmdArgs = ['run', 'dev']
+
     if (devArgs.length > 0) {
       cmdArgs.push('--', ...devArgs)
     }
+
     console.log(`\n$ (${projectDir}) ${command} ${cmdArgs.join(' ')}`)
 
     const child = spawn(command, cmdArgs, {
@@ -222,10 +239,13 @@ function runDevOnce(projectDir, env, timeout) {
 
     const settle = async (error) => {
       if (settled) return
+
       settled = true
       clearTimeout(timer)
       if (contractPoll) clearInterval(contractPoll)
+
       await terminateChild(child)
+
       if (error) {
         reject(error)
       } else {
@@ -259,16 +279,20 @@ function runDevOnce(projectDir, env, timeout) {
     // line, which is free copy and may change in any release.
     contractPoll = setInterval(() => {
       if (settled) return
+
       const ready = readReadyContract(projectDir, devBrowser)
       if (!ready || !isFreshContract(ready, harnessStartMs)) return
+
       if (ready.status === 'error') {
         void settle(
           new Error(
             `First dev run failed per ready.json: ${describeReadyFailure(ready)}\n\n${output}`
           )
         )
+
         return
       }
+
       if (ready.status === 'ready') {
         sawCompileSuccess = true
         maybeFinishSoon()
@@ -289,6 +313,7 @@ function runDevOnce(projectDir, env, timeout) {
             `First dev run hit failure pattern: ${String(firstPattern)}\n\n${output}`
           )
         )
+
         return
       }
 
@@ -303,8 +328,10 @@ function runDevOnce(projectDir, env, timeout) {
     child.on('error', (error) => {
       void settle(error)
     })
+
     child.on('close', (code) => {
       if (settled) return
+
       void settle(
         new Error(`Dev process exited early with code ${code}\n\n${output}`)
       )
@@ -315,9 +342,11 @@ function runDevOnce(projectDir, env, timeout) {
 function detectDefaultOptionalDepsRoot() {
   if (process.platform === 'win32') {
     const localAppData = process.env.LOCALAPPDATA
+
     if (localAppData) {
       return path.join(localAppData, 'extensionjs', 'optional-deps')
     }
+
     return null
   }
 
@@ -350,9 +379,11 @@ async function readExtensionVersion(projectDir) {
     'package.json'
   )
   if (!pathExists(pkgPath)) return null
+
   try {
     const raw = await fs.readFile(pkgPath, 'utf8')
     const parsed = JSON.parse(raw)
+
     return typeof parsed.version === 'string' ? parsed.version : null
   } catch {
     return null
@@ -417,17 +448,21 @@ const SCAFFOLD_OVERRIDES = {
 async function injectScaffoldOverrides(projectDir) {
   const pkgPath = path.join(projectDir, 'package.json')
   let raw
+
   try {
     raw = await fs.readFile(pkgPath, 'utf8')
   } catch {
     return
   }
+
   let parsed
+
   try {
     parsed = JSON.parse(raw)
   } catch {
     return
   }
+
   parsed.overrides = {...(parsed.overrides || {}), ...SCAFFOLD_OVERRIDES}
   await fs.writeFile(pkgPath, `${JSON.stringify(parsed, null, 2)}\n`)
 }
@@ -462,6 +497,7 @@ async function verifyTemplate(template) {
       root,
       env
     )
+
     await injectScaffoldOverrides(projectDir)
     await runCommand('npm', ['i', '--no-audit', '--no-fund'], projectDir, env)
 
@@ -482,6 +518,7 @@ async function verifyTemplate(template) {
         )
         const firstMessage = String(error?.stack || error)
         const secondMessage = String(secondError?.stack || secondError)
+
         throw new Error(
           [
             `[${template}] first dev failed and second dev also failed.`,
@@ -506,6 +543,7 @@ async function verifyTemplate(template) {
         cacheBaseDir,
         extensionVersion
       )
+
       throw new Error(
         [
           `[${template}] first dev failed but second dev succeeded.`,
@@ -534,6 +572,7 @@ async function verifyTemplate(template) {
     console.log(
       `[${template}] PASS first dev succeeded. cache=${JSON.stringify(cacheState)}`
     )
+
     return {template, ok: true, firstRun, secondRun, cacheState, root}
   } finally {
     if (keepTemp || keepCache) {
@@ -541,6 +580,7 @@ async function verifyTemplate(template) {
     } else {
       await wait(3000)
       const removed = await removeDirectoryWithRetries(root)
+
       if (!removed) {
         console.warn(
           `[${template}] cleanup flaky; keeping temp directory: ${root}`
@@ -552,6 +592,7 @@ async function verifyTemplate(template) {
 
 async function main() {
   const results = []
+
   for (const template of templates) {
     console.log(`\n=== Verifying template: ${template} ===`)
     const result = await verifyTemplate(template)

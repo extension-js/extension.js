@@ -17,6 +17,7 @@ export function backgroundPage(manifest: Manifest) {
       background: {
         page: (() => {
           const raw = String(manifest.background.page)
+
           return getFilename('background/index.html', raw)
         })()
       }

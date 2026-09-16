@@ -18,6 +18,7 @@ export function scriptTagAttrs(
   firstScriptAttrs?: Array<{name: string; value: string}>
 ): Array<{name: string; value: string}> {
   const attrs = [{name: 'src', value: src}]
+
   for (const attr of firstScriptAttrs || []) {
     if (
       PROPAGATED_SCRIPT_ATTRS.has(attr.name) &&
@@ -26,6 +27,7 @@ export function scriptTagAttrs(
       attrs.push({name: attr.name, value: attr.value})
     }
   }
+
   return attrs
 }
 
@@ -35,6 +37,7 @@ export function createScriptTag(
 ): ReturnType<typeof parse5utilities.createNode> {
   const scriptTag = parse5utilities.createNode('script')
   scriptTag.attrs = scriptTagAttrs(src, firstScriptAttrs)
+
   return scriptTag
 }
 
@@ -49,6 +52,7 @@ export function injectJsScript(
   for (const src of siblingScripts) {
     parse5utilities.append(bodyNode, createScriptTag(src, firstScriptAttrs))
   }
+
   parse5utilities.append(
     bodyNode,
     createScriptTag(getFilePath(feature, '.js', true), firstScriptAttrs)

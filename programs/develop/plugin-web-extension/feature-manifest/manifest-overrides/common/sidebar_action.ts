@@ -21,6 +21,7 @@ export function sidebarAction(manifest: Manifest, manifestPath?: string) {
         ...(manifest.sidebar_action.default_panel && {
           default_panel: (() => {
             const raw = String(manifest.sidebar_action.default_panel)
+
             // A panel hosted in public/ ships under its own name, so the
             // compiled slot is only right for a panel the pipeline builds.
             return getFilename(
@@ -35,6 +36,7 @@ export function sidebarAction(manifest: Manifest, manifestPath?: string) {
             typeof manifest.sidebar_action.default_icon === 'string'
               ? (() => {
                   const raw = String(manifest.sidebar_action.default_icon)
+
                   return getFilename(iconOutputPath(raw), raw)
                 })()
               : Object.fromEntries(
@@ -45,6 +47,7 @@ export function sidebarAction(manifest: Manifest, manifestPath?: string) {
                     >
                   ).map(([size, icon]) => {
                     const raw = String(icon)
+
                     return [size, getFilename(iconOutputPath(raw), raw)]
                   })
                 )

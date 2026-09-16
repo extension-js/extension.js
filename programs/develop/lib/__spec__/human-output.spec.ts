@@ -52,6 +52,7 @@ describe('human output sinks', () => {
       humanLine('a line')
       humanWarn('a warning')
     }
+
     expect(log).not.toHaveBeenCalled()
     expect(warn).not.toHaveBeenCalled()
   })
@@ -61,6 +62,7 @@ describe('human output sinks', () => {
       process.env.EXTENSION_OUTPUT = mode
       humanError('a failure')
     }
+
     expect(error).toHaveBeenCalledTimes(2)
     expect(error).toHaveBeenCalledWith('a failure')
   })

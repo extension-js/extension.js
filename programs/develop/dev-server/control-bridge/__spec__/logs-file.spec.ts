@@ -23,6 +23,7 @@ function event(seq: number, message: string): LogEvent {
 
 function lines(file: string): any[] {
   if (!fs.existsSync(file)) return []
+
   return fs
     .readFileSync(file, 'utf-8')
     .split('\n')
@@ -98,10 +99,12 @@ describe('LogsFileWriter', () => {
       generations: 2
     })
     w.start()
+
     for (let i = 1; i <= 4; i++) {
       w.write(event(i, `m${i}`))
       w.flush()
     }
+
     w.close()
     expect(fs.existsSync(path.join(dir, 'logs.1.ndjson'))).toBe(true)
     expect(fs.existsSync(path.join(dir, 'logs.2.ndjson'))).toBe(true)

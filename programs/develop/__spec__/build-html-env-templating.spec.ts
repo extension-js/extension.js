@@ -21,6 +21,7 @@ function project(options: {sharedPages?: boolean} = {}) {
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'html-env', version: '0.0.0'})
   )
+
   fs.writeFileSync(
     path.join(root, 'manifest.json'),
     JSON.stringify({
@@ -33,27 +34,33 @@ function project(options: {sharedPages?: boolean} = {}) {
       ...(options.sharedPages ? {options_ui: {page: 'options.html'}} : {})
     })
   )
+
   fs.writeFileSync(path.join(root, '.env'), 'EXTENSION_PUBLIC_FOO=envBar\n')
   fs.mkdirSync(path.join(root, '_locales', 'en'), {recursive: true})
   fs.writeFileSync(
     path.join(root, '_locales', 'en', 'messages.json'),
     JSON.stringify({name: {message: 'Name $EXTENSION_PUBLIC_FOO'}})
   )
+
   fs.writeFileSync(
     path.join(root, 'shared.js'),
     `export function greet(name) {\n  globalThis.__shared = '${SHARED_MARK}'\n  return name + ' ' + '${SHARED_MARK}'\n}\n`
   )
+
   const pages = options.sharedPages ? ['popup', 'options'] : ['popup']
+
   for (const page of pages) {
     fs.writeFileSync(
       path.join(root, `${page}.html`),
       `<html><head><title>$EXTENSION_PUBLIC_FOO</title></head><body><div id="root">$EXTENSION_PUBLIC_MODE</div><script type="module" src="./${page}.js"></script></body></html>\n`
     )
+
     const body = options.sharedPages
       ? `import {greet} from './shared.js'\ndocument.getElementById('root').textContent = greet('${page}')\n`
       : `document.getElementById('root').textContent = '${page}'\n`
     fs.writeFileSync(path.join(root, `${page}.js`), body)
   }
+
   return root
 }
 
@@ -61,6 +68,7 @@ async function build(root: string, mode: 'production' | 'development') {
   const {extensionBuild} = await import('../command-build')
   const previous = process.env.VITEST
   process.env.VITEST = 'true'
+
   try {
     return await extensionBuild(root, {
       browser: 'chrome',

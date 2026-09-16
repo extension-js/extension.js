@@ -19,6 +19,7 @@ const loadModule = async () =>
 
 const getSpawnMock = async () => {
   const mod = await import('node:child_process')
+
   return mod.spawn as unknown as ReturnType<typeof vi.fn>
 }
 
@@ -26,6 +27,7 @@ const createChild = () => {
   const child = new EventEmitter() as any
   child.stdout = null
   child.stderr = null
+
   return child
 }
 
@@ -77,9 +79,11 @@ describe('firefox wsl-support', () => {
     existsSync.mockImplementation(
       (p) => p === '/mnt/c/Program Files/Mozilla Firefox/firefox.exe'
     )
+
     expect(mod.resolveWslWindowsBinary()).toBe(
       '/mnt/c/Program Files/Mozilla Firefox/firefox.exe'
     )
+
     expect(existsSync).toHaveBeenCalled()
   })
 

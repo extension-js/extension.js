@@ -19,6 +19,7 @@ describe('browser-family alignment across packages', () => {
     expect(new Set(CHROMIUM_BROWSERS)).toEqual(
       new Set([...CHROMIUM_BASED_BROWSERS, ...CHROMIUM_FAMILY_ALIASES])
     )
+
     expect(new Set(FIREFOX_BROWSERS)).toEqual(
       new Set([
         ...GECKO_BASED_BROWSERS,
@@ -38,6 +39,7 @@ describe('browser-family alignment across packages', () => {
       expect(isGeckoBasedBrowser(name), name).toBe(false)
       expect(isFirefoxBrowser(name), name).toBe(false)
     }
+
     for (const name of [
       ...GECKO_BASED_BROWSERS,
       ...GECKO_FAMILY_ALIASES,

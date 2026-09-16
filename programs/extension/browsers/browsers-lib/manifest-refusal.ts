@@ -63,6 +63,7 @@ export function findInvalidMatchPatterns(manifest: unknown): string[] {
   for (const list of [m?.host_permissions, m?.optional_host_permissions]) {
     if (Array.isArray(list)) patterns.push(...list)
   }
+
   for (const contentScript of Array.isArray(m?.content_scripts)
     ? m.content_scripts
     : []) {
@@ -73,6 +74,7 @@ export function findInvalidMatchPatterns(manifest: unknown): string[] {
       if (Array.isArray(list)) patterns.push(...list)
     }
   }
+
   for (const resource of Array.isArray(m?.web_accessible_resources)
     ? m.web_accessible_resources
     : []) {
@@ -98,6 +100,7 @@ function hasInvalidHostWildcard(pattern: string): boolean {
 
   // Strip the port. IPv6 literals keep their brackets (`[::1]:*`).
   let host = authority
+
   if (authority.startsWith('[')) {
     const end = authority.indexOf(']')
     if (end !== -1) host = authority.slice(0, end + 1)
@@ -107,6 +110,7 @@ function hasInvalidHostWildcard(pattern: string): boolean {
   }
 
   if (!host.includes('*')) return false
+
   return host !== '*' && !/^\*\.[^*]+$/.test(host)
 }
 
@@ -148,13 +152,16 @@ export function findChromiumLoadBlockers(
           blockers.push(
             `web_accessible_resources[${index}]: MV2-style entry, MV3 requires {resources, matches|extension_ids|use_dynamic_url} dictionaries.`
           )
+
           return
         }
+
         if (entry.resources === undefined) {
           blockers.push(
             `web_accessible_resources[${index}]: 'resources' is required, Chrome refuses the extension without it.`
           )
         }
+
         if (
           entry.matches === undefined &&
           entry.extension_ids === undefined &&
@@ -174,6 +181,7 @@ export function findChromiumLoadBlockers(
   const csGroups = Array.isArray(m.content_scripts) ? m.content_scripts : []
   csGroups.forEach((group: LooseManifest, index: number) => {
     if (!group || typeof group !== 'object') return
+
     if (group.matches === undefined) {
       blockers.push(
         `content_scripts[${index}]: 'matches' is required, Chrome refuses the extension without it.`
@@ -183,9 +191,11 @@ export function findChromiumLoadBlockers(
         `content_scripts[${index}].matches: there must be at least one match, Chrome refuses the extension over an empty list.`
       )
     }
+
     for (const listKey of ['js', 'css']) {
       const list = group[listKey]
       if (!Array.isArray(list)) continue
+
       list.forEach((entry: LooseManifest, entryIndex: number) => {
         if (typeof entry !== 'string') {
           blockers.push(
@@ -194,6 +204,7 @@ export function findChromiumLoadBlockers(
         }
       })
     }
+
     if (group.run_at !== undefined && !CS_RUN_AT.includes(group.run_at)) {
       blockers.push(
         `content_scripts[${index}].run_at: expected "document_start", "document_end" or "document_idle", got ${JSON.stringify(group.run_at)}, Chrome refuses the extension.`
@@ -204,6 +215,7 @@ export function findChromiumLoadBlockers(
   // minimum_chrome_version: invalid grammar refuses outright; a valid value
   // above the running browser refuses too, same silent wedge.
   const minVersion = m.minimum_chrome_version
+
   if (minVersion !== undefined) {
     if (typeof minVersion !== 'string' || !isValidDottedVersion(minVersion)) {
       blockers.push(
@@ -223,10 +235,12 @@ export function findChromiumLoadBlockers(
   // Chrome caps keyboard shortcuts at 4; Firefox has no cap, so ported Firefox
   // extensions routinely trip it.
   const commands = m?.commands
+
   if (commands && typeof commands === 'object') {
     const withKeys = Object.values(commands).filter(
       (command: LooseManifest) => command?.suggested_key
     )
+
     if (withKeys.length > 4) {
       blockers.push(
         `commands: ${withKeys.length} shortcuts declared with "suggested_key", Chrome allows at most 4.`
@@ -241,6 +255,7 @@ export function findChromiumLoadBlockers(
   contentScripts.forEach((group: LooseManifest, index: number) => {
     const js = Array.isArray(group?.js) ? group.js : []
     const css = Array.isArray(group?.css) ? group.css : []
+
     if (js.length === 0 && css.length === 0) {
       blockers.push(
         `content_scripts[${index}]: declares neither "js" nor "css", Chrome requires at least one.`
@@ -251,6 +266,7 @@ export function findChromiumLoadBlockers(
   // "Value 'key' is missing or invalid.", a manifest key must be a valid
   // base64 public key (wild: queup ships one with broken padding).
   const key = m?.key
+
   if (key !== undefined) {
     if (typeof key !== 'string' || !isValidBase64(key)) {
       blockers.push(
@@ -273,9 +289,12 @@ export function findUnloadableIconFiles(
 
   const check = (field: string, ref: unknown) => {
     if (typeof ref !== 'string' || ref.trim() === '') return
+
     let reason: string | null = null
+
     try {
       const abs = path.join(extensionDir, ref.replace(/^\//, ''))
+
       if (!fs.existsSync(abs)) {
         reason = 'is missing from the extension directory'
       } else if (fs.statSync(abs).size === 0) {
@@ -284,6 +303,7 @@ export function findUnloadableIconFiles(
     } catch {
       return
     }
+
     if (reason) {
       findings.push(
         `${field}: icon "${ref}" ${reason}, Chrome refuses the whole extension over an icon it cannot load.`
@@ -292,6 +312,7 @@ export function findUnloadableIconFiles(
   }
 
   const icons = m?.icons
+
   if (icons && typeof icons === 'object' && !Array.isArray(icons)) {
     for (const [size, ref] of Object.entries(icons)) {
       check(`icons.${size}`, ref)
@@ -300,6 +321,7 @@ export function findUnloadableIconFiles(
 
   for (const actionKey of ['action', 'browser_action', 'page_action']) {
     const icon = m?.[actionKey]?.default_icon
+
     if (typeof icon === 'string') {
       check(`${actionKey}.default_icon`, icon)
     } else if (icon && typeof icon === 'object' && !Array.isArray(icon)) {
@@ -328,6 +350,7 @@ export function findLocaleLoadBlockers(
   if (typeof defaultLocale === 'string' && defaultLocale.trim() !== '') {
     const catalogPath = path.join(localesDir, defaultLocale, 'messages.json')
     let catalogKeys: Set<string> | null = null
+
     try {
       if (!fs.existsSync(catalogPath)) {
         blockers.push(
@@ -370,6 +393,7 @@ export function findLocaleLoadBlockers(
           .some((entry) =>
             fs.existsSync(path.join(localesDir, entry, 'messages.json'))
           )
+
         if (hasCatalog) {
           blockers.push(
             `_locales: a locales tree exists but the manifest declares no default_locale, Chrome refuses the whole extension.`
@@ -393,8 +417,10 @@ export function findMissingManagedSchema(
   const m = manifest as Record<string, LooseManifest> | null | undefined
   const schema = m?.storage?.managed_schema
   if (typeof schema !== 'string' || schema.trim() === '') return []
+
   try {
     const abs = path.join(extensionDir, schema.replace(/^\//, ''))
+
     if (!fs.existsSync(abs)) {
       return [
         `storage.managed_schema: "${schema}" does not exist in the extension directory, Chrome refuses the whole extension.`
@@ -403,30 +429,35 @@ export function findMissingManagedSchema(
   } catch {
     // unreadable. The browser will complain on its own
   }
+
   return []
 }
 
-/** Chrome's version grammar: 1-4 dot-separated integers 0-65535. */
 function isValidDottedVersion(version: string): boolean {
   if (!version) return false
+
   const parts = version.split('.')
   if (parts.length > 4) return false
+
   return parts.every((part) => /^\d{1,5}$/.test(part) && Number(part) <= 65535)
 }
 
 function compareDottedVersions(a: string, b: string): number {
   const pa = a.split('.').map(Number)
   const pb = b.split('.').map(Number)
+
   for (let i = 0; i < 4; i++) {
     const diff = (pa[i] || 0) - (pb[i] || 0)
     if (diff !== 0) return diff
   }
+
   return 0
 }
 
 function isValidBase64(value: string): boolean {
   if (value.length === 0 || value.length % 4 !== 0) return false
   if (!/^[A-Za-z0-9+/]+={0,2}$/.test(value)) return false
+
   try {
     return Buffer.from(value, 'base64').toString('base64') === value
   } catch {

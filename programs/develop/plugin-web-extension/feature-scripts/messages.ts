@@ -19,18 +19,23 @@ export function importScriptsDependencyMissing(
   lines.push(
     `The background service worker calls importScripts('${literal}'), but the file isn't in the output.`
   )
+
   lines.push(`${colors.gray('PATH')} ${colors.underline(workerPath)}`)
   lines.push(`${colors.gray('NOT FOUND')} ${colors.underline(expectedPath)}`)
   lines.push(`The call fails at runtime.`)
+
   if (sourceSibling) {
     lines.push(
       `Found ${colors.underline(sourceSibling)}, but importScripts dependencies are copied as-is, not compiled.`
     )
   }
+
   lines.push(
     `- Move the file to ${colors.blue(expectedPath)} or ${colors.blue('public/')} so it ships with the extension.`
   )
+
   lines.push(`- Import it from the worker so it gets bundled.`)
+
   return lines.join('\n')
 }
 
@@ -44,16 +49,20 @@ export function injectedFileDependencyMissing(
   lines.push(
     `${assetName} injects '${literal}' via executeScript/insertCSS, but the file isn't in the output.`
   )
+
   lines.push(`${colors.gray('NOT FOUND')} ${colors.underline(expectedPath)}`)
   lines.push(`The injection fails at runtime.`)
+
   if (sourceSibling) {
     lines.push(
       `Found ${colors.underline(sourceSibling)}, but injected files are copied as-is, not compiled.`
     )
   }
+
   lines.push(
     `Move the file to ${colors.blue(expectedPath)} or ${colors.blue('public/')} so it ships with the extension.`
   )
+
   return lines.join('\n')
 }
 
@@ -66,12 +75,15 @@ export function injectedCompiledSourceLiteral(
   lines.push(
     `${assetName} injects '${literal}', but ${literal} is compiled to ${emittedPath}.`
   )
+
   lines.push(`${colors.gray('REQUESTED')} ${colors.underline(literal)}`)
   lines.push(`${colors.gray('EMITTED')} ${colors.underline(emittedPath)}`)
   lines.push(
     `The browser asks for the source path, which the output does not contain, so the injection fails at runtime.`
   )
+
   lines.push(`Inject the emitted path: ${colors.blue(emittedPath)}.`)
+
   return lines.join('\n')
 }
 
@@ -113,16 +125,20 @@ export function entrySplitAcrossInitialFiles(
   lines.push(
     `${entryName} is split into ${count} initial files, but ${shape.loads(entryName)} ${ownFile}.`
   )
+
   lines.push(`${colors.gray('LOADED')} ${colors.underline(ownFile)}`)
   lines.push(
     `${colors.gray('NOT LOADED')} ${extraFiles.map((file) => colors.underline(file)).join(', ')}`
   )
+
   lines.push(
     `The entry waits for the other files at runtime and never runs, so ${shape.effect}.`
   )
+
   lines.push(
     `Only a user-set optimization.splitChunks cache group does this. Use chunks: 'async' and import() the shared module: ${colors.blue(SPLIT_ENTRY_RECIPE_URL)}`
   )
+
   return lines.join('\n')
 }
 
@@ -135,11 +151,13 @@ export function fetchedFileDependencyMissing(
   lines.push(
     `${assetName} loads '${literal}' at runtime (fetch/XMLHttpRequest/new URL), but the file isn't in the output.`
   )
+
   lines.push(`${colors.gray('NOT FOUND')} ${colors.underline(expectedPath)}`)
   lines.push(`The request fails at runtime.`)
   lines.push(
     `Move the file so it resolves to ${colors.blue(expectedPath)}, or serve it from ${colors.blue('public/')} so it ships with the extension.`
   )
+
   return lines.join('\n')
 }
 
@@ -152,11 +170,13 @@ export function getURLDependencyMissing(
   lines.push(
     `${assetName} references '${literal}' via chrome.runtime.getURL(), but the file isn't in the output.`
   )
+
   lines.push(`${colors.gray('NOT FOUND')} ${colors.underline(expectedPath)}`)
   lines.push(`The reference fails at runtime.`)
   lines.push(
     `Move the file to ${colors.blue(expectedPath)} or ${colors.blue('public/')} so it ships with the extension.`
   )
+
   return lines.join('\n')
 }
 
@@ -169,11 +189,13 @@ export function runtimeSetSurfaceDependencyMissing(
   lines.push(
     `${assetName} sets '${literal}' as a runtime surface (setPopup/setOptions), but the file isn't in the output.`
   )
+
   lines.push(`${colors.gray('NOT FOUND')} ${colors.underline(expectedPath)}`)
   lines.push(`The surface opens a 404 at runtime.`)
   lines.push(
     `Move the file to ${colors.blue(expectedPath)} or ${colors.blue('public/')} so it ships with the extension.`
   )
+
   return lines.join('\n')
 }
 
@@ -186,16 +208,19 @@ export function staticImportDependencyMissing(
   lines.push(
     `${assetName} (copied verbatim into the output) imports '${literal}', but the file isn't in the output.`
   )
+
   lines.push(`${colors.gray('NOT FOUND')} ${colors.underline(expectedPath)}`)
   lines.push(`The import fails at runtime.`)
   lines.push(
     `Move the file to ${colors.blue(expectedPath)} or ${colors.blue('public/')} so it ships with the extension.`
   )
+
   return lines.join('\n')
 }
 
 export function reservedScriptsFolder(relPath: string, indicators: string[]) {
   const reasons = indicators.map((r) => `- ${colors.gray(r)}`).join('\n')
+
   return (
     `${prefix('error')} scripts/ is a reserved folder in Extension.js.\n` +
     `${colors.gray('PATH')} ${colors.underline(relPath)}\n` +
@@ -220,11 +245,14 @@ export function compiledSourceSpelling(
   lines.push(
     `${assetName} loads '${literal}' via ${api}, but ${literal} is compiled to ${emittedPath}.`
   )
+
   lines.push(`${colors.gray('REQUESTED')} ${colors.underline(literal)}`)
   lines.push(`${colors.gray('EMITTED')} ${colors.underline(emittedPath)}`)
   lines.push(
     `The browser asks for the source path, which the output does not contain, so the load fails at runtime.`
   )
+
   lines.push(`Reference the emitted path: ${colors.blue(emittedPath)}.`)
+
   return lines.join('\n')
 }

@@ -111,6 +111,7 @@ async function buildFixture(root: string, mode: 'production' | 'development') {
     } else {
       process.env.EXTENSION_AUTHOR_MODE = previousAuthorMode
     }
+
     if (previousVitest === undefined) {
       delete process.env.VITEST
     } else {
@@ -123,6 +124,7 @@ function readBuiltManifest(root: string) {
   const distDir = path.join(root, 'dist', 'chrome')
   const manifestPath = path.join(distDir, 'manifest.json')
   expect(fs.existsSync(manifestPath), `missing ${manifestPath}`).toBe(true)
+
   return {
     distDir,
     manifest: JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as {
@@ -144,6 +146,7 @@ function firstDeclaredScript(
   const rel = scripts?.[0] || fallback
   const abs = path.join(distDir, rel)
   expect(fs.existsSync(abs), `missing ${abs}`).toBe(true)
+
   return abs
 }
 
@@ -155,11 +158,13 @@ function warResources(manifest: {
 }): string[] {
   const war = manifest.web_accessible_resources
   if (!war) return []
+
   if (manifest.manifest_version === 2) {
     return Array.isArray(war) && typeof war[0] === 'string'
       ? (war as string[])
       : []
   }
+
   return (war as Array<{resources: string[]}>).flatMap(
     (group) => group.resources || []
   )
@@ -172,6 +177,7 @@ function warMatchesFor(
   resource: string
 ): string[] {
   const war = manifest.web_accessible_resources || []
+
   return war
     .filter((group) => group.resources?.includes(resource))
     .flatMap((group) => group.matches || [])
@@ -186,6 +192,7 @@ function listRootPayloads(distDir: string, ext: string) {
 
 function referencedFrom(filePath: string, candidates: string[]) {
   const source = fs.readFileSync(filePath, 'utf8')
+
   return candidates.filter((name) => source.includes(name))
 }
 
@@ -212,6 +219,7 @@ describe('build: content-script runtime payloads are web-accessible (real rspack
     expect(warMatchesFor(manifest, 'ocr-core.wasm')).toEqual([
       'https://ocr.example/*'
     ])
+
     expect(warMatchesFor(manifest, 'ocr-weights.bin')).toEqual([
       'https://ocr.example/*'
     ])
@@ -234,10 +242,12 @@ describe('build: content-script runtime payloads are web-accessible (real rspack
     const backgroundWasm = referencedFrom(backgroundJs, rootWasm)
 
     expect(contentWasm.length).toBeGreaterThan(0)
+
     for (const name of contentWasm) {
       expect(resources).toContain(name)
       expect(warMatchesFor(manifest, name)).toEqual(['https://ocr.example/*'])
     }
+
     for (const name of backgroundWasm) {
       if (!contentWasm.includes(name)) {
         expect(resources).not.toContain(name)
@@ -272,9 +282,11 @@ describe('build: content-script runtime payloads are web-accessible (real rspack
     const backgroundWasm = referencedFrom(backgroundJs, rootWasm)
 
     expect(contentWasm.length).toBeGreaterThan(0)
+
     for (const name of contentWasm) {
       expect(resources).toContain(name)
     }
+
     for (const name of backgroundWasm) {
       if (!contentWasm.includes(name)) {
         expect(resources).not.toContain(name)
@@ -305,6 +317,7 @@ describe('build: content-script runtime payloads are web-accessible (real rspack
     const rootWasm = listRootPayloads(distDir, '.wasm')
     const contentWasm = referencedFrom(contentJs, rootWasm)
     expect(contentWasm.length).toBeGreaterThan(0)
+
     for (const name of contentWasm) {
       expect(resources).toContain(name)
     }
@@ -330,6 +343,7 @@ describe('build: content-script runtime payloads are web-accessible (real rspack
     const rootWasm = listRootPayloads(distDir, '.wasm')
     const contentWasm = referencedFrom(contentJs, rootWasm)
     expect(contentWasm.length).toBeGreaterThan(0)
+
     for (const name of contentWasm) {
       expect(resources).toContain(name)
     }

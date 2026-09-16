@@ -17,7 +17,9 @@ function readValidManifest(manifestPath: string): string | undefined {
   try {
     const content = fs.readFileSync(manifestPath, 'utf-8')
     if (!content.trim()) return undefined
+
     JSON.parse(content)
+
     return content
   } catch {
     return undefined
@@ -26,10 +28,12 @@ function readValidManifest(manifestPath: string): string | undefined {
 
 function normalizeManifestFile(filePath: unknown): string | undefined {
   if (typeof filePath !== 'string') return undefined
+
   const normalized = filePath.trim().replace(/^\/+/, '')
   if (!normalized) return undefined
   if (/^(https?:)?\/\//i.test(filePath)) return undefined
   if (/[*?[\]{}]/.test(normalized)) return undefined
+
   return normalized
 }
 
@@ -37,6 +41,7 @@ function readStableFileSignature(filePath: string): string | undefined {
   try {
     const stats = fs.statSync(filePath)
     if (!stats.isFile()) return undefined
+
     return `${stats.size}:${stats.mtimeMs}`
   } catch {
     return undefined
@@ -78,6 +83,7 @@ function getManifestRequiredFiles(content: string): string[] {
         if (Array.isArray(contentScript?.js)) {
           for (const jsFile of contentScript.js) addFile(jsFile)
         }
+
         if (Array.isArray(contentScript?.css)) {
           for (const cssFile of contentScript.css) addFile(cssFile)
         }
@@ -172,15 +178,18 @@ export async function waitForStableFiles(
     for (const relativeFile of files) {
       const absoluteFilePath = path.join(outPath, relativeFile)
       const fileSignature = readStableFileSignature(absoluteFilePath)
+
       if (!fileSignature) {
         allFilesReady = false
         break
       }
+
       currentSignatureParts.push(`${relativeFile}:${fileSignature}`)
     }
 
     if (allFilesReady) {
       const currentSignature = currentSignatureParts.sort().join('|')
+
       if (currentSignature === lastSignature) {
         stableReads += 1
       } else {
@@ -218,5 +227,6 @@ export async function waitForStableExtensionOutput(
   if (!manifestContent) return false
 
   const requiredFiles = getManifestRequiredFiles(manifestContent)
+
   return waitForStableFiles(outPath, requiredFiles, options)
 }

@@ -11,6 +11,7 @@ function writeAsset(root: string, relativePath: string) {
   const filePath = path.join(root, 'node_modules', relativePath)
   fs.mkdirSync(path.dirname(filePath), {recursive: true})
   fs.writeFileSync(filePath, 'asset')
+
   return filePath
 }
 
@@ -36,6 +37,7 @@ describe('WasmPlugin', () => {
   function makeTemp(prefix: string) {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix))
     temps.push(dir)
+
     return dir
   }
 

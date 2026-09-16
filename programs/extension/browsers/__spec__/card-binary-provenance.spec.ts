@@ -56,6 +56,7 @@ describe('card binary provenance', () => {
     expect(card).toContain(
       'Browser        Chromium 139.0.7259.2 (pinned with --chromium-binary)'
     )
+
     // The note is the whole signal; the path the user typed is not echoed.
     expect(card).not.toContain('Binary')
   })
@@ -97,9 +98,11 @@ describe('card binary provenance', () => {
     expect(managedCard).toContain(
       `Profile        ~${path.sep}.extension-js${path.sep}profiles${path.sep}chrome`
     )
+
     expect(collapseHomeDirInCardValue('/unrelated/path')).toBe(
       '/unrelated/path'
     )
+
     expect(collapseHomeDirInCardValue(home)).toBe('~')
     expect(collapseHomeDirInCardValue(`${home}sibling`)).toBe(`${home}sibling`)
   })
@@ -108,6 +111,7 @@ describe('card binary provenance', () => {
     expect(binaryProvenanceNote('pinned')).toBe(
       '(pinned with --chromium-binary)'
     )
+
     // Only a pinned path is annotated; the rest are machine facts, not run
     // facts, and classifyBinaryProvenance still reports them to callers.
     expect(binaryProvenanceNote('system')).toBe('')

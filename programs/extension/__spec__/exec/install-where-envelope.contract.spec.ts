@@ -10,6 +10,7 @@ function cliRoot(): string {
 function cliBin(): string {
   const cjs = path.join(cliRoot(), 'dist', 'cli.cjs')
   if (fs.existsSync(cjs)) return cjs
+
   return path.join(cliRoot(), 'dist', 'cli.js')
 }
 
@@ -47,6 +48,7 @@ describe('install/uninstall refusal codes under --output json', () => {
       expect((frames[0].error as {code: string}).code).toBe(
         'E_UNSUPPORTED_BROWSER'
       )
+
       expect(String((frames[0].error as {message: string}).message)).toMatch(
         /netscape/i
       )
@@ -69,6 +71,7 @@ describe('install/uninstall refusal codes under --output json', () => {
       expect(String(error.message)).toMatch(
         /never downloads|cannot be installed/i
       )
+
       expect(String(error.message)).not.toMatch(/Retry/)
       expect(result.stdout).not.toMatch(/at normalizeBrowserName/)
     }
@@ -83,6 +86,7 @@ describe('install/uninstall refusal codes under --output json', () => {
     expect((frames[0].error as {code: string}).code).toBe(
       'E_BROWSER_NOT_INSTALLABLE'
     )
+
     expect(String((frames[0].error as {message: string}).message)).toMatch(
       /Safari|Xcode/i
     )
@@ -131,6 +135,7 @@ describe('install/uninstall refusal codes under --output json', () => {
       command: 'install',
       status: 'located'
     })
+
     const value = frames[0].value as {paths: string[]}
     expect(Array.isArray(value.paths)).toBe(true)
     expect(value.paths.length).toBe(1)

@@ -43,6 +43,7 @@ let connSeq = 0
 // moz-extension://, and Node clients send no Origin.
 export function isWebOrigin(origin: string | undefined): boolean {
   const value = String(origin || '').trim()
+
   return value.toLowerCase() === 'null' || /^https?:\/\//i.test(value)
 }
 
@@ -68,6 +69,7 @@ export function startControlServer(
         id: `c${++connSeq}`,
         send(frame: ServerFrame) {
           if (socket.readyState !== WebSocket.OPEN) return
+
           if (socket.bufferedAmount > SLOW_CONSUMER_BYTES) {
             // Isolate a slow reader so it can't backpressure the broker
             try {
@@ -75,8 +77,10 @@ export function startControlServer(
             } catch {
               // Ignore
             }
+
             return
           }
+
           try {
             socket.send(JSON.stringify(frame))
           } catch {
@@ -94,11 +98,13 @@ export function startControlServer(
 
       socket.on('message', (data: RawData) => {
         let frame: AnyFrame
+
         try {
           frame = JSON.parse(data.toString())
         } catch {
           return
         }
+
         broker.onFrame(conn, frame)
       })
 
@@ -120,6 +126,7 @@ export function startControlServer(
         close: () =>
           new Promise<void>((res) => {
             clearInterval(keepalive)
+
             for (const client of wss.clients) {
               try {
                 client.terminate()
@@ -127,6 +134,7 @@ export function startControlServer(
                 // Ignore
               }
             }
+
             wss.close(() => res())
           })
       })

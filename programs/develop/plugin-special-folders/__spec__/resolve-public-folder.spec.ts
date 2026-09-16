@@ -20,6 +20,7 @@ function project(layout: {rootPublic?: boolean; srcPublic?: boolean}) {
   fs.writeFileSync(path.join(root, 'src', 'manifest.json'), '{}')
   if (layout.rootPublic) fs.mkdirSync(path.join(root, 'public'))
   if (layout.srcPublic) fs.mkdirSync(path.join(root, 'src', 'public'))
+
   return {root, manifest: path.join(root, 'src', 'manifest.json')}
 }
 

@@ -6,9 +6,6 @@
 // ╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-// Unified manifest-fields change detector: replaces five ThrowIf* plugins,
-// reading manifest fields once per change and diffing all categories at once.
-
 import {Compilation, type Compiler, WebpackError} from '@rspack/core'
 import {
   type DevSessionRestartReason,
@@ -52,11 +49,13 @@ function flattenValues(
   map: Record<string, string | string[]> | undefined
 ): string[] {
   const paths: string[] = []
+
   for (const val of Object.values(map || {})) {
-    if (Array.isArray(val))
+    if (Array.isArray(val)) {
       paths.push(...val.filter(Boolean).map(toComparablePath))
-    else if (val) paths.push(toComparablePath(val))
+    } else if (val) paths.push(toComparablePath(val))
   }
+
   return paths
 }
 
@@ -88,6 +87,7 @@ function diffRecord(
   next: Record<string, string>
 ): CategoryChange | null {
   const allKeys = new Set([...Object.keys(prev), ...Object.keys(next)])
+
   for (const key of allKeys) {
     if (prev[key] !== next[key]) {
       return {
@@ -98,6 +98,7 @@ function diffRecord(
       }
     }
   }
+
   return null
 }
 
@@ -130,6 +131,7 @@ export class ManifestFieldsChangeDetector {
       this.manifestPath,
       this.browser
     )
+
     for (const val of Object.values(bridgeScripts)) {
       if (Array.isArray(val)) scripts.push(...(val.filter(Boolean) as string[]))
       else if (val) scripts.push(val)
@@ -151,6 +153,7 @@ export class ManifestFieldsChangeDetector {
 
     const jsonMap = (fields.json || {}) as Record<string, string | string[]>
     const json: string[] = []
+
     for (const [key, val] of Object.entries(jsonMap)) {
       if (!isCriticalJsonFeatureKey(key)) continue
       if (Array.isArray(val)) json.push(...(val.filter(Boolean) as string[]))
@@ -176,8 +179,10 @@ export class ManifestFieldsChangeDetector {
           const modifiedFiles =
             (compilerArg as {modifiedFiles?: Set<string>}).modifiedFiles ||
             new Set<string>()
+
           if (!modifiedFiles.has(this.manifestPath)) {
             done()
+
             return
           }
 
@@ -187,6 +192,7 @@ export class ManifestFieldsChangeDetector {
             this.prev = next
             this.pending = {}
             done()
+
             return
           }
 
@@ -206,6 +212,7 @@ export class ManifestFieldsChangeDetector {
           if (this.tryAutoRestart(compiler)) {
             this.pending = {}
             done()
+
             return
           }
 
@@ -241,9 +248,11 @@ export class ManifestFieldsChangeDetector {
       'icons',
       'json'
     ]
+
     for (const reason of order) {
       const change = this.pending[reason]
       if (!change) continue
+
       return requestDevSessionRestart(compiler, {
         reason,
         pathAfter: change.pathAfter,
@@ -251,6 +260,7 @@ export class ManifestFieldsChangeDetector {
         manifestField: change.manifestField
       })
     }
+
     return false
   }
 
@@ -297,9 +307,11 @@ export class ManifestFieldsChangeDetector {
       lines.push(
         `Entrypoint references changed in ${field}. Restart the dev server to pick up changes to critical manifest JSON files.`
       )
+
       lines.push('')
       if (p.pathBefore) lines.push(`PATH BEFORE ${p.pathBefore}`)
       if (p.pathAfter) lines.push(`PATH AFTER ${p.pathAfter}`)
+
       const err = new WebpackError(lines.join('\n')) as Error & {file?: string}
       err.file = 'manifest.json'
       compilation.errors.push(err)

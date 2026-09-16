@@ -31,6 +31,7 @@ function makeStream(options: {readyPath?: string} = {}) {
     eventsPath: '/proj/.extension-js/chromium/events.ndjson',
     write: (line) => lines.push(line)
   })
+
   return {stream, lines}
 }
 
@@ -46,6 +47,7 @@ function parseFrames(lines: string[]): Frame[] {
     expect(Array.isArray(frame.warnings)).toBe(true)
     // ok === false is exactly the same thing as error !== null.
     expect(frame.ok).toBe(frame.error == null)
+
     return frame
   })
 }
@@ -59,6 +61,7 @@ function fakeStats(options: {
   const assets = Array.from({length: options.assets ?? 0}, (_, i) => ({
     name: `asset-${i}.js`
   }))
+
   return {
     hasErrors: () => Boolean(options.errors),
     toString: () => options.text ?? '',
@@ -72,6 +75,7 @@ function fakeStats(options: {
 
 function fakeCompiler() {
   const taps: Record<string, (arg: any) => void> = {}
+
   return {
     taps,
     hooks: {
@@ -148,6 +152,7 @@ describe('lifecycle stream trigger', () => {
     expect(parseFrames(lines).map((frame) => frame.status)).toEqual([
       'starting'
     ])
+
     expect(log).not.toHaveBeenCalled()
     expect(err).toHaveBeenCalledWith('a machine-mode line\n')
     log.mockRestore()
@@ -224,6 +229,7 @@ describe('lifecycle stream transitions', () => {
       'compiled',
       'compile-failed'
     ])
+
     expect(frames[0].ok).toBe(false)
     expect(frames[0].error?.code).toBe('E_FIRST_COMPILE')
     expect(frames[0].value?.output).toBe('Module not found: ./missing')
@@ -257,6 +263,7 @@ describe('lifecycle stream transitions', () => {
         toolchainVersion: '4.0.16'
       })
     )
+
     const {stream, lines} = makeStream({readyPath})
     stream.ready()
     stream.ready()
@@ -281,6 +288,7 @@ describe('lifecycle stream transitions', () => {
         message: 'the browser refused to load the extension'
       })
     )
+
     const {stream, lines} = makeStream({readyPath})
     stream.ready()
     stream.ready()
@@ -317,6 +325,7 @@ describe('lifecycle stream transitions', () => {
         browserExitedAt: '2026-07-27T00:00:00.000Z'
       })
     )
+
     const {stream, lines} = makeStream({readyPath})
     stream.browserExited()
     const [frame] = parseFrames(lines)
@@ -364,6 +373,7 @@ describe('lifecycle stream transitions', () => {
       'ready',
       'recompiled'
     ])
+
     expect(frames.every((frame) => frame.ok)).toBe(true)
     expect(frames[1].value?.assets).toBe(12)
   })
@@ -380,6 +390,7 @@ describe('lifecycle stream transitions', () => {
         durationMs: 3
       })
     )
+
     compiler.taps.done(fakeStats({assets: 4, durationMs: 20}))
     const frames = parseFrames(lines)
     expect(frames.map((frame) => frame.status)).toEqual([
@@ -388,6 +399,7 @@ describe('lifecycle stream transitions', () => {
       'compiled',
       'ready'
     ])
+
     expect(frames[1].error?.code).toBe('E_FIRST_COMPILE')
     expect(frames[1].value?.output).toContain('ERROR in ./src/missing.js')
   })
@@ -420,6 +432,7 @@ describe('lifecycle stream transitions', () => {
         browserExitCode: 1
       })
     )
+
     await new Promise((resolve) => setTimeout(resolve, 60))
     stop()
     const frames = parseFrames(lines)

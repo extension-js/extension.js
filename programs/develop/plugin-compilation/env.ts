@@ -36,6 +36,7 @@ export const IMPORT_META_URL_RUNTIME =
 
 function resolveProcessShim(): string | undefined {
   const candidate = path.join(__dirname, '..', 'runtime', 'process-shim.cjs')
+
   try {
     return fs.existsSync(candidate) ? candidate : undefined
   } catch {
@@ -47,14 +48,18 @@ function findNearestWorkspaceRoot(startDir: string): string | undefined {
   let current = path.isAbsolute(startDir)
     ? path.normalize(startDir)
     : path.resolve(startDir)
+
   while (true) {
     if (fs.existsSync(path.join(current, 'pnpm-workspace.yaml'))) {
       return current
     }
+
     const parent = path.dirname(current)
+
     if (parent === current) {
       return undefined
     }
+
     current = parent
   }
 }
@@ -74,6 +79,7 @@ function resolveEnvPaths(projectPath: string, envFiles: string[]) {
   }
 
   const workspaceRoot = findNearestWorkspaceRoot(projectPath)
+
   if (workspaceRoot && workspaceRoot !== projectPath) {
     const workspaceEnvPath =
       envFiles
@@ -154,6 +160,7 @@ export class EnvPlugin {
     // EXTENSION_PUBLIC_* read would be undefined, so surface a build warning.
     if (!envPath && projectPath) {
       let unmatchedEnvFiles: string[] = []
+
       try {
         unmatchedEnvFiles = fs
           .readdirSync(projectPath)
@@ -215,6 +222,7 @@ export class EnvPlugin {
         (obj, key) => {
           obj[`process.env.${key}`] = JSON.stringify(combinedVars[key])
           obj[`import.meta.env.${key}`] = JSON.stringify(combinedVars[key])
+
           return obj
         },
         {} as Record<string, string>
@@ -223,17 +231,22 @@ export class EnvPlugin {
     filteredEnvVars['process.env.EXTENSION_PUBLIC_BROWSER'] = JSON.stringify(
       this.browser
     )
+
     filteredEnvVars['import.meta.env.EXTENSION_PUBLIC_BROWSER'] =
       JSON.stringify(this.browser)
+
     filteredEnvVars['process.env.EXTENSION_PUBLIC_MODE'] = JSON.stringify(mode)
     filteredEnvVars['import.meta.env.EXTENSION_PUBLIC_MODE'] =
       JSON.stringify(mode)
+
     filteredEnvVars['process.env.EXTENSION_BROWSER'] = JSON.stringify(
       this.browser
     )
+
     filteredEnvVars['import.meta.env.EXTENSION_BROWSER'] = JSON.stringify(
       this.browser
     )
+
     filteredEnvVars['process.env.EXTENSION_MODE'] = JSON.stringify(mode)
     filteredEnvVars['import.meta.env.EXTENSION_MODE'] = JSON.stringify(mode)
 
@@ -245,12 +258,14 @@ export class EnvPlugin {
     // Define bare import.meta.env as an object of every injected var (Vite
     // parity); otherwise rspack rewrites it to (void 0) and reads crash at boot.
     const importMetaEnvObject: Record<string, unknown> = {}
+
     for (const [key, value] of Object.entries(filteredEnvVars)) {
       if (key.startsWith('import.meta.env.')) {
         importMetaEnvObject[key.slice('import.meta.env.'.length)] =
           JSON.parse(value)
       }
     }
+
     filteredEnvVars['import.meta.env'] = JSON.stringify(importMetaEnvObject)
 
     // Neutralize Node-only import.meta.dirname/filename: vendored ESM runtimes
@@ -320,6 +335,7 @@ export class EnvPlugin {
                   ) {
                     return templateVars[name]
                   }
+
                   // Preserve the placeholder when the var is unknown, matching
                   // the pre-substitution form so authors can spot typos.
                   return `$${name}`
@@ -354,11 +370,6 @@ export class EnvPlugin {
   }
 }
 
-/**
- * Env values available to `$EXTENSION_*` placeholders in emitted .json/.html.
- * Mirrors DefinePlugin: dotenv/process values plus the per-build-target
- * browser and mode synthetics JS already reads via import.meta.env.
- */
 export function buildTemplateVars(
   combinedVars: Record<string, unknown>,
   browser: DevOptions['browser'],

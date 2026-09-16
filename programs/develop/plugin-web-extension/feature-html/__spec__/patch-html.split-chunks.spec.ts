@@ -18,6 +18,7 @@ function makeTmp(name: string) {
   fs.rmSync(tmp, {recursive: true, force: true})
   fs.mkdirSync(tmp, {recursive: true})
   tmpRoots.push(tmp)
+
   return tmp
 }
 
@@ -73,13 +74,16 @@ describe('patchHtml with sibling chunks', () => {
       '/action/index.js',
       undefined
     ])
+
     for (const tag of tags.slice(0, 3)) {
       expect(tag).toContain('type="module"')
       expect(tag).toMatch(/\sdefer(=""|\s|>)/)
     }
+
     expect(updated.indexOf('/action/index.js')).toBeLessThan(
       updated.indexOf('window.__after')
     )
+
     expect(updated).not.toContain('./popup.js')
   })
 
@@ -193,12 +197,14 @@ describe('siblingScriptsFor', () => {
         'action/index'
       )
     ).toEqual([])
+
     expect(
       siblingScriptsFor(
         compilationWithEntry('action/index', ['a.js', 'b.js']),
         'options/index'
       )
     ).toEqual([])
+
     expect(siblingScriptsFor({} as Compilation, 'action/index')).toEqual([])
   })
 })

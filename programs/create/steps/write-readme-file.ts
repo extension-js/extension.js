@@ -17,6 +17,7 @@ import * as utils from '../lib/utils'
 async function pathExists(target: string): Promise<boolean> {
   try {
     await fs.access(target)
+
     return true
   } catch {
     return false
@@ -34,6 +35,7 @@ function platformDocsUrl(): string {
 function shipItSection(): string {
   const docs = platformDocsUrl()
   if (!docs) return ''
+
   return (
     `\n` +
     `## Ship it\n` +
@@ -123,10 +125,12 @@ export async function writeReadmeFile(
 
   try {
     if (isDebug()) logger.log(messages.writingReadmeMetaData())
+
     await fs.mkdir(projectPath, {recursive: true})
     await fs.writeFile(path.join(projectPath, 'README.md'), readme)
   } catch (error) {
     logger.error(messages.writingReadmeMetaDataError(error))
+
     throw error
   }
 }

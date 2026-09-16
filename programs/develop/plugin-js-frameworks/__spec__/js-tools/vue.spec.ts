@@ -15,6 +15,7 @@ beforeEach(() => {
     id === 'vue-loader' ? '/mock/vue-loader' : originalResolve(id)
   )
 })
+
 afterEach(() => {
   ;(require as any).resolve = originalResolve
 })
@@ -37,6 +38,7 @@ describe('vue tools', () => {
     vi.doMock('../../js-frameworks-lib/load-loader-options', () => ({
       loadLoaderOptions: vi.fn(async () => ({foo: 1}))
     }))
+
     const VueLoaderPluginMock = function (this: any) {
       this.apply = vi.fn()
     } as any
@@ -46,15 +48,19 @@ describe('vue tools', () => {
           if (id === 'vue-loader') {
             return {VueLoaderPlugin: VueLoaderPluginMock}
           }
+
           if (id === '@vue/compiler-sfc') {
             return {parse: vi.fn()}
           }
+
           if (id === 'vue') {
             return {version: '3.5.0'}
           }
+
           throw new Error(`Cannot find module ${id}`)
         }) as any
         req.resolve = (id: string) => `/project/node_modules/${id}`
+
         return req
       }
     }))
@@ -74,9 +80,11 @@ describe('vue tools', () => {
     expect(result?.alias?.['@vue/runtime-dom']).toContain(
       '/project/node_modules/@vue/runtime-dom'
     )
+
     expect(result?.alias?.['@vue/runtime-core']).toContain(
       '/project/node_modules/@vue/runtime-core'
     )
+
     expect(result?.alias?.['@vue/shared']).toContain(
       '/project/node_modules/@vue/shared'
     )
@@ -90,14 +98,17 @@ describe('resolveVueBundlerEntry', () => {
     )
     fs.writeFileSync(path.join(root, 'package.json'), '{"name":"app"}')
     const vueDir = path.join(root, 'node_modules', 'vue')
+
     for (const rel of files) {
       fs.mkdirSync(path.dirname(path.join(vueDir, rel)), {recursive: true})
       fs.writeFileSync(path.join(vueDir, rel), '')
     }
+
     fs.writeFileSync(
       path.join(vueDir, 'package.json'),
       JSON.stringify({name: 'vue', ...vueManifest})
     )
+
     return root
   }
 
@@ -122,6 +133,7 @@ describe('resolveVueBundlerEntry', () => {
         'vue.runtime.esm-bundler.js'
       )
     )
+
     fs.rmSync(root, {recursive: true, force: true})
   })
 
@@ -134,6 +146,7 @@ describe('resolveVueBundlerEntry', () => {
     expect(resolveVueBundlerEntry(req, 'vue')).toBe(
       path.join(root, 'node_modules', 'vue', 'index.js')
     )
+
     expect(resolveVueBundlerEntry(req, 'not-installed')).toBeUndefined()
     fs.rmSync(root, {recursive: true, force: true})
   })

@@ -47,6 +47,7 @@ function stubPackage(
       exports: {...exportsMap, './package.json': './package.json'}
     })
   )
+
   for (const [rel, content] of Object.entries(files)) {
     write(root, path.relative(root, path.join(dir, rel)), content)
   }
@@ -71,8 +72,10 @@ function installFramework(root: string, framework: Framework) {
         './jsx-dev-runtime': './jsx-dev-runtime.js'
       }
     )
+
     return {react: '18.3.1'}
   }
+
   if (framework === 'preact') {
     stubPackage(
       root,
@@ -93,8 +96,10 @@ function installFramework(root: string, framework: Framework) {
         './hooks': './hooks.js'
       }
     )
+
     return {preact: '10.27.3'}
   }
+
   if (framework === 'vue') {
     stubPackage(
       root,
@@ -111,8 +116,10 @@ function installFramework(root: string, framework: Framework) {
         './jsx-dev-runtime': './jsx-dev-runtime.js'
       }
     )
+
     return {vue: '3.5.26'}
   }
+
   // solid-js ships its JSX types only; runtime JSX goes through solid-js/h.
   stubPackage(
     root,
@@ -130,6 +137,7 @@ function installFramework(root: string, framework: Framework) {
       './web': './web.js'
     }
   )
+
   return {'solid-js': '1.9.7'}
 }
 
@@ -151,6 +159,7 @@ function project(
       dependencies
     })
   )
+
   if (options.tsconfig) {
     write(
       root,
@@ -158,6 +167,7 @@ function project(
       JSON.stringify({compilerOptions: {jsx: 'preserve', strict: false}})
     )
   }
+
   const [entryName] = Object.keys(entries)
   const scriptTag =
     options.module === false
@@ -168,9 +178,11 @@ function project(
     'pages/popup.html',
     `<!doctype html><title>POPUP</title><div id="root"></div>${scriptTag}`
   )
+
   for (const [name, content] of Object.entries(entries)) {
     write(root, path.join('pages', name), content)
   }
+
   write(
     root,
     'manifest.json',
@@ -181,6 +193,7 @@ function project(
       action: {default_popup: 'pages/popup.html'}
     })
   )
+
   return root
 }
 
@@ -199,9 +212,12 @@ async function build(
   const originalStderr = process.stderr.write.bind(process.stderr)
   process.stderr.write = ((chunk: unknown) => {
     lines.push(String(chunk))
+
     return true
   }) as typeof process.stderr.write
+
   let summary: {errors_count: number}
+
   try {
     summary = await extensionBuild(root, {
       browser: 'chrome',
@@ -219,18 +235,22 @@ async function build(
     if (previous === undefined) delete process.env.VITEST
     else process.env.VITEST = previous
   }
+
   const distDir = path.join(root, 'dist', 'chrome')
   const output = lines.join('\n')
   const errors = summary.errors_count
   if (errors > 0) throw new Error(`build failed:\n${output}`)
+
   const pageBundle = () => {
     const html = fs.readFileSync(
       path.join(distDir, 'action/index.html'),
       'utf8'
     )
     const src = /<script[^>]+src="([^"]+)"/.exec(html)?.[1] || ''
+
     return fs.readFileSync(path.join(distDir, src.replace(/^\//, '')), 'utf8')
   }
+
   return {distDir, errors, output, pageBundle}
 }
 
@@ -285,6 +305,7 @@ describe('JSX pages across frameworks', () => {
       'node_modules/preact/jsx-runtime/package.json',
       JSON.stringify({main: '../jsx-runtime.js'})
     )
+
     write(
       root,
       'node_modules/preact/package.json',
@@ -303,11 +324,13 @@ describe('JSX pages across frameworks', () => {
         }
       })
     )
+
     const built = await build(root, 'development')
     expect(built.errors).toBe(0)
     expect(built.output).not.toMatch(
       /Cannot find module 'preact\/jsx-dev-runtime'/
     )
+
     expect(built.pageBundle()).toMatch(/__jsxRuntime\s*=\s*["']preact["']/)
   }, 120_000)
 

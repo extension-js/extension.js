@@ -46,8 +46,10 @@ export class ManifestLegacyWarnings {
 
             for (const hit of hits) {
               const signature = `${hit.field}\0${hit.legacyPath}`
+
               if (isDev) {
                 if (this.reportedHits.has(signature)) continue
+
                 this.reportedHits.add(signature)
               }
 

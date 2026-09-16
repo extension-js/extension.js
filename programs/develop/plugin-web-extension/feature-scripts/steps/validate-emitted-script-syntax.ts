@@ -19,6 +19,7 @@ const requireModule = createRequire(import.meta.url)
 export class ValidateEmittedScriptSyntax {
   apply(compiler: Compiler): void {
     if (!compiler?.hooks?.thisCompilation?.tap) return
+
     compiler.hooks.thisCompilation.tap(
       'scripts:validate-emitted-script-syntax',
       (compilation) => {
@@ -32,16 +33,19 @@ export class ValidateEmittedScriptSyntax {
               typeof compilation.getAssets === 'function'
                 ? compilation.getAssets()
                 : []
+
             for (const asset of assets) {
               const name = asset?.name || ''
               if (!/\.[cm]?js$/i.test(name)) continue
 
               let source = ''
+
               try {
                 source = asset.source?.source?.().toString() || ''
               } catch {
                 continue
               }
+
               if (!source) continue
 
               const error = findSyntaxError(source)
@@ -86,11 +90,13 @@ function findSyntaxError(source: string): Error | undefined {
   try {
     // eslint-disable-next-line no-new-func
     new Function(source)
+
     return undefined
   } catch (caught) {
     const error = caught as Error | undefined
     if (error?.name !== 'SyntaxError') return undefined
     if (parsesAsModule(source)) return undefined
+
     return error
   }
 }
@@ -104,6 +110,7 @@ function parsesAsModule(source: string): boolean {
       allowAwaitOutsideFunction: true,
       allowHashBang: true
     })
+
     return true
   } catch {
     return false

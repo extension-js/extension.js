@@ -30,6 +30,7 @@ export class AmbiguousInstanceError extends Error {
             `id and no fallback was provided. Refusing to fall back to the most ` +
             `recently launched browser to avoid crossing instance streams.`
     )
+
     this.name = 'AmbiguousInstanceError'
     this.protocol = protocol
     this.instanceId = instanceId
@@ -48,6 +49,7 @@ export function setInstancePorts(
     if (typeof ports.cdpPort === 'number') lastCDPPort = ports.cdpPort
     if (typeof ports.rdpPort === 'number') lastRDPPort = ports.rdpPort
     if (!instanceId) return
+
     const prev = instanceIdToRecord.get(instanceId) || {}
     instanceIdToRecord.set(instanceId, {...prev, ...ports})
   } catch {
@@ -59,6 +61,7 @@ export function getInstancePorts(
   instanceId: string | undefined
 ): InstanceRecord | undefined {
   if (!instanceId) return undefined
+
   return instanceIdToRecord.get(instanceId)
 }
 
@@ -86,9 +89,11 @@ export function resolvePortForInstance(
     // Known instance, no port registered yet: defer to the caller's own
     // per-instance default rather than another instance's last port.
     if (typeof fallback === 'number' && fallback > 0) return fallback
+
     return undefined
   }
 
   if (typeof fallback === 'number' && fallback > 0) return fallback
+
   throw new AmbiguousInstanceError(protocol, instanceId)
 }

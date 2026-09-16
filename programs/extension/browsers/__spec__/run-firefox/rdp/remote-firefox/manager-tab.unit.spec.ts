@@ -15,6 +15,7 @@ function fakeClient(addons: unknown[], targets: unknown[] = []) {
     const {type} = payload as {type: string}
     if (type === 'listAddons') return {addons}
     if (type === 'getWatcher') return {actor: 'watcher1'}
+
     if (type === 'watchTargets') {
       const [first, ...rest] = targets
       setTimeout(() => {
@@ -24,11 +25,14 @@ function fakeClient(addons: unknown[], targets: unknown[] = []) {
           }
         }
       }, 0)
+
       return first ? {type: 'target-available-form', target: first} : {}
     }
+
     return {}
   })
   const evaluate = vi.fn(async () => true)
+
   return {
     request,
     evaluate,
@@ -63,13 +67,16 @@ describe('openManagerNewTab', () => {
     expect(client.request).toHaveBeenCalledWith(
       expect.objectContaining({to: 'desc2', type: 'getWatcher'})
     )
+
     expect(client.request).toHaveBeenCalledWith(
       expect.objectContaining({to: 'watcher1', type: 'watchTargets'})
     )
+
     expect(client.evaluate).toHaveBeenCalledWith(
       'c-bg',
       OPEN_NEW_TAB_EXPRESSION
     )
+
     expect(OPEN_NEW_TAB_EXPRESSION).toContain('tabs.create({active: true})')
     expect(OPEN_NEW_TAB_EXPRESSION).not.toContain('url')
     expect(client.listeners.size).toBe(0)

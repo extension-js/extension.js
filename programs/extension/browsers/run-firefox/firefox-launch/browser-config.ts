@@ -100,6 +100,7 @@ export async function resolveFirefoxLaunchConfig(
   // Firefox accepts a URL as the last argument (parity with Chromium's
   // startingUrl). Deliberately unquoted; the caller wraps the args string.
   const launchUrl = resolveStartingUrl(configOptions)
+
   if (launchUrl) {
     binaryArgs.push('--url', String(launchUrl))
   }
@@ -122,6 +123,7 @@ export async function resolveFirefoxLaunchConfig(
   const shownPath = (p: string) => {
     try {
       const rel = path.relative(contextDir, p)
+
       return rel && !rel.startsWith('..') && !path.isAbsolute(rel) ? rel : p
     } catch {
       return p
@@ -158,8 +160,9 @@ export async function resolveFirefoxLaunchConfig(
 
   if (resolved.kind === 'managed' && provision) {
     // Profile provisioning is an internal step; surface it only under --debug.
-    if (isDebug())
+    if (isDebug()) {
       humanLine(messages.creatingUserProfile(shownPath(profilePath)))
+    }
 
     if (!resolved.persisted) {
       try {
@@ -205,12 +208,15 @@ export async function resolveFirefoxLaunchConfig(
         if (typeof value === 'string') {
           return JSON.stringify(value)
         }
+
         if (typeof value === 'boolean') {
           return String(value)
         }
+
         if (typeof value === 'number' && Number.isFinite(value)) {
           return String(value)
         }
+
         return JSON.stringify(value)
       }
 
@@ -242,11 +248,14 @@ export async function resolveFirefoxLaunchConfig(
   })
 
   const parts = ['--verbose']
+
   if (binaryArgs.length > 0) {
     parts.unshift(`--binary-args="${binaryArgs.join(' ')}"`)
   }
+
   if (profilePath) {
     parts.splice(1, 0, `--profile="${profilePath}"`)
   }
+
   return {profilePath, binaryArgs, config: parts.join(' '), extensionsToLoad}
 }

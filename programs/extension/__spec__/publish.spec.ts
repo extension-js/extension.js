@@ -119,6 +119,7 @@ describe('stored device login fallback', () => {
     writeStoredLogin('tok_stored', {
       expiresAt: Math.floor(Date.now() / 1000) - 60
     })
+
     expect(() => buildPublishRequest({})).toThrow(/No token/)
   })
 
@@ -138,11 +139,13 @@ describe('stored device login fallback', () => {
 
   it('the refusal names the flag, the env var, and the platform login', () => {
     let message = ''
+
     try {
       buildPublishRequest({})
     } catch (err) {
       message = (err as Error).message
     }
+
     expect(message).toContain('--token')
     expect(message).toContain('EXTENSION_DEV_TOKEN')
     expect(message).toContain('platform MCP')
@@ -172,6 +175,7 @@ describe('a stored login is scoped to one project', () => {
       projectSlug: 'xvelte',
       workspaceSlug: 'cezaraugusto'
     })
+
     writeProject('pubwalk')
     expect(() => buildPublishRequest({projectPath: projectDir})).toThrow(
       /scoped to the "xvelte" project/
@@ -183,13 +187,16 @@ describe('a stored login is scoped to one project', () => {
       projectSlug: 'xvelte',
       workspaceSlug: 'cezaraugusto'
     })
+
     writeProject('pubwalk')
     let message = ''
+
     try {
       buildPublishRequest({projectPath: projectDir})
     } catch (err) {
       message = (err as Error).message
     }
+
     expect(message).toContain('xvelte')
     expect(message).toContain('pubwalk')
     expect(message).toContain('cezaraugusto')
@@ -269,6 +276,7 @@ describe('a stored login is scoped to one project', () => {
       path.join(projectDir, 'src', 'manifest.json'),
       JSON.stringify({name: 'xvelte', manifest_version: 3})
     )
+
     expect(() => buildPublishRequest({projectPath: projectDir})).not.toThrow()
   })
 })

@@ -9,6 +9,7 @@ vi.mock('fs', () => ({
 
 vi.mock('../../html-lib/utils', async (orig) => {
   const mod = (await orig()) as any
+
   return {
     ...(mod as Record<string, any>),
     getAssetsFromHtml: vi.fn(() => ({
@@ -55,6 +56,7 @@ describe('AddScriptsAndStylesToCompilation', () => {
     expect(
       e.feature.import.some((x: string) => /cdn\.example\.com/.test(x))
     ).toBe(false)
+
     expect(e.feature.import.some((x: string) => /public\//.test(x))).toBe(false)
     expect(e.feature.import).not.toContain('/proj/dead-ref.js')
   })

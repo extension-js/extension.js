@@ -16,6 +16,7 @@ export function icons(manifest: Manifest) {
       icons: Object.fromEntries(
         Object.entries(manifest.icons).map(([size, icon]) => {
           const raw = String(icon)
+
           return [size, getFilename(iconOutputPath(raw), raw)]
         })
       )

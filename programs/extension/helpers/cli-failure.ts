@@ -62,11 +62,13 @@ export function isCommanderError(err: unknown): err is CommanderErrorLike {
 
 export function commanderExitCode(err: CommanderErrorLike): number {
   const exitCode = Number((err as {exitCode?: unknown}).exitCode)
+
   return Number.isFinite(exitCode) ? exitCode : 1
 }
 
 function firstQuoted(message: string, pattern: RegExp): string | undefined {
   const match = pattern.exec(message)
+
   return match?.[1]
 }
 
@@ -76,32 +78,40 @@ function refsFromMessage(
 ): EnvelopeErrorRefs | undefined {
   if (code === 'commander.unknownOption') {
     const flag = firstQuoted(message, /'(-[^']*)'/)
+
     return flag ? {flag} : undefined
   }
+
   if (code === 'commander.unknownCommand') {
     const command = firstQuoted(message, /'([^']+)'/)
+
     return command ? {command} : undefined
   }
+
   if (
     code === 'commander.invalidArgument' ||
     code === 'commander.optionMissingArgument'
   ) {
     const option = firstQuoted(message, /option '([^']+)'/)
     const flag = option?.split(/\s+/)[0]
+
     return flag?.startsWith('-') ? {flag} : undefined
   }
+
   return undefined
 }
 
 function codeForCommanderError(code: string): ErrorCode {
   if (code === 'commander.unknownCommand') return CODES.E_UNKNOWN_COMMAND
   if (code === 'commander.unknownOption') return CODES.E_FLAG_NOT_SUPPORTED_HERE
+
   if (
     code === 'commander.invalidArgument' ||
     code === 'commander.optionMissingArgument'
   ) {
     return CODES.E_FLAG_VALUE_INVALID
   }
+
   return CODES.E_ARGS
 }
 
@@ -129,6 +139,7 @@ const SUGGESTION_PATTERN = /\(Did you mean (one of )?(.+)\?\)/
 function sentenceCase(input: string): string {
   const trimmed = input.trim()
   const capitalized = trimmed.charAt(0).toUpperCase() + trimmed.slice(1)
+
   return /[.!?]$/.test(capitalized) ? capitalized : `${capitalized}.`
 }
 
@@ -146,6 +157,7 @@ export function commanderHumanError(
 
   let label: string | undefined
   let noun: 'options' | 'commands' = 'options'
+
   if (commanderCode === 'commander.unknownOption' && refs?.flag) {
     label = `Unknown option ${refs.flag}.`
   } else if (commanderCode === 'commander.unknownCommand' && refs?.command) {
@@ -157,6 +169,7 @@ export function commanderHumanError(
   ) {
     label = `Missing value for ${refs.flag}.`
   }
+
   if (!label) label = sentenceCase(message.split('\n')[0])
 
   const helpTarget =
@@ -190,6 +203,7 @@ export function earlyExitEnvelope(
 ): ReturnType<typeof ENVELOPE.fail> {
   const error: EnvelopeError = {code, message, name: 'CliError'}
   if (refs) error.refs = refs
+
   return ENVELOPE.fail(command, 'usage', error)
 }
 

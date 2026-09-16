@@ -22,7 +22,9 @@ export function entryNotFoundMessageOnly(
 ) {
   const lines = [`Can't find the file listed in ${manifestField}.`]
   if (absPath) lines.push(`NOT FOUND ${absPath}`)
+
   lines.push(`Update the ${manifestField} field in your manifest.json file.`)
+
   return lines.join('\n')
 }
 
@@ -69,6 +71,7 @@ export function missingManifestMessageKey(key: string, defaultLocale?: string) {
   const localePath = defaultLocale
     ? `_locales/${defaultLocale}/messages.json`
     : '_locales/<default>/messages.json'
+
   return (
     `The manifest references __MSG_${key}__, but the key "${key}" isn't defined.\n` +
     `NOT FOUND ${key}\n` +
@@ -83,6 +86,7 @@ export function localesIncludeSummary(
   defaultLocale?: string
 ) {
   const dl = defaultLocale || 'none'
+
   return (
     `${prefix('debug')} locales  include manifest=${String(hasManifest)} ` +
     `root=${String(hasLocalesRoot)} default_locale=${dl}`

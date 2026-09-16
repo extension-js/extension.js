@@ -3,6 +3,7 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 vi.mock('fs', async () => {
   const actual = await vi.importActual<any>('fs')
+
   return {
     ...actual,
     existsSync: vi.fn(() => true),
@@ -23,19 +24,23 @@ const stripCtor = vi.hoisted(() =>
 vi.mock('../steps/setup-reload-strategy', () => ({
   SetupReloadStrategy: setupReloadStrategyCtor
 }))
+
 vi.mock('../steps/strip-content-script-dev-server-runtime', () => ({
   StripContentScriptDevServerRuntime: stripCtor
 }))
+
 vi.mock('../steps/inject-scripts-replay-shim', () => ({
   InjectScriptsReplayShim: vi.fn(function (this: any) {
     this.apply = () => {}
   })
 }))
+
 vi.mock('../steps/inject-bridge-producer', () => ({
   InjectBridgeProducer: vi.fn(function (this: any) {
     this.apply = () => {}
   })
 }))
+
 vi.mock('../steps/inject-bridge-relay', () => ({
   InjectBridgeRelay: vi.fn(function (this: any) {
     this.apply = () => {}
@@ -71,6 +76,7 @@ describe('ReloadPlugin dev-only gating', () => {
       manifestPath: fixtureManifest,
       browser: 'chromium'
     } as any).apply(makeCompiler('development'))
+
     expect(setupReloadStrategyCtor).toHaveBeenCalledTimes(1)
     expect(stripCtor).toHaveBeenCalledTimes(1)
   })
@@ -80,6 +86,7 @@ describe('ReloadPlugin dev-only gating', () => {
       manifestPath: fixtureManifest,
       browser: 'chromium'
     } as any).apply(makeCompiler('production'))
+
     expect(setupReloadStrategyCtor).not.toHaveBeenCalled()
     expect(stripCtor).not.toHaveBeenCalled()
   })
@@ -90,6 +97,7 @@ describe('ReloadPlugin dev-only gating', () => {
       manifestPath: fixtureManifest,
       browser: 'chromium'
     } as any).apply(makeCompiler('development'))
+
     expect(setupReloadStrategyCtor).not.toHaveBeenCalled()
     expect(stripCtor).not.toHaveBeenCalled()
   })

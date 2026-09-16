@@ -9,6 +9,7 @@ const ensureLoaded = vi.fn(async () => {
 })
 const openNewTab = vi.fn(async () => {
   calls.push('openNewTab')
+
   return true
 })
 const getAddonInstallRefusalReason = vi.fn(() => null)
@@ -50,6 +51,7 @@ describe('firefox new-tab courtesy after launch', () => {
       manifest_version: 3,
       chrome_url_overrides: {newtab: 'newtab.html'}
     })
+
     await setupRdpAfterLaunch({browser: 'firefox'} as any, compilation(), 9222)
     expect(calls).toEqual(['ensureLoaded', 'openNewTab'])
   })
@@ -59,6 +61,7 @@ describe('firefox new-tab courtesy after launch', () => {
       manifest_version: 3,
       'firefox:chrome_url_overrides': {newtab: 'newtab.html'}
     })
+
     await setupRdpAfterLaunch({browser: 'firefox'} as any, compilation(), 9222)
     expect(openNewTab).toHaveBeenCalledTimes(1)
   })
@@ -68,11 +71,13 @@ describe('firefox new-tab courtesy after launch', () => {
       manifest_version: 3,
       chrome_url_overrides: {newtab: 'newtab.html'}
     })
+
     await setupRdpAfterLaunch(
       {browser: 'firefox', startingUrl: 'https://example.com/'} as any,
       compilation(),
       9222
     )
+
     expect(openNewTab).not.toHaveBeenCalled()
   })
 
@@ -81,11 +86,13 @@ describe('firefox new-tab courtesy after launch', () => {
       manifest_version: 3,
       chrome_url_overrides: {newtab: 'newtab.html'}
     })
+
     await setupRdpAfterLaunch(
       {browser: 'firefox', noOpen: true} as any,
       compilation(),
       9222
     )
+
     expect(openNewTab).not.toHaveBeenCalled()
   })
 
@@ -100,6 +107,7 @@ describe('firefox new-tab courtesy after launch', () => {
       manifest_version: 3,
       chrome_url_overrides: {newtab: 'newtab.html'}
     })
+
     openNewTab.mockRejectedValueOnce(new Error('rdp gone'))
     const controller = await setupRdpAfterLaunch(
       {browser: 'firefox'} as any,

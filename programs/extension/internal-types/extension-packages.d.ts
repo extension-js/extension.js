@@ -1,6 +1,3 @@
-// Internal CLI type shims to avoid build-time workspace dependency on compiled
-// extension-create/extension-develop types. These are not published.
-
 declare module 'extension-create' {
   // Renamed templates keep answering to their old names. Declared here only;
   // the table itself lives in extension-create, so there is one list and this

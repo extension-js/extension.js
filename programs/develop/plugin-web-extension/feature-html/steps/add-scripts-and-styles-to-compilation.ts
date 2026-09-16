@@ -76,12 +76,14 @@ export class AddScriptsAndStylesToCompilation {
             const inlineRe =
               /<script\b(?![^>]*\bsrc\s*=)[^>]*>([\s\S]*?)<\/script>/gi
             let match: RegExpExecArray | null
+
             while ((match = inlineRe.exec(html))) {
               if (match[1]?.trim()) return true
             }
           } catch {
             // Ignore
           }
+
           return false
         })()
         const concatenateClassic =

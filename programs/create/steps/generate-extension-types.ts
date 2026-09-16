@@ -28,6 +28,7 @@ export async function generateExtensionTypes(
     await fs.writeFile(extensionEnvFile, fileContent)
   } catch (error) {
     logger.error(messages.writingTypeDefinitionsError(error))
+
     throw error
   }
 }

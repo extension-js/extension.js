@@ -22,6 +22,7 @@ function project(selector: Selector) {
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'split-chunks', version: '0.0.0'})
   )
+
   fs.writeFileSync(
     path.join(root, 'manifest.json'),
     JSON.stringify({
@@ -33,24 +34,29 @@ function project(selector: Selector) {
       background: {service_worker: 'background.js'}
     })
   )
+
   fs.writeFileSync(
     path.join(root, 'shared.js'),
     'export function greet(name) {\n  globalThis.__greet = "SHARED_MARK_5e2c"\n  return "hello " + name\n}\n'
   )
+
   for (const page of ['popup', 'options']) {
     fs.writeFileSync(
       path.join(root, `${page}.html`),
       `<html><body><div id="root"></div><script src="./${page}.js"></script></body></html>\n`
     )
+
     fs.writeFileSync(
       path.join(root, `${page}.js`),
       `import {greet} from './shared.js'\ndocument.getElementById('root').textContent = greet('${page}')\n`
     )
   }
+
   fs.writeFileSync(
     path.join(root, 'background.js'),
     "import {greet} from './shared.js'\nconsole.log(greet('background'))\n"
   )
+
   const chunks = selector === 'every-chunk' ? '() => true' : `'${selector}'`
   fs.writeFileSync(
     path.join(root, 'extension.config.js'),
@@ -70,6 +76,7 @@ function project(selector: Selector) {
       ''
     ].join('\n')
   )
+
   return root
 }
 
@@ -77,6 +84,7 @@ async function build(root: string) {
   const {extensionBuild} = await import('../command-build')
   const previous = process.env.VITEST
   process.env.VITEST = 'true'
+
   try {
     return await extensionBuild(root, {
       browser: 'chrome',
@@ -113,6 +121,7 @@ describe('build with a user chunks selector on the default cache groups', () => 
     expect(
       fs.readFileSync(path.join(distDir, 'shared', 'commons.js'), 'utf8')
     ).toContain('SHARED_MARK_5e2c')
+
     for (const page of ['action', 'options']) {
       const html = fs.readFileSync(
         path.join(distDir, page, 'index.html'),
@@ -122,10 +131,12 @@ describe('build with a user chunks selector on the default cache groups', () => 
         '/shared/commons.js',
         `/${page}/index.js`
       ])
+
       expect(
         fs.readFileSync(path.join(distDir, page, 'index.js'), 'utf8')
       ).not.toContain('SHARED_MARK_5e2c')
     }
+
     // The guard kept the background out of the cache group.
     expect(
       fs.readFileSync(
@@ -143,6 +154,7 @@ describe('build with a user chunks selector on the default cache groups', () => 
 
     const distDir = path.join(root, 'dist', 'chrome')
     expect(fs.existsSync(path.join(distDir, 'shared'))).toBe(false)
+
     for (const page of ['action', 'options']) {
       const html = fs.readFileSync(
         path.join(distDir, page, 'index.html'),
@@ -164,11 +176,13 @@ describe('build with a user chunks selector on the default cache groups', () => 
     expect(warnings[0]).toContain(
       'background/service_worker is split into 2 initial files, but the background registration loads only background/service_worker.js'
     )
+
     expect(warnings[0]).toContain('NOT LOADED shared/commons.js')
     expect(warnings[0]).toContain('the background script never starts')
     expect(warnings[0]).toContain(
       'https://extension.js.org/docs/features/rspack-configuration#share-a-module-between-entries'
     )
+
     for (const page of ['action', 'options']) {
       const html = fs.readFileSync(
         path.join(distDir, page, 'index.html'),

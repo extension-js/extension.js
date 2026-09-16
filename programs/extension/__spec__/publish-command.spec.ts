@@ -84,11 +84,13 @@ describe('extension publish', () => {
       path.join(dir, 'auth.json'),
       JSON.stringify({version: 1, token: 'tok_stored'})
     )
+
     respondWith(200, JSON.stringify({shareUrl: 'https://ext.dev/s/abc'}))
     expect(await run(['publish'])).toBe(0)
     expect(fetchMock.mock.calls[0][0]).toBe(
       'https://platform.test/api/cli/publish'
     )
+
     const init = fetchMock.mock.calls[0][1] as RequestInit
     expect((init.headers as Record<string, string>).authorization).toBe(
       'Bearer tok_stored'
@@ -138,6 +140,7 @@ describe('extension publish', () => {
       status: 'denied',
       value: null
     })
+
     expect(frame.error.code).toBe('E_AUTH_REQUIRED')
     expect(errorSpy).not.toHaveBeenCalled()
   })

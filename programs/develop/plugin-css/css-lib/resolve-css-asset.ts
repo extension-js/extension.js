@@ -15,14 +15,6 @@ export interface CssAssetResult {
   href: string | undefined
 }
 
-/**
- * Resolves the CSS asset emitted for a given entry feature.
- *
- * First tries the canonical name (`<feature>.css`).  If that misses,
- * which can happen when rspack's native CSS (`experiments.css`) splits
- * the stylesheet into a chunk whose name differs from the entry, it
- * falls back to inspecting the entrypoint's actual chunk files.
- */
 export function resolveCssAsset(
   compilation: Compilation,
   feature: string
@@ -32,6 +24,7 @@ export function resolveCssAsset(
   }
 
   const entrypoint = compilation.entrypoints?.get(feature)
+
   if (entrypoint) {
     for (const chunk of entrypoint.chunks) {
       for (const file of chunk.files) {

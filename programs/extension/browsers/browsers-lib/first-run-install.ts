@@ -15,6 +15,7 @@ export type InstallableTarget = 'chrome' | 'chromium' | 'edge' | 'firefox'
 
 function isCI(): boolean {
   const v = process.env
+
   return Boolean(
     v.CI ||
       v.GITHUB_ACTIONS ||
@@ -31,6 +32,7 @@ export function canPromptForInstall(): boolean {
   if (process.env.VITEST || process.env.VITEST_WORKER_ID) return false
   if (process.env.EXTENSION_NO_INSTALL_PROMPT) return false
   if (isCI()) return false
+
   return Boolean(process.stdin.isTTY && process.stdout.isTTY)
 }
 
@@ -49,6 +51,7 @@ export function askToInstall(question: string): Promise<boolean> {
       } catch {
         // Ignore
       }
+
       resolve(answer)
     }
 
@@ -74,17 +77,21 @@ export async function offerManagedInstall(
   humanLine(messages.firstRunInstallOffer(target))
   recordBrowserInstall('offered', target)
   const accepted = await askToInstall(messages.firstRunInstallQuestion(target))
+
   if (!accepted) {
     recordBrowserInstall('declined', target)
     humanLine(messages.firstRunInstallDeclined(target))
+
     return false
   }
 
   const startedAt = Date.now()
+
   try {
     const {extensionInstall} = await import('extension-install')
     await extensionInstall({browser: target})
     recordBrowserInstall('accepted', target, (Date.now() - startedAt) / 1000)
+
     return true
   } catch (error) {
     recordBrowserInstall('failed', target, (Date.now() - startedAt) / 1000)
@@ -94,6 +101,7 @@ export async function offerManagedInstall(
         error instanceof Error ? error.message : String(error)
       )
     )
+
     return false
   }
 }

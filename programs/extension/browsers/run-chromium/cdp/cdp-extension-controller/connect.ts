@@ -13,6 +13,7 @@ import {checkChromeRemoteDebugging} from '../discovery'
 
 function isRecoverableBootstrapError(error: unknown): boolean {
   const msg = String((error as Error)?.message || error || '').toLowerCase()
+
   return (
     msg.includes('econnreset') ||
     msg.includes('websocket is not open') ||
@@ -47,6 +48,7 @@ export async function connectToChromeCdpViaPipe(
     return cdp
   } catch (error: unknown) {
     cdp.disconnect()
+
     throw error
   }
 }

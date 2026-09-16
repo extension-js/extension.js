@@ -30,6 +30,7 @@ interface CaptureEvent {
 function cliBin(): string {
   const cjs = join(cliRoot, 'dist', 'cli.cjs')
   if (existsSync(cjs)) return cjs
+
   return join(cliRoot, 'dist', 'cli.js')
 }
 
@@ -40,6 +41,7 @@ function createFixture(): string {
     join(projectDir, 'package.json'),
     JSON.stringify({name: 'session-telemetry', private: true, version: '1.0.0'})
   )
+
   writeFileSync(
     join(projectDir, 'manifest.json'),
     JSON.stringify({
@@ -49,10 +51,12 @@ function createFixture(): string {
       content_scripts: [{matches: ['<all_urls>'], js: ['content/scripts.js']}]
     })
   )
+
   writeFileSync(
     join(projectDir, 'content', 'scripts.js'),
     "console.log('session telemetry fixture')\n"
   )
+
   return projectDir
 }
 
@@ -74,10 +78,12 @@ function startCaptureServer(): Promise<{
           // Ignore
         }
       }
+
       res.writeHead(200, {'content-type': 'application/json'})
       res.end('{"status":1}')
     })
   })
+
   return new Promise((done) => {
     server.listen(0, '127.0.0.1', () => {
       const address = server.address()
@@ -100,14 +106,18 @@ function waitFor(
   label: string
 ): Promise<void> {
   const started = Date.now()
+
   return new Promise((done, fail) => {
     const tick = () => {
       if (predicate()) return done()
+
       if (Date.now() - started > timeoutMs) {
         return fail(new Error(`timed out waiting for ${label}`))
       }
+
       setTimeout(tick, 100)
     }
+
     tick()
   })
 }
@@ -174,6 +184,7 @@ describe('a dev session reports itself while it is still running', () => {
       15_000,
       'the dev session event'
     )
+
     expect(closed).toBe(false)
 
     const started = server.events.filter(

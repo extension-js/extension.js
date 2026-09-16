@@ -19,16 +19,6 @@ import {PersistManifestToDisk} from './steps/persist-manifest'
 import {UpdateManifest} from './steps/update-manifest'
 import {ValidateThemeValues} from './steps/validate-theme-values'
 
-/**
- * ManifestPlugin is responsible for handling the manifest.json file.
- * It ensures that the files defined in the manifest have valid paths,
- * throwing errors if they don't. It also ensures the manifest is emitted
- * to the assets bundle, so other plugins can modify it, and stored
- * as file dependency so webpack can watch and trigger changes.
- *
- * The plugin also has a guard against recompiling entrypoints
- * at runtime, throwing an error if any of those files change.
- */
 export class ManifestPlugin {
   public readonly manifestPath: string
   public readonly browser: DevOptions['browser']

@@ -117,11 +117,9 @@ export interface ChromiumLogger {
   color?: boolean
 }
 
-// ─────────────────────────────────────────────────────────────────────────
 // CDP wire-boundary shapes, recovered from how run-chromium READS each value;
 // all optional because the runtime code guards each access.
 
-/** CDP `Target.TargetInfo`, the fields read off `Target.getTargets` results. */
 export interface CdpTargetInfo {
   type?: string
   targetId?: string
@@ -140,13 +138,11 @@ export interface CdpExecutionContextDescription {
   }
 }
 
-/** A CDP `Runtime.RemoteObject` as seen in console-call args. */
 export interface CdpRemoteObject {
   value?: unknown
   description?: string
 }
 
-/** A CDP `Log.LogEntry` as delivered by `Log.entryAdded`. */
 export interface CdpLogEntry {
   source?: string
   level?: string
@@ -157,7 +153,6 @@ export interface CdpLogEntry {
   timestamp?: number
 }
 
-/** A CDP `Runtime.StackTrace`, only the top call frame fields are read. */
 export interface CdpStackTrace {
   callFrames?: Array<{
     url?: string
@@ -166,7 +161,6 @@ export interface CdpStackTrace {
   }>
 }
 
-/** The `params` bag carried on a raw CDP protocol message. */
 export interface CdpProtocolParams {
   targetInfo?: CdpTargetInfo
   context?: CdpExecutionContextDescription
@@ -187,7 +181,6 @@ export interface CdpProtocolMessage {
   id?: number
 }
 
-/** A CDP `DOM.Node` subtree as returned by `DOM.getDocument` (fields walked). */
 export interface CdpDomNode {
   localName?: string
   nodeName?: string
@@ -198,19 +191,16 @@ export interface CdpDomNode {
   contentDocument?: CdpDomNode
 }
 
-/** A frame node read off a CDP `Page.getFrameTree` result. */
 export interface CdpFrameNode {
   id?: string
   url?: string
 }
 
-/** A CDP `Page.getFrameTree` result (only the frame id/url are read). */
 export interface CdpFrameTreeResult {
   frameTree?: {frame?: CdpFrameNode}
   frame?: CdpFrameNode
 }
 
-/** The console-count buckets keyed by normalized console level. */
 export type ConsoleCountKey = 'error' | 'warn' | 'info' | 'log' | 'debug'
 
 // A page-meta snapshot evaluated in the inspected page; a type alias (not an
@@ -221,7 +211,6 @@ export type PageMetaSnapshot = {
   frameCount?: number
 }
 
-/** One selector-probe sample collected from the inspected page. */
 export interface SelectorProbeSample {
   tag: string
   id?: string
@@ -232,7 +221,6 @@ export interface SelectorProbeSample {
   textSnippet?: string
 }
 
-/** A single selector-probe result (selector + match count + samples). */
 export interface SelectorProbeResult {
   selector: string
   count: number

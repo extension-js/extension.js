@@ -1,12 +1,5 @@
 #!/usr/bin/env node
-// Moves the accumulated `## Unreleased` body into a dated version section.
-//
-// This used to be an inline `node -e "..."` block inside publish-release.yml.
-// Because the script was wrapped in double quotes, the shell expanded the
-// `${version}` and `${date}` template placeholders to empty strings before node
-// ever saw them, so the version heading could never be written. Every 4.0.x
-// release therefore dropped its own notes. Keeping the logic in a real file
-// removes the interpolation hazard and makes it testable.
+
 import fs from 'node:fs'
 import {pathToFileURL} from 'node:url'
 
@@ -20,8 +13,10 @@ export function moveChangelog(text, version, date, releaseNotes) {
   const withHeader = text.includes(HEADER) ? text : `${HEADER}\n\n${text}`
 
   const start = withHeader.indexOf(HEADER)
-  if (start === -1)
+
+  if (start === -1) {
     throw new Error('CHANGELOG.md missing ## Unreleased section')
+  }
 
   const afterHeader = start + HEADER.length
   let nextHeader = withHeader.indexOf('\n## ', afterHeader)
@@ -44,6 +39,7 @@ export function moveChangelog(text, version, date, releaseNotes) {
   if (!updated.includes(`## ${version} (`)) {
     throw new Error(`move-changelog: failed to write heading for ${version}`)
   }
+
   return updated
 }
 

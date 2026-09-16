@@ -60,19 +60,24 @@ const runFallbackTests = async (target) => {
       'test'
     ])
     if (cliCode !== 0) return cliCode
+
     return runCommand('pnpm', ['-C', 'programs/install', 'test'])
   }
+
   if (target === 'install') {
     return runCommand('pnpm', ['-C', 'programs/install', 'test'])
   }
+
   if (target === 'create') {
     return runCommand('pnpm', ['-C', 'programs/create', 'test'])
   }
+
   if (target === 'develop' || target === 'build' || target === 'dev') {
     return runCommand('pnpm', ['-C', 'programs/develop', 'test'])
   }
 
   const cliCode = await runCommand('pnpm', ['-C', 'programs/extension', 'test'])
+
   if (cliCode !== 0) {
     return cliCode
   }
@@ -82,11 +87,13 @@ const runFallbackTests = async (target) => {
     'programs/install',
     'test'
   ])
+
   if (installCode !== 0) {
     return installCode
   }
 
   const createCode = await runCommand('pnpm', ['-C', 'programs/create', 'test'])
+
   if (createCode !== 0) {
     return createCode
   }
@@ -101,6 +108,7 @@ const run = async () => {
   // Only a runner that never started earns the fallback: a turbo run that
   // reported failing tests used to re-run the whole suite and print it twice.
   let primaryCode
+
   try {
     primaryCode = await runCommand('dotenv', [
       '--',

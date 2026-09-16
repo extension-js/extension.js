@@ -75,11 +75,13 @@ function forceKillAllOnExit(): void {
 
 function firstBrowserLabel(): FirefoxBrowserKind {
   for (const instance of activeInstances) return instance.browser
+
   return 'firefox'
 }
 
 function installGlobalHandlersOnce(): void {
   if (globalHandlersInstalled) return
+
   globalHandlersInstalled = true
 
   process.on('exit', forceKillAllOnExit)
@@ -96,24 +98,28 @@ function installGlobalHandlersOnce(): void {
       // (auto-exit, Ctrl+C). Ignoring keeps a graceful shutdown clean.
       return
     }
+
     humanError(
       messages.enhancedProcessManagementUncaughtException(
         firstBrowserLabel(),
         error
       )
     )
+
     await Promise.all([...activeInstances].map((i) => attemptCleanup(i)))
     process.exit(1)
   })
 
   process.on('unhandledRejection', async (reason) => {
     if (isBenignSocketTeardown(reason)) return
+
     humanError(
       messages.enhancedProcessManagementUnhandledRejection(
         firstBrowserLabel(),
         reason
       )
     )
+
     await Promise.all([...activeInstances].map((i) => attemptCleanup(i)))
     process.exit(1)
   })

@@ -6,8 +6,6 @@
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-// Build minimal fixture extensions, one per candidate refusal shape.
-// Every fixture is MV3 + valid baseline EXCEPT the single field under test.
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {fileURLToPath} from 'node:url'
@@ -29,7 +27,7 @@ const base = (name) => ({
 
 /** @type {Array<{id: string, expect: 'refuse'|'load', manifest: object, files?: Record<string, string|Buffer>}>} */
 const fixtures = [
-  // ---- candidates: expect REFUSE ----
+  // candidates: expect REFUSE
   {
     id: '01-name-missing',
     expect: 'refuse',
@@ -165,7 +163,7 @@ const fixtures = [
     }
   },
 
-  // ---- negative controls: expect LOAD ----
+  // negative controls: expect LOAD
   {
     id: '90-ctl-unknown-permission',
     expect: 'load',
@@ -191,12 +189,14 @@ for (const f of fixtures) {
     path.join(dir, 'manifest.json'),
     JSON.stringify(f.manifest, null, 2)
   )
+
   for (const [rel, content] of Object.entries(f.files || {})) {
     const abs = path.join(dir, rel)
     fs.mkdirSync(path.dirname(abs), {recursive: true})
     fs.writeFileSync(abs, content)
   }
 }
+
 fs.writeFileSync(
   path.join(root, 'index.json'),
   JSON.stringify(
@@ -205,4 +205,5 @@ fs.writeFileSync(
     2
   )
 )
+
 console.log(`built ${fixtures.length} fixtures in ${root}`)

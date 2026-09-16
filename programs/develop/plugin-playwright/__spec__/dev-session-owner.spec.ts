@@ -18,6 +18,7 @@ function writeReadyFixture(overrides: Record<string, unknown> = {}): string {
       ...overrides
     })
   )
+
   return readyPath
 }
 
@@ -96,6 +97,7 @@ describe('shouldWarnDevOverDev', () => {
         {instanceId: 'auto2', instanceExplicit: false}
       )
     ).toBe(true)
+
     expect(
       shouldWarnDevOverDev(
         {pid: 1, runId: 'r', instanceId: 'auto1', instanceExplicit: false},

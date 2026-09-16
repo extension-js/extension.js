@@ -21,6 +21,7 @@ vi.mock('ws', async () => {
 
     send(_data: string) {}
   }
+
   return {default: MockWebSocket}
 })
 

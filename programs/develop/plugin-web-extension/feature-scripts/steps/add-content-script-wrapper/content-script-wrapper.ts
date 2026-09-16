@@ -57,6 +57,7 @@ function escapeCodeString(str: string): string {
       '\u2028': '\\u2028',
       '\u2029': '\\u2029'
     }
+
     return map[ch] || ch
   })
 }
@@ -64,22 +65,27 @@ function escapeCodeString(str: string): string {
 function getSourceSignature(source: unknown): string {
   const head = String(source || '').slice(0, 64)
   const tail = String(source || '').slice(-64)
+
   return `${String(source || '').length}:${head}:${tail}`
 }
 
 function createBuildToken(source: string): string {
   let hash = 0
+
   for (let index = 0; index < source.length; index++) {
     hash = (hash * 31 + source.charCodeAt(index)) >>> 0
   }
+
   return hash.toString(16)
 }
 
 function detectNodeJsShapedScript(source: unknown): string[] {
   const indicators: string[] = []
+
   if (typeof source === 'string' && source.startsWith('#!')) {
     indicators.push('shebang on line 1 (#!/usr/bin/env node ...)')
   }
+
   if (
     typeof source === 'string' &&
     /(?:^|\n)\s*(?:import[^\n;]*?from\s*|import\s*\(\s*|require\s*\(\s*)["']node:[\w/-]+["']/m.test(
@@ -88,6 +94,7 @@ function detectNodeJsShapedScript(source: unknown): string[] {
   ) {
     indicators.push("import from the 'node:' protocol")
   }
+
   return indicators
 }
 
@@ -101,8 +108,10 @@ function collectStyleAssetSpecifiers(source: string): string[] {
 
   for (const pattern of patterns) {
     let match = pattern.exec(source)
+
     while (match) {
       const specifier = String(match[1] || '').trim()
+
       if (
         specifier &&
         SAFE_SPECIFIER.test(specifier) &&
@@ -114,6 +123,7 @@ function collectStyleAssetSpecifiers(source: string): string[] {
       ) {
         styleSpecifiers.add(specifier)
       }
+
       match = pattern.exec(source)
     }
   }
@@ -129,9 +139,11 @@ function hasDefaultExport(
   const compilation = compilationArg as
     | {__extjsHasDefaultExportCache?: Map<string, boolean>}
     | undefined
+
   try {
     const abs = path.normalize(resourcePath)
     const sig = getSourceSignature(source)
+
     if (compilation) {
       compilation.__extjsHasDefaultExportCache ??= new Map()
       const cacheKey = `${abs}|${sig}`
@@ -147,9 +159,11 @@ function hasDefaultExport(
     )
 
     compilation?.__extjsHasDefaultExportCache?.set(`${abs}|${sig}`, result)
+
     return result
   } catch {
     const fallback = source.includes('export default')
+
     try {
       compilation?.__extjsHasDefaultExportCache?.set(
         `${path.normalize(resourcePath)}|${getSourceSignature(source)}`,
@@ -158,6 +172,7 @@ function hasDefaultExport(
     } catch {
       // Ignore
     }
+
     return fallback
   }
 }
@@ -180,6 +195,7 @@ function readManifestCached(
       unknown
     >
   const cacheKey = `${manifestPath}::${browser}`
+
   try {
     const stat = fs.statSync(manifestPath)
     const key = `${stat.mtimeMs}:${stat.size}`
@@ -278,11 +294,13 @@ export default function contentScriptWrapper(
   // the runtime prepended and a cryptic swc error, so name the folder up front.
   if (isScriptsFolderScript && !declaredEntry) {
     const nodeIndicators = detectNodeJsShapedScript(rewrittenSource)
+
     if (nodeIndicators.length > 0) {
       const relFromProject = path
         .relative(packageJsonDir, resourceAbsPath)
         .split(path.sep)
         .join('/')
+
       throw new Error(
         messages.reservedScriptsFolder(relFromProject, nodeIndicators)
       )
@@ -292,11 +310,14 @@ export default function contentScriptWrapper(
   // A vendored pre-minified library in scripts/ must pass through untouched;
   // only heuristic-caught files skip, declared content_scripts stay wrapped.
   const isVendoredMinifiedScript = /\.min\.[cm]?js$/i.test(resourceAbsPath)
+
   if (isVendoredMinifiedScript && !declaredEntry) {
     if (inputSourceMap) {
       this.callback(null, rewrittenSource, inputSourceMap)
+
       return
     }
+
     return rewrittenSource
   }
 
@@ -305,8 +326,10 @@ export default function contentScriptWrapper(
   if (!isContentScriptLike) {
     if (inputSourceMap) {
       this.callback(null, rewrittenSource, inputSourceMap)
+
       return
     }
+
     return rewrittenSource
   }
 
@@ -943,6 +966,7 @@ export default function contentScriptWrapper(
         // Ignore
       }\n`
     const wrapped = `${prefix}${rewrittenSource}\n${suffix}`
+
     return returnWithMap(
       this,
       wrapped,
@@ -959,10 +983,12 @@ export default function contentScriptWrapper(
   )
 
   let defaultName: string | undefined
+
   {
     const matchFunction = rewrittenSource.match(
       /\bexport\s+default\s+function\s+([A-Za-z_$][\w$]*)\s*\(/
     )
+
     if (matchFunction) {
       defaultName = matchFunction[1]
     } else {
@@ -974,6 +1000,7 @@ export default function contentScriptWrapper(
   }
 
   let cleaned = replaced
+
   if (defaultName) {
     const callPattern = new RegExp(
       `(^|\\n|;)\\s*${defaultName}\\s*\\(\\s*\\)\\s*;?\\s*(?=\\n|$)`,
@@ -983,6 +1010,7 @@ export default function contentScriptWrapper(
       callPattern,
       (_match, prefix) => prefix || '\n'
     )
+
     if (next !== cleaned) {
       cleaned = next
       this.emitWarning?.(
@@ -1010,6 +1038,7 @@ export default function contentScriptWrapper(
     }\n` +
     `export default __EXTENSIONJS_default__\n`
   const wrappedResult = `${wrapPrefix}${cleaned}\n${wrapSuffix}`
+
   return returnWithMap(
     this,
     wrappedResult,

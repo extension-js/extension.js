@@ -6,12 +6,6 @@
 //  ╚══╝╚══╝ ╚══════╝╚═════╝       ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═╝ ╚═════╝╚══════╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-/**
- * From the docs at https://developer.chrome.com/docs/extensions/reference/manifest/web-accessible-resources#manifest_declaration
- * > Google Chrome emits an "Invalid match pattern" error if the pattern has a path other than '/*'.
- *
- * We need to ensure that paths are cleaned up from the matches to avoid this error.
- */
 export function cleanMatches(matches: string[]) {
   return matches.map((match) => {
     try {

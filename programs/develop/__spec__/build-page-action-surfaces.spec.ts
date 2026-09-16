@@ -24,6 +24,7 @@ function project(manifest: Record<string, unknown>) {
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'surfaces', version: '0.0.0'})
   )
+
   fs.mkdirSync(path.join(root, 'pages'))
   fs.mkdirSync(path.join(root, 'images'))
   fs.writeFileSync(path.join(root, 'images', 'address.png'), PNG)
@@ -31,18 +32,22 @@ function project(manifest: Record<string, unknown>) {
     path.join(root, 'pages', 'toolbar.html'),
     '<!doctype html><title>TOOLBAR</title><p>toolbar</p>'
   )
+
   fs.writeFileSync(
     path.join(root, 'pages', 'address.html'),
     '<!doctype html><title>ADDRESS</title><script src="./address.js"></script><img src="../images/address.png">'
   )
+
   fs.writeFileSync(
     path.join(root, 'pages', 'address.js'),
     'console.log("address")\n'
   )
+
   fs.writeFileSync(
     path.join(root, 'manifest.json'),
     JSON.stringify({name: 'Surfaces', version: '1.0.0', ...manifest})
   )
+
   return root
 }
 
@@ -56,6 +61,7 @@ async function build(root: string, browser: 'firefox' | 'chrome') {
   console.warn = (...args: unknown[]) => warnings.push(args.join(' '))
   console.log = (...args: unknown[]) => warnings.push(args.join(' '))
   let summary: {errors_count: number}
+
   try {
     summary = await extensionBuild(root, {
       browser,
@@ -70,12 +76,14 @@ async function build(root: string, browser: 'firefox' | 'chrome') {
     if (previous === undefined) delete process.env.VITEST
     else process.env.VITEST = previous
   }
+
   expect(summary.errors_count).toBe(0)
   const distDir = path.join(root, 'dist', browser)
   const manifest = JSON.parse(
     fs.readFileSync(path.join(distDir, 'manifest.json'), 'utf8')
   )
   const page = (rel: string) => fs.readFileSync(path.join(distDir, rel), 'utf8')
+
   return {distDir, manifest, page, output: warnings.join('\n')}
 }
 
@@ -95,6 +103,7 @@ describe('Firefox popups', () => {
     expect(page('action/index.html')).not.toContain('ADDRESS')
     const address = page('page_action/index.html')
     expect(address).toContain('ADDRESS')
+
     // The address page compiles like any other page: script entry + asset.
     for (const ref of address.matchAll(/(?:src|href)="([^"]+)"/g)) {
       const target = ref[1].replace(/^\//, '')
@@ -103,6 +112,7 @@ describe('Firefox popups', () => {
         `${ref[1]} missing`
       ).toBe(true)
     }
+
     expect(fs.existsSync(path.join(distDir, 'page_action', 'index.js'))).toBe(
       true
     )

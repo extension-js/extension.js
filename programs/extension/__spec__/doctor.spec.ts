@@ -34,12 +34,14 @@ class StubController {
 
   async connect() {
     if (StubController.connectError) throw StubController.connectError
+
     return StubController.readyFrame
   }
   async command() {
     if (StubController.probeResult instanceof Error) {
       throw StubController.probeResult
     }
+
     return StubController.probeResult
   }
   close() {}
@@ -84,6 +86,7 @@ describe('extension doctor', () => {
     const r = byCheck(results)
     expect(r['ready-contract'].status).toBe('fail')
     expect(r['ready-contract'].remediation).toContain('extension dev')
+
     for (const check of ALL_CHECKS.slice(1)) {
       expect(r[check].status).toBe('skip')
       expect(r[check].detail).toContain('ready-contract')
@@ -101,6 +104,7 @@ describe('extension doctor', () => {
         cdpPort: 9222
       })
     })
+
     const r = byCheck(await runDoctor('/proj', {}))
     expect(r['server-process'].status).toBe('fail')
     expect(r['server-process'].detail).toContain('stale')
@@ -132,6 +136,7 @@ describe('extension doctor', () => {
     StubController.connectError = new Error(
       'control channel refused the controller (code 4001: instanceId mismatch)'
     )
+
     let r = byCheck(await runDoctor('/proj', {}))
     expect(r['control-channel'].status).toBe('fail')
     expect(r['control-channel'].detail).toContain('instanceId')
@@ -141,6 +146,7 @@ describe('extension doctor', () => {
     StubController.connectError = new Error(
       'control channel refused the controller (code 4003: control channel not available)'
     )
+
     r = byCheck(await runDoctor('/proj', {}))
     expect(r['control-channel'].detail).toContain('control is off')
     expect(r['control-channel'].detail).not.toContain('not started with')
@@ -166,6 +172,7 @@ describe('extension doctor', () => {
       ok: false,
       error: {name: 'Error', message: 'storage area exploded'}
     }
+
     const r = byCheck(await runDoctor('/proj', {}))
     expect(r.executor.status).toBe('pass')
     expect(r.executor.detail).toContain('storage area exploded')
@@ -180,6 +187,7 @@ describe('extension doctor', () => {
           'no executor connected: no extension service worker has connected since this dev session started'
       }
     }
+
     const r = byCheck(await runDoctor('/proj', {}))
     expect(r.executor.status).toBe('fail')
     expect(r.executor.detail).toContain('no executor connected')
@@ -196,6 +204,7 @@ describe('extension doctor', () => {
         compiledAt: new Date().toISOString()
       })
     })
+
     StubController.probeResult = {
       ok: false,
       error: {
@@ -204,6 +213,7 @@ describe('extension doctor', () => {
           'no executor connected: no extension service worker has connected since this dev session started'
       }
     }
+
     const r = byCheck(await runDoctor('/proj', {}))
     expect(r.executor.status).toBe('warn')
     expect(
@@ -222,10 +232,12 @@ describe('extension doctor', () => {
         compiledAt: new Date(Date.now() - 60_000).toISOString()
       })
     })
+
     StubController.probeResult = {
       ok: false,
       error: {name: 'Unavailable', message: 'no executor connected'}
     }
+
     const r = byCheck(await runDoctor('/proj', {}))
     expect(r.executor.status).toBe('fail')
   })
@@ -243,10 +255,12 @@ describe('extension doctor', () => {
         executorAttachedAt: new Date().toISOString()
       })
     })
+
     StubController.probeResult = {
       ok: false,
       error: {name: 'Unavailable', message: 'no executor connected'}
     }
+
     const r = byCheck(await runDoctor('/proj', {}))
     expect(r.executor.status).toBe('fail')
   })
@@ -263,6 +277,7 @@ describe('extension doctor', () => {
         browserExitCode: 21
       })
     })
+
     const r = byCheck(await runDoctor('/proj', {}))
     expect(r.browser.status).toBe('fail')
     expect(r.browser.detail).toContain('code 21')
@@ -279,6 +294,7 @@ describe('extension doctor', () => {
         pid: process.pid
       })
     })
+
     const r = byCheck(await runDoctor('/proj', {}))
     expect(r.browser.status).toBe('skip')
     expect(r.browser.detail).toContain('unknown')
@@ -289,16 +305,19 @@ describe('extension doctor', () => {
 describe('extension doctor (browser resolution)', () => {
   function makeProject(browsers: string[]): string {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-doctor-'))
+
     for (const browser of browsers) {
       const dir = path.join(root, 'dist', 'extension-js', browser)
       fs.mkdirSync(dir, {recursive: true})
       fs.writeFileSync(path.join(dir, 'ready.json'), '{"status":"ready"}')
     }
+
     return root
   }
 
   it('prefers the single live session over the chromium default', () => {
     const root = makeProject(['chrome'])
+
     try {
       expect(resolveDoctorBrowser(root, undefined).browser).toBe('chrome')
     } finally {
@@ -308,6 +327,7 @@ describe('extension doctor (browser resolution)', () => {
 
   it('keeps chromium when no session contract exists', () => {
     const root = makeProject([])
+
     try {
       expect(resolveDoctorBrowser(root, undefined).browser).toBe('chromium')
     } finally {
@@ -317,6 +337,7 @@ describe('extension doctor (browser resolution)', () => {
 
   it('honors an explicit --browser without scanning contracts', () => {
     const root = makeProject(['chrome'])
+
     try {
       expect(resolveDoctorBrowser(root, 'firefox').browser).toBe('firefox')
     } finally {
@@ -330,6 +351,7 @@ describe('extension doctor (browser resolution)', () => {
     state.mod = healthyModule({
       readReadyContract: (_p: string, browser: string) => {
         asked = browser
+
         return {
           controlPort: 4001,
           instanceId: 'inst-1',
@@ -340,6 +362,7 @@ describe('extension doctor (browser resolution)', () => {
         }
       }
     })
+
     try {
       const results = await runDoctor(root, {})
       expect(asked).toBe('chrome')
@@ -351,6 +374,7 @@ describe('extension doctor (browser resolution)', () => {
 
   it('names every live session and the diagnosed pick when several exist', async () => {
     const root = makeProject(['chrome', 'firefox'])
+
     try {
       const r = byCheck(await runDoctor(root, {}))
       expect(r['session-resolution'].status).toBe('warn')
@@ -371,6 +395,7 @@ describe('extension doctor (command surface)', () => {
     const {registerDoctorCommand} = await import('../commands/doctor')
     stubProcessExit()
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
     try {
       const code = await runCli(makeProgram(registerDoctorCommand), [
         'doctor',
@@ -388,6 +413,7 @@ describe('extension doctor (command surface)', () => {
         error: null,
         warnings: []
       })
+
       expect(frame.value.every((r: any) => r.status === 'pass')).toBe(true)
     } finally {
       vi.restoreAllMocks()
@@ -402,6 +428,7 @@ describe('extension doctor (command surface)', () => {
     state.mod = healthyModule({readReadyContract: () => null})
     stubProcessExit()
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
     try {
       const code = await runCli(makeProgram(registerDoctorCommand), [
         'doctor',
@@ -435,6 +462,7 @@ describe('extension doctor (command surface)', () => {
     state.mod = healthyModule({readControlToken: () => null})
     stubProcessExit()
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
     try {
       const code = await runCli(makeProgram(registerDoctorCommand), [
         'doctor',
@@ -461,9 +489,11 @@ describe('extension doctor (command surface)', () => {
         throw new Error('contract unreadable')
       }
     })
+
     stubProcessExit()
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     vi.spyOn(console, 'error').mockImplementation(() => {})
+
     try {
       const code = await runCli(makeProgram(registerDoctorCommand), [
         'doctor',
@@ -480,6 +510,7 @@ describe('extension doctor (command surface)', () => {
         status: 'failed',
         value: null
       })
+
       expect(frame.error.code).toBe('E_INTERNAL')
       expect(frame.error.message).toContain('contract unreadable')
     } finally {
@@ -495,6 +526,7 @@ describe('extension doctor (command surface)', () => {
     state.mod = healthyModule({readReadyContract: () => null})
     stubProcessExit()
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
     try {
       const code = await runCli(makeProgram(registerDoctorCommand), [
         'doctor',
@@ -520,9 +552,11 @@ describe('extension doctor (command surface)', () => {
         throw new Error('contract unreadable')
       }
     })
+
     stubProcessExit()
     vi.spyOn(console, 'log').mockImplementation(() => {})
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
     try {
       const code = await runCli(makeProgram(registerDoctorCommand), [
         'doctor',

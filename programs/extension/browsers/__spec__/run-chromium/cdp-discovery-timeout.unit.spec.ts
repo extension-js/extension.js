@@ -7,6 +7,7 @@ describe('discoverWebSocketDebuggerUrl', () => {
 
   afterEach(async () => {
     if (!server) return
+
     await new Promise<void>((resolve) => server!.close(() => resolve()))
     server = null
   })
@@ -27,6 +28,7 @@ describe('discoverWebSocketDebuggerUrl', () => {
             }
           ])
         )
+
         return
       }
 
@@ -37,6 +39,7 @@ describe('discoverWebSocketDebuggerUrl', () => {
     await new Promise<void>((resolve) =>
       server!.listen(0, '127.0.0.1', () => resolve())
     )
+
     const address = server.address()
     const port =
       typeof address === 'object' && address?.port ? address.port : null

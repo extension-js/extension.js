@@ -24,14 +24,17 @@ export function iconsMissingFile(
       ? `Browsers reject the whole extension when this file is missing.\nThe build stops here.`
       : `Browsers can reject or misrender the extension when this file is missing.\nThe build continues.`
   )
+
   if (opts?.publicRootHint) {
     lines.push(
       `Paths starting with '/' are resolved from the extension output root (served from ${colors.blue('public/')}), not your source directory.`
     )
   }
+
   lines.push(
     `Update the icon path in your ${colors.blue('manifest.json')} to a file that ships with the extension.`
   )
+
   return lines.join('\n')
 }
 
@@ -44,19 +47,24 @@ export function themeImageMissingFile(
   lines.push(
     `Check the ${colors.yellow(manifestField)} field in your ${colors.yellow('manifest.json')} file.`
   )
+
   lines.push(
     `The theme image path must point to an existing file that will be packaged with the extension.`
   )
+
   lines.push(
     `Browsers reject the whole extension when this file is missing.\nThe build stops here to protect you.`
   )
+
   if (opts?.publicRootHint) {
     lines.push(
       `Paths starting with '/' are resolved from the extension output root (served from ${colors.yellow('public/')}), not your source directory.`
     )
   }
+
   lines.push('')
   lines.push(`${colors.red('NOT FOUND')} ${colors.underline(filePath)}`)
+
   return lines.join('\n')
 }
 
@@ -65,12 +73,15 @@ export function themeImageIsEmpty(manifestField: string, filePath: string) {
   lines.push(
     `Check the ${colors.yellow(manifestField)} field in your ${colors.yellow('manifest.json')} file.`
   )
+
   lines.push(`The theme image is empty (0 bytes).`)
   lines.push(
     `Chrome loads the extension but drops the entire theme, so no colors or images apply.`
   )
+
   lines.push('')
   lines.push(`${colors.red('EMPTY FILE')} ${colors.underline(filePath)}`)
+
   return lines.join('\n')
 }
 
@@ -82,13 +93,17 @@ export function manifestIconsEntrypointChange(
   const lines: string[] = []
   const fieldLabel = manifestField ? manifestField.replace(/\//g, '.') : 'icons'
   lines.push(`Entrypoint references changed in ${colors.blue(fieldLabel)}.`)
+
   if (pathBefore) {
     lines.push(`${colors.gray('EXPECTED')} ${colors.underline(pathBefore)}`)
   }
+
   if (pathAfter) {
     lines.push(`${colors.gray('GOT')} ${colors.underline(pathAfter)}`)
   }
+
   lines.push(`Restart the dev server to pick up changes to manifest icons.`)
+
   return lines.join('\n')
 }
 

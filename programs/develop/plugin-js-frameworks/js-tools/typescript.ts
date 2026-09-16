@@ -35,6 +35,7 @@ const MAX_SOURCE_SCAN_DEPTH = 4
 
 function hasTypeScriptSourceFiles(projectPath: string, depth = 0): boolean {
   if (depth > MAX_SOURCE_SCAN_DEPTH) return false
+
   try {
     const entries = fs.readdirSync(projectPath, {withFileTypes: true})
 
@@ -50,11 +51,15 @@ function hasTypeScriptSourceFiles(projectPath: string, depth = 0): boolean {
       }
 
       if (entry.isDirectory()) {
-        if (entry.name.startsWith('.') || NON_SOURCE_DIRS.has(entry.name))
+        if (entry.name.startsWith('.') || NON_SOURCE_DIRS.has(entry.name)) {
           return false
+        }
+
         const sub = path.join(projectPath, entry.name)
+
         return hasTypeScriptSourceFiles(sub, depth + 1)
       }
+
       return false
     })
   } catch {
@@ -72,6 +77,7 @@ function hasTypeScriptDependency(projectPath: string): boolean {
 export function isUsingTypeScript(projectPath: string): boolean {
   const tsConfigFilePath = getUserTypeScriptConfigFile(projectPath)
   if (!tsConfigFilePath) return false
+
   return (
     hasTypeScriptDependency(projectPath) ||
     hasTypeScriptSourceFiles(projectPath)
@@ -100,8 +106,10 @@ export function ensureTypeScriptConfig(projectPath: string): void {
       if (!hasShownUserMessage) {
         console.log(messages.creatingTSConfig())
       }
+
       writeTsConfig(projectPath)
     }
+
     hasShownUserMessage = true
   }
 }
@@ -139,6 +147,7 @@ export function getUserTypeScriptConfigFile(projectPath: string) {
 
   for (const dir of searchDirs) {
     if (!dir) continue
+
     const tsconfigPath = path.join(dir, 'tsconfig.json')
     if (fs.existsSync(tsconfigPath)) return tsconfigPath
   }

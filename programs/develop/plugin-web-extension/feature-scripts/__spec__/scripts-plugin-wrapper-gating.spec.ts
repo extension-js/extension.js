@@ -3,6 +3,7 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 vi.mock('fs', async () => {
   const actual = await vi.importActual<any>('fs')
+
   return {
     ...actual,
     existsSync: vi.fn(() => true),
@@ -18,16 +19,19 @@ const wrapperCtor = vi.hoisted(() =>
 vi.mock('../steps/add-content-script-wrapper', () => ({
   AddContentScriptWrapper: wrapperCtor
 }))
+
 vi.mock('../steps/add-scripts', () => ({
   AddScripts: vi.fn(function (this: any) {
     this.apply = () => {}
   })
 }))
+
 vi.mock('../steps/add-public-path-runtime-module', () => ({
   AddPublicPathRuntimeModule: vi.fn(function (this: any) {
     this.apply = () => {}
   })
 }))
+
 vi.mock('../steps/trace-runtime-loaded-files', () => ({
   TraceRuntimeLoadedFiles: vi.fn(function (this: any) {
     this.apply = () => {}
@@ -63,6 +67,7 @@ describe('ScriptsPlugin content-script wrapper gating', () => {
       manifestPath: fixtureManifest,
       browser: 'chromium'
     } as any).apply(makeCompiler('development'))
+
     expect(AddContentScriptWrapper).toHaveBeenCalledTimes(1)
   })
 
@@ -71,6 +76,7 @@ describe('ScriptsPlugin content-script wrapper gating', () => {
       manifestPath: fixtureManifest,
       browser: 'chromium'
     } as any).apply(makeCompiler('production'))
+
     expect(AddContentScriptWrapper).toHaveBeenCalledTimes(1)
   })
 
@@ -80,6 +86,7 @@ describe('ScriptsPlugin content-script wrapper gating', () => {
       manifestPath: fixtureManifest,
       browser: 'chromium'
     } as any).apply(makeCompiler('development'))
+
     expect(AddContentScriptWrapper).toHaveBeenCalledTimes(1)
   })
 })

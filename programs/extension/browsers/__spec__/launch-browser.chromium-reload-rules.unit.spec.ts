@@ -10,6 +10,7 @@ vi.mock('../run-chromium/chromium-launch', () => {
     async runOnce(_compilation: any, _options: any) {}
     apply(_compiler: any) {}
   }
+
   return {ChromiumLaunchPlugin}
 })
 

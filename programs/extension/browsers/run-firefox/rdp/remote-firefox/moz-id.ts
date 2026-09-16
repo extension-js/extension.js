@@ -24,6 +24,7 @@ export function pickMozExtensionHost(
     .filter((h): h is string => !!h)
 
   const unique = Array.from(new Set(hosts))
+
   return unique.length === 1 ? unique[0] : undefined
 }
 
@@ -32,6 +33,7 @@ export async function deriveMozExtensionId(
 ): Promise<string | undefined> {
   try {
     const targets = (await client.getTargets()) as Array<{url?: string}>
+
     return pickMozExtensionHost((targets || []).map((t) => t?.url))
   } catch {
     return undefined

@@ -64,14 +64,17 @@ function project(options: {
       version: '0.0.0'
     })
   )
+
   fs.writeFileSync(path.join(home, 'rules.json'), ruleset('src.example'))
   fs.writeFileSync(path.join(home, 'schema.json'), SCHEMA)
+
   if (options.shadowingRootPublic) {
     fs.mkdirSync(path.join(root, 'public'), {recursive: true})
     fs.writeFileSync(
       path.join(root, 'public', 'rules.json'),
       ruleset('root.example')
     )
+
     fs.writeFileSync(path.join(root, 'public', 'schema.json'), SCHEMA)
   }
 
@@ -83,6 +86,7 @@ function project(options: {
     permissions: ['storage'],
     storage: {managed_schema: 'schema.json'}
   }
+
   if (manifestVersion === 3) {
     manifest.permissions = ['declarativeNetRequest', 'storage']
     manifest.host_permissions = ['<all_urls>']
@@ -90,10 +94,12 @@ function project(options: {
       rule_resources: [{id: 'block', enabled: true, path: 'rules.json'}]
     }
   }
+
   fs.writeFileSync(
     path.join(manifestDir, 'manifest.json'),
     JSON.stringify(manifest, null, 2)
   )
+
   return root
 }
 
@@ -101,6 +107,7 @@ async function build(root: string, browser: Browser = 'chrome') {
   const {extensionBuild} = await import('../command-build')
   const previous = process.env.VITEST
   process.env.VITEST = 'true'
+
   try {
     return await extensionBuild(root, {
       browser,
@@ -120,6 +127,7 @@ function readDist(root: string, browser: Browser = 'chrome') {
   const manifest = JSON.parse(
     fs.readFileSync(path.join(distDir, 'manifest.json'), 'utf8')
   )
+
   return {distDir, manifest}
 }
 
@@ -127,11 +135,13 @@ function readDist(root: string, browser: Browser = 'chrome') {
 // slot the build chose for it.
 function expectNamedPathsExist(distDir: string, manifest: any) {
   const named: string[] = [manifest.storage.managed_schema]
+
   if (manifest.declarative_net_request) {
     for (const entry of manifest.declarative_net_request.rule_resources) {
       named.push(entry.path)
     }
   }
+
   for (const rel of named) {
     expect(rel, 'manifest names a relative path').not.toMatch(/^\//)
     expect(
@@ -144,19 +154,23 @@ function expectNamedPathsExist(distDir: string, manifest: any) {
 function expectShippedAtOutputRoot(root: string, browser: Browser = 'chrome') {
   const {distDir, manifest} = readDist(root, browser)
   expect(manifest.storage.managed_schema).toBe('schema.json')
+
   if (browser === 'chrome') {
     expect(manifest.declarative_net_request.rule_resources[0].path).toBe(
       'rules.json'
     )
   }
+
   expectNamedPathsExist(distDir, manifest)
   // The copier ships the file once, feature-json must not emit a second copy.
   expect(
     fs.existsSync(path.join(distDir, 'declarative_net_request', 'block.json'))
   ).toBe(false)
+
   expect(
     fs.existsSync(path.join(distDir, 'storage', 'managed_schema.json'))
   ).toBe(false)
+
   return {distDir, manifest}
 }
 
@@ -209,6 +223,7 @@ describe('build: plain-spelled manifest JSON resources that public/ owns', () =>
     expect(manifest.declarative_net_request.rule_resources[0].path).toBe(
       'declarative_net_request/block.json'
     )
+
     expect(manifest.storage.managed_schema).toBe('storage/managed_schema.json')
     expectNamedPathsExist(distDir, manifest)
     expect(fs.existsSync(path.join(distDir, 'rules.json'))).toBe(false)

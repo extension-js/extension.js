@@ -68,6 +68,7 @@ function runCli(cliArgs, {cwd, timeout = 30000} = {}) {
       } catch {
         // ignore
       }
+
       rejectPromise(
         new Error(
           `[extension ${cliArgs.join(' ')}] timed out after ${timeout}ms`
@@ -81,6 +82,7 @@ function runCli(cliArgs, {cwd, timeout = 30000} = {}) {
       clearTimeout(killer)
       rejectPromise(err)
     })
+
     child.on('close', (code) => {
       clearTimeout(killer)
       resolvePromise({code: code || 0, stdout, stderr})
@@ -113,6 +115,7 @@ function writeFixture(dir) {
     join(dir, 'package.json'),
     JSON.stringify({name: 'smoke-open-action', version: '1.0.0'}, null, 2)
   )
+
   writeFileSync(
     join(dir, 'background.js'),
     [
@@ -165,8 +168,9 @@ async function waitForReady(projectDir) {
           )
         }
       } catch (err) {
-        if (String(err.message || '').startsWith('dev reported error'))
+        if (String(err.message || '').startsWith('dev reported error')) {
           throw err
+        }
         // partial write, retry
       }
     }
@@ -182,6 +186,7 @@ async function waitForReady(projectDir) {
 // Poll a read-only bridge command until the executor (the SW) is connected.
 async function waitForExecutor(projectDir) {
   const start = Date.now()
+
   while (Date.now() - start < timeoutMs) {
     const res = await runCli(
       [
@@ -196,6 +201,7 @@ async function waitForExecutor(projectDir) {
       ],
       {cwd: repoRoot}
     ).catch(() => null)
+
     if (res) {
       try {
         if (parseJsonResult(res.stdout, 'executor probe').ok) return
@@ -203,8 +209,10 @@ async function waitForExecutor(projectDir) {
         // not JSON yet, keep polling
       }
     }
+
     await new Promise((r) => setTimeout(r, 500))
   }
+
   throw new Error(
     `bridge executor (service worker) never connected within ${timeoutMs}ms`
   )
@@ -217,6 +225,7 @@ function parseJsonResult(stdout, label) {
     .filter(Boolean)
     .reverse()
     .find((l) => l.startsWith('{'))
+
   if (!line) {
     throw new Error(`${label}: no JSON result in output:\n${stdout}`)
   }
@@ -240,6 +249,7 @@ async function main() {
   console.log(`Fixture: ${projectDir} (browser=${browser})`)
 
   const dev = startDev(projectDir)
+
   try {
     console.log('Booting dev and waiting for ready.json...')
 
@@ -318,6 +328,7 @@ async function main() {
       {cwd: repoRoot}
     )
     const cmdResult = parseJsonResult(triggerCmd.stdout, 'open command')
+
     if (
       !cmdResult.ok ||
       cmdResult.value?.triggered !== 'command' ||
@@ -328,6 +339,7 @@ async function main() {
         `open command did not fire onCommand. Got: ${JSON.stringify(cmdResult)}`
       )
     }
+
     console.log(
       `PASS: open command fired onCommand "${COMMAND_NAME}" (${cmdResult.value.listeners} listener(s))`
     )
@@ -349,11 +361,13 @@ async function main() {
       readCmd.stdout,
       'storage get (command)'
     )
+
     if (readCmdResult.value?.smokeCommand !== COMMAND_NAME) {
       throw new Error(
         `onCommand listener did not run, storage marker missing. Got: ${JSON.stringify(readCmdResult)}`
       )
     }
+
     console.log('PASS: onCommand listener executed (storage marker present)')
 
     console.log(
@@ -372,6 +386,7 @@ async function main() {
     } catch {
       // ignore
     }
+
     if (keepTemp) {
       console.log(`Temp preserved: ${root}`)
     } else {

@@ -7,9 +7,11 @@ describe('getDarkModeDefaults', () => {
       browserFlags: ['--force-dark-mode', '--enable-features=WebUIDarkMode'],
       preferences: {}
     })
+
     expect(getDarkModeDefaults('edge').browserFlags).toEqual(
       getDarkModeDefaults('chrome').browserFlags
     )
+
     expect(getDarkModeDefaults('chromium').browserFlags).toEqual(
       getDarkModeDefaults('chrome').browserFlags
     )

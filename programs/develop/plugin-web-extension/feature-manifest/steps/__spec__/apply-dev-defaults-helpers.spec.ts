@@ -63,6 +63,7 @@ describe('ApplyDevDefaults patch helpers', () => {
       const prev = process.env[HOST_ENV]
       if (host === undefined) delete process.env[HOST_ENV]
       else process.env[HOST_ENV] = host
+
       try {
         fn()
       } finally {
@@ -138,6 +139,7 @@ describe('ApplyDevDefaults patch helpers', () => {
         }
       } as any)
     ).toEqual({})
+
     expect(patchExternallyConnectable({} as any)).toEqual({})
   })
 

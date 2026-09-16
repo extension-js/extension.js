@@ -14,29 +14,36 @@ const runWaitMode = vi.fn(async () => ({
 vi.mock('../browsers', () => ({
   launchBrowser: vi.fn(async () => {})
 }))
+
 vi.mock('../helpers/extension-develop-runtime', () => ({
   loadExtensionDevelopModule: vi.fn(async () => ({
     extensionDev,
     loadCommandConfig
   }))
 }))
+
 vi.mock('../browsers/run-safari/safari-launch', () => ({
   packageSafariExtension: (...args: unknown[]) =>
     packageSafariExtension(...(args as [])),
   safariPreflightError: () => safariPreflightError()
 }))
+
 vi.mock('../browsers/run-safari/safari-launch/safari-config', () => ({
   isValidBundleId: (id: string) => id.includes('.') && !id.includes(' ')
 }))
+
 vi.mock('../helpers/parent-watchdog', () => ({
   parseParentPid: (value: unknown) => {
     const n = Number(value)
+
     return Number.isInteger(n) && n > 0 ? n : undefined
   },
   setupParentWatchdog: (pid: number) => setupParentWatchdog(pid)
 }))
+
 vi.mock('../commands/dev-wait', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../commands/dev-wait')>()
+
   return {...actual, runWaitMode: (input: unknown) => runWaitMode(input as any)}
 })
 
@@ -78,6 +85,7 @@ describe('extension dev', () => {
       browser: 'chromium',
       noBrowser: false
     })
+
     // Unset flags stay undefined so extension.config.js commands.dev values
     // and stock defaults apply inside extensionDev, not forced here.
     expect(devArgs.polyfill).toBeUndefined()
@@ -114,6 +122,7 @@ describe('extension dev', () => {
     expect(
       await run(['dev', '.', '--profile', 'false', '--polyfill', 'false'])
     ).toBe(0)
+
     const [, devArgs] = extensionDev.mock.calls[0] as any[]
     expect(devArgs.profile).toBe(false)
     expect(devArgs.polyfill).toBe(false)
@@ -133,6 +142,7 @@ describe('extension dev', () => {
         'debug'
       ])
     ).toBe(0)
+
     const [, devArgs] = extensionDev.mock.calls[0] as any[]
     expect(devArgs.noOpen).toBe(true)
     expect(devArgs.logFormat).toBe('json')
@@ -192,6 +202,7 @@ describe('extension dev', () => {
     expect(
       await run(['dev', '.', '--browser', 'safari', '--bundle-id', 'bad id'])
     ).toBe(1)
+
     expect(extensionDev).not.toHaveBeenCalled()
   })
 
@@ -199,6 +210,7 @@ describe('extension dev', () => {
     expect(
       await run(['dev', '.', '--browser', 'safari', '--macos-only', 'false'])
     ).toBe(0)
+
     const [, opts] = extensionDev.mock.calls[0] as any[]
     expect(opts.macOsOnly).toBe(false)
   })
@@ -222,6 +234,7 @@ describe('extension dev', () => {
     expect(runWaitMode).toHaveBeenCalledWith(
       expect.objectContaining({command: 'dev', browsers: ['chromium']})
     )
+
     const payload = JSON.parse(String(logSpy.mock.calls[0][0]))
     // The pre-envelope wait frame now rides inside value.
     expect(payload).toMatchObject({
@@ -232,6 +245,7 @@ describe('extension dev', () => {
       error: null,
       value: {mode: 'wait', command: 'dev'}
     })
+
     expect(extensionDev).not.toHaveBeenCalled()
   })
 

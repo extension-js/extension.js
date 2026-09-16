@@ -73,6 +73,7 @@ describe('stampReadyBrowserLaunch', () => {
       readyPath,
       JSON.stringify({status: 'ready', browser: 'chrome', runId: 'run-A'})
     )
+
     const profilePath = path.join(
       tmp,
       'dist',
@@ -105,6 +106,7 @@ describe('stampReadyBrowserLaunch', () => {
     expect(() =>
       stampReadyBrowserLaunch(outputPath, {profilePath: '/x', browserPid: 1})
     ).not.toThrow()
+
     expect(fs.existsSync(readyPath)).toBe(false)
   })
 

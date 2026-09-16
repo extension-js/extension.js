@@ -36,6 +36,7 @@ async function getJson(
     req.setTimeout(CDP_HTTP_TIMEOUT_MS, () => {
       req.destroy(new Error(`CDP endpoint timed out: ${path}`))
     })
+
     req.end()
   })
 }
@@ -54,10 +55,12 @@ export async function discoverWebSocketDebuggerUrl(
       typeof version?.webSocketDebuggerUrl === 'string'
         ? version.webSocketDebuggerUrl
         : undefined
+
     if (wsUrl) {
       if (isDev) {
         humanLine(messages.cdpClientTargetWebSocketUrlStored())
       }
+
       return wsUrl
     }
   } catch (error: unknown) {
@@ -72,6 +75,7 @@ export async function discoverWebSocketDebuggerUrl(
   const targets = (await getJson(host, port, '/json')) as Array<
     Record<string, unknown>
   >
+
   if (isDev) {
     humanLine(messages.cdpClientFoundTargets((targets || []).length || 0))
   }
@@ -82,6 +86,7 @@ export async function discoverWebSocketDebuggerUrl(
       typeof target?.webSocketDebuggerUrl === 'string'
         ? (target.webSocketDebuggerUrl as string)
         : ''
+
     return type === 'page' && ws
   }) as Record<string, unknown> | undefined
 
@@ -89,10 +94,12 @@ export async function discoverWebSocketDebuggerUrl(
     typeof pageTarget?.webSocketDebuggerUrl === 'string'
       ? (pageTarget.webSocketDebuggerUrl as string)
       : ''
+
   if (pageWs) {
     if (isDev) {
       humanLine(messages.cdpClientTargetWebSocketUrlStored())
     }
+
     return pageWs
   }
 

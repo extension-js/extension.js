@@ -6,8 +6,6 @@
 // ╚═════╝ ╚══════╝  ╚═══╝        ╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-// Shipped inside the unpacked extension so a producer whose baked port went
-// stale (dev-server restart) can re-resolve the live control port from disk.
 export const CONTROL_PORT_ASSET_NAME = 'extension-js-control.json'
 
 export const BRIDGE_PRODUCER_SOURCE = `;(function () {
@@ -1433,7 +1431,6 @@ export interface BuildProducerOptions {
   controlPort: number | null | undefined
   instanceId: string
   context?: string
-  /** Connectable host of the control WS. Defaults to 127.0.0.1 (local). */
   host?: string
 }
 
@@ -1441,6 +1438,7 @@ export interface BuildProducerOptions {
 // Returns '' when the control bridge is unavailable (no port).
 export function buildBridgeProducerSource(opts: BuildProducerOptions): string {
   if (!opts.controlPort || opts.controlPort < 1) return ''
+
   return BRIDGE_PRODUCER_SOURCE.replace(
     /__EXTJS_CONTROL_PORT__/g,
     String(opts.controlPort)

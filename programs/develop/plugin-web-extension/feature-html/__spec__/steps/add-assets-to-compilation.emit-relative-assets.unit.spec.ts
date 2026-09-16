@@ -19,6 +19,7 @@ function makeCompilation() {
       }
     }
   }
+
   return {
     options: {context: process.cwd()},
     hooks: {
@@ -33,6 +34,7 @@ describe('AddAssetsToCompilation (relative static assets emission)', () => {
     const tmpDirectoryPath = fs.mkdtempSync(
       path.join(os.tmpdir(), 'feature-html-relative-assets-')
     )
+
     try {
       const manifestFilePath = path.join(tmpDirectoryPath, 'manifest.json')
       fs.writeFileSync(manifestFilePath, '{}', 'utf8')
@@ -70,6 +72,7 @@ describe('AddAssetsToCompilation (relative static assets emission)', () => {
     const tmpDirectoryPath = fs.mkdtempSync(
       path.join(os.tmpdir(), 'feature-html-media-assets-')
     )
+
     try {
       const manifestFilePath = path.join(tmpDirectoryPath, 'manifest.json')
       fs.writeFileSync(manifestFilePath, '{}', 'utf8')

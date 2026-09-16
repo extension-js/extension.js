@@ -22,6 +22,7 @@ describe('the shipped machine contract is reachable by specifier', () => {
 
   it('resolves every canonical contract file', () => {
     expect(canonicalJsonFiles.length).toBeGreaterThan(0)
+
     for (const name of canonicalJsonFiles) {
       const resolved = selfRequire.resolve(`extension-develop/contract/${name}`)
       expect(resolved).toBe(path.join(developRoot, 'dist', 'contract', name))

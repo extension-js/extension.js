@@ -5,6 +5,7 @@ import {
 } from '../../run-firefox/firefox-launch/process-handlers'
 
 const noChild = () => null
+
 const noCleanup = async () => {}
 
 describe('setupFirefoxProcessHandlers lifecycle', () => {

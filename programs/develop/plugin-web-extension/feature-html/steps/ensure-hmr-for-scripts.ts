@@ -50,13 +50,16 @@ export default function ensureHMRForScripts(
     const resourcePath = String(
       (this as {resourcePath?: unknown}).resourcePath || ''
     )
+
     return adjustLoaderSourceMap(
       inputOrIdentityMap(inputSourceMap, resourcePath, source),
       {prefix: prelude, before: source, after: source}
     )
   }
+
   const debugHtmlHmr = process.env.EXTENSION_DEBUG_HTML_HMR_SKIP === '1'
   const resourceQuery = String(this.resourceQuery || '')
+
   if (resourceQuery.includes('vue&type=')) {
     return source
   }
@@ -84,6 +87,7 @@ export default function ensureHMRForScripts(
         `[extjs:html-hmr] skip layer resource=${resourcePath} layer=${moduleLayer}`
       )
     }
+
     return source
   }
 
@@ -98,6 +102,7 @@ export default function ensureHMRForScripts(
         `[extjs:html-hmr] skip framework-refresh resource=${resourcePath}`
       )
     }
+
     return source
   }
 
@@ -107,10 +112,12 @@ export default function ensureHMRForScripts(
   // binding and the page shows the old text.
   const issuer = (this as unknown as {_module?: {issuer?: unknown}})?._module
     ?.issuer
+
   if (issuer) {
     if (debugHtmlHmr) {
       console.log(`[extjs:html-hmr] skip child resource=${resourcePath}`)
     }
+
     return source
   }
 
@@ -133,10 +140,13 @@ export default function ensureHMRForScripts(
 
   if (moduleType === 'javascript/dynamic') {
     const prelude = buildReloadCode('module.hot')
+
     return returnWithMap(this, `${prelude}${source}`, withPrelude(prelude))
   }
+
   if (moduleType === 'javascript/esm') {
     const prelude = buildReloadCode('import.meta.webpackHot')
+
     return returnWithMap(this, `${prelude}${source}`, withPrelude(prelude))
   }
 
@@ -146,6 +156,7 @@ export default function ensureHMRForScripts(
   esModuleLexerInit()
     .then(() => {
       let hasModuleSyntax = false
+
       try {
         // The lexer's own verdict: a classic script may call `import()`, and
         // a bare `export {}` is a module, both of which a hand count gets wrong.
@@ -153,6 +164,7 @@ export default function ensureHMRForScripts(
       } catch {
         // Not lexable as a module, the script parse keeps it alive.
       }
+
       const prelude = buildReloadCode(
         hasModuleSyntax ? 'import.meta.webpackHot' : 'module.hot'
       )

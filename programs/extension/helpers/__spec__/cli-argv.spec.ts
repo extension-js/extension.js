@@ -16,6 +16,7 @@ describe('resolveCommandFromArgv', () => {
     expect(
       resolveCommandFromArgv(argv('--format', 'json', 'dev', './src'), valued)
     ).toBe('dev')
+
     expect(
       resolveCommandFromArgv(argv('--port', '9000', 'start'), valued)
     ).toBe('start')
@@ -79,6 +80,7 @@ describe('rewriteOutputAliasArgv', () => {
     expect(next).toEqual(
       argv('dev', '--output', 'json', './src', '--no-reload')
     )
+
     expect(resolveCommandFromArgv(next, valued)).toBe('dev')
   })
 

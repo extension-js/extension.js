@@ -92,6 +92,7 @@ function failAndExit(
   if (asJson) {
     printFrame(ENVELOPE.fail('start', status, error, hint ? {hint} : {}))
   }
+
   process.exit(1)
 }
 
@@ -100,6 +101,7 @@ function failAndExit(
 function resolveRequestedPort(value: unknown): number {
   const parsed =
     typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10)
+
   return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : 8080
 }
 
@@ -227,6 +229,7 @@ export function registerStartCommand(program: Command) {
             'start'
           )) as StartOptions['browser']) ??
           'chromium'
+
         if (
           startOptions.debug ||
           startOptions.author ||
@@ -235,14 +238,17 @@ export function registerStartCommand(program: Command) {
           process.env.EXTENSION_DEBUG = '1'
           // Alias kept for one minor: extension-develop still reads the old name.
           process.env.EXTENSION_AUTHOR_MODE = 'true'
-          if (!process.env.EXTENSION_VERBOSE)
+
+          if (!process.env.EXTENSION_VERBOSE) {
             process.env.EXTENSION_VERBOSE = '1'
+          }
         }
 
         const asJson = resolveOutputFormat(startOptions) === 'json'
         // Tells develop to route human lines to stderr, so stdout carries
         // only the envelope and stays parseable as one JSON document.
         if (asJson) process.env.EXTENSION_OUTPUT = 'json'
+
         const list = vendors(browser)
         let unsupportedBrowser = ''
 
@@ -251,6 +257,7 @@ export function registerStartCommand(program: Command) {
           (invalid, supported) => {
             unsupportedBrowser = invalid
             if (asJson) return
+
             // eslint-disable-next-line no-console
             console.error(messages.unsupportedBrowserFlag(invalid, supported))
           }
@@ -267,6 +274,7 @@ export function registerStartCommand(program: Command) {
           if (!asJson) {
             console.error(messages.safariCommandNotSupported('start'))
           }
+
           // Not E_UNSUPPORTED_BROWSER: Safari is a supported browser, it is
           // this command that has no Safari path.
           failAndExit(asJson, 'usage', {
@@ -287,6 +295,7 @@ export function registerStartCommand(program: Command) {
               // eslint-disable-next-line no-console
               console.error(messages.noBrowserWithWait('start'))
             }
+
             failAndExit(asJson, 'usage', {
               code: CODES.E_INVALID_OPTION,
               message:
@@ -320,6 +329,7 @@ export function registerStartCommand(program: Command) {
                   {hint: failure.hint}
                 )
               )
+
               markErrorFramed(error)
             }
 
@@ -338,6 +348,7 @@ export function registerStartCommand(program: Command) {
               })
             )
           }
+
           return
         }
 
@@ -412,6 +423,7 @@ export function registerStartCommand(program: Command) {
                 {hint: 'Fix the error above and run start again.'}
               )
             )
+
             process.exit(1)
           }
 
@@ -419,6 +431,7 @@ export function registerStartCommand(program: Command) {
             pathOrRemoteUrl || process.cwd(),
             'start'
           )
+
           if (noBrowser) {
             continue
           }

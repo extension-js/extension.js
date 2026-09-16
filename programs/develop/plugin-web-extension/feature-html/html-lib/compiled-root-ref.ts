@@ -54,5 +54,6 @@ export function findCompiledRootRefSource(
   if (rel.startsWith('..') || path.isAbsolute(rel)) return undefined
 
   const stem = candidate.slice(0, -'.js'.length)
+
   return COMPILED_SIBLING_EXTENSIONS.map((ext) => stem + ext).find(isFile)
 }

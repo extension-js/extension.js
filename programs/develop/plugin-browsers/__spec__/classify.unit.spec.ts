@@ -85,7 +85,9 @@ function createHarness(manifestContentScripts: number = 1): Harness {
       compiler.modifiedFiles = new Set(
         modifiedFiles.map((f) => path.join(CONTEXT, f))
       )
+
       if (!watchRunCb) throw new Error('watchRun not tapped')
+
       watchRunCb()
     },
     async triggerDone(
@@ -96,6 +98,7 @@ function createHarness(manifestContentScripts: number = 1): Harness {
       } = {}
     ) {
       if (!doneCb) throw new Error('done not tapped')
+
       const manifestSource = buildManifest(
         opts.manifest
           ? ((opts.manifest.content_scripts as any[])?.length ?? 0)
@@ -123,6 +126,7 @@ function createHarness(manifestContentScripts: number = 1): Harness {
     lastReload() {
       const calls = reload.mock.calls
       if (calls.length === 0) return undefined
+
       return calls[calls.length - 1][0] as ReloadInstruction | undefined
     }
   }

@@ -13,6 +13,7 @@ vi.mock('@rspack/core', () => {
     }
   }
   class WebpackError extends Error {}
+
   return {
     default: {WebpackError},
     WebpackError,
@@ -70,6 +71,7 @@ describe('EmitFile step', () => {
       },
       options: {context: '/abs/project'}
     }
+
     return {compiler, compilation}
   }
 
@@ -299,6 +301,7 @@ describe('EmitFile step', () => {
 
     FS.existsSync.mockImplementation((p: string) => {
       const normalized = toPosix(p)
+
       return (
         normalized === '/abs/project/public/icon.png' ||
         normalized === '/abs/project/icons/rel.png'
@@ -381,6 +384,7 @@ describe('EmitFile step', () => {
       manifestPath: '/abs/project/manifest.json',
       includeList: {icons: ['icons/missing.png']}
     } as any)
+
     step.apply(compiler as any)
     const msg2 = String(compilation.errors[0] || compilation.warnings[0] || '')
     expect(msg2).not.toMatch(/resolved from the extension output root/i)
@@ -448,6 +452,7 @@ describe('EmitFile step', () => {
         'action/default_icon': ['/abs/design/b/logo.png']
       }
     } as any).apply(compiler as any)
+
     const calls = (compilation.emitAsset as any).mock.calls.map(
       (c: any[]) => c[0]
     )
@@ -476,6 +481,7 @@ describe('EmitFile step', () => {
         ]
       }
     } as any).apply(compiler as any)
+
     const calls = (compilation.emitAsset as any).mock.calls.map(
       (c: any[]) => c[0]
     )
@@ -494,6 +500,7 @@ describe('EmitFile step', () => {
       manifestPath: '/abs/project/manifest.json',
       includeList: {'action/theme_icons': ['/abs/project/icons/light.png']}
     } as any).apply(compiler as any)
+
     const calls = (compilation.emitAsset as any).mock.calls.map(
       (c: any[]) => c[0]
     )

@@ -29,6 +29,7 @@ export function getCliPackageJson(): CliPackageJson {
       const content = fs.readFileSync(candidate, 'utf8')
       const parsed = JSON.parse(content) as CliPackageJson
       cachedPackageJson = parsed
+
       return parsed
     }
   }

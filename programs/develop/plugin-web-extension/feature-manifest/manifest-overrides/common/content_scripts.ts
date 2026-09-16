@@ -24,12 +24,14 @@ interface ContentObj {
 function isBundledContentPath(filePath: string, ext: 'js' | 'css') {
   const normalized = String(filePath || '').replace(/\\/g, '/')
   const bundledAsset = parseCanonicalContentScriptAsset(normalized)
+
   return bundledAsset?.extension === ext
 }
 
 function isAlreadyBundledContentScripts(contentScripts: unknown[]) {
-  if (!Array.isArray(contentScripts) || contentScripts.length === 0)
+  if (!Array.isArray(contentScripts) || contentScripts.length === 0) {
     return false
+  }
 
   return (contentScripts as Array<{js?: unknown; css?: unknown}>).every(
     (contentObj) => {
@@ -61,6 +63,7 @@ export function contentScripts(manifest: Manifest, manifestPath?: string) {
   // Keep user content-script indices stable; insert MAIN-world bridges before
   // their entries so MAIN world reads the base URL before HMR initializes.
   let bridgeOrdinal = 0
+
   for (let index = 0; index < original.length; index++) {
     const contentObj: ContentObj & Record<string, unknown> =
       original[index] || {}

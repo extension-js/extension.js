@@ -5,9 +5,11 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {getProjectPath, getProjectStructure} from '../project'
 
 const created: string[] = []
+
 function makeTempDir(prefix: string) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix))
   created.push(dir)
+
   return dir
 }
 
@@ -23,6 +25,7 @@ afterEach(() => {
       // Ignore
     }
   }
+
   created.length = 0
 })
 
@@ -43,6 +46,7 @@ describe('get-project-path', () => {
     const cwd = process.cwd()
     const downloadAndExtractZip = vi.fn(async () => {
       fs.mkdirSync(extracted, {recursive: true})
+
       return extracted
     })
 
@@ -71,6 +75,7 @@ describe('get-project-path', () => {
     )
 
     const cwd = process.cwd()
+
     try {
       process.chdir(root)
       const extracted = await getProjectPath(zipPath)
@@ -172,6 +177,7 @@ describe('get-project-path', () => {
       path.join(root, 'package.json'),
       JSON.stringify({name: 'workspace-root', workspaces: ['packages/*']})
     )
+
     fs.writeFileSync(
       path.join(nested, 'package.json'),
       JSON.stringify({name: 'ext'})
@@ -219,6 +225,7 @@ describe('get-project-path', () => {
       path.join(extDir, 'manifest.json'),
       JSON.stringify({manifest_version: 3, name: 'ext', version: '1.0.0'})
     )
+
     fs.writeFileSync(
       path.join(root, 'package.json'),
       JSON.stringify({name: 'pkg'})
@@ -276,9 +283,11 @@ describe('get-project-path (GitHub source)', () => {
     stdoutSpy = vi
       .spyOn(process.stdout, 'write')
       .mockImplementation((() => true) as never)
+
     stderrSpy = vi
       .spyOn(process.stderr, 'write')
       .mockImplementation((() => true) as never)
+
     logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
   })
 
@@ -290,6 +299,7 @@ describe('get-project-path (GitHub source)', () => {
     else process.env.EXTENSION_DEBUG = prevDebug
     if (prevAuthor === undefined) delete process.env.EXTENSION_AUTHOR_MODE
     else process.env.EXTENSION_AUTHOR_MODE = prevAuthor
+
     vi.doUnmock('go-git-it')
     vi.doUnmock('../zip')
   })
@@ -309,6 +319,7 @@ describe('get-project-path (GitHub source)', () => {
       fs.writeFileSync(path.join(dest, 'manifest.json'), '{"name":"redder"}')
     })
     vi.doMock('go-git-it', () => ({default: goGitIt}))
+
     return goGitIt
   }
 
@@ -316,6 +327,7 @@ describe('get-project-path (GitHub source)', () => {
     const root = makeTempDir('extjs-github-tree-')
     const cwd = process.cwd()
     const goGitIt = mockNoisyClone()
+
     try {
       process.chdir(root)
       const {getProjectPath: fresh} = await import('../project')
@@ -325,6 +337,7 @@ describe('get-project-path (GitHub source)', () => {
       expect(fs.realpathSync(result)).toBe(
         fs.realpathSync(path.join(root, 'sample.page-redder'))
       )
+
       expect(writtenTo(stdoutSpy)).not.toContain(gitVersionLine)
       expect(writtenTo(stderrSpy)).not.toContain(rateLimitLine)
 
@@ -332,7 +345,9 @@ describe('get-project-path (GitHub source)', () => {
       expect(logged).toContain('Downloading')
       expect(logged).toContain('Creating a new browser extension')
       expect(logged).not.toContain('PATH')
-      expect(logged).not.toContain('/GoogleChrome/chrome-extensions-samples/tree')
+      expect(logged).not.toContain(
+        '/GoogleChrome/chrome-extensions-samples/tree'
+      )
     } finally {
       process.chdir(cwd)
     }
@@ -343,6 +358,7 @@ describe('get-project-path (GitHub source)', () => {
     const cwd = process.cwd()
     mockNoisyClone()
     process.env.EXTENSION_DEBUG = '1'
+
     try {
       process.chdir(root)
       const {getProjectPath: fresh} = await import('../project')
@@ -365,6 +381,7 @@ describe('get-project-path (GitHub source)', () => {
       expect(zipUrl).toBe(
         'https://codeload.github.com/GoogleChrome/chrome-extensions-samples/zip/refs/heads/main'
       )
+
       const sample = path.join(
         root,
         'chrome-extensions-samples-main',
@@ -373,9 +390,11 @@ describe('get-project-path (GitHub source)', () => {
       )
       fs.mkdirSync(sample, {recursive: true})
       fs.writeFileSync(path.join(sample, 'manifest.json'), '{"name":"redder"}')
+
       return root
     })
     vi.doMock('../zip', () => ({downloadAndExtractZip}))
+
     try {
       process.chdir(root)
       const {getProjectPath: fresh} = await import('../project')
@@ -391,6 +410,7 @@ describe('get-project-path (GitHub source)', () => {
           )
         )
       )
+
       // The silencer must hand stdout back even when the clone fails.
       process.stdout.write('after-fallback')
       expect(writtenTo(stdoutSpy)).toContain('after-fallback')

@@ -39,6 +39,7 @@ describe('programAIHelp', () => {
       'doctor',
       'capabilities'
     ])
+
     expect(help.capabilities.logger.formats).toEqual([
       'pretty',
       'json',
@@ -60,15 +61,18 @@ describe('programAIHelp', () => {
     expect(readyContract.readyPath).toBe(
       'dist/extension-js/<browser>/ready.json'
     )
+
     expect(readyContract.eventsPath).toBe(
       'dist/extension-js/<browser>/events.ndjson'
     )
+
     expect(readyContract.statuses).toEqual([
       'starting',
       'ready',
       'error',
       'stopped'
     ])
+
     expect(readyContract.readyFields).toContain('pid')
     expect(readyContract.readyFields).toContain('compiledAt')
     expect(readyContract.eventTypes).toEqual([

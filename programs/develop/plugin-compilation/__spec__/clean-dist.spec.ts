@@ -2,6 +2,7 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 vi.mock('fs', async () => {
   const actual: any = await vi.importActual('fs')
+
   return {
     ...actual,
     rmSync: vi.fn(),
@@ -40,6 +41,7 @@ describe('CleanDistFolderPlugin', () => {
         warn: () => {},
         error: () => {}
       } as any)
+
     return {
       options: {context, output: outputPath ? {path: outputPath} : {}},
       getInfrastructureLogger: () => l
@@ -50,6 +52,7 @@ describe('CleanDistFolderPlugin', () => {
     ;(fs.existsSync as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
       true
     )
+
     const rm = fs.rmSync as unknown as ReturnType<typeof vi.fn>
     rm.mockImplementation(() => {})
     const plugin = new CleanDistFolderPlugin({browser: 'chrome'})
@@ -68,12 +71,14 @@ describe('CleanDistFolderPlugin', () => {
     ;(fs.rmSync as unknown as ReturnType<typeof vi.fn>).mockImplementation(
       () => {}
     )
+
     const info = vi.fn()
     const plugin = new CleanDistFolderPlugin({browser: 'edge'})
     process.env.EXTENSION_AUTHOR_MODE = 'true'
     plugin.apply(
       compilerWithContext('/p', {info, warn: vi.fn(), error: vi.fn()})
     )
+
     delete process.env.EXTENSION_AUTHOR_MODE
     expect(info).toHaveBeenCalled()
   })
@@ -87,11 +92,13 @@ describe('CleanDistFolderPlugin', () => {
         throw new Error('boom')
       }
     )
+
     const err = vi.fn()
     const plugin = new CleanDistFolderPlugin({browser: 'firefox'})
     plugin.apply(
       compilerWithContext('/x', {info: vi.fn(), warn: vi.fn(), error: err})
     )
+
     expect(err).toHaveBeenCalled()
   })
 
@@ -99,6 +106,7 @@ describe('CleanDistFolderPlugin', () => {
     ;(fs.existsSync as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
       true
     )
+
     const rm = fs.rmSync as unknown as ReturnType<typeof vi.fn>
     rm.mockImplementation(() => {})
     const plugin = new CleanDistFolderPlugin({browser: 'chrome'})
@@ -110,6 +118,7 @@ describe('CleanDistFolderPlugin', () => {
       recursive: true,
       force: true
     })
+
     expect(rm).not.toHaveBeenCalledWith(
       path.join('/proj', 'dist', 'chrome'),
       expect.anything()
@@ -126,6 +135,7 @@ describe('CleanDistFolderPlugin', () => {
     ;(fs.existsSync as unknown as ReturnType<typeof vi.fn>).mockImplementation(
       (target: string) => target === liveDist
     )
+
     const rm = fs.rmSync as unknown as ReturnType<typeof vi.fn>
     rm.mockImplementation(() => {})
     const plugin = new CleanDistFolderPlugin({browser: 'chrome'})
@@ -140,6 +150,7 @@ describe('CleanDistFolderPlugin', () => {
     ;(fs.existsSync as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
       false
     )
+
     const rm = fs.rmSync as unknown as ReturnType<typeof vi.fn>
     rm.mockImplementation(() => {})
     const plugin = new CleanDistFolderPlugin({browser: 'chrome'})

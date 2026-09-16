@@ -12,6 +12,7 @@ vi.mock('../helpers/extension-develop-runtime', () => ({
   loadExtensionDevelopPreviewModule: vi.fn(async () => ({extensionPreview})),
   loadExtensionDevelopModule: vi.fn(async () => ({loadCommandConfig}))
 }))
+
 vi.mock('../browsers/run-only', () => ({
   runOnlyPreviewBrowser: vi.fn(async () => {})
 }))
@@ -61,6 +62,7 @@ describe('extension preview browser from config', () => {
     expect(await run(['preview', './my-extension', '--browser', 'edge'])).toBe(
       0
     )
+
     const [, opts] = extensionPreview.mock.calls[0] as any[]
     expect(opts.browser).toBe('edge')
     loadCommandConfig.mockResolvedValue({})
@@ -78,6 +80,7 @@ describe('extension preview', () => {
       browser: 'chromium',
       noBrowser: false
     })
+
     // Stock logger defaults and commands.preview.* are applied inside
     // extensionPreview so shared config is not clobbered by unset flags.
     expect((opts as any).logLevel).toBeUndefined()
@@ -118,6 +121,7 @@ describe('extension preview', () => {
     expect(await run(['preview', '.', '--output-path', '/tmp/unpacked'])).toBe(
       0
     )
+
     const [, opts] = extensionPreview.mock.calls[0]
     expect((opts as any).outputPath).toBe('/tmp/unpacked')
   })
@@ -134,6 +138,7 @@ describe('extension preview', () => {
         'info'
       ])
     ).toBe(0)
+
     const [, opts] = extensionPreview.mock.calls[0]
     expect((opts as any).logFormat).toBe('ndjson')
     expect((opts as any).logColor).toBe(false)
@@ -203,6 +208,7 @@ describe('extension preview', () => {
     expect(developMessages.manifestNotFoundError('/p/manifest.json')).toContain(
       PREVIEW_NOT_FOUND_NEEDLES[1]
     )
+
     const previewSource = await readFile(
       new URL('../../develop/command-preview.ts', import.meta.url),
       'utf8'
@@ -224,6 +230,7 @@ describe('extension preview', () => {
       status: 'not-found',
       value: null
     })
+
     expect(frame.error.code).toBe('E_PREVIEW_NO_DIST')
   })
 
@@ -242,6 +249,7 @@ describe('extension preview', () => {
     expect(
       await run(['preview', '.', '--browser', 'netscape', '--output', 'json'])
     ).toBe(1)
+
     const frame = JSON.parse(String(logSpy.mock.calls[0][0]))
     expect(frame.status).toBe('usage')
     expect(frame.error.code).toBe('E_UNSUPPORTED_BROWSER')
@@ -255,6 +263,7 @@ describe('extension preview', () => {
     expect(
       await run(['preview', '.', '--browser', 'safari', '--output', 'json'])
     ).toBe(1)
+
     const frame = JSON.parse(String(logSpy.mock.calls[0][0]))
     expect(frame.status).toBe('usage')
     expect(frame.error.code).toBe('E_COMMAND_UNSUPPORTED_FOR_TARGET')

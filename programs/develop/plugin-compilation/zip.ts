@@ -45,6 +45,7 @@ function explicitZipFilename(input: string): string {
     .replace(/\.+$/, '')
     .trim()
   if (!safe) return 'extension.zip'
+
   return /\.zip$/i.test(safe) ? safe : `${safe}.zip`
 }
 
@@ -61,6 +62,7 @@ function resolveManifestName(
   if (!msgMatch) return raw || fallback
 
   const locale = String(manifest.default_locale || 'en')
+
   for (const root of searchRoots) {
     try {
       const messagesPath = path.join(root, '_locales', locale, 'messages.json')
@@ -71,6 +73,7 @@ function resolveManifestName(
       // Ignore
     }
   }
+
   return fallback
 }
 
@@ -80,6 +83,7 @@ const toPosix = (p: string): string => p.replace(/\\/g, '/')
 // uploads and reproducible diffs see the same bits adm-zip used to record.
 function zipEntryFor(absPath: string): Zippable[string] {
   const stat = fs.statSync(absPath)
+
   return [
     new Uint8Array(fs.readFileSync(absPath)),
     {
@@ -95,9 +99,11 @@ function writeZipFile(
   entries: Array<{name: string; absPath: string}>
 ): void {
   const zippable: Zippable = {}
+
   for (const entry of entries) {
     zippable[toPosix(entry.name)] = zipEntryFor(entry.absPath)
   }
+
   fs.writeFileSync(zipPath, zipSync(zippable))
 }
 
@@ -109,13 +115,16 @@ function listFilesUnder(root: string, skipNames: Set<string>): string[] {
     const relDir = stack.pop() as string
     const absDir = path.join(root, relDir)
     let entries: fs.Dirent[] = []
+
     try {
       entries = fs.readdirSync(absDir, {withFileTypes: true})
     } catch {
       continue
     }
+
     for (const entry of entries) {
       const rel = relDir ? path.join(relDir, entry.name) : entry.name
+
       if (entry.isDirectory()) {
         stack.push(rel)
       } else if (entry.isFile() && !skipNames.has(toPosix(rel))) {
@@ -138,6 +147,7 @@ const COMPANION_DIR = 'extensions'
 
 function isCompanionExtension(file: string): boolean {
   const [first] = toPosix(file).split('/')
+
   return first === COMPANION_DIR
 }
 
@@ -158,6 +168,7 @@ const SESSION_ARTIFACTS_PREFIX = 'dist/extension-js'
 // Only the shareable *.example variants may ship.
 function isDeniedEnvFile(basename: string): boolean {
   if (!basename.startsWith('.env')) return false
+
   return !basename.endsWith('.example')
 }
 
@@ -169,9 +180,13 @@ export function isDeniedFromSourceZip(file: string): boolean {
   const posix = toPosix(file)
   const segments = posix.split('/')
   if (segments.some((segment) => DENIED_SEGMENTS.has(segment))) return true
-  if (segments.some((segment) => segment.startsWith(STAGING_DIR_PREFIX)))
+
+  if (segments.some((segment) => segment.startsWith(STAGING_DIR_PREFIX))) {
     return true
+  }
+
   if (isDeniedEnvFile(segments[segments.length - 1])) return true
+
   return (
     posix === SESSION_ARTIFACTS_PREFIX ||
     posix.startsWith(`${SESSION_ARTIFACTS_PREFIX}/`)
@@ -199,6 +214,7 @@ export async function getFilesToZip(projectDir: string): Promise<string[]> {
     filesOnly: true,
     flush: true
   })
+
   return files.filter(
     (file) =>
       !isDeniedFromSourceZip(file) &&
@@ -250,6 +266,7 @@ export class ZipPlugin {
             String(manifest.default_locale),
             'messages.json'
           )
+
           if (!fs.existsSync(messagesPath)) {
             stats?.compilation?.warnings?.push(
               new Error(
@@ -280,6 +297,7 @@ export class ZipPlugin {
             path.dirname(outPath),
             `${name}-source.zip`
           )
+
           if (isDebug()) {
             console.log(messages.packagingSourceFiles(sourcePath))
           }
@@ -291,6 +309,7 @@ export class ZipPlugin {
               absPath: path.join(packageJsonDir, file)
             }))
           )
+
           created.push({kind: 'source', path: sourcePath})
         }
 
@@ -303,6 +322,7 @@ export class ZipPlugin {
           if (isDebug()) {
             console.log(messages.packagingDistributionFiles(distPath))
           }
+
           // The zip lands inside outPath, so a stale artifact from a prior
           // run is skipped by name or the new zip would swallow it.
           writeZipFile(
@@ -313,21 +333,26 @@ export class ZipPlugin {
               .filter((file) => !file.endsWith('.map'))
               .map((file) => ({name: file, absPath: path.join(outPath, file)}))
           )
+
           created.push({kind: 'dist', path: distPath})
         }
+
         for (const artifact of created) {
           let size = 0
+
           try {
             size = fs.statSync(artifact.path).size
           } catch {
             // Ignore
           }
+
           recordZipArtifact(stats?.compilation, {
             kind: artifact.kind,
             path: artifact.path,
             size
           })
         }
+
         if (isDebug()) {
           const sourceItem = created.find((c) => c.kind === 'source')
           const distItem = created.find((c) => c.kind === 'dist')

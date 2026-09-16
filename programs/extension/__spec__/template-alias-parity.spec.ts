@@ -20,10 +20,12 @@ describe('template aliases agree across the packages that own them', () => {
 
   it('resolves every alias to a name the catalog actually publishes', () => {
     const names = listTemplates()
+
     for (const alias of TEMPLATE_ALIASES) {
       expect(names, `${alias.name} -> ${alias.resolvesTo}`).toContain(
         alias.resolvesTo
       )
+
       // An alias is the OLD name. Advertising it as a catalog name would offer
       // two names for one template and teach the retired one.
       expect(names).not.toContain(alias.name)

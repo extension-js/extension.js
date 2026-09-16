@@ -8,6 +8,7 @@ const tempDirs: string[] = []
 
 afterEach(() => {
   let dir = tempDirs.pop()
+
   while (dir) {
     fs.rmSync(dir, {recursive: true, force: true})
     dir = tempDirs.pop()
@@ -17,11 +18,13 @@ afterEach(() => {
 function createProject(files: string[]) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-json-resolve-'))
   tempDirs.push(dir)
+
   for (const file of files) {
     const abs = path.join(dir, file)
     fs.mkdirSync(path.dirname(abs), {recursive: true})
     fs.writeFileSync(abs, '[]')
   }
+
   return dir
 }
 

@@ -40,6 +40,7 @@ export class ThrowIfRecompileIsNeeded {
         return true
       }
     }
+
     return false
   }
 
@@ -102,6 +103,7 @@ export class ThrowIfRecompileIsNeeded {
           // pages in this rebuild's modified set are re-read, untouched
           // pages keep the cache.
           let updatedAssets: ReturnType<typeof getAssetsFromHtml> | undefined
+
           try {
             updatedAssets = getAssetsFromHtml(
               changedFile,
@@ -112,6 +114,7 @@ export class ThrowIfRecompileIsNeeded {
             // the restart warning below firing.
             updatedAssets = undefined
           }
+
           const updatedJsEntries = (updatedAssets?.js || []).filter(
             (p) => !looksLikePublicRootUrl(p) && !isRemoteUrl(p)
           )
@@ -127,6 +130,7 @@ export class ThrowIfRecompileIsNeeded {
           ) {
             const projectRoot = path.dirname(this.manifestPath)
             const relToManifest = path.relative(projectRoot, changedFile)
+
             if (
               requestDevSessionRestart(compiler, {
                 reason: 'html',
@@ -136,6 +140,7 @@ export class ThrowIfRecompileIsNeeded {
             ) {
               continue
             }
+
             const err = new WebpackError(
               messages.serverRestartRequiredFromHtml(relToManifest, changedFile)
             ) as Error & {file?: string}

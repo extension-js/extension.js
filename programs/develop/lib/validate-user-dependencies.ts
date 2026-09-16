@@ -20,6 +20,7 @@ function isReferencedAsModuleSpecifier(
   const escaped = dep.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   // Quote, exact package name, optional `/subpath`, matching quote.
   const specifierRe = new RegExp(`['"\`]${escaped}(?:/[^'"\`]*)?['"\`]`)
+
   return specifierRe.test(configSource)
 }
 

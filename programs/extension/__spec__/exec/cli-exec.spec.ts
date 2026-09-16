@@ -73,6 +73,7 @@ const npmCommand = existsSync(npmFromBin)
 const existingPath = process.env.PATH || process.env.Path || ''
 const pathParts = [nodeDir]
 if (pnpmHome) pathParts.push(pnpmHome)
+
 const baseEnv: NodeJS.ProcessEnv = {
   ...process.env,
   PATH: pathParts.join(pathDelim) + pathDelim + existingPath
@@ -100,6 +101,7 @@ function removeWorkspaceWithRetry(targetPath: string, attempts = 6) {
         maxRetries: 5,
         retryDelay: 100
       })
+
       return
     } catch (error) {
       lastError = error
@@ -108,6 +110,7 @@ function removeWorkspaceWithRetry(targetPath: string, attempts = 6) {
         err?.code === 'EBUSY' ||
         err?.code === 'ENOTEMPTY' ||
         err?.code === 'EPERM'
+
       if (!retryable || index === attempts - 1) {
         throw error
       }
@@ -128,9 +131,11 @@ function cleanupWorkspaceAfterTimedDev(targetPath: string, timedOut: boolean) {
       err?.code === 'EBUSY' ||
       err?.code === 'ENOTEMPTY' ||
       err?.code === 'EPERM'
+
     if (timedOut && isBusy) {
       return
     }
+
     throw error
   }
 }
@@ -149,9 +154,11 @@ function runCommand(
     encoding: 'utf8',
     ...(useShell ? {shell: true} : {})
   })
+
   if (result.error) {
     throw result.error
   }
+
   return result
 }
 
@@ -194,6 +201,7 @@ async function runUntilTimeout(
             windowsHide: true
           }
         )
+
         return true
       } catch {
         return false
@@ -203,12 +211,14 @@ async function runUntilTimeout(
     child.stdout?.on('data', (chunk) => {
       stdout += chunk.toString()
     })
+
     child.stderr?.on('data', (chunk) => {
       stderr += chunk.toString()
     })
 
     const finalize = (status: number | null, signal: NodeJS.Signals | null) => {
       if (resolved) return
+
       resolved = true
       clearTimeout(timer)
       clearTimeout(killTimer)
@@ -219,6 +229,7 @@ async function runUntilTimeout(
     const useProcessGroupKill = process.platform !== 'win32'
     const timer = setTimeout(() => {
       timedOut = true
+
       try {
         if (useProcessGroupKill && child.pid) {
           process.kill(-child.pid, 'SIGTERM')
@@ -238,6 +249,7 @@ async function runUntilTimeout(
 
     const killTimer = setTimeout(() => {
       if (resolved) return
+
       try {
         if (useProcessGroupKill && child.pid) {
           process.kill(-child.pid, 'SIGKILL')
@@ -257,6 +269,7 @@ async function runUntilTimeout(
 
     const forceFinalizeTimer = setTimeout(() => {
       if (resolved) return
+
       finalize(null, 'SIGKILL')
     }, timeoutMs + 10000)
 
@@ -272,10 +285,12 @@ async function runUntilTimeout(
 
 function ensureCompiled(pkgDir: string, distEntry: string) {
   if (existsSync(distEntry)) return
+
   const result = runCommand(pnpmCommand, ['-C', pkgDir, 'run', 'compile'], {
     cwd: pkgDir,
     env: baseEnv
   })
+
   if ((result.status || 0) !== 0) {
     throw new Error(
       `Failed to compile ${pkgDir}\n${result.stdout}\n${result.stderr}`
@@ -293,24 +308,29 @@ function packPackage(pkgDir: string, packDir: string) {
       env: baseEnv
     }
   )
+
   if ((result.status || 0) !== 0) {
     throw new Error(
       `Failed to pack ${pkgDir}\n${result.stdout}\n${result.stderr}`
     )
   }
+
   const after = readdirSync(packDir)
     .filter((name) => name.endsWith('.tgz') && !before.has(name))
     .map((name) => resolve(packDir, name))
     .sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs)
+
   if (after.length === 0) {
     throw new Error(`No tarball produced for ${pkgDir}`)
   }
+
   return after[0]
 }
 
 function isRunnerAvailable(command: string, args: string[] = ['--version']) {
   try {
     const result = runCommand(command, args)
+
     return (result.status || 0) === 0
   } catch {
     return false
@@ -321,7 +341,9 @@ function supportsPackageFlag(command: string, args: string[]) {
   try {
     const result = runCommand(command, args)
     if ((result.status || 0) !== 0) return false
+
     const text = `${result.stdout || ''}${result.stderr || ''}`
+
     return text.includes('--package') || text.includes('-p, --package')
   } catch {
     return false
@@ -331,6 +353,7 @@ function supportsPackageFlag(command: string, args: string[]) {
 function resolveCliBin() {
   const cjs = resolve(cliDir, 'dist', 'cli.cjs')
   if (existsSync(cjs)) return cjs
+
   return resolve(cliDir, 'dist', 'cli.js')
 }
 
@@ -348,6 +371,7 @@ function getPackagesForRunner(runnerName: string) {
       `extension-develop@file:${developTgz}`
     ]
   }
+
   return [cliTgz, createTgz, developTgz]
 }
 
@@ -359,16 +383,19 @@ beforeAll(() => {
   cliTgz = packPackage(cliDir, packDir)
   createTgz = packPackage(createDir, packDir)
   developTgz = packPackage(developDir, packDir)
+
   for (const runner of runners) {
     if (!runner.isAvailable()) {
       runnerReady.set(runner.name, false)
       continue
     }
+
     // Probe in a throwaway dir, NOT repoRoot: at repoRoot the runner finds the
     // workspace-installed `extension` and passes without ever installing the
     // tarballs, so a runner that cannot install local file: tarballs (e.g. pnpm
     // dlx on Windows) reads as ready and its real tests then fail mid-flight.
     const smokeDir = mkdtempSync(join(tmpdir(), 'extjs-cli-smoke-'))
+
     try {
       const smoke = runCommand(
         runner.command,
@@ -448,13 +475,16 @@ describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
   beforeAll(() => {
     packages = getPackagesForRunner(runner.name)
   })
+
   const isNpmFamilyExec = runner.name === 'npx' || runner.name === 'npmExec'
   const shouldAssertNoNodeModules = !isNpmFamilyExec
 
   it('creates default template without install', () => {
     if (!runnerReady.get(runner.name)) return
+
     const workspace = mkdtempSync(join(tmpdir(), 'extjs-cli-create-'))
     const projectPath = join(workspace, 'app-default')
+
     try {
       const result = runCommand(
         runner.command,
@@ -472,6 +502,7 @@ describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
         readFileSync(join(projectPath, 'package.json'), 'utf8')
       )
       expect(pkg.devDependencies?.extension).toBeTruthy()
+
       if (shouldAssertNoNodeModules) {
         expect(existsSync(join(projectPath, 'node_modules'))).toBe(false)
       }
@@ -483,8 +514,10 @@ describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
   it('creates explicit template without install', () => {
     if (!runnerReady.get(runner.name)) return
     if (isNpmFamilyExec) return
+
     const workspace = mkdtempSync(join(tmpdir(), 'extjs-cli-create-'))
     const projectPath = join(workspace, 'app-template')
+
     try {
       const result = runCommand(
         runner.command,
@@ -507,10 +540,13 @@ describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
 
   it('previews a prebuilt extension without install', () => {
     if (!runnerReady.get(runner.name)) return
+
     if (!existsSync(join(previewFixture, 'manifest.json'))) {
       return
     }
+
     const workspace = mkdtempSync(join(tmpdir(), 'extjs-cli-preview-'))
+
     try {
       const result = runCommand(
         runner.command,
@@ -526,8 +562,10 @@ describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
   it('builds without install when project has no deps', () => {
     if (!runnerReady.get(runner.name)) return
     if (isNpmFamilyExec) return
+
     const workspace = mkdtempSync(join(tmpdir(), 'extjs-cli-noinstall-'))
     const projectPath = join(workspace, 'app-build')
+
     try {
       const createResult = runCommand(
         runner.command,
@@ -554,6 +592,7 @@ describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
         {cwd: projectPath, env: defaultEnv}
       )
       expect(buildResult.status).toBe(0)
+
       if (shouldAssertNoNodeModules) {
         expect(existsSync(join(projectPath, 'node_modules'))).toBe(false)
       }
@@ -564,9 +603,11 @@ describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
 
   it('runs dev without install when project has no deps', async () => {
     if (!runnerReady.get(runner.name)) return
+
     const workspace = mkdtempSync(join(tmpdir(), 'extjs-cli-noinstall-'))
     const projectPath = join(workspace, 'app-dev')
     let devTimedOut = false
+
     try {
       const createResult = runCommand(
         runner.command,
@@ -587,6 +628,7 @@ describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
         6000
       )
       devTimedOut = devResult.timedOut
+
       if (devResult.timedOut) {
         expect(devResult.timedOut).toBe(true)
       } else {
@@ -606,8 +648,10 @@ describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
     'installs local tarballs and can build',
     () => {
       if (!runnerReady.get(runner.name)) return
+
       const workspace = mkdtempSync(join(tmpdir(), 'extjs-cli-install-'))
       const projectPath = join(workspace, 'app-build')
+
       try {
         const createResult = runCommand(
           runner.command,
@@ -670,6 +714,7 @@ describe('cli direct flow (no npx)', () => {
     const workspace = mkdtempSync(join(tmpdir(), 'extjs-cli-direct-'))
     const projectPath = join(workspace, 'app-direct')
     let devTimedOut = false
+
     try {
       const createResult = runCli(
         ['create', projectPath, '--install', 'false'],
@@ -696,6 +741,7 @@ describe('cli direct flow (no npx)', () => {
         6000
       )
       devTimedOut = devResult.timedOut
+
       if (devResult.timedOut) {
         expect(devResult.timedOut).toBe(true)
       } else {

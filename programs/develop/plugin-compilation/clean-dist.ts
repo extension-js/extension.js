@@ -44,6 +44,7 @@ export class CleanDistFolderPlugin {
         }
       } catch (caught) {
         const error = caught as NodeJS.ErrnoException
+
         // Windows can transiently lock files (EBUSY/EPERM); retry shortly and
         // don't surface an error for the recoverable case
         if (
@@ -57,6 +58,7 @@ export class CleanDistFolderPlugin {
               // Ignore
             }
           }, 100)
+
           return
         }
 

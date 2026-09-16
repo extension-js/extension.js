@@ -17,6 +17,7 @@ function resolveSass(): string | undefined {
     return undefined
   }
 }
+
 const sassDir = resolveSass()
 
 afterAll(() => {
@@ -36,10 +37,12 @@ function project(stylesheetName: string, source: string) {
       ...(usesSass && sassDir ? {devDependencies: {sass: '*'}} : {})
     })
   )
+
   if (usesSass && sassDir) {
     fs.mkdirSync(path.join(root, 'node_modules'), {recursive: true})
     fs.symlinkSync(sassDir, path.join(root, 'node_modules', 'sass'), 'dir')
   }
+
   fs.mkdirSync(path.join(root, 'theme'))
   fs.writeFileSync(path.join(root, 'theme', stylesheetName), source)
   fs.writeFileSync(
@@ -55,6 +58,7 @@ function project(stylesheetName: string, source: string) {
       }
     })
   )
+
   return root
 }
 
@@ -62,6 +66,7 @@ async function build(root: string) {
   const {extensionBuild} = await import('../command-build')
   const previous = process.env.VITEST
   process.env.VITEST = 'true'
+
   try {
     const summary = await extensionBuild(root, {
       browser: 'firefox',
@@ -75,10 +80,12 @@ async function build(root: string) {
     if (previous === undefined) delete process.env.VITEST
     else process.env.VITEST = previous
   }
+
   const distDir = path.join(root, 'dist', 'firefox')
   const manifest = JSON.parse(
     fs.readFileSync(path.join(distDir, 'manifest.json'), 'utf8')
   )
+
   return {distDir, manifest}
 }
 
@@ -90,6 +97,7 @@ describe('theme_experiment stylesheet', () => {
     expect(manifest.theme_experiment.stylesheet).toBe(
       'theme_experiment/chrome.css'
     )
+
     const emitted = fs.readFileSync(
       path.join(distDir, manifest.theme_experiment.stylesheet),
       'utf8'
@@ -106,6 +114,7 @@ describe('theme_experiment stylesheet', () => {
       expect(manifest.theme_experiment.stylesheet).toBe(
         'theme_experiment/chrome.css'
       )
+
       const emitted = fs.readFileSync(
         path.join(distDir, manifest.theme_experiment.stylesheet),
         'utf8'

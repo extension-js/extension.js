@@ -16,6 +16,7 @@ import {getCanonicalContentScriptEntryName} from '../../contracts'
 
 function findPackageRoot(startDir: string): string | undefined {
   let current = startDir
+
   for (let i = 0; i < 15; i++) {
     if (
       PROJECT_MANIFEST_FILENAMES.some((filename) =>
@@ -24,10 +25,13 @@ function findPackageRoot(startDir: string): string | undefined {
     ) {
       return current
     }
+
     const parent = path.dirname(current)
     if (parent === current) break
+
     current = parent
   }
+
   return undefined
 }
 
@@ -41,6 +45,7 @@ function resolveExistingFile(
 
     for (const suffix of suffixes) {
       const resolved = suffix ? `${candidate}${suffix}` : candidate
+
       if (fs.existsSync(resolved)) {
         return resolved
       }
@@ -98,6 +103,7 @@ export function getMainWorldBridgeScripts(
     }
 
     let bridgeOrdinal = 0
+
     for (let i = 0; i < contentScripts.length; i++) {
       const cs = contentScripts[i]
 

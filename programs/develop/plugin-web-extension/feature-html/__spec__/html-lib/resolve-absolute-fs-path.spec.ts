@@ -14,9 +14,11 @@ beforeAll(() => {
     path.join(root, 'dist', 'chromium', 'pages', 'nested.html'),
     '<html><script src="/pages/nested.js"></script></html>'
   )
+
   fs.mkdirSync(path.join(root, 'public'), {recursive: true})
   fs.writeFileSync(path.join(root, 'public', 'logo.png'), 'png')
 })
+
 afterAll(() => {
   fs.rmSync(root, {recursive: true, force: true})
 })

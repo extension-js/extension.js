@@ -69,13 +69,16 @@ describe('messages helpers', () => {
     expect(block).toContain(
       '- extension open <popup|options|sidebar|action|command> [project-path]'
     )
+
     // The browser name is optional and defaults to chromium.
     expect(block).toContain('- extension install [browser-name]')
     expect(block).toContain('Defaults to chromium when no browser is named.')
+
     // One name for one argument across dev, start, preview and build.
     for (const name of ['dev', 'start', 'preview', 'build']) {
       expect(block).toContain(`- extension ${name} [project-path|remote-url]`)
     }
+
     expect(block).not.toContain('project-name]')
     expect(block).not.toContain('path-to-remote-extension')
   })

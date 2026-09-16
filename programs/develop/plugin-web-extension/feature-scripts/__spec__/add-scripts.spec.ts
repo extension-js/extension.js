@@ -21,6 +21,7 @@ function createTempProject() {
     '{"name":"fixture"}\n',
     'utf8'
   )
+
   return dir
 }
 
@@ -57,12 +58,14 @@ describe('AddScripts', () => {
       }),
       'utf8'
     )
+
     const compiler = createCompiler(projectDir)
     new AddScripts({
       manifestPath: path.join(projectDir, 'manifest.json'),
       browser,
       includeList: {'background/scripts': [bgPath]}
     } as any).apply(compiler as any)
+
     return (compiler.options.entry as any)['background/scripts']
   }
 
@@ -72,6 +75,7 @@ describe('AddScripts', () => {
     expect(buildBackgroundScriptsEntry(3, 'chrome').chunkLoading).toBe(
       'import-scripts'
     )
+
     expect(buildBackgroundScriptsEntry(3, 'edge').chunkLoading).toBe(
       'import-scripts'
     )
@@ -83,6 +87,7 @@ describe('AddScripts', () => {
     expect(
       buildBackgroundScriptsEntry(3, 'firefox').chunkLoading
     ).toBeUndefined()
+
     expect(
       buildBackgroundScriptsEntry(2, 'chrome').chunkLoading
     ).toBeUndefined()
@@ -100,12 +105,14 @@ describe('AddScripts', () => {
       JSON.stringify({manifest_version: 3, ...manifest}),
       'utf8'
     )
+
     const compiler = createCompiler(projectDir)
     new AddScripts({
       manifestPath: path.join(projectDir, 'manifest.json'),
       browser,
       includeList: {'background/service_worker': [swPath]}
     } as any).apply(compiler as any)
+
     return (compiler.options.entry as any)['background/service_worker']
   }
 
@@ -118,12 +125,14 @@ describe('AddScripts', () => {
         'chrome'
       ).chunkLoading
     ).toBeUndefined()
+
     expect(
       buildServiceWorkerEntry(
         {background: {type: 'module', service_worker: 'sw.js'}},
         'chrome'
       ).chunkLoading
     ).toBeUndefined()
+
     // A classic worker keeps importScripts chunk loading.
     expect(
       buildServiceWorkerEntry(
@@ -238,6 +247,7 @@ describe('AddScripts', () => {
       JSON.stringify({manifest_version: 3}),
       'utf8'
     )
+
     const tsPath = path.join(manifestDir, 'bloomfilter.ts')
     const jsPath = path.join(manifestDir, 'background.js')
     const mjsPath = path.join(manifestDir, 'module-scoped.mjs')
@@ -250,6 +260,7 @@ describe('AddScripts', () => {
       manifestPath: path.join(manifestDir, 'manifest.json'),
       includeList: {'background/scripts': [tsPath, jsPath]}
     } as any).apply(compiler as any)
+
     const tsEntry = String(
       (compiler.options.entry as any)['background/scripts'].import[0]
     )
@@ -260,6 +271,7 @@ describe('AddScripts', () => {
       manifestPath: path.join(manifestDir, 'manifest.json'),
       includeList: {'background/scripts': [jsPath, mjsPath]}
     } as any).apply(compiler2 as any)
+
     const mjsEntry = String(
       (compiler2.options.entry as any)['background/scripts'].import[0]
     )

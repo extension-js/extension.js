@@ -20,6 +20,7 @@ function makeCompilation(contextDir: string = process.cwd()) {
       }
     }
   }
+
   return {
     options: {context: contextDir},
     hooks: {
@@ -40,6 +41,7 @@ describe('joinEmittedAssetName (URL-clamped asset names)', () => {
     expect(joinEmittedAssetName('assets', '../img/logo.png')).toBe(
       'img/logo.png'
     )
+
     expect(joinEmittedAssetName('assets', '../../../assets/icon16.png')).toBe(
       'assets/icon16.png'
     )
@@ -62,6 +64,7 @@ describe('AddAssetsToCompilation (no output-dir escape)', () => {
     const tmpDirectoryPath = fs.mkdtempSync(
       path.join(os.tmpdir(), 'feature-html-no-escape-')
     )
+
     try {
       const manifestFilePath = path.join(tmpDirectoryPath, 'manifest.json')
       fs.writeFileSync(manifestFilePath, '{}', 'utf8')
@@ -93,9 +96,11 @@ describe('AddAssetsToCompilation (no output-dir escape)', () => {
       } as any).apply(compiler as any)
 
       const emittedAssetNames = Object.keys(compiler.compilationObj.assets)
+
       for (const name of emittedAssetNames) {
         expect(name.split('/')).not.toContain('..')
       }
+
       expect(emittedAssetNames).toContain('assets/icon16.png')
     } finally {
       fs.rmSync(tmpDirectoryPath, {recursive: true, force: true})

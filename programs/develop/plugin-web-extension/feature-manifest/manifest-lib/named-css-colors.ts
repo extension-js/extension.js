@@ -6,10 +6,6 @@
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-// The CSS Color Module named colors, values per the css-wg keyword table.
-// Data, not policy: the theme color converter reads it so gecko manifests
-// using keywords build for chromium too. Kept inline over a dependency so
-// hoisting cannot change what the published CLI resolves.
 export const NAMED_CSS_COLORS: Record<string, [number, number, number]> = {
   aliceblue: [240, 248, 255],
   antiquewhite: [250, 235, 215],

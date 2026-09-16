@@ -19,6 +19,7 @@ describe('patchHtml (preserve query/hash)', () => {
     const tmpDirectoryPath = fs.mkdtempSync(
       path.join(os.tmpdir(), 'feature-html-patch-qh-')
     )
+
     try {
       const htmlFilePath = path.join(tmpDirectoryPath, 'index.html')
       const imageDirectoryPath = path.join(tmpDirectoryPath, 'img')
@@ -51,6 +52,7 @@ describe('patchHtml (preserve query/hash)', () => {
     const tmpDirectoryPath = fs.mkdtempSync(
       path.join(os.tmpdir(), 'feature-html-patch-public-qh-')
     )
+
     try {
       const htmlFilePath = path.join(tmpDirectoryPath, 'index.html')
       fs.writeFileSync(

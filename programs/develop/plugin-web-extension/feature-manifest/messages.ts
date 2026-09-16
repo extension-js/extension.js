@@ -15,15 +15,19 @@ export function serverRestartRequiredFromManifestError(
 ) {
   const lines: string[] = []
   lines.push(`Entrypoint references changed.`)
+
   if (fileRemoved) {
     lines.push(`${colors.gray('EXPECTED')} ${colors.underline(fileRemoved)}`)
   }
+
   if (fileAdded) {
     lines.push(`${colors.gray('GOT')} ${colors.underline(fileAdded)}`)
   }
+
   lines.push(
     `Restart the dev server to pick up changes to manifest entrypoints.`
   )
+
   return lines.join('\n')
 }
 
@@ -36,10 +40,12 @@ export function legacyManifestPathWarning(
   lines.push(
     `${prefix('warn')} The ${colors.blue(field)} field uses a deprecated scaffold path.`
   )
+
   lines.push(`${colors.gray('PATH')} ${colors.underline(legacyPath)}`)
   lines.push(
     `Point it at ${colors.underline(modernPath)}, Extension.js already emits the page there.`
   )
+
   return lines.join('\n')
 }
 
@@ -48,8 +54,10 @@ export function fatalManifestShapeFixed(field: string, detail: string) {
   lines.push(
     `${prefix('warn')} Repaired the ${colors.blue(field)} field, which Chrome refuses to load the extension over.`
   )
+
   lines.push(`${colors.gray('REASON')} ${colors.underline(detail)}`)
   lines.push(`Fix the field in your ${colors.blue('manifest.json')} file.`)
+
   return lines.join('\n')
 }
 
@@ -62,12 +70,15 @@ export function invalidThemeValue(
   lines.push(
     `Check the ${colors.yellow(field)} field in your ${colors.yellow('manifest.json')} file.`
   )
+
   lines.push(detail)
   lines.push(
     `Chrome rejects the whole extension when this value is malformed.\nThe build stops here to protect you.`
   )
+
   lines.push('')
   lines.push(`${colors.red('INVALID VALUE')} ${value}`)
+
   return lines.join('\n')
 }
 
@@ -76,7 +87,9 @@ export function themeNotSupportedByBrowser(browser: string) {
   lines.push(
     `${prefix('warn')} ${colors.blue(browser)} does not support the ${colors.yellow('theme')} field.`
   )
+
   lines.push(`The field ships unchanged in the manifest and Safari ignores it.`)
+
   return lines.join('\n')
 }
 
@@ -85,12 +98,15 @@ export function missingGeckoDataCollectionPermissions() {
   lines.push(
     `${prefix('warn')} addons.mozilla.org requires ${colors.blue('browser_specific_settings.gecko.data_collection_permissions')} for new add-ons.`
   )
+
   lines.push(
     `Declare ${colors.blue('{"required": ["none"]}')} if this extension transmits no data.`
   )
+
   lines.push(
     `See ${colors.underline('https://extensionworkshop.com/documentation/develop/firefox-builtin-data-consent/')} for details.`
   )
+
   return lines.join('\n')
 }
 
@@ -99,6 +115,7 @@ export function manifestInvalidError(error: NodeJS.ErrnoException) {
   lines.push(`Can't read your ${colors.blue('manifest.json')} file.`)
   lines.push(`${colors.gray('REASON')} ${colors.underline(String(error))}`)
   lines.push(`Update your manifest and try again.`)
+
   return lines.join('\n')
 }
 
@@ -153,6 +170,7 @@ export function vendorPrefixedKeyDropped(
   browser: string
 ) {
   const vendorName = vendor === 'edge' ? 'Edge' : 'Chrome'
+
   return (
     `${prefix('warn')} ${colors.yellow(key)} now applies only to ${vendorName} builds, so the ${colors.blue(browser)} build dropped it.\n` +
     `Rename it to ${colors.yellow(familyKey)} to keep it on every Chromium-based browser. ` +
@@ -173,12 +191,15 @@ export function geckoSidePanelUnsupported(file: string) {
   lines.push(
     `${prefix('warn')} ${colors.underline(file)} uses chrome.sidePanel, which is Chromium only.`
   )
+
   lines.push(
     `Firefox opens a sidebar through the ${colors.yellow('sidebar_action')} manifest key on every manifest version, and addons-linter flags the call as UNSUPPORTED_API.`
   )
+
   lines.push(
     `Move the call behind a build-time branch on ${colors.blue('import.meta.env.EXTENSION_PUBLIC_BROWSER')} so the Firefox bundle drops it.`
   )
+
   return lines.join('\n')
 }
 
@@ -189,10 +210,12 @@ function safariUnsupportedApi(file: string, api: string, detail: string) {
   lines.push(
     `${prefix('warn')} ${colors.underline(file)} calls chrome.${api}, which Safari does not have.`
   )
+
   lines.push(detail)
   lines.push(
     `Move the call behind a build-time branch on ${colors.blue('import.meta.env.EXTENSION_PUBLIC_BROWSER')}, or guard it with ${colors.yellow(`chrome.${api}?.`)}.`
   )
+
   return lines.join('\n')
 }
 
@@ -338,13 +361,16 @@ export function safariMemberUnsupported(
   lines.push(
     `${prefix('warn')} ${colors.underline(file)} calls chrome.${api}.${member}, which Safari does not have.`
   )
+
   lines.push(
     safariMissingMemberDetails[`${api}.${member}`] ||
       `Safari ships chrome.${api} without this member. ${safariBackgroundDies}`
   )
+
   lines.push(
     `Safari has ${colors.blue(`chrome.${api}`)} itself, so a guard on the namespace does not help. Move the call behind a build-time branch on ${colors.blue('import.meta.env.EXTENSION_PUBLIC_BROWSER')}, or guard it with ${colors.yellow(guard)}.`
   )
+
   return lines.join('\n')
 }
 
@@ -353,12 +379,15 @@ export function geckoActionUnsupportedOnMv2(file: string) {
   lines.push(
     `${prefix('warn')} ${colors.underline(file)} uses chrome.action, which Manifest V2 does not have on Firefox.`
   )
+
   lines.push(
     `Firefox Manifest V2 exposes the toolbar button as browserAction, and addons-linter flags the call as UNSUPPORTED_API.`
   )
+
   lines.push(
     `Use browserAction behind a build-time branch on ${colors.blue('import.meta.env.EXTENSION_PUBLIC_BROWSER')}, or declare Manifest V3 for Firefox with ${colors.yellow('firefox:manifest_version')}.`
   )
+
   return lines.join('\n')
 }
 
@@ -373,11 +402,14 @@ export function webkitUnsupportedKeysDropped(
   lines.push(
     `${prefix('warn')} Safari has no support for ${String(count)} manifest ${count === 1 ? 'key' : 'keys'} this build inherited from its Chromium manifest, so the ${colors.blue(browser)} build dropped ${count === 1 ? 'it' : 'them'}.`
   )
+
   for (const entry of dropped) {
     lines.push(`${colors.yellow(entry.path)} ${colors.gray(entry.reason)}`)
   }
+
   lines.push(
     `Every key above is inert on Safari, so the built app lost nothing it could have run. Declare a Safari-only replacement with the ${colors.yellow('safari:')} prefix if you have one.`
   )
+
   return lines.join('\n')
 }

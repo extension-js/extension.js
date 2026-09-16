@@ -16,6 +16,7 @@ function sanitizeAppName(value: string) {
     .replace(/[\\/:*?"<>|]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
+
   return cleaned.length > 0 ? cleaned : 'Extension'
 }
 
@@ -40,12 +41,14 @@ export function isValidBundleId(value: string): boolean {
 function readManifest(extensionDir: string): Record<string, unknown> {
   try {
     const manifestPath = path.join(extensionDir, 'manifest.json')
+
     if (fs.existsSync(manifestPath)) {
       return JSON.parse(fs.readFileSync(manifestPath, 'utf8')) || {}
     }
   } catch {
     // Ignore
   }
+
   return {}
 }
 
@@ -101,6 +104,7 @@ export function composeConverterArgs(config: SafariBuildConfig): string[] {
     config.language === 'objc' ? '--objc' : '--swift'
   ]
   if (config.macOsOnly) args.push('--macos-only')
+
   return args
 }
 
@@ -155,6 +159,7 @@ export function composeXcodebuildArgs(config: SafariBuildConfig): string[] {
   // `DEVELOPMENT_TEAM=   `, which xcodebuild accepts and then fails to sign
   // with, hours later, for reasons that point nowhere near this line.
   const team = String(config.developmentTeam || '').trim()
+
   if (team) {
     return [
       ...base,
@@ -198,6 +203,7 @@ function iconsFingerprint(extensionDir: string): string {
     )
     const icons = (JSON.parse(raw) as {icons?: Record<string, unknown>}).icons
     if (!icons || typeof icons !== 'object') return ''
+
     return Object.keys(icons)
       .sort()
       .map((size) => `${size}:${String(icons[size])}`)
@@ -239,6 +245,7 @@ function judgedManifestSurface(extensionDir: string): string {
   // path is rewritten to a content-hashed name on every save, and that rename is
   // the edit this whole fingerprint exists to ignore.
   const contentScripts = manifest.content_scripts
+
   if (Array.isArray(contentScripts)) {
     parts.push(
       contentScripts
@@ -246,6 +253,7 @@ function judgedManifestSurface(extensionDir: string): string {
         .join(';')
     )
   }
+
   parts.push(Object.keys(asRecord(manifest.options_ui)).sort().join(','))
 
   return parts.join('|')
@@ -283,7 +291,9 @@ export function saveManifestFingerprint(config: SafariBuildConfig): void {
 export function isProjectStale(config: SafariBuildConfig): boolean {
   const fpPath = manifestFingerprintPath(config)
   if (!fs.existsSync(fpPath)) return true
+
   const stored = fs.readFileSync(fpPath, 'utf8')
+
   return stored !== composeProjectFingerprint(config)
 }
 
@@ -316,15 +326,19 @@ export function extractXcodeUserSettings(
   pbxprojContent: string
 ): Record<string, string> {
   const found: Record<string, string> = {}
+
   for (const key of PRESERVED_SETTINGS) {
     const m = new RegExp(`\\b${key}\\s*=\\s*([^;]+);`).exec(pbxprojContent)
+
     if (m) {
       const val = m[1].trim()
+
       if (val && val !== '""' && val !== "''") {
         found[key] = val
       }
     }
   }
+
   return found
 }
 
@@ -333,8 +347,10 @@ export function applyXcodeUserSettings(
   settings: Record<string, string>
 ): string {
   let result = pbxprojContent
+
   for (const [key, value] of Object.entries(settings)) {
     const existing = new RegExp(`\\b${key}\\s*=\\s*[^;]+;`, 'g')
+
     if (existing.test(result)) {
       result = result.replace(existing, `${key} = ${value};`)
     } else {
@@ -344,6 +360,7 @@ export function applyXcodeUserSettings(
       )
     }
   }
+
   return result
 }
 
@@ -363,6 +380,7 @@ export function backupAndRestoreXcodeSettings(config: SafariBuildConfig): {
     restore() {
       if (Object.keys(saved).length === 0) return
       if (!fs.existsSync(projFile)) return
+
       const content = fs.readFileSync(projFile, 'utf8')
       fs.writeFileSync(projFile, applyXcodeUserSettings(content, saved), 'utf8')
     }

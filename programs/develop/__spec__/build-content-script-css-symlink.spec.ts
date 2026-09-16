@@ -38,6 +38,7 @@ function writeFixture(root: string) {
       2
     )
   )
+
   write(
     root,
     'manifest.json',
@@ -55,6 +56,7 @@ function writeFixture(root: string) {
       2
     )
   )
+
   write(root, 'src/content.js', "import './styles.css'\n")
   write(root, 'src/background.js', "console.log('bg')\n")
   write(
@@ -68,6 +70,7 @@ function writeFixture(root: string) {
       ''
     ].join('\n')
   )
+
   write(root, 'src/fonts/probe.woff2', FONT_BYTES)
 }
 
@@ -93,6 +96,7 @@ async function buildThrough(root: string) {
     } else {
       process.env.EXTENSION_AUTHOR_MODE = previousAuthorMode
     }
+
     if (previousVitest === undefined) {
       delete process.env.VITEST
     } else {
@@ -136,6 +140,7 @@ describe('build: a content-script stylesheet under a symlinked project path (rea
     expect(source).toContain(
       'url("__EXTENSIONJS_EXTENSION_ROOT__/assets/src/fonts/probe.woff2")'
     )
+
     expect(source).not.toMatch(/url\(\s*(?:\\?["'])?\.\//)
     expect(script?.css || []).toEqual([])
     const chunks = fs
@@ -146,6 +151,7 @@ describe('build: a content-script stylesheet under a symlinked project path (rea
     expect(
       fs.readFileSync(path.join(distDir, 'assets/src/fonts/probe.woff2'))
     ).toEqual(FONT_BYTES)
+
     const resources = (manifest.web_accessible_resources || []).flatMap(
       (group) => group.resources || []
     )

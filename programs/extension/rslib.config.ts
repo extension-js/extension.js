@@ -17,6 +17,7 @@ const require = createRequire(import.meta.url)
 const shouldGenerateDts = (() => {
   try {
     require('@ast-grep/napi')
+
     return true
   } catch (_error) {
     // If the native binding cannot load, skip d.ts generation and keep build working.
@@ -24,6 +25,7 @@ const shouldGenerateDts = (() => {
     console.warn(
       '[Extension.js] Skipping d.ts generation: @ast-grep/napi failed to load.'
     )
+
     return false
   }
 })()
@@ -46,6 +48,7 @@ function copyReadmePlugin() {
 function copyIfDifferentContent(sourceContent: string, target: string): void {
   if (fs.existsSync(target)) {
     const targetContent = fs.readFileSync(target, 'utf8')
+
     if (sourceContent !== targetContent) {
       fs.writeFileSync(target, sourceContent)
       console.log(
@@ -80,6 +83,7 @@ function transformReadme(content: string): string {
     /\s*\[!\[Downloads\]\[npm-downloads-image\]\]\[npm-downloads-url\]/g,
     ''
   )
+
   out = out
     .split('\n')
     .filter(
@@ -97,6 +101,7 @@ function transformReadme(content: string): string {
     /(# Extension\.js \[!\[Version\]\[npm-version-image\]\]\[npm-version-url\])/,
     '$1 [![Stars][stars-image]][stars-url]'
   )
+
   // The reference definitions travel with it, for the same reason.
   out = out.replace(
     /(\[npm-version-url\]: [^\n]*\n)/,

@@ -16,6 +16,7 @@ function makeTempOutPath(manifest: Record<string, unknown>): string {
     JSON.stringify(manifest),
     'utf-8'
   )
+
   return outPath
 }
 
@@ -265,12 +266,12 @@ describe('nameable is decoupled from already-printed', () => {
   })
 
   afterEach(() => {
-    if (previousCardKeys === undefined)
+    if (previousCardKeys === undefined) {
       delete process.env.EXTENSION_CLI_CARD_KEYS
-    else process.env.EXTENSION_CLI_CARD_KEYS = previousCardKeys
-    if (previousBannerFlag === undefined)
+    } else process.env.EXTENSION_CLI_CARD_KEYS = previousCardKeys
+    if (previousBannerFlag === undefined) {
       delete process.env.EXTENSION_CLI_BANNER_PRINTED
-    else process.env.EXTENSION_CLI_BANNER_PRINTED = previousBannerFlag
+    } else process.env.EXTENSION_CLI_BANNER_PRINTED = previousBannerFlag
   })
 
   // The firefox add-on install treats this boolean as its verification, so a

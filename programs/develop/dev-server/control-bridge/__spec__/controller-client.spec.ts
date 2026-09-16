@@ -30,15 +30,19 @@ function startFakeExecutor(
           instanceId: 'inst-1'
         })
       )
+
       resolve(ws)
     })
+
     ws.on('message', (data) => {
       let frame: any
+
       try {
         frame = JSON.parse(data.toString())
       } catch {
         return
       }
+
       if (frame.type === 'command') {
         const r = reply(frame)
         ws.send(JSON.stringify({type: 'result', cmdId: frame.cmdId, ...r}))
@@ -52,6 +56,7 @@ describe('session-token', () => {
   beforeEach(() => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-token-'))
   })
+
   afterEach(() => fs.rmSync(dir, {recursive: true, force: true}))
 
   it('writes a 0600 token outside dist/ and reads it back', () => {
@@ -60,6 +65,7 @@ describe('session-token', () => {
     expect(readControlToken(dir, 'chrome')).toBe(token)
     const p = controlTokenPath(dir, 'chrome')
     expect(p.includes(`${path.sep}dist${path.sep}`)).toBe(false)
+
     if (process.platform !== 'win32') {
       expect(fs.statSync(p).mode & 0o777).toBe(0o600)
     }
@@ -110,19 +116,24 @@ describe('BridgeController (integration)', () => {
   beforeEach(() => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-act-'))
   })
+
   afterEach(async () => {
     controller?.close()
     controller = null
+
     try {
       executor?.close()
     } catch {
       // Ignore
     }
+
     executor = null
+
     if (server) {
       await server.close()
       server = null
     }
+
     fs.rmSync(dir, {recursive: true, force: true})
   })
 
@@ -134,6 +145,7 @@ describe('BridgeController (integration)', () => {
       allowControl: true,
       ...extra
     })
+
     return broker
   }
 
@@ -146,6 +158,7 @@ describe('BridgeController (integration)', () => {
       controlPort: server.port,
       instanceId: 'inst-1'
     })
+
     const ready = await controller.connect()
     expect(ready.capabilities).toMatchObject({storage: true, reload: true})
 
@@ -168,6 +181,7 @@ describe('BridgeController (integration)', () => {
       controlPort: server.port,
       instanceId: 'inst-1'
     })
+
     await controller.command({op: 'reload', target: {context: 'background'}})
 
     const lines = fs
@@ -187,6 +201,7 @@ describe('BridgeController (integration)', () => {
       controlPort: server.port,
       instanceId: 'inst-1'
     })
+
     const result = await controller.command({
       op: 'eval',
       target: {context: 'background'},
@@ -209,6 +224,7 @@ describe('BridgeController (integration)', () => {
       instanceId: 'inst-1',
       token: readControlToken(dir, 'chrome') ?? undefined
     })
+
     const result = await controller.command({
       op: 'eval',
       target: {context: 'background'},
@@ -224,6 +240,7 @@ describe('BridgeController (integration)', () => {
       controlPort: server.port,
       instanceId: 'inst-1'
     })
+
     await expect(controller.connect()).rejects.toThrow(/refused the controller/)
   })
 
@@ -234,6 +251,7 @@ describe('BridgeController (integration)', () => {
       controlPort: server.port,
       instanceId: 'inst-1'
     })
+
     await expect(controller.connect()).rejects.toThrow(/--allow-control/)
   })
 
@@ -245,6 +263,7 @@ describe('BridgeController (integration)', () => {
       instanceId: 'inst-1',
       unlockFlag: '--allow-eval'
     })
+
     await expect(controller.connect()).rejects.toThrow(/--allow-eval/)
   })
 })

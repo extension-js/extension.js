@@ -32,6 +32,7 @@ function computeSharedCacheRoot(): string {
         'browsers'
       )
     }
+
     return path.resolve(process.cwd(), '.cache', 'extension.js', 'browsers')
   }
 
@@ -79,6 +80,7 @@ export function computeBinariesBaseDir(compilation: CompilationLike) {
     const last = path.basename(outputDir)
     const browserDirs = new Set(['chrome', 'chromium', 'firefox', 'edge'])
     const distRoot = browserDirs.has(last) ? path.dirname(outputDir) : outputDir
+
     return path.resolve(distRoot, 'extension-js', 'binaries')
   }
 
@@ -128,9 +130,11 @@ export function managedBrowserCacheEnv(
   if (browser === 'chrome') {
     return {PUPPETEER_CACHE_DIR: path.join(root, 'chrome', 'chrome')}
   }
+
   if (browser === 'chromium' || browser === 'chromium-based') {
     return {PUPPETEER_CACHE_DIR: path.join(root, 'chromium', 'chromium')}
   }
+
   if (
     browser === 'firefox' ||
     browser === 'gecko-based' ||
@@ -138,6 +142,7 @@ export function managedBrowserCacheEnv(
   ) {
     return {PUPPETEER_CACHE_DIR: path.join(root, 'firefox', 'firefox')}
   }
+
   // Edge is installed via Playwright; the installer sets PLAYWRIGHT_BROWSERS_PATH
   // to the managed cache dir for edge.
   return {PLAYWRIGHT_BROWSERS_PATH: path.join(root, 'edge')}
@@ -158,6 +163,7 @@ export function resolveFromBinaries(
   const nested = path.join(browserBase, browser)
 
   if (fs.existsSync(nested)) scanRoots.push(nested)
+
   // Puppeteer often nests Chromium under "chrome-*" directories; scan that too.
   if (browser === 'chromium') {
     const chromeNested = path.join(browserBase, 'chrome')
@@ -170,6 +176,7 @@ export function resolveFromBinaries(
   for (const root of scanRoots) {
     try {
       const entries = fs.readdirSync(root, {withFileTypes: true})
+
       for (const entry of entries) {
         if (entry.isDirectory() && versionDirPattern.test(entry.name)) {
           versionDirs.push(path.join(root, entry.name))
@@ -209,6 +216,7 @@ const MANAGED_BUILD_DIR_PREFIX =
 export function parseManagedBuildId(dirName: string): number[] {
   const name = String(dirName || '')
   const buildId = name.replace(MANAGED_BUILD_DIR_PREFIX, '')
+
   return buildId
     .split(/[^\d]+/)
     .filter(Boolean)
@@ -239,11 +247,13 @@ function compareManagedBuildDirsNewestFirst(a: string, b: string): number {
 
   let timeA = 0
   let timeB = 0
+
   try {
     timeA = fs.statSync(a).mtimeMs
   } catch {
     // Ignore
   }
+
   try {
     timeB = fs.statSync(b).mtimeMs
   } catch {
@@ -251,6 +261,7 @@ function compareManagedBuildDirsNewestFirst(a: string, b: string): number {
   }
 
   if (timeA !== timeB) return timeB - timeA
+
   return path.basename(b).localeCompare(path.basename(a))
 }
 
@@ -280,6 +291,7 @@ function buildCandidates(
   browser: 'chrome' | 'chromium' | 'firefox' | 'edge'
 ) {
   const out: string[] = []
+
   if (browser === 'chrome') {
     if (process.platform === 'darwin') {
       out.push(
@@ -395,6 +407,7 @@ function buildCandidates(
       out.push(path.join(dir, 'firefox'))
     }
   }
+
   return out
 }
 
@@ -424,6 +437,7 @@ function executableNamesFor(
       ? ['msedge.exe']
       : ['Microsoft Edge', 'msedge', 'microsoft-edge']
   }
+
   return process.platform === 'win32' ? ['firefox.exe'] : ['firefox']
 }
 
@@ -441,6 +455,7 @@ function findExecutableUnder(
       if (depth > maxDepth) continue
 
       let entries: fs.Dirent[] = []
+
       try {
         entries = fs.readdirSync(dir, {withFileTypes: true})
       } catch {

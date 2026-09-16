@@ -36,12 +36,14 @@ function binaryDetailSuffix(ready: {
 }): string {
   const binary = String(ready?.binary || '').trim()
   if (!binary) return ''
+
   const home = os.homedir()
   const shown =
     home && binary.startsWith(home + path.sep)
       ? `~${binary.slice(home.length)}`
       : binary
   const provenance = String(ready?.binaryProvenance || '').trim()
+
   return provenance ? `, ${shown} (${provenance})` : `, ${shown}`
 }
 
@@ -81,15 +83,19 @@ function isExecutorAttachGrace(
   if (ready?.executorAttachedAt || ready?.runtime === 'attached') return false
   // A browser that exited under a live server is a real failure, not launching.
   if (ready?.browserExitedAt) return false
+
   const stamp = ready?.compiledAt || ready?.ts
   if (typeof stamp !== 'string') return false
+
   const compiledMs = Date.parse(stamp)
   if (Number.isNaN(compiledMs)) return false
+
   return Date.now() - compiledMs < EXECUTOR_ATTACH_GRACE_MS
 }
 
 function listSessionBrowsers(projectPath: string): string[] {
   const sessionsRoot = path.join(projectPath, 'dist', 'extension-js')
+
   try {
     return fs
       .readdirSync(sessionsRoot, {withFileTypes: true})
@@ -113,28 +119,26 @@ export function resolveDoctorBrowser(
   optsBrowser: string | undefined
 ): {browser: string; sessionBrowsers: string[]} {
   if (optsBrowser) return {browser: optsBrowser, sessionBrowsers: []}
+
   const sessionBrowsers = listSessionBrowsers(
     path.resolve(projectPath || process.cwd())
   )
+
   if (sessionBrowsers.length === 1) {
     return {browser: sessionBrowsers[0], sessionBrowsers}
   }
+
   if (sessionBrowsers.includes('chromium')) {
     return {browser: 'chromium', sessionBrowsers}
   }
+
   if (sessionBrowsers.length > 1) {
     return {browser: sessionBrowsers[0], sessionBrowsers}
   }
+
   return {browser: 'chromium', sessionBrowsers}
 }
 
-/**
- * Walks the control-channel legs in dependency order and reports the first
- * failing one with a remediation, instead of the dead-end errors each verb
- * gives on its own. Checks keep running past a failure wherever the answer
- * is still meaningful (a skip always names the check that blocked it, a
- * skip is NOT a pass).
- */
 export async function runDoctor(
   projectPathArg: string | undefined,
   opts: DoctorOptions
@@ -146,6 +150,7 @@ export async function runDoctor(
     opts.browser
   )
   const results: DoctorCheckResult[] = []
+
   if (sessionBrowsers.length > 1) {
     results.push({
       check: 'session-resolution',
@@ -154,6 +159,7 @@ export async function runDoctor(
       remediation: 'Pass --browser=<name> to diagnose a specific session'
     })
   }
+
   const skip = (check: string, blockedBy: string) => {
     results.push({
       check,
@@ -171,6 +177,7 @@ export async function runDoctor(
   } = bridge
 
   const ready = readReadyContract(projectPath, browser)
+
   if (!ready) {
     results.push({
       check: 'ready-contract',
@@ -180,6 +187,7 @@ export async function runDoctor(
         `Start a dev session first: extension dev --browser=${browser} ` +
         `--allow-control (add --allow-eval for the eval verb)`
     })
+
     for (const check of [
       'server-process',
       'port-agreement',
@@ -190,6 +198,7 @@ export async function runDoctor(
     ]) {
       skip(check, 'ready-contract')
     }
+
     return results
   }
 
@@ -211,6 +220,7 @@ export async function runDoctor(
   }
 
   let serverAlive = true
+
   if (ready.pid == null) {
     results.push({
       check: 'server-process',
@@ -220,11 +230,13 @@ export async function runDoctor(
     })
   } else {
     let alive = true
+
     try {
       process.kill(ready.pid, 0)
     } catch (err) {
       alive = (err as NodeJS.ErrnoException | undefined)?.code === 'EPERM'
     }
+
     if (alive) {
       results.push({
         check: 'server-process',
@@ -260,6 +272,7 @@ export async function runDoctor(
     const persisted = readPersistedControlPort(
       controlPortFilePath(projectPath, browser)
     )
+
     if (persisted == null) {
       results.push({
         check: 'port-agreement',
@@ -286,6 +299,7 @@ export async function runDoctor(
   }
 
   const token = readControlToken(projectPath, browser) ?? undefined
+
   if (!serverAlive) {
     skip('control-channel', 'server-process')
     skip('eval-token', 'control-channel')
@@ -299,6 +313,7 @@ export async function runDoctor(
     })
 
     let readyFrame: {capabilities?: {eval?: unknown}} | null = null
+
     try {
       readyFrame = await controller.connect()
       results.push({
@@ -313,9 +328,11 @@ export async function runDoctor(
       let remediation =
         'The control server did not answer on the contract port, the ' +
         'session may have died or the port was taken; restart the dev session'
+
       if (code === '4001') {
         detail =
           'refused: ready.json instanceId no longer matches the live server'
+
         remediation =
           'A newer session overwrote the contract, or this dist belongs to ' +
           'another session, re-read ready.json or restart the dev session'
@@ -325,12 +342,14 @@ export async function runDoctor(
         detail = 'refused: control is off in the session that answered'
         remediation = `Restart with control enabled: extension dev --browser=${browser} --allow-control`
       }
+
       results.push({
         check: 'control-channel',
         status: 'fail',
         detail,
         remediation
       })
+
       skip('eval-token', 'control-channel')
       skip('executor', 'control-channel')
     }
@@ -371,6 +390,7 @@ export async function runDoctor(
           args: {area: 'local'},
           timeoutMs: PROBE_TIMEOUT_MS
         })
+
         if (probe.ok || probe.error?.name !== 'Unavailable') {
           results.push({
             check: 'executor',
@@ -468,13 +488,16 @@ function printPretty(results: DoctorCheckResult[], browser: string): void {
   // eslint-disable-next-line no-console
   console.log(`doctor (${browser}), ${passes}/${results.length} checks passed`)
   const width = Math.max(...results.map((r) => r.check.length))
+
   for (const r of results) {
     // eslint-disable-next-line no-console
     console.log(`  ${glyph[r.status]} ${r.check.padEnd(width)}  ${r.detail}`)
   }
+
   const advisory =
     results.find((r) => r.status === 'fail') ??
     results.find((r) => r.status === 'warn')
+
   if (advisory?.remediation) {
     // eslint-disable-next-line no-console
     console.log(`\n${advisory.check}: ${advisory.remediation}`)
@@ -518,6 +541,7 @@ export function registerDoctorCommand(program: Command): void {
         results = await runDoctor(projectPathArg, opts)
       } catch (err) {
         const message = String((err as Error | undefined)?.message || err)
+
         if (asJson) {
           // eslint-disable-next-line no-console
           console.log(
@@ -532,7 +556,9 @@ export function registerDoctorCommand(program: Command): void {
           // eslint-disable-next-line no-console
           console.error(message)
         }
+
         await exitAfterDrain(1)
+
         return
       }
 

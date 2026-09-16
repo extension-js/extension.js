@@ -30,6 +30,7 @@ export class MessagingClient extends EventEmitter {
   private async openTransport(port: number) {
     this.lastPort = port
     await this.transport.connect(port)
+
     if (!this.forwardingSetup) {
       this.forwardingSetup = true
       this.transport.on('message', (message) => this.emit('message', message))
@@ -40,6 +41,7 @@ export class MessagingClient extends EventEmitter {
         this.emit('end')
         void this.attemptReconnect()
       })
+
       this.transport.on('timeout', () => this.emit('timeout'))
     }
   }
@@ -51,16 +53,20 @@ export class MessagingClient extends EventEmitter {
 
   private async attemptReconnect() {
     if (this.disconnectedByUser || this.reconnecting || !this.lastPort) return
+
     this.reconnecting = true
+
     try {
       for (let i = 0; i < RECONNECT_MAX_ATTEMPTS; i++) {
         await new Promise((r) => setTimeout(r, RECONNECT_RETRY_DELAY_MS))
         if (this.disconnectedByUser) return
+
         try {
           this.transport = new RdpTransport()
           this.forwardingSetup = false
           await this.openTransport(this.lastPort)
           this.emit('reconnected')
+
           return
         } catch {
           // Ignore
@@ -75,11 +81,14 @@ export class MessagingClient extends EventEmitter {
     if (typeof requestProps === 'string') {
       return await this.transport.request({to: 'root', type: requestProps})
     }
+
     if (requestProps && typeof requestProps === 'object') {
       const rp = requestProps as Record<string, unknown>
       const to = typeof rp.to === 'string' ? rp.to : 'root'
+
       return await this.transport.request({...rp, to})
     }
+
     throw new Error(messages.rdpInvalidRequestPayload())
   }
 

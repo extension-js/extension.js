@@ -60,15 +60,21 @@ function run(env) {
           .readFileSync(log, 'utf8')
           .trim()
           .split('\n')
-          .map((line) => [line.slice(0, line.indexOf('=')), line.slice(line.indexOf('=') + 1)])
+          .map((line) => [
+            line.slice(0, line.indexOf('=')),
+            line.slice(line.indexOf('=') + 1)
+          ])
       )
     : {}
+
   return {result, called, fields}
 }
 
 const skip = process.platform === 'win32'
 
-test('pushes the refspecs to the SSH remote with the key on disk only during the push', {skip}, () => {
+test('pushes the refspecs to the SSH remote with the key on disk only during the push', {
+  skip
+}, () => {
   const {result, called, fields} = run({RELEASE_DEPLOY_KEY: 'fake-private-key'})
   assert.equal(result.status, 0, result.stderr)
   assert.ok(called)
@@ -76,22 +82,32 @@ test('pushes the refspecs to the SSH remote with the key on disk only during the
     fields.args,
     'push git@github.com:extension-js/extension.js.git HEAD:refs/heads/main refs/tags/v9.9.9'
   )
+
   assert.equal(fields.key_exists, 'yes')
   assert.equal(fields.key_body, 'fake-private-key')
   assert.equal(fields.key_mode, '600')
   assert.match(fields.ssh, /-o IdentitiesOnly=yes/)
   assert.match(fields.ssh, /-o StrictHostKeyChecking=yes/)
   assert.match(fields.ssh, /-o UserKnownHostsFile=\S+/)
-  assert.equal(fs.existsSync(fields.key), false, 'the key file must be gone after the push')
+  assert.equal(
+    fs.existsSync(fields.key),
+    false,
+    'the key file must be gone after the push'
+  )
 })
 
 test('removes the key file even when the push fails', {skip}, () => {
-  const {result, fields} = run({RELEASE_DEPLOY_KEY: 'fake-private-key', FAKE_GIT_EXIT: '1'})
+  const {result, fields} = run({
+    RELEASE_DEPLOY_KEY: 'fake-private-key',
+    FAKE_GIT_EXIT: '1'
+  })
   assert.equal(result.status, 1)
   assert.equal(fs.existsSync(fields.key), false)
 })
 
-test('refuses to run without the deploy key and never calls git', {skip}, () => {
+test('refuses to run without the deploy key and never calls git', {
+  skip
+}, () => {
   const {result, called} = run({RELEASE_DEPLOY_KEY: ''})
   assert.notEqual(result.status, 0)
   assert.match(result.stderr, /RELEASE_DEPLOY_KEY is not set/)

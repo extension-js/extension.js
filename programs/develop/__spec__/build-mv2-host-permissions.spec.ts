@@ -23,6 +23,7 @@ function project() {
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'hosts', version: '0.0.0'})
   )
+
   fs.writeFileSync(path.join(root, 'content.js'), 'console.log("hosts")\n')
   fs.writeFileSync(
     path.join(root, 'manifest.json'),
@@ -41,6 +42,7 @@ function project() {
       ]
     })
   )
+
   return root
 }
 
@@ -52,6 +54,7 @@ async function build(
   const {extensionBuild} = await import('../command-build')
   const previous = process.env.VITEST
   process.env.VITEST = 'true'
+
   try {
     // Only a dev session (named by its command) takes the dev host grants,
     // a plain development-mode build stays shippable.
@@ -68,6 +71,7 @@ async function build(
     if (previous === undefined) delete process.env.VITEST
     else process.env.VITEST = previous
   }
+
   return JSON.parse(
     fs.readFileSync(path.join(root, 'dist', browser, 'manifest.json'), 'utf8')
   )
@@ -90,9 +94,11 @@ describe('host_permissions on a Firefox MV2 build', () => {
     expect(manifest.manifest_version).toBe(2)
     expect(manifest).not.toHaveProperty('host_permissions')
     expect(manifest).not.toHaveProperty('optional_host_permissions')
+
     for (const host of [...HOSTS, 'https://example.com/*', 'storage']) {
       expect(manifest.permissions).toContain(host)
     }
+
     expect(manifest.optional_permissions).toEqual(['tabs', ...OPTIONAL_HOSTS])
   }, 180_000)
 

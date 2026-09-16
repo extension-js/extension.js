@@ -105,12 +105,15 @@ describe('the extension-develop/bridge entry', () => {
     expect(bridge.readyContractPath('/p', 'chromium')).toBe(
       path.resolve('/p', 'dist', 'extension-js', 'chromium', 'ready.json')
     )
+
     expect(bridge.logsPath('/p', 'chromium')).toBe(
       path.resolve('/p', 'dist', 'extension-js', 'chromium', 'logs.ndjson')
     )
+
     expect(bridge.browserProfileRootDir('/p', 'chromium')).toBe(
       path.resolve('/p', 'dist', 'extension-js', 'profiles', 'chromium-profile')
     )
+
     expect(bridge.browserDistDir('/p', 'chromium')).toBe(
       path.resolve('/p', 'dist', 'chromium')
     )
@@ -137,6 +140,7 @@ describe('the extension-develop/bridge entry', () => {
         'browser-config.ts'
       )
     ]
+
     for (const configPath of launcherConfigs) {
       const flat = fs.readFileSync(configPath, 'utf8').replace(/\s+/g, ' ')
       expect(flat, configPath).toContain("'extension-js', 'profiles'")
@@ -150,6 +154,7 @@ describe('the extension-develop/bridge entry', () => {
 
   it('exports the ready contract type the writer maintains', () => {
     const bridgeSource = source('bridge-entry.ts')
+
     for (const name of [
       'ReadyMetadata',
       'ReadyStatus',
@@ -185,9 +190,11 @@ describe('the extension-develop/bridge entry', () => {
       'debug',
       'trace'
     ])
+
     expect(bridge.logLevelRank('error')).toBeLessThan(
       bridge.logLevelRank('trace')
     )
+
     // The console emits `log`; the filter vocabulary calls it `info`. That
     // aliasing is the engine's rule, not something to re-derive downstream.
     expect(bridge.logLevelRank('log')).toBe(bridge.logLevelRank('info'))
@@ -214,6 +221,7 @@ describe('the extension-develop/bridge entry', () => {
     const producerSource = source(
       'dev-server/control-bridge/producer-runtime.ts'
     )
+
     for (const code of [
       bridge.REFUSAL_NEEDS_HEADED_WINDOW,
       bridge.REFUSAL_NEEDS_USER_GESTURE,
@@ -233,6 +241,7 @@ describe('the extension-develop/bridge entry', () => {
     const serverSource = source(
       'dev-server/control-bridge/ws-control-server.ts'
     )
+
     for (const name of [
       'CLOSE_BAD_INSTANCE',
       'CLOSE_BAD_HELLO',
@@ -242,6 +251,7 @@ describe('the extension-develop/bridge entry', () => {
         `conn.close(${name}`
       )
     }
+
     expect(serverSource).toContain('socket.close(CLOSE_SLOW_CONSUMER')
     expect(serverSource).not.toMatch(/const CLOSE_SLOW_CONSUMER = \d/)
   })

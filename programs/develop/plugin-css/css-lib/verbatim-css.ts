@@ -33,6 +33,7 @@ function registry(): Map<string, VerbatimEntry> {
     Map<string, VerbatimEntry>
   >
   if (!holder[REGISTRY_KEY]) holder[REGISTRY_KEY] = new Map()
+
   return holder[REGISTRY_KEY]
 }
 
@@ -44,6 +45,7 @@ export function registerVerbatimCss(
 ): string {
   const id = Math.abs(hash(`${resourcePath || ''}\n${raw}`)).toString(36)
   registry().set(id, {raw, resourcePath})
+
   return id
 }
 
@@ -60,28 +62,35 @@ export function takeVerbatimCss(id: string): string | undefined {
 export function cssRelativeRefs(text: string): string[] {
   const scrubbed = text.replace(/\/\*[\s\S]*?\*\//g, ' ')
   const refs = new Set<string>()
+
   const add = (value: string | undefined) => {
     const ref = String(value || '').trim()
     if (!ref || /^(?:[a-z]+:|\/\/|#|data:)/i.test(ref)) return
     if (ref.startsWith('/')) return
+
     refs.add(ref.split(/[?#]/)[0])
   }
+
   for (const match of scrubbed.matchAll(
     /@import\s+(?:url\()?\s*["']?([^"')\s;]+)["']?\)?/gi
   )) {
     add(match[1])
   }
+
   for (const match of scrubbed.matchAll(/url\(\s*["']?([^"')]+)["']?\s*\)/gi)) {
     add(match[1])
   }
+
   return [...refs]
 }
 
 function hash(text: string): number {
   let value = 0
+
   for (let i = 0; i < text.length; i++) {
     value = (value * 31 + text.charCodeAt(i)) | 0
   }
+
   return value
 }
 
@@ -92,15 +101,20 @@ export function restoreVerbatimCssAssets(
     Partial<Pick<Compilation, 'emitAsset' | 'getAsset'>>
 ): string[] {
   const restored: string[] = []
+
   for (const asset of compilation.getAssets()) {
     if (!asset.name.endsWith('.css')) continue
+
     const text = asset.source.source().toString()
     const match = VERBATIM_CSS_MARKER.exec(text)
     if (!match) continue
+
     const entry = registry().get(match[1])
     if (!entry) continue
+
     compilation.updateAsset(asset.name, new sources.RawSource(entry.raw))
     restored.push(asset.name)
+
     if (entry.resourcePath) {
       emitVerbatimCssClosure(
         compilation,
@@ -111,6 +125,7 @@ export function restoreVerbatimCssAssets(
       )
     }
   }
+
   return restored
 }
 
@@ -124,23 +139,29 @@ function emitVerbatimCssClosure(
   seen: Set<string>
 ): void {
   if (typeof compilation.emitAsset !== 'function') return
+
   const sourceDir = path.dirname(resourcePath)
   const assetDir = path.posix.dirname(assetName)
+
   for (const ref of cssRelativeRefs(text)) {
     const sourceFile = path.resolve(sourceDir, ref)
     if (seen.has(sourceFile) || !fs.existsSync(sourceFile)) continue
+
     seen.add(sourceFile)
     const outName = path.posix.normalize(
       path.posix.join(assetDir, ref.split(path.sep).join('/'))
     )
     if (outName.startsWith('..')) continue
+
     const bytes = fs.readFileSync(sourceFile)
+
     if (
       typeof compilation.getAsset !== 'function' ||
       !compilation.getAsset(outName)
     ) {
       compilation.emitAsset(outName, new sources.RawSource(bytes))
     }
+
     if (sourceFile.endsWith('.css')) {
       emitVerbatimCssClosure(
         compilation,
@@ -165,16 +186,20 @@ export function cssSelectorTokens(text: string): Set<string> {
     .replace(/\/\*[\s\S]*?\*\//g, ' ')
     .replace(/url\([^)]*\)/g, ' ')
     .replace(/"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g, ' ')
+
   for (const match of scrubbed.matchAll(/[.#][A-Za-z_-][\w-]*/g)) {
     const token = match[0]
     // A hex colour is a value, not a selector.
     if (/^#[0-9a-fA-F]{3,8}$/.test(token)) continue
+
     tokens.add(token)
   }
+
   return tokens
 }
 
 export function minifierDroppedTokens(before: string, after: string): string[] {
   const kept = cssSelectorTokens(after)
+
   return [...cssSelectorTokens(before)].filter((token) => !kept.has(token))
 }

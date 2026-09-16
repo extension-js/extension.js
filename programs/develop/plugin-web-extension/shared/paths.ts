@@ -6,8 +6,6 @@
 // ╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-// Shared path utilities for plugin-web-extension features.
-
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {FilepathList} from '../../types'
@@ -77,7 +75,6 @@ export function resolveRootAbsoluteRef(
   return candidate
 }
 
-/** Root-absolute refs in HTML (`src`/`href`) and CSS (`url(...)`). */
 export function collectRootAbsoluteRefs(source: string): Set<string> {
   const refs = new Set<string>()
   const attrRe = /(?:src|href)\s*=\s*["'](\/[^"'#?]*)["']/gi
@@ -94,7 +91,9 @@ export function collectRootAbsoluteRefs(source: string): Set<string> {
 // protocol-relative prefix is an address, never a file the build must ship.
 export function isManifestAddress(value: unknown): boolean {
   if (typeof value !== 'string') return false
+
   const trimmed = value.trim()
+
   // Two or more scheme letters: a single letter followed by a colon is a
   // Windows drive, which is a file path.
   return /^[a-z][a-z0-9+.-]+:/i.test(trimmed) || trimmed.startsWith('//')

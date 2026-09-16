@@ -24,6 +24,7 @@ function ownCreateVersion(): string | undefined {
     const pkg = JSON.parse(
       readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8')
     )
+
     return typeof pkg.version === 'string' && pkg.version
       ? `extension-create@${pkg.version}`
       : undefined
@@ -50,9 +51,12 @@ export async function writeTemplateProvenance(
 ): Promise<void> {
   // Advisory: a caller with no resolved provenance (or a mock) never crashes create.
   if (!provenance?.template) return
+
   const record = buildProvenanceRecord(provenance)
+
   try {
     if (isDebug()) logger.log(messages.writingTemplateProvenance())
+
     await fs.writeFile(
       path.join(projectPath, TEMPLATE_PROVENANCE_FILE),
       `${JSON.stringify(record, null, 2)}\n`

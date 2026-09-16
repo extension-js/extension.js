@@ -10,6 +10,7 @@ describe('CDPExtensionController CDP-first loading', () => {
 
   afterEach(() => {
     vi.restoreAllMocks()
+
     for (const dir of tempDirs.splice(0, tempDirs.length)) {
       try {
         fs.rmSync(dir, {recursive: true, force: true})
@@ -47,6 +48,7 @@ describe('CDPExtensionController CDP-first loading', () => {
       })),
       sendCommand: vi.fn(async () => ({extensionId: 'cdp-loaded-id'}))
     }
+
     controller.enableLogging = vi.fn(async () => {})
     controller.classifyOwnership = vi.fn(() => 'mine')
 
@@ -88,6 +90,7 @@ describe('CDPExtensionController CDP-first loading', () => {
         throw new Error("'Extensions.loadUnpacked' wasn't found")
       })
     }
+
     controller.enableLogging = vi.fn(async () => {})
     controller.classifyOwnership = vi.fn(() => 'mine')
     controller.deriveExtensionIdFromTargets = vi
@@ -131,6 +134,7 @@ describe('CDPExtensionController CDP-first loading', () => {
         extensionInfo: {name: 'Cached Extension', version: '1.0.0'}
       }))
     }
+
     controller.classifyOwnership = vi.fn(() => 'mine')
 
     const loadUnpackedSpy = vi.spyOn(ensureModule, 'loadUnpackedIfNeeded')

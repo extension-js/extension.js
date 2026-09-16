@@ -24,6 +24,7 @@ function project() {
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'page-public', version: '0.0.0'})
   )
+
   fs.mkdirSync(path.join(root, 'public', 'img'), {recursive: true})
   fs.writeFileSync(path.join(root, 'public', 'img', 'bg.png'), 'PUBLICPNG\n')
   // Larger than the inline threshold, so it is emitted rather than inlined.
@@ -32,6 +33,7 @@ function project() {
     path.join(root, 'options.html'),
     '<!doctype html><html><head>\n<link rel="stylesheet" href="./options.css">\n</head><body><h1>options</h1></body></html>\n'
   )
+
   fs.writeFileSync(path.join(root, 'options.css'), PAGE_CSS)
   fs.writeFileSync(
     path.join(root, 'manifest.json'),
@@ -42,6 +44,7 @@ function project() {
       options_page: 'options.html'
     })
   )
+
   return root
 }
 
@@ -49,6 +52,7 @@ async function build(root: string, mode: 'development' | 'production') {
   const {extensionBuild} = await import('../command-build')
   const previous = process.env.VITEST
   process.env.VITEST = 'true'
+
   try {
     const summary = await extensionBuild(root, {
       browser: 'chrome',
@@ -62,21 +66,26 @@ async function build(root: string, mode: 'development' | 'production') {
     if (previous === undefined) delete process.env.VITEST
     else process.env.VITEST = previous
   }
+
   return path.join(root, 'dist', 'chrome')
 }
 
 function filesNamed(distDir: string, basename: string): string[] {
   const hits: string[] = []
+
   const walk = (dir: string) => {
     for (const entry of fs.readdirSync(dir, {withFileTypes: true})) {
       const abs = path.join(dir, entry.name)
+
       if (entry.isDirectory()) walk(abs)
       else if (entry.name.startsWith(basename)) {
         hits.push(path.relative(distDir, abs).split(path.sep).join('/'))
       }
     }
   }
+
   walk(distDir)
+
   return hits.sort()
 }
 
@@ -88,6 +97,7 @@ function pageCss(distDir: string): string {
   )
   const href = /<link[^>]+href="([^"]+\.css)"/.exec(html)?.[1] || ''
   expect(href, `stylesheet link in ${html}`).toBeTruthy()
+
   return fs.readFileSync(path.join(distDir, href.replace(/^\//, '')), 'utf8')
 }
 
@@ -109,6 +119,7 @@ describe('build: a page stylesheet keeps a public-owned root url() at the root',
       expect(css).toMatch(
         /url\(\s*["']?\/assets\/local\.[a-f0-9]+\.png["']?\s*\)/
       )
+
       expect(filesNamed(distDir, 'local')).toHaveLength(1)
       expect(css).toContain('https://cdn.example/x.png')
     }, 120_000)

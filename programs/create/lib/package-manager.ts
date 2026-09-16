@@ -23,6 +23,7 @@ type NodePackageManager = (typeof NODE_PACKAGE_MANAGERS)[number]
  * wrong second step is worse than recommending the default one. */
 export function detectPackageManagerFromEnv(): NodePackageManager {
   const userAgent = (process.env.npm_config_user_agent || '').toLowerCase()
+
   for (const manager of NODE_PACKAGE_MANAGERS) {
     if (userAgent.includes(`${manager}/`)) return manager
   }
@@ -32,6 +33,7 @@ export function detectPackageManagerFromEnv(): NodePackageManager {
     process.env.NPM_EXEC_PATH ||
     ''
   ).toLowerCase()
+
   for (const manager of NODE_PACKAGE_MANAGERS) {
     if (execPath.includes(manager)) return manager
   }
@@ -72,11 +74,14 @@ export function resolveProjectPackageManager(
   projectPath: string
 ): ScaffoldPackageManager {
   if (isDenoRuntime()) return 'deno'
+
   const pinned = readPinnedPackageManager(projectPath)
   if (pinned) return pinned
+
   if (fs.existsSync(path.join(projectPath, 'pnpm-workspace.yaml'))) {
     return 'pnpm'
   }
+
   return detectPackageManagerFromEnv()
 }
 
@@ -87,6 +92,7 @@ export function readPinnedPackageManager(
     const raw = fs.readFileSync(path.join(projectPath, 'package.json'), 'utf8')
     const pin = String(JSON.parse(raw)?.packageManager || '')
     const name = pin.split('@')[0].toLowerCase()
+
     return (NODE_PACKAGE_MANAGERS as readonly string[]).includes(name)
       ? (name as NodePackageManager)
       : undefined
@@ -104,6 +110,7 @@ export function resolvePackageManagerSpec(
   manager: ScaffoldPackageManager
 ): string | undefined {
   if (manager === 'deno') return undefined
+
   try {
     const raw = fs.readFileSync(path.join(projectPath, 'package.json'), 'utf8')
     const pin = String(JSON.parse(raw)?.packageManager || '')
@@ -111,8 +118,10 @@ export function resolvePackageManagerSpec(
   } catch {
     // No template pin to keep.
   }
+
   const fromEnv = getPackageManagerSpec()
   if (fromEnv && fromEnv.startsWith(`${manager}@`)) return fromEnv
+
   try {
     // Windows installs the managers as .cmd shims. cross-spawn resolves the
     // shim itself, so the probe never goes through a shell string.
@@ -131,5 +140,6 @@ export function resolvePackageManagerSpec(
   } catch {
     // The manager is not on PATH; nothing usable to declare.
   }
+
   return undefined
 }

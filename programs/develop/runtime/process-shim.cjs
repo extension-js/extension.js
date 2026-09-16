@@ -12,9 +12,11 @@ var noop = () => {}
 
 function nextTick(callback) {
   var args = Array.prototype.slice.call(arguments, 1)
+
   var run = () => {
     callback.apply(null, args)
   }
+
   if (typeof queueMicrotask === 'function') {
     queueMicrotask(run)
   } else {

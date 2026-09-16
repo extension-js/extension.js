@@ -14,13 +14,16 @@ describe('resolveLinkThroughBase', () => {
     expect(
       resolveLinkThroughBase('https://cdn.example.com/x/', 'page.html')
     ).toBe('https://cdn.example.com/x/page.html')
+
     expect(
       resolveLinkThroughBase('https://cdn.example.com/x/', '/top.html')
     ).toBe('https://cdn.example.com/top.html')
+
     expect(resolveLinkThroughBase('sub/', 'page.html')).toBe('sub/page.html')
     expect(resolveLinkThroughBase('/root/', 'page.html')).toBe(
       '/root/page.html'
     )
+
     expect(resolveLinkThroughBase('sub/', '/page.html')).toBe('/page.html')
   })
 })
@@ -72,18 +75,23 @@ describe('resolveHtmlRefPath', () => {
     expect(resolveHtmlRefPath(page, 'sub/', 'logo.png')).toBe(
       path.join(tmp, 'sub', 'logo.png')
     )
+
     expect(resolveHtmlRefPath(page, 'sub/', 'popup.js')).toBe(
       path.join(tmp, 'popup.js')
     )
+
     expect(resolveHtmlRefPath(page, 'sub/', 'missing.js')).toBe(
       path.join(tmp, 'sub', 'missing.js')
     )
+
     expect(
       resolveHtmlRefPath(page, 'https://cdn.example.com/x/', 'popup.js')
     ).toBe(path.join(tmp, 'popup.js'))
+
     expect(resolveHtmlRefPath(page, 'sub/', '/public/pic.png')).toBe(
       '/public/pic.png'
     )
+
     expect(resolveHtmlRefPath(page, undefined, 'popup.js')).toBe(
       path.join(tmp, 'popup.js')
     )

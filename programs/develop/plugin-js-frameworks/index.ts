@@ -76,6 +76,7 @@ export class JsFrameworksPlugin {
 
   private findVueLoaderRuleIndices(rules: LooseRuleSetRule[]): number[] {
     const indices: number[] = []
+
     for (let i = 0; i < rules.length; i++) {
       const rule = rules[i]
       const testStr = String(rule?.test || '')
@@ -101,6 +102,7 @@ export class JsFrameworksPlugin {
         indices.push(i)
       }
     }
+
     return indices
   }
 
@@ -137,6 +139,7 @@ export class JsFrameworksPlugin {
           }
         }
       }
+
       return merged
     }
 
@@ -145,6 +148,7 @@ export class JsFrameworksPlugin {
       ...(defaultRule?.options || {}),
       ...(merged.options || {})
     }
+
     return merged
   }
 
@@ -172,6 +176,7 @@ export class JsFrameworksPlugin {
       if (Array.isArray(rule.oneOf)) {
         this.patchReactRefreshRules(rule.oneOf)
       }
+
       if (Array.isArray(rule.rules)) {
         this.patchReactRefreshRules(rule.rules)
       }
@@ -200,32 +205,39 @@ export class JsFrameworksPlugin {
     // pnpm links). Match both or the swc rule silently skips every source.
     const expandWithRealpaths = (dirs: string[]): string[] => {
       const out = new Set<string>()
+
       for (const dir of dirs) {
         if (!dir) continue
+
         out.add(dir)
+
         try {
           out.add(fs.realpathSync(dir))
         } catch {
           // Ignore
         }
       }
+
       return Array.from(out)
     }
 
     const addBothPathForms = (set: Set<string>, absPath: string) => {
       set.add(toResourceKey(absPath))
+
       try {
         set.add(toResourceKey(fs.realpathSync(absPath)))
       } catch {
         // Ignore
       }
     }
+
     // Every entry AND probe of these path sets goes through toResourceKey: mixing
     // path.resolve and path.normalize never matches on Windows (drive letter).
     const contentScriptLikePaths = new Set<string>()
     const scriptsDirs = expandWithRealpaths([
       path.resolve(projectPath, 'scripts')
     ]).map(toResourceKey)
+
     const isfeatureScriptsContentLike = (resourcePath: string) => {
       const normalized = toResourceKey(resourcePath)
 
@@ -251,6 +263,7 @@ export class JsFrameworksPlugin {
       devtool !== false && (mode === 'development' || devtool != null)
 
     let manifest: ParsedJson = {}
+
     try {
       manifest = parseJsonSafe(fs.readFileSync(this.manifestPath, 'utf-8'))
     } catch {
@@ -260,6 +273,7 @@ export class JsFrameworksPlugin {
     // A browser-prefixed key is the only spelling this target sees, so read
     // the resolved manifest here as the background block below already does.
     let browserManifest: ParsedJson = manifest
+
     try {
       browserManifest = filterKeysForThisBrowser(manifest, this.browser)
     } catch {
@@ -284,8 +298,10 @@ export class JsFrameworksPlugin {
     // Browsers parse a script as an ES module only where the platform declares it;
     // everything else loads classic, so only declared modules are force-marked ESM below.
     const platformModulePaths = new Set<string>()
+
     try {
       const background = browserManifest?.background
+
       if (
         background?.type === 'module' &&
         typeof background?.service_worker === 'string'
@@ -303,8 +319,10 @@ export class JsFrameworksPlugin {
         }).html,
         ...getSpecialFoldersDataForCompiler(compiler).pages
       }
+
       for (const htmlPage of Object.values(htmlPages)) {
         if (typeof htmlPage !== 'string') continue
+
         for (const moduleScript of getAssetsFromHtml(htmlPage)?.moduleJs ||
           []) {
           addBothPathForms(platformModulePaths, moduleScript)
@@ -352,19 +370,23 @@ export class JsFrameworksPlugin {
       : []
 
     let vueLoadersToAdd = maybeInstallVue?.loaders || []
+
     if (maybeInstallVue?.loaders?.length) {
       const vueRuleIndices = this.findVueLoaderRuleIndices(
         existingRules as LooseRuleSetRule[]
       )
+
       if (vueRuleIndices.length > 0) {
         const primary = vueRuleIndices[0]
         existingRules[primary] = this.mergeVueRule(
           existingRules[primary] as LooseRuleSetRule,
           maybeInstallVue.loaders[0] as LooseRuleSetRule
         ) as (typeof existingRules)[number]
+
         for (const idx of vueRuleIndices.slice(1).reverse()) {
           existingRules.splice(idx, 1)
         }
+
         // Do not add our own separate .vue rule; otherwise vue-loader runs twice.
         vueLoadersToAdd = []
       }
@@ -381,6 +403,7 @@ export class JsFrameworksPlugin {
       exclude: [
         (resourcePath: string) => {
           const isInNodeModules = /[\\/]node_modules[\\/]/.test(resourcePath)
+
           if (!isInNodeModules) {
             return false
           }
@@ -509,12 +532,15 @@ export class JsFrameworksPlugin {
     maybeInstallReact?.plugins?.forEach((plugin) => {
       plugin.apply(compiler)
     })
+
     maybeInstallPreact?.plugins?.forEach((plugin) => {
       plugin.apply(compiler)
     })
+
     maybeInstallVue?.plugins?.forEach((plugin) => {
       plugin.apply(compiler)
     })
+
     maybeInstallSvelte?.plugins?.forEach((plugin) => {
       plugin.apply(compiler)
     })
@@ -559,13 +585,16 @@ export class JsFrameworksPlugin {
 
   public async apply(compiler: Compiler) {
     const mode = compiler.options.mode || 'development'
+
     if (mode === 'production') {
       // build runs via compiler.run(), which awaits beforeRun before reading rules.
       compiler.hooks.beforeRun.tapPromise(JsFrameworksPlugin.name, () =>
         this.configureOptions(compiler)
       )
+
       return
     }
+
     // dev/watch: configure eagerly and gate the first compilation on the one
     // promise from both hooks. watchRun covers the dev server; beforeRun covers
     // a one-shot development build (compiler.run), which otherwise read the
@@ -575,6 +604,7 @@ export class JsFrameworksPlugin {
       JsFrameworksPlugin.name,
       () => configuring
     )
+
     compiler.hooks.watchRun.tapPromise(
       JsFrameworksPlugin.name,
       () => configuring

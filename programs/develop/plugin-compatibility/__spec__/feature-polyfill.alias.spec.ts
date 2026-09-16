@@ -13,6 +13,7 @@ vi.mock('@rspack/core', async () => {
     }
     apply = provideApply
   }
+
   return {
     ...actual,
     ProvidePlugin: ProvidePluginMock,
@@ -31,6 +32,7 @@ describe('PolyfillPlugin resolver/alias and provider', () => {
     vi.restoreAllMocks()
     provideApply.mockClear()
   })
+
   afterEach(() => {
     vi.restoreAllMocks()
   })
@@ -61,6 +63,7 @@ describe('PolyfillPlugin resolver/alias and provider', () => {
     expect(
       toPosix(String(compiler.options.resolve.alias['webextension-polyfill$']))
     ).toContain('webextension-polyfill')
+
     expect(
       toPosix(String(compiler.options.resolve.alias['webextension-polyfill$']))
     ).toContain('dist/browser-polyfill.js')
@@ -69,6 +72,7 @@ describe('PolyfillPlugin resolver/alias and provider', () => {
     expect(ProvidePlugin.lastOptions).toEqual({
       browser: 'webextension-polyfill'
     })
+
     expect(provideApply).toHaveBeenCalledWith(compiler)
   })
 
@@ -92,6 +96,7 @@ describe('PolyfillPlugin resolver/alias and provider', () => {
         String(compiler.options.resolve!.alias!['webextension-polyfill$'])
       )
     ).toContain('webextension-polyfill')
+
     expect(
       toPosix(
         String(compiler.options.resolve!.alias!['webextension-polyfill$'])

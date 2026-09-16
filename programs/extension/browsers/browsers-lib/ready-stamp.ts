@@ -26,10 +26,13 @@ export function stampReadyRdpPort(
 ) {
   try {
     if (!extensionOutputPath || !Number.isFinite(rdpPort)) return
+
     const readyPath = readyPathFor(extensionOutputPath)
     if (!fs.existsSync(readyPath)) return
+
     const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
     if (ready.rdpPort === rdpPort) return
+
     ready.rdpPort = rdpPort
     fs.writeFileSync(readyPath, JSON.stringify(ready, null, 2))
   } catch {
@@ -57,23 +60,30 @@ export function stampReadyBrowserLaunch(
 ) {
   try {
     if (!extensionOutputPath) return
+
     const readyPath = readyPathFor(extensionOutputPath)
     if (!fs.existsSync(readyPath)) return
+
     const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
     const profilePath = String(details?.profilePath || '').trim()
     if (profilePath) ready.profilePath = profilePath
+
     if (
       typeof details?.browserPid === 'number' &&
       Number.isFinite(details.browserPid)
     ) {
       ready.browserPid = details.browserPid
     }
+
     const extensionId = String(details?.extensionId || '').trim()
     if (extensionId) ready.extensionId = extensionId
+
     const binary = String(details?.binary || '').trim()
     if (binary) ready.binary = binary
+
     const provenance = String(details?.binaryProvenance || '').trim()
     if (provenance) ready.binaryProvenance = provenance
+
     fs.writeFileSync(readyPath, JSON.stringify(ready, null, 2))
   } catch {
     // best-effort; never block launch on this
@@ -89,10 +99,13 @@ export function stampReadyExtensionId(
   try {
     const id = String(extensionId || '').trim()
     if (!extensionOutputPath || !id) return
+
     const readyPath = readyPathFor(extensionOutputPath)
     if (!fs.existsSync(readyPath)) return
+
     const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
     if (ready.extensionId === id) return
+
     ready.extensionId = id
     fs.writeFileSync(readyPath, JSON.stringify(ready, null, 2))
   } catch {
@@ -109,8 +122,10 @@ export function stampReadyExtensionLoadRefused(
 ) {
   try {
     if (!extensionOutputPath) return
+
     const readyPath = readyPathFor(extensionOutputPath)
     if (!fs.existsSync(readyPath)) return
+
     const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
     ready.status = 'error'
     ready.code = 'extension_load_refused'
@@ -120,8 +135,10 @@ export function stampReadyExtensionLoadRefused(
     } refused to load the extension at ${extensionOutputPath}${
       reason ? `: ${reason}` : ''
     }`
+
     ready.extensionLoadRefusedAt = new Date().toISOString()
     if (reason) ready.extensionLoadRefusedReason = reason
+
     fs.writeFileSync(readyPath, JSON.stringify(ready, null, 2))
   } catch {
     // best-effort; never block launch on this
@@ -136,16 +153,20 @@ export function stampReadyProfileLocked(
 ) {
   try {
     if (!extensionOutputPath) return
+
     const readyPath = readyPathFor(extensionOutputPath)
     if (!fs.existsSync(readyPath)) return
+
     const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
     ready.status = 'error'
     ready.code = 'profile_locked'
     ready.message =
       String(details?.message || '').trim() ||
       'the browser profile is already in use by another session'
+
     ready.profileLockedAt = new Date().toISOString()
     if (details?.owner) ready.profileLockOwner = details.owner
+
     fs.writeFileSync(readyPath, JSON.stringify(ready, null, 2))
   } catch {
     // best-effort; never block launch on this
@@ -160,11 +181,14 @@ export function stampReadyBrowserExited(
 ) {
   try {
     if (!extensionOutputPath) return
+
     const readyPath = readyPathFor(extensionOutputPath)
     if (!fs.existsSync(readyPath)) return
+
     const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
     ready.browserExitedAt = new Date().toISOString()
     ready.browserExitCode = code
+
     if (ready.command === 'preview' || ready.command === 'start') {
       ready.status = 'error'
       ready.code = 'browser_exited'
@@ -172,6 +196,7 @@ export function stampReadyBrowserExited(
         code ?? 'unknown'
       }); nothing is running`
     }
+
     fs.writeFileSync(readyPath, JSON.stringify(ready, null, 2))
   } catch {
     // best-effort; never throw from a close handler

@@ -23,6 +23,7 @@ function project(manifestVersion: 2 | 3) {
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'ship', version: '0.0.0'})
   )
+
   fs.writeFileSync(path.join(root, 'content.js'), 'console.log("cs")\n')
   fs.writeFileSync(path.join(root, 'background.js'), 'console.log("bg")\n')
   fs.writeFileSync(
@@ -49,6 +50,7 @@ function project(manifestVersion: 2 | 3) {
         : {})
     })
   )
+
   return root
 }
 
@@ -61,6 +63,7 @@ async function build(
   const {extensionBuild} = await import('../command-build')
   const previous = process.env.VITEST
   process.env.VITEST = 'true'
+
   try {
     const summary = await extensionBuild(root, {
       browser,
@@ -76,6 +79,7 @@ async function build(
     if (previous === undefined) delete process.env.VITEST
     else process.env.VITEST = previous
   }
+
   const distDir = path.join(root, 'dist', browser)
   const files = fs.readdirSync(distDir, {recursive: true}).map(String)
   const manifest = JSON.parse(
@@ -91,6 +95,7 @@ async function build(
     .map(String)
     .filter((file) => file.endsWith('.zip') && !file.includes('node_modules'))
   const zipEntries = zips.length ? listZipEntries(path.join(root, zips[0])) : []
+
   return {files, manifest, code, zipEntries, zips}
 }
 
@@ -99,22 +104,26 @@ function listZipEntries(zipPath: string): string[] {
   const buffer = fs.readFileSync(zipPath)
   const names: string[] = []
   let offset = 0
+
   while (offset < buffer.length - 4) {
     if (buffer.readUInt32LE(offset) !== 0x02014b50) {
       offset++
       continue
     }
+
     const nameLength = buffer.readUInt16LE(offset + 28)
     const extraLength = buffer.readUInt16LE(offset + 30)
     const commentLength = buffer.readUInt16LE(offset + 32)
     names.push(buffer.toString('utf8', offset + 46, offset + 46 + nameLength))
     offset += 46 + nameLength + extraLength + commentLength
   }
+
   return names
 }
 
 const csp = (manifest: {content_security_policy?: unknown}) => {
   const policy = manifest.content_security_policy
+
   return typeof policy === 'string'
     ? policy
     : (policy as {extension_pages?: string})?.extension_pages
@@ -132,6 +141,7 @@ describe('the artifact and its manifest agree across command, mode, browser and 
           expect(built.code).not.toMatch(
             /__extjsBridgeProducerInstalled|__extjsScriptsReplay|webpackHotUpdate/
           )
+
           expect(built.zips, built.files.join(',')).not.toEqual([])
           expect(built.zipEntries.length).toBeGreaterThan(0)
           expect(built.zipEntries.some((entry) => entry.endsWith('.map'))).toBe(
@@ -154,6 +164,7 @@ describe('the artifact and its manifest agree across command, mode, browser and 
         'storage'
       ])
     )
+
     expect(built.manifest.host_permissions).toEqual(['https://example.com/*'])
     expect(built.code).toMatch(/__extjsScriptsReplay/)
     expect(built.files.some((file) => file.endsWith('.map'))).toBe(true)

@@ -39,6 +39,7 @@ export function isUsingReact(projectPath: string) {
 
       userMessageDelivered = true
     }
+
     return true
   }
 
@@ -60,26 +61,31 @@ export async function maybeUseReact(
   let reactDomClientPath: string | undefined
   let jsxRuntimePath: string | undefined
   let jsxDevRuntimePath: string | undefined
+
   try {
     reactPath = requireFromProject.resolve('react')
   } catch {
     // Ignore
   }
+
   try {
     reactDomPath = requireFromProject.resolve('react-dom')
   } catch {
     // Ignore
   }
+
   try {
     reactDomClientPath = requireFromProject.resolve('react-dom/client')
   } catch {
     // Ignore
   }
+
   try {
     jsxRuntimePath = requireFromProject.resolve('react/jsx-runtime')
   } catch {
     // Ignore
   }
+
   try {
     jsxDevRuntimePath = requireFromProject.resolve('react/jsx-dev-runtime')
   } catch {

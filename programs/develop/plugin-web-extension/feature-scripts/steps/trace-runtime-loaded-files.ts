@@ -163,6 +163,7 @@ export class TraceRuntimeLoadedFiles {
             // their output is scanned like any other bundle, since a compiled
             // file can itself load further files at runtime.
             let only: Set<string> | undefined
+
             for (let round = 0; round <= MAX_TRACE_DEPTH; round++) {
               this.traceWorkerImportScripts(run, only)
               this.traceInjectedFilePayloads(run, only)
@@ -171,6 +172,7 @@ export class TraceRuntimeLoadedFiles {
               this.traceWebpackChunkSiblings(run, only)
               const emitted = await run.flushCompiles()
               if (emitted.length === 0) break
+
               only = new Set(emitted)
             }
           }
@@ -209,10 +211,12 @@ export class TraceRuntimeLoadedFiles {
       : [EMITTED_WORKER_PATH]
 
     let pending: string[] = []
+
     for (const name of roots) {
       const asset = run.compilation.getAsset(name)
       if (asset) pending.push(asset.source.source().toString())
     }
+
     const seen = run.seen.importScripts
 
     for (let depth = 0; depth < MAX_TRACE_DEPTH && pending.length; depth++) {
@@ -223,6 +227,7 @@ export class TraceRuntimeLoadedFiles {
           const sourceRel = resolveExtensionPath(literal, sourceWorkerPath)
           const distRel = resolveExtensionPath(literal, EMITTED_WORKER_PATH)
           if (!sourceRel || !distRel || seen.has(distRel)) continue
+
           seen.add(distRel)
 
           const plan = planTracedFile({
@@ -311,6 +316,7 @@ export class TraceRuntimeLoadedFiles {
         // scripts sit beside their page in dist, workers fetch off the worker URL.
         const distRel = resolveExtensionPath(literal, asset.name)
         if (!distRel || seen.has(distRel)) continue
+
         seen.add(distRel)
 
         if (compilation.getAsset(distRel)) continue
@@ -429,6 +435,7 @@ export class TraceRuntimeLoadedFiles {
         } of refs) {
           const distRel = resolveExtensionPath(literal, baseRel)
           if (!distRel || seen.has(distRel)) continue
+
           seen.add(distRel)
 
           // Manifest-declared page and background surfaces are compiled and
@@ -453,6 +460,7 @@ export class TraceRuntimeLoadedFiles {
               if (item.kind !== 'js' || !/\.[a-zA-Z0-9]{1,8}$/.test(distRel)) {
                 return
               }
+
               run.warn(
                 isStaticImport
                   ? 'RuntimeStaticImportFileMissing'
@@ -495,6 +503,7 @@ export class TraceRuntimeLoadedFiles {
           })
 
           if (copied == null) continue
+
           if (/\.(?:js|mjs)$/i.test(distRel)) {
             next.push({
               kind: 'js',
@@ -527,12 +536,15 @@ export class TraceRuntimeLoadedFiles {
       const sourceDirs = new Set<string>()
       const entryDir = entrySourceDirs.get(asset.name.replace(/\.js$/i, ''))
       if (entryDir) sourceDirs.add(entryDir)
+
       // Copied-verbatim assets keep their source-relative path in dist.
       sourceDirs.add(path.dirname(path.join(manifestDir, asset.name)))
 
       for (const sourceDir of sourceDirs) {
         if (path.relative(manifestDir, sourceDir).startsWith('..')) continue
+
         let siblings: string[]
+
         try {
           siblings = fs.readdirSync(sourceDir)
         } catch {
@@ -541,10 +553,12 @@ export class TraceRuntimeLoadedFiles {
 
         for (const file of siblings) {
           if (!/^\d+\.(?:js|css)(?:\.map)?$/.test(file)) continue
+
           const abs = path.join(sourceDir, file)
           // publicPath is "" (page-relative) in some prebuilt bundles and
           // "/" (root-anchored) in others, emit at both resolutions.
           copyIfExists(compilation, abs, file)
+
           if (assetDirRel && assetDirRel !== '.') {
             copyIfExists(compilation, abs, `${assetDirRel}/${file}`)
           }
@@ -562,6 +576,7 @@ export class TraceRuntimeLoadedFiles {
       for (const literal of extractInjectedFileLiterals(content)) {
         const distRel = resolveExtensionPath(literal, '')
         if (!distRel || seen.has(distRel)) continue
+
         seen.add(distRel)
 
         const plan = planTracedFile({
@@ -642,14 +657,18 @@ class TraceRun {
         if (plan.reason === 'compiled-elsewhere') {
           ctx.onSourceSpelling(plan.emitPath, plan.spelledAs)
         }
+
         return null
       case 'missing':
         ctx.onMissing()
+
         return null
       case 'copy':
         return this.emitCopy(plan.sourcePath, plan.emitPath)
+
       case 'compile': {
         if (plan.spelledAs) ctx.onSourceSpelling(plan.emitPath, plan.spelledAs)
+
         // First request for an output path wins, so a file reached through
         // two literals (its source and its emitted spelling) compiles once.
         if (!this.queue.has(plan.emitPath)) {
@@ -660,8 +679,11 @@ class TraceRun {
             context: ctx.context
           })
         }
+
         if (ctx.context === 'importScripts') this.workerScope.add(plan.emitPath)
+
         this.watch(plan.sourcePath)
+
         return null
       }
     }
@@ -671,6 +693,7 @@ class TraceRun {
     const buffer = fs.readFileSync(abs)
     this.compilation.emitAsset(distRel, new sources.RawSource(buffer))
     this.watch(abs)
+
     return buffer.toString()
   }
 
@@ -703,6 +726,7 @@ class TraceRun {
       this.compiler,
       requests
     )
+
     return emitted.filter((name) => /\.js$/i.test(name))
   }
 }
@@ -719,11 +743,14 @@ export async function compileRuntimeLoadedFiles(
   if (requests.length === 0) return []
 
   const before = new Set(compilation.getAssets().map((asset) => asset.name))
+
   for (const format of ['module', 'classic'] as const) {
     const group = requests.filter((request) => request.format === format)
     if (group.length === 0) continue
+
     await compileTracedFiles({compilation, compiler}, format, group)
   }
+
   return compilation
     .getAssets()
     .map((asset) => asset.name)
@@ -746,8 +773,10 @@ export function planTracedFile(opts: {
 
   // Already produced by the compilation (an emitted chunk or a previously
   // traced file), nothing to do.
-  if (hasAsset(distRel))
+  if (hasAsset(distRel)) {
     return {kind: 'skip', reason: 'emitted', emitPath: distRel}
+  }
+
   // public/ files land at the output root via the special-folders pipeline.
   if (isFile(path.join(manifestDir, 'public', distRel))) {
     return {kind: 'skip', reason: 'public', emitPath: distRel}
@@ -761,7 +790,9 @@ export function planTracedFile(opts: {
     if (!SCRIPT_EXTENSIONS.has(ext)) {
       return {kind: 'copy', sourcePath: abs, emitPath: distRel}
     }
+
     const emitted = compiledSourceEmittedPath(distRel)
+
     if (emitted) {
       // The main pipeline already compiled this source (a scripts/ entry):
       // its output owns the .js path, the source spelling ships nothing.
@@ -773,7 +804,9 @@ export function planTracedFile(opts: {
           spelledAs: distRel
         }
       }
+
       const format = formatFor(abs, loadsAs)
+
       if (SOURCE_ONLY_EXTENSIONS.has(ext)) {
         return {
           kind: 'compile',
@@ -783,11 +816,14 @@ export function planTracedFile(opts: {
           spelledAs: distRel
         }
       }
+
       return {kind: 'compile', sourcePath: abs, emitPath: distRel, format}
     }
+
     if (isClassicScript(abs)) {
       return {kind: 'copy', sourcePath: abs, emitPath: distRel}
     }
+
     return {
       kind: 'compile',
       sourcePath: abs,
@@ -800,6 +836,7 @@ export function planTracedFile(opts: {
   // same mapping the manifest pipeline applies to scripts/ files.
   if (inside && ext === '.js') {
     const sibling = findSourceSibling(abs)
+
     if (sibling) {
       return {
         kind: 'compile',
@@ -815,6 +852,7 @@ export function planTracedFile(opts: {
 
 function formatFor(sourcePath: string, loadsAs: TracedLoad): TracedFormat {
   if (loadsAs === 'classic') return 'classic'
+
   return isClassicScript(sourcePath) ? 'classic' : 'module'
 }
 
@@ -877,6 +915,7 @@ async function compileTracedFiles(
   )) {
     new rspackJavascript.EnableChunkLoadingPlugin(type).apply(child)
   }
+
   if (isModule) new rspackLibrary.EnableLibraryPlugin('module').apply(child)
 
   child.options.entry = {}
@@ -885,6 +924,7 @@ async function compileTracedFiles(
     splitChunks: false,
     runtimeChunk: false
   }
+
   child.options.module = {
     ...child.options.module,
     // A runtime-loaded file is fetched by URL as one script, so it ships
@@ -910,20 +950,24 @@ async function compileTracedFiles(
         failure.name = 'RuntimeLoadedFileCompileFailed'
         compilation.errors.push(failure)
       }
+
       if (childCompilation) {
         // Stats only count the parent's own diagnostics, so a broken traced
         // source has to fail the build from here.
         for (const childError of childCompilation.errors) {
           compilation.errors.push(childError)
         }
+
         for (const childWarning of childCompilation.warnings) {
           compilation.warnings ||= []
           compilation.warnings.push(childWarning)
         }
+
         try {
           for (const dep of childCompilation.fileDependencies) {
             compilation.fileDependencies.add(dep)
           }
+
           for (const dep of childCompilation.contextDependencies) {
             compilation.contextDependencies.add(dep)
           }
@@ -931,6 +975,7 @@ async function compileTracedFiles(
           // Ignore, watch registration is best-effort
         }
       }
+
       resolve()
     })
   })
@@ -940,6 +985,7 @@ function withEagerDynamicImports(
   parser: Record<string, unknown> | undefined
 ): Record<string, unknown> {
   const next: Record<string, unknown> = {...(parser || {})}
+
   for (const key of [
     'javascript',
     'javascript/auto',
@@ -951,6 +997,7 @@ function withEagerDynamicImports(
       dynamicImportMode: 'eager'
     }
   }
+
   return next
 }
 
@@ -978,15 +1025,18 @@ function withoutDevRefresh(rules: LooseRule[]): LooseRule[] {
     .map((rule): LooseRule | null => {
       if (!rule || typeof rule !== 'object') return rule
       if (rule.loader && /react-refresh/.test(rule.loader)) return null
+
       const next: LooseRule = {...rule}
       if (Array.isArray(next.oneOf)) next.oneOf = withoutDevRefresh(next.oneOf)
       if (Array.isArray(next.rules)) next.rules = withoutDevRefresh(next.rules)
+
       if (next.use !== undefined) {
         const list = (Array.isArray(next.use) ? next.use : [next.use])
           .filter((use) => !isRefreshLoader(use))
           .map(withoutSwcRefresh)
         next.use = Array.isArray(next.use) ? list : list[0]
       }
+
       return next
     })
     .filter((rule): rule is LooseRule => rule !== null)
@@ -996,10 +1046,12 @@ function withoutDevRefresh(rules: LooseRule[]): LooseRule[] {
 // defines, so the flag is turned off for the child.
 function withoutSwcRefresh(use: LooseUse): LooseUse {
   if (typeof use !== 'object' || use.loader !== 'builtin:swc-loader') return use
+
   const jsc = use.options?.jsc as
     | {transform?: {react?: {refresh?: unknown}}}
     | undefined
   if (!jsc?.transform?.react?.refresh) return use
+
   return {
     ...use,
     options: {
@@ -1020,6 +1072,7 @@ function withoutSwcRefresh(use: LooseUse): LooseUse {
 function collectEntrySourceDirs(compiler: Compiler): Map<string, string> {
   const entrySourceDirs = new Map<string, string>()
   const entryOption = compiler.options.entry
+
   if (entryOption && typeof entryOption === 'object') {
     for (const [name, desc] of Object.entries(entryOption)) {
       const imports: unknown[] = Array.isArray(
@@ -1038,6 +1091,7 @@ function collectEntrySourceDirs(compiler: Compiler): Map<string, string> {
       if (fsImport) entrySourceDirs.set(name, path.dirname(fsImport))
     }
   }
+
   return entrySourceDirs
 }
 
@@ -1058,7 +1112,9 @@ function copyIfExists(
 ): void {
   if (compilation.getAsset(distRel)) return
   if (!isFile(abs)) return
+
   compilation.emitAsset(distRel, new sources.RawSource(fs.readFileSync(abs)))
+
   try {
     compilation.fileDependencies.add(abs)
   } catch {
@@ -1070,7 +1126,9 @@ function copyIfExists(
 // which the build compiles to that .js name.
 function findSourceSibling(abs: string): string | undefined {
   if (!abs.endsWith('.js')) return undefined
+
   const base = abs.slice(0, -'.js'.length)
+
   return SOURCE_SIBLING_EXTENSIONS.map((ext) => base + ext).find((candidate) =>
     isFile(candidate)
   )
@@ -1081,6 +1139,7 @@ function findSourceSibling(abs: string): string | undefined {
 export function compiledSourceEmittedPath(distRel: string): string | null {
   const ext = path.posix.extname(distRel)
   if (!COMPILED_TO_JS_EXTENSIONS.has(ext.toLowerCase())) return null
+
   return `${distRel.slice(0, -ext.length)}.js`
 }
 
@@ -1103,7 +1162,9 @@ export function resolveExtensionPath(
     const base = new URL(`chrome-extension://extension-js/${unixify(basePath)}`)
     const resolved = new URL(trimmed, base)
     if (resolved.hostname !== 'extension-js') return null
+
     const pathname = decodeURIComponent(resolved.pathname).replace(/^\/+/, '')
+
     return pathname || null
   } catch {
     return null
@@ -1135,9 +1196,11 @@ function manifestDeclaredSourcePaths(
   add(manifest.devtools_page)
   add(manifest.side_panel?.default_path)
   add(manifest.sidebar_action?.default_panel)
+
   for (const page of Object.values(manifest.chrome_url_overrides ?? {})) {
     add(page)
   }
+
   // Content-script sources are deliberately NOT here: they bundle into
   // content_scripts/content-N.js, so nothing ever emits them at their source
   // path. A page that <script src>s a shared lib the content scripts also
@@ -1153,9 +1216,11 @@ function extractGetURLLiterals(source: string): string[] {
   const callRe = /\bruntime\s*\.\s*getURL\s*\(/g
 
   let match: RegExpExecArray | null
+
   while ((match = callRe.exec(code))) {
     const args = readBalancedArgs(code, match.index + match[0].length - 1)
     if (args == null) continue
+
     const [first] = splitTopLevelArgs(args)
     const literal = first == null ? null : pureStringLiteral(first)
     if (literal != null) literals.push(literal)
@@ -1180,14 +1245,17 @@ export function extractRuntimeSurfaceLiterals(source: string): string[] {
 
   for (const {callRe, prop} of calls) {
     let match: RegExpExecArray | null
+
     while ((match = callRe.exec(code))) {
       const args = readBalancedArgs(code, match.index + match[0].length - 1)
       if (args == null) continue
+
       const propRe = new RegExp(
         `["']?${prop}["']?\\s*:\\s*(['"])((?:\\\\.|(?!\\1)[^\\\\])*)\\1`,
         'g'
       )
       let propMatch: RegExpExecArray | null
+
       while ((propMatch = propRe.exec(args))) {
         // An empty string is Chrome's "remove the popup" idiom, not a file.
         const literal = unescapeStringBody(propMatch[2])
@@ -1206,6 +1274,7 @@ function extractHtmlSubresourceLiterals(html: string): string[] {
   const attrRe = /\b(?:src|href)\s*=\s*(["'])([^"']+)\1/gi
 
   let match: RegExpExecArray | null
+
   while ((match = attrRe.exec(html))) {
     literals.push(match[2])
   }
@@ -1226,6 +1295,7 @@ export function extractStaticImportLiterals(source: string): string[] {
   const staticRe =
     /\b(?:import|export)\b\s*(?:[\w$]+\s*,?\s*)?(?:\*(?:\s*as\s+[\w$]+)?\s*|\{[^}]*\}\s*)?(?:from\s*)?(['"])((?:\\.|(?!\1)[^\\\n])*)\1/g
   let match: RegExpExecArray | null
+
   while ((match = staticRe.exec(code))) {
     const spec = unescapeStringBody(match[2])
     if (isFileSpecifier(spec)) literals.push(spec)
@@ -1233,9 +1303,11 @@ export function extractStaticImportLiterals(source: string): string[] {
 
   // Literal dynamic import("./x.js") inside the copied module.
   const dynamicRe = /\bimport\s*\(/g
+
   while ((match = dynamicRe.exec(code))) {
     const args = readBalancedArgs(code, match.index + match[0].length - 1)
     if (args == null) continue
+
     const [first] = splitTopLevelArgs(args)
     const literal = first == null ? null : pureStringLiteral(first)
     if (literal != null && isFileSpecifier(literal)) literals.push(literal)
@@ -1250,9 +1322,11 @@ function extractImportScriptsLiterals(source: string): string[] {
   const callRe = /\bimportScripts\s*\(/g
 
   let match: RegExpExecArray | null
+
   while ((match = callRe.exec(code))) {
     const args = readBalancedArgs(code, match.index + match[0].length - 1)
     if (args == null) continue
+
     for (const arg of splitTopLevelArgs(args)) {
       const literal = pureStringLiteral(arg)
       // Computed arguments (including the SDK's own chunk-loading runtime)
@@ -1282,6 +1356,7 @@ export function extractInjectedFileLiterals(source: string): string[] {
 
   for (const {callRe, arrayProps} of calls) {
     let match: RegExpExecArray | null
+
     while ((match = callRe.exec(code))) {
       const args = readBalancedArgs(code, match.index + match[0].length - 1)
       if (args == null) continue
@@ -1294,6 +1369,7 @@ export function extractInjectedFileLiterals(source: string): string[] {
           'g'
         )
         let arrayMatch: RegExpExecArray | null
+
         while ((arrayMatch = arrayRe.exec(args))) {
           for (const element of splitTopLevelArgs(arrayMatch[1])) {
             const literal = pureStringLiteral(element)
@@ -1305,6 +1381,7 @@ export function extractInjectedFileLiterals(source: string): string[] {
       // MV2 tabs.executeScript / tabs.insertCSS, `file: "..."` singular.
       const fileRe = /["']?file["']?\s*:\s*(['"])((?:\\.|(?!\1)[^\\])*)\1/g
       let fileMatch: RegExpExecArray | null
+
       while ((fileMatch = fileRe.exec(args))) {
         literals.push(unescapeStringBody(fileMatch[2]))
       }
@@ -1323,9 +1400,11 @@ function extractFetchedFileLiterals(source: string): string[] {
 
   // fetch("data/config.json"), first argument only.
   const fetchRe = /\bfetch\s*\(/g
+
   while ((match = fetchRe.exec(code))) {
     const args = readBalancedArgs(code, match.index + match[0].length - 1)
     if (args == null) continue
+
     const [first] = splitTopLevelArgs(args)
     const literal = first == null ? null : pureStringLiteral(first)
     if (literal != null) literals.push(literal)
@@ -1334,18 +1413,23 @@ function extractFetchedFileLiterals(source: string): string[] {
   // xhr.open("GET", "data/config.json"), requiring a string-literal HTTP
   // method keeps window.open(...) and user methods named open() out.
   const openRe = /\bopen\s*\(/g
+
   while ((match = openRe.exec(code))) {
     const args = readBalancedArgs(code, match.index + match[0].length - 1)
     if (args == null) continue
+
     const parts = splitTopLevelArgs(args)
     if (parts.length < 2) continue
+
     const method = pureStringLiteral(parts[0])
+
     if (
       !method ||
       !/^(?:GET|POST|PUT|DELETE|HEAD|PATCH|OPTIONS)$/i.test(method)
     ) {
       continue
     }
+
     const literal = pureStringLiteral(parts[1])
     if (literal != null) literals.push(literal)
   }
@@ -1353,17 +1437,21 @@ function extractFetchedFileLiterals(source: string): string[] {
   // new URL("data/x.json", import.meta.url | location | document.baseURI),
   // the allowlisted bases all resolve to the asset's own URL at runtime.
   const urlRe = /\bnew\s+URL\s*\(/g
+
   while ((match = urlRe.exec(code))) {
     const args = readBalancedArgs(code, match.index + match[0].length - 1)
     if (args == null) continue
+
     const parts = splitTopLevelArgs(args)
     if (parts.length !== 2) continue
+
     const base = parts[1].trim()
     const ownLocationBase =
       /^(?:self\.|window\.|globalThis\.)?location(?:\.href)?$/.test(base) ||
       base === 'document.baseURI' ||
       base === 'import.meta.url'
     if (!ownLocationBase) continue
+
     const literal = pureStringLiteral(parts[0])
     if (literal != null) literals.push(literal)
   }
@@ -1378,7 +1466,9 @@ function fetchLiteralToFsPath(literal: string): string | null {
   if (!trimmed) return null
   if (/^[a-zA-Z][\w+.-]*:/.test(trimmed)) return null
   if (trimmed.startsWith('//')) return null
+
   const noQuery = trimmed.split(/[?#]/)[0]
+
   return noQuery ? unixify(noQuery) : null
 }
 
@@ -1398,20 +1488,24 @@ function blankComments(source: string): string {
         out += ' '
         i++
       }
+
       continue
     }
 
     if (char === '/' && next === '*') {
       out += '  '
       i += 2
+
       while (i < n && !(source[i] === '*' && source[i + 1] === '/')) {
         out += source[i] === '\n' ? '\n' : ' '
         i++
       }
+
       if (i < n) {
         out += '  '
         i += 2
       }
+
       continue
     }
 
@@ -1435,6 +1529,7 @@ function blankComments(source: string): string {
 // null when unbalanced. No size cap: minified args can span many kilobytes.
 function readBalancedArgs(code: string, openIndex: number): string | null {
   if (code[openIndex] !== '(') return null
+
   const cap = code.length
   let depth = 0
 
@@ -1445,7 +1540,9 @@ function readBalancedArgs(code: string, openIndex: number): string | null {
       i = skipString(code, i, cap)
       continue
     }
+
     if (char === '(') depth++
+
     if (char === ')') {
       depth--
       if (depth === 0) return code.slice(openIndex + 1, i)
@@ -1459,16 +1556,20 @@ function readBalancedArgs(code: string, openIndex: number): string | null {
 // without this a nested backtick desyncs every scanner downstream.
 function skipString(code: string, start: number, cap: number): number {
   const quote = code[start]
+
   for (let i = start + 1; i < cap; i++) {
     if (code[i] === '\\') {
       i++
       continue
     }
+
     if (code[i] === quote) return i
+
     if (quote === '`' && code[i] === '$' && code[i + 1] === '{') {
       i = skipTemplateExpression(code, i + 2, cap)
     }
   }
+
   return cap
 }
 
@@ -1480,18 +1581,23 @@ function skipTemplateExpression(
   cap: number
 ): number {
   let depth = 1
+
   for (let i = start; i < cap; i++) {
     const char = code[i]
+
     if (char === '"' || char === "'" || char === '`') {
       i = skipString(code, i, cap)
       continue
     }
+
     if (char === '{') depth++
+
     if (char === '}') {
       depth--
       if (depth === 0) return i
     }
   }
+
   return cap
 }
 
@@ -1509,17 +1615,21 @@ function splitTopLevelArgs(args: string): string[] {
       i = end
       continue
     }
+
     if (char === '(' || char === '[' || char === '{') depth++
     if (char === ')' || char === ']' || char === '}') depth--
+
     if (char === ',' && depth === 0) {
       parts.push(current)
       current = ''
       continue
     }
+
     current += char
   }
 
   if (current.trim()) parts.push(current)
+
   return parts
 }
 
@@ -1529,6 +1639,7 @@ function pureStringLiteral(arg: string): string | null {
   const match = /^\s*(['"`])((?:\\.|(?!\1)[^\\])*)\1\s*$/.exec(arg)
   if (!match) return null
   if (match[1] === '`' && match[2].includes('${')) return null
+
   return unescapeStringBody(match[2])
 }
 

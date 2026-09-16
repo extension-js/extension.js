@@ -16,6 +16,7 @@ beforeAll(() => {
     'package.json',
     JSON.stringify({private: true, name: 'public-manifest-spec'})
   )
+
   write(
     'manifest.json',
     JSON.stringify({
@@ -25,6 +26,7 @@ beforeAll(() => {
       action: {default_popup: 'popup.html'}
     })
   )
+
   write('popup.html', '<html><body>popup</body></html>\n')
   write('public/manifest.json', JSON.stringify({name: 'copied verbatim'}))
   write('public/vendor/manifest.json', JSON.stringify({nested: true}))
@@ -39,13 +41,16 @@ describe('manifest under public/ (real build)', () => {
     const {extensionBuild} = await import('../command-build')
 
     const printed: string[] = []
+
     const record = (...args: unknown[]) => {
       printed.push(args.map(String).join(' '))
     }
+
     const logSpy = vi.spyOn(console, 'log').mockImplementation(record)
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(record)
 
     let failure: unknown
+
     try {
       await extensionBuild(ROOT, {
         browser: 'chrome',

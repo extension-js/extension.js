@@ -7,9 +7,11 @@ import {resolveCompanionExtensionDirs} from '../plugin-special-folders/folder-ex
 
 const created: string[] = []
 const toPosix = (value: string) => value.replace(/\\/g, '/')
+
 function tmpDir(prefix: string) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix))
   created.push(dir)
+
   return dir
 }
 
@@ -21,6 +23,7 @@ afterEach(() => {
       // Ignore
     }
   }
+
   created.length = 0
 })
 
@@ -196,6 +199,7 @@ describe('companion extensions (load-only) are wired into BrowsersPlugin', () =>
       }),
       'utf-8'
     )
+
     fs.writeFileSync(
       path.join(fallbackThemeForBrowser, 'manifest.json'),
       JSON.stringify({
@@ -258,6 +262,7 @@ describe('companion extensions (load-only) are wired into BrowsersPlugin', () =>
       }),
       'utf-8'
     )
+
     fs.writeFileSync(
       path.join(themeForBrowser, 'manifest.json'),
       JSON.stringify({
@@ -315,6 +320,7 @@ describe('companion extensions (load-only) are wired into BrowsersPlugin', () =>
       }),
       'utf-8'
     )
+
     fs.writeFileSync(
       path.join(themeForBrowser, 'manifest.json'),
       JSON.stringify({
@@ -368,6 +374,7 @@ describe('companion extensions (load-only) are wired into BrowsersPlugin', () =>
       }),
       'utf-8'
     )
+
     fs.writeFileSync(
       path.join(themeBuiltIn, 'manifest.json'),
       JSON.stringify({
@@ -423,15 +430,18 @@ describe('companion extensions (load-only) are wired into BrowsersPlugin', () =>
     // The user path appears FIRST among companions (plus an aliased spelling):
     // it must still land last, or last-loaded precedence silently flips.
     const aliasedUserOut = path.join(userOut, '.', '..', 'chrome')
-    const list = computeExtensionsToLoad(root, 'development', 'chrome', userOut, [
+    const list = computeExtensionsToLoad(
+      root,
+      'development',
+      'chrome',
       userOut,
-      aliasedUserOut,
-      companion
-    ])
+      [userOut, aliasedUserOut, companion]
+    )
 
     expect(
       list.filter((p) => path.resolve(p) === path.resolve(userOut))
     ).toHaveLength(1)
+
     expect(path.resolve(list[list.length - 1])).toBe(path.resolve(userOut))
     expect(list.indexOf(companion)).toBeLessThan(
       list.findIndex((p) => path.resolve(p) === path.resolve(userOut))

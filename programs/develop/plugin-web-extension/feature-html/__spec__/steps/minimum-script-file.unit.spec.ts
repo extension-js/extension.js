@@ -31,6 +31,7 @@ describe('minimum-script-file (dev page) query-param shim', () => {
       writable: true,
       value: fakeWindow.location
     })
+
     Object.defineProperty(globalThis, 'history', {
       configurable: true,
       writable: true,
@@ -50,6 +51,7 @@ describe('minimum-script-file (dev page) query-param shim', () => {
         value: originalLocation
       })
     }
+
     if (originalHistory === undefined) {
       delete (globalThis as any).history
     } else {
@@ -120,10 +122,12 @@ describe('minimum-script-file (dev page) html-change reload', () => {
         reloads += 1
       }
     })
+
     install('history', {replaceState() {}})
     install('addEventListener', (type: string, fn: any) => {
       if (type === 'message') listeners.push(fn)
     })
+
     install('fetch', async () => ({ok: true, text: async () => served}))
     vi.useFakeTimers()
     vi.resetModules()
@@ -131,14 +135,16 @@ describe('minimum-script-file (dev page) html-change reload', () => {
 
   afterEach(() => {
     vi.useRealTimers()
+
     for (const key of Object.keys(saved)) {
       if (saved[key] === undefined) delete (globalThis as any)[key]
-      else
+      else {
         Object.defineProperty(globalThis, key, {
           configurable: true,
           writable: true,
           value: saved[key]
         })
+      }
     }
   })
 

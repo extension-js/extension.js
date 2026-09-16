@@ -27,6 +27,7 @@ export function pageAction(manifest: Manifest) {
             typeof manifest.page_action.default_icon === 'string'
               ? (() => {
                   const raw = String(manifest.page_action.default_icon)
+
                   return getFilename(iconOutputPath(raw), raw)
                 })()
               : Object.fromEntries(
@@ -34,6 +35,7 @@ export function pageAction(manifest: Manifest) {
                     manifest.page_action.default_icon as Record<string, string>
                   ).map(([size, icon]) => {
                     const raw = String(icon)
+
                     return [size, getFilename(iconOutputPath(raw), raw)]
                   })
                 )

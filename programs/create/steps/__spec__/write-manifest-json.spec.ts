@@ -15,6 +15,7 @@ async function withProject(
     path.join(projectPath, 'src', 'manifest.json'),
     JSON.stringify(manifest, null, 2)
   )
+
   try {
     await fn(projectPath)
   } finally {

@@ -15,6 +15,7 @@ afterEach(() => {
 
 vi.mock('fs', async () => {
   const actual = await vi.importActual<typeof import('fs')>('fs')
+
   return {
     ...actual,
     existsSync: vi.fn(actual.existsSync),
@@ -52,6 +53,7 @@ describe('getSpecialFoldersDataForCompiler', () => {
       '/project/pages/a.html',
       'pages/d.html'
     ])
+
     expect(data.scripts?.['scripts/a']).toEqual(['/project/scripts/a.js'])
     expect((data as any).public).toEqual({foo: 'bar'})
   })
@@ -74,11 +76,13 @@ describe('getSpecialFoldersDataForCompiler', () => {
       "const fx = require('fs-extra'); const z = require('zip-dir');\n",
       'utf8'
     )
+
     fs.writeFileSync(
       importsBuiltin,
       "import {readFile} from 'node:fs/promises'\n",
       'utf8'
     )
+
     fs.writeFileSync(contentScript, "document.body.dataset.ok = '1'\n", 'utf8')
     fs.writeFileSync(
       browserImport,
@@ -134,6 +138,7 @@ describe('getSpecialFoldersDataForCompiler', () => {
       }),
       'utf8'
     )
+
     fs.writeFileSync(
       path.join(dir, 'background.js'),
       "chrome.scripting.executeScript({files: ['/scripts/injected.js']})\n",
@@ -247,6 +252,7 @@ describe('getSpecialFoldersDataForCompiler', () => {
       scripts: {},
       public: {}
     })
+
     const existsSpy = vi.mocked(fs.existsSync).mockReturnValue(true as any)
     const statSpy = vi
       .mocked(fs.statSync)

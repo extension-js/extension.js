@@ -20,6 +20,7 @@ describe('optional dependency contracts', () => {
           bundled[name],
           `${name} is referenced by contract "${contract.id}" but is not bundled in extension-develop`
         ).toBeTruthy()
+
         expect(
           version,
           `${name} spec "${spec}" should carry the bundled version`
@@ -34,9 +35,11 @@ describe('optional dependency contracts', () => {
         .flatMap((c) => c.installPackages)
         .map((spec) => {
           const at = spec.lastIndexOf('@')
+
           return at > 0 ? spec.slice(0, at) : spec
         })
     )
+
     for (const name of referenced) {
       expect(bundled[name], `${name} must be a bundled dependency`).toBeTruthy()
     }
@@ -52,6 +55,7 @@ describe('typescript is not a build-time requirement', () => {
     expect(Object.keys(OPTIONAL_DEPENDENCY_CONTRACTS)).not.toContain(
       'typescript'
     )
+
     expect(() => getOptionalDependencyContract('typescript')).toThrow()
   })
 
@@ -61,6 +65,7 @@ describe('typescript is not a build-time requirement', () => {
         contract.installPackages.some((spec) => spec.startsWith('typescript@')),
         `contract "${contract.id}" must not suggest installing typescript`
       ).toBe(false)
+
       for (const rule of contract.verificationRules) {
         expect(
           (rule as {packageId?: string}).packageId,

@@ -14,6 +14,7 @@ export function logChromiumDryRun(
   chromiumConfig: string[]
 ) {
   if (isDebug()) humanLine(messages.chromeInitializingEnhancedReload())
+
   humanLine(messages.chromiumDryRunNotLaunching())
   humanLine(messages.chromiumDryRunBinary(browserBinaryLocation))
   humanLine(messages.chromiumDryRunFlags(chromiumConfig.join(' ')))

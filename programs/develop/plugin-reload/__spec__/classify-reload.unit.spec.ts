@@ -109,9 +109,11 @@ describe('classifyReloadFromSources', () => {
       changedSources: ['src/background.ts'],
       getContentScriptCount: () => {
         called++
+
         return 1
       }
     })
+
     expect(called).toBe(0)
   })
 })
@@ -158,6 +160,7 @@ describe('classifyReloadFromSources with a chunk-graph source index', () => {
     const outputPath = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-classify-'))
     fs.mkdirSync(path.join(outputPath, 'assets'), {recursive: true})
     fs.writeFileSync(path.join(outputPath, 'assets/icon16.png'), 'png')
+
     try {
       const result = classifyReloadFromSources({
         changedSources: ['assets/icon16.png'],
@@ -197,6 +200,7 @@ describe('classifyReloadFromSources with a chunk-graph source index', () => {
     expect(result?.changedContentScriptEntries).toEqual([
       'content_scripts/content-0'
     ])
+
     expect(result?.label).toBe('service_worker + content_script (shared.js)')
   })
 
@@ -232,8 +236,10 @@ describe('buildSourceFeatureIndex', () => {
     const chunkObjs = chunks.map((c) => {
       const chunk = {name: c.name}
       byChunk.set(chunk, c.identifiers)
+
       return chunk
     })
+
     return {
       chunks: chunkObjs,
       chunkGraph: {
@@ -266,6 +272,7 @@ describe('buildSourceFeatureIndex', () => {
     expect(idx.contentEntriesBySource.get('content/content-script.js')).toEqual(
       new Set(['content_scripts/content-0'])
     )
+
     expect(idx.pageSources.has('popup/popup.js')).toBe(true)
   })
 
@@ -368,6 +375,7 @@ describe('scripts/ bundle edits carry changedScriptFiles for the SW replay', () 
     const byChunk = new Map<any, string[]>()
     const chunkObjs = chunks.map(({identifiers, ...chunk}) => {
       byChunk.set(chunk, identifiers)
+
       return chunk
     })
     const compilation: any = {
@@ -383,13 +391,16 @@ describe('scripts/ bundle edits carry changedScriptFiles for the SW replay', () 
     expect(idx.scriptFilesBySource?.get('scripts/widget.ts')).toEqual(
       new Set(['scripts/widget.js'])
     )
+
     expect(idx.scriptFilesBySource?.get('src/shared.ts')).toEqual(
       new Set(['scripts/widget.js'])
     )
+
     // No chunk file list (a unit fake): the unhashed [name].js form stands in.
     expect(idx.scriptFilesBySource?.get('scripts/panel.js')).toEqual(
       new Set(['scripts/panel.js'])
     )
+
     expect(idx.scriptFilesBySource?.has('popup/popup.js')).toBe(false)
     expect(idx.pageSources.has('scripts/widget.ts')).toBe(true)
   })
@@ -408,6 +419,7 @@ describe('classifyReloadFromSources: public/ roots', () => {
     expect(publicOutputPath('src/public/img/a.png', ['src/public'])).toBe(
       'img/a.png'
     )
+
     expect(publicOutputPath('public', ['public'])).toBeUndefined()
     expect(publicOutputPath('publicity/a.json', ['public'])).toBeUndefined()
   })
@@ -426,6 +438,7 @@ describe('classifyReloadFromSources: public/ roots', () => {
       type: 'full',
       label: 'extension (public/rules.json)'
     })
+
     fs.rmSync(outputPath, {recursive: true, force: true})
   })
 

@@ -53,6 +53,7 @@ export class FirefoxRDPController {
       launchBinaryPath: plugin.launchBinaryPath,
       launchBinaryProvenance: plugin.launchBinaryProvenance
     })
+
     this.debugPort = normalizedDebugPort
   }
 

@@ -100,6 +100,7 @@ describe('lib/resource-path', () => {
 
   it('toResourceKey folds drive-letter case on Windows', () => {
     if (process.platform !== 'win32') return
+
     const upper = toResourceKey('C:\\project\\sw.js')
     const lower = toResourceKey('c:\\project\\sw.js')
     expect(upper).toBe(lower)

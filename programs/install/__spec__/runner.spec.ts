@@ -4,6 +4,7 @@ const spawnSyncMock = vi.hoisted(() => vi.fn())
 vi.mock('node:child_process', async () => {
   const actual: Record<string, unknown> =
     await vi.importActual('node:child_process')
+
   return {...actual, spawnSync: spawnSyncMock}
 })
 
@@ -38,6 +39,7 @@ describe('install runner runCommand', () => {
         if (event === 'close') setImmediate(() => cb(0))
       }
     }))
+
     // A shell would split or execute this path, so it must arrive verbatim.
     const destination = 'C:\\Users\\me & rm -rf x\\browsers'
     const args = browserInstallArgs('chrome', destination)
@@ -68,6 +70,7 @@ describe('install runner pinned installer versions', () => {
   it('never hands a package runner an unpinned installer', () => {
     for (const ua of ['', 'pnpm/10.28.0 npm/? node/v24', 'bun/1.3.0']) {
       process.env.npm_config_user_agent = ua
+
       for (const target of ['chromium', 'chrome', 'firefox', 'edge'] as const) {
         const spec = browserInstallArgs(target, '/tmp/x').find((arg) =>
           /^(@puppeteer\/browsers|playwright)@/.test(arg)
@@ -75,6 +78,7 @@ describe('install runner pinned installer versions', () => {
         expect(spec).toMatch(/@\d+\.\d+\.\d+$/)
       }
     }
+
     delete process.env.npm_config_user_agent
   })
 })
@@ -138,6 +142,7 @@ describe('install runner mapping', () => {
       'install',
       'msedge'
     ])
+
     expect(
       browserInstallEnv('edge', '/tmp/edge').PLAYWRIGHT_BROWSERS_PATH
     ).toBe('/tmp/edge')
@@ -171,11 +176,13 @@ describe('install runner mapping', () => {
         'Switching to root user to install dependencies...'
       )
     ).toBe(true)
+
     expect(
       isEdgePrivilegeEscalationFailure(
         'sudo: a terminal is required to read the password'
       )
     ).toBe(true)
+
     expect(isEdgePrivilegeEscalationFailure('random error')).toBe(false)
   })
 })

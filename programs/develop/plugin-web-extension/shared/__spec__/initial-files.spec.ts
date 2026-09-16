@@ -27,6 +27,7 @@ describe('initial JS files for a page entry', () => {
       'shared/framework.js',
       'chrome_url_overrides/newtab.js'
     ])
+
     expect(
       entryOwnJsFile('chrome_url_overrides/newtab', entrypoint, files)
     ).toBe('chrome_url_overrides/newtab.js')
@@ -54,6 +55,7 @@ describe('initial JS files for a page entry', () => {
       'shared/commons.js',
       'pages/hot/deals.js'
     ])
+
     const ownFile = entryOwnJsFile('pages/hot/deals', entrypoint, files)
     expect(ownFile).toBe('pages/hot/deals.js')
     expect(files.filter((file) => file !== ownFile)).toEqual([

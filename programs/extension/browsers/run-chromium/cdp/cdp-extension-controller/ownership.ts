@@ -25,20 +25,25 @@ function normalizePath(input: string): string {
 // shared by ownership classification and stale-load detection.
 function collectPreferenceFiles(profilePath: string): string[] {
   const prefCandidates: string[] = []
+
   const addPrefCandidate = (dir: string) => {
     const prefPath = path.join(dir, 'Preferences')
     if (fs.existsSync(prefPath)) prefCandidates.push(prefPath)
   }
+
   try {
     addPrefCandidate(profilePath)
     addPrefCandidate(path.join(profilePath, 'Default'))
+
     for (const entry of fs.readdirSync(profilePath)) {
       if (!/^Profile\s+\d+$/i.test(entry)) continue
+
       addPrefCandidate(path.join(profilePath, entry))
     }
   } catch {
     // Ignore
   }
+
   return prefCandidates
 }
 
@@ -48,6 +53,7 @@ function distRootOf(outPath: string): string | null {
   const parts = normalizePath(outPath).split(path.sep)
   const idx = parts.lastIndexOf('dist')
   if (idx === -1) return null
+
   return parts.slice(0, idx + 1).join(path.sep)
 }
 
@@ -62,19 +68,24 @@ export function findStaleUnpackedExtensionIds(
   outPath: string
 ): string[] {
   if (!profilePath) return []
+
   const distRoot = distRootOf(outPath)
   if (!distRoot) return []
+
   const normalizedOutPath = normalizePath(outPath)
 
   const stale = new Set<string>()
+
   for (const prefPath of collectPreferenceFiles(profilePath)) {
     try {
       const prefs = JSON.parse(fs.readFileSync(prefPath, 'utf-8'))
       const settings = prefs?.extensions?.settings
       if (!settings || typeof settings !== 'object') continue
+
       for (const [id, info] of Object.entries(settings)) {
         const storedPath = String((info as {path?: unknown})?.path || '')
         if (!storedPath) continue
+
         const normalizedStored = normalizePath(storedPath)
         // The current build stays; only sibling builds under the same dist root are
         // stale. Store installs and other projects are never touched.
@@ -85,6 +96,7 @@ export function findStaleUnpackedExtensionIds(
       // Ignore
     }
   }
+
   return [...stale]
 }
 
@@ -112,6 +124,7 @@ export function classifyExtensionOwnership(
   if (prefCandidates.length === 0) return 'unknown'
 
   const normalizedOutPath = normalizePath(outPath)
+
   for (const prefPath of prefCandidates) {
     try {
       const prefs = JSON.parse(fs.readFileSync(prefPath, 'utf-8'))
@@ -119,6 +132,7 @@ export function classifyExtensionOwnership(
       const info = settings?.[extensionId]
       const storedPath = String(info?.path || '')
       if (!storedPath) continue
+
       return normalizePath(storedPath) === normalizedOutPath
         ? 'mine'
         : 'not_mine'

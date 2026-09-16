@@ -6,8 +6,6 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝       ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝ ╚═════╝ ╚═╝     ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-// PROFILE PREFS ("Master Preferences"): see chromium.org
-// configuring-other-preferences and pref_names.cc.
 const masterPreferences = {
   alternate_error_pages: {
     enabled: false

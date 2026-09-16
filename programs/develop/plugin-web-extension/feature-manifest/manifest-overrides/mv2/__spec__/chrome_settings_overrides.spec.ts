@@ -35,6 +35,7 @@ describe('chrome_settings_overrides override', () => {
     expect(out.chrome_settings_overrides.startup_pages).toEqual([
       'chrome_settings_overrides/startup-0.html'
     ])
+
     expect(out.chrome_settings_overrides.search_provider.favicon_url).toBe(
       'chrome_settings_overrides/fav.png'
     )

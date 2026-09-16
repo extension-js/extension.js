@@ -9,6 +9,7 @@ function fakeCompilation(assets: Record<string, string>) {
       new sources.RawSource(text)
     ])
   )
+
   return {
     getAsset: (name: string) =>
       store.has(name) ? {name, source: store.get(name)} : undefined,
@@ -34,9 +35,11 @@ describe('prependToEmittedAsset', () => {
       compilation.getAsset('background/service_worker.js') as any,
       'r1\nr2\n'
     )
+
     expect(compilation.text('background/service_worker.js')).toBe(
       'r1\nr2\na\nb\n'
     )
+
     const map = JSON.parse(
       compilation.text('background/service_worker.js.map') as string
     )
@@ -50,6 +53,7 @@ describe('prependToEmittedAsset', () => {
       compilation.getAsset('content.js') as any,
       'p\n'
     )
+
     expect(compilation.text('content.js')).toBe('p\nx')
     expect(compilation.getAsset('content.js.map')).toBeUndefined()
   })

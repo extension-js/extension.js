@@ -34,6 +34,7 @@ function writeFixture() {
       2
     )
   )
+
   write(
     'manifest.json',
     JSON.stringify(
@@ -74,6 +75,7 @@ function writeFixture() {
       ''
     ].join('\n')
   )
+
   write(
     'lib/worker-util.ts',
     [
@@ -84,6 +86,7 @@ function writeFixture() {
       ''
     ].join('\n')
   )
+
   write(
     'inject/classic.ts',
     [
@@ -94,6 +97,7 @@ function writeFixture() {
       ''
     ].join('\n')
   )
+
   write(
     'scripts/helper.ts',
     [
@@ -115,6 +119,7 @@ function writeFixture() {
       ''
     ].join('\n')
   )
+
   write(
     'lib/helper.js',
     [
@@ -124,11 +129,13 @@ function writeFixture() {
       ''
     ].join('\n')
   )
+
   write('lib/word.ts', 'export const WORD: string = "traced";\n')
   write(
     'node_modules/tiny-pkg/package.json',
     JSON.stringify({name: 'tiny-pkg', version: '1.0.0', main: 'index.js'})
   )
+
   write(
     'node_modules/tiny-pkg/index.js',
     'exports.shout = function shout(s) { return String(s).toUpperCase(); };\n'
@@ -141,6 +148,7 @@ async function buildFixture(mode: 'production' | 'development') {
   const previousVitest = process.env.VITEST
   process.env.VITEST = 'true'
   delete process.env.EXTENSION_AUTHOR_MODE
+
   try {
     return await extensionBuild(ROOT, {
       browser: 'chrome',
@@ -155,6 +163,7 @@ async function buildFixture(mode: 'production' | 'development') {
     } else {
       process.env.EXTENSION_AUTHOR_MODE = previousAuthorMode
     }
+
     if (previousVitest === undefined) {
       delete process.env.VITEST
     } else {
@@ -181,6 +190,7 @@ function runAsClassicScript(code: string) {
   const sandbox: Record<string, unknown> = {console: {log() {}}}
   vm.createContext(sandbox)
   vm.runInContext(code, sandbox)
+
   return sandbox
 }
 
@@ -195,8 +205,10 @@ afterAll(() => {
 describe('build: traced runtime-loaded sources are compiled, not copied (real rspack)', () => {
   it('compiles a getURL ES module with its bare and TypeScript imports resolved', async () => {
     const summary = await buildFixture('production')
+
     if (process.env.EXTJS_DUMP_TRACED) {
       console.log(`DIST FILES\n${listDist().join('\n')}`)
+
       for (const rel of [
         'lib/helper.js',
         'scripts/helper.ts',
@@ -208,8 +220,10 @@ describe('build: traced runtime-loaded sources are compiled, not copied (real rs
           `\n--- ${rel} ---\n${exists(rel) ? read(rel).slice(0, 600) : '(absent)'}`
         )
       }
+
       console.log('WARNINGS', JSON.stringify(summary.warnings, null, 2))
     }
+
     expect(summary.errors_count).toBe(0)
 
     const helper = read('lib/helper.js')

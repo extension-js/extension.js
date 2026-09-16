@@ -83,6 +83,7 @@ export async function dispatchReload(
     // producers nothing reloads and printing "Reloading..." would be a lie.
     if (notified > 0) {
       if (instruction.label) console.log(formatReloadingLine(instruction.label))
+
       return
     }
 
@@ -93,8 +94,10 @@ export async function dispatchReload(
         ? {producerRestartExpected: true}
         : undefined
     )
+
     if (warning) {
       console.warn(warning)
+
       return
     }
 
@@ -107,9 +110,7 @@ export async function dispatchReload(
 }
 
 export interface ChangedSourcesSnapshot {
-  /** A manifest.json / _locales change, forces a full reload regardless of which other files changed. */
   forcedFull: boolean
-  /** Project-relative, forward-slashed paths of every file changed since the last successful compile. */
   changedSources: string[]
 }
 
@@ -144,12 +145,14 @@ function normalizeChangedPath(
   // A watched folder (public/, the project root) is reported beside the file
   // that changed inside it; only the file is a source worth naming.
   if (path.isAbsolute(raw) && isDirectory(raw)) return undefined
+
   const normalized = path.isAbsolute(raw)
     ? path.relative(contextDir, raw).replace(/\\/g, '/')
     : raw.replace(/\\/g, '/')
   // rspack sometimes reports the watch root itself as modified; it relativizes
   // to '' and would leak a dangling comma into the reload label.
   if (!normalized) return undefined
+
   return normalized
 }
 
@@ -188,6 +191,7 @@ export function createChangedSourcesTracker(
     markForced: () => void
   ) => {
     if (!files) return
+
     const ctx = contextDir()
     for (const file of files) pushChanged(into, file, ctx, markForced)
   }
@@ -195,16 +199,20 @@ export function createChangedSourcesTracker(
   const foldRecoveryIntoCurrent = () => {
     const recovering = heldSources.length > 0 || heldForcedFull
     if (!recovering) return
+
     for (const file of heldSources) {
       if (!changedSources.includes(file)) changedSources.push(file)
     }
+
     for (const file of writtenAssets) {
       if (!changedSources.includes(file)) changedSources.push(file)
     }
+
     forcedFull =
       forcedFull ||
       heldForcedFull ||
       writtenAssets.some((file) => isForcedFullPath(file))
+
     heldSources = []
     heldForcedFull = false
   }
@@ -239,9 +247,11 @@ export function createChangedSourcesTracker(
 
       if (compilation?.errors && compilation.errors.length > 0) {
         heldForcedFull = heldForcedFull || forcedFull
+
         for (const file of changedSources) {
           if (!heldSources.includes(file)) heldSources.push(file)
         }
+
         return
       }
 
@@ -263,6 +273,7 @@ export function createChangedSourcesTracker(
   return {
     snapshot: () => {
       foldRecoveryIntoCurrent()
+
       return {forcedFull, changedSources}
     }
   }

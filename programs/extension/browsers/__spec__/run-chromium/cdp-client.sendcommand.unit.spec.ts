@@ -28,6 +28,7 @@ describe('CDPClient.sendCommand', () => {
     mockWs.close = vi.fn(() => {
       mockWs.readyState = WebSocket.CLOSED
     })
+
     mockWs.send = vi.fn()
 
     ;(client as any).ws = mockWs
@@ -35,6 +36,7 @@ describe('CDPClient.sendCommand', () => {
 
   afterEach(() => {
     vi.useRealTimers()
+
     try {
       client.disconnect()
     } catch {

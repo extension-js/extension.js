@@ -6,9 +6,6 @@
 // ╚══════╝╚═╝     ╚══════╝ ╚═════╝╚═╝╚═╝  ╚═╝╚══════╝ ╚═╝      ╚═════╝ ╚══════╝╚═════╝ ╚══════╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-// Root-absolute reference fallback (Chrome resolves a leading '/' from the
-// EXTENSION ROOT): runs over EMITTED assets, additive, public/ still wins.
-
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, rspack, WebpackError} from '@rspack/core'
@@ -78,15 +75,19 @@ export async function emitRootAbsoluteRefs(
     for (const asset of compilation.getAssets()) {
       if (!/\.(html|css)$/i.test(asset.name)) continue
       if (scanned.has(asset.name)) continue
+
       scanned.add(asset.name)
 
       let source: string
+
       try {
         source = String(asset.source.source())
       } catch {
         continue
       }
+
       const kind = /\.css$/i.test(asset.name) ? 'css' : 'html'
+
       for (const ref of collectRootAbsoluteRefs(source)) {
         if (!refs.has(ref)) refs.set(ref, {asset: asset.name, kind})
       }
@@ -98,6 +99,7 @@ export async function emitRootAbsoluteRefs(
     // import walk here: only what HTML and CSS name is planned.
     const requests = new Map<string, CompileRequest>()
     let emitted = 0
+
     for (const [ref, origin] of refs) {
       const plan = planRootAbsoluteRef(ref, context, publicDir, hasAsset)
       if (!plan) continue
@@ -105,6 +107,7 @@ export async function emitRootAbsoluteRefs(
       // The ref spells a source the build compiles to .js, so the browser
       // would ask for a path the output does not contain.
       const spelledAs = 'spelledAs' in plan ? plan.spelledAs : undefined
+
       if (spelledAs && !warned.has(ref)) {
         warned.add(ref)
         warn(
@@ -129,6 +132,7 @@ export async function emitRootAbsoluteRefs(
               plan.emitPath,
               new rspack.sources.RawSource(buffer)
             )
+
             // Keep watch mode honest: editing the file should rebuild.
             watch(compilation, plan.sourcePath)
             emitted++
@@ -136,8 +140,10 @@ export async function emitRootAbsoluteRefs(
             // A file we cannot read is not worth failing the whole build over,
             // the existing missing-file reporting still surfaces the broken ref.
           }
+
           break
         }
+
         case 'compile': {
           // First request for an output path wins, so one file reached through
           // two spellings compiles once.
@@ -149,9 +155,11 @@ export async function emitRootAbsoluteRefs(
               context: 'html'
             })
           }
+
           watch(compilation, plan.sourcePath)
           break
         }
+
         default:
           // Skipped refs are owned by public/ or by the main compilation, and
           // a missing ref is reported by the existing missing-file checks.

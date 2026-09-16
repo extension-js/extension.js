@@ -19,6 +19,7 @@ afterEach(() => {
 function makeProject(): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-prov-'))
   tempDirs.push(dir)
+
   return dir
 }
 
@@ -56,6 +57,7 @@ describe('writeTemplateProvenance (.extension-create.json)', () => {
       },
       silent
     )
+
     const record = JSON.parse(
       fs.readFileSync(path.join(project, TEMPLATE_PROVENANCE_FILE), 'utf8')
     )

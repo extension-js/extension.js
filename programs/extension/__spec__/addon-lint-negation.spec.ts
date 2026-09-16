@@ -7,6 +7,7 @@ function buildCommand() {
   registerBuildCommand(program)
   const command = program.commands.find((cmd) => cmd.name() === 'build')
   if (!command) throw new Error('build command not registered')
+
   return command
 }
 

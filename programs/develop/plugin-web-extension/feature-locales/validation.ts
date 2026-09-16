@@ -23,6 +23,7 @@ export function validateLocales(
 ): boolean {
   const projectRoot =
     (compiler.options.context as string | undefined) || undefined
+
   try {
     const manifestRaw = fs.readFileSync(manifestPath, 'utf8')
     const manifest = JSON.parse(stripBom(manifestRaw)) as Record<
@@ -58,6 +59,7 @@ export function validateLocales(
         )
         ;(warning as Error).name = 'LocalesLayoutWarning'
         if (!compilation.warnings) compilation.warnings = []
+
         compilation.warnings.push(warning)
       }
     }
@@ -81,6 +83,7 @@ export function validateLocales(
             )
           )
         }
+
         pushCompilationError(
           compiler,
           compilation,
@@ -88,10 +91,12 @@ export function validateLocales(
           messages.defaultLocaleSpecifiedButLocalesMissing(),
           'manifest.json'
         )
+
         return false
       }
 
       const defaultLocaleDir = path.join(localesRoot, defaultLocale)
+
       if (!fs.existsSync(defaultLocaleDir)) {
         if (isDebug()) {
           console.log(
@@ -108,6 +113,7 @@ export function validateLocales(
           messages.defaultLocaleFolderMissing(defaultLocale),
           'manifest.json'
         )
+
         return false
       }
 
@@ -129,6 +135,7 @@ export function validateLocales(
           messages.defaultLocaleMessagesMissing(defaultLocale),
           'manifest.json'
         )
+
         return false
       }
 
@@ -155,6 +162,7 @@ export function validateLocales(
           messages.invalidMessagesJson(messagesJsonPath),
           'manifest.json'
         )
+
         return false
       }
 
@@ -187,6 +195,7 @@ export function validateLocales(
             messages.missingManifestMessageKey(key, defaultLocale),
             'manifest.json'
           )
+
           return false
         }
       } catch (error) {
@@ -215,6 +224,7 @@ export function validateLocales(
         messages.localesPresentButNoDefaultLocale(),
         'manifest.json'
       )
+
       return false
     }
   } catch (error) {
@@ -238,6 +248,7 @@ export function validateLocales(
 
       for (const localeDir of localeDirs) {
         const msgPath = path.join(localeDir, 'messages.json')
+
         if (fs.existsSync(msgPath)) {
           try {
             const s = fs.readFileSync(msgPath, 'utf8')
@@ -256,6 +267,7 @@ export function validateLocales(
               messages.invalidMessagesJson(msgPath),
               'manifest.json'
             )
+
             return false
           }
         }

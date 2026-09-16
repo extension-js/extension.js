@@ -11,11 +11,14 @@ function setField(
   value: unknown
 ): Record<string, unknown> {
   const parts = field.split('.')
+
   if (parts.length === 1) {
     return {...manifest, [field]: value}
   }
+
   const [head, ...rest] = parts
   const child = (manifest[head] as Record<string, unknown> | undefined) || {}
+
   return {
     ...manifest,
     [head]: setField(child, rest.join('.'), value)
@@ -27,9 +30,11 @@ describe('normalizeLegacyPathRef', () => {
     expect(normalizeLegacyPathRef('./options_ui/page.html')).toBe(
       'options_ui/page.html'
     )
+
     expect(normalizeLegacyPathRef('/options_ui/page.html')).toBe(
       'options_ui/page.html'
     )
+
     expect(normalizeLegacyPathRef('options_ui\\page.html')).toBe(
       'options_ui/page.html'
     )
@@ -64,6 +69,7 @@ describe('findLegacyManifestPathHits', () => {
     expect(findLegacyManifestPathHits(withDot)).toEqual([
       {field, legacyPath, modernPath}
     ])
+
     expect(findLegacyManifestPathHits(withSlash)).toEqual([
       {field, legacyPath, modernPath}
     ])

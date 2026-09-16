@@ -16,6 +16,7 @@ const toPosix = (value: string) => value.replace(/\\/g, '/')
 function tmpDir(prefix: string) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix))
   created.push(dir)
+
   return dir
 }
 
@@ -35,6 +36,7 @@ function mockFetchSuccess(onFetch?: (outDir: string) => void) {
       onFetch(String(options.outDir))
     }
   })
+
   return fetchMock
 }
 
@@ -46,6 +48,7 @@ afterEach(() => {
       // Ignore
     }
   }
+
   created.length = 0
   vi.restoreAllMocks()
 })
@@ -70,6 +73,7 @@ describe('companion extensions resolver', () => {
     expect(normalized).toContain(
       toPosix(path.join(root, 'extensions', 'other')).toLowerCase()
     )
+
     expect(normalized).toContain(
       toPosix(path.join(root, 'extensions', 'chrome', 'c1')).toLowerCase()
     )
@@ -89,6 +93,7 @@ describe('companion extensions resolver', () => {
     expect(normalized).toContain(
       toPosix(path.join(root, 'companions', 'other')).toLowerCase()
     )
+
     expect(normalized).toContain(
       toPosix(path.join(root, 'companions', 'chrome', 'c1')).toLowerCase()
     )
@@ -114,16 +119,19 @@ describe('companion extensions resolver', () => {
       'extensions/firefox/f1',
       'extensions/shared'
     ])
+
     expect(resolveFor('chrome').sort()).toEqual([
       'extensions/chrome/c1',
       'extensions/explicit-only',
       'extensions/shared'
     ])
+
     expect(resolveFor('edge').sort()).toEqual([
       'extensions/edge/e1',
       'extensions/explicit-only',
       'extensions/shared'
     ])
+
     // Gecko forks share the firefox folder; unknown chromium names the chrome one.
     expect(resolveFor('waterfox')).toContain('extensions/firefox/f1')
     expect(resolveFor('chromium-based')).toContain('extensions/chrome/c1')
@@ -166,6 +174,7 @@ describe('companion extensions resolver', () => {
 
   it('recognises legacy, scheme-less and www store links as the same chrome id', async () => {
     const id = 'fmkadmapgofadopljbjfkapdkoienihi'
+
     for (const link of [
       `https://chrome.google.com/webstore/detail/react-developer-tools/${id}`,
       `chromewebstore.google.com/detail/react-developer-tools/${id}`,
@@ -175,6 +184,7 @@ describe('companion extensions resolver', () => {
       mockFetchSuccess((outDir) => {
         writeManifest(path.join(outDir, `${id}@7.0.1`))
       })
+
       const resolved = await resolveCompanionExtensionsConfig({
         projectRoot: root,
         browser: 'chrome',
@@ -189,6 +199,7 @@ describe('companion extensions resolver', () => {
 
   it('reports a link it cannot recognise as a link, not as a folder', async () => {
     const root = tmpDir('extjs-companion-bad-link-')
+
     for (const link of [
       'https://chromewebstore.google.com/category/extensions',
       'https://chromewebstore.gogle.com/detail/tool/fmkadmapgofadopljbjfkapdkoienihi',
@@ -214,6 +225,7 @@ describe('companion extensions resolver', () => {
         config: ['fmkadmapgofadopljbjfkapdkoienihi']
       })
     ).rejects.toThrow(/looks like a store id, not a store link/)
+
     await expect(
       resolveCompanionExtensionsConfig({
         projectRoot: root,

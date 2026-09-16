@@ -50,6 +50,7 @@ export class StaticAssetsPlugin {
     // slice, so it must not suppress the default rule for plain imports.
     const isFullCustomRuleFor = (thisRule: unknown, sample: string) => {
       const rule = thisRule as InspectableRule
+
       return Boolean(
         rule &&
           rule.test instanceof RegExp &&
@@ -119,20 +120,25 @@ export class StaticAssetsPlugin {
 
     const scopedQueriesForAll = (extensions: string[]): RegExp[] => {
       const seen = new Set<RegExp>()
+
       for (const ext of extensions) {
         for (const query of scopedQueriesFor(`.${ext}`)) seen.add(query)
       }
+
       return Array.from(seen)
     }
 
     const inlineKB = 2
+
     const defaultRuleFor = (
       extensions: string[],
       inline: boolean
     ): RuleSetRule | null => {
       const remaining = unclaimedExtensions(extensions)
       if (!remaining.length) return null
+
       const scoped = scopedQueriesForAll(remaining)
+
       return {
         test: new RegExp(`\\.(${remaining.join('|')})$`, 'i'),
         type: 'asset',
@@ -158,6 +164,7 @@ export class StaticAssetsPlugin {
         const rule = thisRule as {resourceQuery?: unknown} | null
         const resourceQuery = rule?.resourceQuery
         if (!(resourceQuery instanceof RegExp)) return false
+
         return resourceQuery.test('?url')
       }
     )
@@ -227,11 +234,12 @@ export class StaticAssetsPlugin {
           for (const a of emitted) {
             const n = a.name.toLowerCase()
             if (n.endsWith('.svg')) counts.svg++
-            else if (/\.(png|jpg|jpeg|gif|webp|avif|ico|bmp)$/i.test(n))
+            else if (/\.(png|jpg|jpeg|gif|webp|avif|ico|bmp)$/i.test(n)) {
               counts.images++
-            else if (/\.(woff|woff2|eot|ttf|otf)$/i.test(n)) counts.fonts++
+            } else if (/\.(woff|woff2|eot|ttf|otf)$/i.test(n)) counts.fonts++
             else counts.files++
           }
+
           console.log(messages.assetsEmittedSummary(emitted.length, counts))
         } catch {
           // Ignore

@@ -24,11 +24,13 @@ export function getResolvedManifestFieldsData(options: {
     manifestPath: options.manifestPath,
     browser: options.browser
   })
+
   try {
     const manifest = filterKeysForThisBrowser(
       parseJsonSafe(fs.readFileSync(options.manifestPath, 'utf-8')) as Manifest,
       options.browser || 'chrome'
     ) as Manifest
+
     return {
       ...data,
       html: applyIndependentHtmlSurfaces(

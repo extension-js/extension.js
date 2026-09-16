@@ -49,6 +49,7 @@ describe('run-safari config', () => {
   beforeEach(() => {
     distDir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-safari-'))
   })
+
   afterEach(() => {
     try {
       fs.rmSync(distDir, {recursive: true, force: true})
@@ -111,6 +112,7 @@ describe('run-safari config', () => {
     expect(aligned).toContain(
       'PRODUCT_BUNDLE_IDENTIFIER = "com.example.safari-smoke.Extension";'
     )
+
     expect(aligned).not.toContain('Safari-Smoke')
     expect(aligned).not.toContain('Unquoted')
     const appIds = aligned.match(
@@ -348,6 +350,7 @@ describe('derived bundle id warning timing', () => {
     distDir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-safari-warn-'))
     writeManifest(distDir, {name: 'Warn Demo', version: '1.0.0'})
   })
+
   afterEach(() => {
     try {
       fs.rmSync(distDir, {recursive: true, force: true})
@@ -360,6 +363,7 @@ describe('derived bundle id warning timing', () => {
   function channelLogger() {
     const warns: string[] = []
     const infos: string[] = []
+
     return {
       logger: {
         info: (m: string) => infos.push(String(m)),
@@ -380,6 +384,7 @@ describe('derived bundle id warning timing', () => {
       logger,
       'full'
     )
+
     expect(warns).toHaveLength(1)
     expect(warns[0]).toMatch(/dev\.extensionjs\.Warn-Demo/)
     expect(warns[0]).toMatch(/--bundle-id/)
@@ -398,6 +403,7 @@ describe('derived bundle id warning timing', () => {
       logger,
       'full'
     )
+
     expect(warns).toHaveLength(0)
   })
 
@@ -409,6 +415,7 @@ describe('derived bundle id warning timing', () => {
       logger,
       'resync'
     )
+
     expect(warns).toHaveLength(0)
   })
 })
@@ -474,6 +481,7 @@ describe('manifest fingerprinting', () => {
   beforeEach(() => {
     distDir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-safari-fp-'))
   })
+
   afterEach(() => {
     try {
       fs.rmSync(distDir, {recursive: true, force: true})
@@ -537,6 +545,7 @@ describe('manifest fingerprinting', () => {
     fs.mkdirSync(path.dirname(manifestFingerprintPath(config)), {
       recursive: true
     })
+
     fs.writeFileSync(
       manifestFingerprintPath(config),
       '{"manifest_version":3,"name":"Legacy"}',
@@ -559,6 +568,7 @@ describe('manifest fingerprinting', () => {
       name: 'Evolving',
       permissions: ['storage', 'tabs']
     })
+
     expect(isProjectStale(config)).toBe(true)
   })
 
@@ -572,6 +582,7 @@ describe('manifest fingerprinting', () => {
       name: 'Sidebar',
       permissions: ['storage', 'sidePanel']
     })
+
     expect(isProjectStale(config)).toBe(true)
     saveManifestFingerprint(config)
 
@@ -588,6 +599,7 @@ describe('manifest fingerprinting', () => {
       name: 'Optional',
       optional_permissions: ['tabs', 'management']
     })
+
     expect(isProjectStale(config)).toBe(true)
   })
 
@@ -602,6 +614,7 @@ describe('manifest fingerprinting', () => {
       manifest_version: 3,
       side_panel: {default_path: 'sidebar.html'}
     })
+
     expect(isProjectStale(config)).toBe(true)
     saveManifestFingerprint(config)
 
@@ -614,6 +627,7 @@ describe('manifest fingerprinting', () => {
       name: 'Options',
       options_ui: {page: 'options.html'}
     })
+
     const config = configFor(distDir)
     saveManifestFingerprint(config)
 
@@ -621,6 +635,7 @@ describe('manifest fingerprinting', () => {
       name: 'Options',
       options_ui: {page: 'options.html', open_in_tab: true}
     })
+
     expect(isProjectStale(config)).toBe(true)
   })
 
@@ -633,6 +648,7 @@ describe('manifest fingerprinting', () => {
       description: 'First wording',
       permissions: ['storage']
     })
+
     const config = configFor(distDir)
     saveManifestFingerprint(config)
 
@@ -642,6 +658,7 @@ describe('manifest fingerprinting', () => {
       description: 'Second wording, same keys',
       permissions: ['storage']
     })
+
     expect(isProjectStale(config)).toBe(false)
   })
 
@@ -654,6 +671,7 @@ describe('manifest fingerprinting', () => {
       path.join(distDir, 'content_scripts', 'content-0.aaa.js'),
       ''
     )
+
     const config = configFor(distDir)
     saveManifestFingerprint(config)
 
@@ -662,6 +680,7 @@ describe('manifest fingerprinting', () => {
       path.join(distDir, 'content_scripts', 'content-0.bbb.js'),
       ''
     )
+
     expect(isProjectStale(config)).toBe(false)
   })
 
@@ -683,6 +702,7 @@ describe('manifest fingerprinting', () => {
       manifestFingerprintPath(config),
       JSON.stringify({v: 2, identity: {}, manifest: '{}'})
     )
+
     expect(isProjectStale(config)).toBe(true)
   })
 
@@ -695,6 +715,7 @@ describe('manifest fingerprinting', () => {
       name: 'Icons',
       icons: {'48': 'icon48.png', '128': 'icon128.png'}
     })
+
     expect(isProjectStale(config)).toBe(true)
   })
 
@@ -705,6 +726,7 @@ describe('manifest fingerprinting', () => {
       path.join(distDir, 'manifest.json'),
       JSON.stringify(manifest)
     )
+
     const config = configFor(distDir)
     saveManifestFingerprint(config)
 
@@ -712,6 +734,7 @@ describe('manifest fingerprinting', () => {
       path.join(distDir, 'manifest.json'),
       JSON.stringify(manifest, null, 2)
     )
+
     expect(isProjectStale(config)).toBe(false)
   })
 
@@ -721,6 +744,7 @@ describe('manifest fingerprinting', () => {
       path.join(distDir, 'manifest.json'),
       JSON.stringify({name: 'Order', permissions: ['storage']})
     )
+
     const config = configFor(distDir)
     saveManifestFingerprint(config)
 
@@ -728,6 +752,7 @@ describe('manifest fingerprinting', () => {
       path.join(distDir, 'manifest.json'),
       JSON.stringify({permissions: ['storage'], name: 'Order'})
     )
+
     expect(isProjectStale(config)).toBe(false)
   })
 
@@ -742,6 +767,7 @@ describe('manifest fingerprinting', () => {
         {matches: ['<all_urls>'], js: ['content_scripts/content-0.aaa.js']}
       ]
     })
+
     const config = configFor(distDir)
     saveManifestFingerprint(config)
 
@@ -751,6 +777,7 @@ describe('manifest fingerprinting', () => {
         {matches: ['<all_urls>'], js: ['content_scripts/content-0.bbb.js']}
       ]
     })
+
     expect(isProjectStale(config)).toBe(false)
   })
 
@@ -763,6 +790,7 @@ describe('manifest fingerprinting', () => {
     fs.mkdirSync(path.dirname(manifestFingerprintPath(config)), {
       recursive: true
     })
+
     fs.writeFileSync(
       manifestFingerprintPath(config),
       JSON.stringify({
@@ -950,6 +978,7 @@ describe('safari pipeline staleness integration', () => {
       restore()
 
       const keys = Object.keys(saved)
+
       if (keys.length > 0) {
         logs.push(`[preserved:${keys.join(',')}]`)
       }
@@ -1020,6 +1049,7 @@ describe('safari pipeline staleness integration', () => {
       name: 'MyExt',
       content_scripts: [{matches: ['<all_urls>'], js: ['content-0.aaa.js']}]
     })
+
     expect(converterCalls).toHaveLength(1)
 
     const second = await runFakePipeline({
@@ -1078,6 +1108,7 @@ describe('safari pipeline staleness integration', () => {
       name: 'Icons',
       icons: {'48': 'icon48.png'}
     })
+
     expect(converterCalls).toHaveLength(1)
 
     const second = await runFakePipeline({

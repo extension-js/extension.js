@@ -10,6 +10,7 @@ const created: string[] = []
 function makeTempDir() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'session-gitignore-'))
   created.push(dir)
+
   return dir
 }
 
@@ -21,6 +22,7 @@ afterEach(() => {
       // Ignore
     }
   }
+
   created.length = 0
 })
 

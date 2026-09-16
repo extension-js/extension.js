@@ -40,8 +40,10 @@ export class SetupBackgroundEntry {
         patched.manifest_version === 3
           ? 'background/service_worker'
           : 'background/scripts'
+
       return reloadMessages.backgroundIsRequiredMessageOnly(fieldKey)
     }
+
     return undefined
   }
 
@@ -102,6 +104,7 @@ export class SetupBackgroundEntry {
       } else if (!hasBackgroundPage) {
         this.addDefaultEntry(compiler, 'background/script', minimumBgScript)
       }
+
       return
     }
 
@@ -120,6 +123,7 @@ export class SetupBackgroundEntry {
       }
     } else {
       const serviceWorker = manifestBg?.service_worker
+
       if (serviceWorker) {
         const swPath = path.join(dirname, serviceWorker)
         const maybeError = this.getMissingBackgroundError(swPath)

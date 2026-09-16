@@ -23,6 +23,7 @@ import {
 
 function makeLogger() {
   const lines: string[] = []
+
   return {
     lines,
     log: (...args: unknown[]) => {

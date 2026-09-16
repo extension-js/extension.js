@@ -23,6 +23,7 @@ export function resolveSwcTargets(
   if (!rawManifest || typeof rawManifest !== 'object') {
     return [...DEFAULT_SWC_TARGETS]
   }
+
   const name = String(browser || 'chrome')
   const manifest = filterKeysForThisBrowser(
     rawManifest,
@@ -38,6 +39,7 @@ export function resolveSwcTargets(
       manifest.browser_specific_settings?.gecko?.strict_min_version ||
       manifest.applications?.gecko?.strict_min_version
     const major = parseInt(String(geckoMin ?? '').split('.')[0], 10)
+
     return Number.isNaN(major)
       ? [...DEFAULT_SWC_TARGETS]
       : [`firefox >= ${major}`]

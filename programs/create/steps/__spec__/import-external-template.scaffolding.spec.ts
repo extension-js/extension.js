@@ -20,6 +20,7 @@ afterEach(() => {
 function makeProject(): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-scaffold-'))
   tempDirs.push(dir)
+
   return dir
 }
 
@@ -30,6 +31,7 @@ describe('removeTemplateScaffoldingFiles (issue #476)', () => {
       path.join(project, 'template.meta.json'),
       '{"featured":true}'
     )
+
     fs.writeFileSync(path.join(project, 'template.spec.ts'), 'export {}')
     fs.writeFileSync(path.join(project, 'screenshot.png'), 'png')
     fs.writeFileSync(path.join(project, 'package.json'), '{"name":"x"}')
@@ -42,6 +44,7 @@ describe('removeTemplateScaffoldingFiles (issue #476)', () => {
     for (const name of TEMPLATE_SCAFFOLDING_FILES) {
       expect(fs.existsSync(path.join(project, name))).toBe(false)
     }
+
     expect(fs.existsSync(path.join(project, 'package.json'))).toBe(true)
     expect(fs.existsSync(path.join(project, 'tsconfig.json'))).toBe(true)
     expect(fs.existsSync(path.join(project, 'public', 'screenshot.png'))).toBe(
@@ -55,6 +58,7 @@ describe('removeTemplateScaffoldingFiles (issue #476)', () => {
     await expect(
       removeTemplateScaffoldingFiles(project)
     ).resolves.toBeUndefined()
+
     expect(fs.existsSync(path.join(project, 'package.json'))).toBe(true)
   })
 })
@@ -62,17 +66,21 @@ describe('removeTemplateScaffoldingFiles (issue #476)', () => {
 describe('removeStaleTemplateLockfiles (BUGS_TO_FIX 123)', () => {
   it('drops every lockfile flavor a template could commit', async () => {
     const project = makeProject()
+
     for (const name of TEMPLATE_LOCKFILE_NAMES) {
       fs.writeFileSync(path.join(project, name), 'lock')
     }
+
     fs.writeFileSync(path.join(project, 'package.json'), '{"name":"x"}')
 
     const removed = await removeStaleTemplateLockfiles(project)
 
     expect(removed.sort()).toEqual([...TEMPLATE_LOCKFILE_NAMES].sort())
+
     for (const name of TEMPLATE_LOCKFILE_NAMES) {
       expect(fs.existsSync(path.join(project, name))).toBe(false)
     }
+
     expect(fs.existsSync(path.join(project, 'package.json'))).toBe(true)
   })
 

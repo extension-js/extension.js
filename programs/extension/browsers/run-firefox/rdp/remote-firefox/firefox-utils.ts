@@ -13,14 +13,17 @@ import {printDevBannerOnce} from '../../../browsers-lib/banner'
 async function waitForManifest(outPath: string, timeoutMs = 8000) {
   const manifestPath = path.join(outPath, 'manifest.json')
   const start = Date.now()
+
   while (Date.now() - start < timeoutMs) {
     try {
       if (fs.existsSync(manifestPath)) return true
     } catch {
       // Ignore
     }
+
     await new Promise((resolve) => setTimeout(resolve, 150))
   }
+
   return false
 }
 
@@ -46,6 +49,7 @@ export async function printRunningInDevelopmentSummary(
       if (isManager || isDevtools || isThemePath) continue
 
       const mp = path.join(p, 'manifest.json')
+
       if (fs.existsSync(mp)) {
         const mf = JSON.parse(fs.readFileSync(mp, 'utf-8'))
         const name = mf?.name || ''
@@ -71,6 +75,7 @@ export async function printRunningInDevelopmentSummary(
     if (!chosenPath) return false
 
     const manifestPath = path.join(chosenPath, 'manifest.json')
+
     if (!fs.existsSync(manifestPath)) {
       const ready = await waitForManifest(chosenPath, 10000)
       if (!ready) return false
@@ -91,6 +96,7 @@ export async function printRunningInDevelopmentSummary(
       binaryPath: launchIdentity?.binaryPath,
       binaryProvenance: launchIdentity?.binaryProvenance
     })
+
     return printed
   } catch {
     return false

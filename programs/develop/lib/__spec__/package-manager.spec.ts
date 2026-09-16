@@ -15,6 +15,7 @@ const setPlatform = (value: NodeJS.Platform) => {
 const fakeChild = {
   on: (ev: string, fn: (...a: any[]) => void) => {
     if (ev === 'close') setImmediate(() => fn(0))
+
     return fakeChild
   }
 }
@@ -72,6 +73,7 @@ describe('package-manager resolution', () => {
         name: 'npm',
         execPath: 'C:\\nvm4w\\nodejs\\npm.cmd'
       })
+
       expect(command).toMatchObject({
         command: 'C:\\nvm4w\\nodejs\\npm.cmd',
         args: ['install']
@@ -188,6 +190,7 @@ describe('package-manager projectInstallArgs', () => {
     fn: (dir: string) => void
   ) => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-pm-args-'))
+
     try {
       writeProject(dir, pkg)
       fn(dir)
@@ -210,6 +213,7 @@ describe('package-manager projectInstallArgs', () => {
         path.join(dir, 'pnpm-workspace.yaml'),
         'packages:\n  - "packages/*"\n'
       )
+
       expect(projectInstallArgs({name: 'pnpm'}, dir)).toEqual([])
     })
   })
@@ -244,15 +248,18 @@ describe('package-manager pnpm workspace membership', () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-pm-ws-'))
     created.push(root)
     fs.mkdirSync(path.join(root, '.git'))
+
     if (workspaceYaml !== null) {
       fs.writeFileSync(path.join(root, 'pnpm-workspace.yaml'), workspaceYaml)
     }
+
     const member = path.join(root, memberRel)
     fs.mkdirSync(member, {recursive: true})
     fs.writeFileSync(
       path.join(member, 'package.json'),
       JSON.stringify({name: 'ext', dependencies: {vue: '^3.0.0'}})
     )
+
     return {root, member}
   }
 
@@ -356,6 +363,7 @@ describe('package-manager execInstallCommand', () => {
     await execInstallCommand('C:\\path\\to\\pnpm.cmd', args, {
       cwd: process.cwd()
     })
+
     expect(spawnMock).toHaveBeenCalledTimes(1)
     const [command, spawnArgs, options] = (spawnMock.mock.calls as any)[0]
     expect(command).toBe('C:\\path\\to\\pnpm.cmd')

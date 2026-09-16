@@ -19,6 +19,7 @@ function normalizeBoolean(value: unknown, fallback: boolean): string {
 function normalizeHotValue(value: unknown): string {
   if (value === 'only') return 'only'
   if (typeof value === 'boolean') return String(value)
+
   return 'true'
 }
 
@@ -52,6 +53,7 @@ function resolveHmrClientPath(): string {
       _resolvedClientPath = HMR_CLIENT_SPECIFIER
     }
   }
+
   return _resolvedClientPath
 }
 
@@ -65,6 +67,7 @@ function resolveHmrHotPath(): string {
       _resolvedHotPath = HMR_HOT_SPECIFIER
     }
   }
+
   return _resolvedHotPath
 }
 

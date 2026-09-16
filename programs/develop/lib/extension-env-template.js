@@ -6,11 +6,6 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-// This module is plain JS with a sibling .d.ts because extension-create also
-// imports it and its tsconfig rootDir rejects TypeScript sources from here.
-
-// Always use the published package path so the reference resolves the same
-// way inside monorepos and in standalone projects.
 export const EXTENSION_ENV_TYPES_PACKAGE = 'extension'
 
 const STYLE_TYPE = 'Readonly<Record<string, string>>'

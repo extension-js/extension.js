@@ -26,10 +26,12 @@ function project() {
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'lintme', version: '0.0.0'})
   )
+
   fs.writeFileSync(
     path.join(root, 'background.js'),
     'const code = "1 + 1"\nconsole.log(eval(code))\n'
   )
+
   fs.writeFileSync(
     path.join(root, 'manifest.json'),
     JSON.stringify({
@@ -39,6 +41,7 @@ function project() {
       background: {scripts: ['background.js']}
     })
   )
+
   return root
 }
 
@@ -51,14 +54,17 @@ function codeSplitProject() {
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'splitme', version: '0.0.0'})
   )
+
   fs.writeFileSync(
     path.join(root, 'greet.js'),
     'export const greet = () => "SPLIT_GREETING"\n'
   )
+
   fs.writeFileSync(
     path.join(root, 'content.js'),
     'export default async function main() {\n  const {greet} = await import("./greet.js")\n  console.log(greet())\n}\n'
   )
+
   fs.writeFileSync(
     path.join(root, 'manifest.json'),
     JSON.stringify({
@@ -72,6 +78,7 @@ function codeSplitProject() {
       content_scripts: [{matches: ['<all_urls>'], js: ['content.js']}]
     })
   )
+
   return root
 }
 
@@ -98,6 +105,7 @@ async function build(
     warnings_count: number
     warnings?: string[]
   }
+
   try {
     summary = await extensionBuild(root, {
       browser: options.browser,
@@ -114,6 +122,7 @@ async function build(
     if (previous === undefined) delete process.env.VITEST
     else process.env.VITEST = previous
   }
+
   return {summary, output: stripAnsi(lines.join('\n'))}
 }
 
@@ -168,9 +177,9 @@ describe('addon lint after a production firefox build', () => {
     const script = fs.readFileSync(path.join(distDir, entry), 'utf8')
     const imports = script.match(/\bimport\(/g) || []
     expect(imports.length).toBeGreaterThan(0)
-    expect(script.match(/\bimport\(chrome\.runtime\.getURL\(/g) || []).toHaveLength(
-      imports.length
-    )
+    expect(
+      script.match(/\bimport\(chrome\.runtime\.getURL\(/g) || []
+    ).toHaveLength(imports.length)
   }, 180_000)
 
   it('stays quiet when addonLint is off, in development mode, and for chromium', async () => {

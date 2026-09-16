@@ -17,6 +17,7 @@ import * as warMessages from './messages'
 
 function isPublicRootLike(possiblePath: string) {
   const normalizedPath = unixify(possiblePath || '')
+
   return (
     normalizedPath.startsWith('/') ||
     /^(?:\.\/)?public\//i.test(normalizedPath) ||
@@ -26,6 +27,7 @@ function isPublicRootLike(possiblePath: string) {
 
 function toPublicOutput(possiblePath: string) {
   const normalizedPath = unixify(possiblePath || '')
+
   if (/^\/public\//i.test(normalizedPath)) {
     return normalizedPath.replace(/^\/public\//i, '')
   } else if (/^(?:\.\/)?public\//i.test(normalizedPath)) {
@@ -46,28 +48,36 @@ function emitDirectoryAsAssets(
 ): void {
   const walk = (dir: string) => {
     let entries: fs.Dirent[]
+
     try {
       entries = fs.readdirSync(dir, {withFileTypes: true})
     } catch {
       return
     }
+
     for (const entry of entries) {
       const full = path.join(dir, entry.name)
+
       if (entry.isDirectory()) {
         walk(full)
         continue
       }
+
       if (!entry.isFile()) continue
+
       const outName = unixify(path.relative(baseDir, full))
+
       if (!compilation.getAsset(outName)) {
         compilation.emitAsset(
           outName,
           new sources.RawSource(fs.readFileSync(full))
         )
       }
+
       compilation.fileDependencies.add(full)
     }
   }
+
   walk(absDir)
 }
 
@@ -116,6 +126,7 @@ function findSourceSibling(absOutputPath: string): string | undefined {
     const candidate = absOutputPath.slice(0, -ext.length) + sourceExt
     if (fs.existsSync(candidate)) return candidate
   }
+
   return undefined
 }
 
@@ -147,6 +158,7 @@ function isValidChromeMatchPattern(pattern: string): boolean {
 
   try {
     const u = new URL(parseable)
+
     return u.pathname === '/*'
   } catch {
     return false
@@ -159,6 +171,7 @@ function validateMatchesOrReport(
   browser?: string
 ) {
   if (!matches || isFirefox(browser) || isWebkit(browser)) return
+
   compilation.errors ||= []
 
   for (const m of matches) {
@@ -212,6 +225,7 @@ export function resolveUserDeclaredWAR(
   ) => {
     if (isMv2) {
       v2.add(resource)
+
       return
     }
 
@@ -240,8 +254,10 @@ export function resolveUserDeclaredWAR(
     // without warning, aligned with icons and manifest validation.
     const normalizedOutput = normalizeManifestOutputPath(res)
     const publicCandidate = path.join(projectPath, 'public', normalizedOutput)
+
     if (fs.existsSync(publicCandidate)) {
       pushResource(matches, normalizedOutput, extra)
+
       return
     }
 
@@ -254,6 +270,7 @@ export function resolveUserDeclaredWAR(
 
     if (/[*?[\]{}]/.test(res)) {
       pushResource(matches, res, extra)
+
       return
     }
 
@@ -317,10 +334,12 @@ export function resolveUserDeclaredWAR(
       }
 
       pushResource(matches, output, extra)
+
       return
     }
 
     const abs = path.isAbsolute(res) ? res : path.join(manifestDir, res)
+
     if (!fs.existsSync(abs)) {
       const outputRoot =
         compilation.options?.output?.path ||
@@ -340,6 +359,7 @@ export function resolveUserDeclaredWAR(
         // it as valid and normalize to the public-root style in the manifest.
         const output = toPublicOutput(`/${res}`)
         pushResource(matches, output, extra)
+
         return
       }
 
@@ -362,6 +382,7 @@ export function resolveUserDeclaredWAR(
       warn.file = 'manifest.json'
       warn.name = 'WARRelativeAssetMissing'
       compilation.warnings!.push(warn)
+
       return
     }
 
@@ -371,12 +392,14 @@ export function resolveUserDeclaredWAR(
       emitDirectoryAsAssets(compilation, abs, manifestDir)
       const dirResource = `${unixify(res).replace(/\/+$/, '')}/*`
       pushResource(matches, dirResource, extra)
+
       return
     }
 
     // Emit the file AT ITS MANIFEST-RELATIVE PATH and declare that same path: WAR
     // resources are addressed by literal path, so flattening/hashing breaks lookups.
     const relOut = unixify(path.relative(manifestDir, abs))
+
     if (!relOut.startsWith('..')) {
       if (!compilation.getAsset(relOut)) {
         compilation.emitAsset(
@@ -384,8 +407,10 @@ export function resolveUserDeclaredWAR(
           new sources.RawSource(fs.readFileSync(abs))
         )
       }
+
       compilation.fileDependencies.add(abs)
       pushResource(matches, relOut, extra)
+
       return
     }
 
@@ -399,6 +424,7 @@ export function resolveUserDeclaredWAR(
     if (typeof entry === 'string') {
       if (isMv2) {
         handleOne(undefined, entry)
+
         return
       }
 
@@ -411,6 +437,7 @@ export function resolveUserDeclaredWAR(
       err.name = 'WARStringEntryInMv3'
       compilation.errors = compilation.errors || []
       compilation.errors.push(err)
+
       return
     }
 

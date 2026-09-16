@@ -1,17 +1,5 @@
 #!/usr/bin/env node
-// Derives the CLI's template name list from extension-js/examples instead of
-// letting a human maintain it.
-//
-// The list drifted once already: the catalog advertised
-// `sidebar-monorepo-turborepo` while the pinned corpus still published
-// `sidebar-monorepo-turbopack`, so `--help` offered a name that create could
-// not resolve and then told the reader to consult that same list. A generated
-// list cannot disagree with the thing it lists.
-//
-// Usage:
-//   node scripts/generate-template-corpus.mjs             regenerate at the pin
-//   node scripts/generate-template-corpus.mjs --ref <sha> move the pin, then regenerate
-//   node scripts/generate-template-corpus.mjs --check     fail when out of date
+
 import fs from 'node:fs'
 import path from 'node:path'
 import {fileURLToPath} from 'node:url'
@@ -42,11 +30,13 @@ const BANNER = [
 
 export function readPinnedRef(source) {
   const match = PIN_PATTERN.exec(source)
+
   if (!match) {
     throw new Error(
       `Could not read DEFAULT_TEMPLATES_REF from ${path.relative(ROOT, PIN_FILE)}`
     )
   }
+
   return match[1]
 }
 
@@ -54,6 +44,7 @@ export function writePinnedRef(source, ref) {
   if (!PIN_PATTERN.test(source)) {
     throw new Error('Refusing to move a pin this file does not declare')
   }
+
   return source.replace(
     PIN_PATTERN,
     `export const DEFAULT_TEMPLATES_REF = '${ref}'`
@@ -87,16 +78,20 @@ async function githubJson(url) {
     'User-Agent': 'extension-template-corpus-generator',
     Accept: 'application/vnd.github+json'
   }
+
   if (process.env.GITHUB_TOKEN) {
     headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`
   }
+
   const response = await fetch(url, {headers})
   const body = await response.json()
+
   if (!response.ok) {
     throw new Error(
       `GitHub said ${response.status} for ${url}: ${body?.message || ''}`
     )
   }
+
   return body
 }
 
@@ -109,10 +104,13 @@ async function assertRefIsReachable(ref) {
     'User-Agent': 'extension-template-corpus-generator',
     Accept: 'application/vnd.github+json'
   }
+
   if (process.env.GITHUB_TOKEN) {
     headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`
   }
+
   const response = await fetch(url, {headers})
+
   if (response.status === 404) {
     throw new Error(
       `${ref} shares no ancestor with ${CORPUS_REPO}@${CORPUS_BRANCH}. ` +
@@ -120,12 +118,15 @@ async function assertRefIsReachable(ref) {
         'non-bundled create would break at once. Pin a commit on the branch.'
     )
   }
+
   const body = await response.json()
+
   if (!response.ok) {
     throw new Error(
       `GitHub said ${response.status} comparing ${ref}: ${body?.message || ''}`
     )
   }
+
   if (body.status !== 'behind' && body.status !== 'identical') {
     throw new Error(
       `${ref} is ${body.status} relative to ${CORPUS_BRANCH}, not an ancestor of it.`
@@ -137,14 +138,17 @@ async function fetchCorpusSlugs(ref) {
   const entries = await githubJson(
     `https://api.github.com/repos/${CORPUS_REPO}/contents/examples?ref=${ref}`
   )
+
   if (!Array.isArray(entries)) {
     throw new Error(`Unexpected contents payload for ${ref}`)
   }
+
   const slugs = entries
     .filter((entry) => entry.type === 'dir')
     .map((entry) => entry.name)
     .sort()
   if (!slugs.length) throw new Error(`No template folders found at ${ref}`)
+
   return slugs
 }
 
@@ -175,20 +179,26 @@ async function main() {
         `${path.relative(ROOT, OUT_FILE)} is stale for ${CORPUS_REPO}@${ref}.\n` +
           'Run: node scripts/generate-template-corpus.mjs'
       )
+
       process.exit(1)
     }
+
     if (readPinnedRef(pinSource) !== ref) {
       console.error('The scaffolder pin and the generated corpus disagree.')
       process.exit(1)
     }
+
     console.log(`Template corpus is current at ${ref} (${slugs.length} names).`)
+
     return
   }
 
   if (current !== next) fs.writeFileSync(OUT_FILE, next)
+
   if (readPinnedRef(pinSource) !== ref) {
     fs.writeFileSync(PIN_FILE, writePinnedRef(pinSource, ref))
   }
+
   console.log(
     `Wrote ${slugs.length} template names from ${CORPUS_REPO}@${ref}.`
   )

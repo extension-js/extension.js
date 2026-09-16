@@ -10,26 +10,32 @@ vi.mock('../js-tools/react', () => ({
   isUsingReact: vi.fn(() => true),
   maybeUseReact: vi.fn(async () => ({alias: {}, loaders: [], plugins: []}))
 }))
+
 vi.mock('../js-tools/preact', () => ({
   isUsingPreact: vi.fn(() => false),
   maybeUsePreact: vi.fn(async () => undefined)
 }))
+
 vi.mock('../js-tools/vue', () => ({
   isUsingVue: vi.fn(() => false),
   maybeUseVue: vi.fn(async () => undefined)
 }))
+
 vi.mock('../js-tools/solid', () => ({
   isUsingSolid: vi.fn(() => false),
   maybeUseSolid: vi.fn(async () => undefined)
 }))
+
 vi.mock('../js-tools/svelte', () => ({
   maybeUseSvelte: vi.fn(async () => undefined)
 }))
+
 vi.mock('../js-tools/typescript', () => ({
   isUsingTypeScript: vi.fn(() => false),
   ensureTypeScriptConfig: vi.fn(),
   getUserTypeScriptConfigFile: vi.fn(() => undefined)
 }))
+
 vi.mock('../../lib/transpile-packages', () => ({
   resolveTranspilePackageDirs: vi.fn(() => []),
   isSubPath: vi.fn(
@@ -38,21 +44,25 @@ vi.mock('../../lib/transpile-packages', () => ({
       resourcePath.startsWith(`${directoryPath}/`)
   )
 }))
+
 vi.mock('../../plugin-special-folders/get-data', () => ({
   getSpecialFoldersDataForCompiler: vi.fn(() => ({pages: {}, scripts: {}}))
 }))
+
 vi.mock('../../plugin-web-extension/shared/manifest-fields', () => ({
   getResolvedManifestFieldsData: vi.fn(() => ({html: {}}))
 }))
 
 vi.mock('fs', async () => {
   const actual = await vi.importActual<typeof import('fs')>('fs')
+
   return {
     ...actual,
     readFileSync: vi.fn((filePath: any) => {
       if (String(filePath).endsWith('manifest.json')) {
         return JSON.stringify(projectFilesMocks.manifest)
       }
+
       return (actual.readFileSync as any)(filePath)
     })
   }
@@ -93,6 +103,7 @@ async function contentScriptLayerInclude(
       rule?.layer === EXTENSIONJS_CONTENT_SCRIPT_LAYER &&
       typeof rule?.include === 'function'
   )
+
   return layerRule.include as (resourcePath: string) => boolean
 }
 

@@ -90,8 +90,10 @@ export class CDPClient {
             }
 
             if (timeout) clearTimeout(timeout)
+
             this.pendingRequests.delete(id)
           })
+
           // Mark ws as dead so sendCommand rejects immediately
           this.ws = null
         }
@@ -105,6 +107,7 @@ export class CDPClient {
       }
     } catch (error) {
       const err = error as Error
+
       throw new Error(`Failed to connect to CDP: ${err.message || err}`)
     }
   }
@@ -157,6 +160,7 @@ export class CDPClient {
       }
 
       if (timeout) clearTimeout(timeout)
+
       this.pendingRequests.delete(id)
     })
   }
@@ -175,6 +179,7 @@ export class CDPClient {
       } catch {
         // Ignore
       }
+
       this.pipeIn = null
       this.pipeOut = null
     }
@@ -185,6 +190,7 @@ export class CDPClient {
       } catch {
         // Ignore
       }
+
       this.ws = null
     }
   }
@@ -194,6 +200,7 @@ export class CDPClient {
     this.heartbeatTimer = setInterval(async () => {
       if (!this.isConnected()) {
         this.stopHeartbeat()
+
         return
       }
 
@@ -210,12 +217,15 @@ export class CDPClient {
               '[CDP] Browser is not answering CDP commands (heartbeat timed out). Keeping the session, it resumes automatically if the browser recovers.'
             )
           }
+
           return
         }
+
         // WebSocket transport: a dead ws really is dead, close it.
         if (this.isDev()) {
           humanWarn('[CDP] Heartbeat failed, connection appears dead')
         }
+
         this.disconnect()
       }
     }, CDP_HEARTBEAT_INTERVAL_MS)
@@ -332,6 +342,7 @@ export class CDPClient {
         this.pendingRequests.set(id, {resolve, reject, timeout, method})
 
         const data = JSON.stringify(message)
+
         if (this.transport === 'pipe' && this.pipeOut) {
           this.pipeOut.write(`${data}\0`)
         } else if (this.ws) {

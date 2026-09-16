@@ -29,6 +29,7 @@ function waitForConnection(
       () => reject(new Error('no connection within timeout')),
       timeout
     )
+
     const check = () => {
       if (state.connections.length > 0) {
         clearTimeout(t)
@@ -37,6 +38,7 @@ function waitForConnection(
         setTimeout(check, 10)
       }
     }
+
     check()
   })
 }
@@ -60,6 +62,7 @@ describe('RdpTransport', () => {
     } catch {
       // Ignore
     }
+
     await new Promise<void>((resolve) => {
       mockState.server.close(() => resolve())
       for (const c of mockState.connections) c.destroy()
@@ -263,6 +266,7 @@ describe('RdpTransport', () => {
   it('rejects a request that never gets a reply after the timeout', async () => {
     process.env.EXTENSION_RDP_REQUEST_TIMEOUT_MS = '60'
     const t = new RdpTransport()
+
     try {
       await t.connect(mockState.port)
       await expect(t.request({to: 'tab-1', type: 'noReply'})).rejects.toThrow(
@@ -270,6 +274,7 @@ describe('RdpTransport', () => {
       )
     } finally {
       delete process.env.EXTENSION_RDP_REQUEST_TIMEOUT_MS
+
       try {
         t.disconnect()
       } catch {

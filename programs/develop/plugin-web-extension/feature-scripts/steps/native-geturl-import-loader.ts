@@ -39,18 +39,22 @@ function codeOnly(source: string): string {
   const n = source.length
   let i = 0
   let prevSignificant = ''
+
   while (i < n) {
     const char = source[i]
     const next = source[i + 1]
+
     if (char === '/' && next === '/') {
       while (i < n && source[i] !== '\n') i++
       continue
     }
+
     if (char === '/' && next === '*') {
       const end = source.indexOf('*/', i + 2)
       i = end === -1 ? n : end + 2
       continue
     }
+
     if (char === '"' || char === "'" || char === '`') {
       const close = skipString(source, i, n)
       out += source.slice(i, close + 1)
@@ -58,15 +62,19 @@ function codeOnly(source: string): string {
       prevSignificant = char
       continue
     }
+
     if (char === '/' && regexCanStart(prevSignificant)) {
       i = skipRegex(source, i, n) + 1
       prevSignificant = '/'
       continue
     }
+
     out += char
     if (!/\s/.test(char)) prevSignificant = char
+
     i++
   }
+
   return out
 }
 
@@ -82,6 +90,7 @@ function identifierBoundToGetURL(code: string, name: string): boolean {
     '\\b(?:const|let|var)\\s+' + id + TYPE_ANNOTATION + '\\s*=' + RHS
   )
   const assigned = new RegExp('(?:^|[^\\w$.])' + id + '\\s*=(?!=)' + RHS)
+
   return declared.test(code) || assigned.test(code)
 }
 
@@ -102,22 +111,27 @@ function memberBoundToGetURL(code: string, path: string): boolean {
   const assigned = new RegExp(
     '(?:^|[^\\w$])' + escapeId(path.replace(/\s+/g, '')) + '\\s*=(?!=)' + RHS
   )
+
   return property.test(code) || assigned.test(code.replace(/\s*\.\s*/g, '.'))
 }
 
 // `import(u, {with: {type: 'json'}})`: only the first argument is the specifier.
 function firstArgument(args: string): string {
   let depth = 0
+
   for (let i = 0; i < args.length; i++) {
     const char = args[i]
+
     if (char === '"' || char === "'" || char === '`') {
       i = skipString(args, i, args.length)
       continue
     }
+
     if (char === '(' || char === '[' || char === '{') depth++
     else if (char === ')' || char === ']' || char === '}') depth--
     else if (char === ',' && depth === 0) return args.slice(0, i)
   }
+
   return args
 }
 
@@ -140,16 +154,19 @@ export function annotateGetURLDynamicImports(source: string): string {
       while (i < n && source[i] !== '\n') i++
       continue
     }
+
     if (char === '/' && next === '*') {
       const end = source.indexOf('*/', i + 2)
       i = end === -1 ? n : end + 2
       continue
     }
+
     if (char === '"' || char === "'" || char === '`') {
       i = skipString(source, i, n) + 1
       prevSignificant = char
       continue
     }
+
     if (char === '/' && regexCanStart(prevSignificant)) {
       i = skipRegex(source, i, n) + 1
       prevSignificant = '/'
@@ -164,13 +181,16 @@ export function annotateGetURLDynamicImports(source: string): string {
     ) {
       let j = i + 6
       while (j < n && /\s/.test(source[j])) j++
+
       if (source[j] === '(') {
         const args = readBalancedArgs(source, j)
+
         if (args != null && !args.includes('webpackIgnore')) {
           const specifier = firstArgument(args)
           const direct = GETURL_ARG.test(specifier)
           const name = specifier.trim()
           const code = bindingSource()
+
           if (
             direct ||
             (BARE_IDENTIFIER.test(name) &&
@@ -183,12 +203,14 @@ export function annotateGetURLDynamicImports(source: string): string {
         // Never step past the args: a nested import( inside them (or a
         // template interpolation holding one) still needs its own visit.
       }
+
       prevSignificant = 't'
       i += 6
       continue
     }
 
     if (!/\s/.test(char)) prevSignificant = char
+
     i++
   }
 
@@ -196,16 +218,15 @@ export function annotateGetURLDynamicImports(source: string): string {
 
   let out = ''
   let last = 0
+
   for (const at of insertions) {
     out += `${source.slice(last, at)}/* webpackIgnore: true */ `
     last = at
   }
+
   return out + source.slice(last)
 }
 
-/** Loader entry: source-to-source, before the swc transform. The map that
- * arrived travels on: the annotation adds a comment inside a line, never a
- * line, so the line map of the loader before this one still holds. */
 export default function nativeGetURLImportLoader(
   this: {
     callback?: (error: Error | null, content: string, map?: unknown) => void
@@ -219,6 +240,7 @@ export default function nativeGetURLImportLoader(
   const untouched =
     !source.includes('import') || !/runtime\s*\.\s*getURL/.test(source)
   const out = untouched ? source : annotateGetURLDynamicImports(source)
+
   if (typeof this?.callback === 'function') {
     const map = untouched
       ? inputSourceMap
@@ -228,26 +250,34 @@ export default function nativeGetURLImportLoader(
           source
         )
     this.callback(null, out, map)
+
     return undefined
   }
+
   return out
 }
 
 function readBalancedArgs(code: string, openIndex: number): string | null {
   if (code[openIndex] !== '(') return null
+
   let depth = 0
+
   for (let i = openIndex; i < code.length; i++) {
     const char = code[i]
+
     if (char === '"' || char === "'" || char === '`') {
       i = skipString(code, i, code.length)
       continue
     }
+
     if (char === '(') depth++
+
     if (char === ')') {
       depth--
       if (depth === 0) return code.slice(openIndex + 1, i)
     }
   }
+
   return null
 }
 
@@ -255,43 +285,55 @@ function readBalancedArgs(code: string, openIndex: number): string | null {
 // (they may nest strings and further templates).
 function skipString(code: string, start: number, cap: number): number {
   const quote = code[start]
+
   for (let i = start + 1; i < cap; i++) {
     if (code[i] === '\\') {
       i++
       continue
     }
+
     if (code[i] === quote) return i
+
     if (quote === '`' && code[i] === '$' && code[i + 1] === '{') {
       let depth = 1
       let j = i + 2
+
       for (; j < cap && depth > 0; j++) {
         const char = code[j]
+
         if (char === '"' || char === "'" || char === '`') {
           j = skipString(code, j, cap)
           continue
         }
+
         if (char === '{') depth++
         if (char === '}') depth--
       }
+
       i = j - 1
     }
   }
+
   return cap
 }
 
 function skipRegex(code: string, start: number, cap: number): number {
   let inClass = false
+
   for (let i = start + 1; i < cap; i++) {
     const char = code[i]
+
     if (char === '\\') {
       i++
       continue
     }
+
     if (char === '\n') return i - 1
     if (char === '[') inClass = true
     else if (char === ']') inClass = false
     else if (char === '/' && !inClass) return i
   }
+
   return cap
 }
 
@@ -299,5 +341,6 @@ function skipRegex(code: string, start: number, cap: number): number {
 // previous significant character cannot end an expression.
 function regexCanStart(prevSignificant: string): boolean {
   if (!prevSignificant) return true
+
   return !/[\w$)\]}"'`]/.test(prevSignificant)
 }

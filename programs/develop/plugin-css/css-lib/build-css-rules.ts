@@ -147,9 +147,11 @@ export async function buildCssRules(
       if (type === 'css' || type === 'css/module') {
         const guard = resolveDevelopDistFile('css-parse-guard-loader')
         const list = use as Array<Record<string, unknown>>
+
         if (!list.some((entry) => entry?.loader === guard)) {
           list.unshift({loader: guard})
         }
+
         list.unshift({
           loader: resolveDevelopDistFile('late-css-import-loader')
         })
@@ -176,6 +178,7 @@ export async function buildCssRules(
           loader: resolveDevelopDistFile('dead-css-url-loader'),
           options: {manifestPath, projectPath, sheet: 'inline'}
         })
+
         ruleType = 'javascript/auto'
       }
 
@@ -192,6 +195,7 @@ export async function buildCssRules(
           loader: resolveDevelopDistFile('dead-css-url-loader'),
           options: {manifestPath, projectPath, sheet: 'chunk'}
         })
+
         parser = {url: false}
       }
 

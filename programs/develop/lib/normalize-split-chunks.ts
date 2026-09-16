@@ -40,6 +40,7 @@ function narrowedSelector(
   if (option === 'all') {
     return (chunk) => !isSurfaceLockedChunkName(chunk.name)
   }
+
   return (chunk) =>
     (typeof chunk.canBeInitial === 'function' ? chunk.canBeInitial() : true) &&
     !isSurfaceLockedChunkName(chunk.name)
@@ -49,6 +50,7 @@ function narrowChunks(
   chunks: ChunksOption | undefined
 ): ((chunk: ChunkNameLike) => boolean) | undefined {
   if (chunks === 'all' || chunks === 'initial') return narrowedSelector(chunks)
+
   return undefined
 }
 
@@ -61,6 +63,7 @@ export function normalizeSplitChunks(
     | SplitChunksLike
     | false
     | undefined
+
   if (!splitChunks || typeof splitChunks !== 'object') {
     return {config, narrowed: []}
   }
@@ -69,6 +72,7 @@ export function normalizeSplitChunks(
   const next: SplitChunksLike = {...splitChunks}
 
   const topLevel = narrowChunks(splitChunks.chunks)
+
   if (topLevel) {
     next.chunks = topLevel
     narrowed.push('splitChunks.chunks')
@@ -76,11 +80,13 @@ export function normalizeSplitChunks(
 
   if (splitChunks.cacheGroups && typeof splitChunks.cacheGroups === 'object') {
     const cacheGroups: Record<string, CacheGroupLike> = {}
+
     for (const [key, group] of Object.entries(splitChunks.cacheGroups)) {
       const groupSelector =
         group && typeof group === 'object'
           ? narrowChunks(group.chunks)
           : undefined
+
       if (groupSelector && group && typeof group === 'object') {
         cacheGroups[key] = {...group, chunks: groupSelector}
         narrowed.push(`splitChunks.cacheGroups.${key}.chunks`)
@@ -88,6 +94,7 @@ export function normalizeSplitChunks(
         cacheGroups[key] = group
       }
     }
+
     next.cacheGroups = cacheGroups
   }
 
@@ -110,8 +117,10 @@ export function normalizeSplitChunks(
 // chunks: 'all' can find out why the background kept one file.
 export function applySplitChunksGuard(config: Configuration): Configuration {
   const {config: next, narrowed} = normalizeSplitChunks(config)
+
   if (narrowed.length > 0 && isDebug()) {
     console.log(messages.debugSplitChunksNarrowed(narrowed))
   }
+
   return next
 }

@@ -118,6 +118,7 @@ function writeExecuteScriptFixture() {
     path.join(EXECUTESCRIPT_ROOT, 'injected.js'),
     'document.title = "injected ran";\n'
   )
+
   fs.writeFileSync(
     path.join(EXECUTESCRIPT_ROOT, 'injected.css'),
     'body { outline: 1px solid red; }\n'
@@ -274,6 +275,7 @@ function writeGetURLFixture() {
       ''
     ].join('\n')
   )
+
   fs.mkdirSync(path.join(GETURL_ROOT, 'lib'), {recursive: true})
   fs.writeFileSync(
     path.join(GETURL_ROOT, 'common.js'),
@@ -283,6 +285,7 @@ function writeGetURLFixture() {
       ''
     ].join('\n')
   )
+
   fs.writeFileSync(
     path.join(GETURL_ROOT, 'lib', 'helper.js'),
     [
@@ -291,6 +294,7 @@ function writeGetURLFixture() {
       ''
     ].join('\n')
   )
+
   fs.writeFileSync(
     path.join(GETURL_ROOT, 'lib', 'deeper.js'),
     'export const DEEP = true\n'
@@ -300,6 +304,7 @@ function writeGetURLFixture() {
     path.join(GETURL_ROOT, 'popup.html'),
     '<html><body><script src="popup.js"></script></body></html>\n'
   )
+
   fs.writeFileSync(
     path.join(GETURL_ROOT, 'popup.js'),
     [
@@ -309,6 +314,7 @@ function writeGetURLFixture() {
       ''
     ].join('\n')
   )
+
   fs.writeFileSync(
     path.join(GETURL_ROOT, 'ui', 'page.html'),
     [
@@ -319,10 +325,12 @@ function writeGetURLFixture() {
       ''
     ].join('\n')
   )
+
   fs.writeFileSync(
     path.join(GETURL_ROOT, 'ui', 'page.js'),
     "document.title = 'ui page ran'\n"
   )
+
   fs.writeFileSync(
     path.join(GETURL_ROOT, 'ui', 'page.css'),
     'h1 { color: rebeccapurple; }\n'
@@ -378,10 +386,12 @@ function writeWebpackChunksFixture() {
     path.join(WEBPACK_CHUNKS_ROOT, '311.js'),
     'window.__chunk311 = "loaded";\n'
   )
+
   fs.writeFileSync(
     path.join(WEBPACK_CHUNKS_ROOT, '311.js.map'),
     '{"version":3,"sources":[],"mappings":""}\n'
   )
+
   fs.writeFileSync(
     path.join(WEBPACK_CHUNKS_ROOT, '812.css'),
     'body { background: papayawhip; }\n'
@@ -430,19 +440,23 @@ function writeRuntimeSurfaceFixture() {
     path.join(RUNTIME_SURFACE_ROOT, 'Alt.html'),
     '<html><body><p>runtime-set popup</p><script src="alt.js"></script></body></html>\n'
   )
+
   fs.writeFileSync(
     path.join(RUNTIME_SURFACE_ROOT, 'alt.js'),
     'document.body.dataset.altLoaded = "yes";\n'
   )
+
   fs.writeFileSync(
     path.join(RUNTIME_SURFACE_ROOT, 'Panel.html'),
     '<html><body><p>runtime-set panel</p></body></html>\n'
   )
+
   fs.mkdirSync(path.join(RUNTIME_SURFACE_ROOT, 'offscreen'), {recursive: true})
   fs.writeFileSync(
     path.join(RUNTIME_SURFACE_ROOT, 'offscreen', 'index.html'),
     '<html><body><p>offscreen document</p><script src="offscreen.js"></script></body></html>\n'
   )
+
   fs.writeFileSync(
     path.join(RUNTIME_SURFACE_ROOT, 'offscreen', 'offscreen.js'),
     'document.body.dataset.offscreenLoaded = "yes";\n'
@@ -471,6 +485,7 @@ async function buildFixture(root: string) {
     } else {
       process.env.EXTENSION_AUTHOR_MODE = previousAuthorMode
     }
+
     if (previousVitest === undefined) {
       delete process.env.VITEST
     } else {
@@ -487,6 +502,7 @@ function writeSharedLibPageFixture() {
   fs.mkdirSync(path.join(SHARED_LIB_PAGE_ROOT, 'src', 'ui', 'welcome'), {
     recursive: true
   })
+
   fs.mkdirSync(path.join(SHARED_LIB_PAGE_ROOT, 'src', 'lib'), {
     recursive: true
   })
@@ -510,20 +526,24 @@ function writeSharedLibPageFixture() {
       2
     )
   )
+
   fs.writeFileSync(
     path.join(SHARED_LIB_PAGE_ROOT, 'sw.js'),
     'chrome.runtime.onInstalled.addListener(() => {\n' +
       '  chrome.tabs.create({url: chrome.runtime.getURL("src/ui/welcome/welcome.html")})\n' +
       '})\n'
   )
+
   fs.writeFileSync(
     path.join(SHARED_LIB_PAGE_ROOT, 'src', 'lib', 'normalizers.js'),
     'function agLoad() { return 1 }\n'
   )
+
   fs.writeFileSync(
     path.join(SHARED_LIB_PAGE_ROOT, 'src', 'content.js'),
     'console.log(agLoad())\n'
   )
+
   fs.writeFileSync(
     path.join(SHARED_LIB_PAGE_ROOT, 'src', 'ui', 'welcome', 'welcome.html'),
     '<html><body>\n' +
@@ -531,6 +551,7 @@ function writeSharedLibPageFixture() {
       '<script src="welcome.js"></script>\n' +
       '</body></html>\n'
   )
+
   fs.writeFileSync(
     path.join(SHARED_LIB_PAGE_ROOT, 'src', 'ui', 'welcome', 'welcome.js'),
     'console.log(agLoad())\n'
@@ -651,6 +672,7 @@ describe('build: untraced runtime-loaded deps (real rspack)', () => {
     expect(contentBundle).toMatch(
       /\bimport\(\s*(?:\/\*[\s\S]*?\*\/\s*)?[\w.$]*runtime\.getURL\(/
     )
+
     expect(contentBundle).not.toContain('Cannot find module')
 
     for (const rel of ['ui/page.html', 'ui/page.js', 'ui/page.css']) {
@@ -667,6 +689,7 @@ describe('build: untraced runtime-loaded deps (real rspack)', () => {
     expect(summary.errors_count).toBe(0)
 
     const distDir = path.join(SHARED_LIB_PAGE_ROOT, 'dist', 'chrome')
+
     for (const rel of [
       'src/ui/welcome/welcome.html',
       'src/ui/welcome/welcome.js',
@@ -675,6 +698,7 @@ describe('build: untraced runtime-loaded deps (real rspack)', () => {
       const abs = path.join(distDir, rel)
       expect(fs.existsSync(abs), `missing ${abs}`).toBe(true)
     }
+
     // The content-script bundle still carries the lib on its own.
     expect(
       fs.existsSync(path.join(distDir, 'content_scripts', 'content-0.js'))
@@ -698,6 +722,7 @@ describe('build: untraced runtime-loaded deps (real rspack)', () => {
       const abs = path.join(distDir, rel)
       expect(fs.existsSync(abs), `missing ${abs}`).toBe(true)
     }
+
     expect(fs.readFileSync(path.join(distDir, '311.js'), 'utf8')).toBe(
       'window.__chunk311 = "loaded";\n'
     )
@@ -725,6 +750,7 @@ describe('build: untraced runtime-loaded deps (real rspack)', () => {
       const abs = path.join(distDir, rel)
       expect(fs.existsSync(abs), `missing ${abs}`).toBe(true)
     }
+
     expect(fs.readFileSync(path.join(distDir, 'Alt.html'), 'utf8')).toContain(
       'runtime-set popup'
     )

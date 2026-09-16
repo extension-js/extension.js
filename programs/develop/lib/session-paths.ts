@@ -10,26 +10,6 @@ import {spawnSync} from 'node:child_process'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 
-/**
- * THE owner of every on-disk session-state path. Dev sessions are
- * per project+browser, so every artifact here must embed the browser key,
- * a per-project single slot gets clobbered the moment a second browser
- * session starts on the same project (the control.token defect: session B's
- * start overwrote session A's eval token, and either shutdown deleted it
- * for both). New artifacts MUST be registered in SESSION_ARTIFACTS; the
- * layout spec fails any per-project shape that isn't an explicitly
- * allowlisted legacy slot, and a repo-scan spec fails path joins that
- * bypass this module.
- *
- * Two roots with different lifetimes:
- * - `<project>/.extension-js/` survives dist wipes. Anything a browser
- *   profile may have baked in (ports, tokens) lives here. A profile can
- *   outlive dist/, and state that dies with dist strands the profile's
- *   cached service worker (issue #484).
- * - `<project>/dist/extension-js/<browser>/` dies with dist. Machine
- *   contracts and logs that describe the CURRENT session only.
- */
-
 export function sessionStateDir(projectPath: string): string {
   return path.resolve(projectPath, '.extension-js')
 }
@@ -41,8 +21,6 @@ export function controlPortFilePath(
   return path.join(sessionStateDir(projectPath), `control-port-${browser}`)
 }
 
-/** Pre-#484 location: died with dist/ while profiles outlived it. Read-only
- * fallback so a 4.0.6-era profile's cached SW can still resync. */
 export function legacyControlPortFilePath(
   projectPath: string,
   browser: string
@@ -54,7 +32,6 @@ export function controlTokenPath(projectPath: string, browser: string): string {
   return path.join(sessionStateDir(projectPath), `control-token-${browser}`)
 }
 
-/** Pre-fix single-slot token shared by every browser session of a project. */
 export function legacyControlTokenPath(projectPath: string): string {
   return path.join(sessionStateDir(projectPath), 'control.token')
 }
@@ -79,6 +56,7 @@ export function ensureSessionArtifactsIgnoreFile(projectPath: string): void {
   try {
     const ignoreFile = sessionArtifactsIgnoreFilePath(projectPath)
     if (fs.existsSync(ignoreFile)) return
+
     fs.mkdirSync(path.dirname(ignoreFile), {recursive: true})
     fs.writeFileSync(ignoreFile, SESSION_ARTIFACTS_IGNORE_CONTENT)
   } catch {
@@ -100,6 +78,7 @@ function isAlreadyIgnoredByGit(projectPath: string): boolean {
       ['check-ignore', '-q', '--', '.extension-js/'],
       {cwd: projectPath, stdio: 'ignore'}
     )
+
     return result.status === 0
   } catch {
     return false
@@ -115,12 +94,16 @@ export function ensureSessionStateInProjectGitignore(
   try {
     const gitignorePath = path.resolve(projectPath, '.gitignore')
     if (!fs.existsSync(gitignorePath)) return
+
     const content = fs.readFileSync(gitignorePath, 'utf8')
     const lines = content.split(/\r?\n/).map((line) => line.trim())
+
     if (lines.includes('.extension-js') || lines.includes('.extension-js/')) {
       return
     }
+
     if (isAlreadyIgnoredByGit(projectPath)) return
+
     const prefix = content.length > 0 && !content.endsWith('\n') ? '\n' : ''
     fs.appendFileSync(
       gitignorePath,

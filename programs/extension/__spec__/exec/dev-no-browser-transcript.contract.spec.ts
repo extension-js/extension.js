@@ -18,6 +18,7 @@ const cliRoot = resolve(__dirname, '../..')
 function cliBin(): string {
   const cjs = join(cliRoot, 'dist', 'cli.cjs')
   if (existsSync(cjs)) return cjs
+
   return join(cliRoot, 'dist', 'cli.js')
 }
 
@@ -28,6 +29,7 @@ function createFixture(): string {
     join(projectDir, 'package.json'),
     JSON.stringify({name: 'golden-boot', private: true, version: '1.0.0'})
   )
+
   writeFileSync(
     join(projectDir, 'manifest.json'),
     JSON.stringify({
@@ -37,10 +39,12 @@ function createFixture(): string {
       content_scripts: [{matches: ['<all_urls>'], js: ['content/scripts.js']}]
     })
   )
+
   writeFileSync(
     join(projectDir, 'content', 'scripts.js'),
     "console.log('golden boot fixture')\n"
   )
+
   return projectDir
 }
 
@@ -57,14 +61,18 @@ function captureDevBoot(projectDir: string) {
     )
     let output = ''
     let settled = false
+
     const finish = () => {
       if (settled) return
+
       settled = true
       clearTimeout(timer)
       resolvePromise(output)
     }
+
     const timer = setTimeout(() => {
       child.kill('SIGKILL')
+
       if (!settled) {
         settled = true
         reject(new Error(`dev boot timed out, output so far:\n${output}`))
@@ -72,6 +80,7 @@ function captureDevBoot(projectDir: string) {
     }, 90000)
     child.stdout.on('data', (chunk) => {
       output += chunk.toString()
+
       if (output.includes('Watching for file changes.')) {
         setTimeout(() => {
           child.kill('SIGTERM')
@@ -79,12 +88,15 @@ function captureDevBoot(projectDir: string) {
         }, 250)
       }
     })
+
     child.stderr.on('data', (chunk) => {
       output += chunk.toString()
     })
+
     child.on('close', finish)
     child.on('error', (error) => {
       clearTimeout(timer)
+
       if (!settled) {
         settled = true
         reject(error)
@@ -96,6 +108,7 @@ function captureDevBoot(projectDir: string) {
 describe('dev --no-browser boot transcript', () => {
   it('prints compiled, then the card, then the ready line, in that order', async () => {
     const projectDir = createFixture()
+
     try {
       const output = await captureDevBoot(projectDir)
       const lines = output.split('\n')
@@ -115,9 +128,11 @@ describe('dev --no-browser boot transcript', () => {
       expect(lines[headIndex + 1]).toMatch(
         /^ {4}Browser {8}Chromium \(no-browser mode\)$/
       )
+
       expect(lines[headIndex + 2]).toMatch(
         /^ {4}Extension {6}Golden Boot 1\.0\.0$/
       )
+
       // Three rows and no more: MAX_CARD_ROWS caps every card, so this one
       // keeps Browser, Extension and Run ID. Output lost the slot on purpose,
       // because the previewing/serving line above the card already names the

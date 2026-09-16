@@ -63,9 +63,11 @@ export function webAccessibleResources(manifest: Manifest) {
       if (typeof entry === 'string') {
         return mapResource(entry)
       }
+
       if (!entry || !Array.isArray(entry.resources)) {
         return undefined
       }
+
       return {
         ...entry,
         resources: entry.resources.map(mapResource)
