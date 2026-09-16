@@ -109,10 +109,19 @@ describe('ApplyDevDefaults', () => {
     expect(out.background?.service_worker).toBe('background/service_worker.js')
   })
 
+  // A module entry stands for one project file the build compiled. `emitted`
+  // is what the build wrote for it, and defaults to the file itself, which is
+  // the common case of a bundle that carries the source through unchanged.
+  interface SpecModule {
+    resource: string
+    layer?: string
+    emitted?: string
+  }
+
   function runDevDefaults(
     manifest: Record<string, unknown>,
     browser: 'chrome' | 'firefox' = 'chrome',
-    modules: Array<{resource: string; layer?: string}> = []
+    modules: SpecModule[] = []
   ) {
     const {out, warnings} = runDevDefaultsWithWarnings(
       manifest,
@@ -127,14 +136,47 @@ describe('ApplyDevDefaults', () => {
   function runDevDefaultsWithWarnings(
     manifest: Record<string, unknown>,
     browser: 'chrome' | 'firefox' = 'chrome',
-    modules: Array<{resource: string; layer?: string}> = []
+    modules: SpecModule[] = []
   ) {
     let updated: string | undefined
     const warnings: Array<{name: string; message: string}> = []
+    const scriptOf = new Map<SpecModule, string>()
+    const emittedScripts: Array<{name: string; text: string}> = []
+
+    modules.forEach((module, index) => {
+      const name = `bundle${index}.js`
+      let text = module.emitted
+
+      if (text === undefined) {
+        try {
+          text = fs.readFileSync(module.resource, 'utf-8')
+        } catch {
+          text = ''
+        }
+      }
+
+      scriptOf.set(module, name)
+      emittedScripts.push({name, text})
+    })
+
     const compilation = {
       errors: [],
       warnings,
       modules,
+      chunkGraph: {
+        getModuleChunksIterable: (module: SpecModule) => {
+          const name = scriptOf.get(module)
+
+          return name ? [{files: [name]}] : []
+        }
+      },
+      getAssets: () => [
+        {name: 'manifest.json', source: {source: () => ''}},
+        ...emittedScripts.map(({name, text}) => ({
+          name,
+          source: {source: () => text}
+        }))
+      ],
       getAsset: (name: string) =>
         name === 'manifest.json'
           ? {source: () => JSON.stringify(manifest)}
@@ -308,6 +350,118 @@ describe('ApplyDevDefaults', () => {
       // promise a runtime failure for the whole namespace.
       expect(drift[0].message).not.toContain('will fail at runtime')
       expect(drift[0].message).toContain('work packaged without it')
+    } finally {
+      fs.rmSync(dir, {recursive: true, force: true})
+    }
+  })
+
+  // Six templates guard their Safari-only calls with import.meta.env. The
+  // browser constant is substituted into the development bundle but nothing
+  // folds it there, so the text below is what a gecko dev session really
+  // writes: the dead branch and the function only it calls are both still in
+  // the script. The scan asks what the code carries once it ships, and none of
+  // this does, so warning here would send the author to add a permission both
+  // stores then ask about, for a call that cannot run on this target.
+  const SAFARI_ONLY_DEV_BUNDLE = [
+    '(function () {',
+    '  const isSafariLike = false || "firefox" === \'webkit-based\';',
+    '  function openSidebarTab() {',
+    "    chrome.tabs.create({url: 'sidebar/index.html'}, () => {});",
+    '  }',
+    '  if (isSafariLike) {',
+    '    openSidebarTab();',
+    '  }',
+    "  console.log('background up');",
+    '})();',
+    ''
+  ].join('\n')
+
+  it('stays quiet when the only chrome.tabs use cannot ship on this target', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-dev-folded-'))
+    const file = path.join(dir, 'background.ts')
+    fs.writeFileSync(
+      file,
+      [
+        'const isSafariLike =',
+        "  import.meta.env.EXTENSION_PUBLIC_BROWSER === 'safari' ||",
+        "  import.meta.env.EXTENSION_PUBLIC_BROWSER === 'webkit-based'",
+        'function openSidebarTab() {',
+        "  chrome.tabs.create({url: 'sidebar/index.html'}, () => {})",
+        '}',
+        'if (isSafariLike) {',
+        '  openSidebarTab()',
+        '}',
+        ''
+      ].join('\n')
+    )
+
+    try {
+      const {warnings} = runDevDefaultsWithWarnings(
+        {manifest_version: 3, name: 'x'},
+        'firefox',
+        [{resource: file, emitted: SAFARI_ONLY_DEV_BUNDLE}]
+      )
+      expect(
+        warnings.filter((w) => w.name === 'DevInjectedPermissionWarning')
+      ).toEqual([])
+    } finally {
+      fs.rmSync(dir, {recursive: true, force: true})
+    }
+  })
+
+  it('still warns when the chrome.tabs call ships on this target', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-dev-survives-'))
+    const file = path.join(dir, 'background.ts')
+    fs.writeFileSync(file, 'chrome.tabs.query({}, (t) => console.log(t))\n')
+
+    try {
+      const {warnings} = runDevDefaultsWithWarnings(
+        {manifest_version: 3, name: 'x'},
+        'firefox',
+        [
+          {
+            resource: file,
+            emitted:
+              '(function () {\n  chrome.tabs.query({}, (t) => console.log(t));\n})();\n'
+          }
+        ]
+      )
+      const drift = warnings.filter(
+        (w) => w.name === 'DevInjectedPermissionWarning'
+      )
+      expect(drift).toHaveLength(1)
+      expect(drift[0].message).toContain('"tabs"')
+      expect(drift[0].message).toContain('background.ts')
+    } finally {
+      fs.rmSync(dir, {recursive: true, force: true})
+    }
+  })
+
+  // A project can hold both shapes at once. The call that ships is the one the
+  // author can act on, so the warning has to follow the output, not the first
+  // file in the graph that happens to name the API.
+  it('names the file whose script still carries the call', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-dev-mixed-'))
+    const folded = path.join(dir, 'safari-only.ts')
+    const live = path.join(dir, 'background.ts')
+    fs.writeFileSync(folded, 'chrome.tabs.create({url: "a.html"})\n')
+    fs.writeFileSync(live, 'chrome.tabs.query({}, () => {})\n')
+
+    try {
+      const {warnings} = runDevDefaultsWithWarnings(
+        {manifest_version: 3, name: 'x'},
+        'firefox',
+        [
+          {resource: folded, emitted: SAFARI_ONLY_DEV_BUNDLE},
+          {resource: live, emitted: 'chrome.tabs.query({}, () => {});\n'}
+        ]
+      )
+      const drift = warnings.filter(
+        (w) => w.name === 'DevInjectedPermissionWarning'
+      )
+      expect(drift).toHaveLength(1)
+      expect(drift[0].message).toContain('background.ts')
+      expect(drift[0].message).not.toContain('safari-only.ts')
     } finally {
       fs.rmSync(dir, {recursive: true, force: true})
     }
