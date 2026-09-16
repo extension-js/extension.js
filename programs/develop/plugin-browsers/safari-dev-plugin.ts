@@ -12,6 +12,7 @@ import {
   classifyReloadFromSources,
   createChangedSourcesTracker,
   dispatchReload,
+  formatReloadContextLabel,
   type ReloadBroker,
   type ReloadInstruction,
   readContentScriptCount
@@ -38,15 +39,74 @@ type SafariPackageTarget = {
   instruction?: ReloadInstruction
 }
 
+function union(
+  previous: string[] | undefined,
+  next: string[] | undefined
+): string[] {
+  return [...new Set([...(previous || []), ...(next || [])])].sort()
+}
+
+// What is still worth sending once the package has landed. xcodebuild replaces
+// the appex under a running Safari, so the extension restarts on its own and a
+// full or service-worker reload would only restart what just started.
+// Content scripts are the exception: a restart does not re-inject them, so an
+// open tab keeps running the old code until this frame reaches it.
+export function reloadSurvivingPackage(
+  instruction: ReloadInstruction | undefined
+): ReloadInstruction | undefined {
+  if (!instruction) return undefined
+  // 'page' is notify-only, it restarts nothing and carries the announcement.
+  if (instruction.type === 'content-scripts' || instruction.type === 'page') {
+    return instruction
+  }
+
+  const entries = instruction.changedContentScriptEntries || []
+  if (entries.length === 0) return undefined
+
+  // A source shared by the background and a content script. The restart covers
+  // the background half, the open tabs still need the new content code.
+  return {
+    ...instruction,
+    type: 'content-scripts',
+    label: formatReloadContextLabel(
+      'content_script',
+      instruction.changedAssets || []
+    )
+  }
+}
+
 // A save burst collapses to one package, so its reloads collapse to one signal,
-// labelled by the newest edit.
+// labelled by the newest content edit. Entries union across the burst, because
+// every content entry it touched still has to reach its open tabs.
 function mergeInstructions(
   previous: ReloadInstruction | undefined,
   next: ReloadInstruction | undefined
 ): ReloadInstruction | undefined {
   if (!previous) return next
   if (!next) return previous
-  return {...next, type: 'full'}
+
+  const entries = union(
+    previous.changedContentScriptEntries,
+    next.changedContentScriptEntries
+  )
+  const scriptFiles = union(
+    previous.changedScriptFiles,
+    next.changedScriptFiles
+  )
+  if (entries.length === 0) {
+    return scriptFiles.length > 0
+      ? {...next, changedScriptFiles: scriptFiles}
+      : next
+  }
+
+  // Keep the newest instruction that names content work, so the label points at
+  // a content edit rather than at a page edit that rode along with it.
+  const base = next.type === 'content-scripts' ? next : previous
+  return {
+    ...base,
+    changedContentScriptEntries: entries,
+    ...(scriptFiles.length > 0 ? {changedScriptFiles: scriptFiles} : {})
+  }
 }
 
 export class SafariDevPlugin implements RunnerPlugin {
@@ -98,16 +158,19 @@ export class SafariDevPlugin implements RunnerPlugin {
         const {forcedFull, changedSources: sources} = changedSources.snapshot()
         // Safari takes the same granularity as Chromium. A content-script
         // reinjection was measured working there, same tab, through the
-        // producer's executeScript path.
-        instruction = classifyReloadFromSources({
-          changedSources: sources,
-          forcedFull,
-          getContentScriptCount: () =>
-            readContentScriptCount(compilation, outputPath),
-          getSourceFeatureIndex: () =>
-            buildSourceFeatureIndex(compilation, contextDir),
-          outputPath
-        })
+        // producer's executeScript path. The package then restarts the
+        // extension, so only the part a restart cannot deliver is kept.
+        instruction = reloadSurvivingPackage(
+          classifyReloadFromSources({
+            changedSources: sources,
+            forcedFull,
+            getContentScriptCount: () =>
+              readContentScriptCount(compilation, outputPath),
+            getSourceFeatureIndex: () =>
+              buildSourceFeatureIndex(compilation, contextDir),
+            outputPath
+          })
+        )
       }
 
       const target: SafariPackageTarget = {
@@ -180,6 +243,7 @@ export class SafariDevPlugin implements RunnerPlugin {
 
     // Only after the package succeeded: the appex Safari reads is replaced by
     // xcodebuild, so a signal sent earlier would reload the previous bytes.
+    // The instruction is already trimmed to what the restart cannot deliver.
     if (!wasFirstRun && target.instruction && this.reloadBroker) {
       await dispatchReload(target.instruction, {
         broker: this.reloadBroker,

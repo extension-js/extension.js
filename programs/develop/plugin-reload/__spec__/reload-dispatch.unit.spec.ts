@@ -110,6 +110,47 @@ describe('dispatchReload', () => {
     await expect(dispatchReload(CS, {})).resolves.toBeUndefined()
   })
 
+  // The Safari packager trims its own instruction before dispatching, so the
+  // shared seam must keep broadcasting every kind for Chromium and Firefox.
+  it('broadcasts a full reload unchanged, the Safari trim is plugin-local', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const broker = {broadcastReload: vi.fn().mockReturnValue(1)}
+    await dispatchReload(
+      {
+        type: 'full',
+        changedAssets: ['src/manifest.json'],
+        label: 'extension (src/manifest.json)'
+      },
+      {broker}
+    )
+    expect(broker.broadcastReload).toHaveBeenCalledWith({
+      type: 'full',
+      changedContentScriptEntries: undefined,
+      label: 'extension (src/manifest.json)',
+      changedFiles: ['src/manifest.json']
+    })
+    expect(String(log.mock.calls[0][0])).toContain('Reloading')
+  })
+
+  it('broadcasts a service-worker reload unchanged', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    const broker = {broadcastReload: vi.fn().mockReturnValue(1)}
+    await dispatchReload(
+      {
+        type: 'service-worker',
+        changedAssets: ['src/background.js'],
+        label: 'service_worker (src/background.js)'
+      },
+      {broker}
+    )
+    expect(broker.broadcastReload).toHaveBeenCalledWith({
+      type: 'service-worker',
+      changedContentScriptEntries: undefined,
+      label: 'service_worker (src/background.js)',
+      changedFiles: ['src/background.js']
+    })
+  })
+
   it('honors EXTENSION_NO_RELOAD', async () => {
     process.env.EXTENSION_NO_RELOAD = 'true'
     const broker = {broadcastReload: vi.fn()}

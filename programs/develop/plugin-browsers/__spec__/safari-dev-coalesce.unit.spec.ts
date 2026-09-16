@@ -1,6 +1,10 @@
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import type {ReloadBroker} from '../../plugin-reload'
-import {SafariDevPlugin, type SafariPackagerFn} from '../safari-dev-plugin'
+import {
+  reloadSurvivingPackage,
+  SafariDevPlugin,
+  type SafariPackagerFn
+} from '../safari-dev-plugin'
 
 const flush = async () => {
   for (let i = 0; i < 8; i++) await Promise.resolve()
@@ -47,16 +51,31 @@ function makeCompiler() {
   }
   const trigger = (
     outputPath: string,
-    opts?: {errors?: unknown[]; changedFiles?: string[]}
+    opts?: {
+      errors?: unknown[]
+      changedFiles?: string[]
+      // The classifier reads the emitted manifest to count content scripts, so
+      // a content edit only classifies as one when the build declares them.
+      contentScripts?: number
+    }
   ) => {
     if (opts?.changedFiles) {
       compiler.modifiedFiles = new Set(opts.changedFiles)
       watchRunCb?.()
     }
+    const manifest = JSON.stringify({
+      content_scripts: Array.from({length: opts?.contentScripts || 0}, () => ({
+        js: ['content.js']
+      }))
+    })
     const stats = {
       compilation: {
         errors: opts?.errors || [],
-        options: {output: {path: outputPath}, context: 'ctx'}
+        options: {output: {path: outputPath}, context: 'ctx'},
+        getAsset: (name: string) =>
+          name === 'manifest.json'
+            ? {source: {source: () => manifest}}
+            : undefined
       }
     }
     doneTapCb?.(stats)
@@ -66,10 +85,18 @@ function makeCompiler() {
 }
 
 function makeBroker() {
-  const sent: Array<{type: string; label?: string}> = []
+  const sent: Array<{
+    type: string
+    label?: string
+    entries?: string[]
+  }> = []
   const broker: ReloadBroker = {
     broadcastReload: (instruction) => {
-      sent.push({type: instruction.type, label: instruction.label})
+      sent.push({
+        type: instruction.type,
+        label: instruction.label,
+        entries: instruction.changedContentScriptEntries
+      })
       return 1
     }
   }
@@ -224,6 +251,13 @@ describe('SafariDevPlugin watch-loop coalescing', () => {
 // A manifest edit is the one change that always classifies as a full reload,
 // so these cover the seam itself rather than the classifier.
 const MANIFEST_EDIT = {changedFiles: ['ctx/manifest.json']}
+// A content edit is the one kind that survives the package, since a restart
+// does not re-inject content scripts into tabs that are already open.
+const CONTENT_EDIT = {
+  changedFiles: ['ctx/src/content/scripts.js'],
+  contentScripts: 1
+}
+const BACKGROUND_EDIT = {changedFiles: ['ctx/src/background.js']}
 
 describe('SafariDevPlugin reload seam', () => {
   it('reloads only after the package that replaced the appex', async () => {
@@ -239,8 +273,9 @@ describe('SafariDevPlugin reload seam', () => {
     h.callFor('/out2').resolve()
     await p
     await flush()
-    expect(sent).toHaveLength(1)
-    expect(sent[0].type).toBe('full')
+    // A manifest edit is a full reload everywhere else. Here the package
+    // already restarted the extension with it, so nothing is sent.
+    expect(sent).toEqual([])
   })
 
   it('stays silent on the first package, which is the state Safari loads', async () => {
@@ -270,10 +305,10 @@ describe('SafariDevPlugin reload seam', () => {
     const h = harness(broker)
     await settleFirst(h)
 
-    const p2 = h.trigger('/v2', MANIFEST_EDIT)
+    const p2 = h.trigger('/v2', CONTENT_EDIT)
     await flush()
-    void h.trigger('/v3', MANIFEST_EDIT)
-    void h.trigger('/v4', MANIFEST_EDIT)
+    void h.trigger('/v3', CONTENT_EDIT)
+    void h.trigger('/v4', CONTENT_EDIT)
     await flush()
 
     h.callFor('/v2').resolve()
@@ -285,7 +320,7 @@ describe('SafariDevPlugin reload seam', () => {
     // Two packages ran (v2, then the collapsed v4), so two reloads went out.
     expect(h.modes()).toEqual(['full:/init', 'resync:/v2', 'resync:/v4'])
     expect(sent).toHaveLength(2)
-    expect(sent.every((s) => s.type === 'full')).toBe(true)
+    expect(sent.every((s) => s.type === 'content-scripts')).toBe(true)
   })
 
   it('packages normally with no broker attached', async () => {
@@ -319,7 +354,7 @@ describe('SafariDevPlugin undelivered reload after a package', () => {
   }
 
   async function saveOnce(h: ReturnType<typeof harness>, out: string) {
-    const p = h.trigger(out, MANIFEST_EDIT)
+    const p = h.trigger(out, CONTENT_EDIT)
     await flush()
     h.callFor(out).resolve()
     await p
@@ -368,5 +403,159 @@ describe('SafariDevPlugin undelivered reload after a package', () => {
     expect(sent).toHaveLength(1)
     expect(warn).not.toHaveBeenCalled()
     expect(String(log.mock.calls[0][0])).toContain('Reloading')
+  })
+})
+
+// The package restarts the extension by itself, so the only reload still worth
+// sending is the one a restart cannot deliver.
+describe('reloadSurvivingPackage', () => {
+  const CONTENT_ENTRY = 'content_scripts/content-0'
+
+  it('drops a full reload, which would restart what just started', () => {
+    expect(
+      reloadSurvivingPackage({
+        type: 'full',
+        changedAssets: ['src/manifest.json'],
+        label: 'extension (src/manifest.json)'
+      })
+    ).toBeUndefined()
+  })
+
+  it('drops a background-only service-worker reload', () => {
+    expect(
+      reloadSurvivingPackage({
+        type: 'service-worker',
+        changedAssets: ['src/background.js'],
+        label: 'service_worker (src/background.js)'
+      })
+    ).toBeUndefined()
+  })
+
+  it('keeps a content-scripts reload untouched', () => {
+    const instruction = {
+      type: 'content-scripts' as const,
+      changedContentScriptEntries: [CONTENT_ENTRY],
+      changedAssets: ['src/content/scripts.js'],
+      label: 'content_script (src/content/scripts.js)'
+    }
+    expect(reloadSurvivingPackage(instruction)).toEqual(instruction)
+  })
+
+  it('downgrades a shared background + content edit to its content half', () => {
+    expect(
+      reloadSurvivingPackage({
+        type: 'service-worker',
+        changedContentScriptEntries: [CONTENT_ENTRY],
+        changedAssets: ['src/shared.ts'],
+        label: 'service_worker + content_script (src/shared.ts)'
+      })
+    ).toEqual({
+      type: 'content-scripts',
+      changedContentScriptEntries: [CONTENT_ENTRY],
+      changedAssets: ['src/shared.ts'],
+      label: 'content_script (src/shared.ts)'
+    })
+  })
+
+  it('keeps a notify-only page instruction, which restarts nothing', () => {
+    const instruction = {
+      type: 'page' as const,
+      changedAssets: ['src/popup/index.js'],
+      label: 'popup page (src/popup/index.js)'
+    }
+    expect(reloadSurvivingPackage(instruction)).toEqual(instruction)
+  })
+
+  it('is a no-op for no instruction', () => {
+    expect(reloadSurvivingPackage(undefined)).toBeUndefined()
+  })
+})
+
+describe('SafariDevPlugin reload trimming after a package', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  async function saveOnce(
+    h: ReturnType<typeof harness>,
+    out: string,
+    edit: Record<string, unknown>
+  ) {
+    const p = h.trigger(out, edit as never)
+    await flush()
+    h.callFor(out).resolve()
+    await p
+    await flush()
+  }
+
+  it('sends nothing for a manifest edit: the package restarted the extension', async () => {
+    const {broker, sent} = makeBroker()
+    const h = harness(broker)
+    await settleFirst(h)
+    await saveOnce(h, '/out2', MANIFEST_EDIT)
+    expect(sent).toEqual([])
+  })
+
+  it('sends nothing for a background edit, the restart already ran it', async () => {
+    const {broker, sent} = makeBroker()
+    const h = harness(broker)
+    await settleFirst(h)
+    await saveOnce(h, '/out2', BACKGROUND_EDIT)
+    expect(sent).toEqual([])
+  })
+
+  it('still reloads content scripts, which a restart does not re-inject', async () => {
+    const {broker, sent} = makeBroker()
+    const h = harness(broker)
+    await settleFirst(h)
+    await saveOnce(h, '/out2', CONTENT_EDIT)
+    expect(sent).toHaveLength(1)
+    expect(sent[0].type).toBe('content-scripts')
+    expect(sent[0].entries?.length).toBeGreaterThan(0)
+  })
+
+  it('keeps the content half of a burst that ends on a manifest edit', async () => {
+    const {broker, sent} = makeBroker()
+    const h = harness(broker)
+    await settleFirst(h)
+
+    const p2 = h.trigger('/v2', MANIFEST_EDIT)
+    await flush()
+    void h.trigger('/v3', CONTENT_EDIT)
+    void h.trigger('/v4', MANIFEST_EDIT)
+    await flush()
+
+    h.callFor('/v2').resolve()
+    await p2
+    await flush()
+    h.callFor('/v4').resolve()
+    await flush()
+
+    // The first package answers a manifest edit and sends nothing. The
+    // collapsed follow-up still carries the content edit that rode along.
+    expect(h.modes()).toEqual(['full:/init', 'resync:/v2', 'resync:/v4'])
+    expect(sent).toHaveLength(1)
+    expect(sent[0].type).toBe('content-scripts')
+  })
+
+  it('says nothing at all when the whole instruction is dropped', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const asked: unknown[] = []
+    const broker: ReloadBroker = {
+      broadcastReload: () => 0,
+      undeliveredReloadWarning: (context) => {
+        asked.push(context)
+        return null
+      }
+    }
+    const h = harness(broker)
+    await settleFirst(h)
+
+    await saveOnce(h, '/out2', BACKGROUND_EDIT)
+
+    expect(asked).toEqual([])
+    expect(warn).not.toHaveBeenCalled()
+    expect(log).not.toHaveBeenCalled()
   })
 })
