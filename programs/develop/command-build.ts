@@ -464,7 +464,12 @@ export async function extensionBuild(
           for (const line of lintLines) humanLine(line)
 
           humanLine(
-            messages.buildComplete(browser, distDisplay, summary.total_bytes)
+            messages.buildComplete(
+              browser,
+              distDisplay,
+              summary.total_bytes,
+              resolvedMode
+            )
           )
 
           for (const artifact of getZipArtifacts(stats.compilation)) {
