@@ -177,3 +177,83 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Check bundled create template drift
         run: bash scripts/check-bundled-template-drift.sh
+
+  # Bun and Deno already get a build and a headless dev run on every pull
+  # request. A real browser launch is the one thing that lane cannot carry,
+  # because browser flakiness has no business in a merge gate, so it lives
+  # here instead. Without this, "runs on Bun" rested on a macOS laptop.
+  nightly-runtimes:
+    name: ${{ matrix.runtime }} runtime + ${{ matrix.browser }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        runtime: [bun, deno]
+        browser: [chromium, firefox]
+    env:
+      EXTENSION_AUTHOR_MODE: development
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.pnpm-store
+            ~/.cache/ms-playwright
+          key: nightly-runtimes-${{ matrix.browser }}-${{ runner.os }}-20-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            nightly-runtimes-${{ matrix.browser }}-${{ runner.os }}-20-
+      - uses: ./.github/actions/setup
+        with:
+          node-version: '22'
+
+      - name: Setup Bun
+        if: matrix.runtime == 'bun'
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: latest
+
+      - name: Setup Deno
+        if: matrix.runtime == 'deno'
+        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with:
+          deno-version: v2.x
+
+      - name: Compile
+        run: |
+          pnpm --filter extension-develop compile
+          pnpm --filter extension compile
+
+      - name: Install Playwright Chromium
+        if: matrix.browser == 'chromium'
+        run: npx playwright install --with-deps chromium
+
+      # The apt `firefox` package on Ubuntu is a snap transitional shim, and
+      # letting `--with-deps` upgrade it hangs the runner for most of an hour
+      # on snap-store contact. Holding it pins the shim so the apt pass installs
+      # only runtime libraries, and Playwright's own Firefox comes from its CDN.
+      # The nightly-firefox job above carries the same guard for the same reason.
+      - name: Install Playwright Firefox
+        if: matrix.browser == 'firefox'
+        run: |
+          sudo apt-mark hold firefox
+          npx playwright install --with-deps firefox
+
+      # `@playwright/test` is the workspace-root devDependency that re-exports
+      # the launchers; `playwright-core` is transitive and not hoisted, so
+      # importing it from the root fails with ERR_MODULE_NOT_FOUND.
+      - name: Resolve browser binary
+        env:
+          PW_BROWSER: ${{ matrix.browser }}
+        run: |
+          BIN="$(node -e 'import("@playwright/test").then((m) => console.log(m[process.env.PW_BROWSER].executablePath())).catch((err) => { console.error(err); process.exit(1); })')"
+          echo "RUNTIME_SMOKE_BROWSER_BINARY=$BIN" >> "$GITHUB_ENV"
+
+      # The smoke runs build, then a headless dev, then the real launch, and
+      # only calls the launch a pass once ready.json carries a browserPid. A
+      # ready contract alone would go green without a browser ever starting.
+      - name: Runtime + browser smoke
+        env:
+          RUNTIME_SMOKE_BROWSER: ${{ matrix.browser }}
+        run: pnpm smoke:${{ matrix.runtime }}
+
