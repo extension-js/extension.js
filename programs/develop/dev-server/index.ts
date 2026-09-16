@@ -548,6 +548,7 @@ export async function devServer(
   // The metadata writer is created later (it needs the resolved control port);
   // the SW connects after that, so a mutable holder bridges the ordering.
   let stampExecutorAttached: (() => void) | undefined
+  let stampExecutorDetached: (() => void) | undefined
   const bridgeBroker = new BridgeBroker({
     instanceId: currentInstance.instanceId,
     runId: sessionRunId,
@@ -559,7 +560,8 @@ export async function devServer(
     controlToken: bridgeControlToken,
     actions: bridgeActionsFile,
     authorMode,
-    onExecutorAttached: () => stampExecutorAttached?.()
+    onExecutorAttached: () => stampExecutorAttached?.(),
+    onExecutorDetached: () => stampExecutorDetached?.()
   })
 
   // Hand the broker to a launched runner plugin so Chromium and Safari reload
@@ -730,6 +732,7 @@ export async function devServer(
     logsPath: bridgeLogsRelPath
   })
   stampExecutorAttached = () => metadata.stampExecutorAttached()
+  stampExecutorDetached = () => metadata.stampExecutorDetached()
 
   // One schema-1 frame per lifecycle transition, on stdout, only when the
   // command layer asked for machine output (EXTENSION_OUTPUT=ndjson).

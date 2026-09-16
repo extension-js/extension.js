@@ -51,6 +51,7 @@ export interface BridgeBrokerOptions {
   // Called once when the extension's SW first connects over the control channel;
   // stamps a distinct "runtime attached" signal into ready.json.
   onExecutorAttached?: () => void
+  onExecutorDetached?: () => void
 }
 
 // Defined with the wire constants in ./contracts, re-exported here because
@@ -193,6 +194,7 @@ export class BridgeBroker {
     | null = null
   /** Fired once, on the first producer hello, to stamp ready.json. */
   private readonly onExecutorAttached?: () => void
+  private readonly onExecutorDetached?: () => void
   private lastProducerDisconnectedAt: number | null = null
   // When the last stale-instance producer hello arrived; diagnosis state,
   // stamped even for rate-limited hellos (unlike staleResyncTimes).
@@ -215,6 +217,7 @@ export class BridgeBroker {
     this.actions = options.actions
     this.authorMode = options.authorMode ?? false
     this.onExecutorAttached = options.onExecutorAttached
+    this.onExecutorDetached = options.onExecutorDetached
     this.now = options.now ?? (() => Date.now())
     this.setTimer = options.setTimer ?? ((fn, ms) => setTimeout(fn, ms))
     this.clearTimer = options.clearTimer ?? ((h) => clearTimeout(h))
@@ -280,6 +283,11 @@ export class BridgeBroker {
 
     if (role === 'producer') {
       this.lastProducerDisconnectedAt = this.now()
+      // Only the LAST producer leaving means the extension stopped answering.
+      const stillConnected = [...this.roles.values()].some(
+        (r) => r === 'producer'
+      )
+      if (!stillConnected) this.onExecutorDetached?.()
     }
 
     // Drop any commands this controller was awaiting (no result to route).

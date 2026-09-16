@@ -79,7 +79,7 @@ export type ReadyMetadata = {
   browserExitCode?: number | null
   // Runtime attachment signal: 'ready' means compiled; these mean the SW has
   // connected and can be driven. Act-tooling should wait for runtime:'attached'.
-  runtime?: 'attached'
+  runtime?: 'attached' | 'detached'
   executorAttachedAt?: string
   // Every extension the engine loads besides the user's (built-in companions
   // plus --extensions dirs), so a target census can subtract them by id.
@@ -544,7 +544,14 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       if (typeof prev.executorAttachedAt === 'string') {
         ;(payload as Record<string, unknown>).executorAttachedAt =
           prev.executorAttachedAt
-        ;(payload as Record<string, unknown>).runtime = 'attached'
+        // A recompile must not resurrect a producer that has since gone away,
+        // so the last known runtime state carries over rather than 'attached'.
+        ;(payload as Record<string, unknown>).runtime =
+          prev.runtime === 'detached' ? 'detached' : 'attached'
+        if (typeof prev.executorDetachedAt === 'string') {
+          ;(payload as Record<string, unknown>).executorDetachedAt =
+            prev.executorDetachedAt
+        }
       }
       // A browser-side load refusal outlives the compile that follows it: the
       // rebuild succeeding says nothing about the guest the browser threw out.
@@ -635,15 +642,36 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
         // Ignore
       }
     },
+    // The mirror of stampExecutorAttached: without it `runtime` was a latch that
+    // said "attached" long after the last producer went away, so a reader could
+    // not tell a live extension from a dead one.
+    stampExecutorDetached() {
+      try {
+        if (!fs.existsSync(readyPath)) return
+        const prev = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+        if (typeof prev.executorAttachedAt !== 'string') return
+        prev.runtime = 'detached'
+        prev.executorDetachedAt = nowISO()
+        prev.ts = nowISO()
+        writeJsonAtomic(readyPath, prev)
+      } catch {
+        // Ignore
+      }
+    },
     // Stamp the runtime-attached signal on first SW connect; read-modify-write and
     // idempotent so reconnects don't disturb status or launcher-stamped fields.
     stampExecutorAttached() {
       try {
         if (!fs.existsSync(readyPath)) return
         const prev = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
-        if (typeof prev.executorAttachedAt === 'string') return
-        prev.executorAttachedAt = nowISO()
         prev.runtime = 'attached'
+        delete prev.executorDetachedAt
+        if (typeof prev.executorAttachedAt === 'string') {
+          prev.ts = nowISO()
+          writeJsonAtomic(readyPath, prev)
+          return
+        }
+        prev.executorAttachedAt = nowISO()
         // The executor runs INSIDE the guest, so an attach is proof the browser
         // is running it. Any earlier refusal is stale however it got fixed -
         // a retry, or a human pressing Reload on the extensions page.

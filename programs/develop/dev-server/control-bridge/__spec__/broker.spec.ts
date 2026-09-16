@@ -526,3 +526,68 @@ describe('BridgeBroker.undeliveredReloadWarning: SW-not-attached DX', () => {
     expect(b.undeliveredReloadWarning()).toBeNull()
   })
 })
+
+// The dev server turns these into ready.json's `runtime` field, so a reader can
+// tell a live extension from one that went away.
+describe('BridgeBroker executor presence', () => {
+  const helloProducer = (b: BridgeBroker, conn: FakeConn) =>
+    b.onFrame(conn, {
+      type: 'hello',
+      v: 1,
+      role: 'producer',
+      instanceId: 'inst-1'
+    })
+
+  it('reports the last producer leaving', () => {
+    const detached: string[] = []
+    const b = new BridgeBroker({
+      ...opts,
+      onExecutorDetached: () => detached.push('gone')
+    })
+    const prod = new FakeConn('p')
+
+    helloProducer(b, prod)
+    expect(detached).toEqual([])
+
+    b.onClose(prod)
+    expect(detached).toEqual(['gone'])
+  })
+
+  it('stays quiet while another producer is still connected', () => {
+    const detached: string[] = []
+    const b = new BridgeBroker({
+      ...opts,
+      onExecutorDetached: () => detached.push('gone')
+    })
+    const first = new FakeConn('p1')
+    const second = new FakeConn('p2')
+
+    helloProducer(b, first)
+    helloProducer(b, second)
+
+    b.onClose(first)
+    expect(detached).toEqual([])
+
+    b.onClose(second)
+    expect(detached).toEqual(['gone'])
+  })
+
+  it('says nothing when a consumer leaves', () => {
+    const detached: string[] = []
+    const b = new BridgeBroker({
+      ...opts,
+      onExecutorDetached: () => detached.push('gone')
+    })
+    const cons = new FakeConn('c')
+
+    b.onFrame(cons, {
+      type: 'hello',
+      v: 1,
+      role: 'consumer',
+      instanceId: 'inst-1'
+    })
+    b.onClose(cons)
+
+    expect(detached).toEqual([])
+  })
+})
