@@ -46,7 +46,8 @@
   },
   "firefox:sidebar_action": {
     "default_panel": "sidebar/index.html",
-    "default_title": "Side Panel Content"
+    "default_title": "Side Panel Content",
+    "browser_style": false
   },
   "chromium:permissions": ["sidePanel"],
   "background": {
