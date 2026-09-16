@@ -5,6 +5,7 @@ const toPosix = (value: string) => value.replace(/\\/g, '/')
 
 vi.mock('../../frameworks-lib/integrations', () => ({
   isUsingJSFramework: vi.fn(() => false),
+  hasDependency: vi.fn(() => false),
   resolveDevelopInstallRoot: vi.fn(() => undefined)
 }))
 
@@ -260,5 +261,34 @@ describe('typescript tools', () => {
     const {compilerOptions} = defaultTypeScriptConfig('/project')
     expect(compilerOptions.moduleResolution).toBe('bundler')
     expect(compilerOptions.module).toBe('esnext')
+  })
+
+  it('defaultTypeScriptConfig names the JSX runtime the bundler compiles against', async () => {
+    const integrations = (await import(
+      '../../frameworks-lib/integrations'
+    )) as any
+    integrations.isUsingJSFramework.mockReturnValue(true)
+    integrations.hasDependency.mockImplementation(
+      (_p: string, dep: string) => dep === 'solid-js'
+    )
+
+    const {defaultTypeScriptConfig} = await import('../../js-tools/typescript')
+    const {compilerOptions} = defaultTypeScriptConfig('/project') as any
+
+    expect(compilerOptions.jsx).toBe('react-jsx')
+    expect(compilerOptions.jsxImportSource).toBe('solid-js')
+  })
+
+  it('defaultTypeScriptConfig leaves jsxImportSource out without a JS framework', async () => {
+    const integrations = (await import(
+      '../../frameworks-lib/integrations'
+    )) as any
+    integrations.isUsingJSFramework.mockReturnValue(false)
+
+    const {defaultTypeScriptConfig} = await import('../../js-tools/typescript')
+    const {compilerOptions} = defaultTypeScriptConfig('/project') as any
+
+    expect(compilerOptions.jsx).toBe('preserve')
+    expect(compilerOptions.jsxImportSource).toBeUndefined()
   })
 })
