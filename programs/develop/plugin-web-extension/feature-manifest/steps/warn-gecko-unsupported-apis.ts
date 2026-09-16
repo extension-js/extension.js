@@ -37,12 +37,78 @@ type WebkitUnsupportedApi = keyof typeof webkitUnsupportedApis
 
 export type GeckoUnsupportedApi = WebkitUnsupportedApi | 'action'
 
+export interface WebkitUnsupportedMember {
+  api: string
+  member: string
+  // call is chrome.ns.member(...), read is chrome.ns.member.something
+  kind: 'call' | 'read'
+}
+
+// Members Safari lacks while shipping their namespace, taken from
+// @mdn/browser-compat-data (webextensions/api, safari version_added false on a
+// member whose own namespace Safari has). The namespace resolves, so the throw
+// waits one level deeper, on the call or on the read through it.
+//
+// Three filters keep this list to real hazards. A member Chrome lacks too stays
+// out, since a Chromium-first project never writes it, which is why menus.onShown
+// and webRequest.filterResponseData are absent: both are Firefox-only. A missing
+// constant reads as undefined and never throws, so the declarativeNetRequest
+// maximums stay out. And a long-standing basic whose absence looks more like an
+// untested compat row than a real gap stays out, tabs.move above all.
+export const webkitUnsupportedMembers = [
+  {api: 'action', member: 'getUserSettings', kind: 'call'},
+  {api: 'action', member: 'getBadgeTextColor', kind: 'call'},
+  {api: 'action', member: 'setBadgeTextColor', kind: 'call'},
+  {api: 'action', member: 'onUserSettingsChanged', kind: 'read'},
+  {api: 'storage', member: 'managed', kind: 'read'},
+  {api: 'runtime', member: 'getContexts', kind: 'call'},
+  {api: 'runtime', member: 'onSuspend', kind: 'read'},
+  {api: 'runtime', member: 'onSuspendCanceled', kind: 'read'},
+  {api: 'runtime', member: 'onUpdateAvailable', kind: 'read'},
+  {
+    api: 'declarativeNetRequest',
+    member: 'getAvailableStaticRuleCount',
+    kind: 'call'
+  },
+  {api: 'declarativeNetRequest', member: 'getDisabledRuleIds', kind: 'call'},
+  {api: 'declarativeNetRequest', member: 'updateStaticRules', kind: 'call'},
+  {api: 'declarativeNetRequest', member: 'testMatchOutcome', kind: 'call'},
+  {api: 'declarativeNetRequest', member: 'onRuleMatchedDebug', kind: 'read'},
+  {api: 'tabs', member: 'group', kind: 'call'},
+  {api: 'tabs', member: 'ungroup', kind: 'call'},
+  {api: 'webNavigation', member: 'onCreatedNavigationTarget', kind: 'read'},
+  {api: 'webNavigation', member: 'onHistoryStateUpdated', kind: 'read'},
+  {api: 'webNavigation', member: 'onReferenceFragmentUpdated', kind: 'read'},
+  {api: 'webNavigation', member: 'onTabReplaced', kind: 'read'},
+  {api: 'windows', member: 'onBoundsChanged', kind: 'read'}
+] as const satisfies readonly WebkitUnsupportedMember[]
+
+export type WebkitMemberApi = (typeof webkitUnsupportedMembers)[number]['api']
+
+export type UnsupportedApiName = GeckoUnsupportedApi | WebkitMemberApi
+
+// A namespace the table above already covers would warn twice on one line, so
+// the member pass drops it. The two lists are disjoint by construction, since a
+// namespace Safari lacks entirely has no member Safari can be said to ship.
+const webkitMemberEntries = webkitUnsupportedMembers.filter(
+  (entry) => !(entry.api in webkitUnsupportedApis)
+)
+
+const webkitMemberByKey = new Map<string, WebkitUnsupportedMember>(
+  webkitUnsupportedMembers.map((entry) => [
+    `${entry.api}.${entry.member}`,
+    entry
+  ])
+)
+
 // gecko follows addons-linter, which flags any static read. webkit follows
 // the Safari runtime, where only an unguarded call on a missing namespace throws.
 export type UnsupportedApiEngine = 'gecko' | 'webkit'
 
 export interface GeckoUnsupportedApiUse {
-  api: GeckoUnsupportedApi
+  api: UnsupportedApiName
+  // Set only for a member-level hit, where the namespace itself is fine
+  member?: string
   // An absolute source path, or the emitted asset name when no project
   // source explains the call (a vendor bundle, for instance).
   file: string
@@ -84,6 +150,61 @@ export function usesGeckoUnsupportedApi(
     `\\b(?:chrome|browser)\\s*\\.\\s*${api}\\s*${chain}\\.\\s*[A-Za-z_$]`
   )
   return memberRe.test(source)
+}
+
+// Safari resolves the namespace, so only the deeper access throws. A call kind
+// matches when the missing function is really called and a read kind when
+// something reads through the missing event or sub-namespace, which leaves a
+// typeof test and an if guard quiet on their own.
+//
+// Optional chaining at the member position is the guard that works here, so
+// chrome.action.getUserSettings?.() and chrome.storage.managed?.get stay quiet.
+// A guard one level up, chrome.action?.getUserSettings(), does not actually
+// protect a missing member, but the webkit rule treats ?. as deliberate and
+// stays quiet there too rather than arguing with a defensive author.
+export function usesWebkitUnsupportedMember(
+  source: string,
+  entry: WebkitUnsupportedMember
+): boolean {
+  const tail = entry.kind === 'call' ? '\\s*\\(' : '\\s*\\.\\s*[A-Za-z_$]'
+  const memberRe = new RegExp(
+    `\\b(?:chrome|browser)\\s*\\.\\s*${entry.api}\\s*\\.\\s*${entry.member}(?![\\w$])${tail}`
+  )
+  return memberRe.test(source)
+}
+
+interface ScanTarget {
+  // api for a namespace, api.member for a member, so the two never share a key
+  key: string
+  api: UnsupportedApiName
+  member?: string
+  test(text: string): boolean
+}
+
+// Namespaces first so a gecko report keeps its existing order, members after,
+// and members only on webkit since gecko's warning stays namespace shaped.
+function scanTargets(
+  manifestVersion: unknown,
+  engine: UnsupportedApiEngine
+): ScanTarget[] {
+  const targets: ScanTarget[] = geckoUnsupportedApis(
+    manifestVersion,
+    engine
+  ).map((api) => ({
+    key: api,
+    api,
+    test: (text: string) => usesGeckoUnsupportedApi(text, api, engine)
+  }))
+  if (engine !== 'webkit') return targets
+  for (const entry of webkitMemberEntries) {
+    targets.push({
+      key: `${entry.api}.${entry.member}`,
+      api: entry.api,
+      member: entry.member,
+      test: (text: string) => usesWebkitUnsupportedMember(text, entry)
+    })
+  }
+  return targets
 }
 
 interface ScannableModule {
@@ -181,9 +302,7 @@ export function findGeckoUnsupportedApiUses(
   engine: UnsupportedApiEngine = 'gecko',
   requireEmittedEvidence = false
 ): GeckoUnsupportedApiUse[] {
-  const apis = geckoUnsupportedApis(manifestVersion, engine)
-  const uses_ = (text: string, api: GeckoUnsupportedApi) =>
-    usesGeckoUnsupportedApi(text, api, engine)
+  const targets = scanTargets(manifestVersion, engine)
   const emitted = readEmittedScripts(compilation)
   const explained = new Set<string>()
   const uses = new Map<string, GeckoUnsupportedApiUse>()
@@ -196,25 +315,30 @@ export function findGeckoUnsupportedApiUses(
       const source = readProjectSource(resource)
       if (source === undefined) continue
 
-      for (const api of apis) {
-        const key = `${api}\0${resource}`
-        if (uses.has(key) || !uses_(source, api)) continue
+      for (const target of targets) {
+        const key = `${target.key}\0${resource}`
+        if (uses.has(key) || !target.test(source)) continue
 
         const files = emittedFilesOf(compilation, outer)
         if (files) {
           const carrying = files.filter((file) => {
             const text = emitted.get(file)
-            return text !== undefined && uses_(text, api)
+            return text !== undefined && target.test(text)
           })
           // The bundler dropped the call, so the linter never sees it.
           if (!carrying.length) continue
-          for (const file of carrying) explained.add(`${api}\0${file}`)
+          for (const file of carrying) explained.add(`${target.key}\0${file}`)
         } else if (requireEmittedEvidence) {
           // Nothing ties this module to a script the build wrote, so whether
           // the call ships is unproven and warning on it would be a guess.
           continue
         }
-        uses.set(key, {api, file: resource, emitted: false})
+        uses.set(key, {
+          api: target.api,
+          ...(target.member ? {member: target.member} : {}),
+          file: resource,
+          emitted: false
+        })
       }
     }
   }
@@ -224,10 +348,15 @@ export function findGeckoUnsupportedApiUses(
   if (!compilation.chunkGraph) return [...uses.values()]
 
   for (const [name, text] of emitted) {
-    for (const api of apis) {
-      const key = `${api}\0${name}`
-      if (explained.has(key) || !uses_(text, api)) continue
-      uses.set(key, {api, file: name, emitted: true})
+    for (const target of targets) {
+      const key = `${target.key}\0${name}`
+      if (explained.has(key) || !target.test(text)) continue
+      uses.set(key, {
+        api: target.api,
+        ...(target.member ? {member: target.member} : {}),
+        file: name,
+        emitted: true
+      })
     }
   }
 
@@ -291,21 +420,33 @@ export function reportGeckoUnsupportedApis(
       // A dev session recompiles on every save. One line per distinct call
       // for the life of one dev process; a production build stays complete.
       if (!isProduction && reported) {
-        const signature = `${use.api}\0${label}`
+        const signature = `${use.api}.${use.member || ''}\0${label}`
         if (reported.has(signature)) continue
         reported.add(signature)
       }
+      // A member hit names a namespace Safari has, so it never reaches the
+      // namespace table below and the two can't both speak for one line.
+      const memberEntry = use.member
+        ? webkitMemberByKey.get(`${use.api}.${use.member}`)
+        : undefined
       // The webkit table is also the webkit API list, so the lookup hits
       // whenever the engine is webkit and the gecko branch stays for gecko.
       const webkitMessage =
-        engine === 'webkit'
+        engine === 'webkit' && !memberEntry
           ? webkitUnsupportedApis[use.api as WebkitUnsupportedApi]
           : undefined
-      const text = webkitMessage
-        ? webkitMessage(label)
-        : use.api === 'sidePanel'
-          ? messages.geckoSidePanelUnsupported(label)
-          : messages.geckoActionUnsupportedOnMv2(label)
+      const text = memberEntry
+        ? messages.safariMemberUnsupported(
+            label,
+            memberEntry.api,
+            memberEntry.member,
+            memberEntry.kind
+          )
+        : webkitMessage
+          ? webkitMessage(label)
+          : use.api === 'sidePanel'
+            ? messages.geckoSidePanelUnsupported(label)
+            : messages.geckoActionUnsupportedOnMv2(label)
       const warn = new WebpackError(text) as Error & {
         file?: string
         name?: string
