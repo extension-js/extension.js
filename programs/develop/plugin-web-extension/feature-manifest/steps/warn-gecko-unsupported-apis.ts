@@ -63,6 +63,13 @@ export function geckoUnsupportedApis(
   return manifestVersion === 2 ? ['sidePanel', 'action'] : ['sidePanel']
 }
 
+// The scan reads emitted assets, so WHEN it runs is load bearing. It runs from
+// update-manifest at PROCESS_ASSETS_STAGE_SUMMARIZE + 1, while the dev-server
+// control bridge prepends its own producer (which reads a Chromium-only
+// namespace) to the background asset at PROCESS_ASSETS_STAGE_REPORT + 101.
+// The framework's own code is therefore not in the asset yet. Move either stage
+// and every Safari dev session warns about the bridge, not about user code.
+//
 // A static member read on the namespace is what addons-linter matches, so a
 // runtime guard around the same call still trips it and must still warn.
 // Safari only throws when the call reads through the missing namespace, so

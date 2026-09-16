@@ -80,6 +80,11 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
     var connectFailures = 0;
     var MAX_QUEUE = 1000;
     var MAX_RESULT_BYTES = 256 * 1024;
+    // Where error frames are parked so a context that dies before its socket
+    // opens does not take them along. Capped, and old entries are dropped.
+    var PENDING_ERRORS_KEY = "__extjsPendingErrors";
+    var MAX_PENDING_ERRORS = 20;
+    var PENDING_ERROR_TTL = 300000;
 
     function nowId() {
       return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -395,6 +400,11 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
             try { chrome.runtime.openOptionsPage(function () { replyOk(cmdId, {opened: "options"}); }); }
             catch (e) { replyErr(cmdId, "Unsupported", "openOptionsPage: " + e); }
           } else if (surface === "sidebar") {
+            // The two member reads below are exactly what the Safari
+            // unsupported-API scan looks for, and this runtime is prepended to
+            // the background asset at PROCESS_ASSETS_STAGE_REPORT + 101, after
+            // that scan runs at SUMMARIZE + 1. Move the injection earlier and
+            // every Safari dev session warns about this line.
             if (chrome.sidePanel && chrome.sidePanel.open && chrome.windows) {
               chrome.windows.getCurrent(function (w) {
                 nsCall("sidePanel", "open", [{windowId: w.id}], function (err) {
@@ -847,6 +857,80 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
         }
       }
       if (queue.length < MAX_QUEUE) queue.push(frame);
+      parkPendingError(frame);
+    }
+
+    // The queue above lives in this context's memory only, so a background
+    // that throws while it evaluates dies with the error still queued: the
+    // socket has not finished its handshake yet. Park error frames in
+    // extension storage too, where the NEXT context to connect can ship them.
+    // Best effort by construction: the write is asynchronous, so a teardown
+    // can cut it before the browser records anything.
+    var parkedErrors = [];
+    function storageLocalArea() {
+      try {
+        var ns = (g.chrome && g.chrome.storage) || (g.browser && g.browser.storage);
+        var area = ns && ns.local;
+        if (!area || typeof area.get !== "function" || typeof area.set !== "function") return null;
+        return area;
+      } catch (e) { return null; }
+    }
+    function parkPendingError(frame) {
+      if (open) return;
+      if (!frame || frame.type !== "log" || !frame.event || frame.event.level !== "error") return;
+      var area = storageLocalArea();
+      if (!area) return;
+      // The whole list is rewritten on every park, so two errors in one turn
+      // cannot lose each other to a read-modify-write, and the cap holds.
+      parkedErrors.push(frame);
+      while (parkedErrors.length > MAX_PENDING_ERRORS) parkedErrors.shift();
+      var items = {};
+      items[PENDING_ERRORS_KEY] = parkedErrors;
+      try { area.set(items, noopLastError); } catch (e) {
+        // Ignore
+      }
+    }
+    function parkedHere(id) {
+      for (var i = 0; i < parkedErrors.length; i++) {
+        var ev = parkedErrors[i] && parkedErrors[i].event;
+        if (ev && ev.id === id) return true;
+      }
+      return false;
+    }
+    // Ship what an earlier context parked and never got to send. Entries from
+    // another build (a different instance id) or from an older run are dropped,
+    // and the key is cleared on read so one failure is reported once.
+    function flushPendingErrors() {
+      var area = storageLocalArea();
+      if (!area) return;
+      var read = false;
+      function onRead(res) {
+        if (read) return;
+        read = true;
+        var list = res && res[PENDING_ERRORS_KEY];
+        if (!list || !list.length) return;
+        try {
+          if (typeof area.remove === "function") area.remove(PENDING_ERRORS_KEY, noopLastError);
+        } catch (e) {
+          // Ignore
+        }
+        var now = Date.now();
+        for (var i = 0; i < list.length; i++) {
+          var frame = list[i];
+          var ev = frame && frame.event;
+          if (!ev || ev.runId !== INSTANCE_ID) continue;
+          // This context parked it, so the queue flush above already has it.
+          if (parkedHere(ev.id)) continue;
+          if (typeof ev.timestamp !== "number" || now - ev.timestamp > PENDING_ERROR_TTL) continue;
+          send(frame);
+        }
+      }
+      try {
+        var ret = area.get(PENDING_ERRORS_KEY, function (res) { noopLastError(); onRead(res); });
+        if (ret && typeof ret.then === "function") ret.then(onRead, function () {});
+      } catch (e) {
+        // Ignore
+      }
     }
 
     // The baked PORT is a snapshot of an ephemeral port. After a dev-server
@@ -900,6 +984,9 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
           // Ignore
         }
         flush();
+        // Hello went first and this context's own queue is out; now replay any
+        // error a previous context parked before it died.
+        flushPendingErrors();
       };
       socket.onmessage = function (ev) {
         var frame;
