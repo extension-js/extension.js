@@ -62,6 +62,11 @@ jobs:
       - name: Check messaging standard
         run: pnpm check:messaging
 
+      # Runtime code ships inside the add-on a developer submits, so an
+      # innerHTML write there earns every one of them an AMO store warning.
+      - name: Check runtime HTML assignment
+        run: pnpm check:runtime-html
+
       - name: Typecheck
         run: pnpm typecheck
 

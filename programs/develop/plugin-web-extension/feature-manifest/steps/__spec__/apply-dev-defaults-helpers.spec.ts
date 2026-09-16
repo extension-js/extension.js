@@ -3,6 +3,8 @@ import patchBackground from '../apply-dev-defaults-lib/patch-background'
 import {patchV2CSP, patchV3CSP} from '../apply-dev-defaults-lib/patch-csp'
 import patchExternallyConnectable from '../apply-dev-defaults-lib/patch-externally-connectable'
 import {
+  DEV_RUNTIME_RESOURCES,
+  patchWebResources,
   patchWebResourcesV2,
   patchWebResourcesV3
 } from '../apply-dev-defaults-lib/patch-web-resources'
@@ -143,24 +145,19 @@ describe('ApplyDevDefaults patch helpers', () => {
     expect(patchExternallyConnectable({} as any)).toEqual({})
   })
 
-  it('adds dev web-accessible defaults while preserving existing entries', () => {
+  it('adds only the dev runtime resources while preserving existing entries', () => {
     expect(
       patchWebResourcesV2({
+        manifest_version: 2,
+        content_scripts: [{matches: ['<all_urls>']}],
         web_accessible_resources: ['existing.js']
       } as any)
-    ).toEqual(
-      expect.arrayContaining([
-        'existing.js',
-        '/scripts/*.js',
-        '/*.css',
-        '/hot/*',
-        '/*.wasm',
-        '/*.bin'
-      ])
-    )
+    ).toEqual(['existing.js', ...DEV_RUNTIME_RESOURCES])
 
     expect(
       patchWebResourcesV3({
+        manifest_version: 3,
+        content_scripts: [{matches: ['https://example.com/*']}],
         web_accessible_resources: [
           {
             resources: ['existing.js'],
@@ -174,15 +171,32 @@ describe('ApplyDevDefaults patch helpers', () => {
         matches: ['https://example.com/*']
       },
       {
-        resources: expect.arrayContaining([
-          '/scripts/*.js',
-          '/*.css',
-          '/hot/*',
-          '/*.wasm',
-          '/*.bin'
-        ]),
-        matches: ['<all_urls>']
+        resources: [...DEV_RUNTIME_RESOURCES],
+        matches: ['https://example.com/*']
       }
     ])
+  })
+
+  it('never widens the dev manifest past the content script matches', () => {
+    const patched = patchWebResourcesV3({
+      manifest_version: 3,
+      content_scripts: [
+        {matches: ['https://example.com/*']},
+        {matches: ['https://a.example/*']}
+      ]
+    } as any) as Array<{resources: string[]; matches: string[]}>
+
+    expect(patched).toHaveLength(1)
+    expect(patched[0].matches).toEqual([
+      'https://a.example/*',
+      'https://example.com/*'
+    ])
+
+    expect(patched[0].resources).not.toContain('/*.js')
+    expect(patched[0].resources).not.toContain('/*.json')
+  })
+
+  it('leaves the key absent when nothing of ours runs in a page', () => {
+    expect(patchWebResources({manifest_version: 3} as any)).toEqual({})
   })
 })

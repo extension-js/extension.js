@@ -15,6 +15,7 @@ import {AddScripts} from './steps/add-scripts'
 import {KeepGetURLImportsNative} from './steps/keep-geturl-imports-native'
 import {TraceRuntimeLoadedFiles} from './steps/trace-runtime-loaded-files'
 import {ValidateEmittedScriptSyntax} from './steps/validate-emitted-script-syntax'
+import {WarnPageContextWorker} from './steps/warn-page-context-worker'
 import {WarnSplitInitialChunks} from './steps/warn-split-initial-chunks'
 
 export class ScriptsPlugin {
@@ -75,5 +76,9 @@ export class ScriptsPlugin {
     // A user cache group can split an entry into several initial files while
     // every surface loads one. The build stays green, so name it here.
     new WarnSplitInitialChunks().apply(compiler)
+
+    // The worker file ships, but the browser refuses to start it from a
+    // script running in the page. Say so instead of leaving it to runtime.
+    new WarnPageContextWorker().apply(compiler)
   }
 }

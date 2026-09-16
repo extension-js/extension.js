@@ -37,10 +37,7 @@ import {
 import patchBackground from './apply-dev-defaults-lib/patch-background'
 import {patchV2CSP, patchV3CSP} from './apply-dev-defaults-lib/patch-csp'
 import patchExternallyConnectable from './apply-dev-defaults-lib/patch-externally-connectable'
-import {
-  patchWebResourcesV2,
-  patchWebResourcesV3
-} from './apply-dev-defaults-lib/patch-web-resources'
+import {patchWebResources} from './apply-dev-defaults-lib/patch-web-resources'
 
 export interface PermissionScanCompilation extends EmittedCompilation {
   modules: Iterable<EmittedModule>
@@ -294,10 +291,7 @@ export class ApplyDevDefaults {
 
               ...patchBackground(canonicalManifest, this.browser),
               ...patchExternallyConnectable(canonicalManifest),
-              web_accessible_resources:
-                canonicalManifest.manifest_version === 3
-                  ? patchWebResourcesV3(canonicalManifest)
-                  : patchWebResourcesV2(canonicalManifest)
+              ...patchWebResources(canonicalManifest)
             }
 
             // Warn when the user's own source leans on a permission only the dev
