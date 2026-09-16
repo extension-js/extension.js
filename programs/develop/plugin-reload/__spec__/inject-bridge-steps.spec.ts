@@ -90,6 +90,44 @@ describe('InjectBridgeProducer', () => {
     )
   })
 
+  // A stale control file is fatal and silent: the producer fetches it at runtime
+  // to learn the live port and instance, and the instance id gates every hello.
+  it('rewrites a control file an earlier session left behind', () => {
+    process.env.EXTENSION_CONTROL_PORT = '9001'
+    process.env.EXTENSION_INSTANCE_ID = 'this-session'
+    const {compiler, runProcessAssets, setAsset, getAssetSource} =
+      makeCompiler()
+    new InjectBridgeProducer().apply(compiler)
+    setAsset(
+      'extension-js-control.json',
+      JSON.stringify({port: 55350, instanceId: 'a-previous-session'})
+    )
+    setAsset('background/service_worker.js', '/* sw */')
+
+    runProcessAssets()
+
+    expect(JSON.parse(getAssetSource('extension-js-control.json'))).toEqual({
+      port: 9001,
+      instanceId: 'this-session'
+    })
+  })
+
+  it('writes the control file when the build has none yet', () => {
+    process.env.EXTENSION_CONTROL_PORT = '9002'
+    process.env.EXTENSION_INSTANCE_ID = 'fresh-session'
+    const {compiler, runProcessAssets, setAsset, getAssetSource} =
+      makeCompiler()
+    new InjectBridgeProducer().apply(compiler)
+    setAsset('background/service_worker.js', '/* sw */')
+
+    runProcessAssets()
+
+    expect(JSON.parse(getAssetSource('extension-js-control.json'))).toEqual({
+      port: 9002,
+      instanceId: 'fresh-session'
+    })
+  })
+
   it('covers the Firefox background/scripts.js and MV2 background/script.js forms', () => {
     process.env.EXTENSION_CONTROL_PORT = '8123'
     const {compiler, runProcessAssets, setAsset, getAssetSource} =
