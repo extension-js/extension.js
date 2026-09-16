@@ -37,7 +37,7 @@ export interface BridgeConnection {
 export interface BridgeBrokerOptions {
   instanceId: string
   runId: string
-  engine?: 'chromium' | 'firefox'
+  engine?: 'chromium' | 'firefox' | 'webkit'
   ring?: LogRingBuffer
   file?: LogsFileWriter
   allowControl?: boolean
@@ -164,7 +164,7 @@ interface Pending {
 export class BridgeBroker {
   private readonly instanceId: string
   private readonly runId: string
-  private readonly engine?: 'chromium' | 'firefox'
+  private readonly engine?: 'chromium' | 'firefox' | 'webkit'
   private readonly ring: LogRingBuffer
   private readonly file?: LogsFileWriter
   private readonly roles = new Map<BridgeConnection, BridgeRole>()

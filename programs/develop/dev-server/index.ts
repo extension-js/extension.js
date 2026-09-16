@@ -21,7 +21,7 @@ import {
   loadCustomConfig,
   loadProjectConfigDefaults
 } from '../lib/config-loader'
-import {isGeckoBasedBrowser} from '../lib/constants'
+import {isGeckoBasedBrowser, isWebkitBasedBrowser} from '../lib/constants'
 import {DEV_COMMAND_DEFAULTS, mergeOptionLayers} from '../lib/merge-options'
 import {isDebug} from '../lib/messaging'
 import {applySplitChunksGuard} from '../lib/normalize-split-chunks'
@@ -552,7 +552,13 @@ export async function devServer(
   const bridgeBroker = new BridgeBroker({
     instanceId: currentInstance.instanceId,
     runId: sessionRunId,
-    engine: isGeckoBasedBrowser(browserName) ? 'firefox' : 'chromium',
+    // Safari is its own engine. The producer already names itself webkit from
+    // its url scheme, so the server saying chromium made the two disagree.
+    engine: isGeckoBasedBrowser(browserName)
+      ? 'firefox'
+      : isWebkitBasedBrowser(browserName)
+        ? 'webkit'
+        : 'chromium',
     ring: new LogRingBuffer(),
     file: bridgeLogFile,
     allowControl,

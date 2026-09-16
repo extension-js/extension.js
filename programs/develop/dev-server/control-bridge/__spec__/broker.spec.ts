@@ -67,6 +67,14 @@ describe('BridgeBroker (Slice 1: logs)', () => {
     })
   })
 
+  // Section 369 taught the producer to name webkit, this pins the server half.
+  it('forwards a webkit engine to the consumer ready frame', () => {
+    const b = new BridgeBroker({...opts, engine: 'webkit' as const})
+    const c = new FakeConn('c')
+    b.onFrame(c, {type: 'hello', v: 1, role: 'consumer', instanceId: 'inst-1'})
+    expect(c.sent[0]).toMatchObject({type: 'ready', engine: 'webkit'})
+  })
+
   it('fans a producer log out to consumers with a stamped seq', () => {
     const b = new BridgeBroker(opts)
     const prod = new FakeConn('p')
