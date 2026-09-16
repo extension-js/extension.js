@@ -142,6 +142,38 @@ export function entrySplitAcrossInitialFiles(
   return lines.join('\n')
 }
 
+// The two surfaces whose document is the web page, so a worker started from
+// the extension origin is cross-origin and the browser refuses to start it.
+const PAGE_CONTEXT_SURFACES = {
+  content_script: 'a content script',
+  script: 'an injected script'
+} as const
+
+export function workerStartedFromPageContext(
+  assetName: string,
+  surface: keyof typeof PAGE_CONTEXT_SURFACES
+) {
+  const lines: string[] = []
+  lines.push(
+    `${assetName} starts a worker with new Worker(new URL(...)), which the browser refuses in ${PAGE_CONTEXT_SURFACES[surface]}.`
+  )
+
+  lines.push(`${colors.gray('SCRIPT')} ${colors.underline(assetName)}`)
+  lines.push(
+    `The worker file ships, but a worker script must be same-origin with the document that starts it, and this document is the page, so the extension URL throws a SecurityError at runtime.`
+  )
+
+  lines.push(
+    `- Fetch the worker file first and start the worker from a blob: ${colors.blue("new Worker(URL.createObjectURL(new Blob([await (await fetch(chrome.runtime.getURL('worker.js'))).text()])))")}`
+  )
+
+  lines.push(
+    `- Or start the worker from an extension page, where the document is the extension and this spelling works as written.`
+  )
+
+  return lines.join('\n')
+}
+
 export function fetchedFileDependencyMissing(
   assetName: string,
   literal: string,
