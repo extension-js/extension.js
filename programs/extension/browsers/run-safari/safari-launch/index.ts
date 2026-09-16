@@ -442,7 +442,7 @@ async function runSafariPipeline(
   if (!config.open) {
     // Registration with macOS only happens once the app has been launched, so
     // polling pluginkit here would just warn spuriously. Point at the app.
-    logger.info?.(messages.safariOpenHint(appPath, config.appName, isSigned))
+    logger.info?.(messages.safariOpenHint(appPath, config.appName))
 
     if (host.announceDevReady) {
       await announceSafariDevSession(host, config, appPath)

@@ -148,11 +148,9 @@ export function composeXcodebuildArgs(config: SafariBuildConfig): string[] {
     derivedDataPath(config)
   ]
 
-  // A team means a real signature, and a real signature is what makes the
-  // extension usable without ceremony: Safari lists an ad-hoc signed build as
-  // unsigned, so it only loads while Develop > Allow Unsigned Extensions is
-  // ticked, and that resets on every launch. Signed once, it stays enabled
-  // across restarts. Automatic signing lets Xcode mint the profile, and
+  // Measured with the toggle off: an ad-hoc signed app stays listed in Safari
+  // Settings, so a team id buys a distributable identity, not local loading.
+  // Automatic signing lets Xcode mint the profile, and
   // -allowProvisioningUpdates is what permits that without opening Xcode.
   // Trimmed here as well as at config time: this function is exported and a
   // caller that hands it a whitespace team would otherwise get
