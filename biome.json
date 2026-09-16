@@ -11,6 +11,7 @@
       "!templates",
       "!templates/**/dist",
       "!templates-artifacts",
+      "!programs/create/templates",
       "!**/dist",
       "!**/.rslib",
       "!**/build",
