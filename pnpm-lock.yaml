@@ -187,8 +187,8 @@ importers:
         specifier: ^8.16.0
         version: 8.16.0
       browser-extension-manifest-fields:
-        specifier: ^2.3.1
-        version: 2.3.1
+        specifier: ^3.0.1
+        version: 3.0.1
       case-sensitive-paths-webpack-plugin:
         specifier: ^2.4.0
         version: 2.4.0
@@ -337,6 +337,15 @@ importers:
 
   programs/extension:
     dependencies:
+      '@types/chrome':
+        specifier: '*'
+        version: 0.1.37
+      '@types/node':
+        specifier: '*'
+        version: 26.0.1
+      '@types/webextension-polyfill':
+        specifier: '*'
+        version: 0.12.5
       brave-location:
         specifier: 3.1.1
         version: 3.1.1
@@ -404,21 +413,12 @@ importers:
       '@rslib/core':
         specifier: ^1.0.0
         version: 1.0.0(core-js@3.47.0)(typescript@7.0.2)
-      '@types/chrome':
-        specifier: ^0.1.33
-        version: 0.1.37
       '@types/cross-spawn':
         specifier: ^6.0.6
         version: 6.0.6
-      '@types/node':
-        specifier: ^26
-        version: 26.0.1
       '@types/semver':
         specifier: ^7.7.1
         version: 7.7.1
-      '@types/webextension-polyfill':
-        specifier: 0.12.4
-        version: 0.12.4
       '@types/ws':
         specifier: ^8.18.1
         version: 8.18.1
@@ -2542,8 +2542,8 @@ packages:
     engines: {node: '>=16'}
     hasBin: true
 
-  browser-extension-manifest-fields@2.3.1:
-    resolution: {integrity: sha512-CBerXGTItB5W2imnXV1jdXuJnEQwtFpwmNQpvSjcFES9Fc0l0guaj8h5CO6TJq29FoYt/v8mrDQ1+FIqe3TOAQ==}
+  browser-extension-manifest-fields@3.0.1:
+    resolution: {integrity: sha512-UxAtcWYTUavqrJOcMIc/YmE9HD9agV3Q9Cue5e6pdIgPPru5A/syPsIw2SYqnULiLhJsGxyYh9e+VE717GbuAw==}
     engines: {node: '>=18'}
 
   browserslist@4.28.8:
@@ -6529,7 +6529,7 @@ snapshots:
     dependencies:
       which: 4.0.0
 
-  browser-extension-manifest-fields@2.3.1: {}
+  browser-extension-manifest-fields@3.0.1: {}
 
   browserslist@4.28.8:
     dependencies:

@@ -2,6 +2,39 @@
 
 ## Unreleased
 
+## 4.1.19 (September 15, 2026)
+
+### Features
+
+- Bundle the Vue runtime build and drop the rspack global shim (#524) ([cd8f696a](https://github.com/extension-js/extension.js/commit/cd8f696a265e908e762057c4978b1f3ffb4de693))
+- Add a CODEOWNERS file naming the maintainer as owner (#521) ([6f7152c3](https://github.com/extension-js/extension.js/commit/6f7152c31a1db1a9a335be224802b03aa2a4065e))
+- Add one always-reporting CI passed check and run CI on every PR (#516) ([93c7279d](https://github.com/extension-js/extension.js/commit/93c7279d6f7b1775d23768a7e7f973cef79a08b4))
+- Add property tests for the prefix resolver, path keys and MV2 host fold ([4af087f7](https://github.com/extension-js/extension.js/commit/4af087f764623d65192daf17829ce22ae3816be0))
+
+### Fixes
+
+- Harden browser installs, template URLs and the control socket (#528) ([8751608f](https://github.com/extension-js/extension.js/commit/8751608f511d93181a6959baa67b6659369c4715))
+
+<details>
+<summary>Other changes (15)</summary>
+
+- Keep build paths out of import.meta.url in production bundles (#529) ([c9d4be1a](https://github.com/extension-js/extension.js/commit/c9d4be1ae86e8a3c11c9e654786977d378b54f51))
+- Ship the chrome, node and polyfill types with extension (#527) ([29a2bec0](https://github.com/extension-js/extension.js/commit/29a2bec02a51bbe3f0085db7e49509e07afd296e))
+- Document release verification, architecture and security (#525) ([9865baf0](https://github.com/extension-js/extension.js/commit/9865baf033172cc620acdb31a072f92741cbdc69))
+- Make chrome: and edge: manifest prefixes vendor exact (#526) ([a205138b](https://github.com/extension-js/extension.js/commit/a205138bcd3ee9dd01a3f6a575cb878a4c87ca47))
+- Clear the companion AMO warnings in Firefox builds (#523) ([1df29c8e](https://github.com/extension-js/extension.js/commit/1df29c8eb02958290c68d9cbde4e792bd6ccb264))
+- Pass optional deps matrix values to the smoke step through env (#520) ([8b73a946](https://github.com/extension-js/extension.js/commit/8b73a9469d30ba0096ab526e661943208631c605))
+- Attest release tarballs with the commit-pinned GitHub action (#522) ([97168d1d](https://github.com/extension-js/extension.js/commit/97168d1d25ce1e90e1b00cf57d553f1885218f4f))
+- Retry a failed template install once and show the pnpm error (#519) ([ff92ad1e](https://github.com/extension-js/extension.js/commit/ff92ad1ec0d9184169f89189463e50d787c70056))
+- Push release commits with a deploy key that bypasses the ruleset (#517) ([256a4a93](https://github.com/extension-js/extension.js/commit/256a4a93f356f2a8c377df5520ee5f103c03c237))
+- Render the Scorecard badge in the project blue like the other badges ([de7c6c3c](https://github.com/extension-js/extension.js/commit/de7c6c3c67bab25d623b2d12b5e3aa5f891c807e))
+- Mirror the contributing section on the published package README ([79e402fe](https://github.com/extension-js/extension.js/commit/79e402fe81a882dc9bb6eeed310ac969e39f86ce))
+- Build the resolved manifest with own properties so a __proto__ key survives ([0f1bb140](https://github.com/extension-js/extension.js/commit/0f1bb140ab7a66a28fda20496238899beb2177dd))
+- Attach SLSA provenance and the npm tarballs to every GitHub release ([d859c650](https://github.com/extension-js/extension.js/commit/d859c65097bb53bdb8ab7121dc26be8f8dab85b5))
+- State the security response window and point every entry at the guide ([c2fa3aa0](https://github.com/extension-js/extension.js/commit/c2fa3aa067a3de8c555629d440973de2a50c524a))
+- Run CodeQL from a workflow so Scorecard's SAST check can see it ([5dff7ab3](https://github.com/extension-js/extension.js/commit/5dff7ab31eb2c009bb06e24cf5003daa27b76c67))
+</details>
+
 ## 4.1.18 (September 14, 2026)
 
 <details>

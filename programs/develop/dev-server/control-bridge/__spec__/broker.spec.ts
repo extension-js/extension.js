@@ -67,6 +67,14 @@ describe('BridgeBroker (Slice 1: logs)', () => {
     })
   })
 
+  // Section 369 taught the producer to name webkit, this pins the server half.
+  it('forwards a webkit engine to the consumer ready frame', () => {
+    const b = new BridgeBroker({...opts, engine: 'webkit' as const})
+    const c = new FakeConn('c')
+    b.onFrame(c, {type: 'hello', v: 1, role: 'consumer', instanceId: 'inst-1'})
+    expect(c.sent[0]).toMatchObject({type: 'ready', engine: 'webkit'})
+  })
+
   it('fans a producer log out to consumers with a stamped seq', () => {
     const b = new BridgeBroker(opts)
     const prod = new FakeConn('p')
@@ -524,5 +532,127 @@ describe('BridgeBroker.undeliveredReloadWarning: SW-not-attached DX', () => {
     })
 
     expect(b.undeliveredReloadWarning()).toBeNull()
+  })
+})
+
+// The dev server turns these into ready.json's `runtime` field, so a reader can
+// tell a live extension from one that went away.
+describe('BridgeBroker executor presence', () => {
+  const helloProducer = (b: BridgeBroker, conn: FakeConn) =>
+    b.onFrame(conn, {
+      type: 'hello',
+      v: 1,
+      role: 'producer',
+      instanceId: 'inst-1'
+    })
+
+  it('reports the last producer leaving', () => {
+    const detached: string[] = []
+    const b = new BridgeBroker({
+      ...opts,
+      onExecutorDetached: () => detached.push('gone')
+    })
+    const prod = new FakeConn('p')
+
+    helloProducer(b, prod)
+    expect(detached).toEqual([])
+
+    b.onClose(prod)
+    expect(detached).toEqual(['gone'])
+  })
+
+  it('stays quiet while another producer is still connected', () => {
+    const detached: string[] = []
+    const b = new BridgeBroker({
+      ...opts,
+      onExecutorDetached: () => detached.push('gone')
+    })
+    const first = new FakeConn('p1')
+    const second = new FakeConn('p2')
+
+    helloProducer(b, first)
+    helloProducer(b, second)
+
+    b.onClose(first)
+    expect(detached).toEqual([])
+
+    b.onClose(second)
+    expect(detached).toEqual(['gone'])
+  })
+
+  it('says nothing when a consumer leaves', () => {
+    const detached: string[] = []
+    const b = new BridgeBroker({
+      ...opts,
+      onExecutorDetached: () => detached.push('gone')
+    })
+    const cons = new FakeConn('c')
+
+    b.onFrame(cons, {
+      type: 'hello',
+      v: 1,
+      role: 'consumer',
+      instanceId: 'inst-1'
+    })
+    b.onClose(cons)
+
+    expect(detached).toEqual([])
+  })
+})
+
+// A caller that restarted the extension itself (a Safari package replaces the
+// appex under a running Safari) owns that absence, so it must not be warned about.
+describe('BridgeBroker.undeliveredReloadWarning: caller-caused restart', () => {
+  const GRACE_MS = 10_000
+
+  function brokerAt(startMs: number) {
+    let nowMs = startMs
+    const b = new BridgeBroker({...opts, now: () => nowMs})
+    return {b, advance: (ms: number) => (nowMs += ms)}
+  }
+
+  function attachThenDetach(b: BridgeBroker) {
+    const prod = new FakeConn('p')
+    b.onFrame(prod, {
+      type: 'hello',
+      v: 1,
+      role: 'producer',
+      instanceId: 'inst-1'
+    })
+    b.onClose(prod)
+  }
+
+  it('stays quiet when the producer it took down was attached before', () => {
+    const {b, advance} = brokerAt(1_000_000)
+    advance(GRACE_MS)
+    attachThenDetach(b)
+    expect(
+      b.undeliveredReloadWarning({producerRestartExpected: true})
+    ).toBeNull()
+  })
+
+  it('does not spend the dedup, so a plain dispatch still warns once', () => {
+    const {b, advance} = brokerAt(1_000_000)
+    advance(GRACE_MS)
+    attachThenDetach(b)
+    expect(
+      b.undeliveredReloadWarning({producerRestartExpected: true})
+    ).toBeNull()
+    expect(b.undeliveredReloadWarning()).toContain('disconnected')
+  })
+
+  it('still warns when nothing ever connected, which no restart explains', () => {
+    const {b, advance} = brokerAt(1_000_000)
+    advance(GRACE_MS)
+    expect(
+      b.undeliveredReloadWarning({producerRestartExpected: true})
+    ).toContain('has not connected to the dev server this session')
+  })
+
+  it('keeps the startup grace window ahead of the restart context', () => {
+    const {b} = brokerAt(1_000_000)
+    expect(
+      b.undeliveredReloadWarning({producerRestartExpected: true})
+    ).toBeNull()
   })
 })

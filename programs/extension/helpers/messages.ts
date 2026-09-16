@@ -511,11 +511,14 @@ export function safariCommandNotSupported(
   command: 'dev' | 'preview' | 'start'
 ) {
   return (
-    `${getLoggingPrefix('error')} ${code(command)} can't load an extension into Safari automatically.\n` +
-    `Safari extensions ship inside a signed app and are enabled by hand, so there's no live ` +
-    `browser session to load into, unlike Chromium and Firefox.\n` +
-    `Build the Safari app instead: ${code('extension build --browser safari')}\n` +
-    `Then open the generated app and enable it in Safari → Settings → Extensions.`
+    `${getLoggingPrefix('error')} ${code(command)} can't load an extension into Safari.\n` +
+    `Safari loads an extension only from an app it has registered, and that app is ` +
+    `enabled by hand once installed.\n` +
+    `Its automation route can load a folder but grants no website access, so content ` +
+    `scripts never run.\n` +
+    `Run a live Safari session: ${code('extension dev --browser safari')}\n` +
+    `Or package the app and open it: ${code('extension build --browser safari --open')}\n` +
+    `Both need macOS with Xcode, and Safari takes the enable gesture once in Safari ▸ Settings ▸ Extensions.`
   )
 }
 
@@ -524,8 +527,9 @@ export function programAIHelp() {
 
 ${'Browser-specific configuration'}
 - Use browser prefixes in manifest.json for browser-specific fields:
-  ${code('{"firefox:manifest": 2, "chrome:manifest": 3}')}
-  This applies manifest v2 to Firefox only, v3 to Chrome/Edge.
+  ${code('{"firefox:manifest_version": 2, "chromium:manifest_version": 3}')}
+  This applies manifest v2 to Firefox only, v3 to every Chromium-based browser.
+  ${code('chrome:')} and ${code('edge:')} apply only to that one browser.
 
 ${'Centralized logger (for AI & CI)'}
 - Logs from all contexts are centralized by the manager extension and streamed to the CLI.

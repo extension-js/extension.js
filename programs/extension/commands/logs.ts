@@ -17,6 +17,7 @@ import {
   sessionLogsPath,
   sessionReadyPath
 } from '../helpers/session-project-path'
+import {SESSION_BROWSER_TARGETS_HELP} from '../helpers/vendors'
 
 // How `--since` is read, resolved by the develop bridge's query helpers so
 // the command and the published query agree: a sequence number, or a point
@@ -253,7 +254,7 @@ export function registerLogsCommand(program: Command) {
     .usage('[project-path] [options]')
     .description(commandDescriptions.logs)
     .option(
-      '--browser <chrome | chromium | edge | firefox>',
+      `--browser <${SESSION_BROWSER_TARGETS_HELP}>`,
       'which dist/extension-js/<browser> to read. Defaults to `chromium`'
     )
     .option(
