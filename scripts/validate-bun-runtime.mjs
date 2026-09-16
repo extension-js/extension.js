@@ -19,16 +19,16 @@ import {
 
 const ROOT_DIR = fileURLToPath(new URL('..', import.meta.url))
 const CLI_PATH = join(ROOT_DIR, 'programs', 'extension', 'dist', 'cli.cjs')
-// Node's spawn does no PATHEXT lookup, so a bare `deno` misses
-// deno.exe on Windows. An explicit DENO_BIN still wins.
-const DENO_BIN =
-  process.env.DENO_BIN || (process.platform === 'win32' ? 'deno.exe' : 'deno')
+// Node's spawn does no PATHEXT lookup, so a bare `bun` misses
+// bun.exe on Windows. An explicit BUN_BIN still wins.
+const BUN_BIN =
+  process.env.BUN_BIN || (process.platform === 'win32' ? 'bun.exe' : 'bun')
 const BROWSER = 'chromium'
 const BUILD_TIMEOUT_MS = 180000
 const READY_TIMEOUT_MS = 180000
 
 function fail(message) {
-  console.error(`\n[deno-runtime] FAILED: ${message}`)
+  console.error(`\n[bun-runtime] FAILED: ${message}`)
   process.exit(1)
 }
 
@@ -38,7 +38,7 @@ function writeFixture(projectDir) {
     `${JSON.stringify(
       {
         manifest_version: 3,
-        name: 'deno-runtime-smoke',
+        name: 'bun-runtime-smoke',
         version: '1.0',
         background: {service_worker: 'background.js'},
         action: {default_popup: 'popup.html'}
@@ -48,8 +48,8 @@ function writeFixture(projectDir) {
     )}\n`
   )
 
-  // A dynamic import forces a real split chunk, which is what surfaced the bare
-  // `path` specifier that Deno refused before 4.1.20.
+  // A dynamic import forces a real split chunk, so the run exercises more than
+  // a single entry going through the bundler.
   writeFileSync(
     join(projectDir, 'background.js'),
     'import("./shared.js").then((mod) => console.log(mod.label))\n'
@@ -64,46 +64,46 @@ function writeFixture(projectDir) {
   writeFileSync(join(projectDir, 'popup.js'), 'document.title = "ok"\n')
 }
 
-function assertDenoIsPresent() {
-  const probe = spawnSync(DENO_BIN, ['--version'], {
+function assertBunIsPresent() {
+  const probe = spawnSync(BUN_BIN, ['--version'], {
     encoding: 'utf-8',
     windowsHide: true
   })
 
   if (probe.error || probe.status !== 0) {
     fail(
-      `cannot run '${DENO_BIN} --version'. Install Deno, or point DENO_BIN at ` +
-        `a binary. ${probe.error?.message || probe.stderr || ''}`.trim()
+      `cannot run '${BUN_BIN} --version'. Install Bun, or point BUN_BIN at a ` +
+        `binary. ${probe.error?.message || probe.stderr || ''}`.trim()
     )
   }
 
-  const version = String(probe.stdout).split('\n')[0]
-  console.log(`[deno-runtime] ${version}`)
+  const version = String(probe.stdout).trim()
+  console.log(`[bun-runtime] bun ${version}`)
 
   return version
 }
 
-// Proves the CLI is executing on Deno and not shelling back out to Node, which
-// is exactly the confusion this lane exists to rule out.
-function assertRuntimeIsDeno() {
+// Proves the CLI is executing on Bun and not handed back to Node by a shebang,
+// which is the confusion this lane exists to rule out.
+function assertRuntimeIsBun() {
   const probe = spawnSync(
-    DENO_BIN,
-    ['eval', 'console.log(process.versions.deno || "none")'],
+    BUN_BIN,
+    ['-e', 'process.stdout.write(process.versions.bun || "none")'],
     {encoding: 'utf-8', windowsHide: true}
   )
   const reported = String(probe.stdout).trim()
 
   if (!reported || reported === 'none') {
-    fail('the deno binary does not report process.versions.deno')
+    fail('the bun binary does not report process.versions.bun')
   }
 
-  console.log(`[deno-runtime] process.versions.deno = ${reported}`)
+  console.log(`[bun-runtime] process.versions.bun = ${reported}`)
 }
 
 function runBuild(projectDir) {
-  console.log('[deno-runtime] extension build')
+  console.log('[bun-runtime] extension build')
 
-  const result = spawnSync(DENO_BIN, ['run', '-A', CLI_PATH, 'build', '.'], {
+  const result = spawnSync(BUN_BIN, [CLI_PATH, 'build', '.'], {
     cwd: projectDir,
     encoding: 'utf-8',
     timeout: BUILD_TIMEOUT_MS,
@@ -112,7 +112,7 @@ function runBuild(projectDir) {
   const output = `${result.stdout || ''}${result.stderr || ''}`
 
   if (result.status !== 0) {
-    fail(`build exited ${result.status} on Deno.\n${output}`)
+    fail(`build exited ${result.status} on Bun.\n${output}`)
   }
 
   const builtManifest = join(projectDir, 'dist', BROWSER, 'manifest.json')
@@ -133,7 +133,7 @@ function runBuild(projectDir) {
     fail(`build wrote no background bundle at ${builtWorker}.\n${output}`)
   }
 
-  console.log('[deno-runtime] build emitted a manifest and a background bundle')
+  console.log('[bun-runtime] build emitted a manifest and a background bundle')
 }
 
 // SIGTERM leaves the dev server's children running on Windows, so the job
@@ -197,7 +197,7 @@ function waitForReady(child, projectDir, startedAtMs, output) {
 
       if (ready.status === 'ready') {
         console.log(
-          `[deno-runtime] dev reported ready on port ${ready.port} ` +
+          `[bun-runtime] dev reported ready on port ${ready.port} ` +
             `(toolchain ${ready.toolchainVersion})`
         )
 
@@ -216,13 +216,13 @@ function waitForReady(child, projectDir, startedAtMs, output) {
 }
 
 async function runDev(projectDir) {
-  console.log('[deno-runtime] extension dev --no-browser')
+  console.log('[bun-runtime] extension dev --no-browser')
 
   const startedAtMs = Date.now()
   const output = {value: ''}
   const child = spawn(
-    DENO_BIN,
-    ['run', '-A', CLI_PATH, 'dev', '.', '--no-browser', '--port', '0'],
+    BUN_BIN,
+    [CLI_PATH, 'dev', '.', '--no-browser', '--port', '0'],
     {cwd: projectDir, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true}
   )
 
@@ -249,16 +249,16 @@ async function main() {
     )
   }
 
-  assertDenoIsPresent()
-  assertRuntimeIsDeno()
+  assertBunIsPresent()
+  assertRuntimeIsBun()
 
-  const projectDir = mkdtempSync(join(tmpdir(), 'extjs-deno-runtime-'))
+  const projectDir = mkdtempSync(join(tmpdir(), 'extjs-bun-runtime-'))
 
   try {
     writeFixture(projectDir)
     runBuild(projectDir)
     await runDev(projectDir)
-    console.log('\n[deno-runtime] build and dev both pass on Deno')
+    console.log('\n[bun-runtime] build and dev both pass on Bun')
   } finally {
     rmSync(projectDir, {recursive: true, force: true})
   }

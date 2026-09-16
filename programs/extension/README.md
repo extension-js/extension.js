@@ -23,7 +23,7 @@ npm run dev
 
 Works with `npm`, `pnpm`, `yarn`, `bun`, and `deno`.
 
-The CLI itself runs on Node.js 22.12+ and Deno 2.5+. Bun installs and launches it, and it runs on Node.js from there.
+The CLI itself runs on Node.js 22.12+, Deno 2.5+, and Bun 1.2+.
 
 [Documentation](https://extension.js.org/docs) · [Templates](https://templates.extension.dev/?utm_source=readme&utm_campaign=nav-templates) · [Showcase](https://extension.js.org/showcase) · [Blog](https://extension.js.org/blog)
 
@@ -189,7 +189,7 @@ Each of these installs Extension.js, launches it, and runs its scripts. Which ru
 | :-- | :-- | :-- |
 | Node.js | ✅ 22.12 and newer | The default. `npx`, `pnpm dlx`, `yarn dlx` and `bunx` all land here through the published bin |
 | Deno | ✅ 2.5 and newer | `deno run -A npm:extension@latest`. Deno 2.8.0 is refused because it cannot load `node:querystring`, fixed in 2.8.1 |
-| Bun | ❌ Not a runtime for the CLI | Bun installs and launches Extension.js, which then runs on Node.js. `bunx --bun` and `bun run --bun` are refused |
+| Bun | ✅ 1.2 and newer | `bunx --bun extension` and `bun run --bun`. Plain `bunx` runs the CLI on Node.js instead, through the published bin |
 
 ## Community
 

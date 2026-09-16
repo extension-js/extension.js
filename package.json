@@ -38,6 +38,7 @@
     "test:e2e": "node scripts/run-e2e.mjs",
     "smoke:npx": "node scripts/smoke-npx.mjs",
     "smoke:deno": "node scripts/validate-deno-runtime.mjs",
+    "smoke:bun": "node scripts/validate-bun-runtime.mjs",
     "smoke:first-dev": "node scripts/validate-first-dev-run.mjs",
     "smoke:content-template-first-dev": "node scripts/verify-content-template-first-dev.mjs",
     "smoke:content-reload": "node scripts/validate-content-reload-no-hard-reload.mjs",
