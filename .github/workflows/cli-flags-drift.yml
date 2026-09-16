@@ -1,0 +1,55 @@
+name: CLI flags drift
+
+# The docs site documents every command's flags against a generated snapshot,
+# and it carries a test that compares that snapshot to this CLI. That test can
+# only run with this repo checked out beside the docs repo, which the docs CI
+# never has, so it has always skipped there and the one check that would catch
+# real drift never ran anywhere. It runs here instead, where the CLI is already
+# built, and fails when this CLI gains or loses a flag the docs snapshot does
+# not know about.
+
+on:
+  schedule:
+    - cron: '15 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cli-flags-drift:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/setup
+        with:
+          node-version: '22'
+
+      - name: Compile the CLI
+        # The generator runs `extension <verb> --help`, which needs dist/cli.cjs.
+        run: pnpm compile
+
+      - name: Check out the docs site beside this repo
+        # The generator resolves the CLI at ../../programs/extension relative to
+        # its own directory, so the docs checkout has to sit at this exact path.
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: extension-js/extension.js.org
+          path: _FUTURE/extension.js.org
+
+      - name: Regenerate the flag snapshot
+        run: node _FUTURE/extension.js.org/scripts/generate-cli-flags.mjs
+
+      - name: Fail if the docs snapshot is stale
+        run: |
+          cd _FUTURE/extension.js.org
+          if git diff --quiet -- __tests__/fixtures/cli-flags.json; then
+            echo "The docs flag snapshot matches this CLI."
+            exit 0
+          fi
+          echo "This CLI's flags no longer match the snapshot committed in extension-js/extension.js.org."
+          echo "Fix: run node scripts/generate-cli-flags.mjs in that repo and commit the result."
+          git --no-pager diff -- __tests__/fixtures/cli-flags.json
+          exit 1
