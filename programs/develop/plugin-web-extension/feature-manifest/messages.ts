@@ -295,6 +295,59 @@ export function safariIdleUnsupported(file: string) {
   )
 }
 
+// Safari ships these namespaces but not these members, so the namespace
+// resolves and the throw waits one level deeper. Keyed api.member, and the
+// step's member table is held to this list by a spec so neither can drift.
+export const safariMissingMemberDetails: Record<string, string> = {
+  'action.getUserSettings': `Safari has no pinned-state query for the toolbar button, so there is no function to call. ${safariBackgroundDies}`,
+  'action.getBadgeTextColor': `Safari draws the badge in its own colors and offers no badge text color call. ${safariBackgroundDies}`,
+  'action.setBadgeTextColor': `Safari draws the badge in its own colors and offers no badge text color call. ${safariBackgroundDies}`,
+  'action.onUserSettingsChanged': `Safari raises no event when the toolbar button settings change, so the listener attaches to nothing. ${safariBackgroundDies}`,
+  'storage.managed': `Safari has no managed storage area, since it carries no enterprise policy channel for web extensions. ${safariBackgroundDies}`,
+  'runtime.getContexts': `Safari keeps no inventory of extension contexts to hand back. ${safariBackgroundDies}`,
+  'runtime.onSuspend': `Safari tears a background down without announcing it, so this lifecycle event does not exist. ${safariBackgroundDies}`,
+  'runtime.onSuspendCanceled': `Safari tears a background down without announcing it, so this lifecycle event does not exist. ${safariBackgroundDies}`,
+  'runtime.onUpdateAvailable': `Safari ships an extension inside its host app, so the browser raises no update event for it. ${safariBackgroundDies}`,
+  'declarativeNetRequest.getAvailableStaticRuleCount': `Safari implements the blocking core of declarativeNetRequest and not its rule-budget queries. ${safariBackgroundDies}`,
+  'declarativeNetRequest.getDisabledRuleIds': `Safari cannot disable individual static rules, so it has nothing to report here. ${safariBackgroundDies}`,
+  'declarativeNetRequest.updateStaticRules': `Safari cannot toggle individual static rules, only whole rulesets through updateEnabledRulesets. ${safariBackgroundDies}`,
+  'declarativeNetRequest.testMatchOutcome': `Safari has no rule-matching test harness, which is a Chrome debugging aid. ${safariBackgroundDies}`,
+  'declarativeNetRequest.onRuleMatchedDebug': `Safari raises no rule-match debug event, which Chrome offers to unpacked extensions only. ${safariBackgroundDies}`,
+  'tabs.group': `Safari has no tab groups at all, so there is no group to move a tab into. ${safariBackgroundDies}`,
+  'tabs.ungroup': `Safari has no tab groups at all, so there is no group to take a tab out of. ${safariBackgroundDies}`,
+  'webNavigation.onCreatedNavigationTarget': `Safari reports the main navigation events only, and this one is not among them. ${safariBackgroundDies}`,
+  'webNavigation.onHistoryStateUpdated': `Safari reports the main navigation events only, so a History API navigation goes unannounced. ${safariBackgroundDies}`,
+  'webNavigation.onReferenceFragmentUpdated': `Safari reports the main navigation events only, so a fragment change goes unannounced. ${safariBackgroundDies}`,
+  'webNavigation.onTabReplaced': `Safari reports the main navigation events only, and this one is not among them. ${safariBackgroundDies}`,
+  'windows.onBoundsChanged': `Safari raises no event when a window is moved or resized. ${safariBackgroundDies}`
+}
+
+// The member sits on a namespace Safari does have, so the message names the
+// member and the guard goes at the member, not at the namespace above it.
+export function safariMemberUnsupported(
+  file: string,
+  api: string,
+  member: string,
+  kind: 'call' | 'read'
+) {
+  const guard =
+    kind === 'call'
+      ? `chrome.${api}.${member}?.()`
+      : `chrome.${api}.${member}?.`
+  const lines: string[] = []
+  lines.push(
+    `${prefix('warn')} ${colors.underline(file)} calls chrome.${api}.${member}, which Safari does not have.`
+  )
+  lines.push(
+    safariMissingMemberDetails[`${api}.${member}`] ||
+      `Safari ships chrome.${api} without this member. ${safariBackgroundDies}`
+  )
+  lines.push(
+    `Safari has ${colors.blue(`chrome.${api}`)} itself, so a guard on the namespace does not help. Move the call behind a build-time branch on ${colors.blue('import.meta.env.EXTENSION_PUBLIC_BROWSER')}, or guard it with ${colors.yellow(guard)}.`
+  )
+  return lines.join('\n')
+}
+
 export function geckoActionUnsupportedOnMv2(file: string) {
   const lines: string[] = []
   lines.push(

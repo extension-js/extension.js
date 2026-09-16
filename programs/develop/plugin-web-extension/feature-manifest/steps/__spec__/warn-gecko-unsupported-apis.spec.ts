@@ -2,12 +2,15 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
+import {safariMissingMemberDetails} from '../../messages'
 import {UpdateManifest} from '../update-manifest'
 import {
   findGeckoUnsupportedApiUses,
   geckoUnsupportedApis,
   type ScannableCompilation,
-  usesGeckoUnsupportedApi
+  usesGeckoUnsupportedApi,
+  usesWebkitUnsupportedMember,
+  webkitUnsupportedMembers
 } from '../warn-gecko-unsupported-apis'
 
 const SIDE_PANEL =
@@ -93,6 +96,146 @@ describe('usesGeckoUnsupportedApi on webkit', () => {
         'webkit'
       )
     ).toBe(false)
+  })
+})
+
+describe('usesWebkitUnsupportedMember', () => {
+  const entryOf = (api: string, member: string) => {
+    const entry = webkitUnsupportedMembers.find(
+      (candidate) => candidate.api === api && candidate.member === member
+    )
+    if (!entry) throw new Error(`${api}.${member} is not in the member table`)
+    return entry
+  }
+
+  const BADGE_COLOR = entryOf('action', 'setBadgeTextColor')
+  const MANAGED = entryOf('storage', 'managed')
+  const ON_SUSPEND = entryOf('runtime', 'onSuspend')
+
+  it('matches a call on a missing function, on chrome or browser', () => {
+    expect(
+      usesWebkitUnsupportedMember(
+        'chrome.action.setBadgeTextColor({color: "#fff"})',
+        BADGE_COLOR
+      )
+    ).toBe(true)
+    expect(
+      usesWebkitUnsupportedMember(
+        'browser.action.setBadgeTextColor({})',
+        BADGE_COLOR
+      )
+    ).toBe(true)
+    expect(
+      usesWebkitUnsupportedMember(
+        'chrome . action\n  .setBadgeTextColor({})',
+        BADGE_COLOR
+      )
+    ).toBe(true)
+  })
+
+  it('matches a read through a missing event or sub-namespace', () => {
+    expect(
+      usesWebkitUnsupportedMember(
+        'chrome.storage.managed.get("policy")',
+        MANAGED
+      )
+    ).toBe(true)
+    expect(
+      usesWebkitUnsupportedMember(
+        'chrome.runtime.onSuspend.addListener(() => {})',
+        ON_SUSPEND
+      )
+    ).toBe(true)
+  })
+
+  it('lets optional chaining at the member through', () => {
+    expect(
+      usesWebkitUnsupportedMember(
+        'chrome.action.setBadgeTextColor?.({})',
+        BADGE_COLOR
+      )
+    ).toBe(false)
+    expect(
+      usesWebkitUnsupportedMember('chrome.storage.managed?.get("k")', MANAGED)
+    ).toBe(false)
+    expect(
+      usesWebkitUnsupportedMember(
+        'chrome.runtime.onSuspend?.addListener(() => {})',
+        ON_SUSPEND
+      )
+    ).toBe(false)
+  })
+
+  // A guard on the namespace does not really protect a missing member, but the
+  // webkit rule reads ?. as deliberate and stays quiet wherever it appears.
+  it('lets optional chaining at the namespace through too', () => {
+    expect(
+      usesWebkitUnsupportedMember(
+        'chrome.action?.setBadgeTextColor({})',
+        BADGE_COLOR
+      )
+    ).toBe(false)
+  })
+
+  it('ignores a feature check and a name that only starts the same', () => {
+    expect(
+      usesWebkitUnsupportedMember(
+        'typeof chrome.action.setBadgeTextColor === "function"',
+        BADGE_COLOR
+      )
+    ).toBe(false)
+    expect(
+      usesWebkitUnsupportedMember('if (chrome.storage.managed) {}', MANAGED)
+    ).toBe(false)
+    expect(
+      usesWebkitUnsupportedMember(
+        'chrome.action.setBadgeTextColorAlpha({})',
+        BADGE_COLOR
+      )
+    ).toBe(false)
+    expect(
+      usesWebkitUnsupportedMember(
+        'chrome.runtime.onSuspendCanceled.addListener(() => {})',
+        ON_SUSPEND
+      )
+    ).toBe(false)
+  })
+
+  it('never matches a member Safari does implement', () => {
+    expect(
+      usesWebkitUnsupportedMember('chrome.storage.local.get("k")', MANAGED)
+    ).toBe(false)
+    expect(
+      usesWebkitUnsupportedMember('chrome.action.setBadgeText({})', BADGE_COLOR)
+    ).toBe(false)
+  })
+})
+
+describe('webkitUnsupportedMembers', () => {
+  // A member on a namespace the namespace table already covers would warn
+  // twice on one line, so the two lists must never overlap.
+  it('never names a namespace the namespace list already covers', () => {
+    const namespaces = geckoUnsupportedApis(3, 'webkit')
+    for (const entry of webkitUnsupportedMembers) {
+      expect(namespaces).not.toContain(entry.api)
+    }
+  })
+
+  it('gives every member its own message detail', () => {
+    for (const entry of webkitUnsupportedMembers) {
+      expect(
+        safariMissingMemberDetails[`${entry.api}.${entry.member}`]
+      ).toBeTruthy()
+    }
+  })
+
+  // A missing constant reads as undefined and never throws, so it is a
+  // behavior difference rather than the fatal call this warning is for.
+  it('lists no constant and no type, only throwing members', () => {
+    for (const entry of webkitUnsupportedMembers) {
+      expect(entry.member).toMatch(/^[a-z]/)
+      expect(['call', 'read']).toContain(entry.kind)
+    }
   })
 })
 
@@ -597,6 +740,143 @@ describe('UpdateManifest Gecko unsupported API warning', () => {
     )
     expect(next).toHaveLength(1)
     expect(next[0].message).toContain('chrome.offscreen')
+  })
+
+  const MANAGED_READ = 'chrome.storage.managed.get("policy")\n'
+  const BADGE_CALL = 'chrome.action.setBadgeTextColor({color: "#fff"})\n'
+
+  it('warns on a safari build that reads through a missing member', () => {
+    const warnings = run('production', 'safari', mv3, MANAGED_READ)
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0].name).toBe('SafariUnsupportedApiWarning')
+    expect(warnings[0].file).toBe('background.js')
+    expect(warnings[0].message).toContain(
+      'calls chrome.storage.managed, which Safari does not have'
+    )
+    expect(warnings[0].message).toContain('no managed storage area')
+    expect(warnings[0].message).toContain('EXTENSION_PUBLIC_BROWSER')
+    expect(warnings[0].message).toContain('chrome.storage.managed?.')
+  })
+
+  it('warns on a safari build that calls a missing function', () => {
+    const warnings = run('production', 'safari', mv3, BADGE_CALL)
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0].message).toContain(
+      'calls chrome.action.setBadgeTextColor, which Safari does not have'
+    )
+    // The guard belongs at the member, since Safari has chrome.action itself
+    expect(warnings[0].message).toContain('chrome.action.setBadgeTextColor?.()')
+    expect(warnings[0].message).toContain(
+      'so a guard on the namespace does not help'
+    )
+  })
+
+  it('stays quiet when the member is reached with optional chaining', () => {
+    expect(
+      run('production', 'safari', mv3, 'chrome.storage.managed?.get("k")\n')
+    ).toEqual([])
+    expect(
+      run(
+        'production',
+        'safari',
+        mv3,
+        'chrome.action.setBadgeTextColor?.({})\n'
+      )
+    ).toEqual([])
+  })
+
+  it('never warns for the members Safari does implement', () => {
+    const supported = [
+      'chrome.storage.local.get("k")\n',
+      'chrome.storage.session.get("k")\n',
+      'chrome.storage.sync.get("k")\n',
+      'chrome.action.setBadgeText({text: "1"})\n',
+      'chrome.action.setBadgeBackgroundColor({color: "#fff"})\n',
+      'chrome.runtime.onInstalled.addListener(() => {})\n',
+      'chrome.runtime.onStartup.addListener(() => {})\n',
+      'chrome.webNavigation.onCompleted.addListener(() => {})\n',
+      'chrome.declarativeNetRequest.updateDynamicRules({})\n',
+      'chrome.tabs.query({})\n'
+    ].join('')
+    expect(run('production', 'safari', mv3, supported)).toEqual([])
+  })
+
+  // A missing constant reads as undefined rather than throwing, and a
+  // Firefox-only member is not something a Chromium-first project writes.
+  it('never warns for a missing constant or a Firefox-only member', () => {
+    const rejected = [
+      'const max = chrome.declarativeNetRequest.MAX_NUMBER_OF_DYNAMIC_RULES\n',
+      'const id = chrome.declarativeNetRequest.SESSION_RULESET_ID\n',
+      'chrome.menus.onShown.addListener(() => {})\n',
+      'chrome.menus.getTargetElement(1)\n',
+      'chrome.webRequest.filterResponseData("1")\n'
+    ].join('')
+    expect(run('production', 'safari', mv3, rejected)).toEqual([])
+  })
+
+  it('warns once, not twice, when the namespace itself is unsupported', () => {
+    const warnings = run('production', 'safari', mv3, SIDE_PANEL)
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0].message).toContain('chrome.sidePanel')
+  })
+
+  it('reports a namespace and a member on one file as two distinct lines', () => {
+    const warnings = run('production', 'safari', mv3, SIDE_PANEL + MANAGED_READ)
+    expect(warnings).toHaveLength(2)
+    expect(warnings[0].message).toContain(
+      'calls chrome.sidePanel, which Safari does not have'
+    )
+    expect(warnings[1].message).toContain(
+      'calls chrome.storage.managed, which Safari does not have'
+    )
+  })
+
+  it('applies the dev emitted-evidence gate to a member too', () => {
+    // No chunk graph, so nothing proves the call reached a built script
+    expect(run('development', 'safari', mv3, MANAGED_READ)).toEqual([])
+    expect(
+      run('development', 'safari', mv3, MANAGED_READ, {chunkGraph: true})
+    ).toHaveLength(1)
+    expect(
+      run('development', 'safari', mv3, MANAGED_READ, {
+        chunkGraph: true,
+        emitted: 'console.log("this build dropped the branch")\n'
+      })
+    ).toEqual([])
+  })
+
+  it('warns once for the same member across repeated dev compiles', () => {
+    const step = new UpdateManifest({
+      manifestPath: path.join(tmp, 'manifest.json'),
+      browser: 'safari' as any
+    })
+    const opts = {chunkGraph: true, instance: step}
+    expect(run('development', 'safari', mv3, MANAGED_READ, opts)).toHaveLength(
+      1
+    )
+    expect(run('development', 'safari', mv3, MANAGED_READ, opts)).toEqual([])
+    const next = run(
+      'development',
+      'safari',
+      mv3,
+      MANAGED_READ + BADGE_CALL,
+      opts
+    )
+    expect(next).toHaveLength(1)
+    expect(next[0].message).toContain('chrome.action.setBadgeTextColor')
+  })
+
+  // Gecko's warning stays namespace shaped, so the member table is webkit only.
+  // BADGE_CALL is read through chrome.action, which gecko already flags on
+  // Manifest V2, so the Manifest V2 leg uses a namespace gecko never lists.
+  it('leaves gecko untouched by the member table', () => {
+    expect(
+      run('production', 'firefox', mv3, MANAGED_READ + BADGE_CALL)
+    ).toEqual([])
+    expect(run('production', 'firefox', mv2, MANAGED_READ)).toEqual([])
+    expect(run('production', 'chrome', mv3, MANAGED_READ + BADGE_CALL)).toEqual(
+      []
+    )
   })
 
   it('repeats the warning on every production build', () => {
