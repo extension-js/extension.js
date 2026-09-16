@@ -74,7 +74,7 @@ vi.mock('dotenv', () => ({
 
 import {getPreloadedEnvKeys} from '../../lib/config-loader'
 import {getCurrentManifestContent} from '../../plugin-web-extension/feature-manifest/manifest-lib/manifest'
-import {EnvPlugin} from '../env'
+import {EnvPlugin, IMPORT_META_URL_RUNTIME} from '../env'
 
 const toPosix = (value: string) => value.replace(/\\/g, '/')
 
@@ -169,7 +169,8 @@ describe('EnvPlugin', () => {
     expect(lastDefineArgs['process.env']).toBeTruthy()
     expect(lastDefineArgs['import.meta.dirname']).toBe('undefined')
     expect(lastDefineArgs['import.meta.filename']).toBe('undefined')
-    expect(lastDefineArgs['import.meta.url']).toBeUndefined()
+    expect(lastDefineArgs['import.meta.url']).toBe(IMPORT_META_URL_RUNTIME)
+    expect(lastDefineArgs['import.meta.url']).not.toContain('file:')
     expect(provideApply).not.toHaveBeenCalled()
   })
 

@@ -54,13 +54,17 @@ export class InjectBridgeProducer {
             // A profile-cached SW keeps running the OLD bundle after a server
             // restart; this file is its only path to the live port (fetched
             // from disk, so it is always the current session's value).
-            if (!compilation.getAsset(CONTROL_PORT_ASSET_NAME)) {
-              compilation.emitAsset(
-                CONTROL_PORT_ASSET_NAME,
-                new sources.RawSource(
-                  JSON.stringify({port: controlPort, instanceId})
-                )
-              )
+            // It is REWRITTEN every compile on purpose: an emit guarded on
+            // absence left a previous session's instanceId in place, and the
+            // instance id gates every hello, so the extension could never
+            // reconnect to the new session.
+            const controlAsset = new sources.RawSource(
+              JSON.stringify({port: controlPort, instanceId})
+            )
+            if (compilation.getAsset(CONTROL_PORT_ASSET_NAME)) {
+              compilation.updateAsset(CONTROL_PORT_ASSET_NAME, controlAsset)
+            } else {
+              compilation.emitAsset(CONTROL_PORT_ASSET_NAME, controlAsset)
             }
 
             for (const asset of compilation.getAssets()) {

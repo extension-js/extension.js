@@ -37,7 +37,7 @@ export interface BridgeConnection {
 export interface BridgeBrokerOptions {
   instanceId: string
   runId: string
-  engine?: 'chromium' | 'firefox'
+  engine?: 'chromium' | 'firefox' | 'webkit'
   ring?: LogRingBuffer
   file?: LogsFileWriter
   allowControl?: boolean
@@ -51,6 +51,7 @@ export interface BridgeBrokerOptions {
   // Called once when the extension's SW first connects over the control channel;
   // stamps a distinct "runtime attached" signal into ready.json.
   onExecutorAttached?: () => void
+  onExecutorDetached?: () => void
 }
 
 // Defined with the wire constants in ./contracts, re-exported here because
@@ -163,7 +164,7 @@ interface Pending {
 export class BridgeBroker {
   private readonly instanceId: string
   private readonly runId: string
-  private readonly engine?: 'chromium' | 'firefox'
+  private readonly engine?: 'chromium' | 'firefox' | 'webkit'
   private readonly ring: LogRingBuffer
   private readonly file?: LogsFileWriter
   private readonly roles = new Map<BridgeConnection, BridgeRole>()
@@ -193,6 +194,7 @@ export class BridgeBroker {
     | null = null
   /** Fired once, on the first producer hello, to stamp ready.json. */
   private readonly onExecutorAttached?: () => void
+  private readonly onExecutorDetached?: () => void
   private lastProducerDisconnectedAt: number | null = null
   // When the last stale-instance producer hello arrived; diagnosis state,
   // stamped even for rate-limited hellos (unlike staleResyncTimes).
@@ -215,6 +217,7 @@ export class BridgeBroker {
     this.actions = options.actions
     this.authorMode = options.authorMode ?? false
     this.onExecutorAttached = options.onExecutorAttached
+    this.onExecutorDetached = options.onExecutorDetached
     this.now = options.now ?? (() => Date.now())
     this.setTimer = options.setTimer ?? ((fn, ms) => setTimeout(fn, ms))
     this.clearTimer = options.clearTimer ?? ((h) => clearTimeout(h))
@@ -280,6 +283,11 @@ export class BridgeBroker {
 
     if (role === 'producer') {
       this.lastProducerDisconnectedAt = this.now()
+      // Only the LAST producer leaving means the extension stopped answering.
+      const stillConnected = [...this.roles.values()].some(
+        (r) => r === 'producer'
+      )
+      if (!stillConnected) this.onExecutorDetached?.()
     }
 
     // Drop any commands this controller was awaiting (no result to route).
@@ -335,7 +343,9 @@ export class BridgeBroker {
 
   // After a broadcast reached zero producers, decide whether to warn once that
   // the edit isn't reaching any page (grace-gated, deduped per attach state).
-  undeliveredReloadWarning(): string | null {
+  undeliveredReloadWarning(options?: {
+    producerRestartExpected?: boolean
+  }): string | null {
     const now = this.now()
 
     // Cold start: the browser may still be launching and the SW connecting, so
@@ -354,6 +364,12 @@ export class BridgeBroker {
     const kind = this.producerEverConnected
       ? 'recently-disconnected'
       : 'never-connected'
+
+    // The caller took the extension down itself to ship this build, so a producer
+    // that was here and left is expected and the latch applies on reconnect.
+    if (options?.producerRestartExpected && kind === 'recently-disconnected') {
+      return null
+    }
 
     // One warning per attach-state transition, not once per save.
     if (this.lastUndeliveredWarnKind === kind) return null

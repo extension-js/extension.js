@@ -126,7 +126,7 @@ export function registerDevCommand(program: Command) {
     )
     .option(
       `-b, --browser <${BROWSER_TARGETS_HELP}>`,
-      'specify a browser/engine to run. Defaults to `chromium`. `safari` builds and opens a Safari app via Xcode (macOS only; no live reload)'
+      'specify a browser/engine to run. Defaults to `chromium`. `safari` builds and opens a Safari app via Xcode (macOS only)'
     )
     .option(
       '--chromium-binary <path-to-binary>',

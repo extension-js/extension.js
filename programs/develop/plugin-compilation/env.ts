@@ -29,6 +29,11 @@ import {setCurrentManifestContent} from '../plugin-web-extension/feature-manifes
 import type {DevOptions, PluginInterface} from '../types'
 import * as messages from './compilation-lib/messages'
 
+// Extension pages and workers keep their own URL, content scripts get the
+// extension root, and a MAIN world script without a runtime gets the page URL.
+export const IMPORT_META_URL_RUNTIME =
+  '(function(){var h=typeof document!=="undefined"&&document.baseURI||self.location.href;try{var g=globalThis,r=(g.browser||g.chrome).runtime.getURL("/");return h.indexOf(r)===0?h:r}catch(_){return h}})()'
+
 function resolveProcessShim(): string | undefined {
   const candidate = path.join(__dirname, '..', 'runtime', 'process-shim.cjs')
   try {
@@ -256,6 +261,10 @@ export class EnvPlugin {
     // Dependencies written for Node read the free variable `global`. Point it
     // at globalThis, rspack's own global shim is off (node.global in rspack-config).
     filteredEnvVars.global = 'globalThis'
+
+    // rspack inlines a bare import.meta.url as the module's file:// path, which
+    // ships the build machine's folders. new URL(x, import.meta.url) keeps its own rewrite.
+    filteredEnvVars['import.meta.url'] = IMPORT_META_URL_RUNTIME
 
     const injectedCount = Object.keys(filteredEnvVars).filter((k) =>
       k.startsWith('process.env.EXTENSION_PUBLIC_')

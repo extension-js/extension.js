@@ -182,6 +182,172 @@ export function geckoSidePanelUnsupported(file: string) {
   return lines.join('\n')
 }
 
+// Safari ships no counterpart for these namespaces, so the member read itself
+// throws and the background dies before it can report anything.
+function safariUnsupportedApi(file: string, api: string, detail: string) {
+  const lines: string[] = []
+  lines.push(
+    `${prefix('warn')} ${colors.underline(file)} calls chrome.${api}, which Safari does not have.`
+  )
+  lines.push(detail)
+  lines.push(
+    `Move the call behind a build-time branch on ${colors.blue('import.meta.env.EXTENSION_PUBLIC_BROWSER')}, or guard it with ${colors.yellow(`chrome.${api}?.`)}.`
+  )
+  return lines.join('\n')
+}
+
+const safariBackgroundDies =
+  'The call throws when the script runs, Safari drops the background, and nothing reports an error.'
+
+export function safariSidePanelUnsupported(file: string) {
+  return safariUnsupportedApi(
+    file,
+    'sidePanel',
+    `The call throws when the script runs. In a background service worker, Safari then never starts the worker, and nothing reports an error.`
+  )
+}
+
+export function safariOffscreenUnsupported(file: string) {
+  return safariUnsupportedApi(
+    file,
+    'offscreen',
+    `Safari has no offscreen documents, so that DOM work has no place to run. ${safariBackgroundDies}`
+  )
+}
+
+export function safariTabGroupsUnsupported(file: string) {
+  return safariUnsupportedApi(
+    file,
+    'tabGroups',
+    `Safari has no tab groups, and its tabs carry no group id. ${safariBackgroundDies}`
+  )
+}
+
+export function safariManagementUnsupported(file: string) {
+  return safariUnsupportedApi(
+    file,
+    'management',
+    `Safari exposes no management namespace at all, not even getSelf. ${safariBackgroundDies}`
+  )
+}
+
+export function safariUserScriptsUnsupported(file: string) {
+  return safariUnsupportedApi(
+    file,
+    'userScripts',
+    `Safari has no userScripts namespace, and scripting.registerContentScripts is the closest it offers. ${safariBackgroundDies}`
+  )
+}
+
+export function safariIdentityUnsupported(file: string) {
+  return safariUnsupportedApi(
+    file,
+    'identity',
+    `Safari has no identity namespace, and Apple points OAuth flows at a normal tab instead. ${safariBackgroundDies}`
+  )
+}
+
+export function safariNotificationsUnsupported(file: string) {
+  return safariUnsupportedApi(
+    file,
+    'notifications',
+    `Safari has no notifications namespace, so a page has to raise the web Notification instead. ${safariBackgroundDies}`
+  )
+}
+
+export function safariOmniboxUnsupported(file: string) {
+  return safariUnsupportedApi(
+    file,
+    'omnibox',
+    `Safari has no omnibox keyword API. ${safariBackgroundDies}`
+  )
+}
+
+export function safariBookmarksUnsupported(file: string) {
+  return safariUnsupportedApi(
+    file,
+    'bookmarks',
+    `Safari does not expose bookmarks to extensions on any version. ${safariBackgroundDies}`
+  )
+}
+
+export function safariHistoryUnsupported(file: string) {
+  return safariUnsupportedApi(
+    file,
+    'history',
+    `Safari does not expose browsing history to extensions on any version. ${safariBackgroundDies}`
+  )
+}
+
+export function safariDownloadsUnsupported(file: string) {
+  return safariUnsupportedApi(
+    file,
+    'downloads',
+    `Safari has no downloads namespace. ${safariBackgroundDies}`
+  )
+}
+
+export function safariIdleUnsupported(file: string) {
+  return safariUnsupportedApi(
+    file,
+    'idle',
+    `Safari has no idle namespace. ${safariBackgroundDies}`
+  )
+}
+
+// Safari ships these namespaces but not these members, so the namespace
+// resolves and the throw waits one level deeper. Keyed api.member, and the
+// step's member table is held to this list by a spec so neither can drift.
+export const safariMissingMemberDetails: Record<string, string> = {
+  'action.getUserSettings': `Safari has no pinned-state query for the toolbar button, so there is no function to call. ${safariBackgroundDies}`,
+  'action.getBadgeTextColor': `Safari draws the badge in its own colors and offers no badge text color call. ${safariBackgroundDies}`,
+  'action.setBadgeTextColor': `Safari draws the badge in its own colors and offers no badge text color call. ${safariBackgroundDies}`,
+  'action.onUserSettingsChanged': `Safari raises no event when the toolbar button settings change, so the listener attaches to nothing. ${safariBackgroundDies}`,
+  'storage.managed': `Safari has no managed storage area, since it carries no enterprise policy channel for web extensions. ${safariBackgroundDies}`,
+  'runtime.getContexts': `Safari keeps no inventory of extension contexts to hand back. ${safariBackgroundDies}`,
+  'runtime.onSuspend': `Safari tears a background down without announcing it, so this lifecycle event does not exist. ${safariBackgroundDies}`,
+  'runtime.onSuspendCanceled': `Safari tears a background down without announcing it, so this lifecycle event does not exist. ${safariBackgroundDies}`,
+  'runtime.onUpdateAvailable': `Safari ships an extension inside its host app, so the browser raises no update event for it. ${safariBackgroundDies}`,
+  'declarativeNetRequest.getAvailableStaticRuleCount': `Safari implements the blocking core of declarativeNetRequest and not its rule-budget queries. ${safariBackgroundDies}`,
+  'declarativeNetRequest.getDisabledRuleIds': `Safari cannot disable individual static rules, so it has nothing to report here. ${safariBackgroundDies}`,
+  'declarativeNetRequest.updateStaticRules': `Safari cannot toggle individual static rules, only whole rulesets through updateEnabledRulesets. ${safariBackgroundDies}`,
+  'declarativeNetRequest.testMatchOutcome': `Safari has no rule-matching test harness, which is a Chrome debugging aid. ${safariBackgroundDies}`,
+  'declarativeNetRequest.onRuleMatchedDebug': `Safari raises no rule-match debug event, which Chrome offers to unpacked extensions only. ${safariBackgroundDies}`,
+  'tabs.group': `Safari has no tab groups at all, so there is no group to move a tab into. ${safariBackgroundDies}`,
+  'tabs.ungroup': `Safari has no tab groups at all, so there is no group to take a tab out of. ${safariBackgroundDies}`,
+  'webNavigation.onCreatedNavigationTarget': `Safari reports the main navigation events only, and this one is not among them. ${safariBackgroundDies}`,
+  'webNavigation.onHistoryStateUpdated': `Safari reports the main navigation events only, so a History API navigation goes unannounced. ${safariBackgroundDies}`,
+  'webNavigation.onReferenceFragmentUpdated': `Safari reports the main navigation events only, so a fragment change goes unannounced. ${safariBackgroundDies}`,
+  'webNavigation.onTabReplaced': `Safari reports the main navigation events only, and this one is not among them. ${safariBackgroundDies}`,
+  'windows.onBoundsChanged': `Safari raises no event when a window is moved or resized. ${safariBackgroundDies}`
+}
+
+// The member sits on a namespace Safari does have, so the message names the
+// member and the guard goes at the member, not at the namespace above it.
+export function safariMemberUnsupported(
+  file: string,
+  api: string,
+  member: string,
+  kind: 'call' | 'read'
+) {
+  const guard =
+    kind === 'call'
+      ? `chrome.${api}.${member}?.()`
+      : `chrome.${api}.${member}?.`
+  const lines: string[] = []
+  lines.push(
+    `${prefix('warn')} ${colors.underline(file)} calls chrome.${api}.${member}, which Safari does not have.`
+  )
+  lines.push(
+    safariMissingMemberDetails[`${api}.${member}`] ||
+      `Safari ships chrome.${api} without this member. ${safariBackgroundDies}`
+  )
+  lines.push(
+    `Safari has ${colors.blue(`chrome.${api}`)} itself, so a guard on the namespace does not help. Move the call behind a build-time branch on ${colors.blue('import.meta.env.EXTENSION_PUBLIC_BROWSER')}, or guard it with ${colors.yellow(guard)}.`
+  )
+  return lines.join('\n')
+}
+
 export function geckoActionUnsupportedOnMv2(file: string) {
   const lines: string[] = []
   lines.push(
@@ -192,6 +358,26 @@ export function geckoActionUnsupportedOnMv2(file: string) {
   )
   lines.push(
     `Use browserAction behind a build-time branch on ${colors.blue('import.meta.env.EXTENSION_PUBLIC_BROWSER')}, or declare Manifest V3 for Firefox with ${colors.yellow('firefox:manifest_version')}.`
+  )
+  return lines.join('\n')
+}
+
+// Safari inherits chromium: keys by design, so a dropped key would otherwise
+// vanish with no trace and the user would debug a feature that never loaded.
+export function webkitUnsupportedKeysDropped(
+  browser: string,
+  dropped: Array<{path: string; reason: string}>
+) {
+  const count = dropped.length
+  const lines: string[] = []
+  lines.push(
+    `${prefix('warn')} Safari has no support for ${String(count)} manifest ${count === 1 ? 'key' : 'keys'} this build inherited from its Chromium manifest, so the ${colors.blue(browser)} build dropped ${count === 1 ? 'it' : 'them'}.`
+  )
+  for (const entry of dropped) {
+    lines.push(`${colors.yellow(entry.path)} ${colors.gray(entry.reason)}`)
+  }
+  lines.push(
+    `Every key above is inert on Safari, so the built app lost nothing it could have run. Declare a Safari-only replacement with the ${colors.yellow('safari:')} prefix if you have one.`
   )
   return lines.join('\n')
 }

@@ -14,6 +14,7 @@ import {
   resolveProjectPackageManager,
   type ScaffoldPackageManager
 } from './lib/package-manager'
+import {isUrlProjectName} from './lib/project-name'
 import * as utils from './lib/utils'
 import {createDirectory} from './steps/create-directory'
 import {generateExtensionTypes} from './steps/generate-extension-types'
@@ -86,7 +87,7 @@ export async function extensionCreate(
     ? DEFAULT_TEMPLATE_NAME
     : String(template)
 
-  if (projectNameInput.startsWith('http')) {
+  if (isUrlProjectName(projectNameInput)) {
     throw new Error(messages.noUrlAllowed())
   }
 
