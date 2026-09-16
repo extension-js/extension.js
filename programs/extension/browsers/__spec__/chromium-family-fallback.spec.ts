@@ -40,6 +40,7 @@ afterEach(() => {
   } else {
     process.env.EXT_BROWSERS_CACHE_DIR = previousCacheDir
   }
+
   fs.rmSync(cacheRoot, {recursive: true, force: true})
 })
 

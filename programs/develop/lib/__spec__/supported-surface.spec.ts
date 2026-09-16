@@ -20,12 +20,14 @@ describe('supported surface', () => {
       'bun',
       'deno'
     ])
+
     expect(SUPPORTED_UI_FRAMEWORKS).toEqual([
       'react',
       'preact',
       'vue',
       'svelte'
     ])
+
     expect(SUPPORTED_CSS_TECH).toEqual([
       'css',
       'css-modules',
@@ -43,12 +45,14 @@ describe('supported surface', () => {
       vue: 'vue',
       svelte: 'svelte'
     }
+
     for (const framework of SUPPORTED_UI_FRAMEWORKS) {
       expect(
         OPTIONAL_DEPENDENCY_CONTRACTS,
         `framework '${framework}' has no optional-deps contract`
       ).toHaveProperty(frameworkContracts[framework])
     }
+
     for (const contractId of ['sass', 'less', 'postcss']) {
       expect(OPTIONAL_DEPENDENCY_CONTRACTS).toHaveProperty(contractId)
     }
@@ -60,6 +64,7 @@ describe('supported surface', () => {
       .split('\n')
       .find((line) => line.startsWith('Works with'))
     expect(worksWithLine, 'README lost its "Works with" line').toBeTruthy()
+
     for (const pm of SUPPORTED_PACKAGE_MANAGERS) {
       expect(worksWithLine).toContain(`\`${pm}\``)
     }
@@ -67,6 +72,7 @@ describe('supported surface', () => {
 
   it('README enumerates every supported UI framework', () => {
     const readme = fs.readFileSync(ROOT_README, 'utf-8').toLowerCase()
+
     for (const framework of SUPPORTED_UI_FRAMEWORKS) {
       expect(readme, `README never mentions ${framework}`).toContain(framework)
     }
@@ -74,6 +80,7 @@ describe('supported surface', () => {
 
   it('README browser table covers the flagship browsers and engine families', () => {
     const readme = fs.readFileSync(ROOT_README, 'utf-8')
+
     for (const label of [
       'Google Chrome',
       'Microsoft Edge',
@@ -84,6 +91,7 @@ describe('supported surface', () => {
     ]) {
       expect(readme).toContain(label)
     }
+
     for (const flagship of ['chrome', 'edge', 'firefox']) {
       expect(SUPPORTED_BROWSERS).toContain(flagship)
     }

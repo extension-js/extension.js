@@ -18,6 +18,7 @@ export function devInjectedHostPatterns(
 ): readonly string[] {
   const contentScripts = manifest?.content_scripts
   if (!Array.isArray(contentScripts)) return []
+
   // A MAIN world script repeats its matches on a synthesised bridge entry,
   // so the union dedupes or the promotion warning prints the pattern twice.
   return [
@@ -36,10 +37,13 @@ export function declaredHostPatterns(
 ): string[] {
   if (manifest?.manifest_version === 3) {
     const hosts = manifest?.host_permissions
+
     return Array.isArray(hosts) ? (hosts as string[]) : []
   }
+
   const permissions = manifest?.permissions
   if (!Array.isArray(permissions)) return []
+
   return (permissions as unknown[])
     .filter((entry): entry is string => typeof entry === 'string')
     .filter((entry) => isHostPattern(entry))
@@ -53,6 +57,7 @@ export function optionalHostPatterns(
       ? manifest?.optional_host_permissions
       : manifest?.optional_permissions
   if (!Array.isArray(declared)) return []
+
   return (declared as unknown[])
     .filter((entry): entry is string => typeof entry === 'string')
     .filter((entry) => isHostPattern(entry))
@@ -74,7 +79,9 @@ export function scannableSourcePath(
   resource: string | undefined
 ): string | undefined {
   if (!resource || resource.includes('node_modules')) return undefined
+
   const bare = resource.split('?')[0]
+
   return SCANNABLE_SOURCE_RE.test(bare) ? bare : undefined
 }
 
@@ -90,9 +97,11 @@ export function matchesHostPattern(pattern: string, url: string): boolean {
 
   const parts = /^(\*|https?|file|ftp|urn):\/\/([^/]*)(\/.*)?$/.exec(pattern)
   if (!parts) return false
+
   const [, scheme, host, rawPath] = parts
 
   let parsed: URL
+
   try {
     parsed = new URL(url)
   } catch {
@@ -100,6 +109,7 @@ export function matchesHostPattern(pattern: string, url: string): boolean {
   }
 
   const urlScheme = parsed.protocol.replace(/:$/, '')
+
   if (scheme === '*') {
     if (urlScheme !== 'http' && urlScheme !== 'https') return false
   } else if (scheme !== urlScheme) {
@@ -109,6 +119,7 @@ export function matchesHostPattern(pattern: string, url: string): boolean {
   if (host !== '*') {
     if (host.startsWith('*.')) {
       const base = host.slice(2)
+
       if (parsed.hostname !== base && !parsed.hostname.endsWith(`.${base}`)) {
         return false
       }
@@ -121,6 +132,7 @@ export function matchesHostPattern(pattern: string, url: string): boolean {
   const pathRe = new RegExp(
     `^${pathPattern.split('*').map(escapeForRegExp).join('.*')}$`
   )
+
   return pathRe.test(parsed.pathname + parsed.search)
 }
 
@@ -158,6 +170,7 @@ const XHR_OPEN_RE = new RegExp(
 function isLoopback(url: string): boolean {
   try {
     const {hostname} = new URL(url)
+
     return (
       hostname === 'localhost' ||
       hostname === '127.0.0.1' ||
@@ -171,32 +184,32 @@ function isLoopback(url: string): boolean {
 
 export function findAbsoluteRequestUrls(source: string): string[] {
   const found: string[] = []
+
   for (const expression of [FETCH_RE, REQUEST_RE]) {
     expression.lastIndex = 0
     let match: RegExpExecArray | null = expression.exec(source)
+
     while (match) {
       found.push(match[2])
       match = expression.exec(source)
     }
   }
+
   // The .open() shape is common enough on unrelated objects that it only
   // counts when the same file names XMLHttpRequest.
   if (/\bXMLHttpRequest\b/.test(source)) {
     XHR_OPEN_RE.lastIndex = 0
     let match: RegExpExecArray | null = XHR_OPEN_RE.exec(source)
+
     while (match) {
       found.push(match[3])
       match = XHR_OPEN_RE.exec(source)
     }
   }
+
   return [...new Set(found)].filter((url) => !isLoopback(url))
 }
 
-/**
- * Finds absolute request URLs whose host is granted only because dev unioned
- * the content-script matches into the manifest. Content-script modules are
- * skipped: their requests answer to page CORS rather than host permissions.
- */
 export function findInjectedOnlyHostUses(
   modules: Iterable<ScannableModule>,
   injected: readonly string[],
@@ -213,9 +226,11 @@ export function findInjectedOnlyHostUses(
     if (isContentScriptModule(module)) continue
 
     let source: string
+
     try {
       const stat = fs.statSync(resource)
       if (stat.size > 1024 * 1024) continue
+
       source = fs.readFileSync(resource, 'utf-8')
     } catch {
       continue
@@ -223,17 +238,20 @@ export function findInjectedOnlyHostUses(
 
     for (const url of findAbsoluteRequestUrls(source)) {
       if (declared.some((pattern) => matchesHostPattern(pattern, url))) continue
+
       const pattern = injected.find((candidate) =>
         matchesHostPattern(candidate, url)
       )
       if (!pattern) continue
 
       let origin: string
+
       try {
         origin = new URL(url).origin
       } catch {
         continue
       }
+
       if (firstUseByOrigin.has(origin)) continue
 
       firstUseByOrigin.set(origin, {

@@ -42,6 +42,7 @@ describe('readDenoConfigDependencies', () => {
       path.join(projectPath, 'deno.json'),
       JSON.stringify({imports: {react: 'npm:react@^18.3.1'}})
     )
+
     await fsp.writeFile(
       path.join(projectPath, 'deno.jsonc'),
       JSON.stringify({imports: {preact: 'npm:preact@10.0.0'}})

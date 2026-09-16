@@ -50,52 +50,63 @@ vi.mock('../js-tools/react', () => ({
   isUsingReact: vi.fn(() => true),
   maybeUseReact: vi.fn(async () => mockedReact)
 }))
+
 vi.mock('../js-tools/preact', () => ({
   isUsingPreact: vi.fn(() => false),
   maybeUsePreact: vi.fn(async () => mockedPreact)
 }))
+
 vi.mock('../js-tools/vue', () => ({
   isUsingVue: vi.fn(() => false),
   maybeUseVue: vi.fn(async () => mockedVue)
 }))
+
 vi.mock('../js-tools/solid', () => ({
   isUsingSolid: vi.fn(() => false),
   maybeUseSolid: vi.fn(async () => undefined)
 }))
+
 vi.mock('../js-tools/svelte', () => ({
   maybeUseSvelte: vi.fn(async () => mockedSvelte)
 }))
+
 vi.mock('../js-tools/typescript', () => ({
   isUsingTypeScript: vi.fn(() => true),
   ensureTypeScriptConfig: vi.fn(),
   getUserTypeScriptConfigFile: vi.fn(() => '/project/tsconfig.json')
 }))
+
 vi.mock('../../lib/transpile-packages', () => ({
   resolveTranspilePackageDirs:
     transpilePackagesMocks.resolveTranspilePackageDirs,
   isSubPath: transpilePackagesMocks.isSubPath
 }))
+
 vi.mock('browser-extension-manifest-fields', () => ({
   getManifestFieldsData: vi.fn(() => ({
     html: projectFilesMocks.manifestHtmlFields
   })),
   filterKeysForThisBrowser: vi.fn((manifest: any) => manifest)
 }))
+
 vi.mock('../../plugin-special-folders/get-data', () => ({
   getSpecialFoldersDataForCompiler: vi.fn(() => ({pages: {}, scripts: {}}))
 }))
 
 vi.mock('fs', async () => {
   const actual = await vi.importActual<typeof import('fs')>('fs')
+
   return {
     ...actual,
     readFileSync: vi.fn((filePath: any) => {
       if (String(filePath).endsWith('manifest.json')) {
         return JSON.stringify(projectFilesMocks.manifest)
       }
+
       if (projectFilesMocks.htmlFiles[String(filePath)] !== undefined) {
         return projectFilesMocks.htmlFiles[String(filePath)]
       }
+
       return (actual.readFileSync as any)(filePath)
     })
   }
@@ -138,6 +149,7 @@ function swcOptions(rule: any, resource = '/project/src/index.ts') {
   )
   const use = variant?.use ?? rule?.use
   const entry = Array.isArray(use) ? use[0] : use
+
   return entry?.options
 }
 
@@ -149,6 +161,7 @@ describe('JsFrameworksPlugin', () => {
       minimum_chrome_version: '120',
       browser_specific_settings: {gecko: {strict_min_version: '118.0'}}
     }
+
     projectFilesMocks.htmlFiles = {}
     projectFilesMocks.manifestHtmlFields = {}
   })
@@ -177,9 +190,11 @@ describe('JsFrameworksPlugin', () => {
     expect(
       swcOptions(swcRule, '/project/src/popup.tsx')?.jsc?.parser?.tsx
     ).toBe(true)
+
     expect(
       swcOptions(swcRule, '/project/src/popup.jsx')?.jsc?.parser
     ).toMatchObject({syntax: 'ecmascript', jsx: true})
+
     expect(swcOptions(swcRule)?.sourceMap).toBe(true)
 
     const tests = compiler.options.module.rules.map((r: any) => String(r.test))
@@ -284,6 +299,7 @@ describe('JsFrameworksPlugin', () => {
     expect(vueRules[0].options.compilerOptions.isCustomElement).toBe(
       isCustomElement
     )
+
     expect(vueRules[0].options.experimentalInlineMatchResource).toBe(true)
   })
 
@@ -291,6 +307,7 @@ describe('JsFrameworksPlugin', () => {
     transpilePackagesMocks.resolveTranspilePackageDirs.mockReturnValue([
       '/project/node_modules/@workspace/ui'
     ])
+
     const compiler = createCompiler('development')
     const plugin = new JsFrameworksPlugin({
       manifestPath: '/project/manifest.json',
@@ -312,6 +329,7 @@ describe('JsFrameworksPlugin', () => {
     expect(
       excludeFn('/project/node_modules/@workspace/ui/src/button.tsx')
     ).toBe(false)
+
     expect(excludeFn('/project/node_modules/other-lib/index.js')).toBe(true)
   })
 
@@ -333,6 +351,7 @@ describe('JsFrameworksPlugin', () => {
       (rule: any) => rule?.layer === 'extensionjs-content-script'
     )
     expect(contentRules.length).toBeGreaterThan(0)
+
     for (const rule of contentRules) {
       expect((rule as any).type).toBe('javascript/auto')
     }
@@ -347,6 +366,7 @@ describe('JsFrameworksPlugin', () => {
     projectFilesMocks.manifest = {
       background: {service_worker: 'sw.js', type: 'module'}
     }
+
     const compiler = createCompiler('development')
     const plugin = new JsFrameworksPlugin({
       manifestPath: '/project/manifest.json',
@@ -371,6 +391,7 @@ describe('JsFrameworksPlugin', () => {
       background: {service_worker: 'sw.js', type: 'module'},
       content_scripts: [{matches: ['<all_urls>'], js: ['content.js']}]
     }
+
     const compiler = createCompiler('development')
     const plugin = new JsFrameworksPlugin({
       manifestPath: '/project/manifest.json',
@@ -393,6 +414,7 @@ describe('JsFrameworksPlugin', () => {
     projectFilesMocks.manifest = {
       background: {service_worker: 'sw.js'}
     }
+
     const compiler = createCompiler('development')
     const plugin = new JsFrameworksPlugin({
       manifestPath: '/project/manifest.json',
@@ -412,6 +434,7 @@ describe('JsFrameworksPlugin', () => {
     projectFilesMocks.manifestHtmlFields = {
       'action/default_popup': '/project/popup.html'
     }
+
     projectFilesMocks.htmlFiles['/project/popup.html'] = [
       '<html><body>',
       '<script type="module" src="./main.js"></script>',
@@ -441,6 +464,7 @@ describe('JsFrameworksPlugin', () => {
     transpilePackagesMocks.resolveTranspilePackageDirs.mockReturnValue([
       '/project/node_modules/@workspace/ui'
     ])
+
     const compiler = createCompiler('development')
     const plugin = new JsFrameworksPlugin({
       manifestPath: '/project/manifest.json',

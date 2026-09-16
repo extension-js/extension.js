@@ -40,13 +40,16 @@ export function resolveWslLinuxBinary() {
 
 export function resolveWslWindowsBinary(): string | null {
   if (!isWslEnv()) return null
+
   const candidates = [
     '/mnt/c/Program Files/Mozilla Firefox/firefox.exe',
     '/mnt/c/Program Files (x86)/Mozilla Firefox/firefox.exe'
   ]
+
   for (const candidate of candidates) {
     if (fs.existsSync(candidate)) return candidate
   }
+
   return null
 }
 
@@ -58,6 +61,7 @@ export async function spawnFirefoxProcess(opts: {
   logger?: FirefoxLogger
 }): Promise<ChildProcess> {
   const {binary, args, stdio, fallbackBinary, logger} = opts
+
   const spawnOnce = async (bin: string) => {
     const child = spawn(bin, args, {
       stdio,
@@ -75,13 +79,16 @@ export async function spawnFirefoxProcess(opts: {
         child.removeListener('spawn', handleSpawn)
         reject(error)
       }
+
       const handleSpawn = () => {
         child.removeListener('error', handleError)
         resolve()
       }
+
       child.once('error', handleError)
       child.once('spawn', handleSpawn)
     })
+
     return child
   }
 
@@ -92,8 +99,10 @@ export async function spawnFirefoxProcess(opts: {
       logger?.warn?.(
         '[browser] WSL detected: retrying with Windows Firefox binary.'
       )
+
       return await spawnOnce(fallbackBinary)
     }
+
     throw error
   }
 }

@@ -11,20 +11,24 @@ import {isManifestAddress} from '../paths'
 
 const dirs: string[] = []
 afterEach(() => {
-  for (const dir of dirs.splice(0))
+  for (const dir of dirs.splice(0)) {
     fs.rmSync(dir, {recursive: true, force: true})
+  }
 })
 
 function manifestWith(content: unknown, files: string[] = []) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-path-assets-'))
   dirs.push(dir)
+
   for (const file of files) {
     const abs = path.join(dir, file)
     fs.mkdirSync(path.dirname(abs), {recursive: true})
     fs.writeFileSync(abs, 'x')
   }
+
   const manifestPath = path.join(dir, 'manifest.json')
   fs.writeFileSync(manifestPath, JSON.stringify(content))
+
   return {dir, manifestPath}
 }
 
@@ -72,6 +76,7 @@ describe('settingsOverridesIconFields', () => {
         'fav.png'
       )
     })
+
     const remote = manifestWith({
       chrome_settings_overrides: {
         search_provider: {favicon_url: 'https://cdn.example/fav.png'}
@@ -110,6 +115,7 @@ describe('browser-prefixed settings keys', () => {
     expect(themeExperimentStylesheetEntries(manifestPath, 'firefox')).toEqual({
       'theme_experiment/chrome': [path.join(dir, 'theme', 'chrome.scss')]
     })
+
     // Another browser's prefix stays out of this build.
     expect(themeExperimentStylesheetEntries(manifestPath, 'chrome')).toEqual({})
   })
@@ -131,6 +137,7 @@ describe('browser-prefixed settings keys', () => {
         'start.html'
       )
     })
+
     expect(settingsOverridesIconFields(manifestPath, 'firefox')).toEqual({
       'chrome_settings_overrides/favicon_url': path.join(
         dir,

@@ -26,6 +26,7 @@ const run = async () => {
     'run',
     'compile'
   ])
+
   if (primaryCode === 0) {
     return 0
   }

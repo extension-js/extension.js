@@ -26,6 +26,7 @@ describe('wantsJsonOutput', () => {
     expect(wantsJsonOutput(['node', 'cli', 'dev', '--output', 'json'])).toBe(
       true
     )
+
     expect(wantsJsonOutput(['node', 'cli', 'dev', '--output=json'])).toBe(true)
     expect(wantsJsonOutput(['node', 'cli', 'dev', '--output', 'JSON'])).toBe(
       true
@@ -37,9 +38,11 @@ describe('wantsJsonOutput', () => {
     expect(wantsJsonOutput(['node', 'cli', 'dev', '--output', 'pretty'])).toBe(
       false
     )
+
     expect(wantsJsonOutput(['node', 'cli', 'logs', '--output', 'ndjson'])).toBe(
       false
     )
+
     expect(wantsJsonOutput(['node', 'cli', 'dev', '--output'])).toBe(false)
   })
 })
@@ -57,6 +60,7 @@ describe('isCommanderError and commanderExitCode', () => {
     expect(
       commanderExitCode({code: 'commander.helpDisplayed', exitCode: 0})
     ).toBe(0)
+
     expect(commanderExitCode({code: 'commander.error', exitCode: 2})).toBe(2)
   })
 })

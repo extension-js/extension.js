@@ -46,6 +46,7 @@ function run(manifest: any, browser = 'chrome') {
     manifestPath: '/project/manifest.json',
     browser
   } as any).apply({options: {}} as any)
+
   return captured.webExtension[0]
 }
 
@@ -127,6 +128,7 @@ describe('SetupReloadStrategy content script metadata', () => {
       bundleId: 'content_scripts/content-0.js',
       world: 'extension'
     })
+
     expect(meta['content_scripts/content-1.js'].index).toBe(1)
   })
 
@@ -145,6 +147,7 @@ describe('SetupReloadStrategy content script metadata', () => {
       world: 'main',
       bridgeBundleId: 'content_scripts/content-2.js'
     })
+
     expect(meta['content_scripts/content-2.js']).toEqual({
       index: 2,
       bundleId: 'content_scripts/content-2.js',
@@ -152,6 +155,7 @@ describe('SetupReloadStrategy content script metadata', () => {
       role: 'main_world_bridge',
       mainBundleId: 'content_scripts/content-0.js'
     })
+
     expect(meta['content_scripts/content-1.js'].world).toBe('extension')
   })
 
@@ -167,9 +171,11 @@ describe('SetupReloadStrategy content script metadata', () => {
     expect(meta['content_scripts/content-0.js'].bridgeBundleId).toBe(
       'content_scripts/content-2.js'
     )
+
     expect(meta['content_scripts/content-1.js'].bridgeBundleId).toBe(
       'content_scripts/content-3.js'
     )
+
     expect(meta['content_scripts/content-3.js'].mainBundleId).toBe(
       'content_scripts/content-1.js'
     )
@@ -196,6 +202,7 @@ describe('SetupReloadStrategy wiring', () => {
     new SetupReloadStrategy({
       manifestPath: '/project/manifest.json'
     } as any).apply({options: {}} as any)
+
     expect(captured.backgroundEntry[0].browser).toBe('chrome')
   })
 })

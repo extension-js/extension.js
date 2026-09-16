@@ -6,8 +6,6 @@
 // ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-// Dev-only banner wrapping chrome.scripting.executeScript so /scripts/* edits
-// replay prior injections; in-memory per-tab map, dies with the SW (fine for dev).
 export const SCRIPTS_REPLAY_SHIM_SOURCE = `;(function () {
   try {
     if (typeof globalThis !== "object" || !globalThis) return;

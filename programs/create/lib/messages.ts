@@ -283,12 +283,16 @@ export function installingProjectIntegrations(integrations: string[]) {
       `${colors.gray('This can take a moment.')}`
     )
   }
+
   const formatList = (items: string[]) => {
     if (items.length === 1) return items[0]
     if (items.length === 2) return `${items[0]} and ${items[1]}`
+
     return `${items.slice(0, -1).join(', ')}, and ${items[items.length - 1]}`
   }
+
   const tools = formatList(integrations.map((name) => colors.blue(name)))
+
   return (
     `${prefix('info')} Installing the dependencies for ${tools}…\n` +
     `${colors.gray('This can take a moment.')}`

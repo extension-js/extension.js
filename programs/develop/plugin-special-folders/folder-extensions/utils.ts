@@ -33,6 +33,7 @@ export function toAbs(projectRoot: string, p: string): string {
 
 export function isValidExtensionRoot(dir: string): boolean {
   if (!isDir(dir)) return false
+
   return isFile(path.join(dir, 'manifest.json'))
 }
 
@@ -53,6 +54,7 @@ export function normalizeCompanionConfig(config?: CompanionExtensionsConfig): {
         ...config.paths.filter((p): p is string => typeof p === 'string')
       )
     }
+
     if (typeof config.dir === 'string' && config.dir.trim().length > 0) {
       scanDir = config.dir.trim()
     }
@@ -73,6 +75,7 @@ export function isBrowserNamedCompanionFolder(name: string): boolean {
 export function companionFolderForBrowser(browser: string | undefined): string {
   if (browser && isGeckoBasedBrowser(String(browser))) return 'firefox'
   if (browser === 'edge') return 'edge'
+
   return 'chrome'
 }
 

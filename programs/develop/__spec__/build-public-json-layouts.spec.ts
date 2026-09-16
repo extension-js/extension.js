@@ -66,17 +66,20 @@ function project(options: {
       version: '0.0.0'
     })
   )
+
   fs.writeFileSync(path.join(publicDir, 'rules.json'), ruleset('src.example'))
   fs.writeFileSync(
     path.join(publicDir, 'schema.json'),
     options.schema ?? SCHEMA
   )
+
   if (options.shadowingRootPublic) {
     fs.mkdirSync(path.join(root, 'public'), {recursive: true})
     fs.writeFileSync(
       path.join(root, 'public', 'rules.json'),
       ruleset('root.example')
     )
+
     fs.writeFileSync(path.join(root, 'public', 'schema.json'), SCHEMA)
   }
 
@@ -88,6 +91,7 @@ function project(options: {
     permissions: ['storage'],
     storage: {managed_schema: ref(options.spelling, 'schema.json')}
   }
+
   if (manifestVersion === 3) {
     manifest.permissions = ['declarativeNetRequest', 'storage']
     manifest.host_permissions = ['<all_urls>']
@@ -97,10 +101,12 @@ function project(options: {
       ]
     }
   }
+
   fs.writeFileSync(
     path.join(manifestDir, 'manifest.json'),
     JSON.stringify(manifest, null, 2)
   )
+
   return root
 }
 
@@ -108,6 +114,7 @@ async function build(root: string, browser: 'chrome' | 'firefox' = 'chrome') {
   const {extensionBuild} = await import('../command-build')
   const previous = process.env.VITEST
   process.env.VITEST = 'true'
+
   try {
     return await extensionBuild(root, {
       browser,
@@ -127,6 +134,7 @@ function readDist(root: string, browser: 'chrome' | 'firefox' = 'chrome') {
   const manifest = JSON.parse(
     fs.readFileSync(path.join(distDir, 'manifest.json'), 'utf8')
   )
+
   return {distDir, manifest}
 }
 
@@ -142,9 +150,11 @@ function expectShippedAtOutputRoot(root: string) {
   expect(
     fs.existsSync(path.join(distDir, 'declarative_net_request', 'block.json'))
   ).toBe(false)
+
   expect(
     fs.existsSync(path.join(distDir, 'storage', 'managed_schema.json'))
   ).toBe(false)
+
   return {distDir, manifest}
 }
 
@@ -198,6 +208,7 @@ describe('build: manifest JSON resources under the shipped public folder', () =>
     expect(
       fs.existsSync(path.join(distDir, manifest.storage.managed_schema))
     ).toBe(true)
+
     expect(
       fs.existsSync(path.join(distDir, 'storage', 'managed_schema.json'))
     ).toBe(false)

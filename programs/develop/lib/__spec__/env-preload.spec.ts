@@ -42,6 +42,7 @@ function project(files: Record<string, string>) {
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'env-preload', version: '0.0.0'})
   )
+
   fs.writeFileSync(
     path.join(root, 'manifest.json'),
     JSON.stringify({
@@ -51,10 +52,13 @@ function project(files: Record<string, string>) {
       background: {service_worker: 'background.js'}
     })
   )
+
   fs.writeFileSync(path.join(root, 'background.js'), 'console.log("bg")\n')
+
   for (const [name, content] of Object.entries(files)) {
     fs.writeFileSync(path.join(root, name), content)
   }
+
   return root
 }
 
@@ -107,6 +111,7 @@ describe('env preload layering at config time', () => {
     expect(config.profile).toBe(
       'defaults-A|from-dotenv|local-D|local-E|from-shell'
     )
+
     expect(config.zip).toBe(true)
     expect(process.env.EXTENSION_PUBLIC_SHELL).toBe('from-shell')
   })
@@ -127,6 +132,7 @@ describe('env preload layering at config time', () => {
     const {extensionBuild} = await import('../../command-build')
     const previous = process.env.VITEST
     process.env.VITEST = 'true'
+
     try {
       const summary = await extensionBuild(root, {
         browser: 'chrome',
@@ -140,6 +146,7 @@ describe('env preload layering at config time', () => {
       if (previous === undefined) delete process.env.VITEST
       else process.env.VITEST = previous
     }
+
     const zips = fs
       .readdirSync(path.join(root, 'dist'), {recursive: true})
       .map(String)

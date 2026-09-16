@@ -9,6 +9,7 @@ describe('manifest-overrides type contract', () => {
     expectTypeOf<
       NonNullable<Manifest['omnibox']>['default_icon']
     >().toEqualTypeOf<string | Record<string, string> | undefined>()
+
     expectTypeOf(omnibox).parameter(0).toEqualTypeOf<Manifest>()
   })
 
@@ -22,6 +23,7 @@ describe('manifest-overrides type contract', () => {
     expectTypeOf<Manifest['host_permissions']>().toEqualTypeOf<
       string[] | undefined
     >()
+
     expectTypeOf(hostPermissions).parameter(0).toEqualTypeOf<Manifest>()
   })
 
@@ -29,6 +31,7 @@ describe('manifest-overrides type contract', () => {
     expectTypeOf<
       NonNullable<Manifest['theme_experiment']>['stylesheet']
     >().toEqualTypeOf<string | undefined>()
+
     expectTypeOf(themeExperiment).parameter(0).toEqualTypeOf<Manifest>()
   })
 })

@@ -70,6 +70,7 @@ function writePresentPopupFixture() {
       2
     )
   )
+
   fs.writeFileSync(
     path.join(PRESENT_POPUP_ROOT, 'popup.html'),
     '<html><body><h1>popup</h1></body></html>\n'
@@ -98,6 +99,7 @@ async function buildFixture(root: string) {
     } else {
       process.env.EXTENSION_AUTHOR_MODE = previousAuthorMode
     }
+
     if (previousVitest === undefined) {
       delete process.env.VITEST
     } else {

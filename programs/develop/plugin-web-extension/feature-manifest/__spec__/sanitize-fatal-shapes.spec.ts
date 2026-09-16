@@ -62,6 +62,7 @@ describe('sanitizeFatalManifestShapes', () => {
     expect((manifest as any).content_security_policy.extension_pages).toBe(
       "script-src 'self'; object-src 'self'"
     )
+
     expect(fixes).toHaveLength(1)
     expect(fixes[0].field).toBe('content_security_policy.extension_pages')
   })
@@ -78,6 +79,7 @@ describe('sanitizeFatalManifestShapes', () => {
     expect((manifest as any).content_security_policy.extension_pages).toBe(
       "script-src 'self'"
     )
+
     expect(fixes).toHaveLength(1)
   })
 
@@ -96,6 +98,7 @@ describe('sanitizeFatalManifestShapes', () => {
         (manifest as any).content_security_policy.extension_pages,
         extension_pages
       ).toBe(extension_pages)
+
       expect(fixes, extension_pages).toHaveLength(0)
     }
   })
@@ -235,6 +238,7 @@ describe('sanitizeFatalManifestShapes', () => {
         '16': 'icons/real.png',
         '48': 'icons/does-not-exist.png'
       })
+
       expect(fixes.map((f) => f.field)).toEqual(['icons.128'])
     })
 
@@ -255,6 +259,7 @@ describe('sanitizeFatalManifestShapes', () => {
       expect((manifest as any).action.default_icon).toEqual({
         '32': 'icons/real.png'
       })
+
       expect((manifest as any).browser_action.default_icon).toBeUndefined()
       expect(fixes.map((f) => f.field)).toEqual([
         'action.default_icon.16',

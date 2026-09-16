@@ -6,11 +6,6 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝      ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-// Shared static types for the Firefox RDP wire surface, recovered from how the
-// runner READS frames; all optional because wire reads are loose.
-
-// A tab/target descriptor from listTabs/getTargets; Firefox versions vary the
-// console-actor key and may omit outerWindowID*, so every field is optional.
 export interface RdpTarget {
   actor?: string
   url?: string

@@ -68,6 +68,7 @@ export function getDirs(struct: ProjectStructure): {
   const packageJsonDir = asAbsolute(
     projectManifestPath ? path.dirname(projectManifestPath) : manifestDir
   )
+
   return {manifestDir, packageJsonDir}
 }
 
@@ -86,6 +87,7 @@ export function needsInstall(
   const hasManifest = PROJECT_MANIFEST_FILENAMES.some((filename) =>
     fs.existsSync(path.join(packageJsonDir, filename))
   )
+
   if (!hasManifest) {
     return false
   }
@@ -94,6 +96,7 @@ export function needsInstall(
     // Merged across package.json dependency fields and deno.json(c) `npm:`
     // imports, either manifest can declare the packages the bundler needs.
     const deps = Object.keys(readProjectDependencies(packageJsonDir))
+
     if (deps.length === 0) {
       return false
     }
@@ -122,8 +125,10 @@ export function needsInstall(
     // node_modules, where resolution from the member still finds them.
     if (workspaceRoot) {
       const rootModules = path.join(workspaceRoot, 'node_modules')
+
       return !deps.some((dep) => fs.existsSync(path.join(rootModules, dep)))
     }
+
     return true
   } catch {
     return true
@@ -161,11 +166,13 @@ export function configBrowserOrThrow(
   command: string
 ): BrowserInput | undefined {
   if (configBrowser === undefined || configBrowser === null) return undefined
+
   if (!isKnownBrowserName(configBrowser)) {
     throw new Error(
       `Unsupported browser in extension.config commands.${command}.browser: ${String(configBrowser)}`
     )
   }
+
   return configBrowser as BrowserInput
 }
 
@@ -189,8 +196,10 @@ export function normalizeBrowser(
       !requested ||
       requested === 'gecko-based' ||
       requested === 'firefox-based'
-    )
+    ) {
       return 'gecko-based'
+    }
+
     if (requested === 'firefox') return 'firefox'
   }
 
@@ -253,6 +262,7 @@ export function computePreviewOutputPath(
 
   if (struct.packageJsonPath || struct.denoJsonPath) {
     const distDir = getDistPath(packageJsonDir, browser)
+
     try {
       if (fs.existsSync(path.join(distDir, 'manifest.json'))) {
         return distDir
@@ -261,6 +271,7 @@ export function computePreviewOutputPath(
       // Ignore
     }
   }
+
   return manifestDir
 }
 

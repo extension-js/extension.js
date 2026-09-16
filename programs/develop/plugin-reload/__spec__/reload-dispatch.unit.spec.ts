@@ -37,6 +37,7 @@ describe('dispatchReload', () => {
       },
       {broker}
     )
+
     expect(broker.broadcastReload).toHaveBeenCalledWith({
       type: 'page',
       changedContentScriptEntries: undefined,
@@ -52,11 +53,13 @@ describe('dispatchReload', () => {
     await dispatchReload(CS, {
       broker: {broadcastReload: vi.fn().mockReturnValue(0)}
     })
+
     expect(log).not.toHaveBeenCalled()
 
     await dispatchReload(CS, {
       broker: {broadcastReload: vi.fn().mockReturnValue(1)}
     })
+
     expect(log).toHaveBeenCalledTimes(1)
     expect(String(log.mock.calls[0][0])).toContain(
       'content_script (src/content/scripts.js)'
@@ -96,6 +99,7 @@ describe('dispatchReload', () => {
         undeliveredReloadWarning
       }
     })
+
     expect(undeliveredReloadWarning).not.toHaveBeenCalled()
     expect(warn).not.toHaveBeenCalled()
   })
@@ -123,12 +127,14 @@ describe('dispatchReload', () => {
       },
       {broker}
     )
+
     expect(broker.broadcastReload).toHaveBeenCalledWith({
       type: 'full',
       changedContentScriptEntries: undefined,
       label: 'extension (src/manifest.json)',
       changedFiles: ['src/manifest.json']
     })
+
     expect(String(log.mock.calls[0][0])).toContain('Reloading')
   })
 
@@ -143,6 +149,7 @@ describe('dispatchReload', () => {
       },
       {broker}
     )
+
     expect(broker.broadcastReload).toHaveBeenCalledWith({
       type: 'service-worker',
       changedContentScriptEntries: undefined,
@@ -185,6 +192,7 @@ describe('createChangedSourcesTracker', () => {
         }
       }
     }
+
     return {
       compiler,
       fireWatchRun: () => runner?.(),
@@ -229,6 +237,7 @@ describe('createChangedSourcesTracker', () => {
       '/proj/src/manifest.json',
       '/proj/src/popup/index.js'
     ])
+
     fireWatchRun()
     expect(tracker.snapshot().forcedFull).toBe(true)
 
@@ -257,6 +266,7 @@ describe('createChangedSourcesTracker', () => {
       '/proj/src/manifest.json',
       '/proj/src/background.ts'
     ])
+
     fireWatchRun()
     fireDone([new Error('typo in background')])
 
@@ -361,6 +371,7 @@ describe('dispatchReload with an expected producer restart', () => {
     expect(undeliveredReloadWarning).toHaveBeenCalledWith({
       producerRestartExpected: true
     })
+
     expect(warn).not.toHaveBeenCalled()
     const line = String(log.mock.calls[0][0])
     expect(line).toContain('Queued')

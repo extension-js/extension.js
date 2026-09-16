@@ -22,6 +22,7 @@ export function manifestDeclaresNewtabOverride(outPath: string): boolean {
       manifest?.['chrome:chrome_url_overrides'] ||
       manifest?.['gecko:chrome_url_overrides'] ||
       manifest?.['firefox:chrome_url_overrides']
+
     return Boolean(
       overrides &&
         typeof overrides.newtab === 'string' &&

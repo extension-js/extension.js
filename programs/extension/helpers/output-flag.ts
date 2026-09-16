@@ -16,6 +16,7 @@ let warnedDeprecatedAlias = false
 
 export function warnDeprecatedOutputAlias(flag: string): void {
   if (warnedDeprecatedAlias) return
+
   warnedDeprecatedAlias = true
   // stderr on purpose: under --output json stdout carries exactly one
   // machine-readable document and a notice there would corrupt the parse.
@@ -31,6 +32,7 @@ export function normalizeOutputFormat(
   const v = String(value ?? '')
     .trim()
     .toLowerCase()
+
   return v === 'pretty' || v === 'json' ? v : undefined
 }
 
@@ -62,7 +64,9 @@ export function resolveOutputFormat(opts: {
   for (const [flag, value] of aliases) {
     const resolved = normalize(value)
     if (!resolved) continue
+
     warnDeprecatedOutputAlias(flag)
+
     return resolved
   }
 

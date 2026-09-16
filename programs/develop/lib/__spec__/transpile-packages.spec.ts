@@ -14,6 +14,7 @@ describe('transpile-packages', () => {
       JSON.stringify({name: 'app'}),
       'utf-8'
     )
+
     const packageDir = path.join(
       projectRoot,
       'node_modules',
@@ -61,6 +62,7 @@ describe('transpile-packages', () => {
       }),
       'utf-8'
     )
+
     const packageDir = path.join(
       projectRoot,
       'node_modules',
@@ -87,6 +89,7 @@ describe('transpile-packages', () => {
         '/repo/node_modules/@workspace/ui'
       )
     ).toBe(true)
+
     expect(
       isSubPath(
         '/repo/node_modules/react/index.js',
@@ -124,6 +127,7 @@ describe('transpile-packages', () => {
       }),
       'utf-8'
     )
+
     const packageDir = path.join(
       projectRoot,
       'node_modules',
@@ -142,6 +146,7 @@ describe('transpile-packages', () => {
       }),
       'utf-8'
     )
+
     fs.writeFileSync(
       path.join(packageDir, 'src', 'index.ts'),
       'export {}',

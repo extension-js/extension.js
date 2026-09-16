@@ -21,6 +21,7 @@ function validate(frame: Record<string, unknown>): string[] {
   for (const key of schema.required as string[]) {
     if (!(key in frame)) problems.push(`missing required key: ${key}`)
   }
+
   if (frame.schema !== 1) problems.push('schema must be 1')
   if (typeof frame.ok !== 'boolean') problems.push('ok must be a boolean')
   if (!frame.command) problems.push('command must be a non-empty string')
@@ -28,11 +29,15 @@ function validate(frame: Record<string, unknown>): string[] {
   if (!Array.isArray(frame.warnings)) problems.push('warnings must be an array')
 
   const error = frame.error as Record<string, unknown> | null
+
   if (error !== null) {
-    if (!/^E_[A-Z0-9_]+$/.test(String(error.code)))
+    if (!/^E_[A-Z0-9_]+$/.test(String(error.code))) {
       problems.push(`error.code is not an E_ identifier: ${error.code}`)
-    if (typeof error.message !== 'string')
+    }
+
+    if (typeof error.message !== 'string') {
       problems.push('error.message must be a string')
+    }
   }
 
   return problems
@@ -100,12 +105,14 @@ describe('the schema-1 result envelope', () => {
         true
       )
     }
+
     for (const key of ACT_ERROR_KEYS) {
       expect(
         Object.hasOwn(frame.error as object, key),
         `envelope lost act error key ${key}`
       ).toBe(true)
     }
+
     expect(frame.hint).toBe('session hint')
   })
 

@@ -41,6 +41,7 @@ describe('extension-develop runtime resolution', () => {
       name: 'extension-develop',
       version: '9.9.9'
     })
+
     fs.mkdirSync(path.join(workspaceDevelopRoot, 'dist'), {recursive: true})
     fs.writeFileSync(
       path.join(workspaceDevelopRoot, 'dist', 'module.mjs'),
@@ -51,6 +52,7 @@ describe('extension-develop runtime resolution', () => {
       name: 'extension-develop',
       version: '1.0.0'
     })
+
     fs.mkdirSync(path.join(envDevelopRoot, 'dist'), {recursive: true})
     fs.writeFileSync(
       path.join(envDevelopRoot, 'dist', 'module.mjs'),
@@ -98,6 +100,7 @@ describe('extension-develop runtime resolution', () => {
       name: 'extension-develop',
       version: '1.2.3'
     })
+
     fs.mkdirSync(path.join(envDevelopRoot, 'dist'), {recursive: true})
     fs.writeFileSync(
       path.join(envDevelopRoot, 'dist', 'module.mjs'),
@@ -126,6 +129,7 @@ describe('extension-develop runtime resolution', () => {
       name: 'extension-develop',
       version: '9.9.9'
     })
+
     fs.mkdirSync(startDir, {recursive: true})
 
     await expect(loadExtensionDevelopModule(startDir)).rejects.toThrow(

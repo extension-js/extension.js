@@ -24,10 +24,13 @@ describe('validateLocales author-mode diagnostics (unit)', () => {
   })
 
   afterEach(() => {
-    if (fs.existsSync(tmpRoot))
+    if (fs.existsSync(tmpRoot)) {
       fs.rmSync(tmpRoot, {recursive: true, force: true})
+    }
+
     if (prevAuthorMode === undefined) delete process.env.EXTENSION_AUTHOR_MODE
     else process.env.EXTENSION_AUTHOR_MODE = prevAuthorMode
+
     vi.restoreAllMocks()
   })
 
@@ -88,8 +91,10 @@ describe('validateLocales manifest placeholder scan', () => {
   }
 
   afterEach(() => {
-    if (fs.existsSync(tmpRoot))
+    if (fs.existsSync(tmpRoot)) {
       fs.rmSync(tmpRoot, {recursive: true, force: true})
+    }
+
     vi.restoreAllMocks()
   })
 
@@ -98,6 +103,7 @@ describe('validateLocales manifest placeholder scan', () => {
       {default_locale: 'en', name: '__MSG_brand@name__'},
       {appName: {message: 'App'}}
     )
+
     const compilation = makeCompilation()
 
     const result = validateLocales(
@@ -115,6 +121,7 @@ describe('validateLocales manifest placeholder scan', () => {
       {default_locale: 'en', name: '__MSG_brand@name__'},
       {'brand@name': {message: 'App'}}
     )
+
     const compilation = makeCompilation()
 
     const result = validateLocales(
@@ -136,6 +143,7 @@ describe('validateLocales manifest placeholder scan', () => {
       },
       {appName: {message: 'App'}}
     )
+
     const compilation = makeCompilation()
 
     const result = validateLocales(
@@ -153,6 +161,7 @@ describe('validateLocales manifest placeholder scan', () => {
       {default_locale: 'en', name: '__MSG_APPNAME__'},
       {appName: {message: 'App'}}
     )
+
     const compilation = makeCompilation()
     const result = validateLocales(
       makeCompiler(tmpRoot) as any,
@@ -168,6 +177,7 @@ describe('validateLocales manifest placeholder scan', () => {
       {default_locale: 'en', name: '__MSG_AppTitle__'},
       {appName: {message: 'App'}}
     )
+
     const compilation = makeCompilation()
     const result = validateLocales(
       makeCompiler(tmpRoot) as any,
@@ -183,6 +193,7 @@ describe('validateLocales manifest placeholder scan', () => {
       {default_locale: 'en', name: '__MSG_a__b__'},
       {a__b: {message: 'wrong key'}}
     )
+
     const compilation = makeCompilation()
 
     const result = validateLocales(

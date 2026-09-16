@@ -23,6 +23,7 @@ export function shortInstanceId(instanceId?: string): string {
 
 export function instanceOffsetFromId(instanceId?: string): number {
   const short = shortInstanceId(instanceId)
+
   return short ? (parseInt(short, 16) % 1000) | 0 : 0
 }
 
@@ -73,6 +74,7 @@ export function filterBrowserFlags(
       !excludeFlags.some((excludeFlag) => {
         if (!excludeFlag) return false
         if (flag === excludeFlag) return true
+
         return (
           flag.startsWith(`${excludeFlag}=`) ||
           flag.startsWith(`${excludeFlag},`)
@@ -96,21 +98,26 @@ export function chooseChromiumBinaryPreferringStable(opts: {
   preferManagedSnapshot?: boolean
 }): ChromiumBinaryChoice {
   const managed = opts.managedSnapshotBinary
+
   if (!managed) {
     return {binary: null, usedManagedSnapshot: false, swappedToSystem: false}
   }
+
   if (opts.preferManagedSnapshot) {
     return {binary: managed, usedManagedSnapshot: true, swappedToSystem: false}
   }
 
   const system = opts.systemBinary
   const cacheRoot = String(opts.managedCacheRoot || '').trim()
+
   const isCacheLikePath = (p: string) => {
     const normalized = p.replace(/\\/g, '/')
     if (/\/(puppeteer|ms-playwright)\//i.test(normalized)) return true
+
     if (cacheRoot && normalized.startsWith(cacheRoot.replace(/\\/g, '/'))) {
       return true
     }
+
     return false
   }
 
@@ -143,6 +150,7 @@ export function classifyBinaryProvenance(opts: {
     relative.length > 0 &&
     !relative.startsWith('..') &&
     !path.isAbsolute(relative)
+
   return underManagedRoot ? 'managed' : 'system'
 }
 
@@ -155,12 +163,15 @@ export function probeChromiumBinaryVersion(
 ): string {
   const target = String(browser || '')
   const probes: Array<() => string | null | undefined> = []
+
   if (target === 'edge') {
     probes.push(() => getEdgeVersion(bin, {allowExec: true}))
   }
+
   if (target === 'chromium' || target === 'chromium-based') {
     probes.push(() => getChromiumVersion(bin, {allowExec: true}))
   }
+
   probes.push(
     () => getChromeVersion(bin, {allowExec: true}),
     () => getChromiumVersion(bin, {allowExec: true}),
@@ -175,6 +186,7 @@ export function probeChromiumBinaryVersion(
       // Try the next helper; one miss must not hide the launched binary.
     }
   }
+
   return ''
 }
 
@@ -206,12 +218,15 @@ export function mergeChromiumFeatureSwitches(flags: string[]): string[] {
 
   for (const flag of flags) {
     const prefix = Object.keys(featureValues).find((p) => flag.startsWith(p))
+
     if (!prefix) {
       merged.push(flag)
       continue
     }
+
     for (const value of flag.slice(prefix.length).split(',')) {
       const trimmed = value.trim()
+
       if (trimmed && !featureValues[prefix].includes(trimmed)) {
         featureValues[prefix].push(trimmed)
       }
@@ -236,9 +251,11 @@ export async function findAvailablePortNear(
       server.once('error', () => {
         resolve(false)
       })
+
       server.once('listening', () => {
         server.close(() => resolve(true))
       })
+
       server.listen(port, host)
     })
   }
@@ -249,6 +266,7 @@ export async function findAvailablePortNear(
     // eslint-disable-next-line no-await-in-loop
     const ok = await tryPort(candidate)
     if (ok) return candidate
+
     candidate += 1
   }
 
@@ -257,8 +275,10 @@ export async function findAvailablePortNear(
 
 function isProcessLikelyAlive(pid: number): boolean {
   if (!Number.isInteger(pid) || pid <= 0) return false
+
   try {
     process.kill(pid, 0)
+
     return true
   } catch {
     return false
@@ -287,6 +307,7 @@ function readChromiumSingletonOwner(
 
   try {
     const stat = fs.lstatSync(lockPath)
+
     if (stat.isSymbolicLink()) {
       return parseChromiumSingletonOwner(fs.readlinkSync(lockPath))
     }
@@ -303,6 +324,7 @@ function readChromiumSingletonOwner(
 
 function removeChromiumSingletonArtifacts(profilePath: string): string[] {
   const removed: string[] = []
+
   for (const name of ['SingletonLock', 'SingletonSocket', 'SingletonCookie']) {
     const full = path.join(profilePath, name)
     if (!fs.existsSync(full)) continue
@@ -314,6 +336,7 @@ function removeChromiumSingletonArtifacts(profilePath: string): string[] {
       // Ignore
     }
   }
+
   return removed
 }
 

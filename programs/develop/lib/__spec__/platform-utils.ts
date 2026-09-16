@@ -7,5 +7,6 @@ export function normalizePathForAssert(filePath: string): string {
 export function pathPattern(segments: string[]): RegExp {
   const escaped = segments.map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
   const pattern = escaped.join('[\\\\/]')
+
   return new RegExp(`${pattern}$`)
 }

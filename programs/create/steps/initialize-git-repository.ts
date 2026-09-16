@@ -20,11 +20,13 @@ export function firstCommitSubject(
   const withTemplate = templateName
     ? `Create ${projectName} from the ${templateName} template`
     : ''
+
   if (withTemplate && withTemplate.length <= COMMIT_SUBJECT_LIMIT) {
     return withTemplate
   }
 
   const bare = `Create ${projectName}`
+
   return bare.length <= COMMIT_SUBJECT_LIMIT ? bare : 'Initial commit'
 }
 
@@ -48,6 +50,7 @@ async function runGit(
   return await new Promise<GitStepResult>((resolve) => {
     child.on('close', (code) => {
       if (code === 0) return resolve({ok: true})
+
       resolve({ok: false, reason: `git ${args[0]} exited with ${code}`})
     })
 
@@ -67,7 +70,9 @@ async function hasCommittedHistory(projectPath: string): Promise<boolean> {
     projectPath
   )
   if (!inside.ok) return false
+
   const head = await runGit(['rev-parse', '--verify', 'HEAD'], projectPath)
+
   return head.ok
 }
 
@@ -89,24 +94,31 @@ export async function initializeGitRepository(
   // owner never wrote. Leave the scaffold uncommitted for them to review.
   if (await hasCommittedHistory(projectPath)) {
     logger.log(messages.existingRepositoryKept(projectName))
+
     return
   }
 
   const init = await runGit(['init', '--quiet'], projectPath)
+
   if (!init.ok) {
     logger.log(messages.initializingGitSkipped(projectName, init.reason || ''))
+
     return
   }
 
   const identity = readGitIdentity(projectPath)
+
   if (!hasGitIdentity(identity)) {
     logger.log(messages.firstCommitSkipped(projectName, 'no git user identity'))
+
     return
   }
 
   const staged = await runGit(['add', '--all'], projectPath)
+
   if (!staged.ok) {
     logger.log(messages.firstCommitSkipped(projectName, staged.reason || ''))
+
     return
   }
 

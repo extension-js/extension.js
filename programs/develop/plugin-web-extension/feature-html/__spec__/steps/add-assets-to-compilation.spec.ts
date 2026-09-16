@@ -67,13 +67,16 @@ describe('AddAssetsToCompilation', () => {
       vi.mocked(mockCompilation.getAsset).mockImplementation((name: string) => {
         return name === 'resource.html' ? (mockAsset as any) : undefined
       })
+
       vi.mocked(fs.existsSync).mockImplementation((p) => {
         const normalized = toPosix(String(p))
+
         return (
           normalized === '/test/project/public' ||
           normalized === '/test/project/public/image.png'
         )
       })
+
       vi.mocked(fs.readFileSync).mockReturnValue(Buffer.from('fake image data'))
 
       addAssetsToCompilation.apply(mockCompiler)
@@ -100,14 +103,17 @@ describe('AddAssetsToCompilation', () => {
       vi.mocked(mockCompilation.getAsset).mockImplementation((name: string) => {
         return name === 'resource.html' ? (mockAsset as any) : undefined
       })
+
       vi.mocked(fs.existsSync).mockImplementation((p: any) => {
         const normalized = toPosix(String(p))
+
         return (
           normalized.endsWith('/public/logo.png') ||
           normalized.endsWith('/public/ico.png') ||
           normalized.endsWith('/public/banner.png')
         )
       })
+
       vi.mocked(fs.readFileSync).mockReturnValue(Buffer.from('data'))
 
       addAssetsToCompilation.apply(mockCompiler)
@@ -137,11 +143,13 @@ describe('AddAssetsToCompilation', () => {
       vi.mocked(mockCompilation.getAsset).mockImplementation((name: string) => {
         return name === 'resource.html' ? (mockAsset as any) : undefined
       })
+
       vi.mocked(fs.existsSync).mockImplementation((p: any) => {
         return (
           toPosix(String(p)) === '/test/project/public/absolute/path/image.png'
         )
       })
+
       vi.mocked(fs.readFileSync).mockReturnValue(Buffer.from('file-content'))
 
       addAssetsToCompilation.apply(mockCompiler)

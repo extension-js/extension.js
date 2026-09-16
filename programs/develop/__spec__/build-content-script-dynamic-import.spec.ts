@@ -19,14 +19,17 @@ function project(manifestVersion: 2 | 3) {
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'dyn', version: '0.0.0'})
   )
+
   fs.writeFileSync(
     path.join(root, 'greet.js'),
     'export const greet = () => "DYN_GREETING"\n'
   )
+
   fs.writeFileSync(
     path.join(root, 'content.js'),
     'export default async function main() {\n  const {greet} = await import("./greet.js")\n  console.log(greet())\n}\n'
   )
+
   fs.writeFileSync(
     path.join(root, 'manifest.json'),
     JSON.stringify({
@@ -41,6 +44,7 @@ function project(manifestVersion: 2 | 3) {
         : {})
     })
   )
+
   return root
 }
 
@@ -52,6 +56,7 @@ async function build(
   const {extensionBuild} = await import('../command-build')
   const previous = process.env.VITEST
   process.env.VITEST = 'true'
+
   try {
     const summary = await extensionBuild(root, {
       browser,
@@ -65,6 +70,7 @@ async function build(
     if (previous === undefined) delete process.env.VITEST
     else process.env.VITEST = previous
   }
+
   const distDir = path.join(root, 'dist', browser)
   const files = fs.readdirSync(distDir, {recursive: true}).map(String)
   const manifest = JSON.parse(
@@ -77,6 +83,7 @@ async function build(
       !entries.includes(file) &&
       fs.readFileSync(path.join(distDir, file), 'utf8').includes('DYN_GREETING')
   )
+
   return {manifest, files, chunk}
 }
 
@@ -94,6 +101,7 @@ function warCovers(
           .split('*')
           .join('.*')}$`
       ).test(file))
+
   if (manifest.manifest_version === 3) {
     return (
       war as Array<{resources: string[]; matches: string[]}> | undefined
@@ -103,6 +111,7 @@ function warCovers(
         group.matches.includes('https://example.com/*')
     )
   }
+
   return (war as string[] | undefined)?.some(covers)
 }
 

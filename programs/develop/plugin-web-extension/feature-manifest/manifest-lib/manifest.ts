@@ -32,10 +32,12 @@ const manifestSourceStore = new WeakMap<
 
 function manifestSourceEntry(compilation: Compilation) {
   let entry = manifestSourceStore.get(compilation)
+
   if (!entry) {
     entry = {}
     manifestSourceStore.set(compilation, entry)
   }
+
   return entry
 }
 
@@ -92,6 +94,7 @@ export function getManifestContent(
   manifestPath: string
 ): Manifest {
   const currentManifest = getCurrentManifestContent(compilation)
+
   if (currentManifest) {
     return parseJsonSafe(currentManifest)
   }
@@ -121,6 +124,7 @@ export function getManifestContent(
   }
 
   const originalManifest = getOriginalManifestContent(compilation)
+
   if (originalManifest) {
     return parseJsonSafe(originalManifest)
   }
@@ -128,6 +132,7 @@ export function getManifestContent(
   // Prefer direct fs read to support ESM and test environments reliably
   try {
     const text = fs.readFileSync(manifestPath, 'utf8')
+
     return parseJsonSafe(text)
   } catch {
     try {

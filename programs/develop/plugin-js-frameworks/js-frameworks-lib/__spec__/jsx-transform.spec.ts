@@ -10,12 +10,15 @@ const detectors = vi.hoisted(() => ({
 vi.mock('../../js-tools/react', () => ({
   isUsingReact: () => detectors.react
 }))
+
 vi.mock('../../js-tools/preact', () => ({
   isUsingPreact: () => detectors.preact
 }))
+
 vi.mock('../../js-tools/vue', () => ({
   isUsingVue: () => detectors.vue
 }))
+
 vi.mock('../../js-tools/solid', () => ({
   isUsingSolid: () => detectors.solid
 }))
@@ -59,18 +62,22 @@ describe('swcParserForFile', () => {
       syntax: 'typescript',
       tsx: true
     })
+
     expect(swcParserForFile('/p/a.ts?query', false)).toMatchObject({
       syntax: 'typescript',
       tsx: false
     })
+
     expect(swcParserForFile('/p/a.jsx', false)).toMatchObject({
       syntax: 'ecmascript',
       jsx: true
     })
+
     expect(swcParserForFile('/p/a.js', false)).toMatchObject({
       syntax: 'ecmascript',
       jsx: false
     })
+
     expect(swcParserForFile('/p/a.mjs', true)).toMatchObject({jsx: true})
   })
 })

@@ -50,6 +50,7 @@ export function trackJsonDependencies(
           compilation.missingDependencies?.add(abs)
           continue
         }
+
         if (!compilation.fileDependencies.has(abs)) {
           compilation.fileDependencies.add(abs)
           added++
@@ -57,6 +58,7 @@ export function trackJsonDependencies(
       }
     }
   }
+
   if (isDebug()) {
     console.log(messages.jsonDepsTracked(added))
   }

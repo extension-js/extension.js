@@ -60,6 +60,7 @@ interface CommandTableEntry {
 
 function renderArgToken(spec: CommandArgSpec): string {
   const token = spec.values ? spec.values.join('|') : (spec.label ?? spec.name)
+
   return spec.required ? `<${token}>` : `[${token}]`
 }
 
@@ -273,6 +274,7 @@ export function commandSpec(name: CommandName): CommandSpec {
   const spec = COMMANDS.find((entry) => entry.name === name)
   // Unreachable through CommandName, but a runtime guard keeps a bad build loud.
   if (!spec) throw new Error(`No COMMANDS entry for '${name}'.`)
+
   return spec
 }
 
@@ -289,6 +291,7 @@ function commandHelpEntry(spec: CommandSpec): string {
     `  ${spec.description}`
   ]
   if (spec.detail) lines.push(`  ${spec.detail}`)
+
   for (const note of spec.notes ?? []) {
     lines.push(
       '',
@@ -296,6 +299,7 @@ function commandHelpEntry(spec: CommandSpec): string {
       `  ${note.description}`
     )
   }
+
   return lines.join('\n')
 }
 
@@ -310,6 +314,7 @@ export function unhandledError(err: unknown) {
       : typeof err === 'string'
         ? err
         : fmt.truncate(err)
+
   return `${getLoggingPrefix('error')} ${colors.red(String(message || 'Unknown error'))}`
 }
 
@@ -435,6 +440,7 @@ export function browserNotInstallablePlain(value: string): string {
   const name = String(value || '')
     .trim()
     .toLowerCase()
+
   if (
     name === 'safari' ||
     name === 'webkit-based' ||
@@ -447,7 +453,9 @@ export function browserNotInstallablePlain(value: string): string {
       `run \`extension build --browser safari\`.`
     )
   }
+
   const display = name || String(value || 'browser')
+
   return (
     `${display} cannot be installed by Extension.js. ` +
     `This CLI never downloads it. It is located from the system when present. ` +
@@ -460,6 +468,7 @@ export function browserNotInstallable(value: string): string {
   const name = String(value || '')
     .trim()
     .toLowerCase()
+
   if (
     name === 'safari' ||
     name === 'webkit-based' ||
@@ -472,7 +481,9 @@ export function browserNotInstallable(value: string): string {
       `${colors.red('(Mac App Store), then run')} ${code('extension build --browser safari')}${colors.red('.')}`
     )
   }
+
   const display = name || String(value || 'browser')
+
   return (
     `${getLoggingPrefix('error')} ${colors.blue(display)} cannot be installed by Extension.js.\n` +
     `${colors.red('This CLI never downloads it. It is located from the system when present.')}\n` +
@@ -484,6 +495,7 @@ export function browserNotInstallable(value: string): string {
 export function browserDownloadFailed(browser: string, detail: string): string {
   const name = String(browser || 'browser').trim() || 'browser'
   const body = String(detail || '').trim()
+
   return (
     `${getLoggingPrefix('error')} Couldn't download ${colors.blue(name)}.\n` +
     (body ? `${colors.red(body)}\n` : '') +

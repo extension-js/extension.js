@@ -7,6 +7,7 @@ const {toolsHasDependencyMock} = vi.hoisted(() => ({
 
 vi.mock('fs', async () => {
   const actual = await vi.importActual<typeof import('fs')>('fs')
+
   return {
     ...actual,
     existsSync: vi.fn(() => false),
@@ -48,6 +49,7 @@ describe('css tools detection', () => {
     ;(fs.existsSync as any).mockImplementation((p: string) =>
       String(p).endsWith('tailwind.config.js')
     )
+
     expect(getTailwindConfigFile('/p')?.endsWith('tailwind.config.js')).toBe(
       true
     )
@@ -67,6 +69,7 @@ describe('isContentScriptEntry', () => {
     ;(fs.existsSync as any).mockImplementation((p: string) =>
       String(p).endsWith('manifest.json')
     )
+
     const {isContentScriptEntry} = (await import(
       '../css-lib/is-content-script'
     )) as any

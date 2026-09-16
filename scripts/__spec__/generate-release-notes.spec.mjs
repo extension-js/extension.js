@@ -22,7 +22,7 @@ const commit = (subject, short = 'abc1234') => ({
   subject
 })
 
-// ── categorize ────────────────────────────────────────────────────────────────
+// categorize
 
 test('categorize routes commits into features / fixes / other', () => {
   const buckets = categorize([
@@ -38,6 +38,7 @@ test('categorize routes commits into features / fixes / other', () => {
     buckets.features.map((c) => c.subject),
     ['Add the extension logs command', 'Surface real CDP port into ready.json']
   )
+
   assert.deepEqual(
     buckets.fixes.map((c) => c.subject),
     [
@@ -45,6 +46,7 @@ test('categorize routes commits into features / fixes / other', () => {
       'Bump ws to ^8.20.1 to patch GHSA-58qx-3vcg-4xpx'
     ]
   )
+
   assert.deepEqual(
     buckets.other.map((c) => c.subject),
     [
@@ -66,7 +68,7 @@ test('categorize drops ignored noise (dep bumps, lockfile churn)', () => {
   assert.equal(buckets.other.length, 0)
 })
 
-// ── readHighlights ──────────────────────────────────────────────────────────────
+// readHighlights
 
 test('readHighlights parses bullets and ignores HTML-comment instructions', () => {
   const dir = mkdtempSync(path.join(tmpdir(), 'hl-'))
@@ -85,10 +87,12 @@ test('readHighlights parses bullets and ignores HTML-comment instructions', () =
       '- Safari (alpha) support'
     ].join('\n')
   )
+
   assert.deepEqual(readHighlights(file), [
     '**`extension publish`**, share a build via URL',
     'Safari (alpha) support'
   ])
+
   rmSync(dir, {recursive: true, force: true})
 })
 
@@ -101,7 +105,7 @@ test('readHighlights returns [] for the empty template and missing file', () => 
   rmSync(dir, {recursive: true, force: true})
 })
 
-// ── formatters ───────────────────────────────────────────────────────────────
+// formatters
 
 test('formatMarkdown leads with highlights and folds other changes', () => {
   const buckets = categorize([
@@ -172,7 +176,7 @@ test('buildTweet strips markdown, caps length, and appends the url', () => {
   assert.match(tweet, /https:\/\/example\.com\/notes$/)
 })
 
-// ── anchor / range (temp git repo) ──────────────────────────────────────────────
+// anchor / range (temp git repo)
 
 test('findAnchor picks the most recent on-branch release boundary, excluding the current version', () => {
   const dir = mkdtempSync(path.join(tmpdir(), 'gen-notes-git-'))
@@ -194,6 +198,7 @@ test('findAnchor picks the most recent on-branch release boundary, excluding the
   commitEmpty('Work toward 3.19')
 
   const prevCwd = process.cwd()
+
   try {
     process.chdir(dir)
     // Releasing 3.19.0: anchor must be the most recent 3.18.0 boundary,
@@ -227,6 +232,7 @@ test('findAnchor excludes the current version when its boundary already exists',
     ['commit', '--allow-empty', '-m', 'release(stable): v3.17.0'],
     {cwd: dir}
   )
+
   execFileSync('git', ['commit', '--allow-empty', '-m', 'feature'], {cwd: dir})
   execFileSync(
     'git',
@@ -235,6 +241,7 @@ test('findAnchor excludes the current version when its boundary already exists',
   )
 
   const prevCwd = process.cwd()
+
   try {
     process.chdir(dir)
     // Backfilling 3.18.0 (its boundary is HEAD): anchor must skip to 3.17.0.
@@ -271,6 +278,7 @@ test('release boundaries resolve across the legacy and house-style subjects', ()
   commitEmpty('Fix the boundary regression')
 
   const prevCwd = process.cwd()
+
   try {
     process.chdir(dir)
     // Cutting 4.0.16: the newest boundary is house style, not conventional.

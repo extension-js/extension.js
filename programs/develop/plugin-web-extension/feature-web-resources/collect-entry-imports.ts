@@ -21,6 +21,7 @@ export function isInjectedScriptEntry(entryName: string): boolean {
 // stylesheets need a web_accessible_resources listing or the page 404s.
 export function isPageContextEntry(entryName: string): boolean {
   const surface = classifyEntrySurface(String(entryName || ''))
+
   return surface === 'content_script' || surface === 'script'
 }
 
@@ -33,6 +34,7 @@ type ChunkLike = {
 // arrays. Normalize both so the chunk walk runs against either bundler.
 function toFileArray(value: Iterable<string> | undefined): string[] {
   if (!value) return []
+
   return Array.isArray(value) ? value : Array.from(value)
 }
 
@@ -46,6 +48,7 @@ function isExcludedFromWar(fileName: string) {
   if (!name || name === 'manifest.json') return true
   if (name.endsWith('.js') || name.endsWith('.map')) return true
   if (/(^|\/)hot\//.test(name)) return true
+
   return false
 }
 
@@ -57,6 +60,7 @@ export function listEmittedAssetNames(compilation: Compilation): string[] {
       // Fall through to compilation.assets
     }
   }
+
   return Object.keys(compilation.assets || {})
 }
 
@@ -72,6 +76,7 @@ export function collectReferencedRuntimePayloads(
   const found = new Set<string>()
 
   const patternHits: string[] = source.match(EMITTED_ASSET_REF_PATTERN) || []
+
   for (const hit of patternHits) {
     if (!isExcludedFromWar(hit)) found.add(hit)
   }
@@ -115,6 +120,7 @@ function forEachStringKey<T>(
     }
   } else if (typeof objectOrMap === 'object') {
     const objectKeys: string[] = Object.keys(objectOrMap)
+
     for (const key of objectKeys) {
       callback(key)
     }
@@ -123,6 +129,7 @@ function forEachStringKey<T>(
 
 function getAssetSource(compilation: Compilation, filename: string): string {
   let assetGetFunction: unknown
+
   if (typeof compilation.getAsset === 'function') {
     assetGetFunction = compilation.getAsset(filename)
   }
@@ -181,6 +188,7 @@ export function collectContentScriptAsyncChunkFiles(
     if (!isPageContextEntry(String(entryName))) return
 
     const initial = new Set<string>()
+
     for (const chunk of toFileArray(
       (entry as unknown as ChunkGroupLike).chunks as Iterable<string>
     )) {
@@ -190,35 +198,45 @@ export function collectContentScriptAsyncChunkFiles(
     }
 
     const asyncFiles = new Set<string>()
+
     const visitChunk = (chunk: ChunkLike) => {
       for (const file of toFileArray(chunk.files)) {
         if (!file.endsWith('.js') || initial.has(file)) continue
+
         asyncFiles.add(unixify(file))
       }
     }
+
     for (const chunk of toFileArray(
       (entry as unknown as ChunkGroupLike).chunks as Iterable<string>
     )) {
       const withAsync = chunk as unknown as ChunkWithAsync
+
       if (typeof withAsync.getAllAsyncChunks === 'function') {
         for (const asyncChunk of withAsync.getAllAsyncChunks()) {
           visitChunk(asyncChunk)
         }
       }
     }
+
     // Chunk groups reached through children cover bundlers without
     // getAllAsyncChunks on the chunk itself.
     const seenGroups = new Set<ChunkGroupLike>()
+
     const visitGroup = (group: ChunkGroupLike) => {
       if (seenGroups.has(group)) return
+
       seenGroups.add(group)
+
       for (const chunk of toFileArray(group.chunks as Iterable<string>)) {
         visitChunk(chunk as unknown as ChunkLike)
       }
+
       if (typeof group.getChildren === 'function') {
         for (const child of group.getChildren()) visitGroup(child)
       }
     }
+
     if (
       typeof (entry as unknown as ChunkGroupLike).getChildren === 'function'
     ) {
@@ -328,6 +346,7 @@ export function collectContentScriptEntryImports(
 
       for (let i = 0; i < chunkFilesArray.length; i++) {
         const chunkFileName = chunkFilesArray[i]
+
         if (!String(chunkFileName).endsWith('.js')) {
           continue
         }

@@ -19,6 +19,7 @@ function registeredCommands(): string[] {
 
   for (const entry of fs.readdirSync(dir)) {
     if (!entry.endsWith('.ts') || entry.endsWith('.spec.ts')) continue
+
     const source = fs.readFileSync(path.join(dir, entry), 'utf-8')
     const pattern = /\.command\(\s*'([a-z][a-z-]*)'/g
     let match: RegExpExecArray | null
@@ -55,9 +56,11 @@ describe('telemetry command coverage', () => {
     for (const command of registeredCommands()) {
       expect(detectInvokedCommand(['node', 'extension', command])).toBe(command)
     }
+
     expect(detectInvokedCommand(['node', 'extension', './my-project'])).toBe(
       'unknown'
     )
+
     expect(detectInvokedCommand(['node', 'extension'])).toBe('unknown')
     expect(
       detectInvokedCommand(['node', 'extension', '--browser', 'chrome', 'dev'])
@@ -76,6 +79,7 @@ describe('failure payload scrubbing', () => {
     expect(
       telemetryFailureCode('/Users/someone/secret-project/manifest.json')
     ).toBeUndefined()
+
     expect(telemetryFailureCode(undefined)).toBeUndefined()
     expect(telemetryFailureCode(42)).toBeUndefined()
     expect(telemetryFailureCode('toString')).toBeUndefined()

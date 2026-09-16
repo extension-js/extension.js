@@ -17,16 +17,6 @@ import {TraceRuntimeLoadedFiles} from './steps/trace-runtime-loaded-files'
 import {ValidateEmittedScriptSyntax} from './steps/validate-emitted-script-syntax'
 import {WarnSplitInitialChunks} from './steps/warn-split-initial-chunks'
 
-/**
- * Feature-scripts is the official scripts pipeline:
- * - content scripts use the inline lifecycle runtime only
- * - targeted reinjection stays browser-owned
- * - background/manifest changes stay on the full-reload path
- *
- * The dev-only reload/HMR strategy is NOT part of this feature. It lives
- * in plugin-reload, which registers after this plugin and decorates the
- * entries AddScripts declares here.
- */
 export class ScriptsPlugin {
   public readonly manifestPath: string
   public readonly includeList?: FilepathList

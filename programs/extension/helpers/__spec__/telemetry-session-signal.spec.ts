@@ -26,6 +26,7 @@ function restoreEnv() {
   for (const key of Object.keys(process.env)) {
     if (!(key in originalEnv)) delete process.env[key]
   }
+
   for (const [key, value] of Object.entries(originalEnv)) {
     process.env[key] = value
   }
@@ -34,6 +35,7 @@ function restoreEnv() {
 function isolatedHome(): string {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-session-'))
   sandboxes.push(home)
+
   return home
 }
 
@@ -52,15 +54,18 @@ async function loadTelemetry(
   process.env.POSTHOG_KEY = 'phc_test_key'
   // Zero, so anything that arrives proves it was never up for sampling.
   process.env.EXTENSION_TELEMETRY_SAMPLE_RATE = '0'
+
   for (const [key, value] of Object.entries(env)) {
     if (value === undefined) delete process.env[key]
     else process.env[key] = value
   }
+
   process.argv = argv
 
   vi.resetModules()
   const cli = await import('../telemetry-cli')
   const signals = await import('../telemetry-signals')
+
   return {cli, signals}
 }
 
@@ -73,9 +78,11 @@ function captureSends(): SentEvent[] {
         batch?: SentEvent[]
       }
       for (const event of body.batch ?? []) sent.push(event)
+
       return new Response('{"status":1}', {status: 200})
     })
   )
+
   return sent
 }
 
@@ -107,6 +114,7 @@ function fakeDeps(
       exits.push(code)
     }
   }
+
   return {deps, exits, order}
 }
 
@@ -119,6 +127,7 @@ afterEach(() => {
   vi.restoreAllMocks()
   restoreEnv()
   process.argv = [...originalArgv]
+
   for (const dir of sandboxes.splice(0)) {
     fs.rmSync(dir, {recursive: true, force: true})
   }
@@ -341,6 +350,7 @@ describe('a command that exits on purpose still reports', () => {
       .spyOn(process, 'exit')
       .mockImplementation((() => undefined) as never)
     const {exitAfterDrain} = await import('../exit-after-drain')
+
     return {...loaded, exit, exitAfterDrain}
   }
 
@@ -379,6 +389,7 @@ describe('a command that exits on purpose still reports', () => {
       code: 'E_PUBLISH_REJECTED',
       exitCode: 1
     })
+
     await exitAfterDrain(1)
 
     expect(sent).toHaveLength(1)

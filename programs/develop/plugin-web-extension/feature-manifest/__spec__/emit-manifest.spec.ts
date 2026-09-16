@@ -21,6 +21,7 @@ describe('EmitManifest', () => {
         2
       )
     )
+
     const errors: any[] = []
     let tapRan = false
     const emitted: Record<string, string> = {}
@@ -53,6 +54,7 @@ describe('EmitManifest', () => {
     expect(getOriginalManifestContent(compilation)).toBe(
       '{\n  "name": "x",\n  "side_panel": {\n    "default_path": "src/sidebar/index.html"\n  }\n}'
     )
+
     expect(JSON.parse(emitted['manifest.json'])).toEqual({
       name: 'x',
       side_panel: {default_path: 'src/sidebar/index.html'}

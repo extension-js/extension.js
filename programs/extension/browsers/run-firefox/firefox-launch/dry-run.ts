@@ -14,6 +14,7 @@ export function logFirefoxDryRun(
   launchArgs: string[]
 ) {
   if (isDebug()) humanLine(messages.firefoxLaunchCalled())
+
   humanLine(messages.firefoxDryRunNotLaunching())
   humanLine(messages.firefoxDryRunBinary(browserBinaryLocation))
   humanLine(messages.firefoxDryRunArgs(launchArgs.join(' ')))

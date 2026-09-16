@@ -45,6 +45,7 @@ describe('lib/atomic-dist', () => {
     expect(
       path.basename(staging).startsWith(`${DIST_STAGING_PREFIX}chrome-`)
     ).toBe(true)
+
     expect(staging).not.toBe(stagingDistPathFor(distPath))
   })
 
@@ -53,6 +54,7 @@ describe('lib/atomic-dist', () => {
       'manifest.json': '{"old":true}',
       'stale-bundle.js': 'old'
     })
+
     const staging = stagingDistPathFor(distPath)
     writeTree(staging, {
       'manifest.json': '{"new":true}',
@@ -64,6 +66,7 @@ describe('lib/atomic-dist', () => {
     expect(fs.readFileSync(path.join(distPath, 'manifest.json'), 'utf-8')).toBe(
       '{"new":true}'
     )
+
     expect(fs.existsSync(path.join(distPath, 'action/index.html'))).toBe(true)
     // Stale files from the previous build must not survive the swap.
     expect(fs.existsSync(path.join(distPath, 'stale-bundle.js'))).toBe(false)
@@ -86,6 +89,7 @@ describe('lib/atomic-dist', () => {
       'manifest.json': '{"old":true}',
       'popup.html': 'page'
     })
+
     const staging = stagingDistPathFor(distPath)
 
     expect(() => promoteStagingDist(staging, distPath)).toThrow()
@@ -93,6 +97,7 @@ describe('lib/atomic-dist', () => {
     expect(fs.readFileSync(path.join(distPath, 'manifest.json'), 'utf-8')).toBe(
       '{"old":true}'
     )
+
     expect(fs.existsSync(path.join(distPath, 'popup.html'))).toBe(true)
     expect(listNames(path.join(root, 'dist'))).toEqual(['chrome'])
   })
@@ -102,6 +107,7 @@ describe('lib/atomic-dist', () => {
       'manifest.json': '{"good":true}',
       'action/index.html': 'page'
     })
+
     const staging = stagingDistPathFor(distPath)
     // The interrupt happened mid-emit: manifest present, pages missing.
     writeTree(staging, {'manifest.json': '{"partial":true}'})

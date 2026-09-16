@@ -22,6 +22,7 @@ export async function attachConsoleListeners(client: MessagingClient) {
         )
         const consoleActor =
           resolved?.consoleActor || t.consoleActor || t.webConsoleActor
+
         if (consoleActor) {
           try {
             await client.request({
@@ -97,6 +98,7 @@ export function subscribeUnifiedLogging(
         text = String(
           (arg && (arg.value || arg.text || arg.message || arg)) || ''
         )
+
         url = String(a.filename || a.sourceName || '')
       } else if (type === 'pageError' || type === 'networkEventUpdate') {
         level = type === 'pageError' ? 'error' : 'info'
@@ -138,6 +140,7 @@ export function subscribeUnifiedLogging(
 
       if (fmt === 'json' || fmt === 'ndjson') {
         printLogEventJson(event)
+
         return
       }
 

@@ -28,11 +28,13 @@ function makeCompiler() {
             },
             __assets: {}
           }
+
           cb(compilation)
         }
       }
     }
   }
+
   return {
     compiler,
     taps: processAssetsTaps,
@@ -102,6 +104,7 @@ describe('InjectBridgeProducer', () => {
       'extension-js-control.json',
       JSON.stringify({port: 55350, instanceId: 'a-previous-session'})
     )
+
     setAsset('background/service_worker.js', '/* sw */')
 
     runProcessAssets()
@@ -139,6 +142,7 @@ describe('InjectBridgeProducer', () => {
     expect(getAssetSource('background/scripts.js')).toContain(
       '__extjsBridgeProducerInstalled'
     )
+
     expect(getAssetSource('background/script.js')).toContain(
       '__extjsBridgeProducerInstalled'
     )
@@ -185,6 +189,7 @@ describe('InjectBridgeProducer', () => {
     for (const port of [undefined, 'not-a-number']) {
       if (port === undefined) delete process.env.EXTENSION_CONTROL_PORT
       else process.env.EXTENSION_CONTROL_PORT = port
+
       const {compiler, taps} = makeCompiler()
       new InjectBridgeProducer().apply(compiler)
       expect(taps).toHaveLength(0)
@@ -250,6 +255,7 @@ describe('InjectBridgeRelay', () => {
     ]
     for (const [name] of surfaces) setAsset(name, `/* user ${name} */`)
     runProcessAssets()
+
     for (const [name, context] of surfaces) {
       const out = getAssetSource(name)
       expect(out).toContain('__extjsBridgeRelayInstalled')

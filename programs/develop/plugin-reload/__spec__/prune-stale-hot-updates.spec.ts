@@ -31,6 +31,7 @@ describe('PruneStaleHotUpdates (bug 34)', () => {
       }
     }
     new PruneStaleHotUpdates().apply(compiler as any)
+
     const compileWith = (assetNames: string[]) => {
       doneFn!({
         compilation: {
@@ -38,6 +39,7 @@ describe('PruneStaleHotUpdates (bug 34)', () => {
         }
       })
     }
+
     return {compileWith}
   }
 

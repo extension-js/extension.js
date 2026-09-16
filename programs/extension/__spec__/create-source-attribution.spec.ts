@@ -7,9 +7,11 @@ vi.hoisted(() => {
 vi.mock('extension-create', () => ({
   extensionCreate: vi.fn(async () => {})
 }))
+
 vi.mock('../helpers/extension-develop-runtime', () => ({
   resolveExtensionDevelopRoot: vi.fn(() => '/resolved/develop/root')
 }))
+
 vi.mock('../helpers/cli-package-json', () => ({
   getCliPackageJson: vi.fn(() => ({version: '9.9.9'}))
 }))
@@ -29,6 +31,7 @@ beforeEach(() => {
 afterEach(() => {
   if (savedRoot === undefined) delete process.env.EXTENSION_CREATE_DEVELOP_ROOT
   else process.env.EXTENSION_CREATE_DEVELOP_ROOT = savedRoot
+
   vi.restoreAllMocks()
   vi.clearAllMocks()
 })
@@ -37,6 +40,7 @@ function createCommand(): Command {
   const program = makeProgram(registerCreateCommand)
   const command = program.commands.find((each) => each.name() === 'create')
   if (!command) throw new Error('create command is not registered')
+
   return command
 }
 
@@ -61,6 +65,7 @@ describe('the create command declares --source', () => {
         'templates'
       ])
     ).toBe(0)
+
     expect(
       await runCli(makeProgram(registerCreateCommand), [
         'create',
@@ -133,6 +138,7 @@ describe('the two halves stay joined', () => {
         argv('create', 'my-extension', '--template', 'javascript')
       ).template
     ).toBe('javascript')
+
     for (const freeform of [
       'https://github.com/acme/private-thing',
       '/Users/jane/private/ext',

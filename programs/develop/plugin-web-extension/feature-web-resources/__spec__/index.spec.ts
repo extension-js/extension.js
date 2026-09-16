@@ -62,6 +62,7 @@ describe('generateManifestPatches', () => {
       {
         getAsset: (name?: string) => {
           if (!name || name === 'manifest.json') return manifestAsset
+
           return extraAssetSources[name]
         },
         assets: {
@@ -80,6 +81,7 @@ describe('generateManifestPatches', () => {
     expect(updateAssetMock).toHaveBeenCalledTimes(1)
     const callArgs = updateAssetMock.mock.calls[0]
     expect(callArgs[0]).toEqual('manifest.json')
+
     return JSON.parse(callArgs[1].source().toString()) as Manifest
   }
 
@@ -137,6 +139,7 @@ describe('generateManifestPatches', () => {
     expect(result.content_scripts?.[0]?.css).toEqual([
       'content_scripts/content-0.css'
     ])
+
     expect((result as any).web_accessible_resources).toEqual([
       {
         matches: ['<all_urls>'],
@@ -192,6 +195,7 @@ describe('generateManifestPatches', () => {
     expect(result.content_scripts?.[0]?.css).toEqual([
       'content_scripts/content-0.css'
     ])
+
     expect((result as any).web_accessible_resources).toEqual([
       {
         matches: ['<all_urls>'],
@@ -222,6 +226,7 @@ describe('generateManifestPatches', () => {
     expect(result.content_scripts?.[0]?.css).toEqual([
       'content_scripts/content-0.css'
     ])
+
     expect((result as any).web_accessible_resources).toContain(
       'content_scripts/content-0.css'
     )
@@ -286,6 +291,7 @@ describe('generateManifestPatches', () => {
       fs.mkdirSync(path.dirname(abs), {recursive: true})
       fs.writeFileSync(abs, `// ${rel}`)
     }
+
     const updated = runWith(
       {},
       {
@@ -421,9 +427,11 @@ describe('generateManifestPatches', () => {
     expect((result.background as any)?.service_worker).toBe(
       'background/service_worker.js'
     )
+
     expect(result.content_scripts?.[0]?.js).toEqual([
       'content_scripts/content-0.js'
     ])
+
     expect((result as any).web_accessible_resources).toEqual([
       {
         matches: ['*://example.com/*'],
@@ -687,6 +695,7 @@ describe('generateManifestPatches', () => {
           manifest,
           browser
         )
+
         expect(compilation.errors, browser).toHaveLength(0)
       }
 
@@ -697,6 +706,7 @@ describe('generateManifestPatches', () => {
         manifest,
         'chrome'
       )
+
       expect(chromeCompilation.errors).toHaveLength(1)
       expect(chromeCompilation.errors[0].name).toBe('WARInvalidMatchPattern')
     })
@@ -1056,6 +1066,7 @@ describe('generateManifestPatches', () => {
     expect(merged.resources).toEqual(
       ['content_scripts/a.svg', 'content_scripts/b.svg', 'existing.svg'].sort()
     )
+
     expect(untouched.resources).toEqual(['x.svg'])
   })
 })

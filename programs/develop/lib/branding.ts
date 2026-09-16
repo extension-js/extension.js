@@ -8,11 +8,14 @@
 
 export function scrubBrand(txt: string, brand = 'Extension.js'): string {
   if (!txt) return txt
+
   const safeBrand = brand.replace(/\$/g, '$$$$')
   const preserved: string[] = []
+
   const preserve = (value: string) => {
     const token = `__EXT_BRAND_PRESERVE_${preserved.length}__`
     preserved.push(value)
+
     return token
   }
 

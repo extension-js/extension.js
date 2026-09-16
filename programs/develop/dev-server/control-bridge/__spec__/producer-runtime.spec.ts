@@ -34,9 +34,11 @@ class FakeWebSocket {
 function makeGlobal() {
   const calls: Array<{level: string; args: unknown[]}> = []
   const console: Record<string, (...a: unknown[]) => void> = {}
+
   for (const level of ['log', 'info', 'warn', 'error', 'debug', 'trace']) {
     console[level] = (...args: unknown[]) => calls.push({level, args})
   }
+
   return {
     fakeGlobal: {WebSocket: FakeWebSocket, console} as Record<string, unknown>,
     originalCalls: calls
@@ -54,6 +56,7 @@ describe('bridge producer runtime', () => {
     expect(
       buildBridgeProducerSource({controlPort: null, instanceId: 'x'})
     ).toBe('')
+
     expect(buildBridgeProducerSource({controlPort: 0, instanceId: 'x'})).toBe(
       ''
     )
@@ -99,6 +102,7 @@ describe('bridge producer runtime', () => {
       }),
       fakeGlobal
     )
+
     expect(FakeWebSocket.instances[0].url).toBe(
       'ws://10.1.2.3:9100/extjs-control'
     )
@@ -127,6 +131,7 @@ describe('bridge producer runtime', () => {
       role: 'producer',
       instanceId: 'inst-T'
     })
+
     const log = frames.find((f) => f.type === 'log')
     expect(log.event).toMatchObject({
       v: 1,
@@ -134,6 +139,7 @@ describe('bridge producer runtime', () => {
       context: 'background',
       runId: 'inst-T'
     })
+
     expect(log.event.messageParts).toEqual(['boom', '{"a":1}'])
     expect(typeof log.event.id).toBe('string')
 
@@ -164,12 +170,15 @@ describe('bridge producer runtime', () => {
     const {fakeGlobal} = makeGlobal()
     let installedListener: (() => void) | undefined
     const fetched: string[] = []
+
     fakeGlobal.fetch = (url: string) => {
       fetched.push(String(url))
+
       return Promise.resolve({
         json: () => Promise.resolve({content_scripts: []})
       })
     }
+
     fakeGlobal.chrome = {
       runtime: {
         id: 'test',
@@ -216,6 +225,7 @@ describe('bridge producer runtime', () => {
             ]
           })
       })
+
     const executed: Array<{target: {tabId: number}}> = []
     const registered: Array<Record<string, unknown>> = []
     fakeGlobal.chrome = {
@@ -252,6 +262,7 @@ describe('bridge producer runtime', () => {
           cb: (t: Array<{id: number; url: string}>) => void
         ) => {
           const urls = Array.isArray(q.url) ? q.url : []
+
           if (urls.includes('*://*/_screenrecording*')) {
             cb([{id: 7, url: 'http://127.0.0.1:5151/_screenrecording/boot'}])
           } else {
@@ -287,17 +298,22 @@ describe('bridge producer runtime', () => {
     FakeWebSocket.instances = []
     const {fakeGlobal} = makeGlobal()
     const fetched: string[] = []
+
     fakeGlobal.fetch = (url: string) => {
       fetched.push(String(url))
+
       return Promise.resolve({json: () => Promise.resolve({port: 9200})})
     }
+
     fakeGlobal.chrome = {
       runtime: {getURL: (p: string) => `chrome-extension://abc/${p}`}
     }
+
     run(
       buildBridgeProducerSource({controlPort: 9100, instanceId: 'i'}),
       fakeGlobal
     )
+
     expect(FakeWebSocket.instances[0].url).toBe(
       'ws://127.0.0.1:9100/extjs-control'
     )
@@ -315,6 +331,7 @@ describe('bridge producer runtime', () => {
     expect(fetched).toContain(
       'chrome-extension://abc/extension-js-control.json'
     )
+
     const last = FakeWebSocket.instances[FakeWebSocket.instances.length - 1]
     expect(last.url).toBe('ws://127.0.0.1:9200/extjs-control')
   })
@@ -326,10 +343,12 @@ describe('bridge producer runtime', () => {
     fakeGlobal.chrome = {
       runtime: {getURL: (p: string) => `chrome-extension://abc/${p}`}
     }
+
     run(
       buildBridgeProducerSource({controlPort: 9100, instanceId: 'i'}),
       fakeGlobal
     )
+
     FakeWebSocket.instances[0].close()
     await new Promise((r) => setTimeout(r, 350))
     FakeWebSocket.instances[1].close()
@@ -349,10 +368,13 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     const {fakeGlobal} = makeGlobal()
     fakeGlobal.chrome = chromeApi
     fakeGlobal.navigator = {userAgent: 'Chrome'}
+
     fakeGlobal.setTimeout = (fn: () => void) => {
       fn()
+
       return 0
     }
+
     Object.assign(fakeGlobal, extraGlobals)
     const src = buildBridgeProducerSource({
       controlPort: 9999,
@@ -363,6 +385,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     const ws = FakeWebSocket.instances[0]
     ws.triggerOpen()
     ws.sent = []
+
     return ws
   }
 
@@ -376,6 +399,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
         Promise.resolve(key == null ? {...store} : {[key]: store[key]}),
       set: (items: Record<string, unknown>) => {
         Object.assign(store, items)
+
         return Promise.resolve()
       }
     }
@@ -388,6 +412,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       target: {context: 'background'},
       args: {area: 'local', items: {hello: 'world'}}
     })
+
     await Promise.resolve()
     await Promise.resolve()
     expect(store.hello).toBe('world')
@@ -399,6 +424,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       target: {context: 'background'},
       args: {area: 'local', key: 'hello'}
     })
+
     await Promise.resolve()
     await Promise.resolve()
     const r = results(ws).find((f) => f.cmdId === 's2')
@@ -414,6 +440,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       target: {context: 'background'},
       args: {expression: '1 + 2'}
     })
+
     await Promise.resolve()
     await Promise.resolve()
     expect(results(ws).find((f) => f.cmdId === 'e1')).toMatchObject({
@@ -436,6 +463,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
           args?: unknown[]
         }) => {
           executed.push(opts)
+
           return Promise.resolve([{result: opts.func(...(opts.args || []))}])
         }
       },
@@ -456,6 +484,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       target: {context: 'content', url: 'https://example.com/*'},
       args: {expression: '40 + 2'}
     })
+
     await flush()
     expect(executed).toHaveLength(1)
     expect(executed[0].target.tabId).toBe(9)
@@ -475,6 +504,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
           args?: unknown[]
         }) => {
           executed.push(opts)
+
           return Promise.resolve([{result: opts.func(...(opts.args || []))}])
         }
       },
@@ -495,6 +525,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       target: {context: 'content'},
       args: {expression: '1'}
     })
+
     await flush()
     expect(executed).toHaveLength(1)
     expect(executed[0].target.tabId).toBe(5)
@@ -512,6 +543,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       target: {context: 'content', url: 'https://nope.test/'},
       args: {expression: '1'}
     })
+
     await flush()
     expect(results(ws).find((f) => f.cmdId === 'e-none')).toMatchObject({
       ok: false,
@@ -531,6 +563,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       target: {context: 'content', tabId: 7},
       args: {expression: '1'}
     })
+
     await flush()
     const r = results(ws).find((f) => f.cmdId === 'e-null')
     expect(r).toMatchObject({ok: false, error: {name: 'TargetNotFound'}})
@@ -551,6 +584,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       target: {context: 'content', tabId: 404},
       args: {expression: '1'}
     })
+
     await flush()
     const r = results(ws).find((f) => f.cmdId === 'e-gone')
     expect(r).toMatchObject({ok: false, error: {name: 'TargetNotFound'}})
@@ -582,6 +616,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       target: {context: 'content', tabId: 7},
       args: {expression: 'console.log("x")'}
     })
+
     await flush()
     const r = results(ws).find((f) => f.cmdId === 'e-csp')
     expect(r).toMatchObject({ok: false, error: {name: 'Unsupported'}})
@@ -606,6 +641,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       target: {context: 'popup'},
       args: {expression: '3 + 4'}
     })
+
     await flush()
     expect(sent).toHaveLength(1)
     expect(sent[0].__extjsEvalRequest).toBe(true)
@@ -630,12 +666,14 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       target: {context: 'sidebar'},
       args: {expression: '1'}
     })
+
     await flush()
     const r = results(ws).find((f) => f.cmdId === 'e-closed')
     expect(r).toMatchObject({
       ok: false,
       error: {name: 'Unsupported', code: 'surface_not_open'}
     })
+
     expect(r.error.message).toContain('not open')
     expect(r.error.message).not.toContain('tabId')
   })
@@ -649,6 +687,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       target: {context: 'frob'},
       args: {expression: '1'}
     })
+
     await flush()
     expect(results(ws).find((f) => f.cmdId === 'e-unknown')).toMatchObject({
       ok: false,
@@ -661,6 +700,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       tabs: {
         query: (_q: unknown, cb?: (t: unknown[]) => void) => {
           if (typeof cb !== 'function') return undefined
+
           cb([
             {
               id: 4,
@@ -670,6 +710,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
               windowId: 1
             }
           ])
+
           return undefined
         }
       }
@@ -681,6 +722,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       target: {context: 'background'},
       args: {}
     })
+
     await flush()
     expect(results(ws).find((f) => f.cmdId === 't-cb')).toMatchObject({
       ok: true,
@@ -705,6 +747,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
           tabs: {
             query: () => {
               browserUsed = true
+
               return Promise.resolve([
                 {
                   id: 9,
@@ -726,6 +769,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       target: {context: 'background'},
       args: {}
     })
+
     await flush()
     expect(browserUsed).toBe(true)
     expect(results(ws).find((f) => f.cmdId === 't-browser')).toMatchObject({
@@ -741,6 +785,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
         reload: (id: number, cb?: () => void) => {
           reloaded.push(id)
           if (typeof cb === 'function') cb()
+
           return undefined
         }
       }
@@ -751,6 +796,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       op: 'reload',
       target: {context: 'content', tabId: 12}
     })
+
     await flush()
     expect(reloaded).toEqual([12])
     expect(results(ws).find((f) => f.cmdId === 'r-cb')).toMatchObject({
@@ -765,6 +811,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       scripting: {
         executeScript: (opts: {target: {tabId: number}}) => {
           executed.push(opts)
+
           return Promise.resolve([{result: {url: 'https://example.com/'}}])
         }
       },
@@ -782,6 +829,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       target: {context: 'content', url: 'https://example.com/*'},
       args: {include: ['summary']}
     })
+
     await flush()
     expect(executed).toHaveLength(1)
     expect(executed[0].target.tabId).toBe(3)
@@ -799,10 +847,12 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       op: 'reload',
       target: {context: 'background'}
     })
+
     expect(results(ws).find((f) => f.cmdId === 'r1')).toMatchObject({
       ok: true,
       value: {reloading: true}
     })
+
     expect(reloaded).toBe(false)
     await new Promise((r) => setTimeout(r, 80))
     expect(reloaded).toBe(true)
@@ -815,6 +865,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       {
         __extjsScriptsReplay: (files: string[]) => {
           replayed.push(files)
+
           return Promise.resolve([])
         }
       }
@@ -827,12 +878,14 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       changedFiles: ['scripts/widget.ts'],
       changedScriptFiles: ['scripts/widget.js']
     })
+
     ws.triggerMessage({
       type: 'reload',
       reloadType: 'page',
       label: 'popup page (popup/popup.js)',
       changedFiles: ['popup/popup.js']
     })
+
     await new Promise((r) => setTimeout(r, 20))
 
     expect(replayed).toEqual([['scripts/widget.js']])
@@ -848,6 +901,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       changedFiles: ['scripts/widget.ts'],
       changedScriptFiles: ['scripts/widget.js']
     })
+
     await new Promise((r) => setTimeout(r, 20))
 
     // Notify-only page frames never reload or ack, with or without a replay.
@@ -864,6 +918,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
         getPopup: (_d: unknown, cb: (p: string) => void) => cb('popup.html'),
         openPopup: () => {
           opened = true
+
           return Promise.resolve()
         },
         onClicked: {addListener() {}}
@@ -876,6 +931,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       target: {context: 'background'},
       args: {surface: 'action'}
     })
+
     await Promise.resolve()
     await Promise.resolve()
     expect(opened).toBe(true)
@@ -907,6 +963,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       target: {context: 'background'},
       args: {surface: 'action'}
     })
+
     await Promise.resolve()
     await Promise.resolve()
     expect(fired).toEqual([{id: 7, active: true}])
@@ -938,6 +995,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       target: {context: 'background'},
       args: {surface: 'action'}
     })
+
     await Promise.resolve()
     await Promise.resolve()
     const r = results(ws).find((f) => f.cmdId === 'act-warn')
@@ -974,6 +1032,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       target: {context: 'background'},
       args: {surface: 'action'}
     })
+
     await Promise.resolve()
     await Promise.resolve()
     expect(fired).toEqual([{id: 3, active: true}])
@@ -999,6 +1058,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     browserApi.commands.onCommand.addListener((name: unknown, tab: unknown) =>
       got.push([name, tab])
     )
+
     ws.triggerMessage({
       type: 'command',
       cmdId: 'cmd-gecko',
@@ -1006,6 +1066,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       target: {context: 'background'},
       args: {surface: 'command', name: 'do-thing'}
     })
+
     await Promise.resolve()
     await Promise.resolve()
     expect(got).toEqual([['do-thing', {id: 9, active: true}]])
@@ -1042,6 +1103,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       target: {context: 'background'},
       args: {surface: 'action'}
     })
+
     await Promise.resolve()
     await Promise.resolve()
     expect(fired).toEqual([{id: 5, active: true}])
@@ -1080,6 +1142,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       target: {context: 'background'},
       args: {surface: 'action'}
     })
+
     await Promise.resolve()
     await Promise.resolve()
     expect(fired).toEqual([{id: 6, active: true}])
@@ -1102,6 +1165,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     chromeApi.commands.onCommand.addListener((name: unknown, tab: unknown) =>
       got.push([name, tab])
     )
+
     ws.triggerMessage({
       type: 'command',
       cmdId: 'cmd1',
@@ -1109,6 +1173,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       target: {context: 'background'},
       args: {surface: 'command', name: 'do-thing'}
     })
+
     await Promise.resolve()
     await Promise.resolve()
     expect(got).toEqual([['do-thing', {id: 9, active: true}]])
@@ -1132,6 +1197,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       target: {context: 'background'},
       args: {surface: 'command', name: 'noop'}
     })
+
     await Promise.resolve()
     await Promise.resolve()
     expect(results(ws).find((f) => f.cmdId === 'cmd2')).toMatchObject({
@@ -1156,6 +1222,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       target: {context: 'background'},
       args: {surface: 'action'}
     })
+
     await Promise.resolve()
     await Promise.resolve()
     expect(results(ws).find((f) => f.cmdId === 'act3')).toMatchObject({
@@ -1180,12 +1247,14 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       target: {context: 'popup'},
       args: {surface: 'popup'}
     })
+
     await flush()
     const r = results(ws).find((f) => f.cmdId === 'op-hw')
     expect(r).toMatchObject({
       ok: false,
       error: {name: 'Unsupported', code: 'needs_headed_window'}
     })
+
     expect(r.error.message).toContain(
       'Could not find an active browser window.'
     )
@@ -1210,6 +1279,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       target: {context: 'sidebar'},
       args: {surface: 'sidebar'}
     })
+
     await flush()
     expect(results(ws).find((f) => f.cmdId === 'op-ug')).toMatchObject({
       ok: false,
@@ -1226,6 +1296,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       target: {context: 'popup'},
       args: {surface: 'popup'}
     })
+
     await flush()
     expect(results(ws).find((f) => f.cmdId === 'op-api')).toMatchObject({
       ok: false,
@@ -1242,6 +1313,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       target: {context: 'sidebar'},
       args: {surface: 'sidebar'}
     })
+
     await flush()
     expect(results(ws).find((f) => f.cmdId === 'op-side-api')).toMatchObject({
       ok: false,
@@ -1264,6 +1336,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       target: {context: 'popup'},
       args: {surface: 'popup'}
     })
+
     await flush()
     const r = results(ws).find((f) => f.cmdId === 'op-none')
     expect(r).toMatchObject({ok: false, error: {name: 'Unsupported'}})
@@ -1292,6 +1365,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     }
     run(buildBridgeRelaySource({context: 'popup'}), fakeGlobal)
     expect(listeners.length).toBe(2)
+
     const dispatch = (msg: any, respond: (r: any) => void) => {
       for (const fn of listeners) fn(msg, {}, respond)
     }
@@ -1301,6 +1375,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       {__extjsInspectRequest: true, target: {context: 'options'}},
       (r: any) => (responded = r)
     )
+
     expect(responded).toBe('NONE')
 
     dispatch(
@@ -1311,10 +1386,12 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       },
       (r: any) => (responded = r)
     )
+
     expect(responded).toMatchObject({
       ok: true,
       value: {context: 'popup', title: 'Popup'}
     })
+
     expect(responded.value.summary.bodyChildCount).toBe(1)
   })
 
@@ -1332,6 +1409,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       }
     }
     run(buildBridgeRelaySource({context: 'popup'}), fakeGlobal)
+
     const dispatch = (msg: any, respond: (r: any) => void) => {
       for (const fn of listeners) fn(msg, {}, respond)
     }
@@ -1345,6 +1423,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       },
       (r: any) => (responded = r)
     )
+
     expect(responded).toBe('NONE')
 
     dispatch(
@@ -1355,6 +1434,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       },
       (r: any) => (responded = r)
     )
+
     expect(responded).toMatchObject({ok: true, value: 23})
 
     dispatch(
@@ -1365,6 +1445,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       },
       (r: any) => (responded = r)
     )
+
     expect(responded.ok).toBe(false)
     expect(responded.error.name).toBeTruthy()
   })
@@ -1380,6 +1461,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
         runtime: {
           connect: (opts: any) => {
             connectedName = opts?.name || null
+
             return {
               postMessage: (msg: any) => sent.push(msg),
               onDisconnect: {addListener: () => {}}
@@ -1402,6 +1484,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       context: 'content',
       url: 'https://shop.example/checkout'
     })
+
     expect(sent[0].__extjsBridgeLog.messageParts).toEqual([
       'hello from content',
       '{"a":1}'
@@ -1419,12 +1502,15 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
           connect: () => {
             connects++
             const stale = connects === 1
+
             return {
               postMessage: (msg: any) => {
-                if (stale)
+                if (stale) {
                   throw new Error(
                     'Attempting to use a disconnected port object'
                   )
+                }
+
                 sent.push(msg)
               },
               onDisconnect: {addListener: () => {}}
@@ -1449,6 +1535,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       op: 'frob',
       target: {context: 'background'}
     })
+
     expect(results(ws).find((f) => f.cmdId === 'x1')).toMatchObject({
       ok: false,
       error: {name: 'BadRequest'}
@@ -1463,6 +1550,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       op: 'inspect',
       target: {context: 'background'}
     })
+
     expect(results(ws).find((f) => f.cmdId === 'i0')).toMatchObject({
       ok: false,
       error: {name: 'Unsupported'}
@@ -1484,6 +1572,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       sender: {tab: {id: 7}, frameId: 2, url: 'https://y.test/'},
       onMessage: {addListener: (fn: any) => portMessageListeners.push(fn)}
     })
+
     expect(portMessageListeners.length).toBe(1)
     portMessageListeners[0]({
       __extjsBridgeLog: {
@@ -1493,6 +1582,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
         url: 'https://y.test/'
       }
     })
+
     const log = ws.sent.map((s) => JSON.parse(s)).find((f) => f.type === 'log')
     expect(log.event).toMatchObject({
       level: 'log',
@@ -1502,6 +1592,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       url: 'https://y.test/',
       messageParts: ['ported']
     })
+
     const before = ws.sent.length
     connectListeners[0]({
       name: 'someone-elses-port',
@@ -1511,6 +1602,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
         }
       }
     })
+
     expect(ws.sent.length).toBe(before)
   })
 
@@ -1531,6 +1623,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       },
       {tab: {id: 42}, frameId: 0, url: 'https://x.test/'}
     )
+
     const log = ws.sent.map((s) => JSON.parse(s)).find((f) => f.type === 'log')
     expect(log.event).toMatchObject({
       level: 'warn',
@@ -1592,6 +1685,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
             } else {
               announced.push({tabId: opts.target.tabId, args: opts.args})
             }
+
             cb?.()
           }
         }
@@ -1607,6 +1701,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       reloadType: 'content-scripts',
       label: 'content_script (src/content/scripts.ts)'
     })
+
     await new Promise((r) => setTimeout(r, 20))
 
     expect(injected.map((i) => i.tabId).sort()).toEqual([11, 12])
@@ -1616,6 +1711,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     expect(announced[0].args).toEqual([
       '[Extension.js] Reloading content_script (src/content/scripts.ts)…'
     ])
+
     expect(runtimeReloaded).toBe(false)
     expect(results(ws)).toHaveLength(0)
   })
@@ -1643,6 +1739,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       reloadType: 'content-scripts',
       label: 'content_script (src/content/scripts.ts)'
     })
+
     await new Promise((r) => setTimeout(r, 20))
 
     const ack = ws.sent
@@ -1666,6 +1763,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       reloadType: 'page',
       label: 'popup page (src/popup/index.tsx)'
     })
+
     await new Promise((r) => setTimeout(r, 20))
 
     const ack = ws.sent
@@ -1726,6 +1824,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       world: 'ISOLATED',
       runAt: 'document_idle'
     })
+
     expect(registered[0].id.startsWith('_')).toBe(false)
 
     existing = [{id: 'extjs-dev-cs-0'}]
@@ -1804,6 +1903,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       {
         fetch: (url: string) => {
           fetched.push(String(url))
+
           return Promise.resolve({
             json: () => Promise.resolve({content_scripts: []})
           })
@@ -1840,6 +1940,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       {
         fetch: (url: string) => {
           fetched.push(String(url))
+
           return Promise.resolve({
             json: () => Promise.resolve({content_scripts: []})
           })
@@ -1901,6 +2002,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       reloadType: 'page',
       label: 'sidebar page (src/sidebar/index.tsx)'
     })
+
     await new Promise((r) => setTimeout(r, 250))
 
     expect(runtimeReloaded).toBe(false)
@@ -1947,6 +2049,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       reloadType: 'content-scripts',
       label: 'content_script (src/content/scripts.ts)'
     })
+
     await new Promise((r) => setTimeout(r, 20))
 
     expect(external).toEqual([])
@@ -1974,6 +2077,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       target: {context: 'content', tabId: 5},
       args: {include: ['summary']}
     })
+
     await Promise.resolve()
     await Promise.resolve()
     expect(results(ws).find((f) => f.cmdId === 'i1')).toMatchObject({
@@ -1993,6 +2097,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       target: {context: 'content', tabId: 9},
       args: {include: ['summary']}
     })
+
     await Promise.resolve()
     await Promise.resolve()
     const r = results(ws).find((f) => f.cmdId === 'i-null')
@@ -2013,6 +2118,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       target: {context: 'content', tabId: 404},
       args: {include: ['summary']}
     })
+
     await Promise.resolve()
     await Promise.resolve()
     const r = results(ws).find((f) => f.cmdId === 'i-gone')
@@ -2039,11 +2145,14 @@ describe('bridge producer runtime, storage on callback-only engines (#54)', () =
       }),
       fakeGlobal
     )
+
     const ws = FakeWebSocket.instances[0]
     ws.triggerOpen()
     ws.sent = []
+
     return ws
   }
+
   const results = (ws: FakeWebSocket) =>
     ws.sent.map((s) => JSON.parse(s)).filter((f) => f.type === 'result')
 
@@ -2051,8 +2160,10 @@ describe('bridge producer runtime, storage on callback-only engines (#54)', () =
     const store: Record<string, unknown> = {}
     const callbackOnly = {
       get: (key: string | null, cb?: (r: Record<string, unknown>) => void) => {
-        if (typeof cb === 'function')
+        if (typeof cb === 'function') {
           cb(key == null ? {...store} : {[key]: store[key]})
+        }
+
         return undefined
       },
       set: (items: Record<string, unknown>, cb?: () => void) => {
@@ -2060,6 +2171,7 @@ describe('bridge producer runtime, storage on callback-only engines (#54)', () =
           Object.assign(store, items)
           cb()
         }
+
         return undefined
       }
     }
@@ -2072,6 +2184,7 @@ describe('bridge producer runtime, storage on callback-only engines (#54)', () =
       target: {context: 'background'},
       args: {area: 'local', items: {hello: 'world'}}
     })
+
     await Promise.resolve()
     expect(store.hello).toBe('world')
     expect(results(ws).find((f) => f.cmdId === 's1')).toMatchObject({
@@ -2086,6 +2199,7 @@ describe('bridge producer runtime, storage on callback-only engines (#54)', () =
       target: {context: 'background'},
       args: {area: 'local', key: 'hello'}
     })
+
     await Promise.resolve()
     expect(results(ws).find((f) => f.cmdId === 's2')).toMatchObject({
       ok: true,
@@ -2097,6 +2211,7 @@ describe('bridge producer runtime, storage on callback-only engines (#54)', () =
     const callbackOnly = {
       get: (_key: string | null, cb?: (r: unknown) => void) => {
         if (typeof cb === 'function') cb(undefined)
+
         return undefined
       }
     }
@@ -2111,6 +2226,7 @@ describe('bridge producer runtime, storage on callback-only engines (#54)', () =
       target: {context: 'background'},
       args: {area: 'local', key: 'k'}
     })
+
     await Promise.resolve()
     expect(results(ws).find((f) => f.cmdId === 's-err')).toMatchObject({
       ok: false,
@@ -2125,6 +2241,7 @@ describe('bridge producer runtime, storage on callback-only engines (#54)', () =
       get: (_k: string | null, cb?: (r: unknown) => void) => {
         chromeGetCalls++
         if (cb) cb({})
+
         return undefined
       }
     }
@@ -2133,6 +2250,7 @@ describe('bridge producer runtime, storage on callback-only engines (#54)', () =
         Promise.resolve(key == null ? {...store} : {[key]: store[key]}),
       set: (items: Record<string, unknown>) => {
         Object.assign(store, items)
+
         return Promise.resolve()
       }
     }
@@ -2148,6 +2266,7 @@ describe('bridge producer runtime, storage on callback-only engines (#54)', () =
       target: {context: 'background'},
       args: {area: 'local', items: {a: 1}}
     })
+
     await Promise.resolve()
     await Promise.resolve()
     expect(store.a).toBe(1)
@@ -2158,12 +2277,14 @@ describe('bridge producer runtime, storage on callback-only engines (#54)', () =
       target: {context: 'background'},
       args: {area: 'local', key: 'a'}
     })
+
     await Promise.resolve()
     await Promise.resolve()
     expect(results(ws).find((f) => f.cmdId === 'b2')).toMatchObject({
       ok: true,
       value: {a: 1}
     })
+
     expect(chromeGetCalls).toBe(0)
   })
 })
@@ -2175,9 +2296,11 @@ describe('bridge producer runtime, uncaught error capture (#55)', () => {
     fakeGlobal.chrome = chromeApi
     fakeGlobal.navigator = {userAgent: 'Chrome'}
     const handlers: Record<string, Array<(ev: unknown) => void>> = {}
+
     fakeGlobal.addEventListener = (type: string, fn: (ev: unknown) => void) => {
       ;(handlers[type] || (handlers[type] = [])).push(fn)
     }
+
     run(
       buildBridgeProducerSource({
         controlPort: 9999,
@@ -2186,11 +2309,14 @@ describe('bridge producer runtime, uncaught error capture (#55)', () => {
       }),
       fakeGlobal
     )
+
     const ws = FakeWebSocket.instances[0]
     ws.triggerOpen()
     ws.sent = []
+
     return {ws, handlers, fakeGlobal}
   }
+
   const errorLogs = (ws: FakeWebSocket) =>
     ws.sent
       .map((s) => JSON.parse(s))
@@ -2204,6 +2330,7 @@ describe('bridge producer runtime, uncaught error capture (#55)', () => {
       message: 'boom in SW',
       filename: 'background.js'
     })
+
     const logs = errorLogs(ws)
     expect(logs).toHaveLength(1)
     expect(logs[0].event).toMatchObject({
@@ -2211,6 +2338,7 @@ describe('bridge producer runtime, uncaught error capture (#55)', () => {
       context: 'background',
       runId: 'inst-U'
     })
+
     expect(logs[0].event.messageParts[0]).toContain('boom in SW')
   })
 
@@ -2223,6 +2351,7 @@ describe('bridge producer runtime, uncaught error capture (#55)', () => {
     expect(logs[0].event.messageParts[0]).toContain(
       'Unhandled promise rejection'
     )
+
     expect(logs[0].event.messageParts[0]).toContain('rejected!')
   })
 
@@ -2263,11 +2392,13 @@ describe('bridge relay runtime, uncaught error capture (#55)', () => {
       message: 'page blew up',
       filename: 'https://shop.example/app.js'
     })
+
     expect(sent).toHaveLength(1)
     expect(sent[0].__extjsBridgeLog).toMatchObject({
       level: 'error',
       context: 'content'
     })
+
     expect(sent[0].__extjsBridgeLog.messageParts[0]).toContain('page blew up')
   })
 })
@@ -2280,6 +2411,7 @@ describe('bridge producer runtime, parked errors (#375)', () => {
       get: (key: string, cb: (res: Record<string, unknown>) => void) => {
         const res: Record<string, unknown> = {}
         if (key in data) res[key] = clone(data[key])
+
         cb(res)
       },
       set: (items: Record<string, unknown>, cb?: () => void) => {
@@ -2291,6 +2423,7 @@ describe('bridge producer runtime, parked errors (#375)', () => {
         cb?.()
       }
     }
+
     return {data, area}
   }
 
@@ -2300,13 +2433,16 @@ describe('bridge producer runtime, parked errors (#375)', () => {
   function startContext(area: unknown, instanceId = 'inst-P') {
     const {fakeGlobal} = makeGlobal()
     const handlers: Record<string, Array<(ev: unknown) => void>> = {}
+
     fakeGlobal.addEventListener = (type: string, fn: (ev: unknown) => void) => {
       ;(handlers[type] || (handlers[type] = [])).push(fn)
     }
+
     fakeGlobal.chrome = {
       storage: {local: area},
       runtime: {lastError: undefined}
     }
+
     run(
       buildBridgeProducerSource({
         controlPort: 9500,
@@ -2315,7 +2451,9 @@ describe('bridge producer runtime, parked errors (#375)', () => {
       }),
       fakeGlobal
     )
+
     const ws = FakeWebSocket.instances[FakeWebSocket.instances.length - 1]
+
     return {ws, handlers}
   }
 
@@ -2347,6 +2485,7 @@ describe('bridge producer runtime, parked errors (#375)', () => {
       context: 'background',
       runId: 'inst-P'
     })
+
     expect(parked[0].event.messageParts[0]).toContain('boom at line one')
   })
 
@@ -2443,9 +2582,11 @@ describe('bridge producer runtime, parked errors (#375)', () => {
   it('stays silent when the context has no extension storage', () => {
     const {fakeGlobal} = makeGlobal()
     const handlers: Record<string, Array<(ev: unknown) => void>> = {}
+
     fakeGlobal.addEventListener = (type: string, fn: (ev: unknown) => void) => {
       ;(handlers[type] || (handlers[type] = [])).push(fn)
     }
+
     run(
       buildBridgeProducerSource({
         controlPort: 9500,
@@ -2454,6 +2595,7 @@ describe('bridge producer runtime, parked errors (#375)', () => {
       }),
       fakeGlobal
     )
+
     const ws = FakeWebSocket.instances[FakeWebSocket.instances.length - 1]
 
     expect(() => throwAt(handlers, 'no storage here')).not.toThrow()

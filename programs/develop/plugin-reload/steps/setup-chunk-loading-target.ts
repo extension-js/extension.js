@@ -18,19 +18,6 @@ import {
 } from './setup-reload-strategy'
 import WebExtension from './setup-reload-strategy/webpack-target-webextension-fork'
 
-/**
- * How a chunk gets loaded is a property of the extension platform, not of dev
- * mode. Without this, a production build falls back to rspack's web target,
- * whose loader appends a `<script>` to the host document: that runs in the MAIN
- * world while the content script lives in the isolated world, so the chunk never
- * reaches the requester and a dynamic `import()` dies with ChunkLoadError. Dev
- * looked fine only because the target rode along inside the reload plugin
- * (issue #507).
- *
- * This is the target ALONE. Everything reload-specific, including the
- * synthesized background entry, stays in SetupReloadStrategy: production must
- * never gain a background script the author did not write.
- */
 export class SetupChunkLoadingTarget {
   private readonly manifestPath: string
   private readonly browser: DevOptions['browser']
@@ -53,6 +40,7 @@ export class SetupChunkLoadingTarget {
     if (!hasValidManifest) return
 
     let patchedManifest: Manifest
+
     try {
       const manifest: Manifest = JSON.parse(
         stripBom(fs.readFileSync(this.manifestPath, 'utf-8'))

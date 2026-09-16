@@ -13,6 +13,7 @@ beforeEach(() => {
       : originalResolve(id)
   )
 })
+
 afterEach(() => {
   ;(require as any).resolve = originalResolve
 })
@@ -42,9 +43,11 @@ describe('preact tools', () => {
           if (id === '@rspack/plugin-preact-refresh') {
             return {default: PreactRefreshPluginMock}
           }
+
           throw new Error(`Cannot find module ${id}`)
         }) as any
         req.resolve = (id: string) => `/project/node_modules/${id}`
+
         return req
       }
     }))
@@ -62,18 +65,23 @@ describe('preact tools', () => {
     expect(result?.alias?.react).toContain(
       '/project/node_modules/preact/compat'
     )
+
     expect(result?.alias?.['react-dom']).toContain(
       '/project/node_modules/preact/compat'
     )
+
     expect(result?.alias?.['react-dom/test-utils']).toContain(
       '/project/node_modules/preact/test-utils'
     )
+
     expect(result?.alias?.['react/jsx-runtime']).toContain(
       '/project/node_modules/preact/jsx-runtime'
     )
+
     expect(result?.alias?.['react/jsx-dev-runtime']).toContain(
       '/project/node_modules/preact/jsx-dev-runtime'
     )
+
     expect(result?.alias?.preact).toBe('/project/node_modules/preact')
   })
 
@@ -91,11 +99,14 @@ describe('preact tools', () => {
         const req = ((id: string) => {
           if (id === '@rspack/plugin-preact-refresh') {
             pluginRequested = true
+
             throw new Error(`Cannot find module ${id}`)
           }
+
           throw new Error(`Cannot find module ${id}`)
         }) as any
         req.resolve = (id: string) => `/project/node_modules/${id}`
+
         return req
       }
     }))

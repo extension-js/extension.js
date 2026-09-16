@@ -16,6 +16,7 @@ const dirs: string[] = []
 
 afterEach(async () => {
   vi.unstubAllEnvs()
+
   for (const dir of dirs.splice(0)) {
     await fs.rm(dir, {recursive: true, force: true})
   }
@@ -31,7 +32,9 @@ async function project(
     path.join(dir, 'package.json'),
     JSON.stringify(packageJson)
   )
+
   for (const file of extra) await fs.writeFile(path.join(dir, file), '')
+
   return dir
 }
 
@@ -80,6 +83,7 @@ describe('one package-manager identity per scaffold', () => {
       {cliVersion: '4.1.12', packageManager: manager},
       console
     )
+
     const pkg = JSON.parse(
       await fs.readFile(path.join(dir, 'package.json'), 'utf8')
     )
@@ -95,6 +99,7 @@ describe('one package-manager identity per scaffold', () => {
       },
       console
     )
+
     const plainPkg = JSON.parse(
       await fs.readFile(path.join(plain, 'package.json'), 'utf8')
     )

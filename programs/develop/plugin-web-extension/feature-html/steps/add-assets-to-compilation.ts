@@ -50,6 +50,7 @@ function warnRemoteResourceReferences(params: {
       )
     }
   }
+
   for (const cssUrl of css || []) {
     if (isHttpLike(cssUrl) && !isSpecialScheme(cssUrl)) {
       reportToCompilation(
@@ -102,6 +103,7 @@ function warnMissingPublicRootResources(params: {
 
   const check = (publicRootUrl: string) => {
     if (!publicRootUrl || isSpecialScheme(publicRootUrl)) return
+
     if (path.isAbsolute(publicRootUrl)) {
       const rel = path.relative(projectRoot, publicRootUrl)
       if (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) return
@@ -231,6 +233,7 @@ function emitNestedHtmlAndReferencedAssets(params: {
     if (!path.isAbsolute(assetFromHtml) || !fs.existsSync(assetFromHtml)) {
       return
     }
+
     const s = fs.readFileSync(assetFromHtml)
     const r = new sources.RawSource(s)
     const assetFilepath = htmlStaticAssetOutputName(
@@ -238,6 +241,7 @@ function emitNestedHtmlAndReferencedAssets(params: {
       absoluteFsPath,
       assetFromHtml
     )
+
     if (!compilation.getAsset(assetFilepath)) {
       compilation.emitAsset(assetFilepath, r)
     }
@@ -260,6 +264,7 @@ export class AddAssetsToCompilation {
       'html:add-assets-to-compilation',
       (compilation) => {
         const processAssetsHook = compilation.hooks?.processAssets
+
         const runner = () => {
           const errs = compilation.errors || []
           if (Array.isArray(errs) && errs.length > 0) return
@@ -289,8 +294,9 @@ export class AddAssetsToCompilation {
                   : null
             }
 
-            if (!compilationAsset && !fs.existsSync(resource as string))
+            if (!compilationAsset && !fs.existsSync(resource as string)) {
               continue
+            }
 
             const htmlSource = compilationAsset
               ? compilationAsset.source.source().toString()
@@ -365,6 +371,7 @@ export class AddAssetsToCompilation {
             })
 
             const fileAssets = [...new Set(staticAssets)]
+
             for (const asset of fileAssets) {
               const {absoluteFsPath, isUnderPublicRoot, isRootUrl} =
                 resolveAbsoluteFsPath({
@@ -431,6 +438,7 @@ export class AddAssetsToCompilation {
                   ? getAssetFn.call(compilation, path.basename(asset))
                   : null
                 : null
+
               if (
                 isFromIncludeList(asset, this.includeList) &&
                 !nestedHtmlAsset
@@ -464,6 +472,7 @@ export class AddAssetsToCompilation {
                   manifestDir,
                   absoluteFsPath
                 )
+
                 if (
                   manifestRelative &&
                   !manifestRelative.startsWith('..') &&
@@ -472,6 +481,7 @@ export class AddAssetsToCompilation {
                   const sourcePathAsset = manifestRelative
                     .split(path.sep)
                     .join('/')
+
                   if (
                     sourcePathAsset !== filepath &&
                     !(

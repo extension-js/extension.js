@@ -242,6 +242,7 @@ describe('dropWebkitUnsupportedKeys', () => {
       js: ['main.js'],
       world: 'MAIN'
     })
+
     expect(dropped).toEqual([])
   })
 
@@ -251,6 +252,7 @@ describe('dropWebkitUnsupportedKeys', () => {
       side_panel: {default_path: 'p.html'},
       permissions: ['sidePanel']
     }
+
     for (const browser of ['chrome', 'edge', 'firefox']) {
       const {manifest, dropped} = drop({...source}, browser)
       expect(manifest.side_panel).toEqual({default_path: 'p.html'})

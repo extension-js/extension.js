@@ -64,7 +64,9 @@ export function registerTelemetryCommand(program: Command) {
               `${colors.green('✓')} Telemetry ${enabling ? 'enabled' : 'disabled'}${path ? ` (${path})` : ''}.`
             )
           }
+
           await exitAfterDrain(0)
+
           return
         }
 
@@ -86,12 +88,15 @@ export function registerTelemetryCommand(program: Command) {
             `${colors.red('✗')} Could not write telemetry consent file.`
           )
         }
+
         await exitAfterDrain(1)
+
         return
       }
 
       if (normalized === 'status') {
         const {enabled, source} = getTelemetryConsent()
+
         if (asJson) {
           emit(ENVELOPE.ok('telemetry', 'status', {enabled, source}))
         } else {
@@ -101,7 +106,9 @@ export function registerTelemetryCommand(program: Command) {
           // eslint-disable-next-line no-console
           console.log(`Telemetry: ${label} (source: ${source})`)
         }
+
         await exitAfterDrain(0)
+
         return
       }
 
@@ -123,6 +130,7 @@ export function registerTelemetryCommand(program: Command) {
           `Unknown telemetry action: ${action}. Expected: enable | disable | status.`
         )
       }
+
       await exitAfterDrain(1)
     })
 }

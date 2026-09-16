@@ -62,11 +62,13 @@ const CATALOG_CODE = /^E_[A-Z0-9_]{1,48}$/
 
 function catalogCode(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined
+
   return CATALOG_CODE.test(value) ? value : undefined
 }
 
 function smallExitCode(value: unknown): number | undefined {
   if (typeof value !== 'number' || !Number.isInteger(value)) return undefined
+
   return value >= 0 && value <= 255 ? value : undefined
 }
 
@@ -135,6 +137,7 @@ const DEFAULT_AUDIT_MAX_BYTES = 1024 * 1024
 
 function auditMaxBytes(): number {
   const raw = Number(process.env.EXTENSION_TELEMETRY_AUDIT_MAX_BYTES)
+
   return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_AUDIT_MAX_BYTES
 }
 
@@ -145,6 +148,7 @@ const DEFAULT_POSTHOG_HOST =
 
 function isCI(): boolean {
   const v = process.env
+
   return Boolean(
     v.CI ||
       v.GITHUB_ACTIONS ||
@@ -196,6 +200,7 @@ const INSTALL_DIRECTORY_MARKERS = [
 
 export function isSourceCheckout(startDir: string = __dirname): boolean {
   const segments = String(startDir ?? '').split(/[\\/]+/)
+
   return !segments.some((segment) =>
     INSTALL_DIRECTORY_MARKERS.includes(segment)
   )
@@ -231,7 +236,9 @@ function cacheDir(): string | null {
 function ensureDir(p: string): boolean {
   try {
     if (fs.existsSync(p)) return true
+
     fs.mkdirSync(p, {recursive: true})
+
     return true
   } catch {
     return false
@@ -240,11 +247,13 @@ function ensureDir(p: string): boolean {
 
 function ensureWritableDir(p: string): boolean {
   if (!ensureDir(p)) return false
+
   try {
     fs.accessSync(p, fs.constants.W_OK)
     const probe = path.join(p, `.write-test-${process.pid}-${Date.now()}`)
     fs.writeFileSync(probe, 'ok', 'utf8')
     fs.unlinkSync(probe)
+
     return true
   } catch {
     return false
@@ -258,6 +267,7 @@ function telemetryCandidates(): string[] {
     path.join(os.tmpdir(), 'extensionjs'),
     path.join(process.cwd(), '.cache', 'extensionjs')
   ].filter(Boolean) as string[]
+
   return Array.from(new Set(candidates))
 }
 
@@ -265,6 +275,7 @@ export function resolveTelemetryStorage(): TelemetryStorage | null {
   for (const base of telemetryCandidates()) {
     const telemetryDir = path.join(base, 'telemetry')
     if (!ensureWritableDir(telemetryDir)) continue
+
     return {
       telemetryDir,
       auditFile: path.join(telemetryDir, 'events.jsonl'),
@@ -272,6 +283,7 @@ export function resolveTelemetryStorage(): TelemetryStorage | null {
       consentFile: path.join(telemetryDir, 'consent')
     }
   }
+
   return null
 }
 
@@ -289,17 +301,22 @@ export function isInsideGitWorkTree(startDir: string): boolean {
     }
   })()
   let current = path.resolve(startDir)
+
   for (let i = 0; i < 100; i++) {
     if (home && current === home) return false
+
     try {
       if (fs.existsSync(path.join(current, '.git'))) return true
     } catch {
       // Ignore
     }
+
     const parent = path.dirname(current)
     if (parent === current) return false
+
     current = parent
   }
+
   return false
 }
 
@@ -309,15 +326,18 @@ export function isInsideGitWorkTree(startDir: string): boolean {
 // raw committed value.
 function machineScopedId(rawId: string): string {
   let salt = ''
+
   try {
     salt = `${os.hostname()}|${os.userInfo().username}`
   } catch {
     salt = String(os.hostname?.() || '')
   }
+
   const digest = crypto
     .createHash('sha256')
     .update(`${rawId}|${salt}`)
     .digest('hex')
+
   return [
     digest.slice(0, 8),
     digest.slice(8, 12),
@@ -329,9 +349,11 @@ function machineScopedId(rawId: string): string {
 
 export function loadOrCreateId(file: string): string {
   const inWorkTree = isInsideGitWorkTree(path.dirname(file))
+
   try {
     if (fs.existsSync(file)) {
       const stored = fs.readFileSync(file, 'utf8').trim()
+
       return inWorkTree ? machineScopedId(stored) : stored
     }
   } catch {
@@ -339,6 +361,7 @@ export function loadOrCreateId(file: string): string {
   }
 
   const id = crypto.randomUUID()
+
   if (ensureDir(path.dirname(file))) {
     try {
       fs.writeFileSync(file, id, 'utf8')
@@ -346,21 +369,25 @@ export function loadOrCreateId(file: string): string {
       // Ignore
     }
   }
+
   return inWorkTree ? machineScopedId(id) : id
 }
 
 function readConsentFile(file: string): 'enabled' | 'disabled' | null {
   try {
     const raw = fs.readFileSync(file, 'utf8').trim().toLowerCase()
+
     if (raw === 'enabled' || raw === 'ok' || raw === 'on' || raw === '1') {
       return 'enabled'
     }
+
     if (raw === 'disabled' || raw === 'off' || raw === '0' || raw === 'no') {
       return 'disabled'
     }
   } catch {
     // Ignore
   }
+
   return null
 }
 
@@ -369,6 +396,7 @@ function envDisables(): boolean {
   const disabled = String(process.env.EXTENSION_TELEMETRY_DISABLED ?? '')
     .trim()
     .toLowerCase()
+
   if (
     disabled === '1' ||
     disabled === 'true' ||
@@ -383,6 +411,7 @@ function envDisables(): boolean {
     .trim()
     .toLowerCase()
   if (!raw) return false
+
   return raw === '0' || raw === 'false' || raw === 'off' || raw === 'no'
 }
 
@@ -390,6 +419,7 @@ function envExplicitlyEnables(): boolean {
   const raw = String(process.env.EXTENSION_TELEMETRY ?? '')
     .trim()
     .toLowerCase()
+
   return raw === '1' || raw === 'true' || raw === 'on' || raw === 'yes'
 }
 
@@ -460,8 +490,10 @@ export function resolveTelemetryConsent(argv: string[] = process.argv): {
 export function writeConsent(value: 'enabled' | 'disabled'): boolean {
   const storage = resolveTelemetryStorage()
   if (!storage) return false
+
   try {
     fs.writeFileSync(storage.consentFile, value, 'utf8')
+
     return true
   } catch {
     return false
@@ -508,6 +540,7 @@ export class Telemetry {
       0,
       init.maxEventsPerRun ?? DEFAULT_MAX_EVENTS
     )
+
     this.debounceMs = Math.max(0, init.debounceMs ?? DEFAULT_DEBOUNCE_MS)
     this.timeoutMs = Math.max(1, init.timeoutMs ?? DEFAULT_TIMEOUT_MS)
     this.common = {
@@ -520,6 +553,7 @@ export class Telemetry {
 
     if (!this.disabled) {
       this.storage = resolveTelemetryStorage()
+
       if (this.storage) {
         this.anonId = loadOrCreateId(this.storage.idFile)
       }
@@ -545,6 +579,7 @@ export class Telemetry {
       const now = Date.now()
       const last = this.recent.get(key)
       if (last != null && now - last < this.debounceMs) return
+
       this.recent.set(key, now)
 
       const enforcedProps: TelemetryProps = {
@@ -558,10 +593,12 @@ export class Telemetry {
       if (props.template) enforcedProps.template = sanitizeTag(props.template)
       if (props.source) enforcedProps.source = sanitizeTag(props.source)
       if (props.session === 'started') enforcedProps.session = 'started'
+
       // A failure count that cannot be read as a cause is a number and
       // nothing else, so the two properties that name the cause travel.
       const code = catalogCode(props.code)
       if (code) enforcedProps.code = code
+
       const exitCode = smallExitCode(props.exit_code)
       if (exitCode !== undefined) enforcedProps.exit_code = exitCode
 
@@ -633,13 +670,16 @@ export class Telemetry {
 
   private writeAudit(payload: unknown): void {
     if (!this.storage) return
+
     this.rotateAuditIfNeeded(this.storage.auditFile)
+
     try {
       fs.appendFileSync(this.storage.auditFile, `${JSON.stringify(payload)}\n`)
     } catch {
       // if we can't audit locally, disable future sends too
       this.disabled = true
     }
+
     if (this.debug) {
       // eslint-disable-next-line no-console
       console.error('[telemetry]', JSON.stringify(payload))
@@ -653,8 +693,10 @@ export class Telemetry {
       const max = auditMaxBytes()
       const size = fs.statSync(auditFile).size
       if (size < max) return
+
       const backup = `${auditFile}.1`
       fs.rmSync(backup, {force: true})
+
       if (size >= max * 10) {
         fs.rmSync(auditFile, {force: true})
       } else {
@@ -668,5 +710,6 @@ export class Telemetry {
 
 function clamp(n: number, min: number, max: number): number {
   if (!Number.isFinite(n)) return min
+
   return Math.min(Math.max(n, min), max)
 }

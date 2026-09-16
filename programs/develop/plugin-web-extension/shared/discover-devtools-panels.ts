@@ -32,6 +32,7 @@ function readIfFile(absPath: string): string | undefined {
   } catch {
     // Ignore
   }
+
   return undefined
 }
 
@@ -42,27 +43,33 @@ function readScriptSource(absPath: string): string | undefined {
   if (direct !== undefined) return direct
 
   const parsed = path.parse(absPath)
+
   for (const ext of SOURCE_SIBLING_EXTENSIONS) {
     const sibling = readIfFile(path.join(parsed.dir, parsed.name + ext))
     if (sibling !== undefined) return sibling
   }
+
   return undefined
 }
 
 function collectPanelLiterals(source: string): string[] {
   const literals: string[] = []
+
   for (const match of source.matchAll(PANELS_CREATE_PATTERN)) {
     const literal = String(match[4] || '').trim()
     if (literal) literals.push(literal)
   }
+
   return literals
 }
 
 function collectRelativeImports(source: string): string[] {
   const specifiers: string[] = []
+
   for (const match of source.matchAll(RELATIVE_IMPORT_PATTERN)) {
     specifiers.push(match[1])
   }
+
   return specifiers
 }
 
@@ -77,6 +84,7 @@ function scanScriptGraph(entryAbsPath: string, found: string[]): void {
   while (queue.length) {
     const {file, depth} = queue.shift() as {file: string; depth: number}
     if (seen.has(file)) continue
+
     seen.add(file)
 
     const source = readScriptSource(file)
@@ -85,6 +93,7 @@ function scanScriptGraph(entryAbsPath: string, found: string[]): void {
     found.push(...collectPanelLiterals(source))
 
     if (depth >= MAX_IMPORT_DEPTH) continue
+
     for (const specifier of collectRelativeImports(source)) {
       const resolved = path.resolve(path.dirname(file), specifier)
       const withExt = path.extname(resolved) ? resolved : `${resolved}.js`
@@ -93,12 +102,6 @@ function scanScriptGraph(entryAbsPath: string, found: string[]): void {
   }
 }
 
-/**
- * Statically discovers HTML pages referenced only through
- * chrome.devtools.panels.create in the devtools page's scripts, and returns
- * them as extra HTML entries keyed by their extension-root-relative path so
- * the emitted dist serves the exact URL Chrome will request.
- */
 export function discoverDevtoolsPanelPages(
   manifestPath: string,
   browser: DevOptions['browser'] = 'chrome'
@@ -106,6 +109,7 @@ export function discoverDevtoolsPanelPages(
   const projectDir = path.dirname(manifestPath)
 
   let devtoolsPage = ''
+
   try {
     // The fields package resolves firefox:devtools_page and emits the page, so
     // a raw read here would drop the panels of a page the build already ships.
@@ -113,12 +117,14 @@ export function discoverDevtoolsPanelPages(
       JSON.parse(fs.readFileSync(manifestPath, 'utf-8')),
       browser
     )
+
     if (typeof manifest?.devtools_page === 'string') {
       devtoolsPage = manifest.devtools_page
     }
   } catch {
     // Ignore
   }
+
   if (!devtoolsPage) return {}
 
   const devtoolsHtmlPath = path.join(
@@ -135,6 +141,7 @@ export function discoverDevtoolsPanelPages(
   for (const match of devtoolsHtml.matchAll(SCRIPT_SRC_PATTERN)) {
     const src = String(match[1] || '')
     if (/^(https?:)?\/\//i.test(src)) continue
+
     const scriptAbs = src.startsWith('/')
       ? path.join(projectDir, src.slice(1))
       : path.resolve(path.dirname(devtoolsHtmlPath), src)
@@ -142,6 +149,7 @@ export function discoverDevtoolsPanelPages(
   }
 
   const pages: FilepathList = {}
+
   for (const literal of literals) {
     // The page path resolves against the extension root, per the API.
     const rootRel = literal.replace(/^\.?\/+/, '')

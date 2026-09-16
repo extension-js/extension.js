@@ -33,6 +33,7 @@ function platformDocsUrl(): string {
 // The token page on the platform docs, or nothing when no docs host is set.
 export function publishDocsHint(): string {
   const docs = platformDocsUrl()
+
   return docs ? `Get a token: ${docs}/tools/publish` : ''
 }
 
@@ -44,10 +45,13 @@ function storedLoginPath(): string {
       process.env.APPDATA ||
       process.env.LOCALAPPDATA ||
       path.join(os.homedir(), 'AppData', 'Roaming')
+
     return path.join(base, 'extension-dev', 'auth.json')
   }
+
   const xdg = String(process.env.XDG_CONFIG_HOME || '').trim()
   const base = xdg || path.join(os.homedir(), '.config')
+
   return path.join(base, 'extension-dev', 'auth.json')
 }
 
@@ -71,10 +75,13 @@ export function readStoredLogin(): StoredLogin | null {
     } | null
     if (!data || typeof data !== 'object') return null
     if (data.version !== 1) return null
+
     const token = String(data.token || '').trim()
     if (!token) return null
+
     const expiresAt = Number(data.expiresAt || 0)
     if (expiresAt && expiresAt <= Math.floor(Date.now() / 1000)) return null
+
     return {
       token,
       projectSlug: String(data.projectSlug || '').trim(),
@@ -97,6 +104,7 @@ export function readLocalProjectName(projectPath: string): string {
       const data = JSON.parse(fs.readFileSync(file, 'utf8')) as {
         name?: unknown
       }
+
       return String(data?.name || '').trim()
     } catch {
       return ''
@@ -135,11 +143,6 @@ export interface PublishInput {
   project?: string
 }
 
-/**
- * The project this publish will act for, and where that answer came from. A
- * stored login is scoped to one project, so a publish run anywhere else answers
- * for the wrong one; `actsFor` is what the command prints and refuses on.
- */
 export interface PublishScope {
   source: 'flag' | 'env' | 'stored-login'
   actsFor: string
@@ -147,7 +150,6 @@ export interface PublishScope {
   localName: string
 }
 
-/** Build the HTTP request (pure, unit-testable, no network). */
 export function buildPublishRequest(opts: PublishInput): PublishRequest {
   return buildPublishPlan(opts).request
 }
@@ -170,6 +172,7 @@ export function buildPublishPlan(opts: PublishInput): {
 
   if (!token) {
     const docsHint = publishDocsHint()
+
     throw new Error(
       'No token. Publishing needs a platform access token.\n' +
         (docsHint ? `${docsHint}\n` : '') +
@@ -211,6 +214,7 @@ export function buildPublishPlan(opts: PublishInput): {
     .trim()
     .replace(/\/+$/, '')
   if (!base) throw new Error(NO_API_REMEDY)
+
   const body: Record<string, unknown> = {}
 
   if (opts.ttl != null && opts.ttl !== '') body.ttlHours = Number(opts.ttl)
@@ -276,11 +280,13 @@ export function registerPublishCommand(program: Command) {
           // eslint-disable-next-line no-console
           console.error(prose)
         }
+
         await exitAfterDrain(1)
       }
 
       let req: PublishRequest
       let scope: PublishScope
+
       try {
         const plan = buildPublishPlan({...opts, projectPath: projectPathArg})
         req = plan.request
@@ -295,10 +301,12 @@ export function registerPublishCommand(program: Command) {
           message,
           `${docsHint ? `${docsHint}. ` : ''}${NO_TOKEN_REMEDY} ${NO_API_REMEDY}`
         )
+
         return
       }
 
       let res: Response
+
       try {
         res = await fetch(req.url, {
           method: 'POST',
@@ -314,6 +322,7 @@ export function registerPublishCommand(program: Command) {
           message,
           'Check your network, or point --api at a reachable host.'
         )
+
         return
       }
 
@@ -333,6 +342,7 @@ export function registerPublishCommand(program: Command) {
           {code: CODES.E_PUBLISH_REJECTED, message},
           message
         )
+
         return
       }
 
@@ -355,9 +365,11 @@ export function registerPublishCommand(program: Command) {
         console.error(
           `Published ${scope.actsFor}${scope.workspace ? ` (workspace ${scope.workspace})` : ''}:`
         )
+
         // eslint-disable-next-line no-console
         console.log(data.shareUrl || JSON.stringify(data))
       }
+
       await exitAfterDrain(0)
     })
 }

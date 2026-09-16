@@ -11,6 +11,7 @@ process.env.XDG_CONFIG_HOME = sandbox
 afterAll(() => {
   if (savedConfigHome === undefined) delete process.env.XDG_CONFIG_HOME
   else process.env.XDG_CONFIG_HOME = savedConfigHome
+
   fs.rmSync(sandbox, {recursive: true, force: true})
 })
 

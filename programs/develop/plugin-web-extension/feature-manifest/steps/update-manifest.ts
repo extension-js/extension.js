@@ -67,6 +67,7 @@ export class UpdateManifest {
     return manifest.content_scripts.map((contentObj, index) => {
       const css = contentObj.css ?? []
       const js = contentObj.js ?? []
+
       if (css.length && !js.length) {
         // The group's entry always emits a JS chunk named after the canonical group
         // index, which can differ from array position; read it back from the css path.
@@ -99,6 +100,7 @@ export class UpdateManifest {
               this.browser
             ) as Manifest
             const dropReason = pageActionDropReason(forBrowser, this.browser)
+
             if (dropReason) {
               reportToCompilation(
                 compilation,
@@ -114,6 +116,7 @@ export class UpdateManifest {
                 'manifest.json'
               )
             }
+
             if (hasMv2SandboxPolicy(forBrowser)) {
               reportToCompilation(
                 compilation,
@@ -123,6 +126,7 @@ export class UpdateManifest {
                 'manifest.json'
               )
             }
+
             // A key another vendor used to reach through the family rule
             // is silent to drop, so the build says it moved.
             for (const dropped of findDroppedVendorKeys(
@@ -130,6 +134,7 @@ export class UpdateManifest {
               this.browser
             )) {
               if (!dropped.appliedBefore) continue
+
               reportToCompilation(
                 compilation,
                 compiler,
@@ -143,6 +148,7 @@ export class UpdateManifest {
                 'manifest.json'
               )
             }
+
             // The overrides need the project root to find a root public/
             // folder when the manifest lives in src/.
             const projectPath =
@@ -217,6 +223,7 @@ export class UpdateManifest {
                     try {
                       const hasCss = Array.isArray(cs.css) && cs.css.length > 0
                       const hasJs = Array.isArray(cs.js) && cs.js.length > 0
+
                       if (hasCss && hasJs && cs.js?.length === 1) {
                         devCssStubsAdded++
                       }
@@ -225,6 +232,7 @@ export class UpdateManifest {
                     }
                   }
                 }
+
                 console.log(
                   messages.manifestOverridesSummary(
                     overrideKeys,
@@ -244,11 +252,13 @@ export class UpdateManifest {
             )
             patchedManifest = sanitized.manifest
             const isDev = compiler.options.mode === 'development'
+
             for (const fix of sanitized.fixes) {
               // Always repair; only the notice is session-deduped in development.
               if (isDev) {
                 const signature = `${fix.field}\0${fix.detail}`
                 if (this.reportedFatalFixes.has(signature)) continue
+
                 this.reportedFatalFixes.add(signature)
               }
 

@@ -14,6 +14,7 @@ function restoreEnv() {
   for (const key of Object.keys(process.env)) {
     if (!(key in originalEnv)) delete process.env[key]
   }
+
   for (const [key, value] of Object.entries(originalEnv)) {
     process.env[key] = value
   }
@@ -30,6 +31,7 @@ beforeEach(() => {
   ]) {
     delete process.env[key]
   }
+
   home = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-worktree-'))
   process.env.XDG_CONFIG_HOME = home
   process.env.XDG_CACHE_HOME = home
@@ -84,6 +86,7 @@ describe('a committed anonymous-id never aggregates strangers', () => {
     fs.mkdirSync(dir, {recursive: true})
     const file = path.join(dir, 'anonymous-id')
     fs.writeFileSync(file, '0d66f514-e3bb-457c-a334-a194a58d0361', 'utf8')
+
     return file
   }
 
@@ -100,6 +103,7 @@ describe('a committed anonymous-id never aggregates strangers', () => {
     expect(first).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
     )
+
     // Stable per machine, so the counter still sees one machine as one.
     expect(loadOrCreateId(file)).toBe(first)
   })
@@ -120,6 +124,7 @@ describe('isInsideGitWorkTree boundaries', () => {
     // checks ~ itself, so a dotfiles repo rooted there stays machine state.
     markAsWorkTree()
     const homedirSpy = vi.spyOn(os, 'homedir').mockReturnValue(home)
+
     try {
       expect(isInsideGitWorkTree(path.join(home, '.config'))).toBe(false)
     } finally {

@@ -128,9 +128,11 @@ describe('web_accessible_resources: public-root presence checks', () => {
       if (name === rel) {
         return {name, source: {source: () => '<html/>'}}
       }
+
       if (name === 'manifest.json') {
         return {name, source: manifestSource}
       }
+
       return undefined
     })
 

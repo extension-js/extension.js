@@ -22,6 +22,7 @@ function createTempProject() {
     '{"name":"fixture"}\n',
     'utf8'
   )
+
   return dir
 }
 
@@ -82,9 +83,11 @@ describe('content-script-wrapper loader', () => {
     expect(wrapped).toContain(
       'var __EXTENSIONJS_BUNDLE_KEY="content_scripts/content-0";'
     )
+
     expect(wrapped).toContain(
       'var __EXTENSIONJS_REINJECT_KEY="content_scripts/content-0::script-0";'
     )
+
     expect(wrapped).toContain('new URL("./styles.css", import.meta.url)')
     expect(wrapped).toContain('data-extjs-reinject-owner')
     expect(wrapped).toContain('__EXTENSIONJS_mount(__EXTENSIONJS_default__')
@@ -145,12 +148,14 @@ describe('content-script-wrapper loader', () => {
         nodeSource
       )
     ).toThrow(/scripts\/ is a reserved folder/i)
+
     expect(() =>
       contentScriptWrapper.call(
         createLoaderContext(resourcePath, manifestPath) as any,
         nodeSource
       )
     ).toThrow(/scripts\/e2e-auth-launcher\.mjs/)
+
     expect(() =>
       contentScriptWrapper.call(
         createLoaderContext(resourcePath, manifestPath) as any,
@@ -250,6 +255,7 @@ describe('content-script-wrapper loader', () => {
       }),
       'utf8'
     )
+
     const source = "console.log('prefixed entry')"
 
     const firefox = contentScriptWrapper.call(
@@ -348,12 +354,15 @@ describe('content-script-wrapper loader', () => {
     expect(topLeft).toContain(
       'var __EXTENSIONJS_BUNDLE_KEY="content_scripts/content-0";'
     )
+
     expect(topRight).toContain(
       'var __EXTENSIONJS_BUNDLE_KEY="content_scripts/content-0";'
     )
+
     expect(topLeft).toContain(
       'var __EXTENSIONJS_REINJECT_KEY="content_scripts/content-0::script-0";'
     )
+
     expect(topRight).toContain(
       'var __EXTENSIONJS_REINJECT_KEY="content_scripts/content-0::script-1";'
     )
@@ -362,6 +371,7 @@ describe('content-script-wrapper loader', () => {
     expect(bottomLeft).toContain(
       'var __EXTENSIONJS_BUNDLE_KEY="content_scripts/content-1";'
     )
+
     expect(bottomLeft).toContain(
       'var __EXTENSIONJS_REINJECT_KEY="content_scripts/content-1::script-0";'
     )
@@ -412,6 +422,7 @@ describe('content-script-wrapper loader', () => {
       }),
       'utf8'
     )
+
     fs.writeFileSync(path.join(contentDir, 'scripts.ts'), 'x', 'utf8')
 
     const linkedRoot = path.join(
@@ -434,6 +445,7 @@ describe('content-script-wrapper loader', () => {
     expect(wrapped).toContain(
       'var __EXTENSIONJS_BUNDLE_KEY="content_scripts/content-0";'
     )
+
     expect(wrapped).toContain('__EXTENSIONJS_mount(__EXTENSIONJS_default__')
   })
 })

@@ -56,6 +56,7 @@ function isFlagExcluded(flag: string, excludeFlags: string[]): boolean {
   return excludeFlags.some((exclude) => {
     if (!exclude) return false
     if (flag === exclude) return true
+
     return flag.startsWith(`${exclude}=`) || flag.startsWith(`${exclude},`)
   })
 }
@@ -63,6 +64,7 @@ function isFlagExcluded(flag: string, excludeFlags: string[]): boolean {
 function featureList(flag: string, switchName: string): string[] {
   const prefix = `${switchName}=`
   if (!flag.startsWith(prefix)) return []
+
   return flag
     .slice(prefix.length)
     .split(',')
@@ -103,15 +105,18 @@ export function withDarkMode<T extends BrowserConfig & {browser: BrowserType}>(
         const feature = flag.slice('--enable-features='.length)
         // A user --disable-features listing this name is an explicit no.
         if (hasFeature(nextFlags, '--disable-features', feature)) continue
+
         const enableIndex = nextFlags.findIndex((existing) =>
           existing.startsWith('--enable-features=')
         )
+
         // Fold into the caller's switch so we never append a second
         // --enable-features that would replace theirs on Chromium.
         if (enableIndex >= 0) {
           if (!hasFeature(nextFlags, '--enable-features', feature)) {
             nextFlags[enableIndex] = `${nextFlags[enableIndex]},${feature}`
           }
+
           continue
         }
       }

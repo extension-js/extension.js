@@ -50,6 +50,7 @@ export function readRecentConsole(
     'logs.ndjson'
   )
   let lines: string[]
+
   try {
     lines = fs.readFileSync(file, 'utf-8').split('\n').filter(Boolean)
   } catch {
@@ -57,6 +58,7 @@ export function readRecentConsole(
   }
 
   const out: Array<Record<string, unknown>> = []
+
   for (const line of lines) {
     let e: {
       type?: unknown
@@ -68,6 +70,7 @@ export function readRecentConsole(
       eventType?: unknown
       code?: unknown
     }
+
     try {
       e = JSON.parse(line)
     } catch {
@@ -178,6 +181,7 @@ function codeForBridgeError(
   if (name === 'Timeout') return CODES.E_TIMEOUT
   if (name === 'Unavailable') return CODES.E_CONTROL_UNAVAILABLE
   if (name === 'EvalTokenMissing') return CODES.E_TOKEN_MISSING
+
   // Forbidden is the collapsed denial older sessions still send.
   if (
     name === 'EvalDisabled' ||
@@ -186,13 +190,16 @@ function codeForBridgeError(
   ) {
     return CODES.E_EVAL_REFUSED
   }
+
   if (name === 'TargetNotFound') return CODES.E_TARGET_NOT_FOUND
   if (name === 'BadRequest') return CODES.E_ARGS
+
   if (name === 'Unsupported') {
     return /needs a --tab id|is not open/i.test(message)
       ? CODES.E_TARGET_NOT_FOUND
       : CODES.E_NOT_IMPLEMENTED
   }
+
   // The guest threw while running the op, which is a result, not a CLI fault.
   if (name === 'EvalError') return CODES.E_EVAL
   if (name === 'InspectError') return CODES.E_INSPECT
@@ -203,9 +210,11 @@ function codeForBridgeError(
 
 function statusForCode(code: ErrorCode): string {
   if (code === CODES.E_TIMEOUT) return 'timeout'
+
   if (code === CODES.E_SESSION_NOT_FOUND || code === CODES.E_TARGET_NOT_FOUND) {
     return 'not-found'
   }
+
   if (
     code === CODES.E_CONTROL_DENIED ||
     code === CODES.E_EVAL_REFUSED ||
@@ -213,17 +222,12 @@ function statusForCode(code: ErrorCode): string {
   ) {
     return 'denied'
   }
+
   if (code === CODES.E_ARGS) return 'usage'
 
   return 'failed'
 }
 
-/**
- * Wrap an act frame in the schema-1 envelope without dropping a key. `value`,
- * `truncated`, `error.name`, `error.engine`, `error.hint` and any verb
- * augmentation (`inspect --with-console` merges `console`) are what the MCP
- * reads today, so they keep their exact place.
- */
 export function buildActEnvelope(
   command: string,
   result: ActResultLike
@@ -329,15 +333,18 @@ function readSessionManifest(
 ): Record<string, unknown> | undefined {
   const candidates: string[] = []
   const readDocument = bridge?.readReadyContractDocument
+
   if (typeof readDocument === 'function') {
     try {
       const doc = readDocument(projectPath, browser) as Record<
         string,
         unknown
       > | null
+
       if (doc && typeof doc.distPath === 'string') {
         candidates.push(path.join(doc.distPath, 'manifest.json'))
       }
+
       if (doc && typeof doc.manifestPath === 'string') {
         candidates.push(doc.manifestPath)
       }
@@ -345,11 +352,13 @@ function readSessionManifest(
       // Ignore
     }
   }
+
   candidates.push(path.join(projectPath, 'manifest.json'))
 
   for (const file of candidates) {
     try {
       const parsed = JSON.parse(fs.readFileSync(file, 'utf-8'))
+
       if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
         return parsed as Record<string, unknown>
       }
@@ -366,6 +375,7 @@ function readSessionManifest(
 function manifestDeclaresPopup(manifest: Record<string, unknown>): boolean {
   for (const [key, value] of Object.entries(manifest)) {
     if (!/(?:^|:)(?:action|browser_action)$/.test(key)) continue
+
     const popup = (value as {default_popup?: unknown} | null)?.default_popup
     if (typeof popup === 'string' && popup.trim()) return true
   }
@@ -409,6 +419,7 @@ function printResult(
   if (normalizeOutputFormat(output) === 'json') {
     // eslint-disable-next-line no-console
     console.log(JSON.stringify(buildActEnvelope(command, result)))
+
     return
   }
 
@@ -422,11 +433,13 @@ function printResult(
     // Augmentations merge extra keys onto the result; `--with-console` was
     // json-only until these lines, so pretty mode looked like a no-op flag.
     const consoleRecords = (result as {console?: unknown}).console
+
     if (Array.isArray(consoleRecords)) {
       if (consoleRecords.length === 0) {
         // eslint-disable-next-line no-console
         console.log('(no console lines captured)')
       }
+
       for (const record of consoleRecords) {
         // eslint-disable-next-line no-console
         console.log(formatPrettyLogLine(record as LogEventLike))
@@ -465,6 +478,7 @@ async function runCommand(input: RunInput): Promise<void> {
   // surface Chromium never opens this way reads the same with or without a
   // session behind it.
   const refusal = input.preflight?.(bridge, projectPath, browser)
+
   if (refusal) {
     fail(refusal.message, {
       ...outputFrame,
@@ -475,6 +489,7 @@ async function runCommand(input: RunInput): Promise<void> {
   }
 
   const ready = readReadyContract(projectPath, browser)
+
   if (!ready) {
     fail(
       `No active control channel found for ${browser}. ` +
@@ -505,6 +520,7 @@ async function runCommand(input: RunInput): Promise<void> {
     // matched, so no other process answered, and the copy states that fact
     // instead of asking for a flag the caller may already have passed.
     const closeCode = (err as {closeCode?: unknown} | undefined)?.closeCode
+
     if (closeCode === 4003 || /code 4003\b/.test(message)) {
       fail(controlDisabledInSession(browser, ready.controlPort, unlockFlag), {
         ...outputFrame,
@@ -516,6 +532,7 @@ async function runCommand(input: RunInput): Promise<void> {
         )
       })
     }
+
     // A 40xx close is the broker turning the controller away; anything else
     // (handshake timeout, 1006) means the channel never came up at all.
     fail(message, {
@@ -528,6 +545,7 @@ async function runCommand(input: RunInput): Promise<void> {
 
   const timeoutMs = input.opts.timeout ? Number(input.opts.timeout) : 5000
   let result: ActResultLike
+
   try {
     result = await controller.command({
       op: input.op,
@@ -652,6 +670,7 @@ export function registerActCommands(program: Command): void {
 
         return
       }
+
       if (action === 'set') {
         if (!opts.key || opts.value == null) {
           fail('storage set requires --key and --value', {
@@ -662,6 +681,7 @@ export function registerActCommands(program: Command): void {
         }
 
         let parsed: unknown
+
         try {
           parsed = JSON.parse(opts.value as string)
         } catch {
@@ -759,8 +779,10 @@ export function registerActCommands(program: Command): void {
           args: {},
           opts
         })
+
         return
       }
+
       const include = opts.include
         ? opts.include
             .split(',')
@@ -784,6 +806,7 @@ export function registerActCommands(program: Command): void {
                 typeof opts.withConsole === 'string' && opts.withConsole !== ''
                   ? Number(opts.withConsole)
                   : 20
+
               return {
                 console: readRecentConsole(
                   projectPath,
@@ -816,12 +839,14 @@ export function registerActCommands(program: Command): void {
       opts: CommonActOptions & {name?: string}
     ) => {
       const allowed = ['popup', 'options', 'sidebar', 'action', 'command']
+
       if (!allowed.includes(surface)) {
         fail(
           `unknown surface: ${surface} (use popup, options, sidebar, action, or command)`,
           {command: 'open', code: CODES.E_ARGS, output: opts.output}
         )
       }
+
       // 'action' and 'command' replay a captured event in the service worker, so
       // they route to the background context (UI surfaces map 1:1 to a context).
       const inBackground = surface === 'action' || surface === 'command'
@@ -830,6 +855,7 @@ export function registerActCommands(program: Command): void {
         : (surface as ActContext)
       const args: Record<string, unknown> = {surface}
       if (surface === 'command' && opts.name) args.name = opts.name
+
       await runCommand({
         projectPathArg,
         command: 'open',

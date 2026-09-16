@@ -74,6 +74,7 @@ export function filterKeysForThisBrowser(
 
         const prefix = key.substring(0, indexOfColon)
         const strippedKey = key.substring(indexOfColon + 1)
+
         if (isSpecificPrefix(prefix)) {
           specificMatches.set(strippedKey, resolve(value))
         } else if (isFamilyPrefix(prefix)) {
@@ -89,6 +90,7 @@ export function filterKeysForThisBrowser(
       for (const [strippedKey, value] of familyMatches) {
         result.set(strippedKey, value)
       }
+
       for (const [strippedKey, value] of specificMatches) {
         result.set(strippedKey, value)
       }
@@ -133,17 +135,21 @@ export function findDroppedVendorKeys(
       for (const [index, item] of node.entries()) {
         walk(item, join(at, String(index)))
       }
+
       return
     }
+
     if (!node || typeof node !== 'object') return
 
     // Up to 4.1.18 a specific key beat the family, and the last family key
     // in source order won a tie, so only that key's value reached the build.
     const lastFormerFamily = new Map<string, string>()
     const hasSpecific = new Set<string>()
+
     for (const key of Object.keys(node)) {
       const colon = key.indexOf(':')
       if (colon === -1) continue
+
       const prefix = key.substring(0, colon)
       const strippedKey = key.substring(colon + 1)
       if (isSpecificPrefix(prefix)) hasSpecific.add(strippedKey)
@@ -152,6 +158,7 @@ export function findDroppedVendorKeys(
 
     for (const [key, value] of Object.entries(node)) {
       const colon = key.indexOf(':')
+
       if (colon === -1) {
         walk(value, join(at, key))
         continue
@@ -159,6 +166,7 @@ export function findDroppedVendorKeys(
 
       const prefix = key.substring(0, colon)
       const strippedKey = key.substring(colon + 1)
+
       if (isSpecificPrefix(prefix) || isFamilyPrefix(prefix)) {
         walk(value, join(at, key))
       } else if (vendors.has(prefix)) {
@@ -175,6 +183,7 @@ export function findDroppedVendorKeys(
   }
 
   walk(manifest, '')
+
   return found
 }
 
@@ -202,11 +211,13 @@ const THEME_DISQUALIFYING_KEYS = [
 // content scripts. Dev must leave it alone or the artifact stops being a theme.
 export function isStaticTheme(manifest: Manifest | undefined | null): boolean {
   if (!manifest || typeof manifest !== 'object') return false
+
   const theme = (manifest as Record<string, unknown>).theme
   if (!theme || typeof theme !== 'object') return false
 
   return !THEME_DISQUALIFYING_KEYS.some((key) => {
     const value = (manifest as Record<string, unknown>)[key]
+
     return value !== undefined && value !== null
   })
 }
@@ -221,6 +232,7 @@ export function isStaticThemeSource(
 
   try {
     const parsed = parseJsonSafe(fs.readFileSync(manifestPath, 'utf-8'))
+
     return isStaticTheme(
       filterKeysForThisBrowser(parsed, browser as DevOptions['browser'])
     )

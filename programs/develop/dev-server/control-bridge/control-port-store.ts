@@ -19,6 +19,7 @@ export {
 export function readPersistedControlPort(filePath: string): number | null {
   try {
     const port = parseInt(fs.readFileSync(filePath, 'utf8').trim(), 10)
+
     return Number.isInteger(port) && port > 0 && port < 65536 ? port : null
   } catch {
     return null

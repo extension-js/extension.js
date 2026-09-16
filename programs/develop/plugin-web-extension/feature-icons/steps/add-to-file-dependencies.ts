@@ -29,21 +29,26 @@ export class AddToFileDependencies {
             // is exactly the file whose fix must trigger the next rebuild.
             const iconFields = this.includeList || {}
             let added = 0
+
             for (const field of Object.entries(iconFields)) {
               const [, resource] = field
               const stringEntries = iconValuesToStrings(resource)
+
               for (const entry of stringEntries) {
                 if (!entry || !path.isAbsolute(entry)) continue
+
                 if (!fs.existsSync(entry)) {
                   compilation.missingDependencies?.add(entry)
                   continue
                 }
+
                 if (!compilation.fileDependencies.has(entry)) {
                   compilation.fileDependencies.add(entry)
                   added++
                 }
               }
             }
+
             if (isDebug()) {
               console.log(messages.iconsDepsTracked(added))
             }

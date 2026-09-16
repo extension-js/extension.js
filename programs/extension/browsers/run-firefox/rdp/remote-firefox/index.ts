@@ -107,10 +107,13 @@ export class RemoteFirefox {
     // folds the per-instance offset in a SECOND time and dials a dead port.
     const resolvedRdpPort = (this.options as {resolvedRdpPort?: number})
       ?.resolvedRdpPort
+
     if (typeof resolvedRdpPort === 'number' && resolvedRdpPort > 0) {
       const pinned = resolvePortForInstance(instanceId, 'rdp', resolvedRdpPort)
+
       return typeof pinned === 'number' && pinned > 0 ? pinned : resolvedRdpPort
     }
+
     const devPort = (compilation?.options as {devServer?: {port?: number}})
       ?.devServer?.port
     const optionPort = (this.options as {port?: number | string})?.port
@@ -122,6 +125,7 @@ export class RemoteFirefox {
     const desired = deriveDebugPortWithInstance(basePort, instanceId)
 
     const resolved = resolvePortForInstance(instanceId, 'rdp', desired)
+
     return typeof resolved === 'number' && resolved > 0 ? resolved : desired
   }
 
@@ -137,10 +141,12 @@ export class RemoteFirefox {
         // connection); clear caches so a retry never targets a dead actor.
         this.invalidateConnectionScopedCaches()
         client.on('reconnected', () => this.invalidateConnectionScopedCaches())
+
         return client
       } catch (error: unknown) {
         if (isErrorWithCode('ECONNREFUSED', error)) {
           lastError = error
+
           // ECONNREFUSED is the expected "server not up yet" case, but a silent
           // loop hides a dead port; name the port periodically so it's diagnosable.
           if (isDebug() && attempt % RETRY_LOG_EVERY_N_ATTEMPTS === 0) {
@@ -153,6 +159,7 @@ export class RemoteFirefox {
               )
             )
           }
+
           await new Promise((resolve) => setTimeout(resolve, RETRY_INTERVAL))
         } else {
           const err = error as Error
@@ -162,12 +169,14 @@ export class RemoteFirefox {
               err.stack || String(error)
             )
           )
+
           throw err
         }
       }
     }
 
     humanError(messages.errorConnectingToBrowser(this.options.browser, port))
+
     throw lastError
   }
 
@@ -195,6 +204,7 @@ export class RemoteFirefox {
       const isBManager = /extensions\/[a-z-]+-manager/.test(b)
       if (isAManager && !isBManager) return 1
       if (!isAManager && isBManager) return -1
+
       return 0
     })
     const extensionsToLoad = userFirst
@@ -232,6 +242,7 @@ export class RemoteFirefox {
         // Ignore
       }
     }
+
     if (isDebug()) {
       try {
         humanLine('[browser] Firefox add-on paths:', candidateAddonPaths)
@@ -240,7 +251,6 @@ export class RemoteFirefox {
       }
     }
 
-    /** ID of the user extension (webpack output), not companion devtools/theme add-ons. */
     let primaryUserAddonId: string | undefined
 
     for (const [index, addonPath] of candidateAddonPaths.entries()) {
@@ -260,6 +270,7 @@ export class RemoteFirefox {
           typeof maybeIdRaw === 'string' && maybeIdRaw.length > 0
             ? maybeIdRaw
             : null
+
         if (
           primaryAddonPath &&
           String(addonPath) === String(primaryAddonPath) &&
@@ -275,11 +286,13 @@ export class RemoteFirefox {
         // Keep Gecko's own verdict before it is flattened into a string: the
         // launcher reports it and stamps the contract, as Chromium does.
         const outcome = classifyAddonInstallFailure(err)
+
         if (outcome.status === 'refused') {
           this.addonInstallRefusalReason = outcome.reason
         }
 
         const message = requestErrorToMessage(err)
+
         throw new Error(
           messages.addonInstallError(this.options.browser, message)
         )
@@ -295,6 +308,7 @@ export class RemoteFirefox {
     try {
       if (!this.derivedExtensionId) {
         this.derivedExtensionId = await deriveMozExtensionId(client)
+
         if (isDebug() && !this.derivedExtensionId) {
           humanWarn(
             '[browser] Firefox: could not resolve a unique add-on id for the banner (install response had none; multiple or zero moz-extension targets).'
@@ -318,6 +332,7 @@ export class RemoteFirefox {
         binaryProvenance: this.options.launchBinaryProvenance
       }
     )
+
     if (!bannerPrinted) {
       throw new Error(
         messages.addonInstallError(
@@ -332,6 +347,7 @@ export class RemoteFirefox {
   // connection; false when no session or manager is reachable.
   public async openNewTab(): Promise<boolean> {
     if (!this.client) return false
+
     return await openManagerNewTab(this.client)
   }
 

@@ -9,6 +9,7 @@ function describeExport(value: unknown): string {
   if (typeof value === 'function') return `function(${value.length})`
   if (Array.isArray(value)) return 'array'
   if (typeof value === 'object' && value !== null) return 'object'
+
   return typeof value
 }
 
@@ -16,12 +17,14 @@ function buildCatalog(
   mods: Record<string, Record<string, unknown>>
 ): Record<string, string[]> {
   const catalog: Record<string, string[]> = {}
+
   for (const path of Object.keys(mods).sort()) {
     const key = path.replace(/^(\.\.\/)+/, '')
     catalog[key] = Object.entries(mods[path])
       .map(([name, value]) => `${name}: ${describeExport(value)}`)
       .sort()
   }
+
   return catalog
 }
 

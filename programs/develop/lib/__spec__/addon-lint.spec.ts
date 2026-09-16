@@ -32,10 +32,12 @@ function project(): string {
     path.join(root, 'package.json'),
     JSON.stringify({name: 'lint-me', version: '0.0.0', private: true})
   )
+
   fs.writeFileSync(
     path.join(root, 'pnpm-lock.yaml'),
     "lockfileVersion: '9.0'\n"
   )
+
   return root
 }
 
@@ -72,6 +74,7 @@ function fakeLinter(
     createInstance: () => ({
       run: async () => {
         onRun?.()
+
         return output
       }
     })
@@ -95,6 +98,7 @@ describe('addon lint mapping', () => {
       'error:ADDON_ID_REQUIRED',
       'warning:DANGEROUS_EVAL'
     ])
+
     expect(lines[1].location).toBe('background.js:1')
     expect(lines[0].location).toBe('manifest.json')
   })
@@ -110,9 +114,11 @@ describe('addon lint mapping', () => {
     expect(plain[0]).toContain(
       'addons-linter found 1 error and 1 warning in dist/firefox'
     )
+
     expect(plain[1]).toContain(
       'AMO error ADDON_ID_REQUIRED: The add-on ID is required in Manifest Version 3 and above. (manifest.json)'
     )
+
     expect(plain[2]).toContain(
       'AMO warning DANGEROUS_EVAL: eval can be harmful. (background.js:1)'
     )
@@ -144,6 +150,7 @@ describe('addon lint mapping', () => {
       findings: 0,
       lines: []
     })
+
     expect(formatAddonLintFindings(null, 'x').lines).toEqual([])
   })
 })
@@ -163,9 +170,11 @@ describe('addon lint gating', () => {
     await expect(
       runAddonLint({...baseInput(root), mode: 'development', loadLinter: load})
     ).resolves.toEqual({status: 'skipped', reason: 'mode'})
+
     await expect(
       runAddonLint({...baseInput(root), browser: 'chrome', loadLinter: load})
     ).resolves.toEqual({status: 'skipped', reason: 'browser'})
+
     await expect(
       runAddonLint({
         ...baseInput(root),
@@ -173,14 +182,17 @@ describe('addon lint gating', () => {
         loadLinter: load
       })
     ).resolves.toEqual({status: 'skipped', reason: 'browser'})
+
     await expect(
       runAddonLint({...baseInput(root), enabled: false, loadLinter: load})
     ).resolves.toEqual({status: 'skipped', reason: 'disabled'})
+
     expect(load).not.toHaveBeenCalled()
   })
 
   it('runs for every gecko family spelling', async () => {
     const root = project()
+
     for (const browser of ['firefox', 'gecko-based', 'firefox-based']) {
       const result = await runAddonLint({
         ...baseInput(root),
@@ -195,6 +207,7 @@ describe('addon lint gating', () => {
 describe('addon lint when the linter is not installed', () => {
   it('prints one package-manager-aware hint per project and continues', async () => {
     const root = project()
+
     const missing: LoadAddonLinter = async () => {
       throw new Error('[AMO] addons-linter could not be resolved.')
     }
@@ -205,6 +218,7 @@ describe('addon lint when the linter is not installed', () => {
     expect(hint).toContain(
       'Skipped the addons.mozilla.org lint: addons-linter is not installed.'
     )
+
     expect(hint).toContain('Install it with: pnpm add -D addons-linter')
     expect(hint).toContain('--no-addon-lint')
 

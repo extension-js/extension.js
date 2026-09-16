@@ -20,6 +20,7 @@ function project(files: Record<string, string>, images: unknown) {
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'theme', version: '0.0.0'})
   )
+
   fs.writeFileSync(
     path.join(root, 'manifest.json'),
     JSON.stringify({
@@ -36,11 +37,13 @@ function project(files: Record<string, string>, images: unknown) {
       }
     })
   )
+
   for (const [rel, content] of Object.entries(files)) {
     const abs = path.join(root, rel)
     fs.mkdirSync(path.dirname(abs), {recursive: true})
     fs.writeFileSync(abs, content)
   }
+
   return root
 }
 
@@ -48,6 +51,7 @@ async function build(root: string) {
   const {extensionBuild} = await import('../command-build')
   const previous = process.env.VITEST
   process.env.VITEST = 'true'
+
   try {
     const summary = await extensionBuild(root, {
       browser: 'chrome',
@@ -61,11 +65,13 @@ async function build(root: string) {
     if (previous === undefined) delete process.env.VITEST
     else process.env.VITEST = previous
   }
+
   const distDir = path.join(root, 'dist', 'chrome')
   const manifest = JSON.parse(
     fs.readFileSync(path.join(distDir, 'manifest.json'), 'utf8')
   )
   const read = (rel: string) => fs.readFileSync(path.join(distDir, rel), 'utf8')
+
   return {distDir, manifest, read}
 }
 
@@ -89,6 +95,7 @@ describe('theme images that share a basename', () => {
     expect(read(light)).toBe('LIGHT')
     expect(read(dark)).toBe('DARK')
     expect(read(manifest.theme.images.theme_frame)).toBe('FRAME')
+
     for (const rel of [light, dark, manifest.theme.images.theme_frame]) {
       expect(rel.split('/')).not.toContain('..')
       expect(fs.existsSync(path.join(distDir, rel))).toBe(true)

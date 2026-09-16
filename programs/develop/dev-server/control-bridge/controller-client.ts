@@ -90,6 +90,7 @@ export class BridgeController {
       } catch (err) {
         clearTimeout(connectTimer)
         reject(err instanceof Error ? err : new Error(String(err)))
+
         return
       }
 
@@ -217,11 +218,13 @@ export class BridgeController {
 
   close(): void {
     this.failAllPending(new Error('controller closed'))
+
     try {
       this.socket?.close()
     } catch {
       // Ignore
     }
+
     this.socket = null
   }
 

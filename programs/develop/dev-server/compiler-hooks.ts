@@ -38,6 +38,7 @@ export function setupNoBrowserBannerOnFirstDone(opts: {
     (stats: Stats) => {
       if (printed) return
       if (stats?.hasErrors?.()) return
+
       printed = true
       // Identity first, then the state line: the card is the header for the
       // session, not a summary trailing the result it describes.
@@ -50,6 +51,7 @@ export function setupNoBrowserBannerOnFirstDone(opts: {
           distPath: opts.distPath
         })
       )
+
       humanLine(messages.spacerLine())
       humanLine(messages.ready('development', opts.browser))
     }

@@ -21,17 +21,20 @@ describe('getLocales (unit)', () => {
       path.join(enDir, 'messages.json'),
       '{"hello":{"message":"hi"}}'
     )
+
     fs.writeFileSync(
       path.join(ptDir, 'messages.json'),
       '{"hello":{"message":"oi"}}'
     )
+
     fs.writeFileSync(path.join(enDir, 'notes.txt'), 'note')
     fs.writeFileSync(path.join(enDir, 'logo.png'), '')
   })
 
   afterAll(() => {
-    if (fs.existsSync(tmpRoot))
+    if (fs.existsSync(tmpRoot)) {
       fs.rmSync(tmpRoot, {recursive: true, force: true})
+    }
   })
 
   it('returns empty array if _locales does not exist', () => {
@@ -39,13 +42,15 @@ describe('getLocales (unit)', () => {
     const emptyManifest = path.join(emptyRoot, 'manifest.json')
     fs.mkdirSync(emptyRoot, {recursive: true})
     fs.writeFileSync(emptyManifest, '{"name":"x"}')
+
     try {
       const files = getLocales(emptyManifest) || []
       expect(Array.isArray(files)).toBe(true)
       expect(files.length).toBe(0)
     } finally {
-      if (fs.existsSync(emptyRoot))
+      if (fs.existsSync(emptyRoot)) {
         fs.rmSync(emptyRoot, {recursive: true, force: true})
+      }
     }
   })
 
@@ -54,12 +59,15 @@ describe('getLocales (unit)', () => {
     expect(
       files.some((p) => toPosix(p).endsWith('/_locales/en/messages.json'))
     ).toBe(true)
+
     expect(
       files.some((p) => toPosix(p).endsWith('/_locales/pt_BR/messages.json'))
     ).toBe(true)
+
     expect(
       files.some((p) => toPosix(p).endsWith('/_locales/en/notes.txt'))
     ).toBe(true)
+
     expect(
       files.some((p) => toPosix(p).endsWith('/_locales/en/logo.png'))
     ).toBe(true)

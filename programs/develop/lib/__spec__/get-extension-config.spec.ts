@@ -10,9 +10,11 @@ import {
 } from '../config-loader'
 
 const created: string[] = []
+
 function makeTempDir(prefix: string) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix))
   created.push(dir)
+
   return dir
 }
 
@@ -24,6 +26,7 @@ afterEach(() => {
       // Ignore
     }
   }
+
   created.length = 0
 })
 

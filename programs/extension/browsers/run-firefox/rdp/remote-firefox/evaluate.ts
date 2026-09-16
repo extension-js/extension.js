@@ -43,6 +43,7 @@ function buildEvaluationPayload(
     type,
     text: expression
   }
+
   if (type === 'evalWithOptions') {
     payload.options = {
       url: '',
@@ -50,6 +51,7 @@ function buildEvaluationPayload(
       frameActor: undefined
     }
   }
+
   return payload
 }
 
@@ -58,12 +60,16 @@ function getMessageUnsubscriber(
   listener: (message: unknown) => void
 ): (() => void) | undefined {
   if (typeof client.on !== 'function') return undefined
+
   client.on('message', listener)
+
   return () => {
     if (typeof client.off === 'function') {
       client.off('message', listener)
+
       return
     }
+
     if (typeof client.removeListener === 'function') {
       client.removeListener('message', listener)
     }
@@ -81,15 +87,19 @@ async function requestEvaluation(
   }
 
   let expectedResultId = ''
+
   let cleanup = () => {}
+
   let pendingMessage: Record<string, unknown> | undefined
   const asyncResult = new Promise<AsyncEvaluationOutcome>((resolve) => {
     const unsubscribe = getMessageUnsubscriber(client, onMessage)
+
     if (!unsubscribe) {
       resolve({
         ok: false,
         error: new Error('RDP client does not support async evaluation events')
       })
+
       return
     }
 
@@ -111,11 +121,15 @@ async function requestEvaluation(
     function onMessage(message: unknown) {
       const payload = (message as Record<string, unknown>) || {}
       if (payload.type !== 'evaluationResult') return
+
       if (!expectedResultId) {
         pendingMessage = payload
+
         return
       }
+
       if (String(payload.resultID || '') !== expectedResultId) return
+
       cleanup()
       if (payload.error) resolve({ok: false, error: payload})
       else resolve({ok: true, value: message})
@@ -126,30 +140,40 @@ async function requestEvaluation(
     const response = (await client.request(
       buildEvaluationPayload(tabId, expression, type)
     )) as {resultID?: unknown; type?: unknown}
+
     if (response?.type === 'evaluationResult') {
       cleanup()
+
       return response
     }
 
     expectedResultId = String(response?.resultID || '')
+
     if (!expectedResultId) {
       cleanup()
+
       return response
     }
+
     if (
       pendingMessage &&
       String(pendingMessage.resultID || '') === expectedResultId
     ) {
       cleanup()
+
       return pendingMessage
     }
+
     const outcome = await asyncResult
+
     if (!outcome.ok) {
       throw outcome.error
     }
+
     return outcome.value
   } catch (error) {
     cleanup()
+
     throw error
   }
 }
@@ -179,5 +203,6 @@ export async function evaluate(
       lastError = err
     }
   }
+
   throw lastError || new Error('Failed to evaluate expression')
 }

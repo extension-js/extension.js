@@ -78,11 +78,13 @@ export function stageCompanionForNoOpen(input: {
           }`
         )
       }
+
       return extensionPaths
     }
   }
 
   const next = [...extensionPaths]
   next[index] = staged
+
   return next
 }

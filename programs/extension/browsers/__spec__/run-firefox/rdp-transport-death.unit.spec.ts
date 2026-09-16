@@ -29,8 +29,10 @@ function createMockServer(): Promise<Server> {
 async function lastSocket(state: Server, index = 0): Promise<net.Socket> {
   for (let i = 0; i < 200; i++) {
     if (state.connections.length > index) return state.connections[index]
+
     await sleep(10)
   }
+
   throw new Error('no connection within timeout')
 }
 
@@ -63,6 +65,7 @@ describe('RdpTransport death handling', () => {
 
   it('logs a sender-less frame when nobody listens and keeps serving', async () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
     try {
       await transport.connect(mock.port)
       const sock = await lastSocket(mock)
@@ -84,6 +87,7 @@ describe('RdpTransport death handling', () => {
 
   it('tears the connection down on a malformed length prefix', async () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
     try {
       await transport.connect(mock.port)
       const sock = await lastSocket(mock)

@@ -11,6 +11,7 @@ function restoreEnv() {
       delete process.env[key]
     }
   }
+
   for (const [key, value] of Object.entries(originalEnv)) {
     process.env[key] = value
   }

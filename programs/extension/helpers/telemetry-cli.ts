@@ -69,8 +69,10 @@ export function detectInvokedCommand(argv: string[]): KnownCommand {
     const arg = argv[i]
     if (!arg || arg.startsWith('-')) continue
     if (KNOWN_COMMANDS.has(arg as KnownCommand)) return arg as KnownCommand
+
     return 'unknown'
   }
+
   return 'unknown'
 }
 
@@ -82,6 +84,7 @@ function readArgValue(argv: string[], names: string[]): string | undefined {
     for (const name of names) {
       if (arg === name) {
         const next = argv[i + 1]
+
         return next && !next.startsWith('-') ? next : undefined
       }
 
@@ -111,10 +114,12 @@ export function advertisedTemplateName(
   value: string | undefined
 ): string | undefined {
   if (!value) return undefined
+
   const name = value.trim()
   if (!name) return undefined
   if (listTemplates().includes(name)) return name
   if (templateAliasFor(name)) return name
+
   return undefined
 }
 
@@ -181,7 +186,9 @@ export function setTelemetryConsent(value: 'enabled' | 'disabled'): {
   // A refusal covers the run that made it, so `extension telemetry disable`
   // never reports itself. Enabling starts at the next run, not this one.
   if (value === 'disabled') telemetry.disable()
+
   const storage = resolveTelemetryStorage()
+
   return {ok, path: storage?.consentFile ?? null}
 }
 
@@ -190,7 +197,9 @@ let sessionStarted = false
 
 function markTracked(): boolean {
   if (tracked) return false
+
   tracked = true
+
   return true
 }
 
@@ -220,6 +229,7 @@ function markTracked(): boolean {
  */
 export function markCommandSessionStart(command = invoked): void {
   if (tracked || sessionStarted) return
+
   sessionStarted = true
   telemetry.track('command_executed', {
     command,
@@ -228,6 +238,7 @@ export function markCommandSessionStart(command = invoked): void {
     session: 'started',
     ...telemetryCommandContext(command)
   })
+
   // Sent now, not queued. Holding it for the exit is the defect being fixed.
   void telemetry.flush()
 }
@@ -241,6 +252,7 @@ export function markCommandSuccess(command = invoked): void {
   // adds nothing, and `command_failed` is still free to report a later death.
   if (sessionStarted) return
   if (!markTracked()) return
+
   telemetry.track('command_executed', {
     command,
     success: true,
@@ -259,15 +271,18 @@ export interface CommandFailureDetails {
 // names, and a freeform code would be the same leak by another name.
 export function telemetryFailureCode(code: unknown): string | undefined {
   if (typeof code !== 'string') return undefined
+
   return Object.prototype.hasOwnProperty.call(CODES, code) ? code : undefined
 }
 
 // A process exit code is a small integer. Anything else is not one.
 export function telemetryExitCode(exitCode: unknown): number | undefined {
   if (typeof exitCode !== 'number') return undefined
+
   if (!Number.isInteger(exitCode) || exitCode < 0 || exitCode > 255) {
     return undefined
   }
+
   return exitCode
 }
 
@@ -276,6 +291,7 @@ export function markCommandFailure(
   details: CommandFailureDetails = {}
 ): void {
   if (!markTracked()) return
+
   const code = telemetryFailureCode(details.code)
   const exitCode = telemetryExitCode(details.exitCode)
   telemetry.track('command_failed', {
@@ -321,6 +337,7 @@ if (consent.enabled) {
         markCommandFailure()
       }
     }
+
     await telemetry.flush()
   })
 

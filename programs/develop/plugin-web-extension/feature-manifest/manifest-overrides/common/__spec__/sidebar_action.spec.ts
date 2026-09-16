@@ -15,11 +15,13 @@ afterEach(() => {
 function projectWith(files: string[]) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-sidebar-action-'))
   tempDirs.push(dir)
+
   for (const file of files) {
     const filePath = path.join(dir, file)
     fs.mkdirSync(path.dirname(filePath), {recursive: true})
     fs.writeFileSync(filePath, '<html></html>', 'utf8')
   }
+
   return path.join(dir, 'manifest.json')
 }
 

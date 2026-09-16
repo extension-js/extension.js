@@ -15,12 +15,15 @@ export function entryNotFoundMessageOnly(
 ) {
   const lines: string[] = []
   lines.push(`Can't find the file listed in ${colors.blue(manifestField)}.`)
+
   if (absPath) {
     lines.push(`${colors.gray('NOT FOUND')} ${colors.underline(absPath)}`)
   }
+
   lines.push(
     `Update the ${colors.blue(manifestField)} field in your ${colors.blue('manifest.json')} file.`
   )
+
   return lines.join('\n')
 }
 
@@ -34,6 +37,7 @@ export function jsonMissingFile(
   lines.push(
     `Can't find the JSON file listed in ${colors.blue(manifestField)}.`
   )
+
   lines.push(`${colors.gray('NOT FOUND')} ${colors.underline(filePath)}`)
   // Only the critical features (rulesets, managed schemas) stop the build, so
   // the promise has to track the severity that ships with it.
@@ -48,6 +52,7 @@ export function jsonMissingFile(
       `Paths starting with '/' are resolved from the extension output root (served from ${colors.blue('public/')}), not your source directory.`
     )
   }
+
   lines.push(
     `Update the JSON path in your ${colors.blue('manifest.json')} to a file that ships with the extension.`
   )

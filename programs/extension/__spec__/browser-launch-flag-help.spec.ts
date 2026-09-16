@@ -34,7 +34,9 @@ function helpFor(name: (typeof COMMANDS_WITH_BOTH_FLAGS)[number]): string {
       captured += chunk
     }
   })
+
   command.outputHelp()
+
   return captured
 }
 
@@ -53,8 +55,10 @@ describe('--no-open and --no-browser read as different flags', () => {
     COMMANDS_WITH_BOTH_FLAGS
   )('%s help carries the disambiguation footer', (name) => {
     const help = helpFor(name)
+
     for (const line of BROWSER_LAUNCH_HELP_FOOTER.split('\n')) {
       if (!line.trim()) continue
+
       expect(help).toContain(line)
     }
   })

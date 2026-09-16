@@ -41,9 +41,11 @@ describe('prettyPuppeteerInstallGuidance', () => {
     expect(msg).toContain(
       "Chrome for Testing isn't available in the managed browser cache."
     )
+
     expect(msg).toContain(
       'Install Chrome for Testing into the managed browser cache:'
     )
+
     expect(msg).toContain('  pnpm extension install chrome')
     expect(msg).toContain("Chrome for Testing isn't available")
     expect(msg).toContain('PATH')
@@ -68,6 +70,7 @@ describe('prettyPuppeteerInstallGuidance', () => {
     expect(msg).toContain(
       'Or install Chrome for Testing (stable channel), chromium targets use it automatically:'
     )
+
     expect(msg).toContain('npx extension install chrome')
   })
 

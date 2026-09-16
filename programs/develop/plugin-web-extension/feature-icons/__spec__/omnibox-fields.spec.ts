@@ -6,8 +6,9 @@ import {omniboxIconFields} from '../omnibox-fields'
 
 const dirs: string[] = []
 afterEach(() => {
-  for (const dir of dirs.splice(0))
+  for (const dir of dirs.splice(0)) {
     fs.rmSync(dir, {recursive: true, force: true})
+  }
 })
 
 function manifestWith(content: Record<string, unknown>) {
@@ -15,6 +16,7 @@ function manifestWith(content: Record<string, unknown>) {
   dirs.push(dir)
   const manifestPath = path.join(dir, 'manifest.json')
   fs.writeFileSync(manifestPath, JSON.stringify(content))
+
   return {dir, manifestPath}
 }
 
@@ -36,6 +38,7 @@ describe('omniboxIconFields', () => {
     expect(omniboxIconFields(manifestPath, 'edge')).toEqual({
       'omnibox/default_icon': path.join(dir, 'icons', 'omni.png')
     })
+
     // Another browser's prefix stays out of this build.
     expect(omniboxIconFields(manifestPath, 'firefox')).toEqual({})
   })

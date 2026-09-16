@@ -33,6 +33,7 @@ function makeFullProgram(): Command {
   registerLogsCommand(program)
   registerDoctorCommand(program)
   registerCapabilitiesCommand(program)
+
   return program
 }
 
@@ -55,6 +56,7 @@ describe('collectOutputJsonCommands', () => {
       .command('pretty-only')
       .option('--output <pretty>', 'pretty only')
       .action(() => {})
+
     registerCapabilitiesCommand(program)
     expect(collectOutputJsonCommands(program)).toEqual(['capabilities'])
   })

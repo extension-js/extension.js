@@ -86,6 +86,7 @@ describe('getAssetsFromHtml', () => {
       path.join(dir, 'classic.js'),
       path.join(dir, 'legacy.js')
     ])
+
     expect(res.moduleJs).toEqual([
       path.join(dir, 'main.js'),
       path.join(dir, 'upper.js')
@@ -116,6 +117,7 @@ describe('getAssetsFromHtml', () => {
       path.join(dir, 'touch.png'),
       path.join(dir, 'mask.svg')
     ])
+
     expect(res.css).toEqual([path.join(dir, 'styles.css')])
   })
 

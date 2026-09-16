@@ -31,11 +31,13 @@ describe('DevSessionRestartScheduler', () => {
     expect(handler).toHaveBeenCalledWith(
       expect.objectContaining({reason: 'icons', pathAfter: '/icon.png'})
     )
+
     expect(scheduler.isPending()).toBe(false)
   })
 
   it('runs one more restart for a request that lands mid-restart', async () => {
     let release: () => void = () => {}
+
     const handler = vi.fn(
       () =>
         new Promise<void>((resolve) => {
@@ -96,6 +98,7 @@ describe('requestDevSessionRestart', () => {
     expect(
       requestDevSessionRestart(compiler, {reason: 'scripts', pathAfter: '/a'})
     ).toBe(false)
+
     expect(isCompilerRestarting(compiler)).toBe(false)
   })
 
@@ -110,6 +113,7 @@ describe('requestDevSessionRestart', () => {
     expect(
       requestDevSessionRestart(compiler, {reason: 'scripts', pathAfter: '/a'})
     ).toBe(true)
+
     expect(isCompilerRestarting(compiler)).toBe(true)
     expect(isCompilerRestarting({})).toBe(false)
     await tick()

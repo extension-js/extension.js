@@ -28,6 +28,7 @@ beforeEach(() => {
     id === 'react-refresh' ? '/mock/react-refresh' : originalResolve(id)
   )
 })
+
 afterEach(() => {
   ;(require as any).resolve = originalResolve
 })
@@ -60,15 +61,18 @@ describe('react tools', () => {
       this.options = options
       this.apply = vi.fn()
     } as any
+
     vi.doMock('module', () => ({
       createRequire: () => {
         const req = ((id: string) => {
           if (id === '@rspack/plugin-react-refresh') {
             return {default: ReactRefreshPluginCtor}
           }
+
           throw new Error(`Cannot find module ${id}`)
         }) as any
         req.resolve = (id: string) => `/project/node_modules/${id}`
+
         return req
       }
     }))
@@ -89,9 +93,11 @@ describe('react tools', () => {
     expect(result?.alias?.['react-dom$']).toContain(
       '/project/node_modules/react-dom'
     )
+
     expect(result?.alias?.['react/jsx-runtime']).toContain(
       '/project/node_modules/react/jsx-runtime'
     )
+
     expect(result?.alias?.['react/jsx-dev-runtime']).toContain(
       '/project/node_modules/react/jsx-dev-runtime'
     )
@@ -113,6 +119,7 @@ describe('react tools', () => {
         const namespaceWithNamedExportOnly = {
           ReactRefreshRspackPlugin: ReactRefreshPluginCtor
         }
+
         return opts?.moduleAdapter
           ? opts.moduleAdapter(namespaceWithNamedExportOnly)
           : namespaceWithNamedExportOnly
@@ -125,6 +132,7 @@ describe('react tools', () => {
           throw new Error(`Cannot find module ${id}`)
         }) as any
         req.resolve = (id: string) => `/project/node_modules/${id}`
+
         return req
       }
     }))
@@ -159,6 +167,7 @@ describe('react tools', () => {
           throw new Error('not expected')
         }) as any
         req.resolve = (id: string) => `/project/node_modules/${id}`
+
         return req
       }
     }))

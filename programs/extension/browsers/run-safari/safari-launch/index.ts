@@ -65,6 +65,7 @@ export function toolOutputTail(output: string): string {
     .split(/\r?\n/)
     .filter((line) => line.trim().length > 0)
   const tail = lines.slice(-TOOL_TAIL_LINES).join('\n')
+
   return tail.length > TOOL_TAIL_BYTES ? tail.slice(-TOOL_TAIL_BYTES) : tail
 }
 
@@ -88,9 +89,11 @@ function runTool(
     const onChunk = (chunk: unknown) => {
       const text = String(chunk)
       output += text
+
       if (output.length > TOOL_TAIL_BYTES * 8) {
         output = output.slice(-TOOL_TAIL_BYTES * 4)
       }
+
       if (streamOutput) process.stdout.write(text)
     }
 
@@ -99,6 +102,7 @@ function runTool(
     child.on('error', (error) =>
       resolve({ok: false, code: null, output: `${output}${String(error)}`})
     )
+
     child.on('close', (code) => resolve({ok: code === 0, code, output}))
   })
 }
@@ -115,18 +119,23 @@ export function converterWarnings(output: string): string[] {
 
   for (const line of lines) {
     const trimmed = line.trim()
+
     if (/warning/i.test(line)) {
       inWarning = true
       if (trimmed.length > 0) collected.push(trimmed)
+
       continue
     }
+
     // A continuation keeps its indentation. A blank line or a flush-left line
     // ends the block, so unrelated output never rides along.
     const isContinuation = inWarning && /^\s/.test(line) && trimmed.length > 0
+
     if (isContinuation) {
       collected.push(trimmed)
       continue
     }
+
     inWarning = false
   }
 
@@ -146,17 +155,12 @@ async function confirmRegisteredWithSafari(
     // Spread attempts over ~5s without blocking the event loop.
     await delay(800)
   }
+
   return false
 }
 
 export type SafariPipelineMode = 'full' | 'resync'
 
-/**
- * What the pipeline resolved for this app. `bundleIdDerived` used to exist
- * only as a log line, which left a machine caller unable to learn that its
- * app carries a generated dev.extensionjs.* id shared with every project
- * built from the same source.
- */
 export interface SafariPackageResult {
   appName: string
   bundleId: string
@@ -246,8 +250,10 @@ async function resolvePidForBundle(bundleId: string): Promise<number | null> {
       })
     })
     if (pid) return pid
+
     await new Promise((r) => setTimeout(r, 500))
   }
+
   return null
 }
 
@@ -270,6 +276,7 @@ async function announceSafariDevSession(
       }),
       binaryPath: appPath
     })
+
     humanLine(devServerReady('development', String(host.browser)))
   } catch {
     // The announcement must never fail the packaging pipeline.
@@ -307,8 +314,10 @@ async function runSafariPipeline(
   }
 
   const toolchain = detectSafariToolchain()
+
   if (!toolchain.platformOk) {
     logger.warn?.(messages.safariRequiresMacOS(process.platform))
+
     return describePackage(config)
   }
 
@@ -338,6 +347,7 @@ async function runSafariPipeline(
           ? messages.safariForcedRegeneration()
           : messages.safariProjectStale()
       )
+
       // Regeneration replaces the whole project, be loud about what does
       // and does not survive, BEFORE the converter overwrites it.
       logger.warn?.(
@@ -352,6 +362,7 @@ async function runSafariPipeline(
     logger.info?.(messages.safariConverting(config.extensionDir))
 
     const converted = await runTool('xcrun', converterArgs)
+
     if (!converted.ok) {
       const tail = toolOutputTail(converted.output)
       logger.error?.(
@@ -361,12 +372,14 @@ async function runSafariPipeline(
           tail
         )
       )
+
       throw new Error(
         `safari-web-extension-converter failed (exit ${converted.code})\n${tail}`
       )
     }
 
     const warnings = converterWarnings(converted.output)
+
     if (warnings.length > 0) {
       logger.warn?.(messages.safariConverterWarnings(warnings))
     }
@@ -374,6 +387,7 @@ async function runSafariPipeline(
     // The converter derives the parent-app id from the app name, not
     // --bundle-identifier; align both targets or ValidateEmbeddedBinary fails.
     const projFile = pbxprojPath(config)
+
     if (fs.existsSync(projFile)) {
       fs.writeFileSync(
         projFile,
@@ -388,6 +402,7 @@ async function runSafariPipeline(
     restore()
 
     const preservedKeys = Object.keys(saved)
+
     if (preservedKeys.length > 0) {
       logger.info?.(messages.safariSettingsPreserved(preservedKeys))
     }
@@ -400,13 +415,16 @@ async function runSafariPipeline(
     logger.info?.(messages.safariSkippingConversion())
   }
 
-  if (mode === 'full')
+  if (mode === 'full') {
     logger.info?.(messages.safariBuilding(macOsSchemeName(config)))
+  }
 
   const built = await runTool('xcodebuild', xcodebuildArgs)
+
   if (!built.ok) {
     const tail = toolOutputTail(built.output)
     logger.error?.(messages.safariToolFailed('xcodebuild', built.code, tail))
+
     throw new Error(`xcodebuild failed (exit ${built.code})\n${tail}`)
   }
 
@@ -415,6 +433,7 @@ async function runSafariPipeline(
   // Resync mode (dev rebuilds): just report and stop, no reopen/re-guide.
   if (mode === 'resync') {
     logger.info?.(messages.safariRebuilt(config.appName))
+
     return describePackage(config)
   }
 
@@ -424,9 +443,11 @@ async function runSafariPipeline(
     // Registration with macOS only happens once the app has been launched, so
     // polling pluginkit here would just warn spuriously. Point at the app.
     logger.info?.(messages.safariOpenHint(appPath, config.appName, isSigned))
+
     if (host.announceDevReady) {
       await announceSafariDevSession(host, config, appPath)
     }
+
     return describePackage(config)
   }
 
@@ -447,6 +468,7 @@ async function runSafariPipeline(
     ? 'com.apple.Safari'
     : config.bundleIdentifier
   const browserPid = await resolvePidForBundle(raisedBundleId)
+
   if (browserPid) {
     stampReadyBrowserLaunch(config.extensionDir, {
       browserPid,

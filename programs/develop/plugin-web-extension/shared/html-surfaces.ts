@@ -27,9 +27,12 @@ function readDefaultPopup(value: unknown): string | undefined {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return undefined
   }
+
   const popup = (value as {default_popup?: unknown}).default_popup
   if (typeof popup !== 'string') return undefined
+
   const trimmed = popup.trim()
+
   return trimmed || undefined
 }
 
@@ -42,8 +45,10 @@ export function normalizePopupRef(ref: string): string {
 
 export function popupRefsShareSource(a: unknown, b: unknown): boolean {
   if (typeof a !== 'string' || typeof b !== 'string') return false
+
   const left = normalizePopupRef(a)
   const right = normalizePopupRef(b)
+
   return Boolean(left) && left === right
 }
 
@@ -52,13 +57,17 @@ export function resolveManifestHtmlPath(
   relativePath: string
 ): string {
   const unix = relativePath.replace(/\\/g, '/')
+
   if (/^\/public\//i.test(unix)) {
     return path.join(context, 'public', unix.replace(/^\/public\//i, ''))
   }
+
   if (/^(?:\.\/)?public\//i.test(unix)) {
     return path.join(context, 'public', unix.replace(/^(?:\.\/)?public\//i, ''))
   }
+
   if (/^\//.test(unix)) return path.join(context, unix.slice(1))
+
   return path.join(context, unix)
 }
 
@@ -66,6 +75,7 @@ export function actionPopupRef(
   manifest: Manifest | undefined
 ): string | undefined {
   if (!manifest) return undefined
+
   return (
     readDefaultPopup(manifest.action) ||
     readDefaultPopup(manifest.browser_action)
@@ -76,6 +86,7 @@ export function pageActionPopupRef(
   manifest: Manifest | undefined
 ): string | undefined {
   if (!manifest) return undefined
+
   return readDefaultPopup(manifest.page_action)
 }
 
@@ -86,10 +97,13 @@ export function optionsPageRef(
   manifest: Manifest | undefined
 ): string | undefined {
   if (!manifest) return undefined
+
   const modern = (manifest.options_ui as {page?: unknown} | undefined)?.page
   if (typeof modern === 'string' && modern.trim()) return modern.trim()
+
   const legacy = (manifest as {options_page?: unknown}).options_page
   if (typeof legacy === 'string' && legacy.trim()) return legacy.trim()
+
   return undefined
 }
 
@@ -100,9 +114,11 @@ export function isPageActionLiveSurface(
   browser: DevOptions['browser'] | string | undefined
 ): boolean {
   if (isGeckoBasedBrowser(String(browser || ''))) return true
+
   const version = Number(
     (manifest as {manifest_version?: unknown} | undefined)?.manifest_version
   )
+
   return Number.isFinite(version) && version < 3
 }
 
@@ -117,16 +133,20 @@ export function pageActionDropReason(
   browser: DevOptions['browser'] | string | undefined
 ): PageActionDropReason | undefined {
   if (!manifest || typeof manifest !== 'object') return undefined
+
   if (!('page_action' in manifest) || manifest.page_action == null) {
     return undefined
   }
+
   if (!isPageActionLiveSurface(manifest, browser)) return 'unsupported'
+
   if (
     isChromiumBasedBrowser(String(browser || '')) &&
     manifest.browser_action != null
   ) {
     return 'conflicts'
   }
+
   return undefined
 }
 
@@ -139,8 +159,10 @@ export function shouldDropPageAction(
 
 export function dropPageAction(manifest: Manifest): Manifest {
   if (!manifest || !('page_action' in manifest)) return manifest
+
   const rest = {...manifest}
   delete rest.page_action
+
   return rest
 }
 
@@ -149,9 +171,11 @@ export function dropPageAction(manifest: Manifest): Manifest {
 export function pageActionOutputTarget(manifest: Manifest): string {
   const actionRef = actionPopupRef(manifest)
   const pageRef = pageActionPopupRef(manifest)
+
   if (actionRef && pageRef && popupRefsShareSource(actionRef, pageRef)) {
     return ACTION_HTML_OUTPUT
   }
+
   return PAGE_ACTION_HTML_OUTPUT
 }
 
@@ -166,6 +190,7 @@ export function applyIndependentHtmlSurfaces(
   // The fields package folds both options keys into one slot and prefers the
   // legacy one, so repoint that slot at the key the browsers read first.
   const optionsRef = optionsPageRef(manifest)
+
   if (optionsRef) {
     next[OPTIONS_HTML_FEATURE] = resolveManifestHtmlPath(context, optionsRef)
   }
@@ -185,12 +210,17 @@ export function applyIndependentHtmlSurfaces(
 
   if (!pageAbs || pageActionDropReason(manifest, browser)) {
     delete next[PAGE_ACTION_HTML_FEATURE]
+
     return next
   }
+
   if (actionAbs && popupRefsShareSource(actionRef, pageRef)) {
     delete next[PAGE_ACTION_HTML_FEATURE]
+
     return next
   }
+
   next[PAGE_ACTION_HTML_FEATURE] = pageAbs
+
   return next
 }

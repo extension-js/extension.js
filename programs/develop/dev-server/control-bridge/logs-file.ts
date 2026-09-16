@@ -76,6 +76,7 @@ export class LogsFileWriter {
   flush(): void {
     if (!this.started || this.queue.length === 0) {
       this.maybeNoteDrops()
+
       return
     }
 
@@ -105,6 +106,7 @@ export class LogsFileWriter {
       clearInterval(this.timer)
       this.timer = null
     }
+
     this.flush()
     this.started = false
   }
@@ -155,7 +157,6 @@ export class LogsFileWriter {
     return this.opts.filePath.replace(/\.ndjson$/, `.${n}.ndjson`)
   }
 
-  /** Shift generations: drop the oldest, age each, move current → .1 */
   private rotate(): void {
     const {generations} = this.opts
 

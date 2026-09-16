@@ -15,12 +15,14 @@ describe('runDevWaitMode', () => {
     for (const dir of tempDirs) {
       rmSync(dir, {recursive: true, force: true})
     }
+
     tempDirs.length = 0
   })
 
   function createProject() {
     const projectDir = mkdtempSync(join(tmpdir(), 'extjs-dev-wait-unit-'))
     tempDirs.push(projectDir)
+
     return projectDir
   }
 

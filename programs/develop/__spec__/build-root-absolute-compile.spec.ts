@@ -38,6 +38,7 @@ function writeFixture() {
       2
     )
   )
+
   write(
     'manifest.json',
     JSON.stringify(
@@ -51,6 +52,7 @@ function writeFixture() {
       2
     )
   )
+
   // A scripts/ source under its .ts spelling, a lib/ module under its emitted
   // spelling, a classic vendor script and a stylesheet naming a data file.
   write(
@@ -66,6 +68,7 @@ function writeFixture() {
       ''
     ].join('\n')
   )
+
   write(
     'scripts/util.ts',
     [
@@ -75,6 +78,7 @@ function writeFixture() {
       ''
     ].join('\n')
   )
+
   write(
     'lib/widget.ts',
     [
@@ -85,15 +89,18 @@ function writeFixture() {
       ''
     ].join('\n')
   )
+
   write('lib/word.ts', 'export const WORD: string = "root-absolute"\n')
   write(
     'node_modules/tiny-pkg/package.json',
     JSON.stringify({name: 'tiny-pkg', version: '1.0.0', main: 'index.js'})
   )
+
   write(
     'node_modules/tiny-pkg/index.js',
     'exports.shout = function shout(s) { return String(s).toUpperCase(); };\n'
   )
+
   write('vendor/classic.js', CLASSIC_SRC)
   write('styles/page.css', CSS_SRC)
   write('data/x.json', JSON_SRC)
@@ -105,6 +112,7 @@ async function buildFixture(mode: 'production' | 'development') {
   const previousVitest = process.env.VITEST
   process.env.VITEST = 'true'
   delete process.env.EXTENSION_AUTHOR_MODE
+
   try {
     return await extensionBuild(ROOT, {
       browser: 'chrome',
@@ -119,6 +127,7 @@ async function buildFixture(mode: 'production' | 'development') {
     } else {
       process.env.EXTENSION_AUTHOR_MODE = previousAuthorMode
     }
+
     if (previousVitest === undefined) {
       delete process.env.VITEST
     } else {
@@ -143,6 +152,7 @@ function runAsClassicScript(code: string) {
   const sandbox: Record<string, unknown> = {console: {log() {}}}
   vm.createContext(sandbox)
   vm.runInContext(code, sandbox)
+
   return sandbox
 }
 
@@ -165,8 +175,10 @@ afterAll(() => {
 describe('build: root-absolute HTML and CSS refs compile JS-like files and copy the rest (real rspack)', () => {
   it('compiles the root-absolute module with its bare and TypeScript imports resolved', async () => {
     const summary = await buildFixture('production')
+
     if (process.env.EXTJS_DUMP_ROOT_ABS) {
       console.log(`DIST FILES\n${listDist().join('\n')}`)
+
       for (const rel of [
         'scripts/util.js',
         'lib/widget.js',
@@ -176,8 +188,10 @@ describe('build: root-absolute HTML and CSS refs compile JS-like files and copy 
           `\n--- ${rel} ---\n${exists(rel) ? read(rel).slice(0, 800) : '(absent)'}`
         )
       }
+
       console.log('WARNINGS', JSON.stringify(summary.warnings, null, 2))
     }
+
     expect(summary.errors_count).toBe(0)
 
     // The missing-file check runs before the child compilation emits
@@ -213,6 +227,7 @@ describe('build: root-absolute HTML and CSS refs compile JS-like files and copy 
     expect(listDist().filter((rel) => rel.startsWith('scripts/util'))).toEqual([
       'scripts/util.js'
     ])
+
     const util = read('scripts/util.js')
     expect(util).not.toContain(': string')
     expectNoUnresolvedImports(util)
@@ -251,6 +266,7 @@ describe('build: root-absolute HTML and CSS refs compile JS-like files and copy 
         message.includes("doesn't exist")
       )
     ).toEqual([])
+
     const widget = read('lib/widget.js')
     expectNoUnresolvedImports(widget)
     expect(widget).toContain('toUpperCase')

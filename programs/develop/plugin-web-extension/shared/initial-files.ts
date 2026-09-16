@@ -37,12 +37,15 @@ export function isJsFile(file: string): boolean {
 export function initialJsFiles(entrypoint: EntrypointLike): string[] {
   const files = new Set<string>()
   const runtimeChunk = entrypoint.getRuntimeChunk?.()
+
   for (const file of runtimeChunk?.files || []) {
     if (isJsFile(file)) files.add(file)
   }
+
   for (const file of entrypoint.getFiles()) {
     if (isJsFile(file)) files.add(file)
   }
+
   return [...files]
 }
 
@@ -54,13 +57,16 @@ export function entryOwnJsFile(
   files: string[]
 ): string | undefined {
   const entryChunk = entrypoint.getEntrypointChunk?.()
+
   for (const file of entryChunk?.files || []) {
     if (isJsFile(file) && files.includes(file)) return file
   }
+
   const byName = new RegExp(
     `^${entryName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\.[a-z0-9]+)?\\.m?js$`,
     'i'
   )
+
   // No guess when neither lookup answers, because the caller drops this file
   // from the page markup and a wrong answer deletes a chunk the page needs.
   return files.find((file) => byName.test(file))

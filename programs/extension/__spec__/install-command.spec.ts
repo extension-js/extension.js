@@ -6,6 +6,7 @@ function notInstallableError(browser: string): Error {
   )
   error.name = 'BrowserNotInstallableError'
   ;(error as Error & {code: string}).code = 'BROWSER_NOT_INSTALLABLE'
+
   return error
 }
 
@@ -48,12 +49,14 @@ function lastJsonFrame(): Record<string, unknown> {
   const jsonLine = [...printed].reverse().find((line) => {
     try {
       JSON.parse(line)
+
       return true
     } catch {
       return false
     }
   })
   expect(jsonLine).toBeTruthy()
+
   return JSON.parse(String(jsonLine)) as Record<string, unknown>
 }
 
@@ -117,6 +120,7 @@ describe('extension install', () => {
       status: 'failed',
       value: null
     })
+
     expect(frame.error.code).toBe('E_BROWSER_DOWNLOAD')
     expect(frame.error.message).toContain('404 from CDN')
     expect(frame.hint).toMatch(/Retry/)
@@ -145,9 +149,11 @@ describe('extension install', () => {
     expect((frame.error as {code: string}).code).toBe(
       'E_BROWSER_NOT_INSTALLABLE'
     )
+
     expect((frame.error as {message: string}).message).toMatch(
       /never downloads/i
     )
+
     expect(extensionInstall).not.toHaveBeenCalled()
   })
 
@@ -155,6 +161,7 @@ describe('extension install', () => {
     expect(
       await run(['install', 'chrome', '--where', '--output', 'json'])
     ).toBe(0)
+
     expect(JSON.parse(String(logSpy.mock.calls[0][0])).value).toEqual({
       paths: ['/cache/chrome']
     })
@@ -164,6 +171,7 @@ describe('extension install', () => {
     expect(await run(['install', 'brave', '--where', '--output', 'json'])).toBe(
       1
     )
+
     const frame = lastJsonFrame()
     expect(frame).toMatchObject({
       schema: 1,
@@ -172,9 +180,11 @@ describe('extension install', () => {
       status: 'usage',
       value: null
     })
+
     expect((frame.error as {code: string}).code).toBe(
       'E_BROWSER_NOT_INSTALLABLE'
     )
+
     expect((frame.error as {message: string}).message).toContain('brave')
     // One JSON frame only: no raw stack on stdout for the setup-script parser.
     expect(logSpy.mock.calls).toHaveLength(1)
@@ -184,6 +194,7 @@ describe('extension install', () => {
     expect(
       await run(['install', 'safari', '--where', '--output', 'json'])
     ).toBe(1)
+
     const frame = lastJsonFrame()
     expect(frame.status).toBe('usage')
     expect((frame.error as {code: string}).code).toBe(
@@ -195,6 +206,7 @@ describe('extension install', () => {
     vi.mocked(extensionInstall).mockRejectedValueOnce(
       notInstallableError('brave')
     )
+
     expect(await run(['install', 'brave', '--output', 'json'])).toBe(1)
     const frame = lastJsonFrame()
     expect(frame.status).toBe('usage')
@@ -252,6 +264,7 @@ describe('extension uninstall', () => {
 
   it('prints all install dirs with --where --all', async () => {
     expect(await run(['uninstall', '--where', '--all'])).toBe(0)
+
     for (const browser of ['chrome', 'chromium', 'edge', 'firefox']) {
       expect(getManagedBrowserInstallDir).toHaveBeenCalledWith(browser)
     }
@@ -309,6 +322,7 @@ describe('extension uninstall', () => {
     expect(
       await run(['uninstall', 'brave', '--where', '--output', 'json'])
     ).toBe(1)
+
     expect((lastJsonFrame().error as {code: string}).code).toBe(
       'E_BROWSER_NOT_INSTALLABLE'
     )

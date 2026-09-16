@@ -15,6 +15,7 @@ vi.mock('../lib/transpile-packages', async () => {
   const actual = await vi.importActual<
     typeof import('../lib/transpile-packages')
   >('../lib/transpile-packages')
+
   return {
     ...actual,
     resolveTranspilePackageDirs: resolveTranspilePackageDirsMock
@@ -25,6 +26,7 @@ vi.mock('../lib/extensions-to-load', async () => {
   const actual = await vi.importActual<
     typeof import('../lib/extensions-to-load')
   >('../lib/extensions-to-load')
+
   return {
     ...actual,
     computeExtensionsToLoad: computeExtensionsToLoadMock
@@ -93,8 +95,10 @@ describe('webpack-config transpile packages watch behavior', () => {
     const posixRoot = root.split(path.sep).join('/')
     expect(ignored).toContain(`${posixRoot}/dist/chrome/**`)
     expect(ignored).toContain(`${posixRoot}/dist/**`)
+
     for (const pattern of ignored) {
       expect(pattern === 'dist' || pattern === '**dist**').toBe(false)
+
       if (typeof pattern === 'string' && pattern.includes('dist')) {
         expect(pattern.includes('/dist/') || pattern.endsWith('/dist/**')).toBe(
           true
@@ -107,6 +111,7 @@ describe('webpack-config transpile packages watch behavior', () => {
     resolveTranspilePackageDirsMock.mockReturnValue([
       '/repo/node_modules/@workspace/ui'
     ])
+
     const projectStructure = createProjectStructure()
     const config = webpackConfig(
       projectStructure as any,
@@ -177,6 +182,7 @@ describe('webpack-config transpile packages watch behavior', () => {
   it('never emits assets for errored compiles, in dev and prod', () => {
     resolveTranspilePackageDirsMock.mockReturnValue([])
     const projectStructure = createProjectStructure()
+
     for (const mode of ['development', 'production'] as const) {
       const config = webpackConfig(
         projectStructure as any,
@@ -255,9 +261,11 @@ describe('webpack-config transpile packages watch behavior', () => {
     expect(filename({chunk: {name: 'content_scripts/content-0'}})).toBe(
       'content_scripts/content-0.[contenthash:8].js'
     )
+
     expect(filename({chunk: {name: 'content_scripts/content-1'}})).toBe(
       'content_scripts/content-1.[contenthash:8].js'
     )
+
     expect(filename({chunk: {name: 'background/service_worker'}})).toBe(
       '[name].js'
     )
@@ -312,6 +320,7 @@ describe('webpack-config transpile packages watch behavior', () => {
     expect(resolve?.byDependency?.commonjs?.conditionNames).not.toContain(
       'import'
     )
+
     expect(resolve?.byDependency?.esm?.conditionNames).toContain('import')
   })
 
@@ -373,6 +382,7 @@ describe('webpack-config transpile packages watch behavior', () => {
       externalFn({request}, (_e, result, type) => {
         captured = [result, type]
       })
+
       return captured
     }
 
@@ -380,16 +390,19 @@ describe('webpack-config transpile packages watch behavior', () => {
       'chrome-extension://__MSG_@@extension_id__/dino.png',
       'asset'
     ])
+
     expect(run('moz-extension://abc/icon.png')).toEqual([
       'moz-extension://abc/icon.png',
       'asset'
     ])
+
     expect(
       run('safari-web-extension://__MSG_@@extension_id__/icons/x.svg')
     ).toEqual([
       'safari-web-extension://__MSG_@@extension_id__/icons/x.svg',
       'asset'
     ])
+
     expect(run('./icon.png')).toEqual([undefined, undefined])
     expect(run('https://example.com/x.png')).toEqual([undefined, undefined])
   })
@@ -432,6 +445,7 @@ describe('webpack-config transpile packages watch behavior', () => {
           captured = [result, type]
         }
       )
+
       return captured
     }
 
@@ -439,16 +453,19 @@ describe('webpack-config transpile packages watch behavior', () => {
       'images/missing.png',
       'asset'
     ])
+
     expect(run('fonts/missing.woff?v=2', 'url')).toEqual([
       'fonts/missing.woff?v=2',
       'asset'
     ])
+
     expect(run('present.png', 'url')).toEqual([undefined, undefined])
     expect(run('images/missing.png', 'esm')).toEqual([undefined, undefined])
   })
 
   it('leaves an unresolvable bare require() verbatim as a commonjs external, fatal under EXTENSION_STRICT_REFS', () => {
     const projectStructure = createProjectStructure()
+
     const makeExternalFn = () => {
       const config = webpackConfig(
         projectStructure as any,
@@ -466,6 +483,7 @@ describe('webpack-config transpile packages watch behavior', () => {
           noBrowser: true
         } as any
       )
+
       return (config.externals as any[])[0] as (
         data: {
           request?: string
@@ -481,6 +499,7 @@ describe('webpack-config transpile packages watch behavior', () => {
         cb: (err?: null, result?: string, type?: string) => void
       ) => void
     }
+
     const externalFn = makeExternalFn()
 
     const getResolve =
@@ -511,6 +530,7 @@ describe('webpack-config transpile packages watch behavior', () => {
           captured = [result, type]
         }
       )
+
       return captured
     }
 
@@ -524,6 +544,7 @@ describe('webpack-config transpile packages watch behavior', () => {
     expect(run('file', 'esm')).toEqual([undefined, undefined])
 
     process.env.EXTENSION_STRICT_REFS = 'true'
+
     try {
       expect(run('file')).toEqual([undefined, undefined])
     } finally {
@@ -557,7 +578,9 @@ describe('webpack-config MV2 on chromium warning', () => {
     const hook = {
       tap: (nameOrOptions: any, fn: any) => {
         const name =
-          typeof nameOrOptions === 'string' ? nameOrOptions : nameOrOptions?.name
+          typeof nameOrOptions === 'string'
+            ? nameOrOptions
+            : nameOrOptions?.name
         if (name === 'warn-mv2-on-chromium') tapped = fn
       },
       tapAsync: () => undefined,
@@ -568,6 +591,7 @@ describe('webpack-config MV2 on chromium warning', () => {
       rspack: {WebpackError: Error},
       options: {}
     }
+
     for (const plugin of config.plugins ?? []) {
       if (
         plugin &&
@@ -581,6 +605,7 @@ describe('webpack-config MV2 on chromium warning', () => {
         }
       }
     }
+
     return tapped
   }
 

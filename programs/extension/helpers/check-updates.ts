@@ -14,6 +14,7 @@ import {isDebug} from './messaging'
 
 function isStableVersion(version: string | undefined) {
   const v = semver.parse(version)
+
   return Boolean(v && v.prerelease.length === 0)
 }
 

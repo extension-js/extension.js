@@ -45,10 +45,13 @@ const LINUX_BROWSER_PATHS: Record<string, string[]> = {
 // scripts. Returns null outside WSL+GUI or when no candidate exists on disk.
 export function resolveWslLinuxBinary(browser: string): string | null {
   if (!isWslEnv() || !hasGuiDisplay()) return null
+
   const candidates = LINUX_BROWSER_PATHS[browser] || LINUX_BROWSER_PATHS.chrome
+
   for (const candidate of candidates) {
     if (fs.existsSync(candidate)) return candidate
   }
+
   return null
 }
 
@@ -62,11 +65,13 @@ const CHROME_WRAPPER_BASENAMES = new Set([
 
 function basename(filePath: string): string {
   const idx = filePath.lastIndexOf('/')
+
   return idx === -1 ? filePath : filePath.slice(idx + 1)
 }
 
 function looksLikeChromeWrapperScript(filePath: string): boolean {
   if (!filePath) return false
+
   return CHROME_WRAPPER_BASENAMES.has(basename(filePath))
 }
 
@@ -78,13 +83,16 @@ export function preferRealChromeBinary(
   if (!binary) return binary || null
   if (!isWslEnv() || !hasGuiDisplay()) return binary
   if (!looksLikeChromeWrapperScript(binary)) return binary
+
   const realBinary = '/opt/google/chrome/chrome'
   if (fs.existsSync(realBinary)) return realBinary
+
   return binary
 }
 
 export function resolveWslWindowsBinary(browser: string): string | null {
   if (!isWslEnv()) return null
+
   const chromeCandidates = [
     '/mnt/c/Program Files/Google/Chrome/Application/chrome.exe',
     '/mnt/c/Program Files (x86)/Google/Chrome/Application/chrome.exe'
@@ -103,9 +111,11 @@ export function resolveWslWindowsBinary(browser: string): string | null {
       : browser === 'chromium' || browser === 'chromium-based'
         ? [...chromiumCandidates, ...chromeCandidates]
         : chromeCandidates
+
   for (const candidate of candidates) {
     if (fs.existsSync(candidate)) return candidate
   }
+
   return null
 }
 
@@ -118,6 +128,7 @@ export async function spawnChromiumProcess(opts: {
 }): Promise<ChildProcess> {
   const {binary, launchArgs, stdio, browser, logger} = opts
   const isWin = process.platform === 'win32'
+
   const spawnOnce = async (bin: string) => {
     const child = spawn(bin, launchArgs, {
       stdio,
@@ -130,13 +141,16 @@ export async function spawnChromiumProcess(opts: {
         child.removeListener('spawn', handleSpawn)
         reject(error)
       }
+
       const handleSpawn = () => {
         child.removeListener('error', handleError)
         resolve()
       }
+
       child.once('error', handleError)
       child.once('spawn', handleSpawn)
     })
+
     return child
   }
 
@@ -145,13 +159,16 @@ export async function spawnChromiumProcess(opts: {
   } catch (error) {
     if (isWslEnv()) {
       const fallback = resolveWslWindowsBinary(browser)
+
       if (fallback && fallback !== binary) {
         logger?.warn?.(
           '[browser] WSL detected: retrying with Windows browser binary.'
         )
+
         return await spawnOnce(fallback)
       }
     }
+
     throw error
   }
 }

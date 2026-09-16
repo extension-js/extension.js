@@ -105,6 +105,7 @@ function writeFixture() {
         '</body></html>'
       ].join('\n')
     )
+
     write(`src/${page}.ts`, `console.log('${page}')\nexport {}\n`)
     write(`src/${page}.css`, 'h1 { color: blue }\n')
   }
@@ -160,16 +161,19 @@ describe('manifest output contract (real rspack, golden fixture)', () => {
     expect(manifest.background).toEqual({
       service_worker: 'background/service_worker.js'
     })
+
     expect(manifest.action).toEqual({
       default_popup: 'action/index.html',
       default_icon: {'16': 'icons/icon16.png'}
     })
+
     expect(manifest.options_ui).toEqual({page: 'options/index.html'})
     expect(manifest.devtools_page).toBe('devtools/index.html')
     expect(manifest.side_panel).toEqual({default_path: 'sidebar/index.html'})
     expect(manifest.chrome_url_overrides).toEqual({
       newtab: 'chrome_url_overrides/newtab.html'
     })
+
     expect(manifest.icons).toEqual({'16': 'icons/icon16.png'})
 
     expect(manifest.content_scripts).toEqual([
@@ -214,6 +218,7 @@ describe('manifest output contract (real rspack, golden fixture)', () => {
       'content_scripts/content-2.js',
       'icons/icon16.png'
     ]
+
     for (const file of expectedFiles) {
       expect(fs.existsSync(path.join(distDir, file)), file).toBe(true)
     }

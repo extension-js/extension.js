@@ -69,6 +69,7 @@ describe('UpdateManifest AMO data-collection warning', () => {
         thisCompilation: {tap: (_n: string, fn: any) => fn(compilation)}
       }
     }
+
     return {compiler, compilation, browser}
   }
 
@@ -85,6 +86,7 @@ describe('UpdateManifest AMO data-collection warning', () => {
     new UpdateManifest({manifestPath: '/m', browser: browser as any}).apply(
       compiler
     )
+
     return compilation.warnings as Array<Error & {name?: string}>
   }
 

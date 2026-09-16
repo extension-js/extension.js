@@ -21,6 +21,7 @@ export function storage(
         ...(manifest.storage.managed_schema && {
           managed_schema: (() => {
             const raw = String(manifest.storage.managed_schema)
+
             return getFilename(
               manifestJsonOutputTarget(
                 raw,

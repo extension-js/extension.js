@@ -22,6 +22,7 @@ export function resolveBrowsersCacheRoot(): string {
     if (local) return path.join(local, 'extension.js', 'browsers')
 
     const userProfile = String(process.env.USERPROFILE || '').trim()
+
     if (userProfile) {
       return path.join(
         userProfile,
@@ -37,8 +38,11 @@ export function resolveBrowsersCacheRoot(): string {
 
   if (isMac) {
     const home = String(process.env.HOME || '').trim()
-    if (home)
+
+    if (home) {
       return path.join(home, 'Library', 'Caches', 'extension.js', 'browsers')
+    }
+
     return path.resolve(process.cwd(), '.cache', 'extension.js', 'browsers')
   }
 
@@ -68,5 +72,6 @@ export function removeBrowserDir(browser: InstallBrowserTarget): {
   }
 
   fs.rmSync(installDir, {recursive: true, force: true})
+
   return {path: installDir, removed: true}
 }

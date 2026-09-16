@@ -66,19 +66,23 @@ describe('mv2 host_permissions fold properties', () => {
 
           for (const [permKey, hostKey] of PAIRS) {
             const input = m as Partial<Record<string, string[]>>
+
             if (!input[hostKey]) {
               // Nothing to fold, so the declared list passes through untouched.
               expect(out[permKey]).toEqual(input[permKey])
               continue
             }
+
             const folded = out[permKey] ?? []
             const declaredList = input[permKey] ?? []
             expect(folded.slice(0, declaredList.length)).toEqual(declaredList)
+
             for (const pattern of new Set(input[hostKey])) {
               expect(folded.filter((entry) => entry === pattern)).toHaveLength(
                 1
               )
             }
+
             expect(new Set(folded).size).toBe(folded.length)
             expect(folded).toHaveLength(
               new Set([...declaredList, ...input[hostKey]]).size

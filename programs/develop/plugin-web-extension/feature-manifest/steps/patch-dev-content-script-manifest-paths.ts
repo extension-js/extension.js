@@ -21,6 +21,7 @@ export function patchDevContentScriptManifestPaths(
   manifest: Manifest
 ): Manifest {
   if (compilation.options.mode !== 'development') return manifest
+
   const cs = manifest.content_scripts
   if (!Array.isArray(cs)) return manifest
 
@@ -39,10 +40,12 @@ export function patchDevContentScriptManifestPaths(
       resolveDevContentScriptDeclaredPath(p, groupIndex, 'css', assetNames)
     )
     for (const n of [...resolvedJs, ...resolvedCss]) currentHashedNames.add(n)
+
     return {...group, js: resolvedJs, css: resolvedCss}
   })
 
   purgeStaleHashedContentScripts(compilation, currentHashedNames)
+
   return {...manifest, content_scripts: next}
 }
 
@@ -58,6 +61,7 @@ function resolveDevContentScriptDeclaredPath(
   if (!parsed || parsed.extension !== ext) return declaredPath
 
   const hashed = findHashedContentScriptAsset(assetNames, parsed.index, ext)
+
   return hashed || declaredPath
 }
 
@@ -73,9 +77,11 @@ function findHashedContentScriptAsset(
     `^content_scripts/content-${groupIndex}\\.[a-f0-9]+\\.${ext}$`,
     'i'
   )
+
   for (const name of assetNames) {
     if (re.test(name)) return name
   }
+
   return undefined
 }
 
@@ -87,21 +93,25 @@ function purgeStaleHashedContentScripts(
 ) {
   const outputPath = compilation.options.output?.path
   if (!outputPath) return
+
   const csDir = path.join(outputPath, 'content_scripts')
   if (!fs.existsSync(csDir)) return
 
   const emittedNames = new Set<string>()
   const assets =
     typeof compilation.getAssets === 'function' ? compilation.getAssets() : []
+
   for (const asset of assets) {
     const name = asset?.name || ''
     if (name.startsWith('content_scripts/')) emittedNames.add(name)
   }
 
   const hashedRe = /^[A-Za-z0-9._-]+\.[a-f0-9]{6,}\.(js|css)(\.map)?$/i
+
   try {
     for (const name of fs.readdirSync(csDir)) {
       if (!hashedRe.test(name)) continue
+
       const rel = `content_scripts/${name}`
       const relNoMap = rel.replace(/\.map$/, '')
 

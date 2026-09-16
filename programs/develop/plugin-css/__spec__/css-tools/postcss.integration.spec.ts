@@ -25,12 +25,15 @@ describe('postcss integration (tailwind arbitrary classes)', () => {
       hasDependency: (_p: string, dep: string) =>
         dep === 'tailwindcss' || dep === '@tailwindcss/postcss'
     }))
+
     vi.doMock('../../css-tools/tailwind', () => ({
       isUsingTailwind: () => true
     }))
+
     vi.doMock('module', async () => {
       const actual = await vi.importActual<any>('module')
       const realReq = nodeCreateRequire(import.meta.url)
+
       return {
         ...actual,
         createRequire: () => (id: string) => realReq(id)
@@ -55,6 +58,7 @@ describe('postcss integration (tailwind arbitrary classes)', () => {
         2
       )
     )
+
     const fixtureNodeModules = path.join(tmpRoot, 'node_modules')
     fs.mkdirSync(fixtureNodeModules, {recursive: true})
     const workspaceTailwindPath = path.dirname(
@@ -62,6 +66,7 @@ describe('postcss integration (tailwind arbitrary classes)', () => {
     )
     expect(fs.existsSync(workspaceTailwindPath)).toBe(true)
     const tailwindDest = path.join(fixtureNodeModules, 'tailwindcss')
+
     if (process.platform === 'win32') {
       const realSource = fs.realpathSync(workspaceTailwindPath)
       fs.cpSync(realSource, tailwindDest, {recursive: true})

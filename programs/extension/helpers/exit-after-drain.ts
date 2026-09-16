@@ -58,10 +58,13 @@ function markOutcomeForExit(code: number): void {
   // the caller, and a measurement must never be what breaks it.
   try {
     if (invokedCommand() === 'unknown') return
+
     if (code === 0) {
       markCommandSuccess()
+
       return
     }
+
     // No catalog code: the paths that know theirs pass it before they get
     // here, and inventing one would file a framed failure as internal.
     markCommandFailure(undefined, {exitCode: code})
@@ -92,6 +95,7 @@ export async function exitAfterDrain(code: number): Promise<void> {
       (stream) =>
         new Promise<void>((resolve) => {
           if (stream.writableLength === 0) return resolve()
+
           // An empty write's callback fires only after every queued byte
           // ahead of it has been handed to the OS.
           stream.write('', () => resolve())

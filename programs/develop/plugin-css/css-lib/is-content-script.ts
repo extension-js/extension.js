@@ -33,6 +33,7 @@ function getContentScriptIndex(
   const cacheKey = `${manifestPath}::${projectPath}::${browser}`
 
   let mtimeMs = -1
+
   try {
     mtimeMs = fs.statSync(manifestPath).mtimeMs
   } catch {
@@ -40,6 +41,7 @@ function getContentScriptIndex(
   }
 
   const cached = indexCache.get(cacheKey)
+
   if (cached && (mtimeMs < 0 || cached.mtimeMs === mtimeMs)) {
     return cached
   }
@@ -70,6 +72,7 @@ function getContentScriptIndex(
     contentPaths
   }
   indexCache.set(cacheKey, index)
+
   return index
 }
 
@@ -82,6 +85,7 @@ export function isContentScriptEntry(
   if (!absolutePath || !manifestPath || !projectPath) {
     return false
   }
+
   if (!fs.existsSync(manifestPath)) return false
 
   const {scriptsDir, contentPaths} = getContentScriptIndex(

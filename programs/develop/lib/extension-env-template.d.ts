@@ -1,5 +1,3 @@
-// Hand written declaration for extension-env-template.js. The runtime module
-// stays JS so extension-create can import it past its tsconfig rootDir.
 export declare const EXTENSION_ENV_TYPES_PACKAGE: 'extension'
 
 export interface WildcardModuleDeclaration {

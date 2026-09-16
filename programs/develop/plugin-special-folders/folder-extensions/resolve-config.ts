@@ -31,6 +31,7 @@ function isPathLike(value: string): boolean {
 
 function isSubpathOf(parent: string, child: string): boolean {
   const rel = path.relative(parent, child)
+
   return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel)
 }
 
@@ -42,6 +43,7 @@ function getBrowserFolder(browser: string | undefined): StoreBrowser {
   }
 
   if (browser === 'edge') return 'edge'
+
   return 'chrome'
 }
 
@@ -91,12 +93,15 @@ function toWebUrl(raw: string): URL | null {
   try {
     const url = new URL(raw)
     if (url.protocol === 'http:' || url.protocol === 'https:') return url
+
     return null
   } catch {
     // Not an absolute URL; try the scheme-less store form below.
   }
+
   const match = raw.match(/^([a-z0-9.-]+)(?:[/?#].*)?$/i)
   if (!match || !STORE_HOSTS.has(stripWww(match[1]))) return null
+
   try {
     return new URL(`https://${raw}`)
   } catch {
@@ -150,6 +155,7 @@ function findExtensionRoots(dir: string, maxDepth = 3): string[] {
 
     if (isValidExtensionRoot(current)) {
       found.push(current)
+
       return
     }
 
@@ -164,11 +170,13 @@ function findExtensionRoots(dir: string, maxDepth = 3): string[] {
     for (const ent of entries) {
       if (!ent.isDirectory()) continue
       if (ent.name.startsWith('.')) continue
+
       walk(path.join(current, ent.name), depth + 1)
     }
   }
 
   walk(dir, 0)
+
   return found
 }
 
@@ -213,6 +221,7 @@ async function resolveStoreExtensionToPath(opts: {
     const versionedMatch = candidates.find((c) =>
       path.basename(c).startsWith(`${id}@`)
     )
+
     if (directMatch) {
       selected = directMatch
     } else if (versionedMatch) {
@@ -251,8 +260,10 @@ export async function resolveCompanionExtensionsConfig(opts: {
     // belongs to another browser), a folder path, or an entry that is
     // neither and is reported as such rather than diagnosed as a folder.
     const url = toWebUrl(entry)
+
     if (url) {
       const parsedStore = parseStoreUrl(url)
+
       if (!parsedStore) {
         throw new Error(
           `Companion extension link is not a store link this resolver recognises: ${entry}\n` +
@@ -261,6 +272,7 @@ export async function resolveCompanionExtensionsConfig(opts: {
             'https://addons.mozilla.org/<locale>/firefox/addon/<slug>'
         )
       }
+
       if (parsedStore.browser !== runtimeBrowser) {
         continue
       }

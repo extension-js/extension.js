@@ -35,6 +35,7 @@ describe('resolveSwcTargets', () => {
     expect(
       resolveSwcTargets({minimum_chrome_version: '30'} as any, 'chrome')
     ).toEqual(['chrome >= 30'])
+
     expect(
       resolveSwcTargets({minimum_chrome_version: '30'} as any, 'edge')
     ).toEqual(['chrome >= 30'])
@@ -50,12 +51,14 @@ describe('resolveSwcTargets', () => {
     expect(
       resolveSwcTargets({minimum_chrome_version: '30'} as any, 'firefox')
     ).toEqual(DEFAULT_SWC_TARGETS)
+
     expect(
       resolveSwcTargets(
         {browser_specific_settings: {gecko: {strict_min_version: 'x'}}} as any,
         'firefox'
       )
     ).toEqual(DEFAULT_SWC_TARGETS)
+
     expect(resolveSwcTargets(undefined, 'chrome')).toEqual(DEFAULT_SWC_TARGETS)
   })
 })

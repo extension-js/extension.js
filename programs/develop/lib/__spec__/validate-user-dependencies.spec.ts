@@ -6,6 +6,7 @@ import {assertNoManagedDependencyConflicts} from '../validate-user-dependencies'
 
 function makeTempDir(prefix: string) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix))
+
   return dir
 }
 
@@ -17,6 +18,7 @@ describe('assertNoManagedDependencyConflicts', () => {
       pkgPath,
       JSON.stringify({dependencies: {pintor: '^0.3.0'}})
     )
+
     fs.writeFileSync(
       path.join(project, 'extension.config.js'),
       "const p = require('pintor')\nmodule.exports = {config: (c) => c}"
@@ -40,6 +42,7 @@ describe('assertNoManagedDependencyConflicts', () => {
       pkgPath,
       JSON.stringify({dependencies: {pintor: '^0.3.0'}})
     )
+
     fs.writeFileSync(
       path.join(project, 'extension.config.js'),
       'module.exports = {config: (c) => c, /* pintor */ }'
@@ -65,6 +68,7 @@ describe('assertNoManagedDependencyConflicts', () => {
         dependencies: {pintor: '^0.3.0', 'pintor-extras': '^1.0.0'}
       })
     )
+
     fs.writeFileSync(
       path.join(project, 'extension.config.js'),
       "const e = require('pintor-extras')\nmodule.exports = {config: (c) => c}"

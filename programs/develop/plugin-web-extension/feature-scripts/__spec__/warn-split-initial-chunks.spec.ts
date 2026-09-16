@@ -36,12 +36,14 @@ function makeCompilation(entries: Record<string, FakeEntry>) {
       thisCompilation: {tap: (_n: string, fn: any) => fn(compilation)}
     }
   }
+
   return {compiler, compilation}
 }
 
 function run(entries: Record<string, FakeEntry>) {
   const made = makeCompilation(entries)
   new WarnSplitInitialChunks().apply(made.compiler)
+
   return made.compilation.warnings as Array<Error & {file?: string}>
 }
 
@@ -82,6 +84,7 @@ describe('entryOwnJsFile', () => {
         files
       )
     ).toBe('content_scripts/content-0.ab12cd34.js')
+
     expect(
       entryOwnJsFile(
         'content_scripts/content-0',
@@ -99,7 +102,9 @@ describe('classifyEntrySurface', () => {
     expect(classifyEntrySurface('content_scripts/content-0')).toBe(
       'content_script'
     )
+
     expect(classifyEntrySurface('scripts/inject')).toBe('script')
+
     for (const page of [
       'action/index',
       'options/index',
@@ -140,11 +145,13 @@ describe('WarnSplitInitialChunks', () => {
     expect(text).toContain(
       'scripts/inject is split into 2 initial files, but the browser injects only scripts/inject.js.'
     )
+
     expect(text).toContain('shared/commons.js')
     expect(text).toContain('the script never runs')
     expect(text).toContain(
       'https://extension.js.org/docs/features/rspack-configuration#share-a-module-between-entries'
     )
+
     expect(warnings[0].file).toBe('scripts/inject.js')
   })
 
@@ -181,6 +188,7 @@ describe('WarnSplitInitialChunks', () => {
     expect(text).toContain(
       'the background registration loads only background/service_worker.js'
     )
+
     expect(text).toContain('runtime.js')
     expect(text).toContain('the background script never starts')
   })
@@ -196,6 +204,7 @@ describe('WarnSplitInitialChunks', () => {
     expect(String(warnings[0].message)).toContain(
       'the content_scripts declaration injects only content_scripts/content-0.js'
     )
+
     expect(String(warnings[1].message)).toContain(
       'the browser injects only scripts/inject.js'
     )

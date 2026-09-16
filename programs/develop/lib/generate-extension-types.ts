@@ -38,6 +38,7 @@ export async function generateExtensionTypes(
 
     const manifest = parseJsonSafe(manifestText)
     console.log(messages.writingTypeDefinitions(manifest))
+
     try {
       await fs.writeFile(extensionEnvFile, fileContent)
     } catch (writeErr) {

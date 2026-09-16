@@ -120,6 +120,7 @@ describe('ApplyDevDefaults', () => {
       modules
     )
     void warnings
+
     return out
   }
 
@@ -156,6 +157,7 @@ describe('ApplyDevDefaults', () => {
       manifestPath: '/m/manifest.json',
       browser
     }).apply(compiler)
+
     return {out: JSON.parse(updated!), warnings}
   }
 
@@ -176,9 +178,11 @@ describe('ApplyDevDefaults', () => {
     expect(out.content_security_policy.extension_pages).toContain(
       'ws://localhost:*'
     )
+
     expect(out.content_security_policy.extension_pages).toContain(
       'https://api.example.com'
     )
+
     expect(out.content_security_policy.extension_pages).toContain(
       "script-src 'self'"
     )
@@ -202,6 +206,7 @@ describe('ApplyDevDefaults', () => {
     expect(asObject.content_security_policy).toContain(
       'https://cdn.example.com'
     )
+
     expect(asObject.content_security_policy).toContain("'unsafe-eval'")
     expect(asObject.content_security_policy).not.toContain('allow-scripts')
 
@@ -228,6 +233,7 @@ describe('ApplyDevDefaults', () => {
     expect(
       warnings.filter((w) => w.name === 'DevPromotedOptionalPermissionWarning')
     ).toHaveLength(1)
+
     expect(warnings[0].message).toContain('"tabs"')
   })
 
@@ -261,6 +267,7 @@ describe('ApplyDevDefaults', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-dev-defaults-'))
     const file = path.join(dir, 'background.js')
     fs.writeFileSync(file, 'chrome.storage.local.get("k")\n')
+
     try {
       const {warnings} = runDevDefaultsWithWarnings(
         {manifest_version: 3, name: 'x', optional_permissions: ['storage']},
@@ -282,6 +289,7 @@ describe('ApplyDevDefaults', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-dev-tabs-'))
     const file = path.join(dir, 'background.js')
     fs.writeFileSync(file, 'chrome.tabs.query({}, (t) => console.log(t))\n')
+
     try {
       const {out, warnings} = runDevDefaultsWithWarnings(
         {manifest_version: 3, name: 'x'},
@@ -309,6 +317,7 @@ describe('ApplyDevDefaults', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-dev-tabs-mv2-'))
     const file = path.join(dir, 'background.js')
     fs.writeFileSync(file, 'browser.tabs.query({})\n')
+
     try {
       const {warnings} = runDevDefaultsWithWarnings(
         {manifest_version: 2, name: 'x'},
@@ -344,6 +353,7 @@ describe('ApplyDevDefaults', () => {
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-dev-cover-'))
       const file = path.join(dir, 'background.js')
       fs.writeFileSync(file, `chrome.${api}.someCall()\n`)
+
       try {
         const {warnings} = runDevDefaultsWithWarnings(
           {manifest_version, name: 'x'},
@@ -377,6 +387,7 @@ describe('ApplyDevDefaults', () => {
     expect([...out.host_permissions].sort()).toEqual(
       ['<all_urls>', 'https://declared.test/*', 'https://opt.test/*'].sort()
     )
+
     const promoted = warnings.filter(
       (w) => w.name === 'DevPromotedOptionalHostWarning'
     )
@@ -393,6 +404,7 @@ describe('ApplyDevDefaults', () => {
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-dev-host-'))
       const file = path.join(dir, 'background.js')
       fs.writeFileSync(file, contents)
+
       try {
         run(file, dir)
       } finally {
@@ -466,10 +478,12 @@ describe('ApplyDevDefaults', () => {
         shared,
         "export const ping = () => fetch('https://api.example.com/v1/ping')\n"
       )
+
       fs.writeFileSync(
         contentOnly,
         "fetch('https://only.example.com/v1/scrape')\n"
       )
+
       try {
         const {warnings} = runDevDefaultsWithWarnings(
           {
@@ -520,6 +534,7 @@ describe('ApplyDevDefaults', () => {
           expect(hostWarnings(warnings)).toHaveLength(1)
         }
       )
+
       withSource(
         "const req = new Request('https://api.example.com/v1/ping')\n",
         (file) => {

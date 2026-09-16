@@ -75,6 +75,7 @@ function getPackageManagerOverride(): PackageManagerResolution | undefined {
     process.env.NPM_EXEC_PATH
 
   if (!name && !execPath) return undefined
+
   const inferredName = name || inferPackageManagerFromPath(execPath) || 'npm'
 
   return {name: inferredName, execPath}
@@ -83,21 +84,26 @@ function getPackageManagerOverride(): PackageManagerResolution | undefined {
 function detectPackageManagerFromEnv(): PackageManagerResolution | undefined {
   const userAgent = process.env.npm_config_user_agent || ''
   const execPath = process.env.npm_execpath || process.env.NPM_EXEC_PATH || ''
+
   if (userAgent.includes('pnpm')) {
     return {name: 'pnpm', execPath: execPath || undefined}
   }
+
   if (userAgent.includes('yarn')) {
     return {name: 'yarn', execPath: execPath || undefined}
   }
+
   if (userAgent.includes('bun')) {
     return {name: 'bun', execPath: execPath || undefined}
   }
+
   if (userAgent.includes('npm')) {
     return {name: 'npm', execPath: execPath || undefined}
   }
 
   if (execPath) {
     const inferred = inferPackageManagerFromPath(execPath) || 'npm'
+
     return {name: inferred, execPath}
   }
 
@@ -135,6 +141,7 @@ function resolveBundledNpmCliPath(): string | undefined {
   } catch {
     // Ignore
   }
+
   return resolveNpmCliFromNode(process.execPath)
 }
 
@@ -208,6 +215,7 @@ function canRunCorepack(): boolean {
       stdio: 'ignore',
       windowsHide: true
     })
+
     return result?.status === 0
   } catch {
     return false
@@ -218,12 +226,14 @@ function hydrateResolvedPackageManager(
   name: PackageManagerName
 ): PackageManagerResolution | undefined {
   const resolvedCommand = resolveCommandOnPath(name)
+
   if (resolvedCommand) {
     return {name, execPath: resolvedCommand}
   }
 
   if (name === 'npm') {
     const bundledNpmCli = resolveBundledNpmCliPath()
+
     if (bundledNpmCli) {
       return {
         name: 'npm',
@@ -266,9 +276,11 @@ export function resolvePackageManager(opts?: {
   cwd?: string
 }): PackageManagerResolution {
   const lockPm = detectPackageManagerFromLockfile(opts?.cwd)
+
   if (lockPm) {
     const hydrated = hydrateResolvedPackageManager(lockPm)
     if (hydrated) return hydrated
+
     return {name: lockPm}
   }
 
@@ -282,14 +294,17 @@ export function resolvePackageManager(opts?: {
   if (envPm) return envPm
 
   const candidates: PackageManagerName[] = ['pnpm', 'yarn', 'bun']
+
   for (const candidate of candidates) {
     const resolved = resolveCommandOnPath(candidate)
+
     if (resolved) {
       return {name: candidate, execPath: resolved}
     }
   }
 
   const corepackPath = resolveCommandOnPath('corepack')
+
   if (corepackPath || canRunCorepack()) {
     return {
       name: 'pnpm',
@@ -297,7 +312,9 @@ export function resolvePackageManager(opts?: {
       runnerArgs: ['pnpm']
     }
   }
+
   const bundledNpmCli = resolveBundledNpmCliPath()
+
   if (bundledNpmCli) {
     return {
       name: 'npm',
@@ -328,8 +345,10 @@ export function projectInstallArgs(
       pkg.optionalDependencies,
       pkg.peerDependencies
     ]
+
     for (const deps of depFields) {
       if (!deps) continue
+
       for (const spec of Object.values(deps)) {
         if (typeof spec === 'string' && spec.startsWith('workspace:')) {
           return []
@@ -353,13 +372,17 @@ export type PnpmWorkspaceMember = {
 // above it belongs to somebody else.
 export function findPnpmWorkspaceRoot(startDir: string): string | undefined {
   let current = path.resolve(startDir)
+
   while (true) {
     if (fs.existsSync(path.join(current, 'pnpm-workspace.yaml'))) {
       return current
     }
+
     if (fs.existsSync(path.join(current, '.git'))) return undefined
+
     const parent = path.dirname(current)
     if (parent === current) return undefined
+
     current = parent
   }
 }
@@ -368,6 +391,7 @@ function cleanYamlListItem(value: string): string {
   const trimmed = value.trim()
   const quoted = /^(['"])(.*?)\1/.exec(trimmed)
   if (quoted) return quoted[2].trim()
+
   return trimmed.replace(/\s+#.*$/, '').trim()
 }
 
@@ -375,6 +399,7 @@ function cleanYamlListItem(value: string): string {
 // reads the file with a full YAML parser, this only needs that one list.
 export function readPnpmWorkspacePackages(workspaceRoot: string): string[] {
   let raw: string
+
   try {
     raw = fs.readFileSync(
       path.join(workspaceRoot, 'pnpm-workspace.yaml'),
@@ -386,36 +411,46 @@ export function readPnpmWorkspacePackages(workspaceRoot: string): string[] {
 
   const lines = raw.split(/\r?\n/)
   const patterns: string[] = []
+
   for (let i = 0; i < lines.length; i++) {
     const key = /^packages\s*:(.*)$/.exec(lines[i])
     if (!key) continue
 
     const inline = key[1].trim()
+
     if (inline.startsWith('[')) {
       let flow = inline
       let j = i
+
       while (!flow.includes(']') && j + 1 < lines.length) {
         j++
         flow += lines[j]
       }
+
       const body = flow.slice(1, flow.indexOf(']'))
+
       for (const item of body.split(',')) {
         const value = cleanYamlListItem(item)
         if (value) patterns.push(value)
       }
+
       break
     }
 
     for (let j = i + 1; j < lines.length; j++) {
       const line = lines[j]
       if (!line.trim() || line.trim().startsWith('#')) continue
+
       const item = /^\s+-\s*(.+)$/.exec(line)
       if (!item) break
+
       const value = cleanYamlListItem(item[1])
       if (value) patterns.push(value)
     }
+
     break
   }
+
   return patterns
 }
 
@@ -423,8 +458,10 @@ export function readPnpmWorkspacePackages(workspaceRoot: string): string[] {
 // path segment, `**` across segments, `?` for one character.
 function workspaceGlobToRegExp(pattern: string): RegExp {
   let source = '^'
+
   for (let i = 0; i < pattern.length; i++) {
     const char = pattern[i]
+
     if (char === '*' && pattern[i + 1] === '*') {
       const spansSegments = pattern[i + 2] === '/'
       source += spansSegments ? '(?:.*/)?' : '.*'
@@ -437,6 +474,7 @@ function workspaceGlobToRegExp(pattern: string): RegExp {
       source += char.replace(/[.+^${}()|[\]\\]/g, '\\$&')
     }
   }
+
   return new RegExp(`${source}$`)
 }
 
@@ -446,6 +484,7 @@ export function isPnpmWorkspaceMemberDir(
 ): boolean {
   const target = relativeDir.split(path.sep).join('/')
   let included = false
+
   for (const raw of patterns) {
     const negated = raw.startsWith('!')
     const glob = (negated ? raw.slice(1) : raw)
@@ -455,8 +494,10 @@ export function isPnpmWorkspaceMemberDir(
     // pnpm feeds negations to the matcher as ignores, so one exclusion wins
     // over every inclusion whatever the list order.
     if (negated) return false
+
     included = true
   }
+
   return included
 }
 
@@ -476,9 +517,11 @@ export function findPnpmWorkspaceMember(
     .relative(root, resolvedProject)
     .split(path.sep)
     .join('/')
+
   if (!isPnpmWorkspaceMemberDir(readPnpmWorkspacePackages(root), relativeDir)) {
     return undefined
   }
+
   return {root, relativeDir}
 }
 
@@ -498,6 +541,7 @@ export function projectInstallTarget(
       args: ['--filter', `{${member.relativeDir}}...`]
     }
   }
+
   return {cwd: projectDir, args: projectInstallArgs(pm, projectDir)}
 }
 
@@ -510,13 +554,16 @@ export function installScriptSuppression(pm: PackageManagerResolution): {
   if (process.env.EXTENSION_ALLOW_INSTALL_SCRIPTS === 'true') {
     return {args: [], env: {}}
   }
+
   if (pm.name === 'deno') return {args: [], env: {}}
+
   if (pm.name === 'yarn') {
     return {
       args: [],
       env: {YARN_ENABLE_SCRIPTS: 'false', npm_config_ignore_scripts: 'true'}
     }
   }
+
   return {args: ['--ignore-scripts'], env: {}}
 }
 

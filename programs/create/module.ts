@@ -101,6 +101,7 @@ export async function extensionCreate(
   // through the injected logger so programmatic hosts keep capturing it.
   const updateSuffix = process.env.EXTENSION_CLI_UPDATE_SUFFIX || ''
   if (updateSuffix) delete process.env.EXTENSION_CLI_UPDATE_SUFFIX
+
   // The card names exactly what the user asked for. The alias that once
   // rewrote `init` to `javascript` here is gone, a swapped name in the header
   // is the same lie as a swapped scaffold (section 126).
@@ -117,6 +118,7 @@ export async function extensionCreate(
       ]
     })
   )
+
   logger.log(' ')
   process.env.EXTENSION_CLI_BANNER_PRINTED = 'true'
 
@@ -159,6 +161,7 @@ export async function extensionCreate(
   const isMonorepoTemplate = String(scaffoldedTemplate)
     .toLowerCase()
     .includes('monorepo')
+
   if (isDenoRuntime() && !isMonorepoTemplate) {
     await writeDenoJsonc(
       projectPath,
@@ -171,6 +174,7 @@ export async function extensionCreate(
       {template: scaffoldedTemplate, cliVersion, packageManager},
       logger
     )
+
     await writeDenoJsonc(projectPath, {template: scaffoldedTemplate}, logger)
   }
 
@@ -189,6 +193,7 @@ export async function extensionCreate(
     templateManifestName,
     logger
   )
+
   await writeGitignore(projectPath, logger)
   await setupBuiltInTests(projectPath, logger)
 

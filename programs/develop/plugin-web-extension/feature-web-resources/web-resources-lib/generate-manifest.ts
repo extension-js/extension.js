@@ -50,11 +50,13 @@ function getAssetSource(compilation: Compilation, filename: string) {
 
   if (typeof source === 'function') {
     const out = source()
+
     return typeof out === 'string' ? out : ''
   }
 
   if (typeof source.source === 'function') {
     const out = source.source()
+
     return typeof out === 'string' ? out : ''
   }
 
@@ -64,8 +66,10 @@ function getAssetSource(compilation: Compilation, filename: string) {
 
   if (nestedSource && typeof nestedSource.source === 'function') {
     const out = nestedSource.source()
+
     return typeof out === 'string' ? out : ''
   }
+
   return ''
 }
 
@@ -82,6 +86,7 @@ function globToRegex(pattern: string) {
     .split('*')
     .map((seg) => escapeRegex(seg))
     .join('.*')
+
   return new RegExp(`^${escaped}$`)
 }
 
@@ -99,6 +104,7 @@ function isCoveredByExistingGlobs(
       }
     }
   }
+
   return false
 }
 
@@ -161,6 +167,7 @@ function isCanonicalContentScriptCss(resource: string) {
 function toCanonicalContentScriptCss(jsFile: string) {
   const normalized = String(jsFile || '')
   if (!/^content_scripts\/content-\d+\.js$/.test(normalized)) return undefined
+
   return normalized.replace(/\.js$/, '.css')
 }
 
@@ -256,14 +263,17 @@ export function generateManifestPatches(
   // fetches for it is exposed to every origin, the group dev already uses.
   const addInjectedScriptResources = (resources: string[]) => {
     if (resources.length === 0) return
+
     if (canonicalManifest.manifest_version === 3) {
       mergeIntoV3Group(
         webAccessibleResourcesV3,
         cleanMatches(['<all_urls>']),
         resources
       )
+
       return
     }
+
     for (const resource of resources) {
       if (!webAccessibleResourcesV2.includes(resource)) {
         webAccessibleResourcesV2.push(resource)
@@ -283,6 +293,7 @@ export function generateManifestPatches(
           (resource) => !resource.endsWith('.map') && !resource.endsWith('.js')
         )
       )
+
       continue
     }
 
@@ -324,17 +335,21 @@ export function generateManifestPatches(
   // extension origin by the page, so it must be web accessible for that
   // script's matches, in production as in dev (where a blanket glob covers it).
   const asyncChunks = collectContentScriptAsyncChunkFiles(compilation)
+
   for (const [entryName, chunkFiles] of Object.entries(asyncChunks)) {
     const contentScript = canonicalManifest.content_scripts?.find(
       (script: {js?: string[]}) =>
         script.js?.some((jsFile: string) => jsFile.includes(entryName))
     )
+
     if (!contentScript) {
       if (isInjectedScriptEntry(entryName)) {
         addInjectedScriptResources(chunkFiles)
       }
+
       continue
     }
+
     if (canonicalManifest.manifest_version === 3) {
       mergeIntoV3Group(
         webAccessibleResourcesV3,
@@ -379,6 +394,7 @@ export function generateManifestPatches(
   // Last-resort fallback: expose emitted font files to the union of
   // content_scripts matches; assets/ and content_scripts/ files stay excluded.
   const fontExtRe = /\.(woff2?|eot|ttf|otf)$/i
+
   if (canonicalManifest.manifest_version === 3) {
     const assetKeys: string[] = Object.keys(compilation.assets || {})
     const fontAssets = assetKeys
@@ -408,6 +424,7 @@ export function generateManifestPatches(
   } else if (canonicalManifest.manifest_version === 2) {
     const assetKeys: string[] = Object.keys(compilation.assets || {})
     const fontAssets = assetKeys.filter((k) => fontExtRe.test(k)).sort()
+
     if (fontAssets.length > 0) {
       for (const r of fontAssets) {
         if (!webAccessibleResourcesV2.includes(r)) {

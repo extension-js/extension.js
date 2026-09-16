@@ -24,10 +24,12 @@ function project() {
       devDependencies: {typescript: '5.4.5'}
     })
   )
+
   fs.writeFileSync(
     path.join(root, 'tsconfig.json'),
     JSON.stringify({compilerOptions: {strict: true, target: 'ES2020'}})
   )
+
   fs.writeFileSync(
     path.join(root, 'manifest.json'),
     JSON.stringify({
@@ -37,10 +39,12 @@ function project() {
       content_scripts: [{matches: ['<all_urls>'], js: ['content.ts']}]
     })
   )
+
   fs.writeFileSync(
     path.join(root, 'content.ts'),
     'interface Marker {label: string}\nconst marker: Marker = {label: "ts-content"}\nconsole.log(marker.label satisfies string)\n'
   )
+
   return root
 }
 
@@ -56,10 +60,13 @@ describe('one-shot development build with a TypeScript content script', () => {
     const originalLog = console.log
     process.stderr.write = ((chunk: unknown) => {
       lines.push(String(chunk))
+
       return true
     }) as typeof process.stderr.write
+
     console.error = (...args: unknown[]) => lines.push(args.join(' '))
     console.log = (...args: unknown[]) => lines.push(args.join(' '))
+
     try {
       const summary = await extensionBuild(root, {
         browser: 'chrome',
@@ -78,6 +85,7 @@ describe('one-shot development build with a TypeScript content script', () => {
       if (previous === undefined) delete process.env.VITEST
       else process.env.VITEST = previous
     }
+
     const distDir = path.join(root, 'dist', 'chrome')
     const bundles = fs
       .readdirSync(distDir, {recursive: true})

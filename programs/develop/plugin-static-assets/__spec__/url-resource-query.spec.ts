@@ -7,6 +7,7 @@ function applyPlugin(mode: 'development' | 'production' = 'production') {
     hooks: {afterEmit: {tap() {}}}
   }
   new StaticAssetsPlugin({mode} as any).apply(compiler)
+
   return compiler.options.module.rules as any[]
 }
 
@@ -71,6 +72,7 @@ describe('StaticAssetsPlugin url resourceQuery rule', () => {
       const testOk = r?.test instanceof RegExp ? r.test.test('icon.svg') : true
       const queryOk =
         r?.resourceQuery instanceof RegExp ? r.resourceQuery.test('?url') : true
+
       return Boolean(r) && testOk && queryOk
     })
     const effectiveType = matching.reduce(

@@ -50,6 +50,7 @@ test('requires a version and a date', () => {
     () => moveChangelog(BASE, '', 'July 19, 2026', '- x'),
     /version is required/
   )
+
   assert.throws(
     () => moveChangelog(BASE, '4.0.13', '', '- x'),
     /date is required/

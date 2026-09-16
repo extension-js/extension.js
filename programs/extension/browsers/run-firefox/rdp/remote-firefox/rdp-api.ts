@@ -16,6 +16,7 @@ export async function listTabs(transport: RdpTransport): Promise<RdpTarget[]> {
   })) as {
     tabs?: RdpTarget[]
   }
+
   return response.tabs || []
 }
 

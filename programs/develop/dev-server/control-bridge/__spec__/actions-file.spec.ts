@@ -11,6 +11,7 @@ beforeEach(() => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-actions-'))
   file = path.join(dir, 'actions.ndjson')
 })
+
 afterEach(() => {
   fs.rmSync(dir, {recursive: true, force: true})
 })

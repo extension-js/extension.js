@@ -19,6 +19,7 @@ beforeEach(() => {
     cdpPort: CHROME_CDP,
     rdpPort: CHROME_RDP
   })
+
   setInstancePorts('edge-instance', {cdpPort: EDGE_CDP, rdpPort: EDGE_RDP})
 })
 
@@ -39,6 +40,7 @@ describe('resolvePortForInstance, the one shared contract', () => {
     expect(() => resolvePortForInstance(undefined, 'cdp')).toThrow(
       AmbiguousInstanceError
     )
+
     expect(() => resolvePortForInstance(undefined, 'rdp')).toThrow(
       AmbiguousInstanceError
     )
@@ -47,6 +49,7 @@ describe('resolvePortForInstance, the one shared contract', () => {
   it('cannot-tell error names the protocol and never leaks a port value', () => {
     try {
       resolvePortForInstance(undefined, 'cdp')
+
       throw new Error('expected AmbiguousInstanceError')
     } catch (error) {
       expect(error).toBeInstanceOf(AmbiguousInstanceError)
@@ -62,6 +65,7 @@ describe('resolvePortForInstance, the one shared contract', () => {
     expect(resolvePortForInstance('not-yet-registered', 'cdp', myDefault)).toBe(
       myDefault
     )
+
     expect(resolvePortForInstance('not-yet-registered', 'cdp')).toBeUndefined()
   })
 
@@ -80,11 +84,14 @@ describe('chromium readiness, faithful per-instance CDP resolution', () => {
   const resolveReadinessPort = (derived: number, instanceId?: string) => {
     try {
       const fromRegistry = resolvePortForInstance(instanceId, 'cdp', derived)
-      if (typeof fromRegistry === 'number' && fromRegistry > 0)
+
+      if (typeof fromRegistry === 'number' && fromRegistry > 0) {
         return fromRegistry
+      }
     } catch {
       // Ignore
     }
+
     return derived
   }
 
@@ -119,6 +126,7 @@ describe('firefox RemoteFirefox.resolveRdpPort, faithful per-instance RDP resolu
       port,
       extension: []
     } as unknown as ConstructorParameters<typeof RemoteFirefox>[0])
+
     return (inst as unknown as {resolveRdpPort: () => number}).resolveRdpPort()
   }
 
@@ -155,6 +163,7 @@ describe('firefox RemoteFirefox.resolveRdpPort, faithful per-instance RDP resolu
       resolvedRdpPort,
       extension: []
     } as unknown as ConstructorParameters<typeof RemoteFirefox>[0])
+
     return (inst as unknown as {resolveRdpPort: () => number}).resolveRdpPort()
   }
 

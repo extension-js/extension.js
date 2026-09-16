@@ -6,9 +6,6 @@
 //  ╚═════╝╚══════╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-// Browsers skip an @import placed after other rules but rspack's native CSS
-// parser fails the whole module. Blank those rules before it runs and warn.
-
 import * as path from 'node:path'
 import postcss, {type AtRule, type Root} from 'postcss'
 import * as messages from './css-lib/messages'
@@ -30,6 +27,7 @@ export interface LateImport {
 // top-level block. Anything after it, or nested inside a block, is late.
 export function findLateImports(css: string): LateImport[] {
   let root: Root
+
   try {
     root = postcss.parse(css)
   } catch {
@@ -62,10 +60,12 @@ export function findLateImports(css: string): LateImport[] {
 // source map, stays exactly where it was.
 export function blankLateImports(css: string, late: LateImport[]): string {
   let out = css
+
   for (const {start, end} of late) {
     const blanked = out.slice(start, end).replace(/[^\n]/g, ' ')
     out = out.slice(0, start) + blanked + out.slice(end)
   }
+
   return out
 }
 
@@ -75,8 +75,10 @@ export default function lateCssImportLoader(
   map?: unknown
 ): void {
   const late = findLateImports(source)
+
   if (late.length === 0) {
     this.callback(null, source, map)
+
     return
   }
 
@@ -86,6 +88,7 @@ export default function lateCssImportLoader(
   // Forward slashes on every platform, so the message (and its specs) never
   // depend on the host separator.
   const issuer = relative.split(path.sep).join('/')
+
   for (const entry of late) {
     this.emitWarning(
       new Error(messages.lateCssImportIgnored(issuer, entry.line || undefined))

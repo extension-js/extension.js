@@ -10,6 +10,7 @@ const getBasename = (filepath: string) => path.basename(filepath)
 // promise nothing emits.
 export function themeExperiment(manifest: Manifest, manifestPath?: string) {
   const te = manifest.theme_experiment
+
   return (
     te && {
       theme_experiment: {

@@ -14,6 +14,7 @@ function isProcessAlive(pid: number): boolean {
     // Signal 0 checks existence/permission without delivering; EPERM means the
     // pid exists under another user, still alive for watchdog purposes.
     process.kill(pid, 0)
+
     return true
   } catch (error) {
     return (error as NodeJS.ErrnoException)?.code === 'EPERM'
@@ -39,6 +40,7 @@ export function setupParentWatchdog(
       // Backstop first: if the graceful path wedges, still exit.
       const hardExit = setTimeout(() => process.exit(1), HARD_EXIT_GRACE_MS)
       hardExit.unref?.()
+
       try {
         process.kill(process.pid, 'SIGTERM')
       } catch {
@@ -50,16 +52,19 @@ export function setupParentWatchdog(
     log(
       `[Extension.js] Parent process ${parentPid} is gone (--parent-pid). Shutting down.`
     )
+
     shutdown()
   }
 
   if (!isProcessAlive(parentPid)) {
     onParentDeath()
+
     return () => {}
   }
 
   const timer = setInterval(() => {
     if (isProcessAlive(parentPid)) return
+
     clearInterval(timer)
     onParentDeath()
   }, pollIntervalMs)
@@ -71,7 +76,9 @@ export function setupParentWatchdog(
 
 export function parseParentPid(value: unknown): number | undefined {
   if (value === undefined || value === null || value === '') return undefined
+
   const pid = Number.parseInt(String(value), 10)
   if (!Number.isInteger(pid) || pid <= 0) return undefined
+
   return pid
 }

@@ -31,6 +31,7 @@ function activeDeveloperDir(): string | null {
     if (result.status !== 0) return null
 
     const resolved = String(result.stdout || '').trim()
+
     return resolved.length > 0 ? resolved : null
   } catch {
     return null
@@ -46,6 +47,7 @@ function findWithXcrun(tool: string): string | null {
     if (result.status !== 0) return null
 
     const resolved = String(result.stdout || '').trim()
+
     return resolved.length > 0 ? resolved : null
   } catch {
     return null
@@ -54,6 +56,7 @@ function findWithXcrun(tool: string): string | null {
 
 export function detectSafariToolchain(): SafariToolchain {
   const platformOk = isMacOS()
+
   if (!platformOk) {
     return {
       platformOk: false,

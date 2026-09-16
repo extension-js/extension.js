@@ -31,6 +31,7 @@ export function isUsingSass(projectPath: string): boolean {
 
       userMessageDelivered = true
     }
+
     return true
   }
 

@@ -31,6 +31,7 @@ function run(cmd, args, opts = {}) {
   if ((res.status || 0) !== 0) {
     const out = (res.stdout || Buffer.alloc(0)).toString()
     const err = (res.stderr || Buffer.alloc(0)).toString()
+
     throw new Error(
       `[${cmd} ${args.join(' ')}] failed with code ${res.status}\n${out}\n${err}`
     )
@@ -78,9 +79,11 @@ for (const pkgRel of workspacePackages) {
   run('pnpm', ['--dir', pkgDir, 'pack', '--pack-destination', packDest])
 
   const tgz = join(packDest, `${pkg.name}-${pkg.version}.tgz`)
+
   if (!existsSync(tgz)) {
     throw new Error(`pnpm pack did not produce expected tarball: ${tgz}`)
   }
+
   tarballs.push(tgz)
   console.log(`packed: ${pkg.name}-${pkg.version}.tgz`)
 }
@@ -139,6 +142,7 @@ function installTarballs(cwd) {
     )
 
     const distManifest = join(projectDir, 'dist', 'chromium', 'manifest.json')
+
     if (!existsSync(distManifest)) {
       throw new Error(`Build produced no dist manifest at ${distManifest}`)
     }

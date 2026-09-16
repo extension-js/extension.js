@@ -26,6 +26,7 @@ import {hasProjectDependency} from './project-manifest'
 // only under EXTENSION_VERBOSE=1 so a healthy run stays as quiet as today.
 function debugSwallowed(step: string, error: unknown): void {
   if (!isVerboseMode()) return
+
   console.log(
     `${prefix('debug')} optional-deps ${step}: ${String(
       (error as Error)?.message || error
@@ -42,6 +43,7 @@ function isVerboseMode(): boolean {
 function installVerbForPackageManager(name: PackageManagerName): string {
   if (name === 'npm') return 'install -D'
   if (name === 'deno') return 'add --dev'
+
   return 'add -D'
 }
 
@@ -53,6 +55,7 @@ export function formatInstallHint(
 ): string {
   const {name} = resolvePackageManager({cwd: projectPath})
   const verb = installVerbForPackageManager(name)
+
   return `${name} ${verb} ${packageSpecs.join(' ')}`
 }
 
@@ -123,6 +126,7 @@ function getVerificationContract(
 
   const installDependencies = input.installDependencies || [input.dependencyId]
   const verifyPackageIds = input.verifyPackageIds || installDependencies
+
   return toInstallRootContract(
     input.integration,
     input.integration,
@@ -154,9 +158,11 @@ function tryResolveWithBase(
 ): string | undefined {
   try {
     const req = createRequire(packageJsonPath(basePath))
+
     return req.resolve(dependencyId)
   } catch (error) {
     debugSwallowed(`resolve ${dependencyId} from ${basePath}`, error)
+
     return undefined
   }
 }
@@ -177,9 +183,11 @@ function resolveDependency(
 
   try {
     const resolvedPath = require.resolve(dependencyId, {paths: bases})
+
     return {resolvedPath, basePath: projectPath}
   } catch (error) {
     debugSwallowed(`resolve ${dependencyId} from the project bases`, error)
+
     return undefined
   }
 }
@@ -208,6 +216,7 @@ function declaresDependency(
     return hasProjectDependency(projectPath, dependencyId)
   } catch (error) {
     debugSwallowed(`read the project manifest for ${dependencyId}`, error)
+
     return false
   }
 }
@@ -237,8 +246,10 @@ function listInstalledPackageDirs(nodeModulesDir: string): string[] {
       }
 
       const scopedEntries = fs.readdirSync(entryPath, {withFileTypes: true})
+
       for (const scopedEntry of scopedEntries) {
         if (!scopedEntry.isDirectory()) continue
+
         packageDirs.push(path.join(entryPath, scopedEntry.name))
       }
     }
@@ -246,6 +257,7 @@ function listInstalledPackageDirs(nodeModulesDir: string): string[] {
     return packageDirs
   } catch (error) {
     debugSwallowed('list the installed package folders', error)
+
     return []
   }
 }
@@ -260,6 +272,7 @@ function findNestedPackageDir(
     ...dependencyId.split('/'),
     'package.json'
   )
+
   if (fs.existsSync(targetPackageJson)) {
     return path.dirname(targetPackageJson)
   }
@@ -276,6 +289,7 @@ function findNestedPackageDir(
   while (queue.length > 0) {
     const current = queue.shift() as {nodeModulesDir: string; depth: number}
     if (visited.has(current.nodeModulesDir)) continue
+
     visited.add(current.nodeModulesDir)
 
     const candidatePackageJson = path.join(
@@ -292,6 +306,7 @@ function findNestedPackageDir(
 
     for (const packageDir of listInstalledPackageDirs(current.nodeModulesDir)) {
       const nestedNodeModulesDir = path.join(packageDir, 'node_modules')
+
       if (fs.existsSync(nestedNodeModulesDir)) {
         queue.push({
           nodeModulesDir: nestedNodeModulesDir,
@@ -312,9 +327,11 @@ function readPackageJsonFromDir(
 
   try {
     const raw = fs.readFileSync(manifestPath, 'utf8')
+
     return JSON.parse(raw || '{}')
   } catch (error) {
     debugSwallowed(`read ${manifestPath}`, error)
+
     return undefined
   }
 }
@@ -341,14 +358,20 @@ function getPackageEntryCandidates(
       default?: unknown
       import?: unknown
     }
-    if (typeof dotObj.require === 'string')
+
+    if (typeof dotObj.require === 'string') {
       candidateEntries.push(dotObj.require)
-    if (typeof dotObj.default === 'string')
+    }
+
+    if (typeof dotObj.default === 'string') {
       candidateEntries.push(dotObj.default)
+    }
+
     if (typeof dotObj.import === 'string') candidateEntries.push(dotObj.import)
   }
 
   candidateEntries.push('index.js', 'index.cjs', 'index.mjs')
+
   return candidateEntries
 }
 
@@ -360,6 +383,7 @@ function resolveFirstExistingEntry(
     const absoluteEntry = path.resolve(packageDir, relativeEntry)
     if (fs.existsSync(absoluteEntry)) return absoluteEntry
   }
+
   return undefined
 }
 
@@ -377,6 +401,7 @@ function resolveFromPackageDir(packageDir: string): string | undefined {
   if (!pkg) return undefined
 
   const candidateEntries = getPackageEntryCandidates(pkg)
+
   return resolveFirstExistingEntry(packageDir, candidateEntries)
 }
 
@@ -387,7 +412,9 @@ function resolveFromInstallRootPackageDir(
   const directDir = getPackageDirFromInstallRoot(dependencyId, installRoot)
   const fromDirect = resolveFromPackageDir(directDir)
   if (fromDirect) return fromDirect
+
   const nested = findNestedPackageDir(dependencyId, installRoot)
+
   return nested ? resolveFromPackageDir(nested) : undefined
 }
 
@@ -400,6 +427,7 @@ function resolveRealPathSafe(targetPath: string): string {
     return fs.realpathSync(targetPath)
   } catch (error) {
     debugSwallowed(`realpath ${targetPath}`, error)
+
     return path.resolve(targetPath)
   }
 }
@@ -413,6 +441,7 @@ function findOwningPackageDir(resolvedPath: string): string | undefined {
 
     const parent = path.dirname(currentPath)
     if (parent === currentPath) break
+
     currentPath = parent
   }
 
@@ -450,18 +479,22 @@ function evaluateModuleContextRule(
   try {
     const req = createRequire(fromPackagePath)
     const resolvedPeer = req.resolve(rule.packageId)
+
     if (
       options?.expectedInstalledPath &&
       !isSameInstalledPackage(resolvedPeer, options.expectedInstalledPath)
     ) {
       return rule.packageId
     }
+
     if (rule.type === 'module-context-load') {
       req(rule.packageId)
     }
+
     return undefined
   } catch (error) {
     debugSwallowed(`verify ${rule.packageId}`, error)
+
     return rule.packageId
   }
 }
@@ -471,6 +504,7 @@ export function getContractVerificationFailuresFromKnownLocations(
   projectPath: string
 ) {
   const resolvedByPackage = new Map<string, string | undefined>()
+
   const resolvePackage = (packageId: string) => {
     if (!resolvedByPackage.has(packageId)) {
       resolvedByPackage.set(
@@ -478,6 +512,7 @@ export function getContractVerificationFailuresFromKnownLocations(
         resolveFromKnownLocations(packageId, projectPath)
       )
     }
+
     return resolvedByPackage.get(packageId)
   }
 
@@ -486,10 +521,12 @@ export function getContractVerificationFailuresFromKnownLocations(
   for (const rule of contract.verificationRules) {
     if (rule.type === 'install-root') {
       if (!resolvePackage(rule.packageId)) failures.push(rule.packageId)
+
       continue
     }
 
     const fromPackagePath = resolvePackage(rule.fromPackage)
+
     if (!fromPackagePath) {
       failures.push(rule.fromPackage)
       continue
@@ -510,6 +547,7 @@ export function getContractVerificationFailuresAtInstallRoot(
   installRoot: string
 ) {
   const resolvedByPackage = new Map<string, string | undefined>()
+
   const resolvePackage = (packageId: string) => {
     if (!resolvedByPackage.has(packageId)) {
       resolvedByPackage.set(
@@ -517,6 +555,7 @@ export function getContractVerificationFailuresAtInstallRoot(
         resolveFromInstallRootPackageDir(packageId, installRoot)
       )
     }
+
     return resolvedByPackage.get(packageId)
   }
 
@@ -526,16 +565,19 @@ export function getContractVerificationFailuresAtInstallRoot(
     if (rule.type === 'install-root') {
       const resolvedPath = resolvePackage(rule.packageId)
       if (!resolvedPath) failures.push(rule.packageId)
+
       continue
     }
 
     const fromPackagePath = resolvePackage(rule.fromPackage)
+
     if (!fromPackagePath) {
       failures.push(rule.fromPackage)
       continue
     }
 
     const expectedPeerPath = resolvePackage(rule.packageId)
+
     if (!expectedPeerPath) {
       failures.push(rule.packageId)
       continue
@@ -672,6 +714,7 @@ export async function ensureOptionalModuleLoaded<T = AnyModule>(
   for (const basePath of candidateBases) {
     const req = createRequire(packageJsonPath(basePath))
     const candidateModuleIds = [input.dependencyId, resolvedPath]
+
     for (const candidateModuleId of candidateModuleIds) {
       try {
         loaded = req(candidateModuleId)
@@ -681,6 +724,7 @@ export async function ensureOptionalModuleLoaded<T = AnyModule>(
         lastLoadError = error
       }
     }
+
     if (didLoad) break
   }
 
@@ -789,6 +833,7 @@ export async function ensureOptionalContractPackageResolved(input: {
   dependencyId: string
 }) {
   const contract = getOptionalDependencyContract(input.contractId)
+
   return ensureOptionalPackageResolved({
     integration: contract.integration,
     projectPath: input.projectPath,
@@ -804,6 +849,7 @@ export async function ensureOptionalContractModuleLoaded<T = AnyModule>(input: {
   moduleAdapter?: (loaded: AnyModule) => T
 }): Promise<T> {
   const contract = getOptionalDependencyContract(input.contractId)
+
   return ensureOptionalModuleLoaded<T>({
     integration: contract.integration,
     projectPath: input.projectPath,
@@ -819,6 +865,7 @@ export function resolveOptionalContractPackageWithoutInstall(input: {
   dependencyId: string
 }) {
   const contract = getOptionalDependencyContract(input.contractId)
+
   return resolveOptionalPackageWithoutInstall({
     integration: contract.integration,
     projectPath: input.projectPath,
@@ -834,6 +881,7 @@ export function loadOptionalContractModuleWithoutInstall<T = AnyModule>(input: {
   moduleAdapter?: (loaded: AnyModule) => T
 }): T {
   const contract = getOptionalDependencyContract(input.contractId)
+
   return loadOptionalModuleWithoutInstall<T>({
     integration: contract.integration,
     projectPath: input.projectPath,

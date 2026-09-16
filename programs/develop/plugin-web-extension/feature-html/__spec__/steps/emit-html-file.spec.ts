@@ -50,10 +50,13 @@ describe('EmitHtmlFile', () => {
 
   it('warns only for non-entrypoint pages when HTML file is missing', () => {
     vi.mocked(fs.readFileSync).mockImplementation((p: any) => {
-      if (String(p).endsWith('manifest.json'))
+      if (String(p).endsWith('manifest.json')) {
         return Buffer.from('{"name":"X"}')
+      }
+
       return Buffer.from('')
     })
+
     vi.mocked(fs.existsSync).mockImplementation((_p: any) => false)
     plugin.apply(mockCompiler)
 

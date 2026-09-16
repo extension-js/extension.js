@@ -28,7 +28,7 @@
     "extension": "dotenv -- node programs/extension/dist/cli.cjs",
     "watch": "node scripts/run-watch.mjs",
     "format": "node scripts/format-wrapper.cjs",
-    "lint": "biome lint . --files-max-size=262144",
+    "lint": "biome lint . --files-max-size=262144 && eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "node scripts/run-test.mjs",
     "test:scripts": "node --test scripts/__spec__/*.spec.mjs",
@@ -61,8 +61,12 @@
     "check:messaging": "node scripts/check-messaging.mjs"
   },
   "devDependencies": {
+    "@babel/core": "8.0.5",
+    "@babel/eslint-parser": "8.0.5",
     "@biomejs/biome": "^2.4.5",
+    "@eslint/compat": "^2.1.1",
     "@playwright/test": "^1.58.2",
+    "@stylistic/eslint-plugin": "5.10.0",
     "@types/chrome": "^0.1.37",
     "@types/node": "^26",
     "@types/webextension-polyfill": "0.12.5",
@@ -70,6 +74,7 @@
     "cross-env": "^10.1.0",
     "cross-spawn": "^7.0.6",
     "dotenv-cli": "^11.0.0",
+    "eslint": "^10.10.0",
     "husky": "9.1.7",
     "lint-staged": "17.0.8",
     "react": "^19.2.3",
@@ -81,7 +86,11 @@
     "vite": "^8.1.0"
   },
   "lint-staged": {
-    "*.{ts,tsx,js,jsx,mjs,cjs,json}": [
+    "*.{ts,tsx,js,jsx,mjs,cjs}": [
+      "eslint --fix --no-warn-ignored",
+      "biome check --write --no-errors-on-unmatched"
+    ],
+    "*.json": [
       "biome check --write --no-errors-on-unmatched"
     ]
   }

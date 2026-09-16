@@ -20,9 +20,11 @@ describe('diagnoseChromiumManifestRefusal', () => {
     expect(diagnoseChromiumManifestRefusal({name: 'x'})).toBe(
       'unsupported-manifest-version'
     )
+
     expect(diagnoseChromiumManifestRefusal({manifest_version: 1})).toBe(
       'unsupported-manifest-version'
     )
+
     expect(diagnoseChromiumManifestRefusal({manifest_version: 4})).toBe(
       'unsupported-manifest-version'
     )
@@ -44,6 +46,7 @@ describe('diagnoseChromiumManifestRefusal', () => {
         background: {service_worker: 'sw.js'}
       })
     ).toBeNull()
+
     expect(
       diagnoseChromiumManifestRefusal({
         manifest_version: 3,
@@ -93,6 +96,7 @@ describe('diagnoseChromiumManifestRefusal', () => {
         ]
       })
     ).toEqual([])
+
     expect(findInvalidMatchPatterns(undefined)).toEqual([])
   })
 
@@ -122,6 +126,7 @@ describe('diagnoseChromiumManifestRefusal', () => {
         background: {scripts: []}
       })
     ).toBeNull()
+
     expect(diagnoseChromiumManifestRefusal(undefined)).toBeNull()
     expect(
       diagnoseChromiumManifestRefusal({manifest_version: 3, background: 'x'})
@@ -153,9 +158,11 @@ describe('findChromiumLoadBlockers', () => {
 
   it('flags more than 4 keyboard shortcuts (spotify-hotkeys ships 12)', () => {
     const commands: Record<string, unknown> = {}
+
     for (let i = 0; i < 5; i++) {
       commands[`cmd-${i}`] = {suggested_key: {default: `Alt+Shift+${i}`}}
     }
+
     expect(findChromiumLoadBlockers({...valid, commands})).toEqual([
       'commands: 5 shortcuts declared with "suggested_key", Chrome allows at most 4.'
     ])
@@ -165,9 +172,11 @@ describe('findChromiumLoadBlockers', () => {
     const commands: Record<string, unknown> = {
       _execute_action: {description: 'no suggested_key, not a shortcut'}
     }
+
     for (let i = 0; i < 4; i++) {
       commands[`cmd-${i}`] = {suggested_key: {default: `Alt+Shift+${i}`}}
     }
+
     expect(findChromiumLoadBlockers({...valid, commands})).toEqual([])
   })
 
@@ -189,9 +198,11 @@ describe('findChromiumLoadBlockers', () => {
     expect(
       findChromiumLoadBlockers({...valid, key: 'MIIBIjANBgkqhkiG9w0BAQEF'})
     ).toEqual([])
+
     expect(findChromiumLoadBlockers({...valid, key: 'not-base64!!'})).toEqual([
       'key: not a valid base64 public key, Chrome refuses the extension.'
     ])
+
     expect(
       findChromiumLoadBlockers({...valid, key: 'MIIBIjANBgkqhkiG9w0BAQE'})
     ).toEqual([
@@ -211,6 +222,7 @@ describe('findChromiumLoadBlockers', () => {
         JSON.stringify(manifest)
       ).toBe(true)
     }
+
     expect(findChromiumLoadBlockers(valid)).toEqual([])
   })
 
@@ -237,6 +249,7 @@ describe('findChromiumLoadBlockers', () => {
     ).toEqual([
       'web_accessible_resources[0]: MV2-style entry, MV3 requires {resources, matches|extension_ids|use_dynamic_url} dictionaries.'
     ])
+
     expect(
       findChromiumLoadBlockers({
         ...valid,
@@ -245,6 +258,7 @@ describe('findChromiumLoadBlockers', () => {
     ).toEqual([
       "web_accessible_resources[0]: needs one of 'matches', 'extension_ids', or 'use_dynamic_url' beside resources, Chrome refuses the extension without it."
     ])
+
     expect(
       findChromiumLoadBlockers({
         ...valid,
@@ -253,6 +267,7 @@ describe('findChromiumLoadBlockers', () => {
     ).toEqual([
       "web_accessible_resources[0]: 'resources' is required, Chrome refuses the extension without it."
     ])
+
     expect(
       findChromiumLoadBlockers({
         ...valid,
@@ -261,6 +276,7 @@ describe('findChromiumLoadBlockers', () => {
         ]
       })
     ).toEqual([])
+
     expect(
       findChromiumLoadBlockers({
         manifest_version: 2,
@@ -277,20 +293,25 @@ describe('findChromiumLoadBlockers', () => {
     expect(cs({js: ['c.js']})).toEqual([
       "content_scripts[0]: 'matches' is required, Chrome refuses the extension without it."
     ])
+
     expect(cs({matches: [], js: ['c.js']})).toEqual([
       'content_scripts[0].matches: there must be at least one match, Chrome refuses the extension over an empty list.'
     ])
+
     expect(cs({matches: ['<all_urls>'], js: [42]})).toEqual([
       'content_scripts[0].js[0]: expected a string, got number, Chrome refuses the extension.'
     ])
+
     expect(
       cs({matches: ['<all_urls>'], js: ['c.js'], run_at: 'document_ready'})
     ).toEqual([
       'content_scripts[0].run_at: expected "document_start", "document_end" or "document_idle", got "document_ready", Chrome refuses the extension.'
     ])
+
     expect(cs({matches: ['<all_urls>'], js: ['c.js'], run_at: 3})).toEqual([
       'content_scripts[0].run_at: expected "document_start", "document_end" or "document_idle", got 3, Chrome refuses the extension.'
     ])
+
     for (const run_at of ['document_start', 'document_end', 'document_idle']) {
       expect(cs({matches: ['<all_urls>'], js: ['c.js'], run_at})).toEqual([])
     }
@@ -305,17 +326,20 @@ describe('findChromiumLoadBlockers', () => {
     ).toEqual([
       'minimum_chrome_version: requires 999.0 but the resolved browser is 150.0.7871.24, the browser refuses the extension.'
     ])
+
     expect(
       findChromiumLoadBlockers({...valid, minimum_chrome_version: 'banana'})
     ).toEqual([
       'minimum_chrome_version: invalid value "banana", Chrome refuses the extension.'
     ])
+
     expect(
       findChromiumLoadBlockers(
         {...valid, minimum_chrome_version: '100'},
         '150.0.7871.24'
       )
     ).toEqual([])
+
     expect(
       findChromiumLoadBlockers({...valid, minimum_chrome_version: '999.0'})
     ).toEqual([])
@@ -325,12 +349,14 @@ describe('findChromiumLoadBlockers', () => {
     expect(
       findChromiumLoadBlockers({...valid, background: {page: 'bg.html'}})
     ).toEqual([])
+
     expect(
       findChromiumLoadBlockers({
         ...valid,
         background: {service_worker: 'sw.js', persistent: true}
       })
     ).toEqual([])
+
     expect(
       diagnoseChromiumManifestRefusal({...valid, background: {page: 'bg.html'}})
     ).toBeNull()
@@ -375,6 +401,7 @@ describe('findLocaleLoadBlockers', () => {
     ).toEqual([
       'default_locale: "en" is declared but _locales/en/messages.json is missing, Chrome refuses the whole extension.'
     ])
+
     writeCatalog('fr', JSON.stringify({greeting: {message: 'salut'}}))
     expect(
       findLocaleLoadBlockers({...valid, default_locale: 'en'}, dir)
@@ -397,6 +424,7 @@ describe('findLocaleLoadBlockers', () => {
     ).toEqual([
       'default_locale: _locales/en/messages.json is not valid JSON, Chrome refuses the whole extension.'
     ])
+
     writeCatalog('en', '{}')
     expect(
       findLocaleLoadBlockers({...valid, default_locale: 'en'}, dir)
@@ -413,6 +441,7 @@ describe('findLocaleLoadBlockers', () => {
     ).toEqual([
       '__MSG_appName__: used in the manifest but not defined in _locales/en/messages.json, Chrome refuses the whole extension.'
     ])
+
     expect(
       findLocaleLoadBlockers(
         {...valid, description: '__MSG_missing__', default_locale: 'en'},
@@ -431,12 +460,14 @@ describe('findLocaleLoadBlockers', () => {
         dir
       )
     ).toEqual([])
+
     expect(
       findLocaleLoadBlockers(
         {...valid, name: '__MSG_@@ui_locale__', default_locale: 'en'},
         dir
       )
     ).toEqual([])
+
     expect(
       findLocaleLoadBlockers(
         {...valid, name: '__MSG_appName__', default_locale: 'en'},
@@ -453,6 +484,7 @@ describe('findLocaleLoadBlockers', () => {
         dir
       )
     ).toEqual([])
+
     expect(
       findLocaleLoadBlockers(
         {
@@ -492,6 +524,7 @@ describe('findMissingManagedSchema', () => {
     expect(findMissingManagedSchema(manifest, dir)).toEqual([
       'storage.managed_schema: "schema.json" does not exist in the extension directory, Chrome refuses the whole extension.'
     ])
+
     fs.writeFileSync(path.join(dir, 'schema.json'), '{}')
     expect(findMissingManagedSchema(manifest, dir)).toEqual([])
     expect(findMissingManagedSchema({}, dir)).toEqual([])
@@ -533,10 +566,12 @@ describe('findUnloadableIconFiles', () => {
     expect(
       findUnloadableIconFiles({icons: {'16': 'icons/real.png'}}, dir)
     ).toEqual([])
+
     expect(findUnloadableIconFiles(undefined, dir)).toEqual([])
     expect(
       findUnloadableIconFiles({icons: 'x', action: {default_icon: 42}}, dir)
     ).toEqual([])
+
     expect(findUnloadableIconFiles({icons: {'16': ''}}, dir)).toEqual([])
   })
 })

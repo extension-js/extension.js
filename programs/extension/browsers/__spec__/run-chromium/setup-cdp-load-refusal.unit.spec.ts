@@ -15,6 +15,7 @@ vi.mock('../../run-chromium/cdp/cdp-extension-controller', () => {
     getInfoBestEffort = vi.fn(async () => null)
     openTab = vi.fn(async () => {})
   }
+
   return {CDPExtensionController}
 })
 
@@ -46,10 +47,12 @@ function makeSession(): {outPath: string; readyPath: string} {
     path.join(outPath, 'manifest.json'),
     JSON.stringify({manifest_version: 3, name: 'x', version: '1.0.0'})
   )
+
   fs.writeFileSync(
     readyPath,
     JSON.stringify({status: 'ready', command: 'dev', browser: 'chrome'})
   )
+
   return {outPath, readyPath}
 }
 
@@ -73,6 +76,7 @@ describe('setupCdpAfterLaunch load-refusal differential', () => {
 
   afterEach(() => {
     errorSpy.mockRestore()
+
     while (tempDirs.length) {
       fs.rmSync(tempDirs.pop() as string, {recursive: true, force: true})
     }
@@ -84,6 +88,7 @@ describe('setupCdpAfterLaunch load-refusal differential', () => {
       status: 'refused',
       reason: 'Variable $2$ used but not defined.'
     })
+
     const logSink = vi.fn()
     const plugin: Record<string, unknown> = {browser: 'chrome', logSink}
 
@@ -94,11 +99,13 @@ describe('setupCdpAfterLaunch load-refusal differential', () => {
     expect(plugin.extensionLoadRefused).toBe(
       'Variable $2$ used but not defined.'
     )
+
     expect(
       errorSpy.mock.calls.some((c) =>
         /refused to load this extension/i.test(String(c[0]))
       )
     ).toBe(true)
+
     expect(
       logSink.mock.calls.some((c) =>
         String(c[0]?.text || '').startsWith('extension_load_refused:')
@@ -117,6 +124,7 @@ describe('setupCdpAfterLaunch load-refusal differential', () => {
       status: 'loaded',
       extensionId: 'user-ext-id'
     })
+
     const plugin: Record<string, unknown> = {browser: 'chrome'}
 
     await runSetup(outPath, plugin)

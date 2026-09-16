@@ -1,5 +1,3 @@
-// Weekly distribution snapshot: GitHub traffic (14-day retention upstream),
-// npm daily downloads, and stars, appended as one NDJSON line per run.
 import {execFileSync} from 'node:child_process'
 import fs from 'node:fs'
 
@@ -20,6 +18,7 @@ const gh = (path) => {
   } catch (error) {
     const text = String(error.stdout || '') + String(error.stderr || '')
     if (/403|Resource not accessible/.test(text)) return null
+
     throw error
   }
 }

@@ -160,6 +160,7 @@ export async function setupCdpAfterLaunch(
     humanError(
       messages.chromiumExtensionLoadRefused(refusedPath, loadOutcome.reason)
     )
+
     plugin.logSink?.({
       level: 'error',
       text: `extension_load_refused: ${refusedPath}${
@@ -167,6 +168,7 @@ export async function setupCdpAfterLaunch(
       }`,
       source: 'browser'
     })
+
     stampReadyExtensionLoadRefused(extensionOutputPath, loadOutcome.reason)
 
     // The refusal withholds the card, so the profile line keeps the
@@ -179,6 +181,7 @@ export async function setupCdpAfterLaunch(
     // The flag withholds the launch path's "ready for development" claim.
     plugin.extensionLoadRefused = loadOutcome.reason
     plugin.cdpController = cdpExtensionController
+
     // Bind the banner the refusal just withheld, so a later compile that gets
     // the dist accepted can finally name the guest the browser is running.
     plugin.printBannerOnRecovery = async () => {
@@ -193,6 +196,7 @@ export async function setupCdpAfterLaunch(
         binaryProvenance: plugin.binaryProvenance
       })
     }
+
     return
   }
 
@@ -240,6 +244,7 @@ export async function setupCdpAfterLaunch(
     name?: string
     version?: string
   } | null = null
+
   try {
     const ensureLoadedTimeoutMs = 10000
     extensionControllerInfo = await Promise.race([
@@ -318,6 +323,7 @@ export async function setupCdpAfterLaunch(
     // production summary so users still see a banner.
     try {
       const mode = (compilation?.options?.mode || 'development') as string
+
       if (mode === 'production') {
         await printProdBannerOnce({
           browser: plugin.browser,

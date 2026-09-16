@@ -29,6 +29,7 @@ export function browserAction(manifest: Manifest) {
             typeof manifest.browser_action.default_icon === 'string'
               ? (() => {
                   const raw = String(manifest.browser_action.default_icon)
+
                   return getFilename(iconOutputPath(raw), raw)
                 })()
               : Object.fromEntries(
@@ -36,6 +37,7 @@ export function browserAction(manifest: Manifest) {
                     manifest.browser_action.default_icon as string
                   ).map(([size, icon]) => {
                     const raw = String(icon)
+
                     return [size, getFilename(iconOutputPath(raw), raw)]
                   })
                 )

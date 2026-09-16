@@ -11,6 +11,7 @@ import {prefix} from '../../lib/messaging'
 
 export function cssIntegrationsEnabled(integrations: string[]) {
   const names = integrations.length > 0 ? integrations.join(',') : 'none'
+
   return (
     `${prefix('debug')} css      integrations=${integrations.length} ` +
     `names=${names}`
@@ -23,6 +24,7 @@ export function cssConfigsDetected(
   browserslistSource?: string
 ) {
   const val = (v?: string) => v || 'none'
+
   return (
     `${prefix('debug')} css      config postcss=${val(postcssConfig)} ` +
     `tailwind=${val(tailwindConfig)} browserslist=${val(browserslistSource)}`
@@ -71,6 +73,7 @@ export function cssParseErrorShippedVerbatim(
     error && typeof error === 'object' && 'reason' in error
       ? String(errObj?.reason)
       : String(errObj?.message || error)
+
   return [
     `${prefix('warn')} The CSS in this file doesn't parse, so it was copied as-is.`,
     `${colors.gray('PATH')} ${colors.underline(resourcePath)}`,
@@ -87,6 +90,7 @@ export function preprocessorShippedUncompiled(
 ) {
   const pkg = tool === 'sass' ? 'sass' : 'less'
   const language = tool === 'sass' ? 'Sass/SCSS' : 'Less'
+
   return [
     `${prefix('warn')} This ${language} file shipped uncompiled.`,
     `${colors.gray('PATH')} ${colors.underline(resourcePath)}`,
@@ -109,6 +113,7 @@ export function deadCssUrlRef(issuerPath: string, request: string) {
 
 export function lateCssImportIgnored(issuerPath: string, line?: number) {
   const where = line ? `${issuerPath}:${line}` : issuerPath
+
   return [
     `An ${colors.blue('@import')} rule comes after other rules, so browsers skip it.`,
     `${colors.gray('PATH')} ${colors.underline(where)}`,

@@ -19,6 +19,7 @@ afterEach(() => {
 function createTempProject() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-concat-rw-'))
   tempDirs.push(dir)
+
   return dir
 }
 
@@ -28,6 +29,7 @@ function runLoader(files: Array<{name: string; content: string}>) {
     const filePath = path.join(dir, name)
     fs.mkdirSync(path.dirname(filePath), {recursive: true})
     fs.writeFileSync(filePath, content, 'utf8')
+
     return filePath
   })
   const query = `?__extensionjs_classic_concat__=${encodeURIComponent(
@@ -43,6 +45,7 @@ function runLoader(files: Array<{name: string; content: string}>) {
   }
   classicConcatLoader.call(ctx as any, '')
   const [err, output, sourceMap] = ctx.callback.mock.calls[0]
+
   return {err, output: output as string, sourceMap, paths, errors}
 }
 
@@ -51,6 +54,7 @@ function bridgedNames(output: string): string[] {
   const re = /globalThis\["([^"]+)"\] =/g
   let match: RegExpExecArray | null
   while ((match = re.exec(output)) !== null) names.push(match[1])
+
   return names
 }
 
@@ -267,6 +271,7 @@ describe('global-name collection via acorn', () => {
     expect(
       collect('try { var inTry = 1 } catch (e) { var inCatch = 2 }')
     ).toEqual(expect.arrayContaining(['inTry', 'inCatch']))
+
     expect(collect('switch (x) { case 1: var inCase = 1 }')).toContain('inCase')
     expect(collect('lbl: { var inLabel = 1 }')).toContain('inLabel')
     expect(collect('{ var inBareBlock = 1 }')).toContain('inBareBlock')
@@ -322,6 +327,7 @@ describe('global-name collection via acorn', () => {
     expect(
       collect('register(class { static { var staticLocal = 1 } });')
     ).toEqual([])
+
     expect(collect('class Named { static { var declLocal = 1 } }')).toEqual([
       'Named'
     ])
@@ -364,6 +370,7 @@ describe('global-name collection via acorn', () => {
         'kept',
         'objRest'
       ])
+
       expect(collect('var [head, ...arrRest] = xs').sort()).toEqual([
         'arrRest',
         'head'
@@ -415,6 +422,7 @@ describe('bridging behaviour end to end', () => {
       }
     ])
     const bridged = bridgedNames(output)
+
     for (const skipped of [
       'module',
       'exports',
@@ -426,6 +434,7 @@ describe('bridging behaviour end to end', () => {
     ]) {
       expect(bridged).not.toContain(skipped)
     }
+
     expect(bridged).toContain('legitimate')
   })
 

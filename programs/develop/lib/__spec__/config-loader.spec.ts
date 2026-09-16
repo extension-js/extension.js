@@ -24,8 +24,10 @@ describe('config-loader', () => {
       path.join(pkg, 'src', 'manifest.json'),
       '{"manifest_version":3,"name":"probe","version":"1.0.0"}'
     )
+
     const previous = process.cwd()
     process.chdir(root)
+
     try {
       await expect(
         loadCommandConfig('packages/extension', 'dev')
@@ -79,11 +81,13 @@ module.exports = {
       'packages:\n  - "apps/*"\n',
       'utf-8'
     )
+
     fs.writeFileSync(
       path.join(workspace, '.env'),
       'EXTENSION_PUBLIC_START_URL=https://workspace-root.example\n',
       'utf-8'
     )
+
     fs.writeFileSync(
       path.join(appDir, 'extension.config.mjs'),
       `
@@ -102,12 +106,14 @@ export default {
     delete process.env.EXTENSION_PUBLIC_START_URL
     const cfg = await loadBrowserConfig(appDir, 'chrome')
     expect(cfg.startingUrl).toBe('https://workspace-root.example')
+
     if (previous === undefined) {
       delete process.env.EXTENSION_PUBLIC_START_URL
     } else {
       process.env.EXTENSION_PUBLIC_START_URL = previous
     }
   })
+
   it('finds a config kept beside the manifest when the package root has none', async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'tmp-extjs-beside-'))
     fs.mkdirSync(path.join(root, 'src'), {recursive: true})
@@ -116,6 +122,7 @@ export default {
       path.join(root, 'src', 'manifest.json'),
       JSON.stringify({manifest_version: 3, name: 'demo', version: '1.0.0'})
     )
+
     fs.writeFileSync(
       path.join(root, 'src', 'extension.config.mjs'),
       "export default {browser: {firefox: {preferences: {'browser.newtabpage.enabled': true}}}}\n"
@@ -133,10 +140,12 @@ export default {
       path.join(root, 'src', 'manifest.json'),
       JSON.stringify({manifest_version: 3, name: 'demo', version: '1.0.0'})
     )
+
     fs.writeFileSync(
       path.join(root, 'extension.config.mjs'),
       "export default {browser: {firefox: {preferences: {where: 'root'}}}}\n"
     )
+
     fs.writeFileSync(
       path.join(root, 'src', 'extension.config.mjs'),
       "export default {browser: {firefox: {preferences: {where: 'src'}}}}\n"

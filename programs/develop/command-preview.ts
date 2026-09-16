@@ -40,10 +40,6 @@ import type {CompanionExtensionsConfig} from './plugin-special-folders/folder-ex
 import {getSpecialFoldersDataForProjectRoot} from './plugin-special-folders/get-data'
 import type {BrowserConfig, PreviewOptions} from './types'
 
-/**
- * Resolved browser launch options returned by extensionPreview.
- * The caller is responsible for actually launching the browser.
- */
 export interface ResolvedPreviewOptions {
   browser: string
   outPath: string
@@ -71,15 +67,12 @@ export interface ResolvedPreviewOptions {
   logTab?: number | string
 }
 
-/**
- * Browser launcher callback. When provided, extensionPreview calls it
- * instead of requiring plugin-browsers internally.
- */
 export type PreviewLauncherFn = (opts: ResolvedPreviewOptions) => Promise<void>
 
 function readRunIdFromReadyFile(readyPath: string): string | undefined {
   try {
     const parsed = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+
     return typeof parsed?.runId === 'string' ? parsed.runId : undefined
   } catch {
     return undefined
@@ -97,9 +90,11 @@ export async function extensionPreview(
 
   const userManifestPath =
     projectStructure.packageJsonPath || projectStructure.denoJsonPath
+
   if (userManifestPath) {
     assertNoManagedDependencyConflicts(userManifestPath, packageJsonDir)
   }
+
   const metadataCommand =
     previewOptions.metadataCommand === 'start' ? 'start' : 'preview'
   // A browser passed in wins; with none, commands.<cmd>.browser from the
@@ -149,6 +144,7 @@ export async function extensionPreview(
     metadataCommand === 'start' &&
     readRunIdFromReadyFile(metadata.readyPath) ===
       getSessionRunId(packageJsonDir, String(browser))
+
   if (!continuingStartRun) {
     metadata.writeStarting()
   }
@@ -162,6 +158,7 @@ export async function extensionPreview(
         previewOptions.geckoBinary || previewOptions.firefoxBinary
       )
     )
+
     humanLine(messages.debugPreviewOutput(outputPath, distPath))
   }
 
@@ -170,6 +167,7 @@ export async function extensionPreview(
   // Run-only preview requires an existing unpacked extension root at outputPath.
   // If dist/<browser> doesn't exist, computePreviewOutputPath falls back to manifestDir.
   const manifestAtOutput = path.join(outputPath, 'manifest.json')
+
   if (!fs.existsSync(manifestAtOutput)) {
     metadata.writeError(
       'preview_manifest_missing',
@@ -203,9 +201,11 @@ export async function extensionPreview(
         distPath: outputPath
       })
     )
+
     humanLine(devServerMessages.spacerLine())
     humanLine(runningMessage(browser, true))
     metadata.writeReady()
+
     return
   }
 

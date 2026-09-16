@@ -56,6 +56,7 @@ const createFakeCompiler = () => {
     modifiedFiles: new Set<string>(),
     removedFiles: new Set<string>()
   }
+
   return {compiler, projectRoot}
 }
 
@@ -85,9 +86,11 @@ beforeEach(() => {
 
 afterEach(() => {
   unbindDevSessionRestart()
+
   for (const dir of tempDirs) {
     fs.rmSync(dir, {recursive: true, force: true})
   }
+
   tempDirs.clear()
 })
 
@@ -101,6 +104,7 @@ describe('WarnUponFolderChanges', () => {
     compiler.modifiedFiles = new Set([
       path.join(projectRoot, 'pages', 'foo.html')
     ])
+
     compiler.removedFiles = new Set()
     runCycle(compiler, compilation)
     expect(compilation.warnings.length).toBe(1)
@@ -112,6 +116,7 @@ describe('WarnUponFolderChanges', () => {
     compiler.removedFiles = new Set([
       path.join(projectRoot, 'pages', 'foo.html')
     ])
+
     runCycle(compiler, compilation)
     expect(compilation.errors.length).toBe(1)
     expect(
@@ -129,6 +134,7 @@ describe('WarnUponFolderChanges', () => {
       path.join(projectRoot, 'scripts', 'content.ts'),
       path.join(projectRoot, 'scripts', 'note.md')
     ])
+
     compiler.removedFiles = new Set()
     runCycle(compiler, compilation)
     expect(compilation.warnings.length).toBe(1)
@@ -140,6 +146,7 @@ describe('WarnUponFolderChanges', () => {
     compiler.removedFiles = new Set([
       path.join(projectRoot, 'scripts', 'content.ts')
     ])
+
     runCycle(compiler, compilation)
     expect(compilation.errors.length).toBe(1)
     expect(
@@ -156,9 +163,11 @@ describe('WarnUponFolderChanges', () => {
     compiler.modifiedFiles = new Set([
       path.join(projectRoot, 'pages', 'readme.txt')
     ])
+
     compiler.removedFiles = new Set([
       path.join(projectRoot, 'pages', 'readme.txt')
     ])
+
     runCycle(compiler, compilation)
 
     expect(compilation.warnings.length).toBe(0)
@@ -249,6 +258,7 @@ describe('WarnUponFolderChanges', () => {
     compiler.modifiedFiles = new Set([
       path.join(projectRoot, 'scripts', 'extra.js')
     ])
+
     compiler.removedFiles = new Set()
     runCycle(compiler, compilation)
     await new Promise((r) => setTimeout(r, 0))
@@ -265,6 +275,7 @@ describe('WarnUponFolderChanges', () => {
     compiler.removedFiles = new Set([
       path.join(projectRoot, 'scripts', 'extra.js')
     ])
+
     runCycle(compiler, compilation)
     expect(compilation.errors.length).toBe(1)
     expect(String(compilation.errors[0].details)).toContain('Removing from')

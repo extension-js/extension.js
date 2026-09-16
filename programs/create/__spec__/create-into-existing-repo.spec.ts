@@ -30,6 +30,7 @@ function git(cwd: string, args: string[]): string {
 
 async function runCreate(dir: string) {
   const {extensionCreate} = await import('../module')
+
   try {
     await extensionCreate(dir, {
       template: 'javascript',
@@ -37,6 +38,7 @@ async function runCreate(dir: string) {
       cliVersion: '4.1.12',
       logger
     } as any)
+
     return {ok: true, error: ''}
   } catch (err) {
     return {ok: false, error: String(err)}
@@ -52,6 +54,7 @@ beforeAll(async () => {
     configPath,
     '[user]\n\tname = Existing Owner\n\temail = owner@example.com\n[init]\n\tdefaultBranch = main\n'
   )
+
   process.env.GIT_CONFIG_GLOBAL = configPath
   process.env.GIT_CONFIG_SYSTEM = '/dev/null'
   process.env.EXTENSION_ENV = 'test'
@@ -64,12 +67,14 @@ beforeAll(async () => {
     path.join(adopted, '.gitignore'),
     '# my rules\n.idea/\n.env.local\n'
   )
+
   await fs.writeFile(path.join(adopted, '.idea', 'workspace.xml'), '<p/>\n')
   await fs.writeFile(path.join(adopted, '.env.local'), 'SECRET=1\n')
   await fs.writeFile(
     path.join(adopted, '.github', 'workflows', 'ci.yml'),
     'name: ci\n'
   )
+
   await fs.writeFile(path.join(adopted, 'LICENSE'), 'MIT\n')
   git(adopted, ['add', '--all'])
   git(adopted, [
@@ -81,6 +86,7 @@ beforeAll(async () => {
     '--message',
     'my own first commit'
   ])
+
   R.adopted = adopted
 
   const empty = path.join(root, 'empty')
@@ -104,6 +110,7 @@ afterAll(async () => {
     if (value === undefined) delete process.env[key]
     else process.env[key] = value
   }
+
   await fs.rm(root, {recursive: true, force: true})
 })
 

@@ -54,6 +54,7 @@ function parseVersion(version) {
     String(version).trim()
   )
   if (!match) return null
+
   return {
     main: [Number(match[1]), Number(match[2]), Number(match[3])],
     pre: match[4] ? match[4].split('.') : []
@@ -66,6 +67,7 @@ function compareIdentifiers(a, b) {
   if (aNum && bNum) return Math.sign(Number(a) - Number(b))
   if (aNum) return -1
   if (bNum) return 1
+
   return a < b ? -1 : a > b ? 1 : 0
 }
 
@@ -75,19 +77,25 @@ export function compareVersions(a, b) {
   const va = parseVersion(a)
   const vb = parseVersion(b)
   if (!va || !vb) throw new Error(`cannot compare versions ${a} and ${b}`)
+
   for (let i = 0; i < 3; i++) {
     if (va.main[i] !== vb.main[i]) return Math.sign(va.main[i] - vb.main[i])
   }
+
   if (va.pre.length === 0 && vb.pre.length === 0) return 0
   if (va.pre.length === 0) return 1
   if (vb.pre.length === 0) return -1
+
   const length = Math.max(va.pre.length, vb.pre.length)
+
   for (let i = 0; i < length; i++) {
     if (va.pre[i] === undefined) return -1
     if (vb.pre[i] === undefined) return 1
+
     const order = compareIdentifiers(va.pre[i], vb.pre[i])
     if (order !== 0) return order
   }
+
   return 0
 }
 
@@ -99,20 +107,26 @@ export function readLockedVersions(lockfileText) {
   const locked = new Map()
   const entry = /^ {2}'?((?:@[^/'\s]+\/)?[^@'\s]+)@(\d+\.\d+\.\d+[^'(:\s]*)/
   let inPackages = false
+
   for (const line of lockfileText.split('\n')) {
     if (/^\S/.test(line)) {
       inPackages = line.startsWith('packages:')
       continue
     }
+
     if (!inPackages) continue
+
     const match = entry.exec(line)
     if (!match) continue
+
     const [, name, version] = match
     const current = locked.get(name)
+
     if (!current || compareVersions(version, current) > 0) {
       locked.set(name, version)
     }
   }
+
   return locked
 }
 
@@ -125,6 +139,7 @@ export function fetchDistTags(packageName) {
     {encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']}
   )
   const parsed = JSON.parse(output)
+
   return Array.isArray(parsed) ? parsed[parsed.length - 1] || {} : parsed
 }
 
@@ -134,9 +149,11 @@ export function fetchDistTags(packageName) {
 // semver sort would rank them by hash, not by date.
 export function planOverrides(candidates, locked, distTagsFor) {
   const rows = []
+
   for (const candidate of candidates) {
     const source = candidate.from || candidate.name
     const lockedVersion = locked.get(candidate.name)
+
     if (!lockedVersion) {
       rows.push({
         ...candidate,
@@ -144,9 +161,12 @@ export function planOverrides(candidates, locked, distTagsFor) {
         status: 'skip',
         reason: 'not in the lockfile'
       })
+
       continue
     }
+
     let distTags = {}
+
     try {
       distTags = distTagsFor(source)
     } catch {
@@ -157,16 +177,21 @@ export function planOverrides(candidates, locked, distTagsFor) {
         status: 'skip',
         reason: 'npm view failed'
       })
+
       continue
     }
+
     let best = null
+
     for (const tag of candidate.tags) {
       const version = distTags[tag]
       if (!version || !parseVersion(version)) continue
       if (compareVersions(version, lockedVersion) <= 0) continue
+
       best = {tag, version}
       break
     }
+
     if (!best) {
       const seen = candidate.tags
         .filter((tag) => distTags[tag])
@@ -181,8 +206,10 @@ export function planOverrides(candidates, locked, distTagsFor) {
           ? `no tag newer than the pin (${seen})`
           : 'no prerelease tag published'
       })
+
       continue
     }
+
     const spec =
       source === candidate.name ? best.version : `npm:${source}@${best.version}`
     rows.push({
@@ -195,6 +222,7 @@ export function planOverrides(candidates, locked, distTagsFor) {
       spec
     })
   }
+
   return rows
 }
 
@@ -202,9 +230,11 @@ export function applyOverrides(packageJson, rows) {
   const next = structuredClone(packageJson)
   next.pnpm = next.pnpm || {}
   next.pnpm.overrides = {...(next.pnpm.overrides || {})}
+
   for (const row of rows) {
     if (row.status === 'override') next.pnpm.overrides[row.name] = row.spec
   }
+
   return next
 }
 
@@ -215,8 +245,10 @@ export function renderTable(leg, rows) {
     '| package | locked | prerelease | override |',
     '| --- | --- | --- | --- |'
   ]
+
   for (const row of rows) {
     const locked = row.lockedVersion || ''
+
     if (row.status === 'override') {
       lines.push(
         `| ${row.name} | ${locked} | ${row.source}@${row.tag} = ${row.version} | \`${row.spec}\` |`
@@ -225,21 +257,25 @@ export function renderTable(leg, rows) {
       lines.push(`| ${row.name} | ${locked} | ${row.reason} | skipped |`)
     }
   }
+
   return lines.join('\n')
 }
 
 function appendOutput(file, text) {
   if (!file) return
+
   fs.appendFileSync(file, `${text}\n`)
 }
 
 export function main(argv = process.argv.slice(2)) {
   const dryRun = argv.includes('--dry-run')
   const leg = argv.find((arg) => !arg.startsWith('--'))
+
   if (!leg || !LEGS[leg]) {
     console.error(
       `usage: node scripts/deps-canary-overrides.mjs <${Object.keys(LEGS).join('|')}> [--dry-run]`
     )
+
     return 2
   }
 
@@ -262,14 +298,17 @@ export function main(argv = process.argv.slice(2)) {
     console.log(
       `\nNothing on ${leg} is ahead of the lockfile today, no override written.`
     )
+
     return 0
   }
+
   if (dryRun) return 0
 
   const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'))
   const next = applyOverrides(packageJson, rows)
   fs.writeFileSync(packageJsonPath, `${JSON.stringify(next, null, 2)}\n`)
   console.log(`\nWrote ${overrides.length} override(s) to package.json.`)
+
   return 0
 }
 

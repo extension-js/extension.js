@@ -16,37 +16,14 @@ import {
 } from 'unique-names-generator'
 import {markManagedEphemeralProfile} from './shared-utils'
 
-/**
- * The single decision about what profile a development run gets. Both the
- * chromium and firefox launchers route through this so the profile contract
- * (`false`, `copyFromProfile`, `keepProfileChanges`, the env switch, explicit
- * paths and the plain ephemeral default) is interpreted in exactly one place.
- *
- * - `system`, the browser's own default profile. No managed directory is
- *                created, seeded or cleaned and no profile launch arg is
- *                emitted. Produced by `profile: false` and by the
- *                EXTENSION_USE_SYSTEM_PROFILE / EXTJS_USE_SYSTEM_PROFILE switch.
- * - `explicit`, a user-provided profile path; launched against exactly that
- *                directory.
- * - `managed`, a directory under `dist/extension-js/profiles/<browser>-profile`
- *                that extension.js owns. Ephemeral by default (marked so it is
- *                reclaimed on browser exit); persistent (`dev`) when
- *                `persistProfile` or `keepProfileChanges` is set, in which case
- *                the marker is withheld so the cleanup hook skips it.
- */
 export type ProfileKind = 'system' | 'explicit' | 'managed'
 
 export interface ResolveProfileInput {
   rawProfile?: string | boolean
-  /** Managed-profile base directory: `<distRoot>/extension-js/profiles/<browser>-profile`. */
   managedBaseDir: string
-  /** EXTENSION_USE_SYSTEM_PROFILE / EXTJS_USE_SYSTEM_PROFILE resolved to a boolean. */
   useSystemProfile: boolean
-  /** `persistProfile` option (stable `dev` directory, never auto-cleaned). */
   persistProfile?: boolean
-  /** `keepProfileChanges` option, keep the managed profile and its changes across runs. */
   keepProfileChanges?: boolean
-  /** `copyFromProfile` option, seed the managed profile as a copy of this path. */
   copyFromProfile?: string
   // Resolve a relative explicit profile path; each launcher passes its own
   // resolver so this module stays free of launcher-specific path logic.
@@ -61,9 +38,7 @@ export interface ResolvedProfile {
   // The directory the browser should be pointed at, or '' for the system kind
   // (no --user-data-dir / --profile emitted).
   profilePath: string
-  /** True when the managed profile is persisted (no cleanup on exit). */
   persisted: boolean
-  /** Set when `copyFromProfile` seeded this run, for logging/visibility. */
   seededFrom?: string
 }
 
@@ -73,27 +48,20 @@ function hasExplicit(
   return typeof rawProfile === 'string' && rawProfile.trim().length > 0
 }
 
-/**
- * The one interpretation of the `--profile` / `profile` option value.
- * Commander delivers flag values as strings, so `--profile false` arrives as
- * the string `'false'`. Without this normalization that string reads as an
- * explicit path and a literal profile directory named `false` gets created.
- *
- * - `false` / `'false'`: the browser's own default profile (system).
- * - `true` / `'true'`: the managed default (same as leaving the option unset).
- * - any other string: an explicit profile path.
- */
 export function normalizeProfileOption(
   value: string | boolean | undefined
 ): string | false | undefined {
   if (value === false) return false
   if (value === true) return undefined
+
   if (typeof value === 'string') {
     const normalized = value.trim().toLowerCase()
     if (normalized === 'false') return false
     if (normalized === 'true') return undefined
+
     return value
   }
+
   return undefined
 }
 
@@ -112,6 +80,7 @@ export function ensureProfileRootIgnoreFile(managedBaseDir: string): void {
     const sessionRoot = path.dirname(path.dirname(managedBaseDir))
     const ignoreFile = path.join(sessionRoot, '.gitignore')
     if (fs.existsSync(ignoreFile)) return
+
     fs.mkdirSync(sessionRoot, {recursive: true})
     fs.writeFileSync(
       ignoreFile,
@@ -129,6 +98,7 @@ export function ensureProfileRootIgnoreFile(managedBaseDir: string): void {
 // copyFromProfile; best-effort no-op when source is missing.
 export function seedProfileFrom(source: string, dest: string) {
   if (!fs.existsSync(source)) return
+
   fs.mkdirSync(dest, {recursive: true})
   // fs.cpSync (Node 16.7+) copies directory trees; used elsewhere in the repo
   // for profile-shaped data, so it is the canonical choice here.
@@ -159,6 +129,7 @@ export function resolveProfileConfig(
 
   if (hasExplicit(rawProfile)) {
     const profilePath = resolveExplicit(rawProfile.trim())
+
     return {kind: 'explicit', profilePath, persisted: false}
   }
 
@@ -167,6 +138,7 @@ export function resolveProfileConfig(
   const persisted = Boolean(persistProfile) || Boolean(keepProfileChanges)
 
   let profilePath: string
+
   if (persisted) {
     profilePath = path.join(managedBaseDir, 'dev')
   } else {
@@ -196,6 +168,7 @@ export function resolveProfileConfig(
 
   fs.mkdirSync(profilePath, {recursive: true})
   ensureProfileRootIgnoreFile(managedBaseDir)
+
   if (!persisted) {
     // Only ephemeral, non-kept profiles are reclaimed on exit; the marker is what
     // removeManagedEphemeralProfile keys off, so kept profiles survive.
@@ -203,6 +176,7 @@ export function resolveProfileConfig(
   }
 
   let seededFrom: string | undefined
+
   if (hasCopyFrom(copyFromProfile) && isFreshTarget) {
     const source = copyFromProfile.trim()
     seedProfileFrom(source, profilePath)

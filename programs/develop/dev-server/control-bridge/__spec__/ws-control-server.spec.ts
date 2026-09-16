@@ -19,7 +19,9 @@ afterEach(async () => {
       // Ignore
     }
   }
+
   sockets.length = 0
+
   if (server) {
     await server.close()
     server = null
@@ -29,6 +31,7 @@ afterEach(async () => {
 function connect(port: number): Promise<WebSocket> {
   const ws = new WebSocket(`ws://127.0.0.1:${port}${CONTROL_WS_PATH}`)
   sockets.push(ws)
+
   return new Promise((resolve, reject) => {
     ws.on('open', () => resolve(ws))
     ws.on('error', reject)
@@ -67,6 +70,7 @@ describe('ws control server (integration)', () => {
         instanceId: 'inst-1'
       })
     )
+
     const ready = await nextFrame(consumer)
     expect(ready).toMatchObject({
       type: 'ready',
@@ -83,6 +87,7 @@ describe('ws control server (integration)', () => {
         instanceId: 'inst-1'
       })
     )
+
     producer.send(
       JSON.stringify({
         type: 'log',
@@ -152,6 +157,7 @@ describe('ws control server (integration)', () => {
       ws.on('open', () => resolve())
       ws.on('error', reject)
     })
+
     ws.send(
       JSON.stringify({
         type: 'hello',
@@ -160,6 +166,7 @@ describe('ws control server (integration)', () => {
         instanceId: 'inst-1'
       })
     )
+
     expect(await nextFrame(ws)).toMatchObject({type: 'ready'})
   })
 
@@ -187,6 +194,7 @@ describe('ws control server (integration)', () => {
         instanceId: 'inst-1'
       })
     )
+
     expect(await nextFrame(ws)).toMatchObject({type: 'ready'})
   })
 
@@ -205,6 +213,7 @@ describe('ws control server (integration)', () => {
         instanceId: 'wrong'
       })
     )
+
     expect(await closed).toBe(4001)
   })
 })

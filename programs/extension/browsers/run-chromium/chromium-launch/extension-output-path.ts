@@ -9,12 +9,6 @@
 import * as path from 'node:path'
 import type {CompilationLike} from '../../browsers-types'
 
-/**
- * Derive the user extension output path from `--load-extension=...` flags.
- *
- * Kept in a standalone module so run-only preview can reuse it without
- * importing CDP/WS-related code paths.
- */
 export function getExtensionOutputPath(
   compilation: CompilationLike | undefined,
   loadExtensionFlag: string | undefined

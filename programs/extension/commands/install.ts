@@ -60,6 +60,7 @@ async function refuseNotInstallable(
   asJson: boolean
 ): Promise<void> {
   const message = errorText(error)
+
   if (asJson) {
     emit(
       ENVELOPE.fail(command, 'usage', {
@@ -71,6 +72,7 @@ async function refuseNotInstallable(
     // eslint-disable-next-line no-console
     console.error(message)
   }
+
   await exitAfterDrain(1)
 }
 
@@ -89,6 +91,7 @@ async function refuseIfNotManagedTarget(
 
   if (bad.kind === 'not-installable') {
     const message = messages.browserNotInstallablePlain(bad.name)
+
     if (asJson) {
       emit(
         ENVELOPE.fail(command, 'usage', {
@@ -100,7 +103,9 @@ async function refuseIfNotManagedTarget(
       // eslint-disable-next-line no-console
       console.error(messages.browserNotInstallable(bad.name))
     }
+
     await exitAfterDrain(1)
+
     return true
   }
 
@@ -118,7 +123,9 @@ async function refuseIfNotManagedTarget(
       messages.unsupportedBrowserFlag(bad.name, [...MANAGED_INSTALL_TARGETS])
     )
   }
+
   await exitAfterDrain(1)
+
   return true
 }
 
@@ -128,6 +135,7 @@ async function refuseDownloadFailed(
   asJson: boolean
 ): Promise<void> {
   const detail = errorText(error)
+
   if (asJson) {
     emit(
       ENVELOPE.fail(
@@ -144,6 +152,7 @@ async function refuseDownloadFailed(
     // eslint-disable-next-line no-console
     console.error(messages.browserDownloadFailed(browser, detail))
   }
+
   await exitAfterDrain(1)
 }
 
@@ -185,12 +194,14 @@ export function registerInstallCommand(program: Command) {
 
       if (options.where) {
         let paths: string[]
+
         try {
           paths = named
             ? browserList.map((browser) => getManagedBrowserInstallDir(browser))
             : [getManagedBrowsersCacheRoot()]
         } catch (error) {
           await refuseNotInstallable('install', error, asJson)
+
           return
         }
 
@@ -202,6 +213,7 @@ export function registerInstallCommand(program: Command) {
             console.log(location)
           }
         }
+
         return
       }
 
@@ -214,10 +226,12 @@ export function registerInstallCommand(program: Command) {
         } catch (error) {
           if (isNotInstallableRefusal(error)) {
             await refuseNotInstallable('install', error, asJson)
+
             return
           }
 
           await refuseDownloadFailed(browser, error, asJson)
+
           return
         }
       }
@@ -265,6 +279,7 @@ export function registerInstallCommand(program: Command) {
         // --where alone (no name, no --all): print the cache root, no name gate.
         if (where && !named && !all) {
           const paths = [getManagedBrowsersCacheRoot()]
+
           if (asJson) {
             emit(ENVELOPE.ok('uninstall', 'located', {paths}))
           } else {
@@ -273,12 +288,14 @@ export function registerInstallCommand(program: Command) {
               console.log(location)
             }
           }
+
           return
         }
 
         if (!selected) {
           const message =
             'A browser target is required. Pass a browser name, --browser <name>, or --all.'
+
           if (asJson) {
             emit(
               ENVELOPE.fail('uninstall', 'usage', {
@@ -290,7 +307,9 @@ export function registerInstallCommand(program: Command) {
             // eslint-disable-next-line no-console
             console.error(message)
           }
+
           await exitAfterDrain(1)
+
           return
         }
 
@@ -302,10 +321,12 @@ export function registerInstallCommand(program: Command) {
 
         if (where) {
           let paths: string[]
+
           try {
             paths = browserList.map((name) => getManagedBrowserInstallDir(name))
           } catch (error) {
             await refuseNotInstallable('uninstall', error, asJson)
+
             return
           }
 
@@ -317,6 +338,7 @@ export function registerInstallCommand(program: Command) {
               console.log(location)
             }
           }
+
           return
         }
 
@@ -332,6 +354,7 @@ export function registerInstallCommand(program: Command) {
         } catch (error) {
           if (isNotInstallableRefusal(error)) {
             await refuseNotInstallable('uninstall', error, asJson)
+
             return
           }
 
@@ -346,7 +369,9 @@ export function registerInstallCommand(program: Command) {
             // eslint-disable-next-line no-console
             console.error(errorText(error))
           }
+
           await exitAfterDrain(1)
+
           return
         }
 

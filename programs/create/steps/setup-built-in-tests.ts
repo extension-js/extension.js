@@ -22,6 +22,7 @@ export async function setupBuiltInTests(
     }
   } catch (error) {
     logger.error(messages.cantSetupBuiltInTests(error))
+
     throw error
   }
 }

@@ -6,8 +6,9 @@ import {themeImageFields} from '../theme-image-fields'
 
 const dirs: string[] = []
 afterEach(() => {
-  for (const dir of dirs.splice(0))
+  for (const dir of dirs.splice(0)) {
     fs.rmSync(dir, {recursive: true, force: true})
+  }
 })
 
 function manifestWith(theme: unknown) {
@@ -15,6 +16,7 @@ function manifestWith(theme: unknown) {
   dirs.push(dir)
   const manifestPath = path.join(dir, 'manifest.json')
   fs.writeFileSync(manifestPath, JSON.stringify({theme}))
+
   return {dir, manifestPath}
 }
 
@@ -46,6 +48,7 @@ describe('themeImageFields', () => {
     expect(themeImageFields(manifestWith({colors: {}}).manifestPath)).toEqual(
       {}
     )
+
     expect(themeImageFields('/nope/manifest.json')).toEqual({})
   })
 })
@@ -56,6 +59,7 @@ describe('themeImageFields with browser-prefixed themes', () => {
     dirs.push(dir)
     const manifestPath = path.join(dir, 'manifest.json')
     fs.writeFileSync(manifestPath, JSON.stringify({[key]: theme}))
+
     return {dir, manifestPath}
   }
 
@@ -81,6 +85,7 @@ describe('themeImageFields with browser-prefixed themes', () => {
     expect(themeImageFields(manifestPath, 'edge')).toEqual({
       'theme/images/theme_frame': path.join(dir, 'images/frame.png')
     })
+
     expect(themeImageFields(manifestPath, 'firefox')).toEqual({})
   })
 
@@ -91,6 +96,7 @@ describe('themeImageFields with browser-prefixed themes', () => {
     expect(themeImageFields(manifestPath, 'chrome')).toEqual({
       'theme/images/theme_frame': path.join(dir, 'images/frame.png')
     })
+
     expect(themeImageFields(manifestPath, 'edge')).toEqual({})
   })
 })

@@ -19,6 +19,7 @@ export function omniboxIconFields(
   browser: DevOptions['browser'] = 'chrome'
 ): FilepathList {
   let manifest: {omnibox?: {default_icon?: unknown}}
+
   try {
     // An omnibox written under a browser prefix is invisible to a raw read,
     // and the manifest then names an icon path nothing produces.
@@ -29,8 +30,10 @@ export function omniboxIconFields(
   } catch {
     return {}
   }
+
   const icon = manifest?.omnibox?.default_icon
   if (!icon) return {}
+
   const manifestDir = path.dirname(manifestPath)
   // Root-absolute spellings stay raw so the emitter reads them as
   // extension-root refs; everything else resolves from the manifest folder.
@@ -41,6 +44,7 @@ export function omniboxIconFields(
       ? path.join(manifestDir, value)
       : String(value)
   if (typeof icon === 'string') return {'omnibox/default_icon': resolve(icon)}
+
   if (typeof icon === 'object') {
     return {
       'omnibox/default_icon': Object.fromEntries(
@@ -51,5 +55,6 @@ export function omniboxIconFields(
       ) as unknown as string
     }
   }
+
   return {}
 }

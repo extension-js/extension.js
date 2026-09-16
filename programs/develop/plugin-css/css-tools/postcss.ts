@@ -83,6 +83,7 @@ function isLikelyCjsConfigInEsmProject(
 
   try {
     const text = fs.readFileSync(postCssConfigPath, 'utf8')
+
     return /module\.exports|require\(/.test(text)
   } catch {
     return false
@@ -91,6 +92,7 @@ function isLikelyCjsConfigInEsmProject(
 
 function isLikelyCjsTailwindConfig(tailwindConfigPath?: string): boolean {
   if (!tailwindConfigPath) return false
+
   if (
     !tailwindConfigPath.endsWith('.js') &&
     !tailwindConfigPath.endsWith('.cjs')
@@ -100,6 +102,7 @@ function isLikelyCjsTailwindConfig(tailwindConfigPath?: string): boolean {
 
   try {
     const text = fs.readFileSync(tailwindConfigPath, 'utf8')
+
     return /module\.exports|require\(/.test(text)
   } catch {
     return false
@@ -169,16 +172,19 @@ export async function loadUserPostCssConfigObject(
         // hand-rolled CJS load gets its own turn, and only if that fails
         // too is the file reported as unreadable.
         loaded = tryLoadCjsConfig(configPath, {report: false})
+
         if (loaded === undefined) {
           console.warn(
             messages.postCssConfigUnreadable(configPath, importError)
           )
+
           return undefined
         }
       }
     }
   } catch (error) {
     console.warn(messages.postCssConfigUnreadable(configPath, error))
+
     return undefined
   }
 
@@ -187,6 +193,7 @@ export async function loadUserPostCssConfigObject(
       loaded = loaded({env: mode, mode, cwd: projectPath})
     } catch (error) {
       console.warn(messages.postCssConfigUnreadable(configPath, error))
+
       return undefined
     }
   }
@@ -196,6 +203,7 @@ export async function loadUserPostCssConfigObject(
   // A plugins value PostCSS could never take is a config mistake, not an
   // absent config: say so instead of silently dropping the whole file.
   const plugins = (loaded as {plugins?: unknown}).plugins
+
   if (
     plugins !== undefined &&
     plugins !== null &&
@@ -203,6 +211,7 @@ export async function loadUserPostCssConfigObject(
     typeof plugins !== 'object'
   ) {
     console.warn(messages.postCssConfigPluginsShape(configPath, typeof plugins))
+
     return undefined
   }
 
@@ -225,16 +234,20 @@ function resolveConfigPluginModule(
   const bases = Array.from(
     new Set([projectPath, configDir || ''].filter(Boolean))
   )
+
   for (const base of bases) {
     try {
       const req = createRequire(path.join(base, '__extensionjs__.js'))
+
       return unwrapDefaultExport(req(name))
     } catch {
       // Ignore
     }
   }
+
   try {
     const req = createRequire(import.meta.url)
+
     return unwrapDefaultExport(req(name))
   } catch {
     return undefined
@@ -279,6 +292,7 @@ function resolveConfigPluginList(
     if (typeof entry !== 'string') {
       if (ctx.bailOnFunctionEntries) return undefined
       if (entry) plugins.push(entry)
+
       continue
     }
 
@@ -286,6 +300,7 @@ function resolveConfigPluginList(
 
     if (isTailwind) {
       if (tailwindUsed) continue
+
       if (ctx.tailwindInstance) {
         plugins.push(ctx.tailwindInstance)
         tailwindUsed = true
@@ -307,6 +322,7 @@ function resolveConfigPluginList(
           : pluginOpts == null || pluginOpts === true
             ? {}
             : pluginOpts
+
       try {
         plugins.push(mod(callOpts))
         if (isTailwind) tailwindUsed = true
@@ -342,11 +358,13 @@ function tryLoadCjsConfig(
       source
     )
     fn(req, moduleObj, exportsObj, configPath, path.dirname(configPath))
+
     return moduleObj.exports
   } catch (error) {
     if (options.report) {
       console.warn(messages.postCssConfigUnreadable(configPath, error))
     }
+
     return undefined
   }
 }
@@ -375,11 +393,13 @@ function normalizeTailwindContentGlobs(
 
   if (typeof content === 'string') {
     out.content = [normalizeEntry(content)]
+
     return out
   }
 
   if (Array.isArray(content)) {
     out.content = content.map(normalizeEntry)
+
     return out
   }
 
@@ -397,8 +417,10 @@ function getDeclaredTailwindMajor(projectPath: string): number | undefined {
   try {
     const version = readProjectDependencies(projectPath).tailwindcss
     if (typeof version !== 'string') return undefined
+
     const match = version.match(/(\d+)/)
     if (!match) return undefined
+
     return parseInt(match[1], 10)
   } catch {
     return undefined
@@ -416,6 +438,7 @@ export function isUsingPostCss(projectPath: string): boolean {
 
       userMessageDelivered = true
     }
+
     return true
   }
 
@@ -443,6 +466,7 @@ export function isUsingPostCss(projectPath: string): boolean {
 
       userMessageDelivered = true
     }
+
     return true
   }
 
@@ -470,6 +494,7 @@ export async function maybeUsePostCss(
     try {
       const raw = fs.readFileSync(path.join(p, 'package.json'), 'utf8')
       const pkg = JSON.parse(raw || '{}')
+
       return {hasPostCss: !!pkg?.postcss, config: pkg?.postcss}
     } catch {
       return {hasPostCss: false}
@@ -521,9 +546,11 @@ export async function maybeUsePostCss(
           : ['@tailwindcss/postcss', 'tailwindcss']
       let tailwindMod: AnyModule | undefined
       let tailwindPluginId: string | undefined
+
       for (const base of bases) {
         try {
           const req = createRequire(path.join(base, '__extensionjs__.js'))
+
           for (const id of pluginCandidates) {
             try {
               tailwindMod = req(id)
@@ -533,6 +560,7 @@ export async function maybeUsePostCss(
               // Ignore
             }
           }
+
           if (tailwindMod) break
         } catch {
           // Ignore
@@ -556,6 +584,7 @@ export async function maybeUsePostCss(
             // to preserve user theme/content tokens like border-border.
             if (tailwindPluginId === 'tailwindcss') {
               const configFile = getTailwindConfigFile(projectPath)
+
               if (configFile) {
                 // Load CJS config to normalize relative content globs against the extension
                 // project path, avoiding cwd-dependent misses in monorepos.
@@ -596,6 +625,7 @@ export async function maybeUsePostCss(
                       path.join(base, '__extensionjs__.js')
                     )
                     let postcssMod = req('@tailwindcss/postcss')
+
                     if (
                       postcssMod &&
                       typeof postcssMod === 'object' &&
@@ -603,6 +633,7 @@ export async function maybeUsePostCss(
                     ) {
                       postcssMod = postcssMod.default
                     }
+
                     if (typeof postcssMod === 'function') {
                       instance = postcssMod({base: projectPath})
                       tailwindPluginId = '@tailwindcss/postcss'
@@ -646,8 +677,10 @@ export async function maybeUsePostCss(
   // Project-first plugin resolution: when the user's config is parseable, load
   // it here and resolve string plugins against the project, bypassing postcss-loader.
   let selfResolved: {plugins: AnyModule[]; unresolved: string[]} | undefined
+
   try {
     let configObject: AnyModule
+
     if (
       pkgHasPostCss &&
       pkgPostCssConfig &&
@@ -661,6 +694,7 @@ export async function maybeUsePostCss(
         String(opts.mode || 'development')
       )
     }
+
     if (configObject?.plugins) {
       selfResolved = resolveConfigPluginList(configObject.plugins, {
         projectPath,
@@ -768,6 +802,7 @@ export async function maybeUsePostCss(
         pkgHasPostCss,
         tailwindPresent
       )
+
       const resolvedPluginsCount = Array.isArray(postcssOptions.plugins)
         ? postcssOptions.plugins.length
         : 0

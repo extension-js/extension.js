@@ -35,6 +35,7 @@ function cliRoot(): string {
 function cliBin(): string {
   const cjs = path.join(cliRoot(), 'dist', 'cli.cjs')
   if (fs.existsSync(cjs)) return cjs
+
   return path.join(cliRoot(), 'dist', 'cli.js')
 }
 
@@ -125,6 +126,7 @@ describe('CLI help parity contract', () => {
       expect(`${command.name()} ${actual}`.trim()).toBe(
         `${spec.name} ${registeredArgSignature(spec.positionals)}`.trim()
       )
+
       expect(command.description()).toBe(spec.description)
     }
   })
@@ -162,6 +164,7 @@ describe('CLI help parity contract', () => {
       'action',
       'command'
     ])
+
     expect(commandSpec('storage').positionals[0].values).toEqual(['get', 'set'])
   })
 
@@ -183,6 +186,7 @@ describe('CLI help parity contract', () => {
     expect(help).toContain(
       '--format and --wait-format still work as deprecated aliases of --output'
     )
+
     expect(help).toContain('--help')
   })
 
@@ -197,6 +201,7 @@ describe('CLI help parity contract', () => {
     expect(out).toContain(
       'Development tips for extension developers and AI assistants'
     )
+
     expect(out).toContain('Managed dependencies (important)')
   })
 
@@ -205,10 +210,12 @@ describe('CLI help parity contract', () => {
 
     for (const command of program.commands) {
       const help = command.helpInformation()
+
       // Only visible options: commander renders help through visibleOptions(),
       // so a deliberately hidden alias is absent by design, not by drift.
       for (const option of command.options) {
         if (option.hidden) continue
+
         expect(help).toContain(option.long)
       }
     }

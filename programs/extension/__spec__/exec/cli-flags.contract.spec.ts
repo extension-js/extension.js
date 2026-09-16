@@ -14,6 +14,7 @@ function withoutTestRunnerMarkers(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   delete copy.VITEST
   delete copy.VITEST_WORKER_ID
   delete copy.VITEST_POOL_ID
+
   return copy
 }
 
@@ -34,6 +35,7 @@ function cli(args: string[], cwd = root) {
     },
     timeout: 120_000
   })
+
   return {
     status: result.status,
     stdout: String(result.stdout || ''),
@@ -48,6 +50,7 @@ function envelope(stdout: string): Record<string, unknown> {
     .map((l) => l.trim())
     .find((l) => l.startsWith('{"schema":1'))
   expect(line, `no schema-1 envelope on stdout:\n${stdout}`).toBeDefined()
+
   return JSON.parse(String(line))
 }
 
@@ -59,17 +62,21 @@ beforeAll(() => {
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'cli-flags', version: '0.0.0'})
   )
+
   fs.writeFileSync(
     path.join(src, 'manifest.json'),
     JSON.stringify({manifest_version: 3, name: 'cli-flags', version: '1.0.0'})
   )
+
   fakeBinary = path.join(root, 'fakefox')
   fs.writeFileSync(fakeBinary, '#!/bin/sh\nexit 0\n')
   fs.chmodSync(fakeBinary, 0o755)
+
   if (hasCli) {
     const build = cli(['build', src, '--browser', 'firefox'])
     expect(build.status, build.all).toBe(0)
   }
+
   built = path.join(root, 'dist', 'firefox')
 })
 

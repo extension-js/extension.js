@@ -51,4 +51,5 @@ const run = spawnSync(
 )
 
 if (run.error) console.error(run.error.message)
+
 process.exit(run.status ?? 1)

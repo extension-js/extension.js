@@ -22,6 +22,7 @@ describe('browser target normalization', () => {
   it('throws BrowserNotInstallableError for system-located forks', () => {
     expect(() => normalizeBrowserName('brave')).toThrow(/never downloads/)
     expect(() => normalizeBrowserName('chrome,edge')).toThrow(/never downloads/)
+
     try {
       normalizeBrowserName('brave')
     } catch (error) {
@@ -36,6 +37,7 @@ describe('browser target normalization', () => {
     expect(() => normalizeBrowserName('acme-webkit')).toThrow(
       /ships with macOS/
     )
+
     try {
       normalizeBrowserName('safari')
     } catch (error) {

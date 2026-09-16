@@ -6,12 +6,6 @@
 // ╚═════╝ ╚══════╝  ╚═══╝        ╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-// A manifest entrypoint added mid-watch (a second content script, a toolbar
-// icon, a new page) is outside the include list the running compiler was
-// built with, so HMR cannot carry it. The plugins that notice such a change
-// ask the session to restart itself; the dev server, which outlives the
-// compiler being torn down, performs one restart for a burst of saves.
-
 export type DevSessionRestartReason = 'scripts' | 'html' | 'icons' | 'json'
 
 export interface DevSessionRestartRequest {
@@ -47,6 +41,7 @@ export class DevSessionRestartScheduler {
   request(request: DevSessionRestartRequest): void {
     this.latest = request
     if (this.inFlight) return
+
     this.schedule()
   }
 
@@ -56,6 +51,7 @@ export class DevSessionRestartScheduler {
 
   dispose(): void {
     if (this.timer) clearTimeout(this.timer)
+
     this.timer = undefined
     this.latest = null
     this.handler = null
@@ -63,25 +59,31 @@ export class DevSessionRestartScheduler {
 
   private schedule(): void {
     if (this.timer) clearTimeout(this.timer)
+
     if (this.debounceMs === 0) {
       void this.flush()
+
       return
     }
+
     this.timer = setTimeout(() => {
       this.timer = undefined
       void this.flush()
     }, this.debounceMs)
+
     this.timer.unref?.()
   }
 
   private async flush(): Promise<void> {
     if (this.inFlight) return
+
     const request = this.latest
     const handler = this.handler
     if (!request || !handler) return
 
     this.latest = null
     this.inFlight = true
+
     try {
       await handler(request)
     } catch {
@@ -121,7 +123,9 @@ export function requestDevSessionRestart(
 ): boolean {
   if (!boundScheduler) return false
   if (compiler) restartingCompilers.add(compiler)
+
   boundScheduler.request(request)
+
   return true
 }
 

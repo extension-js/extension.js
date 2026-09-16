@@ -8,6 +8,7 @@ const created: string[] = []
 function makeTempDir(prefix: string) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix))
   created.push(dir)
+
   return dir
 }
 
@@ -24,6 +25,7 @@ afterEach(() => {
       // Ignore
     }
   }
+
   created.length = 0
 })
 
@@ -45,6 +47,7 @@ describe('needsInstall', () => {
       path.join(project, 'package.json'),
       JSON.stringify({name: 'x', dependencies: {tailwindcss: '^3.4.13'}})
     )
+
     fs.mkdirSync(path.join(project, 'node_modules'), {recursive: true})
 
     const {needsInstall, asAbsolute} = await import('../paths')
@@ -57,6 +60,7 @@ describe('needsInstall', () => {
       path.join(project, 'package.json'),
       JSON.stringify({name: 'x', dependencies: {tailwindcss: '^3.4.13'}})
     )
+
     fs.mkdirSync(path.join(project, 'node_modules', 'tailwindcss'), {
       recursive: true
     })
@@ -74,6 +78,7 @@ describe('needsInstall', () => {
         dependencies: {tailwindcss: '^3.4.13', autoprefixer: '^10.4.20'}
       })
     )
+
     fs.mkdirSync(path.join(project, 'node_modules', 'tailwindcss'), {
       recursive: true
     })
@@ -105,6 +110,7 @@ describe('needsInstall', () => {
       path.join(member, 'package.json'),
       JSON.stringify({name: 'x', dependencies: {tailwindcss: '^3.4.13'}})
     )
+
     fs.mkdirSync(path.join(root, 'node_modules', 'tailwindcss'), {
       recursive: true
     })
@@ -122,6 +128,7 @@ describe('needsInstall', () => {
       path.join(member, 'package.json'),
       JSON.stringify({name: 'x', dependencies: {tailwindcss: '^3.4.13'}})
     )
+
     fs.mkdirSync(path.join(root, 'node_modules', 'other'), {recursive: true})
 
     const {needsInstall, asAbsolute} = await import('../paths')
@@ -137,6 +144,7 @@ describe('needsInstall', () => {
         dependencies: {tailwindcss: '^3.4.13'}
       })
     )
+
     fs.mkdirSync(path.join(project, 'node_modules', '.pnpm'), {
       recursive: true
     })

@@ -55,6 +55,7 @@ function handleCantResolveError(
 
         const dir = path.dirname(resource as string)
         const candidates = new Set<string>([path.normalize(wrongFilename)])
+
         try {
           candidates.add(path.normalize(path.join(dir, wrongFilename)))
           candidates.add(path.normalize(path.basename(wrongFilename)))
@@ -79,6 +80,7 @@ function handleCantResolveError(
 
           while ((m = attrRe.exec(htmlText))) {
             const raw = m[2]
+
             if (path.basename(raw) === base || raw.endsWith(`/${base}`)) {
               isPublicRoot = raw.startsWith('/')
               matchedRawAttr = raw
@@ -105,6 +107,7 @@ function handleCantResolveError(
           warn.name = 'HtmlEntrypointMissing'
           // @ts-expect-error - file is not a property of WebpackError
           warn.file = path.relative(manifestDir, resource as string)
+
           return warn
         }
       }
@@ -148,12 +151,14 @@ export class HandleCommonErrors {
                   compilation,
                   path.dirname(this.manifestPath)
                 )
+
                 if (cantResolveError) {
                   compilation.errors[index] = cantResolveError
                 }
               })
             }
           )
+
           return
         }
 
@@ -166,6 +171,7 @@ export class HandleCommonErrors {
               compilation,
               path.dirname(this.manifestPath)
             )
+
             return replaced || error
           })
           compilation.errors = transformed
@@ -185,6 +191,7 @@ export class HandleCommonErrors {
             compilation,
             path.dirname(this.manifestPath)
           )
+
           return replaced || error
         })
 

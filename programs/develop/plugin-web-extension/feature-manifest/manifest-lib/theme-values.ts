@@ -29,6 +29,7 @@ const isFiniteNumber = (entry: unknown): boolean =>
 // refusing. Returns [R, G, B] or [R, G, B, A] with a 0-1 alpha, or undefined.
 export function parseHexThemeColor(value: unknown): number[] | undefined {
   if (typeof value !== 'string') return undefined
+
   const match = /^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.exec(value.trim())
   if (!match) return undefined
 
@@ -40,6 +41,7 @@ export function parseHexThemeColor(value: unknown): number[] | undefined {
   const bytes = digits.map((pair) => parseInt(pair, 16))
 
   if (bytes.length === 3) return bytes
+
   return [...bytes.slice(0, 3), Math.round((bytes[3] / 255) * 1000) / 1000]
 }
 
@@ -67,6 +69,7 @@ export function parseCssThemeColor(value: unknown): number[] | undefined {
   const channels = match.slice(1, 4).map(Number)
   if (channels.some((channel) => channel > 255)) return undefined
   if (match[4] === undefined) return channels
+
   return [...channels, Number(match[4])]
 }
 
@@ -121,8 +124,13 @@ export function collectThemeValueIssues(
   ]
 
   for (const [group, container, detailFor] of groups) {
-    if (!container || typeof container !== 'object' || Array.isArray(container))
+    if (
+      !container ||
+      typeof container !== 'object' ||
+      Array.isArray(container)
+    ) {
       continue
+    }
 
     for (const [key, value] of Object.entries(
       container as Record<string, unknown>

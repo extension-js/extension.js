@@ -55,10 +55,12 @@ function writeClassicFixture() {
     path.join(CLASSIC_ROOT, 'lib', 'storage.js'),
     'var storage = {value: "ok"};\n'
   )
+
   fs.writeFileSync(
     path.join(CLASSIC_ROOT, 'lib', 'format.js'),
     'function formatValue() { return "storage:" + storage.value; }\n'
   )
+
   fs.writeFileSync(
     path.join(CLASSIC_ROOT, 'popup.js'),
     'document.title = formatValue();\n'
@@ -97,6 +99,7 @@ function writeModuleFixture() {
     path.join(MODULE_ROOT, 'helper.js'),
     'globalThis.helperReady = true;\n'
   )
+
   fs.writeFileSync(
     path.join(MODULE_ROOT, 'popup.js'),
     'export const started = true;\ndocument.title = "module ran";\n'
@@ -166,6 +169,7 @@ async function buildFixture(root: string) {
     } else {
       process.env.EXTENSION_AUTHOR_MODE = previousAuthorMode
     }
+
     if (previousVitest === undefined) {
       delete process.env.VITEST
     } else {
@@ -206,6 +210,7 @@ describe('build: HTML pages with multiple classic scripts (real rspack)', () => 
     vm.runInContext(fs.readFileSync(bundlePath, 'utf8'), context, {
       filename: 'action/index.js'
     })
+
     expect((context as any).document.title).toBe('storage:ok')
   }, 120_000)
 
@@ -239,6 +244,7 @@ describe('build: HTML pages with multiple classic scripts (real rspack)', () => 
       context,
       {filename: 'action/index.js'}
     )
+
     expect((context as any).Handlebars).toBeDefined()
 
     const inlineOpen = html.indexOf('<script>')

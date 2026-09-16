@@ -22,6 +22,7 @@ async function findUpLocal(
   options: {cwd: string}
 ): Promise<string | undefined> {
   if (isUrlShaped(options.cwd)) return undefined
+
   const root = path.parse(path.resolve(options.cwd)).root
   let currentDir = path.resolve(options.cwd)
 
@@ -40,6 +41,7 @@ async function findUpLocal(
     // filesystem root, so stop as soon as the walk stops climbing.
     const parentDir = path.dirname(currentDir)
     if (currentDir === root || parentDir === currentDir) return undefined
+
     currentDir = parentDir
   }
 }
@@ -49,6 +51,7 @@ function findUpLocalSync(
   options: {cwd: string}
 ): string | undefined {
   if (isUrlShaped(options.cwd)) return undefined
+
   const root = path.parse(path.resolve(options.cwd)).root
   let currentDir = path.resolve(options.cwd)
 
@@ -66,6 +69,7 @@ function findUpLocalSync(
     // filesystem root, so stop as soon as the walk stops climbing.
     const parentDir = path.dirname(currentDir)
     if (currentDir === root || parentDir === currentDir) return undefined
+
     currentDir = parentDir
   }
 }
@@ -82,6 +86,7 @@ export async function findNearestPackageJson(
     return packageJsonPath || null
   } catch (error) {
     console.warn('Failed to find package.json:', error)
+
     return null
   }
 }
@@ -98,6 +103,7 @@ export function findNearestPackageJsonSync(
     return packageJsonPath || null
   } catch (error) {
     console.warn('Failed to find package.json:', error)
+
     return null
   }
 }
@@ -110,9 +116,11 @@ export function validatePackageJson(packageJsonPath: string): boolean {
 
     const content = fs.readFileSync(packageJsonPath, 'utf-8')
     JSON.parse(content)
+
     return true
   } catch (error) {
     console.warn('Invalid package.json at:', packageJsonPath, error)
+
     return false
   }
 }

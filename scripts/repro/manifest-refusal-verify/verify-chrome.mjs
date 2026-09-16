@@ -6,8 +6,6 @@
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-// Drive real Chrome via CDP Extensions.loadUnpacked for every fixture and
-// record the exact acceptance/refusal per shape. One browser, sequential loads.
 import {spawn} from 'node:child_process'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
@@ -20,6 +18,7 @@ const index = JSON.parse(
 )
 
 const CHROME = process.env.CHROME_BIN
+
 if (!CHROME || !fs.existsSync(CHROME)) {
   console.error('CHROME_BIN missing')
   process.exit(1)
@@ -47,11 +46,13 @@ let wsUrl = null
 const wsReady = new Promise((resolve, reject) => {
   const onData = (chunk) => {
     const m = /DevTools listening on (ws:\/\/\S+)/.exec(String(chunk))
+
     if (m) {
       wsUrl = m[1]
       resolve(wsUrl)
     }
   }
+
   chrome.stderr.on('data', onData)
   chrome.stdout.on('data', onData)
   chrome.on('exit', (code) => reject(new Error(`chrome exited early: ${code}`)))
@@ -71,13 +72,16 @@ try {
 
   let nextId = 1
   const pending = new Map()
+
   ws.onmessage = (event) => {
     const msg = JSON.parse(String(event.data))
+
     if (msg.id && pending.has(msg.id)) {
       pending.get(msg.id)(msg)
       pending.delete(msg.id)
     }
   }
+
   const send = (method, params = {}) =>
     new Promise((resolve) => {
       const id = nextId++
@@ -89,6 +93,7 @@ try {
   console.log(`# ${version.result?.product}`)
 
   const results = []
+
   for (const {id, expect} of index) {
     const dir = path.join(fixturesRoot, id)
     const reply = await send('Extensions.loadUnpacked', {path: dir})
@@ -101,6 +106,7 @@ try {
     results.push({id, expect, outcome, verdict, detail})
     console.log(`${id}\t${outcome}\t${verdict}\t${detail}`)
   }
+
   fs.writeFileSync(
     path.join(here, 'results-chrome.json'),
     JSON.stringify(results, null, 2)

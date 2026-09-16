@@ -34,11 +34,13 @@ const SCAFFOLDER_SOURCE = path.resolve(
 function readScaffolderLiteral(pattern: RegExp): string {
   const source = fs.readFileSync(SCAFFOLDER_SOURCE, 'utf8')
   const match = pattern.exec(source)
+
   if (!match) {
     throw new Error(
       `Could not read ${pattern} from ${path.basename(SCAFFOLDER_SOURCE)}`
     )
   }
+
   return match[1]
 }
 
@@ -55,7 +57,9 @@ function createHelp(): string {
       captured += chunk
     }
   })
+
   create.outputHelp()
+
   return captured
 }
 
@@ -90,6 +94,7 @@ describe('template catalog', () => {
 
   it('renders every name in the plain listing', () => {
     const rendered = renderTemplateList({color: false})
+
     for (const name of listTemplates()) {
       expect(rendered).toContain(name)
     }
@@ -97,6 +102,7 @@ describe('template catalog', () => {
 
   it('renders no alias section while the alias list is empty', () => {
     if (TEMPLATE_ALIASES.length > 0) return
+
     const rendered = renderTemplateList({color: false})
     expect(rendered).not.toContain('Aliases')
     expect(rendered.endsWith('\n')).toBe(false)
@@ -111,6 +117,7 @@ describe('extension create --help', () => {
 
   it('lists every catalog name a human can pass', () => {
     const help = createHelp()
+
     for (const name of listTemplates()) {
       expect(help).toContain(name)
     }
@@ -124,6 +131,7 @@ describe('extension create --help', () => {
 describe('--ai-help', () => {
   it('teaches the same names the CLI can scaffold', () => {
     const pretty = programAIHelp()
+
     for (const name of listTemplates()) {
       expect(pretty).toContain(name)
     }
@@ -148,6 +156,7 @@ describe('--ai-help', () => {
     // machine-readable help has to carry them: a reader that only sees `names`
     // would conclude `new-react` is gone rather than renamed.
     expect(Array.isArray(json.templates.aliases)).toBe(true)
+
     for (const alias of json.templates.aliases as {
       name: string
       resolvesTo: string
@@ -155,6 +164,7 @@ describe('--ai-help', () => {
       expect(json.templates.names).not.toContain(alias.name)
       expect(json.templates.names).toContain(alias.resolvesTo)
     }
+
     expect(json.templates.names).toContain('init')
   })
 })
@@ -199,6 +209,7 @@ describe('catalog matches the corpus it scaffolds from', () => {
     )
     const scaffolderNames = [...bundled.matchAll(/'([^']+)'/g)].map((m) => m[1])
     expect([...BUNDLED_TEMPLATES]).toEqual(scaffolderNames)
+
     for (const name of BUNDLED_TEMPLATES) {
       expect(
         fs.existsSync(path.resolve(__dirname, '../../create/templates', name)),
@@ -223,6 +234,7 @@ describe('catalog matches the corpus it scaffolds from', () => {
       expect(listTemplates(), name).toContain(name)
       expect(rendered, name).toContain(name)
     }
+
     if (uncurated.length) {
       expect(rendered).toContain(UNCURATED_GROUP_TITLE)
     }

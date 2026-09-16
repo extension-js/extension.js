@@ -68,14 +68,17 @@ import type {BuildOptions} from './types'
 function collapseHomeDir(value: string): string {
   const home = os.homedir()
   if (!home || !value.startsWith(home)) return value
+
   const rest = value.slice(home.length)
   if (rest === '') return '~'
   if (rest.startsWith(nodePath.sep) || rest.startsWith('/')) return `~${rest}`
+
   return value
 }
 
 function relativeToCwd(target: string): string | null {
   const relative = nodePath.relative(process.cwd(), target)
+
   if (
     relative &&
     !relative.startsWith('..') &&
@@ -83,6 +86,7 @@ function relativeToCwd(target: string): string | null {
   ) {
     return relative
   }
+
   return null
 }
 
@@ -98,6 +102,7 @@ function printBuildCard(
   if (!claimCardKey(`${browser}::${nodePath.resolve(distPath)}`)) return
 
   let extensionLabel = ''
+
   try {
     const manifest = parseJsonSafe(fs.readFileSync(manifestPath, 'utf-8'))
     const name = String(manifest?.name || '').trim()
@@ -125,6 +130,7 @@ function printBuildCard(
       ]
     })
   )
+
   humanLine(' ')
   process.env.EXTENSION_CLI_BANNER_PRINTED = 'true'
 }
@@ -168,6 +174,7 @@ export async function extensionBuild(
 
   try {
     await ensureDevelopArtifacts()
+
     if (buildOptions?.install !== false) {
       await ensureUserProjectDependencies(packageJsonDir)
     }
@@ -194,6 +201,7 @@ export async function extensionBuild(
     const debug = isAuthor
     const userManifestPath =
       projectStructure.packageJsonPath || projectStructure.denoJsonPath
+
     if (userManifestPath) {
       assertNoManagedDependencyConflicts(userManifestPath, manifestDir)
     }
@@ -231,6 +239,7 @@ export async function extensionBuild(
           buildOptions?.geckoBinary || buildOptions?.firefoxBinary
         )
       )
+
       console.log(messages.debugOutputPath(distPath))
     }
 
@@ -252,6 +261,7 @@ export async function extensionBuild(
       buildOptions?.mode === 'production'
         ? buildOptions.mode
         : 'production'
+
     if (resolvedMode === 'development' || resolvedMode === 'production') {
       process.env.NODE_ENV = resolvedMode
     }
@@ -302,6 +312,7 @@ export async function extensionBuild(
     // under a re-pointed output.path is not dist/<browser>.
     const displayDistPath =
       useStagingSwap || !mergedOutputPath ? distPath : mergedOutputPath
+
     if (!useStagingSwap && mergedOutputPath) {
       try {
         fs.rmSync(mergedOutputPath, {recursive: true, force: true})
@@ -327,6 +338,7 @@ export async function extensionBuild(
         if (err) {
           console.error(err.stack || err)
           removeStagingDir(stagingDistPath)
+
           return reject(err)
         }
 
@@ -334,6 +346,7 @@ export async function extensionBuild(
         // does not provide stats, which means we cannot trust emission output.
         if (!stats || typeof stats.hasErrors !== 'function') {
           removeStagingDir(stagingDistPath)
+
           return reject(
             new Error(
               'Build failed: bundler returned invalid stats output (no reliable compilation result).'
@@ -366,8 +379,10 @@ export async function extensionBuild(
               promoteStagingDist(stagingDistPath, distPath)
             } catch (promoteError) {
               removeStagingDir(stagingDistPath)
+
               return reject(promoteError)
             }
+
             stampReadyDistExtensionId(packageJsonDir, browser, distPath)
           }
 
@@ -390,6 +405,7 @@ export async function extensionBuild(
           // promoted dist and its findings join the warnings, never the
           // errors. A missing linter is one hint, a broken one a debug line.
           const lintLines: string[] = []
+
           try {
             const lint = await runAddonLint({
               projectPath: packageJsonDir,
@@ -399,6 +415,7 @@ export async function extensionBuild(
               mode: resolvedMode,
               enabled: mergedBuildOptions.addonLint
             })
+
             if (lint.status === 'missing' && lint.hint) {
               lintLines.push(lint.hint)
             } else if (lint.status === 'failed' && isDebug()) {
@@ -459,8 +476,10 @@ export async function extensionBuild(
             const zipDisplay = relativeToCwd(artifactPath) || artifactPath
             humanLine(messages.zipArtifactReady(zipDisplay, artifact.size))
           }
+
           const shareHint = messages.buildShareHint()
           if (shareHint) humanLine(shareHint)
+
           resolve()
         } else {
           // A failed compile keeps the last-good dist: nothing was written to
@@ -469,19 +488,23 @@ export async function extensionBuild(
           handleStatsErrors(stats)
 
           let errorCount = 1
+
           try {
             const info = stats.toJson({all: false, errors: true})
             errorCount = Math.max(1, info?.errors?.length || 1)
           } catch {
             // Ignore
           }
+
           console.error(messages.buildFailed(errorCount))
 
           if (!shouldExitOnError) {
             const failure = new Error('Build failed with errors')
             reportedBuildFailures.add(failure)
+
             return reject(failure)
           }
+
           process.exit(1)
         }
       })
@@ -510,6 +533,7 @@ export async function extensionBuild(
       // programmatic caller does not have to read project.pbxproj to learn it.
       if (safari) {
         summary = {...summary, safari}
+
         try {
           fs.writeFileSync(
             buildSummaryPath(packageJsonDir, browser),
@@ -518,6 +542,7 @@ export async function extensionBuild(
         } catch {
           // Never fail a green build over the informational contract.
         }
+
         // Safari registers the extension under the appex identity,
         // `<bundleId>.Extension`, so that is the truthful ready.json id.
         if (safari.bundleId) {
@@ -535,17 +560,21 @@ export async function extensionBuild(
     removeStagingDir(stagingDistPath)
     const alreadyReported =
       error instanceof Error && reportedBuildFailures.has(error)
+
     if (!alreadyReported) {
       if (isDebug()) {
         console.error(error)
       } else {
         console.error(messages.buildCommandFailed(error))
       }
+
       console.error(messages.buildFailed(1))
     }
+
     if (!shouldExitOnError) {
       throw error
     }
+
     process.exit(1)
   }
 }

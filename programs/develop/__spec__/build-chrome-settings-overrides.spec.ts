@@ -23,6 +23,7 @@ function project() {
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'settings', version: '0.0.0'})
   )
+
   fs.mkdirSync(path.join(root, 'icons'))
   fs.mkdirSync(path.join(root, 'pages'))
   fs.writeFileSync(path.join(root, 'icons', 'fav.png'), PNG)
@@ -30,6 +31,7 @@ function project() {
     path.join(root, 'pages', 'start.html'),
     '<!doctype html><title>start</title>'
   )
+
   fs.writeFileSync(
     path.join(root, 'manifest.json'),
     JSON.stringify({
@@ -48,6 +50,7 @@ function project() {
       }
     })
   )
+
   return root
 }
 
@@ -57,6 +60,7 @@ describe('chrome_settings_overrides', () => {
     const {extensionBuild} = await import('../command-build')
     const previous = process.env.VITEST
     process.env.VITEST = 'true'
+
     try {
       const summary = await extensionBuild(root, {
         browser: 'firefox',
@@ -70,6 +74,7 @@ describe('chrome_settings_overrides', () => {
       if (previous === undefined) delete process.env.VITEST
       else process.env.VITEST = previous
     }
+
     const distDir = path.join(root, 'dist', 'firefox')
     const built = JSON.parse(
       fs.readFileSync(path.join(distDir, 'manifest.json'), 'utf8')
@@ -79,16 +84,20 @@ describe('chrome_settings_overrides', () => {
     expect(overrides.search_provider.search_url).toBe(
       'https://x.example/?q={searchTerms}'
     )
+
     expect(overrides.startup_pages[0]).toBe('https://example.com/start')
     expect(overrides.startup_pages[1]).toBe(
       'chrome_settings_overrides/startup-1.html'
     )
+
     expect(fs.existsSync(path.join(distDir, overrides.startup_pages[1]))).toBe(
       true
     )
+
     expect(overrides.search_provider.favicon_url).toBe(
       'chrome_settings_overrides/fav.png'
     )
+
     expect(
       fs.existsSync(path.join(distDir, overrides.search_provider.favicon_url))
     ).toBe(true)

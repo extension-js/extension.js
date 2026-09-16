@@ -25,11 +25,13 @@ export function classifyAddonInstallFailure(
   if (error instanceof Error) return {status: 'unknown'}
 
   const reply = error as {error?: unknown; message?: unknown}
+
   if (!reply || typeof reply !== 'object' || !reply.error) {
     return {status: 'unknown'}
   }
 
   const reason = String(reply.message || '').trim()
+
   return reason ? {status: 'refused', reason} : {status: 'unknown'}
 }
 
@@ -37,8 +39,10 @@ function normalizeFirefoxAddonPath(addonPath: string): string {
   const value = String(addonPath)
   // On Windows, keep native path separators for Firefox's RDP installTemporaryAddon.
   if (process.platform === 'win32') return value
+
   return value.replace(/\\/g, '/')
 }
+
 export async function getAddonsActorWithRetry(
   client: MessagingClient,
   cached: string | undefined,
@@ -46,11 +50,13 @@ export async function getAddonsActorWithRetry(
   delayMs = 250
 ): Promise<string | undefined> {
   if (cached) return cached
+
   let addonsActor: string | undefined
 
   for (let i = 0; i < tries && !addonsActor; i++) {
     try {
       const root = (await client.request('getRoot')) as {addonsActor?: string}
+
       if (root?.addonsActor) {
         addonsActor = root.addonsActor
         break
@@ -64,6 +70,7 @@ export async function getAddonsActorWithRetry(
         const tabs = (await client.request('listTabs')) as {
           addonsActor?: string
         }
+
         if (tabs?.addonsActor) {
           addonsActor = tabs.addonsActor
           break
@@ -140,11 +147,13 @@ export async function installTemporaryAddon(
   }
 
   let clientResponse: unknown
+
   try {
     clientResponse = await tryInstall(addonPath)
   } catch (error) {
     if (process.platform === 'win32') {
       const winPath = String(addonPath).replace(/\//g, '\\')
+
       if (winPath !== addonPath) {
         clientResponse = await tryInstall(winPath)
       } else {

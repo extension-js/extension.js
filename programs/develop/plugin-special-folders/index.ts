@@ -22,15 +22,6 @@ interface SpecialFoldersPluginOptions {
   manifestPath: string
 }
 
-/**
- * SpecialFoldersPlugin is responsible for handling the
- * special folders in the extension:
- *
- * - /pages - HTML pages not included in the manifest
- * - /scripts - Script files not included in the manifest
- * - /public - Static files not included in the manifest
- * - /extensions - Load-only companion extensions (unpacked)
- */
 export class SpecialFoldersPlugin {
   public static readonly name: string = 'plugin-special-folders'
 
@@ -78,6 +69,7 @@ export class SpecialFoldersPlugin {
             )
           )
         }
+
         compilation.hooks.processAssets.tapPromise(
           {
             name: `${SpecialFoldersPlugin.name}:root-absolute-refs`,
@@ -143,6 +135,7 @@ export class SpecialFoldersPlugin {
           }
         ]
       }).apply(compiler)
+
       if (isDebug()) {
         console.log(
           messages.specialFoldersSetupSummary(true, true, copyIgnore.length)
@@ -170,5 +163,6 @@ function pushLayoutWarning(
   const warning = new ErrorConstructor(message)
   warning.name = name
   if (!compilation.warnings) compilation.warnings = []
+
   compilation.warnings.push(warning)
 }

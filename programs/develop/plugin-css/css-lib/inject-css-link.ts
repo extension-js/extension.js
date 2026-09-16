@@ -21,6 +21,7 @@ export function injectCssLink(
     {name: 'rel', value: 'stylesheet'},
     {name: 'href', value: hrefOverride || `/${feature}.css`}
   ]
+
   const propagateLinkAttrs = new Set([
     'media',
     'crossorigin',
@@ -29,6 +30,7 @@ export function injectCssLink(
     'type',
     'disabled'
   ])
+
   if (firstLinkAttrs) {
     for (const attr of firstLinkAttrs) {
       if (
@@ -39,5 +41,6 @@ export function injectCssLink(
       }
     }
   }
+
   parse5utilities.append(headNode, linkTag)
 }

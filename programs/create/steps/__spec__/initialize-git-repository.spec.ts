@@ -1,7 +1,7 @@
-import {sync as spawnSync} from 'cross-spawn'
 import * as fs from 'node:fs/promises'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import {sync as spawnSync} from 'cross-spawn'
 import {afterEach, describe, expect, it} from 'vitest'
 import {
   firstCommitSubject,
@@ -25,6 +25,7 @@ async function withProject(
   fn: (projectPath: string) => Promise<void>
 ) {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'extjs-create-git-'))
+
   try {
     const configPath = path.join(dir, 'gitconfig')
     await fs.writeFile(
@@ -33,6 +34,7 @@ async function withProject(
         ? `[user]\n\tname = ${identity.name}\n\temail = ${identity.email}\n[init]\n\tdefaultBranch = main\n`
         : '[init]\n\tdefaultBranch = main\n'
     )
+
     process.env.GIT_CONFIG_GLOBAL = configPath
     process.env.GIT_CONFIG_SYSTEM = '/dev/null'
 
@@ -43,10 +45,12 @@ async function withProject(
     await fs.mkdir(path.join(projectPath, 'node_modules', 'left'), {
       recursive: true
     })
+
     await fs.writeFile(
       path.join(projectPath, 'node_modules', 'left', 'index.js'),
       'module.exports = 1\n'
     )
+
     await fn(projectPath)
   } finally {
     await fs.rm(dir, {recursive: true, force: true})
@@ -100,6 +104,7 @@ describe('initializeGitRepository', () => {
         expect(git(projectPath, ['log', '--oneline'])).toContain(
           'Create my-extension from the javascript template'
         )
+
         expect(lines.join('\n')).toBe('')
       }
     )
@@ -115,6 +120,7 @@ describe('initializeGitRepository', () => {
           'javascript',
           console
         )
+
         expect(git(projectPath, ['ls-files'])).not.toContain('node_modules')
       }
     )

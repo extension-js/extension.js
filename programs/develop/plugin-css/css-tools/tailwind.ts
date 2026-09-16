@@ -27,6 +27,7 @@ export function isUsingTailwind(projectPath: string) {
           `${prefix('debug')} ${messages.isUsingIntegration('Tailwind')}`
         )
       }
+
       userMessageDelivered = true
     }
   }

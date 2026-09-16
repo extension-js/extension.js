@@ -84,38 +84,58 @@ function validateEnvelope(frame: Record<string, unknown>): string[] {
   for (const key of schema.required as string[]) {
     if (!(key in frame)) problems.push(`missing required key: ${key}`)
   }
+
   if (frame.schema !== 1) problems.push('schema must be 1')
   if (typeof frame.ok !== 'boolean') problems.push('ok must be a boolean')
-  if (typeof frame.command !== 'string' || !frame.command)
+
+  if (typeof frame.command !== 'string' || !frame.command) {
     problems.push('command must be a non-empty string')
-  if (typeof frame.status !== 'string' || !frame.status)
+  }
+
+  if (typeof frame.status !== 'string' || !frame.status) {
     problems.push('status must be a non-empty string')
+  }
+
   if (
     !Array.isArray(frame.warnings) ||
     frame.warnings.some((w) => typeof w !== 'string')
-  )
+  ) {
     problems.push('warnings must be an array of strings')
-  if ('truncated' in frame && typeof frame.truncated !== 'boolean')
+  }
+
+  if ('truncated' in frame && typeof frame.truncated !== 'boolean') {
     problems.push('truncated must be a boolean')
-  if ('hint' in frame && typeof frame.hint !== 'string')
+  }
+
+  if ('hint' in frame && typeof frame.hint !== 'string') {
     problems.push('hint must be a string')
+  }
 
   const error = frame.error as Record<string, unknown> | null | undefined
+
   if (error != null) {
-    if (!/^E_[A-Z0-9_]+$/.test(String(error.code)))
+    if (!/^E_[A-Z0-9_]+$/.test(String(error.code))) {
       problems.push(`error.code is not an E_ identifier: ${error.code}`)
-    if (typeof error.message !== 'string')
+    }
+
+    if (typeof error.message !== 'string') {
       problems.push('error.message must be a string')
+    }
+
     for (const key of ['name', 'engine', 'hint']) {
-      if (key in error && typeof error[key] !== 'string')
+      if (key in error && typeof error[key] !== 'string') {
         problems.push(`error.${key} must be a string`)
+      }
     }
   }
 
-  if (frame.ok === true && frame.error !== null)
+  if (frame.ok === true && frame.error !== null) {
     problems.push('an ok frame must carry error: null')
-  if (frame.ok === false && error == null)
+  }
+
+  if (frame.ok === false && error == null) {
     problems.push('a failure frame must carry an error object')
+  }
 
   return problems
 }
@@ -135,6 +155,7 @@ describe('the error-code table', () => {
 
   it('maps every legacy ready.json code onto the table', () => {
     expect(Object.keys(table.legacy.ready).sort()).toEqual(READY_CODES)
+
     for (const target of Object.values(table.legacy.ready)) {
       for (const code of flat(target)) {
         expect(
@@ -147,6 +168,7 @@ describe('the error-code table', () => {
 
   it('maps every legacy PascalCase error name onto the table', () => {
     expect(Object.keys(table.legacy.names).sort()).toEqual(ERROR_NAMES)
+
     for (const target of Object.values(table.legacy.names)) {
       for (const code of flat(target)) {
         expect(table.codes, `name maps to unknown code ${code}`).toHaveProperty(
@@ -158,6 +180,7 @@ describe('the error-code table', () => {
 
   it('maps every kebab-case doctor check id onto the table', () => {
     expect(Object.keys(table.legacy.doctorChecks).sort()).toEqual(DOCTOR_CHECKS)
+
     for (const code of Object.values(table.legacy.doctorChecks)) {
       expect(
         table.codes,
@@ -172,10 +195,12 @@ describe('the error-code table', () => {
         table.codes,
         `${alias} folds onto unknown code ${code}`
       ).toHaveProperty(code)
+
       // An alias in the table proper would make the fold ambiguous.
       expect(alias in table.codes, `${alias} is both a code and a fold`).toBe(
         false
       )
+
       expect(alias).toMatch(/^E_[A-Z0-9_]+$/)
     }
   })
@@ -215,6 +240,7 @@ describe('the golden envelope fixtures', () => {
     fixtures
   )('%s carries a code from the table when it fails', (name) => {
     const frame = JSON.parse(fs.readFileSync(path.join(here, name), 'utf8'))
+
     if (frame.error) {
       expect(
         table.codes,

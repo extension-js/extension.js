@@ -29,6 +29,7 @@ export function isUsingJsxFramework(projectPath: string): boolean {
 export function getJsxImportSource(projectPath: string): JsxImportSource {
   if (isUsingSolid(projectPath)) return 'solid-js'
   if (isUsingPreact(projectPath) && !isUsingReact(projectPath)) return 'preact'
+
   if (
     isUsingVue(projectPath) &&
     !isUsingReact(projectPath) &&
@@ -36,6 +37,7 @@ export function getJsxImportSource(projectPath: string): JsxImportSource {
   ) {
     return 'vue'
   }
+
   return 'react'
 }
 
@@ -54,14 +56,18 @@ export function swcParserForFile(
 ): SwcParserOptions {
   const clean = String(resourcePath || '').split('?')[0]
   const ext = path.extname(clean).toLowerCase()
+
   if (ext === '.tsx' || ext === '.mtsx') {
     return {syntax: 'typescript', tsx: true, dynamicImport: true}
   }
+
   if (ext === '.ts' || ext === '.mts' || ext === '.cts') {
     return {syntax: 'typescript', tsx: false, dynamicImport: true}
   }
+
   if (ext === '.jsx' || ext === '.mjsx') {
     return {syntax: 'ecmascript', jsx: true, dynamicImport: true}
   }
+
   return {syntax: 'ecmascript', jsx: jsxInPlainJs, dynamicImport: true}
 }

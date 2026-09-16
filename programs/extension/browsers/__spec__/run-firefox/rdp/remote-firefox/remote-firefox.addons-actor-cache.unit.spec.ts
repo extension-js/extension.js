@@ -10,12 +10,14 @@ vi.mock('../../../../run-firefox/rdp/remote-firefox/messaging-client', () => {
     disconnect() {}
     on(ev: string, fn: (...a: unknown[]) => void) {
       ;(this._handlers[ev] ||= []).push(fn)
+
       return this
     }
     emit(ev: string, ...a: unknown[]) {
       for (const f of this._handlers[ev] || []) f(...a)
     }
   }
+
   return {MessagingClient: FakeMessagingClient}
 })
 

@@ -60,11 +60,14 @@ afterEach(async () => {
       // Ignore
     }
   }
+
   sockets.length = 0
+
   if (server) {
     await server.close()
     server = null
   }
+
   fs.rmSync(dir, {recursive: true, force: true})
   vi.restoreAllMocks()
   vi.clearAllMocks()
@@ -130,8 +133,10 @@ async function until(
   timeoutMs = ATTACH_WINDOW_MS
 ) {
   const deadline = Date.now() + timeoutMs
+
   while (!check()) {
     if (Date.now() > deadline) throw new Error(`timed out waiting for ${label}`)
+
     await sleep(20)
   }
 }
@@ -139,6 +144,7 @@ async function until(
 function connectProducer(port: number): Promise<WebSocket> {
   const ws = new WebSocket(`ws://127.0.0.1:${port}${CONTROL_WS_PATH}`)
   sockets.push(ws)
+
   return new Promise((resolve, reject) => {
     ws.on('error', reject)
     ws.on('open', () => {
@@ -150,6 +156,7 @@ function connectProducer(port: number): Promise<WebSocket> {
           instanceId: INSTANCE_ID
         })
       )
+
       resolve(ws)
     })
   })
@@ -173,6 +180,7 @@ describe('extension logs --follow over the live control channel', () => {
 
     const producer = await connectProducer(server.port)
     await until(() => broker.producerCount === 1, 'the producer to attach')
+
     for (const event of [
       incoming('boot'),
       incoming('careful', {
@@ -206,9 +214,11 @@ describe('extension logs --follow over the live control channel', () => {
       () => errorLines().some((line) => line.includes('dropped')),
       'the gap notice'
     )
+
     expect(errorLines().find((line) => line.includes('dropped'))).toContain(
       '1 event(s) dropped (ring_overflow), stream is behind'
     )
+
     // The gap is stderr only, so the ndjson stream stays records + frames.
     expect(printed().every((record) => typeof record.seq === 'number')).toBe(
       true
@@ -228,6 +238,7 @@ describe('extension logs --follow over the live control channel', () => {
       status: 'closed',
       value: {follow: true, closeCode: expect.any(Number)}
     })
+
     expect(
       errorLines().some((line) => line.includes('the control channel closed'))
     ).toBe(true)
@@ -255,6 +266,7 @@ describe('extension logs --follow over the live control channel', () => {
     const exit = run(['logs', dir, '--follow', '--output', 'ndjson']).then(
       (code) => {
         done = true
+
         return code
       }
     )
@@ -272,6 +284,7 @@ describe('extension logs --follow over the live control channel', () => {
       () => printed().some((record) => record.seq === 1),
       'the record sent after the restart'
     )
+
     expect(printed().at(-1)).toMatchObject({
       seq: 1,
       messageParts: ['after-restart'],

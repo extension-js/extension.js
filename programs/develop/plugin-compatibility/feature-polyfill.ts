@@ -14,10 +14,6 @@ import * as messages from './compatibility-lib/messages'
 
 const cjsRequire = createRequire(import.meta.url)
 
-/**
- * PolyfillPlugin is responsible for providing the `browser`
- * global variable to the extension's codebase.
- */
 export class PolyfillPlugin {
   public readonly browser: DevOptions['browser']
 

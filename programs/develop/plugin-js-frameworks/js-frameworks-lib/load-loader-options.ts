@@ -44,12 +44,14 @@ export async function loadLoaderOptions(
 
     try {
       const module = await import(pathToFileURL(configPath).href)
+
       return module.default || module
     } catch (err: unknown) {
       const error = err as Error
       console.error(
         `Error loading ${framework} loader options: ${error.message}`
       )
+
       throw err
     }
   }

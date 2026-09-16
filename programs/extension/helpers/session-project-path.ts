@@ -19,8 +19,10 @@ export function resolveSessionProjectPath(
   const inputPath = path.resolve(pathArg || process.cwd())
   const resolve = bridge?.resolveSessionProjectRoot
   if (typeof resolve !== 'function') return inputPath
+
   try {
     const resolved = resolve(inputPath)
+
     return typeof resolved === 'string' && resolved ? resolved : inputPath
   } catch {
     return inputPath
@@ -35,6 +37,7 @@ function sessionFilePath(
   fileName: string
 ): string {
   const fn = bridge?.[exportName]
+
   if (typeof fn === 'function') {
     try {
       const resolved = fn(projectPath, browser)
@@ -43,6 +46,7 @@ function sessionFilePath(
       // Ignore
     }
   }
+
   return path.join(projectPath, 'dist', 'extension-js', browser, fileName)
 }
 

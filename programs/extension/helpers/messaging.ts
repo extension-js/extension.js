@@ -6,12 +6,6 @@
 // ╚═╝     ╚═╝╚══════╝╚══════╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚═╝╚═╝  ╚═══╝ ╚═════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-// Messaging primitives shared by every program, duplicated on purpose.
-// Canonical copy: programs/develop/lib/messaging.ts. Edit that one, then copy
-// it over the other three. A drift spec fails the build when they diverge.
-// Do not add imports here beyond pintor; three of the four consumers are
-// small packages that must not inherit a dependency graph from this file.
-
 import colors from 'pintor'
 
 export type Channel = 'info' | 'success' | 'warn' | 'error' | 'debug'
@@ -35,6 +29,7 @@ const DEBUG_VALUES = new Set([
 // still turns diagnostics off when a stale EXTENSION_AUTHOR_MODE is exported.
 export function isDebug(): boolean {
   const raw = process.env.EXTENSION_DEBUG ?? process.env.EXTENSION_AUTHOR_MODE
+
   return DEBUG_VALUES.has(
     String(raw ?? '')
       .trim()
@@ -47,6 +42,7 @@ export function prefix(type: Channel): string {
   if (type === 'warn') return colors.brightYellow(GLYPH)
   if (type === 'success') return colors.green(GLYPH)
   if (type === 'debug') return colors.dim(colors.gray(DEBUG_GLYPH))
+
   return colors.gray(GLYPH)
 }
 
@@ -66,11 +62,13 @@ export function isMachineOutput(): boolean {
 
 export function humanLine(...parts: unknown[]): void {
   if (isMachineOutput()) return
+
   console.log(...parts)
 }
 
 export function humanWarn(...parts: unknown[]): void {
   if (isMachineOutput()) return
+
   console.warn(...parts)
 }
 
@@ -91,6 +89,7 @@ export const fmt = {
     const body = rows
       .map(([key, value]) => `${fmt.label(key)} ${value}`)
       .join('\n')
+
     return `${head}\n${body}`
   },
   truncate(input: unknown, max = 800): string {
@@ -101,6 +100,7 @@ export const fmt = {
         return String(input)
       }
     })()
+
     return s.length > max ? `${s.slice(0, max)}…` : s
   }
 }
@@ -145,8 +145,10 @@ export function card(input: CardInput = {}): string {
     .slice(0, MAX_CARD_ROWS)
     .map((row) => {
       const label = row.label.padEnd(CARD_LABEL_WIDTH)
+
       return `    ${label}${colors.gray(String(row.value).trim())}`
     })
+
   return [head, ...body].join('\n')
 }
 
@@ -159,6 +161,7 @@ export function browserRowValue(browser: string, versionLine?: string): string {
   if (!line) return display
   // A bare version number carries no browser name, so it needs the prefix.
   if (!/[a-zA-Z]/.test(line)) return `${display} ${line}`
+
   return line.charAt(0).toUpperCase() + line.slice(1)
 }
 
@@ -170,15 +173,18 @@ const CARD_KEYS_SEPARATOR = '\u001f'
 export function isCardKeyClaimed(key: string): boolean {
   const claimed = String(process.env[CARD_KEYS_ENV] || '')
   if (!claimed) return false
+
   return claimed.split(CARD_KEYS_SEPARATOR).includes(key)
 }
 
 export function claimCardKey(key: string): boolean {
   if (isCardKeyClaimed(key)) return false
+
   const claimed = String(process.env[CARD_KEYS_ENV] || '')
   process.env[CARD_KEYS_ENV] = claimed
     ? `${claimed}${CARD_KEYS_SEPARATOR}${key}`
     : key
+
   return true
 }
 
@@ -198,6 +204,7 @@ export function artifactNoun(browser: string): 'Add-on' | 'Extension' {
   // Unknown forks: a gecko/firefox substring is the only reliable signal.
   // Edge ships extensions through an Add-ons store, so it stays an Extension.
   if (name.includes('gecko') || name.includes('firefox')) return 'Add-on'
+
   return 'Extension'
 }
 

@@ -22,10 +22,13 @@ export function resolveScriptEntryPath(
   projectPath: string
 ) {
   if (!entry || isRemoteUrl(entry)) return entry
+
   if (entry.startsWith('/') && !path.isAbsolute(entry)) {
     return path.join(projectPath, entry.slice(1))
   }
+
   if (path.isAbsolute(entry)) return entry
+
   return path.join(manifestDir, entry)
 }
 
