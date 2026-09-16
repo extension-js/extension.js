@@ -6,6 +6,7 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import type {ChunkProvenance} from './chunk-dependency-provenance'
 import {isGeckoBasedBrowser} from './constants'
 import * as messages from './messages'
 import {
@@ -81,6 +82,8 @@ export interface RunAddonLintInput {
   enabled?: boolean
   loadLinter?: LoadAddonLinter
   timeoutMs?: number
+  // A thunk, so a build that skips the lint never walks the chunk graph.
+  chunkProvenance?: () => Map<string, ChunkProvenance>
 }
 
 // The hint is per project rather than per build so `--browser all` and a
@@ -160,10 +163,35 @@ export function collectAddonLintLines(
   ].filter((line) => !DUPLICATED_BY_BUILD_WARNINGS.has(line.code))
 }
 
+// The linter locates a finding by its path inside dist, which is the emitted
+// chunk name the provenance map is keyed by.
+export function attributionFor(
+  location: string,
+  chunkProvenance?: Map<string, ChunkProvenance>
+): string {
+  if (!chunkProvenance || chunkProvenance.size === 0) return ''
+
+  // The map is keyed by the bundler's chunk names, which are always POSIX,
+  // while a Windows linter run reports the same file back separated by \.
+  const file = location
+    .split(':')[0]
+    .replace(/\\/g, '/')
+    .replace(/^\.?\//, '')
+  const provenance = chunkProvenance.get(file)
+
+  if (!provenance) return ''
+
+  return messages.addonLintDependencyAttribution(
+    provenance.packages,
+    provenance.onlyDependencies
+  )
+}
+
 export function formatAddonLintFindings(
   output: AddonLintOutput | null | undefined,
   distDisplay: string,
-  maxPrinted: number = ADDON_LINT_MAX_PRINTED
+  maxPrinted: number = ADDON_LINT_MAX_PRINTED,
+  chunkProvenance?: Map<string, ChunkProvenance>
 ): {findings: number; lines: string[]} {
   const all = collectAddonLintLines(output)
   if (all.length === 0) return {findings: 0, lines: []}
@@ -178,7 +206,8 @@ export function formatAddonLintFindings(
         line.level,
         line.code,
         line.message,
-        line.location
+        line.location,
+        attributionFor(line.location, chunkProvenance)
       )
     )
   ]
@@ -264,7 +293,12 @@ export async function runAddonLint(
 
     return {
       status: 'linted',
-      ...formatAddonLintFindings(output, input.distDisplay)
+      ...formatAddonLintFindings(
+        output,
+        input.distDisplay,
+        ADDON_LINT_MAX_PRINTED,
+        input.chunkProvenance?.()
+      )
     }
   } catch (error) {
     return {
