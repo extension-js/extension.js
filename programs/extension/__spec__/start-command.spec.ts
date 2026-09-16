@@ -142,9 +142,14 @@ describe('extension start', () => {
     expect(extensionBuild).not.toHaveBeenCalled()
   })
 
-  it('rejects safari with a clear error', async () => {
+  // Same contract as preview: the refusal has to hand the user a command.
+  it('rejects safari and names what to run instead', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     expect(await run(['start', '.', '--browser', 'safari'])).toBe(1)
     expect(extensionBuild).not.toHaveBeenCalled()
+    const refusal = String(errorSpy.mock.calls.at(-1)?.[0] ?? '')
+    expect(refusal).toContain('extension dev --browser safari')
+    expect(refusal).toContain('extension build --browser safari --open')
   })
 
   it('emits E_UNSUPPORTED_BROWSER instead of prose with --output json', async () => {

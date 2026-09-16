@@ -25,8 +25,9 @@ export type SafariPackagerFn = (
   mode: 'full' | 'resync'
 ) => Promise<unknown>
 
-// Safari has no live-reload channel, but the dev server already runs the
-// bundler in watch mode. This plugin rides that watch loop: the first
+// Safari reloads through the same control bridge every other engine uses, and
+// the dev server runs the bundler in watch mode. This plugin rides that watch
+// loop: the first
 // successful compile blocks for the full package
 // (convert > xcodebuild > open > guided enable); every later compile resyncs
 // xcodebuild in the background so the bundler loop is never blocked, and a

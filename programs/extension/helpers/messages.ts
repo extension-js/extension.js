@@ -511,11 +511,12 @@ export function safariCommandNotSupported(
   command: 'dev' | 'preview' | 'start'
 ) {
   return (
-    `${getLoggingPrefix('error')} ${code(command)} can't load an extension into Safari automatically.\n` +
-    `Safari extensions ship inside a signed app and are enabled by hand, so there's no live ` +
-    `browser session to load into, unlike Chromium and Firefox.\n` +
-    `Build the Safari app instead: ${code('extension build --browser safari')}\n` +
-    `Then open the generated app and enable it in Safari → Settings → Extensions.`
+    `${getLoggingPrefix('error')} ${code(command)} can't load an extension into Safari.\n` +
+    `Safari has no launch flag that loads an extension, and the app this toolchain builds is ` +
+    `enabled by hand once installed, so there is no running session to load into.\n` +
+    `Run a live Safari session: ${code('extension dev --browser safari')}\n` +
+    `Or package the app and open it: ${code('extension build --browser safari --open')}\n` +
+    `Both need macOS with Xcode, and Safari takes the enable gesture once in Safari ▸ Settings ▸ Extensions.`
   )
 }
 

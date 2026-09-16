@@ -6,6 +6,7 @@ import {prefix} from '../../helpers/messaging'
 import * as messages from '../browsers-lib/messages'
 import {launchBrowser} from '../index'
 import {
+  converterWarnings,
   packageSafariExtension,
   safariBuildPreflight,
   safariPreflightError,
@@ -917,5 +918,55 @@ describe('safari pipeline staleness integration', () => {
     expect(second.logs).toContain('[stale]')
     expect(second.logs).toContain('[converted]')
     expect(converterCalls).toHaveLength(2)
+  })
+})
+
+// Apple prints a header line containing "Warning:" and then names the offending
+// keys on INDENTED lines that never say "warning". Keeping only the header told
+// the user something was unsupported and never which key.
+describe('converterWarnings', () => {
+  const output = [
+    'Xcode project location: /tmp/proj',
+    'Warning: The following keys in your manifest.json are not supported:',
+    '\tpersistent',
+    '\tside_panel',
+    'Finished converting.'
+  ].join('\n')
+
+  it('keeps the indented keys that follow a warning header', () => {
+    expect(converterWarnings(output)).toEqual([
+      'Warning: The following keys in your manifest.json are not supported:',
+      'persistent',
+      'side_panel'
+    ])
+  })
+
+  it('stops at the first line that is not indented', () => {
+    expect(converterWarnings(output)).not.toContain('Finished converting.')
+    expect(converterWarnings(output)).not.toContain(
+      'Xcode project location: /tmp/proj'
+    )
+  })
+
+  it('returns nothing when the converter printed no warning', () => {
+    expect(
+      converterWarnings('Finished converting.\n  indented but no header')
+    ).toEqual([])
+  })
+
+  it('handles two warning blocks', () => {
+    const two = [
+      'Warning: first thing',
+      '  keyA',
+      'unrelated',
+      'Warning: second thing',
+      '  keyB'
+    ].join('\n')
+    expect(converterWarnings(two)).toEqual([
+      'Warning: first thing',
+      'keyA',
+      'Warning: second thing',
+      'keyB'
+    ])
   })
 })
