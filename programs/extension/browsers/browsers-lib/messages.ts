@@ -746,12 +746,32 @@ export function safariToolFailed(
   )
 }
 
+// Apple's converter table is years out of date, so it also flags keys the
+// build keeps on purpose. Named here, a kept key reads as a decision.
+const SAFARI_KEPT_ON_PURPOSE: Record<string, string> = {
+  world: 'Safari has honored the MAIN world since Safari 18, so the key stays'
+}
+
 export function safariConverterWarnings(warnings: string[]) {
+  const kept = warnings
+    .map((line) => line.trim())
+    .filter((line) => line in SAFARI_KEPT_ON_PURPOSE)
+
+  const keptLines = kept
+    .map(
+      (line) =>
+        `  ${colors.yellow(line)} ${colors.gray(SAFARI_KEPT_ON_PURPOSE[line])}`
+    )
+    .join('\n')
+
   return (
     `${getLoggingPrefix('warn')} safari-web-extension-converter reported ` +
     `${colors.yellow(String(warnings.length))} ${warnings.length === 1 ? 'warning' : 'warnings'}, some manifest keys/APIs ` +
     `may not be supported by Safari:\n` +
-    warnings.map((line) => `  ${colors.gray('•')} ${line}`).join('\n')
+    warnings.map((line) => `  ${colors.gray('•')} ${line}`).join('\n') +
+    (kept.length
+      ? `\nExtension.js kept ${kept.length === 1 ? 'one of these keys' : 'some of these keys'} on purpose:\n${keptLines}`
+      : '')
   )
 }
 
