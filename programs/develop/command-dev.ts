@@ -56,6 +56,7 @@ export async function extensionDev(
     const {manifestDir, packageJsonDir} = getDirs(projectStructure)
 
     await ensureDevelopArtifacts()
+
     if (devOptions.install !== false) {
       await ensureUserProjectDependencies(packageJsonDir)
     }
@@ -63,12 +64,14 @@ export async function extensionDev(
     // Create/validate tsconfig (and surface the "missing tsconfig" error)
     // before deciding whether to generate extension type defs.
     ensureTypeScriptConfig(manifestDir)
+
     if (isUsingTypeScript(manifestDir)) {
       await generateExtensionTypes(manifestDir, packageJsonDir)
     }
 
     const userManifestPath =
       projectStructure.packageJsonPath || projectStructure.denoJsonPath
+
     if (userManifestPath) {
       assertNoManagedDependencyConflicts(userManifestPath, manifestDir)
     }
@@ -130,6 +133,7 @@ export async function extensionDev(
       browsersPlugin = new SafariDevPlugin((distPath, packagerMode) =>
         safariPackager(distPath, packagerMode, safariOverrides)
       )
+
       emitter = browsersPlugin.emitter
     } else if (devOptions.launcher && !devOptions.noBrowser) {
       browsersPlugin = new BrowsersPlugin({
@@ -159,6 +163,7 @@ export async function extensionDev(
           logTab: merged.logTab
         }
       })
+
       emitter = browsersPlugin.emitter
     }
 
@@ -189,9 +194,11 @@ export async function extensionDev(
     } else {
       console.error(messages.devCommandFailed(error))
     }
+
     if (!shouldExitOnError) {
       throw error
     }
+
     process.exit(1)
   }
 }

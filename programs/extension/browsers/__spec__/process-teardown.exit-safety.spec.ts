@@ -32,6 +32,7 @@ describe('process-teardown shared module', () => {
       kill: vi.fn(() => {
         const e: NodeJS.ErrnoException = new Error('no such process')
         e.code = 'ESRCH'
+
         throw e
       })
     }
@@ -47,8 +48,10 @@ function withCapturedProcessOn() {
     const existing = registered.get(event) || []
     existing.push(handler)
     registered.set(event, existing)
+
     return process
   })
+
   return {
     registered,
     restore: () => {
@@ -64,6 +67,7 @@ describe('chromium exit handler force-kills a stubborn child', () => {
     const mod = await import('../run-chromium/chromium-launch/process-handlers')
     mod.__resetChromiumProcessHandlersForTest()
   })
+
   afterEach(() => {
     cap.restore()
     vi.restoreAllMocks()
@@ -79,11 +83,13 @@ describe('chromium exit handler force-kills a stubborn child', () => {
     cap.registered.get('SIGINT')?.forEach((h) => {
       h()
     })
+
     expect(child.kill).toHaveBeenCalledWith('SIGTERM')
 
     cap.registered.get('exit')?.forEach((h) => {
       h()
     })
+
     expect(child.kill).toHaveBeenCalledWith('SIGKILL')
   })
 })
@@ -95,6 +101,7 @@ describe('firefox exit handler force-kills a stubborn child', () => {
     const mod = await import('../run-firefox/firefox-launch/process-handlers')
     mod.__resetFirefoxProcessHandlersForTest()
   })
+
   afterEach(() => {
     cap.restore()
     vi.restoreAllMocks()
@@ -114,12 +121,14 @@ describe('firefox exit handler force-kills a stubborn child', () => {
     cap.registered.get('SIGINT')?.forEach((h) => {
       h()
     })
+
     await new Promise((r) => setTimeout(r, 20))
     expect(child.kill).toHaveBeenCalledWith('SIGTERM')
 
     cap.registered.get('exit')?.forEach((h) => {
       h()
     })
+
     expect(child.kill).toHaveBeenCalledWith('SIGKILL')
   })
 })

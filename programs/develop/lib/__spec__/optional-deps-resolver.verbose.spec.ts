@@ -11,6 +11,7 @@ describe('optional-deps-resolver swallowed errors', () => {
 
   it('stays silent by default and speaks under EXTENSION_VERBOSE=1', () => {
     const quiet = vi.spyOn(console, 'log').mockImplementation(() => {})
+
     // An unresolvable package throws the formatted resolver error either way;
     // what changes with verbose is whether the swallowed steps on the way spoke.
     const attempt = () => {
@@ -23,6 +24,7 @@ describe('optional-deps-resolver swallowed errors', () => {
         // Expected: nothing resolves it.
       }
     }
+
     vi.stubEnv('EXTENSION_VERBOSE', '')
     attempt()
     expect(quiet.mock.calls.flat().join(' ')).not.toContain('optional-deps')

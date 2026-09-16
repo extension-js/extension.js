@@ -3,6 +3,7 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 vi.mock('fs', async () => {
   const actual = await vi.importActual<typeof import('fs')>('fs')
+
   return {
     ...actual,
     existsSync: vi.fn(() => false),
@@ -15,6 +16,7 @@ describe('isContentScriptEntry', () => {
     vi.resetModules()
     vi.clearAllMocks()
   })
+
   afterEach(() => {
     ;(fs.readFileSync as any).mockReset?.()
     ;(fs.existsSync as any).mockReset?.()
@@ -26,6 +28,7 @@ describe('isContentScriptEntry', () => {
     ;(fs.existsSync as any).mockImplementation((p: string) =>
       String(p).endsWith('manifest.json')
     )
+
     const {isContentScriptEntry} = (await import(
       '../../css-lib/is-content-script'
     )) as any
@@ -44,6 +47,7 @@ describe('isContentScriptEntry', () => {
     expect(isContentScriptEntry('/x/b.js', '/x/manifest.json', '/x')).toBe(
       false
     )
+
     expect(isContentScriptEntry('', '', '')).toBe(false)
     expect(isContentScriptEntry('/x', '', '')).toBe(false)
     expect(isContentScriptEntry('', '/x/manifest.json', '')).toBe(false)

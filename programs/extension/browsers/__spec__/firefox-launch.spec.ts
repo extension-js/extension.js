@@ -11,6 +11,7 @@ function makeCompilation(out = '/tmp/project/dist/firefox') {
 function extractProfilePath(args: string): string {
   const match = args.match(/--profile="([^"]+)"/)
   if (!match) throw new Error('--profile flag not found in firefox args')
+
   return match[1]
 }
 
@@ -21,8 +22,10 @@ describe('Firefox profile args', () => {
     OLD_ENV = {...process.env}
     process.env = {...OLD_ENV}
   })
+
   afterEach(() => {
     process.env = OLD_ENV
+
     try {
       const distRoot = path.join('/tmp', 'project', 'dist')
       fs.rmSync(distRoot, {recursive: true, force: true})
@@ -124,12 +127,15 @@ describe('Firefox profile args', () => {
       expect(profileA).toBe(
         path.resolve(projectA, 'dist', 'extension-profile-firefox')
       )
+
       expect(profileB).toBe(
         path.resolve(projectB, 'dist', 'extension-profile-firefox')
       )
+
       expect(profileA).not.toBe(profileB)
     } finally {
       process.chdir(oldCwd)
+
       try {
         fs.rmSync(projectA, {recursive: true, force: true})
         fs.rmSync(projectB, {recursive: true, force: true})

@@ -183,14 +183,17 @@ function resolvePinnedBinaryVersionLine(
 ): string | undefined {
   try {
     if (isFirefoxBrowser(opts.browser)) {
-      if (!opts.geckoBinary || !fs.existsSync(opts.geckoBinary))
+      if (!opts.geckoBinary || !fs.existsSync(opts.geckoBinary)) {
         return undefined
+      }
+
       return getFirefoxVersion(opts.geckoBinary) || undefined
     }
 
     if (!opts.chromiumBinary || !fs.existsSync(opts.chromiumBinary)) {
       return undefined
     }
+
     return (
       probeChromiumBinaryVersion(opts.chromiumBinary, String(opts.browser)) ||
       undefined
@@ -205,6 +208,7 @@ function buildPreviewBannerOptions(opts: PreviewRunOptions) {
     !isFirefoxBrowser(opts.browser) &&
     typeof opts.chromiumBinary === 'string' &&
     fs.existsSync(opts.chromiumBinary)
+
   return {
     browser: opts.browser,
     outPath: opts.outPath,
@@ -228,6 +232,7 @@ export async function runOnlyPreviewBrowser(
 
   const scheduleExitOnSignal = () => {
     if (exitScheduled) return
+
     exitScheduled = true
     // Mirror `dev` behavior: exit promptly after cleanup kicks in.
     setTimeout(() => process.exit(0), 10)
@@ -257,6 +262,7 @@ export async function runOnlyPreviewBrowser(
     // a summary trailing the browser it describes.
     await printProdBannerOnce(bannerOptions)
     await launcher.runOnce(compilationLike, {enableCdpPostLaunch: false})
+
     return
   }
 
@@ -277,6 +283,7 @@ export async function runOnlyPreviewBrowser(
         geckoBinary: previewPluginOptions.geckoBinary
       }) as unknown as Parameters<typeof launcher.runOnce>[1]
     )
+
     return
   }
 

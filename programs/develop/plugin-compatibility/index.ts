@@ -17,9 +17,11 @@ function polyfillSkipReason(browser: DevOptions['browser']): string | null {
   if (isGeckoBasedBrowser(String(browser))) {
     return 'Firefox bundles browser.* APIs'
   }
+
   if (isWebkitBasedBrowser(String(browser))) {
     return 'Safari ships a native promise-based browser.* namespace'
   }
+
   return null
 }
 

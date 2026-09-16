@@ -18,6 +18,7 @@ export function createIssue(
   const ErrorCtor = compiler?.rspack?.WebpackError || Error
   const issue = new ErrorCtor(message) as Error & {name?: string}
   issue.name = type === 'warning' ? 'ExtensionWarning' : 'ExtensionError'
+
   return issue
 }
 
@@ -32,6 +33,7 @@ export function reportToCompilation(
     file?: string
   }
   if (file) issue.file = file
+
   const bucket = type === 'warning' ? 'warnings' : 'errors'
   compilation[bucket] ||= []
   const existing = compilation[bucket] as Array<Error & {file?: string}>
@@ -42,5 +44,6 @@ export function reportToCompilation(
     )
   })
   if (already) return
+
   compilation[bucket].push(issue)
 }

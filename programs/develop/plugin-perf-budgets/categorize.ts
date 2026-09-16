@@ -6,9 +6,6 @@
 // ╚═╝     ╚══════╝╚═╝  ╚═╝╚═╝          ╚═════╝  ╚═════╝ ╚═════╝  ╚═════╝ ╚══════╝   ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-// Extension-specific budgets: content scripts inject on every navigation and
-// SWs wake cold, but framework runtimes make 512/512/1024 KiB the realistic bar.
-
 export type AssetCategory =
   | 'content-script'
   | 'service-worker'

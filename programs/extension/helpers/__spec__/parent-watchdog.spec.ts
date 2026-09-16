@@ -11,13 +11,17 @@ afterEach(() => {
 function waitFor(predicate: () => boolean, timeoutMs = 5_000): Promise<void> {
   return new Promise((resolve, reject) => {
     const start = Date.now()
+
     const tick = () => {
       if (predicate()) return resolve()
+
       if (Date.now() - start > timeoutMs) {
         return reject(new Error('waitFor timed out'))
       }
+
       setTimeout(tick, 20)
     }
+
     tick()
   })
 }

@@ -37,6 +37,7 @@ export function __resetChromiumProcessHandlersForTest() {
 
 function cleanupOne(instance: ChromiumInstanceHandlers) {
   if (instance.isCleaningUp) return
+
   instance.isCleaningUp = true
 
   const {browser, child, cleanupInstance} = instance
@@ -65,11 +66,13 @@ function forceKillAllOnExit() {
 
 function firstBrowserLabel(): BrowserType {
   for (const instance of activeInstances) return instance.browser
+
   return 'chrome' as BrowserType
 }
 
 function installGlobalHandlersOnce() {
   if (globalHandlersInstalled) return
+
   globalHandlersInstalled = true
 
   process.on('SIGINT', cleanupAll)
@@ -83,24 +86,28 @@ function installGlobalHandlersOnce() {
       // turns a clean shutdown into a CI failure.
       return
     }
+
     humanError(
       messages.enhancedProcessManagementUncaughtException(
         firstBrowserLabel(),
         error
       )
     )
+
     cleanupAll()
     process.exit(1)
   })
 
   process.on('unhandledRejection', (reason) => {
     if (isBenignSocketTeardown(reason)) return
+
     humanError(
       messages.enhancedProcessManagementUnhandledRejection(
         firstBrowserLabel(),
         reason
       )
     )
+
     cleanupAll()
     process.exit(1)
   })

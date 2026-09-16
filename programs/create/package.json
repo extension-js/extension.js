@@ -45,7 +45,7 @@
     "watch": "rslib build --watch",
     "compile": "rslib build",
     "format": "biome format --write .",
-    "lint": "biome lint .",
+    "lint": "biome lint . && eslint .",
     "pretest:create": "pnpm compile",
     "pretest": "pnpm compile",
     "test": "vitest run",

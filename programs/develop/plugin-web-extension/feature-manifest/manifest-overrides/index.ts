@@ -26,7 +26,9 @@ export function getManifestOverrides(
 
   const omit = (obj: Record<string, unknown> | undefined, key: string) => {
     if (!obj) return {}
+
     const {[key]: _ignored, ...rest} = obj
+
     return rest
   }
 
@@ -36,6 +38,7 @@ export function getManifestOverrides(
     obj: Record<string, unknown>
   ): Record<string, unknown> => {
     const value = obj.background
+
     return value && typeof value === 'object'
       ? (value as Record<string, unknown>)
       : {}

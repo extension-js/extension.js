@@ -15,6 +15,7 @@ afterEach(() => {
 function createTempProject() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-concat-'))
   tempDirs.push(dir)
+
   return dir
 }
 
@@ -25,6 +26,7 @@ function createLoaderContext(
   const query = `?__extensionjs_classic_concat__=${encodeURIComponent(
     JSON.stringify(queryData)
   )}`
+
   return {
     resourcePath,
     resourceQuery: query,
@@ -65,6 +67,7 @@ describe('classic-concat-loader', () => {
       'class Base {}\n',
       'class Child extends Base {}\n'
     ])
+
     expect(sourceMap.mappings).toBeTruthy()
   })
 
@@ -118,6 +121,7 @@ describe('classic-concat-loader', () => {
       ].join('\n')}\n`,
       'utf8'
     )
+
     fs.writeFileSync(
       browserifyPath,
       '(function(f){})({1:[function(require,module,exports){var u=require("./utils")}]})\n',
@@ -137,13 +141,16 @@ describe('classic-concat-loader', () => {
     expect(output).toContain(
       '}).call(typeof globalThis !== "undefined" ? globalThis : this, void 0, void 0, void 0, void 0);'
     )
+
     expect(output).toContain('require("katex")')
     expect(output).toContain(
       'function(require,module,exports){var u=require("./utils")}'
     )
+
     expect(output.indexOf('(function (module')).toBeLessThan(
       output.indexOf('require("katex")')
     )
+
     expect(output.indexOf('require("katex")')).toBeLessThan(
       output.indexOf('}).call(typeof globalThis')
     )
@@ -174,6 +181,7 @@ describe('classic-concat-loader TypeScript members', () => {
       'class BloomFilter {\n  m: number;\n  constructor(m: number) { this.m = m }\n}\n',
       'utf8'
     )
+
     fs.writeFileSync(jsPath, 'var f = new BloomFilter(8)\n', 'utf8')
 
     const ctx = createLoaderContext(tsPath, {
@@ -231,6 +239,7 @@ describe('classic-concat-loader TypeScript members', () => {
     ]) {
       expect(output).toContain(`globalThis[${JSON.stringify(name)}] = ${name}`)
     }
+
     expect(output).not.toContain('globalThis["local"]')
 
     const sandbox: Record<string, unknown> = {}

@@ -4,6 +4,7 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 vi.mock('fs', async () => {
   const actual = await vi.importActual<any>('fs')
+
   return {
     ...actual,
     existsSync: vi.fn(),
@@ -20,11 +21,13 @@ vi.mock('../lib/project', () => ({
 
 vi.mock('../dev-server', () => {
   const devServer = vi.fn(async () => {})
+
   return {devServer}
 })
 
 vi.mock('../lib/generate-extension-types', () => {
   const generateExtensionTypes = vi.fn(async () => {})
+
   return {generateExtensionTypes}
 })
 
@@ -91,6 +94,7 @@ describe('webpack/command-dev', () => {
       '/proj',
       '/proj'
     )
+
     expect(ensureArtifactsMod.ensureDevelopArtifacts).toHaveBeenCalled()
     expect(devServerMod.devServer).toHaveBeenCalledWith(
       expect.any(Object),
@@ -178,6 +182,7 @@ describe('webpack/command-dev', () => {
     function pluginBrowserOptions() {
       const devServerCall = (devServerMod as any).devServer.mock.calls[0]
       const plugin = devServerCall?.[1]?.browsersPlugin
+
       return (plugin as any).options?.browserOptions
     }
 
@@ -204,6 +209,7 @@ describe('webpack/command-dev', () => {
         logColor: true,
         logLevel: 'off'
       })
+
       // Bundler-facing options ride the same merge into devServer.
       expect(devServerOptions().polyfill).toBe(true)
     })
@@ -232,6 +238,7 @@ describe('webpack/command-dev', () => {
         noOpen: true,
         logFormat: 'json'
       })
+
       expect(devServerOptions().polyfill).toBe(false)
     })
 
@@ -295,6 +302,7 @@ describe('webpack/command-dev', () => {
         logFormat: 'pretty',
         logColor: true
       })
+
       expect(devServerOptions().polyfill).toBe(true)
     })
 
@@ -311,6 +319,7 @@ describe('webpack/command-dev', () => {
         logFormat: 'ndjson',
         logTimestamps: true
       })
+
       expect(devServerOptions().polyfill).toBe(false)
     })
 
@@ -372,6 +381,7 @@ describe('webpack/command-dev', () => {
       expect(pluginBrowserOptions().browserFlags || []).not.toContain(
         '--force-dark-mode'
       )
+
       expect(pluginBrowserOptions().browserFlags || []).not.toContain(
         '--enable-features=WebUIDarkMode'
       )
@@ -419,6 +429,7 @@ describe('webpack/command-dev', () => {
     await expect(
       extensionDev('/proj', {browser: 'firefox'} as any)
     ).rejects.toThrow('boom')
+
     expect(exitSpy).not.toHaveBeenCalled()
     exitSpy.mockRestore()
   })

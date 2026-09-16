@@ -12,7 +12,9 @@ import * as path from 'node:path'
 function isUsableDir(candidate: string): boolean {
   try {
     if (!fs.existsSync(candidate)) return false
+
     const stat = fs.statSync(candidate)
+
     // A stat without the method (a files-only mock) still counts as a folder.
     return typeof stat?.isDirectory === 'function' ? stat.isDirectory() : true
   } catch {
@@ -83,9 +85,11 @@ export function publicResolveRoots(
   const fromRoot = path.join(projectRoot, 'public')
   const fromManifest = path.join(manifestDir, 'public')
   const roots = [fromRoot, manifestDir]
+
   if (path.resolve(fromManifest) !== path.resolve(fromRoot)) {
     roots.push(fromManifest)
   }
+
   return roots
 }
 
@@ -102,5 +106,6 @@ export function rememberPublicRoots(compiler: object, roots: string[]): void {
 
 export function publicRootsFor(compiler: object | undefined | null): string[] {
   if (!compiler) return []
+
   return publicRootsByCompiler.get(compiler) || []
 }

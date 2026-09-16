@@ -23,6 +23,7 @@ const BUNDLED_DEPENDENCY_VERSIONS: Record<string, string> = {
 // bare name so hints stay usable rather than throwing.
 function spec(packageId: string): string {
   const version = BUNDLED_DEPENDENCY_VERSIONS[packageId]
+
   return version ? `${packageId}@${version}` : packageId
 }
 

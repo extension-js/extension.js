@@ -63,17 +63,20 @@ export function readControlToken(
       // Ignore
     }
   }
+
   return null
 }
 
 export function clearControlToken(projectPath: string, browser: string): void {
   const file = controlTokenPath(projectPath, browser)
   let token: string | null = null
+
   try {
     token = fs.readFileSync(file, 'utf-8').trim() || null
   } catch {
     // Ignore
   }
+
   try {
     fs.rmSync(file, {force: true})
   } catch {
@@ -84,6 +87,7 @@ export function clearControlToken(projectPath: string, browser: string): void {
   // a concurrent session of another browser may have re-mirrored its own.
   try {
     const legacy = legacyControlTokenPath(projectPath)
+
     if (token && fs.readFileSync(legacy, 'utf-8').trim() === token) {
       fs.rmSync(legacy, {force: true})
     }

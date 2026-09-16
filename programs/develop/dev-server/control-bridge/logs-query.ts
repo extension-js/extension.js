@@ -14,7 +14,6 @@ import {logsPath} from '../../lib/session-paths'
 // the CLI's observable behavior. `extension logs` and any programmatic reader
 // must agree on what a filter selects, or the same query answers twice.
 
-/** Increasing verbosity; a level selects itself plus everything more severe. */
 export const LOG_LEVEL_ORDER = [
   'error',
   'warn',
@@ -30,22 +29,14 @@ export type LogLevelFilter =
   | (string & {})
 
 export interface LogQuery {
-  /** One context, a comma-separated list, an array, or 'all'. */
   context?: string | string[]
-  /** Minimum severity. 'all' and 'off' select every level. */
   level?: LogLevelFilter
-  /** Only structured dx.signal diagnostics. */
   signalsOnly?: boolean
-  /** Only events after this point: a sequence number, or an ISO timestamp
-   * compared against the event's own clock. */
   since?: number | string
-  /** Glob (`*` = any run of chars) or plain substring over url then hostname. */
   url?: string
-  /** Only events carrying this tab id. */
   tab?: number | string
 }
 
-/** A bridge log line as read off disk: dynamic, so the probed fields only. */
 export interface LogEventLike {
   type?: unknown
   eventType?: unknown
@@ -62,15 +53,18 @@ export interface LogEventLike {
 export function logLevelRank(level: string): number {
   const normalized = level === 'log' ? 'info' : level
   const index = (LOG_LEVEL_ORDER as readonly string[]).indexOf(normalized)
+
   return index === -1 ? LOG_LEVEL_ORDER.length : index
 }
 
 function toContextSet(context: LogQuery['context']): Set<string> | null {
   if (context == null) return null
+
   const list = Array.isArray(context) ? context : String(context).split(',')
   const names = list.map((name) => name.trim()).filter(Boolean)
   if (names.length === 0) return null
   if (names.length === 1 && names[0].toLowerCase() === 'all') return null
+
   return new Set(names)
 }
 
@@ -92,28 +86,34 @@ function makeUrlMatcher(pattern: string): (event: LogEventLike) => boolean {
   }
 }
 
-/** How a `since` value is read: a sequence number, or a point in time. */
 export type LogSince = {seq: number} | {time: number}
 
 // A bare number is a sequence number; anything else must parse as a date, so
 // an ISO timestamp filters by the event clock instead of matching nothing.
 export function parseLogSince(value: unknown): LogSince | null | undefined {
   if (value == null || value === '') return null
+
   if (typeof value === 'number') {
     return Number.isFinite(value) ? {seq: value} : undefined
   }
+
   const text = String(value).trim()
   if (/^\d+(?:\.\d+)?$/.test(text)) return {seq: Number(text)}
+
   const time = Date.parse(text)
+
   return Number.isFinite(time) ? {time} : undefined
 }
 
 function eventTime(event: LogEventLike): number | null {
   if (typeof event.timestamp === 'number') return event.timestamp
+
   if (typeof event.ts === 'string') {
     const parsed = Date.parse(event.ts)
+
     return Number.isFinite(parsed) ? parsed : null
   }
+
   return null
 }
 
@@ -121,17 +121,20 @@ export function isAfterSince(event: LogEventLike, since: LogSince): boolean {
   if ('seq' in since) {
     return !(typeof event.seq === 'number' && event.seq <= since.seq)
   }
+
   const time = eventTime(event)
+
   return time == null || time > since.time
 }
 
 function toFiniteNumber(value: unknown): number | null {
   if (value == null || value === '') return null
+
   const parsed = typeof value === 'number' ? value : Number(value)
+
   return Number.isFinite(parsed) ? parsed : null
 }
 
-/** True when the event passes every clause of the query. */
 export function matchesLogQuery(event: LogEventLike, query: LogQuery): boolean {
   if (!event || typeof event !== 'object') return false
   // The first line of a logs.ndjson generation is a header record, never a log.
@@ -143,6 +146,7 @@ export function matchesLogQuery(event: LogEventLike, query: LogQuery): boolean {
   if (contexts && !contexts.has(String(event.context))) return false
 
   const minLevel = String(query.level ?? 'all').toLowerCase()
+
   if (minLevel !== 'all' && minLevel !== 'off') {
     if (logLevelRank(String(event.level || '')) > logLevelRank(minLevel)) {
       return false
@@ -160,17 +164,13 @@ export function matchesLogQuery(event: LogEventLike, query: LogQuery): boolean {
   return true
 }
 
-/**
- * One-shot read of a session's logs.ndjson. Returns an empty array when the
- * session has never written one: an absent file is "nothing logged yet", and
- * making that a throw would force every caller to guard it.
- */
 export function readLogEvents(
   projectPath: string,
   browser = 'chrome',
   query: LogQuery = {}
 ): LogEventLike[] {
   let raw: string
+
   try {
     raw = fs.readFileSync(logsPath(projectPath, browser), 'utf-8')
   } catch {
@@ -178,14 +178,18 @@ export function readLogEvents(
   }
 
   const events: LogEventLike[] = []
+
   for (const line of raw.split('\n')) {
     if (!line) continue
+
     let event: LogEventLike
+
     try {
       event = JSON.parse(line)
     } catch {
       continue
     }
+
     if (matchesLogQuery(event, query)) events.push(event)
   }
 

@@ -17,6 +17,7 @@ describe('removeManagedEphemeralProfile', () => {
     )
     fs.mkdirSync(dir, {recursive: true})
     created.push(dir)
+
     return dir
   }
 

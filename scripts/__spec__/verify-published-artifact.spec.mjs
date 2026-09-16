@@ -25,11 +25,13 @@ test('fails when the artifact has no such file at all', () => {
   const read = () => {
     throw new Error('ENOENT')
   }
+
   assert.equal(findMissingMarkers(read, MARKERS).length, 1)
 })
 
 test('the shipped marker list is not empty', () => {
   assert.ok(REQUIRED_ARTIFACT_MARKERS.length > 0)
+
   for (const marker of REQUIRED_ARTIFACT_MARKERS) {
     assert.ok(marker.file)
     assert.ok(marker.pattern)

@@ -23,9 +23,11 @@ describe('UpdateManifest', () => {
     const assets: Record<string, any> = {
       'manifest.json': {source: () => manifestSource}
     }
+
     for (const name of extraAssets) {
       assets[name] = {source: () => ''}
     }
+
     const updated: Record<string, string> = {}
     const compilation: any = {
       errors: [],
@@ -48,6 +50,7 @@ describe('UpdateManifest', () => {
         thisCompilation: {tap: (_n: string, fn: any) => fn(compilation)}
       }
     }
+
     return {compiler, updated}
   }
 
@@ -148,6 +151,7 @@ describe('UpdateManifest', () => {
     expect(logSpy.mock.calls.map((call) => call[0])).toEqual([
       warnings[0].message
     ])
+
     expect(order).toEqual(['print', 'asset'])
 
     logSpy.mockRestore()
@@ -193,6 +197,7 @@ describe('UpdateManifest', () => {
         }
       }
       thisCompilationFn?.(compilation)
+
       return {warnings, updated}
     }
 
@@ -248,6 +253,7 @@ describe('UpdateManifest', () => {
         updateAsset: () => {}
       }
       thisCompilationFn?.(compilation)
+
       return warnings
     }
 

@@ -22,6 +22,7 @@ function writeCompanion(dir: string) {
     path.join(dir, 'manifest.json'),
     JSON.stringify({name: 'Extension.js', manifest_version: 3})
   )
+
   fs.writeFileSync(path.join(dir, 'background', 'sw.js'), '// sw')
 }
 
@@ -45,6 +46,7 @@ describe('isDevtoolsCompanionPath', () => {
     expect(
       isDevtoolsCompanionPath(stagedCompanionPath(profile, companion))
     ).toBe(true)
+
     expect(isDevtoolsCompanionPath(user)).toBe(false)
     expect(isDevtoolsCompanionPath('/x/extension-js-theme/dist/chrome')).toBe(
       false
@@ -62,6 +64,7 @@ describe('stageCompanionForNoOpen', () => {
         stageRoot: profile
       })
     ).toBe(list)
+
     expect(fs.existsSync(path.join(profile, 'extension-js-devtools'))).toBe(
       false
     )
@@ -107,6 +110,7 @@ describe('stageCompanionForNoOpen', () => {
         fs.readFileSync(path.join(staged, COMPANION_SESSION_FLAGS_FILE), 'utf8')
       )
     ).toEqual({noOpen: true})
+
     // The shared dist never carries the flag.
     expect(
       fs.existsSync(path.join(companion, COMPANION_SESSION_FLAGS_FILE))

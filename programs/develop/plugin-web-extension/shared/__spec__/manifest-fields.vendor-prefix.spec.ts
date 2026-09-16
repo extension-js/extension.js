@@ -14,6 +14,7 @@ function makeProject(manifest: Record<string, unknown>) {
   fs.writeFileSync(path.join(dir, '_locales', 'en', 'messages.json'), '{}')
   const manifestPath = path.join(dir, 'manifest.json')
   fs.writeFileSync(manifestPath, JSON.stringify(manifest))
+
   return {dir, manifestPath}
 }
 
@@ -46,12 +47,14 @@ describe('getResolvedManifestFieldsData with vendor-exact prefixes', () => {
     expect(data.scripts['background/service_worker']).toBe(
       path.join(dir, 'family-sw.js')
     )
+
     expect(serialized).not.toContain('chrome-sw.js')
     expect(serialized).not.toContain('chrome-popup.html')
     // A path that leaves the manifest folder rebases onto the real project.
     expect(serialized).toContain(
       JSON.stringify(path.join(dir, '..', 'shared', 'content.js'))
     )
+
     expect(serialized).not.toContain('extension-js-manifest-fields-')
     expect(data.locales).toEqual([
       path.join(dir, '_locales', 'en', 'messages.json')
@@ -68,6 +71,7 @@ describe('getResolvedManifestFieldsData with vendor-exact prefixes', () => {
     expect(data.scripts['background/service_worker']).toBe(
       path.join(dir, 'chrome-sw.js')
     )
+
     expect(JSON.stringify(data)).toContain(
       JSON.stringify(path.join(dir, 'chrome-popup.html'))
     )

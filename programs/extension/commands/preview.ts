@@ -164,6 +164,7 @@ export function registerPreviewCommand(program: Command) {
             'preview'
           )) as PreviewOptions['browser']) ??
           'chromium'
+
         if (
           previewOptions.debug ||
           previewOptions.author ||
@@ -172,14 +173,17 @@ export function registerPreviewCommand(program: Command) {
           process.env.EXTENSION_DEBUG = '1'
           // Alias kept for one minor: extension-develop still reads the old name.
           process.env.EXTENSION_AUTHOR_MODE = 'true'
-          if (!process.env.EXTENSION_VERBOSE)
+
+          if (!process.env.EXTENSION_VERBOSE) {
             process.env.EXTENSION_VERBOSE = '1'
+          }
         }
 
         const asJson = isJsonOutput(previewOptions)
         // Tells develop to route human lines to stderr, so stdout carries
         // only the envelope and stays parseable as one JSON document.
         if (asJson) process.env.EXTENSION_OUTPUT = 'json'
+
         const emit = (frame: unknown) => {
           // eslint-disable-next-line no-console
           console.log(JSON.stringify(frame))
@@ -193,6 +197,7 @@ export function registerPreviewCommand(program: Command) {
           (invalid, supported) => {
             unsupported = invalid
             if (asJson) return
+
             // eslint-disable-next-line no-console
             console.error(messages.unsupportedBrowserFlag(invalid, supported))
           }
@@ -207,7 +212,9 @@ export function registerPreviewCommand(program: Command) {
               })
             )
           }
+
           await exitAfterDrain(1)
+
           return
         }
 
@@ -224,7 +231,9 @@ export function registerPreviewCommand(program: Command) {
           } else {
             console.error(messages.safariCommandNotSupported('preview'))
           }
+
           await exitAfterDrain(1)
+
           return
         }
 
@@ -326,7 +335,9 @@ export function registerPreviewCommand(program: Command) {
                   : {}
               )
             )
+
             await exitAfterDrain(1)
+
             return
           }
         }

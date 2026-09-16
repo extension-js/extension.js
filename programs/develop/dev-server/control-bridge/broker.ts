@@ -125,8 +125,6 @@ const EXECUTOR_ABSENT: Record<ExecutorAbsence, (secs?: number) => string> = {
     'if it persists reload the extension or restart the dev session'
 }
 
-/** Stale-resync hint window: a full-reload resync lands within seconds, so
- * past this the stale hello no longer explains the absence. */
 const STALE_RESYNC_HINT_MS = 30_000
 
 // How long after session start to stay quiet about a reload that reached zero
@@ -192,7 +190,6 @@ export class BridgeBroker {
     | 'never-connected'
     | 'recently-disconnected'
     | null = null
-  /** Fired once, on the first producer hello, to stamp ready.json. */
   private readonly onExecutorAttached?: () => void
   private readonly onExecutorDetached?: () => void
   private lastProducerDisconnectedAt: number | null = null
@@ -244,22 +241,26 @@ export class BridgeBroker {
     switch (frame.type) {
       case 'hello':
         this.onHello(conn, frame)
+
         return
       case 'log':
         if (this.roles.get(conn) === 'producer') {
           this.ingestLog(frame.event)
         }
+
         return
       case 'command':
         if (this.roles.get(conn) === 'controller') {
           this.onCommand(conn, frame)
         }
+
         return
       case 'result':
         // Only the executor (a producer connection) resolves commands.
         if (this.roles.get(conn) === 'producer') {
           this.onResult(frame)
         }
+
         return
       case 'reload-ack':
         // Reinjection provably ran in the SW: release the delivery latch so
@@ -270,6 +271,7 @@ export class BridgeBroker {
         ) {
           this.pendingReload = undefined
         }
+
         return
       default:
         return
@@ -320,8 +322,10 @@ export class BridgeBroker {
     }
 
     let notified = 0
+
     for (const [conn, role] of this.roles) {
       if (role !== 'producer') continue
+
       try {
         conn.send(frame)
         notified++
@@ -373,6 +377,7 @@ export class BridgeBroker {
 
     // One warning per attach-state transition, not once per save.
     if (this.lastUndeliveredWarnKind === kind) return null
+
     this.lastUndeliveredWarnKind = kind
 
     return UNDELIVERED_RELOAD_WARN[kind]
@@ -382,8 +387,10 @@ export class BridgeBroker {
   // on a shorter interval or reload broadcasts reach nothing between edits.
   pingProducers(): number {
     let pinged = 0
+
     for (const [conn, role] of this.roles) {
       if (role !== 'producer') continue
+
       try {
         conn.send({type: 'ping'})
         pinged++
@@ -391,6 +398,7 @@ export class BridgeBroker {
         // Dead sockets are torn down by the adapter on error/close.
       }
     }
+
     return pinged
   }
 
@@ -413,20 +421,23 @@ export class BridgeBroker {
     }
   }
 
-  /** At most 3 stale-producer resync reloads per rolling minute. */
   private allowStaleProducerResync(): boolean {
     const now = this.now()
     this.staleResyncTimes = this.staleResyncTimes.filter(
       (t) => now - t < 60_000
     )
+
     if (this.staleResyncTimes.length >= 3) return false
+
     this.staleResyncTimes.push(now)
+
     return true
   }
 
   private onHello(conn: BridgeConnection, hello: HelloFrame): void {
     if (hello.v !== CONTROL_ENVELOPE_VERSION) {
       conn.close(CLOSE_BAD_HELLO, 'unsupported envelope version')
+
       return
     }
 
@@ -444,6 +455,7 @@ export class BridgeBroker {
               `[control-bridge] stale producer (instance ${hello.instanceId}) → full-reload resync`
             )
           }
+
           conn.send({
             type: 'reload',
             reloadType: 'full',
@@ -451,7 +463,9 @@ export class BridgeBroker {
           })
         }
       }
+
       conn.close(CLOSE_BAD_INSTANCE, 'instanceId mismatch')
+
       return
     }
 
@@ -460,6 +474,7 @@ export class BridgeBroker {
         // Control was not enabled this session (no --allow-control).
         // Refuse cleanly so the client can detect availability
         conn.close(CLOSE_CONTROL_UNAVAILABLE, 'control channel not available')
+
         return
       }
 
@@ -469,11 +484,13 @@ export class BridgeBroker {
       // is recorded per connection so a later denial names the actual cause.
       this.evalGate.set(conn, this.gateEval(hello.token))
       conn.send(this.controllerReady())
+
       return
     }
 
     if (hello.role !== 'producer' && hello.role !== 'consumer') {
       conn.close(CLOSE_BAD_HELLO, 'unknown role')
+
       return
     }
 
@@ -484,6 +501,7 @@ export class BridgeBroker {
       // A producer is back: clear the undelivered-reload dedup so a later detach
       // can warn again (the attach state genuinely transitioned).
       this.lastUndeliveredWarnKind = null
+
       // Stamp ready.json's runtime signal on EVERY producer hello: idempotent, and
       // firing each time closes the startup race where the callback wasn't wired yet.
       try {
@@ -546,16 +564,19 @@ export class BridgeBroker {
   private gateEval(token: string | undefined): EvalGate {
     if (!this.allowEval) return 'eval-disabled'
     if (!token) return 'no-token'
+
     // No server-side token with --allow-eval set shouldn't happen; treat as a
     // mismatch since no presented token can be valid.
     if (!this.controlToken || token !== this.controlToken) {
       return 'token-mismatch'
     }
+
     return 'ok'
   }
 
   private controllerReady(): ReadyFrame {
     const isFirefox = this.engine === 'firefox'
+
     return {
       type: 'ready',
       runId: this.runId,
@@ -610,17 +631,23 @@ export class BridgeBroker {
 
     if (!CONTROL_OPS.has(cmd.op)) {
       deny('BadRequest', `unknown op: ${String(cmd.op)}`)
+
       return
     }
+
     const evalGate = this.evalGate.get(controller) ?? 'eval-disabled'
+
     if (isEval && evalGate !== 'ok') {
       deny(EVAL_DENIED_NAME[evalGate], EVAL_DENIED[evalGate])
+
       return
     }
 
     const executor = this.firstExecutor()
+
     if (!executor) {
       deny('Unavailable', this.diagnoseExecutorAbsence())
+
       return
     }
 
@@ -732,6 +759,7 @@ export class BridgeBroker {
   private fanOut(frame: ServerFrame): void {
     for (const [conn, role] of this.roles) {
       if (role !== 'consumer') continue
+
       try {
         conn.send(frame)
       } catch {

@@ -19,6 +19,7 @@ function makeFixture(envFiles: Record<string, string>): string {
       2
     )
   )
+
   fs.writeFileSync(
     path.join(root, 'manifest.json'),
     JSON.stringify(
@@ -32,6 +33,7 @@ function makeFixture(envFiles: Record<string, string>): string {
       2
     )
   )
+
   fs.writeFileSync(
     path.join(root, 'sw.js'),
     [
@@ -70,6 +72,7 @@ async function buildFixture(root: string) {
     } else {
       process.env.EXTENSION_AUTHOR_MODE = previousAuthorMode
     }
+
     if (previousVitest === undefined) {
       delete process.env.VITEST
     } else {
@@ -97,6 +100,7 @@ function runWorker(root: string): string[] {
   vm.runInContext(fs.readFileSync(workerPath, 'utf8'), context, {
     filename: 'background/service_worker.js'
   })
+
   return logs
 }
 
@@ -150,6 +154,7 @@ describe('getEnvFileCandidates', () => {
     expect(chromium.indexOf('.env.chromium')).toBeLessThan(
       chromium.indexOf('.env.chrome')
     )
+
     expect(chromium).toContain('.env.chrome')
     expect(chromium).toContain('.env.edge')
     expect(chromium).toContain('.env.chromium-based')

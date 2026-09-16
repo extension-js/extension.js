@@ -20,6 +20,7 @@ export interface ResolvedJsonResource {
 
 function isInsideDir(abs: string, dir: string): boolean {
   const rel = path.relative(dir, abs)
+
   return Boolean(rel && !rel.startsWith('..') && !path.isAbsolute(rel))
 }
 
@@ -27,6 +28,7 @@ function firstExisting(candidates: string[]): string | undefined {
   for (const candidate of candidates) {
     if (candidate && fs.existsSync(candidate)) return candidate
   }
+
   return undefined
 }
 
@@ -43,11 +45,13 @@ export function resolveJsonResource(
   const inspection = inspectPublicFolders(manifestPath, projectPath)
   // Root-level public/ first, then next to the manifest, the copier's order.
   const publicRoots = [inspection.fromRoot]
+
   if (
     path.resolve(inspection.fromManifest) !== path.resolve(inspection.fromRoot)
   ) {
     publicRoots.push(inspection.fromManifest)
   }
+
   const rawRef = String(thisResource)
   const looksLikeRootRef =
     rawRef.startsWith('/') &&
@@ -78,10 +82,12 @@ export function resolveJsonResource(
     !path.isAbsolute(rawRef) && !rawRef.startsWith('public/') ? rawRef : ''
 
   const candidates = [joined]
+
   for (const publicRoot of publicRoots) {
     const rels = [relFromManifest, trimmedRootRef, relativeRef]
     // A project-relative mirror only makes sense under the root folder.
     if (publicRoot === inspection.fromRoot) rels.push(relFromProject)
+
     for (const rel of rels) {
       if (rel) candidates.push(path.join(publicRoot, rel))
     }
@@ -93,6 +99,7 @@ export function resolveJsonResource(
   // wins and a file under the shadowed next-to-manifest folder never lands.
   const isUnderPublic = publicRoots.some((publicRoot) => {
     if (!isInsideDir(abs, publicRoot)) return false
+
     return !inspection.bothExist || publicRoot === inspection.fromRoot
   })
 

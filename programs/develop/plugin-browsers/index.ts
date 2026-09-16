@@ -80,7 +80,6 @@ export interface BrowserLaunchOptions {
   logSink?: BrowserLogSink
 }
 
-/** Browser-generated log entry normalized by the launcher's CDP controller. */
 export interface BrowserLogSinkEvent {
   level: 'log' | 'info' | 'warn' | 'error' | 'debug'
   text: string
@@ -108,9 +107,7 @@ export interface BrowserController {
     urlFilter?: string
     tabFilter?: number | string
   }): Promise<void>
-  /** The browser's refusal reason for this session, or null when it loaded. */
   getExtensionLoadRefusal?(): string | null
-  /** Re-offer the current dist. Only ever called while the session is refused. */
   retryExtensionLoad?(): Promise<ExtensionLoadRetryResult>
 }
 
@@ -125,38 +122,18 @@ export interface RunnerPlugin {
 }
 
 export interface BrowsersPluginOptions {
-  /** Injected browser launcher, provided by the CLI from programs/extension/browsers/ */
   launcher: BrowserLauncherFn
-  /** Browser-related options forwarded to the launcher (outputPath/contextDir/extensionsToLoad are filled at compile time) */
   browserOptions: Omit<
     BrowserLaunchOptions,
     'outputPath' | 'contextDir' | 'extensionsToLoad'
   >
 }
 
-/**
- * BrowsersPlugin
- *
- * An rspack plugin that manages the browser lifecycle for extension development.
- * On first successful compilation it launches a browser via the injected launcher
- * function; on subsequent compilations it classifies changed files and triggers
- * the appropriate reload strategy (full / service-worker / content-scripts).
- *
- * A `BuildEmitter` is exposed as `plugin.emitter` so that external consumers
- * (CLI telemetry, wait-mode, etc.) can subscribe to build events without
- * coupling to rspack.
- */
 export class BrowsersPlugin implements RunnerPlugin {
   static readonly name = 'plugin-browsers'
 
-  /** EventEmitter for build lifecycle events (compiled, error, close). */
   readonly emitter = new BuildEmitter()
 
-  /**
-   * Extension directories to load alongside the user extension.
-   * Set externally by webpack-config after computing companion extensions,
-   * before the first compilation.
-   */
   extensionsToLoad: string[] = []
 
   private isFirstCompile = true
@@ -168,11 +145,6 @@ export class BrowsersPlugin implements RunnerPlugin {
 
   constructor(private readonly options: BrowsersPluginOptions) {}
 
-  /**
-   * The dev server injects the control-bridge broker so a launched
-   * Chromium reloads through the SW producer (the same path as `--no-browser`),
-   * not the CDP controller. Called once, before the first compile.
-   */
   setReloadBroker(broker: ReloadBroker): void {
     this.reloadBroker = broker
   }
@@ -183,21 +155,16 @@ export class BrowsersPlugin implements RunnerPlugin {
     this.logSink = sink
   }
 
-  /**
-   * Re-offer the dist to a browser that refused it at launch. Returns true
-   * when the browser has now accepted it, so the caller skips the reload.
-   *
-   * Only ever runs while the session is refused: re-asking a healthy browser
-   * would restart the guest and destroy its HMR state.
-   */
   private async retryRefusedExtensionLoad(): Promise<boolean> {
     const controller = this.controller
+
     if (
       !controller?.retryExtensionLoad ||
       !controller.getExtensionLoadRefusal
     ) {
       return false
     }
+
     if (!controller.getExtensionLoadRefusal()) return false
 
     if (this.lastReportedRefusal === undefined) {
@@ -206,6 +173,7 @@ export class BrowsersPlugin implements RunnerPlugin {
     }
 
     let outcome: ExtensionLoadRetryResult
+
     try {
       outcome = await controller.retryExtensionLoad()
     } catch {
@@ -214,6 +182,7 @@ export class BrowsersPlugin implements RunnerPlugin {
 
     if (outcome.status === 'loaded') {
       console.log(messages.extensionLoadRecovered())
+
       return true
     }
 
@@ -228,6 +197,7 @@ export class BrowsersPlugin implements RunnerPlugin {
       this.lastReportedRefusal = outcome.reason
       console.error(messages.extensionLoadStillRefused(outcome.reason))
     }
+
     return false
   }
 
@@ -244,6 +214,7 @@ export class BrowsersPlugin implements RunnerPlugin {
             typeof e === 'string' ? e : e.message || String(e)
           )
         })
+
         return
       }
 
@@ -281,6 +252,7 @@ export class BrowsersPlugin implements RunnerPlugin {
           })
 
           const logLevel = this.options.browserOptions.logLevel || 'off'
+
           if (logLevel !== 'off' && this.controller) {
             await this.controller.enableUnifiedLogging({
               level: logLevel,
@@ -302,6 +274,7 @@ export class BrowsersPlugin implements RunnerPlugin {
               reason
             )
           )
+
           this.emitter.emit('error', {errors: [reason]})
         }
       } else if (await this.retryRefusedExtensionLoad()) {

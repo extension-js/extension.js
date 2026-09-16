@@ -18,21 +18,25 @@ function project() {
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'meta-url', version: '0.0.0'})
   )
+
   const dep = path.join(root, 'node_modules', 'meta-url-dep')
   fs.mkdirSync(dep, {recursive: true})
   fs.writeFileSync(
     path.join(dep, 'package.json'),
     JSON.stringify({name: 'meta-url-dep', type: 'module', main: 'index.mjs'})
   )
+
   fs.writeFileSync(
     path.join(dep, 'index.mjs'),
     'export function base(override) {\n  return override || import.meta.url\n}\n'
   )
+
   // Above the asset inline limit, so it ships as a file instead of a data URI.
   fs.writeFileSync(
     path.join(root, 'asset.txt'),
     `META_URL_ASSET\n${'x'.repeat(16_000)}\n`
   )
+
   fs.writeFileSync(
     path.join(root, 'background.js'),
     [
@@ -42,6 +46,7 @@ function project() {
       ''
     ].join('\n')
   )
+
   fs.writeFileSync(
     path.join(root, 'manifest.json'),
     JSON.stringify({
@@ -51,6 +56,7 @@ function project() {
       background: {service_worker: 'background.js'}
     })
   )
+
   return root
 }
 
@@ -58,6 +64,7 @@ async function build(root: string) {
   const {extensionBuild} = await import('../command-build')
   const previous = process.env.VITEST
   process.env.VITEST = 'true'
+
   try {
     const summary = await extensionBuild(root, {
       browser: 'chrome',
@@ -71,6 +78,7 @@ async function build(root: string) {
     if (previous === undefined) delete process.env.VITEST
     else process.env.VITEST = previous
   }
+
   const distDir = path.join(root, 'dist', 'chrome')
   const files = fs
     .readdirSync(distDir, {recursive: true})
@@ -78,6 +86,7 @@ async function build(root: string) {
     .filter((file) => fs.statSync(path.join(distDir, file)).isFile())
   const read = (file: string) =>
     fs.readFileSync(path.join(distDir, file), 'utf8')
+
   return {distDir, files, read}
 }
 
@@ -95,9 +104,11 @@ describe('import.meta.url in a production build', () => {
         dir.split(path.sep).join('/').replace(/^\/+/, '')
       )
     )
+
     for (const file of files) {
       const content = read(file)
       expect(content, file).not.toContain('file://')
+
       for (const needle of needles) {
         expect(content.split('\\').join('/'), file).not.toContain(needle)
       }

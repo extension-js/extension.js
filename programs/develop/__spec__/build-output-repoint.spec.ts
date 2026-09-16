@@ -22,6 +22,7 @@ function tmp(prefix: string) {
     fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), prefix))
   )
   roots.push(dir)
+
   return dir
 }
 
@@ -31,6 +32,7 @@ function fixture(config: string, pageName = 'one') {
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'repoint', version: '0.0.0'})
   )
+
   fs.writeFileSync(
     path.join(root, 'manifest.json'),
     JSON.stringify({
@@ -40,10 +42,12 @@ function fixture(config: string, pageName = 'one') {
       background: {service_worker: 'background.js'}
     })
   )
+
   fs.writeFileSync(path.join(root, 'background.js'), 'console.log("bg")\n')
   fs.mkdirSync(path.join(root, 'pages'), {recursive: true})
   writePage(root, pageName)
   fs.writeFileSync(path.join(root, 'extension.config.js'), config)
+
   return root
 }
 
@@ -52,6 +56,7 @@ function writePage(root: string, name: string) {
     path.join(root, 'pages', `${name}.html`),
     `<!doctype html><title>${name}</title><script src="./${name}.js"></script>`
   )
+
   fs.writeFileSync(
     path.join(root, 'pages', `${name}.js`),
     `console.log("${name}")\n`
@@ -66,6 +71,7 @@ async function build(root: string, cwd: string) {
   const lines: string[] = []
   const originalLog = console.log
   console.log = (...args: unknown[]) => lines.push(args.join(' '))
+
   try {
     const summary = await extensionBuild(root, {
       browser: 'chrome',
@@ -75,6 +81,7 @@ async function build(root: string, cwd: string) {
       exitOnError: false
     } as any)
     expect(summary.errors_count).toBe(0)
+
     return {summary, output: lines.join('\n')}
   } finally {
     console.log = originalLog
@@ -102,6 +109,7 @@ describe('a re-pointed output folder', () => {
     expect(
       fs.readFileSync(path.join(elsewhere, 'build', 'SENTINEL.txt'), 'utf8')
     ).toBe('PRECIOUS')
+
     expect(fs.existsSync(path.join(root, 'build', 'manifest.json'))).toBe(true)
     // The receipt names the folder the artifacts landed in.
     expect(fromElsewhere.summary.output_path).toBe(path.join(root, 'build'))
@@ -145,9 +153,11 @@ describe('a re-pointed output folder', () => {
     expect(fs.existsSync(path.join(elsewhere, 'build', 'SENTINEL.txt'))).toBe(
       true
     )
+
     expect(
       fs.existsSync(path.join(root, 'ctx', 'build', 'manifest.json'))
     ).toBe(true)
+
     expect(built.summary.output_path).toBe(path.join(root, 'ctx', 'build'))
   }, 180_000)
 })

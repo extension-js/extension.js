@@ -20,6 +20,7 @@ function cliRoot(): string {
 function cliBin(): string {
   const cjs = path.join(cliRoot(), 'dist', 'cli.cjs')
   if (existsSync(cjs)) return cjs
+
   return path.join(cliRoot(), 'dist', 'cli.js')
 }
 
@@ -39,6 +40,7 @@ function createFixture(): string {
     }),
     'utf8'
   )
+
   writeFileSync(
     path.join(projectDir, 'manifest.json'),
     JSON.stringify({
@@ -49,6 +51,7 @@ function createFixture(): string {
     }),
     'utf8'
   )
+
   writeFileSync(
     path.join(contentDir, 'scripts.js'),
     [
@@ -61,6 +64,7 @@ function createFixture(): string {
     ].join('\n'),
     'utf8'
   )
+
   return projectDir
 }
 
@@ -70,6 +74,7 @@ function readEmittedContentScript(projectDir: string): string {
     (name) => /^content-0.*\.js$/.test(name) && !name.endsWith('.map')
   )
   if (!file) throw new Error(`no emitted content-0 bundle in ${dir}`)
+
   return readFileSync(path.join(dir, file), 'utf8')
 }
 

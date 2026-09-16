@@ -10,6 +10,7 @@ describe('ChromiumLaunchPlugin --chromium-binary', () => {
 
   afterEach(() => {
     vi.restoreAllMocks()
+
     for (const dir of dirs.splice(0)) {
       rmSync(dir, {recursive: true, force: true})
     }
@@ -40,6 +41,7 @@ describe('ChromiumLaunchPlugin --chromium-binary', () => {
     await expect(plugin.runOnce(compilation())).rejects.toThrow(
       /Invalid --chromium-binary path/
     )
+
     const printed = error.mock.calls.map((c) => String(c[0])).join('\n')
     expect(printed).toMatch(/Can't find a Chromium binary at the given path/)
     expect(printed).not.toMatch(/Chrome for Testing/)

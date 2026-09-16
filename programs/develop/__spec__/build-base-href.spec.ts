@@ -28,6 +28,7 @@ function fixture(options: {
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'base-href', version: '0.0.0'})
   )
+
   fs.writeFileSync(
     path.join(root, 'src/manifest.json'),
     JSON.stringify({
@@ -37,20 +38,24 @@ function fixture(options: {
       action: {default_popup: 'popup.html'}
     })
   )
+
   fs.writeFileSync(
     path.join(root, 'src/popup.html'),
     `<!doctype html>\n<html>\n<head>${options.head || ''}</head>\n<body>\n${options.body || ''}\n</body>\n</html>\n`
   )
+
   fs.writeFileSync(path.join(root, 'src/sub/logo.png'), 'PNGDATA\n')
   fs.writeFileSync(
     path.join(root, 'src/popup.js'),
     'globalThis.__BASE_HREF_SENTINEL__ = "real-script-code"\n'
   )
+
   for (const [rel, content] of Object.entries(options.extra || {})) {
     const abs = path.join(root, rel)
     fs.mkdirSync(path.dirname(abs), {recursive: true})
     fs.writeFileSync(abs, content)
   }
+
   return root
 }
 
@@ -58,6 +63,7 @@ async function build(root: string) {
   const {extensionBuild} = await import('../command-build')
   const previous = process.env.VITEST
   process.env.VITEST = 'true'
+
   try {
     const summary = await extensionBuild(path.join(root, 'src'), {
       browser: 'chrome',
@@ -71,15 +77,18 @@ async function build(root: string) {
     if (previous === undefined) delete process.env.VITEST
     else process.env.VITEST = previous
   }
+
   const distDir = path.join(root, 'dist', 'chrome')
   const files: string[] = []
+
   const walk = (dir: string, prefix = '') => {
     for (const entry of fs.readdirSync(dir, {withFileTypes: true})) {
-      if (entry.isDirectory())
+      if (entry.isDirectory()) {
         walk(path.join(dir, entry.name), `${prefix}${entry.name}/`)
-      else files.push(prefix + entry.name)
+      } else files.push(prefix + entry.name)
     }
   }
+
   walk(distDir)
   const pageRel = files.find((file) => file.endsWith('.html')) as string
   const html = fs.readFileSync(path.join(distDir, pageRel), 'utf8')
@@ -90,17 +99,23 @@ async function build(root: string) {
       )
     ].map((match) => match[1])
   const survivingBase = (html.match(/<base\b[^>]*href="([^"]*)"/) || [])[1]
+
   // Resolve a ref the way the browser will: from the built page's own
   // location, or from a <base href> that survived into the output.
   const resolve = (ref: string) => {
     const docBase = new URL(`${EXT_ORIGIN}/${pageRel}`)
     const base = survivingBase ? new URL(survivingBase, docBase) : docBase
     const url = new URL(ref, base)
-    if (!url.href.startsWith(`${EXT_ORIGIN}/`))
+
+    if (!url.href.startsWith(`${EXT_ORIGIN}/`)) {
       return {local: false, url: url.href}
+    }
+
     return {local: true, path: url.pathname.replace(/^\//, '')}
   }
+
   const read = (rel: string) => fs.readFileSync(path.join(distDir, rel), 'utf8')
+
   return {files, html, refsOf, resolve, read}
 }
 
@@ -138,6 +153,7 @@ describe('<base href> on an extension page', () => {
       ...built.refsOf('link')
     ]
     expect(refs.length).toBeGreaterThan(0)
+
     for (const ref of refs) {
       const resolved = built.resolve(ref)
       expect(resolved, ref).toMatchObject({local: true})

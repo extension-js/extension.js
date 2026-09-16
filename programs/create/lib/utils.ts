@@ -30,6 +30,7 @@ export async function copyDirectoryWithSymlinks(
         await fs.symlink(target, destPath)
       } catch (caught) {
         const err = caught as NodeJS.ErrnoException | undefined
+
         if (err?.code === 'EPERM' || err?.code === 'ENOTSUP') {
           const real = await fs.realpath(sourcePath)
           await fs.cp(real, destPath, {recursive: true})
@@ -63,6 +64,7 @@ export async function moveDirectoryContents(
         await fs.symlink(target, destPath)
       } catch (caught) {
         const err = caught as NodeJS.ErrnoException | undefined
+
         if (err?.code === 'EPERM' || err?.code === 'ENOTSUP') {
           const real = await fs.realpath(sourcePath)
           await fs.cp(real, destPath, {recursive: true})
@@ -76,6 +78,7 @@ export async function moveDirectoryContents(
         await fs.rename(sourcePath, destPath)
       } catch (caught) {
         const err = caught as NodeJS.ErrnoException | undefined
+
         if (err && (err.code === 'EXDEV' || err.code === 'EINVAL')) {
           await fs.copyFile(sourcePath, destPath)
           await fs.rm(sourcePath, {force: true})
@@ -103,6 +106,7 @@ export async function isDirectoryWriteable(
     return true
   } catch (err) {
     logger.error(messages.writingDirectoryError(err))
+
     return false
   }
 }

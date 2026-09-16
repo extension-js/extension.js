@@ -63,12 +63,15 @@ export const NO_SAFARI_BROWSER_TARGETS_HELP = SUPPORTED_BROWSER_TARGETS.filter(
 
 export function parseOptionalBoolean(value?: string): boolean {
   if (typeof value === 'undefined') return true
+
   const normalized = String(value).trim().toLowerCase()
+
   return !['false', '0', 'no', 'off'].includes(normalized)
 }
 
 export const vendors = (browser?: Browser | 'all') => {
   const value = (browser ?? 'chromium') as string
+
   return value === 'all'
     ? ['chrome', 'edge', 'firefox']
     : String(value)
@@ -118,9 +121,11 @@ export function validateVendors(
   onInvalid: (invalid: string, supported: string[]) => void
 ): boolean {
   const supported = SUPPORTED_BROWSER_TARGETS
+
   for (const v of vendorsList) {
     if (!supported.includes(v)) {
       onInvalid(v, supported)
+
       return false
     }
   }
@@ -136,9 +141,11 @@ export function validateManagedInstallTargets(
   onInvalid: (invalid: string, supported: string[]) => void
 ): boolean {
   const supported = [...MANAGED_INSTALL_TARGETS]
+
   for (const v of targetsList) {
     if (!supported.includes(v as (typeof MANAGED_INSTALL_TARGETS)[number])) {
       onInvalid(v, supported)
+
       return false
     }
   }
@@ -168,6 +175,7 @@ export function classifyManagedInstallTarget(
   if (!value) return 'unknown'
   if (MANAGED_INSTALL_TARGET_SET.has(value)) return 'managed'
   if (SUPPORTED_BROWSER_TARGET_SET.has(value)) return 'not-installable'
+
   return 'unknown'
 }
 
@@ -179,5 +187,6 @@ export function firstNonManagedInstallTarget(
     const kind = classifyManagedInstallTarget(name)
     if (kind !== 'managed') return {name, kind}
   }
+
   return null
 }

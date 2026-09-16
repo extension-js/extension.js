@@ -26,6 +26,7 @@ export function classifyEntrySurface(entryName: string): EntrySurface {
   // The manifest names one file for user_scripts.api_script, so the surface
   // loads that file alone and a sibling chunk never reaches it.
   if (entryName.startsWith('user_scripts/')) return 'script'
+
   return 'page'
 }
 

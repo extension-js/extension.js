@@ -54,6 +54,7 @@ export function setupCleanupHandlers(
 
   const cleanup = async () => {
     if (isShuttingDown) return
+
     isShuttingDown = true
 
     try {
@@ -89,6 +90,7 @@ export function setupCleanupHandlers(
     } catch {
       // Ignore
     }
+
     await cleanup()
   }
 

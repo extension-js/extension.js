@@ -19,6 +19,7 @@ function makeCompilation(contextDirectory: string) {
       }
     }
   }
+
   return {
     options: {context: contextDirectory},
     hooks: {
@@ -33,6 +34,7 @@ describe('AddAssetsToCompilation (source-path copies)', () => {
     const tmpDirectoryPath = fs.mkdtempSync(
       path.join(os.tmpdir(), 'feature-html-source-path-copy-')
     )
+
     try {
       const manifestFilePath = path.join(tmpDirectoryPath, 'manifest.json')
       fs.writeFileSync(manifestFilePath, '{}', 'utf8')
@@ -76,6 +78,7 @@ describe('AddAssetsToCompilation (source-path copies)', () => {
     const tmpDirectoryPath = fs.mkdtempSync(
       path.join(os.tmpdir(), 'feature-html-source-path-guards-')
     )
+
     try {
       const manifestFilePath = path.join(tmpDirectoryPath, 'manifest.json')
       fs.writeFileSync(manifestFilePath, '{}', 'utf8')

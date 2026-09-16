@@ -19,27 +19,6 @@ interface PerfBudgetsPluginOptions {
   budgets?: Partial<Record<AssetCategory, number>>
 }
 
-/**
- * PerfBudgetsPlugin, extension-aware performance budgets.
- *
- * Replaces rspack's stock single-threshold `performance.hints` with a
- * per-asset-category budget tuned to how browser extensions actually
- * load code:
- *
- *   content_scripts/*    → 512 KiB  (injected on every navigation)
- *   background / SW      → 512 KiB  (wakes from cold each session)
- *   pages / sidebar / …  → 1 MiB    (opened on demand)
- *   runtime / wasm cores → 1 MiB    (hashed payloads at the output root)
- *   images, fonts, etc.  → silenced (not a code-splitting concern)
- *
- * Numbers are sized to clear realistic framework templates (React/Vue/
- * Preact/Svelte + a design system) and still flag genuine outliers
- * (multi-MiB AI sidebars, heavyweight WASM service workers). Override
- * per-category via `perfBudgets` in `extension.config.{js,ts}`.
- *
- * Set `compiler.options.performance.hints = false` when this plugin is
- * registered to avoid double-warnings.
- */
 export class PerfBudgetsPlugin {
   static readonly name = 'plugin-perf-budgets'
 

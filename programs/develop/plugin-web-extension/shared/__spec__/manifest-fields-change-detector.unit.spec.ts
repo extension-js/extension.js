@@ -57,6 +57,7 @@ function makeCompiler(modified: string[], errorsArr: any[]) {
       thisCompilationHandler(compilation)
     }
   }
+
   return compiler
 }
 
@@ -108,6 +109,7 @@ describe('ManifestFieldsChangeDetector', () => {
       icons: {},
       json: {}
     }
+
     await compiler._triggerWatchRun()
     compiler._triggerThisCompilation()
 
@@ -164,6 +166,7 @@ describe('ManifestFieldsChangeDetector', () => {
       icons: {},
       json: {'declarative_net_request/ruleset-0': '/b.json'}
     }
+
     await compiler._triggerWatchRun()
     compiler._triggerThisCompilation()
 
@@ -197,6 +200,7 @@ describe('ManifestFieldsChangeDetector', () => {
       icons: {},
       json: {'some_other/key': '/b.json'}
     }
+
     await compiler._triggerWatchRun()
     compiler._triggerThisCompilation()
 
@@ -282,6 +286,7 @@ describe('ManifestFieldsChangeDetector', () => {
       },
       json: {}
     }
+
     await compiler._triggerWatchRun()
     compiler._triggerThisCompilation()
 
@@ -312,6 +317,7 @@ describe('ManifestFieldsChangeDetector', () => {
       icons: {icons: ['/b/16.png', '/a/32.png']},
       json: {}
     }
+
     await compiler._triggerWatchRun()
     compiler._triggerThisCompilation()
 
@@ -386,6 +392,7 @@ describe('ManifestFieldsChangeDetector', () => {
       },
       json: {}
     }
+
     await compiler._triggerWatchRun()
     compiler._triggerThisCompilation()
 
@@ -419,6 +426,7 @@ describe('ManifestFieldsChangeDetector', () => {
       icons: {0: '/new-icon.png'},
       json: {}
     }
+
     await compiler._triggerWatchRun()
     compiler._triggerThisCompilation()
 
@@ -447,6 +455,7 @@ describe('ManifestFieldsChangeDetector', () => {
       icons: {},
       json: {}
     }
+
     await compiler._triggerWatchRun()
     compiler._triggerThisCompilation()
     await new Promise((r) => setTimeout(r, 0))
@@ -480,6 +489,7 @@ describe('ManifestFieldsChangeDetector', () => {
       icons: {action: ['/icons/toolbar.png']},
       json: {}
     }
+
     await compiler._triggerWatchRun()
     compiler._triggerThisCompilation()
     await new Promise((r) => setTimeout(r, 0))

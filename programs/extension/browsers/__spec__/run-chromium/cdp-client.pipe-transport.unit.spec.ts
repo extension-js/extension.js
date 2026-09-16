@@ -29,6 +29,7 @@ describe('CDPClient pipe transport', () => {
     } catch {
       // Ignore
     }
+
     pipeIn.destroy()
     pipeOut.destroy()
   })

@@ -42,6 +42,7 @@ function installBuild(
     `${platformPrefix}-${buildId}`
   )
   writeExecutable(path.join(dir, 'unpacked', executable))
+
   return dir
 }
 
@@ -52,6 +53,7 @@ function installChromeCandidate(buildId: string) {
     'chrome',
     `${platformPrefix}-${buildId}`
   )
+
   if (isWin) {
     writeExecutable(path.join(dir, 'chrome-win64', 'chrome.exe'))
   } else if (process.platform === 'darwin') {
@@ -68,6 +70,7 @@ function installChromeCandidate(buildId: string) {
   } else {
     writeExecutable(path.join(dir, 'chrome-linux64', 'chrome'))
   }
+
   return dir
 }
 
@@ -83,6 +86,7 @@ afterEach(() => {
   } else {
     process.env.EXT_BROWSERS_CACHE_DIR = previousCacheDir
   }
+
   fs.rmSync(cacheRoot, {recursive: true, force: true})
 })
 
@@ -94,6 +98,7 @@ describe('compareManagedBuildDirNames', () => {
         `${platformPrefix}-140.0.7259.2`
       )
     ).toBeLessThan(0)
+
     expect(
       compareManagedBuildDirNames(
         `${platformPrefix}-140.0.7259.2`,
@@ -159,6 +164,7 @@ describe('resolveFromBinaries', () => {
 
   it('finds the macOS Edge app-bundle binary named Microsoft Edge', () => {
     if (process.platform !== 'darwin') return
+
     const dir = path.join(
       cacheRoot,
       'edge',

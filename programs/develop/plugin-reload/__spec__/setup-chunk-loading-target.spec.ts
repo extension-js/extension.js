@@ -6,6 +6,7 @@ import {afterEach, describe, expect, it, vi} from 'vitest'
 const webExtensionCtor = vi.hoisted(() =>
   vi.fn(function (this: any, options: any) {
     this.options = options
+
     this.apply = () => {}
   })
 )
@@ -20,6 +21,7 @@ const tempDirs: string[] = []
 
 afterEach(() => {
   webExtensionCtor.mockClear()
+
   while (tempDirs.length > 0) {
     fs.rmSync(tempDirs.pop()!, {recursive: true, force: true})
   }
@@ -30,11 +32,13 @@ function writeManifest(manifest: unknown, files: string[] = []) {
   tempDirs.push(dir)
   const manifestPath = path.join(dir, 'manifest.json')
   fs.writeFileSync(manifestPath, JSON.stringify(manifest), 'utf8')
+
   for (const file of files) {
     const filePath = path.join(dir, file)
     fs.mkdirSync(path.dirname(filePath), {recursive: true})
     fs.writeFileSync(filePath, '// stub', 'utf8')
   }
+
   return manifestPath
 }
 
@@ -71,6 +75,7 @@ describe('SetupChunkLoadingTarget', () => {
     expect(options.background.serviceWorkerEntry).toBe(
       'background/service_worker'
     )
+
     // Regression: the classic loader adds a background runtime module that
     // lands bare at the top of a production service worker, which has no
     // webpack runtime to scope it, and the worker then dies on load with

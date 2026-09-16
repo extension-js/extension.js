@@ -14,15 +14,18 @@ function coercionFor(
   register(program)
   const cmd = program.commands.find((c) => c.name() === name)!
   const option = cmd.options.find((o) => o.long === long)
+
   return option?.parseArg as ((v?: string) => unknown) | undefined
 }
 
 describe('parseOptionalBoolean', () => {
   it('treats a bare flag as true and false/0/no/off as false', () => {
     expect(parseOptionalBoolean(undefined)).toBe(true)
+
     for (const v of ['false', 'FALSE', '0', 'no', 'off']) {
       expect(parseOptionalBoolean(v)).toBe(false)
     }
+
     for (const v of ['true', '1', 'yes']) {
       expect(parseOptionalBoolean(v)).toBe(true)
     }

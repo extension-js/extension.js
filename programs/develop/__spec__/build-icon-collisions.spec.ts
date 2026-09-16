@@ -22,15 +22,18 @@ function project(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'icons', version: '0.0.0'})
   )
+
   fs.writeFileSync(
     path.join(root, 'manifest.json'),
     JSON.stringify({name: 'Icons', version: '1.0.0', ...manifest})
   )
+
   for (const [rel, content] of Object.entries(files)) {
     const abs = path.join(root, rel)
     fs.mkdirSync(path.dirname(abs), {recursive: true})
     fs.writeFileSync(abs, content)
   }
+
   return root
 }
 
@@ -38,6 +41,7 @@ async function build(root: string, browser: 'chrome' | 'firefox') {
   const {extensionBuild} = await import('../command-build')
   const previous = process.env.VITEST
   process.env.VITEST = 'true'
+
   try {
     const summary = await extensionBuild(root, {
       browser,
@@ -51,14 +55,18 @@ async function build(root: string, browser: 'chrome' | 'firefox') {
     if (previous === undefined) delete process.env.VITEST
     else process.env.VITEST = previous
   }
+
   const distDir = path.join(root, 'dist', browser)
   const manifest = JSON.parse(
     fs.readFileSync(path.join(distDir, 'manifest.json'), 'utf8')
   )
+
   const read = (rel: string) => {
     expect(fs.existsSync(path.join(distDir, rel)), `${rel} missing`).toBe(true)
+
     return fs.readFileSync(path.join(distDir, rel), 'utf8')
   }
+
   return {manifest, read}
 }
 

@@ -11,6 +11,7 @@ export function makeProgram(register: (program: Command) => void): Command {
   const program = new Command()
   program.exitOverride()
   register(program)
+
   return program
 }
 
@@ -26,9 +27,11 @@ export async function runCli(
 ): Promise<number> {
   try {
     await program.parseAsync(argv, {from: 'user'})
+
     return 0
   } catch (err) {
     if (err instanceof ExitSignal) return err.code
+
     throw err
   }
 }

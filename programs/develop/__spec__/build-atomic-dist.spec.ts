@@ -17,6 +17,7 @@ function writeFixture() {
       2
     )
   )
+
   fs.writeFileSync(
     path.join(ROOT, 'manifest.json'),
     JSON.stringify(
@@ -30,6 +31,7 @@ function writeFixture() {
       2
     )
   )
+
   fs.writeFileSync(
     path.join(ROOT, 'popup.html'),
     '<html><body><h1>popup</h1></body></html>\n'
@@ -58,6 +60,7 @@ async function buildFixture() {
     } else {
       process.env.EXTENSION_AUTHOR_MODE = previousAuthorMode
     }
+
     if (previousVitest === undefined) {
       delete process.env.VITEST
     } else {
@@ -71,17 +74,22 @@ async function buildFixture() {
 function manifestViolations(distDir: string): string[] {
   const manifestPath = path.join(distDir, 'manifest.json')
   if (!fs.existsSync(manifestPath)) return []
+
   let manifest: {action?: {default_popup?: string}}
+
   try {
     manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
   } catch {
     return [`${manifestPath} is unreadable`]
   }
+
   const missing: string[] = []
   const popup = manifest.action?.default_popup
+
   if (popup && !fs.existsSync(path.join(distDir, popup))) {
     missing.push(popup)
   }
+
   return missing
 }
 
@@ -152,6 +160,7 @@ describe('build: atomic dist publish (real rspack)', () => {
       expect(fs.readFileSync(path.join(DIST, 'manifest.json'), 'utf-8')).toBe(
         goodManifest
       )
+
       expect(manifestViolations(DIST)).toEqual([])
       expect(stagingLitter()).toEqual([])
     } finally {
@@ -198,6 +207,7 @@ describe('build: atomic dist publish (real rspack)', () => {
       expect(fs.readFileSync(path.join(DIST, 'manifest.json'), 'utf-8')).toBe(
         goodManifest
       )
+
       expect(manifestViolations(DIST)).toEqual([])
       expect(stagingLitter()).toEqual([])
     } finally {

@@ -23,6 +23,7 @@ import {importExternalTemplate} from '../import-external-template'
 // stale and `npm ci` fails on Missing: extension@<version> from lock file.
 function makeCatalogZipWithLockfiles(): Buffer {
   const root = 'examples-main/examples/sidebar-monorepo-turborepo'
+
   return Buffer.from(
     zipSync({
       [`${root}/package.json`]: strToU8(
@@ -51,6 +52,7 @@ describe('importExternalTemplate strips upstream lockfiles (BUGS_TO_FIX 123)', (
 
   afterEach(async () => {
     process.env.EXTENSION_ENV = prevEnv
+
     while (tempDirs.length > 0) {
       await fsp.rm(tempDirs.pop()!, {recursive: true, force: true})
     }
@@ -81,9 +83,11 @@ describe('importExternalTemplate strips upstream lockfiles (BUGS_TO_FIX 123)', (
         path.join(projectPath, 'packages', 'extension', 'src', 'manifest.json')
       )
     ).toBe(true)
+
     expect(fs.existsSync(path.join(projectPath, 'package-lock.json'))).toBe(
       false
     )
+
     expect(fs.existsSync(path.join(projectPath, 'pnpm-lock.yaml'))).toBe(false)
     expect(fs.existsSync(path.join(projectPath, 'deno.lock'))).toBe(false)
 

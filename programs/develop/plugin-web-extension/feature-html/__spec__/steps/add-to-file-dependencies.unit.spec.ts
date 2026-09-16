@@ -13,6 +13,7 @@ describe('AddToFileDependencies', () => {
       html,
       '<html><head><link rel="icon" href="icon.png"></head></html>'
     )
+
     const icon = path.join(tmp, 'icon.png')
     fs.writeFileSync(icon, 'x')
     const c: any = {
@@ -31,6 +32,7 @@ describe('AddToFileDependencies', () => {
       manifestPath: path.join(tmp, 'manifest.json'),
       includeList: {'feature/index': html}
     } as any).apply(c as any)
+
     expect(c.hooks.thisCompilation as any).toBeTruthy()
   })
 })

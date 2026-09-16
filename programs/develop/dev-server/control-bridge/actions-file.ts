@@ -53,7 +53,6 @@ export class ActionsFileWriter implements ActionsSink {
     this.opts = {...DEFAULTS, ...options}
   }
 
-  /** Rotate any prior file so a new run starts clean. No header is written. */
   start(): void {
     if (this.started) return
 

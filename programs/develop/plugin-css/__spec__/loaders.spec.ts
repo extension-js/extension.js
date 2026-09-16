@@ -42,6 +42,7 @@ describe('cssInContentScriptLoader', () => {
           String(r.test) === String(/\.module\.css$/) && r.type === 'css/module'
       )
     ).toBe(true)
+
     expect(
       rules.some(
         (r: any) =>
@@ -50,6 +51,7 @@ describe('cssInContentScriptLoader', () => {
           r.type === 'javascript/auto'
       )
     ).toBe(true)
+
     for (const rule of rules) {
       expect(['javascript/auto', 'css/module']).toContain((rule as any).type)
       expect(typeof rule.issuer).toBe('function')
@@ -63,6 +65,7 @@ describe('cssInContentScriptLoader', () => {
       '/project/manifest.json',
       'development'
     )
+
     await cssInHtmlLoader('/project', 'development', '/project/manifest.json')
 
     expect(resolveDevelopInstallRootMock).toHaveBeenCalled()

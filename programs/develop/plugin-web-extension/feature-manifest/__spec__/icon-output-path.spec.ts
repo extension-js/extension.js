@@ -11,6 +11,7 @@ describe('iconOutputPath', () => {
     expect(iconOutputPath('../a/logo.png')).not.toBe(
       iconOutputPath('../b/logo.png')
     )
+
     expect(iconOutputPath('C:/one/logo.png')).not.toBe(
       iconOutputPath('D:/two/logo.png')
     )
@@ -32,6 +33,7 @@ describe('iconOutputPath', () => {
     expect(iconOutputPath('../a/logo.png')).toBe(
       iconOutputPath('../a/logo.png')
     )
+
     expect(iconOutputPath('../a/logo.png')).toBe('icons/_/a/logo.png')
     expect(iconOutputPath('C:/one/logo.png')).toBe(
       'icons/_drive_C/one/logo.png'
@@ -44,6 +46,7 @@ describe('themeIconOutputPath', () => {
     expect(themeIconOutputPath('icons/light.png', 'action')).toBe(
       'action/icons/light.png'
     )
+
     expect(themeIconOutputPath('images/dark.png', 'browser_action')).toBe(
       'browser_action/images/dark.png'
     )
@@ -80,6 +83,7 @@ describe('themeImageOutputPath', () => {
     expect(themeImageOutputPath('../design/bg.png')).toBe(
       'theme/images/_/design/bg.png'
     )
+
     expect(themeImageOutputPath('public/bg.png')).toBe('bg.png')
   })
 })

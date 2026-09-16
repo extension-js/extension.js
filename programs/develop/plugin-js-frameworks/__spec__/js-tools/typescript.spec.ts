@@ -10,6 +10,7 @@ vi.mock('../../frameworks-lib/integrations', () => ({
 
 vi.mock('fs', async () => {
   const actual = await vi.importActual<typeof import('fs')>('fs')
+
   return {
     ...actual,
     existsSync: vi.fn(() => false),
@@ -25,6 +26,7 @@ describe('typescript tools', () => {
     vi.clearAllMocks()
     ;(process as any).env.EXTENSION_AUTHOR_MODE = 'true'
   })
+
   afterEach(() => {
     ;(process as any).env.EXTENSION_AUTHOR_MODE = 'false'
   })
@@ -34,8 +36,10 @@ describe('typescript tools', () => {
       const s = toPosix(String(p))
       if (s.endsWith('/project/package.json')) return true
       if (s.endsWith('/project/tsconfig.json')) return true
+
       return false
     })
+
     const {getUserTypeScriptConfigFile} = await import(
       '../../js-tools/typescript'
     )
@@ -53,6 +57,7 @@ describe('typescript tools', () => {
     ;(fs.existsSync as any).mockImplementation((p: string) =>
       toPosix(String(p)).endsWith('/project/tsconfig.json')
     )
+
     const {getUserTypeScriptConfigFile} = await import(
       '../../js-tools/typescript'
     )
@@ -96,6 +101,7 @@ describe('typescript tools', () => {
       if (toPosix(String(p)).endsWith('package.json')) {
         return JSON.stringify({dependencies: {}})
       }
+
       return ''
     })
     ;(fs.readdirSync as any).mockImplementation((_p: string, _o: any) => [
@@ -124,6 +130,7 @@ describe('typescript tools', () => {
       if (toPosix(String(p)).endsWith('/project/src')) {
         return [{isFile: () => true, isDirectory: () => false, name: 'app.ts'}]
       }
+
       return []
     })
 
@@ -142,17 +149,20 @@ describe('typescript tools', () => {
     ;(fs.readFileSync as any).mockImplementation(() => '')
     ;(fs.readdirSync as any).mockImplementation((p: string) => {
       const s = toPosix(String(p))
+
       if (s.endsWith('/project')) {
         return [
           {isFile: () => false, isDirectory: () => true, name: 'newtab'},
           {isFile: () => false, isDirectory: () => true, name: 'node_modules'}
         ]
       }
+
       if (s.endsWith('/project/newtab')) {
         return [
           {isFile: () => true, isDirectory: () => false, name: 'index.tsx'}
         ]
       }
+
       return []
     })
 
@@ -171,6 +181,7 @@ describe('typescript tools', () => {
       if (toPosix(String(p)).endsWith('/project')) {
         return [{isFile: () => true, isDirectory: () => false, name: 'a.ts'}]
       }
+
       return []
     })
 
@@ -193,6 +204,7 @@ describe('typescript tools', () => {
       if (toPosix(String(p)).endsWith('package.json')) {
         return JSON.stringify({devDependencies: {typescript: '^5'}})
       }
+
       return ''
     })
 
@@ -217,6 +229,7 @@ describe('typescript tools', () => {
       if (toPosix(String(p)).endsWith('package.json')) {
         return JSON.stringify({dependencies: {}, devDependencies: {}})
       }
+
       return ''
     })
     ;(fs.readdirSync as any).mockImplementation(() => [
@@ -235,6 +248,7 @@ describe('typescript tools', () => {
       getTypeScriptConfigOverrides({mode: 'development'}).compilerOptions
         .sourceMap
     ).toBe(true)
+
     expect(
       getTypeScriptConfigOverrides({mode: 'production'}).compilerOptions
         .sourceMap

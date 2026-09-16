@@ -29,8 +29,10 @@ const args = process.argv.slice(2)
 function parseArg(name, fallback) {
   const idx = args.indexOf(name)
   if (idx === -1) return fallback
+
   const next = args[idx + 1]
   if (!next || next.startsWith('--')) return fallback
+
   return next
 }
 
@@ -71,6 +73,7 @@ function runCollect(cmd, cmdArgs, opts = {}) {
     child.stdout?.on('data', (chunk) => {
       stdout += chunk.toString()
     })
+
     child.stderr?.on('data', (chunk) => {
       stderr += chunk.toString()
     })
@@ -83,8 +86,10 @@ function runCollect(cmd, cmdArgs, opts = {}) {
             `[${cmd} ${cmdArgs.join(' ')}] failed with code ${code}\n${stdout}\n${stderr}`
           )
         )
+
         return
       }
+
       resolve({stdout, stderr})
     })
   })
@@ -107,13 +112,16 @@ function runDevAndValidate(cwd) {
 
     const finish = (err) => {
       if (settled) return
+
       settled = true
       if (readyPoll) clearInterval(readyPoll)
+
       try {
         child.kill('SIGTERM')
       } catch {
         // ignore
       }
+
       setTimeout(() => {
         try {
           child.kill('SIGKILL')
@@ -148,8 +156,10 @@ function runDevAndValidate(cwd) {
     // the pretty compile line is free copy and may change in any release.
     readyPoll = setInterval(() => {
       if (settled || firstCompileSeen) return
+
       const ready = readReadyContract(cwd, browser)
       if (!ready) return
+
       if (ready.status === 'error') {
         clearTimeout(timeout)
         finish(
@@ -157,8 +167,10 @@ function runDevAndValidate(cwd) {
             `ready.json reported a failed session: ${describeReadyFailure(ready)}\n\nCaptured output:\n${output}`
           )
         )
+
         return
       }
+
       if (ready.status === 'ready') {
         firstCompileSeen = true
         postCompileGuard()
@@ -177,6 +189,7 @@ function runDevAndValidate(cwd) {
               `Detected failure pattern: ${String(pattern)}\n\nCaptured output:\n${output}`
             )
           )
+
           return
         }
       }
@@ -189,8 +202,10 @@ function runDevAndValidate(cwd) {
       clearTimeout(timeout)
       finish(error)
     })
+
     child.on('close', (code) => {
       if (settled) return
+
       clearTimeout(timeout)
       finish(
         new Error(`dev process exited early with code ${code}\n\n${output}`)
@@ -224,6 +239,7 @@ function resolveSecurePreferencesPath(projectDir, ready) {
 
   // Best-effort fallback for profile layouts that do not follow the default path.
   const distDir = join(projectDir, 'dist')
+
   if (existsSync(distDir)) {
     const found = findByBasename(distDir, 'Secure Preferences', 4)
     if (found.length > 0) return found[0]
@@ -234,16 +250,21 @@ function resolveSecurePreferencesPath(projectDir, ready) {
 
 function findByBasename(root, targetName, maxDepth) {
   const out = []
+
   const walk = (dir, depth) => {
     if (depth > maxDepth) return
+
     let entries = []
+
     try {
       entries = readdirSync(dir, {withFileTypes: true})
     } catch {
       return
     }
+
     for (const entry of entries) {
       const full = join(dir, entry.name)
+
       if (entry.isDirectory()) {
         walk(full, depth + 1)
       } else if (entry.name === targetName) {
@@ -251,7 +272,9 @@ function findByBasename(root, targetName, maxDepth) {
       }
     }
   }
+
   walk(root, 0)
+
   return out
 }
 
@@ -259,6 +282,7 @@ function assertExtensionEnabledInPrefs(projectDir) {
   // The contract carries the dist the browser loaded; the ID Chrome assigns
   // an unpacked dist is a pure function of that path (or a manifest key).
   const ready = readReadyContract(projectDir, browser)
+
   if (!ready || typeof ready.distPath !== 'string') {
     throw new Error(
       `Could not read the ready contract for ${projectDir} (${browser}): ${describeReadyFailure(ready)}`
@@ -266,6 +290,7 @@ function assertExtensionEnabledInPrefs(projectDir) {
   }
 
   const extensionId = expectedChromiumExtensionId(ready.distPath)
+
   if (!/^[a-p]{32}$/.test(extensionId)) {
     throw new Error(
       `Could not derive an extension ID from ready.json distPath: ${ready.distPath}`
@@ -273,6 +298,7 @@ function assertExtensionEnabledInPrefs(projectDir) {
   }
 
   const securePrefsPath = resolveSecurePreferencesPath(projectDir, ready)
+
   if (!securePrefsPath) {
     return {
       checked: false,
@@ -281,9 +307,11 @@ function assertExtensionEnabledInPrefs(projectDir) {
   }
 
   const st = statSync(securePrefsPath)
+
   if (!st.isFile()) {
     throw new Error(`Secure Preferences path is not a file: ${securePrefsPath}`)
   }
+
   const raw = readFileSync(securePrefsPath, 'utf-8')
   const prefs = JSON.parse(raw)
   const settings = prefs?.extensions?.settings || {}
@@ -298,6 +326,7 @@ function assertExtensionEnabledInPrefs(projectDir) {
   }
 
   const reasons = ext.disable_reasons
+
   if (Array.isArray(reasons) && reasons.length > 0) {
     throw new Error(
       `Extension ${extensionId} is disabled in profile (disable_reasons=${JSON.stringify(
@@ -325,11 +354,13 @@ async function main() {
     const prefsCheck = assertExtensionEnabledInPrefs(projectDir)
 
     console.log('PASS: no reload regression pattern detected')
+
     if (prefsCheck.checked) {
       console.log('PASS: extension is enabled in browser profile preferences')
     } else {
       console.log(`WARN: profile-enabled check skipped (${prefsCheck.reason})`)
     }
+
     console.log(`Validated package: ${pkg}`)
   } finally {
     if (!keepTemp) {

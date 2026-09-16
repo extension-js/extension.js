@@ -15,9 +15,11 @@ test('compareVersions orders releases and prereleases by semver precedence', () 
   assert.ok(
     compareVersions('2.2.4-canary-1e09fb1f-20260913172312', '2.2.3') > 0
   )
+
   assert.ok(
     compareVersions('2.2.4-canary-1e09fb1f-20260913172312', '2.2.4') < 0
   )
+
   assert.ok(compareVersions('2.2.0-rc.0', '2.2.3') < 0)
   assert.ok(compareVersions('11.0.0-rc.2', '10.27.3') > 0)
   assert.ok(compareVersions('7.1.0-dev.20260913.1', '7.0.2') > 0)
@@ -92,6 +94,7 @@ test('planOverrides only overrides tags that are newer than the lock', () => {
     locked,
     (name) => {
       if (!distTags[name]) throw new Error('E404')
+
       return distTags[name]
     }
   )
@@ -102,6 +105,7 @@ test('planOverrides only overrides tags that are newer than the lock', () => {
     byName['@rspack/core'].spec,
     'npm:@rspack-canary/core@2.2.4-canary-1e09fb1f-20260913172312'
   )
+
   assert.equal(byName['@rspack/dev-server'].status, 'skip')
   assert.match(byName['@rspack/dev-server'].reason, /rc=2\.0\.0-rc\.3/)
   assert.equal(byName.typescript.status, 'override')
@@ -130,6 +134,7 @@ test('applyOverrides merges into the existing pnpm.overrides block', () => {
     postcss: '^8.5.23',
     typescript: '7.1.0-dev.1'
   })
+
   assert.deepEqual(before.pnpm.overrides, {postcss: '^8.5.23'})
 })
 

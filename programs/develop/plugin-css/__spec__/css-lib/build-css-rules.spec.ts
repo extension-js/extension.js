@@ -35,6 +35,7 @@ describe('buildCssRules, missing-preprocessor passthrough (bug 26)', () => {
     for (const ext of ['scss', 'sass', 'less']) {
       const matching = rulesFor(rules, ext)
       expect(matching.length).toBeGreaterThan(0)
+
       for (const rule of matching) {
         expect(hasPassthrough(rule)).toBe(true)
       }

@@ -26,6 +26,7 @@ function makeDeferredPackager() {
   const callFor = (distPath: string) =>
     calls.find((c) => c.distPath === distPath)!
   const modes = () => calls.map((c) => `${c.mode}:${c.distPath}`)
+
   return {fn, calls, callFor, modes}
 }
 
@@ -49,6 +50,7 @@ function makeCompiler() {
     },
     options: {context: 'ctx'}
   }
+
   const trigger = (
     outputPath: string,
     opts?: {
@@ -63,6 +65,7 @@ function makeCompiler() {
       compiler.modifiedFiles = new Set(opts.changedFiles)
       watchRunCb?.()
     }
+
     const manifest = JSON.stringify({
       content_scripts: Array.from({length: opts?.contentScripts || 0}, () => ({
         js: ['content.js']
@@ -79,8 +82,10 @@ function makeCompiler() {
       }
     }
     doneTapCb?.(stats)
+
     return cb(stats)
   }
+
   return {compiler: compiler as never, trigger}
 }
 
@@ -97,9 +102,11 @@ function makeBroker() {
         label: instruction.label,
         entries: instruction.changedContentScriptEntries
       })
+
       return 1
     }
   }
+
   return {broker, sent}
 }
 
@@ -107,12 +114,14 @@ function harness(broker?: ReloadBroker) {
   const pkg = makeDeferredPackager()
   const plugin = new SafariDevPlugin(pkg.fn)
   if (broker) plugin.setReloadBroker(broker)
+
   const {compiler, trigger} = makeCompiler()
   plugin.apply(compiler)
   const compiled: Array<{isFirstCompile: boolean; outputPath: string}> = []
   const errors: Array<{errors: string[]}> = []
   plugin.emitter.on('compiled', (e) => compiled.push(e as never))
   plugin.emitter.on('error', (e) => errors.push(e as never))
+
   return {plugin, trigger, compiled, errors, ...pkg}
 }
 
@@ -347,9 +356,11 @@ describe('SafariDevPlugin undelivered reload after a package', () => {
       broadcastReload: () => 0,
       undeliveredReloadWarning: (context) => {
         asked.push(context)
+
         return warning
       }
     }
+
     return {broker, asked}
   }
 
@@ -546,6 +557,7 @@ describe('SafariDevPlugin reload trimming after a package', () => {
       broadcastReload: () => 0,
       undeliveredReloadWarning: (context) => {
         asked.push(context)
+
         return null
       }
     }

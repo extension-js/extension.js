@@ -24,6 +24,7 @@ function declaredSafariOptions(src: string): string[] {
   )
   const props = [...block.matchAll(/\.(\w+)\]/g)].map((m) => m[1])
   expect(props.length).toBeGreaterThan(3)
+
   return props
 }
 

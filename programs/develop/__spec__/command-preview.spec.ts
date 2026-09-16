@@ -5,6 +5,7 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 vi.mock('fs', async () => {
   const actual = await vi.importActual<any>('fs')
+
   return {
     ...actual,
     existsSync: vi.fn()
@@ -37,9 +38,11 @@ vi.mock('../lib/session-paths', async () => ({
 vi.mock('../plugin-special-folders/folder-extensions/resolve-dirs', () => ({
   resolveCompanionExtensionDirs: vi.fn(() => ['/comp/a'])
 }))
+
 vi.mock('../plugin-special-folders/folder-extensions/resolve-config', () => ({
   resolveCompanionExtensionsConfig: vi.fn(async () => ({paths: ['/comp/a']}))
 }))
+
 vi.mock('../plugin-special-folders/get-data', () => ({
   getSpecialFoldersDataForProjectRoot: vi.fn(() => ({extensions: undefined}))
 }))
@@ -75,6 +78,7 @@ const runOnlyPreviewBrowser = vi.fn(async (..._args: any[]) => {})
 
 const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 const printed: string[] = []
+
 // humanLine prints to console.log, or to stderr under machine output. The
 // spies are re-armed per test because afterEach restores every mock.
 function captureOutput() {
@@ -82,11 +86,14 @@ function captureOutput() {
   vi.spyOn(console, 'log').mockImplementation((...args: unknown[]) => {
     printed.push(args.join(' '))
   })
+
   vi.spyOn(process.stderr, 'write').mockImplementation(((chunk: unknown) => {
     printed.push(String(chunk))
+
     return true
   }) as typeof process.stderr.write)
 }
+
 function printedLines() {
   return printed.join('\n')
 }
@@ -116,10 +123,13 @@ describe('webpack/command-preview (run-only)', () => {
     ) => {
       if (event === 'exit') {
         exitHandlers.push(listener)
+
         return process
       }
+
       return realOnce(event, listener)
     }) as typeof process.once)
+
     runOnlyPreviewBrowser.mockClear()
     logSpy.mockClear()
     captureOutput()
@@ -142,6 +152,7 @@ describe('webpack/command-preview (run-only)', () => {
         'utf-8'
       )
     })
+
     metadataWriter.writeReady.mockImplementation(() => {
       fs.writeFileSync(
         metadataWriter.readyPath,
@@ -149,11 +160,13 @@ describe('webpack/command-preview (run-only)', () => {
         'utf-8'
       )
     })
+
     metadataWriter.writeError.mockImplementation(() => {})
   })
 
   afterEach(() => {
     vi.restoreAllMocks()
+
     try {
       fs.rmSync(metadataRoot, {recursive: true, force: true})
     } catch {
@@ -163,9 +176,12 @@ describe('webpack/command-preview (run-only)', () => {
 
   it('falls back to manifest directory when dist/<browser> lacks manifest.json', async () => {
     ;(fs.existsSync as any).mockImplementation((p: string) => {
-      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json'))
+      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json')) {
         return false
+      }
+
       if (p === path.join('/proj', 'manifest.json')) return true
+
       return false
     })
 
@@ -183,9 +199,12 @@ describe('webpack/command-preview (run-only)', () => {
   it('says so when it falls back to the source manifest dir', async () => {
     const localLog = vi.spyOn(console, 'log').mockImplementation(() => {})
     ;(fs.existsSync as any).mockImplementation((p: string) => {
-      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json'))
+      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json')) {
         return false
+      }
+
       if (p === path.join('/proj', 'manifest.json')) return true
+
       return false
     })
 
@@ -205,8 +224,10 @@ describe('webpack/command-preview (run-only)', () => {
   it('stays quiet about the fallback when dist/<browser> is served', async () => {
     const localLog = vi.spyOn(console, 'log').mockImplementation(() => {})
     ;(fs.existsSync as any).mockImplementation((p: string) => {
-      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json'))
+      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json')) {
         return true
+      }
+
       return false
     })
 
@@ -225,8 +246,10 @@ describe('webpack/command-preview (run-only)', () => {
   it('describes itself as preview by default', async () => {
     const localLog = vi.spyOn(console, 'log').mockImplementation(() => {})
     ;(fs.existsSync as any).mockImplementation((p: string) => {
-      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json'))
+      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json')) {
         return true
+      }
+
       return false
     })
 
@@ -246,8 +269,10 @@ describe('webpack/command-preview (run-only)', () => {
   it('describes itself as start when invoked by start', async () => {
     const localLog = vi.spyOn(console, 'log').mockImplementation(() => {})
     ;(fs.existsSync as any).mockImplementation((p: string) => {
-      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json'))
+      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json')) {
         return true
+      }
+
       return false
     })
 
@@ -269,8 +294,10 @@ describe('webpack/command-preview (run-only)', () => {
     process.env.EXTENSION_OUTPUT = 'json'
     const localLog = vi.spyOn(console, 'log').mockImplementation(() => {})
     ;(fs.existsSync as any).mockImplementation((p: string) => {
-      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json'))
+      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json')) {
         return true
+      }
+
       return false
     })
 
@@ -290,8 +317,10 @@ describe('webpack/command-preview (run-only)', () => {
 
   it('uses dist/<browser> when dist manifest exists', async () => {
     ;(fs.existsSync as any).mockImplementation((p: string) => {
-      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json'))
+      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json')) {
         return true
+      }
+
       return false
     })
 
@@ -308,9 +337,12 @@ describe('webpack/command-preview (run-only)', () => {
 
   it('uses an explicit outputPath over dist/<browser>', async () => {
     ;(fs.existsSync as any).mockImplementation((p: string) => {
-      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json'))
+      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json')) {
         return true
+      }
+
       if (p === path.join('/custom/unpacked', 'manifest.json')) return true
+
       return false
     })
 
@@ -330,6 +362,7 @@ describe('webpack/command-preview (run-only)', () => {
     expect(createAutomationMetadataWriter).toHaveBeenCalledWith(
       expect.objectContaining({distPath: '/custom/unpacked'})
     )
+
     expect(ensureSessionArtifactsIgnoreFile).toHaveBeenCalledWith('/proj')
     const printed = printedLines()
     expect(printed).toContain('Previewing chrome from /custom/unpacked')
@@ -341,8 +374,10 @@ describe('webpack/command-preview (run-only)', () => {
       browser: 'firefox'
     })
     ;(fs.existsSync as any).mockImplementation((p: string) => {
-      if (p === path.join('/proj', 'dist', 'firefox', 'manifest.json'))
+      if (p === path.join('/proj', 'dist', 'firefox', 'manifest.json')) {
         return true
+      }
+
       return false
     })
 
@@ -355,8 +390,10 @@ describe('webpack/command-preview (run-only)', () => {
 
   it('records the stock build folder when no outputPath is given', async () => {
     ;(fs.existsSync as any).mockImplementation((p: string) => {
-      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json'))
+      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json')) {
         return true
+      }
+
       return false
     })
 
@@ -369,6 +406,7 @@ describe('webpack/command-preview (run-only)', () => {
     expect(createAutomationMetadataWriter).toHaveBeenCalledWith(
       expect.objectContaining({distPath: path.join('/proj', 'dist', 'chrome')})
     )
+
     expect(printedLines()).not.toContain('Previewing chrome from')
   })
 
@@ -398,8 +436,10 @@ describe('webpack/command-preview (run-only)', () => {
     metadataCommand
   }) => {
     ;(fs.existsSync as any).mockImplementation((p: string) => {
-      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json'))
+      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json')) {
         return true
+      }
+
       return false
     })
 
@@ -418,6 +458,7 @@ describe('webpack/command-preview (run-only)', () => {
     expect(metadataWriter.writeShutdown).toHaveBeenCalledWith(
       `the ${label} session ended`
     )
+
     expect(
       metadataWriter.writeShutdown.mock.invocationCallOrder[0]
     ).toBeGreaterThan(metadataWriter.writeReady.mock.invocationCallOrder[0])
@@ -425,8 +466,10 @@ describe('webpack/command-preview (run-only)', () => {
 
   it('leaves a no-browser ready.json at ready after the process exits', async () => {
     ;(fs.existsSync as any).mockImplementation((p: string) => {
-      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json'))
+      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json')) {
         return true
+      }
+
       return false
     })
 
@@ -443,8 +486,10 @@ describe('webpack/command-preview (run-only)', () => {
   it('skips browser launch when noBrowser is true', async () => {
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     ;(fs.existsSync as any).mockImplementation((p: string) => {
-      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json'))
+      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json')) {
         return true
+      }
+
       return false
     })
 
@@ -473,8 +518,10 @@ describe('webpack/command-preview (run-only)', () => {
   it('shows Run ID for firefox no-browser preview', async () => {
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     ;(fs.existsSync as any).mockImplementation((p: string) => {
-      if (p === path.join('/proj', 'dist', 'firefox', 'manifest.json'))
+      if (p === path.join('/proj', 'dist', 'firefox', 'manifest.json')) {
         return true
+      }
+
       return false
     })
 
@@ -502,8 +549,10 @@ describe('webpack/command-preview (run-only)', () => {
     process.env.EXTENSION_OUTPUT = 'json'
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     ;(fs.existsSync as any).mockImplementation((p: string) => {
-      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json'))
+      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json')) {
         return true
+      }
+
       return false
     })
 
@@ -522,14 +571,17 @@ describe('webpack/command-preview (run-only)', () => {
     } finally {
       if (originalOutput === undefined) delete process.env.EXTENSION_OUTPUT
       else process.env.EXTENSION_OUTPUT = originalOutput
+
       consoleSpy.mockRestore()
     }
   })
 
   it('resolves companion extensions before scanning', async () => {
     ;(fs.existsSync as any).mockImplementation((p: string) => {
-      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json'))
+      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json')) {
         return true
+      }
+
       return false
     })
 
@@ -553,6 +605,7 @@ describe('webpack/command-preview (run-only)', () => {
         'https://chromewebstore.google.com/detail/react-developer-tools/fmkadmapgofadopljbjfkapdkoienihi'
       ]
     })
+
     // The browser rides along so a browser-named companion folder is scoped
     // to its own sessions in the preview run record too.
     expect(resolveDirsMod.resolveCompanionExtensionDirs).toHaveBeenCalledWith(
@@ -562,8 +615,10 @@ describe('webpack/command-preview (run-only)', () => {
 
   it('passes built-in devtools + theme + user output to preview runner', async () => {
     ;(fs.existsSync as any).mockImplementation((p: string) => {
-      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json'))
+      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json')) {
         return true
+      }
+
       return false
     })
 
@@ -588,6 +643,7 @@ describe('webpack/command-preview (run-only)', () => {
       ['/comp/a'],
       '/proj/manifest.json'
     )
+
     expect(runOnlyPreviewBrowser).toHaveBeenCalledWith(
       expect.objectContaining({
         readyPath: metadataWriter.readyPath,
@@ -603,8 +659,10 @@ describe('webpack/command-preview (run-only)', () => {
 
   it('loads commands.preview config when invoked as preview', async () => {
     ;(fs.existsSync as any).mockImplementation((p: string) => {
-      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json'))
+      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json')) {
         return true
+      }
+
       return false
     })
 
@@ -622,8 +680,10 @@ describe('webpack/command-preview (run-only)', () => {
 
   it('loads commands.start config when invoked via start delegation', async () => {
     ;(fs.existsSync as any).mockImplementation((p: string) => {
-      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json'))
+      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json')) {
         return true
+      }
+
       return false
     })
     ;(configLoaderMod.loadCommandConfig as any).mockResolvedValueOnce({
@@ -641,6 +701,7 @@ describe('webpack/command-preview (run-only)', () => {
       '/proj',
       'start'
     )
+
     const call = runOnlyPreviewBrowser.mock.calls[0]?.[0] as any
     expect(call.profile).toBe('/from/commands/start')
     expect(call.browserFlags).toEqual(['--start-flag'])
@@ -655,8 +716,10 @@ describe('webpack/command-preview (run-only)', () => {
   }) => {
     function setupDist() {
       ;(fs.existsSync as any).mockImplementation((p: string) => {
-        if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json'))
+        if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json')) {
           return true
+        }
+
         return false
       })
     }
@@ -815,8 +878,10 @@ describe('webpack/command-preview (run-only)', () => {
       packageJsonPath: '/proj/package.json'
     })
     ;(fs.existsSync as any).mockImplementation((p: string) => {
-      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json'))
+      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json')) {
         return true
+      }
+
       return false
     })
 

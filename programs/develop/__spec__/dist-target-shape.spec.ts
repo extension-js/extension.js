@@ -48,6 +48,7 @@ const NODE_BUILTINS = [
 
 const FORBIDDEN_BARE_BUILTINS = NODE_BUILTINS.flatMap((id) => {
   const escaped = id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
   return [
     new RegExp(`\\bfrom\\s+["']${escaped}["']`),
     new RegExp(`\\brequire\\(\\s*["']${escaped}["']\\s*\\)`)

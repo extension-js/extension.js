@@ -10,6 +10,7 @@ describe('CDPExtensionController ensureLoaded', () => {
 
   afterEach(() => {
     vi.restoreAllMocks()
+
     for (const dir of tempDirs.splice(0, tempDirs.length)) {
       try {
         fs.rmSync(dir, {recursive: true, force: true})
@@ -49,10 +50,12 @@ describe('CDPExtensionController ensureLoaded', () => {
         throw new Error("'Extensions.loadUnpacked' wasn't found")
       })
     }
+
     controller.deriveExtensionIdFromTargets = vi
       .fn()
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce('userid')
+
     controller.enableLogging = vi.fn(async () => {})
 
     const loadUnpackedSpy = vi.spyOn(ensureModule, 'loadUnpackedIfNeeded')

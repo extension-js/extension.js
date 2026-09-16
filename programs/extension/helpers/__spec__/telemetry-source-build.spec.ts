@@ -10,6 +10,7 @@ function restoreEnv() {
   for (const key of Object.keys(process.env)) {
     if (!(key in originalEnv)) delete process.env[key]
   }
+
   for (const [key, value] of Object.entries(originalEnv)) {
     process.env[key] = value
   }
@@ -28,6 +29,7 @@ afterEach(restoreEnv)
 function auditedProperties(): Record<string, unknown> {
   const auditFile = path.join(home, 'extensionjs', 'telemetry', 'events.jsonl')
   const lines = fs.readFileSync(auditFile, 'utf8').trim().split('\n')
+
   return JSON.parse(lines[lines.length - 1]).properties
 }
 
@@ -42,6 +44,7 @@ describe('a run from a clone is not a run from an install', () => {
       '/home/dev/app/.yarn/unplugged/extension-npm-4.0.24/dist',
       '/home/dev/.bun/install/cache/extension@4.0.24/dist'
     ]
+
     for (const dir of installed) {
       expect(isSourceCheckout(dir), dir).toBe(false)
     }
@@ -53,6 +56,7 @@ describe('a run from a clone is not a run from an install', () => {
       '/Users/dev/local/extension-land/extension.js/programs/extension',
       'C:\\src\\extension.js\\programs\\extension\\dist'
     ]
+
     for (const dir of checkouts) {
       expect(isSourceCheckout(dir), dir).toBe(true)
     }
@@ -62,6 +66,7 @@ describe('a run from a clone is not a run from an install', () => {
     expect(isSourceCheckout('/home/dev/my_node_modules_backup/extension')).toBe(
       true
     )
+
     expect(isSourceCheckout('/home/dev/node_modules_old/extension')).toBe(true)
     expect(isSourceCheckout('/home/dev/node_modules/extension')).toBe(false)
   })
@@ -78,6 +83,7 @@ describe('a run from a clone is not a run from an install', () => {
       success: true,
       version: '4.0.24'
     })
+
     const properties = auditedProperties()
     expect(typeof properties.is_source_build).toBe('boolean')
     expect(typeof properties.is_ci).toBe('boolean')
@@ -90,6 +96,7 @@ describe('a run from a clone is not a run from an install', () => {
       success: true,
       version: '4.0.24'
     })
+
     const properties = auditedProperties()
     expect(Object.keys(properties).sort()).toEqual(
       [
@@ -105,6 +112,7 @@ describe('a run from a clone is not a run from an install', () => {
         'version'
       ].sort()
     )
+
     const serialised = JSON.stringify(properties)
     expect(serialised).not.toContain(os.homedir())
     expect(serialised).not.toContain(path.sep + 'node_modules')
@@ -126,6 +134,7 @@ describe('a published version survives the emitter intact', () => {
       success: true,
       version: published
     })
+
     expect(auditedProperties().version).toBe(published)
   })
 
@@ -136,6 +145,7 @@ describe('a published version survives the emitter intact', () => {
       success: true,
       version: 'x'.repeat(400)
     })
+
     expect(String(auditedProperties().version)).toHaveLength(64)
   })
 })

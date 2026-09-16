@@ -18,6 +18,7 @@ const DEFAULT_HIGHLIGHTS_FILE = 'RELEASE_HIGHLIGHTS.md'
 function getArg(flag) {
   const index = process.argv.indexOf(flag)
   if (index === -1) return undefined
+
   return process.argv[index + 1]
 }
 
@@ -55,6 +56,7 @@ function findAnchor(toRef, currentVersion) {
   if (!log) return ''
 
   const currentTag = currentVersion ? `v${currentVersion}` : ''
+
   for (const line of log.split('\n')) {
     const [sha, subject = ''] = line.split('\t')
     if (!sha) continue
@@ -69,11 +71,13 @@ function findAnchor(toRef, currentVersion) {
 
 function resolveRange(currentVersion, fromRef, toRef) {
   if (fromRef) return `${fromRef}..${toRef}`
+
   const anchor = findAnchor(toRef, currentVersion)
+
   return anchor ? `${anchor}..${toRef}` : toRef
 }
 
-// ── Commit collection ─────────────────────────────────────────────────────────
+// Commit collection
 
 function getCommits(range) {
   const output = gitOrEmpty([
@@ -92,6 +96,7 @@ function getCommits(range) {
     .split('\n')
     .map((line) => {
       const [full, short, ...subjectParts] = line.split('\t')
+
       return {full, short, subject: subjectParts.join('\t').trim()}
     })
     .filter((commit) => commit.short && commit.subject)
@@ -163,13 +168,16 @@ const OTHER_TITLE = 'Other changes'
 
 function categorize(commits) {
   const buckets = {features: [], fixes: [], other: []}
+
   for (const commit of commits) {
     if (matchesAny(commit.subject, IGNORED_PATTERNS)) continue
+
     const category = CATEGORIES.find((group) =>
       matchesAny(commit.subject, group.patterns)
     )
     buckets[category ? category.key : 'other'].push(commit)
   }
+
   return buckets
 }
 
@@ -199,6 +207,7 @@ function bullet(commit, repoUrl) {
   const link = repoUrl
     ? `([${commit.short}](${repoUrl}/commit/${commit.full}))`
     : `(${commit.short})`
+
   return `- ${commit.subject} ${link}`
 }
 
@@ -212,6 +221,7 @@ function formatMarkdown({highlights, buckets, repoUrl}) {
   for (const group of CATEGORIES) {
     const commits = buckets[group.key]
     if (commits.length === 0) continue
+
     sections.push(
       `### ${group.title}\n\n` +
         commits.map((commit) => bullet(commit, repoUrl)).join('\n')
@@ -239,6 +249,7 @@ function formatDiscord({highlights, buckets, notesUrl}) {
     // No curated highlights: lead with up to 3 features so the ping still says
     // something concrete instead of just counts.
     const lead = buckets.features.slice(0, 3)
+
     if (lead.length > 0) {
       parts.push(lead.map((commit) => `- ${commit.subject}`).join('\n'))
     }
@@ -272,6 +283,7 @@ function buildTweet({version, highlights, buckets, notesUrl}) {
   const lead = `Extension.js v${version} is out!`
   const body = plain.length > 180 ? `${plain.slice(0, 177)}...` : plain
   const url = notesUrl ? `\n\n${notesUrl}` : ''
+
   return `${lead}\n\n${body}${url}`
 }
 
@@ -318,9 +330,11 @@ export function generate({
       2
     )
   }
+
   if (format === 'discord') {
     return formatDiscord({highlights, buckets, notesUrl: resolvedNotesUrl})
   }
+
   if (format === 'tweet') {
     return buildTweet({
       version: currentVersion,
@@ -329,6 +343,7 @@ export function generate({
       notesUrl: resolvedNotesUrl
     })
   }
+
   return formatMarkdown({highlights, buckets, repoUrl})
 }
 

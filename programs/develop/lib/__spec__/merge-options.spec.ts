@@ -19,6 +19,7 @@ describe('mergeOptionLayers', () => {
       logLevel: 'off',
       noOpen: false
     })
+
     expect(
       mergeOptionLayers<Record<string, any>>(BUILD_COMMAND_DEFAULTS)
     ).toMatchObject({
@@ -28,12 +29,14 @@ describe('mergeOptionLayers', () => {
       silent: false,
       addonLint: true
     })
+
     expect(
       mergeOptionLayers<Record<string, any>>(SERVE_COMMAND_DEFAULTS)
     ).toMatchObject({
       logFormat: 'pretty',
       logLevel: 'off'
     })
+
     expect(
       mergeOptionLayers<Record<string, any>>(START_BUILD_DEFAULTS)
     ).toMatchObject({
@@ -148,6 +151,7 @@ describe('mergeOptionLayers', () => {
       '--from-command',
       '--from-cli'
     ])
+
     expect(merged.excludeBrowserFlags).toEqual([
       '--exclude-browser',
       '--exclude-shared',
@@ -190,6 +194,7 @@ describe('mergeOptionLayers', () => {
       '--disable-default-a',
       '--disable-default-b'
     ])
+
     expect(filtered).toEqual(['--kept-default'])
   })
 

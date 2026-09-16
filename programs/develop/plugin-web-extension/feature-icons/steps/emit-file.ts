@@ -216,6 +216,7 @@ export class EmitFile {
                     severity,
                     'manifest.json'
                   )
+
                   missingCount++
                   continue
                 }
@@ -254,6 +255,7 @@ export class EmitFile {
                   sub === 'theme_icons'
 
                 let outputDir = group
+
                 if (isDefaultIconFamily) {
                   outputDir = 'icons'
                 } else if (isThemeIcons) {
@@ -283,6 +285,7 @@ export class EmitFile {
                 if (isThemeIcons) {
                   const folder =
                     group === 'action' ? 'action' : 'browser_action'
+
                   if (relFromManifest && !path.isAbsolute(relFromManifest)) {
                     filename = themeIconOutputPath(relFromManifest, folder)
                   } else if (resolved) {

@@ -46,12 +46,14 @@ export function manifestPageOutputTarget(
 
   if (/^\//.test(unixPath)) {
     const rest = unixPath.replace(/^\/+/, '')
+
     if (manifestPath && rest) {
       const manifestDir = path.dirname(manifestPath)
       const inPublic = fs.existsSync(path.join(manifestDir, 'public', rest))
       const inRoot = fs.existsSync(path.join(manifestDir, rest))
       if (inRoot && !inPublic) return compiledTarget
     }
+
     return normalizeManifestOutputPath(unixPath)
   }
 
@@ -114,6 +116,7 @@ export function externalAssetOutputPath(
     .map((segment) => {
       if (segment === '..') return '_'
       if (segment === '.' || !segment) return ''
+
       return segment.replace(/[<>:"|?*\x00-\x1F]/g, '_')
     })
     .filter(Boolean)
@@ -157,6 +160,7 @@ function featureAssetOutputPath(raw: string, folder: string): string {
   }
 
   const normalized = normalizeManifestOutputPath(raw).replace(/^\.\//, '')
+
   if (!pathEscapesExtensionRoot(normalized)) {
     return `${folder}/${normalized}`
   }

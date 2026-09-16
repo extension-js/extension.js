@@ -33,6 +33,7 @@ vi.mock('@rspack/core', () => {
       return this.content.length
     }
   }
+
   return {
     DefinePlugin: DefinePluginMock,
     ProvidePlugin: ProvidePluginMock,
@@ -43,11 +44,13 @@ vi.mock('@rspack/core', () => {
 
 vi.mock('fs', async () => {
   const actual: any = await vi.importActual('fs')
+
   return {
     ...actual,
     existsSync: vi.fn(),
     readFileSync: vi.fn((p: any, ...rest: any[]) => {
       if (/\.env[^/\\]*$/.test(String(p))) return String(p)
+
       return actual.readFileSync(p, ...rest)
     })
   }
@@ -58,6 +61,7 @@ import * as fs from 'node:fs'
 vi.mock('dotenv', () => ({
   parse: vi.fn((content: any) => {
     const envPath = toPosix(String(content))
+
     if (envPath.endsWith('/repo/.env')) {
       return {
         EXTENSION_PUBLIC_ROOT_ONLY: 'rootOnly',
@@ -65,9 +69,11 @@ vi.mock('dotenv', () => ({
         EXTENSION_BAR: 'rootBar'
       }
     }
+
     if (envPath.endsWith('.env.defaults')) {
       return {EXTENSION_PUBLIC_FOO: 'defFoo', EXTENSION_BAZ: 'defBaz'}
     }
+
     return {EXTENSION_PUBLIC_FOO: 'envFoo', EXTENSION_BAR: 'envBar'}
   })
 }))
@@ -86,6 +92,7 @@ describe('EnvPlugin', () => {
     lastProvideArgs = null
     ;(fs.existsSync as unknown as (p: any) => boolean) = vi.fn((p: any) => {
       const path = toPosix(String(p))
+
       return (
         path.endsWith('/.env.chrome.development') ||
         path.endsWith('/.env.defaults') ||
@@ -121,6 +128,7 @@ describe('EnvPlugin', () => {
     }
     const triggerCompilation = (compilation: any) =>
       thisCompilationCb(compilation)
+
     return {compiler, triggerCompilation}
   }
 
@@ -148,6 +156,7 @@ describe('EnvPlugin', () => {
         updated[name] = raw.source()
       }
     }
+
     return {
       compilation,
       runProcessAssets: () => processAssetsCb({}) as void,
@@ -190,6 +199,7 @@ describe('EnvPlugin', () => {
     expect(toPosix(String(lastProvideArgs.process))).toContain(
       '/runtime/process-shim.cjs'
     )
+
     expect(lastDefineArgs.process).toBeUndefined()
     expect(lastDefineArgs['process.env']).toBeUndefined()
   })
@@ -309,13 +319,16 @@ describe('EnvPlugin', () => {
     expect(updated['manifest.json']).toBe(
       '{"name":"My Ext (firefox)","browser":"firefox","mode":"production"}'
     )
+
     expect(updated['index.html']).toBe(
       '<title>firefox</title><p>production</p>'
     )
+
     // Same values DefinePlugin injects into background/content code.
     expect(lastDefineArgs['process.env.EXTENSION_BROWSER']).toBe(
       JSON.stringify('firefox')
     )
+
     expect(lastDefineArgs['import.meta.env.EXTENSION_PUBLIC_BROWSER']).toBe(
       JSON.stringify('firefox')
     )
@@ -346,9 +359,11 @@ describe('EnvPlugin', () => {
     expect(updated['index.html']).toBe(
       '<script>window.API="https://api.example/v2"</script>'
     )
+
     expect(updated['manifest.json']).toBe(
       '{"homepage_url":"https://api.example/v2"}'
     )
+
     expect(lastDefineArgs['process.env.EXTENSION_PUBLIC_API_V2']).toBe(
       JSON.stringify('https://api.example/v2')
     )
@@ -359,6 +374,7 @@ describe('EnvPlugin', () => {
   it('falls back to the nearest workspace root env file', async () => {
     ;(fs.existsSync as unknown as (p: any) => boolean) = vi.fn((p: any) => {
       const filePath = toPosix(String(p))
+
       return (
         filePath === '/repo/pnpm-workspace.yaml' || filePath === '/repo/.env'
       )
@@ -376,6 +392,7 @@ describe('EnvPlugin', () => {
     expect(lastDefineArgs['process.env.EXTENSION_PUBLIC_ROOT_ONLY']).toBe(
       JSON.stringify('rootOnly')
     )
+
     expect(lastDefineArgs['import.meta.env.EXTENSION_PUBLIC_ROOT_ONLY']).toBe(
       JSON.stringify('rootOnly')
     )

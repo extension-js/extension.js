@@ -35,21 +35,25 @@ describe('installDependencies', () => {
     } else {
       ;(globalThis as {Deno?: unknown}).Deno = prevDeno
     }
+
     if (prevExtensionEnv === undefined) {
       delete process.env.EXTENSION_ENV
     } else {
       process.env.EXTENSION_ENV = prevExtensionEnv
     }
+
     await fsp.rm(projectPath, {recursive: true, force: true})
   })
 
   it('installs with the manager the project resolved to, not the invoker', async () => {
     const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'extjs-install-pm-'))
+
     try {
       await fsp.writeFile(
         path.join(dir, 'package.json'),
         JSON.stringify({name: 'seed', dependencies: {left: '1.0.0'}})
       )
+
       runInstallMock.mockResolvedValue({ok: true, code: 0})
       await installDependencies(dir, 'seed', {log() {}, error() {}}, 'pnpm')
       expect(runInstallMock).toHaveBeenCalled()

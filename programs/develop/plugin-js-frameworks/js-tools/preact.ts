@@ -27,6 +27,7 @@ export function isUsingPreact(projectPath: string) {
 
       userMessageDelivered = true
     }
+
     return true
   }
 
@@ -44,6 +45,7 @@ export async function maybeUsePreact(
   const requireFromProject = createRequire(
     path.join(projectPath, 'package.json')
   )
+
   const resolveFromProject = (id: string) => {
     try {
       return requireFromProject.resolve(id)

@@ -12,6 +12,7 @@ function createFakeCdp() {
     },
     sendCommand: vi.fn().mockResolvedValue({})
   } as unknown as CDPClient
+
   return {cdp, emit: (message: CdpProtocolMessage) => handler?.(message)}
 }
 
@@ -63,6 +64,7 @@ describe('registerAutoEnableLogging log sink (E21)', () => {
       method: 'Log.entryAdded',
       params: {entry: {level: 'verbose', text: 'noise'}}
     })
+
     emit({
       method: 'Log.entryAdded',
       params: {entry: {level: 'error', text: 'CSP refused to load script'}}

@@ -23,14 +23,17 @@ import {importExternalTemplate} from '../import-external-template'
 // substitution anywhere in the pipeline shows up as the wrong bytes.
 function catalogZipWith(names: string[]): Buffer {
   const entries: Record<string, Uint8Array> = {}
+
   for (const name of names) {
     entries[`examples-main/examples/${name}/src/manifest.json`] = strToU8(
       JSON.stringify({name: `${name} marker`})
     )
+
     entries[`examples-main/examples/${name}/src/index.js`] = strToU8(
       `// ${name}\n`
     )
   }
+
   return Buffer.from(zipSync(entries))
 }
 

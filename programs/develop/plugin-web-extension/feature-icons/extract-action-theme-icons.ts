@@ -14,13 +14,17 @@ import type {DevOptions, FilepathList, Manifest} from '../../types'
 
 function resolveManifestIconPath(context: string, relativePath: string) {
   const unix = relativePath.replace(/\\/g, '/')
+
   if (/^\/public\//i.test(unix)) {
     return path.join(context, 'public', unix.replace(/^\/public\//i, ''))
   }
+
   if (/^(?:\.\/)?public\//i.test(unix)) {
     return path.join(context, 'public', unix.replace(/^(?:\.\/)?public\//i, ''))
   }
+
   if (/^\//.test(unix)) return path.join(context, unix.slice(1))
+
   return path.join(context, unix)
 }
 
@@ -34,6 +38,7 @@ export function extractActionThemeIcons(
   let manifest: {
     action?: {theme_icons?: Array<{light?: string; dark?: string}>}
   }
+
   try {
     // An action written under a browser prefix is invisible to a raw read,
     // and the built manifest then names theme icons nothing emits.
@@ -44,19 +49,24 @@ export function extractActionThemeIcons(
   } catch {
     return {}
   }
+
   const themeIcons = manifest?.action?.theme_icons
   if (!Array.isArray(themeIcons) || themeIcons.length === 0) return {}
 
   const context = path.dirname(manifestPath)
   const paths: string[] = []
+
   for (const icon of themeIcons) {
     if (!icon || typeof icon !== 'object') continue
+
     if (typeof icon.light === 'string' && icon.light) {
       paths.push(resolveManifestIconPath(context, icon.light))
     }
+
     if (typeof icon.dark === 'string' && icon.dark) {
       paths.push(resolveManifestIconPath(context, icon.dark))
     }
   }
+
   return paths.length ? {'action/theme_icons': paths} : {}
 }

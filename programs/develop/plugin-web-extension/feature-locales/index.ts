@@ -14,10 +14,6 @@ import {processLocaleAssets} from './process-assets'
 import {trackLocaleDependencies} from './track-dependencies'
 import {validateLocales} from './validation'
 
-/**
- * LocalesPlugin is responsible for emitting the locales files
- * to the output directory.
- */
 export class LocalesPlugin {
   public readonly manifestPath: string
   public readonly includeList?: FilepathList
@@ -52,6 +48,7 @@ export class LocalesPlugin {
             }
 
             compilation.errors.push(error)
+
             return
           }
 

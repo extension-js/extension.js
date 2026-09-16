@@ -17,6 +17,7 @@ export function backgroundServiceWorker(manifest: Manifest) {
       background: {
         service_worker: (() => {
           const raw = String(manifest.background.service_worker)
+
           return getFilename('background/service_worker.js', raw)
         })()
       }

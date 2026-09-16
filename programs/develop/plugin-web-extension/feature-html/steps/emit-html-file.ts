@@ -30,6 +30,7 @@ export class EmitHtmlFile {
   public apply(compiler: Compiler): void {
     compiler.hooks.thisCompilation.tap('html:emit-html-file', (compilation) => {
       const processAssetsHook = compilation.hooks?.processAssets
+
       const runner = () => {
         const htmlFields = Object.entries(this.includeList || {})
 
@@ -38,6 +39,7 @@ export class EmitHtmlFile {
 
           if (resource) {
             if (typeof resource !== 'string') continue
+
             // Normalize HTML resource paths: leading '/' means extension root, relative
             // resolves from the manifest dir, absolute OS paths are used as-is.
             const projectDir = path.dirname(this.manifestPath)
@@ -51,6 +53,7 @@ export class EmitHtmlFile {
               // A root-absolute ref that public/ owns is served verbatim at the output root;
               // nothing to compile and nothing missing.
               const relToProject = path.relative(projectDir, resolved)
+
               if (
                 relToProject &&
                 !relToProject.startsWith('..') &&
@@ -59,6 +62,7 @@ export class EmitHtmlFile {
               ) {
                 continue
               }
+
               if (featureName.startsWith('pages/')) {
                 // Non-entrypoint HTML (special pages/*) only warns.
                 reportToCompilation(
@@ -88,8 +92,10 @@ export class EmitHtmlFile {
                   'manifest.json'
                 )
               }
+
               continue
             }
+
             const rawHtml = fs.readFileSync(resolved, 'utf8')
             const rawSource = new sources.RawSource(rawHtml)
             const filepath = getFilePath(featureName, '.html', false)
@@ -97,6 +103,7 @@ export class EmitHtmlFile {
           }
         }
       }
+
       if (processAssetsHook && typeof processAssetsHook.tap === 'function') {
         processAssetsHook.tap(
           {
@@ -123,6 +130,7 @@ export function manifestFieldForHtmlFeature(
   browser?: PluginInterface['browser']
 ): string {
   let manifest: Record<string, unknown> = {}
+
   try {
     manifest = filterKeysForThisBrowser(
       JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf-8'))) as Manifest,
@@ -139,18 +147,21 @@ export function manifestFieldForHtmlFeature(
   // label has to name the same one.
   const hasOptionsUiPage = () => {
     const page = (manifest.options_ui as {page?: unknown} | undefined)?.page
+
     return typeof page === 'string' && page.trim().length > 0
   }
 
   if (featureName.startsWith('chrome_url_overrides/')) {
     return featureName.replace('/', '.')
   }
+
   if (featureName.startsWith('sandbox/')) return 'sandbox.pages'
 
   switch (featureName) {
     case 'action/index':
       if (has('action')) return 'action.default_popup'
       if (has('browser_action')) return 'browser_action.default_popup'
+
       return 'page_action.default_popup'
     case 'page_action/index':
       return 'page_action.default_popup'

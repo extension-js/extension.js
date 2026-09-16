@@ -120,12 +120,14 @@ describe('ValidateThemeValues step', () => {
       },
       rspack: {WebpackError: Error}
     }
+
     return {compiler, compilation}
   }
 
   const writeManifest = (manifest: Record<string, unknown>) => {
     const manifestPath = path.join(tmp, 'manifest.json')
     fs.writeFileSync(manifestPath, JSON.stringify(manifest))
+
     return manifestPath
   }
 

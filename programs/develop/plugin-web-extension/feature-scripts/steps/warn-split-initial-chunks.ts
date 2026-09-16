@@ -27,6 +27,7 @@ export {classifyEntrySurface}
 export class WarnSplitInitialChunks {
   apply(compiler: Compiler): void {
     if (!compiler?.hooks?.thisCompilation?.tap) return
+
     compiler.hooks.thisCompilation.tap(
       'scripts:warn-split-initial-chunks',
       (compilation) => {
@@ -40,9 +41,11 @@ export class WarnSplitInitialChunks {
               string,
               EntrypointLike
             >
+
             for (const [entryName, entrypoint] of entrypoints) {
               const surface = classifyEntrySurface(entryName)
               if (surface === 'page') continue
+
               const files = initialJsFiles(entrypoint)
               if (files.length <= 1) continue
 

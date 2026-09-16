@@ -39,6 +39,7 @@ export function resolveBundleCssProbeMarker(
 
   for (const name of assetNames()) {
     const parsed = parseCanonicalContentScriptAsset(name)
+
     if (parsed && parsed.extension === 'css' && parsed.index === wanted.index) {
       return name
     }
@@ -140,6 +141,7 @@ export class AddContentScriptWrapper {
               if (!/\.(?:js|mjs)$/.test(asset.name)) continue
 
               const text = asset.source.source().toString()
+
               if (!text.includes(CONTENT_SCRIPT_CSS_PROBE_MARKER_PREFIX)) {
                 continue
               }
@@ -159,6 +161,7 @@ export class AddContentScriptWrapper {
                     assetNames
                   )
                 )
+
                 touched = true
                 match = pattern.exec(text)
               }

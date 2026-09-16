@@ -38,11 +38,13 @@ function patchWebResourcesV2(manifest: Manifest) {
   }
 
   const webResources = new Set(resources)
+
   for (const resource of defaultResources) {
     if (!webResources.has(resource)) {
       webResources.add(resource)
     }
   }
+
   return Array.from(webResources)
 }
 
@@ -69,6 +71,7 @@ function patchWebResourcesV3(manifest: Manifest) {
     '/*.wasm',
     '/*.bin'
   ]
+
   return [
     ...(manifest.web_accessible_resources || []),
     {

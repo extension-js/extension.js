@@ -75,6 +75,7 @@ function resolvePackageRoot(
     'node_modules',
     ...packageName.split('/')
   )
+
   if (fs.existsSync(path.join(guessedPackageDir, 'package.json'))) {
     return guessedPackageDir
   }
@@ -100,6 +101,7 @@ function getWorkspaceDependencyNames(projectRoot: string): string[] {
 
       for (const [name, version] of Object.entries(section)) {
         if (typeof version !== 'string') continue
+
         if (
           version.startsWith('workspace:') ||
           version.startsWith('link:') ||
@@ -147,12 +149,14 @@ export function resolveTranspilePackageDirs(
       projectRoot,
       packageName
     )
+
     if (!packageDir) {
       // Package might not be installed in the active project; ignore quietly.
       continue
     }
 
     resolvedDirs.add(normalizePath(packageDir))
+
     try {
       resolvedDirs.add(normalizePath(fs.realpathSync(packageDir)))
     } catch {

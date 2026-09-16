@@ -21,6 +21,7 @@ function scaffold() {
       2
     )
   )
+
   fs.writeFileSync(
     path.join(root, 'manifest.json'),
     JSON.stringify(
@@ -34,10 +35,12 @@ function scaffold() {
       2
     )
   )
+
   fs.writeFileSync(
     path.join(root, 'popup.html'),
     '<!doctype html><html><body><script src="./popup.js"></script></body></html>'
   )
+
   fs.writeFileSync(path.join(root, 'popup.js'), "console.log('boot marker')\n")
 
   return root
@@ -57,6 +60,7 @@ async function startServer(root: string) {
       plugin?.constructor.name !== 'plugin-browsers' &&
       plugin?.constructor.name !== 'plugin-playwright'
   )
+
   config.stats = false
 
   const compiler = rspack(config)

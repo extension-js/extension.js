@@ -6,6 +6,7 @@ import {findNearestPackageJson, validatePackageJson} from '../package-json'
 
 function makeTempDir(prefix: string) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix))
+
   return dir
 }
 

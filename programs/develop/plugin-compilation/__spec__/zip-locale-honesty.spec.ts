@@ -17,10 +17,12 @@ function makeCompiler(ctx: string, outPath: string) {
       }
     }
   }
+
   return {
     compiler,
     emitDone: async (stats: any = {compilation: {warnings: []}}) => {
       await doneCb(stats)
+
       return stats
     }
   }
@@ -48,6 +50,7 @@ describe('ZipPlugin locale honesty', () => {
         default_locale: 'en'
       })
     )
+
     fs.writeFileSync(
       path.join(outPath, '_locales', 'en', 'messages.json'),
       JSON.stringify({appName: {message: 'Cool App'}})

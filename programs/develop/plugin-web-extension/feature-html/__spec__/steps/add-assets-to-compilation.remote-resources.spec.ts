@@ -16,6 +16,7 @@ function makeCompiler(htmlAbsPath: string, htmlContent: string) {
       if (name === path.basename(htmlAbsPath)) {
         return {source: {source: () => htmlContent}}
       }
+
       return undefined
     }
   } as any

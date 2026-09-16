@@ -35,12 +35,15 @@ export function stripJsoncExtensions(text: string): string {
 
     if (inString) {
       out += char
+
       if (char === '\\' && i + 1 < text.length) {
         out += text[i + 1]
         i += 2
         continue
       }
+
       if (char === '"') inString = false
+
       i++
       continue
     }
@@ -69,26 +72,35 @@ export function stripJsoncExtensions(text: string): string {
       // next significant character closes the object/array (trailing comma).
       let buffered = ','
       let j = i + 1
+
       while (j < text.length) {
         const c = text[j]
+
         if (/\s/.test(c)) {
           buffered += c
           j++
           continue
         }
+
         if (c === '/' && text[j + 1] === '/') {
           while (j < text.length && text[j] !== '\n') j++
           continue
         }
+
         if (c === '/' && text[j + 1] === '*') {
           j += 2
-          while (j < text.length && !(text[j] === '*' && text[j + 1] === '/'))
+
+          while (j < text.length && !(text[j] === '*' && text[j + 1] === '/')) {
             j++
+          }
+
           j += 2
           continue
         }
+
         break
       }
+
       out += flushPendingComma(buffered, text[j] ?? '')
       i = j
       continue
@@ -104,6 +116,7 @@ export function stripJsoncExtensions(text: string): string {
 // JSON.parse for JSONC input; empty input parses as {}, invalid syntax throws.
 export function parseJsoncSafe(text: string | Buffer): ParsedJson {
   const stripped = stripJsoncExtensions(stripBom(text))
+
   return JSON.parse(stripped.trim() || '{}')
 }
 
@@ -122,27 +135,32 @@ export function parseNpmSpecifier(
 
   // Scoped names contain a '@' at position 0 that is not a version separator.
   const versionSeparator = rest.indexOf('@', rest.startsWith('@') ? 1 : 0)
+
   if (versionSeparator === -1) {
     // Strip any subpath from the versionless form (npm:pkg/subpath).
     const name = rest.split('/', rest.startsWith('@') ? 2 : 1).join('/')
+
     return name ? {name, version: '*'} : undefined
   }
 
   const name = rest.slice(0, versionSeparator)
   // The version ends at the subpath boundary (npm:/pkg@1.2.3/subpath).
   const version = rest.slice(versionSeparator + 1).split('/')[0] || '*'
+
   return name ? {name, version} : undefined
 }
 
 export function findDenoConfigPath(projectDir: string): string | undefined {
   for (const filename of DENO_CONFIG_FILENAMES) {
     const candidate = path.join(projectDir, filename)
+
     try {
       if (fs.statSync(candidate).isFile()) return candidate
     } catch {
       // Ignore
     }
   }
+
   return undefined
 }
 
@@ -154,6 +172,7 @@ export function readDenoConfigDependencies(
   const dependencies: Record<string, string> = {}
 
   let config: ParsedJson
+
   try {
     config = parseJsoncSafe(fs.readFileSync(denoConfigPath, 'utf8'))
   } catch {
@@ -171,6 +190,7 @@ export function readDenoConfigDependencies(
 
     // Subpath aliases end with '/' ("react/": "npm:react@18/").
     const alias = rawAlias.endsWith('/') ? rawAlias.slice(0, -1) : rawAlias
+
     if (alias && alias !== parsed.name) {
       dependencies[alias] = dependencies[alias] || parsed.version
     }
@@ -193,13 +213,17 @@ function readPackageJsonDependencies(
       pkg.peerDependencies
     ]
     const dependencies: Record<string, string> = {}
+
     for (const section of sections) {
       if (!section || typeof section !== 'object') continue
+
       for (const [name, version] of Object.entries(section)) {
         if (typeof version !== 'string') continue
+
         dependencies[name] = dependencies[name] || version
       }
     }
+
     return dependencies
   } catch {
     return {}
@@ -237,6 +261,7 @@ export function findNearestProjectManifestDirSync(
   maxDepth = 6
 ): string | undefined {
   let currentDirectory = startPath
+
   for (let i = 0; i < maxDepth; i++) {
     if (
       PROJECT_MANIFEST_FILENAMES.some((filename) =>
@@ -245,10 +270,13 @@ export function findNearestProjectManifestDirSync(
     ) {
       return currentDirectory
     }
+
     const parentDirectory = path.dirname(currentDirectory)
     if (parentDirectory === currentDirectory) break
+
     currentDirectory = parentDirectory
   }
+
   return undefined
 }
 
@@ -263,13 +291,16 @@ export function findNearestProjectManifestSync(
   while (true) {
     for (const filename of PROJECT_MANIFEST_FILENAMES) {
       const candidate = path.join(currentDir, filename)
+
       try {
         if (fs.statSync(candidate).isFile()) return candidate
       } catch {
         // Ignore
       }
     }
+
     if (currentDir === root) return null
+
     currentDir = path.dirname(currentDir)
   }
 }
@@ -280,25 +311,29 @@ export function findNearestDenoConfigSync(manifestPath: string): string | null {
   // A remote URL joined with a file name is a relative path with no
   // manifest anywhere above it (path.join writes backslashes on Windows).
   if (/^(?:\.[\\/])?[a-z][a-z0-9+.-]+:[\\/]+/i.test(manifestPath)) return null
+
   const root = path.parse(path.resolve(manifestPath)).root
   let currentDir = path.dirname(path.resolve(manifestPath))
 
   while (true) {
     const found = findDenoConfigPath(currentDir)
     if (found) return found
+
     // A relative start (a URL handed in as a path) never reaches the
     // filesystem root, so stop as soon as the walk stops climbing.
     const parentDir = path.dirname(currentDir)
     if (currentDir === root || parentDir === currentDir) return null
+
     currentDir = parentDir
   }
 }
 
-/** True when the file exists and parses as JSONC. */
 export function validateDenoConfig(denoConfigPath: string): boolean {
   try {
     if (!fs.existsSync(denoConfigPath)) return false
+
     parseJsoncSafe(fs.readFileSync(denoConfigPath, 'utf8'))
+
     return true
   } catch {
     return false

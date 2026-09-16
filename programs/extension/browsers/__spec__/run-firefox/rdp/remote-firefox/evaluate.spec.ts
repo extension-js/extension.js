@@ -15,6 +15,7 @@ class MockRdpClient extends EventEmitter {
             : 'async-value'
         })
       })
+
       return {resultID, from: payload.to}
     }
 
@@ -43,9 +44,11 @@ describe('remote-firefox evaluate helpers', () => {
 
       async request(payload: any): Promise<unknown> {
         this.requests.push(payload)
+
         if (payload.type === 'evaluateJSAsync') {
           return {resultID: 'timed-out-result', from: payload.to}
         }
+
         if (payload.type === 'evalWithOptions') {
           return {
             result: payload.text.includes('outerHTML')
@@ -53,6 +56,7 @@ describe('remote-firefox evaluate helpers', () => {
               : 'fallback-value'
           }
         }
+
         throw new Error(`unexpected request type: ${String(payload.type)}`)
       }
     }

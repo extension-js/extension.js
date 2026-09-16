@@ -13,11 +13,13 @@ vi.mock('../helpers/extension-develop-runtime', () => ({
     loadCommandConfig
   }))
 }))
+
 vi.mock('../browsers/run-safari/safari-launch', () => ({
   packageSafariExtension: (...args: unknown[]) =>
     packageSafariExtension(...(args as [])),
   safariBuildPreflight: () => safariBuildPreflight()
 }))
+
 vi.mock('../browsers/run-safari/safari-launch/safari-config', () => ({
   isValidBundleId: (id: string) => id.includes('.') && !id.includes(' ')
 }))
@@ -114,6 +116,7 @@ describe('extension build', () => {
     expect(
       await run(['build', '.', '--browser', 'safari', '--bundle-id', 'bad id'])
     ).toBe(1)
+
     expect(extensionBuild).not.toHaveBeenCalled()
   })
 
@@ -122,6 +125,7 @@ describe('extension build', () => {
       severity: 'fatal',
       message: 'xcode is broken'
     })
+
     expect(await run(['build', '.', '--browser', 'safari'])).toBe(1)
     expect(String(errorSpy.mock.calls[0][0])).toContain('xcode is broken')
     expect(extensionBuild).not.toHaveBeenCalled()
@@ -132,6 +136,7 @@ describe('extension build', () => {
       severity: 'skip',
       message: 'not macOS'
     })
+
     expect(await run(['build', '.', '--browser', 'safari'])).toBe(0)
     expect(String(warnSpy.mock.calls[0][0])).toContain('not macOS')
     const [, opts] = extensionBuild.mock.calls[0] as any[]
@@ -152,6 +157,7 @@ describe('extension build', () => {
       noOpen: true,
       dryRun: false
     })
+
     expect(distPath).toBe('/tmp/dist/safari')
     expect(mode).toBe('full')
   })
@@ -160,6 +166,7 @@ describe('extension build', () => {
     expect(
       await run(['build', '.', '--browser', 'safari', '--macos-only', 'false'])
     ).toBe(0)
+
     const [, opts] = extensionBuild.mock.calls[0] as any[]
     expect(opts.macOsOnly).toBe(false)
   })
@@ -168,6 +175,7 @@ describe('extension build', () => {
     expect(
       await run(['build', '.', '--browser', 'safari', '--macos-only'])
     ).toBe(0)
+
     const [, opts] = extensionBuild.mock.calls[0] as any[]
     expect(opts.macOsOnly).toBe(true)
   })
@@ -196,6 +204,7 @@ describe('extension build', () => {
       errors_count: 0,
       warnings: ['a warning']
     } as never)
+
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
     expect(await run(['build', '.', '--output', 'json'])).toBe(0)
@@ -234,9 +243,12 @@ describe('extension build', () => {
         errors_count: 0,
         warnings: ['Asset size exceeds the recommended limit (128 KiB).']
       } as never)
+
       const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
       return run(argv).then((code) => {
         expect(code).toBe(0)
+
         return JSON.parse(String(logSpy.mock.calls.at(-1)?.[0]))
       })
     }
@@ -255,10 +267,12 @@ describe('extension build', () => {
         Object.keys(golden).sort(),
         'the golden envelope names keys the build frame does not, or misses some'
       ).toEqual(Object.keys(frame).sort())
+
       expect(
         Object.keys(golden.value).sort(),
         'the golden value under-documents what `build --output json` emits'
       ).toEqual(Object.keys(frame.value).sort())
+
       expect(golden.command).toBe(frame.command)
       expect(golden.status).toBe(frame.status)
       expect(golden.value.mode).toBe(frame.value.mode)

@@ -2,6 +2,7 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 vi.mock('fs', async () => {
   const actual: any = await vi.importActual('fs')
+
   return {
     ...actual,
     readFileSync: vi.fn()
@@ -19,6 +20,7 @@ vi.mock('../env', () => {
     }
     apply = apply
   }
+
   return {EnvPlugin: EnvPluginMock}
 })
 
@@ -35,6 +37,7 @@ vi.mock('../clean-dist', () => {
     }
     apply = cleanDistMocks.apply
   }
+
   return {CleanDistFolderPlugin: CleanDistFolderPluginMock}
 })
 
@@ -47,6 +50,7 @@ vi.mock('../zip', () => {
     }
     apply = apply
   }
+
   return {ZipPlugin: ZipPluginMock}
 })
 
@@ -89,6 +93,7 @@ describe('CompilationPlugin', () => {
     ;(fs.readFileSync as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
       JSON.stringify({name: 'MyExt'})
     )
+
     cleanDistMocks.instances.length = 0
     cleanDistMocks.apply.mockClear()
   })
@@ -127,6 +132,7 @@ describe('CompilationPlugin', () => {
         }
       }
     }
+
     return {
       compiler,
       emitDone: (stats: any, done = () => {}) => {
@@ -139,6 +145,7 @@ describe('CompilationPlugin', () => {
     ;(fs.readFileSync as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
       JSON.stringify({name: 'ExtA'})
     )
+
     const {compiler, emitDone} = createCompiler('development')
     const plugin = new CompilationPlugin({
       manifestPath: '/p/manifest.json',
@@ -165,6 +172,7 @@ describe('CompilationPlugin', () => {
     ;(fs.readFileSync as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
       JSON.stringify({name: 'ExtB'})
     )
+
     const {compiler, emitDone} = createCompiler('development')
     const plugin = new CompilationPlugin({
       manifestPath: '/p/manifest.json',
@@ -214,6 +222,7 @@ describe('CompilationPlugin', () => {
     ;(fs.readFileSync as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
       JSON.stringify({name: 'ExtC'})
     )
+
     const {compiler, emitDone} = createCompiler('development')
     ;(process.stdout as any).isTTY = false
 
@@ -273,6 +282,7 @@ describe('CompilationPlugin', () => {
     compiler.hooks.done.tapPromise = (_name: string, cb: any) => {
       doneTapOrder.push(cb)
     }
+
     compiler.hooks.done.tapPromise('chromium:launch', async () => {
       browserLaunchSpy('launch')
     })
@@ -293,6 +303,7 @@ describe('CompilationPlugin', () => {
     expect(consoleWarnSpy).toHaveBeenCalledWith(
       '⏵⏵⏵ Build warning in Content script requires a default export.'
     )
+
     expect(browserLaunchSpy).toHaveBeenCalledWith('launch')
 
     const warnOrder = consoleWarnSpy.mock.invocationCallOrder[0]

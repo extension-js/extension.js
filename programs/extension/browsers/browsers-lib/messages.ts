@@ -41,7 +41,9 @@ function getLoggingPrefix(type: Channel): string {
 
 function errorDetail(error: unknown) {
   if (isDebug()) return String(error)
+
   const maybe = (error as {message?: string} | undefined)?.message
+
   return String(maybe || error)
 }
 
@@ -57,6 +59,7 @@ function isWsl(): boolean {
   // If these env vars are present, treat as WSL even if the host platform
   // running unit tests is not Linux.
   if (hasEnv) return true
+
   return /microsoft/i.test(os.release())
 }
 
@@ -69,6 +72,7 @@ function findNearestPackageJson(startPath: string): string | null {
 
     const parent = path.dirname(current)
     if (parent === current) break
+
     current = parent
   }
 
@@ -125,15 +129,21 @@ function preferredManagedInstallCommand(browser: string): string {
 
   if (hasExtensionScript) {
     if (packageManager === 'pnpm') return `pnpm extension install ${browser}`
-    if (packageManager === 'npm')
+
+    if (packageManager === 'npm') {
       return `npm run extension -- install ${browser}`
-    if (packageManager === 'bun')
+    }
+
+    if (packageManager === 'bun') {
       return `bun run extension -- install ${browser}`
+    }
+
     if (packageManager === 'yarn') return `yarn extension install ${browser}`
   }
 
   if (packageManager === 'pnpm') return `pnpm exec extension install ${browser}`
   if (packageManager === 'bun') return `bunx extension install ${browser}`
+
   return `npx extension install ${browser}`
 }
 
@@ -142,6 +152,7 @@ function managedBrowserDisplayName(browser: string): string {
   if (browser === 'chromium') return 'Chromium'
   if (browser === 'firefox') return 'Firefox'
   if (browser === 'edge') return 'Edge'
+
   return browser
 }
 
@@ -166,21 +177,25 @@ export function resolveBrowserVersionLine(
   try {
     if (browser === 'chromium' || browser === 'chromium-based') {
       const p = locateChromium()
+
       if (p && typeof p === 'string' && fs.existsSync(p)) {
         return getChromiumVersion(p) || 'Chromium'
       }
     } else if (browser === 'chrome') {
       const p: string = locateChromeOrExplain({allowFallback: true})
+
       if (p && fs.existsSync(p)) {
         return getChromeVersion(p) || 'Chrome'
       }
     } else if (browser === 'edge') {
       const p = locateEdge()
+
       if (p && fs.existsSync(p)) {
         return getEdgeVersion(p) || 'Microsoft Edge'
       }
     } else if (browser === 'firefox') {
       const p = locateFirefox(true)
+
       if (p && typeof p === 'string' && fs.existsSync(p)) {
         return getFirefoxVersion(p) || 'Firefox'
       }
@@ -188,6 +203,7 @@ export function resolveBrowserVersionLine(
   } catch {
     // Ignore
   }
+
   return ''
 }
 
@@ -214,6 +230,7 @@ export function firefoxRdpRuntimeCapabilitySummary(
   state: 'available' | 'unavailable'
 ) {
   const reload = state === 'available' ? 'preserve-state' : 'reinstall'
+
   return `${getLoggingPrefix('debug')} rdp      capability scripting=${state} reload=${reload}`
 }
 
@@ -232,9 +249,11 @@ export function browserNotInstalledError(
 
   const wslHint = (() => {
     if (!isWsl()) return ''
+
     // WSL commonly has no Linux browser installed, but can launch Windows .exe paths.
     // Also note: shell aliases do not apply to child_process.spawn.
     const example = '/mnt/c/Program Files/Google/Chrome/Application/chrome.exe'
+
     return (
       `\n\nWSL detected:\n` +
       `- Install a Linux browser in WSL, or\n` +
@@ -303,6 +322,7 @@ export function unsupportedManifestVersionOnChromium(
     declared === undefined
       ? 'no manifest_version'
       : `manifest_version ${JSON.stringify(declared)}`
+
   return (
     `${getLoggingPrefix('warn')} ${colors.brightYellow(`This extension declares ${value}, which Chromium refuses as an unsupported manifest version.`)}\n` +
     `${colors.gray('PATH')} ${colors.underline(extensionPath)}\n` +
@@ -317,6 +337,7 @@ export function chromiumInvalidMatchPatterns(
 ) {
   const shown = patterns.slice(0, 6)
   const more = patterns.length - shown.length
+
   return (
     `${getLoggingPrefix('warn')} ${colors.brightYellow("This extension declares match patterns Chrome refuses, the whole extension won't load.")}\n` +
     `${colors.gray('PATH')} ${colors.underline(extensionPath)}\n` +
@@ -457,6 +478,7 @@ export function generalBrowserError(browser: Browser, error: unknown) {
 
 export function errorConnectingToBrowser(browser: Browser, port?: number) {
   const where = typeof port === 'number' ? ` on port ${port}` : ''
+
   return (
     `${getLoggingPrefix('error')} Can't connect to ${capitalizedBrowserName(browser)}${where} after several retries.\n` +
     `Another browser instance is usually still holding that debugging port, often one left over from an earlier dev session.\n` +
@@ -570,6 +592,7 @@ export function prettyPuppeteerInstallGuidance(
   const body: string[] = []
 
   let browserNorm = 'chromium'
+
   if (browser === 'chromium-based') {
     browserNorm = 'chromium'
   } else if (browser === 'gecko-based') {
@@ -591,12 +614,15 @@ export function prettyPuppeteerInstallGuidance(
   body.push(
     `${getLoggingPrefix('warn')} ${browserDisplay} isn't available in the managed browser cache.`
   )
+
   body.push('')
   body.push(
     colors.gray(`Install ${browserDisplay} into the managed browser cache:`)
   )
+
   body.push('')
   body.push(`  ${colors.bold(colors.blue(installCommand))}`)
+
   // Chromium managed installs are unbranded tip-of-tree snapshots; Chrome for
   // Testing tracks stable and satisfies chromium targets, recommend it.
   if (browserNorm === 'chromium') {
@@ -606,16 +632,20 @@ export function prettyPuppeteerInstallGuidance(
         'Or install Chrome for Testing (stable channel), chromium targets use it automatically:'
       )
     )
+
     body.push('')
     body.push(
       `  ${colors.bold(colors.blue(preferredManagedInstallCommand('chrome')))}`
     )
   }
+
   if (finalCachePath) {
     body.push('')
     body.push(`${dim('PATH')} ${colors.underline(finalCachePath)}`)
   }
+
   body.push(`Run your command again after the install finishes.`)
+
   return `${body.join('\n')}\n`
 }
 
@@ -654,6 +684,7 @@ export function safariBuildCalled() {
 function prettyPlatform(platform: string) {
   if (platform === 'win32') return 'Windows'
   if (platform === 'linux') return 'Linux'
+
   return platform
 }
 
@@ -740,6 +771,7 @@ export function safariToolFailed(
   const tail = outputTail.trim().length
     ? `\n${colors.gray('── last output ──')}\n${outputTail}`
     : `\n${colors.gray('(no output captured)')}`
+
   return (
     `${getLoggingPrefix('error')} Safari packaging tool ${colors.underline(tool)} ` +
     `failed (${colors.red(code)}).${tail}`
@@ -1001,9 +1033,11 @@ export function collapseHomeDirInCardValue(value: string): string {
   const raw = String(value || '')
   const home = os.homedir()
   if (!home || !raw.startsWith(home)) return raw
+
   const rest = raw.slice(home.length)
   if (rest === '') return '~'
   if (rest.startsWith(path.sep) || rest.startsWith('/')) return `~${rest}`
+
   return raw
 }
 
@@ -1021,6 +1055,7 @@ export function binaryProvenanceNote(
   // classifyBinaryProvenance still returns all four values for callers that
   // need them.
   if (provenance === 'pinned') return '(pinned with --chromium-binary)'
+
   return ''
 }
 
@@ -1189,6 +1224,7 @@ export function cdpUnifiedExtensionLog(ts: string, payload: unknown) {
       return String(payload)
     }
   })()
+
   return `[extension-log ${ts}] ${data}`
 }
 
@@ -1204,6 +1240,7 @@ export function requireChromiumBinaryForChromiumBased() {
   const body =
     `The ${colors.yellow('chromium-based')} target needs a Chromium binary.\n` +
     `Pass ${colors.blue('--chromium-binary')} ${colors.gray('<abs-path>')} to choose one.\n`
+
   return browserRunnerError(body)
 }
 
@@ -1211,6 +1248,7 @@ export function requireGeckoBinaryForGeckoBased() {
   const body =
     `The ${colors.yellow('gecko-based')} and ${colors.yellow('firefox-based')} targets need a Firefox or Gecko binary.\n` +
     `Pass ${colors.blue('--gecko-binary')} ${colors.gray('<abs-path>')} to choose one.\n`
+
   return browserRunnerError(body)
 }
 
@@ -1219,6 +1257,7 @@ export function invalidChromiumBinaryPath(p: string) {
     `Can't find a Chromium binary at the given path.\n` +
     `${colors.gray('NOT FOUND')} ${colors.underline(p)}\n` +
     `Pass ${colors.blue('--chromium-binary')} ${colors.gray('<abs-path>')} with a working path.`
+
   return browserRunnerError(body)
 }
 
@@ -1227,6 +1266,7 @@ export function invalidGeckoBinaryPath(p: string) {
     `Can't find a Firefox or Gecko binary at the given path.\n` +
     `${colors.gray('NOT FOUND')} ${colors.underline(p)}\n` +
     `Pass ${colors.blue('--gecko-binary')} ${colors.gray('<abs-path>')} with a working path.`
+
   return browserRunnerError(body)
 }
 
@@ -1241,6 +1281,7 @@ export function rdpInvalidRequestPayload() {
 
 export function firstRunInstallOffer(browser: string) {
   const name = managedBrowserDisplayName(browser)
+
   return (
     `${getLoggingPrefix('info')} ${name} is not installed yet.\n` +
     `Extension.js runs your extension in a version-pinned browser with an isolated profile, ` +
@@ -1253,6 +1294,7 @@ export function firstRunInstallOffer(browser: string) {
 
 export function firstRunInstallQuestion(browser: string) {
   const name = managedBrowserDisplayName(browser)
+
   return `${getLoggingPrefix('info')} Download ${name} now? ${colors.gray('[Y/n]')} `
 }
 

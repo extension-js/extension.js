@@ -13,10 +13,13 @@ function parseMilliseconds(value: string | number | undefined) {
   if (typeof value === 'number') {
     return Number.isFinite(value) && value > 0 ? value : null
   }
+
   if (typeof value === 'string') {
     const parsed = parseInt(value, 10)
+
     return !Number.isNaN(parsed) && parsed > 0 ? parsed : null
   }
+
   return null
 }
 
@@ -29,6 +32,7 @@ export function setupAutoExit(
   let forceKillTimer: NodeJS.Timeout | null = null
 
   const autoExitMs = parseMilliseconds(autoExitMsRaw)
+
   if (autoExitMs === null) {
     return () => {}
   }
@@ -45,6 +49,7 @@ export function setupAutoExit(
     } catch {
       // Ignore
     }
+
     await onCleanup()
   }, autoExitMs)
 
@@ -60,6 +65,7 @@ export function setupAutoExit(
     } catch {
       // Ignore
     }
+
     process.exit(0)
   }, forceKillMs)
 

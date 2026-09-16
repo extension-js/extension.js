@@ -30,6 +30,7 @@ export class WarnUponFolderChanges {
 
   private snapshotFolderFiles(projectPath: string) {
     if (this.hasSnapshot) return
+
     this.hasSnapshot = true
     const SKIP_DIRS = new Set([
       'node_modules',
@@ -40,21 +41,26 @@ export class WarnUponFolderChanges {
       '.next',
       'coverage'
     ])
+
     const walk = (dir: string) => {
       let entries: fs.Dirent[]
+
       try {
         entries = fs.readdirSync(dir, {withFileTypes: true})
       } catch {
         return
       }
+
       for (const entry of entries) {
         if (entry.name.startsWith('.')) continue
         if (SKIP_DIRS.has(entry.name)) continue
+
         const full = path.join(dir, entry.name)
         if (entry.isFile()) this.knownFolderFiles.add(full)
         else if (entry.isDirectory()) walk(full)
       }
     }
+
     for (const folder of ['pages', 'scripts']) {
       const folderPath = path.join(projectPath, folder)
       if (fs.existsSync(folderPath)) walk(folderPath)
@@ -103,6 +109,7 @@ export class WarnUponFolderChanges {
       ) {
         return
       }
+
       const warn = new WebpackError(errorMessage) as Error & {
         name?: string
         file?: string
@@ -112,6 +119,7 @@ export class WarnUponFolderChanges {
       warn.file = filePath
       warn.details = `Detected change in ${folder}/ affecting ${typeOfAsset}. Restart may be required for full effect.`
       compilation.warnings?.push(warn)
+
       return
     }
 
@@ -170,6 +178,7 @@ export class WarnUponFolderChanges {
 
       if (filePath.startsWith(pagesPath) && filePath.endsWith('.html')) {
         if (isPreexisting) continue
+
         this.knownFolderFiles.add(filePath)
         this.trackChange(projectPath, 'pages', 'add', filePath)
         continue
@@ -179,6 +188,7 @@ export class WarnUponFolderChanges {
         const ext = path.extname(filePath).toLowerCase()
         if (!supportedScripts.has(ext)) continue
         if (isPreexisting) continue
+
         this.knownFolderFiles.add(filePath)
         this.trackChange(projectPath, 'scripts', 'add', filePath)
       }
@@ -229,6 +239,7 @@ export class WarnUponFolderChanges {
       (compilation) => {
         const projectPath: string =
           (compiler.options.context as string) || process.cwd()
+
         for (const dependencyPath of this.getContextDependencyPaths(
           projectPath
         )) {

@@ -137,6 +137,7 @@ export class FirefoxLaunchPlugin {
     if (options?.mode === 'development' && !this.host.extensionLoadRefused) {
       this.ctx.logger?.info?.(devServerReady(options.mode, this.host.browser))
     }
+
     this.ctx.didLaunch = true
   }
 
@@ -176,12 +177,15 @@ export class FirefoxLaunchPlugin {
           this.ctx.logger?.info?.(
             messages.skippingBrowserLaunchDueToCompileErrors()
           )
+
           done()
+
           return
         }
 
         if (this.ctx.didLaunch) {
           done()
+
           return
         }
 
@@ -213,13 +217,16 @@ export class FirefoxLaunchPlugin {
         this.ctx.didLaunch = true
       } catch (error) {
         this.ctx.logger?.error?.(messages.firefoxFailedToStart(error))
+
         if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
           done(error)
+
           return
         } else {
           process.exit(1)
         }
       }
+
       done()
     })
   }
@@ -227,10 +234,12 @@ export class FirefoxLaunchPlugin {
   private async launch(compilation: CompilationLike, options: LaunchOptions) {
     const compilationErrors: unknown[] =
       (compilation as {errors?: unknown[]})?.errors || []
+
     if (compilationErrors.length > 0) {
       this.ctx.logger?.info?.(
         messages.skippingBrowserLaunchDueToCompileErrors()
       )
+
       return
     }
 
@@ -240,11 +249,14 @@ export class FirefoxLaunchPlugin {
 
     const normalizePath = (value?: string | null): string | null => {
       const normalized = value ? normalizeBinaryPathForWsl(value) : null
+
       return normalized && fs.existsSync(normalized) ? normalized : null
     }
+
     const resolveManagedBinary = (): string | null =>
       normalizePath(resolveFromBinaries(compilation, 'firefox') || null)
     const resolveWslFallback = (): string | null => resolveWslWindowsBinary()
+
     const getInstallGuidanceText = (): string => {
       try {
         return getFirefoxInstallGuidance({
@@ -259,22 +271,27 @@ export class FirefoxLaunchPlugin {
         return 'npx extension install firefox'
       }
     }
+
     const exitForLaunchFailure = (message?: string): never => {
       if (message) {
         humanError(message)
       }
+
       process.exit(1)
     }
+
     const getGeckoBinaryErrorMessage = (): string =>
       this.host.geckoBinary
         ? messages.invalidGeckoBinaryPath(this.host.geckoBinary)
         : messages.requireGeckoBinaryForGeckoBased()
     const failGeckoBinaryRequirement = (): never =>
       exitForLaunchFailure(getGeckoBinaryErrorMessage())
+
     const throwOrExitNotInstalled = (): never => {
       if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
         throw new Error('Firefox not installed or binary path not found')
       }
+
       process.exit(1)
     }
 
@@ -288,8 +305,10 @@ export class FirefoxLaunchPlugin {
     // placeholder when there is no pin to find inside the test runner.
     if (inTestRunner && !dryRun) {
       logFirefoxDryRun('firefox-mock-binary', [])
+
       return
     }
+
     // A pinned binary used to fall through to discovery, which probes the
     // filesystem and execs the binary for a version line, and that took
     // minutes on a Windows runner. Mirrors the chromium short circuit.
@@ -301,6 +320,7 @@ export class FirefoxLaunchPlugin {
           ? normalizeBinaryPathForWsl(String(this.host.geckoBinary))
           : 'firefox-mock-binary'
       )
+
       return
     }
 
@@ -309,6 +329,7 @@ export class FirefoxLaunchPlugin {
     const engineBased =
       this.host.browser === 'gecko-based' ||
       this.host.browser === 'firefox-based'
+
     if (!browserBinaryLocation && !engineBased && isWslEnv()) {
       // WSL+GUI: prefer a Linux-native Firefox so the dev loop stays on the Linux
       // side; fall back to the Windows binary via /mnt/c.
@@ -335,6 +356,7 @@ export class FirefoxLaunchPlugin {
           skipDetection = true
         } else {
           const normalized = normalizePath(this.host.geckoBinary)
+
           if (normalized) {
             browserBinaryLocation = normalized
           } else {
@@ -348,12 +370,14 @@ export class FirefoxLaunchPlugin {
           // Gecko fork located from the user's system, not a managed download.
           const located = locateWaterfox(true, {env: process.env})
           const normalized = normalizePath(located)
+
           if (normalized) {
             browserBinaryLocation = normalized
           }
         } else if (this.host.browser === 'librewolf') {
           const located = locateLibreWolf(true, {env: process.env})
           const normalized = normalizePath(located)
+
           if (normalized) {
             browserBinaryLocation = normalized
           }
@@ -365,6 +389,7 @@ export class FirefoxLaunchPlugin {
           }
           const located = locateFirefox(true, {env})
           const normalized = normalizePath(located)
+
           if (normalized) {
             browserBinaryLocation = normalized
           }
@@ -375,6 +400,7 @@ export class FirefoxLaunchPlugin {
     }
 
     const isFlatpak = !!parseFlatpakBinary(browserBinaryLocation || '')
+
     if (
       !isFlatpak &&
       (!browserBinaryLocation ||
@@ -382,6 +408,7 @@ export class FirefoxLaunchPlugin {
         !fs.existsSync(browserBinaryLocation))
     ) {
       const normalizedFallback = resolveManagedBinary()
+
       if (normalizedFallback) {
         browserBinaryLocation = normalizedFallback
       } else {
@@ -484,6 +511,7 @@ export class FirefoxLaunchPlugin {
 
     if (dryRun) {
       logFirefoxDryRun(plan.binary, plan.args)
+
       return
     }
 
@@ -498,14 +526,17 @@ export class FirefoxLaunchPlugin {
           ? expectedGeckoExtensionId(this.extensionOutputPath)
           : undefined
       })
+
       // Reclaim the ephemeral profile once the browser exits. Marker-gated, so
       // a persistent ('dev') or user-provided profile is never removed
       this.child.on('close', () => {
         removeManagedEphemeralProfile(profilePath)
       })
+
       this.wireChildLifecycle()
 
       let ctrl: Awaited<ReturnType<typeof setupRdpAfterLaunch>> | undefined
+
       try {
         ctrl = await setupRdpAfterLaunch(
           this.host as FirefoxPluginRuntime & {[k: string]: unknown},
@@ -520,6 +551,7 @@ export class FirefoxLaunchPlugin {
         // timeout) stays a launch failure and keeps propagating as before.
         if (!reason) {
           stampReadyRdpPort(this.extensionOutputPath, debugPort)
+
           throw error
         }
 
@@ -528,8 +560,10 @@ export class FirefoxLaunchPlugin {
         // so bind them now; the launcher's controller calls this on recompile.
         this.host.retryAddonInstall = () =>
           this.retryAddonInstall(compilation, debugPort)
+
         stampReadyRdpPort(this.extensionOutputPath, debugPort)
         this.scheduleWatchTimeout()
+
         return
       }
 
@@ -544,6 +578,7 @@ export class FirefoxLaunchPlugin {
           this.ctx.logger?.info?.(
             messages.devFirefoxDebugPort(debugPort, desiredDebugPort)
           )
+
           this.ctx.logger?.info?.(messages.devFirefoxProfilePath(profilePath))
         }
       } catch {
@@ -555,21 +590,26 @@ export class FirefoxLaunchPlugin {
           '[browser] Firefox profile not set; skipping RDP add-on install.'
         )
       }
+
       this.child = await this.spawnFirefoxChild(
         plan.binary,
         plan.args,
         wslFallbackBinary
       )
+
       stampReadyBrowserLaunch(this.extensionOutputPath, {
         browserPid: this.child?.pid,
         extensionId: this.extensionOutputPath
           ? expectedGeckoExtensionId(this.extensionOutputPath)
           : undefined
       })
+
       this.wireChildLifecycle()
+
       if (debugPort > 0) {
         stampReadyRdpPort(this.extensionOutputPath, debugPort)
       }
+
       this.scheduleWatchTimeout()
     }
   }
@@ -646,6 +686,7 @@ export class FirefoxLaunchPlugin {
       this.ctx.logger?.error?.(
         messages.browserLaunchError(this.host.browser, error)
       )
+
       if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
         throw new Error('Firefox startup timed out')
       } else {
@@ -662,11 +703,13 @@ export class FirefoxLaunchPlugin {
         clearTimeout(this.watchTimeout)
         this.watchTimeout = undefined
       }
+
       if (isDebug()) {
         this.ctx.logger?.info?.(
           messages.browserInstanceExited(this.host.browser)
         )
       }
+
       // An unexpected Gecko exit used to be fully silent. Say so loudly and stamp
       // the contract so automation sees the session is browserless.
       if (!wasTerminatedByUs(child)) {
@@ -675,8 +718,10 @@ export class FirefoxLaunchPlugin {
             code ?? 'unknown'
           }) without being asked to. The add-on may have been rejected or the browser crashed; the session cannot be driven.`
         )
+
         stampReadyBrowserExited(this.extensionOutputPath, code)
       }
+
       this.cleanupInstance().catch((err) => {
         if (isDebug()) {
           this.ctx.logger?.error?.(
@@ -684,6 +729,7 @@ export class FirefoxLaunchPlugin {
           )
         }
       })
+
       disposeProcessHandlers?.()
     })
 
@@ -712,10 +758,12 @@ export class FirefoxLaunchPlugin {
       this.ctx.setController(ctrl)
       this.host.extensionLoadRefused = undefined
       stampReadyExtensionId(this.extensionOutputPath, ctrl.getExtensionId())
+
       return {status: 'loaded'}
     } catch (error) {
       const reason = (error as {extensionLoadRefusedReason?: string})
         ?.extensionLoadRefusedReason
+
       return reason ? {status: 'refused', reason} : {status: 'unknown'}
     }
   }
@@ -732,6 +780,7 @@ export class FirefoxLaunchPlugin {
       }`,
       source: 'browser'
     })
+
     stampReadyExtensionLoadRefused(this.extensionOutputPath, reason)
     this.host.extensionLoadRefused = reason
   }
@@ -745,6 +794,7 @@ export class FirefoxLaunchPlugin {
   private scheduleWatchTimeout() {
     if (this.watchTimeout) return
     if (process.env.VITEST || process.env.VITEST_WORKER_ID) return
+
     const raw =
       process.env.EXTENSION_WATCH_TIMEOUT_MS ||
       process.env.EXTENSION_DEV_WATCH_TIMEOUT_MS ||
@@ -753,6 +803,7 @@ export class FirefoxLaunchPlugin {
       ''
     const ms = parseInt(String(raw || ''), 10)
     if (!Number.isFinite(ms) || ms <= 0) return
+
     this.watchTimeout = setTimeout(() => {
       try {
         this.ctx.logger?.info?.(
@@ -761,6 +812,7 @@ export class FirefoxLaunchPlugin {
       } catch {
         // Ignore
       }
+
       this.cleanupInstance()
         .catch((err) => {
           if (isDebug()) {
@@ -773,6 +825,7 @@ export class FirefoxLaunchPlugin {
           process.exit(0)
         })
     }, ms)
+
     if (typeof this.watchTimeout.unref === 'function') {
       this.watchTimeout.unref()
     }

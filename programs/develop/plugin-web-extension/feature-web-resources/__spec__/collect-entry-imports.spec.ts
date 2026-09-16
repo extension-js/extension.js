@@ -76,6 +76,7 @@ describe('collectContentScriptEntryImports', () => {
     expect(res['content_scripts/content-a']).toEqual(
       expect.arrayContaining(['core.wasm', 'weights.bin'])
     )
+
     expect(res['content_scripts/content-a']).not.toContain('skip.map')
   })
 
@@ -91,6 +92,7 @@ describe('collectContentScriptEntryImports', () => {
     expect(res['user_scripts/api_script']).toEqual([
       'user_scripts/api_script.css'
     ])
+
     expect(res['action/index']).toBeUndefined()
     expect(res['background/service_worker']).toBeUndefined()
   })
@@ -124,6 +126,7 @@ describe('collectContentScriptEntryImports', () => {
     const assets: Record<string, {source: () => string}> = {
       [`${entryName}.js`]: {source: () => jsSource}
     }
+
     for (const name of extraAssets) {
       assets[name] = {source: () => 'payload'}
     }
@@ -161,6 +164,7 @@ describe('collectContentScriptEntryImports', () => {
         'assets/deep/nested/dir/img.svg'
       ])
     )
+
     expect(res['content_scripts/content-0']).not.toContain('assets/fonts')
     expect(res['content_scripts/content-0']).not.toContain('assets/deep')
   })
@@ -180,6 +184,7 @@ describe('collectContentScriptEntryImports', () => {
         'assets/g/h.webp'
       ])
     )
+
     for (const entry of res['content_scripts/y']) {
       expect(entry).toMatch(/^assets\/[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*$/)
     }
@@ -201,6 +206,7 @@ describe('collectContentScriptEntryImports', () => {
     expect(res['content_scripts/content-0']).toEqual(
       expect.arrayContaining(['ocr-core.wasm', 'ocr-weights.bin'])
     )
+
     expect(res['content_scripts/content-0']).not.toContain('worker-model.bin')
   })
 
@@ -238,6 +244,7 @@ describe('collectContentScriptAsyncChunkFiles', () => {
       files: new Set([ownFile]),
       getAllAsyncChunks: () => asyncFiles.map((file) => ({files: [file]}))
     }
+
     return {chunks: [chunk], getChildren: () => []}
   }
 

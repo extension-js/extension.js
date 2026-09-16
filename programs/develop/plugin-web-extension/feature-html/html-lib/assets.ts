@@ -54,6 +54,7 @@ export function handleStaticAsset(
       cleanPath,
       filepath + (search || '') + (hash || '')
     )
+
     return node
   }
 
@@ -67,6 +68,7 @@ export function handleStaticAsset(
       cleanPath,
       cleanPath + (search || '') + (hash || '')
     )
+
     return node
   }
 
@@ -77,6 +79,7 @@ export function handleStaticAsset(
     htmlEntry,
     absolutePath
   )
+
   if (fs.existsSync(absolutePath)) {
     node = applyRewrittenStaticUrl(
       node,
@@ -85,5 +88,6 @@ export function handleStaticAsset(
       getFilePath(filepath, '', true) + (search || '') + (hash || '')
     )
   }
+
   return node
 }

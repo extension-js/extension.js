@@ -8,9 +8,11 @@ vi.mock('../../../../run-firefox/rdp/remote-firefox/messaging-client', () => {
     _handlers: Record<string, Array<(...a: unknown[]) => void>> = {}
     async connect() {
       connectAttempts++
+
       if (connectAttempts < succeedOnAttempt) {
         const err = new Error('connect ECONNREFUSED 127.0.0.1:9330')
         ;(err as NodeJS.ErrnoException).code = 'ECONNREFUSED'
+
         throw err
       }
     }
@@ -20,12 +22,14 @@ vi.mock('../../../../run-firefox/rdp/remote-firefox/messaging-client', () => {
     disconnect() {}
     on(ev: string, fn: (...a: unknown[]) => void) {
       ;(this._handlers[ev] ||= []).push(fn)
+
       return this
     }
     emit(ev: string, ...a: unknown[]) {
       for (const f of this._handlers[ev] || []) f(...a)
     }
   }
+
   return {MessagingClient: FakeMessagingClient}
 })
 
@@ -34,6 +38,7 @@ async function importRemoteFirefox(maxRetries: number) {
   process.env.EXTENSION_RDP_MAX_RETRIES = String(maxRetries)
   process.env.EXTENSION_RDP_RETRY_INTERVAL_MS = '1'
   const mod = await import('../../../../run-firefox/rdp/remote-firefox')
+
   return mod.RemoteFirefox
 }
 
@@ -52,11 +57,13 @@ describe('RemoteFirefox connect retry observability', () => {
 
   afterEach(() => {
     vi.restoreAllMocks()
+
     if (envBackup.retries === undefined) {
       delete process.env.EXTENSION_RDP_MAX_RETRIES
     } else {
       process.env.EXTENSION_RDP_MAX_RETRIES = envBackup.retries
     }
+
     if (envBackup.interval === undefined) {
       delete process.env.EXTENSION_RDP_RETRY_INTERVAL_MS
     } else {
@@ -67,6 +74,7 @@ describe('RemoteFirefox connect retry observability', () => {
   it('logs periodic debug progress naming the port while ECONNREFUSED retries run', async () => {
     const previousDebug = process.env.EXTENSION_DEBUG
     process.env.EXTENSION_DEBUG = '1'
+
     try {
       const RemoteFirefox = await importRemoteFirefox(25)
       const rf: any = new RemoteFirefox({
@@ -96,6 +104,7 @@ describe('RemoteFirefox connect retry observability', () => {
     const previousAuthorMode = process.env.EXTENSION_AUTHOR_MODE
     delete process.env.EXTENSION_DEBUG
     delete process.env.EXTENSION_AUTHOR_MODE
+
     try {
       const RemoteFirefox = await importRemoteFirefox(25)
       const rf: any = new RemoteFirefox({
@@ -112,6 +121,7 @@ describe('RemoteFirefox connect retry observability', () => {
     } finally {
       if (previousDebug === undefined) delete process.env.EXTENSION_DEBUG
       else process.env.EXTENSION_DEBUG = previousDebug
+
       if (previousAuthorMode === undefined) {
         delete process.env.EXTENSION_AUTHOR_MODE
       } else {

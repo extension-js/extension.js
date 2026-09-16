@@ -100,6 +100,7 @@ function writeWithProducer(options: {maxQueue?: number} = {}) {
   for (const event of EVENTS) writer.write(event)
   writer.flush()
   writer.close()
+
   return fs
     .readFileSync(path.join(out, 'logs.ndjson'), 'utf8')
     .split('\n')
@@ -156,18 +157,21 @@ describe('extension logs reads what LogsFileWriter writes', () => {
     expect(
       await run(['logs', dir, '--output', 'ndjson', '--level', 'warn'])
     ).toBe(0)
+
     expect(printed().map((event) => (event as LogEvent).seq)).toEqual([2, 3])
 
     logSpy.mockClear()
     expect(
       await run(['logs', dir, '--output', 'ndjson', '--url', '*example.com*'])
     ).toBe(0)
+
     expect(printed().map((event) => (event as LogEvent).seq)).toEqual([2])
 
     logSpy.mockClear()
     expect(
       await run(['logs', dir, '--output', 'ndjson', '--signals-only'])
     ).toBe(0)
+
     expect(printed().map((event) => (event as LogEvent).seq)).toEqual([4])
   })
 

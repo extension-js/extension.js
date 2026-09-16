@@ -26,6 +26,7 @@ export async function resolveNoBrowser(
   command: 'dev' | 'start' | 'preview'
 ): Promise<boolean> {
   if (process.env.EXTENSION_CLI_NO_BROWSER === '1') return true
+
   try {
     const develop = await loadExtensionDevelopModule<{
       loadCommandConfig?: (
@@ -34,7 +35,9 @@ export async function resolveNoBrowser(
       ) => Promise<unknown>
     }>()
     if (typeof develop.loadCommandConfig !== 'function') return false
+
     const config = await develop.loadCommandConfig(projectPath, command)
+
     return (config as {noBrowser?: unknown})?.noBrowser === true
   } catch {
     return false

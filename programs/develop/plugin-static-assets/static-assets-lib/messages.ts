@@ -10,6 +10,7 @@ import {prefix} from '../../lib/messaging'
 
 export function assetsRulesEnabled(rules: string[]) {
   const kinds = rules.length > 0 ? rules.join(',').toLowerCase() : 'none'
+
   return `${prefix('debug')} assets   rules=${rules.length} kinds=${kinds}`
 }
 
@@ -21,6 +22,7 @@ export function assetsConfigsDetected(
   fileInlineLimitKB?: number
 ) {
   const kb = (v?: number) => (v || v === 0 ? `${v}KB` : 'none')
+
   return (
     `${prefix('debug')} assets   config pattern=${filenamePattern} ` +
     `svgRule=${svgRuleMode} svgInline=${kb(svgInlineLimitKB)} ` +

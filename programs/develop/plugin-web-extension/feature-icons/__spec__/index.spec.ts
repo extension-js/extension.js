@@ -16,6 +16,7 @@ const AddToFileDependenciesMock = vi.fn().mockImplementation(function (
 vi.mock('../steps/emit-file', () => ({
   EmitFile: EmitFileMock
 }))
+
 vi.mock('../steps/add-to-file-dependencies', () => ({
   AddToFileDependencies: AddToFileDependenciesMock
 }))

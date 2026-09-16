@@ -40,6 +40,7 @@ function runCli(args: string[]): Promise<CliRun> {
       clearTimeout(timer)
       resolvePromise({code: code ?? 1, stdout, stderr})
     })
+
     child.on('error', (error) => {
       clearTimeout(timer)
       reject(error)
@@ -59,6 +60,7 @@ beforeAll(async () => {
   wss.on('connection', (socket) => {
     socket.on('message', (data) => {
       let frame: {type?: string; cmdId?: string}
+
       try {
         frame = JSON.parse(data.toString())
       } catch {
@@ -67,6 +69,7 @@ beforeAll(async () => {
 
       if (frame.type === 'hello') {
         socket.send(JSON.stringify({type: 'ready', v: 1, capabilities: {}}))
+
         return
       }
 
@@ -86,6 +89,7 @@ beforeAll(async () => {
   await new Promise<void>((resolvePromise) =>
     server.listen(0, '127.0.0.1', resolvePromise)
   )
+
   const address = server.address()
   controlPort = typeof address === 'object' && address ? address.port : 0
 
@@ -108,6 +112,7 @@ afterAll(async () => {
   await new Promise<void>((resolvePromise) =>
     server.close(() => resolvePromise())
   )
+
   rmSync(projectDir, {recursive: true, force: true})
 })
 
@@ -131,6 +136,7 @@ describe('act --output json stdout drain contract (#79)', () => {
           clearTimeout(timer)
           resolvePromise({code: code ?? 1, stdout})
         })
+
         child.on('error', (error) => {
           clearTimeout(timer)
           reject(error)
@@ -157,6 +163,7 @@ describe('act --output json stdout drain contract (#79)', () => {
 
   it('emits one parseable failure envelope when no session is up', async () => {
     const empty = mkdtempSync(join(tmpdir(), 'extjs-act-nosession-'))
+
     try {
       const result = await runCli(['reload', empty, '--output', 'json'])
 
@@ -170,6 +177,7 @@ describe('act --output json stdout drain contract (#79)', () => {
         value: null,
         warnings: []
       })
+
       expect(frame.error.code).toBe('E_SESSION_NOT_FOUND')
       // The human copy stays on stderr, and the MCP still matches it.
       expect(result.stderr).toContain('No active control channel')
@@ -205,6 +213,7 @@ describe('logs terminating frames (D7)', () => {
       value: null,
       warnings: []
     })
+
     expect(frame.error.code).toBe('E_LOGS_NOT_FOUND')
     expect(result.stderr).toContain('No logs found at')
   }, 40000)
@@ -235,6 +244,7 @@ describe('logs terminating frames (D7)', () => {
 
   it('keeps log records raw, never wrapped in an envelope', async () => {
     const withLogs = mkdtempSync(join(tmpdir(), 'extjs-logs-records-'))
+
     try {
       const dir = join(withLogs, 'dist', 'extension-js', 'chromium')
       mkdirSync(dir, {recursive: true})

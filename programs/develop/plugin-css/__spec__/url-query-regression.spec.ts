@@ -15,6 +15,7 @@ function writeFixture(dir: string) {
     path.join(dir, 'package.json'),
     JSON.stringify({name: 'url-query-regression-fixture', version: '0.0.0'})
   )
+
   fs.writeFileSync(
     path.join(dir, 'src', 'manifest.json'),
     JSON.stringify({
@@ -24,14 +25,17 @@ function writeFixture(dir: string) {
       content_scripts: [{matches: ['<all_urls>'], js: ['content/scripts.js']}]
     })
   )
+
   fs.writeFileSync(
     path.join(dir, 'src', 'content', 'scripts.js'),
     `import cssHref from './styles.css?url'\nconsole.log(cssHref)\n`
   )
+
   fs.writeFileSync(
     path.join(dir, 'src', 'content', 'styles.css'),
     `${FIXTURE_RAW_MARKER}\n.widget { color: red }\n`
   )
+
   fs.writeFileSync(
     path.join(dir, 'postcss.config.cjs'),
     `module.exports = {
@@ -50,6 +54,7 @@ function writeFixture(dir: string) {
 
 function findEmittedCss(distDir: string): string | null {
   const hits: string[] = []
+
   const walk = (dir: string) => {
     for (const entry of fs.readdirSync(dir, {withFileTypes: true})) {
       const p = path.join(dir, entry.name)
@@ -57,21 +62,28 @@ function findEmittedCss(distDir: string): string | null {
       else hits.push(p)
     }
   }
+
   if (!fs.existsSync(distDir)) return null
+
   walk(distDir)
+
   for (const f of hits) {
     if (f.endsWith('.css')) return fs.readFileSync(f, 'utf8')
   }
+
   for (const f of hits) {
     if (!f.endsWith('.js')) continue
+
     const js = fs.readFileSync(f, 'utf8')
     const m = js.match(/"data:text\/css;base64,([A-Za-z0-9+/=]+)"/)
     if (m) return Buffer.from(m[1], 'base64').toString('utf8')
+
     // A content-script sheet ships as a runtime stylesheet module that keeps
     // the processed text as one JSON string literal.
     const runtime = js.match(/__extjsCssText = ("(?:[^"\\]|\\.)*")/)
     if (runtime) return JSON.parse(runtime[1])
   }
+
   return null
 }
 
@@ -84,6 +96,7 @@ describe('css-url-query regression (end-to-end)', () => {
     fixtureDir = fs.mkdtempSync(
       path.join(os.tmpdir(), 'extjs-url-query-regression-')
     )
+
     writeFixture(fixtureDir)
   })
 
@@ -127,9 +140,11 @@ describe('css-url-query regression (end-to-end)', () => {
       } as any)
       compiler.run((err, stats) => {
         if (err) return reject(err)
+
         if (stats?.hasErrors()) {
           return reject(new Error(stats.toString({errors: true})))
         }
+
         compiler.close(() => resolve())
       })
     })
@@ -139,6 +154,7 @@ describe('css-url-query regression (end-to-end)', () => {
       emitted,
       'no CSS asset emitted under dist/content_scripts/'
     ).not.toBe(null)
+
     expect(
       emitted!.includes(FIXTURE_PROCESSED_MARKER),
       'emitted CSS missing PostCSS-injected marker, `?url` import bypassed the CSS pipeline'

@@ -34,6 +34,7 @@ export class InjectBridgeRelay {
     if (!Number.isFinite(controlPort) || controlPort < 1) return
 
     const sourceFor = new Map<string, string>()
+
     for (const t of RELAY_TARGETS) {
       if (!sourceFor.has(t.context)) {
         sourceFor.set(t.context, buildBridgeRelaySource({context: t.context}))
@@ -52,10 +53,13 @@ export class InjectBridgeRelay {
             for (const asset of compilation.getAssets()) {
               const target = RELAY_TARGETS.find((t) => t.re.test(asset.name))
               if (!target) continue
+
               const original = asset.source.source().toString()
+
               if (original.indexOf('__extjsBridgeRelayInstalled') !== -1) {
                 continue
               }
+
               prependToEmittedAsset(
                 compilation,
                 asset,

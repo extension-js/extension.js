@@ -91,6 +91,7 @@ function shouldWriteAssetToDisk(filePath: string) {
   // A `..` segment means an emitted asset NAME escapes the output dir; writing
   // it would clobber a SOURCE file and start a self-feeding recompile loop.
   if (/(?:^|[/\\])\.\.(?:[/\\]|$)/.test(filePath)) return false
+
   return !/(?:^|[/\\])manifest\.json$/i.test(filePath)
 }
 
@@ -100,6 +101,7 @@ function isSamePath(left: string, right: string) {
 
 function isManifestTempPath(filePath: string) {
   const base = path.basename(filePath)
+
   return base.startsWith('.manifest.') && base.endsWith('.tmp')
 }
 
@@ -131,6 +133,7 @@ function hasGuardedManifestDiskPath(filePath: unknown) {
   if (typeof filePath !== 'string') return false
 
   const resolvedPath = path.resolve(filePath)
+
   for (const guardedPath of guardedManifestDiskWritePaths.keys()) {
     if (isSamePath(guardedPath, resolvedPath)) return true
   }
@@ -153,6 +156,7 @@ export function suppressManifestOutputWrites(
   const outputFileSystem = (
     compiler as {outputFileSystem?: unknown} | undefined
   )?.outputFileSystem as GuardableOutputFs | undefined
+
   if (!outputFileSystem) return () => {}
 
   const resolvedManifestPath = path.resolve(manifestOutputPath)
@@ -161,8 +165,10 @@ export function suppressManifestOutputWrites(
   // so a second server must ADD its path to the already-patched fs instead
   // of no-opping and inheriting only the first server's suppression.
   const alreadyGuardedPaths = outputFileSystem.__extensionjsGuardedManifestPaths
+
   if (alreadyGuardedPaths) {
     alreadyGuardedPaths.add(resolvedManifestPath)
+
     return () => {
       alreadyGuardedPaths.delete(resolvedManifestPath)
     }
@@ -173,14 +179,17 @@ export function suppressManifestOutputWrites(
 
   const isManifestPath = (filePath: unknown) => {
     if (typeof filePath !== 'string') return false
+
     for (const guardedPath of guardedPaths) {
       if (isSamePath(guardedPath, filePath)) return true
     }
+
     return false
   }
 
   if (typeof outputFileSystem.writeFile === 'function') {
     const originalWriteFile = outputFileSystem.writeFile.bind(outputFileSystem)
+
     outputFileSystem.writeFile = (filePath: string, ...args: unknown[]) => {
       if (isManifestPath(filePath)) {
         const callback = args[args.length - 1]
@@ -197,6 +206,7 @@ export function suppressManifestOutputWrites(
   if (typeof outputFileSystem.writeFileSync === 'function') {
     const originalWriteFileSync =
       outputFileSystem.writeFileSync.bind(outputFileSystem)
+
     outputFileSystem.writeFileSync = (filePath: string, ...args: unknown[]) => {
       if (isManifestPath(filePath)) return
 
@@ -207,6 +217,7 @@ export function suppressManifestOutputWrites(
   if (typeof outputFileSystem.createWriteStream === 'function') {
     const originalCreateWriteStream =
       outputFileSystem.createWriteStream.bind(outputFileSystem)
+
     outputFileSystem.createWriteStream = (
       filePath: string,
       ...args: unknown[]
@@ -226,6 +237,7 @@ export function suppressManifestOutputWrites(
     const originalPromiseWriteFile = outputFileSystem.promises.writeFile.bind(
       outputFileSystem.promises
     )
+
     outputFileSystem.promises.writeFile = async (
       filePath: string,
       ...args: unknown[]
@@ -251,12 +263,15 @@ export function installManifestDiskWriteGuard(
   )
 
   let uninstalled = false
+
   const uninstall = () => {
     if (uninstalled) return
+
     uninstalled = true
     const count = guardedManifestDiskWritePaths.get(guardKey) || 0
     if (count <= 1) guardedManifestDiskWritePaths.delete(guardKey)
     else guardedManifestDiskWritePaths.set(guardKey, count - 1)
+
     if (
       guardedManifestDiskWritePaths.size === 0 &&
       restoreManifestDiskWriteGuardPatches
@@ -288,6 +303,7 @@ export function installManifestDiskWriteGuard(
     if (isManifestPath(filePath)) {
       const callback = args[args.length - 1]
       if (typeof callback === 'function') callback(null)
+
       return
     }
 
@@ -303,6 +319,7 @@ export function installManifestDiskWriteGuard(
     ...args: unknown[]
   ) => {
     if (isManifestPath(filePath)) return
+
     return (originalWriteFileSync as (...a: unknown[]) => unknown)(
       filePath,
       ...args
@@ -317,6 +334,7 @@ export function installManifestDiskWriteGuard(
     if (isManifestPath(filePath)) {
       const stream = createDiscardWriteStream()
       stream.path = String(filePath)
+
       return stream as unknown as ReturnType<typeof fs.createWriteStream>
     }
 
@@ -334,9 +352,11 @@ export function installManifestDiskWriteGuard(
     fs.constants.O_APPEND |
     fs.constants.O_CREAT |
     fs.constants.O_TRUNC
+
   const isWriteIntentOpen = (flags: unknown): boolean => {
     if (typeof flags === 'string') return /[wa+]/.test(flags)
     if (typeof flags === 'number') return (flags & writeIntentFlagMask) !== 0
+
     return false
   }
 
@@ -350,6 +370,7 @@ export function installManifestDiskWriteGuard(
       isManifestPath(pathLike) && isWriteIntentOpen(flags)
         ? os.devNull
         : pathLike
+
     return (originalOpen as (...a: unknown[]) => unknown)(
       nextPath,
       flags,
@@ -367,6 +388,7 @@ export function installManifestDiskWriteGuard(
       isManifestPath(pathLike) && isWriteIntentOpen(flags)
         ? os.devNull
         : pathLike
+
     return (originalOpenSync as (...a: unknown[]) => unknown)(
       nextPath,
       flags,
@@ -382,6 +404,7 @@ export function installManifestDiskWriteGuard(
   ) => {
     if (isManifestPath(newPath) && !allowManifestRename(oldPath, newPath)) {
       if (typeof callback === 'function') callback(null)
+
       return
     }
 
@@ -393,21 +416,26 @@ export function installManifestDiskWriteGuard(
     oldPath: FsTypes.PathLike,
     newPath: FsTypes.PathLike
   ) => {
-    if (isManifestPath(newPath) && !allowManifestRename(oldPath, newPath))
+    if (isManifestPath(newPath) && !allowManifestRename(oldPath, newPath)) {
       return
+    }
+
     return originalRenameSync(oldPath, newPath)
   }) as typeof fs.renameSync
 
   let originalPromiseWriteFile: typeof fs.promises.writeFile | undefined
+
   if (guardedFs.promises?.writeFile) {
     originalPromiseWriteFile = guardedFs.promises.writeFile.bind(
       guardedFs.promises
     ) as typeof fs.promises.writeFile
+
     guardedFs.promises.writeFile = (async (
       filePath: unknown,
       ...args: unknown[]
     ) => {
       if (isManifestPath(filePath)) return
+
       return (originalPromiseWriteFile as (...a: unknown[]) => unknown)(
         filePath,
         ...args
@@ -422,16 +450,19 @@ export function installManifestDiskWriteGuard(
     guardedFs.writeFileSync = originalWriteFileSync as typeof fs.writeFileSync
     guardedFs.createWriteStream =
       originalCreateWriteStream as typeof fs.createWriteStream
+
     guardedFs.open = originalOpen as typeof fs.open
     guardedFs.openSync = originalOpenSync as typeof fs.openSync
     guardedFs.rename = originalRename as typeof fs.rename
     guardedFs.renameSync = originalRenameSync as typeof fs.renameSync
+
     if (originalPromiseWriteFile) {
       guardedFs.promises.writeFile = originalPromiseWriteFile
     }
   }
 
   isManifestDiskWriteGuardInstalled = true
+
   return uninstall
 }
 
@@ -573,6 +604,7 @@ export async function devServer(
   // Hand the broker to a launched runner plugin so Chromium and Safari reload
   // through the SW producer (same executor as --no-browser). No-op for Firefox.
   const launchedPlugin = extendedOptions.browsersPlugin
+
   if (launchedPlugin && typeof launchedPlugin.setReloadBroker === 'function') {
     launchedPlugin.setReloadBroker(bridgeBroker)
   }
@@ -625,6 +657,7 @@ export async function devServer(
       )
 
     let controlServer: Awaited<ReturnType<typeof startControlServer>>
+
     try {
       controlServer = await startControlServer({
         broker: bridgeBroker,
@@ -633,11 +666,13 @@ export async function devServer(
       })
     } catch (error) {
       if (preferredControlPort == null) throw error
+
       controlServer = await startControlServer({
         broker: bridgeBroker,
         host: devServerHost
       })
     }
+
     bridgeControlPort = controlServer.port
     writePersistedControlPort(controlPortFile, controlServer.port)
   } catch {
@@ -662,15 +697,18 @@ export async function devServer(
     } catch {
       // Ignore
     }
+
     try {
       bridgeActionsFile?.close()
     } catch {
       // Ignore
     }
+
     // Never leave a usable eval token behind after the session ends.
     if (bridgeControlToken) {
       clearControlToken(packageJsonDir, browserName)
     }
+
     unbindDevSessionRestart()
   })
 
@@ -847,6 +885,7 @@ export async function devServer(
           // SW producer hasn't connected yet anyway.
           if (isFirstBridgeCompile) {
             isFirstBridgeCompile = false
+
             return
           }
 
@@ -891,18 +930,24 @@ export async function devServer(
 
     const firstCompile = new Promise<Stats | null>((resolve) => {
       let settled = false
+
       const finish = (stats: Stats | null) => {
         if (settled) return
+
         settled = true
         resolve(stats)
       }
+
       if (!compiler.hooks?.done?.tap) {
         finish(null)
+
         return
       }
+
       compiler.hooks.done.tap('extjs-session-restart-first-done', (stats) => {
         finish(stats)
       })
+
       compiler.hooks.failed?.tap?.('extjs-session-restart-first-failed', () => {
         finish(null)
       })
@@ -914,6 +959,7 @@ export async function devServer(
     // or later in-process writers to this dist are silently swallowed.
     if (typeof server.stop === 'function') {
       const originalDevServerStop = server.stop.bind(server)
+
       server.stop = async () => {
         try {
           await originalDevServerStop()
@@ -964,15 +1010,19 @@ export async function devServer(
     const nextBundle = await createCompilerAndServer({isRestart: true})
     const previous = currentServer
     currentServer = null
+
     if (previous && typeof previous.stop === 'function') {
       await previous.stop()
     }
+
     currentServer = nextBundle.server
     await startBundler(nextBundle.server)
     const stats = await nextBundle.firstCompile
+
     if (stats && typeof stats.hasErrors === 'function' && stats.hasErrors()) {
       return
     }
+
     // The fresh compiler's first build carries no changed sources, so the
     // classifier stays silent; the new entry set needs one full reload.
     await dispatchReload(
@@ -980,6 +1030,7 @@ export async function devServer(
       {broker: bridgeBroker}
     )
   })
+
   bindDevSessionRestart(sessionRestart)
   process.once('exit', () => {
     sessionRestart.dispose()

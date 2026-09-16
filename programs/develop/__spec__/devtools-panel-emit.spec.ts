@@ -21,15 +21,18 @@ beforeAll(() => {
       devtools_page: 'devtools.html'
     })
   )
+
   write('devtools.html', '<html><script src="devtools.js"></script></html>\n')
   write(
     'devtools.js',
     'chrome.devtools.panels.create("My Panel", "", "panel.html", function () {})\n'
   )
+
   write(
     'panel.html',
     '<html><body><h1>panel</h1><script src="panel.js"></script></body></html>\n'
   )
+
   write('panel.js', 'console.log("panel alive")\n')
 })
 

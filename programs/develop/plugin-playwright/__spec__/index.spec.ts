@@ -16,12 +16,14 @@ describe('plugin-playwright metadata writer', () => {
     for (const root of tmpRoots) {
       fs.rmSync(root, {recursive: true, force: true})
     }
+
     tmpRoots.length = 0
   })
 
   function createTempProject() {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-meta-'))
     tmpRoots.push(root)
+
     return root
   }
 
@@ -129,6 +131,7 @@ describe('plugin-playwright metadata writer', () => {
       command: 'preview',
       browser: 'firefox'
     })
+
     writer.appendEvent({
       type: 'compile_success',
       ts: '2026-03-04T00:00:01.000Z',
@@ -163,6 +166,7 @@ describe('plugin-playwright metadata writer', () => {
         null
       ])
     ).toEqual(['Module build failed: bad token', 'plain string error'])
+
     const many = Array.from({length: 15}, (_, i) => ({message: `error ${i}`}))
     expect(formatStatsErrors(many)).toHaveLength(10)
   })

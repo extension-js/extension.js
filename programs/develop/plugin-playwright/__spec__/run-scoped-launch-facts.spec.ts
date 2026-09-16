@@ -63,6 +63,7 @@ describe('launch facts are scoped to the run that produced them', () => {
     const next = readContract()
 
     expect(next.runId).not.toBe('a-run-that-already-ended')
+
     for (const field of [
       'browserPid',
       'cdpPort',

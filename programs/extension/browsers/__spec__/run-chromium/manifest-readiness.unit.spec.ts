@@ -146,6 +146,7 @@ describe('waitForStableFiles', () => {
         'v2',
         'utf-8'
       )
+
       fs.writeFileSync(
         path.join(outPath, 'content_scripts', 'styles.hash.css'),
         'css',

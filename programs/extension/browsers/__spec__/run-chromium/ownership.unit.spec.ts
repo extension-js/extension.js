@@ -12,12 +12,14 @@ const tempDirs: string[] = []
 function makeProfile(): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-ownership-profile-'))
   tempDirs.push(dir)
+
   return dir
 }
 
 function makeOutPath(): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-ownership-out-'))
   tempDirs.push(dir)
+
   return dir
 }
 
@@ -137,6 +139,7 @@ describe('findStaleUnpackedExtensionIds, prior loads to evict (#49)', () => {
     const legacy = path.join(dist, 'extension-js', 'chrome')
     fs.mkdirSync(current, {recursive: true})
     fs.mkdirSync(legacy, {recursive: true})
+
     return {dist, current, legacy}
   }
 

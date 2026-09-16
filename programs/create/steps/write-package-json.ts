@@ -19,6 +19,7 @@ import {
 
 export async function resolveExtensionBinary(): Promise<string> {
   const developRoot = process.env.EXTENSION_CREATE_DEVELOP_ROOT
+
   if (developRoot) {
     // In repo author mode, route scaffolded scripts to the local CLI build so
     // `npm run dev` exercises current source changes instead of npm-published bits.
@@ -29,8 +30,10 @@ export async function resolveExtensionBinary(): Promise<string> {
       'dist',
       'cli.cjs'
     )
+
     try {
       await fs.access(localCliPath)
+
       return `node "${localCliPath}"`
     } catch {
       // Fall through to installed package binary path.
@@ -64,6 +67,7 @@ export function getTemplateAwareScripts(
   // Root scripts must target that package path explicitly.
   if (String(template).toLowerCase().includes('monorepo')) {
     const target = 'packages/extension'
+
     return {
       dev: `${extensionBinary} dev ${target}`,
       start: `${extensionBinary} start ${target}`,
@@ -79,10 +83,8 @@ export function getTemplateAwareScripts(
 }
 
 interface OverridePackageJsonOptions {
-  /** Defaults to `javascript` when omitted (same as `extensionCreate`). */
   template?: string
   cliVersion?: string
-  /** The one manager the project uses; resolved from the scaffold when omitted. */
   packageManager?: ScaffoldPackageManager
 }
 
@@ -109,6 +111,7 @@ function engineVersionOverrideFromEnv(): string | undefined {
     process.env.EXTENSION_MCP_CLI_VERSION ||
     ''
   ).trim()
+
   return raw || undefined
 }
 
@@ -119,6 +122,7 @@ function ownCreatePackageVersion(): string | undefined {
     const pkg = JSON.parse(
       readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8')
     )
+
     return typeof pkg.version === 'string' && pkg.version
       ? pkg.version
       : undefined
@@ -243,12 +247,14 @@ export async function overridePackageJson(
 
   try {
     if (isDebug()) logger.log(messages.writingPackageJsonMetadata())
+
     await fs.writeFile(
       path.join(projectPath, 'package.json'),
       `${JSON.stringify(packageMetadata, null, 2)}\n`
     )
   } catch (error) {
     logger.error(messages.writingPackageJsonMetadataError(error))
+
     throw error
   }
 }

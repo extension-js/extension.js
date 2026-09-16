@@ -84,6 +84,7 @@ export function registerCapabilitiesCommand(program: Command): void {
         // eslint-disable-next-line no-console
         console.log(JSON.stringify(ENVELOPE.ok('capabilities', 'ok', value)))
         await exitAfterDrain(0)
+
         return
       }
 
@@ -96,6 +97,7 @@ export function registerCapabilitiesCommand(program: Command): void {
           `commands that accept --output json: ${value.outputJsonCommands.join(', ')}`
         ].join('\n')
       )
+
       await exitAfterDrain(0)
     })
 }

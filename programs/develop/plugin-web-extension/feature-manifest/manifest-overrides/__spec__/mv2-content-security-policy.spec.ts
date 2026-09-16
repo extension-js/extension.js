@@ -22,6 +22,7 @@ function unprefixed(manifestVersion: 2 | 3) {
     'firefox:manifest_version': _mv2,
     ...rest
   } = source
+
   return {...rest, manifest_version: manifestVersion}
 }
 

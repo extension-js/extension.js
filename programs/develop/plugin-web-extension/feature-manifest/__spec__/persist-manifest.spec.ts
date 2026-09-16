@@ -89,6 +89,7 @@ describe('PersistManifestToDisk', () => {
     expect(
       fs.readFileSync(path.join(outputDir, 'manifest.json'), 'utf-8')
     ).toBe('{\n  "name": "x"\n}')
+
     expect(
       fs
         .readdirSync(outputDir)
@@ -210,6 +211,7 @@ describe('PersistManifestToDisk', () => {
       path.join(outputDir, 'content_scripts', 'content-0.aaaaaaaa.js'),
       '// content 0'
     )
+
     fs.writeFileSync(
       path.join(outputDir, 'content_scripts', 'content-1.bbbbbbbb.js'),
       '// content 1'

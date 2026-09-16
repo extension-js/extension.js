@@ -41,10 +41,12 @@ export async function setupRdpAfterLaunch(
             // Ignore
           }
         }
+
         const ms = baseMs * 2 ** i
         await new Promise((r) => setTimeout(r, ms))
       }
     }
+
     throw lastError
   }
 
@@ -52,11 +54,13 @@ export async function setupRdpAfterLaunch(
   // here, so a throwing install would otherwise take the reason with it.
   const withRefusalReason = (error: unknown) => {
     const reason = controller.getAddonInstallRefusalReason()
+
     if (reason && error && typeof error === 'object') {
       ;(
         error as {extensionLoadRefusedReason?: string}
       ).extensionLoadRefusedReason = reason
     }
+
     return error
   }
 
@@ -83,6 +87,7 @@ export async function setupRdpAfterLaunch(
   // way chromium does. Skipped for startingUrl and --no-open.
   try {
     const outPath = String(compilation?.options?.output?.path || '')
+
     if (
       !plugin.startingUrl &&
       !plugin.noOpen &&
@@ -92,6 +97,7 @@ export async function setupRdpAfterLaunch(
         openNewTab?: () => Promise<boolean>
       }
       const opened = await live.openNewTab?.()
+
       if (!opened && isDebug()) {
         humanWarn(
           '[browser] Firefox: could not open the new-tab override page.'

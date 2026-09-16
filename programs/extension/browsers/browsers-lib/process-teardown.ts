@@ -27,7 +27,9 @@ function authorLog(line: string | null): void {
 
 function killWindowsTree(child: ChildProcess, sync: boolean): void {
   if (process.platform !== 'win32') return
+
   const args = ['/PID', String(child.pid), '/T', '/F']
+
   try {
     if (sync) {
       spawnSync('taskkill', args, {stdio: 'ignore', windowsHide: true})
@@ -49,6 +51,7 @@ export function gracefulTerminateChild(
   browser: BrowserType
 ): void {
   if (!child || child.killed) return
+
   terminatedByUs.add(child)
   killWindowsTree(child, false)
   authorLog(messages.enhancedProcessManagementTerminating(browser))
@@ -69,8 +72,10 @@ export function forceKillChildOnExit(
   browser: BrowserType
 ): void {
   if (!child) return
+
   terminatedByUs.add(child)
   killWindowsTree(child, true)
+
   try {
     authorLog(messages.enhancedProcessManagementForceKill(browser))
     child.kill('SIGKILL')
@@ -90,6 +95,8 @@ const BENIGN_SOCKET_ERROR_CODES = new Set([
 // no-op so a graceful shutdown stays graceful instead of exiting with code 1.
 export function isBenignSocketTeardown(value: unknown): boolean {
   if (!value || typeof value !== 'object') return false
+
   const code = (value as {code?: unknown}).code
+
   return typeof code === 'string' && BENIGN_SOCKET_ERROR_CODES.has(code)
 }

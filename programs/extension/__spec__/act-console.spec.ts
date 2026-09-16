@@ -53,6 +53,7 @@ beforeEach(() => {
     `${lines.map((l) => JSON.stringify(l)).join('\n')}\n`
   )
 })
+
 afterEach(() => fs.rmSync(dir, {recursive: true, force: true}))
 
 describe('readRecentConsole (console-from-buffer)', () => {

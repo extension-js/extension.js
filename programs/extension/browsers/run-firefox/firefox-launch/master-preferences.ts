@@ -6,9 +6,6 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝      ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-// Profile prefs ("Master Preferences"): sourced from mozilla's all.js /
-// firefox.js defaults and web-ext's preferences.js.
-
 const masterPreferences = {
   // Suppress first-run and default-browser prompts to avoid stealing focus
   'browser.aboutwelcome.enabled': false,

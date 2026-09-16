@@ -13,6 +13,7 @@ function write(rel: string, content = '') {
   const abs = path.join(tmp, rel)
   fs.mkdirSync(path.dirname(abs), {recursive: true})
   fs.writeFileSync(abs, content)
+
   return abs
 }
 
@@ -60,9 +61,11 @@ describe('findCompiledRootRefSource', () => {
     expect(
       findCompiledRootRefSource('/data/x.json', tmp, publicDir)
     ).toBeUndefined()
+
     expect(
       findCompiledRootRefSource('/styles/page.css', tmp, publicDir)
     ).toBeUndefined()
+
     // .mjs and .cjs refs are served as written, the tracer never maps them.
     write('lib/widget.ts')
     expect(
@@ -92,15 +95,19 @@ describe('findCompiledRootRefSource', () => {
     expect(
       findCompiledRootRefSource('lib/widget.js', tmp, publicDir)
     ).toBeUndefined()
+
     expect(
       findCompiledRootRefSource('./lib/widget.js', tmp, publicDir)
     ).toBeUndefined()
+
     expect(
       findCompiledRootRefSource('//cdn.example.com/widget.js', tmp, publicDir)
     ).toBeUndefined()
+
     expect(
       findCompiledRootRefSource(path.join(tmp, 'lib/widget.js'), tmp, publicDir)
     ).toBeUndefined()
+
     expect(
       findCompiledRootRefSource('/../widget.js', tmp, publicDir)
     ).toBeUndefined()

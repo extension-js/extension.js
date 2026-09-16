@@ -29,12 +29,16 @@ function findMessagingFiles(dir: string, found: string[] = []): string[] {
     if (entry.name === 'node_modules') continue
     if (entry.name === 'dist') continue
     if (entry.name === '.rslib') continue
+
     const full = path.join(dir, entry.name)
+
     if (entry.isDirectory()) findMessagingFiles(full, found)
-    else if (entry.name === 'messaging.ts')
+    else if (entry.name === 'messaging.ts') {
       // Compare with forward slashes so the tracked set holds on Windows.
       found.push(path.relative(programsDir, full).split(path.sep).join('/'))
+    }
   }
+
   return found
 }
 

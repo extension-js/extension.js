@@ -12,6 +12,7 @@ async function withTempProject(
     path.join(os.tmpdir(), 'ext-create-readme-')
   )
   const projectPath = path.join(tmpRoot, 'my-ext')
+
   try {
     await fsp.mkdir(projectPath, {recursive: true})
     await setup(projectPath)
@@ -31,6 +32,7 @@ describe('writeReadmeFile', () => {
           path.join(projectPath, 'manifest.json'),
           JSON.stringify({manifest_version: 3, description: 'My Description'})
         )
+
         await fsp.writeFile(
           path.join(projectPath, 'README.md'),
           '# Upstream Template\n\nMarketing copy from the template repo.\n'
@@ -74,6 +76,7 @@ describe('writeReadmeFile', () => {
   it('writes the Ship it section only when a platform docs host is configured', async () => {
     const orig = process.env.EXTENSION_DEV_DOCS_URL
     process.env.EXTENSION_DEV_DOCS_URL = 'https://docs.platform.test/'
+
     try {
       await withTempProject(
         async (projectPath) => {
@@ -92,6 +95,7 @@ describe('writeReadmeFile', () => {
           expect(contents).toContain(
             'https://docs.platform.test/publish/overview?utm_source=create-readme'
           )
+
           expect(contents).toContain('local and free')
         }
       )
@@ -108,6 +112,7 @@ describe('writeReadmeFile', () => {
           path.join(projectPath, 'manifest.json'),
           JSON.stringify({manifest_version: 3, description: 'with screenshot'})
         )
+
         await fsp.mkdir(path.join(projectPath, 'public'), {recursive: true})
         await fsp.writeFile(
           path.join(projectPath, 'public', 'screenshot.png'),
@@ -149,6 +154,7 @@ describe('writeReadmeFile', () => {
           path.join(projectPath, 'manifest.json'),
           JSON.stringify({manifest_version: 3, description: 'root screenshot'})
         )
+
         await fsp.writeFile(path.join(projectPath, 'screenshot.png'), '')
       },
       async (projectPath) => {

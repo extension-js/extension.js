@@ -10,6 +10,7 @@ function cliRoot(): string {
 function cliBin(): string {
   const cjs = path.join(cliRoot(), 'dist', 'cli.cjs')
   if (fs.existsSync(cjs)) return cjs
+
   return path.join(cliRoot(), 'dist', 'cli.js')
 }
 
@@ -94,6 +95,7 @@ describe('pre-command failures under --output json', () => {
     expect(result.stderr).toContain(
       'Run extension build --help to see the options.'
     )
+
     expect(result.stderr).not.toContain('error: unknown option')
     expect(result.stderr).not.toContain('Usage:')
   })

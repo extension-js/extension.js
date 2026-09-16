@@ -29,6 +29,7 @@ export function ready(mode: 'development' | 'production', browser: string) {
   const noun = artifactNoun(browser)
   const state = colors.green(`ready for ${mode}`)
   const watching = mode === 'development' ? ' Watching for file changes.' : ''
+
   return `${getLoggingPrefix('success')} ${noun} ${state}.${watching}`
 }
 
@@ -71,9 +72,11 @@ function collapseHomeDirInCardValue(value: string): string {
   const raw = String(value || '')
   const home = os.homedir()
   if (!home || !raw.startsWith(home)) return raw
+
   const rest = raw.slice(home.length)
   if (rest === '') return '~'
   if (rest.startsWith(path.sep) || rest.startsWith('/')) return `~${rest}`
+
   return raw
 }
 
@@ -137,6 +140,7 @@ export function shouldWarnPortConflict(
   actual: number
 ): boolean {
   const requestedPort = Number(requested)
+
   return (
     Number.isFinite(requestedPort) &&
     requestedPort !== 0 &&
@@ -190,6 +194,7 @@ export function devServerStartTimeout(ms: number) {
 export function bundlerFatalError(error: unknown) {
   const text =
     error instanceof Error ? error.stack || error.message : String(error)
+
   return `${getLoggingPrefix('error')} The build failed to start.\n${colors.red(text)}`
 }
 
@@ -209,14 +214,17 @@ export function devServerRestarting(request: {
   const lines = [
     `${getLoggingPrefix('info')} Restarting the dev server to pick up ${what} change…`
   ]
+
   if (request.pathBefore) {
     lines.push(
       `${colors.gray('BEFORE')} ${colors.underline(request.pathBefore)}`
     )
   }
+
   if (request.pathAfter) {
     lines.push(`${colors.gray('AFTER')} ${colors.underline(request.pathAfter)}`)
   }
+
   return lines.join('\n')
 }
 

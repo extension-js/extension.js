@@ -51,28 +51,31 @@ export function findInjectedOnlyPermissionUses(
       (module as {resource?: string}).resource
     )
     if (!resource) continue
+
     let source: string
+
     try {
       const stat = fs.statSync(resource)
       if (stat.size > 1024 * 1024) continue
+
       source = fs.readFileSync(resource, 'utf-8')
     } catch {
       continue
     }
+
     for (const api of candidates) {
       if (firstOffenderByApi.has(api)) continue
+
       const useRe = new RegExp(`\\b(?:chrome|browser)\\s*\\.\\s*${api}\\b`)
       if (useRe.test(source)) firstOffenderByApi.set(api, resource)
     }
+
     if (firstOffenderByApi.size === candidates.length) break
   }
+
   return firstOffenderByApi
 }
 
-/**
- * Applies dev-only manifest patches (CSP, permissions, background, WAR for reload).
- * Runs only in development mode, after WAR patching (REPORT+100).
- */
 // A host permission for the request's own origin is the narrow grant; the
 // content-script pattern is often <all_urls> and would widen the store prompt.
 function requestOriginPattern(url: string, fallback: string): string {
@@ -106,6 +109,7 @@ export class ApplyDevDefaults {
       'manifest:apply-dev-defaults',
       (compilation) => {
         if (!compilation?.hooks?.processAssets) return
+
         compilation.hooks.processAssets.tap(
           {
             name: 'manifest:apply-dev-defaults',
@@ -113,6 +117,7 @@ export class ApplyDevDefaults {
           },
           () => {
             if (compilation.errors.length > 0) return
+
             if (!this.manifestPath) {
               try {
                 const WebpackErrorCtor = compiler.rspack?.WebpackError
@@ -128,6 +133,7 @@ export class ApplyDevDefaults {
               } catch {
                 // Ignore
               }
+
               return
             }
 
@@ -172,10 +178,12 @@ export class ApplyDevDefaults {
                 : (new Error(text) as Error)
               warning.name = name
               if (!compilation.warnings) compilation.warnings = []
+
               compilation.warnings.push(
                 warning as (typeof compilation.warnings)[number]
               )
             }
+
             const optionalPermissions = new Set<string>(
               (canonicalManifest.optional_permissions as string[]) || []
             )
@@ -191,6 +199,7 @@ export class ApplyDevDefaults {
             const injectedPermissions = devInjectedPermissions(
               canonicalManifest.manifest_version
             )
+
             for (const permission of injectedPermissions) {
               if (
                 optionalPermissions.has(permission) &&
@@ -207,6 +216,7 @@ export class ApplyDevDefaults {
                 )
               }
             }
+
             for (const match of contentScriptMatches) {
               if (optionalHosts.has(match)) {
                 pushDevWarning(
@@ -259,6 +269,7 @@ export class ApplyDevDefaults {
                 declared,
                 injectedPermissions
               )
+
               for (const [api, file] of uses) {
                 const relative = path.relative(
                   path.dirname(this.manifestPath),
@@ -303,6 +314,7 @@ export class ApplyDevDefaults {
                 canonicalManifest.manifest_version === 3
                   ? 'host_permissions'
                   : 'permissions'
+
               for (const use of injectedOnlyHosts) {
                 const relative = path.relative(
                   path.dirname(this.manifestPath),

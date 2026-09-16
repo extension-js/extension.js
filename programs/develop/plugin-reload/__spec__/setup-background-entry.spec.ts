@@ -17,6 +17,7 @@ function writeManifest(manifest: Record<string, unknown>) {
   tempDirs.push(dir)
   const manifestPath = path.join(dir, 'manifest.json')
   fs.writeFileSync(manifestPath, JSON.stringify(manifest), 'utf8')
+
   return manifestPath
 }
 
@@ -32,11 +33,14 @@ function fakeCompiler(entry: Record<string, unknown> = {}) {
       }
     }
   } as any
+
   compiler.__collectErrors = () => {
     const compilation = {errors: [] as Error[]}
     for (const cb of compilationTaps) cb(compilation)
+
     return compilation.errors
   }
+
   return compiler
 }
 
@@ -99,6 +103,7 @@ describe('SetupBackgroundEntry with a declared background', () => {
   function writeBackgroundFile(manifestPath: string, name: string) {
     const file = path.join(path.dirname(manifestPath), name)
     fs.writeFileSync(file, '// background', 'utf8')
+
     return file
   }
 
@@ -195,6 +200,7 @@ describe('SetupBackgroundEntry with a declared background', () => {
     expect(compiler.options.entry['background/service_worker']).toEqual({
       import: [swPath]
     })
+
     expect(compiler.__collectErrors()).toHaveLength(0)
   })
 

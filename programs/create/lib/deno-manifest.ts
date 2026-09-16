@@ -21,12 +21,15 @@ function stripJsoncExtensions(text: string): string {
 
     if (inString) {
       out += char
+
       if (char === '\\' && i + 1 < text.length) {
         out += text[i + 1]
         i += 2
         continue
       }
+
       if (char === '"') inString = false
+
       i++
       continue
     }
@@ -53,26 +56,35 @@ function stripJsoncExtensions(text: string): string {
     if (char === ',') {
       let buffered = ','
       let j = i + 1
+
       while (j < text.length) {
         const c = text[j]
+
         if (/\s/.test(c)) {
           buffered += c
           j++
           continue
         }
+
         if (c === '/' && text[j + 1] === '/') {
           while (j < text.length && text[j] !== '\n') j++
           continue
         }
+
         if (c === '/' && text[j + 1] === '*') {
           j += 2
-          while (j < text.length && !(text[j] === '*' && text[j + 1] === '/'))
+
+          while (j < text.length && !(text[j] === '*' && text[j + 1] === '/')) {
             j++
+          }
+
           j += 2
           continue
         }
+
         break
       }
+
       const nextChar = text[j] ?? ''
       out += nextChar === '}' || nextChar === ']' ? buffered.slice(1) : buffered
       i = j
@@ -92,6 +104,7 @@ export type ParsedJsonc = any
 export function parseJsoncSafe(text: string): ParsedJsonc {
   const withoutBom = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text
   const stripped = stripJsoncExtensions(withoutBom)
+
   return JSON.parse(stripped.trim() || '{}')
 }
 
@@ -107,13 +120,16 @@ export function parseNpmSpecifier(
   if (!rest) return undefined
 
   const versionSeparator = rest.indexOf('@', rest.startsWith('@') ? 1 : 0)
+
   if (versionSeparator === -1) {
     const name = rest.split('/', rest.startsWith('@') ? 2 : 1).join('/')
+
     return name ? {name, version: '*'} : undefined
   }
 
   const name = rest.slice(0, versionSeparator)
   const version = rest.slice(versionSeparator + 1).split('/')[0] || '*'
+
   return name ? {name, version} : undefined
 }
 
@@ -132,6 +148,7 @@ export function readDenoConfigDependencies(
   if (!filename) return dependencies
 
   let config: ParsedJsonc
+
   try {
     config = parseJsoncSafe(
       fs.readFileSync(path.join(projectPath, filename), 'utf8')
@@ -150,6 +167,7 @@ export function readDenoConfigDependencies(
     dependencies[parsed.name] = dependencies[parsed.name] || parsed.version
 
     const alias = rawAlias.endsWith('/') ? rawAlias.slice(0, -1) : rawAlias
+
     if (alias && alias !== parsed.name) {
       dependencies[alias] = dependencies[alias] || parsed.version
     }

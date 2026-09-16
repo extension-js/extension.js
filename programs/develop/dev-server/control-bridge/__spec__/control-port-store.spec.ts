@@ -13,11 +13,13 @@ let tmpDir: string | undefined
 
 afterEach(() => {
   if (tmpDir) fs.rmSync(tmpDir, {recursive: true, force: true})
+
   tmpDir = undefined
 })
 
 function makeTmpDir(): string {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-control-port-'))
+
   return tmpDir
 }
 
@@ -62,6 +64,7 @@ describe('control-port-store', () => {
   it('returns null for garbage or out-of-range content', () => {
     const file = controlPortFilePath(makeTmpDir(), 'chromium')
     fs.mkdirSync(path.dirname(file), {recursive: true})
+
     for (const content of ['nope', '', '0', '-5', '70000']) {
       fs.writeFileSync(file, content)
       expect(readPersistedControlPort(file)).toBeNull()

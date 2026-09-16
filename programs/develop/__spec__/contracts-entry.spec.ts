@@ -60,12 +60,14 @@ describe('the extension-develop/contracts entry', () => {
     expect(entrySource).toContain(
       "export * from './dev-server/control-bridge/contracts'"
     )
+
     expect(entrySource).toContain('LogQuery')
 
     const contractsSource = fs.readFileSync(
       path.join(developRoot, 'dev-server', 'control-bridge', 'contracts.ts'),
       'utf8'
     )
+
     for (const name of [
       'interface ResultFrame',
       'interface LogEvent',
@@ -74,6 +76,7 @@ describe('the extension-develop/contracts entry', () => {
     ]) {
       expect(contractsSource).toContain(name)
     }
+
     expect(contractsSource).not.toMatch(/^\s*import\b/m)
   })
 

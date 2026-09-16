@@ -7,6 +7,7 @@ describe('isUrlProjectName', () => {
     expect(isUrlProjectName('https://github.com/extension-js/examples')).toBe(
       true
     )
+
     expect(isUrlProjectName('HTTPS://example.com/x.zip')).toBe(true)
     expect(isUrlProjectName('  https://example.com')).toBe(true)
   })

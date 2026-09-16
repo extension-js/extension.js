@@ -18,6 +18,7 @@ export function optionsUi(manifest: Manifest, manifestPath?: string) {
         ...(manifest.options_ui.page && {
           page: (() => {
             const raw = String(manifest.options_ui.page)
+
             return getFilename(
               manifestPageOutputTarget(raw, 'options/index.html', manifestPath),
               raw

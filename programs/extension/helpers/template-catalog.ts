@@ -152,13 +152,16 @@ function buildTemplateGroups(): TemplateGroup[] {
   for (const group of CURATED_GROUPS) {
     const templates = group.templates.filter((name) => {
       if (!published.has(name) || claimed.has(name)) return false
+
       claimed.add(name)
+
       return true
     })
     if (templates.length) groups.push({...group, templates})
   }
 
   const uncurated = TEMPLATE_CORPUS_SLUGS.filter((name) => !claimed.has(name))
+
   if (uncurated.length) {
     groups.push({
       title: UNCURATED_GROUP_TITLE,
@@ -213,6 +216,7 @@ export const TEMPLATE_ALIASES: readonly TemplateAlias[] = [
   'new-vue'
 ].map((name) => {
   const resolvesTo = `newtab${name.slice('new'.length)}`
+
   return {name, resolvesTo, note: `renamed to ${resolvesTo}`}
 })
 
@@ -230,15 +234,18 @@ function wrapSlugs(slugs: string[], indent: string, width: number): string[] {
 
   for (const slug of slugs) {
     const candidate = current ? `${current}, ${slug}` : slug
+
     if (current && indent.length + candidate.length + 1 > width) {
       lines.push(`${indent}${current},`)
       current = slug
       continue
     }
+
     current = candidate
   }
 
   if (current) lines.push(indent + current)
+
   return lines
 }
 
@@ -259,9 +266,11 @@ export function renderTemplateList({
 
   for (const group of TEMPLATE_GROUPS) {
     lines.push(`  ${title(group.title)} ${dim(`(${group.summary})`)}`)
+
     for (const line of wrapSlugs(group.templates, '    ', width)) {
       lines.push(slug(line))
     }
+
     lines.push('')
   }
 
@@ -273,6 +282,7 @@ export function renderTemplateList({
   if (TEMPLATE_ALIASES.length > 0) {
     lines.push('')
     lines.push(`  ${title('Aliases')}`)
+
     for (const alias of TEMPLATE_ALIASES) {
       lines.push(`    ${slug(alias.name)} ${dim(`still works, ${alias.note}`)}`)
     }

@@ -33,6 +33,7 @@ export async function commonStyleLoaders(
     isUsingLess(projectPath)
   ) {
     const maybeInstallPostCss = await maybeUsePostCss(projectPath, opts)
+
     if (maybeInstallPostCss.loader) {
       // Pitches ahead of postcss-loader: a plain .css file that doesn't parse ships
       // verbatim with a warning; browsers error-recover invalid CSS, so must the build.

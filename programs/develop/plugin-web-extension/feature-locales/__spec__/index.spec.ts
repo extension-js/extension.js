@@ -6,6 +6,7 @@ import {LocalesPlugin} from '../index'
 
 function createHook() {
   const taps: Array<() => void> = []
+
   return {
     tap: (_name: string | {name: string; stage?: number}, fn: () => void) => {
       taps.push(fn)
@@ -43,18 +44,22 @@ describe('LocalesPlugin (unit)', () => {
       path.join(enDir, 'messages.json'),
       '{"hello":{"message":"hi"}}'
     )
+
     fs.writeFileSync(
       path.join(ptDir, 'messages.json'),
       '{"hello":{"message":"oi"}}'
     )
+
     fs.writeFileSync(path.join(enDir, 'notes.txt'), 'note')
     fs.writeFileSync(path.join(enDir, 'logo.png'), '')
   })
 
   afterEach(() => {
     vi.restoreAllMocks()
-    if (tmpRoot && fs.existsSync(tmpRoot))
+
+    if (tmpRoot && fs.existsSync(tmpRoot)) {
       fs.rmSync(tmpRoot, {recursive: true, force: true})
+    }
   })
 
   function applyAndProcess(
@@ -102,6 +107,7 @@ describe('LocalesPlugin (unit)', () => {
     plugin.apply(compiler)
     ;(processAssetsHook as any)._runAll()
     ;(afterCompileHook as any)._runAll()
+
     return compilation as any
   }
 
@@ -110,6 +116,7 @@ describe('LocalesPlugin (unit)', () => {
       manifestPath,
       '{"name":"x","manifest_version":3,"default_locale":"en"}'
     )
+
     const plugin = new LocalesPlugin({manifestPath})
     const compilation = applyAndProcess(plugin)
 
@@ -117,15 +124,19 @@ describe('LocalesPlugin (unit)', () => {
     expect(
       emitted.some((p) => toPosix(p).endsWith('_locales/en/messages.json'))
     ).toBe(true)
+
     expect(
       emitted.some((p) => toPosix(p).endsWith('_locales/pt_BR/messages.json'))
     ).toBe(true)
+
     expect(
       emitted.some((p) => toPosix(p).endsWith('_locales/en/notes.txt'))
     ).toBe(false)
+
     expect(
       emitted.some((p) => toPosix(p).endsWith('_locales/en/logo.png'))
     ).toBe(false)
+
     expect(compilation.warnings.length).toBe(0)
     expect(compilation.errors.length).toBe(0)
   })
@@ -135,6 +146,7 @@ describe('LocalesPlugin (unit)', () => {
       manifestPath,
       '{"name":"x","manifest_version":3,"default_locale":"en"}'
     )
+
     const plugin = new LocalesPlugin({manifestPath})
     const compilation = applyAndProcess(plugin)
 
@@ -142,6 +154,7 @@ describe('LocalesPlugin (unit)', () => {
     expect(
       deps.some((p) => toPosix(p).endsWith('_locales/en/messages.json'))
     ).toBe(true)
+
     expect(
       deps.some((p) => toPosix(p).endsWith('_locales/pt_BR/messages.json'))
     ).toBe(true)
@@ -188,6 +201,7 @@ describe('LocalesPlugin (unit)', () => {
       manifestPath,
       '{"name":"x","manifest_version":3,"default_locale":"en"}'
     )
+
     const missing = path.join(tmpRoot, '_locales', 'en', 'missing.json')
     const plugin = new LocalesPlugin({manifestPath})
     const compilation = applyAndProcess(plugin, {mockGetLocales: [missing]})
@@ -221,6 +235,7 @@ describe('LocalesPlugin (unit)', () => {
       manifestPath,
       '{"name":"x","manifest_version":3,"default_locale":"en"}'
     )
+
     fs.writeFileSync(path.join(ptDir, 'messages.json'), '{ invalid')
     const plugin = new LocalesPlugin({manifestPath})
     const compilation = applyAndProcess(plugin)
@@ -231,6 +246,7 @@ describe('LocalesPlugin (unit)', () => {
     expect(String(err.message)).toContain(
       "Can't parse a locale messages.json file."
     )
+
     expect(String(err.message)).toContain('Fix the JSON syntax')
   })
 
@@ -245,12 +261,14 @@ describe('LocalesPlugin (unit)', () => {
         action: {default_title: '__MSG_actionTitle__'}
       })
     )
+
     fs.writeFileSync(
       path.join(enDir, 'messages.json'),
       JSON.stringify({
         title: {message: 'ok'}
       })
     )
+
     const plugin = new LocalesPlugin({manifestPath})
     const compilation = applyAndProcess(plugin)
 
@@ -260,6 +278,7 @@ describe('LocalesPlugin (unit)', () => {
     expect(String(err.message)).toContain(
       'The manifest references __MSG_extDesc__, but the key "extDesc" isn\'t defined.'
     )
+
     expect(String(err.message)).toContain('NOT FOUND extDesc')
     expect(String(err.message)).toContain('PATH _locales/en/messages.json')
     expect(err.file).toBe('manifest.json')
@@ -267,8 +286,11 @@ describe('LocalesPlugin (unit)', () => {
 
   it('pushes an error and does not throw when manifest.json is missing (with metadata, no path in message)', () => {
     const cleanRoot = path.resolve(__dirname, '__tmp_locales_plugin_missing__')
-    if (fs.existsSync(cleanRoot))
+
+    if (fs.existsSync(cleanRoot)) {
       fs.rmSync(cleanRoot, {recursive: true, force: true})
+    }
+
     fs.mkdirSync(cleanRoot, {recursive: true})
     const missingManifestPath = path.join(cleanRoot, 'manifest.json')
 
@@ -305,17 +327,21 @@ describe('LocalesPlugin (unit)', () => {
     expect(hasAnsi(err.message)).toBe(false)
     expect((compilation as any)._emitted).toBeUndefined()
 
-    if (fs.existsSync(cleanRoot))
+    if (fs.existsSync(cleanRoot)) {
       fs.rmSync(cleanRoot, {recursive: true, force: true})
+    }
   })
 
   it('errors when default_locale is specified but _locales subtree is missing', () => {
-    if (fs.existsSync(localesRoot))
+    if (fs.existsSync(localesRoot)) {
       fs.rmSync(localesRoot, {recursive: true, force: true})
+    }
+
     fs.writeFileSync(
       manifestPath,
       '{"name":"x","manifest_version":3,"default_locale":"en"}'
     )
+
     const plugin = new LocalesPlugin({manifestPath})
     const compilation = applyAndProcess(plugin)
 
@@ -332,6 +358,7 @@ describe('LocalesPlugin (unit)', () => {
       manifestPath,
       '{"name":"x","manifest_version":3,"default_locale":"fr"}'
     )
+
     const plugin = new LocalesPlugin({manifestPath})
     const compilation = applyAndProcess(plugin)
 
@@ -346,8 +373,10 @@ describe('LocalesPlugin (unit)', () => {
       manifestPath,
       '{"name":"x","manifest_version":3,"default_locale":"en"}'
     )
+
     const defaultMessages = path.join(enDir, 'messages.json')
     if (fs.existsSync(defaultMessages)) fs.rmSync(defaultMessages)
+
     const plugin = new LocalesPlugin({manifestPath})
     const compilation = applyAndProcess(plugin)
 
@@ -362,6 +391,7 @@ describe('LocalesPlugin (unit)', () => {
       manifestPath,
       '{"name":"x","manifest_version":3,"default_locale":"en"}'
     )
+
     fs.writeFileSync(path.join(enDir, 'messages.json'), '{ invalid')
     const plugin = new LocalesPlugin({manifestPath})
     const compilation = applyAndProcess(plugin)
@@ -372,6 +402,7 @@ describe('LocalesPlugin (unit)', () => {
     expect(String(err.message)).toContain(
       "Can't parse a locale messages.json file."
     )
+
     expect(String(err.message)).toContain('Fix the JSON syntax')
   })
 
@@ -386,6 +417,7 @@ describe('LocalesPlugin (unit)', () => {
       srcManifestPath,
       '{"name":"x","manifest_version":3,"default_locale":"en"}'
     )
+
     fs.writeFileSync(
       path.join(rootLocales, 'messages.json'),
       '{"hello":{"message":"hi"}}'
@@ -417,6 +449,7 @@ describe('LocalesPlugin (unit)', () => {
       }
       plugin.apply(compiler)
       ;(processAssetsHook as any)._runAll()
+
       return compilation
     })()
 
@@ -435,6 +468,7 @@ describe('LocalesPlugin (unit)', () => {
       srcManifestPath,
       '{"name":"x","manifest_version":3,"default_locale":"en"}'
     )
+
     fs.writeFileSync(
       path.join(innerLocales, 'messages.json'),
       '{"k":{"message":"s"}}'
@@ -482,6 +516,7 @@ describe('LocalesPlugin (unit)', () => {
       manifestPath,
       '{"name":"x","manifest_version":3,"default_locale":"en"}'
     )
+
     const plugin = new LocalesPlugin({manifestPath})
     const compilation = applyAndProcess(plugin)
 

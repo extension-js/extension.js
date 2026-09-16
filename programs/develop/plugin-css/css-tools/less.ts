@@ -23,6 +23,7 @@ export function isUsingLess(projectPath: string): boolean {
 
       userMessageDelivered = true
     }
+
     return true
   }
 

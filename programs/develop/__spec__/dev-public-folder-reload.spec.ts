@@ -39,10 +39,12 @@ function project(layout: Layout) {
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'public-reload', version: '0.0.0'})
   )
+
   fs.writeFileSync(
     path.join(manifestDir, 'background.js'),
     'console.log("bg")\n'
   )
+
   fs.writeFileSync(
     path.join(publicDir, 'rules.json'),
     JSON.stringify([
@@ -54,6 +56,7 @@ function project(layout: Layout) {
       }
     ])
   )
+
   // Nothing references this file: only the public/ copier ships it.
   fs.writeFileSync(path.join(publicDir, 'data.json'), '{"value":"v1"}')
   const manifest: Record<string, unknown> = {
@@ -62,6 +65,7 @@ function project(layout: Layout) {
     version: '1.0.0',
     background: {service_worker: 'background.js'}
   }
+
   // The ruleset resolver only knows the root public/ folder today, so the
   // next-to-manifest layout ships its files without naming them.
   if (layout === 'root') {
@@ -70,10 +74,12 @@ function project(layout: Layout) {
       rule_resources: [{id: 'ruleset_1', enabled: true, path: 'rules.json'}]
     }
   }
+
   fs.writeFileSync(
     path.join(manifestDir, 'manifest.json'),
     JSON.stringify(manifest)
   )
+
   return {root, manifestDir, publicDir}
 }
 
@@ -92,6 +98,7 @@ async function watchSession(root: string) {
       plugin?.constructor.name !== 'plugin-browsers' &&
       plugin?.constructor.name !== 'plugin-playwright'
   )
+
   config.stats = false
   const compiler: Compiler = rspack(config)
   const tracker = createChangedSourcesTracker(compiler)
@@ -104,16 +111,21 @@ async function watchSession(root: string) {
     dones.push(stats)
     lastDoneAt = Date.now()
   })
+
   const doneAfter = (seen: number, timeoutMs = 15000) =>
     new Promise<Stats>((resolve, reject) => {
       const startedAt = Date.now()
+
       const poll = () => {
         if (dones.length > seen) return resolve(dones[seen])
+
         if (Date.now() - startedAt > timeoutMs) {
           return reject(new Error('no rebuild observed within 15s'))
         }
+
         setTimeout(poll, 25)
       }
+
       poll()
     })
   // Quiet for a full second: the watcher has finished any startup churn.
@@ -123,8 +135,10 @@ async function watchSession(root: string) {
         if (dones.length > 0 && Date.now() - lastDoneAt > 1000) {
           return resolve(dones.length)
         }
+
         setTimeout(poll, 50)
       }
+
       poll()
     })
 
@@ -141,6 +155,7 @@ async function watchSession(root: string) {
       })
   }
   sessions.push(session)
+
   return session
 }
 
@@ -153,6 +168,7 @@ function classify(
   const outputPath = String(compilation.options?.output?.path || '')
   const contextDir = String(compilation.options?.context || '')
   const {forcedFull, changedSources} = session.tracker.snapshot()
+
   return classifyReloadFromSources({
     changedSources,
     forcedFull,
@@ -179,6 +195,7 @@ async function editAndClassify(
   fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace(from, to))
   const stats = await session.doneAfter(seen)
   expect(errorsOf(stats)).toEqual([])
+
   return classify(session, stats)
 }
 

@@ -66,6 +66,7 @@ describe('safari enabling hints follow the signature', () => {
     expect(messages.safariNextSteps('My App')).toMatch(
       /Allow Unsigned Extensions/
     )
+
     expect(messages.safariOpenHint('/tmp/My App.app', 'My App')).toMatch(
       /Allow Unsigned Extensions/
     )

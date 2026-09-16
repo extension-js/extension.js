@@ -20,9 +20,11 @@ function wildcardPatternsIn(source: string) {
 }
 
 const created: string[] = []
+
 function makeTempDir(prefix: string) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix))
   created.push(dir)
+
   return dir
 }
 
@@ -34,6 +36,7 @@ afterEach(() => {
       // Ignore
     }
   }
+
   created.length = 0
 })
 
@@ -46,6 +49,7 @@ describe('generate-extension-types', () => {
       path.join(manifestDir, 'manifest.json'),
       JSON.stringify({name: 'x'})
     )
+
     await generateExtensionTypes(manifestDir, pkgDir)
     const target = path.join(pkgDir, 'extension-env.d.ts')
     expect(fs.existsSync(target)).toBe(true)
@@ -60,6 +64,7 @@ describe('generate-extension-types', () => {
       path.join(root, 'manifest.json'),
       JSON.stringify({name: 'x'})
     )
+
     await generateExtensionTypes(root, root)
     const content = fs.readFileSync(
       path.join(root, 'extension-env.d.ts'),
@@ -73,9 +78,11 @@ describe('generate-extension-types', () => {
     expect(content).toContain(
       "declare module '*.png' {\n  const content: string\n  export default content\n}"
     )
+
     expect(content).toContain(
       "declare module '*.css' {\n  const content: Readonly<Record<string, string>>\n  export default content\n}"
     )
+
     expect(content).toContain(
       "declare module '*.svg' {\n  const content: any\n  export default content\n}"
     )
@@ -104,6 +111,7 @@ describe('generate-extension-types', () => {
       path.join(manifestDir, 'manifest.json'),
       JSON.stringify({name: 'x'})
     )
+
     fs.mkdirSync(path.join(root, 'public'), {recursive: true})
     fs.writeFileSync(path.join(root, 'public', 'logo.png'), '')
     fs.mkdirSync(path.join(root, 'pages'), {recursive: true})

@@ -53,6 +53,7 @@ export async function deriveExtensionIdFromTargetsHelper(
             fs.readFileSync(messagesPath, 'utf-8')
           )
           const resolved = String(messagesJson?.[msgKey]?.message || '').trim()
+
           if (resolved) {
             expectedName = resolved
             expectedNameIsMsg = false
@@ -67,14 +68,18 @@ export async function deriveExtensionIdFromTargetsHelper(
   const trimTrailingSep = (p: string) => {
     let end = p.length
     while (end > 0 && (p[end - 1] === '/' || p[end - 1] === '\\')) end--
+
     return p.slice(0, end)
   }
+
   const normalizePath = (p: string) => {
     try {
       const resolved = path.resolve(p)
+
       if (fs.existsSync(resolved)) {
         return trimTrailingSep(fs.realpathSync(resolved))
       }
+
       return trimTrailingSep(resolved)
     } catch {
       return trimTrailingSep(path.resolve(p))
@@ -92,8 +97,10 @@ export async function deriveExtensionIdFromTargetsHelper(
     process.platform === 'win32' || process.platform === 'darwin'
   const normalizeForCompare = (p: string) =>
     platformIsCaseInsensitive ? p.toLowerCase() : p
+
   const matchesAnyCandidate = (p: string) => {
     const n = normalizeForCompare(p)
+
     return resolvedCandidates.some(
       (candidate) => n === normalizeForCompare(candidate)
     )
@@ -116,6 +123,7 @@ export async function deriveExtensionIdFromTargetsHelper(
 
       for (const entry of entries) {
         if (!/^Profile\s+\d+$/i.test(entry)) continue
+
         pushPrefIfExists(path.join(profilePath, entry))
       }
     } catch {
@@ -194,11 +202,13 @@ export async function deriveExtensionIdFromTargetsHelper(
         )
 
         if (!typeOk) continue
+
         const urlMatch = url.match(/^chrome-extension:\/\/([^/]+)/)
 
         if (!urlDerivedId && urlMatch?.[1]) {
           urlDerivedId = String(urlMatch[1])
         }
+
         if (url && !url.startsWith('chrome-extension://')) continue
 
         const targetId: string | undefined = t?.targetId
@@ -243,8 +253,12 @@ export async function deriveExtensionIdFromTargetsHelper(
             ? gotManifestVersion === expectedManifestVersion
             : false
 
-          if (nameMatches && (!profileCandidateId || id === profileCandidateId))
+          if (
+            nameMatches &&
+            (!profileCandidateId || id === profileCandidateId)
+          ) {
             return id
+          }
 
           if (
             expectedVersion &&

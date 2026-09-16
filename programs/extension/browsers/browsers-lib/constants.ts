@@ -13,7 +13,9 @@ export const PORT_OFFSET = 100
 function envMs(envKey: string, fallback: number): number {
   const raw = process.env[envKey]
   if (!raw) return fallback
+
   const parsed = parseInt(raw, 10)
+
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
 }
 
@@ -22,12 +24,10 @@ export const CDP_COMMAND_TIMEOUT_MS = envMs(
   12_000
 )
 
-/** CDP HTTP endpoint timeout for /json discovery (ms). Override: EXTENSION_CDP_HTTP_TIMEOUT_MS */
 export const CDP_HTTP_TIMEOUT_MS = envMs('EXTENSION_CDP_HTTP_TIMEOUT_MS', 1_200)
 
 export const RDP_EVAL_TIMEOUT_MS = envMs('EXTENSION_RDP_EVAL_TIMEOUT_MS', 8_000)
 
-/** Firefox RDP connect retry count. Override: EXTENSION_RDP_MAX_RETRIES */
 export const RDP_MAX_RETRIES = envMs('EXTENSION_RDP_MAX_RETRIES', 150)
 
 export const RDP_RETRY_INTERVAL_MS = envMs(

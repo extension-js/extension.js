@@ -20,12 +20,14 @@ function makeCompilation(
 function disabledFeatureEntries(flags: string[]) {
   const switchFlag = flags.find((f) => f.startsWith('--disable-features='))
   expect(switchFlag).toBeTruthy()
+
   return String(switchFlag).replace('--disable-features=', '').split(',')
 }
 
 function getUserDataDir(flags: string[]) {
   const userDirFlag = flags.find((f) => f.startsWith('--user-data-dir='))
   expect(userDirFlag).toBeTruthy()
+
   return String(userDirFlag).replace('--user-data-dir=', '')
 }
 
@@ -35,8 +37,10 @@ describe('Chromium profile flags', () => {
     vi.restoreAllMocks()
     process.env = {...OLD_ENV}
   })
+
   afterEach(() => {
     process.env = OLD_ENV
+
     try {
       const distRoot = path.join(os.tmpdir(), 'project', 'dist')
       fs.rmSync(distRoot, {recursive: true, force: true})
@@ -120,11 +124,13 @@ describe('Chromium profile flags', () => {
       `${host}-999999999`,
       'utf8'
     )
+
     fs.writeFileSync(
       path.join(explicitProfile, 'SingletonCookie'),
       'cookie',
       'utf8'
     )
+
     fs.writeFileSync(
       path.join(explicitProfile, 'SingletonSocket'),
       'socket',
@@ -141,9 +147,11 @@ describe('Chromium profile flags', () => {
     expect(fs.existsSync(path.join(explicitProfile, 'SingletonLock'))).toBe(
       false
     )
+
     expect(fs.existsSync(path.join(explicitProfile, 'SingletonCookie'))).toBe(
       false
     )
+
     expect(fs.existsSync(path.join(explicitProfile, 'SingletonSocket'))).toBe(
       false
     )
@@ -191,12 +199,15 @@ describe('Chromium profile flags', () => {
       expect(userDirA).toBe(
         path.resolve(projectA, 'dist', 'extension-profile-chrome')
       )
+
       expect(userDirB).toBe(
         path.resolve(projectB, 'dist', 'extension-profile-chrome')
       )
+
       expect(userDirA).not.toBe(userDirB)
     } finally {
       process.chdir(oldCwd)
+
       try {
         fs.rmSync(projectA, {recursive: true, force: true})
         fs.rmSync(projectB, {recursive: true, force: true})
@@ -307,9 +318,11 @@ describe('Chromium container sandbox flags', () => {
     process.env = {...OLD_ENV}
     Object.defineProperty(process, 'platform', {value: OLD_PLATFORM})
   })
+
   afterEach(() => {
     process.env = OLD_ENV
     Object.defineProperty(process, 'platform', {value: OLD_PLATFORM})
+
     try {
       const distRoot = path.join(os.tmpdir(), 'project', 'dist')
       fs.rmSync(distRoot, {recursive: true, force: true})
@@ -321,6 +334,7 @@ describe('Chromium container sandbox flags', () => {
   function flagsForEnv(envOverrides: Record<string, string | undefined> = {}) {
     Object.defineProperty(process, 'platform', {value: 'linux'})
     Object.assign(process.env, envOverrides)
+
     return browserConfig(makeCompilation(), {
       extension: '/ext',
       browser: 'chrome'
@@ -383,6 +397,7 @@ describe('Chromium feature-switch merging', () => {
     )
     expect(disables).toHaveLength(1)
     const features = disables[0].replace('--disable-features=', '').split(',')
+
     for (const feature of [
       'InterestFeedContentSuggestions',
       'Translate',
@@ -538,8 +553,10 @@ describe('EXTENSION_BROWSER_FLAGS environment pass-through', () => {
     // the pass-through channel alone, so the guard has to be silent here.
     delete process.env.EXTENSION_HEADLESS
   })
+
   afterEach(() => {
     process.env = OLD_ENV
+
     try {
       fs.rmSync(path.join(os.tmpdir(), 'project', 'dist'), {
         recursive: true,
@@ -614,8 +631,10 @@ describe('EXTENSION_HEADLESS focus-steal guard', () => {
     // the guard alone, so the pass-through channel has to be silent.
     delete process.env.EXTENSION_BROWSER_FLAGS
   })
+
   afterEach(() => {
     process.env = OLD_ENV
+
     try {
       fs.rmSync(path.join(os.tmpdir(), 'project', 'dist'), {
         recursive: true,

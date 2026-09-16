@@ -25,6 +25,7 @@ const TARGET_WAIT_MS = 2000
 
 function reportStep(step: string, detail?: unknown): void {
   if (!isDebug()) return
+
   const reason =
     detail instanceof Error
       ? detail.message
@@ -68,6 +69,7 @@ async function findManagerAddon(
   const reply = (await client.request({to: 'root', type: 'listAddons'})) as {
     addons?: AddonEntry[]
   }
+
   return (reply?.addons || []).find((addon) => addon?.id === MANAGER_ADDON_ID)
 }
 
@@ -98,8 +100,11 @@ async function resolveConsoleActorViaWatcher(
     type: 'getWatcher',
     isServerTargetSwitchingEnabled: true
   })) as {actor?: string}
+
   const noop = () => {}
+
   if (!watcher?.actor) return {release: noop}
+
   const watcherActor = watcher.actor
 
   const release = () => {
@@ -111,13 +116,17 @@ async function resolveConsoleActorViaWatcher(
   }
 
   const targets: TargetForm[] = []
+
   const collect = (message: unknown) => {
     const event = message as TargetEvent
+
     if (event?.type === 'target-available-form' && event.target) {
       targets.push(event.target)
     }
   }
+
   client.on('message', collect)
+
   try {
     // The first announcement can arrive as the reply itself.
     collect(
@@ -127,14 +136,18 @@ async function resolveConsoleActorViaWatcher(
         targetType: 'frame'
       })
     )
+
     const deadline = Date.now() + TARGET_WAIT_MS
+
     while (Date.now() < deadline) {
       const background = targets.find(
         (target) => target.consoleActor && isBackgroundPage(target)
       )
       if (background) return {consoleActor: background.consoleActor, release}
+
       await new Promise((resolve) => setTimeout(resolve, 50))
     }
+
     return {
       consoleActor: targets.find((target) => target.consoleActor)?.consoleActor,
       release
@@ -151,7 +164,9 @@ async function resolveConsoleActor(
   if (addon.consoleActor) {
     return {consoleActor: addon.consoleActor, release: () => {}}
   }
+
   if (!addon.actor) return {release: () => {}}
+
   return await resolveConsoleActorViaWatcher(client, addon.actor)
 }
 
@@ -162,16 +177,22 @@ export async function openManagerNewTab(
 ): Promise<boolean> {
   try {
     const addon = await findManagerAddon(client)
+
     if (!addon) {
       reportStep('manager add-on not listed')
+
       return false
     }
+
     const {consoleActor, release} = await resolveConsoleActor(client, addon)
+
     if (!consoleActor) {
       release()
       reportStep('no console actor for the manager background page')
+
       return false
     }
+
     try {
       const result = await client.evaluate(
         consoleActor,
@@ -181,9 +202,11 @@ export async function openManagerNewTab(
     } finally {
       release()
     }
+
     return true
   } catch (error) {
     reportStep('failed', error)
+
     return false
   }
 }

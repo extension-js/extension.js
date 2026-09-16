@@ -58,6 +58,7 @@ function markCardPrinted(k: string, browser: BrowserType, outPath: string) {
 
 function toNormalizedId(value: unknown): string {
   if (typeof value !== 'string') return ''
+
   return value.trim()
 }
 
@@ -81,15 +82,18 @@ function resolveRunLabel(ready: ReadyLike): string {
   if (runId && pid) return `${runId} · PID ${pid}`
   if (runId) return runId
   if (pid) return `PID ${pid}`
+
   return ''
 }
 
 function encodeChromiumExtensionIdFromDigest(digest: Buffer): string {
   let extensionId = ''
+
   for (const byte of digest) {
     extensionId += String.fromCharCode(97 + ((byte >> 4) & 0x0f))
     extensionId += String.fromCharCode(97 + (byte & 0x0f))
   }
+
   return extensionId
 }
 
@@ -173,6 +177,7 @@ export function expectedGeckoExtensionId(outPath: string): string {
     const manifest = JSON.parse(
       fs.readFileSync(path.join(outPath, 'manifest.json'), 'utf-8')
     )
+
     return deriveFirefoxExtensionIdFromManifest(manifest)
   } catch {
     return ''
@@ -195,6 +200,7 @@ function resolveExtensionId(args: {
   if (isChromiumBrowser(args.browser)) {
     const fromKey = deriveChromiumExtensionIdFromManifest(args.manifest)
     if (fromKey) return fromKey
+
     return deriveChromiumExtensionIdFromPath(args.extensionPath || '')
   }
 
@@ -289,8 +295,10 @@ export async function printDevBannerOnce(opts: {
       }
     )
   )
+
   humanLine(messages.emptyLine())
   markCardPrinted(k, opts.browser, opts.outPath)
+
   return true
 }
 
@@ -376,6 +384,7 @@ export async function printProdBannerOnce(opts: {
           }
         )
       )
+
       humanLine(messages.emptyLine())
     } else {
       const message = {
@@ -406,6 +415,7 @@ export async function printProdBannerOnce(opts: {
           }
         )
       )
+
       humanLine(messages.emptyLine())
     }
   } catch {
@@ -433,9 +443,11 @@ export async function printProdBannerOnce(opts: {
         ]
       })
     )
+
     humanLine(messages.emptyLine())
   }
 
   markCardPrinted(k, opts.browser, opts.outPath)
+
   return true
 }

@@ -89,9 +89,11 @@ const hintedProjects = new Set<string>()
 
 function toModule(loaded: AnyModule): LinterModule {
   const candidate = loaded?.createInstance ? loaded : loaded?.default
+
   if (typeof candidate?.createInstance !== 'function') {
     throw new Error(`${ADDON_LINT_PACKAGE} exports no createInstance`)
   }
+
   return candidate as LinterModule
 }
 
@@ -111,21 +113,26 @@ export function shouldRunAddonLint(input: {
   if ((input.enabled ?? ADDON_LINT_DEFAULT) === false) {
     return {status: 'skipped', reason: 'disabled'}
   }
+
   // Store rules apply to what ships, and a dev artifact carries dev-only
   // grants the linter would flag for nothing.
   if (input.mode !== 'production') {
     return {status: 'skipped', reason: 'mode'}
   }
+
   if (!isGeckoBasedBrowser(String(input.browser))) {
     return {status: 'skipped', reason: 'browser'}
   }
+
   return null
 }
 
 function locationOf(finding: AddonLintFinding): string {
   const file = String(finding.file || '').trim()
   if (!file) return ''
+
   const line = typeof finding.line === 'number' ? `:${finding.line}` : ''
+
   return `${file}${line}`
 }
 
@@ -146,6 +153,7 @@ export function collectAddonLintLines(
 ): AddonLintLine[] {
   const errors = Array.isArray(output?.errors) ? output.errors : []
   const warnings = Array.isArray(output?.warnings) ? output.warnings : []
+
   return [
     ...errors.map((finding) => toLine('error', finding)),
     ...warnings.map((finding) => toLine('warning', finding))
@@ -174,9 +182,11 @@ export function formatAddonLintFindings(
       )
     )
   ]
+
   if (all.length > shown.length) {
     lines.push(messages.addonLintMore(all.length - shown.length, distDisplay))
   }
+
   return {findings: all.length, lines}
 }
 
@@ -211,13 +221,16 @@ export async function runAddonLint(
   if (skipped) return skipped
 
   let linter: LinterModule
+
   try {
     linter = await (input.loadLinter || defaultLoadLinter)(input.projectPath)
   } catch {
     if (hintedProjects.has(input.projectPath)) {
       return {status: 'missing', hint: null}
     }
+
     hintedProjects.add(input.projectPath)
+
     return {
       status: 'missing',
       hint: messages.addonLintNotInstalled(
@@ -248,6 +261,7 @@ export async function runAddonLint(
       instance.run({_console: silentConsole()}),
       input.timeoutMs ?? ADDON_LINT_TIMEOUT_MS
     )
+
     return {
       status: 'linted',
       ...formatAddonLintFindings(output, input.distDisplay)

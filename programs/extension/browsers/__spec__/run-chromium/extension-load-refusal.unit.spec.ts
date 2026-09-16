@@ -27,6 +27,7 @@ describe('loadUnpacked verdict classification', () => {
       status: 'loaded',
       extensionId: 'abcdefghijklmnop'
     })
+
     // Chrome names the parameter `path`; `extensionPath` is silently ignored.
     expect(cdp.sendCommand).toHaveBeenCalledWith('Extensions.loadUnpacked', {
       path: '/dist/chrome'
@@ -70,6 +71,7 @@ describe('loadUnpacked verdict classification', () => {
       status: 'loaded',
       extensionId: 'secondshapeworked'
     })
+
     expect(sendCommand.mock.calls[1][1]).toEqual({
       extensionPath: '/dist/chrome'
     })
@@ -97,6 +99,7 @@ describe('declaresBackgroundContext', () => {
 
   const write = (manifest: unknown) => {
     fs.writeFileSync(path.join(tmp, 'manifest.json'), JSON.stringify(manifest))
+
     return tmp
   }
 
@@ -104,6 +107,7 @@ describe('declaresBackgroundContext', () => {
     expect(
       declaresBackgroundContext(write({background: {service_worker: 'sw.js'}}))
     ).toBe(true)
+
     expect(
       declaresBackgroundContext(write({background: {scripts: ['bg.js']}}))
     ).toBe(true)
@@ -116,6 +120,7 @@ describe('declaresBackgroundContext', () => {
     expect(declaresBackgroundContext(write({background: {scripts: []}}))).toBe(
       false
     )
+
     expect(declaresBackgroundContext(path.join(tmp, 'nope'))).toBe(false)
   })
 })
@@ -167,6 +172,7 @@ describe('stampReadyExtensionLoadRefused', () => {
     expect(() =>
       stampReadyExtensionLoadRefused(path.join(tmp, 'missing'), 'reason')
     ).not.toThrow()
+
     expect(fs.existsSync(path.join(tmp, 'missing'))).toBe(false)
   })
 })

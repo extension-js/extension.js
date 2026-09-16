@@ -23,10 +23,12 @@ function readJsonSafe(source: string) {
 
 function normalizeManifestFile(filePath: unknown): string | undefined {
   if (typeof filePath !== 'string') return undefined
+
   const normalized = filePath.trim().replace(/^\/+/, '')
   if (!normalized) return undefined
   if (isManifestAddress(filePath)) return undefined
   if (/[*?[\]{}]/.test(normalized)) return undefined
+
   return normalized
 }
 
@@ -71,6 +73,7 @@ function collectRequiredManifestFiles(manifest: unknown): string[] {
   addFile(background?.page)
 
   const backgroundScripts = background?.scripts
+
   if (Array.isArray(backgroundScripts)) {
     for (const script of backgroundScripts) addFile(script)
   }
@@ -94,21 +97,26 @@ function collectRequiredManifestFiles(manifest: unknown): string[] {
   addFile(manifestObj?.theme_experiment?.stylesheet)
   addFile(manifestObj?.chrome_settings_overrides?.search_provider?.favicon_url)
   const startupPages = manifestObj?.chrome_settings_overrides?.startup_pages
+
   if (Array.isArray(startupPages)) {
     for (const page of startupPages) addFile(page)
   }
 
   const contentScripts = manifestObj?.content_scripts
+
   if (Array.isArray(contentScripts)) {
     for (const contentScript of contentScripts as Array<{
       js?: unknown
       css?: unknown
     }>) {
       const js = contentScript?.js
+
       if (Array.isArray(js)) {
         for (const jsFile of js) addFile(jsFile)
       }
+
       const css = contentScript?.css
+
       if (Array.isArray(css)) {
         for (const cssFile of css) addFile(cssFile)
       }
@@ -143,6 +151,7 @@ function writeFileAtomically(targetPath: string, content: string) {
   )
 
   fs.mkdirSync(directory, {recursive: true})
+
   try {
     fs.writeFileSync(tempPath, content, 'utf-8')
     fs.renameSync(tempPath, targetPath)
@@ -209,6 +218,7 @@ export class PersistManifestToDisk {
           // The entries are missing because this compiler never included
           // them; the restart already scheduled emits them, so stay quiet.
           if (isCompilerRestarting(compiler)) return
+
           const sample = missingFiles.slice(0, 5).join('\n  - ')
           const more =
             missingFiles.length > 5
@@ -230,6 +240,7 @@ export class PersistManifestToDisk {
           ) as Error & {file?: string}
           err.file = 'manifest.json'
           compilation.errors.push(err)
+
           return
         }
 
@@ -242,6 +253,7 @@ export class PersistManifestToDisk {
           } catch {
             // Ignore
           }
+
           writeFileAtomically(manifestOutputPath, manifestSource)
         } catch (error) {
           const err = new rspack.WebpackError(

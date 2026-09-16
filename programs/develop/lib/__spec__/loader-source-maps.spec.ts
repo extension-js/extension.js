@@ -25,6 +25,7 @@ describe('loader source maps', () => {
     expect(
       inputOrIdentityMap(JSON.stringify(received), '/p/a.ts', 'a')
     ).toEqual(received)
+
     expect(inputOrIdentityMap(undefined, '/p/a.ts', 'a\nb').mappings).toBe(
       'AAAA;AACA'
     )

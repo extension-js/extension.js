@@ -77,6 +77,7 @@ export function __resetTelemetrySignalsForTest(): void {
       process.removeListener(signal, listener as never)
     }
   }
+
   ownListeners.clear()
   handled = false
   installed = false
@@ -101,6 +102,7 @@ export async function handleTerminationSignal(
 ): Promise<void> {
   // A SIGINT followed by a SIGTERM is one shutdown, not two outcomes.
   if (handled) return
+
   handled = true
 
   const counted = deps.sessionStarted()
@@ -144,12 +146,14 @@ export function installTelemetrySignalHandlers(): void {
   // An opted-out run installs nothing at all, so it keeps the exact signal
   // behavior it has today.
   if (!getTelemetryConsent().enabled) return
+
   installed = true
 
   for (const signal of TERMINATION_SIGNALS) {
     const listener = () => {
       void handleTerminationSignal(signal, defaultDeps())
     }
+
     ownListeners.add(listener)
     // `once`: a second Ctrl-C then finds no listener of ours and the default
     // action kills the process, so an interrupt is never swallowed twice.

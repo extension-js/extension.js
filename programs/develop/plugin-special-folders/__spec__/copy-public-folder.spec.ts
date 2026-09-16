@@ -14,6 +14,7 @@ const copyApply = vi.fn()
 let lastCopyOptions: any = null
 vi.mock('@rspack/core', async () => {
   const actual = await vi.importActual<any>('@rspack/core')
+
   return {
     ...actual,
     rspack: {
@@ -74,6 +75,7 @@ const createFakeCompiler = (
     },
     hooks
   }
+
   return compiler
 }
 
@@ -134,6 +136,7 @@ describe('SpecialFoldersPlugin (public copying and guards)', () => {
     new SpecialFoldersPlugin({manifestPath: '/project/manifest.json'}).apply(
       compiler as any
     )
+
     expect(capturedErrors.length).toBeGreaterThan(0)
     expect(String(capturedErrors[0])).toMatch(
       /manifest\.json must not be placed under public\//i
@@ -146,8 +149,10 @@ describe('SpecialFoldersPlugin (public copying and guards)', () => {
     new SpecialFoldersPlugin({manifestPath: '/project/manifest.json'}).apply(
       compiler as any
     )
+
     expect(warnApply).toHaveBeenCalledTimes(1)
   })
+
   it('copies from the folder beside the manifest and notes the placement', () => {
     ;(FS.existsSync as any).mockImplementation(
       (absPath: string) => toPosix(absPath) === '/project/src/public'
@@ -155,6 +160,7 @@ describe('SpecialFoldersPlugin (public copying and guards)', () => {
     ;(FS.statSync as any).mockImplementation((_absPath: string) => ({
       isDirectory: () => true
     }))
+
     const warnings: any[] = []
     const compiler = createFakeCompiler('production')
     const originalTap = compiler.hooks.thisCompilation.tap
@@ -175,6 +181,7 @@ describe('SpecialFoldersPlugin (public copying and guards)', () => {
     expect(toPosix(lastCopyOptions.patterns[0].from)).toBe(
       '/project/src/public'
     )
+
     expect(warnings.map((w) => w.name)).toContain('PublicLayoutWarning')
     expect(String(warnings[0].message)).toContain('/project/src/public')
     expect(String(warnings[0].message)).toContain('/project/public')
@@ -187,6 +194,7 @@ describe('SpecialFoldersPlugin (public copying and guards)', () => {
     ;(FS.statSync as any).mockImplementation((_absPath: string) => ({
       isDirectory: () => true
     }))
+
     const warnings: any[] = []
     const compiler = createFakeCompiler('production')
     const originalTap = compiler.hooks.thisCompilation.tap

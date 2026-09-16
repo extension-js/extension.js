@@ -43,10 +43,12 @@ function project(manifestVersion: 2 | 3) {
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'maps', version: '0.0.0'})
   )
+
   fs.writeFileSync(
     path.join(root, 'tsconfig.json'),
     JSON.stringify({compilerOptions: {strict: true, target: 'ES2020'}})
   )
+
   fs.mkdirSync(path.join(root, 'lib'))
   fs.mkdirSync(path.join(root, 'pages'))
   fs.writeFileSync(path.join(root, 'content.ts'), CONTENT_TS)
@@ -58,6 +60,7 @@ function project(manifestVersion: 2 | 3) {
     path.join(root, 'pages', 'popup.html'),
     '<!doctype html><title>p</title><script src="./popup.ts"></script>'
   )
+
   const manifest =
     manifestVersion === 3
       ? {
@@ -82,6 +85,7 @@ function project(manifestVersion: 2 | 3) {
       ]
     })
   )
+
   return root
 }
 
@@ -89,6 +93,7 @@ async function build(root: string) {
   const {extensionBuild} = await import('../command-build')
   const previous = process.env.VITEST
   process.env.VITEST = 'true'
+
   try {
     const summary = await extensionBuild(root, {
       browser: 'chrome',
@@ -102,9 +107,11 @@ async function build(root: string) {
     if (previous === undefined) delete process.env.VITEST
     else process.env.VITEST = previous
   }
+
   const distDir = path.join(root, 'dist', 'chrome')
   const files = fs.readdirSync(distDir, {recursive: true}).map(String)
   const bundles = files.filter((file) => file.endsWith('.js'))
+
   return {distDir, files, bundles}
 }
 
@@ -115,11 +122,14 @@ function resolveToken(distDir: string, bundles: string[], token: string) {
     const lines = code.split('\n')
     const generatedLine = lines.findIndex((line) => line.includes(token))
     if (generatedLine < 0) continue
+
     const mapPath = path.join(distDir, `${rel}.map`)
     expect(fs.existsSync(mapPath), `${rel}.map`).toBe(true)
     const map = decodeSourceMap(fs.readFileSync(mapPath, 'utf8'))
+
     return {bundle: rel, code, map, original: originalFor(map, generatedLine)}
   }
+
   throw new Error(`token ${token} not found in any bundle`)
 }
 
@@ -139,10 +149,13 @@ function expectResolves(
     hit.original?.source.replace(/^webpack:\/\/[^/]*\//, ''),
     token
   ).toMatch(new RegExp(`${sourceFile.replace('.', '\\.')}$`))
+
   expect(hit.original?.line, `${token} line`).toBe(
     sourceLineOf(sourceText, token)
   )
+
   expect(hit.map.sourcesContent.join('\n')).toContain('interface ')
+
   return hit
 }
 
@@ -159,6 +172,7 @@ describe('dev build source maps describe the source', () => {
     expect(content.map.sourcesContent.join('\n')).toContain(
       'const greeting: Greeting'
     )
+
     expectResolves(distDir, bundles, 'CLASSIC_A_TOKEN', 'lib/a.ts', CLASSIC_A)
     expectResolves(distDir, bundles, 'CLASSIC_B_TOKEN', 'lib/b.ts', CLASSIC_B)
     expectResolves(distDir, bundles, 'BG_TOKEN', 'background.ts', BACKGROUND_TS)
@@ -174,8 +188,10 @@ describe('dev build source maps describe the source', () => {
       'content.ts',
       CONTENT_TS
     )
+
     expectResolves(distDir, bundles, 'CLASSIC_B_TOKEN', 'lib/b.ts', CLASSIC_B)
     expectResolves(distDir, bundles, 'BG_TOKEN', 'background.ts', BACKGROUND_TS)
+
     for (const rel of bundles) {
       const code = fs.readFileSync(path.join(distDir, rel), 'utf8')
       expect(code, rel).not.toMatch(/\beval\(/)

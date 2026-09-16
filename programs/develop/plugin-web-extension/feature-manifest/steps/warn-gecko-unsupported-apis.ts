@@ -126,6 +126,7 @@ export function geckoUnsupportedApis(
   if (engine === 'webkit') {
     return Object.keys(webkitUnsupportedApis) as GeckoUnsupportedApi[]
   }
+
   return manifestVersion === 2 ? ['sidePanel', 'action'] : ['sidePanel']
 }
 
@@ -149,6 +150,7 @@ export function usesGeckoUnsupportedApi(
   const memberRe = new RegExp(
     `\\b(?:chrome|browser)\\s*\\.\\s*${api}\\s*${chain}\\.\\s*[A-Za-z_$]`
   )
+
   return memberRe.test(source)
 }
 
@@ -170,6 +172,7 @@ export function usesWebkitUnsupportedMember(
   const memberRe = new RegExp(
     `\\b(?:chrome|browser)\\s*\\.\\s*${entry.api}\\s*\\.\\s*${entry.member}(?![\\w$])${tail}`
   )
+
   return memberRe.test(source)
 }
 
@@ -196,6 +199,7 @@ function scanTargets(
     test: (text: string) => usesGeckoUnsupportedApi(text, api, engine)
   }))
   if (engine !== 'webkit') return targets
+
   for (const entry of webkitMemberEntries) {
     targets.push({
       key: `${entry.api}.${entry.member}`,
@@ -204,6 +208,7 @@ function scanTargets(
       test: (text: string) => usesWebkitUnsupportedMember(text, entry)
     })
   }
+
   return targets
 }
 
@@ -237,28 +242,34 @@ function readEmittedScripts(
 ): Map<string, string> {
   const scripts = new Map<string, string>()
   let assets: ReturnType<NonNullable<ScannableCompilation['getAssets']>>
+
   try {
     assets = compilation.getAssets?.() || []
   } catch {
     return scripts
   }
+
   for (const asset of assets) {
     if (!EMITTED_SCRIPT_RE.test(asset.name)) continue
+
     try {
       const raw = asset.source.source()
       const text = typeof raw === 'string' ? raw : raw.toString('utf-8')
       if (text.length > MAX_ASSET_BYTES) continue
+
       scripts.set(asset.name, text)
     } catch {
       // A source that can't be read is not a source the linter reads
     }
   }
+
   return scripts
 }
 
 function readProjectSource(resource: string): string | undefined {
   try {
     if (fs.statSync(resource).size > MAX_SOURCE_BYTES) return undefined
+
     return fs.readFileSync(resource, 'utf-8')
   } catch {
     return undefined
@@ -273,29 +284,22 @@ function emittedFilesOf(
   module: ScannableModule
 ): string[] | undefined {
   if (!compilation.chunkGraph) return undefined
+
   try {
     const files: string[] = []
+
     for (const chunk of compilation.chunkGraph.getModuleChunksIterable(
       module
     )) {
       for (const file of chunk.files || []) files.push(file)
     }
+
     return files
   } catch {
     return undefined
   }
 }
 
-/**
- * Finds project source that reads a Chromium-only API and still ships in the
- * built Gecko bundle. The source scan names the file, the emitted-asset check
- * clears a call the bundler compiled out behind a build-time browser branch,
- * and an emitted script nobody explains is reported under its own name so
- * nothing addons-linter would flag goes unmentioned.
- *
- * With requireEmittedEvidence a source hit no emitted script confirms is
- * dropped instead of reported, so the answer rests on what the build wrote.
- */
 export function findGeckoUnsupportedApiUses(
   compilation: ScannableCompilation,
   manifestVersion: unknown,
@@ -309,9 +313,11 @@ export function findGeckoUnsupportedApiUses(
 
   for (const outer of compilation.modules) {
     const inner = outer.modules ? [...outer.modules] : [outer]
+
     for (const module of inner) {
       const resource = scannableSourcePath(module.resource)
       if (!resource) continue
+
       const source = readProjectSource(resource)
       if (source === undefined) continue
 
@@ -320,19 +326,23 @@ export function findGeckoUnsupportedApiUses(
         if (uses.has(key) || !target.test(source)) continue
 
         const files = emittedFilesOf(compilation, outer)
+
         if (files) {
           const carrying = files.filter((file) => {
             const text = emitted.get(file)
+
             return text !== undefined && target.test(text)
           })
           // The bundler dropped the call, so the linter never sees it.
           if (!carrying.length) continue
+
           for (const file of carrying) explained.add(`${target.key}\0${file}`)
         } else if (requireEmittedEvidence) {
           // Nothing ties this module to a script the build wrote, so whether
           // the call ships is unproven and warning on it would be a guess.
           continue
         }
+
         uses.set(key, {
           api: target.api,
           ...(target.member ? {member: target.member} : {}),
@@ -351,6 +361,7 @@ export function findGeckoUnsupportedApiUses(
     for (const target of targets) {
       const key = `${target.key}\0${name}`
       if (explained.has(key) || !target.test(text)) continue
+
       uses.set(key, {
         api: target.api,
         ...(target.member ? {member: target.member} : {}),
@@ -367,15 +378,18 @@ export function findGeckoUnsupportedApiUses(
 // may go through a symlink, so a label is tried against both spellings.
 function relativeToProject(projectPath: string, file: string): string {
   const candidates = [projectPath]
+
   try {
     candidates.push(fs.realpathSync(projectPath))
   } catch {
     // Ignore
   }
+
   for (const base of candidates) {
     const relative = path.relative(base, file)
     if (relative && !relative.startsWith('..')) return relative
   }
+
   return path.relative(projectPath, file) || file
 }
 
@@ -412,6 +426,7 @@ export function reportGeckoUnsupportedApis(
       engine,
       !isProduction
     )
+
     for (const use of uses) {
       const label = use.emitted
         ? use.file
@@ -422,8 +437,10 @@ export function reportGeckoUnsupportedApis(
       if (!isProduction && reported) {
         const signature = `${use.api}.${use.member || ''}\0${label}`
         if (reported.has(signature)) continue
+
         reported.add(signature)
       }
+
       // A member hit names a namespace Safari has, so it never reaches the
       // namespace table below and the two can't both speak for one line.
       const memberEntry = use.member
@@ -455,6 +472,7 @@ export function reportGeckoUnsupportedApis(
         engine === 'webkit'
           ? 'SafariUnsupportedApiWarning'
           : 'GeckoUnsupportedApiWarning'
+
       warn.file = label
       compilation.warnings.push(warn)
     }

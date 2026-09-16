@@ -12,6 +12,7 @@ describe('Chromium setupProcessSignalHandlers', () => {
       const existing = registeredHandlers.get(event) || []
       existing.push(handler)
       registeredHandlers.set(event, existing)
+
       return process
     })
 
@@ -159,8 +160,10 @@ describe('Firefox setupFirefoxProcessHandlers', () => {
       const existing = registeredHandlers.get(event) || []
       existing.push(handler)
       registeredHandlers.set(event, existing)
+
       return process
     })
+
     const mod = await import(
       '../../run-firefox/firefox-launch/process-handlers'
     )

@@ -13,6 +13,7 @@ function createCdpServer(
   return new Promise((resolve) => {
     const server = http.createServer((req, res) => {
       const url = req.url || ''
+
       if (Object.hasOwn(handlers, url)) {
         handlers[url](res)
       } else {

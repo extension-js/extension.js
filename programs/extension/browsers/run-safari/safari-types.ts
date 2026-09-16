@@ -29,7 +29,6 @@ export interface SafariBuildConfig {
   projectLocation: string
   appName: string
   bundleIdentifier: string
-  /** True when the bundle id was derived (dev.extensionjs.*), not user-set. */
   bundleIdDerived: boolean
   macOsOnly: boolean
   language: 'swift' | 'objc'

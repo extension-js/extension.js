@@ -51,6 +51,7 @@ function project(background: string) {
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'panel', version: '0.0.0'})
   )
+
   fs.writeFileSync(path.join(root, 'background.js'), background)
   fs.writeFileSync(
     path.join(root, 'manifest.json'),
@@ -63,6 +64,7 @@ function project(background: string) {
       background: {service_worker: 'background.js'}
     })
   )
+
   return root
 }
 
@@ -78,6 +80,7 @@ async function build(root: string, browser: 'chrome' | 'firefox') {
   console.warn = (...args: unknown[]) => lines.push(args.join(' '))
   console.error = (...args: unknown[]) => lines.push(args.join(' '))
   let summary: {errors_count: number; warnings?: string[]}
+
   try {
     // The linter would repeat the same two findings, this spec is about
     // the build naming them on its own.
@@ -96,7 +99,9 @@ async function build(root: string, browser: 'chrome' | 'firefox') {
     if (previous === undefined) delete process.env.VITEST
     else process.env.VITEST = previous
   }
+
   expect(summary.errors_count).toBe(0)
+
   return {summary, output: stripAnsi(lines.join('\n'))}
 }
 
@@ -116,6 +121,7 @@ describe('Chromium-only API use on a Firefox build', () => {
     expect(
       warnings.filter((w) => w.includes('uses chrome.sidePanel'))
     ).toHaveLength(1)
+
     expect(
       warnings.filter((w) => w.includes('uses chrome.action'))
     ).toHaveLength(1)

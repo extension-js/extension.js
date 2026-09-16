@@ -17,6 +17,7 @@ describe('html-lib utils', () => {
       search: '',
       hash: '#h?ignored'
     })
+
     const r3 = cleanAssetUrl('img/a.png')
     expect(r3).toEqual({cleanPath: 'img/a.png', search: '', hash: ''})
   })
@@ -36,6 +37,7 @@ describe('html-lib utils', () => {
         '/assets/hero.png'
       )
     ).toBe('/assets/hero.png 1x, hero-2x.png 2x')
+
     expect(
       rewriteSrcsetCandidate(
         '/assets/hero.png 1x, hero-2x.png 2x',

@@ -17,6 +17,7 @@ export function chromeUrlOverrides(manifest: Manifest, manifestPath?: string) {
         ...(manifest.chrome_url_overrides.bookmarks && {
           bookmarks: (() => {
             const raw = String(manifest.chrome_url_overrides.bookmarks)
+
             return getFilename(
               manifestPageOutputTarget(
                 raw,
@@ -30,6 +31,7 @@ export function chromeUrlOverrides(manifest: Manifest, manifestPath?: string) {
         ...(manifest.chrome_url_overrides.history && {
           history: (() => {
             const raw = String(manifest.chrome_url_overrides.history)
+
             return getFilename(
               manifestPageOutputTarget(
                 raw,
@@ -43,6 +45,7 @@ export function chromeUrlOverrides(manifest: Manifest, manifestPath?: string) {
         ...(manifest.chrome_url_overrides.newtab && {
           newtab: (() => {
             const raw = String(manifest.chrome_url_overrides.newtab)
+
             return getFilename(
               manifestPageOutputTarget(
                 raw,

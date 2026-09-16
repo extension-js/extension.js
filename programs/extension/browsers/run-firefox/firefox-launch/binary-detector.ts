@@ -10,7 +10,9 @@ import {isHeadlessGuardRequested} from '../../browsers-lib/shared-utils'
 
 export function parseFlatpakBinary(binary: string): {appId: string} | null {
   if (!binary || !binary.startsWith('flatpak:')) return null
+
   const appId = binary.substring(8).trim()
+
   return appId ? {appId} : null
 }
 
@@ -44,6 +46,7 @@ export class FirefoxBinaryDetector {
         input.headless
       )
     }
+
     const args: string[] = [
       ...(input.headless ? ['-headless'] : []),
       ...(input.debugPort > 0
@@ -53,6 +56,7 @@ export class FirefoxBinaryDetector {
       ...(input.headless ? [] : ['--foreground']),
       ...input.binaryArgs
     ]
+
     return {binary: input.binaryPath, args}
   }
 
@@ -69,6 +73,7 @@ export class FirefoxBinaryDetector {
 
     // Flatpak: rewrite to `flatpak run` with sandbox filesystem access
     const flatpak = parseFlatpakBinary(binaryPath)
+
     if (flatpak) {
       const args: string[] = [
         'run',
@@ -85,6 +90,7 @@ export class FirefoxBinaryDetector {
         ...(headless ? [] : ['--foreground']),
         ...additionalArgs
       ]
+
       return {binary: 'flatpak', args}
     }
 

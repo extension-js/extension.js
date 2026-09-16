@@ -61,6 +61,7 @@ export class InjectBridgeProducer {
             const controlAsset = new sources.RawSource(
               JSON.stringify({port: controlPort, instanceId})
             )
+
             if (compilation.getAsset(CONTROL_PORT_ASSET_NAME)) {
               compilation.updateAsset(CONTROL_PORT_ASSET_NAME, controlAsset)
             } else {
@@ -71,6 +72,7 @@ export class InjectBridgeProducer {
               if (!BACKGROUND_ASSET.test(asset.name)) continue
 
               const original = asset.source.source().toString()
+
               if (original.indexOf('__extjsBridgeProducerInstalled') !== -1) {
                 continue
               }

@@ -8,8 +8,6 @@
 //  ╚═════╝╚══════╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-// Must be the first import: exits with a version message on Node < 22.12,
-// where requiring the ESM-only commander would crash with ERR_REQUIRE_ESM.
 import './helpers/node-version-guard'
 import {Option, program} from 'commander'
 import {registerActCommands} from './commands/act'
@@ -83,8 +81,10 @@ function resolveAIHelpFormatFromArgv(argv: string[]): string {
   if (direct !== undefined) return direct
 
   const alias = scanArgvValue(argv, '--format')
+
   if (alias !== undefined) {
     warnDeprecatedOutputAlias('--format')
+
     return alias
   }
 
@@ -110,6 +110,7 @@ function failBeforeParse(
 ): never {
   // eslint-disable-next-line no-console
   console.error(humanMessage)
+
   if (wantsJsonOutput(argv)) {
     writeStdoutFrame(
       earlyExitEnvelope(
@@ -120,6 +121,7 @@ function failBeforeParse(
       )
     )
   }
+
   process.exit(1)
 }
 
@@ -129,13 +131,16 @@ function failBeforeParse(
 function applyOutputAliasArgvShim(argv: string[]): string[] {
   // --ai-help resolves the alias itself, and it never reaches a subcommand.
   if (argv.includes('--ai-help')) return argv
+
   const {argv: next, rewritten} = rewriteOutputAliasArgv(argv, valuedLongFlags)
   if (rewritten) warnDeprecatedOutputAlias('--format')
+
   return next
 }
 
 function applyNoBrowserArgvShim(argv: string[]): string[] {
   const hasNoRunner = argv.includes('--no-runner')
+
   if (hasNoRunner) {
     failBeforeParse(
       argv,
@@ -150,8 +155,10 @@ function applyNoBrowserArgvShim(argv: string[]): string[] {
   // --no-reload: dev-only; skips the reinjection wrapper + reload dispatch so an
   // open tab is undisturbed. Env var because plugins don't see CLI flags.
   const hasNoReload = nextArgv.includes('--no-reload')
+
   if (hasNoReload) {
     const command = resolveCommandFromArgv(nextArgv)
+
     if (command !== 'dev') {
       const message = `--no-reload is only supported on \`extension dev\` (got: ${command || 'no command'}).`
       failBeforeParse(
@@ -162,6 +169,7 @@ function applyNoBrowserArgvShim(argv: string[]): string[] {
         '--no-reload'
       )
     }
+
     process.env.EXTENSION_NO_RELOAD = 'true'
     nextArgv = nextArgv.filter((arg) => arg !== '--no-reload')
   }
@@ -186,6 +194,7 @@ function applyNoBrowserArgvShim(argv: string[]): string[] {
   }
 
   process.env.EXTENSION_CLI_NO_BROWSER = '1'
+
   return nextArgv.filter((arg) => arg !== '--no-browser')
 }
 
@@ -197,6 +206,7 @@ checkUpdates().then((updateMessage) => {
     // land at an arbitrary point inside a `--output json` result.
     // eslint-disable-next-line no-console
     console.error(updateMessage.message)
+
     return
   }
 
@@ -254,7 +264,9 @@ function runAIHelp(): void {
         2
       )
     )
+
     void exitAfterDrain(0)
+
     return
   }
 
@@ -262,6 +274,7 @@ function runAIHelp(): void {
     // eslint-disable-next-line no-console
     console.error(messages.invalidAIHelpFormat(format))
     void exitAfterDrain(1)
+
     return
   }
 
@@ -291,13 +304,17 @@ if (process.argv.includes('--ai-help')) {
         const exitCode = commanderExitCode(err)
         // exitCode 0 is help or version display, not a failure.
         if (exitCode === 0) process.exit(0)
+
         markCommandFailure(undefined, {code: CODES.E_ARGS, exitCode})
         // eslint-disable-next-line no-console
         console.error(commanderHumanError(err, commandName))
+
         if (asJson) {
           writeStdoutFrame(commanderErrorEnvelope(err, commandName))
         }
+
         await exitAfterDrain(exitCode)
+
         return
       }
 
@@ -309,11 +326,14 @@ if (process.argv.includes('--ai-help')) {
           CODES.E_INTERNAL,
         exitCode: 1
       })
+
       // eslint-disable-next-line no-console
       console.error(messages.unhandledError(err))
+
       if (asJson && !isErrorFramed(err)) {
         writeStdoutFrame(internalErrorEnvelope(err, commandName))
       }
+
       await exitAfterDrain(1)
     }
   })()

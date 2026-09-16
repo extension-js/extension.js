@@ -49,8 +49,10 @@ const ENV_PRELOAD_ORDER = [
 
 function applyEnvFile(filePath: string, shellOwned: ReadonlySet<string>) {
   const parsed = dotenv.parse(fs.readFileSync(filePath))
+
   for (const [key, value] of Object.entries(parsed)) {
     if (shellOwned.has(key)) continue
+
     process.env[key] = value
     preloadedEnvKeys.add(key)
   }
@@ -72,19 +74,24 @@ function loadCommonJsConfigWithStableDirname(absolutePath: string) {
   }).runInThisContext()
 
   fn(exports, requireFn, module, absolutePath, dirname)
+
   return module.exports?.default || module.exports
 }
 
 function findNearestWorkspaceRoot(startDir: string): string | undefined {
   let current = path.resolve(startDir)
+
   while (true) {
     if (fs.existsSync(path.join(current, 'pnpm-workspace.yaml'))) {
       return current
     }
+
     const parent = path.dirname(current)
+
     if (parent === current) {
       return undefined
     }
+
     current = parent
   }
 }
@@ -96,9 +103,11 @@ function preloadEnvFilesFromDir(envDir: string): EnvPreloadResult {
   const shellOwned = new Set(
     Object.keys(process.env).filter((key) => !preloadedEnvKeys.has(key))
   )
+
   for (const filename of ENV_PRELOAD_ORDER) {
     const filePath = path.join(envDir, filename)
     if (!fs.existsSync(filePath)) continue
+
     try {
       applyEnvFile(filePath, shellOwned)
       loadedAny = true
@@ -106,6 +115,7 @@ function preloadEnvFilesFromDir(envDir: string): EnvPreloadResult {
       // Ignore
     }
   }
+
   return {loadedAny, envDir}
 }
 
@@ -115,6 +125,7 @@ function findConfigFileIn(dir: string): string | undefined {
     path.join(dir, 'extension.config.mjs'),
     path.join(dir, 'extension.config.cjs')
   ]
+
   return candidates.find((p) => fs.existsSync(p))
 }
 
@@ -126,8 +137,10 @@ function resolveManifestDir(projectPath: string): string | undefined {
   } catch {
     return undefined
   }
+
   try {
     const structure = resolveProjectStructureSync(projectPath, {quiet: true})
+
     return path.dirname(structure.manifestPath)
   } catch {
     return undefined
@@ -140,10 +153,13 @@ function resolveManifestDir(projectPath: string): string | undefined {
 function findConfigFile(projectPath: string): string | undefined {
   const atRoot = findConfigFileIn(projectPath)
   if (atRoot) return atRoot
+
   const manifestDir = resolveManifestDir(projectPath)
+
   if (!manifestDir || path.resolve(manifestDir) === path.resolve(projectPath)) {
     return undefined
   }
+
   return findConfigFileIn(manifestDir)
 }
 
@@ -152,6 +168,7 @@ function preloadEnvFiles(projectDir: string) {
   if (local.loadedAny) return local
 
   const workspaceRoot = findNearestWorkspaceRoot(projectDir)
+
   if (workspaceRoot && workspaceRoot !== projectDir) {
     return preloadEnvFilesFromDir(workspaceRoot)
   }
@@ -175,6 +192,7 @@ async function loadConfigFile(configPath: string): Promise<FileConfig> {
   } catch (error) {
     // Don't poison the cache with a transient failure.
     loadedConfigCache.delete(absolutePath)
+
     throw error
   }
 }
@@ -190,6 +208,7 @@ async function loadConfigFileUncached(
     if (absolutePath.endsWith('.cjs')) {
       const requireFn = createRequire(import.meta.url)
       const required = requireFn(absolutePath)
+
       return required?.default || required
     }
 
@@ -205,6 +224,7 @@ async function loadConfigFileUncached(
         shimTmpDir = fs.mkdtempSync(
           path.join(os.tmpdir(), 'extension-config-esm-')
         )
+
         const tmpPath = path.join(shimTmpDir, path.basename(absolutePath))
 
         const envObjectLiteral = JSON.stringify(
@@ -228,6 +248,7 @@ async function loadConfigFileUncached(
 
     try {
       const module = await import(pathToFileURL(esmImportPath).href)
+
       return module.default || module
     } finally {
       if (shimTmpDir) {
@@ -240,6 +261,7 @@ async function loadConfigFileUncached(
     }
   } catch (err: unknown) {
     const error = err as Error
+
     try {
       if (!absolutePath.endsWith('.mjs')) {
         const requireFn = createRequire(import.meta.url)
@@ -268,6 +290,7 @@ async function loadConfigFileUncached(
               const tmpDir = fs.mkdtempSync(
                 path.join(os.tmpdir(), 'extension-config-')
               )
+
               try {
                 const tmpCjsPath = path.join(
                   tmpDir,
@@ -288,6 +311,7 @@ async function loadConfigFileUncached(
             throw requireErr
           }
         }
+
         return required?.default || required
       }
     } catch {
@@ -296,6 +320,7 @@ async function loadConfigFileUncached(
 
     try {
       const content = fs.readFileSync(absolutePath, 'utf-8')
+
       return JSON.parse(content)
     } catch (jsonErr: unknown) {
       throw new Error(
@@ -312,11 +337,14 @@ export async function loadCustomConfig(projectPath: string) {
     if (await isUsingExperimentalConfig(projectPath)) {
       try {
         const userConfig = await loadConfigFile(configPath)
+
         if (userConfig && typeof userConfig.config === 'function') {
           return userConfig.config
         }
+
         if (userConfig?.config && typeof userConfig.config === 'object') {
           const partial = userConfig.config as Configuration
+
           return (config: Configuration) => {
             // NOTE: Keep `webpack-merge` out of the module top-level imports so
             // preview/run-only paths can load config logic without pulling it in.
@@ -325,12 +353,14 @@ export async function loadCustomConfig(projectPath: string) {
             const {merge} = requireFn(
               'webpack-merge'
             ) as typeof import('webpack-merge')
+
             return merge(config, partial)
           }
         }
       } catch (err: unknown) {
         const error = err as Error
         console.error(messages.configLoadingError(configPath, error))
+
         throw err
       }
     }
@@ -359,6 +389,7 @@ export async function loadProjectConfigDefaults(
         const userConfig = (await loadConfigFile(configPath)) as
           | ProjectConfigDefaults
           | undefined
+
         return {
           ...(userConfig?.extensions
             ? {extensions: userConfig.extensions}
@@ -374,6 +405,7 @@ export async function loadProjectConfigDefaults(
       } catch (err: unknown) {
         const error = err as Error
         console.error(messages.configLoadingError(configPath, error))
+
         throw err
       }
     }
@@ -404,10 +436,12 @@ export async function loadCommandConfig(
     if (await isUsingExperimentalConfig(projectPath)) {
       try {
         const userConfig = await loadConfigFile(configPath)
+
         return (userConfig?.commands?.[command] || {}) as CommandLayerConfig
       } catch (err: unknown) {
         const error = err as Error
         console.error(messages.configLoadingError(configPath, error))
+
         throw err
       }
     }
@@ -426,6 +460,7 @@ export async function loadBrowserConfig(
     if (await isUsingExperimentalConfig(projectPath)) {
       try {
         const userConfig = await loadConfigFile(configPath)
+
         if (userConfig?.browser) {
           const browsers = userConfig.browser as Record<string, BrowserConfig>
 
@@ -446,6 +481,7 @@ export async function loadBrowserConfig(
             // 'safari' stops at its own block and does not adopt webkit-based.
             const direct = browsers[browserName]
             if (direct) return direct
+
             if (browserName !== 'safari') {
               if (browsers['webkit-based']) return browsers['webkit-based']
               if (browsers.safari) return browsers.safari
@@ -458,6 +494,7 @@ export async function loadBrowserConfig(
       } catch (err: unknown) {
         const error = err as Error
         console.error(messages.configLoadingError(configPath, error))
+
         throw err
       }
     }
@@ -478,9 +515,12 @@ export async function isUsingExperimentalConfig(projectPath: string) {
       if (isDebug()) {
         console.log(messages.isUsingExperimentalConfig('extension.config.js'))
       }
+
       userMessageDelivered = true
     }
+
     return true
   }
+
   return false
 }

@@ -21,11 +21,14 @@ vi.mock('../helpers/extension-develop-runtime', () => ({
   })),
   loadExtensionDevelopPreviewModule: vi.fn(async () => ({extensionPreview}))
 }))
+
 vi.mock('../browsers/run-only', () => ({
   runOnlyPreviewBrowser: vi.fn(async () => {})
 }))
+
 vi.mock('../commands/dev-wait', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../commands/dev-wait')>()
+
   return {...actual, runWaitMode: (input: unknown) => runWaitMode(input as any)}
 })
 
@@ -65,6 +68,7 @@ describe('extension start', () => {
       metadataCommand: 'start',
       silent: true
     })
+
     // Unset polyfill stays undefined so commands.start.polyfill can apply.
     // The start-phase build still defaults it on inside extensionBuild.
     expect(buildOpts.polyfill).toBeUndefined()
@@ -75,6 +79,7 @@ describe('extension start', () => {
       mode: 'production',
       metadataCommand: 'start'
     })
+
     // Logger defaults live in extensionPreview, not forced at the CLI layer.
     expect(previewOpts.logLevel).toBeUndefined()
     expect(previewOpts.logFormat).toBeUndefined()
@@ -161,6 +166,7 @@ describe('extension start', () => {
     expect(
       await run(['start', '.', '--browser', 'netscape', '--output', 'json'])
     ).toBe(1)
+
     const frame = JSON.parse(String(logSpy.mock.calls[0][0]))
     expect(frame.status).toBe('usage')
     expect(frame.error.code).toBe('E_UNSUPPORTED_BROWSER')
@@ -175,6 +181,7 @@ describe('extension start', () => {
     expect(
       await run(['start', '.', '--browser', 'safari', '--output', 'json'])
     ).toBe(1)
+
     const frame = JSON.parse(String(logSpy.mock.calls[0][0]))
     expect(frame.status).toBe('usage')
     expect(frame.error.code).toBe('E_COMMAND_UNSUPPORTED_FOR_TARGET')
@@ -188,6 +195,7 @@ describe('extension start', () => {
     expect(runWaitMode).toHaveBeenCalledWith(
       expect.objectContaining({command: 'start'})
     )
+
     const payload = JSON.parse(String(logSpy.mock.calls[0][0]))
     // The pre-envelope wait frame now rides inside value.
     expect(payload).toMatchObject({
@@ -198,6 +206,7 @@ describe('extension start', () => {
       error: null,
       value: {mode: 'wait', command: 'start'}
     })
+
     expect(extensionBuild).not.toHaveBeenCalled()
   })
 

@@ -13,6 +13,7 @@ describe('project-first postcss plugin resolution', () => {
       path.join(pluginDir, 'package.json'),
       JSON.stringify({name, version: '1.0.0', main: 'index.js'})
     )
+
     fs.writeFileSync(
       path.join(pluginDir, 'index.js'),
       `module.exports = (opts) => ({postcssPlugin: '${name}', opts: opts})`
@@ -40,6 +41,7 @@ describe('project-first postcss plugin resolution', () => {
         }
       })
     )
+
     writeFakePlugin(tmp, 'fake-postcss-plugin')
 
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -67,6 +69,7 @@ describe('project-first postcss plugin resolution', () => {
       path.join(tmp, 'postcss.config.mjs'),
       `export default {plugins: {'fake-postcss-plugin': {}}}`
     )
+
     writeFakePlugin(tmp, 'fake-postcss-plugin')
 
     const {maybeUsePostCss} = await import('../../css-tools/postcss')
@@ -91,6 +94,7 @@ describe('project-first postcss plugin resolution', () => {
         }
       })
     )
+
     writeFakePlugin(tmp, 'fake-postcss-plugin')
 
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})

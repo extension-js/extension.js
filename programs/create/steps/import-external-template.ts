@@ -55,6 +55,7 @@ const NETWORK_TIMEOUT_MS = (() => {
     String(process.env.EXTENSION_CREATE_TIMEOUT_MS || ''),
     10
   )
+
   return Number.isFinite(raw) && raw > 0 ? raw : 60_000
 })()
 
@@ -99,14 +100,17 @@ export function resolveCatalogUrls(
   if (/^refs\/(heads|tags)\//.test(ref)) return [`${CODELOAD_BASE}/${ref}`]
   // A full 40-hex SHA is an unambiguous commit; codeload serves it bare.
   if (/^[0-9a-f]{40}$/i.test(ref)) return [`${CODELOAD_BASE}/${ref}`]
+
   const urls: string[] = []
   // A short hex ref is probably an abbreviated SHA: try the commit namespace
   // first, then fall back to branch/tag in case it is really a ref name.
   if (/^[0-9a-f]{7,39}$/i.test(ref)) urls.push(`${CODELOAD_BASE}/${ref}`)
+
   urls.push(
     `${CODELOAD_BASE}/refs/heads/${ref}`,
     `${CODELOAD_BASE}/refs/tags/${ref}`
   )
+
   return urls
 }
 
@@ -180,6 +184,7 @@ export class InsecureTemplateUrlError extends Error {
 // network path can rewrite a plain HTTP download. Opting in is explicit.
 export function isRefusedHttpTemplateUrl(url: string): boolean {
   if (process.env.EXTENSION_ALLOW_HTTP_TEMPLATE === 'true') return false
+
   return /^http:\/\//i.test(url)
 }
 
@@ -190,6 +195,7 @@ export function refuseHttpRedirect(options: {
   href?: string
 }): void {
   const target = String(options.href || `${options.protocol || ''}//`)
+
   if (isRefusedHttpTemplateUrl(target)) {
     throw new InsecureTemplateUrlError(target)
   }
@@ -199,10 +205,13 @@ function findInsecureTemplateUrlError(
   error: unknown
 ): InsecureTemplateUrlError | null {
   let current: unknown = error
+
   for (let depth = 0; current && depth < 4; depth++) {
     if (current instanceof InsecureTemplateUrlError) return current
+
     current = (current as {cause?: unknown}).cause
   }
+
   return null
 }
 
@@ -227,6 +236,7 @@ async function downloadArchive(
   attempts = 2
 ): Promise<Buffer> {
   let lastError: unknown
+
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
       const {data} = await axios.get(url, {
@@ -236,18 +246,22 @@ async function downloadArchive(
         headers: {'User-Agent': 'extension-create'},
         beforeRedirect: refuseHttpRedirect
       })
+
       return Buffer.from(data)
     } catch (error) {
       lastError = error
       if (findInsecureTemplateUrlError(error)) break
+
       // A deterministic 4xx (a ref that does not exist) will not change on a
       // retry; only back off for network errors, rate limits, and 5xx.
       const status = (error as {response?: {status?: number}})?.response?.status
       const retriable = status === undefined || status === 429 || status >= 500
       if (attempt >= attempts || !retriable) break
+
       await sleep(400 * attempt)
     }
   }
+
   throw lastError
 }
 
@@ -259,9 +273,11 @@ export async function extractExamplesTemplateFromZip(
   projectPath: string
 ): Promise<number> {
   const entries = Object.entries(unzipSync(new Uint8Array(zipBuffer)))
+
   if (!entries.length) {
     throw new TemplateNotFoundError(templateName, new Error('empty archive'))
   }
+
   // GitHub archives wrap everything in a single top dir (e.g. `examples-main/`).
   const archiveRoot = entries[0][0].split('/')[0]
   const wanted = `${archiveRoot}/examples/${templateName}/`
@@ -272,21 +288,26 @@ export async function extractExamplesTemplateFromZip(
 
   const root = path.resolve(projectPath)
   let written = 0
+
   for (const [name, data] of files) {
     const rel = name.slice(wanted.length)
     if (!rel) continue
+
     const dest = path.resolve(root, rel)
     const relative = path.relative(root, dest)
+
     // Zip-slip guard: a hostile archive must not write outside the project.
     if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
       throw new Error(
         `Refusing to extract zip entry outside the destination: ${name}`
       )
     }
+
     await fs.mkdir(path.dirname(dest), {recursive: true})
     await fs.writeFile(dest, data)
     written++
   }
+
   return written
 }
 
@@ -298,16 +319,19 @@ async function importFromExamplesCatalog(
 ): Promise<{source: string; ref?: string}> {
   const ref = process.env.EXTENSION_CREATE_TEMPLATE_REF || DEFAULT_TEMPLATES_REF
   const overrideUrl = process.env.EXTENSION_CREATE_TEMPLATE_URL || undefined
+
   // The override feeds the same archive into the project, so it follows the
   // same https rule as a template URL passed on the command line.
   if (overrideUrl && isRefusedHttpTemplateUrl(overrideUrl)) {
     throw new InsecureTemplateUrlError(overrideUrl)
   }
+
   const urls = resolveCatalogUrls(ref, overrideUrl)
 
   let buffer: Buffer | undefined
   let source: string | undefined
   let lastError: unknown
+
   // Try each candidate namespace; only a download failure falls through, so a
   // present-but-missing slug still surfaces as TemplateNotFoundError below.
   for (const candidate of urls) {
@@ -320,12 +344,17 @@ async function importFromExamplesCatalog(
       // back to the bundled template.
       const insecure = findInsecureTemplateUrlError(error)
       if (insecure) throw insecure
+
       lastError = error
     }
   }
-  if (!buffer || !source)
+
+  if (!buffer || !source) {
     throw new TemplateDownloadError(templateName, lastError)
+  }
+
   await extractExamplesTemplateFromZip(buffer, templateName, projectPath)
+
   // An explicit URL override is its own provenance; otherwise record the ref.
   return {source, ref: overrideUrl ? undefined : ref}
 }
@@ -385,13 +414,16 @@ async function copyBundledTemplate(
 ): Promise<TemplateProvenance | undefined> {
   const localTemplate = bundledTemplateDir(templateName)
   if (!existsSync(localTemplate)) return undefined
+
   await utils.copyDirectoryWithSymlinks(localTemplate, projectPath)
   await restoreOwnerGitignore(projectPath, ownerGitignore)
   await removeTemplateScaffoldingFiles(projectPath)
   const dropped = await removeStaleTemplateLockfiles(projectPath)
+
   if (dropped.length) {
     logger.log(messages.removedStaleTemplateLockfiles(dropped))
   }
+
   return {template: templateName, source: 'bundled'}
 }
 
@@ -432,13 +464,16 @@ export async function removeStaleTemplateLockfiles(
   projectPath: string
 ): Promise<string[]> {
   const removed: string[] = []
+
   for (const name of TEMPLATE_LOCKFILE_NAMES) {
     const target = path.join(projectPath, name)
+
     if (existsSync(target)) {
       await fs.rm(target, {force: true})
       removed.push(name)
     }
   }
+
   return removed
 }
 
@@ -470,6 +505,7 @@ async function getZipSourcePath(
   const onlyDir = dirs[0]
   // Common release archives wrap files in <name>.<browser>/.
   if (onlyDir.name === archiveBase) return path.join(tempPath, onlyDir.name)
+
   return tempPath
 }
 
@@ -495,16 +531,19 @@ export async function cleanupFailedImport(
 ): Promise<void> {
   if (ownsProjectDir) {
     await fs.rm(projectPath, {recursive: true, force: true}).catch(() => {})
+
     return
   }
 
   const keep = new Set(preExistingEntries)
   let entries: string[] = []
+
   try {
     entries = await fs.readdir(projectPath)
   } catch {
     return
   }
+
   await Promise.all(
     entries
       .filter((entry) => !keep.has(entry))
@@ -531,15 +570,19 @@ async function restoreOwnerGitignore(
   ownerContents: string | null
 ): Promise<void> {
   if (ownerContents === null) return
+
   const target = path.join(projectPath, '.gitignore')
   let templateContents = ''
+
   try {
     templateContents = await fs.readFile(target, 'utf8')
   } catch {
     // The template shipped no .gitignore, the owner's file is untouched.
     await fs.writeFile(target, ownerContents)
+
     return
   }
+
   const ownerLines = new Set(
     ownerContents.split(/\r?\n/).map((line) => line.trim())
   )
@@ -583,6 +626,7 @@ export async function importExternalTemplate(
   const dirExistedBeforeImport = existsSync(projectPath)
   const ownsProjectDir = options?.ownsProjectDir ?? !dirExistedBeforeImport
   let preExistingEntries: string[] = []
+
   if (dirExistedBeforeImport) {
     try {
       preExistingEntries = await fs.readdir(projectPath)
@@ -628,10 +672,12 @@ export async function importExternalTemplate(
         GCM_INTERACTIVE: 'never'
       }
       const savedEnv: Record<string, string | undefined> = {}
+
       for (const [k, v] of Object.entries(gitEnvKeys)) {
         savedEnv[k] = process.env[k]
         process.env[k] = v
       }
+
       try {
         await withTimeout(
           withSuppressedOutput(async () =>
@@ -656,6 +702,7 @@ export async function importExternalTemplate(
     }
 
     let provenance: TemplateProvenance
+
     if (isGithub) {
       await runGoGitIt(template, tempPath)
       const candidates = await fs.readdir(tempPath, {withFileTypes: true})
@@ -676,11 +723,13 @@ export async function importExternalTemplate(
       const looksZip =
         /zip|octet-stream/i.test(contentType) ||
         template.toLowerCase().endsWith('.zip')
+
       if (!looksZip) {
         throw new Error(
           `Remote template does not appear to be a ZIP archive: ${template}`
         )
       }
+
       await extractZipBufferTo(Buffer.from(data), tempPath)
       const sourcePath = await getZipSourcePath(tempPath, template)
       await utils.moveDirectoryContents(sourcePath, projectPath)
@@ -702,6 +751,7 @@ export async function importExternalTemplate(
     await restoreOwnerGitignore(projectPath, ownerGitignore)
     await removeTemplateScaffoldingFiles(projectPath)
     const droppedLockfiles = await removeStaleTemplateLockfiles(projectPath)
+
     if (droppedLockfiles.length) {
       logger.log(messages.removedStaleTemplateLockfiles(droppedLockfiles))
     }
@@ -729,6 +779,7 @@ export async function importExternalTemplate(
         logger,
         ownerGitignore
       )
+
       if (fallback) {
         logger.log(
           messages.templateOfflineFallback(
@@ -737,12 +788,15 @@ export async function importExternalTemplate(
             error
           )
         )
+
         return fallback
       }
     }
+
     // Distinguish a genuinely-missing slug from a download/timeout/rate-limit
     // failure; the old path reported every failure as a bad template name (#56).
     const insecureUrl = findInsecureTemplateUrlError(error)
+
     if (insecureUrl) {
       logger.error(messages.templateUrlNotHttps(insecureUrl.url))
     } else if (error instanceof TemplateNotFoundError) {
@@ -757,9 +811,11 @@ export async function importExternalTemplate(
     } else {
       logger.error(messages.installingFromTemplateError(templateName, error))
     }
+
     // Clean the partial scaffold so a retry into the same name is not
     // poisoned, without ever touching content that pre-existed this run.
     await cleanupFailedImport(projectPath, ownsProjectDir, preExistingEntries)
+
     throw error
   }
 }

@@ -95,6 +95,7 @@ function failAndExit(
   if (asJson) {
     printFrame(ENVELOPE.fail('dev', status, error, hint ? {hint} : {}))
   }
+
   process.exit(1)
 }
 
@@ -103,6 +104,7 @@ function failAndExit(
 function resolveRequestedPort(value: unknown): number {
   const parsed =
     typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10)
+
   return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : 8080
 }
 
@@ -268,18 +270,22 @@ export function registerDevCommand(program: Command) {
             'dev'
           )) as DevOptions['browser']) ??
           'chromium'
+
         if (devOptions.debug || devOptions.author || devOptions.authorMode) {
           process.env.EXTENSION_DEBUG = '1'
           // Alias kept for one minor: extension-develop still reads the old name.
           process.env.EXTENSION_AUTHOR_MODE = 'true'
-          if (!process.env.EXTENSION_VERBOSE)
+
+          if (!process.env.EXTENSION_VERBOSE) {
             process.env.EXTENSION_VERBOSE = '1'
+          }
         }
 
         const asJson = resolveOutputFormat(devOptions) === 'json'
 
         if (devOptions.parentPid !== undefined) {
           const parentPid = parseParentPid(devOptions.parentPid)
+
           if (parentPid === undefined) {
             const message = `--parent-pid expects a positive integer pid, got: ${devOptions.parentPid}`
             // eslint-disable-next-line no-console
@@ -289,6 +295,7 @@ export function registerDevCommand(program: Command) {
               message
             })
           }
+
           setupParentWatchdog(parentPid)
         }
 
@@ -380,6 +387,7 @@ export function registerDevCommand(program: Command) {
               // eslint-disable-next-line no-console
               console.error(messages.noBrowserWithWait('dev'))
             }
+
             failAndExit(asJson, 'usage', {
               code: CODES.E_INVALID_OPTION,
               message:
@@ -413,6 +421,7 @@ export function registerDevCommand(program: Command) {
                   {hint: failure.hint}
                 )
               )
+
               markErrorFramed(error)
             }
 
@@ -431,6 +440,7 @@ export function registerDevCommand(program: Command) {
               })
             )
           }
+
           return
         }
 
@@ -567,6 +577,7 @@ export function registerDevCommand(program: Command) {
                 {hint: 'Fix the error above and run dev again.'}
               )
             )
+
             process.exit(1)
           }
         }

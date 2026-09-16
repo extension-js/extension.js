@@ -49,6 +49,7 @@ export class EmitManifest {
               ) as Error & {file?: string}
               err.file = 'manifest.json'
               compilation.errors.push(err)
+
               return
             }
 

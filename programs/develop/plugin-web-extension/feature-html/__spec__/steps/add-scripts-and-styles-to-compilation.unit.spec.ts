@@ -7,6 +7,7 @@ function makeTmp(name: string) {
   const tmp = path.join(__dirname, `.tmp-${name}`)
   fs.rmSync(tmp, {recursive: true, force: true})
   fs.mkdirSync(tmp, {recursive: true})
+
   return tmp
 }
 
@@ -39,6 +40,7 @@ describe('AddScriptsAndStylesToCompilation', () => {
       htmlPath,
       `<html><head><link rel="stylesheet" href="/styles.css"></head><body><script src="main.js"></script></body></html>`
     )
+
     fs.writeFileSync(path.join(tmp, 'main.js'), '// main')
     const manifestPath = path.join(tmp, 'manifest.json')
     fs.writeFileSync(manifestPath, '{}')
@@ -47,16 +49,19 @@ describe('AddScriptsAndStylesToCompilation', () => {
       manifestPath,
       includeList: {'feature/index': htmlPath}
     }).apply(compiler as any)
+
     expect(
       compiler.options.entry['feature/index'].import.some((p: string) =>
         p.endsWith('minimum-script-file')
       )
     ).toBe(false)
+
     expect(
       compiler.options.entry['feature/index'].import.some((p: string) =>
         p.endsWith('main.js')
       )
     ).toBe(true)
+
     expect(
       compiler.options.entry['feature/index'].import.some((p: string) =>
         p.endsWith('/styles.css')
@@ -71,6 +76,7 @@ describe('AddScriptsAndStylesToCompilation', () => {
       htmlPath,
       `<html><body><script src="exists.js"></script><script src="dead-ref.js"></script></body></html>`
     )
+
     fs.writeFileSync(path.join(tmp, 'exists.js'), '// exists')
     const manifestPath = path.join(tmp, 'manifest.json')
     fs.writeFileSync(manifestPath, '{}')
@@ -79,6 +85,7 @@ describe('AddScriptsAndStylesToCompilation', () => {
       manifestPath,
       includeList: {'feature/index': htmlPath}
     }).apply(compiler as any)
+
     const imports = compiler.options.entry['feature/index'].import as string[]
     expect(imports.some((p) => p.endsWith('exists.js'))).toBe(true)
     expect(imports.some((p) => p.endsWith('dead-ref.js'))).toBe(false)
@@ -106,6 +113,7 @@ describe('AddScriptsAndStylesToCompilation', () => {
       manifestPath,
       includeList: {'feature/index': htmlPath}
     }).apply(compiler as any)
+
     const imports = compiler.options.entry['feature/index'].import as string[]
     const shimIdx = imports.findIndex((p) => p.includes('preact-refresh-shim'))
     const hmrIdx = imports.findIndex((p) =>
@@ -115,10 +123,12 @@ describe('AddScriptsAndStylesToCompilation', () => {
       shimIdx,
       'preact-refresh-shim must be in entry chain'
     ).toBeGreaterThanOrEqual(0)
+
     expect(
       hmrIdx,
       'rspack-dev-server client must be in entry chain'
     ).toBeGreaterThanOrEqual(0)
+
     expect(shimIdx).toBeLessThan(hmrIdx)
     expect(imports.some((p) => p.includes('minimum-script-file'))).toBe(true)
   })

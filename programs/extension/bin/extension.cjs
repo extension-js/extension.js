@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 //  ██████╗██╗     ██╗
 // ██╔════╝██║     ██║
 // ██║     ██║     ██║
@@ -38,6 +39,7 @@ if (fs.existsSync(distCjsEntry)) {
     console.error(
       '[Extension.js] CLI not built. Run "pnpm --filter extension compile".'
     )
+
     process.exit(1)
   }
 } else {

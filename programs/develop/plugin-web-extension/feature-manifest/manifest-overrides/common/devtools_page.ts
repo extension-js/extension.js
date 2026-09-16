@@ -15,6 +15,7 @@ export function devtoolsPage(manifest: Manifest, manifestPath?: string) {
     manifest.devtools_page && {
       devtools_page: (() => {
         const raw = String(manifest.devtools_page)
+
         return getFilename(
           manifestPageOutputTarget(raw, 'devtools/index.html', manifestPath),
           raw

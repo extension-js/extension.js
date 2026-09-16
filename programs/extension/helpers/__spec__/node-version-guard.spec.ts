@@ -71,6 +71,7 @@ describe('enforceSupportedNodeVersion', () => {
         'drop --bun from bunx or bun run, or unset run.bun in bunfig.toml, ' +
         'plain bunx runs the extension CLI on Node.js.'
     )
+
     expect(message).toContain('bunx')
     expect(message).toContain('bun run')
     expect(message).toContain('run.bun')
@@ -89,6 +90,7 @@ describe('enforceSupportedNodeVersion', () => {
 
     expect(exitSpy).toHaveBeenCalledTimes(2)
     expect(exitSpy).toHaveBeenCalledWith(1)
+
     for (const call of errorSpy.mock.calls) {
       const message = call[0] as string
       expect(message).toBe(
@@ -97,6 +99,7 @@ describe('enforceSupportedNodeVersion', () => {
           '1.3.0'
         )
       )
+
       expect(message).toContain('Bun 1.3.0')
       expect(message).not.toContain('\n')
     }
@@ -109,6 +112,7 @@ describe('enforceSupportedNodeVersion', () => {
       '[Extension.js] Requires Node.js >= 22.12 (you are on 20.19.4). ' +
         'Upgrade Node.js to run the extension CLI.'
     )
+
     expect(message).not.toContain('Bun')
   })
 

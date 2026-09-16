@@ -29,6 +29,7 @@ export function parseCanonicalContentScriptEntryIndex(
   if (!match) return undefined
 
   const index = Number(match[1])
+
   return Number.isInteger(index) ? index : undefined
 }
 

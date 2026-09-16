@@ -29,10 +29,12 @@ class FakeActions implements ActionsSink {
 function makeScheduler() {
   const tasks = new Map<number, () => void>()
   let id = 0
+
   return {
     setTimer: (fn: () => void) => {
       const handle = ++id
       tasks.set(handle, fn)
+
       return handle as unknown as ReturnType<typeof setTimeout>
     },
     clearTimer: (h: ReturnType<typeof setTimeout>) => {
@@ -84,6 +86,7 @@ describe('BridgeBroker (Slice 2: act)', () => {
       reload: true,
       deepDom: true
     })
+
     expect(ready.capabilities.eval).toBe(false)
     expect(ready.capabilities.open).toEqual([
       'popup',
@@ -105,6 +108,7 @@ describe('BridgeBroker (Slice 2: act)', () => {
       'action',
       'command'
     ])
+
     expect(ready.capabilities.deepDom).toBe(false)
   })
 
@@ -156,11 +160,13 @@ describe('BridgeBroker (Slice 2: act)', () => {
       value: {reloaded: true},
       durationMs: 12
     })
+
     expect(ctl.sent.at(-1)).toMatchObject({
       type: 'result',
       cmdId: 'cmd-1',
       ok: true
     })
+
     expect(b.pendingCount).toBe(0)
     expect(actions.records).toHaveLength(1)
     expect(actions.records[0]).toMatchObject({
@@ -206,11 +212,13 @@ describe('BridgeBroker (Slice 2: act)', () => {
       value: {triggered: 'popup'},
       durationMs: 8
     })
+
     expect(ctl.sent.at(-1)).toMatchObject({
       type: 'result',
       cmdId: 'cmd-act',
       ok: true
     })
+
     expect(actions.records.at(-1)).toMatchObject({
       cmdId: 'cmd-act',
       op: 'open',
@@ -231,16 +239,19 @@ describe('BridgeBroker (Slice 2: act)', () => {
       op: 'reload',
       target: {context: 'background'}
     })
+
     const result = ctl.sent[0] as any
     expect(result).toMatchObject({
       type: 'result',
       ok: false,
       error: {name: 'Unavailable'}
     })
+
     expect(result.error.message).toContain('no executor connected')
     expect(result.error.message).toContain(
       'no extension service worker has connected'
     )
+
     expect(actions.records[0]).toMatchObject({
       ok: false,
       errorName: 'Unavailable'
@@ -256,9 +267,11 @@ describe('BridgeBroker (Slice 2: act)', () => {
         op: 'reload',
         target: {context: 'background'}
       })
+
       const result = ctl.sent[0] as any
       expect(result).toMatchObject({ok: false, error: {name: 'Unavailable'}})
       expect(result.error.message).toContain('no executor connected')
+
       return result.error.message
     }
 
@@ -300,10 +313,12 @@ describe('BridgeBroker (Slice 2: act)', () => {
     it('records the stale hello even when the resync is rate-limited', () => {
       let t = 0
       const b = new BridgeBroker(base({now: () => t}))
+
       for (let i = 0; i < 4; i++) {
         t += 1000
         staleProducerHello(b, new FakeConn(`stale-${i}`))
       }
+
       t += 5000
 
       const ctl = new FakeConn('ctl')
@@ -358,11 +373,13 @@ describe('BridgeBroker (Slice 2: act)', () => {
       target: {context: 'background'},
       args: {expression: 'chrome.runtime.id'}
     })
+
     expect(ctl.sent[0]).toMatchObject({
       type: 'result',
       ok: false,
       error: {name: 'EvalTokenMismatch'}
     })
+
     expect(exec.sent.find((f) => f.type === 'command')).toBeUndefined()
     const rec = actions.records.at(-1)!
     expect(rec).toMatchObject({
@@ -370,6 +387,7 @@ describe('BridgeBroker (Slice 2: act)', () => {
       ok: false,
       errorName: 'EvalTokenMismatch'
     })
+
     expect(typeof rec.exprHash).toBe('string')
     expect(rec.expr).toBeUndefined()
 
@@ -382,6 +400,7 @@ describe('BridgeBroker (Slice 2: act)', () => {
       target: {context: 'background'},
       args: {expression: 'chrome.runtime.id'}
     })
+
     expect(
       exec.sent.find((f: any) => f.type === 'command' && f.cmdId === 'e2')
     ).toBeDefined()
@@ -404,8 +423,10 @@ describe('BridgeBroker (Slice 2: act)', () => {
         target: {context: 'background'},
         args: {expression: '1'}
       })
+
       const result = ctl.sent[0] as any
       expect(result).toMatchObject({ok: false})
+
       return result.error
     }
 
@@ -441,6 +462,7 @@ describe('BridgeBroker (Slice 2: act)', () => {
       target: {context: 'background'},
       args: {expression: '1 + 1'}
     })
+
     b.onFrame(exec, {type: 'result', cmdId: 'e3', ok: true, value: 2})
     expect(actions.records.at(-1)).toMatchObject({op: 'eval', expr: '1 + 1'})
   })
@@ -468,6 +490,7 @@ describe('BridgeBroker (Slice 2: act)', () => {
       target: {context: 'background'},
       timeoutMs: 1000
     })
+
     expect(b.pendingCount).toBe(1)
     sched.fire(1)
     expect(ctl.sent.at(-1)).toMatchObject({
@@ -476,6 +499,7 @@ describe('BridgeBroker (Slice 2: act)', () => {
       ok: false,
       error: {name: 'Timeout'}
     })
+
     expect(b.pendingCount).toBe(0)
     expect(actions.records.at(-1)).toMatchObject({
       ok: false,
@@ -498,6 +522,7 @@ describe('BridgeBroker (Slice 2: act)', () => {
       op: 'reload',
       target: {context: 'background'}
     })
+
     expect(b.pendingCount).toBe(1)
     b.onClose(ctl)
     expect(b.pendingCount).toBe(0)
@@ -516,6 +541,7 @@ describe('BridgeBroker (Slice 2: act)', () => {
       op: 'reload',
       target: {context: 'background'}
     })
+
     ctl.sent = []
     b.onFrame(ctl, {type: 'result', cmdId: 'x1', ok: true})
     expect(b.pendingCount).toBe(1)

@@ -11,6 +11,7 @@ function parse(args: string[]) {
     .addOption(geckoBinaryOption())
     .addOption(firefoxBinaryAliasOption())
   command.parse(['node', 'cli', ...args])
+
   return command.opts()
 }
 

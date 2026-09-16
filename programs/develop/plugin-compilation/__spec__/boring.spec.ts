@@ -20,6 +20,7 @@ function makeCompiler() {
     modifiedFiles: new Set<string>(),
     options: {context: '/project'}
   }
+
   return {compiler, getDoneTap: () => doneTap!}
 }
 
@@ -52,9 +53,9 @@ describe('BoringPlugin done tap vs invalid manifest JSON', () => {
   afterEach(() => {
     logSpy.mockRestore()
     fs.rmSync(tmpDir, {recursive: true, force: true})
-    if (previousLaunchEnv === undefined)
+    if (previousLaunchEnv === undefined) {
       delete process.env.EXTENSION_BROWSER_LAUNCH_ENABLED
-    else process.env.EXTENSION_BROWSER_LAUNCH_ENABLED = previousLaunchEnv
+    } else process.env.EXTENSION_BROWSER_LAUNCH_ENABLED = previousLaunchEnv
   })
 
   it('does not throw when the manifest on disk is invalid JSON', () => {
@@ -74,6 +75,7 @@ describe('BoringPlugin done tap vs invalid manifest JSON', () => {
       manifestPath,
       JSON.stringify({manifest_version: 3, name: 'My App', version: '1.0.0'})
     )
+
     const {compiler, getDoneTap} = makeCompiler()
     new BoringPlugin({manifestPath, browser: 'chromium'}).apply(
       compiler as never
@@ -92,6 +94,7 @@ describe('BoringPlugin done tap vs invalid manifest JSON', () => {
       manifestPath,
       JSON.stringify({manifest_version: 3, name: 'My App', version: '1.0.0'})
     )
+
     const {compiler, getDoneTap} = makeCompiler()
     new BoringPlugin({manifestPath, browser: 'chromium'}).apply(
       compiler as never

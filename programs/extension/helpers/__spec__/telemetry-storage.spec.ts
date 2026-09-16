@@ -12,6 +12,7 @@ function restoreEnv() {
       delete process.env[key]
     }
   }
+
   for (const [key, value] of Object.entries(originalEnv)) {
     process.env[key] = value
   }
@@ -23,6 +24,7 @@ function canWrite(dir: string): boolean {
     const probe = path.join(dir, `.write-test-${Date.now()}`)
     fs.writeFileSync(probe, 'ok', 'utf8')
     fs.unlinkSync(probe)
+
     return true
   } catch {
     return false

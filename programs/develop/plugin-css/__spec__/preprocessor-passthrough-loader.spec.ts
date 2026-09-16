@@ -7,6 +7,7 @@ function run(resourcePath: string, source: string) {
     {resourcePath, emitWarning: (w: Error) => warnings.push(w)} as any,
     source
   )
+
   return {result, warnings}
 }
 

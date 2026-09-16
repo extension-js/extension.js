@@ -18,6 +18,7 @@ export function stagingDistPathFor(distPath: string): string {
   const unique = `${process.pid.toString(36)}-${Math.random()
     .toString(36)
     .slice(2, 8)}`
+
   return path.join(
     path.dirname(distPath),
     `${DIST_STAGING_PREFIX}${path.basename(distPath)}-${unique}`
@@ -31,6 +32,7 @@ export function removeStaleStagingDirs(distPath: string): void {
   const prefix = `${DIST_STAGING_PREFIX}${path.basename(distPath)}-`
 
   let entries: fs.Dirent[]
+
   try {
     entries = fs.readdirSync(parent, {withFileTypes: true})
   } catch {
@@ -40,6 +42,7 @@ export function removeStaleStagingDirs(distPath: string): void {
   for (const entry of entries) {
     try {
       if (!entry.isDirectory() || !entry.name.startsWith(prefix)) continue
+
       fs.rmSync(path.join(parent, entry.name), {recursive: true, force: true})
     } catch {
       // Ignore
@@ -66,6 +69,7 @@ export function promoteStagingDist(
 
   const retiredPath = `${stagingPath}-retired`
   let retired = false
+
   if (fs.existsSync(distPath)) {
     fs.renameSync(distPath, retiredPath)
     retired = true
@@ -83,6 +87,7 @@ export function promoteStagingDist(
         // Ignore
       }
     }
+
     throw error
   }
 

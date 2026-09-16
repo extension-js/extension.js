@@ -3,6 +3,7 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 // The warn-once latch is module state, so every test imports a fresh copy.
 async function freshModule() {
   vi.resetModules()
+
   return import('../output-flag')
 }
 
@@ -57,6 +58,7 @@ describe('resolveOutputFormat', () => {
     expect(resolveOutputFormat({output: 'pretty', waitFormat: 'json'})).toBe(
       'pretty'
     )
+
     expect(errorSpy).not.toHaveBeenCalled()
   })
 
@@ -65,6 +67,7 @@ describe('resolveOutputFormat', () => {
     expect(resolveOutputFormat({output: 'bogus', waitFormat: 'nope'})).toBe(
       'pretty'
     )
+
     expect(errorSpy).not.toHaveBeenCalled()
   })
 

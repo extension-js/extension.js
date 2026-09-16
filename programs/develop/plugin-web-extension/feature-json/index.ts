@@ -11,15 +11,6 @@ import type {DevOptions, FilepathList, PluginInterface} from '../../types'
 import {processJsonAssets} from './process-assets'
 import {trackJsonDependencies} from './track-dependencies'
 
-/**
- * JsonPlugin is responsible for handling the JSON files defined
- * in the manifest.json. It emits the JSON files to the output
- * directory and adds them to the file dependencies of the compilation.
- *
- * Features supported:
- * - declarative_net_request.ruleset
- * - storage.managed_schema
- */
 export class JsonPlugin {
   public readonly manifestPath: string
   public readonly includeList?: FilepathList

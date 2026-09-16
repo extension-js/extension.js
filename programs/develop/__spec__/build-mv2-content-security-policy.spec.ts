@@ -23,6 +23,7 @@ function project() {
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'csp', version: '0.0.0'})
   )
+
   fs.writeFileSync(path.join(root, 'content.js'), 'console.log("csp")\n')
   fs.writeFileSync(
     path.join(root, 'manifest.json'),
@@ -38,6 +39,7 @@ function project() {
       ]
     })
   )
+
   return root
 }
 
@@ -49,6 +51,7 @@ async function build(
   const {extensionBuild} = await import('../command-build')
   const previous = process.env.VITEST
   process.env.VITEST = 'true'
+
   try {
     // Only a dev session (named by its command) takes the dev CSP, a plain
     // development-mode build stays shippable.
@@ -65,6 +68,7 @@ async function build(
     if (previous === undefined) delete process.env.VITEST
     else process.env.VITEST = previous
   }
+
   return JSON.parse(
     fs.readFileSync(path.join(root, 'dist', browser, 'manifest.json'), 'utf8')
   )

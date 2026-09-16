@@ -28,6 +28,7 @@ afterAll(async () => {
   const root = path.join(__dirname, '..')
 
   let tmpA: string[] = []
+
   try {
     tmpA = await glob('**/__spec__/.tmp-*', {cwd: root, dot: true})
   } catch {
@@ -35,6 +36,7 @@ afterAll(async () => {
   }
 
   let tmpB: string[] = []
+
   try {
     tmpB = await glob('.tmp-*', {cwd: root, dot: true})
   } catch {
@@ -43,6 +45,7 @@ afterAll(async () => {
 
   const packageRoot = path.join(root, '..')
   let tmpC: string[] = []
+
   try {
     tmpC = await glob('tmp-extjs-*', {cwd: packageRoot, dot: true})
   } catch {

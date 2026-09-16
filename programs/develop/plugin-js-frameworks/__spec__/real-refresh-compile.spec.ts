@@ -26,6 +26,7 @@ function scaffold(name: string, framework: 'react' | 'preact') {
       2
     )
   )
+
   fs.writeFileSync(
     path.join(root, 'manifest.json'),
     JSON.stringify(
@@ -39,10 +40,12 @@ function scaffold(name: string, framework: 'react' | 'preact') {
       2
     )
   )
+
   fs.writeFileSync(
     path.join(root, 'popup.html'),
     '<!doctype html><html><body><div id="root"></div><script type="module" src="./popup.jsx"></script></body></html>'
   )
+
   fs.writeFileSync(
     path.join(root, 'popup.jsx'),
     framework === 'react'
@@ -75,12 +78,14 @@ async function compileDev(root: string) {
       plugin?.constructor.name !== 'plugin-browsers' &&
       plugin?.constructor.name !== 'plugin-playwright'
   )
+
   config.stats = false
 
   const stats = await new Promise<Stats>((resolve, reject) => {
     rspack(config).run((error, result) => {
       if (error) return reject(error)
       if (!result) return reject(new Error('no stats'))
+
       resolve(result)
     })
   })

@@ -22,15 +22,19 @@ describe('usesGeckoUnsupportedApi', () => {
     expect(
       usesGeckoUnsupportedApi('chrome.sidePanel.open({})', 'sidePanel')
     ).toBe(true)
+
     expect(
       usesGeckoUnsupportedApi('browser.sidePanel.open({})', 'sidePanel')
     ).toBe(true)
+
     expect(
       usesGeckoUnsupportedApi('chrome . sidePanel\n  .open({})', 'sidePanel')
     ).toBe(true)
+
     expect(
       usesGeckoUnsupportedApi('chrome.sidePanel?.open({})', 'sidePanel')
     ).toBe(true)
+
     expect(usesGeckoUnsupportedApi(ACTION, 'action')).toBe(true)
   })
 
@@ -38,15 +42,19 @@ describe('usesGeckoUnsupportedApi', () => {
     expect(usesGeckoUnsupportedApi('if (chrome.action) {}', 'action')).toBe(
       false
     )
+
     expect(
       usesGeckoUnsupportedApi('chrome.browserAction.onClicked', 'action')
     ).toBe(false)
+
     expect(usesGeckoUnsupportedApi('chrome.actions.run()', 'action')).toBe(
       false
     )
+
     expect(
       usesGeckoUnsupportedApi('browser.sidebarAction.open()', 'sidePanel')
     ).toBe(false)
+
     expect(
       usesGeckoUnsupportedApi('const sidePanel = x.sidePanel.y', 'sidePanel')
     ).toBe(false)
@@ -58,6 +66,7 @@ describe('usesGeckoUnsupportedApi on webkit', () => {
     expect(usesGeckoUnsupportedApi(SIDE_PANEL, 'sidePanel', 'webkit')).toBe(
       true
     )
+
     expect(
       usesGeckoUnsupportedApi(
         'chrome.sidePanel?.setPanelBehavior({})',
@@ -65,6 +74,7 @@ describe('usesGeckoUnsupportedApi on webkit', () => {
         'webkit'
       )
     ).toBe(false)
+
     expect(
       usesGeckoUnsupportedApi('if (chrome.sidePanel) {}', 'sidePanel', 'webkit')
     ).toBe(false)
@@ -78,6 +88,7 @@ describe('usesGeckoUnsupportedApi on webkit', () => {
         'webkit'
       )
     ).toBe(true)
+
     expect(
       usesGeckoUnsupportedApi(
         'chrome.managementPanel.getSelf()',
@@ -85,9 +96,11 @@ describe('usesGeckoUnsupportedApi on webkit', () => {
         'webkit'
       )
     ).toBe(false)
+
     expect(
       usesGeckoUnsupportedApi('browser.idle.queryState(15)', 'idle', 'webkit')
     ).toBe(true)
+
     // The web platform has its own history, and only the extension one throws
     expect(
       usesGeckoUnsupportedApi(
@@ -105,6 +118,7 @@ describe('usesWebkitUnsupportedMember', () => {
       (candidate) => candidate.api === api && candidate.member === member
     )
     if (!entry) throw new Error(`${api}.${member} is not in the member table`)
+
     return entry
   }
 
@@ -119,12 +133,14 @@ describe('usesWebkitUnsupportedMember', () => {
         BADGE_COLOR
       )
     ).toBe(true)
+
     expect(
       usesWebkitUnsupportedMember(
         'browser.action.setBadgeTextColor({})',
         BADGE_COLOR
       )
     ).toBe(true)
+
     expect(
       usesWebkitUnsupportedMember(
         'chrome . action\n  .setBadgeTextColor({})',
@@ -140,6 +156,7 @@ describe('usesWebkitUnsupportedMember', () => {
         MANAGED
       )
     ).toBe(true)
+
     expect(
       usesWebkitUnsupportedMember(
         'chrome.runtime.onSuspend.addListener(() => {})',
@@ -155,9 +172,11 @@ describe('usesWebkitUnsupportedMember', () => {
         BADGE_COLOR
       )
     ).toBe(false)
+
     expect(
       usesWebkitUnsupportedMember('chrome.storage.managed?.get("k")', MANAGED)
     ).toBe(false)
+
     expect(
       usesWebkitUnsupportedMember(
         'chrome.runtime.onSuspend?.addListener(() => {})',
@@ -184,15 +203,18 @@ describe('usesWebkitUnsupportedMember', () => {
         BADGE_COLOR
       )
     ).toBe(false)
+
     expect(
       usesWebkitUnsupportedMember('if (chrome.storage.managed) {}', MANAGED)
     ).toBe(false)
+
     expect(
       usesWebkitUnsupportedMember(
         'chrome.action.setBadgeTextColorAlpha({})',
         BADGE_COLOR
       )
     ).toBe(false)
+
     expect(
       usesWebkitUnsupportedMember(
         'chrome.runtime.onSuspendCanceled.addListener(() => {})',
@@ -205,6 +227,7 @@ describe('usesWebkitUnsupportedMember', () => {
     expect(
       usesWebkitUnsupportedMember('chrome.storage.local.get("k")', MANAGED)
     ).toBe(false)
+
     expect(
       usesWebkitUnsupportedMember('chrome.action.setBadgeText({})', BADGE_COLOR)
     ).toBe(false)
@@ -216,6 +239,7 @@ describe('webkitUnsupportedMembers', () => {
   // twice on one line, so the two lists must never overlap.
   it('never names a namespace the namespace list already covers', () => {
     const namespaces = geckoUnsupportedApis(3, 'webkit')
+
     for (const entry of webkitUnsupportedMembers) {
       expect(namespaces).not.toContain(entry.api)
     }
@@ -267,6 +291,7 @@ describe('geckoUnsupportedApis', () => {
 
   it('leaves out action and every other API Safari implements', () => {
     const list = geckoUnsupportedApis(2, 'webkit')
+
     for (const api of [
       'action',
       'browserAction',
@@ -301,6 +326,7 @@ describe('findGeckoUnsupportedApiUses', () => {
     const abs = path.join(tmp, rel)
     fs.mkdirSync(path.dirname(abs), {recursive: true})
     fs.writeFileSync(abs, content)
+
     return abs
   }
 
@@ -422,6 +448,7 @@ describe('findGeckoUnsupportedApiUses', () => {
     expect(findGeckoUnsupportedApiUses(compilation, 3, 'webkit')).toEqual([
       {api: 'sidePanel', file: sw, emitted: false}
     ])
+
     expect(findGeckoUnsupportedApiUses(compilation, 3, 'webkit', true)).toEqual(
       []
     )
@@ -513,6 +540,7 @@ describe('UpdateManifest Gecko unsupported API warning', () => {
         browser: browser as any
       })
     step.apply(compiler)
+
     return (
       compilation.warnings as Array<Error & {name?: string; file?: string}>
     ).filter(
@@ -532,6 +560,7 @@ describe('UpdateManifest Gecko unsupported API warning', () => {
       'background.js',
       'background.js'
     ])
+
     expect(warnings[0].message).toContain('background.js uses chrome.sidePanel')
     expect(warnings[0].message).toContain('sidebar_action')
     expect(warnings[1].message).toContain('background.js uses chrome.action')
@@ -557,6 +586,7 @@ describe('UpdateManifest Gecko unsupported API warning', () => {
     expect(warnings[0].message).toContain(
       'background.js calls chrome.sidePanel, which Safari does not have'
     )
+
     expect(warnings[0].message).toContain('never starts the worker')
   })
 
@@ -629,6 +659,7 @@ describe('UpdateManifest Gecko unsupported API warning', () => {
     expect(warnings[0].message).toContain(
       `calls chrome.${api}, which Safari does not have`
     )
+
     expect(warnings[0].message).toContain(detail)
     expect(warnings[0].message).toContain('EXTENSION_PUBLIC_BROWSER')
     expect(warnings[0].message).toContain(`chrome.${api}?.`)
@@ -679,6 +710,7 @@ describe('UpdateManifest Gecko unsupported API warning', () => {
         chunkGraph: true
       })
     ).toEqual([])
+
     // Gecko's warning is lint-shaped, so it stays a production-build line
     // even when the emitted dev bundle carries the call.
     expect(
@@ -753,6 +785,7 @@ describe('UpdateManifest Gecko unsupported API warning', () => {
     expect(warnings[0].message).toContain(
       'calls chrome.storage.managed, which Safari does not have'
     )
+
     expect(warnings[0].message).toContain('no managed storage area')
     expect(warnings[0].message).toContain('EXTENSION_PUBLIC_BROWSER')
     expect(warnings[0].message).toContain('chrome.storage.managed?.')
@@ -764,6 +797,7 @@ describe('UpdateManifest Gecko unsupported API warning', () => {
     expect(warnings[0].message).toContain(
       'calls chrome.action.setBadgeTextColor, which Safari does not have'
     )
+
     // The guard belongs at the member, since Safari has chrome.action itself
     expect(warnings[0].message).toContain('chrome.action.setBadgeTextColor?.()')
     expect(warnings[0].message).toContain(
@@ -775,6 +809,7 @@ describe('UpdateManifest Gecko unsupported API warning', () => {
     expect(
       run('production', 'safari', mv3, 'chrome.storage.managed?.get("k")\n')
     ).toEqual([])
+
     expect(
       run(
         'production',
@@ -826,6 +861,7 @@ describe('UpdateManifest Gecko unsupported API warning', () => {
     expect(warnings[0].message).toContain(
       'calls chrome.sidePanel, which Safari does not have'
     )
+
     expect(warnings[1].message).toContain(
       'calls chrome.storage.managed, which Safari does not have'
     )
@@ -837,6 +873,7 @@ describe('UpdateManifest Gecko unsupported API warning', () => {
     expect(
       run('development', 'safari', mv3, MANAGED_READ, {chunkGraph: true})
     ).toHaveLength(1)
+
     expect(
       run('development', 'safari', mv3, MANAGED_READ, {
         chunkGraph: true,
@@ -854,6 +891,7 @@ describe('UpdateManifest Gecko unsupported API warning', () => {
     expect(run('development', 'safari', mv3, MANAGED_READ, opts)).toHaveLength(
       1
     )
+
     expect(run('development', 'safari', mv3, MANAGED_READ, opts)).toEqual([])
     const next = run(
       'development',
@@ -873,6 +911,7 @@ describe('UpdateManifest Gecko unsupported API warning', () => {
     expect(
       run('production', 'firefox', mv3, MANAGED_READ + BADGE_CALL)
     ).toEqual([])
+
     expect(run('production', 'firefox', mv2, MANAGED_READ)).toEqual([])
     expect(run('production', 'chrome', mv3, MANAGED_READ + BADGE_CALL)).toEqual(
       []

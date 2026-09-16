@@ -7,8 +7,10 @@ let extensionCreate: (
   projectName: string | undefined,
   opts: any
 ) => Promise<void>
+
 {
   const require = createRequire(import.meta.url)
+
   try {
     // Standalone repo path
     // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -37,6 +39,7 @@ type TemplateMeta = {
 
 let ALL_TEMPLATES: TemplateMeta[] = []
 let DEFAULT_TEMPLATE: TemplateMeta = {name: 'javascript'}
+
 try {
   const require = createRequire(import.meta.url)
   // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -62,10 +65,13 @@ async function waitForFile(
   intervalMs: number = 50
 ) {
   const start = Date.now()
+
   while (Date.now() - start < timeoutMs) {
     if (fs.existsSync(filePath)) return
+
     await new Promise((r) => setTimeout(r, intervalMs))
   }
+
   throw new Error(`File not found in time: ${filePath}`)
 }
 
@@ -75,6 +81,7 @@ function fileExists(templateName: string, filePath?: string): boolean {
     'dist',
     `test-template-${templateName}`
   )
+
   return fs.existsSync(path.join(templatePath, filePath || ''))
 }
 
@@ -85,6 +92,7 @@ function manifestExists(templateName: string): boolean {
     path.join('extension', 'manifest.json'),
     path.join('extension', 'src', 'manifest.json')
   ]
+
   return candidates.some((candidate) => fileExists(templateName, candidate))
 }
 
@@ -106,6 +114,7 @@ async function removeAllTemplateFolders() {
       console.log('Removing template:', templatePath)
 
       await removeDir(templatePath)
+
       return true
     })
   )
@@ -184,6 +193,7 @@ describe('extension create', () => {
         ['extension', 'create', projectPath, '--install', 'false'],
         {cwd, env}
       )
+
       expect(fs.existsSync(path.join(projectPath, 'package.json'))).toBeTruthy()
       await execFileAsync(
         'pnpm',
@@ -198,6 +208,7 @@ describe('extension create', () => {
         ],
         {cwd, env}
       )
+
       const manifestPath = path.join(
         projectPath,
         'dist',

@@ -8,6 +8,7 @@ const tempDirs: string[] = []
 
 afterEach(() => {
   delete process.env.EXTENSION_STRICT_REFS
+
   while (tempDirs.length > 0) {
     fs.rmSync(tempDirs.pop()!, {recursive: true, force: true})
   }
@@ -17,6 +18,7 @@ function createProject() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-css-dead-url-'))
   tempDirs.push(dir)
   fs.writeFileSync(path.join(dir, 'manifest.json'), '{}', 'utf8')
+
   return dir
 }
 
@@ -47,6 +49,7 @@ function armPlugin(projectDir: string) {
   } as any).apply(compiler)
 
   onCompilation!({warnings})
+
   return {resolve: beforeResolve!, warnings}
 }
 
@@ -77,6 +80,7 @@ describe('CssPlugin dead url() tolerance: Chrome silently 404s them', () => {
     expect(
       resolve({request: '/img/real.png', context: dir, contextInfo: {issuer}})
     ).toBeUndefined()
+
     expect(
       resolve({
         request: '/img/missing.png',
@@ -84,6 +88,7 @@ describe('CssPlugin dead url() tolerance: Chrome silently 404s them', () => {
         contextInfo: {issuer: path.join(dir, 'index.js')}
       })
     ).toBeUndefined()
+
     expect(
       resolve({
         request: 'some-pkg/styles.css',
@@ -91,6 +96,7 @@ describe('CssPlugin dead url() tolerance: Chrome silently 404s them', () => {
         contextInfo: {issuer}
       })
     ).toBeUndefined()
+
     expect(warnings).toHaveLength(0)
   })
 
@@ -107,6 +113,7 @@ describe('CssPlugin dead url() tolerance: Chrome silently 404s them', () => {
         contextInfo: {issuer}
       })
     ).toBeUndefined()
+
     expect(warnings).toHaveLength(0)
   })
 })

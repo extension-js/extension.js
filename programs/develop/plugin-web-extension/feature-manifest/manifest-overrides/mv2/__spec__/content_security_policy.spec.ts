@@ -67,6 +67,7 @@ describe('hasMv2SandboxPolicy', () => {
         content_security_policy: {sandbox: SANDBOX}
       } as any)
     ).toBe(true)
+
     expect(
       hasMv2SandboxPolicy({
         manifest_version: 2,
@@ -82,12 +83,14 @@ describe('hasMv2SandboxPolicy', () => {
         content_security_policy: {extension_pages: PAGES}
       } as any)
     ).toBe(false)
+
     expect(
       hasMv2SandboxPolicy({
         manifest_version: 2,
         content_security_policy: PAGES
       } as any)
     ).toBe(false)
+
     expect(
       hasMv2SandboxPolicy({
         manifest_version: 3,

@@ -27,6 +27,7 @@ function createTempProject() {
     '{"name":"fixture"}\n',
     'utf8'
   )
+
   return dir
 }
 
@@ -73,6 +74,7 @@ describe('bundle css probe marker', () => {
     expect(wrapped).toContain(
       getContentScriptCssProbeMarker('content_scripts/content-0')
     )
+
     expect(wrapped).not.toContain('__EXTENSIONJS_BUNDLE_KEY + ".css"')
   })
 

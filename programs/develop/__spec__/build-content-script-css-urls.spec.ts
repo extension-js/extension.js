@@ -91,6 +91,7 @@ function writeFixture(
         ''
       ].join('\n')
     )
+
     write(root, 'src/styles.module.css', SHEET_RULES)
   } else {
     // Both ways a script reaches its sheet: the side-effect import the
@@ -106,8 +107,10 @@ function writeFixture(
         ''
       ].join('\n')
     )
+
     write(root, 'src/styles.css', SHEET_RULES)
   }
+
   write(root, 'src/background.js', "console.log('bg')\n")
   write(root, 'src/fonts/probe.woff2', FONT_BYTES)
   write(root, 'public/img/bg.png', IMAGE_BYTES)
@@ -141,6 +144,7 @@ async function buildFixture(
     } else {
       process.env.EXTENSION_AUTHOR_MODE = previousAuthorMode
     }
+
     if (previousVitest === undefined) {
       delete process.env.VITEST
     } else {
@@ -177,6 +181,7 @@ function readBuilt(root: string, browser: 'chrome' | 'firefox') {
 // and the url() rewrite must agree on one name, so a target ships once.
 function distFilesNamed(distDir: string, basename: string): string[] {
   const hits: string[] = []
+
   const walk = (dir: string) => {
     for (const entry of fs.readdirSync(dir, {withFileTypes: true})) {
       const abs = path.join(dir, entry.name)
@@ -184,7 +189,9 @@ function distFilesNamed(distDir: string, basename: string): string[] {
       else if (entry.name === basename) hits.push(path.relative(distDir, abs))
     }
   }
+
   walk(distDir)
+
   return hits.map((hit) => hit.split(path.sep).join('/')).sort()
 }
 
@@ -198,6 +205,7 @@ function readContentScriptCssChunk(distDir: string): {
     .readdirSync(dir)
     .find((entry) => /^content-\d+.*\.css$/.test(entry))
   expect(chunk, `css chunk in ${dir}`).toBeTruthy()
+
   return {
     name: `content_scripts/${chunk}`,
     css: fs.readFileSync(path.join(dir, String(chunk)), 'utf8')
@@ -207,11 +215,13 @@ function readContentScriptCssChunk(distDir: string): {
 function warResources(manifest: BuiltManifest): string[] {
   const war = manifest.web_accessible_resources
   if (!war) return []
+
   if (manifest.manifest_version === 2) {
     return Array.isArray(war) && typeof war[0] === 'string'
       ? (war as string[])
       : []
   }
+
   return (war as Array<{resources: string[]}>).flatMap(
     (group) => group.resources || []
   )
@@ -222,6 +232,7 @@ function warMatchesFor(manifest: BuiltManifest, resource: string): string[] {
     resources: string[]
     matches: string[]
   }>
+
   return war
     .filter((group) => group.resources?.includes(resource))
     .flatMap((group) => group.matches || [])
@@ -261,6 +272,7 @@ function expectResolvedTargets(
   const resources = warResources(manifest)
   expect(resources).toContain(font)
   expect(resources).toContain(image)
+
   if (opts.matches) {
     expect(warMatchesFor(manifest, String(font))).toEqual(opts.matches)
     expect(warMatchesFor(manifest, image)).toEqual(opts.matches)
@@ -280,8 +292,10 @@ function expectResolvedTargets(
 afterAll(() => {
   if (process.env.KEEP_FIXTURE) {
     console.log('KEPT fixture at', SUITE_ROOT)
+
     return
   }
+
   fs.rmSync(SUITE_ROOT, {recursive: true, force: true})
 })
 
@@ -322,6 +336,7 @@ describe('build: url() in a content-script stylesheet resolves to the extension 
     expect(chunk.css).toContain(
       `__EXTENSIONJS_EXTENSION_ROOT__/${font}?v=2#frag`
     )
+
     expect(chunk.css).toContain(`__EXTENSIONJS_EXTENSION_ROOT__/${image}`)
     expect(chunk.css).toContain('data:image/gif;base64,R0lGOD')
     expect(chunk.css).toContain('https://cdn.example/x.png')
@@ -346,6 +361,7 @@ describe('build: url() in a content-script stylesheet resolves to the extension 
       (match) => match[1]
     )
     expect(scoped).toHaveLength(5)
+
     for (const authored of [
       'badge',
       'versioned',
@@ -355,6 +371,7 @@ describe('build: url() in a content-script stylesheet resolves to the extension 
     ]) {
       expect(scoped).not.toContain(authored)
     }
+
     for (const name of scoped) {
       expect(source).toContain(JSON.stringify(name))
     }

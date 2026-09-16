@@ -92,6 +92,7 @@ describe('build: content script (real rspack)', () => {
       } else {
         process.env.EXTENSION_AUTHOR_MODE = previousAuthorMode
       }
+
       if (previousVitest === undefined) {
         delete process.env.VITEST
       } else {
@@ -105,6 +106,7 @@ describe('build: content script (real rspack)', () => {
     )
     const contentJs: string[] = manifest.content_scripts?.[0]?.js ?? []
     expect(contentJs.length).toBeGreaterThan(0)
+
     for (const rel of contentJs) {
       expect(
         fs.existsSync(path.join(distDir, rel)),

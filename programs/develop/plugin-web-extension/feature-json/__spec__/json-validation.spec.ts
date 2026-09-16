@@ -16,6 +16,7 @@ function validateRuleset(json: string) {
     '/abs/rules.json',
     Buffer.from(json)
   )
+
   return {ok, compilation}
 }
 

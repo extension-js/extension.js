@@ -22,22 +22,27 @@ function resolveFromProject(id: string, projectPath: string) {
   for (const base of [projectPath, process.cwd()]) {
     try {
       const req = createRequire(path.join(base, 'package.json'))
+
       return req.resolve(id)
     } catch {
       // Ignore
     }
   }
+
   return undefined
 }
 
 export function isUsingSvelte(projectPath: string) {
   const using = hasDependency(projectPath, 'svelte')
+
   if (using && !userMessageDelivered) {
     if (isDebug()) {
       console.log(messages.isUsingIntegration('Svelte'))
     }
+
     userMessageDelivered = true
   }
+
   return using
 }
 
@@ -104,6 +109,7 @@ export async function maybeUseSvelte(
     if (!sveltePackageRoot) return undefined
 
     const fromRoot = path.join(sveltePackageRoot, relative)
+
     return fs.existsSync(fromRoot) ? fromRoot : undefined
   }
 
@@ -119,8 +125,11 @@ export async function maybeUseSvelte(
 
   if (svelteClient) alias.svelte = svelteClient
   if (svelteStoreClient) alias['svelte/store'] = svelteStoreClient
-  if (svelteReactivityClient)
+
+  if (svelteReactivityClient) {
     alias['svelte/reactivity'] = svelteReactivityClient
+  }
+
   if (svelteLegacyClient) alias['svelte/legacy'] = svelteLegacyClient
 
   const resolverPlugin = {

@@ -27,8 +27,10 @@ export function resolveLocalesFolder(
     const fromRoot = path.join(projectRoot, '_locales')
     if (isUsableDir(fromRoot)) return fromRoot
   }
+
   const fromManifest = path.join(path.dirname(manifestPath), '_locales')
   if (isUsableDir(fromManifest)) return fromManifest
+
   return undefined
 }
 
@@ -48,6 +50,7 @@ function listLocaleFiles(folder: string): string[] {
       out.push(path.join(localeDir, entry))
     }
   }
+
   return out
 }
 

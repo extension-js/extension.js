@@ -15,6 +15,7 @@ function makeCompiler(mode: 'development' | 'production') {
     warnings: [],
     errors: []
   }
+
   return {
     options: {mode, module: {rules}},
     hooks: {
@@ -31,11 +32,14 @@ function makeCompiler(mode: 'development' | 'production') {
 // Scratch projects live under the OS temp dir, so a crashed run leaves no
 // litter in the source tree.
 const tmpRoots: string[] = []
+
 function makeTmp(prefix: string) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `${prefix}-`))
   tmpRoots.push(dir)
+
   return dir
 }
+
 afterAll(() => {
   for (const dir of tmpRoots) fs.rmSync(dir, {recursive: true, force: true})
 })
@@ -50,6 +54,7 @@ describe('HtmlPlugin', () => {
       manifestPath,
       includeList: {}
     } as any).apply(compiler as any)
+
     expect(compiler.options.module.rules.length).toBeGreaterThanOrEqual(1)
   })
 
@@ -64,6 +69,7 @@ describe('HtmlPlugin', () => {
       }),
       'utf8'
     )
+
     const compiler = makeCompiler('development')
     compiler.options.context = path.dirname(path.dirname(manifestPath))
     new HtmlPlugin({
@@ -82,6 +88,7 @@ describe('HtmlPlugin', () => {
     expect(pageHmrRule?.issuerLayer).toEqual({
       not: EXTENSIONJS_CONTENT_SCRIPT_LAYER
     })
+
     // A top-level pages/ folder sits under the project root, so the root is
     // inside the injection scope beside the manifest folder.
     expect(pageHmrRule?.include).toContain(path.dirname(manifestPath))
@@ -110,6 +117,7 @@ describe('HtmlPlugin', () => {
         JSON.stringify({name: 'x', [key]: [{js: ['content.ts']}]}),
         'utf8'
       )
+
       const compiler = makeCompiler('development')
       compiler.options.context = path.dirname(path.dirname(manifestPath))
       new HtmlPlugin({manifestPath, browser, includeList: {}} as any).apply(

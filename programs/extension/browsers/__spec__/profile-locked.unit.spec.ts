@@ -27,6 +27,7 @@ describe('profile lock detection', () => {
     )
 
     let caught: unknown
+
     try {
       prepareChromiumProfileForLaunch(profile)
     } catch (error) {
@@ -35,6 +36,7 @@ describe('profile lock detection', () => {
 
     expect(isProfileLockedError(caught)).toBe(true)
     if (!isProfileLockedError(caught)) return
+
     expect(caught.code).toBe('profile_locked')
     expect(caught.profileLockOwner.pid).toBe(process.pid)
     expect(caught.profileLockOwner.host.toLowerCase()).toBe(
@@ -48,6 +50,7 @@ describe('profile lock detection', () => {
       `${os.hostname()}-2147483600`,
       'utf8'
     )
+
     fs.writeFileSync(path.join(profile, 'SingletonSocket'), '', 'utf8')
 
     const result = prepareChromiumProfileForLaunch(profile)

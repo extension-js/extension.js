@@ -43,6 +43,7 @@ export function installFailed(
 ): string {
   const details = String(stderr || '').trim()
   const detailSuffix = details ? `\n${colors.red(details)}` : ''
+
   return (
     `${prefix('error')} Couldn't install ${colors.blue(titleCase(browser))}.\n` +
     `${colors.red('The command')} ${colors.yellow(command)} ${colors.yellow(args.join(' '))} ` +

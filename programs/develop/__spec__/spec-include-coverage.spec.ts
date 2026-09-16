@@ -22,6 +22,7 @@ function isExcludedPath(entry: string): boolean {
 
 function collect(patterns: readonly string[]): string[] {
   if (patterns.length === 0) return []
+
   return globSync([...patterns], {cwd: packageRoot, exclude: isExcludedPath})
 }
 

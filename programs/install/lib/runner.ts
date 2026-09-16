@@ -28,6 +28,7 @@ function buildExecEnv(base: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   if (existing.includes(nodeDir)) return base
 
   const updated = `${nodeDir}${pathSep}${existing}`.trim()
+
   return {
     ...base,
     PATH: updated,
@@ -97,6 +98,7 @@ export function browserInstallArgs(
       : target === 'firefox'
         ? 'firefox@stable'
         : target
+
   return [
     ...packageRunnerPrefix,
     `@puppeteer/browsers@${PUPPETEER_BROWSERS_VERSION}`,
@@ -163,6 +165,7 @@ export function edgeInstallNeedsInteractivePrivilegedSession(): boolean {
 
 export function isEdgePrivilegeEscalationFailure(stderr: string): boolean {
   const text = String(stderr || '')
+
   return (
     /switching to root user to install dependencies/i.test(text) ||
     /sudo:\s+a password is required/i.test(text) ||
@@ -174,6 +177,7 @@ export function detectSystemEdgeBinary(): string | null {
   if (process.platform === 'darwin') {
     const macPath =
       '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge'
+
     return fs.existsSync(macPath) ? macPath : null
   }
 
@@ -182,22 +186,27 @@ export function detectSystemEdgeBinary(): string | null {
       stdio: 'pipe',
       encoding: 'utf8'
     })
+
     if (result.status === 0) {
       const first = String(result.stdout || '')
         .split(/\r?\n/)
         .map((line) => line.trim())
         .find(Boolean)
+
       return first || null
     }
+
     return null
   }
 
   const candidates = ['microsoft-edge-stable', 'microsoft-edge', 'msedge']
+
   for (const cmd of candidates) {
     const result = spawnSync('which', [cmd], {
       stdio: 'pipe',
       encoding: 'utf8'
     })
+
     if (result.status === 0) {
       // Some `which` builds print extra lines; the binary path is the first.
       const found = String(result.stdout || '')

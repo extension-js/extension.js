@@ -9,6 +9,7 @@ const missing = vi.hoisted(() => ({path: ''}))
 vi.mock('../get-locales', async () => {
   const actual =
     await vi.importActual<typeof import('../get-locales')>('../get-locales')
+
   return {
     ...actual,
     getLocales: () => [missing.path]
@@ -20,6 +21,7 @@ import {processLocaleAssets} from '../process-assets'
 let root = ''
 afterEach(() => {
   if (root) fs.rmSync(root, {recursive: true, force: true})
+
   root = ''
 })
 
@@ -31,6 +33,7 @@ describe('processLocaleAssets', () => {
       path.join(root, 'manifest.json'),
       JSON.stringify({default_locale: 'en'})
     )
+
     missing.path = path.join(root, '_locales', 'en', 'messages.json')
     const warnings: Error[] = []
     const compilation = {errors: [], warnings, emitAsset: vi.fn()} as any

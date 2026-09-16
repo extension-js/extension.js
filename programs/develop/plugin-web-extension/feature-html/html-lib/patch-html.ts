@@ -68,6 +68,7 @@ function insertBefore(
   const parent = (reference as {parentNode?: {childNodes: unknown[]}})
     .parentNode
   if (!parent || !Array.isArray(parent.childNodes)) return
+
   const index = parent.childNodes.indexOf(reference)
   if (index === -1) return
   ;(node as {parentNode?: unknown}).parentNode = parent
@@ -154,11 +155,14 @@ export function patchHtml(
                         ]
                       : []
                   }
+
                   bundledScriptNodes.push(thisChildNode)
                   hasJsEntry = true
                 }
+
                 break
               }
+
               case 'css': {
                 if (cleanPath.startsWith('/')) {
                   thisChildNode = parse5utilities.setAttribute(
@@ -180,16 +184,21 @@ export function patchHtml(
                         ]
                       : []
                   }
+
                   thisChildNode = parse5utilities.remove(
                     thisChildNode as Parameters<
                       typeof parse5utilities.remove
                     >[0]
                   )
+
                   hasCssEntry = true
                 }
+
                 break
               }
+
               case 'staticHref':
+
               case 'staticSrc': {
                 thisChildNode = handleStaticAsset(
                   compilation,
@@ -206,8 +215,10 @@ export function patchHtml(
                   attributeName,
                   manifestDir
                 )
+
                 break
               }
+
               default:
                 break
             }
@@ -237,14 +248,17 @@ export function patchHtml(
             scriptNode as Parameters<typeof parse5utilities.remove>[0]
           )
         }
+
         const lastScriptNode = bundledScriptNodes[
           bundledScriptNodes.length - 1
         ] as ReturnType<typeof parse5utilities.createNode>
+
         // Sibling chunks go right before the entry tag so they keep the
         // author's position relative to inline and preserved scripts.
         for (const src of siblingScripts) {
           insertBefore(lastScriptNode, createScriptTag(src, firstScriptAttrs))
         }
+
         lastScriptNode.attrs = scriptTagAttrs(
           getFilePath(feature, '.js', true),
           firstScriptAttrs
@@ -255,6 +269,7 @@ export function patchHtml(
     }
 
     bakeBaseHref(htmlDocument)
+
     return parse5utilities.stringify(htmlDocument)
   }
 
@@ -324,15 +339,19 @@ export function patchHtmlNested(
                     cleanPath,
                     manifestDir
                   )
+
                   thisChildNode = parse5utilities.setAttribute(
                     thisChildNode,
                     'href',
                     cleanPath + (search || '') + (hash || '')
                   )
                 }
+
                 break
               }
+
               case 'staticHref':
+
               case 'staticSrc': {
                 if (cleanPath.startsWith('/')) {
                   warnIfPublicRootAssetMissing(
@@ -341,6 +360,7 @@ export function patchHtmlNested(
                     cleanPath,
                     manifestDir
                   )
+
                   thisChildNode = applyRewrittenStaticUrl(
                     thisChildNode,
                     attrName || resolveStaticAttributeName(assetType),
@@ -364,8 +384,10 @@ export function patchHtmlNested(
                     )
                   }
                 }
+
                 break
               }
+
               default:
                 break
             }
@@ -375,6 +397,7 @@ export function patchHtmlNested(
     }
 
     bakeBaseHref(htmlDocument)
+
     return parse5utilities.stringify(htmlDocument)
   }
 

@@ -28,6 +28,7 @@ function project(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'resource-paths', version: '0.0.0'})
   )
+
   fs.writeFileSync(
     path.join(root, 'manifest.json'),
     JSON.stringify({
@@ -37,11 +38,13 @@ function project(
       ...manifest
     })
   )
+
   for (const [rel, content] of Object.entries(files)) {
     const abs = path.join(root, rel)
     fs.mkdirSync(path.dirname(abs), {recursive: true})
     fs.writeFileSync(abs, content)
   }
+
   return root
 }
 
@@ -49,6 +52,7 @@ async function build(root: string) {
   const {extensionBuild} = await import('../command-build')
   const previous = process.env.VITEST
   process.env.VITEST = 'true'
+
   try {
     const summary = await extensionBuild(root, {
       browser: 'chrome',
@@ -62,7 +66,9 @@ async function build(root: string) {
     if (previous === undefined) delete process.env.VITEST
     else process.env.VITEST = previous
   }
+
   const distDir = path.join(root, 'dist', 'chrome')
+
   return {
     distDir,
     manifest: JSON.parse(
@@ -106,6 +112,7 @@ describe('theme images', () => {
     expect(manifest.theme.images.theme_frame).toBe(
       'theme/images/images/frame.png'
     )
+
     expectInDist(distDir, manifest.theme.images.theme_frame)
   }, 120_000)
 })

@@ -23,6 +23,7 @@ function writeFixture() {
       2
     )
   )
+
   write(
     'manifest.json',
     JSON.stringify(
@@ -36,6 +37,7 @@ function writeFixture() {
       2
     )
   )
+
   write('popup.html', '<html><body><h1>popup</h1></body></html>\n')
   write(
     'extensions/other/manifest.json',
@@ -54,8 +56,10 @@ function readReady() {
 function readEvents(): Array<Record<string, unknown>> {
   const file = eventsPath(ROOT, BROWSER)
   if (!fs.existsSync(file)) return []
+
   const raw = fs.readFileSync(file, 'utf-8')
   if (!raw.trim()) return []
+
   return raw
     .trim()
     .split('\n')
@@ -119,6 +123,7 @@ async function runStart(opts?: {extensions?: string[]}) {
     } else {
       process.env.EXTENSION_AUTHOR_MODE = previousAuthor
     }
+
     if (previousVitest === undefined) {
       delete process.env.VITEST
     } else {
@@ -180,6 +185,7 @@ describe('start run receipt (real build + preview)', () => {
           event.ts === firstSuccess?.ts && event.type === 'compile_success'
       )
     ).toBe(false)
+
     expect(second.afterPreview.ready.status).toBe('ready')
     expect(second.afterPreview.ready.extensionLoadRefusedAt).toBeUndefined()
     expect(second.afterPreview.ready.code).toBeUndefined()

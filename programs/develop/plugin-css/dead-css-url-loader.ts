@@ -6,16 +6,6 @@
 //  ╚═════╝╚══════╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-// The last loader a content-script stylesheet passes through. rspack never
-// parses an inlined sheet, so url() children never reach the module graph:
-// the dead-reference check in plugin-css/index.ts cannot see them (scan the
-// text), and their targets are never emitted. Live references are rewritten
-// to the extension root and emitted here. An inlined sheet then leaves as a
-// JavaScript module that builds its data: URL at runtime (see
-// inline-content-script-css). A CSS module keeps rspack's native scoping and
-// class-name exports, so it leaves as CSS with the placeholder still in the
-// text, and the content-script wrapper swaps it in when it injects the chunk.
-
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {WebpackError} from '@rspack/core'
@@ -84,6 +74,7 @@ function reportDeadRefs(
     // it. emitWarning would stamp a "Module Warning (from <loader>)" prefix
     // and the two paths would read as different defects.
     const sink = strict ? compilation?.errors : compilation?.warnings
+
     if (sink) {
       sink.push(report)
     } else if (strict) {
@@ -116,9 +107,11 @@ function emitTargets(
     if (!target.publicOwned || sheet === 'chunk') {
       loader.emitFile(target.outputName, fs.readFileSync(target.absolutePath))
     }
+
     // Keep watch mode honest: editing the file should rebuild the sheet.
     loader.addDependency?.(target.absolutePath)
   }
+
   return css
 }
 
@@ -128,8 +121,10 @@ export default function deadCssUrlLoader(
 ): string {
   let css = source
   const options = this.getOptions() || {}
+
   try {
     const {manifestPath, projectPath} = options
+
     if (manifestPath && projectPath) {
       // rspack hands the loader a symlink-resolved resource path. The roots
       // it is measured against must be resolved the same way, or a project
@@ -146,5 +141,6 @@ export default function deadCssUrlLoader(
   }
 
   if (options.sheet === 'chunk') return css
+
   return toRuntimeStylesheetModule(css)
 }

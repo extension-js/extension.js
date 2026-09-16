@@ -31,9 +31,12 @@ export function siblingScriptsFor(
   const entrypoint =
     typeof entrypoints?.get === 'function' ? entrypoints.get(feature) : null
   if (!entrypoint || typeof entrypoint.getFiles !== 'function') return []
+
   const files = initialJsFiles(entrypoint)
   if (files.length <= 1) return []
+
   const ownFile = entryOwnJsFile(feature, entrypoint, files)
+
   return files
     .filter((file) => file !== ownFile)
     .map((file) => getFilePath(file, '', true))
@@ -46,9 +49,11 @@ function readAssetSource(asset: unknown): string | undefined {
   const source = typeof holder?.source === 'function' ? holder : holder?.source
   const read = (source as {source?: () => unknown} | undefined)?.source
   if (typeof read !== 'function') return undefined
+
   const value = read.call(source)
   if (typeof value === 'string') return value
   if (Buffer.isBuffer(value)) return value.toString('utf8')
+
   return undefined
 }
 
@@ -130,6 +135,7 @@ export class UpdateHtmlFile {
         }
 
         const hasProcessAssets = Boolean(compilation?.hooks?.processAssets?.tap)
+
         if (hasProcessAssets) {
           compilation.hooks.processAssets.tap(
             {

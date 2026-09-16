@@ -28,6 +28,7 @@ export function resolveAddonDirectory(
 
   try {
     const stat = fs.statSync(candidate)
+
     if (stat.isFile()) {
       candidate = path.dirname(candidate)
     }
@@ -39,6 +40,7 @@ export function resolveAddonDirectory(
   if (hasManifest) return candidate
 
   const distFirefox = path.join(candidate, 'dist', 'firefox')
+
   if (fs.existsSync(path.join(distFirefox, 'manifest.json'))) {
     return distFirefox
   }

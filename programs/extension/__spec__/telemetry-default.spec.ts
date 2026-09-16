@@ -10,6 +10,7 @@ function cliRoot(): string {
 function cliBin(): string {
   const cjs = path.join(cliRoot(), 'dist', 'cli.cjs')
   if (fs.existsSync(cjs)) return cjs
+
   return path.join(cliRoot(), 'dist', 'cli.js')
 }
 
@@ -19,6 +20,7 @@ function canWrite(dir: string): boolean {
     const probe = path.join(dir, `.write-test-${Date.now()}`)
     fs.writeFileSync(probe, 'ok', 'utf8')
     fs.unlinkSync(probe)
+
     return true
   } catch {
     return false

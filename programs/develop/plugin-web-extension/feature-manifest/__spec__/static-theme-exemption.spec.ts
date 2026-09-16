@@ -23,6 +23,7 @@ describe('isStaticTheme', () => {
     expect(isStaticTheme({manifest_version: 3, name: 'x'} as Manifest)).toBe(
       false
     )
+
     expect(isStaticTheme(undefined)).toBe(false)
     expect(isStaticTheme(null)).toBe(false)
   })
@@ -45,9 +46,11 @@ describe('isStaticTheme', () => {
 
 describe('isStaticThemeSource', () => {
   let tmp: string
+
   const write = (manifest: unknown) => {
     const abs = path.join(tmp, 'manifest.json')
     fs.writeFileSync(abs, JSON.stringify(manifest))
+
     return abs
   }
 
@@ -80,6 +83,7 @@ describe('isStaticThemeSource', () => {
     expect(isStaticThemeSource(path.join(tmp, 'nope.json'), 'firefox')).toBe(
       false
     )
+
     expect(isStaticThemeSource(undefined, 'firefox')).toBe(false)
   })
 })
@@ -133,6 +137,7 @@ describe('ApplyDevDefaults theme exemption, both targets', () => {
   const writeManifest = (manifest: unknown) => {
     const abs = path.join(tmp, 'manifest.json')
     fs.writeFileSync(abs, JSON.stringify(manifest))
+
     return abs
   }
 

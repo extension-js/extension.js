@@ -6,17 +6,9 @@
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-/**
- * Old Extension.js scaffold layout → current standardized HTML destinations.
- * Detection is field-scoped on purpose: a string that merely looks like an old
- * path in description, web_accessible_resources, or any other field is not a hit.
- */
 export interface LegacyManifestPathRule {
-  /** Dot-path into the author manifest (e.g. `options_ui.page`). */
   field: string
-  /** Exact path the old scaffold wrote into that field. */
   legacyPath: string
-  /** Canonical emit destination Extension.js rewrites the field to. */
   modernPath: string
 }
 
@@ -64,7 +56,6 @@ export const LEGACY_MANIFEST_PATH_RULES: readonly LegacyManifestPathRule[] = [
   }
 ] as const
 
-/** Collapse author path noise so `./x` and `/x` match the scaffold form. */
 export function normalizeLegacyPathRef(raw: string): string {
   return String(raw || '')
     .replace(/\\/g, '/')
@@ -76,7 +67,9 @@ function readField(manifest: unknown, field: string): unknown {
   if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) {
     return undefined
   }
+
   let current: unknown = manifest
+
   for (const part of field.split('.')) {
     if (
       !current ||
@@ -86,15 +79,13 @@ function readField(manifest: unknown, field: string): unknown {
     ) {
       return undefined
     }
+
     current = (current as Record<string, unknown>)[part]
   }
+
   return current
 }
 
-/**
- * Field-by-field scan of the *author* manifest for old scaffold HTML paths.
- * Call this on the pre-rewrite source; the emitted asset already has modern paths.
- */
 export function findLegacyManifestPathHits(
   manifest: unknown
 ): LegacyManifestPathHit[] {
@@ -104,6 +95,7 @@ export function findLegacyManifestPathHits(
     const value = readField(manifest, rule.field)
     if (typeof value !== 'string' || !value.trim()) continue
     if (normalizeLegacyPathRef(value) !== rule.legacyPath) continue
+
     hits.push({
       field: rule.field,
       legacyPath: rule.legacyPath,

@@ -75,6 +75,7 @@ describe('ready.json writer preservation', () => {
       'chromium-profile',
       'brave-Crimson-panda'
     )
+
     ready.browserPid = 4242
     fs.writeFileSync(writer.readyPath, JSON.stringify(ready))
 
@@ -187,6 +188,7 @@ describe('ready.json writer preservation', () => {
       'safari',
       'dev.extensionjs.Fixture.Extension'
     )
+
     const stamped = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
     expect(stamped.extensionId).toBe('dev.extensionjs.Fixture.Extension')
 
@@ -405,6 +407,7 @@ describe('ready.json writer preservation', () => {
     expect(after.extensionLoadRefusedReason).toBe(
       'Variable $2$ used but not defined.'
     )
+
     expect(after.message).toContain('refused to load')
   })
 

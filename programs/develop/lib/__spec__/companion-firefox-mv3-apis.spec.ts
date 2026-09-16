@@ -171,6 +171,7 @@ describe('companion Firefox build: AMO store check', () => {
       mode: 'production',
       loadLinter: async () => {
         const loaded: any = await import('addons-linter')
+
         return loaded.createInstance ? loaded : loaded.default
       },
       timeoutMs: 60_000
