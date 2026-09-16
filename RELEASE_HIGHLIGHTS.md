@@ -20,3 +20,5 @@
 -->
 
 ## Highlights
+
+- **Deno**, `deno run -A npm:extension@latest` runs the CLI on Deno 2.5 and newer. Build and dev are both covered by CI on every change. [Docs](https://extension.js.org/docs/languages-and-frameworks/deno)
