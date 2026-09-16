@@ -253,6 +253,33 @@ export function collectContentScriptAsyncChunkFiles(
   return result
 }
 
+// Every emitted JavaScript file of an entry whose bundle runs inside a page.
+// Their source is what asks the extension origin for a file at runtime.
+export function collectPageContextEntryFiles(
+  compilation: Compilation
+): Record<string, string[]> {
+  const result: Record<string, string[]> = {}
+  if (typeof compilation.entrypoints?.forEach !== 'function') return result
+
+  compilation.entrypoints.forEach((entry, entryName) => {
+    if (!isPageContextEntry(String(entryName))) return
+
+    const files = new Set<string>()
+
+    for (const chunk of toFileArray(
+      (entry as unknown as ChunkGroupLike).chunks as Iterable<string>
+    )) {
+      for (const file of toFileArray((chunk as unknown as ChunkLike).files)) {
+        if (file.endsWith('.js')) files.add(unixify(file))
+      }
+    }
+
+    if (files.size > 0) result[String(entryName)] = Array.from(files).sort()
+  })
+
+  return result
+}
+
 export function collectContentScriptEntryImports(
   compilation: Compilation,
   includeList?: FilepathList
