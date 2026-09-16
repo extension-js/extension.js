@@ -10,7 +10,16 @@ const __dirname = dirname(__filename)
 const cliRoot = resolve(__dirname, '../..')
 const cliBin = resolve(cliRoot, 'dist', 'cli.cjs')
 
-function runCli(args: string[], timeoutMs = 30000) {
+// A starved CI runner can burn a five second budget just spawning node and
+// loading cli.cjs, so the wait budget widens there like the logs attach window.
+const WAIT_BUDGET_MS = process.env.CI ? 30_000 : 5000
+const CLI_TIMEOUT_MS = process.env.CI ? 60_000 : 15_000
+// The first contract state has to survive at least one 250ms poll before the
+// next write lands, or a slow start would skip the transition under test.
+const CONTRACT_WRITE_MS = process.env.CI ? 3000 : 500
+const FIRST_CONTRACT_WRITE_MS = Math.round(CONTRACT_WRITE_MS / 2)
+
+function runCli(args: string[], timeoutMs = CLI_TIMEOUT_MS) {
   return new Promise<{code: number; stdout: string; stderr: string}>(
     (resolvePromise, reject) => {
       const child = spawn(process.execPath, [cliBin, ...args], {
@@ -50,9 +59,9 @@ describe('dev --wait contract', () => {
         projectDir,
         '--wait',
         '--browser=chromium',
-        '--wait-timeout=5000'
+        `--wait-timeout=${WAIT_BUDGET_MS}`
       ],
-      15000
+      CLI_TIMEOUT_MS
     )
 
     setTimeout(() => {
@@ -65,7 +74,7 @@ describe('dev --wait contract', () => {
           pid: process.pid
         })
       )
-    }, 150)
+    }, FIRST_CONTRACT_WRITE_MS)
 
     setTimeout(() => {
       writeFileSync(
@@ -77,7 +86,7 @@ describe('dev --wait contract', () => {
           pid: process.pid
         })
       )
-    }, 300)
+    }, CONTRACT_WRITE_MS)
 
     const result = await run
     expect(result.code).toBe(0)
@@ -95,9 +104,9 @@ describe('dev --wait contract', () => {
         projectDir,
         '--wait',
         '--browser=chromium',
-        '--wait-timeout=5000'
+        `--wait-timeout=${WAIT_BUDGET_MS}`
       ],
-      15000
+      CLI_TIMEOUT_MS
     )
 
     setTimeout(() => {
@@ -111,7 +120,7 @@ describe('dev --wait contract', () => {
           pid: process.pid
         })
       )
-    }, 300)
+    }, CONTRACT_WRITE_MS)
 
     const result = await run
     expect(result.code).toBe(1)
@@ -130,10 +139,10 @@ describe('dev --wait contract', () => {
         projectDir,
         '--wait',
         '--browser=chromium',
-        '--wait-timeout=5000',
+        `--wait-timeout=${WAIT_BUDGET_MS}`,
         '--wait-format=json'
       ],
-      15000
+      CLI_TIMEOUT_MS
     )
 
     setTimeout(() => {
@@ -149,7 +158,7 @@ describe('dev --wait contract', () => {
           pid: process.pid
         })
       )
-    }, 300)
+    }, CONTRACT_WRITE_MS)
 
     const result = await run
     expect(result.code).toBe(0)
@@ -196,9 +205,9 @@ describe('dev --wait contract', () => {
         projectDir,
         '--wait',
         '--browser=chromium',
-        '--wait-timeout=5000'
+        `--wait-timeout=${WAIT_BUDGET_MS}`
       ],
-      15000
+      CLI_TIMEOUT_MS
     )
 
     setTimeout(() => {
@@ -212,7 +221,7 @@ describe('dev --wait contract', () => {
           pid: process.pid
         })
       )
-    }, 500)
+    }, CONTRACT_WRITE_MS)
 
     const result = await run
     expect(result.code).toBe(0)
