@@ -50,9 +50,9 @@ export const SUPPORTED_PACKAGE_MANAGERS = [
 ] as const
 
 // The runtimes the CLI itself executes on, which is a different question from
-// the package manager that installs it. Bun is absent on purpose: it installs
-// and launches the CLI, and the entry refuses the Bun runtime.
-export const SUPPORTED_RUNTIMES = ['node', 'deno'] as const
+// the package manager that installs it. Each one is judged on its own version,
+// because the Node version Bun and Deno report is emulated and tracks nothing.
+export const SUPPORTED_RUNTIMES = ['node', 'deno', 'bun'] as const
 
 export const SUPPORTED_UI_FRAMEWORKS = [
   'react',

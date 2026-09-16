@@ -14,6 +14,11 @@ const MIN_NODE_MINOR = 12
 const MIN_DENO_MAJOR = 2
 const MIN_DENO_MINOR = 5
 
+// Bun 1.2 is the oldest release that loads the rspack native binding and runs a
+// dev session. 1.1.38 reaches the binding and then dies inside napi.
+const MIN_BUN_MAJOR = 1
+const MIN_BUN_MINOR = 2
+
 // Deno 2.8.0 alone cannot resolve node:querystring from inside the bundler, so a
 // build dies on a scheme error it never explains. Deno fixed that in 2.8.1.
 const BLOCKED_DENO_VERSIONS = ['2.8.0']
@@ -36,6 +41,10 @@ export function isSupportedDenoVersion(version: string): boolean {
   if (BLOCKED_DENO_VERSIONS.includes(version)) return false
 
   return meetsFloor(version, MIN_DENO_MAJOR, MIN_DENO_MINOR)
+}
+
+export function isSupportedBunVersion(version: string): boolean {
+  return meetsFloor(version, MIN_BUN_MAJOR, MIN_BUN_MINOR)
 }
 
 // Bun sets process.versions.bun and Node never does, so this is the one signal
@@ -78,34 +87,26 @@ export function unsupportedDenoVersionMessage(version: string): string {
   )
 }
 
-// Under the Bun runtime the reported Node version is Bun's emulated one, so
-// naming the user's Node install would send them to upgrade the wrong thing.
-// The emulated version is not the reason for the refusal, the runtime is.
-export function unsupportedNodeVersionMessage(
-  version: string,
-  bunVersion?: string
-): string {
-  if (bunVersion) {
-    return (
-      `[Extension.js] The extension CLI runs on Node.js, not on the Bun ` +
-      `runtime (Bun ${bunVersion}, reporting Node.js ${version}), so the ` +
-      `Node.js you have installed is not the problem. Run it on Node.js ` +
-      `instead: drop --bun from bunx or bun run, or unset run.bun in ` +
-      `bunfig.toml, plain bunx runs the extension CLI on Node.js.`
-    )
-  }
+// Bun below 1.2 fails inside the rspack native binding, which reads as a broken
+// install rather than an old runtime, so the message names Bun and not Node.
+export function unsupportedBunVersionMessage(version: string): string {
+  return (
+    `[Extension.js] Requires Bun >= ${MIN_BUN_MAJOR}.${MIN_BUN_MINOR} ` +
+    `(you are on ${version}). Run bun upgrade, or run the extension CLI on ` +
+    `Node.js >= ${MIN_NODE_MAJOR}.${MIN_NODE_MINOR} instead.`
+  )
+}
 
+export function unsupportedNodeVersionMessage(version: string): string {
   return (
     `[Extension.js] Requires Node.js >= ${MIN_NODE_MAJOR}.${MIN_NODE_MINOR} ` +
     `(you are on ${version}). Upgrade Node.js to run the extension CLI.`
   )
 }
 
-// The runtime picks the floor. Deno is supported and judged on its own version,
-// because the Node version it reports is emulated and not the one to act on.
-// Bun is refused on its own, not through the version floor: a Bun that
-// emulates 22.12 or later would otherwise run the CLI on a runtime it does
-// not support.
+// Each runtime is judged on its own version. Bun and Deno both report an
+// emulated Node number that does not track their real capability: Bun 1.1.38
+// and Bun 1.2.0 both say Node 22.6.0, and only one of them works.
 export function enforceSupportedNodeVersion(
   version: string = process.versions.node,
   bunVersion: string | undefined = detectBunVersion(),
@@ -121,10 +122,20 @@ export function enforceSupportedNodeVersion(
     return
   }
 
-  if (!bunVersion && isSupportedNodeVersion(version)) return
+  if (bunVersion) {
+    if (isSupportedBunVersion(bunVersion)) return
+
+    // eslint-disable-next-line no-console
+    console.error(unsupportedBunVersionMessage(bunVersion))
+    process.exit(1)
+
+    return
+  }
+
+  if (isSupportedNodeVersion(version)) return
 
   // eslint-disable-next-line no-console
-  console.error(unsupportedNodeVersionMessage(version, bunVersion))
+  console.error(unsupportedNodeVersionMessage(version))
   process.exit(1)
 }
 
