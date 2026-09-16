@@ -19,6 +19,7 @@ import {
   stagingDistPathFor
 } from './lib/atomic-dist'
 import {type BuildSummary, getBuildSummary} from './lib/build-summary'
+import {collectChunkDependencyProvenance} from './lib/chunk-dependency-provenance'
 import {
   loadBrowserConfig,
   loadCommandConfig,
@@ -413,7 +414,9 @@ export async function extensionBuild(
               distDisplay,
               browser,
               mode: resolvedMode,
-              enabled: mergedBuildOptions.addonLint
+              enabled: mergedBuildOptions.addonLint,
+              chunkProvenance: () =>
+                collectChunkDependencyProvenance(stats.compilation)
             })
 
             if (lint.status === 'missing' && lint.hint) {
