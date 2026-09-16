@@ -240,6 +240,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "reservedScriptsFolder: function(2)",
     "runtimeSetSurfaceDependencyMissing: function(3)",
     "staticImportDependencyMissing: function(3)",
+    "workerStartedFromPageContext: function(2)",
   ],
   "plugin-web-extension/feature-web-resources/web-resources-lib/messages.ts": [
     "entryImportsSummary: function(2)",
