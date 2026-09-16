@@ -217,16 +217,25 @@ export function buildAssetsTree(stats: Stats | undefined): string {
 export function buildComplete(
   browser: DevOptions['browser'],
   distDisplayPath: string,
-  totalBytes?: number
+  totalBytes?: number,
+  mode?: 'development' | 'production' | 'none'
 ) {
   const noun = artifactNoun(String(browser))
+  // The closer said production whatever the build ran as, so a build passed
+  // --mode development finished by reporting the opposite of what it did.
+  const builtFor =
+    mode === 'development'
+      ? 'built for development in'
+      : mode === 'none'
+        ? 'built in'
+        : 'built for production in'
   const size =
     typeof totalBytes === 'number' && totalBytes > 0
       ? ` (${getHumanSize(totalBytes)})`
       : ''
 
   return (
-    `${getLoggingPrefix('success')} ${noun} built for production in ` +
+    `${getLoggingPrefix('success')} ${noun} ${builtFor} ` +
     `${colors.underline(distDisplayPath)}${size}.`
   )
 }
