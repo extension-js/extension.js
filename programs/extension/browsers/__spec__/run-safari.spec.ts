@@ -254,6 +254,23 @@ describe('run-safari messages', () => {
     expect(msg).toMatch(/persistent background pages/)
   })
 
+  it('says which flagged keys the build keeps on purpose', () => {
+    const msg = messages.safariConverterWarnings([
+      'Warning: The following keys in your manifest.json are not supported:',
+      'world'
+    ])
+    expect(msg).toMatch(/on purpose/)
+    expect(msg).toMatch(/Safari 18/)
+  })
+
+  it('adds no kept-on-purpose line when every flagged key was dropped', () => {
+    const msg = messages.safariConverterWarnings([
+      'Warning: The following keys in your manifest.json are not supported:',
+      'side_panel'
+    ])
+    expect(msg).not.toMatch(/on purpose/)
+  })
+
   it('warns loudly about what regeneration discards and preserves', () => {
     const msg = messages.safariRegenerationDiscards([
       'DEVELOPMENT_TEAM',
