@@ -273,12 +273,31 @@ export function addonLintFinding(
   level: 'error' | 'warning',
   code: string,
   message: string,
-  location: string
+  location: string,
+  attribution?: string
 ) {
   const glyph = getLoggingPrefix(level === 'error' ? 'warn' : 'info')
   const where = location ? ` ${colors.gray(`(${location})`)}` : ''
+  const from = attribution ? ` ${colors.gray(attribution)}` : ''
 
-  return `${glyph} AMO ${level} ${colors.yellow(code)}: ${message}${where}`
+  return `${glyph} AMO ${level} ${colors.yellow(code)}: ${message}${where}${from}`
+}
+
+// The finding stays, because AMO still reports it on a submission. What this
+// adds is whose code it is, which the file name alone can get exactly wrong:
+// `shared/framework.js` is our chunk name for the project's own dependencies.
+export function addonLintDependencyAttribution(
+  packages: string[],
+  onlyDependencies: boolean
+) {
+  if (packages.length === 0) return ''
+
+  const named = packages.slice(0, 3).join(', ')
+  const rest = packages.length > 3 ? `, +${packages.length - 3} more` : ''
+
+  return onlyDependencies
+    ? `- this file is bundled dependency code (${named}${rest}), not yours`
+    : `- this file also bundles ${named}${rest}, so the finding may be theirs`
 }
 
 export function addonLintMore(hiddenCount: number, distDisplay: string) {

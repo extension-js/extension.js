@@ -6,6 +6,7 @@ import {
   ADDON_LINT_DEFAULT,
   ADDON_LINT_MAX_PRINTED,
   type AddonLintOutput,
+  attributionFor,
   collectAddonLintLines,
   formatAddonLintFindings,
   type LoadAddonLinter,
@@ -269,5 +270,116 @@ describe('addon lint failure paths', () => {
     })
     expect(result.status).toBe('failed')
     expect((result as {debugLine: string}).debugLine).toContain('timed out')
+  })
+})
+
+describe('dependency attribution', () => {
+  const provenance = new Map([
+    [
+      'shared/framework.js',
+      {packages: ['react', 'react-dom', 'scheduler'], onlyDependencies: true}
+    ],
+    [
+      'content_scripts/content-0.js',
+      {packages: ['react-dom'], onlyDependencies: false}
+    ]
+  ])
+
+  it('says a vendor-only chunk is not the developer code', () => {
+    expect(
+      stripAnsi(attributionFor('shared/framework.js:1', provenance))
+    ).toContain('bundled dependency code (react, react-dom, scheduler)')
+  })
+
+  it('hedges on a chunk that mixes the developer source in', () => {
+    const line = stripAnsi(
+      attributionFor('content_scripts/content-0.js:1', provenance)
+    )
+    expect(line).toContain('also bundles react-dom')
+    expect(line).toContain('may be theirs')
+  })
+
+  it('matches a location a Windows linter run separates with backslashes', () => {
+    expect(
+      stripAnsi(attributionFor('shared\\framework.js:1', provenance))
+    ).toContain('bundled dependency code')
+  })
+
+  it('says nothing about a file with no bundled dependency', () => {
+    expect(attributionFor('background/scripts.js:1', provenance)).toBe('')
+  })
+
+  it('says nothing when the build passed no provenance', () => {
+    expect(attributionFor('shared/framework.js:1', undefined)).toBe('')
+  })
+
+  it('annotates the printed finding without removing it', () => {
+    const output: AddonLintOutput = {
+      warnings: [
+        {
+          code: 'UNSAFE_VAR_ASSIGNMENT',
+          message: 'Unsafe assignment to innerHTML',
+          file: 'shared/framework.js',
+          line: 1
+        }
+      ]
+    }
+    const {findings, lines} = formatAddonLintFindings(
+      output,
+      'dist/firefox',
+      ADDON_LINT_MAX_PRINTED,
+      provenance
+    )
+
+    expect(findings).toBe(1)
+    const finding = stripAnsi(lines[1])
+    expect(finding).toContain('UNSAFE_VAR_ASSIGNMENT')
+    expect(finding).toContain('Unsafe assignment to innerHTML')
+    expect(finding).toContain('shared/framework.js:1')
+    expect(finding).toContain('bundled dependency code')
+  })
+
+  it('leaves a finding against the developer own code unchanged', () => {
+    const output: AddonLintOutput = {
+      warnings: [
+        {
+          code: 'UNSAFE_VAR_ASSIGNMENT',
+          message: 'Unsafe assignment to innerHTML',
+          file: 'background/scripts.js',
+          line: 1
+        }
+      ]
+    }
+    const withMap = formatAddonLintFindings(
+      output,
+      'dist/firefox',
+      ADDON_LINT_MAX_PRINTED,
+      provenance
+    )
+    const withoutMap = formatAddonLintFindings(output, 'dist/firefox')
+
+    expect(withMap.lines).toEqual(withoutMap.lines)
+  })
+
+  it('never walks the chunk graph when the lint is skipped', async () => {
+    const root = project()
+    let walked = 0
+
+    const chunkProvenance = () => {
+      walked += 1
+
+      return new Map()
+    }
+
+    await runAddonLint({...baseInput(root), browser: 'chrome', chunkProvenance})
+    await runAddonLint({
+      ...baseInput(root),
+      mode: 'development',
+      chunkProvenance
+    })
+
+    await runAddonLint({...baseInput(root), enabled: false, chunkProvenance})
+
+    expect(walked).toBe(0)
   })
 })
