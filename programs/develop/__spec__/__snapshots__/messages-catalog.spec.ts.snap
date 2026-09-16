@@ -22,8 +22,9 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "spacerLine: function(0)",
   ],
   "lib/messages.ts": [
+    "addonLintDependencyAttribution: function(2)",
     "addonLintFailed: function(1)",
-    "addonLintFinding: function(4)",
+    "addonLintFinding: function(5)",
     "addonLintMore: function(2)",
     "addonLintNotInstalled: function(1)",
     "addonLintSummary: function(3)",
