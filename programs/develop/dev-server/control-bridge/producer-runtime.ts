@@ -85,9 +85,18 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
     }
 
+    // The extension's own URL scheme names the engine outright, which beats a
+    // user agent where Chrome and Safari both say "Safari".
     function engineName() {
       try {
-        return (typeof navigator !== "undefined" && /firefox/i.test(navigator.userAgent)) ? "firefox" : "chromium";
+        var scheme = (typeof location !== "undefined" && location.protocol) || "";
+        if (scheme.indexOf("safari-web-extension") === 0) return "webkit";
+        if (scheme.indexOf("moz-extension") === 0) return "firefox";
+        if (scheme.indexOf("chrome-extension") === 0) return "chromium";
+        var ua = (typeof navigator !== "undefined" && navigator.userAgent) || "";
+        if (/firefox/i.test(ua)) return "firefox";
+        if (/safari/i.test(ua) && !/chrome|chromium|edg/i.test(ua)) return "webkit";
+        return "chromium";
       } catch (e) { return "chromium"; }
     }
 
@@ -236,7 +245,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
                 // MV3 forbids eval of strings in the SW/extension pages and
                 // rejects 'unsafe-eval'. Surface it honestly with an alternative.
                 if (/Content Security Policy|unsafe-eval/i.test(msg)) {
-                  replyErr(cmdId, "Unsupported", "eval is blocked in the MV3 service worker by CSP. Use --context page --tab <id> (eval runs in the page's MAIN world), or run on an MV2/Firefox build. Engine: " + engineName());
+                  replyErr(cmdId, "Unsupported", "eval is blocked in the extension background by CSP, which allows no unsafe-eval. Use --context page --tab <id> (eval runs in the page's MAIN world), or run on a build whose CSP permits it. Engine: " + engineName());
                 } else {
                   replyErr(cmdId, (e && e.name) || "EvalError", msg);
                 }
