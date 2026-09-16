@@ -37,15 +37,6 @@ type SafariPackageTarget = {
   instruction?: ReloadInstruction
 }
 
-// Safari reloads whole, on purpose. xcodebuild replaces the entire appex under
-// a running Safari, so a partial signal would describe a state that never existed.
-function asFullReload(
-  instruction: ReloadInstruction | undefined
-): ReloadInstruction | undefined {
-  if (!instruction) return undefined
-  return {...instruction, type: 'full'}
-}
-
 // A save burst collapses to one package, so its reloads collapse to one signal,
 // labelled by the newest edit.
 function mergeInstructions(
@@ -104,17 +95,18 @@ export class SafariDevPlugin implements RunnerPlugin {
       let instruction: ReloadInstruction | undefined
       if (!this.firstRun && changedSources) {
         const {forcedFull, changedSources: sources} = changedSources.snapshot()
-        instruction = asFullReload(
-          classifyReloadFromSources({
-            changedSources: sources,
-            forcedFull,
-            getContentScriptCount: () =>
-              readContentScriptCount(compilation, outputPath),
-            getSourceFeatureIndex: () =>
-              buildSourceFeatureIndex(compilation, contextDir),
-            outputPath
-          })
-        )
+        // Safari takes the same granularity as Chromium. A content-script
+        // reinjection was measured working there, same tab, through the
+        // producer's executeScript path.
+        instruction = classifyReloadFromSources({
+          changedSources: sources,
+          forcedFull,
+          getContentScriptCount: () =>
+            readContentScriptCount(compilation, outputPath),
+          getSourceFeatureIndex: () =>
+            buildSourceFeatureIndex(compilation, contextDir),
+          outputPath
+        })
       }
 
       const target: SafariPackageTarget = {
