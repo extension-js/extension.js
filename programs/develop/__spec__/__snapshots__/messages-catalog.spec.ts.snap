@@ -215,6 +215,8 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "safariIdentityUnsupported: function(1)",
     "safariIdleUnsupported: function(1)",
     "safariManagementUnsupported: function(1)",
+    "safariMemberUnsupported: function(4)",
+    "safariMissingMemberDetails: object",
     "safariNotificationsUnsupported: function(1)",
     "safariOffscreenUnsupported: function(1)",
     "safariOmniboxUnsupported: function(1)",
