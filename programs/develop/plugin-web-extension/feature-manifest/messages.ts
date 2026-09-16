@@ -178,6 +178,14 @@ export function vendorPrefixedKeyDropped(
   )
 }
 
+export function edgeStoreKeyDropped(browser: string) {
+  return (
+    `${prefix('warn')} Edge Add-ons refuses a package whose manifest carries ${colors.yellow('key')}, so the ${colors.blue(browser)} production build dropped it.\n` +
+    `Partner Center assigns the id that ${colors.yellow('key')} pins everywhere else, so the field has no use in this package. ` +
+    `Write it as ${colors.yellow('chrome:key')} if it is meant for the Chrome Web Store build only.`
+  )
+}
+
 export function mv2SandboxPolicyDropped(browser: string) {
   return (
     `${prefix('warn')} ${colors.blue(browser)} reads a Manifest V2 ${colors.yellow('content_security_policy')} as one string, so the ${colors.yellow('sandbox')} slot has nowhere to go.\n` +
