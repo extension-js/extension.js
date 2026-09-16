@@ -23,6 +23,8 @@ npm run dev
 
 Works with `npm`, `pnpm`, `yarn`, `bun`, and `deno`.
 
+The CLI itself runs on Node.js 22.12+ and Deno 2.5+. Bun installs and launches it, and it runs on Node.js from there.
+
 [Documentation](https://extension.js.org/docs) · [Templates](https://templates.extension.dev/?utm_source=readme&utm_campaign=nav-templates) · [Showcase](https://extension.js.org/showcase) · [Blog](https://extension.js.org/blog)
 
 ## Why Extension.js
@@ -178,6 +180,16 @@ npx extension@latest dev https://github.com/GoogleChrome/chrome-extensions-sampl
 | npm<br>✅ Supported | pnpm<br>✅ Supported | Yarn<br>✅ Supported | Bun<br>✅ Supported | Deno<br>✅ Supported |
 
 </div>
+
+Each of these installs Extension.js, launches it, and runs its scripts. Which runtime the CLI then executes on is a separate question.
+
+## Runtimes
+
+| Runtime | Status | Notes |
+| :-- | :-- | :-- |
+| Node.js | ✅ 22.12 and newer | The default. `npx`, `pnpm dlx`, `yarn dlx` and `bunx` all land here through the published bin |
+| Deno | ✅ 2.5 and newer | `deno run -A npm:extension@latest`. Deno 2.8.0 is refused because it cannot load `node:querystring`, fixed in 2.8.1 |
+| Bun | ❌ Not a runtime for the CLI | Bun installs and launches Extension.js, which then runs on Node.js. `bunx --bun` and `bun run --bun` are refused |
 
 ## Community
 

@@ -1,8 +1,11 @@
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {
   detectBunVersion,
+  detectDenoVersion,
   enforceSupportedNodeVersion,
+  isSupportedDenoVersion,
   isSupportedNodeVersion,
+  unsupportedDenoVersionMessage,
   unsupportedNodeVersionMessage
 } from '../node-version-guard'
 
@@ -126,6 +129,98 @@ describe('enforceSupportedNodeVersion', () => {
 
     expect(exitSpy).not.toHaveBeenCalled()
     expect(errorSpy).not.toHaveBeenCalled()
+  })
+
+  it('runs on Deno at or above the floor', () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const exitSpy = vi
+      .spyOn(process, 'exit')
+      .mockImplementation(() => undefined as never)
+
+    // Deno 2.5 emulates Node 24.2.0 and 2.9 emulates 26.3.0, both measured.
+    enforceSupportedNodeVersion('24.2.0', undefined, '2.5.0')
+    enforceSupportedNodeVersion('26.3.0', undefined, '2.9.2')
+
+    expect(exitSpy).not.toHaveBeenCalled()
+    expect(errorSpy).not.toHaveBeenCalled()
+  })
+
+  it('names Deno, not the Node it emulates, when Deno is too old', () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const exitSpy = vi
+      .spyOn(process, 'exit')
+      .mockImplementation(() => undefined as never)
+
+    // Deno 2.0.6 emulates Node 20.11.1, which would otherwise send the user
+    // to upgrade a Node install that is not what the CLI is running on.
+    enforceSupportedNodeVersion('20.11.1', undefined, '2.0.6')
+
+    expect(exitSpy).toHaveBeenCalledWith(1)
+    const message = errorSpy.mock.calls[0][0] as string
+    expect(message).toBe(unsupportedDenoVersionMessage('2.0.6'))
+    expect(message).toContain('Deno >= 2.5')
+    expect(message).toContain('2.0.6')
+    expect(message).not.toContain('20.11.1')
+    expect(message).not.toContain('\n')
+  })
+
+  it('refuses Deno 2.8.0, which cannot load node:querystring', () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const exitSpy = vi
+      .spyOn(process, 'exit')
+      .mockImplementation(() => undefined as never)
+
+    enforceSupportedNodeVersion('24.2.0', undefined, '2.8.0')
+
+    expect(exitSpy).toHaveBeenCalledWith(1)
+    const message = errorSpy.mock.calls[0][0] as string
+    expect(message).toContain('2.8.0')
+    expect(message).toContain('node:querystring')
+    expect(message).toContain('2.8.1')
+    expect(message).not.toContain('\n')
+  })
+})
+
+describe('isSupportedDenoVersion', () => {
+  it('rejects every release below the 2.5 floor', () => {
+    expect(isSupportedDenoVersion('1.46.3')).toBe(false)
+    expect(isSupportedDenoVersion('2.0.6')).toBe(false)
+    expect(isSupportedDenoVersion('2.4.9')).toBe(false)
+  })
+
+  // Each of these was run against a real build of this CLI before being listed.
+  it('accepts 2.5 and later', () => {
+    expect(isSupportedDenoVersion('2.5.0')).toBe(true)
+    expect(isSupportedDenoVersion('2.6.0')).toBe(true)
+    expect(isSupportedDenoVersion('2.7.2')).toBe(true)
+    expect(isSupportedDenoVersion('2.9.2')).toBe(true)
+    expect(isSupportedDenoVersion('3.0.0')).toBe(true)
+  })
+
+  it('rejects 2.8.0 alone, and takes 2.8.1 back', () => {
+    expect(isSupportedDenoVersion('2.8.0')).toBe(false)
+    expect(isSupportedDenoVersion('2.8.1')).toBe(true)
+    expect(isSupportedDenoVersion('2.8.3')).toBe(true)
+  })
+})
+
+describe('detectDenoVersion', () => {
+  it('reads the Deno version that only the Deno runtime sets', () => {
+    const denoVersions = {
+      ...process.versions,
+      deno: '2.9.2'
+    } as unknown as NodeJS.ProcessVersions
+
+    expect(detectDenoVersion(denoVersions)).toBe('2.9.2')
+  })
+
+  it('reports no Deno on a plain Node process', () => {
+    const nodeVersions = {node: '24.18.1'} as unknown as NodeJS.ProcessVersions
+
+    expect(detectDenoVersion(nodeVersions)).toBeUndefined()
+    expect(
+      detectDenoVersion({...nodeVersions, deno: ''} as never)
+    ).toBeUndefined()
   })
 })
 

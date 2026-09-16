@@ -245,6 +245,49 @@ jobs:
           pnpm --filter extension-js-devtools run build:chromium
           pnpm --filter @extension-js/theme run build:chromium
 
+  deno-runtime:
+    name: Deno runtime (${{ matrix.deno }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The floor the entry guard enforces, and the current release. 2.8.0 is
+        # deliberately absent: it cannot resolve node:querystring from inside
+        # the bundler, so the guard refuses that one release by name.
+        deno: ['v2.5.0', 'v2.x']
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with:
+          deno-version: ${{ matrix.deno }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Compile CLI and develop pipeline
+        run: |
+          pnpm --filter extension-develop compile
+          pnpm --filter extension compile
+
+      # The deno lane in optional-deps-matrix.yml runs `deno install` and then
+      # reaches the CLI through its Node shebang, so it proves nothing about
+      # Deno executing the toolchain. This is the only lane that does, and it
+      # covers dev as well as build because they load different module graphs.
+      - name: Run the Deno runtime smoke
+        run: pnpm smoke:deno
+
   tests-windows:
     name: Run test suite (Windows)
     runs-on: windows-latest
@@ -280,6 +323,7 @@ jobs:
       - tests-node
       - smoke-npx
       - bundled-extensions
+      - deno-runtime
       - tests-windows
     runs-on: ubuntu-latest
     timeout-minutes: 5

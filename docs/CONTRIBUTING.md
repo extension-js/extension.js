@@ -25,6 +25,7 @@ them into a local `templates/` directory via `scripts/hydrate-templates-from-exa
 - PNPM 10.x (workspace uses `packageManager: pnpm@10.28.0`).
 - macOS, Linux, or Windows.
 - Optional for E2E: browsers used by Playwright (Chrome/Chromium is enough for most).
+- Optional for the Deno runtime lane: Deno 2.5+ (`pnpm smoke:deno`). The CLI supports Node.js and Deno, and refuses the Bun runtime.
 
 ## Setup
 
