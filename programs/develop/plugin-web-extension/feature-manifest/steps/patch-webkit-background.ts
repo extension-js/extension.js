@@ -33,8 +33,11 @@ export function patchWebkitBackground(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const {service_worker, type, ...rest} = background
 
+  // No `persistent` key: Manifest V3 background scripts are non-persistent by
+  // definition, and Safari's converter reports the key as unsupported, which was
+  // the only warning 14 of 15 example builds produced.
   return {
     ...manifest,
-    background: {...rest, scripts: [service_worker], persistent: false}
+    background: {...rest, scripts: [service_worker]}
   } as Manifest
 }

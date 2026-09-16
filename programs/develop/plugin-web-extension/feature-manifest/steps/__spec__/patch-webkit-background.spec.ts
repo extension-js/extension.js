@@ -10,10 +10,11 @@ const worker = {
 } as unknown as Manifest
 
 describe('patchWebkitBackground', () => {
-  it('turns a Safari service worker into a non-persistent background page', () => {
+  // No `persistent` key on purpose: Manifest V3 background scripts are already
+  // non-persistent, and Safari's converter reports the key as unsupported.
+  it('turns a Safari service worker into a background page', () => {
     expect(patchWebkitBackground(worker, 'safari').background).toEqual({
-      scripts: ['background/service_worker.js'],
-      persistent: false
+      scripts: ['background/service_worker.js']
     })
   })
 
@@ -29,7 +30,6 @@ describe('patchWebkitBackground', () => {
 
     expect(patchWebkitBackground(typed, 'safari').background).toEqual({
       scripts: ['background/service_worker.js'],
-      persistent: false,
       extra: 1
     })
   })
