@@ -180,7 +180,12 @@ export class SafariDevPlugin implements RunnerPlugin {
     // Only after the package succeeded: the appex Safari reads is replaced by
     // xcodebuild, so a signal sent earlier would reload the previous bytes.
     if (!wasFirstRun && target.instruction && this.reloadBroker) {
-      await dispatchReload(target.instruction, {broker: this.reloadBroker})
+      await dispatchReload(target.instruction, {
+        broker: this.reloadBroker,
+        // xcodebuild replaced the appex under a running Safari, so the extension
+        // is restarting and a zero-producer dispatch here is the expected cost.
+        producerRestartExpected: true
+      })
     }
 
     this.emitter.emit('compiled', {

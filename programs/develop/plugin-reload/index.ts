@@ -34,7 +34,8 @@ export {
   createChangedSourcesTracker,
   dispatchReload,
   type ReloadBroker,
-  type ReloadExecutor
+  type ReloadExecutor,
+  type UndeliveredReloadContext
 } from './reload-dispatch'
 export {SetupChunkLoadingTarget} from './steps/setup-chunk-loading-target'
 

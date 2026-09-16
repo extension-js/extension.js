@@ -591,3 +591,60 @@ describe('BridgeBroker executor presence', () => {
     expect(detached).toEqual([])
   })
 })
+
+// A caller that restarted the extension itself (a Safari package replaces the
+// appex under a running Safari) owns that absence, so it must not be warned about.
+describe('BridgeBroker.undeliveredReloadWarning: caller-caused restart', () => {
+  const GRACE_MS = 10_000
+
+  function brokerAt(startMs: number) {
+    let nowMs = startMs
+    const b = new BridgeBroker({...opts, now: () => nowMs})
+    return {b, advance: (ms: number) => (nowMs += ms)}
+  }
+
+  function attachThenDetach(b: BridgeBroker) {
+    const prod = new FakeConn('p')
+    b.onFrame(prod, {
+      type: 'hello',
+      v: 1,
+      role: 'producer',
+      instanceId: 'inst-1'
+    })
+    b.onClose(prod)
+  }
+
+  it('stays quiet when the producer it took down was attached before', () => {
+    const {b, advance} = brokerAt(1_000_000)
+    advance(GRACE_MS)
+    attachThenDetach(b)
+    expect(
+      b.undeliveredReloadWarning({producerRestartExpected: true})
+    ).toBeNull()
+  })
+
+  it('does not spend the dedup, so a plain dispatch still warns once', () => {
+    const {b, advance} = brokerAt(1_000_000)
+    advance(GRACE_MS)
+    attachThenDetach(b)
+    expect(
+      b.undeliveredReloadWarning({producerRestartExpected: true})
+    ).toBeNull()
+    expect(b.undeliveredReloadWarning()).toContain('disconnected')
+  })
+
+  it('still warns when nothing ever connected, which no restart explains', () => {
+    const {b, advance} = brokerAt(1_000_000)
+    advance(GRACE_MS)
+    expect(
+      b.undeliveredReloadWarning({producerRestartExpected: true})
+    ).toContain('has not connected to the dev server this session')
+  })
+
+  it('keeps the startup grace window ahead of the restart context', () => {
+    const {b} = brokerAt(1_000_000)
+    expect(
+      b.undeliveredReloadWarning({producerRestartExpected: true})
+    ).toBeNull()
+  })
+})

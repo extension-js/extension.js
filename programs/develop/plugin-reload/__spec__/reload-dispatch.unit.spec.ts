@@ -300,3 +300,95 @@ describe('createChangedSourcesTracker', () => {
     })
   })
 })
+
+// A caller that restarts the extension to ship the build (the Safari packager)
+// owns the zero-producer case: the broker latches the edit and it lands later.
+describe('dispatchReload with an expected producer restart', () => {
+  it('asks with the restart context and prints the queued line', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const undeliveredReloadWarning = vi.fn().mockReturnValue(null)
+
+    await dispatchReload(CS, {
+      broker: {
+        broadcastReload: vi.fn().mockReturnValue(0),
+        undeliveredReloadWarning
+      },
+      producerRestartExpected: true
+    })
+
+    expect(undeliveredReloadWarning).toHaveBeenCalledWith({
+      producerRestartExpected: true
+    })
+    expect(warn).not.toHaveBeenCalled()
+    const line = String(log.mock.calls[0][0])
+    expect(line).toContain('Queued')
+    expect(line).toContain('content_script (src/content/scripts.js)')
+    expect(line).toContain('when it reconnects')
+  })
+
+  it('asks without a context on a plain dispatch, which still warns', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const undeliveredReloadWarning = vi
+      .fn()
+      .mockReturnValue('SW not attached, your edit compiled')
+
+    await dispatchReload(CS, {
+      broker: {
+        broadcastReload: vi.fn().mockReturnValue(0),
+        undeliveredReloadWarning
+      }
+    })
+
+    expect(undeliveredReloadWarning).toHaveBeenCalledWith(undefined)
+    expect(warn).toHaveBeenCalledTimes(1)
+  })
+
+  it('prefers a warning the broker still returns over the queued line', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    await dispatchReload(CS, {
+      broker: {
+        broadcastReload: vi.fn().mockReturnValue(0),
+        undeliveredReloadWarning: vi
+          .fn()
+          .mockReturnValue('SW not attached, your edit compiled')
+      },
+      producerRestartExpected: true
+    })
+
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(log).not.toHaveBeenCalled()
+  })
+
+  it('stays silent when the latched instruction carries no label', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    await dispatchReload(
+      {type: 'full', changedAssets: ['src/manifest.json']},
+      {
+        broker: {broadcastReload: vi.fn().mockReturnValue(0)},
+        producerRestartExpected: true
+      }
+    )
+
+    expect(log).not.toHaveBeenCalled()
+  })
+
+  it('announces a normal reload when a producer was notified', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const undeliveredReloadWarning = vi.fn().mockReturnValue('should not show')
+
+    await dispatchReload(CS, {
+      broker: {
+        broadcastReload: vi.fn().mockReturnValue(1),
+        undeliveredReloadWarning
+      },
+      producerRestartExpected: true
+    })
+
+    expect(undeliveredReloadWarning).not.toHaveBeenCalled()
+    expect(String(log.mock.calls[0][0])).toContain('Reloading')
+  })
+})

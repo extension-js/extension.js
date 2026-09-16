@@ -343,7 +343,9 @@ export class BridgeBroker {
 
   // After a broadcast reached zero producers, decide whether to warn once that
   // the edit isn't reaching any page (grace-gated, deduped per attach state).
-  undeliveredReloadWarning(): string | null {
+  undeliveredReloadWarning(options?: {
+    producerRestartExpected?: boolean
+  }): string | null {
     const now = this.now()
 
     // Cold start: the browser may still be launching and the SW connecting, so
@@ -362,6 +364,12 @@ export class BridgeBroker {
     const kind = this.producerEverConnected
       ? 'recently-disconnected'
       : 'never-connected'
+
+    // The caller took the extension down itself to ship this build, so a producer
+    // that was here and left is expected and the latch applies on reconnect.
+    if (options?.producerRestartExpected && kind === 'recently-disconnected') {
+      return null
+    }
 
     // One warning per attach-state transition, not once per save.
     if (this.lastUndeliveredWarnKind === kind) return null

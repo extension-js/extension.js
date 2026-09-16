@@ -1,4 +1,4 @@
-import {describe, expect, it} from 'vitest'
+import {afterEach, describe, expect, it, vi} from 'vitest'
 import type {ReloadBroker} from '../../plugin-reload'
 import {SafariDevPlugin, type SafariPackagerFn} from '../safari-dev-plugin'
 
@@ -296,5 +296,77 @@ describe('SafariDevPlugin reload seam', () => {
     h.callFor('/out2').resolve()
     await p
     expect(h.modes()).toEqual(['full:/init', 'resync:/out2'])
+  })
+})
+
+// Packaging replaces the appex under a running Safari, so the extension restarts
+// and the save-driven dispatch lands with zero producers on purpose.
+describe('SafariDevPlugin undelivered reload after a package', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  function makeDetachedBroker(warning: string | null = null) {
+    const asked: Array<{producerRestartExpected?: boolean} | undefined> = []
+    const broker: ReloadBroker = {
+      broadcastReload: () => 0,
+      undeliveredReloadWarning: (context) => {
+        asked.push(context)
+        return warning
+      }
+    }
+    return {broker, asked}
+  }
+
+  async function saveOnce(h: ReturnType<typeof harness>, out: string) {
+    const p = h.trigger(out, MANIFEST_EDIT)
+    await flush()
+    h.callFor(out).resolve()
+    await p
+    await flush()
+  }
+
+  it('declares the restart it caused and never warns about it', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const {broker, asked} = makeDetachedBroker()
+    const h = harness(broker)
+    await settleFirst(h)
+
+    await saveOnce(h, '/out2')
+
+    expect(asked).toEqual([{producerRestartExpected: true}])
+    expect(warn).not.toHaveBeenCalled()
+    const lines = log.mock.calls.map((c) => String(c[0]))
+    expect(lines.some((l) => l.includes('Queued'))).toBe(true)
+    expect(lines.some((l) => l.includes('when it reconnects'))).toBe(true)
+  })
+
+  it('still surfaces a warning the broker considers real', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const {broker} = makeDetachedBroker('SW not attached, your edit compiled')
+    const h = harness(broker)
+    await settleFirst(h)
+
+    await saveOnce(h, '/out2')
+
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(String(warn.mock.calls[0][0])).toContain('SW not attached')
+    expect(log).not.toHaveBeenCalled()
+  })
+
+  it('announces a normal reload when the producer survived', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const {broker, sent} = makeBroker()
+    const h = harness(broker)
+    await settleFirst(h)
+
+    await saveOnce(h, '/out2')
+
+    expect(sent).toHaveLength(1)
+    expect(warn).not.toHaveBeenCalled()
+    expect(String(log.mock.calls[0][0])).toContain('Reloading')
   })
 })
