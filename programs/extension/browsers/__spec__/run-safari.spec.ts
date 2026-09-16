@@ -292,7 +292,7 @@ describe('run-safari messages', () => {
     const msg = messages.safariOpenHint('/tmp/My App.app', 'My App')
     expect(msg).toMatch(/open/)
     expect(msg).toMatch(/My App\.app/)
-    expect(msg).toMatch(/Allow Unsigned Extensions/)
+    expect(msg).not.toMatch(/Allow Unsigned Extensions/)
   })
 
   it('guides installing the full Xcode app when only CLT is active', () => {
@@ -319,7 +319,7 @@ describe('run-safari messages', () => {
 
   it('guides the one-time Safari enable steps', () => {
     const msg = messages.safariNextSteps('React Sidebar Example')
-    expect(msg).toMatch(/Allow Unsigned Extensions/)
+    expect(msg).not.toMatch(/Allow Unsigned Extensions/)
     expect(msg).toMatch(/Settings ▸ Extensions/)
     expect(msg).toMatch(/React Sidebar Example/)
   })
