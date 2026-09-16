@@ -207,20 +207,67 @@ function iconsFingerprint(extensionDir: string): string {
   }
 }
 
-// v3 fingerprint: identity inputs plus the entries the project references.
-// The manifest's bytes are deliberately out of it. Dev rewrites content-script
-// paths to content-hashed names on every edit, which made each save look like a
-// new project and re-ran the converter for nothing. Older shapes migrate once.
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {}
+}
+
+// The converter judges the manifest by its SHAPE: which keys are declared and
+// which permissions are asked for. The authoritative list of what it rejects
+// lives in extension-develop, one package over, and that package exports no path
+// to it, so this tracks the shape itself rather than carrying a second copy of
+// the list. A key the converter has an opinion about cannot appear or disappear
+// without changing the shape, whatever the list says on any given day.
+function judgedManifestSurface(extensionDir: string): string {
+  const manifest = readManifest(extensionDir)
+  const parts: string[] = [Object.keys(manifest).sort().join(',')]
+
+  // Permissions are judged one string at a time, so this is the one place where
+  // values, not key names, are what the verdict turns on.
+  for (const listName of ['permissions', 'optional_permissions']) {
+    const list = manifest[listName]
+    const names = Array.isArray(list)
+      ? list
+          .filter((entry): entry is string => typeof entry === 'string')
+          .sort()
+      : []
+    parts.push(`${listName}:${names.join(',')}`)
+  }
+
+  // Nested keys the converter also judges, by name only. A content script's js
+  // path is rewritten to a content-hashed name on every save, and that rename is
+  // the edit this whole fingerprint exists to ignore.
+  const contentScripts = manifest.content_scripts
+  if (Array.isArray(contentScripts)) {
+    parts.push(
+      contentScripts
+        .map((entry) => Object.keys(asRecord(entry)).sort().join('+'))
+        .join(';')
+    )
+  }
+  parts.push(Object.keys(asRecord(manifest.options_ui)).sort().join(','))
+
+  return parts.join('|')
+}
+
+// v4 fingerprint: identity inputs, the entries the project references, the icon
+// set, and the manifest shape the converter judges. The manifest's other bytes
+// stay out. Dev rewrites content-script paths to content-hashed names on every
+// edit, which made each save look like a new project and re-ran the converter
+// for nothing. Older shapes migrate once, since the reader reads any difference
+// as stale.
 export function composeProjectFingerprint(config: SafariBuildConfig): string {
   return JSON.stringify({
-    v: 3,
+    v: 4,
     identity: {
       appName: config.appName,
       bundleId: config.bundleIdentifier,
       macOsOnly: config.macOsOnly
     },
     entries: topLevelEntries(config.extensionDir),
-    icons: iconsFingerprint(config.extensionDir)
+    icons: iconsFingerprint(config.extensionDir),
+    judged: judgedManifestSurface(config.extensionDir)
   })
 }
 

@@ -531,10 +531,9 @@ describe('manifest fingerprinting', () => {
     expect(isProjectStale(config)).toBe(false)
   })
 
-  // The generated project encodes identity, the top-level entries it references
-  // and the icon set. Permissions reach Safari through the copied manifest, so
-  // regenerating the project for them only cost a rebuild and discarded settings.
-  it('ignores a permissions change, which the project does not encode', () => {
+  // The converter reads every permission string and rejects the ones Safari has
+  // no API for, so a permission edit changes the verdict and has to reconvert.
+  it('reports stale when a permission appears', () => {
     writeManifest(distDir, {name: 'Evolving', permissions: ['storage']})
     const config = configFor(distDir)
     saveManifestFingerprint(config)
@@ -542,6 +541,89 @@ describe('manifest fingerprinting', () => {
     writeManifest(distDir, {
       name: 'Evolving',
       permissions: ['storage', 'tabs']
+    })
+    expect(isProjectStale(config)).toBe(true)
+  })
+
+  it('reports stale when a rejected permission appears, then when it goes', () => {
+    writeManifest(distDir, {name: 'Sidebar', permissions: ['storage']})
+    const config = configFor(distDir)
+    saveManifestFingerprint(config)
+
+    // sidePanel is one of the 55 permissions the webkit filter drops.
+    writeManifest(distDir, {
+      name: 'Sidebar',
+      permissions: ['storage', 'sidePanel']
+    })
+    expect(isProjectStale(config)).toBe(true)
+    saveManifestFingerprint(config)
+
+    writeManifest(distDir, {name: 'Sidebar', permissions: ['storage']})
+    expect(isProjectStale(config)).toBe(true)
+  })
+
+  it('reports stale when a rejected optional permission appears', () => {
+    writeManifest(distDir, {name: 'Optional', optional_permissions: ['tabs']})
+    const config = configFor(distDir)
+    saveManifestFingerprint(config)
+
+    writeManifest(distDir, {
+      name: 'Optional',
+      optional_permissions: ['tabs', 'management']
+    })
+    expect(isProjectStale(config)).toBe(true)
+  })
+
+  it('reports stale when a rejected top-level key appears, then when it goes', () => {
+    writeManifest(distDir, {name: 'Panel', manifest_version: 3})
+    const config = configFor(distDir)
+    saveManifestFingerprint(config)
+
+    // side_panel is one of the 17 top-level keys the webkit filter drops.
+    writeManifest(distDir, {
+      name: 'Panel',
+      manifest_version: 3,
+      side_panel: {default_path: 'sidebar.html'}
+    })
+    expect(isProjectStale(config)).toBe(true)
+    saveManifestFingerprint(config)
+
+    writeManifest(distDir, {name: 'Panel', manifest_version: 3})
+    expect(isProjectStale(config)).toBe(true)
+  })
+
+  it('reports stale when options_ui.open_in_tab appears', () => {
+    writeManifest(distDir, {
+      name: 'Options',
+      options_ui: {page: 'options.html'}
+    })
+    const config = configFor(distDir)
+    saveManifestFingerprint(config)
+
+    writeManifest(distDir, {
+      name: 'Options',
+      options_ui: {page: 'options.html', open_in_tab: true}
+    })
+    expect(isProjectStale(config)).toBe(true)
+  })
+
+  // The converter never reads these, so reconverting for them would buy an
+  // 11 second pause and no fresher verdict.
+  it('ignores a benign manifest edit the converter never judges', () => {
+    writeManifest(distDir, {
+      name: 'Benign',
+      version: '1.0.0',
+      description: 'First wording',
+      permissions: ['storage']
+    })
+    const config = configFor(distDir)
+    saveManifestFingerprint(config)
+
+    writeManifest(distDir, {
+      name: 'Benign',
+      version: '1.0.1',
+      description: 'Second wording, same keys',
+      permissions: ['storage']
     })
     expect(isProjectStale(config)).toBe(false)
   })
@@ -629,6 +711,58 @@ describe('manifest fingerprinting', () => {
       path.join(distDir, 'manifest.json'),
       JSON.stringify({permissions: ['storage'], name: 'Order'})
     )
+    expect(isProjectStale(config)).toBe(false)
+  })
+
+  // The rename dev does on every save happens INSIDE the manifest too, since the
+  // emitted content_scripts[].js points at the hashed name. The judged shape is
+  // key names here, never paths, so the save that used to cost 11 seconds of
+  // converter still costs none.
+  it('ignores a content-script rename written into the manifest itself', () => {
+    writeManifest(distDir, {
+      name: 'Hashed',
+      content_scripts: [
+        {matches: ['<all_urls>'], js: ['content_scripts/content-0.aaa.js']}
+      ]
+    })
+    const config = configFor(distDir)
+    saveManifestFingerprint(config)
+
+    writeManifest(distDir, {
+      name: 'Hashed',
+      content_scripts: [
+        {matches: ['<all_urls>'], js: ['content_scripts/content-0.bbb.js']}
+      ]
+    })
+    expect(isProjectStale(config)).toBe(false)
+  })
+
+  it('reports stale when a v3 fingerprint is on disk, then migrates once', () => {
+    writeManifest(distDir, {name: 'Migrating', permissions: ['storage']})
+    const config = configFor(distDir)
+
+    // A v3 fingerprint of this very manifest: same identity, same entries, same
+    // icons, and no record at all of what the converter judges.
+    fs.mkdirSync(path.dirname(manifestFingerprintPath(config)), {
+      recursive: true
+    })
+    fs.writeFileSync(
+      manifestFingerprintPath(config),
+      JSON.stringify({
+        v: 3,
+        identity: {
+          appName: 'Migrating',
+          bundleId: 'dev.extensionjs.Migrating',
+          macOsOnly: true
+        },
+        entries: ['manifest.json'],
+        icons: ''
+      }),
+      'utf8'
+    )
+
+    expect(isProjectStale(config)).toBe(true)
+    saveManifestFingerprint(config)
     expect(isProjectStale(config)).toBe(false)
   })
 })
@@ -850,15 +984,33 @@ describe('safari pipeline staleness integration', () => {
     expect(converterCalls).toHaveLength(2)
   })
 
-  it('permissions change alone: reuses the project', async () => {
+  it('permissions change alone: re-runs the converter for a fresh verdict', async () => {
     await runFakePipeline({name: 'MyExt', permissions: ['storage']})
     expect(converterCalls).toHaveLength(1)
 
     const second = await runFakePipeline({
       name: 'MyExt',
-      permissions: ['storage', 'tabs']
+      permissions: ['storage', 'sidePanel']
+    })
+    expect(second.logs).toContain('[stale]')
+    expect(converterCalls).toHaveLength(2)
+  })
+
+  // The save-loop case: only the hashed content-script name moved, so the
+  // verdict cannot have changed and the converter stays out of the loop.
+  it('content-script rehash alone: reuses the project', async () => {
+    await runFakePipeline({
+      name: 'MyExt',
+      content_scripts: [{matches: ['<all_urls>'], js: ['content-0.aaa.js']}]
+    })
+    expect(converterCalls).toHaveLength(1)
+
+    const second = await runFakePipeline({
+      name: 'MyExt',
+      content_scripts: [{matches: ['<all_urls>'], js: ['content-0.bbb.js']}]
     })
     expect(second.logs).not.toContain('[stale]')
+    expect(second.logs).toContain('[skipped-conversion]')
     expect(converterCalls).toHaveLength(1)
   })
 
