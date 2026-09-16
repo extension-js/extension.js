@@ -19,6 +19,7 @@ import {
   resolveSessionProjectPath,
   sessionReadyPath
 } from '../helpers/session-project-path'
+import {SESSION_BROWSER_TARGETS_HELP} from '../helpers/vendors'
 
 type CheckStatus = 'pass' | 'fail' | 'warn' | 'skip'
 
@@ -501,7 +502,7 @@ export function registerDoctorCommand(program: Command): void {
       'path to the extension project root or the folder holding its manifest'
     )
     .option(
-      '--browser <chrome | chromium | edge | firefox>',
+      `--browser <${SESSION_BROWSER_TARGETS_HELP}>`,
       'which session to diagnose (defaults to the single live session, else chromium)'
     )
     .option(

@@ -142,9 +142,17 @@ describe('extension start', () => {
     expect(extensionBuild).not.toHaveBeenCalled()
   })
 
-  it('rejects safari with a clear error', async () => {
+  // Same contract as preview: the refusal has to hand the user a command, and
+  // it has to give the measured reason. Safari's automation load grants no
+  // host origins, so content scripts never run under it.
+  it('rejects safari and names what to run instead', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     expect(await run(['start', '.', '--browser', 'safari'])).toBe(1)
     expect(extensionBuild).not.toHaveBeenCalled()
+    const refusal = String(errorSpy.mock.calls.at(-1)?.[0] ?? '')
+    expect(refusal).toContain('extension dev --browser safari')
+    expect(refusal).toContain('extension build --browser safari --open')
+    expect(refusal).toContain('grants no website access')
   })
 
   it('emits E_UNSUPPORTED_BROWSER instead of prose with --output json', async () => {

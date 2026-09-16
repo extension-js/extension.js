@@ -2271,3 +2271,196 @@ describe('bridge relay runtime, uncaught error capture (#55)', () => {
     expect(sent[0].__extjsBridgeLog.messageParts[0]).toContain('page blew up')
   })
 })
+
+describe('bridge producer runtime, parked errors (#375)', () => {
+  function makeStore() {
+    const data: Record<string, unknown> = {}
+    const clone = (v: unknown) => JSON.parse(JSON.stringify(v))
+    const area = {
+      get: (key: string, cb: (res: Record<string, unknown>) => void) => {
+        const res: Record<string, unknown> = {}
+        if (key in data) res[key] = clone(data[key])
+        cb(res)
+      },
+      set: (items: Record<string, unknown>, cb?: () => void) => {
+        for (const key of Object.keys(items)) data[key] = clone(items[key])
+        cb?.()
+      },
+      remove: (key: string, cb?: () => void) => {
+        delete data[key]
+        cb?.()
+      }
+    }
+    return {data, area}
+  }
+
+  // One extension context: the producer installs, its socket exists but stays
+  // closed until the test opens it, exactly like a background that throws
+  // before the WebSocket handshake completes.
+  function startContext(area: unknown, instanceId = 'inst-P') {
+    const {fakeGlobal} = makeGlobal()
+    const handlers: Record<string, Array<(ev: unknown) => void>> = {}
+    fakeGlobal.addEventListener = (type: string, fn: (ev: unknown) => void) => {
+      ;(handlers[type] || (handlers[type] = [])).push(fn)
+    }
+    fakeGlobal.chrome = {
+      storage: {local: area},
+      runtime: {lastError: undefined}
+    }
+    run(
+      buildBridgeProducerSource({
+        controlPort: 9500,
+        instanceId,
+        context: 'background'
+      }),
+      fakeGlobal
+    )
+    const ws = FakeWebSocket.instances[FakeWebSocket.instances.length - 1]
+    return {ws, handlers}
+  }
+
+  const throwAt = (
+    handlers: Record<string, Array<(ev: unknown) => void>>,
+    message: string
+  ) =>
+    handlers.error[0]({
+      error: new Error(message),
+      message,
+      filename: 'background/service_worker.js'
+    })
+
+  const parkedOf = (data: Record<string, unknown>) =>
+    (data.__extjsPendingErrors as any[]) || []
+
+  it('parks an uncaught error the closed socket could not send', () => {
+    const {data, area} = makeStore()
+    const {ws, handlers} = startContext(area)
+
+    throwAt(handlers, 'boom at line one')
+
+    expect(ws.sent).toHaveLength(0)
+    const parked = parkedOf(data)
+    expect(parked).toHaveLength(1)
+    expect(parked[0]).toMatchObject({type: 'log'})
+    expect(parked[0].event).toMatchObject({
+      level: 'error',
+      context: 'background',
+      runId: 'inst-P'
+    })
+    expect(parked[0].event.messageParts[0]).toContain('boom at line one')
+  })
+
+  it('ships what a dead context parked once a later context connects', () => {
+    const {data, area} = makeStore()
+    const dead = startContext(area)
+    throwAt(dead.handlers, 'boom at line one')
+    const parkedTimestamp = parkedOf(data)[0].event.timestamp
+
+    const live = startContext(area)
+    live.ws.triggerOpen()
+
+    const frames = live.ws.sent.map((s) => JSON.parse(s))
+    expect(frames[0]).toMatchObject({type: 'hello', role: 'producer'})
+    const logs = frames.filter((f) => f.type === 'log')
+    expect(logs).toHaveLength(1)
+    expect(logs[0].event.level).toBe('error')
+    expect(logs[0].event.messageParts[0]).toContain('boom at line one')
+    // The original moment, not the moment of the replay.
+    expect(logs[0].event.timestamp).toBe(parkedTimestamp)
+    // Read once: a second context must not report the same failure again.
+    expect(data.__extjsPendingErrors).toBeUndefined()
+  })
+
+  it('reports its own parked error exactly once when it does connect', () => {
+    const {data, area} = makeStore()
+    const {ws, handlers} = startContext(area)
+    throwAt(handlers, 'late but alive')
+
+    ws.triggerOpen()
+
+    const logs = ws.sent
+      .map((s) => JSON.parse(s))
+      .filter((f) => f.type === 'log')
+    expect(logs).toHaveLength(1)
+    expect(logs[0].event.messageParts[0]).toContain('late but alive')
+    expect(data.__extjsPendingErrors).toBeUndefined()
+  })
+
+  it('drops an entry parked by another build', () => {
+    const {data, area} = makeStore()
+    const dead = startContext(area, 'inst-OLD')
+    throwAt(dead.handlers, 'from a previous build')
+
+    const live = startContext(area, 'inst-NEW')
+    live.ws.triggerOpen()
+
+    const logs = live.ws.sent
+      .map((s) => JSON.parse(s))
+      .filter((f) => f.type === 'log')
+    expect(logs).toHaveLength(0)
+    expect(data.__extjsPendingErrors).toBeUndefined()
+  })
+
+  it('drops an entry older than the replay window', () => {
+    const {data, area} = makeStore()
+    data.__extjsPendingErrors = [
+      {
+        type: 'log',
+        event: {
+          v: 1,
+          id: 'stale-1',
+          timestamp: Date.now() - 600000,
+          level: 'error',
+          context: 'background',
+          messageParts: ['yesterday'],
+          runId: 'inst-P'
+        }
+      }
+    ]
+
+    const live = startContext(area)
+    live.ws.triggerOpen()
+
+    const logs = live.ws.sent
+      .map((s) => JSON.parse(s))
+      .filter((f) => f.type === 'log')
+    expect(logs).toHaveLength(0)
+    expect(data.__extjsPendingErrors).toBeUndefined()
+  })
+
+  it('caps the parked list and keeps the newest errors', () => {
+    const {data, area} = makeStore()
+    const {handlers} = startContext(area)
+
+    for (let i = 0; i < 25; i++) throwAt(handlers, `boom ${i}`)
+
+    const parked = parkedOf(data)
+    expect(parked).toHaveLength(20)
+    expect(parked[0].event.messageParts[0]).toContain('boom 5')
+    expect(parked[19].event.messageParts[0]).toContain('boom 24')
+  })
+
+  it('stays silent when the context has no extension storage', () => {
+    const {fakeGlobal} = makeGlobal()
+    const handlers: Record<string, Array<(ev: unknown) => void>> = {}
+    fakeGlobal.addEventListener = (type: string, fn: (ev: unknown) => void) => {
+      ;(handlers[type] || (handlers[type] = [])).push(fn)
+    }
+    run(
+      buildBridgeProducerSource({
+        controlPort: 9500,
+        instanceId: 'inst-P',
+        context: 'background'
+      }),
+      fakeGlobal
+    )
+    const ws = FakeWebSocket.instances[FakeWebSocket.instances.length - 1]
+
+    expect(() => throwAt(handlers, 'no storage here')).not.toThrow()
+    ws.triggerOpen()
+    const logs = ws.sent
+      .map((s) => JSON.parse(s))
+      .filter((f) => f.type === 'log')
+    expect(logs).toHaveLength(1)
+  })
+})

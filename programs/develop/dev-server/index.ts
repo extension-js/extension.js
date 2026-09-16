@@ -21,7 +21,7 @@ import {
   loadCustomConfig,
   loadProjectConfigDefaults
 } from '../lib/config-loader'
-import {isGeckoBasedBrowser} from '../lib/constants'
+import {isGeckoBasedBrowser, isWebkitBasedBrowser} from '../lib/constants'
 import {DEV_COMMAND_DEFAULTS, mergeOptionLayers} from '../lib/merge-options'
 import {isDebug} from '../lib/messaging'
 import {applySplitChunksGuard} from '../lib/normalize-split-chunks'
@@ -548,10 +548,17 @@ export async function devServer(
   // The metadata writer is created later (it needs the resolved control port);
   // the SW connects after that, so a mutable holder bridges the ordering.
   let stampExecutorAttached: (() => void) | undefined
+  let stampExecutorDetached: (() => void) | undefined
   const bridgeBroker = new BridgeBroker({
     instanceId: currentInstance.instanceId,
     runId: sessionRunId,
-    engine: isGeckoBasedBrowser(browserName) ? 'firefox' : 'chromium',
+    // Safari is its own engine. The producer already names itself webkit from
+    // its url scheme, so the server saying chromium made the two disagree.
+    engine: isGeckoBasedBrowser(browserName)
+      ? 'firefox'
+      : isWebkitBasedBrowser(browserName)
+        ? 'webkit'
+        : 'chromium',
     ring: new LogRingBuffer(),
     file: bridgeLogFile,
     allowControl,
@@ -559,11 +566,12 @@ export async function devServer(
     controlToken: bridgeControlToken,
     actions: bridgeActionsFile,
     authorMode,
-    onExecutorAttached: () => stampExecutorAttached?.()
+    onExecutorAttached: () => stampExecutorAttached?.(),
+    onExecutorDetached: () => stampExecutorDetached?.()
   })
 
-  // Hand the broker to a launched runner plugin so Chromium reloads through the
-  // SW producer (same executor as --no-browser). No-op for Safari and Firefox.
+  // Hand the broker to a launched runner plugin so Chromium and Safari reload
+  // through the SW producer (same executor as --no-browser). No-op for Firefox.
   const launchedPlugin = extendedOptions.browsersPlugin
   if (launchedPlugin && typeof launchedPlugin.setReloadBroker === 'function') {
     launchedPlugin.setReloadBroker(bridgeBroker)
@@ -730,6 +738,7 @@ export async function devServer(
     logsPath: bridgeLogsRelPath
   })
   stampExecutorAttached = () => metadata.stampExecutorAttached()
+  stampExecutorDetached = () => metadata.stampExecutorDetached()
 
   // One schema-1 frame per lifecycle transition, on stdout, only when the
   // command layer asked for machine output (EXTENSION_OUTPUT=ndjson).

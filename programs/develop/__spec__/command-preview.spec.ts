@@ -61,6 +61,7 @@ const metadataWriter = vi.hoisted(() => ({
   writeStarting: vi.fn(),
   writeReady: vi.fn(),
   writeError: vi.fn(),
+  writeShutdown: vi.fn(),
   appendEvent: vi.fn()
 }))
 const createAutomationMetadataWriter = vi.fn(() => metadataWriter)
@@ -101,9 +102,24 @@ import * as resolveDirsMod from '../plugin-special-folders/folder-extensions/res
 
 describe('webpack/command-preview (run-only)', () => {
   let metadataRoot = ''
+  // Exit handlers are captured, not registered, so the worker's own exit never
+  // runs a mocked writer and the listener count does not grow per test.
+  const exitHandlers: Array<() => void> = []
 
   beforeEach(() => {
     vi.resetModules()
+    exitHandlers.length = 0
+    const realOnce = process.once.bind(process)
+    vi.spyOn(process, 'once').mockImplementation(((
+      event: string,
+      listener: (...args: any[]) => void
+    ) => {
+      if (event === 'exit') {
+        exitHandlers.push(listener)
+        return process
+      }
+      return realOnce(event, listener)
+    }) as typeof process.once)
     runOnlyPreviewBrowser.mockClear()
     logSpy.mockClear()
     captureOutput()
@@ -114,6 +130,7 @@ describe('webpack/command-preview (run-only)', () => {
     metadataWriter.writeStarting.mockClear()
     metadataWriter.writeReady.mockClear()
     metadataWriter.writeError.mockClear()
+    metadataWriter.writeShutdown.mockClear()
     metadataWriter.appendEvent.mockClear()
     createAutomationMetadataWriter.mockClear()
     metadataRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-preview-meta-'))
@@ -371,6 +388,56 @@ describe('webpack/command-preview (run-only)', () => {
       'preview_manifest_missing',
       expect.stringContaining('Expected manifest at')
     )
+  })
+
+  it.each([
+    {label: 'preview', metadataCommand: undefined as 'start' | undefined},
+    {label: 'start', metadataCommand: 'start' as const}
+  ])('stamps stopped when the $label process exits after the launch', async ({
+    label,
+    metadataCommand
+  }) => {
+    ;(fs.existsSync as any).mockImplementation((p: string) => {
+      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json'))
+        return true
+      return false
+    })
+
+    await extensionPreview(
+      '/proj',
+      {browser: 'chrome', metadataCommand} as any,
+      runOnlyPreviewBrowser
+    )
+
+    expect(metadataWriter.writeReady).toHaveBeenCalledTimes(1)
+    expect(metadataWriter.writeShutdown).not.toHaveBeenCalled()
+    expect(exitHandlers).toHaveLength(1)
+
+    exitHandlers[0]()
+
+    expect(metadataWriter.writeShutdown).toHaveBeenCalledWith(
+      `the ${label} session ended`
+    )
+    expect(
+      metadataWriter.writeShutdown.mock.invocationCallOrder[0]
+    ).toBeGreaterThan(metadataWriter.writeReady.mock.invocationCallOrder[0])
+  })
+
+  it('leaves a no-browser ready.json at ready after the process exits', async () => {
+    ;(fs.existsSync as any).mockImplementation((p: string) => {
+      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json'))
+        return true
+      return false
+    })
+
+    await extensionPreview(
+      '/proj',
+      {browser: 'chrome', noBrowser: true} as any,
+      runOnlyPreviewBrowser
+    )
+
+    expect(metadataWriter.writeReady).toHaveBeenCalledTimes(1)
+    expect(exitHandlers).toHaveLength(0)
   })
 
   it('skips browser launch when noBrowser is true', async () => {

@@ -140,9 +140,18 @@ describe('extension preview', () => {
     expect((opts as any).logLevel).toBe('info')
   })
 
-  it('rejects safari with a clear error', async () => {
+  // A refusal that names no next command leaves a Safari user stuck, so the
+  // copy is pinned to the two Safari paths that do work. The reason is pinned
+  // too: Safari's automation load grants no host origins, so content scripts
+  // never run, which is why preview has no Safari path to offer.
+  it('rejects safari and names what to run instead', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     expect(await run(['preview', '.', '--browser', 'safari'])).toBe(1)
     expect(extensionPreview).not.toHaveBeenCalled()
+    const refusal = String(errorSpy.mock.calls.at(-1)?.[0] ?? '')
+    expect(refusal).toContain('extension dev --browser safari')
+    expect(refusal).toContain('extension build --browser safari --open')
+    expect(refusal).toContain('grants no website access')
   })
 
   it('exits on an unsupported browser name', async () => {

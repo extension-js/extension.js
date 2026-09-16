@@ -833,8 +833,10 @@ export function safariNotYetRegistered(appName: string) {
   )
 }
 
+// The reload that follows announces itself, and a reload that reached nobody
+// prints its own warning, so this line states the rebuild and nothing more.
 export function safariRebuilt(appName: string) {
-  return `${getLoggingPrefix('success')} Rebuilt ${colors.yellow(appName)}, reload the page (or toggle the extension) in Safari to see changes.`
+  return `${getLoggingPrefix('success')} Rebuilt ${colors.yellow(appName)}.`
 }
 
 export function safariProjectStale() {

@@ -9,12 +9,37 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, type Compiler, WebpackError} from '@rspack/core'
-import {isGeckoBasedBrowser} from '../../../lib/constants'
+import {isGeckoBasedBrowser, isWebkitBasedBrowser} from '../../../lib/constants'
 import type {DevOptions, Manifest} from '../../../types'
 import * as messages from '../messages'
 import {scannableSourcePath} from './apply-dev-defaults-lib/dev-injected-hosts'
 
-export type GeckoUnsupportedApi = 'sidePanel' | 'action'
+// Namespaces Safari ships on no version, per MDN browser-compat-data and
+// Apple's browser-compatibility page, each paired with the warning it earns.
+// An API Safari has but implements differently does not belong here, since
+// the call still resolves there and the warning would be noise.
+const webkitUnsupportedApis = {
+  sidePanel: messages.safariSidePanelUnsupported,
+  offscreen: messages.safariOffscreenUnsupported,
+  tabGroups: messages.safariTabGroupsUnsupported,
+  management: messages.safariManagementUnsupported,
+  userScripts: messages.safariUserScriptsUnsupported,
+  identity: messages.safariIdentityUnsupported,
+  notifications: messages.safariNotificationsUnsupported,
+  omnibox: messages.safariOmniboxUnsupported,
+  bookmarks: messages.safariBookmarksUnsupported,
+  history: messages.safariHistoryUnsupported,
+  downloads: messages.safariDownloadsUnsupported,
+  idle: messages.safariIdleUnsupported
+} as const
+
+type WebkitUnsupportedApi = keyof typeof webkitUnsupportedApis
+
+export type GeckoUnsupportedApi = WebkitUnsupportedApi | 'action'
+
+// gecko follows addons-linter, which flags any static read. webkit follows
+// the Safari runtime, where only an unguarded call on a missing namespace throws.
+export type UnsupportedApiEngine = 'gecko' | 'webkit'
 
 export interface GeckoUnsupportedApiUse {
   api: GeckoUnsupportedApi
@@ -27,20 +52,36 @@ export interface GeckoUnsupportedApiUse {
 // The namespaces addons-linter reports as UNSUPPORTED_API on a Gecko build.
 // sidePanel has no Firefox counterpart on any manifest version. action is
 // Manifest V3 only, so a Manifest V2 Firefox bundle still needs browserAction.
+// Safari has action on both manifest versions, so its list is the table above.
 export function geckoUnsupportedApis(
-  manifestVersion: unknown
+  manifestVersion: unknown,
+  engine: UnsupportedApiEngine = 'gecko'
 ): GeckoUnsupportedApi[] {
+  if (engine === 'webkit') {
+    return Object.keys(webkitUnsupportedApis) as GeckoUnsupportedApi[]
+  }
   return manifestVersion === 2 ? ['sidePanel', 'action'] : ['sidePanel']
 }
 
+// The scan reads emitted assets, so WHEN it runs is load bearing. It runs from
+// update-manifest at PROCESS_ASSETS_STAGE_SUMMARIZE + 1, while the dev-server
+// control bridge prepends its own producer (which reads a Chromium-only
+// namespace) to the background asset at PROCESS_ASSETS_STAGE_REPORT + 101.
+// The framework's own code is therefore not in the asset yet. Move either stage
+// and every Safari dev session warns about the bridge, not about user code.
+//
 // A static member read on the namespace is what addons-linter matches, so a
 // runtime guard around the same call still trips it and must still warn.
+// Safari only throws when the call reads through the missing namespace, so
+// optional chaining on it is safe there.
 export function usesGeckoUnsupportedApi(
   source: string,
-  api: GeckoUnsupportedApi
+  api: GeckoUnsupportedApi,
+  engine: UnsupportedApiEngine = 'gecko'
 ): boolean {
+  const chain = engine === 'webkit' ? '' : '\\??'
   const memberRe = new RegExp(
-    `\\b(?:chrome|browser)\\s*\\.\\s*${api}\\s*\\??\\.\\s*[A-Za-z_$]`
+    `\\b(?:chrome|browser)\\s*\\.\\s*${api}\\s*${chain}\\.\\s*[A-Za-z_$]`
   )
   return memberRe.test(source)
 }
@@ -130,12 +171,19 @@ function emittedFilesOf(
  * clears a call the bundler compiled out behind a build-time browser branch,
  * and an emitted script nobody explains is reported under its own name so
  * nothing addons-linter would flag goes unmentioned.
+ *
+ * With requireEmittedEvidence a source hit no emitted script confirms is
+ * dropped instead of reported, so the answer rests on what the build wrote.
  */
 export function findGeckoUnsupportedApiUses(
   compilation: ScannableCompilation,
-  manifestVersion: unknown
+  manifestVersion: unknown,
+  engine: UnsupportedApiEngine = 'gecko',
+  requireEmittedEvidence = false
 ): GeckoUnsupportedApiUse[] {
-  const apis = geckoUnsupportedApis(manifestVersion)
+  const apis = geckoUnsupportedApis(manifestVersion, engine)
+  const uses_ = (text: string, api: GeckoUnsupportedApi) =>
+    usesGeckoUnsupportedApi(text, api, engine)
   const emitted = readEmittedScripts(compilation)
   const explained = new Set<string>()
   const uses = new Map<string, GeckoUnsupportedApiUse>()
@@ -150,17 +198,21 @@ export function findGeckoUnsupportedApiUses(
 
       for (const api of apis) {
         const key = `${api}\0${resource}`
-        if (uses.has(key) || !usesGeckoUnsupportedApi(source, api)) continue
+        if (uses.has(key) || !uses_(source, api)) continue
 
         const files = emittedFilesOf(compilation, outer)
         if (files) {
           const carrying = files.filter((file) => {
             const text = emitted.get(file)
-            return text !== undefined && usesGeckoUnsupportedApi(text, api)
+            return text !== undefined && uses_(text, api)
           })
           // The bundler dropped the call, so the linter never sees it.
           if (!carrying.length) continue
           for (const file of carrying) explained.add(`${api}\0${file}`)
+        } else if (requireEmittedEvidence) {
+          // Nothing ties this module to a script the build wrote, so whether
+          // the call ships is unproven and warning on it would be a guess.
+          continue
         }
         uses.set(key, {api, file: resource, emitted: false})
       }
@@ -174,7 +226,7 @@ export function findGeckoUnsupportedApiUses(
   for (const [name, text] of emitted) {
     for (const api of apis) {
       const key = `${api}\0${name}`
-      if (explained.has(key) || !usesGeckoUnsupportedApi(text, api)) continue
+      if (explained.has(key) || !uses_(text, api)) continue
       uses.set(key, {api, file: name, emitted: true})
     }
   }
@@ -198,36 +250,70 @@ function relativeToProject(projectPath: string, file: string): string {
   return path.relative(projectPath, file) || file
 }
 
-// Warn-only, production Gecko builds only: development bundles keep every
-// build-time branch, so the compiled-out check can't clear them there.
+// Warn-only. Gecko stays production-only: its warning is lint-shaped, and a
+// development bundle keeps every build-time branch, so a source scan there
+// would name calls that never ship. Safari asks a different question. A call
+// the build wrote into the background really runs, throws on the missing
+// namespace, and takes the context down with it, which is why a dev session
+// warns too, on emitted evidence rather than on source alone.
 export function reportGeckoUnsupportedApis(
   compilation: Compilation,
   compiler: Compiler,
   browser: DevOptions['browser'],
   manifest: Manifest,
-  projectPath: string
+  projectPath: string,
+  reported?: Set<string>
 ) {
-  if (compiler.options.mode !== 'production') return
-  if (!isGeckoBasedBrowser(String(browser))) return
+  const engine: UnsupportedApiEngine | undefined = isGeckoBasedBrowser(
+    String(browser)
+  )
+    ? 'gecko'
+    : isWebkitBasedBrowser(String(browser))
+      ? 'webkit'
+      : undefined
+  if (!engine) return
+
+  const isProduction = compiler.options.mode === 'production'
+  if (!isProduction && engine !== 'webkit') return
 
   try {
     const uses = findGeckoUnsupportedApiUses(
       compilation as unknown as ScannableCompilation,
-      manifest.manifest_version
+      manifest.manifest_version,
+      engine,
+      !isProduction
     )
     for (const use of uses) {
       const label = use.emitted
         ? use.file
         : relativeToProject(projectPath, use.file)
-      const text =
-        use.api === 'sidePanel'
+
+      // A dev session recompiles on every save. One line per distinct call
+      // for the life of one dev process; a production build stays complete.
+      if (!isProduction && reported) {
+        const signature = `${use.api}\0${label}`
+        if (reported.has(signature)) continue
+        reported.add(signature)
+      }
+      // The webkit table is also the webkit API list, so the lookup hits
+      // whenever the engine is webkit and the gecko branch stays for gecko.
+      const webkitMessage =
+        engine === 'webkit'
+          ? webkitUnsupportedApis[use.api as WebkitUnsupportedApi]
+          : undefined
+      const text = webkitMessage
+        ? webkitMessage(label)
+        : use.api === 'sidePanel'
           ? messages.geckoSidePanelUnsupported(label)
           : messages.geckoActionUnsupportedOnMv2(label)
       const warn = new WebpackError(text) as Error & {
         file?: string
         name?: string
       }
-      warn.name = 'GeckoUnsupportedApiWarning'
+      warn.name =
+        engine === 'webkit'
+          ? 'SafariUnsupportedApiWarning'
+          : 'GeckoUnsupportedApiWarning'
       warn.file = label
       compilation.warnings.push(warn)
     }
