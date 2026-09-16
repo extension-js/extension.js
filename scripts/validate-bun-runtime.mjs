@@ -26,6 +26,12 @@ const BUN_BIN =
 const BROWSER = 'chromium'
 const BUILD_TIMEOUT_MS = 180000
 const READY_TIMEOUT_MS = 180000
+const LAUNCH_TIMEOUT_MS = 240000
+
+// Unset by default so a local run stays headless and fast. The nightly sets
+// these, because a real browser launch is too flaky for a merge gate.
+const LAUNCH_BROWSER = process.env.RUNTIME_SMOKE_BROWSER || ''
+const LAUNCH_BINARY = process.env.RUNTIME_SMOKE_BROWSER_BINARY || ''
 
 function fail(message) {
   console.error(`\n[bun-runtime] FAILED: ${message}`)
@@ -241,6 +247,131 @@ async function runDev(projectDir) {
   }
 }
 
+// A launch is a different proof from `--no-browser`: it exercises the browser
+// spawn, the profile, and the extension actually loading into the target.
+function launchFixture(projectDir, browser) {
+  const gecko = browser === 'firefox' || browser.includes('gecko')
+  const background = gecko
+    ? {scripts: ['background.js']}
+    : {service_worker: 'background.js'}
+
+  writeFileSync(
+    join(projectDir, 'manifest.json'),
+    `${JSON.stringify(
+      {
+        manifest_version: 3,
+        name: 'bun-runtime-launch',
+        version: '1.0',
+        background
+      },
+      null,
+      2
+    )}\n`
+  )
+
+  writeFileSync(join(projectDir, 'background.js'), 'console.log("ok")\n')
+}
+
+async function runLaunch(browser, binary) {
+  console.log(`[bun-runtime] extension dev --browser ${browser}`)
+
+  const projectDir = mkdtempSync(join(tmpdir(), 'extjs-bun-runtime-launch-'))
+  launchFixture(projectDir, browser)
+
+  const args = [CLI_PATH, 'dev', '.', '--browser', browser]
+
+  if (binary) {
+    args.push(browser === 'firefox' ? '--gecko-binary' : '--chromium-binary')
+    args.push(binary)
+  }
+
+  args.push('--profile', 'false', '--no-open', '--port', '0')
+
+  const startedAtMs = Date.now()
+  const output = {value: ''}
+  const child = spawn(BUN_BIN, args, {
+    cwd: projectDir,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+    env: {...process.env, EXTENSION_HEADLESS: '1'}
+  })
+
+  child.stdout.on('data', (chunk) => {
+    output.value += chunk
+  })
+
+  child.stderr.on('data', (chunk) => {
+    output.value += chunk
+  })
+
+  try {
+    const ready = await waitForLaunch(
+      child,
+      projectDir,
+      browser,
+      startedAtMs,
+      output
+    )
+
+    console.log(
+      `[bun-runtime] ${browser} launched, pid ${ready.browserPid}, extension ` +
+        `${ready.extensionId || 'unknown'}`
+    )
+  } finally {
+    await terminateChild(child)
+    rmSync(projectDir, {recursive: true, force: true})
+  }
+}
+
+function waitForLaunch(child, projectDir, browser, startedAtMs, output) {
+  return new Promise((resolve, reject) => {
+    let settled = false
+
+    const finish = (error, value) => {
+      if (settled) return
+
+      settled = true
+      clearInterval(poll)
+      clearTimeout(timer)
+      if (error) reject(error)
+      else resolve(value)
+    }
+
+    const timer = setTimeout(() => {
+      finish(
+        new Error(
+          `${browser} never reached "ready" with a browserPid within ` +
+            `${LAUNCH_TIMEOUT_MS}ms, so no browser was spawned.\n` +
+            output.value.slice(-4000)
+        )
+      )
+    }, LAUNCH_TIMEOUT_MS)
+
+    const poll = setInterval(() => {
+      const ready = readReadyContract(projectDir, browser)
+      if (!ready || !isFreshContract(ready, startedAtMs)) return
+
+      if (ready.status === 'error') {
+        finish(new Error(describeReadyFailure(ready)))
+
+        return
+      }
+
+      // The contract is written at compile-ready and stamped with browserPid
+      // only once the browser attaches, so a ready without a pid is early.
+      if (ready.status === 'ready' && ready.browserPid) finish(null, ready)
+    }, 500)
+
+    child.on('exit', (code) => {
+      finish(
+        new Error(
+          `dev exited early with code ${code}.\n${output.value.slice(-4000)}`
+        )
+      )
+    })
+  })
+}
+
 async function main() {
   if (!existsSync(CLI_PATH)) {
     fail(
@@ -258,6 +389,16 @@ async function main() {
     writeFixture(projectDir)
     runBuild(projectDir)
     await runDev(projectDir)
+
+    if (LAUNCH_BROWSER) {
+      await runLaunch(LAUNCH_BROWSER, LAUNCH_BINARY)
+      console.log(
+        `\n[bun-runtime] build, dev and a real ${LAUNCH_BROWSER} launch pass on Bun`
+      )
+
+      return
+    }
+
     console.log('\n[bun-runtime] build and dev both pass on Bun')
   } finally {
     rmSync(projectDir, {recursive: true, force: true})
