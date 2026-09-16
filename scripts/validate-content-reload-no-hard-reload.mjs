@@ -20,6 +20,7 @@ import {
 } from 'node:fs'
 import {tmpdir} from 'node:os'
 import {dirname, extname, join, resolve} from 'node:path'
+import {fileURLToPath} from 'node:url'
 import {
   countCompileSuccessEvents,
   describeReadyFailure,
@@ -55,6 +56,9 @@ const projectArg = parseArg('--project', '')
 const useLocalCreate = parseFlag('--use-local-create')
 const keepTemp = parseFlag('--keep-temp')
 
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const localCliPath = join(repoRoot, 'programs', 'extension', 'dist', 'cli.cjs')
+
 const nodeDir = dirname(process.execPath)
 const pathDelim = process.platform === 'win32' ? ';' : ':'
 const childEnv = {
@@ -72,6 +76,14 @@ const cdpBootstrapWarningPatterns = [
   /\[browser\] CDP post-launch setup failed/i,
   /Failed to connect to CDP:/i
 ]
+
+function assertLocalCliBuilt() {
+  if (existsSync(localCliPath)) return
+
+  throw new Error(
+    `The repo CLI is not built at ${localCliPath}. Run \`pnpm compile\` first.`
+  )
+}
 
 function runCollect(cmd, cmdArgs, opts = {}) {
   return new Promise((resolvePromise, rejectPromise) => {
@@ -411,15 +423,75 @@ function prepareDeepImportChain(projectDir, requestedDepth) {
   }
 }
 
+function resolveDevCli(cwd) {
+  if (useLocalCreate) {
+    assertLocalCliBuilt()
+
+    return {cliPath: localCliPath, source: 'repo build'}
+  }
+
+  const packageDir = join(cwd, 'node_modules', 'extension')
+  const packageJsonPath = join(packageDir, 'package.json')
+
+  if (!existsSync(packageJsonPath)) {
+    throw new Error(
+      `The project has no installed extension CLI at ${packageDir}. ` +
+        'Without it `extension` resolves off PATH, so this smoke would ' +
+        'validate whichever CLI happens to be installed globally.'
+    )
+  }
+
+  // Read the bin the package itself declares, so this runs the same entry
+  // point the `node_modules/.bin` shim would, without the Windows .cmd shim.
+  const installed = JSON.parse(readFileSync(packageJsonPath, 'utf-8'))
+  const declaredBin =
+    typeof installed?.bin === 'string'
+      ? installed.bin
+      : installed?.bin?.extension
+
+  if (!declaredBin) {
+    throw new Error(
+      `Installed extension package declares no bin: ${packageJsonPath}`
+    )
+  }
+
+  const installedCli = join(packageDir, declaredBin)
+
+  if (!existsSync(installedCli)) {
+    throw new Error(`Installed extension bin is missing: ${installedCli}`)
+  }
+
+  return {
+    cliPath: installedCli,
+    source: `project node_modules (${installed.version})`
+  }
+}
+
 function runDevAndValidateContentReload(cwd, deepChain) {
   return new Promise((resolvePromise, rejectPromise) => {
-    const child = spawn('npm', ['run', 'dev', '--', `--browser=${browser}`], {
-      cwd,
-      env: childEnv,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      // npm is a .cmd shim on Windows, which only a shell can start.
-      shell: process.platform === 'win32'
-    })
+    let devCli
+
+    try {
+      devCli = resolveDevCli(cwd)
+    } catch (error) {
+      rejectPromise(error)
+
+      return
+    }
+
+    console.log(
+      `Running dev with the CLI from ${devCli.source}: ${devCli.cliPath}`
+    )
+
+    const child = spawn(
+      process.execPath,
+      [devCli.cliPath, 'dev', `--browser=${browser}`],
+      {
+        cwd,
+        env: childEnv,
+        stdio: ['ignore', 'pipe', 'pipe']
+      }
+    )
 
     let output = ''
     let settled = false
@@ -462,7 +534,7 @@ function runDevAndValidateContentReload(cwd, deepChain) {
       if (err) {
         rejectPromise(err)
       } else {
-        resolvePromise({logs: output, sawCdpBootstrapIssue})
+        resolvePromise({logs: output, sawCdpBootstrapIssue, devCli})
       }
     }
 
@@ -593,7 +665,7 @@ async function main() {
 
     if (useLocalCreate) {
       console.log(
-        `Creating with local CLI: pnpm extension create my-extensionz --template=${template}`
+        `Creating with local CLI: ${localCliPath} create my-extensionz --template=${template}`
       )
     } else {
       console.log(
@@ -609,9 +681,12 @@ async function main() {
   try {
     if (!usingExternalProject) {
       if (useLocalCreate) {
+        // The `pnpm extension` script only resolves inside the repo workspace,
+        // so from a temp cwd pnpm refuses before the CLI ever runs.
+        assertLocalCliBuilt()
         await runCollect(
-          'pnpm',
-          ['extension', 'create', 'my-extensionz', `--template=${template}`],
+          process.execPath,
+          [localCliPath, 'create', 'my-extensionz', `--template=${template}`],
           {cwd: root}
         )
       } else {
@@ -623,13 +698,21 @@ async function main() {
       }
     }
 
+    if (!usingExternalProject && !useLocalCreate) {
+      console.log('Installing project dependencies (npm install)...')
+      await runCollect('npm', ['install', '--no-audit', '--no-fund'], {
+        cwd: projectDir,
+        shell: process.platform === 'win32'
+      })
+    }
+
     deepChain = prepareDeepImportChain(projectDir, depth)
 
     console.log(
       'Booting dev, editing deep content-script dependency, validating no hard reload...'
     )
 
-    const {sawCdpBootstrapIssue} = await runDevAndValidateContentReload(
+    const {sawCdpBootstrapIssue, devCli} = await runDevAndValidateContentReload(
       projectDir,
       deepChain
     )
@@ -662,7 +745,7 @@ async function main() {
       console.log(`WARN: profile-enabled check skipped (${prefsCheck.reason})`)
     }
 
-    console.log(`Validated package: ${pkg}`)
+    console.log(`Validated CLI: ${devCli.source} (${devCli.cliPath})`)
   } finally {
     if (usingExternalProject && deepChain?.restoreState) {
       try {
@@ -680,7 +763,14 @@ async function main() {
       }
     } else if (!keepTemp && !usingExternalProject) {
       try {
-        rmSync(root, {recursive: true, force: true})
+        // The browser is still tearing down its profile under this root, so
+        // a single unlink pass races it and reports a false cleanup failure.
+        rmSync(root, {
+          recursive: true,
+          force: true,
+          maxRetries: 10,
+          retryDelay: 200
+        })
       } catch (error) {
         console.warn(`Cleanup warning for ${root}: ${String(error)}`)
       }
