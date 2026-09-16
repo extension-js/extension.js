@@ -166,6 +166,7 @@ export class UpdateManifest {
             // build keeps the stable id that key pins.
             if (compiler.options.mode === 'production') {
               const edgeKey = dropEdgeStoreKey(patchedManifest, this.browser)
+
               if (edgeKey.dropped) {
                 patchedManifest = edgeKey.manifest
                 reportToCompilation(
