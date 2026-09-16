@@ -12,7 +12,10 @@ const stripAnsi = (s: string) => s.replace(/\[[0-9;]*m/g, '')
 describe('ready() banner message', () => {
   it('labels Chromium-family browsers an "Extension" and names no browser', () => {
     const msg = stripAnsi(ready('development', 'chrome'))
-    expect(msg).toContain('Extension ready for development. Watching for file changes.')
+    expect(msg).toContain(
+      'Extension ready for development. Watching for file changes.'
+    )
+
     expect(msg).not.toContain('Chrome')
   })
 

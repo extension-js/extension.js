@@ -14,7 +14,9 @@ const strip = (value: string) => value.replace(/\[[0-9;]*m/g, '')
 describe('build assets tree', () => {
   it('prints a 0-byte asset as a file, not a folder holding "size"', () => {
     const out = strip(
-      buildAssetsTree(makeStats([{name: 'theme/images/theme_frame.png', size: 0}]))
+      buildAssetsTree(
+        makeStats([{name: 'theme/images/theme_frame.png', size: 0}])
+      )
     )
 
     expect(out).toMatch(/theme_frame\.png \(0\.00KB\)/)

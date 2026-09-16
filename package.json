@@ -90,8 +90,8 @@
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,mjs,cjs}": [
-      "eslint --fix --no-warn-ignored",
-      "biome check --write --no-errors-on-unmatched"
+      "biome check --write --no-errors-on-unmatched",
+      "eslint --fix --no-warn-ignored"
     ],
     "*.json": [
       "biome check --write --no-errors-on-unmatched"
