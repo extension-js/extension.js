@@ -22,7 +22,7 @@ describe('supported surface', () => {
       'deno'
     ])
 
-    expect(SUPPORTED_RUNTIMES).toEqual(['node', 'deno'])
+    expect(SUPPORTED_RUNTIMES).toEqual(['node', 'deno', 'bun'])
 
     expect(SUPPORTED_UI_FRAMEWORKS).toEqual([
       'react',
@@ -84,7 +84,8 @@ describe('supported surface', () => {
 
     const runtimeLabels: Record<(typeof SUPPORTED_RUNTIMES)[number], string> = {
       node: 'Node.js',
-      deno: 'Deno'
+      deno: 'Deno',
+      bun: 'Bun'
     }
 
     for (const runtime of SUPPORTED_RUNTIMES) {
@@ -95,9 +96,9 @@ describe('supported surface', () => {
 
     expect(
       readme,
-      'README must keep saying the CLI does not run on the Bun runtime, ' +
-        'because the entry guard refuses it'
-    ).toContain('❌ Not a runtime for the CLI')
+      'README must keep the package manager table separate from the runtime ' +
+        'table, because installing the CLI and executing it are two claims'
+    ).toContain('Which runtime the CLI then executes on is a separate question')
   })
 
   it('README enumerates every supported UI framework', () => {

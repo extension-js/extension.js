@@ -50,15 +50,30 @@ export function isDenoRuntime(): boolean {
   )
 }
 
+// Bun sets neither npm_config_user_agent nor npm_execpath when it executes a
+// file directly, so a CLI running ON Bun would otherwise scaffold as npm.
+export function isBunRuntime(): boolean {
+  return (
+    typeof (globalThis as {Bun?: unknown}).Bun !== 'undefined' ||
+    Boolean((process as {versions?: {bun?: string}}).versions?.bun)
+  )
+}
+
 // The package managers a scaffold can be created with; deno is folded in here
 // so callers have a single closed set to switch on.
 export type ScaffoldPackageManager = 'npm' | 'yarn' | 'pnpm' | 'bun' | 'deno'
 
-// Single source of truth for a scaffold's package manager: Deno runtime first,
-// then the pm that invoked this process (a new project's lockfile comes from it).
+// Single source of truth for a scaffold's package manager: the runtime first,
+// then the pm that invoked this process (a new project's lockfile comes from
+// it). `bunx` lands on Node through the shebang and is caught by the env
+// instead, so both routes into Bun end up here.
 export function resolveScaffoldPackageManager(): ScaffoldPackageManager {
   if (isDenoRuntime()) {
     return 'deno'
+  }
+
+  if (isBunRuntime()) {
+    return 'bun'
   }
 
   return detectPackageManagerFromEnv()
@@ -70,6 +85,10 @@ export function resolveScaffoldPackageManager(): ScaffoldPackageManager {
 // pins a manager (a packageManager field, or the pnpm workspace file it
 // ships) is that manager's project; anything else is the manager that ran
 // this process, Deno first.
+//
+// Bun sits BELOW the pin rather than above it, unlike Deno. A Deno project has
+// no package.json to read, so the runtime is the only answer there. A project
+// pinned to pnpm is still a pnpm project when the CLI happens to run on Bun.
 export function resolveProjectPackageManager(
   projectPath: string
 ): ScaffoldPackageManager {
@@ -81,6 +100,8 @@ export function resolveProjectPackageManager(
   if (fs.existsSync(path.join(projectPath, 'pnpm-workspace.yaml'))) {
     return 'pnpm'
   }
+
+  if (isBunRuntime()) return 'bun'
 
   return detectPackageManagerFromEnv()
 }
