@@ -13,6 +13,7 @@ const getInfoBestEffortSpy = vi.fn(async () => ({
   version: '1.0.0'
 }))
 const openTabSpy = vi.fn(async () => {})
+const ensureDeveloperModeSpy = vi.fn(async () => 'enabled' as const)
 
 vi.mock('../../run-chromium/cdp/cdp-extension-controller', () => {
   class CDPExtensionController {
@@ -23,6 +24,7 @@ vi.mock('../../run-chromium/cdp/cdp-extension-controller', () => {
     ensureLoaded = ensureLoadedSpy
     getInfoBestEffort = getInfoBestEffortSpy
     openTab = openTabSpy
+    ensureDeveloperMode = ensureDeveloperModeSpy
   }
 
   return {CDPExtensionController}
@@ -65,6 +67,7 @@ describe('setupCdpAfterLaunch', () => {
     ensureLoadedSpy.mockClear()
     getInfoBestEffortSpy.mockClear()
     openTabSpy.mockClear()
+    ensureDeveloperModeSpy.mockClear()
     vi.mocked(banner.printDevBannerOnce).mockClear()
     vi.mocked(banner.printProdBannerOnce).mockClear()
   })
@@ -114,6 +117,85 @@ describe('setupCdpAfterLaunch', () => {
     }
 
     expect(getInfoBestEffortSpy).toHaveBeenCalled()
+  })
+
+  it('turns developer mode on for the profile it launched', async () => {
+    const plugin: any = {
+      browser: 'chromium',
+      port: 9333,
+      instanceId: 'dev-mode'
+    }
+    const profileDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dev-mode-'))
+    tempDirs.push(profileDir)
+
+    await setupCdpAfterLaunch(
+      {
+        options: {
+          mode: 'development',
+          output: {path: '/workspace/dist/chromium'}
+        }
+      } as any,
+      plugin,
+      ['--remote-debugging-port=9333', `--user-data-dir=${profileDir}`]
+    )
+
+    expect(ensureDeveloperModeSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('leaves the toggle alone for a profile that already carries it', async () => {
+    const plugin: any = {
+      browser: 'chromium',
+      port: 9333,
+      instanceId: 'dev-mode'
+    }
+    const profileDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dev-mode-'))
+    tempDirs.push(profileDir)
+    fs.mkdirSync(path.join(profileDir, 'Default'), {recursive: true})
+    fs.writeFileSync(
+      path.join(profileDir, 'Default', 'Secure Preferences'),
+      JSON.stringify({extensions: {ui: {developer_mode: true}}})
+    )
+
+    await setupCdpAfterLaunch(
+      {
+        options: {
+          mode: 'development',
+          output: {path: '/workspace/dist/chromium'}
+        }
+      } as any,
+      plugin,
+      ['--remote-debugging-port=9333', `--user-data-dir=${profileDir}`]
+    )
+
+    expect(ensureDeveloperModeSpy).not.toHaveBeenCalled()
+  })
+
+  it('never touches the user own profile or a windowless park', async () => {
+    const plugin: any = {
+      browser: 'chromium',
+      port: 9333,
+      instanceId: 'dev-mode'
+    }
+    const compilation: any = {
+      options: {mode: 'development', output: {path: '/workspace/dist/chromium'}}
+    }
+
+    await setupCdpAfterLaunch(compilation, plugin, [
+      '--remote-debugging-port=9333'
+    ])
+
+    expect(ensureDeveloperModeSpy).not.toHaveBeenCalled()
+
+    const profileDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dev-mode-'))
+    tempDirs.push(profileDir)
+
+    await setupCdpAfterLaunch(compilation, plugin, [
+      '--remote-debugging-port=9333',
+      `--user-data-dir=${profileDir}`,
+      '--no-startup-window'
+    ])
+
+    expect(ensureDeveloperModeSpy).not.toHaveBeenCalled()
   })
 
   it('passes only selected user extension path to controller from --load-extension', async () => {
