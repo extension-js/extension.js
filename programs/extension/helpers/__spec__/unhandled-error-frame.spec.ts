@@ -18,6 +18,16 @@ describe('the last frame a failure passes through', () => {
     expect(printed).not.toContain('    at ')
   })
 
+  it('recognises a rendered block that still carries its color codes', () => {
+    // The check strips ANSI before looking for the glyph, and a terminal
+    // session hands it the colored form. Built from explicit escapes so the
+    // case holds whether or not colors are enabled where the spec runs.
+    const ESC = String.fromCharCode(27)
+    const rendered = `${ESC}[31m${GLYPH}${ESC}[39m my-extension already contains files`
+
+    expect(unhandledError(new Error(rendered))).toBe(rendered)
+  })
+
   it('still frames an internal throw, with its stack, so a bug stays debuggable', () => {
     const error = new Error('read ECONNRESET')
 
