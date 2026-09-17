@@ -8,6 +8,7 @@
 
 import fs from 'node:fs'
 import type {Command} from 'commander'
+import colors from 'pintor'
 import {exitAfterDrain} from '../helpers/exit-after-drain'
 import {loadExtensionDevelopBridgeModule} from '../helpers/extension-develop-runtime'
 import {commandDescriptions} from '../helpers/messages'
@@ -232,6 +233,17 @@ function printEvent(event: LogEventLike, format: 'pretty' | 'json' | 'ndjson') {
   console.log(formatPrettyLogLine(event))
 }
 
+function levelToken(level: string): string {
+  const word = level.toUpperCase()
+
+  if (level === 'error') return colors.red(word)
+  if (level === 'warn') return colors.brightYellow(word)
+  if (level === 'info') return colors.gray(word)
+  if (level === 'debug') return colors.dim(colors.gray(word))
+
+  return word
+}
+
 // Shared with `inspect --with-console` so console lines read the same in
 // both commands.
 export function formatPrettyLogLine(event: LogEventLike): string {
@@ -242,10 +254,11 @@ export function formatPrettyLogLine(event: LogEventLike): string {
     : ''
   const code = event.code ? ` ${event.code}` : ''
   const remediation = event.remediation ? `\n    ↳ ${event.remediation}` : ''
+  const level = String(event.level || 'log').toLowerCase()
 
   return (
-    `[${event.seq ?? '-'}] ${String(event.level || 'log').toUpperCase()} ` +
-    `(${event.context})${code} ${parts}${remediation}`
+    `[${event.seq ?? '-'}] ${levelToken(level)} ` +
+    `${colors.dim(`(${event.context})`)}${code} ${parts}${remediation}`
   )
 }
 
@@ -457,7 +470,11 @@ async function followLogs(
     onGap: (gap: {dropped?: unknown; reason?: unknown}) => {
       // eslint-disable-next-line no-console
       console.error(
-        `… ${gap.dropped} event(s) dropped (${gap.reason}), stream is behind`
+        colors.dim(
+          colors.gray(
+            `… ${gap.dropped} event(s) dropped (${gap.reason}), stream is behind`
+          )
+        )
       )
     },
     onClose: (close: {code: number; reason: string}) => {
