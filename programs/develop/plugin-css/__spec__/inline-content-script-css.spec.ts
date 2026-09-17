@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import * as vm from 'node:vm'
 import {afterEach, describe, expect, it} from 'vitest'
 import {
   EXTENSION_ROOT_PLACEHOLDER,
@@ -35,13 +36,9 @@ function contextFor(dir: string) {
   }
 }
 
-// Runs the generated module the way a content script would, with whichever
-// runtime globals the caller provides.
 function evaluateModule(code: string, globals: Record<string, unknown>) {
   const module = {exports: ''}
-  const names = Object.keys(globals)
-  const run = new Function('module', ...names, code)
-  run(module, ...names.map((name) => globals[name]))
+  vm.runInNewContext(code, {module, ...globals})
 
   return module.exports
 }
@@ -133,5 +130,22 @@ describe('toRuntimeStylesheetModule', () => {
     expect(decodeURIComponent(String(exported))).toContain(
       'url("/assets/img/bg.png")'
     )
+  })
+
+  it('reads the bridge base in a MAIN world script, which has no runtime API', () => {
+    const exported = evaluateModule(toRuntimeStylesheetModule(css), {
+      __EXTJS_EXTENSION_BASE__: 'chrome-extension://abc'
+    })
+    expect(decodeURIComponent(String(exported))).toContain(
+      'url("chrome-extension://abc/assets/img/bg.png")'
+    )
+  })
+
+  it('never names the browser or chrome namespaces as free identifiers', () => {
+    const code = toRuntimeStylesheetModule(css)
+    expect(code).not.toMatch(/(^|[^.\w$])browser\b/)
+    expect(code).not.toMatch(/(^|[^.\w$])chrome\b/)
+    expect(code).toContain('globalThis.browser')
+    expect(code).toContain('globalThis.chrome')
   })
 })
