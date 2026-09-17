@@ -46,6 +46,18 @@ export function prefix(type: Channel): string {
   return colors.gray(GLYPH)
 }
 
+// eslint-disable-next-line no-control-regex
+const ANSI_PATTERN = /\[[0-9;]*m/g
+
+// True when the text already opens with the channel glyph, so a frame that
+// adds its own would print two glyphs on one line.
+export function hasChannelPrefix(text: string): boolean {
+  return String(text || '')
+    .replace(ANSI_PATTERN, '')
+    .trimStart()
+    .startsWith(GLYPH)
+}
+
 // Closed on purpose: an unknown value means pretty, so a typo can never
 // silently swallow the human output a terminal user is reading.
 const MACHINE_OUTPUT_VALUES = new Set(['json', 'ndjson'])

@@ -10,7 +10,13 @@ import * as path from 'node:path'
 import type {Stats, StatsAsset} from '@rspack/core'
 import colors from 'pintor'
 import type {DevOptions, Manifest} from '../types'
-import {artifactNoun, type Channel, fmt, prefix} from './messaging'
+import {
+  artifactNoun,
+  type Channel,
+  fmt,
+  hasChannelPrefix,
+  prefix
+} from './messaging'
 
 // Imported for local use and re-exported: consumers and snapshots read fmt
 // from this module, and the definition now lives in messaging.ts.
@@ -371,11 +377,29 @@ function stripModuleWarningWrapper(message: string): string {
   return message.replace(/^Module (?:Warning|Error) \(from [^)]*\):\s*/, '')
 }
 
+// The bundler renders every warning it reports with a warning-sign head
+// marker and a bar gutter on each following line. That is its frame, not
+// the warning's text, so both are read off before the text is framed here.
+function stripBundlerDecoration(message: string): string {
+  return message
+    .replace(/\r/g, '')
+    .split('\n')
+    .map((line, index) =>
+      index === 0 ? line.replace(/^\s*⚠ ?/, '') : line.replace(/^\s*│ ?/, '')
+    )
+    .join('\n')
+    .trim()
+}
+
+function cleanWarningText(message: string): string {
+  return stripModuleWarningWrapper(stripBundlerDecoration(message))
+}
+
 function getWarningMessage(warning: LooseBuildWarning): string {
   if (!warning) return ''
 
   if (typeof warning === 'string') {
-    return stripModuleWarningWrapper(warning.trim())
+    return cleanWarningText(warning)
   }
 
   const candidates = [
@@ -387,7 +411,7 @@ function getWarningMessage(warning: LooseBuildWarning): string {
 
   for (const candidate of candidates) {
     if (typeof candidate === 'string' && candidate.trim()) {
-      return stripModuleWarningWrapper(candidate.trim())
+      return cleanWarningText(candidate)
     }
   }
 
@@ -542,12 +566,23 @@ export function buildWarningsDetails(warnings: LooseBuildWarning[]): string {
       return
     }
 
+    // A warning that opens with the channel glyph framed itself where it was
+    // written, so it prints as is: no category, no source row, no hint.
+    if (hasChannelPrefix(message)) {
+      blocks.push(message)
+
+      return
+    }
+
+    // A body with a second line explains itself. The generic hint is for the
+    // one-line warnings the bundler reports with nothing else to go on.
+    const explained = message.includes('\n')
     const oneLine = message.replace(/\s+/g, ' ').trim()
     const artifactSuffix = artifact ? ` ${colors.gray(`(${artifact})`)}` : ''
     blocks.push(
       `${getLoggingPrefix('warn')} ${category}: ${oneLine}${artifactSuffix}\n` +
-        `${formatWarningLabelLine('Source', colors.gray(source))}\n` +
-        `${formatWarningLabelLine('Hint', hint)}`
+        formatWarningLabelLine('Source', colors.gray(source)) +
+        (explained ? '' : `\n${formatWarningLabelLine('Hint', hint)}`)
     )
   })
 
