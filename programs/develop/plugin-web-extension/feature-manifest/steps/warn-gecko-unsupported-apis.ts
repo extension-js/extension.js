@@ -17,7 +17,8 @@ import {
   type EmittedCompilation,
   emittedFilesOf,
   readEmittedScripts,
-  readProjectSource
+  readProjectSource,
+  shippableText
 } from './apply-dev-defaults-lib/emitted-evidence'
 
 // Namespaces Safari ships on no version, per MDN browser-compat-data and
@@ -239,6 +240,33 @@ export function findGeckoUnsupportedApiUses(
   const explained = new Set<string>()
   const uses = new Map<string, GeckoUnsupportedApiUse>()
 
+  // Evidence is a development question, and a development bundle keeps every
+  // build-time branch, so the raw asset still spells a call the browser
+  // constant folded away. The script is compressed once, and only when its
+  // raw text names a target, so a clean project pays nothing for it.
+  const shipped = new Map<string, string>()
+
+  const shippedText = (file: string): string | undefined => {
+    if (shipped.has(file)) return shipped.get(file)
+
+    const text = emitted.get(file)
+    if (text === undefined) return undefined
+
+    const compressed = requireEmittedEvidence ? shippableText(text) : text
+    shipped.set(file, compressed)
+
+    return compressed
+  }
+
+  const carries = (file: string, target: ScanTarget): boolean => {
+    const raw = emitted.get(file)
+    if (raw === undefined || !target.test(raw)) return false
+
+    const text = shippedText(file)
+
+    return text !== undefined && target.test(text)
+  }
+
   for (const outer of compilation.modules) {
     const inner = outer.modules ? [...outer.modules] : [outer]
 
@@ -256,11 +284,7 @@ export function findGeckoUnsupportedApiUses(
         const files = emittedFilesOf(compilation, outer)
 
         if (files) {
-          const carrying = files.filter((file) => {
-            const text = emitted.get(file)
-
-            return text !== undefined && target.test(text)
-          })
+          const carrying = files.filter((file) => carries(file, target))
           // The bundler dropped the call, so the linter never sees it.
           if (!carrying.length) continue
 
@@ -285,10 +309,10 @@ export function findGeckoUnsupportedApiUses(
   // source scan above is the whole report and this pass would repeat it.
   if (!compilation.chunkGraph) return [...uses.values()]
 
-  for (const [name, text] of emitted) {
+  for (const name of emitted.keys()) {
     for (const target of targets) {
       const key = `${target.key}\0${name}`
-      if (explained.has(key) || !target.test(text)) continue
+      if (explained.has(key) || !carries(name, target)) continue
 
       uses.set(key, {
         api: target.api,
