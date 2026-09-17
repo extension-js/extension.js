@@ -20,6 +20,10 @@ jobs:
   cli-flags-drift:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: read
+      # report-red-lane.sh opens or comments on the red lane issue
+      issues: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -53,3 +57,18 @@ jobs:
           echo "Fix: run node scripts/generate-cli-flags.mjs in that repo and commit the result."
           git --no-pager diff -- __tests__/fixtures/cli-flags.json
           exit 1
+
+      # The drift lands in the issue tracker, not only in the Actions tab.
+      # The fix is a docs commit, and the issue says which one.
+      - name: Report a red lane
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RED_LANE_TITLE: 'Docs flag snapshot drift'
+          RED_LANE_REPRO: |
+            gh workflow run cli-flags-drift.yml
+            # Or, with extension-js/extension.js.org checked out at _FUTURE/extension.js.org:
+            pnpm compile
+            node _FUTURE/extension.js.org/scripts/generate-cli-flags.mjs
+            git -C _FUTURE/extension.js.org diff -- __tests__/fixtures/cli-flags.json
+        run: bash scripts/report-red-lane.sh "Docs flag snapshot"
