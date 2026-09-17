@@ -16,6 +16,11 @@ import path from 'node:path'
 import process from 'node:process'
 import {fileURLToPath} from 'node:url'
 import {
+  cliSpawnArgs,
+  describeDevCli,
+  resolveDevCli
+} from './lib/resolve-dev-cli.mjs'
+import {
   describeReadyFailure,
   isFreshContract,
   readReadyContract
@@ -214,20 +219,27 @@ async function terminateChild(child) {
 
 function runDevOnce(projectDir, env, timeout) {
   return new Promise((resolve, reject) => {
-    const command = commandFor('npm')
-    const cmdArgs = ['run', 'dev']
+    let devCli
 
-    if (devArgs.length > 0) {
-      cmdArgs.push('--', ...devArgs)
+    try {
+      // The workspace mode means the repo build the workflow just compiled;
+      // every other mode runs the bin the scaffold installed for itself.
+      devCli = resolveDevCli({projectDir, useRepoBuild: useWorkspacePackage})
+    } catch (error) {
+      reject(error)
+
+      return
     }
 
+    const [command, cmdArgs] = cliSpawnArgs(devCli, ['dev', ...devArgs])
+
     console.log(`\n$ (${projectDir}) ${command} ${cmdArgs.join(' ')}`)
+    console.log(`Running dev with the CLI from ${describeDevCli(devCli)}`)
 
     const child = spawn(command, cmdArgs, {
       cwd: projectDir,
       env,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      shell: process.platform === 'win32'
+      stdio: ['ignore', 'pipe', 'pipe']
     })
 
     let output = ''
@@ -252,7 +264,8 @@ function runDevOnce(projectDir, env, timeout) {
         resolve({
           output,
           sawCompileSuccess,
-          sawReadyBanner
+          sawReadyBanner,
+          devCli
         })
       }
     }
@@ -573,7 +586,15 @@ async function verifyTemplate(template) {
       `[${template}] PASS first dev succeeded. cache=${JSON.stringify(cacheState)}`
     )
 
-    return {template, ok: true, firstRun, secondRun, cacheState, root}
+    return {
+      template,
+      ok: true,
+      firstRun,
+      secondRun,
+      cacheState,
+      root,
+      devCli: firstRun.devCli
+    }
   } finally {
     if (keepTemp || keepCache) {
       console.log(`[${template}] keeping temp root: ${root}`)
@@ -600,6 +621,12 @@ async function main() {
   }
 
   console.log('\nAll template first-dev checks passed.')
+
+  for (const result of results) {
+    console.log(
+      `Validated CLI for ${result.template}: ${describeDevCli(result.devCli)}`
+    )
+  }
 }
 
 main().catch((error) => {

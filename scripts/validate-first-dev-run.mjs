@@ -18,6 +18,12 @@ import {
 import {tmpdir} from 'node:os'
 import {dirname, join} from 'node:path'
 import {
+  cliSpawnArgs,
+  describeDevCli,
+  resolveDevCli,
+  resolveRepoCli
+} from './lib/resolve-dev-cli.mjs'
+import {
   describeReadyFailure,
   expectedChromiumExtensionId,
   managedProfileDir,
@@ -44,6 +50,7 @@ const pkg = parseArg('--package', 'extension@canary')
 const browser = parseArg('--browser', 'chromium')
 const timeoutMs = Number(parseArg('--timeout-ms', '120000'))
 const keepTemp = parseFlag('--keep-temp')
+const useLocalCreate = parseFlag('--use-local-create')
 
 const nodeDir = dirname(process.execPath)
 const pathDelim = process.platform === 'win32' ? ';' : ':'
@@ -97,13 +104,26 @@ function runCollect(cmd, cmdArgs, opts = {}) {
 
 function runDevAndValidate(cwd) {
   return new Promise((resolve, reject) => {
-    const child = spawn('npm', ['run', 'dev', '--', `--browser=${browser}`], {
-      cwd,
-      env: childEnv,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      // npm is a .cmd shim on Windows, which only a shell can start.
-      shell: process.platform === 'win32'
-    })
+    let devCli
+
+    try {
+      devCli = resolveDevCli({projectDir: cwd, useRepoBuild: useLocalCreate})
+    } catch (error) {
+      reject(error)
+
+      return
+    }
+
+    console.log(`Running dev with the CLI from ${describeDevCli(devCli)}`)
+
+    const child = spawn(
+      ...cliSpawnArgs(devCli, ['dev', `--browser=${browser}`]),
+      {
+        cwd,
+        env: childEnv,
+        stdio: ['ignore', 'pipe', 'pipe']
+      }
+    )
 
     let output = ''
     let firstCompileSeen = false
@@ -133,7 +153,7 @@ function runDevAndValidate(cwd) {
       if (err) {
         reject(err)
       } else {
-        resolve(output)
+        resolve({output, devCli})
       }
     }
 
@@ -343,13 +363,31 @@ async function main() {
   const projectDir = join(root, 'my-extensionz')
 
   console.log(`Using temp root: ${root}`)
-  console.log(`Creating with: npx -y ${pkg} create my-extensionz`)
 
   try {
-    await runCollect('npx', ['-y', pkg, 'create', 'my-extensionz'], {cwd: root})
+    if (useLocalCreate) {
+      const createCli = resolveRepoCli()
+      console.log(
+        `Creating with local CLI: ${createCli.cliPath} create my-extensionz`
+      )
+
+      await runCollect(
+        ...cliSpawnArgs(createCli, ['create', 'my-extensionz']),
+        {
+          cwd: root
+        }
+      )
+    } else {
+      console.log(`Creating with: npx -y ${pkg} create my-extensionz`)
+      await runCollect('npx', ['-y', pkg, 'create', 'my-extensionz'], {
+        cwd: root,
+        // npx is a .cmd shim on Windows, which only a shell can start.
+        shell: process.platform === 'win32'
+      })
+    }
 
     console.log('Booting dev and validating first-run behavior...')
-    await runDevAndValidate(projectDir)
+    const {devCli} = await runDevAndValidate(projectDir)
 
     const prefsCheck = assertExtensionEnabledInPrefs(projectDir)
 
@@ -361,7 +399,9 @@ async function main() {
       console.log(`WARN: profile-enabled check skipped (${prefsCheck.reason})`)
     }
 
-    console.log(`Validated package: ${pkg}`)
+    if (!useLocalCreate) console.log(`Validated package: ${pkg}`)
+
+    console.log(`Validated CLI: ${describeDevCli(devCli)}`)
   } finally {
     if (!keepTemp) {
       try {

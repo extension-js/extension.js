@@ -17,6 +17,11 @@ import path from 'node:path'
 import process from 'node:process'
 import {fileURLToPath, pathToFileURL} from 'node:url'
 import {
+  cliSpawnArgs,
+  describeDevCli,
+  resolveDevCli
+} from './lib/resolve-dev-cli.mjs'
+import {
   describeReadyFailure,
   isFreshContract,
   readReadyContract
@@ -355,28 +360,60 @@ async function packLocalWorkspacePackagesForSmoke(workdir, pm) {
   return specifiers
 }
 
-function localCliPath() {
-  return path.join(getLocalWorkspacePackagePaths().extension, 'dist', 'cli.cjs')
-}
-
 function shouldUseDirectLocalCli(pm) {
   return process.platform === 'win32' && pm === 'npm'
 }
 
-function runExtensionCli(args, cwd, env = baseEnv, pm = packageManager) {
-  if (shouldUseDirectLocalCli(pm)) {
-    return run(process.execPath, [localCliPath(), ...args], cwd, env)
-  }
+// Every direct CLI run this smoke makes, so the end of the run can say which
+// cli.cjs each step actually exercised.
+const validatedClis = []
 
-  return run('extension', args, cwd, env)
+// The Windows npm lane runs the repo build straight from the workspace; every
+// other lane runs the bin the fixture installed, never a bare `extension` that
+// would resolve off PATH to whatever CLI happens to be installed globally.
+function resolveExtensionCli(
+  cwd,
+  pm,
+  label,
+  useRepoBuild = shouldUseDirectLocalCli(pm)
+) {
+  const cli = resolveDevCli({projectDir: cwd, useRepoBuild, root: ROOT_DIR})
+
+  console.log(`\n[${label}] running the CLI from ${describeDevCli(cli)}`)
+  validatedClis.push({label, cli})
+
+  return cli
 }
 
-function runExtensionCliLong(args, cwd, env = baseEnv, pm = packageManager) {
-  if (shouldUseDirectLocalCli(pm)) {
-    return runLong(process.execPath, [localCliPath(), ...args], cwd, env)
-  }
+function runExtensionCli(
+  args,
+  cwd,
+  env = baseEnv,
+  pm = packageManager,
+  label = `extension ${args[0]}`,
+  useRepoBuild = shouldUseDirectLocalCli(pm)
+) {
+  const [command, commandArgs] = cliSpawnArgs(
+    resolveExtensionCli(cwd, pm, label, useRepoBuild),
+    args
+  )
 
-  return runLong('extension', args, cwd, env)
+  return run(command, commandArgs, cwd, env)
+}
+
+function runExtensionCliLong(
+  args,
+  cwd,
+  env = baseEnv,
+  pm = packageManager,
+  label = `extension ${args[0]}`
+) {
+  const [command, commandArgs] = cliSpawnArgs(
+    resolveExtensionCli(cwd, pm, label),
+    args
+  )
+
+  return runLong(command, commandArgs, cwd, env, {shell: false})
 }
 
 function windowsDriveRoot(value) {
@@ -848,7 +885,7 @@ function installAndBuild(workdir, pm) {
     run('npm', ['install', '--no-audit', '--no-fund'], workdir, smokeEnv)
 
     if (shouldUseDirectLocalCli(pm)) {
-      runExtensionCli(['build'], workdir, smokeEnv, pm)
+      runExtensionCli(['build'], workdir, smokeEnv, pm, 'npm build')
     } else {
       run('npm', ['run', 'build:production'], workdir, smokeEnv)
     }
@@ -935,19 +972,21 @@ function runReactContentDevSmoke(workdir) {
   const smokeBrowser = 'chrome'
 
   return new Promise((resolve, reject) => {
-    const child = shouldUseDirectLocalCli('npm')
-      ? runExtensionCliLong(
-          ['dev', '--browser=chrome', '--no-browser'],
-          workdir,
-          smokeEnv,
-          'npm'
-        )
-      : runLong(
-          'npm',
-          ['run', 'dev', '--', '--browser=chrome', '--no-browser'],
-          workdir,
-          smokeEnv
-        )
+    let child
+
+    try {
+      child = runExtensionCliLong(
+        ['dev', '--browser=chrome', '--no-browser'],
+        workdir,
+        smokeEnv,
+        'npm',
+        'react content dev'
+      )
+    } catch (error) {
+      reject(error)
+
+      return
+    }
 
     let output = ''
     let settled = false
@@ -1130,11 +1169,13 @@ async function main() {
         ...buildSmokeEnv(packageManager),
         EXTENSION_JS_CACHE_DIR: path.join(workdir, '.extensionjs-cache')
       }
-      run(
-        process.execPath,
-        [localCliPath(), 'build', `--browser=${cliBrowserTarget}`],
+      runExtensionCli(
+        ['build', `--browser=${cliBrowserTarget}`],
         workdir,
-        forkEnv
+        forkEnv,
+        packageManager,
+        `fork build ${cliBrowserTarget}`,
+        true
       )
 
       const forkDistDir = path.join(workdir, 'dist', cliBrowserTarget)
@@ -1188,6 +1229,10 @@ async function main() {
     console.log(
       '\nOptional dependency matrix smoke test completed successfully.'
     )
+
+    for (const {label, cli} of validatedClis) {
+      console.log(`Validated CLI (${label}): ${describeDevCli(cli)}`)
+    }
   } finally {
     if (process.env.EXTJS_KEEP_SMOKE_TMP !== '1') {
       await removeDirectoryWithRetries(tempRoot)
