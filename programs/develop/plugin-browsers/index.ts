@@ -80,6 +80,7 @@ export interface BrowserLaunchOptions {
   logSink?: BrowserLogSink
 }
 
+/** Browser-generated log entry normalized by the launcher's CDP controller. */
 export interface BrowserLogSinkEvent {
   level: 'log' | 'info' | 'warn' | 'error' | 'debug'
   text: string
@@ -107,7 +108,9 @@ export interface BrowserController {
     urlFilter?: string
     tabFilter?: number | string
   }): Promise<void>
+  /** The browser's refusal reason for this session, or null when it loaded. */
   getExtensionLoadRefusal?(): string | null
+  /** Re-offer the current dist. Only ever called while the session is refused. */
   retryExtensionLoad?(): Promise<ExtensionLoadRetryResult>
 }
 
@@ -122,18 +125,38 @@ export interface RunnerPlugin {
 }
 
 export interface BrowsersPluginOptions {
+  /** Injected browser launcher, provided by the CLI from programs/extension/browsers/ */
   launcher: BrowserLauncherFn
+  /** Browser-related options forwarded to the launcher (outputPath/contextDir/extensionsToLoad are filled at compile time) */
   browserOptions: Omit<
     BrowserLaunchOptions,
     'outputPath' | 'contextDir' | 'extensionsToLoad'
   >
 }
 
+/**
+ * BrowsersPlugin
+ *
+ * An rspack plugin that manages the browser lifecycle for extension development.
+ * On first successful compilation it launches a browser via the injected launcher
+ * function; on subsequent compilations it classifies changed files and triggers
+ * the appropriate reload strategy (full / service-worker / content-scripts).
+ *
+ * A `BuildEmitter` is exposed as `plugin.emitter` so that external consumers
+ * (CLI telemetry, wait-mode, etc.) can subscribe to build events without
+ * coupling to rspack.
+ */
 export class BrowsersPlugin implements RunnerPlugin {
   static readonly name = 'plugin-browsers'
 
+  /** EventEmitter for build lifecycle events (compiled, error, close). */
   readonly emitter = new BuildEmitter()
 
+  /**
+   * Extension directories to load alongside the user extension.
+   * Set externally by webpack-config after computing companion extensions,
+   * before the first compilation.
+   */
   extensionsToLoad: string[] = []
 
   private isFirstCompile = true
@@ -145,6 +168,11 @@ export class BrowsersPlugin implements RunnerPlugin {
 
   constructor(private readonly options: BrowsersPluginOptions) {}
 
+  /**
+   * The dev server injects the control-bridge broker so a launched
+   * Chromium reloads through the SW producer (the same path as `--no-browser`),
+   * not the CDP controller. Called once, before the first compile.
+   */
   setReloadBroker(broker: ReloadBroker): void {
     this.reloadBroker = broker
   }

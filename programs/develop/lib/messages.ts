@@ -554,18 +554,15 @@ export function buildWarningsDetails(warnings: LooseBuildWarning[]): string {
   return blocks.join('\n\n')
 }
 
-export function fetchingProjectPath(owner: string, project: string) {
-  return fmt.block('Fetching project', [
-    ['URL', fmt.val(`https://github.com/${owner}/${project}`)]
-  ])
-}
-
-export function downloadingProjectPath(projectName: string) {
+export function downloadingProjectPath(projectName: string, url: string) {
   const formatted = isPathLike(projectName)
     ? colors.underline(projectName)
     : projectName
 
-  return `${getLoggingPrefix('info')} Downloading ${formatted}…`
+  return (
+    `${getLoggingPrefix('info')} Downloading ${formatted}…\n` +
+    `${colors.gray('URL')} ${fmt.val(url)}`
+  )
 }
 
 // A remote source lands in a folder the card's rows already point at. PATH
@@ -653,7 +650,10 @@ export function writingTypeDefinitionsError(error: unknown) {
 }
 
 export function downloadingText(url: string) {
-  return fmt.block('Downloading extension', [['URL', fmt.val(url)]])
+  return (
+    `${getLoggingPrefix('info')} Downloading the browser extension…\n` +
+    `${colors.gray('URL')} ${fmt.val(url)}`
+  )
 }
 
 export function unpackagingExtension(zipFilePath: string) {
