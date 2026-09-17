@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'node:fs'
+import * as os from 'node:os'
 import * as path from 'node:path'
 import type {ProjectStructure} from './project'
 import {
@@ -57,6 +58,38 @@ export function asAbsolute(p: string): AbsolutePath {
 // absolute paths must be normalized before embedding in a glob.
 export function toPosixPath(p: string): string {
   return p.split(path.sep).join('/')
+}
+
+// Printed paths collapse the home dir for scanability. Evidence and debug
+// lines never do, so a pasted path stays valid.
+export function collapseHomeDir(value: string): string {
+  const raw = String(value || '')
+  const home = os.homedir()
+  if (!home || !raw.startsWith(home)) return raw
+
+  const rest = raw.slice(home.length)
+  if (rest === '') return '~'
+  if (rest.startsWith(path.sep) || rest.startsWith('/')) return `~${rest}`
+
+  return raw
+}
+
+// A path inside the base dir prints relative to it; the base itself and
+// anything outside it return null so the caller picks a longer form.
+export function relativeToDir(target: string, base: string): string | null {
+  const relative = path.relative(base, target)
+
+  if (relative && !relative.startsWith('..') && !path.isAbsolute(relative)) {
+    return relative
+  }
+
+  return null
+}
+
+// The one shortening rule every human line shares with the session card:
+// relative inside the project, the `~/` form under the home dir, else as is.
+export function displayPath(target: string, base = process.cwd()): string {
+  return relativeToDir(target, base) || collapseHomeDir(target)
 }
 
 export function getDirs(struct: ProjectStructure): {

@@ -8,8 +8,6 @@
 
 import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
-import * as os from 'node:os'
-import * as path from 'node:path'
 import colors from 'pintor'
 import {
   artifactNoun,
@@ -18,6 +16,7 @@ import {
   card,
   prefix
 } from '../lib/messaging'
+import {collapseHomeDir} from '../lib/paths'
 
 const cjsRequire = createRequire(import.meta.url)
 
@@ -64,20 +63,6 @@ function getExtensionVersion(): string {
       }
     })()
   )
-}
-
-// Card values collapse the home dir for scanability. Evidence and debug lines
-// never do, so a pasted path stays valid.
-function collapseHomeDirInCardValue(value: string): string {
-  const raw = String(value || '')
-  const home = os.homedir()
-  if (!home || !raw.startsWith(home)) return raw
-
-  const rest = raw.slice(home.length)
-  if (rest === '') return '~'
-  if (rest.startsWith(path.sep) || rest.startsWith('/')) return `~${rest}`
-
-  return raw
 }
 
 export function browserRunnerDisabled(args: {
@@ -127,7 +112,7 @@ export function browserRunnerDisabled(args: {
       {label: 'Run ID', value: runLabel},
       {
         label: 'Output',
-        value: collapseHomeDirInCardValue(String(args.distPath || '').trim())
+        value: collapseHomeDir(String(args.distPath || '').trim())
       }
     ]
   })
