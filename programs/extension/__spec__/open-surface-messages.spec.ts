@@ -240,6 +240,94 @@ describe('open refuses gesture-gated surfaces before connecting', () => {
   })
 })
 
+// The guest answers `open` with a small object. On the human channel that
+// object reads as a sentence on the glyph, and the json envelope keeps it raw.
+describe('open prints its result as sentences', () => {
+  function printed(): string[] {
+    return logSpy.mock.calls.map((call) =>
+      String(call[0]).replace(/\u001b\[[0-9;]*m/g, '')
+    )
+  }
+
+  it('a replayed click counts its listeners and warns on its own line', async () => {
+    bridge.result = {
+      ok: true,
+      value: {
+        triggered: 'onClicked',
+        listeners: 1,
+        gesture: false,
+        warning:
+          'replayed without a user gesture: activeTab is NOT granted, so APIs that depend on it behave differently than a real click'
+      }
+    }
+
+    expect(await run(['open', 'action'])).toBe(0)
+    expect(printed()).toEqual([
+      '⏵⏵⏵ Replayed 1 onClicked listener without a user gesture.',
+      '⏵⏵⏵ Replayed without a user gesture: activeTab is NOT granted, so APIs that depend on it behave differently than a real click.'
+    ])
+  })
+
+  it('an opened surface and a triggered popup read as one sentence each', async () => {
+    bridge.result = {ok: true, value: {opened: 'options'}}
+    expect(await run(['open', 'options'])).toBe(0)
+    expect(printed()).toEqual(['⏵⏵⏵ Opened the options page.'])
+
+    logSpy.mockClear()
+    bridge.result = {ok: true, value: {triggered: 'popup'}}
+    expect(await run(['open', 'action'])).toBe(0)
+    expect(printed()).toEqual(['⏵⏵⏵ Opened the action popup.'])
+  })
+
+  it('a replayed command names the command and pluralises its listeners', async () => {
+    bridge.result = {
+      ok: true,
+      value: {
+        triggered: 'command',
+        command: 'toggle-panel',
+        listeners: 2,
+        gesture: false
+      }
+    }
+
+    expect(await run(['open', 'command', '--name', 'toggle-panel'])).toBe(0)
+    expect(printed()).toEqual([
+      '⏵⏵⏵ Replayed 2 onCommand listeners for toggle-panel without a user gesture.'
+    ])
+  })
+
+  it('the json envelope keeps the raw value', async () => {
+    const value = {triggered: 'onClicked', listeners: 1, gesture: false}
+    bridge.result = {ok: true, value}
+    expect(await run(['open', 'action', '--output', 'json'])).toBe(0)
+    expect(logSpy.mock.calls).toHaveLength(1)
+    const envelope = JSON.parse(String(logSpy.mock.calls[0][0]))
+    expect(envelope).toMatchObject({ok: true, command: 'open', value})
+  })
+
+  it('an engine failure reads as a label, evidence and remedy', async () => {
+    bridge.result = {
+      ok: false,
+      error: {
+        name: 'Unsupported',
+        message: 'openPopup: needs a user gesture',
+        code: 'needs_user_gesture',
+        engine: 'chromium'
+      }
+    }
+
+    expect(await run(['open', 'popup', '--browser', 'firefox'])).toBe(1)
+    const text = stderr().replace(/\u001b\[[0-9;]*m/g, '')
+    expect(text.split('\n')).toEqual([
+      '⏵⏵⏵ openPopup: needs a user gesture.',
+      'REASON Unsupported (engine: chromium)',
+      'The browser opens this surface only in response to a click, and refuses to open it any other way. Click the extension in the browser toolbar to open it.'
+    ])
+
+    expect(text).not.toContain('Unsupported: openPopup')
+  })
+})
+
 describe('a 4003 close names the real cause', () => {
   const refusal =
     'control channel refused the controller (code 4003: control channel not available). control is off in the session that answered.'

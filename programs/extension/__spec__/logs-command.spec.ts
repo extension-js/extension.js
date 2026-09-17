@@ -93,6 +93,10 @@ function printedLines(): string[] {
   return logSpy.mock.calls.map((call) => String(call[0]))
 }
 
+function stripAnsi(text: string): string {
+  return text.replace(/\u001b\[[0-9;]*m/g, '')
+}
+
 describe('extension logs (one-shot)', () => {
   it('prints every event, skipping the header and bad lines', async () => {
     expect(await run(['logs', dir, '--output', 'ndjson'])).toBe(0)
@@ -106,6 +110,30 @@ describe('extension logs (one-shot)', () => {
     expect(broken).toContain('E_X')
     expect(broken).toContain('restart it')
     expect(printedLines().some((l) => l.includes('{"k":"v"}'))).toBe(true)
+  })
+
+  it('colours the level word by severity and dims the context', async () => {
+    const prevForce = process.env.FORCE_COLOR
+    process.env.FORCE_COLOR = '1'
+
+    try {
+      expect(await run(['logs', dir, '--output', 'pretty'])).toBe(0)
+      const lines = printedLines()
+      const broken = String(lines.find((l) => l.includes('broken')))
+      const careful = String(lines.find((l) => l.includes('careful')))
+      const boot = String(lines.find((l) => l.includes('boot')))
+      expect(broken).toContain('\u001b[31mERROR\u001b[39m')
+      expect(broken).toContain('\u001b[2m(content)\u001b[22m')
+      expect(careful).toContain('\u001b[93mWARN\u001b[39m')
+      expect(boot).toContain('\u001b[90mINFO\u001b[39m')
+      // The level word survives the colour, so meaning never lives in it alone.
+      expect(stripAnsi(broken)).toBe(
+        '[3] ERROR (content) E_X broken\n    ↳ restart it'
+      )
+    } finally {
+      if (prevForce === undefined) delete process.env.FORCE_COLOR
+      else process.env.FORCE_COLOR = prevForce
+    }
   })
 
   it('supports json output', async () => {

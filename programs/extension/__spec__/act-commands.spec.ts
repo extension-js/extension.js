@@ -173,9 +173,16 @@ describe('extension eval', () => {
     }
 
     expect(await run(['eval', '1+1'])).toBe(1)
-    expect(String(errorSpy.mock.calls[0][0])).toBe(
-      'EvalError: denied (engine: chromium)'
+    const printed = String(errorSpy.mock.calls[0][0]).replace(
+      /\u001b\[[0-9;]*m/g,
+      ''
     )
+
+    expect(printed.split('\n')).toEqual([
+      '⏵⏵⏵ Denied.',
+      'REASON EvalError (engine: chromium)',
+      'The expression threw inside the page. Check the expression itself.'
+    ])
   })
 
   it('notes byte-cap truncation on stderr', async () => {

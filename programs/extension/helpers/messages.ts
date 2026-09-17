@@ -7,7 +7,13 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import colors from 'pintor'
-import {type Channel, fmt, prefix} from './messaging'
+import {
+  type Channel,
+  type CheckStatus,
+  checkGlyph,
+  fmt,
+  prefix
+} from './messaging'
 import {
   BUNDLED_TEMPLATES,
   DEFAULT_TEMPLATE,
@@ -921,6 +927,7 @@ export function deprecatedOutputAlias(flag: string) {
 // typed, the noun is what the browser shows.
 const OPEN_SURFACE_NOUN: Record<string, string> = {
   popup: 'popup',
+  options: 'options page',
   sidebar: 'side panel',
   action: 'action popup'
 }
@@ -942,6 +949,98 @@ export function openSurfaceNeedsGesture(surface: string) {
     `${getLoggingPrefix('error')} Chromium opens the ${openSurfaceNoun(surface)} only in response to a user gesture, so ${code(`extension open ${surface}`)} can't open it from the command line.\n` +
     openSurfaceGestureStep(surface)
   )
+}
+
+export function openedSurface(surface: string) {
+  return `${getLoggingPrefix('success')} Opened the ${openSurfaceNoun(surface)}.`
+}
+
+function listenerCount(listeners: number, event: string): string {
+  return `${listeners} ${event} listener${listeners === 1 ? '' : 's'}`
+}
+
+// The replay ran in the service worker with no click behind it, and that is
+// the one fact a reader must keep in mind when the handler behaves oddly.
+export function replayedActionClick(listeners: number) {
+  return `${getLoggingPrefix('success')} Replayed ${listenerCount(listeners, 'onClicked')} without a user gesture.`
+}
+
+export function replayedCommand(listeners: number, name: string | null) {
+  const target = name ? ` for ${arg(name)}` : ''
+
+  return `${getLoggingPrefix('success')} Replayed ${listenerCount(listeners, 'onCommand')}${target} without a user gesture.`
+}
+
+export function replayWarning(warning: string) {
+  return `${getLoggingPrefix('warn')} ${asSentence(warning)}`
+}
+
+// A plain first word gets its capital, an identifier such as openPopup or
+// sidePanel keeps its spelling because that is the name the reader greps for.
+function asSentence(text: string): string {
+  const trimmed = text.trim()
+  if (!trimmed) return trimmed
+
+  const firstWord = trimmed.split(/\s+/, 1)[0]
+  const capitalised = /^[a-z]+[.!?]?$/.test(firstWord)
+    ? trimmed.charAt(0).toUpperCase() + trimmed.slice(1)
+    : trimmed
+
+  return /[.!?]$/.test(capitalised) ? capitalised : `${capitalised}.`
+}
+
+// The engine's sentence is the label, its class and engine are the evidence,
+// and the hint the envelope carries is the remedy.
+export function actFailure(error: {
+  name: string
+  message: string
+  engine?: string
+  hint?: string
+}) {
+  const engine = error.engine ? ` (engine: ${error.engine})` : ''
+  const lines = [
+    `${getLoggingPrefix('error')} ${asSentence(error.message)}`,
+    `${colors.gray('REASON')} ${error.name}${engine}`
+  ]
+  if (error.hint) lines.push(error.hint)
+
+  return lines.join('\n')
+}
+
+export function doctorReportHeader(
+  browser: string,
+  passes: number,
+  total: number
+) {
+  return `doctor (${browser}), ${passes}/${total} checks passed`
+}
+
+export function doctorCheckRow(
+  status: CheckStatus,
+  check: string,
+  width: number,
+  detail: string
+) {
+  return `  ${checkGlyph(status)} ${check.padEnd(width)}  ${detail}`
+}
+
+export function doctorAdvisory(check: string, remediation: string) {
+  return `\n${check}: ${remediation}`
+}
+
+// The level word stays in the line, so meaning never lives only in colour.
+// Colour ranks it so a warn or error record stands out from the info stream.
+export function logLevelWord(level: string) {
+  const word = level.toUpperCase()
+  if (level === 'error') return colors.red(word)
+  if (level === 'warn') return colors.brightYellow(word)
+  if (level === 'debug') return colors.dim(colors.gray(word))
+
+  return colors.gray(word)
+}
+
+export function logContextTag(context: string) {
+  return colors.dim(`(${context})`)
 }
 
 function sessionOnPort(browser: string, port?: number): string {

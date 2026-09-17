@@ -13,6 +13,34 @@ function makeTempDir(prefix: string) {
   return dir
 }
 
+function stripAnsi(text: string): string {
+  return text.replace(/\u001b\[[0-9;]*m/g, '')
+}
+
+// Every human line in the remote flow starts with the channel glyph, and the
+// URL rides underneath as evidence rather than inside a heading of its own.
+describe('remote source headings', () => {
+  it('lead with the glyph and carry the URL as an evidence row', async () => {
+    const messages = await import('../messages')
+
+    expect(
+      stripAnsi(messages.fetchingProjectPath('owner', 'project')).split('\n')
+    ).toEqual([
+      '⏵⏵⏵ Fetching owner/project…',
+      'URL https://github.com/owner/project'
+    ])
+
+    expect(
+      stripAnsi(messages.downloadingText('https://example.com/ext.zip')).split(
+        '\n'
+      )
+    ).toEqual([
+      '⏵⏵⏵ Downloading the extension…',
+      'URL https://example.com/ext.zip'
+    ])
+  })
+})
+
 beforeEach(() => {
   vi.resetModules()
 })
@@ -341,7 +369,14 @@ describe('get-project-path (GitHub source)', () => {
       expect(writtenTo(stdoutSpy)).not.toContain(gitVersionLine)
       expect(writtenTo(stderrSpy)).not.toContain(rateLimitLine)
 
-      const logged = logSpy.mock.calls.map((c) => String(c[0])).join('\n')
+      const logged = logSpy.mock.calls
+        .map((c) => stripAnsi(String(c[0])))
+        .join('\n')
+      expect(logged).toContain(
+        '⏵⏵⏵ Fetching GoogleChrome/chrome-extensions-samples…'
+      )
+
+      expect(logged).not.toContain('Fetching project')
       expect(logged).toContain('Downloading')
       expect(logged).toContain('Creating a new browser extension')
       expect(logged).not.toContain('PATH')

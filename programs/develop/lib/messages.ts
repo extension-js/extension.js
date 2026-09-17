@@ -555,9 +555,10 @@ export function buildWarningsDetails(warnings: LooseBuildWarning[]): string {
 }
 
 export function fetchingProjectPath(owner: string, project: string) {
-  return fmt.block('Fetching project', [
-    ['URL', fmt.val(`https://github.com/${owner}/${project}`)]
-  ])
+  return (
+    `${getLoggingPrefix('info')} Fetching ${owner}/${project}…\n` +
+    `${colors.gray('URL')} ${colors.underline(`https://github.com/${owner}/${project}`)}`
+  )
 }
 
 export function downloadingProjectPath(projectName: string) {
@@ -653,7 +654,10 @@ export function writingTypeDefinitionsError(error: unknown) {
 }
 
 export function downloadingText(url: string) {
-  return fmt.block('Downloading extension', [['URL', fmt.val(url)]])
+  return (
+    `${getLoggingPrefix('info')} Downloading the extension…\n` +
+    `${colors.gray('URL')} ${colors.underline(url)}`
+  )
 }
 
 export function unpackagingExtension(zipFilePath: string) {

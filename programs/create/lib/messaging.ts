@@ -46,6 +46,18 @@ export function prefix(type: Channel): string {
   return colors.gray(GLYPH)
 }
 
+export type CheckStatus = 'pass' | 'fail' | 'warn' | 'skip'
+
+// A report row is a table cell, not a channel line, so it keeps its own
+// glyph. The colour ranks it like prefix() does and NO_COLOR keeps the glyph.
+export function checkGlyph(status: CheckStatus): string {
+  if (status === 'pass') return colors.green('✓')
+  if (status === 'fail') return colors.red('✗')
+  if (status === 'warn') return colors.brightYellow('!')
+
+  return colors.gray('–')
+}
+
 // Closed on purpose: an unknown value means pretty, so a typo can never
 // silently swallow the human output a terminal user is reading.
 const MACHINE_OUTPUT_VALUES = new Set(['json', 'ndjson'])

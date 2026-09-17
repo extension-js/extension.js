@@ -15,18 +15,24 @@ import {
   loadExtensionDevelopBridgeModule
 } from '../helpers/extension-develop-runtime'
 import {
+  actFailure,
   commandDescriptions,
   controlDisabledInSession,
   controlDisabledInSessionPlain,
+  openedSurface,
   openSurfaceGestureStep,
   openSurfaceNeedsGesture,
-  openSurfaceNeedsGesturePlain
+  openSurfaceNeedsGesturePlain,
+  replayedActionClick,
+  replayedCommand,
+  replayWarning
 } from '../helpers/messages'
 import {
   CODES,
   ENVELOPE,
   type EnvelopeError,
-  type ErrorCode
+  type ErrorCode,
+  humanError
 } from '../helpers/messaging'
 import {normalizeOutputFormat} from '../helpers/output-flag'
 import {
@@ -425,10 +431,19 @@ function printResult(
 
   if (result.ok) {
     const value = result.value
-    // eslint-disable-next-line no-console
-    console.log(
-      typeof value === 'string' ? value : JSON.stringify(value, null, 2)
-    )
+    const sentences = command === 'open' ? openResultLines(value) : undefined
+
+    if (sentences) {
+      for (const line of sentences) {
+        // eslint-disable-next-line no-console
+        console.log(line)
+      }
+    } else {
+      // eslint-disable-next-line no-console
+      console.log(
+        typeof value === 'string' ? value : JSON.stringify(value, null, 2)
+      )
+    }
 
     // Augmentations merge extra keys onto the result; `--with-console` was
     // json-only until these lines, so pretty mode looked like a no-op flag.
@@ -454,11 +469,47 @@ function printResult(
     return
   }
 
-  const err = result.error || {name: 'Error', message: 'command failed'}
-  // eslint-disable-next-line no-console
-  console.error(
-    `${err.name}: ${err.message}${err.engine ? ` (engine: ${err.engine})` : ''}`
+  // The envelope already names the class, the engine and the hint, so the
+  // human line reads the same facts the json reader gets.
+  const err = buildActEnvelope(command, result).error as EnvelopeError
+  humanError(
+    actFailure({
+      name: err.name || 'Error',
+      message: err.message,
+      engine: err.engine,
+      hint: err.hint
+    })
   )
+}
+
+// The shapes the guest's open handler answers with. Anything else is a value
+// the reader has to see whole, so it keeps the json fallback.
+function openResultLines(value: unknown): string[] | undefined {
+  if (!value || typeof value !== 'object') return undefined
+
+  const shape = value as Record<string, unknown>
+  const listeners =
+    typeof shape.listeners === 'number' ? shape.listeners : undefined
+
+  if (typeof shape.opened === 'string') return [openedSurface(shape.opened)]
+  if (shape.triggered === 'popup') return [openedSurface('action')]
+
+  if (shape.triggered === 'onClicked' && listeners != null) {
+    const lines = [replayedActionClick(listeners)]
+
+    if (typeof shape.warning === 'string')
+      {lines.push(replayWarning(shape.warning))}
+
+    return lines
+  }
+
+  if (shape.triggered === 'command' && listeners != null) {
+    const name = typeof shape.command === 'string' ? shape.command : null
+
+    return [replayedCommand(listeners, name)]
+  }
+
+  return undefined
 }
 
 async function runCommand(input: RunInput): Promise<void> {

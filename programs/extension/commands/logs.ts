@@ -10,7 +10,11 @@ import fs from 'node:fs'
 import type {Command} from 'commander'
 import {exitAfterDrain} from '../helpers/exit-after-drain'
 import {loadExtensionDevelopBridgeModule} from '../helpers/extension-develop-runtime'
-import {commandDescriptions} from '../helpers/messages'
+import {
+  commandDescriptions,
+  logContextTag,
+  logLevelWord
+} from '../helpers/messages'
 import {CODES, ENVELOPE} from '../helpers/messaging'
 import {
   resolveSessionProjectPath,
@@ -244,8 +248,8 @@ export function formatPrettyLogLine(event: LogEventLike): string {
   const remediation = event.remediation ? `\n    ↳ ${event.remediation}` : ''
 
   return (
-    `[${event.seq ?? '-'}] ${String(event.level || 'log').toUpperCase()} ` +
-    `(${event.context})${code} ${parts}${remediation}`
+    `[${event.seq ?? '-'}] ${logLevelWord(String(event.level || 'log'))} ` +
+    `${logContextTag(String(event.context))}${code} ${parts}${remediation}`
   )
 }
 

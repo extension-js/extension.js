@@ -47,6 +47,10 @@ class StubController {
   close() {}
 }
 
+function stripAnsi(text: string): string {
+  return text.replace(/\u001b\[[0-9;]*m/g, '')
+}
+
 function healthyModule(overrides: Record<string, unknown> = {}) {
   return {
     BridgeController: StubController,
@@ -533,11 +537,57 @@ describe('extension doctor (command surface)', () => {
         '/proj'
       ])
       expect(code).toBe(1)
-      const lines = logSpy.mock.calls.map((c) => String(c[0]))
+      const lines = logSpy.mock.calls.map((c) => stripAnsi(String(c[0])))
       expect(lines[0]).toContain('doctor (chromium)')
       expect(lines.some((l) => l.includes('✗ ready-contract'))).toBe(true)
       expect(lines[lines.length - 1]).toContain('ready-contract:')
     } finally {
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('colours each row glyph by status and keeps the plain glyph under NO_COLOR', async () => {
+    const {makeProgram, runCli, stubProcessExit} = await import(
+      './command-harness'
+    )
+    const {registerDoctorCommand} = await import('../commands/doctor')
+    const {doctorCheckRow} = await import('../helpers/messages')
+    state.mod = healthyModule({readReadyContract: () => null})
+    stubProcessExit()
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const prevForce = process.env.FORCE_COLOR
+    const prevNo = process.env.NO_COLOR
+    process.env.FORCE_COLOR = '1'
+    delete process.env.NO_COLOR
+
+    try {
+      await runCli(makeProgram(registerDoctorCommand), ['doctor', '/proj'])
+      const lines = logSpy.mock.calls.map((c) => String(c[0]))
+      const failing = lines.find((l) => l.includes('ready-contract'))
+      const skipped = lines.find((l) => l.includes('server-process'))
+      expect(failing).toContain('\u001b[31m✗\u001b[39m ready-contract')
+      expect(skipped).toContain('\u001b[90m–\u001b[39m server-process')
+      expect(doctorCheckRow('pass', 'browser', 7, 'ok')).toContain(
+        '\u001b[32m✓\u001b[39m browser'
+      )
+
+      expect(doctorCheckRow('warn', 'executor', 8, 'slow')).toContain(
+        '\u001b[93m!\u001b[39m executor'
+      )
+
+      delete process.env.FORCE_COLOR
+      process.env.NO_COLOR = '1'
+
+      expect(doctorCheckRow('fail', 'ready-contract', 14, 'missing')).toBe(
+        '  ✗ ready-contract  missing'
+      )
+    } finally {
+      if (prevForce === undefined) delete process.env.FORCE_COLOR
+      else process.env.FORCE_COLOR = prevForce
+
+      if (prevNo === undefined) delete process.env.NO_COLOR
+      else process.env.NO_COLOR = prevNo
+
       vi.restoreAllMocks()
     }
   })
