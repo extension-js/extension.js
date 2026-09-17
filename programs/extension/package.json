@@ -54,7 +54,7 @@
     "registry": "https://registry.npmjs.org"
   },
   "scripts": {
-    "pretest": "pnpm run compile",
+    "pretest": "node ../../scripts/ensure-workspace-deps.mjs && pnpm run compile",
     "prepublishOnly": "pnpm run compile",
     "compile": "rslib build",
     "watch": "rslib build --watch",
