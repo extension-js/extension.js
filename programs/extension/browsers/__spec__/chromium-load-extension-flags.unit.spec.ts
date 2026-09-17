@@ -28,6 +28,12 @@ describe('chromium load-extension launch flags', () => {
       '--disable-features=ExtensionDisableUnsupportedDeveloper'
     )
   })
+
+  it('keeps the safety check off the reloaded unpacked extension', () => {
+    expect(flags).toContain(
+      '--disable-features=SafetyHubExtensionsOffStoreTrigger'
+    )
+  })
 })
 
 describe('chromium load outcome when the browser cannot load an extension', () => {

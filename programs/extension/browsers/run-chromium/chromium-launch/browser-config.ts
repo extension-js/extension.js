@@ -79,6 +79,9 @@ export const DEFAULT_BROWSER_FLAGS: DefaultBrowserFlags[] = [
   // Chromium 152+ disables unpacked developer extensions on the first
   // runtime.reload(), permanently killing the extension mid dev session.
   '--disable-features=ExtensionDisableUnsupportedDeveloper',
+  // Chromium 126+ lists an unpacked extension as unsafe on chrome://extensions
+  // after a reload, asking the developer to remove their own work in progress.
+  '--disable-features=SafetyHubExtensionsOffStoreTrigger',
   // Allow CDP-based extension management (Extensions.loadUnpacked, etc.)
   // Required since Chrome 126+ for reliable CDP extension operations
   '--enable-unsafe-extension-debugging',
