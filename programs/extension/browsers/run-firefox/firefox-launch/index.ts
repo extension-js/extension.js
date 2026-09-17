@@ -30,6 +30,8 @@ import {
 } from '../../browsers-lib/output-binaries-resolver'
 import {
   gracefulTerminateChild,
+  gracefulTerminatePid,
+  wasPidTerminatedByUs,
   wasTerminatedByUs
 } from '../../browsers-lib/process-teardown'
 import {ready as devServerReady} from '../../browsers-lib/ready-message'
@@ -40,6 +42,12 @@ import {
   stampReadyExtensionLoadRefused,
   stampReadyRdpPort
 } from '../../browsers-lib/ready-stamp'
+import {
+  findLiveBrowserPid,
+  isPidAlive,
+  listProcesses,
+  resolveLiveBrowserPid
+} from '../../browsers-lib/resolve-live-pid'
 import {
   buildBrowserLaunchRequest,
   toExtensionLoadList
@@ -109,6 +117,12 @@ export class FirefoxLaunchPlugin {
   // Set before spawn so the child 'close' handler can find the session's
   // ready.json and stamp an unexpected browser exit.
   private extensionOutputPath?: string
+  // The process that owns the session once Firefox hands it off and lets the
+  // spawned child exit. Null while the child itself is the browser.
+  private livePid: number | null = null
+  private liveExitWatcher?: NodeJS.Timeout
+  private browserGone = false
+  private disposeProcessHandlers?: () => void
 
   constructor(host: FirefoxPluginRuntime, ctx: FirefoxContext) {
     this.host = host
@@ -527,13 +541,8 @@ export class FirefoxLaunchPlugin {
           : undefined
       })
 
-      // Reclaim the ephemeral profile once the browser exits. Marker-gated, so
-      // a persistent ('dev') or user-provided profile is never removed
-      this.child.on('close', () => {
-        removeManagedEphemeralProfile(profilePath)
-      })
-
       this.wireChildLifecycle()
+      void this.trackLiveBrowserPid()
 
       let ctrl: Awaited<ReturnType<typeof setupRdpAfterLaunch>> | undefined
 
@@ -543,6 +552,10 @@ export class FirefoxLaunchPlugin {
           compilation,
           debugPort
         )
+
+        // The browser is fully up once RDP answers, so a startup handoff has
+        // happened by now if it was going to. One more look settles the pid.
+        void this.trackLiveBrowserPid(1)
       } catch (error) {
         const reason = (error as {extensionLoadRefusedReason?: string})
           ?.extensionLoadRefusedReason
@@ -694,52 +707,160 @@ export class FirefoxLaunchPlugin {
       }
     })
 
-    // Captured below from setupFirefoxProcessHandlers and called once the child
-    // exits, so this instance is unregistered from the global cleanup registry.
-    let disposeProcessHandlers: (() => void) | undefined
-
     child.on('close', (code) => {
-      if (this.watchTimeout) {
-        clearTimeout(this.watchTimeout)
-        this.watchTimeout = undefined
-      }
+      const expected = wasTerminatedByUs(child)
 
-      if (isDebug()) {
-        this.ctx.logger?.info?.(
-          messages.browserInstanceExited(this.host.browser)
-        )
-      }
+      // Firefox can hand the session to a fresh process and let this one
+      // exit. That process owns the profile now, so the session goes on.
+      if (!expected && this.adoptHandedOffBrowser()) return
 
-      // An unexpected Gecko exit used to be fully silent. Say so loudly and stamp
-      // the contract so automation sees the session is browserless.
-      if (!wasTerminatedByUs(child)) {
-        this.ctx.logger?.error?.(
-          `[browser] ${this.host.browser} exited (code ${
-            code ?? 'unknown'
-          }) without being asked to. The add-on may have been rejected or the browser crashed; the session cannot be driven.`
-        )
-
-        stampReadyBrowserExited(this.extensionOutputPath, code)
-      }
-
-      this.cleanupInstance().catch((err) => {
-        if (isDebug()) {
-          this.ctx.logger?.error?.(
-            `[browser] Cleanup error on child close: ${(err as Error)?.message || err}`
-          )
-        }
-      })
-
-      disposeProcessHandlers?.()
+      this.onBrowserGone(code, expected)
     })
 
     this.pipeChildOutput(child)
 
-    disposeProcessHandlers = setupFirefoxProcessHandlers(
+    // Captured so the instance leaves the global cleanup registry once the
+    // browser, spawned child or adopted process, is gone.
+    this.disposeProcessHandlers = setupFirefoxProcessHandlers(
       this.host.browser as FirefoxBrowserKind,
       () => this.child,
-      () => this.cleanupInstance()
+      () => this.cleanupInstance(),
+      () => this.livePid
     )
+  }
+
+  // Every exit path lands here once: the ephemeral profile is reclaimed, an
+  // exit nobody asked for is said loudly and stamped, and the registry entry
+  // goes away. The profile removal is marker-gated, so a persistent or
+  // user-provided profile is never removed.
+  private onBrowserGone(code: number | null, expected: boolean) {
+    if (this.browserGone) return
+
+    this.browserGone = true
+
+    if (this.watchTimeout) {
+      clearTimeout(this.watchTimeout)
+      this.watchTimeout = undefined
+    }
+
+    if (this.liveExitWatcher) {
+      clearInterval(this.liveExitWatcher)
+      this.liveExitWatcher = undefined
+    }
+
+    if (this.host.launchProfilePath) {
+      removeManagedEphemeralProfile(this.host.launchProfilePath)
+    }
+
+    if (isDebug()) {
+      this.ctx.logger?.info?.(messages.browserInstanceExited(this.host.browser))
+    }
+
+    if (!expected) {
+      this.ctx.logger?.error?.(
+        `[browser] ${this.host.browser} exited (code ${
+          code ?? 'unknown'
+        }) without being asked to. The add-on may have been rejected or the browser crashed; the session cannot be driven.`
+      )
+
+      stampReadyBrowserExited(this.extensionOutputPath, code)
+    }
+
+    this.cleanupInstance().catch((err) => {
+      if (isDebug()) {
+        this.ctx.logger?.error?.(
+          `[browser] Cleanup error on child close: ${(err as Error)?.message || err}`
+        )
+      }
+    })
+
+    this.disposeProcessHandlers?.()
+    this.disposeProcessHandlers = undefined
+  }
+
+  // The spawned pid is published at once; the handoff, when it happens, comes
+  // shortly after spawn, so a few seconds of polling correct the contract.
+  private async trackLiveBrowserPid(attempts?: number) {
+    const child = this.child
+    const profilePath = this.host.launchProfilePath
+    if (!child?.pid || !profilePath || this.browserGone) return
+
+    try {
+      const pid = await resolveLiveBrowserPid({
+        profilePath,
+        binary: child.spawnfile,
+        launcherPid: child.pid,
+        attempts
+      })
+
+      if (pid && pid !== child.pid && this.child === child) {
+        this.adoptLivePid(pid)
+      }
+    } catch {
+      // The spawned pid stands.
+    }
+  }
+
+  // Called when the spawned child closed on its own: if another process now
+  // owns the profile, the browser is alive and that process is the session.
+  private adoptHandedOffBrowser(): boolean {
+    const profilePath = this.host.launchProfilePath
+    const child = this.child
+    if (!profilePath || !child || this.browserGone) return false
+
+    try {
+      const pid =
+        this.livePid ||
+        findLiveBrowserPid({
+          profilePath,
+          binary: child.spawnfile,
+          launcherPid: child.pid,
+          rows: listProcesses()
+        })
+
+      if (!pid || pid === this.child?.pid || !isPidAlive(pid)) return false
+
+      this.adoptLivePid(pid)
+
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  private adoptLivePid(pid: number) {
+    if (this.livePid === pid) return
+
+    this.livePid = pid
+    stampReadyBrowserLaunch(this.extensionOutputPath, {
+      browserPid: pid,
+      launcherPid: this.child?.pid
+    })
+
+    if (isDebug()) {
+      this.ctx.logger?.info?.(
+        `[browser] ${this.host.browser} handed the session to pid ${pid} (launcher pid ${this.child?.pid}).`
+      )
+    }
+
+    this.watchLivePidExit()
+  }
+
+  // No 'close' event exists for a process we did not spawn, so its exit is
+  // found by probing. Unref'd: it never keeps the session alive on its own.
+  private watchLivePidExit() {
+    if (this.liveExitWatcher) clearInterval(this.liveExitWatcher)
+
+    this.liveExitWatcher = setInterval(() => {
+      const pid = this.livePid
+      if (!pid || isPidAlive(pid)) return
+
+      clearInterval(this.liveExitWatcher)
+      this.liveExitWatcher = undefined
+      this.onBrowserGone(null, wasPidTerminatedByUs(pid))
+    }, 1000)
+
+    this.liveExitWatcher.unref?.()
   }
 
   // Re-offer the dist to a browser that refused it. A fresh controller is
@@ -789,6 +910,12 @@ export class FirefoxLaunchPlugin {
     // The shared teardown owns the kill decision and is idempotent, so a shutdown
     // that already terminated the child here is a no-op.
     gracefulTerminateChild(this.child, this.host.browser as BrowserType)
+
+    // The child may be long gone while the process it handed the session to
+    // still runs on the profile; that one has to end with the session too.
+    if (this.livePid && this.livePid !== this.child?.pid) {
+      gracefulTerminatePid(this.livePid, this.host.browser as BrowserType)
+    }
   }
 
   private scheduleWatchTimeout() {

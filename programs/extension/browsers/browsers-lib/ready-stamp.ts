@@ -49,6 +49,9 @@ export function stampReadyBrowserLaunch(
   details: {
     profilePath?: string
     browserPid?: number
+    // The pid we spawned, kept once the browser handed its session to another
+    // process. browserPid names the live one, this one says where it came from.
+    launcherPid?: number
     extensionId?: string
     // Which binary actually ran, and how it was chosen. This matters MOST for
     // the runs that did not name one: someone who passed --chromium-binary
@@ -74,6 +77,13 @@ export function stampReadyBrowserLaunch(
       Number.isFinite(details.browserPid)
     ) {
       ready.browserPid = details.browserPid
+    }
+
+    if (
+      typeof details?.launcherPid === 'number' &&
+      Number.isFinite(details.launcherPid)
+    ) {
+      ready.launcherPid = details.launcherPid
     }
 
     const extensionId = String(details?.extensionId || '').trim()
