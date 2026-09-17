@@ -6,6 +6,7 @@
 //  ╚═════╝╚══════╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import * as path from 'node:path'
 import {type Command, Option} from 'commander'
 import {normalizeProfileOption} from '../browsers/browsers-lib/resolve-profile'
 import {runOnlyPreviewBrowser} from '../browsers/run-only'
@@ -19,6 +20,7 @@ import {
   firefoxBinaryAliasOption,
   geckoBinaryOption
 } from '../helpers/cli-options'
+import {getCliPackageJson} from '../helpers/cli-package-json'
 import {resolveConfigBrowser} from '../helpers/config-browser'
 import {
   loadExtensionDevelopModule,
@@ -37,6 +39,7 @@ import {
   parseLogContexts
 } from '../helpers/normalize-options'
 import {resolveOutputFormat} from '../helpers/output-flag'
+import {checkProjectCliVersion} from '../helpers/project-cli-version'
 import {markCommandSessionStart} from '../helpers/telemetry-cli'
 import {
   type Browser,
@@ -245,6 +248,24 @@ export function registerStartCommand(program: Command) {
         }
 
         const asJson = resolveOutputFormat(startOptions) === 'json'
+
+        const cliVersion = checkProjectCliVersion(
+          path.resolve(pathOrRemoteUrl || process.cwd()),
+          getCliPackageJson().version as string
+        )
+
+        if (cliVersion) {
+          // eslint-disable-next-line no-console
+          console.warn(
+            messages.projectCliVersionMismatch(
+              cliVersion.running,
+              cliVersion.declared,
+              cliVersion.range,
+              cliVersion.command
+            )
+          )
+        }
+
         // Tells develop to route human lines to stderr, so stdout carries
         // only the envelope and stays parseable as one JSON document.
         if (asJson) process.env.EXTENSION_OUTPUT = 'json'
