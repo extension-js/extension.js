@@ -23,17 +23,26 @@ export interface ReadyContractInfo {
   controlPort: number
   instanceId: string
   runId: string
+  /** Ready-contract version, `ReadyMetadata['schemaVersion']` on current engines. */
   schemaVersion?: number
+  /** Result-envelope capability advertisement, `1` on current engines. */
   schema?: number
   logsPath?: string
   status?: string
+  /** Dev-server pid; absent in pre-4.1 contracts. */
   pid?: number
+  /** Browser CDP port, stamped post-launch, may lag `status: 'ready'`. */
   cdpPort?: number
+  /** Stamped when the launched browser exits while the server keeps running. */
   browserExitedAt?: string
   browserExitCode?: number
+  /** When the compile finished (ISO), the meaning of `status: 'ready'`. */
   compiledAt?: string
+  /** When the extension's service worker attached to the control channel (ISO). */
   executorAttachedAt?: string
+  /** `'attached'` once the SW has connected; absent while still launching. */
   runtime?: string
+  /** Last contract write time (ISO). */
   ts?: string
   binary?: string
   binaryProvenance?: string
@@ -141,6 +150,7 @@ export class BridgeConsumer {
     this.opts = options
   }
 
+  /** Why the last socket closed; null until a close has happened. */
   get lastClose(): ConsumerCloseInfo | null {
     return this.lastCloseInfo
   }

@@ -12,6 +12,9 @@ import type {
 } from '@rspack/core'
 
 /**
+ * Firefox-only `theme_experiment` manifest key.
+ * Not present in `@types/chrome`; declared here so the manifest pipeline can
+ * read it type-safely instead of casting `manifest as any`.
  * @see https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json/theme_experiment
  */
 export interface ThemeExperiment {
@@ -54,6 +57,9 @@ export type PluginInterface = {
   browser?: DevOptions['browser']
   includeList?: FilepathList
   transpilePackages?: string[]
+  /** True inside `extension dev`: the one axis that turns dev instrumentation
+   * (dev CSP, injected permissions, reload client, page HMR) on. A build in
+   * development mode is shippable and keeps the author's manifest. */
   devSession?: boolean
 }
 
@@ -116,8 +122,21 @@ export type BrowserType =
 export interface BrowserOptionsBase {
   noOpen?: boolean
   profile?: string | false
+  /**
+   * Opt-in persistent managed profile for development.
+   * Defaults to false (ephemeral temp profiles are used).
+   */
   persistProfile?: boolean
+  /**
+   * Keep the managed profile and its changes across runs (persistent `dev`
+   * profile, skipped by cleanup). Seeded once when combined with
+   * `copyFromProfile`.
+   */
   keepProfileChanges?: boolean
+  /**
+   * Seed the managed profile as a copy of this profile directory on first
+   * creation.
+   */
   copyFromProfile?: string
   startingUrl?: string
   browser: BrowserType
@@ -136,12 +155,20 @@ export interface GeckoOptions extends BrowserOptionsBase {
 export interface SafariOptions extends BrowserOptionsBase {
   browser: 'webkit-based'
   safariBinary?: string
+  /** Override the Safari app name (defaults to the manifest name). */
   appName?: string
+  /** User-owned bundle identifier (defaults to a dev.extensionjs.* id). */
   bundleId?: string
   developmentTeam?: string
+  /** Generate the macOS-only Xcode project (default true). */
   macOsOnly?: boolean
 }
 
+/**
+ * Safari identity/packaging options resolved by develop (CLI flags merged
+ * with extension.config.js `browser.safari`) and forwarded to the packager
+ * the CLI injects.
+ */
 export interface SafariPackagerOverrides {
   appName?: string
   bundleId?: string
@@ -149,9 +176,16 @@ export interface SafariPackagerOverrides {
   macOsOnly?: boolean
   forceRegenerate?: boolean
   safariBinary?: string
+  /** When set, overrides the factory `noOpen` for this packaging call. */
   noOpen?: boolean
 }
 
+/**
+ * The packaging callback develop calls once the Safari dist is on disk. The
+ * CLI injects `createSafariPackager()` from `extension/browsers`; a library
+ * caller must inject the same thing or no Safari app is produced at all.
+ * Returning a summary is optional so older packagers keep type-checking.
+ */
 export type SafariPackagerFn = (
   distPath: string,
   mode: 'full' | 'resync',
@@ -169,10 +203,26 @@ export interface DevOptions extends BrowserOptionsBase {
   mode: 'development' | 'production' | 'none'
   polyfill?: boolean
   port?: string | number | undefined
+  /**
+   * Host to bind the dev server to.
+   * Use '0.0.0.0' for Docker/devcontainer environments.
+   * Defaults to '127.0.0.1'.
+   */
   host?: string
+  /**
+   * Connectable host the browser (HMR client + control-bridge producer) dials,
+   * when it differs from the bind `host` (e.g. a remote/devcontainer). Defaults
+   * to the bind host, or 127.0.0.1 when bound to a wildcard like '0.0.0.0'.
+   */
   publicHost?: string
   install?: boolean
+  /**
+   * Companion extensions (load-only) for this command.
+   */
   extensions?: CompanionExtensionsConfig
+  /**
+   * Skip launching the browser (dev server still starts).
+   */
   noBrowser?: boolean
   preferences?: Record<string, unknown>
   browserFlags?: string[]
@@ -200,7 +250,16 @@ export interface DevOptions extends BrowserOptionsBase {
   logUrl?: string
   logTab?: number | string
   hashContentScripts?: boolean
+  /**
+   * Open the agent-bridge control channel for the bounded act verbs
+   * (storage/reload/open). The CLI sets this from `--allow-control`.
+   */
   allowControl?: boolean
+  /**
+   * Additionally allow the `eval` verb, which runs arbitrary code inside a
+   * context and writes a 0600 session token. Implies `allowControl`, since
+   * eval is strictly stronger. The CLI sets this from `--allow-eval`.
+   */
   allowEval?: boolean
   // When true, a failed dev session calls process.exit(1) (CLI wrapper passes
   // this); defaults to false: as a library, a failure is a rejected promise.
@@ -219,19 +278,44 @@ export interface BuildOptions {
   geckoBinary?: GeckoOptions['geckoBinary']
   firefoxBinary?: GeckoOptions['geckoBinary']
   safariBinary?: SafariOptions['safariBinary']
+  /**
+   * Companion extensions (load-only) for this command.
+   */
   extensions?: CompanionExtensionsConfig
   zipFilename?: string
   zip?: boolean
   zipSource?: boolean
   polyfill?: boolean
   silent?: boolean
+  /**
+   * Run Mozilla's addons-linter over the emitted dist after a production
+   * build for a Gecko target and print its findings as build warnings.
+   * Needs `addons-linter` installed in the project. Defaults to `true`.
+   */
   addonLint?: boolean
+  /**
+   * Override the bundler mode (and NODE_ENV). Defaults to 'production' to
+   * preserve historical behavior. Setting 'development' is useful for
+   * staging/QA dists that should still pass through the bundler's debug
+   * pipeline (sourcemaps, looser minification). Mirrors `vite build --mode`
+   * and `webpack --mode`. The artifact stays shippable: it carries the
+   * author's CSP and permissions, no reload client, and its zip holds no
+   * maps. Only `extension dev` turns the dev instrumentation on.
+   */
   mode?: 'development' | 'production' | 'none'
+  /**
+   * [internal] Auto-install project dependencies when missing.
+   */
   install?: boolean
   failOnWarning?: boolean
   // When true, a failed build calls process.exit(1) (CLI wrapper passes this);
   // defaults to false: as a library, a failed build is a rejected promise.
   exitOnError?: boolean
+  /**
+   * Internal: the command stamped into ready.json/events.ndjson. Defaults to
+   * 'build'; `extension start` passes 'start' for its build phase so the
+   * receipt names the command the user actually ran.
+   */
   metadataCommand?: 'dev' | 'start' | 'preview' | 'build'
   appName?: SafariOptions['appName']
   bundleId?: SafariOptions['bundleId']
@@ -244,18 +328,48 @@ export interface BuildOptions {
 export interface PreviewOptions extends BrowserOptionsBase {
   mode: 'production'
   outputPath?: string
+  /**
+   * Internal metadata command override used by start->preview delegation.
+   * (Full command union so the WebpackConfigOptions intersection with
+   * BuildOptions.metadataCommand doesn't narrow the field.)
+   */
   metadataCommand?: 'dev' | 'start' | 'preview' | 'build'
   chromiumBinary?: ChromiumOptions['chromiumBinary']
   geckoBinary?: GeckoOptions['geckoBinary']
   firefoxBinary?: GeckoOptions['geckoBinary']
+  /**
+   * Companion extensions (load-only) for this command.
+   */
   extensions?: CompanionExtensionsConfig
+  /**
+   * Skip launching the browser (no preview window).
+   */
   noBrowser?: boolean
+  /**
+   * Internal auto-generated instance ID, not user-configurable.
+   */
   instanceId?: string
+  /**
+   * Internal: true when the instance ID came from the user, not autogenerated.
+   */
   instanceExplicit?: boolean
+  /**
+   * Dry run mode (no browser launch) for diagnostics.
+   */
   dryRun?: boolean
   // Port forwarding to browser runner (e.g., debugging/logging server)
   port?: string | number
+  /**
+   * Host to bind the dev server to.
+   * Use '0.0.0.0' for Docker/devcontainer environments.
+   * Defaults to '127.0.0.1'.
+   */
   host?: string
+  /**
+   * Connectable host the browser (HMR client + control-bridge producer) dials,
+   * when it differs from the bind `host` (e.g. a remote/devcontainer). Defaults
+   * to the bind host, or 127.0.0.1 when bound to a wildcard like '0.0.0.0'.
+   */
   publicHost?: string
   logLevel?: 'off' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'all'
   logContexts?: (
@@ -280,12 +394,31 @@ export interface StartOptions extends BrowserOptionsBase {
   chromiumBinary?: ChromiumOptions['chromiumBinary']
   geckoBinary?: GeckoOptions['geckoBinary']
   firefoxBinary?: GeckoOptions['geckoBinary']
+  /**
+   * Companion extensions (load-only) for this command.
+   */
   extensions?: CompanionExtensionsConfig
+  /**
+   * [internal] Auto-install project dependencies when missing.
+   */
   install?: boolean
+  /**
+   * Skip launching the browser (build still runs).
+   */
   noBrowser?: boolean
   // Port forwarding to browser runner (e.g., debugging/logging server)
   port?: string | number
+  /**
+   * Host to bind the dev server to.
+   * Use '0.0.0.0' for Docker/devcontainer environments.
+   * Defaults to '127.0.0.1'.
+   */
   host?: string
+  /**
+   * Connectable host the browser (HMR client + control-bridge producer) dials,
+   * when it differs from the bind `host` (e.g. a remote/devcontainer). Defaults
+   * to the bind host, or 127.0.0.1 when bound to a wildcard like '0.0.0.0'.
+   */
   publicHost?: string
   logLevel?: 'off' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'all'
   logContexts?: (
@@ -316,15 +449,31 @@ export interface BrowserConfig extends BrowserOptionsBase {
   bundleId?: SafariOptions['bundleId']
   developmentTeam?: SafariOptions['developmentTeam']
   macOsOnly?: SafariOptions['macOsOnly']
+  /**
+   * Companion extensions (load-only) scoped to a browser config.
+   * Useful for per-browser store URLs or local unpacked extensions.
+   */
   extensions?: CompanionExtensionsConfig
 }
 
 export type OutputConfig = {
   clean: boolean
   path: string
+  /**
+   * Internal: the final dist path when `path` points at the staging
+   * directory a one-shot build is later promoted from. Metadata surfaces
+   * (ready.json) advertise this path, never the staging directory.
+   */
   finalPath?: string
 }
 
+/**
+ * Per-category asset size budgets (bytes) for the perf-budgets plugin.
+ * Set at the top level of extension.config.js (weakest), under
+ * `browser.<vendor>.perfBudgets`, or per command via
+ * `commands.dev.perfBudgets` / `commands.build.perfBudgets` (strongest
+ * below a CLI flag).
+ */
 export type PerfBudgetsConfig = Partial<
   Record<import('./plugin-perf-budgets').AssetCategory, number>
 >
@@ -334,15 +483,42 @@ export interface CommonWebpackOptions {
   preferences?: Record<string, unknown>
   browserFlags?: string[]
   excludeBrowserFlags?: string[]
+  /**
+   * Workspace/dependency packages that should be transpiled from source.
+   * Useful for monorepos where package exports point to TS/TSX files.
+   */
   transpilePackages?: string[]
   perfBudgets?: PerfBudgetsConfig
+  /**
+   * Companion extensions (load-only). Each entry must be an unpacked extension root
+   * containing a manifest.json. These are loaded alongside the user extension in
+   * dev/preview/start (and can also be applied to build for packaging scenarios).
+   */
   extensions?: CompanionExtensionsConfig
+  /**
+   * Internal auto-generated instance ID, not user-configurable
+   */
   instanceId?: string
+  /**
+   * Agent-bridge control channel. Injected by dev-server so the
+   * PlaywrightPlugin can advertise them in ready.json. Not user-configurable.
+   */
   controlPort?: number | null
   controlPath?: string
   logsPath?: string
 }
 
+/**
+ * Canonical options type for webpack-config consumers.
+ * Accepts any of the command option fields (dev/preview/start/build),
+ * while requiring browser and mode, and the common output settings.
+ *
+ * `mode` is omitted from the partial intersection because PreviewOptions
+ * and StartOptions narrow it to `'production'`. Without the omit the
+ * outer override below becomes ineffective: TypeScript intersects the
+ * outer `'development' | 'production' | 'none'` with the inner
+ * `'production'` and the input is locked back to `'production'`.
+ */
 export type WebpackConfigOptions = CommonWebpackOptions &
   Omit<
     Partial<DevOptions & PreviewOptions & StartOptions & BuildOptions>,
@@ -466,8 +642,22 @@ export interface FileConfig {
       perfBudgets?: PerfBudgetsConfig
     }
   }
+  /**
+   * Companion extensions (load-only) applied to commands unless overridden per-command.
+   * This is merged into `commands.dev|start|preview|build` by the config loader.
+   */
   extensions?: CompanionExtensionsConfig
+  /**
+   * Default transpile allowlist for all commands, the weakest layer.
+   * `browser.<vendor>.transpilePackages` overrides it, and per-command
+   * `commands.<name>.transpilePackages` overrides both.
+   */
   transpilePackages?: string[]
+  /**
+   * Default per-category asset budgets for all commands, the weakest layer.
+   * `browser.<vendor>.perfBudgets` overrides it, and per-command
+   * `commands.dev|build.perfBudgets` overrides both.
+   */
   perfBudgets?: PerfBudgetsConfig
   config?: (config: Configuration) => Configuration
 }
