@@ -185,4 +185,28 @@ describe('filterKeysForThisBrowser properties', () => {
       RUNS
     )
   })
+
+  // JSON.parse makes __proto__ an own key. Assigning it on a plain object
+  // would set the prototype instead, so the key vanishes and the prototype
+  // of the result carries the user's value.
+  it('keeps a literal __proto__ key as an own property', () => {
+    const input = JSON.parse(
+      '{"name":"x","__proto__":{"polluted":true},"nested":{"__proto__":{"deep":1}}}'
+    )
+    const out = filter(input, 'chrome')
+
+    expect(Object.hasOwn(out, '__proto__')).toBe(true)
+    expect(Object.getOwnPropertyDescriptor(out, '__proto__')?.value).toEqual({
+      polluted: true
+    })
+
+    expect(JSON.stringify(out)).toContain('"__proto__":{"polluted":true}')
+    expect(Object.hasOwn(out.nested, '__proto__')).toBe(true)
+    expect(JSON.stringify(out.nested)).toBe('{"__proto__":{"deep":1}}')
+
+    expect(Object.getPrototypeOf(out)).toBe(Object.prototype)
+    expect(Object.getPrototypeOf(out.nested)).toBe(Object.prototype)
+    expect(out.polluted).toBeUndefined()
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined()
+  })
 })

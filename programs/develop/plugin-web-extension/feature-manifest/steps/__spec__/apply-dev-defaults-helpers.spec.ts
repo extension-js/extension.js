@@ -162,6 +162,15 @@ describe('ApplyDevDefaults patch helpers', () => {
     expect(patchExternallyConnectable({} as any)).toEqual({})
   })
 
+  // The literal list is the dev surface pages can reach. A new entry in the
+  // constant widens it, so the edit must show up here on purpose.
+  it('exposes exactly the hot bundle and the control file in dev', () => {
+    expect(DEV_RUNTIME_RESOURCES).toEqual([
+      'hot/*',
+      'extension-js-control.json'
+    ])
+  })
+
   it('adds only the dev runtime resources while preserving existing entries', () => {
     expect(
       patchWebResourcesV2({
