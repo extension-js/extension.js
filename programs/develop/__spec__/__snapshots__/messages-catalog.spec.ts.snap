@@ -207,6 +207,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "manifestInvalidError: function(1)",
     "manifestLegacyWarningsSummary: function(1)",
     "manifestOverridesSummary: function(2)",
+    "manifestVersionLostForBrowser: function(3)",
     "missingGeckoDataCollectionPermissions: function(0)",
     "mv2SandboxPolicyDropped: function(1)",
     "pageActionDroppedForBrowserAction: function(1)",

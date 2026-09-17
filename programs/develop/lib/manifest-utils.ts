@@ -187,6 +187,23 @@ export function findDroppedVendorKeys(
   return found
 }
 
+// Only 2 and 3 load anywhere. A string "3" is what a browser refuses too.
+export function isValidManifestVersion(value: unknown): value is 2 | 3 {
+  return value === 2 || value === 3
+}
+
+// Every top-level prefixed manifest_version key as written, so a build that
+// resolved to none can say which vendor each one was scoped to.
+export function findPrefixedManifestVersionKeys(manifest: Manifest): string[] {
+  if (!manifest || typeof manifest !== 'object') return []
+
+  return Object.keys(manifest).filter((key) => {
+    const colon = key.indexOf(':')
+
+    return colon > 0 && key.substring(colon + 1) === 'manifest_version'
+  })
+}
+
 // Every key a static theme may not carry: a theme is validated against the
 // theme schema, which forbids extra top-level keys (AMO hard-errors on each).
 const THEME_DISQUALIFYING_KEYS = [
