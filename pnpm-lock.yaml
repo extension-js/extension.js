@@ -373,9 +373,6 @@ importers:
       commander:
         specifier: ^15.0.0
         version: 15.0.0
-      cross-spawn:
-        specifier: ^7.0.6
-        version: 7.0.6
       edge-location:
         specifier: 2.3.1
         version: 2.3.1
@@ -428,9 +425,6 @@ importers:
       '@rslib/core':
         specifier: ^1.0.0
         version: 1.0.0(core-js@3.47.0)(typescript@7.0.2)
-      '@types/cross-spawn':
-        specifier: ^6.0.6
-        version: 6.0.6
       '@types/semver':
         specifier: ^7.7.1
         version: 7.7.1

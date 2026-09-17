@@ -997,6 +997,18 @@ export function openSurfaceNeedsGesture(surface: string) {
   )
 }
 
+export function doctorHeader(
+  browser: string,
+  passes: number,
+  total: number
+): string {
+  return `doctor (${browser}), ${passes}/${total} checks passed`
+}
+
+export function doctorRemedy(check: string, remediation: string): string {
+  return `\n${check}: ${remediation}`
+}
+
 function sessionOnPort(browser: string, port?: number): string {
   return port ? `for ${browser} on port ${port}` : `for ${browser}`
 }
