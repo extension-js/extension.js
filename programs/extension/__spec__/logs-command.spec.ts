@@ -108,6 +108,37 @@ describe('extension logs (one-shot)', () => {
     expect(printedLines().some((l) => l.includes('{"k":"v"}'))).toBe(true)
   })
 
+  it('colors the level token and dims the context on a color terminal only', async () => {
+    const env = {
+      FORCE_COLOR: process.env.FORCE_COLOR,
+      NO_COLOR: process.env.NO_COLOR
+    }
+
+    try {
+      process.env.FORCE_COLOR = '1'
+      Reflect.deleteProperty(process.env, 'NO_COLOR')
+      expect(await run(['logs', dir, '--output', 'pretty'])).toBe(0)
+      const colored = printedLines()
+      expect(colored[0]).toContain('[90mINFO[39m')
+      expect(colored[0]).toContain('[2m(background)[22m')
+      expect(colored[1]).toContain('[93mWARN[39m')
+      expect(colored[2]).toContain('[31mERROR[39m')
+      expect(colored[3]).toContain('[2m[90mDEBUG[39m[22m')
+
+      logSpy.mockClear()
+      process.env.FORCE_COLOR = '0'
+      process.env.NO_COLOR = '1'
+      expect(await run(['logs', dir, '--output', 'pretty'])).toBe(0)
+      const plain = printedLines()
+      expect(plain[0]).toBe('[1] INFO (background) boot')
+      expect(plain[2]).toBe('[3] ERROR (content) E_X broken\n    ↳ restart it')
+      expect(plain.some((line) => line.includes('['))).toBe(false)
+    } finally {
+      process.env.FORCE_COLOR = env.FORCE_COLOR
+      process.env.NO_COLOR = env.NO_COLOR
+    }
+  })
+
   it('supports json output', async () => {
     expect(
       await run(['logs', dir, '--output', 'json', '--context', 'background'])
