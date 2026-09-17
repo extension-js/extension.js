@@ -27,6 +27,8 @@ const ALL_CHECKS = [
 const byCheck = (results: DoctorCheckResult[]) =>
   Object.fromEntries(results.map((r) => [r.check, r]))
 
+const stripAnsi = (text: string) => text.replace(/\[[0-9;]*m/g, '')
+
 class StubController {
   static connectError: Error | null = null
   static readyFrame: any = {capabilities: {storage: true, reload: true}}
@@ -533,11 +535,65 @@ describe('extension doctor (command surface)', () => {
         '/proj'
       ])
       expect(code).toBe(1)
-      const lines = logSpy.mock.calls.map((c) => String(c[0]))
+      const lines = logSpy.mock.calls.map((c) => stripAnsi(String(c[0])))
       expect(lines[0]).toContain('doctor (chromium)')
       expect(lines.some((l) => l.includes('✗ ready-contract'))).toBe(true)
       expect(lines[lines.length - 1]).toContain('ready-contract:')
     } finally {
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('colors the check glyphs by state on a color terminal and not under NO_COLOR', async () => {
+    const {makeProgram, runCli, stubProcessExit} = await import(
+      './command-harness'
+    )
+    const {registerDoctorCommand} = await import('../commands/doctor')
+    state.mod = healthyModule({
+      readReadyContract: () => ({
+        controlPort: 4001,
+        instanceId: 'inst-1',
+        runId: 'run-A',
+        status: 'ready',
+        pid: 999999,
+        cdpPort: 9222
+      })
+    })
+
+    stubProcessExit()
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const env = {
+      FORCE_COLOR: process.env.FORCE_COLOR,
+      NO_COLOR: process.env.NO_COLOR
+    }
+    const rowFor = (check: string) =>
+      logSpy.mock.calls
+        .map((c) => String(c[0]))
+        .find((l) => stripAnsi(l).includes(` ${check} `)) as string
+
+    try {
+      process.env.FORCE_COLOR = '1'
+      Reflect.deleteProperty(process.env, 'NO_COLOR')
+      expect(
+        await runCli(makeProgram(registerDoctorCommand), ['doctor', '/proj'])
+      ).toBe(1)
+
+      expect(rowFor('server-process')).toContain('[31m✗[39m')
+      expect(rowFor('port-agreement')).toContain('[32m✓[39m')
+
+      logSpy.mockClear()
+      process.env.FORCE_COLOR = '0'
+      process.env.NO_COLOR = '1'
+      expect(
+        await runCli(makeProgram(registerDoctorCommand), ['doctor', '/proj'])
+      ).toBe(1)
+
+      expect(rowFor('server-process')).toContain('  ✗ server-process')
+      expect(rowFor('port-agreement')).toContain('  ✓ port-agreement')
+      expect(rowFor('server-process')).not.toContain('[')
+    } finally {
+      process.env.FORCE_COLOR = env.FORCE_COLOR
+      process.env.NO_COLOR = env.NO_COLOR
       vi.restoreAllMocks()
     }
   })
