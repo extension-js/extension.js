@@ -18,9 +18,14 @@ import {
   commandDescriptions,
   controlDisabledInSession,
   controlDisabledInSessionPlain,
+  openedSurface,
+  openSurfaceFailed,
   openSurfaceGestureStep,
   openSurfaceNeedsGesture,
-  openSurfaceNeedsGesturePlain
+  openSurfaceNeedsGesturePlain,
+  openSurfaceWarning,
+  replayedActionClick,
+  replayedCommand
 } from '../helpers/messages'
 import {
   CODES,
@@ -143,6 +148,11 @@ interface Refusal {
   hint?: string
 }
 
+interface PrettyResult {
+  value: (value: unknown) => string[] | undefined
+  failure: (error: EnvelopeError) => string
+}
+
 interface RunInput {
   projectPathArg?: string
   command: string
@@ -151,6 +161,7 @@ interface RunInput {
   args?: Record<string, unknown>
   needsToken?: boolean
   opts: CommonActOptions
+  pretty?: PrettyResult
   preflight?: (
     bridge: AnyDevelopModule,
     projectPath: string,
@@ -411,10 +422,48 @@ function gestureRefusal(
   }
 }
 
+function openResultLines(value: unknown): string[] | undefined {
+  if (!value || typeof value !== 'object') return undefined
+
+  const reply = value as {
+    opened?: unknown
+    triggered?: unknown
+    listeners?: unknown
+    command?: unknown
+    warning?: unknown
+  }
+
+  if (typeof reply.opened === 'string') return [openedSurface(reply.opened)]
+  if (reply.triggered === 'popup') return [openedSurface('action')]
+  if (typeof reply.listeners !== 'number') return undefined
+
+  const lines: string[] = []
+
+  if (reply.triggered === 'onClicked') {
+    lines.push(replayedActionClick(reply.listeners))
+  } else if (reply.triggered === 'command') {
+    lines.push(
+      replayedCommand(
+        reply.listeners,
+        typeof reply.command === 'string' ? reply.command : undefined
+      )
+    )
+  } else {
+    return undefined
+  }
+
+  if (typeof reply.warning === 'string' && reply.warning) {
+    lines.push(openSurfaceWarning(reply.warning))
+  }
+
+  return lines
+}
+
 function printResult(
   result: ActResultLike,
   output: 'pretty' | 'json' | undefined,
-  command: string
+  command: string,
+  pretty?: PrettyResult
 ): void {
   if (normalizeOutputFormat(output) === 'json') {
     // eslint-disable-next-line no-console
@@ -425,10 +474,14 @@ function printResult(
 
   if (result.ok) {
     const value = result.value
-    // eslint-disable-next-line no-console
-    console.log(
+    const lines = pretty?.value(value) ?? [
       typeof value === 'string' ? value : JSON.stringify(value, null, 2)
-    )
+    ]
+
+    for (const line of lines) {
+      // eslint-disable-next-line no-console
+      console.log(line)
+    }
 
     // Augmentations merge extra keys onto the result; `--with-console` was
     // json-only until these lines, so pretty mode looked like a no-op flag.
@@ -450,6 +503,14 @@ function printResult(
       // eslint-disable-next-line no-console
       console.error('… result truncated (byte cap)')
     }
+
+    return
+  }
+
+  if (pretty) {
+    const {error} = buildActEnvelope(command, result) as {error: EnvelopeError}
+    // eslint-disable-next-line no-console
+    console.error(pretty.failure(error))
 
     return
   }
@@ -574,7 +635,7 @@ async function runCommand(input: RunInput): Promise<void> {
     }
   }
 
-  printResult(result, input.opts.output, input.command)
+  printResult(result, input.opts.output, input.command, input.pretty)
   await exitAfterDrain(result.ok ? 0 : 1)
 }
 
@@ -864,7 +925,12 @@ export function registerActCommands(program: Command): void {
         args,
         opts,
         preflight: (bridge, projectPath, browser) =>
-          gestureRefusal(surface, bridge, projectPath, browser)
+          gestureRefusal(surface, bridge, projectPath, browser),
+        pretty: {
+          value: openResultLines,
+          failure: (error) =>
+            openSurfaceFailed(surface, error.message, error.engine, error.hint)
+        }
       })
     }
   )
