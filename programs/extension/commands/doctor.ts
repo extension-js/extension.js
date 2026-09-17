@@ -10,9 +10,14 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import path from 'node:path'
 import type {Command} from 'commander'
+import colors from 'pintor'
 import {exitAfterDrain} from '../helpers/exit-after-drain'
 import {loadExtensionDevelopBridgeModule} from '../helpers/extension-develop-runtime'
-import {commandDescriptions} from '../helpers/messages'
+import {
+  commandDescriptions,
+  doctorHeader,
+  doctorRemedy
+} from '../helpers/messages'
 import {CODES, ENVELOPE, type ErrorCode} from '../helpers/messaging'
 import {isJsonOutput} from '../helpers/output-flag'
 import {
@@ -477,21 +482,25 @@ export async function runDoctor(
   return results
 }
 
+function checkGlyph(status: CheckStatus): string {
+  if (status === 'pass') return colors.green('✓')
+  if (status === 'fail') return colors.red('✗')
+  if (status === 'warn') return colors.brightYellow('!')
+
+  return colors.gray('–')
+}
+
 function printPretty(results: DoctorCheckResult[], browser: string): void {
   const passes = results.filter((r) => r.status === 'pass').length
-  const glyph: Record<CheckStatus, string> = {
-    pass: '✓',
-    fail: '✗',
-    warn: '!',
-    skip: '–'
-  }
   // eslint-disable-next-line no-console
-  console.log(`doctor (${browser}), ${passes}/${results.length} checks passed`)
+  console.log(doctorHeader(browser, passes, results.length))
   const width = Math.max(...results.map((r) => r.check.length))
 
   for (const r of results) {
     // eslint-disable-next-line no-console
-    console.log(`  ${glyph[r.status]} ${r.check.padEnd(width)}  ${r.detail}`)
+    console.log(
+      `  ${checkGlyph(r.status)} ${r.check.padEnd(width)}  ${r.detail}`
+    )
   }
 
   const advisory =
@@ -500,7 +509,7 @@ function printPretty(results: DoctorCheckResult[], browser: string): void {
 
   if (advisory?.remediation) {
     // eslint-disable-next-line no-console
-    console.log(`\n${advisory.check}: ${advisory.remediation}`)
+    console.log(doctorRemedy(advisory.check, advisory.remediation))
   }
 }
 
