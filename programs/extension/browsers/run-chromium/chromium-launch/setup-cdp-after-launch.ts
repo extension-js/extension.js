@@ -24,6 +24,7 @@ import * as messages from '../../browsers-lib/messages'
 import {manifestDeclaresNewtabOverride} from '../../browsers-lib/newtab-override'
 import {stampReadyExtensionLoadRefused} from '../../browsers-lib/ready-stamp'
 import {deriveDebugPortWithInstance} from '../../browsers-lib/shared-utils'
+import {writeJsonAtomic} from '../../browsers-lib/write-json-atomic'
 import type {CompilationLike} from '../../browsers-types'
 import {CDPExtensionController} from '../cdp/cdp-extension-controller'
 import type {ChromiumPluginRuntime} from '../chromium-types'
@@ -129,7 +130,7 @@ export async function setupCdpAfterLaunch(
 
         if (ready.cdpPort !== chromeRemoteDebugPort) {
           ready.cdpPort = chromeRemoteDebugPort
-          fs.writeFileSync(readyPath, JSON.stringify(ready, null, 2))
+          writeJsonAtomic(readyPath, ready)
         }
       }
     }

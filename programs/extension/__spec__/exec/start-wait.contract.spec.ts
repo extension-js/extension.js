@@ -24,13 +24,13 @@ function writeContractAtomic(filePath: string, contents: string) {
   renameSync(tmpPath, filePath)
 }
 
-// A starved CI runner can burn a five second budget just spawning node and
-// loading cli.cjs, so the wait budget widens there like the logs attach window.
-const WAIT_BUDGET_MS = process.env.CI ? 30_000 : 5000
-const CLI_TIMEOUT_MS = process.env.CI ? 60_000 : 15_000
+// A CI runner spends more of the budget spawning node and loading cli.cjs,
+// so each budget carries a modest margin there and nothing more.
+const WAIT_BUDGET_MS = process.env.CI ? 10_000 : 5000
+const CLI_TIMEOUT_MS = process.env.CI ? 30_000 : 15_000
 // The first contract state has to survive at least one 250ms poll before the
 // next write lands, or a slow start would skip the transition under test.
-const CONTRACT_WRITE_MS = process.env.CI ? 3000 : 500
+const CONTRACT_WRITE_MS = process.env.CI ? 750 : 500
 
 function runCli(args: string[], timeoutMs = CLI_TIMEOUT_MS) {
   return new Promise<{code: number; stdout: string; stderr: string}>(
