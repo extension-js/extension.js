@@ -312,9 +312,9 @@ exports[`programAIHelp > matches the published AI-help JSON contract shape 1`] =
     "bundled": [
       "javascript",
     ],
-    "catalogUrl": "https://github.com/extension-js/examples/tree/43ecb1628955c4749fefd1c4950dc5f9e8d3f7c8/examples",
+    "catalogUrl": "https://github.com/extension-js/examples/tree/eb78fee15d30c3d1dc6a762ac6ff60504141811f/examples",
     "corpus": {
-      "ref": "43ecb1628955c4749fefd1c4950dc5f9e8d3f7c8",
+      "ref": "eb78fee15d30c3d1dc6a762ac6ff60504141811f",
       "repo": "extension-js/examples",
     },
     "default": "typescript",
