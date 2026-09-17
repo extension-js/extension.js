@@ -133,6 +133,8 @@ exports[`extension message catalogs > matches the exported message surface 1`] =
     "controlDisabledInSession: function(3)",
     "controlDisabledInSessionPlain: function(3)",
     "deprecatedOutputAlias: function(1)",
+    "doctorHeader: function(3)",
+    "doctorRemedy: function(2)",
     "fmt: object",
     "invalidAIHelpFormat: function(1)",
     "noBrowserNotSupportedForCommand: function(1)",
