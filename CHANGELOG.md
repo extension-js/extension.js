@@ -2,6 +2,64 @@
 
 ## Unreleased
 
+## 4.1.21 (September 17, 2026)
+
+- **Bun as a runtime**, `bunx --bun extension@latest dev` runs the CLI on Bun 1.2 or newer, judged on Bun's own version. Older Bun gets one clear line and the Node.js path. [Docs](https://extension.js.org/docs/languages-and-frameworks/bun)
+- **Runtime loaded modules know their own URL**, a file reached through `chrome.runtime.getURL`, `importScripts` or a root-absolute `<script src>` now reads its own emitted path from `import.meta.url`, so wasm, model and worker glue that resolves siblings from it finds them. [Docs](https://extension.js.org/docs/features/environment-variables#import-meta-url)
+- **No more manifests without a manifest_version**, since 4.1.19 `chrome:` and `edge:` apply to one browser each, so a manifest that scoped every `manifest_version` to a vendor could build for another target with none. That build is now refused with the fix named. Use a plain `manifest_version` or `chromium:manifest_version` for the whole family. [Docs](https://extension.js.org/docs/features/browser-specific-fields)
+
+### Features
+
+- Add the runtime category to the public perfBudgets type (#582) ([9056b50d](https://github.com/extension-js/extension.js/commit/9056b50d0aedf5d0d000b4f13791dbd46ffbec3f))
+
+### Fixes
+
+- Restore the published develop type docs and exempt them from lint (#574) ([bf19e394](https://github.com/extension-js/extension.js/commit/bf19e3941abb488f68c7aaf4a70a958fa53be418))
+- Guard the shipped runtime against innerHTML assignments (#549) ([e9f81ed8](https://github.com/extension-js/extension.js/commit/e9f81ed898e47f9e8d33c2033416cee9e0196af6))
+
+<details>
+<summary>Other changes (38)</summary>
+
+- Sync the npm README copy to main automatically when README changes (#589) ([af18b03d](https://github.com/extension-js/extension.js/commit/af18b03df9b59537d828f9cbdeb5b7668af9b187))
+- Rename the badge, separate package managers, add a YouTube link (#588) ([b8773d4a](https://github.com/extension-js/extension.js/commit/b8773d4aa046d19a4b86dca26de63233fc9c17e2))
+- Escape the emit path literal in the import.meta.url define (#587) ([a7ee8b42](https://github.com/extension-js/extension.js/commit/a7ee8b4225d04475127ce1766a5ee3bb07d317ba))
+- Skip the Safari converter on the first resync after a full package (#586) ([4848c999](https://github.com/extension-js/extension.js/commit/4848c99961ba03da84fd7584354be12f03cc1bf8))
+- Keep the MAIN world inlined stylesheet when the polyfill is on (#585) ([e5f092f1](https://github.com/extension-js/extension.js/commit/e5f092f14589b44e3da6be8c05de9868f1b4ecc1))
+- Run the Safari pipeline in specs through an injected tool host (#576) ([4cf77d28](https://github.com/extension-js/extension.js/commit/4cf77d286d8472e13a6c58e2587d7e328792d524))
+- Resync the bundled template and pin the catalog to the budget fix (#584) ([fa82f2e8](https://github.com/extension-js/extension.js/commit/fa82f2e8b185d99b1748940200bf06848a8c21a6))
+- Say what extension open did instead of printing its result object (#581) ([c4f742da](https://github.com/extension-js/extension.js/commit/c4f742da50378ab614ab08f60bbffde9617af01d))
+- Color the logs level token by severity (#580) ([c6e7c283](https://github.com/extension-js/extension.js/commit/c6e7c2832046ddd4aeb24f9d7002ef57c900b511))
+- Color the doctor check glyphs by state (#579) ([48cd1cc1](https://github.com/extension-js/extension.js/commit/48cd1cc1df30f0ec07716fbc57ef092036bee041))
+- Reduce the derived Safari bundle id note to one line at completion (#578) ([99157bff](https://github.com/extension-js/extension.js/commit/99157bff927772f9f6716173471629f7be3b4e83))
+- Print the remote project download as one glyph line with a URL row (#577) ([c55c8108](https://github.com/extension-js/extension.js/commit/c55c810854460836f8ef3b4955b87d5abfd8adaa))
+- Spawn npm and pnpm for real in one spec per package manager runner (#575) ([607df9b2](https://github.com/extension-js/extension.js/commit/607df9b2a127d6755c416004f4c0fe131d185ed8))
+- Repin the template catalog to the Firefox sidebar fix (#573) ([e164d470](https://github.com/extension-js/extension.js/commit/e164d4702444ce86ad63a57266d8f64558b54bbc))
+- Write ready.json stamps atomically and run smokes on the built CLI (#569) ([386c4366](https://github.com/extension-js/extension.js/commit/386c43662e92ebf6473759625ca52a20c76d38e6))
+- Cover the Vue runtime build and Edge key drop with real specs (#568) ([f2702095](https://github.com/extension-js/extension.js/commit/f27020951216ed8802caf73f6839971e0d133908))
+- Sharpen the worker, Safari and reconnect warnings and note Solid (#567) ([8a58c91b](https://github.com/extension-js/extension.js/commit/8a58c91badff79a6c0601be847a9d77c9f283a3a))
+- Emit the dev reload background as scripts on Safari builds (#566) ([d406f753](https://github.com/extension-js/extension.js/commit/d406f7530f0c18cae8a142e03db0d712a4b235b6))
+- Keep unused CSS module classes through minification (#565) ([cee996b5](https://github.com/extension-js/extension.js/commit/cee996b5d17e6b427c31b59f7b10f13a7fa7b2c1))
+- Write the 4.1.21 release highlights (#564) ([df333b7e](https://github.com/extension-js/extension.js/commit/df333b7e2bf9d8c6ba88d37bbf2f296a5ab52933))
+- Give runtime loaded modules their own import.meta.url (#563) ([cc41a046](https://github.com/extension-js/extension.js/commit/cc41a04608d5cecd0cd120962bb3a1cec93b7618))
+- Refuse a build whose resolved manifest lost its manifest_version (#562) ([99102e33](https://github.com/extension-js/extension.js/commit/99102e33e73f468c7d91e4c23da6d0d525aec6cc))
+- Detect a pnpm workspace member from a zero indent packages list (#561) ([571e0d2f](https://github.com/extension-js/extension.js/commit/571e0d2f7f571a2ecbb63ed8a22ab306edffcc46))
+- Keep the nightly green in author mode and report red nightly lanes (#560) ([a7c8ce5a](https://github.com/extension-js/extension.js/commit/a7c8ce5a273b797210871c8cf5c5fabb2628fc4b))
+- Keep the release deploy key out of every step that runs tree code (#559) ([4ac9e3fd](https://github.com/extension-js/extension.js/commit/4ac9e3fdb69c39e437d0ed2d565dde93c32538f2))
+- Make pnpm format leave the tree lint-clean (#557) ([94e6aca9](https://github.com/extension-js/extension.js/commit/94e6aca90106dd7d316f7237763b24183188c474))
+- Keep waiting when the ready contract is read mid-write (#558) ([956923a7](https://github.com/extension-js/extension.js/commit/956923a7f041c79d08f03c4073fff148a88f23d0))
+- Launch a real browser on Bun and Deno in the nightly (#556) ([4eec3a54](https://github.com/extension-js/extension.js/commit/4eec3a5405da56f5c6f9392de3d45447e9efe3c1))
+- Say when an AMO warning comes from a bundled dependency (#555) ([a7ae34fd](https://github.com/extension-js/extension.js/commit/a7ae34fdb443661545c7ac5b48b3a83cefb28915))
+- Make the content-reload smoke run the CLI it says it is testing (#554) ([152db4fa](https://github.com/extension-js/extension.js/commit/152db4faf68e581e7d0906bba3c4c36390edbcad))
+- Take Bun as a runtime from 1.2 and judge it on its own version (#553) ([41723118](https://github.com/extension-js/extension.js/commit/41723118ef94f467fef1b0cc33b62f6f86dcdd7f))
+- Warn about a missing permission only when it reaches the output (#552) ([288c94cd](https://github.com/extension-js/extension.js/commit/288c94cda9b702dc65fc9824265c36fe97f6dcd8))
+- Ship one solid-js runtime and stop listing Solid as supported (#550) ([077a1018](https://github.com/extension-js/extension.js/commit/077a10180a2438b08ab5ef5236d7b1b0abc01872))
+- Warn when a content script starts a worker from an extension URL (#551) ([2410e9d2](https://github.com/extension-js/extension.js/commit/2410e9d290a2f851a206a3f8ad214dc3864df6dc))
+- Widen the wait contract budgets on CI runners (#548) ([ed4c23b6](https://github.com/extension-js/extension.js/commit/ed4c23b61a5557a4f928a2e158c6306a61ff25bf))
+- Match dev web_accessible_resources to what the build emits (#547) ([52ea1841](https://github.com/extension-js/extension.js/commit/52ea18417b9ba1640bc2759eb1532e1693ccee2d))
+- Say native file events are the default watch mode, not polling (#546) ([4d87d16a](https://github.com/extension-js/extension.js/commit/4d87d16a72d8915facbae42411591d2c7b49f311))
+- Resync the bundled javascript template to the sidebar change (#545) ([9c8a4308](https://github.com/extension-js/extension.js/commit/9c8a4308f86b3cff4c477e36872b573cde300954))
+</details>
+
 ## 4.1.20 (September 16, 2026)
 
 - **Deno**, `deno run -A npm:extension@latest` runs the CLI on Deno 2.5 and newer, with build and dev both covered by CI. See the [Deno guide](https://extension.js.org/docs/languages-and-frameworks/deno).
