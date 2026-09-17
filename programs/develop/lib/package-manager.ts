@@ -441,7 +441,9 @@ export function readPnpmWorkspacePackages(workspaceRoot: string): string[] {
       const line = lines[j]
       if (!line.trim() || line.trim().startsWith('#')) continue
 
-      const item = /^\s+-\s*(.+)$/.exec(line)
+      // YAML allows the items of a block list at the same indent as their
+      // key, so the dash may sit in column one. Any other line ends the list.
+      const item = /^\s*-\s*(.+)$/.exec(line)
       if (!item) break
 
       const value = cleanYamlListItem(item[1])
