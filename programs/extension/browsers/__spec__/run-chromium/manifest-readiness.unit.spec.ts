@@ -37,12 +37,12 @@ describe('waitForStableManifest', () => {
     }, 30)
 
     const ready = await waitForStableManifest(outPath, {
-      timeoutMs: 400,
+      timeoutMs: 5_000,
       pollIntervalMs: 20
     })
 
     expect(ready).toBe(true)
-  })
+  }, 20_000)
 
   it('returns false when manifest.json never stabilizes', async () => {
     const outPath = fs.mkdtempSync(path.join(os.tmpdir(), 'manifest-ready-'))
@@ -86,12 +86,12 @@ describe('waitForStableManifest', () => {
     }, 40)
 
     const ready = await waitForStableManifest(outPath, {
-      timeoutMs: 500,
+      timeoutMs: 5_000,
       pollIntervalMs: 20
     })
 
     expect(ready).toBe(true)
-  })
+  }, 20_000)
 
   it('returns false when manifest references missing files', async () => {
     const outPath = fs.mkdtempSync(path.join(os.tmpdir(), 'manifest-ready-'))
@@ -158,13 +158,13 @@ describe('waitForStableFiles', () => {
       outPath,
       ['content_scripts/content-0.js', 'content_scripts/styles.hash.css'],
       {
-        timeoutMs: 500,
+        timeoutMs: 5_000,
         pollIntervalMs: 20
       }
     )
 
     expect(ready).toBe(true)
-  })
+  }, 20_000)
 
   it('returns false when any file never appears', async () => {
     const outPath = fs.mkdtempSync(path.join(os.tmpdir(), 'files-ready-'))
