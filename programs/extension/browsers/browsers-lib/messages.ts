@@ -23,6 +23,7 @@ import {
   prefix
 } from '../../helpers/messaging'
 import type {BrowserType} from '../browsers-types'
+import {isFirefoxBrowser} from './browser-family'
 
 type Browser = BrowserType
 type Mode = 'development' | 'production' | 'none'
@@ -1035,19 +1036,31 @@ export function collapseHomeDirInCardValue(value: string): string {
 // The card names every non-default binary this session runs, so a silently
 // selected snapshot or system fallback is never invisible in dev output.
 export function binaryProvenanceNote(
-  provenance?: 'managed' | 'pinned' | 'system' | 'snapshot'
+  provenance?: 'managed' | 'pinned' | 'system' | 'snapshot',
+  browser?: BrowserType | string
 ): string {
   // Only a pinned path is annotated. Every launch card then reads the same
   // three rows with the same labels, and the one line that differs is the one
-  // the user caused by typing --chromium-binary. Whether a browser came from
+  // the user caused by typing a pin flag. Whether a browser came from
   // the managed cache, the system, or a cached snapshot is a fact about the
   // machine rather than about this run, and printing it made the same command
   // look different on two computers for reasons the reader cannot act on.
   // classifyBinaryProvenance still returns all four values for callers that
   // need them.
-  if (provenance === 'pinned') return '(pinned with --chromium-binary)'
+  if (provenance !== 'pinned') return ''
 
-  return ''
+  return `(pinned with ${pinnedBinaryFlag(browser)})`
+}
+
+// Each engine family has its own pin flag, so the note names the one the
+// user typed instead of --chromium-binary on a Firefox or Safari card.
+function pinnedBinaryFlag(browser?: BrowserType | string): string {
+  const name = String(browser || '')
+
+  if (isFirefoxBrowser(name)) return '--gecko-binary'
+  if (name === 'safari' || name === 'webkit-based') return '--safari-binary'
+
+  return '--chromium-binary'
 }
 
 export function runningInDevelopment(
@@ -1133,7 +1146,7 @@ export function runningInDevelopment(
       pinned: opts?.binaryProvenance === 'pinned'
     })
   )
-  const provenanceNote = binaryProvenanceNote(opts?.binaryProvenance)
+  const provenanceNote = binaryProvenanceNote(opts?.binaryProvenance, browser)
   const browserLabel = provenanceNote
     ? `${baseBrowserLabel} ${provenanceNote}`
     : baseBrowserLabel

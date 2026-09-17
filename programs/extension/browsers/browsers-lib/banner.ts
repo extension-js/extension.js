@@ -421,7 +421,10 @@ export async function printProdBannerOnce(opts: {
   } catch {
     // Fallback: still print a minimal card from information already available;
     // don't consume the suffix, leave it for a better-informed later attempt.
-    const provenanceNote = messages.binaryProvenanceNote(opts.binaryProvenance)
+    const provenanceNote = messages.binaryProvenanceNote(
+      opts.binaryProvenance,
+      opts.browser
+    )
     humanLine(messages.emptyLine())
     humanLine(
       card({
