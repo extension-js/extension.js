@@ -195,13 +195,26 @@ async function waitForReadyContract(options: {
     options.browser
   )
   const start = Date.now()
+  let lastReadFailure = ''
 
   while (Date.now() - start < options.timeoutMs) {
     if (fs.existsSync(readyPath)) {
+      let payload: ReadyContractPayload | null = null
+
       try {
-        const payload = JSON.parse(
+        payload = JSON.parse(
           fs.readFileSync(readyPath, 'utf8')
         ) as ReadyContractPayload
+
+        lastReadFailure = ''
+      } catch (error) {
+        // A contract read while its producer still writes it parses as nothing.
+        // That is a transient state like the ones below, so poll again.
+        payload = null
+        lastReadFailure = error instanceof Error ? error.message : String(error)
+      }
+
+      if (payload) {
         const isLive = isProcessLikelyAlive(payload.pid)
         const isFresh = isFreshContractPayload(payload)
 
@@ -232,18 +245,20 @@ async function waitForReadyContract(options: {
 
           throw new WaitModeError(String(detail), CODES.E_INTERNAL)
         }
-      } catch (error) {
-        if (error instanceof Error) throw error
-
-        throw new Error(String(error))
       }
     }
 
     await new Promise((resolve) => setTimeout(resolve, 250))
   }
 
+  // A contract that could not be read is a different problem from one that
+  // never arrived, and the timeout alone would point the reader at the wrong one.
+  const timeoutDetail = lastReadFailure
+    ? `. The last read of the file failed to parse as JSON: ${lastReadFailure}`
+    : ''
+
   throw new WaitModeError(
-    `Timed out waiting for ready contract at ${readyPath} (${options.timeoutMs} ms)`,
+    `Timed out waiting for ready contract at ${readyPath} (${options.timeoutMs} ms)${timeoutDetail}`,
     CODES.E_READY_TIMEOUT
   )
 }

@@ -1,5 +1,11 @@
 import {spawn} from 'node:child_process'
-import {mkdirSync, mkdtempSync, rmSync, writeFileSync} from 'node:fs'
+import {
+  mkdirSync,
+  mkdtempSync,
+  renameSync,
+  rmSync,
+  writeFileSync
+} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {dirname, join, resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
@@ -9,6 +15,14 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 const cliRoot = resolve(__dirname, '../..')
 const cliBin = resolve(cliRoot, 'dist', 'cli.cjs')
+
+// The waiter polls this file while the test rewrites it, so a plain write can
+// be read truncated. Rename is atomic, which is what the product's writer does.
+function writeContractAtomic(filePath: string, contents: string) {
+  const tmpPath = `${filePath}.tmp-${process.pid}`
+  writeFileSync(tmpPath, contents)
+  renameSync(tmpPath, filePath)
+}
 
 // A starved CI runner can burn a five second budget just spawning node and
 // loading cli.cjs, so the wait budget widens there like the logs attach window.
@@ -65,7 +79,7 @@ describe('dev --wait contract', () => {
     )
 
     setTimeout(() => {
-      writeFileSync(
+      writeContractAtomic(
         join(readyDir, 'ready.json'),
         JSON.stringify({
           command: 'dev',
@@ -77,7 +91,7 @@ describe('dev --wait contract', () => {
     }, FIRST_CONTRACT_WRITE_MS)
 
     setTimeout(() => {
-      writeFileSync(
+      writeContractAtomic(
         join(readyDir, 'ready.json'),
         JSON.stringify({
           command: 'dev',
@@ -110,7 +124,7 @@ describe('dev --wait contract', () => {
     )
 
     setTimeout(() => {
-      writeFileSync(
+      writeContractAtomic(
         join(readyDir, 'ready.json'),
         JSON.stringify({
           command: 'dev',
@@ -146,7 +160,7 @@ describe('dev --wait contract', () => {
     )
 
     setTimeout(() => {
-      writeFileSync(
+      writeContractAtomic(
         join(readyDir, 'ready.json'),
         JSON.stringify({
           command: 'dev',
@@ -188,7 +202,7 @@ describe('dev --wait contract', () => {
     const readyPath = join(readyDir, 'ready.json')
     mkdirSync(readyDir, {recursive: true})
 
-    writeFileSync(
+    writeContractAtomic(
       readyPath,
       JSON.stringify({
         command: 'dev',
@@ -211,7 +225,7 @@ describe('dev --wait contract', () => {
     )
 
     setTimeout(() => {
-      writeFileSync(
+      writeContractAtomic(
         readyPath,
         JSON.stringify({
           command: 'dev',
