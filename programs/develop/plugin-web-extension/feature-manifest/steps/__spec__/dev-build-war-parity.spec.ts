@@ -46,6 +46,9 @@ describe('dev and build agree on web_accessible_resources', () => {
       )
 
       expect(added).toEqual([...DEV_RUNTIME_RESOURCES])
+      // Pinned as written: a wider constant would pass the line above and
+      // still put a new file in reach of every matched page.
+      expect(added).toEqual(['hot/*', 'extension-js-control.json'])
     }
   })
 
