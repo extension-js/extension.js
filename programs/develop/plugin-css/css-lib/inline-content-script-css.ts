@@ -122,14 +122,18 @@ export function rewriteInlinedCssUrls(
 }
 
 export function toRuntimeStylesheetModule(css: string): string {
+  // A bare `browser` gets rewritten into a polyfill require that throws in
+  // the MAIN world. Member reads on globalThis are never rewritten.
   return [
     `var __extjsCssText = ${JSON.stringify(css)};`,
     'function __extjsExtensionRoot() {',
     '  try {',
-    '    if (typeof browser === "object" && browser && browser.runtime && typeof browser.runtime.getURL === "function") return String(browser.runtime.getURL("/"));',
+    '    var b = globalThis.browser;',
+    '    if (typeof b === "object" && b && b.runtime && typeof b.runtime.getURL === "function") return String(b.runtime.getURL("/"));',
     '  } catch (error) {}',
     '  try {',
-    '    if (typeof chrome === "object" && chrome && chrome.runtime && typeof chrome.runtime.getURL === "function") return String(chrome.runtime.getURL("/"));',
+    '    var c = globalThis.chrome;',
+    '    if (typeof c === "object" && c && c.runtime && typeof c.runtime.getURL === "function") return String(c.runtime.getURL("/"));',
     '  } catch (error) {}',
     // A MAIN-world script has no runtime API. The bridge publishes the
     // extension base for it on globalThis and on <html>, as public path reads.
