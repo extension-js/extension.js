@@ -28,6 +28,7 @@ export interface ReloadInstruction {
   label?: string
 }
 
+/** "context (fileA, fileB +2 more)", the one label every reload surface shows. */
 export function formatReloadContextLabel(
   context: string,
   files: string[]
@@ -65,9 +66,12 @@ export function pageContextFromSources(changedSources: string[]): string {
 // Name-pattern heuristics are NOT trustworthy for this decision.
 export interface SourceFeatureIndex {
   swSources: Set<string>
+  /** Source → canonical content_scripts entry names whose chunks contain it. */
   contentEntriesBySource: Map<string, Set<string>>
   pageSources: Set<string>
+  /** Source → emitted scripts/ bundle names whose chunks contain it. */
   scriptFilesBySource?: Map<string, Set<string>>
+  /** Project-relative public/ roots the copier ships at the dist root. */
   publicRoots?: string[]
 }
 
