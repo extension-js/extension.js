@@ -11,6 +11,7 @@ import * as path from 'node:path'
 import {
   Compilation,
   type Compiler,
+  DefinePlugin,
   EntryPlugin,
   javascript as rspackJavascript,
   library as rspackLibrary,
@@ -18,6 +19,7 @@ import {
   WebpackError
 } from '@rspack/core'
 import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
+import {importMetaUrlForEmitPath} from '../../../plugin-compilation/env'
 import type {DevOptions, Manifest} from '../../../types'
 import {isClassicScript} from '../../shared/classic-concat'
 import * as messages from '../messages'
@@ -744,11 +746,8 @@ export async function compileRuntimeLoadedFiles(
 
   const before = new Set(compilation.getAssets().map((asset) => asset.name))
 
-  for (const format of ['module', 'classic'] as const) {
-    const group = requests.filter((request) => request.format === format)
-    if (group.length === 0) continue
-
-    await compileTracedFiles({compilation, compiler}, format, group)
+  for (const request of requests) {
+    await compileTracedFile({compilation, compiler}, request)
   }
 
   return compilation
@@ -864,35 +863,36 @@ function isFile(candidate: string): boolean {
   }
 }
 
-// Compile traced sources in a child of the main compilation, one per output
-// format, so they get the same loaders and resolution as every entry. The
-// child's assets land in the parent at the paths the runtime asks for.
-async function compileTracedFiles(
+// Compile a traced source in a child of the main compilation, one per file,
+// so it gets the same loaders and resolution as every entry. The child's
+// asset lands in the parent at the path the runtime asks for.
+async function compileTracedFile(
   host: CompileHost,
-  format: TracedFormat,
-  requests: CompileRequest[]
+  request: CompileRequest
 ): Promise<void> {
   const {compilation, compiler} = host
-  const isModule = format === 'module'
-  const chunkLoadingFor = (context: LoadContext) =>
-    isModule
-      ? 'import'
-      : context === 'importScripts'
-        ? 'import-scripts'
-        : 'jsonp'
+  const isModule = request.format === 'module'
+  const chunkLoading = isModule
+    ? 'import'
+    : request.context === 'importScripts'
+      ? 'import-scripts'
+      : 'jsonp'
 
-  const entries = requests.map(
-    (request) =>
-      new EntryPlugin(compiler.context, request.sourcePath, {
-        name: request.emitPath.replace(/\.[^./]+$/, ''),
-        filename: request.emitPath,
-        chunkLoading: chunkLoadingFor(request.context),
-        ...(isModule ? {library: {type: 'module'}} : {})
-      })
-  )
+  const entry = new EntryPlugin(compiler.context, request.sourcePath, {
+    name: request.emitPath.replace(/\.[^./]+$/, ''),
+    filename: request.emitPath,
+    chunkLoading,
+    ...(isModule ? {library: {type: 'module'}} : {})
+  })
+
+  // The file is fetched at its emit path, so import.meta.url is that URL,
+  // not the page-or-root guess the inherited define gives main entries.
+  const importMetaUrl = new DefinePlugin({
+    'import.meta.url': importMetaUrlForEmitPath(request.emitPath)
+  })
 
   const child = compilation.createChildCompiler(
-    `${TraceRuntimeLoadedFiles.name}:${format}`,
+    `${TraceRuntimeLoadedFiles.name}:${request.format}`,
     {
       filename: '[name].js',
       module: isModule,
@@ -904,17 +904,13 @@ async function compileTracedFiles(
       library: isModule ? {type: 'module'} : undefined,
       clean: false
     } as unknown as Parameters<Compilation['createChildCompiler']>[1],
-    entries
+    [entry, importMetaUrl]
   )
 
   // Applied after the inherited builtins: the module library marks the
   // entry's exports as used when it runs, which must come after provided
   // exports are known or production tree-shakes every export away.
-  for (const type of new Set(
-    requests.map((request) => chunkLoadingFor(request.context))
-  )) {
-    new rspackJavascript.EnableChunkLoadingPlugin(type).apply(child)
-  }
+  new rspackJavascript.EnableChunkLoadingPlugin(chunkLoading).apply(child)
 
   if (isModule) new rspackLibrary.EnableLibraryPlugin('module').apply(child)
 
@@ -943,9 +939,7 @@ async function compileTracedFiles(
     child.runAsChild((error, _entries, childCompilation) => {
       if (error) {
         const failure = new WebpackError(
-          `Compiling runtime-loaded ${requests
-            .map((request) => request.emitPath)
-            .join(', ')} failed: ${error.message}`
+          `Compiling runtime-loaded ${request.emitPath} failed: ${error.message}`
         ) as Error & {name?: string}
         failure.name = 'RuntimeLoadedFileCompileFailed'
         compilation.errors.push(failure)
