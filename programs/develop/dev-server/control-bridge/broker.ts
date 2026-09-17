@@ -148,6 +148,14 @@ const UNDELIVERED_RELOAD_WARN: Record<
     'browser may have exited). Reloads resume automatically once it reconnects.'
 }
 
+// Safari keeps a freshly installed extension off until the user turns it on,
+// so a producer that never connected there is a switch, not a heavy page.
+const UNDELIVERED_RELOAD_WARN_WEBKIT_NEVER_CONNECTED =
+  'Extension not connected, your edit compiled but no page received it. The ' +
+  'extension has not connected to the dev server this session. Open ' +
+  'Safari > Settings > Extensions and turn it on. Safari restarts the ' +
+  'extension itself once it is enabled, and reloads resume automatically.'
+
 interface Pending {
   controller: BridgeConnection
   op: CommandOp
@@ -379,6 +387,12 @@ export class BridgeBroker {
     if (this.lastUndeliveredWarnKind === kind) return null
 
     this.lastUndeliveredWarnKind = kind
+
+    // Safari has no service worker to blame here: the extension is off until
+    // the user enables it, and that is the one step this line has to name.
+    if (kind === 'never-connected' && this.engine === 'webkit') {
+      return UNDELIVERED_RELOAD_WARN_WEBKIT_NEVER_CONNECTED
+    }
 
     return UNDELIVERED_RELOAD_WARN[kind]
   }

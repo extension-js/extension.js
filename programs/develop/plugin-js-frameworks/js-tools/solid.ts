@@ -10,13 +10,15 @@ import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import * as path from 'node:path'
 import {resolveDevelopDistFile} from '../../lib/develop-context'
-import {isDebug, prefix} from '../../lib/messaging'
+import {humanWarn, isDebug, prefix} from '../../lib/messaging'
 import type {JsFramework} from '../../types'
 import {hasDependency} from '../frameworks-lib/integrations'
 import * as messages from '../js-frameworks-lib/messages'
 
 let userMessageDelivered = false
 
+// A Solid project compiles, but not the way Solid's own compiler would, and
+// the author has to hear that once per process, not once per compile.
 export function isUsingSolid(projectPath: string) {
   if (hasDependency(projectPath, 'solid-js')) {
     if (!userMessageDelivered) {
@@ -26,6 +28,7 @@ export function isUsingSolid(projectPath: string) {
         )
       }
 
+      humanWarn(messages.solidIsNotSupported())
       userMessageDelivered = true
     }
 
