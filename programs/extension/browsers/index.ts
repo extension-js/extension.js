@@ -295,6 +295,8 @@ export {
   type SafariBuildPreflight,
   type SafariPackageResult,
   type SafariPipelineMode,
+  type SafariPipelineTools,
+  type SafariToolResult,
   safariBuildPreflight,
   safariPreflightError
 } from './run-safari/safari-launch'
