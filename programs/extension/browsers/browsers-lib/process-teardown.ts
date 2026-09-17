@@ -17,18 +17,26 @@ export const FORCE_KILL_GRACE_MS = 5000
 // child means the browser died mid-session and must be surfaced loudly.
 const terminatedByUs = new WeakSet<ChildProcess>()
 
+// A browser that re-launched itself is no ChildProcess of ours, only a pid,
+// so the same expectation is kept by number for it.
+const terminatedPids = new Set<number>()
+
 export function wasTerminatedByUs(child: ChildProcess | null): boolean {
   return !!child && terminatedByUs.has(child)
+}
+
+export function wasPidTerminatedByUs(pid: number | null | undefined): boolean {
+  return typeof pid === 'number' && terminatedPids.has(pid)
 }
 
 function authorLog(line: string | null): void {
   if (line && isDebug()) humanLine(line)
 }
 
-function killWindowsTree(child: ChildProcess, sync: boolean): void {
-  if (process.platform !== 'win32') return
+function killWindowsTree(pid: number | undefined, sync: boolean): void {
+  if (process.platform !== 'win32' || !pid) return
 
-  const args = ['/PID', String(child.pid), '/T', '/F']
+  const args = ['/PID', String(pid), '/T', '/F']
 
   try {
     if (sync) {
@@ -44,6 +52,48 @@ function killWindowsTree(child: ChildProcess, sync: boolean): void {
   }
 }
 
+function signalPid(pid: number, signal: NodeJS.Signals): boolean {
+  try {
+    process.kill(pid, signal)
+
+    return true
+  } catch {
+    return false
+  }
+}
+
+// The pid counterpart of gracefulTerminateChild, for a browser process the
+// session adopted after the spawned launcher handed off and exited.
+export function gracefulTerminatePid(
+  pid: number | null | undefined,
+  browser: BrowserType
+): void {
+  if (!pid || terminatedPids.has(pid)) return
+
+  terminatedPids.add(pid)
+  killWindowsTree(pid, false)
+  authorLog(messages.enhancedProcessManagementTerminating(browser))
+  signalPid(pid, 'SIGTERM')
+  const killTimer = setTimeout(() => {
+    authorLog(messages.enhancedProcessManagementForceKill(browser))
+    signalPid(pid, 'SIGKILL')
+  }, FORCE_KILL_GRACE_MS)
+  killTimer.unref?.()
+}
+
+// The pid counterpart of forceKillChildOnExit.
+export function forceKillPidOnExit(
+  pid: number | null | undefined,
+  browser: BrowserType
+): void {
+  if (!pid) return
+
+  terminatedPids.add(pid)
+  killWindowsTree(pid, true)
+  authorLog(messages.enhancedProcessManagementForceKill(browser))
+  signalPid(pid, 'SIGKILL')
+}
+
 // Signal-path teardown: SIGTERM, then SIGKILL after a grace window. The timer
 // is unref'd; if the loop drains first, forceKillChildOnExit is the backstop.
 export function gracefulTerminateChild(
@@ -53,7 +103,7 @@ export function gracefulTerminateChild(
   if (!child || child.killed) return
 
   terminatedByUs.add(child)
-  killWindowsTree(child, false)
+  killWindowsTree(child.pid, false)
   authorLog(messages.enhancedProcessManagementTerminating(browser))
   child.kill('SIGTERM')
   const killTimer = setTimeout(() => {
@@ -74,7 +124,7 @@ export function forceKillChildOnExit(
   if (!child) return
 
   terminatedByUs.add(child)
-  killWindowsTree(child, true)
+  killWindowsTree(child.pid, true)
 
   try {
     authorLog(messages.enhancedProcessManagementForceKill(browser))
