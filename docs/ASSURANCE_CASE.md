@@ -61,6 +61,8 @@ Out of scope:
 4. Between the project folder and the rest of the file system: archive extraction refuses entries outside the project folder, and static asset output names are hashed so they cannot escape the output folder.
 5. Between the source repository and the published packages: the release workflow on GitHub-hosted runners, OIDC publishing and Sigstore provenance.
 
+A stable or next release writes two commits to `main`, the version bump and the changelog move, and the `main` ruleset does not let the workflow token do that. A single write deploy key bypasses the ruleset for those two commits. The key is an environment secret of the `stable` and `next` environments, it is not stored in the repository or in a job-level variable, and the workflow exposes it only in a push-only step that runs `scripts/push-release-refs.sh` and nothing else, after every install, build, test and hook of the job has finished. Git hooks are disabled for the whole release job. The canary channel never pushes. If the key is suspected to be exposed, delete it under the repository deploy keys, remove the environment secret, and add a new key pair, which revokes the old key at once.
+
 ## Secure design principles
 
 - Fail-safe defaults: loopback bind, control off, eval off, telemetry off in unattended CI.
