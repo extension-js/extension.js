@@ -360,6 +360,22 @@ async function packLocalWorkspacePackagesForSmoke(workdir, pm) {
   return specifiers
 }
 
+// Bun and Yarn classic take a transitive exact range to the registry even when
+// a top-level file: tarball supplies that name and version, so without this pin
+// they install the published siblings. Deno resolves through deno.jsonc links.
+function shouldPinPackedResolutions(pm) {
+  return pm === 'bun' || pm === 'yarn'
+}
+
+function getPackedDependencyNames() {
+  return [
+    'extension',
+    'extension-create',
+    'extension-develop',
+    'extension-install'
+  ]
+}
+
 function shouldUseDirectLocalCli(pm) {
   return process.platform === 'win32' && pm === 'npm'
 }
@@ -777,13 +793,20 @@ async function rewriteConsumerPackageJson(workdir, pm, packedTarballs = null) {
       )
     }
 
-    for (const depName of [
-      'extension',
-      'extension-create',
-      'extension-develop',
-      'extension-install'
-    ]) {
+    for (const depName of getPackedDependencyNames()) {
       packageJson.devDependencies[depName] = packedTarballs[depName]
+    }
+
+    if (shouldPinPackedResolutions(pm)) {
+      packageJson.resolutions ||= {}
+
+      for (const depName of getPackedDependencyNames()) {
+        packageJson.resolutions[depName] = packedTarballs[depName]
+      }
+    } else if (packageJson.resolutions) {
+      for (const depName of getPackedDependencyNames()) {
+        delete packageJson.resolutions[depName]
+      }
     }
 
     if (packageJson.pnpm?.overrides) {
@@ -797,6 +820,12 @@ async function rewriteConsumerPackageJson(workdir, pm, packedTarballs = null) {
       extensionPath,
       workdir
     )
+
+    if (packageJson.resolutions) {
+      for (const depName of getPackedDependencyNames()) {
+        delete packageJson.resolutions[depName]
+      }
+    }
   }
 
   if (!usePackedExtension) {
@@ -1267,8 +1296,11 @@ export {
   assertLocalWorkspacePackagesExist,
   fileSpecifier,
   getLocalWorkspacePackagePaths,
+  getPackedDependencyNames,
   removeDirectoryWithRetries,
   resolveSmokeTempRootParent,
+  rewriteConsumerPackageJson,
+  shouldPinPackedResolutions,
   shouldUsePackedExtensionForSmoke,
   shouldRetryCleanupError,
   terminateChildProcess,

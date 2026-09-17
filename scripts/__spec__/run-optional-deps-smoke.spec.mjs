@@ -1,13 +1,17 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs/promises'
+import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import {
   assertLocalWorkspacePackagesExist,
   fileSpecifier,
   getLocalWorkspacePackagePaths,
+  getPackedDependencyNames,
   removeDirectoryWithRetries,
   resolveSmokeTempRootParent,
+  rewriteConsumerPackageJson,
+  shouldPinPackedResolutions,
   shouldRetryCleanupError,
   shouldUsePackedExtensionForSmoke
 } from '../run-optional-deps-smoke.mjs'
@@ -179,6 +183,82 @@ test('assertLocalWorkspacePackagesExist fails loudly when a path is missing', as
 
     return true
   })
+})
+
+test('shouldPinPackedResolutions covers the registry-resolving lanes', () => {
+  // bun/yarn resolve the sibling ranges baked into the packed `extension`
+  // tarball against the registry unless `resolutions` pins them locally.
+  assert.equal(shouldPinPackedResolutions('bun'), true)
+  assert.equal(shouldPinPackedResolutions('yarn'), true)
+  // deno gets its local content through the deno.jsonc `links` field instead.
+  assert.equal(shouldPinPackedResolutions('deno'), false)
+  assert.equal(shouldPinPackedResolutions('npm'), false)
+  assert.equal(shouldPinPackedResolutions('pnpm'), false)
+})
+
+async function writeSmokeConsumerFixture(dir, packageJson = {}) {
+  await fs.mkdir(dir, {recursive: true})
+  await fs.writeFile(
+    path.join(dir, 'package.json'),
+    `${JSON.stringify({name: 'fixture', version: '0.0.0', ...packageJson}, null, 2)}\n`
+  )
+
+  return async () => {
+    return JSON.parse(await fs.readFile(path.join(dir, 'package.json'), 'utf8'))
+  }
+}
+
+test('rewriteConsumerPackageJson pins packed tarballs for bun and yarn', async () => {
+  const packed = Object.fromEntries(
+    getPackedDependencyNames().map((name) => [
+      name,
+      `file:./.smoke-tarballs/${name}-9.9.9.tgz`
+    ])
+  )
+
+  for (const pm of ['bun', 'yarn']) {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), `smoke-${pm}-`))
+
+    try {
+      const read = await writeSmokeConsumerFixture(dir)
+      await rewriteConsumerPackageJson(dir, pm, packed)
+      const result = await read()
+
+      // Without these, bun/yarn resolve `extension`'s exact sibling ranges
+      // from the registry: the lane then tests the published packages and
+      // hard-fails while a just-released version is still propagating.
+      assert.deepEqual(result.resolutions, packed)
+
+      for (const name of getPackedDependencyNames()) {
+        assert.equal(result.devDependencies[name], packed[name])
+      }
+    } finally {
+      await removeDirectoryWithRetries(dir)
+    }
+  }
+})
+
+test('rewriteConsumerPackageJson leaves deno and npm without packed resolutions', async () => {
+  const packed = Object.fromEntries(
+    getPackedDependencyNames().map((name) => [name, '9.9.9'])
+  )
+
+  for (const pm of ['deno', 'npm']) {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), `smoke-${pm}-`))
+
+    try {
+      const read = await writeSmokeConsumerFixture(dir, {
+        resolutions: {extension: '1.0.0', unrelated: '2.0.0'}
+      })
+      await rewriteConsumerPackageJson(dir, pm, packed)
+      const result = await read()
+
+      assert.equal(result.resolutions.extension, undefined)
+      assert.equal(result.resolutions.unrelated, '2.0.0')
+    } finally {
+      await removeDirectoryWithRetries(dir)
+    }
+  }
 })
 
 test('resolveSmokeTempRootParent keeps Windows smoke workspace on repo drive', async () => {
