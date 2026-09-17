@@ -119,6 +119,51 @@ describe('card binary provenance', () => {
     expect(binaryProvenanceNote('managed')).toBe('')
     expect(binaryProvenanceNote(undefined)).toBe('')
   })
+
+  it('names the pin flag of the engine in use', () => {
+    // A Firefox session pinned with --gecko-binary must not claim the
+    // Chromium flag, and the same holds for every fork of each engine.
+    const flags: Record<string, string> = {
+      firefox: '--gecko-binary',
+      librewolf: '--gecko-binary',
+      'gecko-based': '--gecko-binary',
+      chrome: '--chromium-binary',
+      brave: '--chromium-binary',
+      'chromium-based': '--chromium-binary',
+      safari: '--safari-binary',
+      'webkit-based': '--safari-binary'
+    }
+
+    for (const [browser, flag] of Object.entries(flags)) {
+      expect(binaryProvenanceNote('pinned', browser)).toBe(
+        `(pinned with ${flag})`
+      )
+    }
+
+    // The flag only matters once a pin exists.
+    expect(binaryProvenanceNote('system', 'firefox')).toBe('')
+    expect(binaryProvenanceNote('managed', 'safari')).toBe('')
+  })
+
+  it('prints the gecko flag on a pinned Firefox card', () => {
+    const card = stripAnsi(
+      runningInDevelopment(
+        {name: 'My Extension', version: '1.0.0'},
+        'firefox',
+        {
+          data: {
+            id: 'my-extension@example.com',
+            management: {name: 'My Extension', version: '1.0.0'}
+          }
+        },
+        'Firefox 155.0.1',
+        undefined,
+        {binaryPath: '/opt/firefox/firefox', binaryProvenance: 'pinned'}
+      )
+    )
+    expect(card).toContain('Firefox 155.0.1 (pinned with --gecko-binary)')
+    expect(card).not.toContain('--chromium-binary')
+  })
 })
 
 describe('classifyBinaryProvenance', () => {
