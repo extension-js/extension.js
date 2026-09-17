@@ -6,6 +6,7 @@
 //  ╚═════╝╚══════╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import * as path from 'node:path'
 import {type Command, Option} from 'commander'
 import {launchBrowser} from '../browsers'
 import {normalizeProfileOption} from '../browsers/browsers-lib/resolve-profile'
@@ -22,6 +23,7 @@ import {
   firefoxBinaryAliasOption,
   geckoBinaryOption
 } from '../helpers/cli-options'
+import {getCliPackageJson} from '../helpers/cli-package-json'
 import {resolveConfigBrowser} from '../helpers/config-browser'
 import {loadExtensionDevelopModule} from '../helpers/extension-develop-runtime'
 import * as messages from '../helpers/messages'
@@ -38,6 +40,7 @@ import {
 } from '../helpers/normalize-options'
 import {resolveOutputFormat} from '../helpers/output-flag'
 import {parseParentPid, setupParentWatchdog} from '../helpers/parent-watchdog'
+import {checkProjectCliVersion} from '../helpers/project-cli-version'
 import {markCommandSessionStart} from '../helpers/telemetry-cli'
 import {
   BROWSER_TARGETS_HELP,
@@ -282,6 +285,23 @@ export function registerDevCommand(program: Command) {
         }
 
         const asJson = resolveOutputFormat(devOptions) === 'json'
+
+        const cliVersion = checkProjectCliVersion(
+          path.resolve(pathOrRemoteUrl || process.cwd()),
+          getCliPackageJson().version as string
+        )
+
+        if (cliVersion) {
+          // eslint-disable-next-line no-console
+          console.warn(
+            messages.projectCliVersionMismatch(
+              cliVersion.running,
+              cliVersion.declared,
+              cliVersion.range,
+              cliVersion.command
+            )
+          )
+        }
 
         if (devOptions.parentPid !== undefined) {
           const parentPid = parseParentPid(devOptions.parentPid)

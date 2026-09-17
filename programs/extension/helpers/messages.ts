@@ -6,8 +6,9 @@
 //  ╚═════╝╚══════╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import * as path from 'node:path'
 import colors from 'pintor'
-import {type Channel, fmt, prefix} from './messaging'
+import {type Channel, fmt, hasChannelPrefix, prefix} from './messaging'
 import {
   BUNDLED_TEMPLATES,
   DEFAULT_TEMPLATE,
@@ -307,13 +308,37 @@ export function availableCommandsBlock(): string {
   return COMMANDS.map(commandHelpEntry).join('\n\n')
 }
 
+// The shell can resolve an `extension` from anywhere on the PATH. When that
+// binary cannot be the one the project asks for, its failures are not the
+// project's, so name both versions before the run starts.
+export function projectCliVersionMismatch(
+  running: string,
+  declared: string,
+  range: string,
+  installCommand: string
+) {
+  return (
+    `${getLoggingPrefix('warn')} Running ${code(`extension ${running}`)}, ` +
+    `this project declares ${code(`${declared}@${range}`)}.\n` +
+    `Run ${code(installCommand)} so the project's own version runs.`
+  )
+}
+
 export function unhandledError(err: unknown) {
+  const rendered = err instanceof Error ? err.message : ''
+
+  // A command that framed its own failure prints exactly what it wrote: the
+  // frame here would add a second glyph, an Error: prefix and a stack trace.
+  if (hasChannelPrefix(rendered)) return rendered
+
   const message =
     err instanceof Error
       ? err.stack || err.message
       : typeof err === 'string'
         ? err
-        : fmt.truncate(err)
+        : err === undefined || err === null
+          ? ''
+          : fmt.truncate(err)
 
   return `${getLoggingPrefix('error')} ${colors.red(String(message || 'Unknown error'))}`
 }

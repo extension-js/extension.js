@@ -11,6 +11,11 @@ import * as path from 'node:path'
 import * as messages from './messages'
 import {detectPackageManagerFromEnv} from './package-manager'
 
+// A template directory can be a working checkout: this repo runs `dev` inside
+// the bundled one, and a new project must never inherit that build output or
+// the session state beside it.
+export const NEVER_SCAFFOLDED_DIRS = ['dist', 'node_modules', '.extension-js']
+
 export async function copyDirectoryWithSymlinks(
   source: string,
   destination: string
@@ -23,6 +28,8 @@ export async function copyDirectoryWithSymlinks(
     const destPath = path.join(destination, entry.name)
 
     if (entry.isDirectory()) {
+      if (NEVER_SCAFFOLDED_DIRS.includes(entry.name)) continue
+
       await copyDirectoryWithSymlinks(sourcePath, destPath)
     } else if (entry.isSymbolicLink()) {
       try {
@@ -119,4 +126,22 @@ export function isTypeScriptTemplate(templateName: string) {
     templateName.includes('svelte') ||
     templateName.includes('solid')
   )
+}
+
+// The name list misses every template that is TypeScript without saying so:
+// vue, the ai ones, playwright. A scaffolded tsconfig is the honest signal,
+// and without it the first dev run writes the types file and says so.
+export async function scaffoldNeedsTypeDefinitions(
+  projectPath: string,
+  templateName: string
+) {
+  if (isTypeScriptTemplate(templateName)) return true
+
+  try {
+    await fs.access(path.join(projectPath, 'tsconfig.json'))
+
+    return true
+  } catch {
+    return false
+  }
 }

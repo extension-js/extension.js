@@ -109,7 +109,7 @@
     "fflate": "^0.8.3",
     "go-git-it": "^5.1.5",
     "ignore": "^7.0.5",
-    "less": "4.6.7",
+    "less": "4.9.1",
     "less-loader": "13.0.0",
     "parse5-utilities": "^1.0.0",
     "pintor": "0.3.0",

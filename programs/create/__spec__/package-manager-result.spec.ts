@@ -50,7 +50,8 @@ vi.mock('../steps/generate-extension-types', () => ({
 }))
 
 vi.mock('../lib/utils', () => ({
-  isTypeScriptTemplate: () => false
+  isTypeScriptTemplate: () => false,
+  scaffoldNeedsTypeDefinitions: async () => false
 }))
 
 const silentLogger = {log: () => undefined, error: () => undefined}
