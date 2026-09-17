@@ -13,7 +13,7 @@
 
 export const TEMPLATE_CORPUS_REPO = 'extension-js/examples'
 
-export const TEMPLATE_CORPUS_REF = 'eb78fee15d30c3d1dc6a762ac6ff60504141811f'
+export const TEMPLATE_CORPUS_REF = '06d33e35894516a460409dca06d1614e291e6252'
 
 export const TEMPLATE_CORPUS_SLUGS: readonly string[] = [
   'action',
