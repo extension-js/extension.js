@@ -368,4 +368,116 @@ describe('extension open', () => {
     expect(await run(['open', 'window'])).toBe(1)
     expect(String(errorSpy.mock.calls[0][0])).toContain('unknown surface')
   })
+
+  it('says what opened instead of printing the result object', async () => {
+    bridge.result = {ok: true, value: {opened: 'popup'}}
+    expect(await run(['open', 'popup', '--browser', 'firefox'])).toBe(0)
+    expect(logSpy.mock.calls.map((c) => String(c[0]))).toEqual([
+      '⏵⏵⏵ Opened the popup.'
+    ])
+
+    logSpy.mockClear()
+    bridge.result = {ok: true, value: {opened: 'options'}}
+    expect(await run(['open', 'options'])).toBe(0)
+    expect(String(logSpy.mock.calls[0][0])).toBe('⏵⏵⏵ Opened the options page.')
+
+    logSpy.mockClear()
+    bridge.result = {ok: true, value: {triggered: 'popup'}}
+    expect(await run(['open', 'action'])).toBe(0)
+    expect(String(logSpy.mock.calls[0][0])).toBe('⏵⏵⏵ Opened the action popup.')
+  })
+
+  it('counts replayed listeners and prints the warning on its own line', async () => {
+    bridge.result = {
+      ok: true,
+      value: {
+        triggered: 'onClicked',
+        listeners: 1,
+        gesture: false,
+        warning: 'replayed without a user gesture: activeTab is NOT granted'
+      }
+    }
+
+    expect(await run(['open', 'action'])).toBe(0)
+    expect(logSpy.mock.calls.map((c) => String(c[0]))).toEqual([
+      '⏵⏵⏵ Replayed 1 onClicked listener without a user gesture.',
+      '⏵⏵⏵ Replayed without a user gesture: activeTab is NOT granted.'
+    ])
+
+    logSpy.mockClear()
+    bridge.result = {
+      ok: true,
+      value: {
+        triggered: 'command',
+        command: 'toggle-panel',
+        listeners: 2,
+        gesture: false
+      }
+    }
+
+    expect(await run(['open', 'command', '--name', 'toggle-panel'])).toBe(0)
+    expect(logSpy.mock.calls.map((c) => String(c[0]))).toEqual([
+      '⏵⏵⏵ Replayed 2 onCommand listeners for toggle-panel without a user gesture.'
+    ])
+  })
+
+  it('keeps the json envelope and unknown result shapes unchanged', async () => {
+    const value = {triggered: 'onClicked', listeners: 1, gesture: false}
+    bridge.result = {ok: true, value}
+    expect(await run(['open', 'action', '--output', 'json'])).toBe(0)
+    expect(JSON.parse(String(logSpy.mock.calls[0][0]))).toEqual({
+      schema: 1,
+      ok: true,
+      command: 'open',
+      status: 'ok',
+      value,
+      error: null,
+      warnings: []
+    })
+
+    logSpy.mockClear()
+    bridge.result = {ok: true, value: {something: 'else'}}
+    expect(await run(['open', 'options'])).toBe(0)
+    expect(String(logSpy.mock.calls[0][0])).toBe(
+      JSON.stringify({something: 'else'}, null, 2)
+    )
+  })
+
+  it('renders an engine failure as a label line with its reason and remedy', async () => {
+    bridge.result = {
+      ok: false,
+      error: {
+        name: 'Unsupported',
+        message: 'openPopup: Could not find an active browser window.',
+        engine: 'chromium'
+      }
+    }
+
+    expect(await run(['open', 'popup', '--browser', 'firefox'])).toBe(1)
+    const text = String(errorSpy.mock.calls[0][0])
+    expect(text).toContain("⏵⏵⏵ Can't open the popup.")
+    expect(text).toContain(
+      'REASON openPopup: Could not find an active browser window.'
+    )
+
+    expect(text).toContain('engine chromium')
+    expect(text).not.toContain('Unsupported:')
+
+    errorSpy.mockClear()
+    bridge.result = {
+      ok: false,
+      error: {
+        name: 'Unsupported',
+        message:
+          'sidePanel.open: sidePanel.open() may only be called in response to a user gesture.',
+        code: 'needs_user_gesture'
+      }
+    }
+
+    expect(await run(['open', 'sidebar', '--browser', 'firefox'])).toBe(1)
+    const gated = String(errorSpy.mock.calls[0][0]).split('\n')
+    expect(gated[0]).toBe("⏵⏵⏵ Can't open the side panel.")
+    expect(gated[1]).toContain('REASON sidePanel.open:')
+    expect(gated[2]).toContain('Click the extension in the browser toolbar')
+  })
 })

@@ -921,12 +921,65 @@ export function deprecatedOutputAlias(flag: string) {
 // typed, the noun is what the browser shows.
 const OPEN_SURFACE_NOUN: Record<string, string> = {
   popup: 'popup',
+  options: 'options page',
   sidebar: 'side panel',
   action: 'action popup'
 }
 
 function openSurfaceNoun(surface: string): string {
   return OPEN_SURFACE_NOUN[surface] || surface
+}
+
+function openSurfaceAction(surface: string): string {
+  return surface === 'command'
+    ? 'trigger the command'
+    : `open the ${openSurfaceNoun(surface)}`
+}
+
+function asSentence(text: string): string {
+  const trimmed = text.trim()
+  const capitalized = trimmed.charAt(0).toUpperCase() + trimmed.slice(1)
+
+  return capitalized.endsWith('.') ? capitalized : `${capitalized}.`
+}
+
+function listenerCount(count: number, event: string): string {
+  return `${count} ${event} ${count === 1 ? 'listener' : 'listeners'}`
+}
+
+export function openedSurface(surface: string) {
+  return `${getLoggingPrefix('success')} Opened the ${openSurfaceNoun(surface)}.`
+}
+
+export function replayedActionClick(listeners: number) {
+  return `${getLoggingPrefix('success')} Replayed ${listenerCount(listeners, 'onClicked')} without a user gesture.`
+}
+
+export function replayedCommand(listeners: number, command?: string) {
+  const name = command ? ` for ${arg(command)}` : ''
+
+  return `${getLoggingPrefix('success')} Replayed ${listenerCount(listeners, 'onCommand')}${name} without a user gesture.`
+}
+
+export function openSurfaceWarning(warning: string) {
+  return `${getLoggingPrefix('warn')} ${asSentence(warning)}`
+}
+
+export function openSurfaceFailed(
+  surface: string,
+  reason: string,
+  engine?: string,
+  remedy?: string
+) {
+  const engineNote = engine ? arg(` (engine ${engine})`) : ''
+
+  return [
+    `${getLoggingPrefix('error')} Can't ${openSurfaceAction(surface)}.`,
+    `${fmt.label('REASON')} ${fmt.val(reason)}${engineNote}`,
+    remedy
+  ]
+    .filter(Boolean)
+    .join('\n')
 }
 
 export function openSurfaceGestureStep(surface: string): string {
