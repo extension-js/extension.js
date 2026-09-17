@@ -50,3 +50,14 @@ updates:
     labels:
       - "dependencies"
 
+  # Composite actions are not covered by the "/" entry above, so the pins in
+  # .github/actions/setup/action.yml are scanned on their own.
+  - package-ecosystem: "github-actions"
+    directory: "/.github/actions/setup"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    rebase-strategy: "auto"
+    labels:
+      - "dependencies"
+
