@@ -8,6 +8,7 @@
 
 import colors from 'pintor'
 import {prefix} from '../lib/messaging'
+import {displayPath} from '../lib/paths'
 
 export function serverRestartRequiredFromSpecialFolderMessageOnly(
   addingOrRemoving: string,
@@ -24,17 +25,17 @@ export function serverRestartRequiredFromSpecialFolderMessageOnly(
   )
 }
 
-// Paths print with forward slashes on every platform, the way the rest of
-// the CLI displays them, so the copy and its specs read the same on Windows.
-function displayPath(absolutePath: string) {
-  return absolutePath.replace(/\\/g, '/')
-}
-
-export function publicMustBeAtProjectRoot(foundAt: string, expectedAt: string) {
+// Both folders print the way the session card prints paths: relative to the
+// project when inside it, otherwise with the home dir collapsed to `~`.
+export function publicMustBeAtProjectRoot(
+  foundAt: string,
+  expectedAt: string,
+  projectRoot: string
+) {
   return (
     'The public folder sits in the legacy next-to-manifest location.\n' +
-    `GOT ${displayPath(foundAt)}\n` +
-    `EXPECTED ${displayPath(expectedAt)}\n` +
+    `GOT ${displayPath(foundAt, projectRoot)}\n` +
+    `EXPECTED ${displayPath(expectedAt, projectRoot)}\n` +
     'Static files ship from the extension root, so public/ is ' +
     'canonically placed at the project root.\n' +
     'The build uses it either way.\n' +
@@ -42,11 +43,15 @@ export function publicMustBeAtProjectRoot(foundAt: string, expectedAt: string) {
   )
 }
 
-export function publicFolderShadowed(usedAt: string, ignoredAt: string) {
+export function publicFolderShadowed(
+  usedAt: string,
+  ignoredAt: string,
+  projectRoot: string
+) {
   return (
     'Two public folders were found and only one is copied into the build.\n' +
-    `USING ${displayPath(usedAt)}\n` +
-    `IGNORED ${displayPath(ignoredAt)}\n` +
+    `USING ${displayPath(usedAt, projectRoot)}\n` +
+    `IGNORED ${displayPath(ignoredAt, projectRoot)}\n` +
     'public/ is canonically placed at the project root, and that copy wins.\n' +
     'Files that exist only in the ignored folder do not ship.\n' +
     'Move or merge the ignored folder to silence this warning.'
