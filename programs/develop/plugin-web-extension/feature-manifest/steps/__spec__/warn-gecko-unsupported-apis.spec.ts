@@ -454,6 +454,24 @@ describe('findGeckoUnsupportedApiUses', () => {
     )
   })
 
+  it('reads an unexplained emitted script through the same compressed lens when evidence is required', () => {
+    const vendor = write('node_modules/lib/index.js', SIDE_PANEL)
+    const dead =
+      'if ("safari" !== "safari") { chrome.sidePanel.setPanelBehavior({}) }\n'
+    const compilation = compilationWith(
+      [{resource: vendor}],
+      [asset('background/scripts.js', dead)],
+      ['background/scripts.js']
+    )
+    expect(findGeckoUnsupportedApiUses(compilation, 3, 'webkit')).toEqual([
+      {api: 'sidePanel', file: 'background/scripts.js', emitted: true}
+    ])
+
+    expect(findGeckoUnsupportedApiUses(compilation, 3, 'webkit', true)).toEqual(
+      []
+    )
+  })
+
   it('keeps a source hit the emitted script confirms when evidence is required', () => {
     const sw = write('background.js', SIDE_PANEL)
     const uses = findGeckoUnsupportedApiUses(
@@ -878,6 +896,60 @@ describe('UpdateManifest Gecko unsupported API warning', () => {
       run('development', 'safari', mv3, MANAGED_READ, {
         chunkGraph: true,
         emitted: 'console.log("this build dropped the branch")\n'
+      })
+    ).toEqual([])
+  })
+
+  // A development bundle keeps a branch the browser constant already decided,
+  // so the raw asset still spells the call. What ships is what a compressed
+  // copy of that asset carries, and a folded branch carries nothing.
+  const TABS_GROUP = 'chrome.tabs.group({tabIds: [1]})\n'
+  const GUARDED_TABS_GROUP = [
+    'if (import.meta.env.EXTENSION_PUBLIC_BROWSER !== "safari") {',
+    '  chrome.tabs.group({tabIds: [1]})',
+    '}',
+    ''
+  ].join('\n')
+  const DEAD_BRANCH_DEV_BUNDLE = [
+    '(function () {',
+    '  if ("safari" !== "safari") {',
+    '    chrome.tabs.group({tabIds: [1]});',
+    '  }',
+    "  console.log('background up');",
+    '})();',
+    ''
+  ].join('\n')
+  const LIVE_BRANCH_DEV_BUNDLE = DEAD_BRANCH_DEV_BUNDLE.replace(
+    '"safari" !== "safari"',
+    '"safari" === "safari"'
+  )
+
+  it('stays quiet in development when the member sits in a branch the define folded away', () => {
+    expect(
+      run('development', 'safari', mv3, GUARDED_TABS_GROUP, {
+        chunkGraph: true,
+        emitted: DEAD_BRANCH_DEV_BUNDLE
+      })
+    ).toEqual([])
+
+    // The same asset with the branch alive still ships the call
+    const warnings = run('development', 'safari', mv3, TABS_GROUP, {
+      chunkGraph: true,
+      emitted: LIVE_BRANCH_DEV_BUNDLE
+    })
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0].message).toContain('chrome.tabs.group')
+  })
+
+  it('stays quiet in development when a namespace sits in a folded branch too', () => {
+    const dead = DEAD_BRANCH_DEV_BUNDLE.replace(
+      'chrome.tabs.group({tabIds: [1]})',
+      'chrome.sidePanel.setPanelBehavior({})'
+    )
+    expect(
+      run('development', 'safari', mv3, SIDE_PANEL, {
+        chunkGraph: true,
+        emitted: dead
       })
     ).toEqual([])
   })

@@ -147,6 +147,39 @@ describe('solid tools', () => {
     )
   })
 
+  it('says once per process that Solid is not supported and why', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    try {
+      const {isUsingSolid} = await loadSolidTools()
+
+      expect(isUsingSolid(projectPath)).toBe(true)
+      expect(isUsingSolid(projectPath)).toBe(true)
+      expect(warnSpy).toHaveBeenCalledTimes(1)
+
+      const text = String(warnSpy.mock.calls[0][0])
+      expect(text).toContain('Solid is not a supported framework')
+      expect(text).toContain('JSX runtime only')
+      expect(text).toContain('{count()}')
+      expect(text).toContain('does not update')
+    } finally {
+      warnSpy.mockRestore()
+    }
+  })
+
+  it('stays quiet when solid-js is not a dependency', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    try {
+      const {isUsingSolid} = await import('../../js-tools/solid')
+
+      expect(isUsingSolid(projectPath)).toBe(false)
+      expect(warnSpy).not.toHaveBeenCalled()
+    } finally {
+      warnSpy.mockRestore()
+    }
+  })
+
   it('returns undefined when solid-js is not a dependency', async () => {
     const {maybeUseSolid} = await import('../../js-tools/solid')
 

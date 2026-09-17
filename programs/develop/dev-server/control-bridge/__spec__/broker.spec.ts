@@ -665,9 +665,67 @@ describe('BridgeBroker.undeliveredReloadWarning: caller-caused restart', () => {
   it('still warns when nothing ever connected, which no restart explains', () => {
     const {b, advance} = brokerAt(1_000_000)
     advance(GRACE_MS)
-    expect(
-      b.undeliveredReloadWarning({producerRestartExpected: true})
-    ).toContain('has not connected to the dev server this session')
+    const msg = b.undeliveredReloadWarning({producerRestartExpected: true})
+    expect(msg).toContain('SW not attached')
+    expect(msg).toContain('has not connected to the dev server this session')
+    expect(msg).not.toContain('Safari')
+  })
+
+  // Safari keeps a new extension off until the user turns it on, so the line
+  // names that switch instead of a service worker Safari never blames.
+  describe('on the webkit engine', () => {
+    function webkitBrokerAt(startMs: number) {
+      let nowMs = startMs
+      const b = new BridgeBroker({
+        ...opts,
+        engine: 'webkit' as const,
+        now: () => nowMs
+      })
+
+      return {b, advance: (ms: number) => (nowMs += ms)}
+    }
+
+    it('points at Safari > Settings > Extensions when nothing ever connected', () => {
+      const {b, advance} = webkitBrokerAt(1_000_000)
+      advance(GRACE_MS)
+      const msg = b.undeliveredReloadWarning({producerRestartExpected: true})
+      expect(msg).toContain('has not connected to the dev server this session')
+      expect(msg).toContain('Safari > Settings > Extensions')
+      expect(msg).toContain('Safari restarts the extension itself')
+      expect(msg).toContain('reloads resume automatically')
+      expect(msg).not.toContain('service worker')
+      expect(msg).not.toContain('SW not attached')
+    })
+
+    it('says it once, and stays quiet again inside the grace window', () => {
+      const {b, advance} = webkitBrokerAt(1_000_000)
+      expect(
+        b.undeliveredReloadWarning({producerRestartExpected: true})
+      ).toBeNull()
+
+      advance(GRACE_MS)
+      expect(
+        b.undeliveredReloadWarning({producerRestartExpected: true})
+      ).toContain('Safari > Settings > Extensions')
+
+      expect(
+        b.undeliveredReloadWarning({producerRestartExpected: true})
+      ).toBeNull()
+    })
+
+    it('keeps the restart quiet once the extension was attached before', () => {
+      const {b, advance} = webkitBrokerAt(1_000_000)
+      advance(GRACE_MS)
+      attachThenDetach(b)
+      expect(
+        b.undeliveredReloadWarning({producerRestartExpected: true})
+      ).toBeNull()
+
+      // A plain dispatch on this engine still gets the disconnect line
+      const msg = b.undeliveredReloadWarning()
+      expect(msg).toContain('disconnected')
+      expect(msg).not.toContain('Safari > Settings > Extensions')
+    })
   })
 
   it('keeps the startup grace window ahead of the restart context', () => {

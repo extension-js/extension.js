@@ -54,6 +54,18 @@ function project() {
     ].join('\n')
   )
 
+  // The worker lives on the page's own origin here, so the browser starts it
+  // from a content script and the warning has nothing to say.
+  fs.mkdirSync(path.join(root, 'same-origin'), {recursive: true})
+  fs.writeFileSync(
+    path.join(root, 'same-origin', 'index.js'),
+    [
+      'const worker = new Worker(new URL("/w.js", location.origin))',
+      'worker.postMessage("go")',
+      ''
+    ].join('\n')
+  )
+
   fs.writeFileSync(
     path.join(root, 'popup.js'),
     [
@@ -77,7 +89,8 @@ function project() {
       action: {default_popup: 'popup.html'},
       content_scripts: [
         {matches: ['<all_urls>'], js: ['content/index.js']},
-        {matches: ['<all_urls>'], js: ['blob/index.js']}
+        {matches: ['<all_urls>'], js: ['blob/index.js']},
+        {matches: ['<all_urls>'], js: ['same-origin/index.js']}
       ]
     })
   )
@@ -169,6 +182,31 @@ describe('a worker spelled in a content script', () => {
     // names is the one shape that must never be warned about.
     expect(warnings[0]).not.toContain('action/index.js')
     expect(warnings[0]).not.toContain('content_scripts/content-1.js')
+    expect(warnings[0]).not.toContain('content_scripts/content-2.js')
+  }, 180_000)
+
+  it('stays quiet for a worker resolved against the page origin', async () => {
+    const root = project()
+    const summary = await build(root)
+    expect(summary.errors_count).toBe(0)
+
+    // The bundler leaves a same-origin base alone, so the emitted script
+    // still spells the call the browser accepts in a content script.
+    const sameOrigin = path.join(
+      root,
+      'dist',
+      'chrome',
+      'content_scripts',
+      'content-2.js'
+    )
+    expect(fs.existsSync(sameOrigin)).toBe(true)
+    expect(fs.readFileSync(sameOrigin, 'utf8')).toMatch(
+      /new Worker\(new URL\("\/w\.js",\s*location\.origin\)/
+    )
+
+    const warnings = workerWarnings(summary)
+    expect(warnings, warnings.join('\n')).toHaveLength(1)
+    expect(warnings[0]).not.toContain('content_scripts/content-2.js')
   }, 180_000)
 
   it('says it for a gecko build too, where the worker also never runs', async () => {

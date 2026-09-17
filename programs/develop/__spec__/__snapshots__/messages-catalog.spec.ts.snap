@@ -125,6 +125,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "jsFrameworksConfigsDetected: function(3)",
     "jsFrameworksHmrSummary: function(2)",
     "jsFrameworksIntegrationsEnabled: function(1)",
+    "solidIsNotSupported: function(0)",
     "youAreAllSet: function(1)",
   ],
   "plugin-perf-budgets/messages.ts": [

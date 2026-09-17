@@ -26,6 +26,16 @@ export function isUsingIntegration(name: string) {
   return `integration use=${name}`
 }
 
+// The adapter over solid-js/h keeps a Solid project compiling, but only
+// Solid's own compiler turns a signal read in child position into an effect.
+export function solidIsNotSupported() {
+  return (
+    `${prefix('warn')} Solid is not a supported framework, so this project compiles through the JSX runtime only.\n` +
+    `A signal read in a child position, like ${colors.yellow('{count()}')}, renders once and does not update.\n` +
+    `Only Solid's own compiler makes that expression reactive, and the JSX runtime cannot recover it.`
+  )
+}
+
 export function youAreAllSet(name: string) {
   return `${prefix('success')} ${name} is installed.`
 }
