@@ -178,6 +178,42 @@ export function vendorPrefixedKeyDropped(
   )
 }
 
+function prefixScope(prefix: string) {
+  if (prefix === 'chrome') return 'Chrome'
+  if (prefix === 'edge') return 'Edge'
+  if (prefix === 'chromium') return 'Chromium-based'
+  if (prefix === 'firefox' || prefix === 'gecko') return 'Firefox-based'
+  if (prefix === 'safari' || prefix === 'webkit') return 'Safari'
+
+  return prefix
+}
+
+export function manifestVersionLostForBrowser(
+  browser: string,
+  prefixedKeys: string[],
+  resolved: unknown
+) {
+  const target = colors.blue(browser)
+  const field = colors.yellow('manifest_version')
+  const scoped = prefixedKeys.map((key) => {
+    const scope = prefixScope(key.substring(0, key.indexOf(':')))
+
+    return `${colors.yellow(key)} applies only to ${scope} builds`
+  })
+  const lead =
+    resolved === undefined
+      ? scoped.length
+        ? `${scoped.join(', ')}, so the ${target} build has no ${field}.`
+        : `The ${target} build has no ${field}.`
+      : `The ${target} build resolved ${field} to ${colors.yellow(JSON.stringify(resolved))}, and browsers load only 2 or 3.`
+
+  return (
+    `${prefix('error')} ${lead}\n` +
+    `No browser loads a manifest without it, so the build was refused. ` +
+    `Add a plain ${field}, or scope one to this browser: ${colors.yellow('chromium:manifest_version')} for every Chromium-based browser, ${colors.yellow('firefox:manifest_version')} for Firefox.`
+  )
+}
+
 export function edgeStoreKeyDropped(browser: string) {
   return (
     `${prefix('warn')} Edge Add-ons refuses a package whose manifest carries ${colors.yellow('key')}, so the ${colors.blue(browser)} production build dropped it.\n` +
