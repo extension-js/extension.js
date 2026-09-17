@@ -286,17 +286,15 @@ export async function getProjectPath(
         return urlSource
       }
 
-      const urlData = url.pathname.split('/')
-      const owner = urlData.slice(1, 3)[0]
-      const project = urlData.slice(1, 3)[1]
-
-      console.log(messages.fetchingProjectPath(owner, project))
-
+      const [owner, project] = url.pathname.split('/').slice(1, 3)
       const projectName = path.basename(url.pathname)
 
       const urlSource = await importUrlSourceFromGithub(
         pathOrRemoteUrl,
-        messages.downloadingProjectPath(projectName)
+        messages.downloadingProjectPath(
+          projectName,
+          `https://github.com/${owner}/${project}`
+        )
       )
 
       console.log(messages.creatingProjectPath())
