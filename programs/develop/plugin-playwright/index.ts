@@ -65,6 +65,9 @@ export type ReadyMetadata = {
   // ephemeral profile's leaf name is generated) and the browser process pid.
   profilePath?: string
   browserPid?: number
+  // The pid the launcher spawned, kept once the browser handed the session to
+  // another process; browserPid then names that live process.
+  launcherPid?: number
   // Provenance: which toolchain produced this tree, for which extension;
   // ready.json doubles as a build receipt for one-shot builds.
   toolchainVersion: string
@@ -545,6 +548,10 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
 
       if (typeof prev.browserPid === 'number') {
         payload.browserPid = prev.browserPid
+      }
+
+      if (typeof prev.launcherPid === 'number') {
+        payload.launcherPid = prev.launcherPid
       }
 
       // Which binary actually launched, and how it was chosen. Stamped once at

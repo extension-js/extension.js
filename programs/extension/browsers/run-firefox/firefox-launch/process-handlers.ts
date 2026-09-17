@@ -11,6 +11,7 @@ import {humanError, humanLine, isDebug} from '../../../helpers/messaging'
 import * as messages from '../../browsers-lib/messages'
 import {
   forceKillChildOnExit,
+  forceKillPidOnExit,
   gracefulTerminateChild,
   isBenignSocketTeardown
 } from '../../browsers-lib/process-teardown'
@@ -24,6 +25,9 @@ export type FirefoxBrowserKind =
 interface FirefoxInstanceHandlers {
   browser: FirefoxBrowserKind
   childRef: () => ChildProcess | null
+  // The process the browser handed the session to, when it did. The exit
+  // backstop has to reach it as well or it outlives the session.
+  livePidRef: () => number | null
   cleanupInstance: () => Promise<void>
   isCleaningUp: boolean
 }
@@ -69,7 +73,13 @@ function cleanupAllInstances(): void {
 
 function forceKillAllOnExit(): void {
   for (const instance of activeInstances) {
-    forceKillChildOnExit(instance.childRef(), instance.browser)
+    const child = instance.childRef()
+    const livePid = instance.livePidRef()
+    forceKillChildOnExit(child, instance.browser)
+
+    if (livePid && livePid !== child?.pid) {
+      forceKillPidOnExit(livePid, instance.browser)
+    }
   }
 }
 
@@ -128,11 +138,13 @@ function installGlobalHandlersOnce(): void {
 export function setupFirefoxProcessHandlers(
   browser: FirefoxBrowserKind,
   childRef: () => ChildProcess | null,
-  cleanupInstance: () => Promise<void>
+  cleanupInstance: () => Promise<void>,
+  livePidRef: () => number | null = () => null
 ): () => void {
   const instance: FirefoxInstanceHandlers = {
     browser,
     childRef,
+    livePidRef,
     cleanupInstance,
     isCleaningUp: false
   }
