@@ -6,14 +6,8 @@
 // ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import {spawn} from 'node:child_process'
 import * as fs from 'node:fs'
-import {
-  humanError,
-  humanLine,
-  humanWarn,
-  isDebug
-} from '../../../helpers/messaging'
+import {humanError, humanLine, humanWarn} from '../../../helpers/messaging'
 import {printDevBannerOnce} from '../../browsers-lib/banner'
 import * as messages from '../../browsers-lib/messages'
 import {ready as devServerReady} from '../../browsers-lib/ready-message'
@@ -36,6 +30,17 @@ import {
   xcodeProjectPath
 } from './safari-config'
 import {detectSafariToolchain} from './toolchain'
+import {
+  createSafariTools,
+  type SafariPipelineTools,
+  toolOutputTail
+} from './tools'
+
+export {
+  type SafariPipelineTools,
+  type SafariToolResult,
+  toolOutputTail
+} from './tools'
 
 function fallbackLogger(): BrowserLogger {
   return {
@@ -46,65 +51,8 @@ function fallbackLogger(): BrowserLogger {
   } as BrowserLogger
 }
 
-function isTestEnv(): boolean {
-  return Boolean(process.env.VITEST || process.env.VITEST_WORKER_ID)
-}
-
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
-// xcodebuild output for a full app build easily reaches megabytes; keep only a
-// bounded tail so failure diagnostics stay useful without unbounded memory.
-const TOOL_TAIL_LINES = 50
-const TOOL_TAIL_BYTES = 8 * 1024
-
-export function toolOutputTail(output: string): string {
-  const lines = output
-    .slice(-TOOL_TAIL_BYTES * 4)
-    .split(/\r?\n/)
-    .filter((line) => line.trim().length > 0)
-  const tail = lines.slice(-TOOL_TAIL_LINES).join('\n')
-
-  return tail.length > TOOL_TAIL_BYTES ? tail.slice(-TOOL_TAIL_BYTES) : tail
-}
-
-interface ToolResult {
-  ok: boolean
-  code: number | null
-  output: string
-}
-
-function runTool(
-  bin: string,
-  args: string[],
-  opts?: {quiet?: boolean}
-): Promise<ToolResult> {
-  const streamOutput = isDebug() && !opts?.quiet
-
-  return new Promise((resolve) => {
-    let output = ''
-    const child = spawn(bin, args, {stdio: ['ignore', 'pipe', 'pipe']})
-
-    const onChunk = (chunk: unknown) => {
-      const text = String(chunk)
-      output += text
-
-      if (output.length > TOOL_TAIL_BYTES * 8) {
-        output = output.slice(-TOOL_TAIL_BYTES * 4)
-      }
-
-      if (streamOutput) process.stdout.write(text)
-    }
-
-    child.stdout?.on('data', onChunk)
-    child.stderr?.on('data', onChunk)
-    child.on('error', (error) =>
-      resolve({ok: false, code: null, output: `${output}${String(error)}`})
-    )
-
-    child.on('close', (code) => resolve({ok: code === 0, code, output}))
-  })
 }
 
 export function converterWarnings(output: string): string[] {
@@ -143,14 +91,15 @@ export function converterWarnings(output: string): string[] {
 }
 
 async function confirmRegisteredWithSafari(
+  tools: SafariPipelineTools,
   bundleIdentifier: string
 ): Promise<boolean> {
   const needle = `${bundleIdentifier}.Extension`
 
   for (let attempt = 0; attempt < 6; attempt += 1) {
-    const {ok, output} = await runTool('pluginkit', ['-m'], {quiet: true})
+    const listing = await tools.pluginkitList()
 
-    if (ok && output.includes(needle)) return true
+    if (listing.includes(needle)) return true
 
     // Spread attempts over ~5s without blocking the event loop.
     await delay(800)
@@ -239,36 +188,6 @@ export function safariBuildPreflight(): SafariBuildPreflight {
   return {severity: 'ok'}
 }
 
-// The pid of the app `open` just raised, found by bundle id. `open` answers
-// nothing useful, so this asks the window server a moment later. Safari is the
-// only browser the toolchain launches that it does not spawn itself, which is
-// why every other launcher can pass `child.pid` and this one has to look it up.
-//
-// Without this the ready contract carries no `browserPid`, so anything that
-// waits on one to attach to the session's browser has nothing to attach to.
-async function resolvePidForBundle(bundleId: string): Promise<number | null> {
-  for (let attempt = 0; attempt < 10; attempt += 1) {
-    const pid = await new Promise<number | null>((resolve) => {
-      const child = spawn('osascript', [
-        '-e',
-        `tell application "System Events" to get unix id of first process whose bundle identifier is "${bundleId}"`
-      ])
-      let out = ''
-      child.stdout.on('data', (d) => (out += String(d)))
-      child.on('error', () => resolve(null))
-      child.on('close', () => {
-        const n = Number(String(out).trim())
-        resolve(Number.isFinite(n) && n > 0 ? n : null)
-      })
-    })
-    if (pid) return pid
-
-    await new Promise((r) => setTimeout(r, 500))
-  }
-
-  return null
-}
-
 // Dev parity with the Chromium and Firefox launchers: the session has an
 // identity (the appex the converter produced) and a ready moment (the watch
 // loop resyncs per compile), so announce both. The appex id is the same
@@ -301,6 +220,7 @@ async function runSafariPipeline(
   logger: BrowserLogger,
   mode: SafariPipelineMode
 ): Promise<SafariPackageResult> {
+  const tools = host.tools || createSafariTools()
   const config = resolveSafariBuildConfig(compilation, host)
   const converterArgs = composeConverterArgs(config)
   const xcodebuildArgs = composeXcodebuildArgs(config)
@@ -310,7 +230,7 @@ async function runSafariPipeline(
   // counts the same as --development-team.
   const isSigned = Boolean(config.developmentTeam)
 
-  if (host.dryRun || isTestEnv()) {
+  if (host.dryRun) {
     logSafariDryRun(
       `xcrun ${converterArgs.join(' ')}`,
       `xcodebuild ${xcodebuildArgs.join(' ')}`
@@ -319,7 +239,7 @@ async function runSafariPipeline(
     return completePackage(config, logger, mode)
   }
 
-  const toolchain = detectSafariToolchain()
+  const toolchain = tools.detectToolchain()
 
   if (!toolchain.platformOk) {
     logger.warn?.(messages.safariRequiresMacOS(process.platform))
@@ -367,7 +287,7 @@ async function runSafariPipeline(
 
     logger.info?.(messages.safariConverting(config.extensionDir))
 
-    const converted = await runTool('xcrun', converterArgs)
+    const converted = await tools.runConverter(converterArgs)
 
     if (!converted.ok) {
       const tail = toolOutputTail(converted.output)
@@ -425,7 +345,7 @@ async function runSafariPipeline(
     logger.info?.(messages.safariBuilding(macOsSchemeName(config)))
   }
 
-  const built = await runTool('xcodebuild', xcodebuildArgs)
+  const built = await tools.runXcodebuild(xcodebuildArgs)
 
   if (!built.ok) {
     const tail = toolOutputTail(built.output)
@@ -461,10 +381,10 @@ async function runSafariPipeline(
 
   logger.info?.(messages.safariOpening(target))
 
-  await runTool('open', [target])
+  await tools.openApp(target)
 
   if (config.safariBinary) {
-    await runTool('open', ['-a', config.safariBinary])
+    await tools.openSafari(config.safariBinary)
   }
 
   // Which app is actually on screen decides what a tool should attach to:
@@ -473,23 +393,27 @@ async function runSafariPipeline(
   const raisedBundleId = config.safariBinary
     ? 'com.apple.Safari'
     : config.bundleIdentifier
-  const browserPid = await resolvePidForBundle(raisedBundleId)
+  const browserPid = await tools.resolvePid(raisedBundleId)
 
-  if (browserPid) {
-    stampReadyBrowserLaunch(config.extensionDir, {
-      browserPid,
-      binary: config.safariBinary || appPath,
-      binaryProvenance: config.safariBinary ? 'pinned' : 'system',
-      // `build` publishes this and `dev` did not, so the same project reported
-      // its identity under one command and stayed silent under the other. It
-      // is the only machine-readable name for the appex a tool has to address.
-      extensionId: `${config.bundleIdentifier}.Extension`
-    })
+  // The identity and binary are known even when the pid lookup came back
+  // empty, so the contract still names the appex a tool has to address.
+  stampReadyBrowserLaunch(config.extensionDir, {
+    browserPid: browserPid || undefined,
+    binary: config.safariBinary || appPath,
+    binaryProvenance: config.safariBinary ? 'pinned' : 'system',
+    // `build` publishes this and `dev` did not, so the same project reported
+    // its identity under one command and stayed silent under the other. It
+    // is the only machine-readable name for the appex a tool has to address.
+    extensionId: `${config.bundleIdentifier}.Extension`
+  })
+
+  if (!browserPid) {
+    logger.warn?.(messages.safariPidUnresolved(config.appName))
   }
 
   logger.info?.(messages.safariNextSteps(config.appName, isSigned))
 
-  if (await confirmRegisteredWithSafari(config.bundleIdentifier)) {
+  if (await confirmRegisteredWithSafari(tools, config.bundleIdentifier)) {
     logger.info?.(messages.safariRegistered(config.appName))
   } else {
     logger.info?.(messages.safariNotYetRegistered(config.appName))
