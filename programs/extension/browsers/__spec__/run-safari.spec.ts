@@ -538,6 +538,15 @@ describe('manifest fingerprinting', () => {
     expect(isProjectStale(config)).toBe(false)
   })
 
+  it('ignores the hot update folder the dev runtime adds on the first save', () => {
+    writeManifest(distDir, {name: 'Hot', manifest_version: 3})
+    const config = configFor(distDir)
+    saveManifestFingerprint(config)
+    fs.mkdirSync(path.join(distDir, 'hot'), {recursive: true})
+
+    expect(isProjectStale(config)).toBe(false)
+  })
+
   it('reports stale when the bundle id changes (identity in fingerprint)', () => {
     writeManifest(distDir, {name: 'Identity', manifest_version: 3})
     const config = configFor(distDir)
@@ -1155,6 +1164,30 @@ describe('safari pipeline through the injected tool host', () => {
     expect(tools.calls.converter).toHaveLength(0)
     expect(logs).not.toContain(messages.safariProjectStale())
     expect(logs).toContain(messages.safariSkippingConversion())
+  })
+
+  it('first resync after the full package: the hot update folder alone reuses the project', async () => {
+    const tools = fakeSafariTools()
+    await runPipeline(manifest, {tools})
+
+    // The first watch rebuild is the first compile that emits HMR chunks, and
+    // they land in a top-level hot/ folder the full package never saw.
+    fs.mkdirSync(path.join(distDir, 'hot'), {recursive: true})
+    fs.writeFileSync(
+      path.join(distDir, 'hot', 'main.abc123.hot-update.json'),
+      '{"c":["main"],"r":[],"m":[]}'
+    )
+
+    const {logs} = await runPipeline(manifest, {tools, mode: 'resync'})
+
+    expect(tools.calls.converter).toHaveLength(1)
+    expect(tools.calls.xcodebuild).toHaveLength(2)
+    expect(logs).not.toContain(messages.safariProjectStale())
+    expect(logs).not.toContain(
+      messages.safariRegenerationDiscards([...PRESERVED_SETTINGS])
+    )
+
+    expect(logs).toContain(messages.safariRebuilt('MyExt'))
   })
 
   it('permissions change: converts again and warns about discarded customizations first', async () => {

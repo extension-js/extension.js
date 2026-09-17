@@ -181,11 +181,20 @@ export function manifestFingerprintPath(config: SafariBuildConfig): string {
   return path.join(config.projectLocation, '.manifest-fingerprint')
 }
 
+// The dev server writes its HMR chunks to this folder, and the first save is the
+// first compile that emits any, so the full package never sees it.
+const HOT_UPDATE_DIR = 'hot'
+
 // The generated project references each top-level entry of the build folder by
-// name, so adding or removing one is what a regeneration has to catch.
+// name, so adding or removing one is what a regeneration has to catch. The hot
+// update folder is dev runtime output, not a project entry: it appears on the
+// first save and would regenerate the project once per session for nothing.
 function topLevelEntries(extensionDir: string): string[] {
   try {
-    return fs.readdirSync(extensionDir).sort()
+    return fs
+      .readdirSync(extensionDir)
+      .filter((entry) => entry !== HOT_UPDATE_DIR)
+      .sort()
   } catch {
     return []
   }
