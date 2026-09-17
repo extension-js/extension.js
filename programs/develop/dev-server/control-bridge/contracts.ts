@@ -78,8 +78,22 @@ export type CommandOp =
   | 'tabs.query'
   | 'inspect'
 
+/**
+ * Granularity of a dev-loop reload. Mirrors `ReloadType` in
+ * plugin-reload/classify-reload.ts: the launched-browser path feeds this
+ * decision to the CDP controller; the `--no-browser` path feeds the same
+ * decision to the broker, which broadcasts a {@link ReloadFrame} to the SW
+ * producer.
+ */
 export type ReloadType = 'full' | 'service-worker' | 'content-scripts'
 
+/**
+ * Everything a {@link ReloadFrame} can carry in `reloadType`: the extension
+ * reload granularities plus `'page'`, a notify-only signal for page-only
+ * edits (popup/options/sidebar/devtools/newtab). For `'page'` the producer
+ * performs NO reload (livereload owns the refresh); it only forwards the
+ * announcement so the devtools pill mirrors the dev loop.
+ */
 export type DevReloadKind = ReloadType | 'page'
 
 export type GapReason =
@@ -160,12 +174,27 @@ export interface ResultFrame {
   }
 }
 
+/**
+ * Dev-loop reload broadcast, server → producer. Sent by the broker on a compile
+ * that completed without a CDP controller (`--no-browser`, headless/CI, remote)
+ * so the service-worker producer can self-reload. Unlike a `reload` CommandFrame
+ * (a controller-issued, `--allow-control`-gated act verb that expects a result),
+ * this is a fire-and-forget dev-server signal, no cmdId, no result.
+ */
 export interface ReloadFrame {
   type: 'reload'
   reloadType: DevReloadKind
   changedContentScriptEntries?: string[]
+  /**
+   * Server-built human context label, e.g. "content_script (content/scripts.tsx)".
+   * Shown VERBATIM by every announcement surface (CLI stdout, the page's
+   * devtools console line, the devtools-extension pill) so the three can
+   * never disagree about what is reloading.
+   */
   label?: string
+  /** Project-relative source files that triggered this reload. */
   changedFiles?: string[]
+  /** Emitted scripts/ bundles the SW should replay its executeScript calls for. */
   changedScriptFiles?: string[]
 }
 
@@ -177,6 +206,15 @@ export interface ReloadAckFrame {
   label?: string
 }
 
+/**
+ * Server → producer keepalive. An MV3 service worker idles out after ~30s
+ * without events, and a stopped SW holds no control socket, reload
+ * broadcasts would reach zero producers and silently apply to nothing
+ * (quiet extensions lost SW/manifest reloads once >30s passed between
+ * edits). Receiving any WebSocket message resets the SW idle timer
+ * (Chrome 116+), so a periodic ping keeps the dev extension's SW
+ * responsive for the whole dev session. Producers ignore the frame.
+ */
 export interface PingFrame {
   type: 'ping'
 }
@@ -198,7 +236,11 @@ export const CONTROL_WS_PATH = '/extjs-control'
 // so it never has to spell 4002 in its own source. A close in this range is
 // always a deliberate refusal, never a transport failure.
 
+/** The hello named an instanceId from a previous dev session. */
 export const CLOSE_BAD_INSTANCE = 4001
+/** The hello was malformed: wrong envelope version, or an unknown role. */
 export const CLOSE_BAD_HELLO = 4002
+/** A controller dialed a session started without `--allow-control`. */
 export const CLOSE_CONTROL_UNAVAILABLE = 4003
+/** The socket fell far enough behind that it was dropped to protect the broker. */
 export const CLOSE_SLOW_CONSUMER = 4008

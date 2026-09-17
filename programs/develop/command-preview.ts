@@ -40,6 +40,10 @@ import type {CompanionExtensionsConfig} from './plugin-special-folders/folder-ex
 import {getSpecialFoldersDataForProjectRoot} from './plugin-special-folders/get-data'
 import type {BrowserConfig, PreviewOptions} from './types'
 
+/**
+ * Resolved browser launch options returned by extensionPreview.
+ * The caller is responsible for actually launching the browser.
+ */
 export interface ResolvedPreviewOptions {
   browser: string
   outPath: string
@@ -67,6 +71,10 @@ export interface ResolvedPreviewOptions {
   logTab?: number | string
 }
 
+/**
+ * Browser launcher callback. When provided, extensionPreview calls it
+ * instead of requiring plugin-browsers internally.
+ */
 export type PreviewLauncherFn = (opts: ResolvedPreviewOptions) => Promise<void>
 
 function readRunIdFromReadyFile(readyPath: string): string | undefined {
