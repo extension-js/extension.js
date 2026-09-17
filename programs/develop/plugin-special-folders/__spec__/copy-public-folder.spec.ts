@@ -183,8 +183,9 @@ describe('SpecialFoldersPlugin (public copying and guards)', () => {
     )
 
     expect(warnings.map((w) => w.name)).toContain('PublicLayoutWarning')
-    expect(String(warnings[0].message)).toContain('/project/src/public')
-    expect(String(warnings[0].message)).toContain('/project/public')
+    // Both rows print relative to the project, the way the card prints paths.
+    expect(String(warnings[0].message)).toMatch(/^GOT src[\\/]public$/m)
+    expect(String(warnings[0].message)).toMatch(/^EXPECTED public$/m)
   })
 
   it('names the winner when both folders exist', () => {
@@ -216,7 +217,7 @@ describe('SpecialFoldersPlugin (public copying and guards)', () => {
       (w) => w.name === 'PublicFolderShadowedWarning'
     )
     expect(shadowed).toBeDefined()
-    expect(String(shadowed.message)).toContain('USING /project/public')
-    expect(String(shadowed.message)).toContain('IGNORED /project/src/public')
+    expect(String(shadowed.message)).toMatch(/^USING public$/m)
+    expect(String(shadowed.message)).toMatch(/^IGNORED src[\\/]public$/m)
   })
 })

@@ -55,7 +55,8 @@ export class SpecialFoldersPlugin {
             'PublicFolderShadowedWarning',
             messages.publicFolderShadowed(
               inspection.fromRoot,
-              inspection.fromManifest
+              inspection.fromManifest,
+              context
             )
           )
         } else if (inspection.usedFallback) {
@@ -65,7 +66,8 @@ export class SpecialFoldersPlugin {
             'PublicLayoutWarning',
             messages.publicMustBeAtProjectRoot(
               inspection.fromManifest,
-              inspection.fromRoot
+              inspection.fromRoot,
+              context
             )
           )
         }

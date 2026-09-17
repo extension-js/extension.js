@@ -7,7 +7,6 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as nodePath from 'node:path'
 import type {Configuration} from '@rspack/core'
 import {humanLine, stripAnsi} from './dev-server/lifecycle-stream'
@@ -41,10 +40,13 @@ import {browserRowValue, card, claimCardKey, isDebug} from './lib/messaging'
 import {applySplitChunksGuard} from './lib/normalize-split-chunks'
 import {parseJsonSafe} from './lib/parse-json-safe'
 import {
+  collapseHomeDir,
   configBrowserOrThrow,
+  displayPath,
   getDirs,
   getDistPath,
-  normalizeBrowser
+  normalizeBrowser,
+  relativeToDir
 } from './lib/paths'
 import {getProjectStructure} from './lib/project'
 import {
@@ -65,31 +67,6 @@ import {
 import {resolveCompanionExtensionsConfig} from './plugin-special-folders/folder-extensions/resolve-config'
 import {getSpecialFoldersDataForProjectRoot} from './plugin-special-folders/get-data'
 import type {BuildOptions} from './types'
-
-function collapseHomeDir(value: string): string {
-  const home = os.homedir()
-  if (!home || !value.startsWith(home)) return value
-
-  const rest = value.slice(home.length)
-  if (rest === '') return '~'
-  if (rest.startsWith(nodePath.sep) || rest.startsWith('/')) return `~${rest}`
-
-  return value
-}
-
-function relativeToCwd(target: string): string | null {
-  const relative = nodePath.relative(process.cwd(), target)
-
-  if (
-    relative &&
-    !relative.startsWith('..') &&
-    !nodePath.isAbsolute(relative)
-  ) {
-    return relative
-  }
-
-  return null
-}
 
 const reportedBuildFailures = new WeakSet<object>()
 
@@ -399,8 +376,7 @@ export async function extensionBuild(
           // a re-pointed output.path is not dist/<browser>.
           summary = getBuildSummary(browser, info, displayDistPath)
 
-          const distDisplay =
-            relativeToCwd(displayDistPath) || collapseHomeDir(displayDistPath)
+          const distDisplay = displayPath(displayDistPath)
 
           // Store readiness for Gecko targets: addons-linter runs over the
           // promoted dist and its findings join the warnings, never the
@@ -481,7 +457,8 @@ export async function extensionBuild(
               useStagingSwap && artifact.path.startsWith(stagingDistPath)
                 ? distPath + artifact.path.slice(stagingDistPath.length)
                 : artifact.path
-            const zipDisplay = relativeToCwd(artifactPath) || artifactPath
+            const zipDisplay =
+              relativeToDir(artifactPath, process.cwd()) || artifactPath
             humanLine(messages.zipArtifactReady(zipDisplay, artifact.size))
           }
 

@@ -134,8 +134,8 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "backgroundIsRequiredMessageOnly: function(1)",
   ],
   "plugin-special-folders/messages.ts": [
-    "publicFolderShadowed: function(2)",
-    "publicMustBeAtProjectRoot: function(2)",
+    "publicFolderShadowed: function(3)",
+    "publicMustBeAtProjectRoot: function(3)",
     "serverRestartRequiredFromSpecialFolderMessageOnly: function(3)",
     "specialFolderChangeDetected: function(3)",
     "specialFoldersSetupSummary: function(3)",
