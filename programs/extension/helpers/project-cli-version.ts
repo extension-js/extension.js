@@ -83,9 +83,15 @@ export function versionMismatch(input: {
   if (!isComparableRange(declared.range)) return null
   if (!semver.valid(input.running)) return null
 
-  if (
-    semver.satisfies(input.running, declared.range, {includePrerelease: true})
-  ) {
+  // A canary is the declared version plus a prerelease tag
+  // (4.1.22-canary.<run>.<sha>), and testing a project against one is the
+  // workflow that cuts canaries, not a mismatch. Judge a prerelease by the
+  // version it is a prerelease of, so 4.1.22-canary.7 still answers ^4.1.22.
+  const comparable = semver.prerelease(input.running)
+    ? (semver.coerce(input.running)?.version ?? input.running)
+    : input.running
+
+  if (semver.satisfies(comparable, declared.range, {includePrerelease: true})) {
     return null
   }
 

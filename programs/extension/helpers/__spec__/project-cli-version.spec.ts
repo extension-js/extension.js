@@ -25,6 +25,35 @@ describe('the version the project asks for against the binary that answered', ()
     ).toEqual({declared: 'extension', range: '^4.1.22', running: '2.0.0-rc.23'})
   })
 
+  it('stays quiet for a canary of the version the project declares', () => {
+    // publish-release.yml cuts <version>-canary.<run>.<sha>, so a canary of
+    // 4.1.22 tested against a project pinned to ^4.1.22 is the workflow
+    // working, not a mismatch.
+    expect(
+      versionMismatch({
+        manifest: scaffold('^4.1.22'),
+        running: '4.1.22-canary.1789418691.926921af'
+      })
+    ).toBeNull()
+
+    expect(
+      versionMismatch({manifest: scaffold('^4.1.22'), running: '4.2.0-next.0'})
+    ).toBeNull()
+  })
+
+  it('still names a prerelease that is nowhere near the declared range', () => {
+    expect(
+      versionMismatch({manifest: scaffold('^4.1.22'), running: '2.0.0-rc.23'})
+    ).toMatchObject({running: '2.0.0-rc.23'})
+
+    expect(
+      versionMismatch({
+        manifest: scaffold('^4.1.22'),
+        running: '5.0.0-canary.1'
+      })
+    ).toMatchObject({running: '5.0.0-canary.1'})
+  })
+
   it('catches the other direction too, a newer major on an older project', () => {
     expect(
       versionMismatch({manifest: scaffold('^3.0.0'), running: '4.1.22'})
