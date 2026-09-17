@@ -88,7 +88,8 @@ import {getCurrentManifestContent} from '../../plugin-web-extension/feature-mani
 import {
   EnvPlugin,
   IMPORT_META_URL_RUNTIME,
-  importMetaUrlForEmitPath
+  importMetaUrlForEmitPath,
+  toJsStringLiteral
 } from '../env'
 
 const toPosix = (value: string) => value.replace(/\\/g, '/')
@@ -208,6 +209,23 @@ describe('EnvPlugin', () => {
     expect(define).not.toContain('file:')
     // Without an extension runtime the page-or-root guess still stands in.
     expect(define).toContain(IMPORT_META_URL_RUNTIME)
+  })
+
+  it('escapes every character that could break out of the emitted literal', () => {
+    const hostile = 'lib/a"b\\c</script>\u2028d\u2029e\u00e9f'
+    const literal = toJsStringLiteral(hostile)
+
+    expect(literal).toMatch(/^"[\x20-\x7e]*"$/)
+    expect(literal).not.toContain('</script>')
+    expect(literal).not.toContain('\u2028')
+    expect(new Function(`return ${literal}`)()).toBe(hostile)
+
+    const define = importMetaUrlForEmitPath(hostile)
+    expect(define).toContain(
+      `getURL(${toJsStringLiteral(hostile.replace(/\\/g, '/'))})`
+    )
+
+    expect(define).not.toContain('</script>')
   })
 
   it('uses ProvidePlugin for the bundled process shim when available', async () => {

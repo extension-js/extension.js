@@ -39,7 +39,16 @@ export const IMPORT_META_URL_RUNTIME =
 export function importMetaUrlForEmitPath(emitPath: string): string {
   const request = emitPath.replace(/\\/g, '/').replace(/^\/+/, '')
 
-  return `(function(){try{var g=globalThis;return (g.browser||g.chrome).runtime.getURL(${JSON.stringify(request)})}catch(_){return ${IMPORT_META_URL_RUNTIME}}})()`
+  return `(function(){try{var g=globalThis;return (g.browser||g.chrome).runtime.getURL(${toJsStringLiteral(request)})}catch(_){return ${IMPORT_META_URL_RUNTIME}}})()`
+}
+
+// The literal lands inside emitted code. JSON.stringify leaves "</script>",
+// U+2028/U+2029 and other non-ASCII intact, so those become \u escapes too.
+export function toJsStringLiteral(value: string): string {
+  return JSON.stringify(value).replace(
+    /[<>\u007f-\uffff]/g,
+    (char) => `\\u${char.charCodeAt(0).toString(16).padStart(4, '0')}`
+  )
 }
 
 function resolveProcessShim(): string | undefined {
