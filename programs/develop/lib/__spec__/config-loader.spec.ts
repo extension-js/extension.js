@@ -2,9 +2,28 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
-import {loadBrowserConfig, loadCommandConfig} from '../config-loader'
+import {
+  loadBrowserConfig,
+  loadCommandConfig,
+  loadProjectConfigDefaults
+} from '../config-loader'
 
 describe('config-loader', () => {
+  it('keeps a top-level runtime perf budget from extension.config.js', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tmp-extjs-budget-'))
+    fs.writeFileSync(
+      path.join(dir, 'extension.config.js'),
+      "module.exports = {perfBudgets: {runtime: 25 * 1024 * 1024, 'service-worker': 10}}\n",
+      'utf-8'
+    )
+
+    const defaults = await loadProjectConfigDefaults(dir)
+    expect(defaults.perfBudgets).toEqual({
+      runtime: 25 * 1024 * 1024,
+      'service-worker': 10
+    })
+  })
+
   it('loadCommandConfig on a remote URL resolves empty without walking the disk', async () => {
     // dev asks for commands.dev.* before the URL is cloned; 4.1.13 walked
     // the URL as a relative path and never returned.
