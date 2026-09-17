@@ -6,14 +6,16 @@ function runUpdateManifest(opts: {
   browser: string
   manifest: any
   warnings?: Error[]
+  errors?: Error[]
 }) {
   const assets: Record<string, any> = {
     'manifest.json': {source: () => JSON.stringify(opts.manifest)}
   }
   const updated: Record<string, string> = {}
   const compilation: any = {
-    errors: [],
+    errors: opts.errors ?? [],
     warnings: opts.warnings ?? [],
+    options: {mode: opts.mode},
     assets,
     getAsset: (n: string) =>
       assets[n] ? {source: assets[n].source} : undefined,
@@ -248,6 +250,91 @@ describe('UpdateManifest (browser-prefixed background keys)', () => {
       expect(
         warnings.filter((warning) => warning.message.includes('chrome:key'))
       ).toEqual([])
+    })
+  })
+
+  // A manifest_version scoped to chrome: and firefox: leaves an edge build
+  // with none at all, which no browser loads.
+  describe('manifest_version lost to a vendor prefix', () => {
+    const manifest = {
+      name: 'x',
+      version: '1.0.0',
+      'firefox:manifest_version': 2,
+      'chrome:manifest_version': 3,
+      'chrome:action': {default_title: 't'}
+    }
+
+    it('refuses the edge build and names every prefixed key', () => {
+      const errors: Error[] = []
+      const warnings: Error[] = []
+      runUpdateManifest({
+        mode: 'production',
+        browser: 'edge',
+        manifest,
+        errors,
+        warnings
+      })
+
+      expect(errors).toHaveLength(1)
+      expect(errors[0].message).toContain('chrome:manifest_version')
+      expect(errors[0].message).toContain('firefox:manifest_version')
+      expect(errors[0].message).toContain('chromium:manifest_version')
+      expect(errors[0].message).toContain('edge')
+      // The dropped-key warnings still print next to the refusal.
+      expect(
+        warnings.filter((warning) =>
+          warning.message.includes('chrome:manifest_version')
+        )
+      ).toHaveLength(1)
+    })
+
+    it('refuses a development build the same way', () => {
+      const errors: Error[] = []
+      runUpdateManifest({
+        mode: 'development',
+        browser: 'edge',
+        manifest,
+        errors
+      })
+
+      expect(errors).toHaveLength(1)
+      expect(errors[0].message).toContain('chrome:manifest_version')
+    })
+
+    it('keeps manifest_version 3 for chrome and 2 for firefox', () => {
+      const chromeErrors: Error[] = []
+      const chrome = runUpdateManifest({
+        mode: 'production',
+        browser: 'chrome',
+        manifest,
+        errors: chromeErrors
+      })
+      const firefoxErrors: Error[] = []
+      const firefox = runUpdateManifest({
+        mode: 'production',
+        browser: 'firefox',
+        manifest,
+        errors: firefoxErrors
+      })
+
+      expect(chromeErrors).toEqual([])
+      expect(chrome.manifest_version).toBe(3)
+      expect(firefoxErrors).toEqual([])
+      expect(firefox.manifest_version).toBe(2)
+    })
+
+    it('refuses a resolved manifest_version that is not 2 or 3', () => {
+      const errors: Error[] = []
+      runUpdateManifest({
+        mode: 'production',
+        browser: 'chrome',
+        manifest: {name: 'x', version: '1.0.0', manifest_version: '3'},
+        errors
+      })
+
+      expect(errors).toHaveLength(1)
+      expect(errors[0].message).toContain('"3"')
+      expect(errors[0].message).toContain('only 2 or 3')
     })
   })
 

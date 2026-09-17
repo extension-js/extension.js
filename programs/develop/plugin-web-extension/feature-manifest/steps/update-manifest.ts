@@ -32,7 +32,9 @@ type ContentScriptEntry = NonNullable<Manifest['content_scripts']>[number]
 import {humanLine} from '../../../dev-server/lifecycle-stream'
 import {
   filterKeysForThisBrowser,
-  findDroppedVendorKeys
+  findDroppedVendorKeys,
+  findPrefixedManifestVersionKeys,
+  isValidManifestVersion
 } from '../../../lib/manifest-utils'
 import {isDebug} from '../../../lib/messaging'
 import {reportToCompilation} from '../../shared/compilation-issues'
@@ -146,6 +148,22 @@ export class UpdateManifest {
                   String(this.browser)
                 ),
                 'warning',
+                'manifest.json'
+              )
+            }
+
+            // A manifest_version scoped to another vendor leaves this build
+            // with none, and no browser loads that, so refuse it here.
+            if (!isValidManifestVersion(forBrowser.manifest_version)) {
+              reportToCompilation(
+                compilation,
+                compiler,
+                messages.manifestVersionLostForBrowser(
+                  String(this.browser),
+                  findPrefixedManifestVersionKeys(manifest),
+                  forBrowser.manifest_version
+                ),
+                'error',
                 'manifest.json'
               )
             }
