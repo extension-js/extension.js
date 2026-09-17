@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+## 4.1.22 (September 17, 2026)
+
+<details>
+<summary>Other changes (9)</summary>
+
+- Turn developer mode on in the Chromium dev profile ([6bc89a18](https://github.com/extension-js/extension.js/commit/6bc89a18585b814aa028d47a4e2409e5277c71fb))
+- Build the workspace dependency a package test needs ([598c3c99](https://github.com/extension-js/extension.js/commit/598c3c99a28da12ab203211ecc766abf5caf75ee))
+- Repin the catalog to the public folder fix and name the pin flag (#596) ([90e8246f](https://github.com/extension-js/extension.js/commit/90e8246f8b71a2045919782cb814a3559b198df8))
+- Publish the live Firefox pid and end it with the session (#595) ([66902635](https://github.com/extension-js/extension.js/commit/669026350100e554a7df87b82224de1c422cc97a))
+- Print a self-framed build warning once, without the generic hint (#593) ([2b9f1306](https://github.com/extension-js/extension.js/commit/2b9f130634fe68608814a4f238b707d097a9c4f3))
+- Shorten the paths in the legacy public folder warning (#594) ([65ebdd39](https://github.com/extension-js/extension.js/commit/65ebdd3903a8276e9f255795ab06f93cc8d812c6))
+- Keep the Safety Check panel off the dev browser's extensions page (#592) ([a7eccfb2](https://github.com/extension-js/extension.js/commit/a7eccfb2e66ed69524c63551fb9349e372188c56))
+- Pin the Yarn and Bun smoke lanes to the packed local tarballs (#591) ([5dee0803](https://github.com/extension-js/extension.js/commit/5dee08031500022777fe68bc124edf44626024f1))
+- Let the manifest readiness specs survive a slow runner (#590) ([e1e8aa88](https://github.com/extension-js/extension.js/commit/e1e8aa88a66f201ba526946235afc33b6603da30))
+</details>
+
 ## 4.1.21 (September 17, 2026)
 
 - **Bun as a runtime**, `bunx --bun extension@latest dev` runs the CLI on Bun 1.2 or newer, judged on Bun's own version. Older Bun gets one clear line and the Node.js path. [Docs](https://extension.js.org/docs/languages-and-frameworks/bun)
