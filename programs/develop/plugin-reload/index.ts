@@ -39,6 +39,24 @@ export {
 } from './reload-dispatch'
 export {SetupChunkLoadingTarget} from './steps/setup-chunk-loading-target'
 
+/**
+ * ReloadPlugin owns the dev-only reload/HMR strategy end to end:
+ *
+ * - build-time injection of the reload runtime (SetupReloadStrategy and the
+ *   vendored webpack-target-webextension fork), the SW scripts-replay shim,
+ *   and the control-bridge producer/relay instrumentation
+ * - the reload classifier and dispatch seam consumed by plugin-browsers'
+ *   BrowsersPlugin and the dev server's `--no-browser` broadcast path
+ *   (re-exported above from classify-reload.ts / reload-dispatch.ts)
+ *
+ * Registration order matters: this plugin must be applied AFTER
+ * plugin-web-extension, SetupReloadStrategy decorates the background and
+ * content-script entries that feature-scripts' AddScripts declares.
+ *
+ * The whole pipeline is dev-only; `EXTENSION_NO_RELOAD=true` opts out. The
+ * every-mode content-script wrapper (mount lifecycle) is NOT part of this
+ * plugin. It lives in feature-scripts/steps/add-content-script-wrapper.
+ */
 export class ReloadPlugin {
   public static readonly name = 'plugin-reload'
 

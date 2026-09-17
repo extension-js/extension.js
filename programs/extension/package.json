@@ -98,7 +98,6 @@
     "brave-location": "3.1.1",
     "chrome-location2": "4.1.1",
     "chromium-location": "2.1.2",
-    "cross-spawn": "^7.0.6",
     "edge-location": "2.3.1",
     "firefox-location2": "3.1.1",
     "librewolf-location": "1.2.1",
@@ -122,7 +121,6 @@
   },
   "devDependencies": {
     "@rslib/core": "^1.0.0",
-    "@types/cross-spawn": "^6.0.6",
     "@types/semver": "^7.7.1",
     "@types/ws": "^8.18.1",
     "webextension-polyfill": "^0.12.0",

@@ -14,6 +14,7 @@ import {logsPath} from '../../lib/session-paths'
 // the CLI's observable behavior. `extension logs` and any programmatic reader
 // must agree on what a filter selects, or the same query answers twice.
 
+/** Increasing verbosity; a level selects itself plus everything more severe. */
 export const LOG_LEVEL_ORDER = [
   'error',
   'warn',
@@ -29,14 +30,22 @@ export type LogLevelFilter =
   | (string & {})
 
 export interface LogQuery {
+  /** One context, a comma-separated list, an array, or 'all'. */
   context?: string | string[]
+  /** Minimum severity. 'all' and 'off' select every level. */
   level?: LogLevelFilter
+  /** Only structured dx.signal diagnostics. */
   signalsOnly?: boolean
+  /** Only events after this point: a sequence number, or an ISO timestamp
+   * compared against the event's own clock. */
   since?: number | string
+  /** Glob (`*` = any run of chars) or plain substring over url then hostname. */
   url?: string
+  /** Only events carrying this tab id. */
   tab?: number | string
 }
 
+/** A bridge log line as read off disk: dynamic, so the probed fields only. */
 export interface LogEventLike {
   type?: unknown
   eventType?: unknown
@@ -86,6 +95,7 @@ function makeUrlMatcher(pattern: string): (event: LogEventLike) => boolean {
   }
 }
 
+/** How a `since` value is read: a sequence number, or a point in time. */
 export type LogSince = {seq: number} | {time: number}
 
 // A bare number is a sequence number; anything else must parse as a date, so
@@ -135,6 +145,7 @@ function toFiniteNumber(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null
 }
 
+/** True when the event passes every clause of the query. */
 export function matchesLogQuery(event: LogEventLike, query: LogQuery): boolean {
   if (!event || typeof event !== 'object') return false
   // The first line of a logs.ndjson generation is a header record, never a log.
@@ -164,6 +175,11 @@ export function matchesLogQuery(event: LogEventLike, query: LogQuery): boolean {
   return true
 }
 
+/**
+ * One-shot read of a session's logs.ndjson. Returns an empty array when the
+ * session has never written one: an absent file is "nothing logged yet", and
+ * making that a throw would force every caller to guard it.
+ */
 export function readLogEvents(
   projectPath: string,
   browser = 'chrome',
