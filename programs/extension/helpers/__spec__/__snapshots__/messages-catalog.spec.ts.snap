@@ -103,6 +103,7 @@ exports[`extension message catalogs > matches the exported message surface 1`] =
     "safariOpenHint: function(2)",
     "safariOpening: function(1)",
     "safariPackagingSkippedNonMac: function(1)",
+    "safariPidUnresolved: function(1)",
     "safariProjectStale: function(0)",
     "safariRebuilt: function(1)",
     "safariRegenerationDiscards: function(1)",

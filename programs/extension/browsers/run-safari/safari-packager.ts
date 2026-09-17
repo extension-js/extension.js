@@ -10,7 +10,8 @@ import type {BrowserLogger} from '../browsers-types'
 import {
   packageSafariExtension,
   type SafariPackageResult,
-  type SafariPipelineMode
+  type SafariPipelineMode,
+  type SafariPipelineTools
 } from './safari-launch'
 
 export interface SafariPackagerOverrides {
@@ -28,6 +29,7 @@ export interface SafariPackagerOptions extends SafariPackagerOverrides {
   noOpen?: boolean
   dryRun?: boolean
   logger?: BrowserLogger
+  tools?: SafariPipelineTools
 }
 
 export type SafariPackagerFn = (
@@ -55,6 +57,7 @@ export function createSafariPackager(
     noOpen = true,
     dryRun = false,
     logger,
+    tools,
     ...identity
   } = options
 
@@ -65,6 +68,7 @@ export function createSafariPackager(
         browser,
         noOpen,
         dryRun,
+        tools,
         ...withoutUndefined(identity),
         ...withoutUndefined(overrides)
       },

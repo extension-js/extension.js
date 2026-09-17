@@ -860,6 +860,15 @@ export function safariRegistered(appName: string) {
   return `${getLoggingPrefix('success')} Safari recognizes ${colors.yellow(appName)}, finish enabling it with the steps above.`
 }
 
+// `open` raised the app but the window server never named a process for it,
+// so the session contract has an identity and a binary but nothing to attach to.
+export function safariPidUnresolved(appName: string) {
+  return (
+    `${getLoggingPrefix('warn')} Opened ${colors.yellow(appName)} but could not find its process id.\n` +
+    `The session's ready.json names the app and the extension without a ${colors.gray('browserPid')}.`
+  )
+}
+
 export function safariNotYetRegistered(appName: string) {
   return (
     `${getLoggingPrefix('info')} Safari hasn't picked up ${colors.yellow(appName)} yet.\n` +

@@ -4,14 +4,18 @@ import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import * as browsers from '../index'
 import {createSafariPackager} from '../run-safari/safari-packager'
+import {fakeSafariTools} from './safari-fake-tools'
 
-// Under VITEST the pipeline takes its dry-run branch, so these exercise the
-// real resolve/compose path without spawning xcrun or xcodebuild.
+// The packager runs the real pipeline against a fake tool host, so these
+// exercise resolve, compose and the whole control flow without spawning
+// xcrun or xcodebuild.
 
 describe('createSafariPackager', () => {
   let distDir: string
+  let tools: ReturnType<typeof fakeSafariTools>
 
   beforeEach(() => {
+    tools = fakeSafariTools()
     distDir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-safari-pkg-'))
     fs.writeFileSync(
       path.join(distDir, 'manifest.json'),
@@ -29,7 +33,7 @@ describe('createSafariPackager', () => {
   })
 
   it('produces a callback that reports the resolved app identity', async () => {
-    const result = await createSafariPackager()(distDir)
+    const result = await createSafariPackager({tools})(distDir)
 
     expect(result).toMatchObject({
       appName: 'Packager Demo',
@@ -40,23 +44,30 @@ describe('createSafariPackager', () => {
 
     expect(result.appPath).toMatch(/Packager Demo\.app$/)
     expect(result.xcodeProjectPath).toContain(`${distDir}-xcode`)
+    expect(tools.calls.converter).toHaveLength(1)
+    expect(tools.calls.xcodebuild).toHaveLength(1)
+    // The factory defaults to noOpen, the build command's contract.
+    expect(tools.calls.openApp).toHaveLength(0)
   })
 
   it('honors identity configured on the factory', async () => {
     const result = await createSafariPackager({
       appName: 'Renamed',
       bundleId: 'com.example.mine',
-      macOsOnly: false
+      macOsOnly: false,
+      tools
     })(distDir)
 
     expect(result.appName).toBe('Renamed')
     expect(result.bundleId).toBe('com.example.mine')
     expect(result.bundleIdDerived).toBe(false)
     expect(result.macOsOnly).toBe(false)
+    expect(tools.calls.converter[0]).toContain('com.example.mine')
+    expect(tools.calls.converter[0]).not.toContain('--macos-only')
   })
 
   it('lets per-call overrides win over the factory identity', async () => {
-    const result = await createSafariPackager({appName: 'Factory'})(
+    const result = await createSafariPackager({appName: 'Factory', tools})(
       distDir,
       'full',
       {appName: 'Override', bundleId: 'com.example.override'}
@@ -71,7 +82,8 @@ describe('createSafariPackager', () => {
     // slot the user left alone; a naive spread would wipe the configured id.
     const result = await createSafariPackager({
       appName: 'Kept',
-      bundleId: 'com.example.kept'
+      bundleId: 'com.example.kept',
+      tools
     })(distDir, 'full', {
       appName: undefined,
       bundleId: undefined,
@@ -85,12 +97,21 @@ describe('createSafariPackager', () => {
   })
 
   it('accepts webkit-based as the target vendor', async () => {
-    const result = await createSafariPackager({browser: 'webkit-based'})(
-      distDir,
-      'resync'
-    )
+    const result = await createSafariPackager({
+      browser: 'webkit-based',
+      tools
+    })(distDir, 'resync')
 
     expect(result.appName).toBe('Packager Demo')
+    expect(tools.calls.xcodebuild).toHaveLength(1)
+  })
+
+  it('dry run describes the commands without running a tool', async () => {
+    const result = await createSafariPackager({dryRun: true, tools})(distDir)
+
+    expect(result.appName).toBe('Packager Demo')
+    expect(tools.calls.converter).toHaveLength(0)
+    expect(tools.calls.xcodebuild).toHaveLength(0)
   })
 })
 
