@@ -111,11 +111,22 @@ export default [
     }
   },
   {
-    // The public config and `extension/types` surface: its JSDoc is what users
+    // The public config and `extension/types` surface, and the sources behind
+    // the d.ts files extension-develop publishes: their JSDoc is what users
     // read on hover in their own extension.config.js and source files.
     files: [
       'programs/extension/config-types.ts',
-      'programs/extension/types/**'
+      'programs/extension/types/**',
+      'programs/develop/types.ts',
+      'programs/develop/command-preview.ts',
+      'programs/develop/lib/build-summary.ts',
+      'programs/develop/plugin-browsers/index.ts',
+      'programs/develop/plugin-reload/index.ts',
+      'programs/develop/plugin-reload/classify-reload.ts',
+      'programs/develop/plugin-special-folders/folder-extensions/types.ts',
+      'programs/develop/dev-server/control-bridge/contracts.ts',
+      'programs/develop/dev-server/control-bridge/consumer-client.ts',
+      'programs/develop/dev-server/control-bridge/logs-query.ts'
     ],
     rules: {
       'local/no-file-header-comment': 'off',
