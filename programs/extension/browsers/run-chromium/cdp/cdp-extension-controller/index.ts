@@ -20,6 +20,10 @@ import type {
   CdpTargetInfo
 } from '../../chromium-types'
 import {type CDPClient, EXTENSION_AUTO_ATTACH_FILTER} from '../cdp-client'
+import {
+  type DeveloperModeOutcome,
+  ensureDeveloperMode
+} from '../ensure-developer-mode'
 import {connectToChromeCdp, connectToChromeCdpViaPipe} from './connect'
 import {deriveExtensionIdFromTargetsHelper} from './derive-id'
 import {
@@ -95,6 +99,14 @@ export class CDPExtensionController {
     if (this.cdp) return
 
     await this.connectFreshClient()
+  }
+
+  // Chromium reads the developer-mode toggle from a MAC-protected pref the
+  // profile seed cannot reach, so the session clicks it over the WebUI once.
+  async ensureDeveloperMode(): Promise<DeveloperModeOutcome> {
+    if (!this.cdp) return 'unavailable'
+
+    return ensureDeveloperMode({transport: this.cdp})
   }
 
   // Open a fresh tab after registration so chrome_url_overrides.newtab takes

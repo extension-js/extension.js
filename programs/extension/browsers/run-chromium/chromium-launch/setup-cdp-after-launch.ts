@@ -27,6 +27,10 @@ import {deriveDebugPortWithInstance} from '../../browsers-lib/shared-utils'
 import {writeJsonAtomic} from '../../browsers-lib/write-json-atomic'
 import type {CompilationLike} from '../../browsers-types'
 import {CDPExtensionController} from '../cdp/cdp-extension-controller'
+import {
+  developerModeFlipIsSafe,
+  developerModeFromProfile
+} from '../cdp/ensure-developer-mode'
 import type {ChromiumPluginRuntime} from '../chromium-types'
 import {getExtensionOutputPath} from './extension-output-path'
 
@@ -114,6 +118,20 @@ export async function setupCdpAfterLaunch(
 
   if (isDebug()) {
     humanLine(messages.cdpClientConnected('127.0.0.1', chromeRemoteDebugPort))
+  }
+
+  // Without it the extensions page hides the unpacked controls a developer
+  // came for, and Chromium treats this session's own work as off-store.
+  if (
+    userDataDir &&
+    developerModeFlipIsSafe(chromiumArgs) &&
+    !developerModeFromProfile(userDataDir)
+  ) {
+    const developerMode = await cdpExtensionController.ensureDeveloperMode()
+
+    if (isDebug()) {
+      humanLine(`[CDP] developer mode: ${developerMode}`)
+    }
   }
 
   try {
