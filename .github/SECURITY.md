@@ -31,6 +31,7 @@ We keep the reporter informed at each step.
 ## What to expect from Extension.js
 
 The security guarantees and limits of Extension.js are described in [docs/ASSURANCE_CASE.md](../docs/ASSURANCE_CASE.md).
+The trust boundaries section of that document also describes the deploy key that lets the release workflow write its two release commits to `main`, and how that key is rotated.
 
 ## Verifying a release
 

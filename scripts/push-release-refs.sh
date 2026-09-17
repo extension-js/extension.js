@@ -4,8 +4,11 @@
 # main only takes pull requests with a green CI passed check. The GitHub
 # Actions app cannot be a ruleset bypass actor on this repository, so the
 # release job pushes its version and changelog commits with this deploy key,
-# which is. The key sits on disk only for the length of the push, so nothing
-# the job ran earlier (installs, builds) could have read it.
+# which is. The workflow hands the key to this script in the env of a step
+# that runs nothing else, and the key sits on disk only for the length of the
+# push, so no install, build, hook or script in the tree runs beside it. The
+# guarantee holds only while the workflow keeps the key out of every other
+# step's env.
 set -euo pipefail
 
 : "${RELEASE_DEPLOY_KEY:?RELEASE_DEPLOY_KEY is not set, add it to this release environment}"
