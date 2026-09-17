@@ -11,6 +11,9 @@
 body {
   background-color: var(--sidebar-bg);
   color: var(--sidebar-text);
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue',
+    Arial, 'Noto Sans', sans-serif;
   /* The margin insets the panel, so a full-viewport height would push the
      content below centre and overflow the panel by twice the margin. */
   height: calc(100vh - 2 * var(--sidebar-margin));
@@ -41,9 +44,6 @@ body {
 .sidebar_title {
   font-size: 1.85em;
   line-height: 1.1;
-  font-family:
-    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue',
-    Arial, 'Noto Sans', sans-serif;
   font-weight: 700;
   margin: 0;
   text-align: center;
