@@ -324,15 +324,13 @@ describe('run-safari messages', () => {
     expect(msg).toMatch(/React Sidebar Example/)
   })
 
-  it('renders the derived bundle id note at warn with the shared-id fact', () => {
+  it('renders the derived bundle id as one info line naming --bundle-id', () => {
     const msg = messages.safariDefaultBundleIdNote('dev.extensionjs.My-App')
-    expect(msg.startsWith(prefix('warn'))).toBe(true)
+    expect(msg.startsWith(prefix('info'))).toBe(true)
     expect(msg).toMatch(/dev\.extensionjs\.My-App/)
-    expect(msg).toMatch(/generated from the app name/)
-    expect(msg).toMatch(/Every project built from the same source shares/)
-    expect(msg).toMatch(/first team to register it takes it/)
+    expect(msg).toMatch(/generated/)
     expect(msg).toMatch(/--bundle-id/)
-    expect(msg).toMatch(/a new id is a new extension with none of your users/)
+    expect(msg).not.toContain('\n')
     expect(msg).not.toMatch(/Apple/)
   })
 
@@ -343,7 +341,7 @@ describe('run-safari messages', () => {
   })
 })
 
-describe('derived bundle id warning timing', () => {
+describe('derived bundle id note timing', () => {
   let distDir: string
 
   beforeEach(() => {
@@ -376,7 +374,7 @@ describe('derived bundle id warning timing', () => {
     }
   }
 
-  it('warns once at config resolution, before any packaging tool runs', async () => {
+  it('reports the derived bundle id once when the full package completes', async () => {
     const {logger, warns, infos} = channelLogger()
     await packageSafariExtension(
       {extension: [distDir], browser: 'safari'} as any,
@@ -385,14 +383,14 @@ describe('derived bundle id warning timing', () => {
       'full'
     )
 
-    expect(warns).toHaveLength(1)
-    expect(warns[0]).toMatch(/dev\.extensionjs\.Warn-Demo/)
-    expect(warns[0]).toMatch(/--bundle-id/)
-    expect(infos).toHaveLength(0)
+    expect(infos).toHaveLength(1)
+    expect(infos[0]).toMatch(/dev\.extensionjs\.Warn-Demo/)
+    expect(infos[0]).toMatch(/--bundle-id/)
+    expect(warns).toHaveLength(0)
   })
 
   it('stays silent when the user supplies their own bundle id', async () => {
-    const {logger, warns} = channelLogger()
+    const {logger, warns, infos} = channelLogger()
     await packageSafariExtension(
       {
         extension: [distDir],
@@ -405,10 +403,11 @@ describe('derived bundle id warning timing', () => {
     )
 
     expect(warns).toHaveLength(0)
+    expect(infos).toHaveLength(0)
   })
 
-  it('does not repeat the warning on resync rebuilds', async () => {
-    const {logger, warns} = channelLogger()
+  it('does not repeat the note on resync rebuilds', async () => {
+    const {logger, warns, infos} = channelLogger()
     await packageSafariExtension(
       {extension: [distDir], browser: 'safari'} as any,
       distDir,
@@ -417,6 +416,7 @@ describe('derived bundle id warning timing', () => {
     )
 
     expect(warns).toHaveLength(0)
+    expect(infos).toHaveLength(0)
   })
 })
 
