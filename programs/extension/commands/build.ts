@@ -6,10 +6,12 @@
 //  ╚═════╝╚══════╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import * as path from 'node:path'
 import {type Command, Option} from 'commander'
 import {safariBuildPreflight} from '../browsers/run-safari/safari-launch'
 import {isValidBundleId} from '../browsers/run-safari/safari-launch/safari-config'
 import {createSafariPackager} from '../browsers/run-safari/safari-packager'
+import {getCliPackageJson} from '../helpers/cli-package-json'
 import {resolveConfigBrowser} from '../helpers/config-browser'
 import {loadExtensionDevelopModule} from '../helpers/extension-develop-runtime'
 import * as messages from '../helpers/messages'
@@ -17,6 +19,7 @@ import {commandDescriptions} from '../helpers/messages'
 import {CODES, ENVELOPE} from '../helpers/messaging'
 import {parseExtensionsList} from '../helpers/normalize-options'
 import {isJsonOutput} from '../helpers/output-flag'
+import {checkProjectCliVersion} from '../helpers/project-cli-version'
 import {
   BROWSER_TARGETS_HELP,
   type Browser,
@@ -261,6 +264,24 @@ export function registerBuildCommand(program: Command) {
 
         const {extensionBuild} = await loadExtensionDevelopModule()
         const asJson = isJsonOutput(buildOptions)
+
+        const cliVersion = checkProjectCliVersion(
+          path.resolve(pathOrRemoteUrl || process.cwd()),
+          getCliPackageJson().version as string
+        )
+
+        if (cliVersion) {
+          // eslint-disable-next-line no-console
+          console.warn(
+            messages.projectCliVersionMismatch(
+              cliVersion.running,
+              cliVersion.declared,
+              cliVersion.range,
+              cliVersion.command
+            )
+          )
+        }
+
         // Tells develop to route human lines to stderr, so stdout carries
         // only the envelope and stays parseable as one JSON document.
         if (asJson) process.env.EXTENSION_OUTPUT = 'json'

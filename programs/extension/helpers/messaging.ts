@@ -107,7 +107,12 @@ export const fmt = {
   truncate(input: unknown, max = 800): string {
     const s = (() => {
       try {
-        return typeof input === 'string' ? input : JSON.stringify(input)
+        if (typeof input === 'string') return input
+
+        // JSON.stringify answers undefined for undefined, a function and a
+        // symbol, and the length read below then throws inside a frame whose
+        // whole job is to report a failure.
+        return JSON.stringify(input) ?? String(input)
       } catch {
         return String(input)
       }

@@ -197,7 +197,9 @@ export async function extensionCreate(
   await writeGitignore(projectPath, logger)
   await setupBuiltInTests(projectPath, logger)
 
-  if (utils.isTypeScriptTemplate(scaffoldedTemplate)) {
+  if (
+    await utils.scaffoldNeedsTypeDefinitions(projectPath, scaffoldedTemplate)
+  ) {
     await generateExtensionTypes(projectPath, projectName, logger)
   }
 

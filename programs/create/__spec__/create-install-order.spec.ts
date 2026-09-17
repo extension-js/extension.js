@@ -58,7 +58,8 @@ vi.mock('../steps/generate-extension-types', () => ({
 }))
 
 vi.mock('../lib/utils', () => ({
-  isTypeScriptTemplate: () => false
+  isTypeScriptTemplate: () => false,
+  scaffoldNeedsTypeDefinitions: async () => false
 }))
 
 describe('create install order', () => {

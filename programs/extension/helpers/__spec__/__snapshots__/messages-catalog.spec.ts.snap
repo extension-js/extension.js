@@ -151,6 +151,7 @@ exports[`extension message catalogs > matches the exported message surface 1`] =
     "programAIHelp: function(0)",
     "programAIHelpJSON: function(1)",
     "programUserHelp: function(0)",
+    "projectCliVersionMismatch: function(4)",
     "registeredArgSignature: function(1)",
     "removedNoRunnerFlag: function(0)",
     "replayedActionClick: function(1)",

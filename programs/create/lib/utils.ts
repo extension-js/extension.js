@@ -120,3 +120,21 @@ export function isTypeScriptTemplate(templateName: string) {
     templateName.includes('solid')
   )
 }
+
+// The name list misses every template that is TypeScript without saying so:
+// vue, the ai ones, playwright. A scaffolded tsconfig is the honest signal,
+// and without it the first dev run writes the types file and says so.
+export async function scaffoldNeedsTypeDefinitions(
+  projectPath: string,
+  templateName: string
+) {
+  if (isTypeScriptTemplate(templateName)) return true
+
+  try {
+    await fs.access(path.join(projectPath, 'tsconfig.json'))
+
+    return true
+  } catch {
+    return false
+  }
+}
