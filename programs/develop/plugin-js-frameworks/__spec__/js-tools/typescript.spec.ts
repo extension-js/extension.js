@@ -279,6 +279,32 @@ describe('typescript tools', () => {
     expect(compilerOptions.jsxImportSource).toBe('solid-js')
   })
 
+  // One case per framework: tsc reads jsxImportSource to find the JSX runtime,
+  // so it has to name the package the project installed, not react by default.
+  for (const [dependency, importSource] of [
+    ['react', 'react'],
+    ['preact', 'preact'],
+    ['vue', 'vue']
+  ] as const) {
+    it(`defaultTypeScriptConfig names ${importSource} for a ${dependency} project`, async () => {
+      const integrations = (await import(
+        '../../frameworks-lib/integrations'
+      )) as any
+      integrations.isUsingJSFramework.mockReturnValue(true)
+      integrations.hasDependency.mockImplementation(
+        (_p: string, dep: string) => dep === dependency
+      )
+
+      const {defaultTypeScriptConfig} = await import(
+        '../../js-tools/typescript'
+      )
+      const {compilerOptions} = defaultTypeScriptConfig('/project') as any
+
+      expect(compilerOptions.jsx).toBe('react-jsx')
+      expect(compilerOptions.jsxImportSource).toBe(importSource)
+    })
+  }
+
   it('defaultTypeScriptConfig leaves jsxImportSource out without a JS framework', async () => {
     const integrations = (await import(
       '../../frameworks-lib/integrations'

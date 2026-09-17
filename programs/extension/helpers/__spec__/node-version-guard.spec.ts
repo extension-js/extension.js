@@ -25,6 +25,7 @@ describe('isSupportedNodeVersion', () => {
   it('accepts 22.12 and later', () => {
     expect(isSupportedNodeVersion('22.12.0')).toBe(true)
     expect(isSupportedNodeVersion('22.16.0')).toBe(true)
+    expect(isSupportedNodeVersion('23.11.1')).toBe(true)
     expect(isSupportedNodeVersion('24.1.0')).toBe(true)
   })
 
@@ -98,6 +99,12 @@ describe('enforceSupportedNodeVersion', () => {
     expect(errorSpy).toHaveBeenCalledTimes(1)
     const message = errorSpy.mock.calls[0][0] as string
     expect(message).toBe(unsupportedNodeVersionMessage('20.19.4'))
+    // The literal wording is what a user pastes into a search, so a change
+    // to it is a deliberate one, not a side effect of a refactor.
+    expect(message).toBe(
+      '[Extension.js] Requires Node.js >= 22.12 (you are on 20.19.4). Upgrade Node.js to run the extension CLI.'
+    )
+
     expect(message).toContain('22.12')
     expect(message).toContain('20.19.4')
     expect(message).not.toContain('\n')
