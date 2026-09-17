@@ -8,11 +8,13 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import type {
-  Compilation,
-  Compiler,
-  Configuration,
-  RspackPluginInstance
+import {
+  type Compilation,
+  type Compiler,
+  type Configuration,
+  LightningCssMinimizerRspackPlugin,
+  type RspackPluginInstance,
+  SwcJsMinimizerRspackPlugin
 } from '@rspack/core'
 import {makeSanitizedConsole} from './lib/branding'
 import {isChromiumBasedBrowser} from './lib/constants'
@@ -627,6 +629,12 @@ export default function webpackConfig(
       // defaults to true, which shipped error-stub modules into dist/.
       emitOnErrors: false,
       minimize: devOptions.mode === 'production',
+      // The stock CSS minimizer also deletes CSS module classes no script
+      // imports. Production keeps every rule development keeps, so it must not.
+      minimizer: [
+        new SwcJsMinimizerRspackPlugin(),
+        new LightningCssMinimizerRspackPlugin({removeUnusedLocalIdents: false})
+      ],
       sideEffects: true,
       usedExports: 'global',
       // Concatenate modules in prod only: in dev, scope hoisting breaks
