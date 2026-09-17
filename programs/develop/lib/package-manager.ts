@@ -6,7 +6,7 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import {execFileSync} from 'node:child_process'
+import {type ChildProcess, execFileSync} from 'node:child_process'
 import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import * as path from 'node:path'
@@ -609,23 +609,31 @@ export function buildSpawnInvocation(
   return {command, args}
 }
 
+// The one spawn every install goes through. cross-spawn runs .cmd/.bat shims
+// on Windows and escapes every argument itself, so a project path with shell
+// metacharacters stays one argument.
+export function spawnInstallCommand(
+  command: string,
+  args: string[],
+  options?: ExecOptions
+): ChildProcess {
+  const invocation = buildSpawnInvocation(command, args)
+  const env = buildExecEnv()
+
+  return spawn(invocation.command, invocation.args, {
+    cwd: options?.cwd,
+    stdio: options?.stdio ?? 'ignore',
+    env: {...(env || process.env), ...options?.env}
+  })
+}
+
 export function execInstallCommand(
   command: string,
   args: string[],
   options?: ExecOptions
 ): Promise<void> {
-  const invocation = buildSpawnInvocation(command, args)
-  const env = buildExecEnv()
-  const stdio = options?.stdio ?? 'ignore'
-
   return new Promise((resolve, reject) => {
-    // cross-spawn runs .cmd/.bat shims on Windows and escapes every argument
-    // itself, so a project path with shell metacharacters stays one argument.
-    const child = spawn(invocation.command, invocation.args, {
-      cwd: options?.cwd,
-      stdio,
-      env: {...(env || process.env), ...options?.env}
-    })
+    const child = spawnInstallCommand(command, args, options)
 
     child.on('close', (code) => {
       if (code !== 0) {
