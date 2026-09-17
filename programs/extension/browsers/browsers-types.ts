@@ -79,6 +79,7 @@ export type DefaultBrowserFlags =
   | '--enable-features=SidePanelUpdates' // Ensure the side panel is visible for testing
   | '--disable-features=DisableLoadExtensionCommandLineSwitch' // Keep --load-extension working
   | '--disable-features=ExtensionDisableUnsupportedDeveloper' // Chromium 152+ kills unpacked extensions on runtime.reload()
+  | '--disable-features=SafetyHubExtensionsOffStoreTrigger' // Chromium 126+ flags reloaded unpacked extensions as unsafe
   | '--enable-unsafe-extension-debugging' // Allow CDP-based extension management (Chrome 126+)
   | '--silent-debugger-extension-api' // Suppress the "X is debugging this browser" infobar
 
