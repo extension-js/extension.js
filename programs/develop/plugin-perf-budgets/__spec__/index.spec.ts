@@ -180,6 +180,24 @@ describe('PerfBudgetsPlugin', () => {
     expect(compilation.warnings).toHaveLength(0)
   })
 
+  it('honors a runtime budget override for a large wasm core', () => {
+    const wasm = {'03bc89f8e5771202.wasm': 20 * 1024 * 1024}
+    const raised = applyAndRun(
+      new PerfBudgetsPlugin({budgets: {runtime: 25 * 1024 * 1024}}),
+      'production',
+      wasm
+    )
+    expect(raised.warnings).toHaveLength(0)
+
+    const lowered = applyAndRun(
+      new PerfBudgetsPlugin({budgets: {runtime: 10 * 1024 * 1024}}),
+      'production',
+      wasm
+    )
+    expect(lowered.warnings).toHaveLength(1)
+    expect(String(lowered.warnings[0].message)).toContain('10.00 MiB')
+  })
+
   it('reports multiple oversized assets sorted by size desc', () => {
     const compilation = applyAndRun(new PerfBudgetsPlugin(), 'production', {
       'content_scripts/content-0.js': 700 * 1024,

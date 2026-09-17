@@ -6,12 +6,17 @@
 // ╚═╝     ╚══════╝╚═╝  ╚═╝╚═╝          ╚═════╝  ╚═════╝ ╚═════╝  ╚═════╝ ╚══════╝   ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-export type AssetCategory =
-  | 'content-script'
-  | 'service-worker'
-  | 'page'
-  | 'runtime'
-  | 'ignored'
+export const ASSET_CATEGORIES = [
+  'content-script',
+  'service-worker',
+  'page',
+  'runtime',
+  'ignored'
+] as const
+
+// The public PerfBudgetCategory in the extension package mirrors this list by
+// hand, and a spec there compares both so a new category cannot be left out.
+export type AssetCategory = (typeof ASSET_CATEGORIES)[number]
 
 const PAGE_DIRS = [
   'pages',
