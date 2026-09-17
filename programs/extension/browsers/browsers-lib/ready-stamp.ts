@@ -8,6 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {writeJsonAtomic} from './write-json-atomic'
 
 function readyPathFor(extensionOutputPath: string): string {
   return path.join(
@@ -34,7 +35,7 @@ export function stampReadyRdpPort(
     if (ready.rdpPort === rdpPort) return
 
     ready.rdpPort = rdpPort
-    fs.writeFileSync(readyPath, JSON.stringify(ready, null, 2))
+    writeJsonAtomic(readyPath, ready)
   } catch {
     // best-effort; never block launch on this
   }
@@ -84,7 +85,7 @@ export function stampReadyBrowserLaunch(
     const provenance = String(details?.binaryProvenance || '').trim()
     if (provenance) ready.binaryProvenance = provenance
 
-    fs.writeFileSync(readyPath, JSON.stringify(ready, null, 2))
+    writeJsonAtomic(readyPath, ready)
   } catch {
     // best-effort; never block launch on this
   }
@@ -107,7 +108,7 @@ export function stampReadyExtensionId(
     if (ready.extensionId === id) return
 
     ready.extensionId = id
-    fs.writeFileSync(readyPath, JSON.stringify(ready, null, 2))
+    writeJsonAtomic(readyPath, ready)
   } catch {
     // best-effort; never block launch on this
   }
@@ -139,7 +140,7 @@ export function stampReadyExtensionLoadRefused(
     ready.extensionLoadRefusedAt = new Date().toISOString()
     if (reason) ready.extensionLoadRefusedReason = reason
 
-    fs.writeFileSync(readyPath, JSON.stringify(ready, null, 2))
+    writeJsonAtomic(readyPath, ready)
   } catch {
     // best-effort; never block launch on this
   }
@@ -167,7 +168,7 @@ export function stampReadyProfileLocked(
     ready.profileLockedAt = new Date().toISOString()
     if (details?.owner) ready.profileLockOwner = details.owner
 
-    fs.writeFileSync(readyPath, JSON.stringify(ready, null, 2))
+    writeJsonAtomic(readyPath, ready)
   } catch {
     // best-effort; never block launch on this
   }
@@ -197,7 +198,7 @@ export function stampReadyBrowserExited(
       }); nothing is running`
     }
 
-    fs.writeFileSync(readyPath, JSON.stringify(ready, null, 2))
+    writeJsonAtomic(readyPath, ready)
   } catch {
     // best-effort; never throw from a close handler
   }

@@ -21,6 +21,7 @@ import {
 import {tmpdir} from 'node:os'
 import {dirname, extname, join, resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
+import {describeDevCli, resolveDevCli} from './lib/resolve-dev-cli.mjs'
 import {
   countCompileSuccessEvents,
   describeReadyFailure,
@@ -423,65 +424,19 @@ function prepareDeepImportChain(projectDir, requestedDepth) {
   }
 }
 
-function resolveDevCli(cwd) {
-  if (useLocalCreate) {
-    assertLocalCliBuilt()
-
-    return {cliPath: localCliPath, source: 'repo build'}
-  }
-
-  const packageDir = join(cwd, 'node_modules', 'extension')
-  const packageJsonPath = join(packageDir, 'package.json')
-
-  if (!existsSync(packageJsonPath)) {
-    throw new Error(
-      `The project has no installed extension CLI at ${packageDir}. ` +
-        'Without it `extension` resolves off PATH, so this smoke would ' +
-        'validate whichever CLI happens to be installed globally.'
-    )
-  }
-
-  // Read the bin the package itself declares, so this runs the same entry
-  // point the `node_modules/.bin` shim would, without the Windows .cmd shim.
-  const installed = JSON.parse(readFileSync(packageJsonPath, 'utf-8'))
-  const declaredBin =
-    typeof installed?.bin === 'string'
-      ? installed.bin
-      : installed?.bin?.extension
-
-  if (!declaredBin) {
-    throw new Error(
-      `Installed extension package declares no bin: ${packageJsonPath}`
-    )
-  }
-
-  const installedCli = join(packageDir, declaredBin)
-
-  if (!existsSync(installedCli)) {
-    throw new Error(`Installed extension bin is missing: ${installedCli}`)
-  }
-
-  return {
-    cliPath: installedCli,
-    source: `project node_modules (${installed.version})`
-  }
-}
-
 function runDevAndValidateContentReload(cwd, deepChain) {
   return new Promise((resolvePromise, rejectPromise) => {
     let devCli
 
     try {
-      devCli = resolveDevCli(cwd)
+      devCli = resolveDevCli({projectDir: cwd, useRepoBuild: useLocalCreate})
     } catch (error) {
       rejectPromise(error)
 
       return
     }
 
-    console.log(
-      `Running dev with the CLI from ${devCli.source}: ${devCli.cliPath}`
-    )
+    console.log(`Running dev with the CLI from ${describeDevCli(devCli)}`)
 
     const child = spawn(
       process.execPath,
@@ -745,7 +700,7 @@ async function main() {
       console.log(`WARN: profile-enabled check skipped (${prefsCheck.reason})`)
     }
 
-    console.log(`Validated CLI: ${devCli.source} (${devCli.cliPath})`)
+    console.log(`Validated CLI: ${describeDevCli(devCli)}`)
   } finally {
     if (usingExternalProject && deepChain?.restoreState) {
       try {
