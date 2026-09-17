@@ -54,6 +54,86 @@ describe('runDevWaitMode', () => {
     expect(result.results[0]?.status).toBe('ready')
   })
 
+  it('keeps waiting when the contract is read mid-write', async () => {
+    const projectDir = createProject()
+    const readyDir = join(projectDir, 'dist', 'extension-js', 'chromium')
+    mkdirSync(readyDir, {recursive: true})
+    const readyPath = join(readyDir, 'ready.json')
+
+    // A producer that truncates before it writes leaves the file unparseable
+    // for a moment, which every poll in that window reads.
+    writeFileSync(readyPath, '{"command":"dev","sta')
+
+    setTimeout(() => {
+      writeFileSync(
+        readyPath,
+        JSON.stringify({
+          command: 'dev',
+          status: 'ready',
+          browser: 'chromium',
+          distPath: join(projectDir, 'dist'),
+          pid: process.pid
+        })
+      )
+    }, 600)
+
+    const result = await runDevWaitMode({
+      pathOrRemoteUrl: projectDir,
+      browsers: ['chromium'],
+      waitTimeout: 5000
+    })
+
+    expect(result.results[0]?.status).toBe('ready')
+  })
+
+  it('keeps waiting when the contract file is empty', async () => {
+    const projectDir = createProject()
+    const readyDir = join(projectDir, 'dist', 'extension-js', 'chromium')
+    mkdirSync(readyDir, {recursive: true})
+    const readyPath = join(readyDir, 'ready.json')
+
+    writeFileSync(readyPath, '')
+
+    setTimeout(() => {
+      writeFileSync(
+        readyPath,
+        JSON.stringify({
+          command: 'dev',
+          status: 'ready',
+          browser: 'chromium',
+          distPath: join(projectDir, 'dist'),
+          pid: process.pid
+        })
+      )
+    }, 600)
+
+    const result = await runDevWaitMode({
+      pathOrRemoteUrl: projectDir,
+      browsers: ['chromium'],
+      waitTimeout: 5000
+    })
+
+    expect(result.results[0]?.status).toBe('ready')
+  })
+
+  it('names an unparseable contract when the wait times out', async () => {
+    const projectDir = createProject()
+    const readyDir = join(projectDir, 'dist', 'extension-js', 'chromium')
+    mkdirSync(readyDir, {recursive: true})
+
+    // A contract that cannot be read is a different problem from one that never
+    // arrives, so the timeout has to say which of the two happened.
+    writeFileSync(join(readyDir, 'ready.json'), '{"command":"dev",')
+
+    await expect(
+      runDevWaitMode({
+        pathOrRemoteUrl: projectDir,
+        browsers: ['chromium'],
+        waitTimeout: 1000
+      })
+    ).rejects.toThrow(/last read of the file failed to parse as JSON/)
+  })
+
   it('throws when contract reports error', async () => {
     const projectDir = createProject()
     const readyDir = join(projectDir, 'dist', 'extension-js', 'chromium')
