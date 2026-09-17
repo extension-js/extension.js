@@ -1,15 +1,20 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 const defineApply = vi.fn()
+// Every DefinePlugin the plugin constructs, and their definitions merged
+// into one view, since the import.meta.url define is a separate instance.
+let defineInstances: any[] = []
 let lastDefineArgs: any = null
 const provideApply = vi.fn()
 let lastProvideArgs: any = null
 vi.mock('@rspack/core', () => {
   class DefinePluginMock {
     public args: any
+    public affectedHooks?: string
     constructor(args: any) {
       this.args = args
-      lastDefineArgs = args
+      defineInstances.push(this)
+      lastDefineArgs = {...(lastDefineArgs || {}), ...args}
     }
     apply = defineApply
   }
@@ -80,7 +85,11 @@ vi.mock('dotenv', () => ({
 
 import {getPreloadedEnvKeys} from '../../lib/config-loader'
 import {getCurrentManifestContent} from '../../plugin-web-extension/feature-manifest/manifest-lib/manifest'
-import {EnvPlugin, IMPORT_META_URL_RUNTIME} from '../env'
+import {
+  EnvPlugin,
+  IMPORT_META_URL_RUNTIME,
+  importMetaUrlForEmitPath
+} from '../env'
 
 const toPosix = (value: string) => value.replace(/\\/g, '/')
 
@@ -88,6 +97,8 @@ describe('EnvPlugin', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     defineApply.mockReset()
+    defineInstances = []
+    lastDefineArgs = null
     provideApply.mockReset()
     lastProvideArgs = null
     ;(fs.existsSync as unknown as (p: any) => boolean) = vi.fn((p: any) => {
@@ -181,6 +192,22 @@ describe('EnvPlugin', () => {
     expect(lastDefineArgs['import.meta.url']).toBe(IMPORT_META_URL_RUNTIME)
     expect(lastDefineArgs['import.meta.url']).not.toContain('file:')
     expect(provideApply).not.toHaveBeenCalled()
+
+    // The import.meta.url define stays out of child compilers, which give a
+    // runtime-loaded file its own emit path instead.
+    const importMetaUrl = defineInstances.find(
+      (instance) => 'import.meta.url' in instance.args
+    )
+    expect(importMetaUrl?.affectedHooks).toBe('thisCompilation')
+    expect(Object.keys(importMetaUrl.args)).toEqual(['import.meta.url'])
+  })
+
+  it('gives a runtime-loaded file its emit path as import.meta.url', () => {
+    const define = importMetaUrlForEmitPath('lib\\engine.js')
+    expect(define).toContain('getURL("lib/engine.js")')
+    expect(define).not.toContain('file:')
+    // Without an extension runtime the page-or-root guess still stands in.
+    expect(define).toContain(IMPORT_META_URL_RUNTIME)
   })
 
   it('uses ProvidePlugin for the bundled process shim when available', async () => {
