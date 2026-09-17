@@ -181,6 +181,18 @@ function describePackage(config: SafariBuildConfig): SafariPackageResult {
   }
 }
 
+function completePackage(
+  config: SafariBuildConfig,
+  logger: BrowserLogger,
+  mode: SafariPipelineMode
+): SafariPackageResult {
+  if (mode === 'full' && config.bundleIdDerived) {
+    logger.info?.(messages.safariDefaultBundleIdNote(config.bundleIdentifier))
+  }
+
+  return describePackage(config)
+}
+
 export function safariPreflightError(): string | null {
   const tc = detectSafariToolchain()
   if (!tc.platformOk) return messages.safariRequiresMacOS(process.platform)
@@ -298,19 +310,13 @@ async function runSafariPipeline(
   // counts the same as --development-team.
   const isSigned = Boolean(config.developmentTeam)
 
-  // Warn while --bundle-id is still a free choice, before the converter and
-  // xcodebuild bake the identity into the project.
-  if (mode === 'full' && config.bundleIdDerived) {
-    logger.warn?.(messages.safariDefaultBundleIdNote(config.bundleIdentifier))
-  }
-
   if (host.dryRun || isTestEnv()) {
     logSafariDryRun(
       `xcrun ${converterArgs.join(' ')}`,
       `xcodebuild ${xcodebuildArgs.join(' ')}`
     )
 
-    return describePackage(config)
+    return completePackage(config, logger, mode)
   }
 
   const toolchain = detectSafariToolchain()
@@ -448,7 +454,7 @@ async function runSafariPipeline(
       await announceSafariDevSession(host, config, appPath)
     }
 
-    return describePackage(config)
+    return completePackage(config, logger, mode)
   }
 
   const target = fs.existsSync(appPath) ? appPath : xcodeProjectPath(config)
@@ -493,7 +499,7 @@ async function runSafariPipeline(
     await announceSafariDevSession(host, config, appPath)
   }
 
-  return describePackage(config)
+  return completePackage(config, logger, mode)
 }
 
 export async function packageSafariExtension(

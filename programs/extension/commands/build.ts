@@ -117,7 +117,7 @@ export function registerBuildCommand(program: Command) {
     )
     .option(
       '--bundle-id <reverse.dns>',
-      'set a user-owned Safari bundle identifier (safari targets only). Defaults to a generated dev.extensionjs.* id'
+      'set a user-owned Safari bundle identifier (safari targets only). Defaults to a generated dev.extensionjs.* id shared by every build of the same source, so set your own before the first submission'
     )
     .option(
       '--development-team <id>',
