@@ -404,10 +404,20 @@ describe('Chromium feature-switch merging', () => {
       'MediaRoute',
       'DisableLoadExtensionCommandLineSwitch',
       'ExtensionDisableUnsupportedDeveloper',
+      'SafetyHubExtensionsOffStoreTrigger',
       'TranslateUI'
     ]) {
       expect(features).toContain(feature)
     }
+  })
+
+  it('keeps the safety check from listing the dev extension as unsafe', () => {
+    const flags = browserConfig(makeCompilation(), {
+      extension: '/ext',
+      browser: 'chrome'
+    } as any)
+    const entries = disabledFeatureEntries(flags)
+    expect(entries).toContain('SafetyHubExtensionsOffStoreTrigger')
   })
 
   it('emits exactly one --enable-features switch', () => {
