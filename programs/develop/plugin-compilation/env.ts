@@ -34,6 +34,14 @@ import * as messages from './compilation-lib/messages'
 export const IMPORT_META_URL_RUNTIME =
   '(function(){var h=typeof document!=="undefined"&&document.baseURI||self.location.href;try{var g=globalThis,r=(g.browser||g.chrome).runtime.getURL("/");return h.indexOf(r)===0?h:r}catch(_){return h}})()'
 
+// A file the runtime loads by URL is emitted at one known path, so its
+// import.meta.url is that path. Without a runtime (MAIN world) the page URL stands in.
+export function importMetaUrlForEmitPath(emitPath: string): string {
+  const request = emitPath.replace(/\\/g, '/').replace(/^\/+/, '')
+
+  return `(function(){try{var g=globalThis;return (g.browser||g.chrome).runtime.getURL(${JSON.stringify(request)})}catch(_){return ${IMPORT_META_URL_RUNTIME}}})()`
+}
+
 function resolveProcessShim(): string | undefined {
   const candidate = path.join(__dirname, '..', 'runtime', 'process-shim.cjs')
 
@@ -277,10 +285,6 @@ export class EnvPlugin {
     // at globalThis, rspack's own global shim is off (node.global in rspack-config).
     filteredEnvVars.global = 'globalThis'
 
-    // rspack inlines a bare import.meta.url as the module's file:// path, which
-    // ships the build machine's folders. new URL(x, import.meta.url) keeps its own rewrite.
-    filteredEnvVars['import.meta.url'] = IMPORT_META_URL_RUNTIME
-
     const injectedCount = Object.keys(filteredEnvVars).filter((k) =>
       k.startsWith('process.env.EXTENSION_PUBLIC_')
     ).length
@@ -302,6 +306,17 @@ export class EnvPlugin {
     }
 
     new DefinePlugin(filteredEnvVars).apply(compiler)
+
+    // rspack inlines a bare import.meta.url as the module's file:// path, which
+    // ships the build machine's folders. new URL(x, import.meta.url) keeps its own rewrite.
+    const importMetaUrl = new DefinePlugin({
+      'import.meta.url': IMPORT_META_URL_RUNTIME
+    })
+
+    // Scoped to this compilation so child compilers do not inherit it: a
+    // runtime-loaded file is compiled in one and defines its own emit path.
+    importMetaUrl.affectedHooks = 'thisCompilation'
+    importMetaUrl.apply(compiler)
 
     if (processShim) {
       new ProvidePlugin({process: processShim}).apply(compiler)
