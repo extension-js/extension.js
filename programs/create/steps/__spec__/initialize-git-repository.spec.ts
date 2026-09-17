@@ -2,7 +2,7 @@ import * as fs from 'node:fs/promises'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {sync as spawnSync} from 'cross-spawn'
-import {afterEach, describe, expect, it} from 'vitest'
+import {afterEach, describe, expect, it, vi} from 'vitest'
 import {
   firstCommitSubject,
   initializeGitRepository
@@ -14,6 +14,8 @@ const savedEnv = {
 }
 
 afterEach(() => {
+  vi.unstubAllEnvs()
+
   for (const [key, value] of Object.entries(savedEnv)) {
     if (value === undefined) delete process.env[key]
     else process.env[key] = value
@@ -84,6 +86,11 @@ describe('firstCommitSubject', () => {
 
 describe('initializeGitRepository', () => {
   it('commits the scaffold so nothing is left untracked', async () => {
+    // The silence check is about user-facing output. The nightly exports
+    // author mode, which turns the debug trace on, so pin diagnostics off.
+    vi.stubEnv('EXTENSION_DEBUG', '')
+    vi.stubEnv('EXTENSION_AUTHOR_MODE', '')
+
     await withProject(
       {name: 'Scaffold Tester', email: 'scaffold@example.com'},
       async (projectPath) => {

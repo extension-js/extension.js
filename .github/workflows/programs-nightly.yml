@@ -12,6 +12,10 @@ jobs:
   nightly-chromium:
     runs-on: ubuntu-22.04
     timeout-minutes: 60
+    permissions:
+      contents: read
+      # report-red-lane.sh opens or comments on the red lane issue
+      issues: write
     env:
       EXTENSION_AUTHOR_MODE: development
     steps:
@@ -43,10 +47,25 @@ jobs:
           pnpm extension build templates/vue --browser chromium --silent true
       - name: Run Dev Tests
         run: pnpm test:dev
+      - name: Report a red lane
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RED_LANE_REPRO: |
+            export EXTENSION_AUTHOR_MODE=development
+            bash scripts/hydrate-templates-from-examples.sh
+            pnpm test:cli
+            pnpm extension build templates/typescript --browser chromium --silent true
+            pnpm test:dev
+        run: bash scripts/report-red-lane.sh "Nightly chromium"
 
   nightly-edge:
     runs-on: ubuntu-22.04
     timeout-minutes: 45
+    permissions:
+      contents: read
+      # report-red-lane.sh opens or comments on the red lane issue
+      issues: write
     env:
       EXTENSION_AUTHOR_MODE: development
       EXTENSION_AUTO_EXIT_MS: '8000'
@@ -87,10 +106,24 @@ jobs:
           pnpm extension build templates/vue --browser edge --silent true
       - name: Dev smoke – edge (Chromium)
         run: pnpm extension dev templates/typescript --browser edge --chromium-binary "$CHROMIUM_BIN" --profile false --no-open --port 0
+      - name: Report a red lane
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RED_LANE_REPRO: |
+            export EXTENSION_AUTHOR_MODE=development EXTENSION_AUTO_EXIT_MS=8000 EXTENSION_FORCE_KILL_MS=12000
+            bash scripts/hydrate-templates-from-examples.sh
+            pnpm extension build templates/typescript --browser edge --silent true
+            pnpm extension dev templates/typescript --browser edge --chromium-binary "<playwright chromium path>" --profile false --no-open --port 0
+        run: bash scripts/report-red-lane.sh "Nightly edge"
 
   nightly-firefox:
     runs-on: ubuntu-22.04
     timeout-minutes: 45
+    permissions:
+      contents: read
+      # report-red-lane.sh opens or comments on the red lane issue
+      issues: write
     env:
       EXTENSION_AUTHOR_MODE: development
       EXTENSION_AUTO_EXIT_MS: '8000'
@@ -139,6 +172,16 @@ jobs:
           pnpm extension build templates/vue --browser firefox --silent true
       - name: Dev smoke – firefox (Gecko)
         run: pnpm extension dev templates/typescript --browser firefox --gecko-binary "$FIREFOX_BIN" --profile false --no-open --port 0
+      - name: Report a red lane
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RED_LANE_REPRO: |
+            export EXTENSION_AUTHOR_MODE=development EXTENSION_AUTO_EXIT_MS=8000 EXTENSION_FORCE_KILL_MS=12000
+            bash scripts/hydrate-templates-from-examples.sh
+            pnpm extension build templates/typescript --browser firefox --silent true
+            pnpm extension dev templates/typescript --browser firefox --gecko-binary "<playwright firefox path>" --profile false --no-open --port 0
+        run: bash scripts/report-red-lane.sh "Nightly firefox"
 
   nightly-session-lifecycle:
     # Control-channel lifecycle across process boundaries: dev-server crash +
@@ -147,6 +190,10 @@ jobs:
     # only, two-browser/idle-window stay local until this job has a streak.
     runs-on: ubuntu-22.04
     timeout-minutes: 45
+    permissions:
+      contents: read
+      # report-red-lane.sh opens or comments on the red lane issue
+      issues: write
     env:
       EXTENSION_AUTHOR_MODE: development
       EXTENSION_BROWSER_FLAGS: '--headless=new'
@@ -166,6 +213,15 @@ jobs:
         run: pnpm compile
       - name: Session lifecycle exercise
         run: xvfb-run -a pnpm smoke:session-lifecycle
+      - name: Report a red lane
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RED_LANE_REPRO: |
+            export EXTENSION_AUTHOR_MODE=development EXTENSION_BROWSER_FLAGS='--headless=new'
+            pnpm compile
+            pnpm smoke:session-lifecycle
+        run: bash scripts/report-red-lane.sh "Nightly session lifecycle"
 
   bundled-template-drift:
     # Early warning for discussion #478: the bundled `javascript` template
@@ -173,10 +229,21 @@ jobs:
     # publish-release.yml runs the same check as a hard release gate.
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
+      # report-red-lane.sh opens or comments on the red lane issue
+      issues: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Check bundled create template drift
         run: bash scripts/check-bundled-template-drift.sh
+      - name: Report a red lane
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RED_LANE_REPRO: |
+            bash scripts/check-bundled-template-drift.sh
+        run: bash scripts/report-red-lane.sh "Nightly bundled template drift"
 
   # Bun and Deno already get a build and a headless dev run on every pull
   # request. A real browser launch is the one thing that lane cannot carry,
@@ -191,6 +258,10 @@ jobs:
       matrix:
         runtime: [bun, deno]
         browser: [chromium, firefox]
+    permissions:
+      contents: read
+      # report-red-lane.sh opens or comments on the red lane issue
+      issues: write
     env:
       EXTENSION_AUTHOR_MODE: development
     steps:
@@ -256,4 +327,15 @@ jobs:
         env:
           RUNTIME_SMOKE_BROWSER: ${{ matrix.browser }}
         run: pnpm smoke:${{ matrix.runtime }}
+
+      - name: Report a red lane
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RED_LANE_REPRO: |
+            export EXTENSION_AUTHOR_MODE=development RUNTIME_SMOKE_BROWSER=${{ matrix.browser }}
+            export RUNTIME_SMOKE_BROWSER_BINARY="<playwright ${{ matrix.browser }} path>"
+            pnpm --filter extension-develop compile && pnpm --filter extension compile
+            pnpm smoke:${{ matrix.runtime }}
+        run: bash scripts/report-red-lane.sh "Nightly ${{ matrix.runtime }} runtime + ${{ matrix.browser }}"
 
