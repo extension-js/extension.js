@@ -24,6 +24,23 @@ describe('ApplyDevDefaults patch helpers', () => {
     })
   })
 
+  // Safari never starts a service worker, and the injection runs after the
+  // Safari manifest patch, so the injected background has to take that shape
+  // itself: the same emitted bundle, listed under scripts, no persistent key.
+  it('adds the fallback background as scripts for safari', () => {
+    expect(
+      patchBackground({manifest_version: 3} as any, 'safari').background
+    ).toEqual({
+      scripts: ['background/service_worker.js']
+    })
+
+    expect(
+      patchBackground({manifest_version: 3} as any, 'webkit-based').background
+    ).toEqual({
+      scripts: ['background/service_worker.js']
+    })
+  })
+
   it('preserves existing background declarations', () => {
     expect(
       patchBackground(
