@@ -92,4 +92,4 @@ export class PerfBudgetsPlugin {
 }
 
 export type {AssetCategory} from './categorize'
-export {BUDGET_BYTES, categorizeAsset} from './categorize'
+export {ASSET_CATEGORIES, BUDGET_BYTES, categorizeAsset} from './categorize'

@@ -100,11 +100,15 @@ export interface BrowserConfig extends BrowserLaunchConfig {
   firefoxBinary?: string
 }
 
-/** Asset categories the perf-budgets plugin recognizes. */
+/**
+ * Asset categories the perf-budgets plugin recognizes. `runtime` covers
+ * wasm cores and root-level runtime helpers emitted outside a surface folder.
+ */
 export type PerfBudgetCategory =
   | 'content-script'
   | 'service-worker'
   | 'page'
+  | 'runtime'
   | 'ignored'
 
 /**
