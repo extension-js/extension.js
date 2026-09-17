@@ -315,6 +315,88 @@ describe('package-manager pnpm workspace membership', () => {
     ])
   })
 
+  it('detects a member from a zero indent packages list', () => {
+    const {root, member} = makeWorkspace('packages:\n- apps/*\n')
+    expect(readPnpmWorkspacePackages(root)).toEqual(['apps/*'])
+    expect(findPnpmWorkspaceMember(member)).toEqual({
+      root,
+      relativeDir: 'apps/ext'
+    })
+  })
+
+  it('unquotes zero indent items in either quote style', () => {
+    const {root, member} = makeWorkspace(
+      'packages:\n- \'apps/*\'\n- "packages/**"\n'
+    )
+    expect(readPnpmWorkspacePackages(root)).toEqual(['apps/*', 'packages/**'])
+    expect(findPnpmWorkspaceMember(member)?.relativeDir).toBe('apps/ext')
+  })
+
+  it('ends a zero indent list at the next top-level key', () => {
+    const {root} = makeWorkspace(
+      'packages:\n- apps/*\n\ncatalog:\n  vue: ^3.0.0\nonlyBuiltDependencies:\n- esbuild\n'
+    )
+    expect(readPnpmWorkspacePackages(root)).toEqual(['apps/*'])
+  })
+
+  it('skips comment lines inside a zero indent list', () => {
+    const {root} = makeWorkspace(
+      'packages:\n# apps\n- apps/*\n  # libs\n- packages/* # trailing\n'
+    )
+    expect(readPnpmWorkspacePackages(root)).toEqual(['apps/*', 'packages/*'])
+  })
+
+  it('does not name a dir outside a zero indent list as a member', () => {
+    const {root, member} = makeWorkspace('packages:\n- packages/*\n')
+    expect(readPnpmWorkspacePackages(root)).toEqual(['packages/*'])
+    expect(findPnpmWorkspaceMember(member)).toBeUndefined()
+  })
+
+  it('agrees with pnpm about the members of a zero indent list', async (ctx) => {
+    // This spec mocks child_process for the install seam, so the real pnpm
+    // probe needs the actual module. A missing or slow pnpm skips the case.
+    const {spawnSync} =
+      await vi.importActual<typeof import('node:child_process')>(
+        'node:child_process'
+      )
+    const {root, member} = makeWorkspace('packages:\n- apps/*\n')
+    fs.writeFileSync(
+      path.join(root, 'package.json'),
+      JSON.stringify({name: 'ws-root', private: true})
+    )
+
+    fs.mkdirSync(path.join(root, 'packages', 'lib'), {recursive: true})
+    fs.writeFileSync(
+      path.join(root, 'packages', 'lib', 'package.json'),
+      JSON.stringify({name: 'lib'})
+    )
+
+    const probe = spawnSync('pnpm', ['ls', '-r', '--depth', '-1', '--json'], {
+      cwd: root,
+      encoding: 'utf8',
+      timeout: 10_000
+    })
+
+    if (probe.error || probe.status !== 0) {
+      ctx.skip()
+
+      return
+    }
+
+    const realRoot = fs.realpathSync(root)
+    const listed = (JSON.parse(probe.stdout) as Array<{path: string}>)
+      .map((entry) => path.relative(realRoot, fs.realpathSync(entry.path)))
+      .map((rel) => rel.split(path.sep).join('/'))
+      .filter(Boolean)
+      .sort()
+    expect(listed).toEqual(['apps/ext'])
+
+    const patterns = readPnpmWorkspacePackages(root)
+    expect(isPnpmWorkspaceMemberDir(patterns, 'apps/ext')).toBe(true)
+    expect(isPnpmWorkspaceMemberDir(patterns, 'packages/lib')).toBe(false)
+    expect(findPnpmWorkspaceMember(member)?.relativeDir).toBe('apps/ext')
+  })
+
   it('matches member dirs the way pnpm globs do', () => {
     const patterns = ['apps/*', 'packages/**', '!apps/skip']
     expect(isPnpmWorkspaceMemberDir(patterns, 'apps/ext')).toBe(true)
