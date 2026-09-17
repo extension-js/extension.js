@@ -8,6 +8,7 @@ import {launchBrowser} from '../index'
 import {
   converterWarnings,
   packageSafariExtension,
+  type SafariPipelineMode,
   safariBuildPreflight,
   safariPreflightError,
   toolOutputTail
@@ -24,6 +25,7 @@ import {
   isValidBundleId,
   macOsSchemeName,
   manifestFingerprintPath,
+  PRESERVED_SETTINGS,
   pbxprojPath,
   resolveSafariBuildConfig,
   saveManifestFingerprint,
@@ -33,6 +35,7 @@ import {
   detectSafariToolchain,
   isMacOS
 } from '../run-safari/safari-launch/toolchain'
+import {type FakeSafariTools, fakeSafariTools} from './safari-fake-tools'
 
 function makeCompilation(out: string) {
   return {options: {output: {path: out}}} as any
@@ -358,14 +361,20 @@ describe('derived bundle id note timing', () => {
     }
   })
 
-  function channelLogger() {
+  function channelLogger(tools: FakeSafariTools) {
     const warns: string[] = []
     const infos: string[] = []
 
     return {
       logger: {
-        info: (m: string) => infos.push(String(m)),
-        warn: (m: string) => warns.push(String(m)),
+        info: (m: string) => {
+          infos.push(String(m))
+          tools.events.push('info')
+        },
+        warn: (m: string) => {
+          warns.push(String(m))
+          tools.events.push('warn')
+        },
         error: () => {},
         debug: () => {}
       } as any,
@@ -375,27 +384,42 @@ describe('derived bundle id note timing', () => {
   }
 
   it('reports the derived bundle id once when the full package completes', async () => {
-    const {logger, warns, infos} = channelLogger()
+    const tools = fakeSafariTools()
+    const {logger, warns, infos} = channelLogger(tools)
     await packageSafariExtension(
-      {extension: [distDir], browser: 'safari'} as any,
+      {extension: [distDir], browser: 'safari', noOpen: true, tools} as any,
       distDir,
       logger,
       'full'
     )
 
-    expect(infos).toHaveLength(1)
-    expect(infos[0]).toMatch(/dev\.extensionjs\.Warn-Demo/)
-    expect(infos[0]).toMatch(/--bundle-id/)
+    const notes = infos.filter((line) => /--bundle-id/.test(line))
+    expect(notes).toHaveLength(1)
+    expect(notes[0]).toBe(
+      messages.safariDefaultBundleIdNote('dev.extensionjs.Warn-Demo')
+    )
+
     expect(warns).toHaveLength(0)
+
+    // The note closes the package: it is the last line, printed after every
+    // tool has run, not a warning ahead of the converter.
+    expect(infos[infos.length - 1]).toBe(notes[0])
+    expect(tools.events[tools.events.length - 1]).toBe('info')
+    expect(tools.events.indexOf('xcodebuild')).toBeLessThan(
+      tools.events.lastIndexOf('info')
+    )
   })
 
   it('stays silent when the user supplies their own bundle id', async () => {
-    const {logger, warns, infos} = channelLogger()
+    const tools = fakeSafariTools()
+    const {logger, warns, infos} = channelLogger(tools)
     await packageSafariExtension(
       {
         extension: [distDir],
         browser: 'safari',
-        bundleId: 'com.example.mine'
+        bundleId: 'com.example.mine',
+        noOpen: true,
+        tools
       } as any,
       distDir,
       logger,
@@ -403,20 +427,23 @@ describe('derived bundle id note timing', () => {
     )
 
     expect(warns).toHaveLength(0)
-    expect(infos).toHaveLength(0)
+    expect(infos.some((line) => /--bundle-id/.test(line))).toBe(false)
+    expect(tools.calls.converter).toHaveLength(1)
   })
 
   it('does not repeat the note on resync rebuilds', async () => {
-    const {logger, warns, infos} = channelLogger()
+    const tools = fakeSafariTools()
+    const {logger, warns, infos} = channelLogger(tools)
     await packageSafariExtension(
-      {extension: [distDir], browser: 'safari'} as any,
+      {extension: [distDir], browser: 'safari', tools} as any,
       distDir,
       logger,
       'resync'
     )
 
     expect(warns).toHaveLength(0)
-    expect(infos).toHaveLength(0)
+    expect(infos.some((line) => /--bundle-id/.test(line))).toBe(false)
+    expect(tools.calls.xcodebuild).toHaveLength(1)
   })
 })
 
@@ -884,188 +911,316 @@ describe('xcode user-settings preservation', () => {
   })
 })
 
-describe('safari pipeline staleness integration', () => {
+// The production pipeline, driven end to end through the injected tool host:
+// the only things faked are the processes (converter, xcodebuild, open, the
+// pid lookup, pluginkit). Every branch, message and ready.json write is real.
+describe('safari pipeline through the injected tool host', () => {
+  let root: string
   let distDir: string
-  let xcodeDir: string
-  let converterCalls: string[][]
-  let xcodebuildCalls: string[][]
+  let readyPath: string
 
-  function configFor(dir: string) {
-    return resolveSafariBuildConfig(makeCompilation(dir), {
-      extension: [dir],
-      browser: 'safari'
+  const manifest = {
+    name: 'MyExt',
+    permissions: ['storage'],
+    content_scripts: [{matches: ['<all_urls>'], js: ['content.js']}]
+  }
+
+  function configFor(extra: Record<string, unknown> = {}) {
+    return resolveSafariBuildConfig(makeCompilation(distDir), {
+      extension: [distDir],
+      browser: 'safari',
+      ...extra
     } as any)
   }
 
-  function fakeConvert(config: ReturnType<typeof configFor>) {
-    const projDir = xcodeProjectPath(config)
-    fs.mkdirSync(projDir, {recursive: true})
-    fs.writeFileSync(
-      path.join(projDir, 'project.pbxproj'),
-      ['buildSettings = {', '  PRODUCT_NAME = "$(TARGET_NAME)";', '};'].join(
-        '\n'
-      )
-    )
+  function collectingLogger(tools: FakeSafariTools, logs: string[]) {
+    const record = (m: unknown) => {
+      tools.events.push(`log:${logs.length}`)
+      logs.push(String(m))
+    }
+
+    return {info: record, warn: record, error: record, debug: () => {}}
   }
 
-  function fakeConvertWithTeam(
-    config: ReturnType<typeof configFor>,
-    team: string
+  async function runPipeline(
+    input: Record<string, unknown>,
+    opts: {
+      tools?: FakeSafariTools
+      mode?: SafariPipelineMode
+      host?: Record<string, unknown>
+      logs?: string[]
+    } = {}
   ) {
-    const projDir = xcodeProjectPath(config)
-    fs.mkdirSync(projDir, {recursive: true})
-    fs.writeFileSync(
-      path.join(projDir, 'project.pbxproj'),
-      [
-        'buildSettings = {',
-        `  DEVELOPMENT_TEAM = ${team};`,
-        '  PRODUCT_NAME = "$(TARGET_NAME)";',
-        '};'
-      ].join('\n')
+    writeManifest(distDir, input)
+    const tools = opts.tools || fakeSafariTools()
+    const logs = opts.logs || []
+    const result = await packageSafariExtension(
+      {extension: [distDir], browser: 'safari', tools, ...opts.host} as any,
+      distDir,
+      collectingLogger(tools, logs),
+      opts.mode || 'full'
     )
+
+    return {result, logs, tools}
+  }
+
+  // Where a log line sits among the tool calls, so a spec can prove a message
+  // printed before (or after) a process ran.
+  function eventIndexOfLog(
+    tools: FakeSafariTools,
+    logs: string[],
+    line: string
+  ) {
+    return tools.events.indexOf(`log:${logs.indexOf(line)}`)
+  }
+
+  function processEvents(tools: FakeSafariTools) {
+    return tools.events.filter((event) => !event.startsWith('log:'))
+  }
+
+  function readReady() {
+    return JSON.parse(fs.readFileSync(readyPath, 'utf8'))
+  }
+
+  function valueAfter(args: string[], flag: string) {
+    return args[args.indexOf(flag) + 1]
   }
 
   beforeEach(() => {
-    distDir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-safari-pipe-'))
-    xcodeDir = `${distDir}-xcode`
-    converterCalls = []
-    xcodebuildCalls = []
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-safari-pipe-'))
+    distDir = path.join(root, 'dist', 'safari')
+    readyPath = path.join(root, 'dist', 'extension-js', 'safari', 'ready.json')
+    fs.mkdirSync(path.dirname(readyPath), {recursive: true})
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({status: 'ready', browser: 'safari', command: 'dev'})
+    )
   })
 
   afterEach(() => {
     try {
-      fs.rmSync(distDir, {recursive: true, force: true})
-      fs.rmSync(xcodeDir, {recursive: true, force: true})
+      fs.rmSync(root, {recursive: true, force: true})
     } catch {
       // Ignore
     }
   })
 
-  async function runFakePipeline(
-    manifest: Record<string, unknown>,
-    opts?: {
-      existingTeam?: string
-      converterProduces?: (config: ReturnType<typeof configFor>) => void
-    }
-  ): Promise<{logs: string[]}> {
-    writeManifest(distDir, manifest)
-    const config = configFor(distDir)
-    const logs: string[] = []
-    const logger = {
-      info: (m: string) => logs.push(m),
-      warn: (m: string) => logs.push(m),
-      error: (m: string) => logs.push(m),
-      debug: () => {}
-    }
+  it('first run: converts, builds, opens the app, stamps the pid and confirms registration', async () => {
+    const {result, logs, tools} = await runPipeline(manifest)
+    const config = configFor()
+    const appPath = builtAppPath(config)
 
-    const projectExists = fs.existsSync(xcodeProjectPath(config))
-    const needsConversion = !projectExists || isProjectStale(config)
+    expect(tools.calls.converter).toHaveLength(1)
+    const converter = tools.calls.converter[0]
+    expect(converter[0]).toBe('safari-web-extension-converter')
+    expect(converter[1]).toBe(distDir)
+    expect(valueAfter(converter, '--project-location')).toBe(
+      config.projectLocation
+    )
 
-    if (needsConversion) {
-      if (projectExists) {
-        logs.push('[stale]')
-      }
+    expect(valueAfter(converter, '--app-name')).toBe('MyExt')
+    expect(valueAfter(converter, '--bundle-identifier')).toBe(
+      'dev.extensionjs.MyExt'
+    )
 
-      const {saved, restore} = backupAndRestoreXcodeSettings(config)
-
-      converterCalls.push(composeConverterArgs(config))
-
-      const produceFn =
-        opts?.converterProduces ||
-        ((c: ReturnType<typeof configFor>) => fakeConvert(c))
-      produceFn(config)
-
-      restore()
-
-      const keys = Object.keys(saved)
-
-      if (keys.length > 0) {
-        logs.push(`[preserved:${keys.join(',')}]`)
-      }
-
-      saveManifestFingerprint(config)
-      logs.push('[converted]')
-    } else {
-      logs.push('[skipped-conversion]')
+    for (const flag of [
+      '--no-prompt',
+      '--no-open',
+      '--force',
+      '--swift',
+      '--macos-only'
+    ]) {
+      expect(converter).toContain(flag)
     }
 
-    xcodebuildCalls.push(composeXcodebuildArgs(config))
-    logs.push('[built]')
+    expect(tools.calls.xcodebuild).toHaveLength(1)
+    const xcodebuild = tools.calls.xcodebuild[0]
+    expect(valueAfter(xcodebuild, '-project')).toBe(xcodeProjectPath(config))
+    expect(valueAfter(xcodebuild, '-scheme')).toBe('MyExt')
+    expect(xcodebuild[xcodebuild.length - 1]).toBe('build')
 
-    return {logs}
-  }
+    // The converter derives ids from the app name; the pipeline aligns both
+    // targets to the configured identity before xcodebuild reads the project.
+    const pbxproj = fs.readFileSync(pbxprojPath(config), 'utf8')
+    expect(pbxproj).toContain(
+      'PRODUCT_BUNDLE_IDENTIFIER = "dev.extensionjs.MyExt";'
+    )
 
-  it('resource-only change: skips the converter, still runs xcodebuild', async () => {
-    const manifest = {
-      name: 'MyExt',
-      permissions: ['storage'],
-      content_scripts: [{matches: ['<all_urls>'], js: ['content.js']}]
-    }
-    const first = await runFakePipeline(manifest)
-    expect(first.logs).toContain('[converted]')
-    expect(first.logs).toContain('[built]')
-    expect(converterCalls).toHaveLength(1)
+    expect(pbxproj).toContain(
+      'PRODUCT_BUNDLE_IDENTIFIER = "dev.extensionjs.MyExt.Extension";'
+    )
 
-    const second = await runFakePipeline(manifest)
-    expect(second.logs).toContain('[skipped-conversion]')
-    expect(second.logs).toContain('[built]')
-    expect(converterCalls).toHaveLength(1)
-    expect(xcodebuildCalls).toHaveLength(2)
-  })
+    expect(pbxproj).not.toContain('com.converter')
 
-  it('new top-level entry: triggers the converter', async () => {
-    await runFakePipeline({name: 'MyExt', permissions: ['storage']})
-    expect(converterCalls).toHaveLength(1)
+    expect(tools.calls.openApp).toEqual([appPath])
+    expect(tools.calls.openSafari).toEqual([])
+    expect(tools.calls.resolvePid).toEqual(['dev.extensionjs.MyExt'])
+    expect(tools.calls.pluginkit).toBe(1)
+    expect(processEvents(tools)).toEqual([
+      'converter',
+      'xcodebuild',
+      'openApp',
+      'resolvePid',
+      'pluginkit'
+    ])
 
-    // The project references each top-level entry by name, so a surface that
-    // did not exist when it was generated needs a new reference.
-    fs.mkdirSync(path.join(distDir, 'devtools'), {recursive: true})
-
-    const second = await runFakePipeline({
-      name: 'MyExt',
-      permissions: ['storage']
+    expect(readReady()).toMatchObject({
+      status: 'ready',
+      browserPid: 4242,
+      extensionId: 'dev.extensionjs.MyExt.Extension',
+      binary: appPath,
+      binaryProvenance: 'system'
     })
-    expect(second.logs).toContain('[stale]')
-    expect(second.logs).toContain('[converted]')
-    expect(converterCalls).toHaveLength(2)
+
+    expect(result.appPath).toBe(appPath)
+    expect(result.bundleId).toBe('dev.extensionjs.MyExt')
+    expect(logs).toContain(messages.safariConverting(distDir))
+    expect(logs).toContain(messages.safariConverted(config.projectLocation))
+    expect(logs).toContain(messages.safariBuilding('MyExt'))
+    expect(logs).toContain(messages.safariBuilt(appPath))
+    expect(logs).toContain(messages.safariOpening(appPath))
+    expect(logs).toContain(messages.safariNextSteps('MyExt', false))
+    expect(logs).toContain(messages.safariRegistered('MyExt'))
+    expect(logs).not.toContain(messages.safariProjectStale())
+    expect(logs).not.toContain(messages.safariSkippingConversion())
+    expect(logs).not.toContain(messages.safariNotYetRegistered('MyExt'))
+    expect(
+      logs.some((line) => /could not find its process id/.test(line))
+    ).toBe(false)
+
+    expect(fs.existsSync(manifestFingerprintPath(config))).toBe(true)
   })
 
-  it('permissions change alone: re-runs the converter for a fresh verdict', async () => {
-    await runFakePipeline({name: 'MyExt', permissions: ['storage']})
-    expect(converterCalls).toHaveLength(1)
+  it('drops --macos-only and switches the scheme when macOsOnly is off', async () => {
+    const {tools} = await runPipeline(manifest, {host: {macOsOnly: false}})
 
-    const second = await runFakePipeline({
-      name: 'MyExt',
-      permissions: ['storage', 'sidePanel']
+    expect(tools.calls.converter[0]).not.toContain('--macos-only')
+    expect(valueAfter(tools.calls.xcodebuild[0], '-scheme')).toBe(
+      'MyExt (macOS)'
+    )
+  })
+
+  it('passes the development team through to xcodebuild and says so', async () => {
+    const {logs, tools} = await runPipeline(manifest, {
+      host: {developmentTeam: 'TEAM123'}
     })
-    expect(second.logs).toContain('[stale]')
-    expect(converterCalls).toHaveLength(2)
+
+    expect(tools.calls.xcodebuild[0]).toContain('DEVELOPMENT_TEAM=TEAM123')
+    expect(logs).toContain(messages.safariNextSteps('MyExt', true))
   })
 
-  // The save-loop case: only the hashed content-script name moved, so the
-  // verdict cannot have changed and the converter stays out of the loop.
+  it('resync: reuses a fresh project, rebuilds, and neither opens nor mentions skipping', async () => {
+    await runPipeline(manifest)
+    const tools = fakeSafariTools()
+    const {logs} = await runPipeline(manifest, {tools, mode: 'resync'})
+
+    expect(tools.calls.converter).toHaveLength(0)
+    expect(tools.calls.xcodebuild).toHaveLength(1)
+    expect(tools.calls.openApp).toHaveLength(0)
+    expect(tools.calls.resolvePid).toHaveLength(0)
+    expect(tools.calls.pluginkit).toBe(0)
+    expect(logs).toContain(messages.safariRebuilt('MyExt'))
+    expect(logs).not.toContain(messages.safariSkippingConversion())
+    expect(logs).not.toContain(messages.safariBuilding('MyExt'))
+    expect(logs).not.toContain(messages.safariBuilt(builtAppPath(configFor())))
+  })
+
+  it('full mode on a fresh project says the conversion is skipped and still opens', async () => {
+    await runPipeline(manifest)
+    const tools = fakeSafariTools()
+    const {logs} = await runPipeline(manifest, {tools})
+
+    expect(tools.calls.converter).toHaveLength(0)
+    expect(tools.calls.xcodebuild).toHaveLength(1)
+    expect(tools.calls.openApp).toHaveLength(1)
+    expect(logs).toContain(messages.safariSkippingConversion())
+    expect(logs).toContain(messages.safariBuilding('MyExt'))
+  })
+
   it('content-script rehash alone: reuses the project', async () => {
-    await runFakePipeline({
+    await runPipeline({
       name: 'MyExt',
       content_scripts: [{matches: ['<all_urls>'], js: ['content-0.aaa.js']}]
     })
 
-    expect(converterCalls).toHaveLength(1)
+    const tools = fakeSafariTools()
+    const {logs} = await runPipeline(
+      {
+        name: 'MyExt',
+        content_scripts: [{matches: ['<all_urls>'], js: ['content-0.bbb.js']}]
+      },
+      {tools}
+    )
 
-    const second = await runFakePipeline({
-      name: 'MyExt',
-      content_scripts: [{matches: ['<all_urls>'], js: ['content-0.bbb.js']}]
-    })
-    expect(second.logs).not.toContain('[stale]')
-    expect(second.logs).toContain('[skipped-conversion]')
-    expect(converterCalls).toHaveLength(1)
+    expect(tools.calls.converter).toHaveLength(0)
+    expect(logs).not.toContain(messages.safariProjectStale())
+    expect(logs).toContain(messages.safariSkippingConversion())
   })
 
-  it('user Xcode configuration survives regeneration', async () => {
-    await runFakePipeline({name: 'SignedExt', icons: {'48': 'icon48.png'}})
+  it('permissions change: converts again and warns about discarded customizations first', async () => {
+    await runPipeline({name: 'MyExt', permissions: ['storage']})
+    const tools = fakeSafariTools()
+    const {logs} = await runPipeline(
+      {name: 'MyExt', permissions: ['storage', 'sidePanel']},
+      {tools}
+    )
 
-    const config = configFor(distDir)
-    const projFile = pbxprojPath(config)
+    const discards = messages.safariRegenerationDiscards([
+      ...PRESERVED_SETTINGS
+    ])
+    expect(tools.calls.converter).toHaveLength(1)
+    expect(logs).toContain(messages.safariProjectStale())
+    expect(logs).toContain(discards)
+    expect(logs).not.toContain(messages.safariForcedRegeneration())
+    expect(eventIndexOfLog(tools, logs, discards)).toBeLessThan(
+      tools.events.indexOf('converter')
+    )
+  })
+
+  it('new top-level entry: converts again', async () => {
+    await runPipeline({name: 'MyExt', permissions: ['storage']})
+    fs.mkdirSync(path.join(distDir, 'devtools'), {recursive: true})
+
+    const tools = fakeSafariTools()
+    const {logs} = await runPipeline(
+      {name: 'MyExt', permissions: ['storage']},
+      {tools}
+    )
+
+    expect(tools.calls.converter).toHaveLength(1)
+    expect(logs).toContain(messages.safariProjectStale())
+  })
+
+  it('icon change in the manifest: converts again', async () => {
+    await runPipeline({name: 'Icons', icons: {'48': 'icon48.png'}})
+
+    const tools = fakeSafariTools()
+    const {logs} = await runPipeline(
+      {name: 'Icons', icons: {'48': 'icon48.png', '128': 'icon128.png'}},
+      {tools}
+    )
+
+    expect(tools.calls.converter).toHaveLength(1)
+    expect(logs).toContain(messages.safariProjectStale())
+  })
+
+  it('--force-regenerate: converts a fresh project and names the flag', async () => {
+    await runPipeline(manifest)
+    const tools = fakeSafariTools()
+    const {logs} = await runPipeline(manifest, {
+      tools,
+      host: {forceRegenerate: true}
+    })
+
+    expect(tools.calls.converter).toHaveLength(1)
+    expect(logs).toContain(messages.safariForcedRegeneration())
+    expect(logs).not.toContain(messages.safariProjectStale())
+  })
+
+  it('user Xcode signing settings survive a regeneration', async () => {
+    await runPipeline({name: 'SignedExt', icons: {'48': 'icon48.png'}})
+
+    const projFile = pbxprojPath(configFor())
     fs.writeFileSync(
       projFile,
       [
@@ -1077,47 +1232,190 @@ describe('safari pipeline staleness integration', () => {
       ].join('\n')
     )
 
-    const result = await runFakePipeline({
-      name: 'SignedExt',
-      icons: {'48': 'icon48.png', '128': 'icon128.png'}
-    })
+    const tools = fakeSafariTools()
+    const {logs} = await runPipeline(
+      {name: 'SignedExt', icons: {'48': 'icon48.png', '128': 'icon128.png'}},
+      {tools}
+    )
 
-    expect(result.logs).toContain('[stale]')
-    expect(result.logs).toContain('[converted]')
-    expect(result.logs).toContain(
-      '[preserved:DEVELOPMENT_TEAM,CODE_SIGN_STYLE]'
+    expect(tools.calls.converter).toHaveLength(1)
+    expect(logs).toContain(
+      messages.safariSettingsPreserved(['DEVELOPMENT_TEAM', 'CODE_SIGN_STYLE'])
     )
 
     const regenerated = fs.readFileSync(projFile, 'utf8')
     expect(regenerated).toContain('DEVELOPMENT_TEAM = USERTEAM42;')
     expect(regenerated).toContain('CODE_SIGN_STYLE = Automatic;')
+    expect(regenerated).toContain(
+      'PRODUCT_BUNDLE_IDENTIFIER = "dev.extensionjs.SignedExt.Extension";'
+    )
   })
 
-  it('first build (no prior project) runs the converter without a stale warning', async () => {
-    const result = await runFakePipeline({
-      name: 'BrandNew',
-      permissions: []
+  it('converter warnings: names the keys and marks world as kept on purpose', async () => {
+    const tools = fakeSafariTools({
+      converter: {
+        output: [
+          'Xcode project location: /tmp/proj',
+          'Warning: The following keys in your manifest.json are not supported:',
+          '\tworld',
+          '\tpersistent',
+          'Finished converting.'
+        ].join('\n')
+      }
     })
-    expect(result.logs).toContain('[converted]')
-    expect(result.logs).not.toContain('[stale]')
-    expect(result.logs).toContain('[built]')
+    const {logs} = await runPipeline(manifest, {tools})
+
+    const warning = logs.find((line) =>
+      /safari-web-extension-converter reported/.test(line)
+    )
+    expect(warning).toBe(
+      messages.safariConverterWarnings([
+        'Warning: The following keys in your manifest.json are not supported:',
+        'world',
+        'persistent'
+      ])
+    )
+
+    expect(warning).toMatch(/3 warnings/)
+    expect(warning).toMatch(/kept one of these keys on purpose/)
+    expect(warning).toMatch(/Safari 18/)
+    expect(tools.calls.xcodebuild).toHaveLength(1)
   })
 
-  it('icon change in the manifest triggers regeneration', async () => {
-    await runFakePipeline({
-      name: 'Icons',
-      icons: {'48': 'icon48.png'}
+  it('prints no converter warning when the converter was quiet', async () => {
+    const {logs} = await runPipeline(manifest)
+
+    expect(
+      logs.some((line) => /safari-web-extension-converter reported/.test(line))
+    ).toBe(false)
+  })
+
+  it('xcodebuild failure: prints a bounded tail, throws, and never opens', async () => {
+    const noise = Array.from({length: 300}, (_, i) => `xcodebuild line ${i}`)
+    const tools = fakeSafariTools({
+      xcodebuild: {
+        code: 65,
+        output: [...noise, 'error: Signing requires a development team'].join(
+          '\n'
+        )
+      }
+    })
+    const logs: string[] = []
+
+    await expect(runPipeline(manifest, {tools, logs})).rejects.toThrow(
+      /xcodebuild failed \(exit 65\)/
+    )
+
+    const failure = logs.find((line) => /Safari packaging tool/.test(line))
+    expect(failure).toContain('xcodebuild')
+    expect(failure).toContain('exit 65')
+    expect(failure).toContain('error: Signing requires a development team')
+    expect(failure).toContain('xcodebuild line 299')
+    expect(failure).not.toContain('xcodebuild line 200')
+    expect(tools.calls.openApp).toHaveLength(0)
+    expect(tools.calls.resolvePid).toHaveLength(0)
+    expect(readReady().browserPid).toBeUndefined()
+  })
+
+  it('converter failure: throws before xcodebuild runs and leaves no fingerprint', async () => {
+    const tools = fakeSafariTools({
+      converter: {code: 1, output: 'error: manifest.json not found'}
+    })
+    const logs: string[] = []
+
+    await expect(runPipeline(manifest, {tools, logs})).rejects.toThrow(
+      /safari-web-extension-converter failed \(exit 1\)/
+    )
+
+    const failure = logs.find((line) => /Safari packaging tool/.test(line))
+    expect(failure).toContain('safari-web-extension-converter')
+    expect(failure).toContain('error: manifest.json not found')
+    expect(tools.calls.xcodebuild).toHaveLength(0)
+    expect(fs.existsSync(manifestFingerprintPath(configFor()))).toBe(false)
+  })
+
+  it('--no-open: builds, points at the app, and touches neither open nor pluginkit', async () => {
+    const {logs, tools} = await runPipeline(manifest, {host: {noOpen: true}})
+    const appPath = builtAppPath(configFor())
+
+    expect(tools.calls.xcodebuild).toHaveLength(1)
+    expect(tools.calls.openApp).toHaveLength(0)
+    expect(tools.calls.resolvePid).toHaveLength(0)
+    expect(tools.calls.pluginkit).toBe(0)
+    expect(logs).toContain(messages.safariBuilt(appPath))
+    expect(logs).toContain(messages.safariOpenHint(appPath, 'MyExt'))
+    expect(logs).not.toContain(messages.safariNextSteps('MyExt', false))
+    expect(readReady()).toEqual({
+      status: 'ready',
+      browser: 'safari',
+      command: 'dev'
+    })
+  })
+
+  it('pid lookup comes back empty: ready.json still names the app and a line says so', async () => {
+    const tools = fakeSafariTools({pid: null})
+    const {logs} = await runPipeline(manifest, {tools})
+    const appPath = builtAppPath(configFor())
+
+    expect(tools.calls.openApp).toEqual([appPath])
+    expect(tools.calls.resolvePid).toEqual(['dev.extensionjs.MyExt'])
+
+    const ready = readReady()
+    expect(ready.browserPid).toBeUndefined()
+    expect(ready).toMatchObject({
+      extensionId: 'dev.extensionjs.MyExt.Extension',
+      binary: appPath,
+      binaryProvenance: 'system'
     })
 
-    expect(converterCalls).toHaveLength(1)
+    expect(logs).toContain(messages.safariPidUnresolved('MyExt'))
+    expect(logs).toContain(messages.safariNextSteps('MyExt', false))
+    expect(logs).toContain(messages.safariRegistered('MyExt'))
+  })
 
-    const second = await runFakePipeline({
-      name: 'Icons',
-      icons: {'48': 'icon48.png', '128': 'icon128.png'}
+  it('pinned Safari binary: raises Safari itself and stamps that as the browser', async () => {
+    const {tools} = await runPipeline(manifest, {
+      host: {safariBinary: '/Applications/Safari.app'}
     })
-    expect(second.logs).toContain('[stale]')
-    expect(second.logs).toContain('[converted]')
-    expect(converterCalls).toHaveLength(2)
+    const appPath = builtAppPath(configFor())
+
+    expect(tools.calls.openApp).toEqual([appPath])
+    expect(tools.calls.openSafari).toEqual(['/Applications/Safari.app'])
+    expect(tools.calls.resolvePid).toEqual(['com.apple.Safari'])
+    expect(readReady()).toMatchObject({
+      browserPid: 4242,
+      binary: '/Applications/Safari.app',
+      binaryProvenance: 'pinned',
+      extensionId: 'dev.extensionjs.MyExt.Extension'
+    })
+  })
+
+  it('non-macOS host: warns and runs no tool at all', async () => {
+    const tools = fakeSafariTools({platformOk: false})
+    const {logs, result} = await runPipeline(manifest, {tools})
+
+    expect(logs).toContain(messages.safariRequiresMacOS(process.platform))
+    expect(processEvents(tools)).toEqual([])
+    expect(result.bundleId).toBe('dev.extensionjs.MyExt')
+  })
+
+  it('broken Xcode install: names the missing tool and runs nothing', async () => {
+    const tools = fakeSafariTools({toolchainOk: false})
+    const {logs} = await runPipeline(manifest, {tools})
+
+    expect(logs).toContain(
+      messages.safariToolchainMissing('safari-web-extension-converter')
+    )
+
+    expect(processEvents(tools)).toEqual([])
+  })
+
+  it('dry run: describes both commands and runs no tool', async () => {
+    const tools = fakeSafariTools()
+    const {result} = await runPipeline(manifest, {tools, host: {dryRun: true}})
+
+    expect(processEvents(tools)).toEqual([])
+    expect(result.appPath).toBe(builtAppPath(configFor()))
   })
 })
 
