@@ -6,10 +6,10 @@
 [action-url]: https://github.com/extension-js/extension.js/actions
 [discord-image]: https://img.shields.io/discord/1253608412890271755?label=Discord&logo=discord&style=flat&color=0971fe
 [discord-url]: https://discord.gg/v9h2RgeTSN
-[bestpractices-image]: https://img.shields.io/cii/level/14662?label=OpenSSF%20Best%20Practices&style=flat&color=0971fe
+[bestpractices-image]: https://img.shields.io/cii/level/14662?label=Best%20Practices&style=flat&color=0971fe
 [bestpractices-url]: https://www.bestpractices.dev/projects/14662
 
-# Extension.js [![Version][npm-version-image]][npm-version-url] [![Downloads][npm-downloads-image]][npm-downloads-url] [![CI][action-image]][action-url] [![Discord][discord-image]][discord-url] [![OpenSSF Best Practices][bestpractices-image]][bestpractices-url]
+# Extension.js [![Version][npm-version-image]][npm-version-url] [![Downloads][npm-downloads-image]][npm-downloads-url] [![CI][action-image]][action-url] [![Discord][discord-image]][discord-url] [![Best Practices][bestpractices-image]][bestpractices-url]
 
 > The cross-browser extension framework. Build for Chrome, Edge, Firefox, and Safari with no build config required.
 
@@ -25,7 +25,7 @@ Works with `npm`, `pnpm`, `yarn`, `bun`, and `deno`.
 
 The CLI itself runs on Node.js 22.12+, Deno 2.5+, and Bun 1.2+.
 
-[Documentation](https://extension.js.org/docs) · [Templates](https://templates.extension.dev/?utm_source=readme&utm_campaign=nav-templates) · [Showcase](https://extension.js.org/showcase) · [Blog](https://extension.js.org/blog)
+[Documentation](https://extension.js.org/docs) · [Templates](https://templates.extension.dev/?utm_source=readme&utm_campaign=nav-templates) · [YouTube](https://www.youtube.com/@BrowserExtension) · [Showcase](https://extension.js.org/showcase) · [Blog](https://extension.js.org/blog)
 
 ## Why Extension.js
 
@@ -173,23 +173,25 @@ npx extension@latest dev https://github.com/GoogleChrome/chrome-extensions-sampl
 
 ## Package managers
 
-<div align="center">
+Add Extension.js to a project, or run it once without installing, with the package manager you already use.
 
-| <img alt="npm" src="https://media.extension.land/logos/package-managers/npm.svg" width="70"> | <img alt="pnpm" src="https://media.extension.land/logos/package-managers/pnpm.svg" width="70"> | <img alt="Yarn" src="https://media.extension.land/logos/package-managers/yarn.svg" width="70"> | <img alt="Bun" src="https://media.extension.land/logos/package-managers/bun.svg" width="70"> | <picture><source media="(prefers-color-scheme: dark)" srcset="https://media.extension.land/logos/package-managers/deno-dark.svg"><img alt="Deno" src="https://media.extension.land/logos/package-managers/deno.svg" width="70"></picture> |
-| :-: | :-: | :-: | :-: | :-: |
-| npm<br>✅ Supported | pnpm<br>✅ Supported | Yarn<br>✅ Supported | Bun<br>✅ Supported | Deno<br>✅ Supported |
+| Package manager | Add to a project | Run without installing |
+| :-- | :-- | :-- |
+| npm | `npm install extension@latest --save-dev` | `npx extension@latest create my-extension` |
+| pnpm | `pnpm add extension@latest --save-dev` | `pnpm dlx extension@latest create my-extension` |
+| Yarn | `yarn add extension@latest --dev` | `yarn dlx extension@latest create my-extension` |
+| Bun | `bun add --dev extension@latest` | `bunx extension@latest create my-extension` |
+| Deno | `deno add npm:extension@latest` | `deno run -A npm:extension@latest create my-extension` |
 
-</div>
-
-Each of these installs Extension.js, launches it, and runs its scripts. Which runtime the CLI then executes on is a separate question.
+Which runtime the CLI then executes on is a separate question, answered below.
 
 ## Runtimes
 
-| Runtime | Status | Notes |
-| :-- | :-- | :-- |
-| Node.js | ✅ 22.12 and newer | The default. `npx`, `pnpm dlx`, `yarn dlx` and `bunx` all land here through the published bin |
-| Deno | ✅ 2.5 and newer | `deno run -A npm:extension@latest`. Deno 2.8.0 is refused because it cannot load `node:querystring`, fixed in 2.8.1 |
-| Bun | ✅ 1.2 and newer | `bunx --bun extension` and `bun run --bun`. Plain `bunx` runs the CLI on Node.js instead, through the published bin |
+| | Runtime | Status | Notes |
+| :-: | :-- | :-- | :-- |
+| <img alt="Node.js" src="https://media.extension.land/logos/package-managers/node.svg" width="28"> | Node.js | ✅ 22.12 and newer | The default. `npx`, `pnpm dlx`, `yarn dlx` and `bunx` all land here through the published bin |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="https://media.extension.land/logos/package-managers/deno-dark.svg"><img alt="Deno" src="https://media.extension.land/logos/package-managers/deno.svg" width="28"></picture> | Deno | ✅ 2.5 and newer | `deno run -A npm:extension@latest`. Deno 2.8.0 is refused because it cannot load `node:querystring`, fixed in 2.8.1 |
+| <img alt="Bun" src="https://media.extension.land/logos/package-managers/bun.svg" width="28"> | Bun | ✅ 1.2 and newer | `bunx --bun extension` and `bun run --bun`. Plain `bunx` runs the CLI on Node.js instead, through the published bin |
 
 ## Community
 
