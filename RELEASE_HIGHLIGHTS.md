@@ -20,6 +20,3 @@
 -->
 
 ## Highlights
-
-- **Pages load clean again.** A fresh install of 4.1.18 to 4.1.23 could pull a newer rspack than the one tested here, and every page with a linked stylesheet threw on load. The bundler is now pinned, with a real build spec guarding the shape.
-- **`extension create --template transformers-js`** scaffolds the side panel reshaped after Hugging Face's own browser extension sample: type in the box and the classification prints as JSON, with page text, selection and model settings on top, for Chrome, Edge and Firefox from one manifest.
