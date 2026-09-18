@@ -8,6 +8,7 @@
 
 import {
   isChromiumBrowser,
+  isEmulatorBrowser,
   isFirefoxBrowser
 } from './browsers-lib/browser-family'
 import {computeBinariesBaseDir} from './browsers-lib/output-binaries-resolver'
@@ -23,6 +24,7 @@ import type {
 import {createChromiumContext} from './run-chromium/chromium-context'
 import {ChromiumLaunchPlugin} from './run-chromium/chromium-launch'
 import type {ChromiumLaunchOptions} from './run-chromium/chromium-types'
+import {launchEmulator} from './run-emulator'
 import {createFirefoxContext} from './run-firefox/firefox-context'
 import {FirefoxLaunchPlugin} from './run-firefox/firefox-launch'
 import type {FirefoxPluginRuntime} from './run-firefox/firefox-types'
@@ -58,6 +60,7 @@ export interface BrowserLaunchOptions {
   logUrl?: string
   logTab?: number | string
   logSink?: BrowserLogSink
+  emulatorViewerUrl?: string
 }
 
 export type {ExtensionLoadRetryResult}
@@ -90,6 +93,10 @@ function createCompilationLike(opts: BrowserLaunchOptions): CompilationLike {
 export async function launchBrowser(
   opts: BrowserLaunchOptions
 ): Promise<BrowserController> {
+  if (isEmulatorBrowser(opts.browser)) {
+    return launchEmulator(opts)
+  }
+
   const compilationLike = createCompilationLike(opts)
   const mode = opts.mode || 'production'
 

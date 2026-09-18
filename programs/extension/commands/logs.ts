@@ -9,6 +9,7 @@
 import fs from 'node:fs'
 import type {Command} from 'commander'
 import colors from 'pintor'
+import {emulatorSessionRefusal} from '../helpers/emulator-session'
 import {exitAfterDrain} from '../helpers/exit-after-drain'
 import {loadExtensionDevelopBridgeModule} from '../helpers/extension-develop-runtime'
 import {commandDescriptions} from '../helpers/messages'
@@ -336,6 +337,30 @@ export function registerLogsCommand(program: Command) {
             ENVELOPE.fail('logs', 'usage', {
               code: CODES.E_INVALID_OPTION,
               message,
+              name: 'CliError'
+            })
+          )
+        }
+
+        process.exit(1)
+      }
+
+      const emulatorRefusal = emulatorSessionRefusal(
+        bridge,
+        projectPath,
+        browser,
+        'logs'
+      )
+
+      if (emulatorRefusal) {
+        // eslint-disable-next-line no-console
+        console.error(emulatorRefusal)
+
+        if (format !== 'pretty') {
+          writeFrame(
+            ENVELOPE.fail('logs', 'failed', {
+              code: CODES.E_COMMAND_UNSUPPORTED_FOR_TARGET,
+              message: emulatorRefusal,
               name: 'CliError'
             })
           )
