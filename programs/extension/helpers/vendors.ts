@@ -16,6 +16,23 @@ export type Browser =
   | 'firefox-based'
   | 'safari'
   | 'webkit-based'
+  | 'chromium-emulator'
+
+export const EMULATOR_BROWSER_TARGET = 'chromium-emulator'
+
+export function isEmulatorLaneEnabled(
+  env: NodeJS.ProcessEnv = process.env
+): boolean {
+  const value = String(env.EXTENSION_EXPERIMENTAL_EMULATOR || '')
+    .trim()
+    .toLowerCase()
+
+  return value === '1' || value === 'true'
+}
+
+export function isEmulatorVendor(value: unknown): boolean {
+  return value === EMULATOR_BROWSER_TARGET
+}
 
 export function isSafariVendor(value: string): boolean {
   return value === 'safari' || value === 'webkit-based'
@@ -45,6 +62,14 @@ export const SUPPORTED_BROWSER_TARGETS = [
 ]
 
 export const BROWSER_TARGETS_HELP = SUPPORTED_BROWSER_TARGETS.join(' | ')
+
+export function supportedBrowserTargets(
+  env: NodeJS.ProcessEnv = process.env
+): string[] {
+  return isEmulatorLaneEnabled(env)
+    ? [...SUPPORTED_BROWSER_TARGETS, EMULATOR_BROWSER_TARGET]
+    : [...SUPPORTED_BROWSER_TARGETS]
+}
 
 // The act verbs (logs, eval, reload, storage, inspect, open) and doctor attach
 // to a RUNNING dev session, and a session can be Safari since it grew a working
@@ -120,9 +145,13 @@ export const installTargets = (browser?: Browser | 'all') => {
 // process.exit leaves the caller no way to wrap the failure in its own output.
 export function validateVendors(
   vendorsList: string[],
-  onInvalid: (invalid: string, supported: string[]) => void
+  onInvalid: (invalid: string, supported: string[]) => void,
+  options: {allowEmulator?: boolean} = {}
 ): boolean {
-  const supported = SUPPORTED_BROWSER_TARGETS
+  const supported =
+    options.allowEmulator === false
+      ? [...SUPPORTED_BROWSER_TARGETS]
+      : supportedBrowserTargets()
 
   for (const v of vendorsList) {
     if (!supported.includes(v)) {

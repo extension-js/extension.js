@@ -40,6 +40,22 @@ export const CHROMIUM_FAMILY_ALIASES = [
 ]
 export const GECKO_FAMILY_ALIASES = ['firefox', 'gecko-based']
 
+export const EMULATOR_BROWSER = 'chromium-emulator'
+
+export function isEmulatorLaneEnabled(
+  env: NodeJS.ProcessEnv = process.env
+): boolean {
+  const value = String(env.EXTENSION_EXPERIMENTAL_EMULATOR || '')
+    .trim()
+    .toLowerCase()
+
+  return value === '1' || value === 'true'
+}
+
+export function isEmulatorBrowser(browser: unknown): boolean {
+  return browser === EMULATOR_BROWSER
+}
+
 export const SUPPORTED_BROWSERS = [
   ...CHROMIUM_BASED_BROWSERS,
   ...GECKO_BASED_BROWSERS

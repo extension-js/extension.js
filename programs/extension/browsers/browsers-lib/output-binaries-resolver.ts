@@ -107,6 +107,7 @@ export function managedBrowserCacheEnv(
     | 'firefox-based'
     | 'safari'
     | 'webkit-based'
+    | 'chromium-emulator'
 ): Record<string, string> {
   const root = String(cacheRoot || '').trim()
   if (!root) return {}

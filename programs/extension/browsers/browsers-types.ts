@@ -24,6 +24,7 @@ export type BrowserType =
   | 'firefox-based'
   | 'safari'
   | 'webkit-based'
+  | 'chromium-emulator'
 
 // Lightweight stand-in for rspack's Compilation used by browser-launching code;
 // only properties actually read by launch/reload/inspection flows.
