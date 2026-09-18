@@ -17,6 +17,7 @@ import {loadLoaderOptions} from '../js-frameworks-lib/load-loader-options'
 import * as messages from '../js-frameworks-lib/messages'
 
 let userMessageDelivered = false
+let svelteMismatchDelivered = false
 
 function resolveFromProject(id: string, projectPath: string) {
   for (const base of [projectPath, process.cwd()]) {
@@ -30,6 +31,95 @@ function resolveFromProject(id: string, projectPath: string) {
   }
 
   return undefined
+}
+
+function readPackageVersion(packageJsonPath: string): string | undefined {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8')) as {
+      version?: string
+    }
+
+    return typeof parsed.version === 'string' ? parsed.version : undefined
+  } catch {
+    return undefined
+  }
+}
+
+// svelte-loader does `require('svelte/compiler')` when it loads, so the svelte
+// beside the loader is the one that compiles, wherever the loader lives.
+export function resolveCompilerSvelte(loaderPath: string): {
+  root?: string
+  version?: string
+} {
+  try {
+    const req = createRequire(loaderPath)
+    const packageJsonPath = req.resolve('svelte/package.json')
+
+    return {
+      root: path.dirname(packageJsonPath),
+      version: readPackageVersion(packageJsonPath)
+    }
+  } catch {
+    return {}
+  }
+}
+
+export interface SvelteRootChoice {
+  root?: string
+  // True when the compiler and the project pin different svelte versions, so
+  // the runtime has to follow the compiler for the bundle to link at all.
+  mismatch: boolean
+  compilerVersion?: string
+  projectVersion?: string
+}
+
+// Numeric compare of the release part only. A prerelease compares as its
+// release, which is close enough: the question here is whether the compiler
+// can emit an export the runtime predates.
+export function isOlderThan(left: string, right: string): boolean {
+  const parts = (value: string) =>
+    value
+      .split('-')[0]
+      .split('.')
+      .map((piece) => Number.parseInt(piece, 10))
+
+  const a = parts(left)
+  const b = parts(right)
+
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    const x = Number.isFinite(a[i]) ? a[i] : 0
+    const y = Number.isFinite(b[i]) ? b[i] : 0
+
+    if (x !== y) return x < y
+  }
+
+  return false
+}
+
+export function chooseSvelteRoot(input: {
+  projectRoot?: string
+  projectVersion?: string
+  compilerRoot?: string
+  compilerVersion?: string
+}): SvelteRootChoice {
+  const {projectRoot, projectVersion, compilerRoot, compilerVersion} = input
+  // Only one direction breaks. A newer runtime links code an older compiler
+  // emitted, because svelte adds internals rather than removing them, so that
+  // project keeps the version it pinned and hears nothing.
+  const mismatch = Boolean(
+    projectRoot &&
+      compilerRoot &&
+      projectVersion &&
+      compilerVersion &&
+      isOlderThan(projectVersion, compilerVersion)
+  )
+
+  return {
+    root: mismatch ? compilerRoot : projectRoot || compilerRoot,
+    mismatch,
+    compilerVersion,
+    projectVersion
+  }
 }
 
 export function isUsingSvelte(projectPath: string) {
@@ -99,13 +189,39 @@ export async function maybeUseSvelte(
     'svelte/package.json',
     projectPath
   )
-  const sveltePackageRoot = sveltePackageJson
+  const projectRoot = sveltePackageJson
     ? path.dirname(sveltePackageJson)
     : undefined
+  const compilerSvelte = resolveCompilerSvelte(svelteLoaderPath)
+  const chosen = chooseSvelteRoot({
+    projectRoot,
+    projectVersion: sveltePackageJson
+      ? readPackageVersion(sveltePackageJson)
+      : undefined,
+    compilerRoot: compilerSvelte.root,
+    compilerVersion: compilerSvelte.version
+  })
+  const sveltePackageRoot = chosen.root
+
+  if (chosen.mismatch && !svelteMismatchDelivered) {
+    console.warn(
+      messages.svelteCompilerRuntimeMismatch(
+        String(chosen.compilerVersion),
+        String(chosen.projectVersion)
+      )
+    )
+
+    svelteMismatchDelivered = true
+  }
 
   const resolveClientSubpath = (relative: string) => {
-    const direct = resolveFromProject(`svelte/${relative}`, projectPath)
-    if (direct) return direct
+    // On a mismatch the project's copy is the wrong one: its runtime cannot
+    // link the exports the compiler just emitted, so only the root wins here.
+    if (!chosen.mismatch) {
+      const direct = resolveFromProject(`svelte/${relative}`, projectPath)
+      if (direct) return direct
+    }
+
     if (!sveltePackageRoot) return undefined
 
     const fromRoot = path.join(sveltePackageRoot, relative)
@@ -131,6 +247,17 @@ export async function maybeUseSvelte(
   }
 
   if (svelteLegacyClient) alias['svelte/legacy'] = svelteLegacyClient
+
+  // The compiled component imports svelte/internal/client directly. It was the
+  // one entry left to normal resolution, which is how a project's older runtime
+  // ended up linking against code a newer compiler emitted.
+  const svelteInternal = sveltePackageRoot
+    ? path.join(sveltePackageRoot, 'src', 'internal')
+    : undefined
+
+  if (svelteInternal && fs.existsSync(svelteInternal)) {
+    alias['svelte/internal'] = svelteInternal
+  }
 
   const resolverPlugin = {
     apply(compiler: import('@rspack/core').Compiler) {

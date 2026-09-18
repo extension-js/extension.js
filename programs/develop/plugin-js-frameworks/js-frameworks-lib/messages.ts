@@ -58,6 +58,20 @@ export function failedToInstallIntegration(
   )
 }
 
+// svelte-loader compiles with the svelte that sits beside it, so a project
+// whose lockfile pins an older one gets output its runtime cannot link.
+export function svelteCompilerRuntimeMismatch(
+  compilerVersion: string,
+  projectVersion: string
+) {
+  return (
+    `${prefix('warn')} Svelte ${colors.blue(compilerVersion)} compiles this project, ` +
+    `which pins svelte ${colors.blue(projectVersion)}.\n` +
+    `The build uses ${colors.blue(compilerVersion)} for both, so the output links. ` +
+    `Add ${colors.blue('svelte-loader')} to the project to compile with ${colors.blue(projectVersion)} instead.`
+  )
+}
+
 export function isUsingCustomLoader(loaderPath: string) {
   return `${prefix('debug')} loader   custom=${loaderPath}`
 }
