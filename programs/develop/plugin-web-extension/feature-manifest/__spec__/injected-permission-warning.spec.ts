@@ -41,7 +41,10 @@ describe('findInjectedOnlyPermissionUses', () => {
   })
 
   it('flags chrome.tabs, which dev injects and the scan used to skip', () => {
-    const sw = write('sw.js', 'chrome.tabs.query({active: true})\n')
+    const sw = write(
+      'sw.js',
+      'chrome.tabs.query({active: true}, ([tab]) => tab.url)\n'
+    )
     const hits = findInjectedOnlyPermissionUses(
       compilationWith([sw]),
       new Set(['storage']),

@@ -35,7 +35,7 @@ const SAFARI_ONLY = [
 
 const UNGUARDED = [
   'chrome.tabs.query({}, (tabs) => {',
-  '  console.log(tabs.length)',
+  '  console.log(tabs[0].url)',
   '})',
   ''
 ].join('\n')

@@ -330,7 +330,10 @@ describe('ApplyDevDefaults', () => {
   it('warns when source uses chrome.tabs and the manifest never declares it', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-dev-tabs-'))
     const file = path.join(dir, 'background.js')
-    fs.writeFileSync(file, 'chrome.tabs.query({}, (t) => console.log(t))\n')
+    fs.writeFileSync(
+      file,
+      'chrome.tabs.query({}, (t) => console.log(t[0].url))\n'
+    )
 
     try {
       const {out, warnings} = runDevDefaultsWithWarnings(
@@ -349,7 +352,7 @@ describe('ApplyDevDefaults', () => {
       // chrome.tabs.sendMessage needs no permission, so the warning must not
       // promise a runtime failure for the whole namespace.
       expect(drift[0].message).not.toContain('will fail at runtime')
-      expect(drift[0].message).toContain('work packaged without it')
+      expect(drift[0].message).not.toContain('activeTab')
     } finally {
       fs.rmSync(dir, {recursive: true, force: true})
     }
@@ -412,7 +415,10 @@ describe('ApplyDevDefaults', () => {
   it('still warns when the chrome.tabs call ships on this target', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-dev-survives-'))
     const file = path.join(dir, 'background.ts')
-    fs.writeFileSync(file, 'chrome.tabs.query({}, (t) => console.log(t))\n')
+    fs.writeFileSync(
+      file,
+      'chrome.tabs.query({}, (t) => console.log(t[0].url))\n'
+    )
 
     try {
       const {warnings} = runDevDefaultsWithWarnings(
@@ -422,7 +428,7 @@ describe('ApplyDevDefaults', () => {
           {
             resource: file,
             emitted:
-              '(function () {\n  chrome.tabs.query({}, (t) => console.log(t));\n})();\n'
+              '(function () {\n  chrome.tabs.query({}, (t) => console.log(t[0].url));\n})();\n'
           }
         ]
       )
@@ -445,7 +451,7 @@ describe('ApplyDevDefaults', () => {
     const folded = path.join(dir, 'safari-only.ts')
     const live = path.join(dir, 'background.ts')
     fs.writeFileSync(folded, 'chrome.tabs.create({url: "a.html"})\n')
-    fs.writeFileSync(live, 'chrome.tabs.query({}, () => {})\n')
+    fs.writeFileSync(live, 'chrome.tabs.query({}, (t) => t[0].title)\n')
 
     try {
       const {warnings} = runDevDefaultsWithWarnings(
@@ -453,7 +459,10 @@ describe('ApplyDevDefaults', () => {
         'firefox',
         [
           {resource: folded, emitted: SAFARI_ONLY_DEV_BUNDLE},
-          {resource: live, emitted: 'chrome.tabs.query({}, () => {});\n'}
+          {
+            resource: live,
+            emitted: 'chrome.tabs.query({}, (t) => t[0].title);\n'
+          }
         ]
       )
       const drift = warnings.filter(
@@ -470,7 +479,7 @@ describe('ApplyDevDefaults', () => {
   it('warns on chrome.tabs for MV2 too', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-dev-tabs-mv2-'))
     const file = path.join(dir, 'background.js')
-    fs.writeFileSync(file, 'browser.tabs.query({})\n')
+    fs.writeFileSync(file, "browser.tabs.query({title: 'Inbox'})\n")
 
     try {
       const {warnings} = runDevDefaultsWithWarnings(
@@ -483,6 +492,74 @@ describe('ApplyDevDefaults', () => {
       )
       expect(drift).toHaveLength(1)
       expect(drift[0].message).toContain('"tabs"')
+    } finally {
+      fs.rmSync(dir, {recursive: true, force: true})
+    }
+  })
+
+  // beastify's popup: tabs.query for the active tab, then tabs.sendMessage.
+  // Neither needs "tabs", so a correct manifest must not earn a warning.
+  it('stays quiet when chrome.tabs is used without reading a gated field', () => {
+    const dir = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'extjs-dev-tabs-ungated-')
+    )
+    const file = path.join(dir, 'choose_beast.js')
+    fs.writeFileSync(
+      file,
+      [
+        'document.title = "Beastify"',
+        'const here = new URL("./beasts/", import.meta.url)',
+        'browser.tabs',
+        '  .query({active: true, currentWindow: true})',
+        '  .then((tabs) => browser.tabs.sendMessage(tabs[0].id, {here}))',
+        ''
+      ].join('\n')
+    )
+
+    try {
+      const {warnings} = runDevDefaultsWithWarnings(
+        {manifest_version: 2, name: 'x', permissions: ['activeTab']},
+        'firefox',
+        [{resource: file}]
+      )
+      expect(
+        warnings.filter((w) => w.name === 'DevInjectedPermissionWarning')
+      ).toEqual([])
+    } finally {
+      fs.rmSync(dir, {recursive: true, force: true})
+    }
+  })
+
+  it.each([
+    [
+      'a field read',
+      'chrome.tabs.get(1, (tab) => console.log(tab.favIconUrl))'
+    ],
+    [
+      'a destructured field',
+      'chrome.tabs.get(1, ({pendingUrl}) => pendingUrl)'
+    ],
+    [
+      'a url query filter',
+      "chrome.tabs.query({url: 'https://*.example.com/*'})"
+    ]
+  ])('warns on %s', (_label, source) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-dev-tabs-gated-'))
+    const file = path.join(dir, 'background.js')
+    fs.writeFileSync(file, `${source}\n`)
+
+    try {
+      const {warnings} = runDevDefaultsWithWarnings(
+        {manifest_version: 3, name: 'x', permissions: ['activeTab']},
+        'chrome',
+        [{resource: file}]
+      )
+      const drift = warnings.filter(
+        (w) => w.name === 'DevInjectedPermissionWarning'
+      )
+      expect(drift).toHaveLength(1)
+      expect(drift[0].message).toContain('"tabs"')
+      expect(drift[0].message).toContain('activeTab covers only the tab')
     } finally {
       fs.rmSync(dir, {recursive: true, force: true})
     }
@@ -506,7 +583,7 @@ describe('ApplyDevDefaults', () => {
     it.each(injected)('warns on undeclared chrome.%s use', (api: string) => {
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-dev-cover-'))
       const file = path.join(dir, 'background.js')
-      fs.writeFileSync(file, `chrome.${api}.someCall()\n`)
+      fs.writeFileSync(file, `chrome.${api}.someCall().then((r) => r.url)\n`)
 
       try {
         const {warnings} = runDevDefaultsWithWarnings(
@@ -987,7 +1064,7 @@ describe('findInjectedOnlyPermissionUses', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-dev-scan-ext-'))
     const worker = path.join(dir, 'worker.mts')
     const legacy = path.join(dir, 'legacy.cts')
-    fs.writeFileSync(worker, 'chrome.tabs.query({})\n')
+    fs.writeFileSync(worker, 'chrome.tabs.query({url: "https://*/*"})\n')
     fs.writeFileSync(legacy, 'chrome.scripting.executeScript({})\n')
     const uses = findInjectedOnlyPermissionUses(
       {

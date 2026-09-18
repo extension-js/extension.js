@@ -24,7 +24,8 @@ import {
 import {
   devInjectedPermissions,
   partiallyGatedNote,
-  partiallyGatedWarning
+  partiallyGatedWarning,
+  usesGatedPart
 } from './apply-dev-defaults-lib/dev-injected-permissions'
 import {
   type EmittedCompilation,
@@ -91,6 +92,7 @@ export function findInjectedOnlyPermissionUses(
 
         const useRe = new RegExp(`\\b(?:chrome|browser)\\s*\\.\\s*${api}\\b`)
         if (!useRe.test(source)) continue
+        if (!usesGatedPart(api, source)) continue
 
         const files = emittedFilesOf(compilation, outer)
 
@@ -318,7 +320,7 @@ export class ApplyDevDefaults {
                     `${relative} uses chrome.${api}. It works in development only because the dev ` +
                     `instrumentation injects "${api}" as required: the production build has it only ` +
                     `after a runtime chrome.permissions.request, so guard the use or move "${api}" to permissions.`
-                  : partiallyGatedWarning(api, relative) ||
+                  : partiallyGatedWarning(api, relative, declared) ||
                     `manifest.json does not declare the "${api}" permission, but ` +
                       `${relative} uses chrome.${api}. ` +
                       `It works in development only because the dev instrumentation ` +
