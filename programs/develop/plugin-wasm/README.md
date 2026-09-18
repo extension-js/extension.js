@@ -20,9 +20,9 @@
 
 |                                                                            | Feature                                                                 |
 | -------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **Async WebAssembly**<br/>Enables async wasm modules required by libs.  |
-| <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **.wasm resolution**<br/>Ensures `resolve.extensions` includes `.wasm`. |
-| <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **Runtime aliases**<br/>Stable aliasing for wasm-related assets.        |
+| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Async WebAssembly**<br/>Enables async wasm modules required by libs.  |
+| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **.wasm resolution**<br/>Ensures `resolve.extensions` includes `.wasm`. |
+| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Runtime aliases**<br/>Stable aliasing for wasm-related assets.        |
 
 ### Usage
 

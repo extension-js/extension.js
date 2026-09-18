@@ -20,10 +20,10 @@
 
 |                                                                            | Feature                                                                                |
 | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **Images/Fonts/Files**<br/>Smart defaults for common assets under a stable `assets/`.  |
-| <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **SVG handling**<br/>Inline small SVGs (<=2KB) and emit larger ones.                   |
-| <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **Prod hashing**<br/>Content hashes in filenames for long-term caching in production.  |
-| <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **Respect custom rules**<br/>Leaves custom `.svg` loader rules untouched when present. |
+| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Images/Fonts/Files**<br/>Smart defaults for common assets under a stable `assets/`.  |
+| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **SVG handling**<br/>Inline small SVGs (<=2KB) and emit larger ones.                   |
+| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Prod hashing**<br/>Content hashes in filenames for long-term caching in production.  |
+| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Respect custom rules**<br/>Leaves custom `.svg` loader rules untouched when present. |
 
 ### Usage
 

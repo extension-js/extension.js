@@ -15,11 +15,11 @@
 
 |                                                                            | Feature                                                                                              |
 | -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **Content script CSS**<br/>Emits CSS as assets and wires HMR; plays nicely with Shadow DOM wrappers. |
-| <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **HTML CSS**<br/>Standard CSS handling for HTML entries.                                             |
-| <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **SASS/LESS (optional)**<br/>Auto‑enables when dependencies exist; emits as assets for scripts.      |
-| <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **Stylelint (optional)**<br/>Enables style linting if installed/configured.                          |
-| <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **PostCSS (optional)**<br/>Auto‑enables for Tailwind/PostCSS config.                                 |
+| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Content script CSS**<br/>Emits CSS as assets and wires HMR; plays nicely with Shadow DOM wrappers. |
+| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **HTML CSS**<br/>Standard CSS handling for HTML entries.                                             |
+| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **SASS/LESS (optional)**<br/>Auto‑enables when dependencies exist; emits as assets for scripts.      |
+| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Stylelint (optional)**<br/>Enables style linting if installed/configured.                          |
+| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **PostCSS (optional)**<br/>Auto‑enables for Tailwind/PostCSS config.                                 |
 
 ### Usage
 

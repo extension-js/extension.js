@@ -19,9 +19,9 @@
 
 |                                                                            | Feature                                                                                                                       |
 | -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **Environment handling**<br/>Loads env files by priority, injects EXTENSION*PUBLIC*\* to process/import.meta, and templating. |
-| <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **Clean dist**<br/>Optionally removes `dist/<browser>` at the start of a compilation.                                         |
-| <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **Compilation summary**<br/>Single-line, de-duplicated summary shown at the end of builds.                                    |
+| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Environment handling**<br/>Loads env files by priority, injects EXTENSION*PUBLIC*\* to process/import.meta, and templating. |
+| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Clean dist**<br/>Optionally removes `dist/<browser>` at the start of a compilation.                                         |
+| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Compilation summary**<br/>Single-line, de-duplicated summary shown at the end of builds.                                    |
 
 ### Usage
 
