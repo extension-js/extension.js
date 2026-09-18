@@ -9,12 +9,12 @@
 import {isEmulatorLaneEnabled, isEmulatorVendor} from './vendors'
 
 export const EMULATOR_LOGS_REFUSAL =
-  'emulated Chromium runs in a web page; read its console in that page.'
+  'emulated Chromium runs in a web page, so extension logs has nothing to attach to. Open your browser devtools on that page to read the console.'
 
 export function emulatorRefusalFor(command: string): string {
   if (command === 'logs') return EMULATOR_LOGS_REFUSAL
 
-  return `emulated Chromium runs in a web page with no debugging protocol, so extension ${command} cannot reach it; use that page directly.`
+  return `emulated Chromium runs in a web page and speaks no debugging protocol, so extension ${command} cannot reach it. Work in the page the dev server printed, or run this project with --browser=chrome.`
 }
 
 interface ReadyDocumentReader {

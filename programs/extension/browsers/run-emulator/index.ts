@@ -28,7 +28,7 @@ export type UrlOpener = (url: string) => void
 
 export function emulatorViewerUrlLine(url: string): string {
   return (
-    `${prefix('info')} Emulated Chromium runs in a web page. Open it at:\n` +
+    `${prefix('info')} Emulated Chromium runs in a web page. Open this address to load your extension:\n` +
     `${colors.underline(url)}`
   )
 }
@@ -72,7 +72,7 @@ export async function launchEmulator(
 ): Promise<EmulatorController> {
   if ((opts.mode || 'production') !== 'development') {
     throw new Error(
-      'emulated Chromium runs only under extension dev, whose dev server serves the files the page reads.'
+      'emulated Chromium needs the dev server that serves the files the page reads. Run extension dev instead.'
     )
   }
 
@@ -80,7 +80,7 @@ export async function launchEmulator(
 
   if (!url) {
     throw new Error(
-      'this extension-develop version does not serve emulated Chromium; update extension-develop to match the CLI.'
+      'this version of extension-develop does not serve emulated Chromium. Update extension-develop so it matches the CLI, then run extension dev again.'
     )
   }
 
