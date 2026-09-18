@@ -6,7 +6,9 @@
 // ╚═════╝ ╚══════╝  ╚═══╝        ╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import type {IncomingMessage} from 'node:http'
 import {type RawData, WebSocket, WebSocketServer} from 'ws'
+import {isSameWebOrigin} from '../emulator-lane'
 import type {BridgeBroker, BridgeConnection} from './broker'
 import {
   type AnyFrame,
@@ -32,6 +34,7 @@ export interface StartControlServerOptions {
   host?: string
   port?: number
   path?: string
+  viewerOrigin?: string | null
 }
 
 let connSeq = 0
@@ -47,6 +50,15 @@ export function isWebOrigin(origin: string | undefined): boolean {
   return value.toLowerCase() === 'null' || /^https?:\/\//i.test(value)
 }
 
+export function isAdmittedOrigin(
+  origin: string | undefined,
+  viewerOrigin?: string | null
+): boolean {
+  if (!isWebOrigin(origin)) return true
+
+  return isSameWebOrigin(origin, viewerOrigin)
+}
+
 export function startControlServer(
   options: StartControlServerOptions
 ): Promise<ControlServer> {
@@ -59,14 +71,17 @@ export function startControlServer(
       host,
       port: options.port ?? 0,
       path,
-      verifyClient: (info: {origin: string}) => !isWebOrigin(info.origin)
+      verifyClient: (info: {origin: string}) =>
+        isAdmittedOrigin(info.origin, options.viewerOrigin)
     })
 
     wss.on('error', reject)
 
-    wss.on('connection', (socket: WebSocket) => {
+    wss.on('connection', (socket: WebSocket, request: IncomingMessage) => {
+      const origin = request?.headers?.origin
       const conn: BridgeConnection = {
         id: `c${++connSeq}`,
+        origin: typeof origin === 'string' ? origin : undefined,
         send(frame: ServerFrame) {
           if (socket.readyState !== WebSocket.OPEN) return
 

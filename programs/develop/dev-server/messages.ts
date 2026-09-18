@@ -44,6 +44,8 @@ function readJsonRecord(filePath: string): Record<string, unknown> | null {
 }
 
 function capitalizeToken(value: string): string {
+  if (value === 'chromium-emulator') return 'Emulated Chromium'
+
   return value
     .split('-')
     .filter(Boolean)
@@ -130,6 +132,13 @@ export function shouldWarnPortConflict(
     Number.isFinite(requestedPort) &&
     requestedPort !== 0 &&
     requestedPort !== actual
+  )
+}
+
+export function emulatorViewerUrl(url: string) {
+  return (
+    `${getLoggingPrefix('info')} Emulated Chromium runs in a web page. Open it at:\n` +
+    `${colors.underline(url)}`
   )
 }
 

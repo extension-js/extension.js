@@ -75,6 +75,7 @@ export interface BrowserLaunchOptions {
   logColor?: boolean
   logUrl?: string
   logTab?: number | string
+  emulatorViewerUrl?: string
   // Browser-generated CDP Log.entryAdded entries never pass through the
   // extension's console hook; the launcher forwards them here. Chromium-only.
   logSink?: BrowserLogSink
@@ -163,6 +164,7 @@ export class BrowsersPlugin implements RunnerPlugin {
   private controller: BrowserController | undefined
   private reloadBroker: ReloadBroker | undefined
   private logSink: BrowserLogSink | undefined
+  private emulatorViewerUrl: string | undefined
   // The refusal text last shown to the operator, so repeats stay quiet.
   private lastReportedRefusal: string | null | undefined
 
@@ -181,6 +183,10 @@ export class BrowsersPlugin implements RunnerPlugin {
   // entries into the control-bridge log pipeline. Called once, before first compile.
   setLogSink(sink: BrowserLogSink): void {
     this.logSink = sink
+  }
+
+  setEmulatorViewerUrl(url: string): void {
+    this.emulatorViewerUrl = url
   }
 
   private async retryRefusedExtensionLoad(): Promise<boolean> {
@@ -276,7 +282,10 @@ export class BrowsersPlugin implements RunnerPlugin {
             outputPath,
             contextDir,
             extensionsToLoad: this.extensionsToLoad,
-            logSink: this.logSink
+            logSink: this.logSink,
+            ...(this.emulatorViewerUrl
+              ? {emulatorViewerUrl: this.emulatorViewerUrl}
+              : {})
           })
 
           const logLevel = this.options.browserOptions.logLevel || 'off'

@@ -6,9 +6,11 @@
 // ╚═════╝ ╚══════╝  ╚═══╝        ╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import {isSameWebOrigin, normalizeWebOrigin} from '../emulator-lane'
 import {type ActionRecord, type ActionsSink, fnv1aHex} from './actions-file'
 import {
   type AnyFrame,
+  type BridgeEngine,
   type BridgeRole,
   type BridgeTarget,
   CLOSE_BAD_HELLO,
@@ -30,6 +32,7 @@ import {LogRingBuffer} from './ring-buffer'
 
 export interface BridgeConnection {
   readonly id: string
+  readonly origin?: string
   send(frame: ServerFrame | CommandFrame): void
   close(code?: number, reason?: string): void
 }
@@ -37,7 +40,8 @@ export interface BridgeConnection {
 export interface BridgeBrokerOptions {
   instanceId: string
   runId: string
-  engine?: 'chromium' | 'firefox' | 'webkit'
+  engine?: BridgeEngine
+  viewerOrigin?: string | null
   ring?: LogRingBuffer
   file?: LogsFileWriter
   allowControl?: boolean
@@ -156,6 +160,20 @@ const UNDELIVERED_RELOAD_WARN_WEBKIT_NEVER_CONNECTED =
   'Safari > Settings > Extensions and turn it on. Safari restarts the ' +
   'extension itself once it is enabled, and reloads resume automatically.'
 
+const UNDELIVERED_RELOAD_WARN_EMULATOR: Record<
+  'never-connected' | 'recently-disconnected',
+  string
+> = {
+  'never-connected':
+    'No emulated Chromium page is connected, your edit compiled but no page ' +
+    'received it. Open the emulated Chromium URL the dev server printed; ' +
+    'reloads resume automatically once the page connects.',
+  'recently-disconnected':
+    'The emulated Chromium page disconnected, your edit compiled but no page ' +
+    'received it. Reopen the emulated Chromium URL the dev server printed; ' +
+    'reloads resume automatically once the page reconnects.'
+}
+
 interface Pending {
   controller: BridgeConnection
   op: CommandOp
@@ -170,7 +188,9 @@ interface Pending {
 export class BridgeBroker {
   private readonly instanceId: string
   private readonly runId: string
-  private readonly engine?: 'chromium' | 'firefox' | 'webkit'
+  private readonly engine?: BridgeEngine
+  private readonly viewerOrigin: string | null
+  private viewerEverConnected = false
   private readonly ring: LogRingBuffer
   private readonly file?: LogsFileWriter
   private readonly roles = new Map<BridgeConnection, BridgeRole>()
@@ -212,6 +232,7 @@ export class BridgeBroker {
     this.instanceId = options.instanceId
     this.runId = options.runId
     this.engine = options.engine
+    this.viewerOrigin = normalizeWebOrigin(options.viewerOrigin)
     this.ring = options.ring ?? new LogRingBuffer()
     this.file = options.file
     // allowEval implies allowControl: the eval denial names --allow-eval as
@@ -239,6 +260,10 @@ export class BridgeBroker {
 
   get controllerCount(): number {
     return this.countRole('controller')
+  }
+
+  get viewerCount(): number {
+    return this.countRole('viewer')
   }
 
   get pendingCount(): number {
@@ -274,7 +299,7 @@ export class BridgeBroker {
         // Reinjection provably ran in the SW: release the delivery latch so
         // the next producer hello doesn't replay an already-applied reload.
         if (
-          this.roles.get(conn) === 'producer' &&
+          this.isReloadReceiver(this.roles.get(conn)) &&
           this.pendingReload?.reloadType === frame.reloadType
         ) {
           this.pendingReload = undefined
@@ -332,7 +357,7 @@ export class BridgeBroker {
     let notified = 0
 
     for (const [conn, role] of this.roles) {
-      if (role !== 'producer') continue
+      if (!this.isReloadReceiver(role)) continue
 
       try {
         conn.send(frame)
@@ -373,9 +398,10 @@ export class BridgeBroker {
       return null
     }
 
-    const kind = this.producerEverConnected
-      ? 'recently-disconnected'
-      : 'never-connected'
+    const kind =
+      this.producerEverConnected || this.viewerEverConnected
+        ? 'recently-disconnected'
+        : 'never-connected'
 
     // The caller took the extension down itself to ship this build, so a producer
     // that was here and left is expected and the latch applies on reconnect.
@@ -392,6 +418,10 @@ export class BridgeBroker {
     // the user enables it, and that is the one step this line has to name.
     if (kind === 'never-connected' && this.engine === 'webkit') {
       return UNDELIVERED_RELOAD_WARN_WEBKIT_NEVER_CONNECTED
+    }
+
+    if (this.engine === 'emulator') {
+      return UNDELIVERED_RELOAD_WARN_EMULATOR[kind]
     }
 
     return UNDELIVERED_RELOAD_WARN[kind]
@@ -451,6 +481,48 @@ export class BridgeBroker {
   private onHello(conn: BridgeConnection, hello: HelloFrame): void {
     if (hello.v !== CONTROL_ENVELOPE_VERSION) {
       conn.close(CLOSE_BAD_HELLO, 'unsupported envelope version')
+
+      return
+    }
+
+    const fromViewerOrigin = isSameWebOrigin(conn.origin, this.viewerOrigin)
+
+    if (hello.role === 'viewer' && !fromViewerOrigin) {
+      conn.close(CLOSE_BAD_HELLO, 'viewer not allowed from this origin')
+
+      return
+    }
+
+    if (fromViewerOrigin && hello.role !== 'viewer') {
+      conn.close(
+        CLOSE_BAD_HELLO,
+        'only the viewer role is allowed from a web origin'
+      )
+
+      return
+    }
+
+    if (hello.role === 'viewer') {
+      if (hello.instanceId !== this.instanceId) {
+        conn.close(CLOSE_BAD_INSTANCE, 'instanceId mismatch')
+
+        return
+      }
+
+      this.roles.set(conn, 'viewer')
+      this.viewerEverConnected = true
+      this.lastUndeliveredWarnKind = null
+      conn.send({
+        type: 'ready',
+        runId: this.runId,
+        engine: this.engine
+      })
+
+      if (this.pendingReload) {
+        const frame = this.pendingReload
+        this.pendingReload = undefined
+        conn.send(frame)
+      }
 
       return
     }
@@ -781,6 +853,10 @@ export class BridgeBroker {
         // The adapter is responsible for tearing down a dead socket
       }
     }
+  }
+
+  private isReloadReceiver(role: BridgeRole | undefined): boolean {
+    return role === 'producer' || role === 'viewer'
   }
 
   private countRole(role: BridgeRole): number {
