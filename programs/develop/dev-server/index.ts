@@ -21,7 +21,11 @@ import {
   loadCustomConfig,
   loadProjectConfigDefaults
 } from '../lib/config-loader'
-import {isGeckoBasedBrowser, isWebkitBasedBrowser} from '../lib/constants'
+import {
+  isEmulatorBrowser,
+  isGeckoBasedBrowser,
+  isWebkitBasedBrowser
+} from '../lib/constants'
 import {DEV_COMMAND_DEFAULTS, mergeOptionLayers} from '../lib/merge-options'
 import {isDebug} from '../lib/messaging'
 import {applySplitChunksGuard} from '../lib/normalize-split-chunks'
@@ -73,6 +77,13 @@ import {
   writeControlToken
 } from './control-bridge/session-token'
 import {startControlServer} from './control-bridge/ws-control-server'
+import {
+  buildEmulatorViewerUrl,
+  createEmulatorFileIndexHolder,
+  createEmulatorFilesMiddleware,
+  EMULATOR_FILES_PATH,
+  resolveEmulatorOrigin
+} from './emulator-lane'
 import {isUsingJSFramework} from './frameworks'
 import {
   attachLifecycleStream,
@@ -479,6 +490,7 @@ export async function devServer(
     browsersPlugin?: {
       setReloadBroker?: (broker: unknown) => void
       setLogSink?: (sink: (event: BrowserLogSinkEvent) => void) => void
+      setEmulatorViewerUrl?: (url: string) => void
     }
   }
   process.env.EXTENSION_BROWSER_LAUNCH_ENABLED = devOptions.noBrowser
@@ -540,6 +552,8 @@ export async function devServer(
   process.env.EXTENSION_DEV_SERVER_PATH = '/ws'
 
   const browserName = String(devOptions.browser || 'chromium')
+  const emulatorLane = isEmulatorBrowser(browserName)
+  const emulatorOrigin = emulatorLane ? resolveEmulatorOrigin() : null
   // One canonical dist output path per browser, shared with `build`/`preview`.
   // Inline `dist/<browser>` joins let output/manifest/ready.json paths drift.
   const primaryDistPath = getDistPath(asAbsolute(packageJsonDir), browserName)
@@ -585,11 +599,14 @@ export async function devServer(
     runId: sessionRunId,
     // Safari is its own engine. The producer already names itself webkit from
     // its url scheme, so the server saying chromium made the two disagree.
-    engine: isGeckoBasedBrowser(browserName)
-      ? 'firefox'
-      : isWebkitBasedBrowser(browserName)
-        ? 'webkit'
-        : 'chromium',
+    engine: emulatorLane
+      ? 'emulator'
+      : isGeckoBasedBrowser(browserName)
+        ? 'firefox'
+        : isWebkitBasedBrowser(browserName)
+          ? 'webkit'
+          : 'chromium',
+    viewerOrigin: emulatorOrigin,
     ring: new LogRingBuffer(),
     file: bridgeLogFile,
     allowControl,
@@ -662,14 +679,16 @@ export async function devServer(
       controlServer = await startControlServer({
         broker: bridgeBroker,
         host: devServerHost,
-        port: preferredControlPort ?? 0
+        port: preferredControlPort ?? 0,
+        viewerOrigin: emulatorOrigin
       })
     } catch (error) {
       if (preferredControlPort == null) throw error
 
       controlServer = await startControlServer({
         broker: bridgeBroker,
-        host: devServerHost
+        host: devServerHost,
+        viewerOrigin: emulatorOrigin
       })
     }
 
@@ -689,6 +708,29 @@ export async function devServer(
   process.env.EXTENSION_INSTANCE_ID = currentInstance.instanceId
   process.env.EXTENSION_CONTROL_PORT =
     bridgeControlPort != null ? String(bridgeControlPort) : ''
+
+  const emulatorFiles = emulatorLane
+    ? createEmulatorFileIndexHolder(primaryDistPath, currentInstance.instanceId)
+    : null
+  const emulatorViewer =
+    emulatorLane && emulatorOrigin
+      ? buildEmulatorViewerUrl({
+          origin: emulatorOrigin,
+          host: connectableHost,
+          port,
+          controlPort: bridgeControlPort,
+          controlPath: CONTROL_WS_PATH,
+          instanceId: currentInstance.instanceId
+        })
+      : null
+
+  if (
+    emulatorViewer &&
+    launchedPlugin &&
+    typeof launchedPlugin.setEmulatorViewerUrl === 'function'
+  ) {
+    launchedPlugin.setEmulatorViewerUrl(emulatorViewer)
+  }
 
   // Flush buffered logs on process exit (interval flush handles the steady state).
   process.once('exit', () => {
@@ -840,6 +882,22 @@ export async function devServer(
     headers: {
       'Access-Control-Allow-Origin': '*'
     },
+    ...(emulatorFiles
+      ? {
+          setupMiddlewares: (
+            middlewares: Parameters<
+              NonNullable<Configuration['setupMiddlewares']>
+            >[0]
+          ) => [
+            {
+              name: 'extjs-emulator-files',
+              path: EMULATOR_FILES_PATH,
+              middleware: createEmulatorFilesMiddleware(emulatorFiles)
+            } as unknown as (typeof middlewares)[number],
+            ...middlewares
+          ]
+        }
+      : {}),
     port,
     // Rspack must inject `module.hot` so `@rspack/core/hot/dev-server` does not
     // throw; content bundles strip HMR startup, so liveReload cannot loop them.
@@ -908,6 +966,28 @@ export async function devServer(
           await dispatchReload(instruction, {broker: bridgeBroker})
         }
       )
+    }
+
+    if (emulatorFiles && compiler?.hooks?.done) {
+      compiler.hooks.done.tapPromise(
+        {name: 'extjs-emulator-files', stage: -100},
+        async (stats: Stats) => {
+          if (stats.compilation.errors?.length) return
+
+          await emulatorFiles.refresh()
+        }
+      )
+    }
+
+    if (emulatorViewer && !opts.isRestart && devOptions.noBrowser) {
+      let printedViewer = false
+
+      compiler.hooks.done.tap('extjs-emulator-viewer-url', (stats: Stats) => {
+        if (printedViewer || stats?.hasErrors?.()) return
+
+        printedViewer = true
+        humanLine(messages.emulatorViewerUrl(emulatorViewer))
+      })
     }
 
     // Tapped after the ready-contract writer, so ready.json is on disk when the

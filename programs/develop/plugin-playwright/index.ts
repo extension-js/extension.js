@@ -9,7 +9,11 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
-import {isGeckoBasedBrowser, isWebkitBasedBrowser} from '../lib/constants'
+import {
+  isEmulatorBrowser,
+  isGeckoBasedBrowser,
+  isWebkitBasedBrowser
+} from '../lib/constants'
 import {
   chromiumExtensionId,
   geckoExtensionId,
@@ -64,7 +68,8 @@ export type ReadyMetadata = {
   // Stamped by the browser launcher post-launch: the resolved profile dir (an
   // ephemeral profile's leaf name is generated) and the browser process pid.
   profilePath?: string
-  browserPid?: number
+  browserPid?: number | null
+  engine?: 'emulator'
   // The pid the launcher spawned, kept once the browser handed the session to
   // another process; browserPid then names that live process.
   launcherPid?: number
@@ -196,7 +201,10 @@ function deriveDistExtensionId(
   distPath: string
 ): string | undefined {
   try {
-    if (isWebkitBasedBrowser(browser)) return undefined
+    if (isWebkitBasedBrowser(browser) || isEmulatorBrowser(browser)) {
+      return undefined
+    }
+
     if (!fs.existsSync(path.join(distPath, 'manifest.json'))) return undefined
 
     const id = isGeckoBasedBrowser(browser)
@@ -422,7 +430,9 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
   const toManagedRecords = (
     dirs: string[] | undefined
   ): ManagedExtensionRecord[] | undefined =>
-    Array.isArray(dirs) && dirs.length > 0
+    Array.isArray(dirs) &&
+    dirs.length > 0 &&
+    !isEmulatorBrowser(options.browser)
       ? managedExtensionRecords(options.browser, dirs)
       : undefined
 
@@ -450,7 +460,10 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     controlPath: options.controlPath,
     logsPath: options.logsPath,
     toolchainVersion: packageJson.version,
-    ...readManifestProvenance(options.manifestPath)
+    ...readManifestProvenance(options.manifestPath),
+    ...(isEmulatorBrowser(options.browser)
+      ? {engine: 'emulator' as const, browserPid: null}
+      : {})
   }
 
   function writeReady(

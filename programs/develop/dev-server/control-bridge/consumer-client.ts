@@ -29,6 +29,7 @@ export interface ReadyContractInfo {
   schema?: number
   logsPath?: string
   status?: string
+  engine?: string
   /** Dev-server pid; absent in pre-4.1 contracts. */
   pid?: number
   /** Browser CDP port, stamped post-launch, may lag `status: 'ready'`. */
@@ -93,6 +94,7 @@ export function readReadyContract(
       schema: typeof c.schema === 'number' ? c.schema : undefined,
       logsPath: c.logsPath,
       status: c.status,
+      engine: typeof c.engine === 'string' ? c.engine : undefined,
       pid: typeof c.pid === 'number' ? c.pid : undefined,
       cdpPort: typeof c.cdpPort === 'number' ? c.cdpPort : undefined,
       browserExitedAt:

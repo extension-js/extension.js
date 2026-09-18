@@ -8,7 +8,7 @@
 
 import * as fs from 'node:fs'
 import type {Compiler} from '@rspack/core'
-import {isChromiumBasedBrowser} from '../lib/constants'
+import {isChromiumBasedBrowser, isEmulatorBrowser} from '../lib/constants'
 import type {DevOptions, PluginInterface} from '../types'
 import {InjectBridgeProducer} from './steps/inject-bridge-producer'
 import {InjectBridgeRelay} from './steps/inject-bridge-relay'
@@ -108,13 +108,15 @@ export class ReloadPlugin {
       new SetupDevContentScripts().apply(compiler)
     }
 
-    // Inject the agent-bridge producer so the background SW forwards console
-    // output to the dev-server control WS; no-op when the bridge is unavailable.
-    new InjectBridgeProducer().apply(compiler)
+    if (!isEmulatorBrowser(this.browser)) {
+      // Inject the agent-bridge producer so the background SW forwards console
+      // output to the dev-server control WS; no-op when the bridge is unavailable.
+      new InjectBridgeProducer().apply(compiler)
 
-    // Forward content-script console to the SW relay (multi-context logs).
-    // No-ops when the control bridge is unavailable.
-    new InjectBridgeRelay().apply(compiler)
+      // Forward content-script console to the SW relay (multi-context logs).
+      // No-ops when the control bridge is unavailable.
+      new InjectBridgeRelay().apply(compiler)
+    }
 
     // Hot chunks are fetched from the extension origin (disk), so prune superseded
     // generations or long sessions accumulate stale files in what ships.

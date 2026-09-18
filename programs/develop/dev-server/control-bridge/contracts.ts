@@ -54,7 +54,9 @@ export interface LogEvent {
 
 export type IncomingLogEvent = Omit<LogEvent, 'seq'> & {seq?: number}
 
-export type BridgeRole = 'producer' | 'consumer' | 'controller'
+export type BridgeRole = 'producer' | 'consumer' | 'controller' | 'viewer'
+
+export type BridgeEngine = 'chromium' | 'firefox' | 'webkit' | 'emulator'
 
 export interface BridgeTarget {
   context:
@@ -114,7 +116,7 @@ export interface ReadyFrame {
   type: 'ready'
   runId: string
   bufferedFrom?: number
-  engine?: 'chromium' | 'firefox' | 'webkit'
+  engine?: BridgeEngine
   capabilities?: {
     eval?: boolean
     storage?: boolean
