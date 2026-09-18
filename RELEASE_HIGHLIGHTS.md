@@ -20,3 +20,5 @@
 -->
 
 ## Highlights
+
+- **A content script edit runs once.** In `extension dev` on Chrome and Edge, saving a content script now reaches the open tabs and every new page with exactly one copy running, where the previous copy used to keep running beside it. An html page edit refreshes the page alone instead of re-injecting the content script.
