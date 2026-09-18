@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## 4.1.24 (September 18, 2026)
+
+- **Pages load clean again.** A fresh install of 4.1.18 to 4.1.23 could pull a newer rspack than the one tested here, and every page with a linked stylesheet threw on load. The bundler is now pinned, with a real build spec guarding the shape.
+- **`extension create --template transformers-js`** scaffolds the side panel reshaped after Hugging Face's own browser extension sample: type in the box and the classification prints as JSON, with page text, selection and model settings on top, for Chrome, Edge and Firefox from one manifest.
+
+<details>
+<summary>Other changes (5)</summary>
+
+- Use the new Extension.js logo and size the runtime logos at 64px (#605) ([7996c79b](https://github.com/extension-js/extension.js/commit/7996c79bcfe3e2db00a62f18c617bd4c85e63b05))
+- Warn on a missing tabs permission only for gated tab fields (#604) ([0c878d29](https://github.com/extension-js/extension.js/commit/0c878d296e5b5d72832a53d143c004669a3f174f))
+- Write the 4.1.24 release highlights (#603) ([20beaf76](https://github.com/extension-js/extension.js/commit/20beaf76f09c72f36178ac09625b820871cac1f0))
+- Pin @rspack/core to 2.2.3 so a page with a stylesheet loads clean (#602) ([375ab059](https://github.com/extension-js/extension.js/commit/375ab059e3445af6e52b264308a29acd6662d59b))
+- Repin the template catalog to the transformers-js panel (#601) ([37c0303d](https://github.com/extension-js/extension.js/commit/37c0303df8ae896fce0ec4415cae71ec063c9d95))
+</details>
+
 ## 4.1.23 (September 18, 2026)
 
 <details>
