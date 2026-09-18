@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 4.1.23 (September 18, 2026)
+
+<details>
+<summary>Other changes (2)</summary>
+
+- Build svelte with one copy, the compiler when the project is older ([2d65c54f](https://github.com/extension-js/extension.js/commit/2d65c54fcd9b98fa56e38da7233c3ff6eb115183))
+- Frame a create failure once and name a mismatched CLI ([4ea1b34d](https://github.com/extension-js/extension.js/commit/4ea1b34db8171ab516664648443ed85193fe1847))
+</details>
+
 ## 4.1.22 (September 17, 2026)
 
 <details>
