@@ -13,7 +13,7 @@
 
 > The cross-browser extension framework. Build for Chrome, Edge, Firefox, and Safari with no build config required.
 
-<img alt="Logo" align="right" src="https://avatars.githubusercontent.com/u/172809806" width="14.1%" />
+<img alt="Logo" align="right" src="https://media.extension.land/track/extension-js.png" width="14.1%" />
 
 ```bash
 npx extension@latest create my-extension
@@ -189,9 +189,9 @@ Which runtime the CLI then executes on is a separate question, answered below.
 
 | | Runtime | Status | Notes |
 | :-: | :-- | :-- | :-- |
-| <img alt="Node.js" src="https://media.extension.land/logos/package-managers/node.svg" width="28"> | Node.js | ✅ 22.12 and newer | The default. `npx`, `pnpm dlx`, `yarn dlx` and `bunx` all land here through the published bin |
-| <picture><source media="(prefers-color-scheme: dark)" srcset="https://media.extension.land/logos/package-managers/deno-dark.svg"><img alt="Deno" src="https://media.extension.land/logos/package-managers/deno.svg" width="28"></picture> | Deno | ✅ 2.5 and newer | `deno run -A npm:extension@latest`. Deno 2.8.0 is refused because it cannot load `node:querystring`, fixed in 2.8.1 |
-| <img alt="Bun" src="https://media.extension.land/logos/package-managers/bun.svg" width="28"> | Bun | ✅ 1.2 and newer | `bunx --bun extension` and `bun run --bun`. Plain `bunx` runs the CLI on Node.js instead, through the published bin |
+| <img alt="Node.js" src="https://media.extension.land/logos/package-managers/node.svg" width="64"> | Node.js | ✅&nbsp;22.12&nbsp;and&nbsp;newer | The default. `npx`, `pnpm dlx`, `yarn dlx` and `bunx` all land here through the published bin |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="https://media.extension.land/logos/package-managers/deno-dark.svg"><img alt="Deno" src="https://media.extension.land/logos/package-managers/deno.svg" width="64"></picture> | Deno | ✅&nbsp;2.5&nbsp;and&nbsp;newer | `deno run -A npm:extension@latest`. Deno 2.8.0 is refused because it cannot load `node:querystring`, fixed in 2.8.1 |
+| <img alt="Bun" src="https://media.extension.land/logos/package-managers/bun.svg" width="64"> | Bun | ✅&nbsp;1.2&nbsp;and&nbsp;newer | `bunx --bun extension` and `bun run --bun`. Plain `bunx` runs the CLI on Node.js instead, through the published bin |
 
 ## Community
 

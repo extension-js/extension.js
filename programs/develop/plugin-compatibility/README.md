@@ -18,8 +18,8 @@ This plugin bundles two features that make an extension project portable across 
 
 |                                                                            | Feature                                                                                                       |
 | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **Browser‑specific manifest fields**<br/>Normalize namespaced keys (e.g. `chrome:action`) into vendor output. |
-| <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **`browser` polyfill**<br/>Optionally maps the `browser` global via `webextension-polyfill` for Chromium.     |
+| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Browser‑specific manifest fields**<br/>Normalize namespaced keys (e.g. `chrome:action`) into vendor output. |
+| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **`browser` polyfill**<br/>Optionally maps the `browser` global via `webextension-polyfill` for Chromium.     |
 
 ### Usage
 
