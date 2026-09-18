@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 4.1.25 (September 18, 2026)
+
+- **A content script edit runs once.** In `extension dev` on Chrome and Edge, saving a content script now reaches the open tabs and every new page with exactly one copy running, where the previous copy used to keep running beside it. An html page edit refreshes the page alone instead of re-injecting the content script.
+
+<details>
+<summary>Other changes (2)</summary>
+
+- Write the 4.1.25 release highlights (#607) ([ed00aceb](https://github.com/extension-js/extension.js/commit/ed00aceb363667df5e8ec91994259701892bb4e3))
+- Register dev content scripts at runtime so an edit runs one copy (#606) ([9b4be6a5](https://github.com/extension-js/extension.js/commit/9b4be6a56f95770355945cd35d858f2768d3bef9))
+</details>
+
 ## 4.1.24 (September 18, 2026)
 
 - **Pages load clean again.** A fresh install of 4.1.18 to 4.1.23 could pull a newer rspack than the one tested here, and every page with a linked stylesheet threw on load. The bundler is now pinned, with a real build spec guarding the shape.
