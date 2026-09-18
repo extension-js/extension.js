@@ -184,7 +184,7 @@ importers:
         specifier: 1.2.1
         version: 1.2.1
       '@rspack/core':
-        specifier: ^2.2.3
+        specifier: 2.2.3
         version: 2.2.3(@swc/helpers@0.5.23)
       '@rspack/dev-server':
         specifier: 2.1.0
