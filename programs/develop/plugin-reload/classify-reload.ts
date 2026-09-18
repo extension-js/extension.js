@@ -224,6 +224,10 @@ function emittedScriptFiles(
   return js.length > 0 ? js : [`${name}.js`]
 }
 
+function isHtmlSource(rel: string): boolean {
+  return /\.html?$/i.test(rel)
+}
+
 function changedScriptFilesFor(
   changedSources: string[],
   index: SourceFeatureIndex | null
@@ -309,6 +313,13 @@ export function classifyReloadFromSources(opts: {
     }
 
     if (!known && index?.pageSources.has(rel)) {
+      pageChanged.push(rel)
+      known = true
+    }
+
+    // A page's markup is a file dependency of the html feature, never a chunk
+    // module, so no index set names it; it still can only be a page edit.
+    if (!known && isHtmlSource(rel)) {
       pageChanged.push(rel)
       known = true
     }
