@@ -27,10 +27,25 @@ export function devInjectedPermissions(
 // For these the warning must not claim the packaged build fails outright:
 // chrome.tabs.sendMessage is the most common use and needs no permission.
 const PARTIALLY_GATED_APIS: Record<string, string> = {
-  tabs:
-    'the tab url, title and favIconUrl fields and the url and title query ' +
-    'filters come back empty without it, while other chrome.tabs calls work ' +
-    'packaged without it'
+  tabs: 'the tab url, title and favIconUrl fields come back empty without it'
+}
+
+// Source that touches the gated part. tabs.query({active: true}) followed by
+// tabs.sendMessage ships fine without "tabs", so only a field read or a url
+// or title query filter earns the warning. document.title and import.meta.url
+// are the two lookalikes a page script carries on its own.
+const GATED_USES: Record<string, RegExp[]> = {
+  tabs: [
+    /(?<!\b(?:document|meta)\s*)\.\s*(?:url|pendingUrl|title|favIconUrl)\b/,
+    /\{[^{}:]*\b(?:url|pendingUrl|title|favIconUrl)\b[^{}:]*\}\s*(?:=|\))/,
+    /\btabs\s*\.\s*query\s*\(\s*\{[^{}]*\b(?:url|title)\s*:/
+  ]
+}
+
+export function usesGatedPart(api: string, source: string): boolean {
+  const patterns = GATED_USES[api]
+
+  return !patterns || patterns.some((pattern) => pattern.test(source))
 }
 
 export function partiallyGatedNote(api: string): string {
@@ -43,15 +58,20 @@ export function partiallyGatedNote(api: string): string {
 // namespace is fully gated and the caller's own text applies.
 export function partiallyGatedWarning(
   api: string,
-  relative: string
+  relative: string,
+  declared: ReadonlySet<string> = new Set()
 ): string | null {
   const note = PARTIALLY_GATED_APIS[api]
   if (!note) return null
 
+  const activeTab = declared.has('activeTab')
+    ? ' activeTab covers only the tab the user invoked the extension on.'
+    : ''
+
   return (
     `manifest.json does not declare the "${api}" permission, but ` +
-    `${relative} uses chrome.${api}. The dev build injects "${api}" so ` +
-    `the same code may behave differently once packaged: ${note}. ` +
-    `Add "${api}" to permissions in manifest.json if you read those fields.`
+    `${relative} reads fields it gates. It works in dev only because dev ` +
+    `injects "${api}": packaged, ${note}.${activeTab} ` +
+    `Add "${api}" to permissions in manifest.json.`
   )
 }
