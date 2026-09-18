@@ -10,12 +10,13 @@ import {
   buildEmulatorFileIndex,
   buildEmulatorViewerUrl,
   createEmulatorFileIndexHolder,
-  createEmulatorFilesMiddleware,
+  createEmulatorFilesMiddlewareEntry,
   DEFAULT_EMULATOR_ORIGIN,
   EMULATOR_FILES_PATH,
   isSameWebOrigin,
   normalizeWebOrigin,
-  resolveEmulatorOrigin
+  resolveEmulatorOrigin,
+  resolveLivereloadPath
 } from '../emulator-lane'
 
 let dir: string
@@ -142,14 +143,36 @@ describe('viewer URL', () => {
   })
 })
 
-describe('files.json', () => {
-  it('lists every dist file with its size and sha256, sorted', async () => {
-    write('manifest.json', '{"manifest_version":3}')
-    write('background/service_worker.js', 'self.a = 1')
-    write('action/index.html', '<!doctype html>')
-    write('.manifest.123.tmp', 'partial')
+function asset(
+  name: string,
+  content: string,
+  hot = false,
+  related: Record<string, string> = {}
+) {
+  return {
+    name,
+    source: {buffer: () => Buffer.from(content)},
+    info: {hotModuleReplacement: hot, related}
+  }
+}
 
-    const index = await buildEmulatorFileIndex(dir, 'inst-1')
+describe('files.json', () => {
+  it('lists every non-HMR compilation asset with size and sha256, sorted', () => {
+    const index = buildEmulatorFileIndex(
+      [
+        asset('manifest.json', '{"manifest_version":3}'),
+        asset('background/service_worker.js', 'self.a = 1'),
+        asset('action/index.html', '<!doctype html>'),
+        asset('hot/169.0a1b.js', 'delta', true, {
+          sourceMap: 'hot/169.0a1b.js.map'
+        }),
+        asset('hot/169.0a1b.js.map', '{}'),
+        asset('hot/background/service_worker.0a1b.json', '{}', true),
+        asset('../escape.js', 'no'),
+        asset('/absolute.js', 'no')
+      ],
+      'inst-1'
+    )
 
     expect(index).toEqual({
       version: 1,
@@ -175,13 +198,28 @@ describe('files.json', () => {
     })
   })
 
-  it('regenerates on refresh and serves JSON with CORS open', async () => {
-    write('background/service_worker.js', 'v1')
-    const holder = createEmulatorFileIndexHolder(dir, 'inst-1')
-    const middleware = createEmulatorFilesMiddleware(holder)
+  it('reads the livereload socket path from the dev server config', () => {
+    expect(resolveLivereloadPath({type: 'ws', options: {path: '/ws'}})).toBe(
+      '/ws'
+    )
+
+    expect(
+      resolveLivereloadPath({type: 'ws', options: {path: '/custom-socket'}})
+    ).toBe('/custom-socket')
+
+    expect(resolveLivereloadPath(false)).toBeNull()
+    expect(resolveLivereloadPath({type: 'ws', options: {}})).toBeNull()
+  })
+
+  it('serves the latest published index as JSON with CORS open', async () => {
+    const holder = createEmulatorFileIndexHolder('inst-1')
+    const entry = createEmulatorFilesMiddlewareEntry(holder, {
+      options: {webSocketServer: {type: 'ws', options: {path: '/ws'}}}
+    })
+    expect(entry.path).toBe(EMULATOR_FILES_PATH)
 
     server = http.createServer((req, res) => {
-      void middleware(req, res, () => {
+      void entry.middleware(req, res, () => {
         res.statusCode = 404
         res.end()
       })
@@ -191,23 +229,55 @@ describe('files.json', () => {
     const port = (server.address() as AddressInfo).port
     const url = `http://127.0.0.1:${port}${EMULATOR_FILES_PATH}`
 
-    const first = await fetch(url)
+    const pending = fetch(url)
+    holder.publish([asset('background/service_worker.js', 'v1')])
+    const first = await pending
     expect(first.status).toBe(200)
     expect(first.headers.get('access-control-allow-origin')).toBe('*')
     expect(first.headers.get('content-type')).toContain('application/json')
-    expect((await first.json()).files[0].sha256).toBe(sha('v1'))
 
-    write('background/service_worker.js', 'v2')
-    const stale = await (await fetch(url)).json()
-    expect(stale.files[0].sha256).toBe(sha('v1'))
+    const body = await first.json()
+    expect(body.version).toBe(1)
+    expect(body.livereload).toEqual({path: '/ws'})
+    expect(body.files[0].sha256).toBe(sha('v1'))
 
-    await holder.refresh()
+    holder.publish([asset('background/service_worker.js', 'v2')])
     const fresh = await (await fetch(url)).json()
     expect(fresh.files[0].sha256).toBe(sha('v2'))
 
     const preflight = await fetch(url, {method: 'OPTIONS'})
     expect(preflight.status).toBe(204)
     expect(preflight.headers.get('access-control-allow-origin')).toBe('*')
+  })
+
+  it('omits livereload when the dev server runs no socket', async () => {
+    const holder = createEmulatorFileIndexHolder('inst-1')
+    createEmulatorFilesMiddlewareEntry(holder, {
+      options: {webSocketServer: false}
+    })
+
+    holder.publish([asset('manifest.json', '{}')])
+
+    expect(await holder.current()).not.toHaveProperty('livereload')
+  })
+
+  it('waits for the next compilation after a reset', async () => {
+    const holder = createEmulatorFileIndexHolder('inst-1')
+    holder.publish([asset('old.js', 'old')])
+    holder.reset()
+
+    let settled = false
+    const next = holder.current().then((index) => {
+      settled = true
+
+      return index
+    })
+
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(settled).toBe(false)
+
+    holder.publish([asset('new.js', 'new')])
+    expect((await next).files.map((file) => file.path)).toEqual(['new.js'])
   })
 })
 

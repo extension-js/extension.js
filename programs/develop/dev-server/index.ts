@@ -78,10 +78,10 @@ import {
 } from './control-bridge/session-token'
 import {startControlServer} from './control-bridge/ws-control-server'
 import {
+  attachEmulatorFileIndex,
   buildEmulatorViewerUrl,
   createEmulatorFileIndexHolder,
-  createEmulatorFilesMiddleware,
-  EMULATOR_FILES_PATH,
+  createEmulatorFilesMiddlewareEntry,
   resolveEmulatorOrigin
 } from './emulator-lane'
 import {isUsingJSFramework} from './frameworks'
@@ -710,7 +710,7 @@ export async function devServer(
     bridgeControlPort != null ? String(bridgeControlPort) : ''
 
   const emulatorFiles = emulatorLane
-    ? createEmulatorFileIndexHolder(primaryDistPath, currentInstance.instanceId)
+    ? createEmulatorFileIndexHolder(currentInstance.instanceId)
     : null
   const emulatorViewer =
     emulatorLane && emulatorOrigin
@@ -885,16 +885,13 @@ export async function devServer(
     ...(emulatorFiles
       ? {
           setupMiddlewares: (
-            middlewares: Parameters<
-              NonNullable<Configuration['setupMiddlewares']>
-            >[0]
+            ...args: Parameters<NonNullable<Configuration['setupMiddlewares']>>
           ) => [
-            {
-              name: 'extjs-emulator-files',
-              path: EMULATOR_FILES_PATH,
-              middleware: createEmulatorFilesMiddleware(emulatorFiles)
-            } as unknown as (typeof middlewares)[number],
-            ...middlewares
+            createEmulatorFilesMiddlewareEntry(
+              emulatorFiles,
+              args[1]
+            ) as unknown as (typeof args)[0][number],
+            ...args[0]
           ]
         }
       : {}),
@@ -968,16 +965,7 @@ export async function devServer(
       )
     }
 
-    if (emulatorFiles && compiler?.hooks?.done) {
-      compiler.hooks.done.tapPromise(
-        {name: 'extjs-emulator-files', stage: -100},
-        async (stats: Stats) => {
-          if (stats.compilation.errors?.length) return
-
-          await emulatorFiles.refresh()
-        }
-      )
-    }
+    if (emulatorFiles) attachEmulatorFileIndex(compiler, emulatorFiles)
 
     if (emulatorViewer && !opts.isRestart && devOptions.noBrowser) {
       let printedViewer = false
