@@ -11,6 +11,7 @@ import * as os from 'node:os'
 import path from 'node:path'
 import type {Command} from 'commander'
 import colors from 'pintor'
+import {emulatorSessionRefusal} from '../helpers/emulator-session'
 import {exitAfterDrain} from '../helpers/exit-after-drain'
 import {loadExtensionDevelopBridgeModule} from '../helpers/extension-develop-runtime'
 import {
@@ -163,6 +164,19 @@ export async function runDoctor(
       detail: `multiple live sessions found (${sessionBrowsers.join(', ')}), diagnosing ${browser}`,
       remediation: 'Pass --browser=<name> to diagnose a specific session'
     })
+  }
+
+  const emulatorRefusal = emulatorSessionRefusal(
+    bridge,
+    projectPath,
+    browser,
+    'doctor'
+  )
+
+  if (emulatorRefusal) {
+    results.push({check: 'engine', status: 'fail', detail: emulatorRefusal})
+
+    return results
   }
 
   const skip = (check: string, blockedBy: string) => {
@@ -523,7 +537,8 @@ const CHECK_CODES: Record<string, ErrorCode> = {
   'control-channel': CODES.E_CONTROL_UNAVAILABLE,
   'eval-token': CODES.E_TOKEN_MISSING,
   executor: CODES.E_CONTROL_UNAVAILABLE,
-  browser: CODES.E_BROWSER_LAUNCH
+  browser: CODES.E_BROWSER_LAUNCH,
+  engine: CODES.E_COMMAND_UNSUPPORTED_FOR_TARGET
 }
 
 export function registerDoctorCommand(program: Command): void {

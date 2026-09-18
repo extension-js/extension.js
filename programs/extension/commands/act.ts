@@ -9,6 +9,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import type {Command} from 'commander'
+import {emulatorSessionRefusal} from '../helpers/emulator-session'
 import {exitAfterDrain} from '../helpers/exit-after-drain'
 import {
   type AnyDevelopModule,
@@ -546,6 +547,20 @@ async function runCommand(input: RunInput): Promise<void> {
       code: refusal.code,
       plain: refusal.plain,
       hint: refusal.hint
+    })
+  }
+
+  const emulatorRefusal = emulatorSessionRefusal(
+    bridge,
+    projectPath,
+    browser,
+    input.command
+  )
+
+  if (emulatorRefusal) {
+    fail(emulatorRefusal, {
+      ...outputFrame,
+      code: CODES.E_COMMAND_UNSUPPORTED_FOR_TARGET
     })
   }
 
