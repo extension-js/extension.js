@@ -45,6 +45,30 @@ describe('chromium extension id derivation', () => {
     expect(chromiumExtensionId(tmp)).toBe('kgdaecdpfkikjncaalnmmnjjfpofkcbl')
   })
 
+  it('derives the same id through a symlink as Chrome does from the real path (macOS /var vs /private/var)', () => {
+    fs.writeFileSync(
+      path.join(tmp, 'manifest.json'),
+      JSON.stringify({name: 'x', version: '1'})
+    )
+
+    const linkRoot = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'extension-id-link-')
+    )
+    const link = path.join(linkRoot, 'dist')
+
+    try {
+      fs.symlinkSync(tmp, link, 'dir')
+      expect(fs.realpathSync.native(link)).not.toBe(link)
+      expect(chromiumExtensionId(link)).toBe(
+        chromiumExtensionIdFromPath(fs.realpathSync.native(tmp))
+      )
+
+      expect(chromiumExtensionId(link)).toBe(chromiumExtensionId(tmp))
+    } finally {
+      fs.rmSync(linkRoot, {recursive: true, force: true})
+    }
+  })
+
   it('falls back to a deterministic path-derived id without a key', () => {
     fs.writeFileSync(
       path.join(tmp, 'manifest.json'),
