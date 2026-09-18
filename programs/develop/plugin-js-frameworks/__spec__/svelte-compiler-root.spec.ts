@@ -134,12 +134,10 @@ describe('reading the version beside the loader', () => {
     ).toMatchObject({root: svelteDir, version: '5.57.0'})
   })
 
-  it('answers empty when the loader has no svelte beside it', () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'svelte-compiler-'))
-    dirs.push(root)
-    const loader = path.join(root, 'index.js')
-    fs.writeFileSync(loader, 'module.exports = {}')
-
-    expect(resolveCompilerSvelte(loader)).toEqual({})
+  it('answers empty rather than throwing when the loader path is unusable', () => {
+    // A bare "no svelte anywhere above it" fixture cannot be written down:
+    // Node also consults its global folders, and a CI runner has a svelte
+    // there. An unusable path is the one deterministic failure to assert.
+    expect(resolveCompilerSvelte('relative/svelte-loader/index.js')).toEqual({})
   })
 })
