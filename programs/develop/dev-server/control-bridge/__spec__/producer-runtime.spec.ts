@@ -209,7 +209,7 @@ describe('bridge producer runtime', () => {
     expect(fetched).toContain('chrome-extension://test/manifest.json')
   })
 
-  it('honors exclude_matches on reinject and dynamic re-registration', async () => {
+  it('honors exclude_matches on the boot reinject and registers no dynamic copy of a fresh static manifest', async () => {
     const {fakeGlobal} = makeGlobal()
     let installedListener: (() => void) | undefined
     fakeGlobal.fetch = () =>
@@ -286,8 +286,7 @@ describe('bridge producer runtime', () => {
 
     expect(executed).toHaveLength(1)
     expect(executed[0].target.tabId).toBe(1)
-    expect(registered).toHaveLength(1)
-    expect(registered[0].excludeMatches).toEqual(['*://*/_screenrecording*'])
+    expect(registered).toHaveLength(0)
   })
 
   it('source has no unresolved placeholders by construction', () => {
@@ -1822,7 +1821,8 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       matches: ['https://x.test/*'],
       js: ['content_scripts/content-0.NEWHASH.js'],
       world: 'ISOLATED',
-      runAt: 'document_idle'
+      runAt: 'document_idle',
+      persistAcrossSessions: false
     })
 
     expect(registered[0].id.startsWith('_')).toBe(false)
@@ -1833,6 +1833,107 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     expect(registered).toHaveLength(1)
     expect(updated).toHaveLength(1)
     expect(updated[0].id).toBe('extjs-dev-cs-0')
+  })
+
+  it('reload broadcast (content-scripts): hands the frame to the dev content-script runtime and never re-injects when it handled it', async () => {
+    const reloads: unknown[] = []
+    const fetched: string[] = []
+    const ws = setup(
+      {
+        runtime: {getURL: (p: string) => `chrome-extension://abc/${p}`},
+        tabs: {query: (_q: unknown, cb: (t: unknown[]) => void) => cb([])},
+        scripting: {executeScript: (_o: unknown, cb?: () => void) => cb?.()}
+      },
+      {
+        __extjsDevContentScripts: {
+          reload: (names: unknown, done: (h: boolean) => void) => {
+            reloads.push(names)
+            done(true)
+          }
+        },
+        fetch: (url: string) => {
+          fetched.push(url)
+
+          return Promise.resolve({
+            json: () => Promise.resolve({content_scripts: []})
+          })
+        }
+      }
+    )
+
+    ws.triggerMessage({
+      type: 'reload',
+      reloadType: 'content-scripts',
+      changedContentScriptEntries: ['content_scripts/content-1']
+    })
+
+    await new Promise((r) => setTimeout(r, 20))
+    expect(reloads).toEqual([['content_scripts/content-1']])
+    expect(fetched).toEqual([])
+  })
+
+  it('reload broadcast (content-scripts): falls back to the manifest re-inject when the runtime has no registry', async () => {
+    const fetched: string[] = []
+    const ws = setup(
+      {
+        runtime: {getURL: (p: string) => `chrome-extension://abc/${p}`},
+        tabs: {query: (_q: unknown, cb: (t: unknown[]) => void) => cb([])},
+        scripting: {executeScript: (_o: unknown, cb?: () => void) => cb?.()}
+      },
+      {
+        __extjsDevContentScripts: {
+          reload: (_names: unknown, done: (h: boolean) => void) => done(false)
+        },
+        fetch: (url: string) => {
+          fetched.push(url)
+
+          return Promise.resolve({
+            json: () => Promise.resolve({content_scripts: []})
+          })
+        }
+      }
+    )
+
+    ws.triggerMessage({type: 'reload', reloadType: 'content-scripts'})
+    await new Promise((r) => setTimeout(r, 20))
+    expect(fetched).toEqual(['chrome-extension://abc/manifest.json'])
+  })
+
+  it('producer boot hands the heal to the dev content-script runtime when it is installed', async () => {
+    let heals = 0
+    const fetched: string[] = []
+    setup(
+      {
+        runtime: {getURL: (p: string) => `chrome-extension://abc/${p}`},
+        storage: {
+          local: {
+            get: (key: string, cb: (res: Record<string, unknown>) => void) =>
+              cb({[key]: Date.now()}),
+            remove: (_key: string, cb?: () => void) => cb?.()
+          }
+        },
+        tabs: {query: (_q: unknown, cb: (t: unknown[]) => void) => cb([])},
+        scripting: {}
+      },
+      {
+        __extjsDevContentScripts: {
+          heal: () => {
+            heals++
+          }
+        },
+        fetch: (url: string) => {
+          fetched.push(url)
+
+          return Promise.resolve({
+            json: () => Promise.resolve({content_scripts: []})
+          })
+        }
+      }
+    )
+
+    await new Promise((r) => setTimeout(r, 400))
+    expect(heals).toBe(1)
+    expect(fetched).toEqual([])
   })
 
   it('reload broadcast (full): restarts the extension via chrome.runtime.reload', async () => {
@@ -1914,6 +2015,181 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     await new Promise((r) => setTimeout(r, 400))
     expect(removed).toEqual(['__extjsDevPendingReinject'])
     expect(fetched).toContain('chrome-extension://abc/manifest.json')
+  })
+
+  it('producer boot heals open tabs ONCE when onInstalled and the pending flag both fire (reload-oracle R4-service-worker)', async () => {
+    let installedListener: (() => void) | undefined
+    const executed: unknown[] = []
+    const registered: unknown[] = []
+    setup(
+      {
+        runtime: {
+          getURL: (p: string) => `chrome-extension://abc/${p}`,
+          onInstalled: {
+            addListener: (fn: () => void) => {
+              installedListener = fn
+            }
+          }
+        },
+        storage: {
+          local: {
+            get: (key: string, cb: (res: Record<string, unknown>) => void) =>
+              cb({[key]: Date.now()}),
+            remove: (_key: string, cb?: () => void) => cb?.()
+          }
+        },
+        tabs: {
+          query: (_q: unknown, cb: (t: unknown[]) => void) =>
+            cb([{id: 1, url: 'https://x.test/a'}])
+        },
+        scripting: {
+          executeScript: (o: unknown, cb?: () => void) => {
+            executed.push(o)
+            cb?.()
+          },
+          getRegisteredContentScripts: (cb: (s: unknown[]) => void) => cb([]),
+          registerContentScripts: (s: unknown[], cb?: () => void) => {
+            registered.push(...s)
+            cb?.()
+          },
+          unregisterContentScripts: (_f: unknown, cb?: () => void) => cb?.(),
+          updateContentScripts: (_s: unknown, cb?: () => void) => cb?.()
+        }
+      },
+      {
+        fetch: () =>
+          Promise.resolve({
+            json: () =>
+              Promise.resolve({
+                content_scripts: [
+                  {matches: ['https://x.test/*'], js: ['content_scripts/c.js']}
+                ]
+              })
+          })
+      }
+    )
+
+    expect(installedListener).toBeTypeOf('function')
+    installedListener!()
+    await new Promise((r) => setTimeout(r, 400))
+    expect(executed).toHaveLength(1)
+    expect(registered).toHaveLength(0)
+  })
+
+  it('producer boot skips the heal on the first install and skips tabs still loading on a reload (reload-oracle navigation-time double)', async () => {
+    let installedListener: ((d?: {reason: string}) => void) | undefined
+    const executed: Array<{target: {tabId: number}}> = []
+    setup(
+      {
+        runtime: {
+          getURL: (p: string) => `chrome-extension://abc/${p}`,
+          onInstalled: {
+            addListener: (fn: (d?: {reason: string}) => void) => {
+              installedListener = fn
+            }
+          }
+        },
+        storage: {
+          local: {
+            get: (_key: string, cb: (res: Record<string, unknown>) => void) =>
+              cb({}),
+            remove: (_key: string, cb?: () => void) => cb?.()
+          }
+        },
+        tabs: {
+          query: (_q: unknown, cb: (t: unknown[]) => void) =>
+            cb([
+              {id: 1, url: 'https://x.test/a', status: 'loading'},
+              {id: 2, url: 'https://x.test/b', status: 'complete'},
+              {id: 3, url: 'https://x.test/c'}
+            ])
+        },
+        scripting: {
+          executeScript: (o: {target: {tabId: number}}, cb?: () => void) => {
+            executed.push(o)
+            cb?.()
+          },
+          getRegisteredContentScripts: (cb: (s: unknown[]) => void) => cb([]),
+          unregisterContentScripts: (_f: unknown, cb?: () => void) => cb?.()
+        }
+      },
+      {
+        fetch: () =>
+          Promise.resolve({
+            json: () =>
+              Promise.resolve({
+                content_scripts: [
+                  {matches: ['https://x.test/*'], js: ['content_scripts/c.js']}
+                ]
+              })
+          })
+      }
+    )
+
+    installedListener!({reason: 'install'})
+    await new Promise((r) => setTimeout(r, 400))
+    expect(executed).toHaveLength(0)
+
+    installedListener!({reason: 'update'})
+    await new Promise((r) => setTimeout(r, 400))
+    expect(executed.map((o) => o.target.tabId)).toEqual([2, 3])
+  })
+
+  it('producer boot drops the dev registrations a previous generation left behind, and only those', async () => {
+    const unregistered: string[][] = []
+    const order: string[] = []
+    setup(
+      {
+        runtime: {
+          getURL: (p: string) => `chrome-extension://abc/${p}`
+        },
+        storage: {
+          local: {
+            get: (key: string, cb: (res: Record<string, unknown>) => void) =>
+              cb({[key]: Date.now()}),
+            remove: (_key: string, cb?: () => void) => cb?.()
+          }
+        },
+        tabs: {
+          query: (_q: unknown, cb: (t: unknown[]) => void) =>
+            cb([{id: 1, url: 'https://x.test/a'}])
+        },
+        scripting: {
+          executeScript: (_o: unknown, cb?: () => void) => {
+            order.push('execute')
+            cb?.()
+          },
+          getRegisteredContentScripts: (cb: (s: unknown[]) => void) =>
+            cb([
+              {id: 'extjs-dev-cs-0'},
+              {id: 'user-owned'},
+              {id: 'extjs-dev-cs-1'}
+            ]),
+          registerContentScripts: (_s: unknown[], cb?: () => void) => cb?.(),
+          unregisterContentScripts: (f: {ids: string[]}, cb?: () => void) => {
+            order.push('unregister')
+            unregistered.push(f.ids)
+            cb?.()
+          },
+          updateContentScripts: (_s: unknown, cb?: () => void) => cb?.()
+        }
+      },
+      {
+        fetch: () =>
+          Promise.resolve({
+            json: () =>
+              Promise.resolve({
+                content_scripts: [
+                  {matches: ['https://x.test/*'], js: ['content_scripts/c.js']}
+                ]
+              })
+          })
+      }
+    )
+
+    await new Promise((r) => setTimeout(r, 400))
+    expect(unregistered).toEqual([['extjs-dev-cs-0', 'extjs-dev-cs-1']])
+    expect(order).toEqual(['unregister', 'execute'])
   })
 
   it('producer boot drops a STALE pending-reinject flag without reinjecting', async () => {

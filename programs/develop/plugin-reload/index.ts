@@ -8,12 +8,14 @@
 
 import * as fs from 'node:fs'
 import type {Compiler} from '@rspack/core'
+import {isChromiumBasedBrowser} from '../lib/constants'
 import type {DevOptions, PluginInterface} from '../types'
 import {InjectBridgeProducer} from './steps/inject-bridge-producer'
 import {InjectBridgeRelay} from './steps/inject-bridge-relay'
 import {InjectScriptsReplayShim} from './steps/inject-scripts-replay-shim'
 import {PruneStaleHotUpdates} from './steps/prune-stale-hot-updates'
 import {SetupChunkLoadingTarget} from './steps/setup-chunk-loading-target'
+import {SetupDevContentScripts} from './steps/setup-dev-content-scripts'
 import {SetupReloadStrategy} from './steps/setup-reload-strategy'
 import {StripContentScriptDevServerRuntime} from './steps/strip-content-script-dev-server-runtime'
 
@@ -99,6 +101,12 @@ export class ReloadPlugin {
     // Inject the SW-side __extjsScriptsReplay shim so the controller can re-run
     // prior scripting.executeScript calls after /scripts/* edits.
     new InjectScriptsReplayShim().apply(compiler)
+
+    // Chromium caches a static content script at load, so the manifest entry
+    // becomes a stub and the worker registers the real bundle from a registry.
+    if (isChromiumBasedBrowser(String(this.browser))) {
+      new SetupDevContentScripts().apply(compiler)
+    }
 
     // Inject the agent-bridge producer so the background SW forwards console
     // output to the dev-server control WS; no-op when the bridge is unavailable.
