@@ -19,11 +19,11 @@ Automatically wires JS frameworks and TypeScript into the Rspack build used by E
 
 |                                                                            | Framework                                                                                                             |
 | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | -------------------------- |
-| <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **React**<br/>Auto‑installs fast refresh (when missing), applies ReactRefresh plugin, and aliases React/DOM/runtime.  |
-| <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **Preact**<br/>Auto‑installs Prefresh, applies PreactRefresh, and aliases React imports to `preact/compat`.           |
-| <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **Vue**<br/>Adds `vue-loader` + `VueLoaderPlugin`; JSX/TSX pages import `vue/jsx-runtime`; supports optional `vue.loader.(js                                  | mjs)` with custom options. |
-| <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **Svelte**<br/>Adds `svelte-loader` rules (including `.svelte.ts`) with dev/HMR defaults; supports `svelte.loader.*`. |
-| <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **TypeScript**<br/>Ensures `tsconfig.json` exists/loaded, the SWC parser follows the file extension, so `.tsx` and `.jsx` parse for every framework. |
+| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **React**<br/>Auto‑installs fast refresh (when missing), applies ReactRefresh plugin, and aliases React/DOM/runtime.  |
+| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Preact**<br/>Auto‑installs Prefresh, applies PreactRefresh, and aliases React imports to `preact/compat`.           |
+| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Vue**<br/>Adds `vue-loader` + `VueLoaderPlugin`; JSX/TSX pages import `vue/jsx-runtime`; supports optional `vue.loader.(js                                  | mjs)` with custom options. |
+| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Svelte**<br/>Adds `svelte-loader` rules (including `.svelte.ts`) with dev/HMR defaults; supports `svelte.loader.*`. |
+| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **TypeScript**<br/>Ensures `tsconfig.json` exists/loaded, the SWC parser follows the file extension, so `.tsx` and `.jsx` parse for every framework. |
 
 Solid is not a supported framework. A Solid project still compiles, through a runtime adapter over
 `solid-js/h`, but fine-grained JSX reactivity does not survive that path: SWC emits
