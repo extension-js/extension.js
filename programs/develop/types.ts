@@ -120,6 +120,7 @@ export type BrowserType =
   | 'firefox-based'
   | 'safari'
   | 'webkit-based'
+  | 'chromium-emulator'
 
 export interface BrowserOptionsBase {
   noOpen?: boolean

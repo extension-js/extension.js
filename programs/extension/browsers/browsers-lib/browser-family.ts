@@ -39,3 +39,11 @@ export function isChromiumBrowser(browser: BrowserType | string): boolean {
 export function isFirefoxBrowser(browser: BrowserType | string): boolean {
   return FIREFOX_BROWSERS.has(String(browser))
 }
+
+export const EMULATOR_BROWSERS: ReadonlySet<string> = new Set([
+  'chromium-emulator'
+])
+
+export function isEmulatorBrowser(browser: BrowserType | string): boolean {
+  return EMULATOR_BROWSERS.has(String(browser))
+}

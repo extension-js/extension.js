@@ -281,7 +281,8 @@ export function registerStartCommand(program: Command) {
 
             // eslint-disable-next-line no-console
             console.error(messages.unsupportedBrowserFlag(invalid, supported))
-          }
+          },
+          {allowEmulator: false}
         )
 
         if (!vendorsAreSupported) {

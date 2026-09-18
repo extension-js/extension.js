@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import {isEmulatorBrowser, isEmulatorLaneEnabled} from './constants'
 import type {ProjectStructure} from './project'
 import {
   PROJECT_MANIFEST_FILENAMES,
@@ -34,6 +35,7 @@ export type BrowserInput =
   | 'firefox-based'
   | 'safari'
   | 'webkit-based'
+  | 'chromium-emulator'
   | undefined
 
 export type NormalizedBrowser =
@@ -53,6 +55,7 @@ export type NormalizedBrowser =
   | 'gecko-based'
   | 'safari'
   | 'webkit-based'
+  | 'chromium-emulator'
 
 export function asAbsolute(p: string): AbsolutePath {
   return (path.isAbsolute(p) ? p : path.resolve(p)) as AbsolutePath
@@ -195,7 +198,10 @@ const KNOWN_BROWSER_NAMES = new Set([
 ])
 
 export function isKnownBrowserName(name: unknown): boolean {
-  return typeof name === 'string' && KNOWN_BROWSER_NAMES.has(name)
+  if (typeof name !== 'string') return false
+  if (isEmulatorBrowser(name)) return isEmulatorLaneEnabled()
+
+  return KNOWN_BROWSER_NAMES.has(name)
 }
 
 // commands.<cmd>.browser from extension.config.js, only when no browser was
@@ -281,6 +287,10 @@ export function normalizeBrowser(
       return 'safari'
     case 'webkit-based':
       return 'webkit-based'
+    case 'chromium-emulator':
+      if (isEmulatorLaneEnabled()) return 'chromium-emulator'
+
+      return 'chrome'
     default:
       // Unrecognized input falls back to the documented default; the CLI validates
       // upstream, this is defense-in-depth.
@@ -336,6 +346,7 @@ export function devtoolsEngineFor(
       return 'edge'
     case 'chromium':
     case 'chromium-based':
+    case 'chromium-emulator':
     case 'brave':
     case 'opera':
     case 'vivaldi':
