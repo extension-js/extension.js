@@ -117,13 +117,25 @@ function deriveChromiumExtensionIdFromManifest(manifest: unknown): string {
   }
 }
 
+function realDirectoryPath(dir: string): string {
+  const absolute = path.resolve(dir)
+
+  try {
+    return fs.realpathSync.native(absolute)
+  } catch {
+    return absolute
+  }
+}
+
 // Mirror Chrome's id_util::GenerateIdForPath so unpacked extensions with no
 // key and no runtime surface still get their real ID in the dev banner.
 function deriveChromiumExtensionIdFromPath(extensionPath: string): string {
   if (!extensionPath || typeof extensionPath !== 'string') return ''
 
   try {
-    const absolute = path.resolve(extensionPath)
+    // Chrome registers the directory with symlinks resolved (a macOS temp
+    // dir under /var is a link to /private/var), so hash the real path.
+    const absolute = realDirectoryPath(extensionPath)
     const isWindows = process.platform === 'win32'
     // Chrome on Windows hashes the wide-char path bytes (UTF-16LE) with
     // backslash separators; POSIX hashes the UTF-8 absolute path bytes.
