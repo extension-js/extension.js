@@ -4,6 +4,7 @@ import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {claimCardKey} from '../../helpers/messaging'
 import {
+  expectedChromiumExtensionId,
   expectedGeckoExtensionId,
   printDevBannerOnce,
   printProdBannerOnce
@@ -123,6 +124,29 @@ describe('printDevBannerOnce', () => {
     expect(output).toContain('addon@example.com')
     expect(output).not.toContain('(temporary)')
     logSpy.mockRestore()
+  })
+})
+
+describe('expectedChromiumExtensionId', () => {
+  it('hashes the real path, so a symlinked dist gets the id Chrome loads (macOS /var vs /private/var)', () => {
+    const outPath = makeTempOutPath({name: 'Test Extension', version: '1.0.0'})
+    const linkRoot = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'extjs-banner-link-')
+    )
+    const link = path.join(linkRoot, 'dist')
+
+    try {
+      fs.symlinkSync(outPath, link, 'dir')
+      expect(fs.realpathSync.native(link)).not.toBe(link)
+      expect(expectedChromiumExtensionId(link)).toBe(
+        expectedChromiumExtensionId(fs.realpathSync.native(outPath))
+      )
+
+      expect(expectedChromiumExtensionId(link)).toMatch(/^[a-p]{32}$/)
+    } finally {
+      fs.rmSync(linkRoot, {recursive: true, force: true})
+      fs.rmSync(outPath, {recursive: true, force: true})
+    }
   })
 })
 

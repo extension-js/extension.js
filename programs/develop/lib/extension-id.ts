@@ -30,6 +30,16 @@ function idFromHash(hash: Buffer): string {
   return id
 }
 
+function realDirectoryPath(dir: string): string {
+  const absolute = path.resolve(dir)
+
+  try {
+    return fs.realpathSync.native(absolute)
+  } catch {
+    return absolute
+  }
+}
+
 export function chromiumExtensionIdFromKey(manifestKey: string): string {
   const decoded = Buffer.from(manifestKey, 'base64')
 
@@ -38,8 +48,10 @@ export function chromiumExtensionIdFromKey(manifestKey: string): string {
 
 // Chromium hashes the profile-registered directory path for unpacked
 // extensions without a key; on Windows it lowercases ASCII and hashes UTF-16LE.
+// It registers the path with symlinks resolved (macOS keeps temp dirs under
+// /var, a link to /private/var), so the id must come from the real path.
 export function chromiumExtensionIdFromPath(extensionDir: string): string {
-  const absolute = path.resolve(extensionDir)
+  const absolute = realDirectoryPath(extensionDir)
   const bytes =
     process.platform === 'win32'
       ? Buffer.from(
