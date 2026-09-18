@@ -175,7 +175,7 @@ describe('emulator launcher', () => {
         {browser: 'chromium-emulator', emulatorViewerUrl: VIEWER_URL},
         () => {}
       )
-    ).rejects.toThrow(/only under extension dev/)
+    ).rejects.toThrow(/needs the dev server/)
 
     await expect(
       launchEmulator({browser: 'chromium-emulator', mode: 'development'})

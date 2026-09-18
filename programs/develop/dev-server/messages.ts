@@ -137,7 +137,7 @@ export function shouldWarnPortConflict(
 
 export function emulatorViewerUrl(url: string) {
   return (
-    `${getLoggingPrefix('info')} Emulated Chromium runs in a web page. Open it at:\n` +
+    `${getLoggingPrefix('info')} Emulated Chromium runs in a web page. Open this address to load your extension:\n` +
     `${colors.underline(url)}`
   )
 }
