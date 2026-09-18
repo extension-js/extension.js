@@ -551,8 +551,11 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
 
     // Re-inject one declared entry's fresh files into every matching open tab.
     // exclude_matches MUST be honored: query the excludes and subtract them.
-    function reinjectContentScriptEntry(entry) {
+    // opts.completeOnly skips a tab still loading: Chrome injects the static
+    // script into it when it lands, and a second copy here would run twice.
+    function reinjectContentScriptEntry(entry, opts) {
       var chrome = g.chrome;
+      var completeOnly = !!(opts && opts.completeOnly);
       var matches = (entry && entry.matches) || [];
       if (!Array.isArray(matches) || !matches.length) return;
       var excludeMatches = (entry && entry.exclude_matches) || [];
@@ -573,6 +576,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
               (function (tab) {
                 if (!tab || tab.id == null || !isInjectableUrl(tab.url)) return;
                 if (excludedTabIds[tab.id]) return;
+                if (completeOnly && tab.status === "loading") return;
                 var target = {tabId: tab.id, allFrames: allFrames};
                 if (cssFiles.length && chrome.scripting.insertCSS) {
                   try { chrome.scripting.insertCSS({target: target, files: cssFiles}, noopLastError); } catch (e) {
@@ -620,16 +624,19 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
 
     // Re-inject all content scripts into their open tabs. Reads the manifest
     // FROM DISK: getManifest() is frozen and dev filenames are content-hashed.
-    function reinjectContentScripts(onDone) {
+    // opts.register false skips the dynamic registration: at boot the static
+    // manifest already names the current files, and a copy injects twice.
+    function reinjectContentScripts(onDone, opts) {
       var chrome = g.chrome;
+      var register = !opts || opts.register !== false;
       try {
         if (typeof g.fetch !== "function" || !chrome.scripting) return false;
         g.fetch(chrome.runtime.getURL("manifest.json"), {cache: "no-store"})
           .then(function (r) { return r.json(); })
           .then(function (manifest) {
             var entries = (manifest && manifest.content_scripts) || [];
-            for (var i = 0; i < entries.length; i++) reinjectContentScriptEntry(entries[i]);
-            reregisterForFutureNavigations(entries);
+            for (var i = 0; i < entries.length; i++) reinjectContentScriptEntry(entries[i], opts);
+            if (register) reregisterForFutureNavigations(entries);
             if (onDone) { try { onDone(); } catch (e) {
               // Ignore
             } }
@@ -669,7 +676,10 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
           matches: e.matches,
           runAt: mapRunAt(e.run_at),
           allFrames: !!e.all_frames,
-          world: e.world === "MAIN" ? "MAIN" : "ISOLATED"
+          world: e.world === "MAIN" ? "MAIN" : "ISOLATED",
+          // A browser restart loads the static manifest fresh; a copy that
+          // outlived the session would inject every page twice.
+          persistAcrossSessions: false
         };
         // Dev registration must not be BROADER than the static one: dropping
         // exclude_matches injects into pages the browser itself would skip.
@@ -709,9 +719,17 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       }
     }
 
-    // Dev-loop reload without the CDP controller: content-scripts re-inject in
-    // place into open tabs; service-worker/full/manifest restart the extension.
-    function performDevReload(type, onDone) {
+    // The dev content-script runtime (plugin-reload) owns registration, the
+    // boot heal and the tab reloads when its registry exists; absent, the
+    // manifest-based paths below stay in charge.
+    function devContentScripts() {
+      try { return g.__extjsDevContentScripts || null; } catch (e) { return null; }
+    }
+
+    // Dev-loop reload without the CDP controller: content-scripts reload the
+    // matching tabs at the new bundle, or re-inject in place where no registry
+    // exists; service-worker/full/manifest restart the extension.
+    function performDevReload(type, onDone, frame) {
       var chrome = g.chrome;
       if (!chrome) return;
 
@@ -733,6 +751,21 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       };
 
       if (type === "content-scripts" && chrome.scripting && chrome.tabs && chrome.tabs.query) {
+        var dev = devContentScripts();
+        if (dev && typeof dev.reload === "function") {
+          try {
+            dev.reload(frame && frame.changedContentScriptEntries, function (handled) {
+              if (handled) { if (onDone) { try { onDone(); } catch (e) {
+                // Ignore
+              } } return; }
+              if (reinjectContentScripts(onDone)) return;
+              fullReload();
+            });
+            return;
+          } catch (e) {
+            // Ignore
+          }
+        }
         if (reinjectContentScripts(onDone)) return;
       }
 
@@ -822,7 +855,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       send({type: "reload-ack", reloadType: kind, label: label});
 
       announceReloadInTabs(announced);
-      performDevReload(kind, function () {});
+      performDevReload(kind, function () {}, frame);
     }
 
     function sanitize(args) {
@@ -1159,19 +1192,70 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       // Ignore
     }
 
+    // Dev registrations outlive runtime.reload(), while the new generation's
+    // static manifest already names the current files: drop them first, or
+    // every navigation from here on runs the content script twice.
+    function unregisterDevContentScripts(onDone) {
+      var chrome = g.chrome;
+      var done = function () { if (onDone) { try { onDone(); } catch (e) {
+        // Ignore
+      } } };
+      try {
+        if (
+          !chrome.scripting ||
+          !chrome.scripting.getRegisteredContentScripts ||
+          !chrome.scripting.unregisterContentScripts
+        ) return done();
+        chrome.scripting.getRegisteredContentScripts(function (existing) {
+          try { void chrome.runtime.lastError; } catch (e) {
+            // Ignore
+          }
+          var ids = [];
+          if (existing) {
+            for (var i = 0; i < existing.length; i++) {
+              var id = existing[i] && existing[i].id;
+              if (typeof id === "string" && id.indexOf("extjs-dev-cs-") === 0) ids.push(id);
+            }
+          }
+          if (!ids.length) return done();
+          try {
+            chrome.scripting.unregisterContentScripts({ids: ids}, function () { noopLastError(); done(); });
+          } catch (e) { done(); }
+        });
+      } catch (e) { done(); }
+    }
+
+    // One heal per producer generation: onInstalled and the pre-reload storage
+    // flag can both fire on the same boot, and each would inject once more.
+    var bootHealDone = false;
+    function healOpenTabsAtBoot() {
+      if (bootHealDone) return;
+      bootHealDone = true;
+      setTimeout(function () {
+        var dev = devContentScripts();
+        if (dev && typeof dev.heal === "function") {
+          try { dev.heal(); return; } catch (e) {
+            // Ignore
+          }
+        }
+        unregisterDevContentScripts(function () {
+          try { reinjectContentScripts(undefined, {register: false, completeOnly: true}); } catch (e) {
+            // Ignore
+          }
+        });
+      }, 250);
+    }
+
     // Chrome never injects manifest content scripts into already-open tabs, so
-    // fire one reinject on onInstalled (which skips idle-stop SW wakes).
+    // fire one reinject on onInstalled (which skips idle-stop SW wakes). Not
+    // on the first install: the tabs the browser launched with load beside
+    // the extension and Chrome injects them itself.
     try {
       var rtBoot = g.chrome;
       if (rtBoot && rtBoot.runtime && rtBoot.runtime.onInstalled) {
-        rtBoot.runtime.onInstalled.addListener(function () {
-          try {
-            setTimeout(function () {
-              try { reinjectContentScripts(); } catch (e) {
-                // Ignore
-              }
-            }, 250);
-          } catch (e) {
+        rtBoot.runtime.onInstalled.addListener(function (details) {
+          if (details && details.reason === "install") return;
+          try { healOpenTabsAtBoot(); } catch (e) {
             // Ignore
           }
         });
@@ -1193,11 +1277,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
             // Ignore
           }
           if (typeof ts !== "number" || Date.now() - ts > 30000) return;
-          setTimeout(function () {
-            try { reinjectContentScripts(); } catch (e) {
-              // Ignore
-            }
-          }, 250);
+          healOpenTabsAtBoot();
         });
       }
     } catch (e) {

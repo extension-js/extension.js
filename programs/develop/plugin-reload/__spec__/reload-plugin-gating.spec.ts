@@ -47,6 +47,16 @@ vi.mock('../steps/inject-bridge-relay', () => ({
   })
 }))
 
+const devContentScriptsCtor = vi.hoisted(() =>
+  vi.fn(function (this: any) {
+    this.apply = () => {}
+  })
+)
+
+vi.mock('../steps/setup-dev-content-scripts', () => ({
+  SetupDevContentScripts: devContentScriptsCtor
+}))
+
 import {ReloadPlugin} from '../index'
 
 function makeCompiler(mode: 'development' | 'production' | 'none') {
@@ -64,6 +74,7 @@ describe('ReloadPlugin dev-only gating', () => {
   beforeEach(() => {
     setupReloadStrategyCtor.mockClear()
     stripCtor.mockClear()
+    devContentScriptsCtor.mockClear()
   })
 
   afterEach(() => {
@@ -79,6 +90,17 @@ describe('ReloadPlugin dev-only gating', () => {
 
     expect(setupReloadStrategyCtor).toHaveBeenCalledTimes(1)
     expect(stripCtor).toHaveBeenCalledTimes(1)
+    expect(devContentScriptsCtor).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps the manifest content scripts static for firefox', () => {
+    new ReloadPlugin({
+      manifestPath: fixtureManifest,
+      browser: 'firefox'
+    } as any).apply(makeCompiler('development'))
+
+    expect(setupReloadStrategyCtor).toHaveBeenCalledTimes(1)
+    expect(devContentScriptsCtor).not.toHaveBeenCalled()
   })
 
   it('applies nothing in production mode', () => {

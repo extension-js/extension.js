@@ -50,6 +50,19 @@ describe('classifyReloadFromSources', () => {
     expect(result?.changedAssets).toEqual(['src/content/scripts.js'])
   })
 
+  it('an html-only edit with declared content scripts is a page reload, never a content reinject (reload-oracle R4-page)', () => {
+    const result = classifyReloadFromSources({
+      changedSources: ['popup.html'],
+      getContentScriptCount: count(1)
+    })
+    expect(result).toMatchObject({
+      type: 'page',
+      label: 'popup page (popup.html)'
+    })
+
+    expect(result?.changedContentScriptEntries).toBeUndefined()
+  })
+
   it('a page-only edit with no content scripts → notify-only "page" (livereload owns the refresh)', () => {
     expect(
       classifyReloadFromSources({
@@ -172,6 +185,22 @@ describe('classifyReloadFromSources with a chunk-graph source index', () => {
     } finally {
       fs.rmSync(outputPath, {recursive: true, force: true})
     }
+  })
+
+  it('html markup is absent from every index set and still classifies as a page', () => {
+    const result = classifyReloadFromSources({
+      changedSources: ['popup.html'],
+      getContentScriptCount: count(2),
+      getSourceFeatureIndex: () =>
+        index({
+          contentEntriesBySource: new Map([
+            ['content.js', new Set(['content_scripts/content-0'])]
+          ]),
+          pageSources: new Set(['popup.js'])
+        })
+    })
+    expect(result?.type).toBe('page')
+    expect(result?.label).toBe('popup page (popup.html)')
   })
 
   it('a page-chunk source → notify-only page even when content scripts exist', () => {
