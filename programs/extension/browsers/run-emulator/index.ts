@@ -50,6 +50,67 @@ export function openCommandFor(
   return {command: 'xdg-open', args: [url]}
 }
 
+export type EngineOriginVerdict = 'open' | 'held' | 'throttled' | 'unknown'
+
+export type OriginFetch = (
+  url: string,
+  init: {signal: AbortSignal}
+) => Promise<{status: number; json(): Promise<unknown>}>
+
+export function engineVersionUrl(viewerUrl: string): string | null {
+  try {
+    const parsed = new URL(viewerUrl)
+    const base = parsed.pathname.endsWith('/')
+      ? parsed.pathname
+      : `${parsed.pathname.replace(/[^/]*$/, '')}`
+
+    return `${parsed.origin}${base}version.json`
+  } catch {
+    return null
+  }
+}
+
+export async function probeEngineOrigin(
+  viewerUrl: string,
+  fetchImpl: OriginFetch = (url, init) => fetch(url, init),
+  timeoutMs = 3000
+): Promise<EngineOriginVerdict> {
+  const url = engineVersionUrl(viewerUrl)
+
+  if (!url) return 'unknown'
+
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    const response = await fetchImpl(url, {signal: controller.signal})
+
+    if (response.status === 429) return 'throttled'
+    if (response.status === 503) return 'held'
+    if (response.status !== 200) return 'unknown'
+
+    const report = (await response.json()) as {hold?: unknown} | null
+
+    return report && report.hold === 'held' ? 'held' : 'open'
+  } catch {
+    return 'unknown'
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+export function engineOriginLine(verdict: EngineOriginVerdict): string | null {
+  if (verdict === 'held') {
+    return `${prefix('warn')} emulated Chromium is not open to the public yet, so this address answers 503 until it is. Run this project with --browser=chrome in the meantime.`
+  }
+
+  if (verdict === 'throttled') {
+    return `${prefix('warn')} the emulated Chromium origin is rate limiting this address (HTTP 429). Wait a minute, then run extension dev again, or run this project with --browser=chrome.`
+  }
+
+  return null
+}
+
 export function openInDefaultBrowser(url: string): void {
   const {command, args} = openCommandFor(url)
 
@@ -68,7 +129,8 @@ export function openInDefaultBrowser(url: string): void {
 
 export async function launchEmulator(
   opts: EmulatorLaunchOptions,
-  opener: UrlOpener = openInDefaultBrowser
+  opener: UrlOpener = openInDefaultBrowser,
+  probe: (url: string) => Promise<EngineOriginVerdict> = probeEngineOrigin
 ): Promise<EmulatorController> {
   if ((opts.mode || 'production') !== 'development') {
     throw new Error(
@@ -86,7 +148,13 @@ export async function launchEmulator(
 
   console.log(emulatorViewerUrlLine(url))
 
-  if (!opts.noOpen && !opts.dryRun) opener(url)
+  const willOpen = !opts.noOpen && !opts.dryRun
+  const verdict = willOpen ? await probe(url) : 'unknown'
+  const originLine = engineOriginLine(verdict)
+
+  if (originLine) console.warn(originLine)
+
+  if (willOpen && !originLine) opener(url)
 
   const logsRequested = Boolean(opts.logLevel && opts.logLevel !== 'off')
 

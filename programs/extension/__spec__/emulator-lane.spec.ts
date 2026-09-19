@@ -45,7 +45,11 @@ import {
   isChromiumBrowser,
   isEmulatorBrowser
 } from '../browsers/browsers-lib/browser-family'
-import {launchEmulator, openCommandFor} from '../browsers/run-emulator'
+import {
+  launchEmulator,
+  openCommandFor,
+  probeEngineOrigin
+} from '../browsers/run-emulator'
 import {registerActCommands} from '../commands/act'
 import {runDoctor} from '../commands/doctor'
 import {registerLogsCommand} from '../commands/logs'
@@ -146,7 +150,8 @@ describe('emulator launcher', () => {
         mode: 'development',
         emulatorViewerUrl: VIEWER_URL
       },
-      (url) => opened.push(url)
+      (url) => opened.push(url),
+      async () => 'open'
     )
 
     expect(opened).toEqual([VIEWER_URL])
@@ -195,6 +200,105 @@ describe('emulator launcher', () => {
     expect(controller.retryExtensionLoad).toBeUndefined()
     expect(controller.getExtensionLoadRefusal).toBeUndefined()
     await controller.enableUnifiedLogging({level: 'off'})
+  })
+
+  it('reads the engine origin before opening: held and throttled print one line and open nothing', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const opened: string[] = []
+    const answer =
+      (status: number, body: unknown = {}) =>
+      async () => ({
+        status,
+        json: async () => body
+      })
+
+    await launchEmulator(
+      {
+        browser: 'chromium-emulator',
+        mode: 'development',
+        emulatorViewerUrl: VIEWER_URL
+      },
+      (url) => opened.push(url),
+      (url) => probeEngineOrigin(url, answer(200, {hold: 'held'}))
+    )
+
+    expect(opened).toEqual([])
+    expect(String(warnSpy.mock.calls.flat().join('\n'))).toMatch(
+      /not open to the public yet/
+    )
+
+    warnSpy.mockClear()
+    await launchEmulator(
+      {
+        browser: 'chromium-emulator',
+        mode: 'development',
+        emulatorViewerUrl: VIEWER_URL
+      },
+      (url) => opened.push(url),
+      (url) => probeEngineOrigin(url, answer(429))
+    )
+
+    expect(opened).toEqual([])
+    expect(String(warnSpy.mock.calls.flat().join('\n'))).toMatch(
+      /rate limiting.*429/
+    )
+
+    warnSpy.mockClear()
+    await launchEmulator(
+      {
+        browser: 'chromium-emulator',
+        mode: 'development',
+        emulatorViewerUrl: VIEWER_URL
+      },
+      (url) => opened.push(url),
+      (url) => probeEngineOrigin(url, answer(200, {hold: 'open'}))
+    )
+
+    expect(opened).toEqual([VIEWER_URL])
+    expect(warnSpy).not.toHaveBeenCalled()
+  })
+
+  it('fails open when the origin cannot be read, and never dials it on a dry run', async () => {
+    const opened: string[] = []
+    const dialed: string[] = []
+    const failing = (url: string) =>
+      probeEngineOrigin(url, async (target) => {
+        dialed.push(target)
+
+        throw new TypeError('offline')
+      })
+
+    await launchEmulator(
+      {
+        browser: 'chromium-emulator',
+        mode: 'development',
+        emulatorViewerUrl: VIEWER_URL
+      },
+      (url) => opened.push(url),
+      failing
+    )
+
+    expect(dialed).toEqual([
+      'https://browsers.extension.land/chromium/version.json'
+    ])
+
+    expect(opened).toEqual([VIEWER_URL])
+
+    for (const quiet of [{dryRun: true}, {noOpen: true}]) {
+      dialed.length = 0
+      await launchEmulator(
+        {
+          browser: 'chromium-emulator',
+          mode: 'development',
+          ...quiet,
+          emulatorViewerUrl: VIEWER_URL
+        },
+        (url) => opened.push(url),
+        failing
+      )
+
+      expect(dialed, JSON.stringify(quiet)).toEqual([])
+    }
   })
 
   it('picks the platform opener without a shell', () => {
