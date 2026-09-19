@@ -104,7 +104,15 @@ export class ReloadPlugin {
 
     // Chromium caches a static content script at load, so the manifest entry
     // becomes a stub and the worker registers the real bundle from a registry.
-    if (isChromiumBasedBrowser(String(this.browser))) {
+    // Emulated Chromium keeps the static entry: the registry re-registers
+    // through the reload producer this lane never injects, and the emulator
+    // swaps a static content script itself on a content-scripts reload.
+    // Measured 2026-09-19: with the stub, a content script edit never re-ran
+    // on the emulated sample page (standalone proof 24 of 26).
+    if (
+      isChromiumBasedBrowser(String(this.browser)) &&
+      !isEmulatorBrowser(this.browser)
+    ) {
       new SetupDevContentScripts().apply(compiler)
     }
 
