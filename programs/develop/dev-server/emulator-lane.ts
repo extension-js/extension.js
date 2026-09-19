@@ -133,6 +133,15 @@ function isServableAssetName(name: string): boolean {
   return !/(?:^|\/)\.\.(?:\/|$)/.test(name)
 }
 
+function servedAssetPath(name: string): string {
+  return name
+    .split('/')
+    .filter(
+      (segment, index) => segment !== '' && !(segment === '.' && index > 0)
+    )
+    .join('/')
+}
+
 export function buildEmulatorFileIndex(
   assets: Iterable<EmulatorAssetLike>,
   instanceId: string
@@ -141,14 +150,21 @@ export function buildEmulatorFileIndex(
   const hotNames = hotModuleReplacementNames(list)
   const files: EmulatorFileEntry[] = []
 
+  const listed = new Set<string>()
+
   for (const asset of list) {
     const name = String(asset.name || '')
     if (!isServableAssetName(name) || hotNames.has(name)) continue
 
+    const servedPath = servedAssetPath(name)
+    if (!servedPath || listed.has(servedPath)) continue
+
+    listed.add(servedPath)
+
     const bytes = asset.source.buffer()
 
     files.push({
-      path: name,
+      path: servedPath,
       size: bytes.length,
       sha256: createHash('sha256').update(bytes).digest('hex')
     })
