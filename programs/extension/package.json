@@ -41,6 +41,7 @@
   "version": "4.1.25",
   "description": "The cross-browser extension framework. Build Chrome, Edge, Firefox, and Safari extensions with no build configuration.",
   "homepage": "https://extension.js.org/",
+  "funding": "https://github.com/sponsors/cezaraugusto",
   "bugs": {
     "url": "https://github.com/extension-js/extension.js/issues"
   },
