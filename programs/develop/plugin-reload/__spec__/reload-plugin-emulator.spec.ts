@@ -44,10 +44,10 @@ vi.mock('../steps/prune-stale-hot-updates', () => ({
   PruneStaleHotUpdates: inert()
 }))
 
+const devContentScriptsCtor = vi.hoisted(() => vi.fn(() => ({apply: vi.fn()})))
+
 vi.mock('../steps/setup-dev-content-scripts', () => ({
-  SetupDevContentScripts: class {
-    apply() {}
-  }
+  SetupDevContentScripts: devContentScriptsCtor
 }))
 
 vi.mock('../steps/inject-bridge-producer', () => ({
@@ -73,6 +73,7 @@ describe('ReloadPlugin producer injection per engine', () => {
     new ReloadPlugin({manifestPath, browser: 'chromium'} as any).apply(compiler)
     expect(producerCtor).toHaveBeenCalledTimes(1)
     expect(relayCtor).toHaveBeenCalledTimes(1)
+    expect(devContentScriptsCtor).toHaveBeenCalledTimes(1)
   })
 
   it('never injects them into the user background for chromium-emulator', () => {
@@ -82,5 +83,6 @@ describe('ReloadPlugin producer injection per engine', () => {
 
     expect(producerCtor).not.toHaveBeenCalled()
     expect(relayCtor).not.toHaveBeenCalled()
+    expect(devContentScriptsCtor).not.toHaveBeenCalled()
   })
 })
