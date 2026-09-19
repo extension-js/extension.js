@@ -44,6 +44,12 @@ vi.mock('../steps/prune-stale-hot-updates', () => ({
   PruneStaleHotUpdates: inert()
 }))
 
+vi.mock('../steps/setup-dev-content-scripts', () => ({
+  SetupDevContentScripts: class {
+    apply() {}
+  }
+}))
+
 vi.mock('../steps/inject-bridge-producer', () => ({
   InjectBridgeProducer: producerCtor
 }))
