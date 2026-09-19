@@ -198,6 +198,22 @@ describe('files.json', () => {
     })
   })
 
+  it('folds an empty path segment and lists the file once, the way Chrome serves it', () => {
+    const index = buildEmulatorFileIndex(
+      [
+        asset('assets//close.svg', '<svg/>'),
+        asset('assets/close.svg', '<svg/>'),
+        asset('assets/./logo.png', 'png')
+      ],
+      'inst-1'
+    )
+
+    expect(index.files.map((file) => file.path)).toEqual([
+      'assets/close.svg',
+      'assets/logo.png'
+    ])
+  })
+
   it('reads the livereload socket path from the dev server config', () => {
     expect(resolveLivereloadPath({type: 'ws', options: {path: '/ws'}})).toBe(
       '/ws'
