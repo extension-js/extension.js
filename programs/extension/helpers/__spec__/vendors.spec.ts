@@ -78,6 +78,8 @@ describe('classifyManagedInstallTarget', () => {
       'yandex',
       'waterfox',
       'librewolf',
+      'zen',
+      'floorp',
       'safari',
       'webkit-based'
     ]) {

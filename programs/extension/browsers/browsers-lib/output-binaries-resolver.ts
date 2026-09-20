@@ -100,6 +100,8 @@ export function managedBrowserCacheEnv(
     | 'yandex'
     | 'waterfox'
     | 'librewolf'
+    | 'zen'
+    | 'floorp'
     | 'chromium-based'
     | 'gecko-based'
     | 'firefox-based'
@@ -120,7 +122,9 @@ export function managedBrowserCacheEnv(
     browser === 'vivaldi' ||
     browser === 'yandex' ||
     browser === 'waterfox' ||
-    browser === 'librewolf'
+    browser === 'librewolf' ||
+    browser === 'zen' ||
+    browser === 'floorp'
   ) {
     return {}
   }

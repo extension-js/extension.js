@@ -388,6 +388,9 @@ importers:
       firefox-location2:
         specifier: 3.1.1
         version: 3.1.1
+      floorp-location:
+        specifier: 1.0.0
+        version: 1.0.0
       librewolf-location:
         specifier: 1.2.1
         version: 1.2.1
@@ -421,6 +424,9 @@ importers:
       yandex-location:
         specifier: 2.1.1
         version: 2.1.1
+      zen-location:
+        specifier: 1.0.0
+        version: 1.0.0
     devDependencies:
       '@rslib/core':
         specifier: ^1.0.0
@@ -3288,6 +3294,11 @@ packages:
   flatted@3.4.4:
     resolution: {integrity: sha512-5+ybhBZANEJxaH3X5evAFatUxLfEHSr7n6kYJ+1Qd0mUqr4eu9gIf6GDbWHf8RJijHrjjO8G+la14SlL2SeS1Q==}
 
+  floorp-location@1.0.0:
+    resolution: {integrity: sha512-37pti2wxM4Jepe1Jfq/d7P4J6WJVQvexGvbKSCxz+W9tOFlG04pFQ4W19vmoCaOjWZrcHEAd5H02Kg41FDN03w==}
+    engines: {node: '>=18'}
+    hasBin: true
+
   follow-redirects@1.16.0:
     resolution: {integrity: sha512-y5rN/uOsadFT/JfYwhxRS5R7Qce+g3zG97+JrtFZlC9klX/W5hD7iiLzScI4nZqUS7DNUdhPgw4xI8W2LuXlUw==}
     engines: {node: '>=4.0'}
@@ -4972,6 +4983,11 @@ packages:
   yocto-queue@0.1.0:
     resolution: {integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==}
     engines: {node: '>=10'}
+
+  zen-location@1.0.0:
+    resolution: {integrity: sha512-7HUnvRWxU/3EoReNBmQi7bi5AWBTQHFpMJc9rDOx8j3RtGj1TfEU/L1Eoebgqi3xNK6dciRM203JEEvNmBHocw==}
+    engines: {node: '>=18'}
+    hasBin: true
 
   zimmerframe@1.1.4:
     resolution: {integrity: sha512-B58NGBEoc8Y9MWWCQGl/gq9xBCe4IiKM0a2x7GZdQKOW5Exr8S1W24J6OgM1njK8xCRGvAJIL/MxXHf6SkmQKQ==}
@@ -7567,6 +7583,10 @@ snapshots:
 
   flatted@3.4.4: {}
 
+  floorp-location@1.0.0:
+    dependencies:
+      which: 4.0.0
+
   follow-redirects@1.16.0: {}
 
   form-data@4.0.6:
@@ -9192,5 +9212,9 @@ snapshots:
       pend: 1.2.0
 
   yocto-queue@0.1.0: {}
+
+  zen-location@1.0.0:
+    dependencies:
+      which: 4.0.0
 
   zimmerframe@1.1.4: {}

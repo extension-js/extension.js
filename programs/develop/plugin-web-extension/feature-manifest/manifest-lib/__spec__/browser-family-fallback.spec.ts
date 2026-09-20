@@ -28,6 +28,8 @@ const GECKO_TARGETS = [
   'firefox',
   'waterfox',
   'librewolf',
+  'zen',
+  'floorp',
   'gecko-based',
   'firefox-based'
 ]

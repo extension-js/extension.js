@@ -12,8 +12,10 @@ import locateFirefox, {
   getInstallGuidance as getFirefoxInstallGuidance,
   getFirefoxVersion
 } from 'firefox-location2'
+import locateFloorp from 'floorp-location'
 import locateLibreWolf from 'librewolf-location'
 import locateWaterfox from 'waterfox-location'
+import locateZen from 'zen-location'
 import {
   humanError,
   humanLine,
@@ -390,6 +392,20 @@ export class FirefoxLaunchPlugin {
           }
         } else if (this.host.browser === 'librewolf') {
           const located = locateLibreWolf(true, {env: process.env})
+          const normalized = normalizePath(located)
+
+          if (normalized) {
+            browserBinaryLocation = normalized
+          }
+        } else if (this.host.browser === 'zen') {
+          const located = locateZen(true, {env: process.env})
+          const normalized = normalizePath(located)
+
+          if (normalized) {
+            browserBinaryLocation = normalized
+          }
+        } else if (this.host.browser === 'floorp') {
+          const located = locateFloorp(true, {env: process.env})
           const normalized = normalizePath(located)
 
           if (normalized) {

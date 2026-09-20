@@ -338,7 +338,7 @@ describe('UpdateManifest (browser-prefixed background keys)', () => {
     })
   })
 
-  for (const browser of ['waterfox', 'librewolf']) {
+  for (const browser of ['waterfox', 'librewolf', 'zen', 'floorp']) {
     it(`maps firefox: keys onto key for a ${browser} build`, () => {
       const out = runUpdateManifest({
         mode: 'production',
