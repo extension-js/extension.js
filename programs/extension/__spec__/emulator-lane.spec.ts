@@ -313,17 +313,17 @@ describe('emulator launcher', () => {
 })
 
 describe('tooling refuses an emulator session', () => {
-  it('detects the session from ready.json engine, not from the name alone', () => {
+  it('detects the session from ready.json engine, or from the open name', () => {
     const reader = {
       readReadyContractDocument: () => ({engine: 'emulator'})
     }
     expect(isEmulatorSession(reader, dir, 'chromium-emulator', {})).toBe(true)
-    expect(isEmulatorSession({}, dir, 'chromium-emulator', {})).toBe(false)
+    expect(isEmulatorSession({}, dir, 'chromium-emulator', {})).toBe(true)
     expect(
       isEmulatorSession({}, dir, 'chromium-emulator', {
-        EXTENSION_EXPERIMENTAL_EMULATOR: '1'
+        EXTENSION_EXPERIMENTAL_EMULATOR: '0'
       })
-    ).toBe(true)
+    ).toBe(false)
 
     expect(
       isEmulatorSession(
