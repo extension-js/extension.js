@@ -8,6 +8,7 @@
 
 import type {Compiler} from '@rspack/core'
 import {getSpecialFoldersDataForCompiler} from '../plugin-special-folders/get-data'
+import {omitOwnedPages} from './shared/omit-owned-pages'
 import type {DevOptions, FilepathList, PluginInterface} from '../types'
 import {HtmlPlugin} from './feature-html'
 import {IconsPlugin} from './feature-icons'
@@ -62,17 +63,21 @@ export class WebExtensionPlugin {
       }
     }).apply(compiler)
 
+    const ownedPages: FilepathList = {
+      ...manifestFieldsData.html,
+      // Pages reachable only through chrome.devtools.panels.create never
+      // appear in the manifest; without this the panel 404s in the browser.
+      ...discoverDevtoolsPanelPages(manifestPath, this.browser),
+      ...settingsOverridesStartupPages(manifestPath, this.browser)
+    }
+
     new HtmlPlugin({
       devSession: this.devSession,
       manifestPath,
       browser: this.browser,
       includeList: {
-        ...manifestFieldsData.html,
-        // Pages reachable only through chrome.devtools.panels.create never
-        // appear in the manifest; without this the panel 404s in the browser.
-        ...discoverDevtoolsPanelPages(manifestPath, this.browser),
-        ...settingsOverridesStartupPages(manifestPath, this.browser),
-        ...specialFoldersData.pages
+        ...ownedPages,
+        ...omitOwnedPages(specialFoldersData.pages, ownedPages)
       }
     }).apply(compiler)
 
