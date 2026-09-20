@@ -181,12 +181,12 @@ describe('AddAssetsToCompilation', () => {
     addAssetsToCompilation.apply(mockCompiler)
 
     const warnings = String(mockCompilation.warnings.map(String).join('\n'))
-    expect(warnings).toMatch(/resolved from the extension output root/i)
+    expect(warnings).toMatch(/resolves from the extension root/i)
     const relativeWarning = mockCompilation.warnings
       .map(String)
       .find((w: string) => w.includes('img/miss.png'))
     expect(relativeWarning || '').not.toMatch(
-      /resolved from the extension output root/i
+      /resolves from the extension root/i
     )
   })
 

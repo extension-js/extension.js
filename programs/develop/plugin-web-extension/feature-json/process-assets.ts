@@ -68,11 +68,7 @@ export function processJsonAssets(
         )
 
         if (!fs.existsSync(abs)) {
-          // Leading '/' is the public/ output root, not the OS filesystem root.
-          const outputRoot = compilation?.options?.output?.path || ''
-          const displayPath = isPublicRoot
-            ? path.join(outputRoot || publicDir, String(thisResource).slice(1))
-            : abs
+          const displayPath = abs
           const isFatal = isCriticalJsonFeature(feature)
           const notFound = new WebpackError(
             messages.jsonMissingFile(feature, displayPath, {

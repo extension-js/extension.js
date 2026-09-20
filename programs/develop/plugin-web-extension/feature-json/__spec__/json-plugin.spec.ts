@@ -143,7 +143,7 @@ describe('JsonPlugin', () => {
     expect(compilation.errors.length).toBe(1)
     expect((compilation.errors[0] as any)?.name).toBe('JSONMissingFile')
     expect(compilation.errors[0]?.message).toContain(
-      "Paths starting with '/' are resolved from the extension output root"
+      "A path starting with '/' resolves from the extension root"
     )
   })
 
