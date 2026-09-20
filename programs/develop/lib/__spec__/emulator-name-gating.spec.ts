@@ -55,8 +55,11 @@ describe('chromium-emulator behind EXTENSION_EXPERIMENTAL_EMULATOR', () => {
     expect(isChromiumBasedBrowser('chromium-emulator')).toBe(true)
     expect(isGeckoBasedBrowser('chromium-emulator')).toBe(false)
     expect(devtoolsEngineFor('chromium-emulator')).toBe('chromium')
-    expect(getDistPath(asAbsolute('/proj'), 'chromium-emulator')).toBe(
-      path.resolve('/proj/dist/chromium-emulator')
+    // Resolve the root once: on Windows a bare '/proj' carries no drive letter
+    // while path.resolve() adds one, and the two never compare equal.
+    const root = asAbsolute(path.resolve('/proj'))
+    expect(getDistPath(root, 'chromium-emulator')).toBe(
+      path.join(root, 'dist', 'chromium-emulator')
     )
 
     const filtered = filterKeysForThisBrowser(
