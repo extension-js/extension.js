@@ -104,33 +104,30 @@ function reject(list: string[], options?: {allowEmulator?: boolean}) {
 }
 
 describe('chromium-emulator name gating', () => {
-  it('refuses the name like any unknown name without the env flag', () => {
+  it('accepts the name by default, since the lane opened on 2026-10-10', () => {
+    expect(reject(['chromium-emulator'])).toEqual({ok: true, refused: ''})
+    expect(supportedBrowserTargets({})).toContain('chromium-emulator')
+  })
+
+  it('hides the name again only when EXTENSION_EXPERIMENTAL_EMULATOR is 0 or false', () => {
+    process.env.EXTENSION_EXPERIMENTAL_EMULATOR = '0'
     expect(reject(['chromium-emulator'])).toEqual({
       ok: false,
       refused: 'chromium-emulator'
     })
-
-    expect(supportedBrowserTargets({})).not.toContain('chromium-emulator')
-  })
-
-  it('accepts the name when EXTENSION_EXPERIMENTAL_EMULATOR=1', () => {
-    process.env.EXTENSION_EXPERIMENTAL_EMULATOR = '1'
-    expect(reject(['chromium-emulator'])).toEqual({ok: true, refused: ''})
     expect(
-      supportedBrowserTargets({EXTENSION_EXPERIMENTAL_EMULATOR: '1'})
-    ).toContain('chromium-emulator')
+      supportedBrowserTargets({EXTENSION_EXPERIMENTAL_EMULATOR: 'false'})
+    ).not.toContain('chromium-emulator')
   })
 
-  it('keeps start and preview refusing it even with the flag set', () => {
-    process.env.EXTENSION_EXPERIMENTAL_EMULATOR = '1'
+  it('keeps start and preview refusing it, open lane or not', () => {
     expect(reject(['chromium-emulator'], {allowEmulator: false}).ok).toBe(false)
   })
 
-  it('never lists the hidden name in help or the public target list', () => {
-    process.env.EXTENSION_EXPERIMENTAL_EMULATOR = '1'
-    expect(SUPPORTED_BROWSER_TARGETS).not.toContain('chromium-emulator')
-    expect(BROWSER_TARGETS_HELP).not.toContain('emulator')
-    expect(NO_SAFARI_BROWSER_TARGETS_HELP).not.toContain('emulator')
+  it('lists the name in help and in the public target list', () => {
+    expect(SUPPORTED_BROWSER_TARGETS).toContain('chromium-emulator')
+    expect(BROWSER_TARGETS_HELP).toContain('chromium-emulator')
+    expect(NO_SAFARI_BROWSER_TARGETS_HELP).toContain('chromium-emulator')
   })
 
   it('is its own engine family, never a Chromium binary launch', () => {

@@ -49,7 +49,9 @@ export function isEmulatorLaneEnabled(
     .trim()
     .toLowerCase()
 
-  return value === '1' || value === 'true'
+  // The lane is public since 2026-10-10. The variable stays as an opt-out for
+  // a machine that must never open a page: 0 or false hides the name again.
+  return !(value === '0' || value === 'false')
 }
 
 export function isEmulatorBrowser(browser: unknown): boolean {

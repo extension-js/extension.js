@@ -27,7 +27,9 @@ export function isEmulatorLaneEnabled(
     .trim()
     .toLowerCase()
 
-  return value === '1' || value === 'true'
+  // The lane is public since 2026-10-10. The variable stays as an opt-out for
+  // a machine that must never open a page: 0 or false hides the name again.
+  return !(value === '0' || value === 'false')
 }
 
 export function isEmulatorVendor(value: unknown): boolean {
@@ -58,7 +60,8 @@ export const SUPPORTED_BROWSER_TARGETS = [
   'gecko-based',
   'firefox-based',
   'safari',
-  'webkit-based'
+  'webkit-based',
+  'chromium-emulator'
 ]
 
 export const BROWSER_TARGETS_HELP = SUPPORTED_BROWSER_TARGETS.join(' | ')
@@ -67,8 +70,8 @@ export function supportedBrowserTargets(
   env: NodeJS.ProcessEnv = process.env
 ): string[] {
   return isEmulatorLaneEnabled(env)
-    ? [...SUPPORTED_BROWSER_TARGETS, EMULATOR_BROWSER_TARGET]
-    : [...SUPPORTED_BROWSER_TARGETS]
+    ? [...SUPPORTED_BROWSER_TARGETS]
+    : SUPPORTED_BROWSER_TARGETS.filter((t) => t !== EMULATOR_BROWSER_TARGET)
 }
 
 // The act verbs (logs, eval, reload, storage, inspect, open) and doctor attach
@@ -150,7 +153,7 @@ export function validateVendors(
 ): boolean {
   const supported =
     options.allowEmulator === false
-      ? [...SUPPORTED_BROWSER_TARGETS]
+      ? SUPPORTED_BROWSER_TARGETS.filter((t) => t !== EMULATOR_BROWSER_TARGET)
       : supportedBrowserTargets()
 
   for (const v of vendorsList) {

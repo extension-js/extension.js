@@ -20,19 +20,9 @@ afterEach(() => {
   delete process.env.EXTENSION_EXPERIMENTAL_EMULATOR
 })
 
-describe('chromium-emulator behind EXTENSION_EXPERIMENTAL_EMULATOR', () => {
-  it('is an unknown name while the flag is off', () => {
-    expect(isEmulatorLaneEnabled({})).toBe(false)
-    expect(isKnownBrowserName('chromium-emulator')).toBe(false)
-    expect(normalizeBrowser('chromium-emulator')).toBe('chrome')
-    expect(() => configBrowserOrThrow('chromium-emulator', 'dev')).toThrow(
-      /Unsupported browser/
-    )
-  })
-
-  it('is a known name that normalizes to itself with the flag on', () => {
-    process.env.EXTENSION_EXPERIMENTAL_EMULATOR = '1'
-    expect(isEmulatorLaneEnabled()).toBe(true)
+describe('chromium-emulator, open since 2026-10-10 with an opt-out', () => {
+  it('is a known name that normalizes to itself by default', () => {
+    expect(isEmulatorLaneEnabled({})).toBe(true)
     expect(isKnownBrowserName('chromium-emulator')).toBe(true)
     expect(normalizeBrowser('chromium-emulator')).toBe('chromium-emulator')
     expect(configBrowserOrThrow('chromium-emulator', 'dev')).toBe(
@@ -40,14 +30,26 @@ describe('chromium-emulator behind EXTENSION_EXPERIMENTAL_EMULATOR', () => {
     )
   })
 
-  it('reads only 1 or true as on', () => {
-    expect(isEmulatorLaneEnabled({EXTENSION_EXPERIMENTAL_EMULATOR: '0'})).toBe(
+  it('is an unknown name again when EXTENSION_EXPERIMENTAL_EMULATOR is 0 or false', () => {
+    process.env.EXTENSION_EXPERIMENTAL_EMULATOR = '0'
+    expect(isEmulatorLaneEnabled()).toBe(false)
+    expect(isKnownBrowserName('chromium-emulator')).toBe(false)
+    expect(normalizeBrowser('chromium-emulator')).toBe('chrome')
+    expect(() => configBrowserOrThrow('chromium-emulator', 'dev')).toThrow(
+      /Unsupported browser/
+    )
+  })
+
+  it('reads only 0 or false as the opt-out', () => {
+    expect(isEmulatorLaneEnabled({EXTENSION_EXPERIMENTAL_EMULATOR: 'false'})).toBe(
       false
     )
-
-    expect(
-      isEmulatorLaneEnabled({EXTENSION_EXPERIMENTAL_EMULATOR: 'true'})
-    ).toBe(true)
+    expect(isEmulatorLaneEnabled({EXTENSION_EXPERIMENTAL_EMULATOR: '1'})).toBe(
+      true
+    )
+    expect(isEmulatorLaneEnabled({EXTENSION_EXPERIMENTAL_EMULATOR: ''})).toBe(
+      true
+    )
   })
 
   it('is chromium family for manifests and output, in dist/chromium-emulator', () => {
