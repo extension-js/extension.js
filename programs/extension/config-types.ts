@@ -160,6 +160,11 @@ export interface BuildCommandConfig {
    * as warnings. Needs `addons-linter` installed. Defaults to `true`.
    */
   addonLint?: boolean
+  /**
+   * Minify first-party code in production builds. Defaults to `true` for
+   * every target but `opera`, whose store reviews readable source only.
+   */
+  minify?: boolean
   extensions?: CompanionExtensionsConfig
   transpilePackages?: string[]
   perfBudgets?: PerfBudgetsConfig

@@ -249,6 +249,8 @@ export async function extensionBuild(
       extensions: resolvedExtensionsConfig,
       browser,
       mode: resolvedMode,
+      // Opera Add-ons rejects minified first-party code on review.
+      minify: mergedBuildOptions.minify ?? browser !== 'opera',
       metadataCommand: buildOptions?.metadataCommand || 'build',
       output: {
         clean: false,
@@ -441,6 +443,14 @@ export async function extensionBuild(
           }
 
           for (const line of lintLines) humanLine(line)
+
+          if (
+            resolvedMode === 'production' &&
+            browser === 'opera' &&
+            mergedBuildOptions.minify === undefined
+          ) {
+            humanLine(messages.operaBuildUnminified())
+          }
 
           humanLine(
             messages.buildComplete(

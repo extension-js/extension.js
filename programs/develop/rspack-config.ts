@@ -628,7 +628,7 @@ export default function webpackConfig(
       // A failed compile must not overwrite the last-good build on disk: rspack
       // defaults to true, which shipped error-stub modules into dist/.
       emitOnErrors: false,
-      minimize: devOptions.mode === 'production',
+      minimize: devOptions.mode === 'production' && devOptions.minify !== false,
       // The stock CSS minimizer also deletes CSS module classes no script
       // imports. Production keeps every rule development keeps, so it must not.
       minimizer: [
