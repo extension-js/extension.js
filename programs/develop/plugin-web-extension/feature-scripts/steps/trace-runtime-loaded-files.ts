@@ -46,6 +46,102 @@ interface TracedManifest {
 }
 
 const EMITTED_WORKER_PATH = 'background/service_worker.js'
+// Keys the browsers define. Strings under any other key ship verbatim in the
+// output manifest, and extensions read them back with runtime.getManifest().
+const STANDARD_MANIFEST_KEYS = new Set([
+  'action',
+  'app',
+  'applications',
+  'author',
+  'automation',
+  'background',
+  'bluetooth',
+  'browser_action',
+  'browser_specific_settings',
+  'chrome_settings_overrides',
+  'chrome_url_overrides',
+  'commands',
+  'content_capabilities',
+  'content_scripts',
+  'content_security_policy',
+  'converted_from_user_script',
+  'cross_origin_embedder_policy',
+  'cross_origin_opener_policy',
+  'current_locale',
+  'declarative_net_request',
+  'default_locale',
+  'description',
+  'developer',
+  'devtools_page',
+  'dictionaries',
+  'differential_fingerprint',
+  'display_in_launcher',
+  'display_in_new_tab_page',
+  'event_rules',
+  'export',
+  'externally_connectable',
+  'file_browser_handlers',
+  'file_system_provider_capabilities',
+  'homepage_url',
+  'host_permissions',
+  'icon_variants',
+  'icons',
+  'import',
+  'incognito',
+  'input_components',
+  'key',
+  'kiosk',
+  'kiosk_enabled',
+  'kiosk_only',
+  'l10n',
+  'manifest_version',
+  'minimum_chrome_version',
+  'minimum_edge_version',
+  'minimum_opera_version',
+  'nacl_modules',
+  'name',
+  'oauth2',
+  'offline_enabled',
+  'omnibox',
+  'optional_host_permissions',
+  'optional_permissions',
+  'options_page',
+  'options_ui',
+  'page_action',
+  'permissions',
+  'platforms',
+  'protocol_handlers',
+  'replacement_web_app',
+  'requirements',
+  'sandbox',
+  'short_name',
+  'side_panel',
+  'sidebar_action',
+  'signature',
+  'sockets',
+  'storage',
+  'system_indicator',
+  'theme',
+  'theme_experiment',
+  'trial_tokens',
+  'tts_engine',
+  'update_url',
+  'url_handlers',
+  'usb_printers',
+  'user_scripts',
+  'version',
+  'version_name',
+  'web_accessible_resources',
+  'webview'
+])
+const STANDARD_BACKGROUND_KEYS = new Set([
+  'page',
+  'persistent',
+  'preferred_environment',
+  'scripts',
+  'service_worker',
+  'type'
+])
 // importScripts chains resolve against the worker URL, so depth only grows
 // through files importing further files, 8 hops is far beyond real usage.
 const MAX_TRACE_DEPTH = 8
@@ -167,6 +263,8 @@ export class TraceRuntimeLoadedFiles {
             let only: Set<string> | undefined
 
             for (let round = 0; round <= MAX_TRACE_DEPTH; round++) {
+              if (!only) this.traceManifestNamedFiles(run)
+
               this.traceWorkerImportScripts(run, only)
               this.traceInjectedFilePayloads(run, only)
               this.traceFetchedFiles(run, only)
@@ -193,6 +291,39 @@ export class TraceRuntimeLoadedFiles {
       ) as TracedManifest
     } catch {
       return undefined
+    }
+  }
+
+  // A worker that calls importScripts.apply(null, getManifest().background.X)
+  // names its files under a custom manifest key, so those files ship too.
+  private traceManifestNamedFiles(run: TraceRun) {
+    const manifest = this.readManifest() as Record<string, unknown> | undefined
+    if (!manifest) return
+
+    const seen = run.seen.getURL
+
+    for (const literal of customManifestFileReferences(manifest)) {
+      const distRel = resolveExtensionPath(literal, '')
+      if (!distRel || seen.has(distRel)) continue
+
+      const plan = planTracedFile({
+        manifestDir: run.manifestDir,
+        sourceRel: distRel,
+        distRel,
+        loadsAs: 'by-shape',
+        hasAsset: run.hasAsset
+      })
+      // A string under a custom key is a file only when one exists at that
+      // path. Anything else is the extension's own data and stays untouched.
+      if (plan.kind === 'missing') continue
+
+      seen.add(distRel)
+
+      run.apply(plan, {
+        context: 'getURL',
+        onMissing: () => {},
+        onSourceSpelling: () => {}
+      })
     }
   }
 
@@ -1200,6 +1331,51 @@ function manifestDeclaredSourcePaths(
   // path. A page that <script src>s a shared lib the content scripts also
   // declare (a common classic-scripts layout) still needs the raw file.
   return declared
+}
+
+// Every string under a manifest key the browsers do not define, plus custom
+// keys nested in background, that is spelled like a file path.
+function customManifestFileReferences(
+  manifest: Record<string, unknown>
+): string[] {
+  const refs: string[] = []
+
+  const collect = (value: unknown) => {
+    if (typeof value === 'string') {
+      const trimmed = value.trim()
+
+      if (/\.[a-zA-Z0-9]{1,8}$/.test(trimmed) && !/\s/.test(trimmed)) {
+        refs.push(trimmed)
+      }
+
+      return
+    }
+
+    if (Array.isArray(value)) {
+      value.forEach(collect)
+
+      return
+    }
+
+    if (value && typeof value === 'object') {
+      Object.values(value).forEach(collect)
+    }
+  }
+
+  for (const [key, value] of Object.entries(manifest)) {
+    if (!STANDARD_MANIFEST_KEYS.has(key)) {
+      collect(value)
+      continue
+    }
+
+    if (key !== 'background' || !value || typeof value !== 'object') continue
+
+    for (const [subKey, subValue] of Object.entries(value)) {
+      if (!STANDARD_BACKGROUND_KEYS.has(subKey)) collect(subValue)
+    }
+  }
+
+  return refs
 }
 
 // Extract string-literal getURL arguments. Matching on `runtime.getURL(`
