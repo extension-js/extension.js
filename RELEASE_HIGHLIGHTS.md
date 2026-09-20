@@ -20,3 +20,7 @@
 -->
 
 ## Highlights
+
+- **Zen and Floorp launch by name.** `extension dev --browser=zen` and `extension dev --browser=floorp` find a stock install on macOS, Windows and Linux, the same way Waterfox and LibreWolf already do.
+- **Readable Opera builds and a `--minify` switch.** `extension build --browser=opera` ships unminified production code, which Opera Add-ons asks for in review, and `--minify` or `--no-minify` overrides the default on any target.
+- **Dev server and build fixes.** A one-byte file is served with its byte instead of an empty body that broke the connection, a manifest page kept under `pages/` compiles once, files named under custom manifest keys ship, and the unpacked extension id matches Chrome when the project sits behind a symlink.
