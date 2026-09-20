@@ -1,0 +1,36 @@
+{
+  "$schema": "https://context7.com/schema/context7.json",
+  "projectTitle": "Extension.js",
+  "description": "Build browser extensions for Chrome, Edge, Firefox and Safari from one manifest.json, with no build configuration.",
+  "excludeFolders": [
+    "node_modules",
+    "_FUTURE",
+    "lab",
+    "seo",
+    "scripts",
+    "e2e-report",
+    "test-results",
+    "UPSTREAM_BUG_repros"
+  ],
+  "excludeFiles": [
+    "CHANGELOG.md",
+    "BACKERS.md",
+    "CODE_OF_CONDUCT.md",
+    "RELEASE_HIGHLIGHTS.md",
+    "ASSURANCE_CASE.md",
+    "TELEMETRY.md",
+    "RELEASING.md",
+    "VERIFYING_RELEASES.md"
+  ],
+  "rules": [
+    "The full documentation lives at https://extension.js.org and is indexed separately as /extension-js/extension.js.org. Prefer it for usage questions.",
+    "manifest.json is the source of truth. Extension.js reads the manifest the project already has and never generates one, so declare features in manifest.json rather than in a config file.",
+    "Prefix a manifest key with a browser name when browsers differ. chromium: covers every Chromium browser, chrome: and edge: cover that one browser, firefox: and safari: cover theirs. A prefixed key wins over the plain key and is dropped elsewhere.",
+    "Run npx extension@latest dev in the extension folder to open a browser with the extension loaded and reload it on save. Pass --browser=firefox, --browser=edge or --browser=safari to target another browser.",
+    "Run npx extension@latest build --browser=<target> --zip to produce the package to upload to a store.",
+    "Scaffold a new project with npx extension@latest create <name>, optionally with --template <name>.",
+    "There is no bundler configuration to write. TypeScript, React, Vue, Svelte and Preact compile without one, so do not add a webpack or rspack config to a project.",
+    "A content script with world set to MAIN is Chromium only. Declare it with the chromium: prefix so the Firefox build leaves it out.",
+    "Do not put a top-level key field in a manifest meant for Edge. Edge Add-ons rejects any manifest that contains one, and production Edge builds drop it."
+  ]
+}
