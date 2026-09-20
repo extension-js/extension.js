@@ -12,7 +12,7 @@ import fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {Writable} from 'node:stream'
-import {rspack, type Stats} from '@rspack/core'
+import {type Compiler, rspack, type Stats} from '@rspack/core'
 import {type Configuration, RspackDevServer} from '@rspack/dev-server'
 import {merge} from 'webpack-merge'
 import {
@@ -92,6 +92,10 @@ import {
 } from './lifecycle-stream'
 import * as messages from './messages'
 import {PortManager} from './port-manager'
+import {
+  createResponseDataRepair,
+  type OutputFileSystemLike
+} from './dev-middleware-body'
 import {
   bindDevSessionRestart,
   DevSessionRestartScheduler,
@@ -837,6 +841,9 @@ export async function devServer(
     humanLine(messages.portInUse(Number(devOptions.port), port))
   }
 
+  // The middleware reads the live compiler's output; a restart swaps it.
+  let activeCompiler: Compiler | null = null
+
   const serverConfig: Configuration = {
     host: devServerHost,
     allowedHosts: 'all',
@@ -849,7 +856,13 @@ export async function devServer(
       // Manifest writes must stay atomic; let the manifest plugin own disk
       // persistence so Chromium never reads an in-place truncated file.
       writeToDisk: shouldWriteAssetToDisk,
-      stats: {all: false}
+      stats: {all: false},
+      // A one-byte asset is served empty by the middleware, see the helper.
+      modifyResponseData: createResponseDataRepair({
+        outputPath: () => activeCompiler?.options?.output?.path,
+        outputFileSystem: () =>
+          activeCompiler?.outputFileSystem as OutputFileSystemLike | undefined
+      })
     },
     watchFiles: {
       paths: [
@@ -917,6 +930,7 @@ export async function devServer(
       merge(customWebpackConfig(baseConfig), {})
     )
     const compiler = rspack(compilerConfig)
+    activeCompiler = compiler
     const uninstallManifestGuard =
       installManifestDiskWriteGuard(manifestOutputPath)
     const releaseOutputFsGuard = suppressManifestOutputWrites(
