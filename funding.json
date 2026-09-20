@@ -1,0 +1,121 @@
+{
+  "version": "v1.0.0",
+  "entity": {
+    "type": "individual",
+    "role": "owner",
+    "name": "Cezar Augusto",
+    "email": "boss@cezaraugusto.net",
+    "description": "Maintainer of Extension.js, an open source framework for building browser extensions. Working on it full time, with the project's tooling, documentation and release process maintained in the open.",
+    "webpageUrl": {
+      "url": "https://cezaraugusto.com"
+    }
+  },
+  "projects": [
+    {
+      "guid": "extension-js",
+      "name": "Extension.js",
+      "description": "Extension.js builds browser extensions for Chrome, Edge, Firefox and Safari from a single manifest.json, with no build configuration. It runs a dev server with hot reload, compiles TypeScript, React, Vue, Svelte and Preact without a bundler config, and writes store-ready packages on build. The manifest stays the source of truth instead of being generated, and keys that differ between browsers are prefixed so one source produces every target.",
+      "webpageUrl": {
+        "url": "https://extension.js.org"
+      },
+      "repositoryUrl": {
+        "url": "https://github.com/extension-js/extension.js"
+      },
+      "licenses": ["spdx:MIT"],
+      "tags": [
+        "browser-extension",
+        "web-extensions",
+        "developer-tools",
+        "build-tool",
+        "javascript",
+        "typescript",
+        "chrome",
+        "firefox",
+        "safari",
+        "cli"
+      ]
+    }
+  ],
+  "funding": {
+    "channels": [
+      {
+        "guid": "github-sponsors",
+        "type": "payment-provider",
+        "address": "https://github.com/sponsors/cezaraugusto",
+        "description": "GitHub Sponsors, the only funding channel the project uses today."
+      }
+    ],
+    "plans": [
+      {
+        "guid": "supporter",
+        "status": "active",
+        "name": "Supporter",
+        "description": "Listed in BACKERS.md.",
+        "amount": 5,
+        "currency": "USD",
+        "frequency": "monthly",
+        "channels": ["github-sponsors"]
+      },
+      {
+        "guid": "backer",
+        "status": "active",
+        "name": "Backer",
+        "description": "Listed in BACKERS.md and in the hall of fame.",
+        "amount": 25,
+        "currency": "USD",
+        "frequency": "monthly",
+        "channels": ["github-sponsors"]
+      },
+      {
+        "guid": "bronze",
+        "status": "active",
+        "name": "Bronze",
+        "description": "Logo in the README sponsor block.",
+        "amount": 50,
+        "currency": "USD",
+        "frequency": "monthly",
+        "channels": ["github-sponsors"]
+      },
+      {
+        "guid": "silver",
+        "status": "active",
+        "name": "Silver",
+        "description": "Logo in the README and a tile on the documentation site.",
+        "amount": 200,
+        "currency": "USD",
+        "frequency": "monthly",
+        "channels": ["github-sponsors"]
+      },
+      {
+        "guid": "gold",
+        "status": "active",
+        "name": "Gold",
+        "description": "Logo in the README, the documentation site and the homepage.",
+        "amount": 500,
+        "currency": "USD",
+        "frequency": "monthly",
+        "channels": ["github-sponsors"]
+      },
+      {
+        "guid": "platinum",
+        "status": "active",
+        "name": "Platinum",
+        "description": "Top placement in the README, the documentation site and the homepage.",
+        "amount": 1000,
+        "currency": "USD",
+        "frequency": "monthly",
+        "channels": ["github-sponsors"]
+      },
+      {
+        "guid": "partner",
+        "status": "active",
+        "name": "Partner",
+        "description": "Any amount. For organisations that depend on the project and want a direct arrangement, including grants.",
+        "amount": 0,
+        "currency": "USD",
+        "frequency": "other",
+        "channels": ["github-sponsors"]
+      }
+    ]
+  }
+}
