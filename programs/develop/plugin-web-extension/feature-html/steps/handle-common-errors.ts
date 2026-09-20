@@ -88,10 +88,9 @@ function handleCantResolveError(
             }
           }
 
-          const outputRoot = compilation?.options?.output?.path || ''
           const overrideNotFoundPath = isPublicRoot
             ? path.join(
-                outputRoot,
+                manifestDir,
                 String(matchedRawAttr || base).replace(/^\//, '')
               )
             : matchedRawAttr && !matchedRawAttr.startsWith('/')

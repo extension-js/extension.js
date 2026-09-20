@@ -146,7 +146,8 @@ function warnMissingPublicRootResources(params: {
     }
 
     if (!fs.existsSync(publicRootAbs) && !fs.existsSync(outputRootAssetAbs)) {
-      const displayPath = path.join(outputRoot, trimmed)
+      // Name the place the build looked last, never the staging directory.
+      const displayPath = path.join(manifestDir, trimmed)
 
       reportToCompilation(
         compilation,
@@ -396,7 +397,7 @@ export class AddAssetsToCompilation {
 
                 if (!inIncludeList && !path.basename(asset).startsWith('#')) {
                   const displayPath = isRootUrl
-                    ? path.join(outputRoot, cleanLeading(asset))
+                    ? path.join(manifestDir, cleanLeading(asset))
                     : absoluteFsPath
 
                   reportToCompilation(
@@ -446,7 +447,12 @@ export class AddAssetsToCompilation {
                 continue
               }
 
+              // A root URL stays as written in the page and is served from the
+              // extension root, so only the source-path copy below is reachable.
+              const reachableUnderAssets = isNestedHtml || !isRootUrl
+
               if (
+                reachableUnderAssets &&
                 !(
                   typeof getAssetFn === 'function' &&
                   getAssetFn.call(compilation, filepath)

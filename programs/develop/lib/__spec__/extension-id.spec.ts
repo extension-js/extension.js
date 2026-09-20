@@ -6,6 +6,7 @@ import {
   chromiumExtensionId,
   chromiumExtensionIdFromKey,
   chromiumExtensionIdFromPath,
+  chromiumExtensionIdFromRegisteredPath,
   geckoExtensionId,
   managedExtensionRecords
 } from '../extension-id'
@@ -45,29 +46,32 @@ describe('chromium extension id derivation', () => {
     expect(chromiumExtensionId(tmp)).toBe('kgdaecdpfkikjncaalnmmnjjfpofkcbl')
   })
 
-  it('derives the same id through a symlink as Chrome does from the real path (macOS /var vs /private/var)', () => {
-    fs.writeFileSync(
-      path.join(tmp, 'manifest.json'),
-      JSON.stringify({name: 'x', version: '1'})
-    )
-
-    const linkRoot = fs.mkdtempSync(
-      path.join(os.tmpdir(), 'extension-id-link-')
-    )
-    const link = path.join(linkRoot, 'dist')
-
-    try {
-      fs.symlinkSync(tmp, link, 'dir')
-      expect(fs.realpathSync.native(link)).not.toBe(link)
-      expect(chromiumExtensionId(link)).toBe(
-        chromiumExtensionIdFromPath(fs.realpathSync.native(tmp))
+  it.skipIf(process.platform === 'win32')(
+    'derives the same id through a symlink as Chrome does from the real path (macOS /var vs /private/var, Windows registers the link itself)',
+    () => {
+      fs.writeFileSync(
+        path.join(tmp, 'manifest.json'),
+        JSON.stringify({name: 'x', version: '1'})
       )
 
-      expect(chromiumExtensionId(link)).toBe(chromiumExtensionId(tmp))
-    } finally {
-      fs.rmSync(linkRoot, {recursive: true, force: true})
+      const linkRoot = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'extension-id-link-')
+      )
+      const link = path.join(linkRoot, 'dist')
+
+      try {
+        fs.symlinkSync(tmp, link, 'dir')
+        expect(fs.realpathSync.native(link)).not.toBe(link)
+        expect(chromiumExtensionId(link)).toBe(
+          chromiumExtensionIdFromPath(fs.realpathSync.native(tmp))
+        )
+
+        expect(chromiumExtensionId(link)).toBe(chromiumExtensionId(tmp))
+      } finally {
+        fs.rmSync(linkRoot, {recursive: true, force: true})
+      }
     }
-  })
+  )
 
   it('falls back to a deterministic path-derived id without a key', () => {
     fs.writeFileSync(
@@ -184,5 +188,41 @@ describe('managedExtensionRecords', () => {
     expect(managedExtensionRecords('webkit-based', [tmp])).toEqual([
       {path: path.resolve(tmp)}
     ])
+  })
+})
+
+// Chrome hashes the wide path with only a lowercase drive letter upper-cased,
+// so D:\Work\Ext and d:\Work\Ext share one id and D:\work\ext does not.
+describe('the registered path rule', () => {
+  const WINDOWS_PROJECT_ID = 'gmkbebnpnmepmednnlbgdgcdmpdejcbn'
+
+  it('upper-cases a lowercase drive letter and hashes the UTF-16LE path on Windows', () => {
+    expect(
+      chromiumExtensionIdFromRegisteredPath('D:\\Work\\Ext', 'win32')
+    ).toBe(WINDOWS_PROJECT_ID)
+
+    expect(
+      chromiumExtensionIdFromRegisteredPath('d:\\Work\\Ext', 'win32')
+    ).toBe(WINDOWS_PROJECT_ID)
+
+    expect(chromiumExtensionIdFromRegisteredPath('D:/Work/Ext', 'win32')).toBe(
+      WINDOWS_PROJECT_ID
+    )
+  })
+
+  it('keeps the case of every character after the drive letter', () => {
+    expect(
+      chromiumExtensionIdFromRegisteredPath('D:\\work\\ext', 'win32')
+    ).not.toBe(WINDOWS_PROJECT_ID)
+  })
+
+  it('hashes the UTF-8 path unchanged elsewhere', () => {
+    expect(chromiumExtensionIdFromRegisteredPath('/tmp/ext', 'linux')).toBe(
+      'lcfjooiecahccmjaipimfaidcnaihadb'
+    )
+
+    expect(chromiumExtensionIdFromRegisteredPath('/tmp/ext', 'darwin')).toBe(
+      'lcfjooiecahccmjaipimfaidcnaihadb'
+    )
   })
 })

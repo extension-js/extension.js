@@ -294,6 +294,11 @@ export interface BuildOptions {
    */
   addonLint?: boolean
   /**
+   * Minify first-party code in production builds. Defaults to `true` for
+   * every target but `opera`, whose store reviews readable source only.
+   */
+  minify?: boolean
+  /**
    * Override the bundler mode (and NODE_ENV). Defaults to 'production' to
    * preserve historical behavior. Setting 'development' is useful for
    * staging/QA dists that should still pass through the bundler's debug
@@ -632,6 +637,7 @@ export interface FileConfig {
       | 'polyfill'
       | 'silent'
       | 'addonLint'
+      | 'minify'
       | 'safariBinary'
       | 'appName'
       | 'bundleId'

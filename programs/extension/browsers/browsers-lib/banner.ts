@@ -117,8 +117,15 @@ function deriveChromiumExtensionIdFromManifest(manifest: unknown): string {
   }
 }
 
-function realDirectoryPath(dir: string): string {
+// Chrome registers the absolute directory as given on Windows, and with
+// symlinks resolved elsewhere (a macOS temp dir under /var is a link to
+// /private/var), so hash the path Chrome will hash.
+function registeredDirectoryPath(
+  dir: string,
+  platform: NodeJS.Platform
+): string {
   const absolute = path.resolve(dir)
+  if (platform === 'win32') return absolute
 
   try {
     return fs.realpathSync.native(absolute)
@@ -127,27 +134,38 @@ function realDirectoryPath(dir: string): string {
   }
 }
 
-// Mirror Chrome's id_util::GenerateIdForPath so unpacked extensions with no
-// key and no runtime surface still get their real ID in the dev banner.
+function upperCaseDriveLetter(windowsPath: string): string {
+  return /^[a-z]:/.test(windowsPath)
+    ? windowsPath[0].toUpperCase() + windowsPath.slice(1)
+    : windowsPath
+}
+
+// Mirror Chrome's id_util::GenerateIdForPath: on Windows the UTF-16LE wide
+// path with only a lowercase drive letter upper-cased, elsewhere the UTF-8 bytes.
+export function chromiumExtensionIdFromRegisteredPath(
+  registeredPath: string,
+  platform: NodeJS.Platform = process.platform
+): string {
+  const bytes =
+    platform === 'win32'
+      ? Buffer.from(
+          upperCaseDriveLetter(registeredPath.replace(/\//g, '\\')),
+          'utf16le'
+        )
+      : Buffer.from(registeredPath, 'utf8')
+  const digest = createHash('sha256').update(bytes).digest().subarray(0, 16)
+
+  return encodeChromiumExtensionIdFromDigest(digest)
+}
+
 function deriveChromiumExtensionIdFromPath(extensionPath: string): string {
   if (!extensionPath || typeof extensionPath !== 'string') return ''
 
   try {
-    // Chrome registers the directory with symlinks resolved (a macOS temp
-    // dir under /var is a link to /private/var), so hash the real path.
-    const absolute = realDirectoryPath(extensionPath)
-    const isWindows = process.platform === 'win32'
-    // Chrome on Windows hashes the wide-char path bytes (UTF-16LE) with
-    // backslash separators; POSIX hashes the UTF-8 absolute path bytes.
-    const seedBuffer = isWindows
-      ? Buffer.from(absolute.replace(/\//g, '\\'), 'utf16le')
-      : Buffer.from(absolute, 'utf8')
-    const digest = createHash('sha256')
-      .update(seedBuffer)
-      .digest()
-      .subarray(0, 16)
-
-    return encodeChromiumExtensionIdFromDigest(digest)
+    return chromiumExtensionIdFromRegisteredPath(
+      registeredDirectoryPath(extensionPath, process.platform),
+      process.platform
+    )
   } catch {
     return ''
   }
