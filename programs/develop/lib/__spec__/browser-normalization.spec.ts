@@ -17,7 +17,14 @@ describe('devtoolsEngineFor', () => {
       expect(devtoolsEngineFor(b), b).toBe('chromium')
     }
 
-    for (const b of ['firefox', 'gecko-based', 'waterfox', 'librewolf']) {
+    for (const b of [
+      'firefox',
+      'gecko-based',
+      'waterfox',
+      'librewolf',
+      'zen',
+      'floorp'
+    ]) {
       expect(devtoolsEngineFor(b), b).toBe('firefox')
     }
   })

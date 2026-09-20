@@ -126,6 +126,8 @@ describe('card binary provenance', () => {
     const flags: Record<string, string> = {
       firefox: '--gecko-binary',
       librewolf: '--gecko-binary',
+      zen: '--gecko-binary',
+      floorp: '--gecko-binary',
       'gecko-based': '--gecko-binary',
       chrome: '--chromium-binary',
       brave: '--chromium-binary',

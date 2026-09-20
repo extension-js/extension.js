@@ -32,7 +32,14 @@ describe('constants', () => {
       'yandex'
     ])
 
-    expect(GECKO_BASED_BROWSERS).toEqual(['firefox', 'waterfox', 'librewolf'])
+    expect(GECKO_BASED_BROWSERS).toEqual([
+      'firefox',
+      'waterfox',
+      'librewolf',
+      'zen',
+      'floorp'
+    ])
+
     expect(SUPPORTED_BROWSERS).toEqual([
       'chrome',
       'edge',
@@ -42,7 +49,9 @@ describe('constants', () => {
       'yandex',
       'firefox',
       'waterfox',
-      'librewolf'
+      'librewolf',
+      'zen',
+      'floorp'
     ])
   })
 
@@ -70,7 +79,14 @@ describe('constants', () => {
       expect(isChromiumBasedBrowser(b)).toBe(true)
     }
 
-    for (const b of ['firefox', 'waterfox', 'librewolf', 'gecko-based']) {
+    for (const b of [
+      'firefox',
+      'waterfox',
+      'librewolf',
+      'zen',
+      'floorp',
+      'gecko-based'
+    ]) {
       expect(isGeckoBasedBrowser(b)).toBe(true)
     }
 

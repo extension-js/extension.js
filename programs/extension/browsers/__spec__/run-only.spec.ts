@@ -188,7 +188,7 @@ describe('runOnlyPreviewBrowser', () => {
     })
   }
 
-  for (const browser of ['waterfox', 'librewolf'] as const) {
+  for (const browser of ['waterfox', 'librewolf', 'zen', 'floorp'] as const) {
     it(`routes the gecko fork ${browser} to the firefox launcher`, async () => {
       await runOnlyPreviewBrowser({
         browser,
