@@ -248,8 +248,8 @@ export function buildComplete(
 
 export function operaBuildUnminified() {
   return (
-    `${getLoggingPrefix('info')} Opera Add-ons reviews readable source, so this build keeps ` +
-    `first-party code unminified. Pass ${colors.blue('--minify')} to minify it anyway.`
+    `${getLoggingPrefix('info')} Opera Add-ons reviews readable source, so this build does ` +
+    `not minify first-party code. Pass ${colors.blue('--minify')} to minify it anyway.`
   )
 }
 
