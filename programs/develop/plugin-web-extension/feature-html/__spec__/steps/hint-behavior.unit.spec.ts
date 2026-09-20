@@ -48,10 +48,10 @@ describe('HTML hint behavior', () => {
   it('shows public-root hint only for extension-root absolute (leading /) paths', () => {
     plugin.apply(compiler)
     const warnings = String(compilation.warnings.map(String).join('\n'))
-    expect(warnings).toMatch(/resolved from the extension output root/i)
+    expect(warnings).toMatch(/resolves from the extension root/i)
     const rel = compilation.warnings
       .map(String)
       .find((w: string) => w.includes('img/miss.png'))
-    expect(rel || '').not.toMatch(/resolved from the extension output root/i)
+    expect(rel || '').not.toMatch(/resolves from the extension root/i)
   })
 })

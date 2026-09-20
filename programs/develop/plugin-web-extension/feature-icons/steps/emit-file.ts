@@ -188,11 +188,11 @@ export class EmitFile {
                   const isPublicRoot =
                     entry.startsWith('/') && !entry.startsWith(projectPath)
 
-                  // Display path consistent with HTML/web-resources features: public-root style
-                  // shows <project>/public/<entry>; OS-absolute as-is; else relative to project root.
+                  // Name the project-root location, the place the build looked
+                  // last, the same way the html and json features do.
                   const displayPath =
                     !path.isAbsolute(entry) && isPublicRoot
-                      ? path.join(projectPath, 'public', entry.slice(1))
+                      ? path.join(projectPath, entry.slice(1))
                       : path.isAbsolute(entry)
                         ? entry
                         : path.join(projectPath, entry)

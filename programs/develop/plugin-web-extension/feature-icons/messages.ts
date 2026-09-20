@@ -27,7 +27,7 @@ export function iconsMissingFile(
 
   if (opts?.publicRootHint) {
     lines.push(
-      `Paths starting with '/' are resolved from the extension output root (served from ${colors.blue('public/')}), not your source directory.`
+      `A path starting with '/' resolves from the extension root, so the file must sit at that path in your project or in ${colors.blue('public/')}.`
     )
   }
 
@@ -58,7 +58,7 @@ export function themeImageMissingFile(
 
   if (opts?.publicRootHint) {
     lines.push(
-      `Paths starting with '/' are resolved from the extension output root (served from ${colors.yellow('public/')}), not your source directory.`
+      `A path starting with '/' resolves from the extension root, so the file must sit at that path in your project or in ${colors.yellow('public/')}.`
     )
   }
 

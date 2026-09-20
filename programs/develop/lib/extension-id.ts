@@ -30,8 +30,15 @@ function idFromHash(hash: Buffer): string {
   return id
 }
 
-function realDirectoryPath(dir: string): string {
+// Chrome registers the absolute directory as given on Windows, and with
+// symlinks resolved elsewhere (macOS keeps temp dirs under /var, a link to
+// /private/var), so the id must come from the path Chrome will hash.
+function registeredDirectoryPath(
+  dir: string,
+  platform: NodeJS.Platform
+): string {
   const absolute = path.resolve(dir)
+  if (platform === 'win32') return absolute
 
   try {
     return fs.realpathSync.native(absolute)
@@ -40,27 +47,41 @@ function realDirectoryPath(dir: string): string {
   }
 }
 
+function upperCaseDriveLetter(windowsPath: string): string {
+  return /^[a-z]:/.test(windowsPath)
+    ? windowsPath[0].toUpperCase() + windowsPath.slice(1)
+    : windowsPath
+}
+
 export function chromiumExtensionIdFromKey(manifestKey: string): string {
   const decoded = Buffer.from(manifestKey, 'base64')
 
   return idFromHash(createHash('sha256').update(decoded).digest())
 }
 
-// Chromium hashes the profile-registered directory path for unpacked
-// extensions without a key; on Windows it lowercases ASCII and hashes UTF-16LE.
-// It registers the path with symlinks resolved (macOS keeps temp dirs under
-// /var, a link to /private/var), so the id must come from the real path.
-export function chromiumExtensionIdFromPath(extensionDir: string): string {
-  const absolute = realDirectoryPath(extensionDir)
+// Chrome hashes the registered path as its native string: on Windows the
+// UTF-16LE wide path with only a lowercase drive letter upper-cased, elsewhere
+// the UTF-8 bytes unchanged.
+export function chromiumExtensionIdFromRegisteredPath(
+  registeredPath: string,
+  platform: NodeJS.Platform = process.platform
+): string {
   const bytes =
-    process.platform === 'win32'
+    platform === 'win32'
       ? Buffer.from(
-          absolute.replace(/[A-Z]/g, (char) => char.toLowerCase()),
+          upperCaseDriveLetter(registeredPath.replace(/\//g, '\\')),
           'utf16le'
         )
-      : Buffer.from(absolute, 'utf8')
+      : Buffer.from(registeredPath, 'utf8')
 
   return idFromHash(createHash('sha256').update(bytes).digest())
+}
+
+export function chromiumExtensionIdFromPath(extensionDir: string): string {
+  return chromiumExtensionIdFromRegisteredPath(
+    registeredDirectoryPath(extensionDir, process.platform),
+    process.platform
+  )
 }
 
 function readManifest(extensionDir: string): Record<string, unknown> | null {

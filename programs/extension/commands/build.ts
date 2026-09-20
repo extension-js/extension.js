@@ -37,6 +37,7 @@ type BuildOptions = {
   zipFilename?: string
   silent?: boolean
   addonLint?: boolean
+  minify?: boolean
   install?: boolean
   extensions?: string
   mode?: string
@@ -95,6 +96,15 @@ export function registerBuildCommand(program: Command) {
     .option(
       '--no-addon-lint',
       'skip the addons.mozilla.org lint of Firefox builds'
+    )
+    .option(
+      '--minify [boolean]',
+      'minify first-party code in production builds. Defaults to `true`, and to `false` for `opera`, whose store rejects minified code',
+      parseOptionalBoolean
+    )
+    .option(
+      '--no-minify',
+      'ship readable first-party code, the Opera Add-ons review requirement'
     )
     .option(
       '--install [boolean]',
@@ -304,6 +314,7 @@ export function registerBuildCommand(program: Command) {
               zipFilename: buildOptions.zipFilename,
               silent: buildOptions.silent,
               addonLint: buildOptions.addonLint,
+              minify: buildOptions.minify,
               install: buildOptions.install,
               extensions: parseExtensionsList(buildOptions.extensions),
               mode,

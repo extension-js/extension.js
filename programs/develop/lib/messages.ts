@@ -246,6 +246,13 @@ export function buildComplete(
   )
 }
 
+export function operaBuildUnminified() {
+  return (
+    `${getLoggingPrefix('info')} Opera Add-ons reviews readable source, so this build does ` +
+    `not minify first-party code. Pass ${colors.blue('--minify')} to minify it anyway.`
+  )
+}
+
 // The docs host for the share flow comes from the environment, so an unset
 // value prints nothing instead of a dead link.
 function platformDocsUrl(): string {

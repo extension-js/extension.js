@@ -375,7 +375,7 @@ describe('EmitFile step', () => {
     } as any)
     step.apply(compiler as any)
     const msg1 = String(compilation.errors[0] || compilation.warnings[0] || '')
-    expect(msg1).toMatch(/resolved from the extension output root/i)
+    expect(msg1).toMatch(/resolves from the extension root/i)
 
     compilation.errors = []
     compilation.warnings = []
@@ -387,7 +387,7 @@ describe('EmitFile step', () => {
 
     step.apply(compiler as any)
     const msg2 = String(compilation.errors[0] || compilation.warnings[0] || '')
-    expect(msg2).not.toMatch(/resolved from the extension output root/i)
+    expect(msg2).not.toMatch(/resolves from the extension root/i)
   })
 
   it('errors when a default_icon family is missing', async () => {
