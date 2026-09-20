@@ -44,7 +44,11 @@ vi.mock('../steps/prune-stale-hot-updates', () => ({
   PruneStaleHotUpdates: inert()
 }))
 
-const devContentScriptsCtor = vi.hoisted(() => vi.fn(() => ({apply: vi.fn()})))
+const devContentScriptsCtor = vi.hoisted(() =>
+  vi.fn(function (this: any) {
+    this.apply = () => {}
+  })
+)
 
 vi.mock('../steps/setup-dev-content-scripts', () => ({
   SetupDevContentScripts: devContentScriptsCtor
@@ -67,6 +71,7 @@ describe('ReloadPlugin producer injection per engine', () => {
   beforeEach(() => {
     producerCtor.mockClear()
     relayCtor.mockClear()
+    devContentScriptsCtor.mockClear()
   })
 
   it('injects the reload producer and relay for chromium', () => {
