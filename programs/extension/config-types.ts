@@ -30,6 +30,8 @@ export type BrowserType =
   | 'yandex'
   | 'waterfox'
   | 'librewolf'
+  | 'zen'
+  | 'floorp'
   | 'chromium-based'
   | 'gecko-based'
   | 'firefox-based'

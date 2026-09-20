@@ -27,6 +27,8 @@ export type BrowserInput =
   | 'yandex'
   | 'waterfox'
   | 'librewolf'
+  | 'zen'
+  | 'floorp'
   | 'chromium-based'
   | 'gecko-based'
   | 'firefox-based'
@@ -45,6 +47,8 @@ export type NormalizedBrowser =
   | 'yandex'
   | 'waterfox'
   | 'librewolf'
+  | 'zen'
+  | 'floorp'
   | 'chromium-based'
   | 'gecko-based'
   | 'safari'
@@ -182,6 +186,8 @@ const KNOWN_BROWSER_NAMES = new Set([
   'firefox',
   'waterfox',
   'librewolf',
+  'zen',
+  'floorp',
   'gecko-based',
   'firefox-based',
   'safari',
@@ -264,6 +270,10 @@ export function normalizeBrowser(
       return 'waterfox'
     case 'librewolf':
       return 'librewolf'
+    case 'zen':
+      return 'zen'
+    case 'floorp':
+      return 'floorp'
     case 'gecko-based':
     case 'firefox-based':
       return 'gecko-based'
@@ -335,6 +345,8 @@ export function devtoolsEngineFor(
     case 'gecko-based':
     case 'waterfox':
     case 'librewolf':
+    case 'zen':
+    case 'floorp':
       return 'firefox'
     // Safari is not a chromium fork: no safari companion build ships today,
     // so callers probing dist/<package>/safari correctly find nothing.

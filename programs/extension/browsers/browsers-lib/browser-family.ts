@@ -26,6 +26,8 @@ export const FIREFOX_BROWSERS: ReadonlySet<string> = new Set([
   'firefox',
   'waterfox',
   'librewolf',
+  'zen',
+  'floorp',
   'gecko-based',
   'firefox-based'
 ])

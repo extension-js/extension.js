@@ -35,6 +35,8 @@ export const SUPPORTED_BROWSER_TARGETS = [
   'yandex',
   'waterfox',
   'librewolf',
+  'zen',
+  'floorp',
   'chromium-based',
   'gecko-based',
   'firefox-based',

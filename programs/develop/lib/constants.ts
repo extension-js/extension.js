@@ -21,7 +21,13 @@ export const CHROMIUM_BASED_BROWSERS = [
   'vivaldi',
   'yandex'
 ]
-export const GECKO_BASED_BROWSERS = ['firefox', 'waterfox', 'librewolf']
+export const GECKO_BASED_BROWSERS = [
+  'firefox',
+  'waterfox',
+  'librewolf',
+  'zen',
+  'floorp'
+]
 export const WEBKIT_BASED_BROWSERS = ['safari']
 
 // Family alias names accepted anywhere a browser NAME selects an engine family;

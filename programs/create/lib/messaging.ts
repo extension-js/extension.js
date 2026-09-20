@@ -210,6 +210,8 @@ const GECKO_BROWSERS = new Set([
   'firefox-based',
   'gecko-based',
   'librewolf',
+  'zen',
+  'floorp',
   'waterfox'
 ])
 

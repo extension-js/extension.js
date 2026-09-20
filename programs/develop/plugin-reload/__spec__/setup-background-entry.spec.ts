@@ -82,7 +82,7 @@ describe('SetupBackgroundEntry default entry registration', () => {
     )
   })
 
-  for (const browser of ['waterfox', 'librewolf']) {
+  for (const browser of ['waterfox', 'librewolf', 'zen', 'floorp']) {
     it(`registers background/script for the gecko fork ${browser}`, () => {
       const manifestPath = writeManifest(NO_BACKGROUND)
       const compiler = fakeCompiler()
