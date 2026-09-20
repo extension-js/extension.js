@@ -2,6 +2,40 @@
 
 ## Unreleased
 
+## 4.1.26 (September 20, 2026)
+
+- **Zen and Floorp launch by name.** `extension dev --browser=zen` and `extension dev --browser=floorp` find a stock install on macOS, Windows and Linux, the same way Waterfox and LibreWolf already do.
+- **Readable Opera builds and a `--minify` switch.** `extension build --browser=opera` ships unminified production code, which Opera Add-ons asks for in review, and `--minify` or `--no-minify` overrides the default on any target.
+- **Dev server and build fixes.** A one-byte file is served with its byte instead of an empty body that broke the connection, a manifest page kept under `pages/` compiles once, files named under custom manifest keys ship, and the unpacked extension id matches Chrome when the project sits behind a symlink.
+
+### Features
+
+- Add a funding manifest and funding fields to published packages (#610) ([8f1a62ed](https://github.com/extension-js/extension.js/commit/8f1a62edc31e1950ad349db6a4824065115a6c36))
+- Add a context7.json so coding agents get the right usage rules (#611) ([84211837](https://github.com/extension-js/extension.js/commit/842118371a0b39528f8156c0018cb1bb488437fd))
+
+<details>
+<summary>Other changes (18)</summary>
+
+- Write the 4.1.26 release highlights (#615) ([f2c84d72](https://github.com/extension-js/extension.js/commit/f2c84d729d3b846a54267a15310d960103d8cf25))
+- Update the changelog ([ceb57af6](https://github.com/extension-js/extension.js/commit/ceb57af6b943ca2cf1b22d6911802aa6c8f5c66e))
+- Compare the emulator dist path from one resolved root (#614) ([e9a84781](https://github.com/extension-js/extension.js/commit/e9a84781b79d644a104e7a3bc642a80dbc207abb))
+- Serve a one-byte asset with its byte on the dev server ([cf8ce084](https://github.com/extension-js/extension.js/commit/cf8ce08425c773d87afecd4725b67601683f080e))
+- Make the content-script step spy constructible the way the formatter keeps it ([414cfb1e](https://github.com/extension-js/extension.js/commit/414cfb1ed754543cc59202ddc2616ff1a12e2091))
+- Keep emulated Chromium on static content scripts, the lane injects no producer to re-register them ([9c61e556](https://github.com/extension-js/extension.js/commit/9c61e556043592d0282cce86d59c4ee38f0a5ad7))
+- Fold an empty path segment in the emulator files index and list the file once ([2048f6bf](https://github.com/extension-js/extension.js/commit/2048f6bf750c05dcdbd05932b1cb85ca1cde716d))
+- Mock the dev content-script step in the emulator reload spec after the rebase ([fd942636](https://github.com/extension-js/extension.js/commit/fd942636667f24938b72cb0d6cc8ba4d93372e02))
+- Read the emulated Chromium origin before opening it and name a hold or a rate limit ([67f263c1](https://github.com/extension-js/extension.js/commit/67f263c15daaba51e2a6130e02bfd9b849618104))
+- Reword the emulated Chromium refusals so each one names a next step ([9edb3342](https://github.com/extension-js/extension.js/commit/9edb3342e0c51d513736ec2560c02c49bf2bccbe))
+- List only served files in the emulator index and name its livereload path ([b0474da3](https://github.com/extension-js/extension.js/commit/b0474da396f412d0db7212658e7c3d78cdfd8c6a))
+- Open emulated Chromium and refuse logs, act and doctor against it ([9af2da7d](https://github.com/extension-js/extension.js/commit/9af2da7daf8712097093f906c75755a42ba04473))
+- Serve the emulated Chromium page a file index and a viewer channel ([a74110bd](https://github.com/extension-js/extension.js/commit/a74110bd179fe8aec22078bf19442aa9987282d5))
+- Accept chromium-emulator as a browser name behind an env flag ([d11850bd](https://github.com/extension-js/extension.js/commit/d11850bd81862cdd0d0670761f8d9c677c21025f))
+- Compile a manifest page that lives under pages/ once (#613) ([ebe8064d](https://github.com/extension-js/extension.js/commit/ebe8064d0a3321fecca7ebaa37682432ce944c7f))
+- Launch Zen and Floorp by name as gecko fork targets (#612) ([0a93b847](https://github.com/extension-js/extension.js/commit/0a93b847d2bc6e463130ba33558336b518fd41db))
+- Ship manifest-named files and keep Opera builds readable (#609) ([3888d697](https://github.com/extension-js/extension.js/commit/3888d697e0669c7f44a14d07645642acf239e8f1))
+- Derive the unpacked extension id from the real path (#608) ([37f500ee](https://github.com/extension-js/extension.js/commit/37f500ee32b7500add02c275669d06939be5718d))
+</details>
+
 ## 4.1.25 (September 18, 2026)
 
 - **A content script edit runs once.** In `extension dev` on Chrome and Edge, saving a content script now reaches the open tabs and every new page with exactly one copy running, where the previous copy used to keep running beside it. An html page edit refreshes the page alone instead of re-injecting the content script.
