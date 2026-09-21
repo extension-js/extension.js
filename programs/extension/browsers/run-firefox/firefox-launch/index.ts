@@ -269,8 +269,18 @@ export class FirefoxLaunchPlugin {
       return normalized && fs.existsSync(normalized) ? normalized : null
     }
 
+    // A named gecko fork is always located from the user's own system by its
+    // own *-location package, never from the managed firefox cache. Claiming
+    // the cached firefox here would make every fork target launch firefox.
+    const isNamedGeckoFork =
+      this.host.browser === 'waterfox' ||
+      this.host.browser === 'librewolf' ||
+      this.host.browser === 'zen' ||
+      this.host.browser === 'floorp'
     const resolveManagedBinary = (): string | null =>
-      normalizePath(resolveFromBinaries(compilation, 'firefox') || null)
+      isNamedGeckoFork
+        ? null
+        : normalizePath(resolveFromBinaries(compilation, 'firefox') || null)
     const resolveWslFallback = (): string | null => resolveWslWindowsBinary()
 
     const getInstallGuidanceText = (): string => {
