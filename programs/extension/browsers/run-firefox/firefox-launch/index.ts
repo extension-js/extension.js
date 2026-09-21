@@ -12,10 +12,18 @@ import locateFirefox, {
   getInstallGuidance as getFirefoxInstallGuidance,
   getFirefoxVersion
 } from 'firefox-location2'
-import locateFloorp from 'floorp-location'
-import locateLibreWolf from 'librewolf-location'
-import locateWaterfox from 'waterfox-location'
-import locateZen from 'zen-location'
+import locateFloorp, {
+  getInstallGuidance as getFloorpInstallGuidance
+} from 'floorp-location'
+import locateLibreWolf, {
+  getInstallGuidance as getLibreWolfInstallGuidance
+} from 'librewolf-location'
+import locateWaterfox, {
+  getInstallGuidance as getWaterfoxInstallGuidance
+} from 'waterfox-location'
+import locateZen, {
+  getInstallGuidance as getZenInstallGuidance
+} from 'zen-location'
 import {
   humanError,
   humanLine,
@@ -985,6 +993,19 @@ export class FirefoxLaunchPlugin {
   }
 
   private printInstallHint(compilation: CompilationLike, raw: string) {
+    const forkGuidance = geckoForkInstallGuidance(this.host.browser)
+
+    if (forkGuidance !== null) {
+      humanError(
+        messages.geckoForkNotInstalled(
+          this.host.browser as BrowserType,
+          forkGuidance
+        )
+      )
+
+      return
+    }
+
     try {
       const displayCacheDir = computeBinariesBaseDir(compilation)
       const pretty = messages.prettyPuppeteerInstallGuidance(
@@ -996,5 +1017,29 @@ export class FirefoxLaunchPlugin {
     } catch {
       humanError(raw)
     }
+  }
+}
+
+// The fork's own location package knows how it is installed on each platform.
+function geckoForkInstallGuidance(browser: unknown): string | null {
+  const read = (fn: () => string) => {
+    try {
+      return fn()
+    } catch {
+      return ''
+    }
+  }
+
+  switch (browser) {
+    case 'waterfox':
+      return read(() => getWaterfoxInstallGuidance())
+    case 'librewolf':
+      return read(() => getLibreWolfInstallGuidance())
+    case 'zen':
+      return read(() => getZenInstallGuidance())
+    case 'floorp':
+      return read(() => getFloorpInstallGuidance())
+    default:
+      return null
   }
 }

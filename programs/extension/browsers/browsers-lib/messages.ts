@@ -272,6 +272,24 @@ export function browserNotInstalledError(
   )
 }
 
+// A named Gecko fork is never downloaded into the managed cache, so the remedy
+// is the fork's own install steps or a binary path, never a cache install.
+export function geckoForkNotInstalled(browser: Browser, guidance: string) {
+  const steps = String(guidance || '')
+    .split('\n')
+    .map((line) => line.trimEnd())
+    .filter((line) => line && !/^We couldn't find/i.test(line))
+    .filter((line) => !/^Re-run your command/i.test(line))
+    .join('\n')
+
+  return (
+    `${getLoggingPrefix('error')} ${capitalizedBrowserName(browser)} isn't installed.\n` +
+    `${steps}\n` +
+    `Or point at a binary with ${colors.blue('--gecko-binary')} ${colors.gray('<path>')}, ` +
+    `or choose another browser with ${colors.blue('--browser')} ${colors.gray('<firefox|waterfox|librewolf|zen|floorp>')}.`
+  )
+}
+
 // The card's Browser row already names what runs and why, so this warn keeps
 // only the cause and the remedy.
 export function usingManagedChromiumFamilyFallback(
@@ -1089,11 +1107,10 @@ export function runningInDevelopment(
     case 'edge':
       browserDevToolsUrl = 'edge://extensions'
       break
-    case 'firefox':
-      browserDevToolsUrl = 'about:debugging#/runtime/this-firefox'
-      break
     default:
-      browserDevToolsUrl = ''
+      browserDevToolsUrl = isFirefoxBrowser(browser)
+        ? 'about:debugging#/runtime/this-firefox'
+        : ''
   }
 
   if (!message.data) {

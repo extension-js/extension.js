@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {printDevBannerOnce} from '../../../browsers-lib/banner'
+import type {BrowserType} from '../../../browsers-types'
 
 async function waitForManifest(outPath: string, timeoutMs = 8000) {
   const manifestPath = path.join(outPath, 'manifest.json')
@@ -29,7 +30,7 @@ async function waitForManifest(outPath: string, timeoutMs = 8000) {
 
 export async function printRunningInDevelopmentSummary(
   candidateAddonPaths: string[],
-  browser: 'firefox',
+  browser: BrowserType,
   extensionId?: string,
   browserVersionLine?: string,
   launchIdentity?: {
