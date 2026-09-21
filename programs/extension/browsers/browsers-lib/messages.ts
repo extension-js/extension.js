@@ -24,6 +24,7 @@ import {
   prefix
 } from '../../helpers/messaging'
 import type {BrowserType} from '../browsers-types'
+import {LIBREWOLF_REMOTE_DEBUGGING_LINES} from '../run-firefox/firefox-launch/librewolf-overrides'
 import {isFirefoxBrowser} from './browser-family'
 
 type Browser = BrowserType
@@ -680,8 +681,9 @@ export function librewolfRemoteDebuggingLocked(overridesPath: string) {
     `${getLoggingPrefix('error')} LibreWolf keeps remote debugging off, so Extension.js can't reach it.\n` +
     `LibreWolf resets ${colors.gray('devtools.debugger.remote-enabled')} to false at every start. ` +
     `Add these two lines to ${colors.underline(overridesPath)} and run the command again:\n` +
-    `  ${colors.blue('pref("devtools.debugger.remote-enabled", true);')}\n` +
-    `  ${colors.blue('pref("devtools.debugger.prompt-connection", false);')}\n` +
+    LIBREWOLF_REMOTE_DEBUGGING_LINES.map(
+      (line) => `  ${colors.blue(line)}\n`
+    ).join('') +
     `Or choose another browser with ${colors.blue('--browser')} ${colors.gray('<firefox|waterfox|zen|floorp>')}.`
   )
 }
