@@ -72,3 +72,10 @@ jobs:
             node _FUTURE/extension.js.org/scripts/generate-cli-flags.mjs
             git -C _FUTURE/extension.js.org diff -- __tests__/fixtures/cli-flags.json
         run: bash scripts/report-red-lane.sh "Docs flag snapshot"
+
+      - name: Close the red lane
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RED_LANE_TITLE: 'Docs flag snapshot drift'
+        run: bash scripts/close-red-lane.sh "Docs flag snapshot"
