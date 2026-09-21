@@ -104,7 +104,7 @@
     "case-sensitive-paths-webpack-plugin": "^2.4.0",
     "content-security-policy-parser": "^0.6.0",
     "cross-spawn": "^7.0.6",
-    "dotenv": "^17.2.3",
+    "dotenv": "^18.0.0",
     "es-module-lexer": "^3.0.2",
     "extension-from-store": "^0.2.5",
     "fflate": "^0.8.3",
