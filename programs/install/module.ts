@@ -29,6 +29,7 @@ import * as messages from './lib/messages'
 import {
   browserInstallArgs,
   browserInstallCommand,
+  browserInstallCwd,
   browserInstallEnv,
   detectSystemEdgeBinary,
   edgeInstallNeedsInteractivePrivilegedSession,
@@ -70,7 +71,10 @@ export async function extensionInstall({
   const cmd = browserInstallCommand(target)
   const args = browserInstallArgs(target, destination)
   const env = browserInstallEnv(target, destination)
-  const result = await runCommand(cmd, args, {cwd: process.cwd(), env})
+  const result = await runCommand(cmd, args, {
+    cwd: browserInstallCwd(),
+    env
+  })
 
   if (result.code !== 0) {
     if (target === 'edge' && isEdgePrivilegeEscalationFailure(result.stderr)) {

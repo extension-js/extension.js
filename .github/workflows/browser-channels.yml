@@ -130,6 +130,13 @@ jobs:
             pnpm run test:e2e --project=${{ matrix.project }} --grep "${{ matrix.grep }}"
         run: bash scripts/report-red-lane.sh "Browser channel ${{ matrix.channel }}"
 
+      - name: Close the red lane
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RED_LANE_TITLE: "Browser channel is red: ${{ matrix.channel }} ${{ env.BROWSER_VERSION || 'unresolved' }}"
+        run: bash scripts/close-red-lane.sh "Browser channel ${{ matrix.channel }}"
+
       - name: Upload Test Report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

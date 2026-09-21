@@ -1,3 +1,6 @@
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 const spawnSyncMock = vi.hoisted(() => vi.fn())
@@ -20,6 +23,7 @@ import {
 import {
   browserInstallArgs,
   browserInstallCommand,
+  browserInstallCwd,
   browserInstallEnv,
   detectSystemEdgeBinary,
   isEdgePrivilegeEscalationFailure,
@@ -86,14 +90,21 @@ describe('install runner pinned installer versions', () => {
 describe('install runner mapping', () => {
   const prevEnv = {...process.env}
 
+  const cacheDir = path.join(
+    os.tmpdir(),
+    `extension-install-cache-${process.pid}`
+  )
+
   afterEach(() => {
     process.env = {...prevEnv}
+    fs.rmSync(cacheDir, {recursive: true, force: true})
   })
 
   function clearPackageManagerEnv() {
     delete process.env.npm_config_user_agent
     delete process.env.npm_execpath
     delete process.env.NPM_EXEC_PATH
+    delete process.env.EXT_BROWSERS_CACHE_DIR
   }
 
   it('maps chromium-family browsers to puppeteer installer args', () => {
@@ -168,6 +179,51 @@ describe('install runner mapping', () => {
       '--path',
       '/tmp/x'
     ])
+  })
+
+  it('prefers yarn dlx under Yarn Berry and stays in the project', () => {
+    process.env.npm_config_user_agent =
+      'yarn/4.17.1 npm/? node/v24.0.0 darwin arm64'
+
+    const cmd = browserInstallCommand('chrome')
+    expect(cmd === 'yarn' || cmd === 'yarn.cmd').toBe(true)
+    expect(browserInstallArgs('chrome', '/tmp/x')).toEqual([
+      'dlx',
+      `@puppeteer/browsers@${PUPPETEER_BROWSERS_VERSION}`,
+      'install',
+      'chrome@stable',
+      '--path',
+      '/tmp/x'
+    ])
+
+    // The project's pinned yarn release answers `yarn`, so the runner must
+    // start where that project is.
+    expect(browserInstallCwd()).toBe(process.cwd())
+  })
+
+  it('keeps npx under Yarn Classic and runs it outside the project', () => {
+    process.env.npm_config_user_agent = 'yarn/1.22.22 npm/? node/v24.0.0'
+    process.env.EXT_BROWSERS_CACHE_DIR = cacheDir
+
+    const cmd = browserInstallCommand('chrome')
+    expect(cmd === 'npx' || cmd === 'npx.cmd').toBe(true)
+    expect(browserInstallArgs('chrome', '/tmp/x')[0]).toBe('-y')
+    expect(browserInstallCwd()).toBe(path.resolve(cacheDir))
+    expect(fs.existsSync(cacheDir)).toBe(true)
+  })
+
+  it('runs npx outside the project under npm', () => {
+    process.env.npm_config_user_agent = 'npm/12.0.1 node/v24.0.0 darwin arm64'
+    process.env.EXT_BROWSERS_CACHE_DIR = cacheDir
+
+    expect(browserInstallCwd()).toBe(path.resolve(cacheDir))
+  })
+
+  it('keeps pnpm dlx in the project', () => {
+    process.env.npm_config_user_agent = 'pnpm/10.28.0 npm/? node/v23.8.0'
+    process.env.EXT_BROWSERS_CACHE_DIR = cacheDir
+
+    expect(browserInstallCwd()).toBe(process.cwd())
   })
 
   it('detects sudo-driven edge installation failures', () => {
