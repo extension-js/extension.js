@@ -323,7 +323,7 @@ export class RemoteFirefox {
 
     const bannerPrinted = await printRunningInDevelopmentSummary(
       candidateAddonPaths,
-      'firefox',
+      this.options.browser,
       this.derivedExtensionId,
       this.options.browserVersionLine,
       {
