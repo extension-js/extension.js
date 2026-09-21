@@ -59,6 +59,12 @@ jobs:
             pnpm test:dev
         run: bash scripts/report-red-lane.sh "Nightly chromium"
 
+      - name: Close the red lane
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/close-red-lane.sh "Nightly chromium"
+
   nightly-edge:
     runs-on: ubuntu-22.04
     timeout-minutes: 45
@@ -116,6 +122,12 @@ jobs:
             pnpm extension build templates/typescript --browser edge --silent true
             pnpm extension dev templates/typescript --browser edge --chromium-binary "<playwright chromium path>" --profile false --no-open --port 0
         run: bash scripts/report-red-lane.sh "Nightly edge"
+
+      - name: Close the red lane
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/close-red-lane.sh "Nightly edge"
 
   nightly-firefox:
     runs-on: ubuntu-22.04
@@ -183,6 +195,12 @@ jobs:
             pnpm extension dev templates/typescript --browser firefox --gecko-binary "<playwright firefox path>" --profile false --no-open --port 0
         run: bash scripts/report-red-lane.sh "Nightly firefox"
 
+      - name: Close the red lane
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/close-red-lane.sh "Nightly firefox"
+
   nightly-session-lifecycle:
     # Control-channel lifecycle across process boundaries: dev-server crash +
     # restart against a kept profile (#484 stale-SW resync), dist wipe under
@@ -223,6 +241,12 @@ jobs:
             pnpm smoke:session-lifecycle
         run: bash scripts/report-red-lane.sh "Nightly session lifecycle"
 
+      - name: Close the red lane
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/close-red-lane.sh "Nightly session lifecycle"
+
   bundled-template-drift:
     # Early warning for discussion #478: the bundled `javascript` template
     # (programs/create/templates/javascript) must track extension-js/examples.
@@ -244,6 +268,12 @@ jobs:
           RED_LANE_REPRO: |
             bash scripts/check-bundled-template-drift.sh
         run: bash scripts/report-red-lane.sh "Nightly bundled template drift"
+
+      - name: Close the red lane
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/close-red-lane.sh "Nightly bundled template drift"
 
   # Bun and Deno already get a build and a headless dev run on every pull
   # request. A real browser launch is the one thing that lane cannot carry,
@@ -338,4 +368,10 @@ jobs:
             pnpm --filter extension-develop compile && pnpm --filter extension compile
             pnpm smoke:${{ matrix.runtime }}
         run: bash scripts/report-red-lane.sh "Nightly ${{ matrix.runtime }} runtime + ${{ matrix.browser }}"
+
+      - name: Close the red lane
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/close-red-lane.sh "Nightly ${{ matrix.runtime }} runtime + ${{ matrix.browser }}"
 

@@ -98,3 +98,10 @@ jobs:
             pnpm install --no-frozen-lockfile --config.minimum-release-age=0
             pnpm run ci:test:rspack
         run: bash scripts/report-red-lane.sh "Dependency canary ${{ matrix.leg }}"
+
+      - name: Close the red lane
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RED_LANE_TITLE: 'Dependency canary is red: ${{ matrix.leg }}'
+        run: bash scripts/close-red-lane.sh "Dependency canary ${{ matrix.leg }}"
