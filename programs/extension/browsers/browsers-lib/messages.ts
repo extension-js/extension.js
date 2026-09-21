@@ -16,6 +16,7 @@ import locateEdge, {getEdgeVersion} from 'edge-location'
 import locateFirefox, {getFirefoxVersion} from 'firefox-location2'
 import colors from 'pintor'
 import {
+  browserDisplayName,
   browserRowValue,
   type Channel,
   card,
@@ -158,7 +159,7 @@ function managedBrowserDisplayName(browser: string): string {
 }
 
 export function capitalizedBrowserName(browser: Browser) {
-  return `${browser.charAt(0).toUpperCase() + browser.slice(1)}`
+  return browserDisplayName(String(browser))
 }
 
 // Reads the version off the binary the command will actually launch, so the
@@ -668,8 +669,21 @@ export function prettyPuppeteerInstallGuidance(
   return `${body.join('\n')}\n`
 }
 
-export function firefoxLaunchCalled() {
-  return `${getLoggingPrefix('debug')} browser  launch browser=firefox`
+export function firefoxLaunchCalled(browser: Browser | string = 'firefox') {
+  return `${getLoggingPrefix('debug')} browser  launch browser=${browser}`
+}
+
+// LibreWolf resets the remote-debugging pref on every start, so the only
+// place a user can turn it on is the overrides file its docs name.
+export function librewolfRemoteDebuggingLocked(overridesPath: string) {
+  return (
+    `${getLoggingPrefix('error')} LibreWolf keeps remote debugging off, so Extension.js can't reach it.\n` +
+    `LibreWolf resets ${colors.gray('devtools.debugger.remote-enabled')} to false at every start. ` +
+    `Add these two lines to ${colors.underline(overridesPath)} and run the command again:\n` +
+    `  ${colors.blue('pref("devtools.debugger.remote-enabled", true);')}\n` +
+    `  ${colors.blue('pref("devtools.debugger.prompt-connection", false);')}\n` +
+    `Or choose another browser with ${colors.blue('--browser')} ${colors.gray('<firefox|waterfox|zen|floorp>')}.`
+  )
 }
 
 export function firefoxBinaryArgsExtracted(args: string) {

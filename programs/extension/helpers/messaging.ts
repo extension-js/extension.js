@@ -169,11 +169,27 @@ export function card(input: CardInput = {}): string {
   return [head, ...body].join('\n')
 }
 
-// The card's Browser row has one spelling across every command: the browser
-// name title-cased, followed by its version whenever the caller knows it.
-export function browserRowValue(browser: string, versionLine?: string): string {
+const BRAND_SPELLINGS: Record<string, string> = {
+  librewolf: 'LibreWolf',
+  chromium: 'Chromium',
+  'chromium-based': 'Chromium-based',
+  'gecko-based': 'Gecko-based',
+  'firefox-based': 'Firefox-based',
+  'webkit-based': 'WebKit-based'
+}
+
+// A browser name the way its vendor spells it, so LibreWolf never prints as
+// Librewolf; names with no special casing are title-cased.
+export function browserDisplayName(browser: string): string {
   const name = String(browser || '').trim() || 'unknown'
-  const display = name.charAt(0).toUpperCase() + name.slice(1)
+
+  return BRAND_SPELLINGS[name] || name.charAt(0).toUpperCase() + name.slice(1)
+}
+
+// The card's Browser row has one spelling across every command: the browser
+// name as its vendor spells it, followed by its version whenever the caller knows it.
+export function browserRowValue(browser: string, versionLine?: string): string {
+  const display = browserDisplayName(browser)
   const line = String(versionLine || '').trim()
   if (!line) return display
   // A bare version number carries no browser name, so it needs the prefix.
