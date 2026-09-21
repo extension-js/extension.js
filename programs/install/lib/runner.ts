@@ -11,12 +11,20 @@ import fs from 'node:fs'
 import path from 'node:path'
 import {spawn} from 'cross-spawn'
 import type {InstallBrowserTarget} from './browser-target'
+import {resolveBrowsersCacheRoot} from './cache-root'
 import {
   PLAYWRIGHT_VERSION,
   PUPPETEER_BROWSERS_VERSION
 } from './installer-versions'
 
 type PackageManagerName = 'pnpm' | 'yarn' | 'bun' | 'npm'
+
+interface PackageManager {
+  name: PackageManagerName
+  major: number | null
+}
+
+type PackageRunner = 'pnpm' | 'bunx' | 'yarn' | 'npx'
 
 function buildExecEnv(base: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   if (process.platform !== 'win32') return base
@@ -36,50 +44,80 @@ function buildExecEnv(base: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   }
 }
 
-function detectCurrentPackageManager(): PackageManagerName {
+function readMajorVersion(
+  userAgent: string,
+  name: PackageManagerName
+): number | null {
+  const match = userAgent.match(new RegExp(`${name}/(\\d+)`))
+
+  return match ? Number(match[1]) : null
+}
+
+function detectCurrentPackageManager(): PackageManager {
   const userAgent = String(
     process.env.npm_config_user_agent || ''
   ).toLowerCase()
 
-  if (userAgent.includes('pnpm')) return 'pnpm'
-  if (userAgent.includes('yarn')) return 'yarn'
-  if (userAgent.includes('bun')) return 'bun'
-  if (userAgent.includes('npm')) return 'npm'
+  for (const name of ['pnpm', 'yarn', 'bun', 'npm'] as const) {
+    if (userAgent.includes(name)) {
+      return {name, major: readMajorVersion(userAgent, name)}
+    }
+  }
 
   const execPath = String(
     process.env.npm_execpath || process.env.NPM_EXEC_PATH || ''
   ).toLowerCase()
 
-  if (execPath.includes('pnpm')) return 'pnpm'
-  if (execPath.includes('yarn')) return 'yarn'
-  if (execPath.includes('bun')) return 'bun'
+  if (execPath.includes('pnpm')) return {name: 'pnpm', major: null}
+  if (execPath.includes('yarn')) return {name: 'yarn', major: null}
+  if (execPath.includes('bun')) return {name: 'bun', major: null}
 
-  // yarn and npm both have a universally-available `npx` runner, so anything
-  // unrecognized safely defaults to the npm/npx path below
-  return 'npm'
+  return {name: 'npm', major: null}
+}
+
+// Yarn Berry ships `yarn dlx`, Yarn Classic has no package runner at all, so a
+// classic project (or a yarn whose version the user agent does not name) falls
+// back to npx like npm does.
+function currentPackageRunner(): PackageRunner {
+  const {name, major} = detectCurrentPackageManager()
+
+  if (name === 'pnpm') return 'pnpm'
+  if (name === 'bun') return 'bunx'
+  if (name === 'yarn' && major !== null && major >= 2) return 'yarn'
+
+  return 'npx'
 }
 
 export function browserInstallCommand(_target: InstallBrowserTarget): string {
-  const packageManager = detectCurrentPackageManager()
+  const runner = currentPackageRunner()
 
-  if (packageManager === 'pnpm') {
-    return process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
-  }
+  return process.platform === 'win32' ? `${runner}.cmd` : runner
+}
 
-  if (packageManager === 'bun') {
-    return process.platform === 'win32' ? 'bunx.cmd' : 'bunx'
-  }
+// npm validates the project's devEngines before npx runs anything, so a
+// project that pins devEngines.packageManager to yarn refuses npx from inside
+// it. The browsers cache root sits outside every project, and the pinned
+// installer package does not need the project anyway.
+export function browserInstallCwd(): string {
+  if (currentPackageRunner() !== 'npx') return process.cwd()
 
-  return process.platform === 'win32' ? 'npx.cmd' : 'npx'
+  const cacheRoot = resolveBrowsersCacheRoot()
+  fs.mkdirSync(cacheRoot, {recursive: true})
+
+  return cacheRoot
 }
 
 export function browserInstallArgs(
   target: InstallBrowserTarget,
   destination: string
 ): string[] {
-  const packageManager = detectCurrentPackageManager()
+  const runner = currentPackageRunner()
   const packageRunnerPrefix =
-    packageManager === 'pnpm' ? ['dlx'] : packageManager === 'bun' ? [] : ['-y']
+    runner === 'pnpm' || runner === 'yarn'
+      ? ['dlx']
+      : runner === 'bunx'
+        ? []
+        : ['-y']
 
   if (target === 'edge') {
     return [
