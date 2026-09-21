@@ -49,6 +49,22 @@ describe('the dev card for a gecko fork', () => {
     expect(output).not.toContain('Firefox')
   })
 
+  it('spells LibreWolf the way its vendor does', async () => {
+    const printed = await printRunningInDevelopmentSummary(
+      [addon('librewolf')],
+      'librewolf',
+      undefined,
+      '156.0'
+    )
+
+    expect(printed).toBe(true)
+    const output = log.mock.calls
+      .map((call) => String(call[0] || ''))
+      .join('\n')
+    expect(output).toContain('LibreWolf 156.0')
+    expect(output).not.toContain('Librewolf')
+  })
+
   it('still says Firefox for firefox itself', async () => {
     const printed = await printRunningInDevelopmentSummary(
       [addon('firefox')],

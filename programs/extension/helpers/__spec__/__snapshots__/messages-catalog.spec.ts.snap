@@ -75,6 +75,7 @@ exports[`extension message catalogs > matches the exported message surface 1`] =
     "generalBrowserError: function(2)",
     "invalidChromiumBinaryPath: function(1)",
     "invalidGeckoBinaryPath: function(1)",
+    "librewolfRemoteDebuggingLocked: function(1)",
     "locatingBrowser: function(1)",
     "messageWithoutSenderError: function(2)",
     "messagingClientClosedError: function(1)",

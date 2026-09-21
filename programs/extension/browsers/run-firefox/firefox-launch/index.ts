@@ -83,7 +83,9 @@ import {
   parseFlatpakBinary
 } from './binary-detector'
 import {resolveFirefoxLaunchConfig} from './browser-config'
+import {attachChildOutput} from './child-output'
 import {logFirefoxDryRun} from './dry-run'
+import {librewolfRemoteDebuggingEnabled} from './librewolf-overrides'
 import {
   type FirefoxBrowserKind,
   setupFirefoxProcessHandlers
@@ -268,7 +270,7 @@ export class FirefoxLaunchPlugin {
     }
 
     if (isDebug()) {
-      this.ctx.logger?.info?.(messages.firefoxLaunchCalled())
+      this.ctx.logger?.info?.(messages.firefoxLaunchCalled(this.host.browser))
     }
 
     const normalizePath = (value?: string | null): string | null => {
@@ -356,6 +358,26 @@ export class FirefoxLaunchPlugin {
       )
 
       return
+    }
+
+    if (this.host.browser === 'librewolf') {
+      const remoteDebugging = librewolfRemoteDebuggingEnabled(
+        fs,
+        process.env,
+        process.platform
+      )
+
+      if (!remoteDebugging.enabled) {
+        humanError(
+          messages.librewolfRemoteDebuggingLocked(remoteDebugging.expectedPath)
+        )
+
+        if (inTestRunner) {
+          throw new Error('LibreWolf remote debugging is disabled')
+        }
+
+        process.exit(1)
+      }
     }
 
     let browserBinaryLocation: string | null = resolveManagedBinary()
@@ -719,10 +741,7 @@ export class FirefoxLaunchPlugin {
   }
 
   private pipeChildOutput(child: ChildProcess) {
-    if (!isDebug()) return
-
-    child.stdout?.pipe(process.stdout)
-    child.stderr?.pipe(process.stderr)
+    attachChildOutput(child, {debug: isDebug()})
   }
 
   private wireChildLifecycle() {
