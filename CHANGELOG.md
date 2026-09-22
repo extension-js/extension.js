@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## 4.1.27 (September 22, 2026)
+
+<details>
+<summary>Other changes (8)</summary>
+
+- Report a vanished manifest once instead of every consequence (#626) ([1ced0d5c](https://github.com/extension-js/extension.js/commit/1ced0d5c3efb50a6dab4764e5d7e5fdaa202c402))
+- Drain gecko browser output and gate LibreWolf on its overrides (#625) ([cd1ae1b2](https://github.com/extension-js/extension.js/commit/cd1ae1b29425619663a23fd72cd9aad6f543a690))
+- Run the browser install with yarn dlx or outside a yarn project (#624) ([2dbfe1ca](https://github.com/extension-js/extension.js/commit/2dbfe1ca034fd687913180484b25e7183bfb5167))
+- Close the red lane issue from the first green run (#623) ([9f2b53ca](https://github.com/extension-js/extension.js/commit/9f2b53cac17972670fb3baab6c7ec23d6af5fb65))
+- Name the gecko fork on the dev card and in its not-installed hint (#622) ([2bc3fc16](https://github.com/extension-js/extension.js/commit/2bc3fc16535fb72227e684c1d319b6224897cd1e))
+- Launch gecko forks from their own binary, not the managed Firefox (#620) ([d9484fb1](https://github.com/extension-js/extension.js/commit/d9484fb1aaf5c2d7eed801d9f8ab9db7b2b9ebf3))
+- Budget the real-spawn install specs for a cold npx on Windows (#621) ([054e52fa](https://github.com/extension-js/extension.js/commit/054e52fafb9eef2fc76672297f3f57623c1ba71b))
+- Serve the funding manifest from the docs domain and prove the repo (#616) ([11a37637](https://github.com/extension-js/extension.js/commit/11a37637d1cb970796e1b4f1044f4de2d9edb9b8))
+</details>
+
 ## 4.1.26 (September 20, 2026)
 
 - **Zen and Floorp launch by name.** `extension dev --browser=zen` and `extension dev --browser=floorp` find a stock install on macOS, Windows and Linux, the same way Waterfox and LibreWolf already do.
