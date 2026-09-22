@@ -8,6 +8,7 @@
 
 import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
+import * as path from 'node:path'
 import colors from 'pintor'
 import {
   artifactNoun,
@@ -183,6 +184,23 @@ export function devServerStartTimeout(ms: number) {
     `The bundler may have hit an error before emitting the first build.`,
     `If nothing else prints, set ${colors.blue('EXTENSION_VERBOSE=1')} to see more logs.`
   ].join('\n')
+}
+
+export function manifestGoneDuringSession(
+  manifestPath: string,
+  projectDirGone: boolean
+) {
+  const what = projectDirGone
+    ? 'The project directory disappeared during the session.'
+    : 'The manifest.json file disappeared during the session.'
+  const where = projectDirGone ? path.dirname(manifestPath) : manifestPath
+
+  return (
+    `${getLoggingPrefix('error')} ${what}\n` +
+    `${colors.gray('NOT FOUND')} ${colors.underline(collapseHomeDir(where))}\n` +
+    `The last good build stays loaded. Restore it to keep working, or stop and run ` +
+    `${colors.blue('extension dev')} again with the right path.`
+  )
 }
 
 export function bundlerFatalError(error: unknown) {

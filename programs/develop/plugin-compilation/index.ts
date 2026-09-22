@@ -154,7 +154,7 @@ export class CompilationPlugin {
     // The build path renders errors and warnings once through the stats
     // handler in command-build, so only dev keeps this raw renderer.
     if (this.command !== 'build' && this.command !== 'start') {
-      setupCompilerDoneDiagnostics(compiler, this.port)
+      setupCompilerDoneDiagnostics(compiler, this.port, this.manifestPath)
     }
   }
 }

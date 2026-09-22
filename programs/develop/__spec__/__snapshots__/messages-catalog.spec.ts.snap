@@ -13,6 +13,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "devServerStartTimeout: function(1)",
     "emulatorViewerUrl: function(1)",
     "extensionJsRunnerError: function(1)",
+    "manifestGoneDuringSession: function(2)",
     "noEntrypointsDetected: function(1)",
     "portInUse: function(2)",
     "ready: function(2)",

@@ -760,14 +760,14 @@ export class FirefoxLaunchPlugin {
       }
     })
 
-    child.on('close', (code) => {
+    child.on('close', (code, signal) => {
       const expected = wasTerminatedByUs(child)
 
       // Firefox can hand the session to a fresh process and let this one
       // exit. That process owns the profile now, so the session goes on.
       if (!expected && this.adoptHandedOffBrowser()) return
 
-      this.onBrowserGone(code, expected)
+      this.onBrowserGone(code, expected, signal)
     })
 
     this.pipeChildOutput(child)
@@ -786,7 +786,11 @@ export class FirefoxLaunchPlugin {
   // exit nobody asked for is said loudly and stamped, and the registry entry
   // goes away. The profile removal is marker-gated, so a persistent or
   // user-provided profile is never removed.
-  private onBrowserGone(code: number | null, expected: boolean) {
+  private onBrowserGone(
+    code: number | null,
+    expected: boolean,
+    signal?: string | null
+  ) {
     if (this.browserGone) return
 
     this.browserGone = true
@@ -811,8 +815,8 @@ export class FirefoxLaunchPlugin {
 
     if (!expected) {
       this.ctx.logger?.error?.(
-        `[browser] ${this.host.browser} exited (code ${
-          code ?? 'unknown'
+        `[browser] ${this.host.browser} exited (${
+          code == null ? `signal ${signal || 'unknown'}` : `code ${code}`
         }) without being asked to. The add-on may have been rejected or the browser crashed; the session cannot be driven.`
       )
 
