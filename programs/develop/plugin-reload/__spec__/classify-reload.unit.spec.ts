@@ -491,3 +491,67 @@ describe('classifyReloadFromSources: public/ roots', () => {
     ).toMatchObject({type: 'page'})
   })
 })
+
+describe('the background label follows the emitted manifest', () => {
+  function distWith(background: Record<string, unknown>) {
+    const outputPath = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-bg-label-'))
+    fs.writeFileSync(
+      path.join(outputPath, 'manifest.json'),
+      JSON.stringify({manifest_version: 2, name: 'x', version: '1', background})
+    )
+
+    return outputPath
+  }
+
+  const count = (n: number) => () => n
+
+  it('says background_script for a gecko MV2 build that ships background.scripts', () => {
+    const outputPath = distWith({
+      scripts: ['background/scripts.js'],
+      persistent: true
+    })
+
+    expect(
+      classifyReloadFromSources({
+        changedSources: ['src/background.js'],
+        getContentScriptCount: count(0),
+        outputPath
+      })?.label
+    ).toBe('background_script (src/background.js)')
+  })
+
+  it('keeps service_worker for an MV3 build on the same edit', () => {
+    const outputPath = distWith({
+      service_worker: 'background/service_worker.js'
+    })
+
+    expect(
+      classifyReloadFromSources({
+        changedSources: ['src/background.js'],
+        getContentScriptCount: count(0),
+        outputPath
+      })?.label
+    ).toBe('service_worker (src/background.js)')
+  })
+
+  it('says background_page for a background.page build', () => {
+    const outputPath = distWith({page: 'background/index.html'})
+
+    expect(
+      classifyReloadFromSources({
+        changedSources: ['src/background.js'],
+        getContentScriptCount: count(0),
+        outputPath
+      })?.label
+    ).toBe('background_page (src/background.js)')
+  })
+
+  it('still says service_worker when no output exists yet', () => {
+    expect(
+      classifyReloadFromSources({
+        changedSources: ['src/background.js'],
+        getContentScriptCount: count(0)
+      })?.label
+    ).toBe('service_worker (src/background.js)')
+  })
+})
