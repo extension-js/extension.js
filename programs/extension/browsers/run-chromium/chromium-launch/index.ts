@@ -1275,22 +1275,21 @@ export class ChromiumLaunchPlugin {
 
       let disposeSignalHandlers: (() => void) | undefined
 
-      child.on('close', (code: number | null) => {
+      child.on('close', (code: number | null, signal: string | null) => {
         if (isDebug()) {
           this.logger.info(messages.chromeProcessExited(code || 0))
         }
+
+        const how =
+          code == null ? `signal ${signal || 'unknown'}` : `code ${code}`
 
         // An exit we didn't ask for means the browser died out from under a live
         // session. Say so loudly and stamp ready.json so automation sees it too.
         if (!wasTerminatedByUs(child)) {
           this.logger.error(
             this.closeHandlerContext?.isDevMode
-              ? `[browser] ${this.options.browser} exited mid-session (code ${
-                  code ?? 'unknown'
-                }). The dev server is still running but reloads cannot be delivered, restart "extension dev" to relaunch the browser.`
-              : `[browser] ${this.options.browser} exited (code ${
-                  code ?? 'unknown'
-                }); the preview session is over.`
+              ? `[browser] ${this.options.browser} exited mid-session (${how}). The dev server is still running but reloads cannot be delivered, restart "extension dev" to relaunch the browser.`
+              : `[browser] ${this.options.browser} exited (${how}); the preview session is over.`
           )
 
           stampReadyBrowserExited(
