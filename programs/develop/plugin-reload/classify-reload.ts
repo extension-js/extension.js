@@ -41,6 +41,29 @@ export function formatReloadContextLabel(
   return `${context} (${shown}${extra})`
 }
 
+// The emitted manifest decides what the background is called: a gecko MV2
+// build ships background.scripts, so its edit is not a service worker one.
+export function backgroundContextFromOutput(outputPath?: string): string {
+  if (!outputPath) return 'service_worker'
+
+  try {
+    const manifest = JSON.parse(
+      stripBom(fs.readFileSync(path.join(outputPath, 'manifest.json'), 'utf8'))
+    ) as {
+      background?: {service_worker?: unknown; scripts?: unknown; page?: unknown}
+    }
+    const background = manifest?.background
+
+    if (background?.service_worker) return 'service_worker'
+    if (Array.isArray(background?.scripts)) return 'background_script'
+    if (background?.page) return 'background_page'
+  } catch {
+    // Ignore
+  }
+
+  return 'service_worker'
+}
+
 // Best-effort page-context name for a page-only edit. Only used for the
 // label, never for the reload decision.
 export function pageContextFromSources(changedSources: string[]): string {
@@ -359,8 +382,8 @@ export function classifyReloadFromSources(opts: {
       changedAssets: changedSources,
       label: formatReloadContextLabel(
         contentEntries.size > 0
-          ? 'service_worker + content_script'
-          : 'service_worker',
+          ? `${backgroundContextFromOutput(outputPath)} + content_script`
+          : backgroundContextFromOutput(outputPath),
         swChanged
       )
     })
@@ -401,7 +424,10 @@ export function classifyReloadFromSources(opts: {
     return withScripts({
       type: 'service-worker',
       changedAssets: changedSources,
-      label: formatReloadContextLabel('service_worker', changedSources)
+      label: formatReloadContextLabel(
+        backgroundContextFromOutput(outputPath),
+        changedSources
+      )
     })
   }
 
