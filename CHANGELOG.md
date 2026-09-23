@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 4.1.28 (September 23, 2026)
+
+<details>
+<summary>Other changes (2)</summary>
+
+- Repin the template catalog to the clean transformers-js install (#632) ([f495ac21](https://github.com/extension-js/extension.js/commit/f495ac2118fa04a4bdc38e846766fb457807d395))
+- Name a gecko background edit after the manifest it emits (#627) ([7d029ed7](https://github.com/extension-js/extension.js/commit/7d029ed79d1cf3dc02812c82317235b512793637))
+</details>
+
 ## 4.1.27 (September 22, 2026)
 
 <details>
