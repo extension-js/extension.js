@@ -2,8 +2,12 @@ console.log(
   '[From the background context] Hello from the background worker/script!'
 )
 
+// Named one by one so the bundler can fold each build down to a single
+// branch. waterfox and librewolf are gecko, and used to fall to chromium.
 const isFirefoxLike =
   import.meta.env.EXTENSION_PUBLIC_BROWSER === 'firefox' ||
+  import.meta.env.EXTENSION_PUBLIC_BROWSER === 'waterfox' ||
+  import.meta.env.EXTENSION_PUBLIC_BROWSER === 'librewolf' ||
   import.meta.env.EXTENSION_PUBLIC_BROWSER === 'gecko-based'
 
 const isSafariLike =
@@ -31,8 +35,16 @@ function openSidebarTab() {
     return
   }
 
-  chrome.tabs.update(knownTabId, {active: true}, () => {
-    if (chrome.runtime.lastError) openNewTab()
+  chrome.tabs.update(knownTabId, {active: true}, (tab) => {
+    if (chrome.runtime.lastError || !tab) {
+      openNewTab()
+
+      return
+    }
+
+    // Selecting a tab in another window leaves that window behind the one the
+    // user is looking at, so raise it too.
+    chrome.windows?.update(tab.windowId, {focused: true})
   })
 }
 
