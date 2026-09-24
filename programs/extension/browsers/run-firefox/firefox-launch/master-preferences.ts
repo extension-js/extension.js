@@ -100,9 +100,36 @@ const masterPreferences = {
 
 export default masterPreferences
 
-export function getPreferences(customPrefs: Record<string, unknown>) {
+// The forks gate their own first-run surfaces behind their own preference
+// names, so a profile that only silences Firefox's still opens on them.
+const forkPreferences: Record<string, Record<string, unknown>> = {
+  // Zen's import wizard covers the whole tab on a fresh profile, and its
+  // update toast sits over the corner of the page. Both default to showing
+  // (defaults/preferences/firefox.js inside the app).
+  zen: {
+    'zen.welcome-screen.seen': true,
+    'zen.updates.show-update-notification': false
+  },
+  // Floorp opens its welcome page and its release notes as extra tabs.
+  floorp: {
+    'floorp.browser.welcome.page.shown': true,
+    'floorp.releaseNotes.mode': 'disabled',
+    'floorp.releaseNotes.choiceConfirmed': true,
+    'floorp.releaseNotes.promptShown': true
+  }
+}
+
+export function getForkPreferences(browser?: string): Record<string, unknown> {
+  return forkPreferences[String(browser || '')] || {}
+}
+
+export function getPreferences(
+  customPrefs: Record<string, unknown>,
+  browser?: string
+) {
   return {
     ...masterPreferences,
+    ...getForkPreferences(browser),
     ...customPrefs
   }
 }

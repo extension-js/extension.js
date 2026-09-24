@@ -202,7 +202,10 @@ export async function resolveFirefoxLaunchConfig(
 
   if (profilePath && provision) {
     try {
-      const prefs = getPreferences(configOptions?.preferences || {})
+      const prefs = getPreferences(
+        configOptions?.preferences || {},
+        String(browser)
+      )
 
       function serializeValue(value: unknown): string {
         if (typeof value === 'string') {
