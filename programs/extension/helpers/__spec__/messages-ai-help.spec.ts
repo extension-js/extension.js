@@ -31,6 +31,7 @@ describe('programAIHelp', () => {
       'storage',
       'reload',
       'open',
+      'navigate',
       'inspect',
       'publish',
       'install',

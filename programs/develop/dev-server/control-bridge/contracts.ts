@@ -78,6 +78,7 @@ export type CommandOp =
   | 'reload'
   | 'open'
   | 'tabs.query'
+  | 'tabs.navigate'
   | 'inspect'
 
 /**

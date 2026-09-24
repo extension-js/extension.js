@@ -140,6 +140,8 @@ exports[`extension message catalogs > matches the exported message surface 1`] =
     "doctorRemedy: function(2)",
     "fmt: object",
     "invalidAIHelpFormat: function(1)",
+    "navigateFailed: function(4)",
+    "navigatedTab: function(3)",
     "noBrowserNotSupportedForCommand: function(1)",
     "noBrowserWithWait: function(1)",
     "noURLWithoutStart: function(1)",

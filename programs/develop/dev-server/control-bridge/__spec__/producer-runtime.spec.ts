@@ -777,6 +777,139 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     })
   })
 
+  it('tabs.navigate reuses the active tab through a static tabs.update', async () => {
+    const updates: unknown[][] = []
+    const ws = setup({
+      tabs: {
+        query: (_q: unknown, cb?: (t: unknown[]) => void) => {
+          cb?.([{id: 7, url: 'https://old.test/', active: true, windowId: 1}])
+
+          return undefined
+        },
+        update: (id: number, props: unknown, cb?: (t: unknown) => void) => {
+          updates.push([id, props])
+          cb?.({id, url: (props as {url: string}).url})
+
+          return undefined
+        },
+        create: () => {
+          throw new Error('create must not run when an active tab exists')
+        }
+      }
+    })
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'n-active',
+      op: 'tabs.navigate',
+      target: {context: 'background'},
+      args: {url: 'https://new.test/page'}
+    })
+
+    await flush()
+    expect(updates).toEqual([[7, {url: 'https://new.test/page'}]])
+    expect(results(ws).find((f) => f.cmdId === 'n-active')).toMatchObject({
+      ok: true,
+      value: {tabId: 7, url: 'https://new.test/page', created: false}
+    })
+  })
+
+  it('tabs.navigate opens a tab when none is active, and on newTab', async () => {
+    const created: unknown[] = []
+    const ws = setup({
+      tabs: {
+        query: (_q: unknown, cb?: (t: unknown[]) => void) => {
+          cb?.([])
+
+          return undefined
+        },
+        update: () => {
+          throw new Error('update must not run without a tab')
+        },
+        create: (props: unknown, cb?: (t: unknown) => void) => {
+          created.push(props)
+          cb?.({id: 11, url: (props as {url: string}).url})
+
+          return undefined
+        }
+      }
+    })
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'n-none',
+      op: 'tabs.navigate',
+      target: {context: 'background'},
+      args: {url: 'https://a.test/'}
+    })
+
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'n-new',
+      op: 'tabs.navigate',
+      target: {context: 'background'},
+      args: {url: 'https://b.test/', newTab: true, active: false}
+    })
+
+    await flush()
+    expect(created).toEqual([
+      {url: 'https://a.test/'},
+      {url: 'https://b.test/', active: false}
+    ])
+
+    expect(results(ws).find((f) => f.cmdId === 'n-none')).toMatchObject({
+      ok: true,
+      value: {tabId: 11, created: true}
+    })
+
+    expect(results(ws).find((f) => f.cmdId === 'n-new')).toMatchObject({
+      ok: true,
+      value: {tabId: 11, created: true}
+    })
+  })
+
+  it('tabs.navigate targets a given tabId and refuses a missing url', async () => {
+    const updates: unknown[][] = []
+    const ws = setup({
+      tabs: {
+        query: () => {
+          throw new Error('query must not run with a tabId')
+        },
+        update: (id: number, props: unknown, cb?: (t: unknown) => void) => {
+          updates.push([id, props])
+          cb?.({id})
+
+          return undefined
+        }
+      }
+    })
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'n-tab',
+      op: 'tabs.navigate',
+      target: {context: 'background', tabId: 3},
+      args: {url: 'https://c.test/'}
+    })
+
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'n-nourl',
+      op: 'tabs.navigate',
+      target: {context: 'background'},
+      args: {}
+    })
+
+    await flush()
+    expect(updates).toEqual([[3, {url: 'https://c.test/'}]])
+    expect(results(ws).find((f) => f.cmdId === 'n-tab')).toMatchObject({
+      ok: true,
+      value: {tabId: 3, created: false}
+    })
+
+    expect(results(ws).find((f) => f.cmdId === 'n-nourl')).toMatchObject({
+      ok: false,
+      error: {name: 'BadRequest'}
+    })
+  })
+
   it('tab reload works on a callback-only chrome.* (Gecko MV2)', async () => {
     const reloaded: number[] = []
     const ws = setup({

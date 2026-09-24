@@ -176,6 +176,16 @@ const COMMAND_TABLE = [
     supportsSourceInspection: false
   },
   {
+    name: 'navigate',
+    positionals: [
+      {name: 'url', required: true},
+      {name: 'project-path', required: false}
+    ],
+    description:
+      'Open a url in a tab through the extension: the active tab, --tab <id>, or a new tab with --new-tab (requires --allow-control). A static tabs call, so it works where an MV3 background refuses eval',
+    supportsSourceInspection: false
+  },
+  {
     name: 'inspect',
     positionals: [{name: 'project-path', required: false}],
     description:
@@ -1006,6 +1016,36 @@ export function openSurfaceFailed(
   ]
     .filter(Boolean)
     .join('\n')
+}
+
+export function navigateFailed(
+  url: string,
+  reason: string,
+  engine?: string,
+  remedy?: string
+) {
+  const engineNote = engine ? arg(` (engine ${engine})`) : ''
+
+  return [
+    `${getLoggingPrefix('error')} Can't navigate a tab to ${fmt.val(url)}`,
+    `${fmt.label('REASON')} ${fmt.val(reason)}${engineNote}`,
+    remedy
+  ]
+    .filter(Boolean)
+    .join('\n')
+}
+
+export function navigatedTab(
+  url: string,
+  tabId: number | null,
+  created: boolean
+) {
+  const where =
+    tabId == null
+      ? 'a tab'
+      : `${created ? 'new ' : ''}tab ${fmt.val(String(tabId))}`
+
+  return `${getLoggingPrefix('success')} Navigated ${where} to ${fmt.val(url)}`
 }
 
 export function openSurfaceGestureStep(surface: string): string {

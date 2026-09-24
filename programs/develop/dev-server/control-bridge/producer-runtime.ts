@@ -468,6 +468,35 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
           });
           return;
         }
+        // Navigation is a static tabs.* call, never an eval: an MV3 background
+        // (Safari's included) refuses eval by CSP, so a url must reach a tab
+        // through code that shipped with the bridge. A tabId targets that
+        // tab, newTab opens one, and otherwise the active tab is reused.
+        if (op === "tabs.navigate") {
+          var navUrl = typeof args.url === "string" ? args.url : "";
+          if (!navUrl) { replyErr(cmdId, "BadRequest", "tabs.navigate needs a url"); return; }
+          var navDone = function (err, tab, created) {
+            if (err) { replyErr(cmdId, "TabsError", (err && err.message) || err); return; }
+            replyOk(cmdId, {tabId: tab && tab.id != null ? tab.id : null, url: navUrl, created: !!created});
+          };
+          if (target.tabId != null) {
+            nsCall("tabs", "update", [target.tabId, {url: navUrl}], function (err, tab) { navDone(err, tab, false); });
+            return;
+          }
+          if (args.newTab) {
+            nsCall("tabs", "create", [{url: navUrl, active: args.active !== false}], function (err, tab) { navDone(err, tab, true); });
+            return;
+          }
+          nsCall("tabs", "query", [{active: true, currentWindow: true}], function (qErr, tabs) {
+            var active = !qErr && tabs && tabs[0];
+            if (active && active.id != null) {
+              nsCall("tabs", "update", [active.id, {url: navUrl}], function (err, tab) { navDone(err, tab, false); });
+            } else {
+              nsCall("tabs", "create", [{url: navUrl}], function (err, tab) { navDone(err, tab, true); });
+            }
+          });
+          return;
+        }
         if (op === "inspect") {
           // Extract a DOM snapshot from the target page via chrome.scripting
           // (CDP-free). Closed shadow roots need CDP; here we read open ones.

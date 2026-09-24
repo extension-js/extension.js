@@ -29,6 +29,7 @@ type KnownCommand =
   | 'inspect'
   | 'install'
   | 'logs'
+  | 'navigate'
   | 'open'
   | 'preview'
   | 'publish'
@@ -53,6 +54,7 @@ export const KNOWN_COMMANDS: ReadonlySet<KnownCommand> = new Set([
   'inspect',
   'install',
   'logs',
+  'navigate',
   'open',
   'preview',
   'publish',

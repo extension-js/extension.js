@@ -135,6 +135,11 @@ exports[`programAIHelp > matches the published AI-help JSON contract shape 1`] =
       "supportsSourceInspection": false,
     },
     {
+      "name": "navigate",
+      "summary": "Open a url in a tab through the extension: the active tab, --tab <id>, or a new tab with --new-tab (requires --allow-control). A static tabs call, so it works where an MV3 background refuses eval",
+      "supportsSourceInspection": false,
+    },
+    {
       "name": "inspect",
       "summary": "Inspect a page or content DOM through the agent bridge (CDP-free, requires --allow-control)",
       "supportsSourceInspection": true,

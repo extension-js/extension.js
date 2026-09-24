@@ -93,6 +93,7 @@ describe('CLI help parity contract', () => {
       'inspect',
       'install',
       'logs',
+      'navigate',
       'open',
       'preview',
       'publish',
