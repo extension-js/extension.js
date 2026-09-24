@@ -19,6 +19,8 @@ import {
   commandDescriptions,
   controlDisabledInSession,
   controlDisabledInSessionPlain,
+  navigatedTab,
+  navigateFailed,
   openedSurface,
   openSurfaceFailed,
   openSurfaceGestureStep,
@@ -120,6 +122,7 @@ type CommandOp =
   | 'reload'
   | 'open'
   | 'tabs.query'
+  | 'tabs.navigate'
   | 'inspect'
 
 // Bridge command results are dynamic frames; this loose view names the
@@ -421,6 +424,21 @@ function gestureRefusal(
     code: CODES.E_USER_GESTURE_REQUIRED,
     hint: openSurfaceGestureStep(surface)
   }
+}
+
+function navigateResultLines(value: unknown): string[] | undefined {
+  if (!value || typeof value !== 'object') return undefined
+
+  const reply = value as {tabId?: unknown; url?: unknown; created?: unknown}
+  if (typeof reply.url !== 'string') return undefined
+
+  return [
+    navigatedTab(
+      reply.url,
+      typeof reply.tabId === 'number' ? reply.tabId : null,
+      reply.created === true
+    )
+  ]
 }
 
 function openResultLines(value: unknown): string[] | undefined {
@@ -893,6 +911,58 @@ export function registerActCommands(program: Command): void {
               }
             }
           : undefined
+      })
+    }
+  )
+
+  commonOptions(
+    program
+      .command('navigate')
+      .arguments('<url> [project-path]')
+      .description(
+        'Open a url in a tab through the extension: the active tab, --tab <id>, or a new tab with --new-tab (requires --allow-control). A static tabs call, so it works where an MV3 background refuses eval'
+      )
+      .option('--tab <id>', 'the tab to navigate (default: the active tab)')
+      .option(
+        '--new-tab',
+        'open the url in a new tab instead of the active one'
+      )
+      .option('--background', 'with --new-tab: open it without activating it')
+  ).action(
+    async (
+      url: string,
+      projectPathArg: string,
+      opts: CommonActOptions & {newTab?: boolean; background?: boolean}
+    ) => {
+      if (!/^[a-z][a-z0-9+.-]*:/i.test(url)) {
+        fail(`navigate needs an absolute url (got ${url})`, {
+          command: 'navigate',
+          code: CODES.E_ARGS,
+          output: opts.output
+        })
+      }
+
+      const target: {context: ActContext; tabId?: number} = {
+        context: 'background'
+      }
+      if (opts.tab) target.tabId = Number(opts.tab)
+
+      const args: Record<string, unknown> = {url}
+      if (opts.newTab) args.newTab = true
+      if (opts.newTab && opts.background) args.active = false
+
+      await runCommand({
+        projectPathArg,
+        command: 'navigate',
+        op: 'tabs.navigate',
+        target,
+        args,
+        opts,
+        pretty: {
+          value: navigateResultLines,
+          failure: (error) =>
+            navigateFailed(url, error.message, error.engine, error.hint)
+        }
       })
     }
   )

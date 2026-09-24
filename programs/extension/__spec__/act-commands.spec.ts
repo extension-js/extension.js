@@ -369,6 +369,62 @@ describe('extension open', () => {
     expect(String(errorSpy.mock.calls[0][0])).toContain('unknown surface')
   })
 
+  it('navigates the active tab through a static tabs call in the background', async () => {
+    expect(await run(['navigate', 'https://example.test/page'])).toBe(0)
+    expect(bridge.commands[0]).toMatchObject({
+      op: 'tabs.navigate',
+      target: {context: 'background'},
+      args: {url: 'https://example.test/page'}
+    })
+
+    expect(bridge.commands[0].args).not.toHaveProperty('newTab')
+  })
+
+  it('navigates a chosen tab, or a new background tab', async () => {
+    expect(
+      await run(['navigate', 'https://example.test/', '--tab', '12'])
+    ).toBe(0)
+
+    expect(bridge.commands[0]).toMatchObject({
+      op: 'tabs.navigate',
+      target: {context: 'background', tabId: 12}
+    })
+
+    bridge.commands = []
+    expect(
+      await run([
+        'navigate',
+        'https://example.test/',
+        '--new-tab',
+        '--background'
+      ])
+    ).toBe(0)
+
+    expect(bridge.commands[0].args).toEqual({
+      url: 'https://example.test/',
+      newTab: true,
+      active: false
+    })
+  })
+
+  it('refuses a relative url before touching the bridge', async () => {
+    expect(await run(['navigate', 'example.test/page'])).toBe(1)
+    expect(String(errorSpy.mock.calls[0][0])).toContain('absolute url')
+    expect(bridge.commands).toHaveLength(0)
+  })
+
+  it('says where it navigated instead of printing the result object', async () => {
+    bridge.result = {
+      ok: true,
+      value: {tabId: 7, url: 'https://example.test/page', created: false}
+    }
+
+    expect(await run(['navigate', 'https://example.test/page'])).toBe(0)
+    expect(logSpy.mock.calls.map((c) => String(c[0]))).toEqual([
+      '⏵⏵⏵ Navigated tab 7 to https://example.test/page'
+    ])
+  })
+
   it('says what opened instead of printing the result object', async () => {
     bridge.result = {ok: true, value: {opened: 'popup'}}
     expect(await run(['open', 'popup', '--browser', 'firefox'])).toBe(0)

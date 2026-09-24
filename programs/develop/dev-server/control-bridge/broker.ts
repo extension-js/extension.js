@@ -77,6 +77,7 @@ const CONTROL_OPS: ReadonlySet<CommandOp> = new Set([
   'reload',
   'open',
   'tabs.query',
+  'tabs.navigate',
   'inspect'
 ])
 
