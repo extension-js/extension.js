@@ -589,9 +589,13 @@ export class FirefoxLaunchPlugin {
       const {binary, args} = plan
       this.host.launchProfilePath = profilePath
       this.child = await this.spawnFirefoxChild(binary, args, wslFallbackBinary)
+      // The contract names the executable that ran, the same fields the
+      // Chromium launch stamps, so a reader can tell a fork from Firefox.
       stampReadyBrowserLaunch(this.extensionOutputPath, {
         profilePath,
         browserPid: this.child?.pid,
+        binary: this.child?.spawnfile || binary,
+        binaryProvenance: this.host.launchBinaryProvenance,
         extensionId: this.extensionOutputPath
           ? expectedGeckoExtensionId(this.extensionOutputPath)
           : undefined
@@ -668,6 +672,8 @@ export class FirefoxLaunchPlugin {
 
       stampReadyBrowserLaunch(this.extensionOutputPath, {
         browserPid: this.child?.pid,
+        binary: this.child?.spawnfile || plan.binary,
+        binaryProvenance: this.host.launchBinaryProvenance,
         extensionId: this.extensionOutputPath
           ? expectedGeckoExtensionId(this.extensionOutputPath)
           : undefined

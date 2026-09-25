@@ -32,6 +32,7 @@ exports[`extension message catalogs > matches the exported message surface 1`] =
     "chromiumDryRunNotLaunching: function(0)",
     "chromiumExtensionLoadRefused: function(2)",
     "chromiumExtensionLoadUnconfirmed: function(1)",
+    "chromiumForkNotInstalled: function(2)",
     "chromiumInvalidMatchPatterns: function(2)",
     "chromiumManifestLoadBlockers: function(2)",
     "collapseHomeDirInCardValue: function(1)",

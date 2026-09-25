@@ -76,6 +76,7 @@ import {waitForStableManifest} from '../manifest-readiness'
 import {browserConfig, chromiumLaunchPlan} from './browser-config'
 import {logChromiumDryRun} from './dry-run'
 import {getExtensionOutputPath} from './extension-output-path'
+import {chromiumForkInstallGuidance} from './fork-install-guidance'
 import {setupProcessSignalHandlers} from './process-handlers'
 import {
   isWslEnv,
@@ -862,11 +863,15 @@ export class ChromiumLaunchPlugin {
           browser !== 'chromium' &&
           browser !== 'chromium-based'
         ) {
+          const forkGuidance = chromiumForkInstallGuidance(browser)
+
           this.logger.error(
-            messages.browserNotInstalledError(
-              browser,
-              browserBinaryLocation || ''
-            )
+            forkGuidance !== null
+              ? messages.chromiumForkNotInstalled(browser, forkGuidance)
+              : messages.browserNotInstalledError(
+                  browser,
+                  browserBinaryLocation || ''
+                )
           )
         }
 
