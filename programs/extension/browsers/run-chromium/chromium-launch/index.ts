@@ -32,6 +32,7 @@ import {
   printDevBannerOnce,
   printProdBannerOnce
 } from '../../browsers-lib/banner'
+import {isSystemLocatedChromiumFork} from '../../browsers-lib/browser-family'
 import {
   type InstallableTarget,
   offerManagedInstall
@@ -357,6 +358,13 @@ export class ChromiumLaunchPlugin {
       Boolean(p && fs.existsSync(p))
 
     const resolveManagedBinary = (): string | null => {
+      // Brave, Opera, Vivaldi and Yandex are located on the user's machine and
+      // have no managed download. Letting the cache answer for them mapped the
+      // request to the managed Chrome, which then set skipDetection and kept
+      // the fork's own locator from ever running, so `--browser=vivaldi`
+      // launched Chrome while the card still said Vivaldi.
+      if (isSystemLocatedChromiumFork(browser)) return null
+
       try {
         const resolved = binariesResolver.resolveFromBinaries(
           compilation,
