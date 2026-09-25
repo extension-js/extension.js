@@ -58,6 +58,16 @@ function resolveBuiltInExtensionForBrowser(input: {
   return undefined
 }
 
+// Opera ships its own theming and refuses a theme-type extension handed to
+// --load-extension with a "Extension type is not supported" dialog, so the
+// first thing an Opera user saw from us was a load error for a cosmetic
+// companion. Every other Chromium target takes the theme.
+const THEME_REFUSING_BROWSERS: ReadonlySet<string> = new Set(['opera'])
+
+export function browserAcceptsThemeExtension(browser: string): boolean {
+  return !THEME_REFUSING_BROWSERS.has(String(browser || '').toLowerCase())
+}
+
 // Reserved companion package names, owned by the built-in resolver. A user
 // companion shadowing one would surface as a duplicate in chrome://extensions.
 const RESERVED_BUILT_IN_NAMES: ReadonlySet<string> = new Set([
@@ -131,7 +141,7 @@ export function computeExtensionsToLoad(
       list.push(devtoolsForBrowser)
     }
 
-    if (themeForBrowser) {
+    if (themeForBrowser && browserAcceptsThemeExtension(browser)) {
       list.push(themeForBrowser)
     }
   } catch {

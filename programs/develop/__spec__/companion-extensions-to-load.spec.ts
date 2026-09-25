@@ -279,6 +279,55 @@ describe('companion extensions (load-only) are wired into BrowsersPlugin', () =>
     }
   })
 
+  // Opera refuses a theme-type extension with a load-error dialog, so the
+  // theme is never offered to it while the devtools companion still is.
+  it('leaves the built-in theme out for Opera and keeps it for the other Chromium targets', () => {
+    const root = tmpDir('extjs-builtins-opera-')
+    const userOut = path.join(root, 'dist', 'chromium')
+    fs.mkdirSync(userOut, {recursive: true})
+    fs.writeFileSync(
+      path.join(userOut, 'manifest.json'),
+      JSON.stringify({manifest_version: 3, name: 'User', version: '0.0.0'}),
+      'utf-8'
+    )
+
+    const devtools = path.join(
+      root,
+      'dist',
+      'extension-js-devtools',
+      'chromium'
+    )
+    const theme = path.join(root, 'dist', 'extension-js-theme', 'chromium')
+    fs.mkdirSync(devtools, {recursive: true})
+    fs.mkdirSync(theme, {recursive: true})
+    fs.writeFileSync(
+      path.join(devtools, 'manifest.json'),
+      JSON.stringify({manifest_version: 3, name: 'DevTools', version: '0.0.0'}),
+      'utf-8'
+    )
+
+    fs.writeFileSync(
+      path.join(theme, 'manifest.json'),
+      JSON.stringify({
+        manifest_version: 3,
+        name: 'Theme',
+        version: '0.0.0',
+        theme: {}
+      }),
+      'utf-8'
+    )
+
+    expect(
+      computeExtensionsToLoad(root, 'development', 'opera', userOut, [])
+    ).toEqual([devtools, userOut])
+
+    for (const browser of ['chromium', 'brave', 'vivaldi', 'yandex']) {
+      expect(
+        computeExtensionsToLoad(root, 'development', browser, userOut, [])
+      ).toEqual([devtools, theme, userOut])
+    }
+  })
+
   it('skips built-in devtools when user source manifest defines newtab but output manifest is not built yet', () => {
     const root = tmpDir('extjs-devtools-source-manifest-')
     const userOut = path.join(root, 'dist', 'chrome')
