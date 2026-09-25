@@ -188,7 +188,8 @@ export function stampReadyProfileLocked(
 // sees a browserless session. Run-only commands flip to error; dev keeps compile status.
 export function stampReadyBrowserExited(
   extensionOutputPath: string | undefined,
-  code: number | null
+  code: number | null,
+  signal: string | null = null
 ) {
   try {
     if (!extensionOutputPath) return
@@ -199,12 +200,17 @@ export function stampReadyBrowserExited(
     const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
     ready.browserExitedAt = new Date().toISOString()
     ready.browserExitCode = code
+    // A crash exits with no code and only a signal, so the signal is the one
+    // clue the contract can carry about why the browser went.
+    ready.browserExitSignal = signal
 
     if (ready.command === 'preview' || ready.command === 'start') {
       ready.status = 'error'
       ready.code = 'browser_exited'
-      ready.message = `the ${ready.browser || 'browser'} process exited (code ${
-        code ?? 'unknown'
+      ready.message = `the ${ready.browser || 'browser'} process exited (${
+        code == null && signal
+          ? `signal ${signal}`
+          : `code ${code ?? 'unknown'}`
       }); nothing is running`
     }
 

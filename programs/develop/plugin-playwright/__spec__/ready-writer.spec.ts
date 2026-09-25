@@ -36,6 +36,7 @@ describe('ready.json writer preservation', () => {
     const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
     ready.browserExitedAt = '2026-07-12T00:00:00.000Z'
     ready.browserExitCode = 21
+    ready.browserExitSignal = 'SIGTRAP'
     ready.cdpPort = 9223
     fs.writeFileSync(writer.readyPath, JSON.stringify(ready))
 
@@ -45,6 +46,7 @@ describe('ready.json writer preservation', () => {
     expect(after.status).toBe('ready')
     expect(after.browserExitedAt).toBe('2026-07-12T00:00:00.000Z')
     expect(after.browserExitCode).toBe(21)
+    expect(after.browserExitSignal).toBe('SIGTRAP')
     expect(after.cdpPort).toBe(9223)
   })
 

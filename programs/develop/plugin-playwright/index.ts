@@ -85,6 +85,7 @@ export type ReadyMetadata = {
   // without the dev server asking it to; preserved across recompiles.
   browserExitedAt?: string
   browserExitCode?: number | null
+  browserExitSignal?: string | null
   // Runtime attachment signal: 'ready' means compiled; these mean the SW has
   // connected and can be driven. Act-tooling should wait for runtime:'attached'.
   runtime?: 'attached' | 'detached'
@@ -95,7 +96,12 @@ export type ReadyMetadata = {
 }
 
 export type PlaywrightAutomationEvent = {
-  type: 'compile_start' | 'compile_success' | 'compile_error' | 'shutdown'
+  type:
+    | 'compile_start'
+    | 'compile_success'
+    | 'compile_error'
+    | 'shutdown'
+    | 'browser_exited'
   ts: string
   command: PlaywrightAutomationCommand
   browser: string
@@ -103,6 +109,11 @@ export type PlaywrightAutomationEvent = {
   durationMs?: number
   errorCount?: number
   errors?: string[]
+  // browser_exited: the launcher's exit evidence, mirrored off ready.json so
+  // the timeline says when and how the browser went, not only the compiles.
+  exitCode?: number | null
+  exitSignal?: string | null
+  browserExitedAt?: string
 }
 
 type WriterOptions = {
@@ -591,6 +602,8 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
           prev.browserExitedAt
         ;(payload as Record<string, unknown>).browserExitCode =
           prev.browserExitCode ?? null
+        ;(payload as Record<string, unknown>).browserExitSignal =
+          prev.browserExitSignal ?? null
       }
 
       // The SW attaches once per session but the compile can re-run many
