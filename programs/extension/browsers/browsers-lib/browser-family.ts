@@ -22,6 +22,16 @@ export const CHROMIUM_BROWSERS: ReadonlySet<string> = new Set([
   'chromium-based'
 ])
 
+// Chromium forks the launcher finds on the user's machine through a dedicated
+// *-location resolver. Nothing downloads these, so the managed browser cache,
+// which holds chrome, chromium and edge only, must never answer for one.
+export const SYSTEM_LOCATED_CHROMIUM_FORKS: ReadonlySet<string> = new Set([
+  'brave',
+  'opera',
+  'vivaldi',
+  'yandex'
+])
+
 export const FIREFOX_BROWSERS: ReadonlySet<string> = new Set([
   'firefox',
   'waterfox',
@@ -34,6 +44,12 @@ export const FIREFOX_BROWSERS: ReadonlySet<string> = new Set([
 
 export function isChromiumBrowser(browser: BrowserType | string): boolean {
   return CHROMIUM_BROWSERS.has(String(browser))
+}
+
+export function isSystemLocatedChromiumFork(
+  browser: BrowserType | string
+): boolean {
+  return SYSTEM_LOCATED_CHROMIUM_FORKS.has(String(browser))
 }
 
 export function isFirefoxBrowser(browser: BrowserType | string): boolean {
