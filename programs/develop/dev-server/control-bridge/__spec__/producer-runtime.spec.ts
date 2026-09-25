@@ -1011,6 +1011,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       ok: false,
       error: {name: 'TabsError', message: 'Tab is being dragged'}
     })
+
     expect(
       results(ws).find((f) => f.cmdId === 'n-other')?.error
     ).not.toHaveProperty('code')

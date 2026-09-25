@@ -448,6 +448,7 @@ describe('extension open', () => {
         'firefox'
       ])
     ).toBe(1)
+
     const printed = String(errorSpy.mock.calls[0][0])
     expect(printed).toContain("Can't navigate a tab to about:newtab")
     expect(printed).toContain('Illegal URL: about:newtab')
@@ -466,6 +467,7 @@ describe('extension open', () => {
         'json'
       ])
     ).toBe(1)
+
     expect(JSON.parse(String(logSpy.mock.calls[0][0]))).toMatchObject({
       ok: false,
       command: 'navigate',
