@@ -43,6 +43,7 @@ export {
   REFUSAL_NEEDS_HEADED_WINDOW,
   REFUSAL_NEEDS_USER_GESTURE,
   REFUSAL_SURFACE_NOT_OPEN,
+  REFUSAL_TAB_NOT_FOUND,
   REFUSAL_URL_REFUSED
 } from './dev-server/control-bridge/contracts'
 export {

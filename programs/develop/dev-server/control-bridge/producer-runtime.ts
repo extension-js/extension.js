@@ -133,6 +133,23 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       }
     }
 
+    // A tabs.* failure the caller can act on gets a name and a refusal code:
+    // a tab id nobody has is TargetNotFound, and a url the engine refuses by
+    // rule (Gecko's "Illegal URL", Chromium's javascript: ban) is BadRequest.
+    // Anything else keeps the op's own error name.
+    function replyTabsFailure(cmdId, err, fallbackName, url) {
+      var msg = String((err && err.message) || err);
+      if (/no tab with id|invalid tab id/i.test(msg)) {
+        replyErr(cmdId, "TargetNotFound", msg, "tab_not_found");
+        return;
+      }
+      if (url && /illegal url|javascript urls are not allowed|invalid url/i.test(msg)) {
+        replyErr(cmdId, "BadRequest", engineName() + " refuses to open " + url + " from the extension's tabs API (" + msg + ")", "url_refused");
+        return;
+      }
+      replyErr(cmdId, fallbackName, msg);
+    }
+
     // A surface relay that answered nothing is closed only when the engine
     // says no receiver exists. Any other lastError (a reply the engine could
     // not clone, a channel that closed) means the surface WAS open and ran the
@@ -243,6 +260,12 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       if ((op === "eval" || op === "inspect") && (ctx === "content" || ctx === "page") && target.tabId == null) {
         resolveTargetTab(target, function (tabId, err) {
           if (tabId == null) {
+            // A filter that matched nothing, or no active tab, is a missing
+            // target the caller can fix, not a missing feature.
+            if (err && /^no open tab matches|^no active tab/i.test(String(err))) {
+              replyErr(cmdId, "TargetNotFound", err, "tab_not_found");
+              return;
+            }
             replyErr(cmdId, "Unsupported", err || ("eval/inspect in context " + ctx + " needs a --tab id, a --url to match, or an active tab"));
             return;
           }
@@ -354,7 +377,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
             } }, 50);
           } else if (target.tabId) {
             nsCall("tabs", "reload", [target.tabId], function (err) {
-              if (err) replyErr(cmdId, "ReloadError", (err && err.message) || err);
+              if (err) replyTabsFailure(cmdId, err, "ReloadError");
               else replyOk(cmdId, {reloaded: target.tabId});
             });
           } else {
@@ -494,18 +517,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
           var navUrl = typeof args.url === "string" ? args.url : "";
           if (!navUrl) { replyErr(cmdId, "BadRequest", "tabs.navigate needs a url"); return; }
           var navDone = function (err, tab, created) {
-            if (err) {
-              var navMsg = String((err && err.message) || err);
-              // Gecko refuses privileged urls from the tabs API by design and
-              // says "Illegal URL". That is a rule about the url the caller
-              // passed, so it is named as such instead of reading as a fault.
-              if (/illegal url/i.test(navMsg)) {
-                replyErr(cmdId, "BadRequest", engineName() + " refuses to open " + navUrl + " from the extension's tabs API (" + navMsg + ")", "url_refused");
-                return;
-              }
-              replyErr(cmdId, "TabsError", navMsg);
-              return;
-            }
+            if (err) { replyTabsFailure(cmdId, err, "TabsError", navUrl); return; }
             replyOk(cmdId, {tabId: tab && tab.id != null ? tab.id : null, url: navUrl, created: !!created});
           };
           if (target.tabId != null) {
