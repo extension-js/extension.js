@@ -26,7 +26,10 @@ import {stampReadyExtensionLoadRefused} from '../../browsers-lib/ready-stamp'
 import {deriveDebugPortWithInstance} from '../../browsers-lib/shared-utils'
 import {writeJsonAtomic} from '../../browsers-lib/write-json-atomic'
 import type {CompilationLike} from '../../browsers-types'
-import {CDPExtensionController} from '../cdp/cdp-extension-controller'
+import {
+  CDPExtensionController,
+  DEVTOOLS_COMPANION_WELCOME_URL
+} from '../cdp/cdp-extension-controller'
 import {
   developerModeFlipIsSafe,
   developerModeFromProfile
@@ -371,6 +374,20 @@ export async function setupCdpAfterLaunch(
     }
   } catch {
     // best-effort only, never block launch on the courtesy tab
+  }
+
+  // A fork's own onboarding tab (Vivaldi's signup wizard) is repointed at the
+  // companion welcome page, or at a blank page when the user asked for no
+  // tab, before the --no-open sweep below runs.
+  try {
+    if (extensionControllerInfo) {
+      await cdpExtensionController.replaceForkFirstRunTabs(
+        plugin.browser,
+        plugin.noOpen ? 'about:blank' : DEVTOOLS_COMPANION_WELCOME_URL
+      )
+    }
+  } catch {
+    // best-effort only
   }
 
   // The companion opens its welcome page on a first run and the launch tab

@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {execFileSync, spawn, spawnSync} from 'node:child_process'
+// spawnSync also lists gecko tabs through the CLI, see geckoPages.
 import {
   existsSync,
   mkdirSync,
@@ -404,7 +405,7 @@ function runDevSession({projectDir, browser, devArgs, env, cli, inspect}) {
       const ready = readReadyContract(projectDir, browser)
       // The identity checks read the live pid, so they run before teardown.
       const verdict =
-        result.outcome === 'ready' ? inspect({ready, output}) : null
+        result.outcome === 'ready' ? await inspect({ready, output}) : null
       await killTree(child, ready?.browserPid)
       resolveRun({...result, verdict, output, ready, exitCode})
     }
@@ -473,14 +474,131 @@ function runDevSession({projectDir, browser, devArgs, env, cli, inspect}) {
   })
 }
 
+// What the browser put on screen. A page is ours when it belongs to the user
+// extension or a companion the session loaded, or when it is the engine's own
+// blank surface. Anything else in front of a reader on a fresh profile is a
+// fork's onboarding: Zen's import wizard, Floorp's release notes, Vivaldi's
+// signup wizard (a chrome-extension:// page of Vivaldi's own UI, which is why
+// the check compares ids and never trusts the scheme).
+const ENGINE_BLANK_PAGES = [
+  /^about:(blank|newtab|home|privatebrowsing)$/,
+  /^chrome:\/\/(newtab|new-tab-page|extensions|startpage|startpageshared)\/?$/,
+  /^edge:\/\/(newtab|extensions)\/?$/,
+  /^moz-extension:\/\//
+]
+
+function ownExtensionIds(ready) {
+  const ids = new Set()
+  if (typeof ready.extensionId === 'string') ids.add(ready.extensionId)
+
+  for (const managed of Array.isArray(ready.managedExtensions)
+    ? ready.managedExtensions
+    : []) {
+    if (typeof managed?.id === 'string' && managed.id) ids.add(managed.id)
+  }
+
+  return ids
+}
+
+function isOwnOrBlankPage(url, ownIds) {
+  const text = String(url || '')
+  if (!text) return true
+
+  const extension = /^chrome-extension:\/\/([a-p]{32})\//.exec(text)
+  if (extension) return ownIds.has(extension[1])
+
+  return ENGINE_BLANK_PAGES.some((pattern) => pattern.test(text))
+}
+
+async function chromiumPages(cdpPort) {
+  const response = await fetch(`http://127.0.0.1:${cdpPort}/json/list`)
+  const list = await response.json()
+
+  return list
+    .filter((target) => target?.type === 'page')
+    .map((target) => ({url: String(target.url || ''), title: target.title}))
+}
+
+// Gecko has no HTTP target list, so the session's own tab listing answers,
+// through the CLI verb a user would run against the same dev session.
+function geckoPages(cli, projectDir, browser) {
+  const result = spawnSync(
+    ...cliSpawnArgs(cli, [
+      'inspect',
+      '--list-tabs',
+      `--browser=${browser}`,
+      '--output',
+      'json'
+    ]),
+    {cwd: projectDir, env: baseEnv, encoding: 'utf8', timeout: 30_000}
+  )
+  const text = `${result.stdout || ''}`
+  const pages = []
+
+  const visit = (value) => {
+    if (Array.isArray(value)) {
+      for (const item of value) visit(item)
+    } else if (value && typeof value === 'object') {
+      if (
+        typeof value.url === 'string' &&
+        ('id' in value || 'title' in value)
+      ) {
+        pages.push({url: value.url, title: value.title})
+      } else {
+        for (const item of Object.values(value)) visit(item)
+      }
+    }
+  }
+
+  let envelope = null
+
+  for (const line of text.split(/\r?\n/)) {
+    const trimmed = line.trim()
+    if (!trimmed.startsWith('{')) continue
+
+    try {
+      envelope = JSON.parse(trimmed)
+    } catch {
+      // Not the envelope line.
+    }
+  }
+
+  if (!envelope) {
+    throw new Error(
+      `inspect --list-tabs printed no envelope (exit ${result.status}): ${`${result.stderr || ''}`.trim().slice(0, 300)}`
+    )
+  }
+
+  if (envelope.ok === false) {
+    throw new Error(
+      `inspect --list-tabs refused: ${envelope.error?.code || ''} ${envelope.error?.message || ''}`.trim()
+    )
+  }
+
+  visit(envelope)
+
+  return pages
+}
+
+async function foregroundPages({browser, ready, cli, projectDir}) {
+  if (CHROMIUM_FAMILY.has(browser)) {
+    if (typeof ready.cdpPort !== 'number') return null
+
+    return chromiumPages(ready.cdpPort)
+  }
+
+  return geckoPages(cli, projectDir, browser)
+}
+
 // The chromium profile's own record of the extension, the same check the
 // first-dev smoke runs, read from the profile the contract names.
 function chromiumExtensionEnabled(ready) {
   const profilePath =
     typeof ready.profilePath === 'string' ? ready.profilePath : ''
 
-  if (!profilePath)
-    {return {checked: false, reason: 'no profilePath in ready.json'}}
+  if (!profilePath) {
+    return {checked: false, reason: 'no profilePath in ready.json'}
+  }
 
   const candidates = [
     join(profilePath, 'Default', 'Secure Preferences'),
@@ -522,7 +640,15 @@ function chromiumExtensionEnabled(ready) {
   }
 }
 
-function assertIdentity({target, browser, session, cacheRoot, pinnedBinary}) {
+async function assertIdentity({
+  target,
+  browser,
+  session,
+  cacheRoot,
+  pinnedBinary,
+  cli,
+  projectDir
+}) {
   const failures = []
   const notes = []
   const ready = session.ready || {}
@@ -629,6 +755,44 @@ function assertIdentity({target, browser, session, cacheRoot, pinnedBinary}) {
     failures.push('no rdpPort in ready.json, the add-on install never answered')
   }
 
+  // e. Nothing of the browser's own is in front of the reader.
+  let pages = null
+
+  let listingFailed = false
+
+  try {
+    pages = await foregroundPages({browser, ready, cli, projectDir})
+  } catch (error) {
+    // A listing that cannot answer is a failure, not a skip: the check
+    // passed vacuously on every gecko target while the session ran without
+    // --allow-control, and nothing said so.
+    listingFailed = true
+    failures.push(
+      `could not list the browser's pages: ${String(error?.message || error)}`
+    )
+  }
+
+  if (pages === null) {
+    if (!listingFailed) {
+      notes.push('no page listing for this target, on-screen check skipped')
+    }
+  } else {
+    const ownIds = ownExtensionIds(ready)
+    const foreign = pages.filter((page) => !isOwnOrBlankPage(page.url, ownIds))
+
+    if (foreign.length) {
+      failures.push(
+        `${target} put its own page in front of the extension: ${foreign
+          .map((page) => page.url)
+          .join(', ')}`
+      )
+    }
+
+    notes.push(
+      `${pages.length} page(s) on screen: ${pages.map((page) => page.url).join(', ') || 'none'}`
+    )
+  }
+
   return {
     failures,
     notes,
@@ -673,7 +837,9 @@ async function runTarget({
   env
 }) {
   const browser = target === 'chromium-binary' ? 'chromium' : target
-  const devArgs = [`--browser=${browser}`]
+  // --allow-control lets the on-screen check ask a gecko session for its
+  // tabs through the CLI's own inspect verb; it changes nothing else here.
+  const devArgs = [`--browser=${browser}`, '--allow-control']
   const pinnedBinary = target === 'chromium-binary' ? chromiumBinary : ''
   if (pinnedBinary) devArgs.push(`--chromium-binary=${pinnedBinary}`)
 
@@ -692,7 +858,15 @@ async function runTarget({
     env,
     cli,
     inspect: (live) =>
-      assertIdentity({target, browser, session: live, cacheRoot, pinnedBinary})
+      assertIdentity({
+        target,
+        browser,
+        session: live,
+        cacheRoot,
+        pinnedBinary,
+        cli,
+        projectDir
+      })
   })
 
   if (session.outcome !== 'ready') {

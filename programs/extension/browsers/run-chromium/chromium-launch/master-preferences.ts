@@ -124,4 +124,25 @@ const edgeMasterPreferences = {
   ...masterPreferences
 }
 
+// Chromium's own first-run suppression above is not enough for a fork that
+// gates its onboarding behind its own preference names, the same way Zen
+// and Floorp do on the gecko side. Each entry is the fork's own keys, seeded
+// into a fresh profile so the first thing on screen is the extension.
+const forkPreferences: Record<string, Record<string, unknown>> = {
+  vivaldi: {
+    vivaldi: {
+      startup: {
+        // Without it every fresh profile opens the account-signup wizard
+        // (vivaldi:welcome, a chrome-extension:// page of Vivaldi's own UI)
+        // over the extension.
+        has_seen_welcome_page: true
+      }
+    }
+  }
+}
+
+export function getForkPreferences(browser?: string): Record<string, unknown> {
+  return forkPreferences[String(browser || '')] || {}
+}
+
 export {chromeMasterPreferences, edgeMasterPreferences}
