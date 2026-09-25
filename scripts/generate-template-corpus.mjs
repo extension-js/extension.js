@@ -152,19 +152,48 @@ async function fetchCorpusSlugs(ref) {
   return slugs
 }
 
+// The release job repins to the corpus head, so `--ref main` resolves the
+// branch to the commit it points at right now. Only the branch name is
+// accepted, a tag or a short sha would pin something this script cannot
+// prove reachable the same way.
+async function resolveBranchHead(branch) {
+  const body = await githubJson(
+    `https://api.github.com/repos/${CORPUS_REPO}/commits/${branch}`
+  )
+  const sha = String(body?.sha || '').toLowerCase()
+
+  if (!/^[0-9a-f]{40}$/.test(sha)) {
+    throw new Error(`Could not resolve ${CORPUS_REPO}@${branch} to a commit`)
+  }
+
+  return sha
+}
+
+export function parseRequestedRef(value) {
+  if (value === undefined) return undefined
+
+  const ref = String(value).toLowerCase()
+  if (ref === CORPUS_BRANCH) return ref
+  if (/^[0-9a-f]{40}$/.test(ref)) return ref
+
+  throw new Error(
+    `--ref takes a full 40-character commit SHA or ${CORPUS_BRANCH}`
+  )
+}
+
 async function main() {
   const args = process.argv.slice(2)
   const check = args.includes('--check')
   const refFlagIndex = args.indexOf('--ref')
-  const requestedRef =
-    refFlagIndex === -1 ? undefined : args[refFlagIndex + 1]?.toLowerCase()
-
-  if (requestedRef && !/^[0-9a-f]{40}$/.test(requestedRef)) {
-    throw new Error('--ref takes a full 40-character commit SHA')
-  }
+  const requestedRef = parseRequestedRef(
+    refFlagIndex === -1 ? undefined : args[refFlagIndex + 1]
+  )
 
   const pinSource = fs.readFileSync(PIN_FILE, 'utf8')
-  const ref = requestedRef || readPinnedRef(pinSource)
+  const ref =
+    requestedRef === CORPUS_BRANCH
+      ? await resolveBranchHead(CORPUS_BRANCH)
+      : requestedRef || readPinnedRef(pinSource)
 
   await assertRefIsReachable(ref)
   const slugs = await fetchCorpusSlugs(ref)

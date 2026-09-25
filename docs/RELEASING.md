@@ -28,6 +28,15 @@ Use the `Release – Publish` workflow at `.github/workflows/publish-release.yml
   - `version`: explicit semver (e.g. `3.0.0-next.17` or `3.0.0`).
     - For `canary`, this can be left empty to auto-generate:
       `<base>-canary.<run_number>.<short_sha>`
+- For `stable` and `next`, CI first moves the `extension create` template pin to the
+  head of `extension-js/examples` (`node scripts/generate-template-corpus.mjs --ref main`)
+  and carries the two generated files in the release commit, so a fresh scaffold
+  matches the corpus the release was cut against. The bundled `javascript` template
+  drift check then runs against that pin and fails the release if the bundled copy
+  needs a resync. A template added to the corpus still needs curating by hand
+  (groups and the AI-help snapshot) before a release, and the tests fail the cut
+  with that reason. `EXTENSION_SKIP_TEMPLATE_REPIN=1` keeps the committed pin for an
+  urgent release.
 - CI validates inputs, builds, and runs tests.
 - Release notes are generated from git history using `scripts/generate-release-notes.mjs`.
   Stable and next releases use grouped, user-facing bullets with commit refs, while
