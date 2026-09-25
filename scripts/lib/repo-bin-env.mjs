@@ -6,46 +6,19 @@
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import spawn from 'cross-spawn'
-import {withRepoBin} from './lib/repo-bin-env.mjs'
+import {delimiter, dirname, join, resolve} from 'node:path'
+import {fileURLToPath} from 'node:url'
 
-const runCommand = (command, args, options = {}) =>
-  new Promise((resolve, reject) => {
-    const child = spawn(command, args, {
-      stdio: 'inherit',
-      env: withRepoBin(),
-      ...options
-    })
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 
-    child.on('error', reject)
-    child.on('close', (code) => resolve(code ?? 1))
-  })
+// `node scripts/<runner>.mjs` runs without pnpm's PATH, so a bare `dotenv`
+// resolves to whatever the shell has first (the Python dotenv on a Mac with
+// a Python framework) and `turbo` is not found at all. The repo's own bin
+// dir goes first, the way `pnpm run` would put it.
+export function withRepoBin(env = process.env) {
+  const pathKey =
+    Object.keys(env).find((key) => key.toUpperCase() === 'PATH') || 'PATH'
+  const bin = join(repoRoot, 'node_modules', '.bin')
 
-const run = async () => {
-  const primaryCode = await runCommand('dotenv', [
-    '--',
-    'turbo',
-    'run',
-    'compile'
-  ])
-
-  if (primaryCode === 0) {
-    return 0
-  }
-
-  return runCommand('pnpm', [
-    '-r',
-    '--filter',
-    './programs/*',
-    'run',
-    'compile'
-  ])
-}
-
-try {
-  const exitCode = await run()
-  process.exit(exitCode)
-} catch (error) {
-  console.error(error)
-  process.exit(1)
+  return {...env, [pathKey]: `${bin}${delimiter}${env[pathKey] || ''}`}
 }

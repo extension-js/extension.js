@@ -100,6 +100,27 @@ describe('CssPlugin dead url() tolerance: Chrome silently 404s them', () => {
     expect(warnings).toHaveLength(0)
   })
 
+  // vue-loader re-issues each <style> block as an inline match resource
+  // request from a `.vue.css` issuer. That is a module request, not a url(),
+  // and cancelling it dropped every Vue style block from the built sheet.
+  it('leaves a loader-built request alone even when no such file exists', () => {
+    const dir = createProject()
+    const issuer = path.join(dir, 'sidebar', 'SidebarApp.vue.css')
+    const {resolve, warnings} = armPlugin(dir)
+
+    for (const request of [
+      './SidebarApp.vue.css?vue&type=style&index=1&id=09c2&scoped=true&lang=css!=!-!/n/vue-loader/dist/stylePostLoader.js!./SidebarApp.vue?vue&type=style&index=1&id=09c2&scoped=true&lang=css',
+      './probe.css.css?vue&type=style&index=2&lang=css&external!=!-!/n/vue-loader/dist/stylePostLoader.js!./probe.css?vue&type=style&index=2&lang=css&external',
+      '!!raw-loader!./missing.css'
+    ]) {
+      expect(
+        resolve({request, context: dir, contextInfo: {issuer}})
+      ).toBeUndefined()
+    }
+
+    expect(warnings).toHaveLength(0)
+  })
+
   it('keeps the fatal under EXTENSION_STRICT_REFS=true', () => {
     process.env.EXTENSION_STRICT_REFS = 'true'
     const dir = createProject()
