@@ -52,10 +52,31 @@ jobs:
           # step, so no step needs the workflow token stored in git config.
           persist-credentials: false
 
+      # `extension create` scaffolds from a pinned extension-js/examples
+      # commit. A release used to ship whatever pin the last repin PR left,
+      # so fixes that landed in the corpus since never reached a fresh
+      # scaffold. The cut moves the pin to the corpus head and the release
+      # commit below carries the two generated files. A new template in the
+      # corpus still needs curating by hand (groups and the AI-help snapshot),
+      # and the tests below fail the release with that reason. Escape hatch
+      # for an urgent release: EXTENSION_SKIP_TEMPLATE_REPIN=1.
+      - name: Repin the template catalog to the examples corpus head
+        if: ${{ inputs.channel != 'canary' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "${EXTENSION_SKIP_TEMPLATE_REPIN:-}" = "1" ]; then
+            echo "EXTENSION_SKIP_TEMPLATE_REPIN=1, keeping the committed template pin."
+            exit 0
+          fi
+          node scripts/generate-template-corpus.mjs --ref main
+          git --no-pager diff --stat -- programs/create/steps/import-external-template.ts programs/extension/helpers/template-corpus.generated.ts
+
       # The bundled `javascript` template ships in the npm package as the
       # offline fast-path for `extension create`; gate releases on it being
-      # in sync with the extension-js/examples source of truth. Escape hatch
-      # for an urgent release: EXTENSION_SKIP_TEMPLATE_DRIFT=1.
+      # in sync with the extension-js/examples source of truth at the pin the
+      # step above just moved. Escape hatch for an urgent release:
+      # EXTENSION_SKIP_TEMPLATE_DRIFT=1.
       - name: Check bundled create template drift
         run: bash scripts/check-bundled-template-drift.sh
 
@@ -235,6 +256,9 @@ jobs:
           node -e "const fs=require('fs');const v=process.env.VERSION;for(const p of ['programs/extension/package.json','programs/develop/package.json','programs/create/package.json','programs/install/package.json']){const j=JSON.parse(fs.readFileSync(p,'utf8'));j.version=v;fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n')}"
           if [ "$SHOULD_TAG" = "true" ]; then
             git add programs/extension/package.json programs/develop/package.json programs/create/package.json programs/install/package.json
+            # The repin step above may have moved the corpus pin; the release
+            # commit is where that lands, so a scaffold and its release agree.
+            git add programs/create/steps/import-external-template.ts programs/extension/helpers/template-corpus.generated.ts
             # --no-verify: hooks run tree code, and the release job never runs
             # tree code beside a credential (HUSKY=0 on the job backs this up).
             if ! git diff --cached --quiet; then git commit --no-verify -m "Release ${{ inputs.channel }} v${{ steps.validate.outputs.version }}"; fi

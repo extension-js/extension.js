@@ -4,6 +4,10 @@ import {
   programAIHelp,
   programAIHelpJSON
 } from '../messages'
+import {
+  TEMPLATE_CORPUS_REF,
+  TEMPLATE_CORPUS_REPO
+} from '../template-corpus.generated'
 
 describe('programAIHelp', () => {
   it('includes managed dependencies guidance', () => {
@@ -85,6 +89,27 @@ describe('programAIHelp', () => {
   })
 
   it('matches the published AI-help JSON contract shape', () => {
-    expect(programAIHelpJSON('0.0.0-snapshot')).toMatchSnapshot()
+    const help = programAIHelpJSON('0.0.0-snapshot')
+
+    // The corpus pin moves on every release, so the snapshot keeps the shape
+    // and the two fields that carry the pin are checked against the module
+    // they come from instead of being frozen here.
+    expect(help.templates.corpus).toEqual({
+      repo: TEMPLATE_CORPUS_REPO,
+      ref: TEMPLATE_CORPUS_REF
+    })
+
+    expect(help.templates.catalogUrl).toBe(
+      `https://github.com/${TEMPLATE_CORPUS_REPO}/tree/${TEMPLATE_CORPUS_REF}/examples`
+    )
+
+    expect({
+      ...help,
+      templates: {
+        ...help.templates,
+        catalogUrl: '<catalogUrl>',
+        corpus: {repo: TEMPLATE_CORPUS_REPO, ref: '<ref>'}
+      }
+    }).toMatchSnapshot()
   })
 })

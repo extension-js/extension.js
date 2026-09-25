@@ -1,10 +1,20 @@
 import assert from 'node:assert/strict'
 import {test} from 'node:test'
 import {
+  parseRequestedRef,
   readPinnedRef,
   renderCorpusModule,
   writePinnedRef
 } from '../generate-template-corpus.mjs'
+
+test('accepts a full sha or the corpus branch name, nothing else', () => {
+  assert.equal(parseRequestedRef(undefined), undefined)
+  assert.equal(parseRequestedRef('A'.repeat(40)), 'a'.repeat(40))
+  assert.equal(parseRequestedRef('main'), 'main')
+  assert.throws(() => parseRequestedRef('v1.0.0'))
+  assert.throws(() => parseRequestedRef('abc123'))
+  assert.throws(() => parseRequestedRef('develop'))
+})
 
 const PINNED = "export const DEFAULT_TEMPLATES_REF = '" + 'a'.repeat(40) + "'"
 
