@@ -107,7 +107,7 @@
     "extension-create": "workspace:*",
     "extension-develop": "workspace:*",
     "extension-install": "workspace:*",
-    "firefox-location2": "3.1.1",
+    "firefox-location2": "3.2.0",
     "floorp-location": "1.0.0",
     "librewolf-location": "1.2.1",
     "opera-location2": "2.1.1",

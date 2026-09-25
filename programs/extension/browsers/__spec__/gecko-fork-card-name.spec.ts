@@ -49,6 +49,30 @@ describe('the dev card for a gecko fork', () => {
     expect(output).not.toContain('Firefox')
   })
 
+  // A pre-release marker is still a bare version, so the browser name stays
+  // in front of it: the card once printed "158.0a1" alone.
+  it('keeps the browser name in front of a pre-release version', async () => {
+    await printRunningInDevelopmentSummary(
+      [addon('firefox')],
+      'firefox',
+      undefined,
+      '158.0a1'
+    )
+
+    await printRunningInDevelopmentSummary(
+      [addon('zen')],
+      'zen',
+      undefined,
+      '1.22.3b'
+    )
+
+    const output = log.mock.calls
+      .map((call) => String(call[0] || ''))
+      .join('\n')
+    expect(output).toContain('Firefox 158.0a1')
+    expect(output).toContain('Zen 1.22.3b')
+  })
+
   it('spells LibreWolf the way its vendor does', async () => {
     const printed = await printRunningInDevelopmentSummary(
       [addon('librewolf')],
