@@ -530,7 +530,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     expect(executed[0].target.tabId).toBe(5)
   })
 
-  it('eval content with no matching tab reports Unsupported, not a silent hang (#51)', async () => {
+  it('eval content with no matching tab reports TargetNotFound, not a silent hang (#51)', async () => {
     const ws = setup({
       scripting: {executeScript: () => Promise.resolve([{result: 1}])},
       tabs: {query: (_q: unknown, cb: (t: unknown[]) => void) => cb([])}
@@ -546,7 +546,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     await flush()
     expect(results(ws).find((f) => f.cmdId === 'e-none')).toMatchObject({
       ok: false,
-      error: {name: 'Unsupported'}
+      error: {name: 'TargetNotFound', code: 'tab_not_found'}
     })
   })
 
@@ -1015,6 +1015,115 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     expect(
       results(ws).find((f) => f.cmdId === 'n-other')?.error
     ).not.toHaveProperty('code')
+  })
+
+  it('tabs.navigate and reload name a missing tab TargetNotFound on both engines', async () => {
+    // Chrome says "No tab with id", Gecko says "Invalid tab ID". Both are the
+    // caller's id, so neither is a TabsError or ReloadError of ours.
+    const ws = setup({
+      tabs: {
+        update: () => Promise.reject(new Error('No tab with id: 999999.')),
+        reload: () => Promise.reject(new Error('Invalid tab ID: 999999'))
+      }
+    })
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'n-missing',
+      op: 'tabs.navigate',
+      target: {context: 'background', tabId: 999999},
+      args: {url: 'https://e.test/'}
+    })
+
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'r-missing',
+      op: 'reload',
+      target: {context: 'content', tabId: 999999}
+    })
+
+    await flush()
+    expect(results(ws).find((f) => f.cmdId === 'n-missing')).toMatchObject({
+      ok: false,
+      error: {
+        name: 'TargetNotFound',
+        code: 'tab_not_found',
+        message: 'No tab with id: 999999.'
+      }
+    })
+
+    expect(results(ws).find((f) => f.cmdId === 'r-missing')).toMatchObject({
+      ok: false,
+      error: {
+        name: 'TargetNotFound',
+        code: 'tab_not_found',
+        message: 'Invalid tab ID: 999999'
+      }
+    })
+  })
+
+  it("tabs.navigate names Chromium's javascript: ban url_refused", async () => {
+    const ws = setup({
+      tabs: {
+        query: (_q: unknown, cb?: (t: unknown[]) => void) => {
+          cb?.([{id: 7, active: true}])
+
+          return undefined
+        },
+        update: () =>
+          Promise.reject(
+            new Error(
+              'JavaScript URLs are not allowed in API based extension navigations. Use chrome.scripting.executeScript instead.'
+            )
+          )
+      }
+    })
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'n-js',
+      op: 'tabs.navigate',
+      target: {context: 'background'},
+      args: {url: 'javascript:alert(1)'}
+    })
+
+    await flush()
+    expect(results(ws).find((f) => f.cmdId === 'n-js')).toMatchObject({
+      ok: false,
+      error: {
+        name: 'BadRequest',
+        code: 'url_refused',
+        message:
+          "chromium refuses to open javascript:alert(1) from the extension's tabs API (JavaScript URLs are not allowed in API based extension navigations. Use chrome.scripting.executeScript instead.)"
+      }
+    })
+  })
+
+  it('eval with a --url filter that matches no tab is TargetNotFound, not Unsupported', async () => {
+    const ws = setup({
+      tabs: {
+        query: (_q: unknown, cb?: (t: unknown[]) => void) => {
+          cb?.([])
+
+          return undefined
+        }
+      }
+    })
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'e-nomatch',
+      op: 'eval',
+      target: {context: 'content', url: '*nomatch*'},
+      args: {expression: '1 + 1'}
+    })
+
+    await flush()
+    expect(results(ws).find((f) => f.cmdId === 'e-nomatch')).toMatchObject({
+      ok: false,
+      error: {
+        name: 'TargetNotFound',
+        code: 'tab_not_found',
+        message: 'no open tab matches url: *nomatch*'
+      }
+    })
   })
 
   it('tab reload works on a callback-only chrome.* (Gecko MV2)', async () => {
