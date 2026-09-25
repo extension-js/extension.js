@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+## 4.1.29 (September 25, 2026)
+
+### Features
+
+- Add a browser identity lane and name a missing Chromium fork (#636) ([39117661](https://github.com/extension-js/extension.js/commit/39117661118cbde51f819b04ded7cd704d8bf285))
+- Add a navigate verb that points a tab at a url without eval (#634) ([25337545](https://github.com/extension-js/extension.js/commit/25337545a1f01591f3c75ee523dd0454f3d551c4))
+
+<details>
+<summary>Other changes (4)</summary>
+
+- Keep a Firefox pre-release marker on the dev card (#638) ([7d66b6c9](https://github.com/extension-js/extension.js/commit/7d66b6c9a58a4ed0b73a1ab88e6c9c7940bf58a1))
+- Keep every Vue style block in the built sheet (#637) ([9f919a2e](https://github.com/extension-js/extension.js/commit/9f919a2e9f803e9c780401a4441a6ae2fa865f80))
+- Launch Brave, Opera, Vivaldi and Yandex from their own binary (#635) ([80573865](https://github.com/extension-js/extension.js/commit/80573865d35f5602946bf0476718fbc88ed9dc98))
+- Silence Zen and Floorp first-run screens on a fresh dev profile (#633) ([02d1a639](https://github.com/extension-js/extension.js/commit/02d1a639196e6fc30706f013db10d1224005237c))
+</details>
+
 ## 4.1.28 (September 23, 2026)
 
 <details>
