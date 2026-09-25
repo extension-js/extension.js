@@ -45,6 +45,18 @@ interface ExtensionInfoResult {
 // key, so its welcome page can be told apart from a user extension's.
 const DEVTOOLS_COMPANION_ID_CHROMIUM = 'kgdaecdpfkikjncaalnmmnjjfpofkcbl'
 
+// The page a Chrome user sees first; the replacement for a fork's own
+// onboarding tab when the session is allowed to open tabs.
+export const DEVTOOLS_COMPANION_WELCOME_URL = `chrome-extension://${DEVTOOLS_COMPANION_ID_CHROMIUM}/pages/welcome.html`
+
+// A fork's onboarding surfaces, by the url the browser opens them on. Vivaldi
+// serves its UI from an extension with a fixed id, so its wizard is a
+// chrome-extension:// page and a scheme check would take it for ours.
+const FORK_FIRST_RUN_PAGES: Record<string, RegExp> = {
+  vivaldi:
+    /^chrome-extension:\/\/mpognobbkildjkofajifpdfhcoklimli\/components\/welcome\//
+}
+
 const __fileReadCache = new Map<string, {key: string; text: string}>()
 
 function readTextFileCached(filePath: string): string {
@@ -115,6 +127,52 @@ export class CDPExtensionController {
     if (!this.cdp) return
 
     await this.cdp.sendCommand('Target.createTarget', {url})
+  }
+
+  // A fork can open its own onboarding over the extension on every fresh
+  // profile. Vivaldi's account-signup wizard is a page of its own UI
+  // extension, and no preference the profile seeds stops it (its seen-welcome
+  // flag, its read-pages list and Chromium's First Run sentinel were all
+  // tried), so the session repoints that tab instead. Navigated, never
+  // closed: it is often the only tab, and closing the last tab ends the
+  // window on Linux and Windows.
+  async replaceForkFirstRunTabs(
+    browser: string,
+    replacementUrl: string
+  ): Promise<number> {
+    if (!this.cdp) return 0
+
+    const pattern = FORK_FIRST_RUN_PAGES[String(browser || '').toLowerCase()]
+    if (!pattern) return 0
+
+    const targets = await this.cdp.getTargets()
+    let replaced = 0
+
+    for (const target of targets) {
+      if (target?.type !== 'page') continue
+      if (!pattern.test(String(target?.url || ''))) continue
+
+      try {
+        const attached = (await this.cdp.sendCommand('Target.attachToTarget', {
+          targetId: target.targetId,
+          flatten: true
+        })) as {sessionId?: string} | undefined
+        const sessionId = attached?.sessionId || ''
+        if (!sessionId) continue
+
+        await this.cdp.sendCommand(
+          'Page.navigate',
+          {url: replacementUrl},
+          sessionId
+        )
+
+        replaced += 1
+      } catch {
+        // best-effort: the wizard stays, the session still works
+      }
+    }
+
+    return replaced
   }
 
   // The devtools companion opens its welcome page on a first run, and the

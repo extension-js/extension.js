@@ -32,7 +32,8 @@ import type {
 } from '../../browsers-types'
 import {
   chromeMasterPreferences,
-  edgeMasterPreferences
+  edgeMasterPreferences,
+  getForkPreferences
 } from './master-preferences'
 
 export const DEFAULT_BROWSER_FLAGS: DefaultBrowserFlags[] = [
@@ -114,10 +115,13 @@ function deepMergePreferences(
   return merged
 }
 
-function getChromiumMasterPreferences(
+export function getChromiumMasterPreferences(
   browser: PluginInterface['browser']
 ): Record<string, unknown> {
-  return browser === 'edge' ? edgeMasterPreferences : chromeMasterPreferences
+  const base =
+    browser === 'edge' ? edgeMasterPreferences : chromeMasterPreferences
+
+  return deepMergePreferences(base, getForkPreferences(browser))
 }
 
 function seedChromiumPreferences(
