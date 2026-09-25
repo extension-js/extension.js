@@ -192,8 +192,9 @@ export function browserRowValue(browser: string, versionLine?: string): string {
   const display = browserDisplayName(browser)
   const line = String(versionLine || '').trim()
   if (!line) return display
-  // A bare version number carries no browser name, so it needs the prefix.
-  if (!/[a-zA-Z]/.test(line)) return `${display} ${line}`
+  // A bare version (158.0, 158.0a1, 1.22.3b, 128.5.0esr) carries no browser
+  // name, so it needs the prefix. A line with words already names one.
+  if (/^v?\d+(?:\.\d+)*(?:[a-z]+\d*)?$/i.test(line)) return `${display} ${line}`
 
   return line.charAt(0).toUpperCase() + line.slice(1)
 }

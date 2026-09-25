@@ -386,8 +386,8 @@ importers:
         specifier: workspace:*
         version: link:../install
       firefox-location2:
-        specifier: 3.1.1
-        version: 3.1.1
+        specifier: 3.2.0
+        version: 3.2.0
       floorp-location:
         specifier: 1.0.0
         version: 1.0.0
@@ -3273,8 +3273,8 @@ packages:
     resolution: {integrity: sha512-78/PXT1wlLLDgTzDs7sjq9hzz0vXD+zn+7wypEe4fXQxCmdmqfGsEPQxmiCSQI3ajFV91bVSsvNtrJRiW6nGng==}
     engines: {node: '>=10'}
 
-  firefox-location2@3.1.1:
-    resolution: {integrity: sha512-SFRWACNKLpYAa38JVGxfCHtM50VjzQOCgm/5cpYBXab3hEiob3NuhWMuYBTvDbxxFxHNcUkndG0blTUgV1DXJw==}
+  firefox-location2@3.2.0:
+    resolution: {integrity: sha512-KTqECgC+ItdFVOD/YXnIEdSakJ2tQskoLLX6OvrGjODSpZSNndHBqy9j98PKbl4xxmPPbsZ6dIyDEPHhhHJbrw==}
     engines: {node: '>=16'}
     hasBin: true
 
@@ -7562,7 +7562,7 @@ snapshots:
       locate-path: 6.0.0
       path-exists: 4.0.0
 
-  firefox-location2@3.1.1:
+  firefox-location2@3.2.0:
     dependencies:
       userhome: 1.0.1
       which: 4.0.0
