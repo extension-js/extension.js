@@ -494,7 +494,18 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
           var navUrl = typeof args.url === "string" ? args.url : "";
           if (!navUrl) { replyErr(cmdId, "BadRequest", "tabs.navigate needs a url"); return; }
           var navDone = function (err, tab, created) {
-            if (err) { replyErr(cmdId, "TabsError", (err && err.message) || err); return; }
+            if (err) {
+              var navMsg = String((err && err.message) || err);
+              // Gecko refuses privileged urls from the tabs API by design and
+              // says "Illegal URL". That is a rule about the url the caller
+              // passed, so it is named as such instead of reading as a fault.
+              if (/illegal url/i.test(navMsg)) {
+                replyErr(cmdId, "BadRequest", engineName() + " refuses to open " + navUrl + " from the extension's tabs API (" + navMsg + ")", "url_refused");
+                return;
+              }
+              replyErr(cmdId, "TabsError", navMsg);
+              return;
+            }
             replyOk(cmdId, {tabId: tab && tab.id != null ? tab.id : null, url: navUrl, created: !!created});
           };
           if (target.tabId != null) {
