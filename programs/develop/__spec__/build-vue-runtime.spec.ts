@@ -138,14 +138,43 @@ async function build(root: string) {
   }
 
   const distDir = path.join(root, 'dist', 'chrome')
-  const emitted = fs
-    .readdirSync(distDir, {recursive: true} as any)
-    .map((entry) => String(entry))
-    .filter((entry) => entry.endsWith('.js'))
-    .map((entry) => fs.readFileSync(path.join(distDir, entry), 'utf8'))
-    .join('\n')
+  const readAll = (ext: string) =>
+    fs
+      .readdirSync(distDir, {recursive: true} as any)
+      .map((entry) => String(entry))
+      .filter((entry) => entry.endsWith(ext))
+      .map((entry) => fs.readFileSync(path.join(distDir, entry), 'utf8'))
+      .join('\n')
 
-  return {emitted, output: lines.join('\n')}
+  return {
+    emitted: readAll('.js'),
+    css: readAll('.css'),
+    output: lines.join('\n')
+  }
+}
+
+// vue-loader re-issues every <style> block as an inline match resource
+// request from a `.vue.css` issuer; the dead-url guard once took that for a
+// url() to a missing file and cancelled it, so no block reached the sheet.
+function styledProject() {
+  const root = project()
+  write(
+    root,
+    'theme.css',
+    '.probe_theme { outline: 3px dashed rgb(44, 55, 66); }\n'
+  )
+
+  write(
+    root,
+    'App.vue',
+    '<template><p class="probe_plain probe_scoped">{{ label }}</p></template>\n' +
+      '<script>\nexport default {\n  data() {\n    return {label: "clicks"}\n  }\n}\n</script>\n' +
+      "<style>\n.probe_plain { font-family: 'ExtjsProbeFont', monospace; }\n</style>\n" +
+      '<style scoped>\n.probe_scoped { letter-spacing: 0.0517em; }\n</style>\n' +
+      '<style src="./theme.css"></style>\n'
+  )
+
+  return root
 }
 
 describe.skipIf(!hasVue)('Vue production build', () => {
@@ -166,5 +195,17 @@ describe.skipIf(!hasVue)('Vue production build', () => {
 
     // global resolves to globalThis at build time, never through a Function shim.
     expect(built.emitted).not.toMatch(/Function\(\s*["']return this["']\s*\)/)
+  }, 180_000)
+
+  it('ships every <style> block of a component in the page sheet', async () => {
+    const built = await build(styledProject())
+
+    expect(built.css).toContain('ExtjsProbeFont')
+    expect(built.css).toMatch(
+      /\.probe_scoped\[data-v-[0-9a-f]+\]\{letter-spacing:\.0517em\}/
+    )
+
+    expect(built.css).toContain('.probe_theme{outline:3px dashed')
+    expect(built.output).not.toContain('exists nowhere')
   }, 180_000)
 })

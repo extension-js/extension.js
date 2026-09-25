@@ -7,11 +7,13 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import spawn from 'cross-spawn'
+import {withRepoBin} from './lib/repo-bin-env.mjs'
 
 const runCommand = (command, args, options = {}) =>
   new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       stdio: 'inherit',
+      env: withRepoBin(),
       ...options
     })
 

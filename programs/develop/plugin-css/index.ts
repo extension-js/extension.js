@@ -260,6 +260,13 @@ export class CssPlugin {
             if (!/\.(css|scss|sass|less)$/i.test(issuer)) return
 
             const raw = String(data?.request || '')
+
+            // A request with loader syntax (`!=!` inline match resource, `-!`
+            // or `!!` prefixes) is a module request some loader built, never
+            // a url() to a file. vue-loader re-issues each <style> block this
+            // way from a `.vue.css` issuer; cancelling it drops the block.
+            if (raw.includes('!')) return
+
             const req = raw.split('?')[0].split('#')[0]
 
             if (
