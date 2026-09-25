@@ -153,12 +153,16 @@ export interface CommandFrame {
 export const REFUSAL_NEEDS_HEADED_WINDOW = 'needs_headed_window'
 export const REFUSAL_NEEDS_USER_GESTURE = 'needs_user_gesture'
 export const REFUSAL_SURFACE_NOT_OPEN = 'surface_not_open'
+// The surface was open and ran the op, but its reply never reached the
+// background (an engine that could not clone it, a channel that closed).
+export const REFUSAL_SURFACE_REPLY_FAILED = 'surface_reply_failed'
 export const REFUSAL_API_UNAVAILABLE = 'api_unavailable'
 
 export type BridgeRefusalCode =
   | typeof REFUSAL_NEEDS_HEADED_WINDOW
   | typeof REFUSAL_NEEDS_USER_GESTURE
   | typeof REFUSAL_SURFACE_NOT_OPEN
+  | typeof REFUSAL_SURFACE_REPLY_FAILED
   | typeof REFUSAL_API_UNAVAILABLE
 
 export interface ResultFrame {

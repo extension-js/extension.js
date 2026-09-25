@@ -184,6 +184,9 @@ const REFUSAL_TO_CODE: Record<string, ErrorCode> = {
   needs_headed_window: CODES.E_HEADED_WINDOW_REQUIRED,
   needs_user_gesture: CODES.E_USER_GESTURE_REQUIRED,
   surface_not_open: CODES.E_TARGET_NOT_FOUND,
+  // The surface ran the op and its reply was lost on the way back: not a
+  // missing target, a transport failure the message quotes from the engine.
+  surface_reply_failed: CODES.E_INTERNAL,
   api_unavailable: CODES.E_NOT_IMPLEMENTED
 }
 
