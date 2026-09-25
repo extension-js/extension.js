@@ -1,4 +1,4 @@
-import {describe, expect, it} from 'vitest'
+import {describe, expect, it, vi} from 'vitest'
 import {
   BRIDGE_PRODUCER_SOURCE,
   buildBridgeProducerSource,
@@ -962,6 +962,58 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       ok: false,
       error: {name: 'BadRequest'}
     })
+  })
+
+  it('tabs.navigate names a url the engine refuses as a bad request, not a fault', async () => {
+    // Gecko refuses privileged about: urls from tabs.create by design and
+    // says "Illegal URL". Any other tabs failure keeps its TabsError name.
+    // The engine name reads the page's own scheme off the real `location`
+    // global, not the fake one, so it is stubbed for this test alone.
+    vi.stubGlobal('location', {protocol: 'moz-extension:'})
+    const ws = setup({
+      tabs: {
+        create: (props: {url: string}) =>
+          props.url === 'about:newtab'
+            ? Promise.reject(new Error('Illegal URL: about:newtab'))
+            : Promise.reject(new Error('Tab is being dragged'))
+      }
+    })
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'n-illegal',
+      op: 'tabs.navigate',
+      target: {context: 'background'},
+      args: {url: 'about:newtab', newTab: true}
+    })
+
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'n-other',
+      op: 'tabs.navigate',
+      target: {context: 'background'},
+      args: {url: 'https://d.test/', newTab: true}
+    })
+
+    await flush()
+    vi.unstubAllGlobals()
+    expect(results(ws).find((f) => f.cmdId === 'n-illegal')).toMatchObject({
+      ok: false,
+      error: {
+        name: 'BadRequest',
+        code: 'url_refused',
+        engine: 'firefox',
+        message:
+          "firefox refuses to open about:newtab from the extension's tabs API (Illegal URL: about:newtab)"
+      }
+    })
+
+    expect(results(ws).find((f) => f.cmdId === 'n-other')).toMatchObject({
+      ok: false,
+      error: {name: 'TabsError', message: 'Tab is being dragged'}
+    })
+    expect(
+      results(ws).find((f) => f.cmdId === 'n-other')?.error
+    ).not.toHaveProperty('code')
   })
 
   it('tab reload works on a callback-only chrome.* (Gecko MV2)', async () => {

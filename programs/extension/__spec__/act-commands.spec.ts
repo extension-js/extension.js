@@ -425,6 +425,60 @@ describe('extension open', () => {
     ])
   })
 
+  it('reports a url the engine refuses as a usage error with the rule spelled out', async () => {
+    // Firefox refuses privileged about: urls from its tabs API. That is the
+    // caller's url, so it must not read as E_INTERNAL (our fault).
+    bridge.result = {
+      ok: false,
+      error: {
+        name: 'BadRequest',
+        message:
+          "firefox refuses to open about:newtab from the extension's tabs API (Illegal URL: about:newtab)",
+        engine: 'firefox',
+        code: 'url_refused'
+      }
+    }
+
+    expect(
+      await run([
+        'navigate',
+        'about:newtab',
+        '--new-tab',
+        '--browser',
+        'firefox'
+      ])
+    ).toBe(1)
+    const printed = String(errorSpy.mock.calls[0][0])
+    expect(printed).toContain("Can't navigate a tab to about:newtab")
+    expect(printed).toContain('Illegal URL: about:newtab')
+    expect(printed).toContain('Only web urls and about:blank open this way')
+
+    errorSpy.mockClear()
+    logSpy.mockClear()
+    expect(
+      await run([
+        'navigate',
+        'about:newtab',
+        '--new-tab',
+        '--browser',
+        'firefox',
+        '--output',
+        'json'
+      ])
+    ).toBe(1)
+    expect(JSON.parse(String(logSpy.mock.calls[0][0]))).toMatchObject({
+      ok: false,
+      command: 'navigate',
+      status: 'usage',
+      error: {
+        code: 'E_ARGS',
+        name: 'BadRequest',
+        engine: 'firefox',
+        hint: expect.stringContaining('about:blank')
+      }
+    })
+  })
+
   it('says what opened instead of printing the result object', async () => {
     bridge.result = {ok: true, value: {opened: 'popup'}}
     expect(await run(['open', 'popup', '--browser', 'firefox'])).toBe(0)

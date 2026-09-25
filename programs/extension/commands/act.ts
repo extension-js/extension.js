@@ -187,8 +187,18 @@ const REFUSAL_TO_CODE: Record<string, ErrorCode> = {
   // The surface ran the op and its reply was lost on the way back: not a
   // missing target, a transport failure the message quotes from the engine.
   surface_reply_failed: CODES.E_INTERNAL,
-  api_unavailable: CODES.E_NOT_IMPLEMENTED
+  api_unavailable: CODES.E_NOT_IMPLEMENTED,
+  // The engine refused the url the caller passed: a usage error, not ours.
+  url_refused: CODES.E_ARGS
 }
+
+// Gecko's tabs API takes web urls and about:blank only. The engine's own
+// sentence ("Illegal URL") does not say which urls are legal, so the CLI does.
+const URL_REFUSED_HINT =
+  'Firefox refuses privileged pages (about:newtab, about:config, ' +
+  'about:addons, and chrome:, file:, data: and javascript: urls) from an ' +
+  "extension's tabs API. Only web urls and about:blank open this way. " +
+  "Open the extension's own pages by their moz-extension:// url instead."
 
 function codeForBridgeError(
   name: string,
@@ -274,18 +284,20 @@ export function buildActEnvelope(
   const hint =
     typeof raw.hint === 'string'
       ? raw.hint
-      : code === CODES.E_EVAL
-        ? 'The expression threw inside the page. Check the expression itself.'
-        : code === CODES.E_USER_GESTURE_REQUIRED
-          ? // Chromium gates these surfaces on a real click and there is no way
-            // around it from here: the call runs in the extension's own service
-            // worker, and an extension cannot gesture at itself. Say what the
-            // rule is and what opens the surface, rather than passing the
-            // engine's sentence through and leaving the reader to guess.
-            'The browser opens this surface only in response to a click, and ' +
-            'refuses to open it any other way. Click the extension in the ' +
-            'browser toolbar to open it.'
-          : undefined
+      : refusal === 'url_refused'
+        ? URL_REFUSED_HINT
+        : code === CODES.E_EVAL
+          ? 'The expression threw inside the page. Check the expression itself.'
+          : code === CODES.E_USER_GESTURE_REQUIRED
+            ? // Chromium gates these surfaces on a real click and there is no way
+              // around it from here: the call runs in the extension's own service
+              // worker, and an extension cannot gesture at itself. Say what the
+              // rule is and what opens the surface, rather than passing the
+              // engine's sentence through and leaving the reader to guess.
+              'The browser opens this surface only in response to a click, and ' +
+              'refuses to open it any other way. Click the extension in the ' +
+              'browser toolbar to open it.'
+            : undefined
 
   return {
     ...extras,

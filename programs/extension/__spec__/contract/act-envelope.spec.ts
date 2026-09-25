@@ -247,6 +247,22 @@ const FAILURE_FIXTURES = [
     status: 'failed'
   },
   {
+    // The engine refused the caller's url: a usage error, never E_INTERNAL.
+    name: 'BadRequest (named: url refused)',
+    result: {
+      ok: false,
+      error: {
+        name: 'BadRequest',
+        message:
+          "firefox refuses to open about:newtab from the extension's tabs API (Illegal URL: about:newtab)",
+        engine: 'firefox',
+        code: 'url_refused'
+      }
+    },
+    code: CODES.E_ARGS,
+    status: 'usage'
+  },
+  {
     name: 'EvalError',
     result: {
       ok: false,
@@ -473,6 +489,23 @@ describe('the act frame as a schema-1 envelope', () => {
       }
     })
     expect((frame.error as {code: string}).code).toBe(CODES.E_TARGET_NOT_FOUND)
+  })
+
+  it('mints the rule a refused url breaks, since the engine only says "Illegal URL"', () => {
+    const frame = buildActEnvelope('navigate', {
+      ok: false,
+      error: {
+        name: 'BadRequest',
+        message:
+          "firefox refuses to open about:newtab from the extension's tabs API (Illegal URL: about:newtab)",
+        engine: 'firefox',
+        code: 'url_refused'
+      }
+    })
+    const error = frame.error as {code: string; hint: string}
+    expect(error.code).toBe(CODES.E_ARGS)
+    expect(error.hint).toContain('about:newtab')
+    expect(error.hint).toContain('Only web urls and about:blank open this way')
   })
 
   it('reproduces golden.eval.eval.json from a real guest throw', () => {

@@ -157,6 +157,10 @@ export const REFUSAL_SURFACE_NOT_OPEN = 'surface_not_open'
 // background (an engine that could not clone it, a channel that closed).
 export const REFUSAL_SURFACE_REPLY_FAILED = 'surface_reply_failed'
 export const REFUSAL_API_UNAVAILABLE = 'api_unavailable'
+// The engine refuses the url itself (Gecko's "Illegal URL" for a privileged
+// about:, chrome:, file:, data: or javascript: url): the caller's input, not
+// a fault in the bridge.
+export const REFUSAL_URL_REFUSED = 'url_refused'
 
 export type BridgeRefusalCode =
   | typeof REFUSAL_NEEDS_HEADED_WINDOW
@@ -164,6 +168,7 @@ export type BridgeRefusalCode =
   | typeof REFUSAL_SURFACE_NOT_OPEN
   | typeof REFUSAL_SURFACE_REPLY_FAILED
   | typeof REFUSAL_API_UNAVAILABLE
+  | typeof REFUSAL_URL_REFUSED
 
 export interface ResultFrame {
   type: 'result'
