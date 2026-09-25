@@ -677,6 +677,60 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     expect(r.error.message).not.toContain('tabId')
   })
 
+  // Firefox drops a reply it cannot clone and hands the background a
+  // lastError, which used to read as "surface is not open" while the page had
+  // run the expression to the end. Only a missing receiver means closed.
+  it('eval popup quotes a delivery failure instead of claiming the surface is closed', async () => {
+    const ws = setup({
+      runtime: {
+        sendMessage: (_msg: any, cb: (r: any) => void) => cb(undefined),
+        lastError: {message: 'Promise rejected while sending the response'}
+      }
+    })
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'e-clone',
+      op: 'eval',
+      target: {context: 'newtab'},
+      args: {expression: '1'}
+    })
+
+    await flush()
+    const r = results(ws).find((f) => f.cmdId === 'e-clone')
+    expect(r).toMatchObject({
+      ok: false,
+      error: {name: 'Unsupported', code: 'surface_reply_failed'}
+    })
+
+    expect(r.error.message).toContain('Promise rejected while sending')
+    expect(r.error.message).not.toContain('not open')
+  })
+
+  it('eval popup still reports not open when the engine says no receiver exists', async () => {
+    const ws = setup({
+      runtime: {
+        sendMessage: (_msg: any, cb: (r: any) => void) => cb(undefined),
+        lastError: {
+          message:
+            'Could not establish connection. Receiving end does not exist.'
+        }
+      }
+    })
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'e-gone',
+      op: 'eval',
+      target: {context: 'popup'},
+      args: {expression: '1'}
+    })
+
+    await flush()
+    expect(results(ws).find((f) => f.cmdId === 'e-gone')).toMatchObject({
+      ok: false,
+      error: {name: 'Unsupported', code: 'surface_not_open'}
+    })
+  })
+
   it('eval in an unknown context is BadRequest, not a tabId demand', async () => {
     const ws = setup({})
     ws.triggerMessage({
@@ -1580,6 +1634,64 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
 
     expect(responded.ok).toBe(false)
     expect(responded.error.name).toBeTruthy()
+  })
+
+  // A promise is not structured-cloneable, so the relay settles it before
+  // replying; the reply then carries the value, or the rejection as an error.
+  it('the relay settles a promise-valued expression before replying', async () => {
+    const listeners: Array<(m: any, s: any, r: any) => void> = []
+    const fakeGlobal: Record<string, unknown> = {
+      console: {log: () => {}},
+      location: {href: 'chrome-extension://abc/newtab.html'},
+      chrome: {
+        runtime: {
+          sendMessage: () => {},
+          lastError: undefined,
+          onMessage: {addListener: (fn: any) => listeners.push(fn)}
+        }
+      }
+    }
+    run(buildBridgeRelaySource({context: 'newtab'}), fakeGlobal)
+
+    const dispatch = (msg: any, respond: (r: any) => void) => {
+      // Several relays listen (eval, inspect); only the one that owns the
+      // message keeps the channel open.
+      let keepOpen: unknown = false
+      for (const fn of listeners) keepOpen = fn(msg, {}, respond) || keepOpen
+
+      return keepOpen
+    }
+
+    let responded: any = 'NONE'
+    const keepOpen = dispatch(
+      {
+        __extjsEvalRequest: true,
+        target: {context: 'newtab'},
+        args: {expression: 'Promise.resolve(40 + 2)'}
+      },
+      (r: any) => (responded = r)
+    )
+
+    // The channel stays open and the reply lands once the promise settles.
+    expect(keepOpen).toBe(true)
+    expect(responded).toBe('NONE')
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(responded).toMatchObject({ok: true, value: 42})
+
+    dispatch(
+      {
+        __extjsEvalRequest: true,
+        target: {context: 'newtab'},
+        args: {expression: 'Promise.reject(new Error("boom"))'}
+      },
+      (r: any) => (responded = r)
+    )
+
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(responded).toMatchObject({
+      ok: false,
+      error: {name: 'Error', message: 'boom'}
+    })
   })
 
   it('the relay (content) forwards console over a NAMED runtime.Port, never sendMessage (echo-SW loop guard)', () => {

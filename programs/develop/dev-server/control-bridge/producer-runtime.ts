@@ -133,6 +133,23 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       }
     }
 
+    // A surface relay that answered nothing is closed only when the engine
+    // says no receiver exists. Any other lastError (a reply the engine could
+    // not clone, a channel that closed) means the surface WAS open and ran the
+    // expression, so the message quotes the engine instead of "not open".
+    function surfaceReplyFailure(ctx, resp) {
+      var le = null;
+      try { le = g.chrome && g.chrome.runtime && g.chrome.runtime.lastError; } catch (e) {
+        // Ignore
+      }
+      if (!le && resp) return null;
+      var lem = le ? String((le && le.message) || le) : "";
+      if (!lem || /receiving end does not exist|could not establish connection/i.test(lem)) {
+        return {code: "surface_not_open", message: "surface '" + ctx + "' is not open (open it first: extension open " + ctx + ")"};
+      }
+      return {code: "surface_reply_failed", message: "surface '" + ctx + "' answered but the reply did not arrive: " + lem};
+    }
+
     // Name the refusal the browser wrote as prose, so a consumer branches on
     // error.code instead of matching the engine's sentence.
     function openRefusalCode(message) {
@@ -284,8 +301,9 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
             chrome.runtime.sendMessage(
               {__extjsEvalRequest: true, target: target, args: {expression: String(args.expression)}},
               function (resp) {
-                if ((chrome.runtime && chrome.runtime.lastError) || !resp) {
-                  replyErr(cmdId, "Unsupported", "surface '" + ctx + "' is not open (open it first: extension open " + ctx + ")", "surface_not_open");
+                var relayErr = surfaceReplyFailure(ctx, resp);
+                if (relayErr) {
+                  replyErr(cmdId, "Unsupported", relayErr.message, relayErr.code);
                 } else if (resp.ok) {
                   replyOk(cmdId, resp.value);
                 } else {
@@ -546,8 +564,9 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
             chrome.runtime.sendMessage(
               {__extjsInspectRequest: true, target: target, args: args},
               function (resp) {
-                if (chrome.runtime.lastError || !resp) {
-                  replyErr(cmdId, "Unsupported", "surface '" + ctx + "' is not open (open it first: extension open " + ctx + ")", "surface_not_open");
+                var relayErr = surfaceReplyFailure(ctx, resp);
+                if (relayErr) {
+                  replyErr(cmdId, "Unsupported", relayErr.message, relayErr.code);
                 } else if (resp.ok) {
                   replyOk(cmdId, resp.value);
                 } else {
@@ -1456,19 +1475,33 @@ export const BRIDGE_RELAY_SOURCE = `;(function () {
         chrome.runtime.onMessage.addListener(function (msg, _sender, sendResponse) {
           if (!msg || !msg.__extjsEvalRequest) return;
           if (!msg.target || msg.target.context !== CONTEXT) return; // not for me
-          try {
-            var value = (0, eval)(String((msg.args && msg.args.expression) || ""));
+          var respondValue = function (value) {
             try { sendResponse({ok: true, value: value}); }
             catch (eSend) { sendResponse({ok: true, value: String(value)}); }
-          } catch (e) {
+          };
+          var respondError = function (e) {
             var emsg = (e && e.message) || String(e);
             if (/Content Security Policy|unsafe-eval|call to eval/i.test(emsg)) {
               sendResponse({ok: false, error: {name: "Unsupported", message: "eval of a string is blocked in the " + CONTEXT + " page by the MV3 extension CSP. Use extension inspect " + CONTEXT + " to read its DOM, or --context background on an MV2/Firefox build. Original: " + emsg}});
             } else {
               sendResponse({ok: false, error: {name: (e && e.name) || "EvalError", message: emsg}});
             }
+          };
+          try {
+            var value = (0, eval)(String((msg.args && msg.args.expression) || ""));
+            // A promise is not structured-cloneable: Chrome throws on the reply
+            // and Firefox drops it on the way out, which the background read as
+            // "surface is not open" while the page kept running the expression.
+            // Settle it first, the way the background eval already does.
+            if (value && typeof value.then === "function") {
+              value.then(respondValue, respondError);
+            } else {
+              respondValue(value);
+            }
+          } catch (e) {
+            respondError(e);
           }
-          return true; // responded
+          return true; // responded, possibly later
         });
       }
     } catch (e) {
