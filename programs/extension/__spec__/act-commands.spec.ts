@@ -481,6 +481,63 @@ describe('extension open', () => {
     })
   })
 
+  it('gives Chromium its own remedy for a refused url', async () => {
+    // The Firefox hint talks about about: pages, which is wrong for Chromium,
+    // where the one refused scheme is javascript: and eval is the way in.
+    bridge.result = {
+      ok: false,
+      error: {
+        name: 'BadRequest',
+        message:
+          "chromium refuses to open javascript:alert(1) from the extension's tabs API (JavaScript URLs are not allowed in API based extension navigations. Use chrome.scripting.executeScript instead.)",
+        engine: 'chromium',
+        code: 'url_refused'
+      }
+    }
+
+    expect(
+      await run(['navigate', 'javascript:alert(1)', '--output', 'json'])
+    ).toBe(1)
+
+    const printed = JSON.parse(String(logSpy.mock.calls[0][0]))
+
+    expect(printed.error.code).toBe('E_ARGS')
+    expect(printed.error.hint).toContain('eval --context content')
+    expect(printed.error.hint).not.toContain('about:newtab')
+  })
+
+  it('reports a missing tab as not-found with the list-tabs hint', async () => {
+    bridge.result = {
+      ok: false,
+      error: {
+        name: 'TargetNotFound',
+        message: 'No tab with id: 999999.',
+        engine: 'chromium',
+        code: 'tab_not_found'
+      }
+    }
+
+    expect(
+      await run([
+        'navigate',
+        'https://example.test/',
+        '--tab',
+        '999999',
+        '--output',
+        'json'
+      ])
+    ).toBe(1)
+
+    expect(JSON.parse(String(logSpy.mock.calls[0][0]))).toMatchObject({
+      ok: false,
+      status: 'not-found',
+      error: {
+        code: 'E_TARGET_NOT_FOUND',
+        hint: expect.stringContaining('--list-tabs')
+      }
+    })
+  })
+
   it('says what opened instead of printing the result object', async () => {
     bridge.result = {ok: true, value: {opened: 'popup'}}
     expect(await run(['open', 'popup', '--browser', 'firefox'])).toBe(0)

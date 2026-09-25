@@ -189,16 +189,36 @@ const REFUSAL_TO_CODE: Record<string, ErrorCode> = {
   surface_reply_failed: CODES.E_INTERNAL,
   api_unavailable: CODES.E_NOT_IMPLEMENTED,
   // The engine refused the url the caller passed: a usage error, not ours.
-  url_refused: CODES.E_ARGS
+  url_refused: CODES.E_ARGS,
+  // No tab carries the id or matches the filter the caller gave.
+  tab_not_found: CODES.E_TARGET_NOT_FOUND
 }
 
-// Gecko's tabs API takes web urls and about:blank only. The engine's own
-// sentence ("Illegal URL") does not say which urls are legal, so the CLI does.
-const URL_REFUSED_HINT =
+// The engine's own sentence ("Illegal URL", "JavaScript URLs are not
+// allowed") does not say which urls are legal, so the CLI does, per engine.
+const URL_REFUSED_HINT_GECKO =
   'Firefox refuses privileged pages (about:newtab, about:config, ' +
   'about:addons, and chrome:, file:, data: and javascript: urls) from an ' +
   "extension's tabs API. Only web urls and about:blank open this way. " +
   "Open the extension's own pages by their moz-extension:// url instead."
+const URL_REFUSED_HINT_CHROMIUM =
+  "Chromium refuses javascript: urls from an extension's tabs API. To run " +
+  'code in a page, use extension eval --context content --tab <id> on a ' +
+  'session started with --allow-eval.'
+const URL_REFUSED_HINT_GENERIC =
+  "The browser refuses this url from an extension's tabs API. Web urls " +
+  'and about:blank open on every engine.'
+
+function urlRefusedHint(engine: unknown): string {
+  if (engine === 'firefox') return URL_REFUSED_HINT_GECKO
+  if (engine === 'chromium') return URL_REFUSED_HINT_CHROMIUM
+
+  return URL_REFUSED_HINT_GENERIC
+}
+
+const TAB_NOT_FOUND_HINT =
+  'List the open tabs and their ids with extension inspect --list-tabs, or ' +
+  'drop --tab to target the active tab.'
 
 function codeForBridgeError(
   name: string,
@@ -223,7 +243,10 @@ function codeForBridgeError(
   if (name === 'BadRequest') return CODES.E_ARGS
 
   if (name === 'Unsupported') {
-    return /needs a --tab id|is not open/i.test(message)
+    // Older producers still send an unmatched tab filter as Unsupported.
+    return /needs a --tab id|is not open|no open tab matches|no active tab/i.test(
+      message
+    )
       ? CODES.E_TARGET_NOT_FOUND
       : CODES.E_NOT_IMPLEMENTED
   }
@@ -285,19 +308,21 @@ export function buildActEnvelope(
     typeof raw.hint === 'string'
       ? raw.hint
       : refusal === 'url_refused'
-        ? URL_REFUSED_HINT
-        : code === CODES.E_EVAL
-          ? 'The expression threw inside the page. Check the expression itself.'
-          : code === CODES.E_USER_GESTURE_REQUIRED
-            ? // Chromium gates these surfaces on a real click and there is no way
-              // around it from here: the call runs in the extension's own service
-              // worker, and an extension cannot gesture at itself. Say what the
-              // rule is and what opens the surface, rather than passing the
-              // engine's sentence through and leaving the reader to guess.
-              'The browser opens this surface only in response to a click, and ' +
-              'refuses to open it any other way. Click the extension in the ' +
-              'browser toolbar to open it.'
-            : undefined
+        ? urlRefusedHint(raw.engine)
+        : refusal === 'tab_not_found'
+          ? TAB_NOT_FOUND_HINT
+          : code === CODES.E_EVAL
+            ? 'The expression threw inside the page. Check the expression itself.'
+            : code === CODES.E_USER_GESTURE_REQUIRED
+              ? // Chromium gates these surfaces on a real click and there is no way
+                // around it from here: the call runs in the extension's own service
+                // worker, and an extension cannot gesture at itself. Say what the
+                // rule is and what opens the surface, rather than passing the
+                // engine's sentence through and leaving the reader to guess.
+                'The browser opens this surface only in response to a click, and ' +
+                'refuses to open it any other way. Click the extension in the ' +
+                'browser toolbar to open it.'
+              : undefined
 
   return {
     ...extras,

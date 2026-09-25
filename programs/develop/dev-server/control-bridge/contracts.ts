@@ -161,6 +161,8 @@ export const REFUSAL_API_UNAVAILABLE = 'api_unavailable'
 // about:, chrome:, file:, data: or javascript: url): the caller's input, not
 // a fault in the bridge.
 export const REFUSAL_URL_REFUSED = 'url_refused'
+// No open tab carries the id or matches the url filter the caller gave.
+export const REFUSAL_TAB_NOT_FOUND = 'tab_not_found'
 
 export type BridgeRefusalCode =
   | typeof REFUSAL_NEEDS_HEADED_WINDOW
@@ -169,6 +171,7 @@ export type BridgeRefusalCode =
   | typeof REFUSAL_SURFACE_REPLY_FAILED
   | typeof REFUSAL_API_UNAVAILABLE
   | typeof REFUSAL_URL_REFUSED
+  | typeof REFUSAL_TAB_NOT_FOUND
 
 export interface ResultFrame {
   type: 'result'

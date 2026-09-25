@@ -218,6 +218,7 @@ describe('the extension-develop/bridge entry', () => {
     expect(bridge.REFUSAL_SURFACE_NOT_OPEN).toBe('surface_not_open')
     expect(bridge.REFUSAL_API_UNAVAILABLE).toBe('api_unavailable')
     expect(bridge.REFUSAL_URL_REFUSED).toBe('url_refused')
+    expect(bridge.REFUSAL_TAB_NOT_FOUND).toBe('tab_not_found')
 
     const producerSource = source(
       'dev-server/control-bridge/producer-runtime.ts'
@@ -228,7 +229,8 @@ describe('the extension-develop/bridge entry', () => {
       bridge.REFUSAL_NEEDS_USER_GESTURE,
       bridge.REFUSAL_SURFACE_NOT_OPEN,
       bridge.REFUSAL_API_UNAVAILABLE,
-      bridge.REFUSAL_URL_REFUSED
+      bridge.REFUSAL_URL_REFUSED,
+      bridge.REFUSAL_TAB_NOT_FOUND
     ]) {
       expect(producerSource, `the producer never sends ${code}`).toContain(
         `"${code}"`

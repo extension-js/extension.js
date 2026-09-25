@@ -263,6 +263,34 @@ const FAILURE_FIXTURES = [
     status: 'usage'
   },
   {
+    name: 'TargetNotFound (named: tab not found)',
+    result: {
+      ok: false,
+      error: {
+        name: 'TargetNotFound',
+        message: 'Invalid tab ID: 999999',
+        engine: 'firefox',
+        code: 'tab_not_found'
+      }
+    },
+    code: CODES.E_TARGET_NOT_FOUND,
+    status: 'not-found'
+  },
+  {
+    // An older producer still sends an unmatched tab filter as Unsupported.
+    name: 'Unsupported (unmatched url filter)',
+    result: {
+      ok: false,
+      error: {
+        name: 'Unsupported',
+        message: 'no open tab matches url: *nomatch*',
+        engine: 'chromium'
+      }
+    },
+    code: CODES.E_TARGET_NOT_FOUND,
+    status: 'not-found'
+  },
+  {
     name: 'EvalError',
     result: {
       ok: false,
@@ -506,6 +534,36 @@ describe('the act frame as a schema-1 envelope', () => {
     expect(error.code).toBe(CODES.E_ARGS)
     expect(error.hint).toContain('about:newtab')
     expect(error.hint).toContain('Only web urls and about:blank open this way')
+
+    const chromium = buildActEnvelope('navigate', {
+      ok: false,
+      error: {
+        name: 'BadRequest',
+        message: 'chromium refuses to open javascript:alert(1)',
+        engine: 'chromium',
+        code: 'url_refused'
+      }
+    }).error as {hint: string}
+
+    expect(chromium.hint).toContain('eval --context content --tab <id>')
+    expect(chromium.hint).not.toContain('about:newtab')
+  })
+
+  it('points a missing tab at --list-tabs', () => {
+    const frame = buildActEnvelope('reload', {
+      ok: false,
+      error: {
+        name: 'TargetNotFound',
+        message: 'No tab with id: 999999.',
+        engine: 'chromium',
+        code: 'tab_not_found'
+      }
+    })
+    const error = frame.error as {code: string; hint: string}
+
+    expect(error.code).toBe(CODES.E_TARGET_NOT_FOUND)
+    expect(frame.status).toBe('not-found')
+    expect(error.hint).toContain('extension inspect --list-tabs')
   })
 
   it('reproduces golden.eval.eval.json from a real guest throw', () => {
