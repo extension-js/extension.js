@@ -1206,7 +1206,8 @@ export class ChromiumLaunchPlugin {
       binary,
       flags,
       this.options?.startingUrl,
-      this.options?.noOpen
+      this.options?.noOpen,
+      String(this.options?.browser || '')
     )
     logChromiumDryRun(plan.binary, plan.args)
   }
@@ -1224,7 +1225,8 @@ export class ChromiumLaunchPlugin {
       binary,
       chromeFlags,
       this.options?.startingUrl,
-      this.options?.noOpen
+      this.options?.noOpen,
+      String(this.options?.browser || '')
     )
 
     // --remote-debugging-pipe talks over fds 3 & 4. stderr is PIPED and drained so

@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {humanLine, isDebug} from '../../../helpers/messaging'
+import {expectedChromiumExtensionId} from '../../browsers-lib/banner'
 import {stageCompanionForNoOpen} from '../../browsers-lib/companion-session'
 import * as messages from '../../browsers-lib/messages'
 import {resolveProfileConfig} from '../../browsers-lib/resolve-profile'
@@ -146,6 +147,45 @@ export interface BrowserConfigMode {
   provision?: boolean
 }
 
+// Browsers that never show a new tab page at startup, so the devtools
+// companion's newtab override never renders and the reader gets no sign the
+// extension loaded. Yandex opens its own search homepage instead, and the
+// preference that picks it (`ya.custo_start_with_new_tab`) cannot be seeded:
+// Yandex rewrites it back at startup, measured in a live managed profile. So
+// the companion page is handed over as the positional URL instead, which puts
+// the same page in front that every other Chromium target gets from its NTP.
+const BROWSERS_WITHOUT_NEW_TAB_AT_STARTUP: ReadonlySet<string> = new Set([
+  'yandex'
+])
+
+// The companion's welcome page, addressed by the id Chromium will give the
+// unpacked folder. Returns undefined when the companion is not being loaded
+// (a user extension with its own newtab override replaces it), which leaves
+// the launch exactly as it was rather than guessing at the user's own page.
+export function defaultStartingUrlForBrowser(
+  browser: string | undefined,
+  chromiumConfig: string[]
+): string | undefined {
+  if (!BROWSERS_WITHOUT_NEW_TAB_AT_STARTUP.has(String(browser || ''))) {
+    return undefined
+  }
+
+  const loadFlag = chromiumConfig.find((flag) =>
+    flag.startsWith('--load-extension=')
+  )
+  if (!loadFlag) return undefined
+
+  const companion = loadFlag
+    .replace('--load-extension=', '')
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .find((entry) => /[\\/]extension-js-devtools[\\/]/.test(entry))
+  if (!companion) return undefined
+
+  return `chrome-extension://${expectedChromiumExtensionId(companion)}/pages/welcome.html`
+}
+
 // The argv a launch hands the binary: the composed flags, then the starting
 // URL as Chromium's positional argument. The dry run prints this; the spawn
 // runs it. --no-open drops the URL, matching Gecko.
@@ -153,9 +193,15 @@ export function chromiumLaunchPlan(
   binary: string,
   chromiumConfig: string[],
   startingUrl?: string,
-  noOpen?: boolean
+  noOpen?: boolean,
+  browser?: string
 ): {binary: string; args: string[]} {
-  const launchUrl = resolveStartingUrl({startingUrl, noOpen})
+  const launchUrl = resolveStartingUrl({
+    // A url the user asked for always wins.
+    startingUrl:
+      startingUrl ?? defaultStartingUrlForBrowser(browser, chromiumConfig),
+    noOpen
+  })
 
   return {
     binary,
