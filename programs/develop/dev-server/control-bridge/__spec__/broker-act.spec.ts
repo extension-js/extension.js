@@ -297,6 +297,36 @@ describe('BridgeBroker (Slice 2: act)', () => {
       expect(denyMessage(b, ctl)).toContain('disconnected 7s ago')
     })
 
+    it('names a browser exit over the idle-worker story, until a producer is back', () => {
+      // After the launcher stamped an exit, "retry, the worker reconnects on
+      // its own" sends the caller in circles: nothing reconnects until a new
+      // dev session relaunches the browser.
+      let t = 0
+      const b = new BridgeBroker(base({now: () => t}))
+      const exec = new FakeConn('exec')
+      helloProducer(b, exec)
+      b.onClose(exec)
+      t += 7000
+      b.noteBrowserExited('2026-09-25T23:24:37.253Z', 'signal SIGTRAP')
+
+      const ctl = new FakeConn('ctl')
+      helloController(b, ctl)
+      const msg = denyMessage(b, ctl)
+
+      expect(msg).toContain(
+        'the browser exited at 2026-09-25T23:24:37.253Z (signal SIGTRAP)'
+      )
+
+      expect(msg).toContain('Restart extension dev')
+      expect(msg).not.toContain('idle out')
+
+      // Firefox can hand the session to a fresh process: a producer that
+      // talks again means a browser that runs, so the exit story ends.
+      helloProducer(b, new FakeConn('exec-2'))
+      b.onClose(exec)
+      expect(b.producerCount).toBe(1)
+    })
+
     it('names stale-resync-pending after a stale producer hello', () => {
       let t = 0
       const b = new BridgeBroker(base({now: () => t}))

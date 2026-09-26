@@ -1119,8 +1119,33 @@ export async function devServer(
   })
 
   // The launcher stamps browserExitedAt on the ready contract; poll for it so
-  // a machine consumer learns the browser died without scraping prose.
-  lifecycle.watchBrowserExit()
+  // a machine consumer learns the browser died without scraping prose. The
+  // same read tells the broker, so act verbs name the exit instead of an
+  // idle worker, and lands on the events timeline beside the compiles.
+  lifecycle.watchBrowserExit(1000, (ready) => {
+    const exitCode =
+      typeof ready.browserExitCode === 'number' ? ready.browserExitCode : null
+    const exitSignal =
+      typeof ready.browserExitSignal === 'string'
+        ? ready.browserExitSignal
+        : null
+    const browserExitedAt = String(ready.browserExitedAt)
+    const how =
+      exitCode == null
+        ? `signal ${exitSignal ?? 'unknown'}`
+        : `code ${exitCode}`
+
+    bridgeBroker.noteBrowserExited(browserExitedAt, how)
+    metadata.appendEvent({
+      type: 'browser_exited',
+      ts: new Date().toISOString(),
+      command: 'dev',
+      browser: browserName,
+      exitCode,
+      exitSignal,
+      browserExitedAt
+    })
+  })
 
   setupCleanupHandlers(() => currentServer, portManager)
 }

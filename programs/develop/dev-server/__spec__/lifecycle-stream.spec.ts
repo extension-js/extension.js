@@ -415,6 +415,50 @@ describe('lifecycle stream transitions', () => {
     expect(frame.error?.message).toBe('config is invalid')
   })
 
+  it('hands the exit stamp to the caller even while the stream is off', async () => {
+    // The dev server tells the broker and the events file from this poll, in
+    // pretty mode too, so the watcher cannot be gated on machine output.
+    const saved = process.env.EXTENSION_OUTPUT
+    delete process.env.EXTENSION_OUTPUT
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-exit-'))
+    const readyPath = path.join(dir, 'ready.json')
+    fs.writeFileSync(readyPath, JSON.stringify({status: 'ready'}))
+    const {stream, lines} = makeStream({readyPath})
+    const seen: Record<string, unknown>[] = []
+    const stop = stream.watchBrowserExit(5, (ready) => seen.push(ready))
+
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 25))
+      expect(seen).toEqual([])
+
+      fs.writeFileSync(
+        readyPath,
+        JSON.stringify({
+          status: 'ready',
+          browserExitedAt: '2026-09-25T23:24:37.253Z',
+          browserExitCode: null,
+          browserExitSignal: 'SIGTRAP'
+        })
+      )
+
+      await new Promise((resolve) => setTimeout(resolve, 60))
+      expect(seen).toHaveLength(1)
+      expect(seen[0]).toMatchObject({
+        browserExitedAt: '2026-09-25T23:24:37.253Z',
+        browserExitSignal: 'SIGTRAP'
+      })
+
+      // Off means off: the callback ran, no frame was written.
+      expect(lines).toEqual([])
+    } finally {
+      stop()
+      if (saved === undefined) delete process.env.EXTENSION_OUTPUT
+      else process.env.EXTENSION_OUTPUT = saved
+
+      fs.rmSync(dir, {recursive: true, force: true})
+    }
+  })
+
   it('emits browser-exited once when the contract gains the exit stamp', async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-ndjson-'))
     const readyPath = path.join(dir, 'ready.json')

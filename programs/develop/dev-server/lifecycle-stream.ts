@@ -284,6 +284,9 @@ export class LifecycleStream {
     frame.value = this.sessionValue({
       exitCode:
         toFiniteNumber(args.exitCode) ?? toFiniteNumber(ready?.browserExitCode),
+      ...(typeof ready?.browserExitSignal === 'string'
+        ? {exitSignal: ready.browserExitSignal}
+        : {}),
       ...(typeof ready?.browserExitedAt === 'string'
         ? {browserExitedAt: ready.browserExitedAt}
         : {})
@@ -303,22 +306,29 @@ export class LifecycleStream {
     return this.emit(frame)
   }
 
-  // Poll the ready contract for the launcher's exit stamp. Only runs while the
-  // stream is on, and unref'd so it can never hold the process open.
-  public watchBrowserExit(intervalMs = 1000): () => void {
+  // Poll the ready contract for the launcher's exit stamp. Unref'd so it can
+  // never hold the process open. Runs while the stream is on, or for as long
+  // as a caller wants the stamp handed to it (the dev server tells the broker
+  // and the events file), since the browser is gone either way.
+  public watchBrowserExit(
+    intervalMs = 1000,
+    onExit?: (ready: Record<string, unknown>) => void
+  ): () => void {
     const stop = () => {
       if (this.exitWatcher) clearInterval(this.exitWatcher)
 
       this.exitWatcher = undefined
     }
 
-    if (!this.enabled || !this.options.readyPath) return stop
+    if (!this.options.readyPath) return stop
+    if (!this.enabled && !onExit) return stop
     if (this.exitWatcher) return stop
 
     this.exitWatcher = setInterval(() => {
       const ready = readReadyContract(this.options.readyPath)
       if (typeof ready?.browserExitedAt !== 'string') return
 
+      onExit?.(ready)
       this.browserExited()
       stop()
     }, intervalMs)

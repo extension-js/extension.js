@@ -1307,7 +1307,8 @@ export class ChromiumLaunchPlugin {
 
           stampReadyBrowserExited(
             this.closeHandlerContext?.extensionOutputPath,
-            code
+            code,
+            signal
           )
         }
 

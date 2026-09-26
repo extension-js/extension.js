@@ -111,6 +111,7 @@ type ExecutorAbsence =
   | 'stale-resync-pending'
   | 'never-connected'
   | 'recently-disconnected'
+  | 'browser-exited'
 
 const EXECUTOR_ABSENT: Record<ExecutorAbsence, (secs?: number) => string> = {
   'stale-resync-pending': (secs) =>
@@ -127,7 +128,21 @@ const EXECUTOR_ABSENT: Record<ExecutorAbsence, (secs?: number) => string> = {
     `${secs != null ? ` ${secs}s ago` : ''}, MV3 workers idle out and ` +
     'reconnect on their own, or the browser may have exited (see ' +
     'browserExitedAt in dist/extension-js/<browser>/ready.json); retry, and ' +
-    'if it persists reload the extension or restart the dev session'
+    'if it persists reload the extension or restart the dev session',
+  // The launcher stamped an exit nobody asked for. No worker reconnects until
+  // a new dev session relaunches the browser, so the idle-worker story and
+  // its "retry" would send the caller in circles.
+  'browser-exited': () =>
+    'no executor connected: the browser exited and nothing reconnects on ' +
+    'its own. Restart extension dev to relaunch it'
+}
+
+function executorAbsentBrowserExited(at: string, how: string | null): string {
+  return (
+    `no executor connected: the browser exited at ${at}` +
+    `${how ? ` (${how})` : ''} and nothing reconnects on its own. ` +
+    'Restart extension dev to relaunch it'
+  )
 }
 
 const STALE_RESYNC_HINT_MS = 30_000
@@ -222,6 +237,11 @@ export class BridgeBroker {
   private readonly onExecutorAttached?: () => void
   private readonly onExecutorDetached?: () => void
   private lastProducerDisconnectedAt: number | null = null
+  // The launcher's exit stamp, once the dev server has read it off ready.json.
+  // Cleared by a producer hello, since a worker that talks means a browser
+  // that runs (Firefox can hand the session to a fresh process).
+  private browserExitedAt: string | null = null
+  private browserExitHow: string | null = null
   // When the last stale-instance producer hello arrived; diagnosis state,
   // stamped even for rate-limited hellos (unlike staleResyncTimes).
   private lastStaleHelloAt: number | null = null
@@ -588,6 +608,9 @@ export class BridgeBroker {
       // A producer is back: clear the undelivered-reload dedup so a later detach
       // can warn again (the attach state genuinely transitioned).
       this.lastUndeliveredWarnKind = null
+      // A worker that talks means a browser that runs, whatever was stamped.
+      this.browserExitedAt = null
+      this.browserExitHow = null
 
       // Stamp ready.json's runtime signal on EVERY producer hello: idempotent, and
       // firing each time closes the startup race where the callback wasn't wired yet.
@@ -623,10 +646,25 @@ export class BridgeBroker {
     }
   }
 
-  // Name WHY no producer is connected: fresh stale-instance hello > nothing ever
-  // connected > a producer was here and left.
+  // The dev server read the launcher's exit stamp: from here on every denial
+  // names the exit and the restart, never a worker that might come back.
+  noteBrowserExited(at: string, how?: string | null): void {
+    this.browserExitedAt = at
+    this.browserExitHow = how ?? null
+  }
+
+  // Name WHY no producer is connected: the browser exited > fresh
+  // stale-instance hello > nothing ever connected > a producer was here and
+  // left.
   private diagnoseExecutorAbsence(): string {
     const now = this.now()
+
+    if (this.browserExitedAt) {
+      return executorAbsentBrowserExited(
+        this.browserExitedAt,
+        this.browserExitHow
+      )
+    }
 
     if (
       this.lastStaleHelloAt != null &&
