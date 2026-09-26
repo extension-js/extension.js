@@ -105,6 +105,30 @@ describe('stampReadyBrowserExited', () => {
     expect(ready.cdpPort).toBe(9223)
   })
 
+  it('stamps the signal when the browser died of one, since a crash has no code', () => {
+    const outPath = path.join(tmp, 'dist', 'chromium')
+    const metaDir = path.join(tmp, 'dist', 'extension-js', 'chromium')
+    fs.mkdirSync(metaDir, {recursive: true})
+    const readyPath = path.join(metaDir, 'ready.json')
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({status: 'ready', command: 'preview', browser: 'chromium'})
+    )
+
+    stampReadyBrowserExited(outPath, null, 'SIGTRAP')
+
+    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    expect(ready.browserExitCode).toBeNull()
+    expect(ready.browserExitSignal).toBe('SIGTRAP')
+    expect(ready.message).toContain('exited (signal SIGTRAP)')
+
+    // A plain exit keeps the code wording and a null signal beside it.
+    stampReadyBrowserExited(outPath, 1)
+    const again = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    expect(again.browserExitSignal).toBeNull()
+    expect(again.message).toContain('exited (code 1)')
+  })
+
   it('is a no-op without an output path or ready.json', () => {
     expect(() => stampReadyBrowserExited(undefined, 0)).not.toThrow()
     expect(() =>

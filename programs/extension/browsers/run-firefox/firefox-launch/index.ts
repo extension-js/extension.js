@@ -826,7 +826,7 @@ export class FirefoxLaunchPlugin {
         }) without being asked to. The add-on may have been rejected or the browser crashed; the session cannot be driven.`
       )
 
-      stampReadyBrowserExited(this.extensionOutputPath, code)
+      stampReadyBrowserExited(this.extensionOutputPath, code, signal ?? null)
     }
 
     this.cleanupInstance().catch((err) => {
