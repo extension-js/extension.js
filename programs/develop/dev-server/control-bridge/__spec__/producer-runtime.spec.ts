@@ -706,6 +706,64 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     expect(r.error.message).not.toContain('not open')
   })
 
+  // Chrome closes the port with the same sentence when a bystander page (the
+  // options page, a new tab override) received the message and passed, so
+  // the engine's open-context list decides between "not open" and "lost".
+  it('eval popup asks the engine whether the surface is open before blaming a lost reply', async () => {
+    const chromeApi = (contexts: unknown[] | null) => ({
+      runtime: {
+        sendMessage: (_msg: any, cb: (r: any) => void) => cb(undefined),
+        lastError: {
+          message: 'The message port closed before a response was received.'
+        },
+        getManifest: () => ({action: {default_popup: './popup.html'}}),
+        getURL: (p: string) => `chrome-extension://abc/${p}`,
+        ...(contexts ? {getContexts: () => Promise.resolve(contexts)} : {})
+      }
+    })
+    const send = (ws: FakeWebSocket, cmdId: string) =>
+      ws.triggerMessage({
+        type: 'command',
+        cmdId,
+        op: 'eval',
+        target: {context: 'popup'},
+        args: {expression: '1'}
+      })
+
+    // Only the options page is open: the popup is closed.
+    const closed = setup(
+      chromeApi([{documentUrl: 'chrome-extension://abc/options.html'}])
+    )
+    send(closed, 'e-bystander')
+    await flush()
+    expect(
+      results(closed).find((f) => f.cmdId === 'e-bystander')
+    ).toMatchObject({
+      ok: false,
+      error: {name: 'Unsupported', code: 'surface_not_open'}
+    })
+
+    // The popup is open (query string and all) and still lost its reply.
+    const open = setup(
+      chromeApi([{documentUrl: 'chrome-extension://abc/popup.html?x=1'}])
+    )
+    send(open, 'e-lost')
+    await flush()
+    expect(results(open).find((f) => f.cmdId === 'e-lost')).toMatchObject({
+      ok: false,
+      error: {name: 'Unsupported', code: 'surface_reply_failed'}
+    })
+
+    // No getContexts on this engine: the plain classification stands.
+    const older = setup(chromeApi(null))
+    send(older, 'e-older')
+    await flush()
+    expect(results(older).find((f) => f.cmdId === 'e-older')).toMatchObject({
+      ok: false,
+      error: {name: 'Unsupported', code: 'surface_reply_failed'}
+    })
+  })
+
   it('eval popup still reports not open when the engine says no receiver exists', async () => {
     const ws = setup({
       runtime: {
@@ -1123,6 +1181,58 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
         code: 'tab_not_found',
         message: 'no open tab matches url: *nomatch*'
       }
+    })
+  })
+
+  it('reload content resolves --url and the active tab the way eval does', async () => {
+    const reloaded: number[] = []
+    const ws = setup({
+      tabs: {
+        query: (
+          q: {url?: string; active?: boolean},
+          cb?: (t: unknown[]) => void
+        ) => {
+          cb?.(
+            q.url === '*shop*'
+              ? [{id: 21, url: 'https://shop.test/'}]
+              : q.active
+                ? [{id: 5, url: 'https://active.test/'}]
+                : []
+          )
+
+          return undefined
+        },
+        reload: (id: number) => {
+          reloaded.push(id)
+
+          return Promise.resolve()
+        }
+      }
+    })
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'r-url',
+      op: 'reload',
+      target: {context: 'content', url: '*shop*'}
+    })
+
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'r-active',
+      op: 'reload',
+      target: {context: 'content'}
+    })
+
+    await flush()
+    expect(reloaded).toEqual([21, 5])
+    expect(results(ws).find((f) => f.cmdId === 'r-url')).toMatchObject({
+      ok: true,
+      value: {reloaded: 21}
+    })
+
+    expect(results(ws).find((f) => f.cmdId === 'r-active')).toMatchObject({
+      ok: true,
+      value: {reloaded: 5}
     })
   })
 
