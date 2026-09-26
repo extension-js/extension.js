@@ -167,6 +167,49 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       return {code: "surface_reply_failed", message: "surface '" + ctx + "' answered but the reply did not arrive: " + lem};
     }
 
+    // The page a surface lives in, as the manifest names it, so the background
+    // can ask the engine whether that page is open at all.
+    function surfacePagePath(ctx) {
+      var m = null;
+      try { m = g.chrome.runtime.getManifest(); } catch (e) { return null; }
+      if (!m) return null;
+      var p = null;
+      if (ctx === "popup") p = (m.action && m.action.default_popup) || (m.browser_action && m.browser_action.default_popup);
+      else if (ctx === "options") p = (m.options_ui && m.options_ui.page) || m.options_page;
+      else if (ctx === "sidebar") p = (m.side_panel && m.side_panel.default_path) || (m.sidebar_action && m.sidebar_action.default_panel);
+      else if (ctx === "newtab" || ctx === "history" || ctx === "bookmarks") p = m.chrome_url_overrides && m.chrome_url_overrides[ctx];
+      // Character classes on purpose: this source is a template literal, and
+      // a backslash escape in a regex would be eaten before it ever ran.
+      return typeof p === "string" && p ? p.replace(/^[.]?[/]/, "") : null;
+    }
+
+    // Chrome says "message port closed" both when the surface died mid-op and
+    // when a bystander extension page (the options page, a new tab override)
+    // received the message and passed, since a relay returns nothing for a
+    // context that is not its own. Only the engine's open-context list tells
+    // the two apart, so it is asked before a reply gets the blame. Engines
+    // without getContexts keep the plain classification.
+    function classifySurfaceFailure(ctx, resp, cb) {
+      var relayErr = surfaceReplyFailure(ctx, resp);
+      if (!relayErr || relayErr.code !== "surface_reply_failed" || !/message port closed/i.test(relayErr.message)) { cb(relayErr); return; }
+      var rt = g.chrome && g.chrome.runtime;
+      var page = surfacePagePath(ctx);
+      if (!page || !rt || typeof rt.getContexts !== "function") { cb(relayErr); return; }
+      var wanted = "";
+      try { wanted = String(rt.getURL(page)).split(/[?#]/)[0]; } catch (e) { cb(relayErr); return; }
+      var notOpen = {code: "surface_not_open", message: "surface '" + ctx + "' is not open (open it first: extension open " + ctx + ")"};
+      try {
+        Promise.resolve(rt.getContexts({})).then(function (list) {
+          var open = false;
+          for (var i = 0; i < (list || []).length; i++) {
+            var u = list[i] && list[i].documentUrl;
+            if (u && String(u).split(/[?#]/)[0] === wanted) { open = true; break; }
+          }
+          cb(open ? relayErr : notOpen);
+        }, function () { cb(relayErr); });
+      } catch (e) { cb(relayErr); }
+    }
+
     // Name the refusal the browser wrote as prose, so a consumer branches on
     // error.code instead of matching the engine's sentence.
     function openRefusalCode(message) {
@@ -257,7 +300,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       var cmdId = cmd.cmdId;
       // content/page eval & inspect need a numeric tab id: resolve --url (or
       // nothing) to a tab and re-dispatch with target.tabId filled in. (#51)
-      if ((op === "eval" || op === "inspect") && (ctx === "content" || ctx === "page") && target.tabId == null) {
+      if ((op === "eval" || op === "inspect" || op === "reload") && (ctx === "content" || ctx === "page") && target.tabId == null) {
         resolveTargetTab(target, function (tabId, err) {
           if (tabId == null) {
             // A filter that matched nothing, or no active tab, is a missing
@@ -324,14 +367,15 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
             chrome.runtime.sendMessage(
               {__extjsEvalRequest: true, target: target, args: {expression: String(args.expression)}},
               function (resp) {
-                var relayErr = surfaceReplyFailure(ctx, resp);
-                if (relayErr) {
-                  replyErr(cmdId, "Unsupported", relayErr.message, relayErr.code);
-                } else if (resp.ok) {
-                  replyOk(cmdId, resp.value);
-                } else {
-                  replyErr(cmdId, (resp.error && resp.error.name) || "EvalError", (resp.error && resp.error.message) || "eval failed");
-                }
+                classifySurfaceFailure(ctx, resp, function (relayErr) {
+                  if (relayErr) {
+                    replyErr(cmdId, "Unsupported", relayErr.message, relayErr.code);
+                  } else if (resp.ok) {
+                    replyOk(cmdId, resp.value);
+                  } else {
+                    replyErr(cmdId, (resp.error && resp.error.name) || "EvalError", (resp.error && resp.error.message) || "eval failed");
+                  }
+                });
               }
             );
           } else if (ctx === "content" || ctx === "page") {
@@ -587,14 +631,15 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
             chrome.runtime.sendMessage(
               {__extjsInspectRequest: true, target: target, args: args},
               function (resp) {
-                var relayErr = surfaceReplyFailure(ctx, resp);
-                if (relayErr) {
-                  replyErr(cmdId, "Unsupported", relayErr.message, relayErr.code);
-                } else if (resp.ok) {
-                  replyOk(cmdId, resp.value);
-                } else {
-                  replyErr(cmdId, (resp.error && resp.error.name) || "InspectError", (resp.error && resp.error.message) || "inspect failed");
-                }
+                classifySurfaceFailure(ctx, resp, function (relayErr) {
+                  if (relayErr) {
+                    replyErr(cmdId, "Unsupported", relayErr.message, relayErr.code);
+                  } else if (resp.ok) {
+                    replyOk(cmdId, resp.value);
+                  } else {
+                    replyErr(cmdId, (resp.error && resp.error.name) || "InspectError", (resp.error && resp.error.message) || "inspect failed");
+                  }
+                });
               }
             );
           } else if (ctx === "background") {

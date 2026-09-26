@@ -506,6 +506,36 @@ describe('extension open', () => {
     expect(printed.error.hint).not.toContain('about:newtab')
   })
 
+  it('reload content takes --url and resolves it in the runtime like inspect', async () => {
+    expect(
+      await run(['reload', '--context', 'content', '--url', '*shop*'])
+    ).toBe(0)
+
+    expect(bridge.commands[0]).toMatchObject({
+      op: 'reload',
+      target: {context: 'content', url: '*shop*'}
+    })
+
+    expect(bridge.commands[0].target).not.toHaveProperty('tabId')
+  })
+
+  it('refuses a surface context for reload before touching the bridge', async () => {
+    expect(await run(['reload', '--context', 'popup'])).toBe(1)
+    expect(String(errorSpy.mock.calls[0][0])).toContain(
+      'takes --context background, content or page'
+    )
+
+    expect(bridge.commands).toHaveLength(0)
+
+    errorSpy.mockClear()
+    expect(await run(['reload', '--context', 'options'])).toBe(1)
+    expect(String(errorSpy.mock.calls[0][0])).toContain(
+      'run extension reload without --context'
+    )
+
+    expect(bridge.commands).toHaveLength(0)
+  })
+
   it('reports a missing tab as not-found with the list-tabs hint', async () => {
     bridge.result = {
       ok: false,

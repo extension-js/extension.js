@@ -851,8 +851,27 @@ export function registerActCommands(program: Command): void {
         '--context <background|content|page>',
         'target context (default background)'
       )
-      .option('--tab <id>', 'for content/page: a specific tab')
+      .option(
+        '--url <pattern>',
+        'for content/page: document to target (resolved to its tab)'
+      )
+      .option(
+        '--tab <id>',
+        'for content/page: a specific tab (default: the --url match, else the active tab)'
+      )
   ).action(async (projectPathArg: string, opts: CommonActOptions) => {
+    // A popup, options or sidebar page reloads with the extension, so a
+    // surface context is a usage error the CLI can state before dialing.
+    const context = opts.context || 'background'
+
+    if (!['background', 'content', 'page'].includes(context)) {
+      fail(
+        `reload takes --context background, content or page (got ${context}). ` +
+          `A ${context} page reloads with the extension: run extension reload without --context.`,
+        {command: 'reload', code: CODES.E_ARGS, output: opts.output}
+      )
+    }
+
     await runCommand({
       projectPathArg,
       command: 'reload',
