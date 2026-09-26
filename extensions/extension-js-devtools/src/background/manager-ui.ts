@@ -13,6 +13,16 @@ function bgGreen(str: string) {
   return `background: transparent; color: #0971fe; ${str}`
 }
 
+// Browsers whose startup tab is not a plain new tab page, by the url the
+// tabs API reports for it. Opera starts on Speed Dial and Edge on an MSN
+// page its newtab redirects to before this runs. Without these the first run
+// branch below never fires there, the newtab override never renders, and the
+// reader gets no sign the extension loaded.
+const START_PAGES_WITHOUT_NEW_TAB = [
+  /^chrome:\/\/startpage(?:shared)?\/?/,
+  /^https:\/\/(?:[a-z0-9-]+\.)*msn\.com\//i
+]
+
 export async function initManagerUI() {
   // --no-open means no tab at all. The CLI says so through a flag file in the
   // per-session copy it stages, read here before any tab is created.
@@ -76,14 +86,16 @@ MIT (c) ${new Date().getFullYear()} - Cezar Augusto and the Extension.js authors
         return
       }
 
-      const url = String(initialTab.url || '')
+      // pendingUrl is what a tab still loading at startup carries.
+      const url = String(initialTab.url || initialTab.pendingUrl || '')
       const isInitialPage = isFirefox
         ? url.startsWith('about:home') ||
           url.startsWith('about:welcome') ||
           url.startsWith('about:newtab') ||
           url === 'about:blank'
         : url.startsWith(`${scheme}://newtab`) ||
-          url.startsWith(`${scheme}://welcome`)
+          url.startsWith(`${scheme}://welcome`) ||
+          START_PAGES_WITHOUT_NEW_TAB.some((pattern) => pattern.test(url))
 
 // Always attempt first-run handling on Firefox: it does not always start on an
 

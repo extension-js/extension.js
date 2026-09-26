@@ -503,6 +503,36 @@ function ownExtensionIds(ready) {
   return ids
 }
 
+function isOwnPage(url, ownIds) {
+  const text = String(url || '')
+  const extension = /^chrome-extension:\/\/([a-p]{32})\//.exec(text)
+  if (extension) return ownIds.has(extension[1])
+
+  return /^moz-extension:\/\//.test(text)
+}
+
+// Why a page of ours did not render, or null when it did. Chromium pages carry
+// what Runtime.evaluate read inside them; gecko tabs carry only a title.
+function describeRefusedPage(page) {
+  if (page.rendered === undefined) {
+    return page.title ? null : 'the tab carries no title'
+  }
+
+  if (page.rendered === null) {
+    return 'the page could not be asked what it rendered'
+  }
+
+  const {href, title, nodes} = page.rendered
+
+  if (href !== page.url) {
+    return `the document is ${href} "${title}", not the page that was asked for`
+  }
+
+  if (!nodes) return `the document at that url is empty, title "${title}"`
+
+  return null
+}
+
 function isOwnOrBlankPage(url, ownIds) {
   const text = String(url || '')
   if (!text) return true
@@ -513,13 +543,95 @@ function isOwnOrBlankPage(url, ownIds) {
   return ENGINE_BLANK_PAGES.some((pattern) => pattern.test(text))
 }
 
+// What the document inside a page target says about itself. A target keeps
+// the url that was REQUESTED even when the browser refused it and painted its
+// own error there (Yandex blocks unpacked extension pages this way), so the
+// url alone is not evidence that a page rendered. Null means the page could
+// not be asked, which the caller reports rather than treats as a pass.
+function renderedDocument(webSocketDebuggerUrl) {
+  return new Promise((resolveProbe) => {
+    let settled = false
+    let socket = null
+
+    const finish = (value) => {
+      if (settled) return
+
+      settled = true
+      clearTimeout(timer)
+
+      try {
+        socket?.close()
+      } catch {
+        // Already closed.
+      }
+
+      resolveProbe(value)
+    }
+
+    const timer = setTimeout(() => finish(null), 8000)
+
+    try {
+      socket = new WebSocket(webSocketDebuggerUrl)
+    } catch {
+      finish(null)
+
+      return
+    }
+
+    socket.addEventListener('open', () => {
+      socket.send(
+        JSON.stringify({
+          id: 1,
+          method: 'Runtime.evaluate',
+          params: {
+            expression:
+              'JSON.stringify({href: String(location.href), title: String(document.title || ""), nodes: document.body ? document.body.children.length : 0})',
+            returnByValue: true
+          }
+        })
+      )
+    })
+
+    socket.addEventListener('message', (event) => {
+      let message = null
+
+      try {
+        message = JSON.parse(String(event.data))
+      } catch {
+        return
+      }
+
+      if (message?.id !== 1) return
+
+      try {
+        finish(JSON.parse(message.result?.result?.value))
+      } catch {
+        finish(null)
+      }
+    })
+
+    socket.addEventListener('error', () => finish(null))
+    socket.addEventListener('close', () => finish(null))
+  })
+}
+
 async function chromiumPages(cdpPort) {
   const response = await fetch(`http://127.0.0.1:${cdpPort}/json/list`)
   const list = await response.json()
+  const pages = []
 
-  return list
-    .filter((target) => target?.type === 'page')
-    .map((target) => ({url: String(target.url || ''), title: target.title}))
+  for (const target of list) {
+    if (target?.type !== 'page') continue
+
+    const url = String(target.url || '')
+    const rendered = target.webSocketDebuggerUrl
+      ? await renderedDocument(target.webSocketDebuggerUrl)
+      : null
+
+    pages.push({url, title: target.title, rendered})
+  }
+
+  return pages
 }
 
 // Gecko has no HTTP target list, so the session's own tab listing answers,
@@ -789,6 +901,25 @@ async function assertIdentity({
           .map((page) => page.url)
           .join(', ')}`
       )
+    }
+
+    // f. A page of ours is on screen and the browser actually rendered it. A
+    // page target keeps the url it was asked for even when the browser refused
+    // it, so a chromium page is asked what its document says; a gecko tab
+    // answers with its title, which an error page does not carry.
+    const ours = pages.filter((page) => isOwnPage(page.url, ownIds))
+
+    if (!ours.length) {
+      failures.push(
+        `no page of ours is on screen, the reader gets no sign the extension loaded: ${
+          pages.map((page) => page.url).join(', ') || 'none'
+        }`
+      )
+    }
+
+    for (const page of ours) {
+      const refusal = describeRefusedPage(page)
+      if (refusal) failures.push(`${target} refused our page ${page.url}: ${refusal}`)
     }
 
     notes.push(
