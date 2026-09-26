@@ -482,7 +482,10 @@ function runDevSession({projectDir, browser, devArgs, env, cli, inspect}) {
 // the check compares ids and never trusts the scheme).
 const ENGINE_BLANK_PAGES = [
   /^about:(blank|newtab|home|privatebrowsing)$/,
-  /^chrome:\/\/(newtab|new-tab-page|extensions|startpage|startpageshared)\/?$/,
+  // newtab-footer is a companion surface of the new tab page, not a page
+  // competing for the reader: system Chromium 146 exposes it as its own target
+  // while managed Chrome 151 does not, and it failed the check on that alone.
+  /^chrome:\/\/(newtab|newtab-footer|new-tab-page|extensions|startpage|startpageshared)\/?$/,
   /^edge:\/\/(newtab|extensions)\/?$/,
   /^moz-extension:\/\//
 ]
