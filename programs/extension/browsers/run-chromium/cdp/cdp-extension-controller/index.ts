@@ -11,6 +11,7 @@ import * as path from 'node:path'
 import type {Readable, Writable} from 'node:stream'
 import {humanLine, humanWarn, isDebug} from '../../../../helpers/messaging'
 import {expectedChromiumExtensionId} from '../../../browsers-lib/banner'
+import {loadsExtensionsOverCdpOnly} from '../../../browsers-lib/browser-family'
 import * as messages from '../../../browsers-lib/messages'
 import {stampReadyExtensionId} from '../../../browsers-lib/ready-stamp'
 import type {BrowserLogSink} from '../../../browsers-types'
@@ -76,6 +77,7 @@ function readTextFileCached(filePath: string): string {
 
 export class CDPExtensionController {
   private readonly outPath: string
+  private readonly browser: string
   private readonly cdpPort: number
   private readonly profilePath?: string
   private readonly extensionPaths?: string[]
@@ -89,7 +91,7 @@ export class CDPExtensionController {
 
   constructor(args: {
     outPath: string
-    browser: 'chrome' | 'edge' | 'chromium-based'
+    browser: string
     cdpPort: number
     profilePath?: string
     extensionPaths?: string[]
@@ -99,6 +101,7 @@ export class CDPExtensionController {
     logSink?: BrowserLogSink
   }) {
     this.outPath = args.outPath
+    this.browser = args.browser
     this.cdpPort = args.cdpPort
     this.profilePath = args.profilePath
     this.extensionPaths = args.extensionPaths
@@ -230,9 +233,16 @@ export class CDPExtensionController {
     // browser already holds, so a healthy session must never reach it. Match on
     // the id Chrome derives for this exact path - the generic target derivation
     // falls back to a sibling extension's id, which is not an answer here.
+    // A browser that drops --load-extension holds nothing yet, so the look
+    // would only wait out its full window before the load that always follows.
     const expectedId = expectedChromiumExtensionId(this.outPath)
+    const loadedFromCommandLine = !loadsExtensionsOverCdpOnly(this.browser)
 
-    if (expectedId && declaresBackgroundContext(this.outPath)) {
+    if (
+      expectedId &&
+      loadedFromCommandLine &&
+      declaresBackgroundContext(this.outPath)
+    ) {
       const present = await this.waitForExtensionTarget(expectedId, 12, 200)
 
       if (present) {

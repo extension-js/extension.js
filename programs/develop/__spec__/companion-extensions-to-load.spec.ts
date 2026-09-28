@@ -279,10 +279,8 @@ describe('companion extensions (load-only) are wired into BrowsersPlugin', () =>
     }
   })
 
-  // Opera refuses a theme-type extension with a load-error dialog, so the
-  // theme is never offered to it while the devtools companion still is.
-  it('leaves the built-in theme out for Opera and keeps it for the other Chromium targets', () => {
-    const root = tmpDir('extjs-builtins-opera-')
+  it('leaves the built-in theme out for Opera and Yandex and keeps it for the other Chromium targets', () => {
+    const root = tmpDir('extjs-builtins-theme-refusal-')
     const userOut = path.join(root, 'dist', 'chromium')
     fs.mkdirSync(userOut, {recursive: true})
     fs.writeFileSync(
@@ -317,11 +315,13 @@ describe('companion extensions (load-only) are wired into BrowsersPlugin', () =>
       'utf-8'
     )
 
-    expect(
-      computeExtensionsToLoad(root, 'development', 'opera', userOut, [])
-    ).toEqual([devtools, userOut])
+    for (const browser of ['opera', 'yandex']) {
+      expect(
+        computeExtensionsToLoad(root, 'development', browser, userOut, [])
+      ).toEqual([devtools, userOut])
+    }
 
-    for (const browser of ['chromium', 'brave', 'vivaldi', 'yandex']) {
+    for (const browser of ['chromium', 'brave', 'vivaldi']) {
       expect(
         computeExtensionsToLoad(root, 'development', browser, userOut, [])
       ).toEqual([devtools, theme, userOut])
