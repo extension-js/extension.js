@@ -61,8 +61,12 @@ function resolveBuiltInExtensionForBrowser(input: {
 // Opera ships its own theming and refuses a theme-type extension handed to
 // --load-extension with a "Extension type is not supported" dialog, so the
 // first thing an Opera user saw from us was a load error for a cosmetic
-// companion. Every other Chromium target takes the theme.
-const THEME_REFUSING_BROWSERS: ReadonlySet<string> = new Set(['opera'])
+// companion. Yandex answers "Themes are not supported" over CDP, the only
+// route that loads anything there. Every other Chromium target takes the theme.
+const THEME_REFUSING_BROWSERS: ReadonlySet<string> = new Set([
+  'opera',
+  'yandex'
+])
 
 export function browserAcceptsThemeExtension(browser: string): boolean {
   return !THEME_REFUSING_BROWSERS.has(String(browser || '').toLowerCase())

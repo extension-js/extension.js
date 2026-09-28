@@ -6,6 +6,8 @@
 // ╚═════╝ ╚══════╝  ╚═══╝     ╚═╝    ╚═════╝  ╚═════╝ ╚══════╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import {decideRepoint} from './start-pages'
+
 export async function getDevExtensions() {
   try {
     if (!chrome.management.getAll) return []
@@ -84,8 +86,6 @@ export function createExtensionsPageTab(
   })
 }
 
-// A start tab can still be mid-redirect when it is repointed (Yandex hops
-// through its own sign-in ping, Edge to MSN), and the later hop wins.
 function repointTab(tabId: number, url: string) {
   let attempts = 0
   const onUpdated = (
@@ -93,9 +93,17 @@ function repointTab(tabId: number, url: string) {
     change: chrome.tabs.TabChangeInfo,
     tab: chrome.tabs.Tab
   ) => {
-    if (id !== tabId || change.status !== 'complete') return
-    if (String(tab.url || '').startsWith(url)) return
-    if (attempts >= 3) {
+    const decision = decideRepoint({
+      tabId,
+      updatedTabId: id,
+      status: change.status,
+      url: tab.url,
+      targetUrl: url,
+      attempts
+    })
+
+    if (decision === 'wait') return
+    if (decision === 'stop') {
       chrome.tabs.onUpdated.removeListener(onUpdated)
       return
     }

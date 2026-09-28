@@ -110,9 +110,7 @@ export async function setupCdpAfterLaunch(
 
   const cdpExtensionController = new CDPExtensionController({
     outPath: extensionOutputPath,
-    browser: (plugin.browser === 'chromium-based'
-      ? 'chrome'
-      : plugin.browser) as 'chrome' | 'edge' | 'chromium-based',
+    browser: plugin.browser,
     cdpPort: chromeRemoteDebugPort,
     profilePath: userDataDir || undefined,
     extensionPaths: selectedExtensionPaths,
