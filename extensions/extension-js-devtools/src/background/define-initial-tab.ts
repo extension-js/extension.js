@@ -84,6 +84,31 @@ export function createExtensionsPageTab(
   })
 }
 
+// A start tab can still be mid-redirect when it is repointed (Yandex hops
+// through its own sign-in ping, Edge to MSN), and the later hop wins.
+function repointTab(tabId: number, url: string) {
+  let attempts = 0
+  const onUpdated = (
+    id: number,
+    change: chrome.tabs.TabChangeInfo,
+    tab: chrome.tabs.Tab
+  ) => {
+    if (id !== tabId || change.status !== 'complete') return
+    if (String(tab.url || '').startsWith(url)) return
+    if (attempts >= 3) {
+      chrome.tabs.onUpdated.removeListener(onUpdated)
+      return
+    }
+
+    attempts += 1
+    chrome.tabs.update(tabId, {url})
+  }
+
+  chrome.tabs.onUpdated.addListener(onUpdated)
+  setTimeout(() => chrome.tabs.onUpdated.removeListener(onUpdated), 10000)
+  chrome.tabs.update(tabId, {url})
+}
+
 export async function handleFirstRun() {
   const browser = (import.meta as any).env?.EXTENSION_BROWSER
   const isFirefox = browser === 'firefox'
@@ -169,7 +194,7 @@ export async function handleFirstRun() {
         // in the background (avoid stealing focus on Edge).
         if (typeof originalActiveTabId === 'number') {
           try {
-            chrome.tabs.update(originalActiveTabId, {url: extensionsPage})
+            repointTab(originalActiveTabId, extensionsPage)
           } catch {
             console.error('Error updating original active tab')
           }

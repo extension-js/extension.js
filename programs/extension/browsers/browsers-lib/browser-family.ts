@@ -32,6 +32,12 @@ export const SYSTEM_LOCATED_CHROMIUM_FORKS: ReadonlySet<string> = new Set([
   'yandex'
 ])
 
+// Yandex ignores --load-extension and takes an unpacked extension only over
+// CDP, where it refuses a new tab override and a theme outright.
+export const CDP_ONLY_EXTENSION_LOAD_BROWSERS: ReadonlySet<string> = new Set([
+  'yandex'
+])
+
 export const FIREFOX_BROWSERS: ReadonlySet<string> = new Set([
   'firefox',
   'waterfox',
@@ -50,6 +56,12 @@ export function isSystemLocatedChromiumFork(
   browser: BrowserType | string
 ): boolean {
   return SYSTEM_LOCATED_CHROMIUM_FORKS.has(String(browser))
+}
+
+export function loadsExtensionsOverCdpOnly(
+  browser: BrowserType | string
+): boolean {
+  return CDP_ONLY_EXTENSION_LOAD_BROWSERS.has(String(browser))
 }
 
 export function isFirefoxBrowser(browser: BrowserType | string): boolean {

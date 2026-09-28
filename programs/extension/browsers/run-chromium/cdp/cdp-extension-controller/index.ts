@@ -270,6 +270,30 @@ export class CDPExtensionController {
     return this.loadRefusalReason
   }
 
+  // A browser that drops --load-extension never held the companions, so each
+  // one is handed over the way the guest was, and its verdict comes back.
+  async loadCompanions(
+    extensionPaths: string[]
+  ): Promise<Array<{path: string; outcome: LoadUnpackedOutcome}>> {
+    if (!this.cdp) return []
+
+    const results: Array<{path: string; outcome: LoadUnpackedOutcome}> = []
+
+    for (const extensionPath of extensionPaths) {
+      let outcome: LoadUnpackedOutcome
+
+      try {
+        outcome = await loadUnpacked(this.cdp, extensionPath)
+      } catch {
+        outcome = {status: 'unknown'}
+      }
+
+      results.push({path: extensionPath, outcome})
+    }
+
+    return results
+  }
+
   // Poll for any target served by this exact extension id. A hit is proof the
   // browser accepted the dist; nothing else in the target list can fake it.
   private async waitForExtensionTarget(

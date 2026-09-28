@@ -9,7 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {humanLine, isDebug} from '../../../helpers/messaging'
-import {stageCompanionForNoOpen} from '../../browsers-lib/companion-session'
+import {stageCompanionForSession} from '../../browsers-lib/companion-session'
 import * as messages from '../../browsers-lib/messages'
 import {resolveProfileConfig} from '../../browsers-lib/resolve-profile'
 import {
@@ -267,9 +267,10 @@ export function browserConfig(
 
   // --no-open must also silence the companion's first-run tabs, and the
   // companion only learns that from a flag file in a per-session copy.
-  const extensionsForLaunch = stageCompanionForNoOpen({
+  const extensionsForLaunch = stageCompanionForSession({
     extensionPaths: extensionsToLoad,
     noOpen: configOptions.noOpen,
+    browser: configOptions.browser,
     stageRoot: userProfilePath || undefined,
     provision
   })

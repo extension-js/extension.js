@@ -4,8 +4,9 @@ import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {
   COMPANION_SESSION_FLAGS_FILE,
+  companionPathsForCdpLoad,
   isDevtoolsCompanionPath,
-  stageCompanionForNoOpen,
+  stageCompanionForSession,
   stagedCompanionPath
 } from '../browsers-lib/companion-session'
 import {browserConfig} from '../run-chromium/chromium-launch/browser-config'
@@ -20,10 +21,18 @@ function writeCompanion(dir: string) {
   fs.mkdirSync(path.join(dir, 'background'), {recursive: true})
   fs.writeFileSync(
     path.join(dir, 'manifest.json'),
-    JSON.stringify({name: 'Extension.js', manifest_version: 3})
+    JSON.stringify({
+      name: 'Extension.js',
+      manifest_version: 3,
+      chrome_url_overrides: {newtab: 'newtab.html'}
+    })
   )
 
   fs.writeFileSync(path.join(dir, 'background', 'sw.js'), '// sw')
+}
+
+function readManifest(dir: string) {
+  return JSON.parse(fs.readFileSync(path.join(dir, 'manifest.json'), 'utf8'))
 }
 
 beforeEach(() => {
@@ -54,13 +63,14 @@ describe('isDevtoolsCompanionPath', () => {
   })
 })
 
-describe('stageCompanionForNoOpen', () => {
+describe('stageCompanionForSession', () => {
   it('leaves the list alone without --no-open', () => {
     const list = [companion, user]
     expect(
-      stageCompanionForNoOpen({
+      stageCompanionForSession({
         extensionPaths: list,
         noOpen: false,
+        browser: 'chromium',
         stageRoot: profile
       })
     ).toBe(list)
@@ -70,10 +80,68 @@ describe('stageCompanionForNoOpen', () => {
     )
   })
 
+  it('keeps the new tab override in the --no-open copy on a browser that honours it', () => {
+    const next = stageCompanionForSession({
+      extensionPaths: [companion, user],
+      noOpen: true,
+      browser: 'chromium',
+      stageRoot: profile
+    })
+
+    expect(readManifest(next[0]).chrome_url_overrides).toEqual({
+      newtab: 'newtab.html'
+    })
+  })
+
+  it('stages a copy without the new tab override for a browser that only loads over CDP', () => {
+    const next = stageCompanionForSession({
+      extensionPaths: [companion, user],
+      noOpen: false,
+      browser: 'yandex',
+      stageRoot: profile
+    })
+
+    const staged = stagedCompanionPath(profile, companion)
+    expect(next).toEqual([staged, user])
+    expect(readManifest(staged)).toEqual({
+      name: 'Extension.js',
+      manifest_version: 3
+    })
+
+    expect(
+      JSON.parse(
+        fs.readFileSync(path.join(staged, COMPANION_SESSION_FLAGS_FILE), 'utf8')
+      )
+    ).toEqual({noOpen: false})
+
+    expect(readManifest(companion).chrome_url_overrides).toEqual({
+      newtab: 'newtab.html'
+    })
+  })
+
+  it('writes the --no-open flag into the override-free copy too', () => {
+    const next = stageCompanionForSession({
+      extensionPaths: [companion, user],
+      noOpen: true,
+      browser: 'yandex',
+      stageRoot: profile
+    })
+
+    expect(readManifest(next[0]).chrome_url_overrides).toBeUndefined()
+    expect(
+      JSON.parse(
+        fs.readFileSync(
+          path.join(next[0], COMPANION_SESSION_FLAGS_FILE),
+          'utf8'
+        )
+      )
+    ).toEqual({noOpen: true})
+  })
+
   it('leaves the list alone when the session has no profile dir to own', () => {
     const list = [companion, user]
     expect(
-      stageCompanionForNoOpen({
+      stageCompanionForSession({
         extensionPaths: list,
         noOpen: true,
         stageRoot: ''
@@ -84,7 +152,7 @@ describe('stageCompanionForNoOpen', () => {
   it('leaves the list alone when no companion is loaded', () => {
     const list = [user]
     expect(
-      stageCompanionForNoOpen({
+      stageCompanionForSession({
         extensionPaths: list,
         noOpen: true,
         stageRoot: profile
@@ -94,7 +162,7 @@ describe('stageCompanionForNoOpen', () => {
 
   it('copies the companion into the profile with the flag file and swaps the path in place', () => {
     const theme = path.join(root, 'extension-js-theme', 'dist', 'chromium')
-    const next = stageCompanionForNoOpen({
+    const next = stageCompanionForSession({
       extensionPaths: [companion, theme, user],
       noOpen: true,
       stageRoot: profile
@@ -122,7 +190,7 @@ describe('stageCompanionForNoOpen', () => {
     fs.mkdirSync(staged, {recursive: true})
     fs.writeFileSync(path.join(staged, 'stale.js'), '// old')
 
-    stageCompanionForNoOpen({
+    stageCompanionForSession({
       extensionPaths: [companion, user],
       noOpen: true,
       stageRoot: profile
@@ -133,7 +201,7 @@ describe('stageCompanionForNoOpen', () => {
   })
 
   it('only computes the path when provisioning is off (dry run)', () => {
-    const next = stageCompanionForNoOpen({
+    const next = stageCompanionForSession({
       extensionPaths: [companion, user],
       noOpen: true,
       stageRoot: profile,
@@ -144,12 +212,12 @@ describe('stageCompanionForNoOpen', () => {
   })
 
   it('does not re-stage a list that already points at the staged copy', () => {
-    const staged = stageCompanionForNoOpen({
+    const staged = stageCompanionForSession({
       extensionPaths: [companion, user],
       noOpen: true,
       stageRoot: profile
     })
-    const again = stageCompanionForNoOpen({
+    const again = stageCompanionForSession({
       extensionPaths: staged,
       noOpen: true,
       stageRoot: profile
@@ -164,7 +232,7 @@ describe('stageCompanionForNoOpen', () => {
       user
     ]
     expect(
-      stageCompanionForNoOpen({
+      stageCompanionForSession({
         extensionPaths: list,
         noOpen: true,
         stageRoot: profile
@@ -173,7 +241,44 @@ describe('stageCompanionForNoOpen', () => {
   })
 })
 
+describe('companionPathsForCdpLoad', () => {
+  it('keeps the companions and drops the user dist and a theme', () => {
+    const theme = path.join(root, 'extension-js-theme', 'dist', 'chromium')
+    fs.mkdirSync(theme, {recursive: true})
+    fs.writeFileSync(
+      path.join(theme, 'manifest.json'),
+      JSON.stringify({name: 'Theme', theme: {colors: {}}})
+    )
+
+    expect(companionPathsForCdpLoad([companion, theme, user], user)).toEqual([
+      companion
+    ])
+  })
+
+  it('keeps a path whose manifest cannot be read', () => {
+    const unreadable = path.join(root, 'extension-js-other', 'dist', 'chromium')
+
+    expect(companionPathsForCdpLoad([unreadable, user], user)).toEqual([
+      unreadable
+    ])
+  })
+})
+
 describe('the launch configs load the staged companion under --no-open', () => {
+  it('chromium points --load-extension at the override-free copy for yandex', () => {
+    const args = browserConfig(
+      {
+        options: {mode: 'development', context: root, output: {path: user}}
+      } as any,
+      {extension: [companion, user], browser: 'yandex', profile} as any,
+      {provision: false}
+    )
+    const flag = args.find((a) => a.startsWith('--load-extension='))
+    expect(flag).toBe(
+      `--load-extension=${[stagedCompanionPath(profile, companion), user].join()}`
+    )
+  })
+
   it('chromium points --load-extension at the copy inside the profile', () => {
     const args = browserConfig(
       {
