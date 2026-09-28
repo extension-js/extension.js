@@ -20,7 +20,11 @@ import {
   printDevBannerOnce,
   printProdBannerOnce
 } from '../../browsers-lib/banner'
-import {isDevtoolsCompanionPath} from '../../browsers-lib/companion-session'
+import {loadsExtensionsOverCdpOnly} from '../../browsers-lib/browser-family'
+import {
+  companionPathsForCdpLoad,
+  isDevtoolsCompanionPath
+} from '../../browsers-lib/companion-session'
 import * as messages from '../../browsers-lib/messages'
 import {manifestDeclaresNewtabOverride} from '../../browsers-lib/newtab-override'
 import {stampReadyExtensionLoadRefused} from '../../browsers-lib/ready-stamp'
@@ -362,6 +366,28 @@ export async function setupCdpAfterLaunch(
     } catch {
       // best-effort only
     }
+  }
+
+  // The companions only reach a browser that ignores --load-extension over
+  // CDP, after the guest so the welcome page finds the extension it names.
+  try {
+    if (loadsExtensionsOverCdpOnly(plugin.browser)) {
+      const results = await cdpExtensionController.loadCompanions(
+        companionPathsForCdpLoad(extensionPaths, extensionOutputPath)
+      )
+
+      if (isDebug()) {
+        for (const {path: loadedPath, outcome} of results) {
+          humanLine(
+            `[CDP] companion ${loadedPath}: ${outcome.status}${
+              outcome.status === 'refused' ? ` (${outcome.reason})` : ''
+            }`
+          )
+        }
+      }
+    }
+  } catch {
+    // best-effort only, the guest is loaded and the session still works
   }
 
   // The launch tab predates extension registration, so it shows the default new

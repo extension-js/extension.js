@@ -14,13 +14,15 @@ function bgGreen(str: string) {
 }
 
 // Browsers whose startup tab is not a plain new tab page, by the url the
-// tabs API reports for it. Opera starts on Speed Dial and Edge on an MSN
-// page its newtab redirects to before this runs. Without these the first run
-// branch below never fires there, the newtab override never renders, and the
-// reader gets no sign the extension loaded.
+// tabs API reports for it. Opera starts on Speed Dial, Edge on an MSN page
+// its newtab redirects to before this runs, and Yandex on its own search
+// homepage. Without these the first run branch below never fires there, the
+// newtab override never renders, and the reader gets no sign the extension
+// loaded.
 const START_PAGES_WITHOUT_NEW_TAB = [
   /^chrome:\/\/startpage(?:shared)?\/?/,
-  /^https:\/\/(?:[a-z0-9-]+\.)*msn\.com\//i
+  /^https:\/\/(?:[a-z0-9-]+\.)*msn\.com\//i,
+  /^https:\/\/(?:[a-z0-9-]+\.)*(?:ya\.ru|yandex\.[a-z.]+)\//i
 ]
 
 export async function initManagerUI() {

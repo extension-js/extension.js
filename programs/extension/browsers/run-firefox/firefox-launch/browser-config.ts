@@ -9,7 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {humanLine, isDebug} from '../../../helpers/messaging'
-import {stageCompanionForNoOpen} from '../../browsers-lib/companion-session'
+import {stageCompanionForSession} from '../../browsers-lib/companion-session'
 import * as messages from '../../browsers-lib/messages'
 import {resolveProfileConfig} from '../../browsers-lib/resolve-profile'
 import {
@@ -241,7 +241,7 @@ export async function resolveFirefoxLaunchConfig(
 
   // Same reason as the Chromium side: the companion reads a flag file from a
   // per-session copy, and the profile dir is the one place only this run owns.
-  const extensionsToLoad = stageCompanionForNoOpen({
+  const extensionsToLoad = stageCompanionForSession({
     extensionPaths: configOptions.extension
       ? toExtensionLoadList(configOptions.extension)
       : [],

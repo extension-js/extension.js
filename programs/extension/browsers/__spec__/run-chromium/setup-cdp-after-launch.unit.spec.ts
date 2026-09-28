@@ -14,6 +14,7 @@ const getInfoBestEffortSpy = vi.fn(async () => ({
 }))
 const openTabSpy = vi.fn(async () => {})
 const ensureDeveloperModeSpy = vi.fn(async () => 'enabled' as const)
+const loadCompanionsSpy = vi.fn(async (_paths: string[]) => [])
 
 vi.mock('../../run-chromium/cdp/cdp-extension-controller', () => {
   class CDPExtensionController {
@@ -25,6 +26,7 @@ vi.mock('../../run-chromium/cdp/cdp-extension-controller', () => {
     getInfoBestEffort = getInfoBestEffortSpy
     openTab = openTabSpy
     ensureDeveloperMode = ensureDeveloperModeSpy
+    loadCompanions = loadCompanionsSpy
   }
 
   return {CDPExtensionController}
@@ -68,6 +70,7 @@ describe('setupCdpAfterLaunch', () => {
     getInfoBestEffortSpy.mockClear()
     openTabSpy.mockClear()
     ensureDeveloperModeSpy.mockClear()
+    loadCompanionsSpy.mockClear()
     vi.mocked(banner.printDevBannerOnce).mockClear()
     vi.mocked(banner.printProdBannerOnce).mockClear()
   })
@@ -230,6 +233,65 @@ describe('setupCdpAfterLaunch', () => {
     )
 
     expect(plugin.cdpController).toBeDefined()
+  })
+
+  it('hands the companions over CDP on a browser that ignores --load-extension', async () => {
+    const companionDir = makeExtensionDir({
+      manifest_version: 3,
+      name: 'Extension.js'
+    })
+    const themeDir = makeExtensionDir({
+      manifest_version: 3,
+      name: 'Extension.js Theme',
+      theme: {colors: {}}
+    })
+    const userDir = makeExtensionDir({manifest_version: 3, name: 'User'})
+    const chromiumArgs = [
+      `--load-extension=${[companionDir, themeDir, userDir].join()}`,
+      '--remote-debugging-port=9333',
+      '--user-data-dir=/tmp/extension-profile'
+    ]
+    const compilation: any = {
+      options: {mode: 'development', output: {path: userDir}}
+    }
+
+    await setupCdpAfterLaunch(
+      compilation,
+      {browser: 'yandex', port: 9333, instanceId: 'i'} as any,
+      chromiumArgs
+    )
+
+    expect(loadCompanionsSpy).toHaveBeenCalledTimes(1)
+    expect(loadCompanionsSpy).toHaveBeenCalledWith([companionDir])
+    expect(ensureLoadedSpy.mock.invocationCallOrder[0]).toBeLessThan(
+      loadCompanionsSpy.mock.invocationCallOrder[0]
+    )
+  })
+
+  it('leaves the companions to --load-extension on a browser that honours it', async () => {
+    const companionDir = makeExtensionDir({
+      manifest_version: 3,
+      name: 'Extension.js'
+    })
+    const userDir = makeExtensionDir({manifest_version: 3, name: 'User'})
+    const chromiumArgs = [
+      `--load-extension=${[companionDir, userDir].join()}`,
+      '--remote-debugging-port=9333',
+      '--user-data-dir=/tmp/extension-profile'
+    ]
+    const compilation: any = {
+      options: {mode: 'development', output: {path: userDir}}
+    }
+
+    for (const browser of ['chromium', 'chrome', 'edge', 'opera']) {
+      await setupCdpAfterLaunch(
+        compilation,
+        {browser, port: 9333, instanceId: 'i'} as any,
+        chromiumArgs
+      )
+    }
+
+    expect(loadCompanionsSpy).not.toHaveBeenCalled()
   })
 
   it('opens a fresh new tab when the manifest overrides the new tab (#50)', async () => {
