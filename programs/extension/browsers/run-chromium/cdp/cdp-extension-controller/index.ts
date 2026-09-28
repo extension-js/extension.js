@@ -41,13 +41,11 @@ interface ExtensionInfoResult {
   version?: string
 }
 
-// The bundled devtools companion pins its Chromium id through the manifest
-// key, so its welcome page can be told apart from a user extension's.
-const DEVTOOLS_COMPANION_ID_CHROMIUM = 'kgdaecdpfkikjncaalnmmnjjfpofkcbl'
-
-// The page a Chrome user sees first; the replacement for a fork's own
-// onboarding tab when the session is allowed to open tabs.
-export const DEVTOOLS_COMPANION_WELCOME_URL = `chrome-extension://${DEVTOOLS_COMPANION_ID_CHROMIUM}/pages/welcome.html`
+// The companion's id comes from its manifest key where the build keeps one
+// and from the path the browser hashes where it does not (Edge drops the key).
+export function devtoolsCompanionWelcomeUrl(companionPath: string): string {
+  return `chrome-extension://${expectedChromiumExtensionId(companionPath)}/pages/welcome.html`
+}
 
 // A fork's onboarding surfaces, by the url the browser opens them on. Vivaldi
 // serves its UI from an extension with a fixed id, so its wizard is a
@@ -81,6 +79,7 @@ export class CDPExtensionController {
   private readonly cdpPort: number
   private readonly profilePath?: string
   private readonly extensionPaths?: string[]
+  private readonly companionPath?: string
   private readonly pipeIn?: Readable
   private readonly pipeOut?: Writable
   private readonly logSink?: BrowserLogSink
@@ -94,6 +93,7 @@ export class CDPExtensionController {
     cdpPort: number
     profilePath?: string
     extensionPaths?: string[]
+    companionPath?: string
     pipeIn?: Readable
     pipeOut?: Writable
     logSink?: BrowserLogSink
@@ -102,6 +102,7 @@ export class CDPExtensionController {
     this.cdpPort = args.cdpPort
     this.profilePath = args.profilePath
     this.extensionPaths = args.extensionPaths
+    this.companionPath = args.companionPath
     this.pipeIn = args.pipeIn
     this.pipeOut = args.pipeOut
     this.logSink = args.logSink
@@ -183,7 +184,11 @@ export class CDPExtensionController {
 
     // Only the extensions this session loads for itself count: a user
     // extension that opens its own pages/welcome.html must keep that tab.
-    const selfIds = new Set<string>([DEVTOOLS_COMPANION_ID_CHROMIUM])
+    const selfIds = new Set<string>()
+
+    if (this.companionPath) {
+      selfIds.add(expectedChromiumExtensionId(this.companionPath))
+    }
 
     for (const extensionPath of this.extensionPaths || []) {
       if (path.resolve(extensionPath) === path.resolve(this.outPath)) continue

@@ -20,6 +20,7 @@ import {
   printDevBannerOnce,
   printProdBannerOnce
 } from '../../browsers-lib/banner'
+import {isDevtoolsCompanionPath} from '../../browsers-lib/companion-session'
 import * as messages from '../../browsers-lib/messages'
 import {manifestDeclaresNewtabOverride} from '../../browsers-lib/newtab-override'
 import {stampReadyExtensionLoadRefused} from '../../browsers-lib/ready-stamp'
@@ -28,7 +29,7 @@ import {writeJsonAtomic} from '../../browsers-lib/write-json-atomic'
 import type {CompilationLike} from '../../browsers-types'
 import {
   CDPExtensionController,
-  DEVTOOLS_COMPANION_WELCOME_URL
+  devtoolsCompanionWelcomeUrl
 } from '../cdp/cdp-extension-controller'
 import {
   developerModeFlipIsSafe,
@@ -62,6 +63,7 @@ export async function setupCdpAfterLaunch(
     extensionOutputPath && extensionOutputPath.length > 0
       ? [extensionOutputPath]
       : extensionPaths
+  const companionPath = extensionPaths.find(isDevtoolsCompanionPath)
 
   const remoteDebugPortFlag = chromiumArgs.find((flag: string) =>
     flag.startsWith('--remote-debugging-port=')
@@ -110,6 +112,7 @@ export async function setupCdpAfterLaunch(
     cdpPort: chromeRemoteDebugPort,
     profilePath: userDataDir || undefined,
     extensionPaths: selectedExtensionPaths,
+    companionPath,
     pipeIn: pipeStreams?.input,
     pipeOut: pipeStreams?.output,
     logSink: plugin.logSink
@@ -378,12 +381,14 @@ export async function setupCdpAfterLaunch(
 
   // A fork's own onboarding tab (Vivaldi's signup wizard) is repointed at the
   // companion welcome page, or at a blank page when the user asked for no
-  // tab, before the --no-open sweep below runs.
+  // tab or no companion is loaded, before the --no-open sweep below runs.
   try {
     if (extensionControllerInfo) {
       await cdpExtensionController.replaceForkFirstRunTabs(
         plugin.browser,
-        plugin.noOpen ? 'about:blank' : DEVTOOLS_COMPANION_WELCOME_URL
+        plugin.noOpen || !companionPath
+          ? 'about:blank'
+          : devtoolsCompanionWelcomeUrl(companionPath)
       )
     }
   } catch {
