@@ -1,11 +1,19 @@
-import {describe, expect, it} from 'vitest'
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
+import {afterAll, beforeAll, describe, expect, it} from 'vitest'
+import {expectedChromiumExtensionId} from '../browsers-lib/banner'
 import {
   CDPExtensionController,
-  DEVTOOLS_COMPANION_WELCOME_URL
+  devtoolsCompanionWelcomeUrl
 } from '../run-chromium/cdp/cdp-extension-controller'
 
 const VIVALDI_WIZARD =
   'chrome-extension://mpognobbkildjkofajifpdfhcoklimli/components/welcome/welcome.html'
+const PINNED_ID = 'kgdaecdpfkikjncaalnmmnjjfpofkcbl'
+
+let root: string
+let keylessCompanion: string
 
 function controllerWithTargets(targets: unknown[]) {
   const calls: Array<{method: string; params: any; sessionId?: string}> = []
@@ -19,8 +27,9 @@ function controllerWithTargets(targets: unknown[]) {
     sendCommand: async (method: string, params: any, sessionId?: string) => {
       calls.push({method, params, sessionId})
 
-      if (method === 'Target.attachToTarget')
-        {return {sessionId: `s-${params.targetId}`}}
+      if (method === 'Target.attachToTarget') {
+        return {sessionId: `s-${params.targetId}`}
+      }
 
       return {}
     }
@@ -29,8 +38,35 @@ function controllerWithTargets(targets: unknown[]) {
   return {controller, calls}
 }
 
+beforeAll(() => {
+  root = fs.mkdtempSync(path.join(os.tmpdir(), 'fork-first-run-tabs-'))
+  keylessCompanion = path.join(root, 'extension-js-devtools', 'dist', 'edge')
+  fs.mkdirSync(keylessCompanion, {recursive: true})
+  fs.writeFileSync(
+    path.join(keylessCompanion, 'manifest.json'),
+    JSON.stringify({manifest_version: 3, name: 'Extension.js', version: '1.0'})
+  )
+})
+
+afterAll(() => {
+  fs.rmSync(root, {recursive: true, force: true})
+})
+
+describe('the companion welcome url', () => {
+  it('carries the id the browser hashes from the path when the manifest has no key', () => {
+    const hashedId = expectedChromiumExtensionId(keylessCompanion)
+
+    expect(hashedId).toMatch(/^[a-p]{32}$/)
+    expect(hashedId).not.toBe(PINNED_ID)
+    expect(devtoolsCompanionWelcomeUrl(keylessCompanion)).toBe(
+      `chrome-extension://${hashedId}/pages/welcome.html`
+    )
+  })
+})
+
 describe("a fork's own onboarding tab on a fresh profile", () => {
   it('repoints the Vivaldi wizard at the companion welcome page, never closing it', async () => {
+    const welcomeUrl = devtoolsCompanionWelcomeUrl(keylessCompanion)
     const {controller, calls} = controllerWithTargets([
       {targetId: 'wizard', type: 'page', url: VIVALDI_WIZARD},
       {targetId: 'ext', type: 'page', url: 'chrome://extensions/'},
@@ -38,10 +74,7 @@ describe("a fork's own onboarding tab on a fresh profile", () => {
     ])
 
     await expect(
-      controller.replaceForkFirstRunTabs(
-        'vivaldi',
-        DEVTOOLS_COMPANION_WELCOME_URL
-      )
+      controller.replaceForkFirstRunTabs('vivaldi', welcomeUrl)
     ).resolves.toBe(1)
 
     expect(calls.map((c) => c.method)).toEqual([
@@ -52,7 +85,7 @@ describe("a fork's own onboarding tab on a fresh profile", () => {
     expect(calls[0].params).toEqual({targetId: 'wizard', flatten: true})
     expect(calls[1]).toEqual({
       method: 'Page.navigate',
-      params: {url: DEVTOOLS_COMPANION_WELCOME_URL},
+      params: {url: welcomeUrl},
       sessionId: 's-wizard'
     })
 
@@ -67,7 +100,7 @@ describe("a fork's own onboarding tab on a fresh profile", () => {
     await expect(
       controller.replaceForkFirstRunTabs(
         'chrome',
-        DEVTOOLS_COMPANION_WELCOME_URL
+        devtoolsCompanionWelcomeUrl(keylessCompanion)
       )
     ).resolves.toBe(0)
 
