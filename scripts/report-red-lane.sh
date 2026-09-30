@@ -19,7 +19,7 @@ Reproduce locally:
 
 \`\`\`
 ${RED_LANE_REPRO:-bash scripts/hydrate-templates-from-examples.sh
-pnpm run test:e2e --project=chromium}
+pnpm run test:e2e}
 \`\`\`"
 
 EXISTING="$(gh issue list --state open --search "\"$TITLE\" in:title" --json number,title \
