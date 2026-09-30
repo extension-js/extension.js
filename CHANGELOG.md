@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+## 4.1.30 (September 30, 2026)
+
+<details>
+<summary>Other changes (15)</summary>
+
+- Build the Firefox templates after the Chromium e2e project (#661) ([0d5a42fa](https://github.com/extension-js/extension.js/commit/0d5a42fa3872ab6a63c9c60be17c41e3c2db1674))
+- Build the Firefox templates before the nightly e2e Firefox specs (#659) ([1bc33c44](https://github.com/extension-js/extension.js/commit/1bc33c445228485ad0ed1ea9a2950834f2c053f5))
+- Trim the Yandex launch path and spec the companion start pages (#653) ([8143b84d](https://github.com/extension-js/extension.js/commit/8143b84d990a50225a94ea6532acfa1e32c423e1))
+- Show the welcome page on Yandex by loading the companion over CDP (#652) ([ee6be5e3](https://github.com/extension-js/extension.js/commit/ee6be5e395ba2d10cf19fea84035887633d7bc48))
+- Derive the companion id from its load path on every Chromium (#651) ([d9372ba9](https://github.com/extension-js/extension.js/commit/d9372ba99b540df6c801d516e797e0d1f73ac63b))
+- Show the welcome page on browsers that start on their own page (#649) ([51503de7](https://github.com/extension-js/extension.js/commit/51503de77ca4335a91d644d47048bade6bdd0bd1))
+- Let the new tab footer surface pass the browser identity check (#647) ([5c720100](https://github.com/extension-js/extension.js/commit/5c7201002248a48a7ef3b776f2af5390e07384b5))
+- Name a closed surface on Chromium and let reload resolve its tab (#646) ([91081978](https://github.com/extension-js/extension.js/commit/9108197827d5984c2acb208ce5a208a32ca96a65))
+- Name the browser exit when act verbs find no service worker (#645) ([93109099](https://github.com/extension-js/extension.js/commit/93109099567ff239d07c19259056c556a5c4a9b4))
+- Name a missing tab and a refused url on every act verb (#644) ([22c85af2](https://github.com/extension-js/extension.js/commit/22c85af2255992504eadc820d50d4f6579ab789f))
+- Name the rule when Firefox refuses a url from the navigate verb (#643) ([3caa57eb](https://github.com/extension-js/extension.js/commit/3caa57eb74a5677be6989996a35835e97870a9de))
+- Settle a promise before a surface replies to an eval (#642) ([0aea1b6a](https://github.com/extension-js/extension.js/commit/0aea1b6a2f7726ed46c723d04566a1a3c85c5938))
+- Keep a fork's own onboarding off the extension and out of Opera (#641) ([81b428aa](https://github.com/extension-js/extension.js/commit/81b428aa0f1c10ed0f950370cb496cdd547b572f))
+- Repin the template catalog as part of every release cut (#640) ([056bf123](https://github.com/extension-js/extension.js/commit/056bf123b1761003cfcf07221904ab159f258181))
+- Repin the template catalog to the 4.1.29 corpus (#639) ([db02b123](https://github.com/extension-js/extension.js/commit/db02b1237f06927b54f6db8edf21353b6dad64f5))
+</details>
+
 ## 4.1.29 (September 25, 2026)
 
 ### Features
