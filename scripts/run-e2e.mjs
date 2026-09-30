@@ -10,6 +10,7 @@ import {spawnSync} from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import {fileURLToPath} from 'node:url'
+import {prebuildFirefoxTemplates} from './prebuild-firefox-templates.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const templatesDir = path.join(root, 'templates')
@@ -42,6 +43,31 @@ const version = spawnSync(process.execPath, [cli, '--version'], {
 if (version.status !== 0) {
   console.error('The compiled CLI does not answer. Run: pnpm compile')
   process.exit(1)
+}
+
+// The Firefox specs sweep dist/firefox of every content and new tab template
+// and fail on any that is missing. Nothing else in the run builds those, so a
+// run that includes the firefox project builds them here first.
+const projects = process.argv
+  .slice(2)
+  .flatMap((arg, index, args) => {
+    if (arg === '--project') return [args[index + 1]]
+    if (arg.startsWith('--project=')) return [arg.slice('--project='.length)]
+
+    return []
+  })
+  .filter(Boolean)
+
+if (projects.length === 0 || projects.includes('firefox')) {
+  const {failed} = prebuildFirefoxTemplates()
+
+  if (failed.length > 0) {
+    console.error(
+      `Firefox builds failed for ${failed.join(', ')}. Fix the build before running the Firefox specs.`
+    )
+
+    process.exit(1)
+  }
 }
 
 const run = spawnSync(

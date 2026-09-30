@@ -130,5 +130,8 @@ extensions/monorepo/
 # Hydrated from extension-js/examples by scripts/hydrate-templates-from-examples.sh
 templates/
 
+# Published production dists the hydrated spec fixtures write at the repo root
+.prod-dist/
+
 # Telemetry home the template builds point the CLI at
 .xdg-config/

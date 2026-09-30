@@ -47,6 +47,7 @@ export default [
       'extensions/',
       'templates/',
       'templates-artifacts/',
+      '.prod-dist/',
       '**/dist/',
       '**/.rslib/',
       '**/build/',
