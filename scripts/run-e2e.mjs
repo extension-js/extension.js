@@ -45,37 +45,98 @@ if (version.status !== 0) {
   process.exit(1)
 }
 
-// The Firefox specs sweep dist/firefox of every content and new tab template
-// and fail on any that is missing. Nothing else in the run builds those, so a
-// run that includes the firefox project builds them here first.
-const projects = process.argv
-  .slice(2)
-  .flatMap((arg, index, args) => {
-    if (arg === '--project') return [args[index + 1]]
-    if (arg.startsWith('--project=')) return [arg.slice('--project='.length)]
+const args = process.argv.slice(2)
+const projects = []
+const passthrough = []
 
-    return []
-  })
-  .filter(Boolean)
+for (let index = 0; index < args.length; index++) {
+  const arg = args[index]
 
-if (projects.length === 0 || projects.includes('firefox')) {
-  const {failed} = prebuildFirefoxTemplates()
-
-  if (failed.length > 0) {
-    console.error(
-      `Firefox builds failed for ${failed.join(', ')}. Fix the build before running the Firefox specs.`
-    )
-
-    process.exit(1)
+  if (arg === '--project') {
+    projects.push(args[++index])
+    continue
   }
+
+  if (arg.startsWith('--project=')) {
+    projects.push(arg.slice('--project='.length))
+    continue
+  }
+
+  passthrough.push(arg)
 }
 
-const run = spawnSync(
-  'pnpm',
-  ['exec', 'playwright', 'test', ...process.argv.slice(2)],
-  {cwd: root, stdio: 'inherit', env, shell: process.platform === 'win32'}
+const wantsChromium = projects.length === 0 || projects.includes('chromium')
+const wantsFirefox = projects.length === 0 || projects.includes('firefox')
+
+// A grep or a spec path can leave one of the two runs below with no test at
+// all, which Playwright reports as a failure. Only a filtered run gets to pass
+// on an empty project, an unfiltered one still fails when nothing was found.
+const filtered = passthrough.some(
+  (arg) =>
+    /^(-g|--grep|--grep-invert)(=|$)/.test(arg) ||
+    /\.(spec|test)\.[cm]?[jt]s$/.test(arg) ||
+    arg.includes('/')
 )
 
-if (run.error) console.error(run.error.message)
+if (filtered && wantsChromium && wantsFirefox) {
+  passthrough.push('--pass-with-no-tests')
+}
 
-process.exit(run.status ?? 1)
+function playwright(project, extraEnv = {}) {
+  const run = spawnSync(
+    'pnpm',
+    ['exec', 'playwright', 'test', `--project=${project}`, ...passthrough],
+    {
+      cwd: root,
+      stdio: 'inherit',
+      env: {...env, ...extraEnv},
+      shell: process.platform === 'win32'
+    }
+  )
+
+  if (run.error) console.error(run.error.message)
+
+  return run.status ?? 1
+}
+
+// The Firefox specs read dist/firefox of every content and new tab template
+// when the worker loads them and fail on any that is missing. Building before
+// the whole run is not enough: the chromium dev spec wipes dist/firefox on
+// every template it visits. So chromium runs first, then the Firefox builds,
+// then the firefox project.
+function prebuildFirefox() {
+  const {failed} = prebuildFirefoxTemplates()
+
+  if (failed.length === 0) return 0
+
+  console.error(
+    `Firefox builds failed for ${failed.join(', ')}. Fix the build before running the Firefox specs.`
+  )
+
+  return 1
+}
+
+let status = 0
+
+if (wantsChromium && wantsFirefox) {
+  // Two runs, so each browser keeps its own html report under e2e-report/.
+  const chromiumStatus = playwright('chromium', {
+    PLAYWRIGHT_HTML_OUTPUT_DIR: path.join(root, 'e2e-report', 'chromium')
+  })
+
+  const firefoxStatus =
+    prebuildFirefox() ||
+    playwright('firefox', {
+      PLAYWRIGHT_HTML_OUTPUT_DIR: path.join(root, 'e2e-report', 'firefox')
+    })
+
+  status = chromiumStatus || firefoxStatus
+} else if (wantsFirefox) {
+  status = prebuildFirefox() || playwright('firefox')
+} else if (wantsChromium) {
+  status = playwright('chromium')
+} else {
+  status = playwright(projects[0])
+}
+
+process.exit(status)
