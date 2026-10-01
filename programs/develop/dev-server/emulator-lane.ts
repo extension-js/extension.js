@@ -13,6 +13,8 @@ export const EMULATOR_FILES_PATH = '/__extjs-emulator/files.json'
 export const EMULATOR_FILES_VERSION = 1 as const
 export const EMULATOR_WIRE_VERSION = '1'
 export const DEFAULT_EMULATOR_ORIGIN = 'https://browsers.extension.land'
+export const EMULATOR_FILES_WAIT_MS = 10_000
+export const EMULATOR_FILES_MAX_WAITERS = 64
 
 export interface EmulatorFileEntry {
   path: string
@@ -189,16 +191,46 @@ export function resolveLivereloadPath(webSocketServer: unknown): string | null {
 export interface EmulatorFileIndexHolder {
   publish(assets: Iterable<EmulatorAssetLike>): EmulatorFileIndex
   reset(): void
+  noteCompileFailure(errors: readonly unknown[] | undefined): void
   setLivereloadPath(socketPath: string | null): void
   current(): Promise<EmulatorFileIndex>
 }
 
+export function emulatorFilesUnavailable(failure: string | null): string {
+  return failure
+    ? `No file index yet, the last compilation failed: ${failure}`
+    : 'No file index yet, no compilation has succeeded.'
+}
+
+function firstCompileError(
+  errors: readonly unknown[] | undefined
+): string | null {
+  for (const error of errors || []) {
+    const message = (error as {message?: unknown} | null)?.message
+    const text = String(message ?? error ?? '').trim()
+
+    if (text) return text.split('\n')[0]
+  }
+
+  return null
+}
+
+interface IndexWaiter {
+  resolve(index: EmulatorFileIndex): void
+  reject(error: Error): void
+  timer: NodeJS.Timeout
+}
+
 export function createEmulatorFileIndexHolder(
-  instanceId: string
+  instanceId: string,
+  options: {waitMs?: number; maxWaiters?: number} = {}
 ): EmulatorFileIndexHolder {
+  const waitMs = options.waitMs ?? EMULATOR_FILES_WAIT_MS
+  const maxWaiters = options.maxWaiters ?? EMULATOR_FILES_MAX_WAITERS
   let latest: EmulatorFileIndex | null = null
   let livereloadPath: string | null = null
-  let waiters: Array<(index: EmulatorFileIndex) => void> = []
+  let failure: string | null = null
+  let waiters: IndexWaiter[] = []
 
   const withLivereload = (index: EmulatorFileIndex): EmulatorFileIndex =>
     livereloadPath
@@ -211,18 +243,35 @@ export function createEmulatorFileIndexHolder(
         }
       : index
 
+  const settle = (answer: (waiter: IndexWaiter) => void) => {
+    const pending = waiters
+    waiters = []
+
+    for (const waiter of pending) {
+      clearTimeout(waiter.timer)
+      answer(waiter)
+    }
+  }
+
   return {
     publish(assets) {
       latest = buildEmulatorFileIndex(assets, instanceId)
-      const ready = waiters
-      waiters = []
+      failure = null
+      const index = withLivereload(latest)
+      settle((waiter) => waiter.resolve(index))
 
-      for (const resolve of ready) resolve(withLivereload(latest))
-
-      return withLivereload(latest)
+      return index
     },
     reset() {
       latest = null
+      // A restart drops the index, so a request parked on the old compilation
+      // would wait for a publish that is never coming.
+      settle((waiter) =>
+        waiter.reject(new Error(emulatorFilesUnavailable(failure)))
+      )
+    },
+    noteCompileFailure(errors) {
+      failure = firstCompileError(errors)
     },
     setLivereloadPath(socketPath) {
       livereloadPath = socketPath
@@ -230,8 +279,18 @@ export function createEmulatorFileIndexHolder(
     current() {
       if (latest) return Promise.resolve(withLivereload(latest))
 
-      return new Promise((resolve) => {
-        waiters.push(resolve)
+      if (waiters.length >= maxWaiters) {
+        return Promise.reject(new Error(emulatorFilesUnavailable(failure)))
+      }
+
+      return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+          waiters = waiters.filter((waiter) => waiter.timer !== timer)
+          reject(new Error(emulatorFilesUnavailable(failure)))
+        }, waitMs)
+        timer.unref()
+
+        waiters.push({resolve, reject, timer})
       })
     }
   }
@@ -263,7 +322,13 @@ export function attachEmulatorFileIndex(
   holder.reset()
 
   done.tap({name: 'extjs-emulator-files', stage: -100}, (stats) => {
-    if (stats.compilation.errors?.length) return
+    const errors = stats.compilation.errors
+
+    if (errors?.length) {
+      holder.noteCompileFailure(errors)
+
+      return
+    }
 
     holder.publish(stats.compilation.getAssets())
   })
@@ -271,7 +336,8 @@ export function attachEmulatorFileIndex(
 
 export function createEmulatorFilesMiddlewareEntry(
   holder: EmulatorFileIndexHolder,
-  devServer: unknown
+  devServer: unknown,
+  viewerOrigin: string | null = resolveEmulatorOrigin()
 ) {
   const options = (devServer as {options?: {webSocketServer?: unknown}})
     ?.options
@@ -281,21 +347,33 @@ export function createEmulatorFilesMiddlewareEntry(
   return {
     name: 'extjs-emulator-files',
     path: EMULATOR_FILES_PATH,
-    middleware: createEmulatorFilesMiddleware(holder)
+    middleware: createEmulatorFilesMiddleware(holder, viewerOrigin)
   }
 }
 
-export function createEmulatorFilesMiddleware(holder: EmulatorFileIndexHolder) {
+export function createEmulatorFilesMiddleware(
+  holder: EmulatorFileIndexHolder,
+  viewerOrigin: string | null = resolveEmulatorOrigin()
+) {
   return async (
     req: IncomingMessage,
     res: ServerResponse,
     next: (err?: unknown) => void
   ) => {
     const method = String(req.method || 'GET').toUpperCase()
+    // Only the viewer may read the index: a star handed the file list, and
+    // with it every bundle path, to any page the developer had open.
+    const allowedOrigin = isSameWebOrigin(req.headers.origin, viewerOrigin)
+      ? normalizeWebOrigin(req.headers.origin)
+      : null
 
-    res.setHeader('Access-Control-Allow-Origin', '*')
-    res.setHeader('Access-Control-Allow-Private-Network', 'true')
+    res.setHeader('Vary', 'Origin')
     res.setHeader('Cache-Control', 'no-store')
+
+    if (allowedOrigin) {
+      res.setHeader('Access-Control-Allow-Origin', allowedOrigin)
+      res.setHeader('Access-Control-Allow-Private-Network', 'true')
+    }
 
     if (method === 'OPTIONS') {
       res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
@@ -319,7 +397,14 @@ export function createEmulatorFilesMiddleware(holder: EmulatorFileIndexHolder) {
       res.setHeader('Content-Length', Buffer.byteLength(body))
       res.end(method === 'HEAD' ? undefined : body)
     } catch (error) {
-      next(error)
+      const body = JSON.stringify({
+        error: error instanceof Error ? error.message : String(error)
+      })
+      res.statusCode = 503
+      res.setHeader('Content-Type', 'application/json; charset=utf-8')
+      res.setHeader('Content-Length', Buffer.byteLength(body))
+      res.setHeader('Retry-After', '1')
+      res.end(method === 'HEAD' ? undefined : body)
     }
   }
 }

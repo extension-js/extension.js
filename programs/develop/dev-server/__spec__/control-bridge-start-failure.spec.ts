@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import type {PortManager} from '../port-manager'
 
 // The repro: the persisted port is taken AND the ephemeral fallback cannot
 // bind either, so the session comes up with no control port at all.
@@ -79,10 +80,13 @@ vi.mock('../port-manager', () => ({
   PortManager: class MockPortManager {
     allocatePorts = vi.fn(async () => ({port: 8080}))
     getCurrentInstance = vi.fn(() => ({instanceId: 'instance-1'}))
+    releaseReservedPort = vi.fn(async () => {})
+    terminateCurrentInstance = vi.fn(async () => {})
   }
 }))
 
 import {devServer} from '../index'
+import {PortManager as PortManagerMock} from '../port-manager'
 
 describe('dev-server control-bridge startup failure', () => {
   let projectRoot: string
@@ -130,5 +134,21 @@ describe('dev-server control-bridge startup failure', () => {
     expect(output).toContain("couldn't open the control port")
     expect(output).toContain('listen EADDRNOTAVAIL 10.0.0.9:0')
     expect(output).toContain('nothing reloads in the browser')
+  })
+
+  // Specs are excluded from tsc, so a mock that falls behind the real class is
+  // only caught here. Dropping one method cost a whole CI run to diagnose.
+  it('mocks every method the real port manager exposes', async () => {
+    const actual =
+      await vi.importActual<typeof import('../port-manager')>('../port-manager')
+    const real = Object.getOwnPropertyNames(
+      actual.PortManager.prototype
+    ).filter((name) => name !== 'constructor')
+    const mocked = Object.getOwnPropertyNames(
+      new (PortManagerMock as unknown as new () => PortManager)()
+    )
+
+    expect(real.length).toBeGreaterThan(0)
+    expect(real.filter((name) => !mocked.includes(name))).toEqual([])
   })
 })
