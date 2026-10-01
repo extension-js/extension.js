@@ -116,11 +116,11 @@ The run that turns telemetry off reports nothing about itself. `extension teleme
 silences the running process at the moment it records your choice, so the act of opting out is
 never the last thing collected from you.
 
-The consent file lives at `$XDG_CONFIG_HOME/extensionjs/telemetry/consent` (or the platform equivalent) and is the only piece of telemetry state persisted on disk besides the anonymous install id and a local audit log of events actually sent.
+The consent file lives at `$XDG_CONFIG_HOME/extensionjs/telemetry/consent` (or the platform equivalent). The only other telemetry state persisted on disk is the anonymous install id, a `notice-shown` marker recording that the first-run notice was printed, and a local audit log of events actually sent.
 
 ## Default behavior
 
-Telemetry is **opt-out**. On the first run where none of the overrides above apply, the CLI prints a one-line notice explaining how to disable it and records an `enabled` consent marker so the notice does not repeat.
+Telemetry is **opt-out**. On the first run where none of the overrides above apply, the CLI prints a one-line notice explaining how to disable it, records an `enabled` consent marker and records that the notice was shown, so the notice prints once per machine.
 
 **Unattended CI is off by default.** When a CI marker (`CI`, `GITHUB_ACTIONS`, `GITLAB_CI`, `BUILDKITE`, `CIRCLECI`, `TRAVIS`) is set **and stdout is not a terminal**, telemetry does not report, because the first-run notice cannot be shown to anyone and a pipeline cannot agree to be measured. A devcontainer, Codespace or agent sandbox sets a CI marker too, but there is a person at a terminal, so those keep reporting and can opt out the normal ways. To turn it on for a pipeline, set `EXTENSION_TELEMETRY=1`.
 

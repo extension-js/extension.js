@@ -11,6 +11,7 @@ import {readBrowserInstall} from './browser-install-outcome'
 import {getCliPackageJson} from './cli-package-json'
 import {CODES} from './messaging'
 import {
+  claimFirstRunNotice,
   resolveTelemetryConsent,
   resolveTelemetryStorage,
   Telemetry,
@@ -309,12 +310,9 @@ export function markCommandFailure(
 function printOptOutNoticeIfFirstRun(): void {
   if (!consent.enabled || consent.source !== 'default') return
 
-  const storage = resolveTelemetryStorage()
-  if (!storage) return
-
-  // Persist 'enabled' so the notice prints only once per machine.
-  const written = writeConsent('enabled')
-  if (!written) return
+  // Records the notice and persists 'enabled', so this prints once per machine
+  // even where a stored 'enabled' cannot be honored.
+  if (!claimFirstRunNotice()) return
 
   // Notices go to stderr: stdout carries command results, and a machine
   // reading `--output json` must not have to strip a first-run banner.
@@ -343,11 +341,12 @@ if (consent.enabled) {
     await telemetry.flush()
   })
 
-  process.on('uncaughtException', () => {
+  // A listener on 'uncaughtException' or 'unhandledRejection' suppresses the
+  // default death, while the monitor form sees both and suppresses nothing.
+  process.on('uncaughtExceptionMonitor', () => {
     markCommandFailure()
-  })
-
-  process.on('unhandledRejection', () => {
-    markCommandFailure()
+    // Started, never awaited: the default death follows this handler, and the
+    // local audit row `track` writes is already on disk.
+    void telemetry.flush()
   })
 }
