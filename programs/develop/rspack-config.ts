@@ -89,7 +89,8 @@ export default function webpackConfig(
   const companionUnpackedExtensionDirs = resolveCompanionExtensionDirs({
     projectRoot: packageJsonDir,
     config: devOptions.extensions,
-    browser: devOptions.browser
+    browser: devOptions.browser,
+    manifestPath
   })
 
   const unpackedExtensionDirsToLoad = computeExtensionsToLoad(

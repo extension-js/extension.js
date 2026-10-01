@@ -12,6 +12,7 @@ import type {DevOptions, FilepathList, PluginInterface} from '../../types'
 import * as messages from './messages'
 import {AddDependencies} from './steps/add-dependencies'
 import {ApplyDevDefaults} from './steps/apply-dev-defaults'
+import {WarnUndeclaredPermissions} from './steps/warn-undeclared-permissions'
 import {EmitManifest} from './steps/emit-manifest'
 import {ManifestLegacyWarnings} from './steps/legacy-warnings'
 import {PatchWAR} from './steps/patch-war'
@@ -65,6 +66,12 @@ export class ManifestPlugin {
     }).apply(compiler)
 
     new ApplyDevDefaults({
+      manifestPath: this.manifestPath,
+      browser: this.browser,
+      devSession: this.devSession
+    }).apply(compiler)
+
+    new WarnUndeclaredPermissions({
       manifestPath: this.manifestPath,
       browser: this.browser,
       devSession: this.devSession

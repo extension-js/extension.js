@@ -93,7 +93,9 @@ export function ensureTypeScriptConfig(projectPath: string): void {
   // The latch only dedupes console output: the setup work itself must run
   // for every caller, or a call with one directory shape (manifest dir vs
   // compiler context) silently blocks the other's scaffold.
-  if (hasDep || hasTsFiles) {
+  // A typescript dependency alone (a lint or test setup in a JavaScript
+  // project) earns no scaffold: only TypeScript sources need a tsconfig.
+  if (hasTsFiles || (hasDep && tsConfigFilePath)) {
     if (tsConfigFilePath) {
       if (!hasShownUserMessage && isDebug()) {
         console.log(
