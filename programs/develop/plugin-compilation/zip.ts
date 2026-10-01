@@ -253,12 +253,16 @@ export async function getFilesToZip(
   // filesOnly drops directory entries (they only added noise to the zip)
   // and flush bypasses tiny-glob's module-global cache,
   // which would go stale in a long-lived watch process.
-  const files = await glob('**/*', {
-    cwd: projectDir,
-    dot: true,
-    filesOnly: true,
-    flush: true
-  })
+  // tiny-glob emits native separators and the ignore package only reads
+  // POSIX paths, so a nested gitignored file on Windows would ship otherwise.
+  const files = (
+    await glob('**/*', {
+      cwd: projectDir,
+      dot: true,
+      filesOnly: true,
+      flush: true
+    })
+  ).map(toPosix)
 
   return files.filter(
     (file) =>

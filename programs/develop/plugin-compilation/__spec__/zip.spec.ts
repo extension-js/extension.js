@@ -154,6 +154,26 @@ describe('getFilesToZip', () => {
     expect(files).toContain('src/b.ts')
   })
 
+  it('honors nested .gitignore rules whatever separator the glob emits', async () => {
+    const root = makeTempDir('zip-spec-')
+    scaffoldSecretProject(root, {
+      gitignore: 'coverage/\nsecrets/\nsrc/scratch/\n*.log\n'
+    })
+
+    write(path.join(root, 'coverage', 'report.html'), '<html></html>')
+    write(path.join(root, 'secrets', 'keys.json'), '{"k":"v"}')
+    write(path.join(root, 'src', 'scratch', 'todo.md'), 'later')
+    write(path.join(root, 'app.log'), 'line')
+
+    const files = await getFilesToZip(root)
+    expect(files.every((file) => !file.includes('\\'))).toBe(true)
+    expect(files).not.toContain('coverage/report.html')
+    expect(files).not.toContain('secrets/keys.json')
+    expect(files).not.toContain('src/scratch/todo.md')
+    expect(files).not.toContain('app.log')
+    expect(files).toContain('src/a.ts')
+  })
+
   it('returns only files, never directory entries', async () => {
     const root = makeTempDir('zip-spec-')
     scaffoldSecretProject(root)
