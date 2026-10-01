@@ -61,7 +61,11 @@ describe('ZipPlugin locale honesty', () => {
     const stats = await emitDone()
 
     expect(stats.compilation.warnings).toHaveLength(0)
-    expect(fs.existsSync(path.join(outPath, 'cool-app-2.0.0.zip'))).toBe(true)
+    expect(
+      fs.existsSync(
+        path.join(path.dirname(outPath), 'cool-app-2.0.0-chrome.zip')
+      )
+    ).toBe(true)
   })
 
   it('warns with the missing default-locale root cause instead of an opaque zip failure', async () => {

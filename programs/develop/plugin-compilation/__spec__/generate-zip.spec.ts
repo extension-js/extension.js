@@ -57,10 +57,12 @@ describe('ZipPlugin', () => {
       compiler.run((err) => (err ? reject(err) : resolve()))
     )
 
-    const files = fs.readdirSync(path.join(root, 'dist', 'chrome'))
-    const hasDistZip = files.some((f) => f.endsWith('.zip'))
-    expect(hasDistZip).toBe(true)
+    // Both archives sit beside the browser folder, never inside the folder
+    // a store upload or a load-unpacked takes whole.
+    const browserFiles = fs.readdirSync(path.join(root, 'dist', 'chrome'))
+    expect(browserFiles.some((f) => f.endsWith('.zip'))).toBe(false)
     const rootFiles = fs.readdirSync(path.join(root, 'dist'))
+    expect(rootFiles).toContain('x-1.0.0-chrome.zip')
     const hasSourceZip = rootFiles.some(
       (f) => f.includes('-source.') && f.endsWith('.zip')
     )
