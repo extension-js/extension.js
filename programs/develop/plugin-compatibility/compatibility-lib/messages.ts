@@ -28,6 +28,23 @@ function browserKey(browser: DevOptions['browser']) {
   return String(browser || 'unknown')
 }
 
+export function browserGlobalWithoutPolyfill(
+  browser: DevOptions['browser'],
+  files: string[]
+) {
+  const subject = files.length === 1 ? files[0] : files.join(', ')
+
+  return (
+    `${subject} uses browser.*, which ${browserKey(browser)} only has through ` +
+    `the cross-browser polyfill, and this build has the polyfill off. ` +
+    `extension dev and extension start turn it on by default while ` +
+    `extension build leaves it off, so the dev session works and the ` +
+    `packaged build throws "browser is not defined". Build with ` +
+    `--polyfill, set commands.build.polyfill to true in extension.config.js, ` +
+    `or call chrome.* instead.`
+  )
+}
+
 export function compatibilityPolyfillEnabled(
   browser: DevOptions['browser'],
   polyfillPath: string

@@ -88,6 +88,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "zipArtifactReady: function(2)",
   ],
   "plugin-compatibility/compatibility-lib/messages.ts": [
+    "browserGlobalWithoutPolyfill: function(2)",
     "compatibilityPolyfillDisabled: function(1)",
     "compatibilityPolyfillEnabled: function(2)",
     "compatibilityPolyfillSkipped: function(2)",
