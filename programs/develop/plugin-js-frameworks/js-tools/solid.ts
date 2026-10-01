@@ -94,6 +94,10 @@ export function solidBabelOptions(input: {
     babelrc: false,
     configFile: false,
     sourceMaps: true,
+    // Every file parses as a module so Solid's compiler emits imports, which
+    // keeps a classic content script with octal escapes parseable too.
+    sourceType: 'module' as const,
+    parserOpts: {strictMode: false},
     presets: [
       [input.solidPreset, {development: input.development}],
       ...(input.typescript
@@ -109,8 +113,10 @@ export function solidBabelOptions(input: {
 }
 
 // A Solid app is compiled by Solid's own compiler, through Babel, the way
-// vite-plugin-solid does it. The hyperscript alias stays for JSX that reaches
-// the automatic runtime some other way, like a precompiled dependency.
+// vite-plugin-solid does it: every script extension, since swc accepts JSX in
+// a plain .js file and would otherwise hand it to the automatic runtime. The
+// hyperscript alias stays for JSX that reaches that runtime some other way,
+// like a precompiled dependency.
 export async function maybeUseSolid(
   projectPath: string,
   mode: 'development' | 'production' | string = 'development'
@@ -155,7 +161,7 @@ export async function maybeUseSolid(
 
   const loaders: JsFramework['loaders'] = [
     {
-      test: /\.(jsx|mjsx)$/,
+      test: /\.(js|mjs|cjs|jsx|mjsx)$/,
       exclude: /node_modules/,
       loader: babelLoader,
       options: solidBabelOptions({
@@ -166,7 +172,7 @@ export async function maybeUseSolid(
       })
     },
     {
-      test: /\.(tsx|mtsx)$/,
+      test: /\.(ts|mts|cts|tsx|mtsx)$/,
       exclude: /node_modules/,
       loader: babelLoader,
       options: solidBabelOptions({

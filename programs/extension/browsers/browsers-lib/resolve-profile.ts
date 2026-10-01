@@ -14,6 +14,8 @@ import {
   colors as ucColors,
   uniqueNamesGenerator
 } from 'unique-names-generator'
+import {humanWarn} from '../../helpers/messaging'
+import * as messages from './messages'
 import {markManagedEphemeralProfile} from './shared-utils'
 
 export type ProfileKind = 'system' | 'explicit' | 'managed'
@@ -73,11 +75,26 @@ function hasCopyFrom(
   )
 }
 
+// The session root every managed profile sits under, as browserProfileRootDir
+// builds it: <project>/dist/extension-js/profiles/<browser>-profile.
+export function isSessionArtifactsRoot(candidate: string): boolean {
+  return (
+    path.basename(candidate) === 'extension-js' &&
+    path.basename(path.dirname(candidate)) === 'dist'
+  )
+}
+
 // A managed profile is a FULL browser profile (Cookies, History, Login Data).
 // A '*' .gitignore inside dist/extension-js hides it from git; write-once, best-effort.
 export function ensureProfileRootIgnoreFile(managedBaseDir: string): void {
   try {
     const sessionRoot = path.dirname(path.dirname(managedBaseDir))
+
+    // Climbing two levels only lands on the session root for the layout above.
+    // Anywhere else is a directory we do not own, and a '*' there would hide
+    // files nobody asked us to hide.
+    if (!isSessionArtifactsRoot(sessionRoot)) return
+
     const ignoreFile = path.join(sessionRoot, '.gitignore')
     if (fs.existsSync(ignoreFile)) return
 
@@ -94,15 +111,28 @@ export function ensureProfileRootIgnoreFile(managedBaseDir: string): void {
   }
 }
 
+// A live Chromium's lock, socket and cookie describe that browser's process,
+// never the copy, so dragging them along would lock the seeded profile.
+const CHROMIUM_SINGLETON_ARTIFACTS = new Set([
+  'SingletonLock',
+  'SingletonSocket',
+  'SingletonCookie'
+])
+
 // Copy source into dest recursively, seeding a managed profile from
-// copyFromProfile; best-effort no-op when source is missing.
-export function seedProfileFrom(source: string, dest: string) {
-  if (!fs.existsSync(source)) return
+// copyFromProfile; false when the source is missing and nothing was copied.
+export function seedProfileFrom(source: string, dest: string): boolean {
+  if (!fs.existsSync(source)) return false
 
   fs.mkdirSync(dest, {recursive: true})
   // fs.cpSync (Node 16.7+) copies directory trees; used elsewhere in the repo
   // for profile-shaped data, so it is the canonical choice here.
-  fs.cpSync(source, dest, {recursive: true})
+  fs.cpSync(source, dest, {
+    recursive: true,
+    filter: (entry) => !CHROMIUM_SINGLETON_ARTIFACTS.has(path.basename(entry))
+  })
+
+  return true
 }
 
 // Resolve (and materialize) the profile a run gets: default ephemeral, explicit
@@ -160,7 +190,9 @@ export function resolveProfileConfig(
       kind: 'managed',
       profilePath,
       persisted,
-      ...(hasCopyFrom(copyFromProfile) && isFreshTarget
+      ...(hasCopyFrom(copyFromProfile) &&
+      isFreshTarget &&
+      fs.existsSync(copyFromProfile.trim())
         ? {seededFrom: copyFromProfile.trim()}
         : {})
     }
@@ -179,8 +211,12 @@ export function resolveProfileConfig(
 
   if (hasCopyFrom(copyFromProfile) && isFreshTarget) {
     const source = copyFromProfile.trim()
-    seedProfileFrom(source, profilePath)
-    seededFrom = source
+
+    if (seedProfileFrom(source, profilePath)) {
+      seededFrom = source
+    } else {
+      humanWarn(messages.copyFromProfileSourceMissing(source))
+    }
   }
 
   return {kind: 'managed', profilePath, persisted, seededFrom}

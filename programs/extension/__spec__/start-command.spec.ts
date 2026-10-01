@@ -147,6 +147,30 @@ describe('extension start', () => {
     expect(extensionBuild).not.toHaveBeenCalled()
   })
 
+  it('forwards --host and --port to the preview path', async () => {
+    expect(
+      await run(['start', '.', '--host', '0.0.0.0', '--port', '9000'])
+    ).toBe(0)
+
+    const [, previewOpts] = extensionPreview.mock.calls[0] as any[]
+    expect(previewOpts).toMatchObject({host: '0.0.0.0', port: '9000'})
+    expect(previewOpts).not.toHaveProperty('publicHost')
+  })
+
+  it('does not advertise --public-host, which start never dials', async () => {
+    const program = makeProgram(registerStartCommand)
+    const start = program.commands.find((cmd) => cmd.name() === 'start')
+    expect(start?.options.map((option) => option.long)).not.toContain(
+      '--public-host'
+    )
+
+    await expect(
+      run(['start', '.', '--public-host', '203.0.113.7'])
+    ).rejects.toThrow(/unknown option '--public-host'/)
+
+    expect(extensionBuild).not.toHaveBeenCalled()
+  })
+
   // Same contract as preview: the refusal has to hand the user a command, and
   // it has to give the measured reason. Safari's automation load grants no
   // host origins, so content scripts never run under it.

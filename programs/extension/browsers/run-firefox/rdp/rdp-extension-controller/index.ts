@@ -69,6 +69,10 @@ export class FirefoxRDPController {
     return await this.remote.openNewTab()
   }
 
+  disconnect(): void {
+    this.remote.disconnect()
+  }
+
   getExtensionId(): string | undefined {
     return this.remote.getDerivedExtensionId()
   }

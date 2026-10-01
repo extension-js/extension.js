@@ -11,6 +11,7 @@ import {isGeckoBasedBrowser, isWebkitBasedBrowser} from '../lib/constants'
 import {isDebug} from '../lib/messaging'
 import type {DevOptions, PluginInterface} from '../types'
 import * as messages from './compatibility-lib/messages'
+import {WarnBrowserGlobalWithoutPolyfill} from './feature-browser-global'
 import {PolyfillPlugin} from './feature-polyfill'
 
 function polyfillSkipReason(browser: DevOptions['browser']): string | null {
@@ -31,11 +32,13 @@ export class CompatibilityPlugin {
   public readonly manifestPath: string
   public readonly browser: DevOptions['browser']
   public readonly polyfill: DevOptions['polyfill']
+  public readonly devSession?: boolean
 
   constructor(options: PluginInterface & {polyfill: DevOptions['polyfill']}) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
     this.polyfill = options.polyfill || false
+    this.devSession = options.devSession
   }
 
   public apply(compiler: Compiler) {
@@ -66,6 +69,14 @@ export class CompatibilityPlugin {
     } else {
       if (isDebug()) {
         console.log(messages.compatibilityPolyfillDisabled(this.browser))
+      }
+
+      if (!skipReason) {
+        new WarnBrowserGlobalWithoutPolyfill({
+          manifestPath: this.manifestPath,
+          browser: this.browser,
+          devSession: this.devSession
+        }).apply(compiler)
       }
     }
   }

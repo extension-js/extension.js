@@ -6,10 +6,13 @@
 // ╚═╝     ╚══════╝╚═╝  ╚═╝╚═╝          ╚═════╝  ╚═════╝ ╚═════╝  ╚═════╝ ╚══════╝   ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import {SHARED_CHUNK_DIR, classifyEntrySurface} from '../lib/split-chunks'
+
 export const ASSET_CATEGORIES = [
   'content-script',
   'service-worker',
   'page',
+  'shared',
   'runtime',
   'ignored'
 ] as const
@@ -18,44 +21,33 @@ export const ASSET_CATEGORIES = [
 // hand, and a spec there compares both so a new category cannot be left out.
 export type AssetCategory = (typeof ASSET_CATEGORIES)[number]
 
-const PAGE_DIRS = [
-  'pages',
-  'sidebar',
-  'popup',
-  'options',
-  'options_ui',
-  'devtools',
-  'newtab',
-  'sandbox',
-  'action',
-  'browser_action',
-  'page_action'
-] as const
-
 const isCodeAsset = (name: string) => /\.(js|css|wasm)$/i.test(name)
 const isSourceMap = (name: string) => /\.map$/i.test(name)
 const isHotUpdate = (name: string) => /(^|\/)hot\//.test(name)
+const isSharedChunk = (name: string) => name.startsWith(`${SHARED_CHUNK_DIR}/`)
+const isServiceWorkerFile = (name: string) =>
+  /(^|\/)service[-_]?worker\.(js|css|wasm)$/i.test(name)
 
+// The layout split-chunks reads: the script surfaces load one file each,
+// every other folder is a page the HTML links, copied public assets included.
 export function categorizeAsset(rawName: string): AssetCategory {
   const name = String(rawName || '').replace(/\\/g, '/')
   if (!name) return 'ignored'
   if (!isCodeAsset(name)) return 'ignored'
   if (isSourceMap(name)) return 'ignored'
   if (isHotUpdate(name)) return 'ignored'
+  if (isSharedChunk(name)) return 'shared'
 
-  if (/(^|\/)content_scripts\//.test(name)) return 'content-script'
+  const surface = classifyEntrySurface(name)
 
   // MV3 service worker and MV2 background scripts both wake from cold and share
   // one budget; match both emitted names plus the top-level fallback.
-  if (
-    /(^|\/)background\//.test(name) ||
-    /(^|\/)service[-_]?worker\.(js|css|wasm)$/i.test(name)
-  ) {
+  if (surface === 'background' || isServiceWorkerFile(name)) {
     return 'service-worker'
   }
 
-  for (const dir of PAGE_DIRS) {
-    if (new RegExp(`(^|\\/)${dir}\\/`).test(name)) return 'page'
+  if (surface === 'content_script' || surface === 'script') {
+    return 'content-script'
   }
 
   // Hashed wasm cores and sibling runtime helpers (ffmpeg, tesseract, …)
@@ -63,13 +55,14 @@ export function categorizeAsset(rawName: string): AssetCategory {
   // so the size report is not fiction for the largest thing in the package.
   if (!name.includes('/') || /\.wasm$/i.test(name)) return 'runtime'
 
-  return 'ignored'
+  return 'page'
 }
 
 export const BUDGET_BYTES: Record<AssetCategory, number> = {
   'content-script': 512 * 1024,
   'service-worker': 512 * 1024,
   page: 1024 * 1024,
+  shared: 512 * 1024,
   runtime: 1024 * 1024,
   ignored: Number.POSITIVE_INFINITY
 }

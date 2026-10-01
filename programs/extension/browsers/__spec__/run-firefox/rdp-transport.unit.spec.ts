@@ -12,6 +12,9 @@ function createMockServer(): Promise<{
     const connections: net.Socket[] = []
     const server = net.createServer((socket) => {
       connections.push(socket)
+      socket.write(
+        buildRdpFrame({from: 'root', applicationType: 'browser', traits: {}})
+      )
     })
     server.listen(0, '127.0.0.1', () => {
       const addr = server.address() as net.AddressInfo

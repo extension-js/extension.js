@@ -57,6 +57,8 @@ function categoryRole(c: AssetCategory): string {
       return 'service worker / background, wakes from cold each session'
     case 'page':
       return 'UI page, opened on demand'
+    case 'shared':
+      return 'shared chunk, loaded by every page that imports it'
     case 'runtime':
       return 'runtime payload, shipped at the output root'
     default:

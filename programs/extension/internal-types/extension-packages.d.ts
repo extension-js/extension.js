@@ -70,15 +70,30 @@ declare module 'extension-install' {
     all?: boolean
   }
 
+  export interface UninstallResult {
+    browser: string
+    removed: boolean
+    path: string
+  }
+
   export class BrowserNotInstallableError extends Error {
     readonly code: 'BROWSER_NOT_INSTALLABLE'
+  }
+
+  export class BrowserInstallPrivilegeError extends Error {
+    readonly code: 'BROWSER_INSTALL_PRIVILEGE'
   }
 
   export function isBrowserNotInstallableError(
     error: unknown
   ): error is BrowserNotInstallableError
+  export function isBrowserInstallPrivilegeError(
+    error: unknown
+  ): error is BrowserInstallPrivilegeError
   export function getManagedBrowsersCacheRoot(): string
   export function getManagedBrowserInstallDir(browser: string): string
   export function extensionInstall(options: InstallOptions): Promise<void>
-  export function extensionUninstall(options: UninstallOptions): Promise<void>
+  export function extensionUninstall(
+    options: UninstallOptions
+  ): Promise<UninstallResult[]>
 }

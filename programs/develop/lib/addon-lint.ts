@@ -6,6 +6,7 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import type {AddonLintSummary} from './build-summary'
 import type {ChunkProvenance} from './chunk-dependency-provenance'
 import {isGeckoBasedBrowser} from './constants'
 import * as messages from './messages'
@@ -19,9 +20,9 @@ import {
 // key and the merge defaults follow.
 export const ADDON_LINT_DEFAULT = true
 
-// The linter needs a few hundred ms on a small dist. A large bundle can take
-// longer, but a build must never hang on a store check, so this is the cap.
-export const ADDON_LINT_TIMEOUT_MS = 10_000
+// Measured at about 0.3 s per MB of emitted JS on a fast laptop, so this
+// covers a 30 MB bundle on a machine six times slower before it gives up.
+export const ADDON_LINT_TIMEOUT_MS = 60_000
 
 // Enough to act on, short enough to keep the receipt readable.
 export const ADDON_LINT_MAX_PRINTED = 20
@@ -61,7 +62,7 @@ export interface AddonLintLine {
 export type AddonLintResult =
   | {status: 'skipped'; reason: 'disabled' | 'mode' | 'browser'}
   | {status: 'missing'; hint: string | null}
-  | {status: 'failed'; debugLine: string}
+  | {status: 'failed'; reason: string; line: string; debugLine: string}
   | {status: 'linted'; findings: number; lines: string[]}
 
 type LinterModule = {
@@ -219,10 +220,14 @@ export function formatAddonLintFindings(
   return {findings: all.length, lines}
 }
 
+class AddonLintTimeout extends Error {}
+
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => {
-      reject(new Error(`timed out after ${Math.round(ms / 1000)} s`))
+      reject(
+        new AddonLintTimeout(`timed out after ${Math.round(ms / 1000)} s`)
+      )
     }, ms)
     // A late linter must not keep a finished build process alive.
     timer.unref?.()
@@ -301,11 +306,37 @@ export async function runAddonLint(
       )
     }
   } catch (error) {
-    return {
-      status: 'failed',
-      debugLine: messages.addonLintFailed(
-        String((error as Error)?.message || error)
-      )
-    }
+    return failedAddonLint(error, input.distDisplay)
+  }
+}
+
+export function failedAddonLint(
+  error: unknown,
+  distDisplay: string
+): Extract<AddonLintResult, {status: 'failed'}> {
+  const message = String((error as Error)?.message || error)
+  const reason =
+    error instanceof AddonLintTimeout
+      ? `${ADDON_LINT_PACKAGE} ${message}`
+      : `${ADDON_LINT_PACKAGE} crashed: ${message}`
+
+  return {
+    status: 'failed',
+    reason,
+    line: messages.addonLintFailed(reason, distDisplay),
+    debugLine: messages.addonLintFailedDebug(reason)
+  }
+}
+
+export function summarizeAddonLint(result: AddonLintResult): AddonLintSummary {
+  switch (result.status) {
+    case 'linted':
+      return {status: 'linted', findings: result.findings}
+    case 'missing':
+      return {status: 'missing'}
+    case 'failed':
+      return {status: 'failed', reason: result.reason}
+    default:
+      return {status: 'skipped', reason: result.reason}
   }
 }

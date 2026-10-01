@@ -102,9 +102,11 @@ describe('get-project-path', () => {
     const manifestDir = path.join(nested, 'ext')
     fs.mkdirSync(manifestDir, {recursive: true})
     fs.writeFileSync(path.join(manifestDir, 'manifest.json'), '{}')
+    // Depends on Extension.js, so this package owns the manifest below it and
+    // is still reported from a distance.
     fs.writeFileSync(
       path.join(nested, 'package.json'),
-      JSON.stringify({name: 'pkg'})
+      JSON.stringify({name: 'pkg', devDependencies: {extension: '^4.1.30'}})
     )
 
     const s = await getProjectStructure(root)
@@ -112,6 +114,23 @@ describe('get-project-path', () => {
     expect(s.packageJsonPath && path.basename(s.packageJsonPath)).toBe(
       'package.json'
     )
+  })
+
+  // The same shape without that dependency is a manifest that happens to sit
+  // inside someone else's project, so the manifest folder is the project.
+  it('getProjectStructure declines a package.json that does not own the manifest', async () => {
+    const root = makeTempDir('extjs-gps-stranger-')
+    const manifestDir = path.join(root, 'nested', 'deeper', 'ext')
+    fs.mkdirSync(manifestDir, {recursive: true})
+    fs.writeFileSync(path.join(manifestDir, 'manifest.json'), '{}')
+    fs.writeFileSync(
+      path.join(root, 'nested', 'package.json'),
+      JSON.stringify({name: 'pkg'})
+    )
+
+    const s = await getProjectStructure(root)
+    expect(path.basename(s.manifestPath)).toBe('manifest.json')
+    expect(s.packageJsonPath).toBeUndefined()
   })
 
   it('getProjectStructure allows web-only (no package.json)', async () => {
@@ -256,6 +275,98 @@ describe('get-project-path', () => {
 
     const s = await getProjectStructure(root)
     expect(s.manifestPath.endsWith('manifest.json')).toBe(true)
+  })
+})
+
+describe('manifest scan with no project manifest', () => {
+  const extensionManifest = (name: string) =>
+    JSON.stringify({manifest_version: 3, name, version: '1.0.0'})
+
+  function layout(files: Record<string, string>) {
+    const root = fs.realpathSync(makeTempDir('extjs-manifest-scan-'))
+
+    for (const [rel, content] of Object.entries(files)) {
+      const abs = path.join(root, ...rel.split('/'))
+      fs.mkdirSync(path.dirname(abs), {recursive: true})
+      fs.writeFileSync(abs, content)
+    }
+
+    return root
+  }
+
+  const companionOnly = {
+    'extensions/helper/manifest.json': extensionManifest('COMPANION HELPER')
+  }
+  const publicOnly = {
+    'public/sample/manifest.json': extensionManifest('PUBLIC SAMPLE')
+  }
+  const withPackageJson = {'package.json': JSON.stringify({name: 'pkg'})}
+
+  it('refuses a companion manifest under extensions/ when package.json exists', async () => {
+    const root = layout({...withPackageJson, ...companionOnly})
+
+    await expect(getProjectStructure(root)).rejects.toThrow(
+      /Manifest file not found[\s\S]*COMPANION[\s\S]*extensions[\\/]helper/
+    )
+  })
+
+  it('refuses a companion manifest under extensions/ without package.json', async () => {
+    const root = layout(companionOnly)
+
+    await expect(getProjectStructure(root)).rejects.toThrow(
+      /Manifest file not found[\s\S]*COMPANION[\s\S]*extensions[\\/]helper/
+    )
+  })
+
+  it('never adopts a manifest under public/ when package.json exists', async () => {
+    const root = layout({...withPackageJson, ...publicOnly})
+
+    await expect(getProjectStructure(root)).rejects.toThrow(
+      /Manifest file not found/
+    )
+  })
+
+  it('never adopts a manifest under public/ without package.json', async () => {
+    const root = layout(publicOnly)
+
+    await expect(getProjectStructure(root)).rejects.toThrow(
+      /Manifest file not found/
+    )
+  })
+
+  it('skips build output folders on the no-package.json walk too', async () => {
+    const root = layout({
+      'out/manifest.json': extensionManifest('BUILT'),
+      'build/manifest.json': extensionManifest('BUILT'),
+      'coverage/manifest.json': extensionManifest('BUILT')
+    })
+
+    await expect(getProjectStructure(root)).rejects.toThrow(
+      /Manifest file not found/
+    )
+  })
+
+  it('still resolves a lone workspace package beside a companion', async () => {
+    const root = layout({
+      ...withPackageJson,
+      ...companionOnly,
+      'packages/ext/manifest.json': extensionManifest('THE REAL PROJECT')
+    })
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    try {
+      const s = await getProjectStructure(root)
+      expect(s.manifestPath.split(path.sep).join('/')).toBe(
+        `${root.split(path.sep).join('/')}/packages/ext/manifest.json`
+      )
+
+      const printed = logSpy.mock.calls
+        .map((call) => String(call[0]))
+        .join('\n')
+      expect(printed).toMatch(/Workspace root detected/)
+    } finally {
+      logSpy.mockRestore()
+    }
   })
 })
 

@@ -210,6 +210,13 @@ export function resolveBrowserVersionLine(
   return ''
 }
 
+export function copyFromProfileSourceMissing(source: string) {
+  return (
+    `${getLoggingPrefix('warn')} The profile to copy from doesn't exist, so this run starts from an empty profile.\n` +
+    `Checked ${colors.gray(source)}.`
+  )
+}
+
 export function creatingUserProfile(profilePath: string) {
   return `${getLoggingPrefix('debug')} browser  profile=fresh path=${profilePath}`
 }
@@ -589,6 +596,29 @@ export function messageWithoutSenderError(
 
 export function chromeProcessExited(code: number) {
   return `${getLoggingPrefix('debug')} proc     exit browser=chrome code=${code}`
+}
+
+// Exit code 0 is the browser honoring a quit it was given elsewhere (a closed
+// window, a signal from another process), so the line names that over a crash.
+export function browserExitedUnasked(
+  browser: Browser,
+  code: number | null,
+  signal: string | null,
+  command: 'dev' | 'preview'
+) {
+  const session = command === 'dev' ? 'dev session' : 'preview'
+  const how =
+    code == null
+      ? `was killed by signal ${signal || 'unknown'}`
+      : code === 0
+        ? `closed cleanly (exit code 0) without this ${session} asking for it: the window was closed, or another process told it to quit`
+        : `crashed (exit code ${code})`
+  const next =
+    command === 'dev'
+      ? 'The dev server is still running but reloads cannot be delivered, restart "extension dev" to relaunch the browser.'
+      : 'The preview session is over.'
+
+  return `[browser] ${browser} ${how}. ${next}`
 }
 
 export function chromeProcessError(error: unknown) {

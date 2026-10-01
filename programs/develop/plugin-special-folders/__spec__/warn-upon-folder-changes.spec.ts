@@ -7,6 +7,7 @@ import {
   DevSessionRestartScheduler,
   unbindDevSessionRestart
 } from '../../dev-server/session-restart'
+import {rememberSpecialFoldersConfig} from '../folders-config'
 import * as messages from '../messages'
 import {WarnUponFolderChanges} from '../warn-upon-folder-changes'
 
@@ -88,6 +89,7 @@ afterEach(() => {
   unbindDevSessionRestart()
 
   for (const dir of tempDirs) {
+    rememberSpecialFoldersConfig(dir, undefined)
     fs.rmSync(dir, {recursive: true, force: true})
   }
 
@@ -279,5 +281,158 @@ describe('WarnUponFolderChanges', () => {
     runCycle(compiler, compilation)
     expect(compilation.errors.length).toBe(1)
     expect(String(compilation.errors[0].details)).toContain('Removing from')
+  })
+
+  const bindRestartHandler = () => {
+    const handler = vi.fn()
+    const scheduler = new DevSessionRestartScheduler(0)
+    scheduler.setHandler(handler)
+    bindDevSessionRestart(scheduler)
+
+    return handler
+  }
+
+  const toPosix = (value: string) => value.split(path.sep).join('/')
+
+  it('restarts for a relocated scripts folder exactly as for the canonical one', async () => {
+    const handler = bindRestartHandler()
+
+    for (const [folders, scriptsDir] of [
+      [undefined, 'scripts'],
+      [{scripts: 'src/scripts'}, path.join('src', 'scripts')]
+    ] as const) {
+      const {compiler, projectRoot} = createFakeCompiler()
+      tempDirs.add(projectRoot)
+      rememberSpecialFoldersConfig(projectRoot, folders)
+      fs.mkdirSync(path.join(projectRoot, scriptsDir), {recursive: true})
+      new WarnUponFolderChanges().apply(compiler as any)
+      compilation = {warnings: [], errors: [], contextDependencies: new Set()}
+
+      const fresh = path.join(projectRoot, scriptsDir, 'fresh.ts')
+      compiler.modifiedFiles = new Set([fresh])
+      compiler.removedFiles = new Set()
+      runCycle(compiler, compilation)
+      await new Promise((r) => setTimeout(r, 0))
+
+      expect(handler).toHaveBeenLastCalledWith(
+        expect.objectContaining({reason: 'scripts', pathAfter: fresh})
+      )
+
+      expect(compilation.warnings.length).toBe(0)
+      expect(compilation.errors.length).toBe(0)
+
+      const deps = Array.from(compilation.contextDependencies).map(toPosix)
+      expect(deps).toContain(toPosix(path.join(projectRoot, scriptsDir)))
+
+      if (folders) {
+        expect(deps).not.toContain(toPosix(path.join(projectRoot, 'scripts')))
+      }
+    }
+
+    expect(handler).toHaveBeenCalledTimes(2)
+  })
+
+  it('restarts for a relocated pages folder and watches it', async () => {
+    const handler = bindRestartHandler()
+    const {compiler, projectRoot} = createFakeCompiler()
+    tempDirs.add(projectRoot)
+    rememberSpecialFoldersConfig(projectRoot, {pages: 'src/pages'})
+    fs.mkdirSync(path.join(projectRoot, 'src', 'pages'), {recursive: true})
+    new WarnUponFolderChanges().apply(compiler as any)
+
+    const fresh = path.join(projectRoot, 'src', 'pages', 'fresh.html')
+    compiler.modifiedFiles = new Set([fresh])
+    compiler.removedFiles = new Set()
+    runCycle(compiler, compilation)
+    await new Promise((r) => setTimeout(r, 0))
+
+    expect(handler).toHaveBeenCalledWith(
+      expect.objectContaining({reason: 'html', pathAfter: fresh})
+    )
+
+    const deps = Array.from(compilation.contextDependencies).map(toPosix)
+    expect(deps).toContain(toPosix(path.join(projectRoot, 'src', 'pages')))
+    expect(deps).not.toContain(toPosix(path.join(projectRoot, 'pages')))
+  })
+
+  it('does nothing for a folder set to false', async () => {
+    const handler = bindRestartHandler()
+    const {compiler, projectRoot} = createFakeCompiler()
+    tempDirs.add(projectRoot)
+    rememberSpecialFoldersConfig(projectRoot, {pages: false, scripts: false})
+    fs.mkdirSync(path.join(projectRoot, 'pages'), {recursive: true})
+    fs.mkdirSync(path.join(projectRoot, 'scripts'), {recursive: true})
+    new WarnUponFolderChanges().apply(compiler as any)
+
+    compiler.modifiedFiles = new Set([
+      path.join(projectRoot, 'pages', 'another.html'),
+      path.join(projectRoot, 'scripts', 'another.ts')
+    ])
+
+    compiler.removedFiles = new Set()
+    runCycle(compiler, compilation)
+    await new Promise((r) => setTimeout(r, 0))
+
+    expect(handler).not.toHaveBeenCalled()
+    expect(compilation.warnings.length).toBe(0)
+    expect(compilation.errors.length).toBe(0)
+    expect(Array.from(compilation.contextDependencies)).toEqual([])
+
+    compiler.modifiedFiles = new Set()
+    compiler.removedFiles = new Set([
+      path.join(projectRoot, 'pages', 'another.html'),
+      path.join(projectRoot, 'scripts', 'another.ts')
+    ])
+
+    runCycle(compiler, compilation)
+
+    expect(compilation.errors.length).toBe(0)
+  })
+
+  it('ignores a scripts/ file the scan never enrolls, on add and on removal', async () => {
+    const handler = bindRestartHandler()
+    const {compiler, projectRoot} = createFakeCompiler()
+    tempDirs.add(projectRoot)
+    compiler.options.resolve.extensions = ['.js', '.ts', '.json']
+    fs.mkdirSync(path.join(projectRoot, 'scripts'), {recursive: true})
+    new WarnUponFolderChanges().apply(compiler as any)
+
+    const rules = path.join(projectRoot, 'scripts', 'rules.json')
+    compiler.modifiedFiles = new Set([rules])
+    compiler.removedFiles = new Set()
+    runCycle(compiler, compilation)
+    await new Promise((r) => setTimeout(r, 0))
+
+    expect(handler).not.toHaveBeenCalled()
+    expect(compilation.warnings.length).toBe(0)
+
+    compiler.modifiedFiles = new Set()
+    compiler.removedFiles = new Set([rules])
+    runCycle(compiler, compilation)
+
+    expect(compilation.errors.length).toBe(0)
+  })
+
+  it('restarts for a .mjsx or .mtsx entry like its .jsx sibling', async () => {
+    const handler = bindRestartHandler()
+    const {compiler, projectRoot} = createFakeCompiler()
+    tempDirs.add(projectRoot)
+    fs.mkdirSync(path.join(projectRoot, 'scripts'), {recursive: true})
+    new WarnUponFolderChanges().apply(compiler as any)
+
+    for (const name of ['a.jsx', 'b.mjsx', 'c.mtsx']) {
+      const fresh = path.join(projectRoot, 'scripts', name)
+      compiler.modifiedFiles = new Set([fresh])
+      compiler.removedFiles = new Set()
+      runCycle(compiler, compilation)
+      await new Promise((r) => setTimeout(r, 0))
+
+      expect(handler).toHaveBeenLastCalledWith(
+        expect.objectContaining({reason: 'scripts', pathAfter: fresh})
+      )
+    }
+
+    expect(handler).toHaveBeenCalledTimes(3)
+    expect(compilation.warnings.length).toBe(0)
   })
 })

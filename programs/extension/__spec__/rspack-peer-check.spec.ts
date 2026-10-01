@@ -15,9 +15,10 @@ vi.mock('../helpers/extension-develop-runtime', () => ({
 
 import {
   describeRspackPeerConflicts,
+  describeUnreadableDependencies,
   engineRspackVersion,
-  findRspackPeerConflicts,
-  remedyRspackPeerConflicts
+  remedyRspackPeerConflicts,
+  scanRspackPeers
 } from '../helpers/rspack-peer-check'
 
 const created: string[] = []
@@ -84,7 +85,7 @@ describe('the @rspack/core peer check', () => {
     expect(engineRspackVersion('/any')).toBeUndefined()
   })
 
-  it('names css-loader 6 and leaves a widened css-loader 7 and peerless packages alone', () => {
+  it('names css-loader 6, reports the unreadable one and leaves a widened css-loader 7 and peerless packages alone', () => {
     const root = project({
       'css-loader': '^6.11.0',
       'postcss-loader': '^8.0.0',
@@ -101,11 +102,13 @@ describe('the @rspack/core peer check', () => {
       peerDependencies: {postcss: '^8'}
     })
 
-    const conflicts = findRspackPeerConflicts(root, '2.2.3')
+    const {conflicts, unreadable} = scanRspackPeers(root, '2.2.3')
 
     expect(conflicts).toEqual([
       {name: 'css-loader', version: '6.11.0', range: '0.x || 1.x'}
     ])
+
+    expect(unreadable).toEqual(['not-installed'])
 
     expect(describeRspackPeerConflicts(conflicts, '2.2.3')).toBe(
       'css-loader 6.11.0 accepts @rspack/core 0.x || 1.x, the engine ships 2.2.3'
@@ -123,7 +126,86 @@ describe('the @rspack/core peer check', () => {
       }
     })
 
-    expect(findRspackPeerConflicts(root, '2.2.3')).toEqual([])
+    expect(scanRspackPeers(root, '2.2.3').conflicts).toEqual([])
+  })
+
+  it('names css-loader from its declared range when nothing is installed', () => {
+    const root = project({'css-loader': '^6.11.0', extension: '^4.1.30'})
+
+    const scan = scanRspackPeers(root, '2.2.3')
+
+    expect(scan).toEqual({
+      conflicts: [{name: 'css-loader', declared: '^6.11.0', fixedIn: '7.1.4'}],
+      unreadable: ['extension']
+    })
+
+    expect(describeRspackPeerConflicts(scan.conflicts, '2.2.3')).toBe(
+      'css-loader ^6.11.0 is declared but not installed and stays below 7.1.4, the first release whose peer range accepts @rspack/core 2.x (the engine ships 2.2.3)'
+    )
+
+    expect(remedyRspackPeerConflicts(scan.conflicts, '2.2.3')).toBe(
+      'Upgrade css-loader to 7.1.4 or newer, its peer range accepts @rspack/core 2, then install again'
+    )
+
+    expect(describeUnreadableDependencies(scan.unreadable)).toBe(
+      'could not read 1 direct dependency (extension), its @rspack/core peer range is unverified'
+    )
+  })
+
+  it('reports a declared range that can reach the known fix as unreadable, not clear', () => {
+    const root = project({
+      'css-loader': '^7.1.4',
+      'loader-installed-nowhere': '^8.0.0'
+    })
+
+    expect(scanRspackPeers(root, '2.2.3')).toEqual({
+      conflicts: [],
+      unreadable: ['css-loader', 'loader-installed-nowhere']
+    })
+
+    expect(
+      describeUnreadableDependencies(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'])
+    ).toBe(
+      'could not read 8 direct dependencies (a, b, c, d, e, f and 2 more), their @rspack/core peer ranges are unverified'
+    )
+  })
+
+  it('still reads a package whose exports map hides package.json', () => {
+    const root = project({'strict-loader': '^1.0.0'})
+    writePackage(root, 'strict-loader', {
+      version: '1.0.0',
+      exports: {'.': './index.js'},
+      peerDependencies: {'@rspack/core': '^1.0.0'}
+    })
+
+    expect(scanRspackPeers(root, '2.2.3')).toEqual({
+      conflicts: [{name: 'strict-loader', version: '1.0.0', range: '^1.0.0'}],
+      unreadable: []
+    })
+  })
+
+  it('does not claim the known fix for an engine major it was not measured against', () => {
+    const root = project({'css-loader': '^6.11.0'})
+
+    expect(scanRspackPeers(root, '3.0.0')).toEqual({
+      conflicts: [],
+      unreadable: ['css-loader']
+    })
+
+    writePackage(root, 'css-loader', {
+      version: '7.1.4',
+      peerDependencies: {'@rspack/core': '0.x || ^1.0.0 || ^2.0.0-0'}
+    })
+
+    const {conflicts} = scanRspackPeers(root, '3.0.0')
+
+    expect(conflicts).toEqual([
+      {name: 'css-loader', version: '7.1.4', range: '0.x || ^1.0.0 || ^2.0.0-0'}
+    ])
+
+    expect(remedyRspackPeerConflicts(conflicts, '3.0.0')).toBe(
+      'Upgrade css-loader to a release whose @rspack/core peer range accepts 3.x, then install again'
+    )
   })
 
   it('gives a generic upgrade line for a package with no known fix', () => {
@@ -135,8 +217,9 @@ describe('the @rspack/core peer check', () => {
   })
 
   it('returns nothing for a folder without a package.json', () => {
-    expect(findRspackPeerConflicts(tempDir('extjs-empty-'), '2.2.3')).toEqual(
-      []
-    )
+    expect(scanRspackPeers(tempDir('extjs-empty-'), '2.2.3')).toEqual({
+      conflicts: [],
+      unreadable: []
+    })
   })
 })

@@ -182,7 +182,8 @@ export default function webpackConfig(
     new CompatibilityPlugin({
       manifestPath,
       browser: devOptions.browser,
-      polyfill: devOptions.polyfill
+      polyfill: devOptions.polyfill,
+      devSession
     }),
     new WebExtensionPlugin({
       manifestPath,

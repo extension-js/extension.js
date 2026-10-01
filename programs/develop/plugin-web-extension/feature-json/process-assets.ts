@@ -10,6 +10,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, sources, WebpackError} from '@rspack/core'
 import {isDebug} from '../../lib/messaging'
+import {isFolder} from '../shared/paths'
 import {isCriticalJsonFeature, validateJsonAsset} from './json-validation'
 import * as messages from './messages'
 import {resolveJsonResource} from './resolve-json-resource'
@@ -85,6 +86,25 @@ export function processJsonAssets(
             compilation.errors.push(notFound)
           } else {
             compilation.warnings.push(notFound)
+          }
+
+          missingCount++
+          continue
+        }
+
+        if (isFolder(abs)) {
+          const isFatal = isCriticalJsonFeature(feature)
+          const folder = new WebpackError(
+            messages.jsonPathIsFolder(feature, abs, {fatal: isFatal})
+          )
+          folder.name = 'JSONPathIsFolder'
+          // @ts-expect-error file is not typed
+          folder.file = 'manifest.json'
+
+          if (isFatal) {
+            compilation.errors.push(folder)
+          } else {
+            compilation.warnings.push(folder)
           }
 
           missingCount++

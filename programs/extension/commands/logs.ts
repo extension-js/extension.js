@@ -14,6 +14,7 @@ import {exitAfterDrain} from '../helpers/exit-after-drain'
 import {loadExtensionDevelopBridgeModule} from '../helpers/extension-develop-runtime'
 import {commandDescriptions} from '../helpers/messages'
 import {CODES, ENVELOPE} from '../helpers/messaging'
+import {parsePositiveInt} from '../helpers/normalize-options'
 import {
   resolveSessionProjectPath,
   sessionLogsPath,
@@ -124,16 +125,64 @@ export interface LogEventLike {
   messageParts?: unknown
   code?: unknown
   remediation?: unknown
+  dropped?: unknown
+  reason?: unknown
+  startedAt?: unknown
+  rotatedFrom?: unknown
 }
 
 // Increasing verbosity; selecting a level includes it + everything more severe.
 const LEVEL_ORDER = ['error', 'warn', 'info', 'debug', 'trace']
+const LEVEL_FILTERS = ['off', ...LEVEL_ORDER, 'all']
+
+// Every context a dev session logs from, as the develop bridge's LOG_CONTEXTS
+// names them; a copy lives here so the help can list them before it loads.
+export const LOG_CONTEXTS = [
+  'background',
+  'content',
+  'popup',
+  'options',
+  'sidebar',
+  'devtools',
+  'newtab',
+  'history',
+  'bookmarks'
+]
+
+function knownContextsFrom(bridge: unknown): string[] {
+  const published = (bridge as {LOG_CONTEXTS?: unknown} | null)?.LOG_CONTEXTS
+
+  return Array.isArray(published) ? published.map(String) : LOG_CONTEXTS
+}
 
 function levelRank(level: string): number {
   const l = level === 'log' ? 'info' : level
   const i = LEVEL_ORDER.indexOf(l)
 
   return i === -1 ? LEVEL_ORDER.length : i
+}
+
+function levelFilterFrom(value: string | undefined): string | undefined {
+  const text = String(value || 'all')
+    .trim()
+    .toLowerCase()
+  const level = text === 'log' ? 'info' : text
+
+  return LEVEL_FILTERS.includes(level) ? level : undefined
+}
+
+function contextNamesFrom(value: string | undefined): string[] {
+  return String(value || '')
+    .split(',')
+    .map((name) => name.trim())
+    .filter(Boolean)
+}
+
+function contextFilterFrom(names: string[]): Set<string> | null {
+  if (names.length === 0) return null
+  if (names.some((name) => name.toLowerCase() === 'all')) return null
+
+  return new Set(names)
 }
 
 // `--url` accepts a glob (`*` = any run of chars) or a plain substring, matched
@@ -163,25 +212,27 @@ function makeUrlMatcher(pattern: string): (event: LogEventLike) => boolean {
 function makeFilter(
   opts: LogsOptions,
   since: LogSince | null,
+  tabId: number | undefined,
   helpers: SinceHelpers
 ) {
-  const minLevel = String(opts.level || 'all').toLowerCase()
-  const contexts =
-    opts.context && opts.context.toLowerCase() !== 'all'
-      ? new Set(opts.context.split(',').map((c) => c.trim()))
-      : null
+  const minLevel = levelFilterFrom(opts.level) ?? 'all'
+  const contexts = contextFilterFrom(contextNamesFrom(opts.context))
   const urlMatches = opts.url ? makeUrlMatcher(opts.url) : null
-  const tabId = opts.tab != null && opts.tab !== '' ? Number(opts.tab) : null
 
   return (event: LogEventLike): boolean => {
     if (!event || typeof event !== 'object') return false
     if (event.type === 'header') return false
+    if (minLevel === 'off') return false
+
+    // A gap stands for events the writer lost. Their fields are gone, so no
+    // clause can judge them, and hiding the gap would hide the loss itself.
+    if (event.type === 'gap') return true
 
     if (opts.signalsOnly && event.eventType !== 'dx.signal') return false
 
     if (contexts && !contexts.has(String(event.context))) return false
 
-    if (minLevel !== 'all' && minLevel !== 'off') {
+    if (minLevel !== 'all') {
       if (levelRank(String(event.level || '')) > levelRank(minLevel)) {
         return false
       }
@@ -191,9 +242,7 @@ function makeFilter(
 
     if (urlMatches && !urlMatches(event)) return false
 
-    if (tabId != null && Number.isFinite(tabId) && event.tabId !== tabId) {
-      return false
-    }
+    if (tabId !== undefined && event.tabId !== tabId) return false
 
     return true
   }
@@ -216,6 +265,19 @@ function resolveFormat(opts: LogsOptions): 'pretty' | 'json' | 'ndjson' {
 }
 
 function printEvent(event: LogEventLike, format: 'pretty' | 'json' | 'ndjson') {
+  if (event.type === 'gap' && format === 'pretty') {
+    // eslint-disable-next-line no-console
+    console.error(
+      colors.dim(
+        colors.gray(
+          `… ${event.dropped} event(s) dropped (${event.reason}), missing from the log file`
+        )
+      )
+    )
+
+    return
+  }
+
   if (format === 'ndjson') {
     // eslint-disable-next-line no-console
     console.log(JSON.stringify(event))
@@ -263,6 +325,32 @@ export function formatPrettyLogLine(event: LogEventLike): string {
   )
 }
 
+// The header of a generation that began mid-session is the only trace of the
+// rotation; the events before it live in the sibling the writer renamed to.
+function printRotation(
+  header: LogEventLike,
+  file: string,
+  format: 'pretty' | 'json' | 'ndjson'
+) {
+  if (!header.rotatedFrom) return
+
+  if (format !== 'pretty') {
+    printEvent(header, format)
+
+    return
+  }
+
+  const rotated = file.replace(/\.ndjson$/, '.1.ndjson')
+  // eslint-disable-next-line no-console
+  console.error(
+    colors.dim(
+      colors.gray(
+        `… earlier events of this session were rotated to ${rotated} at ${header.startedAt}`
+      )
+    )
+  )
+}
+
 // D7 keeps log records in their own encoding; only a terminating frame is an
 // envelope. process.exit can cut a queued console.log on a pipe (#79), so the
 // frame is written synchronously, which is safe here because both failure
@@ -292,11 +380,11 @@ export function registerLogsCommand(program: Command) {
     )
     .option(
       '--context <list>',
-      'comma-separated contexts (background, content, popup, options, sidebar, devtools, page)'
+      `comma-separated contexts (${LOG_CONTEXTS.join(', ')}) or all`
     )
     .option(
-      '--level <off|error|warn|info|debug|trace|all>',
-      'minimum severity to show. Defaults to `all`'
+      `--level <${LEVEL_FILTERS.join('|')}>`,
+      'minimum severity to show, off shows nothing. Defaults to `all`'
     )
     .option(
       '--signals-only',
@@ -322,27 +410,54 @@ export function registerLogsCommand(program: Command) {
       const format = resolveFormat(options)
       const helpers = sinceHelpersFrom(bridge)
       const since = helpers.parseLogSince(options.since)
+      const tab = parsePositiveInt('--tab', options.tab)
 
-      if (
-        options.since != null &&
-        options.since !== '' &&
-        since === undefined
-      ) {
-        const message = `extension logs --since expects a sequence number or an ISO timestamp, got: ${options.since}`
+      if (!tab.ok) {
         // eslint-disable-next-line no-console
-        console.error(message)
+        console.error(tab.message)
 
         if (format !== 'pretty') {
           writeFrame(
             ENVELOPE.fail('logs', 'usage', {
-              code: CODES.E_INVALID_OPTION,
-              message,
+              code: CODES.E_FLAG_VALUE_INVALID,
+              message: tab.message,
               name: 'CliError'
             })
           )
         }
 
         process.exit(1)
+      }
+
+      if (
+        options.since != null &&
+        options.since !== '' &&
+        since === undefined
+      ) {
+        refuseUsage(
+          format,
+          `extension logs --since expects a sequence number or an ISO timestamp, got: ${options.since}`
+        )
+      }
+
+      const knownContexts = knownContextsFrom(bridge)
+      const unknownContexts = contextNamesFrom(options.context).filter(
+        (name) => name.toLowerCase() !== 'all' && !knownContexts.includes(name)
+      )
+
+      if (unknownContexts.length > 0) {
+        refuseUsage(
+          format,
+          `extension logs --context expects a comma-separated list of ` +
+            `${knownContexts.join(', ')} or all, got: ${unknownContexts.join(', ')}`
+        )
+      }
+
+      if (levelFilterFrom(options.level) === undefined) {
+        refuseUsage(
+          format,
+          `extension logs --level expects one of ${LEVEL_FILTERS.join(', ')}, got: ${options.level}`
+        )
       }
 
       const emulatorRefusal = emulatorSessionRefusal(
@@ -369,7 +484,7 @@ export function registerLogsCommand(program: Command) {
         process.exit(1)
       }
 
-      const matches = makeFilter(options, since ?? null, helpers)
+      const matches = makeFilter(options, since ?? null, tab.value, helpers)
 
       // An advertised filter that silently matches nothing teaches the wrong
       // lesson (ledger 181, same class as 179): the user reads the silence as
@@ -418,9 +533,32 @@ export function registerLogsCommand(program: Command) {
 
       for (const line of lines) {
         const event = parseLogLine(line)
-        if (event && matches(event)) printEvent(event, format)
+        if (!event) continue
+
+        if (event.type === 'header') printRotation(event, file, format)
+        else if (matches(event)) printEvent(event, format)
       }
     })
+}
+
+function refuseUsage(
+  format: 'pretty' | 'json' | 'ndjson',
+  message: string
+): never {
+  // eslint-disable-next-line no-console
+  console.error(message)
+
+  if (format !== 'pretty') {
+    writeFrame(
+      ENVELOPE.fail('logs', 'usage', {
+        code: CODES.E_INVALID_OPTION,
+        message,
+        name: 'CliError'
+      })
+    )
+  }
+
+  process.exit(1)
 }
 
 async function followLogs(
@@ -485,22 +623,31 @@ async function followLogs(
     )
   }
 
+  // The session keeps a bounded replay buffer. A follower that joins after
+  // it filled is told once that the history it is about to print is partial.
+  let replayNoticed = false
+
   const consumer = new BridgeConsumer({
     controlPort: ready.controlPort,
     instanceId: ready.instanceId,
     reconnect: true,
-    onLog: (event: LogEventLike) => {
-      if (matches(event)) printEvent(event, format)
-    },
-    onGap: (gap: {dropped?: unknown; reason?: unknown}) => {
+    onReady: (frame: {evicted?: unknown; bufferedFrom?: unknown}) => {
+      const evicted = typeof frame.evicted === 'number' ? frame.evicted : 0
+      if (replayNoticed || evicted < 1) return
+
+      replayNoticed = true
       // eslint-disable-next-line no-console
       console.error(
         colors.dim(
           colors.gray(
-            `… ${gap.dropped} event(s) dropped (${gap.reason}), stream is behind`
+            `… replay starts at seq ${frame.bufferedFrom}, ${evicted} earlier ` +
+              'event(s) left the session buffer before this follow began'
           )
         )
       )
+    },
+    onLog: (event: LogEventLike) => {
+      if (matches(event)) printEvent(event, format)
     },
     onClose: (close: {code: number; reason: string}) => {
       if (!refusals.has(close.code) && sessionStillNamed()) return

@@ -970,6 +970,10 @@ export class FirefoxLaunchPlugin {
   }
 
   private async cleanupInstance(): Promise<void> {
+    // The RDP socket belongs to the session: closed here so no client is left
+    // reconnecting to a browser that is gone.
+    this.host.rdpController?.disconnect()
+
     // The shared teardown owns the kill decision and is idempotent, so a shutdown
     // that already terminated the child here is a no-op.
     gracefulTerminateChild(this.child, this.host.browser as BrowserType)

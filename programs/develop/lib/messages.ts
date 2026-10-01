@@ -47,6 +47,21 @@ export function resolvedWorkspaceManifest(
   )
 }
 
+// Said out loud because the alternative is a build whose output, special
+// folders and install all silently belong to a project the author never named.
+export function declinedProjectRoot(
+  projectManifestPath: string,
+  manifestPath: string
+) {
+  const manifestDir = path.dirname(manifestPath)
+
+  return (
+    `${getLoggingPrefix('info')} ${colors.gray(`Using ${path.basename(manifestDir)}/ as the project root.`)}\n` +
+    `${colors.gray('IGNORED')} ${colors.underline(projectManifestPath)}\n` +
+    `${colors.gray('That project does not depend on Extension.js, so its dist, its special folders and its dependencies stay out of this build. Add a package.json next to your manifest, or depend on Extension.js there, to use it as the project root.')}`
+  )
+}
+
 export function remoteFetchTimedOut(target: string, ms: number) {
   return (
     `${getLoggingPrefix('error')} Timed out after ${Math.round(ms / 1000)} s fetching the remote file.\n` +
@@ -109,6 +124,24 @@ export function manifestNotFoundError(
     .join('\n')
 
   return `${base}\n\n${colors.gray(hint)}\n${colors.blue(suggestions)}`
+}
+
+export function companionManifestNotProjectError(
+  manifestPath: string,
+  companionManifestPath: string
+) {
+  const projectRoot = path.dirname(manifestPath)
+  const companionDir = path.dirname(companionManifestPath)
+  const display = path.relative(projectRoot, companionDir) || companionDir
+
+  return (
+    `${getLoggingPrefix('error')} Manifest file not found.\n` +
+    `${colors.gray('NOT FOUND')} ${colors.underline(manifestPath)}\n` +
+    `The only manifest.json here belongs to a companion extension under ${colors.blue('extensions/')}.\n` +
+    `Companions load next to your extension and never stand in for it.\n` +
+    `${colors.gray('COMPANION')} ${colors.underline(display)}\n` +
+    `Add a manifest.json at the project root or in ${colors.blue('src/')}, or point Extension.js at your extension's directory.`
+  )
 }
 
 // The run-only preview quietly serves the SOURCE manifest dir when
@@ -333,8 +366,15 @@ export function addonLintNotInstalled(installHint: string) {
   )
 }
 
-export function addonLintFailed(reason: string) {
-  return `${getLoggingPrefix('debug')} addon-lint skipped=true reason="${reason}"`
+export function addonLintFailed(reason: string, distDisplay: string) {
+  return (
+    `${getLoggingPrefix('warn')} Store check for addons.mozilla.org did not finish: ${reason}. ` +
+    `The build is complete, run ${colors.blue(`npx addons-linter ${distDisplay}`)} to see what AMO would flag.`
+  )
+}
+
+export function addonLintFailedDebug(reason: string) {
+  return `${getLoggingPrefix('debug')} addon-lint failed=true reason="${reason}"`
 }
 
 export function buildShareHint() {
@@ -935,6 +975,21 @@ export function debugSplitChunksNarrowed(optionPaths: string[]) {
   )
 }
 
+export function runtimeChunkKeptInline(runtimeChunk: unknown) {
+  const setting =
+    typeof runtimeChunk === 'string'
+      ? `'${runtimeChunk}'`
+      : typeof runtimeChunk === 'object'
+        ? 'an object'
+        : String(runtimeChunk)
+
+  return (
+    `${getLoggingPrefix('warn')} optimization.runtimeChunk is set to ${setting}, kept at false.\n` +
+    `The background and the content scripts load one file each, so a separate runtime file never reaches them and the entry never starts. ` +
+    `Pages already share code through the shared/ files.`
+  )
+}
+
 export function debugOutputPath(pathValue: string) {
   return `${prefix('debug')} output   path=${pathValue}`
 }
@@ -1005,6 +1060,22 @@ export function devCommandFailed(error: unknown) {
   return (
     `${getLoggingPrefix('error')} Dev mode failed.\n` +
     `${colors.red(fmt.truncate(message, 1200))}`
+  )
+}
+
+export function safariInvalidBundleId(bundleId: string) {
+  return (
+    `${getLoggingPrefix('error')} Can't use ${fmt.code(bundleId)} as a bundle identifier.\n` +
+    `Use reverse-DNS form: dot-separated segments of letters, digits and hyphens, ` +
+    `each starting with a letter (e.g. ${fmt.code('com.example.my-extension')}).`
+  )
+}
+
+export function safariBuildOutputNotFound(outputPath: string) {
+  return (
+    `${getLoggingPrefix('error')} No build output to package for Safari.\n` +
+    `${colors.gray('NOT FOUND')} ${colors.underline(outputPath)}\n` +
+    `The bundler emitted nothing there, so there is no extension to convert into an app.`
   )
 }
 

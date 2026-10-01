@@ -88,7 +88,13 @@ describe('resolveSessionProjectRoot', () => {
 
   it('prints nothing while it walks', () => {
     const root = makeTempDir('extjs-session-quiet-')
-    fs.writeFileSync(path.join(root, 'package.json'), '{"name":"ext"}')
+    // Declares Extension.js so this root owns the nested manifest. Without a
+    // signal the manifest folder would be the project, which is its own case.
+    fs.writeFileSync(
+      path.join(root, 'package.json'),
+      '{"name":"ext","devDependencies":{"extension":"^4.1.30"}}'
+    )
+
     writeManifest(path.join(root, 'packages', 'one'))
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
 

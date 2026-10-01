@@ -99,6 +99,8 @@ describe('classifyEntrySurface', () => {
   it('maps entry names to the surface that loads them', () => {
     expect(classifyEntrySurface('background/service_worker')).toBe('background')
     expect(classifyEntrySurface('background/scripts')).toBe('background')
+    expect(classifyEntrySurface('background/script')).toBe('background')
+    expect(classifyEntrySurface('background/index')).toBe('page')
     expect(classifyEntrySurface('content_scripts/content-0')).toBe(
       'content_script'
     )
@@ -149,10 +151,25 @@ describe('WarnSplitInitialChunks', () => {
     expect(text).toContain('shared/commons.js')
     expect(text).toContain('the script never runs')
     expect(text).toContain(
+      'Only a user-set optimization.splitChunks cache group does this.'
+    )
+
+    expect(text).toContain(
       'https://extension.js.org/docs/features/rspack-configuration#share-a-module-between-entries'
     )
 
     expect(warnings[0].file).toBe('scripts/inject.js')
+  })
+
+  it('stays silent for a background page: its HTML loads the runtime', () => {
+    const warnings = run({
+      'background/index': {
+        files: ['shared/commons.js', 'background/index.js'],
+        runtimeFiles: ['runtime.js'],
+        entryFile: 'background/index.js'
+      }
+    })
+    expect(warnings).toHaveLength(0)
   })
 
   it('stays silent for an entry with one initial file', () => {
@@ -191,6 +208,11 @@ describe('WarnSplitInitialChunks', () => {
 
     expect(text).toContain('runtime.js')
     expect(text).toContain('the background script never starts')
+    expect(text).toContain(
+      'Only a user-set optimization.runtimeChunk does this. Keep runtimeChunk: false'
+    )
+
+    expect(text).not.toContain('cache group')
   })
 
   it('names the content script and injection surfaces', () => {

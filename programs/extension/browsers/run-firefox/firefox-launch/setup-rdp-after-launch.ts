@@ -79,6 +79,8 @@ export async function setupRdpAfterLaunch(
       )
     }
   } catch (error) {
+    controller.disconnect()
+
     throw withRefusalReason(error)
   }
 

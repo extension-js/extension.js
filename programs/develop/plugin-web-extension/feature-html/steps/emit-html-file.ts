@@ -81,7 +81,8 @@ export class EmitHtmlFile {
                 // page is missing; fail the build the same way. Sandbox/sidebar only warn.
                 const isLoadChecked =
                   !featureName.startsWith('sandbox/') &&
-                  featureName !== 'sidebar/index'
+                  featureName !== 'sidebar/index' &&
+                  featureName !== 'sidebar_action/index'
                 reportToCompilation(
                   compilation,
                   compiler,
@@ -168,6 +169,8 @@ export function manifestFieldForHtmlFeature(
       if (has('browser_action')) return 'browser_action.default_popup'
 
       return 'page_action.default_popup'
+    case 'browser_action/index':
+      return 'browser_action.default_popup'
     case 'page_action/index':
       return 'page_action.default_popup'
     case 'options/index':
@@ -182,6 +185,8 @@ export function manifestFieldForHtmlFeature(
       return has('side_panel')
         ? 'side_panel.default_path'
         : 'sidebar_action.default_panel'
+    case 'sidebar_action/index':
+      return 'sidebar_action.default_panel'
     default:
       return featureName.replace('/', '.')
   }

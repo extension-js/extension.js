@@ -1,4 +1,4 @@
-import * as fs from 'node:fs'
+import fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
@@ -182,6 +182,79 @@ describe('extension eval', () => {
     bridge.result = {ok: true, value: 'partial', truncated: true}
     expect(await run(['eval', 'document.body.outerHTML'])).toBe(0)
     expect(String(errorSpy.mock.calls[0][0])).toContain('truncated')
+  })
+})
+
+describe('numeric flags', () => {
+  const stdout: string[] = []
+
+  beforeEach(() => {
+    stdout.length = 0
+    vi.spyOn(fs, 'writeSync').mockImplementation(((
+      _fd: number,
+      text: string
+    ) => {
+      stdout.push(String(text))
+
+      return text.length
+    }) as never)
+  })
+
+  async function refusal(argv: string[], flag: string) {
+    expect(await run([...argv, '--output', 'json'])).toBe(1)
+    expect(bridge.controllers).toHaveLength(0)
+    expect(bridge.commands).toHaveLength(0)
+    expect(String(errorSpy.mock.calls[0][0])).toContain(flag)
+
+    return JSON.parse(stdout[0])
+  }
+
+  it('refuses a non-numeric --timeout before dialing the session', async () => {
+    expect(
+      await refusal(['eval', '1+1', '--timeout', 'abc'], '--timeout')
+    ).toMatchObject({
+      ok: false,
+      command: 'eval',
+      status: 'usage',
+      error: {code: 'E_FLAG_VALUE_INVALID'}
+    })
+  })
+
+  it('refuses a non-numeric --tab instead of falling back to the active tab', async () => {
+    expect(
+      await refusal(
+        ['eval', '1+1', '--context', 'content', '--tab', 'abc'],
+        '--tab'
+      )
+    ).toMatchObject({command: 'eval', error: {code: 'E_FLAG_VALUE_INVALID'}})
+  })
+
+  it('refuses a fractional --tab on reload', async () => {
+    expect(
+      await refusal(['reload', '--context', 'content', '--tab', '1.5'], '--tab')
+    ).toMatchObject({command: 'reload', error: {code: 'E_FLAG_VALUE_INVALID'}})
+  })
+
+  it('refuses a negative --tab on navigate', async () => {
+    expect(
+      await refusal(['navigate', 'https://example.test/', '--tab', '-3'], '--tab')
+    ).toMatchObject({
+      command: 'navigate',
+      status: 'usage',
+      error: {code: 'E_FLAG_VALUE_INVALID'}
+    })
+  })
+
+  it('refuses a non-numeric --max-bytes on inspect', async () => {
+    expect(
+      await refusal(['inspect', '--max-bytes', 'abc'], '--max-bytes')
+    ).toMatchObject({command: 'inspect', error: {code: 'E_FLAG_VALUE_INVALID'}})
+  })
+
+  it('refuses a negative --timeout in pretty mode too', async () => {
+    expect(await run(['eval', '1+1', '--timeout', '-5'])).toBe(1)
+    expect(bridge.commands).toHaveLength(0)
+    expect(String(errorSpy.mock.calls[0][0])).toContain('--timeout')
   })
 })
 

@@ -15,6 +15,95 @@ export interface FatalShapeFix {
   detail: string
 }
 
+export interface MistypedManifestField {
+  field: string
+  expected: string
+  received: string
+}
+
+const STRING_LIST_FIELDS = ['permissions', 'host_permissions'] as const
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+function describeValue(value: unknown): string {
+  if (Array.isArray(value)) return 'an array'
+  if (value === null) return 'null'
+  if (typeof value === 'object') return 'an object'
+  if (typeof value === 'string') return `the string ${JSON.stringify(value)}`
+
+  return `the ${typeof value} ${JSON.stringify(value)}`
+}
+
+// The fields the build iterates as arrays. A value of another type throws a
+// TypeError deep inside entry discovery, so these are checked up front.
+export function findMistypedManifestFields(
+  manifest: Manifest
+): MistypedManifestField[] {
+  const source = manifest as Record<string, unknown>
+  const mistyped: MistypedManifestField[] = []
+
+  const expectArray = (field: string, value: unknown, expected: string) => {
+    if (value === undefined || Array.isArray(value)) return
+
+    mistyped.push({field, expected, received: describeValue(value)})
+  }
+
+  const contentScripts = source.content_scripts
+  expectArray(
+    'content_scripts',
+    contentScripts,
+    'an array of content script objects'
+  )
+
+  if (Array.isArray(contentScripts)) {
+    contentScripts.forEach((entry, index) => {
+      if (!isPlainObject(entry)) {
+        mistyped.push({
+          field: `content_scripts[${index}]`,
+          expected: 'a content script object',
+          received: describeValue(entry)
+        })
+
+        return
+      }
+
+      expectArray(
+        `content_scripts[${index}].js`,
+        entry.js,
+        'an array of script paths'
+      )
+
+      expectArray(
+        `content_scripts[${index}].css`,
+        entry.css,
+        'an array of stylesheet paths'
+      )
+    })
+  }
+
+  if (isPlainObject(source.sandbox)) {
+    expectArray('sandbox.pages', source.sandbox.pages, 'an array of page paths')
+  }
+
+  if (isPlainObject(source.background)) {
+    expectArray(
+      'background.scripts',
+      source.background.scripts,
+      'an array of script paths'
+    )
+  }
+
+  for (const field of STRING_LIST_FIELDS) {
+    if (typeof source[field] === 'string') continue
+
+    expectArray(field, source[field], 'an array of strings')
+  }
+
+  return mistyped
+}
+
 export function sanitizeFatalManifestShapes(
   manifest: Manifest,
   manifestDir?: string
@@ -183,6 +272,18 @@ export function sanitizeFatalManifestShapes(
           "removed 'unsafe-inline' from script-src, Chrome refuses the whole extension over an insecure CSP value in extension pages"
       })
     }
+  }
+
+  for (const field of STRING_LIST_FIELDS) {
+    const value = out[field]
+
+    if (typeof value !== 'string') continue
+
+    out[field] = [value]
+    fixes.push({
+      field,
+      detail: `wrapped the string ${JSON.stringify(value)} in an array, Chrome requires a list of strings here and refuses the whole extension otherwise`
+    })
   }
 
   const commands = out.commands

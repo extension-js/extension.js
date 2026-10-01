@@ -36,6 +36,7 @@ import {
   type EnvelopeError,
   type ErrorCode
 } from '../helpers/messaging'
+import {parsePositiveInt} from '../helpers/normalize-options'
 import {normalizeOutputFormat} from '../helpers/output-flag'
 import {
   resolveSessionProjectPath,
@@ -274,7 +275,9 @@ function statusForCode(code: ErrorCode): string {
     return 'denied'
   }
 
-  if (code === CODES.E_ARGS) return 'usage'
+  if (code === CODES.E_ARGS || code === CODES.E_FLAG_VALUE_INVALID) {
+    return 'usage'
+  }
 
   return 'failed'
 }
@@ -371,6 +374,20 @@ function fail(message: string, frame?: FailFrame): never {
   }
 
   process.exit(1)
+}
+
+function positiveIntFlag(
+  flag: string,
+  raw: unknown,
+  frame: {command: string; output?: 'pretty' | 'json'}
+): number | undefined {
+  const parsed = parsePositiveInt(flag, raw)
+
+  if (!parsed.ok) {
+    fail(parsed.message, {...frame, code: CODES.E_FLAG_VALUE_INVALID})
+  }
+
+  return parsed.value
 }
 
 // Chromium alone gates popups and the side panel on a real click. Gecko and
@@ -589,6 +606,8 @@ async function runCommand(input: RunInput): Promise<void> {
   const {BridgeController, readReadyContract, readControlToken} = bridge
 
   const outputFrame = {command: input.command, output: input.opts.output}
+  const timeoutMs =
+    positiveIntFlag('--timeout', input.opts.timeout, outputFrame) ?? 5000
 
   // eval is unlocked by --allow-eval, not --allow-control; a refusal naming
   // the wrong flag sends the user through a wasted dev-server restart.
@@ -677,7 +696,6 @@ async function runCommand(input: RunInput): Promise<void> {
     })
   }
 
-  const timeoutMs = input.opts.timeout ? Number(input.opts.timeout) : 5000
   let result: ActResultLike
 
   try {
@@ -714,12 +732,19 @@ async function runCommand(input: RunInput): Promise<void> {
 
 function targetFrom(
   opts: CommonActOptions,
+  command: string,
   fallback: ActContext = 'background'
 ): {context: ActContext; url?: string; tabId?: number} {
   const context = (opts.context as ActContext) || fallback
   const target: {context: ActContext; url?: string; tabId?: number} = {context}
   if (opts.url) target.url = opts.url
-  if (opts.tab != null && opts.tab !== '') target.tabId = Number(opts.tab)
+
+  const tabId = positiveIntFlag('--tab', opts.tab, {
+    command,
+    output: opts.output
+  })
+
+  if (tabId !== undefined) target.tabId = tabId
 
   return target
 }
@@ -761,7 +786,7 @@ export function registerActCommands(program: Command): void {
         projectPathArg,
         command: 'eval',
         op: 'eval',
-        target: targetFrom(opts),
+        target: targetFrom(opts, 'eval'),
         args: {expression},
         needsToken: true,
         opts
@@ -797,7 +822,7 @@ export function registerActCommands(program: Command): void {
           projectPathArg,
           command: 'storage',
           op: 'storage.get',
-          target: targetFrom(opts),
+          target: targetFrom(opts, 'storage'),
           args: opts.key ? {area, key: opts.key} : {area},
           opts
         })
@@ -826,7 +851,7 @@ export function registerActCommands(program: Command): void {
           projectPathArg,
           command: 'storage',
           op: 'storage.set',
-          target: targetFrom(opts),
+          target: targetFrom(opts, 'storage'),
           args: {area, items: {[opts.key as string]: parsed}},
           opts
         })
@@ -876,7 +901,7 @@ export function registerActCommands(program: Command): void {
       projectPathArg,
       command: 'reload',
       op: 'reload',
-      target: targetFrom(opts),
+      target: targetFrom(opts, 'reload'),
       opts
     })
   })
@@ -942,16 +967,18 @@ export function registerActCommands(program: Command): void {
             .map((s) => s.trim())
             .filter(Boolean)
         : ['summary']
-      const target = targetFrom(opts, 'content')
+      const target = targetFrom(opts, 'inspect', 'content')
+      const maxBytes = positiveIntFlag('--max-bytes', opts.maxBytes, {
+        command: 'inspect',
+        output: opts.output
+      })
+
       await runCommand({
         projectPathArg,
         command: 'inspect',
         op: 'inspect',
         target,
-        args: {
-          include,
-          maxBytes: opts.maxBytes ? Number(opts.maxBytes) : undefined
-        },
+        args: {include, maxBytes},
         opts,
         augment: opts.withConsole
           ? (projectPath, browser) => {
@@ -1004,7 +1031,12 @@ export function registerActCommands(program: Command): void {
       const target: {context: ActContext; tabId?: number} = {
         context: 'background'
       }
-      if (opts.tab) target.tabId = Number(opts.tab)
+      const tabId = positiveIntFlag('--tab', opts.tab, {
+        command: 'navigate',
+        output: opts.output
+      })
+
+      if (tabId !== undefined) target.tabId = tabId
 
       const args: Record<string, unknown> = {url}
       if (opts.newTab) args.newTab = true

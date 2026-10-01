@@ -137,6 +137,33 @@ describe('companion extensions resolver', () => {
     expect(resolveFor('chromium-based')).toContain('extensions/chrome/c1')
   })
 
+  it('resolves a companion holding a source and a built manifest once, to the source dir', () => {
+    const root = tmpDir('extjs-companion-built-copy-')
+    writeManifest(path.join(root, 'extensions', 'my-helper'))
+    writeManifest(path.join(root, 'extensions', 'my-helper', 'dist'))
+
+    const dirs = resolveCompanionExtensionDirs({
+      projectRoot: root,
+      config: {dir: './extensions'},
+      browser: 'chrome'
+    }).map((value) => toPosix(path.relative(root, value)))
+
+    expect(dirs).toEqual(['extensions/my-helper'])
+  })
+
+  it('still resolves a companion that lives only under dist/', () => {
+    const root = tmpDir('extjs-companion-dist-only-')
+    writeManifest(path.join(root, 'extensions', 'my-helper', 'dist'))
+
+    const dirs = resolveCompanionExtensionDirs({
+      projectRoot: root,
+      config: {dir: './extensions'},
+      browser: 'chrome'
+    }).map((value) => toPosix(path.relative(root, value)))
+
+    expect(dirs).toEqual(['extensions/my-helper/dist'])
+  })
+
   it('rejects local paths outside ./extensions', async () => {
     const root = tmpDir('extjs-companion-outside-')
 

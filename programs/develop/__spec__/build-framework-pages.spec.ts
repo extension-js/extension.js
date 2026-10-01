@@ -398,11 +398,66 @@ describe('JSX pages across frameworks', () => {
     expect(built.pageScripts()).toMatch(/__solidTemplate/)
     expect(built.pageScripts()).not.toMatch(/createSignal<number>/)
   }, 120_000)
+
+  it('solid: a js page is compiled by Solid, never by the hyperscript adapter', async () => {
+    const built = await build(
+      project('solid', {
+        'popup.js':
+          "import {createSignal} from 'solid-js'\n" +
+          'const [count] = createSignal(1)\n' +
+          'document.getElementById("root").append(<button onClick={() => count()}>{count()}</button>)\n'
+      })
+    )
+    expect(built.errors).toBe(0)
+    expect(built.output).not.toMatch(/Syntax Error/i)
+    expect(built.pageScripts()).toMatch(/__solidTemplate/)
+    expect(built.pageScripts()).toMatch(/(<|\\x3C)button>/)
+    expect(built.pageScripts()).not.toMatch(/__jsxRuntime/)
+    expect(built.pageScripts()).not.toMatch(/jsx-dev-runtime|jsx-runtime/)
+  }, 120_000)
+
+  it('solid: a ts page is compiled by Solid with its types gone, in development too', async () => {
+    const built = await build(
+      project(
+        'solid',
+        {
+          'popup.ts':
+            "import {createSignal} from 'solid-js'\n" +
+            'const [count] = createSignal<number>(1)\n' +
+            'const el: HTMLElement | null = document.getElementById("root")\n' +
+            'el?.append(<button onClick={() => count()}>{count()}</button>)\n'
+        },
+        {tsconfig: true}
+      ),
+      'development'
+    )
+    expect(built.errors).toBe(0)
+    expect(built.pageScripts()).toMatch(/__solidTemplate/)
+    expect(built.pageScripts()).not.toMatch(/createSignal<number>/)
+    expect(built.pageScripts()).not.toMatch(/__jsxRuntime/)
+  }, 120_000)
 })
 
 describe('content scripts keep classic handling', () => {
   it('a classic content script with octal escapes still builds in a react project', async () => {
     const root = project('react', {'popup.jsx': RENDER_ONLY})
+    write(root, 'content.js', "var s = '\\101'\nthis.marker = s\n")
+    const manifest = JSON.parse(
+      fs.readFileSync(path.join(root, 'manifest.json'), 'utf8')
+    )
+    manifest.content_scripts = [{matches: ['<all_urls>'], js: ['content.js']}]
+    write(root, 'manifest.json', JSON.stringify(manifest))
+    const built = await build(root)
+    expect(built.errors).toBe(0)
+    const content = fs.readFileSync(
+      path.join(built.distDir, 'content_scripts', 'content-0.js'),
+      'utf8'
+    )
+    expect(content).toContain('marker')
+  }, 120_000)
+
+  it('a classic content script with octal escapes still builds in a solid project', async () => {
+    const root = project('solid', {'popup.jsx': RENDER_ONLY})
     write(root, 'content.js', "var s = '\\101'\nthis.marker = s\n")
     const manifest = JSON.parse(
       fs.readFileSync(path.join(root, 'manifest.json'), 'utf8')

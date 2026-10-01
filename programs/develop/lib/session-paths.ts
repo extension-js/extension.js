@@ -29,8 +29,13 @@ export function legacyControlPortFilePath(
   return path.join(browserArtifactsDir(projectPath, browser), 'control-port')
 }
 
+export const CONTROL_TOKEN_FILE_PREFIX = 'control-token-'
+
 export function controlTokenPath(projectPath: string, browser: string): string {
-  return path.join(sessionStateDir(projectPath), `control-token-${browser}`)
+  return path.join(
+    sessionStateDir(projectPath),
+    `${CONTROL_TOKEN_FILE_PREFIX}${browser}`
+  )
 }
 
 export function legacyControlTokenPath(projectPath: string): string {
@@ -53,8 +58,23 @@ export function sessionArtifactsIgnoreFilePath(projectPath: string): string {
   return path.join(sessionArtifactsRootDir(projectPath), '.gitignore')
 }
 
+const PROJECT_ROOT_MARKERS = [
+  'package.json',
+  'deno.jsonc',
+  'deno.json',
+  'manifest.json'
+]
+
+function holdsProjectRootMarker(projectPath: string): boolean {
+  return PROJECT_ROOT_MARKERS.some((marker) =>
+    fs.existsSync(path.join(projectPath, marker))
+  )
+}
+
 export function ensureSessionArtifactsIgnoreFile(projectPath: string): void {
   try {
+    if (!holdsProjectRootMarker(projectPath)) return
+
     const ignoreFile = sessionArtifactsIgnoreFilePath(projectPath)
     if (fs.existsSync(ignoreFile)) return
 

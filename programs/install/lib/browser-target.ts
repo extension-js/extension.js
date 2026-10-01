@@ -45,6 +45,29 @@ export function isBrowserNotInstallableError(
   )
 }
 
+// Thrown when the Edge installer needs sudo to prompt and the session cannot
+// let it. Callers under --output json map this to E_BROWSER_INSTALL_PRIVILEGE,
+// which is not a download failure and must not read as one.
+export class BrowserInstallPrivilegeError extends Error {
+  readonly code = 'BROWSER_INSTALL_PRIVILEGE' as const
+
+  constructor(message: string) {
+    super(message)
+    this.name = 'BrowserInstallPrivilegeError'
+  }
+}
+
+export function isBrowserInstallPrivilegeError(
+  error: unknown
+): error is BrowserInstallPrivilegeError {
+  return Boolean(
+    error &&
+      typeof error === 'object' &&
+      ((error as {name?: string}).name === 'BrowserInstallPrivilegeError' ||
+        (error as {code?: string}).code === 'BROWSER_INSTALL_PRIVILEGE')
+  )
+}
+
 export function normalizeBrowserName(input: string): InstallBrowserTarget {
   const value = String(input || '')
     .trim()

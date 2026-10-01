@@ -17,9 +17,14 @@ export interface ChunkNameLike {
   canBeInitial?: () => boolean
 }
 
+// The MV2 background.page entry: an HTML document whose own markup loads
+// every sibling chunk, unlike the service worker and the scripts list.
+const BACKGROUND_PAGE_ENTRY = 'background/index'
+
 // Every surface loads exactly one file per entry: the HTML tag, the
 // background registration, the content_scripts list or the injection call.
 export function classifyEntrySurface(entryName: string): EntrySurface {
+  if (entryName === BACKGROUND_PAGE_ENTRY) return 'page'
   if (entryName.startsWith('background')) return 'background'
   if (entryName.startsWith('content_scripts/')) return 'content_script'
   if (entryName.startsWith('scripts/')) return 'script'
@@ -70,6 +75,9 @@ export type SplitChunksConfig = NonNullable<
   NonNullable<Configuration['optimization']>['splitChunks']
 >
 
+// The output folder every chunk two or more pages share is emitted under.
+export const SHARED_CHUNK_DIR = 'shared'
+
 // HTML pages share code the way a web app does: the framework runtime in one
 // file, everything two or more pages import in another. Stable names, no
 // hash, so a manifest or a public asset can keep pointing at them.
@@ -80,8 +88,8 @@ export function defaultSplitChunks(): SplitChunksConfig {
       default: false,
       defaultVendors: false,
       framework: {
-        name: 'shared/framework',
-        filename: 'shared/framework.js',
+        name: `${SHARED_CHUNK_DIR}/framework`,
+        filename: `${SHARED_CHUNK_DIR}/framework.js`,
         test: FRAMEWORK_PACKAGE_PATTERN,
         type: SCRIPT_MODULE_TYPE,
         priority: 40,
@@ -89,8 +97,8 @@ export function defaultSplitChunks(): SplitChunksConfig {
         reuseExistingChunk: true
       },
       commons: {
-        name: 'shared/commons',
-        filename: 'shared/commons.js',
+        name: `${SHARED_CHUNK_DIR}/commons`,
+        filename: `${SHARED_CHUNK_DIR}/commons.js`,
         type: SCRIPT_MODULE_TYPE,
         minChunks: 2,
         minSize: 0,

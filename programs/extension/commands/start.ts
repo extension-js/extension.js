@@ -131,7 +131,7 @@ export function registerStartCommand(program: Command) {
     )
     .option(
       '--polyfill [boolean]',
-      'whether or not to apply the cross-browser polyfill. Defaults to `true`',
+      'whether or not to apply the cross-browser polyfill. Defaults to `true` (`build` defaults to `false`)',
       parseOptionalBoolean
     )
     .option('--no-polyfill', 'disable the cross-browser polyfill')
@@ -153,10 +153,6 @@ export function registerStartCommand(program: Command) {
     .option(
       '--host <host>',
       'specify the host to bind the dev server to. Use 0.0.0.0 for Docker/devcontainers. Defaults to `127.0.0.1`'
-    )
-    .option(
-      '--public-host <host>',
-      'connectable host the browser (HMR + reload bridge) dials when it differs from the bind host (e.g. a remote/devcontainer). Defaults to the bind host, or 127.0.0.1 when bound to 0.0.0.0'
     )
     .option(
       '--log-context <list>',

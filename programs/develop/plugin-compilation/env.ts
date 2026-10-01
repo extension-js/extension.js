@@ -51,6 +51,66 @@ export function toJsStringLiteral(value: string): string {
   )
 }
 
+export function escapeForJsonAsset(value: string): string {
+  return JSON.stringify(value).slice(1, -1)
+}
+
+const HTML_ENTITIES: Record<string, string> = {
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&#39;'
+}
+
+function rawTextElementAt(content: string, offset: number) {
+  const before = content.slice(0, offset).toLowerCase()
+
+  for (const tag of ['script', 'style'] as const) {
+    const open = before.lastIndexOf(`<${tag}`)
+
+    if (
+      open !== -1 &&
+      open > before.lastIndexOf(`</${tag}`) &&
+      before.indexOf('>', open) !== -1
+    ) {
+      return tag
+    }
+  }
+
+  return undefined
+}
+
+// Markup sinks take entities, which decode the same in attributes and text.
+// An inline script sink takes a JS string body instead, as a <script> never decodes entities.
+export function escapeForHtmlAsset(
+  content: string,
+  offset: number,
+  value: string
+): string {
+  const element = rawTextElementAt(content, offset)
+
+  if (element === 'script') {
+    return toJsStringLiteral(value).slice(1, -1).replace(/'/g, '\\u0027')
+  }
+
+  if (element === 'style') {
+    return value
+  }
+
+  return value.replace(/[&<>"']/g, (char) => HTML_ENTITIES[char])
+}
+
+function parsesAsJson(text: string): boolean {
+  try {
+    JSON.parse(text)
+
+    return true
+  } catch {
+    return false
+  }
+}
+
 function resolveProcessShim(): string | undefined {
   const candidate = path.join(__dirname, '..', 'runtime', 'process-shim.cjs')
 
@@ -357,33 +417,51 @@ export class EnvPlugin {
 
             files.forEach((filename) => {
               if (filename.endsWith('.json') || filename.endsWith('.html')) {
-                let fileContent = String(
+                const isJsonAsset = filename.endsWith('.json')
+                const original = String(
                   compilation.assets[filename]?.source() ?? ''
                 )
+                const substituted = new Set<string>()
 
-                const resolveVar = (name: string): string => {
+                // A value is escaped for the sink it lands in, so a quote,
+                // a backslash or a < keeps its authored meaning in the asset.
+                const resolveVar = (name: string, offset: number): string => {
                   if (
-                    Object.prototype.hasOwnProperty.call(templateVars, name)
+                    !Object.prototype.hasOwnProperty.call(templateVars, name)
                   ) {
-                    return templateVars[name]
+                    // Preserve the placeholder when the var is unknown, matching
+                    // the pre-substitution form so authors can spot typos.
+                    return `$${name}`
                   }
 
-                  // Preserve the placeholder when the var is unknown, matching
-                  // the pre-substitution form so authors can spot typos.
-                  return `$${name}`
+                  substituted.add(name)
+
+                  return isJsonAsset
+                    ? escapeForJsonAsset(templateVars[name])
+                    : escapeForHtmlAsset(original, offset, templateVars[name])
                 }
 
                 // Digits are valid env-name characters (e.g. EXTENSION_PUBLIC_API_V2).
-                // PUBLIC first so the broader $EXTENSION_* pass does not re-touch them.
-                fileContent = fileContent.replace(
-                  /\$EXTENSION_PUBLIC_[A-Z0-9_]+/g,
-                  (match: string) => resolveVar(match.slice(1))
+                const fileContent = original.replace(
+                  /\$EXTENSION_[A-Z0-9_]+/g,
+                  (match: string, offset: number) =>
+                    resolveVar(match.slice(1), offset)
                 )
 
-                fileContent = fileContent.replace(
-                  /\$EXTENSION_[A-Z0-9_]+/g,
-                  (match: string) => resolveVar(match.slice(1))
-                )
+                if (
+                  isJsonAsset &&
+                  substituted.size > 0 &&
+                  !parsesAsJson(fileContent)
+                ) {
+                  const error = new WebpackError(
+                    messages.envValueBreaksJsonAsset(filename, [
+                      ...substituted
+                    ])
+                  ) as Error & {file?: string; name?: string}
+                  error.name = 'EnvValueBreaksJsonAsset'
+                  error.file = filename
+                  compilation.errors.push(error)
+                }
 
                 compilation.updateAsset(
                   filename,

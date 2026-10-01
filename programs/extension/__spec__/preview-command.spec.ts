@@ -270,4 +270,19 @@ describe('extension preview', () => {
     expect(frame.error.code).not.toBe('E_UNSUPPORTED_BROWSER')
     expect(frame.error.message).toContain('Safari')
   })
+
+  // preview never starts the dev server, so nothing reads a connectable host.
+  // An advertised key that reaches nothing teaches the wrong lesson.
+  it('does not advertise --public-host, which preview never dials', async () => {
+    const program = makeProgram(registerPreviewCommand)
+    const preview = program.commands.find((cmd) => cmd.name() === 'preview')
+
+    expect(preview?.options.map((option) => option.long)).not.toContain(
+      '--public-host'
+    )
+
+    await expect(
+      run(['preview', '.', '--public-host', '203.0.113.7'])
+    ).rejects.toThrow(/unknown option '--public-host'/)
+  })
 })

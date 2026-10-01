@@ -60,6 +60,30 @@ export function jsonMissingFile(
   return lines.join('\n')
 }
 
+export function jsonPathIsFolder(
+  manifestField: string,
+  folderPath: string,
+  opts?: {fatal?: boolean}
+) {
+  const lines: string[] = []
+  lines.push(
+    `The JSON path listed in ${colors.blue(manifestField)} is a folder, not a file.`
+  )
+
+  lines.push(`${colors.gray('FOLDER')} ${colors.underline(folderPath)}`)
+  lines.push(
+    opts?.fatal
+      ? `Browsers can reject or crash the extension when required JSON files like rulesets cannot be loaded.\nThe build stops here.`
+      : `Browsers can reject or misread the extension when this file cannot be loaded.\nThe build continues.`
+  )
+
+  lines.push(
+    `Point ${colors.blue(manifestField)} in your ${colors.blue('manifest.json')} at a JSON file, for example one inside that folder.`
+  )
+
+  return lines.join('\n')
+}
+
 export function invalidJsonSyntax(
   manifestField: string,
   file: string,
