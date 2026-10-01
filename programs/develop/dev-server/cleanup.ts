@@ -65,9 +65,12 @@ export function setupCleanupHandlers(
     }
   }
 
-  // An uncaught exception leaves the process in an undefined state, tear down
+  // An uncaught exception leaves the process in an undefined state, tear down.
+  // closeAll exits with no argument, so without this a crashed --no-browser
+  // session (no launcher handler to exit 1) reports success to CI.
   process.on('uncaughtException', async (error) => {
     console.error(messages.runnerUncaughtException(error))
+    process.exitCode = 1
     await cleanup()
   })
 

@@ -19,6 +19,35 @@ function readyPathFor(extensionOutputPath: string): string {
   )
 }
 
+// The run a stamp belongs to, read once when the browser launches. Every later
+// stamp is evidence about THAT browser, so it has to name the run it came from.
+export function readReadyRunId(
+  extensionOutputPath: string | undefined
+): string | undefined {
+  try {
+    if (!extensionOutputPath) return undefined
+
+    const readyPath = readyPathFor(extensionOutputPath)
+    if (!fs.existsSync(readyPath)) return undefined
+
+    const runId = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))?.runId
+
+    return typeof runId === 'string' && runId ? runId : undefined
+  } catch {
+    return undefined
+  }
+}
+
+// A browser dying as the session restarts would otherwise stamp its exit onto
+// the FRESH run's contract, failing a browser that is on screen.
+function isForeignRun(ready: unknown, runId: string | undefined): boolean {
+  if (!runId) return false
+
+  const owner = (ready as {runId?: unknown})?.runId
+
+  return typeof owner === 'string' && owner !== '' && owner !== runId
+}
+
 // Publish the Gecko RDP debugger-server port next to Chromium's cdpPort so
 // downstream tooling can pair protocol clients from the ready contract alone.
 export function stampReadyRdpPort(
@@ -60,7 +89,8 @@ export function stampReadyBrowserLaunch(
     // contract is where that fact lives.
     binary?: string
     binaryProvenance?: 'managed' | 'pinned' | 'system' | 'snapshot'
-  }
+  },
+  runId?: string
 ) {
   try {
     if (!extensionOutputPath) return
@@ -69,6 +99,8 @@ export function stampReadyBrowserLaunch(
     if (!fs.existsSync(readyPath)) return
 
     const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    if (isForeignRun(ready, runId)) return
+
     const profilePath = String(details?.profilePath || '').trim()
     if (profilePath) ready.profilePath = profilePath
 
@@ -129,7 +161,8 @@ export function stampReadyExtensionId(
 // every other surface (stdout, logs) looks identical to a healthy run.
 export function stampReadyExtensionLoadRefused(
   extensionOutputPath: string | undefined,
-  reason: string
+  reason: string,
+  runId?: string
 ) {
   try {
     if (!extensionOutputPath) return
@@ -138,6 +171,8 @@ export function stampReadyExtensionLoadRefused(
     if (!fs.existsSync(readyPath)) return
 
     const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    if (isForeignRun(ready, runId)) return
+
     ready.status = 'error'
     ready.code = 'extension_load_refused'
     const browserLabel = String(ready.browser || 'the browser')
@@ -160,7 +195,8 @@ export function stampReadyExtensionLoadRefused(
 // so without this the contract is indistinguishable from a browser that died.
 export function stampReadyProfileLocked(
   extensionOutputPath: string | undefined,
-  details: {message?: string; owner?: {host: string; pid: number}}
+  details: {message?: string; owner?: {host: string; pid: number}},
+  runId?: string
 ) {
   try {
     if (!extensionOutputPath) return
@@ -169,6 +205,8 @@ export function stampReadyProfileLocked(
     if (!fs.existsSync(readyPath)) return
 
     const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    if (isForeignRun(ready, runId)) return
+
     ready.status = 'error'
     ready.code = 'profile_locked'
     ready.message =
@@ -189,7 +227,8 @@ export function stampReadyProfileLocked(
 export function stampReadyBrowserExited(
   extensionOutputPath: string | undefined,
   code: number | null,
-  signal: string | null = null
+  signal: string | null = null,
+  runId?: string
 ) {
   try {
     if (!extensionOutputPath) return
@@ -198,6 +237,8 @@ export function stampReadyBrowserExited(
     if (!fs.existsSync(readyPath)) return
 
     const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    if (isForeignRun(ready, runId)) return
+
     ready.browserExitedAt = new Date().toISOString()
     ready.browserExitCode = code
     // A crash exits with no code and only a signal, so the signal is the one

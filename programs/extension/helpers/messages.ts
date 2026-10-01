@@ -705,7 +705,7 @@ ${'Non-interactive / auto mode (CI)'}
 - Set ${code(arg('EXTENSION_AUTO_EXIT_MS'))} to enable self-termination after N milliseconds.
   Useful when ${code('pnpm extension dev')} would otherwise hang under Rspack watch.
   Example: ${code(arg('EXTENSION_AUTO_EXIT_MS=6000'))} pnpm extension dev ./templates/react --browser chrome --starting-url ${arg('https://example.com')}
-- Optional: ${code(arg('EXTENSION_FORCE_KILL_MS'))} to hard-exit after N ms as a fallback (defaults to auto-exit + 4000).
+- Optional: ${code(arg('EXTENSION_FORCE_KILL_MS'))} to hard-exit after N ms as a fallback, never sooner than auto-exit + 4000 (the default), and with exit code 1 because the session was truncated.
 
 ${'Docker / Devcontainers / Codespaces'}
 - Use ${code('--host 0.0.0.0')} to bind the dev server on all interfaces so HMR is reachable from the host.

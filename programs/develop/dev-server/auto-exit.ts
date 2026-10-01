@@ -9,6 +9,12 @@
 import {humanLine} from './lifecycle-stream'
 import * as messages from './messages'
 
+// How long after the auto-exit deadline the backstop waits at the earliest.
+const FORCE_KILL_FLOOR_MS = 4000
+
+// A backstop kill is a truncated session, never a completed one.
+export const FORCE_KILL_EXIT_CODE = 1
+
 function parseMilliseconds(value: string | number | undefined) {
   if (typeof value === 'number') {
     return Number.isFinite(value) && value > 0 ? value : null
@@ -54,10 +60,12 @@ export function setupAutoExit(
   }, autoExitMs)
 
   const parsedForceKillMs = parseMilliseconds(forceKillMsRaw)
-  const forceKillMs =
-    parsedForceKillMs !== null && parsedForceKillMs > 0
-      ? parsedForceKillMs
-      : autoExitMs + 4000
+  // The force kill is the backstop for a teardown that already started, so it
+  // is clamped later than the auto-exit deadline rather than read as absolute.
+  const forceKillMs = Math.max(
+    parsedForceKillMs ?? 0,
+    autoExitMs + FORCE_KILL_FLOOR_MS
+  )
 
   forceKillTimer = setTimeout(() => {
     try {
@@ -66,7 +74,9 @@ export function setupAutoExit(
       // Ignore
     }
 
-    process.exit(0)
+    // Reaching the backstop means the orderly path never finished, which a
+    // caller cannot tell from a clean auto-exit unless the code differs.
+    process.exit(FORCE_KILL_EXIT_CODE)
   }, forceKillMs)
 
   function cancelAutoExitTimers() {

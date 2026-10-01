@@ -102,6 +102,9 @@ export interface ChromiumPluginRuntime extends ChromiumLaunchOptions {
   // Set by the post-launch CDP flow when the browser answered that it refused
   // the guest, so the launch path can withhold the "ready" claim.
   extensionLoadRefused?: string
+  // The run the launch belongs to, carried so a post-launch stamp cannot land
+  // on a contract a restart has since taken over.
+  launchRunId?: string
   // Bound alongside it: prints the banner the refusal withheld, once the
   // browser accepts the dist on a later compile.
   printBannerOnRecovery?: () => Promise<void>
