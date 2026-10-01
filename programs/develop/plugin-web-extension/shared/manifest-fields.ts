@@ -19,6 +19,7 @@ import {applyIndependentHtmlSurfaces} from './html-surfaces'
 export function getResolvedManifestFieldsData(options: {
   manifestPath: string
   browser?: DevOptions['browser']
+  projectPath?: string
 }) {
   const data = getManifestFieldsData({
     manifestPath: options.manifestPath,
@@ -37,7 +38,8 @@ export function getResolvedManifestFieldsData(options: {
         (data.html || {}) as Record<string, string | undefined>,
         manifest,
         path.dirname(options.manifestPath),
-        options.browser
+        options.browser,
+        options.projectPath
       )
     }
   } catch {

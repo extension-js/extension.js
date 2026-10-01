@@ -62,6 +62,50 @@ export function resolvePublicFolder(
   return inspectPublicFolders(manifestPath, projectRoot).publicDir
 }
 
+function isUsableFile(candidate: string): boolean {
+  try {
+    if (!fs.existsSync(candidate)) return false
+
+    const stat = fs.statSync(candidate)
+
+    return typeof stat?.isFile === 'function' ? stat.isFile() : true
+  } catch {
+    return false
+  }
+}
+
+// Strip every spelling a manifest uses for a public-hosted file down to its
+// path inside the folder: `/public/x`, `public/x`, `./public/x`, `/x`, `./x`.
+export function publicRelativePath(ref: string): string {
+  return String(ref || '')
+    .replace(/\\/g, '/')
+    .replace(/^(?:\/public\/|(?:\.\/)?public\/)/i, '')
+    .replace(/^\.\//, '')
+    .replace(/^\/+/, '')
+}
+
+// The copy of a manifest-referenced file that the public/ folder the copier
+// ships holds (the project root one, or the next-to-manifest one when the
+// root has none); undefined when that folder has no such file.
+export function findPublicFile(
+  manifestPath: string,
+  projectRoot: string | undefined,
+  ref: string
+): string | undefined {
+  const rel = publicRelativePath(ref)
+
+  if (!rel || rel.split('/').includes('..') || path.isAbsolute(rel)) {
+    return undefined
+  }
+
+  const {publicDir} = inspectPublicFolders(manifestPath, projectRoot)
+  if (!publicDir) return undefined
+
+  const candidate = path.join(publicDir, rel)
+
+  return isUsableFile(candidate) ? candidate : undefined
+}
+
 // Consumers that need a path even when no folder exists (static serving,
 // watch globs, containment checks) get the resolved one or the root default.
 export function publicFolderOrDefault(

@@ -45,7 +45,7 @@ export function getManifestOverrides(
   }
 
   const common = manifestCommon(manifestContent, manifestPath, projectPath)
-  const mv2 = manifestV2(manifestContent, manifestPath)
+  const mv2 = manifestV2(manifestContent, manifestPath, projectPath)
   const mv3 = manifestV3(manifestContent, manifestPath, projectPath)
 
   // Deep-merge background so MV2 (scripts), MV3 (service_worker), and common (page)

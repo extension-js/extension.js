@@ -9,17 +9,29 @@
 import type {Manifest} from '../../../../types'
 import {pageActionOutputTarget} from '../../../shared/html-surfaces'
 import {getFilename} from '../../../shared/paths'
-import {iconOutputPath} from '../../normalize-manifest-path'
+import {
+  iconOutputPath,
+  manifestPageOutputTarget
+} from '../../normalize-manifest-path'
 
-export function pageAction(manifest: Manifest) {
+export function pageAction(
+  manifest: Manifest,
+  manifestPath?: string,
+  projectPath?: string
+) {
   return (
     manifest.page_action && {
       page_action: {
         ...manifest.page_action,
         ...(manifest.page_action.default_popup && {
           default_popup: getFilename(
-            pageActionOutputTarget(manifest),
-            manifest.page_action.default_popup as string
+            manifestPageOutputTarget(
+              String(manifest.page_action.default_popup),
+              pageActionOutputTarget(manifest),
+              manifestPath,
+              projectPath
+            ),
+            String(manifest.page_action.default_popup)
           )
         }),
         ...(manifest.page_action.default_icon && {

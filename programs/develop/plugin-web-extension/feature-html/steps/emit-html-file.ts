@@ -11,6 +11,7 @@ import * as path from 'node:path'
 import {Compilation, type Compiler, sources} from '@rspack/core'
 import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
 import {stripBom} from '../../../lib/parse-json-safe'
+import {findPublicFile} from '../../../plugin-special-folders/resolve-public-folder'
 import type {FilepathList, Manifest, PluginInterface} from '../../../types'
 import {reportToCompilation} from '../../shared/compilation-issues'
 import * as messages from '../html-lib/messages'
@@ -50,7 +51,7 @@ export class EmitHtmlFile {
                 : path.join(projectDir, resource)
 
             if (!fs.existsSync(resolved)) {
-              // A root-absolute ref that public/ owns is served verbatim at the output root;
+              // A ref that public/ owns is served verbatim at the output root;
               // nothing to compile and nothing missing.
               const relToProject = path.relative(projectDir, resolved)
 
@@ -58,7 +59,11 @@ export class EmitHtmlFile {
                 relToProject &&
                 !relToProject.startsWith('..') &&
                 !path.isAbsolute(relToProject) &&
-                fs.existsSync(path.join(projectDir, 'public', relToProject))
+                findPublicFile(
+                  this.manifestPath,
+                  compiler.options.context,
+                  relToProject
+                )
               ) {
                 continue
               }

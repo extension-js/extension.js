@@ -44,9 +44,11 @@ export class WebExtensionPlugin {
   public apply(compiler: Compiler): void {
     const manifestPath = this.manifestPath
 
+    const projectPath = compiler.options?.context as string | undefined
     const manifestFieldsData = getResolvedManifestFieldsData({
       manifestPath,
-      browser: this.browser
+      browser: this.browser,
+      projectPath
     })
 
     const specialFoldersData = getSpecialFoldersDataForCompiler(compiler)
@@ -68,7 +70,7 @@ export class WebExtensionPlugin {
       // Pages reachable only through chrome.devtools.panels.create never
       // appear in the manifest; without this the panel 404s in the browser.
       ...discoverDevtoolsPanelPages(manifestPath, this.browser),
-      ...settingsOverridesStartupPages(manifestPath, this.browser)
+      ...settingsOverridesStartupPages(manifestPath, this.browser, projectPath)
     }
 
     new HtmlPlugin({
@@ -87,7 +89,11 @@ export class WebExtensionPlugin {
       includeList: {
         ...manifestFieldsData.scripts,
         ...specialFoldersData.scripts,
-        ...themeExperimentStylesheetEntries(manifestPath, this.browser)
+        ...themeExperimentStylesheetEntries(
+          manifestPath,
+          this.browser,
+          projectPath
+        )
       }
     }).apply(compiler)
 
@@ -109,7 +115,7 @@ export class WebExtensionPlugin {
         ...(manifestFieldsData.icons as FilepathList),
         ...themeImageFields(manifestPath, this.browser),
         ...omniboxIconFields(manifestPath, this.browser),
-        ...settingsOverridesIconFields(manifestPath, this.browser)
+        ...settingsOverridesIconFields(manifestPath, this.browser, projectPath)
       },
       browser: this.browser
     }).apply(compiler)

@@ -8,7 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {inspectPublicFolders} from '../../plugin-special-folders/resolve-public-folder'
+import {findPublicFile} from '../../plugin-special-folders/resolve-public-folder'
 
 export function normalizeManifestOutputPath(originalPath: string) {
   if (!originalPath) return originalPath
@@ -32,11 +32,15 @@ export function normalizeManifestOutputPath(originalPath: string) {
 
 // Output path for a manifest page or JSON entry: public/-prefixed refs strip
 // the prefix; root-absolute refs owned by public/ stay at the output root;
-// in-project refs compiled by the pipeline point at compiledTarget.
+// a plain ref that is missing beside the manifest but present in public/
+// (project root first, then next to the manifest) ships verbatim through the
+// copier, so the built manifest names that copy; in-project refs compiled by
+// the pipeline point at compiledTarget.
 export function manifestPageOutputTarget(
   raw: string,
   compiledTarget: string,
-  manifestPath?: string
+  manifestPath?: string,
+  projectPath?: string
 ): string {
   const unixPath = raw.replace(/\\/g, '/')
 
@@ -49,7 +53,7 @@ export function manifestPageOutputTarget(
 
     if (manifestPath && rest) {
       const manifestDir = path.dirname(manifestPath)
-      const inPublic = fs.existsSync(path.join(manifestDir, 'public', rest))
+      const inPublic = Boolean(findPublicFile(manifestPath, projectPath, rest))
       const inRoot = fs.existsSync(path.join(manifestDir, rest))
       if (inRoot && !inPublic) return compiledTarget
     }
@@ -57,37 +61,36 @@ export function manifestPageOutputTarget(
     return normalizeManifestOutputPath(unixPath)
   }
 
+  const rest = unixPath.replace(/^\.\//, '')
+
+  if (!manifestPath || !rest || rest.split('/').includes('..')) {
+    return compiledTarget
+  }
+
+  if (fs.existsSync(path.join(path.dirname(manifestPath), rest))) {
+    return compiledTarget
+  }
+
+  if (findPublicFile(manifestPath, projectPath, rest)) return rest
+
   return compiledTarget
 }
 
 // Output path for a manifest JSON resource (a DNR ruleset, a managed schema).
-// Same rules as pages, plus the plain spelling (`rules.json`): a file that is
-// missing beside the manifest but present in the public folder the copier
-// ships lands at the output root under its own name, so the built manifest
-// must name that copy. feature-json skips the emit for the same file, keep
-// the two agreed. An in-project file keeps its compiled slot.
+// Same rules as pages. feature-json skips the emit for a public-hosted file,
+// keep the two agreed.
 export function manifestJsonOutputTarget(
   raw: string,
   compiledTarget: string,
   manifestPath?: string,
   projectPath?: string
 ): string {
-  const unixPath = raw.replace(/\\/g, '/')
-
-  if (/^(?:\/public\/|(?:\.\/)?public\/|\/)/i.test(unixPath) || !manifestPath) {
-    return manifestPageOutputTarget(unixPath, compiledTarget, manifestPath)
-  }
-
-  const rest = unixPath.replace(/^\.\//, '')
-  if (!rest || rest.split('/').includes('..')) return compiledTarget
-
-  const manifestDir = path.dirname(manifestPath)
-  if (fs.existsSync(path.join(manifestDir, rest))) return compiledTarget
-
-  const {publicDir} = inspectPublicFolders(manifestPath, projectPath)
-  if (publicDir && fs.existsSync(path.join(publicDir, rest))) return rest
-
-  return compiledTarget
+  return manifestPageOutputTarget(
+    raw,
+    compiledTarget,
+    manifestPath,
+    projectPath
+  )
 }
 
 // Output path for a manifest icon entry: in-project paths keep their location
