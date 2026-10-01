@@ -9,6 +9,7 @@
 import colors from 'pintor'
 import type {InstallBrowserTarget} from './browser-target'
 import {fmt, prefix} from './messaging'
+import type {CommandResult} from './runner'
 
 function titleCase(value: string): string {
   return value.length ? value[0].toUpperCase() + value.slice(1) : value
@@ -34,34 +35,45 @@ export function installSucceeded(
   )
 }
 
+// eslint-disable-next-line no-control-regex
+const ANSI_PATTERN = /\[[0-9;]*m/g
+
+// The thrown messages are plain sentences: they land in error.message under
+// --output json, where a glyph or a color code would corrupt the envelope.
 export function installFailed(
   browser: InstallBrowserTarget,
   command: string,
   args: string[],
-  code: number | null,
-  stderr: string
+  result: CommandResult
 ): string {
-  const details = String(stderr || '').trim()
-  const detailSuffix = details ? `\n${colors.red(details)}` : ''
+  const lastLine = String(result.stderr || '')
+    .replace(ANSI_PATTERN, '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .pop()
+  const ending =
+    result.code === null && result.signal
+      ? `was killed by ${result.signal}`
+      : `failed with exit code ${String(result.code)}`
 
   return (
-    `${prefix('error')} Couldn't install ${colors.blue(titleCase(browser))}.\n` +
-    `${colors.red('The command')} ${colors.yellow(command)} ${colors.yellow(args.join(' '))} ` +
-    `${colors.red(`failed with exit code ${colors.yellow(String(code))}`)}${colors.red('.')}\n` +
-    `${colors.red('Run it yourself to see the full error.')}` +
-    detailSuffix
+    `Couldn't install ${titleCase(browser)}. ` +
+    `The command ${command} ${args.join(' ')} ${ending}. ` +
+    `Run it yourself to see the full error.` +
+    (lastLine ? ` Its output ended with: ${lastLine}` : '')
   )
 }
 
 export function edgeInstallNeedsInteractivePrivilegedSession(): string {
   return (
-    `${prefix('error')} Edge needs a privileged interactive session on Linux.\n` +
-    `${colors.red('Run this command in a terminal where sudo can prompt for credentials.')}\n` +
-    `${colors.red('Or install Edge system-wide with your package manager.')}\n` +
-    `  ${colors.gray('-')} Ubuntu/Debian: ${colors.blue('sudo apt install microsoft-edge-stable')}\n` +
-    `  ${colors.gray('-')} Fedora: ${colors.blue('sudo dnf install microsoft-edge-stable')}\n` +
-    `${colors.red('Then run Extension.js with')} ${colors.blue('--browser=edge')}${colors.red('.')}\n` +
-    `${colors.red('Use')} ${colors.blue('--browser=chromium')} ${colors.red('when a privileged install is unavailable.')}`
+    `Edge needs a privileged interactive session on Linux. ` +
+    `Run this command in a terminal where sudo can prompt for credentials, ` +
+    `or install Edge system-wide with your package manager ` +
+    `(sudo apt install microsoft-edge-stable on Ubuntu and Debian, ` +
+    `sudo dnf install microsoft-edge-stable on Fedora) ` +
+    `and run Extension.js with --browser=edge. ` +
+    `Use --browser=chromium when a privileged install is unavailable.`
   )
 }
 
@@ -75,8 +87,8 @@ export function edgeInstallUsingSystemBinary(path: string): string {
 
 export function uninstallRequiresTarget(): string {
   return (
-    `${prefix('error')} A browser target is required.\n` +
-    `${colors.red('Pass')} ${colors.blue('--browser <name>')}${colors.red(', or')} ${colors.blue('--all')} ${colors.red('to remove every browser.')}`
+    `A browser target is required. ` +
+    `Pass --browser <name>, or --all to remove every browser.`
   )
 }
 

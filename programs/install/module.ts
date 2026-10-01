@@ -7,14 +7,18 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {
+  BrowserInstallPrivilegeError,
   BrowserNotInstallableError,
   type InstallBrowserTarget,
+  isBrowserInstallPrivilegeError,
   isBrowserNotInstallableError,
   normalizeBrowserName
 } from './lib/browser-target'
 
 export {
+  BrowserInstallPrivilegeError,
   BrowserNotInstallableError,
+  isBrowserInstallPrivilegeError,
   isBrowserNotInstallableError,
   normalizeBrowserName
 }
@@ -26,6 +30,7 @@ import {
   resolveBrowsersCacheRoot
 } from './lib/cache-root'
 import * as messages from './lib/messages'
+import {humanLine, humanWarn} from './lib/messaging'
 import {
   browserInstallArgs,
   browserInstallCommand,
@@ -46,6 +51,12 @@ export interface UninstallOptions {
   all?: boolean
 }
 
+export interface UninstallResult {
+  browser: InstallBrowserTarget
+  removed: boolean
+  path: string
+}
+
 export function getManagedBrowsersCacheRoot(): string {
   return resolveBrowsersCacheRoot()
 }
@@ -63,10 +74,12 @@ export async function extensionInstall({
   const destination = resolveBrowserInstallDir(target)
 
   if (target === 'edge' && edgeInstallNeedsInteractivePrivilegedSession()) {
-    throw new Error(messages.edgeInstallNeedsInteractivePrivilegedSession())
+    throw new BrowserInstallPrivilegeError(
+      messages.edgeInstallNeedsInteractivePrivilegedSession()
+    )
   }
 
-  console.log(messages.installingBrowser(target, destination))
+  humanLine(messages.installingBrowser(target, destination))
 
   const cmd = browserInstallCommand(target)
   const args = browserInstallArgs(target, destination)
@@ -81,26 +94,26 @@ export async function extensionInstall({
       const systemEdge = detectSystemEdgeBinary()
 
       if (systemEdge) {
-        console.log(messages.edgeInstallUsingSystemBinary(systemEdge))
+        humanWarn(messages.edgeInstallUsingSystemBinary(systemEdge))
 
         return
       }
 
-      throw new Error(messages.edgeInstallNeedsInteractivePrivilegedSession())
+      throw new BrowserInstallPrivilegeError(
+        messages.edgeInstallNeedsInteractivePrivilegedSession()
+      )
     }
 
-    throw new Error(
-      messages.installFailed(target, cmd, args, result.code, result.stderr)
-    )
+    throw new Error(messages.installFailed(target, cmd, args, result))
   }
 
-  console.log(messages.installSucceeded(target, destination))
+  humanLine(messages.installSucceeded(target, destination))
 }
 
 export async function extensionUninstall({
   browser,
   all
-}: UninstallOptions): Promise<void> {
+}: UninstallOptions): Promise<UninstallResult[]> {
   const cacheRoot = resolveBrowsersCacheRoot()
 
   if (!all && !browser) {
@@ -121,15 +134,21 @@ export async function extensionUninstall({
     throw new Error(messages.uninstallRequiresTarget())
   }
 
-  console.log(messages.uninstallingBrowsers(cacheRoot, targets))
+  humanLine(messages.uninstallingBrowsers(cacheRoot, targets))
+
+  const results: UninstallResult[] = []
 
   for (const target of targets) {
     const result = removeBrowserDir(target)
 
     if (result.removed) {
-      console.log(messages.uninstallSucceeded(target, result.path))
+      humanLine(messages.uninstallSucceeded(target, result.path))
     } else {
-      console.log(messages.uninstallNoop(target, result.path))
+      humanLine(messages.uninstallNoop(target, result.path))
     }
+
+    results.push({browser: target, removed: result.removed, path: result.path})
   }
+
+  return results
 }

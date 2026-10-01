@@ -16,6 +16,7 @@ import {
   PLAYWRIGHT_VERSION,
   PUPPETEER_BROWSERS_VERSION
 } from './installer-versions'
+import {isMachineOutput} from './messaging'
 
 type PackageManagerName = 'pnpm' | 'yarn' | 'bun' | 'npm'
 
@@ -161,11 +162,18 @@ export function browserInstallEnv(
   return {...process.env}
 }
 
+export interface CommandResult {
+  code: number | null
+  signal: NodeJS.Signals | null
+  stdout: string
+  stderr: string
+}
+
 export async function runCommand(
   command: string,
   args: string[],
   opts: {cwd: string; env: NodeJS.ProcessEnv}
-): Promise<{code: number | null; stdout: string; stderr: string}> {
+): Promise<CommandResult> {
   const child = spawn(command, args, {
     cwd: opts.cwd,
     env: buildExecEnv(opts.env),
@@ -174,13 +182,16 @@ export async function runCommand(
     stdio: 'pipe'
   })
 
+  // Under machine output stdout carries the envelope alone, so the installer's
+  // own progress moves to stderr where a human can still watch it.
+  const progress = isMachineOutput() ? process.stderr : process.stdout
   let stdout = ''
   let stderr = ''
 
   if (child.stdout) {
     child.stdout.on('data', (chunk) => {
       stdout += chunk.toString()
-      process.stdout.write(chunk)
+      progress.write(chunk)
     })
   }
 
@@ -192,7 +203,10 @@ export async function runCommand(
   }
 
   return new Promise((resolve, reject) => {
-    child.on('close', (code) => resolve({code, stdout, stderr}))
+    child.on('close', (code, signal) =>
+      resolve({code, signal, stdout, stderr})
+    )
+
     child.on('error', (error) => reject(error))
   })
 }
