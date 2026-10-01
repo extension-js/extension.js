@@ -1292,8 +1292,9 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
     } catch (e) {
       // Ignore
     }
-    // Legacy sendMessage path: kept for any surface still relaying the old way
-    // (harmless one-predicate listener; new relays never use it).
+    // sendMessage path: how the devtools page relays, since its port would be
+    // mistaken for the extension's own devtools connection. Also accepts any
+    // surface still relaying the old way.
     try {
       var rt = g.chrome;
       if (rt && rt.runtime && rt.runtime.onMessage) {
@@ -1407,6 +1408,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
 
 // Lightweight console RELAY for non-SW contexts: forwards each call to the SW
 // over a NAMED runtime.Port so the extension's own onMessage never loops on it.
+// The devtools page is the exception and sends messages, see postLog below.
 export const BRIDGE_RELAY_SOURCE = `;(function () {
   try {
     var g = (typeof globalThis === "object" && globalThis) ? globalThis : this;
@@ -1437,11 +1439,31 @@ export const BRIDGE_RELAY_SOURCE = `;(function () {
 
     function here() { try { return g.location ? g.location.href : undefined; } catch (e) { return undefined; } }
 
+    // The devtools page is the one surface whose port carries no sender.tab,
+    // which is how a devtools extension recognizes its own devtools connection.
+    // Ours would arrive first and be taken for it, so that surface sends
+    // messages instead and the extension's port topology matches production.
+    var relayOverPort = canRelay && CONTEXT !== "devtools";
+    var canSend = typeof chrome.runtime.sendMessage === "function";
+
+    function sendLog(payload) {
+      if (!canSend) return;
+      try {
+        chrome.runtime.sendMessage({__extjsBridgeLog: payload}, function () {
+          try { void chrome.runtime.lastError; } catch (e) {
+            // Ignore
+          }
+        });
+      } catch (e) {
+        // Ignore
+      }
+    }
+
     // Lazy named port to the SW producer: connecting wakes an idle SW, but
     // port frames never reach the extension's own onMessage listeners.
     var logPort = null;
     function getLogPort() {
-      if (!canRelay) return null;
+      if (!relayOverPort) return null;
       if (logPort) return logPort;
       try {
         logPort = chrome.runtime.connect({name: "__extjs-bridge-log__"});
@@ -1458,6 +1480,8 @@ export const BRIDGE_RELAY_SOURCE = `;(function () {
     // Relay one log payload to the SW producer over the named port, redialing
     // once if the port went stale (SW restarted).
     function postLog(payload) {
+      if (!relayOverPort) return sendLog(payload);
+
       var p = getLogPort();
       if (!p) return;
       try {
