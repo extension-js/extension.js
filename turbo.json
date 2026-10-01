@@ -6,6 +6,7 @@
     "EXTENSION_AUTHOR_MODE",
     "npm_config_user_agent"
   ],
+  "globalPassThroughEnv": ["TMPDIR"],
   "tasks": {
     "compile": {
       "outputs": ["dist/**"],
