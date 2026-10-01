@@ -193,6 +193,100 @@ describe('extension build', () => {
     expect(String(errorSpy.mock.calls[0]?.[0])).toMatch(/--macos-only/)
   })
 
+  describe('usage refusals under --output json', () => {
+    async function refusalFrame(argv: string[]) {
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+      expect(await run([...argv, '--output', 'json'])).toBe(1)
+      expect(extensionBuild).not.toHaveBeenCalled()
+      expect(errorSpy).not.toHaveBeenCalled()
+      expect(logSpy).toHaveBeenCalledTimes(1)
+
+      return JSON.parse(String(logSpy.mock.calls[0][0]))
+    }
+
+    it('frames an unsupported browser name', async () => {
+      expect(
+        await refusalFrame(['build', '.', '--browser', 'netscape'])
+      ).toMatchObject({
+        schema: 1,
+        ok: false,
+        command: 'build',
+        status: 'usage',
+        value: null,
+        error: {
+          code: 'E_UNSUPPORTED_BROWSER',
+          message: expect.stringContaining('netscape')
+        }
+      })
+    })
+
+    it('frames an invalid --mode', async () => {
+      expect(
+        await refusalFrame(['build', '.', '--mode', 'fastest'])
+      ).toMatchObject({
+        ok: false,
+        command: 'build',
+        status: 'usage',
+        error: {
+          code: 'E_INVALID_OPTION',
+          message: expect.stringContaining('fastest')
+        }
+      })
+    })
+
+    it('frames a safari-only flag on a non-safari target', async () => {
+      expect(
+        await refusalFrame(['build', '.', '--app-name', 'My App'])
+      ).toMatchObject({
+        ok: false,
+        command: 'build',
+        status: 'usage',
+        error: {
+          code: 'E_INVALID_OPTION',
+          message: expect.stringContaining('--app-name')
+        }
+      })
+    })
+
+    it('frames a malformed safari bundle id', async () => {
+      expect(
+        await refusalFrame([
+          'build',
+          '.',
+          '--browser',
+          'safari',
+          '--bundle-id',
+          'bad id'
+        ])
+      ).toMatchObject({
+        ok: false,
+        command: 'build',
+        status: 'usage',
+        error: {
+          code: 'E_INVALID_OPTION',
+          message: expect.stringContaining('bad id')
+        }
+      })
+    })
+
+    it('frames a fatal safari preflight', async () => {
+      safariBuildPreflight.mockReturnValue({
+        severity: 'fatal',
+        message: 'xcode is broken'
+      })
+
+      expect(
+        await refusalFrame(['build', '.', '--browser', 'safari'])
+      ).toMatchObject({
+        ok: false,
+        command: 'build',
+        status: 'failed',
+        error: {code: 'E_SAFARI_TOOLCHAIN', message: 'xcode is broken'}
+      })
+    })
+  })
+
   it('carries the build summary in the --output json envelope', async () => {
     extensionBuild.mockResolvedValueOnce({
       browser: 'chromium',

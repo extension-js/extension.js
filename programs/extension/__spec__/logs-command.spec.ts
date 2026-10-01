@@ -1,4 +1,4 @@
-import * as fs from 'node:fs'
+import fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
@@ -173,6 +173,31 @@ describe('extension logs (one-shot)', () => {
     expect(String(errorSpy.mock.calls.flat().join(' '))).toContain(
       'expects a sequence number or an ISO timestamp'
     )
+  })
+
+  it('refuses a non-numeric --tab instead of printing every event', async () => {
+    const stdout: string[] = []
+    vi.spyOn(fs, 'writeSync').mockImplementation(((
+      _fd: number,
+      text: string
+    ) => {
+      stdout.push(String(text))
+
+      return text.length
+    }) as never)
+
+    expect(
+      await run(['logs', dir, '--output', 'ndjson', '--tab', 'abc'])
+    ).toBe(1)
+
+    expect(printedLines()).toEqual([])
+    expect(String(errorSpy.mock.calls[0][0])).toContain('--tab')
+    expect(JSON.parse(stdout[0])).toMatchObject({
+      ok: false,
+      command: 'logs',
+      status: 'usage',
+      error: {code: 'E_FLAG_VALUE_INVALID'}
+    })
   })
 
   it('filters by context, tab, since, and url glob', async () => {

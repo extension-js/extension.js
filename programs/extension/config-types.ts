@@ -146,7 +146,6 @@ export interface ServeCommandConfig
   polyfill?: boolean
   port?: string | number
   host?: string
-  publicHost?: string
 }
 
 /** `commands.build` overrides. */

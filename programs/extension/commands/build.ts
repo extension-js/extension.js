@@ -16,7 +16,7 @@ import {resolveConfigBrowser} from '../helpers/config-browser'
 import {loadExtensionDevelopModule} from '../helpers/extension-develop-runtime'
 import * as messages from '../helpers/messages'
 import {commandDescriptions} from '../helpers/messages'
-import {CODES, ENVELOPE} from '../helpers/messaging'
+import {CODES, ENVELOPE, type ErrorCode} from '../helpers/messaging'
 import {parseExtensionsList} from '../helpers/normalize-options'
 import {isJsonOutput} from '../helpers/output-flag'
 import {checkProjectCliVersion} from '../helpers/project-cli-version'
@@ -51,6 +51,21 @@ type BuildOptions = {
   output?: 'pretty' | 'json'
   author?: boolean
   authorMode?: boolean
+}
+
+// Under --output json a bare exit leaves stdout empty, so a machine consumer
+// reads exit 1 and has nothing to explain it. Print the frame before exiting.
+function failAndExit(
+  asJson: boolean,
+  status: string,
+  error: {code: ErrorCode; message: string}
+): never {
+  if (asJson) {
+    // eslint-disable-next-line no-console
+    console.log(JSON.stringify(ENVELOPE.fail('build', status, error)))
+  }
+
+  process.exit(1)
 }
 
 export function registerBuildCommand(program: Command) {
@@ -190,17 +205,27 @@ export function registerBuildCommand(program: Command) {
           }
         }
 
+        const asJson = isJsonOutput(buildOptions)
         const list = vendors(browser)
+        let unsupportedBrowser = ''
 
         const vendorsAreSupported = validateVendors(
           list,
           (invalid, supported) => {
+            unsupportedBrowser = invalid
+            if (asJson) return
+
             // eslint-disable-next-line no-console
             console.error(messages.unsupportedBrowserFlag(invalid, supported))
           }
         )
 
-        if (!vendorsAreSupported) process.exit(1)
+        if (!vendorsAreSupported) {
+          failAndExit(asJson, 'usage', {
+            code: CODES.E_UNSUPPORTED_BROWSER,
+            message: `Unsupported browser: ${unsupportedBrowser}`
+          })
+        }
 
         // Validate --mode upfront so users get a clear error rather than a
         // silent fall-through to the production default.
@@ -212,13 +237,19 @@ export function registerBuildCommand(program: Command) {
           if (m === 'development' || m === 'production' || m === 'none') {
             mode = m
           } else {
-            // eslint-disable-next-line no-console
-            console.error(
+            const message =
               `Invalid --mode value: ${JSON.stringify(buildOptions.mode)}. ` +
-                `Expected one of: development, production, none.`
-            )
+              `Expected one of: development, production, none.`
 
-            process.exit(1)
+            if (!asJson) {
+              // eslint-disable-next-line no-console
+              console.error(message)
+            }
+
+            failAndExit(asJson, 'usage', {
+              code: CODES.E_INVALID_OPTION,
+              message
+            })
           }
         }
 
@@ -241,15 +272,27 @@ export function registerBuildCommand(program: Command) {
         }
 
         if (safariOnlyFlags.length > 0 && !list.some(isSafariVendor)) {
-          // eslint-disable-next-line no-console
-          console.error(messages.safariOnlyOption(safariOnlyFlags))
-          process.exit(1)
+          if (!asJson) {
+            // eslint-disable-next-line no-console
+            console.error(messages.safariOnlyOption(safariOnlyFlags))
+          }
+
+          failAndExit(asJson, 'usage', {
+            code: CODES.E_INVALID_OPTION,
+            message: `${safariOnlyFlags.join(', ')} apply to safari targets only.`
+          })
         }
 
         if (buildOptions.bundleId && !isValidBundleId(buildOptions.bundleId)) {
-          // eslint-disable-next-line no-console
-          console.error(messages.safariInvalidBundleId(buildOptions.bundleId))
-          process.exit(1)
+          if (!asJson) {
+            // eslint-disable-next-line no-console
+            console.error(messages.safariInvalidBundleId(buildOptions.bundleId))
+          }
+
+          failAndExit(asJson, 'usage', {
+            code: CODES.E_INVALID_OPTION,
+            message: `--bundle-id expects a reverse-DNS identifier, got: ${buildOptions.bundleId}`
+          })
         }
 
         // Safari packaging preflight. Non-macOS is a warn-and-skip; a macOS
@@ -260,9 +303,15 @@ export function registerBuildCommand(program: Command) {
           const preflight = safariBuildPreflight()
 
           if (preflight.severity === 'fatal') {
-            // eslint-disable-next-line no-console
-            console.error(preflight.message)
-            process.exit(1)
+            if (!asJson) {
+              // eslint-disable-next-line no-console
+              console.error(preflight.message)
+            }
+
+            failAndExit(asJson, 'failed', {
+              code: CODES.E_SAFARI_TOOLCHAIN,
+              message: String(preflight.message)
+            })
           }
 
           if (preflight.severity === 'skip') {
@@ -273,7 +322,6 @@ export function registerBuildCommand(program: Command) {
         }
 
         const {extensionBuild} = await loadExtensionDevelopModule()
-        const asJson = isJsonOutput(buildOptions)
 
         const cliVersion = checkProjectCliVersion(
           path.resolve(pathOrRemoteUrl || process.cwd()),
