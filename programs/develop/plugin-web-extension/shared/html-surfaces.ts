@@ -244,6 +244,44 @@ export function dropPageAction(manifest: Manifest): Manifest {
   return rest
 }
 
+// Every browser replaced browser_action with action in Manifest V3, so the
+// key is a dead toolbar button there: the extension installs with no load
+// error and the popup never opens.
+export function isBrowserActionLiveSurface(
+  manifest: Manifest | undefined
+): boolean {
+  const version = Number(
+    (manifest as {manifest_version?: unknown} | undefined)?.manifest_version
+  )
+
+  return !Number.isFinite(version) || version < 3
+}
+
+// A Manifest V3 manifest that names browser_action and no action at all has
+// no toolbar surface any browser reads, so the old key becomes the new one.
+// A manifest that names both keeps both: each gets its own page above.
+export function shouldFoldBrowserActionIntoAction(
+  manifest: Manifest | undefined
+): boolean {
+  if (!manifest || typeof manifest !== 'object') return false
+
+  if (!('browser_action' in manifest) || manifest.browser_action == null) {
+    return false
+  }
+
+  if (isBrowserActionLiveSurface(manifest)) return false
+
+  return manifest.action == null
+}
+
+export function foldBrowserActionIntoAction(manifest: Manifest): Manifest {
+  if (!shouldFoldBrowserActionIntoAction(manifest)) return manifest
+
+  const {browser_action: folded, ...rest} = manifest
+
+  return {...rest, action: folded} as Manifest
+}
+
 // The page the built page_action key must name: the shared toolbar page
 // when both keys point at one source, its own page otherwise.
 export function pageActionOutputTarget(manifest: Manifest): string {

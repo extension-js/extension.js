@@ -264,6 +264,18 @@ describe('ApplyDevDefaults', () => {
     expect(asString.content_security_policy).toContain("'unsafe-eval'")
   })
 
+  it('writes the object form for MV3 even from an MV2-spelled string policy', () => {
+    const out = runDevDefaults({
+      manifest_version: 3,
+      name: 'x',
+      content_security_policy: "script-src 'self'; object-src 'self'"
+    })
+    expect(typeof out.content_security_policy).toBe('object')
+    expect(out.content_security_policy.extension_pages).toContain(
+      "script-src 'self'"
+    )
+  })
+
   it('names an optional permission the dev build turns required', () => {
     const {out, warnings} = runDevDefaultsWithWarnings({
       manifest_version: 3,
