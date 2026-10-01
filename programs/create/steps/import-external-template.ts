@@ -796,25 +796,28 @@ export async function importExternalTemplate(
     // Distinguish a genuinely-missing slug from a download/timeout/rate-limit
     // failure; the old path reported every failure as a bad template name (#56).
     const insecureUrl = findInsecureTemplateUrlError(error)
+    const frame = insecureUrl
+      ? messages.templateUrlNotHttps(insecureUrl.url)
+      : error instanceof TemplateNotFoundError
+        ? messages.templateNotFoundInCatalog(
+            templateName,
+            (error as {cause?: unknown}).cause
+          )
+        : error instanceof TemplateDownloadError
+          ? messages.templateDownloadFailed(templateName, error)
+          : null
 
-    if (insecureUrl) {
-      logger.error(messages.templateUrlNotHttps(insecureUrl.url))
-    } else if (error instanceof TemplateNotFoundError) {
-      logger.error(
-        messages.templateNotFoundInCatalog(
-          templateName,
-          (error as {cause?: unknown}).cause
-        )
-      )
-    } else if (error instanceof TemplateDownloadError) {
-      logger.error(messages.templateDownloadFailed(templateName, error))
-    } else {
+    if (frame === null) {
       logger.error(messages.installingFromTemplateError(templateName, error))
     }
 
     // Clean the partial scaffold so a retry into the same name is not
     // poisoned, without ever touching content that pre-existed this run.
     await cleanupFailedImport(projectPath, ownsProjectDir, preExistingEntries)
+
+    // The CLI prints a framed message as-is and a bare one with its stack,
+    // so the frame travels on the error and is never logged here as well.
+    if (frame !== null && error instanceof Error) error.message = frame
 
     throw error
   }

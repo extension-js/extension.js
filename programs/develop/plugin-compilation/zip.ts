@@ -159,9 +159,10 @@ function isCompanionExtension(file: string): boolean {
 // repositories and nested node_modules too.
 const DENIED_SEGMENTS = new Set(['.git', '.extension-js', 'node_modules'])
 
-// dist/extension-js holds managed browser profiles (cookies, logins) and
-// session logs. Its '*' self-ignore is invisible to a root-only scan.
-const SESSION_ARTIFACTS_PREFIX = 'dist/extension-js'
+// dist holds the compiled build, the archives of earlier runs and, under
+// dist/extension-js, managed browser profiles (cookies, logins) and session
+// logs. None of it is source, and its self-ignore is invisible to a root scan.
+const DEFAULT_OUTPUT_DIR = 'dist'
 
 // Env files hold the secrets the framework itself tells users to put there
 // (config-loader and EnvPlugin load .env, .env.development, .env.local).
@@ -187,13 +188,57 @@ export function isDeniedFromSourceZip(file: string): boolean {
 
   if (isDeniedEnvFile(segments[segments.length - 1])) return true
 
-  return (
-    posix === SESSION_ARTIFACTS_PREFIX ||
-    posix.startsWith(`${SESSION_ARTIFACTS_PREFIX}/`)
+  return isUnder(posix, DEFAULT_OUTPUT_DIR)
+}
+
+function isUnder(file: string, root: string | undefined): boolean {
+  if (!root) return false
+
+  return file === root || file.startsWith(`${root}/`)
+}
+
+function relativeWithin(projectDir: string, target: string): string | undefined {
+  const relative = toPosix(path.relative(projectDir, target))
+  const outside =
+    relative === '..' || relative.startsWith('../') || path.isAbsolute(relative)
+
+  return outside ? undefined : relative
+}
+
+export interface BuildOutput {
+  outPath: string
+  archives: string[]
+}
+
+// A user config may point the output anywhere in the project. The previous
+// run's build and the archives beside it are never source either.
+export function isBuildOutput(
+  file: string,
+  projectDir: string,
+  output: BuildOutput
+): boolean {
+  const posix = toPosix(file)
+
+  if (isUnder(posix, relativeWithin(projectDir, output.outPath))) return true
+
+  const artifactDir = relativeWithin(projectDir, path.dirname(output.outPath))
+  const fileDir = posix.includes('/')
+    ? posix.slice(0, posix.lastIndexOf('/'))
+    : ''
+
+  if (artifactDir !== undefined && fileDir === artifactDir) {
+    if (/\.zip$/i.test(posix)) return true
+  }
+
+  return output.archives.some(
+    (archive) => relativeWithin(projectDir, archive) === posix
   )
 }
 
-export async function getFilesToZip(projectDir: string): Promise<string[]> {
+export async function getFilesToZip(
+  projectDir: string,
+  output?: BuildOutput
+): Promise<string[]> {
   const gitignorePath = path.join(projectDir, '.gitignore')
   const ig = ignore()
 
@@ -218,8 +263,48 @@ export async function getFilesToZip(projectDir: string): Promise<string[]> {
   return files.filter(
     (file) =>
       !isDeniedFromSourceZip(file) &&
+      !(output && isBuildOutput(file, projectDir, output)) &&
       !ig.ignores(file) &&
       !isCompanionExtension(file)
+  )
+}
+
+type ManifestLike = {
+  name?: unknown
+  version?: unknown
+  default_locale?: unknown
+}
+
+function readManifest(manifestPath: string): ManifestLike {
+  return parseJsonSafe(fs.readFileSync(manifestPath, 'utf-8')) as ManifestLike
+}
+
+// A missing default-locale folder makes the zip store-rejectable; warn up
+// front so the root cause is visible before upload.
+function warnOnMissingDefaultLocale(
+  stats: {compilation?: {warnings?: unknown[]}} | undefined,
+  manifest: ManifestLike,
+  localeRoot: string
+): void {
+  if (!manifest.default_locale) return
+
+  const messagesPath = path.join(
+    localeRoot,
+    '_locales',
+    String(manifest.default_locale),
+    'messages.json'
+  )
+
+  if (fs.existsSync(messagesPath)) return
+
+  stats?.compilation?.warnings?.push(
+    new Error(
+      `ZipPlugin: manifest.json declares default_locale "${String(
+        manifest.default_locale
+      )}" but ${messagesPath} does not exist. Stores reject packages ` +
+        `without their default locale: restore the _locales folder ` +
+        `before shipping this zip.`
+    )
   )
 }
 
@@ -242,61 +327,57 @@ export class ZipPlugin {
 
       try {
         const created: Array<{kind: 'source' | 'dist'; path: string}> = []
-        // Try to read manifest name/version from output (dist)
-        // Use output.path for outDir instead of assuming dist/browser
         const outPath = compiler.options.output?.path as string
         const packageJsonDir = compiler.options.context as string
+        const sourceManifestPath =
+          this.options.manifestPath || path.join(packageJsonDir, 'manifest.json')
+        const distManifestPath = path.join(outPath, 'manifest.json')
 
-        const manifestPath = this.options.manifestPath
-          ? this.options.manifestPath
-          : path.join(
-              this.zipData.zipSource ? packageJsonDir : outPath,
-              'manifest.json'
-            )
+        // The emitted manifest is the one the pipeline finished: vendor
+        // prefixes resolved, env placeholders filled, version coerced.
+        const distManifest =
+          this.zipData.zip || fs.existsSync(distManifestPath)
+            ? readManifest(distManifestPath)
+            : undefined
+        const sourceManifest = this.zipData.zipSource
+          ? readManifest(sourceManifestPath)
+          : undefined
 
-        const manifest = parseJsonSafe(fs.readFileSync(manifestPath, 'utf-8'))
-
-        // A missing default-locale folder makes the zip store-rejectable;
-        // warn up front so the root cause is visible before upload.
-        if (manifest.default_locale) {
-          const localeRoot = this.zipData.zipSource ? packageJsonDir : outPath
-          const messagesPath = path.join(
-            localeRoot,
-            '_locales',
-            String(manifest.default_locale),
-            'messages.json'
-          )
-
-          if (!fs.existsSync(messagesPath)) {
-            stats?.compilation?.warnings?.push(
-              new Error(
-                `ZipPlugin: manifest.json declares default_locale "${String(
-                  manifest.default_locale
-                )}" but ${messagesPath} does not exist. Stores reject packages ` +
-                  `without their default locale: restore the _locales folder ` +
-                  `before shipping this zip.`
-              ) as (typeof stats.compilation.warnings)[number]
-            )
-          }
+        if (sourceManifest) {
+          warnOnMissingDefaultLocale(stats, sourceManifest, packageJsonDir)
         }
 
+        if (distManifest && this.zipData.zip) {
+          warnOnMissingDefaultLocale(stats, distManifest, outPath)
+        }
+
+        const manifest = distManifest || sourceManifest || {}
         const base = sanitize(
           resolveManifestName(
             manifest.name,
             manifest,
-            [outPath, path.dirname(manifestPath), packageJsonDir],
+            [outPath, path.dirname(sourceManifestPath), packageJsonDir],
             path.basename(packageJsonDir)
           )
         )
         const name = `${base}-${manifest.version || '0.0.0'}`
+        const sourcePath = path.join(
+          path.dirname(outPath),
+          `${name}-source.zip`
+        )
+        const zipName = this.zipData.zipFilename
+          ? explicitZipFilename(this.zipData.zipFilename)
+          : `${name}-${this.browser}.zip`
+        // Beside the browser folder, never inside it: dist/<browser> is
+        // what a store upload or a load-unpacked takes whole, and a zip
+        // left inside it ships in the next package of itself.
+        const distPath = path.join(path.dirname(outPath), zipName)
 
         if (this.zipData.zipSource) {
-          const files = await getFilesToZip(packageJsonDir)
-
-          const sourcePath = path.join(
-            path.dirname(outPath),
-            `${name}-source.zip`
-          )
+          const files = await getFilesToZip(packageJsonDir, {
+            outPath,
+            archives: [sourcePath, distPath]
+          })
 
           if (isDebug()) {
             console.log(messages.packagingSourceFiles(sourcePath))
@@ -314,14 +395,6 @@ export class ZipPlugin {
         }
 
         if (this.zipData.zip) {
-          const zipName = this.zipData.zipFilename
-            ? explicitZipFilename(this.zipData.zipFilename)
-            : `${name}-${this.browser}.zip`
-          // Beside the browser folder, never inside it: dist/<browser> is
-          // what a store upload or a load-unpacked takes whole, and a zip
-          // left inside it ships in the next package of itself.
-          const distPath = path.join(path.dirname(outPath), zipName)
-
           if (isDebug()) {
             console.log(messages.packagingDistributionFiles(distPath))
           }

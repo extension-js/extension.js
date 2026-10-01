@@ -29,6 +29,22 @@ function listNames(dir: string): string[] {
   }
 }
 
+function deadPid(): number {
+  for (let pid = 2 ** 22 + 1; pid < 2 ** 22 + 10000; pid++) {
+    try {
+      process.kill(pid, 0)
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ESRCH') return pid
+    }
+  }
+
+  throw new Error('no dead pid found')
+}
+
+function stagingNameOwnedBy(pid: number, suffix = ''): string {
+  return `${DIST_STAGING_PREFIX}chrome-${pid.toString(36)}-abc123${suffix}`
+}
+
 beforeEach(() => {
   root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-atomic-dist-'))
   distPath = path.join(root, 'dist', 'chrome')
@@ -108,7 +124,7 @@ describe('lib/atomic-dist', () => {
       'action/index.html': 'page'
     })
 
-    const staging = stagingDistPathFor(distPath)
+    const staging = path.join(root, 'dist', stagingNameOwnedBy(deadPid()))
     // The interrupt happened mid-emit: manifest present, pages missing.
     writeTree(staging, {'manifest.json': '{"partial":true}'})
 
@@ -118,6 +134,45 @@ describe('lib/atomic-dist', () => {
 
     removeStaleStagingDirs(distPath)
     expect(listNames(path.join(root, 'dist'))).toEqual(['chrome'])
+  })
+
+  it('keeps a staging dir whose owning build is still alive', () => {
+    writeTree(distPath, {'manifest.json': '{}'})
+    const live = stagingNameOwnedBy(process.pid)
+    const dead = stagingNameOwnedBy(deadPid())
+    writeTree(path.join(root, 'dist', live), {'manifest.json': '{}'})
+    writeTree(path.join(root, 'dist', dead), {'manifest.json': '{}'})
+
+    removeStaleStagingDirs(distPath)
+
+    const names = listNames(path.join(root, 'dist'))
+    expect(names).toContain('chrome')
+    expect(names).toContain(live)
+    expect(names).not.toContain(dead)
+  })
+
+  it('never sweeps the staging dir of the current build', () => {
+    writeTree(distPath, {'manifest.json': '{}'})
+    const own = stagingDistPathFor(distPath)
+    writeTree(own, {'manifest.json': '{"partial":true}'})
+
+    removeStaleStagingDirs(distPath)
+
+    expect(fs.existsSync(path.join(own, 'manifest.json'))).toBe(true)
+  })
+
+  it('leaves a retired dir alone while its owning promote is in flight', () => {
+    writeTree(distPath, {'manifest.json': '{}'})
+    const liveRetired = stagingNameOwnedBy(process.pid, '-retired')
+    const deadRetired = stagingNameOwnedBy(deadPid(), '-retired')
+    writeTree(path.join(root, 'dist', liveRetired), {'manifest.json': '{}'})
+    writeTree(path.join(root, 'dist', deadRetired), {'manifest.json': '{}'})
+
+    removeStaleStagingDirs(distPath)
+
+    const names = listNames(path.join(root, 'dist'))
+    expect(names).toContain(liveRetired)
+    expect(names).not.toContain(deadRetired)
   })
 
   it('sweeps only staging dirs that belong to this browser target', () => {
