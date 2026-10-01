@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import programPackageJson from '../package.json'
+import {findConfigFile} from './config-loader'
 import * as messages from './messages'
 import {isDebug} from './messaging'
 import {readProjectDependencies} from './project-manifest'
@@ -55,17 +56,11 @@ export function assertNoManagedDependencyConflicts(
     // projects; do not treat these as managed, avoiding false conflicts.
     managedDeps.delete('webpack')
 
-    // Only enforce when the same package is referenced in user's extension.config.(js|mjs)
-    const userConfigJs = path.join(projectPath, 'extension.config.js')
-    const userConfigMjs = path.join(projectPath, 'extension.config.mjs')
+    // Only enforce when the same package is referenced in the config file
+    // the loader itself would pick up for this project.
+    const configPath = findConfigFile(projectPath)
+    if (!configPath) return
 
-    const hasConfig =
-      fs.existsSync(userConfigJs) || fs.existsSync(userConfigMjs)
-    if (!hasConfig) return
-
-    const configPath = fs.existsSync(userConfigJs)
-      ? userConfigJs
-      : userConfigMjs
     const configSource = fs.readFileSync(configPath, 'utf-8')
 
     duplicates = userDeps

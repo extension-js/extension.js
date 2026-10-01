@@ -73,7 +73,7 @@ export async function extensionDev(
       projectStructure.packageJsonPath || projectStructure.denoJsonPath
 
     if (userManifestPath) {
-      assertNoManagedDependencyConflicts(userManifestPath, manifestDir)
+      assertNoManagedDependencyConflicts(userManifestPath, packageJsonDir)
     }
 
     // commands.dev.browser must be read before the target is picked, or the
