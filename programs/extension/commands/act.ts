@@ -9,6 +9,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import type {Command} from 'commander'
+import {isChromiumBrowser} from '../browsers/browsers-lib/browser-family'
 import {emulatorSessionRefusal} from '../helpers/emulator-session'
 import {exitAfterDrain} from '../helpers/exit-after-drain'
 import {
@@ -390,12 +391,6 @@ function positiveIntFlag(
   return parsed.value
 }
 
-// Chromium alone gates popups and the side panel on a real click. Gecko and
-// WebKit answer for themselves, so the CLI refuses only where Chromium would.
-function isChromiumFamily(browser: string): boolean {
-  return !/firefox|gecko|safari|webkit/i.test(browser)
-}
-
 // The manifest as the session sees it: the emitted copy first, then the
 // source the session names, then the project root.
 function readSessionManifest(
@@ -464,7 +459,9 @@ function gestureRefusal(
   projectPath: string,
   browser: string
 ): Refusal | undefined {
-  if (!isChromiumFamily(browser)) return undefined
+  // Only Chromium gates these on a real click. Every other engine, Gecko forks
+  // and WebKit included, answers for itself through the bridge.
+  if (!isChromiumBrowser(browser)) return undefined
 
   const gated =
     surface === 'popup' ||
