@@ -102,9 +102,11 @@ describe('get-project-path', () => {
     const manifestDir = path.join(nested, 'ext')
     fs.mkdirSync(manifestDir, {recursive: true})
     fs.writeFileSync(path.join(manifestDir, 'manifest.json'), '{}')
+    // Depends on Extension.js, so this package owns the manifest below it and
+    // is still reported from a distance.
     fs.writeFileSync(
       path.join(nested, 'package.json'),
-      JSON.stringify({name: 'pkg'})
+      JSON.stringify({name: 'pkg', devDependencies: {extension: '^4.1.30'}})
     )
 
     const s = await getProjectStructure(root)
@@ -112,6 +114,23 @@ describe('get-project-path', () => {
     expect(s.packageJsonPath && path.basename(s.packageJsonPath)).toBe(
       'package.json'
     )
+  })
+
+  // The same shape without that dependency is a manifest that happens to sit
+  // inside someone else's project, so the manifest folder is the project.
+  it('getProjectStructure declines a package.json that does not own the manifest', async () => {
+    const root = makeTempDir('extjs-gps-stranger-')
+    const manifestDir = path.join(root, 'nested', 'deeper', 'ext')
+    fs.mkdirSync(manifestDir, {recursive: true})
+    fs.writeFileSync(path.join(manifestDir, 'manifest.json'), '{}')
+    fs.writeFileSync(
+      path.join(root, 'nested', 'package.json'),
+      JSON.stringify({name: 'pkg'})
+    )
+
+    const s = await getProjectStructure(root)
+    expect(path.basename(s.manifestPath)).toBe('manifest.json')
+    expect(s.packageJsonPath).toBeUndefined()
   })
 
   it('getProjectStructure allows web-only (no package.json)', async () => {
