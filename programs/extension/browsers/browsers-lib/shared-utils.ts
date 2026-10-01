@@ -299,20 +299,29 @@ function parseChromiumSingletonOwner(
   return {host, pid}
 }
 
+// Chromium on POSIX writes its lock as a dangling symlink whose target names
+// the owner, so a stat that follows the link never sees the lock at all.
+function lstatOrNull(target: string): fs.Stats | null {
+  try {
+    return fs.lstatSync(target, {throwIfNoEntry: false}) || null
+  } catch {
+    return null
+  }
+}
+
 function readChromiumSingletonOwner(
   profilePath: string
 ): {host: string; pid: number} | null {
   const lockPath = path.join(profilePath, 'SingletonLock')
-  if (!fs.existsSync(lockPath)) return null
+  const stat = lstatOrNull(lockPath)
+  if (!stat) return null
 
-  try {
-    const stat = fs.lstatSync(lockPath)
-
-    if (stat.isSymbolicLink()) {
+  if (stat.isSymbolicLink()) {
+    try {
       return parseChromiumSingletonOwner(fs.readlinkSync(lockPath))
+    } catch {
+      // Ignore
     }
-  } catch {
-    // Ignore
   }
 
   try {
@@ -327,7 +336,7 @@ function removeChromiumSingletonArtifacts(profilePath: string): string[] {
 
   for (const name of ['SingletonLock', 'SingletonSocket', 'SingletonCookie']) {
     const full = path.join(profilePath, name)
-    if (!fs.existsSync(full)) continue
+    if (!lstatOrNull(full)) continue
 
     try {
       fs.rmSync(full, {recursive: true, force: true})

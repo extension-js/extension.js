@@ -37,6 +37,7 @@ exports[`extension message catalogs > matches the exported message surface 1`] =
     "chromiumManifestLoadBlockers: function(2)",
     "collapseHomeDirInCardValue: function(1)",
     "connectionClosedError: function(1)",
+    "copyFromProfileSourceMissing: function(1)",
     "creatingUserProfile: function(1)",
     "devChannelSnapshotInUse: function(1)",
     "devChromeProfilePath: function(1)",
