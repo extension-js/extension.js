@@ -1006,6 +1006,23 @@ describe('webpack/command-build', () => {
     }
   })
 
+  it('checks managed dependency conflicts against the package root when the manifest is in src', async () => {
+    const validateDepsMod = await import('../lib/validate-user-dependencies')
+    ;(fs.existsSync as any).mockImplementation((p: fs.PathLike) => {
+      return String(p).endsWith('node_modules')
+    })
+    ;(fs.readdirSync as any).mockReturnValue(['something'])
+
+    const stats = {hasErrors: () => false, toJson: () => ({assets: []})}
+    rspackMock.mockReturnValue(makeCompiler(stats))
+
+    await extensionBuild('/proj', {browser: 'chrome', silent: true})
+
+    expect(
+      validateDepsMod.assertNoManagedDependencyConflicts
+    ).toHaveBeenCalledWith('/proj/package.json', '/proj')
+  })
+
   it('rejects when compiler returns missing stats (prevents silent success)', async () => {
     process.env.VITEST = 'true'
     ;(fs.existsSync as any).mockImplementation((p: fs.PathLike) => {
