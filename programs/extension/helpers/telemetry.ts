@@ -98,6 +98,7 @@ type TelemetryStorage = {
   auditFile: string
   idFile: string
   consentFile: string
+  noticeFile: string
 }
 
 const DEFAULT_SAMPLE_RATE = Number(
@@ -280,7 +281,8 @@ export function resolveTelemetryStorage(): TelemetryStorage | null {
       telemetryDir,
       auditFile: path.join(telemetryDir, 'events.jsonl'),
       idFile: path.join(telemetryDir, 'anonymous-id'),
-      consentFile: path.join(telemetryDir, 'consent')
+      consentFile: path.join(telemetryDir, 'consent'),
+      noticeFile: path.join(telemetryDir, 'notice-shown')
     }
   }
 
@@ -498,6 +500,30 @@ export function writeConsent(value: 'enabled' | 'disabled'): boolean {
   } catch {
     return false
   }
+}
+
+// The notice needs its own marker: a stored `enabled` inside a worktree is
+// never honored, so consent alone left the source at `default` forever.
+export function claimFirstRunNotice(): boolean {
+  const storage = resolveTelemetryStorage()
+  if (!storage) return false
+
+  try {
+    if (fs.existsSync(storage.noticeFile)) return false
+  } catch {
+    return false
+  }
+
+  writeConsent('enabled')
+
+  try {
+    fs.writeFileSync(storage.noticeFile, new Date().toISOString(), 'utf8')
+  } catch {
+    // A notice that cannot be recorded would print on every run instead.
+    return false
+  }
+
+  return true
 }
 
 export class Telemetry {
