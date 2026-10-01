@@ -75,11 +75,26 @@ function hasCopyFrom(
   )
 }
 
+// The session root every managed profile sits under, as browserProfileRootDir
+// builds it: <project>/dist/extension-js/profiles/<browser>-profile.
+export function isSessionArtifactsRoot(candidate: string): boolean {
+  return (
+    path.basename(candidate) === 'extension-js' &&
+    path.basename(path.dirname(candidate)) === 'dist'
+  )
+}
+
 // A managed profile is a FULL browser profile (Cookies, History, Login Data).
 // A '*' .gitignore inside dist/extension-js hides it from git; write-once, best-effort.
 export function ensureProfileRootIgnoreFile(managedBaseDir: string): void {
   try {
     const sessionRoot = path.dirname(path.dirname(managedBaseDir))
+
+    // Climbing two levels only lands on the session root for the layout above.
+    // Anywhere else is a directory we do not own, and a '*' there would hide
+    // files nobody asked us to hide.
+    if (!isSessionArtifactsRoot(sessionRoot)) return
+
     const ignoreFile = path.join(sessionRoot, '.gitignore')
     if (fs.existsSync(ignoreFile)) return
 

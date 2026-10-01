@@ -24,6 +24,13 @@ function readPreferences(dir: string): Record<string, any> {
   )
 }
 
+// The real layout browserProfileRootDir builds. A shallower base sends the
+// session-root climb above the scratch dir, which is how the temp root got a
+// '*' ignore file that then hid fixture sources from Tailwind.
+function managedBaseDirIn(root: string): string {
+  return path.join(root, 'dist', 'extension-js', 'profiles', 'chrome-profile')
+}
+
 describe('copyFromProfile seeding', () => {
   let scratch: string
   let source: string
@@ -133,7 +140,7 @@ describe('copyFromProfile seeding', () => {
     const missing = path.join(scratch, 'no-such-profile')
 
     const resolved = resolveProfileConfig({
-      managedBaseDir: path.join(scratch, 'managed'),
+      managedBaseDir: managedBaseDirIn(scratch),
       useSystemProfile: false,
       copyFromProfile: missing,
       resolveExplicit: (p) => p
@@ -150,7 +157,7 @@ describe('copyFromProfile seeding', () => {
 
   it('does not claim a seed from a missing source in a dry run', () => {
     const resolved = resolveProfileConfig({
-      managedBaseDir: path.join(scratch, 'managed'),
+      managedBaseDir: managedBaseDirIn(scratch),
       useSystemProfile: false,
       copyFromProfile: path.join(scratch, 'no-such-profile'),
       resolveExplicit: (p) => p,
@@ -159,5 +166,35 @@ describe('copyFromProfile seeding', () => {
 
     expect(resolved.seededFrom).toBeUndefined()
     expect(fs.existsSync(resolved.profilePath)).toBe(false)
+  })
+
+  it('writes the ignore file at the session root it owns', () => {
+    resolveProfileConfig({
+      managedBaseDir: managedBaseDirIn(scratch),
+      useSystemProfile: false,
+      resolveExplicit: (p) => p
+    })
+
+    const sessionRoot = path.join(scratch, 'dist', 'extension-js')
+    const ignored = fs.readFileSync(
+      path.join(sessionRoot, '.gitignore'),
+      'utf8'
+    )
+
+    expect(ignored).toContain('*')
+    expect(fs.existsSync(path.join(scratch, '.gitignore'))).toBe(false)
+  })
+
+  // A '*' two levels above a profile is only ours inside the session root.
+  // Anywhere else it hides a directory the tool does not own.
+  it('writes no ignore file when the profile is not under a session root', () => {
+    const resolved = resolveProfileConfig({
+      managedBaseDir: path.join(scratch, 'shallow', 'managed'),
+      useSystemProfile: false,
+      resolveExplicit: (p) => p
+    })
+
+    expect(resolved.kind).toBe('managed')
+    expect(fs.existsSync(path.join(scratch, '.gitignore'))).toBe(false)
   })
 })
