@@ -33,6 +33,41 @@ type AsyncEvaluationOutcome =
   | {ok: true; value: unknown}
   | {ok: false; error: unknown}
 
+type EvaluationReply = {
+  result?: unknown
+  value?: unknown
+  exception?: unknown
+  exceptionMessage?: unknown
+  hasException?: unknown
+  topLevelAwaitRejected?: unknown
+}
+
+function exceptionText(value: unknown): string {
+  if (typeof value === 'string') return value
+
+  const initial = (value as {initial?: unknown} | null)?.initial
+
+  return typeof initial === 'string' ? initial : ''
+}
+
+// Gecko answers a throwing expression with a result packet, not a protocol
+// error, so the exception fields are the only sign the evaluation failed.
+function evaluationFailure(reply: unknown): Error | undefined {
+  if (!reply || typeof reply !== 'object') return undefined
+
+  const r = reply as EvaluationReply
+  const message = exceptionText(r.exceptionMessage)
+  const threw =
+    r.hasException === true ||
+    r.topLevelAwaitRejected === true ||
+    (r.exception !== undefined && r.exception !== null) ||
+    message.length > 0
+
+  if (!threw) return undefined
+
+  return new Error(message || 'The expression threw inside the page')
+}
+
 function buildEvaluationPayload(
   tabId: string,
   expression: string,
@@ -186,22 +221,27 @@ export async function evaluate(
   let lastError: unknown = null
 
   for (const type of EVALUATION_TYPES) {
+    let response: unknown
+
     try {
-      const response = (await requestEvaluation(
-        client,
-        tabId,
-        expression,
-        type
-      )) as {result?: unknown; value?: unknown} | unknown
-      const r = (response ?? {}) as {result?: unknown; value?: unknown}
-
-      if (r.result !== undefined) return r.result
-      if (r.value !== undefined) return r.value
-
-      return r
+      response = await requestEvaluation(client, tabId, expression, type)
     } catch (err) {
       lastError = err
+
+      continue
     }
+
+    // The page ran the expression and it threw: that is the verdict, and
+    // another request type would only run it again and bury the message.
+    const failure = evaluationFailure(response)
+    if (failure) throw failure
+
+    const r = (response ?? {}) as EvaluationReply
+
+    if (r.result !== undefined) return r.result
+    if (r.value !== undefined) return r.value
+
+    return r
   }
 
   throw lastError || new Error('Failed to evaluate expression')

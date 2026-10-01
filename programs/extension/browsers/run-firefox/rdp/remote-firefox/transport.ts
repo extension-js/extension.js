@@ -26,6 +26,42 @@ type RdpMessage = {
   from?: string
   type?: string
   error?: unknown
+  applicationType?: unknown
+}
+
+// Packets Firefox pushes on its own. The wire has no request ids, so these
+// are told apart by type and never taken as the reply of an in-flight request.
+const UNSOLICITED_PACKET_TYPES = new Set([
+  'tabListChanged',
+  'addonListChanged',
+  'consoleAPICall',
+  'pageError',
+  'logMessage',
+  'evaluationResult',
+  'tabNavigated',
+  'tabDetached',
+  'frameUpdate',
+  'target-available-form',
+  'target-destroyed-form',
+  'newSource',
+  'documentLoad'
+])
+
+export function isRootGreeting(message: RdpMessage): boolean {
+  return message.from === 'root' && typeof message.applicationType === 'string'
+}
+
+export function isUnsolicitedPacket(message: RdpMessage): boolean {
+  const type = message.type
+
+  if (
+    typeof type === 'string' &&
+    (UNSOLICITED_PACKET_TYPES.has(type) || type.startsWith('networkEvent'))
+  ) {
+    return true
+  }
+
+  return isRootGreeting(message)
 }
 
 // Per-request safety timeout: Firefox occasionally never replies to an RDP
@@ -64,29 +100,51 @@ export class RdpTransport extends EventEmitter {
     deferred: Deferred
   }> = []
   private lost = false
+  private greetingPending?: (error?: Error) => void
 
+  // Firefox pushes the root greeting the moment it accepts the socket, so
+  // the connection counts as open only once that packet has been consumed.
   async connect(port: number, host: string = '127.0.0.1'): Promise<void> {
     await new Promise<void>((resolve, reject) => {
-      let connected = false
+      const timeoutMs = rdpRequestTimeoutMs()
+      const timer = setTimeout(() => {
+        this.settleGreeting(
+          new Error(
+            `Firefox sent no RDP greeting on port ${port} within ${timeoutMs}ms`
+          )
+        )
+
+        this.onConnectionLost()
+      }, timeoutMs)
+      timer.unref?.()
+
+      this.greetingPending = (error) => {
+        clearTimeout(timer)
+        this.greetingPending = undefined
+
+        if (error) {
+          reject(error)
+
+          return
+        }
+
+        if (isDebug()) {
+          humanLine(messages.firefoxRdpClientConnected(host, port))
+        }
+
+        resolve()
+      }
 
       try {
-        const c = net.createConnection({host, port}, () => {
-          connected = true
-
-          if (isDebug()) {
-            humanLine(messages.firefoxRdpClientConnected(host, port))
-          }
-
-          resolve()
-        })
+        const c = net.createConnection({host, port})
         this.conn = c
         this.lost = false
         c.on('data', this.onData.bind(this))
         c.on('error', (err) => {
-          if (connected) return
+          if (!this.greetingPending) return
 
           this.conn = undefined
-          reject(err)
+          this.settleGreeting(err)
         })
 
         c.on('end', this.onConnectionLost.bind(this))
@@ -95,12 +153,18 @@ export class RdpTransport extends EventEmitter {
         c.on('close', this.onConnectionLost.bind(this))
         c.on('timeout', this.onTimeout.bind(this))
       } catch (err) {
-        reject(err)
+        this.settleGreeting(err as Error)
       }
     })
   }
 
+  private settleGreeting(error?: Error): void {
+    this.greetingPending?.(error)
+  }
+
   disconnect(): void {
+    const closed = new Error(messages.messagingClientClosedError('firefox'))
+    this.settleGreeting(closed)
     const c = this.conn
     if (!c) return
 
@@ -113,7 +177,7 @@ export class RdpTransport extends EventEmitter {
     })
 
     c.end()
-    this.rejectAll(new Error(messages.messagingClientClosedError('firefox')))
+    this.rejectAll(closed)
   }
 
   private rejectAll(error: Error): void {
@@ -227,7 +291,11 @@ export class RdpTransport extends EventEmitter {
       return
     }
 
-    const entry = this.active.get(from)
+    if (this.greetingPending && isRootGreeting(message)) this.settleGreeting()
+
+    const entry = isUnsolicitedPacket(message)
+      ? undefined
+      : this.active.get(from)
 
     if (entry) {
       this.active.delete(from)
@@ -263,7 +331,9 @@ export class RdpTransport extends EventEmitter {
       c.destroy()
     }
 
-    this.rejectAll(new Error(messages.messagingClientClosedError('firefox')))
+    const closed = new Error(messages.messagingClientClosedError('firefox'))
+    this.settleGreeting(closed)
+    this.rejectAll(closed)
     this.emit('end')
   }
 

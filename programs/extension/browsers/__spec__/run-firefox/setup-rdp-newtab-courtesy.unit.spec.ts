@@ -102,6 +102,38 @@ describe('firefox new-tab courtesy after launch', () => {
     expect(openNewTab).not.toHaveBeenCalled()
   })
 
+  it('says so when the override page could not be opened', async () => {
+    writeManifest({
+      manifest_version: 3,
+      chrome_url_overrides: {newtab: 'newtab.html'}
+    })
+
+    openNewTab.mockResolvedValueOnce(false)
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const previousDebug = process.env.EXTENSION_DEBUG
+    process.env.EXTENSION_DEBUG = '1'
+
+    try {
+      await setupRdpAfterLaunch(
+        {browser: 'firefox'} as any,
+        compilation(),
+        9222
+      )
+
+      const printed = warn.mock.calls.map((c) => c.map(String).join(' '))
+      expect(
+        printed.some((line) =>
+          line.includes('could not open the new-tab override page')
+        )
+      ).toBe(true)
+    } finally {
+      warn.mockRestore()
+
+      if (previousDebug === undefined) delete process.env.EXTENSION_DEBUG
+      else process.env.EXTENSION_DEBUG = previousDebug
+    }
+  })
+
   it('never lets the courtesy tab fail the launch', async () => {
     writeManifest({
       manifest_version: 3,

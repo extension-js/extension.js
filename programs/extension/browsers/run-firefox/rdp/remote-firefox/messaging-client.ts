@@ -58,13 +58,24 @@ export class MessagingClient extends EventEmitter {
 
     try {
       for (let i = 0; i < RECONNECT_MAX_ATTEMPTS; i++) {
-        await new Promise((r) => setTimeout(r, RECONNECT_RETRY_DELAY_MS))
+        await new Promise((r) => {
+          const backoff = setTimeout(r, RECONNECT_RETRY_DELAY_MS)
+          backoff.unref?.()
+        })
+
         if (this.disconnectedByUser) return
 
         try {
           this.transport = new RdpTransport()
           this.forwardingSetup = false
           await this.openTransport(this.lastPort)
+
+          if (this.disconnectedByUser) {
+            this.transport.disconnect()
+
+            return
+          }
+
           this.emit('reconnected')
 
           return

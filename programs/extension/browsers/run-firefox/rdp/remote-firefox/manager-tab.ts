@@ -193,15 +193,21 @@ export async function openManagerNewTab(
       return false
     }
 
+    let result: unknown
+
     try {
-      const result = await client.evaluate(
-        consoleActor,
-        OPEN_NEW_TAB_EXPRESSION
-      )
-      reportStep('tabs.create evaluated', result)
+      result = await client.evaluate(consoleActor, OPEN_NEW_TAB_EXPRESSION)
     } finally {
       release()
     }
+
+    if (result !== true) {
+      reportStep('tabs.create did not confirm', result)
+
+      return false
+    }
+
+    reportStep('tabs.create evaluated', result)
 
     return true
   } catch (error) {

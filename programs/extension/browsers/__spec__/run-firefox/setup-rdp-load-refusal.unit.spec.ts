@@ -2,11 +2,13 @@ import {beforeEach, describe, expect, it, vi} from 'vitest'
 
 const ensureLoaded = vi.fn()
 const getAddonInstallRefusalReason = vi.fn()
+const disconnect = vi.fn()
 
 vi.mock('../../run-firefox/rdp/rdp-extension-controller', () => ({
   FirefoxRDPController: class {
     ensureLoaded = ensureLoaded
     getAddonInstallRefusalReason = getAddonInstallRefusalReason
+    disconnect = disconnect
   }
 }))
 
@@ -21,6 +23,24 @@ describe('setupRdpAfterLaunch refusal reporting', () => {
   beforeEach(() => {
     ensureLoaded.mockReset()
     getAddonInstallRefusalReason.mockReset()
+    disconnect.mockReset()
+  })
+
+  it('closes the connection of a controller it gives up on', async () => {
+    ensureLoaded.mockRejectedValue(new Error('install failed'))
+    getAddonInstallRefusalReason.mockReturnValue('Extension is invalid')
+
+    await setupRdpAfterLaunch(plugin(), compilation, 9222).catch(() => {})
+
+    expect(disconnect).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps the connection of a controller it publishes', async () => {
+    ensureLoaded.mockResolvedValue(undefined)
+
+    await setupRdpAfterLaunch(plugin(), compilation, 9222)
+
+    expect(disconnect).not.toHaveBeenCalled()
   })
 
   // The controller is created inside this function, so a throwing install

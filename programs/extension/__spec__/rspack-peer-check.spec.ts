@@ -153,11 +153,14 @@ describe('the @rspack/core peer check', () => {
   })
 
   it('reports a declared range that can reach the known fix as unreadable, not clear', () => {
-    const root = project({'css-loader': '^7.1.4', 'postcss-loader': '^8.0.0'})
+    const root = project({
+      'css-loader': '^7.1.4',
+      'loader-installed-nowhere': '^8.0.0'
+    })
 
     expect(scanRspackPeers(root, '2.2.3')).toEqual({
       conflicts: [],
-      unreadable: ['css-loader', 'postcss-loader']
+      unreadable: ['css-loader', 'loader-installed-nowhere']
     })
 
     expect(

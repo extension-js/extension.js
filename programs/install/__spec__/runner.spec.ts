@@ -94,15 +94,21 @@ describe('install runner runCommand', () => {
       .spyOn(process.stderr, 'write')
       .mockImplementation(() => true)
 
+    let onClose: ((code: number) => void) | undefined
     spawnMock.mockImplementation(() => ({
       stdout: {
         on: (event: string, cb: (chunk: Buffer) => void) => {
-          if (event === 'data') setImmediate(() => cb(Buffer.from('fetching')))
+          if (event === 'data') {
+            setImmediate(() => {
+              cb(Buffer.from('fetching'))
+              onClose?.(0)
+            })
+          }
         }
       },
       stderr: {on: () => undefined},
       on: (event: string, cb: (code: number) => void) => {
-        if (event === 'close') setTimeout(() => cb(0), 5)
+        if (event === 'close') onClose = cb
       }
     }))
 
