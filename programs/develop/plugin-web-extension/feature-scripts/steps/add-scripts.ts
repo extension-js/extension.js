@@ -30,7 +30,7 @@ const isScriptsFolderFeature = (feature: string) =>
 const isBackgroundScriptsFeature = (feature: string) =>
   feature === 'background/scripts'
 
-function createSequentialEntryModule(
+export function createSequentialEntryModule(
   feature: string,
   scriptImports: string[]
 ): string {
