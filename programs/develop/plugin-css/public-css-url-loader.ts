@@ -8,7 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {publicFolderOrDefault} from '../plugin-special-folders/resolve-public-folder'
+import {publicContainmentRoot} from '../plugin-special-folders/resolve-public-folder'
 import {replaceCssUrlRefs} from './css-lib/dead-url-refs'
 
 export const PUBLIC_ROOT_SCHEME = 'https://extensionjs-public.invalid'
@@ -58,7 +58,7 @@ export default function publicCssUrlLoader(
   if (!manifestPath || !projectPath) return source
 
   try {
-    const publicRoot = publicFolderOrDefault(manifestPath, projectPath)
+    const publicRoot = publicContainmentRoot(manifestPath, projectPath)
 
     return keepPublicRootRefs(source, publicRoot)
   } catch {

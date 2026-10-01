@@ -7,6 +7,7 @@ import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {createPlaywrightMetadataWriter} from '../../plugin-playwright'
 import {
+  attachEmulatorFileIndex,
   buildEmulatorFileIndex,
   buildEmulatorViewerUrl,
   createEmulatorFileIndexHolder,
@@ -227,7 +228,7 @@ describe('files.json', () => {
     expect(resolveLivereloadPath({type: 'ws', options: {}})).toBeNull()
   })
 
-  it('serves the latest published index as JSON with CORS open', async () => {
+  it('serves the latest published index as JSON to the viewer origin', async () => {
     const holder = createEmulatorFileIndexHolder('inst-1')
     const entry = createEmulatorFilesMiddlewareEntry(holder, {
       options: {webSocketServer: {type: 'ws', options: {path: '/ws'}}}
@@ -244,12 +245,20 @@ describe('files.json', () => {
     await new Promise<void>((resolve) => server?.listen(0, resolve))
     const port = (server.address() as AddressInfo).port
     const url = `http://127.0.0.1:${port}${EMULATOR_FILES_PATH}`
+    const fromViewer = {headers: {origin: DEFAULT_EMULATOR_ORIGIN}}
 
-    const pending = fetch(url)
+    const pending = fetch(url, fromViewer)
     holder.publish([asset('background/service_worker.js', 'v1')])
     const first = await pending
     expect(first.status).toBe(200)
-    expect(first.headers.get('access-control-allow-origin')).toBe('*')
+    expect(first.headers.get('access-control-allow-origin')).toBe(
+      DEFAULT_EMULATOR_ORIGIN
+    )
+
+    expect(first.headers.get('access-control-allow-private-network')).toBe(
+      'true'
+    )
+
     expect(first.headers.get('content-type')).toContain('application/json')
 
     const body = await first.json()
@@ -258,12 +267,25 @@ describe('files.json', () => {
     expect(body.files[0].sha256).toBe(sha('v1'))
 
     holder.publish([asset('background/service_worker.js', 'v2')])
-    const fresh = await (await fetch(url)).json()
+    const fresh = await (await fetch(url, fromViewer)).json()
     expect(fresh.files[0].sha256).toBe(sha('v2'))
 
-    const preflight = await fetch(url, {method: 'OPTIONS'})
+    const preflight = await fetch(url, {method: 'OPTIONS', ...fromViewer})
     expect(preflight.status).toBe(204)
-    expect(preflight.headers.get('access-control-allow-origin')).toBe('*')
+    expect(preflight.headers.get('access-control-allow-origin')).toBe(
+      DEFAULT_EMULATOR_ORIGIN
+    )
+
+    // Any page the developer visits can reach loopback; only the viewer may
+    // read what comes back.
+    const fromPage = await fetch(url, {headers: {origin: 'https://evil.test'}})
+    expect(fromPage.status).toBe(200)
+    expect(fromPage.headers.get('access-control-allow-origin')).toBeNull()
+    expect(
+      fromPage.headers.get('access-control-allow-private-network')
+    ).toBeNull()
+
+    expect(fromPage.headers.get('vary')).toBe('Origin')
   })
 
   it('omits livereload when the dev server runs no socket', async () => {
@@ -294,6 +316,81 @@ describe('files.json', () => {
 
     holder.publish([asset('new.js', 'new')])
     expect((await next).files.map((file) => file.path)).toEqual(['new.js'])
+  })
+})
+
+describe('files.json while the compilation has errors', () => {
+  it('answers 503 naming the failing compile instead of parking the request', async () => {
+    const holder = createEmulatorFileIndexHolder('inst-1', {waitMs: 50})
+    const entry = createEmulatorFilesMiddlewareEntry(holder, {
+      options: {webSocketServer: false}
+    })
+
+    attachEmulatorFileIndex(
+      {
+        hooks: {
+          done: {
+            tap: (_options: unknown, fn: (stats: unknown) => void) => {
+              fn({
+                compilation: {
+                  errors: [
+                    new Error(
+                      "Module not found: Can't resolve './missing'\nat x"
+                    )
+                  ],
+                  getAssets: () => []
+                }
+              })
+            }
+          }
+        }
+      },
+      holder
+    )
+
+    server = http.createServer((req, res) => {
+      void entry.middleware(req, res, () => {
+        res.statusCode = 404
+        res.end()
+      })
+    })
+
+    await new Promise<void>((resolve) => server?.listen(0, resolve))
+    const port = (server.address() as AddressInfo).port
+    const response = await fetch(
+      `http://127.0.0.1:${port}${EMULATOR_FILES_PATH}`
+    )
+
+    expect(response.status).toBe(503)
+    expect(response.headers.get('retry-after')).toBe('1')
+    expect((await response.json()).error).toContain(
+      "Module not found: Can't resolve './missing'"
+    )
+  })
+
+  it('caps the requests it parks and settles them on a reset', async () => {
+    const holder = createEmulatorFileIndexHolder('inst-1', {
+      waitMs: 10_000,
+      maxWaiters: 2
+    })
+
+    const parked = [
+      holder.current().catch((error: Error) => error.message),
+      holder.current().catch((error: Error) => error.message)
+    ]
+    await expect(holder.current()).rejects.toThrow(/no compilation has/i)
+
+    holder.reset()
+    expect(await Promise.all(parked)).toEqual([
+      expect.stringMatching(/no compilation has/i),
+      expect.stringMatching(/no compilation has/i)
+    ])
+  })
+
+  it('gives up on its own when no compilation arrives', async () => {
+    const holder = createEmulatorFileIndexHolder('inst-1', {waitMs: 20})
+
+    await expect(holder.current()).rejects.toThrow(/No file index yet/)
   })
 })
 

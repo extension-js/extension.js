@@ -10,7 +10,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {WebpackError} from '@rspack/core'
 import {canonicalizeDir, canonicalizeResourcePath} from '../lib/resource-path'
-import {publicFolderOrDefault} from '../plugin-special-folders/resolve-public-folder'
+import {publicContainmentRoot} from '../plugin-special-folders/resolve-public-folder'
 import {
   extractCssUrlRefs,
   isDeadCssUrlRef,
@@ -131,7 +131,7 @@ export default function deadCssUrlLoader(
       // under a symlinked dir names its targets by a path that climbs out.
       const manifestDir = canonicalizeDir(path.dirname(manifestPath))
       const publicRoot = canonicalizeDir(
-        publicFolderOrDefault(manifestPath, projectPath)
+        publicContainmentRoot(manifestPath, projectPath)
       )
       reportDeadRefs(this, source, manifestDir, publicRoot)
       css = emitTargets(this, source, manifestDir, publicRoot, options.sheet)

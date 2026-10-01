@@ -59,6 +59,58 @@ describe('PortManager port 0 (OS-assigned)', () => {
   })
 })
 
+describe('PortManager port reservation', () => {
+  function bind(port: number, host = '127.0.0.1') {
+    return new Promise<net.Server>((resolve, reject) => {
+      const server = net.createServer()
+      server.once('error', reject)
+      server.listen(port, host, () => resolve(server))
+    })
+  }
+
+  it('keeps the allocated port taken until the dev server binds it', async () => {
+    const manager = new PortManager(49640)
+    const {port} = await manager.allocatePorts(49640, '127.0.0.1')
+
+    await expect(bind(port)).rejects.toMatchObject({code: 'EADDRINUSE'})
+
+    await manager.releaseReservedPort()
+    const late = await bind(port)
+
+    try {
+      expect((late.address() as net.AddressInfo).port).toBe(port)
+    } finally {
+      await new Promise<void>((resolve) => late.close(() => resolve()))
+    }
+  })
+
+  it('steps a session that starts while the first one boots to the next port', async () => {
+    const first = new PortManager(49660)
+    const second = new PortManager(49660)
+
+    // The first session is still loading config and building its compiler, so
+    // it has not bound anything yet when the second one asks.
+    const booting = await first.allocatePorts(49660, '127.0.0.1')
+    const joining = await second.allocatePorts(49660, '127.0.0.1')
+
+    try {
+      expect(joining.port).toBeGreaterThan(booting.port)
+    } finally {
+      await first.terminateCurrentInstance()
+      await second.terminateCurrentInstance()
+    }
+  })
+
+  it('releases the reservation when the instance is terminated', async () => {
+    const manager = new PortManager(49680)
+    const {port} = await manager.allocatePorts(49680, '127.0.0.1')
+    await manager.terminateCurrentInstance()
+
+    const late = await bind(port)
+    await new Promise<void>((resolve) => late.close(() => resolve()))
+  })
+})
+
 describe('PortManager host-aware probing', () => {
   it('probes the requested host, skipping a port taken there', async () => {
     const host = '127.0.0.1'

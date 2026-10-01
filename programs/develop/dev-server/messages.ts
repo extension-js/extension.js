@@ -150,6 +150,18 @@ export function portInUse(requestedPort: number, newPort: number) {
   )
 }
 
+// Reload has no other transport, so a session that comes up without the
+// control bridge must say so instead of looking healthy until the first save.
+export function controlBridgeUnavailable(reason: string) {
+  return (
+    `${getLoggingPrefix('error')} Extension.js couldn't open the control port.\n` +
+    `${colors.red(reason)}\n` +
+    'Saves will compile but nothing reloads in the browser. Restart the dev ' +
+    'session, and if you passed --host make sure it is an address this ' +
+    'machine can listen on.'
+  )
+}
+
 export function extensionJsRunnerError(error: unknown) {
   return (
     `${getLoggingPrefix('error')} Extension.js couldn't start the runner.\n` +

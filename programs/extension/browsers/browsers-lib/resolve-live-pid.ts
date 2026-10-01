@@ -203,6 +203,31 @@ export function isPidAlive(pid: number | null | undefined): boolean {
   }
 }
 
+// When a pid started, as the OS reports it. A pid that started after the file
+// naming it was written is another process wearing a recycled number, which a
+// signal-0 probe cannot tell apart from the one that is gone.
+export function pidStartedAtMs(
+  pid: number | null | undefined,
+  platform = process.platform
+): number | null {
+  if (!pid || !Number.isInteger(pid) || pid <= 0) return null
+
+  const output =
+    platform === 'win32'
+      ? runQuiet('powershell.exe', [
+          '-NoProfile',
+          '-NonInteractive',
+          '-Command',
+          `(Get-CimInstance Win32_Process -Filter "ProcessId=${pid}")` +
+            '.CreationDate.ToUniversalTime().ToString("o")'
+        ])
+      : runQuiet('ps', ['-o', 'lstart=', '-p', String(pid)])
+
+  const started = Date.parse(String(output || '').trim())
+
+  return Number.isNaN(started) ? null : started
+}
+
 // The handoff happens shortly after spawn, so poll for a few seconds and
 // answer early the moment a process other than the launcher owns the profile.
 // With no handoff in that window the launcher pid stands.

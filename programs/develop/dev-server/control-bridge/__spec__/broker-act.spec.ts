@@ -13,6 +13,8 @@ class FakeConn implements BridgeConnection {
   constructor(readonly id: string) {}
   send(frame: ServerFrame | CommandFrame) {
     this.sent.push(frame)
+
+    return true
   }
   close(code?: number, reason?: string) {
     this.closed = {code, reason}

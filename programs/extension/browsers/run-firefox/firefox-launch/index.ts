@@ -46,6 +46,7 @@ import {
 } from '../../browsers-lib/process-teardown'
 import {ready as devServerReady} from '../../browsers-lib/ready-message'
 import {
+  readReadyRunId,
   stampReadyBrowserExited,
   stampReadyBrowserLaunch,
   stampReadyExtensionId,
@@ -129,6 +130,9 @@ export class FirefoxLaunchPlugin {
   // Set before spawn so the child 'close' handler can find the session's
   // ready.json and stamp an unexpected browser exit.
   private extensionOutputPath?: string
+  // The run that ready.json belonged to at launch. A stamp is evidence about
+  // THIS browser, so a restart's contract must never receive it.
+  private launchRunId?: string
   // The process that owns the session once Firefox hands it off and lets the
   // spawned child exit. Null while the child itself is the browser.
   private livePid: number | null = null
@@ -542,6 +546,8 @@ export class FirefoxLaunchPlugin {
         : extensionsToLoad
     ).slice(-1)[0]
 
+    this.launchRunId = readReadyRunId(this.extensionOutputPath)
+
     const desiredDebugPort = deriveDebugPortWithInstance(
       this.host.port,
       this.host.instanceId
@@ -591,15 +597,19 @@ export class FirefoxLaunchPlugin {
       this.child = await this.spawnFirefoxChild(binary, args, wslFallbackBinary)
       // The contract names the executable that ran, the same fields the
       // Chromium launch stamps, so a reader can tell a fork from Firefox.
-      stampReadyBrowserLaunch(this.extensionOutputPath, {
-        profilePath,
-        browserPid: this.child?.pid,
-        binary: this.child?.spawnfile || binary,
-        binaryProvenance: this.host.launchBinaryProvenance,
-        extensionId: this.extensionOutputPath
-          ? expectedGeckoExtensionId(this.extensionOutputPath)
-          : undefined
-      })
+      stampReadyBrowserLaunch(
+        this.extensionOutputPath,
+        {
+          profilePath,
+          browserPid: this.child?.pid,
+          binary: this.child?.spawnfile || binary,
+          binaryProvenance: this.host.launchBinaryProvenance,
+          extensionId: this.extensionOutputPath
+            ? expectedGeckoExtensionId(this.extensionOutputPath)
+            : undefined
+        },
+        this.launchRunId
+      )
 
       this.wireChildLifecycle()
       void this.trackLiveBrowserPid()
@@ -670,14 +680,18 @@ export class FirefoxLaunchPlugin {
         wslFallbackBinary
       )
 
-      stampReadyBrowserLaunch(this.extensionOutputPath, {
-        browserPid: this.child?.pid,
-        binary: this.child?.spawnfile || plan.binary,
-        binaryProvenance: this.host.launchBinaryProvenance,
-        extensionId: this.extensionOutputPath
-          ? expectedGeckoExtensionId(this.extensionOutputPath)
-          : undefined
-      })
+      stampReadyBrowserLaunch(
+        this.extensionOutputPath,
+        {
+          browserPid: this.child?.pid,
+          binary: this.child?.spawnfile || plan.binary,
+          binaryProvenance: this.host.launchBinaryProvenance,
+          extensionId: this.extensionOutputPath
+            ? expectedGeckoExtensionId(this.extensionOutputPath)
+            : undefined
+        },
+        this.launchRunId
+      )
 
       this.wireChildLifecycle()
 
@@ -826,7 +840,12 @@ export class FirefoxLaunchPlugin {
         }) without being asked to. The add-on may have been rejected or the browser crashed; the session cannot be driven.`
       )
 
-      stampReadyBrowserExited(this.extensionOutputPath, code, signal ?? null)
+      stampReadyBrowserExited(
+        this.extensionOutputPath,
+        code,
+        signal ?? null,
+        this.launchRunId
+      )
     }
 
     this.cleanupInstance().catch((err) => {
@@ -895,10 +914,14 @@ export class FirefoxLaunchPlugin {
     if (this.livePid === pid) return
 
     this.livePid = pid
-    stampReadyBrowserLaunch(this.extensionOutputPath, {
-      browserPid: pid,
-      launcherPid: this.child?.pid
-    })
+    stampReadyBrowserLaunch(
+      this.extensionOutputPath,
+      {
+        browserPid: pid,
+        launcherPid: this.child?.pid
+      },
+      this.launchRunId
+    )
 
     if (isDebug()) {
       this.ctx.logger?.info?.(
@@ -965,7 +988,12 @@ export class FirefoxLaunchPlugin {
       source: 'browser'
     })
 
-    stampReadyExtensionLoadRefused(this.extensionOutputPath, reason)
+    stampReadyExtensionLoadRefused(
+      this.extensionOutputPath,
+      reason,
+      this.launchRunId
+    )
+
     this.host.extensionLoadRefused = reason
   }
 

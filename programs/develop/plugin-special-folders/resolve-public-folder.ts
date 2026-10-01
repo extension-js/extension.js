@@ -115,14 +115,31 @@ export function findPublicFile(
   return isUsableFile(candidate) ? candidate : undefined
 }
 
-// Consumers that need a path even when no folder exists (static serving,
-// watch globs, containment checks) get the resolved one or the root default.
+// Consumers that need a path even when the folder does not exist yet (static
+// serving, watch globs, containment checks) get the resolved one or the
+// configured location; `false` reads no folder, so they get none.
 export function publicFolderOrDefault(
+  manifestPath: string,
+  projectRoot: string
+): string | undefined {
+  const setting = publicFolderSetting(projectRoot)
+
+  if (setting.kind === 'off') return undefined
+
+  return (
+    resolvePublicFolder(manifestPath, projectRoot) ||
+    (setting.kind === 'path' ? setting.dir : path.join(projectRoot, 'public'))
+  )
+}
+
+// The CSS ref checks measure containment, so they need a root to compare
+// against even when the copier reads no folder at all.
+export function publicContainmentRoot(
   manifestPath: string,
   projectRoot: string
 ): string {
   return (
-    resolvePublicFolder(manifestPath, projectRoot) ||
+    publicFolderOrDefault(manifestPath, projectRoot) ||
     path.join(projectRoot, 'public')
   )
 }

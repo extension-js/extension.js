@@ -1,9 +1,11 @@
 import * as fs from 'node:fs'
+import * as net from 'node:net'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {beforeEach, describe, expect, it, vi} from 'vitest'
 import {
-  type DoctorCheckResult,
+  DOCTOR_CHECKS,
+  type DoctorReport,
   resolveDoctorBrowser,
   runDoctor
 } from '../commands/doctor'
@@ -44,8 +46,26 @@ const ALL_CHECKS = [
   'browser'
 ]
 
-const byCheck = (results: DoctorCheckResult[]) =>
-  Object.fromEntries(results.map((r) => [r.check, r]))
+const byCheck = (report: DoctorReport) =>
+  Object.fromEntries(report.checks.map((r) => [r.check, r]))
+
+// A listening socket, and a port nothing listens on, so the browser leg's
+// probe is decided by this process rather than by whatever runs on 9222.
+async function listenOnFreePort(): Promise<{port: number; close(): void}> {
+  const server = net.createServer()
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+  const port = (server.address() as net.AddressInfo).port
+
+  return {port, close: () => server.close()}
+}
+
+async function closedPort(): Promise<number> {
+  const server = await listenOnFreePort()
+  server.close()
+  await new Promise((resolve) => setTimeout(resolve, 10))
+
+  return server.port
+}
 
 const stripAnsi = (text: string) => text.replace(/\[[0-9;]*m/g, '')
 
@@ -78,7 +98,9 @@ function healthyModule(overrides: Record<string, unknown> = {}) {
       runId: 'run-A',
       status: 'ready',
       pid: process.pid,
-      cdpPort: 9222
+      startedAt: new Date().toISOString(),
+      cdpPort: 9222,
+      browserPid: process.pid
     }),
     readControlToken: () => 'tok',
     readPersistedControlPort: () => 4001,
@@ -97,9 +119,9 @@ beforeEach(() => {
 
 describe('extension doctor', () => {
   it('passes every check on a healthy session', async () => {
-    const results = await runDoctor('/proj', {})
-    expect(results.map((r) => r.check)).toEqual(ALL_CHECKS)
-    expect(results.every((r) => r.status === 'pass')).toBe(true)
+    const report = await runDoctor('/proj', {})
+    expect(report.checks.map((r) => r.check)).toEqual(ALL_CHECKS)
+    expect(report.checks.every((r) => r.status === 'pass')).toBe(true)
   })
 
   it('fails ready-contract and skips everything else without a session', async () => {
@@ -183,7 +205,8 @@ describe('extension doctor', () => {
         runId: 'run-A',
         status: 'ready',
         pid: 999999,
-        cdpPort: 9222
+        cdpPort: 9222,
+        browserPid: process.pid
       })
     })
 
@@ -340,7 +363,7 @@ describe('extension doctor', () => {
     const r = byCheck(await runDoctor('/proj', {}))
     expect(r.executor.status).toBe('warn')
     expect(
-      (await runDoctor('/proj', {})).some((c) => c.status === 'fail')
+      (await runDoctor('/proj', {})).checks.some((c) => c.status === 'fail')
     ).toBe(false)
   })
 
@@ -423,6 +446,83 @@ describe('extension doctor', () => {
     expect(r.browser.detail).toContain('unknown')
     expect(r.browser.remediation).toBeTruthy()
   })
+
+  it('never passes the browser leg on a dead pid and a closed cdpPort', async () => {
+    const cdpPort = await closedPort()
+    state.mod = healthyModule({
+      readReadyContract: () => ({
+        controlPort: 4001,
+        instanceId: 'inst-1',
+        runId: 'run-A',
+        status: 'ready',
+        pid: process.pid,
+        cdpPort,
+        browserPid: 999999
+      })
+    })
+
+    const r = byCheck(await runDoctor('/proj', {}))
+    expect(r.browser.status).toBe('fail')
+    expect(r.browser.detail).toContain('pid 999999 is gone')
+    expect(r.browser.detail).toContain(`nothing answers cdpPort ${cdpPort}`)
+    expect(r.browser.remediation).toContain('Restart')
+  })
+
+  it('diagnoses a Gecko session from rdpPort instead of calling it unknown', async () => {
+    const rdp = await listenOnFreePort()
+    state.mod = healthyModule({
+      readReadyContract: () => ({
+        controlPort: 4001,
+        instanceId: 'inst-1',
+        runId: 'run-A',
+        status: 'ready',
+        pid: process.pid,
+        rdpPort: rdp.port
+      })
+    })
+
+    try {
+      const r = byCheck(await runDoctor('/proj', {browser: 'firefox'}))
+      expect(r.browser.status).toBe('pass')
+      expect(r.browser.detail).toContain(`rdpPort ${rdp.port}`)
+      expect(r.browser.detail).not.toContain('unknown')
+    } finally {
+      rdp.close()
+    }
+  })
+
+  it('fails the server leg when the contract pid has been reused', async () => {
+    state.mod = healthyModule({
+      readReadyContract: () => ({
+        controlPort: 4001,
+        instanceId: 'inst-1',
+        runId: 'run-A',
+        status: 'ready',
+        // Alive, but this process started long after the contract was written,
+        // which is what a recycled pid looks like.
+        pid: process.pid,
+        startedAt: '2020-01-01T00:00:00.000Z',
+        cdpPort: 9222,
+        browserPid: process.pid
+      })
+    })
+
+    const r = byCheck(await runDoctor('/proj', {}))
+    expect(r['server-process'].status).toBe('fail')
+    expect(r['server-process'].detail).toContain('stale')
+    expect(r['server-process'].detail).toContain('2020-01-01T00:00:00.000Z')
+    expect(r['control-channel'].status).toBe('skip')
+  })
+
+  it('emits only check ids the contract documents', async () => {
+    const report = await runDoctor('/proj', {})
+
+    for (const check of report.checks) {
+      expect(DOCTOR_CHECKS, `${check.check} is undocumented`).toContain(
+        check.check
+      )
+    }
+  })
 })
 
 describe('extension doctor (browser resolution)', () => {
@@ -490,8 +590,8 @@ describe('extension doctor (browser resolution)', () => {
     })
 
     try {
-      const results = await runDoctor(root, {})
-      const r = byCheck(results)
+      const report = await runDoctor(root, {})
+      const r = byCheck(report)
       expect(dialed).toBe(0)
       expect(r['session-resolution']).toBeUndefined()
       expect(r['ready-contract'].status).toBe('fail')
@@ -508,7 +608,7 @@ describe('extension doctor (browser resolution)', () => {
         expect(r[check].status).toBe('skip')
       }
 
-      const printed = results
+      const printed = report.checks
         .map((c) => `${c.detail} ${c.remediation ?? ''}`)
         .join('\n')
       expect(printed).not.toContain('died uncleanly')
@@ -532,16 +632,18 @@ describe('extension doctor (browser resolution)', () => {
           runId: 'run-A',
           status: 'ready',
           pid: process.pid,
-          cdpPort: 9222
+          startedAt: new Date().toISOString(),
+          cdpPort: 9222,
+          browserPid: process.pid
         }
       }
     })
 
     try {
-      const results = await runDoctor(root, {})
+      const report = await runDoctor(root, {})
       expect(asked).toBe('firefox')
-      expect(results.map((r) => r.check)).toEqual(ALL_CHECKS)
-      expect(results.every((r) => r.status === 'pass')).toBe(true)
+      expect(report.checks.map((r) => r.check)).toEqual(ALL_CHECKS)
+      expect(report.checks.every((r) => r.status === 'pass')).toBe(true)
     } finally {
       fs.rmSync(root, {recursive: true, force: true})
     }
@@ -590,15 +692,17 @@ describe('extension doctor (browser resolution)', () => {
           runId: 'run-A',
           status: 'ready',
           pid: process.pid,
-          cdpPort: 9222
+          startedAt: new Date().toISOString(),
+          cdpPort: 9222,
+          browserPid: process.pid
         }
       }
     })
 
     try {
-      const results = await runDoctor(root, {})
+      const report = await runDoctor(root, {})
       expect(asked).toBe('chrome')
-      expect(results.map((r) => r.check)).toEqual(ALL_CHECKS)
+      expect(report.checks.map((r) => r.check)).toEqual(ALL_CHECKS)
     } finally {
       fs.rmSync(root, {recursive: true, force: true})
     }
@@ -647,6 +751,7 @@ describe('extension doctor (command surface)', () => {
       })
 
       expect(frame.value.every((r: any) => r.status === 'pass')).toBe(true)
+      expect(frame.browser).toBe('chromium')
     } finally {
       vi.restoreAllMocks()
     }
@@ -829,7 +934,8 @@ describe('extension doctor (command surface)', () => {
         runId: 'run-A',
         status: 'ready',
         pid: 999999,
-        cdpPort: 9222
+        cdpPort: 9222,
+        browserPid: process.pid
       })
     })
 
@@ -896,5 +1002,159 @@ describe('extension doctor (command surface)', () => {
     } finally {
       vi.restoreAllMocks()
     }
+  })
+})
+
+describe('extension doctor (session identity in the report)', () => {
+  // The standard layout: the package root holds the session files, the
+  // manifest lives in src/, and the argument points at src/.
+  function makeSrcLayoutProject(browser: string): string {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-doctor-src-'))
+    fs.mkdirSync(path.join(root, 'src'), {recursive: true})
+    fs.writeFileSync(path.join(root, 'package.json'), '{"name":"p"}')
+    fs.writeFileSync(
+      path.join(root, 'src', 'manifest.json'),
+      '{"manifest_version":3,"name":"p","version":"1.0"}'
+    )
+
+    const dir = path.join(root, 'dist', 'extension-js', browser)
+    fs.mkdirSync(dir, {recursive: true})
+    fs.writeFileSync(
+      path.join(dir, 'ready.json'),
+      JSON.stringify({
+        status: 'ready',
+        command: 'dev',
+        controlPort: 4001,
+        instanceId: 'inst-1',
+        pid: process.pid
+      })
+    )
+
+    return root
+  }
+
+  it('names the diagnosed session in the header and never the raw argument', async () => {
+    const {makeProgram, runCli, stubProcessExit} = await import(
+      './command-harness'
+    )
+    const {registerDoctorCommand} = await import('../commands/doctor')
+    const root = makeSrcLayoutProject('firefox')
+    state.mod = healthyModule({resolveSessionProjectRoot: () => root})
+    stubProcessExit()
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    try {
+      expect(
+        await runCli(makeProgram(registerDoctorCommand), [
+          'doctor',
+          path.join(root, 'src')
+        ])
+      ).toBe(0)
+
+      const header = stripAnsi(String(logSpy.mock.calls[0][0]))
+      expect(header).toContain('doctor (firefox)')
+      expect(header).not.toContain('chromium')
+    } finally {
+      vi.restoreAllMocks()
+      fs.rmSync(root, {recursive: true, force: true})
+    }
+  })
+
+  it('names the diagnosed session on the json envelope', async () => {
+    const {makeProgram, runCli, stubProcessExit} = await import(
+      './command-harness'
+    )
+    const {registerDoctorCommand} = await import('../commands/doctor')
+    const root = makeSrcLayoutProject('firefox')
+    state.mod = healthyModule({resolveSessionProjectRoot: () => root})
+    stubProcessExit()
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    try {
+      expect(
+        await runCli(makeProgram(registerDoctorCommand), [
+          'doctor',
+          path.join(root, 'src'),
+          '--output',
+          'json'
+        ])
+      ).toBe(0)
+
+      const frame = JSON.parse(String(logSpy.mock.calls[0][0]))
+      expect(frame.browser).toBe('firefox')
+      // The payload keeps the shape every host already reads: a bare list.
+      expect(frame.value.map((c: any) => c.check)).toEqual(ALL_CHECKS)
+    } finally {
+      vi.restoreAllMocks()
+      fs.rmSync(root, {recursive: true, force: true})
+    }
+  })
+})
+
+// The golden frames are what a host copies as the doctor result shape without
+// running doctor. Validating them against the envelope schema alone let them
+// document seven checks while the command emitted eight.
+describe('the golden doctor envelopes document the real frames', () => {
+  const goldenPath = (name: string) =>
+    path.join(__dirname, 'contract', `golden.doctor.${name}.json`)
+
+  const golden = (name: string) =>
+    JSON.parse(fs.readFileSync(goldenPath(name), 'utf8'))
+
+  async function emitJsonFrame() {
+    const {makeProgram, runCli, stubProcessExit} = await import(
+      './command-harness'
+    )
+    const {registerDoctorCommand} = await import('../commands/doctor')
+    stubProcessExit()
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    try {
+      await runCli(makeProgram(registerDoctorCommand), [
+        'doctor',
+        '/proj',
+        '--output',
+        'json'
+      ])
+
+      return JSON.parse(String(logSpy.mock.calls.at(-1)?.[0]))
+    } finally {
+      vi.restoreAllMocks()
+    }
+  }
+
+  function expectSameShape(
+    frame: Record<string, any>,
+    fixture: Record<string, any>
+  ) {
+    expect(
+      Object.keys(fixture).sort(),
+      'the golden envelope names keys the doctor frame does not, or misses some'
+    ).toEqual(Object.keys(frame).sort())
+
+    expect(fixture.command).toBe(frame.command)
+    expect(fixture.status).toBe(frame.status)
+    expect(fixture.browser).toBe(frame.browser)
+    expect(
+      fixture.value.map((c: any) => c.check),
+      'the golden value under-documents the checks `doctor --output json` emits'
+    ).toEqual(frame.value.map((c: any) => c.check))
+
+    expect(fixture.value.map((c: any) => c.status)).toEqual(
+      frame.value.map((c: any) => c.status)
+    )
+  }
+
+  it('documents the healthy frame the command emits', async () => {
+    expectSameShape(await emitJsonFrame(), golden('healthy'))
+  })
+
+  it('documents the session-not-found frame the command emits', async () => {
+    state.mod = healthyModule({readReadyContract: () => null})
+    const frame = await emitJsonFrame()
+    const fixture = golden('session-not-found')
+    expectSameShape(frame, fixture)
+    expect(fixture.error.code).toBe(frame.error.code)
+    expect(fixture.error.message).toBe(frame.error.message)
   })
 })

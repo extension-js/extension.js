@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {describe, expect, it} from 'vitest'
+import {DOCTOR_CHECK_CODES, DOCTOR_CHECKS} from '../../commands/doctor'
 import {CODES} from '../../helpers/messaging'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
@@ -61,16 +62,6 @@ const ERROR_NAMES = [
   'Timeout',
   'Unavailable',
   'Unsupported'
-]
-
-const DOCTOR_CHECKS = [
-  'browser',
-  'control-channel',
-  'eval-token',
-  'executor',
-  'port-agreement',
-  'ready-contract',
-  'server-process'
 ]
 
 const flat = (value: string | string[]): string[] =>
@@ -158,7 +149,6 @@ const CODES_WITHOUT_EMIT_SITE: string[] = [
   'E_BROWSER_EXITED',
   'E_BROWSER_START_TIMEOUT',
   'E_LAUNCH_SKIPPED_COMPILE_ERRORS',
-  'E_INSTANCE_AMBIGUOUS',
   'E_WSL_INTEROP',
   'E_EXTENSION_LOAD_REFUSED',
   'E_ADDON_INSTALL',
@@ -277,8 +267,14 @@ describe('the error-code table', () => {
     }
   })
 
-  it('maps every kebab-case doctor check id onto the table', () => {
-    expect(Object.keys(table.legacy.doctorChecks).sort()).toEqual(DOCTOR_CHECKS)
+  // The ids come from doctor itself, so a check added without a documented
+  // code fails here instead of shipping a contract a host cannot map.
+  it('documents exactly the checks doctor emits, with the same codes', () => {
+    expect(Object.keys(table.legacy.doctorChecks).sort()).toEqual(
+      [...DOCTOR_CHECKS].sort()
+    )
+
+    expect(table.legacy.doctorChecks).toEqual(DOCTOR_CHECK_CODES)
 
     for (const code of Object.values(table.legacy.doctorChecks)) {
       expect(

@@ -3,8 +3,12 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {
+  readReadyRunId,
+  stampReadyBrowserExited,
   stampReadyBrowserLaunch,
   stampReadyExtensionId,
+  stampReadyExtensionLoadRefused,
+  stampReadyProfileLocked,
   stampReadyRdpPort
 } from '../browsers-lib/ready-stamp'
 
@@ -200,5 +204,71 @@ describe('stampReadyExtensionId', () => {
         'cccccccccccccccccccccccccccccccc'
       )
     ).not.toThrow()
+  })
+})
+
+describe('a stamp from a superseded run', () => {
+  let tmp: string
+  let outputPath: string
+  let readyPath: string
+
+  const freshContract = () => ({
+    status: 'ready',
+    command: 'dev',
+    browser: 'chrome',
+    runId: 'run-B',
+    browserPid: 2222
+  })
+
+  beforeEach(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ready-stamp-run-'))
+    outputPath = path.join(tmp, 'dist', 'chrome')
+    readyPath = path.join(tmp, 'dist', 'extension-js', 'chrome', 'ready.json')
+    fs.mkdirSync(path.dirname(readyPath), {recursive: true})
+    fs.writeFileSync(readyPath, JSON.stringify(freshContract()))
+  })
+
+  afterEach(() => {
+    fs.rmSync(tmp, {recursive: true, force: true})
+  })
+
+  const readReady = () => JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+
+  it('changes nothing on browser exit', () => {
+    stampReadyBrowserExited(outputPath, 15, 'SIGTERM', 'run-A')
+
+    expect(readReady()).toEqual(freshContract())
+  })
+
+  it('changes nothing on browser launch', () => {
+    stampReadyBrowserLaunch(outputPath, {browserPid: 9999}, 'run-A')
+
+    expect(readReady()).toEqual(freshContract())
+  })
+
+  it('changes nothing on a profile lock', () => {
+    stampReadyProfileLocked(outputPath, {message: 'locked'}, 'run-A')
+
+    expect(readReady()).toEqual(freshContract())
+  })
+
+  it('changes nothing on a load refusal', () => {
+    stampReadyExtensionLoadRefused(outputPath, 'bad icon', 'run-A')
+
+    expect(readReady()).toEqual(freshContract())
+  })
+
+  it('still stamps the run that owns the contract', () => {
+    stampReadyBrowserExited(outputPath, 15, 'SIGTERM', 'run-B')
+
+    const ready = readReady()
+    expect(ready.browserExitCode).toBe(15)
+    expect(ready.browserExitSignal).toBe('SIGTERM')
+  })
+
+  it('reads the run a later stamp has to carry', () => {
+    expect(readReadyRunId(outputPath)).toBe('run-B')
+    expect(readReadyRunId(undefined)).toBeUndefined()
+    expect(readReadyRunId(path.join(tmp, 'dist', 'edge'))).toBeUndefined()
   })
 })

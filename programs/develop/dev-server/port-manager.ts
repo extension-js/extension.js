@@ -9,49 +9,63 @@
 import * as crypto from 'node:crypto'
 import * as net from 'node:net'
 
-async function findAvailablePortNear(
+interface PortReservation {
+  port: number
+  release(): Promise<void>
+}
+
+function closeReservation(server: net.Server): Promise<void> {
+  return new Promise((resolve) => {
+    server.close(() => resolve())
+  })
+}
+
+function reserve(port: number, host: string): Promise<net.Server | null> {
+  return new Promise((resolve) => {
+    const server = net.createServer()
+    server.once('error', () => resolve(null))
+    server.once('listening', () => resolve(server))
+    // A reservation is not a server: dropping whatever dials it keeps close()
+    // prompt and never answers a request meant for the dev server.
+    server.on('connection', (socket) => socket.destroy())
+
+    server.listen(port, host)
+  })
+}
+
+// The listener stays bound until the dev server is about to take the port.
+// Probing by binding and closing made the number advisory, so everything
+// between the probe and the real bind was a window for a second session to
+// be handed the same port.
+async function reservePortNear(
   startPort: number,
   maxAttempts: number = 20,
   host: string = '127.0.0.1'
-): Promise<number> {
+): Promise<PortReservation> {
   // Port 0 means "let the OS pick a free port". We must read the actual
   // assigned port from server.address() instead of returning 0.
-  if (startPort === 0) {
-    return new Promise((resolve, reject) => {
-      const server = net.createServer()
-      server.once('error', (err) => reject(err))
-      server.once('listening', () => {
-        const addr = server.address() as net.AddressInfo
-        server.close(() => resolve(addr.port))
-      })
-
-      server.listen(0, host)
-    })
-  }
-
-  function tryPort(port: number): Promise<boolean> {
-    return new Promise((resolve) => {
-      const server = net.createServer()
-      server.once('error', () => resolve(false))
-      server.once('listening', () => {
-        server.close(() => resolve(true))
-      })
-
-      server.listen(port, host)
-    })
-  }
-
+  const attempts = startPort === 0 ? 1 : maxAttempts
   let candidate = startPort
 
-  for (let i = 0; i < maxAttempts; i++) {
-    const ok = await tryPort(candidate)
-    if (ok) return candidate
+  for (let i = 0; i < attempts; i++) {
+    const server = await reserve(candidate, host)
+
+    if (server) {
+      const address = server.address() as net.AddressInfo | null
+      // The reservation must never be the reason the process stays alive.
+      server.unref()
+
+      return {
+        port: address?.port ?? candidate,
+        release: () => closeReservation(server)
+      }
+    }
 
     candidate += 1
   }
 
   throw new Error(
-    `Could not find an available port near ${startPort} after ${maxAttempts} attempts`
+    `Could not find an available port near ${startPort} after ${attempts} attempts`
   )
 }
 
@@ -84,6 +98,7 @@ function resolveInstanceIdOverride(): string | undefined {
 export class PortManager {
   private readonly basePort: number
   private currentInstance: LocalInstanceInfo | null = null
+  private reservation: PortReservation | null = null
 
   constructor(basePort: number = 8080) {
     this.basePort = basePort
@@ -98,7 +113,10 @@ export class PortManager {
       requestedPort >= 0 &&
       requestedPort < 65536
     const base = isValidRequested ? requestedPort : this.basePort
-    const port = await findAvailablePortNear(base, undefined, host)
+    await this.releaseReservedPort()
+    const reservation = await reservePortNear(base, undefined, host)
+    this.reservation = reservation
+    const port = reservation.port
     // Read the override before anything exports a resolved id back into the
     // environment, or every later session would look user-pinned.
     const override = resolveInstanceIdOverride()
@@ -117,7 +135,17 @@ export class PortManager {
     return this.currentInstance
   }
 
+  // The dev server cannot bind a port this process still holds, so the
+  // reservation is dropped the moment the real listener takes over.
+  async releaseReservedPort(): Promise<void> {
+    const reservation = this.reservation
+    this.reservation = null
+
+    if (reservation) await reservation.release()
+  }
+
   async terminateCurrentInstance(): Promise<void> {
     this.currentInstance = null
+    await this.releaseReservedPort()
   }
 }
