@@ -152,26 +152,42 @@ export async function maybeUseSvelte(
   // requiring it would hard-fail Svelte projects that never asked for TS.
   const customOptions = await loadLoaderOptions(projectPath, 'svelte')
 
+  const svelteLoader = {
+    loader: svelteLoaderPath,
+    options: {
+      emitCss: true,
+      compilerOptions: {
+        dev: mode === 'development'
+      },
+      // Do not use svelte-preprocess; rely on Svelte 5 built-in TS support.
+      hotReload: mode === 'development',
+      ...(customOptions || {})
+    }
+  }
+
   const defaultLoaders: JsFramework['loaders'] = [
     {
       test: /\.svelte\.ts$/,
-      use: [svelteLoaderPath],
+      // compileModule parses plain JavaScript only, so the types come off before
+      // svelte-loader runs; esnext keeps class fields where runes expect them.
+      use: [
+        svelteLoader,
+        {
+          loader: 'builtin:swc-loader',
+          options: {
+            minify: false,
+            jsc: {
+              parser: {syntax: 'typescript'},
+              target: 'esnext'
+            }
+          }
+        }
+      ],
       exclude: /node_modules/
     },
     {
       test: /\.(svelte|svelte\.js)$/,
-      use: {
-        loader: svelteLoaderPath,
-        options: {
-          emitCss: true,
-          compilerOptions: {
-            dev: mode === 'development'
-          },
-          // Do not use svelte-preprocess; rely on Svelte 5 built-in TS support.
-          hotReload: mode === 'development',
-          ...(customOptions || {})
-        }
-      },
+      use: svelteLoader,
       // No include: a workspace sibling imported by path compiles like any
       // project file.
       exclude: /node_modules/
