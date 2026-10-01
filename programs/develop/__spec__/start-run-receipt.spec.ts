@@ -165,6 +165,7 @@ describe('start run receipt (real build + preview)', () => {
     expect(firstSuccess).toBeTruthy()
 
     const refused = readReady()
+    refused.runId = 'last-run-from-another-process'
     refused.status = 'error'
     refused.code = 'extension_load_refused'
     refused.message = 'Chrome refused to load the extension'

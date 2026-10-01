@@ -831,7 +831,6 @@ export default function contentScriptWrapper(
     'try {\n' +
     '  if (typeof globalThis === "object" && globalThis) {\n' +
     '    globalThis.__EXTENSIONJS_registerCleanup = __EXTENSIONJS_registerCleanup;\n' +
-    '    globalThis.registerCleanup = __EXTENSIONJS_registerCleanup;\n' +
     '  }\n' +
     '} catch (error) {}\n' +
     '// Dev-only DOM instrumentation. Gated so production content scripts never\n' +
@@ -943,7 +942,8 @@ export default function contentScriptWrapper(
     '      var nextCleanup = mount();\n' +
     '      cleanup = __EXTENSIONJS_composeCleanup(nextCleanup);\n' +
     '      __EXTENSIONJS_REINJECT_GENERATION = (Number(__EXTENSIONJS_REINJECT_GENERATION) || 0) + 1;\n' +
-    '      try { cleanup.__extjsGeneration = __EXTENSIONJS_REINJECT_GENERATION; cleanup.__extjsKey = __EXTENSIONJS_REINJECT_KEY; } catch (error) {}\n' +
+    // The registry stores unmount, so the generation has to ride on it.
+    '      try { unmount.__extjsGeneration = __EXTENSIONJS_REINJECT_GENERATION; unmount.__extjsKey = __EXTENSIONJS_REINJECT_KEY; } catch (error) {}\n' +
     '      try { __EXTENSIONJS_setReinjectMarker(__EXTENSIONJS_REINJECT_KEY, __EXTENSIONJS_REINJECT_GENERATION, "mounted"); } catch (error) {}\n' +
     '      try { __EXTENSIONJS_scheduleBundleCssHydration(); } catch (error) {}\n' +
     '    } catch (error) {\n' +
