@@ -162,11 +162,31 @@ function hasGuardedManifestDiskPath(filePath: unknown) {
 }
 
 interface GuardableOutputFs {
-  __extensionjsGuardedManifestPaths?: Set<string>
+  __extensionjsGuardedManifestPaths?: Map<string, number>
   writeFile?: (filePath: string, ...args: unknown[]) => unknown
   writeFileSync?: (filePath: string, ...args: unknown[]) => unknown
   createWriteStream?: (filePath: string, ...args: unknown[]) => unknown
   promises?: {writeFile?: (filePath: string, ...args: unknown[]) => unknown}
+}
+
+// Ref-counted like the disk guard: a restart has two servers guarding one
+// manifest, and the first to stop must not unguard the one still live.
+function holdGuardedOutputPath(
+  guardedPaths: Map<string, number>,
+  resolvedPath: string
+): () => void {
+  guardedPaths.set(resolvedPath, (guardedPaths.get(resolvedPath) || 0) + 1)
+
+  let released = false
+
+  return () => {
+    if (released) return
+
+    released = true
+    const count = guardedPaths.get(resolvedPath) || 0
+    if (count <= 1) guardedPaths.delete(resolvedPath)
+    else guardedPaths.set(resolvedPath, count - 1)
+  }
 }
 
 export function suppressManifestOutputWrites(
@@ -187,20 +207,16 @@ export function suppressManifestOutputWrites(
   const alreadyGuardedPaths = outputFileSystem.__extensionjsGuardedManifestPaths
 
   if (alreadyGuardedPaths) {
-    alreadyGuardedPaths.add(resolvedManifestPath)
-
-    return () => {
-      alreadyGuardedPaths.delete(resolvedManifestPath)
-    }
+    return holdGuardedOutputPath(alreadyGuardedPaths, resolvedManifestPath)
   }
 
-  const guardedPaths = new Set<string>([resolvedManifestPath])
+  const guardedPaths = new Map<string, number>()
   outputFileSystem.__extensionjsGuardedManifestPaths = guardedPaths
 
   const isManifestPath = (filePath: unknown) => {
     if (typeof filePath !== 'string') return false
 
-    for (const guardedPath of guardedPaths) {
+    for (const guardedPath of guardedPaths.keys()) {
       if (isSamePath(guardedPath, filePath)) return true
     }
 
@@ -268,9 +284,7 @@ export function suppressManifestOutputWrites(
     }
   }
 
-  return () => {
-    guardedPaths.delete(resolvedManifestPath)
-  }
+  return holdGuardedOutputPath(guardedPaths, resolvedManifestPath)
 }
 
 export function installManifestDiskWriteGuard(
