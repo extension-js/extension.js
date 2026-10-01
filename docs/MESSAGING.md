@@ -276,6 +276,8 @@ What is stable and what is not:
   them, and do not match on the pretty output either.** If you need a signal that is not in
   `ok`, `status`, or `error.code`, open an issue and it will be added to the envelope.
 - `value` carries the payload on success, `null` otherwise.
+- `browser` is optional and names the session a frame is about, so a reader of `doctor`
+  knows which browser the result describes. Commands with no session leave it absent.
 
 `--output` is the one name for this flag. `--format` and `--wait-format` are deprecated aliases
 of it. `logs` keeps `--log-format` for record encoding, which is a different concern: it says

@@ -7,10 +7,15 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'node:fs'
+import * as net from 'node:net'
 import * as os from 'node:os'
 import path from 'node:path'
 import type {Command} from 'commander'
 import colors from 'pintor'
+import {
+  isPidAlive,
+  pidStartedAtMs
+} from '../browsers/browsers-lib/resolve-live-pid'
 import {emulatorSessionRefusal} from '../helpers/emulator-session'
 import {exitAfterDrain} from '../helpers/exit-after-drain'
 import {loadExtensionDevelopBridgeModule} from '../helpers/extension-develop-runtime'
@@ -60,11 +65,36 @@ function binaryDetailSuffix(ready: {
   return provenance ? `, ${shown} (${provenance})` : `, ${shown}`
 }
 
+/* @invariant Every check id doctor can emit is named here, once. The code
+   table, contract/codes.json and the contract spec all read this list, so a
+   check added without a documented error code fails the build, not a host. */
+export const DOCTOR_CHECKS = [
+  'session-resolution',
+  'engine',
+  'peer-rspack',
+  'ready-contract',
+  'server-process',
+  'port-agreement',
+  'control-channel',
+  'eval-token',
+  'executor',
+  'browser'
+] as const
+
+export type DoctorCheck = (typeof DOCTOR_CHECKS)[number]
+
 export interface DoctorCheckResult {
-  check: string
+  check: DoctorCheck
   status: CheckStatus
   detail: string
   remediation?: string
+}
+
+// The session actually diagnosed, so the header, the rows and the json frame
+// all name one browser.
+export interface DoctorReport {
+  browser: string
+  checks: DoctorCheckResult[]
 }
 
 interface DoctorOptions {
@@ -74,6 +104,10 @@ interface DoctorOptions {
 
 const CONNECT_TIMEOUT_MS = 5000
 const PROBE_TIMEOUT_MS = 3000
+const BROWSER_PROBE_TIMEOUT_MS = 1000
+// A pid is not an identity: the number is recycled, so a contract that outlived
+// its session names a pid some unrelated process holds by now.
+const SERVER_IDENTITY_SKEW_MS = 60_000
 // Right after a clean compile the SW has not connected yet; report warn during
 // the grace window and only fail once it elapses with no attachment.
 const EXECUTOR_ATTACH_GRACE_MS = 10_000
@@ -238,10 +272,113 @@ function peerRspackCheck(projectPath: string): DoctorCheckResult {
   }
 }
 
+// Why the live pid cannot be this session's dev server, or null when it can.
+function reusedPidEvidence(ready: {
+  pid?: number
+  startedAt?: string
+}): string | null {
+  const writtenAt = Date.parse(String(ready.startedAt ?? ''))
+  if (Number.isNaN(writtenAt)) return null
+
+  const startedAt = pidStartedAtMs(ready.pid)
+  if (startedAt == null) return null
+
+  return startedAt - writtenAt > SERVER_IDENTITY_SKEW_MS
+    ? `it started ${new Date(startedAt).toISOString()}, after the contract's ${ready.startedAt}`
+    : null
+}
+
+// Chromium stamps cdpPort, Gecko stamps rdpPort. A leg that reads only the
+// first calls every Firefox session's browser unknown.
+function debuggerPort(ready: {
+  cdpPort?: number
+  rdpPort?: number
+}): {name: string; port: number} | undefined {
+  if (typeof ready.cdpPort === 'number') {
+    return {name: 'cdpPort', port: ready.cdpPort}
+  }
+
+  if (typeof ready.rdpPort === 'number') {
+    return {name: 'rdpPort', port: ready.rdpPort}
+  }
+
+  return undefined
+}
+
+// Only a connection proves a debugger port is still served: the stamped number
+// outlives the browser that opened it, including one the OS killed outright.
+function probeDebuggerPort(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = net.connect({host: '127.0.0.1', port})
+
+    const answer = (answered: boolean) => {
+      socket.destroy()
+      resolve(answered)
+    }
+
+    socket.setTimeout(BROWSER_PROBE_TIMEOUT_MS)
+    socket.once('connect', () => answer(true))
+    socket.once('timeout', () => answer(false))
+    socket.once('error', () => answer(false))
+  })
+}
+
+// The browser leg's verdict: a live pid or an answering debugger port, never
+// the mere presence of a stamped port.
+async function browserCheck(ready: {
+  browserPid?: number
+  cdpPort?: number
+  rdpPort?: number
+  binary?: unknown
+  binaryProvenance?: unknown
+}): Promise<DoctorCheckResult> {
+  const pid = typeof ready.browserPid === 'number' ? ready.browserPid : undefined
+  const port = debuggerPort(ready)
+  const label = port ? `${port.name} ${port.port}` : ''
+
+  if (pid != null && isPidAlive(pid)) {
+    return {
+      check: 'browser',
+      status: 'pass',
+      detail: `browser running (pid ${pid}${port ? `, ${label}` : ''})${binaryDetailSuffix(ready)}`
+    }
+  }
+
+  if (port && (await probeDebuggerPort(port.port))) {
+    return {
+      check: 'browser',
+      status: 'pass',
+      detail: `browser running (${label} answers)${binaryDetailSuffix(ready)}`
+    }
+  }
+
+  if (pid != null || port) {
+    return {
+      check: 'browser',
+      status: 'fail',
+      detail:
+        `no live browser: ${pid != null ? `pid ${pid} is gone` : 'no browserPid stamped'}` +
+        `${port ? ` and nothing answers ${label}` : ' and no debugger port stamped'}` +
+        binaryDetailSuffix(ready),
+      remediation: 'Restart the dev session to relaunch the browser'
+    }
+  }
+
+  // Absence of exit evidence is not evidence of a live browser: with nothing to
+  // probe the leg is unknown, never a green verdict over a possibly-dead browser.
+  return {
+    check: 'browser',
+    status: 'skip',
+    detail: `browser liveness unknown (no browserPid or debugger port stamped yet and no exit recorded)${binaryDetailSuffix(ready)}`,
+    remediation:
+      'If the browser should be up, wait for launch to finish or restart the dev session'
+  }
+}
+
 export async function runDoctor(
   projectPathArg: string | undefined,
   opts: DoctorOptions
-): Promise<DoctorCheckResult[]> {
+): Promise<DoctorReport> {
   const bridge = await loadExtensionDevelopBridgeModule()
   const projectPath = resolveSessionProjectPath(bridge, projectPathArg)
   const {browser, sessionBrowsers} = resolveDoctorBrowser(
@@ -269,7 +406,7 @@ export async function runDoctor(
   if (emulatorRefusal) {
     results.push({check: 'engine', status: 'fail', detail: emulatorRefusal})
 
-    return results
+    return {browser, checks: results}
   }
 
   // 0. peer-rspack needs only the project, so it runs before the session legs.
@@ -277,7 +414,7 @@ export async function runDoctor(
   // `npm install` fails with ERESOLVE next to Extension.js.
   results.push(peerRspackCheck(projectPath))
 
-  const skip = (check: string, blockedBy: string) => {
+  const skip = (check: DoctorCheck, blockedBy: string) => {
     results.push({
       check,
       status: 'skip',
@@ -318,11 +455,11 @@ export async function runDoctor(
       'eval-token',
       'executor',
       'browser'
-    ]) {
+    ] as const) {
       skip(check, 'ready-contract')
     }
 
-    return results
+    return {browser, checks: results}
   }
 
   if (ready.status === 'ready') {
@@ -352,29 +489,27 @@ export async function runDoctor(
         'skipped: contract has no pid (session started by an older extension-develop)'
     })
   } else {
-    let alive = true
+    // A live pid is only half the evidence: the other half is that it is still
+    // the process the contract was written by.
+    const stale = isPidAlive(ready.pid)
+      ? reusedPidEvidence(ready)
+      : 'the process is gone'
 
-    try {
-      process.kill(ready.pid, 0)
-    } catch (err) {
-      alive = (err as NodeJS.ErrnoException | undefined)?.code === 'EPERM'
-    }
-
-    if (alive) {
-      results.push({
-        check: 'server-process',
-        status: 'pass',
-        detail: `dev-server pid ${ready.pid} is alive`
-      })
-    } else {
+    if (stale) {
       serverAlive = false
       results.push({
         check: 'server-process',
         status: 'fail',
-        detail: `dev-server pid ${ready.pid} is dead, ready.json is stale`,
+        detail: `dev-server pid ${ready.pid} is stale (${stale}), ready.json no longer names a live session`,
         remediation:
           'A previous dev session died uncleanly; restart it: ' +
           `extension dev --browser=${browser} --allow-control`
+      })
+    } else {
+      results.push({
+        check: 'server-process',
+        status: 'pass',
+        detail: `dev-server pid ${ready.pid} is alive`
       })
     }
   }
@@ -595,25 +730,11 @@ export async function runDoctor(
       detail: `browser exited at ${ready.browserExitedAt}${ready.browserExitCode != null ? ` (code ${ready.browserExitCode})` : ''} while the dev server kept running${binaryDetailSuffix(ready)}`,
       remediation: 'Restart the dev session to relaunch the browser'
     })
-  } else if (ready.cdpPort != null) {
-    results.push({
-      check: 'browser',
-      status: 'pass',
-      detail: `browser running (cdpPort ${ready.cdpPort})${binaryDetailSuffix(ready)}`
-    })
   } else {
-    // Absence of exit evidence is not evidence of a live browser: with no cdpPort
-    // stamped the leg is unknown, never a green verdict over a possibly-dead browser.
-    results.push({
-      check: 'browser',
-      status: 'skip',
-      detail: `browser liveness unknown (no cdpPort stamped yet and no exit recorded)${binaryDetailSuffix(ready)}`,
-      remediation:
-        'If the browser should be up, wait for launch to finish or restart the dev session'
-    })
+    results.push(await browserCheck(ready))
   }
 
-  return results
+  return {browser, checks: results}
 }
 
 function checkGlyph(status: CheckStatus): string {
@@ -624,7 +745,9 @@ function checkGlyph(status: CheckStatus): string {
   return colors.gray('–')
 }
 
-function printPretty(results: DoctorCheckResult[], browser: string): void {
+// The header names the session the rows describe, so it reads the report's own
+// browser rather than resolving the raw argument a second time.
+function printPretty({browser, checks: results}: DoctorReport): void {
   const passes = results.filter((r) => r.status === 'pass').length
   // eslint-disable-next-line no-console
   console.log(doctorHeader(browser, passes, results.length))
@@ -650,7 +773,9 @@ function printPretty(results: DoctorCheckResult[], browser: string): void {
 // A failing check is the only thing the frame can name, so the first failure
 // decides error.code. E_DOCTOR_CHECKS_FAILED covers the rest: a check with no
 // dominant cause is still a failed run, not an unmapped one.
-const CHECK_CODES: Record<string, ErrorCode> = {
+export const DOCTOR_CHECK_CODES: Record<DoctorCheck, ErrorCode> = {
+  'session-resolution': CODES.E_INSTANCE_AMBIGUOUS,
+  engine: CODES.E_COMMAND_UNSUPPORTED_FOR_TARGET,
   'peer-rspack': CODES.E_DEPENDENCY_INSTALL,
   'ready-contract': CODES.E_SESSION_NOT_FOUND,
   'server-process': CODES.E_SESSION_NOT_FOUND,
@@ -658,8 +783,7 @@ const CHECK_CODES: Record<string, ErrorCode> = {
   'control-channel': CODES.E_CONTROL_UNAVAILABLE,
   'eval-token': CODES.E_TOKEN_MISSING,
   executor: CODES.E_CONTROL_UNAVAILABLE,
-  browser: CODES.E_BROWSER_LAUNCH,
-  engine: CODES.E_COMMAND_UNSUPPORTED_FOR_TARGET
+  browser: CODES.E_BROWSER_LAUNCH
 }
 
 export function registerDoctorCommand(program: Command): void {
@@ -680,10 +804,10 @@ export function registerDoctorCommand(program: Command): void {
     .description(commandDescriptions.doctor)
     .action(async (projectPathArg: string | undefined, opts: DoctorOptions) => {
       const asJson = isJsonOutput(opts)
-      let results: DoctorCheckResult[]
+      let report: DoctorReport
 
       try {
-        results = await runDoctor(projectPathArg, opts)
+        report = await runDoctor(projectPathArg, opts)
       } catch (err) {
         const message = String((err as Error | undefined)?.message || err)
 
@@ -707,30 +831,35 @@ export function registerDoctorCommand(program: Command): void {
         return
       }
 
-      const failed = results.filter((r) => r.status === 'fail')
+      const failed = report.checks.filter((r) => r.status === 'fail')
 
       if (asJson) {
         // The checks list is the payload on both verdicts: an unhealthy report
-        // is still a report, so `value` rides along with the error.
+        // is still a report, so `value` rides along with the error. The
+        // diagnosed session rides beside it, never inside the list a host maps.
         const frame = failed.length
           ? ENVELOPE.fail(
               'doctor',
               'unhealthy',
               {
                 code:
-                  CHECK_CODES[failed[0].check] || CODES.E_DOCTOR_CHECKS_FAILED,
-                message: `${failed.length} of ${results.length} doctor checks failed.`
+                  DOCTOR_CHECK_CODES[failed[0].check] ||
+                  CODES.E_DOCTOR_CHECKS_FAILED,
+                message: `${failed.length} of ${report.checks.length} doctor checks failed.`
               },
-              {value: results, hint: failed[0].remediation}
+              {
+                value: report.checks,
+                hint: failed[0].remediation,
+                browser: report.browser
+              }
             )
-          : ENVELOPE.ok('doctor', 'healthy', results)
+          : ENVELOPE.ok('doctor', 'healthy', report.checks, {
+              browser: report.browser
+            })
         // eslint-disable-next-line no-console
         console.log(JSON.stringify(frame))
       } else {
-        printPretty(
-          results,
-          resolveDoctorBrowser(projectPathArg, opts.browser).browser
-        )
+        printPretty(report)
       }
 
       await exitAfterDrain(failed.length ? 1 : 0)

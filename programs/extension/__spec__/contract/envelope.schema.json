@@ -45,6 +45,7 @@
     },
     "truncated": { "type": "boolean" },
     "hint": { "type": "string" },
+    "browser": { "type": "string", "minLength": 1 },
     "warnings": { "type": "array", "items": { "type": "string" } }
   },
   "additionalProperties": true

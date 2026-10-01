@@ -5,41 +5,47 @@
   "status": "healthy",
   "value": [
     {
+      "check": "peer-rspack",
+      "status": "pass",
+      "detail": "every direct dependency with an @rspack/core peer range accepts the engine's 2.2.3"
+    },
+    {
       "check": "ready-contract",
       "status": "pass",
-      "detail": "ready.json reports status ready for chromium."
+      "detail": "status ready, controlPort 60001, instanceId 7f3a91c2, written 2026-10-01T12:00:03.120Z"
     },
     {
       "check": "server-process",
       "status": "pass",
-      "detail": "pid 51234 is alive."
+      "detail": "dev-server pid 51234 is alive"
     },
     {
       "check": "port-agreement",
       "status": "pass",
-      "detail": "control port matches the contract port."
+      "detail": "persisted port 60001 matches the live contract"
     },
     {
       "check": "control-channel",
       "status": "pass",
-      "detail": "hello answered on the control channel."
+      "detail": "connected, capabilities: {\"storage\":true,\"reload\":true}"
     },
     {
       "check": "eval-token",
-      "status": "skip",
-      "detail": "eval is not enabled for this session."
+      "status": "pass",
+      "detail": "eval disabled (--allow-eval not set), nothing to verify"
     },
     {
       "check": "executor",
       "status": "pass",
-      "detail": "a service worker is attached."
+      "detail": "executor responded to a storage probe"
     },
     {
       "check": "browser",
       "status": "pass",
-      "detail": "the browser process is running."
+      "detail": "browser running (pid 51240, cdpPort 9222)"
     }
   ],
   "error": null,
+  "browser": "chromium",
   "warnings": []
 }

@@ -372,8 +372,8 @@ describe('tooling refuses an emulator session', () => {
 
   it('doctor refuses with one engine check instead of misreporting', async () => {
     bridge.document = {engine: 'emulator'}
-    const results = await runDoctor(dir, {browser: 'chromium-emulator'})
-    expect(results).toEqual([
+    const report = await runDoctor(dir, {browser: 'chromium-emulator'})
+    expect(report.checks).toEqual([
       {check: 'engine', status: 'fail', detail: emulatorRefusalFor('doctor')}
     ])
 
@@ -382,7 +382,7 @@ describe('tooling refuses an emulator session', () => {
 
   it('leaves a chromium session alone', async () => {
     bridge.document = {engine: undefined}
-    const results = await runDoctor(dir, {browser: 'chromium'})
-    expect(results.map((r) => r.check)).not.toContain('engine')
+    const report = await runDoctor(dir, {browser: 'chromium'})
+    expect(report.checks.map((r) => r.check)).not.toContain('engine')
   })
 })

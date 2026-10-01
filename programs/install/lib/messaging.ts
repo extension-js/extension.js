@@ -412,6 +412,10 @@ export interface Envelope<T = unknown> {
   error: EnvelopeError | null
   truncated?: boolean
   hint?: string
+  // Which browser session the frame is about, when the command speaks of one.
+  // Additive and optional: a reader that ignores it sees the schema-1 frame it
+  // already knows.
+  browser?: string
   warnings: string[]
 }
 
@@ -422,6 +426,7 @@ export interface EnvelopeExtras {
   // A failure can still carry a payload. `doctor` is the motivating case: the
   // check list IS the diagnosis, and is most useful exactly when ok is false.
   value?: unknown
+  browser?: string
 }
 
 function withExtras<T>(base: Envelope<T>, extras: EnvelopeExtras): Envelope<T> {
@@ -429,6 +434,7 @@ function withExtras<T>(base: Envelope<T>, extras: EnvelopeExtras): Envelope<T> {
     ...base,
     ...(extras.hint ? {hint: extras.hint} : {}),
     ...(extras.truncated ? {truncated: true} : {}),
+    ...(extras.browser ? {browser: extras.browser} : {}),
     warnings: extras.warnings || []
   }
 }

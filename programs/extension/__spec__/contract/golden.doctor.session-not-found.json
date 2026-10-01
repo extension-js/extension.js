@@ -5,46 +5,52 @@
   "status": "unhealthy",
   "value": [
     {
+      "check": "peer-rspack",
+      "status": "pass",
+      "detail": "every direct dependency with an @rspack/core peer range accepts the engine's 2.2.3"
+    },
+    {
       "check": "ready-contract",
       "status": "fail",
-      "detail": "No ready.json for this project and browser.",
-      "remediation": "Start a session first: extension dev <path> --browser chromium"
+      "detail": "no ready contract at /home/dev/my-extension/dist/extension-js/chromium/ready.json",
+      "remediation": "Start a dev session first: extension dev --browser=chromium --allow-control (add --allow-eval for the eval verb)"
     },
     {
       "check": "server-process",
       "status": "skip",
-      "detail": "No contract to read a pid from."
+      "detail": "skipped: blocked by ready-contract"
     },
     {
       "check": "port-agreement",
       "status": "skip",
-      "detail": "No contract to compare ports against."
+      "detail": "skipped: blocked by ready-contract"
     },
     {
       "check": "control-channel",
       "status": "skip",
-      "detail": "No contract to dial."
+      "detail": "skipped: blocked by ready-contract"
     },
     {
       "check": "eval-token",
       "status": "skip",
-      "detail": "No session to hold a token."
+      "detail": "skipped: blocked by ready-contract"
     },
     {
       "check": "executor",
       "status": "skip",
-      "detail": "No control channel to probe."
+      "detail": "skipped: blocked by ready-contract"
     },
     {
       "check": "browser",
       "status": "skip",
-      "detail": "No session to own a browser."
+      "detail": "skipped: blocked by ready-contract"
     }
   ],
   "error": {
     "code": "E_SESSION_NOT_FOUND",
-    "message": "1 of 7 doctor checks failed."
+    "message": "1 of 8 doctor checks failed."
   },
-  "hint": "Start a session first: extension dev <path> --browser chromium",
+  "hint": "Start a dev session first: extension dev --browser=chromium --allow-control (add --allow-eval for the eval verb)",
+  "browser": "chromium",
   "warnings": []
 }
