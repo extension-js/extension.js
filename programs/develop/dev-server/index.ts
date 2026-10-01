@@ -718,8 +718,14 @@ export async function devServer(
 
     bridgeControlPort = controlServer.port
     writePersistedControlPort(controlPortFile, controlServer.port)
-  } catch {
-    // Control port could not bind; the dev server still runs without the bridge.
+  } catch (error) {
+    // No control port means no reload transport at all, so say it here rather
+    // than let the broker blame a worker that was never given a port to dial.
+    const reason = error instanceof Error ? error.message : String(error)
+
+    bridgeBroker.noteControlPortUnavailable(reason)
+    humanLine(messages.controlBridgeUnavailable(reason))
+
     try {
       bridgeLogFile.close()
     } catch {

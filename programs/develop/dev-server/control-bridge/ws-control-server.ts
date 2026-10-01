@@ -83,7 +83,9 @@ export function startControlServer(
         id: `c${++connSeq}`,
         origin: typeof origin === 'string' ? origin : undefined,
         send(frame: ServerFrame) {
-          if (socket.readyState !== WebSocket.OPEN) return
+          // Every return reports delivery: a worker that idled out before `ws`
+          // emitted close drops the frame here without throwing.
+          if (socket.readyState !== WebSocket.OPEN) return false
 
           if (socket.bufferedAmount > SLOW_CONSUMER_BYTES) {
             // Isolate a slow reader so it can't backpressure the broker
@@ -93,14 +95,17 @@ export function startControlServer(
               // Ignore
             }
 
-            return
+            return false
           }
 
           try {
             socket.send(JSON.stringify(frame))
           } catch {
             // Ignore. Adapter tears the socket down on error/close
+            return false
           }
+
+          return true
         },
         close(code, reason) {
           try {
