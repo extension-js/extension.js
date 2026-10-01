@@ -242,6 +242,26 @@ export function resolveUserDeclaredWAR(
     group.resources.add(resource)
   }
 
+  // The project-root-relative path of a ref that resolves outside the
+  // manifest folder but inside the project, or of a plain ref that is missing
+  // beside the manifest; undefined when the manifest folder is the root.
+  const rootRelativeOf = (abs: string, res: string): string | undefined => {
+    if (path.resolve(projectPath) === path.resolve(manifestDir))
+      {return undefined}
+
+    if (path.isAbsolute(res)) return undefined
+
+    const fromManifest = unixify(path.relative(projectPath, abs))
+    const plain = unixify(res).replace(/^\.\//, '')
+
+    if (fromManifest.startsWith('..')) return undefined
+    if (fs.existsSync(abs) && !unixify(res).startsWith('..')) return undefined
+
+    const candidate = unixify(res).startsWith('..') ? fromManifest : plain
+
+    return candidate && !candidate.startsWith('..') ? candidate : undefined
+  }
+
   const handleOne = (
     matches: string[] | undefined,
     res: string,
@@ -254,8 +274,11 @@ export function resolveUserDeclaredWAR(
     // without warning, aligned with icons and manifest validation.
     const normalizedOutput = normalizeManifestOutputPath(res)
     const publicCandidate = path.join(projectPath, 'public', normalizedOutput)
+    // `public/../x` joins to a real file outside public/, and the raw `..`
+    // path would land in the manifest; a `..` ref is never a public file.
+    const escapesPublic = normalizedOutput.split('/').includes('..')
 
-    if (fs.existsSync(publicCandidate)) {
+    if (!escapesPublic && fs.existsSync(publicCandidate)) {
       pushResource(matches, normalizedOutput, extra)
 
       return
@@ -339,6 +362,37 @@ export function resolveUserDeclaredWAR(
     }
 
     const abs = path.isAbsolute(res) ? res : path.join(manifestDir, res)
+
+    // A ref the special folders own (pages/, scripts/) lives at the project
+    // root, not beside a src/ manifest. Spelled from either place, it names
+    // the compiled asset at its root-relative path, or ships the file there.
+    const rootRel = rootRelativeOf(abs, res)
+
+    if (rootRel) {
+      const compiled =
+        typeof compilation.getAsset === 'function'
+          ? compilation.getAsset(rootRel)
+          : undefined
+      const rootAbs = path.join(projectPath, rootRel)
+
+      if (compiled && compiled.name === rootRel) {
+        pushResource(matches, rootRel, extra)
+
+        return
+      }
+
+      if (fs.existsSync(rootAbs) && fs.statSync(rootAbs).isFile()) {
+        compilation.emitAsset(
+          rootRel,
+          new sources.RawSource(fs.readFileSync(rootAbs))
+        )
+
+        compilation.fileDependencies.add(rootAbs)
+        pushResource(matches, rootRel, extra)
+
+        return
+      }
+    }
 
     if (!fs.existsSync(abs)) {
       const outputRoot =
