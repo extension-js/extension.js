@@ -591,6 +591,29 @@ export function chromeProcessExited(code: number) {
   return `${getLoggingPrefix('debug')} proc     exit browser=chrome code=${code}`
 }
 
+// Exit code 0 is the browser honoring a quit it was given elsewhere (a closed
+// window, a signal from another process), so the line names that over a crash.
+export function browserExitedUnasked(
+  browser: Browser,
+  code: number | null,
+  signal: string | null,
+  command: 'dev' | 'preview'
+) {
+  const session = command === 'dev' ? 'dev session' : 'preview'
+  const how =
+    code == null
+      ? `was killed by signal ${signal || 'unknown'}`
+      : code === 0
+        ? `closed cleanly (exit code 0) without this ${session} asking for it: the window was closed, or another process told it to quit`
+        : `crashed (exit code ${code})`
+  const next =
+    command === 'dev'
+      ? 'The dev server is still running but reloads cannot be delivered, restart "extension dev" to relaunch the browser.'
+      : 'The preview session is over.'
+
+  return `[browser] ${browser} ${how}. ${next}`
+}
+
 export function chromeProcessError(error: unknown) {
   return `${getLoggingPrefix('error')} The Chrome process reported an error.\n${colors.red(errorDetail(error))}`
 }
