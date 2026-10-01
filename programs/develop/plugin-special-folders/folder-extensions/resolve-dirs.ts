@@ -12,7 +12,7 @@ import type {CompanionExtensionsConfig} from './types'
 import {
   companionFolderMatchesBrowser,
   isBrowserNamedCompanionFolder,
-  isDir,
+  isDirExactCase,
   isValidExtensionRoot,
   normalizeCompanionConfig,
   toAbs
@@ -24,8 +24,12 @@ export function resolveCompanionExtensionDirs(opts: {
   projectRoot: string
   config?: CompanionExtensionsConfig
   browser?: string
+  manifestPath?: string
 }): string[] {
-  const {projectRoot, config, browser} = opts
+  const {projectRoot, config, browser, manifestPath} = opts
+  // The folder holding the project's own manifest is the extension being
+  // built, never a companion to load beside it.
+  const ownRoot = manifestPath ? path.resolve(path.dirname(manifestPath)) : ''
 
   const normalized = normalizeCompanionConfig(config)
   const explicitPaths = normalized.paths
@@ -41,7 +45,7 @@ export function resolveCompanionExtensionDirs(opts: {
   if (scanDir) {
     const absScan = toAbs(projectRoot, scanDir)
 
-    if (isDir(absScan)) {
+    if (isDirExactCase(absScan)) {
       let entries: fs.Dirent[] = []
 
       try {
@@ -64,6 +68,7 @@ export function resolveCompanionExtensionDirs(opts: {
           if (ent.name.startsWith('.')) continue
 
           const candidate = path.join(rootDir, ent.name)
+          if (ownRoot && path.resolve(candidate) === ownRoot) continue
           if (isValidExtensionRoot(candidate)) found.push(candidate)
         }
       }

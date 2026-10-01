@@ -75,6 +75,8 @@ describe('vue tools', () => {
     const result = await maybeUseVue('/p', 'development')
     expect(result?.loaders?.[0].test).toEqual(/\.vue$/)
     expect(result?.loaders?.[0].options?.foo).toBe(1)
+    expect(result?.loaders?.[0].include).toBeUndefined()
+    expect(result?.loaders?.[0].exclude).toEqual(/node_modules/)
     expect(result?.plugins?.length).toBeGreaterThan(0)
     expect(result?.alias?.vue$).toContain('/project/node_modules/vue')
     expect(result?.alias?.['@vue/runtime-dom']).toContain(

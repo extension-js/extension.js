@@ -87,6 +87,23 @@ function readRunIdFromReadyFile(readyPath: string): string | undefined {
   }
 }
 
+export function explicitUnpackedDir(
+  pathOrRemoteUrl: string | undefined,
+  packageJsonDir: string
+): string | undefined {
+  if (!pathOrRemoteUrl || /^https?:/i.test(pathOrRemoteUrl)) return undefined
+
+  const typed = path.resolve(process.cwd(), pathOrRemoteUrl)
+
+  if (!fs.existsSync(path.join(typed, 'manifest.json'))) return undefined
+  if (fs.existsSync(path.join(typed, 'package.json'))) return undefined
+  if (path.resolve(packageJsonDir) === typed) return undefined
+  // The src/ folder of a project is its source, not an unpacked build.
+  if (path.basename(typed) === 'src') return undefined
+
+  return typed
+}
+
 export async function extensionPreview(
   pathOrRemoteUrl: string | undefined,
   previewOptions: PreviewOptions,
@@ -118,12 +135,19 @@ export async function extensionPreview(
     previewOptions.chromiumBinary,
     previewOptions.geckoBinary || previewOptions.firefoxBinary
   )
-  const outputPath = computePreviewOutputPath(
-    projectStructure,
-    browser,
-    previewOptions.outputPath
-  )
-  const distPath = getDistPath(packageJsonDir, browser)
+  // A directory that holds a manifest but no package.json is an unpacked
+  // extension (a build folder, a downloaded release): preview exactly that,
+  // instead of walking up to an ancestor project and looking for its dist.
+  const unpackedDir = explicitUnpackedDir(pathOrRemoteUrl, packageJsonDir)
+  const outputPath =
+    unpackedDir && !previewOptions.outputPath
+      ? unpackedDir
+      : computePreviewOutputPath(
+          projectStructure,
+          browser,
+          previewOptions.outputPath
+        )
+  const distPath = unpackedDir || getDistPath(packageJsonDir, browser)
   const runningMessage =
     metadataCommand === 'start' ? messages.starting : messages.previewing
   // The run record describes the directory the browser loads, so its path
@@ -237,7 +261,11 @@ export async function extensionPreview(
     extensions?: CompanionExtensionsConfig
   }
   const safePreviewOptions = sanitize(previewOptions) as PreviewOptions
-  const specialFoldersData = getSpecialFoldersDataForProjectRoot(packageJsonDir)
+  // Preview never compiles, so an ancestor project's scripts/ folder has no
+  // say here; only its companion extensions folder does.
+  const specialFoldersData = unpackedDir
+    ? {extensions: undefined}
+    : getSpecialFoldersDataForProjectRoot(packageJsonDir)
 
   const mergedExtensionsConfig =
     safePreviewOptions.extensions ??
