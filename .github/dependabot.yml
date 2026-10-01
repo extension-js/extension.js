@@ -28,6 +28,19 @@ updates:
       - dependency-name: "@tanstack/react-table"
         update-types:
           - "version-update:semver-major"
+      # The Solid pass in programs/develop runs babel-preset-solid, which
+      # declares a peer range of @babel/core ^7, and @babel/preset-typescript 8
+      # dropped the isTSX and allExtensions options that pass sets. The Babel 8
+      # majors (#684, #685) therefore break every Solid build, and they cannot
+      # land one at a time either, since core 8 refuses to load a 7.x preset.
+      # Take them by hand once the Solid preset ships a release that accepts
+      # Babel 8.
+      - dependency-name: "@babel/core"
+        update-types:
+          - "version-update:semver-major"
+      - dependency-name: "@babel/preset-typescript"
+        update-types:
+          - "version-update:semver-major"
     open-pull-requests-limit: 10
     rebase-strategy: "auto"
     labels:
