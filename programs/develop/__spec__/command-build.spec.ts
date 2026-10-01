@@ -163,7 +163,8 @@ describe('webpack/command-build', () => {
       total_bytes: 40,
       largest_asset_bytes: 30,
       warnings_count: 0,
-      errors_count: 0
+      errors_count: 0,
+      addon_lint: {status: 'skipped', reason: 'browser'}
     })
 
     expect((configLoaderMod as any).userConfigSpy).toHaveBeenCalledTimes(1)

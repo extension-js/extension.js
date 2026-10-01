@@ -5,13 +5,15 @@ import {afterAll, describe, expect, it, vi} from 'vitest'
 import {
   ADDON_LINT_DEFAULT,
   ADDON_LINT_MAX_PRINTED,
+  ADDON_LINT_TIMEOUT_MS,
   type AddonLintOutput,
   attributionFor,
   collectAddonLintLines,
   formatAddonLintFindings,
   type LoadAddonLinter,
   runAddonLint,
-  shouldRunAddonLint
+  shouldRunAddonLint,
+  summarizeAddonLint
 } from '../addon-lint'
 
 function stripAnsi(value: string): string {
@@ -237,7 +239,7 @@ describe('addon lint when the linter is not installed', () => {
 })
 
 describe('addon lint failure paths', () => {
-  it('turns a linter crash into a single debug line', async () => {
+  it('turns a linter crash into a plain line, a debug line and a reason', async () => {
     const root = project()
     const crashing: LoadAddonLinter = async () => ({
       createInstance: () => ({
@@ -251,9 +253,18 @@ describe('addon lint failure paths', () => {
       loadLinter: crashing
     })
     expect(result.status).toBe('failed')
-    expect(stripAnsi((result as {debugLine: string}).debugLine)).toContain(
-      'addon-lint skipped=true reason="boom"'
+    const failed = result as {reason: string; line: string; debugLine: string}
+    expect(failed.reason).toBe('addons-linter crashed: boom')
+    expect(stripAnsi(failed.line)).toContain(
+      'Store check for addons.mozilla.org did not finish: addons-linter crashed: boom.'
     )
+
+    expect(stripAnsi(failed.line)).toContain('npx addons-linter dist/firefox')
+    expect(stripAnsi(failed.debugLine)).toContain(
+      'addon-lint failed=true reason="addons-linter crashed: boom"'
+    )
+
+    expect(stripAnsi(failed.debugLine)).not.toContain('skipped')
   })
 
   it('gives up after the time box instead of hanging the build', async () => {
@@ -269,7 +280,72 @@ describe('addon lint failure paths', () => {
       timeoutMs: 20
     })
     expect(result.status).toBe('failed')
-    expect((result as {debugLine: string}).debugLine).toContain('timed out')
+    const failed = result as {reason: string; line: string}
+    expect(failed.reason).toBe('addons-linter timed out after 0 s')
+    expect(stripAnsi(failed.line)).toContain(
+      'did not finish: addons-linter timed out after 0 s.'
+    )
+  })
+
+  it('leaves the build a full minute before giving up', () => {
+    expect(ADDON_LINT_TIMEOUT_MS).toBe(60_000)
+  })
+})
+
+describe('addon lint summary', () => {
+  it('records each outcome the way the build receipt spells it', async () => {
+    const root = project()
+
+    const missing: LoadAddonLinter = async () => {
+      throw new Error('[AMO] addons-linter could not be resolved.')
+    }
+
+    const crashing: LoadAddonLinter = async () => ({
+      createInstance: () => ({
+        run: async () => {
+          throw new Error('boom')
+        }
+      })
+    })
+
+    expect(
+      summarizeAddonLint(
+        await runAddonLint({...baseInput(root), loadLinter: fakeLinter(FAKE_OUTPUT)})
+      )
+    ).toEqual({status: 'linted', findings: 2})
+
+    expect(
+      summarizeAddonLint(
+        await runAddonLint({
+          ...baseInput(root),
+          loadLinter: fakeLinter({errors: [], warnings: []})
+        })
+      )
+    ).toEqual({status: 'linted', findings: 0})
+
+    expect(
+      summarizeAddonLint(
+        await runAddonLint({...baseInput(root), loadLinter: missing})
+      )
+    ).toEqual({status: 'missing'})
+
+    expect(
+      summarizeAddonLint(
+        await runAddonLint({...baseInput(root), loadLinter: crashing})
+      )
+    ).toEqual({status: 'failed', reason: 'addons-linter crashed: boom'})
+
+    expect(
+      summarizeAddonLint(
+        await runAddonLint({...baseInput(root), enabled: false})
+      )
+    ).toEqual({status: 'skipped', reason: 'disabled'})
+
+    expect(
+      summarizeAddonLint(
+        await runAddonLint({...baseInput(root), browser: 'chrome'})
+      )
+    ).toEqual({status: 'skipped', reason: 'browser'})
   })
 })
 

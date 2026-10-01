@@ -333,8 +333,15 @@ export function addonLintNotInstalled(installHint: string) {
   )
 }
 
-export function addonLintFailed(reason: string) {
-  return `${getLoggingPrefix('debug')} addon-lint skipped=true reason="${reason}"`
+export function addonLintFailed(reason: string, distDisplay: string) {
+  return (
+    `${getLoggingPrefix('warn')} Store check for addons.mozilla.org did not finish: ${reason}. ` +
+    `The build is complete, run ${colors.blue(`npx addons-linter ${distDisplay}`)} to see what AMO would flag.`
+  )
+}
+
+export function addonLintFailedDebug(reason: string) {
+  return `${getLoggingPrefix('debug')} addon-lint failed=true reason="${reason}"`
 }
 
 export function buildShareHint() {
