@@ -3,7 +3,13 @@ import fs from 'node:fs'
 import http from 'node:http'
 import os from 'node:os'
 import path from 'node:path'
-import {afterEach, describe, expect, it} from 'vitest'
+import {afterAll, afterEach, beforeAll, describe, expect, it} from 'vitest'
+import {
+  type ExamplesCatalogFixture,
+  serveExamplesCatalog
+} from '../../../create/__spec__/examples-catalog-fixture'
+
+let catalog: ExamplesCatalogFixture | undefined
 
 function cliRoot(): string {
   return path.resolve(__dirname, '../..')
@@ -79,6 +85,8 @@ function runCreate(
         POSTHOG_HOST: `http://127.0.0.1:${port}`,
         EXTENSION_TELEMETRY: '1',
         EXTENSION_TELEMETRY_TIMEOUT_MS: '5000',
+        EXTENSION_CREATE_TEMPLATE_URL: catalog?.url,
+        EXTENSION_ALLOW_HTTP_TEMPLATE: 'true',
         XDG_CONFIG_HOME: configHome,
         XDG_CACHE_HOME: cacheHome
       }
@@ -89,6 +97,16 @@ function runCreate(
 
 describe('a failed create reports command_failed before it exits', () => {
   let close: (() => Promise<void>) | undefined
+
+  beforeAll(async () => {
+    catalog = await serveExamplesCatalog({})
+  })
+
+  afterAll(async () => {
+    await catalog?.close()
+
+    catalog = undefined
+  })
 
   afterEach(async () => {
     if (close) await close()
