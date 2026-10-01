@@ -210,6 +210,13 @@ export function resolveBrowserVersionLine(
   return ''
 }
 
+export function copyFromProfileSourceMissing(source: string) {
+  return (
+    `${getLoggingPrefix('warn')} The profile to copy from doesn't exist, so this run starts from an empty profile.\n` +
+    `Checked ${colors.gray(source)}.`
+  )
+}
+
 export function creatingUserProfile(profilePath: string) {
   return `${getLoggingPrefix('debug')} browser  profile=fresh path=${profilePath}`
 }

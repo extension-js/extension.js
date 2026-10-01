@@ -58,6 +58,12 @@ export interface FirefoxLaunchConfig {
   extensionsToLoad: string[]
 }
 
+function holdsFirefoxProfile(profilePath: string): boolean {
+  return ['prefs.js', 'user.js'].some((name) =>
+    fs.existsSync(path.join(profilePath, name))
+  )
+}
+
 export interface FirefoxConfigMode {
   // false composes the same decision without creating the profile or writing
   // user.js, for a dry run that must print the plan and touch nothing.
@@ -181,13 +187,20 @@ export async function resolveFirefoxLaunchConfig(
     }
   }
 
+  // An explicit path that already holds a Firefox profile is the developer's
+  // own: its user.js and caches stay untouched, as on the Chromium side.
+  const ownsProfilePrefs =
+    resolved.kind !== 'explicit' || !holdsFirefoxProfile(profilePath)
+
   if (profilePath && provision) {
     try {
       fs.mkdirSync(profilePath, {recursive: true})
     } catch {
       // Ignore
     }
+  }
 
+  if (profilePath && provision && ownsProfilePrefs) {
     // A pinned/persisted profile can serve STALE extension code out of Firefox's
     // startupCache across a full dev restart; the cache is always safe to drop.
     try {
@@ -198,9 +211,7 @@ export async function resolveFirefoxLaunchConfig(
     } catch {
       // best-effort; a locked live profile keeps its cache
     }
-  }
 
-  if (profilePath && provision) {
     try {
       const prefs = getPreferences(
         configOptions?.preferences || {},
