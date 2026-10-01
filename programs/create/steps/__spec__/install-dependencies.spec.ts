@@ -9,10 +9,6 @@ vi.mock('../../lib/install-runner', () => ({
   runInstall: (...args: unknown[]) => runInstallMock(...args)
 }))
 
-vi.mock('../../lib/utils', () => ({
-  getInstallCommand: async () => 'npm'
-}))
-
 import {installDependencies} from '../install-dependencies'
 
 const noopLogger = {log() {}, error() {}}
@@ -211,7 +207,7 @@ describe('installDependencies', () => {
       })
       .mockResolvedValueOnce({code: 0, stdout: '', stderr: ''})
 
-    await installDependencies(projectPath, 'npm-dead-pin', noopLogger)
+    await installDependencies(projectPath, 'npm-dead-pin', noopLogger, 'npm')
 
     expect(runInstallMock).toHaveBeenCalledTimes(2)
     expect(runInstallMock.mock.calls[0][0]).toBe('npm')

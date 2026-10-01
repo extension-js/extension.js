@@ -132,15 +132,48 @@ describe('extension create', () => {
     [
       'E_TEMPLATE_NOT_FOUND',
       () => createMessages.templateNotFoundInCatalog('nope')
-    ]
+    ],
+    [
+      'E_TEMPLATE_NOT_FOUND',
+      () => createMessages.manifestNotFound('/tmp/my-extension', 3)
+    ],
+    [
+      'E_DEPENDENCY_INSTALL',
+      () =>
+        createMessages.installingDependenciesFailed(
+          'npm',
+          ['install', '--silent'],
+          1,
+          'npm error code ECONNREFUSED'
+        )
+    ],
+    ['E_INVALID_OPTION', () => createMessages.noUrlAllowed()]
   ]
 
   it.each(
     realMessages
-  )('%s: the needle is still present in the real scaffold message', async (code, render) => {
-    const needle =
+  )('%s: a needle is still present in the real scaffold message', async (code, render) => {
+    const needles =
       CREATE_ERROR_NEEDLES[code as keyof typeof CREATE_ERROR_NEEDLES]
-    expect(await render()).toContain(needle)
+    const rendered = await render()
+    expect(needles.some((needle) => rendered.includes(needle))).toBe(true)
+  })
+
+  // Every declared needle, not just one per code: a copy edit to the second
+  // needle of a code would otherwise hide behind the first.
+  it('renders every declared needle in a real scaffold message', async () => {
+    const rendered = await Promise.all(
+      realMessages.map(([, render]) => render())
+    )
+
+    for (const needles of Object.values(CREATE_ERROR_NEEDLES)) {
+      for (const needle of needles) {
+        expect(
+          rendered.some((message) => message.includes(needle)),
+          needle
+        ).toBe(true)
+      }
+    }
   })
 
   it.each(

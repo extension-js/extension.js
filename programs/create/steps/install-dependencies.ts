@@ -15,14 +15,17 @@ import {
 } from '../lib/deno-manifest'
 import {runInstall as runInstallCommand} from '../lib/install-runner'
 import * as messages from '../lib/messages'
+import {hasChannelPrefix} from '../lib/messaging'
 import {
-  isDenoRuntime,
+  resolveProjectPackageManager,
   type ScaffoldPackageManager
 } from '../lib/package-manager'
-import * as utils from '../lib/utils'
 
-function getInstallArgs(packageManager: string) {
-  if (packageManager === 'bun') {
+// `--silent` is for a run the user is watching. When the output is captured
+// instead, silencing it throws away the only diagnosis a failure can carry:
+// `npm install --silent` against a dead registry prints nothing at all.
+function getInstallArgs(packageManager: string, silent: boolean) {
+  if (packageManager === 'bun' || !silent) {
     return ['install']
   }
 
@@ -185,18 +188,16 @@ async function updateDenoConfigExtensionTag(
 // primary scaffolds retire package.json and pin via deno.json(c) imports, both
 // manifests must be eligible for the same quiet recovery.
 async function updateExtensionDependencyTag(
-  projectPath: string,
-  projectName: string,
-  logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
+  projectPath: string
 ): Promise<boolean> {
   try {
     const updatedPackageJson = await updatePackageJsonExtensionTag(projectPath)
     const updatedDenoConfig = await updateDenoConfigExtensionTag(projectPath)
 
     return updatedPackageJson || updatedDenoConfig
-  } catch (error) {
-    logger.error(messages.cantInstallDependencies(projectName, error))
-
+  } catch {
+    // A failed recovery is not the failure to report: the install frame below
+    // carries the package manager's own cause.
     return false
   }
 }
@@ -265,14 +266,14 @@ export async function installDependencies(
     return
   }
 
-  // The project's one manager installs it: the starter's pin when it has
-  // one, otherwise the manager that ran this process (`prefers-yarn` can't
-  // see Deno, so Deno is detected via its runtime globals).
-  const command =
-    packageManager ??
-    (isDenoRuntime() ? 'deno' : await utils.getInstallCommand())
+  // The project's one manager installs it: the caller resolves it once for the
+  // whole scaffold, and a caller that passes none reads the same resolver.
+  const command = packageManager ?? resolveProjectPackageManager(projectPath)
+  const stdio = process.env.EXTENSION_ENV === 'development' ? 'inherit' : 'pipe'
   const dependenciesArgs =
-    command === 'deno' ? ['install'] : getInstallArgs(command)
+    command === 'deno'
+      ? ['install']
+      : getInstallArgs(command, stdio === 'inherit')
 
   const installMessage = messages.installingDependencies()
   logger.log(installMessage)
@@ -280,8 +281,6 @@ export async function installDependencies(
   try {
     await fs.promises.mkdir(nodeModulesPath, {recursive: true})
 
-    const stdio =
-      process.env.EXTENSION_ENV === 'development' ? 'inherit' : 'pipe'
     const firstRun = await runInstall(
       command,
       dependenciesArgs,
@@ -293,7 +292,7 @@ export async function installDependencies(
       const output = `${firstRun.stdout}\n${firstRun.stderr}`
       const shouldRetry = shouldRetryWithTagFallback(output)
       const didUpdate = shouldRetry
-        ? await updateExtensionDependencyTag(projectPath, projectName, logger)
+        ? await updateExtensionDependencyTag(projectPath)
         : false
 
       if (didUpdate) {
@@ -307,23 +306,35 @@ export async function installDependencies(
         if (retryRun.code === 0) {
           return
         }
+
+        throw new Error(
+          messages.installingDependenciesFailed(
+            command,
+            dependenciesArgs,
+            retryRun.code,
+            `${retryRun.stdout}\n${retryRun.stderr}`
+          )
+        )
       }
 
       throw new Error(
         messages.installingDependenciesFailed(
           command,
           dependenciesArgs,
-          firstRun.code
+          firstRun.code,
+          output
         )
       )
     }
   } catch (error) {
-    logger.error(
+    // One frame per failure: the frame travels on the error for the CLI to
+    // print, and a logger.error here would print the same failure twice.
+    if (hasChannelPrefix(String((error as Error)?.message ?? error))) {
+      throw error
+    }
+
+    throw new Error(
       messages.installingDependenciesProcessError(projectName, error)
     )
-
-    logger.error(messages.cantInstallDependencies(projectName, error))
-
-    throw error
   }
 }

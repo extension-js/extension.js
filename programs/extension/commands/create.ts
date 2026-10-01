@@ -29,9 +29,16 @@ const require = createRequire(import.meta.url)
 // so the failure class is only readable off the error name or its copy. A spec
 // pins each needle against the real message so a copy edit fails loudly.
 export const CREATE_ERROR_NEEDLES = {
-  E_DESTINATION_NOT_EMPTY: 'already contains files that would be overwritten',
-  E_DESTINATION_NOT_WRITABLE: "Couldn't write to the destination directory",
-  E_TEMPLATE_NOT_FOUND: 'is not in the extension-js/examples catalog'
+  E_DESTINATION_NOT_EMPTY: ['already contains files that would be overwritten'],
+  E_DESTINATION_NOT_WRITABLE: ["Couldn't write to the destination directory"],
+  // A template with no readable manifest is the same refusal class as a
+  // template the catalog does not have, which is what this code documents.
+  E_TEMPLATE_NOT_FOUND: [
+    'is not in the extension-js/examples catalog',
+    "Couldn't read a manifest.json"
+  ],
+  E_DEPENDENCY_INSTALL: ["Couldn't install the dependencies"],
+  E_INVALID_OPTION: ['A URL is not a valid project path']
 } as const
 
 function createErrorCode(error: unknown): ErrorCode {
@@ -41,8 +48,10 @@ function createErrorCode(error: unknown): ErrorCode {
 
   const message = String((error as Error | undefined)?.message || error)
 
-  for (const [code, needle] of Object.entries(CREATE_ERROR_NEEDLES)) {
-    if (message.includes(needle)) return code as ErrorCode
+  for (const [code, needles] of Object.entries(CREATE_ERROR_NEEDLES)) {
+    if (needles.some((needle) => message.includes(needle))) {
+      return code as ErrorCode
+    }
   }
 
   return CODES.E_INTERNAL

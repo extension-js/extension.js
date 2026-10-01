@@ -6,6 +6,7 @@
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as messages from './lib/messages'
 import {card} from './lib/messaging'
@@ -19,6 +20,7 @@ import * as utils from './lib/utils'
 import {createDirectory} from './steps/create-directory'
 import {generateExtensionTypes} from './steps/generate-extension-types'
 import {
+  cleanupFailedImport,
   DEFAULT_TEMPLATE_NAME,
   importExternalTemplate,
   type TemplateProvenance
@@ -123,6 +125,54 @@ export async function extensionCreate(
   process.env.EXTENSION_CLI_BANNER_PRINTED = 'true'
 
   const createResult = await createDirectory(projectPath, projectName, logger)
+
+  // Read before the import writes anything: every step after it personalizes
+  // the scaffold, so a failure there must leave nothing half-named behind,
+  // and nothing that pre-existed this run may ever be removed.
+  const ownsProjectDir = createResult?.directoryCreated ?? false
+  const preExistingEntries = ownsProjectDir
+    ? []
+    : await fs.promises.readdir(projectPath).catch(() => [])
+
+  try {
+    return await scaffoldProject({
+      projectPath,
+      projectName,
+      effectiveTemplate,
+      templateWasOmitted,
+      ownsProjectDir,
+      install,
+      cliVersion,
+      logger
+    })
+  } catch (error) {
+    await cleanupFailedImport(projectPath, ownsProjectDir, preExistingEntries)
+
+    throw error
+  }
+}
+
+interface ScaffoldInput {
+  projectPath: string
+  projectName: string
+  effectiveTemplate: string
+  templateWasOmitted: boolean
+  ownsProjectDir: boolean
+  install: boolean
+  cliVersion?: string
+  logger: CreateLogger
+}
+
+async function scaffoldProject({
+  projectPath,
+  projectName,
+  effectiveTemplate,
+  templateWasOmitted,
+  ownsProjectDir,
+  install,
+  cliVersion,
+  logger
+}: ScaffoldInput): Promise<CreateResult> {
   const templateProvenance = await importExternalTemplate(
     projectPath,
     projectName,
@@ -132,7 +182,7 @@ export async function extensionCreate(
     // sentinel can tell failure cleanup whether the directory is ours.
     // Unknown ownership (a mocked step) defaults to the safe side.
     {
-      ownsProjectDir: createResult?.directoryCreated ?? false,
+      ownsProjectDir,
       allowOfflineFallback: templateWasOmitted
     }
   )
@@ -182,10 +232,10 @@ export async function extensionCreate(
 
   if (install) {
     await installDependencies(projectPath, projectName, logger, packageManager)
-    await installInternalDependencies(projectPath, logger)
+    await installInternalDependencies(projectPath, logger, packageManager)
   }
 
-  await writeReadmeFile(projectPath, projectName, logger)
+  await writeReadmeFile(projectPath, projectName, logger, packageManager)
   const templateManifestName = await writeManifestJson(projectPath, logger)
   await writeStoreMetadata(
     projectPath,

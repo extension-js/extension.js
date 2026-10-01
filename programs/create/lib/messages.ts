@@ -13,13 +13,17 @@ import {
   resolveScaffoldPackageManager,
   type ScaffoldPackageManager
 } from './package-manager'
+import {shellQuote} from './utils'
 
-export function destinationNotWriteable(workingDir: string) {
-  const workingDirFolder = path.basename(workingDir)
-
+// The full path, never its basename: the folder that refuses the write is
+// usually the parent, and a bare name is not a path the user can act on.
+export function destinationNotWriteable(workingDir: string, error?: unknown) {
   return (
     `${prefix('error')} Couldn't write to the destination directory.\n` +
-    `${fmt.label('PATH')} ${fmt.val(workingDirFolder)}\n` +
+    `${fmt.label('PATH')} ${fmt.val(workingDir)}\n` +
+    (error
+      ? `${fmt.label('REASON')} ${fmt.val(fmt.truncate(String((error as Error | undefined)?.message || error)))}\n`
+      : '') +
     `${colors.red('Choose a writable path, or update the folder permissions.')}`
   )
 }
@@ -95,14 +99,19 @@ export async function scaffoldReady(
 
   const runNote = `     ${colors.gray('Run the extension in a fresh browser profile.')}\n`
 
-  const steps = depsInstalled
-    ? `  1. ${colors.blue('cd')} ${fmt.val(relativePath)}\n` +
-      `  2. ${colors.blue(command)}\n` +
-      runNote
-    : `  1. ${colors.blue('cd')} ${fmt.val(relativePath)}\n` +
-      `  2. ${colors.blue(installCmd)}\n` +
-      `  3. ${colors.blue(command)}\n` +
-      runNote
+  // An in-place create already sits in the directory, so a `cd` step would
+  // print as a bare `cd` the user cannot read as a no-op.
+  const lines = [
+    ...(relativePath
+      ? [`${colors.blue('cd')} ${fmt.val(shellQuote(relativePath))}`]
+      : []),
+    ...(depsInstalled ? [command] : [installCmd, command]).map((line) =>
+      colors.blue(line)
+    )
+  ]
+
+  const steps =
+    lines.map((line, index) => `  ${index + 1}. ${line}\n`).join('') + runNote
 
   return (
     `${prefix('success')} ${colors.blue(projectName)} is ready.\n\n` +
@@ -299,15 +308,34 @@ export function installingProjectIntegrations(integrations: string[]) {
   )
 }
 
+// A package manager names the cause in its own error lines and re-throws a
+// stack with them, which is noise inside a frame.
+const INSTALL_STACK_LINE = /^(?:npm (?:error|ERR!)\s+)?at\s/
+
+function installOutputDigest(output: string) {
+  return String(output || '')
+    .split(/\r?\n/)
+    .map((line) => line.trimEnd())
+    .filter(
+      (line) => line.trim() !== '' && !INSTALL_STACK_LINE.test(line.trim())
+    )
+    .join('\n')
+}
+
 export function installingDependenciesFailed(
   pmCommand: string,
   pmArgs: string[],
-  code: number | null
+  code: number | null,
+  output?: string
 ) {
+  const reason = fmt.truncate(installOutputDigest(String(output || '')), 600)
+
   return (
-    `${prefix('error')} The command ${colors.blue(`${pmCommand} ${pmArgs.join(' ')}`)} ` +
-    `failed with exit code ${String(code)}.\n` +
-    `${colors.red('Run it yourself to see the full error.')}`
+    `${prefix('error')} Couldn't install the dependencies.\n` +
+    `${fmt.label('COMMAND')} ${fmt.val(`${pmCommand} ${pmArgs.join(' ')}`)}\n` +
+    `${fmt.label('EXIT')} ${fmt.val(String(code))}\n` +
+    (reason ? `${fmt.label('REASON')} ${reason}\n` : '') +
+    `${colors.red('Fix the error above, then run the command yourself to retry.')}`
   )
 }
 
@@ -316,17 +344,27 @@ export function installingDependenciesProcessError(
   error: unknown
 ) {
   return (
-    `${prefix('error')} The install process for ${colors.blue(projectName)} exited unexpectedly.\n` +
+    `${prefix('error')} Couldn't install the dependencies for ${colors.blue(projectName)}.\n` +
     `${fmt.label('REASON')} ${fmt.val(fmt.truncate(String(error)))}\n` +
-    `${colors.red('Run the install command yourself to see the full error.')}`
+    `${colors.red('The install process exited unexpectedly. Run it yourself to see the full error.')}`
   )
 }
 
-export function cantInstallDependencies(projectName: string, error: unknown) {
+export function manifestNotFound(projectPath: string, searchDepth: number) {
   return (
-    `${prefix('error')} Couldn't install the dependencies for ${colors.blue(projectName)}.\n` +
+    `${prefix('error')} Couldn't read a manifest.json for this scaffold.\n` +
+    `${fmt.label('PATH')} ${fmt.val(projectPath)}\n` +
+    `${fmt.label('SEARCHED')} ${fmt.val(`the common locations, then every directory up to depth ${searchDepth}`)}\n` +
+    `${colors.red('Add a manifest.json, or scaffold from a template that ships one.')}`
+  )
+}
+
+export function manifestNotParseable(manifestPath: string, error: unknown) {
+  return (
+    `${prefix('error')} Couldn't read a manifest.json for this scaffold.\n` +
+    `${fmt.label('PATH')} ${fmt.val(manifestPath)}\n` +
     `${fmt.label('REASON')} ${fmt.val(fmt.truncate(String((error as Error | undefined)?.message || error)))}\n` +
-    `${colors.red('Check your package manager settings, then try again.')}`
+    `${colors.red('Fix that file, then create again.')}`
   )
 }
 
@@ -413,14 +451,6 @@ export function writingReadmeMetaDataError(error: unknown) {
     `${prefix('error')} Couldn't write ${colors.blue('README.md')}.\n` +
     `${fmt.label('REASON')} ${fmt.val(fmt.truncate(String(error)))}\n` +
     `${colors.red('Check the file permissions, then try again.')}`
-  )
-}
-
-export function writingDirectoryError(error: unknown) {
-  return (
-    `${prefix('error')} Couldn't check whether the directory is writable.\n` +
-    `${fmt.label('REASON')} ${fmt.val(fmt.truncate(String(error)))}\n` +
-    `${colors.red('Check the path and its permissions, then try again.')}`
   )
 }
 

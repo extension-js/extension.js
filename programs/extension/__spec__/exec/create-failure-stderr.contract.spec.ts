@@ -49,9 +49,11 @@ function serveArchive(status: number): Promise<{
 
 function runCreate(
   args: string[],
-  env: NodeJS.ProcessEnv
+  env: NodeJS.ProcessEnv,
+  prepare?: (work: string) => void
 ): Promise<{status: number | null; stderr: string}> {
   const work = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-create-stderr-'))
+  prepare?.(work)
   const configHome = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-config-'))
   const cacheHome = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-cache-'))
 
@@ -138,4 +140,46 @@ describe('a known create refusal prints its frame and nothing else', () => {
       result.stderr.match(/Can't download a template over plain HTTP/g)
     ).toHaveLength(1)
   }, 60000)
+
+  const itWritable = process.getuid?.() === 0 ? it.skip : it
+
+  itWritable(
+    'when the destination parent is read-only',
+    async () => {
+      const result = await runCreate(
+        ['create', 'ro/proof', '-t', 'javascript'],
+        {},
+        (work) => {
+          fs.mkdirSync(path.join(work, 'ro'))
+          fs.chmodSync(path.join(work, 'ro'), 0o555)
+        }
+      )
+
+      expect(result.status).toBe(1)
+      expect(result.stderr).not.toMatch(STACK_FRAME)
+      expect(result.stderr.match(/⏵⏵⏵/g)).toHaveLength(1)
+      expect(result.stderr).toContain('EACCES')
+      // The unwritable path, not the basename of the requested folder.
+      expect(result.stderr).toMatch(/ro\/proof/)
+    },
+    60000
+  )
+
+  it('when the dependency install fails', async () => {
+    const result = await runCreate(
+      ['create', './proof', '-t', 'javascript', '--install'],
+      {
+        npm_config_registry: 'http://127.0.0.1:9/',
+        npm_config_fetch_retries: '0',
+        npm_config_audit: 'false',
+        npm_config_fund: 'false'
+      }
+    )
+
+    expect(result.status).toBe(1)
+    expect(result.stderr).not.toMatch(STACK_FRAME)
+    expect(result.stderr.match(/⏵⏵⏵/g)).toHaveLength(1)
+    // The package manager's own cause, which the run used to discard.
+    expect(result.stderr).toContain('ECONNREFUSED')
+  }, 120000)
 })

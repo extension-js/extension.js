@@ -8,11 +8,13 @@
 
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
-import {findManifestJsonPath} from '../lib/find-manifest-json'
+import {readManifestJson} from '../lib/find-manifest-json'
 import * as messages from '../lib/messages'
 import {isDebug} from '../lib/messaging'
-import {isDenoRuntime} from '../lib/package-manager'
-import * as utils from '../lib/utils'
+import {
+  resolveProjectPackageManager,
+  type ScaffoldPackageManager
+} from '../lib/package-manager'
 
 async function pathExists(target: string): Promise<boolean> {
   try {
@@ -49,19 +51,21 @@ function shipItSection(): string {
 export async function writeReadmeFile(
   projectPath: string,
   projectName: string,
-  logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
+  logger: {log(...args: unknown[]): void; error(...args: unknown[]): void},
+  packageManager?: ScaffoldPackageManager
 ) {
   // Always overwrite the template's README so the scaffold reads as the user's
   // own; the examples repo keeps the rich template READMEs for browsing.
 
-  const installCommand = await utils.getInstallCommand()
+  // The README is the file the user keeps, so it names the scaffold's one
+  // manager, not whichever manager happened to invoke this process.
+  const pm = packageManager ?? resolveProjectPackageManager(projectPath)
   // Deno runs package.json scripts through `deno task <name>` and forwards
   // extra flags directly (no `--` separator), unlike `<pm> run <name> -- <flags>`.
-  const deno = isDenoRuntime()
-  const runPrefix = deno ? 'deno task' : `${installCommand} run`
+  const deno = pm === 'deno'
+  const runPrefix = deno ? 'deno task' : `${pm} run`
   const argSeparator = deno ? '' : ' --'
-  const manifestJsonPath = await findManifestJsonPath(projectPath)
-  const manifestJson = JSON.parse(await fs.readFile(manifestJsonPath, 'utf-8'))
+  const {manifestJson} = await readManifestJson(projectPath)
   const description = String(manifestJson.description || '').trim()
 
   const hasPublicScreenshot = await pathExists(

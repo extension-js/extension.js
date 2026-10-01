@@ -8,7 +8,7 @@
 
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
-import {findManifestJsonPath} from '../lib/find-manifest-json'
+import {readManifestJson} from '../lib/find-manifest-json'
 import * as messages from '../lib/messages'
 import {isDebug} from '../lib/messaging'
 
@@ -22,10 +22,7 @@ export async function writeManifestJson(
 ): Promise<string> {
   // Templates may store the manifest at `src/manifest.json` instead of root.
   // Prefer root if present, fallback to src.
-  const manifestJsonPath = await findManifestJsonPath(projectPath)
-
-  const manifestJsonContent = await fs.readFile(manifestJsonPath)
-  const manifestJson = JSON.parse(manifestJsonContent.toString())
+  const {manifestJsonPath, manifestJson} = await readManifestJson(projectPath)
   const templateName = String(manifestJson.name || '').trim()
 
   const manifestMetadata: Record<string, unknown> = {

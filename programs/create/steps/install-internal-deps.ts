@@ -13,7 +13,10 @@ import {readDenoConfigDependencies} from '../lib/deno-manifest'
 import {runInstall} from '../lib/install-runner'
 import * as messages from '../lib/messages'
 import {isDebug, prefix} from '../lib/messaging'
-import {detectPackageManagerFromEnv} from '../lib/package-manager'
+import {
+  resolveProjectPackageManager,
+  type ScaffoldPackageManager
+} from '../lib/package-manager'
 
 const requireFromCreate = createRequire(import.meta.url)
 
@@ -298,13 +301,17 @@ async function installOptionalDependencies(
   developRoot: string,
   projectPath: string,
   plan: OptionalDepsPlan,
-  logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
+  logger: {log(...args: unknown[]): void; error(...args: unknown[]): void},
+  packageManager: ScaffoldPackageManager
 ) {
   if (plan.dependencies.length === 0) return
 
-  const pm = detectPackageManagerFromEnv()
-  const stdio =
-    process.env.EXTENSION_ENV === 'development' ? 'inherit' : 'ignore'
+  // These land in extension-develop's own node_modules, so a Deno scaffold
+  // still installs them with npm.
+  const pm = packageManager === 'deno' ? 'npm' : packageManager
+  // Piped, not ignored: a failure here can then name the manager's own cause
+  // instead of reporting an exit code alone.
+  const stdio = process.env.EXTENSION_ENV === 'development' ? 'inherit' : 'pipe'
 
   if (isDebug()) {
     logger.log(messages.foundSpecializedDependencies(plan.integrations.length))
@@ -336,7 +343,12 @@ async function installOptionalDependencies(
 
     if (result.code !== 0) {
       throw new Error(
-        messages.installingDependenciesFailed(pm, args, result.code)
+        messages.installingDependenciesFailed(
+          pm,
+          args,
+          result.code,
+          `${result.stdout}\n${result.stderr}`
+        )
       )
     }
   }
@@ -344,7 +356,8 @@ async function installOptionalDependencies(
 
 export async function installInternalDependencies(
   projectPath: string,
-  logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
+  logger: {log(...args: unknown[]): void; error(...args: unknown[]): void},
+  packageManager?: ScaffoldPackageManager
 ) {
   if (
     process.env.EXTENSION_ENV === 'test' ||
@@ -367,7 +380,8 @@ export async function installInternalDependencies(
       developRoot,
       projectPath,
       optionalPlan,
-      logger
+      logger,
+      packageManager ?? resolveProjectPackageManager(projectPath)
     )
   }
 }

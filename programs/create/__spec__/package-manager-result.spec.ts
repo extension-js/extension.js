@@ -6,6 +6,7 @@ vi.mock('../steps/create-directory', () => ({
 
 vi.mock('../steps/import-external-template', () => ({
   DEFAULT_TEMPLATE_NAME: 'typescript',
+  cleanupFailedImport: async () => undefined,
   importExternalTemplate: async () => undefined
 }))
 
@@ -49,7 +50,8 @@ vi.mock('../steps/generate-extension-types', () => ({
   generateExtensionTypes: async () => undefined
 }))
 
-vi.mock('../lib/utils', () => ({
+vi.mock('../lib/utils', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/utils')>()),
   isTypeScriptTemplate: () => false,
   scaffoldNeedsTypeDefinitions: async () => false
 }))
