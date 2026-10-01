@@ -76,6 +76,109 @@ const DOCTOR_CHECKS = [
 const flat = (value: string | string[]): string[] =>
   Array.isArray(value) ? value : [value]
 
+const programsDir = path.resolve(here, '../../..')
+const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.mjs', '.cjs'])
+const SKIPPED_DIRS = new Set(['node_modules', 'dist', '__spec__', '.rslib'])
+
+function collectSources(dir: string, found: string[] = []): string[] {
+  for (const entry of fs.readdirSync(dir, {withFileTypes: true})) {
+    if (SKIPPED_DIRS.has(entry.name)) continue
+
+    const full = path.join(dir, entry.name)
+
+    if (entry.isDirectory()) collectSources(full, found)
+    else if (
+      SOURCE_EXTENSIONS.has(path.extname(entry.name)) &&
+      entry.name !== 'messaging.ts'
+    ) {
+      found.push(full)
+    }
+  }
+
+  return found
+}
+
+const CODES_WITHOUT_EMIT_SITE: string[] = [
+  'E_PROJECT_NOT_FOUND',
+  'E_MANIFEST_NOT_FOUND',
+  'E_MANIFEST_INVALID',
+  'E_BROWSER_NOT_FOUND',
+  'E_SESSION_EXISTS',
+  'E_PORT_UNAVAILABLE',
+  'E_DEV_SERVER_START',
+  'E_NODE_VERSION',
+  'E_PARENT_GONE',
+  'E_REMOTE_URL_UNSUPPORTED',
+  'E_CONFIG_LOAD',
+  'E_MANAGED_DEP_CONFLICT',
+  'E_TYPES_EMIT',
+  'E_TSCONFIG_MISSING',
+  'E_OPTIONAL_DEP_UNRESOLVED',
+  'E_OPTIONAL_DEP_LOAD',
+  'E_OPTIONAL_DEP_UNKNOWN',
+  'E_COMPANION_EXTENSION_PATH',
+  'E_MANIFEST_IN_PUBLIC',
+  'E_RUNTIME_NOT_FOUND',
+  'E_MANIFEST_SHAPE',
+  'E_MANIFEST_PAGE_MISSING',
+  'E_MANIFEST_VERSION_UNSUPPORTED',
+  'E_MANIFEST_LOAD_BLOCKERS',
+  'E_MANIFEST_PERMISSION_MISSING',
+  'E_MANIFEST_MSG_KEY_MISSING',
+  'E_MANIFEST_EMIT',
+  'E_RESTART_REQUIRED',
+  'E_COMPILE_FATAL',
+  'E_MODULE_NOT_FOUND',
+  'E_ENTRY_NOT_FOUND',
+  'E_ASSET_MISSING',
+  'E_SCRIPT_DEP_MISSING',
+  'E_RESERVED_FOLDER',
+  'E_CSS_PARSE',
+  'E_CSS_PREPROCESSOR_MISSING',
+  'E_CSS_DEAD_REF',
+  'E_INTEGRATION_INSTALL',
+  'E_POLYFILL_NOT_FOUND',
+  'E_LOCALES_LAYOUT',
+  'E_WAR_INVALID',
+  'E_MATCH_PATTERN_INVALID',
+  'E_BACKGROUND_REQUIRED',
+  'E_CONTENT_SCRIPT_SYNTAX',
+  'E_NO_ENTRYPOINTS',
+  'E_REMOTE_RESOURCE_BLOCKED',
+  'E_PERF_BUDGET',
+  'E_ZIP_SKIPPED',
+  'E_ENV_NO_MATCH',
+  'E_REMOTE_FETCH_TIMEOUT',
+  'E_REMOTE_DOWNLOAD',
+  'E_REMOTE_ZIP_INVALID',
+  'E_LOCAL_ZIP_NOT_FOUND',
+  'E_PROJECT_DOWNLOAD_EMPTY',
+  'E_BROWSER_BINARY_REQUIRED',
+  'E_BROWSER_BINARY_INVALID',
+  'E_BROWSER_EXITED',
+  'E_BROWSER_START_TIMEOUT',
+  'E_LAUNCH_SKIPPED_COMPILE_ERRORS',
+  'E_INSTANCE_AMBIGUOUS',
+  'E_WSL_INTEROP',
+  'E_EXTENSION_LOAD_REFUSED',
+  'E_ADDON_INSTALL',
+  'E_BROWSER_CONNECT',
+  'E_BROWSER_CONNECTION_CLOSED',
+  'E_CDP_NOT_CONNECTED',
+  'E_CDP_TIMEOUT',
+  'E_CDP_OP_FAILED',
+  'E_EXTENSION_ID_UNKNOWN',
+  'E_RDP_PROTOCOL',
+  'E_DEV_SERVER_TIMEOUT',
+  'E_PORT_IN_USE',
+  'E_SESSION_STOPPED',
+  'E_LOGS_STREAM_GAP',
+  'E_CREATE_DIR',
+  'E_CREATE_WRITE',
+  'E_CREATE_TESTS_SETUP',
+  'E_GIT_SKIPPED'
+]
+
 // The same validation the schema states, hand-rolled so the spec has no
 // dependency on a JSON Schema runtime.
 function validateEnvelope(frame: Record<string, unknown>): string[] {
@@ -202,6 +305,48 @@ describe('the error-code table', () => {
       )
 
       expect(alias).toMatch(/^E_[A-Z0-9_]+$/)
+    }
+  })
+})
+
+describe('every declared code has an emit site', () => {
+  const sources = collectSources(programsDir).map((file) =>
+    fs.readFileSync(file, 'utf8')
+  )
+
+  const emitted = new Set<string>()
+
+  for (const code of Object.values(CODES)) {
+    const pattern = new RegExp(`\\b${code}\\b`)
+    if (sources.some((source) => pattern.test(source))) emitted.add(code)
+  }
+
+  it('scans a non-trivial source set', () => {
+    expect(sources.length).toBeGreaterThan(100)
+    expect(emitted.has(CODES.E_ARGS)).toBe(true)
+  })
+
+  it('raises every code that is not on the known dead list', () => {
+    const dead = Object.values(CODES).filter(
+      (code) => !emitted.has(code) && !CODES_WITHOUT_EMIT_SITE.includes(code)
+    )
+
+    expect(dead).toEqual([])
+  })
+
+  it('drops a code from the dead list once it gains an emit site', () => {
+    const revived = CODES_WITHOUT_EMIT_SITE.filter((code) =>
+      emitted.has(code)
+    )
+
+    expect(revived).toEqual([])
+  })
+
+  it('lists only declared codes as dead', () => {
+    const declared = new Set<string>(Object.values(CODES))
+
+    for (const code of CODES_WITHOUT_EMIT_SITE) {
+      expect(declared.has(code), `${code} is not a declared code`).toBe(true)
     }
   })
 })
