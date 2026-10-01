@@ -511,6 +511,51 @@ describe('LocalesPlugin (unit)', () => {
     expect(String(warning.message)).toContain(path.join(pkgRoot, '_locales'))
   })
 
+  it('stays quiet when the manifest folder is its own extension root', () => {
+    const pkgRoot = path.join(tmpRoot, 'nested-root-layout')
+    const extRoot = path.join(pkgRoot, 'Extensions', 'combined')
+    const innerLocales = path.join(extRoot, '_locales', 'en')
+    fs.mkdirSync(innerLocales, {recursive: true})
+    const nestedManifestPath = path.join(extRoot, 'manifest.json')
+    fs.writeFileSync(
+      nestedManifestPath,
+      '{"name":"x","manifest_version":3,"default_locale":"en"}'
+    )
+
+    fs.writeFileSync(
+      path.join(innerLocales, 'messages.json'),
+      '{"k":{"message":"s"}}'
+    )
+
+    const processAssetsHook = createHook()
+    const compilation: any = {
+      assets: {},
+      errors: [],
+      warnings: [],
+      fileDependencies: new Set<string>(),
+      hooks: {processAssets: processAssetsHook},
+      emitAsset: () => {}
+    }
+    const compiler: any = {
+      options: {context: pkgRoot},
+      hooks: {
+        thisCompilation: {
+          tap: (_n: string, cb: (c: any) => void) => cb(compilation)
+        },
+        afterCompile: {tap: () => {}}
+      }
+    }
+
+    new LocalesPlugin({manifestPath: nestedManifestPath}).apply(compiler)
+    ;(processAssetsHook as any)._runAll()
+
+    expect(
+      compilation.warnings.find((w: any) => w.name === 'LocalesLayoutWarning')
+    ).toBeUndefined()
+
+    expect(compilation.errors).toEqual([])
+  })
+
   it('does not warn or error when only project-root _locales/ exists', () => {
     fs.writeFileSync(
       manifestPath,
