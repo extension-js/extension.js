@@ -98,7 +98,7 @@
   ],
   "dependencies": {
     "@babel/core": "7.29.7",
-    "@babel/preset-typescript": "7.29.7",
+    "@babel/preset-typescript": "8.0.1",
     "@prefresh/core": "1.5.9",
     "@prefresh/utils": "1.2.1",
     "@rspack/core": "2.2.3",
