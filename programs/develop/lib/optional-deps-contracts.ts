@@ -110,6 +110,24 @@ const OPTIONAL_DEPENDENCY_CONTRACTS = {
       }
     ]
   }),
+  solid: defineContract({
+    id: 'solid',
+    integration: 'Solid',
+    // Solid's own compiler, the way vite-plugin-solid runs it. TypeScript
+    // syntax in .tsx is stripped by Babel in the same pass.
+    installPackages: specs([
+      'babel-loader',
+      '@babel/core',
+      'babel-preset-solid',
+      '@babel/preset-typescript'
+    ]),
+    verificationRules: installRootRules([
+      'babel-loader',
+      '@babel/core',
+      'babel-preset-solid',
+      '@babel/preset-typescript'
+    ])
+  }),
   svelte: defineContract({
     id: 'svelte',
     integration: 'Svelte',
