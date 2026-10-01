@@ -31,6 +31,50 @@ export function rememberedFolders(
   return foldersByProjectRoot.get(path.resolve(projectRoot)) || {}
 }
 
+// The file kinds the scan enrolls from scripts/; the watcher asks the same
+// question, so a data file dropped there never restarts a session.
+export const SCRIPTS_FOLDER_EXTENSIONS: ReadonlySet<string> = new Set([
+  '.js',
+  '.mjs',
+  '.jsx',
+  '.mjsx',
+  '.ts',
+  '.mts',
+  '.tsx',
+  '.mtsx'
+])
+
+export function isScriptsFolderEntry(filePath: string): boolean {
+  return SCRIPTS_FOLDER_EXTENSIONS.has(path.extname(filePath).toLowerCase())
+}
+
+export type SpecialFolderName = 'pages' | 'scripts'
+export type SpecialFoldersRoots = Partial<Record<SpecialFolderName, string>>
+
+// The absolute folder each entry kind is read from: the configured one, the
+// root default otherwise, and none for `false` or a folder spelled another
+// name (the scan reads a relocated folder under its own name only).
+export function foldersRoots(projectRoot: string): SpecialFoldersRoots {
+  const folders = rememberedFolders(projectRoot)
+  const roots: SpecialFoldersRoots = {}
+
+  for (const name of ['pages', 'scripts'] as const) {
+    const setting = folders[name]
+    if (setting === false) continue
+
+    const root =
+      typeof setting === 'string' && setting.trim()
+        ? path.resolve(projectRoot, setting)
+        : path.join(projectRoot, name)
+
+    if (path.basename(root) !== name) continue
+
+    roots[name] = root
+  }
+
+  return roots
+}
+
 export type PublicFolderSetting =
   | {kind: 'default'}
   | {kind: 'off'}

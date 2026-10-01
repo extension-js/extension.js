@@ -14,6 +14,7 @@ import {humanWarn, isDebug} from '../lib/messaging'
 import type {FilepathList, SpecialFoldersConfig} from '../types'
 import type {CompanionExtensionsConfig} from './folder-extensions/types'
 import {
+  isScriptsFolderEntry,
   publicFolderSetting,
   rememberedFolders,
   rememberSpecialFoldersConfig
@@ -446,6 +447,20 @@ function scanSpecialFolders(
     })
 
     next[name] = path.basename(abs) === name ? scanned[name] : {}
+  }
+
+  next.scripts = onlyScriptEntries(next.scripts)
+
+  return next
+}
+
+function onlyScriptEntries(
+  list: Record<string, string> | undefined
+): Record<string, string> {
+  const next: Record<string, string> = {}
+
+  for (const [key, value] of Object.entries(list || {})) {
+    if (isScriptsFolderEntry(String(value))) next[key] = value
   }
 
   return next

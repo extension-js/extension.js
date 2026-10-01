@@ -11,9 +11,15 @@ import * as path from 'node:path'
 import {type Compilation, type Compiler, WebpackError} from '@rspack/core'
 import {requestDevSessionRestart} from '../dev-server/session-restart'
 import {isDebug} from '../lib/messaging'
+import {
+  foldersRoots,
+  isScriptsFolderEntry,
+  type SpecialFolderName,
+  type SpecialFoldersRoots
+} from './folders-config'
 import * as messages from './messages'
 
-type SpecialFolder = 'pages' | 'scripts'
+type SpecialFolder = SpecialFolderName
 type ChangeType = 'add' | 'remove'
 type PendingChange = {
   type: ChangeType
@@ -28,7 +34,7 @@ export class WarnUponFolderChanges {
   private knownFolderFiles = new Set<string>()
   private hasSnapshot = false
 
-  private snapshotFolderFiles(projectPath: string) {
+  private snapshotFolderFiles(roots: SpecialFoldersRoots) {
     if (this.hasSnapshot) return
 
     this.hasSnapshot = true
@@ -61,8 +67,7 @@ export class WarnUponFolderChanges {
       }
     }
 
-    for (const folder of ['pages', 'scripts']) {
-      const folderPath = path.join(projectPath, folder)
+    for (const folderPath of Object.values(roots)) {
       if (fs.existsSync(folderPath)) walk(folderPath)
     }
   }
@@ -70,9 +75,7 @@ export class WarnUponFolderChanges {
   private getContextDependencyPaths(projectPath: string): string[] {
     const dependencies = new Set<string>()
 
-    for (const folder of ['pages', 'scripts'] as const) {
-      const folderPath = path.join(projectPath, folder)
-
+    for (const folderPath of Object.values(foldersRoots(projectPath))) {
       // Watching a missing folder can trigger an empty startup invalidation.
       // Fall back to the project root so later folder creation is detected.
       dependencies.add(fs.existsSync(folderPath) ? folderPath : projectPath)
@@ -158,15 +161,14 @@ export class WarnUponFolderChanges {
   private collectChanges(compiler: Compiler) {
     const projectPath: string =
       (compiler.options.context as string) || process.cwd()
-    this.snapshotFolderFiles(projectPath)
-    const pagesPath = path.join(projectPath, 'pages') + path.sep
-    const scriptsPath = path.join(projectPath, 'scripts') + path.sep
-    const extensionsSupported = compiler.options.resolve?.extensions as
-      | string[]
-      | undefined
-    const supportedScripts = new Set(
-      (extensionsSupported || []).map((e) => e.toLowerCase())
-    )
+    const roots = foldersRoots(projectPath)
+    this.snapshotFolderFiles(roots)
+    const isUnder = (root: string | undefined, filePath: string) =>
+      Boolean(root) && filePath.startsWith(root + path.sep)
+    const isPage = (filePath: string) =>
+      isUnder(roots.pages, filePath) && filePath.endsWith('.html')
+    const isScript = (filePath: string) =>
+      isUnder(roots.scripts, filePath) && isScriptsFolderEntry(filePath)
 
     const modifiedFiles = compiler.modifiedFiles || new Set<string>()
     const removedFiles = compiler.removedFiles || new Set<string>()
@@ -176,7 +178,7 @@ export class WarnUponFolderChanges {
       // them in place. "Restart required" only applies to brand-new files.
       const isPreexisting = this.knownFolderFiles.has(filePath)
 
-      if (filePath.startsWith(pagesPath) && filePath.endsWith('.html')) {
+      if (isPage(filePath)) {
         if (isPreexisting) continue
 
         this.knownFolderFiles.add(filePath)
@@ -184,9 +186,7 @@ export class WarnUponFolderChanges {
         continue
       }
 
-      if (filePath.startsWith(scriptsPath)) {
-        const ext = path.extname(filePath).toLowerCase()
-        if (!supportedScripts.has(ext)) continue
+      if (isScript(filePath)) {
         if (isPreexisting) continue
 
         this.knownFolderFiles.add(filePath)
@@ -199,16 +199,12 @@ export class WarnUponFolderChanges {
       // detected as a genuine addition rather than a modification.
       this.knownFolderFiles.delete(filePath)
 
-      if (filePath.startsWith(pagesPath) && filePath.endsWith('.html')) {
+      if (isPage(filePath)) {
         this.trackChange(projectPath, 'pages', 'remove', filePath)
       }
 
-      if (filePath.startsWith(scriptsPath)) {
-        const ext = path.extname(filePath).toLowerCase()
-
-        if (supportedScripts.has(ext)) {
-          this.trackChange(projectPath, 'scripts', 'remove', filePath)
-        }
+      if (isScript(filePath)) {
+        this.trackChange(projectPath, 'scripts', 'remove', filePath)
       }
     }
   }
