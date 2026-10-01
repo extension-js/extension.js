@@ -89,20 +89,14 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      # Every entry is a distinct suite. The per-plugin names that used to sit
+      # here were all aliases of ci:test:develop, nine green rows for one run.
       matrix:
         suite:
           - ci:test:develop
           - ci:test:cli
           - ci:test:create
-          - ci:test:plugin-extension
-          - ci:test:browser
-          - ci:test:plugin-compilation
-          - ci:test:plugin-css
-          - ci:test:plugin-js-frameworks
-          - ci:test:plugin-compatibility
-          - ci:test:plugin-static-assets
           - ci:test:toolchain-preflight
-          - ci:test:core
 
     steps:
       - name: Checkout
@@ -155,7 +149,7 @@ jobs:
       matrix:
         node: ['22.12', 24]
         suite:
-          - ci:test:core
+          - ci:test:develop
           - ci:test:cli
 
     steps:

@@ -150,7 +150,7 @@ function resolveManifestDir(projectPath: string): string | undefined {
 // The package root is where the config belongs and is looked at first, but
 // dev also accepts the manifest folder as the project, and a config kept
 // beside the manifest used to be ignored without a word.
-function findConfigFile(projectPath: string): string | undefined {
+export function findConfigFile(projectPath: string): string | undefined {
   const atRoot = findConfigFileIn(projectPath)
   if (atRoot) return atRoot
 

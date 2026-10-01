@@ -11,93 +11,72 @@ import * as path from 'node:path'
 import * as messages from '../lib/messages'
 import {isDebug} from '../lib/messaging'
 
-const globalDependencies = ['', '# dependencies', 'node_modules']
-const globalTesting = ['', '# testing', 'coverage']
-const globalProduction = ['', '# production', 'dist']
-const globalMisc = ['', '# misc', '.DS_Store']
-// Dev-session state (control token, per-browser control port). Machine-local.
-const localSessionState = [
-  '',
-  '# Extension.js local session state',
-  '.extension-js'
-]
-// The framework loads plain .env and .env.development (config-loader and
-// EnvPlugin), so those must be ignored too, not only the *.local variants.
-const envFiles = [
-  '',
-  '# local env files',
-  '.env',
-  '.env*',
-  '!.env.example',
-  '.env.local',
-  '.env.development.local',
-  '.env.test.local',
-  '.env.production.local'
-]
-const debugFiles = [
-  '',
-  '# debug files',
-  'npm-debug.log*',
-  'yarn-debug.log*',
-  'yarn-error.log*'
+const intro =
+  '# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.'
+
+// The .env, .env.local and *.local files hold secrets. The .env.<browser> and
+// .env.<mode> files are project config the env templates ship and commit.
+const groups = [
+  {header: '# dependencies', rules: ['node_modules']},
+  {header: '# testing', rules: ['coverage']},
+  {header: '# production', rules: ['dist']},
+  {header: '# misc', rules: ['.DS_Store']},
+  {header: '# Extension.js local session state', rules: ['.extension-js']},
+  {header: '# local env files', rules: ['.env', '.env.local', '.env.*.local']},
+  {
+    header: '# debug files',
+    rules: ['npm-debug.log*', 'yarn-debug.log*', 'yarn-error.log*']
+  }
 ]
 
-const globalLines = [
-  '# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.',
-  ...globalDependencies,
-  ...globalTesting,
-  ...globalProduction,
-  ...globalMisc,
-  ...localSessionState,
-  ...envFiles,
-  ...debugFiles
-]
+function comparable(line: string): string {
+  const trimmed = line.trim()
+
+  return trimmed.startsWith('#') ? trimmed.toLowerCase() : trimmed
+}
 
 export async function writeGitignore(
   projectPath: string,
   logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
 ) {
   const gitIgnorePath = path.join(projectPath, '.gitignore')
-  const paths = new Set<string>()
-  let currentContents = ''
 
-  currentContents = await fs.readFile(gitIgnorePath, 'utf8').catch((err) => {
-    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-      return ''
-    }
+  const currentContents = await fs
+    .readFile(gitIgnorePath, 'utf8')
+    .catch((err) => {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+        return ''
+      }
 
-    logger.error(err)
+      logger.error(err)
 
-    throw err
+      throw err
+    })
+
+  const present = new Set(
+    currentContents.split(/\r?\n/).map(comparable).filter(Boolean)
+  )
+
+  const blocks = groups.flatMap(({header, rules}) => {
+    const missing = rules.filter((rule) => !present.has(rule))
+
+    return missing.length > 0 ? [[header, ...missing].join('\n')] : []
   })
 
-  for (const rawLine of currentContents.split(/\r?\n/)) {
-    const line = rawLine.trim()
-
-    if (line.length === 0) {
-      continue
-    }
-
-    paths.add(line)
-  }
-
-  const linesToAdd = globalLines.filter((line) => !paths.has(line))
-
-  while (linesToAdd[linesToAdd.length - 1] === '') {
-    linesToAdd.pop()
-  }
-
-  if (linesToAdd.length === 0) {
+  if (blocks.length === 0) {
     return
+  }
+
+  if (!present.has(comparable(intro))) {
+    blocks.unshift(intro)
   }
 
   if (isDebug()) logger.log(messages.writingGitIgnore())
 
-  const shouldPrefixWithNewline =
-    currentContents.length > 0 && !currentContents.endsWith('\n')
-  const contentToAppend = `${shouldPrefixWithNewline ? '\n' : ''}${linesToAdd.join('\n')}`
+  const existing = currentContents.trimEnd()
+  const contents = `${existing ? `${existing}\n\n` : ''}${blocks.join('\n\n')}\n`
 
-  await fs.appendFile(gitIgnorePath, contentToAppend).catch((err) => {
+  await fs.writeFile(gitIgnorePath, contents).catch((err) => {
     logger.error(err)
 
     throw err
