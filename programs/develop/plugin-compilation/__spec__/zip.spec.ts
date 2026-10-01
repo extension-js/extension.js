@@ -264,7 +264,7 @@ describe('ZipPlugin', () => {
     expect(entries.some((e) => e.startsWith('dist/extension-js'))).toBe(false)
   })
 
-  it('creates dist zip at outPath when zip=true and respects zipFilename', async () => {
+  it('creates the dist zip beside outPath when zip=true and respects zipFilename', async () => {
     const root = makeTempDir('zip-spec-')
     const outPath = path.join(root, 'dist', 'edge')
     write(
@@ -280,7 +280,9 @@ describe('ZipPlugin', () => {
     plugin.apply(compiler)
     await emitDone()
 
-    expect(fs.existsSync(path.join(outPath, 'My File Name.zip'))).toBe(true)
+    expect(
+      fs.existsSync(path.join(path.dirname(outPath), 'My File Name.zip'))
+    ).toBe(true)
   })
 
   it('honors an explicit zipFilename with dashes and extension verbatim', async () => {
@@ -299,7 +301,9 @@ describe('ZipPlugin', () => {
     plugin.apply(compiler)
     await emitDone()
 
-    expect(fs.existsSync(path.join(outPath, 'my-extension.zip'))).toBe(true)
+    expect(
+      fs.existsSync(path.join(path.dirname(outPath), 'my-extension.zip'))
+    ).toBe(true)
   })
 
   it('appends .zip once and strips path segments from an explicit name', async () => {
@@ -318,7 +322,9 @@ describe('ZipPlugin', () => {
     plugin.apply(compiler)
     await emitDone()
 
-    expect(fs.existsSync(path.join(outPath, 'Release_v2.zip'))).toBe(true)
+    expect(
+      fs.existsSync(path.join(path.dirname(outPath), 'Release_v2.zip'))
+    ).toBe(true)
   })
 
   it('records each written zip on the compilation for the build receipt', async () => {

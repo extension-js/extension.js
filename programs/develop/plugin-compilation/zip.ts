@@ -316,15 +316,16 @@ export class ZipPlugin {
         if (this.zipData.zip) {
           const zipName = this.zipData.zipFilename
             ? explicitZipFilename(this.zipData.zipFilename)
-            : `${name}.zip`
-          const distPath = path.join(outPath, zipName)
+            : `${name}-${this.browser}.zip`
+          // Beside the browser folder, never inside it: dist/<browser> is
+          // what a store upload or a load-unpacked takes whole, and a zip
+          // left inside it ships in the next package of itself.
+          const distPath = path.join(path.dirname(outPath), zipName)
 
           if (isDebug()) {
             console.log(messages.packagingDistributionFiles(distPath))
           }
 
-          // The zip lands inside outPath, so a stale artifact from a prior
-          // run is skipped by name or the new zip would swallow it.
           writeZipFile(
             distPath,
             // A store zip carries the extension, not its debugging aids: a
