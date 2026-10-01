@@ -1,4 +1,4 @@
-import * as fs from 'node:fs'
+import fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
@@ -17,7 +17,8 @@ vi.mock('../helpers/extension-develop-runtime', async () => ({
   }))
 }))
 
-import {registerLogsCommand} from '../commands/logs'
+import {LOG_CONTEXTS as BRIDGE_LOG_CONTEXTS} from '../../develop/dev-server/control-bridge/contracts'
+import {LOG_CONTEXTS, registerLogsCommand} from '../commands/logs'
 import {makeProgram, runCli, stubProcessExit} from './command-harness'
 
 const EVENTS = [
@@ -62,11 +63,13 @@ const EVENTS = [
 let dir: string
 let logSpy: ReturnType<typeof vi.spyOn>
 let errorSpy: ReturnType<typeof vi.spyOn>
+let writeSyncSpy: ReturnType<typeof vi.spyOn>
 
 beforeEach(() => {
   stubProcessExit()
   logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
   errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+  writeSyncSpy = vi.spyOn(fs, 'writeSync').mockImplementation(() => 0)
   dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-logs-'))
   const out = path.join(dir, 'dist', 'extension-js', 'chromium')
   fs.mkdirSync(out, {recursive: true})
@@ -92,6 +95,20 @@ function run(argv: string[]) {
 function printedLines(): string[] {
   return logSpy.mock.calls.map((call) => String(call[0]))
 }
+
+function errorLines(): string[] {
+  return errorSpy.mock.calls.map((call) => String(call[0]))
+}
+
+function writeLogs(records: unknown[]) {
+  fs.writeFileSync(
+    path.join(dir, 'dist', 'extension-js', 'chromium', 'logs.ndjson'),
+    records.map((record) => JSON.stringify(record)).join('\n'),
+    'utf8'
+  )
+}
+
+const GAP = {v: 1, type: 'gap', reason: 'disk_slow', dropped: 4211}
 
 describe('extension logs (one-shot)', () => {
   it('prints every event, skipping the header and bad lines', async () => {
@@ -154,6 +171,163 @@ describe('extension logs (one-shot)', () => {
 
     const seqs = printedLines().map((l) => JSON.parse(l).seq)
     expect(seqs).toEqual([2, 3])
+  })
+
+  it('selects nothing under --level off', async () => {
+    expect(
+      await run(['logs', dir, '--output', 'ndjson', '--level', 'off'])
+    ).toBe(0)
+
+    expect(printedLines()).toEqual([])
+  })
+
+  it('refuses a level it does not know with a mapped usage code', async () => {
+    expect(
+      await run(['logs', dir, '--output', 'ndjson', '--level', 'bogus'])
+    ).toBe(1)
+
+    expect(printedLines()).toEqual([])
+    expect(errorLines().join('\n')).toContain(
+      '--level expects one of off, error, warn, info, debug, trace, all, got: bogus'
+    )
+
+    const frame = JSON.parse(String(writeSyncSpy.mock.calls[0][1]))
+    expect(frame).toMatchObject({
+      command: 'logs',
+      error: {code: 'E_INVALID_OPTION'}
+    })
+  })
+
+  it('refuses a context nothing emits, mis-cased included, naming the valid set', async () => {
+    for (const context of ['page', 'bogus', 'Background', 'all,bogus']) {
+      logSpy.mockClear()
+      errorSpy.mockClear()
+      writeSyncSpy.mockClear()
+
+      expect(
+        await run(['logs', dir, '--output', 'ndjson', '--context', context])
+      ).toBe(1)
+
+      expect(printedLines()).toEqual([])
+      expect(errorLines().join('\n')).toContain(
+        '--context expects a comma-separated list of background, content, ' +
+          'popup, options, sidebar, devtools, newtab, history, bookmarks or all, got: ' +
+          context.replace('all,', '')
+      )
+
+      expect(JSON.parse(String(writeSyncSpy.mock.calls[0][1]))).toMatchObject({
+        command: 'logs',
+        error: {code: 'E_INVALID_OPTION'}
+      })
+    }
+
+    expect(
+      await run(['logs', dir, '--output', 'pretty', '--context', 'page'])
+    ).toBe(1)
+  })
+
+  it('lets all compose inside a context list', async () => {
+    expect(
+      await run(['logs', dir, '--output', 'ndjson', '--context', 'all,content'])
+    ).toBe(0)
+
+    expect(printedLines().map((l) => JSON.parse(l).seq)).toEqual([1, 2, 3, 4])
+  })
+
+  it('names every context the relay emits, as the bridge names them', () => {
+    expect(LOG_CONTEXTS).toEqual([...BRIDGE_LOG_CONTEXTS])
+    expect(LOG_CONTEXTS).not.toContain('page')
+
+    const help = makeProgram(registerLogsCommand).commands[0].helpInformation()
+    expect(help).toContain(BRIDGE_LOG_CONTEXTS.join(', '))
+    expect(help).toContain('--level <off|error|warn|info|debug|trace|all>')
+  })
+
+  it('reports a gap sentinel on stderr under pretty output, with its count', async () => {
+    writeLogs([EVENTS[0], EVENTS[3], GAP, EVENTS[4]])
+
+    expect(await run(['logs', dir, '--output', 'pretty'])).toBe(0)
+    expect(printedLines()).toHaveLength(2)
+    expect(printedLines().join('\n')).not.toContain('undefined')
+    expect(errorLines()).toEqual([
+      expect.stringContaining('4211 event(s) dropped (disk_slow)')
+    ])
+  })
+
+  it('prints a gap sentinel as its own row under ndjson and json', async () => {
+    writeLogs([EVENTS[0], EVENTS[3], GAP, EVENTS[4]])
+
+    expect(await run(['logs', dir, '--output', 'ndjson'])).toBe(0)
+    expect(printedLines().map((l) => JSON.parse(l))).toEqual([
+      EVENTS[3],
+      GAP,
+      EVENTS[4]
+    ])
+
+    logSpy.mockClear()
+    expect(await run(['logs', dir, '--output', 'json'])).toBe(0)
+    expect(printedLines().map((l) => JSON.parse(l))).toEqual([
+      EVENTS[3],
+      GAP,
+      EVENTS[4]
+    ])
+
+    expect(errorLines()).toEqual([])
+  })
+
+  it('keeps a gap sentinel under a level filter and drops it only under off', async () => {
+    writeLogs([EVENTS[0], EVENTS[3], GAP, EVENTS[4]])
+
+    expect(
+      await run(['logs', dir, '--output', 'ndjson', '--level', 'error'])
+    ).toBe(0)
+
+    expect(printedLines().map((l) => JSON.parse(l))).toEqual([EVENTS[3], GAP])
+
+    logSpy.mockClear()
+    expect(
+      await run(['logs', dir, '--output', 'pretty', '--level', 'error'])
+    ).toBe(0)
+
+    expect(printedLines()).toHaveLength(1)
+    expect(errorLines().join('\n')).toContain('4211 event(s) dropped')
+
+    logSpy.mockClear()
+    errorSpy.mockClear()
+    expect(
+      await run(['logs', dir, '--output', 'ndjson', '--level', 'off'])
+    ).toBe(0)
+
+    expect(printedLines()).toEqual([])
+    expect(errorLines()).toEqual([])
+  })
+
+  it('surfaces a rotation boundary from the generation header', async () => {
+    const header = {
+      v: 1,
+      type: 'header',
+      runId: 'r',
+      startedAt: '2026-09-05T12:00:00.000Z',
+      rotatedFrom: 'r'
+    }
+    writeLogs([header, EVENTS[3]])
+
+    expect(await run(['logs', dir, '--output', 'pretty'])).toBe(0)
+    expect(printedLines()).toHaveLength(1)
+    expect(errorLines()).toHaveLength(1)
+    expect(errorLines()[0]).toMatch(
+      /rotated to .*chromium[\\/]logs\.1\.ndjson at 2026-09-05T12:00:00\.000Z/
+    )
+
+    logSpy.mockClear()
+    errorSpy.mockClear()
+    expect(await run(['logs', dir, '--output', 'ndjson'])).toBe(0)
+    expect(printedLines().map((l) => JSON.parse(l))).toEqual([
+      header,
+      EVENTS[3]
+    ])
+
+    expect(errorLines()).toEqual([])
   })
 
   it('honors an ISO --since by the event clock and refuses a value that is neither', async () => {

@@ -7,12 +7,13 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import {Compilation, type Compiler} from '@rspack/core'
+import type {LogContext} from '../../dev-server/control-bridge/contracts'
 import {buildBridgeRelaySource} from '../../dev-server/control-bridge/producer-runtime'
 import {prependToEmittedAsset} from '../../lib/asset-source-maps'
 
 // Map an output asset to its bridge context. The background SW and hot/* are
 // DELIBERATELY excluded: the SW runs the producer, relay-injecting would loop.
-const RELAY_TARGETS: ReadonlyArray<{re: RegExp; context: string}> = [
+const RELAY_TARGETS: ReadonlyArray<{re: RegExp; context: LogContext}> = [
   {re: /(^|\/)content_scripts\/.+\.js$/i, context: 'content'},
   {re: /(^|\/)action\/index\.js$/i, context: 'popup'},
   {re: /(^|\/)options\/index\.js$/i, context: 'options'},

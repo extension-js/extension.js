@@ -3,11 +3,16 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {logsPath} from '../../../lib/session-paths'
+import {LOG_CONTEXTS} from '../contracts'
 import {
+  LOG_LEVEL_FILTERS,
   logLevelRank,
+  logQueryProblem,
   matchesLogQuery,
+  parseLogLevelFilter,
   parseLogSince,
-  readLogEvents
+  readLogEvents,
+  unknownLogContexts
 } from '../logs-query'
 
 const event = (over: Record<string, unknown> = {}) => ({
@@ -34,10 +39,69 @@ describe('matchesLogQuery', () => {
     expect(matchesLogQuery(event({level: 'log'}), {level: 'info'})).toBe(true)
   })
 
-  it('treats all and off as no level filter', () => {
-    for (const level of ['all', 'off']) {
-      expect(matchesLogQuery(event({level: 'trace'}), {level})).toBe(true)
+  it('treats all as no level filter and off as no level at all', () => {
+    expect(matchesLogQuery(event({level: 'trace'}), {level: 'all'})).toBe(true)
+    expect(matchesLogQuery(event({level: 'error'}), {level: 'off'})).toBe(false)
+    expect(matchesLogQuery({type: 'gap', dropped: 3}, {level: 'off'})).toBe(
+      false
+    )
+  })
+
+  it('refuses a level it does not know instead of selecting everything', () => {
+    expect(() => matchesLogQuery(event(), {level: 'bogus'})).toThrow(
+      'level expects one of off, error, warn, info, debug, trace, all, got: bogus'
+    )
+
+    expect(logQueryProblem({level: 'WARN'})).toBeNull()
+    expect(parseLogLevelFilter('WARN')).toBe('warn')
+    expect(parseLogLevelFilter(undefined)).toBe('all')
+    expect(parseLogLevelFilter('bogus')).toBeUndefined()
+    expect(LOG_LEVEL_FILTERS).toEqual([
+      'off',
+      'error',
+      'warn',
+      'info',
+      'debug',
+      'trace',
+      'all'
+    ])
+  })
+
+  it('refuses a context nothing emits, mis-cased included, naming the valid set', () => {
+    for (const context of ['page', 'bogus', 'Background', 'all,bogus']) {
+      expect(() => matchesLogQuery(event(), {context})).toThrow(RangeError)
     }
+
+    expect(logQueryProblem({context: 'content,Popup'})).toBe(
+      'context expects a comma-separated list of background, content, popup, ' +
+        'options, sidebar, devtools, newtab, history, bookmarks or all, got: Popup'
+    )
+
+    expect(unknownLogContexts(['page', 'newtab'])).toEqual(['page'])
+    expect(unknownLogContexts('all')).toEqual([])
+    expect(logQueryProblem({context: LOG_CONTEXTS.join(',')})).toBeNull()
+  })
+
+  it('lets all compose inside a context list', () => {
+    expect(
+      matchesLogQuery(event({context: 'popup'}), {context: 'all,content'})
+    ).toBe(true)
+
+    expect(
+      matchesLogQuery(event({context: 'history'}), {
+        context: ['content', 'ALL']
+      })
+    ).toBe(true)
+  })
+
+  it('keeps a gap sentinel under every clause but off, since its events are gone', () => {
+    const gap = {v: 1, type: 'gap', reason: 'disk_slow', dropped: 4211}
+    expect(matchesLogQuery(gap, {level: 'error'})).toBe(true)
+    expect(matchesLogQuery(gap, {context: 'content', signalsOnly: true})).toBe(
+      true
+    )
+
+    expect(matchesLogQuery(gap, {url: 'example', tab: 7})).toBe(true)
   })
 
   it('accepts a context list as a string or an array', () => {
@@ -156,6 +220,28 @@ describe('readLogEvents', () => {
 
     const errors = readLogEvents(projectPath, 'chromium', {level: 'error'})
     expect(errors.map((e) => e.seq)).toEqual([2])
+  })
+
+  it('returns the gap sentinel beside the events a level filter keeps', () => {
+    const gap = {v: 1, type: 'gap', reason: 'disk_slow', dropped: 4211}
+    write('chromium', [
+      {type: 'header', runId: 'r-1'},
+      event({seq: 1, level: 'error'}),
+      gap,
+      event({seq: 2, level: 'info'}),
+      event({seq: 3, level: 'error'})
+    ])
+
+    expect(readLogEvents(projectPath, 'chromium', {level: 'error'})).toEqual([
+      event({seq: 1, level: 'error'}),
+      gap,
+      event({seq: 3, level: 'error'})
+    ])
+
+    expect(readLogEvents(projectPath, 'chromium', {level: 'off'})).toEqual([])
+    expect(() =>
+      readLogEvents(projectPath, 'chromium', {context: 'page'})
+    ).toThrow(RangeError)
   })
 
   it('skips malformed lines instead of throwing on them', () => {
