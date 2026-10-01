@@ -108,8 +108,9 @@ export function explicitUnpackedDir(
     // archive (package.json beside the manifest) keeps the project path.
     if (!manifestDir) return undefined
 
-    if (!fs.existsSync(path.join(manifestDir, 'manifest.json')))
-      {return undefined}
+    if (!fs.existsSync(path.join(manifestDir, 'manifest.json'))) {
+      return undefined
+    }
 
     if (fs.existsSync(path.join(manifestDir, 'package.json'))) return undefined
     if (fs.existsSync(path.join(manifestDir, 'deno.json'))) return undefined
