@@ -12,6 +12,7 @@ import type {DevOptions, FilepathList, PluginInterface} from '../../types'
 import {AddContentScriptWrapper} from './steps/add-content-script-wrapper'
 import {AddPublicPathRuntimeModule} from './steps/add-public-path-runtime-module'
 import {AddScripts} from './steps/add-scripts'
+import {CompileMainWorldScripts} from './steps/compile-main-world-scripts'
 import {KeepGetURLImportsNative} from './steps/keep-geturl-imports-native'
 import {TraceRuntimeLoadedFiles} from './steps/trace-runtime-loaded-files'
 import {ValidateEmittedScriptSyntax} from './steps/validate-emitted-script-syntax'
@@ -42,6 +43,13 @@ export class ScriptsPlugin {
     new AddScripts({
       manifestPath: this.manifestPath,
       includeList: this.includeList || {},
+      browser: this.browser
+    }).apply(compiler)
+
+    // In dev a MAIN world script compiles apart from the HMR runtime, which
+    // would otherwise land on the host page. Takes its entry back out.
+    new CompileMainWorldScripts({
+      manifestPath: this.manifestPath,
       browser: this.browser
     }).apply(compiler)
 

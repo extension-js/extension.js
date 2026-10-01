@@ -1106,7 +1106,7 @@ async function compileTracedFile(
   })
 }
 
-function withEagerDynamicImports(
+export function withEagerDynamicImports(
   parser: Record<string, unknown> | undefined
 ): Record<string, unknown> {
   const next: Record<string, unknown> = {...(parser || {})}
@@ -1145,7 +1145,7 @@ const isRefreshLoader = (use: LooseUse) =>
         String(typeof use === 'string' ? use : use.loader || '')
       )
 
-function withoutDevRefresh(rules: LooseRule[]): LooseRule[] {
+export function withoutDevRefresh(rules: LooseRule[]): LooseRule[] {
   return rules
     .map((rule): LooseRule | null => {
       if (!rule || typeof rule !== 'object') return rule
