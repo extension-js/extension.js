@@ -14,6 +14,7 @@ import {exitAfterDrain} from '../helpers/exit-after-drain'
 import {loadExtensionDevelopBridgeModule} from '../helpers/extension-develop-runtime'
 import {commandDescriptions} from '../helpers/messages'
 import {CODES, ENVELOPE} from '../helpers/messaging'
+import {parsePositiveInt} from '../helpers/normalize-options'
 import {
   resolveSessionProjectPath,
   sessionLogsPath,
@@ -163,6 +164,7 @@ function makeUrlMatcher(pattern: string): (event: LogEventLike) => boolean {
 function makeFilter(
   opts: LogsOptions,
   since: LogSince | null,
+  tabId: number | undefined,
   helpers: SinceHelpers
 ) {
   const minLevel = String(opts.level || 'all').toLowerCase()
@@ -171,7 +173,6 @@ function makeFilter(
       ? new Set(opts.context.split(',').map((c) => c.trim()))
       : null
   const urlMatches = opts.url ? makeUrlMatcher(opts.url) : null
-  const tabId = opts.tab != null && opts.tab !== '' ? Number(opts.tab) : null
 
   return (event: LogEventLike): boolean => {
     if (!event || typeof event !== 'object') return false
@@ -191,9 +192,7 @@ function makeFilter(
 
     if (urlMatches && !urlMatches(event)) return false
 
-    if (tabId != null && Number.isFinite(tabId) && event.tabId !== tabId) {
-      return false
-    }
+    if (tabId !== undefined && event.tabId !== tabId) return false
 
     return true
   }
@@ -322,6 +321,24 @@ export function registerLogsCommand(program: Command) {
       const format = resolveFormat(options)
       const helpers = sinceHelpersFrom(bridge)
       const since = helpers.parseLogSince(options.since)
+      const tab = parsePositiveInt('--tab', options.tab)
+
+      if (!tab.ok) {
+        // eslint-disable-next-line no-console
+        console.error(tab.message)
+
+        if (format !== 'pretty') {
+          writeFrame(
+            ENVELOPE.fail('logs', 'usage', {
+              code: CODES.E_FLAG_VALUE_INVALID,
+              message: tab.message,
+              name: 'CliError'
+            })
+          )
+        }
+
+        process.exit(1)
+      }
 
       if (
         options.since != null &&
@@ -369,7 +386,7 @@ export function registerLogsCommand(program: Command) {
         process.exit(1)
       }
 
-      const matches = makeFilter(options, since ?? null, helpers)
+      const matches = makeFilter(options, since ?? null, tab.value, helpers)
 
       // An advertised filter that silently matches nothing teaches the wrong
       // lesson (ledger 181, same class as 179): the user reads the silence as

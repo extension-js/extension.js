@@ -428,12 +428,6 @@ export interface StartOptions extends BrowserOptionsBase {
    * Defaults to '127.0.0.1'.
    */
   host?: string
-  /**
-   * Connectable host the browser (HMR client + control-bridge producer) dials,
-   * when it differs from the bind `host` (e.g. a remote/devcontainer). Defaults
-   * to the bind host, or 127.0.0.1 when bound to a wildcard like '0.0.0.0'.
-   */
-  publicHost?: string
   logLevel?: 'off' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'all'
   logContexts?: (
     | 'background'
@@ -602,7 +596,6 @@ export interface FileConfig {
       | 'noBrowser'
       | 'port'
       | 'host'
-      | 'publicHost'
       | 'logLevel'
       | 'logContexts'
       | 'logFormat'
