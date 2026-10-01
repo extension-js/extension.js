@@ -82,3 +82,50 @@ describe('StaticAssetsPlugin url resourceQuery rule', () => {
     expect(effectiveType).toBe('asset/resource')
   })
 })
+
+describe('StaticAssetsPlugin raw resourceQuery rule', () => {
+  const rawRule = (rules: any[]) =>
+    rules.find(
+      (r) => r?.type === 'asset/source' && r?.resourceQuery instanceof RegExp
+    )
+
+  it('matches the standalone ?raw import query and nothing else', () => {
+    const re: RegExp = rawRule(applyPlugin()).resourceQuery
+    expect(re.test('?raw')).toBe(true)
+    expect(re.test('?raw=1')).toBe(true)
+    expect(re.test('?foo&raw')).toBe(true)
+    expect(re.test('?url')).toBe(false)
+    expect(re.test('?rawr')).toBe(false)
+    expect(re.test('?__extensionjs_classic_concat__=raw')).toBe(false)
+  })
+
+  it('wins over the typed asset rules for a ?raw import', () => {
+    const rules = applyPlugin()
+    const matching = rules.filter((r) => {
+      const testOk = r?.test instanceof RegExp ? r.test.test('notes.md') : true
+      const queryOk =
+        r?.resourceQuery instanceof RegExp ? r.resourceQuery.test('?raw') : true
+
+      return Boolean(r) && testOk && queryOk
+    })
+    const effectiveType = matching.reduce(
+      (acc: string | undefined, r) => r?.type ?? acc,
+      undefined
+    )
+    expect(effectiveType).toBe('asset/source')
+  })
+
+  it('leaves a user ?raw rule alone', () => {
+    const mine = {resourceQuery: /raw/, type: 'asset/resource'}
+    const compiler: any = {
+      options: {module: {rules: [mine]}},
+      hooks: {afterEmit: {tap() {}}}
+    }
+    new StaticAssetsPlugin({mode: 'production'} as any).apply(compiler)
+    const rawRules = compiler.options.module.rules.filter(
+      (r: any) =>
+        r?.resourceQuery instanceof RegExp && r.resourceQuery.test('?raw')
+    )
+    expect(rawRules).toEqual([mine])
+  })
+})

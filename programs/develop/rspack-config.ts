@@ -207,7 +207,8 @@ export default function webpackConfig(
       browser: devOptions.browser
     }),
     new SpecialFoldersPlugin({
-      manifestPath
+      manifestPath,
+      folders: devOptions.folders
     }),
     // Extension-aware per-category performance budgets. Replaces rspack's
     // stock single-threshold `performance.hints`, disabled below.

@@ -463,6 +463,8 @@ export interface BrowserConfig extends BrowserOptionsBase {
   bundleId?: SafariOptions['bundleId']
   developmentTeam?: SafariOptions['developmentTeam']
   macOsOnly?: SafariOptions['macOsOnly']
+  /** Where the special folders live for this browser, or `false` to skip one. */
+  folders?: SpecialFoldersConfig
   /**
    * Companion extensions (load-only) scoped to a browser config.
    * Useful for per-browser store URLs or local unpacked extensions.
@@ -506,6 +508,7 @@ export interface CommonWebpackOptions {
    * Compile-time constants, each value JSON-serialized into the bundle.
    */
   define?: Record<string, unknown>
+  folders?: SpecialFoldersConfig
   perfBudgets?: PerfBudgetsConfig
   /**
    * Companion extensions (load-only). Each entry must be an unpacked extension root
@@ -688,5 +691,25 @@ export interface FileConfig {
    * `commands.dev|build.perfBudgets` overrides both.
    */
   perfBudgets?: PerfBudgetsConfig
+  /**
+   * Where the special folders live. A path points at a folder named like the
+   * default (`src/scripts`), `false` turns the folder off. The weakest layer,
+   * `browser.<vendor>.folders` and `commands.<name>.folders` override it.
+   */
+  folders?: SpecialFoldersConfig
   config?: (config: Configuration) => Configuration
+  /**
+   * Runs once the bundler config is final, right before the first build, with
+   * every loader rule attached. Change `module`, `resolve`, `optimization` or
+   * `output` here; `entry` and `plugins` are fixed by then, use `config`.
+   */
+  configResolved?: (
+    config: Configuration
+  ) => Configuration | undefined | Promise<Configuration | undefined>
+}
+
+export interface SpecialFoldersConfig {
+  scripts?: string | false
+  pages?: string | false
+  public?: string | false
 }

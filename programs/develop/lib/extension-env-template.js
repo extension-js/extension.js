@@ -40,8 +40,19 @@ export function renderWildcardModuleDeclarations(
     .join('')
 }
 
+// `define` keys that are plain identifiers become ambient constants, so a
+// misspelled or missing one is a type error instead of a worker that throws
+// at start. Dotted keys (`process.env.X`) have no declaration form.
+export function renderDefineDeclarations(defineTypes = {}) {
+  return Object.entries(defineTypes)
+    .filter(([name]) => /^[A-Za-z_$][\w$]*$/.test(name))
+    .map(([name, type]) => `declare const ${name}: ${type}\n`)
+    .join('')
+}
+
 export function renderExtensionEnvTypes(
-  typePath = EXTENSION_ENV_TYPES_PACKAGE
+  typePath = EXTENSION_ENV_TYPES_PACKAGE,
+  defineTypes = {}
 ) {
   return `\
 // Required Extension.js types for TypeScript projects.
@@ -57,5 +68,5 @@ export function renderExtensionEnvTypes(
 // Asset and stylesheet imports. These wildcard declarations also live in
 // ${typePath}/types, but TypeScript 7 native does not apply them through the
 // reference above, so they are emitted here as well.
-${renderWildcardModuleDeclarations()}`
+${renderWildcardModuleDeclarations()}${renderDefineDeclarations(defineTypes)}`
 }

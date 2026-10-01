@@ -8,6 +8,7 @@
 
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
+import {loadDefineTypes} from './config-loader'
 import {renderExtensionEnvTypes} from './extension-env-template'
 import * as messages from './messages'
 import {parseJsonSafe} from './parse-json-safe'
@@ -17,7 +18,10 @@ export async function generateExtensionTypes(
   packageJsonDir: string
 ) {
   const extensionEnvFile = path.join(packageJsonDir, 'extension-env.d.ts')
-  const fileContent = renderExtensionEnvTypes()
+  const fileContent = renderExtensionEnvTypes(
+    undefined,
+    await loadDefineTypes(packageJsonDir)
+  )
 
   try {
     await fs.access(extensionEnvFile)

@@ -369,9 +369,101 @@ export async function loadCustomConfig(projectPath: string) {
   return (config: Configuration) => config
 }
 
+// The late hook: the bundler config with every loader rule attached, right
+// before the first build. Absent when the config file has none.
+export async function loadConfigResolvedHook(
+  projectPath: string
+): Promise<FileConfig['configResolved'] | undefined> {
+  const configPath = findConfigFile(projectPath)
+  if (!configPath) return undefined
+  if (!(await isUsingExperimentalConfig(projectPath))) return undefined
+
+  const userConfig = await loadConfigFile(configPath)
+
+  return typeof userConfig?.configResolved === 'function'
+    ? userConfig.configResolved
+    : undefined
+}
+
+// A `define` value's declared type, so the generated ambient constant tells
+// the author what the bundle will hold. A key set differently per browser or
+// per command gets the union of its shapes.
+function typeOfDefineValue(value: unknown): string {
+  if (value === null) return 'null'
+  if (Array.isArray(value)) return 'unknown[]'
+
+  switch (typeof value) {
+    case 'string':
+      return 'string'
+    case 'number':
+      return 'number'
+    case 'boolean':
+      return 'boolean'
+    case 'object':
+      return 'Record<string, unknown>'
+    default:
+      return 'unknown'
+  }
+}
+
+function collectDefineTypes(
+  into: Map<string, Set<string>>,
+  define: unknown
+): void {
+  if (!define || typeof define !== 'object') return
+
+  for (const [key, value] of Object.entries(
+    define as Record<string, unknown>
+  )) {
+    const types = into.get(key) || new Set<string>()
+    types.add(typeOfDefineValue(value))
+    into.set(key, types)
+  }
+}
+
+// Every `define` key the config file declares, at the top level and under
+// each browser and command, with the type its values resolve to.
+export async function loadDefineTypes(
+  projectPath: string
+): Promise<Record<string, string>> {
+  const configPath = findConfigFile(projectPath)
+  if (!configPath) return {}
+  if (!(await isUsingExperimentalConfig(projectPath))) return {}
+
+  let userConfig: FileConfig | undefined
+
+  try {
+    userConfig = await loadConfigFile(configPath)
+  } catch {
+    return {}
+  }
+
+  const found = new Map<string, Set<string>>()
+  collectDefineTypes(found, userConfig?.define)
+
+  for (const scope of [userConfig?.browser, userConfig?.commands]) {
+    if (!scope || typeof scope !== 'object') continue
+
+    for (const entry of Object.values(scope as Record<string, unknown>)) {
+      collectDefineTypes(
+        found,
+        (entry as {define?: unknown} | undefined)?.define
+      )
+    }
+  }
+
+  const types: Record<string, string> = {}
+
+  for (const [key, set] of found) {
+    types[key] = [...set].sort().join(' | ')
+  }
+
+  return types
+}
+
 export type ProjectConfigDefaults = Pick<
   FileConfig,
-  'extensions' | 'transpilePackages' | 'perfBudgets' | 'define'
+  'extensions' | 'transpilePackages' | 'perfBudgets' | 'define' | 'folders'
 >
 
 // Top-level `extensions`/`transpilePackages`/`perfBudgets` are the weakest
@@ -403,6 +495,9 @@ export async function loadProjectConfigDefaults(
             : {}),
           ...(userConfig?.define && typeof userConfig.define === 'object'
             ? {define: userConfig.define}
+            : {}),
+          ...(userConfig?.folders && typeof userConfig.folders === 'object'
+            ? {folders: userConfig.folders}
             : {})
         }
       } catch (err: unknown) {

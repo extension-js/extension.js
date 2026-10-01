@@ -11,4 +11,11 @@ export declare function renderWildcardModuleDeclarations(
   modules?: readonly WildcardModuleDeclaration[]
 ): string
 
-export declare function renderExtensionEnvTypes(typePath?: string): string
+export declare function renderDefineDeclarations(
+  defineTypes?: Readonly<Record<string, string>>
+): string
+
+export declare function renderExtensionEnvTypes(
+  typePath?: string,
+  defineTypes?: Readonly<Record<string, string>>
+): string
