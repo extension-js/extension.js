@@ -29,7 +29,8 @@ function createTempProject() {
 function createLoaderContext(
   resourcePath: string,
   manifestPath: string,
-  browser?: string
+  browser?: string,
+  mode = 'development'
 ) {
   return {
     resourcePath,
@@ -38,11 +39,120 @@ function createLoaderContext(
     getOptions() {
       return {
         manifestPath,
-        mode: 'development',
+        mode,
         ...(browser ? {browser} : {})
       }
     }
   }
+}
+
+class StubElement {
+  attributes = new Map<string, string>()
+  style: Record<string, string> = {}
+  textContent = ''
+  nodeType = 1
+  shadowRoot = null
+  tagName: string
+  private readonly nodes: StubElement[]
+
+  constructor(tagName: string, nodes: StubElement[]) {
+    this.tagName = tagName.toUpperCase()
+    this.nodes = nodes
+  }
+
+  setAttribute(name: string, value: string) {
+    this.attributes.set(name, String(value))
+  }
+
+  getAttribute(name: string) {
+    return this.attributes.get(name) ?? null
+  }
+
+  appendChild(child: StubElement) {
+    this.nodes.push(child)
+
+    return child
+  }
+
+  remove() {
+    const index = this.nodes.indexOf(this)
+    if (index !== -1) this.nodes.splice(index, 1)
+  }
+}
+
+function createDocumentStub() {
+  const nodes: StubElement[] = []
+
+  return {
+    readyState: 'complete',
+    documentElement: new StubElement('html', nodes),
+    body: new StubElement('body', nodes),
+    createElement: (tagName: string) => new StubElement(tagName, nodes),
+    querySelectorAll(selector: string) {
+      if (!selector.includes('data-extjs-reinject-marker')) return []
+
+      return nodes.filter(
+        (node) => node.getAttribute('data-extjs-reinject-marker') === 'true'
+      )
+    }
+  }
+}
+
+function createRealm() {
+  return {
+    sandbox: {
+      chrome: {
+        runtime: {
+          id: 'spec-extension',
+          getURL: (file: string) =>
+            `chrome-extension://spec-extension/${String(file).replace(/^\/+/, '')}`
+        }
+      }
+    } as Record<string, unknown>,
+    document: createDocumentStub()
+  }
+}
+
+function runWrapped(output: unknown, realm: ReturnType<typeof createRealm>) {
+  const script = String(output).replace(
+    /\nexport default __EXTENSIONJS_default__\n$/,
+    '\n'
+  )
+  new Function('globalThis', 'document', script)(realm.sandbox, realm.document)
+}
+
+function readMarkerGeneration(realm: ReturnType<typeof createRealm>) {
+  const markers = realm.document.querySelectorAll(
+    '[data-extjs-reinject-marker="true"]'
+  )
+  expect(markers).toHaveLength(1)
+
+  return markers[0].getAttribute('data-extjs-reinject-generation')
+}
+
+function writeDeclaredEntry(world?: 'MAIN') {
+  const projectDir = createTempProject()
+  const manifestDir = path.join(projectDir, 'src')
+  const contentDir = path.join(manifestDir, 'content')
+  fs.mkdirSync(contentDir, {recursive: true})
+
+  const manifestPath = path.join(manifestDir, 'manifest.json')
+  fs.writeFileSync(
+    manifestPath,
+    JSON.stringify({
+      manifest_version: 3,
+      content_scripts: [
+        {
+          matches: ['<all_urls>'],
+          js: ['content/scripts.ts'],
+          ...(world ? {world} : {})
+        }
+      ]
+    }),
+    'utf8'
+  )
+
+  return {manifestPath, resourcePath: path.join(contentDir, 'scripts.ts')}
 }
 
 describe('content-script-wrapper loader', () => {
@@ -447,5 +557,73 @@ describe('content-script-wrapper loader', () => {
     )
 
     expect(wrapped).toContain('__EXTENSIONJS_mount(__EXTENSIONJS_default__')
+  })
+
+  it('plants no bare registerCleanup global in dev, production or MAIN world output', () => {
+    const isolated = writeDeclaredEntry()
+    const mainWorld = writeDeclaredEntry('MAIN')
+    const source = 'export default function mount(){ return () => {} }'
+    const outputs = {
+      dev: contentScriptWrapper.call(
+        createLoaderContext(
+          isolated.resourcePath,
+          isolated.manifestPath
+        ) as any,
+        source
+      ),
+      production: contentScriptWrapper.call(
+        createLoaderContext(
+          isolated.resourcePath,
+          isolated.manifestPath,
+          undefined,
+          'production'
+        ) as any,
+        source
+      ),
+      mainWorld: contentScriptWrapper.call(
+        createLoaderContext(
+          mainWorld.resourcePath,
+          mainWorld.manifestPath,
+          undefined,
+          'production'
+        ) as any,
+        source
+      )
+    }
+
+    for (const output of Object.values(outputs)) {
+      expect(output).not.toContain('globalThis.registerCleanup')
+      expect(output).toContain('globalThis.__EXTENSIONJS_registerCleanup')
+    }
+
+    for (const output of [outputs.dev, outputs.mainWorld]) {
+      const realm = createRealm()
+      runWrapped(output, realm)
+      expect('registerCleanup' in realm.sandbox).toBe(false)
+    }
+  })
+
+  it('counts reinject generations across injections for both script shapes', () => {
+    const entry = writeDeclaredEntry()
+    const shapes = {
+      defaultExport: 'export default function mount(){ return () => {} }',
+      executed: 'var executed = true'
+    }
+
+    for (const source of Object.values(shapes)) {
+      const realm = createRealm()
+
+      for (let injection = 0; injection < 3; injection++) {
+        runWrapped(
+          contentScriptWrapper.call(
+            createLoaderContext(entry.resourcePath, entry.manifestPath) as any,
+            source
+          ),
+          realm
+        )
+      }
+
+      expect(readMarkerGeneration(realm)).toBe('3')
+    }
   })
 })
