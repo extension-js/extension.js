@@ -66,8 +66,8 @@ function runWithInjectedCrash(telemetry: '0' | '1'): Promise<CrashRun> {
   })
 }
 
-// Every run gets its own temp dir, so the paths in the stack are the one thing
-// that legitimately differs between the two runs.
+// Every run gets its own temp dir and its own pid, so paths and the pid Node
+// stamps on its own warnings are the two things that legitimately differ.
 function normalize(stderr: string, work: string): string {
   let out = stderr
 
@@ -75,7 +75,7 @@ function normalize(stderr: string, work: string): string {
     out = out.split(dir).join('<work>')
   }
 
-  return out.trim()
+  return out.replace(/\(node:\d+\)/g, '(node:<pid>)').trim()
 }
 
 function realpath(dir: string): string {
