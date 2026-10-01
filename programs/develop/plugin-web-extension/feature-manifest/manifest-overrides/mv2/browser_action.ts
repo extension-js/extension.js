@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import type {Manifest} from '../../../../types'
+import {browserActionOutputTarget} from '../../../shared/html-surfaces'
 import {getFilename} from '../../../shared/paths'
 import {
   iconOutputPath,
@@ -27,7 +28,7 @@ export function browserAction(
           default_popup: getFilename(
             manifestPageOutputTarget(
               String(manifest.browser_action.default_popup),
-              'action/index.html',
+              browserActionOutputTarget(manifest),
               manifestPath,
               projectPath
             ),

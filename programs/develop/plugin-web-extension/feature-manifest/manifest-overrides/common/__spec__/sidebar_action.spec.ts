@@ -47,6 +47,36 @@ describe('sidebarAction (common override)', () => {
     })
   })
 
+  it('gives the panel its own slot beside a side_panel built from another source', () => {
+    const manifestPath = projectWith([
+      'sidepanel/index.html',
+      'firefoxsidebar/index.html'
+    ])
+    const result = sidebarAction(
+      {
+        manifest_version: 3,
+        side_panel: {default_path: 'sidepanel/index.html'},
+        sidebar_action: {default_panel: 'firefoxsidebar/index.html'}
+      } as any,
+      manifestPath
+    )
+
+    expect(result?.sidebar_action?.default_panel).toBe(
+      'sidebar_action/index.html'
+    )
+
+    const shared = sidebarAction(
+      {
+        manifest_version: 3,
+        side_panel: {default_path: 'sidepanel/index.html'},
+        sidebar_action: {default_panel: './sidepanel/index.html'}
+      } as any,
+      manifestPath
+    )
+
+    expect(shared?.sidebar_action?.default_panel).toBe('sidebar/index.html')
+  })
+
   it('returns undefined when the manifest has no sidebar_action', () => {
     expect(sidebarAction({manifest_version: 2} as any)).toBeUndefined()
   })
