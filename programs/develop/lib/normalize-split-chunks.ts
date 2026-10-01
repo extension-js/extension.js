@@ -122,5 +122,44 @@ export function applySplitChunksGuard(config: Configuration): Configuration {
     console.log(messages.debugSplitChunksNarrowed(narrowed))
   }
 
-  return next
+  return keepUserEntriesWhole(next)
+}
+
+// The engine starts from an empty entry map, so every name in the config at
+// this point came from the user's extension.config.js. Nothing emits an HTML
+// tag for those, so a shared chunk split out of one would never load: keep
+// each of them one file.
+export function userEntryNames(config: Configuration): string[] {
+  const entry = config.entry
+
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return []
+
+  return Object.keys(entry)
+}
+
+export function keepUserEntriesWhole(config: Configuration): Configuration {
+  const names = new Set(userEntryNames(config))
+  const splitChunks = config.optimization?.splitChunks as
+    | SplitChunksLike
+    | false
+    | undefined
+
+  if (names.size === 0 || !splitChunks || typeof splitChunks !== 'object') {
+    return config
+  }
+
+  const selector = splitChunks.chunks
+
+  if (typeof selector !== 'function') return config
+
+  const chunks = (chunk: ChunkNameLike) =>
+    !names.has(String(chunk.name)) && selector(chunk)
+
+  return {
+    ...config,
+    optimization: {
+      ...config.optimization,
+      splitChunks: {...splitChunks, chunks} as unknown as SplitChunksConfig
+    }
+  }
 }

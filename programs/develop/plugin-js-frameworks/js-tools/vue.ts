@@ -101,7 +101,8 @@ export async function maybeUseVue(
         experimentalInlineMatchResource: true,
         ...(customOptions || {})
       },
-      include: projectPath,
+      // No include: a workspace sibling imported by path compiles like any
+      // project file, the way vite-plugin-vue treats it.
       exclude: /node_modules/
     }
   ]
