@@ -22,6 +22,7 @@ import * as messages from './lib/messages'
 import {isDebug} from './lib/messaging'
 import {getDirs, normalizeBrowser} from './lib/paths'
 import {getProjectStructure} from './lib/project'
+import {resolveSafariIdentity} from './lib/safari-identity'
 import {assertNoManagedDependencyConflicts} from './lib/validate-user-dependencies'
 import {
   type BrowserLauncherFn,
@@ -122,12 +123,7 @@ export async function extensionDev(
       // `browser.safari` (already merged CLI-last above).
       const safariPackager = devOptions.safariPackager
       const safariOverrides = {
-        appName: merged.appName,
-        bundleId: merged.bundleId,
-        developmentTeam: merged.developmentTeam,
-        macOsOnly: merged.macOsOnly,
-        forceRegenerate: merged.forceRegenerate,
-        safariBinary: merged.safariBinary,
+        ...resolveSafariIdentity(merged),
         noOpen: merged.noOpen
       }
       browsersPlugin = new SafariDevPlugin((distPath, packagerMode) =>

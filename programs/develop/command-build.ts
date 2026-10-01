@@ -55,6 +55,7 @@ import {
   relativeToDir
 } from './lib/paths'
 import {getProjectStructure} from './lib/project'
+import {resolveSafariIdentity} from './lib/safari-identity'
 import {
   buildSummaryPath,
   ensureSessionArtifactsIgnoreFile,
@@ -216,6 +217,16 @@ export async function extensionBuild(
       buildOptions
     )
     const silent = Boolean(mergedBuildOptions.silent)
+
+    // The Safari identity is settled from the same layers before any compile,
+    // so a bad bundle id from any layer is refused without spending a build.
+    const safariPackager =
+      browser === 'safari' || browser === 'webkit-based'
+        ? buildOptions?.safariPackager
+        : undefined
+    const safariIdentity = safariPackager
+      ? resolveSafariIdentity(mergedBuildOptions)
+      : undefined
 
     // Vite-style `emptyOutDir` determinism now comes from the staging swap:
     // the fresh staging dir replaces dist/<browser> wholesale on success, so
@@ -535,23 +546,18 @@ export async function extensionBuild(
       })
     })
 
-    // Safari is packaged from the freshly built dist; the packager is injected
-    // by the CLI so develop stays decoupled. CLI flags win over `browser.safari`.
-    if (
-      (browser === 'safari' || browser === 'webkit-based') &&
-      buildOptions?.safariPackager
-    ) {
-      const safariConfig = await loadBrowserConfig(packageJsonDir, browser)
+    // The packager reads the folder the bundler actually emitted into, which
+    // under a re-pointed output.path is not dist/<browser>.
+    if (safariPackager && safariIdentity) {
+      if (!fs.existsSync(displayDistPath)) {
+        throw new Error(messages.safariBuildOutputNotFound(displayDistPath))
+      }
 
-      const safari = await buildOptions.safariPackager(distPath, 'full', {
-        appName: buildOptions.appName ?? safariConfig.appName,
-        bundleId: buildOptions.bundleId ?? safariConfig.bundleId,
-        developmentTeam:
-          buildOptions.developmentTeam ?? safariConfig.developmentTeam,
-        macOsOnly: buildOptions.macOsOnly ?? safariConfig.macOsOnly,
-        forceRegenerate: buildOptions.forceRegenerate,
-        safariBinary: buildOptions.safariBinary ?? safariConfig.safariBinary
-      })
+      const safari = await safariPackager(
+        displayDistPath,
+        'full',
+        safariIdentity
+      )
 
       // The app identity (and whether the bundle id was generated rather than
       // user-owned) was a human log line only. Fold it into the summary so a

@@ -171,6 +171,8 @@ export interface SafariOptions extends BrowserOptionsBase {
   developmentTeam?: string
   /** Generate the macOS-only Xcode project (default true). */
   macOsOnly?: boolean
+  /** Regenerate the Xcode project even when its fingerprint is current. */
+  forceRegenerate?: boolean
 }
 
 /**
@@ -457,6 +459,7 @@ export interface BrowserConfig extends BrowserOptionsBase {
   bundleId?: SafariOptions['bundleId']
   developmentTeam?: SafariOptions['developmentTeam']
   macOsOnly?: SafariOptions['macOsOnly']
+  forceRegenerate?: SafariOptions['forceRegenerate']
   /** Where the special folders live for this browser, or `false` to skip one. */
   folders?: SpecialFoldersConfig
   /**
@@ -560,7 +563,9 @@ export interface FileConfig {
       | 'safariBinary'
       | 'appName'
       | 'bundleId'
+      | 'developmentTeam'
       | 'macOsOnly'
+      | 'forceRegenerate'
       | 'noOpen'
       | 'noBrowser'
       | 'polyfill'
@@ -653,7 +658,9 @@ export interface FileConfig {
       | 'safariBinary'
       | 'appName'
       | 'bundleId'
+      | 'developmentTeam'
       | 'macOsOnly'
+      | 'forceRegenerate'
     > & {
       extensions?: CompanionExtensionsConfig
       transpilePackages?: string[]

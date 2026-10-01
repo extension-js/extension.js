@@ -1048,6 +1048,22 @@ export function devCommandFailed(error: unknown) {
   )
 }
 
+export function safariInvalidBundleId(bundleId: string) {
+  return (
+    `${getLoggingPrefix('error')} Can't use ${fmt.code(bundleId)} as a bundle identifier.\n` +
+    `Use reverse-DNS form: dot-separated segments of letters, digits and hyphens, ` +
+    `each starting with a letter (e.g. ${fmt.code('com.example.my-extension')}).`
+  )
+}
+
+export function safariBuildOutputNotFound(outputPath: string) {
+  return (
+    `${getLoggingPrefix('error')} No build output to package for Safari.\n` +
+    `${colors.gray('NOT FOUND')} ${colors.underline(outputPath)}\n` +
+    `The bundler emitted nothing there, so there is no extension to convert into an app.`
+  )
+}
+
 export function managedDependencyConflict(
   duplicates: string[],
   userPackageJsonPath: string
