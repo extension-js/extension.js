@@ -196,7 +196,11 @@ export async function setupCdpAfterLaunch(
       source: 'browser'
     })
 
-    stampReadyExtensionLoadRefused(extensionOutputPath, loadOutcome.reason)
+    stampReadyExtensionLoadRefused(
+      extensionOutputPath,
+      loadOutcome.reason,
+      plugin.launchRunId
+    )
 
     // The refusal withholds the card, so the profile line keeps the
     // information until the recovery banner can carry it.

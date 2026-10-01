@@ -51,6 +51,7 @@ import * as binariesResolver from '../../browsers-lib/output-binaries-resolver'
 import {wasTerminatedByUs} from '../../browsers-lib/process-teardown'
 import {ready as devServerReady} from '../../browsers-lib/ready-message'
 import {
+  readReadyRunId,
   stampReadyBrowserExited,
   stampReadyBrowserLaunch,
   stampReadyProfileLocked
@@ -196,6 +197,9 @@ export class ChromiumLaunchPlugin {
   private closeHandlerContext: {
     isDevMode: boolean
     extensionOutputPath?: string
+    // The run this browser belongs to, so a late exit stamp cannot land on a
+    // restart's contract and fail a browser that is on screen.
+    runId?: string
   } | null = null
 
   constructor(
@@ -982,12 +986,14 @@ export class ChromiumLaunchPlugin {
       // A locked profile aborts before the spawn, so no exit handler will ever
       // stamp it. Record the case here or the contract stays on "starting".
       if (utils.isProfileLockedError(error)) {
+        const lockedOutputPath = getExtensionOutputPath(compilation, undefined)
         stampReadyProfileLocked(
-          getExtensionOutputPath(compilation, undefined),
+          lockedOutputPath,
           {
             message: error.message,
             owner: error.profileLockOwner
-          }
+          },
+          readReadyRunId(lockedOutputPath)
         )
       }
 
@@ -1042,15 +1048,18 @@ export class ChromiumLaunchPlugin {
     }
 
     const usePipe = chromiumConfig.includes('--remote-debugging-pipe')
+    const closeHandlerOutputPath =
+      getExtensionOutputPath(
+        compilation,
+        chromiumConfig.find((flag: string) =>
+          flag.startsWith('--load-extension=')
+        )
+      ) || undefined
+
     this.closeHandlerContext = {
       isDevMode: compilation.options.mode === 'development',
-      extensionOutputPath:
-        getExtensionOutputPath(
-          compilation,
-          chromiumConfig.find((flag: string) =>
-            flag.startsWith('--load-extension=')
-          )
-        ) || undefined
+      extensionOutputPath: closeHandlerOutputPath,
+      runId: readReadyRunId(closeHandlerOutputPath)
     }
 
     const child = await this.launchWithDirectSpawn(
@@ -1060,18 +1069,22 @@ export class ChromiumLaunchPlugin {
     )
 
     const launchOutputPath = this.closeHandlerContext?.extensionOutputPath
-    stampReadyBrowserLaunch(launchOutputPath, {
-      profilePath: chromiumConfig
-        .find((flag) => flag.startsWith('--user-data-dir='))
-        ?.slice('--user-data-dir='.length)
-        .replace(/^"|"$/g, ''),
-      browserPid: child?.pid,
-      binary: browserBinaryLocation ?? undefined,
-      binaryProvenance,
-      extensionId: launchOutputPath
-        ? expectedChromiumExtensionId(launchOutputPath)
-        : undefined
-    })
+    stampReadyBrowserLaunch(
+      launchOutputPath,
+      {
+        profilePath: chromiumConfig
+          .find((flag) => flag.startsWith('--user-data-dir='))
+          ?.slice('--user-data-dir='.length)
+          .replace(/^"|"$/g, ''),
+        browserPid: child?.pid,
+        binary: browserBinaryLocation ?? undefined,
+        binaryProvenance,
+        extensionId: launchOutputPath
+          ? expectedChromiumExtensionId(launchOutputPath)
+          : undefined
+      },
+      this.closeHandlerContext?.runId
+    )
 
     // Extract pipe streams for CDP transport: child.stdio[3] writes commands to
     // Chrome, child.stdio[4] reads responses.
@@ -1133,7 +1146,8 @@ export class ChromiumLaunchPlugin {
         cdpController: undefined,
         browserVersionLine,
         binaryPath: browserBinaryLocation,
-        binaryProvenance
+        binaryProvenance,
+        launchRunId: this.closeHandlerContext?.runId
       }
 
       // Optional CDP wiring (dev + inspection). Run-only preview disables this
@@ -1308,7 +1322,8 @@ export class ChromiumLaunchPlugin {
           stampReadyBrowserExited(
             this.closeHandlerContext?.extensionOutputPath,
             code,
-            signal
+            signal,
+            this.closeHandlerContext?.runId
           )
         }
 

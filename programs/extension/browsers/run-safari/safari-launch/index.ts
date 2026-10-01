@@ -11,7 +11,10 @@ import {humanError, humanLine, humanWarn} from '../../../helpers/messaging'
 import {printDevBannerOnce} from '../../browsers-lib/banner'
 import * as messages from '../../browsers-lib/messages'
 import {ready as devServerReady} from '../../browsers-lib/ready-message'
-import {stampReadyBrowserLaunch} from '../../browsers-lib/ready-stamp'
+import {
+  readReadyRunId,
+  stampReadyBrowserLaunch
+} from '../../browsers-lib/ready-stamp'
 import type {BrowserLogger, CompilationLike} from '../../browsers-types'
 import type {SafariBuildConfig, SafariPluginLike} from '../safari-types'
 import {logSafariDryRun} from './dry-run'
@@ -397,15 +400,19 @@ async function runSafariPipeline(
 
   // The identity and binary are known even when the pid lookup came back
   // empty, so the contract still names the appex a tool has to address.
-  stampReadyBrowserLaunch(config.extensionDir, {
-    browserPid: browserPid || undefined,
-    binary: config.safariBinary || appPath,
-    binaryProvenance: config.safariBinary ? 'pinned' : 'system',
-    // `build` publishes this and `dev` did not, so the same project reported
-    // its identity under one command and stayed silent under the other. It
-    // is the only machine-readable name for the appex a tool has to address.
-    extensionId: `${config.bundleIdentifier}.Extension`
-  })
+  stampReadyBrowserLaunch(
+    config.extensionDir,
+    {
+      browserPid: browserPid || undefined,
+      binary: config.safariBinary || appPath,
+      binaryProvenance: config.safariBinary ? 'pinned' : 'system',
+      // `build` publishes this and `dev` did not, so the same project reported
+      // its identity under one command and stayed silent under the other. It
+      // is the only machine-readable name for the appex a tool has to address.
+      extensionId: `${config.bundleIdentifier}.Extension`
+    },
+    readReadyRunId(config.extensionDir)
+  )
 
   if (!browserPid) {
     logger.warn?.(messages.safariPidUnresolved(config.appName))

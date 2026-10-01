@@ -114,6 +114,9 @@ export type PlaywrightAutomationEvent = {
   exitCode?: number | null
   exitSignal?: string | null
   browserExitedAt?: string
+  // Set when the per-event byte cap trimmed this row's error text, so a reader
+  // never mistakes a shortened message for the whole diagnostic.
+  truncated?: boolean
 }
 
 type WriterOptions = {
@@ -174,6 +177,61 @@ export function formatStatsErrors(errors: unknown): string[] {
       return message.replace(ANSI_PATTERN, '').trim()
     })
     .filter(Boolean)
+}
+
+// events.ndjson is append-only for a whole session and a project that keeps
+// failing to compile appends ten full error texts per save, so it carries the
+// same budget and generational rotation as logs.ndjson and actions.ndjson.
+const MAX_EVENTS_BYTES = 8 * 1024 * 1024
+const MAX_EVENTS_LINES = 50_000
+const EVENTS_GENERATIONS = 3
+const MAX_EVENT_BYTES = 64 * 1024
+
+function rotatedEventsName(eventsPath: string, generation: number): string {
+  return eventsPath.replace(/\.ndjson$/, `.${generation}.ndjson`)
+}
+
+function rotateEventsFile(eventsPath: string) {
+  try {
+    const oldest = rotatedEventsName(eventsPath, EVENTS_GENERATIONS)
+    if (fs.existsSync(oldest)) fs.rmSync(oldest, {force: true})
+
+    for (let n = EVENTS_GENERATIONS - 1; n >= 1; n--) {
+      const from = rotatedEventsName(eventsPath, n)
+
+      if (fs.existsSync(from)) {
+        fs.renameSync(from, rotatedEventsName(eventsPath, n + 1))
+      }
+    }
+
+    if (fs.existsSync(eventsPath)) {
+      fs.renameSync(eventsPath, rotatedEventsName(eventsPath, 1))
+    }
+  } catch {
+    // Ignore
+  }
+}
+
+// A diagnostic-heavy failure writes one enormous line, so the error TEXT is
+// trimmed rather than the JSON, which every consumer still has to parse.
+function capEventSize(
+  event: PlaywrightAutomationEvent
+): PlaywrightAutomationEvent {
+  if (Buffer.byteLength(JSON.stringify(event)) <= MAX_EVENT_BYTES) return event
+
+  const errors = Array.isArray(event.errors) ? event.errors : []
+  const perError = Math.floor(MAX_EVENT_BYTES / 2 / Math.max(1, errors.length))
+  const trimmed: PlaywrightAutomationEvent = {
+    ...event,
+    errors: errors.map((message) => String(message).slice(0, perError)),
+    truncated: true
+  }
+
+  if (Buffer.byteLength(JSON.stringify(trimmed)) <= MAX_EVENT_BYTES) {
+    return trimmed
+  }
+
+  return {...event, errors: [], truncated: true}
 }
 
 function createRunId(): string {
@@ -458,6 +516,11 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
 
   let openedEpoch: number | null = null
 
+  // Seeded from disk on first append: a restart reopens the run's events file,
+  // so the budget counts what is already there, not only this writer's rows.
+  let eventsBytes: number | null = null
+  let eventsLines = 0
+
   const isSuperseded = () =>
     openedEpoch !== null &&
     writerEpochByMetadataDir.get(metadataDir) !== openedEpoch
@@ -668,14 +731,29 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
 
     ensureDirSync(metadataDir)
 
+    const line = `${JSON.stringify({
+      ...capEventSize(event),
+      runId: event.runId ?? base.runId
+    })}\n`
+
     try {
-      fs.appendFileSync(
-        eventsPath,
-        `${JSON.stringify({...event, runId: event.runId ?? base.runId})}\n`,
-        'utf-8'
-      )
+      if (eventsBytes === null) {
+        eventsBytes = fs.existsSync(eventsPath)
+          ? fs.statSync(eventsPath).size
+          : 0
+      }
+
+      fs.appendFileSync(eventsPath, line, 'utf-8')
+      eventsBytes += Buffer.byteLength(line)
+      eventsLines += 1
     } catch {
-      // Ignore
+      return
+    }
+
+    if (eventsBytes >= MAX_EVENTS_BYTES || eventsLines >= MAX_EVENTS_LINES) {
+      rotateEventsFile(eventsPath)
+      eventsBytes = 0
+      eventsLines = 0
     }
   }
 
@@ -700,6 +778,8 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       if (readContract()?.runId !== base.runId) {
         try {
           fs.writeFileSync(eventsPath, '', 'utf-8')
+          eventsBytes = 0
+          eventsLines = 0
         } catch {
           // Ignore
         }
