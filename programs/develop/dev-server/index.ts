@@ -82,6 +82,7 @@ import {
   writeControlToken
 } from './control-bridge/session-token'
 import {startControlServer} from './control-bridge/ws-control-server'
+import {devServerAccessConfig} from './cors'
 import {
   createResponseDataRepair,
   type OutputFileSystemLike
@@ -871,13 +872,15 @@ export async function devServer(
   // The middleware reads the live compiler's output; a restart swaps it.
   let activeCompiler: Compiler | null = null
 
+  // `folders: {public: false}` reads no folder at all, so there is nothing to
+  // serve over HTTP and nothing to watch for a rebuild.
+  const publicFolder = publicFolderOrDefault(manifestPath, packageJsonDir)
+  const access = devServerAccessConfig({connectableHost, emulatorOrigin})
+
   const serverConfig: Configuration = {
     host: devServerHost,
-    allowedHosts: 'all',
-    static: {
-      directory: publicFolderOrDefault(manifestPath, packageJsonDir),
-      watch: false
-    },
+    allowedHosts: access.allowedHosts,
+    static: publicFolder ? {directory: publicFolder, watch: false} : false,
     compress: false,
     devMiddleware: {
       // Manifest writes must stay atomic; let the manifest plugin own disk
@@ -893,7 +896,7 @@ export async function devServer(
     },
     watchFiles: {
       paths: [
-        path.join(publicFolderOrDefault(manifestPath, packageJsonDir), '**/*'),
+        ...(publicFolder ? [path.join(publicFolder, '**/*')] : []),
         ...(isUsingJSFramework(packageJsonDir)
           ? []
           : [path.join(packageJsonDir, '**/*.html')])
@@ -919,9 +922,7 @@ export async function devServer(
       }
     },
     client: false,
-    headers: {
-      'Access-Control-Allow-Origin': '*'
-    },
+    headers: access.headers,
     ...(emulatorFiles
       ? {
           setupMiddlewares: (
@@ -929,7 +930,8 @@ export async function devServer(
           ) => [
             createEmulatorFilesMiddlewareEntry(
               emulatorFiles,
-              args[1]
+              args[1],
+              emulatorOrigin
             ) as unknown as (typeof args)[0][number],
             ...args[0]
           ]
@@ -1099,6 +1101,9 @@ export async function devServer(
         console.error(messages.devServerStartTimeout(START_TIMEOUT_MS))
       }, START_TIMEOUT_MS)
 
+      // The probe's listener held the port through config load and compiler
+      // creation; the real bind can only take it once we let go.
+      await portManager.releaseReservedPort()
       await server.start()
 
       if (startTimeout) clearTimeout(startTimeout)
