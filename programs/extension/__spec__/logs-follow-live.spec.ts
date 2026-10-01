@@ -163,9 +163,7 @@ function connectProducer(port: number): Promise<WebSocket> {
 }
 
 describe('extension logs --follow over the live control channel', () => {
-  it('prints producer frames and a gap, then settles when the session stops', async () => {
-    // A ring of two makes the third frame drop the first, which is the only
-    // way the broker emits a gap on the wire.
+  it('replays a partial ring with one notice, streams past capacity silently, then settles when the session stops', async () => {
     const broker = new BridgeBroker({
       instanceId: INSTANCE_ID,
       runId: RUN_ID,
@@ -175,6 +173,10 @@ describe('extension logs --follow over the live control channel', () => {
     server = await startControlServer({broker})
     writeReady({controlPort: server.port})
 
+    for (const message of ['boot', 'second', 'third']) {
+      broker.ingestLog(incoming(message))
+    }
+
     const exit = run(['logs', dir, '--follow', '--output', 'ndjson'])
     await until(() => broker.consumerCount === 1, 'the follower to attach')
 
@@ -182,44 +184,42 @@ describe('extension logs --follow over the live control channel', () => {
     await until(() => broker.producerCount === 1, 'the producer to attach')
 
     for (const event of [
-      incoming('boot'),
       incoming('careful', {
         level: 'warn',
         context: 'content',
         url: 'https://example.com/page',
         tabId: 7
       }),
-      incoming('third')
+      incoming('fifth'),
+      incoming('sixth')
     ]) {
       producer.send(JSON.stringify({type: 'log', event}))
     }
 
-    await until(() => printed().length === 3, 'three log records')
+    await until(() => printed().length === 5, 'five log records')
     // The broker owns the session identity: every record carries ready.json's
     // runId and a sequence number, not what the producer stamped.
     expect(printed()).toMatchObject([
-      {seq: 1, level: 'info', messageParts: ['boot'], runId: RUN_ID},
+      {seq: 2, messageParts: ['second'], runId: RUN_ID},
+      {seq: 3, messageParts: ['third'], runId: RUN_ID},
       {
-        seq: 2,
+        seq: 4,
         level: 'warn',
         context: 'content',
         url: 'https://example.com/page',
         tabId: 7,
         runId: RUN_ID
       },
-      {seq: 3, messageParts: ['third'], runId: RUN_ID}
+      {seq: 5, messageParts: ['fifth'], runId: RUN_ID},
+      {seq: 6, messageParts: ['sixth'], runId: RUN_ID}
     ])
 
-    await until(
-      () => errorLines().some((line) => line.includes('dropped')),
-      'the gap notice'
+    const notices = errorLines().filter((line) =>
+      line.includes('left the session buffer')
     )
-
-    expect(errorLines().find((line) => line.includes('dropped'))).toContain(
-      '1 event(s) dropped (ring_overflow), stream is behind'
-    )
-
-    // The gap is stderr only, so the ndjson stream stays records + frames.
+    expect(notices).toHaveLength(1)
+    expect(notices[0]).toContain('replay starts at seq 2, 1 earlier event(s)')
+    expect(errorLines().some((line) => line.includes('dropped'))).toBe(false)
     expect(printed().every((record) => typeof record.seq === 'number')).toBe(
       true
     )

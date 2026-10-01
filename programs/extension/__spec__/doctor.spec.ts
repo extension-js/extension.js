@@ -243,6 +243,47 @@ describe('extension doctor', () => {
     expect(r.executor.detail).toContain('no executor connected')
   })
 
+  it('fails the executor when the probe comes back Unavailable after a mid-flight disconnect', async () => {
+    state.mod = healthyModule({
+      readReadyContract: () => ({
+        controlPort: 4001,
+        instanceId: 'inst-1',
+        runId: 'run-A',
+        status: 'ready',
+        pid: process.pid,
+        runtime: 'attached',
+        executorAttachedAt: new Date().toISOString()
+      })
+    })
+
+    StubController.probeResult = {
+      ok: false,
+      error: {
+        name: 'Unavailable',
+        message:
+          "no executor connected: the extension's service worker disconnected 0s ago, MV3 workers idle out and reconnect on their own"
+      }
+    }
+
+    const r = byCheck(await runDoctor('/proj', {}))
+    expect(r.executor.status).toBe('fail')
+    expect(r.executor.detail).toContain('disconnected 0s ago')
+    expect(r.executor.detail).not.toContain('executor responded')
+  })
+
+  it('never reports pass for a probe the executor did not answer', async () => {
+    StubController.probeResult = {
+      ok: false,
+      error: {name: 'Timeout', message: 'command timed out'}
+    }
+
+    const r = byCheck(await runDoctor('/proj', {}))
+    expect(r.executor.status).toBe('fail')
+    expect(r.executor.detail).toContain('did not answer')
+    expect(r.executor.detail).not.toContain('executor responded')
+    expect(r.executor.remediation).toContain('Reload the extension')
+  })
+
   it('warns (not fails) the executor during the post-compile attach grace window', async () => {
     state.mod = healthyModule({
       readReadyContract: () => ({

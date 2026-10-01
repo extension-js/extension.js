@@ -117,6 +117,9 @@ export interface ReadyFrame {
   type: 'ready'
   runId: string
   bufferedFrom?: number
+  // Events the ring evicted before this replay; a consumer joining late reads
+  // its history as partial from here, never from a per-event gap frame.
+  evicted?: number
   engine?: BridgeEngine
   capabilities?: {
     eval?: boolean

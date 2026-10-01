@@ -137,14 +137,19 @@ describe('BridgeBroker (Slice 1: logs)', () => {
       instanceId: 'inst-1'
     })
 
-    expect(late.sent[0]).toMatchObject({type: 'ready', bufferedFrom: 1})
+    expect(late.sent[0]).toMatchObject({
+      type: 'ready',
+      bufferedFrom: 1,
+      evicted: 0
+    })
+
     expect(late.sent.slice(1).map((f: any) => f.event.messageParts[0])).toEqual(
       ['a', 'b']
     )
   })
 
-  it('emits a gap frame when the ring overflows', () => {
-    const ring = new LogRingBuffer(2)
+  it('sends a live consumer every event and no gap frame once the ring is full', () => {
+    const ring = new LogRingBuffer(3)
     const b = new BridgeBroker({...opts, ring})
     const cons = new FakeConn('c')
     b.onFrame(cons, {
@@ -155,16 +160,41 @@ describe('BridgeBroker (Slice 1: logs)', () => {
     })
 
     cons.sent = []
-    b.ingestLog(incoming('a'))
-    b.ingestLog(incoming('b'))
-    b.ingestLog(incoming('c'))
-    const gaps = cons.sent.filter((f) => f.type === 'gap')
-    expect(gaps).toHaveLength(1)
-    expect(gaps[0]).toMatchObject({
-      type: 'gap',
-      dropped: 1,
-      reason: 'ring_overflow'
+    for (let i = 1; i <= 8; i++) b.ingestLog(incoming(`m${i}`))
+    expect(cons.sent.filter((f) => f.type === 'gap')).toHaveLength(0)
+    expect(cons.sent.map((f: any) => f.event.messageParts[0])).toEqual([
+      'm1',
+      'm2',
+      'm3',
+      'm4',
+      'm5',
+      'm6',
+      'm7',
+      'm8'
+    ])
+  })
+
+  it('tells a late consumer how much of the replay the ring evicted', () => {
+    const ring = new LogRingBuffer(3)
+    const b = new BridgeBroker({...opts, ring})
+    for (let i = 1; i <= 8; i++) b.ingestLog(incoming(`m${i}`))
+
+    const late = new FakeConn('late')
+    b.onFrame(late, {
+      type: 'hello',
+      v: 1,
+      role: 'consumer',
+      instanceId: 'inst-1'
     })
+
+    expect(late.sent[0]).toMatchObject({
+      type: 'ready',
+      bufferedFrom: 6,
+      evicted: 5
+    })
+
+    expect(late.sent.slice(1).map((f: any) => f.event.seq)).toEqual([6, 7, 8])
+    expect(late.sent.filter((f) => f.type === 'gap')).toHaveLength(0)
   })
 
   it('ignores log frames from non-producer connections', () => {
