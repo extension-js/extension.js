@@ -151,10 +151,12 @@ export function getEnvFileCandidates(
 export class EnvPlugin {
   public readonly browser: DevOptions['browser']
   public readonly manifestPath?: string
+  public readonly define?: Record<string, unknown>
 
   constructor(options: Partial<PluginInterface>) {
     this.browser = options.browser || 'chrome'
     this.manifestPath = options.manifestPath
+    this.define = options.define
   }
 
   apply(compiler: Compiler) {
@@ -293,6 +295,12 @@ export class EnvPlugin {
     // Dependencies written for Node read the free variable `global`. Point it
     // at globalThis, rspack's own global shim is off (node.global in rspack-config).
     filteredEnvVars.global = 'globalThis'
+
+    // User constants from extension.config.js, serialized the way Vite's
+    // define does, last so they win over anything the env files produced.
+    for (const [key, value] of Object.entries(this.define || {})) {
+      filteredEnvVars[key] = JSON.stringify(value)
+    }
 
     const injectedCount = Object.keys(filteredEnvVars).filter((k) =>
       k.startsWith('process.env.EXTENSION_PUBLIC_')

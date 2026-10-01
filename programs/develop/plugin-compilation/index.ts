@@ -28,6 +28,7 @@ export class CompilationPlugin {
   public readonly zipFilename?: string
   public readonly port?: number
   public readonly command?: 'dev' | 'start' | 'preview' | 'build'
+  public readonly define?: Record<string, unknown>
 
   constructor(
     options: PluginInterface & {clean: boolean} & {
@@ -36,10 +37,12 @@ export class CompilationPlugin {
       zipFilename?: string
       port?: number
       command?: 'dev' | 'start' | 'preview' | 'build'
+      define?: Record<string, unknown>
     }
   ) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
+    this.define = options.define
     this.clean = options.clean ?? true
     this.zip = options.zip
     this.zipSource = options.zipSource
@@ -94,7 +97,8 @@ export class CompilationPlugin {
 
     new EnvPlugin({
       manifestPath: this.manifestPath,
-      browser: this.browser || 'chrome'
+      browser: this.browser || 'chrome',
+      define: this.define
     }).apply(compiler)
 
     // CleanDistFolderPlugin removes dist before compilation, a problem for preview

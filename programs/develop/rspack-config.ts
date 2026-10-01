@@ -149,6 +149,7 @@ export default function webpackConfig(
     new CompilationPlugin({
       manifestPath,
       browser: devOptions.browser,
+      define: devOptions.define,
       clean: devOptions.output.clean,
       zip: devOptions.zip === true,
       zipSource: devOptions.zipSource === true,

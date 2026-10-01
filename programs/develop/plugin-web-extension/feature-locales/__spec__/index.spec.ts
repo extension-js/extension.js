@@ -111,7 +111,7 @@ describe('LocalesPlugin (unit)', () => {
     return compilation as any
   }
 
-  it('emits only .json locale files and skips non-json', () => {
+  it('emits every file under a locale folder, json or not', () => {
     fs.writeFileSync(
       manifestPath,
       '{"name":"x","manifest_version":3,"default_locale":"en"}'
@@ -131,11 +131,11 @@ describe('LocalesPlugin (unit)', () => {
 
     expect(
       emitted.some((p) => toPosix(p).endsWith('_locales/en/notes.txt'))
-    ).toBe(false)
+    ).toBe(true)
 
     expect(
       emitted.some((p) => toPosix(p).endsWith('_locales/en/logo.png'))
-    ).toBe(false)
+    ).toBe(true)
 
     expect(compilation.warnings.length).toBe(0)
     expect(compilation.errors.length).toBe(0)
