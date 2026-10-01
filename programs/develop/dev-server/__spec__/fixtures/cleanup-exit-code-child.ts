@@ -17,6 +17,10 @@ if (process.argv[2] === 'throw') {
 } else {
   setTimeout(() => {
     clearInterval(keepAlive)
-    process.kill(process.pid, 'SIGINT')
+
+    // A real signal where the OS has them. On Windows process.kill terminates
+    // the target outright, so the handler under test would never run.
+    if (process.platform === 'win32') process.emit('SIGINT', 'SIGINT')
+    else process.kill(process.pid, 'SIGINT')
   }, 10)
 }
