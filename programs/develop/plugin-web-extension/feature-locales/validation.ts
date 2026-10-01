@@ -9,9 +9,11 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compilation, Compiler} from '@rspack/core'
+import {filterKeysForThisBrowser} from '../../lib/manifest-utils'
 import {isDebug} from '../../lib/messaging'
 import {findUndefinedMsgReferences} from '../../lib/msg-placeholders'
 import {stripBom} from '../../lib/parse-json-safe'
+import type {DevOptions, Manifest} from '../../types'
 import {pushCompilationError} from './compilation-error'
 import {resolveLocalesFolder} from './get-locales'
 import * as messages from './messages'
@@ -19,17 +21,18 @@ import * as messages from './messages'
 export function validateLocales(
   compiler: Compiler,
   compilation: Compilation,
-  manifestPath: string
+  manifestPath: string,
+  browser?: DevOptions['browser']
 ): boolean {
   const projectRoot =
     (compiler.options.context as string | undefined) || undefined
 
   try {
     const manifestRaw = fs.readFileSync(manifestPath, 'utf8')
-    const manifest = JSON.parse(stripBom(manifestRaw)) as Record<
-      string,
-      unknown
-    >
+    const manifest = filterKeysForThisBrowser(
+      JSON.parse(stripBom(manifestRaw)) as Manifest,
+      browser || 'chrome'
+    ) as Record<string, unknown>
     const defaultLocale = manifest?.default_locale
 
     const resolvedLocalesRoot = resolveLocalesFolder(manifestPath, projectRoot)
