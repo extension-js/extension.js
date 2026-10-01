@@ -11,14 +11,21 @@ export const CONTROL_ENVELOPE_VERSION = 1 as const
 
 export type LogLevel = 'log' | 'info' | 'warn' | 'error' | 'debug' | 'trace'
 
-export type LogContext =
-  | 'background'
-  | 'content'
-  | 'page'
-  | 'sidebar'
-  | 'popup'
-  | 'options'
-  | 'devtools'
+// Every context a log event can carry: the background producer plus each
+// in-bundle relay. One list, so the filter, the help and the type agree.
+export const LOG_CONTEXTS = [
+  'background',
+  'content',
+  'popup',
+  'options',
+  'sidebar',
+  'devtools',
+  'newtab',
+  'history',
+  'bookmarks'
+] as const
+
+export type LogContext = (typeof LOG_CONTEXTS)[number]
 
 export type LogEventType = 'log' | 'dx.signal'
 export type DxSignalStatus = 'ok' | 'warn' | 'fail'
