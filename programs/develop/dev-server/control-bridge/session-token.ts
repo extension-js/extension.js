@@ -9,7 +9,12 @@
 import * as crypto from 'node:crypto'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {controlTokenPath, legacyControlTokenPath} from '../../lib/session-paths'
+import {
+  CONTROL_TOKEN_FILE_PREFIX,
+  controlTokenPath,
+  legacyControlTokenPath,
+  sessionStateDir
+} from '../../lib/session-paths'
 
 // Eval session token, keyed per project+browser (like the control-port file):
 // a single per-project slot broke concurrent chrome+chromium sessions.
@@ -36,10 +41,9 @@ export function writeControlToken(
   // Mirror to the legacy slot so an older CLI reading control.token keeps
   // working; last writer wins, no worse than the pre-fix behavior.
   try {
-    fs.writeFileSync(legacyControlTokenPath(projectPath), token, {
-      encoding: 'utf-8',
-      mode: 0o600
-    })
+    const legacy = legacyControlTokenPath(projectPath)
+    fs.writeFileSync(legacy, token, {encoding: 'utf-8', mode: 0o600})
+    fs.chmodSync(legacy, 0o600)
   } catch {
     // Ignore
   }
@@ -47,24 +51,36 @@ export function writeControlToken(
   return token
 }
 
+function readTokenFile(file: string): string | null {
+  try {
+    return fs.readFileSync(file, 'utf-8').trim() || null
+  } catch {
+    return null
+  }
+}
+
+function hasAnyPerBrowserToken(projectPath: string): boolean {
+  try {
+    return fs
+      .readdirSync(sessionStateDir(projectPath))
+      .some((name) => name.startsWith(CONTROL_TOKEN_FILE_PREFIX))
+  } catch {
+    return false
+  }
+}
+
 export function readControlToken(
   projectPath: string,
   browser: string
 ): string | null {
-  for (const file of [
-    controlTokenPath(projectPath, browser),
-    // Older dev servers wrote only the shared slot.
-    legacyControlTokenPath(projectPath)
-  ]) {
-    try {
-      const token = fs.readFileSync(file, 'utf-8').trim()
-      if (token.length) return token
-    } catch {
-      // Ignore
-    }
-  }
+  const token = readTokenFile(controlTokenPath(projectPath, browser))
+  if (token) return token
 
-  return null
+  // The shared slot is last-writer-wins across browsers, so it only speaks
+  // for a layout that never wrote per-browser files (older dev servers).
+  if (hasAnyPerBrowserToken(projectPath)) return null
+
+  return readTokenFile(legacyControlTokenPath(projectPath))
 }
 
 export function clearControlToken(projectPath: string, browser: string): void {
