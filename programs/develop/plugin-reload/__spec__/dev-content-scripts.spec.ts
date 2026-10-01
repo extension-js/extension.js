@@ -97,6 +97,43 @@ describe('planDevContentScripts', () => {
     ])
   })
 
+  it('gives a CSS-only group a marker script that stands in for its bundle', () => {
+    const plan = planDevContentScripts(
+      manifest([
+        {
+          matches: ['https://a.test/*'],
+          css: ['content_scripts/content-2.aaaaaaaa.css']
+        }
+      ])
+    )!
+
+    expect(plan.manifest.content_scripts).toEqual([
+      {matches: ['https://a.test/*'], js: ['content_scripts/dev-stub-2.js']}
+    ])
+
+    expect(plan.registry.entries[0]).toMatchObject({
+      id: 'extjs-dev-cs-2',
+      entry: 'content_scripts/content-2',
+      js: ['content_scripts/dev-css-2.js'],
+      css: ['content_scripts/content-2.aaaaaaaa.css'],
+      stubOnly: false
+    })
+
+    expect(Object.keys(plan.stubs).sort()).toEqual([
+      'content_scripts/dev-css-2.js',
+      'content_scripts/dev-stub-2.js'
+    ])
+
+    const world: any = {}
+    new Function('globalThis', plan.stubs['content_scripts/dev-css-2.js'])(
+      world
+    )
+
+    expect(world[DEV_CONTENT_SCRIPT_MARKER_KEY]).toEqual({
+      'content_scripts/content-2': 'content_scripts/dev-css-2.js'
+    })
+  })
+
   it('leaves MV2 manifests and manifests without compiled entries alone', () => {
     expect(
       planDevContentScripts(
@@ -164,13 +201,16 @@ describe('planDevContentScripts', () => {
   })
 })
 
-// A fake worker: chrome.scripting, chrome.tabs and fetch of the registry.
+type Registration = Record<string, unknown> & {id: string}
+
 function worker(opts: {
   registry?: unknown
-  registered?: Array<{id: string}>
+  registered?: Registration[]
   tabs?: Array<{id: number; url: string; status?: string}>
   excludedTabs?: Array<{id: number; url: string}>
   markers?: Record<string, Record<string, string>>
+  worlds?: Record<string, any>
+  assets?: Record<string, string>
 }) {
   const calls: Record<string, unknown[]> = {
     register: [],
@@ -180,7 +220,21 @@ function worker(opts: {
     insertCSS: [],
     reload: []
   }
-  const markers = opts.markers || {}
+  const registrations: Registration[] = (opts.registered || []).map((r) => ({
+    ...r
+  }))
+  const worlds: Record<string, any> = opts.worlds || {}
+
+  for (const [frameId, marker] of Object.entries(opts.markers || {})) {
+    worlds[frameId] = {[DEV_CONTENT_SCRIPT_MARKER_KEY]: {...marker}}
+  }
+
+  const worldOf = (frameId: number) => {
+    worlds[String(frameId)] = worlds[String(frameId)] || {}
+
+    return worlds[String(frameId)]
+  }
+
   let listener: ((msg: unknown, sender: unknown) => void) | undefined
   const chrome: any = {
     runtime: {
@@ -193,17 +247,30 @@ function worker(opts: {
     },
     scripting: {
       getRegisteredContentScripts: (cb: (s: unknown[]) => void) =>
-        cb(opts.registered || []),
-      registerContentScripts: (s: unknown[], cb?: () => void) => {
+        cb(registrations.map((r) => ({...r}))),
+      registerContentScripts: (s: Registration[], cb?: () => void) => {
         calls.register.push(...s)
+        registrations.push(...s.map((r) => ({...r})))
         cb?.()
       },
-      updateContentScripts: (s: unknown[], cb?: () => void) => {
+      updateContentScripts: (s: Registration[], cb?: () => void) => {
         calls.update.push(...s)
+
+        for (const patch of s) {
+          const current = registrations.find((r) => r.id === patch.id)
+          if (current) Object.assign(current, patch)
+        }
+
         cb?.()
       },
-      unregisterContentScripts: (f: unknown, cb?: () => void) => {
+      unregisterContentScripts: (f: {ids: string[]}, cb?: () => void) => {
         calls.unregister.push(f)
+
+        for (const id of f.ids) {
+          const at = registrations.findIndex((r) => r.id === id)
+          if (at >= 0) registrations.splice(at, 1)
+        }
+
         cb?.()
       },
       insertCSS: (o: unknown, cb?: () => void) => {
@@ -212,6 +279,14 @@ function worker(opts: {
       },
       executeScript: (o: any, cb?: (r: unknown[]) => void) => {
         calls.execute.push(o)
+
+        for (const frameId of o.target.frameIds || [0]) {
+          for (const file of o.files || []) {
+            const text = opts.assets?.[file]
+            if (text) new Function('globalThis', text)(worldOf(frameId))
+          }
+        }
+
         cb?.([])
       }
     },
@@ -233,22 +308,18 @@ function worker(opts: {
     }
   }
 
-  // The probe reads globalThis[MARKER] in the injected frame; the fake looks
-  // the marker up per frame id instead, through the same function body.
-  const probeWorld = (frameId: number) => markers[String(frameId)] || {}
   chrome.scripting.executeScript = (
     (original) => (o: any, cb?: (r: unknown[]) => void) => {
       if (typeof o.func === 'function') {
         const frames: number[] = o.target.frameIds || [0]
         cb?.(
           frames.map((frameId) => {
-            const scope = {[DEV_CONTENT_SCRIPT_MARKER_KEY]: probeWorld(frameId)}
             const fn = new Function(
               'globalThis',
               `return (${o.func.toString()}).apply(null, arguments[1])`
             )
 
-            return {frameId, result: fn(scope, o.args)}
+            return {frameId, result: fn(worldOf(frameId), o.args)}
           })
         )
 
@@ -274,12 +345,17 @@ function worker(opts: {
   return {
     g,
     calls,
+    registrations,
+    worlds,
     stub: (entry: string, tabId: number, frameId = 0) =>
       listener?.({__extjsDevCsStub: {entry}}, {tab: {id: tabId}, frameId}),
     hooks: () => g.__extjsDevContentScripts,
     settle: () => new Promise((r) => setTimeout(r, 20))
   }
 }
+
+const fileInjections = (calls: Record<string, unknown[]>) =>
+  calls.execute.filter((o: any) => Array.isArray(o.files))
 
 const registry = {
   version: 1,
@@ -317,6 +393,7 @@ describe('dev content scripts runtime', () => {
         runAt: 'document_idle',
         allFrames: false,
         world: 'ISOLATED',
+        matchOriginAsFallback: false,
         persistAcrossSessions: false
       }
     ])
@@ -331,6 +408,54 @@ describe('dev content scripts runtime', () => {
     await w.settle()
     expect(w.calls.register).toEqual([])
     expect(w.calls.update).toHaveLength(1)
+  })
+
+  it('a registration that lost exclude_matches, css or the origin fallback sheds them through the partial update', async () => {
+    const wide = worker({registry: {...registry, entries: [{...registry.entries[0], matchOriginAsFallback: true}]}})
+    await wide.settle()
+    expect(wide.registrations[0]).toMatchObject({
+      excludeMatches: ['https://a.test/skip*'],
+      css: ['content_scripts/content-0.NEW.css'],
+      matchOriginAsFallback: true
+    })
+
+    const shrunk = worker({
+      registry: {
+        version: 1,
+        entries: [
+          {
+            id: 'extjs-dev-cs-0',
+            entry: 'content_scripts/content-0',
+            matches: ['https://a.test/*'],
+            js: ['content_scripts/content-0.NEWER.js'],
+            css: [],
+            runAt: 'document_idle',
+            allFrames: false,
+            world: 'ISOLATED',
+            stubOnly: false
+          }
+        ]
+      },
+      registered: wide.registrations
+    })
+    await shrunk.settle()
+
+    expect(shrunk.calls.register).toEqual([])
+    expect(shrunk.calls.update).toHaveLength(1)
+    expect(shrunk.registrations).toEqual([
+      {
+        id: 'extjs-dev-cs-0',
+        matches: ['https://a.test/*'],
+        excludeMatches: [],
+        js: ['content_scripts/content-0.NEWER.js'],
+        css: [],
+        runAt: 'document_idle',
+        allFrames: false,
+        world: 'ISOLATED',
+        matchOriginAsFallback: false,
+        persistAcrossSessions: false
+      }
+    ])
   })
 
   it('a stub signal injects the current file into that frame only when its world does not run it yet', async () => {
@@ -412,6 +537,114 @@ describe('dev content scripts runtime', () => {
     expect(w.calls.execute.map((o: any) => o.target)).toEqual([
       {tabId: 1, frameIds: [0]}
     ])
+  })
+
+  it('heal re-injects a frame that runs the same file for a previous extension generation, and only once per generation', async () => {
+    const worlds: Record<string, any> = {}
+    const tabs = [{id: 1, url: 'https://a.test/one', status: 'complete'}]
+    const excludedTabs = [{id: 3, url: 'https://a.test/skip/me'}]
+    const first = worker({
+      registry,
+      tabs,
+      excludedTabs,
+      worlds,
+      markers: {
+        '0': {'content_scripts/content-0': 'content_scripts/content-0.NEW.js'}
+      }
+    })
+    await first.settle()
+
+    first.hooks().heal()
+    await first.settle()
+    expect(fileInjections(first.calls)).toHaveLength(1)
+    expect(first.calls.insertCSS).toHaveLength(1)
+
+    first.hooks().heal()
+    await first.settle()
+    expect(fileInjections(first.calls)).toHaveLength(1)
+    expect(first.calls.insertCSS).toHaveLength(1)
+
+    const second = worker({registry, tabs, excludedTabs, worlds})
+    await second.settle()
+    second.hooks().heal()
+    await second.settle()
+    expect(fileInjections(second.calls)).toHaveLength(1)
+    expect(second.calls.insertCSS).toHaveLength(1)
+  })
+
+  it('a frame Chromium covered since boot is left alone by its stub signal and by the heal that follows', async () => {
+    const worlds: Record<string, any> = {}
+    const w = worker({
+      registry,
+      worlds,
+      tabs: [{id: 1, url: 'https://a.test/one', status: 'complete'}],
+      excludedTabs: [{id: 3, url: 'https://a.test/skip/me'}],
+      markers: {
+        '0': {'content_scripts/content-0': 'content_scripts/content-0.NEW.js'}
+      }
+    })
+    await w.settle()
+
+    w.stub('content_scripts/content-0', 1, 0)
+    await w.settle()
+    expect(fileInjections(w.calls)).toEqual([])
+
+    w.hooks().heal()
+    await w.settle()
+    expect(fileInjections(w.calls)).toEqual([])
+    expect(w.calls.insertCSS).toEqual([])
+  })
+
+  it('a CSS-only entry lands its stylesheet once per frame per load and a heal in the same generation adds nothing', async () => {
+    const plan = planDevContentScripts({
+      manifest_version: 3,
+      name: 'x',
+      version: '1',
+      content_scripts: [
+        {
+          matches: ['https://a.test/*'],
+          css: ['content_scripts/content-0.aaaaaaaa.css']
+        }
+      ]
+    } as any)!
+    const w = worker({
+      registry: plan.registry,
+      assets: plan.stubs,
+      tabs: [{id: 5, url: 'https://a.test/one', status: 'complete'}]
+    })
+    await w.settle()
+
+    expect(w.registrations).toEqual([
+      expect.objectContaining({
+        id: 'extjs-dev-cs-0',
+        js: ['content_scripts/dev-css-0.js'],
+        css: ['content_scripts/content-0.aaaaaaaa.css']
+      })
+    ])
+
+    w.stub('content_scripts/content-0', 5, 0)
+    await w.settle()
+    expect(w.calls.insertCSS).toEqual([
+      {
+        target: {tabId: 5, frameIds: [0]},
+        files: ['content_scripts/content-0.aaaaaaaa.css']
+      }
+    ])
+
+    expect(fileInjections(w.calls)).toEqual([
+      expect.objectContaining({files: ['content_scripts/dev-css-0.js']})
+    ])
+
+    expect(w.worlds['0'][DEV_CONTENT_SCRIPT_MARKER_KEY]).toMatchObject({
+      'content_scripts/content-0': 'content_scripts/dev-css-0.js'
+    })
+
+    w.stub('content_scripts/content-0', 5, 0)
+    await w.settle()
+    w.hooks().heal()
+    await w.settle()
+    expect(w.calls.insertCSS).toHaveLength(1)
+    expect(fileInjections(w.calls)).toHaveLength(1)
   })
 
   it('reload re-reads the registry, re-registers, and reloads each matching tab once', async () => {

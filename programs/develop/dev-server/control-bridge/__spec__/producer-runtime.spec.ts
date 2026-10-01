@@ -2336,9 +2336,12 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     expect(registered[0]).toMatchObject({
       id: 'extjs-dev-cs-0',
       matches: ['https://x.test/*'],
+      excludeMatches: [],
       js: ['content_scripts/content-0.NEWHASH.js'],
+      css: [],
       world: 'ISOLATED',
       runAt: 'document_idle',
+      matchOriginAsFallback: false,
       persistAcrossSessions: false
     })
 
