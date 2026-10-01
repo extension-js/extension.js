@@ -85,7 +85,7 @@ describe('ready.json provenance + events.ndjson run attribution (bugs 32/33)', (
     }
   })
 
-  it('writeStarting resets the timeline to the current run only', () => {
+  it('writeStarting resets the timeline only when the run on disk is another', () => {
     const writer = makeWriter()
     writer.writeStarting()
     writer.appendEvent({
@@ -99,7 +99,16 @@ describe('ready.json provenance + events.ndjson run attribution (bugs 32/33)', (
       fs.readFileSync(writer.eventsPath, 'utf-8').trim().split('\n')
     ).toHaveLength(1)
 
-    writer.writeStarting()
+    makeWriter().writeStarting()
+    expect(
+      fs.readFileSync(writer.eventsPath, 'utf-8').trim().split('\n')
+    ).toHaveLength(1)
+
+    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    ready.runId = 'an-earlier-run'
+    fs.writeFileSync(writer.readyPath, JSON.stringify(ready))
+
+    makeWriter().writeStarting()
     expect(fs.readFileSync(writer.eventsPath, 'utf-8')).toBe('')
   })
 

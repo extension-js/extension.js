@@ -336,6 +336,62 @@ describe('ready.json writer preservation', () => {
     expect(fs.existsSync(writer.readyPath)).toBe(false)
   })
 
+  it('a writer a later writeStarting superseded leaves the contract alone', () => {
+    const first = makeWriter()
+    first.writeStarting()
+    first.writeReady()
+
+    const next = makeWriter()
+    next.writeStarting()
+    expect(first.isSuperseded()).toBe(true)
+    expect(next.isSuperseded()).toBe(false)
+
+    first.writeShutdown()
+    first.writeError('compile_error', 'late')
+    first.writeReady()
+
+    const after = JSON.parse(fs.readFileSync(next.readyPath, 'utf-8'))
+    expect(after.status).toBe('starting')
+    expect(after.code).toBeUndefined()
+
+    next.writeShutdown()
+    expect(JSON.parse(fs.readFileSync(next.readyPath, 'utf-8')).status).toBe(
+      'stopped'
+    )
+  })
+
+  it('writeStarting from the same run keeps startedAt', () => {
+    const writer = makeWriter()
+    writer.writeStarting()
+    writer.writeReady()
+    const first = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+
+    const next = makeWriter()
+    next.writeStarting()
+
+    const after = JSON.parse(fs.readFileSync(next.readyPath, 'utf-8'))
+    expect(after.status).toBe('starting')
+    expect(after.startedAt).toBe(first.startedAt)
+  })
+
+  it('writeShutdown and stampExecutorDetached refuse another run on disk', () => {
+    const writer = makeWriter()
+    writer.writeReady()
+    writer.stampExecutorAttached()
+
+    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    ready.runId = 'another-run'
+    fs.writeFileSync(writer.readyPath, JSON.stringify(ready))
+
+    writer.writeShutdown()
+    writer.stampExecutorDetached()
+
+    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    expect(after.status).toBe('ready')
+    expect(after.runtime).toBe('attached')
+    expect('executorDetachedAt' in after).toBe(false)
+  })
+
   it('a build writer never rewrites a LIVE dev session contract', () => {
     const devWriter = makeWriter()
     devWriter.writeReady()
