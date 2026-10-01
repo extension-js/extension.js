@@ -10,7 +10,11 @@ import * as fs from 'node:fs'
 import * as nodePath from 'node:path'
 import type {Configuration} from '@rspack/core'
 import {humanLine, stripAnsi} from './dev-server/lifecycle-stream'
-import {runAddonLint} from './lib/addon-lint'
+import {
+  failedAddonLint,
+  runAddonLint,
+  summarizeAddonLint
+} from './lib/addon-lint'
 import {
   promoteStagingDist,
   removeStagingDir,
@@ -401,7 +405,8 @@ export async function extensionBuild(
 
           // Store readiness for Gecko targets: addons-linter runs over the
           // promoted dist and its findings join the warnings, never the
-          // errors. A missing linter is one hint, a broken one a debug line.
+          // errors. A missing linter is one hint, a broken one says so, and
+          // the summary records the outcome either way.
           const lintLines: string[] = []
 
           try {
@@ -416,10 +421,13 @@ export async function extensionBuild(
                 collectChunkDependencyProvenance(stats.compilation)
             })
 
+            summary = {...summary, addon_lint: summarizeAddonLint(lint)}
+
             if (lint.status === 'missing' && lint.hint) {
               lintLines.push(lint.hint)
-            } else if (lint.status === 'failed' && isDebug()) {
-              lintLines.push(lint.debugLine)
+            } else if (lint.status === 'failed') {
+              lintLines.push(lint.line)
+              if (isDebug()) lintLines.push(lint.debugLine)
             } else if (lint.status === 'linted' && lint.findings > 0) {
               lintLines.push(...lint.lines)
               summary = {
@@ -431,8 +439,11 @@ export async function extensionBuild(
                 ]
               }
             }
-          } catch {
+          } catch (lintError) {
             // A store check can never fail a green build.
+            const lint = failedAddonLint(lintError, distDisplay)
+            summary = {...summary, addon_lint: summarizeAddonLint(lint)}
+            lintLines.push(lint.line)
           }
 
           // Hosts that shell out to `extension build` cannot see the returned
