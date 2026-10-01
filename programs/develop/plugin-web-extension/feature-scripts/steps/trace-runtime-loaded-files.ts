@@ -1399,8 +1399,13 @@ function extractGetURLLiterals(source: string): string[] {
   return literals
 }
 
-// Extract HTML surface paths set at runtime (setPopup/setOptions/
-// createDocument): never manifest refs, so untraced they vanish from dist.
+const IMAGE_LITERAL_RE =
+  /(['"])((?:\\.|(?!\1)[^\\])*\.(?:png|jpe?g|gif|svg|webp|ico))\1/gi
+
+// Extract paths named at runtime and never in the manifest: HTML surfaces
+// (setPopup/setOptions/createDocument/tabs.create), icons (setIcon,
+// notifications.create) and devtools panels. Untraced they vanish from dist
+// while the build stays green.
 export function extractRuntimeSurfaceLiterals(source: string): string[] {
   const code = blankComments(source)
   const literals: string[] = []
@@ -1410,15 +1415,56 @@ export function extractRuntimeSurfaceLiterals(source: string): string[] {
       prop: 'popup'
     },
     {callRe: /\bsidePanel\s*\.\s*setOptions\s*\(/g, prop: 'path'},
-    {callRe: /\boffscreen\s*\.\s*createDocument\s*\(/g, prop: 'url'}
-  ]
+    {callRe: /\boffscreen\s*\.\s*createDocument\s*\(/g, prop: 'url'},
+    {callRe: /\b(?:tabs|windows)\s*\.\s*create\s*\(/g, prop: 'url'},
+    {callRe: /\bnotifications\s*\.\s*create\s*\(/g, prop: 'iconUrl'},
+    {
+      // The path value is a string or a size map, so every image literal
+      // inside the call counts.
+      callRe: /\b(?:action|browserAction|pageAction)\s*\.\s*setIcon\s*\(/g,
+      images: true
+    },
+    {
+      // panels.create(title, iconPath, pagePath): the two paths are positional.
+      callRe: /\bpanels\s*\.\s*create\s*\(/g,
+      positional: [1, 2]
+    }
+  ] as Array<{
+    callRe: RegExp
+    prop?: string
+    images?: boolean
+    positional?: number[]
+  }>
 
-  for (const {callRe, prop} of calls) {
+  for (const {callRe, prop, images, positional} of calls) {
     let match: RegExpExecArray | null
 
     while ((match = callRe.exec(code))) {
       const args = readBalancedArgs(code, match.index + match[0].length - 1)
       if (args == null) continue
+
+      if (images) {
+        IMAGE_LITERAL_RE.lastIndex = 0
+        let imageMatch: RegExpExecArray | null
+
+        while ((imageMatch = IMAGE_LITERAL_RE.exec(args))) {
+          literals.push(unescapeStringBody(imageMatch[2]))
+        }
+
+        continue
+      }
+
+      if (positional) {
+        const parts = splitTopLevelArgs(args)
+
+        for (const index of positional) {
+          const part = parts[index]
+          const literal = part == null ? null : pureStringLiteral(part)
+          if (literal?.trim()) literals.push(literal)
+        }
+
+        continue
+      }
 
       const propRe = new RegExp(
         `["']?${prop}["']?\\s*:\\s*(['"])((?:\\\\.|(?!\\1)[^\\\\])*)\\1`,

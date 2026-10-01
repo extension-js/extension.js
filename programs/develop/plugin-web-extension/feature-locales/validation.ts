@@ -37,13 +37,20 @@ export function validateLocales(
       resolvedLocalesRoot || path.join(path.dirname(manifestPath), '_locales')
     const hasLocalesRoot = Boolean(resolvedLocalesRoot)
 
-    // Project-root _locales is the canonical placement; the <manifestDir>/_locales
-    // fallback warns instead of failing so legacy layouts keep building.
+    // Project-root _locales is the canonical placement for the src/ layout;
+    // the <manifestDir>/_locales fallback warns instead of failing so legacy
+    // layouts keep building. A manifest in any other subfolder (a repo that
+    // holds the extension under extensions/combined/) is its own root, and
+    // _locales beside it is where the browser reads it.
     if (projectRoot && resolvedLocalesRoot) {
       const manifestDir = path.dirname(manifestPath)
       const sameAsRoot = path.resolve(manifestDir) === path.resolve(projectRoot)
+      const srcLayout =
+        path.basename(manifestDir) === 'src' &&
+        path.resolve(path.dirname(manifestDir)) === path.resolve(projectRoot)
       const usedManifestDirFallback =
         !sameAsRoot &&
+        srcLayout &&
         path.resolve(resolvedLocalesRoot) ===
           path.resolve(path.join(manifestDir, '_locales'))
 

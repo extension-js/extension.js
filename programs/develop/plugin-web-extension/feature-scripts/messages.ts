@@ -219,7 +219,7 @@ export function runtimeSetSurfaceDependencyMissing(
 ) {
   const lines: string[] = []
   lines.push(
-    `${assetName} sets '${literal}' as a runtime surface (setPopup/setOptions), but the file isn't in the output.`
+    `${assetName} names '${literal}' at runtime (setPopup, setIcon, panels.create, tabs.create and friends), but the file isn't in the output.`
   )
 
   lines.push(`${colors.gray('NOT FOUND')} ${colors.underline(expectedPath)}`)
