@@ -437,6 +437,32 @@ describe('extension open', () => {
     })
   })
 
+  it('sends popup and sidebar to the engine on every gecko fork', async () => {
+    for (const browser of ['waterfox', 'zen', 'floorp', 'librewolf']) {
+      for (const surface of ['popup', 'sidebar']) {
+        bridge.commands = []
+        expect(await run(['open', surface, '--browser', browser])).toBe(0)
+        expect(bridge.commands[0], `${browser} ${surface}`).toMatchObject({
+          op: 'open',
+          args: {surface}
+        })
+      }
+    }
+  })
+
+  it('still refuses the popup before the bridge on a chromium fork', async () => {
+    for (const browser of ['chrome', 'brave', 'vivaldi']) {
+      bridge.commands = []
+      errorSpy.mockClear()
+      expect(await run(['open', 'popup', '--browser', browser])).toBe(1)
+      expect(String(errorSpy.mock.calls[0][0]), browser).toContain(
+        'user gesture'
+      )
+
+      expect(bridge.commands, browser).toHaveLength(0)
+    }
+  })
+
   it('rejects unknown surfaces', async () => {
     expect(await run(['open', 'window'])).toBe(1)
     expect(String(errorSpy.mock.calls[0][0])).toContain('unknown surface')
