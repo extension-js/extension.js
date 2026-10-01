@@ -94,6 +94,39 @@ describe('generate-extension-types', () => {
     )
   })
 
+  it('declares the define constants with the types their values resolve to', async () => {
+    const root = makeTempDir('extjs-gen-define-')
+    fs.writeFileSync(
+      path.join(root, 'manifest.json'),
+      JSON.stringify({name: 'x'})
+    )
+
+    fs.writeFileSync(
+      path.join(root, 'extension.config.js'),
+      [
+        'module.exports = {',
+        "  define: {API_URL: 'https://a.example', RETRIES: 3, FLAGS: {a: true}, 'process.env.MODE': 'x'},",
+        "  browser: {firefox: {define: {RETRIES: 'many', FIREFOX_ONLY: true}}},",
+        '  commands: {dev: {define: {DEV_PORT: 1234}}}',
+        '}',
+        ''
+      ].join('\n')
+    )
+
+    await generateExtensionTypes(root, root)
+    const content = fs.readFileSync(
+      path.join(root, 'extension-env.d.ts'),
+      'utf8'
+    )
+
+    expect(content).toContain('declare const API_URL: string\n')
+    expect(content).toContain('declare const RETRIES: number | string\n')
+    expect(content).toContain('declare const FLAGS: Record<string, unknown>\n')
+    expect(content).toContain('declare const FIREFOX_ONLY: boolean\n')
+    expect(content).toContain('declare const DEV_PORT: number\n')
+    expect(content).not.toContain('process.env.MODE')
+  })
+
   it('keeps the emitted wildcard list in step with extension/types/assets.d.ts', () => {
     const published = fs.readFileSync(publishedTypesFile, 'utf8')
     const publishedPatterns = wildcardPatternsIn(published)

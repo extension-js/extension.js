@@ -39,6 +39,7 @@ vi.mock('../lib/config-loader', () => {
 
   return {
     loadCustomConfig: vi.fn(async () => userConfigSpy),
+    loadConfigResolvedHook: vi.fn(async () => undefined),
     loadBrowserConfig: vi.fn(async () => ({})),
     loadProjectConfigDefaults: vi.fn(async () => ({})),
     loadCommandConfig: vi.fn(async () => ({
@@ -72,7 +73,8 @@ vi.mock('../plugin-special-folders/folder-extensions/resolve-config', () => ({
 }))
 
 vi.mock('../plugin-special-folders/get-data', () => ({
-  getSpecialFoldersDataForProjectRoot: vi.fn(() => ({extensions: undefined}))
+  getSpecialFoldersDataForProjectRoot: vi.fn(() => ({extensions: undefined})),
+  rememberSpecialFoldersConfig: vi.fn()
 }))
 
 const rspackMock = vi.hoisted(() => vi.fn())

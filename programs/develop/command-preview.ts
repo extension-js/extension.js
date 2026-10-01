@@ -38,7 +38,7 @@ import {resolveCompanionExtensionsConfig} from './plugin-special-folders/folder-
 import {resolveCompanionExtensionDirs as resolveCompanionExtensionDirsFromSpecialFolders} from './plugin-special-folders/folder-extensions/resolve-dirs'
 import type {CompanionExtensionsConfig} from './plugin-special-folders/folder-extensions/types'
 import {getSpecialFoldersDataForProjectRoot} from './plugin-special-folders/get-data'
-import type {BrowserConfig, PreviewOptions} from './types'
+import type {BrowserConfig, PreviewOptions, SpecialFoldersConfig} from './types'
 
 /**
  * Resolved browser launch options returned by extensionPreview.
@@ -253,19 +253,26 @@ export async function extensionPreview(
 
   const safeProjectConfig = sanitize(projectConfig) as {
     extensions?: CompanionExtensionsConfig
+    folders?: SpecialFoldersConfig
   }
   const safeBrowserConfig = sanitize(browserConfig) as BrowserConfig
   const safeCommandConfig = sanitize(
     commandConfig
   ) as Partial<PreviewOptions> & {
     extensions?: CompanionExtensionsConfig
+    folders?: SpecialFoldersConfig
   }
   const safePreviewOptions = sanitize(previewOptions) as PreviewOptions
   // Preview never compiles, so an ancestor project's scripts/ folder has no
   // say here; only its companion extensions folder does.
   const specialFoldersData = unpackedDir
     ? {extensions: undefined}
-    : getSpecialFoldersDataForProjectRoot(packageJsonDir)
+    : getSpecialFoldersDataForProjectRoot(
+        packageJsonDir,
+        safeCommandConfig.folders ??
+          safeBrowserConfig.folders ??
+          safeProjectConfig.folders
+      )
 
   const mergedExtensionsConfig =
     safePreviewOptions.extensions ??

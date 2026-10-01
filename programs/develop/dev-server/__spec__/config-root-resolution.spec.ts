@@ -39,6 +39,7 @@ vi.mock('../../lib/config-loader', () => ({
   loadCommandConfig,
   loadBrowserConfig,
   loadCustomConfig,
+  loadConfigResolvedHook: vi.fn(async () => undefined),
   loadProjectConfigDefaults
 }))
 
@@ -50,7 +51,8 @@ vi.mock(
 )
 
 vi.mock('../../plugin-special-folders/get-data', () => ({
-  getSpecialFoldersDataForProjectRoot: vi.fn(() => ({extensions: undefined}))
+  getSpecialFoldersDataForProjectRoot: vi.fn(() => ({extensions: undefined})),
+  rememberSpecialFoldersConfig: vi.fn()
 }))
 
 vi.mock('../../lib/sanitize', () => ({

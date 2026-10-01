@@ -8,6 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {publicFolderSetting} from './folders-config'
 
 function isUsableDir(candidate: string): boolean {
   try {
@@ -40,11 +41,19 @@ export function inspectPublicFolders(
   manifestPath: string,
   projectRoot?: string
 ): PublicFolderInspection {
+  const setting = publicFolderSetting(projectRoot)
   const fromManifest = path.join(path.dirname(manifestPath), 'public')
-  const fromRoot = projectRoot ? path.join(projectRoot, 'public') : fromManifest
+  const fromRoot =
+    setting.kind === 'path'
+      ? setting.dir
+      : projectRoot
+        ? path.join(projectRoot, 'public')
+        : fromManifest
   const sameLocation = path.resolve(fromRoot) === path.resolve(fromManifest)
-  const rootOk = isUsableDir(fromRoot)
-  const manifestOk = !sameLocation && isUsableDir(fromManifest)
+  // A configured folder is the only one read, and `false` reads none.
+  const rootOk = setting.kind !== 'off' && isUsableDir(fromRoot)
+  const manifestOk =
+    setting.kind === 'default' && !sameLocation && isUsableDir(fromManifest)
 
   return {
     publicDir: rootOk ? fromRoot : manifestOk ? fromManifest : undefined,
@@ -125,7 +134,12 @@ export function publicResolveRoots(
   projectRoot: string,
   manifestPath: string
 ): string[] {
+  const setting = publicFolderSetting(projectRoot)
   const manifestDir = path.dirname(manifestPath)
+
+  if (setting.kind === 'off') return [manifestDir]
+  if (setting.kind === 'path') return [setting.dir, manifestDir]
+
   const fromRoot = path.join(projectRoot, 'public')
   const fromManifest = path.join(manifestDir, 'public')
   const roots = [fromRoot, manifestDir]

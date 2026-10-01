@@ -9,8 +9,10 @@
 import * as path from 'node:path'
 import {type Compilation, type Compiler, rspack} from '@rspack/core'
 import {isDebug} from '../lib/messaging'
+import type {SpecialFoldersConfig} from '../types'
 import {checkManifestInPublic} from './check-manifest-in-public'
 import {emitRootAbsoluteRefs} from './emit-root-absolute-refs'
+import {rememberSpecialFoldersConfig} from './folders-config'
 import * as messages from './messages'
 import {
   inspectPublicFolders,
@@ -20,6 +22,7 @@ import {WarnUponFolderChanges} from './warn-upon-folder-changes'
 
 interface SpecialFoldersPluginOptions {
   manifestPath: string
+  folders?: SpecialFoldersConfig
 }
 
 export class SpecialFoldersPlugin {
@@ -32,8 +35,10 @@ export class SpecialFoldersPlugin {
   }
 
   apply(compiler: Compiler) {
-    const {manifestPath} = this.options
+    const {manifestPath, folders} = this.options
     const context = compiler.options.context || path.dirname(manifestPath)
+    if (folders) rememberSpecialFoldersConfig(context, folders)
+
     const inspection = inspectPublicFolders(manifestPath, context)
     // The folder in use, or the canonical root path when there is none, so
     // root-absolute refs keep resolving from the same place as before.

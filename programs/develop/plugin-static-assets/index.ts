@@ -159,15 +159,16 @@ export class StaticAssetsPlugin {
     const fontsRule = defaultRuleFor(FONT_EXTENSIONS, true)
     const filesRule = defaultRuleFor(FILE_EXTENSIONS, true)
 
-    const hasUrlResourceQueryRule = compiler.options.module.rules.some(
-      (thisRule) => {
+    const hasResourceQueryRule = (query: string) =>
+      compiler.options.module.rules.some((thisRule) => {
         const rule = thisRule as {resourceQuery?: unknown} | null
         const resourceQuery = rule?.resourceQuery
         if (!(resourceQuery instanceof RegExp)) return false
 
-        return resourceQuery.test('?url')
-      }
-    )
+        return resourceQuery.test(query)
+      })
+    const hasUrlResourceQueryRule = hasResourceQueryRule('?url')
+    const hasRawResourceQueryRule = hasResourceQueryRule('?raw')
 
     const svgScopedQueries = scopedQueriesFor('.svg')
 
@@ -195,6 +196,16 @@ export class StaticAssetsPlugin {
               generator: {
                 filename: filenamePattern
               }
+            }
+          ]),
+      // Vite's ?raw: the file's text as the default export, whatever the
+      // extension. A migrated `import doc from './x.js?raw'` keeps working.
+      ...(hasRawResourceQueryRule
+        ? []
+        : [
+            {
+              resourceQuery: /(?:^\?|&)raw(?:&|=|$)/,
+              type: 'asset/source'
             }
           ])
     ]

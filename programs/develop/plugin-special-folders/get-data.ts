@@ -11,9 +11,16 @@ import path from 'node:path'
 import type {Compiler} from '@rspack/core'
 import {getSpecialFoldersData} from 'browser-extension-manifest-fields'
 import {humanWarn, isDebug} from '../lib/messaging'
-import type {FilepathList} from '../types'
+import type {FilepathList, SpecialFoldersConfig} from '../types'
 import type {CompanionExtensionsConfig} from './folder-extensions/types'
+import {
+  publicFolderSetting,
+  rememberedFolders,
+  rememberSpecialFoldersConfig
+} from './folders-config'
 import * as messages from './messages'
+
+export {rememberSpecialFoldersConfig}
 
 // scripts/ enrolls EVERY file as a content-script-like entry, but Node build
 // tooling (Node-builtin imports, node shebang) can never be one; exclude it.
@@ -293,7 +300,7 @@ function filterUnreferencedScripts(
   // Fail open: no reference assets found → we can't tell, so keep everything.
   if (corpus === '') return list || {}
 
-  const isReferenced = (entry: string): boolean => {
+  const isReferenced = (entry: string, key: string): boolean => {
     const abs = String(entry)
     if (!path.isAbsolute(abs)) return true
 
@@ -302,7 +309,15 @@ function filterUnreferencedScripts(
     // Match the project-relative path (`scripts/foo.js`) as a substring, which
     // also covers `/scripts/foo.js` runtime-injection paths. A compiled source
     // is only ever injected by its emitted name, so accept that spelling too.
-    return referenceSpellings(rel).some((spelling) => corpus.includes(spelling))
+    // A folder moved by the `folders` config still emits under `scripts/`, so
+    // the entry name is the spelling the extension references in that case.
+    const spellings = new Set([
+      ...referenceSpellings(rel),
+      `${key}${path.extname(rel)}`,
+      `${key}.js`
+    ])
+
+    return [...spellings].some((spelling) => corpus.includes(spelling))
   }
 
   const next: FilepathList = {}
@@ -310,7 +325,7 @@ function filterUnreferencedScripts(
 
   for (const [key, value] of entries) {
     const paths = Array.isArray(value) ? value : value ? [value] : []
-    const kept = paths.filter(isReferenced)
+    const kept = paths.filter((entry) => isReferenced(String(entry), key))
 
     for (const entry of paths) {
       if (kept.includes(entry)) continue
@@ -400,27 +415,58 @@ function filterPublicEntrypoints(
   return next
 }
 
+// The fields package scans `<dir>/pages`, `<dir>/scripts` and `<dir>/public`
+// for one dir. A folder moved elsewhere (`src/scripts`) is read from its own
+// parent and only that folder is taken from the scan; `false` turns it off.
+function scanSpecialFolders(
+  projectRoot: string,
+  folders: SpecialFoldersConfig
+): ReturnType<typeof getSpecialFoldersData> {
+  const base = getSpecialFoldersData({
+    manifestPath: path.join(projectRoot, 'package.json')
+  })
+  const next = {...base}
+
+  for (const name of ['pages', 'scripts'] as const) {
+    const setting = folders[name]
+
+    if (setting === false) {
+      next[name] = {}
+      continue
+    }
+
+    if (typeof setting !== 'string' || !setting.trim()) continue
+
+    const abs = path.resolve(projectRoot, setting)
+
+    if (path.resolve(projectRoot, name) === abs) continue
+
+    const scanned = getSpecialFoldersData({
+      manifestPath: path.join(path.dirname(abs), 'package.json')
+    })
+
+    next[name] = path.basename(abs) === name ? scanned[name] : {}
+  }
+
+  return next
+}
+
 export function getSpecialFoldersDataForCompiler(
   compiler: Compiler
 ): SpecialFoldersData {
   const projectRoot = compiler.options.context || ''
-  const publicDir = path.join(projectRoot, 'public')
-  const data = getSpecialFoldersData({
-    // Use package.json path to get the project root directory
-    // where special folders (pages/, scripts/, public/) are located
-    manifestPath: path.join(projectRoot, 'package.json')
-  })
 
-  return finalizeSpecialFoldersData(data, projectRoot, publicDir)
+  return getSpecialFoldersDataForProjectRoot(projectRoot)
 }
 
 export function getSpecialFoldersDataForProjectRoot(
-  projectRoot: string
+  projectRoot: string,
+  folders: SpecialFoldersConfig = rememberedFolders(projectRoot)
 ): SpecialFoldersData {
-  const publicDir = path.join(projectRoot, 'public')
-  const data = getSpecialFoldersData({
-    manifestPath: path.join(projectRoot, 'package.json')
-  })
+  const setting = publicFolderSetting(projectRoot)
+  const publicDir =
+    setting.kind === 'path' ? setting.dir : path.join(projectRoot, 'public')
+  const data = scanSpecialFolders(projectRoot, folders)
 
   return finalizeSpecialFoldersData(data, projectRoot, publicDir)
 }

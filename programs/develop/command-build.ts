@@ -22,9 +22,11 @@ import {collectChunkDependencyProvenance} from './lib/chunk-dependency-provenanc
 import {
   loadBrowserConfig,
   loadCommandConfig,
+  loadConfigResolvedHook,
   loadCustomConfig,
   loadProjectConfigDefaults
 } from './lib/config-loader'
+import {ConfigResolvedPlugin} from './lib/config-resolved-plugin'
 import {
   ensureDevelopArtifacts,
   ensureUserProjectDependencies
@@ -65,7 +67,10 @@ import {
   stampReadyKnownExtensionId
 } from './plugin-playwright'
 import {resolveCompanionExtensionsConfig} from './plugin-special-folders/folder-extensions/resolve-config'
-import {getSpecialFoldersDataForProjectRoot} from './plugin-special-folders/get-data'
+import {
+  getSpecialFoldersDataForProjectRoot,
+  rememberSpecialFoldersConfig
+} from './plugin-special-folders/get-data'
 import type {BuildOptions} from './types'
 
 const reportedBuildFailures = new WeakSet<object>()
@@ -187,8 +192,13 @@ export async function extensionBuild(
     const projectConfig = await loadProjectConfigDefaults(packageJsonDir)
     const commandConfig = await loadCommandConfig(packageJsonDir, commandKey)
     const browserConfig = await loadBrowserConfig(packageJsonDir, browser)
-    const specialFoldersData =
-      getSpecialFoldersDataForProjectRoot(packageJsonDir)
+    const foldersConfig =
+      commandConfig.folders ?? browserConfig.folders ?? projectConfig.folders
+    rememberSpecialFoldersConfig(packageJsonDir, foldersConfig)
+    const specialFoldersData = getSpecialFoldersDataForProjectRoot(
+      packageJsonDir,
+      foldersConfig
+    )
 
     // stock defaults, then top-level config, then browser.*, then command
     // config, then CLI. Unset CLI keys are stripped so config wins. An
@@ -271,6 +281,15 @@ export async function extensionBuild(
 
     const compilerConfig = applySplitChunksGuard(merge(userConfig))
     compilerConfig.stats = false
+
+    const configResolved = await loadConfigResolvedHook(packageJsonDir)
+
+    if (configResolved) {
+      compilerConfig.plugins = [
+        ...(compilerConfig.plugins || []),
+        new ConfigResolvedPlugin(configResolved)
+      ]
+    }
 
     // A user config that re-points output.path opts out of the staging swap
     // and keeps the legacy direct-emit contract, including the upfront wipe.

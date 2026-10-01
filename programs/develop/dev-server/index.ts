@@ -18,9 +18,11 @@ import {merge} from 'webpack-merge'
 import {
   loadBrowserConfig,
   loadCommandConfig,
+  loadConfigResolvedHook,
   loadCustomConfig,
   loadProjectConfigDefaults
 } from '../lib/config-loader'
+import {ConfigResolvedPlugin} from '../lib/config-resolved-plugin'
 import {
   isEmulatorBrowser,
   isGeckoBasedBrowser,
@@ -51,7 +53,10 @@ import {
   readContentScriptCount
 } from '../plugin-reload'
 import {resolveCompanionExtensionsConfig} from '../plugin-special-folders/folder-extensions/resolve-config'
-import {getSpecialFoldersDataForProjectRoot} from '../plugin-special-folders/get-data'
+import {
+  getSpecialFoldersDataForProjectRoot,
+  rememberSpecialFoldersConfig
+} from '../plugin-special-folders/get-data'
 import {publicFolderOrDefault} from '../plugin-special-folders/resolve-public-folder'
 import webpackConfig from '../rspack-config'
 import type {DevOptions} from '../types'
@@ -78,6 +83,10 @@ import {
 } from './control-bridge/session-token'
 import {startControlServer} from './control-bridge/ws-control-server'
 import {
+  createResponseDataRepair,
+  type OutputFileSystemLike
+} from './dev-middleware-body'
+import {
   attachEmulatorFileIndex,
   buildEmulatorViewerUrl,
   createEmulatorFileIndexHolder,
@@ -92,10 +101,6 @@ import {
 } from './lifecycle-stream'
 import * as messages from './messages'
 import {PortManager} from './port-manager'
-import {
-  createResponseDataRepair,
-  type OutputFileSystemLike
-} from './dev-middleware-body'
 import {
   bindDevSessionRestart,
   DevSessionRestartScheduler,
@@ -772,7 +777,15 @@ export async function devServer(
     safeCommandConfig,
     safeDevOptions
   )
-  const specialFoldersData = getSpecialFoldersDataForProjectRoot(packageJsonDir)
+  const foldersConfig =
+    safeCommandConfig.folders ??
+    safeBrowserConfig.folders ??
+    safeProjectConfig.folders
+  rememberSpecialFoldersConfig(packageJsonDir, foldersConfig)
+  const specialFoldersData = getSpecialFoldersDataForProjectRoot(
+    packageJsonDir,
+    foldersConfig
+  )
 
   const mergedExtensionsConfig =
     safeDevOptions.extensions ??
@@ -929,6 +942,15 @@ export async function devServer(
     const compilerConfig = applySplitChunksGuard(
       merge(customWebpackConfig(baseConfig), {})
     )
+    const configResolved = await loadConfigResolvedHook(packageJsonDir)
+
+    if (configResolved) {
+      compilerConfig.plugins = [
+        ...(compilerConfig.plugins || []),
+        new ConfigResolvedPlugin(configResolved)
+      ]
+    }
+
     const compiler = rspack(compilerConfig)
     activeCompiler = compiler
     const uninstallManifestGuard =
