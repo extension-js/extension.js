@@ -47,6 +47,21 @@ export function resolvedWorkspaceManifest(
   )
 }
 
+// Said out loud because the alternative is a build whose output, special
+// folders and install all silently belong to a project the author never named.
+export function declinedProjectRoot(
+  projectManifestPath: string,
+  manifestPath: string
+) {
+  const manifestDir = path.dirname(manifestPath)
+
+  return (
+    `${getLoggingPrefix('info')} ${colors.gray(`Using ${path.basename(manifestDir)}/ as the project root.`)}\n` +
+    `${colors.gray('IGNORED')} ${colors.underline(projectManifestPath)}\n` +
+    `${colors.gray('That project does not depend on Extension.js, so its dist, its special folders and its dependencies stay out of this build. Add a package.json next to your manifest, or depend on Extension.js there, to use it as the project root.')}`
+  )
+}
+
 export function remoteFetchTimedOut(target: string, ms: number) {
   return (
     `${getLoggingPrefix('error')} Timed out after ${Math.round(ms / 1000)} s fetching the remote file.\n` +

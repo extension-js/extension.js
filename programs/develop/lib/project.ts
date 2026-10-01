@@ -14,6 +14,108 @@ import {findNearestPackageJsonSync, validatePackageJson} from './package-json'
 import {type ParsedJson, parseJsonSafe} from './parse-json-safe'
 import {findNearestDenoConfigSync, validateDenoConfig} from './project-manifest'
 
+// Any of these in a project manifest means that project is an Extension.js
+// project, so it owns a manifest one directory below it.
+const EXTENSION_DEPENDENCY_NAMES = [
+  'extension',
+  'extension-develop',
+  'extension-create'
+]
+
+const EXTENSION_CONFIG_FILENAMES = [
+  'extension.config.js',
+  'extension.config.mjs',
+  'extension.config.cjs'
+]
+
+function declaresExtension(projectManifestPath: string): boolean {
+  let parsed: ParsedJson
+
+  // An unreadable or malformed project manifest answers "no signal" rather
+  // than failing the run: this only decides which root to adopt.
+  try {
+    parsed = parseJsonSafe(
+      fs.readFileSync(projectManifestPath, 'utf-8')
+    ) as ParsedJson
+  } catch {
+    return false
+  }
+
+  if (!parsed || typeof parsed !== 'object') return false
+
+  const record = parsed as Record<string, unknown>
+  const named: string[] = []
+
+  for (const field of ['dependencies', 'devDependencies']) {
+    const deps = record[field]
+    if (deps && typeof deps === 'object') named.push(...Object.keys(deps))
+  }
+
+  // A Deno project names its dependencies as npm: specifiers in `imports`
+  // rather than as a dependencies map, so read both sides of that map.
+  const imports = record.imports
+
+  if (imports && typeof imports === 'object') {
+    for (const [key, value] of Object.entries(imports)) {
+      named.push(key)
+      if (typeof value === 'string') named.push(value)
+    }
+  }
+
+  return named.some((entry) =>
+    EXTENSION_DEPENDENCY_NAMES.some(
+      (name) =>
+        entry === name || entry.includes(`${name}@`) || entry === `npm:${name}`
+    )
+  )
+}
+
+/* @invariant A PROJECT MANIFEST ONE DIRECTORY UP IS NOT AUTOMATICALLY THIS
+   EXTENSION'S PROJECT. A bare manifest.json in a folder nested inside an
+   unrelated repository sits exactly where `src/manifest.json` sits in the
+   documented layout, so position alone cannot tell them apart. Adopting the
+   stranger meant its `dist/` received the build, its `scripts/`, `pages/` and
+   `public/` folders became build inputs, and an install could run in it. */
+export function ownsManifest(
+  projectManifestPath: string,
+  manifestPath: string
+): boolean {
+  const projectDir = path.resolve(path.dirname(projectManifestPath))
+  const manifestDir = path.resolve(path.dirname(manifestPath))
+
+  if (projectDir === manifestDir) return true
+
+  // The documented layout: <project>/package.json with <project>/src/manifest.json.
+  if (
+    path.basename(manifestDir) === 'src' &&
+    path.dirname(manifestDir) === projectDir
+  ) {
+    return true
+  }
+
+  if (declaresExtension(projectManifestPath)) return true
+
+  return EXTENSION_CONFIG_FILENAMES.some((filename) =>
+    fs.existsSync(path.join(projectDir, filename))
+  )
+}
+
+// One line per declined root per run: the resolution is asked for repeatedly
+// in a single command, and the reader only needs to be told once.
+const announcedDeclinedRoots = new Set<string>()
+
+function announceDeclinedProjectRoot(
+  projectManifestPath: string,
+  manifestPath: string,
+  log: (line: string) => void
+): void {
+  const key = `${path.resolve(projectManifestPath)}::${path.resolve(manifestPath)}`
+  if (announcedDeclinedRoots.has(key)) return
+
+  announcedDeclinedRoots.add(key)
+  log(messages.declinedProjectRoot(projectManifestPath, manifestPath))
+}
+
 export interface ProjectStructure {
   manifestPath: string
   // Optional in web-only mode (no package manager present)
@@ -573,18 +675,36 @@ export function resolveProjectStructureSync(
     }
   }
 
-  if (!packageJsonPath || !validatePackageJson(packageJsonPath)) {
+  // A project manifest that does not own this extension is a stranger's
+  // project the manifest merely sits inside, so the manifest folder is the
+  // project. Declining here is what keeps its dist, its special folders and
+  // its install out of the picture, since every one of those keys off this.
+  const ownedPackageJsonPath =
+    packageJsonPath && ownsManifest(packageJsonPath, manifestPath)
+      ? packageJsonPath
+      : undefined
+  const ownedDenoJsonPath =
+    denoJsonPath && ownsManifest(denoJsonPath, manifestPath)
+      ? denoJsonPath
+      : undefined
+  const declined = packageJsonPath || denoJsonPath
+
+  if (declined && !ownedPackageJsonPath && !ownedDenoJsonPath) {
+    announceDeclinedProjectRoot(declined, manifestPath, log)
+  }
+
+  if (!ownedPackageJsonPath || !validatePackageJson(ownedPackageJsonPath)) {
     // No (valid) package.json: a Deno-manifest project is still a full project;
     // only with no manifest at all do we fall back to web-only mode.
     return {
       manifestPath,
-      ...(denoJsonPath ? {denoJsonPath} : {})
+      ...(ownedDenoJsonPath ? {denoJsonPath: ownedDenoJsonPath} : {})
     }
   }
 
   return {
     manifestPath,
-    packageJsonPath,
-    ...(denoJsonPath ? {denoJsonPath} : {})
+    packageJsonPath: ownedPackageJsonPath,
+    ...(ownedDenoJsonPath ? {denoJsonPath: ownedDenoJsonPath} : {})
   }
 }
