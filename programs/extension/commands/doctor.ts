@@ -23,9 +23,10 @@ import {CODES, ENVELOPE, type ErrorCode} from '../helpers/messaging'
 import {isJsonOutput} from '../helpers/output-flag'
 import {
   describeRspackPeerConflicts,
+  describeUnreadableDependencies,
   engineRspackVersion,
-  findRspackPeerConflicts,
-  remedyRspackPeerConflicts
+  remedyRspackPeerConflicts,
+  scanRspackPeers
 } from '../helpers/rspack-peer-check'
 import {
   resolveSessionProjectPath,
@@ -105,50 +106,91 @@ function isExecutorAttachGrace(
   return Date.now() - compiledMs < EXECUTOR_ATTACH_GRACE_MS
 }
 
-function listSessionBrowsers(projectPath: string): string[] {
-  const sessionsRoot = path.join(projectPath, 'dist', 'extension-js')
-
+function readReadyDocument(
+  readyPath: string
+): Record<string, unknown> | null {
   try {
-    return fs
-      .readdirSync(sessionsRoot, {withFileTypes: true})
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => entry.name)
-      .filter((name) =>
-        fs.existsSync(path.join(sessionsRoot, name, 'ready.json'))
-      )
-      .sort()
+    const parsed = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null
   } catch {
-    return []
+    return null
   }
 }
 
+// ready.json doubles as the receipt of a one-shot build, start or preview run,
+// and a receipt names no server to dial: only a dev contract is a session.
+function isDevSessionDocument(document: Record<string, unknown>): boolean {
+  return document.command === 'dev'
+}
+
+function scanReadyContracts(projectPath: string): {
+  sessions: string[]
+  receipts: string[]
+} {
+  const sessionsRoot = path.join(projectPath, 'dist', 'extension-js')
+  const sessions: string[] = []
+  const receipts: string[] = []
+
+  try {
+    const browsers = fs
+      .readdirSync(sessionsRoot, {withFileTypes: true})
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .sort()
+
+    for (const browser of browsers) {
+      const document = readReadyDocument(
+        path.join(sessionsRoot, browser, 'ready.json')
+      )
+
+      if (!document) continue
+
+      if (isDevSessionDocument(document)) {
+        sessions.push(browser)
+      } else {
+        receipts.push(browser)
+      }
+    }
+  } catch {
+    // Ignore
+  }
+
+  return {sessions, receipts}
+}
+
+function pickBrowser(candidates: string[]): string | undefined {
+  if (candidates.includes('chromium')) return 'chromium'
+
+  return candidates[0]
+}
+
 /* @invariant A bare `doctor` diagnoses the session that exists, not a
-   hardcoded default: the ready contracts under dist/extension-js/ name the
-   live browsers, a single contract wins outright, and chromium is only the
-   fallback when nothing (or an ambiguous set) is found. */
+   hardcoded default: the dev contracts under dist/extension-js/ name the
+   live browsers, a single contract wins outright, a build receipt never
+   counts as a session, and chromium is only the fallback when nothing (or
+   an ambiguous set) is found. */
 export function resolveDoctorBrowser(
   projectPath: string | undefined,
   optsBrowser: string | undefined
 ): {browser: string; sessionBrowsers: string[]} {
   if (optsBrowser) return {browser: optsBrowser, sessionBrowsers: []}
 
-  const sessionBrowsers = listSessionBrowsers(
+  const {sessions, receipts} = scanReadyContracts(
     path.resolve(projectPath || process.cwd())
   )
 
-  if (sessionBrowsers.length === 1) {
-    return {browser: sessionBrowsers[0], sessionBrowsers}
+  if (sessions.length === 1) {
+    return {browser: sessions[0], sessionBrowsers: sessions}
   }
 
-  if (sessionBrowsers.includes('chromium')) {
-    return {browser: 'chromium', sessionBrowsers}
+  return {
+    browser:
+      pickBrowser(sessions) ?? pickBrowser(receipts) ?? 'chromium',
+    sessionBrowsers: sessions
   }
-
-  if (sessionBrowsers.length > 1) {
-    return {browser: sessionBrowsers[0], sessionBrowsers}
-  }
-
-  return {browser: 'chromium', sessionBrowsers}
 }
 
 function peerRspackCheck(projectPath: string): DoctorCheckResult {
@@ -162,21 +204,37 @@ function peerRspackCheck(projectPath: string): DoctorCheckResult {
     }
   }
 
-  const conflicts = findRspackPeerConflicts(projectPath, engine)
+  const {conflicts, unreadable} = scanRspackPeers(projectPath, engine)
+  const unverified = unreadable.length
+    ? describeUnreadableDependencies(unreadable)
+    : ''
 
-  if (conflicts.length === 0) {
+  if (conflicts.length > 0) {
     return {
       check: 'peer-rspack',
-      status: 'pass',
-      detail: `every direct dependency with an @rspack/core peer range accepts the engine's ${engine}`
+      status: 'fail',
+      detail:
+        describeRspackPeerConflicts(conflicts, engine) +
+        (unverified ? `. ${unverified}` : ''),
+      remediation: remedyRspackPeerConflicts(conflicts, engine)
+    }
+  }
+
+  if (unreadable.length > 0) {
+    return {
+      check: 'peer-rspack',
+      status: 'warn',
+      detail: unverified,
+      remediation:
+        'Install the project dependencies so their @rspack/core peer ' +
+        'ranges can be read, then run doctor again'
     }
   }
 
   return {
     check: 'peer-rspack',
-    status: 'fail',
-    detail: describeRspackPeerConflicts(conflicts, engine),
-    remediation: remedyRspackPeerConflicts(conflicts, engine)
+    status: 'pass',
+    detail: `every direct dependency with an @rspack/core peer range accepts the engine's ${engine}`
   }
 }
 
@@ -235,13 +293,19 @@ export async function runDoctor(
     controlPortFilePath
   } = bridge
 
-  const ready = readReadyContract(projectPath, browser)
+  const readyPath = sessionReadyPath(bridge, projectPath, browser)
+  const document = readReadyDocument(readyPath)
+  const receipt = document && !isDevSessionDocument(document)
+  const ready = receipt ? null : readReadyContract(projectPath, browser)
 
   if (!ready) {
     results.push({
       check: 'ready-contract',
       status: 'fail',
-      detail: `no ready contract at ${sessionReadyPath(bridge, projectPath, browser)}`,
+      detail: receipt
+        ? `no dev session for ${browser}: ${readyPath} is the receipt of an ` +
+          `extension ${String(document?.command ?? 'build')} run, not a session contract`
+        : `no ready contract at ${readyPath}`,
       remediation:
         `Start a dev session first: extension dev --browser=${browser} ` +
         `--allow-control (add --allow-eval for the eval verb)`

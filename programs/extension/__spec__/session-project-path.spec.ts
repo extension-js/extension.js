@@ -152,7 +152,11 @@ describe('doctor given the manifest folder', () => {
   it('still finds a session from the package root', async () => {
     const dir = path.join(root, 'dist', 'extension-js', 'firefox')
     fs.mkdirSync(dir, {recursive: true})
-    fs.writeFileSync(path.join(dir, 'ready.json'), '{"status":"ready"}')
+    fs.writeFileSync(
+      path.join(dir, 'ready.json'),
+      '{"status":"ready","command":"dev"}'
+    )
+
     state.ready = {controlPort: 1, instanceId: 'i', status: 'ready'}
     await runDoctor(root, {})
     expect(state.readyReads[0]).toEqual([root, 'firefox'])
