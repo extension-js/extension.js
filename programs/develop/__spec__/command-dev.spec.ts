@@ -412,6 +412,23 @@ describe('webpack/command-dev', () => {
     expect(printed).not.toMatch(/\n\s+at /)
   })
 
+  it('checks managed dependency conflicts against the package root when the manifest is in src', async () => {
+    const projectMod = await import('../lib/project')
+    const validateDepsMod = await import('../lib/validate-user-dependencies')
+    ;(projectMod.getProjectStructure as any).mockResolvedValueOnce({
+      manifestPath: '/proj/src/manifest.json',
+      packageJsonPath: '/proj/package.json'
+    })
+    ;(fs.existsSync as any).mockReturnValue(false)
+    ;(fs.readdirSync as any).mockReturnValue([])
+
+    await extensionDev('/proj', {browser: 'chrome', port: 0} as any)
+
+    expect(
+      validateDepsMod.assertNoManagedDependencyConflicts
+    ).toHaveBeenCalledWith('/proj/package.json', '/proj')
+  })
+
   it('rejects on failure so the CLI wrapper can frame or exit it', async () => {
     const exitSpy = vi
       .spyOn(process, 'exit')
