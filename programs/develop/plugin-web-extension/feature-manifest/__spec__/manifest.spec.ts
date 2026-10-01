@@ -181,10 +181,32 @@ describe('findDroppedVendorKeys', () => {
       ['chrome:key', false]
     ])
 
+    // A chromium: or plain sibling is a deliberate per-browser value, so the
+    // vendor key next to it is dropped by the documented rule, not silently.
     const vendorLast = {'chromium:key': 'family-key', 'chrome:key': 'k'} as any
     expect(findDroppedVendorKeys(vendorLast, 'edge')[0].appliedBefore).toBe(
-      true
+      false
     )
+
+    const perBrowser = {
+      'chromium:description': 'For Chrome',
+      'edge:description': 'For Edge',
+      'firefox:description': 'For Firefox'
+    } as any
+    expect(findDroppedVendorKeys(perBrowser, 'chrome')[0].appliedBefore).toBe(
+      false
+    )
+
+    const plainSibling = {
+      description: 'Plain',
+      'edge:description': 'Edge'
+    } as any
+    expect(findDroppedVendorKeys(plainSibling, 'chrome')[0].appliedBefore).toBe(
+      false
+    )
+
+    const alone = {'edge:description': 'Edge only'} as any
+    expect(findDroppedVendorKeys(alone, 'chrome')[0].appliedBefore).toBe(true)
   })
 
   it('does not walk into a subtree the resolver drops', () => {

@@ -145,15 +145,24 @@ export function findDroppedVendorKeys(
     // in source order won a tie, so only that key's value reached the build.
     const lastFormerFamily = new Map<string, string>()
     const hasSpecific = new Set<string>()
+    // A chromium: or plain sibling says the author chose per-browser values
+    // on purpose, so dropping the other vendor's key is the documented rule,
+    // not a silent change worth a warning.
+    const hasSibling = new Set<string>()
 
     for (const key of Object.keys(node)) {
       const colon = key.indexOf(':')
-      if (colon === -1) continue
+
+      if (colon === -1) {
+        hasSibling.add(key)
+        continue
+      }
 
       const prefix = key.substring(0, colon)
       const strippedKey = key.substring(colon + 1)
       if (isSpecificPrefix(prefix)) hasSpecific.add(strippedKey)
-      else if (formerFamily.has(prefix)) lastFormerFamily.set(strippedKey, key)
+      else if (prefix === 'chromium') hasSibling.add(strippedKey)
+      if (formerFamily.has(prefix)) lastFormerFamily.set(strippedKey, key)
     }
 
     for (const [key, value] of Object.entries(node)) {
@@ -176,6 +185,7 @@ export function findDroppedVendorKeys(
           vendor: prefix as DroppedVendorKey['vendor'],
           appliedBefore:
             !hasSpecific.has(strippedKey) &&
+            !hasSibling.has(strippedKey) &&
             lastFormerFamily.get(strippedKey) === key
         })
       }
