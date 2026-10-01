@@ -1,33 +1,79 @@
-name: CI – Telemetry Smoke
+name: CI – Telemetry Smoke (tree)
+
+# Covers the CLI in this checkout, not the published package: the workspace
+# is compiled and the local dist runs each verb, so a telemetry regression on
+# main fails here before it ships. Every verb has to exit 0 and has to print
+# its own command_executed event, which the debug flag writes to stderr.
+
 on:
   workflow_dispatch:
   schedule:
     - cron: '0 6 * * *'
+
 permissions:
   contents: read
+
 jobs:
   smoke:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     env:
       # Telemetry is normally disabled in CI; explicitly opt-in for this job only
       EXTENSION_TELEMETRY_DISABLED: '0'
       EXTENSION_TELEMETRY: '1'
       EXTENSION_TELEMETRY_DEBUG: '1'
+      # dev and preview watch until a signal, the budget is their exit.
+      EXTENSION_AUTO_EXIT_MS: '8000'
+      EXTENSION_FORCE_KILL_MS: '12000'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+
+      - uses: ./.github/actions/setup
         with:
           node-version: '22'
+
+      - name: Compile CLI and develop pipeline
+        run: |
+          pnpm --filter extension-develop compile
+          pnpm --filter extension compile
+
+      # Outside the checkout: a project nested in this repository resolves its
+      # package root to the repository's own package.json, as no user's does.
       - name: Seed a minimal extension (manifest.json)
         run: |
-          rm -rf tmp-ext && mkdir -p tmp-ext
-          cat > tmp-ext/manifest.json <<'JSON'
+          SMOKE_DIR="$RUNNER_TEMP/telemetry-smoke"
+          echo "SMOKE_DIR=$SMOKE_DIR" >> "$GITHUB_ENV"
+          rm -rf "$SMOKE_DIR" && mkdir -p "$SMOKE_DIR"
+          cat > "$SMOKE_DIR/manifest.json" <<'JSON'
           { "manifest_version": 3, "name": "telemetry-smoke", "version": "0.0.1" }
           JSON
-      - name: Emit telemetry via CLI (dev/build/preview)
-        working-directory: tmp-ext
-        run: |
-          npx -y extension@latest dev --browser=chromium --open=false || true
-          npx -y extension@latest build --browser=chromium || true
-          npx -y extension@latest preview --browser=chromium --open=false || true
 
+      # --no-browser keeps the runner browser-free, the dev server and the
+      # preview session still come up and emit their session-started event.
+      - name: Emit telemetry via the local CLI (dev/build/preview)
+        run: |
+          set -euo pipefail
+          pnpm extension dev "$SMOKE_DIR" --browser chromium --no-browser --port 0 2>&1 | tee telemetry-dev.log
+          pnpm extension build "$SMOKE_DIR" --browser chromium 2>&1 | tee telemetry-build.log
+          pnpm extension preview "$SMOKE_DIR" --browser chromium --no-browser --port 0 2>&1 | tee telemetry-preview.log
+
+      - name: Assert a telemetry event per verb
+        run: |
+          set -euo pipefail
+          for verb in dev build preview
+          do
+            if ! grep -Fq "\"event\":\"command_executed\",\"properties\":{\"command\":\"$verb\"" "telemetry-$verb.log"
+            then
+              echo "::error::extension $verb printed no command_executed telemetry event"
+              exit 1
+            fi
+            echo "extension $verb: command_executed observed"
+          done
+
+      - name: Upload the verb logs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: telemetry-logs
+          path: telemetry-*.log
+          if-no-files-found: ignore
