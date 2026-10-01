@@ -8,8 +8,6 @@
 
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
-import * as messages from './messages'
-import {detectPackageManagerFromEnv} from './package-manager'
 
 // A template directory can be a working checkout: this repo runs `dev` inside
 // the bundled one, and a new project must never inherit that build output or
@@ -99,22 +97,32 @@ export async function moveDirectoryContents(
   await fs.rm(source, {recursive: true, force: true})
 }
 
-export async function getInstallCommand() {
-  return detectPackageManagerFromEnv()
+// A path printed as a command is pasted into a shell, so anything outside the
+// plain shell-safe set travels single-quoted with its own quotes escaped.
+const SHELL_SAFE_PATH = /^[A-Za-z0-9_@%+=:,./-]+$/
+const SINGLE_QUOTE = String.fromCharCode(39)
+
+export function shellQuote(value: string) {
+  if (SHELL_SAFE_PATH.test(value)) return value
+
+  const escaped = value
+    .split(SINGLE_QUOTE)
+    .join(`${SINGLE_QUOTE}\\${SINGLE_QUOTE}${SINGLE_QUOTE}`)
+
+  return `${SINGLE_QUOTE}${escaped}${SINGLE_QUOTE}`
 }
 
-export async function isDirectoryWriteable(
-  directory: string,
-  logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
-): Promise<boolean> {
+// Answers the cause instead of logging it: logging here printed a frame for
+// the probe and let the caller print a second one for the destination.
+export async function directoryWriteFailure(
+  directory: string
+): Promise<NodeJS.ErrnoException | null> {
   try {
     await fs.mkdir(directory, {recursive: true})
 
-    return true
+    return null
   } catch (err) {
-    logger.error(messages.writingDirectoryError(err))
-
-    return false
+    return err as NodeJS.ErrnoException
   }
 }
 

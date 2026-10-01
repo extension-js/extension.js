@@ -35,18 +35,17 @@ export async function createDirectory(
 ): Promise<CreateDirectoryResult> {
   logger.log(messages.startingNewExtension(projectName))
 
-  // Recorded before isDirectoryWriteable mkdirs the path, this is the only
+  // Recorded before directoryWriteFailure mkdirs the path, this is the only
   // place that still knows whether the directory pre-existed.
   const directoryPreExisted = existsSync(projectPath)
 
   try {
-    const isCurrentDirWriteable = await utils.isDirectoryWriteable(
-      projectPath,
-      logger
-    )
+    const writeFailure = await utils.directoryWriteFailure(projectPath)
 
-    if (!isCurrentDirWriteable) {
-      throw new Error(messages.destinationNotWriteable(projectPath))
+    if (writeFailure) {
+      throw new Error(
+        messages.destinationNotWriteable(projectPath, writeFailure)
+      )
     }
 
     const currentDir = await fs.readdir(projectPath)

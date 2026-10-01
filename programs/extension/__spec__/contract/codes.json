@@ -464,23 +464,6 @@
       "area": "create",
       "summary": "The destination directory is not writable."
     },
-    "E_CREATE_DIR": {
-      "area": "create",
-      "summary": "The target directory could not be created."
-    },
-    "E_CREATE_WRITE": {
-      "area": "create",
-      "summary": "A scaffold file could not be written."
-    },
-    "E_CREATE_TESTS_SETUP": {
-      "area": "create",
-      "summary": "Built-in test setup failed."
-    },
-    "E_GIT_SKIPPED": {
-      "area": "create",
-      "summary": "git init was skipped because git is absent.",
-      "warn": true
-    },
     "E_PREVIEW_NO_DIST": {
       "area": "preview",
       "summary": "No unpacked extension at the resolved output path."

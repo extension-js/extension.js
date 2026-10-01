@@ -12,9 +12,15 @@ vi.mock('axios', () => ({
   }
 }))
 
-vi.mock('../../lib/utils', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../lib/utils')>()),
-  isDirectoryWriteable: vi.fn(async () => false)
+vi.mock('../../lib/install-runner', () => ({
+  runInstall: vi.fn(async () => ({
+    code: 1,
+    stdout: '',
+    stderr:
+      'npm error code ECONNREFUSED\n' +
+      'npm error     at ClientRequest.<anonymous> (minipass-fetch/lib/index.js:130:14)\n' +
+      'npm error A complete log of this run can be found in: /tmp/debug-0.log\n'
+  }))
 }))
 
 import axios from 'axios'
@@ -26,6 +32,8 @@ import {
   TemplateDownloadError,
   TemplateNotFoundError
 } from '../import-external-template'
+import {installDependencies} from '../install-dependencies'
+import {writeManifestJson} from '../write-manifest-json'
 
 const GLYPH = '⏵⏵⏵'
 const STACK_FRAME = /^\s+at /m
@@ -93,7 +101,10 @@ describe('a create refusal travels as one framed message on the thrown error', (
 
     expect(error).toBeInstanceOf(TemplateNotFoundError)
     expect(error.message).toContain('nope-xyz')
-    expect(error.message).toContain('is not in the extension-js/examples catalog')
+    expect(error.message).toContain(
+      'is not in the extension-js/examples catalog'
+    )
+
     expectOneFrameAndNoStack(error, logger)
   })
 
@@ -121,16 +132,90 @@ describe('a create refusal travels as one framed message on the thrown error', (
     expect(axios.get).not.toHaveBeenCalled()
   })
 
-  it('for a destination that is not writeable', async () => {
-    const logger = makeLogger()
+  // A real read-only parent, never a stubbed writability probe: the probe is
+  // where the second frame came from, so stubbing it hid the whole defect.
+  // Only a non-root posix user can deny writes this way. chmod does not make a
+  // directory read-only on Windows, and root ignores the mode, so the condition
+  // under test cannot exist there and the create would simply succeed.
+  const canDenyWrites = process.platform !== 'win32' && process.getuid?.() !== 0
+  const itWritable = canDenyWrites ? it : it.skip
 
-    const error = (await createDirectory(
-      await makeProjectPath(),
+  itWritable('for a destination inside a read-only parent', async () => {
+    const logger = makeLogger()
+    const parent = path.dirname(await makeProjectPath())
+    await fsp.mkdir(parent, {recursive: true})
+    await fsp.chmod(parent, 0o555)
+    const projectPath = path.join(parent, 'proof')
+
+    try {
+      const error = (await createDirectory(projectPath, 'proof', logger).catch(
+        (thrown: Error) => thrown
+      )) as Error
+
+      expect(error.message).toContain(
+        "Couldn't write to the destination directory"
+      )
+
+      expect(error.message).toContain(projectPath)
+      expect(error.message).toContain('EACCES')
+      expectOneFrameAndNoStack(error, logger)
+    } finally {
+      await fsp.chmod(parent, 0o755)
+    }
+  })
+
+  it('for a dependency install the package manager refuses', async () => {
+    const logger = makeLogger()
+    const projectPath = await makeProjectPath()
+    await fsp.mkdir(projectPath, {recursive: true})
+    await fsp.writeFile(
+      path.join(projectPath, 'package.json'),
+      JSON.stringify({name: 'my-ext', devDependencies: {extension: '4.0.0'}})
+    )
+
+    const error = (await installDependencies(
+      projectPath,
       'my-ext',
-      logger
+      logger,
+      'npm'
     ).catch((thrown: Error) => thrown)) as Error
 
-    expect(error.message).toContain("Couldn't write to the destination directory")
+    expect(error.message).toContain("Couldn't install the dependencies")
+    // The package manager's own cause, without the stack it re-throws.
+    expect(error.message).toContain('ECONNREFUSED')
+    expect(error.message).not.toContain('minipass-fetch')
+    expectOneFrameAndNoStack(error, logger)
+  })
+
+  it('for a template that ships no manifest.json', async () => {
+    const logger = makeLogger()
+    const projectPath = await makeProjectPath()
+    await fsp.mkdir(projectPath, {recursive: true})
+    await fsp.writeFile(path.join(projectPath, 'package.json'), '{}\n')
+
+    const error = (await writeManifestJson(projectPath, logger).catch(
+      (thrown: Error) => thrown
+    )) as Error
+
+    expect(error.message).toContain("Couldn't read a manifest.json")
+    expect(error.message).toContain(projectPath)
+    expect(error.message).toContain('depth 3')
+    expectOneFrameAndNoStack(error, logger)
+  })
+
+  it('for a manifest.json that cannot be parsed', async () => {
+    const logger = makeLogger()
+    const projectPath = await makeProjectPath()
+    await fsp.mkdir(projectPath, {recursive: true})
+    const manifestPath = path.join(projectPath, 'manifest.json')
+    await fsp.writeFile(manifestPath, '{"manifest_version": 3,\n')
+
+    const error = (await writeManifestJson(projectPath, logger).catch(
+      (thrown: Error) => thrown
+    )) as Error
+
+    expect(error.message).toContain("Couldn't read a manifest.json")
+    expect(error.message).toContain(manifestPath)
     expectOneFrameAndNoStack(error, logger)
   })
 })

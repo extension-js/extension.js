@@ -8,6 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import * as messages from './messages'
 
 const manifestSearchMaxDepth = 3
 const ignoredManifestDirs = new Set(['node_modules', '.git'])
@@ -66,8 +67,26 @@ export async function findManifestJsonPath(
     }
   }
 
+  // A web-only template with no manifest is a legal input, so this refusal
+  // travels framed on the error instead of reaching the user as a stack.
   throw new Error(
-    `Could not locate manifest.json under ${projectPath}. ` +
-      `Checked common paths and searched up to depth ${manifestSearchMaxDepth}.`
+    messages.manifestNotFound(projectPath, manifestSearchMaxDepth)
   )
+}
+
+// Both scaffold steps that personalize the manifest read it the same way, so
+// an absent and an unparseable file refuse through one framed path.
+export async function readManifestJson(projectPath: string): Promise<{
+  manifestJsonPath: string
+  manifestJson: Record<string, unknown>
+}> {
+  const manifestJsonPath = await findManifestJsonPath(projectPath)
+
+  try {
+    const raw = await fs.promises.readFile(manifestJsonPath, 'utf-8')
+
+    return {manifestJsonPath, manifestJson: JSON.parse(raw)}
+  } catch (error) {
+    throw new Error(messages.manifestNotParseable(manifestJsonPath, error))
+  }
 }

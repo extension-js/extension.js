@@ -162,11 +162,7 @@ const CODES_WITHOUT_EMIT_SITE: string[] = [
   'E_DEV_SERVER_TIMEOUT',
   'E_PORT_IN_USE',
   'E_SESSION_STOPPED',
-  'E_LOGS_STREAM_GAP',
-  'E_CREATE_DIR',
-  'E_CREATE_WRITE',
-  'E_CREATE_TESTS_SETUP',
-  'E_GIT_SKIPPED'
+  'E_LOGS_STREAM_GAP'
 ]
 
 // The same validation the schema states, hand-rolled so the spec has no
@@ -331,9 +327,7 @@ describe('every declared code has an emit site', () => {
   })
 
   it('drops a code from the dead list once it gains an emit site', () => {
-    const revived = CODES_WITHOUT_EMIT_SITE.filter((code) =>
-      emitted.has(code)
-    )
+    const revived = CODES_WITHOUT_EMIT_SITE.filter((code) => emitted.has(code))
 
     expect(revived).toEqual([])
   })
