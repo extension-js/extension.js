@@ -6,8 +6,14 @@
 // ╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {isChromiumBasedBrowser, isGeckoBasedBrowser} from '../../lib/constants'
+import {
+  findPublicFile,
+  inspectPublicFolders,
+  publicRelativePath
+} from '../../plugin-special-folders/resolve-public-folder'
 import type {DevOptions, Manifest} from '../../types'
 
 // The manifest-fields package folds action, browser_action and page_action
@@ -52,23 +58,29 @@ export function popupRefsShareSource(a: unknown, b: unknown): boolean {
   return Boolean(left) && left === right
 }
 
+// A page the manifest names resolves beside the manifest first; a page that
+// only public/ has (project root first, then next to the manifest) resolves
+// there, since the copier ships it verbatim under the name the manifest keeps.
 export function resolveManifestHtmlPath(
   context: string,
-  relativePath: string
+  relativePath: string,
+  projectPath?: string
 ): string {
   const unix = relativePath.replace(/\\/g, '/')
+  const manifestPath = path.join(context, 'manifest.json')
+  const hosted = findPublicFile(manifestPath, projectPath, unix)
 
-  if (/^\/public\//i.test(unix)) {
-    return path.join(context, 'public', unix.replace(/^\/public\//i, ''))
+  if (/^(?:\/public\/|(?:\.\/)?public\/)/i.test(unix)) {
+    return hosted || path.join(context, 'public', publicRelativePath(unix))
   }
 
-  if (/^(?:\.\/)?public\//i.test(unix)) {
-    return path.join(context, 'public', unix.replace(/^(?:\.\/)?public\//i, ''))
-  }
+  const beside = /^\//.test(unix)
+    ? path.join(context, unix.slice(1))
+    : path.join(context, unix)
 
-  if (/^\//.test(unix)) return path.join(context, unix.slice(1))
+  if (hosted && !fs.existsSync(beside)) return hosted
 
-  return path.join(context, unix)
+  return beside
 }
 
 export function actionPopupRef(
@@ -183,7 +195,8 @@ export function applyIndependentHtmlSurfaces(
   html: HtmlFields | undefined,
   manifest: Manifest,
   context: string,
-  browser: DevOptions['browser'] | string | undefined
+  browser: DevOptions['browser'] | string | undefined,
+  projectPath?: string
 ): HtmlFields {
   const next: HtmlFields = {...(html || {})}
 
@@ -192,16 +205,20 @@ export function applyIndependentHtmlSurfaces(
   const optionsRef = optionsPageRef(manifest)
 
   if (optionsRef) {
-    next[OPTIONS_HTML_FEATURE] = resolveManifestHtmlPath(context, optionsRef)
+    next[OPTIONS_HTML_FEATURE] = resolveManifestHtmlPath(
+      context,
+      optionsRef,
+      projectPath
+    )
   }
 
   const actionRef = actionPopupRef(manifest)
   const pageRef = pageActionPopupRef(manifest)
   const actionAbs = actionRef
-    ? resolveManifestHtmlPath(context, actionRef)
+    ? resolveManifestHtmlPath(context, actionRef, projectPath)
     : undefined
   const pageAbs = pageRef
-    ? resolveManifestHtmlPath(context, pageRef)
+    ? resolveManifestHtmlPath(context, pageRef, projectPath)
     : undefined
 
   // Rebuild the collapsed slot from the toolbar key alone.
@@ -211,16 +228,45 @@ export function applyIndependentHtmlSurfaces(
   if (!pageAbs || pageActionDropReason(manifest, browser)) {
     delete next[PAGE_ACTION_HTML_FEATURE]
 
-    return next
+    return leavePublicPagesToCopier(next, context, projectPath)
   }
 
   if (actionAbs && popupRefsShareSource(actionRef, pageRef)) {
     delete next[PAGE_ACTION_HTML_FEATURE]
 
-    return next
+    return leavePublicPagesToCopier(next, context, projectPath)
   }
 
   next[PAGE_ACTION_HTML_FEATURE] = pageAbs
 
-  return next
+  return leavePublicPagesToCopier(next, context, projectPath)
+}
+
+// A page that lives in public/ ships verbatim under its own name through the
+// copier, so the html pipeline must not compile a second copy into its slot.
+function leavePublicPagesToCopier(
+  html: HtmlFields,
+  context: string,
+  projectPath?: string
+): HtmlFields {
+  const manifestPath = path.join(context, 'manifest.json')
+  const {fromRoot, fromManifest} = inspectPublicFolders(
+    manifestPath,
+    projectPath
+  )
+  const roots = [fromRoot, fromManifest].map((root) => path.resolve(root))
+
+  for (const [feature, resolved] of Object.entries(html)) {
+    if (typeof resolved !== 'string') continue
+
+    const hosted = roots.some((root) => {
+      const rel = path.relative(root, path.resolve(resolved))
+
+      return Boolean(rel) && !rel.startsWith('..') && !path.isAbsolute(rel)
+    })
+
+    if (hosted) delete html[feature]
+  }
+
+  return html
 }

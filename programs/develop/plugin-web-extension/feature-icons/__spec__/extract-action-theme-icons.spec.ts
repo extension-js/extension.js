@@ -74,3 +74,28 @@ describe('extractActionThemeIcons', () => {
     expect(extractActionThemeIcons('/nope/manifest.json')).toEqual({})
   })
 })
+
+describe('extractActionThemeIcons with a root public/ and a src/ manifest', () => {
+  it('resolves an icon only the root public/ has', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-action-theme-'))
+    dirs.push(root)
+    fs.mkdirSync(path.join(root, 'src'), {recursive: true})
+    fs.mkdirSync(path.join(root, 'public', 'icons'), {recursive: true})
+    fs.writeFileSync(path.join(root, 'public', 'icons', 'light.png'), 'x')
+    fs.writeFileSync(path.join(root, 'src', 'dark.png'), 'x')
+    const manifestPath = path.join(root, 'src', 'manifest.json')
+    fs.writeFileSync(
+      manifestPath,
+      JSON.stringify({
+        action: {theme_icons: [{light: 'icons/light.png', dark: 'dark.png'}]}
+      })
+    )
+
+    expect(extractActionThemeIcons(manifestPath, 'chrome', root)).toEqual({
+      'action/theme_icons': [
+        path.join(root, 'public', 'icons', 'light.png'),
+        path.join(root, 'src', 'dark.png')
+      ]
+    })
+  })
+})

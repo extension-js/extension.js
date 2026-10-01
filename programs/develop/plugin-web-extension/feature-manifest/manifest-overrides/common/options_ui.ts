@@ -10,7 +10,11 @@ import type {Manifest} from '../../../../types'
 import {getFilename} from '../../../shared/paths'
 import {manifestPageOutputTarget} from '../../normalize-manifest-path'
 
-export function optionsUi(manifest: Manifest, manifestPath?: string) {
+export function optionsUi(
+  manifest: Manifest,
+  manifestPath?: string,
+  projectPath?: string
+) {
   return (
     manifest.options_ui && {
       options_ui: {
@@ -20,7 +24,12 @@ export function optionsUi(manifest: Manifest, manifestPath?: string) {
             const raw = String(manifest.options_ui.page)
 
             return getFilename(
-              manifestPageOutputTarget(raw, 'options/index.html', manifestPath),
+              manifestPageOutputTarget(
+                raw,
+                'options/index.html',
+                manifestPath,
+                projectPath
+              ),
               raw
             )
           })()

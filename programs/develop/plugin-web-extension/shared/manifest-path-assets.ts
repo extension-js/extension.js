@@ -10,6 +10,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {filterKeysForThisBrowser} from '../../lib/manifest-utils'
 import {stripBom} from '../../lib/parse-json-safe'
+import {findPublicFile} from '../../plugin-special-folders/resolve-public-folder'
 import type {DevOptions, FilepathList, Manifest} from '../../types'
 import {isManifestAddress} from './paths'
 
@@ -54,18 +55,22 @@ function resolveAsset(manifestDir: string, value: string): string {
   return path.isAbsolute(value) ? value : path.join(manifestDir, value)
 }
 
-function localFile(manifestDir: string, value: unknown): string | undefined {
+function localFile(
+  manifestDir: string,
+  value: unknown,
+  projectPath?: string
+): string | undefined {
   if (typeof value !== 'string' || !value.trim()) return undefined
   if (isManifestAddress(value) || isPublicSpelling(value)) return undefined
 
   const resolved = resolveAsset(manifestDir, value)
-  // A root-absolute ref that only public/ owns is served from there as-is.
+  const manifestPath = path.join(manifestDir, 'manifest.json')
+  // A ref that only public/ owns is served from there as-is.
   if (resolved.startsWith('/') && !path.isAbsolute(resolved)) return undefined
 
   if (
-    resolved.startsWith('/') &&
     !fs.existsSync(resolved) &&
-    fs.existsSync(path.join(manifestDir, 'public', resolved.slice(1)))
+    findPublicFile(manifestPath, projectPath, value)
   ) {
     return undefined
   }
@@ -79,11 +84,16 @@ function localFile(manifestDir: string, value: unknown): string | undefined {
 // entry, so a scss/less source still lands under its advertised .css name.
 export function themeExperimentStylesheetEntries(
   manifestPath: string,
-  browser: DevOptions['browser'] = 'chrome'
+  browser: DevOptions['browser'] = 'chrome',
+  projectPath?: string
 ): FilepathList {
   const manifest = readManifest(manifestPath, browser)
   const manifestDir = path.dirname(manifestPath)
-  const file = localFile(manifestDir, manifest.theme_experiment?.stylesheet)
+  const file = localFile(
+    manifestDir,
+    manifest.theme_experiment?.stylesheet,
+    projectPath
+  )
   if (!file) return {}
 
   const name = path.basename(file).replace(/\.[^.]+$/, '')
@@ -93,7 +103,8 @@ export function themeExperimentStylesheetEntries(
 
 export function settingsOverridesIconFields(
   manifestPath: string,
-  browser: DevOptions['browser'] = 'chrome'
+  browser: DevOptions['browser'] = 'chrome',
+  _projectPath?: string
 ): FilepathList {
   const manifest = readManifest(manifestPath, browser)
   const manifestDir = path.dirname(manifestPath)
@@ -110,7 +121,8 @@ export function settingsOverridesIconFields(
 
 export function settingsOverridesStartupPages(
   manifestPath: string,
-  browser: DevOptions['browser'] = 'chrome'
+  browser: DevOptions['browser'] = 'chrome',
+  projectPath?: string
 ): FilepathList {
   const manifest = readManifest(manifestPath, browser)
   const manifestDir = path.dirname(manifestPath)
@@ -119,7 +131,7 @@ export function settingsOverridesStartupPages(
 
   const out: Record<string, string> = {}
   pages.forEach((page, index) => {
-    const file = localFile(manifestDir, page)
+    const file = localFile(manifestDir, page, projectPath)
     if (file) out[`chrome_settings_overrides/startup-${index}`] = file
   })
 

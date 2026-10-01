@@ -1,3 +1,5 @@
+import * as fs from 'node:fs'
+import * as os from 'node:os'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {
@@ -245,7 +247,7 @@ describe('applyIndependentHtmlSurfaces options slot', () => {
     expect(html).toEqual({'options/index': path.join(context, 'shared.html')})
   })
 
-  it('resolves a modern page hosted in public/', () => {
+  it('leaves a modern page hosted in public/ to the copier', () => {
     const html = applyIndependentHtmlSurfaces(
       {'options/index': path.join(context, 'legacy.html')},
       {
@@ -256,8 +258,40 @@ describe('applyIndependentHtmlSurfaces options slot', () => {
       context,
       'chrome'
     )
-    expect(html['options/index']).toBe(
-      path.join(context, 'public', 'options.html')
+    expect(html['options/index']).toBeUndefined()
+  })
+
+  it('leaves a plain popup ref that only the root public/ has to the copier', () => {
+    const root = fs.realpathSync(
+      fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-surfaces-public-'))
     )
+
+    try {
+      fs.mkdirSync(path.join(root, 'src'), {recursive: true})
+      fs.mkdirSync(path.join(root, 'public', 'app'), {recursive: true})
+      fs.writeFileSync(path.join(root, 'src', 'manifest.json'), '{}')
+      fs.writeFileSync(path.join(root, 'public', 'app', 'popup.html'), '<p>')
+
+      const srcContext = path.join(root, 'src')
+      const html = applyIndependentHtmlSurfaces(
+        {'action/index': path.join(srcContext, 'app', 'popup.html')},
+        {manifest_version: 3, action: {default_popup: 'app/popup.html'}} as any,
+        srcContext,
+        'chrome',
+        root
+      )
+      expect(html['action/index']).toBeUndefined()
+
+      const beside = applyIndependentHtmlSurfaces(
+        {},
+        {manifest_version: 3, action: {default_popup: 'popup.html'}} as any,
+        srcContext,
+        'chrome',
+        root
+      )
+      expect(beside['action/index']).toBe(path.join(srcContext, 'popup.html'))
+    } finally {
+      fs.rmSync(root, {recursive: true, force: true})
+    }
   })
 })

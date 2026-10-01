@@ -20,11 +20,11 @@ export function manifestV3(
   projectPath?: string
 ) {
   return {
-    ...action(manifest),
-    ...pageAction(manifest),
+    ...action(manifest, manifestPath, projectPath),
+    ...pageAction(manifest, manifestPath, projectPath),
     ...backgroundServiceWorker(manifest),
     ...declarativeNetRequest(manifest, manifestPath, projectPath),
     ...hostPermissions(manifest),
-    ...sidePanel(manifest, manifestPath)
+    ...sidePanel(manifest, manifestPath, projectPath)
   }
 }

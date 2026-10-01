@@ -10,18 +10,28 @@ import type {Manifest} from '../../../../types'
 import {getFilename} from '../../../shared/paths'
 import {
   iconOutputPath,
+  manifestPageOutputTarget,
   themeIconOutputPath
 } from '../../normalize-manifest-path'
 
-export function browserAction(manifest: Manifest) {
+export function browserAction(
+  manifest: Manifest,
+  manifestPath?: string,
+  projectPath?: string
+) {
   return (
     manifest.browser_action && {
       browser_action: {
         ...manifest.browser_action,
         ...(manifest.browser_action.default_popup && {
           default_popup: getFilename(
-            'action/index.html',
-            manifest.browser_action.default_popup as string
+            manifestPageOutputTarget(
+              String(manifest.browser_action.default_popup),
+              'action/index.html',
+              manifestPath,
+              projectPath
+            ),
+            String(manifest.browser_action.default_popup)
           )
         }),
         ...(manifest.browser_action.default_icon && {

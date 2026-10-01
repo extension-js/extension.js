@@ -5,7 +5,8 @@ import {manifestPageOutputTarget} from '../../normalize-manifest-path'
 
 export function chromeSettingsOverrides(
   manifest: Manifest,
-  manifestPath?: string
+  manifestPath?: string,
+  projectPath?: string
 ) {
   const overrides = manifest.chrome_settings_overrides
 
@@ -27,7 +28,8 @@ export function chromeSettingsOverrides(
                   manifestPageOutputTarget(
                     fav,
                     `chrome_settings_overrides/${path.basename(fav)}`,
-                    manifestPath
+                    manifestPath,
+                    projectPath
                   ),
                   fav
                 )
@@ -46,7 +48,8 @@ export function chromeSettingsOverrides(
                     manifestPageOutputTarget(
                       page,
                       `chrome_settings_overrides/startup-${index}.html`,
-                      manifestPath
+                      manifestPath,
+                      projectPath
                     ),
                     page
                   )

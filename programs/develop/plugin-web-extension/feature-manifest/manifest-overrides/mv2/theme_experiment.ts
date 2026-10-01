@@ -8,7 +8,11 @@ const getBasename = (filepath: string) => path.basename(filepath)
 // Only `stylesheet` is a Firefox key. A `stylesheets` list is not part of
 // theme_experiment, so it passes through untouched rather than earning a
 // promise nothing emits.
-export function themeExperiment(manifest: Manifest, manifestPath?: string) {
+export function themeExperiment(
+  manifest: Manifest,
+  manifestPath?: string,
+  projectPath?: string
+) {
   const te = manifest.theme_experiment
 
   return (
@@ -20,7 +24,8 @@ export function themeExperiment(manifest: Manifest, manifestPath?: string) {
             manifestPageOutputTarget(
               te.stylesheet,
               `theme_experiment/${getBasename(te.stylesheet)}`,
-              manifestPath
+              manifestPath,
+              projectPath
             ),
             te.stylesheet
           )

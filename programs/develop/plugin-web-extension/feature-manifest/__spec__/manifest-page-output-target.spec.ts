@@ -178,3 +178,91 @@ describe('manifestJsonOutputTarget', () => {
     )
   })
 })
+
+describe('manifestPageOutputTarget with a public/ folder', () => {
+  function srcLayout(files: string[]) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-page-public-'))
+    tempDirs.push(dir)
+
+    for (const file of files) {
+      const abs = path.join(dir, file)
+      fs.mkdirSync(path.dirname(abs), {recursive: true})
+      fs.writeFileSync(abs, '<html></html>')
+    }
+
+    return {root: dir, manifestPath: path.join(dir, 'src', 'manifest.json')}
+  }
+
+  it('keeps a plain ref verbatim when only the root public/ has the page', () => {
+    const {root, manifestPath} = srcLayout([
+      'src/manifest.json',
+      'public/app/popups/not-found.html'
+    ])
+    expect(
+      manifestPageOutputTarget(
+        'app/popups/not-found.html',
+        'action/index.html',
+        manifestPath,
+        root
+      )
+    ).toBe('app/popups/not-found.html')
+  })
+
+  it('keeps a plain ref verbatim when only the next-to-manifest public/ has the page', () => {
+    const {root, manifestPath} = srcLayout([
+      'src/manifest.json',
+      'src/public/popup.html'
+    ])
+    expect(
+      manifestPageOutputTarget(
+        'popup.html',
+        'action/index.html',
+        manifestPath,
+        root
+      )
+    ).toBe('popup.html')
+  })
+
+  it('prefers the page beside the manifest over a public/ twin', () => {
+    const {root, manifestPath} = srcLayout([
+      'src/manifest.json',
+      'src/popup.html',
+      'public/popup.html'
+    ])
+    expect(
+      manifestPageOutputTarget(
+        'popup.html',
+        'action/index.html',
+        manifestPath,
+        root
+      )
+    ).toBe('action/index.html')
+  })
+
+  it('reaches the root public/ for a root-absolute ref of a src/ manifest', () => {
+    const {root, manifestPath} = srcLayout([
+      'src/manifest.json',
+      'public/pages/x.html'
+    ])
+    expect(
+      manifestPageOutputTarget(
+        '/pages/x.html',
+        'options/index.html',
+        manifestPath,
+        root
+      )
+    ).toBe('pages/x.html')
+  })
+
+  it('compiles a plain ref that no folder has', () => {
+    const {root, manifestPath} = srcLayout(['src/manifest.json'])
+    expect(
+      manifestPageOutputTarget(
+        'missing.html',
+        'action/index.html',
+        manifestPath,
+        root
+      )
+    ).toBe('action/index.html')
+  })
+})

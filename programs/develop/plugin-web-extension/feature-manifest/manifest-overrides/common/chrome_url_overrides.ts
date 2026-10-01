@@ -10,7 +10,11 @@ import type {Manifest} from '../../../../types'
 import {getFilename} from '../../../shared/paths'
 import {manifestPageOutputTarget} from '../../normalize-manifest-path'
 
-export function chromeUrlOverrides(manifest: Manifest, manifestPath?: string) {
+export function chromeUrlOverrides(
+  manifest: Manifest,
+  manifestPath?: string,
+  projectPath?: string
+) {
   return (
     manifest.chrome_url_overrides && {
       chrome_url_overrides: {
@@ -22,7 +26,8 @@ export function chromeUrlOverrides(manifest: Manifest, manifestPath?: string) {
               manifestPageOutputTarget(
                 raw,
                 'chrome_url_overrides/bookmarks.html',
-                manifestPath
+                manifestPath,
+                projectPath
               ),
               raw
             )
@@ -36,7 +41,8 @@ export function chromeUrlOverrides(manifest: Manifest, manifestPath?: string) {
               manifestPageOutputTarget(
                 raw,
                 'chrome_url_overrides/history.html',
-                manifestPath
+                manifestPath,
+                projectPath
               ),
               raw
             )
@@ -50,7 +56,8 @@ export function chromeUrlOverrides(manifest: Manifest, manifestPath?: string) {
               manifestPageOutputTarget(
                 raw,
                 'chrome_url_overrides/newtab.html',
-                manifestPath
+                manifestPath,
+                projectPath
               ),
               raw
             )
