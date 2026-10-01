@@ -76,7 +76,7 @@
     "edge-extension"
   ],
   "dependencies": {
-    "axios": "^1.18.0",
+    "axios": "^1.20.0",
     "cross-spawn": "^7.0.6",
     "fflate": "^0.8.3",
     "go-git-it": "^5.1.5",
