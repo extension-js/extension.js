@@ -25,8 +25,28 @@ export function stagingDistPathFor(distPath: string): string {
   )
 }
 
+function owningPidOf(stagingName: string, prefix: string): number {
+  const pidSegment = stagingName.slice(prefix.length).split('-')[0]
+
+  return Number.parseInt(pidSegment, 36)
+}
+
+function isProcessAlive(pid: number): boolean {
+  if (!Number.isInteger(pid) || pid <= 0) return false
+  if (pid === process.pid) return true
+
+  try {
+    process.kill(pid, 0)
+
+    return true
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === 'EPERM'
+  }
+}
+
 // Interrupted builds (SIGINT, crash, OOM) leave their staging directory
-// behind since no process survives to remove it. The next build sweeps them.
+// behind since no process survives to remove it. The next build sweeps them,
+// but a sibling build still running for the same target keeps its own.
 export function removeStaleStagingDirs(distPath: string): void {
   const parent = path.dirname(distPath)
   const prefix = `${DIST_STAGING_PREFIX}${path.basename(distPath)}-`
@@ -42,6 +62,7 @@ export function removeStaleStagingDirs(distPath: string): void {
   for (const entry of entries) {
     try {
       if (!entry.isDirectory() || !entry.name.startsWith(prefix)) continue
+      if (isProcessAlive(owningPidOf(entry.name, prefix))) continue
 
       fs.rmSync(path.join(parent, entry.name), {recursive: true, force: true})
     } catch {
