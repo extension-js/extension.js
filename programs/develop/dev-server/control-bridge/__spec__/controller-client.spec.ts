@@ -45,6 +45,8 @@ function startFakeExecutor(
 
       if (frame.type === 'command') {
         const r = reply(frame)
+        if (!r) return
+
         ws.send(JSON.stringify({type: 'result', cmdId: frame.cmdId, ...r}))
       }
     })
@@ -275,6 +277,57 @@ describe('BridgeController (integration)', () => {
       args: {expression: 'chrome.runtime.id'}
     })
     expect(result).toMatchObject({ok: true, value: 'abc123'})
+  })
+
+  it('mints a cmdId that carries the process id, so two CLIs cannot share one', async () => {
+    const broker = makeServer()
+    server = await startControlServer({broker})
+    const seen: string[] = []
+    executor = await startFakeExecutor(server.port, (cmd) => {
+      seen.push(cmd.cmdId)
+
+      return {ok: true}
+    })
+
+    controller = new BridgeController({
+      controlPort: server.port,
+      instanceId: 'inst-1'
+    })
+
+    await controller.command({op: 'reload', target: {context: 'background'}})
+    await controller.command({op: 'reload', target: {context: 'background'}})
+    expect(seen).toHaveLength(2)
+    expect(new Set(seen).size).toBe(2)
+
+    for (const id of seen) {
+      expect(id.startsWith(`c-${process.pid}-`)).toBe(true)
+    }
+  })
+
+  it('answers Unavailable at once when the executor socket closes mid-command', async () => {
+    const broker = makeServer()
+    server = await startControlServer({broker})
+    executor = await startFakeExecutor(server.port, () => {
+      executor?.close()
+
+      return null
+    })
+
+    controller = new BridgeController({
+      controlPort: server.port,
+      instanceId: 'inst-1'
+    })
+
+    const startedAt = Date.now()
+    const result = await controller.command({
+      op: 'storage.get',
+      target: {context: 'background'},
+      timeoutMs: 30_000
+    })
+
+    expect(Date.now() - startedAt).toBeLessThan(5000)
+    expect(result).toMatchObject({ok: false, error: {name: 'Unavailable'}})
+    expect(result.error?.message).toContain('no executor connected')
   })
 
   it('rejects connect when control is disabled (no --allow-control)', async () => {

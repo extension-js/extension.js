@@ -191,7 +191,9 @@ export class BridgeController {
       throw new Error('control channel is not open')
     }
 
-    const cmdId = `c-${Date.now()}-${++cmdSeq}`
+    // The counter restarts in every CLI process, so the pid keeps two
+    // processes that issue a command in the same millisecond apart.
+    const cmdId = `c-${process.pid}-${Date.now()}-${++cmdSeq}`
     const timeoutMs = input.timeoutMs ?? 5000
     // Client-side backstop slightly above the broker's own timeout.
     const backstopMs = Math.min(timeoutMs, 30_000) + 2000

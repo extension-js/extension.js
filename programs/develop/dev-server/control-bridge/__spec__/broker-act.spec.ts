@@ -559,6 +559,158 @@ describe('BridgeBroker (Slice 2: act)', () => {
     expect(sched.pending()).toBe(0)
   })
 
+  it('fails an in-flight command the moment its executor disconnects', () => {
+    const sched = makeScheduler()
+    const actions = new FakeActions()
+    let t = 10_000
+    const b = new BridgeBroker(
+      base({
+        actions,
+        now: () => t,
+        setTimer: sched.setTimer,
+        clearTimer: sched.clearTimer
+      })
+    )
+    const exec = new FakeConn('exec')
+    const ctl = new FakeConn('ctl')
+    helloProducer(b, exec)
+    helloController(b, ctl)
+    ctl.sent = []
+    b.onFrame(ctl, {
+      type: 'command',
+      cmdId: 'gone-1',
+      op: 'storage.get',
+      target: {context: 'background'},
+      timeoutMs: 30_000
+    })
+
+    expect(b.pendingCount).toBe(1)
+    t += 250
+    b.onClose(exec)
+
+    expect(ctl.sent).toHaveLength(1)
+    const result = ctl.sent[0] as any
+    expect(result).toMatchObject({
+      type: 'result',
+      cmdId: 'gone-1',
+      ok: false,
+      error: {name: 'Unavailable'}
+    })
+
+    expect(result.error.message).toContain('no executor connected')
+    expect(result.error.message).toContain('disconnected 0s ago')
+    expect(b.pendingCount).toBe(0)
+    expect(sched.pending()).toBe(0)
+    expect(actions.records.at(-1)).toMatchObject({
+      cmdId: 'gone-1',
+      op: 'storage.get',
+      ok: false,
+      durationMs: 250,
+      errorName: 'Unavailable'
+    })
+
+    sched.fire(1)
+    expect(ctl.sent).toHaveLength(1)
+  })
+
+  it('names the browser exit when the executor socket closes after the stamp', () => {
+    const sched = makeScheduler()
+    const b = new BridgeBroker(
+      base({setTimer: sched.setTimer, clearTimer: sched.clearTimer})
+    )
+    const exec = new FakeConn('exec')
+    const ctl = new FakeConn('ctl')
+    helloProducer(b, exec)
+    helloController(b, ctl)
+    ctl.sent = []
+    b.onFrame(ctl, {
+      type: 'command',
+      cmdId: 'gone-2',
+      op: 'reload',
+      target: {context: 'background'}
+    })
+
+    b.noteBrowserExited('2026-09-25T23:24:37.253Z', 'code 0')
+    b.onClose(exec)
+    const result = ctl.sent[0] as any
+    expect(result.error.name).toBe('Unavailable')
+    expect(result.error.message).toContain('the browser exited at')
+    expect(result.error.message).not.toContain('idle out')
+  })
+
+  it('refuses a cmdId that is still pending without touching the first command', () => {
+    const sched = makeScheduler()
+    const actions = new FakeActions()
+    const b = new BridgeBroker(
+      base({
+        actions,
+        now: () => 1000,
+        setTimer: sched.setTimer,
+        clearTimer: sched.clearTimer
+      })
+    )
+    const exec = new FakeConn('exec')
+    const a = new FakeConn('ctl-a')
+    const other = new FakeConn('ctl-b')
+    helloProducer(b, exec)
+    helloController(b, a)
+    helloController(b, other)
+    a.sent = []
+    other.sent = []
+
+    b.onFrame(a, {
+      type: 'command',
+      cmdId: 'c-1759300000000-1',
+      op: 'tabs.query',
+      target: {context: 'background'}
+    })
+
+    b.onFrame(other, {
+      type: 'command',
+      cmdId: 'c-1759300000000-1',
+      op: 'storage.get',
+      target: {context: 'background'}
+    })
+
+    expect(b.pendingCount).toBe(1)
+    expect(sched.pending()).toBe(1)
+    expect(exec.sent.filter((f) => f.type === 'command')).toHaveLength(1)
+    expect(other.sent).toHaveLength(1)
+    expect(other.sent[0]).toMatchObject({
+      type: 'result',
+      cmdId: 'c-1759300000000-1',
+      ok: false,
+      error: {name: 'BadRequest'}
+    })
+
+    expect((other.sent[0] as any).error.message).toContain('cmdId')
+    expect(a.sent).toHaveLength(0)
+
+    b.onFrame(exec, {
+      type: 'result',
+      cmdId: 'c-1759300000000-1',
+      ok: true,
+      value: 'answer-for-A'
+    })
+
+    expect(a.sent).toEqual([
+      {
+        type: 'result',
+        cmdId: 'c-1759300000000-1',
+        ok: true,
+        value: 'answer-for-A'
+      }
+    ])
+
+    expect(other.sent).toHaveLength(1)
+    expect(b.pendingCount).toBe(0)
+    expect(sched.pending()).toBe(0)
+    expect(actions.records.map((r) => [r.op, r.ok, r.errorName])).toEqual([
+      ['storage.get', false, 'BadRequest'],
+      ['tabs.query', true, undefined]
+    ])
+  })
+
   it('ignores result frames from non-executor connections', () => {
     const b = new BridgeBroker(base())
     const exec = new FakeConn('exec')

@@ -192,6 +192,7 @@ const UNDELIVERED_RELOAD_WARN_EMULATOR: Record<
 
 interface Pending {
   controller: BridgeConnection
+  executor: BridgeConnection
   op: CommandOp
   target: BridgeTarget
   issuedAt: number
@@ -339,6 +340,9 @@ export class BridgeBroker {
 
     if (role === 'producer') {
       this.lastProducerDisconnectedAt = this.now()
+      // A command this socket was running can never be answered now; waiting
+      // for the timer would report a timeout for an executor that is gone.
+      this.failCommandsOf(conn)
       // Only the LAST producer leaving means the extension stopped answering.
       const stillConnected = [...this.roles.values()].some(
         (r) => r === 'producer'
@@ -353,6 +357,40 @@ export class BridgeBroker {
         this.pending.delete(cmdId)
       }
     }
+  }
+
+  private failCommandsOf(executor: BridgeConnection): void {
+    for (const [cmdId, p] of this.pending) {
+      if (p.executor !== executor) continue
+
+      this.clearTimer(p.timer)
+      this.pending.delete(cmdId)
+      this.settle(cmdId, p, {
+        name: 'Unavailable',
+        message: this.diagnoseExecutorAbsence()
+      })
+    }
+  }
+
+  private settle(
+    cmdId: string,
+    p: Pending,
+    error: {name: string; message: string}
+  ): void {
+    const result: ResultFrame = {type: 'result', cmdId, ok: false, error}
+    p.controller.send(result)
+
+    this.audit({
+      cmdId,
+      op: p.op,
+      target: p.target,
+      ok: false,
+      durationMs: this.now() - p.issuedAt,
+      principal: p.principal,
+      exprHash: p.exprHash,
+      expr: p.expr,
+      errorName: error.name
+    })
   }
 
   // Dev-loop reload broadcast for the controller-less (--no-browser) path. NOT
@@ -472,18 +510,9 @@ export class BridgeBroker {
     // the session identity, so rows are normalized to ready.json's runId here.
     const event = this.ring.push({...incoming, runId: this.runId})
     this.file?.write(event)
+    // Ring eviction only shortens the replay a later consumer gets; a live
+    // consumer already holds every event, so it is told in the ready frame.
     this.fanOut({type: 'log', event})
-
-    const gap = this.ring.drainDropped()
-
-    if (gap) {
-      this.fanOut({
-        type: 'gap',
-        dropped: gap.dropped,
-        reason: gap.reason,
-        sinceSeq: gap.sinceSeq
-      })
-    }
   }
 
   private allowStaleProducerResync(): boolean {
@@ -634,6 +663,7 @@ export class BridgeBroker {
         type: 'ready',
         runId: this.runId,
         bufferedFrom: this.ring.bufferedFrom,
+        evicted: this.ring.evicted,
         engine: this.engine
       }
 
@@ -768,6 +798,18 @@ export class BridgeBroker {
       return
     }
 
+    // The id is client-chosen; letting a second one replace the entry would
+    // orphan the first caller's timer and route its answer to the newcomer.
+    if (this.pending.has(cmd.cmdId)) {
+      deny(
+        'BadRequest',
+        `cmdId ${cmd.cmdId} is still pending for another command, ` +
+          'send a fresh id'
+      )
+
+      return
+    }
+
     const executor = this.firstExecutor()
 
     if (!executor) {
@@ -783,6 +825,7 @@ export class BridgeBroker {
     const timer = this.setTimer(() => this.onTimeout(cmd.cmdId), timeoutMs)
     this.pending.set(cmd.cmdId, {
       controller,
+      executor,
       op: cmd.op,
       target: cmd.target,
       issuedAt: this.now(),
@@ -834,26 +877,7 @@ export class BridgeBroker {
     if (!p) return
 
     this.pending.delete(cmdId)
-
-    const result: ResultFrame = {
-      type: 'result',
-      cmdId,
-      ok: false,
-      error: {name: 'Timeout', message: 'command timed out'}
-    }
-    p.controller.send(result)
-
-    this.audit({
-      cmdId,
-      op: p.op,
-      target: p.target,
-      ok: false,
-      durationMs: this.now() - p.issuedAt,
-      principal: p.principal,
-      exprHash: p.exprHash,
-      expr: p.expr,
-      errorName: 'Timeout'
-    })
+    this.settle(cmdId, p, {name: 'Timeout', message: 'command timed out'})
   }
 
   private firstExecutor(): BridgeConnection | null {

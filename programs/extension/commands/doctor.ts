@@ -505,7 +505,7 @@ export async function runDoctor(
       }
 
       // 6. executor, any ROUTED result (even an in-SW error) proves the
-      // executor is alive; only Unavailable/timeout means it is absent.
+      // executor is alive; Unavailable (absent) and Timeout (silent) do not.
       try {
         const probe = await controller.command({
           op: 'storage.get',
@@ -514,13 +514,29 @@ export async function runDoctor(
           timeoutMs: PROBE_TIMEOUT_MS
         })
 
-        if (probe.ok || probe.error?.name !== 'Unavailable') {
+        const unanswered =
+          !probe.ok &&
+          (probe.error?.name === 'Unavailable' ||
+            probe.error?.name === 'Timeout')
+
+        if (!unanswered) {
           results.push({
             check: 'executor',
             status: 'pass',
             detail: probe.ok
               ? 'executor responded to a storage probe'
               : `executor responded (probe errored in-extension: ${probe.error?.message ?? 'unknown'})`
+          })
+        } else if (probe.error?.name === 'Timeout') {
+          results.push({
+            check: 'executor',
+            status: 'fail',
+            detail:
+              'executor did not answer a storage probe within ' +
+              `${PROBE_TIMEOUT_MS / 1000}s; the service worker is connected ` +
+              'but not responding',
+            remediation:
+              'Reload the extension, or restart the dev session if it stays silent'
           })
         } else if (isExecutorAttachGrace(ready)) {
           results.push({

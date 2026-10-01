@@ -623,22 +623,31 @@ async function followLogs(
     )
   }
 
+  // The session keeps a bounded replay buffer. A follower that joins after
+  // it filled is told once that the history it is about to print is partial.
+  let replayNoticed = false
+
   const consumer = new BridgeConsumer({
     controlPort: ready.controlPort,
     instanceId: ready.instanceId,
     reconnect: true,
-    onLog: (event: LogEventLike) => {
-      if (matches(event)) printEvent(event, format)
-    },
-    onGap: (gap: {dropped?: unknown; reason?: unknown}) => {
+    onReady: (frame: {evicted?: unknown; bufferedFrom?: unknown}) => {
+      const evicted = typeof frame.evicted === 'number' ? frame.evicted : 0
+      if (replayNoticed || evicted < 1) return
+
+      replayNoticed = true
       // eslint-disable-next-line no-console
       console.error(
         colors.dim(
           colors.gray(
-            `… ${gap.dropped} event(s) dropped (${gap.reason}), stream is behind`
+            `… replay starts at seq ${frame.bufferedFrom}, ${evicted} earlier ` +
+              'event(s) left the session buffer before this follow began'
           )
         )
       )
+    },
+    onLog: (event: LogEventLike) => {
+      if (matches(event)) printEvent(event, format)
     },
     onClose: (close: {code: number; reason: string}) => {
       if (!refusals.has(close.code) && sessionStillNamed()) return

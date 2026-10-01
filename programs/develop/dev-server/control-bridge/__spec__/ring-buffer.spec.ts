@@ -45,8 +45,31 @@ describe('LogRingBuffer', () => {
     ring.push(evt('c'))
     ring.push(evt('d'))
     const gap = ring.drainDropped()
-    expect(gap).toEqual({dropped: 2, reason: 'ring_overflow', sinceSeq: 3})
+    expect(gap).toEqual({dropped: 2, reason: 'ring_overflow', sinceSeq: 0})
     expect(ring.drainDropped()).toBeNull()
+  })
+
+  it('points sinceSeq at the last seq before the dropped range', () => {
+    const ring = new LogRingBuffer(2)
+    for (let i = 0; i < 6; i++) ring.push(evt(`m${i}`))
+    ring.drainDropped()
+    ring.push(evt('m6'))
+    ring.push(evt('m7'))
+    expect(ring.drainDropped()).toEqual({
+      dropped: 2,
+      reason: 'ring_overflow',
+      sinceSeq: 4
+    })
+  })
+
+  it('counts every eviction for the life of the ring', () => {
+    const ring = new LogRingBuffer(2)
+    expect(ring.evicted).toBe(0)
+    for (let i = 0; i < 5; i++) ring.push(evt(`m${i}`))
+    expect(ring.evicted).toBe(3)
+    ring.drainDropped()
+    expect(ring.evicted).toBe(3)
+    expect(ring.bufferedFrom).toBe(ring.evicted + 1)
   })
 
   it('returns null gap when nothing dropped', () => {
