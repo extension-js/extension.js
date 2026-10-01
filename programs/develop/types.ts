@@ -516,6 +516,7 @@ export interface CommonWebpackOptions {
    * PlaywrightPlugin can advertise them in ready.json. Not user-configurable.
    */
   controlPort?: number | null
+  controlPortUnavailableReason?: string | null
   controlPath?: string
   logsPath?: string
 }
