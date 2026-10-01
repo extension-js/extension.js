@@ -196,6 +196,79 @@ describe('webpack/command-preview (run-only)', () => {
     expect(call.outPath).toBe('/proj')
   })
 
+  it('previews a downloaded build archive where it landed, with no dist lookup or build advice', async () => {
+    const {getProjectStructure} = (await import('../lib/project')) as any
+    getProjectStructure.mockResolvedValueOnce({
+      manifestPath: '/dl/firefox/manifest.json',
+      packageJsonPath: undefined
+    })
+    ;(fs.existsSync as any).mockImplementation(
+      (p: string) => p === path.join('/dl', 'firefox', 'manifest.json')
+    )
+
+    const localLog = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    await extensionPreview(
+      'https://registry.example/ws/project/builds/abc/firefox.zip?t=token',
+      {browser: 'firefox'} as any,
+      runOnlyPreviewBrowser
+    )
+
+    const call = runOnlyPreviewBrowser.mock.calls[0]?.[0] as any
+    // The extracted folder is passed through as dirname gives it, slashes kept.
+    expect(call.outPath).toBe('/dl/firefox')
+
+    const printed = localLog.mock.calls
+      .map((c: any[]) => String(c[0]))
+      .join('\n')
+    expect(printed).not.toContain('No production build found')
+    expect(printed).not.toContain('extension build')
+  })
+
+  it('previews a local build zip the same way', async () => {
+    const {getProjectStructure} = (await import('../lib/project')) as any
+    getProjectStructure.mockResolvedValueOnce({
+      manifestPath: '/here/chrome/manifest.json',
+      packageJsonPath: undefined
+    })
+    ;(fs.existsSync as any).mockImplementation(
+      (p: string) => p === path.join('/here', 'chrome', 'manifest.json')
+    )
+
+    await extensionPreview(
+      './chrome.zip',
+      {browser: 'chrome'} as any,
+      runOnlyPreviewBrowser
+    )
+
+    const call = runOnlyPreviewBrowser.mock.calls[0]?.[0] as any
+    expect(call.outPath).toBe('/here/chrome')
+  })
+
+  it('keeps the project path for a downloaded source archive that has a package.json', async () => {
+    const {getProjectStructure} = (await import('../lib/project')) as any
+    getProjectStructure.mockResolvedValueOnce({
+      manifestPath: '/dl/repo/manifest.json',
+      packageJsonPath: '/dl/repo/package.json'
+    })
+    ;(fs.existsSync as any).mockImplementation((p: string) =>
+      [
+        path.join('/dl', 'repo', 'manifest.json'),
+        path.join('/dl', 'repo', 'package.json'),
+        path.join('/dl', 'repo', 'dist', 'chrome', 'manifest.json')
+      ].includes(p)
+    )
+
+    await extensionPreview(
+      'https://github.com/owner/repo',
+      {browser: 'chrome'} as any,
+      runOnlyPreviewBrowser
+    )
+
+    const call = runOnlyPreviewBrowser.mock.calls[0]?.[0] as any
+    expect(call.outPath).toBe(path.join('/dl', 'repo', 'dist', 'chrome'))
+  })
+
   it('says so when it falls back to the source manifest dir', async () => {
     const localLog = vi.spyOn(console, 'log').mockImplementation(() => {})
     ;(fs.existsSync as any).mockImplementation((p: string) => {
