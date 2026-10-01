@@ -551,6 +551,7 @@ export default function webpackConfig(
         '.jsx',
         '.ts',
         '.mts',
+        '.cts',
         '.tsx',
         '.json',
         '.svelte',

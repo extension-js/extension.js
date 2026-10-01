@@ -167,6 +167,20 @@ export function resolveTranspilePackageDirs(
   return Array.from(resolvedDirs)
 }
 
+// The one node_modules carve-out every compiling rule shares: a dependency the
+// project asked to transpile is treated like a project file, not a prebuilt one.
+export function createNodeModulesExclude(
+  transpilePackageDirs: string[]
+): (resourcePath: string) => boolean {
+  return (resourcePath: string) => {
+    if (!/[\\/]node_modules[\\/]/.test(resourcePath)) {
+      return false
+    }
+
+    return !transpilePackageDirs.some((dir) => isSubPath(resourcePath, dir))
+  }
+}
+
 // Containment check routed through the shared canonicalization helper so both
 // sides normalize identically across platforms. See lib/resource-path.
 export function isSubPath(

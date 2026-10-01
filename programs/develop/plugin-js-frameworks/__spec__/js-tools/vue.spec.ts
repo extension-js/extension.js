@@ -35,7 +35,8 @@ describe('vue tools', () => {
       (_p: string, dep: string) => dep === 'vue'
     )
 
-    vi.doMock('../../js-frameworks-lib/load-loader-options', () => ({
+    vi.doMock('../../js-frameworks-lib/load-loader-options', async () => ({
+      ...(await vi.importActual('../../js-frameworks-lib/load-loader-options')),
       loadLoaderOptions: vi.fn(async () => ({foo: 1}))
     }))
 
@@ -76,7 +77,10 @@ describe('vue tools', () => {
     expect(result?.loaders?.[0].test).toEqual(/\.vue$/)
     expect(result?.loaders?.[0].options?.foo).toBe(1)
     expect(result?.loaders?.[0].include).toBeUndefined()
-    expect(result?.loaders?.[0].exclude).toEqual(/node_modules/)
+
+    const exclude = result?.loaders?.[0].exclude as (p: string) => boolean
+    expect(exclude('/p/src/App.vue')).toBe(false)
+    expect(exclude('/p/node_modules/other-lib/Button.vue')).toBe(true)
     expect(result?.plugins?.length).toBeGreaterThan(0)
     expect(result?.alias?.vue$).toContain('/project/node_modules/vue')
     expect(result?.alias?.['@vue/runtime-dom']).toContain(
@@ -90,6 +94,55 @@ describe('vue tools', () => {
     expect(result?.alias?.['@vue/shared']).toContain(
       '/project/node_modules/@vue/shared'
     )
+  })
+
+  it('compiles an SFC from a transpiled package and keeps the nested defaults', async () => {
+    const integrations = (await import(
+      '../../frameworks-lib/integrations'
+    )) as any
+    integrations.hasDependency.mockImplementation(
+      (_p: string, dep: string) => dep === 'vue'
+    )
+
+    vi.doMock('../../js-frameworks-lib/load-loader-options', async () => ({
+      ...(await vi.importActual('../../js-frameworks-lib/load-loader-options')),
+      loadLoaderOptions: vi.fn(async () => ({
+        compilerOptions: {whitespace: 'preserve'}
+      }))
+    }))
+
+    const VueLoaderPluginMock = function (this: any) {
+      this.apply = vi.fn()
+    } as any
+    vi.doMock('module', () => ({
+      createRequire: () => {
+        const req = ((id: string) => {
+          if (id === 'vue-loader') {
+            return {VueLoaderPlugin: VueLoaderPluginMock}
+          }
+
+          if (id === '@vue/compiler-sfc') return {parse: vi.fn()}
+          if (id === 'vue') return {version: '3.5.0'}
+
+          throw new Error(`Cannot find module ${id}`)
+        }) as any
+        req.resolve = (id: string) => `/project/node_modules/${id}`
+
+        return req
+      }
+    }))
+
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    const {maybeUseVue} = await import('../../js-tools/vue')
+    const result = await maybeUseVue('/p', 'development', [
+      '/p/node_modules/acme-ui'
+    ])
+    const rule = result?.loaders?.[0] as any
+
+    expect(rule.options.experimentalInlineMatchResource).toBe(true)
+    expect(rule.options.compilerOptions).toEqual({whitespace: 'preserve'})
+    expect(rule.exclude('/p/node_modules/acme-ui/Button.vue')).toBe(false)
+    expect(rule.exclude('/p/node_modules/other-lib/Button.vue')).toBe(true)
   })
 })
 

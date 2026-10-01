@@ -347,6 +347,8 @@ describe('webpack-config transpile packages watch behavior', () => {
     expect(resolve?.extensionAlias?.['.js']).toContain('.tsx')
     expect(resolve?.extensionAlias?.['.js']).toContain('.js')
     expect(resolve?.extensionAlias?.['.mjs']).toContain('.mts')
+    expect(resolve?.extensionAlias?.['.cjs']).toContain('.cts')
+    expect(resolve?.extensions).toContain('.cts')
   })
 
   it('externalizes chrome-extension:/moz-extension: URLs as passthrough assets', () => {
