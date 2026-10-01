@@ -70,6 +70,9 @@ export type SplitChunksConfig = NonNullable<
   NonNullable<Configuration['optimization']>['splitChunks']
 >
 
+// The output folder every chunk two or more pages share is emitted under.
+export const SHARED_CHUNK_DIR = 'shared'
+
 // HTML pages share code the way a web app does: the framework runtime in one
 // file, everything two or more pages import in another. Stable names, no
 // hash, so a manifest or a public asset can keep pointing at them.
@@ -80,8 +83,8 @@ export function defaultSplitChunks(): SplitChunksConfig {
       default: false,
       defaultVendors: false,
       framework: {
-        name: 'shared/framework',
-        filename: 'shared/framework.js',
+        name: `${SHARED_CHUNK_DIR}/framework`,
+        filename: `${SHARED_CHUNK_DIR}/framework.js`,
         test: FRAMEWORK_PACKAGE_PATTERN,
         type: SCRIPT_MODULE_TYPE,
         priority: 40,
@@ -89,8 +92,8 @@ export function defaultSplitChunks(): SplitChunksConfig {
         reuseExistingChunk: true
       },
       commons: {
-        name: 'shared/commons',
-        filename: 'shared/commons.js',
+        name: `${SHARED_CHUNK_DIR}/commons`,
+        filename: `${SHARED_CHUNK_DIR}/commons.js`,
         type: SCRIPT_MODULE_TYPE,
         minChunks: 2,
         minSize: 0,

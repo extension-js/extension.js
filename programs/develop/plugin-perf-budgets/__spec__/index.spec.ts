@@ -1,5 +1,10 @@
 import {describe, expect, it} from 'vitest'
-import {BUDGET_BYTES, categorizeAsset, PerfBudgetsPlugin} from '../index'
+import {
+  ASSET_CATEGORIES,
+  BUDGET_BYTES,
+  categorizeAsset,
+  PerfBudgetsPlugin
+} from '../index'
 
 describe('categorizeAsset', () => {
   it('classifies content scripts as content-script regardless of hash', () => {
@@ -30,14 +35,40 @@ describe('categorizeAsset', () => {
     for (const dir of [
       'pages',
       'sidebar',
-      'popup',
       'options',
       'devtools',
-      'newtab',
-      'sandbox'
+      'sandbox',
+      'action',
+      'page_action'
     ]) {
       expect(categorizeAsset(`${dir}/index.js`)).toBe('page')
     }
+  })
+
+  it('classifies override pages and devtools panels as page', () => {
+    expect(categorizeAsset('chrome_url_overrides/newtab.js')).toBe('page')
+    expect(categorizeAsset('chrome_url_overrides/newtab.css')).toBe('page')
+    expect(categorizeAsset('chrome_url_overrides/history.js')).toBe('page')
+    expect(categorizeAsset('chrome_url_overrides/bookmarks.js')).toBe('page')
+    expect(categorizeAsset('panel/index.js')).toBe('page')
+    expect(categorizeAsset('panel/index.css')).toBe('page')
+    expect(categorizeAsset('pages/main.js')).toBe('page')
+  })
+
+  it('classifies copied public code a page links as page', () => {
+    expect(categorizeAsset('css/file.css')).toBe('page')
+    expect(categorizeAsset('js/file.js')).toBe('page')
+  })
+
+  it('classifies injected special folder scripts as content-script', () => {
+    expect(categorizeAsset('scripts/script-one.js')).toBe('content-script')
+    expect(categorizeAsset('scripts/nested/tool.js')).toBe('content-script')
+    expect(categorizeAsset('user_scripts/api.js')).toBe('content-script')
+  })
+
+  it('classifies the chunks every page shares as shared', () => {
+    expect(categorizeAsset('shared/framework.js')).toBe('shared')
+    expect(categorizeAsset('shared/commons.js')).toBe('shared')
   })
 
   it('ignores binaries, source maps, hot updates, and unknown locations', () => {
@@ -61,15 +92,25 @@ describe('BUDGET_BYTES', () => {
   it('applies tighter budgets to hot paths than to cold UI pages', () => {
     expect(BUDGET_BYTES['content-script']).toBeLessThan(BUDGET_BYTES.page)
     expect(BUDGET_BYTES['service-worker']).toBeLessThan(BUDGET_BYTES.page)
+    expect(BUDGET_BYTES.shared).toBeLessThan(BUDGET_BYTES.page)
     expect(BUDGET_BYTES.runtime).toBe(BUDGET_BYTES.page)
     expect(BUDGET_BYTES.ignored).toBe(Number.POSITIVE_INFINITY)
   })
 
-  it('matches the documented 512/512/1024 KiB targets', () => {
+  it('matches the documented 512/512/1024/512 KiB targets', () => {
     expect(BUDGET_BYTES['content-script']).toBe(512 * 1024)
     expect(BUDGET_BYTES['service-worker']).toBe(512 * 1024)
     expect(BUDGET_BYTES.page).toBe(1024 * 1024)
+    expect(BUDGET_BYTES.shared).toBe(512 * 1024)
     expect(BUDGET_BYTES.runtime).toBe(1024 * 1024)
+  })
+
+  it('gives every category but ignored a finite budget', () => {
+    for (const category of ASSET_CATEGORIES) {
+      if (category === 'ignored') continue
+
+      expect(Number.isFinite(BUDGET_BYTES[category]), category).toBe(true)
+    }
   })
 })
 
@@ -151,6 +192,30 @@ describe('PerfBudgetsPlugin', () => {
     const msg = String(compilation.warnings[0].message)
     expect(msg).toContain('03bc89f8e5771202.wasm')
     expect(msg).toContain('runtime payload')
+  })
+
+  it('warns when the shared chunk exceeds its own budget', () => {
+    const compilation = applyAndRun(new PerfBudgetsPlugin(), 'production', {
+      'shared/framework.js': 600 * 1024
+    })
+    expect(compilation.warnings).toHaveLength(1)
+    const msg = String(compilation.warnings[0].message)
+    expect(msg).toContain('shared/framework.js')
+    expect(msg).toContain('shared chunk')
+    expect(msg).toContain('512.0 KiB')
+  })
+
+  it('warns when an override page or a panel exceeds the page budget', () => {
+    const compilation = applyAndRun(new PerfBudgetsPlugin(), 'production', {
+      'chrome_url_overrides/newtab.js': 1500 * 1024,
+      'panel/index.js': 1500 * 1024,
+      'scripts/script-one.js': 600 * 1024
+    })
+    expect(compilation.warnings).toHaveLength(1)
+    const msg = String(compilation.warnings[0].message)
+    expect(msg).toContain('chrome_url_overrides/newtab.js')
+    expect(msg).toContain('panel/index.js')
+    expect(msg).toContain('scripts/script-one.js')
   })
 
   it('does not warn in development mode by default', () => {
