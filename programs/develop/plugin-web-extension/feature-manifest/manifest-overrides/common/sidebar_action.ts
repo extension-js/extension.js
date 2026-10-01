@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import type {Manifest} from '../../../../types'
+import {sidebarActionOutputTarget} from '../../../shared/html-surfaces'
 import {getFilename} from '../../../shared/paths'
 import {
   iconOutputPath,
@@ -31,7 +32,7 @@ export function sidebarAction(
             return getFilename(
               manifestPageOutputTarget(
                 raw,
-                'sidebar/index.html',
+                sidebarActionOutputTarget(manifest),
                 manifestPath,
                 projectPath
               ),

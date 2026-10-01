@@ -39,10 +39,13 @@ vi.mock('@rspack/core', () => {
     }
   }
 
+  class WebpackErrorMock extends Error {}
+
   return {
     DefinePlugin: DefinePluginMock,
     ProvidePlugin: ProvidePluginMock,
     Compilation: {PROCESS_ASSETS_STAGE_SUMMARIZE: 1000},
+    WebpackError: WebpackErrorMock,
     sources: {RawSource: RawSourceMock}
   }
 })
@@ -148,6 +151,7 @@ describe('EnvPlugin', () => {
     let processAssetsCb: any
     const updated: Record<string, string> = {}
     const compilation: any = {
+      errors: [],
       assets: Object.fromEntries(
         Object.entries(files).map(([k, v]) => [
           k,
@@ -336,6 +340,114 @@ describe('EnvPlugin', () => {
     } finally {
       delete process.env.EXTENSION_PUBLIC_FOO
     }
+  })
+
+  it('escapes a quote, a backslash and a < for the json and html sinks', () => {
+    const hostile = 'A "great" C:\\path <b> & it\'s'
+    process.env.EXTENSION_PUBLIC_HOSTILE = hostile
+
+    try {
+      const {compiler, triggerCompilation} = createCompiler('development')
+      const plugin = new EnvPlugin({
+        manifestPath: '/proj/manifest.json',
+        browser: 'chrome'
+      })
+      plugin.apply(compiler as any)
+
+      const {compilation, runProcessAssets, updated} =
+        createCompilationWithAssets({
+          'manifest.json': '{"description":"$EXTENSION_PUBLIC_HOSTILE"}',
+          '_locales/en/messages.json':
+            '{"name":{"message":"Name $EXTENSION_PUBLIC_HOSTILE"}}',
+          'index.html': [
+            '<head><title>$EXTENSION_PUBLIC_HOSTILE</title>',
+            '<script src="$EXTENSION_PUBLIC_HOSTILE"></script>',
+            '<script>window.X="$EXTENSION_PUBLIC_HOSTILE";window.Y=\'$EXTENSION_PUBLIC_HOSTILE\'</script></head>',
+            '<div id="root" title="$EXTENSION_PUBLIC_HOSTILE">$EXTENSION_PUBLIC_HOSTILE</div>'
+          ].join('')
+        })
+
+      triggerCompilation(compilation)
+      runProcessAssets()
+
+      expect(compilation.errors).toEqual([])
+      expect(JSON.parse(updated['manifest.json']).description).toBe(hostile)
+      expect(
+        JSON.parse(updated['_locales/en/messages.json']).name.message
+      ).toBe(`Name ${hostile}`)
+
+      const entity = 'A &quot;great&quot; C:\\path &lt;b&gt; &amp; it&#39;s'
+      const html = updated['index.html']
+      expect(html).toContain(`<title>${entity}</title>`)
+      expect(html).toContain(`<script src="${entity}"></script>`)
+      expect(html).toContain(`<div id="root" title="${entity}">${entity}</div>`)
+
+      const open = html.indexOf('<script>') + '<script>'.length
+      const inline = html.slice(open, html.indexOf('</script>', open))
+      expect(inline).not.toContain('<')
+      const scope: any = {}
+      new Function('window', inline)(scope)
+      expect(scope.X).toBe(hostile)
+      expect(scope.Y).toBe(hostile)
+    } finally {
+      delete process.env.EXTENSION_PUBLIC_HOSTILE
+    }
+  })
+
+  it('does not re-substitute a value that itself names a placeholder', () => {
+    process.env.EXTENSION_PUBLIC_HOSTILE = 'keep $EXTENSION_PUBLIC_FOO'
+
+    try {
+      const {compiler, triggerCompilation} = createCompiler('development')
+      const plugin = new EnvPlugin({
+        manifestPath: '/proj/manifest.json',
+        browser: 'chrome'
+      })
+      plugin.apply(compiler as any)
+
+      const {compilation, runProcessAssets, updated} =
+        createCompilationWithAssets({
+          'manifest.json': '{"name":"$EXTENSION_PUBLIC_HOSTILE"}'
+        })
+
+      triggerCompilation(compilation)
+      runProcessAssets()
+
+      expect(updated['manifest.json']).toBe(
+        '{"name":"keep $EXTENSION_PUBLIC_FOO"}'
+      )
+    } finally {
+      delete process.env.EXTENSION_PUBLIC_HOSTILE
+    }
+  })
+
+  it('names the var and the asset when a value lands outside a JSON string', () => {
+    const {compiler, triggerCompilation} = createCompiler('development')
+    const plugin = new EnvPlugin({
+      manifestPath: '/proj/manifest.json',
+      browser: 'chrome'
+    })
+    plugin.apply(compiler as any)
+
+    const {compilation, runProcessAssets, updated} =
+      createCompilationWithAssets({
+        'manifest.json': '{"count":$EXTENSION_PUBLIC_FOO,"mode":"$EXTENSION_MODE"}',
+        'ok.json': '{"count":"$EXTENSION_PUBLIC_FOO"}'
+      })
+
+    triggerCompilation(compilation)
+    expect(() => runProcessAssets()).not.toThrow()
+
+    expect(updated['manifest.json']).toBe(
+      '{"count":sysFoo,"mode":"development"}'
+    )
+
+    expect(compilation.errors).toHaveLength(1)
+    expect(compilation.errors[0].file).toBe('manifest.json')
+    expect(compilation.errors[0].message).toContain('manifest.json')
+    expect(compilation.errors[0].message).toContain('$EXTENSION_PUBLIC_FOO')
+    expect(compilation.errors[0].message).toContain('$EXTENSION_MODE')
+    expect(compilation.errors[0].message).not.toContain('JSON at position')
   })
 
   it('substitutes build-target synthetics so manifest/html match runtime', async () => {

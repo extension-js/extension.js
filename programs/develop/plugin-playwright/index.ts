@@ -203,6 +203,10 @@ export function getSessionRunId(
   return getRunIdForSession(getPlaywrightMetadataDir(packageJsonDir, browser))
 }
 
+// Writers of one run are told apart by the epoch their writeStarting opened:
+// a compiler torn down after its successor opened no longer owns the document.
+const writerEpochByMetadataDir = new Map<string, number>()
+
 // The one identifier a consumer cannot read from the manifest alone: gecko
 // declares it, chromium hashes the manifest key or the loaded dist path.
 // Safari has no dist-derivable id at all: identity is the appex bundle id
@@ -452,6 +456,25 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
   let managedExtensionsExplicit = options.managedExtensionDirs !== undefined
   let managedExtensions = toManagedRecords(options.managedExtensionDirs)
 
+  let openedEpoch: number | null = null
+
+  const isSuperseded = () =>
+    openedEpoch !== null &&
+    writerEpochByMetadataDir.get(metadataDir) !== openedEpoch
+
+  function readContract(): Record<string, unknown> | undefined {
+    try {
+      if (!fs.existsSync(readyPath)) return undefined
+
+      return JSON.parse(fs.readFileSync(readyPath, 'utf-8')) as Record<
+        string,
+        unknown
+      >
+    } catch {
+      return undefined
+    }
+  }
+
   const base = {
     schemaVersion: 2 as const,
     // Capability advertisement: a reader that sees this can trust the engine's
@@ -477,6 +500,9 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       : {})
   }
 
+  const ownsDocument = (prev: Record<string, unknown>) =>
+    !isSuperseded() && prev.runId === base.runId
+
   function writeReady(
     status: ReadyStatus,
     extra?: {
@@ -486,22 +512,11 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       message?: string
     }
   ) {
-    if (foreignLiveDevSession) return
+    if (foreignLiveDevSession || isSuperseded()) return
 
     ensureDirSync(metadataDir)
 
-    let prev: Record<string, unknown> | undefined
-
-    try {
-      if (fs.existsSync(readyPath)) {
-        prev = JSON.parse(fs.readFileSync(readyPath, 'utf-8')) as Record<
-          string,
-          unknown
-        >
-      }
-    } catch {
-      prev = undefined
-    }
+    const prev = readContract()
 
     const compiledAtExplicit = Boolean(extra && 'compiledAt' in extra)
     const compiledAt = compiledAtExplicit
@@ -521,10 +536,9 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       errors: Array.isArray(extra?.errors) ? extra.errors : []
     }
 
-    // A later writer in the same run (start's preview after the build) must
-    // keep the run's original clock, not the moment this writer was created.
+    // A later writer in the same run (start's preview after the build, the
+    // compiler a restart opens) keeps the run's original clock, not its own.
     if (
-      status !== 'starting' &&
       prev &&
       prev.runId === base.runId &&
       typeof prev.startedAt === 'string'
@@ -673,17 +687,22 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       managedExtensionsExplicit = true
       managedExtensions = toManagedRecords(dirs)
     },
+    isSuperseded,
     writeStarting() {
       if (foreignLiveDevSession) return
 
-      // A new run is the only truth: reset the timeline so prior-run entries don't
-      // interleave and the file can't grow unboundedly.
+      openedEpoch = (writerEpochByMetadataDir.get(metadataDir) || 0) + 1
+      writerEpochByMetadataDir.set(metadataDir, openedEpoch)
       ensureDirSync(metadataDir)
 
-      try {
-        fs.writeFileSync(eventsPath, '', 'utf-8')
-      } catch {
-        // Ignore
+      // A new run resets the timeline so prior-run entries don't interleave;
+      // a restart reopens the run on disk and keeps appending to it.
+      if (readContract()?.runId !== base.runId) {
+        try {
+          fs.writeFileSync(eventsPath, '', 'utf-8')
+        } catch {
+          // Ignore
+        }
       }
 
       writeReady('starting', {compiledAt: null})
@@ -708,14 +727,15 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     writeShutdown(message = 'the dev session ended (watch closed)') {
       if (foreignLiveDevSession) return
 
-      try {
-        if (!fs.existsSync(readyPath)) return
+      const prev = readContract()
+      if (!prev || !ownsDocument(prev)) return
 
-        const prev = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
-        prev.status = 'stopped'
-        prev.code = 'shutdown'
-        prev.message = message
-        prev.ts = nowISO()
+      prev.status = 'stopped'
+      prev.code = 'shutdown'
+      prev.message = message
+      prev.ts = nowISO()
+
+      try {
         writeJsonAtomic(readyPath, prev)
       } catch {
         // Ignore
@@ -725,15 +745,15 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     // said "attached" long after the last producer went away, so a reader could
     // not tell a live extension from a dead one.
     stampExecutorDetached() {
+      const prev = readContract()
+      if (!prev || !ownsDocument(prev)) return
+      if (typeof prev.executorAttachedAt !== 'string') return
+
+      prev.runtime = 'detached'
+      prev.executorDetachedAt = nowISO()
+      prev.ts = nowISO()
+
       try {
-        if (!fs.existsSync(readyPath)) return
-
-        const prev = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
-        if (typeof prev.executorAttachedAt !== 'string') return
-
-        prev.runtime = 'detached'
-        prev.executorDetachedAt = nowISO()
-        prev.ts = nowISO()
         writeJsonAtomic(readyPath, prev)
       } catch {
         // Ignore
@@ -885,6 +905,10 @@ export class PlaywrightPlugin {
     })
 
     compiler.hooks.watchClose.tap(PlaywrightPlugin.name, () => {
+      // A restart closes this watch after the next compiler opened the run;
+      // the session is alive, so neither the event nor the stamp is its end.
+      if (this.writer.isSuperseded()) return
+
       this.writer.appendEvent({
         type: 'shutdown',
         ts: nowISO(),

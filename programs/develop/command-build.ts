@@ -186,7 +186,7 @@ export async function extensionBuild(
       projectStructure.packageJsonPath || projectStructure.denoJsonPath
 
     if (userManifestPath) {
-      assertNoManagedDependencyConflicts(userManifestPath, manifestDir)
+      assertNoManagedDependencyConflicts(userManifestPath, packageJsonDir)
     }
 
     const projectConfig = await loadProjectConfigDefaults(packageJsonDir)

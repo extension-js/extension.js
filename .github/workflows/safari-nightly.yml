@@ -18,6 +18,10 @@ jobs:
   safari-smoke:
     runs-on: macos-latest
     timeout-minutes: 45
+    permissions:
+      contents: read
+      # report-red-lane.sh opens or comments on the red lane issue
+      issues: write
     env:
       # Stream converter/xcodebuild output into the job log so a toolchain
       # drift failure is self-diagnosing.
@@ -44,7 +48,10 @@ jobs:
       - name: Hydrate templates from examples repo
         run: bash scripts/hydrate-templates-from-examples.sh
       - name: Build Safari app (bundle → convert → xcodebuild)
+        # Without pipefail the step would exit with tee's status, never the
+        # build's, and a convert or xcodebuild failure would read as green.
         run: |
+          set -euo pipefail
           pnpm extension build templates/typescript --browser safari 2>&1 | tee safari-build.log
       - name: Assert pipeline outputs
         run: |
@@ -66,9 +73,26 @@ jobs:
           test -n "$appex" || { echo "::error::no embedded .appex inside $app"; exit 1; }
           echo "appex: $appex"
       - name: Upload build log
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: safari-build-log
           path: safari-build.log
           if-no-files-found: ignore
+
+      - name: Report a red lane
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RED_LANE_REPRO: |
+            export EXTENSION_AUTHOR_MODE=true
+            pnpm compile
+            bash scripts/hydrate-templates-from-examples.sh
+            pnpm extension build templates/typescript --browser safari
+        run: bash scripts/report-red-lane.sh "Nightly safari"
+
+      - name: Close the red lane
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/close-red-lane.sh "Nightly safari"
