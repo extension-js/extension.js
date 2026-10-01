@@ -134,7 +134,11 @@ describe('a create refusal travels as one framed message on the thrown error', (
 
   // A real read-only parent, never a stubbed writability probe: the probe is
   // where the second frame came from, so stubbing it hid the whole defect.
-  const itWritable = process.getuid?.() === 0 ? it.skip : it
+  // Only a non-root posix user can deny writes this way. chmod does not make a
+  // directory read-only on Windows, and root ignores the mode, so the condition
+  // under test cannot exist there and the create would simply succeed.
+  const canDenyWrites = process.platform !== 'win32' && process.getuid?.() !== 0
+  const itWritable = canDenyWrites ? it : it.skip
 
   itWritable('for a destination inside a read-only parent', async () => {
     const logger = makeLogger()
