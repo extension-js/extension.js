@@ -18,6 +18,10 @@ function createMockServer(): Promise<Server> {
       socket.on('error', () => {
         // Ignore
       })
+
+      socket.write(
+        buildRdpFrame({from: 'root', applicationType: 'browser', traits: {}})
+      )
     })
     server.listen(0, '127.0.0.1', () => {
       const addr = server.address() as net.AddressInfo
