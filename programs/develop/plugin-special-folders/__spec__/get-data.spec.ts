@@ -267,3 +267,51 @@ describe('getSpecialFoldersDataForCompiler', () => {
     statSpy.mockReset()
   })
 })
+
+describe('scripts/ entries the package.json scripts run', () => {
+  it('drops a build helper quietly and still warns for a file nothing names', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-tooling-'))
+    tempDirs.push(dir)
+    const scriptsDir = path.join(dir, 'scripts')
+    fs.mkdirSync(scriptsDir, {recursive: true})
+
+    const helper = path.join(scriptsDir, 'replace_browser.js')
+    const orphan = path.join(scriptsDir, 'forgotten.js')
+    fs.writeFileSync(helper, "console.log('helper')\n", 'utf8')
+    fs.writeFileSync(orphan, "console.log('orphan')\n", 'utf8')
+    fs.writeFileSync(
+      path.join(dir, 'package.json'),
+      JSON.stringify({
+        name: 'tooling',
+        scripts: {'build:firefox': 'node scripts/replace_browser.js firefox'}
+      }),
+      'utf8'
+    )
+
+    fs.writeFileSync(
+      path.join(dir, 'manifest.json'),
+      JSON.stringify({manifest_version: 3}),
+      'utf8'
+    )
+
+    getSpecialFoldersDataMock.mockReturnValue({
+      pages: {},
+      scripts: {
+        'scripts/replace_browser': [helper],
+        'scripts/forgotten': [orphan]
+      },
+      public: {}
+    })
+
+    const compiler = {options: {context: dir}} as any
+    const data = getSpecialFoldersDataForCompiler(compiler)
+
+    expect(data.scripts?.['scripts/replace_browser']).toBeUndefined()
+    expect(data.scripts?.['scripts/forgotten']).toBeUndefined()
+    const printed = warn.mock.calls.map((call) => String(call[0])).join('\n')
+    expect(printed).toContain('scripts/forgotten.js')
+    expect(printed).not.toContain('scripts/replace_browser.js')
+    warn.mockRestore()
+  })
+})

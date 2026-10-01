@@ -9,6 +9,7 @@
 import {spawnSync} from 'node:child_process'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import * as messages from './messages'
 
 export function sessionStateDir(projectPath: string): string {
   return path.resolve(projectPath, '.extension-js')
@@ -109,6 +110,8 @@ export function ensureSessionStateInProjectGitignore(
       gitignorePath,
       `${prefix}\n# Extension.js local session state\n.extension-js\n`
     )
+
+    console.log(messages.sessionStateIgnoreAdded(gitignorePath))
   } catch {
     // A hygiene guard must never break a dev session or build.
   }

@@ -25,6 +25,11 @@
       "types": "./dist/bridge-entry.d.ts",
       "import": "./dist/bridge.mjs"
     },
+    "./manifest": {
+      "development": "./manifest-entry.ts",
+      "types": "./dist/manifest-entry.d.ts",
+      "import": "./dist/manifest.mjs"
+    },
     "./contracts": {
       "development": "./contracts-entry.ts",
       "types": "./dist/contracts-entry.d.ts",

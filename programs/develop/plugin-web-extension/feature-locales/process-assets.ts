@@ -40,10 +40,6 @@ export function processLocaleAssets(
 
     // Resources from the manifest lib can come as undefined.
     if (thisResource) {
-      if (path.extname(thisResource) !== '.json') {
-        continue
-      }
-
       if (!fs.existsSync(thisResource)) {
         const ErrorConstructor = compiler?.rspack?.WebpackError || Error
         // The message names the locale file; the absolute path rides on the

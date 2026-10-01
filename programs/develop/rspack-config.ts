@@ -89,7 +89,8 @@ export default function webpackConfig(
   const companionUnpackedExtensionDirs = resolveCompanionExtensionDirs({
     projectRoot: packageJsonDir,
     config: devOptions.extensions,
-    browser: devOptions.browser
+    browser: devOptions.browser,
+    manifestPath
   })
 
   const unpackedExtensionDirsToLoad = computeExtensionsToLoad(
@@ -149,6 +150,7 @@ export default function webpackConfig(
     new CompilationPlugin({
       manifestPath,
       browser: devOptions.browser,
+      define: devOptions.define,
       clean: devOptions.output.clean,
       zip: devOptions.zip === true,
       zipSource: devOptions.zipSource === true,
@@ -549,7 +551,8 @@ export default function webpackConfig(
         '.mts',
         '.tsx',
         '.json',
-        '.svelte'
+        '.svelte',
+        '.vue'
       ]
     },
     node: {
@@ -592,6 +595,15 @@ export default function webpackConfig(
       parser: {
         'css/auto': {
           namedExports: false
+        },
+        'css/module': {
+          namedExports: false
+        },
+        // One level of named exports in every mode: production used to check
+        // nested members, so `import * as c` then `c.list.filter` built in
+        // dev and failed the production build.
+        json: {
+          exportsDepth: 1
         }
       }
     },

@@ -371,7 +371,7 @@ export async function loadCustomConfig(projectPath: string) {
 
 export type ProjectConfigDefaults = Pick<
   FileConfig,
-  'extensions' | 'transpilePackages' | 'perfBudgets'
+  'extensions' | 'transpilePackages' | 'perfBudgets' | 'define'
 >
 
 // Top-level `extensions`/`transpilePackages`/`perfBudgets` are the weakest
@@ -400,6 +400,9 @@ export async function loadProjectConfigDefaults(
           ...(userConfig?.perfBudgets &&
           typeof userConfig.perfBudgets === 'object'
             ? {perfBudgets: userConfig.perfBudgets}
+            : {}),
+          ...(userConfig?.define && typeof userConfig.define === 'object'
+            ? {define: userConfig.define}
             : {})
         }
       } catch (err: unknown) {

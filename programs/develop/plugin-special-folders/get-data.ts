@@ -10,7 +10,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import type {Compiler} from '@rspack/core'
 import {getSpecialFoldersData} from 'browser-extension-manifest-fields'
-import {humanWarn} from '../lib/messaging'
+import {humanWarn, isDebug} from '../lib/messaging'
 import type {FilepathList} from '../types'
 import type {CompanionExtensionsConfig} from './folder-extensions/types'
 import * as messages from './messages'
@@ -268,6 +268,20 @@ function referenceSpellings(relativePath: string): string[] {
 
 const warnedDroppedScripts = new Set<string>()
 
+function packageScriptsText(projectRoot: string): string {
+  try {
+    const raw = fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf8')
+    const scripts = (JSON.parse(raw) as {scripts?: Record<string, unknown>})
+      .scripts
+
+    return Object.values(scripts || {})
+      .map((value) => String(value))
+      .join('\n')
+  } catch {
+    return ''
+  }
+}
+
 function filterUnreferencedScripts(
   list: FilepathList | undefined,
   projectRoot: string
@@ -317,12 +331,23 @@ function filterUnreferencedScripts(
   // Say it out loud: a dropped entry is invisible until production, and the
   // whole point of scripts/ is files the manifest never names. Once per set,
   // since the filter runs for every browser target in the same run.
-  if (dropped.length > 0) {
-    const signature = dropped.slice().sort().join('|')
+  // A file the package.json scripts run is the repo's own tooling, not a
+  // content script the author forgot to inject: drop it quietly. Everything
+  // else is said out loud, since a silent drop is invisible until production.
+  const tooling = packageScriptsText(projectRoot)
+  const quiet = dropped.filter((rel) => tooling.includes(rel))
+  const loud = dropped.filter((rel) => !tooling.includes(rel))
+
+  if (quiet.length > 0 && isDebug()) {
+    console.log(messages.unreferencedScriptDropped(quiet))
+  }
+
+  if (loud.length > 0) {
+    const signature = loud.slice().sort().join('|')
 
     if (!warnedDroppedScripts.has(signature)) {
       warnedDroppedScripts.add(signature)
-      humanWarn(messages.unreferencedScriptDropped(dropped))
+      humanWarn(messages.unreferencedScriptDropped(loud))
     }
   }
 

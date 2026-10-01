@@ -47,7 +47,7 @@ export const CONCAT_ARRAY_KEYS = new Set([
   'excludeBrowserFlags'
 ])
 
-export const DEEP_MERGE_OBJECT_KEYS = new Set(['preferences'])
+export const DEEP_MERGE_OBJECT_KEYS = new Set(['preferences', 'define'])
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return (

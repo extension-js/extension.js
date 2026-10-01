@@ -2,7 +2,7 @@ import {spawnSync} from 'node:child_process'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterEach, describe, expect, it} from 'vitest'
+import {afterEach, describe, expect, it, vi} from 'vitest'
 import {ensureSessionStateInProjectGitignore} from '../session-paths'
 
 const created: string[] = []
@@ -94,5 +94,23 @@ describe('ensureSessionStateInProjectGitignore', () => {
     ensureSessionStateInProjectGitignore(root)
 
     expect(fs.existsSync(path.join(root, '.gitignore'))).toBe(false)
+  })
+})
+
+describe('the append is announced', () => {
+  it('prints the gitignore path once the line is added', () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-gitignore-say-'))
+    fs.writeFileSync(path.join(dir, '.gitignore'), 'node_modules\n')
+
+    ensureSessionStateInProjectGitignore(dir)
+    ensureSessionStateInProjectGitignore(dir)
+
+    const printed = log.mock.calls.map((call) => String(call[0])).join('\n')
+    expect(printed).toContain('.extension-js')
+    expect(printed).toContain(path.join(dir, '.gitignore'))
+    expect(log).toHaveBeenCalledTimes(1)
+    log.mockRestore()
+    fs.rmSync(dir, {recursive: true, force: true})
   })
 })
