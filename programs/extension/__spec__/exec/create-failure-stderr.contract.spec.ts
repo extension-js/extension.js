@@ -141,7 +141,10 @@ describe('a known create refusal prints its frame and nothing else', () => {
     ).toHaveLength(1)
   }, 60000)
 
-  const itWritable = process.getuid?.() === 0 ? it.skip : it
+  // chmod does not deny directory writes on Windows and root ignores the mode,
+  // so only a non-root posix user can produce the condition under test.
+  const canDenyWrites = process.platform !== 'win32' && process.getuid?.() !== 0
+  const itWritable = canDenyWrites ? it : it.skip
 
   itWritable(
     'when the destination parent is read-only',
@@ -179,7 +182,15 @@ describe('a known create refusal prints its frame and nothing else', () => {
     expect(result.status).toBe(1)
     expect(result.stderr).not.toMatch(STACK_FRAME)
     expect(result.stderr.match(/⏵⏵⏵/g)).toHaveLength(1)
-    // The package manager's own cause, which the run used to discard.
-    expect(result.stderr).toContain('ECONNREFUSED')
+
+    // The manager's own cause, which the run used to discard. Which cause it is
+    // depends on the manager: npm cannot reach the registry, while pnpm can
+    // refuse earlier over a release-age rule. So assert the rows are there and
+    // that REASON carries real text, not one registry's wording.
+    expect(result.stderr).toMatch(/COMMAND \S/)
+    expect(result.stderr).toMatch(/EXIT 1/)
+
+    const reason = /REASON ([^\n]*)/.exec(result.stderr)?.[1]?.trim() ?? ''
+    expect(reason.length).toBeGreaterThan(8)
   }, 120000)
 })
