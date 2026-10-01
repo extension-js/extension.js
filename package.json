@@ -13,7 +13,7 @@
       "baseline-browser-mapping": "2.11.20",
       "electron-to-chromium": "1.5.419",
       "postcss-selector-parser@7": "7.1.5",
-      "devalue": "^5.6.4",
+      "devalue": "^5.9.3",
       "serialize-javascript": "^7.0.3",
       "yauzl": "^3.2.1",
       "vite": "^8.0.16",
