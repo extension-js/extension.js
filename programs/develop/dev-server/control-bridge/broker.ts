@@ -33,7 +33,9 @@ import {LogRingBuffer} from './ring-buffer'
 export interface BridgeConnection {
   readonly id: string
   readonly origin?: string
-  send(frame: ServerFrame | CommandFrame): void
+  // True only when the frame reached an open socket. An adapter that drops it
+  // silently must say so, or a reload nothing received counts as delivered.
+  send(frame: ServerFrame | CommandFrame): boolean
   close(code?: number, reason?: string): void
 }
 
@@ -108,12 +110,19 @@ const EVAL_DENIED_NAME: Record<Exclude<EvalGate, 'ok'>, string> = {
 // Why no executor is connected, in priority order; each cause has a different
 // remediation. The 'no executor connected' prefix is load-bearing for specs.
 type ExecutorAbsence =
+  | 'no-control-port'
   | 'stale-resync-pending'
   | 'never-connected'
   | 'recently-disconnected'
   | 'browser-exited'
 
 const EXECUTOR_ABSENT: Record<ExecutorAbsence, (secs?: number) => string> = {
+  // Nothing can connect without a port to dial, so neither the worker nor the
+  // page is at fault and no retry helps.
+  'no-control-port': () =>
+    'no executor connected: this dev session has no control port, so the ' +
+    'extension was built with no port to dial and nothing can connect. ' +
+    'Restart extension dev',
   'stale-resync-pending': (secs) =>
     'no executor connected: a service worker from a previous dev session ' +
     `dialed in ${secs}s ago and was told to full-reload; the resynced ` +
@@ -135,6 +144,29 @@ const EXECUTOR_ABSENT: Record<ExecutorAbsence, (secs?: number) => string> = {
   'browser-exited': () =>
     'no executor connected: the browser exited and nothing reconnects on ' +
     'its own. Restart extension dev to relaunch it'
+}
+
+function executorAbsentNoControlPort(reason: string): string {
+  if (!reason) return EXECUTOR_ABSENT['no-control-port']()
+
+  return (
+    'no executor connected: this dev session has no control port, the ' +
+    `control bridge could not bind (${reason}), so the extension was built ` +
+    'with no port to dial and nothing can connect. Restart extension dev'
+  )
+}
+
+// The bind failure, not the worker: the one line that must not send the user
+// looking at their page or their profile.
+function undeliveredReloadWarnNoControlPort(reason: string): string {
+  const named = reason ? ` (${reason})` : ''
+
+  return (
+    'No control port, your edit compiled but this dev session has no ' +
+    `transport to deliver it. The control bridge could not bind${named}, so ` +
+    'the extension was built with no port to dial. Restart extension dev to ' +
+    'try again.'
+  )
 }
 
 function executorAbsentBrowserExited(at: string, how: string | null): string {
@@ -232,9 +264,13 @@ export class BridgeBroker {
   // Dedup: the absence kind last warned about for an undelivered reload.
   // Cleared on producer attach so warnings fire once per attach transition.
   private lastUndeliveredWarnKind:
+    | 'no-control-port'
     | 'never-connected'
     | 'recently-disconnected'
     | null = null
+  // Why the dev server has no control port, once it has told the broker. No
+  // producer can ever dial in, so this outranks every other absence cause.
+  private controlPortUnavailable: string | null = null
   private readonly onExecutorAttached?: () => void
   private readonly onExecutorDetached?: () => void
   private lastProducerDisconnectedAt: number | null = null
@@ -419,8 +455,7 @@ export class BridgeBroker {
       if (!this.isReloadReceiver(role)) continue
 
       try {
-        conn.send(frame)
-        notified++
+        if (conn.send(frame)) notified++
       } catch {
         // A failing producer socket must not break the broadcast; the adapter
         // tears down dead sockets on error/close.
@@ -428,7 +463,8 @@ export class BridgeBroker {
     }
 
     // Latch the newest instruction so the next producer hello still applies it.
-    // Content-scripts reloads stay latched until reload-ack; full/SW clear on write.
+    // Content-scripts reloads stay latched until reload-ack; full/SW clear on
+    // a confirmed send, so an unconfirmed one keeps its re-delivery.
     this.pendingReload =
       notified === 0 || frame.reloadType === 'content-scripts'
         ? frame
@@ -443,6 +479,16 @@ export class BridgeBroker {
     producerRestartExpected?: boolean
   }): string | null {
     const now = this.now()
+
+    // No transport at all: this is not the startup race the grace window waits
+    // out, and nothing the user does to the page or the worker can fix it.
+    if (this.controlPortUnavailable != null) {
+      if (this.lastUndeliveredWarnKind === 'no-control-port') return null
+
+      this.lastUndeliveredWarnKind = 'no-control-port'
+
+      return undeliveredReloadWarnNoControlPort(this.controlPortUnavailable)
+    }
 
     // Cold start: the browser may still be launching and the SW connecting, so
     // a zero-delivery edit is expected. Stay quiet until the grace window ends.
@@ -676,6 +722,12 @@ export class BridgeBroker {
     }
   }
 
+  // The control bridge never bound, so from here on every absence names the
+  // bind failure instead of a worker that was never given a port to dial.
+  noteControlPortUnavailable(reason?: string | null): void {
+    this.controlPortUnavailable = String(reason ?? '')
+  }
+
   // The dev server read the launcher's exit stamp: from here on every denial
   // names the exit and the restart, never a worker that might come back.
   noteBrowserExited(at: string, how?: string | null): void {
@@ -683,11 +735,15 @@ export class BridgeBroker {
     this.browserExitHow = how ?? null
   }
 
-  // Name WHY no producer is connected: the browser exited > fresh
-  // stale-instance hello > nothing ever connected > a producer was here and
-  // left.
+  // Name WHY no producer is connected: no control port > the browser exited >
+  // fresh stale-instance hello > nothing ever connected > a producer was here
+  // and left.
   private diagnoseExecutorAbsence(): string {
     const now = this.now()
+
+    if (this.controlPortUnavailable != null) {
+      return executorAbsentNoControlPort(this.controlPortUnavailable)
+    }
 
     if (this.browserExitedAt) {
       return executorAbsentBrowserExited(
