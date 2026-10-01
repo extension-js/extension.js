@@ -103,13 +103,16 @@ export interface BrowserConfig extends BrowserLaunchConfig {
 }
 
 /**
- * Asset categories the perf-budgets plugin recognizes. `runtime` covers
- * wasm cores and root-level runtime helpers emitted outside a surface folder.
+ * Asset categories the perf-budgets plugin recognizes. `shared` is the chunk
+ * every page that imports a framework or a common module loads. `runtime`
+ * covers wasm cores and root-level runtime helpers emitted outside a surface
+ * folder.
  */
 export type PerfBudgetCategory =
   | 'content-script'
   | 'service-worker'
   | 'page'
+  | 'shared'
   | 'runtime'
   | 'ignored'
 
