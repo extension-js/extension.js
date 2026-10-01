@@ -186,7 +186,18 @@ export class RemoteFirefox {
     this.cachedAddonsActor = undefined
   }
 
+  // Closes the live RDP connection, so a finished session or a fresh install
+  // attempt leaves no socket and no reconnect loop behind.
+  public disconnect(): void {
+    const client = this.client
+    this.client = null
+    this.loggingAttached = false
+    this.invalidateConnectionScopedCaches()
+    client?.disconnect()
+  }
+
   public async installAddons(compilation: CompilationLike) {
+    this.disconnect()
     const {devtools} = this.options
 
     const rawExtensions = toExtensionLoadList(this.options.extension)
