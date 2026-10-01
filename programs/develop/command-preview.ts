@@ -87,11 +87,35 @@ function readRunIdFromReadyFile(readyPath: string): string | undefined {
   }
 }
 
+// A remote URL or a local archive: the project resolver already extracted
+// it, and a build archive holds a manifest with no package.json next to it.
+function isArchiveSource(pathOrRemoteUrl: string): boolean {
+  if (/^https?:/i.test(pathOrRemoteUrl)) return true
+
+  return path.extname(pathOrRemoteUrl.split('?')[0]).toLowerCase() === '.zip'
+}
+
 export function explicitUnpackedDir(
   pathOrRemoteUrl: string | undefined,
-  packageJsonDir: string
+  packageJsonDir: string,
+  manifestDir?: string
 ): string | undefined {
-  if (!pathOrRemoteUrl || /^https?:/i.test(pathOrRemoteUrl)) return undefined
+  if (!pathOrRemoteUrl) return undefined
+
+  if (isArchiveSource(pathOrRemoteUrl)) {
+    // A downloaded build is previewed where it landed: no dist lookup under
+    // it and no advice to build what someone else already built. A source
+    // archive (package.json beside the manifest) keeps the project path.
+    if (!manifestDir) return undefined
+
+    if (!fs.existsSync(path.join(manifestDir, 'manifest.json')))
+      {return undefined}
+
+    if (fs.existsSync(path.join(manifestDir, 'package.json'))) return undefined
+    if (fs.existsSync(path.join(manifestDir, 'deno.json'))) return undefined
+
+    return path.resolve(manifestDir)
+  }
 
   const typed = path.resolve(process.cwd(), pathOrRemoteUrl)
 
@@ -138,7 +162,11 @@ export async function extensionPreview(
   // A directory that holds a manifest but no package.json is an unpacked
   // extension (a build folder, a downloaded release): preview exactly that,
   // instead of walking up to an ancestor project and looking for its dist.
-  const unpackedDir = explicitUnpackedDir(pathOrRemoteUrl, packageJsonDir)
+  const unpackedDir = explicitUnpackedDir(
+    pathOrRemoteUrl,
+    packageJsonDir,
+    manifestDir
+  )
   const outputPath =
     unpackedDir && !previewOptions.outputPath
       ? unpackedDir
