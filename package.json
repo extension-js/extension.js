@@ -57,7 +57,7 @@
     "check:runtime-html": "node scripts/check-runtime-html.mjs"
   },
   "devDependencies": {
-    "@babel/core": "8.0.5",
+    "@babel/core": "8.0.6",
     "@babel/eslint-parser": "8.0.5",
     "@biomejs/biome": "^2.4.5",
     "@eslint/compat": "^2.1.1",
