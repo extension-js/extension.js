@@ -12,7 +12,13 @@ import path from 'node:path'
 import type {Command} from 'commander'
 import {exitAfterDrain} from '../helpers/exit-after-drain'
 import {commandDescriptions} from '../helpers/messages'
-import {CODES, ENVELOPE, type EnvelopeError} from '../helpers/messaging'
+import {
+  CODES,
+  ENVELOPE,
+  type EnvelopeError,
+  type EnvelopeErrorRefs,
+  type ErrorCode
+} from '../helpers/messaging'
 import {isJsonOutput} from '../helpers/output-flag'
 
 // THIN WRAPPER, keep it that way: build a request, POST it, print the URL.
@@ -61,6 +67,26 @@ export interface StoredLogin {
   workspaceSlug: string
 }
 
+const NO_EXPIRY = Number.POSITIVE_INFINITY
+const MILLISECOND_EPOCH_FLOOR = 1e12
+
+// The login file may carry its expiry as seconds, as milliseconds, or as an
+// ISO date. Anything else is malformed and null here keeps the token off the wire.
+export function expiresAtSeconds(value: unknown): number | null {
+  if (value == null || value === '') return NO_EXPIRY
+
+  if (typeof value === 'string' && !/^\d+(\.\d+)?$/.test(value.trim())) {
+    const ms = Date.parse(value)
+
+    return Number.isFinite(ms) && ms > 0 ? ms / 1000 : null
+  }
+
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric) || numeric <= 0) return null
+
+  return numeric > MILLISECOND_EPOCH_FLOOR ? numeric / 1000 : numeric
+}
+
 // Read the stored device login, matching the MCP's readValidCredentials. A
 // missing, malformed, or expired file yields null and the no-token refusal.
 export function readStoredLogin(): StoredLogin | null {
@@ -79,8 +105,8 @@ export function readStoredLogin(): StoredLogin | null {
     const token = String(data.token || '').trim()
     if (!token) return null
 
-    const expiresAt = Number(data.expiresAt || 0)
-    if (expiresAt && expiresAt <= Math.floor(Date.now() / 1000)) return null
+    const expiresAt = expiresAtSeconds(data.expiresAt)
+    if (expiresAt === null || expiresAt <= Date.now() / 1000) return null
 
     return {
       token,
@@ -150,6 +176,35 @@ export interface PublishScope {
   localName: string
 }
 
+// Each refusal names its own family and remedy where it is thrown, so the
+// command never has to guess the code from the message text.
+export class PublishPlanError extends Error {
+  readonly code: ErrorCode
+  readonly hint: string
+  readonly refs?: EnvelopeErrorRefs
+
+  constructor(
+    message: string,
+    code: ErrorCode,
+    hint: string,
+    refs?: EnvelopeErrorRefs
+  ) {
+    super(message)
+    this.name = 'PublishPlanError'
+    this.code = code
+    this.hint = hint
+    this.refs = refs
+  }
+}
+
+export function isPublishPlanError(error: unknown): error is PublishPlanError {
+  return Boolean(
+    error &&
+      typeof error === 'object' &&
+      (error as {name?: string}).name === 'PublishPlanError'
+  )
+}
+
 export function buildPublishRequest(opts: PublishInput): PublishRequest {
   return buildPublishPlan(opts).request
 }
@@ -173,10 +228,12 @@ export function buildPublishPlan(opts: PublishInput): {
   if (!token) {
     const docsHint = publishDocsHint()
 
-    throw new Error(
+    throw new PublishPlanError(
       'No token. Publishing needs a platform access token.\n' +
         (docsHint ? `${docsHint}\n` : '') +
-        NO_TOKEN_REMEDY
+        NO_TOKEN_REMEDY,
+      CODES.E_AUTH_REQUIRED,
+      `${docsHint ? `${docsHint}. ` : ''}${NO_TOKEN_REMEDY}`
     )
   }
 
@@ -189,9 +246,13 @@ export function buildPublishPlan(opts: PublishInput): {
   // would mint a share for that project and name it nowhere but inside the URL,
   // so the mismatch is a refusal, not a warning.
   if (confirmed && scopedSlug && slugish(confirmed) !== slugish(scopedSlug)) {
-    throw new Error(
-      `You asked to publish "${confirmed}" but your stored login is scoped to "${scopedSlug}".\n` +
-        `Pass --token for ${confirmed}, or sign in with the platform MCP for it.`
+    const remedy = `Pass --token for ${confirmed}, or sign in with the platform MCP for it.`
+
+    throw new PublishPlanError(
+      `You asked to publish "${confirmed}" but your stored login is scoped to "${scopedSlug}".\n${remedy}`,
+      CODES.E_INVALID_OPTION,
+      `Pass --project ${scopedSlug} to publish the project you are signed in to. ${remedy}`,
+      {flag: '--project'}
     )
   }
 
@@ -200,20 +261,28 @@ export function buildPublishPlan(opts: PublishInput): {
     slugish(scopedSlug) !== slugish(localName) &&
     slugish(confirmed) !== slugish(scopedSlug)
   ) {
-    throw new Error(
+    const remedy =
+      `Run extension publish inside ${scopedSlug}, pass --project ${scopedSlug} to publish that project on purpose, ` +
+      'or pass --token / EXTENSION_DEV_TOKEN for this one.'
+
+    throw new PublishPlanError(
       `Your stored login is scoped to the "${scopedSlug}" project` +
         `${stored?.workspaceSlug ? ` in workspace "${stored.workspaceSlug}"` : ''}, ` +
         `but ${projectPath} is "${localName}".\n` +
-        `Publishing here would share ${scopedSlug}, not ${localName}.\n` +
-        `Run extension publish inside ${scopedSlug}, pass --project ${scopedSlug} to publish that project on purpose, ` +
-        'or pass --token / EXTENSION_DEV_TOKEN for this one.'
+        `Publishing here would share ${scopedSlug}, not ${localName}.\n${remedy}`,
+      CODES.E_INVALID_OPTION,
+      remedy,
+      {path: projectPath}
     )
   }
 
   const base = String(opts.api || process.env.EXTENSION_DEV_API_URL || '')
     .trim()
     .replace(/\/+$/, '')
-  if (!base) throw new Error(NO_API_REMEDY)
+
+  if (!base) {
+    throw new PublishPlanError(NO_API_REMEDY, CODES.E_ARGS, NO_API_REMEDY)
+  }
 
   const body: Record<string, unknown> = {}
 
@@ -292,15 +361,24 @@ export function registerPublishCommand(program: Command) {
         req = plan.request
         scope = plan.scope
       } catch (err) {
-        const message =
-          (err as Error | undefined)?.message || 'publish failed: no token'
-        const docsHint = publishDocsHint()
-        await failWith(
-          'denied',
-          {code: CODES.E_AUTH_REQUIRED, message},
-          message,
-          `${docsHint ? `${docsHint}. ` : ''}${NO_TOKEN_REMEDY} ${NO_API_REMEDY}`
-        )
+        if (isPublishPlanError(err)) {
+          const status = err.code === CODES.E_AUTH_REQUIRED ? 'denied' : 'usage'
+          await failWith(
+            status,
+            {
+              code: err.code,
+              message: err.message,
+              ...(err.refs ? {refs: err.refs} : {})
+            },
+            err.message,
+            err.hint
+          )
+
+          return
+        }
+
+        const message = (err as Error | undefined)?.message || String(err)
+        await failWith('failed', {code: CODES.E_INTERNAL, message}, message)
 
         return
       }
@@ -327,13 +405,20 @@ export function registerPublishCommand(program: Command) {
       }
 
       const text = await res.text()
-      let data: {message?: unknown; shareUrl?: unknown}
+      let data: {
+        message?: unknown
+        shareUrl?: unknown
+        status?: unknown
+        failed?: unknown
+      }
 
       try {
         data = JSON.parse(text)
       } catch {
         data = {message: text}
       }
+
+      if (!data || typeof data !== 'object') data = {message: text}
 
       if (!res.ok) {
         const message = `publish failed (${res.status}): ${data?.message || text || 'unknown error'}`
@@ -346,12 +431,57 @@ export function registerPublishCommand(program: Command) {
         return
       }
 
+      const failed = Array.isArray(data.failed)
+        ? data.failed.map((entry) => String(entry))
+        : []
+
+      if (data.status === 'partial' || failed.length > 0) {
+        const message =
+          `publish incomplete (${res.status}): the platform reported ` +
+          (failed.length > 0
+            ? `${failed.join(', ')} as failed`
+            : 'a partial publish') +
+          ', so nothing was shared.'
+        await failWith(
+          'partial',
+          {code: CODES.E_PUBLISH_REJECTED, message},
+          message,
+          'Check the project on the platform, then publish again.'
+        )
+
+        return
+      }
+
+      // A 2xx without a link is not a publish: a proxy, a captive portal or a
+      // misrouted host answers 200 with a page, and a queue answers with a receipt.
+      const shareUrl =
+        typeof data.shareUrl === 'string' ? data.shareUrl.trim() : ''
+
+      if (!shareUrl) {
+        const detail = String(data.message || '')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, 200)
+        const message =
+          `publish failed (${res.status}): the platform returned no share URL` +
+          (detail ? `: ${detail}` : '.')
+        await failWith(
+          'rejected',
+          {code: CODES.E_PUBLISH_REJECTED, message},
+          message,
+          'Check that --api or EXTENSION_DEV_API_URL points at the platform, not a proxy or a login page.'
+        )
+
+        return
+      }
+
       if (asJson) {
         // eslint-disable-next-line no-console
         console.log(
           JSON.stringify(
             ENVELOPE.ok('publish', 'published', {
               ...data,
+              shareUrl,
               project: scope.actsFor,
               workspace: scope.workspace || undefined,
               tokenSource: scope.source
@@ -367,7 +497,7 @@ export function registerPublishCommand(program: Command) {
         )
 
         // eslint-disable-next-line no-console
-        console.log(data.shareUrl || JSON.stringify(data))
+        console.log(shareUrl)
       }
 
       await exitAfterDrain(0)
