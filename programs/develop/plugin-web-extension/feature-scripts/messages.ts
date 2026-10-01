@@ -113,11 +113,23 @@ const SPLIT_ENTRY_SURFACES = {
   }
 } as const
 
+export type SplitEntryCause = 'runtimeChunk' | 'cacheGroup'
+
+// A runtime chunk is the one split a cache group cannot produce, and the
+// remedy differs: only chunks: 'async' helps a cache group split.
+const SPLIT_ENTRY_CAUSES = {
+  runtimeChunk: () =>
+    `Only a user-set optimization.runtimeChunk does this. Keep runtimeChunk: false so every entry carries its own runtime`,
+  cacheGroup: () =>
+    `Only a user-set optimization.splitChunks cache group does this. Use chunks: 'async' and import() the shared module`
+} as const
+
 export function entrySplitAcrossInitialFiles(
   entryName: string,
   surface: keyof typeof SPLIT_ENTRY_SURFACES,
   ownFile: string,
-  extraFiles: string[]
+  extraFiles: string[],
+  cause: SplitEntryCause = 'cacheGroup'
 ) {
   const shape = SPLIT_ENTRY_SURFACES[surface]
   const count = extraFiles.length + 1
@@ -136,7 +148,7 @@ export function entrySplitAcrossInitialFiles(
   )
 
   lines.push(
-    `Only a user-set optimization.splitChunks cache group does this. Use chunks: 'async' and import() the shared module: ${colors.blue(SPLIT_ENTRY_RECIPE_URL)}`
+    `${SPLIT_ENTRY_CAUSES[cause]()}: ${colors.blue(SPLIT_ENTRY_RECIPE_URL)}`
   )
 
   return lines.join('\n')

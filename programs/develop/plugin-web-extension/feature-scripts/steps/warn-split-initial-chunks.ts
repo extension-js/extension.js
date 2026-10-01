@@ -53,12 +53,22 @@ export class WarnSplitInitialChunks {
               const extraFiles = files.filter((file) => file !== ownFile)
               if (!ownFile || extraFiles.length === 0) continue
 
+              const runtimeFiles = new Set(
+                entrypoint.getRuntimeChunk?.()?.files || []
+              )
+              const cause: messages.SplitEntryCause = extraFiles.some((file) =>
+                runtimeFiles.has(file)
+              )
+                ? 'runtimeChunk'
+                : 'cacheGroup'
+
               const warn = new WebpackError(
                 messages.entrySplitAcrossInitialFiles(
                   entryName,
                   surface,
                   ownFile,
-                  extraFiles
+                  extraFiles,
+                  cause
                 )
               ) as Error & {file?: string}
               warn.file = ownFile

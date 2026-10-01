@@ -17,9 +17,14 @@ export interface ChunkNameLike {
   canBeInitial?: () => boolean
 }
 
+// The MV2 background.page entry: an HTML document whose own markup loads
+// every sibling chunk, unlike the service worker and the scripts list.
+const BACKGROUND_PAGE_ENTRY = 'background/index'
+
 // Every surface loads exactly one file per entry: the HTML tag, the
 // background registration, the content_scripts list or the injection call.
 export function classifyEntrySurface(entryName: string): EntrySurface {
+  if (entryName === BACKGROUND_PAGE_ENTRY) return 'page'
   if (entryName.startsWith('background')) return 'background'
   if (entryName.startsWith('content_scripts/')) return 'content_script'
   if (entryName.startsWith('scripts/')) return 'script'

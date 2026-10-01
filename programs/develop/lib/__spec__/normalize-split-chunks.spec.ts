@@ -38,7 +38,8 @@ describe('isPageChunkName', () => {
       'sidebar/index',
       'devtools/index',
       'pages/main',
-      'sandbox/page-0'
+      'sandbox/page-0',
+      'background/index'
     ]) {
       expect(isPageChunkName(name)).toBe(true)
     }
@@ -46,7 +47,7 @@ describe('isPageChunkName', () => {
     for (const name of [
       'background/service_worker',
       'background/scripts',
-      'background/index',
+      'background/script',
       'content_scripts/content-0',
       'scripts/inject',
       'user_scripts/api_script'
@@ -63,7 +64,9 @@ describe('defaultSplitChunks', () => {
   it('selects only the initial chunk of a page', () => {
     expect(pageInitialChunks(chunk('action/index'))).toBe(true)
     expect(pageInitialChunks(chunk('action/index', false))).toBe(false)
+    expect(pageInitialChunks(chunk('background/index'))).toBe(true)
     expect(pageInitialChunks(chunk('background/service_worker'))).toBe(false)
+    expect(pageInitialChunks(chunk('background/scripts'))).toBe(false)
     expect(pageInitialChunks(chunk('content_scripts/content-0'))).toBe(false)
     expect(pageInitialChunks(chunk('scripts/inject'))).toBe(false)
     // The manifest names one file for user_scripts.api_script, so a cache
@@ -209,6 +212,32 @@ describe('normalizeSplitChunks', () => {
     expect(config.mode).toBe('production')
     expect(config.optimization?.minimize).toBe(true)
   })
+
+  it('keeps a user entry out of every narrowed selector', () => {
+    const {config} = normalizeSplitChunks({
+      entry: {'changelog/changelog': './changelog.js'},
+      optimization: {
+        splitChunks: {
+          chunks: 'initial',
+          cacheGroups: {
+            vendor: {test: /shared\.js$/, chunks: 'all', enforce: true},
+            first: {chunks: 'initial'}
+          }
+        }
+      }
+    })
+
+    for (const path of [
+      ['chunks'],
+      ['cacheGroups', 'vendor', 'chunks'],
+      ['cacheGroups', 'first', 'chunks']
+    ]) {
+      const pick = selectorAt(config, path)
+      expect(pick(chunk('changelog/changelog'))).toBe(false)
+      expect(pick(chunk('action/index'))).toBe(true)
+      expect(pick(chunk('background/service_worker'))).toBe(false)
+    }
+  })
 })
 
 describe('applySplitChunksGuard', () => {
@@ -255,5 +284,29 @@ describe('applySplitChunksGuard', () => {
     delete process.env.EXTENSION_AUTHOR_MODE
     applySplitChunksGuard({optimization: {splitChunks: {chunks: 'all'}}})
     expect(log).not.toHaveBeenCalled()
+  })
+
+  it('keeps the runtime inside every entry and names the option it reset', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    for (const runtimeChunk of ['single', 'multiple', true, {name: 'rt'}]) {
+      const next = applySplitChunksGuard({
+        optimization: {runtimeChunk: runtimeChunk as any, minimize: true}
+      })
+      expect(next.optimization?.runtimeChunk).toBe(false)
+      expect(next.optimization?.minimize).toBe(true)
+    }
+
+    expect(warn).toHaveBeenCalledTimes(4)
+    expect(String(warn.mock.calls[0][0])).toContain(
+      "optimization.runtimeChunk is set to 'single', kept at false."
+    )
+
+    warn.mockClear()
+    const off: Configuration = {optimization: {runtimeChunk: false}}
+    expect(applySplitChunksGuard(off)).toBe(off)
+    const bare: Configuration = {}
+    expect(applySplitChunksGuard(bare)).toBe(bare)
+    expect(warn).not.toHaveBeenCalled()
   })
 })

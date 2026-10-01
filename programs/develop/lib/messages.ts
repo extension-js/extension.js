@@ -935,6 +935,21 @@ export function debugSplitChunksNarrowed(optionPaths: string[]) {
   )
 }
 
+export function runtimeChunkKeptInline(runtimeChunk: unknown) {
+  const setting =
+    typeof runtimeChunk === 'string'
+      ? `'${runtimeChunk}'`
+      : typeof runtimeChunk === 'object'
+        ? 'an object'
+        : String(runtimeChunk)
+
+  return (
+    `${getLoggingPrefix('warn')} optimization.runtimeChunk is set to ${setting}, kept at false.\n` +
+    `The background and the content scripts load one file each, so a separate runtime file never reaches them and the entry never starts. ` +
+    `Pages already share code through the shared/ files.`
+  )
+}
+
 export function debugOutputPath(pathValue: string) {
   return `${prefix('debug')} output   path=${pathValue}`
 }
