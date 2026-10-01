@@ -57,6 +57,12 @@ export function devContentScriptStubAssetName(index: number): string {
   return `content_scripts/dev-stub-${index}.js`
 }
 
+// A CSS-only entry has no bundle to mark its world, so this script stands in
+// for one: Chromium injects it beside the stylesheet and stamps the frame.
+export function devContentScriptCssMarkerAssetName(index: number): string {
+  return `content_scripts/dev-css-${index}.js`
+}
+
 const HASHED_CONTENT_SCRIPT_ASSET =
   /^content_scripts\/content-(\d+)(?:\.[a-f0-9]+)?\.js$/i
 
@@ -121,13 +127,22 @@ export function planDevContentScripts(
     const stubOnly =
       stringList(group.include_globs).length > 0 ||
       stringList(group.exclude_globs).length > 0
+    const cssMarkerAsset =
+      js.length === 0 ? devContentScriptCssMarkerAssetName(index) : undefined
+
+    if (cssMarkerAsset) {
+      stubs[cssMarkerAsset] = buildDevContentScriptMarkerPrelude(
+        entryName,
+        cssMarkerAsset
+      )
+    }
 
     entries.push({
       id: `${DEV_CONTENT_SCRIPT_ID_PREFIX}${index}`,
       entry: entryName,
       matches,
       ...(excludeMatches.length > 0 ? {excludeMatches} : {}),
-      js,
+      js: cssMarkerAsset ? [cssMarkerAsset] : js,
       css,
       runAt: runAtOf(group.run_at),
       allFrames: group.all_frames === true,
@@ -197,6 +212,10 @@ export const DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE = `;(function () {
     var MARKER = ${JSON.stringify(DEV_CONTENT_SCRIPT_MARKER_KEY)};
     var STUB = ${JSON.stringify(DEV_CONTENT_SCRIPT_STUB_MESSAGE_KEY)};
     var ID_PREFIX = ${JSON.stringify(DEV_CONTENT_SCRIPT_ID_PREFIX)};
+    // The file a frame runs says nothing about which extension generation
+    // injected it, so every probe also stamps the booting worker's token.
+    var GENERATION_KEY = "generation";
+    var GENERATION = Math.random().toString(36).slice(2) + Date.now().toString(36);
     var registry = null;
     var ready = false;
     var whenReady = [];
@@ -229,21 +248,21 @@ export const DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE = `;(function () {
       } catch (e) { cb(null); }
     }
 
+    // Every field is sent: updateContentScripts keeps any key left out, so a
+    // dropped exclude_matches, css file or fallback would outlive the edit.
     function registrationOf(e) {
-      var s = {
+      return {
         id: e.id,
         matches: e.matches,
+        excludeMatches: Array.isArray(e.excludeMatches) ? e.excludeMatches.filter(isString) : [],
+        js: (e.js || []).filter(isString),
+        css: (e.css || []).filter(isString),
         runAt: e.runAt === "document_start" || e.runAt === "document_end" ? e.runAt : "document_idle",
         allFrames: !!e.allFrames,
         world: e.world === "MAIN" ? "MAIN" : "ISOLATED",
+        matchOriginAsFallback: e.matchOriginAsFallback === true,
         persistAcrossSessions: false
       };
-      var js = (e.js || []).filter(isString), css = (e.css || []).filter(isString);
-      if (Array.isArray(e.excludeMatches) && e.excludeMatches.length) s.excludeMatches = e.excludeMatches;
-      if (js.length) s.js = js;
-      if (css.length) s.css = css;
-      if (e.matchOriginAsFallback) s.matchOriginAsFallback = true;
-      return s;
     }
 
     // Register what the registry names, update what is already registered,
@@ -256,7 +275,7 @@ export const DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE = `;(function () {
           var e = reg.entries[i] || {};
           if (e.stubOnly || !isString(e.id) || !Array.isArray(e.matches) || !e.matches.length) continue;
           var r = registrationOf(e);
-          if (!r.js && !r.css) continue;
+          if (!r.js.length && !r.css.length) continue;
           wanted.push(r);
         }
         chrome.scripting.getRegisteredContentScripts(function (existing) {
@@ -290,13 +309,21 @@ export const DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE = `;(function () {
     }
 
     // Inject one entry into the frames of a tab whose world does not already
-    // run the current file. Chromium's own injection sets the same marker,
-    // so a frame it covered is skipped and nothing ever runs twice.
-    function inject(e, target, done) {
+    // run the current file, or on a heal ran it for a previous extension
+    // generation. Chromium's own injection sets the same marker.
+    function inject(e, target, sameGeneration, done) {
       var world = e.world === "MAIN" ? "MAIN" : "ISOLATED";
       var js = (e.js || []).filter(isString), css = (e.css || []).filter(isString);
-      var probe = {target: target, world: world, injectImmediately: true, args: [MARKER, e.entry, js[0] || ""],
-        func: function (key, entry, file) { try { var m = globalThis[key]; return !!(m && m[entry] === file); } catch (x) { return false; } }};
+      var probe = {target: target, world: world, injectImmediately: true,
+        args: [MARKER, GENERATION_KEY, e.entry, js[0] || "", GENERATION, !!sameGeneration],
+        func: function (key, genKey, entry, file, gen, needGen) {
+          try {
+            var g = globalThis, m = g[key] = g[key] || {}, gens = m[genKey] = m[genKey] || {};
+            var covered = m[entry] === file && (!needGen || gens[entry] === gen);
+            gens[entry] = gen;
+            return covered;
+          } catch (x) { return false; }
+        }};
       try {
         chrome.scripting.executeScript(probe, function (results) {
           noop();
@@ -363,7 +390,7 @@ export const DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE = `;(function () {
         if (!registry) return;
         for (var i = 0; i < registry.entries.length; i++) {
           var e = registry.entries[i];
-          if (e && e.entry === msg.entry) inject(e, {tabId: tabId, frameIds: [frameId]});
+          if (e && e.entry === msg.entry) inject(e, {tabId: tabId, frameIds: [frameId]}, false);
         }
       });
     }
@@ -383,7 +410,7 @@ export const DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE = `;(function () {
               var left = tabs.length;
               if (!left) return step();
               for (var t = 0; t < tabs.length; t++) {
-                inject(e, {tabId: tabs[t].id, allFrames: !!e.allFrames}, function () { if (--left === 0) step(); });
+                inject(e, {tabId: tabs[t].id, allFrames: !!e.allFrames}, true, function () { if (--left === 0) step(); });
               }
             });
           })(registry.entries[i]);
