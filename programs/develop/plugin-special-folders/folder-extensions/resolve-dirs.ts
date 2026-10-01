@@ -92,11 +92,19 @@ export function resolveCompanionExtensionDirs(opts: {
         }
 
         const browserDir = path.join(absScan, ent.name)
+        // A folder accepted as an extension root is one companion; a built
+        // copy inside it (dist/manifest.json) is the same extension again.
+        if (isValidExtensionRoot(browserDir)) continue
+
         scanOneLevel(browserDir)
       }
     }
   }
 
+  return withoutNestedRoots(found)
+}
+
+function withoutNestedRoots(found: string[]): string[] {
   const unique: string[] = []
   const seen = new Set<string>()
 
@@ -107,5 +115,13 @@ export function resolveCompanionExtensionDirs(opts: {
     unique.push(p)
   }
 
-  return unique
+  return unique.filter(
+    (dir) => !unique.some((other) => other !== dir && isInside(dir, other))
+  )
+}
+
+function isInside(dir: string, parent: string): boolean {
+  const rel = path.relative(path.resolve(parent), path.resolve(dir))
+
+  return Boolean(rel) && !rel.startsWith('..') && !path.isAbsolute(rel)
 }
