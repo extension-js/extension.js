@@ -156,7 +156,6 @@ export async function maybeUseSvelte(
     {
       test: /\.svelte\.ts$/,
       use: [svelteLoaderPath],
-      include: projectPath,
       exclude: /node_modules/
     },
     {
@@ -173,7 +172,8 @@ export async function maybeUseSvelte(
           ...(customOptions || {})
         }
       },
-      include: projectPath,
+      // No include: a workspace sibling imported by path compiles like any
+      // project file.
       exclude: /node_modules/
     },
     {
