@@ -6,6 +6,7 @@
 //  ╚════╝ ╚══════╝      ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝╚══════╝ ╚══╝╚══╝  ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import * as path from 'node:path'
 import type {RspackPluginInstance} from '@rspack/core'
@@ -125,9 +126,15 @@ export async function maybeUseReact(
           mod) as ReactRefreshPluginCtor
     })
 
+  // The plugin would prepend its runtime to every entry, content scripts
+  // included, and a MAIN world script then installs the React devtools hook
+  // on the host page. JsFrameworksPlugin adds the entry to page entries only.
+  const refreshEntry = resolveReactRefreshEntry(projectPath)
+
   const reactPlugins: RspackPluginInstance[] = [
     new ReactRefreshPlugin({
       overlay: false,
+      injectEntry: !refreshEntry,
       ...(typeof options.refreshExclude === 'undefined'
         ? {}
         : {exclude: options.refreshExclude})
@@ -138,5 +145,27 @@ export async function maybeUseReact(
     plugins: reactPlugins,
     loaders: undefined,
     alias
+  }
+}
+
+export function resolveReactRefreshEntry(
+  projectPath: string
+): string | undefined {
+  try {
+    const pluginMain = resolveOptionalContractPackageWithoutInstall({
+      contractId: 'react-refresh',
+      projectPath,
+      dependencyId: '@rspack/plugin-react-refresh'
+    })
+    const marker = `${path.sep}@rspack${path.sep}plugin-react-refresh${path.sep}`
+    const at = String(pluginMain || '').lastIndexOf(marker)
+    if (at === -1) return undefined
+
+    const root = String(pluginMain).slice(0, at + marker.length)
+    const entry = path.join(root, 'client', 'reactRefreshEntry.js')
+
+    return fs.existsSync(entry) ? entry : undefined
+  } catch {
+    return undefined
   }
 }
