@@ -17,29 +17,40 @@ import {
 import type {DevOptions, Manifest} from '../../types'
 
 // The manifest-fields package folds action, browser_action and page_action
-// into one action/index slot, first wins. Firefox drives the toolbar and the
-// address bar as independent surfaces, so a page_action popup of its own
-// gets its own page; only a shared source keeps sharing one page.
+// into one action/index slot and side_panel with sidebar_action into one
+// sidebar/index slot, first wins. A cross-browser manifest names one page
+// per key, so a second key that names its own source gets its own page;
+// only a shared source keeps sharing one page.
 
 export const ACTION_HTML_FEATURE = 'action/index'
+export const BROWSER_ACTION_HTML_FEATURE = 'browser_action/index'
 export const PAGE_ACTION_HTML_FEATURE = 'page_action/index'
 export const OPTIONS_HTML_FEATURE = 'options/index'
+export const SIDEBAR_HTML_FEATURE = 'sidebar/index'
+export const SIDEBAR_ACTION_HTML_FEATURE = 'sidebar_action/index'
 export const ACTION_HTML_OUTPUT = 'action/index.html'
+export const BROWSER_ACTION_HTML_OUTPUT = 'browser_action/index.html'
 export const PAGE_ACTION_HTML_OUTPUT = 'page_action/index.html'
+export const SIDEBAR_HTML_OUTPUT = 'sidebar/index.html'
+export const SIDEBAR_ACTION_HTML_OUTPUT = 'sidebar_action/index.html'
 
 type HtmlFields = Record<string, string | undefined>
 
-function readDefaultPopup(value: unknown): string | undefined {
+function readPageRef(value: unknown, key: string): string | undefined {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return undefined
   }
 
-  const popup = (value as {default_popup?: unknown}).default_popup
-  if (typeof popup !== 'string') return undefined
+  const page = (value as Record<string, unknown>)[key]
+  if (typeof page !== 'string') return undefined
 
-  const trimmed = popup.trim()
+  const trimmed = page.trim()
 
   return trimmed || undefined
+}
+
+function readDefaultPopup(value: unknown): string | undefined {
+  return readPageRef(value, 'default_popup')
 }
 
 export function normalizePopupRef(ref: string): string {
@@ -94,12 +105,67 @@ export function actionPopupRef(
   )
 }
 
+// The browser_action popup that needs a page of its own: one that sits
+// beside an action popup built from a different source.
+export function browserActionOwnPopupRef(
+  manifest: Manifest | undefined
+): string | undefined {
+  if (!manifest) return undefined
+
+  const action = readDefaultPopup(manifest.action)
+  const browserAction = readDefaultPopup(manifest.browser_action)
+
+  if (!action || !browserAction) return undefined
+  if (popupRefsShareSource(action, browserAction)) return undefined
+
+  return browserAction
+}
+
+export function browserActionOutputTarget(manifest: Manifest): string {
+  return browserActionOwnPopupRef(manifest)
+    ? BROWSER_ACTION_HTML_OUTPUT
+    : ACTION_HTML_OUTPUT
+}
+
 export function pageActionPopupRef(
   manifest: Manifest | undefined
 ): string | undefined {
   if (!manifest) return undefined
 
   return readDefaultPopup(manifest.page_action)
+}
+
+export function sidebarPanelRef(
+  manifest: Manifest | undefined
+): string | undefined {
+  if (!manifest) return undefined
+
+  return (
+    readPageRef(manifest.side_panel, 'default_path') ||
+    readPageRef(manifest.sidebar_action, 'default_panel')
+  )
+}
+
+// The sidebar_action panel that needs a page of its own: one that sits
+// beside a side_panel built from a different source.
+export function sidebarActionOwnPanelRef(
+  manifest: Manifest | undefined
+): string | undefined {
+  if (!manifest) return undefined
+
+  const sidePanel = readPageRef(manifest.side_panel, 'default_path')
+  const sidebarAction = readPageRef(manifest.sidebar_action, 'default_panel')
+
+  if (!sidePanel || !sidebarAction) return undefined
+  if (popupRefsShareSource(sidePanel, sidebarAction)) return undefined
+
+  return sidebarAction
+}
+
+export function sidebarActionOutputTarget(manifest: Manifest): string {
+  return sidebarActionOwnPanelRef(manifest)
+    ? SIDEBAR_ACTION_HTML_OUTPUT
+    : SIDEBAR_HTML_OUTPUT
 }
 
 // The source the single options page is built from. Chromium reads the legacy
@@ -182,10 +248,19 @@ export function dropPageAction(manifest: Manifest): Manifest {
 // when both keys point at one source, its own page otherwise.
 export function pageActionOutputTarget(manifest: Manifest): string {
   const actionRef = actionPopupRef(manifest)
+  const browserActionRef = browserActionOwnPopupRef(manifest)
   const pageRef = pageActionPopupRef(manifest)
 
   if (actionRef && pageRef && popupRefsShareSource(actionRef, pageRef)) {
     return ACTION_HTML_OUTPUT
+  }
+
+  if (
+    browserActionRef &&
+    pageRef &&
+    popupRefsShareSource(browserActionRef, pageRef)
+  ) {
+    return BROWSER_ACTION_HTML_OUTPUT
   }
 
   return PAGE_ACTION_HTML_OUTPUT
@@ -212,32 +287,39 @@ export function applyIndependentHtmlSurfaces(
     )
   }
 
+  const resolve = (ref: string | undefined) =>
+    ref ? resolveManifestHtmlPath(context, ref, projectPath) : undefined
+
+  const assign = (feature: string, resolved: string | undefined) => {
+    if (resolved) next[feature] = resolved
+    else delete next[feature]
+  }
+
+  // Rebuild each collapsed slot from the key that owns it, then give the
+  // second key of a pair its own slot when it names a source of its own.
+  assign(SIDEBAR_HTML_FEATURE, resolve(sidebarPanelRef(manifest)))
+  assign(
+    SIDEBAR_ACTION_HTML_FEATURE,
+    resolve(sidebarActionOwnPanelRef(manifest))
+  )
+
   const actionRef = actionPopupRef(manifest)
   const pageRef = pageActionPopupRef(manifest)
-  const actionAbs = actionRef
-    ? resolveManifestHtmlPath(context, actionRef, projectPath)
-    : undefined
-  const pageAbs = pageRef
-    ? resolveManifestHtmlPath(context, pageRef, projectPath)
-    : undefined
+  assign(ACTION_HTML_FEATURE, resolve(actionRef))
+  assign(
+    BROWSER_ACTION_HTML_FEATURE,
+    resolve(browserActionOwnPopupRef(manifest))
+  )
 
-  // Rebuild the collapsed slot from the toolbar key alone.
-  if (actionAbs) next[ACTION_HTML_FEATURE] = actionAbs
-  else delete next[ACTION_HTML_FEATURE]
+  const pageOwnsItsPage =
+    pageRef &&
+    !pageActionDropReason(manifest, browser) &&
+    pageActionOutputTarget(manifest) === PAGE_ACTION_HTML_OUTPUT
 
-  if (!pageAbs || pageActionDropReason(manifest, browser)) {
-    delete next[PAGE_ACTION_HTML_FEATURE]
-
-    return leavePublicPagesToCopier(next, context, projectPath)
-  }
-
-  if (actionAbs && popupRefsShareSource(actionRef, pageRef)) {
-    delete next[PAGE_ACTION_HTML_FEATURE]
-
-    return leavePublicPagesToCopier(next, context, projectPath)
-  }
-
-  next[PAGE_ACTION_HTML_FEATURE] = pageAbs
+  assign(
+    PAGE_ACTION_HTML_FEATURE,
+    pageOwnsItsPage ? resolve(pageRef) : undefined
+  )
 
   return leavePublicPagesToCopier(next, context, projectPath)
 }

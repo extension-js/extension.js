@@ -6,12 +6,24 @@
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+const crypto = require('node:crypto')
 const fs = require('node:fs')
 const path = require('node:path')
 const {execSync} = require('node:child_process')
 
+const ENGINES = ['chromium', 'chrome', 'edge', 'firefox']
+const BUILD_TARGETS = [
+  'build:chromium',
+  'build:chrome',
+  'build:firefox',
+  'build:edge'
+]
+const BUNDLED_PACKAGES = ['extension-js-devtools', 'extension-js-theme']
+const STAMP_FILE = 'build-stamp.json'
+
 function main() {
   const root = path.resolve(__dirname, '..')
+  const developDist = path.join(root, 'programs', 'develop', 'dist')
 
   // Use the same Node as the current process for all child spawns (cross-platform:
   // avoids Windows Node path being used in WSL/Git Bash, or wrong node in PATH).
@@ -23,6 +35,33 @@ function main() {
   }
 
   const verbose = String(process.env.EXTENSION_VERBOSE || '').trim() === '1'
+
+  function printChildOutput(error) {
+    const stdout = error?.stdout ? String(error.stdout) : ''
+    const stderr = error?.stderr ? String(error.stderr) : ''
+    const output = `${stdout}${stderr}`.trim()
+
+    if (output.length > 0) {
+      console.error(output)
+    }
+  }
+
+  // Discover top-level extension packages (directories) under extensions/,
+  // excluding the folder named 'browser-extension' and 'monorepo'
+  function listExtensionPackages() {
+    const extensionsRoot = path.join(root, 'extensions')
+
+    try {
+      const entries = fs.readdirSync(extensionsRoot, {withFileTypes: true})
+
+      return entries
+        .filter((d) => d.isDirectory())
+        .map((d) => d.name)
+        .filter((name) => name !== 'browser-extension' && name !== 'monorepo')
+    } catch {
+      return []
+    }
+  }
 
   // Ensure dependencies are installed in the given package folder.
   function ensureDependencies(pkgRoot) {
@@ -50,197 +89,185 @@ function main() {
           env: childEnv
         })
       } catch (error) {
-        if (!verbose) {
-          const stdout = error?.stdout ? String(error.stdout) : ''
-          const stderr = error?.stderr ? String(error.stderr) : ''
-          const output = `${stdout}${stderr}`.trim()
-
-          if (output.length > 0) {
-            console.error(output)
-          }
-        }
+        if (!verbose) printChildOutput(error)
 
         throw error
       }
     }
   }
 
-  // Try to build all known targets for a given package folder.
-  // Errors for individual targets are ignored to maximize overall success.
-  function buildAllTargets(pkgRoot, {strict = false} = {}) {
-    const targets = [
-      'build:chromium',
-      'build:chrome',
-      'build:firefox',
-      'build:edge'
-    ]
+  // The bundled extensions embed the develop pipeline, so a mirrored copy is
+  // only fresh when its stamp names the current content hash of develop/dist.
+  function hashDevelopPipeline() {
+    if (!fs.existsSync(developDist)) {
+      throw new Error(
+        `[Extension.js] ${developDist} is missing. Compile extension-develop before building the bundled extensions.`
+      )
+    }
 
-    for (const script of targets) {
+    const mirrored = new Set(listExtensionPackages())
+    const hash = crypto.createHash('sha256')
+
+    function walk(dir, rel) {
+      const entries = fs
+        .readdirSync(dir, {withFileTypes: true})
+        .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+
+      for (const entry of entries) {
+        const skip =
+          rel === '' &&
+          (mirrored.has(entry.name) || entry.name.endsWith('__tmp'))
+        if (skip) continue
+
+        const entryRel = rel === '' ? entry.name : `${rel}/${entry.name}`
+        const full = path.join(dir, entry.name)
+
+        if (entry.isDirectory()) {
+          walk(full, entryRel)
+        } else if (entry.isFile()) {
+          hash.update(entryRel)
+          hash.update('\0')
+          hash.update(fs.readFileSync(full))
+          hash.update('\0')
+        }
+      }
+    }
+
+    walk(developDist, '')
+
+    return hash.digest('hex')
+  }
+
+  function buildAllTargets(pkgRoot, packageName) {
+    for (const script of BUILD_TARGETS) {
       try {
         execSync(`pnpm run -s ${script}`, {
           cwd: pkgRoot,
-          stdio: verbose || strict ? 'inherit' : 'ignore',
+          stdio: verbose ? 'inherit' : 'pipe',
           env: childEnv
         })
       } catch (error) {
-        if (strict) {
-          throw error
-        }
-        // ignore failures of individual targets
-      }
-    }
-  }
+        if (!verbose) printChildOutput(error)
 
-  function ensureExtensionDist(packageName) {
-    const pkgRoot = path.join(root, 'extensions', packageName)
-    const distRoot = path.join(pkgRoot, 'dist')
-    const engines = ['chromium', 'chrome', 'edge', 'firefox']
-    const missing = engines.filter((engine) => {
-      const manifestPath = path.join(distRoot, engine, 'manifest.json')
-
-      return !fs.existsSync(manifestPath)
-    })
-
-    if (missing.length === 0) return
-
-    if (verbose) {
-      console.log(
-        `[Extension.js] ${packageName} missing dist for: ${missing.join(', ')}. Rebuilding…`
-      )
-    }
-
-    ensureDependencies(pkgRoot)
-    buildAllTargets(pkgRoot, {strict: true})
-
-    const stillMissing = engines.filter((engine) => {
-      const manifestPath = path.join(distRoot, engine, 'manifest.json')
-
-      return !fs.existsSync(manifestPath)
-    })
-
-    if (stillMissing.length > 0) {
-      throw new Error(
-        `[Extension.js] ${packageName} build missing manifests for: ${stillMissing.join(
-          ', '
-        )}`
-      )
-    }
-  }
-
-  // Ensure a given extension package has a FRESH dist folder and mirror it
-  // into programs/develop/dist. Always rebuild: these extensions embed the
-  // just-compiled develop pipeline (content-script wrapper, producer runtime),
-  // so mirroring a pre-existing dist ships stale wrapper code whenever the
-  // pipeline changed. A failed rebuild falls back to the existing dist.
-  function buildAndMirror(packageName) {
-    const src = path.join(root, 'extensions', packageName, 'dist')
-    const dest = path.join(root, 'programs', 'develop', 'dist', packageName)
-
-    try {
-      const pkgRoot = path.join(root, 'extensions', packageName)
-      const hasPackageJson = fs.existsSync(path.join(pkgRoot, 'package.json'))
-
-      if (fs.existsSync(pkgRoot) && hasPackageJson) {
-        if (verbose) {
-          console.log(`[Extension.js] Rebuilding ${packageName}…`)
-        }
-
-        ensureDependencies(pkgRoot)
-        buildAllTargets(pkgRoot)
-      }
-    } catch {
-      // ignore build issues; the existing dist (if any) is mirrored as fallback
-    }
-
-    if (!fs.existsSync(src)) {
-      if (verbose) {
-        console.warn(
-          `[Extension.js] ${packageName} dist missing. Skipping mirror.`
+        throw new Error(
+          `[Extension.js] ${packageName} ${script} failed with exit code ${error?.status ?? 'unknown'}.`
         )
       }
+    }
+  }
 
-      return
+  // A pre-existing dist is never proof of a fresh build: it is removed before
+  // the rebuild so a failed target leaves nothing to mirror.
+  function rebuildExtension(packageName) {
+    const pkgRoot = path.join(root, 'extensions', packageName)
+    const distRoot = path.join(pkgRoot, 'dist')
+
+    if (!fs.existsSync(path.join(pkgRoot, 'package.json'))) {
+      throw new Error(`[Extension.js] ${packageName} has no package.json.`)
     }
 
-    // Reset destination and copy dist
-    // Use a temp folder + rename to avoid EEXIST errors from cpSync on macOS.
+    if (verbose) {
+      console.log(`[Extension.js] Rebuilding ${packageName}…`)
+    }
+
+    fs.rmSync(distRoot, {recursive: true, force: true})
+    ensureDependencies(pkgRoot)
+    buildAllTargets(pkgRoot, packageName)
+
+    const missing = ENGINES.filter(
+      (engine) => !fs.existsSync(path.join(distRoot, engine, 'manifest.json'))
+    )
+
+    if (missing.length > 0) {
+      throw new Error(
+        `[Extension.js] ${packageName} build produced no manifest for: ${missing.join(', ')}`
+      )
+    }
+
+    return distRoot
+  }
+
+  // A temp folder + rename avoids EEXIST errors from cpSync on macOS.
+  function mirrorExtension(packageName, src, pipeline) {
+    const dest = path.join(developDist, packageName)
     const tmpDest = `${dest}__tmp`
 
-    try {
-      fs.rmSync(tmpDest, {recursive: true, force: true})
-    } catch {
-      // ignore
-    }
-
-    try {
-      fs.rmSync(dest, {recursive: true, force: true})
-    } catch {
-      // ignore
-    }
-
+    fs.rmSync(tmpDest, {recursive: true, force: true})
     fs.cpSync(src, tmpDest, {recursive: true, force: true})
+    fs.writeFileSync(
+      path.join(tmpDest, STAMP_FILE),
+      `${JSON.stringify({pipeline, builtAt: new Date().toISOString()}, null, 2)}\n`
+    )
 
-    try {
-      fs.rmSync(dest, {recursive: true, force: true})
-    } catch {
-      // ignore
-    }
-
+    fs.rmSync(dest, {recursive: true, force: true})
     fs.renameSync(tmpDest, dest)
   }
 
-  // Hard guard: ensure extension-js-devtools dist exists for all engines
-  // before we cut a new extension-develop package. If this fails, we prefer
-  // to fail the publish rather than ship a broken devtools experience.
-  function verifyExtensionMirrored(packageName) {
-    const engines = ['chromium', 'chrome', 'edge', 'firefox']
-    const base = path.join(root, 'programs', 'develop', 'dist', packageName)
+  function verifyExtensionMirrored(packageName, pipeline) {
+    const base = path.join(developDist, packageName)
+    const problems = []
 
-    for (const engine of engines) {
+    for (const engine of ENGINES) {
       const manifestPath = path.join(base, engine, 'manifest.json')
 
       if (!fs.existsSync(manifestPath)) {
-        const msg = `[Extension.js] ${packageName} for "${engine}" is missing at ${manifestPath}.`
-        // Always surface this; it's a hard failure for releases.
-        console.error(msg)
-        process.exitCode = 1
+        problems.push(`for "${engine}" is missing at ${manifestPath}.`)
       }
     }
-  }
 
-  // Discover top-level extension packages (directories) under extensions/,
-  // excluding the folder named 'browser-extension' and 'monorepo'
-  function listExtensionPackages() {
-    const extensionsRoot = path.join(root, 'extensions')
+    const stampPath = path.join(base, STAMP_FILE)
+    let stamp = null
 
     try {
-      const entries = fs.readdirSync(extensionsRoot, {withFileTypes: true})
-
-      return entries
-        .filter((d) => d.isDirectory())
-        .map((d) => d.name)
-        .filter((name) => name !== 'browser-extension' && name !== 'monorepo')
+      stamp = JSON.parse(fs.readFileSync(stampPath, 'utf8'))
     } catch {
-      return []
+      // Ignore
+    }
+
+    if (!stamp || typeof stamp.pipeline !== 'string') {
+      problems.push(
+        `has no build stamp at ${stampPath}, so it is not proven fresh.`
+      )
+    } else if (stamp.pipeline !== pipeline) {
+      problems.push(
+        `was built against another develop pipeline (stamp ${stamp.pipeline.slice(0, 12)} from ${stamp.builtAt}, current ${pipeline.slice(0, 12)}).`
+      )
+    }
+
+    for (const problem of problems) {
+      console.error(`[Extension.js] ${packageName} ${problem}`)
+      process.exitCode = 1
     }
   }
 
-  // Build and mirror all discovered extension packages except 'browser-extension'
+  const pipeline = hashDevelopPipeline()
+  const failed = []
+
   for (const packageName of listExtensionPackages()) {
-    if (packageName === 'extension-js-devtools') {
-      ensureExtensionDist(packageName)
+    try {
+      mirrorExtension(packageName, rebuildExtension(packageName), pipeline)
+    } catch (error) {
+      console.error(String(error?.message || error))
+      failed.push(packageName)
     }
-
-    if (packageName === 'extension-js-theme') {
-      ensureExtensionDist(packageName)
-    }
-
-    buildAndMirror(packageName)
   }
 
-  // After mirroring, verify devtools/theme are present for all engines.
-  verifyExtensionMirrored('extension-js-devtools')
-  verifyExtensionMirrored('extension-js-theme')
+  for (const packageName of BUNDLED_PACKAGES) {
+    verifyExtensionMirrored(packageName, pipeline)
+  }
+
+  if (failed.length > 0) {
+    console.error(
+      `[Extension.js] Bundled extension build failed for: ${failed.join(', ')}. Nothing was mirrored for them into ${developDist}.`
+    )
+
+    process.exitCode = 1
+  }
 }
 
-main()
+try {
+  main()
+} catch (error) {
+  console.error(String(error?.message || error))
+  process.exitCode = 1
+}

@@ -21,7 +21,10 @@ import {
   getManifestContent,
   setCurrentManifestContent
 } from '../manifest-lib/manifest'
-import {sanitizeFatalManifestShapes} from '../manifest-lib/sanitize-fatal-shapes'
+import {
+  findMistypedManifestFields,
+  sanitizeFatalManifestShapes
+} from '../manifest-lib/sanitize-fatal-shapes'
 import {getManifestOverrides} from '../manifest-overrides'
 import {hasMv2SandboxPolicy} from '../manifest-overrides/mv2/content_security_policy'
 
@@ -102,6 +105,26 @@ export class UpdateManifest {
               manifest,
               this.browser
             ) as Manifest
+            const mistyped = findMistypedManifestFields(forBrowser)
+
+            if (mistyped.length > 0) {
+              for (const entry of mistyped) {
+                reportToCompilation(
+                  compilation,
+                  compiler,
+                  messages.manifestFieldMistyped(
+                    entry.field,
+                    entry.expected,
+                    entry.received
+                  ),
+                  'error',
+                  'manifest.json'
+                )
+              }
+
+              return
+            }
+
             const dropReason = pageActionDropReason(forBrowser, this.browser)
 
             if (dropReason) {

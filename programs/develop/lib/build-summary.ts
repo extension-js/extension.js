@@ -21,6 +21,14 @@ export interface SafariPackageSummary {
   macOsOnly?: boolean
 }
 
+// What the addons.mozilla.org store check did, so a consumer can tell a
+// clean lint from one that never ran. Only a Gecko production build lints.
+export type AddonLintSummary =
+  | {status: 'linted'; findings: number}
+  | {status: 'missing'}
+  | {status: 'failed'; reason: string}
+  | {status: 'skipped'; reason: 'disabled' | 'mode' | 'browser'}
+
 export type BuildSummary = {
   browser: string
   /** Absolute dist directory the build emitted into. Hosts that shell out
@@ -36,6 +44,7 @@ export type BuildSummary = {
   warnings?: string[]
   /** Present only for safari/webkit-based builds that ran the packager. */
   safari?: SafariPackageSummary
+  addon_lint?: AddonLintSummary
 }
 
 const MAX_SUMMARY_WARNINGS = 20

@@ -8,38 +8,6 @@
 
 export const EXTENSION_ENV_TYPES_PACKAGE = 'extension'
 
-const STYLE_TYPE = 'Readonly<Record<string, string>>'
-
-// Keep this list in step with the wildcard blocks in extension/types/assets.d.ts.
-// The spec for generate-extension-types compares the two so they cannot drift.
-export const EXTENSION_ENV_WILDCARD_MODULES = Object.freeze([
-  {pattern: '*.css', type: STYLE_TYPE},
-  {pattern: '*.module.css', type: STYLE_TYPE},
-  {pattern: '*.module.scss', type: STYLE_TYPE},
-  {pattern: '*.module.sass', type: STYLE_TYPE},
-  {pattern: '*.png', type: 'string'},
-  {pattern: '*.jpg', type: 'string'},
-  {pattern: '*.jpeg', type: 'string'},
-  {pattern: '*.gif', type: 'string'},
-  {pattern: '*.webp', type: 'string'},
-  {pattern: '*.avif', type: 'string'},
-  {pattern: '*.ico', type: 'string'},
-  {pattern: '*.bmp', type: 'string'},
-  // SVG stays any so SVGR style loaders that return a component do not conflict.
-  {pattern: '*.svg', type: 'any'}
-])
-
-export function renderWildcardModuleDeclarations(
-  modules = EXTENSION_ENV_WILDCARD_MODULES
-) {
-  return modules
-    .map(
-      ({pattern, type}) =>
-        `declare module '${pattern}' {\n  const content: ${type}\n  export default content\n}\n`
-    )
-    .join('')
-}
-
 // `define` keys that are plain identifiers become ambient constants, so a
 // misspelled or missing one is a type error instead of a worker that throws
 // at start. Dotted keys (`process.env.X`) have no declaration form.
@@ -54,6 +22,8 @@ export function renderExtensionEnvTypes(
   typePath = EXTENSION_ENV_TYPES_PACKAGE,
   defineTypes = {}
 ) {
+  const defineDeclarations = renderDefineDeclarations(defineTypes)
+
   return `\
 // Required Extension.js types for TypeScript projects.
 // This file is auto-generated and should not be excluded.
@@ -64,9 +34,5 @@ export function renderExtensionEnvTypes(
 
 // Polyfill types for browser.* APIs
 /// <reference types="${typePath}/types/polyfill" />
-
-// Asset and stylesheet imports. These wildcard declarations also live in
-// ${typePath}/types, but TypeScript 7 native does not apply them through the
-// reference above, so they are emitted here as well.
-${renderWildcardModuleDeclarations()}${renderDefineDeclarations(defineTypes)}`
+${defineDeclarations ? `\n${defineDeclarations}` : ''}`
 }

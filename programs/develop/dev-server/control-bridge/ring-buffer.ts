@@ -26,6 +26,7 @@ export class LogRingBuffer {
   private readonly buf: LogEvent[] = []
   private nextSeq = 1
   private droppedSinceDrain = 0
+  private evictedTotal = 0
 
   constructor(capacity: number = DEFAULT_RING_CAPACITY) {
     this.capacity = Math.max(1, Math.floor(capacity))
@@ -43,6 +44,7 @@ export class LogRingBuffer {
     if (this.buf.length > this.capacity) {
       this.buf.shift()
       this.droppedSinceDrain++
+      this.evictedTotal++
     }
 
     return event
@@ -54,6 +56,11 @@ export class LogRingBuffer {
 
   get bufferedFrom(): number {
     return this.buf.length ? this.buf[0].seq : this.nextSeq
+  }
+
+  // How many events a replay from this ring can no longer include.
+  get evicted(): number {
+    return this.evictedTotal
   }
 
   get nextSequence(): number {
@@ -76,6 +83,10 @@ export class LogRingBuffer {
     const dropped = this.droppedSinceDrain
     this.droppedSinceDrain = 0
 
-    return {dropped, reason: 'ring_overflow', sinceSeq: this.bufferedFrom}
+    return {
+      dropped,
+      reason: 'ring_overflow',
+      sinceSeq: this.bufferedFrom - dropped - 1
+    }
   }
 }

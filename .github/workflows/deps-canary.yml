@@ -99,8 +99,10 @@ jobs:
             pnpm run ci:test:rspack
         run: bash scripts/report-red-lane.sh "Dependency canary ${{ matrix.leg }}"
 
+      # A week with nothing to test ran no suite, so it has no evidence the
+      # lane is green and must not close an issue a real run opened.
       - name: Close the red lane
-        if: success()
+        if: success() && steps.overrides.outputs.count != '0'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RED_LANE_TITLE: 'Dependency canary is red: ${{ matrix.leg }}'

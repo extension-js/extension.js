@@ -45,6 +45,8 @@ function startFakeExecutor(
 
       if (frame.type === 'command') {
         const r = reply(frame)
+        if (!r) return
+
         ws.send(JSON.stringify({type: 'result', cmdId: frame.cmdId, ...r}))
       }
     })
@@ -93,6 +95,50 @@ describe('session-token', () => {
     fs.mkdirSync(path.dirname(legacy), {recursive: true})
     fs.writeFileSync(legacy, 'legacy-token')
     expect(readControlToken(dir, 'chrome')).toBe('legacy-token')
+  })
+
+  it('answers null for a browser whose session ended while another is live', () => {
+    const chrome = writeControlToken(dir, 'chrome')
+    const firefox = writeControlToken(dir, 'firefox')
+    expect(readControlToken(dir, 'chrome')).toBe(chrome)
+
+    clearControlToken(dir, 'chrome')
+    const legacy = path.join(dir, '.extension-js', 'control.token')
+    expect(fs.readFileSync(legacy, 'utf-8').trim()).toBe(firefox)
+    expect(readControlToken(dir, 'chrome')).toBeNull()
+    expect(readControlToken(dir, 'firefox')).toBe(firefox)
+
+    clearControlToken(dir, 'firefox')
+    expect(readControlToken(dir, 'firefox')).toBeNull()
+    expect(fs.existsSync(legacy)).toBe(false)
+  })
+
+  it('ignores the legacy slot once any per-browser token file exists', () => {
+    const legacy = path.join(dir, '.extension-js', 'control.token')
+    fs.mkdirSync(path.dirname(legacy), {recursive: true})
+    fs.writeFileSync(legacy, 'legacy-token')
+    const chromium = writeControlToken(dir, 'chromium')
+    expect(readControlToken(dir, 'chromium')).toBe(chromium)
+    expect(readControlToken(dir, 'chrome')).toBeNull()
+  })
+
+  it('restores 0600 on both token files written over wide-open ones', () => {
+    const perBrowser = controlTokenPath(dir, 'chrome')
+    const legacy = path.join(dir, '.extension-js', 'control.token')
+    fs.mkdirSync(path.dirname(perBrowser), {recursive: true})
+    fs.writeFileSync(perBrowser, 'stale', {mode: 0o644})
+    fs.writeFileSync(legacy, 'stale', {mode: 0o644})
+    fs.chmodSync(perBrowser, 0o644)
+    fs.chmodSync(legacy, 0o644)
+
+    const token = writeControlToken(dir, 'chrome')
+    expect(fs.readFileSync(perBrowser, 'utf-8')).toBe(token)
+    expect(fs.readFileSync(legacy, 'utf-8')).toBe(token)
+
+    if (process.platform !== 'win32') {
+      expect(fs.statSync(perBrowser).mode & 0o777).toBe(0o600)
+      expect(fs.statSync(legacy).mode & 0o777).toBe(0o600)
+    }
   })
 
   it('clear removes the legacy mirror only when it is this session token', () => {
@@ -231,6 +277,57 @@ describe('BridgeController (integration)', () => {
       args: {expression: 'chrome.runtime.id'}
     })
     expect(result).toMatchObject({ok: true, value: 'abc123'})
+  })
+
+  it('mints a cmdId that carries the process id, so two CLIs cannot share one', async () => {
+    const broker = makeServer()
+    server = await startControlServer({broker})
+    const seen: string[] = []
+    executor = await startFakeExecutor(server.port, (cmd) => {
+      seen.push(cmd.cmdId)
+
+      return {ok: true}
+    })
+
+    controller = new BridgeController({
+      controlPort: server.port,
+      instanceId: 'inst-1'
+    })
+
+    await controller.command({op: 'reload', target: {context: 'background'}})
+    await controller.command({op: 'reload', target: {context: 'background'}})
+    expect(seen).toHaveLength(2)
+    expect(new Set(seen).size).toBe(2)
+
+    for (const id of seen) {
+      expect(id.startsWith(`c-${process.pid}-`)).toBe(true)
+    }
+  })
+
+  it('answers Unavailable at once when the executor socket closes mid-command', async () => {
+    const broker = makeServer()
+    server = await startControlServer({broker})
+    executor = await startFakeExecutor(server.port, () => {
+      executor?.close()
+
+      return null
+    })
+
+    controller = new BridgeController({
+      controlPort: server.port,
+      instanceId: 'inst-1'
+    })
+
+    const startedAt = Date.now()
+    const result = await controller.command({
+      op: 'storage.get',
+      target: {context: 'background'},
+      timeoutMs: 30_000
+    })
+
+    expect(Date.now() - startedAt).toBeLessThan(5000)
+    expect(result).toMatchObject({ok: false, error: {name: 'Unavailable'}})
+    expect(result.error?.message).toContain('no executor connected')
   })
 
   it('rejects connect when control is disabled (no --allow-control)', async () => {

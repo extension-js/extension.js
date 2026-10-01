@@ -38,6 +38,7 @@ export {
   CLOSE_SLOW_CONSUMER,
   CONTROL_ENVELOPE_VERSION,
   CONTROL_WS_PATH,
+  LOG_CONTEXTS,
   LOG_EVENT_VERSION,
   REFUSAL_API_UNAVAILABLE,
   REFUSAL_NEEDS_HEADED_WINDOW,
@@ -60,13 +61,17 @@ export {
 // worst level in a batch, and it carries the rule that 'log' ranks as 'info'.
 export {
   isAfterSince,
+  LOG_LEVEL_FILTERS,
   LOG_LEVEL_ORDER,
   type LogQuery,
   type LogSince,
   logLevelRank,
+  logQueryProblem,
   matchesLogQuery,
+  parseLogLevelFilter,
   parseLogSince,
-  readLogEvents
+  readLogEvents,
+  unknownLogContexts
 } from './dev-server/control-bridge/logs-query'
 export {
   controlTokenPath,

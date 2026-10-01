@@ -2,7 +2,12 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
-import {buildPublishPlan, buildPublishRequest} from '../commands/publish'
+import {
+  buildPublishPlan,
+  buildPublishRequest,
+  expiresAtSeconds,
+  isPublishPlanError
+} from '../commands/publish'
 
 const ORIG = {...process.env}
 const API = 'https://platform.test'
@@ -121,6 +126,45 @@ describe('stored device login fallback', () => {
     })
 
     expect(() => buildPublishRequest({})).toThrow(/No token/)
+  })
+
+  it.each([
+    ['an ISO string', '2020-01-01T00:00:00Z'],
+    ['a millisecond epoch', 1577836800000],
+    ['a numeric string in milliseconds', '1577836800000'],
+    ['a negative number', -1],
+    ['a non-numeric string', 'soon'],
+    ['an object', {at: 1}]
+  ])('refuses a stored login whose expiresAt is %s', (_, expiresAt) => {
+    writeStoredLogin('tok_stored', {expiresAt})
+    expect(() => buildPublishRequest({})).toThrow(/No token/)
+  })
+
+  it.each([
+    ['an ISO string', new Date(Date.now() + 3_600_000).toISOString()],
+    ['a millisecond epoch', Date.now() + 3_600_000],
+    ['a seconds epoch', Math.floor(Date.now() / 1000) + 3600]
+  ])('accepts a stored login whose expiresAt is %s in the future', (_, at) => {
+    writeStoredLogin('tok_stored', {expiresAt: at})
+    expect(buildPublishRequest({}).headers.authorization).toBe(
+      'Bearer tok_stored'
+    )
+  })
+
+  it('reads every expiry shape as seconds and rejects the malformed ones', () => {
+    expect(expiresAtSeconds(1577836800)).toBe(1577836800)
+    expect(expiresAtSeconds(1577836800000)).toBe(1577836800)
+    expect(expiresAtSeconds('1577836800')).toBe(1577836800)
+    expect(expiresAtSeconds('2020-01-01T00:00:00Z')).toBe(1577836800)
+    expect(expiresAtSeconds(undefined)).toBe(Number.POSITIVE_INFINITY)
+    expect(expiresAtSeconds(null)).toBe(Number.POSITIVE_INFINITY)
+    expect(expiresAtSeconds('')).toBe(Number.POSITIVE_INFINITY)
+    expect(expiresAtSeconds(0)).toBeNull()
+    expect(expiresAtSeconds(-1)).toBeNull()
+    expect(expiresAtSeconds(Number.NaN)).toBeNull()
+    expect(expiresAtSeconds('soon')).toBeNull()
+    expect(expiresAtSeconds('1969-12-31T00:00:00Z')).toBeNull()
+    expect(expiresAtSeconds({})).toBeNull()
   })
 
   it('a malformed auth.json falls through to the refusal', () => {
@@ -267,6 +311,68 @@ describe('a stored login is scoped to one project', () => {
     expect(() => buildPublishRequest({projectPath: projectDir})).toThrow(
       new RegExp(path.basename(projectDir))
     )
+  })
+
+  function planError(opts: Parameters<typeof buildPublishPlan>[0]) {
+    try {
+      buildPublishPlan(opts)
+    } catch (err) {
+      return err
+    }
+
+    return null
+  }
+
+  it('the no-token refusal carries E_AUTH_REQUIRED and a hint without --api', () => {
+    const err = planError({projectPath: projectDir})
+    expect(isPublishPlanError(err)).toBe(true)
+    if (!isPublishPlanError(err)) return
+
+    expect(err.code).toBe('E_AUTH_REQUIRED')
+    expect(err.refs).toBeUndefined()
+    expect(err.hint).toContain('--token')
+    expect(err.hint).not.toContain('--api')
+  })
+
+  it('the missing platform URL refusal carries E_ARGS and names only --api', () => {
+    delete process.env.EXTENSION_DEV_API_URL
+    const err = planError({projectPath: projectDir, token: 'tok_flag'})
+    expect(isPublishPlanError(err)).toBe(true)
+    if (!isPublishPlanError(err)) return
+
+    expect(err.code).toBe('E_ARGS')
+    expect(err.hint).toContain('--api')
+    expect(err.hint).not.toContain('--token')
+  })
+
+  it('the --project mismatch carries E_INVALID_OPTION and refs the flag', () => {
+    writeStoredLogin('tok_stored', {projectSlug: 'xvelte'})
+    writeProject('pubwalk')
+    const err = planError({
+      projectPath: projectDir,
+      project: 'something-else',
+      api: 'http://127.0.0.1:1'
+    })
+    expect(isPublishPlanError(err)).toBe(true)
+    if (!isPublishPlanError(err)) return
+
+    expect(err.code).toBe('E_INVALID_OPTION')
+    expect(err.refs).toEqual({flag: '--project'})
+    expect(err.hint).toContain('--project xvelte')
+    expect(err.hint).not.toContain('--api')
+  })
+
+  it('the directory mismatch carries E_INVALID_OPTION and refs the path', () => {
+    writeStoredLogin('tok_stored', {projectSlug: 'xvelte'})
+    writeProject('pubwalk')
+    const err = planError({projectPath: projectDir, api: 'http://127.0.0.1:1'})
+    expect(isPublishPlanError(err)).toBe(true)
+    if (!isPublishPlanError(err)) return
+
+    expect(err.code).toBe('E_INVALID_OPTION')
+    expect(err.refs).toEqual({path: path.resolve(projectDir)})
+    expect(err.hint).toContain('--project xvelte')
+    expect(err.hint).not.toContain('--api')
   })
 
   it('reads the extension manifest name when there is no package.json', () => {

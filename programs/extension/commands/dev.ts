@@ -166,7 +166,7 @@ export function registerDevCommand(program: Command) {
     )
     .option(
       '--polyfill [boolean]',
-      'whether or not to apply the cross-browser polyfill. Defaults to `true`',
+      'whether or not to apply the cross-browser polyfill. Defaults to `true` (`build` defaults to `false`)',
       parseOptionalBoolean
     )
     .option('--no-polyfill', 'disable the cross-browser polyfill')

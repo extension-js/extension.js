@@ -59,6 +59,75 @@ describe('profile lock detection', () => {
     expect(fs.existsSync(path.join(profile, 'SingletonLock'))).toBe(false)
   })
 
+  it.skipIf(process.platform === 'win32')(
+    'refuses a symlink lock whose target names a live process',
+    () => {
+      fs.symlinkSync(
+        `${os.hostname()}-${process.pid}`,
+        path.join(profile, 'SingletonLock')
+      )
+
+      let caught: unknown
+
+      try {
+        prepareChromiumProfileForLaunch(profile)
+      } catch (error) {
+        caught = error
+      }
+
+      expect(isProfileLockedError(caught)).toBe(true)
+      if (!isProfileLockedError(caught)) return
+
+      expect(caught.code).toBe('profile_locked')
+      expect(caught.profileLockOwner.pid).toBe(process.pid)
+      expect(caught.message).toContain(`process ${process.pid}`)
+      expect(
+        fs.lstatSync(path.join(profile, 'SingletonLock'), {
+          throwIfNoEntry: false
+        })
+      ).toBeDefined()
+    }
+  )
+
+  it.skipIf(process.platform === 'win32')(
+    'removes a symlink lock of a dead owner and lets the launch proceed',
+    () => {
+      fs.symlinkSync(
+        `${os.hostname()}-2147483600`,
+        path.join(profile, 'SingletonLock')
+      )
+
+      fs.symlinkSync(
+        path.join(
+          os.tmpdir(),
+          '.org.chromium.Chromium.none',
+          'SingletonSocket'
+        ),
+        path.join(profile, 'SingletonSocket')
+      )
+
+      fs.writeFileSync(path.join(profile, 'SingletonCookie'), '1', 'utf8')
+
+      const result = prepareChromiumProfileForLaunch(profile)
+
+      expect(result.removedArtifacts.sort()).toEqual([
+        'SingletonCookie',
+        'SingletonLock',
+        'SingletonSocket'
+      ])
+
+      for (const name of [
+        'SingletonLock',
+        'SingletonSocket',
+        'SingletonCookie'
+      ]) {
+        expect(
+          fs.lstatSync(path.join(profile, name), {throwIfNoEntry: false})
+        ).toBeUndefined()
+      }
+    }
+  )
+
   it('does not classify an unrelated launch failure as a lock', () => {
     expect(isProfileLockedError(new Error('boom'))).toBe(false)
     expect(isProfileLockedError(undefined)).toBe(false)

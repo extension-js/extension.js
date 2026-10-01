@@ -787,24 +787,22 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
         var js = (e.js || []).filter(function (f) { return typeof f === "string"; });
         var css = (e.css || []).filter(function (f) { return typeof f === "string"; });
         if (!js.length && !css.length) continue;
-        var s = {
+        // Every field is sent: updateContentScripts keeps any key left out, so
+        // a dropped exclude_matches, css file or fallback would outlive the edit.
+        scripts.push({
           id: "extjs-dev-cs-" + i,
           matches: e.matches,
+          excludeMatches: (e.exclude_matches || []).filter(function (p) { return typeof p === "string"; }),
+          js: js,
+          css: css,
           runAt: mapRunAt(e.run_at),
           allFrames: !!e.all_frames,
           world: e.world === "MAIN" ? "MAIN" : "ISOLATED",
+          matchOriginAsFallback: e.match_origin_as_fallback === true,
           // A browser restart loads the static manifest fresh; a copy that
           // outlived the session would inject every page twice.
           persistAcrossSessions: false
-        };
-        // Dev registration must not be BROADER than the static one: dropping
-        // exclude_matches injects into pages the browser itself would skip.
-        if (Array.isArray(e.exclude_matches) && e.exclude_matches.length) {
-          s.excludeMatches = e.exclude_matches;
-        }
-        if (js.length) s.js = js;
-        if (css.length) s.css = css;
-        scripts.push(s);
+        });
       }
       if (!scripts.length) return;
 

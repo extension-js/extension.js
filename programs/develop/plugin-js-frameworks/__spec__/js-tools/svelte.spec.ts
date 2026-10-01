@@ -94,4 +94,57 @@ describe('svelte tools', () => {
       pathPattern(['svelte', 'src', 'legacy', 'legacy-client.js'])
     )
   })
+
+  it('gives .svelte, .svelte.js and .svelte.ts the same loader options', async () => {
+    const integrations = (await import(
+      '../../frameworks-lib/integrations'
+    )) as any
+    integrations.hasDependency.mockImplementation(
+      (_p: string, dep: string) => dep === 'svelte'
+    )
+
+    vi.doMock('../../js-frameworks-lib/load-loader-options', () => ({
+      loadLoaderOptions: vi.fn(async () => ({bar: 2}))
+    }))
+
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    const {maybeUseSvelte} = await import('../../js-tools/svelte')
+    const result = await maybeUseSvelte('/p', 'development')
+
+    const svelteLoaderOptionsFor = (file: string) => {
+      const rules = (result?.loaders || []).filter(
+        (rule: any) => rule.test instanceof RegExp && rule.test.test(file)
+      )
+      expect(rules).toHaveLength(1)
+      const entries = [rules[0].use].flat()
+      const svelteEntries = entries.filter((entry: any) =>
+        String(entry?.loader).includes('svelte-loader')
+      )
+      expect(svelteEntries).toHaveLength(1)
+
+      return svelteEntries[0].options
+    }
+
+    const component = svelteLoaderOptionsFor('/p/Counter.svelte')
+    const jsModule = svelteLoaderOptionsFor('/p/state.svelte.js')
+    const tsModule = svelteLoaderOptionsFor('/p/state.svelte.ts')
+
+    expect(component).toEqual({
+      emitCss: true,
+      compilerOptions: {dev: true},
+      hotReload: true,
+      bar: 2
+    })
+
+    expect(jsModule).toEqual(component)
+    expect(tsModule).toEqual(component)
+
+    const tsRule = (result?.loaders || []).find((rule: any) =>
+      String(rule.test).includes('svelte\\.ts')
+    ) as any
+    const [, typeStrip] = tsRule.use
+    expect(typeStrip.loader).toBe('builtin:swc-loader')
+    expect(typeStrip.options.jsc.parser.syntax).toBe('typescript')
+    expect(typeStrip.options.jsc.target).toBe('esnext')
+  })
 })

@@ -539,6 +539,20 @@ export function browserDownloadFailed(browser: string, detail: string): string {
   )
 }
 
+export function browserInstallNeedsPrivilege(
+  browser: string,
+  detail: string
+): string {
+  const name = String(browser || 'browser').trim() || 'browser'
+  const body = String(detail || '').trim()
+
+  return (
+    `${getLoggingPrefix('error')} Couldn't install ${colors.blue(name)} without a privileged session.\n` +
+    (body ? `${colors.red(body)}\n` : '') +
+    `${colors.red('Run it in an interactive terminal, or install')} ${colors.blue(name)} ${colors.red('system-wide.')}`
+  )
+}
+
 export function safariOnlyOption(flags: string[]) {
   return (
     `${getLoggingPrefix('error')} ${flags.map(code).join(', ')} ` +

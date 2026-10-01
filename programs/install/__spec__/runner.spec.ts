@@ -62,6 +62,68 @@ describe('install runner runCommand', () => {
     expect(options).not.toHaveProperty('shell')
     expect(options.stdio).toBe('pipe')
   })
+
+  it('carries the signal through when the child is killed', async () => {
+    spawnMock.mockImplementation(() => ({
+      stdout: {on: () => undefined},
+      stderr: {on: () => undefined},
+      on: (
+        event: string,
+        cb: (code: number | null, signal: NodeJS.Signals | null) => void
+      ) => {
+        if (event === 'close') setImmediate(() => cb(null, 'SIGTERM'))
+      }
+    }))
+
+    const result = await runCommand('npx', ['--version'], {
+      cwd: process.cwd(),
+      env: {...process.env}
+    })
+
+    expect(result.code).toBe(null)
+    expect(result.signal).toBe('SIGTERM')
+  })
+
+  it('moves the child stdout to stderr under machine output', async () => {
+    const prev = process.env.EXTENSION_OUTPUT
+    process.env.EXTENSION_OUTPUT = 'json'
+    const stdoutSpy = vi
+      .spyOn(process.stdout, 'write')
+      .mockImplementation(() => true)
+    const stderrSpy = vi
+      .spyOn(process.stderr, 'write')
+      .mockImplementation(() => true)
+
+    spawnMock.mockImplementation(() => ({
+      stdout: {
+        on: (event: string, cb: (chunk: Buffer) => void) => {
+          if (event === 'data') setImmediate(() => cb(Buffer.from('fetching')))
+        }
+      },
+      stderr: {on: () => undefined},
+      on: (event: string, cb: (code: number) => void) => {
+        if (event === 'close') setTimeout(() => cb(0), 5)
+      }
+    }))
+
+    try {
+      await runCommand('npx', ['--version'], {
+        cwd: process.cwd(),
+        env: {...process.env}
+      })
+
+      expect(stdoutSpy).not.toHaveBeenCalled()
+      expect(String(stderrSpy.mock.calls[0][0])).toBe('fetching')
+    } finally {
+      vi.restoreAllMocks()
+
+      if (typeof prev === 'undefined') {
+        delete process.env.EXTENSION_OUTPUT
+      } else {
+        process.env.EXTENSION_OUTPUT = prev
+      }
+    }
+  })
 })
 
 describe('install runner pinned installer versions', () => {

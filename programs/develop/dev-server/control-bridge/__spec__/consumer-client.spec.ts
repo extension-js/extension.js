@@ -9,7 +9,11 @@ import {
   readReadyContract,
   readReadyContractDocument
 } from '../consumer-client'
-import {CLOSE_BAD_INSTANCE, type IncomingLogEvent} from '../contracts'
+import {
+  CLOSE_BAD_INSTANCE,
+  type IncomingLogEvent,
+  type ReadyFrame
+} from '../contracts'
 import {LogRingBuffer} from '../ring-buffer'
 import {type ControlServer, startControlServer} from '../ws-control-server'
 
@@ -147,8 +151,8 @@ describe('BridgeConsumer (integration)', () => {
     }
   })
 
-  it('receives ready, then a streamed log, then a gap', async () => {
-    const ring = new LogRingBuffer(2)
+  it('streams every event past the ring capacity with no gap frame', async () => {
+    const ring = new LogRingBuffer(3)
     const broker = new BridgeBroker({
       instanceId: 'inst-1',
       runId: 'run-A',
@@ -156,14 +160,19 @@ describe('BridgeConsumer (integration)', () => {
       ring
     })
     server = await startControlServer({broker})
+    const port = server.port
 
     const logs: string[] = []
     let gapped = 0
+    const readyFrames: ReadyFrame[] = []
     const ready = new Promise<void>((resolve) => {
       consumer = new BridgeConsumer({
-        controlPort: server!.port,
+        controlPort: port,
         instanceId: 'inst-1',
-        onReady: () => resolve(),
+        onReady: (frame) => {
+          readyFrames.push(frame)
+          resolve()
+        },
         onLog: (e) => logs.push(String(e.messageParts[0])),
         onGap: () => (gapped += 1)
       })
@@ -172,14 +181,52 @@ describe('BridgeConsumer (integration)', () => {
     })
     await ready
 
-    broker.ingestLog(incoming('a'))
-    broker.ingestLog(incoming('b'))
-    broker.ingestLog(incoming('c'))
+    for (let i = 1; i <= 8; i++) broker.ingestLog(incoming(`m${i}`))
 
     await new Promise((r) => setTimeout(r, 150))
-    expect(logs).toContain('a')
-    expect(logs).toContain('c')
-    expect(gapped).toBeGreaterThanOrEqual(1)
+    expect(logs).toEqual(['m1', 'm2', 'm3', 'm4', 'm5', 'm6', 'm7', 'm8'])
+    expect(gapped).toBe(0)
+    expect(readyFrames).toEqual([
+      {
+        type: 'ready',
+        runId: 'run-A',
+        bufferedFrom: 1,
+        evicted: 0,
+        engine: 'chromium'
+      }
+    ])
+  })
+
+  it('tells a late joiner the replay is partial through the ready frame', async () => {
+    const ring = new LogRingBuffer(3)
+    const broker = new BridgeBroker({
+      instanceId: 'inst-1',
+      runId: 'run-A',
+      engine: 'chromium',
+      ring
+    })
+    server = await startControlServer({broker})
+    const port = server.port
+    for (let i = 1; i <= 8; i++) broker.ingestLog(incoming(`m${i}`))
+
+    const seqs: number[] = []
+    let gapped = 0
+    const ready = new Promise<ReadyFrame>((resolve) => {
+      consumer = new BridgeConsumer({
+        controlPort: port,
+        instanceId: 'inst-1',
+        onReady: resolve,
+        onLog: (e) => seqs.push(e.seq),
+        onGap: () => (gapped += 1)
+      })
+
+      consumer.start()
+    })
+
+    expect(await ready).toMatchObject({bufferedFrom: 6, evicted: 5})
+    await new Promise((r) => setTimeout(r, 150))
+    expect(seqs).toEqual([6, 7, 8])
+    expect(gapped).toBe(0)
   })
 
   it('is rejected (no ready) when the instanceId is wrong', async () => {

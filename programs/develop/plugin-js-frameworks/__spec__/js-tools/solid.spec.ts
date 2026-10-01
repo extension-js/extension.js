@@ -154,7 +154,7 @@ describe('solid tools', () => {
     )
   })
 
-  it('compiles .jsx and .tsx through Babel with the Solid preset, TypeScript stripped first', async () => {
+  it('compiles every script extension through Babel with the Solid preset, TypeScript stripped first', async () => {
     writeSolidPackage(projectPath, {
       import: './h/dist/h.js',
       require: './h/dist/h.cjs'
@@ -188,8 +188,18 @@ describe('solid tools', () => {
       ]
     ])
 
-    expect(jsx.test.test('a.tsx')).toBe(false)
-    expect(tsx.test.test('a.ts')).toBe(false)
+    for (const file of ['a.js', 'a.mjs', 'a.cjs', 'a.mjsx']) {
+      expect(jsx.test.test(file)).toBe(true)
+      expect(tsx.test.test(file)).toBe(false)
+    }
+
+    for (const file of ['a.ts', 'a.mts', 'a.cts', 'a.mtsx']) {
+      expect(tsx.test.test(file)).toBe(true)
+      expect(jsx.test.test(file)).toBe(false)
+    }
+
+    expect(jsx.test.test('a.json')).toBe(false)
+    expect(tsx.test.test('a.json')).toBe(false)
   })
 
   it('asks the solid contract for every Babel piece and turns development on in dev', async () => {

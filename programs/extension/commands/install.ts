@@ -53,6 +53,46 @@ function isNotInstallableRefusal(error: unknown): boolean {
   )
 }
 
+function isInstallPrivilegeRefusal(error: unknown): boolean {
+  return Boolean(
+    error &&
+      typeof error === 'object' &&
+      ((error as {name?: string}).name === 'BrowserInstallPrivilegeError' ||
+        (error as {code?: string}).code === 'BROWSER_INSTALL_PRIVILEGE')
+  )
+}
+
+// Retrying in the same session can never work: the fix is a different session
+// or a system-wide install, so the hint names those and never says retry.
+async function refuseInstallPrivilege(
+  browser: string,
+  error: unknown,
+  asJson: boolean
+): Promise<void> {
+  const detail = errorText(error)
+
+  if (asJson) {
+    emit(
+      ENVELOPE.fail(
+        'install',
+        'failed',
+        {
+          code: CODES.E_BROWSER_INSTALL_PRIVILEGE,
+          message: detail
+        },
+        {
+          hint: `Run it in an interactive terminal where sudo can prompt, or install ${browser} system-wide and run with --browser=${browser}.`
+        }
+      )
+    )
+  } else {
+    // eslint-disable-next-line no-console
+    console.error(messages.browserInstallNeedsPrivilege(browser, detail))
+  }
+
+  await exitAfterDrain(1)
+}
+
 // Belt-and-suspenders for direct package throws that slip past CLI validation.
 async function refuseNotInstallable(
   command: 'install' | 'uninstall',
@@ -186,6 +226,10 @@ export function registerInstallCommand(program: Command) {
         }
       }
 
+      // Tells the installer to keep its human lines off stdout, so the
+      // envelope is the only document there.
+      if (asJson) process.env.EXTENSION_OUTPUT = 'json'
+
       const {
         extensionInstall,
         getManagedBrowsersCacheRoot,
@@ -230,6 +274,12 @@ export function registerInstallCommand(program: Command) {
             return
           }
 
+          if (isInstallPrivilegeRefusal(error)) {
+            await refuseInstallPrivilege(browser, error, asJson)
+
+            return
+          }
+
           await refuseDownloadFailed(browser, error, asJson)
 
           return
@@ -269,6 +319,8 @@ export function registerInstallCommand(program: Command) {
           all || browserArg === 'all' || browser === 'all'
             ? 'all'
             : ((browser || browserArg) as Browser | 'all' | undefined)
+
+        if (asJson) process.env.EXTENSION_OUTPUT = 'json'
 
         const {
           extensionUninstall,
@@ -343,9 +395,10 @@ export function registerInstallCommand(program: Command) {
         }
 
         const removeAll = Boolean(all || selected === 'all')
+        let results: Array<{browser: string; removed: boolean; path: string}>
 
         try {
-          await extensionUninstall({
+          results = await extensionUninstall({
             // --all and the name `all` both mean the managed binary set; the
             // package expands that set itself when all is true.
             browser: removeAll ? undefined : browserList.join(','),
@@ -376,11 +429,22 @@ export function registerInstallCommand(program: Command) {
         }
 
         if (asJson) {
+          const removedAny = results.some((result) => result.removed)
+          const warnings = removedAny
+            ? []
+            : [
+                `${CODES.E_UNINSTALL_NOOP}: Nothing to remove for ${results
+                  .map((result) => result.browser)
+                  .join(', ')}.`
+              ]
+
           emit(
-            ENVELOPE.ok('uninstall', 'uninstalled', {
-              browsers: browserList,
-              all: removeAll
-            })
+            ENVELOPE.ok(
+              'uninstall',
+              removedAny ? 'uninstalled' : 'noop',
+              {browsers: browserList, all: removeAll, results},
+              {warnings}
+            )
           )
         }
       }

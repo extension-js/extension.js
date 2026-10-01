@@ -130,6 +130,26 @@ export function staticAssetError(
   return lines.join('\n')
 }
 
+export function fileIsFolder(
+  errorSourcePath: string,
+  folderPath: string,
+  opts?: {refLabel?: string}
+) {
+  const lines: string[] = []
+  lines.push(`The page references a folder where a file is expected.`)
+  lines.push(`${colors.gray('PATH')} ${colors.underline(errorSourcePath)}`)
+  lines.push(`${colors.gray('FOLDER')} ${colors.underline(folderPath)}`)
+  lines.push(
+    `Chrome loads the page anyway and 404s this reference, so nothing was copied for it.`
+  )
+
+  lines.push(
+    `Update the ${colors.blue(opts?.refLabel || path.basename(folderPath))} reference to point to a file, for example one inside that folder.`
+  )
+
+  return lines.join('\n')
+}
+
 export function fileNotFound(
   errorSourcePath: string | undefined,
   missingFilePath: string,

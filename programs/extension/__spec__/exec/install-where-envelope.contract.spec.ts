@@ -1,7 +1,8 @@
 import {spawnSync} from 'node:child_process'
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
-import {describe, expect, it} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 
 function cliRoot(): string {
   return path.resolve(__dirname, '../..')
@@ -14,11 +15,11 @@ function cliBin(): string {
   return path.join(cliRoot(), 'dist', 'cli.js')
 }
 
-function run(args: string[]) {
+function run(args: string[], env: Record<string, string> = {}) {
   return spawnSync(process.execPath, [cliBin(), ...args], {
     cwd: cliRoot(),
     encoding: 'utf8',
-    env: {...process.env, EXTENSION_ENV: 'test'}
+    env: {...process.env, EXTENSION_ENV: 'test', ...env}
   })
 }
 
@@ -140,5 +141,83 @@ describe('install/uninstall refusal codes under --output json', () => {
     expect(Array.isArray(value.paths)).toBe(true)
     expect(value.paths.length).toBe(1)
     expect(value.paths[0]).toMatch(/chrome/)
+  })
+})
+
+describe('uninstall under --output json against a temp cache root', () => {
+  let cacheRoot = ''
+
+  beforeEach(() => {
+    cacheRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-uninstall-cli-'))
+    fs.mkdirSync(path.join(cacheRoot, 'chrome'), {recursive: true})
+  })
+
+  afterEach(() => {
+    fs.rmSync(cacheRoot, {recursive: true, force: true})
+  })
+
+  it('puts exactly one JSON document on stdout for a real removal', () => {
+    const result = run(['uninstall', 'chrome', '--output', 'json'], {
+      EXT_BROWSERS_CACHE_DIR: cacheRoot
+    })
+
+    expect(result.status).toBe(0)
+    const frame = JSON.parse(result.stdout) as Record<string, unknown>
+    expect(frame).toMatchObject({
+      schema: 1,
+      ok: true,
+      command: 'uninstall',
+      status: 'uninstalled',
+      warnings: []
+    })
+
+    const value = frame.value as {
+      results: Array<{browser: string; removed: boolean; path: string}>
+    }
+    expect(value.results).toHaveLength(1)
+    expect(value.results[0].browser).toBe('chrome')
+    expect(value.results[0].removed).toBe(true)
+    expect(value.results[0].path).toMatch(/[\\/]chrome$/)
+    expect(fs.existsSync(path.join(cacheRoot, 'chrome'))).toBe(false)
+  })
+
+  it('warns E_UNINSTALL_NOOP when the browser was never there', () => {
+    const result = run(['uninstall', 'edge', '--output', 'json'], {
+      EXT_BROWSERS_CACHE_DIR: cacheRoot
+    })
+
+    expect(result.status).toBe(0)
+    const frame = JSON.parse(result.stdout) as Record<string, unknown>
+    expect(frame.ok).toBe(true)
+    expect(frame.status).toBe('noop')
+    expect(frame.warnings).toEqual([
+      'E_UNINSTALL_NOOP: Nothing to remove for edge.'
+    ])
+
+    const value = frame.value as {results: Array<{removed: boolean}>}
+    expect(value.results.map((entry) => entry.removed)).toEqual([false])
+  })
+
+  it('reports per-target outcomes under --all', () => {
+    const result = run(['uninstall', '--all', '--output', 'json'], {
+      EXT_BROWSERS_CACHE_DIR: cacheRoot
+    })
+
+    expect(result.status).toBe(0)
+    const frame = JSON.parse(result.stdout) as Record<string, unknown>
+    expect(frame.status).toBe('uninstalled')
+    expect(frame.warnings).toEqual([])
+
+    const value = frame.value as {
+      all: boolean
+      results: Array<{browser: string; removed: boolean}>
+    }
+    expect(value.all).toBe(true)
+    expect(value.results).toEqual([
+      {browser: 'chrome', removed: true, path: expect.any(String)},
+      {browser: 'chromium', removed: false, path: expect.any(String)},
+      {browser: 'edge', removed: false, path: expect.any(String)},
+      {browser: 'firefox', removed: false, path: expect.any(String)}
+    ])
   })
 })

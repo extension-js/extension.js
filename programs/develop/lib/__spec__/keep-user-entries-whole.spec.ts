@@ -71,6 +71,33 @@ describe('keepUserEntriesWhole', () => {
     expect(keepUserEntriesWhole(off)).toBe(off)
   })
 
+  it('keeps a user entry out of a cache group with its own selector', () => {
+    const config: Configuration = {
+      entry: {'changelog/changelog': './changelog.js'},
+      optimization: {
+        splitChunks: {
+          chunks: 'async',
+          cacheGroups: {
+            vendor: {test: /shared\.js$/, chunks: () => true, enforce: true},
+            all: {test: /shared\.js$/, chunks: 'all', enforce: true},
+            off: false
+          }
+        }
+      }
+    }
+    const next = applySplitChunksGuard(config)
+    const split = next.optimization?.splitChunks as any
+    expect(split.chunks).toBe('async')
+    expect(split.cacheGroups.off).toBe(false)
+    expect(split.cacheGroups.vendor.enforce).toBe(true)
+
+    for (const group of ['vendor', 'all']) {
+      const pick = split.cacheGroups[group].chunks as Selector
+      expect(pick(chunk('changelog/changelog'))).toBe(false)
+      expect(pick(chunk('action/index'))).toBe(true)
+    }
+  })
+
   it('runs inside the guard every compiler goes through', () => {
     const config: Configuration = {
       entry: {'pages/extra': './extra.js'},

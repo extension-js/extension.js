@@ -69,6 +69,52 @@ function installShim(fakeGlobal: any) {
 const inject = (fakeGlobal: any, injection: Injection) =>
   fakeGlobal.chrome.scripting.executeScript(injection)
 
+function makeTabbedGlobal(initialTabs: Record<number, string>) {
+  const calls: Injection[] = []
+  const tabGets: number[] = []
+  const removedListeners: Array<(tabId: number) => void> = []
+  const tabs = new Map<number, string>(
+    Object.entries(initialTabs).map(([id, url]) => [Number(id), url])
+  )
+  const fakeGlobal: any = {
+    chrome: {
+      scripting: {
+        executeScript: (injection: Injection) => {
+          calls.push(injection)
+
+          return Promise.resolve([])
+        }
+      },
+      tabs: {
+        get: (tabId: number) => {
+          tabGets.push(tabId)
+
+          if (!tabs.has(tabId)) {
+            return Promise.reject(new Error(`No tab with id: ${tabId}.`))
+          }
+
+          return Promise.resolve({id: tabId, url: tabs.get(tabId)})
+        },
+        onRemoved: {
+          addListener: (listener: (tabId: number) => void) => {
+            removedListeners.push(listener)
+          }
+        }
+      }
+    }
+  }
+  const navigate = (tabId: number, url: string) => tabs.set(tabId, url)
+
+  const close = (tabId: number) => {
+    tabs.delete(tabId)
+    for (const listener of removedListeners) listener(tabId)
+  }
+
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 0))
+
+  return {fakeGlobal, calls, tabGets, navigate, close, settle}
+}
+
 describe('scripts-replay shim runtime', () => {
   it('replays a changed scripts/ file only on the recorded tab and world, never via tabs.query', async () => {
     const {fakeGlobal, calls, tabsQueries} = makeGlobal()
@@ -217,5 +263,118 @@ describe('scripts-replay shim runtime', () => {
 
     expect(tabsQueries).toEqual([])
     expect(reloads()).toBe(0)
+  })
+
+  it('skips the replay for a tab that navigated to another page and drops its record', async () => {
+    const {fakeGlobal, calls, navigate, settle} = makeTabbedGlobal({
+      7: 'https://example.com/docs',
+      9: 'https://example.com/docs'
+    })
+    installShim(fakeGlobal)
+    await inject(fakeGlobal, {target: {tabId: 7}, files: ['scripts/widget.js']})
+    await inject(fakeGlobal, {target: {tabId: 9}, files: ['scripts/widget.js']})
+    await settle()
+    expect(calls).toHaveLength(2)
+
+    navigate(7, 'https://other.test/')
+    navigate(9, 'https://example.com/docs?page=2#top')
+
+    const outcome = await fakeGlobal.__extjsScriptsReplay(['scripts/widget.js'])
+
+    expect(outcome).toEqual([{ok: true, tabId: 9, files: ['scripts/widget.js']}])
+    expect(calls).toHaveLength(3)
+    expect(calls[2].target).toEqual({tabId: 9})
+
+    navigate(7, 'https://example.com/docs')
+    await fakeGlobal.__extjsScriptsReplay(['scripts/widget.js'])
+
+    expect(calls).toHaveLength(4)
+    expect(calls[3].target).toEqual({tabId: 9})
+  })
+
+  it('a new injection after a navigation replays on the page it was recorded on', async () => {
+    const {fakeGlobal, calls, navigate, settle} = makeTabbedGlobal({
+      7: 'https://example.com/a'
+    })
+    installShim(fakeGlobal)
+    await inject(fakeGlobal, {target: {tabId: 7}, files: ['scripts/widget.js']})
+    await settle()
+    navigate(7, 'https://example.com/b')
+    await inject(fakeGlobal, {target: {tabId: 7}, files: ['scripts/widget.js']})
+    await settle()
+    expect(calls).toHaveLength(2)
+
+    await fakeGlobal.__extjsScriptsReplay(['scripts/widget.js'])
+
+    expect(calls).toHaveLength(3)
+    expect(calls[2].target).toEqual({tabId: 7})
+  })
+
+  it('evicts a closed tab so a later edit neither looks it up nor injects into it', async () => {
+    const {fakeGlobal, calls, tabGets, close, settle} = makeTabbedGlobal({
+      7: 'https://example.com/',
+      9: 'https://example.com/'
+    })
+    installShim(fakeGlobal)
+    await inject(fakeGlobal, {target: {tabId: 7}, files: ['scripts/widget.js']})
+    await inject(fakeGlobal, {target: {tabId: 9}, files: ['scripts/widget.js']})
+    await settle()
+    tabGets.length = 0
+
+    close(7)
+    const outcome = await fakeGlobal.__extjsScriptsReplay(['scripts/widget.js'])
+
+    expect(outcome).toEqual([{ok: true, tabId: 9, files: ['scripts/widget.js']}])
+    expect(calls).toHaveLength(3)
+    expect(tabGets).toEqual([9])
+  })
+
+  it('evicts a tab whose lookup fails instead of retrying it on the next edit', async () => {
+    const {fakeGlobal, calls, tabGets, navigate, settle} = makeTabbedGlobal({
+      7: 'https://example.com/'
+    })
+    installShim(fakeGlobal)
+    await inject(fakeGlobal, {target: {tabId: 7}, files: ['scripts/widget.js']})
+    await settle()
+
+    fakeGlobal.chrome.tabs.get = (tabId: number) => {
+      tabGets.push(tabId)
+
+      return Promise.reject(new Error(`No tab with id: ${tabId}.`))
+    }
+
+    tabGets.length = 0
+
+    expect(await fakeGlobal.__extjsScriptsReplay(['scripts/widget.js'])).toEqual([])
+    navigate(7, 'https://example.com/')
+    expect(await fakeGlobal.__extjsScriptsReplay(['scripts/widget.js'])).toEqual([])
+
+    expect(tabGets).toEqual([7])
+    expect(calls).toHaveLength(1)
+  })
+
+  it('tracks at most 50 tabs and forgets the ones injected longest ago', async () => {
+    const tabUrls: Record<number, string> = {}
+
+    for (let tabId = 1; tabId <= 60; tabId++) {
+      tabUrls[tabId] = `https://example.com/${tabId}`
+    }
+
+    const {fakeGlobal, calls, settle} = makeTabbedGlobal(tabUrls)
+    installShim(fakeGlobal)
+
+    for (let tabId = 1; tabId <= 60; tabId++) {
+      await inject(fakeGlobal, {target: {tabId}, files: ['scripts/widget.js']})
+    }
+
+    await settle()
+    expect(calls).toHaveLength(60)
+
+    await fakeGlobal.__extjsScriptsReplay(['scripts/widget.js'])
+
+    const replayed = calls.slice(60).map((call) => call.target.tabId)
+    expect(replayed).toHaveLength(50)
+    expect(Math.min(...replayed)).toBe(11)
+    expect(Math.max(...replayed)).toBe(60)
   })
 })

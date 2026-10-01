@@ -4,13 +4,15 @@ import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {
   applyIndependentHtmlSurfaces,
+  browserActionOutputTarget,
   dropPageAction,
   isPageActionLiveSurface,
   optionsPageRef,
   pageActionDropReason,
   pageActionOutputTarget,
   popupRefsShareSource,
-  shouldDropPageAction
+  shouldDropPageAction,
+  sidebarActionOutputTarget
 } from '../html-surfaces'
 
 const context = '/proj'
@@ -97,6 +99,64 @@ describe('pageActionOutputTarget', () => {
       } as any)
     ).toBe('action/index.html')
   })
+
+  it('shares the browser_action page when the address bar popup names that source', () => {
+    expect(
+      pageActionOutputTarget({
+        action: {default_popup: 'chrome.html'},
+        browser_action: {default_popup: 'firefox.html'},
+        page_action: {default_popup: './firefox.html'}
+      } as any)
+    ).toBe('browser_action/index.html')
+  })
+})
+
+describe('browserActionOutputTarget', () => {
+  it('gives browser_action its own page only beside an action built from another source', () => {
+    expect(
+      browserActionOutputTarget({
+        action: {default_popup: 'chrome.html'},
+        browser_action: {default_popup: 'firefox.html'}
+      } as any)
+    ).toBe('browser_action/index.html')
+
+    expect(
+      browserActionOutputTarget({
+        action: {default_popup: 'popup.html'},
+        browser_action: {default_popup: './popup.html'}
+      } as any)
+    ).toBe('action/index.html')
+
+    expect(
+      browserActionOutputTarget({
+        browser_action: {default_popup: 'firefox.html'}
+      } as any)
+    ).toBe('action/index.html')
+  })
+})
+
+describe('sidebarActionOutputTarget', () => {
+  it('gives sidebar_action its own page only beside a side_panel built from another source', () => {
+    expect(
+      sidebarActionOutputTarget({
+        side_panel: {default_path: 'chrome.html'},
+        sidebar_action: {default_panel: 'firefox.html'}
+      } as any)
+    ).toBe('sidebar_action/index.html')
+
+    expect(
+      sidebarActionOutputTarget({
+        side_panel: {default_path: 'panel.html'},
+        sidebar_action: {default_panel: './panel.html'}
+      } as any)
+    ).toBe('sidebar/index.html')
+
+    expect(
+      sidebarActionOutputTarget({
+        sidebar_action: {default_panel: 'firefox.html'}
+      } as any)
+    ).toBe('sidebar/index.html')
+  })
 })
 
 describe('applyIndependentHtmlSurfaces', () => {
@@ -161,6 +221,81 @@ describe('applyIndependentHtmlSurfaces', () => {
       'action/index': path.join(context, 'toolbar.html'),
       'options/index': '/proj/o.html'
     })
+  })
+
+  it('splits action and browser_action into two entries when they name two sources', () => {
+    const html = applyIndependentHtmlSurfaces(
+      {'action/index': '/proj/chrome.html'},
+      {
+        manifest_version: 3,
+        action: {default_popup: 'chrome.html'},
+        browser_action: {default_popup: 'firefox.html'}
+      } as any,
+      context,
+      'firefox'
+    )
+    expect(html).toEqual({
+      'action/index': path.join(context, 'chrome.html'),
+      'browser_action/index': path.join(context, 'firefox.html')
+    })
+  })
+
+  it('keeps one toolbar entry when action and browser_action name one source', () => {
+    const html = applyIndependentHtmlSurfaces(
+      {'action/index': '/proj/popup.html'},
+      {
+        manifest_version: 3,
+        action: {default_popup: 'popup.html'},
+        browser_action: {default_popup: './popup.html'}
+      } as any,
+      context,
+      'chrome'
+    )
+    expect(html).toEqual({'action/index': path.join(context, 'popup.html')})
+  })
+
+  it('splits side_panel and sidebar_action into two entries when they name two sources', () => {
+    for (const browser of ['firefox', 'chrome']) {
+      const html = applyIndependentHtmlSurfaces(
+        {'sidebar/index': '/proj/chrome.html'},
+        {
+          manifest_version: 3,
+          side_panel: {default_path: 'chrome.html'},
+          sidebar_action: {default_panel: 'firefox.html'}
+        } as any,
+        context,
+        browser
+      )
+      expect(html).toEqual({
+        'sidebar/index': path.join(context, 'chrome.html'),
+        'sidebar_action/index': path.join(context, 'firefox.html')
+      })
+    }
+  })
+
+  it('keeps one sidebar entry when both keys name one source or only one is declared', () => {
+    const shared = applyIndependentHtmlSurfaces(
+      {'sidebar/index': '/proj/panel.html'},
+      {
+        manifest_version: 3,
+        side_panel: {default_path: 'panel.html'},
+        sidebar_action: {default_panel: '/panel.html'}
+      } as any,
+      context,
+      'firefox'
+    )
+    expect(shared).toEqual({'sidebar/index': path.join(context, 'panel.html')})
+
+    const lone = applyIndependentHtmlSurfaces(
+      {'sidebar/index': '/proj/panel.html'},
+      {
+        manifest_version: 2,
+        sidebar_action: {default_panel: 'panel.html'}
+      } as any,
+      context,
+      'firefox'
+    )
+    expect(lone).toEqual({'sidebar/index': path.join(context, 'panel.html')})
   })
 })
 

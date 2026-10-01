@@ -171,6 +171,8 @@ export interface SafariOptions extends BrowserOptionsBase {
   developmentTeam?: string
   /** Generate the macOS-only Xcode project (default true). */
   macOsOnly?: boolean
+  /** Regenerate the Xcode project even when its fingerprint is current. */
+  forceRegenerate?: boolean
 }
 
 /**
@@ -428,12 +430,6 @@ export interface StartOptions extends BrowserOptionsBase {
    * Defaults to '127.0.0.1'.
    */
   host?: string
-  /**
-   * Connectable host the browser (HMR client + control-bridge producer) dials,
-   * when it differs from the bind `host` (e.g. a remote/devcontainer). Defaults
-   * to the bind host, or 127.0.0.1 when bound to a wildcard like '0.0.0.0'.
-   */
-  publicHost?: string
   logLevel?: 'off' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'all'
   logContexts?: (
     | 'background'
@@ -463,6 +459,7 @@ export interface BrowserConfig extends BrowserOptionsBase {
   bundleId?: SafariOptions['bundleId']
   developmentTeam?: SafariOptions['developmentTeam']
   macOsOnly?: SafariOptions['macOsOnly']
+  forceRegenerate?: SafariOptions['forceRegenerate']
   /** Where the special folders live for this browser, or `false` to skip one. */
   folders?: SpecialFoldersConfig
   /**
@@ -566,7 +563,9 @@ export interface FileConfig {
       | 'safariBinary'
       | 'appName'
       | 'bundleId'
+      | 'developmentTeam'
       | 'macOsOnly'
+      | 'forceRegenerate'
       | 'noOpen'
       | 'noBrowser'
       | 'polyfill'
@@ -602,7 +601,6 @@ export interface FileConfig {
       | 'noBrowser'
       | 'port'
       | 'host'
-      | 'publicHost'
       | 'logLevel'
       | 'logContexts'
       | 'logFormat'
@@ -660,7 +658,9 @@ export interface FileConfig {
       | 'safariBinary'
       | 'appName'
       | 'bundleId'
+      | 'developmentTeam'
       | 'macOsOnly'
+      | 'forceRegenerate'
     > & {
       extensions?: CompanionExtensionsConfig
       transpilePackages?: string[]

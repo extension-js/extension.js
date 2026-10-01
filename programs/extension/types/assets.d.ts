@@ -11,6 +11,18 @@ declare module '*.css' {
   const content: CSSContentData
   export default content
 }
+declare module '*.scss' {
+  const content: CSSContentData
+  export default content
+}
+declare module '*.sass' {
+  const content: CSSContentData
+  export default content
+}
+declare module '*.less' {
+  const content: CSSContentData
+  export default content
+}
 
 declare module '*.module.css' {
   const content: CSSModuleData
@@ -21,6 +33,10 @@ declare module '*.module.scss' {
   export default content
 }
 declare module '*.module.sass' {
+  const content: CSSModuleData
+  export default content
+}
+declare module '*.module.less' {
   const content: CSSModuleData
   export default content
 }
@@ -61,5 +77,14 @@ declare module '*.svg' {
   // Use any to avoid conflicts with SVGR or other SVG loaders.
   // biome-ignore lint/suspicious/noExplicitAny: deliberate, a stricter type conflicts with SVGR-style loaders
   const content: any
+  export default content
+}
+
+declare module '*?raw' {
+  const content: string
+  export default content
+}
+declare module '*?url' {
+  const content: string
   export default content
 }

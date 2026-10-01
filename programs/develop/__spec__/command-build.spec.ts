@@ -163,7 +163,8 @@ describe('webpack/command-build', () => {
       total_bytes: 40,
       largest_asset_bytes: 30,
       warnings_count: 0,
-      errors_count: 0
+      errors_count: 0,
+      addon_lint: {status: 'skipped', reason: 'browser'}
     })
 
     expect((configLoaderMod as any).userConfigSpy).toHaveBeenCalledTimes(1)
@@ -950,13 +951,16 @@ describe('webpack/command-build', () => {
     const os = await import('node:os')
     const realFs = await vi.importActual<typeof import('node:fs')>('node:fs')
     const tmp = realFs.mkdtempSync(path.join(os.tmpdir(), 'build-safari-'))
+    const safariDist = path.join(tmp, 'dist', 'safari')
+    realFs.mkdirSync(safariDist, {recursive: true})
     const projectMod = await import('../lib/project')
     ;(projectMod.getProjectStructure as any).mockResolvedValueOnce({
       manifestPath: path.join(tmp, 'src', 'manifest.json'),
       packageJsonPath: path.join(tmp, 'package.json')
     })
-    ;(fs.existsSync as any).mockImplementation((p: fs.PathLike) =>
-      String(p).endsWith('node_modules')
+    ;(fs.existsSync as any).mockImplementation(
+      (p: fs.PathLike) =>
+        String(p).endsWith('node_modules') || String(p) === safariDist
     )
     ;(fs.readdirSync as any).mockReturnValue(['something'])
 

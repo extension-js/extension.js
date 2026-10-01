@@ -124,17 +124,37 @@ export function getChromiumMasterPreferences(
   return deepMergePreferences(base, getForkPreferences(browser))
 }
 
+function readPreferencesFile(
+  preferencesPath: string
+): Record<string, unknown> | null {
+  try {
+    const parsed: unknown = JSON.parse(fs.readFileSync(preferencesPath, 'utf8'))
+
+    return isPlainObject(parsed) ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+// An existing Preferences file belongs to whoever owns the profile, except
+// when this run just copied it in: a seeded profile is ours, so our keys win.
 function seedChromiumPreferences(
   profilePath: string,
   browser: PluginInterface['browser'],
-  customPreferences: unknown
+  customPreferences: unknown,
+  seededByUs: boolean
 ) {
   const preferencesPath = path.join(profilePath, 'Default', 'Preferences')
-  if (fs.existsSync(preferencesPath)) return
+  const hasPreferences = fs.existsSync(preferencesPath)
+  if (hasPreferences && !seededByUs) return
 
   const basePreferences = getChromiumMasterPreferences(browser)
   const custom = isPlainObject(customPreferences) ? customPreferences : {}
-  const mergedPreferences = deepMergePreferences(basePreferences, custom)
+  const ourPreferences = deepMergePreferences(basePreferences, custom)
+  const copied = hasPreferences ? readPreferencesFile(preferencesPath) : null
+  const mergedPreferences = copied
+    ? deepMergePreferences(copied, ourPreferences)
+    : ourPreferences
 
   fs.mkdirSync(path.dirname(preferencesPath), {recursive: true})
   fs.writeFileSync(preferencesPath, JSON.stringify(mergedPreferences), 'utf8')
@@ -258,7 +278,8 @@ export function browserConfig(
       seedChromiumPreferences(
         userProfilePath,
         configOptions.browser,
-        configOptions.preferences
+        configOptions.preferences,
+        Boolean(resolved.seededFrom)
       )
     } catch {
       // Ignore

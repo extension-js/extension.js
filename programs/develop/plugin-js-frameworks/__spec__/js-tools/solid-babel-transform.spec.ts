@@ -78,4 +78,44 @@ describe('the Solid Babel pass the engine configures', () => {
     expect(result?.code).toMatch(/_\$insert\(_el\$, count, null\)/)
     expect(result?.code).not.toMatch(/<button\s+onClick/)
   })
+
+  it('compiles JSX in a plain .js file the same way', async () => {
+    const result = await babel.transformAsync(
+      counterTsx
+        .replace('type Props = {label: string}\n', '')
+        .replace('props: Props', 'props')
+        .replace('createSignal<number>', 'createSignal'),
+      {
+        filename: '/project/Counter.js',
+        ...solidBabelOptions({
+          solidPreset,
+          typescriptPreset,
+          typescript: false,
+          development: false
+        })
+      }
+    )
+
+    expect(result?.code).toContain('solid-js/web')
+    expect(result?.code).toMatch(/_\$insert\(_el\$, count, null\)/)
+    expect(result?.code).not.toContain('jsx-runtime')
+  })
+
+  it('leaves a classic script with octal escapes parseable', async () => {
+    const result = await babel.transformAsync(
+      "var s = '\\101'\nthis.marker = s\n",
+      {
+        filename: '/project/content.js',
+        ...solidBabelOptions({
+          solidPreset,
+          typescriptPreset,
+          typescript: false,
+          development: false
+        })
+      }
+    )
+
+    expect(result?.code).toContain("'\\101'")
+    expect(result?.code).not.toContain('use strict')
+  })
 })
