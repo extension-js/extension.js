@@ -46,8 +46,6 @@ export async function createDirectory(
     )
 
     if (!isCurrentDirWriteable) {
-      logger.error(messages.destinationNotWriteable(projectPath))
-
       throw new Error(messages.destinationNotWriteable(projectPath))
     }
 

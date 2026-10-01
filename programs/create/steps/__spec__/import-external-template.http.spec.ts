@@ -58,23 +58,21 @@ describe('importExternalTemplate refuses plain HTTP template URLs', () => {
     'http://github.com/extension-js/examples/tree/main/examples/content'
   ])('refuses %s before any network request', async (url) => {
     const projectPath = await makeProjectPath()
-    const errors: string[] = []
 
-    await expect(
-      importExternalTemplate(
-        projectPath,
-        'my-ext',
-        url,
-        {log: () => {}, error: (...args) => errors.push(args.join(' '))},
-        {ownsProjectDir: true}
-      )
-    ).rejects.toBeInstanceOf(InsecureTemplateUrlError)
+    const error = (await importExternalTemplate(
+      projectPath,
+      'my-ext',
+      url,
+      {log: () => {}, error: () => {}},
+      {ownsProjectDir: true}
+    ).catch((thrown: Error) => thrown)) as Error
 
+    expect(error).toBeInstanceOf(InsecureTemplateUrlError)
     expect(axios.get).not.toHaveBeenCalled()
     expect(goGitIt).not.toHaveBeenCalled()
     expect(fs.existsSync(projectPath)).toBe(false)
-    expect(errors.join('\n')).toContain('plain HTTP')
-    expect(errors.join('\n')).toContain('EXTENSION_ALLOW_HTTP_TEMPLATE=true')
+    expect(error.message).toContain('plain HTTP')
+    expect(error.message).toContain('EXTENSION_ALLOW_HTTP_TEMPLATE=true')
   })
 
   it('downloads an http URL when EXTENSION_ALLOW_HTTP_TEMPLATE=true', async () => {
@@ -124,19 +122,17 @@ describe('importExternalTemplate refuses plain HTTP template URLs', () => {
     })
 
     const projectPath = await makeProjectPath()
-    const errors: string[] = []
 
-    await expect(
-      importExternalTemplate(
-        projectPath,
-        'my-ext',
-        'https://example.com/template.zip',
-        {log: () => {}, error: (...args) => errors.push(args.join(' '))},
-        {ownsProjectDir: true}
-      )
-    ).rejects.toBeInstanceOf(InsecureTemplateUrlError)
+    const error = (await importExternalTemplate(
+      projectPath,
+      'my-ext',
+      'https://example.com/template.zip',
+      {log: () => {}, error: () => {}},
+      {ownsProjectDir: true}
+    ).catch((thrown: Error) => thrown)) as Error
 
-    expect(errors.join('\n')).toContain('http://mirror.example.com/t.zip')
+    expect(error).toBeInstanceOf(InsecureTemplateUrlError)
+    expect(error.message).toContain('http://mirror.example.com/t.zip')
     expect(fs.existsSync(projectPath)).toBe(false)
   })
 
@@ -147,20 +143,18 @@ describe('importExternalTemplate refuses plain HTTP template URLs', () => {
 
     try {
       const projectPath = await makeProjectPath()
-      const errors: string[] = []
 
-      await expect(
-        importExternalTemplate(
-          projectPath,
-          'my-ext',
-          'typescript',
-          {log: () => {}, error: (...args) => errors.push(args.join(' '))},
-          {ownsProjectDir: true, allowOfflineFallback: true}
-        )
-      ).rejects.toBeInstanceOf(InsecureTemplateUrlError)
+      const error = (await importExternalTemplate(
+        projectPath,
+        'my-ext',
+        'typescript',
+        {log: () => {}, error: () => {}},
+        {ownsProjectDir: true, allowOfflineFallback: true}
+      ).catch((thrown: Error) => thrown)) as Error
 
+      expect(error).toBeInstanceOf(InsecureTemplateUrlError)
       expect(axios.get).not.toHaveBeenCalled()
-      expect(errors.join('\n')).toContain('http://mirror.example.com/x.zip')
+      expect(error.message).toContain('http://mirror.example.com/x.zip')
       expect(fs.existsSync(projectPath)).toBe(false)
     } finally {
       if (prevUrl === undefined) {
