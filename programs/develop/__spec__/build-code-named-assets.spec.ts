@@ -22,6 +22,7 @@ function project(background: string, files: Record<string, Buffer | string>) {
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'code-named', version: '0.0.0'})
   )
+
   fs.writeFileSync(
     path.join(root, 'manifest.json'),
     JSON.stringify({
@@ -32,6 +33,7 @@ function project(background: string, files: Record<string, Buffer | string>) {
       background: {service_worker: 'background.js'}
     })
   )
+
   fs.writeFileSync(path.join(root, 'background.js'), background)
 
   for (const [rel, content] of Object.entries(files)) {
