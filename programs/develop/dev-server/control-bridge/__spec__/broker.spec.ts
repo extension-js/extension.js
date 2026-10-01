@@ -14,6 +14,21 @@ class FakeConn implements BridgeConnection {
   constructor(readonly id: string) {}
   send(frame: ServerFrame) {
     this.sent.push(frame)
+
+    return true
+  }
+  close(code?: number, reason?: string) {
+    this.closed = {code, reason}
+  }
+}
+
+// The ws adapter's own behavior for a socket that is not OPEN: it returns
+// without sending, and without throwing, so the frame reaches nothing.
+class DroppingConn implements BridgeConnection {
+  closed: {code?: number; reason?: string} | null = null
+  constructor(readonly id: string) {}
+  send() {
+    return false
   }
   close(code?: number, reason?: string) {
     this.closed = {code, reason}
@@ -488,6 +503,24 @@ describe('BridgeBroker.broadcastReload (controller-less dev loop)', () => {
     expect(fresh.sent).toHaveLength(0)
   })
 
+  it('counts only confirmed sends and keeps the latch when one drops', () => {
+    const b = new BridgeBroker(opts)
+    const dropping = new DroppingConn('idled-out')
+    hello(b, dropping, 'producer')
+
+    expect(b.broadcastReload({type: 'full', label: 'extension'})).toBe(0)
+
+    b.onClose(dropping)
+    const fresh = new FakeConn('fresh')
+    hello(b, fresh, 'producer')
+    expect(fresh.sent).toHaveLength(1)
+    expect(fresh.sent[0]).toMatchObject({
+      type: 'reload',
+      reloadType: 'full',
+      label: 'extension'
+    })
+  })
+
   it('pings connected producers only (SW keepalive)', () => {
     const b = new BridgeBroker(opts)
     const prod = new FakeConn('p')
@@ -763,5 +796,61 @@ describe('BridgeBroker.undeliveredReloadWarning: caller-caused restart', () => {
     expect(
       b.undeliveredReloadWarning({producerRestartExpected: true})
     ).toBeNull()
+  })
+})
+
+// A session whose control bridge never bound has no transport at all, so the
+// worker and the page are the two things the lines must NOT blame.
+describe('BridgeBroker with no control port', () => {
+  it('names the bind failure instead of the service worker, once', () => {
+    let nowMs = 1_000_000
+    const b = new BridgeBroker({...opts, now: () => nowMs})
+    b.noteControlPortUnavailable('listen EADDRNOTAVAIL 10.0.0.9:50111')
+
+    const msg = b.undeliveredReloadWarning()
+    expect(msg).toContain('No control port')
+    expect(msg).toContain('listen EADDRNOTAVAIL 10.0.0.9:50111')
+    expect(msg).toContain('Restart extension dev')
+    expect(msg).not.toContain('service worker')
+    expect(msg).not.toContain('SW not attached')
+
+    // Said once per session, and said before the startup grace window ends:
+    // no browser is going to connect to a port that does not exist.
+    expect(b.undeliveredReloadWarning()).toBeNull()
+    nowMs += 60_000
+    expect(b.undeliveredReloadWarning()).toBeNull()
+  })
+
+  it('gives the executor-absence diagnosis the same cause', () => {
+    const b = new BridgeBroker({...opts, allowControl: true})
+    b.noteControlPortUnavailable('listen EADDRINUSE 127.0.0.1:50111')
+
+    const ctl = new FakeConn('ctl')
+    b.onFrame(ctl, {
+      type: 'hello',
+      v: 1,
+      role: 'controller',
+      instanceId: 'inst-1'
+    })
+
+    ctl.sent = []
+    b.onFrame(ctl, {
+      type: 'command',
+      cmdId: 'c1',
+      op: 'reload',
+      target: {context: 'background'}
+    })
+
+    const result = ctl.sent[0]
+    expect(result).toMatchObject({
+      type: 'result',
+      ok: false,
+      error: {name: 'Unavailable'}
+    })
+
+    const message = result.type === 'result' ? result.error?.message : ''
+    expect(message).toContain('has no control port')
+    expect(message).toContain('listen EADDRINUSE 127.0.0.1:50111')
+    expect(message).not.toContain('service worker')
   })
 })
