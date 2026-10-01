@@ -19,6 +19,18 @@ export function isDir(p: string): boolean {
   }
 }
 
+// existsSync answers yes for `Extensions/` on a case-insensitive disk, so
+// only a directory entry spelled exactly like the configured name counts.
+export function isDirExactCase(p: string): boolean {
+  if (!isDir(p)) return false
+
+  try {
+    return fs.readdirSync(path.dirname(p)).includes(path.basename(p))
+  } catch {
+    return false
+  }
+}
+
 export function isFile(p: string): boolean {
   try {
     return fs.existsSync(p) && fs.statSync(p).isFile()

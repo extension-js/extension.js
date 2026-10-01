@@ -115,6 +115,12 @@ export function manifestNotFoundError(
 // dist/<browser> is absent (typical after `build --browser all`, which
 // writes chrome/edge/firefox but not the default chromium target). Say so,
 // or the user previews unbuilt files and blames the build.
+// A first dev session or build appends one line to the project's own
+// .gitignore; a tracked file changing under the user is said out loud.
+export function sessionStateIgnoreAdded(gitignorePath: string) {
+  return `${getLoggingPrefix('info')} Added .extension-js to ${gitignorePath} so the local session state stays out of commits.`
+}
+
 export function previewingSourceFallback(
   browser: DevOptions['browser'],
   distDir: string

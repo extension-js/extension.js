@@ -318,3 +318,29 @@ describe('typescript tools', () => {
     expect(compilerOptions.jsxImportSource).toBeUndefined()
   })
 })
+
+describe('a typescript dependency without TypeScript sources', () => {
+  beforeEach(() => {
+    vi.resetModules()
+    vi.clearAllMocks()
+    ;(process as any).env.EXTENSION_AUTHOR_MODE = 'true'
+  })
+
+  it('writes no tsconfig into a JavaScript project', async () => {
+    ;(fs.existsSync as any).mockImplementation(
+      (p: string) => toPosix(String(p)) === '/project/package.json'
+    )
+    ;(fs.readFileSync as any).mockImplementation(() =>
+      JSON.stringify({name: 'js-only', devDependencies: {typescript: '5.0.0'}})
+    )
+    ;(fs.readdirSync as any).mockImplementation(() => [
+      {isFile: () => true, isDirectory: () => false, name: 'background.js'}
+    ])
+
+    const {ensureTypeScriptConfig} = await import('../../js-tools/typescript')
+
+    ensureTypeScriptConfig('/project')
+
+    expect(fs.writeFileSync).not.toHaveBeenCalled()
+  })
+})
