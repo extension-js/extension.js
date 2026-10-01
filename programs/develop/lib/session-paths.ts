@@ -29,8 +29,13 @@ export function legacyControlPortFilePath(
   return path.join(browserArtifactsDir(projectPath, browser), 'control-port')
 }
 
+export const CONTROL_TOKEN_FILE_PREFIX = 'control-token-'
+
 export function controlTokenPath(projectPath: string, browser: string): string {
-  return path.join(sessionStateDir(projectPath), `control-token-${browser}`)
+  return path.join(
+    sessionStateDir(projectPath),
+    `${CONTROL_TOKEN_FILE_PREFIX}${browser}`
+  )
 }
 
 export function legacyControlTokenPath(projectPath: string): string {
