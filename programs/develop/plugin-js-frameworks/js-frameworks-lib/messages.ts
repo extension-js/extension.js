@@ -26,13 +26,13 @@ export function isUsingIntegration(name: string) {
   return `integration use=${name}`
 }
 
-// The adapter over solid-js/h keeps a Solid project compiling, but only
-// Solid's own compiler turns a signal read in child position into an effect.
-export function solidIsNotSupported() {
+// vue-loader 15 throws on the layer keys the content script rules carry,
+// and the Vue 2 runtime is end of life, so the build stops here by name.
+export function vueTwoIsNotSupported(version: string) {
   return (
-    `${prefix('warn')} Solid is not a supported framework, so this project compiles through the JSX runtime only.\n` +
-    `A signal read in a child position, like ${colors.yellow('{count()}')}, renders once and does not update.\n` +
-    `Only Solid's own compiler makes that expression reactive, and the JSX runtime cannot recover it.`
+    `${prefix('error')} Vue ${version} is installed, and Extension.js builds Vue 3 only.\n` +
+    `Vue 2 reached end of life in December 2023 and vue-loader 15 cannot read the loader rules this build uses.\n` +
+    `Upgrade to ${colors.yellow('vue@3')} with ${colors.yellow('vue-loader@17')}, or build with your own tooling and point Extension.js at the output.`
   )
 }
 

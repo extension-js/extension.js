@@ -10,32 +10,26 @@ import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import * as path from 'node:path'
 import {resolveDevelopDistFile} from '../../lib/develop-context'
-import {humanWarn, isDebug, prefix} from '../../lib/messaging'
+import {isDebug, prefix} from '../../lib/messaging'
+import {ensureOptionalContractPackageResolved} from '../../lib/optional-deps-resolver'
 import type {JsFramework} from '../../types'
 import {hasDependency} from '../frameworks-lib/integrations'
 import * as messages from '../js-frameworks-lib/messages'
 
 let userMessageDelivered = false
 
-// A Solid project compiles, but not the way Solid's own compiler would, and
-// the author has to hear that once per process, not once per compile.
 export function isUsingSolid(projectPath: string) {
-  if (hasDependency(projectPath, 'solid-js')) {
-    if (!userMessageDelivered) {
-      if (isDebug()) {
-        console.log(
-          `${prefix('debug')} ${messages.isUsingIntegration('Solid')}`
-        )
-      }
+  const using = hasDependency(projectPath, 'solid-js')
 
-      humanWarn(messages.solidIsNotSupported())
-      userMessageDelivered = true
+  if (using && !userMessageDelivered) {
+    if (isDebug()) {
+      console.log(`${prefix('debug')} ${messages.isUsingIntegration('Solid')}`)
     }
 
-    return true
+    userMessageDelivered = true
   }
 
-  return false
+  return using
 }
 
 type ResolveFromProject = (id: string) => string | undefined
@@ -88,10 +82,38 @@ export function resolveSolidHyperscript(
   )
 }
 
-// solid-js ships JSX types only; its runtime JSX path is the hyperscript
-// entry, so the automatic runtime is routed through a small adapter over it.
+// The preset list vite-plugin-solid uses: Babel runs presets last first, so
+// TypeScript syntax is gone by the time Solid's compiler reads the JSX.
+export function solidBabelOptions(input: {
+  solidPreset: string
+  typescriptPreset: string
+  typescript: boolean
+  development: boolean
+}) {
+  return {
+    babelrc: false,
+    configFile: false,
+    sourceMaps: true,
+    presets: [
+      [input.solidPreset, {development: input.development}],
+      ...(input.typescript
+        ? [
+            [
+              input.typescriptPreset,
+              {isTSX: true, allExtensions: true, onlyRemoveTypeImports: true}
+            ]
+          ]
+        : [])
+    ]
+  }
+}
+
+// A Solid app is compiled by Solid's own compiler, through Babel, the way
+// vite-plugin-solid does it. The hyperscript alias stays for JSX that reaches
+// the automatic runtime some other way, like a precompiled dependency.
 export async function maybeUseSolid(
-  projectPath: string
+  projectPath: string,
+  mode: 'development' | 'production' | string = 'development'
 ): Promise<JsFramework | undefined> {
   if (!isUsingSolid(projectPath)) return undefined
 
@@ -107,6 +129,19 @@ export async function maybeUseSolid(
     }
   }
 
+  const resolveContractPackage = (dependencyId: string) =>
+    ensureOptionalContractPackageResolved({
+      contractId: 'solid',
+      projectPath,
+      dependencyId
+    })
+
+  const babelLoader = await resolveContractPackage('babel-loader')
+  const solidPreset = await resolveContractPackage('babel-preset-solid')
+  const typescriptPreset = await resolveContractPackage(
+    '@babel/preset-typescript'
+  )
+
   const adapter = resolveDevelopDistFile('solid-jsx-runtime')
   const hyperscript = resolveSolidHyperscript(resolveFromProject)
 
@@ -116,9 +151,36 @@ export async function maybeUseSolid(
   }
   if (hyperscript) alias['solid-js/h$'] = hyperscript
 
+  const development = mode === 'development'
+
+  const loaders: JsFramework['loaders'] = [
+    {
+      test: /\.(jsx|mjsx)$/,
+      exclude: /node_modules/,
+      loader: babelLoader,
+      options: solidBabelOptions({
+        solidPreset,
+        typescriptPreset,
+        typescript: false,
+        development
+      })
+    },
+    {
+      test: /\.(tsx|mtsx)$/,
+      exclude: /node_modules/,
+      loader: babelLoader,
+      options: solidBabelOptions({
+        solidPreset,
+        typescriptPreset,
+        typescript: true,
+        development
+      })
+    }
+  ]
+
   return {
     plugins: [],
-    loaders: undefined,
+    loaders,
     alias
   }
 }

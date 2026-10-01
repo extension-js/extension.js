@@ -10,7 +10,6 @@ import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import * as path from 'node:path'
 import {DefinePlugin, type RspackPluginInstance} from '@rspack/core'
-import colors from 'pintor'
 import {isDebug, prefix} from '../../lib/messaging'
 import {
   ensureOptionalContractModuleLoaded,
@@ -68,11 +67,35 @@ export function resolveVueBundlerEntry(
   }
 }
 
+// The installed Vue's version, from its own package.json, so a Vue 2 project
+// is told before any loader is resolved or installed.
+export function readInstalledVueVersion(
+  requireFromProject: NodeJS.Require
+): string | undefined {
+  try {
+    const manifestPath = requireFromProject.resolve('vue/package.json')
+    const version = JSON.parse(fs.readFileSync(manifestPath, 'utf8')).version
+
+    return typeof version === 'string' ? version : undefined
+  } catch {
+    return undefined
+  }
+}
+
 export async function maybeUseVue(
   projectPath: string,
   mode: 'development' | 'production' | string = 'development'
 ): Promise<JsFramework | undefined> {
   if (!isUsingVue(projectPath)) return undefined
+
+  const requireFromProject = createRequire(
+    path.join(projectPath, 'package.json')
+  )
+  const installedVersion = readInstalledVueVersion(requireFromProject)
+
+  if (installedVersion && /^2\./.test(installedVersion)) {
+    throw new Error(messages.vueTwoIsNotSupported(installedVersion))
+  }
 
   const vueLoaderPath = await ensureOptionalContractPackageResolved({
     contractId: 'vue',
@@ -120,9 +143,6 @@ export async function maybeUseVue(
   ]
 
   // Force a single Vue runtime instance across app and transpiled workspace deps.
-  const requireFromProject = createRequire(
-    path.join(projectPath, 'package.json')
-  )
   const resolveFromProject = (id: string) =>
     resolveVueBundlerEntry(requireFromProject, id)
 

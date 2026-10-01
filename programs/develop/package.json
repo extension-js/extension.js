@@ -97,6 +97,8 @@
     "edge-extension"
   ],
   "dependencies": {
+    "@babel/core": "7.29.7",
+    "@babel/preset-typescript": "7.29.7",
     "@prefresh/core": "1.5.9",
     "@prefresh/utils": "1.2.1",
     "@rspack/core": "2.2.3",
@@ -105,6 +107,8 @@
     "@rspack/plugin-react-refresh": "2.0.2",
     "@vue/compiler-sfc": "3.5.26",
     "acorn": "^8.16.0",
+    "babel-loader": "10.1.1",
+    "babel-preset-solid": "1.9.15",
     "browser-extension-manifest-fields": "^3.0.2",
     "case-sensitive-paths-webpack-plugin": "^2.4.0",
     "content-security-policy-parser": "^0.6.0",

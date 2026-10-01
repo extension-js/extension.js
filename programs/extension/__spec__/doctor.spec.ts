@@ -14,7 +14,23 @@ vi.mock('../helpers/extension-develop-runtime', () => ({
   loadExtensionDevelopBridgeModule: async () => state.mod
 }))
 
+const peer = vi.hoisted(() => ({
+  engine: '2.2.3' as string | undefined,
+  conflicts: [] as Array<{name: string; version: string; range: string}>
+}))
+
+vi.mock('../helpers/rspack-peer-check', async () => {
+  const actual = await vi.importActual<any>('../helpers/rspack-peer-check')
+
+  return {
+    ...actual,
+    engineRspackVersion: () => peer.engine,
+    findRspackPeerConflicts: () => peer.conflicts
+  }
+})
+
 const ALL_CHECKS = [
+  'peer-rspack',
   'ready-contract',
   'server-process',
   'port-agreement',
@@ -89,9 +105,41 @@ describe('extension doctor', () => {
     expect(r['ready-contract'].status).toBe('fail')
     expect(r['ready-contract'].remediation).toContain('extension dev')
 
-    for (const check of ALL_CHECKS.slice(1)) {
+    for (const check of ALL_CHECKS.slice(2)) {
       expect(r[check].status).toBe('skip')
       expect(r[check].detail).toContain('ready-contract')
+    }
+  })
+
+  it('names a dependency whose @rspack/core peer range misses the engine', async () => {
+    peer.conflicts = [
+      {name: 'css-loader', version: '6.11.0', range: '0.x || 1.x'}
+    ]
+
+    try {
+      const r = byCheck(await runDoctor('/proj', {}))
+      expect(r['peer-rspack'].status).toBe('fail')
+      expect(r['peer-rspack'].detail).toBe(
+        'css-loader 6.11.0 accepts @rspack/core 0.x || 1.x, the engine ships 2.2.3'
+      )
+
+      expect(r['peer-rspack'].remediation).toBe(
+        'Upgrade css-loader to 7.1.4 or newer, its peer range accepts @rspack/core 2, then install again'
+      )
+    } finally {
+      peer.conflicts = []
+    }
+  })
+
+  it('skips peer-rspack when the engine version cannot be read', async () => {
+    peer.engine = undefined
+
+    try {
+      const r = byCheck(await runDoctor('/proj', {}))
+      expect(r['peer-rspack'].status).toBe('skip')
+      expect(r['peer-rspack'].detail).toContain("engine's @rspack/core version")
+    } finally {
+      peer.engine = '2.2.3'
     }
   })
 

@@ -15,6 +15,13 @@ import {parseJsonSafe} from './parse-json-safe'
 // Chromium-family target, which is why a drop elsewhere gets a warning.
 export const CHROMIUM_VENDOR_PREFIXES = ['chrome', 'edge'] as const
 
+export interface FilterKeysOptions {
+  // Extra prefixes this build also accepts, like ['firefox'] for a Safari
+  // build that ships the Firefox keys. They rank above a plain key and
+  // below the browser's own family and specific prefixes.
+  fallbacks?: readonly string[]
+}
+
 function classifyPrefixes(browser: DevOptions['browser']) {
   // Safari/webkit are not chromium-based for launch classification, but for
   // MANIFEST keys they must inherit the chromium family or prefixed keys resolve to nothing.
@@ -48,9 +55,13 @@ function classifyPrefixes(browser: DevOptions['browser']) {
 // Prefixed keys win deterministically over a plain key, independent of source order.
 export function filterKeysForThisBrowser(
   manifest: Manifest,
-  browser: DevOptions['browser']
+  browser: DevOptions['browser'],
+  options: FilterKeysOptions = {}
 ): Manifest {
   const {isFamilyPrefix, isSpecificPrefix} = classifyPrefixes(browser)
+  const fallbackPrefixes = new Set(
+    (options.fallbacks || []).map((prefix) => prefix.replace(/:$/, ''))
+  )
 
   const resolve = (node: unknown): unknown => {
     if (Array.isArray(node)) {
@@ -61,6 +72,7 @@ export function filterKeysForThisBrowser(
       // Maps, not plain objects: a manifest key named __proto__ assigned on
       // a plain object sets its prototype instead of a key and vanishes.
       const result = new Map<string, unknown>()
+      const fallbackMatches = new Map<string, unknown>()
       const familyMatches = new Map<string, unknown>()
       const specificMatches = new Map<string, unknown>()
 
@@ -79,6 +91,8 @@ export function filterKeysForThisBrowser(
           specificMatches.set(strippedKey, resolve(value))
         } else if (isFamilyPrefix(prefix)) {
           familyMatches.set(strippedKey, resolve(value))
+        } else if (fallbackPrefixes.has(prefix)) {
+          fallbackMatches.set(strippedKey, resolve(value))
         }
       }
 
@@ -87,6 +101,10 @@ export function filterKeysForThisBrowser(
       // waterfox) keep source order, the later key wins. The manifest-fields
       // package that discovers entries applies the same rule, so a change
       // here must land there too or entries and consumers split.
+      for (const [strippedKey, value] of fallbackMatches) {
+        result.set(strippedKey, value)
+      }
+
       for (const [strippedKey, value] of familyMatches) {
         result.set(strippedKey, value)
       }

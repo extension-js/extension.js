@@ -119,6 +119,50 @@ describe('resolveVueBundlerEntry', () => {
     vi.resetModules()
   })
 
+  it('refuses a Vue 2 install by name before any loader is resolved', async () => {
+    const integrations = (await import(
+      '../../frameworks-lib/integrations'
+    )) as any
+    integrations.hasDependency.mockImplementation(
+      (_p: string, dep: string) => dep === 'vue'
+    )
+
+    const resolver = {ensureOptionalContractPackageResolved: vi.fn()}
+    vi.doMock('../../../lib/optional-deps-resolver', () => ({
+      ...resolver,
+      ensureOptionalContractModuleLoaded: vi.fn()
+    }))
+
+    const projectPath = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-vue2-'))
+    const vueDir = path.join(projectPath, 'node_modules', 'vue')
+    fs.mkdirSync(vueDir, {recursive: true})
+    fs.writeFileSync(
+      path.join(projectPath, 'package.json'),
+      JSON.stringify({name: 'vue2-fixture', dependencies: {vue: '^2.7.16'}})
+    )
+
+    fs.writeFileSync(
+      path.join(vueDir, 'package.json'),
+      JSON.stringify({name: 'vue', version: '2.7.16', main: 'index.js'})
+    )
+
+    fs.writeFileSync(path.join(vueDir, 'index.js'), '')
+
+    try {
+      const {maybeUseVue} = await import('../../js-tools/vue')
+
+      await expect(maybeUseVue(projectPath)).rejects.toThrow(
+        /Vue 2\.7\.16 is installed, and Extension\.js builds Vue 3 only/
+      )
+
+      expect(
+        resolver.ensureOptionalContractPackageResolved
+      ).not.toHaveBeenCalled()
+    } finally {
+      fs.rmSync(projectPath, {recursive: true, force: true})
+    }
+  })
+
   it('picks the runtime ESM build named by package.json module', async () => {
     const root = fakeProject(
       {main: 'index.js', module: 'dist/vue.runtime.esm-bundler.js'},

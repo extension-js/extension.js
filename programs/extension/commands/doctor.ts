@@ -22,6 +22,12 @@ import {
 import {CODES, ENVELOPE, type ErrorCode} from '../helpers/messaging'
 import {isJsonOutput} from '../helpers/output-flag'
 import {
+  describeRspackPeerConflicts,
+  engineRspackVersion,
+  findRspackPeerConflicts,
+  remedyRspackPeerConflicts
+} from '../helpers/rspack-peer-check'
+import {
   resolveSessionProjectPath,
   sessionReadyPath
 } from '../helpers/session-project-path'
@@ -145,6 +151,35 @@ export function resolveDoctorBrowser(
   return {browser: 'chromium', sessionBrowsers}
 }
 
+function peerRspackCheck(projectPath: string): DoctorCheckResult {
+  const engine = engineRspackVersion(projectPath)
+
+  if (!engine) {
+    return {
+      check: 'peer-rspack',
+      status: 'skip',
+      detail: `skipped: could not read the engine's @rspack/core version from ${projectPath}`
+    }
+  }
+
+  const conflicts = findRspackPeerConflicts(projectPath, engine)
+
+  if (conflicts.length === 0) {
+    return {
+      check: 'peer-rspack',
+      status: 'pass',
+      detail: `every direct dependency with an @rspack/core peer range accepts the engine's ${engine}`
+    }
+  }
+
+  return {
+    check: 'peer-rspack',
+    status: 'fail',
+    detail: describeRspackPeerConflicts(conflicts, engine),
+    remediation: remedyRspackPeerConflicts(conflicts, engine)
+  }
+}
+
 export async function runDoctor(
   projectPathArg: string | undefined,
   opts: DoctorOptions
@@ -178,6 +213,11 @@ export async function runDoctor(
 
     return results
   }
+
+  // 0. peer-rspack needs only the project, so it runs before the session legs.
+  // A dependency whose @rspack/core peer range misses the engine is why
+  // `npm install` fails with ERESOLVE next to Extension.js.
+  results.push(peerRspackCheck(projectPath))
 
   const skip = (check: string, blockedBy: string) => {
     results.push({
@@ -531,6 +571,7 @@ function printPretty(results: DoctorCheckResult[], browser: string): void {
 // decides error.code. E_DOCTOR_CHECKS_FAILED covers the rest: a check with no
 // dominant cause is still a failed run, not an unmapped one.
 const CHECK_CODES: Record<string, ErrorCode> = {
+  'peer-rspack': CODES.E_DEPENDENCY_INSTALL,
   'ready-contract': CODES.E_SESSION_NOT_FOUND,
   'server-process': CODES.E_SESSION_NOT_FOUND,
   'port-agreement': CODES.E_CONTROL_UNAVAILABLE,
