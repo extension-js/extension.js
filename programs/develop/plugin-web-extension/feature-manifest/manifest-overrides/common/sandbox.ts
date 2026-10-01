@@ -2,7 +2,11 @@ import type {Manifest} from '../../../../types'
 import {getFilename} from '../../../shared/paths'
 import {manifestPageOutputTarget} from '../../normalize-manifest-path'
 
-export function sandbox(manifest: Manifest, manifestPath?: string) {
+export function sandbox(
+  manifest: Manifest,
+  manifestPath?: string,
+  projectPath?: string
+) {
   return (
     manifest.sandbox && {
       sandbox: {
@@ -13,7 +17,8 @@ export function sandbox(manifest: Manifest, manifestPath?: string) {
               manifestPageOutputTarget(
                 page,
                 `sandbox/page-${index}.html`,
-                manifestPath
+                manifestPath,
+                projectPath
               ),
               page
             )

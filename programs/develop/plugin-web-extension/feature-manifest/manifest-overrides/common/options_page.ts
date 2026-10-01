@@ -10,14 +10,23 @@ import type {Manifest} from '../../../../types'
 import {getFilename} from '../../../shared/paths'
 import {manifestPageOutputTarget} from '../../normalize-manifest-path'
 
-export function optionsPage(manifest: Manifest, manifestPath?: string) {
+export function optionsPage(
+  manifest: Manifest,
+  manifestPath?: string,
+  projectPath?: string
+) {
   return (
     manifest.options_page && {
       options_page: (() => {
         const raw = String(manifest.options_page)
 
         return getFilename(
-          manifestPageOutputTarget(raw, 'options/index.html', manifestPath),
+          manifestPageOutputTarget(
+            raw,
+            'options/index.html',
+            manifestPath,
+            projectPath
+          ),
           raw
         )
       })()

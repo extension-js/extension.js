@@ -16,6 +16,10 @@ import {
   themeIconOutputPath,
   themeImageOutputPath
 } from '../../feature-manifest/normalize-manifest-path'
+import {
+  findPublicFile,
+  inspectPublicFolders
+} from '../../../plugin-special-folders/resolve-public-folder'
 import {reportToCompilation} from '../../shared/compilation-issues'
 import * as messages from '../messages'
 import {iconValuesToStrings} from '../normalize-keys'
@@ -53,7 +57,10 @@ export class EmitFile {
           const manifestDir = path.dirname(this.manifestPath)
           const projectPath =
             (compiler.options.context as string) || manifestDir
-          const publicDir = path.join(projectPath, 'public')
+          // The folder the copier ships; an icon inside it needs no emit.
+          const publicDir =
+            inspectPublicFolders(this.manifestPath, projectPath).publicDir ||
+            path.join(projectPath, 'public')
 
           for (const field of Object.entries(iconFields)) {
             const [feature, resource] = field
@@ -77,10 +84,24 @@ export class EmitFile {
 
                 if (!fs.existsSync(resolved)) {
                   if (path.isAbsolute(entry) && entry.startsWith(projectPath)) {
-                    // OS-absolute path under the project root: prefer public/<basename> when it
-                    // exists there, otherwise keep the absolute path.
+                    // OS-absolute path under the project root, the fields package's
+                    // spelling of a manifest-relative icon: the same path inside public/
+                    // (either root) wins, then public/<basename>, then the path itself.
                     const basename = path.basename(entry)
-                    const publicCandidate = path.join(publicDir, basename)
+                    const relToManifest = path.relative(manifestDir, entry)
+                    const publicCandidate =
+                      (!relToManifest.startsWith('..') &&
+                        findPublicFile(
+                          this.manifestPath,
+                          projectPath,
+                          relToManifest
+                        )) ||
+                      findPublicFile(
+                        this.manifestPath,
+                        projectPath,
+                        basename
+                      ) ||
+                      path.join(publicDir, basename)
 
                     if (process.env.EXTENSION_DEV_DEBUG_ICONS === '1') {
                       // eslint-disable-next-line no-console
@@ -103,11 +124,9 @@ export class EmitFile {
                   } else if (entry.startsWith('/')) {
                     // First, look under public/ because "/foo.png" is authored
                     // as an extension-root asset served from public/.
-                    const publicCandidate = path.join(
-                      projectPath,
-                      'public',
-                      entry.slice(1)
-                    )
+                    const publicCandidate =
+                      findPublicFile(this.manifestPath, projectPath, entry) ||
+                      path.join(projectPath, 'public', entry.slice(1))
 
                     if (process.env.EXTENSION_DEV_DEBUG_ICONS === '1') {
                       // eslint-disable-next-line no-console
@@ -128,7 +147,9 @@ export class EmitFile {
                   } else {
                     // Bare/relative icon paths also respect the public/ convention before falling
                     // back to the manifest directory, consistent with web_accessible_resources.
-                    const publicCandidate = path.join(publicDir, entry)
+                    const publicCandidate =
+                      findPublicFile(this.manifestPath, projectPath, entry) ||
+                      path.join(publicDir, entry)
 
                     if (process.env.EXTENSION_DEV_DEBUG_ICONS === '1') {
                       // eslint-disable-next-line no-console
@@ -157,14 +178,13 @@ export class EmitFile {
 
                 // Robust containment check using path.relative to handle Windows cases
                 const relToPublic = path.relative(publicDir, resolved)
-
                 const isUnderPublic =
-                  (relToPublic &&
+                  (Boolean(relToPublic) &&
                     !relToPublic.startsWith('..') &&
                     !path.isAbsolute(relToPublic)) ||
                   (entry.startsWith('/') &&
-                    fs.existsSync(
-                      path.join(projectPath, 'public', entry.slice(1))
+                    Boolean(
+                      findPublicFile(this.manifestPath, projectPath, entry)
                     ))
 
                 const parts = String(feature).split('/')

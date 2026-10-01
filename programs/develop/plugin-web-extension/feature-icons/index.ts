@@ -39,7 +39,11 @@ export class IconsPlugin {
       ...normalizeIconIncludeKeys(
         this.includeList as Record<string, unknown> | undefined
       ),
-      ...extractActionThemeIcons(this.manifestPath, this.browser)
+      ...extractActionThemeIcons(
+        this.manifestPath,
+        this.browser,
+        compiler.options?.context as string | undefined
+      )
     }
 
     if (isDebug()) {

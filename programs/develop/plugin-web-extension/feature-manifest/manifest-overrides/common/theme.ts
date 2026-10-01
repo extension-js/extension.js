@@ -8,13 +8,26 @@ import {
 // A public-hosted image ships at its public-relative path (the copier puts
 // it there), so the manifest must name that path, not the canonical one.
 // Everything else lands where the icons emitter puts it; keep them agreed.
-const rewriteThemeImage = (value: string, manifestPath?: string) =>
+const rewriteThemeImage = (
+  value: string,
+  manifestPath?: string,
+  projectPath?: string
+) =>
   getFilename(
-    manifestPageOutputTarget(value, themeImageOutputPath(value), manifestPath),
+    manifestPageOutputTarget(
+      value,
+      themeImageOutputPath(value),
+      manifestPath,
+      projectPath
+    ),
     value
   )
 
-export function theme(manifest: Manifest, manifestPath?: string) {
+export function theme(
+  manifest: Manifest,
+  manifestPath?: string,
+  projectPath?: string
+) {
   return (
     manifest.theme && {
       theme: {
@@ -28,8 +41,10 @@ export function theme(manifest: Manifest, manifestPath?: string) {
             ).map(([key, value]) => [
               key,
               Array.isArray(value)
-                ? value.map((entry) => rewriteThemeImage(entry, manifestPath))
-                : rewriteThemeImage(value, manifestPath)
+                ? value.map((entry) =>
+                    rewriteThemeImage(entry, manifestPath, projectPath)
+                  )
+                : rewriteThemeImage(value, manifestPath, projectPath)
             ])
           )
         })

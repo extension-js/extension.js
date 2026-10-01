@@ -16,15 +16,19 @@ import {contentSecurityPolicy} from './content_security_policy'
 import {hostPermissions} from './host_permissions'
 import {themeExperiment} from './theme_experiment'
 
-export function manifestV2(manifest: Manifest, manifestPath?: string) {
+export function manifestV2(
+  manifest: Manifest,
+  manifestPath?: string,
+  projectPath?: string
+) {
   return {
     ...background(manifest),
-    ...browserAction(manifest),
-    ...pageAction(manifest),
-    ...sidebarAction(manifest, manifestPath),
-    ...chromeSettingsOverrides(manifest, manifestPath),
+    ...browserAction(manifest, manifestPath, projectPath),
+    ...pageAction(manifest, manifestPath, projectPath),
+    ...sidebarAction(manifest, manifestPath, projectPath),
+    ...chromeSettingsOverrides(manifest, manifestPath, projectPath),
     ...hostPermissions(manifest),
     ...contentSecurityPolicy(manifest),
-    ...themeExperiment(manifest, manifestPath)
+    ...themeExperiment(manifest, manifestPath, projectPath)
   }
 }

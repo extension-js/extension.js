@@ -10,7 +10,11 @@ import type {Manifest} from '../../../../types'
 import {getFilename} from '../../../shared/paths'
 import {manifestPageOutputTarget} from '../../normalize-manifest-path'
 
-export function sidePanel(manifest: Manifest, manifestPath?: string) {
+export function sidePanel(
+  manifest: Manifest,
+  manifestPath?: string,
+  projectPath?: string
+) {
   return (
     manifest.side_panel && {
       side_panel: {
@@ -22,7 +26,12 @@ export function sidePanel(manifest: Manifest, manifestPath?: string) {
             // A panel hosted in public/ ships under its own name, so the
             // compiled slot is only right for a panel the pipeline builds.
             return getFilename(
-              manifestPageOutputTarget(raw, 'sidebar/index.html', manifestPath),
+              manifestPageOutputTarget(
+                raw,
+                'sidebar/index.html',
+                manifestPath,
+                projectPath
+              ),
               raw
             )
           })()

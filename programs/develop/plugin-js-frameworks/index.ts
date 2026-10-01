@@ -315,7 +315,8 @@ export class JsFrameworksPlugin {
       const htmlPages: Record<string, unknown> = {
         ...getResolvedManifestFieldsData({
           manifestPath: this.manifestPath,
-          browser: this.browser
+          browser: this.browser,
+          projectPath: compiler.options?.context as string | undefined
         }).html,
         ...getSpecialFoldersDataForCompiler(compiler).pages
       }
