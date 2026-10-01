@@ -57,6 +57,12 @@ export type PluginInterface = {
   browser?: DevOptions['browser']
   includeList?: FilepathList
   transpilePackages?: string[]
+  /**
+   * Compile-time constants, each value JSON-serialized into the bundle the
+   * way Vite does it. `browser.<vendor>.define` adds to or overrides the
+   * top-level map for that browser.
+   */
+  define?: Record<string, unknown>
   /** True inside `extension dev`: the one axis that turns dev instrumentation
    * (dev CSP, injected permissions, reload client, page HMR) on. A build in
    * development mode is shippable and keeps the author's manifest. */
@@ -496,6 +502,10 @@ export interface CommonWebpackOptions {
    * Useful for monorepos where package exports point to TS/TSX files.
    */
   transpilePackages?: string[]
+  /**
+   * Compile-time constants, each value JSON-serialized into the bundle.
+   */
+  define?: Record<string, unknown>
   perfBudgets?: PerfBudgetsConfig
   /**
    * Companion extensions (load-only). Each entry must be an unpacked extension root
@@ -575,6 +585,7 @@ export interface FileConfig {
         persistProfile?: boolean
         extensions?: CompanionExtensionsConfig
         transpilePackages?: string[]
+        define?: Record<string, unknown>
         perfBudgets?: PerfBudgetsConfig
       }
 
@@ -603,6 +614,7 @@ export interface FileConfig {
       persistProfile?: boolean
       extensions?: CompanionExtensionsConfig
       transpilePackages?: string[]
+      define?: Record<string, unknown>
     }
 
     preview?: Pick<
@@ -629,6 +641,7 @@ export interface FileConfig {
       persistProfile?: boolean
       extensions?: CompanionExtensionsConfig
       transpilePackages?: string[]
+      define?: Record<string, unknown>
     }
 
     build?: Pick<
@@ -648,6 +661,7 @@ export interface FileConfig {
     > & {
       extensions?: CompanionExtensionsConfig
       transpilePackages?: string[]
+      define?: Record<string, unknown>
       perfBudgets?: PerfBudgetsConfig
     }
   }
@@ -662,6 +676,12 @@ export interface FileConfig {
    * `commands.<name>.transpilePackages` overrides both.
    */
   transpilePackages?: string[]
+  /**
+   * Compile-time constants for every command, each value JSON-serialized
+   * into the bundle the way Vite's define does it. `browser.<vendor>.define`
+   * adds to or overrides it for that browser.
+   */
+  define?: Record<string, unknown>
   /**
    * Default per-category asset budgets for all commands, the weakest layer.
    * `browser.<vendor>.perfBudgets` overrides it, and per-command

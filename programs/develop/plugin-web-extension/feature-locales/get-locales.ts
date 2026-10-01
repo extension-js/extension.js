@@ -46,12 +46,21 @@ function listLocaleFiles(folder: string): string[] {
       continue
     }
 
-    for (const entry of fs.readdirSync(localeDir)) {
-      out.push(path.join(localeDir, entry))
-    }
+    walk(localeDir, out)
   }
 
   return out
+}
+
+// Everything under a locale folder ships: a privacy.md or a nested folder a
+// project fetches at runtime is as much a locale asset as messages.json.
+function walk(dir: string, out: string[]): void {
+  for (const entry of fs.readdirSync(dir, {withFileTypes: true})) {
+    const abs = path.join(dir, entry.name)
+
+    if (entry.isDirectory()) walk(abs, out)
+    else out.push(abs)
+  }
 }
 
 export function getLocales(
