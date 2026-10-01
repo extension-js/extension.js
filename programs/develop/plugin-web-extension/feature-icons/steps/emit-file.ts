@@ -21,6 +21,7 @@ import {
   inspectPublicFolders
 } from '../../../plugin-special-folders/resolve-public-folder'
 import {reportToCompilation} from '../../shared/compilation-issues'
+import {isFolder} from '../../shared/paths'
 import * as messages from '../messages'
 import {iconValuesToStrings} from '../normalize-keys'
 
@@ -234,6 +235,24 @@ export class EmitFile {
                           fatal: isFatal
                         }),
                     severity,
+                    'manifest.json'
+                  )
+
+                  missingCount++
+                  continue
+                }
+
+                if (isFolder(resolved)) {
+                  const isFatal =
+                    group === 'icons' || isDefaultIconFamily || isThemeImage
+
+                  reportToCompilation(
+                    compilation,
+                    compiler,
+                    messages.iconsPathIsFolder(feature, resolved, {
+                      fatal: isFatal
+                    }),
+                    isFatal ? 'error' : 'warning',
                     'manifest.json'
                   )
 

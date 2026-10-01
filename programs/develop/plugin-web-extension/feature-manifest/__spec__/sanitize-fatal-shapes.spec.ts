@@ -3,7 +3,10 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import type {Manifest} from '../../../types'
-import {sanitizeFatalManifestShapes} from '../manifest-lib/sanitize-fatal-shapes'
+import {
+  findMistypedManifestFields,
+  sanitizeFatalManifestShapes
+} from '../manifest-lib/sanitize-fatal-shapes'
 
 describe('sanitizeFatalManifestShapes', () => {
   it('coerces a numeric version to a string', () => {
@@ -320,5 +323,105 @@ describe('sanitizeFatalManifestShapes', () => {
       expect(commands.annotate.description).toBe('Annotate the page')
       expect(fixes).toHaveLength(0)
     })
+  })
+
+  describe('string permission lists', () => {
+    it('wraps a string permissions and host_permissions in an array', () => {
+      const {manifest, fixes} = sanitizeFatalManifestShapes({
+        manifest_version: 3,
+        name: 'x',
+        version: '1.0.0',
+        permissions: 'storage',
+        host_permissions: '<all_urls>'
+      } as unknown as Manifest)
+      expect((manifest as any).permissions).toEqual(['storage'])
+      expect((manifest as any).host_permissions).toEqual(['<all_urls>'])
+      expect(fixes.map((f) => f.field)).toEqual([
+        'permissions',
+        'host_permissions'
+      ])
+    })
+
+    it('keeps array permission lists untouched', () => {
+      const {manifest, fixes} = sanitizeFatalManifestShapes({
+        manifest_version: 3,
+        name: 'x',
+        version: '1.0.0',
+        permissions: ['storage']
+      } as unknown as Manifest)
+      expect((manifest as any).permissions).toEqual(['storage'])
+      expect(fixes).toHaveLength(0)
+    })
+  })
+})
+
+describe('findMistypedManifestFields', () => {
+  it('names content_scripts, sandbox.pages and background.scripts when they are not arrays', () => {
+    const mistyped = findMistypedManifestFields({
+      manifest_version: 2,
+      name: 'x',
+      version: '1.0.0',
+      content_scripts: {matches: ['<all_urls>'], js: ['content.js']},
+      sandbox: {pages: 'sandbox.html'},
+      background: {scripts: 'bg.js'}
+    } as unknown as Manifest)
+    expect(mistyped.map((entry) => entry.field)).toEqual([
+      'content_scripts',
+      'sandbox.pages',
+      'background.scripts'
+    ])
+
+    expect(mistyped[0].received).toBe('an object')
+    expect(mistyped[1].received).toBe('the string "sandbox.html"')
+  })
+
+  it('names a content script entry whose js or css is not an array', () => {
+    const mistyped = findMistypedManifestFields({
+      manifest_version: 3,
+      name: 'x',
+      version: '1.0.0',
+      content_scripts: [
+        {matches: ['<all_urls>'], js: 'content.js'},
+        'content.js'
+      ]
+    } as unknown as Manifest)
+    expect(mistyped.map((entry) => entry.field)).toEqual([
+      'content_scripts[0].js',
+      'content_scripts[1]'
+    ])
+  })
+
+  it('leaves string permissions to the repair and refuses other non-array shapes', () => {
+    expect(
+      findMistypedManifestFields({
+        manifest_version: 3,
+        name: 'x',
+        version: '1.0.0',
+        permissions: 'storage'
+      } as unknown as Manifest)
+    ).toEqual([])
+
+    expect(
+      findMistypedManifestFields({
+        manifest_version: 3,
+        name: 'x',
+        version: '1.0.0',
+        permissions: {storage: true}
+      } as unknown as Manifest).map((entry) => entry.field)
+    ).toEqual(['permissions'])
+  })
+
+  it('reports nothing for a well-typed manifest', () => {
+    expect(
+      findMistypedManifestFields({
+        manifest_version: 3,
+        name: 'x',
+        version: '1.0.0',
+        permissions: ['storage'],
+        content_scripts: [{matches: ['<all_urls>'], js: ['content.js']}],
+        sandbox: {pages: ['sandbox.html']},
+        background: {service_worker: 'sw.js'}
+      } as unknown as Manifest)
+    ).toEqual([])
   })
 })

@@ -61,6 +61,24 @@ export function fatalManifestShapeFixed(field: string, detail: string) {
   return lines.join('\n')
 }
 
+export function manifestFieldMistyped(
+  field: string,
+  expected: string,
+  received: string
+) {
+  const lines: string[] = []
+  lines.push(
+    `The ${colors.blue(field)} field in your ${colors.blue('manifest.json')} must be ${expected}.`
+  )
+
+  lines.push(`${colors.gray('GOT')} ${colors.underline(received)}`)
+  lines.push(
+    `No browser loads the extension with it written this way, so the build stops here. Rewrite the field as ${expected} and try again.`
+  )
+
+  return lines.join('\n')
+}
+
 export function invalidThemeValue(
   field: string,
   detail: string,

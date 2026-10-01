@@ -11,7 +11,7 @@ import * as path from 'node:path'
 import {Compilation, type Compiler, sources} from '@rspack/core'
 import type {FilepathList, PluginInterface} from '../../../types'
 import {reportToCompilation} from '../../shared/compilation-issues'
-import {resolveRootAbsoluteRef} from '../../shared/paths'
+import {isFolder, resolveRootAbsoluteRef} from '../../shared/paths'
 import {findCompiledRootRefSource} from '../html-lib/compiled-root-ref'
 import * as messages from '../html-lib/messages'
 import {patchHtmlNested} from '../html-lib/patch-html'
@@ -413,6 +413,20 @@ export class AddAssetsToCompilation {
 
                   continue
                 }
+              }
+
+              if (isFolder(absoluteFsPath)) {
+                reportToCompilation(
+                  compilation,
+                  compiler,
+                  messages.fileIsFolder(resource as string, absoluteFsPath, {
+                    refLabel: asset
+                  }),
+                  'warning',
+                  path.relative(manifestDir, resource as string)
+                )
+
+                continue
               }
 
               // For assets under public/, do not emit; only track for watch

@@ -19,6 +19,16 @@ export function isFromFilepathList(
   })
 }
 
+// A folder passes an existence check, so a reader about to call
+// readFileSync asks this first instead of surfacing a raw EISDIR.
+export function isFolder(filePath: string): boolean {
+  try {
+    return fs.statSync(filePath).isDirectory()
+  } catch {
+    return false
+  }
+}
+
 export function getFilename(feature: string, filePath: string) {
   const entryExt = path.extname(filePath)
 

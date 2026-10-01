@@ -38,6 +38,30 @@ export function iconsMissingFile(
   return lines.join('\n')
 }
 
+export function iconsPathIsFolder(
+  manifestField: string,
+  folderPath: string,
+  opts?: {fatal?: boolean}
+) {
+  const lines: string[] = []
+  lines.push(
+    `The icon path listed in ${colors.blue(manifestField)} is a folder, not a file.`
+  )
+
+  lines.push(`${colors.gray('FOLDER')} ${colors.underline(folderPath)}`)
+  lines.push(
+    opts?.fatal
+      ? `Browsers reject the whole extension when an icon cannot be loaded.\nThe build stops here.`
+      : `Browsers can reject or misrender the extension when an icon cannot be loaded.\nThe build continues.`
+  )
+
+  lines.push(
+    `Point ${colors.blue(manifestField)} in your ${colors.blue('manifest.json')} at an image file, for example one inside that folder.`
+  )
+
+  return lines.join('\n')
+}
+
 export function themeImageMissingFile(
   manifestField: string,
   filePath: string,
