@@ -120,7 +120,8 @@ function installFramework(root: string, framework: Framework) {
     return {vue: '3.5.26'}
   }
 
-  // solid-js ships its JSX types only; runtime JSX goes through solid-js/h.
+  // Solid's compiler turns JSX into solid-js/web calls, so the stub marks
+  // the template helper. solid-js/h stays for JSX that bypasses the compiler.
   stubPackage(
     root,
     'solid-js',
@@ -129,7 +130,11 @@ function installFramework(root: string, framework: Framework) {
       'index.js': 'export function createSignal(v) { return [() => v] }\n',
       'h.js':
         "export default function h(type, props) { globalThis.__jsxRuntime = 'solid'; return {type, props} }\n",
-      'web.js': 'export function render() {}\n'
+      'web.js':
+        "export function template(html) { globalThis.__solidTemplate = html; return () => document.createElement('p') }\n" +
+        'export function insert() {}\n' +
+        'export function delegateEvents() {}\n' +
+        'export function render() {}\n'
     },
     {
       '.': './index.js',
@@ -251,7 +256,22 @@ async function build(
     return fs.readFileSync(path.join(distDir, src.replace(/^\//, '')), 'utf8')
   }
 
-  return {distDir, errors, output, pageBundle}
+  // Every script the page loads, for a page split into a shared chunk and
+  // its own entry.
+  const pageScripts = () => {
+    const html = fs.readFileSync(
+      path.join(distDir, 'action/index.html'),
+      'utf8'
+    )
+
+    return [...html.matchAll(/<script[^>]+src="([^"]+)"/g)]
+      .map((match) =>
+        fs.readFileSync(path.join(distDir, match[1].replace(/^\//, '')), 'utf8')
+      )
+      .join('\n')
+  }
+
+  return {distDir, errors, output, pageBundle, pageScripts}
 }
 
 const RENDER_ONLY = 'document.getElementById("root").append(<p>hi</p>)\n'
@@ -348,12 +368,35 @@ describe('JSX pages across frameworks', () => {
     expect(asModule.pageBundle()).toMatch(/__jsxRuntime=["']vue["']/)
   }, 120_000)
 
-  it('solid: a jsx page parses and renders through solid-js/h', async () => {
+  it('solid: a jsx page is compiled by Solid into solid-js/web templates, not a JSX runtime', async () => {
     const built = await build(project('solid', {'popup.jsx': RENDER_ONLY}))
     expect(built.errors).toBe(0)
     expect(built.output).not.toMatch(/Syntax Error/i)
-    expect(built.pageBundle()).not.toMatch(/\brequire\(/)
-    expect(built.pageBundle()).toMatch(/__jsxRuntime=["']solid["']/)
+    expect(built.pageScripts()).not.toMatch(/\brequire\(/)
+    expect(built.pageScripts()).toMatch(/__solidTemplate/)
+    // Solid's compiler drops the closing tag a browser can infer, and the
+    // minifier may write the opening bracket as an escape.
+    expect(built.pageScripts()).toMatch(/(<|\\x3C)p>hi/)
+    expect(built.pageScripts()).not.toMatch(/__jsxRuntime/)
+  }, 120_000)
+
+  it('solid: a tsx page keeps its types out and still compiles through Solid', async () => {
+    const built = await build(
+      project(
+        'solid',
+        {
+          'popup.tsx':
+            "import {createSignal} from 'solid-js'\n" +
+            'const [count] = createSignal<number>(1)\n' +
+            'const el: HTMLElement | null = document.getElementById("root")\n' +
+            'el?.append(<p>{count()}</p>)\n'
+        },
+        {tsconfig: true}
+      )
+    )
+    expect(built.errors).toBe(0)
+    expect(built.pageScripts()).toMatch(/__solidTemplate/)
+    expect(built.pageScripts()).not.toMatch(/createSignal<number>/)
   }, 120_000)
 })
 

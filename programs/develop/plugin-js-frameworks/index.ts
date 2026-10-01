@@ -351,7 +351,7 @@ export class JsFrameworksPlugin {
     })
     const maybeInstallPreact = await maybeUsePreact(projectPath)
     const maybeInstallVue = await maybeUseVue(projectPath, mode)
-    const maybeInstallSolid = await maybeUseSolid(projectPath)
+    const maybeInstallSolid = await maybeUseSolid(projectPath, mode)
     const maybeInstallSvelte = await maybeUseSvelte(projectPath, mode)
     const tsConfigPath = getUserTypeScriptConfigFile(projectPath)
     const tsRoot = tsConfigPath ? path.dirname(tsConfigPath) : manifestDir
@@ -536,6 +536,9 @@ export class JsFrameworksPlugin {
       ...(maybeInstallReact?.loaders || []),
       ...(maybeInstallPreact?.loaders || []),
       ...vueLoadersToAdd,
+      // After the swc rules on purpose: loaders run last rule first, so
+      // Solid's compiler sees the JSX before swc gets the plain output.
+      ...(maybeInstallSolid?.loaders || []),
       ...(maybeInstallSvelte?.loaders || []),
       ...existingRules
     ].filter(Boolean)
