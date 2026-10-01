@@ -26,7 +26,11 @@ import {
 } from './js-frameworks-lib/jsx-transform'
 import * as messages from './js-frameworks-lib/messages'
 import {maybeUsePreact} from './js-tools/preact'
-import {maybeUseReact} from './js-tools/react'
+import {
+  isUsingReact,
+  maybeUseReact,
+  resolveReactRefreshEntry
+} from './js-tools/react'
 import {maybeUseSolid} from './js-tools/solid'
 import {maybeUseSvelte} from './js-tools/svelte'
 import {
@@ -163,10 +167,12 @@ export class JsFrameworksPlugin {
           : rule.loader
             ? [{loader: rule.loader}]
             : []
-      const hasReactRefreshLoader = uses.some(
-        (useEntry) =>
-          typeof useEntry === 'object' &&
-          String(useEntry?.loader || '').includes('react-refresh-loader')
+      // The plugin registers its loader as a bare string
+      // ('builtin:react-refresh-loader'), older versions as {loader}.
+      const hasReactRefreshLoader = uses.some((useEntry) =>
+        String(
+          typeof useEntry === 'string' ? useEntry : useEntry?.loader || ''
+        ).includes('react-refresh-loader')
       )
 
       if (hasReactRefreshLoader) {
@@ -336,7 +342,11 @@ export class JsFrameworksPlugin {
 
     const maybeInstallReact = await maybeUseReact(projectPath, {
       disableRefresh: mode !== 'development',
+      // A custom exclude replaces the plugin's own node_modules rule, so it
+      // has to carry it: without it React itself was wrapped in refresh
+      // signatures and pulled the refresh runtime into every bundle.
       refreshExclude: (resourcePath: string) =>
+        /[\\/]node_modules[\\/]/.test(resourcePath) ||
         isfeatureScriptsContentLike(resourcePath)
     })
     const maybeInstallPreact = await maybeUsePreact(projectPath)
@@ -584,6 +594,36 @@ export class JsFrameworksPlugin {
     }
   }
 
+  // The refresh runtime goes in front of page entries only. The bundler
+  // reads the entry map once, through entryOption, after every plugin has
+  // added its entries and before anything else runs; a later hook is too late.
+  private placeRefreshEntries(compiler: Compiler) {
+    const projectPath = compiler.options.context as string
+    const refreshEntries = isUsingReact(projectPath)
+      ? [resolveReactRefreshEntry(projectPath)].filter(
+          (file): file is string => typeof file === 'string'
+        )
+      : []
+
+    if (refreshEntries.length === 0) return
+    // Unit specs hand in a compiler stub without this hook.
+    if (typeof compiler.hooks?.entryOption?.tap !== 'function') return
+
+    compiler.hooks.entryOption.tap(
+      JsFrameworksPlugin.name,
+      (_context, entry) => {
+        const target = entry as EntryMap
+        const next = withRefreshEntries(target, refreshEntries)
+
+        for (const [name, description] of Object.entries(next)) {
+          target[name] = description
+        }
+
+        return undefined
+      }
+    )
+  }
+
   public async apply(compiler: Compiler) {
     const mode = compiler.options.mode || 'development'
 
@@ -595,6 +635,8 @@ export class JsFrameworksPlugin {
 
       return
     }
+
+    this.placeRefreshEntries(compiler)
 
     // dev/watch: configure eagerly and gate the first compilation on the one
     // promise from both hooks. watchRun covers the dev server; beforeRun covers
@@ -613,4 +655,49 @@ export class JsFrameworksPlugin {
 
     await configuring
   }
+}
+
+type EntryDescription = {import?: string | string[]; layer?: string}
+export type EntryMap = Record<string, EntryDescription | string | string[]>
+
+// Prepend the framework refresh runtimes to every page entry: not the
+// content-script layer, whose bundles run inside someone else's page (a MAIN
+// world one shares the page's globals), and not the background, which has no
+// window to refresh.
+export function withRefreshEntries(
+  entry: EntryMap | undefined,
+  refreshEntries: string[]
+): EntryMap {
+  if (!entry || typeof entry !== 'object' || refreshEntries.length === 0) {
+    return entry || {}
+  }
+
+  const next: EntryMap = {}
+
+  for (const [name, description] of Object.entries(entry)) {
+    if (
+      !description ||
+      typeof description !== 'object' ||
+      Array.isArray(description) ||
+      description.layer === EXTENSIONJS_CONTENT_SCRIPT_LAYER ||
+      name.startsWith('background')
+    ) {
+      next[name] = description
+      continue
+    }
+
+    const imports = Array.isArray(description.import)
+      ? description.import
+      : description.import
+        ? [description.import]
+        : []
+    const missing = refreshEntries.filter((file) => !imports.includes(file))
+
+    next[name] =
+      missing.length === 0
+        ? description
+        : {...description, import: [...missing, ...imports]}
+  }
+
+  return next
 }

@@ -7,6 +7,7 @@ const projectFilesMocks = vi.hoisted(() => ({
 }))
 
 vi.mock('../js-tools/react', () => ({
+  resolveReactRefreshEntry: vi.fn(() => undefined),
   isUsingReact: vi.fn(() => true),
   maybeUseReact: vi.fn(async () => ({alias: {}, loaders: [], plugins: []}))
 }))

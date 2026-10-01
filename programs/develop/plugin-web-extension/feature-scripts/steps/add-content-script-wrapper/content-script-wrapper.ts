@@ -244,6 +244,7 @@ export default function contentScriptWrapper(
   const declaredContentJsAbsEntries: Array<{
     abs: string
     runAt: string
+    world: 'MAIN' | 'ISOLATED'
     index: number
     scriptIndex: number
   }> = []
@@ -270,6 +271,7 @@ export default function contentScriptWrapper(
       declaredContentJsAbsEntries.push({
         abs: path.resolve(manifestDir, jsFile),
         runAt,
+        world: contentScript?.world === 'MAIN' ? 'MAIN' : 'ISOLATED',
         index,
         scriptIndex
       })
@@ -334,6 +336,7 @@ export default function contentScriptWrapper(
   }
 
   const runAt = declaredEntry?.runAt || 'document_idle'
+  const isMainWorld = declaredEntry?.world === 'MAIN'
   const bundleKey = declaredEntry
     ? getCanonicalContentScriptEntryName(declaredEntry.index)
     : `scripts/${String(relToScripts || '').replace(/\\/g, '/')}`
@@ -490,6 +493,10 @@ export default function contentScriptWrapper(
     '  return String(__EXTENSIONJS_REINJECT_KEY || "") + (extId ? "@" + extId : "");\n' +
     '}\n' +
     `var __EXTENSIONJS_DEV_MARKERS_ENABLED=${JSON.stringify(!isProd)};\n` +
+    // A MAIN world script shares the page's own globals and DOM prototypes,
+    // so the observer and the removal API patches would land on the host
+    // page itself; those stay in the isolated world.
+    `var __EXTENSIONJS_HOST_INSTRUMENTATION_ENABLED=${JSON.stringify(!isProd && !isMainWorld)};\n` +
     // Roots that predate OUR mount must never be adopted: stamping unowned roots
     // corrupts ownership and roots accumulate across reinjects.
     'var __EXTENSIONJS_PRE_MOUNT_ROOTS = [];\n' +
@@ -626,7 +633,7 @@ export default function contentScriptWrapper(
     '}\n' +
     'function __EXTENSIONJS_debugObserveOwnedRootRemoval(){\n' +
     '  try {\n' +
-    '    if (!__EXTENSIONJS_DEV_MARKERS_ENABLED) return;\n' +
+    '    if (!__EXTENSIONJS_HOST_INSTRUMENTATION_ENABLED) return;\n' +
     '    if (typeof globalThis !== "object" || !globalThis || globalThis.__EXTJS_DEBUG_REMOVAL_OBSERVER__) return;\n' +
     '    if (typeof MutationObserver !== "function" || typeof document === "undefined") return;\n' +
     '    var target = document.documentElement || document.body || document;\n' +
@@ -772,7 +779,7 @@ export default function contentScriptWrapper(
     '}\n' +
     'function __EXTENSIONJS_patchDomRemovalApis(){\n' +
     '  try {\n' +
-    '    if (!__EXTENSIONJS_DEV_MARKERS_ENABLED) return;\n' +
+    '    if (!__EXTENSIONJS_HOST_INSTRUMENTATION_ENABLED) return;\n' +
     '    if (typeof globalThis !== "object" || !globalThis || globalThis.__EXTJS_DEBUG_DOM_APIS_PATCHED__) return;\n' +
     '    var record = function(source, node, parent){\n' +
     '      try {\n' +
@@ -830,9 +837,11 @@ export default function contentScriptWrapper(
     '// Dev-only DOM instrumentation. Gated so production content scripts never\n' +
     '// install a whole-document MutationObserver, monkey-patch Node.prototype\n' +
     '// removal APIs, or write data-extjs-debug-* attributes onto the host page.\n' +
-    'if (__EXTENSIONJS_DEV_MARKERS_ENABLED) {\n' +
+    'if (__EXTENSIONJS_HOST_INSTRUMENTATION_ENABLED) {\n' +
     '  try { __EXTENSIONJS_debugObserveOwnedRootRemoval(); } catch (error) {}\n' +
     '  try { __EXTENSIONJS_patchDomRemovalApis(); } catch (error) {}\n' +
+    '}\n' +
+    'if (__EXTENSIONJS_DEV_MARKERS_ENABLED) {\n' +
     '  try { __EXTENSIONJS_recordExecutionSnapshot("bootstrap"); } catch (error) {}\n' +
     '}\n' +
     'var __EXTENSIONJS_previousEntry=__EXTENSIONJS_REINJECT_REGISTRY[__EXTENSIONJS_REINJECT_KEY];\n' +
