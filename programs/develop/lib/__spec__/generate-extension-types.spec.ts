@@ -1,21 +1,118 @@
+import {spawnSync} from 'node:child_process'
 import * as fs from 'node:fs'
+import {createRequire} from 'node:module'
 import os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
-import {
-  EXTENSION_ENV_WILDCARD_MODULES,
-  renderExtensionEnvTypes
-} from '../extension-env-template'
+import {renderExtensionEnvTypes} from '../extension-env-template'
 import {generateExtensionTypes} from '../generate-extension-types'
 
-const publishedTypesFile = path.resolve(
-  __dirname,
-  '../../../extension/types/assets.d.ts'
-)
+const require = createRequire(__filename)
+
+const publishedTypesDir = path.resolve(__dirname, '../../../extension/types')
+const publishedTypesFile = path.join(publishedTypesDir, 'assets.d.ts')
+
+const bundlerImportShapes = [
+  'theme.css',
+  'theme.scss',
+  'theme.sass',
+  'legacy.less',
+  'card.module.css',
+  'card.module.scss',
+  'card.module.sass',
+  'card.module.less',
+  'icon.png',
+  'icon.jpg',
+  'icon.jpeg',
+  'icon.gif',
+  'icon.webp',
+  'icon.avif',
+  'icon.ico',
+  'icon.bmp',
+  'icon.svg',
+  'doc.txt?raw',
+  'plain.css?raw',
+  'icon.png?url'
+]
 
 function wildcardPatternsIn(source: string) {
   return [...source.matchAll(/^declare module '(\*[^']+)'/gm)].map(
     (match) => match[1]
+  )
+}
+
+function packageDir(specifier: string) {
+  return path.dirname(require.resolve(`${specifier}/package.json`))
+}
+
+function linkDir(target: string, link: string) {
+  fs.mkdirSync(path.dirname(link), {recursive: true})
+  fs.symlinkSync(target, link, 'junction')
+}
+
+function writeTypescriptProject(root: string) {
+  const srcDir = path.join(root, 'src')
+  fs.mkdirSync(srcDir, {recursive: true})
+
+  for (const shape of bundlerImportShapes) {
+    fs.writeFileSync(path.join(srcDir, shape.replace(/\?.*$/, '')), '')
+  }
+
+  const imports = bundlerImportShapes.map(
+    (shape, index) => `import asset${index} from './${shape}'`
+  )
+  const uses = bundlerImportShapes.map((_, index) => `asset${index}`)
+  fs.writeFileSync(
+    path.join(srcDir, 'index.ts'),
+    `${imports.join('\n')}\nimport './theme.scss'\nimport './legacy.less'\nexport const assets = [${uses.join(', ')}]\n`
+  )
+
+  fs.writeFileSync(
+    path.join(root, 'tsconfig.json'),
+    JSON.stringify({
+      compilerOptions: {
+        strict: true,
+        module: 'esnext',
+        target: 'esnext',
+        moduleResolution: 'bundler',
+        lib: ['dom', 'esnext'],
+        noEmit: true
+      },
+      include: ['src', 'extension-env.d.ts']
+    })
+  )
+
+  const extensionDir = path.join(root, 'node_modules', 'extension')
+  fs.mkdirSync(extensionDir, {recursive: true})
+  fs.cpSync(publishedTypesDir, path.join(extensionDir, 'types'), {
+    recursive: true
+  })
+
+  fs.writeFileSync(
+    path.join(extensionDir, 'package.json'),
+    JSON.stringify({
+      name: 'extension',
+      version: '0.0.0',
+      exports: {
+        './types': {types: './types/index.d.ts'},
+        './types/polyfill': {types: './types/polyfill.d.ts'}
+      }
+    })
+  )
+
+  for (const types of ['node', 'chrome', 'webextension-polyfill']) {
+    linkDir(
+      packageDir(`@types/${types}`),
+      path.join(root, 'node_modules', '@types', types)
+    )
+  }
+}
+
+function runTsc(root: string) {
+  return spawnSync(
+    process.execPath,
+    [path.join(packageDir('typescript'), 'bin', 'tsc'), '-p', root],
+    {cwd: root, encoding: 'utf8'}
   )
 }
 
@@ -58,7 +155,7 @@ describe('generate-extension-types', () => {
     expect(content).toContain('reference types="extension/types/polyfill"')
   })
 
-  it('emits the wildcard asset and stylesheet declares beside the reference', async () => {
+  it('leaves the asset and stylesheet declares to the shipped types', async () => {
     const root = makeTempDir('extjs-gen-wildcards-')
     fs.writeFileSync(
       path.join(root, 'manifest.json'),
@@ -71,27 +168,10 @@ describe('generate-extension-types', () => {
       'utf8'
     )
 
-    // The reference stays so globals like ImportMeta.env keep loading.
     expect(content).toContain('/// <reference types="extension/types" />')
     expect(content).toBe(renderExtensionEnvTypes())
-
-    expect(content).toContain(
-      "declare module '*.png' {\n  const content: string\n  export default content\n}"
-    )
-
-    expect(content).toContain(
-      "declare module '*.css' {\n  const content: Readonly<Record<string, string>>\n  export default content\n}"
-    )
-
-    expect(content).toContain(
-      "declare module '*.svg' {\n  const content: any\n  export default content\n}"
-    )
-
-    // The emitted file stays a script, so the declares are global ambient modules.
     expect(content).not.toMatch(/^(import|export) /m)
-    expect(wildcardPatternsIn(content)).toEqual(
-      EXTENSION_ENV_WILDCARD_MODULES.map((entry) => entry.pattern)
-    )
+    expect(wildcardPatternsIn(content)).toEqual([])
   })
 
   it('declares the define constants with the types their values resolve to', async () => {
@@ -127,13 +207,50 @@ describe('generate-extension-types', () => {
     expect(content).not.toContain('process.env.MODE')
   })
 
-  it('keeps the emitted wildcard list in step with extension/types/assets.d.ts', () => {
+  it('declares each wildcard the bundler accepts once, in extension/types/assets.d.ts', () => {
     const published = fs.readFileSync(publishedTypesFile, 'utf8')
     const publishedPatterns = wildcardPatternsIn(published)
-    expect(publishedPatterns.length).toBeGreaterThan(0)
-    expect(wildcardPatternsIn(renderExtensionEnvTypes())).toEqual(
-      publishedPatterns
+
+    expect(publishedPatterns).toEqual([
+      '*.css',
+      '*.scss',
+      '*.sass',
+      '*.less',
+      '*.module.css',
+      '*.module.scss',
+      '*.module.sass',
+      '*.module.less',
+      '*.png',
+      '*.jpg',
+      '*.jpeg',
+      '*.gif',
+      '*.webp',
+      '*.avif',
+      '*.ico',
+      '*.bmp',
+      '*.svg',
+      '*?raw',
+      '*?url'
+    ])
+
+    expect(new Set(publishedPatterns).size).toBe(publishedPatterns.length)
+    expect(wildcardPatternsIn(renderExtensionEnvTypes())).toEqual([])
+  })
+
+  it('typechecks every bundler import shape with no skipLibCheck', async () => {
+    const root = makeTempDir('extjs-gen-tsc-')
+    fs.writeFileSync(
+      path.join(root, 'manifest.json'),
+      JSON.stringify({name: 'x'})
     )
+
+    writeTypescriptProject(root)
+
+    await generateExtensionTypes(root, root)
+    const result = runTsc(root)
+
+    expect(result.stdout + result.stderr).toBe('')
+    expect(result.status).toBe(0)
   })
 
   it.skip('writes extension-paths.d.ts with unions', async () => {
