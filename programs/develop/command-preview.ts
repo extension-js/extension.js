@@ -114,7 +114,7 @@ export function explicitUnpackedDir(
     if (fs.existsSync(path.join(manifestDir, 'package.json'))) return undefined
     if (fs.existsSync(path.join(manifestDir, 'deno.json'))) return undefined
 
-    return path.resolve(manifestDir)
+    return manifestDir
   }
 
   const typed = path.resolve(process.cwd(), pathOrRemoteUrl)
