@@ -64,6 +64,15 @@ export function envInjectedPublicVars(count: number) {
   return `${prefix('debug')} env      injected=${count} prefix=EXTENSION_PUBLIC_`
 }
 
+export function envValueBreaksJsonAsset(asset: string, names: string[]) {
+  return (
+    `${colors.yellow(asset)} is not valid JSON after substituting ` +
+    `${names.map((name) => colors.yellow(`$${name}`)).join(', ')}.\n` +
+    `An env value only fits inside a JSON string, so keep the placeholder ` +
+    `quoted: ${colors.gray(`"$${names[0]}"`)}.`
+  )
+}
+
 export function envNoMatchingFile(
   browser: string,
   mode: string,
