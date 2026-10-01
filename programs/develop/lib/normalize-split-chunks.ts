@@ -31,27 +31,43 @@ export interface NormalizedSplitChunks {
   narrowed: string[]
 }
 
+type LockedChunkName = (name: string | null | undefined) => boolean
+
 // A user cache group that spans every chunk would also split the background
 // and the content scripts, and those surfaces load exactly one file. Keep
 // the user's intent for every page chunk, skip the single-file surfaces.
 function narrowedSelector(
-  option: 'all' | 'initial'
+  option: 'all' | 'initial',
+  isLocked: LockedChunkName
 ): (chunk: ChunkNameLike) => boolean {
   if (option === 'all') {
-    return (chunk) => !isSurfaceLockedChunkName(chunk.name)
+    return (chunk) => !isLocked(chunk.name)
   }
 
   return (chunk) =>
     (typeof chunk.canBeInitial === 'function' ? chunk.canBeInitial() : true) &&
-    !isSurfaceLockedChunkName(chunk.name)
+    !isLocked(chunk.name)
 }
 
 function narrowChunks(
-  chunks: ChunksOption | undefined
+  chunks: ChunksOption | undefined,
+  isLocked: LockedChunkName
 ): ((chunk: ChunkNameLike) => boolean) | undefined {
-  if (chunks === 'all' || chunks === 'initial') return narrowedSelector(chunks)
+  if (chunks === 'all' || chunks === 'initial') {
+    return narrowedSelector(chunks, isLocked)
+  }
 
   return undefined
+}
+
+// A cache group's own chunks selector replaces the top-level one in rspack,
+// so a user entry has to be kept out of every selector, not only the top.
+function lockedChunkName(config: Configuration): LockedChunkName {
+  const userEntries = new Set(userEntryNames(config))
+
+  return (name) =>
+    isSurfaceLockedChunkName(name) ||
+    (typeof name === 'string' && userEntries.has(name))
 }
 
 // Never mutates the merged config: the returned config shares every
@@ -68,10 +84,11 @@ export function normalizeSplitChunks(
     return {config, narrowed: []}
   }
 
+  const isLocked = lockedChunkName(config)
   const narrowed: string[] = []
   const next: SplitChunksLike = {...splitChunks}
 
-  const topLevel = narrowChunks(splitChunks.chunks)
+  const topLevel = narrowChunks(splitChunks.chunks, isLocked)
 
   if (topLevel) {
     next.chunks = topLevel
@@ -84,7 +101,7 @@ export function normalizeSplitChunks(
     for (const [key, group] of Object.entries(splitChunks.cacheGroups)) {
       const groupSelector =
         group && typeof group === 'object'
-          ? narrowChunks(group.chunks)
+          ? narrowChunks(group.chunks, isLocked)
           : undefined
 
       if (groupSelector && group && typeof group === 'object') {
@@ -122,7 +139,22 @@ export function applySplitChunksGuard(config: Configuration): Configuration {
     console.log(messages.debugSplitChunksNarrowed(narrowed))
   }
 
-  return keepUserEntriesWhole(next)
+  return keepRuntimeInline(keepUserEntriesWhole(next))
+}
+
+// A separate runtime file only reaches an HTML page. The background and the
+// content scripts load one file, so a runtime split out of them never runs.
+export function keepRuntimeInline(config: Configuration): Configuration {
+  const runtimeChunk = config.optimization?.runtimeChunk
+
+  if (!runtimeChunk) return config
+
+  console.warn(messages.runtimeChunkKeptInline(runtimeChunk))
+
+  return {
+    ...config,
+    optimization: {...config.optimization, runtimeChunk: false}
+  }
 }
 
 // The engine starts from an empty entry map, so every name in the config at
@@ -148,18 +180,50 @@ export function keepUserEntriesWhole(config: Configuration): Configuration {
     return config
   }
 
-  const selector = splitChunks.chunks
+  const withoutUserEntries = (
+    chunks: ChunksOption | undefined
+  ): ((chunk: ChunkNameLike) => boolean) | undefined => {
+    if (typeof chunks !== 'function') return undefined
 
-  if (typeof selector !== 'function') return config
+    return (chunk) => !names.has(String(chunk.name)) && chunks(chunk)
+  }
 
-  const chunks = (chunk: ChunkNameLike) =>
-    !names.has(String(chunk.name)) && selector(chunk)
+  let changed = false
+  const next: SplitChunksLike = {...splitChunks}
+  const topLevel = withoutUserEntries(splitChunks.chunks)
+
+  if (topLevel) {
+    next.chunks = topLevel
+    changed = true
+  }
+
+  if (splitChunks.cacheGroups && typeof splitChunks.cacheGroups === 'object') {
+    const cacheGroups: Record<string, CacheGroupLike> = {}
+
+    for (const [key, group] of Object.entries(splitChunks.cacheGroups)) {
+      const groupSelector =
+        group && typeof group === 'object'
+          ? withoutUserEntries(group.chunks)
+          : undefined
+
+      if (groupSelector && group && typeof group === 'object') {
+        cacheGroups[key] = {...group, chunks: groupSelector}
+        changed = true
+      } else {
+        cacheGroups[key] = group
+      }
+    }
+
+    next.cacheGroups = cacheGroups
+  }
+
+  if (!changed) return config
 
   return {
     ...config,
     optimization: {
       ...config.optimization,
-      splitChunks: {...splitChunks, chunks} as unknown as SplitChunksConfig
+      splitChunks: next as unknown as SplitChunksConfig
     }
   }
 }

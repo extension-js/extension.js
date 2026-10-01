@@ -78,6 +78,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "projectInstallScriptsDisabled: function(1)",
     "remoteFetchTimedOut: function(2)",
     "resolvedWorkspaceManifest: function(2)",
+    "runtimeChunkKeptInline: function(1)",
     "sessionStateIgnoreAdded: function(1)",
     "starting: function(2)",
     "treeWithDistFilesBrowser: function(4)",
