@@ -259,6 +259,98 @@ describe('get-project-path', () => {
   })
 })
 
+describe('manifest scan with no project manifest', () => {
+  const extensionManifest = (name: string) =>
+    JSON.stringify({manifest_version: 3, name, version: '1.0.0'})
+
+  function layout(files: Record<string, string>) {
+    const root = fs.realpathSync(makeTempDir('extjs-manifest-scan-'))
+
+    for (const [rel, content] of Object.entries(files)) {
+      const abs = path.join(root, ...rel.split('/'))
+      fs.mkdirSync(path.dirname(abs), {recursive: true})
+      fs.writeFileSync(abs, content)
+    }
+
+    return root
+  }
+
+  const companionOnly = {
+    'extensions/helper/manifest.json': extensionManifest('COMPANION HELPER')
+  }
+  const publicOnly = {
+    'public/sample/manifest.json': extensionManifest('PUBLIC SAMPLE')
+  }
+  const withPackageJson = {'package.json': JSON.stringify({name: 'pkg'})}
+
+  it('refuses a companion manifest under extensions/ when package.json exists', async () => {
+    const root = layout({...withPackageJson, ...companionOnly})
+
+    await expect(getProjectStructure(root)).rejects.toThrow(
+      /Manifest file not found[\s\S]*COMPANION[\s\S]*extensions[\\/]helper/
+    )
+  })
+
+  it('refuses a companion manifest under extensions/ without package.json', async () => {
+    const root = layout(companionOnly)
+
+    await expect(getProjectStructure(root)).rejects.toThrow(
+      /Manifest file not found[\s\S]*COMPANION[\s\S]*extensions[\\/]helper/
+    )
+  })
+
+  it('never adopts a manifest under public/ when package.json exists', async () => {
+    const root = layout({...withPackageJson, ...publicOnly})
+
+    await expect(getProjectStructure(root)).rejects.toThrow(
+      /Manifest file not found/
+    )
+  })
+
+  it('never adopts a manifest under public/ without package.json', async () => {
+    const root = layout(publicOnly)
+
+    await expect(getProjectStructure(root)).rejects.toThrow(
+      /Manifest file not found/
+    )
+  })
+
+  it('skips build output folders on the no-package.json walk too', async () => {
+    const root = layout({
+      'out/manifest.json': extensionManifest('BUILT'),
+      'build/manifest.json': extensionManifest('BUILT'),
+      'coverage/manifest.json': extensionManifest('BUILT')
+    })
+
+    await expect(getProjectStructure(root)).rejects.toThrow(
+      /Manifest file not found/
+    )
+  })
+
+  it('still resolves a lone workspace package beside a companion', async () => {
+    const root = layout({
+      ...withPackageJson,
+      ...companionOnly,
+      'packages/ext/manifest.json': extensionManifest('THE REAL PROJECT')
+    })
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    try {
+      const s = await getProjectStructure(root)
+      expect(s.manifestPath.split(path.sep).join('/')).toBe(
+        `${root.split(path.sep).join('/')}/packages/ext/manifest.json`
+      )
+
+      const printed = logSpy.mock.calls
+        .map((call) => String(call[0]))
+        .join('\n')
+      expect(printed).toMatch(/Workspace root detected/)
+    } finally {
+      logSpy.mockRestore()
+    }
+  })
+})
+
 // A GitHub tree URL goes through go-git-it, which prints a git version line
 // and an unauthenticated rate-limit warning on its own. Those must not reach
 // the user unless they asked for --debug.

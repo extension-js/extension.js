@@ -318,22 +318,32 @@ export async function getProjectPath(
   return resolvedPath
 }
 
+// Companion extensions live under extensions/ and load next to the project,
+// so a manifest found only there is never the project's own.
+const COMPANION_EXTENSIONS_DIR = 'extensions'
+
+const MANIFEST_SCAN_SKIP_DIRS: ReadonlySet<string> = new Set([
+  'node_modules',
+  'dist',
+  'build',
+  'out',
+  'coverage',
+  'public',
+  COMPANION_EXTENSIONS_DIR
+])
+
+function isManifestScanDir(entry: fs.Dirent): boolean {
+  return (
+    entry.isDirectory() &&
+    !entry.name.startsWith('.') &&
+    !MANIFEST_SCAN_SKIP_DIRS.has(entry.name)
+  )
+}
+
 function collectManifestCandidates(
   rootDir: string,
   maxDepth: number
 ): string[] {
-  const SKIP_DIRS = new Set([
-    'node_modules',
-    'dist',
-    'build',
-    'out',
-    '.git',
-    '.turbo',
-    '.next',
-    'coverage',
-    '.cache',
-    '.vercel'
-  ])
   const results: string[] = []
 
   const walk = (dir: string, depth: number) => {
@@ -353,11 +363,7 @@ function collectManifestCandidates(
         continue
       }
 
-      if (
-        entry.isDirectory() &&
-        !entry.name.startsWith('.') &&
-        !SKIP_DIRS.has(entry.name)
-      ) {
+      if (isManifestScanDir(entry)) {
         walk(path.join(dir, entry.name), depth + 1)
       }
     }
@@ -366,6 +372,13 @@ function collectManifestCandidates(
   walk(rootDir, 0)
 
   return results
+}
+
+function findCompanionManifest(projectPath: string): string | undefined {
+  return collectManifestCandidates(
+    path.join(projectPath, COMPANION_EXTENSIONS_DIR),
+    2
+  )[0]
 }
 
 export async function getProjectStructure(
@@ -411,6 +424,21 @@ export function resolveProjectStructureSync(
     : rootManifestPath
 
   if (!fs.existsSync(manifestPath)) {
+    const missingManifestError = (candidates: string[] = []) => {
+      const companionManifest = candidates.length
+        ? undefined
+        : findCompanionManifest(projectPath)
+
+      return new Error(
+        companionManifest
+          ? messages.companionManifestNotProjectError(
+              manifestPath,
+              companionManifest
+            )
+          : messages.manifestNotFoundError(manifestPath, candidates)
+      )
+    }
+
     if (packageJsonDirFromProject) {
       const absoluteCandidates = collectManifestCandidates(projectPath, 3)
       const relativeCandidates = absoluteCandidates.map(
@@ -421,9 +449,7 @@ export function resolveProjectStructureSync(
         manifestPath = absoluteCandidates[0]
         log(messages.resolvedWorkspaceManifest(projectPath, manifestPath))
       } else {
-        throw new Error(
-          messages.manifestNotFoundError(manifestPath, relativeCandidates)
-        )
+        throw missingManifestError(relativeCandidates)
       }
     } else {
       const MAX_DEPTH = 5
@@ -444,13 +470,7 @@ export function resolveProjectStructureSync(
             return path.join(dir, file.name)
           }
 
-          if (
-            file.isDirectory() &&
-            !file.name.startsWith('.') &&
-            file.name !== 'node_modules' &&
-            file.name !== 'dist' &&
-            file.name !== 'public'
-          ) {
+          if (isManifestScanDir(file)) {
             const found = findManifest(path.join(dir, file.name), depth + 1)
             if (found) return found
           }
@@ -464,7 +484,7 @@ export function resolveProjectStructureSync(
       if (foundManifest) {
         manifestPath = foundManifest
       } else {
-        throw new Error(messages.manifestNotFoundError(manifestPath))
+        throw missingManifestError()
       }
     }
   }

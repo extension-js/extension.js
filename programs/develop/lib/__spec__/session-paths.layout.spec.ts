@@ -104,6 +104,7 @@ describe('session-root ignore guard', () => {
   })
 
   it('writes a self-ignoring .gitignore into the session root', () => {
+    fs.writeFileSync(path.join(scratch, 'package.json'), '{"name":"ext"}')
     ensureSessionArtifactsIgnoreFile(scratch)
     const content = fs.readFileSync(
       sessionArtifactsIgnoreFilePath(scratch),
@@ -113,7 +114,18 @@ describe('session-root ignore guard', () => {
     expect(content.trim().endsWith('*')).toBe(true)
   })
 
+  it('writes nothing into a folder that holds no project', () => {
+    ensureSessionArtifactsIgnoreFile(scratch)
+    expect(fs.existsSync(sessionArtifactsIgnoreFilePath(scratch))).toBe(false)
+    expect(fs.existsSync(path.join(scratch, 'dist'))).toBe(false)
+
+    fs.writeFileSync(path.join(scratch, 'manifest.json'), '{"name":"ext"}')
+    ensureSessionArtifactsIgnoreFile(scratch)
+    expect(fs.existsSync(sessionArtifactsIgnoreFilePath(scratch))).toBe(true)
+  })
+
   it('is idempotent and never clobbers an existing (user-edited) file', () => {
+    fs.writeFileSync(path.join(scratch, 'deno.json'), '{}')
     ensureSessionArtifactsIgnoreFile(scratch)
     ensureSessionArtifactsIgnoreFile(scratch)
     const ignoreFile = sessionArtifactsIgnoreFilePath(scratch)
