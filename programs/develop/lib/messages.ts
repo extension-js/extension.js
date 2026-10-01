@@ -111,6 +111,24 @@ export function manifestNotFoundError(
   return `${base}\n\n${colors.gray(hint)}\n${colors.blue(suggestions)}`
 }
 
+export function companionManifestNotProjectError(
+  manifestPath: string,
+  companionManifestPath: string
+) {
+  const projectRoot = path.dirname(manifestPath)
+  const companionDir = path.dirname(companionManifestPath)
+  const display = path.relative(projectRoot, companionDir) || companionDir
+
+  return (
+    `${getLoggingPrefix('error')} Manifest file not found.\n` +
+    `${colors.gray('NOT FOUND')} ${colors.underline(manifestPath)}\n` +
+    `The only manifest.json here belongs to a companion extension under ${colors.blue('extensions/')}.\n` +
+    `Companions load next to your extension and never stand in for it.\n` +
+    `${colors.gray('COMPANION')} ${colors.underline(display)}\n` +
+    `Add a manifest.json at the project root or in ${colors.blue('src/')}, or point Extension.js at your extension's directory.`
+  )
+}
+
 // The run-only preview quietly serves the SOURCE manifest dir when
 // dist/<browser> is absent (typical after `build --browser all`, which
 // writes chrome/edge/firefox but not the default chromium target). Say so,

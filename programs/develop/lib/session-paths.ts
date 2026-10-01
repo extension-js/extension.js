@@ -53,8 +53,23 @@ export function sessionArtifactsIgnoreFilePath(projectPath: string): string {
   return path.join(sessionArtifactsRootDir(projectPath), '.gitignore')
 }
 
+const PROJECT_ROOT_MARKERS = [
+  'package.json',
+  'deno.jsonc',
+  'deno.json',
+  'manifest.json'
+]
+
+function holdsProjectRootMarker(projectPath: string): boolean {
+  return PROJECT_ROOT_MARKERS.some((marker) =>
+    fs.existsSync(path.join(projectPath, marker))
+  )
+}
+
 export function ensureSessionArtifactsIgnoreFile(projectPath: string): void {
   try {
+    if (!holdsProjectRootMarker(projectPath)) return
+
     const ignoreFile = sessionArtifactsIgnoreFilePath(projectPath)
     if (fs.existsSync(ignoreFile)) return
 
