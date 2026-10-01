@@ -71,6 +71,10 @@ describe('the @rspack/core peer check', () => {
 
     developRoot.dir = engine
 
+    // A copy whose version is not a release number falls back to the pin.
+    // Written on purpose: a bare folder could still resolve some @rspack/core
+    // from a parent directory on a CI runner.
+    writePackage(engine, '@rspack/core', {version: 'workspace'})
     expect(engineRspackVersion('/any')).toBe('2.2.0')
 
     writePackage(engine, '@rspack/core', {version: '2.2.3'})
