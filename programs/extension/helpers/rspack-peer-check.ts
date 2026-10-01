@@ -14,10 +14,31 @@ import {resolveExtensionDevelopRoot} from './extension-develop-runtime'
 
 const RSPACK = '@rspack/core'
 
-export interface RspackPeerConflict {
-  name: string
-  version: string
-  range: string
+// An installed copy names the peer range it declares. A copy that is not
+// installed can still be a conflict when the range package.json declares for
+// it cannot reach the release known to accept the engine.
+export type RspackPeerConflict =
+  | {name: string; version: string; range: string}
+  | {name: string; declared: string; fixedIn: string}
+
+export interface RspackPeerScan {
+  conflicts: RspackPeerConflict[]
+  unreadable: string[]
+}
+
+// Releases measured to have widened their @rspack/core peer range, with the
+// range that release declares.
+const KNOWN_FIXES: Record<string, {version: string; accepts: string}> = {
+  'css-loader': {version: '7.1.4', accepts: '0.x || ^1.0.0 || ^2.0.0-0'}
+}
+
+function knownFixFor(name: string, engineVersion: string) {
+  const fix = KNOWN_FIXES[name]
+
+  return fix &&
+    semver.satisfies(engineVersion, fix.accepts, {includePrerelease: true})
+    ? fix
+    : undefined
 }
 
 interface PackageManifest {
@@ -65,35 +86,67 @@ export function engineRspackVersion(projectPath: string): string | undefined {
   )
 }
 
+// The resolver honors a package's exports map, which may hide package.json,
+// so the direct path under node_modules is the second attempt.
+function readInstalledManifest(
+  req: NodeJS.Require,
+  projectPath: string,
+  name: string
+): PackageManifest | undefined {
+  try {
+    return readJson(req.resolve(`${name}/package.json`))
+  } catch {
+    // Ignore
+  }
+
+  return readJson(
+    path.join(projectPath, 'node_modules', ...name.split('/'), 'package.json')
+  )
+}
+
 // Every direct dependency of the project whose @rspack/core peer range does
 // not accept the engine's version. npm refuses to install next to one of
-// these (ERESOLVE), which is the failure this check names.
-export function findRspackPeerConflicts(
+// these (ERESOLVE), which is the failure this check names, so a dependency
+// that cannot be read is reported rather than cleared.
+export function scanRspackPeers(
   projectPath: string,
   engineVersion: string
-): RspackPeerConflict[] {
+): RspackPeerScan {
   const manifest = readJson(path.join(projectPath, 'package.json'))
-  if (!manifest) return []
+  if (!manifest) return {conflicts: [], unreadable: []}
 
-  const names = new Set<string>([
-    ...Object.keys(manifest.dependencies || {}),
-    ...Object.keys(manifest.devDependencies || {})
-  ])
+  const declaredRanges: Record<string, unknown> = {
+    ...manifest.dependencies,
+    ...manifest.devDependencies
+  }
   const req = createRequire(path.join(projectPath, 'package.json'))
   const conflicts: RspackPeerConflict[] = []
+  const unreadable: string[] = []
 
-  for (const name of names) {
+  for (const name of Object.keys(declaredRanges)) {
     if (name === RSPACK) continue
 
-    let installed: PackageManifest | undefined
+    const installed = readInstalledManifest(req, projectPath, name)
 
-    try {
-      installed = readJson(req.resolve(`${name}/package.json`))
-    } catch {
+    if (!installed) {
+      const declared = declaredRanges[name]
+      const fix = knownFixFor(name, engineVersion)
+
+      if (
+        fix &&
+        typeof declared === 'string' &&
+        semver.validRange(declared) &&
+        semver.gtr(fix.version, declared)
+      ) {
+        conflicts.push({name, declared, fixedIn: fix.version})
+      } else {
+        unreadable.push(name)
+      }
+
       continue
     }
 
-    const range = installed?.peerDependencies?.[RSPACK]
+    const range = installed.peerDependencies?.[RSPACK]
     if (typeof range !== 'string' || !range.trim()) continue
     if (!semver.validRange(range)) continue
 
@@ -103,29 +156,40 @@ export function findRspackPeerConflicts(
 
     conflicts.push({
       name,
-      version: String(installed?.version || 'unknown'),
+      version: String(installed.version || 'unknown'),
       range
     })
   }
 
-  return conflicts
-}
-
-// Releases known to have widened their @rspack/core peer range.
-const KNOWN_FIXES: Record<string, string> = {
-  'css-loader': '7.1.4'
+  return {conflicts, unreadable}
 }
 
 export function describeRspackPeerConflicts(
   conflicts: RspackPeerConflict[],
   engineVersion: string
 ): string {
+  const major = semver.major(engineVersion)
+
   return conflicts
-    .map(
-      (conflict) =>
-        `${conflict.name} ${conflict.version} accepts ${RSPACK} ${conflict.range}, the engine ships ${engineVersion}`
+    .map((conflict) =>
+      'range' in conflict
+        ? `${conflict.name} ${conflict.version} accepts ${RSPACK} ${conflict.range}, the engine ships ${engineVersion}`
+        : `${conflict.name} ${conflict.declared} is declared but not installed and stays below ${conflict.fixedIn}, the first release whose peer range accepts ${RSPACK} ${major}.x (the engine ships ${engineVersion})`
     )
     .join('. ')
+}
+
+export function describeUnreadableDependencies(unreadable: string[]): string {
+  const shown = unreadable.slice(0, 6).join(', ')
+  const rest = unreadable.length - 6
+  const one = unreadable.length === 1
+
+  return (
+    `could not read ${unreadable.length} direct ` +
+    `${one ? 'dependency' : 'dependencies'} (${shown}` +
+    `${rest > 0 ? ` and ${rest} more` : ''}), ` +
+    `${one ? `its ${RSPACK} peer range is` : `their ${RSPACK} peer ranges are`} unverified`
+  )
 }
 
 export function remedyRspackPeerConflicts(
@@ -136,10 +200,10 @@ export function remedyRspackPeerConflicts(
 
   return conflicts
     .map((conflict) => {
-      const fixed = KNOWN_FIXES[conflict.name]
+      const fix = knownFixFor(conflict.name, engineVersion)
 
-      return fixed
-        ? `Upgrade ${conflict.name} to ${fixed} or newer, its peer range accepts ${RSPACK} ${major}, then install again`
+      return fix
+        ? `Upgrade ${conflict.name} to ${fix.version} or newer, its peer range accepts ${RSPACK} ${major}, then install again`
         : `Upgrade ${conflict.name} to a release whose ${RSPACK} peer range accepts ${major}.x, then install again`
     })
     .join('. ')

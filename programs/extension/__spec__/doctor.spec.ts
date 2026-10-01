@@ -16,7 +16,8 @@ vi.mock('../helpers/extension-develop-runtime', () => ({
 
 const peer = vi.hoisted(() => ({
   engine: '2.2.3' as string | undefined,
-  conflicts: [] as Array<{name: string; version: string; range: string}>
+  conflicts: [] as Array<{name: string; version: string; range: string}>,
+  unreadable: [] as string[]
 }))
 
 vi.mock('../helpers/rspack-peer-check', async () => {
@@ -25,7 +26,10 @@ vi.mock('../helpers/rspack-peer-check', async () => {
   return {
     ...actual,
     engineRspackVersion: () => peer.engine,
-    findRspackPeerConflicts: () => peer.conflicts
+    scanRspackPeers: () => ({
+      conflicts: peer.conflicts,
+      unreadable: peer.unreadable
+    })
   }
 })
 
@@ -128,6 +132,34 @@ describe('extension doctor', () => {
       )
     } finally {
       peer.conflicts = []
+    }
+  })
+
+  it('warns instead of passing when a dependency could not be read', async () => {
+    peer.unreadable = ['extension', 'postcss-loader']
+
+    try {
+      const r = byCheck(await runDoctor('/proj', {}))
+      expect(r['peer-rspack'].status).toBe('warn')
+      expect(r['peer-rspack'].detail).toBe(
+        'could not read 2 direct dependencies (extension, postcss-loader), their @rspack/core peer ranges are unverified'
+      )
+
+      expect(r['peer-rspack'].remediation).toContain('Install')
+
+      peer.conflicts = [
+        {name: 'css-loader', version: '6.11.0', range: '0.x || 1.x'}
+      ]
+
+      const failed = byCheck(await runDoctor('/proj', {}))
+      expect(failed['peer-rspack'].status).toBe('fail')
+      expect(failed['peer-rspack'].detail).toContain('css-loader 6.11.0')
+      expect(failed['peer-rspack'].detail).toContain(
+        '. could not read 2 direct dependencies (extension, postcss-loader)'
+      )
+    } finally {
+      peer.conflicts = []
+      peer.unreadable = []
     }
   })
 
@@ -353,17 +385,126 @@ describe('extension doctor', () => {
 })
 
 describe('extension doctor (browser resolution)', () => {
-  function makeProject(browsers: string[]): string {
+  function writeContract(root: string, browser: string, contract: object) {
+    const dir = path.join(root, 'dist', 'extension-js', browser)
+    fs.mkdirSync(dir, {recursive: true})
+    fs.writeFileSync(path.join(dir, 'ready.json'), JSON.stringify(contract))
+  }
+
+  function makeProject(browsers: string[], receipts: string[] = []): string {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-doctor-'))
 
     for (const browser of browsers) {
-      const dir = path.join(root, 'dist', 'extension-js', browser)
-      fs.mkdirSync(dir, {recursive: true})
-      fs.writeFileSync(path.join(dir, 'ready.json'), '{"status":"ready"}')
+      writeContract(root, browser, {
+        status: 'ready',
+        command: 'dev',
+        port: 8080,
+        controlPort: 4001,
+        instanceId: 'inst-1',
+        pid: process.pid
+      })
+    }
+
+    for (const browser of receipts) {
+      writeContract(root, browser, {
+        status: 'ready',
+        command: 'build',
+        port: null,
+        controlPort: null,
+        pid: 999999
+      })
     }
 
     return root
   }
+
+  it('never counts a build receipt as a session and names it only as the fallback', () => {
+    const root = makeProject([], ['chrome', 'firefox'])
+
+    try {
+      expect(resolveDoctorBrowser(root, undefined)).toEqual({
+        browser: 'chrome',
+        sessionBrowsers: []
+      })
+
+      writeContract(root, 'edge', {status: 'ready', command: 'dev'})
+      expect(resolveDoctorBrowser(root, undefined)).toEqual({
+        browser: 'edge',
+        sessionBrowsers: ['edge']
+      })
+    } finally {
+      fs.rmSync(root, {recursive: true, force: true})
+    }
+  })
+
+  it('names the absence of a session on a built-only project and never dials the receipt', async () => {
+    const root = makeProject([], ['chrome', 'firefox'])
+    let dialed = 0
+    state.mod = healthyModule({
+      readReadyContract: () => {
+        dialed += 1
+
+        return null
+      }
+    })
+
+    try {
+      const results = await runDoctor(root, {})
+      const r = byCheck(results)
+      expect(dialed).toBe(0)
+      expect(r['session-resolution']).toBeUndefined()
+      expect(r['ready-contract'].status).toBe('fail')
+      expect(r['ready-contract'].detail).toContain('no dev session for chrome')
+      expect(r['ready-contract'].detail).toMatch(
+        /chrome[\\/]ready\.json is the receipt of an extension build run/
+      )
+
+      expect(r['ready-contract'].remediation).toContain(
+        'extension dev --browser=chrome'
+      )
+
+      for (const check of ALL_CHECKS.slice(2)) {
+        expect(r[check].status).toBe('skip')
+      }
+
+      const printed = results
+        .map((c) => `${c.detail} ${c.remediation ?? ''}`)
+        .join('\n')
+      expect(printed).not.toContain('died uncleanly')
+      expect(printed).not.toContain('controlPort null')
+      expect(printed).not.toContain('stale')
+    } finally {
+      fs.rmSync(root, {recursive: true, force: true})
+    }
+  })
+
+  it('diagnoses the one live session next to build receipts without a warn', async () => {
+    const root = makeProject(['firefox'], ['chrome', 'edge'])
+    let asked: string | undefined
+    state.mod = healthyModule({
+      readReadyContract: (_p: string, browser: string) => {
+        asked = browser
+
+        return {
+          controlPort: 4001,
+          instanceId: 'inst-1',
+          runId: 'run-A',
+          status: 'ready',
+          pid: process.pid,
+          cdpPort: 9222
+        }
+      }
+    })
+
+    try {
+      const results = await runDoctor(root, {})
+      expect(asked).toBe('firefox')
+      expect(results.map((r) => r.check)).toEqual(ALL_CHECKS)
+      expect(results.every((r) => r.status === 'pass')).toBe(true)
+    } finally {
+      fs.rmSync(root, {recursive: true, force: true})
+    }
+  })
 
   it('prefers the single live session over the chromium default', () => {
     const root = makeProject(['chrome'])
@@ -498,6 +639,49 @@ describe('extension doctor (command surface)', () => {
       expect(frame.hint).toContain('extension dev')
     } finally {
       vi.restoreAllMocks()
+    }
+  })
+
+  it('reports a built-only project as no session in the envelope', async () => {
+    const {makeProgram, runCli, stubProcessExit} = await import(
+      './command-harness'
+    )
+    const {registerDoctorCommand} = await import('../commands/doctor')
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-doctor-'))
+    const dir = path.join(root, 'dist', 'extension-js', 'chrome')
+    fs.mkdirSync(dir, {recursive: true})
+    fs.writeFileSync(
+      path.join(dir, 'ready.json'),
+      JSON.stringify({
+        status: 'ready',
+        command: 'build',
+        port: null,
+        controlPort: null,
+        pid: 999999
+      })
+    )
+
+    state.mod = healthyModule({readReadyContract: () => null})
+    stubProcessExit()
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    try {
+      const code = await runCli(makeProgram(registerDoctorCommand), [
+        'doctor',
+        root,
+        '--output',
+        'json'
+      ])
+      expect(code).toBe(1)
+      const raw = String(logSpy.mock.calls[0][0])
+      const frame = JSON.parse(raw)
+      expect(frame.error.code).toBe('E_SESSION_NOT_FOUND')
+      expect(frame.hint).toContain('extension dev --browser=chrome')
+      expect(raw).not.toContain('died uncleanly')
+      expect(raw).not.toContain('multiple live sessions')
+    } finally {
+      vi.restoreAllMocks()
+      fs.rmSync(root, {recursive: true, force: true})
     }
   })
 
