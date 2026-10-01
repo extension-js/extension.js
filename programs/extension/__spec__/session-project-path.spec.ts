@@ -141,8 +141,8 @@ describe('doctor given the manifest folder', () => {
   })
 
   it('names the absolute ready path when nothing is running', async () => {
-    const results = await runDoctor(src, {})
-    const contract = results.find((r) => r.check === 'ready-contract')
+    const {checks} = await runDoctor(src, {})
+    const contract = checks.find((r) => r.check === 'ready-contract')
     expect(contract?.status).toBe('fail')
     expect(contract?.detail).toContain(
       path.join(root, 'dist', 'extension-js', 'chromium', 'ready.json')

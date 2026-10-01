@@ -34,9 +34,15 @@ export interface ReadyContractInfo {
   pid?: number
   /** Browser CDP port, stamped post-launch, may lag `status: 'ready'`. */
   cdpPort?: number
+  /** Gecko debugger-server port, the `cdpPort` of a Firefox-family session. */
+  rdpPort?: number
+  /** The launched browser process, the only handle on its liveness. */
+  browserPid?: number
   /** Stamped when the launched browser exits while the server keeps running. */
   browserExitedAt?: string
   browserExitCode?: number
+  /** When this run began (ISO), kept across recompiles of the same run. */
+  startedAt?: string
   /** When the compile finished (ISO), the meaning of `status: 'ready'`. */
   compiledAt?: string
   /** When the extension's service worker attached to the control channel (ISO). */
@@ -97,6 +103,9 @@ export function readReadyContract(
       engine: typeof c.engine === 'string' ? c.engine : undefined,
       pid: typeof c.pid === 'number' ? c.pid : undefined,
       cdpPort: typeof c.cdpPort === 'number' ? c.cdpPort : undefined,
+      rdpPort: typeof c.rdpPort === 'number' ? c.rdpPort : undefined,
+      browserPid: typeof c.browserPid === 'number' ? c.browserPid : undefined,
+      startedAt: typeof c.startedAt === 'string' ? c.startedAt : undefined,
       browserExitedAt:
         typeof c.browserExitedAt === 'string' ? c.browserExitedAt : undefined,
       browserExitCode:

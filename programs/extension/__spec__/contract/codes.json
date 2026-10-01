@@ -549,6 +549,9 @@
       "CliError": "E_ARGS"
     },
     "doctorChecks": {
+      "session-resolution": "E_INSTANCE_AMBIGUOUS",
+      "engine": "E_COMMAND_UNSUPPORTED_FOR_TARGET",
+      "peer-rspack": "E_DEPENDENCY_INSTALL",
       "ready-contract": "E_SESSION_NOT_FOUND",
       "server-process": "E_SESSION_NOT_FOUND",
       "port-agreement": "E_CONTROL_UNAVAILABLE",
