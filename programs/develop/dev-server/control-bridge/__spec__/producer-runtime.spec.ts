@@ -2007,6 +2007,45 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     ])
   })
 
+  // A devtools page connects without a sender.tab, which is how a devtools
+  // extension knows its own devtools port. Ours must never join that queue.
+  it('the relay (devtools) sends messages and opens NO runtime.Port', () => {
+    const sendMessageCalls: any[] = []
+    let connects = 0
+    const fakeGlobal: Record<string, unknown> = {
+      console: {warn: () => {}},
+      location: {href: 'chrome-extension://abc/devtools/index.html'},
+      chrome: {
+        runtime: {
+          connect: () => {
+            connects += 1
+
+            return {
+              postMessage: () => {},
+              onDisconnect: {addListener: () => {}}
+            }
+          },
+          sendMessage: (msg: any, cb: any) => {
+            sendMessageCalls.push(msg)
+            if (typeof cb === 'function') cb()
+          },
+          lastError: undefined
+        }
+      }
+    }
+
+    run(buildBridgeRelaySource({context: 'devtools'}), fakeGlobal)
+    ;(fakeGlobal.console as any).warn('hello from devtools')
+
+    expect(connects).toBe(0)
+    expect(sendMessageCalls).toHaveLength(1)
+    expect(sendMessageCalls[0].__extjsBridgeLog).toMatchObject({
+      level: 'warn',
+      context: 'devtools',
+      url: 'chrome-extension://abc/devtools/index.html'
+    })
+  })
+
   it('the relay redials the port once when a stale port throws (SW restarted)', () => {
     const sent: any[] = []
     let connects = 0
