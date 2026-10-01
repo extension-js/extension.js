@@ -215,7 +215,8 @@ describe('webpack/command-preview (run-only)', () => {
     )
 
     const call = runOnlyPreviewBrowser.mock.calls[0]?.[0] as any
-    expect(call.outPath).toBe(path.join('/dl', 'firefox'))
+    // The extracted folder is passed through as dirname gives it, slashes kept.
+    expect(call.outPath).toBe('/dl/firefox')
 
     const printed = localLog.mock.calls
       .map((c: any[]) => String(c[0]))
@@ -241,7 +242,7 @@ describe('webpack/command-preview (run-only)', () => {
     )
 
     const call = runOnlyPreviewBrowser.mock.calls[0]?.[0] as any
-    expect(call.outPath).toBe(path.join('/here', 'chrome'))
+    expect(call.outPath).toBe('/here/chrome')
   })
 
   it('keeps the project path for a downloaded source archive that has a package.json', async () => {
