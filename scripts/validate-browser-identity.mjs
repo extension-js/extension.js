@@ -19,6 +19,7 @@ import {
 } from 'node:fs'
 import {homedir, tmpdir} from 'node:os'
 import {dirname, join, resolve, sep} from 'node:path'
+import {judgeIdentityRun} from './lib/browser-identity-verdict.mjs'
 import {
   cliSpawnArgs,
   describeDevCli,
@@ -114,6 +115,7 @@ const chromiumBinary = parseArg('--chromium-binary', '')
 const cacheMode = parseArg('--cache', 'warm')
 const timeoutMs = Number(parseArg('--timeout-ms', '180000'))
 const keepTemp = parseFlag('--keep-temp')
+const allowSkips = parseFlag('--allow-skips')
 
 const nodeDir = dirname(process.execPath)
 const pathDelim = process.platform === 'win32' ? ';' : ':'
@@ -1175,19 +1177,13 @@ async function main() {
     }
   }
 
-  const failed = rows.filter((row) => row.status === 'FAIL')
+  const verdict = judgeIdentityRun(rows, {allowSkips})
 
-  if (failed.length) {
-    throw new Error(
-      `${failed.length} target(s) did not run the browser they claim: ${failed
-        .map((row) => `${row.target} (${row.detail})`)
-        .join('; ')}`
-    )
+  if (!verdict.ok) {
+    throw new Error(verdict.message)
   }
 
-  console.log(
-    `\nPASS: ${rows.filter((row) => row.status === 'PASS').length} target(s) ran the browser the card names`
-  )
+  console.log(`\n${verdict.message}`)
 }
 
 main().catch((error) => {
