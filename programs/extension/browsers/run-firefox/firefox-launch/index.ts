@@ -91,6 +91,7 @@ import {
   type FirefoxBrowserKind,
   setupFirefoxProcessHandlers
 } from './process-handlers'
+import {removeSessionPreferences} from './session-preferences'
 import {setupRdpAfterLaunch} from './setup-rdp-after-launch'
 import {
   isWslEnv,
@@ -826,6 +827,7 @@ export class FirefoxLaunchPlugin {
     }
 
     if (this.host.launchProfilePath) {
+      removeSessionPreferences(this.host.launchProfilePath)
       removeManagedEphemeralProfile(this.host.launchProfilePath)
     }
 
@@ -998,6 +1000,12 @@ export class FirefoxLaunchPlugin {
   }
 
   private async cleanupInstance(): Promise<void> {
+    // Firefox read user.js at startup, so the developer's own file can go
+    // back to what it was on any way out, a signal included.
+    if (this.host.launchProfilePath) {
+      removeSessionPreferences(this.host.launchProfilePath)
+    }
+
     // The RDP socket belongs to the session: closed here so no client is left
     // reconnecting to a browser that is gone.
     this.host.rdpController?.disconnect()

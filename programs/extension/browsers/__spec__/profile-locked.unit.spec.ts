@@ -1,12 +1,18 @@
+import {type ChildProcess, spawn} from 'node:child_process'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
+import {unhandledError} from '../../helpers/messages'
+import {chromiumProfileInUse} from '../browsers-lib/messages'
 import {stampReadyProfileLocked} from '../browsers-lib/ready-stamp'
 import {
   isProfileLockedError,
   prepareChromiumProfileForLaunch
 } from '../browsers-lib/shared-utils'
+
+const browserOn = (dataDir: string) => () =>
+  `/Applications/Chromium.app/Contents/MacOS/Chromium --user-data-dir=${dataDir} --no-first-run`
 
 describe('profile lock detection', () => {
   let profile: string
@@ -29,7 +35,9 @@ describe('profile lock detection', () => {
     let caught: unknown
 
     try {
-      prepareChromiumProfileForLaunch(profile)
+      prepareChromiumProfileForLaunch(profile, {
+        readCommand: browserOn(profile)
+      })
     } catch (error) {
       caught = error
     }
@@ -70,7 +78,9 @@ describe('profile lock detection', () => {
       let caught: unknown
 
       try {
-        prepareChromiumProfileForLaunch(profile)
+        prepareChromiumProfileForLaunch(profile, {
+          readCommand: browserOn(profile)
+        })
       } catch (error) {
         caught = error
       }
@@ -127,6 +137,106 @@ describe('profile lock detection', () => {
       }
     }
   )
+
+  describe('a live pid that is not a browser on this profile', () => {
+    let bystander: ChildProcess | undefined
+
+    afterEach(() => {
+      bystander?.kill('SIGKILL')
+      bystander = undefined
+    })
+
+    const lockTo = (pid: number) =>
+      fs.symlinkSync(
+        `${os.hostname()}-${pid}`,
+        path.join(profile, 'SingletonLock')
+      )
+
+    const lockIsGone = () =>
+      fs.lstatSync(path.join(profile, 'SingletonLock'), {
+        throwIfNoEntry: false
+      }) === undefined
+
+    // After a crash or a reboot the pid in the lock gets handed to whatever
+    // starts next, and the profile must not stay locked out because of it.
+    it.skipIf(process.platform === 'win32')(
+      'clears the lock when the pid now belongs to another program',
+      () => {
+        bystander = spawn('sleep', ['30'], {stdio: 'ignore'})
+        lockTo(bystander.pid as number)
+
+        const result = prepareChromiumProfileForLaunch(profile)
+
+        expect(result.removedArtifacts).toContain('SingletonLock')
+        expect(lockIsGone()).toBe(true)
+      }
+    )
+
+    it.skipIf(process.platform === 'win32')(
+      'refuses when the live process is a browser running on the profile',
+      () => {
+        bystander = spawn(
+          process.execPath,
+          [
+            '-e',
+            'setTimeout(() => {}, 30000)',
+            'chromium',
+            `--user-data-dir=${profile}`
+          ],
+          {stdio: 'ignore'}
+        )
+
+        lockTo(bystander.pid as number)
+
+        expect(() => prepareChromiumProfileForLaunch(profile)).toThrow(
+          /already in use by process/
+        )
+
+        expect(lockIsGone()).toBe(false)
+      }
+    )
+
+    it.skipIf(process.platform === 'win32')(
+      'clears the lock when that browser runs on another data dir',
+      () => {
+        lockTo(process.pid)
+
+        const result = prepareChromiumProfileForLaunch(profile, {
+          readCommand: browserOn('/somewhere/else/profile')
+        })
+
+        expect(result.removedArtifacts).toContain('SingletonLock')
+      }
+    )
+
+    it.skipIf(process.platform === 'win32')(
+      'keeps refusing when the owner cannot be told apart',
+      () => {
+        lockTo(process.pid)
+
+        expect(() =>
+          prepareChromiumProfileForLaunch(profile, {readCommand: () => null})
+        ).toThrow(/already in use by process/)
+
+        expect(() =>
+          prepareChromiumProfileForLaunch(profile, {
+            readCommand: () => '/Applications/Brave Browser.app/Brave Browser'
+          })
+        ).toThrow(/already in use by process/)
+      }
+    )
+  })
+
+  it('prints the refusal as one frame with no stack trace', () => {
+    const printed = unhandledError(
+      new Error(chromiumProfileInUse('/p/profile', {host: 'host-a', pid: 42}))
+    )
+
+    expect(printed).toContain('A running browser already uses this profile.')
+    expect(printed).toContain('42 on host-a')
+    expect(printed).not.toMatch(/\n\s+at /)
+    expect(printed).not.toContain('Error:')
+  })
 
   it('does not classify an unrelated launch failure as a lock', () => {
     expect(isProfileLockedError(new Error('boom'))).toBe(false)

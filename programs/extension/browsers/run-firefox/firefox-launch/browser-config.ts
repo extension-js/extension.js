@@ -27,6 +27,11 @@ import type {
   CompilationLike
 } from '../../browsers-types'
 import {getPreferences} from './master-preferences'
+import {
+  addSessionPreferences,
+  REMOTE_DEBUGGING_PREFERENCES,
+  serializeUserJs
+} from './session-preferences'
 
 type BrowserConfigOptions = {
   browser: BrowserType
@@ -188,7 +193,7 @@ export async function resolveFirefoxLaunchConfig(
   }
 
   // An explicit path that already holds a Firefox profile is the developer's
-  // own: its user.js and caches stay untouched, as on the Chromium side.
+  // own: its user.js lines and caches stay, as on the Chromium side.
   const ownsProfilePrefs =
     resolved.kind !== 'explicit' || !holdsFirefoxProfile(profilePath)
 
@@ -218,35 +223,31 @@ export async function resolveFirefoxLaunchConfig(
         String(browser)
       )
 
-      function serializeValue(value: unknown): string {
-        if (typeof value === 'string') {
-          return JSON.stringify(value)
-        }
-
-        if (typeof value === 'boolean') {
-          return String(value)
-        }
-
-        if (typeof value === 'number' && Number.isFinite(value)) {
-          return String(value)
-        }
-
-        return JSON.stringify(value)
-      }
-
-      function prefsToUserJs(prefsObject: Record<string, unknown>): string {
-        return Object.entries(prefsObject)
-          .map(([key, val]) => {
-            return `user_pref(${JSON.stringify(key)}, ${serializeValue(val)});`
-          })
-          .join('\n')
-      }
-
-      const userJsPath = path.join(profilePath, 'user.js')
-      const userJsContent = prefsToUserJs(prefs)
-      fs.writeFileSync(userJsPath, userJsContent)
+      fs.writeFileSync(
+        path.join(profilePath, 'user.js'),
+        serializeUserJs(prefs)
+      )
     } catch {
       // Ignore
+    }
+  }
+
+  // Firefox has no flag for these, and without them the debugger server never
+  // listens, so the extension would silently not load in the profile.
+  if (profilePath && provision && !ownsProfilePrefs) {
+    try {
+      addSessionPreferences(profilePath, REMOTE_DEBUGGING_PREFERENCES)
+
+      humanLine(
+        messages.firefoxProfileRemoteDebuggingOn(shownPath(profilePath))
+      )
+    } catch (error) {
+      throw new Error(
+        messages.firefoxProfilePreferencesNotWritable(
+          shownPath(profilePath),
+          error
+        )
+      )
     }
   }
 

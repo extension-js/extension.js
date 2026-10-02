@@ -139,6 +139,7 @@ describe('the browsers entry publishes the Safari packaging surface', () => {
 
   it('validates bundle ids through the exported entry', () => {
     expect(browsers.isValidBundleId('com.example.my-extension')).toBe(true)
-    expect(browsers.isValidBundleId('single-segment')).toBe(false)
+    expect(browsers.isValidBundleId('com.1password.ext')).toBe(true)
+    expect(browsers.isValidBundleId('com.example.my extension')).toBe(false)
   })
 })

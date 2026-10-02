@@ -32,10 +32,10 @@ function deriveBundleId(appName: string) {
   return `dev.extensionjs.${bundleSegment(appName)}`
 }
 
-// Apple bundle identifiers: dot-separated alphanumeric/hyphen segments,
-// each starting with a letter, at least two segments (reverse-DNS).
+// Apple's rule for CFBundleIdentifier: letters, digits, hyphens and periods.
+// A segment may start with a digit (com.1password.ext), none may be empty.
 export function isValidBundleId(value: string): boolean {
-  return /^[A-Za-z][A-Za-z0-9-]*(\.[A-Za-z][A-Za-z0-9-]*)+$/.test(value)
+  return /^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*$/.test(value)
 }
 
 function readManifest(extensionDir: string): Record<string, unknown> {
