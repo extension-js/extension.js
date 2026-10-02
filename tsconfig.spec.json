@@ -7,7 +7,7 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "lib": ["ES2023"],
-    "types": ["node", "chrome", "webextension-polyfill", "vitest/globals"]
+    "types": ["node", "chrome", "webextension-polyfill"]
   },
   "include": ["./programs/**/*.ts"],
   "exclude": [
