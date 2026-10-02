@@ -65,7 +65,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "invalidRemoteZip: function(2)",
     "isUsingExperimentalConfig: function(1)",
     "localZipNotFound: function(1)",
-    "managedDependencyConflict: function(2)",
+    "managedDependencyCopyWarning: function(2)",
     "manifestInvalidJson: function(2)",
     "manifestNotFoundError: function(1)",
     "noCompanionExtensionsResolved: function(0)",
@@ -145,7 +145,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "jsFrameworksHmrSummary: function(2)",
     "jsFrameworksIntegrationsEnabled: function(1)",
     "svelteCompilerRuntimeMismatch: function(2)",
-    "vueTwoIsNotSupported: function(1)",
+    "vueTwoSingleFileComponent: function(2)",
     "youAreAllSet: function(1)",
   ],
   "plugin-perf-budgets/messages.ts": [

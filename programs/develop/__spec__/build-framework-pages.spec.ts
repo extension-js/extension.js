@@ -416,25 +416,51 @@ describe('JSX pages across frameworks', () => {
     expect(built.pageScripts()).not.toMatch(/jsx-dev-runtime|jsx-runtime/)
   }, 120_000)
 
-  it('solid: a ts page is compiled by Solid with its types gone, in development too', async () => {
+  it.each([
+    'production',
+    'development'
+  ] as const)('solid: a ts file is TypeScript, so its angle-bracket cast builds beside a tsx page, in %s', async (mode) => {
     const built = await build(
       project(
         'solid',
         {
-          'popup.ts':
+          'popup.tsx':
             "import {createSignal} from 'solid-js'\n" +
-            'const [count] = createSignal<number>(1)\n' +
-            'const el: HTMLElement | null = document.getElementById("root")\n' +
-            'el?.append(<button onClick={() => count()}>{count()}</button>)\n'
+            "import {asElement, identity} from './cast'\n" +
+            'const [count] = createSignal<number>(identity(1))\n' +
+            'asElement(document.getElementById("root")).append(<button onClick={() => count()}>{count()}</button>)\n',
+          'cast.ts':
+            'export const identity = <T>(x: T): T => x\n' +
+            'export function asElement(node: unknown): HTMLElement {\n' +
+            "  globalThis.castMarker = 'angle-cast'\n" +
+            '  return <HTMLElement>node\n' +
+            '}\n'
         },
         {tsconfig: true}
       ),
-      'development'
+      mode
     )
     expect(built.errors).toBe(0)
+    expect(built.output).not.toMatch(/Unterminated JSX/)
     expect(built.pageScripts()).toMatch(/__solidTemplate/)
-    expect(built.pageScripts()).not.toMatch(/createSignal<number>/)
+    expect(built.pageScripts()).toMatch(/angle-cast/)
+    expect(built.pageScripts()).not.toMatch(/<HTMLElement>/)
     expect(built.pageScripts()).not.toMatch(/__jsxRuntime/)
+  }, 120_000)
+
+  it('solid: JSX in a ts file is a syntax error, the way TypeScript reads that file', async () => {
+    const root = project(
+      'solid',
+      {
+        'popup.ts':
+          "import {createSignal} from 'solid-js'\n" +
+          'const [count] = createSignal<number>(1)\n' +
+          'document.getElementById("root")?.append(<button>{count()}</button>)\n'
+      },
+      {tsconfig: true}
+    )
+
+    await expect(build(root)).rejects.toThrow(/popup\.ts/)
   }, 120_000)
 })
 

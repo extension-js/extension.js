@@ -9,7 +9,12 @@
 import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import * as path from 'node:path'
-import {DefinePlugin, type RspackPluginInstance} from '@rspack/core'
+import {
+  type Compiler,
+  DefinePlugin,
+  type RspackPluginInstance,
+  WebpackError
+} from '@rspack/core'
 import {isDebug, prefix} from '../../lib/messaging'
 import {
   ensureOptionalContractModuleLoaded,
@@ -86,6 +91,63 @@ export function readInstalledVueVersion(
   }
 }
 
+// vue-loader 15 throws on the layer keys the content script rules carry, so
+// a Vue 2 single-file component cannot be built here. Render functions can.
+class RefuseVueTwoSingleFileComponents {
+  constructor(private readonly version: string) {}
+
+  apply(compiler: Compiler) {
+    const name = RefuseVueTwoSingleFileComponents.name
+
+    compiler.hooks.thisCompilation.tap(name, (compilation) => {
+      compilation.hooks.finishModules.tap(name, (modules) => {
+        const files = new Set<string>()
+
+        for (const module of modules) {
+          const {resource = '', type} = module as {
+            resource?: string
+            type?: string
+          }
+          const file = resource.split('?')[0]
+
+          // A project that brings its own .vue pipeline never lands on the
+          // text rule, and is left to it.
+          if (type === 'asset/source' && file.endsWith('.vue')) files.add(file)
+        }
+
+        if (files.size === 0) return
+
+        const sorted = [...files].sort()
+        const error = new WebpackError(
+          messages.vueTwoSingleFileComponent(this.version, sorted)
+        ) as Error & {file?: string}
+        error.file = path.relative(compiler.context, sorted[0])
+        // The message is the whole story, a stack would only point in here.
+        error.stack = ''
+        compilation.errors.push(error)
+      })
+    })
+  }
+}
+
+// A Vue 2 project with no .vue file builds as plain JavaScript on the
+// runtime-only entry. A .vue file is held as text so one clear error names it.
+function vueTwoWithoutLoader(
+  requireFromProject: NodeJS.Require,
+  version: string
+): JsFramework {
+  const alias: Record<string, string> = {}
+  const vuePath = resolveVueBundlerEntry(requireFromProject, 'vue')
+
+  if (vuePath) alias.vue$ = vuePath
+
+  return {
+    plugins: [new RefuseVueTwoSingleFileComponents(version)],
+    loaders: [{test: /\.vue$/, type: 'asset/source'}],
+    alias
+  }
+}
+
 export async function maybeUseVue(
   projectPath: string,
   mode: 'development' | 'production' | string = 'development',
@@ -99,7 +161,7 @@ export async function maybeUseVue(
   const installedVersion = readInstalledVueVersion(requireFromProject)
 
   if (installedVersion && /^2\./.test(installedVersion)) {
-    throw new Error(messages.vueTwoIsNotSupported(installedVersion))
+    return vueTwoWithoutLoader(requireFromProject, installedVersion)
   }
 
   const vueLoaderPath = await ensureOptionalContractPackageResolved({

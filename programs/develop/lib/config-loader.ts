@@ -244,12 +244,12 @@ function prepareImportMetaEnv(absolutePath: string): void {
     return
   }
 
-  if (!source.includes('import.meta.env'))
-    {return // Read at import time, after the dotenv preload, and held in memory only.
+  if (!source.includes('import.meta.env')) {
+    return // Read at import time, after the dotenv preload, and held in memory only.
     // The previous shim serialized every variable into a file under os.tmpdir().
-  ;}
+  }
 
-(globalThis as Record<string, unknown>)[IMPORT_META_ENV_GLOBAL] =
+  ;(globalThis as Record<string, unknown>)[IMPORT_META_ENV_GLOBAL] =
     Object.freeze({...process.env})
 
   if (importMetaEnvHookRegistered) return
@@ -266,6 +266,8 @@ function prepareImportMetaEnv(absolutePath: string): void {
   }
 }
 
+class ConfigShapeError extends Error {}
+
 const loadedConfigCache = new Map<string, Promise<FileConfig>>()
 
 // Four loaders each report before rethrowing, so one bad config printed the
@@ -276,6 +278,10 @@ export function reportConfigLoadingErrorOnce(
   configPath: string,
   error: unknown
 ): void {
+  // A wrong shape is a finished message the command prints itself, and the
+  // file did load, so the "couldn't load" frame would say it a second time.
+  if (error instanceof ConfigShapeError) return
+
   const key = path.resolve(configPath)
   if (reportedConfigPaths.has(key)) return
 
@@ -303,7 +309,7 @@ function assertConfigShape(configPath: string, value: unknown): void {
   if (value === undefined) return
 
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    throw new Error(messages.configWrongShape(configPath, value))
+    throw new ConfigShapeError(messages.configWrongShape(configPath, value))
   }
 
   const unknown = Object.keys(value).filter(
