@@ -4,8 +4,10 @@ import {afterEach} from 'vitest'
 // This package's suite is a required gate, so a spec that reaches a CDN turns a
 // slow link into a red gate on a correct change. Only loopback is allowed, and
 // EXTENSION_TEST_REMOTE lifts the rule for the *.remote.spec.ts files.
+// The RFC 5737 documentation ranges are reserved as unroutable, so a spec that
+// needs an address nothing can answer uses one and reaches no network.
 const LOOPBACK =
-  /^(?:localhost|127(?:\.\d{1,3}){3}|::1|\[::1\]|::ffff:127(?:\.\d{1,3}){3})$/i
+  /^(?:localhost|127(?:\.\d{1,3}){3}|::1|\[::1\]|::ffff:127(?:\.\d{1,3}){3}|192\.0\.2\.\d{1,3}|198\.51\.100\.\d{1,3}|203\.0\.113\.\d{1,3})$/i
 
 const reached: string[] = []
 

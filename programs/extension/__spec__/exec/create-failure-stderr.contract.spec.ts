@@ -8,6 +8,11 @@ import {
   fixtureExtensionFiles,
   serveExamplesCatalog
 } from '../../../create/__spec__/examples-catalog-fixture'
+import {
+  offlineRegistryEnv,
+  offlineRegistryFiles,
+  serveOfflineRegistry
+} from '../../../create/__spec__/offline-registry-fixture'
 
 const ANSI = /\x1b\[[0-9;]*m/g
 const STACK_FRAME = /^\s+at /m
@@ -172,14 +177,17 @@ describe('a known create refusal prints its frame and nothing else', () => {
     60000
   )
 
-  // An unreachable registry does not make an install fail: a lane where the
-  // override never reached the manager resolved the real one and succeeded.
+  // The dependency the install cannot satisfy is a local path, so no registry
+  // state can make this pass or fail. The registry is pinned in the project and
+  // in the environment, so whichever a lane honors, it is the loopback one.
   it('when the dependency install fails', async () => {
     const template = 'broken-local-dependency'
     const files = fixtureExtensionFiles(template)
+    const registry = await serveOfflineRegistry()
     const catalog = await serveExamplesCatalog({
       [template]: {
         ...files,
+        ...offlineRegistryFiles(registry.url),
         'package.json': `${JSON.stringify(
           {
             private: true,
@@ -193,27 +201,20 @@ describe('a known create refusal prints its frame and nothing else', () => {
         )}\n`
       }
     })
-    close = catalog.close
-    const storeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-pm-store-'))
-    const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-pm-cache-'))
+
+    close = async () => {
+      await catalog.close()
+      await registry.close()
+    }
 
     const result = await runCreate(
       ['create', './proof', '-t', template, '--install'],
       {
+        ...offlineRegistryEnv(registry.url),
         EXTENSION_CREATE_TEMPLATE_URL: catalog.url,
-        EXTENSION_ALLOW_HTTP_TEMPLATE: 'true',
-        npm_config_registry: 'http://127.0.0.1:9/',
-        npm_config_offline: 'true',
-        npm_config_cache: cacheDir,
-        npm_config_store_dir: storeDir,
-        npm_config_fetch_retries: '0',
-        npm_config_audit: 'false',
-        npm_config_fund: 'false'
+        EXTENSION_ALLOW_HTTP_TEMPLATE: 'true'
       }
     )
-
-    fs.rmSync(storeDir, {recursive: true, force: true})
-    fs.rmSync(cacheDir, {recursive: true, force: true})
 
     expect(result.status).toBe(1)
     expect(result.stderr).not.toMatch(STACK_FRAME)
