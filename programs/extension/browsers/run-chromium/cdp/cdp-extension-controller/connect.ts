@@ -30,9 +30,13 @@ export async function connectToChromeCdpViaPipe(
   pipeIn: Readable,
   pipeOut: Writable,
   cdpPort: number = 0,
-  cdpHost: string = '127.0.0.1'
+  cdpHost: string = '127.0.0.1',
+  // Attached before the handshake, which is itself a write: a browser that
+  // dies at launch takes the pipe down during that first command.
+  onTransportGone?: (reason: string) => void
 ): Promise<CDPClient> {
   const cdp = new CDPClient(cdpPort, cdpHost)
+  cdp.onTransportGone = onTransportGone
 
   try {
     await cdp.connectViaPipe(pipeIn, pipeOut)
