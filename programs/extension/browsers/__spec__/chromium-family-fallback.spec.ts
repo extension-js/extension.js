@@ -25,7 +25,11 @@ function installFakeBrowser(
 ) {
   const dir = path.join(cacheRoot, browser, browser, platformDir, 'unpacked')
   fs.mkdirSync(dir, {recursive: true})
-  fs.writeFileSync(path.join(dir, executable), '')
+  // Non-empty and executable, because that is what the resolver now requires
+  // of a managed binary and what a finished download really leaves.
+  const binary = path.join(dir, executable)
+  fs.writeFileSync(binary, Buffer.alloc(1024))
+  fs.chmodSync(binary, 0o755)
 }
 
 beforeEach(() => {
