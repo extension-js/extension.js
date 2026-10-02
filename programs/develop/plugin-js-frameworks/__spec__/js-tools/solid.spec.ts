@@ -168,7 +168,13 @@ describe('solid tools', () => {
 
     for (const rule of loaders) {
       expect(rule.loader).toBe('/mock/node_modules/babel-loader/index.js')
-      expect(rule.exclude).toEqual(/node_modules/)
+      expect(rule.exclude(path.join(projectPath, 'src', 'App.tsx'))).toBe(false)
+      expect(
+        rule.exclude(
+          path.join(projectPath, 'node_modules', 'other-lib', 'index.jsx')
+        )
+      ).toBe(true)
+
       expect(rule.options.babelrc).toBe(false)
       expect(rule.options.configFile).toBe(false)
     }
@@ -254,5 +260,22 @@ describe('solid tools', () => {
     const {maybeUseSolid} = await import('../../js-tools/solid')
 
     expect(await maybeUseSolid(projectPath)).toBeUndefined()
+  })
+
+  it('sends a transpiled package JSX through the Solid preset', async () => {
+    writeSolidPackage(projectPath, './h/dist/h.js')
+
+    const transpiled = path.join(projectPath, 'node_modules', 'acme-ui')
+    const {maybeUseSolid} = await loadSolidTools()
+    const result = await maybeUseSolid(projectPath, 'development', [transpiled])
+
+    for (const rule of (result?.loaders || []) as any[]) {
+      expect(rule.exclude(path.join(transpiled, 'Button.jsx'))).toBe(false)
+      expect(
+        rule.exclude(
+          path.join(projectPath, 'node_modules', 'other-lib', 'Button.jsx')
+        )
+      ).toBe(true)
+    }
   })
 })

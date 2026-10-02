@@ -173,6 +173,35 @@ describe('typescript tools', () => {
     expect(fs.writeFileSync).toHaveBeenCalledTimes(1)
   })
 
+  it('counts a .cts source and skips its declaration and spec siblings', async () => {
+    ;(fs.existsSync as any).mockImplementation((p: string) =>
+      toPosix(String(p)).endsWith('/project/package.json')
+    )
+    ;(fs.readFileSync as any).mockImplementation(() => '')
+
+    const entriesFor = (names: string[]) =>
+      names.map((name) => ({
+        isFile: () => true,
+        isDirectory: () => false,
+        name
+      }))
+
+    ;(fs.readdirSync as any).mockImplementation(() =>
+      entriesFor(['helper.cts'])
+    )
+
+    const {ensureTypeScriptConfig} = await import('../../js-tools/typescript')
+    ensureTypeScriptConfig('/project')
+    expect(fs.writeFileSync).toHaveBeenCalledTimes(1)
+    ;(fs.writeFileSync as any).mockClear()
+    ;(fs.readdirSync as any).mockImplementation(() =>
+      entriesFor(['globals.d.cts', 'helper.spec.cts'])
+    )
+
+    ensureTypeScriptConfig('/project')
+    expect(fs.writeFileSync).not.toHaveBeenCalled()
+  })
+
   it('a no-op call does not latch away a later real setup call', async () => {
     ;(fs.existsSync as any).mockImplementation((p: string) =>
       toPosix(String(p)).endsWith('/project/package.json')

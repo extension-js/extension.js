@@ -77,7 +77,8 @@ vi.mock('../js-tools/typescript', () => ({
   getUserTypeScriptConfigFile: vi.fn(() => '/project/tsconfig.json')
 }))
 
-vi.mock('../../lib/transpile-packages', () => ({
+vi.mock('../../lib/transpile-packages', async () => ({
+  ...(await vi.importActual('../../lib/transpile-packages')),
   resolveTranspilePackageDirs:
     transpilePackagesMocks.resolveTranspilePackageDirs,
   isSubPath: transpilePackagesMocks.isSubPath
@@ -332,6 +333,50 @@ describe('JsFrameworksPlugin', () => {
     ).toBe(false)
 
     expect(excludeFn('/project/node_modules/other-lib/index.js')).toBe(true)
+  })
+
+  it('hands the transpile package directories to the framework loaders too', async () => {
+    transpilePackagesMocks.resolveTranspilePackageDirs.mockReturnValue([
+      '/project/node_modules/@workspace/ui'
+    ])
+
+    const compiler = createCompiler('development')
+    const plugin = new JsFrameworksPlugin({
+      manifestPath: '/project/manifest.json',
+      mode: 'development',
+      transpilePackages: ['@workspace/ui']
+    })
+
+    await plugin.apply(compiler)
+
+    const vue = (await import('../js-tools/vue')) as any
+    const solid = (await import('../js-tools/solid')) as any
+
+    expect(vue.maybeUseVue).toHaveBeenCalledWith('/project', 'development', [
+      '/project/node_modules/@workspace/ui'
+    ])
+
+    expect(solid.maybeUseSolid).toHaveBeenCalledWith(
+      '/project',
+      'development',
+      ['/project/node_modules/@workspace/ui']
+    )
+  })
+
+  it('compiles a .cts module through swc with the TypeScript parser', async () => {
+    const compiler = createCompiler('development')
+    const plugin = new JsFrameworksPlugin({
+      manifestPath: '/project/manifest.json',
+      mode: 'development'
+    })
+
+    await plugin.apply(compiler)
+
+    const swcRule = compiler.options.module.rules[0]
+    expect(swcRule.test.test('/project/src/helper.cts')).toBe(true)
+    expect(
+      swcOptions(swcRule, '/project/src/helper.cts')?.jsc?.parser
+    ).toMatchObject({syntax: 'typescript', tsx: false})
   })
 
   it('leaves scripts as javascript/auto unless the platform declares a module', async () => {

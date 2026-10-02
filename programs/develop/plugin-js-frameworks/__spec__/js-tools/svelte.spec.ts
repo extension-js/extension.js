@@ -36,7 +36,8 @@ describe('svelte tools', () => {
       (_p: string, dep: string) => dep === 'svelte'
     )
 
-    vi.doMock('../../js-frameworks-lib/load-loader-options', () => ({
+    vi.doMock('../../js-frameworks-lib/load-loader-options', async () => ({
+      ...(await vi.importActual('../../js-frameworks-lib/load-loader-options')),
       loadLoaderOptions: vi.fn(async () => ({bar: 2}))
     }))
 
@@ -103,7 +104,8 @@ describe('svelte tools', () => {
       (_p: string, dep: string) => dep === 'svelte'
     )
 
-    vi.doMock('../../js-frameworks-lib/load-loader-options', () => ({
+    vi.doMock('../../js-frameworks-lib/load-loader-options', async () => ({
+      ...(await vi.importActual('../../js-frameworks-lib/load-loader-options')),
       loadLoaderOptions: vi.fn(async () => ({bar: 2}))
     }))
 
@@ -146,5 +148,65 @@ describe('svelte tools', () => {
     expect(typeStrip.loader).toBe('builtin:swc-loader')
     expect(typeStrip.options.jsc.parser.syntax).toBe('typescript')
     expect(typeStrip.options.jsc.target).toBe('esnext')
+  })
+
+  it('compiles a component that ships inside node_modules', async () => {
+    const integrations = (await import(
+      '../../frameworks-lib/integrations'
+    )) as any
+    integrations.hasDependency.mockImplementation(
+      (_p: string, dep: string) => dep === 'svelte'
+    )
+
+    vi.doMock('../../js-frameworks-lib/load-loader-options', async () => ({
+      ...(await vi.importActual('../../js-frameworks-lib/load-loader-options')),
+      loadLoaderOptions: vi.fn(async () => null)
+    }))
+
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    const {maybeUseSvelte} = await import('../../js-tools/svelte')
+    const result = await maybeUseSvelte('/p', 'development')
+
+    const rulesFor = (file: string) =>
+      (result?.loaders || []).filter(
+        (rule: any) => rule.test instanceof RegExp && rule.test.test(file)
+      ) as any[]
+
+    const component = rulesFor(
+      '/p/node_modules/fancy-svelte-lib/Button.svelte'
+    )
+    expect(component).toHaveLength(1)
+    expect(component[0].exclude).toBeUndefined()
+
+    const tsModule = rulesFor(
+      '/p/node_modules/fancy-svelte-lib/state.svelte.ts'
+    )
+    expect(tsModule).toHaveLength(1)
+    expect(tsModule[0].exclude).toBeUndefined()
+  })
+
+  it('keeps dev compilation on when the project sets its own compilerOptions', async () => {
+    const integrations = (await import(
+      '../../frameworks-lib/integrations'
+    )) as any
+    integrations.hasDependency.mockImplementation(
+      (_p: string, dep: string) => dep === 'svelte'
+    )
+
+    vi.doMock('../../js-frameworks-lib/load-loader-options', async () => ({
+      ...(await vi.importActual('../../js-frameworks-lib/load-loader-options')),
+      loadLoaderOptions: vi.fn(async () => ({compilerOptions: {runes: true}}))
+    }))
+
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    const {maybeUseSvelte} = await import('../../js-tools/svelte')
+    const result = await maybeUseSvelte('/p', 'development')
+    const rule = (result?.loaders || []).find((candidate: any) =>
+      String(candidate.test).includes('svelte\\.js')
+    ) as any
+
+    expect(rule.use.options.compilerOptions).toEqual({dev: true, runes: true})
+    expect(rule.use.options.hotReload).toBe(true)
+    expect(rule.use.options.emitCss).toBe(true)
   })
 })

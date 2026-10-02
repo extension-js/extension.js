@@ -44,9 +44,9 @@ function hasTypeScriptSourceFiles(projectPath: string, depth = 0): boolean {
       if (entry.isFile()) {
         const name = entry.name
 
-        if (!/\.(ts|tsx|mts|mtsx)$/i.test(name)) return false
-        if (/\.(d\.ts|d\.mts|d\.mtsx)$/i.test(name)) return false
-        if (/\.(spec|test)\.(ts|tsx|mts|mtsx)$/i.test(name)) return false
+        if (!/\.(ts|tsx|mts|cts|mtsx)$/i.test(name)) return false
+        if (/\.(d\.ts|d\.mts|d\.cts|d\.mtsx)$/i.test(name)) return false
+        if (/\.(spec|test)\.(ts|tsx|mts|cts|mtsx)$/i.test(name)) return false
 
         return true
       }

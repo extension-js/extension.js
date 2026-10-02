@@ -15,9 +15,13 @@ import {
   ensureOptionalContractModuleLoaded,
   ensureOptionalContractPackageResolved
 } from '../../lib/optional-deps-resolver'
+import {createNodeModulesExclude} from '../../lib/transpile-packages'
 import type {JsFramework} from '../../types'
 import {hasDependency} from '../frameworks-lib/integrations'
-import {loadLoaderOptions} from '../js-frameworks-lib/load-loader-options'
+import {
+  loadLoaderOptions,
+  mergeLoaderOptions
+} from '../js-frameworks-lib/load-loader-options'
 import * as messages from '../js-frameworks-lib/messages'
 
 type VueLoaderPluginCtor = new (
@@ -84,7 +88,8 @@ export function readInstalledVueVersion(
 
 export async function maybeUseVue(
   projectPath: string,
-  mode: 'development' | 'production' | string = 'development'
+  mode: 'development' | 'production' | string = 'development',
+  transpilePackageDirs: string[] = []
 ): Promise<JsFramework | undefined> {
   if (!isUsingVue(projectPath)) return undefined
 
@@ -120,13 +125,13 @@ export async function maybeUseVue(
     {
       test: /\.vue$/,
       loader: vueLoaderPath,
-      options: {
-        experimentalInlineMatchResource: true,
-        ...(customOptions || {})
-      },
+      options: mergeLoaderOptions(
+        {experimentalInlineMatchResource: true},
+        customOptions
+      ),
       // No include: a workspace sibling imported by path compiles like any
-      // project file, the way vite-plugin-vue treats it.
-      exclude: /node_modules/
+      // project file; a published one arrives through transpilePackages.
+      exclude: createNodeModulesExclude(transpilePackageDirs)
     }
   ]
 
