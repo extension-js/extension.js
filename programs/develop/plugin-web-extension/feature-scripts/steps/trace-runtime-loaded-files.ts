@@ -1554,6 +1554,65 @@ function extractImportScriptsLiterals(source: string): string[] {
   return literals
 }
 
+function arrayPropStringLiterals(args: string, prop: string): string[] {
+  const literals: string[] = []
+  const arrayRe = new RegExp(
+    `(?<![\\w$.])["']?${prop}["']?\\s*:\\s*\\[([^\\]]*)\\]`,
+    'g'
+  )
+  let arrayMatch: RegExpExecArray | null
+
+  while ((arrayMatch = arrayRe.exec(args))) {
+    for (const element of splitTopLevelArgs(arrayMatch[1])) {
+      const literal = pureStringLiteral(element)
+      if (literal != null) literals.push(literal)
+    }
+  }
+
+  return literals
+}
+
+// The object literals a registerContentScripts call passes, so a property is
+// read per registration instead of across the whole argument blob.
+function splitRegisteredScriptGroups(args: string): string[] {
+  const [first] = splitTopLevelArgs(args)
+  if (first == null) return []
+
+  const trimmed = first.trim()
+  if (!trimmed.startsWith('[')) return [trimmed]
+
+  const close = trimmed.lastIndexOf(']')
+  if (close < 1) return []
+
+  return splitTopLevelArgs(trimmed.slice(1, close))
+}
+
+// Extract the js files a runtime registration asks the browser to run in the
+// page's own world. The world rides the same object literal as the files, so
+// it is only readable per registration.
+export function extractMainWorldRegisteredFileLiterals(
+  source: string
+): string[] {
+  const code = blankComments(source)
+  const literals: string[] = []
+  const callRe = /\b(?:registerContentScripts|updateContentScripts)\s*\(/g
+
+  let match: RegExpExecArray | null
+
+  while ((match = callRe.exec(code))) {
+    const args = readBalancedArgs(code, match.index + match[0].length - 1)
+    if (args == null) continue
+
+    for (const group of splitRegisteredScriptGroups(args)) {
+      if (!/["']?world["']?\s*:\s*(['"])MAIN\1/.test(group)) continue
+
+      literals.push(...arrayPropStringLiterals(group, 'js'))
+    }
+  }
+
+  return literals
+}
+
 // Extract the file paths a runtime injection call ships to the browser. JS and
 // CSS come back alike, the planner decides what compiles and what copies.
 export function extractInjectedFileLiterals(source: string): string[] {
@@ -1580,18 +1639,7 @@ export function extractInjectedFileLiterals(source: string): string[] {
       // `files: [...]` on chrome.scripting.*, `js: [...]` and `css: [...]` on
       // registered content scripts, arrays of literals.
       for (const prop of arrayProps) {
-        const arrayRe = new RegExp(
-          `(?<![\\w$.])["']?${prop}["']?\\s*:\\s*\\[([^\\]]*)\\]`,
-          'g'
-        )
-        let arrayMatch: RegExpExecArray | null
-
-        while ((arrayMatch = arrayRe.exec(args))) {
-          for (const element of splitTopLevelArgs(arrayMatch[1])) {
-            const literal = pureStringLiteral(element)
-            if (literal != null) literals.push(literal)
-          }
-        }
+        literals.push(...arrayPropStringLiterals(args, prop))
       }
 
       // MV2 tabs.executeScript / tabs.insertCSS, `file: "..."` singular.
