@@ -156,14 +156,10 @@ describe('the artifact and its manifest agree across command, mode, browser and 
     const built = await build(project(3), 'chrome', 'development', 'dev')
     expect(csp(built.manifest)).not.toBe(AUTHORED_CSP)
     expect(built.manifest.permissions).toEqual(
-      expect.arrayContaining([
-        'alarms',
-        'scripting',
-        'tabs',
-        'management',
-        'storage'
-      ])
+      expect.arrayContaining(['alarms', 'scripting', 'tabs', 'storage'])
     )
+
+    expect(built.manifest.permissions).not.toContain('management')
 
     expect(built.manifest.host_permissions).toEqual(['https://example.com/*'])
     expect(built.code).toMatch(/__extjsScriptsReplay/)

@@ -29,6 +29,29 @@ export function resolveLoaderConfigPath(
   return candidates.find((p) => fs.existsSync(p)) || null
 }
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+// One level deep, user keys winning. A top-level spread let a project that set
+// `compilerOptions.runes` drop the `dev` flag the build mode had just decided.
+export function mergeLoaderOptions(
+  defaults: Record<string, unknown>,
+  custom: AnyModule
+): Record<string, unknown> {
+  if (!isPlainObject(custom)) return {...defaults}
+
+  const merged: Record<string, unknown> = {...defaults, ...custom}
+
+  for (const [key, value] of Object.entries(custom)) {
+    if (isPlainObject(defaults[key]) && isPlainObject(value)) {
+      merged[key] = {...(defaults[key] as Record<string, unknown>), ...value}
+    }
+  }
+
+  return merged
+}
+
 export async function loadLoaderOptions(
   projectPath: string,
   framework: 'vue' | 'svelte'

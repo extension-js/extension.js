@@ -85,6 +85,8 @@ vi.mock('../port-manager', () => ({
   }
 }))
 
+import {createPlaywrightMetadataWriter} from '../../plugin-playwright'
+import rspackConfig from '../../rspack-config'
 import {devServer} from '../index'
 import {PortManager as PortManagerMock} from '../port-manager'
 
@@ -134,6 +136,30 @@ describe('dev-server control-bridge startup failure', () => {
     expect(output).toContain("couldn't open the control port")
     expect(output).toContain('listen EADDRNOTAVAIL 10.0.0.9:0')
     expect(output).toContain('nothing reloads in the browser')
+  })
+
+  it('hands the bind reason to the session contract writers', async () => {
+    await devServer(
+      {
+        manifestPath: path.join(projectRoot, 'manifest.json'),
+        packageJsonPath: path.join(projectRoot, 'package.json')
+      },
+      {browser: 'chrome', noBrowser: true} as any
+    )
+
+    const writerOptions = (createPlaywrightMetadataWriter as any).mock.calls.at(
+      -1
+    )?.[0]
+    expect(writerOptions?.controlPort).toBeNull()
+    expect(writerOptions?.controlPortUnavailableReason).toContain(
+      'EADDRNOTAVAIL'
+    )
+
+    const compilerOptions = (rspackConfig as any).mock.calls.at(-1)?.[1]
+    expect(compilerOptions?.controlPort).toBeNull()
+    expect(compilerOptions?.controlPortUnavailableReason).toContain(
+      'EADDRNOTAVAIL'
+    )
   })
 
   // Specs are excluded from tsc, so a mock that falls behind the real class is

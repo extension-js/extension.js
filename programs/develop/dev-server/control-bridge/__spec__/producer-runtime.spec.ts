@@ -129,7 +129,8 @@ describe('bridge producer runtime', () => {
       type: 'hello',
       v: 1,
       role: 'producer',
-      instanceId: 'inst-T'
+      instanceId: 'inst-T',
+      acksReloads: true
     })
 
     const log = frames.find((f) => f.type === 'log')
@@ -1362,11 +1363,11 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
 
     await new Promise((r) => setTimeout(r, 20))
 
-    // Notify-only page frames never reload or ack, with or without a replay.
+    // Notify-only page frames never reload, with or without a replay.
     expect(reloaded).toBe(false)
     expect(
       ws.sent.map((s) => JSON.parse(s)).filter((f) => f.type === 'reload-ack')
-    ).toEqual([])
+    ).toEqual([{type: 'reload-ack', reloadType: 'page', label: ''}])
   })
 
   it('open action: opens the popup when the action has a default_popup', async () => {
@@ -2307,7 +2308,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     })
   })
 
-  it('reload broadcast (page): notify-only, no ack (nothing was latched)', async () => {
+  it('reload broadcast (page): notify-only, still acks the receipt', async () => {
     const ws = setup({
       runtime: {lastError: undefined},
       tabs: {query: (_q: unknown, cb: (t: unknown[]) => void) => cb([])}
@@ -2316,6 +2317,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     ws.triggerMessage({
       type: 'reload',
       reloadType: 'page',
+      reloadId: 'r7',
       label: 'popup page (src/popup/index.tsx)'
     })
 
@@ -2324,7 +2326,44 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     const ack = ws.sent
       .map((s) => JSON.parse(s))
       .find((f) => f.type === 'reload-ack')
-    expect(ack).toBeUndefined()
+    expect(ack).toMatchObject({
+      type: 'reload-ack',
+      reloadType: 'page',
+      reloadId: 'r7'
+    })
+  })
+
+  it('reload broadcast (full): acks the reload id BEFORE restarting the worker', async () => {
+    let reloadedAt = -1
+    const ws = setup({
+      runtime: {
+        lastError: undefined,
+        reload: () => {
+          reloadedAt = ws.sent.length
+        }
+      },
+      storage: {local: {set: (_i: unknown, cb?: () => void) => cb?.()}},
+      tabs: {query: (_q: unknown, cb: (t: unknown[]) => void) => cb([])}
+    })
+
+    ws.triggerMessage({
+      type: 'reload',
+      reloadType: 'full',
+      reloadId: 'r9',
+      label: 'extension'
+    })
+
+    await new Promise((r) => setTimeout(r, 250))
+
+    const sent = ws.sent.map((s) => JSON.parse(s))
+    const ackIndex = sent.findIndex((f) => f.type === 'reload-ack')
+    expect(sent[ackIndex]).toMatchObject({
+      type: 'reload-ack',
+      reloadType: 'full',
+      reloadId: 'r9'
+    })
+
+    expect(reloadedAt).toBeGreaterThan(ackIndex)
   })
 
   it('reload broadcast (content-scripts): re-registers dynamic content scripts so NEW tabs get the fresh build', async () => {

@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import os from 'node:os'
 import * as path from 'node:path'
 import {describe, expect, it, vi} from 'vitest'
+import {PlaywrightPlugin} from '../plugin-playwright'
 import webpackConfig from '../rspack-config'
 
 const resolveTranspilePackageDirsMock = vi.hoisted(() =>
@@ -347,6 +348,8 @@ describe('webpack-config transpile packages watch behavior', () => {
     expect(resolve?.extensionAlias?.['.js']).toContain('.tsx')
     expect(resolve?.extensionAlias?.['.js']).toContain('.js')
     expect(resolve?.extensionAlias?.['.mjs']).toContain('.mts')
+    expect(resolve?.extensionAlias?.['.cjs']).toContain('.cts')
+    expect(resolve?.extensions).toContain('.cts')
   })
 
   it('externalizes chrome-extension:/moz-extension: URLs as passthrough assets', () => {
@@ -641,5 +644,123 @@ describe('webpack-config MV2 on chromium warning', () => {
       version: '1.0.0'
     })
     expect(captureMv2Tap(config)).toBeUndefined()
+  })
+})
+
+describe('ready contract carries the control-bridge bind reason', () => {
+  const bindReason = 'listen EADDRNOTAVAIL 10.0.0.9:0'
+
+  function findPlaywrightPlugin(config: any) {
+    const plugin = (config.plugins ?? []).find(
+      (candidate: any) => candidate instanceof PlaywrightPlugin
+    ) as any
+
+    expect(plugin).toBeDefined()
+
+    return plugin
+  }
+
+  function buildPlaywrightPlugin() {
+    const projectStructure = createProjectStructure()
+    const root = path.dirname(projectStructure.manifestPath)
+    const config = webpackConfig(
+      projectStructure as any,
+      {
+        browser: 'chrome',
+        mode: 'development',
+        metadataCommand: 'dev',
+        controlPort: null,
+        controlPath: '/__extension_control',
+        controlPortUnavailableReason: bindReason,
+        output: {clean: false, path: path.join(root, 'dist', 'chrome')},
+        noBrowser: true
+      } as any
+    )
+
+    const plugin = findPlaywrightPlugin(config)
+
+    return {plugin, root}
+  }
+
+  function applyWithFakeCompiler(plugin: any) {
+    const taps: Record<string, (arg?: unknown) => void> = {}
+    const hook = (name: string) => ({
+      tap: (_pluginName: string, fn: (arg?: unknown) => void) => {
+        taps[name] = fn
+      }
+    })
+
+    plugin.apply({
+      hooks: {
+        compile: hook('compile'),
+        done: hook('done'),
+        failed: hook('failed'),
+        watchClose: hook('watchClose')
+      }
+    })
+
+    return taps
+  }
+
+  function readReady(root: string) {
+    return JSON.parse(
+      fs.readFileSync(
+        path.join(root, 'dist', 'extension-js', 'chrome', 'ready.json'),
+        'utf-8'
+      )
+    )
+  }
+
+  it('keeps the reason through writeStarting and the first compile', () => {
+    const {plugin, root} = buildPlaywrightPlugin()
+    const taps = applyWithFakeCompiler(plugin)
+
+    const starting = readReady(root)
+    expect(starting.status).toBe('starting')
+    expect(starting.controlPort).toBeNull()
+    expect(starting.controlPortUnavailableReason).toBe(bindReason)
+
+    taps.done({
+      compilation: {startTime: 0, endTime: 10},
+      hasErrors: () => false,
+      toJson: () => ({errors: []})
+    })
+
+    const ready = readReady(root)
+    expect(ready.status).toBe('ready')
+    expect(ready.controlPortUnavailableReason).toBe(bindReason)
+  })
+
+  it('omits the field when the control bridge bound', () => {
+    const projectStructure = createProjectStructure()
+    const root = path.dirname(projectStructure.manifestPath)
+    const config = webpackConfig(
+      projectStructure as any,
+      {
+        browser: 'chrome',
+        mode: 'development',
+        metadataCommand: 'dev',
+        controlPort: 50111,
+        output: {clean: false, path: path.join(root, 'dist', 'chrome')},
+        noBrowser: true
+      } as any
+    )
+    applyWithFakeCompiler(findPlaywrightPlugin(config))
+
+    const ready = readReady(root)
+    expect(ready.controlPort).toBe(50111)
+    expect('controlPortUnavailableReason' in ready).toBe(false)
+  })
+
+  it('taps only hooks the fake compiler provides', () => {
+    const {plugin} = buildPlaywrightPlugin()
+    const taps = applyWithFakeCompiler(plugin)
+
+    expect(Object.keys(taps).sort()).toEqual([
+      'compile',
+      'done',
+      'failed',
+      'watchClose'
+    ])
   })
 })

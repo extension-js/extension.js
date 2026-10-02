@@ -1,6 +1,8 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {getLocales} from '../get-locales'
+import {processLocaleAssets} from '../process-assets'
 import {validateLocales} from '../validation'
 
 const makeCompiler = (context: string) => ({
@@ -204,5 +206,174 @@ describe('validateLocales manifest placeholder scan', () => {
 
     expect(result).toBe(false)
     expect(String(compilation.errors[0])).toContain('"a"')
+  })
+})
+
+describe('validateLocales reads the manifest resolved for this browser', () => {
+  const uniq = `${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  const tmpRoot = path.resolve(__dirname, '__tmp_prefixed__', uniq)
+  const manifestPath = path.join(tmpRoot, 'manifest.json')
+
+  const writeProject = (
+    manifest: Record<string, unknown>,
+    messages: Record<string, unknown>
+  ) => {
+    fs.mkdirSync(path.join(tmpRoot, '_locales', 'en'), {recursive: true})
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest))
+    fs.writeFileSync(
+      path.join(tmpRoot, '_locales', 'en', 'messages.json'),
+      JSON.stringify(messages)
+    )
+  }
+
+  afterEach(() => {
+    if (fs.existsSync(tmpRoot)) {
+      fs.rmSync(tmpRoot, {recursive: true, force: true})
+    }
+
+    vi.restoreAllMocks()
+  })
+
+  for (const browser of ['chrome', 'firefox'] as const) {
+    it(`accepts a default_locale written behind a prefix on a ${browser} build`, () => {
+      writeProject(
+        {
+          manifest_version: 3,
+          'chromium:default_locale': 'en',
+          'firefox:default_locale': 'en'
+        },
+        {appName: {message: 'App'}}
+      )
+
+      const compilation = makeCompilation()
+
+      const result = validateLocales(
+        makeCompiler(tmpRoot) as any,
+        compilation as any,
+        manifestPath,
+        browser
+      )
+
+      expect(compilation.errors.map(String)).toEqual([])
+      expect(result).toBe(true)
+    })
+  }
+
+  it('ignores an __MSG_ reference only another browser key carries', () => {
+    writeProject(
+      {
+        default_locale: 'en',
+        name: '__MSG_extName__',
+        'firefox:name': '__MSG_extNameFirefoxOnly__'
+      },
+      {extName: {message: 'App'}}
+    )
+
+    const compilation = makeCompilation()
+
+    const result = validateLocales(
+      makeCompiler(tmpRoot) as any,
+      compilation as any,
+      manifestPath,
+      'chrome'
+    )
+
+    expect(compilation.errors.map(String)).toEqual([])
+    expect(result).toBe(true)
+  })
+
+  it('still reports the reference on the build whose key carries it', () => {
+    writeProject(
+      {
+        default_locale: 'en',
+        name: '__MSG_extName__',
+        'firefox:name': '__MSG_extNameFirefoxOnly__'
+      },
+      {extName: {message: 'App'}}
+    )
+
+    const compilation = makeCompilation()
+
+    const result = validateLocales(
+      makeCompiler(tmpRoot) as any,
+      compilation as any,
+      manifestPath,
+      'firefox'
+    )
+
+    expect(result).toBe(false)
+    expect(String(compilation.errors[0])).toContain('extNameFirefoxOnly')
+  })
+})
+
+describe('validateLocales with _locales inside public/', () => {
+  const uniq = `${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  const tmpRoot = path.resolve(__dirname, '__tmp_public_locales__', uniq)
+  const manifestPath = path.join(tmpRoot, 'manifest.json')
+
+  beforeEach(() => {
+    fs.mkdirSync(path.join(tmpRoot, 'public', '_locales', 'en'), {
+      recursive: true
+    })
+
+    fs.writeFileSync(
+      manifestPath,
+      JSON.stringify({
+        manifest_version: 3,
+        default_locale: 'en',
+        name: '__MSG_appName__'
+      })
+    )
+
+    fs.writeFileSync(
+      path.join(tmpRoot, 'public', '_locales', 'en', 'messages.json'),
+      JSON.stringify({appName: {message: 'App'}})
+    )
+  })
+
+  afterEach(() => {
+    if (fs.existsSync(tmpRoot)) {
+      fs.rmSync(tmpRoot, {recursive: true, force: true})
+    }
+
+    vi.restoreAllMocks()
+  })
+
+  it('passes validation because the copier ships the folder', () => {
+    const compilation = makeCompilation()
+
+    const result = validateLocales(
+      makeCompiler(tmpRoot) as any,
+      compilation as any,
+      manifestPath,
+      'chrome'
+    )
+
+    expect(compilation.errors.map(String)).toEqual([])
+    expect(result).toBe(true)
+  })
+
+  it('emits no _locales asset the copier already owns', () => {
+    const emitAsset = vi.fn()
+    const compilation = {...makeCompilation(), emitAsset}
+
+    expect(
+      (getLocales(manifestPath, tmpRoot) || []).map((file) =>
+        file.split(path.sep).join('/')
+      )
+    ).toEqual([
+      path
+        .join(tmpRoot, 'public', '_locales', 'en', 'messages.json')
+        .split(path.sep)
+        .join('/')
+    ])
+
+    processLocaleAssets(
+      makeCompiler(tmpRoot) as any,
+      compilation as any,
+      manifestPath
+    )
+
+    expect(emitAsset.mock.calls.map(([name]) => name)).toEqual([])
   })
 })

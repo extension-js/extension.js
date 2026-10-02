@@ -343,6 +343,7 @@ export default function webpackConfig(
       instanceId: devOptions.instanceId,
       instanceExplicit: devOptions.instanceExplicit,
       controlPort: devOptions.controlPort,
+      controlPortUnavailableReason: devOptions.controlPortUnavailableReason,
       controlPath: devOptions.controlPath,
       logsPath: devOptions.logsPath,
       // Everything loaded besides the user's extension, recorded in ready.json
@@ -551,6 +552,7 @@ export default function webpackConfig(
         '.jsx',
         '.ts',
         '.mts',
+        '.cts',
         '.tsx',
         '.json',
         '.svelte',

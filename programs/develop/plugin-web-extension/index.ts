@@ -98,7 +98,8 @@ export class WebExtensionPlugin {
     }).apply(compiler)
 
     new LocalesPlugin({
-      manifestPath
+      manifestPath,
+      browser: this.browser
     }).apply(compiler)
 
     new JsonPlugin({

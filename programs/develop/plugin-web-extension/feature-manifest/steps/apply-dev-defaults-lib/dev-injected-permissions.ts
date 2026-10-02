@@ -6,21 +6,45 @@
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-const DEV_INJECTED_PERMISSIONS_MV3 = [
-  'scripting',
-  'tabs',
-  'management',
-  'storage'
-] as const
+import {isWebkitUnsupportedPermission} from '../../manifest-lib/filter-keys-safari'
+
+const DEV_INJECTED_PERMISSIONS_MV3 = ['scripting', 'tabs', 'storage'] as const
 
 const DEV_INJECTED_PERMISSIONS_MV2 = ['tabs', 'storage'] as const
 
-export function devInjectedPermissions(
-  manifestVersion: unknown
+// Nothing in the dev loop grants these, so only a build scan names them, for
+// an author who calls the API and never declared it.
+const SCAN_ONLY_PERMISSIONS = ['management'] as const
+
+function webkitSafe(
+  permissions: readonly string[],
+  browser?: string
 ): readonly string[] {
-  return manifestVersion === 3
-    ? DEV_INJECTED_PERMISSIONS_MV3
-    : DEV_INJECTED_PERMISSIONS_MV2
+  return permissions.filter(
+    (permission) => !isWebkitUnsupportedPermission(permission, browser)
+  )
+}
+
+export function devInjectedPermissions(
+  manifestVersion: unknown,
+  browser?: string
+): readonly string[] {
+  return webkitSafe(
+    manifestVersion === 3
+      ? DEV_INJECTED_PERMISSIONS_MV3
+      : DEV_INJECTED_PERMISSIONS_MV2,
+    browser
+  )
+}
+
+export function scannedPermissions(
+  manifestVersion: unknown,
+  browser?: string
+): readonly string[] {
+  return [
+    ...devInjectedPermissions(manifestVersion, browser),
+    ...webkitSafe(SCAN_ONLY_PERMISSIONS, browser)
+  ]
 }
 
 // The gated part of a namespace that is reachable without the permission.

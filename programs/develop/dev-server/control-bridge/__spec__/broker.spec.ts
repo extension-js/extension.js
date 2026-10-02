@@ -3,7 +3,8 @@ import {
   BridgeBroker,
   type BridgeConnection,
   CLOSE_BAD_INSTANCE,
-  CLOSE_CONTROL_UNAVAILABLE
+  CLOSE_CONTROL_UNAVAILABLE,
+  RELOAD_ACK_TIMEOUT_MS
 } from '../broker'
 import type {IncomingLogEvent, ServerFrame} from '../contracts'
 import {LogRingBuffer} from '../ring-buffer'
@@ -532,6 +533,173 @@ describe('BridgeBroker.broadcastReload (controller-less dev loop)', () => {
     expect(b.pingProducers()).toBe(1)
     expect(prod.sent).toEqual([{type: 'ping'}])
     expect(cons.sent).toHaveLength(0)
+  })
+})
+
+describe('BridgeBroker reload receipts', () => {
+  interface FakeTimer {
+    fn: () => void
+    ms: number
+    cleared: boolean
+  }
+
+  function brokerWithTimers() {
+    const timers: FakeTimer[] = []
+    const b = new BridgeBroker({
+      ...opts,
+      setTimer: (fn, ms) => {
+        const timer: FakeTimer = {fn, ms, cleared: false}
+        timers.push(timer)
+
+        return timer as unknown as ReturnType<typeof setTimeout>
+      },
+      clearTimer: (handle) => {
+        ;(handle as unknown as FakeTimer).cleared = true
+      }
+    })
+
+    return {
+      b,
+      closeAckWindow: () => {
+        const pending = timers.filter(
+          (t) => !t.cleared && t.ms === RELOAD_ACK_TIMEOUT_MS
+        )
+        expect(pending).toHaveLength(1)
+        pending[0].fn()
+      },
+      ackWindows: () =>
+        timers.filter((t) => t.ms === RELOAD_ACK_TIMEOUT_MS).length
+    }
+  }
+
+  function helloProducer(
+    b: BridgeBroker,
+    conn: FakeConn,
+    acksReloads?: boolean
+  ) {
+    b.onFrame(conn, {
+      type: 'hello',
+      v: 1,
+      role: 'producer',
+      instanceId: 'inst-1',
+      ...(acksReloads ? {acksReloads: true} : {})
+    })
+  }
+
+  function reloadIdOf(conn: FakeConn): string {
+    const frame = conn.sent.find((f) => f.type === 'reload')
+    expect(frame).toBeDefined()
+
+    return String((frame as {reloadId?: string}).reloadId)
+  }
+
+  it('expects no receipt from a producer that never negotiated the ack', async () => {
+    const {b, ackWindows} = brokerWithTimers()
+    const cached = new FakeConn('profile-cached')
+    helloProducer(b, cached)
+
+    expect(b.broadcastReload({type: 'full', label: 'extension'})).toBe(1)
+    expect(cached.sent[0]).not.toHaveProperty('reloadId')
+    expect(ackWindows()).toBe(0)
+    await expect(b.awaitReloadAck()).resolves.toBe('not-expected')
+  })
+
+  it('confirms a full reload only when the worker acks its reload id', async () => {
+    const {b} = brokerWithTimers()
+    const prod = new FakeConn('p')
+    helloProducer(b, prod, true)
+
+    expect(b.broadcastReload({type: 'full', label: 'extension'})).toBe(1)
+    const reloadId = reloadIdOf(prod)
+    expect(reloadId).not.toBe('undefined')
+
+    b.onFrame(prod, {type: 'reload-ack', reloadType: 'full', reloadId})
+    await expect(b.awaitReloadAck()).resolves.toBe('acked')
+  })
+
+  it('reports a full reload unacked once the ack window closes', async () => {
+    const {b, closeAckWindow} = brokerWithTimers()
+    const wedged = new FakeConn('wedged')
+    helloProducer(b, wedged, true)
+
+    expect(b.broadcastReload({type: 'full', label: 'extension'})).toBe(1)
+    closeAckWindow()
+    await expect(b.awaitReloadAck()).resolves.toBe('unacked')
+  })
+
+  it('refuses an ack for another reload id as the receipt', async () => {
+    const {b, closeAckWindow} = brokerWithTimers()
+    const prod = new FakeConn('p')
+    helloProducer(b, prod, true)
+
+    b.broadcastReload({type: 'service-worker', label: 'service_worker'})
+    b.onFrame(prod, {
+      type: 'reload-ack',
+      reloadType: 'service-worker',
+      reloadId: 'r-from-a-previous-session'
+    })
+
+    closeAckWindow()
+    await expect(b.awaitReloadAck()).resolves.toBe('unacked')
+  })
+
+  it('refuses an id-less ack as the receipt when one was expected', async () => {
+    const {b, closeAckWindow} = brokerWithTimers()
+    const acking = new FakeConn('fresh')
+    const cached = new FakeConn('profile-cached')
+    helloProducer(b, acking, true)
+    helloProducer(b, cached)
+
+    expect(b.broadcastReload({type: 'full', label: 'extension'})).toBe(2)
+    b.onFrame(cached, {type: 'reload-ack', reloadType: 'full'})
+
+    closeAckWindow()
+    await expect(b.awaitReloadAck()).resolves.toBe('unacked')
+  })
+
+  it('releases the content-scripts latch on an acked reload id', () => {
+    const {b} = brokerWithTimers()
+    const prod = new FakeConn('p')
+    helloProducer(b, prod, true)
+
+    b.broadcastReload({type: 'content-scripts', label: 'content_script'})
+    b.onFrame(prod, {
+      type: 'reload-ack',
+      reloadType: 'content-scripts',
+      reloadId: reloadIdOf(prod)
+    })
+
+    const fresh = new FakeConn('fresh')
+    helloProducer(b, fresh, true)
+    expect(fresh.sent).toHaveLength(0)
+  })
+
+  it('leaves a superseded receipt unwarned, the newer edit owns the report', async () => {
+    const {b} = brokerWithTimers()
+    const prod = new FakeConn('p')
+    helloProducer(b, prod, true)
+
+    b.broadcastReload({type: 'full', label: 'extension'})
+    const first = b.awaitReloadAck()
+    b.broadcastReload({type: 'full', label: 'extension'})
+
+    await expect(first).resolves.toBe('not-expected')
+  })
+
+  it('expects no receipt from a producer whose socket dropped the frame', async () => {
+    const {b, ackWindows} = brokerWithTimers()
+    const dropping = new DroppingConn('idled-out')
+    b.onFrame(dropping, {
+      type: 'hello',
+      v: 1,
+      role: 'producer',
+      instanceId: 'inst-1',
+      acksReloads: true
+    })
+
+    expect(b.broadcastReload({type: 'full', label: 'extension'})).toBe(0)
+    expect(ackWindows()).toBe(0)
+    await expect(b.awaitReloadAck()).resolves.toBe('not-expected')
   })
 })
 

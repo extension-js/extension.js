@@ -15,7 +15,7 @@ The Locales plugin scans your extension project for `_locales` folders and emits
 
 To prevent browser crashes or confusing runtime alerts, this plugin validates locale wiring at compile time and fails fast with clear messages:
 
-- `default_locale` set in `manifest.json` requires `_locales/<default>/messages.json` to exist and contain valid JSON.
+- `default_locale` set in `manifest.json` requires `_locales/<default>/messages.json` to exist and contain valid JSON. The manifest is read as resolved for the target browser, so a `chromium:default_locale` counts for a Chromium build.
 - If `_locales/` exists but `default_locale` is missing in `manifest.json`, the build errors (browsers will reject the extension otherwise).
 - All discovered `_locales/**/messages.json` are checked for valid JSON.
 
@@ -23,7 +23,7 @@ When any of the above is misconfigured, the build emits a compilation error so y
 
 ## What it does
 
-- Scans `_<locales>/<locale>/*` under the directory of your `manifest.json`.
+- Scans `_<locales>/<locale>/*` at the project root, next to your `manifest.json`, or inside `public/`. A `public/_locales` is shipped by the public copier, so this plugin emits nothing for it.
 - Emits only `.json` files (e.g., `messages.json`) to the output bundle. Non‑JSON files in `_locales` are ignored.
 - Adds discovered `.json` files to compilation file dependencies so changes are watched during `dev`.
 
@@ -47,14 +47,20 @@ export default {
 ```ts
 export class LocalesPlugin {
   readonly manifestPath: string
+  readonly browser: DevOptions['browser']
   readonly includeList?: string[]
 
-  constructor(options: {manifestPath: string; includeList?: string[]})
+  constructor(options: {
+    manifestPath: string
+    browser?: DevOptions['browser']
+    includeList?: string[]
+  })
   apply(compiler: unknown): void
 }
 ```
 
 - **manifestPath**: Absolute path to your `manifest.json`.
+- **browser**: Target browser whose manifest keys are resolved before validation. Defaults to `chrome`.
 - **includeList**: Optional file path list to include. Non-`.json` files are skipped automatically.
 
 ## License

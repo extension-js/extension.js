@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
+import type {ReloadAckOutcome} from '../dev-server/control-bridge/contracts'
 import {prefix} from '../lib/messaging'
 import type {ReloadInstruction} from './classify-reload'
 
@@ -31,6 +32,9 @@ export interface ReloadBroker {
   // When a broadcast reached zero producers, an optional operator warning
   // (grace-gated + deduped by the broker), or null; optional for test doubles.
   undeliveredReloadWarning?(context?: UndeliveredReloadContext): string | null
+  // The receipt for the newest broadcast. 'not-expected' covers a producer
+  // that cannot ack, so an old cached worker is never called unapplied.
+  awaitReloadAck?(): Promise<ReloadAckOutcome>
 }
 
 export interface ReloadExecutor {
@@ -61,6 +65,16 @@ export function formatReloadingLine(label: string): string {
   return `${prefix('info')} Reloading ${label}…`
 }
 
+// The ack window closed with no receipt: the frame reached an open socket and
+// the worker still never said it applied the edit, so say exactly that.
+export function formatUnappliedReloadLine(label: string): string {
+  return (
+    `${prefix('warn')} ${label} compiled but the extension never confirmed ` +
+    'the reload, so this edit may not be live. Save again, or reload the ' +
+    'extension from the browser.'
+  )
+}
+
 // The zero-producer line for a caller that restarted the extension itself. The
 // broker latched the instruction, so the reconnecting producer still applies it.
 export function formatQueuedReloadLine(label: string): string {
@@ -79,9 +93,20 @@ export async function dispatchReload(
   if (executor.broker) {
     const notified = viaBroker(executor.broker, instruction)
 
-    // Announce only when at least one live instance received the signal; with zero
-    // producers nothing reloads and printing "Reloading..." would be a lie.
+    // Announce only when the extension confirmed it applied the edit. A
+    // producer that cannot ack resolves 'not-expected', so those sessions keep
+    // announcing on a confirmed send rather than warning on every save.
     if (notified > 0) {
+      const ack = (await executor.broker.awaitReloadAck?.()) ?? 'not-expected'
+
+      if (ack === 'unacked') {
+        if (instruction.label) {
+          console.warn(formatUnappliedReloadLine(instruction.label))
+        }
+
+        return
+      }
+
       if (instruction.label) console.log(formatReloadingLine(instruction.label))
 
       return
