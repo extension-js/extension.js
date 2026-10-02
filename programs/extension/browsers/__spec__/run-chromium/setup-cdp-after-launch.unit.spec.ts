@@ -15,8 +15,13 @@ const getInfoBestEffortSpy = vi.fn(async () => ({
 const openTabSpy = vi.fn(async () => {})
 const ensureDeveloperModeSpy = vi.fn(async () => 'enabled' as const)
 const loadCompanionsSpy = vi.fn(async (_paths: string[]) => [])
+const ensurePageTargetSpy = vi.fn(async (_url: string) => 'created' as string)
 
-vi.mock('../../run-chromium/cdp/cdp-extension-controller', () => {
+vi.mock('../../run-chromium/cdp/cdp-extension-controller', async () => {
+  const actual = (await vi.importActual(
+    '../../run-chromium/cdp/cdp-extension-controller'
+  )) as Record<string, unknown>
+
   class CDPExtensionController {
     constructor(args: any) {
       ctorSpy(args)
@@ -27,25 +32,42 @@ vi.mock('../../run-chromium/cdp/cdp-extension-controller', () => {
     openTab = openTabSpy
     ensureDeveloperMode = ensureDeveloperModeSpy
     loadCompanions = loadCompanionsSpy
+    ensurePageTarget = ensurePageTargetSpy
   }
 
-  return {CDPExtensionController}
+  return {
+    ...actual,
+    CDPExtensionController,
+    __realController: actual.CDPExtensionController
+  }
 })
 
-vi.mock('../../browsers-lib/shared-utils', () => ({
-  deriveDebugPortWithInstance: vi.fn(() => 9333)
-}))
+vi.mock('../../browsers-lib/shared-utils', async () => {
+  const actual = (await vi.importActual(
+    '../../browsers-lib/shared-utils'
+  )) as Record<string, unknown>
 
-vi.mock('../../browsers-lib/banner', () => ({
-  printDevBannerOnce: vi.fn(async () => true),
-  printProdBannerOnce: vi.fn(async () => true)
-}))
+  return {...actual, deriveDebugPortWithInstance: vi.fn(() => 9333)}
+})
+
+vi.mock('../../browsers-lib/banner', async () => {
+  const actual = (await vi.importActual(
+    '../../browsers-lib/banner'
+  )) as Record<string, unknown>
+
+  return {
+    ...actual,
+    printDevBannerOnce: vi.fn(async () => true),
+    printProdBannerOnce: vi.fn(async () => true)
+  }
+})
 
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {claimCardKey} from '../../../helpers/messaging'
 import * as banner from '../../browsers-lib/banner'
+import * as controllerModule from '../../run-chromium/cdp/cdp-extension-controller'
 import {setupCdpAfterLaunch} from '../../run-chromium/chromium-launch/setup-cdp-after-launch'
 
 const tempDirs: string[] = []
@@ -62,6 +84,22 @@ function makeExtensionDir(manifest: Record<string, unknown>): string {
   return dir
 }
 
+// The launch recognizes the companion by its directory name, so a fixture that
+// stands in for it has to carry that name too.
+function makeCompanionDir(): string {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-companion-'))
+  tempDirs.push(root)
+  const dir = path.join(root, 'extension-js-devtools', 'chromium')
+  fs.mkdirSync(dir, {recursive: true})
+  fs.writeFileSync(
+    path.join(dir, 'manifest.json'),
+    JSON.stringify({manifest_version: 3, name: 'Extension.js', version: '1.0'}),
+    'utf-8'
+  )
+
+  return dir
+}
+
 describe('setupCdpAfterLaunch', () => {
   beforeEach(() => {
     ctorSpy.mockClear()
@@ -71,6 +109,7 @@ describe('setupCdpAfterLaunch', () => {
     openTabSpy.mockClear()
     ensureDeveloperModeSpy.mockClear()
     loadCompanionsSpy.mockClear()
+    ensurePageTargetSpy.mockClear()
     vi.mocked(banner.printDevBannerOnce).mockClear()
     vi.mocked(banner.printProdBannerOnce).mockClear()
   })
@@ -371,6 +410,139 @@ describe('setupCdpAfterLaunch', () => {
     )
 
     expect(openTabSpy).not.toHaveBeenCalled()
+  })
+
+  it('keeps the mock in step with the controller the launch really builds', () => {
+    const real = (controllerModule as any).__realController
+    const mocked = new (controllerModule as any).CDPExtensionController({})
+
+    expect(typeof real?.prototype?.ensurePageTarget).toBe('function')
+    expect(typeof mocked.ensurePageTarget).toBe('function')
+  })
+
+  it('gives a headless session a page target, on the companion welcome page', async () => {
+    const companionDir = makeCompanionDir()
+    const userDir = makeExtensionDir({manifest_version: 3, name: 'User'})
+    const compilation: any = {
+      options: {mode: 'development', output: {path: userDir}}
+    }
+
+    await setupCdpAfterLaunch(
+      compilation,
+      {browser: 'yandex', port: 9333, instanceId: 'i'} as any,
+      [
+        `--load-extension=${[companionDir, userDir].join()}`,
+        '--remote-debugging-port=9333',
+        '--user-data-dir=/tmp/extension-profile',
+        '--headless=new'
+      ]
+    )
+
+    expect(ensurePageTargetSpy).toHaveBeenCalledTimes(1)
+    expect(String(ensurePageTargetSpy.mock.calls[0][0])).toMatch(
+      /^chrome-extension:\/\/[a-p]{32}\/pages\/welcome\.html$/
+    )
+  })
+
+  it('never reaches for a page target on a headed launch', async () => {
+    const userDir = makeExtensionDir({manifest_version: 3, name: 'User'})
+    const compilation: any = {
+      options: {mode: 'development', output: {path: userDir}}
+    }
+
+    for (const browser of ['yandex', 'chrome', 'edge', 'vivaldi']) {
+      await setupCdpAfterLaunch(
+        compilation,
+        {browser, port: 9333, instanceId: 'i'} as any,
+        [
+          `--load-extension=${userDir}`,
+          '--remote-debugging-port=9333',
+          '--user-data-dir=/tmp/extension-profile'
+        ]
+      )
+    }
+
+    expect(ensurePageTargetSpy).not.toHaveBeenCalled()
+  })
+
+  it('leaves a headless --no-open session with no page, as asked', async () => {
+    const userDir = makeExtensionDir({manifest_version: 3, name: 'User'})
+    const compilation: any = {
+      options: {mode: 'development', output: {path: userDir}}
+    }
+
+    await setupCdpAfterLaunch(
+      compilation,
+      {browser: 'yandex', port: 9333, instanceId: 'i', noOpen: true} as any,
+      [
+        `--load-extension=${userDir}`,
+        '--remote-debugging-port=9333',
+        '--user-data-dir=/tmp/extension-profile',
+        '--headless=new'
+      ]
+    )
+
+    expect(ensurePageTargetSpy).not.toHaveBeenCalled()
+  })
+
+  it('puts the requested starting url on the page it has to recreate', async () => {
+    const companionDir = makeCompanionDir()
+    const userDir = makeExtensionDir({manifest_version: 3, name: 'User'})
+    const compilation: any = {
+      options: {mode: 'development', output: {path: userDir}}
+    }
+
+    await setupCdpAfterLaunch(
+      compilation,
+      {
+        browser: 'yandex',
+        port: 9333,
+        instanceId: 'i',
+        startingUrl: 'https://example.com/'
+      } as any,
+      [
+        `--load-extension=${[companionDir, userDir].join()}`,
+        '--remote-debugging-port=9333',
+        '--user-data-dir=/tmp/extension-profile',
+        '--headless'
+      ]
+    )
+
+    expect(ensurePageTargetSpy).toHaveBeenCalledWith('https://example.com/')
+  })
+
+  it('warns once when the browser will not take a replacement page', async () => {
+    const userDir = makeExtensionDir({manifest_version: 3, name: 'User'})
+    const compilation: any = {
+      options: {mode: 'development', output: {path: userDir}}
+    }
+    ensurePageTargetSpy.mockResolvedValueOnce('refused')
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    try {
+      await setupCdpAfterLaunch(
+        compilation,
+        {browser: 'yandex', port: 9333, instanceId: 'i'} as any,
+        [
+          `--load-extension=${userDir}`,
+          '--remote-debugging-port=9333',
+          '--user-data-dir=/tmp/extension-profile',
+          '--headless=new'
+        ]
+      )
+
+      const printed = [...warnSpy.mock.calls, ...logSpy.mock.calls]
+        .map((call) => String(call[0] || ''))
+        .join('\n')
+
+      expect(printed).toContain('yandex')
+      expect(printed).toContain('--headless')
+      expect(printed.match(/no page/g)?.length).toBe(1)
+    } finally {
+      warnSpy.mockRestore()
+      logSpy.mockRestore()
+    }
   })
 
   // The card carries the profile row now, so the standalone debug line only
