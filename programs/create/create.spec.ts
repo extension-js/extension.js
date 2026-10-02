@@ -2,6 +2,16 @@ import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import * as path from 'node:path'
 import {beforeAll, describe, expect, it} from 'vitest'
+import {DEFAULT_TEMPLATE_NAME} from './steps/import-external-template'
+import {
+  fixtureExtensionFiles,
+  serveExamplesCatalog
+} from './__spec__/examples-catalog-fixture'
+
+function restoreEnv(name: string, value: string | undefined) {
+  if (value === undefined) delete process.env[name]
+  else process.env[name] = value
+}
 
 let extensionCreate: (
   projectName: string | undefined,
@@ -142,13 +152,36 @@ describe('extension create', () => {
       'dist',
       'test-template-javascript'
     )
-    await extensionCreate(templatePath, {
-      install: false
+    const catalog = await serveExamplesCatalog({
+      [DEFAULT_TEMPLATE_NAME]: fixtureExtensionFiles(DEFAULT_TEMPLATE_NAME)
     })
+    const savedUrl = process.env.EXTENSION_CREATE_TEMPLATE_URL
+    const savedHttp = process.env.EXTENSION_ALLOW_HTTP_TEMPLATE
+    process.env.EXTENSION_CREATE_TEMPLATE_URL = catalog.url
+    process.env.EXTENSION_ALLOW_HTTP_TEMPLATE = 'true'
+
+    try {
+      await extensionCreate(templatePath, {
+        install: false
+      })
+    } finally {
+      restoreEnv('EXTENSION_CREATE_TEMPLATE_URL', savedUrl)
+      restoreEnv('EXTENSION_ALLOW_HTTP_TEMPLATE', savedHttp)
+      await catalog.close()
+    }
 
     expect(fileExists('javascript', 'package.json')).toBeTruthy()
     expect(manifestExists('javascript')).toBeTruthy()
     expect(fileExists('javascript', 'README.md')).toBeTruthy()
+
+    const provenance = JSON.parse(
+      fs.readFileSync(
+        path.join(templatePath, '.extension-create.json'),
+        'utf-8'
+      )
+    )
+    expect(provenance.template).toBe(DEFAULT_TEMPLATE_NAME)
+    expect(provenance.source).toBe(catalog.url)
   }, 30000)
 
   it('rejects a URL as project path', async () => {

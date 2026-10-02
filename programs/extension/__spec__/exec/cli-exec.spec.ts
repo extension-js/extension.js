@@ -11,6 +11,12 @@ import {tmpdir} from 'node:os'
 import {dirname, join, resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
+import {
+  type ExamplesCatalogFixture,
+  fixtureExtensionFiles,
+  serveExamplesCatalog
+} from '../../../create/__spec__/examples-catalog-fixture'
+import {DEFAULT_TEMPLATE} from '../../helpers/template-catalog'
 
 type Runner = {
   name: string
@@ -83,8 +89,11 @@ const defaultEnv: NodeJS.ProcessEnv = {
   ...baseEnv,
   EXTENSION_DEV_NO_BROWSER: '1',
   EXTENSION_ENV: 'test',
-  EXTENSION_SKIP_INTERNAL_INSTALL: 'true'
+  EXTENSION_SKIP_INTERNAL_INSTALL: 'true',
+  EXTENSION_ALLOW_HTTP_TEMPLATE: 'true'
 }
+
+let catalog: ExamplesCatalogFixture | undefined
 
 function sleepSync(ms: number) {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
@@ -375,7 +384,12 @@ function getPackagesForRunner(runnerName: string) {
   return [cliTgz, createTgz, developTgz]
 }
 
-beforeAll(() => {
+beforeAll(async () => {
+  catalog = await serveExamplesCatalog({
+    [DEFAULT_TEMPLATE]: fixtureExtensionFiles(DEFAULT_TEMPLATE)
+  })
+
+  defaultEnv.EXTENSION_CREATE_TEMPLATE_URL = catalog.url
   packDir = mkdtempSync(join(tmpdir(), 'extjs-cli-pack-'))
   ensureCompiled(cliDir, resolve(cliDir, 'dist/cli.cjs'))
   ensureCompiled(createDir, resolve(createDir, 'dist/module.cjs'))
@@ -409,10 +423,12 @@ beforeAll(() => {
   }
 })
 
-afterAll(() => {
+afterAll(async () => {
   if (packDir) {
     rmSync(packDir, {recursive: true, force: true})
   }
+
+  await catalog?.close()
 })
 
 const runners: Runner[] = [
@@ -503,6 +519,12 @@ describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
       )
       expect(pkg.devDependencies?.extension).toBeTruthy()
 
+      const provenance = JSON.parse(
+        readFileSync(join(projectPath, '.extension-create.json'), 'utf8')
+      )
+      expect(provenance.template).toBe(DEFAULT_TEMPLATE)
+      expect(provenance.source).toBe(catalog?.url)
+
       if (shouldAssertNoNodeModules) {
         expect(existsSync(join(projectPath, 'node_modules'))).toBe(false)
       }
@@ -525,7 +547,7 @@ describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
           'create',
           projectPath,
           '--template',
-          'react',
+          'javascript',
           '--install',
           'false'
         ]),
@@ -572,6 +594,8 @@ describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
         runner.buildArgs(packages, [
           'create',
           projectPath,
+          '--template',
+          'javascript',
           '--install',
           'false'
         ]),
@@ -614,6 +638,8 @@ describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
         runner.buildArgs(packages, [
           'create',
           projectPath,
+          '--template',
+          'javascript',
           '--install',
           'false'
         ]),
@@ -658,6 +684,8 @@ describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
           runner.buildArgs(packages, [
             'create',
             projectPath,
+            '--template',
+            'javascript',
             '--install',
             'false'
           ]),
@@ -717,7 +745,14 @@ describe('cli direct flow (no npx)', () => {
 
     try {
       const createResult = runCli(
-        ['create', projectPath, '--install', 'false'],
+        [
+          'create',
+          projectPath,
+          '--template',
+          'javascript',
+          '--install',
+          'false'
+        ],
         workspace
       )
       expect(createResult.status).toBe(0)
