@@ -188,12 +188,9 @@ export async function extensionPreview(
     command: metadataCommand,
     distPath: outputPath,
     manifestPath: projectStructure.manifestPath,
-    port:
-      typeof previewOptions.port === 'number'
-        ? previewOptions.port
-        : typeof previewOptions.port === 'string'
-          ? parseInt(previewOptions.port, 10)
-          : null
+    // Run-only serves nothing, so there is no port to report. Echoing the
+    // requested one described a listener that never existed.
+    port: null
   })
 
   // `extension start` already opened this run in the build phase (timeline

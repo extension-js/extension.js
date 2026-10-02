@@ -78,9 +78,10 @@ describe('extension start --output json', () => {
     expect(emitted[0].value).toMatchObject({
       browser: 'chromium',
       browsers: ['chromium'],
-      port: 8080,
       pid: process.pid
     })
+
+    expect(emitted[0].value).not.toHaveProperty('port')
 
     expect(extensionBuild).toHaveBeenCalledTimes(1)
     expect(extensionPreview).toHaveBeenCalledTimes(1)

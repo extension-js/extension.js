@@ -20,7 +20,7 @@ import {exitAfterDrain} from '../helpers/exit-after-drain'
 import {loadExtensionDevelopPreviewModule} from '../helpers/extension-develop-runtime'
 import * as messages from '../helpers/messages'
 import {commandDescriptions} from '../helpers/messages'
-import {CODES, ENVELOPE} from '../helpers/messaging'
+import {CODES, ENVELOPE, stripChannelPrefix} from '../helpers/messaging'
 import {
   BROWSER_LAUNCH_HELP_FOOTER,
   NO_OPEN_FLAG_DESCRIPTION,
@@ -68,6 +68,21 @@ type PreviewOptions = {
 export const PREVIEW_NOT_FOUND_NEEDLES = [
   'Preview is run-only',
   'Manifest file not found'
+] as const
+
+// The browser comes up without the extension in it, which is a different
+// failure from having nothing built, and a machine reader has to tell them apart.
+export const PREVIEW_LOAD_REFUSED_HINTS: ReadonlyArray<
+  readonly [needle: string, hint: string]
+> = [
+  [
+    'refuses to load this extension',
+    'Fix the manifest, then run the command again.'
+  ],
+  [
+    'missing files its manifest declares',
+    'Run `extension build` again, then run the command.'
+  ]
 ] as const
 
 export function registerPreviewCommand(program: Command) {
@@ -312,28 +327,40 @@ export function registerPreviewCommand(program: Command) {
           } catch (error) {
             if (!asJson) throw error
 
-            const message =
+            const rendered =
               error instanceof Error ? error.message : String(error)
+            const message = stripChannelPrefix(rendered)
             // Preview never compiles: nothing to preview is the one failure the
             // caller can act on, so it gets its own status. Stopgap needles:
             // neither producer stamps a code on the error it throws.
             const nothingToPreview = PREVIEW_NOT_FOUND_NEEDLES.some((needle) =>
               message.includes(needle)
             )
+            const loadRefusedHint = PREVIEW_LOAD_REFUSED_HINTS.find(
+              ([needle]) => message.includes(needle)
+            )?.[1]
 
             emit(
               ENVELOPE.fail(
                 'preview',
-                nothingToPreview ? 'not-found' : 'failed',
+                nothingToPreview
+                  ? 'not-found'
+                  : loadRefusedHint
+                    ? 'load-refused'
+                    : 'failed',
                 {
                   code: nothingToPreview
                     ? CODES.E_PREVIEW_NO_DIST
-                    : CODES.E_INTERNAL,
+                    : loadRefusedHint
+                      ? CODES.E_EXTENSION_LOAD_REFUSED
+                      : CODES.E_INTERNAL,
                   message
                 },
                 nothingToPreview
                   ? {hint: 'Run `extension build` before previewing.'}
-                  : {}
+                  : loadRefusedHint
+                    ? {hint: loadRefusedHint}
+                    : {}
               )
             )
 

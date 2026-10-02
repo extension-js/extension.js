@@ -96,6 +96,17 @@ function getManifestRequiredFiles(content: string): string[] {
   }
 }
 
+// A built dist needs no stability wait, so this answers now rather than polling.
+// Chromium refuses the whole extension for one missing entry file.
+export function findMissingManifestFiles(outPath: string): string[] {
+  const content = readValidManifest(path.join(outPath, 'manifest.json'))
+  if (!content) return []
+
+  return getManifestRequiredFiles(content).filter(
+    (relativeFile) => !fs.existsSync(path.join(outPath, relativeFile))
+  )
+}
+
 function hasRequiredManifestFiles(outPath: string, content: string): boolean {
   const requiredFiles = getManifestRequiredFiles(content)
 
