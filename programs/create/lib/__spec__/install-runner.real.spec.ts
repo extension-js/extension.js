@@ -45,4 +45,26 @@ describe('install-runner runInstall (real spawn)', () => {
       expect(result.stdout.trim()).toMatch(VERSION)
     }
   )
+
+  it('keeps an inherited release-age rule out of the project install', async () => {
+    const saved = process.env.npm_config_minimum_release_age
+    process.env.npm_config_minimum_release_age = '4320'
+
+    try {
+      const result = await runInstall(
+        process.execPath,
+        ['-p', 'process.env.npm_config_minimum_release_age ?? "unset"'],
+        {cwd: process.cwd(), stdio: 'pipe'}
+      )
+
+      expect(result.code).toBe(0)
+      expect(result.stdout.trim()).toBe('unset')
+    } finally {
+      if (saved === undefined) {
+        delete process.env.npm_config_minimum_release_age
+      } else {
+        process.env.npm_config_minimum_release_age = saved
+      }
+    }
+  })
 })

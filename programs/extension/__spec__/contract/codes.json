@@ -88,7 +88,7 @@
     },
     "E_COMPANION_EXTENSION_PATH": {
       "area": "project",
-      "summary": "A companion extension path escapes extensions/ or yielded nothing unpacked."
+      "summary": "The only manifest at the resolved root belongs to a companion under extensions/."
     },
     "E_MANIFEST_IN_PUBLIC": {
       "area": "project",
@@ -105,35 +105,6 @@
     "E_MANIFEST_INVALID": {
       "area": "manifest",
       "summary": "The manifest is not parseable JSON or not a WebExtension manifest."
-    },
-    "E_MANIFEST_SHAPE": {
-      "area": "manifest",
-      "summary": "A manifest field has the wrong shape."
-    },
-    "E_MANIFEST_PAGE_MISSING": {
-      "area": "manifest",
-      "summary": "A manifest-referenced HTML page does not exist."
-    },
-    "E_MANIFEST_VERSION_UNSUPPORTED": {
-      "area": "manifest",
-      "summary": "The manifest_version is not supported on this target."
-    },
-    "E_MANIFEST_LOAD_BLOCKERS": {
-      "area": "manifest",
-      "summary": "Manifest fields the browser will reject at load time."
-    },
-    "E_MANIFEST_PERMISSION_MISSING": {
-      "area": "manifest",
-      "summary": "A required permission is absent from the manifest.",
-      "warn": true
-    },
-    "E_MANIFEST_MSG_KEY_MISSING": {
-      "area": "manifest",
-      "summary": "A __MSG_x__ key is absent from the default locale."
-    },
-    "E_MANIFEST_EMIT": {
-      "area": "manifest",
-      "summary": "Manifest emit or persist failed."
     },
     "E_RESTART_REQUIRED": {
       "area": "manifest",

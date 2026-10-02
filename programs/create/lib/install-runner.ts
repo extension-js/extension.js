@@ -9,17 +9,39 @@
 import * as path from 'node:path'
 import {spawn} from 'cross-spawn'
 
-function buildExecEnv(): NodeJS.ProcessEnv | undefined {
-  if (process.platform !== 'win32') return undefined
+// A package manager exports every npm config it read as an npm_config_* variable,
+// so the invoking checkout's release-age rule would govern the new project's
+// install. The project never agreed to it, and its own .npmrc still wins here.
+const INHERITED_RELEASE_AGE =
+  /^(?:npm|pnpm)_config_minimum[-_]?release[-_]?age/i
+
+function withoutInheritedReleaseAge(
+  source: NodeJS.ProcessEnv
+): NodeJS.ProcessEnv {
+  const env = {...source}
+
+  for (const key of Object.keys(env)) {
+    if (INHERITED_RELEASE_AGE.test(key)) {
+      Reflect.deleteProperty(env, key)
+    }
+  }
+
+  return env
+}
+
+function buildExecEnv(): NodeJS.ProcessEnv {
+  const env = withoutInheritedReleaseAge(process.env)
+
+  if (process.platform !== 'win32') return env
 
   const nodeDir = path.dirname(process.execPath)
   const pathSep = path.delimiter
   const existing = process.env.PATH || process.env.Path || ''
 
-  if (existing.includes(nodeDir)) return undefined
+  if (existing.includes(nodeDir)) return env
 
   return {
-    ...process.env,
+    ...env,
     PATH: `${nodeDir}${pathSep}${existing}`.trim(),
     Path: `${nodeDir}${pathSep}${existing}`.trim()
   }
@@ -36,13 +58,12 @@ export async function runInstall(
   args: string[],
   opts: {cwd: string; stdio: 'inherit' | 'ignore' | 'pipe'}
 ): Promise<InstallResult> {
-  const env = buildExecEnv()
   const child = spawn(command, args, {
     stdio: opts.stdio,
     cwd: opts.cwd,
     // cross-spawn runs the .cmd shims on Windows and escapes each argument,
     // so the project path never becomes part of a shell string.
-    env: env || process.env
+    env: buildExecEnv()
   })
   let stdout = ''
   let stderr = ''

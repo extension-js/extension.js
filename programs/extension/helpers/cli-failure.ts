@@ -184,12 +184,23 @@ export function commanderHumanError(
   return `${prefix('error')} ${label}\n${remedy}`
 }
 
+// A refusal raised deeper in the engine names its own failure class, so the
+// frame reports that instead of folding every throw into one generic code.
+export function declaredErrorCode(err: unknown): ErrorCode | undefined {
+  const code = (err as {code?: unknown} | null | undefined)?.code
+  if (typeof code !== 'string') return undefined
+
+  return Object.prototype.hasOwnProperty.call(CODES, code)
+    ? (code as ErrorCode)
+    : undefined
+}
+
 export function internalErrorEnvelope(
   err: unknown,
   command: string
 ): ReturnType<typeof ENVELOPE.fail> {
   return ENVELOPE.fail(command, 'failed', {
-    code: CODES.E_INTERNAL,
+    code: declaredErrorCode(err) ?? CODES.E_INTERNAL,
     message: err instanceof Error ? err.message : String(err),
     name: err instanceof Error ? err.name : 'Error'
   })

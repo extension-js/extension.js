@@ -8,8 +8,9 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {codedError} from './coded-error'
 import * as messages from './messages'
-import {isDebug} from './messaging'
+import {CODES, isDebug} from './messaging'
 import {findNearestPackageJsonSync, validatePackageJson} from './package-json'
 import {type ParsedJson, parseJsonSafe} from './parse-json-safe'
 import {findNearestDenoConfigSync, validateDenoConfig} from './project-manifest'
@@ -531,13 +532,23 @@ export function resolveProjectStructureSync(
         ? undefined
         : findCompanionManifest(projectPath)
 
-      return new Error(
-        companionManifest
-          ? messages.companionManifestNotProjectError(
-              manifestPath,
-              companionManifest
-            )
-          : messages.manifestNotFoundError(manifestPath, candidates)
+      if (companionManifest) {
+        return codedError(
+          CODES.E_COMPANION_EXTENSION_PATH,
+          messages.companionManifestNotProjectError(
+            manifestPath,
+            companionManifest
+          )
+        )
+      }
+
+      // A folder that is not there at all is a different mistake from a folder
+      // that is there without a manifest, and only the code can say which.
+      return codedError(
+        fs.existsSync(projectPath)
+          ? CODES.E_MANIFEST_NOT_FOUND
+          : CODES.E_PROJECT_NOT_FOUND,
+        messages.manifestNotFoundError(manifestPath, candidates)
       )
     }
 
@@ -637,7 +648,10 @@ export function resolveProjectStructureSync(
       manifestPath = alternatives[0]
       log(messages.resolvedWorkspaceManifest(projectPath, manifestPath))
     } else {
-      throw new Error(messages.notAnExtensionManifestError(manifestPath))
+      throw codedError(
+        CODES.E_MANIFEST_INVALID,
+        messages.notAnExtensionManifestError(manifestPath)
+      )
     }
   }
 
@@ -670,7 +684,10 @@ export function resolveProjectStructureSync(
       } else if (fs.existsSync(fallbackRoot)) {
         manifestPath = fallbackRoot
       } else {
-        throw new Error(messages.manifestNotFoundError(fallbackRoot))
+        throw codedError(
+          CODES.E_MANIFEST_IN_PUBLIC,
+          messages.manifestNotFoundError(fallbackRoot)
+        )
       }
     }
   }
