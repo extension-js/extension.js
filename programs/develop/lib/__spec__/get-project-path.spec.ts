@@ -418,6 +418,14 @@ describe('get-project-path (GitHub source)', () => {
   const writtenTo = (spy: ReturnType<typeof vi.spyOn>) =>
     spy.mock.calls.map((call) => String(call[0])).join('')
 
+  // project.ts reads and writes the url-keyed provenance stamp through ../zip,
+  // so a mock that replaces the whole module has to keep those helpers real.
+  async function mockZipDownload(downloadAndExtractZip: unknown) {
+    const actual = await vi.importActual<typeof import('../zip')>('../zip')
+
+    vi.doMock('../zip', () => ({...actual, downloadAndExtractZip}))
+  }
+
   // Stands in for go-git-it: writes what the real tool writes, then lands
   // the sample where the real clone would.
   function mockNoisyClone() {
@@ -490,7 +498,7 @@ describe('get-project-path (GitHub source)', () => {
     vi.doMock('go-git-it', () => ({default: goGitIt}))
     const downloadAndExtractZip = vi.fn(async (zipUrl: string) => {
       expect(zipUrl).toBe(
-        'https://codeload.github.com/GoogleChrome/chrome-extensions-samples/zip/refs/heads/main'
+        'https://codeload.github.com/GoogleChrome/chrome-extensions-samples/zip/main'
       )
 
       const sample = path.join(
@@ -504,7 +512,7 @@ describe('get-project-path (GitHub source)', () => {
 
       return root
     })
-    vi.doMock('../zip', () => ({downloadAndExtractZip}))
+    await mockZipDownload(downloadAndExtractZip)
 
     try {
       process.chdir(root)
@@ -528,5 +536,163 @@ describe('get-project-path (GitHub source)', () => {
     } finally {
       process.chdir(cwd)
     }
+  })
+
+  // A folder named after the repo is not the repo. Adopting it built and
+  // served an unrelated local project as if it had come from the url.
+  const examplesUrl = 'https://github.com/extension-js/examples'
+
+  function strangerNamedExamples(root: string) {
+    const stranger = path.join(root, 'examples')
+    fs.mkdirSync(stranger, {recursive: true})
+    fs.writeFileSync(
+      path.join(stranger, 'manifest.json'),
+      '{"manifest_version":3,"name":"NOT FROM THE REMOTE","version":"9.9.9"}'
+    )
+
+    return stranger
+  }
+
+  it('refuses a same-named folder it never recorded as this url download', async () => {
+    const root = makeTempDir('extjs-github-stranger-')
+    const cwd = process.cwd()
+    const stranger = strangerNamedExamples(root)
+    const goGitIt = vi.fn(async () => {})
+    vi.doMock('go-git-it', () => ({default: goGitIt}))
+    const downloadAndExtractZip = vi.fn(async () => root)
+    await mockZipDownload(downloadAndExtractZip)
+
+    try {
+      process.chdir(root)
+      const {getProjectPath: fresh} = await import('../project')
+      const error = await fresh(examplesUrl).then(
+        () => undefined,
+        (reason: Error) => reason
+      )
+
+      expect(error?.message).toMatch(/isn't a download from this URL/i)
+      expect((error as {code?: string}).code).toBe('E_DESTINATION_NOT_EMPTY')
+      expect(goGitIt).not.toHaveBeenCalled()
+      expect(downloadAndExtractZip).not.toHaveBeenCalled()
+      expect(fs.readdirSync(stranger)).toEqual(['manifest.json'])
+    } finally {
+      process.chdir(cwd)
+    }
+  })
+
+  // A tree url lands in a folder named after its last segment, so a folder
+  // named after the repo is a bystander the clone result must not fall back to.
+  it('does not adopt a repo-named folder the clone did not create', async () => {
+    const root = makeTempDir('extjs-github-bystander-')
+    const cwd = process.cwd()
+    const stranger = strangerNamedExamples(root)
+    vi.doMock('go-git-it', () => ({default: vi.fn(async () => {})}))
+
+    try {
+      process.chdir(root)
+      const {getProjectPath: fresh} = await import('../project')
+
+      await expect(
+        fresh(`${examplesUrl}/tree/main/examples/action`)
+      ).rejects.toThrow(/Downloaded project folder not found/i)
+
+      expect(fs.readdirSync(stranger)).toEqual(['manifest.json'])
+    } finally {
+      process.chdir(cwd)
+    }
+  })
+
+  // The refresh policy for a clone-shaped source: a stamped tree is reused and
+  // the run says so, because that tree is the one the user edits and dev
+  // watches, so refetching every restart would throw their work away.
+  it('reuses a tree stamped with this url and says it did not download', async () => {
+    const root = makeTempDir('extjs-github-stamped-')
+    const cwd = process.cwd()
+    const ours = strangerNamedExamples(root)
+    const {REMOTE_SOURCE_PROVENANCE_FILE} =
+      await vi.importActual<typeof import('../zip')>('../zip')
+    fs.writeFileSync(
+      path.join(ours, REMOTE_SOURCE_PROVENANCE_FILE),
+      JSON.stringify({source: examplesUrl})
+    )
+
+    const goGitIt = vi.fn(async () => {})
+    vi.doMock('go-git-it', () => ({default: goGitIt}))
+
+    try {
+      process.chdir(root)
+      const {getProjectPath: fresh} = await import('../project')
+      const result = await fresh(examplesUrl)
+
+      expect(fs.realpathSync(result)).toBe(fs.realpathSync(ours))
+
+      // A trailing slash is the same url, not a stranger's folder.
+      expect(fs.realpathSync(await fresh(`${examplesUrl}/`))).toBe(
+        fs.realpathSync(ours)
+      )
+
+      expect(goGitIt).not.toHaveBeenCalled()
+
+      const logged = logSpy.mock.calls.map((c) => String(c[0])).join('\n')
+      expect(logged).toContain('already downloaded here')
+      expect(logged).not.toContain('Creating a new browser extension')
+    } finally {
+      process.chdir(cwd)
+    }
+  })
+})
+
+// codeload answers /zip/<ref> for a branch, a tag and a commit alike, and
+// answers /zip/refs/heads/<ref> only for a branch.
+describe('githubZipCandidates', () => {
+  it('asks for the ref itself so a tag resolves', async () => {
+    const {githubZipCandidates} = await import('../project')
+
+    expect(
+      githubZipCandidates('https://github.com/owner/repo/tree/v1.2.3/sub')[0]
+    ).toEqual({
+      zipUrl: 'https://codeload.github.com/owner/repo/zip/v1.2.3',
+      ref: 'v1.2.3',
+      subdir: 'sub'
+    })
+
+    expect(
+      githubZipCandidates('https://github.com/owner/repo/tree/main/sub')[0]
+    ).toEqual({
+      zipUrl: 'https://codeload.github.com/owner/repo/zip/main',
+      ref: 'main',
+      subdir: 'sub'
+    })
+  })
+
+  it('leaves a slashed branch name reachable as a later candidate', async () => {
+    const {githubZipCandidates} = await import('../project')
+    const candidates = githubZipCandidates(
+      'https://github.com/owner/repo/tree/release/1.x/sub'
+    )
+
+    expect(candidates.map((candidate) => candidate.ref)).toEqual([
+      'release',
+      'release/1.x',
+      'release/1.x/sub'
+    ])
+
+    expect(candidates[1].zipUrl).toBe(
+      'https://codeload.github.com/owner/repo/zip/release/1.x'
+    )
+
+    expect(candidates[1].subdir).toBe('sub')
+  })
+
+  it('falls back to main for a repo root url', async () => {
+    const {githubZipCandidates} = await import('../project')
+
+    expect(githubZipCandidates('https://github.com/owner/repo')).toEqual([
+      {
+        zipUrl: 'https://codeload.github.com/owner/repo/zip/main',
+        ref: 'main',
+        subdir: ''
+      }
+    ])
   })
 })

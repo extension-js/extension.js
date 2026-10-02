@@ -182,10 +182,71 @@ async function withSuppressedOutput<T>(task: () => Promise<T>): Promise<T> {
   }
 }
 
+// A codeload archive url per candidate ref, shortest first. Only the remote
+// knows where a ref ends, so a branch name carrying a slash is a later try.
+export function githubZipCandidates(pathOrRemoteUrl: string): Array<{
+  zipUrl: string
+  ref: string
+  subdir: string
+}> {
+  const segments = new URL(pathOrRemoteUrl).pathname.split('/').filter(Boolean)
+  const [owner, repo] = segments
+  const treeIndex = segments.indexOf('tree')
+
+  // No tree/ in the url means the repo's default branch, which codeload
+  // serves under its name like any other ref.
+  if (treeIndex === -1 || segments.length <= treeIndex + 1) {
+    return [
+      {
+        zipUrl: `https://codeload.github.com/${owner}/${repo}/zip/main`,
+        ref: 'main',
+        subdir: ''
+      }
+    ]
+  }
+
+  const after = segments.slice(treeIndex + 1)
+  // A ref of three segments is already generous for `release/2024/beta`.
+  const maxRefLength = Math.min(after.length, 3)
+  const candidates = []
+
+  for (let length = 1; length <= maxRefLength; length++) {
+    const ref = after.slice(0, length).join('/')
+
+    candidates.push({
+      // The ref-agnostic form resolves a tag, a branch and a commit alike,
+      // where refs/heads/<ref> could only ever resolve a branch.
+      zipUrl: `https://codeload.github.com/${owner}/${repo}/zip/${ref}`,
+      ref,
+      subdir: after.slice(length).join('/')
+    })
+  }
+
+  return candidates
+}
+
+// codeload flattens the ref's slashes and strips a tag's leading `v` in the
+// archive root name, so a lone directory in a fresh extraction is the root.
+function resolveRepoRoot(extractedPath: string, repo: string, ref: string) {
+  const directories = fs
+    .readdirSync(extractedPath, {withFileTypes: true})
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+
+  const named = directories.find((name) =>
+    name.startsWith(`${repo}-${ref.replace(/\//g, '-')}`)
+  )
+
+  if (named) return path.join(extractedPath, named)
+  if (directories.length === 1) return path.join(extractedPath, directories[0])
+
+  return extractedPath
+}
+
 async function importUrlSourceFromGithub(
   pathOrRemoteUrl: string,
   text: string
-) {
+): Promise<{projectPath: string; downloaded: boolean}> {
   // Clone into the current working directory. go-git-it creates a subfolder
   // typically matching the repo name (or last segment for tree URLs).
   const cwd = process.cwd()
@@ -195,57 +256,31 @@ async function importUrlSourceFromGithub(
     segments.length >= 2 ? segments[1] : segments[segments.length - 1]
   const treeIndex = segments.indexOf('tree')
 
-  // If a previous run left an empty directory with the expected name, remove it
-  // to avoid go-git-it failing on rename with ENOTEMPTY.
   const expectedName =
     treeIndex !== -1 && segments.length > treeIndex + 2
       ? segments[segments.length - 1]
       : repoName
 
   const expectedPath = path.resolve(cwd, expectedName)
+  const {
+    assertDestinationIsOurs,
+    readRemoteSource,
+    sourceKey,
+    writeRemoteSource
+  } = await import('./zip')
+
+  // A folder of the right name is this url's download only when stamped as
+  // one. An empty one is cleared so go-git-it does not fail with ENOTEMPTY.
+  assertDestinationIsOurs(expectedPath, pathOrRemoteUrl)
 
   if (fs.existsSync(expectedPath)) {
-    try {
-      const entries = fs.readdirSync(expectedPath)
-
-      if (entries.length === 0) {
-        fs.rmSync(expectedPath, {recursive: true, force: true})
-      } else {
-        // If directory exists but does not contain a manifest.json anywhere,
-        // remove it and re-fetch to avoid stale/partial folders.
-        const hasManifest = (dir: string): boolean => {
-          const stack: string[] = [dir]
-
-          while (stack.length) {
-            const current = stack.pop() as string
-            const items = fs.readdirSync(current, {withFileTypes: true})
-
-            for (const it of items) {
-              if (it.isFile() && it.name === 'manifest.json') return true
-
-              if (
-                it.isDirectory() &&
-                it.name !== 'node_modules' &&
-                it.name !== 'dist' &&
-                !it.name.startsWith('.')
-              ) {
-                stack.push(path.join(current, it.name))
-              }
-            }
-          }
-
-          return false
-        }
-
-        if (!hasManifest(expectedPath)) {
-          fs.rmSync(expectedPath, {recursive: true, force: true})
-        } else {
-          return expectedPath
-        }
-      }
-    } catch {
-      // If we cannot read dir, proceed and let go-git-it attempt clone
+    // Reused, not refetched: a clone lands here to be edited and dev watches
+    // it, so refetching on every restart would delete the user's work.
+    if (readRemoteSource(expectedPath) === sourceKey(pathOrRemoteUrl)) {
+      return {projectPath: expectedPath, downloaded: false}
     }
+
+    fs.rmSync(expectedPath, {recursive: true, force: true})
   }
 
   async function tryGitClone() {
@@ -266,38 +301,45 @@ async function importUrlSourceFromGithub(
   }
 
   async function tryZipFallback() {
-    const branch =
-      treeIndex !== -1 && segments.length > treeIndex + 1
-        ? segments[treeIndex + 1]
-        : 'main'
-    const owner = segments[0]
     const repo = segments[1]
-    const subdir =
-      treeIndex !== -1 && segments.length > treeIndex + 2
-        ? segments.slice(treeIndex + 2).join('/')
-        : ''
+    const candidateRefs = githubZipCandidates(pathOrRemoteUrl)
+    // The single-segment reading is what the url almost always means, so its
+    // failure is the one worth reporting if every reading misses.
+    let firstError: unknown
 
-    const zipUrl = `https://codeload.github.com/${owner}/${repo}/zip/refs/heads/${branch}`
-    const extractedPath = await importUrlSourceFromZip(zipUrl)
+    // A tag, a commit and a branch all answer on /zip/<ref>, so a miss here
+    // means this reading of the ref was wrong, not that the url was.
+    for (const candidate of candidateRefs) {
+      try {
+        const extractedPath = await importUrlSourceFromZip(candidate.zipUrl)
+        const repoRoot = resolveRepoRoot(extractedPath, repo, candidate.ref)
 
-    const extractedDirs = fs
-      .readdirSync(extractedPath, {withFileTypes: true})
-      .filter((d) => d.isDirectory())
-      .map((d) => d.name)
-    const repoRootDir = extractedDirs.find((d) =>
-      d.startsWith(`${repo}-${branch}`)
-    )
-    const repoRoot = repoRootDir
-      ? path.join(extractedPath, repoRootDir)
-      : extractedPath
+        if (!candidate.subdir) return repoRoot
 
-    return subdir ? path.join(repoRoot, subdir) : repoRoot
+        const withSubdir = path.join(repoRoot, candidate.subdir)
+
+        if (fs.existsSync(withSubdir)) return withSubdir
+
+        throw new Error(
+          messages.downloadedProjectFolderNotFound(repoRoot, [candidate.subdir])
+        )
+      } catch (error) {
+        firstError = firstError ?? error
+      }
+    }
+
+    throw firstError
   }
+
+  const dirsBefore = new Set(listDirectories(cwd))
 
   try {
     await tryGitClone()
   } catch {
-    return await tryZipFallback()
+    const fallbackPath = await tryZipFallback()
+    writeRemoteSource(fallbackPath, pathOrRemoteUrl)
+
+    return {projectPath: fallbackPath, downloaded: true}
   }
 
   const candidates: string[] = []
@@ -308,40 +350,46 @@ async function importUrlSourceFromGithub(
 
   candidates.push(repoName)
 
-  for (const name of candidates) {
-    const p = path.resolve(cwd, name)
+  // Only a folder this run created can be the clone: anything that was
+  // already here is a stranger's, whatever it is called.
+  const appeared = listDirectories(cwd).filter((name) => !dirsBefore.has(name))
 
-    if (fs.existsSync(p)) {
-      return p
+  const landed = (() => {
+    for (const name of candidates) {
+      const candidatePath = path.resolve(cwd, name)
+
+      if (appeared.includes(name)) return candidatePath
     }
+
+    for (const name of appeared) {
+      if (fs.existsSync(path.join(cwd, name, 'manifest.json'))) {
+        return path.join(cwd, name)
+      }
+    }
+
+    const ghRoot = appeared.find((name) => /-main$|-master$/.test(name))
+
+    return ghRoot ? path.join(cwd, ghRoot) : undefined
+  })()
+
+  if (!landed) {
+    throw new Error(messages.downloadedProjectFolderNotFound(cwd, candidates))
   }
 
-  const dirs = fs
-    .readdirSync(cwd, {withFileTypes: true})
-    .filter((d) => d.isDirectory())
-    .map((d) => d.name)
+  writeRemoteSource(landed, pathOrRemoteUrl)
 
-  for (const dir of dirs) {
-    const manifestPath = path.join(cwd, dir, 'manifest.json')
-    if (fs.existsSync(manifestPath)) return path.join(cwd, dir)
-  }
+  return {projectPath: landed, downloaded: true}
+}
 
+function listDirectories(dir: string): string[] {
   try {
-    const dirs = fs
-      .readdirSync(cwd, {withFileTypes: true})
-      .filter((d) => d.isDirectory())
-      .map((d) => d.name)
-
-    const ghRoot = dirs.find((d) => /-main$|-master$/.test(d))
-
-    if (ghRoot) {
-      return path.join(cwd, ghRoot)
-    }
+    return fs
+      .readdirSync(dir, {withFileTypes: true})
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
   } catch {
-    // Ignore
+    return []
   }
-
-  throw new Error(messages.downloadedProjectFolderNotFound(cwd, candidates))
 }
 
 async function importUrlSourceFromZip(pathOrRemoteUrl: string) {
@@ -392,7 +440,7 @@ export async function getProjectPath(
       const [owner, project] = url.pathname.split('/').slice(1, 3)
       const projectName = path.basename(url.pathname)
 
-      const urlSource = await importUrlSourceFromGithub(
+      const {projectPath, downloaded} = await importUrlSourceFromGithub(
         pathOrRemoteUrl,
         messages.downloadingProjectPath(
           projectName,
@@ -400,9 +448,13 @@ export async function getProjectPath(
         )
       )
 
-      console.log(messages.creatingProjectPath())
+      console.log(
+        downloaded
+          ? messages.creatingProjectPath()
+          : messages.reusingDownloadedProject(projectPath, pathOrRemoteUrl)
+      )
 
-      return urlSource
+      return projectPath
     }
   }
 
