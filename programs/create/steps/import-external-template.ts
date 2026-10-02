@@ -6,7 +6,7 @@
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import {existsSync} from 'node:fs'
+import {existsSync, realpathSync, statSync} from 'node:fs'
 import * as fs from 'node:fs/promises'
 import * as os from 'node:os'
 import * as path from 'node:path'
@@ -14,7 +14,7 @@ import axios from 'axios'
 import {unzipSync} from 'fflate'
 import goGitIt from 'go-git-it'
 import * as messages from '../lib/messages'
-import {isDebug} from '../lib/messaging'
+import {hasChannelPrefix, isDebug} from '../lib/messaging'
 import * as utils from '../lib/utils'
 
 // In-process unzip with a zip-slip guard: entries naming absolute paths or
@@ -116,7 +116,7 @@ export function resolveCatalogUrls(
 
 // Where a scaffold's files actually came from, so the created project can record
 // exactly which corpus it was cut from (reproducibility). `source` is the
-// resolved URL, or `bundled` for the local fallback; `ref` is the requested
+// resolved URL, `bundled` for the local fallback or `local` for a directory; `ref` is the requested
 // template ref when the examples catalog was used.
 export interface TemplateProvenance {
   template: string
@@ -403,9 +403,27 @@ function bundledTemplateDir(templateName: string): string {
   return path.join(__dirname, '..', 'templates', templateName)
 }
 
-// Copy a bundled template into projectPath, returning its provenance, or
-// undefined when the template is not actually bundled on disk. Shared by the
-// primary bundled path and the offline fallback so the two cannot drift.
+// Copy a template that already sits on this machine into projectPath. Shared by
+// the bundled path, the offline fallback and a `--template <directory>`, so the
+// three cannot drift on what a copied template brings with it.
+async function copyTemplateDirectory(
+  sourceDir: string,
+  projectPath: string,
+  logger: {log(...args: unknown[]): void; error(...args: unknown[]): void},
+  ownerGitignore: string | null
+): Promise<void> {
+  await utils.copyDirectoryWithSymlinks(sourceDir, projectPath)
+  await restoreOwnerGitignore(projectPath, ownerGitignore)
+  await removeTemplateScaffoldingFiles(projectPath)
+  const dropped = await removeStaleTemplateLockfiles(projectPath)
+
+  if (dropped.length) {
+    logger.log(messages.removedStaleTemplateLockfiles(dropped))
+  }
+}
+
+// Returns the bundled template's provenance, or undefined when the template is
+// not actually bundled on disk.
 async function copyBundledTemplate(
   templateName: string,
   projectPath: string,
@@ -415,16 +433,66 @@ async function copyBundledTemplate(
   const localTemplate = bundledTemplateDir(templateName)
   if (!existsSync(localTemplate)) return undefined
 
-  await utils.copyDirectoryWithSymlinks(localTemplate, projectPath)
-  await restoreOwnerGitignore(projectPath, ownerGitignore)
-  await removeTemplateScaffoldingFiles(projectPath)
-  const dropped = await removeStaleTemplateLockfiles(projectPath)
-
-  if (dropped.length) {
-    logger.log(messages.removedStaleTemplateLockfiles(dropped))
-  }
+  await copyTemplateDirectory(
+    localTemplate,
+    projectPath,
+    logger,
+    ownerGitignore
+  )
 
   return {template: templateName, source: 'bundled'}
+}
+
+// A bare word is a catalog name, never a lookup against the working directory:
+// a folder that happens to be called `react` must not silently replace the
+// catalog's react. Only a value written as a path is read as one.
+function looksLikeTemplatePath(template: string): boolean {
+  return (
+    path.isAbsolute(template) ||
+    /^[.~]/.test(template) ||
+    template.includes('/') ||
+    template.includes(path.sep)
+  )
+}
+
+// The directory a path-shaped `--template` names, when it exists. A path used
+// to be reduced to its basename and looked up in the catalog, so asking for
+// `./my-template` scaffolded the REMOTE entry of the same name and said it
+// succeeded. A path that does not exist still falls through to the catalog,
+// which is how `examples/newtab-react` resolves.
+function resolveLocalTemplateDir(template: string): string | undefined {
+  if (!looksLikeTemplatePath(template)) return undefined
+
+  const expanded = template.startsWith('~/')
+    ? path.join(os.homedir(), template.slice(2))
+    : template
+  const resolved = path.resolve(expanded)
+
+  try {
+    return statSync(resolved).isDirectory() ? resolved : undefined
+  } catch {
+    return undefined
+  }
+}
+
+// The real path of the nearest ancestor that exists, with the rest appended:
+// an output directory is usually not made yet when it is compared.
+function realPathOrResolved(target: string): string {
+  const resolved = path.resolve(target)
+  const missing: string[] = []
+  let current = resolved
+
+  while (true) {
+    try {
+      return path.join(realpathSync(current), ...missing)
+    } catch {
+      const parent = path.dirname(current)
+      if (parent === current) return resolved
+
+      missing.unshift(path.basename(current))
+      current = parent
+    }
+  }
 }
 
 // Gallery + E2E files the extension-js/examples repo carries; useless in a
@@ -621,6 +689,12 @@ export async function importExternalTemplate(
     ? resolveTemplateAlias(templateName)
     : templateName
 
+  // A directory on this machine is the template itself, so it is read before
+  // any catalog lookup can claim its name.
+  const localTemplateDir = isHttp
+    ? undefined
+    : resolveLocalTemplateDir(template)
+
   // The caller may have mkdir'd projectPath already, so a plain existsSync
   // here cannot prove ownership; the explicit option wins when provided.
   const dirExistedBeforeImport = existsSync(projectPath)
@@ -644,7 +718,43 @@ export async function importExternalTemplate(
       throw new InsecureTemplateUrlError(template)
     }
 
+    if (localTemplateDir) {
+      // Compared resolved, so a symlinked spelling of either path cannot hide
+      // that one sits inside the other.
+      const outsideTemplate = path.relative(
+        realPathOrResolved(localTemplateDir),
+        realPathOrResolved(projectPath)
+      )
+
+      // An output path inside the template would copy the directory into
+      // itself, which recurses instead of refusing.
+      if (
+        !outsideTemplate ||
+        (!outsideTemplate.startsWith('..') && !path.isAbsolute(outsideTemplate))
+      ) {
+        throw new Error(
+          messages.templateDirectoryIsDestination(
+            localTemplateDir,
+            path.resolve(projectPath)
+          )
+        )
+      }
+    }
+
     await fs.mkdir(projectPath, {recursive: true})
+
+    if (localTemplateDir) {
+      await copyTemplateDirectory(
+        localTemplateDir,
+        projectPath,
+        logger,
+        ownerGitignore
+      )
+
+      // The name alone: the path holds a home folder, and the record this
+      // feeds is a file the project commits.
+      return {template: path.basename(localTemplateDir), source: 'local'}
+    }
 
     if (!isHttp && !isGithub && BUNDLED_TEMPLATES.includes(resolvedTemplate)) {
       const provenance = await copyBundledTemplate(
@@ -701,18 +811,7 @@ export async function importExternalTemplate(
       }
     }
 
-    let provenance: TemplateProvenance
-
-    if (isGithub) {
-      await runGoGitIt(template, tempPath)
-      const candidates = await fs.readdir(tempPath, {withFileTypes: true})
-      const preferred = candidates.find(
-        (d) => d.isDirectory() && d.name === templateName
-      )
-      const srcPath = preferred ? path.join(tempPath, templateName) : tempPath
-      await utils.moveDirectoryContents(srcPath, projectPath)
-      provenance = {template: resolvedTemplateName, source: template}
-    } else if (isHttp) {
+    const fetchZipArchive = async () => {
       const {data, headers} = await axios.get(template, {
         responseType: 'arraybuffer',
         maxRedirects: 5,
@@ -726,9 +825,44 @@ export async function importExternalTemplate(
 
       if (!looksZip) {
         throw new Error(
-          `Remote template does not appear to be a ZIP archive: ${template}`
+          `the response is not a ZIP archive (content-type ${contentType || 'unknown'})`
         )
       }
+
+      return data
+    }
+
+    let provenance: TemplateProvenance
+
+    if (isGithub) {
+      // A URL that cannot be fetched is a DOWNLOAD failure, same as a catalog
+      // ref that cannot be fetched. Left untyped it reached the frameless sink,
+      // which printed the spawned git's stack into node_modules and coded the
+      // refusal E_INTERNAL for a url the user mistyped.
+      try {
+        await runGoGitIt(template, tempPath)
+      } catch (fetchError) {
+        throw new TemplateDownloadError(template, fetchError)
+      }
+
+      const candidates = await fs.readdir(tempPath, {withFileTypes: true})
+      const preferred = candidates.find(
+        (d) => d.isDirectory() && d.name === templateName
+      )
+      const srcPath = preferred ? path.join(tempPath, templateName) : tempPath
+      await utils.moveDirectoryContents(srcPath, projectPath)
+      provenance = {template: resolvedTemplateName, source: template}
+    } else if (isHttp) {
+      // Typed for the same reason as the GitHub branch above: a ZIP URL that
+      // answers with a 404 or an HTML page is the user's URL to fix, not a
+      // fault to report with our stack.
+      const data = await fetchZipArchive().catch((fetchError: unknown) => {
+        // A downgrade refusal is its own frame and must keep its own type.
+        throw (
+          findInsecureTemplateUrlError(fetchError) ??
+          new TemplateDownloadError(template, fetchError)
+        )
+      })
 
       await extractZipBufferTo(Buffer.from(data), tempPath)
       const sourcePath = await getZipSourcePath(tempPath, template)
@@ -799,15 +933,27 @@ export async function importExternalTemplate(
     const frame = insecureUrl
       ? messages.templateUrlNotHttps(insecureUrl.url)
       : error instanceof TemplateNotFoundError
-        ? messages.templateNotFoundInCatalog(
-            templateName,
-            (error as {cause?: unknown}).cause
-          )
+        ? // A path-shaped request was resolved through the catalog by its
+          // basename, so naming the basename alone dropped the path the user
+          // typed out of the refusal.
+          looksLikeTemplatePath(template)
+          ? messages.templatePathNotFound(template)
+          : messages.templateNotFoundInCatalog(
+              templateName,
+              (error as {cause?: unknown}).cause
+            )
         : error instanceof TemplateDownloadError
-          ? messages.templateDownloadFailed(templateName, error)
+          ? isHttp
+            ? messages.templateUrlFetchFailed(template, error)
+            : messages.templateDownloadFailed(templateName, error)
           : null
 
-    if (frame === null) {
+    // A step that framed its own refusal (an output path inside the template)
+    // already carries the one frame the CLI prints.
+    if (
+      frame === null &&
+      !hasChannelPrefix(String((error as Error)?.message))
+    ) {
       logger.error(messages.installingFromTemplateError(templateName, error))
     }
 

@@ -1,3 +1,4 @@
+import {spawn} from 'node:child_process'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
@@ -248,24 +249,41 @@ describe('Chromium profile flags', () => {
     }
   })
 
-  it('throws when explicit profile appears to be in use locally', () => {
-    const explicitProfile = fs.mkdtempSync(
-      path.join(os.tmpdir(), 'extjs-explicit-profile-live-')
-    )
-    fs.writeFileSync(
-      path.join(explicitProfile, 'SingletonLock'),
-      `${os.hostname()}-${process.pid}`,
-      'utf8'
-    )
+  it.skipIf(process.platform === 'win32')(
+    'throws when a live browser holds the explicit profile',
+    () => {
+      const explicitProfile = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'extjs-explicit-profile-live-')
+      )
+      const holder = spawn(
+        process.execPath,
+        [
+          '-e',
+          'setTimeout(() => {}, 30000)',
+          'chromium',
+          `--user-data-dir=${explicitProfile}`
+        ],
+        {stdio: 'ignore'}
+      )
 
-    expect(() =>
-      browserConfig(makeCompilation(), {
-        extension: '/ext',
-        browser: 'chrome',
-        profile: explicitProfile
-      } as any)
-    ).toThrow(/already in use by process/i)
-  })
+      try {
+        fs.symlinkSync(
+          `${os.hostname()}-${holder.pid}`,
+          path.join(explicitProfile, 'SingletonLock')
+        )
+
+        expect(() =>
+          browserConfig(makeCompilation(), {
+            extension: '/ext',
+            browser: 'chrome',
+            profile: explicitProfile
+          } as any)
+        ).toThrow(/already in use by process/i)
+      } finally {
+        holder.kill('SIGKILL')
+      }
+    }
+  )
 
   it('cleans old managed ephemeral profiles regardless of naming', () => {
     const baseDir = fs.mkdtempSync(

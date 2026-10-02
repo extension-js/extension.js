@@ -225,9 +225,10 @@ describe('dropWebkitUnsupportedKeys', () => {
     ])
   })
 
-  // MDN records content_scripts[].world as supported from Safari 18, so the
-  // converter warning is stale. Dropping it would silently demote a MAIN
-  // world script on a Safari that can honor it.
+  // MDN browser-compat-data records content_scripts[].world as version_added
+  // 18 for safari and 128 for firefox, so Apple's converter warning is stale.
+  // Dropping it would silently demote a MAIN world script on a Safari that
+  // can honor it, so there is no gate here to turn a drop back on.
   it('keeps content_scripts[].world and never loses the entry', () => {
     const {manifest, dropped} = drop({
       name: 'x',

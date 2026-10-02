@@ -39,7 +39,9 @@ function list(value: unknown): AstNode[] {
 }
 
 function isName(value: unknown): boolean {
-  return isNode(value) && value.type === 'Identifier' && value.name === GLOBAL_NAME
+  return (
+    isNode(value) && value.type === 'Identifier' && value.name === GLOBAL_NAME
+  )
 }
 
 function parse(source: string): AstNode | undefined {
@@ -244,6 +246,44 @@ function guardsName(test: Child): boolean {
   return false
 }
 
+// A script that assigns `window.browser` (or globalThis, self) provides the
+// name itself, which is the shim idiom `window.browser = window.browser || chrome`.
+function definesName(program: AstNode): boolean {
+  const stack = [program]
+
+  while (stack.length) {
+    const current = stack.pop() as AstNode
+
+    if (
+      current.type === 'AssignmentExpression' &&
+      isNode(current.left) &&
+      isGlobalLookup(current.left)
+    ) {
+      return true
+    }
+
+    stack.push(...children(current))
+  }
+
+  return false
+}
+
+function mentionsChrome(value: Child): boolean {
+  if (!isNode(value)) return false
+
+  const stack = [value]
+
+  while (stack.length) {
+    const current = stack.pop() as AstNode
+
+    if (current.type === 'Identifier' && current.name === 'chrome') return true
+
+    stack.push(...children(current))
+  }
+
+  return false
+}
+
 class FreeReferenceScan {
   public found = false
 
@@ -267,7 +307,8 @@ class FreeReferenceScan {
     this.visit(current.discriminant as Child, shadowed)
     const cases = list(current.cases)
     const inner =
-      shadowed || lexicalDeclares(cases.flatMap((item) => list(item.consequent)))
+      shadowed ||
+      lexicalDeclares(cases.flatMap((item) => list(item.consequent)))
 
     for (const item of cases) {
       this.visit(item.test as Child, inner)
@@ -324,6 +365,16 @@ class FreeReferenceScan {
       case 'ForInStatement':
       case 'ForOfStatement':
         this.visitLoop(current, shadowed)
+
+        return
+      case 'TryStatement':
+        // A catch that falls back to chrome expects the read to throw
+        if (!mentionsChrome(current.handler as Child)) {
+          this.visit(current.block as Child, shadowed)
+        }
+
+        this.visit(current.handler as Child, shadowed)
+        this.visit(current.finalizer as Child, shadowed)
 
         return
       case 'CatchClause':
@@ -415,6 +466,8 @@ export function referencesBrowserGlobal(source: string): boolean {
   if (!program) return false
 
   try {
+    if (definesName(program)) return false
+
     return new FreeReferenceScan(program).found
   } catch {
     return false

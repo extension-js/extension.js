@@ -154,7 +154,7 @@ describe('solid tools', () => {
     )
   })
 
-  it('compiles every script extension through Babel with the Solid preset, TypeScript stripped first', async () => {
+  it('compiles each extension that can hold JSX through Babel with the Solid preset, TypeScript stripped first', async () => {
     writeSolidPackage(projectPath, {
       import: './h/dist/h.js',
       require: './h/dist/h.cjs'
@@ -164,23 +164,26 @@ describe('solid tools', () => {
     const result = await maybeUseSolid(projectPath, 'production')
     const loaders = (result?.loaders || []) as any[]
 
-    expect(loaders).toHaveLength(2)
+    expect(loaders).toHaveLength(3)
 
     for (const rule of loaders) {
-      expect(rule.loader).toBe('/mock/node_modules/babel-loader/index.js')
       expect(rule.exclude(path.join(projectPath, 'src', 'App.tsx'))).toBe(false)
       expect(
         rule.exclude(
           path.join(projectPath, 'node_modules', 'other-lib', 'index.jsx')
         )
       ).toBe(true)
-
-      expect(rule.options.babelrc).toBe(false)
-      expect(rule.options.configFile).toBe(false)
     }
 
     const jsx = loaders.find((rule) => rule.test.test('a.jsx'))
     const tsx = loaders.find((rule) => rule.test.test('a.tsx'))
+    const js = loaders.find((rule) => rule.test.test('a.js'))
+
+    for (const rule of [jsx, tsx]) {
+      expect(rule.loader).toBe('/mock/node_modules/babel-loader/index.js')
+      expect(rule.options.babelrc).toBe(false)
+      expect(rule.options.configFile).toBe(false)
+    }
 
     expect(jsx.options.presets).toEqual([
       ['/mock/node_modules/babel-preset-solid/index.js', {development: false}]
@@ -194,18 +197,51 @@ describe('solid tools', () => {
       ]
     ])
 
-    for (const file of ['a.js', 'a.mjs', 'a.cjs', 'a.mjsx']) {
-      expect(jsx.test.test(file)).toBe(true)
+    expect(jsx.test.test('a.mjsx')).toBe(true)
+    expect(tsx.test.test('a.mtsx')).toBe(true)
+
+    for (const file of ['a.js', 'a.mjs', 'a.cjs']) {
+      expect(js.test.test(file)).toBe(true)
+      expect(jsx.test.test(file)).toBe(false)
       expect(tsx.test.test(file)).toBe(false)
     }
 
-    for (const file of ['a.ts', 'a.mts', 'a.cts', 'a.mtsx']) {
-      expect(tsx.test.test(file)).toBe(true)
-      expect(jsx.test.test(file)).toBe(false)
-    }
+    for (const rule of loaders) expect(rule.test.test('a.json')).toBe(false)
+  })
 
-    expect(jsx.test.test('a.json')).toBe(false)
-    expect(tsx.test.test('a.json')).toBe(false)
+  it('keeps Babel away from .ts, .mts and .cts, where TSX parsing breaks an angle-bracket cast', async () => {
+    writeSolidPackage(projectPath, './h/dist/h.js')
+
+    const {maybeUseSolid} = await loadSolidTools()
+    const result = await maybeUseSolid(projectPath, 'production')
+    const loaders = (result?.loaders || []) as any[]
+    const tsx = loaders.find((rule) => rule.test.test('a.tsx'))
+
+    expect(tsx.test.test('a.ts')).toBe(false)
+
+    for (const file of ['a.ts', 'a.mts', 'a.cts', 'a.d.ts']) {
+      for (const rule of loaders) expect(rule.test.test(file)).toBe(false)
+    }
+  })
+
+  it('sends a plain script to Babel through the JSX gate, with the JavaScript presets', async () => {
+    writeSolidPackage(projectPath, './h/dist/h.js')
+
+    const {maybeUseSolid} = await loadSolidTools()
+    const result = await maybeUseSolid(projectPath, 'production')
+    const loaders = (result?.loaders || []) as any[]
+    const js = loaders.find((rule) => rule.test.test('a.js'))
+
+    expect(js.loader).toContain('solid-jsx-gate-loader')
+    expect(js.options.babelLoader).toBe(
+      '/mock/node_modules/babel-loader/index.js'
+    )
+
+    expect(js.options.presets).toEqual([
+      ['/mock/node_modules/babel-preset-solid/index.js', {development: false}]
+    ])
+
+    expect(js.options.compact).toBe(false)
   })
 
   it('asks the solid contract for every Babel piece and turns development on in dev', async () => {

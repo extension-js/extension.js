@@ -124,12 +124,18 @@ describe('run-safari config', () => {
     expect(appIds).toHaveLength(2)
   })
 
-  it('validates bundle identifiers as reverse-DNS', () => {
+  it('validates bundle identifiers by the characters Apple accepts', () => {
     expect(isValidBundleId('com.example.my-extension')).toBe(true)
     expect(isValidBundleId('dev.extensionjs.My-Cool-Extension')).toBe(true)
-    expect(isValidBundleId('single-segment')).toBe(false)
+    // Apple's rule is the character set alone: letters, digits, hyphens and
+    // periods. Real ids start a segment with a digit.
+    expect(isValidBundleId('com.1password.ext')).toBe(true)
+    expect(isValidBundleId('com.1starts-with-digit')).toBe(true)
+    expect(isValidBundleId('single-segment')).toBe(true)
     expect(isValidBundleId('com..double-dot')).toBe(false)
-    expect(isValidBundleId('com.1starts-with-digit')).toBe(false)
+    expect(isValidBundleId('.com.example')).toBe(false)
+    expect(isValidBundleId('com.example.under_score')).toBe(false)
+    expect(isValidBundleId('com.example.my extension')).toBe(false)
     expect(isValidBundleId('com.example.')).toBe(false)
     expect(isValidBundleId('')).toBe(false)
   })

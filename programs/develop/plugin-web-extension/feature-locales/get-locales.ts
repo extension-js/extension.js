@@ -80,10 +80,15 @@ function listLocaleFiles(folder: string): string[] {
   return out
 }
 
+// Files the OS file browser drops into any folder it opens, never content
+const OS_METADATA_FILES = new Set(['.ds_store', 'thumbs.db', 'desktop.ini'])
+
 // Everything under a locale folder ships: a privacy.md or a nested folder a
 // project fetches at runtime is as much a locale asset as messages.json.
 function walk(dir: string, out: string[]): void {
   for (const entry of fs.readdirSync(dir, {withFileTypes: true})) {
+    if (OS_METADATA_FILES.has(entry.name.toLowerCase())) continue
+
     const abs = path.join(dir, entry.name)
 
     if (entry.isDirectory()) walk(abs, out)

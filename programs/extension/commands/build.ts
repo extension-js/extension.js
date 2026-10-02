@@ -69,21 +69,6 @@ function failAndExit(
   process.exit(1)
 }
 
-// Every browser wrote to the same explicit path, so the last one overwrote the
-// rest and a release job uploaded one browser's package for all of them.
-export function zipFilenameForVendor(
-  zipFilename: string | undefined,
-  vendor: string,
-  vendorCount: number
-): string | undefined {
-  if (!zipFilename || vendorCount < 2) return zipFilename
-
-  const trimmed = zipFilename.trim()
-  const withoutExtension = trimmed.replace(/\.zip$/i, '')
-
-  return `${withoutExtension}-${vendor}.zip`
-}
-
 export function registerBuildCommand(program: Command) {
   program
     .command('build')
@@ -112,7 +97,7 @@ export function registerBuildCommand(program: Command) {
     )
     .option(
       '--zip-filename <string>',
-      'specify the name of the ZIP file. Defaults to the extension name and version'
+      'specify the name of the ZIP file, the browser name is appended. Defaults to the extension name and version'
     )
     .option(
       '--silent [boolean]',
@@ -375,11 +360,7 @@ export function registerBuildCommand(program: Command) {
               polyfill: buildOptions.polyfill,
               zip: buildOptions.zip,
               zipSource: buildOptions.zipSource,
-              zipFilename: zipFilenameForVendor(
-                buildOptions.zipFilename,
-                vendor,
-                list.length
-              ),
+              zipFilename: buildOptions.zipFilename,
               silent: buildOptions.silent,
               addonLint: buildOptions.addonLint,
               minify: buildOptions.minify,

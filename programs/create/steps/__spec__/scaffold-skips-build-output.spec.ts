@@ -29,6 +29,10 @@ async function templateCheckout() {
   await fs.mkdir(path.join(dir, '.extension-js'), {recursive: true})
   await fs.writeFile(path.join(dir, '.extension-js', 'port'), '8080')
 
+  // A local template can be a clone, and its history belongs to it alone.
+  await fs.mkdir(path.join(dir, '.git'), {recursive: true})
+  await fs.writeFile(path.join(dir, '.git', 'HEAD'), 'ref: refs/heads/main\n')
+
   return dir
 }
 
@@ -54,11 +58,12 @@ describe('copying a template that is also somebody working checkout', () => {
     ])
   })
 
-  it('names the three directories a scaffold never inherits', () => {
+  it('names the four directories a scaffold never inherits', () => {
     expect(NEVER_SCAFFOLDED_DIRS).toEqual([
       'dist',
       'node_modules',
-      '.extension-js'
+      '.extension-js',
+      '.git'
     ])
   })
 })

@@ -101,11 +101,10 @@ describe('project resolution refusals carry their declared code', () => {
   it('names a root whose only manifest belongs to a companion', () => {
     const project = makeProject()
     write(path.join(project, 'package.json'), {name: 'p'})
-    write(path.join(project, 'extensions', 'helper', 'manifest.json'), {
-      manifest_version: 3,
-      name: 'companion helper',
-      version: '1.0'
-    })
+    write(
+      path.join(project, 'extensions', 'extension-js-devtools', 'manifest.json'),
+      {manifest_version: 3, name: 'built-in companion', version: '1.0'}
+    )
 
     expect(resolutionEnvelope(project).error?.code).toBe(
       CODES.E_COMPANION_EXTENSION_PATH

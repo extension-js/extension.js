@@ -302,7 +302,8 @@ async function installOptionalDependencies(
   projectPath: string,
   plan: OptionalDepsPlan,
   logger: {log(...args: unknown[]): void; error(...args: unknown[]): void},
-  packageManager: ScaffoldPackageManager
+  packageManager: ScaffoldPackageManager,
+  template?: string
 ) {
   if (plan.dependencies.length === 0) return
 
@@ -347,7 +348,8 @@ async function installOptionalDependencies(
           pm,
           args,
           result.code,
-          `${result.stdout}\n${result.stderr}`
+          `${result.stdout}\n${result.stderr}`,
+          {projectPath, template}
         )
       )
     }
@@ -357,7 +359,10 @@ async function installOptionalDependencies(
 export async function installInternalDependencies(
   projectPath: string,
   logger: {log(...args: unknown[]): void; error(...args: unknown[]): void},
-  packageManager?: ScaffoldPackageManager
+  packageManager?: ScaffoldPackageManager,
+  // Carried for the failure frame alone: this install runs in the toolchain's
+  // own directory, so the retry a user can run is the create, not the install.
+  template?: string
 ) {
   if (
     process.env.EXTENSION_ENV === 'test' ||
@@ -381,7 +386,8 @@ export async function installInternalDependencies(
       projectPath,
       optionalPlan,
       logger,
-      packageManager ?? resolveProjectPackageManager(projectPath)
+      packageManager ?? resolveProjectPackageManager(projectPath),
+      template
     )
   }
 }

@@ -25,46 +25,38 @@ function isReferencedAsModuleSpecifier(
   return specifierRe.test(configSource)
 }
 
-// Rejects user projects that declare packages managed by Extension.js itself.
-// Throwing (not process.exit) matters: programmatic hosts embed this code path.
+// The packages a second copy of can really break: the bundler and what plugs
+// into it. A project's own dotenv or vue never meets the copy shipped here.
+const BUILD_PACKAGE =
+  /^(@rspack\/.+|.+-loader|.+-webpack-plugin|webpack-target-webextension)$/
+
+// Warns when the config file loads its own copy of a build package
+// Extension.js ships. The build goes on: an abort here used to stop
+// projects that built fine, and a version clash shows up in the build itself.
 export function assertNoManagedDependencyConflicts(
   userManifestPath: string,
   projectPath: string
 ) {
+  const shipped: Record<string, string> =
+    (programPackageJson as {dependencies?: Record<string, string>})
+      .dependencies || {}
   let duplicates: string[] = []
+  let configPath = ''
 
   try {
     const userDeps: string[] = Object.keys(
       readProjectDependencies(path.dirname(userManifestPath))
     )
 
-    const managedDeps = new Set<string>([
-      ...Object.keys(
-        (programPackageJson as {dependencies?: Record<string, string>})
-          .dependencies || {}
-      ),
-      ...Object.keys(
-        (
-          programPackageJson as {
-            optionalDependencies?: Record<string, string>
-          }
-        ).optionalDependencies || {}
-      )
-    ])
-
-    // Some internal toolchain dependencies can legitimately be installed by user
-    // projects; do not treat these as managed, avoiding false conflicts.
-    managedDeps.delete('webpack')
-
     // Only enforce when the same package is referenced in the config file
     // the loader itself would pick up for this project.
-    const configPath = findConfigFile(projectPath)
+    configPath = findConfigFile(projectPath) || ''
     if (!configPath) return
 
     const configSource = fs.readFileSync(configPath, 'utf-8')
 
     duplicates = userDeps
-      .filter((d) => managedDeps.has(d))
+      .filter((d) => d in shipped && BUILD_PACKAGE.test(d))
       .filter((d) => isReferencedAsModuleSpecifier(configSource, d))
       .sort()
   } catch (error) {
@@ -74,11 +66,27 @@ export function assertNoManagedDependencyConflicts(
       // eslint-disable-next-line no-console
       console.warn(error)
     }
+
+    return
   }
 
-  if (duplicates.length > 0) {
-    throw new Error(
-      messages.managedDependencyConflict(duplicates, userManifestPath)
+  if (duplicates.length === 0) return
+
+  warnOnce(
+    messages.managedDependencyCopyWarning(
+      duplicates.map((name) => ({name, shipped: shipped[name]})),
+      configPath
     )
-  }
+  )
+}
+
+// build, dev and preview each run the guard, and one session can run two.
+const warned = new Set<string>()
+
+function warnOnce(message: string) {
+  if (warned.has(message)) return
+
+  warned.add(message)
+  // eslint-disable-next-line no-console
+  console.warn(message)
 }

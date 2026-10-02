@@ -381,6 +381,39 @@ export function preferringSystemBrowserOverSnapshot(
   return `${getLoggingPrefix('warn')} Set ${colors.blue('EXTENSION_PREFER_CHROMIUM_SNAPSHOT=true')} to use the cached Chromium snapshot instead.`
 }
 
+// A profile that is the developer's own gets told what the launch changes in
+// it: Firefox takes the add-on over the debugger server and nothing else.
+export function firefoxProfileRemoteDebuggingOn(profilePath: string) {
+  return (
+    `${getLoggingPrefix('info')} Remote debugging is switched on in the Firefox profile at ` +
+    `${colors.underline(profilePath)}, which loading the extension requires.`
+  )
+}
+
+export function firefoxProfilePreferencesNotWritable(
+  profilePath: string,
+  error: unknown
+) {
+  return (
+    `${getLoggingPrefix('error')} ${colors.red("The Firefox profile can't take the preferences the extension needs to load.")}\n` +
+    `${colors.gray('PATH')} ${colors.underline(profilePath)}\n` +
+    `${colors.red(errorDetail(error))}\n` +
+    `Make the profile writable, or pass ${colors.blue('--profile')} a different directory.`
+  )
+}
+
+export function chromiumProfileInUse(
+  profilePath: string,
+  owner: {host: string; pid: number}
+) {
+  return (
+    `${getLoggingPrefix('error')} ${colors.red('A running browser already uses this profile.')}\n` +
+    `${colors.gray('PATH')} ${colors.underline(profilePath)}\n` +
+    `${colors.gray('PROCESS')} ${owner.pid} on ${owner.host}\n` +
+    `Close that browser, or pass ${colors.blue('--profile')} a different directory.`
+  )
+}
+
 export function profilePathIsNotADirectory(profilePath: string) {
   return (
     `${getLoggingPrefix('error')} ${colors.red('The profile path is a file, so the browser has nowhere to keep its profile.')}\n` +
@@ -691,9 +724,9 @@ export function browserExitedUnasked(
   browser: Browser,
   code: number | null,
   signal: string | null,
-  command: 'dev' | 'preview'
+  command: 'dev' | 'preview' | 'start'
 ) {
-  const session = command === 'dev' ? 'dev session' : 'preview'
+  const session = command === 'preview' ? 'preview' : `${command} session`
   const how =
     code == null
       ? `was killed by signal ${signal || 'unknown'}`
@@ -703,7 +736,7 @@ export function browserExitedUnasked(
   const next =
     command === 'dev'
       ? 'The dev server is still running but reloads cannot be delivered, restart "extension dev" to relaunch the browser.'
-      : 'The preview session is over.'
+      : `The ${command} session is over.`
 
   return `[browser] ${browser} ${how}. ${next}`
 }
