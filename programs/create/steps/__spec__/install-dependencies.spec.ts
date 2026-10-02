@@ -279,4 +279,22 @@ describe('installDependencies', () => {
       await fsp.readFile(path.join(projectPath, 'deno.jsonc'), 'utf8')
     ).toBe(authored)
   })
+
+  it('names the release-age rule when the manager refuses a version for being new', async () => {
+    await fsp.writeFile(
+      path.join(projectPath, 'package.json'),
+      JSON.stringify({name: 'fresh', devDependencies: {extension: '4.1.30'}})
+    )
+
+    runInstallMock.mockResolvedValue({
+      code: 1,
+      stdout: '',
+      stderr:
+        'ERR_PNPM_NO_MATURE_MATCHING_VERSION  Version 4.1.30 (released 24 hours ago) of extension does not meet the minimumReleaseAge constraint'
+    })
+
+    await expect(
+      installDependencies(projectPath, 'fresh', noopLogger)
+    ).rejects.toThrow(/minimum release age/i)
+  })
 })
