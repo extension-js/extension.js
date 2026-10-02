@@ -198,6 +198,11 @@ export function setTelemetryConsent(value: 'enabled' | 'disabled'): {
 let tracked = false
 let sessionStarted = false
 
+// How long a crashing process waits for its failure report to be
+// acknowledged before the default death goes on, startup of the sender
+// included. Short, so a hung sink cannot hold a dying process long.
+const CRASH_FLUSH_TIMEOUT_MS = 1000
+
 function markTracked(): boolean {
   if (tracked) return false
 
@@ -345,8 +350,16 @@ if (consent.enabled) {
   // default death, while the monitor form sees both and suppresses nothing.
   process.on('uncaughtExceptionMonitor', () => {
     markCommandFailure()
-    // Started, never awaited: the default death follows this handler, and the
-    // local audit row `track` writes is already on disk.
-    void telemetry.flush()
+
+    // An 'uncaughtException' listener may keep the process alive, and then
+    // the usual flush runs. With none, the default death follows this handler
+    // at once and an async send would never leave, so it goes out now, bounded.
+    if (process.listenerCount('uncaughtException') > 0) {
+      void telemetry.flush()
+
+      return
+    }
+
+    telemetry.flushSync(CRASH_FLUSH_TIMEOUT_MS)
   })
 }

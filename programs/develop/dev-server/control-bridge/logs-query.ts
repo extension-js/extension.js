@@ -43,6 +43,9 @@ export interface LogQuery {
   url?: string
   /** Only events carrying this tab id. */
   tab?: number | string
+  /** Keep `type: "gap"` records under a filter. Without it a gap is returned
+   * only by a query no clause narrows, since it has no field to match. */
+  includeGaps?: boolean
 }
 
 /** A bridge log line as read off disk: dynamic, so the probed fields only. */
@@ -90,7 +93,7 @@ function toContextNames(context: LogQuery['context']): string[] {
   return list.map((name) => String(name).trim()).filter(Boolean)
 }
 
-/** The names in a context filter that no producer emits; empty when it is valid. */
+/** The names in a context filter outside LOG_CONTEXTS; empty when it is valid. */
 export function unknownLogContexts(context: LogQuery['context']): string[] {
   return toContextNames(context).filter(
     (name) =>
@@ -206,9 +209,9 @@ export function matchesLogQuery(event: LogEventLike, query: LogQuery): boolean {
   const minLevel = parseLogLevelFilter(query.level) ?? 'all'
   if (minLevel === 'off') return false
 
-  // A gap stands for events the writer lost. Their fields are gone, so no
-  // clause can judge them, and hiding the gap would hide the loss itself.
-  if (event.type === 'gap') return true
+  // A gap stands for lost events and carries none of their fields, so it is
+  // a row only when the caller asks, or when no clause narrows the read.
+  if (event.type === 'gap' && query.includeGaps) return true
 
   if (query.signalsOnly && event.eventType !== 'dx.signal') return false
 

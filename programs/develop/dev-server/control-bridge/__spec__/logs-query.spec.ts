@@ -67,19 +67,31 @@ describe('matchesLogQuery', () => {
     ])
   })
 
-  it('refuses a context nothing emits, mis-cased included, naming the valid set', () => {
-    for (const context of ['page', 'bogus', 'Background', 'all,bogus']) {
+  it('refuses a context it does not name, mis-cased included, naming the valid set', () => {
+    for (const context of ['bogus', 'Background', 'all,bogus']) {
       expect(() => matchesLogQuery(event(), {context})).toThrow(RangeError)
     }
 
     expect(logQueryProblem({context: 'content,Popup'})).toBe(
-      'context expects a comma-separated list of background, content, popup, ' +
-        'options, sidebar, devtools, newtab, history, bookmarks or all, got: Popup'
+      'context expects a comma-separated list of background, content, page, ' +
+        'popup, options, sidebar, devtools, newtab, history, bookmarks or all, got: Popup'
     )
 
-    expect(unknownLogContexts(['page', 'newtab'])).toEqual(['page'])
+    expect(unknownLogContexts(['page', 'newtab', 'nope'])).toEqual(['nope'])
     expect(unknownLogContexts('all')).toEqual([])
     expect(logQueryProblem({context: LOG_CONTEXTS.join(',')})).toBeNull()
+  })
+
+  // `page` was a filter value at 4.1.30 and the Firefox relay still stamps it.
+  it('keeps page as a context a query may name', () => {
+    expect(LOG_CONTEXTS).toContain('page')
+    expect(matchesLogQuery(event({context: 'page'}), {context: 'page'})).toBe(
+      true
+    )
+
+    expect(
+      matchesLogQuery(event({context: 'content'}), {context: ['page']})
+    ).toBe(false)
   })
 
   it('lets all compose inside a context list', () => {
@@ -94,14 +106,23 @@ describe('matchesLogQuery', () => {
     ).toBe(true)
   })
 
-  it('keeps a gap sentinel under every clause but off, since its events are gone', () => {
+  // A gap has none of the fields a clause reads, so a filtered read never
+  // returns one unless asked: every row it returns is then a log event.
+  it('drops a gap sentinel under any clause unless the query asks for gaps', () => {
     const gap = {v: 1, type: 'gap', reason: 'disk_slow', dropped: 4211}
-    expect(matchesLogQuery(gap, {level: 'error'})).toBe(true)
-    expect(matchesLogQuery(gap, {context: 'content', signalsOnly: true})).toBe(
-      true
-    )
+    expect(matchesLogQuery(gap, {})).toBe(true)
+    expect(matchesLogQuery(gap, {level: 'all'})).toBe(true)
+    expect(matchesLogQuery(gap, {level: 'error'})).toBe(false)
+    expect(matchesLogQuery(gap, {context: 'content'})).toBe(false)
+    expect(matchesLogQuery(gap, {signalsOnly: true})).toBe(false)
+    expect(matchesLogQuery(gap, {url: 'example', tab: 7})).toBe(false)
 
-    expect(matchesLogQuery(gap, {url: 'example', tab: 7})).toBe(true)
+    expect(matchesLogQuery(gap, {level: 'error', includeGaps: true})).toBe(true)
+    expect(
+      matchesLogQuery(gap, {context: 'content', tab: 7, includeGaps: true})
+    ).toBe(true)
+
+    expect(matchesLogQuery(gap, {level: 'off', includeGaps: true})).toBe(false)
   })
 
   it('accepts a context list as a string or an array', () => {
@@ -222,7 +243,7 @@ describe('readLogEvents', () => {
     expect(errors.map((e) => e.seq)).toEqual([2])
   })
 
-  it('returns the gap sentinel beside the events a level filter keeps', () => {
+  it('returns the gap sentinel only to an unfiltered read, or one that asks', () => {
     const gap = {v: 1, type: 'gap', reason: 'disk_slow', dropped: 4211}
     write('chromium', [
       {type: 'header', runId: 'r-1'},
@@ -234,13 +255,31 @@ describe('readLogEvents', () => {
 
     expect(readLogEvents(projectPath, 'chromium', {level: 'error'})).toEqual([
       event({seq: 1, level: 'error'}),
+      event({seq: 3, level: 'error'})
+    ])
+
+    expect(
+      readLogEvents(projectPath, 'chromium', {
+        level: 'error',
+        includeGaps: true
+      })
+    ).toEqual([
+      event({seq: 1, level: 'error'}),
       gap,
       event({seq: 3, level: 'error'})
     ])
 
+    expect(
+      readLogEvents(projectPath, 'chromium').map((e) => e.type ?? e.seq)
+    ).toEqual([1, 'gap', 2, 3])
+
     expect(readLogEvents(projectPath, 'chromium', {level: 'off'})).toEqual([])
+    expect(readLogEvents(projectPath, 'chromium', {context: 'page'})).toEqual(
+      []
+    )
+
     expect(() =>
-      readLogEvents(projectPath, 'chromium', {context: 'page'})
+      readLogEvents(projectPath, 'chromium', {context: 'nope'})
     ).toThrow(RangeError)
   })
 

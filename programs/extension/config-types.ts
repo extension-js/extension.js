@@ -64,6 +64,9 @@ interface UnifiedLoggerConfig {
     | 'popup'
     | 'options'
     | 'devtools'
+    | 'newtab'
+    | 'history'
+    | 'bookmarks'
   )[]
   logFormat?: 'pretty' | 'json' | 'ndjson'
   logTimestamps?: boolean
@@ -166,6 +169,8 @@ export interface ServeCommandConfig
   polyfill?: boolean
   port?: string | number
   host?: string
+  /** Accepted for parity with `commands.dev`. These commands serve nothing. */
+  publicHost?: string
   /**
    * Compile-time constants inlined into this command's bundles. Overrides the
    * top-level `define` for the keys it declares.
