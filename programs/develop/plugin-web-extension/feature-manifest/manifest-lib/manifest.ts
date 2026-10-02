@@ -14,7 +14,9 @@ import {parseJsonSafe} from '../../../lib/parse-json-safe'
 import type {DevOptions, Manifest} from '../../../types'
 import {
   dropPageAction,
+  foldActionIntoBrowserAction,
   foldBrowserActionIntoAction,
+  foldSidebarKeyForBrowser,
   shouldDropPageAction
 } from '../../shared/html-surfaces'
 import {getManifestOverrides} from '../manifest-overrides'
@@ -206,9 +208,16 @@ export function buildCanonicalManifestWithOverrides(
     })
   ) as Manifest
 
+  // Each family reads one key of the sidebar pair, and Manifest V2 reads the
+  // toolbar button under browser_action. Both renames run after the overrides
+  // so the key that ships names the page the pipeline already emitted.
+  const translated = foldActionIntoBrowserAction(
+    foldSidebarKeyForBrowser(canonical, browser)
+  )
+
   // Safari inherits chromium keys, so the drop runs last. An override that
   // rewrites a side_panel or sandbox path would otherwise put the key back.
-  const webkit = dropWebkitUnsupportedKeys(canonical, browser)
+  const webkit = dropWebkitUnsupportedKeys(translated, browser)
   reportWebkitDroppedKeys(webkit.dropped, browser)
 
   return {manifest: webkit.manifest, overrides}
