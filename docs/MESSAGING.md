@@ -280,8 +280,14 @@ What is stable and what is not:
   knows which browser the result describes. Commands with no session leave it absent.
 
 `--output` is the one name for this flag. `--format` and `--wait-format` are deprecated aliases
-of it. `logs` keeps `--log-format` for record encoding, which is a different concern: it says
-how each streamed record is written, while `--output` governs the single terminating result.
+of it.
+
+`logs` is the one exception, and `capabilities` names it as such. It streams a record per event
+rather than terminating with one envelope, so its `--output json` governs record encoding: on a
+successful run stdout carries one JSON object per record and nothing wraps them. Read it line by
+line, not with a single `JSON.parse`. Only its refusals (no session, a bad flag) emit the
+envelope above. `capabilities` lists it under `recordStreamCommands`, and every name under
+`outputJsonCommands` does terminate with exactly one envelope.
 
 The schema, golden envelopes, and the full error-code table (`codes.json`, with the mapping
 from the legacy `ready.json` codes, bridge error names, and doctor check ids) live under

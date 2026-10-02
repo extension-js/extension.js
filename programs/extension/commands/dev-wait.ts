@@ -7,7 +7,9 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'node:fs'
+import {markErrorFramed} from '../helpers/cli-failure'
 import {loadExtensionDevelopBridgeModule} from '../helpers/extension-develop-runtime'
+import * as messages from '../helpers/messages'
 import {CODES, type ErrorCode} from '../helpers/messaging'
 import {normalizeOutputFormat} from '../helpers/output-flag'
 import {readyContractErrorCode} from '../helpers/ready-contract-codes'
@@ -154,6 +156,23 @@ export function describeWaitError(error: unknown): WaitFailure {
     message,
     hint: 'Read the server output for the failure behind the ready contract.'
   }
+}
+
+// A WaitModeError message carries no channel glyph, so the top-level sink
+// renders it as err.stack: cli.cjs offsets for a plain timeout. Rethrow the
+// rendered frame instead, keeping the code the envelope and telemetry read.
+export function framedWaitFailure(
+  error: unknown,
+  failure: WaitFailure,
+  framedForJson: boolean
+): Error {
+  const framed = new Error(messages.waitModeFailed(failure))
+  framed.name = error instanceof Error ? error.name : 'WaitModeError'
+  ;(framed as {code?: ErrorCode}).code = failure.code
+
+  if (framedForJson) markErrorFramed(framed)
+
+  return framed
 }
 
 function isProcessLikelyAlive(pid: unknown): boolean {

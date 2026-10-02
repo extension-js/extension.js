@@ -19,6 +19,7 @@ import {
   type EnvelopeErrorRefs,
   type ErrorCode
 } from '../helpers/messaging'
+import {parsePositiveInt} from '../helpers/normalize-options'
 import {isJsonOutput} from '../helpers/output-flag'
 
 // THIN WRAPPER, keep it that way: build a request, POST it, print the URL.
@@ -197,6 +198,38 @@ export class PublishPlanError extends Error {
   }
 }
 
+export const TTL_MIN_HOURS = 1
+export const TTL_MAX_HOURS = 168
+
+// Number('abc') is NaN, which JSON.stringify writes as null, and the platform
+// reads an absent ttl as "use the default". Refuse before any request is sent.
+export function parseTtlHours(raw: unknown): number | undefined {
+  if (raw == null || raw === '') return undefined
+
+  const remedy = `Pass --ttl with whole hours between ${TTL_MIN_HOURS} and ${TTL_MAX_HOURS}, or leave it out for the default.`
+  const parsed = parsePositiveInt('--ttl', raw)
+
+  if (!parsed.ok) {
+    throw new PublishPlanError(
+      `${parsed.message}\n${remedy}`,
+      CODES.E_FLAG_VALUE_INVALID,
+      remedy,
+      {flag: '--ttl'}
+    )
+  }
+
+  if (parsed.value !== undefined && parsed.value > TTL_MAX_HOURS) {
+    throw new PublishPlanError(
+      `--ttl expects hours between ${TTL_MIN_HOURS} and ${TTL_MAX_HOURS}, got: ${parsed.value}\n${remedy}`,
+      CODES.E_FLAG_VALUE_INVALID,
+      remedy,
+      {flag: '--ttl'}
+    )
+  }
+
+  return parsed.value
+}
+
 export function isPublishPlanError(error: unknown): error is PublishPlanError {
   return Boolean(
     error &&
@@ -286,7 +319,8 @@ export function buildPublishPlan(opts: PublishInput): {
 
   const body: Record<string, unknown> = {}
 
-  if (opts.ttl != null && opts.ttl !== '') body.ttlHours = Number(opts.ttl)
+  const ttlHours = parseTtlHours(opts.ttl)
+  if (ttlHours !== undefined) body.ttlHours = ttlHours
   if (opts.buildSha) body.buildSha = opts.buildSha
 
   return {

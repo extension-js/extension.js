@@ -26,18 +26,43 @@ interface CommandLike {
   options?: OptionLike[]
 }
 
+// Accepting --output json is not the same as terminating with one envelope.
+// logs streams a record per event and frames only its failures, so a consumer
+// that read it here as an envelope command broke on the success path.
+const RECORD_STREAM_COMMANDS = new Set(['logs'])
+
+function acceptsOutputJson(command: CommandLike): boolean {
+  return (command.options || []).some(
+    (option) =>
+      option.long === '--output' && String(option.flags || '').includes('json')
+  )
+}
+
 // Read off the live registrations, never a hand-kept list, so a release that
 // gives a command --output json can never leave this answer behind.
 export function collectOutputJsonCommands(program: Command): string[] {
   const names = new Set<string>()
 
   for (const command of program.commands as unknown as CommandLike[]) {
-    const accepts = (command.options || []).some(
-      (option) =>
-        option.long === '--output' &&
-        String(option.flags || '').includes('json')
-    )
-    if (accepts) names.add(command.name())
+    const name = command.name()
+
+    if (acceptsOutputJson(command) && !RECORD_STREAM_COMMANDS.has(name)) {
+      names.add(name)
+    }
+  }
+
+  return Array.from(names).sort()
+}
+
+export function collectRecordStreamCommands(program: Command): string[] {
+  const names = new Set<string>()
+
+  for (const command of program.commands as unknown as CommandLike[]) {
+    const name = command.name()
+
+    if (acceptsOutputJson(command) && RECORD_STREAM_COMMANDS.has(name)) {
+      names.add(name)
+    }
   }
 
   return Array.from(names).sort()
@@ -49,6 +74,7 @@ export interface EngineCapabilities {
   envelopeSchema: number
   readySchemaVersion: number
   outputJsonCommands: string[]
+  recordStreamCommands: string[]
 }
 
 export function buildEngineCapabilities(program: Command): EngineCapabilities {
@@ -59,7 +85,8 @@ export function buildEngineCapabilities(program: Command): EngineCapabilities {
     version: String(cliPackageJson.version || ''),
     envelopeSchema: ENVELOPE_SCHEMA,
     readySchemaVersion: READY_CONTRACT_SCHEMA_VERSION,
-    outputJsonCommands: collectOutputJsonCommands(program)
+    outputJsonCommands: collectOutputJsonCommands(program),
+    recordStreamCommands: collectRecordStreamCommands(program)
   }
 }
 
@@ -94,7 +121,8 @@ export function registerCapabilitiesCommand(program: Command): void {
           `${value.name} ${value.version}`,
           `envelope schema: ${value.envelopeSchema}`,
           `ready contract schemaVersion: ${value.readySchemaVersion}`,
-          `commands that accept --output json: ${value.outputJsonCommands.join(', ')}`
+          `commands that accept --output json: ${value.outputJsonCommands.join(', ')}`,
+          `commands that stream records instead of one envelope: ${value.recordStreamCommands.join(', ')}`
         ].join('\n')
       )
 
