@@ -8,6 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {inspectPublicFolders} from '../../plugin-special-folders/resolve-public-folder'
 
 function isUsableDir(p: string): boolean {
   try {
@@ -31,7 +32,34 @@ export function resolveLocalesFolder(
   const fromManifest = path.join(path.dirname(manifestPath), '_locales')
   if (isUsableDir(fromManifest)) return fromManifest
 
+  const fromPublic = publicLocalesFolder(manifestPath, projectRoot)
+  if (fromPublic && isUsableDir(fromPublic)) return fromPublic
+
   return undefined
+}
+
+function publicLocalesFolder(
+  manifestPath: string,
+  projectRoot?: string
+): string | undefined {
+  const {publicDir} = inspectPublicFolders(manifestPath, projectRoot)
+
+  return publicDir ? path.join(publicDir, '_locales') : undefined
+}
+
+// The public copier ships its whole tree to the output root, so a _locales
+// there already lands at the path the browser reads: emitting it again would
+// write the same asset twice.
+export function localesFolderIsCopiedByPublic(
+  manifestPath: string,
+  projectRoot?: string
+): boolean {
+  const localesFolder = resolveLocalesFolder(manifestPath, projectRoot)
+  const fromPublic = publicLocalesFolder(manifestPath, projectRoot)
+
+  if (!localesFolder || !fromPublic) return false
+
+  return path.resolve(localesFolder) === path.resolve(fromPublic)
 }
 
 function listLocaleFiles(folder: string): string[] {
