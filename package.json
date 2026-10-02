@@ -55,7 +55,8 @@
     "prepare": "husky",
     "check:prose": "node scripts/check-prose.mjs",
     "check:messaging": "node scripts/check-messaging.mjs",
-    "check:runtime-html": "node scripts/check-runtime-html.mjs"
+    "check:runtime-html": "node scripts/check-runtime-html.mjs",
+    "check:ts-nocheck": "node scripts/check-ts-nocheck.mjs"
   },
   "devDependencies": {
     "@babel/core": "8.0.5",

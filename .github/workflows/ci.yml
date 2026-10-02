@@ -67,6 +67,11 @@ jobs:
       - name: Check runtime HTML assignment
         run: pnpm check:runtime-html
 
+      # TypeScript honors @ts-nocheck in a line comment only, so the block form
+      # reads as an exemption and silently checks the file anyway.
+      - name: Check for dead @ts-nocheck directives
+        run: pnpm check:ts-nocheck
+
       - name: Typecheck
         run: pnpm typecheck
 
