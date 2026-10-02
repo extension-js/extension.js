@@ -68,8 +68,8 @@ export function envValueBreaksJsonAsset(asset: string, names: string[]) {
   return (
     `${colors.yellow(asset)} is not valid JSON after substituting ` +
     `${names.map((name) => colors.yellow(`$${name}`)).join(', ')}.\n` +
-    `An env value only fits inside a JSON string, so keep the placeholder ` +
-    `quoted: ${colors.gray(`"$${names[0]}"`)}.`
+    `Quote the placeholder to get a JSON string: ${colors.gray(`"$${names[0]}"`)}. ` +
+    `An unquoted placeholder takes the value as written, so the value must be JSON itself.`
   )
 }
 

@@ -111,4 +111,47 @@ describe('AddAssetsToCompilation (source-path copies)', () => {
       fs.rmSync(tmpDirectoryPath, {recursive: true, force: true})
     }
   })
+
+  it('names a folder reference as the author typed it', () => {
+    const tmpDirectoryPath = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'feature-html-folder-ref-')
+    )
+
+    try {
+      const manifestFilePath = path.join(tmpDirectoryPath, 'manifest.json')
+      fs.writeFileSync(manifestFilePath, '{}', 'utf8')
+      fs.mkdirSync(path.join(tmpDirectoryPath, 'docs'), {recursive: true})
+
+      const htmlFilePath = path.join(tmpDirectoryPath, 'index.html')
+      fs.writeFileSync(
+        htmlFilePath,
+        `<html><body><img src=""><iframe src="./docs/"></iframe></body></html>`,
+        'utf8'
+      )
+
+      const compiler: any = makeCompilation(tmpDirectoryPath)
+      compiler.compilationObj.assets[path.basename(htmlFilePath)] = {
+        source: {source: () => fs.readFileSync(htmlFilePath, 'utf8')}
+      }
+
+      new AddAssetsToCompilation({
+        manifestPath: manifestFilePath,
+        includeList: {'feature/index': htmlFilePath}
+      } as any).apply(compiler as any)
+
+      const folderWarnings = compiler.compilationObj.warnings
+        .map((warning: any) => String(warning.message))
+        .filter((message: string) => message.includes('references a folder'))
+
+      expect(folderWarnings).toHaveLength(1)
+      expect(folderWarnings[0]).toMatch(/Update the \S*\.\/docs\/\S* reference/)
+      expect(folderWarnings[0]).not.toMatch(
+        new RegExp(
+          `Update the \\S*${tmpDirectoryPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`
+        )
+      )
+    } finally {
+      fs.rmSync(tmpDirectoryPath, {recursive: true, force: true})
+    }
+  })
 })

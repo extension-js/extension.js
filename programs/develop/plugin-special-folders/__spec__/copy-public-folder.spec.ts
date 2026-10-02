@@ -108,6 +108,10 @@ describe('SpecialFoldersPlugin (public copying and guards)', () => {
     expect(lastCopyOptions?.patterns?.[0]?.globOptions?.ignore).toContain(
       '/project/public/manifest.json'
     )
+
+    expect(lastCopyOptions?.patterns?.[0]?.globOptions?.ignore).toContain(
+      '/project/public/_locales/**/.DS_Store'
+    )
   })
 
   it('emits an error when public/ contains manifest.json', async () => {

@@ -143,8 +143,14 @@ export class SpecialFoldersPlugin {
       // Only ignore the root public/manifest.json to avoid overwriting the generated
       // manifest; nested public/**/manifest.json is copied through. The glob
       // matches full paths, so a bare filename here would never exclude it.
+      // A locale tree a file browser opened holds OS metadata files, and a
+      // store package is no place for them.
+      const publicLocales = path.join(publicDir, '_locales').replace(/\\/g, '/')
       const copyIgnore = [
-        path.join(publicDir, 'manifest.json').replace(/\\/g, '/')
+        path.join(publicDir, 'manifest.json').replace(/\\/g, '/'),
+        ...['.DS_Store', 'Thumbs.db', 'desktop.ini'].map(
+          (name) => `${publicLocales}/**/${name}`
+        )
       ]
 
       new rspack.CopyRspackPlugin({

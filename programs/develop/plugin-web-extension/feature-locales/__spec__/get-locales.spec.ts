@@ -72,4 +72,20 @@ describe('getLocales (unit)', () => {
       files.some((p) => toPosix(p).endsWith('/_locales/en/logo.png'))
     ).toBe(true)
   })
+
+  it('leaves OS metadata files out of the locale tree', () => {
+    fs.writeFileSync(path.join(localesRoot, '.DS_Store'), '')
+    fs.writeFileSync(path.join(enDir, '.DS_Store'), '')
+    fs.writeFileSync(path.join(enDir, 'Thumbs.db'), '')
+    fs.mkdirSync(path.join(enDir, 'help'), {recursive: true})
+    fs.writeFileSync(path.join(enDir, 'help', '.DS_Store'), '')
+    fs.writeFileSync(path.join(enDir, 'help', 'intro.md'), 'intro')
+
+    const names = (getLocales(manifestPath) || []).map((p) => path.basename(p))
+
+    expect(names).toContain('intro.md')
+    expect(names).toContain('messages.json')
+    expect(names).not.toContain('.DS_Store')
+    expect(names).not.toContain('Thumbs.db')
+  })
 })

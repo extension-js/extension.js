@@ -301,11 +301,11 @@ describe('ZipPlugin', () => {
     await emitDone()
 
     expect(
-      fs.existsSync(path.join(path.dirname(outPath), 'My File Name.zip'))
+      fs.existsSync(path.join(path.dirname(outPath), 'My File Name-edge.zip'))
     ).toBe(true)
   })
 
-  it('honors an explicit zipFilename with dashes and extension verbatim', async () => {
+  it('keeps the dashes and extension of an explicit zipFilename', async () => {
     const root = makeTempDir('zip-spec-')
     const outPath = path.join(root, 'dist', 'chrome')
     write(
@@ -322,7 +322,7 @@ describe('ZipPlugin', () => {
     await emitDone()
 
     expect(
-      fs.existsSync(path.join(path.dirname(outPath), 'my-extension.zip'))
+      fs.existsSync(path.join(path.dirname(outPath), 'my-extension-chrome.zip'))
     ).toBe(true)
   })
 
@@ -343,7 +343,7 @@ describe('ZipPlugin', () => {
     await emitDone()
 
     expect(
-      fs.existsSync(path.join(path.dirname(outPath), 'Release_v2.zip'))
+      fs.existsSync(path.join(path.dirname(outPath), 'Release_v2-chrome.zip'))
     ).toBe(true)
   })
 
@@ -365,7 +365,7 @@ describe('ZipPlugin', () => {
 
     const artifacts = getZipArtifacts(stats.compilation)
     expect(artifacts.length).toBe(1)
-    expect(toPosix(artifacts[0].path)).toMatch(/\/payload\.zip$/)
+    expect(toPosix(artifacts[0].path)).toMatch(/\/payload-chrome\.zip$/)
     expect(artifacts[0].kind).toBe('dist')
     expect(typeof artifacts[0].size).toBe('number')
     expect(artifacts[0].size).toBeGreaterThan(0)
@@ -447,7 +447,9 @@ describe('ZipPlugin', () => {
 
     write(path.join(outPath, 'manifest.json'), '{}')
     // The destination is a directory, so writing the archive throws EISDIR.
-    fs.mkdirSync(path.join(root, 'dist', 'blocked.zip'), {recursive: true})
+    fs.mkdirSync(path.join(root, 'dist', 'blocked-chrome.zip'), {
+      recursive: true
+    })
 
     const {compiler, emitDone} = makeCompiler(root, outPath)
     new ZipPlugin({
@@ -462,7 +464,7 @@ describe('ZipPlugin', () => {
     expect(getZipArtifacts(stats.compilation)).toEqual([])
     expect(failures).toHaveLength(1)
     expect(failures[0].kind).toBe('dist')
-    expect(toPosix(failures[0].path)).toMatch(/\/blocked\.zip$/)
+    expect(toPosix(failures[0].path)).toMatch(/\/blocked-chrome\.zip$/)
     expect(failures[0].reason).toMatch(/EISDIR/)
   })
 
@@ -489,7 +491,67 @@ describe('ZipPlugin', () => {
       getZipArtifacts(stats.compilation).map((a) => [a.kind, toPosix(a.path)])
     )
 
-    expect(byKind.dist).toMatch(/\/review-bundle\.zip$/)
+    expect(byKind.dist).toMatch(/\/review-bundle-chrome\.zip$/)
     expect(byKind.source).toMatch(/\/review-bundle-source\.zip$/)
+  })
+
+  it('keeps one archive per browser when two runs share an explicit name', async () => {
+    const root = makeTempDir('zip-spec-')
+    write(
+      path.join(root, 'manifest.json'),
+      JSON.stringify({name: 'Shared', version: '1.0.0', manifest_version: 3})
+    )
+
+    const paths: string[] = []
+
+    for (const browser of ['chrome', 'firefox'] as const) {
+      const outPath = path.join(root, 'dist', browser)
+      write(path.join(outPath, 'manifest.json'), '{}')
+      write(path.join(outPath, `${browser}.txt`), browser)
+
+      const {compiler, emitDone} = makeCompiler(root, outPath)
+      new ZipPlugin({
+        browser,
+        zipData: {zip: true, zipSource: true, zipFilename: 'release'},
+        manifestPath: path.join(root, 'manifest.json')
+      }).apply(compiler)
+
+      const stats = await emitDone({compilation: {warnings: []}})
+      const dist = getZipArtifacts(stats.compilation).find(
+        (artifact) => artifact.kind === 'dist'
+      )
+      paths.push(toPosix(dist?.path || ''))
+    }
+
+    expect(paths[0]).toMatch(/\/dist\/release-chrome\.zip$/)
+    expect(paths[1]).toMatch(/\/dist\/release-firefox\.zip$/)
+    expect(fs.readdirSync(path.join(root, 'dist')).sort()).toEqual([
+      'chrome',
+      'firefox',
+      'release-chrome.zip',
+      'release-firefox.zip',
+      'release-source.zip'
+    ])
+  })
+
+  it('does not repeat a browser the explicit name already ends with', async () => {
+    const root = makeTempDir('zip-spec-')
+    const outPath = path.join(root, 'dist', 'firefox')
+    write(
+      path.join(outPath, 'manifest.json'),
+      JSON.stringify({name: 'My App', version: '1.2.3'})
+    )
+
+    const {compiler, emitDone} = makeCompiler(root, outPath)
+    new ZipPlugin({
+      browser: 'firefox',
+      zipData: {zip: true, zipFilename: 'store-Firefox.zip'}
+    }).apply(compiler)
+
+    await emitDone()
+
+    expect(
+      fs.readdirSync(path.dirname(outPath)).filter((f) => f.endsWith('.zip'))
+    ).toEqual(['store-Firefox.zip'])
   })
 })
