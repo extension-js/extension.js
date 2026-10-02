@@ -28,7 +28,10 @@ import {
 import * as messages from '../../browsers-lib/messages'
 import {manifestDeclaresNewtabOverride} from '../../browsers-lib/newtab-override'
 import {stampReadyExtensionLoadRefused} from '../../browsers-lib/ready-stamp'
-import {deriveDebugPortWithInstance} from '../../browsers-lib/shared-utils'
+import {
+  deriveDebugPortWithInstance,
+  launchIsHeadless
+} from '../../browsers-lib/shared-utils'
 import {writeJsonAtomic} from '../../browsers-lib/write-json-atomic'
 import type {CompilationLike} from '../../browsers-types'
 import {
@@ -405,6 +408,34 @@ export async function setupCdpAfterLaunch(
     }
   } catch {
     // best-effort only, never block launch on the courtesy tab
+  }
+
+  // Only a headless launch reaches this, and only one whose own target list
+  // says it has no page, so a session that kept its page is untouched.
+  if (
+    extensionControllerInfo &&
+    !plugin.noOpen &&
+    launchIsHeadless(chromiumArgs)
+  ) {
+    const pageUrl =
+      plugin.startingUrl ||
+      (companionPath
+        ? devtoolsCompanionWelcomeUrl(companionPath)
+        : 'about:blank')
+
+    // A broken wire is not a teardown verdict, so it answers unavailable and
+    // the refusal below keeps naming only what the target list actually said.
+    const outcome = await cdpExtensionController
+      .ensurePageTarget(pageUrl)
+      .catch(() => 'unavailable' as const)
+
+    if (outcome === 'created' && isDebug()) {
+      humanLine(messages.chromiumHeadlessPageTargetRecreated(plugin.browser))
+    }
+
+    if (outcome === 'refused') {
+      humanWarn(messages.chromiumHeadlessNoPageTarget(plugin.browser))
+    }
   }
 
   // A fork's own onboarding tab (Vivaldi's signup wizard) is repointed at the

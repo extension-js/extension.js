@@ -382,6 +382,10 @@
       "area": "control",
       "summary": "Eval is disabled for the session or the token does not match."
     },
+    "E_CSP_BLOCKS_EVAL": {
+      "area": "control",
+      "summary": "The extension's own content security policy forbids eval in this document, so no expression can run there."
+    },
     "E_TIMEOUT": {
       "area": "control",
       "summary": "The operation did not answer inside its timeout."
@@ -492,9 +496,10 @@
         "E_TARGET_NOT_FOUND",
         "E_NOT_IMPLEMENTED",
         "E_HEADED_WINDOW_REQUIRED",
-        "E_USER_GESTURE_REQUIRED"
+        "E_USER_GESTURE_REQUIRED",
+        "E_CSP_BLOCKS_EVAL"
       ],
-      "EvalError": "E_EVAL",
+      "EvalError": ["E_EVAL", "E_CSP_BLOCKS_EVAL"],
       "InspectError": "E_INSPECT",
       "StorageError": "E_STORAGE",
       "AmbiguousInstanceError": "E_INSTANCE_AMBIGUOUS",
