@@ -111,6 +111,25 @@ describe('PortManager port reservation', () => {
   })
 })
 
+describe('PortManager exhaustion', () => {
+  it('refuses with the declared port code when no candidate is free', async () => {
+    const host = '127.0.0.1'
+    const blocker = net.createServer()
+    await new Promise<void>((resolve, reject) => {
+      blocker.once('error', reject)
+      blocker.listen(65535, host, resolve)
+    })
+
+    try {
+      await expect(
+        new PortManager().allocatePorts(65535, host)
+      ).rejects.toMatchObject({code: 'E_PORT_UNAVAILABLE'})
+    } finally {
+      await new Promise<void>((resolve) => blocker.close(() => resolve()))
+    }
+  })
+})
+
 describe('PortManager host-aware probing', () => {
   it('probes the requested host, skipping a port taken there', async () => {
     const host = '127.0.0.1'

@@ -8,6 +8,7 @@
 
 import * as fs from 'node:fs'
 import {CODES, ENVELOPE, type Envelope, isMachineOutput} from '../lib/messaging'
+import {shouldWarnPortConflict} from './messages'
 
 // A terminating envelope cannot describe a session, so dev/start/preview emit
 // one schema-1 frame per lifecycle transition, one JSON document per line.
@@ -162,16 +163,25 @@ export class LifecycleStream {
     requestedPort?: number | null
     port?: number | null
   }): Envelope<unknown> | null {
-    this.boundPort = toFiniteNumber(args.port)
+    const requestedPort = toFiniteNumber(args.requestedPort)
+    const port = toFiniteNumber(args.port)
+    this.boundPort = port
+    const reassigned =
+      port !== null && shouldWarnPortConflict(requestedPort, port)
 
     return this.emit(
       ENVELOPE.ok(
         this.options.command,
         'starting',
-        this.sessionValue({
-          requestedPort: toFiniteNumber(args.requestedPort),
-          port: toFiniteNumber(args.port)
-        })
+        this.sessionValue({requestedPort, port}),
+        {
+          warnings: reassigned
+            ? [
+                `${CODES.E_PORT_IN_USE}: port ${requestedPort} was taken, ` +
+                  `so the dev server listens on port ${port}`
+              ]
+            : []
+        }
       )
     )
   }
@@ -298,7 +308,7 @@ export class LifecycleStream {
   // The dev server never bound: a session-level failure, not a compile one.
   public failed(message: string): Envelope<unknown> | null {
     const frame = ENVELOPE.fail(this.options.command, 'failed', {
-      code: CODES.E_INTERNAL,
+      code: CODES.E_DEV_SERVER_START,
       message: stripAnsi(message)
     }) as Envelope<unknown>
     frame.value = this.sessionValue()

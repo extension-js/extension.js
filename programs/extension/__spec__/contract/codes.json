@@ -106,11 +106,6 @@
       "area": "manifest",
       "summary": "The manifest is not parseable JSON or not a WebExtension manifest."
     },
-    "E_RESTART_REQUIRED": {
-      "area": "manifest",
-      "summary": "An entrypoint field changed and the dev server must restart.",
-      "warn": true
-    },
     "E_FIRST_COMPILE": {
       "area": "compile",
       "summary": "The first compile of a session failed, so nothing was loaded."
@@ -333,10 +328,6 @@
       "area": "dev-server",
       "summary": "The dev server failed to start."
     },
-    "E_DEV_SERVER_TIMEOUT": {
-      "area": "dev-server",
-      "summary": "Dev server start exceeded its timeout."
-    },
     "E_PORT_IN_USE": {
       "area": "dev-server",
       "summary": "The requested port was taken and auto-reassigned.",
@@ -349,10 +340,6 @@
     "E_SESSION_NOT_FOUND": {
       "area": "ready",
       "summary": "No live session contract for this project and browser."
-    },
-    "E_SESSION_EXISTS": {
-      "area": "ready",
-      "summary": "A live session already exists for this project and browser."
     },
     "E_SESSION_STOPPED": {
       "area": "ready",

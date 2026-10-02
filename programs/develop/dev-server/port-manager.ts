@@ -8,6 +8,8 @@
 
 import * as crypto from 'node:crypto'
 import * as net from 'node:net'
+import {codedError} from '../lib/coded-error'
+import {CODES} from '../lib/messaging'
 
 interface PortReservation {
   port: number
@@ -29,7 +31,13 @@ function reserve(port: number, host: string): Promise<net.Server | null> {
     // prompt and never answers a request meant for the dev server.
     server.on('connection', (socket) => socket.destroy())
 
-    server.listen(port, host)
+    // A candidate past the last valid port throws before it can emit 'error',
+    // and that is still a port this session cannot have.
+    try {
+      server.listen(port, host)
+    } catch {
+      resolve(null)
+    }
   })
 }
 
@@ -64,7 +72,8 @@ async function reservePortNear(
     candidate += 1
   }
 
-  throw new Error(
+  throw codedError(
+    CODES.E_PORT_UNAVAILABLE,
     `Could not find an available port near ${startPort} after ${attempts} attempts`
   )
 }

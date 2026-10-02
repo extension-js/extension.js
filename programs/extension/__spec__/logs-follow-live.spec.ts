@@ -236,7 +236,8 @@ describe('extension logs --follow over the live control channel', () => {
       ok: true,
       command: 'logs',
       status: 'closed',
-      value: {follow: true, closeCode: expect.any(Number)}
+      value: {follow: true, closeCode: expect.any(Number)},
+      warnings: ['E_LOGS_STREAM_GAP: 1 event(s) are missing from this follow']
     })
 
     expect(

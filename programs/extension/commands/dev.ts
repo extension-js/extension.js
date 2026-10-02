@@ -316,7 +316,18 @@ export function registerDevCommand(program: Command) {
             })
           }
 
-          setupParentWatchdog(parentPid)
+          setupParentWatchdog(parentPid, {
+            emitFrame: () => {
+              if (!asJson) return
+
+              printFrame(
+                ENVELOPE.fail('dev', 'failed', {
+                  code: CODES.E_PARENT_GONE,
+                  message: `the --parent-pid owner (process ${parentPid}) is gone, so this dev session is shutting down`
+                })
+              )
+            }
+          })
         }
 
         const list = vendors(browser)
