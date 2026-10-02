@@ -39,3 +39,37 @@ export function getZipArtifacts(carrier: unknown): ZipArtifactRecord[] {
 
   return Array.isArray(host[ARTIFACTS_KEY]) ? host[ARTIFACTS_KEY] : []
 }
+
+export interface ZipFailureRecord {
+  kind: 'source' | 'dist'
+  path: string
+  reason: string
+}
+
+const FAILURES_KEY = '__extensionJsZipFailures'
+
+type FailureCarrier = {
+  [FAILURES_KEY]?: ZipFailureRecord[]
+}
+
+// An archive the caller asked for and did not get. Recorded beside the
+// receipts so the command can fail instead of reporting a build with no zip.
+export function recordZipFailure(
+  carrier: unknown,
+  failure: ZipFailureRecord
+): void {
+  if (!carrier || typeof carrier !== 'object') return
+
+  const host = carrier as FailureCarrier
+  if (!Array.isArray(host[FAILURES_KEY])) host[FAILURES_KEY] = []
+
+  host[FAILURES_KEY].push(failure)
+}
+
+export function getZipFailures(carrier: unknown): ZipFailureRecord[] {
+  if (!carrier || typeof carrier !== 'object') return []
+
+  const host = carrier as FailureCarrier
+
+  return Array.isArray(host[FAILURES_KEY]) ? host[FAILURES_KEY] : []
+}

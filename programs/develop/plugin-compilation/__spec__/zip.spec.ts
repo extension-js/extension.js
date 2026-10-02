@@ -4,7 +4,7 @@ import * as path from 'node:path'
 import {unzipSync} from 'fflate'
 import {afterEach, describe, expect, it} from 'vitest'
 import {getFilesToZip, isDeniedFromSourceZip, ZipPlugin} from '../zip'
-import {getZipArtifacts} from '../zip-artifacts'
+import {getZipArtifacts, getZipFailures} from '../zip-artifacts'
 
 const toPosix = (value: string) => value.replace(/\\/g, '/')
 
@@ -80,7 +80,7 @@ describe('getFilesToZip', () => {
     const root = makeTempDir('zip-spec-')
     scaffoldSecretProject(root)
 
-    const files = (await getFilesToZip(root)).map(toPosix)
+    const files = (await getFilesToZip(root)).files.map(toPosix)
     expect(files.some((file) => file.split('/').includes('.git'))).toBe(false)
     expect(files).toContain('src/a.ts')
     expect(files).toContain('manifest.json')
@@ -91,7 +91,7 @@ describe('getFilesToZip', () => {
     write(path.join(root, 'manifest.json'), '{}')
     write(path.join(root, '.git'), 'gitdir: /elsewhere/.git/worktrees/x')
 
-    const files = (await getFilesToZip(root)).map(toPosix)
+    const files = (await getFilesToZip(root)).files.map(toPosix)
     expect(files).not.toContain('.git')
     expect(files).toContain('manifest.json')
   })
@@ -100,7 +100,7 @@ describe('getFilesToZip', () => {
     const root = makeTempDir('zip-spec-')
     scaffoldSecretProject(root)
 
-    const files = (await getFilesToZip(root)).map(toPosix)
+    const files = (await getFilesToZip(root)).files.map(toPosix)
     expect(files).not.toContain('.env')
     expect(files).not.toContain('.env.development')
     expect(files).toContain('.env.example')
@@ -110,7 +110,7 @@ describe('getFilesToZip', () => {
     const root = makeTempDir('zip-spec-')
     scaffoldSecretProject(root)
 
-    const files = (await getFilesToZip(root)).map(toPosix)
+    const files = (await getFilesToZip(root)).files.map(toPosix)
     expect(
       files.some((file) => file.split('/').includes('.extension-js'))
     ).toBe(false)
@@ -120,7 +120,7 @@ describe('getFilesToZip', () => {
     const root = makeTempDir('zip-spec-')
     scaffoldSecretProject(root, {gitignore: 'coverage\n'})
 
-    const files = (await getFilesToZip(root)).map(toPosix)
+    const files = (await getFilesToZip(root)).files.map(toPosix)
     expect(files.some((file) => file.startsWith('dist/extension-js'))).toBe(
       false
     )
@@ -130,7 +130,7 @@ describe('getFilesToZip', () => {
     const root = makeTempDir('zip-spec-')
     scaffoldSecretProject(root, {gitignore: null})
 
-    const files = (await getFilesToZip(root)).map(toPosix)
+    const files = (await getFilesToZip(root)).files.map(toPosix)
     expect(files.some((file) => file.split('/').includes('.git'))).toBe(false)
     expect(files.some((file) => file.split('/').includes('node_modules'))).toBe(
       false
@@ -149,7 +149,7 @@ describe('getFilesToZip', () => {
     scaffoldSecretProject(root, {gitignore: 'notes.txt\n'})
     write(path.join(root, 'notes.txt'), 'private notes')
 
-    const files = (await getFilesToZip(root)).map(toPosix)
+    const files = (await getFilesToZip(root)).files.map(toPosix)
     expect(files).not.toContain('notes.txt')
     expect(files).toContain('src/b.ts')
   })
@@ -165,7 +165,7 @@ describe('getFilesToZip', () => {
     write(path.join(root, 'src', 'scratch', 'todo.md'), 'later')
     write(path.join(root, 'app.log'), 'line')
 
-    const files = await getFilesToZip(root)
+    const {files} = await getFilesToZip(root)
     expect(files.every((file) => !file.includes('\\'))).toBe(true)
     expect(files).not.toContain('coverage/report.html')
     expect(files).not.toContain('secrets/keys.json')
@@ -178,7 +178,7 @@ describe('getFilesToZip', () => {
     const root = makeTempDir('zip-spec-')
     scaffoldSecretProject(root)
 
-    const files = await getFilesToZip(root)
+    const {files} = await getFilesToZip(root)
 
     for (const file of files) {
       expect(fs.statSync(path.join(root, file)).isFile()).toBe(true)
@@ -389,5 +389,107 @@ describe('ZipPlugin', () => {
     expect(String(stats.compilation.warnings[0].message)).toMatch(
       /ZipPlugin: Failed/
     )
+  })
+
+  // One symlink used to take both archives down: it is listed as a file,
+  // reading it throws, and the single catch downgraded that to a warning.
+  it('skips a symlink and still writes both archives', async () => {
+    const root = makeTempDir('zip-spec-')
+    const outPath = path.join(root, 'dist', 'chrome')
+    fs.mkdirSync(outPath, {recursive: true})
+    write(
+      path.join(root, 'manifest.json'),
+      JSON.stringify({name: 'Linky', version: '1.0.0', manifest_version: 3})
+    )
+
+    write(path.join(outPath, 'manifest.json'), '{}')
+    write(path.join(root, 'src', 'a.ts'), 'export const a = 1')
+    const linkTarget = makeTempDir('zip-link-target-')
+    write(path.join(linkTarget, 'util.js'), 'export const u = 1')
+    fs.symlinkSync(linkTarget, path.join(root, 'shared'))
+    fs.symlinkSync('./gone.js', path.join(root, 'dangling.js'))
+
+    const {compiler, emitDone} = makeCompiler(root, outPath)
+    new ZipPlugin({
+      browser: 'chrome',
+      zipData: {zip: true, zipSource: true},
+      manifestPath: path.join(root, 'manifest.json')
+    }).apply(compiler)
+
+    const stats = await emitDone({compilation: {warnings: []}})
+    const artifacts = getZipArtifacts(stats.compilation)
+
+    expect(getZipFailures(stats.compilation)).toEqual([])
+    expect(artifacts.map((a) => a.kind).sort()).toEqual(['dist', 'source'])
+
+    for (const artifact of artifacts) {
+      expect(fs.existsSync(artifact.path)).toBe(true)
+    }
+
+    const warned = stats.compilation.warnings
+      .map((w: Error) => String(w.message))
+      .join('\n')
+    expect(warned).toMatch(/skipped 2 symlinks/)
+    expect(warned).toMatch(/dangling\.js/)
+    expect(warned).toMatch(/shared/)
+  })
+
+  // An archive the caller asked for and did not get is a failure. Reporting it
+  // as a warning let `build --zip` exit 0 having written nothing.
+  it('records a failure when a requested archive cannot be written', async () => {
+    const root = makeTempDir('zip-spec-')
+    const outPath = path.join(root, 'dist', 'chrome')
+    fs.mkdirSync(outPath, {recursive: true})
+    write(
+      path.join(root, 'manifest.json'),
+      JSON.stringify({name: 'Blocked', version: '1.0.0', manifest_version: 3})
+    )
+
+    write(path.join(outPath, 'manifest.json'), '{}')
+    // The destination is a directory, so writing the archive throws EISDIR.
+    fs.mkdirSync(path.join(root, 'dist', 'blocked.zip'), {recursive: true})
+
+    const {compiler, emitDone} = makeCompiler(root, outPath)
+    new ZipPlugin({
+      browser: 'chrome',
+      zipData: {zip: true, zipFilename: 'blocked.zip'},
+      manifestPath: path.join(root, 'manifest.json')
+    }).apply(compiler)
+
+    const stats = await emitDone({compilation: {warnings: []}})
+    const failures = getZipFailures(stats.compilation)
+
+    expect(getZipArtifacts(stats.compilation)).toEqual([])
+    expect(failures).toHaveLength(1)
+    expect(failures[0].kind).toBe('dist')
+    expect(toPosix(failures[0].path)).toMatch(/\/blocked\.zip$/)
+    expect(failures[0].reason).toMatch(/EISDIR/)
+  })
+
+  it('names the source archive from an explicit zip filename', async () => {
+    const root = makeTempDir('zip-spec-')
+    const outPath = path.join(root, 'dist', 'chrome')
+    fs.mkdirSync(outPath, {recursive: true})
+    write(
+      path.join(root, 'manifest.json'),
+      JSON.stringify({name: 'Named', version: '1.0.0', manifest_version: 3})
+    )
+
+    write(path.join(outPath, 'manifest.json'), '{}')
+
+    const {compiler, emitDone} = makeCompiler(root, outPath)
+    new ZipPlugin({
+      browser: 'chrome',
+      zipData: {zip: true, zipSource: true, zipFilename: 'review-bundle'},
+      manifestPath: path.join(root, 'manifest.json')
+    }).apply(compiler)
+
+    const stats = await emitDone({compilation: {warnings: []}})
+    const byKind = Object.fromEntries(
+      getZipArtifacts(stats.compilation).map((a) => [a.kind, toPosix(a.path)])
+    )
+
+    expect(byKind.dist).toMatch(/\/review-bundle\.zip$/)
+    expect(byKind.source).toMatch(/\/review-bundle-source\.zip$/)
   })
 })
