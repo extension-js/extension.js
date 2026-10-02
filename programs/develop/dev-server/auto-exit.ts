@@ -9,10 +9,11 @@
 import {humanLine} from './lifecycle-stream'
 import * as messages from './messages'
 
-// How long after the auto-exit deadline the backstop waits at the earliest.
-const FORCE_KILL_FLOOR_MS = 4000
+// How long after the auto-exit deadline the default backstop waits.
+const FORCE_KILL_DEFAULT_GRACE_MS = 4000
 
-// A backstop kill is a truncated session, never a completed one.
+// A backstop that cuts a teardown short is a truncated session, never a
+// completed one.
 export const FORCE_KILL_EXIT_CODE = 1
 
 function parseMilliseconds(value: string | number | undefined) {
@@ -36,6 +37,7 @@ export function setupAutoExit(
 ): () => void {
   let autoExitTimer: NodeJS.Timeout | null = null
   let forceKillTimer: NodeJS.Timeout | null = null
+  let teardownStarted = false
 
   const autoExitMs = parseMilliseconds(autoExitMsRaw)
 
@@ -56,16 +58,15 @@ export function setupAutoExit(
       // Ignore
     }
 
+    teardownStarted = true
     await onCleanup()
   }, autoExitMs)
 
-  const parsedForceKillMs = parseMilliseconds(forceKillMsRaw)
-  // The force kill is the backstop for a teardown that already started, so it
-  // is clamped later than the auto-exit deadline rather than read as absolute.
-  const forceKillMs = Math.max(
-    parsedForceKillMs ?? 0,
-    autoExitMs + FORCE_KILL_FLOOR_MS
-  )
+  // An explicit value is absolute from session start, so one set below the
+  // auto-exit deadline stays the shorter knob it always was.
+  const forceKillMs =
+    parseMilliseconds(forceKillMsRaw) ??
+    autoExitMs + FORCE_KILL_DEFAULT_GRACE_MS
 
   forceKillTimer = setTimeout(() => {
     try {
@@ -74,9 +75,9 @@ export function setupAutoExit(
       // Ignore
     }
 
-    // Reaching the backstop means the orderly path never finished, which a
-    // caller cannot tell from a clean auto-exit unless the code differs.
-    process.exit(FORCE_KILL_EXIT_CODE)
+    // Firing over a teardown that never finished is a failure the caller must
+    // see. Firing before auto-exit is the hard stop the caller asked for.
+    process.exit(teardownStarted ? FORCE_KILL_EXIT_CODE : 0)
   }, forceKillMs)
 
   function cancelAutoExitTimers() {

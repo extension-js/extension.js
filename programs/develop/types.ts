@@ -226,6 +226,12 @@ export interface DevOptions extends BrowserOptionsBase {
    * to the bind host, or 127.0.0.1 when bound to a wildcard like '0.0.0.0'.
    */
   publicHost?: string
+  /**
+   * Extra Host names the dev server answers, beyond localhost, IP literals and
+   * `publicHost` (a docker service name, a tunnel, a *.local name). A comma
+   * list or an array. A leading dot allows every subdomain.
+   */
+  allowedHosts?: string | string[]
   install?: boolean
   /**
    * Companion extensions (load-only) for this command.

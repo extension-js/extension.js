@@ -411,7 +411,26 @@ export function foldSidebarKeyForBrowser(
   const panel = readPageRef(manifest.side_panel, 'default_path')
   const {side_panel: _folded, ...rest} = manifest
 
-  return {...rest, sidebar_action: {default_panel: panel}} as Manifest
+  return {
+    ...rest,
+    sidebar_action: {default_panel: panel, ...sidebarActionStyle(manifest)}
+  } as Manifest
+}
+
+// Firefox defaults browser_style to true on a Manifest V2 sidebar_action and
+// injects its stylesheet into the panel, which Chromium never did to the
+// side_panel page. Manifest V3 has no such key, and a value the user set stays.
+function sidebarActionStyle(manifest: Manifest): {browser_style?: boolean} {
+  const version = Number(
+    (manifest as {manifest_version?: unknown}).manifest_version
+  )
+
+  if (version !== 2) return {}
+
+  const source = manifest.side_panel as {browser_style?: unknown} | undefined
+  const own = source?.browser_style
+
+  return {browser_style: typeof own === 'boolean' ? own : false}
 }
 
 // The page the built page_action key must name: the shared toolbar page

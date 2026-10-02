@@ -82,7 +82,7 @@ import {
   writeControlToken
 } from './control-bridge/session-token'
 import {startControlServer} from './control-bridge/ws-control-server'
-import {devServerAccessConfig} from './cors'
+import {devServerAccessConfig, withHostCheckMiddleware} from './cors'
 import {
   createResponseDataRepair,
   type OutputFileSystemLike
@@ -510,6 +510,7 @@ export async function devServer(
   // they are declared on DevOptions now so a library caller can name them.
   const extendedOptions = devOptions as DevOptions & {
     publicHost?: string
+    allowedHosts?: string | string[]
     authorMode?: boolean
     browsersPlugin?: {
       setReloadBroker?: (broker: unknown) => void
@@ -885,7 +886,11 @@ export async function devServer(
   // `folders: {public: false}` reads no folder at all, so there is nothing to
   // serve over HTTP and nothing to watch for a rebuild.
   const publicFolder = publicFolderOrDefault(manifestPath, packageJsonDir)
-  const access = devServerAccessConfig({connectableHost, emulatorOrigin})
+  const access = devServerAccessConfig({
+    connectableHost,
+    emulatorOrigin,
+    allowedHosts: extendedOptions.allowedHosts
+  })
 
   const serverConfig: Configuration = {
     host: devServerHost,
@@ -933,20 +938,24 @@ export async function devServer(
     },
     client: false,
     headers: access.headers,
-    ...(emulatorFiles
-      ? {
-          setupMiddlewares: (
-            ...args: Parameters<NonNullable<Configuration['setupMiddlewares']>>
-          ) => [
-            createEmulatorFilesMiddlewareEntry(
-              emulatorFiles,
-              args[1],
-              emulatorOrigin
-            ) as unknown as (typeof args)[0][number],
-            ...args[0]
-          ]
-        }
-      : {}),
+    setupMiddlewares: (
+      ...args: Parameters<NonNullable<Configuration['setupMiddlewares']>>
+    ) => {
+      const checked = withHostCheckMiddleware(args[0], args[1], (host) =>
+        humanLine(messages.devServerHostRefused(host))
+      )
+
+      if (!emulatorFiles) return checked
+
+      return [
+        createEmulatorFilesMiddlewareEntry(
+          emulatorFiles,
+          args[1],
+          emulatorOrigin
+        ) as unknown as (typeof args)[0][number],
+        ...checked
+      ]
+    },
     port,
     // Rspack must inject `module.hot` so `@rspack/core/hot/dev-server` does not
     // throw; content bundles strip HMR startup, so liveReload cannot loop them.

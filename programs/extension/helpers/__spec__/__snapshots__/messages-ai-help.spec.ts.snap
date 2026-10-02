@@ -235,6 +235,11 @@ exports[`programAIHelp > matches the published AI-help JSON contract shape 1`] =
       "description": "Connectable host the browser dials for HMR + the reload bridge when it differs from the bind host (remote/devcontainer)",
       "name": "--public-host",
     },
+    {
+      "default": "none",
+      "description": "Comma-separated host names the dev server answers besides localhost, IP addresses and --public-host (docker service names, tunnels, *.local). Also commands.dev.allowedHosts in extension.config.js",
+      "name": "--allowed-hosts",
+    },
   ],
   "templates": {
     "aliases": [

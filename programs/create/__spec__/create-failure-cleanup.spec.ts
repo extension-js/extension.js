@@ -78,4 +78,19 @@ describe('a failed create leaves nothing half-personalized on disk', () => {
     expect(fs.existsSync(path.join(projectPath, 'package.json'))).toBe(false)
     expect(fs.existsSync(path.join(projectPath, 'node_modules'))).toBe(false)
   })
+
+  it('puts the owner .gitignore back byte for byte', async () => {
+    const tmpRoot = await makeTempRoot()
+    const projectPath = path.join(tmpRoot, 'existing-repo')
+    const ownerRules = Buffer.from('# mine\r\n.idea/\r\n*.log')
+    await fsp.mkdir(path.join(projectPath, '.git'), {recursive: true})
+    await fsp.writeFile(path.join(projectPath, '.gitignore'), ownerRules)
+
+    await expect(
+      extensionCreate(projectPath, {install: true, logger: noopLogger})
+    ).rejects.toThrow("Couldn't install the dependencies")
+
+    const after = await fsp.readFile(path.join(projectPath, '.gitignore'))
+    expect(after.equals(ownerRules)).toBe(true)
+  })
 })

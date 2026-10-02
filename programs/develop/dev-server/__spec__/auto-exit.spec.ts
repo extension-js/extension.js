@@ -33,7 +33,10 @@ describe('auto-exit', () => {
     vi.advanceTimersByTime(1000)
     expect(onCleanup).toHaveBeenCalledTimes(1)
 
-    vi.advanceTimersByTime(4000)
+    vi.advanceTimersByTime(999)
+    expect(process.exit).not.toHaveBeenCalled()
+
+    vi.advanceTimersByTime(1)
     expect(process.exit).toHaveBeenCalledWith(1)
 
     cancel()
@@ -48,28 +51,30 @@ describe('auto-exit', () => {
     expect(process.exit).toHaveBeenCalledWith(1)
   })
 
-  it('runs cleanup before the force kill when force-kill is the smaller knob', () => {
+  it('honors a force kill set below the auto-exit deadline as the shorter knob', () => {
     const onCleanup = vi.fn().mockResolvedValue(undefined)
     setupAutoExit(60_000, 5000, onCleanup)
 
-    vi.advanceTimersByTime(59_999)
-    expect(onCleanup).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(4999)
     expect(process.exit).not.toHaveBeenCalled()
 
     vi.advanceTimersByTime(1)
+    expect(onCleanup).not.toHaveBeenCalled()
+    expect(process.exit).toHaveBeenCalledTimes(1)
+    // No teardown was cut short, so this is the hard stop the caller asked for.
+    expect(process.exit).toHaveBeenCalledWith(0)
+  })
+
+  it('exits non-zero on the backstop so a truncated teardown is not a pass', () => {
+    const onCleanup = vi.fn(() => new Promise<void>(() => {}))
+    setupAutoExit(1000, 1500, onCleanup)
+
+    vi.advanceTimersByTime(1000)
     expect(onCleanup).toHaveBeenCalledTimes(1)
     expect(process.exit).not.toHaveBeenCalled()
 
-    vi.advanceTimersByTime(4000)
-    expect(process.exit).toHaveBeenCalledWith(1)
-  })
-
-  it('exits non-zero on the backstop so a truncated run is not a pass', () => {
-    const onCleanup = vi.fn().mockResolvedValue(undefined)
-    setupAutoExit(1000, 100, onCleanup)
-
-    vi.advanceTimersByTime(5000)
+    vi.advanceTimersByTime(500)
     expect(process.exit).toHaveBeenCalledTimes(1)
-    expect(process.exit).not.toHaveBeenCalledWith(0)
+    expect(process.exit).toHaveBeenCalledWith(1)
   })
 })

@@ -313,16 +313,17 @@ export function computePreviewOutputPath(
   const {manifestDir, packageJsonDir} = getDirs(struct)
   if (explicitOutputPath) return asAbsolute(explicitOutputPath)
 
-  if (struct.packageJsonPath || struct.denoJsonPath) {
-    const distDir = getDistPath(packageJsonDir, browser)
+  // A build lands in dist/<browser> under the project root whether or not a
+  // package.json names that root, so a plain manifest project previews its
+  // build too instead of the source it just compiled.
+  const distDir = getDistPath(packageJsonDir, browser)
 
-    try {
-      if (fs.existsSync(path.join(distDir, 'manifest.json'))) {
-        return distDir
-      }
-    } catch {
-      // Ignore
+  try {
+    if (fs.existsSync(path.join(distDir, 'manifest.json'))) {
+      return distDir
     }
+  } catch {
+    // Ignore
   }
 
   return manifestDir

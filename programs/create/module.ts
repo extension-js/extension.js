@@ -133,6 +133,13 @@ export async function extensionCreate(
   const preExistingEntries = ownsProjectDir
     ? []
     : await fs.promises.readdir(projectPath).catch(() => [])
+  // Cleanup keeps a pre-existing file by name only. The owner's .gitignore is
+  // edited in place by the import, so its bytes are what a failure restores.
+  const ownerGitignore = ownsProjectDir
+    ? null
+    : await fs.promises
+        .readFile(path.join(projectPath, '.gitignore'))
+        .catch(() => null)
 
   try {
     return await scaffoldProject({
@@ -141,12 +148,19 @@ export async function extensionCreate(
       effectiveTemplate,
       templateWasOmitted,
       ownsProjectDir,
+      preExistingEntries,
       install,
       cliVersion,
       logger
     })
   } catch (error) {
     await cleanupFailedImport(projectPath, ownsProjectDir, preExistingEntries)
+
+    if (ownerGitignore !== null) {
+      await fs.promises
+        .writeFile(path.join(projectPath, '.gitignore'), ownerGitignore)
+        .catch(() => {})
+    }
 
     throw error
   }
@@ -158,6 +172,7 @@ interface ScaffoldInput {
   effectiveTemplate: string
   templateWasOmitted: boolean
   ownsProjectDir: boolean
+  preExistingEntries?: readonly string[]
   install: boolean
   cliVersion?: string
   logger: CreateLogger
@@ -169,6 +184,7 @@ async function scaffoldProject({
   effectiveTemplate,
   templateWasOmitted,
   ownsProjectDir,
+  preExistingEntries = [],
   install,
   cliVersion,
   logger
@@ -244,7 +260,8 @@ async function scaffoldProject({
     logger
   )
 
-  await writeGitignore(projectPath, logger)
+  // The env files a template ships stay tracked, the owner's own do not.
+  await writeGitignore(projectPath, logger, {ownedEntries: preExistingEntries})
   await setupBuiltInTests(projectPath, logger)
 
   if (
