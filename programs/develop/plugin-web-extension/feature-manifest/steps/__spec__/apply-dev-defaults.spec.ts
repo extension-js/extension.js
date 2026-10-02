@@ -3,6 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {Compilation} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
+import {UNSUPPORTED_PERMISSIONS as SAFARI_REJECTED_PERMISSIONS} from '../../manifest-lib/filter-keys-safari'
 import {
   ApplyDevDefaults,
   findInjectedOnlyPermissionUses
@@ -120,7 +121,7 @@ describe('ApplyDevDefaults', () => {
 
   function runDevDefaults(
     manifest: Record<string, unknown>,
-    browser: 'chrome' | 'firefox' = 'chrome',
+    browser: 'chrome' | 'firefox' | 'safari' = 'chrome',
     modules: SpecModule[] = []
   ) {
     const {out, warnings} = runDevDefaultsWithWarnings(
@@ -135,7 +136,7 @@ describe('ApplyDevDefaults', () => {
 
   function runDevDefaultsWithWarnings(
     manifest: Record<string, unknown>,
-    browser: 'chrome' | 'firefox' = 'chrome',
+    browser: 'chrome' | 'firefox' | 'safari' = 'chrome',
     modules: SpecModule[] = []
   ) {
     let updated: string | undefined
@@ -922,10 +923,10 @@ describe('ApplyDevDefaults', () => {
     })
   })
 
-  it('injects scripting + tabs (+ management) in dev for MV3', () => {
+  it('injects scripting + tabs + storage in dev for MV3', () => {
     const out = runDevDefaults({manifest_version: 3, name: 'x'})
     expect(out.permissions).toEqual(
-      expect.arrayContaining(['scripting', 'tabs', 'management'])
+      expect.arrayContaining(['scripting', 'tabs', 'storage'])
     )
   })
 
@@ -1068,6 +1069,71 @@ describe('ApplyDevDefaults', () => {
     expect(out.content_scripts?.[0]?.js).toEqual([
       'content_scripts/content-0.js'
     ])
+  })
+
+  it('grants no permission Safari rejects in a webkit dev session', () => {
+    const out = runDevDefaults(
+      {manifest_version: 3, name: 'x', permissions: ['management', 'storage']},
+      'safari'
+    )
+    expect(out.permissions).not.toContain('management')
+    expect(
+      out.permissions.filter((permission: string) =>
+        SAFARI_REJECTED_PERMISSIONS.has(permission)
+      )
+    ).toEqual([])
+
+    expect(out.permissions).toContain('storage')
+  })
+
+  it('keeps that same permission on a chromium dev session', () => {
+    const out = runDevDefaults(
+      {manifest_version: 3, name: 'x', permissions: ['management', 'storage']},
+      'chrome'
+    )
+    expect(out.permissions).toContain('management')
+    expect(out.permissions).toEqual(
+      expect.arrayContaining([...devInjectedPermissions(3, 'chrome')])
+    )
+  })
+
+  it('injects no permission Safari rejects, on any target', () => {
+    expect([...devInjectedPermissions(3, 'chrome')]).not.toContain('management')
+    expect([...devInjectedPermissions(2, 'chrome')]).not.toContain('management')
+
+    for (const manifestVersion of [2, 3]) {
+      const injected = devInjectedPermissions(manifestVersion, 'chrome')
+      expect(injected.length).toBeGreaterThan(0)
+      expect(
+        injected.filter((permission) =>
+          SAFARI_REJECTED_PERMISSIONS.has(permission)
+        )
+      ).toEqual([])
+    }
+  })
+
+  it('warns when the background stores without declaring storage', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-dev-storage-'))
+    const file = path.join(dir, 'background.js')
+    fs.writeFileSync(file, 'chrome.storage.local.set({a: 1})\n')
+
+    try {
+      const {out, warnings} = runDevDefaultsWithWarnings(
+        {manifest_version: 3, name: 'x'},
+        'chrome',
+        [{resource: file}]
+      )
+      expect(out.permissions).toContain('storage')
+      const drift = warnings.filter(
+        (w) => w.name === 'DevInjectedPermissionWarning'
+      )
+      expect(drift).toHaveLength(1)
+      expect(drift[0].message).toContain('"storage"')
+      expect(drift[0].message).toContain('background.js')
+      expect(drift[0].message).toContain('Add "storage" to permissions')
+    } finally {
+      fs.rmSync(dir, {recursive: true, force: true})
+    }
   })
 })
 

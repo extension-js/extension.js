@@ -3,7 +3,10 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {findInjectedOnlyPermissionUses} from '../steps/apply-dev-defaults'
-import {devInjectedPermissions} from '../steps/apply-dev-defaults-lib/dev-injected-permissions'
+import {
+  devInjectedPermissions,
+  scannedPermissions
+} from '../steps/apply-dev-defaults-lib/dev-injected-permissions'
 
 describe('findInjectedOnlyPermissionUses', () => {
   let tmp: string
@@ -62,6 +65,18 @@ describe('findInjectedOnlyPermissionUses', () => {
       ['storage']
     )
     expect(hits.size).toBe(0)
+  })
+
+  it('keeps scanning for a permission the dev session no longer injects', () => {
+    const sw = write('sw.js', 'chrome.management.getAll()\n')
+    const hits = findInjectedOnlyPermissionUses(
+      compilationWith([sw]),
+      new Set(),
+      scannedPermissions(3)
+    )
+    expect(hits.get('management')).toBe(sw)
+    expect([...devInjectedPermissions(3)]).not.toContain('management')
+    expect([...scannedPermissions(3, 'safari')]).not.toContain('management')
   })
 
   it('ignores node_modules and non-script resources', () => {
