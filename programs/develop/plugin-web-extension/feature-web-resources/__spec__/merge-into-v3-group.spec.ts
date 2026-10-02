@@ -69,4 +69,52 @@ describe('mergeIntoV3Group', () => {
     expect(groups).toHaveLength(1)
     expect(groups[0].resources).toEqual(['a.png', 'b.png'])
   })
+
+  // use_dynamic_url changes how a resource is addressed, and the bundler
+  // compiled a static runtime.getURL for what it emitted, so an emitted asset
+  // that inherits the flag becomes unreachable on a green build.
+  it('gives generated assets their own group beside a use_dynamic_url group', () => {
+    const groups: Array<Group & {use_dynamic_url?: boolean}> = [
+      {
+        resources: ['img/a.png'],
+        matches: ['https://e.com/*'],
+        use_dynamic_url: true
+      }
+    ]
+    mergeIntoV3Group(groups, ['https://e.com/*'], ['assets/logo.abc.png'])
+
+    expect(groups).toHaveLength(2)
+    expect(groups[0]).toEqual({
+      resources: ['img/a.png'],
+      matches: ['https://e.com/*'],
+      use_dynamic_url: true
+    })
+
+    expect(groups[1]).toEqual({
+      resources: ['assets/logo.abc.png'],
+      matches: ['https://e.com/*']
+    })
+  })
+
+  it('does the same for an extension_ids group', () => {
+    const groups: Array<Group & {extension_ids?: string[]}> = [
+      {resources: ['img/a.png'], matches: [], extension_ids: ['abc']}
+    ]
+    mergeIntoV3Group(groups, [], ['assets/logo.abc.png'], {
+      createGroupWhenMissing: false
+    })
+
+    expect(groups).toHaveLength(1)
+    expect(groups[0].resources).toEqual(['img/a.png'])
+  })
+
+  it('still merges into a plain group with the same matches', () => {
+    const groups: Group[] = [
+      {resources: ['img/a.png'], matches: ['https://e.com/*']}
+    ]
+    mergeIntoV3Group(groups, ['https://e.com/*'], ['assets/logo.abc.png'])
+
+    expect(groups).toHaveLength(1)
+    expect(groups[0].resources).toEqual(['assets/logo.abc.png', 'img/a.png'])
+  })
 })

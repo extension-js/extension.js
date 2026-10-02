@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type * as parse5utilities from 'parse5-utilities'
+import {publicRootsFor} from '../../../plugin-special-folders/resolve-public-folder'
 import type {FilepathList} from '../../../types'
 import {isFromFilepathList} from '../../shared/paths'
 import type {HtmlStaticAttribute} from './parse-html'
@@ -19,6 +20,25 @@ import {
   htmlStaticAssetOutputName,
   resolveStaticAttributeName
 } from './utils'
+
+// The public roots a compiler ships from, so a renamed or disabled public
+// folder is honored rather than guessed at from the page's own location.
+function resolvePublicRelativePath(
+  compilation: unknown,
+  absolutePath: string
+): string | undefined {
+  const compiler = (compilation as {compiler?: object} | undefined)?.compiler
+
+  for (const root of publicRootsFor(compiler)) {
+    const relative = path.relative(root, absolutePath)
+
+    if (relative && !relative.startsWith('..') && !path.isAbsolute(relative)) {
+      return relative.split(path.sep).join('/')
+    }
+  }
+
+  return undefined
+}
 
 export function handleStaticAsset(
   compilation: unknown,
@@ -59,14 +79,29 @@ export function handleStaticAsset(
   }
 
   if (cleanPath.startsWith('/')) {
-    const projectDir = path.dirname(path.dirname(htmlEntry))
-    const publicCandidate = path.join(projectDir, 'public', cleanPath.slice(1))
-
     node = applyRewrittenStaticUrl(
       node,
       attrName,
       cleanPath,
       cleanPath + (search || '') + (hash || '')
+    )
+
+    return node
+  }
+
+  // The copier flattens the public folder onto the output root and the emitter
+  // skips those files, so a page ref into it names the flattened path.
+  const publicRelativePath = resolvePublicRelativePath(
+    compilation,
+    absolutePath
+  )
+
+  if (publicRelativePath) {
+    node = applyRewrittenStaticUrl(
+      node,
+      attrName,
+      cleanPath,
+      path.posix.join('/', publicRelativePath) + (search || '') + (hash || '')
     )
 
     return node

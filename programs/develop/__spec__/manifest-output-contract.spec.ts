@@ -195,11 +195,18 @@ describe('manifest output contract (real rspack, golden fixture)', () => {
       }
     ])
 
+    // The author's group keeps its own resource and its own addressing. A
+    // generated file is addressed by the static URL the bundler compiled in,
+    // so it is listed beside that group rather than inside it.
     expect(manifest.web_accessible_resources).toEqual([
       {
-        resources: ['content_scripts/content-0.css', 'icons/icon16.png'],
+        resources: ['icons/icon16.png'],
         matches: ['<all_urls>'],
         use_dynamic_url: true
+      },
+      {
+        resources: ['content_scripts/content-0.css'],
+        matches: ['<all_urls>']
       }
     ])
 

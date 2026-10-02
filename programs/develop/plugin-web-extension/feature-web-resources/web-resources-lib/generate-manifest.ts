@@ -79,6 +79,45 @@ function hasWildcardPattern(pattern: string) {
   return /[*?[\]]/.test(pattern)
 }
 
+// Files a stylesheet reaches for at runtime. A page loads them itself, so a
+// content script's CSS needs each one web-accessible or the browser blocks it.
+function emittedFilesReferencedByCss(
+  compilation: Compilation,
+  cssKey: string
+): string[] {
+  const css = getAssetSource(compilation, cssKey)
+  if (!css) return []
+
+  const found = new Set<string>()
+  const urlPattern = /url\(\s*(['"]?)([^'")]+)\1\s*\)/gi
+
+  for (const match of css.matchAll(urlPattern)) {
+    const ref = String(match[2] || '').trim()
+    if (!ref) continue
+    if (/^(data:|https?:|\/\/|#)/i.test(ref)) continue
+
+    const withoutQuery = ref.split('?')[0].split('#')[0]
+    const candidates = withoutQuery.startsWith('/')
+      ? [withoutQuery.slice(1)]
+      : [
+          withoutQuery,
+          // A content script's CSS sits a folder deep, so its own relative
+          // refs resolve against that folder as well as the output root.
+          path.posix.join(path.posix.dirname(cssKey), withoutQuery)
+        ]
+
+    for (const candidate of candidates) {
+      const normalized = path.posix.normalize(candidate)
+      if (normalized.startsWith('..')) continue
+      if (!compilation.assets?.[normalized]) continue
+
+      found.add(normalized)
+    }
+  }
+
+  return [...found]
+}
+
 function escapeRegex(s: string) {
   return s.replace(/[.+^${}()|\\]/g, '\\$&')
 }
@@ -110,6 +149,10 @@ function isCoveredByExistingGlobs(
   return false
 }
 
+// Fields that change how a listed resource is addressed, rather than which
+// pages may read it. A generated asset must never inherit one by accident.
+const ADDRESSABILITY_FIELDS = ['use_dynamic_url', 'extension_ids'] as const
+
 // Groups carry user-declared fields like use_dynamic_url and extension_ids
 // through to the final write untouched.
 type WarV3Group = {
@@ -132,10 +175,17 @@ export function mergeIntoV3Group(
   const existing = groups.find((group) => {
     const current = [...group.matches].sort()
 
-    return (
-      current.length === target.length &&
-      current.every((value, index) => value === target[index])
-    )
+    if (
+      current.length !== target.length ||
+      !current.every((value, index) => value === target[index])
+    ) {
+      return false
+    }
+
+    // An addressability field changes HOW a resource is served, and the
+    // bundler compiled a static runtime.getURL for what it emitted, so these
+    // assets get their own group rather than inheriting the author's.
+    return !ADDRESSABILITY_FIELDS.some((field) => field in group)
   })
 
   if (existing) {
@@ -450,6 +500,42 @@ export function generateManifestPatches(
     }
   }
 
+  // A content script's stylesheet reaches its own url() targets at runtime, so
+  // every emitted file it names is exposed, whatever the extension. The font
+  // rule below predates this and still covers fonts reached from JS.
+  if (canonicalManifest.manifest_version === 3) {
+    const cssKeys = Object.keys(compilation.assets || {}).filter(
+      (k) => k.startsWith('content_scripts/') && k.endsWith('.css')
+    )
+    const referenced = Array.from(
+      new Set(
+        cssKeys.flatMap((cssKey) =>
+          emittedFilesReferencedByCss(compilation, cssKey)
+        )
+      )
+    ).sort()
+
+    if (referenced.length > 0) {
+      const normalizedMatches = cleanMatches(
+        Array.from(
+          new Set(
+            (canonicalManifest.content_scripts || []).flatMap(
+              (cs: {matches?: string[]}) => cs.matches || []
+            )
+          )
+        )
+      )
+
+      if (normalizedMatches.length > 0) {
+        mergeIntoV3Group(
+          webAccessibleResourcesV3,
+          normalizedMatches,
+          referenced
+        )
+      }
+    }
+  }
+
   // Last-resort fallback: expose emitted font files to the union of
   // content_scripts matches; assets/ and content_scripts/ files stay excluded.
   const fontExtRe = /\.(woff2?|eot|ttf|otf)$/i
@@ -577,13 +663,26 @@ export function generateManifestPatches(
   if (canonicalManifest.manifest_version === 3) {
     if (webAccessibleResourcesV3.length > 0) {
       canonicalManifest.web_accessible_resources = webAccessibleResourcesV3
-        .map((entry) => ({
-          ...entry,
-          resources: Array.from(new Set(entry.resources)).sort(),
-          matches: Array.from(new Set(entry.matches)).sort()
-        }))
+        .map((entry) => {
+          const resources = Array.from(new Set(entry.resources)).sort()
+          const matches = Array.from(new Set(entry.matches ?? [])).sort()
+
+          // A group addressed by extension_ids alone declares no matches, and
+          // an empty array is a different shape from the one it was given.
+          if (matches.length === 0 && !entry.matches) {
+            const {matches: _absent, ...rest} = entry
+
+            return {...rest, resources}
+          }
+
+          return {...entry, resources, matches}
+        })
         .sort((a, b) =>
-          a.matches.join(',').localeCompare(b.matches.join(','))
+          ((a as {matches?: string[]}).matches ?? [])
+            .join(',')
+            .localeCompare(
+              ((b as {matches?: string[]}).matches ?? []).join(',')
+            )
         ) as Manifest['web_accessible_resources']
     }
   } else {
