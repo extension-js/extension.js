@@ -209,7 +209,9 @@ describe('eval on a Gecko extension document the CSP locks down', () => {
     }
   })
 
-  it('leaves a failure that is not a CSP refusal alone', async () => {
+  // An idled MV3 event page leaves no executor, so the bridge refuses before
+  // any CSP verdict exists. The protocol route does not need the executor.
+  it('routes over the protocol when no executor is connected', async () => {
     session.result = {
       ok: false,
       error: {name: 'Unavailable', message: 'no executor connected'}
@@ -226,10 +228,60 @@ describe('eval on a Gecko extension document the CSP locks down', () => {
         '--output',
         'json'
       ])
+    ).toBe(0)
+
+    expect(protocolCalls).toHaveLength(1)
+    expect(frame().ok).toBe(true)
+    expect(frame().value).toBe(2)
+  })
+
+  it('explains an idle event page when the protocol route is unavailable', async () => {
+    session.result = {
+      ok: false,
+      error: {name: 'Unavailable', message: 'no executor connected'}
+    }
+
+    session.readyDocument = {...session.readyDocument, rdpPort: 0}
+
+    expect(
+      await run([
+        'eval',
+        '1+1',
+        '--browser',
+        'firefox',
+        '--context',
+        'background',
+        '--output',
+        'json'
+      ])
     ).toBe(1)
 
     expect(protocolCalls).toHaveLength(0)
     expect(frame().error.code).toBe('E_CONTROL_UNAVAILABLE')
+    expect(String(frame().error.hint)).toMatch(/idle|suspend/i)
+  })
+
+  it('leaves a refusal the protocol cannot help with alone', async () => {
+    session.result = {
+      ok: false,
+      error: {name: 'EvalDisabled', message: 'eval is not enabled here'}
+    }
+
+    expect(
+      await run([
+        'eval',
+        '1+1',
+        '--browser',
+        'firefox',
+        '--context',
+        'background',
+        '--output',
+        'json'
+      ])
+    ).toBe(1)
+
+    expect(protocolCalls).toHaveLength(0)
+    expect(frame().error.code).toBe('E_EVAL_REFUSED')
   })
 
   it('resolves a surface context to the page path the session emitted', async () => {
