@@ -246,6 +246,12 @@ const TAB_NOT_FOUND_HINT =
   'List the open tabs and their ids with extension inspect --list-tabs, or ' +
   'drop --tab to target the active tab.'
 
+// Firefox lets an MV3 event page idle out, which leaves no executor to answer.
+const GECKO_IDLE_EVENT_PAGE_HINT =
+  'Firefox suspends an MV3 event page when it goes idle, and a suspended ' +
+  'page has nothing to evaluate in. Wake the extension first, by opening one ' +
+  'of its surfaces or triggering one of its listeners, then evaluate again.'
+
 function codeForBridgeError(
   name: string,
   message: string,
@@ -629,15 +635,28 @@ function printResult(
   )
 }
 
-export function bridgeBlamedTheExtensionCsp(result: ActResultLike): boolean {
+function bridgeErrorCode(result: ActResultLike): ErrorCode {
   const raw = (result?.error || {}) as Record<string, unknown>
 
+  return codeForBridgeError(
+    typeof raw.name === 'string' ? raw.name : 'Error',
+    typeof raw.message === 'string' ? raw.message : '',
+    typeof raw.code === 'string' ? raw.code : undefined
+  )
+}
+
+export function bridgeBlamedTheExtensionCsp(result: ActResultLike): boolean {
+  return bridgeErrorCode(result) === CODES.E_CSP_BLOCKS_EVAL
+}
+
+// An MV3 event page that has idled out has no executor connected, so the
+// bridge refuses before any CSP verdict exists. The protocol route does not
+// need the executor, so it is worth trying for exactly these two refusals.
+export function bridgeHadNoExecutor(result: ActResultLike): boolean {
+  const code = bridgeErrorCode(result)
+
   return (
-    codeForBridgeError(
-      typeof raw.name === 'string' ? raw.name : 'Error',
-      typeof raw.message === 'string' ? raw.message : '',
-      typeof raw.code === 'string' ? raw.code : undefined
-    ) === CODES.E_CSP_BLOCKS_EVAL
+    code === CODES.E_CONTROL_UNAVAILABLE || code === CODES.E_TARGET_NOT_FOUND
   )
 }
 
@@ -808,7 +827,7 @@ async function runCommand(input: RunInput): Promise<void> {
     result?.ok !== true &&
     isFirefoxBrowser(browser) &&
     isExtensionDocumentContext(input.target.context) &&
-    bridgeBlamedTheExtensionCsp(result)
+    (bridgeBlamedTheExtensionCsp(result) || bridgeHadNoExecutor(result))
   ) {
     const overProtocol = await geckoProtocolEval(
       bridge,
@@ -819,7 +838,14 @@ async function runCommand(input: RunInput): Promise<void> {
       timeoutMs
     )
 
-    if (overProtocol) result = overProtocol
+    if (overProtocol) {
+      result = overProtocol
+    } else if (bridgeHadNoExecutor(result)) {
+      // The protocol route needs rdpPort and extensionId on the contract. With
+      // neither, say what an absent executor usually means on this engine.
+      const raw = (result?.error || {}) as Record<string, unknown>
+      if (typeof raw.hint !== 'string') raw.hint = GECKO_IDLE_EVENT_PAGE_HINT
+    }
   }
 
   if (result?.ok && input.augment) {
