@@ -168,12 +168,15 @@ export class AddScripts {
     const resolveEntryPath = (entry: string) =>
       resolveScriptEntryPath(entry, manifestDir, projectPath)
 
-    // A scripts/ file also claimed by a content_scripts group is already built
-    // by that entry; a standalone duplicate trips rspack on vendored UMD libs.
-    const claimedByContentScript = new Set<string>()
+    // A scripts/ file the manifest also names under a field of its own is
+    // already built by that field's entry, at the path the emitted manifest
+    // points at. Entering it again under scripts/ ships the same bundle twice
+    // and, on vendored UMD libs, trips rspack. Every declared field claims the
+    // same way: a service worker is no different from a content script group.
+    const claimedByManifestField = new Set<string>()
 
     for (const [feature, scriptPath] of Object.entries(scriptFields)) {
-      if (!isContentScriptFeature(feature)) continue
+      if (isScriptsFolderFeature(feature)) continue
 
       const rawEntries: string[] = Array.isArray(scriptPath)
         ? scriptPath || []
@@ -184,7 +187,7 @@ export class AddScripts {
       for (const resolved of getScriptEntries(
         rawEntries.map(resolveEntryPath)
       )) {
-        claimedByContentScript.add(path.resolve(resolved))
+        claimedByManifestField.add(path.resolve(resolved))
       }
     }
 
@@ -197,7 +200,7 @@ export class AddScripts {
       const resolvedEntries = rawEntries.map(resolveEntryPath)
       const scriptImports = isScriptsFolderFeature(feature)
         ? getScriptEntries(resolvedEntries).filter(
-            (p) => !claimedByContentScript.has(path.resolve(p))
+            (p) => !claimedByManifestField.has(path.resolve(p))
           )
         : getScriptEntries(resolvedEntries)
       const cssImports = getCssEntries(resolvedEntries)
