@@ -564,8 +564,8 @@ export function safariOnlyOption(flags: string[]) {
 export function safariInvalidBundleId(bundleId: string) {
   return (
     `${getLoggingPrefix('error')} Can't use ${code(bundleId)} as a bundle identifier.\n` +
-    `Use reverse-DNS form: dot-separated segments of letters, digits and hyphens, ` +
-    `each starting with a letter (e.g. ${code('com.example.my-extension')}).`
+    `Use letters, digits, hyphens and periods, with no empty segment ` +
+    `(e.g. ${code('com.example.my-extension')}).`
   )
 }
 

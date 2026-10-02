@@ -39,4 +39,12 @@ describe('browserExitedUnasked', () => {
     expect(line).toContain('restart "extension dev"')
     expect(line).not.toContain('preview')
   })
+
+  it('names start when start ran the session', () => {
+    const line = browserExitedUnasked('chromium', 0, null, 'start')
+
+    expect(line).toContain('without this start session asking for it')
+    expect(line).toMatch(/The start session is over\.$/)
+    expect(line).not.toContain('preview')
+  })
 })

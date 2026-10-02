@@ -47,7 +47,12 @@ function declaresExtension(projectManifestPath: string): boolean {
   const record = parsed as Record<string, unknown>
   const named: string[] = []
 
-  for (const field of ['dependencies', 'devDependencies']) {
+  for (const field of [
+    'dependencies',
+    'devDependencies',
+    'optionalDependencies',
+    'peerDependencies'
+  ]) {
     const deps = record[field]
     if (deps && typeof deps === 'object') named.push(...Object.keys(deps))
   }
@@ -101,6 +106,23 @@ export function ownsManifest(
   )
 }
 
+function realOrResolved(target: string): string {
+  try {
+    return fs.realpathSync(target)
+  } catch {
+    return path.resolve(target)
+  }
+}
+
+function isAtOrBelow(baseDir: string, candidateDir: string): boolean {
+  const rel = path.relative(
+    realOrResolved(baseDir),
+    realOrResolved(candidateDir)
+  )
+
+  return !rel.startsWith('..') && !path.isAbsolute(rel)
+}
+
 // One line per declined root per run: the resolution is asked for repeatedly
 // in a single command, and the reader only needs to be told once.
 const announcedDeclinedRoots = new Set<string>()
@@ -108,8 +130,12 @@ const announcedDeclinedRoots = new Set<string>()
 function announceDeclinedProjectRoot(
   projectManifestPath: string,
   manifestPath: string,
-  log: (line: string) => void
+  log: (line: string) => void,
+  quiet: boolean
 ): void {
+  // A quiet resolution prints nothing, so it must not use up the one line.
+  if (quiet) return
+
   const key = `${path.resolve(projectManifestPath)}::${path.resolve(manifestPath)}`
   if (announcedDeclinedRoots.has(key)) return
 
@@ -422,24 +448,41 @@ export async function getProjectPath(
 }
 
 // Companion extensions live under extensions/ and load next to the project,
-// so a manifest found only there is never the project's own.
+// so a manifest there is the project's own only when nothing else is.
 const COMPANION_EXTENSIONS_DIR = 'extensions'
 
-const MANIFEST_SCAN_SKIP_DIRS: ReadonlySet<string> = new Set([
+// The companions Extension.js ships and loads itself. Never a user project.
+const BUILT_IN_COMPANION_NAMES: ReadonlySet<string> = new Set([
+  'extension-js-devtools',
+  'extension-js-theme'
+])
+
+const ALWAYS_SKIPPED_DIRS: ReadonlySet<string> = new Set([
   'node_modules',
   'dist',
+  'public'
+])
+
+const BUILD_OUTPUT_DIRS: ReadonlySet<string> = new Set([
   'build',
   'out',
-  'coverage',
-  'public',
+  'coverage'
+])
+
+const MANIFEST_SCAN_SKIP_DIRS: ReadonlySet<string> = new Set([
+  ...ALWAYS_SKIPPED_DIRS,
+  ...BUILD_OUTPUT_DIRS,
   COMPANION_EXTENSIONS_DIR
 ])
 
-function isManifestScanDir(entry: fs.Dirent): boolean {
+function isManifestScanDir(
+  entry: fs.Dirent,
+  skipDirs: ReadonlySet<string> = MANIFEST_SCAN_SKIP_DIRS
+): boolean {
   return (
     entry.isDirectory() &&
     !entry.name.startsWith('.') &&
-    !MANIFEST_SCAN_SKIP_DIRS.has(entry.name)
+    !skipDirs.has(entry.name)
   )
 }
 
@@ -477,11 +520,30 @@ function collectManifestCandidates(
   return results
 }
 
-function findCompanionManifest(projectPath: string): string | undefined {
+function findCompanionManifests(projectPath: string): string[] {
   return collectManifestCandidates(
     path.join(projectPath, COMPANION_EXTENSIONS_DIR),
     2
-  )[0]
+  )
+}
+
+function isBuiltInCompanionManifest(manifestPath: string): boolean {
+  return path
+    .dirname(manifestPath)
+    .split(path.sep)
+    .some((segment) => BUILT_IN_COMPANION_NAMES.has(segment))
+}
+
+// A project whose one extension sits under extensions/ has no other manifest
+// to be a companion to. Several of them, or a built-in one, stay companions.
+function findLoneExtensionUnderCompanionDir(
+  projectPath: string
+): string | undefined {
+  const manifests = findCompanionManifests(projectPath)
+
+  return manifests.length === 1 && !isBuiltInCompanionManifest(manifests[0])
+    ? manifests[0]
+    : undefined
 }
 
 export async function getProjectStructure(
@@ -530,7 +592,7 @@ export function resolveProjectStructureSync(
     const missingManifestError = (candidates: string[] = []) => {
       const companionManifest = candidates.length
         ? undefined
-        : findCompanionManifest(projectPath)
+        : findCompanionManifests(projectPath)[0]
 
       if (companionManifest) {
         return codedError(
@@ -558,8 +620,15 @@ export function resolveProjectStructureSync(
         (candidate) => path.relative(projectPath, candidate) || candidate
       )
 
-      if (absoluteCandidates.length === 1) {
-        manifestPath = absoluteCandidates[0]
+      const adopted =
+        absoluteCandidates.length === 1
+          ? absoluteCandidates[0]
+          : absoluteCandidates.length === 0
+            ? findLoneExtensionUnderCompanionDir(projectPath)
+            : undefined
+
+      if (adopted) {
+        manifestPath = adopted
         log(messages.resolvedWorkspaceManifest(projectPath, manifestPath))
       } else {
         throw missingManifestError(relativeCandidates)
@@ -567,7 +636,11 @@ export function resolveProjectStructureSync(
     } else {
       const MAX_DEPTH = 5
 
-      const findManifest = (dir: string, depth: number): string | null => {
+      const findManifest = (
+        dir: string,
+        depth: number,
+        skipDirs?: ReadonlySet<string>
+      ): string | null => {
         if (depth > MAX_DEPTH) return null
 
         let files: fs.Dirent[]
@@ -583,8 +656,12 @@ export function resolveProjectStructureSync(
             return path.join(dir, file.name)
           }
 
-          if (isManifestScanDir(file)) {
-            const found = findManifest(path.join(dir, file.name), depth + 1)
+          if (isManifestScanDir(file, skipDirs)) {
+            const found = findManifest(
+              path.join(dir, file.name),
+              depth + 1,
+              skipDirs
+            )
             if (found) return found
           }
         }
@@ -592,7 +669,16 @@ export function resolveProjectStructureSync(
         return null
       }
 
-      const foundManifest = findManifest(projectPath, 0)
+      // Source folders win. A lone extension under extensions/ comes next, and
+      // a folder named like build output is only read when nothing else is.
+      const foundManifest =
+        findManifest(projectPath, 0) ||
+        findLoneExtensionUnderCompanionDir(projectPath) ||
+        findManifest(
+          projectPath,
+          0,
+          new Set([...ALWAYS_SKIPPED_DIRS, COMPANION_EXTENSIONS_DIR])
+        )
 
       if (foundManifest) {
         manifestPath = foundManifest
@@ -696,18 +782,24 @@ export function resolveProjectStructureSync(
   // project the manifest merely sits inside, so the manifest folder is the
   // project. Declining here is what keeps its dist, its special folders and
   // its install out of the picture, since every one of those keys off this.
+  // Only a project manifest ABOVE the folder the command was pointed at can
+  // be a stranger's. One at or below it is the project the author named.
+  const owns = (projectManifestPath: string) =>
+    isAtOrBelow(projectPath, path.dirname(projectManifestPath)) ||
+    ownsManifest(projectManifestPath, manifestPath)
   const ownedPackageJsonPath =
-    packageJsonPath && ownsManifest(packageJsonPath, manifestPath)
-      ? packageJsonPath
-      : undefined
+    packageJsonPath && owns(packageJsonPath) ? packageJsonPath : undefined
   const ownedDenoJsonPath =
-    denoJsonPath && ownsManifest(denoJsonPath, manifestPath)
-      ? denoJsonPath
-      : undefined
+    denoJsonPath && owns(denoJsonPath) ? denoJsonPath : undefined
   const declined = packageJsonPath || denoJsonPath
 
   if (declined && !ownedPackageJsonPath && !ownedDenoJsonPath) {
-    announceDeclinedProjectRoot(declined, manifestPath, log)
+    announceDeclinedProjectRoot(
+      declined,
+      manifestPath,
+      log,
+      Boolean(options.quiet)
+    )
   }
 
   if (!ownedPackageJsonPath || !validatePackageJson(ownedPackageJsonPath)) {
