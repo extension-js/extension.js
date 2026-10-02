@@ -15,6 +15,10 @@ import {
 
 const ANSI = /\x1b\[[0-9;]*m/g
 
+// A dependency no registry can satisfy, so the install fails on every lane
+// whether or not the pin held. The request log is what proves the pin held.
+const ABSENT_DEPENDENCY = '@extension-js-offline-proof/absent'
+
 function cliBin(): string {
   const root = path.resolve(__dirname, '../..')
   const cjs = path.join(root, 'dist', 'cli.cjs')
@@ -71,7 +75,18 @@ describe('an install pinned to a loopback registry stays off the network', () =>
     const catalog = await serveExamplesCatalog({
       [template]: {
         ...fixtureExtensionFiles(template),
-        ...offlineRegistryFiles(registry.url)
+        ...offlineRegistryFiles(registry.url),
+        'package.json': `${JSON.stringify(
+          {
+            private: true,
+            name: template,
+            version: '1.0.0',
+            type: 'module',
+            dependencies: {[ABSENT_DEPENDENCY]: '^1.0.0'}
+          },
+          null,
+          2
+        )}\n`
       }
     })
     const work = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-offline-install-'))
@@ -96,7 +111,7 @@ describe('an install pinned to a loopback registry stays off the network', () =>
     stderr = result.stderr
     asked = registry
       .requests()
-      .filter((url) => /^\/extension(?:$|[/?])/.test(url))
+      .filter((url) => decodeURIComponent(url).includes(ABSENT_DEPENDENCY))
 
     engineInstalled = fs.existsSync(
       path.join(work, 'proof', 'node_modules', 'extension', 'package.json')
@@ -116,7 +131,7 @@ describe('an install pinned to a loopback registry stays off the network', () =>
   })
 
   it.skipIf(process.platform === 'win32')(
-    'asks the pinned registry for the engine, so the pin governed',
+    'asks the pinned registry for the dependency, so the pin governed',
     () => {
       expect(asked.length).toBeGreaterThan(0)
     }
