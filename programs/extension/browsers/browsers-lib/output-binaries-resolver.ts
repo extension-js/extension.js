@@ -254,11 +254,98 @@ export function compareManagedBuildDirNames(a: string, b: string): number {
   return String(a).localeCompare(String(b))
 }
 
+// A gecko install updates itself in place and keeps the directory name it was
+// downloaded as, so the label can sit a whole major version behind the binary.
+// application.ini ships inside every gecko build on every platform and is the
+// cheap way to ask the install what it is, without spawning it.
+const declaredVersionCache = new Map<string, number[] | undefined>()
+
+function findApplicationIni(dir: string, depth = 3): string | undefined {
+  let entries: fs.Dirent[] = []
+
+  try {
+    entries = fs.readdirSync(dir, {withFileTypes: true})
+  } catch {
+    return undefined
+  }
+
+  for (const entry of entries) {
+    if (entry.isFile() && entry.name === 'application.ini') {
+      return path.join(dir, entry.name)
+    }
+  }
+
+  if (depth <= 0) return undefined
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue
+
+    const found = findApplicationIni(path.join(dir, entry.name), depth - 1)
+    if (found) return found
+  }
+
+  return undefined
+}
+
+export function declaredManagedBuildVersion(dir: string): number[] | undefined {
+  const cached = declaredVersionCache.get(dir)
+  if (cached !== undefined || declaredVersionCache.has(dir)) return cached
+
+  let parts: number[] | undefined
+
+  const iniPath = findApplicationIni(dir)
+
+  if (iniPath) {
+    try {
+      const match = /^Version=(.+)$/m.exec(fs.readFileSync(iniPath, 'utf8'))
+
+      if (match) {
+        const found = match[1]
+          .trim()
+          .split(/[^\d]+/)
+          .filter(Boolean)
+          .map((part) => Number(part))
+          .filter((part) => Number.isFinite(part))
+
+        if (found.length > 0) parts = found
+      }
+    } catch {
+      // Ignore
+    }
+  }
+
+  declaredVersionCache.set(dir, parts)
+
+  return parts
+}
+
+function compareBuildIds(partsA: number[], partsB: number[]): number {
+  const length = Math.max(partsA.length, partsB.length)
+
+  for (let i = 0; i < length; i++) {
+    const na = partsA[i] ?? 0
+    const nb = partsB[i] ?? 0
+    if (na !== nb) return na - nb
+  }
+
+  return 0
+}
+
+// The install's own answer beats the folder label on either side, so a build
+// that updated in place is ranked by what it IS, not by what it was called.
+export function compareManagedBuildDirs(a: string, b: string): number {
+  const idA =
+    declaredManagedBuildVersion(a) ?? parseManagedBuildId(path.basename(a))
+  const idB =
+    declaredManagedBuildVersion(b) ?? parseManagedBuildId(path.basename(b))
+  const byId = compareBuildIds(idA, idB)
+  if (byId !== 0) return byId
+
+  return String(path.basename(a)).localeCompare(String(path.basename(b)))
+}
+
 function compareManagedBuildDirsNewestFirst(a: string, b: string): number {
-  const byBuild = compareManagedBuildDirNames(
-    path.basename(b),
-    path.basename(a)
-  )
+  const byBuild = compareManagedBuildDirs(b, a)
   if (byBuild !== 0) return byBuild
 
   let timeA = 0
