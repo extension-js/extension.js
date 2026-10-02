@@ -50,6 +50,7 @@ export class ScriptsPlugin {
     // would otherwise land on the host page. Takes its entry back out.
     new CompileMainWorldScripts({
       manifestPath: this.manifestPath,
+      includeList: this.includeList || {},
       browser: this.browser
     }).apply(compiler)
 
@@ -70,6 +71,7 @@ export class ScriptsPlugin {
     // call; without it rspack tree-shakes the entire entry body in production.
     new AddContentScriptWrapper({
       manifestPath: this.manifestPath,
+      includeList: this.includeList || {},
       browser: this.browser
     }).apply(compiler)
 

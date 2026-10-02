@@ -13,7 +13,10 @@ import {isDebug} from '../../lib/messaging'
 import {ensureOptionalContractPackageResolved} from '../../lib/optional-deps-resolver'
 import type {DevOptions, JsFramework} from '../../types'
 import {hasDependency} from '../frameworks-lib/integrations'
-import {loadLoaderOptions} from '../js-frameworks-lib/load-loader-options'
+import {
+  loadLoaderOptions,
+  mergeLoaderOptions
+} from '../js-frameworks-lib/load-loader-options'
 import * as messages from '../js-frameworks-lib/messages'
 
 let userMessageDelivered = false
@@ -154,15 +157,17 @@ export async function maybeUseSvelte(
 
   const svelteLoader = {
     loader: svelteLoaderPath,
-    options: {
-      emitCss: true,
-      compilerOptions: {
-        dev: mode === 'development'
+    options: mergeLoaderOptions(
+      {
+        emitCss: true,
+        compilerOptions: {
+          dev: mode === 'development'
+        },
+        // Do not use svelte-preprocess; rely on Svelte 5 built-in TS support.
+        hotReload: mode === 'development'
       },
-      // Do not use svelte-preprocess; rely on Svelte 5 built-in TS support.
-      hotReload: mode === 'development',
-      ...(customOptions || {})
-    }
+      customOptions
+    )
   }
 
   const defaultLoaders: JsFramework['loaders'] = [
@@ -182,15 +187,13 @@ export async function maybeUseSvelte(
             }
           }
         }
-      ],
-      exclude: /node_modules/
+      ]
     },
     {
       test: /\.(svelte|svelte\.js)$/,
-      use: svelteLoader,
-      // No include: a workspace sibling imported by path compiles like any
-      // project file.
-      exclude: /node_modules/
+      use: svelteLoader
+      // No include and no exclude: a .svelte source is only ever readable by
+      // this compiler, wherever it lives, and the ecosystem ships them on npm.
     },
     {
       // Required to prevent errors from Svelte on Webpack/Rspack 5+

@@ -11,11 +11,17 @@ import * as path from 'node:path'
 import {Compilation, type Compiler, EntryPlugin} from '@rspack/core'
 import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
 import {stripBom} from '../../../lib/parse-json-safe'
-import type {DevOptions, Manifest, PluginInterface} from '../../../types'
+import type {
+  DevOptions,
+  FilepathList,
+  Manifest,
+  PluginInterface
+} from '../../../types'
 import {
   EXTENSIONJS_CONTENT_SCRIPT_LAYER,
   getCanonicalContentScriptEntryName
 } from '../contracts'
+import {findRuntimeMainWorldEntries} from '../scripts-lib/runtime-main-world-scripts'
 import {isRemoteUrl} from '../scripts-lib/utils'
 import {createSequentialEntryModule} from './add-scripts'
 import {
@@ -25,6 +31,11 @@ import {
 
 export interface MainWorldGroup {
   index: number
+  entryName: string
+  files: string[]
+}
+
+interface MainWorldEntry {
   entryName: string
   files: string[]
 }
@@ -95,16 +106,26 @@ export class CompileMainWorldScripts {
 
   private readonly manifestPath: string
   private readonly browser: DevOptions['browser']
+  private readonly includeList: FilepathList
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
+    this.includeList = options.includeList || {}
   }
 
   public apply(compiler: Compiler): void {
     if (compiler.options.mode !== 'development') return
 
-    const groups = findMainWorldGroups(this.manifestPath, this.browser)
+    const manifestDir = path.dirname(this.manifestPath)
+    const groups: MainWorldEntry[] = [
+      ...findMainWorldGroups(this.manifestPath, this.browser),
+      ...findRuntimeMainWorldEntries({
+        includeList: this.includeList,
+        manifestDir,
+        projectPath: (compiler.options.context as string) || manifestDir
+      })
+    ]
     if (groups.length === 0) return
 
     const entries = compiler.options.entry as Record<string, unknown>
@@ -112,10 +133,6 @@ export class CompileMainWorldScripts {
     for (const group of groups) {
       delete entries[group.entryName]
     }
-
-    // The parent hashes content bundles in dev so a reinject never serves a
-    // URL-cached copy; a child bundle keeps that contract.
-    const hashed = typeof compiler.options.output?.filename === 'function'
 
     compiler.hooks.thisCompilation.tap(
       CompileMainWorldScripts.name,
@@ -127,7 +144,7 @@ export class CompileMainWorldScripts {
           },
           async () => {
             for (const group of groups) {
-              await compileGroup(compiler, compilation, group, hashed)
+              await compileGroup(compiler, compilation, group)
             }
           }
         )
@@ -136,11 +153,25 @@ export class CompileMainWorldScripts {
   }
 }
 
+// The parent hashes content bundles in dev so a reinject never serves a
+// URL-cached copy, and leaves every other entry name alone; asking the
+// parent's own resolver keeps a child bundle on that contract.
+function outputFilenameFor(compiler: Compiler, entryName: string): string {
+  const filename = compiler.options.output?.filename
+
+  if (typeof filename === 'function') {
+    return (filename as (data: {chunk: {name: string}}) => string)({
+      chunk: {name: entryName}
+    })
+  }
+
+  return `${entryName}.js`
+}
+
 async function compileGroup(
   compiler: Compiler,
   compilation: Compilation,
-  group: MainWorldGroup,
-  hashed: boolean
+  group: MainWorldEntry
 ): Promise<void> {
   const request =
     group.files.length > 1
@@ -149,9 +180,7 @@ async function compileGroup(
 
   const entry = new EntryPlugin(compiler.context, request, {
     name: group.entryName,
-    filename: hashed
-      ? `${group.entryName}.[contenthash:8].js`
-      : `${group.entryName}.js`,
+    filename: outputFilenameFor(compiler, group.entryName),
     layer: EXTENSIONJS_CONTENT_SCRIPT_LAYER,
     chunkLoading: 'jsonp'
   })

@@ -12,6 +12,7 @@ import * as path from 'node:path'
 import {resolveDevelopDistFile} from '../../lib/develop-context'
 import {isDebug, prefix} from '../../lib/messaging'
 import {ensureOptionalContractPackageResolved} from '../../lib/optional-deps-resolver'
+import {createNodeModulesExclude} from '../../lib/transpile-packages'
 import type {JsFramework} from '../../types'
 import {hasDependency} from '../frameworks-lib/integrations'
 import * as messages from '../js-frameworks-lib/messages'
@@ -119,7 +120,8 @@ export function solidBabelOptions(input: {
 // like a precompiled dependency.
 export async function maybeUseSolid(
   projectPath: string,
-  mode: 'development' | 'production' | string = 'development'
+  mode: 'development' | 'production' | string = 'development',
+  transpilePackageDirs: string[] = []
 ): Promise<JsFramework | undefined> {
   if (!isUsingSolid(projectPath)) return undefined
 
@@ -158,11 +160,14 @@ export async function maybeUseSolid(
   if (hyperscript) alias['solid-js/h$'] = hyperscript
 
   const development = mode === 'development'
+  // A dependency shipping JSX needs Solid's own compiler too: swc's automatic
+  // runtime builds it against a second reactive graph that updates nothing.
+  const excludeNodeModules = createNodeModulesExclude(transpilePackageDirs)
 
   const loaders: JsFramework['loaders'] = [
     {
       test: /\.(js|mjs|cjs|jsx|mjsx)$/,
-      exclude: /node_modules/,
+      exclude: excludeNodeModules,
       loader: babelLoader,
       options: solidBabelOptions({
         solidPreset,
@@ -173,7 +178,7 @@ export async function maybeUseSolid(
     },
     {
       test: /\.(ts|mts|cts|tsx|mtsx)$/,
-      exclude: /node_modules/,
+      exclude: excludeNodeModules,
       loader: babelLoader,
       options: solidBabelOptions({
         solidPreset,

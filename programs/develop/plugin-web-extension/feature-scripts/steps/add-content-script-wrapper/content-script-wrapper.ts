@@ -32,7 +32,12 @@ import {
 import * as messages from '../../messages'
 
 interface ContentScriptLoaderContext {
-  getOptions(): {manifestPath: string; mode?: string; browser?: string}
+  getOptions(): {
+    manifestPath: string
+    mode?: string
+    browser?: string
+    mainWorldScripts?: string[]
+  }
   _compilation?: unknown
   resourcePath: string
   resourceQuery?: string
@@ -45,7 +50,8 @@ const schema = {
   properties: {
     manifestPath: {type: 'string'},
     mode: {type: 'string'},
-    browser: {type: 'string'}
+    browser: {type: 'string'},
+    mainWorldScripts: {type: 'array', items: {type: 'string'}}
   }
 } as Parameters<typeof validate>[0]
 
@@ -336,7 +342,13 @@ export default function contentScriptWrapper(
   }
 
   const runAt = declaredEntry?.runAt || 'document_idle'
-  const isMainWorld = declaredEntry?.world === 'MAIN'
+  // A scripts/ file handed to registerContentScripts with world: "MAIN" runs
+  // in the page's own world with nothing in the manifest to say so.
+  const isRuntimeMainWorld = (options.mainWorldScripts || []).some(
+    (candidate) => resourceAbsPath === canonicalizeResourcePath(candidate)
+  )
+  const isMainWorld = declaredEntry?.world === 'MAIN' || isRuntimeMainWorld
+  const hostInstrumentationEnabled = !isProd && !isMainWorld
   const bundleKey = declaredEntry
     ? getCanonicalContentScriptEntryName(declaredEntry.index)
     : `scripts/${String(relToScripts || '').replace(/\\/g, '/')}`
@@ -477,6 +489,118 @@ export default function contentScriptWrapper(
     String(packageJsonDir || '')
   )
 
+  // Dev-only DOM instrumentation: it patches the Node.prototype removal
+  // APIs, installs a whole-document MutationObserver and writes
+  // data-extjs-debug-* attributes. A production bundle and a MAIN world
+  // bundle never carry it, since both would land on the page's own world.
+  const hostInstrumentationInline = hostInstrumentationEnabled
+    ? 'function __EXTENSIONJS_debugObserveOwnedRootRemoval(){\n' +
+      '  try {\n' +
+      '    if (!__EXTENSIONJS_HOST_INSTRUMENTATION_ENABLED) return;\n' +
+      '    if (typeof globalThis !== "object" || !globalThis || globalThis.__EXTJS_DEBUG_REMOVAL_OBSERVER__) return;\n' +
+      '    if (typeof MutationObserver !== "function" || typeof document === "undefined") return;\n' +
+      '    var target = document.documentElement || document.body || document;\n' +
+      '    if (!target) return;\n' +
+      '    var observer = new MutationObserver(function(records){\n' +
+      '      try {\n' +
+      '        var ownedKey = __EXTENSIONJS_ownerToken();\n' +
+      '        var findOwnedRoot = function(node){\n' +
+      '          try {\n' +
+      '            if (!node || node.nodeType !== 1) return null;\n' +
+      '            if (typeof node.getAttribute === "function" && String(node.getAttribute("data-extjs-reinject-owner") || "") === ownedKey) return node;\n' +
+      '            if (typeof node.querySelector === "function") {\n' +
+      '              return node.querySelector("[data-extjs-reinject-owner=\\"" + ownedKey.replace(/"/g, "\\\\\\"") + "\\"]");\n' +
+      '            }\n' +
+      '          } catch (error) {}\n' +
+      '          return null;\n' +
+      '        };\n' +
+      '        for (var r = 0; r < records.length; r++) {\n' +
+      '          var removedNodes = Array.from(records[r].removedNodes || []);\n' +
+      '          for (var n = 0; n < removedNodes.length; n++) {\n' +
+      '            var node = removedNodes[n];\n' +
+      '            var ownedRoot = findOwnedRoot(node);\n' +
+      '            if (!ownedRoot || typeof ownedRoot.getAttribute !== "function") continue;\n' +
+      '            var owner = String(ownedRoot.getAttribute("data-extjs-reinject-owner") || "");\n' +
+      '            if (!owner || owner !== ownedKey) continue;\n' +
+      '            var pageRoot = document.documentElement;\n' +
+      '            if (pageRoot && typeof pageRoot.setAttribute === "function") {\n' +
+      '              if (!pageRoot.getAttribute("data-extjs-debug-last-removal")) pageRoot.setAttribute("data-extjs-debug-last-removal", "mutation-observer");\n' +
+      '              if (!pageRoot.getAttribute("data-extjs-debug-last-removal-key")) pageRoot.setAttribute("data-extjs-debug-last-removal-key", owner);\n' +
+      '              if (!pageRoot.getAttribute("data-extjs-debug-last-removal-source")) pageRoot.setAttribute("data-extjs-debug-last-removal-source", "mutation-observer");\n' +
+      '              if (!pageRoot.getAttribute("data-extjs-debug-last-removed-node-tag")) pageRoot.setAttribute("data-extjs-debug-last-removed-node-tag", String(node.tagName || "").toLowerCase());\n' +
+      '              if (!pageRoot.getAttribute("data-extjs-debug-last-removed-node-id")) pageRoot.setAttribute("data-extjs-debug-last-removed-node-id", String(node.id || ""));\n' +
+      '              if (!pageRoot.getAttribute("data-extjs-debug-last-removed-node-class")) pageRoot.setAttribute("data-extjs-debug-last-removed-node-class", String(node.className || ""));\n' +
+      '              if (!pageRoot.getAttribute("data-extjs-debug-last-removed-node-direct")) pageRoot.setAttribute("data-extjs-debug-last-removed-node-direct", String(node === ownedRoot));\n' +
+      '              if (!pageRoot.getAttribute("data-extjs-debug-last-removal-ready-state")) pageRoot.setAttribute("data-extjs-debug-last-removal-ready-state", String(document.readyState || ""));\n' +
+      '              if (!pageRoot.getAttribute("data-extjs-debug-last-removal-url")) pageRoot.setAttribute("data-extjs-debug-last-removal-url", String(location.href || ""));\n' +
+      '              pageRoot.setAttribute("data-extjs-debug-stage", "root-removed-observed");\n' +
+      '            }\n' +
+      '            return;\n' +
+      '          }\n' +
+      '        }\n' +
+      '      } catch (error) {}\n' +
+      '    });\n' +
+      '    observer.observe(target, { childList: true, subtree: true });\n' +
+      '    globalThis.__EXTJS_DEBUG_REMOVAL_OBSERVER__ = observer;\n' +
+      '  } catch (error) {}\n' +
+      '}\n' +
+      'function __EXTENSIONJS_patchDomRemovalApis(){\n' +
+      '  try {\n' +
+      '    if (!__EXTENSIONJS_HOST_INSTRUMENTATION_ENABLED) return;\n' +
+      '    if (typeof globalThis !== "object" || !globalThis || globalThis.__EXTJS_DEBUG_DOM_APIS_PATCHED__) return;\n' +
+      '    var record = function(source, node, parent){\n' +
+      '      try {\n' +
+      '        var pageRoot = document.documentElement;\n' +
+      '        if (!pageRoot || typeof pageRoot.setAttribute !== "function") return;\n' +
+      '        var ownedRoot = null;\n' +
+      '        if (node && node.nodeType === 1) {\n' +
+      '          if (typeof node.getAttribute === "function" && String(node.getAttribute("data-extjs-reinject-owner") || "") === __EXTENSIONJS_ownerToken()) ownedRoot = node;\n' +
+      '          else if (typeof node.querySelector === "function") ownedRoot = node.querySelector("[data-extjs-reinject-owner=\\"" + __EXTENSIONJS_ownerToken().replace(/"/g, "\\\\\\"") + "\\"]");\n' +
+      '        }\n' +
+      '        if (!ownedRoot) return;\n' +
+      '        pageRoot.setAttribute("data-extjs-debug-stage", "dom-api-removal");\n' +
+      '        pageRoot.setAttribute("data-extjs-debug-last-removal", source);\n' +
+      '        pageRoot.setAttribute("data-extjs-debug-last-removal-source", source);\n' +
+      '        pageRoot.setAttribute("data-extjs-debug-last-removal-key", String(__EXTENSIONJS_REINJECT_KEY || ""));\n' +
+      '        pageRoot.setAttribute("data-extjs-debug-last-removed-node-tag", String(node && node.tagName || "").toLowerCase());\n' +
+      '        pageRoot.setAttribute("data-extjs-debug-last-removed-node-id", String(node && node.id || ""));\n' +
+      '        pageRoot.setAttribute("data-extjs-debug-last-removed-node-class", String(node && node.className || ""));\n' +
+      '        pageRoot.setAttribute("data-extjs-debug-last-removed-node-direct", String(node === ownedRoot));\n' +
+      '        pageRoot.setAttribute("data-extjs-debug-last-removal-ready-state", String(document.readyState || ""));\n' +
+      '        pageRoot.setAttribute("data-extjs-debug-last-removal-url", String(location.href || ""));\n' +
+      '        pageRoot.setAttribute("data-extjs-debug-last-removal-parent-tag", String(parent && parent.tagName || "").toLowerCase());\n' +
+      '      } catch (error) {}\n' +
+      '    };\n' +
+      '    try {\n' +
+      '      var originalRemoveChild = Node.prototype.removeChild;\n' +
+      '      if (typeof originalRemoveChild === "function") {\n' +
+      '        Node.prototype.removeChild = function(child){\n' +
+      '          record("Node.removeChild", child, this);\n' +
+      '          return originalRemoveChild.call(this, child);\n' +
+      '        };\n' +
+      '      }\n' +
+      '    } catch (error) {}\n' +
+      '    try {\n' +
+      '      var originalReplaceChildren = Element.prototype.replaceChildren;\n' +
+      '      if (typeof originalReplaceChildren === "function") {\n' +
+      '        Element.prototype.replaceChildren = function(){\n' +
+      '          try {\n' +
+      '            var existing = Array.from(this.childNodes || []);\n' +
+      '            for (var i = 0; i < existing.length; i++) record("Element.replaceChildren", existing[i], this);\n' +
+      '          } catch (error) {}\n' +
+      '          return originalReplaceChildren.apply(this, arguments);\n' +
+      '        };\n' +
+      '      }\n' +
+      '    } catch (error) {}\n' +
+      '    globalThis.__EXTJS_DEBUG_DOM_APIS_PATCHED__ = true;\n' +
+      '  } catch (error) {}\n' +
+      '}\n' +
+      'if (__EXTENSIONJS_HOST_INSTRUMENTATION_ENABLED) {\n' +
+      '  try { __EXTENSIONJS_debugObserveOwnedRootRemoval(); } catch (error) {}\n' +
+      '  try { __EXTENSIONJS_patchDomRemovalApis(); } catch (error) {}\n' +
+      '}\n'
+    : ''
+
   const bootstrap =
     `var __EXTENSIONJS_BUNDLE_KEY=${JSON.stringify(bundleKey)};\n` +
     `var __EXTENSIONJS_REINJECT_KEY=${JSON.stringify(reinjectKey)};\n` +
@@ -496,7 +620,7 @@ export default function contentScriptWrapper(
     // A MAIN world script shares the page's own globals and DOM prototypes,
     // so the observer and the removal API patches would land on the host
     // page itself; those stay in the isolated world.
-    `var __EXTENSIONJS_HOST_INSTRUMENTATION_ENABLED=${JSON.stringify(!isProd && !isMainWorld)};\n` +
+    `var __EXTENSIONJS_HOST_INSTRUMENTATION_ENABLED=${JSON.stringify(hostInstrumentationEnabled)};\n` +
     // Roots that predate OUR mount must never be adopted: stamping unowned roots
     // corrupts ownership and roots accumulate across reinjects.
     'var __EXTENSIONJS_PRE_MOUNT_ROOTS = [];\n' +
@@ -631,56 +755,6 @@ export default function contentScriptWrapper(
     '    } catch (error) {}\n' +
     '  } catch (error) {}\n' +
     '}\n' +
-    'function __EXTENSIONJS_debugObserveOwnedRootRemoval(){\n' +
-    '  try {\n' +
-    '    if (!__EXTENSIONJS_HOST_INSTRUMENTATION_ENABLED) return;\n' +
-    '    if (typeof globalThis !== "object" || !globalThis || globalThis.__EXTJS_DEBUG_REMOVAL_OBSERVER__) return;\n' +
-    '    if (typeof MutationObserver !== "function" || typeof document === "undefined") return;\n' +
-    '    var target = document.documentElement || document.body || document;\n' +
-    '    if (!target) return;\n' +
-    '    var observer = new MutationObserver(function(records){\n' +
-    '      try {\n' +
-    '        var ownedKey = __EXTENSIONJS_ownerToken();\n' +
-    '        var findOwnedRoot = function(node){\n' +
-    '          try {\n' +
-    '            if (!node || node.nodeType !== 1) return null;\n' +
-    '            if (typeof node.getAttribute === "function" && String(node.getAttribute("data-extjs-reinject-owner") || "") === ownedKey) return node;\n' +
-    '            if (typeof node.querySelector === "function") {\n' +
-    '              return node.querySelector("[data-extjs-reinject-owner=\\"" + ownedKey.replace(/"/g, "\\\\\\"") + "\\"]");\n' +
-    '            }\n' +
-    '          } catch (error) {}\n' +
-    '          return null;\n' +
-    '        };\n' +
-    '        for (var r = 0; r < records.length; r++) {\n' +
-    '          var removedNodes = Array.from(records[r].removedNodes || []);\n' +
-    '          for (var n = 0; n < removedNodes.length; n++) {\n' +
-    '            var node = removedNodes[n];\n' +
-    '            var ownedRoot = findOwnedRoot(node);\n' +
-    '            if (!ownedRoot || typeof ownedRoot.getAttribute !== "function") continue;\n' +
-    '            var owner = String(ownedRoot.getAttribute("data-extjs-reinject-owner") || "");\n' +
-    '            if (!owner || owner !== ownedKey) continue;\n' +
-    '            var pageRoot = document.documentElement;\n' +
-    '            if (pageRoot && typeof pageRoot.setAttribute === "function") {\n' +
-    '              if (!pageRoot.getAttribute("data-extjs-debug-last-removal")) pageRoot.setAttribute("data-extjs-debug-last-removal", "mutation-observer");\n' +
-    '              if (!pageRoot.getAttribute("data-extjs-debug-last-removal-key")) pageRoot.setAttribute("data-extjs-debug-last-removal-key", owner);\n' +
-    '              if (!pageRoot.getAttribute("data-extjs-debug-last-removal-source")) pageRoot.setAttribute("data-extjs-debug-last-removal-source", "mutation-observer");\n' +
-    '              if (!pageRoot.getAttribute("data-extjs-debug-last-removed-node-tag")) pageRoot.setAttribute("data-extjs-debug-last-removed-node-tag", String(node.tagName || "").toLowerCase());\n' +
-    '              if (!pageRoot.getAttribute("data-extjs-debug-last-removed-node-id")) pageRoot.setAttribute("data-extjs-debug-last-removed-node-id", String(node.id || ""));\n' +
-    '              if (!pageRoot.getAttribute("data-extjs-debug-last-removed-node-class")) pageRoot.setAttribute("data-extjs-debug-last-removed-node-class", String(node.className || ""));\n' +
-    '              if (!pageRoot.getAttribute("data-extjs-debug-last-removed-node-direct")) pageRoot.setAttribute("data-extjs-debug-last-removed-node-direct", String(node === ownedRoot));\n' +
-    '              if (!pageRoot.getAttribute("data-extjs-debug-last-removal-ready-state")) pageRoot.setAttribute("data-extjs-debug-last-removal-ready-state", String(document.readyState || ""));\n' +
-    '              if (!pageRoot.getAttribute("data-extjs-debug-last-removal-url")) pageRoot.setAttribute("data-extjs-debug-last-removal-url", String(location.href || ""));\n' +
-    '              pageRoot.setAttribute("data-extjs-debug-stage", "root-removed-observed");\n' +
-    '            }\n' +
-    '            return;\n' +
-    '          }\n' +
-    '        }\n' +
-    '      } catch (error) {}\n' +
-    '    });\n' +
-    '    observer.observe(target, { childList: true, subtree: true });\n' +
-    '    globalThis.__EXTJS_DEBUG_REMOVAL_OBSERVER__ = observer;\n' +
-    '  } catch (error) {}\n' +
-    '}\n' +
     'function __EXTENSIONJS_cleanupKnownRoots(staleEvenIfSameBuild){\n' +
     '  try {\n' +
     '    if (typeof document === "undefined" || typeof document.querySelectorAll !== "function") return;\n' +
@@ -777,69 +851,12 @@ export default function contentScriptWrapper(
     '    pageRoot.setAttribute("data-extjs-debug-existing-root-count-before-cleanup", String(roots.length));\n' +
     '  } catch (error) {}\n' +
     '}\n' +
-    'function __EXTENSIONJS_patchDomRemovalApis(){\n' +
-    '  try {\n' +
-    '    if (!__EXTENSIONJS_HOST_INSTRUMENTATION_ENABLED) return;\n' +
-    '    if (typeof globalThis !== "object" || !globalThis || globalThis.__EXTJS_DEBUG_DOM_APIS_PATCHED__) return;\n' +
-    '    var record = function(source, node, parent){\n' +
-    '      try {\n' +
-    '        var pageRoot = document.documentElement;\n' +
-    '        if (!pageRoot || typeof pageRoot.setAttribute !== "function") return;\n' +
-    '        var ownedRoot = null;\n' +
-    '        if (node && node.nodeType === 1) {\n' +
-    '          if (typeof node.getAttribute === "function" && String(node.getAttribute("data-extjs-reinject-owner") || "") === __EXTENSIONJS_ownerToken()) ownedRoot = node;\n' +
-    '          else if (typeof node.querySelector === "function") ownedRoot = node.querySelector("[data-extjs-reinject-owner=\\"" + __EXTENSIONJS_ownerToken().replace(/"/g, "\\\\\\"") + "\\"]");\n' +
-    '        }\n' +
-    '        if (!ownedRoot) return;\n' +
-    '        pageRoot.setAttribute("data-extjs-debug-stage", "dom-api-removal");\n' +
-    '        pageRoot.setAttribute("data-extjs-debug-last-removal", source);\n' +
-    '        pageRoot.setAttribute("data-extjs-debug-last-removal-source", source);\n' +
-    '        pageRoot.setAttribute("data-extjs-debug-last-removal-key", String(__EXTENSIONJS_REINJECT_KEY || ""));\n' +
-    '        pageRoot.setAttribute("data-extjs-debug-last-removed-node-tag", String(node && node.tagName || "").toLowerCase());\n' +
-    '        pageRoot.setAttribute("data-extjs-debug-last-removed-node-id", String(node && node.id || ""));\n' +
-    '        pageRoot.setAttribute("data-extjs-debug-last-removed-node-class", String(node && node.className || ""));\n' +
-    '        pageRoot.setAttribute("data-extjs-debug-last-removed-node-direct", String(node === ownedRoot));\n' +
-    '        pageRoot.setAttribute("data-extjs-debug-last-removal-ready-state", String(document.readyState || ""));\n' +
-    '        pageRoot.setAttribute("data-extjs-debug-last-removal-url", String(location.href || ""));\n' +
-    '        pageRoot.setAttribute("data-extjs-debug-last-removal-parent-tag", String(parent && parent.tagName || "").toLowerCase());\n' +
-    '      } catch (error) {}\n' +
-    '    };\n' +
-    '    try {\n' +
-    '      var originalRemoveChild = Node.prototype.removeChild;\n' +
-    '      if (typeof originalRemoveChild === "function") {\n' +
-    '        Node.prototype.removeChild = function(child){\n' +
-    '          record("Node.removeChild", child, this);\n' +
-    '          return originalRemoveChild.call(this, child);\n' +
-    '        };\n' +
-    '      }\n' +
-    '    } catch (error) {}\n' +
-    '    try {\n' +
-    '      var originalReplaceChildren = Element.prototype.replaceChildren;\n' +
-    '      if (typeof originalReplaceChildren === "function") {\n' +
-    '        Element.prototype.replaceChildren = function(){\n' +
-    '          try {\n' +
-    '            var existing = Array.from(this.childNodes || []);\n' +
-    '            for (var i = 0; i < existing.length; i++) record("Element.replaceChildren", existing[i], this);\n' +
-    '          } catch (error) {}\n' +
-    '          return originalReplaceChildren.apply(this, arguments);\n' +
-    '        };\n' +
-    '      }\n' +
-    '    } catch (error) {}\n' +
-    '    globalThis.__EXTJS_DEBUG_DOM_APIS_PATCHED__ = true;\n' +
-    '  } catch (error) {}\n' +
-    '}\n' +
     'try {\n' +
     '  if (typeof globalThis === "object" && globalThis) {\n' +
     '    globalThis.__EXTENSIONJS_registerCleanup = __EXTENSIONJS_registerCleanup;\n' +
     '  }\n' +
     '} catch (error) {}\n' +
-    '// Dev-only DOM instrumentation. Gated so production content scripts never\n' +
-    '// install a whole-document MutationObserver, monkey-patch Node.prototype\n' +
-    '// removal APIs, or write data-extjs-debug-* attributes onto the host page.\n' +
-    'if (__EXTENSIONJS_HOST_INSTRUMENTATION_ENABLED) {\n' +
-    '  try { __EXTENSIONJS_debugObserveOwnedRootRemoval(); } catch (error) {}\n' +
-    '  try { __EXTENSIONJS_patchDomRemovalApis(); } catch (error) {}\n' +
-    '}\n' +
+    hostInstrumentationInline +
     'if (__EXTENSIONJS_DEV_MARKERS_ENABLED) {\n' +
     '  try { __EXTENSIONJS_recordExecutionSnapshot("bootstrap"); } catch (error) {}\n' +
     '}\n' +
