@@ -1153,18 +1153,19 @@ export function safariBuildOutputNotFound(outputPath: string) {
   )
 }
 
-export function managedDependencyConflict(
-  duplicates: string[],
-  userPackageJsonPath: string
+export function managedDependencyCopyWarning(
+  duplicates: Array<{name: string; shipped: string}>,
+  configPath: string
 ) {
-  const list = duplicates.map((d) => `- ${colors.yellow(d)}`).join('\n')
+  const list = duplicates
+    .map((d) => `- ${colors.yellow(d.name)} (Extension.js ships ${d.shipped})`)
+    .join('\n')
 
   return (
-    `${getLoggingPrefix('error')} Your project declares dependencies that Extension.js already manages, so the build was aborted.\n` +
-    `${colors.red('Duplicate declarations can cause version conflicts and break the build.')}\n\n` +
-    `${colors.gray('Remove these from your package.json:')}\n` +
-    `${list}\n\n` +
-    `${colors.gray('PATH')} ${colors.underline(userPackageJsonPath)}\n` +
-    `If you need a different version, open an issue so we can consider bundling it safely.`
+    `${getLoggingPrefix('warn')} ${colors.blue(path.basename(configPath))} loads its own copy of ${duplicates.length === 1 ? 'a package' : 'packages'} Extension.js already ships.\n` +
+    `${list}\n` +
+    `${fmt.label('PATH')} ${fmt.val(configPath)}\n` +
+    `Both copies take part in one build, and when their versions differ the build can break or behave differently.\n` +
+    `The build goes on. If it misbehaves, install the version shown or drop the import.`
   )
 }

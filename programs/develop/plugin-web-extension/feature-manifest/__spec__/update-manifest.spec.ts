@@ -307,8 +307,8 @@ describe('UpdateManifest', () => {
     ).toHaveLength(1)
   })
 
-  it('refuses an MV3 background.page on chromium by name', () => {
-    const {compiler, compilation} = make(
+  it('builds an MV3 background.page on chromium and warns by name', () => {
+    const {compiler, updated, compilation} = make(
       'production',
       JSON.stringify({
         name: 'x',
@@ -320,8 +320,14 @@ describe('UpdateManifest', () => {
       compiler
     )
 
-    expect(compilation.errors).toHaveLength(1)
-    expect(compilation.errors[0].message).toContain('background.page')
+    expect(compilation.errors).toHaveLength(0)
+    expect(
+      compilation.warnings.filter((warning: any) =>
+        String(warning.message).includes('background.page')
+      )
+    ).toHaveLength(1)
+
+    expect(JSON.parse(updated['manifest.json']).background.page).toBeTruthy()
   })
 
   it('keeps an MV3 background.page for firefox', () => {

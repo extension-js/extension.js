@@ -20,13 +20,16 @@ export interface ParsedHtmlAsset {
   // scripts the browser parses as ES modules
   moduleJs?: string[]
   static?: string[]
+  // Resolved static path to the reference as the author typed it
+  authored?: Record<string, string>
 }
 
 const cloneParsedHtmlAsset = (assets: ParsedHtmlAsset): ParsedHtmlAsset => ({
   css: [...(assets.css || [])],
   js: [...(assets.js || [])],
   moduleJs: [...(assets.moduleJs || [])],
-  static: [...(assets.static || [])]
+  static: [...(assets.static || [])],
+  authored: {...(assets.authored || {})}
 })
 
 const assetsFromHtmlCache = new Map<
@@ -54,7 +57,8 @@ export function getAssetsFromHtml(
     css: [],
     js: [],
     moduleJs: [],
-    static: []
+    static: [],
+    authored: {}
   }
 
   if (!htmlFilePath) {
@@ -124,11 +128,17 @@ export function getAssetsFromHtml(
             break
           case 'staticSrc':
           case 'staticHref':
-            if (filePath.startsWith('#')) {
+            // An empty attribute names no file, the browser fetches nothing
+            if (!filePath.trim() || filePath.startsWith('#')) {
               break
             }
 
             assets.static?.push(fileAbsolutePath)
+
+            if (assets.authored && !(fileAbsolutePath in assets.authored)) {
+              assets.authored[fileAbsolutePath] = filePath
+            }
+
             break
           default:
             break

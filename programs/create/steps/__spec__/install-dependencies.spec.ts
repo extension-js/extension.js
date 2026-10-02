@@ -9,6 +9,7 @@ vi.mock('../../lib/install-runner', () => ({
   runInstall: (...args: unknown[]) => runInstallMock(...args)
 }))
 
+import {shellQuote} from '../../lib/utils'
 import {installDependencies} from '../install-dependencies'
 
 const noopLogger = {log() {}, error() {}}
@@ -278,6 +279,36 @@ describe('installDependencies', () => {
     expect(
       await fsp.readFile(path.join(projectPath, 'deno.jsonc'), 'utf8')
     ).toBe(authored)
+  })
+
+  // The create removes the project when the install fails, so the install
+  // command the old frame printed could not be run anywhere.
+  it('points a failed install at the create that makes the project again', async () => {
+    await fsp.writeFile(
+      path.join(projectPath, 'package.json'),
+      JSON.stringify({name: 'gone', devDependencies: {extension: '4.1.30'}})
+    )
+
+    runInstallMock.mockResolvedValue({
+      code: 1,
+      stdout: '',
+      stderr: 'npm error code ECONNREFUSED'
+    })
+
+    const error = (await installDependencies(
+      projectPath,
+      'gone',
+      noopLogger,
+      'npm',
+      'react'
+    ).catch((thrown: Error) => thrown)) as Error
+
+    expect(error.message).toContain('The new project files were removed')
+    expect(error.message).toContain(
+      `extension create ${shellQuote(projectPath)} --template react --install`
+    )
+
+    expect(error.message).not.toContain('run the command yourself')
   })
 
   it('names the release-age rule when the manager refuses a version for being new', async () => {

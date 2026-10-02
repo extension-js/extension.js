@@ -43,7 +43,9 @@ import {isDebug} from '../../../lib/messaging'
 import {reportToCompilation} from '../../shared/compilation-issues'
 import {
   pageActionDropReason,
-  shouldFoldBrowserActionIntoAction
+  shouldFoldActionIntoBrowserAction,
+  shouldFoldBrowserActionIntoAction,
+  sidebarFoldTarget
 } from '../../shared/html-surfaces'
 import * as messages from '../messages'
 import {
@@ -179,16 +181,42 @@ export class UpdateManifest {
               )
             }
 
+            if (shouldFoldActionIntoBrowserAction(forBrowser)) {
+              reportToCompilation(
+                compilation,
+                compiler,
+                messages.mv2ActionFoldedIntoBrowserAction(String(this.browser)),
+                'warning',
+                'manifest.json'
+              )
+            }
+
+            const sidebarFold = sidebarFoldTarget(forBrowser, this.browser)
+
+            if (sidebarFold) {
+              reportToCompilation(
+                compilation,
+                compiler,
+                messages.sidebarKeyTranslatedForBrowser(
+                  String(this.browser),
+                  sidebarFold === 'side_panel'
+                    ? 'sidebar_action'
+                    : 'side_panel',
+                  sidebarFold
+                ),
+                'warning',
+                'manifest.json'
+              )
+            }
+
             if (hasUnsupportedMv3BackgroundPage(forBrowser, this.browser)) {
               reportToCompilation(
                 compilation,
                 compiler,
                 messages.mv3BackgroundPageUnsupported(String(this.browser)),
-                'error',
+                'warning',
                 'manifest.json'
               )
-
-              return
             }
 
             // A key another vendor used to reach through the family rule

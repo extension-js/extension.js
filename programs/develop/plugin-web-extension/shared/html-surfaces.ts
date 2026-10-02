@@ -218,9 +218,11 @@ export function pageActionDropReason(
 
   if (!isPageActionLiveSurface(manifest, browser)) return 'unsupported'
 
+  // A Manifest V2 action ships as browser_action, so it conflicts the same.
   if (
     isChromiumBasedBrowser(String(browser || '')) &&
-    manifest.browser_action != null
+    (manifest.browser_action != null ||
+      shouldFoldActionIntoBrowserAction(manifest))
   ) {
     return 'conflicts'
   }
@@ -280,6 +282,136 @@ export function foldBrowserActionIntoAction(manifest: Manifest): Manifest {
   const {browser_action: folded, ...rest} = manifest
 
   return {...rest, action: folded} as Manifest
+}
+
+// The mirror of the fold above. Manifest V2 has no action key on any browser,
+// so an MV3 manifest built for a Manifest V2 target (the firefox: prefix
+// recipe) ships a toolbar button nothing reads and no popup at all.
+export function shouldFoldActionIntoBrowserAction(
+  manifest: Manifest | undefined
+): boolean {
+  if (!manifest || typeof manifest !== 'object') return false
+
+  if (!('action' in manifest) || manifest.action == null) return false
+
+  const version = Number(
+    (manifest as {manifest_version?: unknown}).manifest_version
+  )
+
+  if (version !== 2) return false
+
+  return manifest.browser_action == null
+}
+
+export function foldActionIntoBrowserAction(manifest: Manifest): Manifest {
+  if (!shouldFoldActionIntoBrowserAction(manifest)) return manifest
+
+  const {action: folded, ...rest} = manifest
+
+  return {
+    ...rest,
+    browser_action: folded,
+    ...renameExecuteActionCommand(manifest)
+  } as Manifest
+}
+
+// The reserved shortcut follows the key: Manifest V2 binds the toolbar button
+// to _execute_browser_action and never reads _execute_action.
+function renameExecuteActionCommand(manifest: Manifest): {
+  commands?: Manifest['commands']
+} {
+  const commands = manifest.commands as Record<string, unknown> | undefined
+
+  if (!commands || typeof commands !== 'object') return {}
+  if (!('_execute_action' in commands)) return {}
+  if ('_execute_browser_action' in commands) return {}
+
+  const {_execute_action: shortcut, ...others} = commands
+
+  return {
+    commands: {...others, _execute_browser_action: shortcut}
+  } as {commands?: Manifest['commands']}
+}
+
+// Chromium opens a panel only from side_panel and Gecko only from
+// sidebar_action, so a manifest that names one key of the pair has no sidebar
+// at all on the other family. A manifest that names both keeps both: each key
+// already owns its own page above.
+export type SidebarFoldTarget = 'side_panel' | 'sidebar_action'
+
+export function sidebarFoldTarget(
+  manifest: Manifest | undefined,
+  browser: DevOptions['browser'] | string | undefined
+): SidebarFoldTarget | undefined {
+  if (!manifest || typeof manifest !== 'object') return undefined
+
+  // A key the manifest already declares for this build is never rewritten,
+  // even one with no page in it.
+  const hasSidePanel = manifest.side_panel != null
+  const hasSidebarAction = manifest.sidebar_action != null
+
+  if (hasSidePanel === hasSidebarAction) return undefined
+
+  const target = String(browser || '')
+
+  if (hasSidebarAction) {
+    if (!readPageRef(manifest.sidebar_action, 'default_panel')) return undefined
+    if (!isChromiumBasedBrowser(target)) return undefined
+    // Opera reads sidebar_action itself, so the key it was given stays.
+    if (target === 'opera') return undefined
+
+    // side_panel exists from Manifest V3 on, Manifest V2 has nothing to read.
+    const version = Number(
+      (manifest as {manifest_version?: unknown}).manifest_version
+    )
+
+    return version >= 3 ? 'side_panel' : undefined
+  }
+
+  if (!readPageRef(manifest.side_panel, 'default_path')) return undefined
+
+  return isGeckoBasedBrowser(target) ? 'sidebar_action' : undefined
+}
+
+// Chromium shows no panel for a side_panel key alone, the sidePanel
+// permission has to be there too, and it is one Chromium never warns about.
+export const SIDE_PANEL_PERMISSION = 'sidePanel'
+
+function withSidePanelPermission(manifest: Manifest): string[] {
+  const current = Array.isArray(manifest.permissions)
+    ? (manifest.permissions as string[])
+    : []
+
+  return current.includes(SIDE_PANEL_PERMISSION)
+    ? current
+    : [...current, SIDE_PANEL_PERMISSION]
+}
+
+// Only the page reference carries over. Each key names a different set of
+// extras and the vendor that reads the key ignores the other one's.
+export function foldSidebarKeyForBrowser(
+  manifest: Manifest,
+  browser: DevOptions['browser'] | string | undefined
+): Manifest {
+  const target = sidebarFoldTarget(manifest, browser)
+
+  if (!target) return manifest
+
+  if (target === 'side_panel') {
+    const panel = readPageRef(manifest.sidebar_action, 'default_panel')
+    const {sidebar_action: _folded, ...rest} = manifest
+
+    return {
+      ...rest,
+      side_panel: {default_path: panel},
+      permissions: withSidePanelPermission(manifest)
+    } as Manifest
+  }
+
+  const panel = readPageRef(manifest.side_panel, 'default_path')
+  const {side_panel: _folded, ...rest} = manifest
+
+  return {...rest, sidebar_action: {default_panel: panel}} as Manifest
 }
 
 // The page the built page_action key must name: the shared toolbar page

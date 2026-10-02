@@ -24,11 +24,12 @@ vi.mock('../../lib/install-runner', () => ({
 }))
 
 import axios from 'axios'
+import goGitIt from 'go-git-it'
 import {hasChannelPrefix} from '../../lib/messaging'
 import {createDirectory} from '../create-directory'
 import {
-  importExternalTemplate,
   InsecureTemplateUrlError,
+  importExternalTemplate,
   TemplateDownloadError,
   TemplateNotFoundError
 } from '../import-external-template'
@@ -85,6 +86,7 @@ function expectOneFrameAndNoStack(error: Error, logger: {errors: string[]}) {
 beforeEach(() => {
   delete process.env.EXTENSION_ALLOW_HTTP_TEMPLATE
   vi.mocked(axios.get).mockReset()
+  vi.mocked(goGitIt).mockReset()
 })
 
 afterEach(async () => {
@@ -120,6 +122,55 @@ describe('a create refusal travels as one framed message on the thrown error', (
     expect(error).toBeInstanceOf(TemplateDownloadError)
     expect(error.message).toContain("Couldn't download the template")
     expect(error.message).toContain('status code 404')
+    expectOneFrameAndNoStack(error, logger)
+  })
+
+  // The fourth path: a URL is neither a catalog slug nor a catalog download,
+  // so an untyped throw here reached the sink that prints a stack. The spawned
+  // git reports its own failure with frames pointing inside node_modules.
+  it('for a GitHub template URL that cannot be fetched', async () => {
+    vi.mocked(goGitIt).mockRejectedValueOnce(
+      Object.assign(
+        new Error(
+          'Failed to download partial repository: Git command failed\n' +
+            'remote: Repository not found.\n' +
+            "fatal: repository 'https://github.com/extension-js/exampels/' not found\n"
+        ),
+        {
+          stack:
+            'Error: Repository not found\n' +
+            '    at downloadPartialRepository (/x/node_modules/go-git-it/dist/index.cjs:372:15)\n'
+        }
+      )
+    )
+
+    const {error, logger} = await failingImport(
+      'https://github.com/extension-js/exampels/tree/main/examples/react'
+    )
+
+    expect(error).toBeInstanceOf(TemplateDownloadError)
+    expect(error.message).toContain(
+      'https://github.com/extension-js/exampels/tree/main/examples/react'
+    )
+
+    expect(error.message).toContain('Repository not found')
+    expect(error.message).not.toContain('node_modules')
+    expectOneFrameAndNoStack(error, logger)
+  })
+
+  it('for a ZIP template URL that answers with something else', async () => {
+    vi.mocked(axios.get).mockResolvedValue({
+      data: Buffer.from('<html>not found</html>'),
+      headers: {'content-type': 'text/html'}
+    })
+
+    const {error, logger} = await failingImport(
+      'https://example.com/templates/mine'
+    )
+
+    expect(error).toBeInstanceOf(TemplateDownloadError)
+    expect(error.message).toContain('https://example.com/templates/mine')
+    expect(error.message).toContain('not a ZIP archive')
     expectOneFrameAndNoStack(error, logger)
   })
 
