@@ -90,11 +90,15 @@ describe('referencesBrowserGlobal', () => {
     ).toBe(false)
 
     expect(
-      referencesBrowserGlobal('const api = "browser" in self ? browser : chrome')
+      referencesBrowserGlobal(
+        'const api = "browser" in self ? browser : chrome'
+      )
     ).toBe(false)
 
     expect(
-      referencesBrowserGlobal('const api = globalThis.browser ? browser : chrome')
+      referencesBrowserGlobal(
+        'const api = globalThis.browser ? browser : chrome'
+      )
     ).toBe(false)
   })
 
@@ -118,5 +122,41 @@ describe('referencesBrowserGlobal', () => {
     )
 
     expect(referencesBrowserGlobal('const n = ""')).toBe(false)
+  })
+
+  it('ignores a script that defines the global itself', () => {
+    expect(
+      referencesBrowserGlobal(
+        'window.browser = window.browser || window.chrome; browser.runtime.sendMessage("x")'
+      )
+    ).toBe(false)
+
+    expect(
+      referencesBrowserGlobal(
+        'globalThis.browser ??= chrome; browser.runtime.sendMessage("x")'
+      )
+    ).toBe(false)
+
+    expect(
+      referencesBrowserGlobal(
+        '(()=>{self.browser=self.browser||self.chrome})();(()=>{browser.tabs.query({})})();'
+      )
+    ).toBe(false)
+  })
+
+  it('ignores a read whose catch falls back to chrome', () => {
+    expect(
+      referencesBrowserGlobal(
+        'let api; try { api = browser } catch (e) { api = chrome } api.runtime.sendMessage("x")'
+      )
+    ).toBe(false)
+  })
+
+  it('still finds a read whose catch only logs', () => {
+    expect(
+      referencesBrowserGlobal(
+        'try { browser.runtime.sendMessage("x") } catch (e) { console.error(e) }'
+      )
+    ).toBe(true)
   })
 })

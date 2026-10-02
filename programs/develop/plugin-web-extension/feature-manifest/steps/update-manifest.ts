@@ -214,11 +214,9 @@ export class UpdateManifest {
                 compilation,
                 compiler,
                 messages.mv3BackgroundPageUnsupported(String(this.browser)),
-                'error',
+                'warning',
                 'manifest.json'
               )
-
-              return
             }
 
             // A key another vendor used to reach through the family rule
