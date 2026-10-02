@@ -175,6 +175,7 @@ exports[`extension message catalogs > matches the exported message surface 1`] =
     "unhandledError: function(1)",
     "unsupportedBrowserFlag: function(2)",
     "updateFailed: function(1)",
+    "waitModeFailed: function(1)",
   ],
 }
 `;

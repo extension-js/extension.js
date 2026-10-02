@@ -14,7 +14,7 @@ import {
   explicitCliValue,
   explicitOptionalBoolean
 } from '../helpers/cli-explicit'
-import {declaredErrorCode, markErrorFramed} from '../helpers/cli-failure'
+import {declaredErrorCode} from '../helpers/cli-failure'
 import {
   cliGeckoBinary,
   firefoxBinaryAliasOption,
@@ -49,7 +49,11 @@ import {
   validateVendors,
   vendors
 } from '../helpers/vendors'
-import {describeWaitError, runWaitMode} from './dev-wait'
+import {
+  describeWaitError,
+  framedWaitFailure,
+  runWaitMode
+} from './dev-wait'
 
 type StartOptions = {
   browser?: Browser | 'all'
@@ -328,8 +332,9 @@ export function registerStartCommand(program: Command) {
           } catch (error) {
             // A throw here used to leave stdout empty, so a machine consumer
             // saw exit 1 and no frame explaining it.
+            const failure = describeWaitError(error)
+
             if (waitAsJson) {
-              const failure = describeWaitError(error)
               printFrame(
                 ENVELOPE.fail(
                   'start',
@@ -338,11 +343,9 @@ export function registerStartCommand(program: Command) {
                   {hint: failure.hint}
                 )
               )
-
-              markErrorFramed(error)
             }
 
-            throw error
+            throw framedWaitFailure(error, failure, waitAsJson)
           }
 
           if (waitAsJson) {

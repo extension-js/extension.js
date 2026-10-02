@@ -1141,3 +1141,12 @@ export function noBrowserWithWait(command: string) {
     )} in a second process`
   )
 }
+
+// Carries the channel glyph on purpose: the top-level sink prints a message
+// that already has one verbatim, which is what keeps the stack trace out.
+export function waitModeFailed(failure: {message: string; hint: string}) {
+  const label = failure.message.trim()
+  const sentence = /[.!?]$/.test(label) ? label : `${label}.`
+
+  return `${getLoggingPrefix('error')} ${sentence}\n${colors.yellow(failure.hint)}`
+}
