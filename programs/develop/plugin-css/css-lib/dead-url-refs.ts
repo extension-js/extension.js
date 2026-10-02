@@ -12,7 +12,7 @@ import * as path from 'node:path'
 const ASSET_EXT =
   /\.(png|jpe?g|gif|webp|svg|avif|ico|bmp|cur|woff2?|ttf|otf|eot|mp3|mp4|webm|ogg|wav)$/i
 
-const URL_REF = /url\(\s*(?:"([^"\n]*)"|'([^'\n]*)'|([^)'"\s]*))\s*\)/g
+const URL_REF = /url\(\s*(?:"([^"\n]*)"|'([^'\n]*)'|([^)'"\s]*))\s*\)/gi
 
 // A stylesheet path is shown the way the extension addresses it, so it must not
 // change shape with the host OS: path.relative hands back `content\\styles.css`

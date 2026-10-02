@@ -103,6 +103,21 @@ describe('dead url() in a content-script stylesheet', () => {
     expect(warnings).toHaveLength(0)
   })
 
+  it('warns the same way for url(), URL() and Url(), all valid CSS', () => {
+    const dir = createProject()
+
+    for (const casing of ['url', 'URL', 'Url']) {
+      const {warnings} = runLoader(
+        dir,
+        path.join(dir, 'content', 'styles.css'),
+        `.probe { background-image: ${casing}("/missing-probe.png"); }`
+      )
+
+      expect(warnings, casing).toHaveLength(1)
+      expect(warnings[0].message).toContain('/missing-probe.png')
+    }
+  })
+
   it('reports each distinct dead reference once, however often it repeats', () => {
     const dir = createProject()
 
