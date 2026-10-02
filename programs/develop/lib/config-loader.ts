@@ -7,7 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'node:fs'
-import {createRequire} from 'node:module'
+import {createRequire, register as registerModuleHooks} from 'node:module'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {pathToFileURL} from 'node:url'
@@ -58,6 +58,16 @@ function applyEnvFile(filePath: string, shellOwned: ReadonlySet<string>) {
   }
 }
 
+// `exports.default || exports` hid a falsy default export behind the module
+// namespace, so `export default null` read as a valid config object.
+function unwrapDefaultExport(loaded: unknown): unknown {
+  if (loaded && typeof loaded === 'object' && 'default' in loaded) {
+    return (loaded as {default: unknown}).default
+  }
+
+  return loaded
+}
+
 function loadCommonJsConfigWithStableDirname(absolutePath: string) {
   const code = fs.readFileSync(absolutePath, 'utf-8')
   const dirname = path.dirname(absolutePath)
@@ -75,7 +85,7 @@ function loadCommonJsConfigWithStableDirname(absolutePath: string) {
 
   fn(exports, requireFn, module, absolutePath, dirname)
 
-  return module.exports?.default || module.exports
+  return unwrapDefaultExport(module.exports)
 }
 
 function findNearestWorkspaceRoot(startDir: string): string | undefined {
@@ -176,7 +186,120 @@ function preloadEnvFiles(projectDir: string) {
   return local
 }
 
+// import.meta.env is not a Node property, so a config that reads it needs the
+// source rewritten. A loader hook does that while keeping the file's own URL,
+// which is what makes relative imports and import.meta.dirname stay correct.
+const IMPORT_META_ENV_GLOBAL = '__EXTENSION_IMPORT_META_ENV__'
+const IMPORT_META_ENV_HOOK = `
+const CONFIG_FILE = /(^|\\/)extension\\.config\\.(js|mjs)$/
+
+export async function load(url, context, nextLoad) {
+  const loaded = await nextLoad(url, context)
+
+  if (loaded.format !== 'module' || !url.startsWith('file:')) return loaded
+  if (!CONFIG_FILE.test(new URL(url).pathname)) return loaded
+
+  const text =
+    typeof loaded.source === 'string'
+      ? loaded.source
+      : Buffer.from(loaded.source).toString('utf8')
+
+  if (!text.includes('import.meta.env')) return loaded
+
+  return {
+    ...loaded,
+    source: text.replaceAll(
+      'import.meta.env',
+      'globalThis.${IMPORT_META_ENV_GLOBAL}'
+    )
+  }
+}
+`
+
+let importMetaEnvHookRegistered = false
+
+function prepareImportMetaEnv(absolutePath: string): void {
+  let source = ''
+
+  try {
+    source = fs.readFileSync(absolutePath, 'utf-8')
+  } catch {
+    return
+  }
+
+  if (!source.includes('import.meta.env'))
+    {return // Read at import time, after the dotenv preload, and held in memory only.
+    // The previous shim serialized every variable into a file under os.tmpdir().
+  ;}
+
+(globalThis as Record<string, unknown>)[IMPORT_META_ENV_GLOBAL] =
+    Object.freeze({...process.env})
+
+  if (importMetaEnvHookRegistered) return
+
+  try {
+    registerModuleHooks(
+      `data:text/javascript,${encodeURIComponent(IMPORT_META_ENV_HOOK)}`
+    )
+
+    importMetaEnvHookRegistered = true
+  } catch {
+    // Ignore: the import below still runs, and a config reading
+    // import.meta.env fails with its own error rather than a temp path.
+  }
+}
+
 const loadedConfigCache = new Map<string, Promise<FileConfig>>()
+
+// Four loaders each report before rethrowing, so one bad config printed the
+// same frame once per entry point. The command-level handler prints the reason.
+const reportedConfigPaths = new Set<string>()
+
+export function reportConfigLoadingErrorOnce(
+  configPath: string,
+  error: unknown
+): void {
+  const key = path.resolve(configPath)
+  if (reportedConfigPaths.has(key)) return
+
+  reportedConfigPaths.add(key)
+  // eslint-disable-next-line no-console
+  console.error(messages.configLoadingError(configPath, error))
+}
+
+// The keys the loaders really read. A typo like `brower` used to build clean.
+const CONFIG_TOP_LEVEL_KEYS = [
+  'browser',
+  'commands',
+  'config',
+  'configResolved',
+  'define',
+  'extensions',
+  'folders',
+  'perfBudgets',
+  'transpilePackages'
+] as const
+
+// A config file is a plain object. A function default export is the webpack
+// habit, and taking it silently meant nothing the author wrote applied.
+function assertConfigShape(configPath: string, value: unknown): void {
+  if (value === undefined) return
+
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new Error(messages.configWrongShape(configPath, value))
+  }
+
+  const unknown = Object.keys(value).filter(
+    (key) => !(CONFIG_TOP_LEVEL_KEYS as readonly string[]).includes(key)
+  )
+
+  if (unknown.length > 0) {
+    // eslint-disable-next-line no-console
+    console.error(
+      messages.configUnknownKeys(configPath, unknown, CONFIG_TOP_LEVEL_KEYS)
+    )
+  }
+}
 
 async function loadConfigFile(configPath: string): Promise<FileConfig> {
   const absolutePath = path.resolve(configPath)
@@ -184,7 +307,11 @@ async function loadConfigFile(configPath: string): Promise<FileConfig> {
   const cached = loadedConfigCache.get(absolutePath)
   if (cached) return cached
 
-  const loading = loadConfigFileUncached(absolutePath)
+  const loading = loadConfigFileUncached(absolutePath).then((value) => {
+    assertConfigShape(absolutePath, value)
+
+    return value
+  })
   loadedConfigCache.set(absolutePath, loading)
 
   try {
@@ -209,56 +336,16 @@ async function loadConfigFileUncached(
       const requireFn = createRequire(import.meta.url)
       const required = requireFn(absolutePath)
 
-      return required?.default || required
+      return unwrapDefaultExport(required) as FileConfig
     }
 
-    let esmImportPath = absolutePath
-    // Tracks a temp dir holding the env-shimmed copy so we can delete it right
-    // after import, the serialized environment must not linger on disk.
-    let shimTmpDir: string | undefined
+    // The config is imported from its real path so relative imports resolve
+    // and import.meta.dirname is the project, which a temp copy both broke.
+    prepareImportMetaEnv(absolutePath)
 
-    try {
-      const originalContent = fs.readFileSync(absolutePath, 'utf-8')
+    const module = await import(pathToFileURL(absolutePath).href)
 
-      if (originalContent.includes('import.meta.env')) {
-        shimTmpDir = fs.mkdtempSync(
-          path.join(os.tmpdir(), 'extension-config-esm-')
-        )
-
-        const tmpPath = path.join(shimTmpDir, path.basename(absolutePath))
-
-        const envObjectLiteral = JSON.stringify(
-          Object.fromEntries(
-            Object.entries(process.env).map(([k, v]) => [k, v])
-          ),
-          null,
-          0
-        )
-        const shimHeader = `const __IMPORT_META_ENV__ = Object.freeze(${envObjectLiteral});\n`
-        const replaced = originalContent.replace(
-          /import\.meta\.env/g,
-          '__IMPORT_META_ENV__'
-        )
-        fs.writeFileSync(tmpPath, `${shimHeader}${replaced}`, 'utf-8')
-        esmImportPath = tmpPath
-      }
-    } catch {
-      // Ignore
-    }
-
-    try {
-      const module = await import(pathToFileURL(esmImportPath).href)
-
-      return module.default || module
-    } finally {
-      if (shimTmpDir) {
-        try {
-          fs.rmSync(shimTmpDir, {recursive: true, force: true})
-        } catch {
-          // Ignore
-        }
-      }
-    }
+    return unwrapDefaultExport(module) as FileConfig
   } catch (err: unknown) {
     const error = err as Error
 
@@ -312,7 +399,7 @@ async function loadConfigFileUncached(
           }
         }
 
-        return required?.default || required
+        return unwrapDefaultExport(required) as FileConfig
       }
     } catch {
       // Ignore
@@ -359,7 +446,7 @@ export async function loadCustomConfig(projectPath: string) {
         }
       } catch (err: unknown) {
         const error = err as Error
-        console.error(messages.configLoadingError(configPath, error))
+        reportConfigLoadingErrorOnce(configPath, error)
 
         throw err
       }
@@ -502,7 +589,7 @@ export async function loadProjectConfigDefaults(
         }
       } catch (err: unknown) {
         const error = err as Error
-        console.error(messages.configLoadingError(configPath, error))
+        reportConfigLoadingErrorOnce(configPath, error)
 
         throw err
       }
@@ -538,7 +625,7 @@ export async function loadCommandConfig(
         return (userConfig?.commands?.[command] || {}) as CommandLayerConfig
       } catch (err: unknown) {
         const error = err as Error
-        console.error(messages.configLoadingError(configPath, error))
+        reportConfigLoadingErrorOnce(configPath, error)
 
         throw err
       }
@@ -591,7 +678,7 @@ export async function loadBrowserConfig(
         }
       } catch (err: unknown) {
         const error = err as Error
-        console.error(messages.configLoadingError(configPath, error))
+        reportConfigLoadingErrorOnce(configPath, error)
 
         throw err
       }

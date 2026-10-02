@@ -1056,11 +1056,57 @@ export function noCompanionExtensionsResolved() {
   )
 }
 
+// An Error has no enumerable own properties, so stringifying one renders {}
+// and loses the single line whose job is to say why the config failed.
+function describeThrown(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message || error.name || 'Error'
+  }
+
+  if (typeof error === 'string') return error
+  if (error === undefined) return 'undefined'
+  if (error === null) return 'null'
+
+  return fmt.truncate(error, 1200)
+}
+
+function shapeOf(value: unknown): string {
+  if (Array.isArray(value)) return 'an array'
+  if (value === null) return 'null'
+  if (typeof value === 'function') return 'a function'
+
+  return `a ${typeof value}`
+}
+
+export function configWrongShape(configPath: string, value: unknown) {
+  const functionHint =
+    typeof value === 'function'
+      ? `\nTo change the bundler config, export it as ${colors.blue('export default {config: (config) => config}')}.`
+      : ''
+
+  return (
+    `${getLoggingPrefix('error')} ${colors.blue('extension.config.js')} must export an object, found ${shapeOf(value)}.\n` +
+    `${fmt.label('PATH')} ${fmt.val(configPath)}${functionHint}`
+  )
+}
+
+export function configUnknownKeys(
+  configPath: string,
+  keys: string[],
+  accepted: readonly string[]
+) {
+  return (
+    `${getLoggingPrefix('warn')} ${colors.blue('extension.config.js')} declares ${keys.length === 1 ? 'a key' : 'keys'} nothing reads: ${colors.yellow(keys.join(', '))}.\n` +
+    `${fmt.label('PATH')} ${fmt.val(configPath)}\n` +
+    `Accepted keys are ${colors.blue(accepted.join(', '))}.`
+  )
+}
+
 export function configLoadingError(configPath: string, error: unknown) {
   return (
     `${getLoggingPrefix('error')} Couldn't load ${colors.blue('extension.config.js')}.\n` +
     `${fmt.label('PATH')} ${fmt.val(configPath)}\n` +
-    `${colors.red(fmt.truncate(error, 1200))}\n` +
+    `${colors.red(describeThrown(error))}\n` +
     `Fix the config file, then run the command again.`
   )
 }

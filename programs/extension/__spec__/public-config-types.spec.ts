@@ -41,4 +41,39 @@ describe('public config types (extension package)', () => {
     )
     expect(configTypes).toMatch(/export\s+interface\s+FileConfig\b/)
   })
+
+  // The published type is hand-kept, so an option the loader honors but the
+  // type omits fails tsc on a working config. This compares the two sources.
+  it('declares every top-level key the internal FileConfig declares', () => {
+    const publicSource = fs.readFileSync(
+      path.join(pkgRoot, 'config-types.ts'),
+      'utf8'
+    )
+    const internalSource = fs.readFileSync(
+      path.resolve(pkgRoot, '..', 'develop', 'types.ts'),
+      'utf8'
+    )
+
+    const topLevelKeys = (source: string): string[] => {
+      const start = source.indexOf('export interface FileConfig {')
+      expect(start).toBeGreaterThan(-1)
+
+      const body = source.slice(start)
+      const end = body.indexOf('\n}')
+      const keys = new Set<string>()
+
+      for (const line of body.slice(0, end).split('\n')) {
+        const match = /^ {2}([A-Za-z_][A-Za-z0-9_]*)\??:/.exec(line)
+        if (match) keys.add(match[1])
+      }
+
+      return Array.from(keys).sort()
+    }
+
+    const internalKeys = topLevelKeys(internalSource)
+    const publicKeys = topLevelKeys(publicSource)
+
+    expect(internalKeys.length).toBeGreaterThan(5)
+    expect(publicKeys).toEqual(internalKeys)
+  })
 })
