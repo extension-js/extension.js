@@ -5,6 +5,27 @@ import {
   buildBridgeRelaySource
 } from '../producer-runtime'
 
+// A fixed sleep asserts that the state arrived within one budget, which a
+// loaded machine misses. Wait for the state instead, with a ceiling well
+// above the retry windows under test so a slow run waits rather than fails.
+const WAIT_CEILING_MS = 10_000
+
+async function waitFor(
+  predicate: () => boolean,
+  label: string,
+  ceilingMs = WAIT_CEILING_MS
+): Promise<void> {
+  const deadline = Date.now() + ceilingMs
+
+  while (Date.now() < deadline) {
+    if (predicate()) return
+
+    await new Promise((resolve) => setTimeout(resolve, 10))
+  }
+
+  throw new Error(`timed out after ${ceilingMs} ms waiting for ${label}`)
+}
+
 class FakeWebSocket {
   static instances: FakeWebSocket[] = []
   url: string
@@ -320,14 +341,26 @@ describe('bridge producer runtime', () => {
 
     // Failure 1: the baked port is retried as-is (no disk read yet).
     FakeWebSocket.instances[0].close()
-    await new Promise((r) => setTimeout(r, 350))
+    await waitFor(
+      () => FakeWebSocket.instances.length >= 2,
+      'the baked port to be retried'
+    )
+
     expect(FakeWebSocket.instances).toHaveLength(2)
     expect(FakeWebSocket.instances[1].url).toContain(':9100')
     expect(fetched).toHaveLength(0)
 
     // Failure 2: the port file is re-read and the NEW port dialed.
     FakeWebSocket.instances[1].close()
-    await new Promise((r) => setTimeout(r, 700))
+    await waitFor(
+      () =>
+        fetched.length > 0 &&
+        FakeWebSocket.instances[
+          FakeWebSocket.instances.length - 1
+        ].url.includes(':9200'),
+      'the port file to be re-read and the new port dialed'
+    )
+
     expect(fetched).toContain(
       'chrome-extension://abc/extension-js-control.json'
     )
@@ -2944,7 +2977,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
 
     ws.triggerMessage({type: 'reload', reloadType: 'content-scripts'})
 
-    await new Promise((r) => setTimeout(r, 250))
+    await waitFor(() => runtimeReloaded, 'the full reload fallback to run')
     expect(runtimeReloaded).toBe(true)
   })
 
