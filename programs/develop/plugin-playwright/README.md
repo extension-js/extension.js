@@ -32,7 +32,11 @@
 - `ts`
 - `compiledAt`
 - `errors`
+- `controlPort`: the agent-bridge control port, or `null` when there is none
 - optional `code` and `message` on failures
+- optional `controlPortUnavailableReason`: the bind error, present whenever
+  `controlPort` is `null` because the control bridge could not start. It is part
+  of every write for the session, so a recompile never drops it
 
 `events.ndjson` events (the file is reset at every run start and holds the
 current run only, join on `runId` to correlate across runs):
