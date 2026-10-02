@@ -6,6 +6,7 @@
 // ╚══════╝╚═╝     ╚══════╝ ╚═════╝╚═╝╚═╝  ╚═╝╚══════╝ ╚═╝      ╚═════╝ ╚══════╝╚═════╝ ╚══════╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, type Compiler, rspack} from '@rspack/core'
 import {isDebug} from '../lib/messaging'
@@ -13,7 +14,10 @@ import type {SpecialFoldersConfig} from '../types'
 import {checkManifestInPublic} from './check-manifest-in-public'
 import {explainPublicOutputCollision} from './check-public-output-collision'
 import {emitRootAbsoluteRefs} from './emit-root-absolute-refs'
-import {rememberSpecialFoldersConfig} from './folders-config'
+import {
+  publicFolderSetting,
+  rememberSpecialFoldersConfig
+} from './folders-config'
 import * as messages from './messages'
 import {
   inspectPublicFolders,
@@ -41,11 +45,14 @@ export class SpecialFoldersPlugin {
     if (folders) rememberSpecialFoldersConfig(context, folders)
 
     const inspection = inspectPublicFolders(manifestPath, context)
-    // The folder in use, or the canonical root path when there is none, so
+    // Every project but one ships from a public folder, whether or not that
+    // folder exists yet. `folders: {public: false}` reads none.
+    const readsPublicFolder = publicFolderSetting(context).kind !== 'off'
+    // The folder in use, or the canonical location when there is none, so
     // root-absolute refs keep resolving from the same place as before.
-    const publicDir = inspection.publicDir || path.join(context, 'public')
+    const publicDir = inspection.publicDir || inspection.fromRoot
     // The reload classifier asks for this root later, from the compilation.
-    rememberPublicRoots(compiler, inspection.publicDir ? [publicDir] : [])
+    rememberPublicRoots(compiler, readsPublicFolder ? [publicDir] : [])
 
     // Chrome resolves a leading '/' from the extension root; a root-absolute ref
     // public/ does not satisfy is served from the source root instead.
@@ -100,14 +107,29 @@ export class SpecialFoldersPlugin {
       }
     )
 
-    if (inspection.publicDir) {
+    // Gated, never unconditional: the collision explainer below resolves a
+    // public path even when nothing reads the folder, so a folder left on disk
+    // under `public: false` would be blamed for a clash between two generated
+    // entries.
+    if (readsPublicFolder) {
+      const watching = Boolean(compiler.options.watchOptions)
+
       // Guard against dangerous files in public/ that would overwrite generated assets
       compiler.hooks.thisCompilation.tap(
         SpecialFoldersPlugin.name,
         (compilation: Compilation) => {
           // A file only the copier ships (a DNR ruleset, a fetched data file)
           // has no module or manifest reference to watch it, so watch the folder.
-          compilation.contextDependencies?.add(publicDir)
+          // A folder that is not there yet is watched through its parent, so
+          // creating it mid-session is a change the next compile acts on.
+          const folderToWatch = fs.existsSync(publicDir)
+            ? publicDir
+            : watching
+              ? path.dirname(publicDir)
+              : undefined
+
+          if (folderToWatch) compilation.contextDependencies?.add(folderToWatch)
+
           compilation.hooks.processAssets.tap(
             {
               name: `${SpecialFoldersPlugin.name}:guards`,

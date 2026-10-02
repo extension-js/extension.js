@@ -6,6 +6,7 @@
 //  ╚═════╝ ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚═╝ ╚═════╝ ╚═╝  ╚═══╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import * as path from 'node:path'
 import {type Compiler, DefinePlugin, type WebpackError} from '@rspack/core'
 import CaseSensitivePathsPlugin from 'case-sensitive-paths-webpack-plugin'
 import {setupCompilerDoneDiagnostics} from '../dev-server/compiler-hooks'
@@ -15,6 +16,7 @@ import {BoringPlugin} from './boring'
 import {CleanDistFolderPlugin} from './clean-dist'
 import * as messages from './compilation-lib/messages'
 import {EnvPlugin} from './env'
+import {WatchProjectConfigPlugin} from './watch-project-config'
 import {ZipPlugin} from './zip'
 
 export class CompilationPlugin {
@@ -100,6 +102,14 @@ export class CompilationPlugin {
       browser: this.browser || 'chrome',
       define: this.define
     }).apply(compiler)
+
+    // The config file is read before the compiler exists and its values are a
+    // session-scoped snapshot, so a watch run can only report the edit.
+    if (compiler.options.watchOptions) {
+      new WatchProjectConfigPlugin(
+        (compiler.options.context as string) || path.dirname(this.manifestPath)
+      ).apply(compiler)
+    }
 
     // CleanDistFolderPlugin removes dist before compilation, a problem for preview
     // mode which serves from that folder.

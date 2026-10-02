@@ -43,7 +43,9 @@ import {isDebug} from '../../../lib/messaging'
 import {reportToCompilation} from '../../shared/compilation-issues'
 import {
   pageActionDropReason,
-  shouldFoldBrowserActionIntoAction
+  shouldFoldActionIntoBrowserAction,
+  shouldFoldBrowserActionIntoAction,
+  sidebarFoldTarget
 } from '../../shared/html-surfaces'
 import * as messages from '../messages'
 import {
@@ -174,6 +176,34 @@ export class UpdateManifest {
                 compilation,
                 compiler,
                 messages.mv3BrowserActionFoldedIntoAction(String(this.browser)),
+                'warning',
+                'manifest.json'
+              )
+            }
+
+            if (shouldFoldActionIntoBrowserAction(forBrowser)) {
+              reportToCompilation(
+                compilation,
+                compiler,
+                messages.mv2ActionFoldedIntoBrowserAction(String(this.browser)),
+                'warning',
+                'manifest.json'
+              )
+            }
+
+            const sidebarFold = sidebarFoldTarget(forBrowser, this.browser)
+
+            if (sidebarFold) {
+              reportToCompilation(
+                compilation,
+                compiler,
+                messages.sidebarKeyTranslatedForBrowser(
+                  String(this.browser),
+                  sidebarFold === 'side_panel'
+                    ? 'sidebar_action'
+                    : 'side_panel',
+                  sidebarFold
+                ),
                 'warning',
                 'manifest.json'
               )

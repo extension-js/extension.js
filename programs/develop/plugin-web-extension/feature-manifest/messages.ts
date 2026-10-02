@@ -264,6 +264,31 @@ export function mv3BrowserActionFoldedIntoAction(browser: string) {
   )
 }
 
+export function mv2ActionFoldedIntoBrowserAction(browser: string) {
+  return (
+    `${prefix('warn')} ${colors.blue(browser)} resolved ${colors.yellow('manifest_version')} to 2, and Manifest V2 has no ${colors.yellow('action')} key, so the toolbar button and its popup never load.\n` +
+    `The build wrote the key as ${colors.yellow('browser_action')} in the built manifest, pointing at the same compiled popup. ` +
+    `Scope the Manifest V3 key with the chromium: prefix, or declare ${colors.yellow('firefox:manifest_version')} 3 to keep it.`
+  )
+}
+
+export function sidebarKeyTranslatedForBrowser(
+  browser: string,
+  from: string,
+  to: string
+) {
+  const permission =
+    to === 'side_panel'
+      ? `, and added the ${colors.yellow('sidePanel')} permission the panel needs to appear`
+      : ''
+
+  return (
+    `${prefix('warn')} ${colors.blue(browser)} reads a sidebar only from ${colors.yellow(to)}, and the manifest declared ${colors.yellow(from)} alone, so the panel never opens.\n` +
+    `The build wrote the key as ${colors.yellow(to)} in the built manifest${permission}, pointing at the same compiled page. ` +
+    `Declare both keys to ship a panel of its own per vendor, or scope ${colors.yellow(from)} with a prefix to keep it off this build.`
+  )
+}
+
 export function mv3BackgroundPageUnsupported(browser: string) {
   return (
     `${prefix('error')} ${colors.blue(browser)} has no ${colors.yellow('background.page')} in Manifest V3, and the extension installs with no background context at all.\n` +

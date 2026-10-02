@@ -6,12 +6,19 @@
 // ╚═════╝ ╚══════╝  ╚═══╝        ╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-export type DevSessionRestartReason = 'scripts' | 'html' | 'icons' | 'json'
+export type DevSessionRestartReason =
+  | 'scripts'
+  | 'html'
+  | 'icons'
+  | 'json'
+  | 'env'
 
 export interface DevSessionRestartRequest {
   reason: DevSessionRestartReason
   pathAfter?: string
   pathBefore?: string
+  // A file whose contents changed, as opposed to an entry that moved.
+  pathChanged?: string
   manifestField?: string
 }
 
