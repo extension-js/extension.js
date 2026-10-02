@@ -54,6 +54,7 @@ import {
   readReadyRunId,
   stampReadyBrowserExited,
   stampReadyBrowserLaunch,
+  stampReadyExtensionLoadRefused,
   stampReadyProfileLocked
 } from '../../browsers-lib/ready-stamp'
 import {
@@ -73,7 +74,10 @@ import type {
   ChromiumLaunchOptions,
   ChromiumPluginRuntime
 } from '../chromium-types'
-import {waitForStableManifest} from '../manifest-readiness'
+import {
+  findMissingManifestFiles,
+  waitForStableManifest
+} from '../manifest-readiness'
 import {browserConfig, chromiumLaunchPlan} from './browser-config'
 import {logChromiumDryRun} from './dry-run'
 import {getExtensionOutputPath} from './extension-output-path'
@@ -919,6 +923,8 @@ export class ChromiumLaunchPlugin {
 
     // Manifest shapes modern Chromium refuses outright surface only as a native
     // modal (or nothing) and wedge the session; say why up front, before the spawn.
+    const refusedExtensionPaths: string[] = []
+
     for (const extPath of extensionsToLoad) {
       try {
         const m = JSON.parse(
@@ -940,6 +946,8 @@ export class ChromiumLaunchPlugin {
             )
           )
         }
+
+        if (refusal) refusedExtensionPaths.push(String(extPath))
 
         const invalidPatterns = findInvalidMatchPatterns(m)
 
@@ -966,6 +974,48 @@ export class ChromiumLaunchPlugin {
         }
       } catch {
         // unreadable manifest. The browser will complain on its own
+      }
+    }
+
+    // A run-only launch has no post-launch CDP pass, so nothing else can tell
+    // the contract that the browser comes up without the extension in it.
+    if (opts?.enableCdpPostLaunch === false) {
+      const incomplete = extensionsToLoad
+        .map((extPath) => ({
+          extPath: String(extPath),
+          missing: findMissingManifestFiles(String(extPath))
+        }))
+        .find((entry) => entry.missing.length > 0)
+
+      const refusal = refusedExtensionPaths.length
+        ? {
+            frame: messages.chromiumRefusesTheExtension(
+              String(this.options.browser),
+              refusedExtensionPaths[0]
+            ),
+            reason: 'the manifest declares a shape this browser refuses'
+          }
+        : incomplete
+          ? {
+              frame: messages.extensionOutputIsIncomplete(
+                String(this.options.browser),
+                incomplete.extPath,
+                incomplete.missing
+              ),
+              reason: `the build is missing ${incomplete.missing.join(', ')}`
+            }
+          : undefined
+
+      if (refusal) {
+        const refusedOutputPath = getExtensionOutputPath(compilation, undefined)
+
+        stampReadyExtensionLoadRefused(
+          refusedOutputPath,
+          refusal.reason,
+          readReadyRunId(refusedOutputPath)
+        )
+
+        throw new Error(refusal.frame)
       }
     }
 

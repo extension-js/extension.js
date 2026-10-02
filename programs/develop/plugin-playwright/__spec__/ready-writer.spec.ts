@@ -568,3 +568,63 @@ describe('ready.json writer preservation', () => {
     expect(after.message).toBe('build broke')
   })
 })
+
+describe('ready.json names the extension the browser loaded', () => {
+  let tmp: string
+
+  beforeEach(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ready-provenance-'))
+  })
+
+  afterEach(() => {
+    fs.rmSync(tmp, {recursive: true, force: true})
+  })
+
+  const writeManifest = (dir: string, name: string, version: string) => {
+    fs.mkdirSync(dir, {recursive: true})
+    fs.writeFileSync(
+      path.join(dir, 'manifest.json'),
+      JSON.stringify({manifest_version: 3, name, version})
+    )
+  }
+
+  it('reads name and version from the dist, not the edited source', () => {
+    const distPath = path.join(tmp, 'dist', 'chromium')
+    const srcDir = path.join(tmp, 'src')
+    writeManifest(distPath, 'Built Name', '1.0.0')
+    writeManifest(srcDir, 'Edited Name', '9.9.9')
+
+    const writer = createPlaywrightMetadataWriter({
+      packageJsonDir: tmp,
+      browser: 'chromium',
+      command: 'preview',
+      distPath,
+      manifestPath: path.join(srcDir, 'manifest.json')
+    })
+    writer.writeReady()
+
+    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    expect(ready.extensionName).toBe('Built Name')
+    expect(ready.extensionVersion).toBe('1.0.0')
+  })
+
+  it('falls back to the source manifest when the dist has none', () => {
+    const distPath = path.join(tmp, 'dist', 'chromium')
+    const srcDir = path.join(tmp, 'src')
+    fs.mkdirSync(distPath, {recursive: true})
+    writeManifest(srcDir, 'Source Only', '2.0.0')
+
+    const writer = createPlaywrightMetadataWriter({
+      packageJsonDir: tmp,
+      browser: 'chromium',
+      command: 'preview',
+      distPath,
+      manifestPath: path.join(srcDir, 'manifest.json')
+    })
+    writer.writeReady()
+
+    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    expect(ready.extensionName).toBe('Source Only')
+    expect(ready.extensionVersion).toBe('2.0.0')
+  })
+})

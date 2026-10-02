@@ -58,6 +58,17 @@ export function hasChannelPrefix(text: string): boolean {
     .startsWith(GLYPH)
 }
 
+// Machine output carries no terminal decoration, so a frame reused as an
+// envelope message loses its glyph and colors rather than shipping them.
+export function stripChannelPrefix(text: string): string {
+  return String(text || '')
+    .replace(ANSI_PATTERN, '')
+    .split('\n')
+    .map((line) => line.replace(GLYPH, '').trimStart())
+    .join('\n')
+    .trim()
+}
+
 // Closed on purpose: an unknown value means pretty, so a typo can never
 // silently swallow the human output a terminal user is reading.
 const MACHINE_OUTPUT_VALUES = new Set(['json', 'ndjson'])

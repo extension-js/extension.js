@@ -341,6 +341,30 @@ export function preferringSystemBrowserOverSnapshot(
   return `${getLoggingPrefix('warn')} Set ${colors.blue('EXTENSION_PREFER_CHROMIUM_SNAPSHOT=true')} to use the cached Chromium snapshot instead.`
 }
 
+export function extensionOutputIsIncomplete(
+  browser: string,
+  extensionPath: string,
+  missingFiles: string[]
+) {
+  return (
+    `${getLoggingPrefix('error')} ${colors.red(`This build is missing files its manifest declares, so ${browserDisplayName(browser)} refuses it.`)}\n` +
+    `${colors.gray('PATH')} ${colors.underline(extensionPath)}\n` +
+    `${colors.gray('MISSING')} ${missingFiles.join(', ')}\n` +
+    `Run ${colors.blue('extension build')} again, then run the command.`
+  )
+}
+
+export function chromiumRefusesTheExtension(
+  browser: string,
+  extensionPath: string
+) {
+  return (
+    `${getLoggingPrefix('error')} ${colors.red(`${browserDisplayName(browser)} refuses to load this extension, so there is nothing to preview.`)}\n` +
+    `${colors.gray('PATH')} ${colors.underline(extensionPath)}\n` +
+    `Read the reason above, fix the manifest, then run the command again.`
+  )
+}
+
 export function mv2NotSupportedByChromium(extensionPath: string) {
   return (
     `${getLoggingPrefix('warn')} ${colors.brightYellow('This extension declares Manifest V2, which modern Chromium refuses to load.')}\n` +

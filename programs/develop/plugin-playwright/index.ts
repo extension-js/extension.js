@@ -343,22 +343,31 @@ export function stampReadyKnownExtensionId(
   stampReadyExtensionIdIfAbsent(packageJsonDir, browser, extensionId)
 }
 
-function readManifestProvenance(manifestPath: string): {
+// Candidates in preference order. The loaded directory describes the run, so a
+// stale dist is reported as what the browser took, not as the unbuilt source.
+function readManifestProvenance(...manifestPaths: Array<string | undefined>): {
   extensionName?: string
   extensionVersion?: string
 } {
-  try {
-    const manifest = parseJsonSafe(fs.readFileSync(manifestPath, 'utf-8'))
+  for (const manifestPath of manifestPaths) {
+    if (!manifestPath) continue
 
-    return {
-      extensionName:
-        typeof manifest?.name === 'string' ? manifest.name : undefined,
-      extensionVersion:
+    try {
+      const manifest = parseJsonSafe(fs.readFileSync(manifestPath, 'utf-8'))
+      const extensionName =
+        typeof manifest?.name === 'string' ? manifest.name : undefined
+      const extensionVersion =
         typeof manifest?.version === 'string' ? manifest.version : undefined
+
+      if (extensionName || extensionVersion) {
+        return {extensionName, extensionVersion}
+      }
+    } catch {
+      // Ignore
     }
-  } catch {
-    return {}
   }
+
+  return {}
 }
 
 function ensureDirSync(dirPath: string) {
@@ -571,7 +580,12 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     controlPath: options.controlPath,
     logsPath: options.logsPath,
     toolchainVersion: packageJson.version,
-    ...readManifestProvenance(options.manifestPath),
+    ...readManifestProvenance(
+      options.distPath
+        ? path.join(options.distPath, 'manifest.json')
+        : undefined,
+      options.manifestPath
+    ),
     ...(isEmulatorBrowser(options.browser)
       ? {engine: 'emulator' as const, browserPid: null}
       : {})

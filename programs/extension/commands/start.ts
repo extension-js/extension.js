@@ -99,15 +99,6 @@ function failAndExit(
   process.exit(1)
 }
 
-// The preview server can move off a busy port after this frame is emitted, so
-// this is the requested port. ready.json carries the port it actually bound.
-function resolveRequestedPort(value: unknown): number {
-  const parsed =
-    typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10)
-
-  return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : 8080
-}
-
 export function registerStartCommand(program: Command) {
   program
     .command('start')
@@ -378,7 +369,6 @@ export function registerStartCommand(program: Command) {
               projectPath: pathOrRemoteUrl || process.cwd(),
               browser: list[0],
               browsers: list,
-              port: resolveRequestedPort(startOptions.port),
               pid: process.pid,
               noBrowser: await resolveNoBrowser(
                 pathOrRemoteUrl || process.cwd(),
