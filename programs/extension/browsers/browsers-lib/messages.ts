@@ -10,7 +10,7 @@ import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import {getChromeVersion, locateChromeOrExplain} from 'chrome-location2'
+import locateChrome, {getChromeVersion} from 'chrome-location2'
 import locateChromium, {getChromiumVersion} from 'chromium-location'
 import locateEdge, {getEdgeVersion} from 'edge-location'
 import locateFirefox, {getFirefoxVersion} from 'firefox-location2'
@@ -26,6 +26,10 @@ import {
 import type {BrowserType} from '../browsers-types'
 import {LIBREWOLF_REMOTE_DEBUGGING_LINES} from '../run-firefox/firefox-launch/librewolf-overrides'
 import {isFirefoxBrowser} from './browser-family'
+import {
+  resolveFromBinaries,
+  sharedManagedCacheEnv
+} from './output-binaries-resolver'
 
 type Browser = BrowserType
 type Mode = 'development' | 'production' | 'none'
@@ -177,27 +181,63 @@ export function resolveBrowserVersionLine(
   // locating a browser here would print ANOTHER binary's version.
   if (opts?.pinned) return ''
 
+  // A managed install is what the launcher runs, even when a system browser of
+  // the same brand is present, so the card reads that binary first. Otherwise
+  // it names a version that never starts.
+  const managedKey =
+    browser === 'chromium' || browser === 'chromium-based'
+      ? 'chromium'
+      : browser === 'chrome' || browser === 'edge' || browser === 'firefox'
+        ? browser
+        : undefined
+
+  if (managedKey) {
+    try {
+      const managed = resolveFromBinaries(
+        {} as Parameters<typeof resolveFromBinaries>[0],
+        managedKey
+      )
+
+      if (managed && fs.existsSync(managed)) {
+        if (managedKey === 'chromium') {
+          return getChromiumVersion(managed) || 'Chromium'
+        }
+
+        if (managedKey === 'chrome')
+          {return getChromeVersion(managed) || 'Chrome'}
+
+        if (managedKey === 'edge') {
+          return getEdgeVersion(managed) || 'Microsoft Edge'
+        }
+
+        return getFirefoxVersion(managed) || 'Firefox'
+      }
+    } catch {
+      // Ignore
+    }
+  }
+
   try {
     if (browser === 'chromium' || browser === 'chromium-based') {
-      const p = locateChromium()
+      const p = locateChromium(true, {env: sharedManagedCacheEnv('chromium')})
 
       if (p && typeof p === 'string' && fs.existsSync(p)) {
         return getChromiumVersion(p) || 'Chromium'
       }
     } else if (browser === 'chrome') {
-      const p: string = locateChromeOrExplain({allowFallback: true})
+      const p = locateChrome(true, {env: sharedManagedCacheEnv('chrome')})
 
-      if (p && fs.existsSync(p)) {
+      if (p && typeof p === 'string' && fs.existsSync(p)) {
         return getChromeVersion(p) || 'Chrome'
       }
     } else if (browser === 'edge') {
-      const p = locateEdge()
+      const p = locateEdge(true, {env: sharedManagedCacheEnv('edge')})
 
-      if (p && fs.existsSync(p)) {
+      if (p && typeof p === 'string' && fs.existsSync(p)) {
         return getEdgeVersion(p) || 'Microsoft Edge'
       }
     } else if (browser === 'firefox') {
-      const p = locateFirefox(true)
+      const p = locateFirefox(true, {env: sharedManagedCacheEnv('firefox')})
 
       if (p && typeof p === 'string' && fs.existsSync(p)) {
         return getFirefoxVersion(p) || 'Firefox'
@@ -339,6 +379,14 @@ export function preferringSystemBrowserOverSnapshot(
   _snapshotBinary: string
 ) {
   return `${getLoggingPrefix('warn')} Set ${colors.blue('EXTENSION_PREFER_CHROMIUM_SNAPSHOT=true')} to use the cached Chromium snapshot instead.`
+}
+
+export function profilePathIsNotADirectory(profilePath: string) {
+  return (
+    `${getLoggingPrefix('error')} ${colors.red('The profile path is a file, so the browser has nowhere to keep its profile.')}\n` +
+    `${colors.gray('PATH')} ${colors.underline(profilePath)}\n` +
+    `Pass ${colors.blue('--profile')} a directory, or a path that can become one.`
+  )
 }
 
 export function extensionOutputIsIncomplete(

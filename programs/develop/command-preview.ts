@@ -18,7 +18,12 @@ import {withDarkMode} from './lib/dark-mode'
 import {computeExtensionsToLoad} from './lib/extensions-to-load'
 import {mergeOptionLayers, SERVE_COMMAND_DEFAULTS} from './lib/merge-options'
 import * as messages from './lib/messages'
-import {humanLine, isDebug} from './lib/messaging'
+import {
+  humanLine,
+  humanWarn,
+  isDebug,
+  stripChannelPrefix
+} from './lib/messaging'
 import {
   computePreviewOutputPath,
   configBrowserOrThrow,
@@ -232,12 +237,7 @@ export async function extensionPreview(
       `Expected manifest at ${manifestAtOutput}`
     )
 
-    throw new Error(
-      `Preview is run-only and does not compile.\n` +
-        `Expected an unpacked extension at:\n` +
-        `  ${manifestAtOutput}\n\n` +
-        `Run \`extension build\` or \`extension dev\` first, or pass --output-path to an existing unpacked extension directory.`
-    )
+    throw new Error(messages.previewHasNothingToRun(manifestAtOutput))
   }
 
   // Load command + browser defaults from the project root; when start.ts
@@ -245,6 +245,19 @@ export async function extensionPreview(
   const projectConfig = await loadProjectConfigDefaults(packageJsonDir)
   const commandConfig = await loadCommandConfig(packageJsonDir, metadataCommand)
   const browserConfig = await loadBrowserConfig(packageJsonDir, browser)
+
+  // Which directory is being previewed is the one thing every path has to say,
+  // so it is resolved before the no-browser branch returns and is carried to
+  // the envelope rather than living only in a terminal line.
+  const warnings: string[] = []
+
+  if (path.resolve(outputPath) !== path.resolve(distPath)) {
+    const frame = previewOptions.outputPath
+      ? messages.previewingCustomOutput(browser, outputPath, distPath)
+      : messages.previewingSourceFallback(browser, distPath)
+
+    warnings.push(stripChannelPrefix(frame))
+  }
 
   if (previewOptions.noBrowser) {
     const browserLabel = String(browser || 'unknown')
@@ -262,14 +275,23 @@ export async function extensionPreview(
 
     humanLine(devServerMessages.spacerLine())
     humanLine(runningMessage(browser, true))
+
+    if (warnings.length) {
+      humanWarn(
+        previewOptions.outputPath
+          ? messages.previewingCustomOutput(browser, outputPath, distPath)
+          : messages.previewingSourceFallback(browser, distPath)
+      )
+    }
+
     metadata.writeReady()
 
-    return
+    return {warnings}
   }
 
   humanLine(runningMessage(browser))
 
-  if (path.resolve(outputPath) !== path.resolve(distPath)) {
+  if (warnings.length) {
     humanLine(
       previewOptions.outputPath
         ? messages.previewingCustomOutput(browser, outputPath, distPath)
@@ -422,4 +444,6 @@ export async function extensionPreview(
   process.once('exit', () => {
     metadata.writeShutdown(`the ${metadataCommand} session ended`)
   })
+
+  return {warnings}
 }

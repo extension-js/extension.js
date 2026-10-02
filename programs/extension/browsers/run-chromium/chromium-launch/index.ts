@@ -22,6 +22,7 @@ import locateOpera from 'opera-location2'
 import locateVivaldi from 'vivaldi-location2'
 import locateYandex from 'yandex-location'
 import {
+  CODES,
   humanError,
   humanLine,
   humanWarn,
@@ -167,6 +168,15 @@ async function maybePrintLaunchBanner(args: {
   })
 }
 
+// Thrown rather than exited, so the command that owns stdout can frame it: a
+// bare process.exit left a machine consumer reading exit 1 with nothing on it.
+function invalidBinaryPinError(requestedPath: string): Error {
+  return Object.assign(
+    new Error(messages.invalidChromiumBinaryPath(requestedPath)),
+    {code: CODES.E_BROWSER_BINARY_INVALID}
+  )
+}
+
 // Shared with the Firefox launcher; re-exported here for existing importers.
 export {stampReadyBrowserExited}
 
@@ -306,13 +316,7 @@ export class ChromiumLaunchPlugin {
       const normalizedEarly = normalizeBinaryPathForWsl(requested)
 
       if (!normalizedEarly || !fs.existsSync(normalizedEarly)) {
-        humanError(messages.invalidChromiumBinaryPath(requested))
-
-        if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
-          throw new Error(`Invalid --chromium-binary path: ${requested}`)
-        }
-
-        process.exit(1)
+        throw invalidBinaryPinError(requested)
       }
     }
 
@@ -462,13 +466,7 @@ export class ChromiumLaunchPlugin {
       const normalized = normalizePath(requestedPin)
 
       if (!normalized || !isUsableBinary(normalized)) {
-        humanError(messages.invalidChromiumBinaryPath(requestedPin))
-
-        if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
-          throw new Error(`Invalid --chromium-binary path: ${requestedPin}`)
-        }
-
-        process.exit(1)
+        throw invalidBinaryPinError(requestedPin)
       }
 
       browserBinaryLocation = normalized
@@ -791,13 +789,7 @@ export class ChromiumLaunchPlugin {
 
     if (!browserBinaryLocation || !fs.existsSync(browserBinaryLocation)) {
       if (binaryPinnedByFlag) {
-        humanError(messages.invalidChromiumBinaryPath(requestedPin))
-
-        if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
-          throw new Error(`Invalid --chromium-binary path: ${requestedPin}`)
-        }
-
-        process.exit(1)
+        throw invalidBinaryPinError(requestedPin)
       }
 
       browserBinaryLocation = browserBinaryLocation || resolveManagedBinary()

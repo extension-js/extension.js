@@ -90,6 +90,14 @@ export function notAnExtensionManifestError(manifestPath: string) {
   )
 }
 
+export function previewHasNothingToRun(manifestAtOutput: string) {
+  return (
+    `${getLoggingPrefix('error')} Preview is run-only and does not compile.\n` +
+    `${colors.gray('NOT FOUND')} ${colors.underline(manifestAtOutput)}\n` +
+    `Run ${colors.blue('extension build')} first, or pass ${colors.blue('--output-path')} an unpacked extension directory.`
+  )
+}
+
 export function manifestNotFoundError(
   manifestPath: string,
   candidates: string[] = []

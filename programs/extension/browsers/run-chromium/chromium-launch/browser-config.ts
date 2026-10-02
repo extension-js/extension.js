@@ -8,7 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {humanLine, isDebug} from '../../../helpers/messaging'
+import {CODES, humanLine, isDebug} from '../../../helpers/messaging'
 import {stageCompanionForSession} from '../../browsers-lib/companion-session'
 import * as messages from '../../browsers-lib/messages'
 import {resolveProfileConfig} from '../../browsers-lib/resolve-profile'
@@ -271,6 +271,18 @@ export function browserConfig(
   // Seed Chromium profile preferences once for managed/explicit profile paths.
   // This ensures extension developer mode defaults are present on fresh runs.
   if (userProfilePath && provision) {
+    // A --profile pointing at a FILE made mkdir throw EEXIST as a raw stack,
+    // naming no flag, after the card had already announced the session.
+    if (
+      fs.existsSync(userProfilePath) &&
+      !fs.statSync(userProfilePath).isDirectory()
+    ) {
+      throw Object.assign(
+        new Error(messages.profilePathIsNotADirectory(userProfilePath)),
+        {code: CODES.E_INVALID_OPTION}
+      )
+    }
+
     fs.mkdirSync(userProfilePath, {recursive: true})
     prepareChromiumProfileForLaunch(userProfilePath)
 

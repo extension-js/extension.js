@@ -28,7 +28,6 @@ describe('ChromiumLaunchPlugin --chromium-binary', () => {
   }
 
   it('rejects a missing pin on chrome instead of asking to install Chrome for Testing', async () => {
-    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
     const plugin = new ChromiumLaunchPlugin(
       {
         browser: 'chrome',
@@ -38,14 +37,19 @@ describe('ChromiumLaunchPlugin --chromium-binary', () => {
       createChromiumContext() as any
     )
 
-    await expect(plugin.runOnce(compilation())).rejects.toThrow(
-      /Invalid --chromium-binary path/
+    const thrown = await plugin
+      .runOnce(compilation())
+      .then(() => undefined)
+      .catch((err: Error & {code?: string}) => err)
+
+    expect(thrown).toBeInstanceOf(Error)
+    expect(thrown?.code).toBe('E_BROWSER_BINARY_INVALID')
+    expect(thrown?.message).toMatch(
+      /Can't find a Chromium binary at the given path/
     )
 
-    const printed = error.mock.calls.map((c) => String(c[0])).join('\n')
-    expect(printed).toMatch(/Can't find a Chromium binary at the given path/)
-    expect(printed).not.toMatch(/Chrome for Testing/)
-    expect(printed).not.toMatch(/npx extension install chrome/)
+    expect(thrown?.message).not.toMatch(/Chrome for Testing/)
+    expect(thrown?.message).not.toMatch(/npx extension install chrome/)
   })
 
   it('dry-runs the named pin on chrome, not chromium-mock-binary', async () => {

@@ -17,7 +17,6 @@ vi.mock('../browsers/run-only', () => ({
   runOnlyPreviewBrowser: vi.fn(async () => {})
 }))
 
-import {readFile} from 'node:fs/promises'
 import {runOnlyPreviewBrowser} from '../browsers/run-only'
 import {
   PREVIEW_NOT_FOUND_NEEDLES,
@@ -209,11 +208,9 @@ describe('extension preview', () => {
       PREVIEW_NOT_FOUND_NEEDLES[1]
     )
 
-    const previewSource = await readFile(
-      new URL('../../develop/command-preview.ts', import.meta.url),
-      'utf8'
-    )
-    expect(previewSource).toContain(PREVIEW_NOT_FOUND_NEEDLES[0])
+    expect(
+      developMessages.previewHasNothingToRun('/p/dist/chrome/manifest.json')
+    ).toContain(PREVIEW_NOT_FOUND_NEEDLES[0])
   })
 
   it.each(
