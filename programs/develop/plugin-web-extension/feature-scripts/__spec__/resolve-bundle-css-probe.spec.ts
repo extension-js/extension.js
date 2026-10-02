@@ -68,7 +68,8 @@ function wrapContentScript(source: string): string {
 describe('bundle css probe marker', () => {
   it('bakes a resolvable marker instead of an unconditional sibling fetch', () => {
     const wrapped = wrapContentScript(
-      'export default function mount() {\n  return () => {}\n}\n'
+      'import {panel} from "./panel"\n' +
+        'export default function mount() {\n  return () => panel\n}\n'
     )
 
     expect(wrapped).toContain(
@@ -76,6 +77,19 @@ describe('bundle css probe marker', () => {
     )
 
     expect(wrapped).not.toContain('__EXTENSIONJS_BUNDLE_KEY + ".css"')
+  })
+
+  // A bundle whose source imports nothing has no module graph to pull a
+  // stylesheet in through, so there is no sibling sheet for a marker to name.
+  it('bakes no marker at all when the source can reach no stylesheet', () => {
+    const wrapped = wrapContentScript(
+      'export default function mount() {\n  return () => {}\n}\n'
+    )
+
+    expect(wrapped).not.toContain('__EXTENSIONJS_CSS_PROBE')
+    expect(wrapped).toContain(
+      'function __EXTENSIONJS_scheduleBundleCssHydration(){}'
+    )
   })
 
   it('resolves the marker to nothing when the build emitted no stylesheet', () => {

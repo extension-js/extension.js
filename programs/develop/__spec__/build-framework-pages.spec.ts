@@ -439,9 +439,14 @@ describe('JSX pages across frameworks', () => {
 })
 
 describe('content scripts keep classic handling', () => {
+  // `this` at the top of a bundled module is the module's own exports, so an
+  // assignment to it leaves no trace in the emitted script. The side effect has
+  // to land somewhere the bundle keeps for the assertion to say anything.
+  const OCTAL_CLASSIC = "var s = '\\101'\nglobalThis.octalMarker = s\n"
+
   it('a classic content script with octal escapes still builds in a react project', async () => {
     const root = project('react', {'popup.jsx': RENDER_ONLY})
-    write(root, 'content.js', "var s = '\\101'\nthis.marker = s\n")
+    write(root, 'content.js', OCTAL_CLASSIC)
     const manifest = JSON.parse(
       fs.readFileSync(path.join(root, 'manifest.json'), 'utf8')
     )
@@ -453,12 +458,12 @@ describe('content scripts keep classic handling', () => {
       path.join(built.distDir, 'content_scripts', 'content-0.js'),
       'utf8'
     )
-    expect(content).toContain('marker')
+    expect(content).toContain('octalMarker')
   }, 120_000)
 
   it('a classic content script with octal escapes still builds in a solid project', async () => {
     const root = project('solid', {'popup.jsx': RENDER_ONLY})
-    write(root, 'content.js', "var s = '\\101'\nthis.marker = s\n")
+    write(root, 'content.js', OCTAL_CLASSIC)
     const manifest = JSON.parse(
       fs.readFileSync(path.join(root, 'manifest.json'), 'utf8')
     )
@@ -470,6 +475,6 @@ describe('content scripts keep classic handling', () => {
       path.join(built.distDir, 'content_scripts', 'content-0.js'),
       'utf8'
     )
-    expect(content).toContain('marker')
+    expect(content).toContain('octalMarker')
   }, 120_000)
 })
