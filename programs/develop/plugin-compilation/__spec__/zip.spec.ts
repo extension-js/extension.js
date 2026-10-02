@@ -200,6 +200,23 @@ describe('isDeniedFromSourceZip', () => {
     expect(isDeniedFromSourceZip('src/git/helper.ts')).toBe(false)
   })
 
+  // A source zip is published. The url stamp is a file the fetch wrote into
+  // the tree, not something the author authored, so it never ships.
+  it('denies the remote source provenance stamp', () => {
+    expect(isDeniedFromSourceZip('.extension-source.json')).toBe(true)
+    expect(isDeniedFromSourceZip('packages/a/.extension-source.json')).toBe(
+      true
+    )
+
+    expect(isDeniedFromSourceZip('src/extension-source.json')).toBe(false)
+  })
+
+  it('denies the stamp the scaffolder writes into a new project', () => {
+    expect(isDeniedFromSourceZip('.extension-create.json')).toBe(true)
+
+    expect(isDeniedFromSourceZip('src/extension-create.json')).toBe(false)
+  })
+
   it('denies env files anywhere except example variants', () => {
     expect(isDeniedFromSourceZip('config/.env')).toBe(true)
     expect(isDeniedFromSourceZip('.env.production')).toBe(true)

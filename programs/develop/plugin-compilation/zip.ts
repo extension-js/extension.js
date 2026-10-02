@@ -15,6 +15,7 @@ import glob from 'tiny-glob'
 import * as messages from '../lib/messages'
 import {isDebug} from '../lib/messaging'
 import {parseJsonSafe} from '../lib/parse-json-safe'
+import {REMOTE_SOURCE_PROVENANCE_FILE} from '../lib/zip'
 import type {DevOptions} from '../types'
 import {recordZipArtifact, recordZipFailure} from './zip-artifacts'
 
@@ -167,8 +168,15 @@ function isCompanionExtension(file: string): boolean {
 // This deny list is the security boundary; the root .gitignore is only a
 // courtesy supplement on top of it. `.git` also matches the worktree case
 // where `.git` is a file, and matching any path segment covers nested
-// repositories and nested node_modules too.
-const DENIED_SEGMENTS = new Set(['.git', '.extension-js', 'node_modules'])
+// repositories and nested node_modules too. The two stamps are files the
+// tooling wrote about a tree, not the author's source, so neither is published.
+const DENIED_SEGMENTS = new Set([
+  '.git',
+  '.extension-js',
+  'node_modules',
+  '.extension-create.json',
+  REMOTE_SOURCE_PROVENANCE_FILE
+])
 
 // dist holds the compiled build, the archives of earlier runs and, under
 // dist/extension-js, managed browser profiles (cookies, logins) and session

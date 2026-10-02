@@ -668,6 +668,34 @@ export function creatingProjectPath() {
   return `${getLoggingPrefix('info')} Creating a new browser extension…`
 }
 
+// The tree is the one this tool recorded as fetched from this url, so it is
+// reused as-is. Saying so is the difference between a cache and a download.
+export function reusingDownloadedProject(destinationPath: string, url: string) {
+  return (
+    `${getLoggingPrefix('info')} Using the extension already downloaded here…\n` +
+    `${colors.gray('PATH')} ${colors.underline(destinationPath)}\n` +
+    `${colors.gray('URL')} ${fmt.val(url)}\n` +
+    `Delete that folder to download it again.`
+  )
+}
+
+export function remoteSourceDestinationTaken(
+  destinationPath: string,
+  source: string
+) {
+  const isUrl = /^https?:\/\//i.test(source)
+
+  return (
+    `${getLoggingPrefix('error')} ` +
+    (isUrl
+      ? `A folder is already here, and it isn't a download from this URL.\n`
+      : `A folder is already here, and it wasn't extracted from this ZIP file.\n`) +
+    `${colors.gray('PATH')} ${colors.underline(destinationPath)}\n` +
+    `${colors.gray(isUrl ? 'URL' : 'ZIP')} ${fmt.val(source)}\n` +
+    `Rename or remove that folder, or run the command from another folder.`
+  )
+}
+
 export function downloadedProjectFolderNotFound(
   cwd: string,
   candidates: string[]
