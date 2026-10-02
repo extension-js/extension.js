@@ -62,7 +62,10 @@ import {
   ensureSessionStateInProjectGitignore
 } from './lib/session-paths'
 import {assertNoManagedDependencyConflicts} from './lib/validate-user-dependencies'
-import {getZipArtifacts} from './plugin-compilation/zip-artifacts'
+import {
+  getZipArtifacts,
+  getZipFailures
+} from './plugin-compilation/zip-artifacts'
 import {
   ensureTypeScriptConfig,
   isUsingTypeScript
@@ -457,6 +460,23 @@ export async function extensionBuild(
             lintLines.push(lint.line)
           }
 
+          // The docs tell a reader to take the archive path from the build
+          // output rather than compose it, so the machine surfaces carry it.
+          const zipArtifacts = getZipArtifacts(stats.compilation).map(
+            (artifact) => ({
+              kind: artifact.kind,
+              path:
+                useStagingSwap && artifact.path.startsWith(stagingDistPath)
+                  ? distPath + artifact.path.slice(stagingDistPath.length)
+                  : artifact.path,
+              size: artifact.size
+            })
+          )
+
+          if (zipArtifacts.length > 0) {
+            summary = {...summary, zip_artifacts: zipArtifacts}
+          }
+
           // Hosts that shell out to `extension build` cannot see the returned
           // summary, so persist it next to ready.json. Best-effort only.
           try {
@@ -502,15 +522,39 @@ export async function extensionBuild(
             )
           )
 
-          for (const artifact of getZipArtifacts(stats.compilation)) {
-            // Zips created inside the staging dir moved with the promote.
-            const artifactPath =
-              useStagingSwap && artifact.path.startsWith(stagingDistPath)
-                ? distPath + artifact.path.slice(stagingDistPath.length)
-                : artifact.path
+          for (const artifact of zipArtifacts) {
             const zipDisplay =
-              relativeToDir(artifactPath, process.cwd()) || artifactPath
+              relativeToDir(artifact.path, process.cwd()) || artifact.path
             humanLine(messages.zipArtifactReady(zipDisplay, artifact.size))
+          }
+
+          // An archive the caller asked for and did not get is a failure, not a
+          // warning: `build --zip && upload dist/*.zip` used to exit 0 with none.
+          const zipFailures = getZipFailures(stats.compilation)
+
+          if (zipFailures.length > 0) {
+            for (const failure of zipFailures) {
+              const failureDisplay =
+                relativeToDir(failure.path, process.cwd()) || failure.path
+              console.error(
+                messages.zipArtifactNotCreated(
+                  failure.kind,
+                  failureDisplay,
+                  failure.reason
+                )
+              )
+            }
+
+            reject(
+              Object.assign(
+                new Error(
+                  `${zipFailures.length} requested archive${zipFailures.length === 1 ? ' was' : 's were'} not created`
+                ),
+                {code: 'E_ZIP_SKIPPED'}
+              )
+            )
+
+            return
           }
 
           const shareHint = messages.buildShareHint()

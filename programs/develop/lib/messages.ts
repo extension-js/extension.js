@@ -683,6 +683,26 @@ export function packagingSourceFiles(zipPath: string) {
   return `${prefix('debug')} zip      pack=source gitignore=excluded path=${zipPath}`
 }
 
+export function zipSkippedSymlinks(links: string[]) {
+  return (
+    `${getLoggingPrefix('warn')} The source zip skipped ${links.length === 1 ? 'a symlink' : `${links.length} symlinks`}, because an archive stores files.\n` +
+    `${colors.gray('SKIPPED')} ${links.join(', ')}\n` +
+    `Copy what the link points at into the project if the archive needs it.`
+  )
+}
+
+export function zipArtifactNotCreated(
+  kind: 'source' | 'dist',
+  zipPath: string,
+  reason: string
+) {
+  return (
+    `${getLoggingPrefix('error')} The ${kind === 'source' ? 'source' : 'distribution'} zip was requested and not created.\n` +
+    `${colors.gray('PATH')} ${colors.underline(zipPath)}\n` +
+    `${colors.red(reason)}`
+  )
+}
+
 export function zipArtifactReady(zipPath: string, sizeInBytes: number) {
   return (
     `${getLoggingPrefix('success')} Packaged ${colors.underline(zipPath)} ` +

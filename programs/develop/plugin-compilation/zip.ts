@@ -16,7 +16,7 @@ import * as messages from '../lib/messages'
 import {isDebug} from '../lib/messaging'
 import {parseJsonSafe} from '../lib/parse-json-safe'
 import type {DevOptions} from '../types'
-import {recordZipArtifact} from './zip-artifacts'
+import {recordZipArtifact, recordZipFailure} from './zip-artifacts'
 
 export interface ZipPluginOptions {
   manifestPath?: string
@@ -197,7 +197,10 @@ function isUnder(file: string, root: string | undefined): boolean {
   return file === root || file.startsWith(`${root}/`)
 }
 
-function relativeWithin(projectDir: string, target: string): string | undefined {
+function relativeWithin(
+  projectDir: string,
+  target: string
+): string | undefined {
   const relative = toPosix(path.relative(projectDir, target))
   const outside =
     relative === '..' || relative.startsWith('../') || path.isAbsolute(relative)
@@ -238,7 +241,7 @@ export function isBuildOutput(
 export async function getFilesToZip(
   projectDir: string,
   output?: BuildOutput
-): Promise<string[]> {
+): Promise<{files: string[]; skippedLinks: string[]}> {
   const gitignorePath = path.join(projectDir, '.gitignore')
   const ig = ignore()
 
@@ -264,13 +267,32 @@ export async function getFilesToZip(
     })
   ).map(toPosix)
 
-  return files.filter(
+  const kept = files.filter(
     (file) =>
       !isDeniedFromSourceZip(file) &&
       !(output && isBuildOutput(file, projectDir, output)) &&
       !ig.ignores(file) &&
       !isCompanionExtension(file)
   )
+  // tiny-glob lists a symlink as a regular file and does not descend into it,
+  // so reading one threw EISDIR or ENOENT and took the whole archive down.
+  const regularFiles: string[] = []
+  const skippedLinks: string[] = []
+
+  for (const file of kept) {
+    if (isRegularFile(path.join(projectDir, file))) regularFiles.push(file)
+    else skippedLinks.push(file)
+  }
+
+  return {files: regularFiles, skippedLinks}
+}
+
+function isRegularFile(absPath: string): boolean {
+  try {
+    return fs.lstatSync(absPath).isFile()
+  } catch {
+    return false
+  }
 }
 
 type ManifestLike = {
@@ -334,7 +356,8 @@ export class ZipPlugin {
         const outPath = compiler.options.output?.path as string
         const packageJsonDir = compiler.options.context as string
         const sourceManifestPath =
-          this.options.manifestPath || path.join(packageJsonDir, 'manifest.json')
+          this.options.manifestPath ||
+          path.join(packageJsonDir, 'manifest.json')
         const distManifestPath = path.join(outPath, 'manifest.json')
 
         // The emitted manifest is the one the pipeline finished: vendor
@@ -365,54 +388,83 @@ export class ZipPlugin {
           )
         )
         const name = `${base}-${manifest.version || '0.0.0'}`
-        const sourcePath = path.join(
-          path.dirname(outPath),
-          `${name}-source.zip`
-        )
         const zipName = this.zipData.zipFilename
           ? explicitZipFilename(this.zipData.zipFilename)
           : `${name}-${this.browser}.zip`
+        // An explicit name governs both archives. The source zip used to keep
+        // the derived name, so a job that asked for one name got another file.
+        const sourceName = this.zipData.zipFilename
+          ? zipName.replace(/\.zip$/i, '-source.zip')
+          : `${name}-source.zip`
+        const sourcePath = path.join(path.dirname(outPath), sourceName)
         // Beside the browser folder, never inside it: dist/<browser> is
         // what a store upload or a load-unpacked takes whole, and a zip
         // left inside it ships in the next package of itself.
         const distPath = path.join(path.dirname(outPath), zipName)
 
+        // One archive's failure is not the other's: the source zip used to
+        // take the dist zip down with it, and neither was reported as missing.
         if (this.zipData.zipSource) {
-          const files = await getFilesToZip(packageJsonDir, {
-            outPath,
-            archives: [sourcePath, distPath]
-          })
+          try {
+            const {files, skippedLinks} = await getFilesToZip(packageJsonDir, {
+              outPath,
+              archives: [sourcePath, distPath]
+            })
 
-          if (isDebug()) {
-            console.log(messages.packagingSourceFiles(sourcePath))
+            if (skippedLinks.length) {
+              stats?.compilation?.warnings?.push(
+                new Error(messages.zipSkippedSymlinks(skippedLinks))
+              )
+            }
+
+            if (isDebug()) {
+              console.log(messages.packagingSourceFiles(sourcePath))
+            }
+
+            writeZipFile(
+              sourcePath,
+              files.map((file) => ({
+                name: file,
+                absPath: path.join(packageJsonDir, file)
+              }))
+            )
+
+            created.push({kind: 'source', path: sourcePath})
+          } catch (error) {
+            recordZipFailure(stats?.compilation, {
+              kind: 'source',
+              path: sourcePath,
+              reason: String((error as Error)?.message || error)
+            })
           }
-
-          writeZipFile(
-            sourcePath,
-            files.map((file) => ({
-              name: file,
-              absPath: path.join(packageJsonDir, file)
-            }))
-          )
-
-          created.push({kind: 'source', path: sourcePath})
         }
 
         if (this.zipData.zip) {
-          if (isDebug()) {
-            console.log(messages.packagingDistributionFiles(distPath))
+          try {
+            if (isDebug()) {
+              console.log(messages.packagingDistributionFiles(distPath))
+            }
+
+            writeZipFile(
+              distPath,
+              // A store zip carries the extension, not its debugging aids: a
+              // development-mode build leaves maps in dist for the author.
+              listFilesUnder(outPath, new Set([toPosix(zipName)]))
+                .filter((file) => !file.endsWith('.map'))
+                .map((file) => ({
+                  name: file,
+                  absPath: path.join(outPath, file)
+                }))
+            )
+
+            created.push({kind: 'dist', path: distPath})
+          } catch (error) {
+            recordZipFailure(stats?.compilation, {
+              kind: 'dist',
+              path: distPath,
+              reason: String((error as Error)?.message || error)
+            })
           }
-
-          writeZipFile(
-            distPath,
-            // A store zip carries the extension, not its debugging aids: a
-            // development-mode build leaves maps in dist for the author.
-            listFilesUnder(outPath, new Set([toPosix(zipName)]))
-              .filter((file) => !file.endsWith('.map'))
-              .map((file) => ({name: file, absPath: path.join(outPath, file)}))
-          )
-
-          created.push({kind: 'dist', path: distPath})
         }
 
         for (const artifact of created) {
