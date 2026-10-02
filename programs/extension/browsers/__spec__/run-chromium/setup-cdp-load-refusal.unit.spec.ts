@@ -19,9 +19,13 @@ vi.mock('../../run-chromium/cdp/cdp-extension-controller', () => {
   return {CDPExtensionController}
 })
 
-vi.mock('../../browsers-lib/shared-utils', () => ({
-  deriveDebugPortWithInstance: vi.fn(() => 9333)
-}))
+vi.mock('../../browsers-lib/shared-utils', async () => {
+  const actual = (await vi.importActual(
+    '../../browsers-lib/shared-utils'
+  )) as Record<string, unknown>
+
+  return {...actual, deriveDebugPortWithInstance: vi.fn(() => 9333)}
+})
 
 vi.mock('../../browsers-lib/banner', () => ({
   printDevBannerOnce: vi.fn(async () => true),
