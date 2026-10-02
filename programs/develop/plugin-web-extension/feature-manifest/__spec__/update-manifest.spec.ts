@@ -1,6 +1,8 @@
-import {describe, expect, it, vi} from 'vitest'
+import {beforeEach, describe, expect, it, vi} from 'vitest'
 import {setOriginalManifestContent} from '../manifest-lib/manifest'
 import {UpdateManifest} from '../steps/update-manifest'
+
+const overridesSpy = vi.hoisted(() => vi.fn(() => JSON.stringify({icons: {}})))
 
 vi.mock('../../lib/utils', () => ({
   getManifestContent: (_c: any, _p: string) => ({
@@ -11,10 +13,14 @@ vi.mock('../../lib/utils', () => ({
 }))
 
 vi.mock('../manifest-overrides', () => ({
-  getManifestOverrides: () => JSON.stringify({icons: {}})
+  getManifestOverrides: overridesSpy
 }))
 
 describe('UpdateManifest', () => {
+  beforeEach(() => {
+    overridesSpy.mockClear()
+  })
+
   const make = (
     mode: 'development' | 'production',
     manifestSource = '{"name":"x"}',
@@ -51,7 +57,7 @@ describe('UpdateManifest', () => {
       }
     }
 
-    return {compiler, updated}
+    return {compiler, updated, compilation}
   }
 
   it('applies overrides and dev content_scripts overrides in development', () => {
@@ -262,6 +268,82 @@ describe('UpdateManifest', () => {
     expect(logSpy).toHaveBeenCalledTimes(2)
 
     logSpy.mockRestore()
+  })
+
+  it('names the MV3 string content_security_policy it rewrote', () => {
+    const {compiler, compilation} = make(
+      'production',
+      JSON.stringify({
+        name: 'x',
+        manifest_version: 3,
+        content_security_policy: "script-src 'self'; object-src 'self'"
+      })
+    )
+    new UpdateManifest({manifestPath: '/m'} as any).apply(compiler)
+    const named = compilation.warnings.filter((warning: any) =>
+      String(warning.message).includes('content_security_policy')
+    )
+    expect(named).toHaveLength(1)
+    expect(named[0].message).toContain('extension_pages')
+  })
+
+  it('folds an MV3 browser_action into action and names the rewrite', () => {
+    const {compiler, updated, compilation} = make(
+      'production',
+      JSON.stringify({
+        name: 'x',
+        manifest_version: 3,
+        browser_action: {default_popup: 'popup.html'}
+      })
+    )
+    new UpdateManifest({manifestPath: '/m'} as any).apply(compiler)
+    const out = JSON.parse(updated['manifest.json'])
+    expect(out.browser_action).toBeUndefined()
+    expect(out.action).toEqual({default_popup: 'popup.html'})
+    expect(
+      compilation.warnings.filter((warning: any) =>
+        String(warning.message).includes('browser_action')
+      )
+    ).toHaveLength(1)
+  })
+
+  it('refuses an MV3 background.page on chromium by name', () => {
+    const {compiler, compilation} = make(
+      'production',
+      JSON.stringify({
+        name: 'x',
+        manifest_version: 3,
+        background: {page: 'background.html'}
+      })
+    )
+    new UpdateManifest({manifestPath: '/m', browser: 'chrome'} as any).apply(
+      compiler
+    )
+
+    expect(compilation.errors).toHaveLength(1)
+    expect(compilation.errors[0].message).toContain('background.page')
+  })
+
+  it('keeps an MV3 background.page for firefox', () => {
+    const {compiler, compilation} = make(
+      'production',
+      JSON.stringify({
+        name: 'x',
+        manifest_version: 3,
+        background: {page: 'background.html'}
+      })
+    )
+    new UpdateManifest({manifestPath: '/m', browser: 'firefox'} as any).apply(
+      compiler
+    )
+
+    expect(compilation.errors).toHaveLength(0)
+  })
+
+  it('computes the override tree once per compile', () => {
+    const {compiler} = make('development', JSON.stringify({name: 'x'}))
+    new UpdateManifest({manifestPath: '/m'} as any).apply(compiler)
+    expect(overridesSpy).toHaveBeenCalledTimes(1)
   })
 
   it('emits manifest.json when no public asset exists yet', () => {

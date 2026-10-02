@@ -118,6 +118,10 @@ export interface HelloFrame {
   role: BridgeRole
   instanceId: string
   token?: string
+  // A producer built with the reload-ack protocol. Absent from a
+  // profile-cached worker of an older build, which is then ack-exempt: the
+  // broker must never ask it for a receipt it cannot send.
+  acksReloads?: boolean
 }
 
 export interface ReadyFrame {
@@ -209,6 +213,9 @@ export interface ResultFrame {
 export interface ReloadFrame {
   type: 'reload'
   reloadType: DevReloadKind
+  // Correlation id for the receipt, present only when a connected producer
+  // negotiated the ack protocol. An ack naming it confirms THIS broadcast.
+  reloadId?: string
   changedContentScriptEntries?: string[]
   /**
    * Server-built human context label, e.g. "content_script (content/scripts.tsx)".
@@ -228,8 +235,16 @@ export interface ReloadFrame {
 export interface ReloadAckFrame {
   type: 'reload-ack'
   reloadType: DevReloadKind
+  // Echoed from the ReloadFrame when it carried one, so a late ack cannot
+  // confirm a newer reload the producer never saw.
+  reloadId?: string
   label?: string
 }
+
+// What became of the receipt for the newest reload broadcast: the worker
+// confirmed it, the ack window closed unanswered, or no connected producer
+// acks at all and delivery is the only claim the dev server can make.
+export type ReloadAckOutcome = 'acked' | 'unacked' | 'not-expected'
 
 /**
  * Server → producer keepalive. An MV3 service worker idles out after ~30s

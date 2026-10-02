@@ -248,6 +248,30 @@ export function mv2SandboxPolicyDropped(browser: string) {
   )
 }
 
+export function mv3StringPolicyRewritten(browser: string) {
+  return (
+    `${prefix('warn')} ${colors.blue(browser)} reads a Manifest V3 ${colors.yellow('content_security_policy')} as an object, and the manifest wrote the Manifest V2 string form.\n` +
+    `The build moved that string into the ${colors.yellow('extension_pages')} slot, which is what the browser refuses to install the extension without. ` +
+    'Write the object form in manifest.json, or scope the string with the firefox: prefix for a Manifest V2 build.'
+  )
+}
+
+export function mv3BrowserActionFoldedIntoAction(browser: string) {
+  return (
+    `${prefix('warn')} ${colors.blue(browser)} replaced ${colors.yellow('browser_action')} with ${colors.yellow('action')} in Manifest V3, so the toolbar button never opens under the old key.\n` +
+    `The build wrote the key as ${colors.yellow('action')} in the built manifest. ` +
+    'Rename it in manifest.json, or scope it with the firefox: prefix for a Manifest V2 build.'
+  )
+}
+
+export function mv3BackgroundPageUnsupported(browser: string) {
+  return (
+    `${prefix('error')} ${colors.blue(browser)} has no ${colors.yellow('background.page')} in Manifest V3, and the extension installs with no background context at all.\n` +
+    'Nothing reports that at load time: the background code, the reload bridge and the control channel all go missing silently. ' +
+    `Declare ${colors.yellow('background.service_worker')} instead, or scope the page with the firefox: prefix for a Manifest V2 build.`
+  )
+}
+
 export function geckoSidePanelUnsupported(file: string) {
   const lines: string[] = []
   lines.push(

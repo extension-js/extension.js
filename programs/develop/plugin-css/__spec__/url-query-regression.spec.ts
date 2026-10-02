@@ -5,11 +5,27 @@ import {rspack} from '@rspack/core'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 
 import {cssInContentScriptLoader} from '../css-in-content-script-loader'
+import {EXTENSION_ROOT_PLACEHOLDER} from '../css-lib/inline-content-script-css'
 
 const FIXTURE_RAW_MARKER = '/* RAW_CSS_MARKER */'
 const FIXTURE_PROCESSED_MARKER = '--regression-marker: processed;'
 
-function writeFixture(dir: string) {
+const MARKER_PLUGIN = `{
+      postcssPlugin: 'regression-marker',
+      Rule(rule) {
+        rule.prepend({prop: '--regression-marker', value: 'processed'})
+      }
+    }`
+
+function configSource(configFile: string) {
+  const body = `{\n  plugins: [\n    ${MARKER_PLUGIN}\n  ]\n}\n`
+
+  return configFile.endsWith('.ts')
+    ? `export default ${body}`
+    : `module.exports = ${body}`
+}
+
+function writeFixture(dir: string, configFile: string) {
   fs.mkdirSync(path.join(dir, 'src', 'content'), {recursive: true})
   fs.writeFileSync(
     path.join(dir, 'package.json'),
@@ -31,25 +47,14 @@ function writeFixture(dir: string) {
     `import cssHref from './styles.css?url'\nconsole.log(cssHref)\n`
   )
 
-  fs.writeFileSync(
-    path.join(dir, 'src', 'content', 'styles.css'),
-    `${FIXTURE_RAW_MARKER}\n.widget { color: red }\n`
-  )
+  fs.writeFileSync(path.join(dir, 'src', 'content', 'icon.png'), 'image')
 
   fs.writeFileSync(
-    path.join(dir, 'postcss.config.cjs'),
-    `module.exports = {
-  plugins: [
-    {
-      postcssPlugin: 'regression-marker',
-      Rule(rule) {
-        rule.prepend({prop: '--regression-marker', value: 'processed'})
-      }
-    }
-  ]
-}
-`
+    path.join(dir, 'src', 'content', 'styles.css'),
+    `${FIXTURE_RAW_MARKER}\n.widget { color: red; background-image: URL(./icon.png) }\n`
   )
+
+  fs.writeFileSync(path.join(dir, configFile), configSource(configFile))
 }
 
 function findEmittedCss(distDir: string): string | null {
@@ -87,7 +92,10 @@ function findEmittedCss(distDir: string): string | null {
   return null
 }
 
-describe('css-url-query regression (end-to-end)', () => {
+describe.each([
+  'postcss.config.cjs',
+  'postcss.config.ts'
+])('css-url-query regression, end-to-end behind %s', (configFile) => {
   let fixtureDir: string
 
   beforeAll(() => {
@@ -97,7 +105,7 @@ describe('css-url-query regression (end-to-end)', () => {
       path.join(os.tmpdir(), 'extjs-url-query-regression-')
     )
 
-    writeFixture(fixtureDir)
+    writeFixture(fixtureDir, configFile)
   })
 
   afterAll(() => {
@@ -159,5 +167,12 @@ describe('css-url-query regression (end-to-end)', () => {
       emitted!.includes(FIXTURE_PROCESSED_MARKER),
       'emitted CSS missing PostCSS-injected marker, `?url` import bypassed the CSS pipeline'
     ).toBe(true)
+
+    expect(
+      String(emitted),
+      'emitted CSS kept an author-relative URL() reference, which has no base in a data: sheet'
+    ).toContain(EXTENSION_ROOT_PLACEHOLDER)
+
+    expect(String(emitted)).not.toContain('./icon.png')
   }, 60_000)
 })

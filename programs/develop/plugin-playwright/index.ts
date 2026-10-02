@@ -59,6 +59,9 @@ export type ReadyMetadata = {
   instanceId?: string
   instanceExplicit?: boolean
   controlPort?: number | null
+  // Why `controlPort` is null: without it a reader cannot tell a session that
+  // never asked for a control bridge from one whose bridge could not bind.
+  controlPortUnavailableReason?: string
   controlPath?: string
   logsPath?: string
   cdpPort?: number
@@ -130,6 +133,7 @@ type WriterOptions = {
   instanceId?: string
   instanceExplicit?: boolean
   controlPort?: number | string | null
+  controlPortUnavailableReason?: string | null
   controlPath?: string
   logsPath?: string
   managedExtensionDirs?: string[]
@@ -147,6 +151,7 @@ type PluginOptions = {
   instanceId?: string
   instanceExplicit?: boolean
   controlPort?: number | string | null
+  controlPortUnavailableReason?: string | null
   controlPath?: string
   logsPath?: string
   managedExtensionDirs?: string[]
@@ -554,6 +559,15 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     instanceId: options.instanceId,
     ...(options.instanceExplicit ? {instanceExplicit: true} : {}),
     controlPort: toPort(options.controlPort),
+    // On the writer's base rather than a one-shot write: the plugin's
+    // writeStarting() replaces the document at the first compile.
+    ...(options.controlPortUnavailableReason
+      ? {
+          controlPortUnavailableReason: String(
+            options.controlPortUnavailableReason
+          )
+        }
+      : {}),
     controlPath: options.controlPath,
     logsPath: options.logsPath,
     toolchainVersion: packageJson.version,
@@ -904,6 +918,7 @@ export class PlaywrightPlugin {
       instanceId: options.instanceId,
       instanceExplicit: options.instanceExplicit,
       controlPort: options.controlPort,
+      controlPortUnavailableReason: options.controlPortUnavailableReason,
       controlPath: options.controlPath,
       logsPath: options.logsPath,
       managedExtensionDirs: options.managedExtensionDirs

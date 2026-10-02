@@ -681,6 +681,7 @@ export async function devServer(
   }
 
   let bridgeControlPort: number | null = null
+  let controlPortUnavailableReason: string | null = null
 
   try {
     bridgeLogFile.start()
@@ -723,6 +724,7 @@ export async function devServer(
     // than let the broker blame a worker that was never given a port to dial.
     const reason = error instanceof Error ? error.message : String(error)
 
+    controlPortUnavailableReason = reason
     bridgeBroker.noteControlPortUnavailable(reason)
     humanLine(messages.controlBridgeUnavailable(reason))
 
@@ -830,6 +832,7 @@ export async function devServer(
     instanceId: currentInstance.instanceId,
     instanceExplicit: currentInstance.instanceExplicit,
     controlPort: bridgeControlPort,
+    controlPortUnavailableReason,
     controlPath: CONTROL_WS_PATH,
     logsPath: bridgeLogsRelPath,
     port: portAllocation.port,
@@ -852,6 +855,7 @@ export async function devServer(
     instanceId: currentInstance.instanceId,
     instanceExplicit: currentInstance.instanceExplicit,
     controlPort: bridgeControlPort,
+    controlPortUnavailableReason,
     controlPath: CONTROL_WS_PATH,
     logsPath: bridgeLogsRelPath
   })

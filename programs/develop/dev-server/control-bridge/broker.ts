@@ -23,6 +23,8 @@ import {
   type HelloFrame,
   type IncomingLogEvent,
   type ReadyFrame,
+  type ReloadAckFrame,
+  type ReloadAckOutcome,
   type ReloadFrame,
   type ResultFrame,
   type ServerFrame
@@ -71,6 +73,11 @@ export {
 
 export const DEFAULT_CMD_TIMEOUT_MS = 5000
 export const MAX_CMD_TIMEOUT_MS = 30_000
+
+// How long a producer that negotiated the ack protocol has to confirm a
+// reload. The ack is sent from the frame handler itself, so a receipt that
+// has not arrived by now means the worker never processed the broadcast.
+export const RELOAD_ACK_TIMEOUT_MS = 3000
 
 const CONTROL_OPS: ReadonlySet<CommandOp> = new Set([
   'eval',
@@ -285,6 +292,16 @@ export class BridgeBroker {
   // Latest reload broadcast not yet provably delivered. Latched until a producer
   // confirms (reload-ack for content scripts) or the next producer hello.
   private pendingReload?: ReloadFrame
+  // Producers that negotiated the ack protocol at hello. A worker cached from
+  // an older build is absent here and stays ack-exempt, so its reloads are
+  // never reported as unapplied.
+  private readonly ackingProducers = new Set<BridgeConnection>()
+  private reloadSeq = 0
+  private reloadAck: {
+    reloadId: string
+    outcome: Promise<ReloadAckOutcome>
+    settle: (outcome: ReloadAckOutcome) => void
+  } | null = null
 
   constructor(options: BridgeBrokerOptions) {
     this.instanceId = options.instanceId
@@ -354,13 +371,11 @@ export class BridgeBroker {
 
         return
       case 'reload-ack':
-        // Reinjection provably ran in the SW: release the delivery latch so
-        // the next producer hello doesn't replay an already-applied reload.
-        if (
-          this.isReloadReceiver(this.roles.get(conn)) &&
-          this.pendingReload?.reloadType === frame.reloadType
-        ) {
-          this.pendingReload = undefined
+        // The SW provably processed the broadcast: release the delivery latch
+        // so the next producer hello doesn't replay an applied reload, and
+        // resolve the receipt the dispatch is waiting on.
+        if (this.isReloadReceiver(this.roles.get(conn))) {
+          this.onReloadAck(frame)
         }
 
         return
@@ -373,6 +388,7 @@ export class BridgeBroker {
     const role = this.roles.get(conn)
     this.roles.delete(conn)
     this.evalGate.delete(conn)
+    this.ackingProducers.delete(conn)
 
     if (role === 'producer') {
       this.lastProducerDisconnectedAt = this.now()
@@ -438,9 +454,19 @@ export class BridgeBroker {
     changedFiles?: string[]
     changedScriptFiles?: string[]
   }): number {
+    const receivers: BridgeConnection[] = []
+
+    for (const [conn, role] of this.roles) {
+      if (this.isReloadReceiver(role)) receivers.push(conn)
+    }
+
+    // Only mint a correlation id when someone can echo it: a receiver from an
+    // older build would see an unknown field and never ack it.
+    const expectsAck = receivers.some((conn) => this.ackingProducers.has(conn))
     const frame: ReloadFrame = {
       type: 'reload',
       reloadType: instruction.type,
+      ...(expectsAck ? {reloadId: `r${++this.reloadSeq}`} : {}),
       changedContentScriptEntries: instruction.changedContentScriptEntries,
       label: instruction.label,
       changedFiles: instruction.changedFiles,
@@ -450,12 +476,14 @@ export class BridgeBroker {
     }
 
     let notified = 0
+    let awaitingAck = 0
 
-    for (const [conn, role] of this.roles) {
-      if (!this.isReloadReceiver(role)) continue
-
+    for (const conn of receivers) {
       try {
-        if (conn.send(frame)) notified++
+        if (!conn.send(frame)) continue
+
+        notified++
+        if (this.ackingProducers.has(conn)) awaitingAck++
       } catch {
         // A failing producer socket must not break the broadcast; the adapter
         // tears down dead sockets on error/close.
@@ -470,7 +498,66 @@ export class BridgeBroker {
         ? frame
         : undefined
 
+    this.armReloadAck(awaitingAck > 0 ? frame : undefined)
+
     return notified
+  }
+
+  // Resolves once the newest broadcast is provably applied, once its ack
+  // window closes unanswered, or at once when no receiver acks at all.
+  awaitReloadAck(): Promise<ReloadAckOutcome> {
+    return this.reloadAck?.outcome ?? Promise.resolve('not-expected')
+  }
+
+  private armReloadAck(frame?: ReloadFrame): void {
+    // A newer broadcast supersedes the receipt the last one was waiting for:
+    // its caller must not warn about an edit this one already replaced.
+    this.reloadAck?.settle('not-expected')
+    this.reloadAck = null
+
+    const reloadId = frame?.reloadId
+    if (!reloadId) return
+
+    let settled = false
+    let resolve: (outcome: ReloadAckOutcome) => void = () => undefined
+    const outcome = new Promise<ReloadAckOutcome>((r) => {
+      resolve = r
+    })
+    const timer = this.setTimer(() => {
+      if (settled) return
+
+      settled = true
+      resolve('unacked')
+    }, RELOAD_ACK_TIMEOUT_MS)
+
+    this.reloadAck = {
+      reloadId,
+      outcome,
+      settle: (next) => {
+        if (settled) return
+
+        settled = true
+        this.clearTimer(timer)
+        resolve(next)
+      }
+    }
+  }
+
+  private onReloadAck(frame: ReloadAckFrame): void {
+    const pending = this.pendingReload
+    const confirmsPending = pending
+      ? frame.reloadId
+        ? pending.reloadId === frame.reloadId
+        : pending.reloadType === frame.reloadType
+      : false
+
+    if (confirmsPending) this.pendingReload = undefined
+
+    // The id is required to settle the receipt: an id-less ack comes from a
+    // producer the broadcast never expected one from.
+    if (frame.reloadId && this.reloadAck?.reloadId === frame.reloadId) {
+      this.reloadAck.settle('acked')
+    }
   }
 
   // After a broadcast reached zero producers, decide whether to warn once that
@@ -680,6 +767,8 @@ export class BridgeBroker {
 
     if (hello.role === 'producer') {
       this.producerEverConnected = true
+      if (hello.acksReloads) this.ackingProducers.add(conn)
+
       // A producer is back: clear the undelivered-reload dedup so a later detach
       // can warn again (the attach state genuinely transitioned).
       this.lastUndeliveredWarnKind = null

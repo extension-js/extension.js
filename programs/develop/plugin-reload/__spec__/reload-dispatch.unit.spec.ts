@@ -104,6 +104,58 @@ describe('dispatchReload', () => {
     expect(warn).not.toHaveBeenCalled()
   })
 
+  it('announces the reload only after the extension acks it', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const awaitReloadAck = vi.fn().mockResolvedValue('acked')
+
+    await dispatchReload(CS, {
+      broker: {broadcastReload: vi.fn().mockReturnValue(1), awaitReloadAck}
+    })
+
+    expect(awaitReloadAck).toHaveBeenCalledTimes(1)
+    expect(log).toHaveBeenCalledTimes(1)
+    expect(String(log.mock.calls[0][0])).toContain(
+      'content_script (src/content/scripts.js)'
+    )
+
+    expect(warn).not.toHaveBeenCalled()
+  })
+
+  it('tells the user the edit may not be live when no ack arrives', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    await dispatchReload(CS, {
+      broker: {
+        broadcastReload: vi.fn().mockReturnValue(1),
+        awaitReloadAck: vi.fn().mockResolvedValue('unacked')
+      }
+    })
+
+    expect(log).not.toHaveBeenCalled()
+    expect(warn).toHaveBeenCalledTimes(1)
+    const line = String(warn.mock.calls[0][0])
+    expect(line).toContain('content_script (src/content/scripts.js)')
+    expect(line).toContain('never confirmed the reload')
+    expect(line).toContain('may not be live')
+  })
+
+  it('announces on delivery alone when the producer cannot ack', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    await dispatchReload(CS, {
+      broker: {
+        broadcastReload: vi.fn().mockReturnValue(1),
+        awaitReloadAck: vi.fn().mockResolvedValue('not-expected')
+      }
+    })
+
+    expect(warn).not.toHaveBeenCalled()
+    expect(log).toHaveBeenCalledTimes(1)
+  })
+
   it('is a no-op for an undefined instruction (no changed sources)', async () => {
     const broker = {broadcastReload: vi.fn()}
     await dispatchReload(undefined, {broker})

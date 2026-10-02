@@ -10,6 +10,7 @@ import * as path from 'node:path'
 import {Compilation, type Compiler, sources} from '@rspack/core'
 import {isStaticThemeSource} from '../../../lib/manifest-utils'
 import type {DevOptions, PluginInterface} from '../../../types'
+import {isWebkitUnsupportedPermission} from '../manifest-lib/filter-keys-safari'
 import {
   getManifestContent,
   setCurrentManifestContent
@@ -240,7 +241,8 @@ export class ApplyDevDefaults {
             // One list drives the patch below and both warnings, so the dev
             // manifest can never grant a permission the warnings miss.
             const injectedPermissions = devInjectedPermissions(
-              canonicalManifest.manifest_version
+              canonicalManifest.manifest_version,
+              this.browser
             )
 
             for (const permission of injectedPermissions) {
@@ -288,7 +290,13 @@ export class ApplyDevDefaults {
                     : contentScriptMatches),
                   ...(canonicalManifest.permissions || [])
                 ])
-              ],
+              ].filter(
+                (permission) =>
+                  !isWebkitUnsupportedPermission(
+                    String(permission),
+                    this.browser
+                  )
+              ),
               ...hostPermissionsPatch,
 
               ...patchBackground(canonicalManifest, this.browser),

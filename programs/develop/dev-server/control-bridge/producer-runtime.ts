@@ -954,6 +954,14 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
         : "extension";
       var announced = "[Extension.js] Reloading " + (label || fallback) + "…";
 
+      // Receipt for the broker: proves this SW's message pump processed the
+      // frame (a socket write proves nothing). Sent FIRST, so a full reload
+      // cannot tear the worker down between the receipt and the reload, and
+      // the correlation id is echoed so it confirms only this broadcast.
+      var ack = {type: "reload-ack", reloadType: kind, label: label};
+      if (frame.reloadId) ack.reloadId = frame.reloadId;
+      send(ack);
+
       // A scripts/ bundle edit: re-run the executeScript calls that named it
       // on their recorded tabs, before any reload decision below.
       replayProgrammaticScripts(frame.changedScriptFiles);
@@ -963,10 +971,6 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
         // surface; reloading the extension here would race it.
         return;
       }
-
-      // Delivery ack for the broker: proves this SW's message pump processed
-      // the frame (a socket write proves nothing). Sent on receipt, by design.
-      send({type: "reload-ack", reloadType: kind, label: label});
 
       announceReloadInTabs(announced);
       performDevReload(kind, function () {}, frame);
@@ -1124,7 +1128,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
         backoff = 250;
         connectFailures = 0;
         try {
-          socket.send(JSON.stringify({type: "hello", v: 1, role: "producer", instanceId: INSTANCE_ID}));
+          socket.send(JSON.stringify({type: "hello", v: 1, role: "producer", instanceId: INSTANCE_ID, acksReloads: true}));
         } catch (e) {
           // Ignore
         }

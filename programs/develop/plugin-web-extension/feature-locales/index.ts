@@ -8,7 +8,7 @@
 
 import * as fs from 'node:fs'
 import {Compilation, type Compiler} from '@rspack/core'
-import type {FilepathList, PluginInterface} from '../../types'
+import type {DevOptions, FilepathList, PluginInterface} from '../../types'
 import * as messages from './messages'
 import {processLocaleAssets} from './process-assets'
 import {trackLocaleDependencies} from './track-dependencies'
@@ -16,10 +16,12 @@ import {validateLocales} from './validation'
 
 export class LocalesPlugin {
   public readonly manifestPath: string
+  public readonly browser: DevOptions['browser']
   public readonly includeList?: FilepathList
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
+    this.browser = options.browser || 'chrome'
     this.includeList = options.includeList
   }
 
@@ -52,7 +54,14 @@ export class LocalesPlugin {
             return
           }
 
-          if (!validateLocales(compiler, compilation, this.manifestPath)) {
+          if (
+            !validateLocales(
+              compiler,
+              compilation,
+              this.manifestPath,
+              this.browser
+            )
+          ) {
             return
           }
 

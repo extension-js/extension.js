@@ -43,7 +43,7 @@ const UNSUPPORTED_TOP_LEVEL_KEYS: Record<string, string> = {
 
 // Permission strings the converter rejects. Every one of them also reads as
 // unsupported or absent in MDN browser-compat-data, so none is a false drop.
-const UNSUPPORTED_PERMISSIONS = new Set<string>([
+export const UNSUPPORTED_PERMISSIONS: ReadonlySet<string> = new Set<string>([
   'accessibilityFeatures.modify',
   'accessibilityFeatures.read',
   'audio',
@@ -103,6 +103,18 @@ const UNSUPPORTED_PERMISSIONS = new Set<string>([
 
 // Both arrays carry the same permission strings, so both get filtered.
 const PERMISSION_LISTS = ['permissions', 'optional_permissions'] as const
+
+// Later stages write the manifest again, so they ask here before listing a
+// permission this one already dropped.
+export function isWebkitUnsupportedPermission(
+  permission: string,
+  browser?: string
+): boolean {
+  return (
+    isWebkitBasedBrowser(String(browser)) &&
+    UNSUPPORTED_PERMISSIONS.has(permission)
+  )
+}
 
 const DROP_CONTENT_SCRIPT_WORLD = false
 
