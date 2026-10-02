@@ -420,7 +420,7 @@ export class AddAssetsToCompilation {
                   compilation,
                   compiler,
                   messages.fileIsFolder(resource as string, absoluteFsPath, {
-                    refLabel: asset
+                    refLabel: parsedAssets?.authored?.[asset] || asset
                   }),
                   'warning',
                   path.relative(manifestDir, resource as string)
