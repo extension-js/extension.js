@@ -326,6 +326,7 @@ export class ChromiumLaunchPlugin {
     // since there is no browser to find inside the test runner.
     if (inTestRunner && !dryRun) {
       logChromiumDryRun(
+        this.options.browser,
         this.options?.chromiumBinary
           ? normalizeBinaryPathForWsl(String(this.options.chromiumBinary))
           : 'chromium-mock-binary',
@@ -1272,7 +1273,7 @@ export class ChromiumLaunchPlugin {
       this.options?.startingUrl,
       this.options?.noOpen
     )
-    logChromiumDryRun(plan.binary, plan.args)
+    logChromiumDryRun(this.options.browser, plan.binary, plan.args)
   }
 
   private async launchWithDirectSpawn(
@@ -1281,7 +1282,9 @@ export class ChromiumLaunchPlugin {
     usePipe: boolean = false
   ) {
     if (isDebug()) {
-      this.logger.info(messages.chromeInitializingEnhancedReload())
+      this.logger.info(
+        messages.chromeInitializingEnhancedReload(this.options.browser)
+      )
     }
 
     const {args: launchArgs} = chromiumLaunchPlan(

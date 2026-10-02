@@ -4,6 +4,15 @@ import http from 'node:http'
 import os from 'node:os'
 import path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
+import {
+  fixtureExtensionFiles,
+  serveExamplesCatalog
+} from '../../../create/__spec__/examples-catalog-fixture'
+import {
+  offlineRegistryEnv,
+  offlineRegistryFiles,
+  serveOfflineRegistry
+} from '../../../create/__spec__/offline-registry-fixture'
 
 const ANSI = /\x1b\[[0-9;]*m/g
 const STACK_FRAME = /^\s+at /m
@@ -168,14 +177,42 @@ describe('a known create refusal prints its frame and nothing else', () => {
     60000
   )
 
+  // The dependency the install cannot satisfy is a local path, so no registry
+  // state can make this pass or fail. The registry is pinned in the project and
+  // in the environment, so whichever a lane honors, it is the loopback one.
   it('when the dependency install fails', async () => {
+    const template = 'broken-local-dependency'
+    const files = fixtureExtensionFiles(template)
+    const registry = await serveOfflineRegistry()
+    const catalog = await serveExamplesCatalog({
+      [template]: {
+        ...files,
+        ...offlineRegistryFiles(registry.url),
+        'package.json': `${JSON.stringify(
+          {
+            private: true,
+            name: template,
+            version: '1.0.0',
+            type: 'module',
+            dependencies: {'missing-local-package': 'file:./not-here'}
+          },
+          null,
+          2
+        )}\n`
+      }
+    })
+
+    close = async () => {
+      await catalog.close()
+      await registry.close()
+    }
+
     const result = await runCreate(
-      ['create', './proof', '-t', 'javascript', '--install'],
+      ['create', './proof', '-t', template, '--install'],
       {
-        npm_config_registry: 'http://127.0.0.1:9/',
-        npm_config_fetch_retries: '0',
-        npm_config_audit: 'false',
-        npm_config_fund: 'false'
+        ...offlineRegistryEnv(registry.url),
+        EXTENSION_CREATE_TEMPLATE_URL: catalog.url,
+        EXTENSION_ALLOW_HTTP_TEMPLATE: 'true'
       }
     )
 
@@ -183,12 +220,13 @@ describe('a known create refusal prints its frame and nothing else', () => {
     expect(result.stderr).not.toMatch(STACK_FRAME)
     expect(result.stderr.match(/⏵⏵⏵/g)).toHaveLength(1)
 
-    // The manager's own cause, which the run used to discard. Which cause it is
-    // depends on the manager: npm cannot reach the registry, while pnpm can
-    // refuse earlier over a release-age rule. So assert the rows are there and
-    // that REASON carries real text, not one registry's wording.
+    // Which cause it is depends on the manager, so assert the rows are there
+    // and that REASON carries real text, not one manager's wording.
     expect(result.stderr).toMatch(/COMMAND \S/)
     expect(result.stderr).toMatch(/EXIT 1/)
+    expect(result.stderr).not.toMatch(
+      /NO_MATURE_MATCHING_VERSION|minimum[-_ ]?release[-_ ]?age/i
+    )
 
     const reason = /REASON ([^\n]*)/.exec(result.stderr)?.[1]?.trim() ?? ''
     expect(reason.length).toBeGreaterThan(8)

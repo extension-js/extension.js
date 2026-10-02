@@ -13,6 +13,7 @@ import {isDebug, prefix} from '../../lib/messaging'
 import type {JsFramework} from '../../types'
 import {hasDependency} from '../frameworks-lib/integrations'
 import * as messages from '../js-frameworks-lib/messages'
+import {isUsingReact} from './react'
 
 let userMessageDelivered = false
 
@@ -80,21 +81,25 @@ export async function maybeUsePreact(
     alias.preact = preactDir
   }
 
-  if (preactCompat) {
-    alias.react = preactCompat
-    alias['react-dom'] = preactCompat
-  }
+  // The react/* compat keys stand in for a React that is not installed. Where
+  // both are declared React compiles the JSX, so Preact keeps its own keys only.
+  if (!isUsingReact(projectPath)) {
+    if (preactCompat) {
+      alias.react = preactCompat
+      alias['react-dom'] = preactCompat
+    }
 
-  if (preactTestUtils) {
-    alias['react-dom/test-utils'] = preactTestUtils
-  }
+    if (preactTestUtils) {
+      alias['react-dom/test-utils'] = preactTestUtils
+    }
 
-  if (preactJsxRuntime) {
-    alias['react/jsx-runtime'] = preactJsxRuntime
-  }
+    if (preactJsxRuntime) {
+      alias['react/jsx-runtime'] = preactJsxRuntime
+    }
 
-  if (preactJsxDevRuntime) {
-    alias['react/jsx-dev-runtime'] = preactJsxDevRuntime
+    if (preactJsxDevRuntime) {
+      alias['react/jsx-dev-runtime'] = preactJsxDevRuntime
+    }
   }
 
   return {

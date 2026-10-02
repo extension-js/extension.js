@@ -12,7 +12,11 @@ import type {Compilation} from '@rspack/core'
 import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
 import {parseJsonSafe} from '../../../lib/parse-json-safe'
 import type {DevOptions, Manifest} from '../../../types'
-import {dropPageAction, shouldDropPageAction} from '../../shared/html-surfaces'
+import {
+  dropPageAction,
+  foldBrowserActionIntoAction,
+  shouldDropPageAction
+} from '../../shared/html-surfaces'
 import {getManifestOverrides} from '../manifest-overrides'
 import {dropMv2ObjectPolicy} from '../manifest-overrides/mv2/content_security_policy'
 import {dropMv2HostKeys} from '../manifest-overrides/mv2/host_permissions'
@@ -157,6 +161,22 @@ export function buildCanonicalManifest(
   browser: DevOptions['browser'],
   projectPath?: string
 ): Manifest {
+  return buildCanonicalManifestWithOverrides(
+    manifestPath,
+    manifest,
+    browser,
+    projectPath
+  ).manifest
+}
+
+// The applied override tree rides out with the manifest so a caller that
+// wants to report on it never computes a second one from another input.
+export function buildCanonicalManifestWithOverrides(
+  manifestPath: string,
+  manifest: Manifest,
+  browser: DevOptions['browser'],
+  projectPath?: string
+): {manifest: Manifest; overrides: string} {
   const filteredManifest = filterKeysForThisBrowser(
     manifest,
     browser
@@ -164,18 +184,25 @@ export function buildCanonicalManifest(
 
   // Chromium dropped page_action with Manifest V3; keeping the key would
   // ship a page for a surface that never shows.
-  const forOverrides = shouldDropPageAction(filteredManifest, browser)
+  const withoutPageAction = shouldDropPageAction(filteredManifest, browser)
     ? dropPageAction(filteredManifest)
     : filteredManifest
+
+  // Manifest V3 reads the toolbar surface under `action` on every browser, so
+  // the old key folds into it before the overrides rewrite its page.
+  const forOverrides = foldBrowserActionIntoAction(withoutPageAction)
+  const overrides = getManifestOverrides(
+    manifestPath,
+    forOverrides,
+    projectPath
+  )
 
   // The filtered source is spread under the overrides, so the MV2 host keys
   // and CSP object the overrides translated need dropping here as well.
   const canonical = dropMv2ObjectPolicy(
     dropMv2HostKeys({
       ...forOverrides,
-      ...JSON.parse(
-        getManifestOverrides(manifestPath, forOverrides, projectPath)
-      )
+      ...JSON.parse(overrides)
     })
   ) as Manifest
 
@@ -184,5 +211,5 @@ export function buildCanonicalManifest(
   const webkit = dropWebkitUnsupportedKeys(canonical, browser)
   reportWebkitDroppedKeys(webkit.dropped, browser)
 
-  return webkit.manifest
+  return {manifest: webkit.manifest, overrides}
 }

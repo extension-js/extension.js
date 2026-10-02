@@ -466,6 +466,21 @@ export function chromiumExtensionLoadUnconfirmed(extensionPath: string) {
   )
 }
 
+// A headless session whose browser destroyed its own last page has nowhere to
+// put a page, so the extension runs with no surface a reader or a lane can see.
+export function chromiumHeadlessNoPageTarget(browser: Browser) {
+  return (
+    `${getLoggingPrefix('warn')} ${capitalizedBrowserName(browser)} left this session with no page, and would not take a new one.\n` +
+    `${colors.gray('BROWSER')} ${browser}\n` +
+    `This browser tears down its last page under --headless, so nothing this extension opens is visible and a page check on this session reports nothing.\n` +
+    `Drop --headless for ${browser} to get the page back.`
+  )
+}
+
+export function chromiumHeadlessPageTargetRecreated(browser: Browser) {
+  return `${getLoggingPrefix('debug')} browser  pageTarget=recreated browser=${browser}`
+}
+
 // The Gecko twin of chromiumExtensionLoadRefused. Firefox volunteers its
 // reason at install time, so the shape is the same and only the nouns differ.
 export function geckoAddonLoadRefused(addonPath: string, reason: string) {
@@ -653,8 +668,8 @@ export function chromeFailedToSpawn(error: unknown) {
   return `${getLoggingPrefix('error')} Can't start the Chrome process.\n${colors.red(errorDetail(error))}`
 }
 
-export function chromeInitializingEnhancedReload() {
-  return `${getLoggingPrefix('debug')} proc     enhancedReload=init spawn=direct browser=chrome`
+export function chromeInitializingEnhancedReload(browser: Browser) {
+  return `${getLoggingPrefix('debug')} proc     enhancedReload=init spawn=direct browser=${browser}`
 }
 
 export function locatingBrowser(browser: Browser) {

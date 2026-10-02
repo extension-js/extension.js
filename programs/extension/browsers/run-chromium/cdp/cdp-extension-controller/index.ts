@@ -133,6 +133,54 @@ export class CDPExtensionController {
     await this.cdp.sendCommand('Target.createTarget', {url})
   }
 
+  // Yandex under --headless=new tears down its own last page target once the
+  // extensions register, leaving a session with no page at all. Measured, not
+  // assumed: a browser that keeps its page answers on the first listing and
+  // pays nothing, and a page still arriving is waited out rather than doubled.
+  async ensurePageTarget(
+    url: string,
+    options: {
+      attempts?: number
+      confirmAttempts?: number
+      intervalMs?: number
+    } = {}
+  ): Promise<'present' | 'created' | 'refused' | 'unavailable'> {
+    if (!this.cdp) return 'unavailable'
+
+    // Every browser that keeps its page has one by the time the companions are
+    // loaded, measured on chrome, edge, brave, vivaldi and a headed Yandex, so
+    // the probe budget only has to outlast a single torn read.
+    const attempts = Math.max(1, options.attempts ?? 2)
+    const confirmAttempts = Math.max(1, options.confirmAttempts ?? 8)
+    const intervalMs = Math.max(0, options.intervalMs ?? 250)
+
+    const hasPage = async () => {
+      const targets = await this.cdp?.getTargets()
+
+      return Boolean(targets?.some((target) => target?.type === 'page'))
+    }
+
+    for (let attempt = 0; attempt < attempts; attempt++) {
+      if (attempt > 0) {
+        await new Promise((resolve) => setTimeout(resolve, intervalMs))
+      }
+
+      if (await hasPage()) return 'present'
+    }
+
+    await this.cdp.sendCommand('Target.createTarget', {url})
+
+    // The browser tore the last page down once already, so the replacement is
+    // confirmed from the target list rather than from the call returning.
+    for (let attempt = 0; attempt < confirmAttempts; attempt++) {
+      if (await hasPage()) return 'created'
+
+      await new Promise((resolve) => setTimeout(resolve, intervalMs))
+    }
+
+    return 'refused'
+  }
+
   // A fork can open its own onboarding over the extension on every fresh
   // profile. Vivaldi's account-signup wizard is a page of its own UI
   // extension, and no preference the profile seeds stops it (its seen-welcome

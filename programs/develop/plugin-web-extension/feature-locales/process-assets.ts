@@ -10,7 +10,11 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, type Compiler, sources} from '@rspack/core'
 import {isDebug} from '../../lib/messaging'
-import {getLocales, resolveLocalesFolder} from './get-locales'
+import {
+  getLocales,
+  localesFolderIsCopiedByPublic,
+  resolveLocalesFolder
+} from './get-locales'
 import * as messages from './messages'
 
 export function processLocaleAssets(
@@ -22,6 +26,16 @@ export function processLocaleAssets(
 
   const projectRoot =
     (compiler.options.context as string | undefined) || undefined
+
+  if (localesFolderIsCopiedByPublic(manifestPath, projectRoot)) {
+    if (isDebug()) {
+      const discovered = getLocales(manifestPath, projectRoot) || []
+      console.log(messages.localesEmitSummary(0, 0, discovered.length))
+    }
+
+    return
+  }
+
   const localesFields = getLocales(manifestPath, projectRoot) || []
   const discoveredList = localesFields
   const resolvedLocalesRoot = resolveLocalesFolder(manifestPath, projectRoot)

@@ -22,34 +22,51 @@ import {getTailwindConfigFile, isUsingTailwind} from './tailwind'
 
 let userMessageDelivered = false
 
-const postCssConfigFiles = [
+// postcss-loader's own searchPlaces, in its order, minus package.json, which
+// this module reads on its own. A name missing here is a config never handed over.
+export const postCssConfigSearchPlaces = [
+  'postcss.config.js',
+  'postcss.config.mjs',
+  'postcss.config.cjs',
+  'postcss.config.ts',
+  'postcss.config.mts',
+  'postcss.config.cts',
   '.postcssrc',
   '.postcssrc.json',
+  '.postcssrc.js',
+  '.postcssrc.mjs',
+  '.postcssrc.cjs',
+  '.postcssrc.ts',
+  '.postcssrc.mts',
+  '.postcssrc.cts',
   '.postcssrc.yaml',
   '.postcssrc.yml',
-  'postcss.config.mjs',
-  '.postcssrc.js',
-  '.postcssrc.cjs',
-  'postcss.config.js',
-  'postcss.config.cjs'
+  '.config/postcssrc',
+  '.config/postcssrc.json',
+  '.config/postcssrc.yaml',
+  '.config/postcssrc.yml',
+  '.config/postcssrc.js',
+  '.config/postcssrc.mjs',
+  '.config/postcssrc.cjs',
+  '.config/postcssrc.ts',
+  '.config/postcssrc.mts',
+  '.config/postcssrc.cts'
 ]
 
-export function findPostCssConfig(projectPath: string): string | undefined {
-  const ordered = isTypeModuleProject(projectPath)
-    ? [
-        '.postcssrc',
-        '.postcssrc.json',
-        '.postcssrc.yaml',
-        '.postcssrc.yml',
-        'postcss.config.mjs',
-        '.postcssrc.cjs',
-        'postcss.config.cjs',
-        '.postcssrc.js',
-        'postcss.config.js'
-      ]
-    : postCssConfigFiles
+function orderedSearchPlaces(projectPath: string): string[] {
+  if (!isTypeModuleProject(projectPath)) return postCssConfigSearchPlaces
 
-  for (const configFile of ordered) {
+  // A plain .js config is the ambiguous one in a "type: module" project, so
+  // every unambiguous spelling gets to win before it.
+  const isPlainJs = (place: string) => (place.endsWith('.js') ? 1 : 0)
+
+  return [...postCssConfigSearchPlaces].sort(
+    (a, b) => isPlainJs(a) - isPlainJs(b)
+  )
+}
+
+export function findPostCssConfig(projectPath: string): string | undefined {
+  for (const configFile of orderedSearchPlaces(projectPath)) {
     const configPath = path.join(projectPath, configFile)
 
     if (fs.existsSync(configPath)) {
@@ -148,6 +165,10 @@ function tailwindStringPluginDisableShims() {
   return [{'@tailwindcss/postcss': false}, {tailwindcss: false}]
 }
 
+function isTypeScriptConfig(configPath: string): boolean {
+  return /\.[mc]?ts$/.test(configPath)
+}
+
 export async function loadUserPostCssConfigObject(
   configPath: string,
   projectPath: string,
@@ -156,7 +177,13 @@ export async function loadUserPostCssConfigObject(
   let loaded: AnyModule
 
   try {
-    if (configPath.endsWith('.postcssrc') || configPath.endsWith('.json')) {
+    const base = path.basename(configPath)
+
+    if (
+      base === '.postcssrc' ||
+      base === 'postcssrc' ||
+      configPath.endsWith('.json')
+    ) {
       loaded = JSON.parse(fs.readFileSync(configPath, 'utf8'))
     } else if (configPath.endsWith('.yaml') || configPath.endsWith('.yml')) {
       // No YAML parser available here; let postcss-loader handle it.
@@ -174,9 +201,13 @@ export async function loadUserPostCssConfigObject(
         loaded = tryLoadCjsConfig(configPath, {report: false})
 
         if (loaded === undefined) {
-          console.warn(
-            messages.postCssConfigUnreadable(configPath, importError)
-          )
+          // A TypeScript config this Node build cannot strip is not broken:
+          // postcss-loader reads it with the jiti loader it ships.
+          if (!isTypeScriptConfig(configPath)) {
+            console.warn(
+              messages.postCssConfigUnreadable(configPath, importError)
+            )
+          }
 
           return undefined
         }

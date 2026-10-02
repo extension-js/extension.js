@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "ok": false,
+  "command": "eval",
+  "status": "denied",
+  "value": null,
+  "error": {
+    "code": "E_CSP_BLOCKS_EVAL",
+    "message": "call to eval() blocked by CSP",
+    "name": "EvalError",
+    "engine": "firefox",
+    "hint": "The extension's own content_security_policy forbids eval in this document, so no expression runs there, 1 + 1 included. Read the document with extension inspect --context <context>, or evaluate in a web page with extension eval --context page --tab <id>."
+  },
+  "warnings": []
+}

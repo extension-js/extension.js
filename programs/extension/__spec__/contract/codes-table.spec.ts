@@ -4,6 +4,10 @@ import {fileURLToPath} from 'node:url'
 import {describe, expect, it} from 'vitest'
 import {DOCTOR_CHECK_CODES, DOCTOR_CHECKS} from '../../commands/doctor'
 import {CODES} from '../../helpers/messaging'
+import {
+  READY_CONTRACT_CODES,
+  readyContractErrorCode
+} from '../../helpers/ready-contract-codes'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 
@@ -90,15 +94,8 @@ function collectSources(dir: string, found: string[] = []): string[] {
 }
 
 const CODES_WITHOUT_EMIT_SITE: string[] = [
-  'E_PROJECT_NOT_FOUND',
-  'E_MANIFEST_NOT_FOUND',
-  'E_MANIFEST_INVALID',
   'E_BROWSER_NOT_FOUND',
-  'E_SESSION_EXISTS',
-  'E_PORT_UNAVAILABLE',
-  'E_DEV_SERVER_START',
   'E_NODE_VERSION',
-  'E_PARENT_GONE',
   'E_REMOTE_URL_UNSUPPORTED',
   'E_CONFIG_LOAD',
   'E_MANAGED_DEP_CONFLICT',
@@ -107,18 +104,7 @@ const CODES_WITHOUT_EMIT_SITE: string[] = [
   'E_OPTIONAL_DEP_UNRESOLVED',
   'E_OPTIONAL_DEP_LOAD',
   'E_OPTIONAL_DEP_UNKNOWN',
-  'E_COMPANION_EXTENSION_PATH',
-  'E_MANIFEST_IN_PUBLIC',
   'E_RUNTIME_NOT_FOUND',
-  'E_MANIFEST_SHAPE',
-  'E_MANIFEST_PAGE_MISSING',
-  'E_MANIFEST_VERSION_UNSUPPORTED',
-  'E_MANIFEST_LOAD_BLOCKERS',
-  'E_MANIFEST_PERMISSION_MISSING',
-  'E_MANIFEST_MSG_KEY_MISSING',
-  'E_MANIFEST_EMIT',
-  'E_RESTART_REQUIRED',
-  'E_COMPILE_FATAL',
   'E_MODULE_NOT_FOUND',
   'E_ENTRY_NOT_FOUND',
   'E_ASSET_MISSING',
@@ -146,7 +132,6 @@ const CODES_WITHOUT_EMIT_SITE: string[] = [
   'E_PROJECT_DOWNLOAD_EMPTY',
   'E_BROWSER_BINARY_REQUIRED',
   'E_BROWSER_BINARY_INVALID',
-  'E_BROWSER_EXITED',
   'E_BROWSER_START_TIMEOUT',
   'E_LAUNCH_SKIPPED_COMPILE_ERRORS',
   'E_WSL_INTEROP',
@@ -157,11 +142,7 @@ const CODES_WITHOUT_EMIT_SITE: string[] = [
   'E_CDP_TIMEOUT',
   'E_CDP_OP_FAILED',
   'E_EXTENSION_ID_UNKNOWN',
-  'E_RDP_PROTOCOL',
-  'E_DEV_SERVER_TIMEOUT',
-  'E_PORT_IN_USE',
-  'E_SESSION_STOPPED',
-  'E_LOGS_STREAM_GAP'
+  'E_RDP_PROTOCOL'
 ]
 
 // The same validation the schema states, hand-rolled so the spec has no
@@ -252,6 +233,21 @@ describe('the error-code table', () => {
         ).toHaveProperty(code)
       }
     }
+  })
+
+  // The runtime map is what a --wait refusal actually carries, so it has to
+  // agree with the table a host reads instead of drifting beside it.
+  it('resolves every legacy ready.json code the way the table says', () => {
+    expect(Object.keys(READY_CONTRACT_CODES).sort()).toEqual(READY_CODES)
+
+    for (const [readyCode, target] of Object.entries(table.legacy.ready)) {
+      expect(flat(target), `${readyCode} resolves outside the table`).toContain(
+        readyContractErrorCode(readyCode)
+      )
+    }
+
+    expect(readyContractErrorCode('something_else')).toBeUndefined()
+    expect(readyContractErrorCode(undefined)).toBeUndefined()
   })
 
   it('maps every legacy PascalCase error name onto the table', () => {

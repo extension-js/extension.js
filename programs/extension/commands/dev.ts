@@ -17,7 +17,7 @@ import {
   explicitCliValue,
   explicitOptionalBoolean
 } from '../helpers/cli-explicit'
-import {markErrorFramed} from '../helpers/cli-failure'
+import {declaredErrorCode, markErrorFramed} from '../helpers/cli-failure'
 import {
   cliGeckoBinary,
   firefoxBinaryAliasOption,
@@ -316,7 +316,18 @@ export function registerDevCommand(program: Command) {
             })
           }
 
-          setupParentWatchdog(parentPid)
+          setupParentWatchdog(parentPid, {
+            emitFrame: () => {
+              if (!asJson) return
+
+              printFrame(
+                ENVELOPE.fail('dev', 'failed', {
+                  code: CODES.E_PARENT_GONE,
+                  message: `the --parent-pid owner (process ${parentPid}) is gone, so this dev session is shutting down`
+                })
+              )
+            }
+          })
         }
 
         const list = vendors(browser)
@@ -579,11 +590,7 @@ export function registerDevCommand(program: Command) {
 
             // A producer that tagged its failure keeps its code; anything
             // untagged is an internal fault rather than a known class.
-            const tagged = (error as {code?: unknown} | null)?.code
-            const code =
-              typeof tagged === 'string' && tagged in CODES
-                ? (tagged as ErrorCode)
-                : CODES.E_INTERNAL
+            const code = declaredErrorCode(error) ?? CODES.E_INTERNAL
 
             printFrame(
               ENVELOPE.fail(

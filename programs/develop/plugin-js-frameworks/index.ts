@@ -13,7 +13,11 @@ import {filterKeysForThisBrowser} from '../lib/manifest-utils'
 import {isDebug} from '../lib/messaging'
 import {type ParsedJson, parseJsonSafe} from '../lib/parse-json-safe'
 import {toResourceKey} from '../lib/resource-path'
-import {isSubPath, resolveTranspilePackageDirs} from '../lib/transpile-packages'
+import {
+  createNodeModulesExclude,
+  isSubPath,
+  resolveTranspilePackageDirs
+} from '../lib/transpile-packages'
 import {getSpecialFoldersDataForCompiler} from '../plugin-special-folders/get-data'
 import {getAssetsFromHtml} from '../plugin-web-extension/feature-html/html-lib/utils'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../plugin-web-extension/feature-scripts/contracts'
@@ -205,6 +209,12 @@ export class JsFrameworksPlugin {
         ...resolveTranspilePackageDirs(projectPath, this.transpilePackages)
       ])
     )
+    // Computed before the framework integrations run: every compiling rule they
+    // return needs the same carve-out, not just the swc rule below.
+    const transpilePackageDirs = swcIncludeDirs.filter(
+      (dir) => dir !== projectPath && dir !== manifestDir
+    )
+    const excludeNodeModules = createNodeModulesExclude(transpilePackageDirs)
 
     // The bundler resolves symlinks, so loader resource paths arrive as
     // realpaths while these dirs are the logical spellings (/tmp, /var,
@@ -350,14 +360,19 @@ export class JsFrameworksPlugin {
         isfeatureScriptsContentLike(resourcePath)
     })
     const maybeInstallPreact = await maybeUsePreact(projectPath)
-    const maybeInstallVue = await maybeUseVue(projectPath, mode)
-    const maybeInstallSolid = await maybeUseSolid(projectPath, mode)
+    const maybeInstallVue = await maybeUseVue(
+      projectPath,
+      mode,
+      transpilePackageDirs
+    )
+    const maybeInstallSolid = await maybeUseSolid(
+      projectPath,
+      mode,
+      transpilePackageDirs
+    )
     const maybeInstallSvelte = await maybeUseSvelte(projectPath, mode)
     const tsConfigPath = getUserTypeScriptConfigFile(projectPath)
     const tsRoot = tsConfigPath ? path.dirname(tsConfigPath) : manifestDir
-    const transpilePackageDirs = swcIncludeDirs.filter(
-      (dir) => dir !== projectPath && dir !== manifestDir
-    )
     // isUsingTypeScript is gated on the config existing, so a second operand
     // reading it here could never add anything: the config IS the signal
     // (ensureTypeScriptConfig above scaffolds it for TS projects).
@@ -404,26 +419,14 @@ export class JsFrameworksPlugin {
     }
 
     const swcRuleBase = {
-      test: /\.(js|cjs|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
+      test: /\.(js|cjs|mjs|jsx|mjsx|ts|mts|cts|tsx|mtsx)$/,
       // Explicit javascript/auto so rspack detects script-vs-module from the file
       // itself; Chrome never reads package.json "type", unlike rspack's default inference.
       type: 'javascript/auto',
       include: expandWithRealpaths(
         Array.from(new Set([tsRoot, ...swcIncludeDirs]))
       ),
-      exclude: [
-        (resourcePath: string) => {
-          const isInNodeModules = /[\\/]node_modules[\\/]/.test(resourcePath)
-
-          if (!isInNodeModules) {
-            return false
-          }
-
-          return !transpilePackageDirs.some((dir) =>
-            isSubPath(resourcePath, dir)
-          )
-        }
-      ]
+      exclude: [excludeNodeModules]
     }
 
     const jsxInPlainJs = isUsingJsxFramework(projectPath)

@@ -17,12 +17,13 @@ import {
   SwcJsMinimizerRspackPlugin
 } from '@rspack/core'
 import {makeSanitizedConsole} from './lib/branding'
+import {codedError} from './lib/coded-error'
 import {isChromiumBasedBrowser} from './lib/constants'
 import {resolveDevelopInstallRoot} from './lib/develop-context'
 import {computeExtensionsToLoad} from './lib/extensions-to-load'
 import {filterKeysForThisBrowser} from './lib/manifest-utils'
 import * as messages from './lib/messages'
-import {isDebug} from './lib/messaging'
+import {CODES, isDebug} from './lib/messaging'
 import {stripBom} from './lib/parse-json-safe'
 import {asAbsolute, getDirs, toPosixPath} from './lib/paths'
 import type {ProjectStructure} from './lib/project'
@@ -63,7 +64,10 @@ export default function webpackConfig(
   try {
     rawManifest = JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf-8')))
   } catch (error) {
-    throw new Error(messages.manifestInvalidJson(manifestPath, error))
+    throw codedError(
+      CODES.E_MANIFEST_INVALID,
+      messages.manifestInvalidJson(manifestPath, error)
+    )
   }
 
   const manifest = filterKeysForThisBrowser(
@@ -343,6 +347,7 @@ export default function webpackConfig(
       instanceId: devOptions.instanceId,
       instanceExplicit: devOptions.instanceExplicit,
       controlPort: devOptions.controlPort,
+      controlPortUnavailableReason: devOptions.controlPortUnavailableReason,
       controlPath: devOptions.controlPath,
       logsPath: devOptions.logsPath,
       // Everything loaded besides the user's extension, recorded in ready.json
@@ -551,6 +556,7 @@ export default function webpackConfig(
         '.jsx',
         '.ts',
         '.mts',
+        '.cts',
         '.tsx',
         '.json',
         '.svelte',

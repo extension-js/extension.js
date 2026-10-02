@@ -16,8 +16,8 @@ import {
   type PermissionScanCompilation
 } from './apply-dev-defaults'
 import {
-  devInjectedPermissions,
-  partiallyGatedNote
+  partiallyGatedNote,
+  scannedPermissions
 } from './apply-dev-defaults-lib/dev-injected-permissions'
 
 // The dev session grants a few permissions for its own bridge and warns when
@@ -68,7 +68,7 @@ export class WarnUndeclaredPermissions {
               const uses = findInjectedOnlyPermissionUses(
                 compilation as unknown as PermissionScanCompilation,
                 declared,
-                devInjectedPermissions(manifest.manifest_version)
+                scannedPermissions(manifest.manifest_version, this.browser)
               )
 
               for (const [api, file] of uses) {

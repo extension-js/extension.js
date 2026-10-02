@@ -76,21 +76,23 @@ function loosenConnectSrcForDev(csp: Map<string, string[]>) {
   }
 }
 
+type V3Policy = Record<string, unknown> & {extension_pages: string}
+
 // Dev only loosens the pages policy. Every other slot the author wrote
 // (sandbox above all) rides along byte for byte: a whole-key replacement
 // dropped them and left a sandboxed page with its helper script blocked.
 function keepSiblingSlots(
   policy: Manifest['content_security_policy'],
   extensionPages: string
-): Manifest['content_security_policy'] {
+): V3Policy {
   if (policy && typeof policy === 'object' && !Array.isArray(policy)) {
     return {
       ...(policy as Record<string, unknown>),
       extension_pages: extensionPages
-    } as Manifest['content_security_policy']
+    }
   }
 
-  return extensionPages as Manifest['content_security_policy']
+  return {extension_pages: extensionPages}
 }
 
 // MV2 reads one string, so the dev policy is the loosened pages policy on
@@ -156,7 +158,7 @@ function patchV2PagesPolicy(manifest: Manifest): string {
   return buildCSP(cspObject)
 }
 
-export function patchV3CSP(manifest: Manifest) {
+export function patchV3CSP(manifest: Manifest): V3Policy {
   const policy = manifest.content_security_policy
 
   if (!policy) {
@@ -192,7 +194,5 @@ export function patchV3CSP(manifest: Manifest) {
   const cspObject: Record<string, string[]> = Object.fromEntries(csp.entries())
   const extensionPagesPolicy = buildCSP(cspObject)
 
-  return keepSiblingSlots(policy, extensionPagesPolicy) as {
-    extension_pages: string
-  }
+  return keepSiblingSlots(policy, extensionPagesPolicy)
 }

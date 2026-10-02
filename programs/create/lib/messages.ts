@@ -322,19 +322,29 @@ function installOutputDigest(output: string) {
     .join('\n')
 }
 
+// pnpm refuses a version younger than a minimum-release-age setting before it
+// reaches the registry, and its error names neither the setting nor its source.
+const RELEASE_AGE_REFUSAL =
+  /NO_MATURE_MATCHING_VERSION|minimum[-_ ]?release[-_ ]?age/i
+
 export function installingDependenciesFailed(
   pmCommand: string,
   pmArgs: string[],
   code: number | null,
   output?: string
 ) {
-  const reason = fmt.truncate(installOutputDigest(String(output || '')), 600)
+  const digest = installOutputDigest(String(output || ''))
+  const reason = fmt.truncate(digest, 600)
+  const rule = RELEASE_AGE_REFUSAL.test(digest)
+    ? `${fmt.label('RULE')} ${fmt.val('a minimum release age in the npm config holds back versions this new')}\n`
+    : ''
 
   return (
     `${prefix('error')} Couldn't install the dependencies.\n` +
     `${fmt.label('COMMAND')} ${fmt.val(`${pmCommand} ${pmArgs.join(' ')}`)}\n` +
     `${fmt.label('EXIT')} ${fmt.val(String(code))}\n` +
     (reason ? `${fmt.label('REASON')} ${reason}\n` : '') +
+    rule +
     `${colors.red('Fix the error above, then run the command yourself to retry.')}`
   )
 }

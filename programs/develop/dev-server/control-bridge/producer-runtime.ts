@@ -210,6 +210,12 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       } catch (e) { cb(relayErr); }
     }
 
+    // Every engine's wording for "this document's CSP forbids eval". Gecko
+    // says "call to eval() blocked by CSP", Chromium quotes the directive.
+    function cspBlocksEval(message) {
+      return /call to eval\\(\\)|blocked by (?:the )?CSP|Content Security Policy|unsafe-eval/i.test(String(message == null ? "" : message));
+    }
+
     // Name the refusal the browser wrote as prose, so a consumer branches on
     // error.code instead of matching the engine's sentence.
     function openRefusalCode(message) {
@@ -329,9 +335,10 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
               .then(function (r) { replyOk(cmdId, r); }, function (e) {
                 var msg = (e && e.message) || String(e);
                 // MV3 forbids eval of strings in the SW/extension pages and
-                // rejects 'unsafe-eval'. Surface it honestly with an alternative.
-                if (/Content Security Policy|unsafe-eval/i.test(msg)) {
-                  replyErr(cmdId, "Unsupported", "eval is blocked in the extension background by CSP, which allows no unsafe-eval. Use --context page --tab <id> (eval runs in the page's MAIN world), or run on a build whose CSP permits it. Engine: " + engineName());
+                // rejects 'unsafe-eval'. Gecko words the same refusal "call to
+                // eval() blocked by CSP", which read as a guest throw.
+                if (cspBlocksEval(msg)) {
+                  replyErr(cmdId, "Unsupported", "eval is blocked in the extension background by the extension's content_security_policy, which allows no unsafe-eval. Use --context page --tab <id> (eval runs in the page's MAIN world), or run on a build whose CSP permits it. Engine: " + engineName(), "csp_blocks_eval");
                 } else {
                   replyErr(cmdId, (e && e.name) || "EvalError", msg);
                 }
@@ -355,8 +362,8 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
                 return;
               }
               if (frame.ok) { replyOk(cmdId, frame.value); return; }
-              if (ctx === "content" && /Content Security Policy|unsafe-eval|EvalError/i.test(String(frame.name) + " " + String(frame.message))) {
-                replyErr(cmdId, "Unsupported", "eval of a string is blocked in the ISOLATED (content) world by the extension CSP. Use --context page (runs in the page's MAIN world). Original: " + frame.message);
+              if (ctx === "content" && (cspBlocksEval(String(frame.name) + " " + String(frame.message)) || String(frame.name) === "EvalError")) {
+                replyErr(cmdId, "Unsupported", "eval of a string is blocked in the ISOLATED (content) world by the extension's content_security_policy. Use --context page (runs in the page's MAIN world). Original: " + frame.message, "csp_blocks_eval");
                 return;
               }
               replyErr(cmdId, frame.name || "EvalError", frame.message);
@@ -373,7 +380,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
                   } else if (resp.ok) {
                     replyOk(cmdId, resp.value);
                   } else {
-                    replyErr(cmdId, (resp.error && resp.error.name) || "EvalError", (resp.error && resp.error.message) || "eval failed");
+                    replyErr(cmdId, (resp.error && resp.error.name) || "EvalError", (resp.error && resp.error.message) || "eval failed", resp.error && resp.error.code);
                   }
                 });
               }
@@ -954,6 +961,14 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
         : "extension";
       var announced = "[Extension.js] Reloading " + (label || fallback) + "…";
 
+      // Receipt for the broker: proves this SW's message pump processed the
+      // frame (a socket write proves nothing). Sent FIRST, so a full reload
+      // cannot tear the worker down between the receipt and the reload, and
+      // the correlation id is echoed so it confirms only this broadcast.
+      var ack = {type: "reload-ack", reloadType: kind, label: label};
+      if (frame.reloadId) ack.reloadId = frame.reloadId;
+      send(ack);
+
       // A scripts/ bundle edit: re-run the executeScript calls that named it
       // on their recorded tabs, before any reload decision below.
       replayProgrammaticScripts(frame.changedScriptFiles);
@@ -963,10 +978,6 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
         // surface; reloading the extension here would race it.
         return;
       }
-
-      // Delivery ack for the broker: proves this SW's message pump processed
-      // the frame (a socket write proves nothing). Sent on receipt, by design.
-      send({type: "reload-ack", reloadType: kind, label: label});
 
       announceReloadInTabs(announced);
       performDevReload(kind, function () {}, frame);
@@ -1124,7 +1135,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
         backoff = 250;
         connectFailures = 0;
         try {
-          socket.send(JSON.stringify({type: "hello", v: 1, role: "producer", instanceId: INSTANCE_ID}));
+          socket.send(JSON.stringify({type: "hello", v: 1, role: "producer", instanceId: INSTANCE_ID, acksReloads: true}));
         } catch (e) {
           // Ignore
         }
@@ -1423,6 +1434,12 @@ export const BRIDGE_RELAY_SOURCE = `;(function () {
     var consoleRef = g.console || {};
     var LEVELS = ["log", "info", "warn", "error", "debug", "trace"];
 
+    // Every engine's wording for "this document's CSP forbids eval". Gecko
+    // says "call to eval() blocked by CSP", Chromium quotes the directive.
+    function cspBlocksEval(message) {
+      return /call to eval\\(\\)|blocked by (?:the )?CSP|Content Security Policy|unsafe-eval/i.test(String(message == null ? "" : message));
+    }
+
     function sanitize(args) {
       var out = [];
       for (var i = 0; i < args.length; i++) {
@@ -1571,8 +1588,8 @@ export const BRIDGE_RELAY_SOURCE = `;(function () {
           };
           var respondError = function (e) {
             var emsg = (e && e.message) || String(e);
-            if (/Content Security Policy|unsafe-eval|call to eval/i.test(emsg)) {
-              sendResponse({ok: false, error: {name: "Unsupported", message: "eval of a string is blocked in the " + CONTEXT + " page by the MV3 extension CSP. Use extension inspect " + CONTEXT + " to read its DOM, or --context background on an MV2/Firefox build. Original: " + emsg}});
+            if (cspBlocksEval(emsg)) {
+              sendResponse({ok: false, error: {name: "Unsupported", code: "csp_blocks_eval", message: "eval of a string is blocked in the " + CONTEXT + " page by the extension's content_security_policy. Use extension inspect --context " + CONTEXT + " to read its DOM instead. Original: " + emsg}});
             } else {
               sendResponse({ok: false, error: {name: (e && e.name) || "EvalError", message: emsg}});
             }

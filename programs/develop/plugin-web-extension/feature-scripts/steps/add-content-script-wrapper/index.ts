@@ -12,6 +12,7 @@ import {resolveDevelopDistFile} from '../../../../lib/develop-context'
 import {findNearestProjectManifestSync} from '../../../../lib/project-manifest'
 import {
   canonicalizeDir,
+  canonicalizeResourcePath,
   isResourceUnderDirs
 } from '../../../../lib/resource-path'
 import type {DevOptions, FilepathList, PluginInterface} from '../../../../types'
@@ -20,6 +21,7 @@ import {
   createContentScriptCssProbeMarkerPattern,
   parseCanonicalContentScriptAsset
 } from '../../contracts'
+import {findRuntimeMainWorldEntries} from '../../scripts-lib/runtime-main-world-scripts'
 import {getMainWorldBridgeScripts} from './get-bridge-scripts'
 
 // The wrapper loader bakes a css-probe marker before any asset exists. Once
@@ -58,10 +60,12 @@ export class AddContentScriptWrapper {
 
   private readonly manifestPath: string
   private readonly browser: DevOptions['browser']
+  private readonly includeList: FilepathList
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.browser = (options.browser as DevOptions['browser']) || 'chrome'
+    this.includeList = options.includeList || {}
   }
 
   private resolveLoader(): string {
@@ -85,6 +89,22 @@ export class AddContentScriptWrapper {
     const includeMatcher = (resource: string): boolean =>
       isResourceUnderDirs(resource, includeDirs)
 
+    // A file the extension registers into the MAIN world at runtime shares the
+    // page's globals and DOM prototypes exactly like a declared MAIN world
+    // group, and the manifest never names it.
+    const mainWorldScripts = findRuntimeMainWorldEntries({
+      includeList: this.includeList,
+      manifestDir,
+      projectPath: (compiler.options.context as string) || manifestDir
+    }).flatMap((entry) => entry.files.map(canonicalizeResourcePath))
+
+    const loaderOptions = {
+      manifestPath: this.manifestPath,
+      mode: compiler.options.mode,
+      browser: this.browser,
+      mainWorldScripts
+    }
+
     // Classic concat loader must be registered before the content-script-wrapper
     // so the wrapper receives the concatenated source + source map.
     compiler.options.module.rules.push({
@@ -95,11 +115,7 @@ export class AddContentScriptWrapper {
       use: [
         {
           loader: this.resolveLoader(),
-          options: {
-            manifestPath: this.manifestPath,
-            mode: compiler.options.mode,
-            browser: this.browser
-          }
+          options: loaderOptions
         },
         {
           loader: this.resolveConcatLoader()
@@ -114,11 +130,7 @@ export class AddContentScriptWrapper {
       use: [
         {
           loader: this.resolveLoader(),
-          options: {
-            manifestPath: this.manifestPath,
-            mode: compiler.options.mode,
-            browser: this.browser
-          }
+          options: loaderOptions
         }
       ]
     })

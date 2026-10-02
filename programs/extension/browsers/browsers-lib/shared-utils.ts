@@ -207,6 +207,12 @@ export function isHeadlessGuardRequested(
   return /^(1|true)$/i.test(String(env.EXTENSION_HEADLESS || '').trim())
 }
 
+// Read off the argv the launch ran, so the guard, EXTENSION_BROWSER_FLAGS and
+// a config browserFlags entry all count the same.
+export function launchIsHeadless(flags: readonly string[]): boolean {
+  return flags.some((flag) => /^--headless(=|$)/.test(String(flag || '')))
+}
+
 // Chromium keeps only the LAST occurrence of a repeated switch; collapse
 // --disable/enable-features into one comma-joined switch each.
 export function mergeChromiumFeatureSwitches(flags: string[]): string[] {

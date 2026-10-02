@@ -129,7 +129,8 @@ describe('bridge producer runtime', () => {
       type: 'hello',
       v: 1,
       role: 'producer',
-      instanceId: 'inst-T'
+      instanceId: 'inst-T',
+      acksReloads: true
     })
 
     const log = frames.find((f) => f.type === 'log')
@@ -452,6 +453,29 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     for (let i = 0; i < 8; i++) await Promise.resolve()
   }
 
+  it('eval background names the extension CSP when Gecko blocks the executor', async () => {
+    const ws = setup({})
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'e-gecko-csp',
+      op: 'eval',
+      target: {context: 'background'},
+      args: {
+        expression:
+          '(function () { var e = new Error("call to eval() blocked by CSP"); e.name = "EvalError"; throw e; })()'
+      }
+    })
+
+    await flush()
+    const r = results(ws).find((f) => f.cmdId === 'e-gecko-csp')
+    expect(r).toMatchObject({
+      ok: false,
+      error: {name: 'Unsupported', code: 'csp_blocks_eval'}
+    })
+
+    expect(r.error.message).toContain('content_security_policy')
+  })
+
   it('eval content resolves --url to the matching tab id (#51)', async () => {
     const executed: Array<{target: {tabId: number}}> = []
     const ws = setup({
@@ -618,8 +642,74 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
 
     await flush()
     const r = results(ws).find((f) => f.cmdId === 'e-csp')
-    expect(r).toMatchObject({ok: false, error: {name: 'Unsupported'}})
+    expect(r).toMatchObject({
+      ok: false,
+      error: {name: 'Unsupported', code: 'csp_blocks_eval'}
+    })
+
     expect(r.error.message).toContain('--context page')
+  })
+
+  it('eval content keeps a guest throw off the CSP refusal code', async () => {
+    const ws = setup({
+      scripting: {
+        executeScript: () =>
+          Promise.resolve([
+            {
+              result: {
+                __extjsEval: 1,
+                ok: false,
+                name: 'ReferenceError',
+                message: 'x is not defined'
+              }
+            }
+          ])
+      },
+      tabs: {query: (_q: unknown, cb: (t: unknown[]) => void) => cb([])}
+    })
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'e-throw',
+      op: 'eval',
+      target: {context: 'content', tabId: 7},
+      args: {expression: 'x'}
+    })
+
+    await flush()
+    const r = results(ws).find((f) => f.cmdId === 'e-throw')
+    expect(r.error.code).toBeUndefined()
+    expect(r.error.message).toContain('x is not defined')
+  })
+
+  it('eval popup forwards the relay CSP refusal code instead of flattening it', async () => {
+    const ws = setup({
+      runtime: {
+        sendMessage: (_msg: any, cb: (r: any) => void) =>
+          cb({
+            ok: false,
+            error: {
+              name: 'Unsupported',
+              code: 'csp_blocks_eval',
+              message:
+                "eval of a string is blocked in the popup page by the extension's content_security_policy"
+            }
+          }),
+        lastError: undefined
+      }
+    })
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'e-popup-csp',
+      op: 'eval',
+      target: {context: 'popup'},
+      args: {expression: '1 + 1'}
+    })
+
+    await flush()
+    expect(results(ws).find((f) => f.cmdId === 'e-popup-csp')).toMatchObject({
+      ok: false,
+      error: {name: 'Unsupported', code: 'csp_blocks_eval'}
+    })
   })
 
   it('eval popup routes through the surface relay, mirroring inspect', async () => {
@@ -1362,11 +1452,11 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
 
     await new Promise((r) => setTimeout(r, 20))
 
-    // Notify-only page frames never reload or ack, with or without a replay.
+    // Notify-only page frames never reload, with or without a replay.
     expect(reloaded).toBe(false)
     expect(
       ws.sent.map((s) => JSON.parse(s)).filter((f) => f.type === 'reload-ack')
-    ).toEqual([])
+    ).toEqual([{type: 'reload-ack', reloadType: 'page', label: ''}])
   })
 
   it('open action: opens the popup when the action has a default_popup', async () => {
@@ -1906,6 +1996,21 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
 
     expect(responded.ok).toBe(false)
     expect(responded.error.name).toBeTruthy()
+
+    dispatch(
+      {
+        __extjsEvalRequest: true,
+        target: {context: 'popup'},
+        args: {
+          expression:
+            '(function () { var e = new Error("call to eval() blocked by CSP"); e.name = "EvalError"; throw e; })()'
+        }
+      },
+      (r: any) => (responded = r)
+    )
+
+    expect(responded.error.code).toBe('csp_blocks_eval')
+    expect(responded.error.message).toContain('content_security_policy')
   })
 
   // A promise is not structured-cloneable, so the relay settles it before
@@ -2307,7 +2412,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     })
   })
 
-  it('reload broadcast (page): notify-only, no ack (nothing was latched)', async () => {
+  it('reload broadcast (page): notify-only, still acks the receipt', async () => {
     const ws = setup({
       runtime: {lastError: undefined},
       tabs: {query: (_q: unknown, cb: (t: unknown[]) => void) => cb([])}
@@ -2316,6 +2421,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     ws.triggerMessage({
       type: 'reload',
       reloadType: 'page',
+      reloadId: 'r7',
       label: 'popup page (src/popup/index.tsx)'
     })
 
@@ -2324,7 +2430,44 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     const ack = ws.sent
       .map((s) => JSON.parse(s))
       .find((f) => f.type === 'reload-ack')
-    expect(ack).toBeUndefined()
+    expect(ack).toMatchObject({
+      type: 'reload-ack',
+      reloadType: 'page',
+      reloadId: 'r7'
+    })
+  })
+
+  it('reload broadcast (full): acks the reload id BEFORE restarting the worker', async () => {
+    let reloadedAt = -1
+    const ws = setup({
+      runtime: {
+        lastError: undefined,
+        reload: () => {
+          reloadedAt = ws.sent.length
+        }
+      },
+      storage: {local: {set: (_i: unknown, cb?: () => void) => cb?.()}},
+      tabs: {query: (_q: unknown, cb: (t: unknown[]) => void) => cb([])}
+    })
+
+    ws.triggerMessage({
+      type: 'reload',
+      reloadType: 'full',
+      reloadId: 'r9',
+      label: 'extension'
+    })
+
+    await new Promise((r) => setTimeout(r, 250))
+
+    const sent = ws.sent.map((s) => JSON.parse(s))
+    const ackIndex = sent.findIndex((f) => f.type === 'reload-ack')
+    expect(sent[ackIndex]).toMatchObject({
+      type: 'reload-ack',
+      reloadType: 'full',
+      reloadId: 'r9'
+    })
+
+    expect(reloadedAt).toBeGreaterThan(ackIndex)
   })
 
   it('reload broadcast (content-scripts): re-registers dynamic content scripts so NEW tabs get the fresh build', async () => {

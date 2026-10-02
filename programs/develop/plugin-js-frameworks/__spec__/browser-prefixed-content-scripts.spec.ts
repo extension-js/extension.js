@@ -37,7 +37,8 @@ vi.mock('../js-tools/typescript', () => ({
   getUserTypeScriptConfigFile: vi.fn(() => undefined)
 }))
 
-vi.mock('../../lib/transpile-packages', () => ({
+vi.mock('../../lib/transpile-packages', async () => ({
+  ...(await vi.importActual('../../lib/transpile-packages')),
   resolveTranspilePackageDirs: vi.fn(() => []),
   isSubPath: vi.fn(
     (resourcePath: string, directoryPath: string) =>
