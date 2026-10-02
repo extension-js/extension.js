@@ -14,7 +14,7 @@ import {
   explicitCliValue,
   explicitOptionalBoolean
 } from '../helpers/cli-explicit'
-import {markErrorFramed} from '../helpers/cli-failure'
+import {declaredErrorCode, markErrorFramed} from '../helpers/cli-failure'
 import {
   cliGeckoBinary,
   firefoxBinaryAliasOption,
@@ -434,7 +434,7 @@ export function registerStartCommand(program: Command) {
                 'start',
                 'build-failed',
                 {
-                  code: CODES.E_COMPILE,
+                  code: declaredErrorCode(error) ?? CODES.E_COMPILE,
                   message:
                     error instanceof Error ? error.message : String(error)
                 },

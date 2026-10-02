@@ -11,6 +11,7 @@ import {type Command, Option} from 'commander'
 import {safariBuildPreflight} from '../browsers/run-safari/safari-launch'
 import {isValidBundleId} from '../browsers/run-safari/safari-launch/safari-config'
 import {createSafariPackager} from '../browsers/run-safari/safari-packager'
+import {declaredErrorCode} from '../helpers/cli-failure'
 import {getCliPackageJson} from '../helpers/cli-package-json'
 import {resolveConfigBrowser} from '../helpers/config-browser'
 import {loadExtensionDevelopModule} from '../helpers/extension-develop-runtime'
@@ -393,7 +394,7 @@ export function registerBuildCommand(program: Command) {
                   'build',
                   'build-failed',
                   {
-                    code: CODES.E_COMPILE,
+                    code: declaredErrorCode(error) ?? CODES.E_COMPILE,
                     message:
                       error instanceof Error ? error.message : String(error)
                   },
