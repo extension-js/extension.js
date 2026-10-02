@@ -431,7 +431,8 @@ describe('EnvPlugin', () => {
 
     const {compilation, runProcessAssets, updated} =
       createCompilationWithAssets({
-        'manifest.json': '{"count":$EXTENSION_PUBLIC_FOO,"mode":"$EXTENSION_MODE"}',
+        'manifest.json':
+          '{"count":$EXTENSION_PUBLIC_FOO,"mode":"$EXTENSION_MODE"}',
         'ok.json': '{"count":"$EXTENSION_PUBLIC_FOO"}'
       })
 
@@ -565,6 +566,35 @@ describe('EnvPlugin', () => {
 
     expect(updated['manifest.json']).toContain('rootOnly')
     expect(updated['manifest.json']).toContain('rootBar')
+  })
+
+  it('still reaches the workspace root when the package has only .env.defaults', () => {
+    ;(fs.existsSync as unknown as (p: any) => boolean) = vi.fn((p: any) => {
+      const filePath = toPosix(String(p))
+
+      return (
+        filePath === '/repo/pnpm-workspace.yaml' ||
+        filePath === '/repo/.env' ||
+        filePath === '/repo/packages/extension/.env.defaults'
+      )
+    })
+
+    const {compiler} = createCompiler('development')
+    compiler.options.context = '/repo/packages/extension'
+
+    const plugin = new EnvPlugin({
+      manifestPath: '/repo/packages/extension/src/manifest.json',
+      browser: 'chrome'
+    })
+    plugin.apply(compiler as any)
+
+    expect(lastDefineArgs['process.env.EXTENSION_PUBLIC_ROOT_ONLY']).toBe(
+      JSON.stringify('rootOnly')
+    )
+
+    expect(lastDefineArgs['import.meta.env.EXTENSION_PUBLIC_ROOT_ONLY']).toBe(
+      JSON.stringify('rootOnly')
+    )
   })
 
   it('keeps the current manifest state in sync for later manifest steps', () => {

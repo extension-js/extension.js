@@ -72,6 +72,16 @@ interface UnifiedLoggerConfig {
   logTab?: number | string
 }
 
+/**
+ * Where the special folders live, relative to the project root. `false` skips
+ * one entirely.
+ */
+export interface SpecialFoldersConfig {
+  scripts?: string | false
+  pages?: string | false
+  public?: string | false
+}
+
 /** Browser launch options shared across commands and per-browser overrides. */
 interface BrowserLaunchConfig {
   browserFlags?: string[]
@@ -100,6 +110,8 @@ export interface BrowserConfig extends BrowserLaunchConfig {
   chromiumBinary?: string
   geckoBinary?: string
   firefoxBinary?: string
+  /** Where the special folders live for this browser, or `false` to skip one. */
+  folders?: SpecialFoldersConfig
 }
 
 /**
@@ -135,6 +147,11 @@ export interface DevCommandConfig
   polyfill?: boolean
   hashContentScripts?: boolean
   perfBudgets?: PerfBudgetsConfig
+  /**
+   * Compile-time constants inlined into this command's bundles. Overrides the
+   * top-level `define` for the keys it declares.
+   */
+  define?: Record<string, unknown>
 }
 
 /** Shared `commands.start` / `commands.preview` overrides. */
@@ -149,6 +166,11 @@ export interface ServeCommandConfig
   polyfill?: boolean
   port?: string | number
   host?: string
+  /**
+   * Compile-time constants inlined into this command's bundles. Overrides the
+   * top-level `define` for the keys it declares.
+   */
+  define?: Record<string, unknown>
 }
 
 /** `commands.build` overrides. */
@@ -172,6 +194,11 @@ export interface BuildCommandConfig {
   extensions?: CompanionExtensionsConfig
   transpilePackages?: string[]
   perfBudgets?: PerfBudgetsConfig
+  /**
+   * Compile-time constants inlined into this command's bundles. Overrides the
+   * top-level `define` for the keys it declares.
+   */
+  define?: Record<string, unknown>
 }
 
 /**
@@ -216,10 +243,27 @@ export interface FileConfig {
    */
   perfBudgets?: PerfBudgetsConfig
   /**
+   * Compile-time constants inlined into every bundle. Each key also gets an
+   * ambient declaration generated into the project's `extension-env.d.ts`.
+   */
+  define?: Record<string, unknown>
+  /** Where the special folders live, or `false` to skip one. */
+  folders?: SpecialFoldersConfig
+  /**
    * Escape hatch to customize the underlying Rspack/webpack-compatible
    * configuration. Receives and returns a bundler `Configuration` object.
    * Typed loosely to avoid requiring bundler types in consumer projects.
    */
   // biome-ignore lint/suspicious/noExplicitAny: public config API stays loose so user projects need no bundler types
   config?: (config: any) => any
+  /**
+   * Runs once the bundler config is final, right before the first build, with
+   * every loader rule attached. Change `module`, `resolve`, `optimization` or
+   * `output` here. `entry` and `plugins` are fixed by then, use `config`.
+   */
+  configResolved?: (
+    // biome-ignore lint/suspicious/noExplicitAny: public config API stays loose so user projects need no bundler types
+    config: any
+    // biome-ignore lint/suspicious/noExplicitAny: public config API stays loose so user projects need no bundler types
+  ) => any
 }

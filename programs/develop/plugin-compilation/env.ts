@@ -148,7 +148,7 @@ function resolveEnvPaths(projectPath: string, envFiles: string[]) {
       .find((filePath) => fs.existsSync(filePath)) || ''
   const localDefaultsPath = path.join(projectPath, '.env.defaults')
 
-  if (localEnvPath || fs.existsSync(localDefaultsPath)) {
+  if (localEnvPath) {
     return {
       envPath: localEnvPath,
       defaultsPath: localDefaultsPath
@@ -166,9 +166,24 @@ function resolveEnvPaths(projectPath: string, envFiles: string[]) {
 
     if (workspaceEnvPath || fs.existsSync(workspaceDefaultsPath)) {
       return {
+        // .env.defaults is the always-merged layer and is deliberately not a
+        // selectable file, so a local one must not cancel the root search.
+        // A local one still wins over the root's for the keys it declares.
         envPath: workspaceEnvPath,
-        defaultsPath: workspaceDefaultsPath
+        defaultsPath: fs.existsSync(localDefaultsPath)
+          ? localDefaultsPath
+          : workspaceDefaultsPath,
+        fallbackDefaultsPath: fs.existsSync(localDefaultsPath)
+          ? workspaceDefaultsPath
+          : undefined
       }
+    }
+  }
+
+  if (fs.existsSync(localDefaultsPath)) {
+    return {
+      envPath: localEnvPath,
+      defaultsPath: localDefaultsPath
     }
   }
 
@@ -229,7 +244,10 @@ export class EnvPlugin {
     // intentionally NOT included: placeholder values, never a real source.
     const envFiles = getEnvFileCandidates(this.browser, mode)
 
-    const {envPath, defaultsPath} = resolveEnvPaths(projectPath, envFiles)
+    const {envPath, defaultsPath, fallbackDefaultsPath} = resolveEnvPaths(
+      projectPath,
+      envFiles
+    )
 
     if (isDebug()) {
       console.log(messages.envSelectedFile(envPath))
@@ -276,9 +294,14 @@ export class EnvPlugin {
     // dotenv.parse (not .config) on purpose: .config mutates process.env, which
     // wins the merge, so the first build's values would leak into later builds.
     const envVars = envPath ? dotenv.parse(fs.readFileSync(envPath)) : {}
-    const defaultsVars = fs.existsSync(defaultsPath)
-      ? dotenv.parse(fs.readFileSync(defaultsPath))
-      : {}
+    const readDefaults = (filePath: string | undefined) =>
+      filePath && fs.existsSync(filePath)
+        ? dotenv.parse(fs.readFileSync(filePath))
+        : {}
+    const defaultsVars = {
+      ...readDefaults(fallbackDefaultsPath),
+      ...readDefaults(defaultsPath)
+    }
 
     // process.env is the highest precedence layer because a shell or CI value
     // must win. Keys the config loader itself put there by reading a dotenv
@@ -454,9 +477,7 @@ export class EnvPlugin {
                   !parsesAsJson(fileContent)
                 ) {
                   const error = new WebpackError(
-                    messages.envValueBreaksJsonAsset(filename, [
-                      ...substituted
-                    ])
+                    messages.envValueBreaksJsonAsset(filename, [...substituted])
                   ) as Error & {file?: string; name?: string}
                   error.name = 'EnvValueBreaksJsonAsset'
                   error.file = filename
