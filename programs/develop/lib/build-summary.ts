@@ -45,6 +45,14 @@ export type BuildSummary = {
   /** Present only for safari/webkit-based builds that ran the packager. */
   safari?: SafariPackageSummary
   addon_lint?: AddonLintSummary
+  /** Archives this build wrote, with their promoted paths. The name is
+   * rewritten from the manifest, so a caller reads it here rather than
+   * composing it. Absent when neither --zip nor --zip-source was asked for. */
+  zip_artifacts?: Array<{
+    kind: 'source' | 'dist'
+    path: string
+    size: number
+  }>
 }
 
 const MAX_SUMMARY_WARNINGS = 20

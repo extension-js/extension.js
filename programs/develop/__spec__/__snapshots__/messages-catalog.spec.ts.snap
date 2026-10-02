@@ -93,7 +93,9 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "unpackagingExtension: function(1)",
     "writingTypeDefinitions: function(1)",
     "writingTypeDefinitionsError: function(1)",
+    "zipArtifactNotCreated: function(3)",
     "zipArtifactReady: function(2)",
+    "zipSkippedSymlinks: function(1)",
   ],
   "plugin-compatibility/compatibility-lib/messages.ts": [
     "browserGlobalWithoutPolyfill: function(2)",
