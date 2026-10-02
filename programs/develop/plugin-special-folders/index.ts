@@ -11,6 +11,7 @@ import {type Compilation, type Compiler, rspack} from '@rspack/core'
 import {isDebug} from '../lib/messaging'
 import type {SpecialFoldersConfig} from '../types'
 import {checkManifestInPublic} from './check-manifest-in-public'
+import {explainPublicOutputCollision} from './check-public-output-collision'
 import {emitRootAbsoluteRefs} from './emit-root-absolute-refs'
 import {rememberSpecialFoldersConfig} from './folders-config'
 import * as messages from './messages'
@@ -118,6 +119,22 @@ export class SpecialFoldersPlugin {
             },
             () => {
               checkManifestInPublic(compilation, publicDir)
+            }
+          )
+
+          // Runs last on purpose: the collision is raised while assets are
+          // emitted, so the earlier guard stage cannot see it yet.
+          compilation.hooks.processAssets.tap(
+            {
+              name: `${SpecialFoldersPlugin.name}:collisions`,
+              stage: (
+                compilation.constructor as unknown as {
+                  PROCESS_ASSETS_STAGE_REPORT: number
+                }
+              ).PROCESS_ASSETS_STAGE_REPORT
+            },
+            () => {
+              explainPublicOutputCollision(compilation, publicDir)
             }
           )
         }
