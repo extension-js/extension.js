@@ -17,7 +17,7 @@ import {
 import {dropEdgeStoreKey} from '../manifest-lib/filter-key-edge'
 import {missingGeckoDataCollectionPermissions} from '../manifest-lib/gecko-data-collection'
 import {
-  buildCanonicalManifest,
+  buildCanonicalManifestWithOverrides,
   getManifestContent,
   setCurrentManifestContent
 } from '../manifest-lib/manifest'
@@ -25,7 +25,7 @@ import {
   findMistypedManifestFields,
   sanitizeFatalManifestShapes
 } from '../manifest-lib/sanitize-fatal-shapes'
-import {getManifestOverrides} from '../manifest-overrides'
+import {hasMv3StringPolicy} from '../manifest-overrides/common/content_security_policy'
 import {hasMv2SandboxPolicy} from '../manifest-overrides/mv2/content_security_policy'
 
 // A single `content_scripts` entry as carried by the canonical `Manifest`
@@ -41,9 +41,15 @@ import {
 } from '../../../lib/manifest-utils'
 import {isDebug} from '../../../lib/messaging'
 import {reportToCompilation} from '../../shared/compilation-issues'
-import {pageActionDropReason} from '../../shared/html-surfaces'
+import {
+  pageActionDropReason,
+  shouldFoldBrowserActionIntoAction
+} from '../../shared/html-surfaces'
 import * as messages from '../messages'
-import {patchChromiumBackground} from './patch-chromium-background'
+import {
+  hasUnsupportedMv3BackgroundPage,
+  patchChromiumBackground
+} from './patch-chromium-background'
 import {patchChromiumThemeColors} from './patch-chromium-theme-colors'
 import {patchDevContentScriptManifestPaths} from './patch-dev-content-script-manifest-paths'
 import {patchGeckoBackground} from './patch-gecko-background'
@@ -153,6 +159,38 @@ export class UpdateManifest {
               )
             }
 
+            if (hasMv3StringPolicy(forBrowser)) {
+              reportToCompilation(
+                compilation,
+                compiler,
+                messages.mv3StringPolicyRewritten(String(this.browser)),
+                'warning',
+                'manifest.json'
+              )
+            }
+
+            if (shouldFoldBrowserActionIntoAction(forBrowser)) {
+              reportToCompilation(
+                compilation,
+                compiler,
+                messages.mv3BrowserActionFoldedIntoAction(String(this.browser)),
+                'warning',
+                'manifest.json'
+              )
+            }
+
+            if (hasUnsupportedMv3BackgroundPage(forBrowser, this.browser)) {
+              reportToCompilation(
+                compilation,
+                compiler,
+                messages.mv3BackgroundPageUnsupported(String(this.browser)),
+                'error',
+                'manifest.json'
+              )
+
+              return
+            }
+
             // A key another vendor used to reach through the family rule
             // is silent to drop, so the build says it moved.
             for (const dropped of findDroppedVendorKeys(
@@ -195,12 +233,14 @@ export class UpdateManifest {
             // folder when the manifest lives in src/.
             const projectPath =
               compiler.options.context || path.dirname(this.manifestPath)
-            let patchedManifest = buildCanonicalManifest(
+            const canonical = buildCanonicalManifestWithOverrides(
               this.manifestPath,
               manifest,
               this.browser,
               projectPath
-            ) as Manifest
+            )
+            const overrides = canonical.overrides
+            let patchedManifest = canonical.manifest
 
             // Edge Add-ons refuses a package that carries `key` at all, and
             // both edge: and chromium: resolve into one. Production only, a dev
@@ -247,12 +287,6 @@ export class UpdateManifest {
             patchedManifest = patchChromiumThemeColors(
               patchedManifest,
               this.browser
-            )
-
-            const overrides = getManifestOverrides(
-              this.manifestPath,
-              manifest,
-              projectPath
             )
 
             // Dev-only: content_scripts with only CSS get a JS file so styles can be

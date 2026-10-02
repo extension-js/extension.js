@@ -6,12 +6,15 @@ import {
   applyIndependentHtmlSurfaces,
   browserActionOutputTarget,
   dropPageAction,
+  foldBrowserActionIntoAction,
+  isBrowserActionLiveSurface,
   isPageActionLiveSurface,
   optionsPageRef,
   pageActionDropReason,
   pageActionOutputTarget,
   popupRefsShareSource,
   shouldDropPageAction,
+  shouldFoldBrowserActionIntoAction,
   sidebarActionOutputTarget
 } from '../html-surfaces'
 
@@ -22,6 +25,39 @@ describe('popupRefsShareSource', () => {
     expect(popupRefsShareSource('toolbar.html', './toolbar.html')).toBe(true)
     expect(popupRefsShareSource('/toolbar.html', 'toolbar.html')).toBe(true)
     expect(popupRefsShareSource('toolbar.html', 'address.html')).toBe(false)
+  })
+})
+
+describe('browser_action under MV3', () => {
+  const popup = {default_popup: 'toolbar.html'}
+
+  it('is a live surface only below MV3', () => {
+    expect(isBrowserActionLiveSurface({manifest_version: 2} as any)).toBe(true)
+    expect(isBrowserActionLiveSurface({manifest_version: 3} as any)).toBe(false)
+  })
+
+  it('folds into action when MV3 names no action of its own', () => {
+    const manifest = {manifest_version: 3, browser_action: popup} as any
+    expect(shouldFoldBrowserActionIntoAction(manifest)).toBe(true)
+    const folded = foldBrowserActionIntoAction(manifest) as any
+    expect(folded.action).toEqual(popup)
+    expect(folded.browser_action).toBeUndefined()
+  })
+
+  it('keeps both keys when MV3 already names an action', () => {
+    const manifest = {
+      manifest_version: 3,
+      action: {default_popup: 'action.html'},
+      browser_action: popup
+    } as any
+    expect(shouldFoldBrowserActionIntoAction(manifest)).toBe(false)
+    expect(foldBrowserActionIntoAction(manifest)).toBe(manifest)
+  })
+
+  it('leaves an MV2 browser_action alone', () => {
+    const manifest = {manifest_version: 2, browser_action: popup} as any
+    expect(shouldFoldBrowserActionIntoAction(manifest)).toBe(false)
+    expect(foldBrowserActionIntoAction(manifest)).toBe(manifest)
   })
 })
 
