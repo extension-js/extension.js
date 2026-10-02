@@ -10,6 +10,7 @@ import {type Command, Option} from 'commander'
 import {normalizeProfileOption} from '../browsers/browsers-lib/resolve-profile'
 import {runOnlyPreviewBrowser} from '../browsers/run-only'
 import {explicitCliValue} from '../helpers/cli-explicit'
+import {declaredErrorCode} from '../helpers/cli-failure'
 import {
   cliGeckoBinary,
   firefoxBinaryAliasOption,
@@ -266,6 +267,7 @@ export function registerPreviewCommand(program: Command) {
 
         const {extensionPreview} = await loadExtensionDevelopPreviewModule()
         const previewed: string[] = []
+        const previewWarnings: string[] = []
 
         for (const vendor of list) {
           const logsOption = (previewOptions as unknown as {logs?: string}).logs
@@ -276,7 +278,7 @@ export function registerPreviewCommand(program: Command) {
           const logContexts = parseLogContexts(logContextOption)
 
           try {
-            await extensionPreview(
+            const previewResult = await extensionPreview(
               pathOrRemoteUrl,
               {
                 mode: 'production',
@@ -324,12 +326,34 @@ export function registerPreviewCommand(program: Command) {
             )
 
             previewed.push(vendor)
+
+            for (const warning of previewResult?.warnings ?? []) {
+              if (!previewWarnings.includes(warning))
+                {previewWarnings.push(warning)}
+            }
           } catch (error) {
             if (!asJson) throw error
 
             const rendered =
               error instanceof Error ? error.message : String(error)
             const message = stripChannelPrefix(rendered)
+            // A producer that tagged its own failure is believed over any
+            // text match, which is a guess by construction.
+            const declared = declaredErrorCode(error)
+
+            if (declared) {
+              emit(
+                ENVELOPE.fail('preview', 'usage', {
+                  code: declared,
+                  message
+                })
+              )
+
+              await exitAfterDrain(1)
+
+              return
+            }
+
             // Preview never compiles: nothing to preview is the one failure the
             // caller can act on, so it gets its own status. Stopgap needles:
             // neither producer stamps a code on the error it throws.
@@ -372,10 +396,15 @@ export function registerPreviewCommand(program: Command) {
 
         if (asJson) {
           emit(
-            ENVELOPE.ok('preview', 'ready', {
-              projectPath: pathOrRemoteUrl,
-              browsers: previewed
-            })
+            ENVELOPE.ok(
+              'preview',
+              'ready',
+              {
+                projectPath: pathOrRemoteUrl,
+                browsers: previewed
+              },
+              {warnings: previewWarnings}
+            )
           )
         }
       }

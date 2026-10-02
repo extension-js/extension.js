@@ -91,6 +91,7 @@ exports[`extension message catalogs > matches the exported message surface 1`] =
     "parsingPacketError: function(2)",
     "preferringSystemBrowserOverSnapshot: function(2)",
     "prettyPuppeteerInstallGuidance: function(3)",
+    "profilePathIsNotADirectory: function(1)",
     "rdpInvalidRequestPayload: function(0)",
     "requireChromiumBinaryForChromiumBased: function(0)",
     "requireGeckoBinaryForGeckoBased: function(0)",

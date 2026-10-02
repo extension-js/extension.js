@@ -59,6 +59,17 @@ function computeSharedCacheRoot(): string {
   return path.resolve(process.cwd(), '.cache', 'extension.js', 'browsers')
 }
 
+// The managed-cache environment the launcher resolves its binary under, for
+// callers that run before a compilation exists, such as the identity card.
+export function sharedManagedCacheEnv(
+  browser: Parameters<typeof managedBrowserCacheEnv>[1]
+): NodeJS.ProcessEnv {
+  return {
+    ...process.env,
+    ...managedBrowserCacheEnv(computeSharedCacheRoot(), browser)
+  }
+}
+
 export function getCompilationOutputPath(compilation: CompilationLike): string {
   try {
     return (

@@ -110,8 +110,9 @@ export function browserRunnerDisabled(args: {
       },
       {label: 'Extension', value: extensionLabel},
       // Run ID before Output: the run id is this card's contract (two preview
-      // specs assert it) and is the join key into ready.json, while the served
-      // directory is already named by the previewing line above the card.
+      // specs assert it) and is the join key into ready.json. The row cap drops
+      // Output, so a directory that is not the stock build folder is named by
+      // the fallback line instead.
       {label: 'Run ID', value: runLabel},
       {
         label: 'Output',
