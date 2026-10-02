@@ -140,3 +140,81 @@ describe('CDPClient pipe transport', () => {
     )
   })
 })
+
+describe('CDPClient pipe transport when the browser dies mid-write', () => {
+  function brokenPipe() {
+    const {Writable} = require('node:stream') as typeof import('node:stream')
+
+    return new Writable({
+      write(_chunk, _encoding, callback) {
+        const error = new Error('write EPIPE') as Error & {code?: string}
+        error.code = 'EPIPE'
+        callback(error)
+      }
+    })
+  }
+
+  it('reports the transport gone instead of throwing out of the write', async () => {
+    const client = new CDPClient(0, '127.0.0.1')
+    const pipeIn = new PassThrough()
+    const reasons: string[] = []
+    client.onTransportGone = (reason: string) => reasons.push(reason)
+
+    await client.connectViaPipe(pipeIn, brokenPipe())
+
+    await expect(client.sendCommand('Target.getTargets')).rejects.toThrow(
+      /EPIPE/
+    )
+
+    expect(client.isTransportGone()).toBe(true)
+    expect(reasons.length).toBeGreaterThan(0)
+    client.disconnect()
+    pipeIn.destroy()
+  })
+
+  it('says the transport is gone only once', async () => {
+    const client = new CDPClient(0, '127.0.0.1')
+    const pipeIn = new PassThrough()
+    const reasons: string[] = []
+    client.onTransportGone = (reason: string) => reasons.push(reason)
+
+    await client.connectViaPipe(pipeIn, brokenPipe())
+
+    await client.sendCommand('Target.getTargets').catch(() => undefined)
+    await client.sendCommand('Target.getTargets').catch(() => undefined)
+
+    expect(reasons).toHaveLength(1)
+    client.disconnect()
+    pipeIn.destroy()
+  })
+
+  it('reports the transport gone when the read side closes', async () => {
+    const client = new CDPClient(0, '127.0.0.1')
+    const pipeIn = new PassThrough()
+    const pipeOut = new PassThrough()
+    const reasons: string[] = []
+    client.onTransportGone = (reason: string) => reasons.push(reason)
+
+    await client.connectViaPipe(pipeIn, pipeOut)
+    pipeIn.destroy()
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(client.isTransportGone()).toBe(true)
+    expect(reasons).toHaveLength(1)
+    client.disconnect()
+    pipeOut.destroy()
+  })
+
+  it('leaves a healthy pipe reporting a live transport', async () => {
+    const client = new CDPClient(0, '127.0.0.1')
+    const pipeIn = new PassThrough()
+    const pipeOut = new PassThrough()
+
+    await client.connectViaPipe(pipeIn, pipeOut)
+
+    expect(client.isTransportGone()).toBe(false)
+    client.disconnect()
+    pipeIn.destroy()
+    pipeOut.destroy()
+  })
+})

@@ -86,6 +86,7 @@ export class CDPExtensionController {
   private readonly pipeOut?: Writable
   private readonly logSink?: BrowserLogSink
   private cdp: CDPClient | null = null
+  public onTransportGone: ((reason: string) => void) | undefined
   private extensionId: string | null = null
   private loadRefusalReason: string | null = null
 
@@ -563,10 +564,18 @@ export class CDPExtensionController {
       this.cdp = await connectToChromeCdpViaPipe(
         this.pipeIn,
         this.pipeOut,
-        this.cdpPort
+        this.cdpPort,
+        '127.0.0.1',
+        (reason: string) => this.onTransportGone?.(reason)
       )
     } else {
       this.cdp = await connectToChromeCdp(this.cdpPort)
+    }
+
+    // A browser that went away is reported up, so a readiness claim about it
+    // can be withheld rather than printed after the fact.
+    this.cdp.onTransportGone = (reason: string) => {
+      this.onTransportGone?.(reason)
     }
 
     try {

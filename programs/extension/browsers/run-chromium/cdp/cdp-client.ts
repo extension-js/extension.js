@@ -38,6 +38,8 @@ export class CDPClient {
   private ws: WebSocket | null = null
   private pipeIn: Readable | null = null
   private pipeOut: Writable | null = null
+  private transportGoneReason: string | undefined
+  public onTransportGone: ((reason: string) => void) | undefined
   private pipeBuffer: Buffer = Buffer.alloc(0)
   private targetWebSocketUrl: string | null = null
   private eventCallbacks = new Set<(message: CdpProtocolMessage) => void>()
@@ -142,6 +144,20 @@ export class CDPClient {
 
       this.rejectAllPending('CDP pipe closed')
       this.pipeIn = null
+      this.markTransportGone('the browser closed the CDP pipe')
+    })
+
+    // A browser that dies mid-write makes the write side emit EPIPE. With no
+    // listener that reaches the top-level sink as an uncaught exception, which
+    // reads as a fault in the dev server rather than a browser that went away.
+    output.on('error', (error: Error) => {
+      if (this.isDev()) {
+        humanLine(`[CDP] Pipe write error: ${error.message}`)
+      }
+
+      this.rejectAllPending(`CDP pipe write error: ${error.message}`)
+      this.pipeOut = null
+      this.markTransportGone(error.message)
     })
 
     this.startHeartbeat()
@@ -149,6 +165,27 @@ export class CDPClient {
     if (this.isDev()) {
       humanLine(messages.cdpClientConnected(this.host, this.port))
     }
+  }
+
+  // Said once, so a close and a write error for the same dead browser do not
+  // report it twice. Callers use it to withhold a readiness claim.
+  private markTransportGone(reason: string) {
+    if (this.transportGoneReason) return
+
+    this.transportGoneReason = reason
+    const notify = this.onTransportGone
+
+    if (notify) {
+      try {
+        notify(reason)
+      } catch {
+        // Ignore
+      }
+    }
+  }
+
+  isTransportGone(): boolean {
+    return Boolean(this.transportGoneReason)
   }
 
   private rejectAllPending(reason: string) {
@@ -344,7 +381,17 @@ export class CDPClient {
         const data = JSON.stringify(message)
 
         if (this.transport === 'pipe' && this.pipeOut) {
-          this.pipeOut.write(`${data}\0`)
+          this.pipeOut.write(`${data}\0`, (error) => {
+            if (!error) return
+
+            const pending = this.pendingRequests.get(id)
+
+            if (pending?.timeout) clearTimeout(pending.timeout)
+
+            this.pendingRequests.delete(id)
+            this.markTransportGone(error.message)
+            reject(error)
+          })
         } else if (this.ws) {
           this.ws.send(data)
         }
