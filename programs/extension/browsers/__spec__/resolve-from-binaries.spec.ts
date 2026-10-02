@@ -25,9 +25,12 @@ const firefoxExecutable = isWin ? 'firefox.exe' : 'firefox'
 let cacheRoot: string
 let previousCacheDir: string | undefined
 
+// A real managed binary is non-empty and carries the executable bit, and the
+// resolver now requires both, so an empty 0644 file is no longer a stand-in.
 function writeExecutable(filePath: string) {
   fs.mkdirSync(path.dirname(filePath), {recursive: true})
-  fs.writeFileSync(filePath, '')
+  fs.writeFileSync(filePath, Buffer.alloc(1024))
+  fs.chmodSync(filePath, 0o755)
 }
 
 function installBuild(
