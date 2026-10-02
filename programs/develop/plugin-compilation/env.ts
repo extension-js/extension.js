@@ -28,6 +28,7 @@ import {isDebug} from '../lib/messaging'
 import {setCurrentManifestContent} from '../plugin-web-extension/feature-manifest/manifest-lib/manifest'
 import type {DevOptions, PluginInterface} from '../types'
 import * as messages from './compilation-lib/messages'
+import {WatchEnvFilesPlugin} from './watch-env-files'
 
 // Extension pages and workers keep their own URL, content scripts get the
 // extension root, and a MAIN world script without a runtime gets the page URL.
@@ -329,6 +330,18 @@ export class EnvPlugin {
 
     if (isDebug()) {
       console.log(messages.envSelectedFile(envPath))
+    }
+
+    // Watch every path resolveEnvPaths consults, not only the one it picked,
+    // so creating a better match mid-session counts as a change as well.
+    if (projectPath && compiler.options.watchOptions) {
+      new WatchEnvFilesPlugin([
+        ...envFiles.map((file) => path.join(projectPath, file)),
+        path.join(projectPath, '.env.defaults'),
+        envPath,
+        defaultsPath,
+        fallbackDefaultsPath
+      ]).apply(compiler)
     }
 
     // The project ships .env files but none match this browser/mode; every

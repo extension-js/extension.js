@@ -256,8 +256,13 @@ export async function installDependencies(
   projectPath: string,
   projectName: string,
   logger: {log(...args: unknown[]): void; error(...args: unknown[]): void},
-  packageManager?: ScaffoldPackageManager
+  packageManager?: ScaffoldPackageManager,
+  // What the user asked for, so a failure can name the create that tries
+  // again. The scaffold is removed on failure, so the install command itself
+  // is not something they can run.
+  template?: string
 ) {
+  const retry = {projectPath, template}
   const nodeModulesPath = path.join(projectPath, 'node_modules')
 
   const shouldInstall = await hasDependenciesToInstall(projectPath)
@@ -312,7 +317,8 @@ export async function installDependencies(
             command,
             dependenciesArgs,
             retryRun.code,
-            `${retryRun.stdout}\n${retryRun.stderr}`
+            `${retryRun.stdout}\n${retryRun.stderr}`,
+            retry
           )
         )
       }
@@ -322,7 +328,8 @@ export async function installDependencies(
           command,
           dependenciesArgs,
           firstRun.code,
-          output
+          output,
+          retry
         )
       )
     }
@@ -334,7 +341,7 @@ export async function installDependencies(
     }
 
     throw new Error(
-      messages.installingDependenciesProcessError(projectName, error)
+      messages.installingDependenciesProcessError(projectName, error, retry)
     )
   }
 }

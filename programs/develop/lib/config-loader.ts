@@ -129,14 +129,18 @@ function preloadEnvFilesFromDir(envDir: string): EnvPreloadResult {
   return {loadedAny, envDir}
 }
 
-function findConfigFileIn(dir: string): string | undefined {
-  const candidates = [
-    path.join(dir, 'extension.config.js'),
-    path.join(dir, 'extension.config.mjs'),
-    path.join(dir, 'extension.config.cjs')
-  ]
+const PROJECT_CONFIG_FILENAMES = [
+  'extension.config.js',
+  'extension.config.mjs',
+  'extension.config.cjs'
+]
 
-  return candidates.find((p) => fs.existsSync(p))
+function configCandidatesIn(dir: string): string[] {
+  return PROJECT_CONFIG_FILENAMES.map((name) => path.join(dir, name))
+}
+
+function findConfigFileIn(dir: string): string | undefined {
+  return configCandidatesIn(dir).find((p) => fs.existsSync(p))
 }
 
 function resolveManifestDir(projectPath: string): string | undefined {
@@ -171,6 +175,19 @@ export function findConfigFile(projectPath: string): string | undefined {
   }
 
   return findConfigFileIn(manifestDir)
+}
+
+// Every path findConfigFile would accept, present or not. A watcher needs the
+// absent ones too, so a config added mid-session is noticed as a change.
+export function projectConfigCandidatePaths(projectPath: string): string[] {
+  const dirs = [projectPath]
+  const manifestDir = resolveManifestDir(projectPath)
+
+  if (manifestDir && path.resolve(manifestDir) !== path.resolve(projectPath)) {
+    dirs.push(manifestDir)
+  }
+
+  return dirs.flatMap((dir) => configCandidatesIn(dir))
 }
 
 function preloadEnvFiles(projectDir: string) {

@@ -1,5 +1,6 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {SpecialFoldersPlugin} from '..'
+import {rememberSpecialFoldersConfig} from '../folders-config'
 
 const toPosix = (value: string) => value.replace(/\\/g, '/')
 
@@ -58,6 +59,7 @@ const createFakeCompiler = (
           getAsset: () => undefined,
           emitAsset: () => {},
           fileDependencies: new Set<string>(),
+          contextDependencies: new Set<string>(),
           compiler: {
             webpack: {WebpackError: class WebpackError extends Error {}}
           }
@@ -87,6 +89,9 @@ describe('SpecialFoldersPlugin (public copying and guards)', () => {
 
   afterEach(() => {
     vi.clearAllMocks()
+    // The folders config is remembered per project root, so a `public: false`
+    // case would otherwise answer for every later test on the same root.
+    rememberSpecialFoldersConfig('/project', undefined)
   })
 
   it('applies CopyRspackPlugin when public exists (excludes manifest.json)', async () => {
@@ -112,6 +117,54 @@ describe('SpecialFoldersPlugin (public copying and guards)', () => {
     expect(lastCopyOptions?.patterns?.[0]?.globOptions?.ignore).toContain(
       '/project/public/_locales/**/.DS_Store'
     )
+  })
+
+  it('registers the copier when public/ is not there yet', async () => {
+    // A folder created mid-session is only copied if the copier was wired for
+    // it at startup, when the folder did not exist.
+    ;(FS.existsSync as any).mockReturnValue(false)
+
+    const compiler = createFakeCompiler('development', true)
+    new SpecialFoldersPlugin({manifestPath: '/project/manifest.json'}).apply(
+      compiler as any
+    )
+
+    expect(copyApply).toHaveBeenCalledTimes(1)
+    expect(toPosix(lastCopyOptions.patterns[0].from)).toBe('/project/public')
+    expect(lastCopyOptions.patterns[0].noErrorOnMissing).toBe(true)
+  })
+
+  it('watches the parent so the folder appearing is a change', async () => {
+    ;(FS.existsSync as any).mockReturnValue(false)
+
+    let watched = new Set<string>()
+    const compiler = createFakeCompiler('development', true)
+    const originalTap = compiler.hooks.thisCompilation.tap
+    compiler.hooks.thisCompilation.tap = (
+      name: string,
+      callback: (c: any) => void
+    ) =>
+      originalTap(name, (compilation: any) => {
+        watched = compilation.contextDependencies
+        callback(compilation)
+      })
+
+    new SpecialFoldersPlugin({manifestPath: '/project/manifest.json'}).apply(
+      compiler as any
+    )
+
+    expect([...watched].map(toPosix)).toContain('/project')
+  })
+
+  it('reads no folder at all when public is turned off', async () => {
+    ;(FS.existsSync as any).mockReturnValue(false)
+    const compiler = createFakeCompiler('development', true)
+    new SpecialFoldersPlugin({
+      manifestPath: '/project/manifest.json',
+      folders: {public: false}
+    }).apply(compiler as any)
+
+    expect(copyApply).not.toHaveBeenCalled()
   })
 
   it('emits an error when public/ contains manifest.json', async () => {
