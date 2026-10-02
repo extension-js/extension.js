@@ -26,13 +26,16 @@ export function isUsingIntegration(name: string) {
   return `integration use=${name}`
 }
 
-// vue-loader 15 throws on the layer keys the content script rules carry,
-// and the Vue 2 runtime is end of life, so the build stops here by name.
-export function vueTwoIsNotSupported(version: string) {
+// Only a single-file component needs vue-loader, so only that is refused:
+// a Vue 2 project written with render functions builds like any script.
+export function vueTwoSingleFileComponent(version: string, files: string[]) {
+  const list = files.map((file) => `- ${colors.underline(file)}`).join('\n')
+
   return (
-    `${prefix('error')} Vue ${version} is installed, and Extension.js builds Vue 3 only.\n` +
+    `Vue ${version} is installed, and Extension.js compiles .vue files for Vue 3 only.\n` +
+    `${list}\n` +
     `Vue 2 reached end of life in December 2023 and vue-loader 15 cannot read the loader rules this build uses.\n` +
-    `Upgrade to ${colors.yellow('vue@3')} with ${colors.yellow('vue-loader@17')}, or build with your own tooling and point Extension.js at the output.`
+    `Upgrade to ${colors.yellow('vue@3')} with ${colors.yellow('vue-loader@17')}, or write these components as render functions.`
   )
 }
 

@@ -127,6 +127,10 @@ const nodeEntries = {
   'preprocessor-passthrough-loader': path.resolve(
     __dirname,
     './plugin-css/preprocessor-passthrough-loader.ts'
+  ),
+  'solid-jsx-gate-loader': path.resolve(
+    __dirname,
+    './plugin-js-frameworks/js-tools/solid-jsx-gate-loader.ts'
   )
 }
 
