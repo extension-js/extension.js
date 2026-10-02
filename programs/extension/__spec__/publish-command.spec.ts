@@ -374,3 +374,54 @@ describe('extension publish', () => {
     expect(String(errorSpy.mock.calls[0][0])).toContain('Could not reach')
   })
 })
+
+describe('extension publish --ttl', () => {
+  function sentBody(): Record<string, unknown> {
+    const init = fetchMock.mock.calls[0][1] as RequestInit
+
+    return JSON.parse(String(init.body)) as Record<string, unknown>
+  }
+
+  it.each(['abc', '0', '-5', '1.5', '169', '99999'])(
+    'refuses %s before any request is sent',
+    async (ttl) => {
+      expect(await run(['publish', '--token', 'tok', '--ttl', ttl])).toBe(1)
+      expect(fetchMock).not.toHaveBeenCalled()
+    }
+  )
+
+  it('reports a bad value as E_FLAG_VALUE_INVALID usage under --output json', async () => {
+    expect(
+      await run([
+        'publish',
+        '--token',
+        'tok',
+        '--ttl',
+        'abc',
+        '--output',
+        'json'
+      ])
+    ).toBe(1)
+
+    const frame = JSON.parse(String(logSpy.mock.calls[0][0]))
+    expect(frame.ok).toBe(false)
+    expect(frame.status).toBe('usage')
+    expect(frame.error.code).toBe('E_FLAG_VALUE_INVALID')
+    expect(frame.error.refs).toEqual({flag: '--ttl'})
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it.each(['1', '24', '168'])('sends %s as a number', async (ttl) => {
+    respondWith(200, JSON.stringify({shareUrl: 'https://ext.dev/s/abc'}))
+    expect(await run(['publish', '--token', 'tok', '--ttl', ttl])).toBe(0)
+    expect(sentBody().ttlHours).toBe(Number(ttl))
+  })
+
+  // null on the wire reads as "unset" downstream, so the share link would get
+  // a lifetime nobody asked for while the CLI reported success.
+  it('never puts null on the wire, and omits the key when no ttl is given', async () => {
+    respondWith(200, JSON.stringify({shareUrl: 'https://ext.dev/s/abc'}))
+    expect(await run(['publish', '--token', 'tok'])).toBe(0)
+    expect('ttlHours' in sentBody()).toBe(false)
+  })
+})

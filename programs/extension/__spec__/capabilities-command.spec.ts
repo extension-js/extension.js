@@ -6,6 +6,7 @@ import {registerBuildCommand} from '../commands/build'
 import {
   buildEngineCapabilities,
   collectOutputJsonCommands,
+  collectRecordStreamCommands,
   READY_CONTRACT_SCHEMA_VERSION,
   registerCapabilitiesCommand
 } from '../commands/capabilities'
@@ -38,14 +39,51 @@ function makeFullProgram(): Command {
 }
 
 describe('collectOutputJsonCommands', () => {
-  it('lists every registered command that accepts --output json', () => {
+  it('lists every registered envelope command that accepts --output json', () => {
     expect(collectOutputJsonCommands(makeFullProgram())).toEqual([
       'build',
       'capabilities',
       'dev',
-      'doctor',
-      'logs'
+      'doctor'
     ])
+  })
+
+  it('reports a record-stream command separately instead of as an envelope one', () => {
+    const program = makeFullProgram()
+    const envelopeCommands = collectOutputJsonCommands(program)
+    const recordStreamCommands = collectRecordStreamCommands(program)
+
+    expect(recordStreamCommands).toEqual(['logs'])
+    expect(envelopeCommands).not.toContain('logs')
+    expect(
+      envelopeCommands.filter((name) => recordStreamCommands.includes(name))
+    ).toEqual([])
+  })
+
+  it('accounts for every command that accepts --output json across both lists', () => {
+    const program = makeFullProgram()
+    const accepted = (
+      program.commands as unknown as Array<{
+        name(): string
+        options?: Array<{long?: string; flags?: string}>
+      }>
+    )
+      .filter((command) =>
+        (command.options || []).some(
+          (option) =>
+            option.long === '--output' &&
+            String(option.flags || '').includes('json')
+        )
+      )
+      .map((command) => command.name())
+      .sort()
+
+    expect(
+      [
+        ...collectOutputJsonCommands(program),
+        ...collectRecordStreamCommands(program)
+      ].sort()
+    ).toEqual(accepted)
   })
 
   it('excludes commands without an --output json option', () => {
@@ -97,6 +135,8 @@ describe('extension capabilities', () => {
     expect(frame.value.outputJsonCommands).toContain('dev')
     expect(frame.value.outputJsonCommands).toContain('build')
     expect(frame.value.outputJsonCommands).toContain('capabilities')
+    expect(frame.value.outputJsonCommands).not.toContain('logs')
+    expect(frame.value.recordStreamCommands).toEqual(['logs'])
   })
 
   it('keeps the same answer under an explicit --output json', async () => {
