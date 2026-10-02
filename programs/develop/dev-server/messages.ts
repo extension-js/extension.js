@@ -17,7 +17,7 @@ import {
   card,
   prefix
 } from '../lib/messaging'
-import {collapseHomeDir} from '../lib/paths'
+import {collapseHomeDir, displayPath} from '../lib/paths'
 
 const cjsRequire = createRequire(import.meta.url)
 
@@ -227,7 +227,10 @@ export function devServerRestarting(request: {
   reason: string
   pathAfter?: string
   pathBefore?: string
+  pathChanged?: string
 }) {
+  // Every reason names its own noun. A reason with no branch here would print
+  // the script-entry noun, which is the wrong sentence for any other change.
   const what =
     request.reason === 'icons'
       ? 'a manifest icon'
@@ -235,10 +238,18 @@ export function devServerRestarting(request: {
         ? 'an HTML entrypoint'
         : request.reason === 'json'
           ? 'a manifest JSON entry'
-          : 'a manifest script entry'
+          : request.reason === 'env'
+            ? 'an environment file'
+            : 'a manifest script entry'
   const lines = [
     `${getLoggingPrefix('info')} Restarting the dev server to pick up ${what} change…`
   ]
+
+  if (request.pathChanged) {
+    lines.push(
+      `${colors.gray('CHANGED')} ${colors.underline(displayPath(request.pathChanged))}`
+    )
+  }
 
   if (request.pathBefore) {
     lines.push(

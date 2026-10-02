@@ -138,6 +138,18 @@ describe('extension create', () => {
       () => createMessages.manifestNotFound('/tmp/my-extension', 3)
     ],
     [
+      'E_TEMPLATE_NOT_FOUND',
+      () => createMessages.templatePathNotFound('./my-templates/nope')
+    ],
+    [
+      'E_INVALID_OPTION',
+      () =>
+        createMessages.templateDirectoryIsDestination(
+          '/tmp/my-template',
+          '/tmp/my-template/my-extension'
+        )
+    ],
+    [
       'E_DEPENDENCY_INSTALL',
       () =>
         createMessages.installingDependenciesFailed(

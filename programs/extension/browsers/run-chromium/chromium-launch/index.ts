@@ -95,6 +95,12 @@ import {
 
 // Shape of the stats value the injected compiler hands to the done hook;
 // tolerates both real rspack Stats and the mock compilers specs pass.
+interface ChromiumRunOptions {
+  enableCdpPostLaunch?: boolean
+  // The run-only command that owns the session, named when the browser exits.
+  sessionCommand?: 'preview' | 'start'
+}
+
 interface LaunchDoneStats {
   hasErrors?: () => boolean
   compilation: CompilationLike & {
@@ -209,7 +215,7 @@ export class ChromiumLaunchPlugin {
   // Set right before spawn so the child 'close' handler (which has no
   // compilation in scope) can tell a dev session apart and find ready.json.
   private closeHandlerContext: {
-    isDevMode: boolean
+    command: 'dev' | 'preview' | 'start'
     extensionOutputPath?: string
     // The run this browser belongs to, so a late exit stamp cannot land on a
     // restart's contract and fail a browser that is on screen.
@@ -225,7 +231,7 @@ export class ChromiumLaunchPlugin {
   // intended for run-only preview paths.
   public async runOnce(
     compilation: CompilationLike,
-    opts?: {enableCdpPostLaunch?: boolean}
+    opts?: ChromiumRunOptions
   ): Promise<void> {
     if (!this.logger) {
       this.logger = {
@@ -307,7 +313,7 @@ export class ChromiumLaunchPlugin {
 
   private async launchChromium(
     compilation: CompilationLike,
-    opts?: {enableCdpPostLaunch?: boolean}
+    opts?: ChromiumRunOptions
   ) {
     // A bad --chromium-binary is a pin error on every target. Check it
     // before the VITEST dry-run shortcut so tests never see "not installed".
@@ -1038,6 +1044,17 @@ export class ChromiumLaunchPlugin {
           },
           readReadyRunId(lockedOutputPath)
         )
+
+        // Framed, so the CLI prints the refusal alone and not a stack trace.
+        throw Object.assign(
+          new Error(
+            messages.chromiumProfileInUse(
+              error.profileLockPath || String(this.options.profile || ''),
+              error.profileLockOwner
+            )
+          ),
+          {code: error.code, profileLockOwner: error.profileLockOwner}
+        )
       }
 
       throw error
@@ -1100,7 +1117,10 @@ export class ChromiumLaunchPlugin {
       ) || undefined
 
     this.closeHandlerContext = {
-      isDevMode: compilation.options.mode === 'development',
+      command:
+        compilation.options.mode === 'development'
+          ? 'dev'
+          : opts?.sessionCommand || 'preview',
       extensionOutputPath: closeHandlerOutputPath,
       runId: readReadyRunId(closeHandlerOutputPath)
     }
@@ -1360,7 +1380,7 @@ export class ChromiumLaunchPlugin {
               this.options.browser,
               code,
               signal,
-              this.closeHandlerContext?.isDevMode ? 'dev' : 'preview'
+              this.closeHandlerContext?.command || 'preview'
             )
           )
 

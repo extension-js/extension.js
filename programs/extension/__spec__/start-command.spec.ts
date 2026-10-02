@@ -85,7 +85,10 @@ describe('extension start', () => {
     expect(previewOpts.logFormat).toBeUndefined()
     expect(previewOpts.logTimestamps).toBeUndefined()
     expect(previewOpts.logColor).toBeUndefined()
-    expect(runOnlyPreviewBrowser).toHaveBeenCalledWith({launched: true})
+    expect(runOnlyPreviewBrowser).toHaveBeenCalledWith({
+      launched: true,
+      command: 'start'
+    })
   })
 
   it('disables the polyfill with --polyfill false', async () => {
@@ -106,7 +109,10 @@ describe('extension start', () => {
     // The browser phase still runs under --no-open. Only the tab is skipped.
     expect(withFlag.noOpen).toBe(true)
     expect(withFlag.noBrowser).toBe(false)
-    expect(runOnlyPreviewBrowser).toHaveBeenCalledWith({launched: true})
+    expect(runOnlyPreviewBrowser).toHaveBeenCalledWith({
+      launched: true,
+      command: 'start'
+    })
 
     vi.clearAllMocks()
 

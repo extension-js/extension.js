@@ -95,6 +95,9 @@ export function solidBabelOptions(input: {
     babelrc: false,
     configFile: false,
     sourceMaps: true,
+    // Babel's automatic compaction of a file over 500KB prints a note on
+    // every build. The bundler minifies, so the output keeps its layout.
+    compact: false,
     // Every file parses as a module so Solid's compiler emits imports, which
     // keeps a classic content script with octal escapes parseable too.
     sourceType: 'module' as const,
@@ -114,10 +117,10 @@ export function solidBabelOptions(input: {
 }
 
 // A Solid app is compiled by Solid's own compiler, through Babel, the way
-// vite-plugin-solid does it: every script extension, since swc accepts JSX in
-// a plain .js file and would otherwise hand it to the automatic runtime. The
-// hyperscript alias stays for JSX that reaches that runtime some other way,
-// like a precompiled dependency.
+// vite-plugin-solid does it, in every file that can hold JSX. A .ts file
+// cannot: read as TSX, its angle-bracket cast is an unterminated element.
+// The hyperscript alias stays for JSX that reaches the automatic runtime
+// some other way, like a precompiled dependency.
 export async function maybeUseSolid(
   projectPath: string,
   mode: 'development' | 'production' | string = 'development',
@@ -164,20 +167,22 @@ export async function maybeUseSolid(
   // runtime builds it against a second reactive graph that updates nothing.
   const excludeNodeModules = createNodeModulesExclude(transpilePackageDirs)
 
+  const javascriptOptions = solidBabelOptions({
+    solidPreset,
+    typescriptPreset,
+    typescript: false,
+    development
+  })
+
   const loaders: JsFramework['loaders'] = [
     {
-      test: /\.(js|mjs|cjs|jsx|mjsx)$/,
+      test: /\.(jsx|mjsx)$/,
       exclude: excludeNodeModules,
       loader: babelLoader,
-      options: solidBabelOptions({
-        solidPreset,
-        typescriptPreset,
-        typescript: false,
-        development
-      })
+      options: javascriptOptions
     },
     {
-      test: /\.(ts|mts|cts|tsx|mtsx)$/,
+      test: /\.(tsx|mtsx)$/,
       exclude: excludeNodeModules,
       loader: babelLoader,
       options: solidBabelOptions({
@@ -186,6 +191,14 @@ export async function maybeUseSolid(
         typescript: true,
         development
       })
+    },
+    // A plain script reaches Babel through the gate, which lets a file with
+    // no JSX pass untouched.
+    {
+      test: /\.(js|mjs|cjs)$/,
+      exclude: excludeNodeModules,
+      loader: resolveDevelopDistFile('solid-jsx-gate-loader'),
+      options: {...javascriptOptions, babelLoader}
     }
   ]
 

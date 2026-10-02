@@ -161,7 +161,9 @@ export function usingTemplate(templateName: string, source: string) {
   const origin =
     source === 'bundled'
       ? 'bundled with this CLI'
-      : `from ${fmt.val(fmt.truncate(source, 120))}`
+      : source === 'local'
+        ? 'from a directory on this machine'
+        : `from ${fmt.val(fmt.truncate(source, 120))}`
 
   return (
     `${prefix('info')} Using the ${colors.blue(templateName)} template, ` +
@@ -210,6 +212,59 @@ export function templateNotFoundInCatalog(
       : '') +
     `${colors.red('- Run')} ${colors.blue('extension create --help')} ${colors.red('to list the valid template names.')}\n` +
     `${colors.red('- Pass a GitHub URL to use a template from anywhere.')}`
+  )
+}
+
+// A spawned tool reports its failure with its own stack attached, and those
+// frames point inside node_modules. A refusal quotes the cause on one line and
+// never the trace: the trace is ours to read, not the user's to act on.
+const CAUSE_STACK_LINE = /^\s*at\s/
+
+function causeDigest(error: unknown) {
+  return String((error as Error | undefined)?.message || error)
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line !== '' && !CAUSE_STACK_LINE.test(line))
+    .join(' ')
+}
+
+// A path-shaped `--template` has two readings, a directory here and a catalog
+// name, so a refusal names the value as given and says both were tried. The
+// catalog reading takes only the basename, and reporting that alone told a user
+// who asked for `./my-template` that `my-template` does not exist.
+export function templatePathNotFound(requested: string) {
+  return (
+    `${prefix('error')} Couldn't find the template ${colors.blue(requested)}.\n` +
+    `${fmt.label('SEARCHED')} ${fmt.val(`that path on this machine, then the extension-js/examples catalog for ${path.basename(requested)}`)}\n` +
+    `${colors.red('- Pass the path of a template directory that exists.')}\n` +
+    `${colors.red('- Run')} ${colors.blue('extension create --help')} ${colors.red('to list the valid template names.')}`
+  )
+}
+
+// Copying a directory into itself has no meaning and would recurse, so the
+// shape of the mistake is named instead of the failure it would become.
+export function templateDirectoryIsDestination(
+  templateDir: string,
+  projectPath: string
+) {
+  return (
+    `${prefix('error')} Can't scaffold a project inside the template it copies.\n` +
+    `${fmt.label('TEMPLATE')} ${fmt.val(templateDir)}\n` +
+    `${fmt.label('OUTPUT')} ${fmt.val(projectPath)}\n` +
+    `${colors.red('Choose an output path outside the template directory.')}`
+  )
+}
+
+// A URL the user typed is the one thing the refusal must carry: the catalog
+// frame names a basename, and `.../examples/react` read as "react" hid the
+// typo that was in the host or the repository name.
+export function templateUrlFetchFailed(url: string, error: unknown) {
+  return (
+    `${prefix('error')} Couldn't fetch the template from that URL.\n` +
+    `${fmt.label('URL')} ${fmt.val(fmt.truncate(url, 160))}\n` +
+    `${fmt.label('REASON')} ${fmt.val(fmt.truncate(causeDigest(error), 600))}\n` +
+    `${colors.red('- Check the URL, and that the repository is public.')}\n` +
+    `${colors.red('- Check your network connection, then try again.')}`
   )
 }
 
@@ -327,17 +382,52 @@ function installOutputDigest(output: string) {
 const RELEASE_AGE_REFUSAL =
   /NO_MATURE_MATCHING_VERSION|minimum[-_ ]?release[-_ ]?age/i
 
+// A create that fails at install removes the project, because the steps that
+// name the scaffold run after it and a half-named project is worse than none.
+// So the way back is a fresh create, never the install command: the directory
+// that command needs is already gone.
+export interface ScaffoldRetry {
+  projectPath: string
+  template?: string
+}
+
+function createCommandFor(retry: ScaffoldRetry) {
+  const relative = path.relative(process.cwd(), retry.projectPath)
+  const target =
+    relative && !relative.startsWith('..') ? relative : retry.projectPath
+
+  return [
+    'extension create',
+    shellQuote(target),
+    ...(retry.template ? [`--template ${shellQuote(retry.template)}`] : []),
+    '--install'
+  ].join(' ')
+}
+
+function createAgainStep(retry?: ScaffoldRetry) {
+  if (!retry) {
+    return colors.red('Fix the error above, then create the project again.')
+  }
+
+  return (
+    `${colors.red('The new project files were removed. Fix the error above, then run')} ` +
+    `${colors.blue(createCommandFor(retry))} ${colors.red('again.')}`
+  )
+}
+
 export function installingDependenciesFailed(
   pmCommand: string,
   pmArgs: string[],
   code: number | null,
-  output?: string
+  output?: string,
+  retry?: ScaffoldRetry
 ) {
   const digest = installOutputDigest(String(output || ''))
   const reason = fmt.truncate(digest, 600)
   const rule = RELEASE_AGE_REFUSAL.test(digest)
     ? `${fmt.label('RULE')} ${fmt.val('a minimum release age in the npm config holds back versions this new')}\n`
     : ''
+  const nextStep = createAgainStep(retry)
 
   return (
     `${prefix('error')} Couldn't install the dependencies.\n` +
@@ -345,18 +435,20 @@ export function installingDependenciesFailed(
     `${fmt.label('EXIT')} ${fmt.val(String(code))}\n` +
     (reason ? `${fmt.label('REASON')} ${reason}\n` : '') +
     rule +
-    `${colors.red('Fix the error above, then run the command yourself to retry.')}`
+    nextStep
   )
 }
 
 export function installingDependenciesProcessError(
   projectName: string,
-  error: unknown
+  error: unknown,
+  retry?: ScaffoldRetry
 ) {
   return (
     `${prefix('error')} Couldn't install the dependencies for ${colors.blue(projectName)}.\n` +
     `${fmt.label('REASON')} ${fmt.val(fmt.truncate(String(error)))}\n` +
-    `${colors.red('The install process exited unexpectedly. Run it yourself to see the full error.')}`
+    `${colors.red('The install process exited unexpectedly.')}\n` +
+    createAgainStep(retry)
   )
 }
 
@@ -426,6 +518,14 @@ export function writingTemplateProvenanceError(error: unknown) {
 
 export function writingManifestJsonMetadata() {
   return `${prefix('debug')} create write file=manifest.json`
+}
+
+// The one manifest key the scaffold writes rather than copies, so the id the
+// project now answers to is readable, and so is the template's that it left.
+export function wroteProjectAddonId(addonId: string, replaced: string[] = []) {
+  const was = replaced.length ? ` was=${replaced.join(',')}` : ''
+
+  return `${prefix('debug')} create manifest addon-id=${addonId}${was}`
 }
 
 export function writingManifestJsonMetadataError(error: unknown) {

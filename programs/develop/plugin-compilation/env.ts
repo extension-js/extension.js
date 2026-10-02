@@ -28,6 +28,7 @@ import {isDebug} from '../lib/messaging'
 import {setCurrentManifestContent} from '../plugin-web-extension/feature-manifest/manifest-lib/manifest'
 import type {DevOptions, PluginInterface} from '../types'
 import * as messages from './compilation-lib/messages'
+import {WatchEnvFilesPlugin} from './watch-env-files'
 
 // Extension pages and workers keep their own URL, content scripts get the
 // extension root, and a MAIN world script without a runtime gets the page URL.
@@ -68,21 +69,89 @@ function rawTextElementAt(content: string, offset: number) {
 
   for (const tag of ['script', 'style'] as const) {
     const open = before.lastIndexOf(`<${tag}`)
+    const openEnd = before.indexOf('>', open)
 
     if (
       open !== -1 &&
       open > before.lastIndexOf(`</${tag}`) &&
-      before.indexOf('>', open) !== -1
+      openEnd !== -1
     ) {
-      return tag
+      return {tag, textStart: openEnd + 1}
     }
   }
 
   return undefined
 }
 
+// Walks code up to the placeholder and reports whether it sits inside a
+// string literal. Comments are skipped so a quote in one does not flip it.
+function insideStringLiteral(
+  text: string,
+  quotes: string,
+  templates: boolean
+): boolean {
+  let quote = ''
+  // Depth of open braces per template expression the scan is inside
+  const expressions: number[] = []
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i]
+
+    if (quote) {
+      if (char === '\\') i++
+      else if (quote === '`' && char === '$' && text[i + 1] === '{') {
+        expressions.push(0)
+        quote = ''
+        i++
+      } else if (char === quote) quote = ''
+
+      continue
+    }
+
+    if (char === '/' && text[i + 1] === '/') {
+      const end = text.indexOf('\n', i)
+      if (end === -1) return false
+
+      i = end
+    } else if (char === '/' && text[i + 1] === '*') {
+      const end = text.indexOf('*/', i + 2)
+      if (end === -1) return false
+
+      i = end + 1
+    } else if (quotes.includes(char) || (templates && char === '`')) {
+      quote = char
+    } else if (expressions.length && char === '{') {
+      expressions[expressions.length - 1]++
+    } else if (expressions.length && char === '}') {
+      if (expressions[expressions.length - 1] === 0) {
+        expressions.pop()
+        quote = '`'
+      } else {
+        expressions[expressions.length - 1]--
+      }
+    }
+  }
+
+  return quote !== ''
+}
+
+export function isInsideJsonString(content: string, offset: number): boolean {
+  return insideStringLiteral(content.slice(0, offset), '"', false)
+}
+
+// A quoted placeholder takes a JSON string body. A bare one stands where a
+// JSON value goes, so it is inserted as written and the caller checks it parses.
+export function substituteForJsonAsset(
+  content: string,
+  offset: number,
+  value: string
+): string {
+  return isInsideJsonString(content, offset) ? escapeForJsonAsset(value) : value
+}
+
 // Markup sinks take entities, which decode the same in attributes and text.
-// An inline script sink takes a JS string body instead, as a <script> never decodes entities.
+// A <script> never decodes entities: a quoted placeholder takes a JS string
+// body, a bare one is code and only loses the power to close the tag.
 export function escapeForHtmlAsset(
   content: string,
   offset: number,
@@ -90,11 +159,21 @@ export function escapeForHtmlAsset(
 ): string {
   const element = rawTextElementAt(content, offset)
 
-  if (element === 'script') {
-    return toJsStringLiteral(value).slice(1, -1).replace(/'/g, '\\u0027')
+  if (element?.tag === 'script') {
+    const script = content.slice(element.textStart, offset)
+
+    if (!insideStringLiteral(script, '"\'', true)) {
+      return value.replace(/<\/(script)/gi, '<\\/$1').replace(/<!--/g, '<\\!--')
+    }
+
+    return toJsStringLiteral(value)
+      .slice(1, -1)
+      .replace(/'/g, '\\u0027')
+      .replace(/`/g, '\\u0060')
+      .replace(/\$\{/g, '\\u0024{')
   }
 
-  if (element === 'style') {
+  if (element?.tag === 'style') {
     return value
   }
 
@@ -251,6 +330,18 @@ export class EnvPlugin {
 
     if (isDebug()) {
       console.log(messages.envSelectedFile(envPath))
+    }
+
+    // Watch every path resolveEnvPaths consults, not only the one it picked,
+    // so creating a better match mid-session counts as a change as well.
+    if (projectPath && compiler.options.watchOptions) {
+      new WatchEnvFilesPlugin([
+        ...envFiles.map((file) => path.join(projectPath, file)),
+        path.join(projectPath, '.env.defaults'),
+        envPath,
+        defaultsPath,
+        fallbackDefaultsPath
+      ]).apply(compiler)
     }
 
     // The project ships .env files but none match this browser/mode; every
@@ -460,21 +551,42 @@ export class EnvPlugin {
                   substituted.add(name)
 
                   return isJsonAsset
-                    ? escapeForJsonAsset(templateVars[name])
+                    ? substituteForJsonAsset(
+                        original,
+                        offset,
+                        templateVars[name]
+                      )
                     : escapeForHtmlAsset(original, offset, templateVars[name])
                 }
 
                 // Digits are valid env-name characters (e.g. EXTENSION_PUBLIC_API_V2).
+                const placeholder = /\$EXTENSION_[A-Z0-9_]+/g
                 const fileContent = original.replace(
-                  /\$EXTENSION_[A-Z0-9_]+/g,
+                  placeholder,
                   (match: string, offset: number) =>
                     resolveVar(match.slice(1), offset)
                 )
 
+                // Only the substitution is judged: a file that would not parse
+                // with a harmless value in each slot was never strict JSON.
+                const parsedBefore = () =>
+                  parsesAsJson(
+                    original.replace(
+                      placeholder,
+                      (match: string, offset: number) =>
+                        !substituted.has(match.slice(1))
+                          ? match
+                          : isInsideJsonString(original, offset)
+                            ? ''
+                            : 'null'
+                    )
+                  )
+
                 if (
                   isJsonAsset &&
                   substituted.size > 0 &&
-                  !parsesAsJson(fileContent)
+                  !parsesAsJson(fileContent) &&
+                  parsedBefore()
                 ) {
                   const error = new WebpackError(
                     messages.envValueBreaksJsonAsset(filename, [...substituted])

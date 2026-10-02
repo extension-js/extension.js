@@ -498,7 +498,7 @@ export function registerStartCommand(program: Command) {
               logTab: startOptions.logTab
             },
             (opts: Parameters<typeof runOnlyPreviewBrowser>[0]) =>
-              runOnlyPreviewBrowser(opts)
+              runOnlyPreviewBrowser({...opts, command: 'start'})
           )
         }
       }

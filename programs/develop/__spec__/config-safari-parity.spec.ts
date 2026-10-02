@@ -229,6 +229,21 @@ describe('safari identity, dev versus build', () => {
     expect(identityOf(dev.mock.calls[0][2])).toEqual(browserLayer)
   })
 
+  it('accepts a config bundle id whose segment starts with a digit', async () => {
+    const root = project()
+    pointAt(root)
+    ;(configLoaderMod.loadBrowserConfig as any).mockResolvedValue({
+      bundleId: 'com.1password.ext'
+    })
+
+    const build = await buildPackagerInput(root)
+
+    expect(build).toHaveBeenCalledTimes(1)
+    expect(identityOf(build.mock.calls[0][2]).bundleId).toBe(
+      'com.1password.ext'
+    )
+  })
+
   it('refuses a bundle id from a config layer before any build or server starts', async () => {
     const root = project()
     pointAt(root)

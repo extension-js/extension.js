@@ -6,6 +6,7 @@
 // ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import {execFileSync} from 'node:child_process'
 import * as fs from 'node:fs'
 import * as net from 'node:net'
 import * as os from 'node:os'
@@ -360,6 +361,7 @@ export const PROFILE_LOCKED_ERROR_CODE = 'profile_locked'
 export interface ProfileLockedError extends Error {
   code: string
   profileLockOwner: {host: string; pid: number}
+  profileLockPath?: string
 }
 
 // Tagged rather than prose-matched: the ready contract stamps this code, and a
@@ -374,7 +376,58 @@ export function isProfileLockedError(
   )
 }
 
-export function prepareChromiumProfileForLaunch(profilePath: string) {
+function readProcessCommand(pid: number): string | null {
+  if (process.platform === 'win32') return null
+
+  try {
+    return execFileSync('ps', ['-o', 'command=', '-p', String(pid)], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: 3000
+    }).trim()
+  } catch {
+    return null
+  }
+}
+
+const CHROMIUM_FAMILY_BINARY =
+  /chrom(e|ium)|msedge|microsoft edge|brave|opera|vivaldi|yandex|thorium/i
+
+// A pid outlives its process: after a crash or a reboot the number in the
+// lock can belong to anything, so the owner has to be a browser on this dir.
+function commandHoldsChromiumProfile(
+  command: string,
+  profilePath: string
+): boolean {
+  const profilePaths = [profilePath, realpathOrSelf(profilePath)]
+  const namesProfile = profilePaths.some((p) => command.includes(p))
+  const binary = profilePaths.reduce(
+    (text, p) => text.split(p).join(''),
+    command
+  )
+
+  if (!CHROMIUM_FAMILY_BINARY.test(binary)) return false
+  if (namesProfile) return true
+
+  // No flag means the browser's default data dir, and a relative one cannot
+  // be resolved from here. Neither proves the lock stale, so both refuse.
+  const dataDir = /--user-data-dir=(\S*)/.exec(command)
+
+  return !dataDir || !path.isAbsolute(dataDir[1].replace(/^["']/, ''))
+}
+
+function realpathOrSelf(target: string): string {
+  try {
+    return fs.realpathSync(target)
+  } catch {
+    return target
+  }
+}
+
+export function prepareChromiumProfileForLaunch(
+  profilePath: string,
+  probe: {readCommand?: (pid: number) => string | null} = {}
+) {
   const owner = readChromiumSingletonOwner(profilePath)
   if (!owner) return {removedArtifacts: [] as string[]}
 
@@ -382,8 +435,15 @@ export function prepareChromiumProfileForLaunch(profilePath: string) {
   const ownerHost = owner.host.trim().toLowerCase()
   const sameHost = currentHost.length > 0 && currentHost === ownerHost
   const alive = isProcessLikelyAlive(owner.pid)
+  const command =
+    sameHost && alive
+      ? (probe.readCommand || readProcessCommand)(owner.pid)
+      : null
+  // An unreadable command line cannot clear the owner, so it still refuses.
+  const holdsProfile =
+    command === null || commandHoldsChromiumProfile(command, profilePath)
 
-  if (!sameHost || !alive) {
+  if (!sameHost || !alive || !holdsProfile) {
     return {
       removedArtifacts: removeChromiumSingletonArtifacts(profilePath)
     }
@@ -396,6 +456,7 @@ export function prepareChromiumProfileForLaunch(profilePath: string) {
   ) as ProfileLockedError
   error.code = PROFILE_LOCKED_ERROR_CODE
   error.profileLockOwner = {host: owner.host, pid: owner.pid}
+  error.profileLockPath = profilePath
 
   throw error
 }
