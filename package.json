@@ -29,7 +29,7 @@
     "watch": "node scripts/run-watch.mjs",
     "format": "node scripts/format-wrapper.cjs",
     "lint": "biome lint . --files-max-size=262144 && eslint .",
-    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.spec.json",
     "test": "node scripts/run-test.mjs",
     "test:scripts": "node --test scripts/__spec__/*.spec.mjs",
     "test:cli": "node scripts/run-test.mjs cli",

@@ -1,3 +1,5 @@
+import {describe, expect, it} from 'vitest'
+
 describe('dynamic install', () => {
   it('has access to extension-develop in the workspace dependency graph', async () => {
     const mod: any = await import('extension-develop')

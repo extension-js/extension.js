@@ -2,6 +2,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import glob from 'tiny-glob'
+import {afterAll} from 'vitest'
 
 // The suites assert on exact human-readable output. A caller's FORCE_COLOR
 // wraps that output in ANSI and breaks the assertions, so color is forced
