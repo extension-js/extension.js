@@ -3,6 +3,7 @@ import {tmpdir} from 'node:os'
 import {join} from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
 import {
+  describeWaitError,
   isFreshContractPayload,
   READY_CONTRACT_FRESHNESS_MS,
   runDevWaitMode
@@ -158,6 +159,70 @@ describe('runDevWaitMode', () => {
         waitTimeout: 5000
       })
     ).rejects.toThrow('Compilation failed')
+  })
+
+  it('names the refusal the ready contract reported', async () => {
+    const expected: Array<[string, string]> = [
+      ['dev_server_start_failed', 'E_DEV_SERVER_START'],
+      ['shutdown', 'E_SESSION_STOPPED'],
+      ['compile_failed', 'E_COMPILE_FATAL'],
+      ['browser_exited', 'E_BROWSER_EXITED'],
+      ['extension_load_refused', 'E_EXTENSION_LOAD_REFUSED'],
+      ['profile_locked', 'E_PROFILE_LOCKED']
+    ]
+
+    for (const [readyCode, code] of expected) {
+      const projectDir = createProject()
+      const readyDir = join(projectDir, 'dist', 'extension-js', 'chromium')
+      mkdirSync(readyDir, {recursive: true})
+      writeFileSync(
+        join(readyDir, 'ready.json'),
+        JSON.stringify({
+          command: 'dev',
+          status: 'error',
+          code: readyCode,
+          message: `the session failed with ${readyCode}`,
+          pid: process.pid
+        })
+      )
+
+      const error = await runDevWaitMode({
+        pathOrRemoteUrl: projectDir,
+        browsers: ['chromium'],
+        waitTimeout: 2000
+      }).then(
+        () => null,
+        (reason: unknown) => reason
+      )
+
+      expect(describeWaitError(error).code, readyCode).toBe(code)
+    }
+  })
+
+  it('falls back to the ready-status code when the contract names none', async () => {
+    const projectDir = createProject()
+    const readyDir = join(projectDir, 'dist', 'extension-js', 'chromium')
+    mkdirSync(readyDir, {recursive: true})
+    writeFileSync(
+      join(readyDir, 'ready.json'),
+      JSON.stringify({
+        command: 'dev',
+        status: 'error',
+        message: 'Compilation failed',
+        pid: process.pid
+      })
+    )
+
+    const error = await runDevWaitMode({
+      pathOrRemoteUrl: projectDir,
+      browsers: ['chromium'],
+      waitTimeout: 2000
+    }).then(
+      () => null,
+      (reason: unknown) => reason
+    )
+
+    expect(describeWaitError(error).code).toBe('E_READY_ERROR_STATUS')
   })
 
   it('keeps waiting when stale pid is dead', async () => {

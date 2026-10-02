@@ -541,6 +541,16 @@ export function registerLogsCommand(program: Command) {
     })
 }
 
+// A follow that lost records must say so on the frame that ends it, or a
+// machine reader takes the stream it received for the whole history.
+function followGapWarnings(missingEvents: number): string[] {
+  if (missingEvents < 1) return []
+
+  return [
+    `${CODES.E_LOGS_STREAM_GAP}: ${missingEvents} event(s) are missing from this follow`
+  ]
+}
+
 function refuseUsage(
   format: 'pretty' | 'json' | 'ndjson',
   message: string
@@ -626,6 +636,7 @@ async function followLogs(
   // The session keeps a bounded replay buffer. A follower that joins after
   // it filled is told once that the history it is about to print is partial.
   let replayNoticed = false
+  let missingEvents = 0
 
   const consumer = new BridgeConsumer({
     controlPort: ready.controlPort,
@@ -636,6 +647,7 @@ async function followLogs(
       if (replayNoticed || evicted < 1) return
 
       replayNoticed = true
+      missingEvents += evicted
       // eslint-disable-next-line no-console
       console.error(
         colors.dim(
@@ -648,6 +660,12 @@ async function followLogs(
     },
     onLog: (event: LogEventLike) => {
       if (matches(event)) printEvent(event, format)
+    },
+    // The broker sends a gap on its own frame type, so a follower that only
+    // reads log frames never learns the stream lost anything.
+    onGap: (frame: LogEventLike) => {
+      missingEvents += typeof frame.dropped === 'number' ? frame.dropped : 0
+      printEvent({...frame, type: 'gap'}, format)
     },
     onClose: (close: {code: number; reason: string}) => {
       if (!refusals.has(close.code) && sessionStillNamed()) return
@@ -665,11 +683,16 @@ async function followLogs(
         // eslint-disable-next-line no-console
         console.log(
           JSON.stringify(
-            ENVELOPE.ok('logs', 'closed', {
-              closeCode: close.code,
-              reason: close.reason,
-              follow: true
-            })
+            ENVELOPE.ok(
+              'logs',
+              'closed',
+              {
+                closeCode: close.code,
+                reason: close.reason,
+                follow: true
+              },
+              {warnings: followGapWarnings(missingEvents)}
+            )
           )
         )
       }
@@ -689,7 +712,12 @@ async function followLogs(
       // eslint-disable-next-line no-console
       console.log(
         JSON.stringify(
-          ENVELOPE.ok('logs', 'interrupted', {signal, follow: true})
+          ENVELOPE.ok(
+            'logs',
+            'interrupted',
+            {signal, follow: true},
+            {warnings: followGapWarnings(missingEvents)}
+          )
         )
       )
     }

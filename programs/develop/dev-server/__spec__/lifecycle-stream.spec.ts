@@ -195,6 +195,27 @@ describe('lifecycle stream transitions', () => {
     expect(frame.value?.pid).toBe(process.pid)
   })
 
+  it('warns with the declared code when the requested port was taken', () => {
+    const {stream, lines} = makeStream()
+    stream.starting({requestedPort: 8080, port: 8081})
+    const [frame] = parseFrames(lines)
+    expect(frame.warnings).toEqual([
+      'E_PORT_IN_USE: port 8080 was taken, so the dev server listens on port 8081'
+    ])
+  })
+
+  it('leaves the starting frame unwarned when the requested port was free', () => {
+    const {stream, lines} = makeStream()
+    stream.starting({requestedPort: 8080, port: 8080})
+    expect(parseFrames(lines)[0].warnings).toEqual([])
+  })
+
+  it('leaves the starting frame unwarned when no port was requested', () => {
+    const {stream, lines} = makeStream()
+    stream.starting({requestedPort: Number.NaN, port: 8081})
+    expect(parseFrames(lines)[0].warnings).toEqual([])
+  })
+
   it('emits exactly one compiled frame with assets and duration', () => {
     const {stream, lines} = makeStream()
     stream.compiled({assets: 7, durationMs: 421})
@@ -355,7 +376,7 @@ describe('lifecycle stream transitions', () => {
     const [frame] = parseFrames(lines)
     expect(frame.status).toBe('failed')
     expect(frame.ok).toBe(false)
-    expect(frame.error?.code).toBe('E_INTERNAL')
+    expect(frame.error?.code).toBe('E_DEV_SERVER_START')
     expect(frame.error?.message).toBe('listen EADDRINUSE')
   })
 

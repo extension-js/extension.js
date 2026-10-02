@@ -38,7 +38,8 @@ vi.mock('../helpers/parent-watchdog', () => ({
 
     return Number.isInteger(n) && n > 0 ? n : undefined
   },
-  setupParentWatchdog: (pid: number) => setupParentWatchdog(pid)
+  setupParentWatchdog: (pid: number, options?: unknown) =>
+    setupParentWatchdog(pid, options)
 }))
 
 vi.mock('../commands/dev-wait', async (importOriginal) => {
@@ -173,7 +174,39 @@ describe('extension dev', () => {
 
   it('arms the parent watchdog with a valid --parent-pid', async () => {
     expect(await run(['dev', '.', '--parent-pid', '4242'])).toBe(0)
-    expect(setupParentWatchdog).toHaveBeenCalledWith(4242)
+    expect(setupParentWatchdog).toHaveBeenCalledWith(4242, {
+      emitFrame: expect.any(Function)
+    })
+  })
+
+  it('frames a parent-gone shutdown under --output json', async () => {
+    expect(
+      await run(['dev', '.', '--parent-pid', '4242', '--output', 'json'])
+    ).toBe(0)
+
+    const options = setupParentWatchdog.mock.calls[0]?.[1] as {
+      emitFrame: () => void
+    }
+    logSpy.mockClear()
+    options.emitFrame()
+
+    expect(JSON.parse(String(logSpy.mock.calls[0][0]))).toMatchObject({
+      ok: false,
+      command: 'dev',
+      status: 'failed',
+      error: {code: 'E_PARENT_GONE'}
+    })
+  })
+
+  it('prints no parent-gone frame without --output json', async () => {
+    expect(await run(['dev', '.', '--parent-pid', '4242'])).toBe(0)
+    const options = setupParentWatchdog.mock.calls[0]?.[1] as {
+      emitFrame: () => void
+    }
+    logSpy.mockClear()
+    options.emitFrame()
+
+    expect(logSpy).not.toHaveBeenCalled()
   })
 
   it('enables author diagnostics with --author', async () => {

@@ -10,6 +10,7 @@ import * as fs from 'node:fs'
 import {loadExtensionDevelopBridgeModule} from '../helpers/extension-develop-runtime'
 import {CODES, type ErrorCode} from '../helpers/messaging'
 import {normalizeOutputFormat} from '../helpers/output-flag'
+import {readyContractErrorCode} from '../helpers/ready-contract-codes'
 import {
   resolveSessionProjectPath,
   sessionReadyPath
@@ -120,7 +121,7 @@ export interface WaitFailure {
 }
 
 // Maps a wait rejection onto the envelope fields. Anything untagged is
-// E_INTERNAL: there is no code yet for "the ready contract reported an error".
+// E_INTERNAL: a throw nobody classified is a fault, not a known refusal.
 export function describeWaitError(error: unknown): WaitFailure {
   const message = error instanceof Error ? error.message : String(error)
   const tagged = (error as {code?: unknown} | null)?.code
@@ -243,7 +244,10 @@ async function waitForReadyContract(options: {
           const detail =
             payload.message || payload.errors?.[0] || 'unknown error'
 
-          throw new WaitModeError(String(detail), CODES.E_INTERNAL)
+          throw new WaitModeError(
+            String(detail),
+            readyContractErrorCode(payload.code) ?? CODES.E_READY_ERROR_STATUS
+          )
         }
       }
     }
