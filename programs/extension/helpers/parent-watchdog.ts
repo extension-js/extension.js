@@ -27,6 +27,9 @@ export function setupParentWatchdog(
   parentPid: number,
   options?: {
     log?: (message: string) => void
+    // The last thing a machine consumer sees, so it is written before the
+    // shutdown that closes stdout behind it.
+    emitFrame?: () => void
     // Test seam: replaces the SIGTERM-self shutdown.
     onDeath?: () => void
     pollIntervalMs?: number
@@ -53,6 +56,7 @@ export function setupParentWatchdog(
       `[Extension.js] Parent process ${parentPid} is gone (--parent-pid). Shutting down.`
     )
 
+    options?.emitFrame?.()
     shutdown()
   }
 
