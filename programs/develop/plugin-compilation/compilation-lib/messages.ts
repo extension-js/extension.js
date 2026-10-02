@@ -9,6 +9,7 @@
 import type {Stats} from '@rspack/core'
 import colors from 'pintor'
 import {prefix} from '../../lib/messaging'
+import {displayPath} from '../../lib/paths'
 
 export function boring(manifestName: string, durationMs: number, stats: Stats) {
   const now = new Date()
@@ -70,6 +71,27 @@ export function envValueBreaksJsonAsset(asset: string, names: string[]) {
     `${names.map((name) => colors.yellow(`$${name}`)).join(', ')}.\n` +
     `An env value only fits inside a JSON string, so keep the placeholder ` +
     `quoted: ${colors.gray(`"$${names[0]}"`)}.`
+  )
+}
+
+// A live session cannot re-read the config file: the loader caches it and the
+// merged options are a session-scoped snapshot. Say so instead of compiling
+// clean and leaving the author to wonder which build their edit landed in.
+export function projectConfigChangedRestartRequired(configPath: string) {
+  return (
+    `${colors.yellow(displayPath(configPath))} changed. This session keeps ` +
+    `running the config it read at startup.\n` +
+    `Stop it and run ${colors.blue('extension dev')} again to apply the change.`
+  )
+}
+
+// The fallback for a watch run with no dev session to restart, where the
+// values this build inlined stay the ones read when the compiler was created.
+export function envChangedRestartRequired(envPath: string) {
+  return (
+    `${colors.yellow(displayPath(envPath))} changed. The values this build ` +
+    `inlined are the ones read when the compiler started.\n` +
+    `Restart the dev server to apply the change.`
   )
 }
 
