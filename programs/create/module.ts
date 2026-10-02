@@ -231,8 +231,24 @@ async function scaffoldProject({
   await writeTemplateProvenance(projectPath, templateProvenance, logger)
 
   if (install) {
-    await installDependencies(projectPath, projectName, logger, packageManager)
-    await installInternalDependencies(projectPath, logger, packageManager)
+    // The requested template, not the scaffolded one: a failure names the
+    // create the user would run again, and they asked for what they typed.
+    const requestedTemplate = templateWasOmitted ? undefined : effectiveTemplate
+
+    await installDependencies(
+      projectPath,
+      projectName,
+      logger,
+      packageManager,
+      requestedTemplate
+    )
+
+    await installInternalDependencies(
+      projectPath,
+      logger,
+      packageManager,
+      requestedTemplate
+    )
   }
 
   await writeReadmeFile(projectPath, projectName, logger, packageManager)

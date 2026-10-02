@@ -35,10 +35,16 @@ export const CREATE_ERROR_NEEDLES = {
   // template the catalog does not have, which is what this code documents.
   E_TEMPLATE_NOT_FOUND: [
     'is not in the extension-js/examples catalog',
-    "Couldn't read a manifest.json"
+    "Couldn't read a manifest.json",
+    // A path-shaped --template that names neither a directory here nor a
+    // catalog entry is the same refusal class, reported against the path.
+    'that path on this machine'
   ],
   E_DEPENDENCY_INSTALL: ["Couldn't install the dependencies"],
-  E_INVALID_OPTION: ['A URL is not a valid project path']
+  E_INVALID_OPTION: [
+    'A URL is not a valid project path',
+    "Can't scaffold a project inside the template it copies"
+  ]
 } as const
 
 function createErrorCode(error: unknown): ErrorCode {
