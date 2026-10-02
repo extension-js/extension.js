@@ -514,9 +514,23 @@ function buildCandidates(
   return out
 }
 
-function isUsableBinaryPath(candidate: string): boolean {
+// An interrupted download leaves a real file that is empty and not
+// executable. Accepting it on isFile alone let a stub shadow a working
+// install for good, because candidates are tried newest build first.
+export function isUsableBinaryPath(candidate: string): boolean {
   try {
-    return Boolean(candidate) && fs.statSync(candidate).isFile()
+    if (!candidate) return false
+
+    const stat = fs.statSync(candidate)
+    if (!stat.isFile() || stat.size === 0) return false
+
+    // Windows decides by extension, not by a mode bit, so a non-empty file
+    // there is as much as this check can honestly assert.
+    if (process.platform === 'win32') return true
+
+    fs.accessSync(candidate, fs.constants.X_OK)
+
+    return true
   } catch {
     return false
   }
@@ -572,7 +586,9 @@ function findExecutableUnder(
           stack.push({dir: full, depth: depth + 1})
         } else {
           const base = path.basename(full)
-          if (names.includes(base)) return full
+          // Same usability bar as the direct candidates: a name match that is
+          // an empty or non-executable stub is not a browser.
+          if (names.includes(base) && isUsableBinaryPath(full)) return full
         }
       }
     }
