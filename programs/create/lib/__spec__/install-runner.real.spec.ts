@@ -46,20 +46,29 @@ describe('install-runner runInstall (real spawn)', () => {
     }
   )
 
+  // The control variable is the point: a lane where no npm_config_* reaches the
+  // child reads "unset" for the stripped key too, and the assertion would then
+  // pass while proving nothing.
   it('keeps an inherited release-age rule out of the project install', async () => {
     const saved = process.env.npm_config_minimum_release_age
     process.env.npm_config_minimum_release_age = '4320'
+    process.env.npm_config_release_age_control = 'reached'
 
     try {
       const result = await runInstall(
         process.execPath,
-        ['-p', 'process.env.npm_config_minimum_release_age ?? "unset"'],
+        [
+          '-p',
+          'JSON.stringify([process.env.npm_config_release_age_control ?? "lost", process.env.npm_config_minimum_release_age ?? "unset"])'
+        ],
         {cwd: process.cwd(), stdio: 'pipe'}
       )
 
       expect(result.code).toBe(0)
-      expect(result.stdout.trim()).toBe('unset')
+      expect(JSON.parse(result.stdout.trim())).toEqual(['reached', 'unset'])
     } finally {
+      delete process.env.npm_config_release_age_control
+
       if (saved === undefined) {
         delete process.env.npm_config_minimum_release_age
       } else {
