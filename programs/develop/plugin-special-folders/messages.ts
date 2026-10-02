@@ -99,3 +99,16 @@ export function unreferencedScriptDropped(relativePaths: string[]) {
     `${relativePaths.length === 1 ? 'it' : 'them'} in the build.`
   )
 }
+
+export function publicFileCollidesWithEntry(
+  publicPath: string,
+  emittedPath: string
+) {
+  return (
+    `${colors.yellow(publicPath)} would be written to ` +
+    `${colors.yellow(emittedPath)}, which this extension already generates ` +
+    `from its manifest, so two different files claim one output path. ` +
+    `Rename the file under ${colors.yellow('public/')}, or move it to a ` +
+    `subfolder that no generated page uses.`
+  )
+}
