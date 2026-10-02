@@ -111,10 +111,12 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "cleanDistRemovedSummary: function(2)",
     "cleanDistSkippedNotFound: function(1)",
     "cleanDistStarting: function(1)",
+    "envChangedRestartRequired: function(1)",
     "envInjectedPublicVars: function(1)",
     "envNoMatchingFile: function(4)",
     "envSelectedFile: function(1)",
     "envValueBreaksJsonAsset: function(2)",
+    "projectConfigChangedRestartRequired: function(1)",
     "zipPackagingSkipped: function(1)",
   ],
   "plugin-css/css-lib/messages.ts": [
