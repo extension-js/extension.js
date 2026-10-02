@@ -9,7 +9,15 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import type {Command} from 'commander'
-import {isChromiumBrowser} from '../browsers/browsers-lib/browser-family'
+import {
+  isChromiumBrowser,
+  isFirefoxBrowser
+} from '../browsers/browsers-lib/browser-family'
+import {
+  evaluateExtensionDocument,
+  extensionDocumentPagePath,
+  isExtensionDocumentContext
+} from '../browsers/run-firefox/rdp/evaluate-extension-document'
 import {emulatorSessionRefusal} from '../helpers/emulator-session'
 import {exitAfterDrain} from '../helpers/exit-after-drain'
 import {
@@ -193,8 +201,24 @@ const REFUSAL_TO_CODE: Record<string, ErrorCode> = {
   // The engine refused the url the caller passed: a usage error, not ours.
   url_refused: CODES.E_ARGS,
   // No tab carries the id or matches the filter the caller gave.
-  tab_not_found: CODES.E_TARGET_NOT_FOUND
+  tab_not_found: CODES.E_TARGET_NOT_FOUND,
+  // The document's own CSP forbids the in-page executor, so no expression
+  // runs there. Not a fault in the expression and not a missing feature.
+  csp_blocks_eval: CODES.E_CSP_BLOCKS_EVAL
 }
+
+// Gecko ("call to eval() blocked by CSP") and Chromium ("Refused to evaluate
+// a string of JavaScript because 'unsafe-eval' is not allowed") each refuse in
+// their own words, and a session older than the named refusal sends only the
+// prose through.
+const CSP_BLOCKED_EVAL =
+  /\bcall to eval\(\)|\bblocked by (?:the )?csp\b|\bextension csp\b|content security policy|content_security_policy|unsafe-eval/i
+
+const CSP_BLOCKS_EVAL_HINT =
+  "The extension's own content_security_policy forbids eval in this " +
+  'document, so no expression runs there, 1 + 1 included. Read the document ' +
+  'with extension inspect --context <context>, or evaluate in a web page ' +
+  'with extension eval --context page --tab <id>.'
 
 // The engine's own sentence ("Illegal URL", "JavaScript URLs are not
 // allowed") does not say which urls are legal, so the CLI does, per engine.
@@ -244,6 +268,13 @@ function codeForBridgeError(
   if (name === 'TargetNotFound') return CODES.E_TARGET_NOT_FOUND
   if (name === 'BadRequest') return CODES.E_ARGS
 
+  if (
+    (name === 'EvalError' || name === 'Unsupported') &&
+    CSP_BLOCKED_EVAL.test(message)
+  ) {
+    return CODES.E_CSP_BLOCKS_EVAL
+  }
+
   if (name === 'Unsupported') {
     // Older producers still send an unmatched tab filter as Unsupported.
     return /needs a --tab id|is not open|no open tab matches|no active tab/i.test(
@@ -271,6 +302,7 @@ function statusForCode(code: ErrorCode): string {
   if (
     code === CODES.E_CONTROL_DENIED ||
     code === CODES.E_EVAL_REFUSED ||
+    code === CODES.E_CSP_BLOCKS_EVAL ||
     code === CODES.E_TOKEN_MISSING
   ) {
     return 'denied'
@@ -315,18 +347,20 @@ export function buildActEnvelope(
         ? urlRefusedHint(raw.engine)
         : refusal === 'tab_not_found'
           ? TAB_NOT_FOUND_HINT
-          : code === CODES.E_EVAL
-            ? 'The expression threw inside the page. Check the expression itself.'
-            : code === CODES.E_USER_GESTURE_REQUIRED
-              ? // Chromium gates these surfaces on a real click and there is no way
-                // around it from here: the call runs in the extension's own service
-                // worker, and an extension cannot gesture at itself. Say what the
-                // rule is and what opens the surface, rather than passing the
-                // engine's sentence through and leaving the reader to guess.
-                'The browser opens this surface only in response to a click, and ' +
-                'refuses to open it any other way. Click the extension in the ' +
-                'browser toolbar to open it.'
-              : undefined
+          : code === CODES.E_CSP_BLOCKS_EVAL
+            ? CSP_BLOCKS_EVAL_HINT
+            : code === CODES.E_EVAL
+              ? 'The expression threw inside the page. Check the expression itself.'
+              : code === CODES.E_USER_GESTURE_REQUIRED
+                ? // Chromium gates these surfaces on a real click and there is no way
+                  // around it from here: the call runs in the extension's own service
+                  // worker, and an extension cannot gesture at itself. Say what the
+                  // rule is and what opens the surface, rather than passing the
+                  // engine's sentence through and leaving the reader to guess.
+                  'The browser opens this surface only in response to a click, and ' +
+                  'refuses to open it any other way. Click the extension in the ' +
+                  'browser toolbar to open it.'
+                : undefined
 
   return {
     ...extras,
@@ -595,6 +629,60 @@ function printResult(
   )
 }
 
+export function bridgeBlamedTheExtensionCsp(result: ActResultLike): boolean {
+  const raw = (result?.error || {}) as Record<string, unknown>
+
+  return (
+    codeForBridgeError(
+      typeof raw.name === 'string' ? raw.name : 'Error',
+      typeof raw.message === 'string' ? raw.message : '',
+      typeof raw.code === 'string' ? raw.code : undefined
+    ) === CODES.E_CSP_BLOCKS_EVAL
+  )
+}
+
+// The bridge's executor is an in-page eval, so an extension document whose CSP
+// forbids eval refuses every expression. The RDP console actor is outside that
+// policy, and rdpPort only lands on the contract once the launcher has it, so
+// the contract is re-read here rather than trusted from the earlier look.
+async function geckoProtocolEval(
+  bridge: AnyDevelopModule,
+  projectPath: string,
+  browser: string,
+  context: string,
+  expression: string,
+  timeoutMs: number
+): Promise<ActResultLike | undefined> {
+  const ready = bridge.readReadyContractDocument(projectPath, browser) as
+    | {rdpPort?: unknown; extensionId?: unknown}
+    | null
+    | undefined
+  const rdpPort = typeof ready?.rdpPort === 'number' ? ready.rdpPort : 0
+  const extensionId =
+    typeof ready?.extensionId === 'string' ? ready.extensionId : ''
+
+  if (!rdpPort || !extensionId) return undefined
+
+  const pagePath =
+    context === 'background'
+      ? undefined
+      : extensionDocumentPagePath(
+          readSessionManifest(bridge, projectPath, browser) ?? {},
+          context
+        )
+
+  if (context !== 'background' && !pagePath) return undefined
+
+  return await evaluateExtensionDocument({
+    rdpPort,
+    extensionId,
+    context,
+    pagePath,
+    expression,
+    timeoutMs
+  })
+}
+
 async function runCommand(input: RunInput): Promise<void> {
   const bridge = await loadExtensionDevelopBridgeModule()
   const projectPath = resolveSessionProjectPath(bridge, input.projectPathArg)
@@ -715,6 +803,25 @@ async function runCommand(input: RunInput): Promise<void> {
     controller.close()
   }
 
+  if (
+    input.op === 'eval' &&
+    result?.ok !== true &&
+    isFirefoxBrowser(browser) &&
+    isExtensionDocumentContext(input.target.context) &&
+    bridgeBlamedTheExtensionCsp(result)
+  ) {
+    const overProtocol = await geckoProtocolEval(
+      bridge,
+      projectPath,
+      browser,
+      input.target.context,
+      String(input.args?.expression ?? ''),
+      timeoutMs
+    )
+
+    if (overProtocol) result = overProtocol
+  }
+
   if (result?.ok && input.augment) {
     try {
       Object.assign(result, input.augment(projectPath, browser, result))
@@ -763,7 +870,7 @@ export function registerActCommands(program: Command): void {
       .description(commandDescriptions.eval)
       .option(
         '--context <background|popup|options|sidebar|devtools|newtab|history|bookmarks|content|page>',
-        'target context (default background). Extension pages (popup/options/sidebar/devtools/newtab/history/bookmarks) answer via their own in-page relay and must be open'
+        'target context (default background). Extension pages (popup/options/sidebar/devtools/newtab/history/bookmarks) must be open. Chromium answers through their own in-page relay, Firefox through the debugger protocol, where the extension CSP cannot block eval'
       )
       .option(
         '--url <glob|substring>',

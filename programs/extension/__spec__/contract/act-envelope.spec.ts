@@ -304,6 +304,51 @@ const FAILURE_FIXTURES = [
     status: 'failed'
   },
   {
+    name: 'csp_blocks_eval named by the session',
+    result: {
+      ok: false,
+      error: {
+        name: 'Unsupported',
+        message:
+          "eval is blocked in the extension background by the extension's " +
+          'content_security_policy, which allows no unsafe-eval',
+        engine: 'firefox',
+        code: 'csp_blocks_eval'
+      }
+    },
+    code: CODES.E_CSP_BLOCKS_EVAL,
+    status: 'denied'
+  },
+  {
+    name: "Gecko's CSP refusal from a session that does not name it",
+    result: {
+      ok: false,
+      error: {
+        name: 'EvalError',
+        message: 'call to eval() blocked by CSP',
+        engine: 'firefox'
+      }
+    },
+    code: CODES.E_CSP_BLOCKS_EVAL,
+    status: 'denied'
+  },
+  {
+    name: "Chromium's CSP refusal from a session that does not name it",
+    result: {
+      ok: false,
+      error: {
+        name: 'EvalError',
+        message:
+          "Refused to evaluate a string of JavaScript because 'unsafe-eval' " +
+          'is not an allowed source of script in the following Content ' +
+          'Security Policy directive: "script-src \'self\'"',
+        engine: 'chromium'
+      }
+    },
+    code: CODES.E_CSP_BLOCKS_EVAL,
+    status: 'denied'
+  },
+  {
     name: 'InspectError',
     result: {
       ok: false,
@@ -584,6 +629,56 @@ describe('the act frame as a schema-1 envelope', () => {
     expect((frame.error as {hint: string}).hint).toBe(
       'The expression threw inside the page. Check the expression itself.'
     )
+  })
+
+  it('reproduces golden.eval.csp-blocks-eval.json from a Gecko CSP refusal', () => {
+    const golden = JSON.parse(
+      fs.readFileSync(
+        path.join(here, 'golden.eval.csp-blocks-eval.json'),
+        'utf8'
+      )
+    )
+    const frame = buildActEnvelope('eval', {
+      ok: false,
+      error: {
+        name: 'EvalError',
+        message: 'call to eval() blocked by CSP',
+        engine: 'firefox'
+      }
+    })
+
+    expect(frame).toEqual(golden)
+  })
+
+  it('blames the extension CSP for a blocked eval, never the expression', () => {
+    for (const message of [
+      'call to eval() blocked by CSP',
+      "Refused to evaluate a string of JavaScript because 'unsafe-eval' is not allowed",
+      'eval of a string is blocked in the ISOLATED (content) world by the extension CSP'
+    ]) {
+      const error = buildActEnvelope('eval', {
+        ok: false,
+        error: {name: 'EvalError', message, engine: 'firefox'}
+      }).error as {code: string; hint: string}
+
+      expect(error.code, message).toBe(CODES.E_CSP_BLOCKS_EVAL)
+      expect(error.hint).toContain('content_security_policy')
+      expect(error.hint).not.toContain('Check the expression')
+    }
+  })
+
+  it('keeps a real guest throw on E_EVAL even when it mentions a policy field', () => {
+    const error = buildActEnvelope('eval', {
+      ok: false,
+      error: {
+        name: 'EvalError',
+        message: 'policy is not defined',
+        engine: 'firefox'
+      }
+    }).error as {code: string; hint: string}
+
+    expect(error.code).toBe(CODES.E_EVAL)
+    expect(error.hint).toContain('Check the expression')
   })
 
   it('reproduces golden.eval.target-not-found.json from a refused target', () => {
