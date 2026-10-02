@@ -116,8 +116,6 @@ export function isWebkitUnsupportedPermission(
   )
 }
 
-const DROP_CONTENT_SCRIPT_WORLD = false
-
 // Nested properties that are inert on Safari. `open_in_tab` is accepted but
 // ignored, since Safari always opens an options page in its own tab.
 const UNSUPPORTED_OPTIONS_UI_KEYS: Record<string, string> = {
@@ -186,22 +184,11 @@ export function dropWebkitUnsupportedKeys(
     if (changed) next.options_ui = patched
   }
 
-  if (DROP_CONTENT_SCRIPT_WORLD && Array.isArray(next.content_scripts)) {
-    next.content_scripts = next.content_scripts.map(
-      (entry: unknown, index: number) => {
-        if (!isPlainObject(entry) || !('world' in entry)) return entry
-
-        const {world: _world, ...rest} = entry
-        // The entry survives without its world, so the script still injects.
-        dropped.push({
-          path: `content_scripts[${String(index)}].world`,
-          reason: 'Safari injects every content script into the isolated world'
-        })
-
-        return rest
-      }
-    )
-  }
+  // content_scripts[].world is deliberately not dropped. Apple's converter
+  // still warns about it, but MDN browser-compat-data records version_added
+  // 18 for safari (and 128 for firefox), so a drop would silently demote a
+  // MAIN world script on a Safari that honors it. The browsers-lib converter
+  // warning names the same decision, keep the two agreed.
 
   return {manifest: next as Manifest, dropped}
 }
