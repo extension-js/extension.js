@@ -194,20 +194,25 @@ describe('extension build', () => {
   })
 
   describe('usage refusals under --output json', () => {
-    async function refusalFrame(argv: string[]) {
+    async function refusalFrame(argv: string[], {stderr = false} = {}) {
       const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
       expect(await run([...argv, '--output', 'json'])).toBe(1)
       expect(extensionBuild).not.toHaveBeenCalled()
-      expect(errorSpy).not.toHaveBeenCalled()
+      if (!stderr) expect(errorSpy).not.toHaveBeenCalled()
+
       expect(logSpy).toHaveBeenCalledTimes(1)
 
       return JSON.parse(String(logSpy.mock.calls[0][0]))
     }
 
-    it('frames an unsupported browser name', async () => {
+    // 4.1.30 named every valid choice on stderr; the frame keeps that list
+    // too, so a machine reader is not left with a bare "unsupported".
+    it('frames an unsupported browser name and still names the valid choices', async () => {
       expect(
-        await refusalFrame(['build', '.', '--browser', 'netscape'])
+        await refusalFrame(['build', '.', '--browser', 'netscape'], {
+          stderr: true
+        })
       ).toMatchObject({
         schema: 1,
         ok: false,
@@ -216,9 +221,15 @@ describe('extension build', () => {
         value: null,
         error: {
           code: 'E_UNSUPPORTED_BROWSER',
-          message: expect.stringContaining('netscape')
+          message: expect.stringMatching(
+            /Unsupported browser: netscape\. Choose one of: chrome, chromium, .*firefox/
+          )
         }
       })
+
+      const stderr = String(errorSpy.mock.calls.flat().join(' '))
+      expect(stderr).toContain('netscape')
+      expect(stderr).toMatch(/Choose one of:.*chrome, chromium/)
     })
 
     it('frames an invalid --mode', async () => {

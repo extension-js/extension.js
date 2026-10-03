@@ -129,14 +129,18 @@ function preloadEnvFilesFromDir(envDir: string): EnvPreloadResult {
   return {loadedAny, envDir}
 }
 
-function findConfigFileIn(dir: string): string | undefined {
-  const candidates = [
-    path.join(dir, 'extension.config.js'),
-    path.join(dir, 'extension.config.mjs'),
-    path.join(dir, 'extension.config.cjs')
-  ]
+const PROJECT_CONFIG_FILENAMES = [
+  'extension.config.js',
+  'extension.config.mjs',
+  'extension.config.cjs'
+]
 
-  return candidates.find((p) => fs.existsSync(p))
+function configCandidatesIn(dir: string): string[] {
+  return PROJECT_CONFIG_FILENAMES.map((name) => path.join(dir, name))
+}
+
+function findConfigFileIn(dir: string): string | undefined {
+  return configCandidatesIn(dir).find((p) => fs.existsSync(p))
 }
 
 function resolveManifestDir(projectPath: string): string | undefined {
@@ -171,6 +175,19 @@ export function findConfigFile(projectPath: string): string | undefined {
   }
 
   return findConfigFileIn(manifestDir)
+}
+
+// Every path findConfigFile would accept, present or not. A watcher needs the
+// absent ones too, so a config added mid-session is noticed as a change.
+export function projectConfigCandidatePaths(projectPath: string): string[] {
+  const dirs = [projectPath]
+  const manifestDir = resolveManifestDir(projectPath)
+
+  if (manifestDir && path.resolve(manifestDir) !== path.resolve(projectPath)) {
+    dirs.push(manifestDir)
+  }
+
+  return dirs.flatMap((dir) => configCandidatesIn(dir))
 }
 
 function preloadEnvFiles(projectDir: string) {
@@ -227,12 +244,12 @@ function prepareImportMetaEnv(absolutePath: string): void {
     return
   }
 
-  if (!source.includes('import.meta.env'))
-    {return // Read at import time, after the dotenv preload, and held in memory only.
+  if (!source.includes('import.meta.env')) {
+    return // Read at import time, after the dotenv preload, and held in memory only.
     // The previous shim serialized every variable into a file under os.tmpdir().
-  ;}
+  }
 
-(globalThis as Record<string, unknown>)[IMPORT_META_ENV_GLOBAL] =
+  ;(globalThis as Record<string, unknown>)[IMPORT_META_ENV_GLOBAL] =
     Object.freeze({...process.env})
 
   if (importMetaEnvHookRegistered) return
@@ -249,6 +266,8 @@ function prepareImportMetaEnv(absolutePath: string): void {
   }
 }
 
+class ConfigShapeError extends Error {}
+
 const loadedConfigCache = new Map<string, Promise<FileConfig>>()
 
 // Four loaders each report before rethrowing, so one bad config printed the
@@ -259,6 +278,10 @@ export function reportConfigLoadingErrorOnce(
   configPath: string,
   error: unknown
 ): void {
+  // A wrong shape is a finished message the command prints itself, and the
+  // file did load, so the "couldn't load" frame would say it a second time.
+  if (error instanceof ConfigShapeError) return
+
   const key = path.resolve(configPath)
   if (reportedConfigPaths.has(key)) return
 
@@ -286,7 +309,7 @@ function assertConfigShape(configPath: string, value: unknown): void {
   if (value === undefined) return
 
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    throw new Error(messages.configWrongShape(configPath, value))
+    throw new ConfigShapeError(messages.configWrongShape(configPath, value))
   }
 
   const unknown = Object.keys(value).filter(

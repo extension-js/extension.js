@@ -48,14 +48,57 @@ function readStableFileSignature(filePath: string): string | undefined {
   }
 }
 
-function getManifestRequiredFiles(content: string): string[] {
+// A page reference may carry a fragment or a query the browser strips before
+// it reads the file, so the file on disk is the part in front of them.
+function normalizeManifestPage(pagePath: unknown): string | undefined {
+  return typeof pagePath === 'string'
+    ? normalizeManifestFile(pagePath.replace(/[?#].*$/, ''))
+    : undefined
+}
+
+export type ManifestEngine = 'chromium' | 'gecko'
+
+// Each engine reads its own background keys of a cross-browser manifest and
+// ignores the rest, so a file only the other engine loads is never required.
+function getBackgroundFiles(
+  manifest: {manifest_version?: unknown; background?: BackgroundKeys},
+  engine: ManifestEngine
+): Array<string | undefined> {
+  const background = manifest.background
+  if (!background) return []
+
+  const serviceWorker = normalizeManifestFile(background.service_worker)
+  const documentFiles = [
+    normalizeManifestPage(background.page),
+    ...(Array.isArray(background.scripts)
+      ? background.scripts.map(normalizeManifestFile)
+      : [])
+  ]
+  const hasDocument = documentFiles.some(Boolean)
+
+  if (engine === 'gecko') {
+    return hasDocument ? documentFiles : [serviceWorker]
+  }
+
+  if (Number(manifest.manifest_version) >= 3) return [serviceWorker]
+
+  return documentFiles
+}
+
+interface BackgroundKeys {
+  service_worker?: unknown
+  page?: unknown
+  scripts?: unknown
+}
+
+function getManifestRequiredFiles(
+  content: string,
+  engine: ManifestEngine = 'chromium'
+): string[] {
   try {
     const manifest = JSON.parse(content) as {
-      background?: {
-        service_worker?: unknown
-        page?: unknown
-        scripts?: unknown
-      }
+      manifest_version?: unknown
+      background?: BackgroundKeys
       side_panel?: {default_path?: unknown}
       content_scripts?: Array<{js?: unknown; css?: unknown}>
     }
@@ -67,16 +110,12 @@ function getManifestRequiredFiles(content: string): string[] {
       if (normalized) requiredFiles.add(normalized)
     }
 
-    addFile(manifest.background?.service_worker)
-    addFile(manifest.background?.page)
-
-    if (Array.isArray(manifest.background?.scripts)) {
-      for (const script of manifest.background?.scripts || []) {
-        addFile(script)
-      }
+    for (const file of getBackgroundFiles(manifest, engine)) {
+      if (file) requiredFiles.add(file)
     }
 
-    addFile(manifest.side_panel?.default_path)
+    const sidePanel = normalizeManifestPage(manifest.side_panel?.default_path)
+    if (sidePanel) requiredFiles.add(sidePanel)
 
     if (Array.isArray(manifest.content_scripts)) {
       for (const contentScript of manifest.content_scripts) {
@@ -98,17 +137,24 @@ function getManifestRequiredFiles(content: string): string[] {
 
 // A built dist needs no stability wait, so this answers now rather than polling.
 // Chromium refuses the whole extension for one missing entry file.
-export function findMissingManifestFiles(outPath: string): string[] {
+export function findMissingManifestFiles(
+  outPath: string,
+  engine: ManifestEngine = 'chromium'
+): string[] {
   const content = readValidManifest(path.join(outPath, 'manifest.json'))
   if (!content) return []
 
-  return getManifestRequiredFiles(content).filter(
+  return getManifestRequiredFiles(content, engine).filter(
     (relativeFile) => !fs.existsSync(path.join(outPath, relativeFile))
   )
 }
 
-function hasRequiredManifestFiles(outPath: string, content: string): boolean {
-  const requiredFiles = getManifestRequiredFiles(content)
+function hasRequiredManifestFiles(
+  outPath: string,
+  content: string,
+  engine?: ManifestEngine
+): boolean {
+  const requiredFiles = getManifestRequiredFiles(content, engine)
 
   for (const relativeFile of requiredFiles) {
     if (!fs.existsSync(path.join(outPath, relativeFile))) {
@@ -125,6 +171,7 @@ export async function waitForStableManifest(
     timeoutMs?: number
     pollIntervalMs?: number
     stableReadsRequired?: number
+    engine?: ManifestEngine
   }
 ) {
   const timeoutMs = options?.timeoutMs ?? 8000
@@ -138,7 +185,10 @@ export async function waitForStableManifest(
   while (Date.now() - start < timeoutMs) {
     const currentContent = readValidManifest(manifestPath)
 
-    if (currentContent && hasRequiredManifestFiles(outPath, currentContent)) {
+    if (
+      currentContent &&
+      hasRequiredManifestFiles(outPath, currentContent, options?.engine)
+    ) {
       if (currentContent === lastValidContent) {
         stableReads += 1
       } else {
@@ -167,6 +217,7 @@ export async function waitForStableFiles(
     timeoutMs?: number
     pollIntervalMs?: number
     stableReadsRequired?: number
+    engine?: ManifestEngine
   }
 ) {
   const files = Array.from(
@@ -228,6 +279,7 @@ export async function waitForStableExtensionOutput(
     timeoutMs?: number
     pollIntervalMs?: number
     stableReadsRequired?: number
+    engine?: ManifestEngine
   }
 ) {
   const manifestPath = path.join(outPath, 'manifest.json')
@@ -237,7 +289,10 @@ export async function waitForStableExtensionOutput(
   const manifestContent = readValidManifest(manifestPath)
   if (!manifestContent) return false
 
-  const requiredFiles = getManifestRequiredFiles(manifestContent)
+  const requiredFiles = getManifestRequiredFiles(
+    manifestContent,
+    options?.engine
+  )
 
   return waitForStableFiles(outPath, requiredFiles, options)
 }

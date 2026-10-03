@@ -335,6 +335,30 @@ export async function evaluateThroughWatcher(options: {
   }
 }
 
+// The transport waits its own fixed time for the greeting, so a port that
+// accepts and never greets is bounded here by the command's --timeout
+// instead: the caller was promised an answer inside it.
+function connectWithin(
+  client: MessagingClient,
+  port: number,
+  timeoutMs: number
+): Promise<'connected' | 'timeout'> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => resolve('timeout'), timeoutMs)
+
+    client.connect(port).then(
+      () => {
+        clearTimeout(timer)
+        resolve('connected')
+      },
+      (error) => {
+        clearTimeout(timer)
+        reject(error)
+      }
+    )
+  })
+}
+
 export async function evaluateExtensionDocument(options: {
   rdpPort: number
   extensionId: string
@@ -346,7 +370,20 @@ export async function evaluateExtensionDocument(options: {
   const client = new MessagingClient()
 
   try {
-    await client.connect(options.rdpPort)
+    const connected = await connectWithin(
+      client,
+      options.rdpPort,
+      options.timeoutMs
+    )
+
+    if (connected === 'timeout') {
+      client.disconnect()
+
+      return refuse(
+        'Timeout',
+        `the Firefox debugger on port ${options.rdpPort} sent no RDP greeting within ${options.timeoutMs}ms`
+      )
+    }
   } catch (error) {
     client.disconnect()
 

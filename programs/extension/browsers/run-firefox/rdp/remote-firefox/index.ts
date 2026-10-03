@@ -241,7 +241,8 @@ export class RemoteFirefox {
         const ready = await waitForStableExtensionOutput(addonPath, {
           timeoutMs: 10000,
           pollIntervalMs: 150,
-          stableReadsRequired: 2
+          stableReadsRequired: 2,
+          engine: 'gecko'
         })
 
         if (!ready && isDebug()) {

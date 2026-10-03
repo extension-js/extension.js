@@ -69,21 +69,6 @@ function failAndExit(
   process.exit(1)
 }
 
-// Every browser wrote to the same explicit path, so the last one overwrote the
-// rest and a release job uploaded one browser's package for all of them.
-export function zipFilenameForVendor(
-  zipFilename: string | undefined,
-  vendor: string,
-  vendorCount: number
-): string | undefined {
-  if (!zipFilename || vendorCount < 2) return zipFilename
-
-  const trimmed = zipFilename.trim()
-  const withoutExtension = trimmed.replace(/\.zip$/i, '')
-
-  return `${withoutExtension}-${vendor}.zip`
-}
-
 export function registerBuildCommand(program: Command) {
   program
     .command('build')
@@ -112,7 +97,7 @@ export function registerBuildCommand(program: Command) {
     )
     .option(
       '--zip-filename <string>',
-      'specify the name of the ZIP file. Defaults to the extension name and version'
+      'specify the name of the ZIP file, the browser name is appended. Defaults to the extension name and version'
     )
     .option(
       '--silent [boolean]',
@@ -224,13 +209,14 @@ export function registerBuildCommand(program: Command) {
         const asJson = isJsonOutput(buildOptions)
         const list = vendors(browser)
         let unsupportedBrowser = ''
+        let supportedBrowsers: string[] = []
 
         const vendorsAreSupported = validateVendors(
           list,
           (invalid, supported) => {
             unsupportedBrowser = invalid
-            if (asJson) return
-
+            supportedBrowsers = supported
+            // stderr in json mode too, so the valid choices are always named.
             // eslint-disable-next-line no-console
             console.error(messages.unsupportedBrowserFlag(invalid, supported))
           }
@@ -239,7 +225,9 @@ export function registerBuildCommand(program: Command) {
         if (!vendorsAreSupported) {
           failAndExit(asJson, 'usage', {
             code: CODES.E_UNSUPPORTED_BROWSER,
-            message: `Unsupported browser: ${unsupportedBrowser}`
+            message:
+              `Unsupported browser: ${unsupportedBrowser}. ` +
+              `Choose one of: ${supportedBrowsers.join(', ')}.`
           })
         }
 
@@ -375,11 +363,7 @@ export function registerBuildCommand(program: Command) {
               polyfill: buildOptions.polyfill,
               zip: buildOptions.zip,
               zipSource: buildOptions.zipSource,
-              zipFilename: zipFilenameForVendor(
-                buildOptions.zipFilename,
-                vendor,
-                list.length
-              ),
+              zipFilename: buildOptions.zipFilename,
               silent: buildOptions.silent,
               addonLint: buildOptions.addonLint,
               minify: buildOptions.minify,

@@ -172,7 +172,7 @@ describe('resolveVueBundlerEntry', () => {
     vi.resetModules()
   })
 
-  it('refuses a Vue 2 install by name before any loader is resolved', async () => {
+  async function loadVueTwoProject() {
     const integrations = (await import(
       '../../frameworks-lib/integrations'
     )) as any
@@ -180,15 +180,17 @@ describe('resolveVueBundlerEntry', () => {
       (_p: string, dep: string) => dep === 'vue'
     )
 
-    const resolver = {ensureOptionalContractPackageResolved: vi.fn()}
-    vi.doMock('../../../lib/optional-deps-resolver', () => ({
-      ...resolver,
+    const resolver = {
+      ensureOptionalContractPackageResolved: vi.fn(),
       ensureOptionalContractModuleLoaded: vi.fn()
-    }))
+    }
+    vi.doMock('../../../lib/optional-deps-resolver', () => resolver)
 
-    const projectPath = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-vue2-'))
+    const projectPath = fs.realpathSync(
+      fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-vue2-'))
+    )
     const vueDir = path.join(projectPath, 'node_modules', 'vue')
-    fs.mkdirSync(vueDir, {recursive: true})
+    fs.mkdirSync(path.join(vueDir, 'dist'), {recursive: true})
     fs.writeFileSync(
       path.join(projectPath, 'package.json'),
       JSON.stringify({name: 'vue2-fixture', dependencies: {vue: '^2.7.16'}})
@@ -196,21 +198,132 @@ describe('resolveVueBundlerEntry', () => {
 
     fs.writeFileSync(
       path.join(vueDir, 'package.json'),
-      JSON.stringify({name: 'vue', version: '2.7.16', main: 'index.js'})
+      JSON.stringify({
+        name: 'vue',
+        version: '2.7.16',
+        main: 'index.js',
+        module: 'dist/vue.runtime.esm.js'
+      })
     )
 
     fs.writeFileSync(path.join(vueDir, 'index.js'), '')
+    fs.writeFileSync(path.join(vueDir, 'dist', 'vue.runtime.esm.js'), '')
+
+    const {maybeUseVue} = await import('../../js-tools/vue')
+
+    return {
+      projectPath,
+      vueDir,
+      resolver,
+      result: await maybeUseVue(projectPath)
+    }
+  }
+
+  // The two hooks the refusal taps, run by hand over a list of modules.
+  function finishModules(plugin: any, context: string, modules: unknown[]) {
+    const errors: Array<Error & {file?: string}> = []
+    const compilation = {
+      errors,
+      hooks: {
+        finishModules: {
+          tap: (_name: string, fn: (m: unknown[]) => void) => fn(modules)
+        }
+      }
+    }
+
+    plugin.apply({
+      context,
+      hooks: {
+        thisCompilation: {
+          tap: (_name: string, fn: (c: unknown) => void) => fn(compilation)
+        }
+      }
+    })
+
+    return errors
+  }
+
+  it('builds a Vue 2 project without vue-loader instead of refusing it', async () => {
+    const {projectPath, vueDir, resolver, result} = await loadVueTwoProject()
 
     try {
-      const {maybeUseVue} = await import('../../js-tools/vue')
-
-      await expect(maybeUseVue(projectPath)).rejects.toThrow(
-        /Vue 2\.7\.16 is installed, and Extension\.js builds Vue 3 only/
-      )
-
       expect(
         resolver.ensureOptionalContractPackageResolved
       ).not.toHaveBeenCalled()
+
+      expect(resolver.ensureOptionalContractModuleLoaded).not.toHaveBeenCalled()
+
+      expect(result?.alias).toEqual({
+        vue$: path.join(vueDir, 'dist', 'vue.runtime.esm.js')
+      })
+
+      expect(result?.loaders).toEqual([{test: /\.vue$/, type: 'asset/source'}])
+      expect(result?.plugins).toHaveLength(1)
+
+      const errors = finishModules(result?.plugins?.[0], projectPath, [
+        {
+          resource: path.join(projectPath, 'src', 'main.js'),
+          type: 'javascript/auto'
+        }
+      ])
+
+      expect(errors).toEqual([])
+    } finally {
+      fs.rmSync(projectPath, {recursive: true, force: true})
+    }
+  })
+
+  it('refuses a Vue 2 single-file component once, by file, with no stack', async () => {
+    const {projectPath, result} = await loadVueTwoProject()
+
+    try {
+      const errors = finishModules(result?.plugins?.[0], projectPath, [
+        {
+          resource: path.join(projectPath, 'src', 'main.js'),
+          type: 'javascript/auto'
+        },
+        {
+          resource: path.join(projectPath, 'src', 'B.vue'),
+          type: 'asset/source'
+        },
+        {
+          resource: path.join(projectPath, 'src', 'A.vue?x=1'),
+          type: 'asset/source'
+        }
+      ])
+
+      expect(errors).toHaveLength(1)
+      expect(errors[0].message).toMatch(
+        /Vue 2\.7\.16 is installed, and Extension\.js compiles \.vue files for Vue 3 only/
+      )
+
+      expect(errors[0].message).toContain(
+        path.join(projectPath, 'src', 'A.vue')
+      )
+
+      expect(errors[0].message).toContain(
+        path.join(projectPath, 'src', 'B.vue')
+      )
+
+      expect(errors[0].file).toBe(path.join('src', 'A.vue'))
+      expect(errors[0].stack).toBe('')
+    } finally {
+      fs.rmSync(projectPath, {recursive: true, force: true})
+    }
+  })
+
+  it('leaves a .vue file the project compiles with its own loader alone', async () => {
+    const {projectPath, result} = await loadVueTwoProject()
+
+    try {
+      const errors = finishModules(result?.plugins?.[0], projectPath, [
+        {
+          resource: path.join(projectPath, 'src', 'A.vue'),
+          type: 'javascript/auto'
+        }
+      ])
+
+      expect(errors).toEqual([])
     } finally {
       fs.rmSync(projectPath, {recursive: true, force: true})
     }

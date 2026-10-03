@@ -10,6 +10,7 @@ import {spawnSync} from 'node:child_process'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as messages from './messages'
+import {isMachineOutput} from './messaging'
 
 export function sessionStateDir(projectPath: string): string {
   return path.resolve(projectPath, '.extension-js')
@@ -131,7 +132,15 @@ export function ensureSessionStateInProjectGitignore(
       `${prefix}\n# Extension.js local session state\n.extension-js\n`
     )
 
-    console.log(messages.sessionStateIgnoreAdded(gitignorePath))
+    // The project file changed, so the line is owed in every mode. Machine
+    // output owns stdout, and there the line goes to stderr.
+    const notice = messages.sessionStateIgnoreAdded(gitignorePath)
+
+    if (isMachineOutput()) {
+      console.error(notice)
+    } else {
+      console.log(notice)
+    }
   } catch {
     // A hygiene guard must never break a dev session or build.
   }

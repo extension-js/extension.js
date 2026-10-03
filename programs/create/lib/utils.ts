@@ -11,8 +11,14 @@ import * as path from 'node:path'
 
 // A template directory can be a working checkout: this repo runs `dev` inside
 // the bundled one, and a new project must never inherit that build output or
-// the session state beside it.
-export const NEVER_SCAFFOLDED_DIRS = ['dist', 'node_modules', '.extension-js']
+// the session state beside it. Nor its history: a copied `.git` would hand the
+// new project the template's commits and its remote.
+export const NEVER_SCAFFOLDED_DIRS = [
+  'dist',
+  'node_modules',
+  '.extension-js',
+  '.git'
+]
 
 export async function copyDirectoryWithSymlinks(
   source: string,

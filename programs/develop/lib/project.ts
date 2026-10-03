@@ -47,7 +47,12 @@ function declaresExtension(projectManifestPath: string): boolean {
   const record = parsed as Record<string, unknown>
   const named: string[] = []
 
-  for (const field of ['dependencies', 'devDependencies']) {
+  for (const field of [
+    'dependencies',
+    'devDependencies',
+    'optionalDependencies',
+    'peerDependencies'
+  ]) {
     const deps = record[field]
     if (deps && typeof deps === 'object') named.push(...Object.keys(deps))
   }
@@ -101,6 +106,23 @@ export function ownsManifest(
   )
 }
 
+function realOrResolved(target: string): string {
+  try {
+    return fs.realpathSync(target)
+  } catch {
+    return path.resolve(target)
+  }
+}
+
+function isAtOrBelow(baseDir: string, candidateDir: string): boolean {
+  const rel = path.relative(
+    realOrResolved(baseDir),
+    realOrResolved(candidateDir)
+  )
+
+  return !rel.startsWith('..') && !path.isAbsolute(rel)
+}
+
 // One line per declined root per run: the resolution is asked for repeatedly
 // in a single command, and the reader only needs to be told once.
 const announcedDeclinedRoots = new Set<string>()
@@ -108,8 +130,12 @@ const announcedDeclinedRoots = new Set<string>()
 function announceDeclinedProjectRoot(
   projectManifestPath: string,
   manifestPath: string,
-  log: (line: string) => void
+  log: (line: string) => void,
+  quiet: boolean
 ): void {
+  // A quiet resolution prints nothing, so it must not use up the one line.
+  if (quiet) return
+
   const key = `${path.resolve(projectManifestPath)}::${path.resolve(manifestPath)}`
   if (announcedDeclinedRoots.has(key)) return
 
@@ -182,10 +208,71 @@ async function withSuppressedOutput<T>(task: () => Promise<T>): Promise<T> {
   }
 }
 
+// A codeload archive url per candidate ref, shortest first. Only the remote
+// knows where a ref ends, so a branch name carrying a slash is a later try.
+export function githubZipCandidates(pathOrRemoteUrl: string): Array<{
+  zipUrl: string
+  ref: string
+  subdir: string
+}> {
+  const segments = new URL(pathOrRemoteUrl).pathname.split('/').filter(Boolean)
+  const [owner, repo] = segments
+  const treeIndex = segments.indexOf('tree')
+
+  // No tree/ in the url means the repo's default branch, which codeload
+  // serves under its name like any other ref.
+  if (treeIndex === -1 || segments.length <= treeIndex + 1) {
+    return [
+      {
+        zipUrl: `https://codeload.github.com/${owner}/${repo}/zip/main`,
+        ref: 'main',
+        subdir: ''
+      }
+    ]
+  }
+
+  const after = segments.slice(treeIndex + 1)
+  // A ref of three segments is already generous for `release/2024/beta`.
+  const maxRefLength = Math.min(after.length, 3)
+  const candidates = []
+
+  for (let length = 1; length <= maxRefLength; length++) {
+    const ref = after.slice(0, length).join('/')
+
+    candidates.push({
+      // The ref-agnostic form resolves a tag, a branch and a commit alike,
+      // where refs/heads/<ref> could only ever resolve a branch.
+      zipUrl: `https://codeload.github.com/${owner}/${repo}/zip/${ref}`,
+      ref,
+      subdir: after.slice(length).join('/')
+    })
+  }
+
+  return candidates
+}
+
+// codeload flattens the ref's slashes and strips a tag's leading `v` in the
+// archive root name, so a lone directory in a fresh extraction is the root.
+function resolveRepoRoot(extractedPath: string, repo: string, ref: string) {
+  const directories = fs
+    .readdirSync(extractedPath, {withFileTypes: true})
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+
+  const named = directories.find((name) =>
+    name.startsWith(`${repo}-${ref.replace(/\//g, '-')}`)
+  )
+
+  if (named) return path.join(extractedPath, named)
+  if (directories.length === 1) return path.join(extractedPath, directories[0])
+
+  return extractedPath
+}
+
 async function importUrlSourceFromGithub(
   pathOrRemoteUrl: string,
   text: string
-) {
+): Promise<{projectPath: string; downloaded: boolean}> {
   // Clone into the current working directory. go-git-it creates a subfolder
   // typically matching the repo name (or last segment for tree URLs).
   const cwd = process.cwd()
@@ -195,57 +282,31 @@ async function importUrlSourceFromGithub(
     segments.length >= 2 ? segments[1] : segments[segments.length - 1]
   const treeIndex = segments.indexOf('tree')
 
-  // If a previous run left an empty directory with the expected name, remove it
-  // to avoid go-git-it failing on rename with ENOTEMPTY.
   const expectedName =
     treeIndex !== -1 && segments.length > treeIndex + 2
       ? segments[segments.length - 1]
       : repoName
 
   const expectedPath = path.resolve(cwd, expectedName)
+  const {
+    assertDestinationIsOurs,
+    readRemoteSource,
+    sourceKey,
+    writeRemoteSource
+  } = await import('./zip')
+
+  // A folder of the right name is this url's download only when stamped as
+  // one. An empty one is cleared so go-git-it does not fail with ENOTEMPTY.
+  assertDestinationIsOurs(expectedPath, pathOrRemoteUrl)
 
   if (fs.existsSync(expectedPath)) {
-    try {
-      const entries = fs.readdirSync(expectedPath)
-
-      if (entries.length === 0) {
-        fs.rmSync(expectedPath, {recursive: true, force: true})
-      } else {
-        // If directory exists but does not contain a manifest.json anywhere,
-        // remove it and re-fetch to avoid stale/partial folders.
-        const hasManifest = (dir: string): boolean => {
-          const stack: string[] = [dir]
-
-          while (stack.length) {
-            const current = stack.pop() as string
-            const items = fs.readdirSync(current, {withFileTypes: true})
-
-            for (const it of items) {
-              if (it.isFile() && it.name === 'manifest.json') return true
-
-              if (
-                it.isDirectory() &&
-                it.name !== 'node_modules' &&
-                it.name !== 'dist' &&
-                !it.name.startsWith('.')
-              ) {
-                stack.push(path.join(current, it.name))
-              }
-            }
-          }
-
-          return false
-        }
-
-        if (!hasManifest(expectedPath)) {
-          fs.rmSync(expectedPath, {recursive: true, force: true})
-        } else {
-          return expectedPath
-        }
-      }
-    } catch {
-      // If we cannot read dir, proceed and let go-git-it attempt clone
+    // Reused, not refetched: a clone lands here to be edited and dev watches
+    // it, so refetching on every restart would delete the user's work.
+    if (readRemoteSource(expectedPath) === sourceKey(pathOrRemoteUrl)) {
+      return {projectPath: expectedPath, downloaded: false}
     }
+
+    fs.rmSync(expectedPath, {recursive: true, force: true})
   }
 
   async function tryGitClone() {
@@ -266,38 +327,45 @@ async function importUrlSourceFromGithub(
   }
 
   async function tryZipFallback() {
-    const branch =
-      treeIndex !== -1 && segments.length > treeIndex + 1
-        ? segments[treeIndex + 1]
-        : 'main'
-    const owner = segments[0]
     const repo = segments[1]
-    const subdir =
-      treeIndex !== -1 && segments.length > treeIndex + 2
-        ? segments.slice(treeIndex + 2).join('/')
-        : ''
+    const candidateRefs = githubZipCandidates(pathOrRemoteUrl)
+    // The single-segment reading is what the url almost always means, so its
+    // failure is the one worth reporting if every reading misses.
+    let firstError: unknown
 
-    const zipUrl = `https://codeload.github.com/${owner}/${repo}/zip/refs/heads/${branch}`
-    const extractedPath = await importUrlSourceFromZip(zipUrl)
+    // A tag, a commit and a branch all answer on /zip/<ref>, so a miss here
+    // means this reading of the ref was wrong, not that the url was.
+    for (const candidate of candidateRefs) {
+      try {
+        const extractedPath = await importUrlSourceFromZip(candidate.zipUrl)
+        const repoRoot = resolveRepoRoot(extractedPath, repo, candidate.ref)
 
-    const extractedDirs = fs
-      .readdirSync(extractedPath, {withFileTypes: true})
-      .filter((d) => d.isDirectory())
-      .map((d) => d.name)
-    const repoRootDir = extractedDirs.find((d) =>
-      d.startsWith(`${repo}-${branch}`)
-    )
-    const repoRoot = repoRootDir
-      ? path.join(extractedPath, repoRootDir)
-      : extractedPath
+        if (!candidate.subdir) return repoRoot
 
-    return subdir ? path.join(repoRoot, subdir) : repoRoot
+        const withSubdir = path.join(repoRoot, candidate.subdir)
+
+        if (fs.existsSync(withSubdir)) return withSubdir
+
+        throw new Error(
+          messages.downloadedProjectFolderNotFound(repoRoot, [candidate.subdir])
+        )
+      } catch (error) {
+        firstError = firstError ?? error
+      }
+    }
+
+    throw firstError
   }
+
+  const dirsBefore = new Set(listDirectories(cwd))
 
   try {
     await tryGitClone()
   } catch {
-    return await tryZipFallback()
+    const fallbackPath = await tryZipFallback()
+    writeRemoteSource(fallbackPath, pathOrRemoteUrl)
+
+    return {projectPath: fallbackPath, downloaded: true}
   }
 
   const candidates: string[] = []
@@ -308,40 +376,46 @@ async function importUrlSourceFromGithub(
 
   candidates.push(repoName)
 
-  for (const name of candidates) {
-    const p = path.resolve(cwd, name)
+  // Only a folder this run created can be the clone: anything that was
+  // already here is a stranger's, whatever it is called.
+  const appeared = listDirectories(cwd).filter((name) => !dirsBefore.has(name))
 
-    if (fs.existsSync(p)) {
-      return p
+  const landed = (() => {
+    for (const name of candidates) {
+      const candidatePath = path.resolve(cwd, name)
+
+      if (appeared.includes(name)) return candidatePath
     }
+
+    for (const name of appeared) {
+      if (fs.existsSync(path.join(cwd, name, 'manifest.json'))) {
+        return path.join(cwd, name)
+      }
+    }
+
+    const ghRoot = appeared.find((name) => /-main$|-master$/.test(name))
+
+    return ghRoot ? path.join(cwd, ghRoot) : undefined
+  })()
+
+  if (!landed) {
+    throw new Error(messages.downloadedProjectFolderNotFound(cwd, candidates))
   }
 
-  const dirs = fs
-    .readdirSync(cwd, {withFileTypes: true})
-    .filter((d) => d.isDirectory())
-    .map((d) => d.name)
+  writeRemoteSource(landed, pathOrRemoteUrl)
 
-  for (const dir of dirs) {
-    const manifestPath = path.join(cwd, dir, 'manifest.json')
-    if (fs.existsSync(manifestPath)) return path.join(cwd, dir)
-  }
+  return {projectPath: landed, downloaded: true}
+}
 
+function listDirectories(dir: string): string[] {
   try {
-    const dirs = fs
-      .readdirSync(cwd, {withFileTypes: true})
-      .filter((d) => d.isDirectory())
-      .map((d) => d.name)
-
-    const ghRoot = dirs.find((d) => /-main$|-master$/.test(d))
-
-    if (ghRoot) {
-      return path.join(cwd, ghRoot)
-    }
+    return fs
+      .readdirSync(dir, {withFileTypes: true})
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
   } catch {
-    // Ignore
+    return []
   }
-
-  throw new Error(messages.downloadedProjectFolderNotFound(cwd, candidates))
 }
 
 async function importUrlSourceFromZip(pathOrRemoteUrl: string) {
@@ -392,7 +466,7 @@ export async function getProjectPath(
       const [owner, project] = url.pathname.split('/').slice(1, 3)
       const projectName = path.basename(url.pathname)
 
-      const urlSource = await importUrlSourceFromGithub(
+      const {projectPath, downloaded} = await importUrlSourceFromGithub(
         pathOrRemoteUrl,
         messages.downloadingProjectPath(
           projectName,
@@ -400,9 +474,13 @@ export async function getProjectPath(
         )
       )
 
-      console.log(messages.creatingProjectPath())
+      console.log(
+        downloaded
+          ? messages.creatingProjectPath()
+          : messages.reusingDownloadedProject(projectPath, pathOrRemoteUrl)
+      )
 
-      return urlSource
+      return projectPath
     }
   }
 
@@ -422,24 +500,41 @@ export async function getProjectPath(
 }
 
 // Companion extensions live under extensions/ and load next to the project,
-// so a manifest found only there is never the project's own.
+// so a manifest there is the project's own only when nothing else is.
 const COMPANION_EXTENSIONS_DIR = 'extensions'
 
-const MANIFEST_SCAN_SKIP_DIRS: ReadonlySet<string> = new Set([
+// The companions Extension.js ships and loads itself. Never a user project.
+const BUILT_IN_COMPANION_NAMES: ReadonlySet<string> = new Set([
+  'extension-js-devtools',
+  'extension-js-theme'
+])
+
+const ALWAYS_SKIPPED_DIRS: ReadonlySet<string> = new Set([
   'node_modules',
   'dist',
+  'public'
+])
+
+const BUILD_OUTPUT_DIRS: ReadonlySet<string> = new Set([
   'build',
   'out',
-  'coverage',
-  'public',
+  'coverage'
+])
+
+const MANIFEST_SCAN_SKIP_DIRS: ReadonlySet<string> = new Set([
+  ...ALWAYS_SKIPPED_DIRS,
+  ...BUILD_OUTPUT_DIRS,
   COMPANION_EXTENSIONS_DIR
 ])
 
-function isManifestScanDir(entry: fs.Dirent): boolean {
+function isManifestScanDir(
+  entry: fs.Dirent,
+  skipDirs: ReadonlySet<string> = MANIFEST_SCAN_SKIP_DIRS
+): boolean {
   return (
     entry.isDirectory() &&
     !entry.name.startsWith('.') &&
-    !MANIFEST_SCAN_SKIP_DIRS.has(entry.name)
+    !skipDirs.has(entry.name)
   )
 }
 
@@ -477,11 +572,30 @@ function collectManifestCandidates(
   return results
 }
 
-function findCompanionManifest(projectPath: string): string | undefined {
+function findCompanionManifests(projectPath: string): string[] {
   return collectManifestCandidates(
     path.join(projectPath, COMPANION_EXTENSIONS_DIR),
     2
-  )[0]
+  )
+}
+
+function isBuiltInCompanionManifest(manifestPath: string): boolean {
+  return path
+    .dirname(manifestPath)
+    .split(path.sep)
+    .some((segment) => BUILT_IN_COMPANION_NAMES.has(segment))
+}
+
+// A project whose one extension sits under extensions/ has no other manifest
+// to be a companion to. Several of them, or a built-in one, stay companions.
+function findLoneExtensionUnderCompanionDir(
+  projectPath: string
+): string | undefined {
+  const manifests = findCompanionManifests(projectPath)
+
+  return manifests.length === 1 && !isBuiltInCompanionManifest(manifests[0])
+    ? manifests[0]
+    : undefined
 }
 
 export async function getProjectStructure(
@@ -530,7 +644,7 @@ export function resolveProjectStructureSync(
     const missingManifestError = (candidates: string[] = []) => {
       const companionManifest = candidates.length
         ? undefined
-        : findCompanionManifest(projectPath)
+        : findCompanionManifests(projectPath)[0]
 
       if (companionManifest) {
         return codedError(
@@ -558,8 +672,15 @@ export function resolveProjectStructureSync(
         (candidate) => path.relative(projectPath, candidate) || candidate
       )
 
-      if (absoluteCandidates.length === 1) {
-        manifestPath = absoluteCandidates[0]
+      const adopted =
+        absoluteCandidates.length === 1
+          ? absoluteCandidates[0]
+          : absoluteCandidates.length === 0
+            ? findLoneExtensionUnderCompanionDir(projectPath)
+            : undefined
+
+      if (adopted) {
+        manifestPath = adopted
         log(messages.resolvedWorkspaceManifest(projectPath, manifestPath))
       } else {
         throw missingManifestError(relativeCandidates)
@@ -567,7 +688,11 @@ export function resolveProjectStructureSync(
     } else {
       const MAX_DEPTH = 5
 
-      const findManifest = (dir: string, depth: number): string | null => {
+      const findManifest = (
+        dir: string,
+        depth: number,
+        skipDirs?: ReadonlySet<string>
+      ): string | null => {
         if (depth > MAX_DEPTH) return null
 
         let files: fs.Dirent[]
@@ -583,8 +708,12 @@ export function resolveProjectStructureSync(
             return path.join(dir, file.name)
           }
 
-          if (isManifestScanDir(file)) {
-            const found = findManifest(path.join(dir, file.name), depth + 1)
+          if (isManifestScanDir(file, skipDirs)) {
+            const found = findManifest(
+              path.join(dir, file.name),
+              depth + 1,
+              skipDirs
+            )
             if (found) return found
           }
         }
@@ -592,7 +721,16 @@ export function resolveProjectStructureSync(
         return null
       }
 
-      const foundManifest = findManifest(projectPath, 0)
+      // Source folders win. A lone extension under extensions/ comes next, and
+      // a folder named like build output is only read when nothing else is.
+      const foundManifest =
+        findManifest(projectPath, 0) ||
+        findLoneExtensionUnderCompanionDir(projectPath) ||
+        findManifest(
+          projectPath,
+          0,
+          new Set([...ALWAYS_SKIPPED_DIRS, COMPANION_EXTENSIONS_DIR])
+        )
 
       if (foundManifest) {
         manifestPath = foundManifest
@@ -696,18 +834,24 @@ export function resolveProjectStructureSync(
   // project the manifest merely sits inside, so the manifest folder is the
   // project. Declining here is what keeps its dist, its special folders and
   // its install out of the picture, since every one of those keys off this.
+  // Only a project manifest ABOVE the folder the command was pointed at can
+  // be a stranger's. One at or below it is the project the author named.
+  const owns = (projectManifestPath: string) =>
+    isAtOrBelow(projectPath, path.dirname(projectManifestPath)) ||
+    ownsManifest(projectManifestPath, manifestPath)
   const ownedPackageJsonPath =
-    packageJsonPath && ownsManifest(packageJsonPath, manifestPath)
-      ? packageJsonPath
-      : undefined
+    packageJsonPath && owns(packageJsonPath) ? packageJsonPath : undefined
   const ownedDenoJsonPath =
-    denoJsonPath && ownsManifest(denoJsonPath, manifestPath)
-      ? denoJsonPath
-      : undefined
+    denoJsonPath && owns(denoJsonPath) ? denoJsonPath : undefined
   const declined = packageJsonPath || denoJsonPath
 
   if (declined && !ownedPackageJsonPath && !ownedDenoJsonPath) {
-    announceDeclinedProjectRoot(declined, manifestPath, log)
+    announceDeclinedProjectRoot(
+      declined,
+      manifestPath,
+      log,
+      Boolean(options.quiet)
+    )
   }
 
   if (!ownedPackageJsonPath || !validatePackageJson(ownedPackageJsonPath)) {

@@ -10,6 +10,7 @@ import type {
   LoaderContext as RspackLoaderContext,
   RspackPluginInstance
 } from '@rspack/core'
+import type {LogContext} from './dev-server/control-bridge/contracts'
 
 /**
  * Firefox-only `theme_experiment` manifest key.
@@ -252,15 +253,7 @@ export interface DevOptions extends BrowserOptionsBase {
   zipSource?: boolean
   zipFilename?: string
   logLevel?: 'off' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'all'
-  logContexts?: (
-    | 'background'
-    | 'content'
-    | 'page'
-    | 'sidebar'
-    | 'popup'
-    | 'options'
-    | 'devtools'
-  )[]
+  logContexts?: LogContext[]
   logFormat?: 'pretty' | 'json' | 'ndjson'
   logTimestamps?: boolean
   logColor?: boolean
@@ -387,16 +380,13 @@ export interface PreviewOptions extends BrowserOptionsBase {
    * Defaults to '127.0.0.1'.
    */
   host?: string
+  /**
+   * Accepted so a config or flag shared with `dev` keeps working. Nothing is
+   * served by this command, so there is no connectable host to override.
+   */
+  publicHost?: string
   logLevel?: 'off' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'all'
-  logContexts?: (
-    | 'background'
-    | 'content'
-    | 'page'
-    | 'sidebar'
-    | 'popup'
-    | 'options'
-    | 'devtools'
-  )[]
+  logContexts?: LogContext[]
   logFormat?: 'pretty' | 'json' | 'ndjson'
   logTimestamps?: boolean
   logColor?: boolean
@@ -430,16 +420,13 @@ export interface StartOptions extends BrowserOptionsBase {
    * Defaults to '127.0.0.1'.
    */
   host?: string
+  /**
+   * Accepted so a config or flag shared with `dev` keeps working. Nothing is
+   * served by this command, so there is no connectable host to override.
+   */
+  publicHost?: string
   logLevel?: 'off' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'all'
-  logContexts?: (
-    | 'background'
-    | 'content'
-    | 'page'
-    | 'sidebar'
-    | 'popup'
-    | 'options'
-    | 'devtools'
-  )[]
+  logContexts?: LogContext[]
   logFormat?: 'pretty' | 'json' | 'ndjson'
   logTimestamps?: boolean
   logColor?: boolean
@@ -602,6 +589,7 @@ export interface FileConfig {
       | 'noBrowser'
       | 'port'
       | 'host'
+      | 'publicHost'
       | 'logLevel'
       | 'logContexts'
       | 'logFormat'
@@ -628,6 +616,7 @@ export interface FileConfig {
       | 'noBrowser'
       | 'port'
       | 'host'
+      | 'publicHost'
       | 'logLevel'
       | 'logContexts'
       | 'logFormat'

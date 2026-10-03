@@ -116,7 +116,7 @@ The run that turns telemetry off reports nothing about itself. `extension teleme
 silences the running process at the moment it records your choice, so the act of opting out is
 never the last thing collected from you.
 
-The consent file lives at `$XDG_CONFIG_HOME/extensionjs/telemetry/consent` (or the platform equivalent). The only other telemetry state persisted on disk is the anonymous install id, a `notice-shown` marker recording that the first-run notice was printed, and a local audit log of events actually sent.
+The consent file lives at `$XDG_CONFIG_HOME/extensionjs/telemetry/consent` (or the platform equivalent). The only other telemetry state persisted on disk is the anonymous install id, a `notice-shown` marker recording that the first-run notice was printed, and a local audit log of every event the CLI considered sending (not every row was delivered, see below).
 
 ## Default behavior
 

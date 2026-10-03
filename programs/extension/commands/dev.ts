@@ -26,6 +26,7 @@ import {
 import {getCliPackageJson} from '../helpers/cli-package-json'
 import {resolveConfigBrowser} from '../helpers/config-browser'
 import {loadExtensionDevelopModule} from '../helpers/extension-develop-runtime'
+import {LOG_CONTEXTS} from '../helpers/log-contexts'
 import * as messages from '../helpers/messages'
 import {commandDescriptions} from '../helpers/messages'
 import {CODES, ENVELOPE, type ErrorCode} from '../helpers/messaging'
@@ -193,7 +194,7 @@ export function registerDevCommand(program: Command) {
     )
     .option(
       '--log-context <list>',
-      '[experimental] comma-separated contexts to include (background,content,page,sidebar,popup,options,devtools). Use `all` to include all contexts (default)'
+      `[experimental] comma-separated contexts to include (${LOG_CONTEXTS.join(',')}). Use \`all\` to include all contexts (default)`
     )
     .option(
       '--logs <off|error|warn|info|debug|trace|all>',

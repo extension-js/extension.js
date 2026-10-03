@@ -291,8 +291,9 @@ export function sidebarKeyTranslatedForBrowser(
 
 export function mv3BackgroundPageUnsupported(browser: string) {
   return (
-    `${prefix('error')} ${colors.blue(browser)} has no ${colors.yellow('background.page')} in Manifest V3, and the extension installs with no background context at all.\n` +
+    `${prefix('warn')} ${colors.blue(browser)} has no ${colors.yellow('background.page')} in Manifest V3, and the extension installs with no background context at all.\n` +
     'Nothing reports that at load time: the background code, the reload bridge and the control channel all go missing silently. ' +
+    'The build kept the page as written, so the rest of the extension still loads. ' +
     `Declare ${colors.yellow('background.service_worker')} instead, or scope the page with the firefox: prefix for a Manifest V2 build.`
   )
 }

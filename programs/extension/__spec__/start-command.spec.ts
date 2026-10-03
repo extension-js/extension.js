@@ -85,7 +85,10 @@ describe('extension start', () => {
     expect(previewOpts.logFormat).toBeUndefined()
     expect(previewOpts.logTimestamps).toBeUndefined()
     expect(previewOpts.logColor).toBeUndefined()
-    expect(runOnlyPreviewBrowser).toHaveBeenCalledWith({launched: true})
+    expect(runOnlyPreviewBrowser).toHaveBeenCalledWith({
+      launched: true,
+      command: 'start'
+    })
   })
 
   it('disables the polyfill with --polyfill false', async () => {
@@ -106,7 +109,10 @@ describe('extension start', () => {
     // The browser phase still runs under --no-open. Only the tab is skipped.
     expect(withFlag.noOpen).toBe(true)
     expect(withFlag.noBrowser).toBe(false)
-    expect(runOnlyPreviewBrowser).toHaveBeenCalledWith({launched: true})
+    expect(runOnlyPreviewBrowser).toHaveBeenCalledWith({
+      launched: true,
+      command: 'start'
+    })
 
     vi.clearAllMocks()
 
@@ -157,18 +163,20 @@ describe('extension start', () => {
     expect(previewOpts).not.toHaveProperty('publicHost')
   })
 
-  it('does not advertise --public-host, which start never dials', async () => {
+  // Accepted at 4.1.30 and still sent by callers that share their flags with
+  // dev. start serves nothing, so the value is taken and never forwarded.
+  it('accepts --public-host as dev does, without forwarding it', async () => {
     const program = makeProgram(registerStartCommand)
     const start = program.commands.find((cmd) => cmd.name() === 'start')
-    expect(start?.options.map((option) => option.long)).not.toContain(
+    expect(start?.options.map((option) => option.long)).toContain(
       '--public-host'
     )
 
-    await expect(
-      run(['start', '.', '--public-host', '203.0.113.7'])
-    ).rejects.toThrow(/unknown option '--public-host'/)
+    expect(await run(['start', '.', '--public-host', '203.0.113.7'])).toBe(0)
+    expect(extensionBuild).toHaveBeenCalledTimes(1)
 
-    expect(extensionBuild).not.toHaveBeenCalled()
+    const [, previewOpts] = extensionPreview.mock.calls[0] as any[]
+    expect(previewOpts).not.toHaveProperty('publicHost')
   })
 
   // Same contract as preview: the refusal has to hand the user a command, and

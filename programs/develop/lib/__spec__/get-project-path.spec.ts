@@ -2,7 +2,11 @@ import * as fs from 'node:fs'
 import os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
-import {getProjectPath, getProjectStructure} from '../project'
+import {
+  getProjectPath,
+  getProjectStructure,
+  resolveProjectStructureSync
+} from '../project'
 
 const created: string[] = []
 
@@ -102,11 +106,9 @@ describe('get-project-path', () => {
     const manifestDir = path.join(nested, 'ext')
     fs.mkdirSync(manifestDir, {recursive: true})
     fs.writeFileSync(path.join(manifestDir, 'manifest.json'), '{}')
-    // Depends on Extension.js, so this package owns the manifest below it and
-    // is still reported from a distance.
     fs.writeFileSync(
       path.join(nested, 'package.json'),
-      JSON.stringify({name: 'pkg', devDependencies: {extension: '^4.1.30'}})
+      JSON.stringify({name: 'pkg'})
     )
 
     const s = await getProjectStructure(root)
@@ -116,9 +118,9 @@ describe('get-project-path', () => {
     )
   })
 
-  // The same shape without that dependency is a manifest that happens to sit
-  // inside someone else's project, so the manifest folder is the project.
-  it('getProjectStructure declines a package.json that does not own the manifest', async () => {
+  // Pointed straight at a manifest folder inside someone else's project, the
+  // package.json above it is a stranger's and the manifest folder is the project.
+  it('getProjectStructure declines a package.json above the folder it was pointed at', async () => {
     const root = makeTempDir('extjs-gps-stranger-')
     const manifestDir = path.join(root, 'nested', 'deeper', 'ext')
     fs.mkdirSync(manifestDir, {recursive: true})
@@ -128,9 +130,61 @@ describe('get-project-path', () => {
       JSON.stringify({name: 'pkg'})
     )
 
-    const s = await getProjectStructure(root)
-    expect(path.basename(s.manifestPath)).toBe('manifest.json')
-    expect(s.packageJsonPath).toBeUndefined()
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    try {
+      // The quiet resolutions a command runs first must not use up the line.
+      resolveProjectStructureSync(manifestDir, {quiet: true})
+      expect(log).not.toHaveBeenCalled()
+
+      const s = await getProjectStructure(manifestDir)
+      expect(s.packageJsonPath).toBeUndefined()
+
+      await getProjectStructure(manifestDir)
+
+      const printed = log.mock.calls.map((call) => String(call[0]))
+      expect(printed.filter((line) => /IGNORED/.test(line))).toHaveLength(1)
+      expect(printed.join('\n')).toContain('Using ext/ as the project root.')
+    } finally {
+      log.mockRestore()
+    }
+  })
+
+  // The layouts that resolved a root before: the package.json sits at or
+  // below the folder the command ran in, whatever it depends on.
+  it.each([
+    ['a manifest in app/', 'package.json', 'app/manifest.json'],
+    ['a manifest in src/app/', 'package.json', 'src/app/manifest.json'],
+    [
+      'a workspace package',
+      'packages/ext/package.json',
+      'packages/ext/extension/manifest.json'
+    ]
+  ])('getProjectStructure keeps the package root for %s', async (...layout) => {
+    const [, pkg, manifest] = layout
+    const root = makeTempDir('extjs-gps-owned-')
+
+    const write = (rel: string, body: string) => {
+      const abs = path.join(root, ...rel.split('/'))
+      fs.mkdirSync(path.dirname(abs), {recursive: true})
+      fs.writeFileSync(abs, body)
+    }
+
+    write(pkg, JSON.stringify({name: 'my-existing-app'}))
+    write(manifest, '{}')
+
+    const pointedAt = path.join(root, ...pkg.split('/').slice(0, -1))
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    try {
+      const s = await getProjectStructure(pointedAt)
+
+      expect(s.packageJsonPath && fs.realpathSync(s.packageJsonPath)).toBe(
+        fs.realpathSync(path.join(root, ...pkg.split('/')))
+      )
+    } finally {
+      log.mockRestore()
+    }
   })
 
   it('getProjectStructure allows web-only (no package.json)', async () => {
@@ -302,19 +356,63 @@ describe('manifest scan with no project manifest', () => {
   }
   const withPackageJson = {'package.json': JSON.stringify({name: 'pkg'})}
 
-  it('refuses a companion manifest under extensions/ when package.json exists', async () => {
+  const builtInCompanionOnly = {
+    'extensions/extension-js-devtools/manifest.json':
+      extensionManifest('BUILT-IN COMPANION')
+  }
+
+  const resolvedManifest = async (root: string) => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    try {
+      const s = await getProjectStructure(root)
+
+      return path.relative(root, s.manifestPath).split(path.sep).join('/')
+    } finally {
+      logSpy.mockRestore()
+    }
+  }
+
+  it('adopts the only extension of a project under extensions/ when package.json exists', async () => {
     const root = layout({...withPackageJson, ...companionOnly})
 
+    expect(await resolvedManifest(root)).toBe('extensions/helper/manifest.json')
+  })
+
+  it('adopts the only extension of a project under extensions/ without package.json', async () => {
+    const root = layout(companionOnly)
+
+    expect(await resolvedManifest(root)).toBe('extensions/helper/manifest.json')
+  })
+
+  it('refuses a built-in companion manifest when package.json exists', async () => {
+    const root = layout({...withPackageJson, ...builtInCompanionOnly})
+
     await expect(getProjectStructure(root)).rejects.toThrow(
-      /Manifest file not found[\s\S]*COMPANION[\s\S]*extensions[\\/]helper/
+      /Manifest file not found[\s\S]*COMPANION[\s\S]*extensions[\\/]extension-js-devtools/
     )
   })
 
-  it('refuses a companion manifest under extensions/ without package.json', async () => {
-    const root = layout(companionOnly)
+  it('refuses a built-in companion manifest without package.json', async () => {
+    const root = layout(builtInCompanionOnly)
 
     await expect(getProjectStructure(root)).rejects.toThrow(
-      /Manifest file not found[\s\S]*COMPANION[\s\S]*extensions[\\/]helper/
+      /Manifest file not found[\s\S]*COMPANION[\s\S]*extensions[\\/]extension-js-devtools/
+    )
+  })
+
+  it('refuses to pick one of several manifests under extensions/', async () => {
+    const several = {
+      ...companionOnly,
+      'extensions/other/manifest.json': extensionManifest('COMPANION OTHER')
+    }
+
+    await expect(
+      getProjectStructure(layout({...withPackageJson, ...several}))
+    ).rejects.toThrow(/Manifest file not found[\s\S]*COMPANION/)
+
+    await expect(getProjectStructure(layout(several))).rejects.toThrow(
+      /Manifest file not found[\s\S]*COMPANION/
     )
   })
 
@@ -334,16 +432,20 @@ describe('manifest scan with no project manifest', () => {
     )
   })
 
-  it('skips build output folders on the no-package.json walk too', async () => {
+  it('reads a folder named like build output when it holds the only manifest', async () => {
+    const root = layout({'out/manifest.json': extensionManifest('ONLY ONE')})
+
+    expect(await resolvedManifest(root)).toBe('out/manifest.json')
+  })
+
+  it('prefers a source folder over build output and extensions/ without package.json', async () => {
     const root = layout({
-      'out/manifest.json': extensionManifest('BUILT'),
       'build/manifest.json': extensionManifest('BUILT'),
-      'coverage/manifest.json': extensionManifest('BUILT')
+      ...companionOnly,
+      'web/manifest.json': extensionManifest('THE REAL PROJECT')
     })
 
-    await expect(getProjectStructure(root)).rejects.toThrow(
-      /Manifest file not found/
-    )
+    expect(await resolvedManifest(root)).toBe('web/manifest.json')
   })
 
   it('still resolves a lone workspace package beside a companion', async () => {
@@ -418,6 +520,14 @@ describe('get-project-path (GitHub source)', () => {
   const writtenTo = (spy: ReturnType<typeof vi.spyOn>) =>
     spy.mock.calls.map((call) => String(call[0])).join('')
 
+  // project.ts reads and writes the url-keyed provenance stamp through ../zip,
+  // so a mock that replaces the whole module has to keep those helpers real.
+  async function mockZipDownload(downloadAndExtractZip: unknown) {
+    const actual = await vi.importActual<typeof import('../zip')>('../zip')
+
+    vi.doMock('../zip', () => ({...actual, downloadAndExtractZip}))
+  }
+
   // Stands in for go-git-it: writes what the real tool writes, then lands
   // the sample where the real clone would.
   function mockNoisyClone() {
@@ -490,7 +600,7 @@ describe('get-project-path (GitHub source)', () => {
     vi.doMock('go-git-it', () => ({default: goGitIt}))
     const downloadAndExtractZip = vi.fn(async (zipUrl: string) => {
       expect(zipUrl).toBe(
-        'https://codeload.github.com/GoogleChrome/chrome-extensions-samples/zip/refs/heads/main'
+        'https://codeload.github.com/GoogleChrome/chrome-extensions-samples/zip/main'
       )
 
       const sample = path.join(
@@ -504,7 +614,7 @@ describe('get-project-path (GitHub source)', () => {
 
       return root
     })
-    vi.doMock('../zip', () => ({downloadAndExtractZip}))
+    await mockZipDownload(downloadAndExtractZip)
 
     try {
       process.chdir(root)
@@ -528,5 +638,163 @@ describe('get-project-path (GitHub source)', () => {
     } finally {
       process.chdir(cwd)
     }
+  })
+
+  // A folder named after the repo is not the repo. Adopting it built and
+  // served an unrelated local project as if it had come from the url.
+  const examplesUrl = 'https://github.com/extension-js/examples'
+
+  function strangerNamedExamples(root: string) {
+    const stranger = path.join(root, 'examples')
+    fs.mkdirSync(stranger, {recursive: true})
+    fs.writeFileSync(
+      path.join(stranger, 'manifest.json'),
+      '{"manifest_version":3,"name":"NOT FROM THE REMOTE","version":"9.9.9"}'
+    )
+
+    return stranger
+  }
+
+  it('refuses a same-named folder it never recorded as this url download', async () => {
+    const root = makeTempDir('extjs-github-stranger-')
+    const cwd = process.cwd()
+    const stranger = strangerNamedExamples(root)
+    const goGitIt = vi.fn(async () => {})
+    vi.doMock('go-git-it', () => ({default: goGitIt}))
+    const downloadAndExtractZip = vi.fn(async () => root)
+    await mockZipDownload(downloadAndExtractZip)
+
+    try {
+      process.chdir(root)
+      const {getProjectPath: fresh} = await import('../project')
+      const error = await fresh(examplesUrl).then(
+        () => undefined,
+        (reason: Error) => reason
+      )
+
+      expect(error?.message).toMatch(/isn't a download from this URL/i)
+      expect((error as {code?: string}).code).toBe('E_DESTINATION_NOT_EMPTY')
+      expect(goGitIt).not.toHaveBeenCalled()
+      expect(downloadAndExtractZip).not.toHaveBeenCalled()
+      expect(fs.readdirSync(stranger)).toEqual(['manifest.json'])
+    } finally {
+      process.chdir(cwd)
+    }
+  })
+
+  // A tree url lands in a folder named after its last segment, so a folder
+  // named after the repo is a bystander the clone result must not fall back to.
+  it('does not adopt a repo-named folder the clone did not create', async () => {
+    const root = makeTempDir('extjs-github-bystander-')
+    const cwd = process.cwd()
+    const stranger = strangerNamedExamples(root)
+    vi.doMock('go-git-it', () => ({default: vi.fn(async () => {})}))
+
+    try {
+      process.chdir(root)
+      const {getProjectPath: fresh} = await import('../project')
+
+      await expect(
+        fresh(`${examplesUrl}/tree/main/examples/action`)
+      ).rejects.toThrow(/Downloaded project folder not found/i)
+
+      expect(fs.readdirSync(stranger)).toEqual(['manifest.json'])
+    } finally {
+      process.chdir(cwd)
+    }
+  })
+
+  // The refresh policy for a clone-shaped source: a stamped tree is reused and
+  // the run says so, because that tree is the one the user edits and dev
+  // watches, so refetching every restart would throw their work away.
+  it('reuses a tree stamped with this url and says it did not download', async () => {
+    const root = makeTempDir('extjs-github-stamped-')
+    const cwd = process.cwd()
+    const ours = strangerNamedExamples(root)
+    const {REMOTE_SOURCE_PROVENANCE_FILE} =
+      await vi.importActual<typeof import('../zip')>('../zip')
+    fs.writeFileSync(
+      path.join(ours, REMOTE_SOURCE_PROVENANCE_FILE),
+      JSON.stringify({source: examplesUrl})
+    )
+
+    const goGitIt = vi.fn(async () => {})
+    vi.doMock('go-git-it', () => ({default: goGitIt}))
+
+    try {
+      process.chdir(root)
+      const {getProjectPath: fresh} = await import('../project')
+      const result = await fresh(examplesUrl)
+
+      expect(fs.realpathSync(result)).toBe(fs.realpathSync(ours))
+
+      // A trailing slash is the same url, not a stranger's folder.
+      expect(fs.realpathSync(await fresh(`${examplesUrl}/`))).toBe(
+        fs.realpathSync(ours)
+      )
+
+      expect(goGitIt).not.toHaveBeenCalled()
+
+      const logged = logSpy.mock.calls.map((c) => String(c[0])).join('\n')
+      expect(logged).toContain('already downloaded here')
+      expect(logged).not.toContain('Creating a new browser extension')
+    } finally {
+      process.chdir(cwd)
+    }
+  })
+})
+
+// codeload answers /zip/<ref> for a branch, a tag and a commit alike, and
+// answers /zip/refs/heads/<ref> only for a branch.
+describe('githubZipCandidates', () => {
+  it('asks for the ref itself so a tag resolves', async () => {
+    const {githubZipCandidates} = await import('../project')
+
+    expect(
+      githubZipCandidates('https://github.com/owner/repo/tree/v1.2.3/sub')[0]
+    ).toEqual({
+      zipUrl: 'https://codeload.github.com/owner/repo/zip/v1.2.3',
+      ref: 'v1.2.3',
+      subdir: 'sub'
+    })
+
+    expect(
+      githubZipCandidates('https://github.com/owner/repo/tree/main/sub')[0]
+    ).toEqual({
+      zipUrl: 'https://codeload.github.com/owner/repo/zip/main',
+      ref: 'main',
+      subdir: 'sub'
+    })
+  })
+
+  it('leaves a slashed branch name reachable as a later candidate', async () => {
+    const {githubZipCandidates} = await import('../project')
+    const candidates = githubZipCandidates(
+      'https://github.com/owner/repo/tree/release/1.x/sub'
+    )
+
+    expect(candidates.map((candidate) => candidate.ref)).toEqual([
+      'release',
+      'release/1.x',
+      'release/1.x/sub'
+    ])
+
+    expect(candidates[1].zipUrl).toBe(
+      'https://codeload.github.com/owner/repo/zip/release/1.x'
+    )
+
+    expect(candidates[1].subdir).toBe('sub')
+  })
+
+  it('falls back to main for a repo root url', async () => {
+    const {githubZipCandidates} = await import('../project')
+
+    expect(githubZipCandidates('https://github.com/owner/repo')).toEqual([
+      {
+        zipUrl: 'https://codeload.github.com/owner/repo/zip/main',
+        ref: 'main',
+        subdir: ''
+      }
+    ])
   })
 })

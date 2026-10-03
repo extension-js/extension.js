@@ -19,6 +19,7 @@ import {
 import {resolveConfigBrowser} from '../helpers/config-browser'
 import {exitAfterDrain} from '../helpers/exit-after-drain'
 import {loadExtensionDevelopPreviewModule} from '../helpers/extension-develop-runtime'
+import {LOG_CONTEXTS} from '../helpers/log-contexts'
 import * as messages from '../helpers/messages'
 import {commandDescriptions} from '../helpers/messages'
 import {CODES, ENVELOPE, stripChannelPrefix} from '../helpers/messaging'
@@ -123,7 +124,7 @@ export function registerPreviewCommand(program: Command) {
     )
     .option(
       '--log-context <list>',
-      '[experimental] comma-separated contexts to include (background,content,page,sidebar,popup,options,devtools). Use `all` to include all contexts (default)'
+      `[experimental] comma-separated contexts to include (${LOG_CONTEXTS.join(',')}). Use \`all\` to include all contexts (default)`
     )
     .option(
       '--logs <off|error|warn|info|debug|trace|all>',
@@ -328,8 +329,9 @@ export function registerPreviewCommand(program: Command) {
             previewed.push(vendor)
 
             for (const warning of previewResult?.warnings ?? []) {
-              if (!previewWarnings.includes(warning))
-                {previewWarnings.push(warning)}
+              if (!previewWarnings.includes(warning)) {
+                previewWarnings.push(warning)
+              }
             }
           } catch (error) {
             if (!asJson) throw error

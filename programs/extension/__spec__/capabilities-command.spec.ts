@@ -39,28 +39,28 @@ function makeFullProgram(): Command {
 }
 
 describe('collectOutputJsonCommands', () => {
-  it('lists every registered envelope command that accepts --output json', () => {
+  it('lists every registered command that accepts --output json', () => {
     expect(collectOutputJsonCommands(makeFullProgram())).toEqual([
       'build',
       'capabilities',
       'dev',
-      'doctor'
+      'doctor',
+      'logs'
     ])
   })
 
-  it('reports a record-stream command separately instead of as an envelope one', () => {
+  // The field means "accepts --output json", as 4.1.30 and the docs read it,
+  // so logs stays in it. The record-stream list is the additive distinction.
+  it('names a record-stream command in both lists', () => {
     const program = makeFullProgram()
     const envelopeCommands = collectOutputJsonCommands(program)
     const recordStreamCommands = collectRecordStreamCommands(program)
 
     expect(recordStreamCommands).toEqual(['logs'])
-    expect(envelopeCommands).not.toContain('logs')
-    expect(
-      envelopeCommands.filter((name) => recordStreamCommands.includes(name))
-    ).toEqual([])
+    expect(envelopeCommands).toContain('logs')
   })
 
-  it('accounts for every command that accepts --output json across both lists', () => {
+  it('lists exactly the commands whose --output option takes json', () => {
     const program = makeFullProgram()
     const accepted = (
       program.commands as unknown as Array<{
@@ -78,12 +78,7 @@ describe('collectOutputJsonCommands', () => {
       .map((command) => command.name())
       .sort()
 
-    expect(
-      [
-        ...collectOutputJsonCommands(program),
-        ...collectRecordStreamCommands(program)
-      ].sort()
-    ).toEqual(accepted)
+    expect(collectOutputJsonCommands(program)).toEqual(accepted)
   })
 
   it('excludes commands without an --output json option', () => {
@@ -135,7 +130,7 @@ describe('extension capabilities', () => {
     expect(frame.value.outputJsonCommands).toContain('dev')
     expect(frame.value.outputJsonCommands).toContain('build')
     expect(frame.value.outputJsonCommands).toContain('capabilities')
-    expect(frame.value.outputJsonCommands).not.toContain('logs')
+    expect(frame.value.outputJsonCommands).toContain('logs')
     expect(frame.value.recordStreamCommands).toEqual(['logs'])
   })
 

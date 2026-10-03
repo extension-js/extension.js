@@ -6,6 +6,7 @@
 //  ╚═════╝╚══════╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import {spawnSync} from 'node:child_process'
 import crypto from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
@@ -690,6 +691,42 @@ export class Telemetry {
     }
   }
 
+  // A process that is about to die by an uncaught error runs no more event
+  // loop turns, so the batch goes out through a short-lived child that does
+  // the POST while this one blocks on it, bounded by timeoutMs in all. The
+  // answer is whether the sink acknowledged it, and the exit code is untouched.
+  flushSync(timeoutMs: number): boolean {
+    try {
+      if (this.disabled || !this.apiKey || !this.host) return false
+      if (this.buffer.length === 0) return false
+
+      const batch = this.buffer.splice(0, this.buffer.length)
+      const budget = Math.max(1, timeoutMs)
+      const result = spawnSync(process.execPath, ['-e', CRASH_SENDER], {
+        input: JSON.stringify({
+          url: new URL('/capture/', this.host).toString(),
+          body: {
+            api_key: this.apiKey,
+            batch: batch.map((e) => ({
+              event: e.event,
+              properties: e.properties,
+              distinct_id: e.distinct_id
+            }))
+          },
+          timeoutMs: Math.max(1, budget - CRASH_SENDER_STARTUP_MS)
+        }),
+        timeout: budget,
+        stdio: ['pipe', 'ignore', 'ignore'],
+        env: {...process.env, NODE_OPTIONS: ''},
+        windowsHide: true
+      })
+
+      return result.status === 0
+    } catch {
+      return false
+    }
+  }
+
   shutdown(): void {
     // no-op; flush is async and the caller awaits it on beforeExit
   }
@@ -733,6 +770,25 @@ export class Telemetry {
     }
   }
 }
+
+// What the child runs: one POST of the batch read from stdin, exit 0 only on
+// an acknowledged send. Part of the crash budget is left for its own startup.
+const CRASH_SENDER_STARTUP_MS = 250
+const CRASH_SENDER = [
+  "let raw = '';",
+  "process.stdin.on('data', (chunk) => { raw += chunk; });",
+  "process.stdin.on('end', async () => {",
+  '  const {url, body, timeoutMs} = JSON.parse(raw);',
+  '  const ac = new AbortController();',
+  '  setTimeout(() => ac.abort(), timeoutMs).unref();',
+  '  try {',
+  "    const res = await fetch(url, {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify(body), signal: ac.signal});",
+  '    process.exit(res.ok ? 0 : 1);',
+  '  } catch {',
+  '    process.exit(1);',
+  '  }',
+  '});'
+].join('\n')
 
 function clamp(n: number, min: number, max: number): number {
   if (!Number.isFinite(n)) return min

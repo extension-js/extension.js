@@ -198,8 +198,8 @@ describe('extension logs (one-shot)', () => {
     })
   })
 
-  it('refuses a context nothing emits, mis-cased included, naming the valid set', async () => {
-    for (const context of ['page', 'bogus', 'Background', 'all,bogus']) {
+  it('refuses a context it does not name, mis-cased included, naming the valid set', async () => {
+    for (const context of ['bogus', 'Background', 'all,bogus']) {
       logSpy.mockClear()
       errorSpy.mockClear()
       writeSyncSpy.mockClear()
@@ -210,7 +210,7 @@ describe('extension logs (one-shot)', () => {
 
       expect(printedLines()).toEqual([])
       expect(errorLines().join('\n')).toContain(
-        '--context expects a comma-separated list of background, content, ' +
+        '--context expects a comma-separated list of background, content, page, ' +
           'popup, options, sidebar, devtools, newtab, history, bookmarks or all, got: ' +
           context.replace('all,', '')
       )
@@ -222,8 +222,35 @@ describe('extension logs (one-shot)', () => {
     }
 
     expect(
-      await run(['logs', dir, '--output', 'pretty', '--context', 'page'])
+      await run(['logs', dir, '--output', 'pretty', '--context', 'bogus'])
     ).toBe(1)
+  })
+
+  // `page` was accepted at 4.1.30 and the Firefox relay still stamps it, so
+  // a script that filters on it keeps working and the frame stays clean.
+  it('accepts page as a context, alone and in a list', async () => {
+    writeLogs([EVENTS[0], EVENTS[1], {...EVENTS[2], context: 'page', seq: 5}])
+
+    expect(
+      await run(['logs', dir, '--output', 'ndjson', '--context', 'page'])
+    ).toBe(0)
+
+    expect(printedLines().map((l) => JSON.parse(l).seq)).toEqual([5])
+    expect(writeSyncSpy).not.toHaveBeenCalled()
+
+    logSpy.mockClear()
+    expect(
+      await run([
+        'logs',
+        dir,
+        '--output',
+        'ndjson',
+        '--context',
+        'background,page'
+      ])
+    ).toBe(0)
+
+    expect(printedLines().map((l) => JSON.parse(l).seq)).toEqual([1, 5])
   })
 
   it('lets all compose inside a context list', async () => {
@@ -234,9 +261,9 @@ describe('extension logs (one-shot)', () => {
     expect(printedLines().map((l) => JSON.parse(l).seq)).toEqual([1, 2, 3, 4])
   })
 
-  it('names every context the relay emits, as the bridge names them', () => {
+  it('names every context a filter may use, as the bridge names them', () => {
     expect(LOG_CONTEXTS).toEqual([...BRIDGE_LOG_CONTEXTS])
-    expect(LOG_CONTEXTS).not.toContain('page')
+    expect(LOG_CONTEXTS).toContain('page')
 
     const help = makeProgram(registerLogsCommand).commands[0].helpInformation()
     expect(help).toContain(BRIDGE_LOG_CONTEXTS.join(', '))
@@ -275,16 +302,42 @@ describe('extension logs (one-shot)', () => {
     expect(errorLines()).toEqual([])
   })
 
-  it('keeps a gap sentinel under a level filter and drops it only under off', async () => {
+  // A filtered stream is read line by line as log events (the docs pipe it
+  // into jq), so the loss is reported on stderr there, never as a row.
+  it('reports a gap sentinel on stderr instead of as a row once any filter applies', async () => {
     writeLogs([EVENTS[0], EVENTS[3], GAP, EVENTS[4]])
 
-    expect(
-      await run(['logs', dir, '--output', 'ndjson', '--level', 'error'])
-    ).toBe(0)
+    for (const filter of [
+      ['--level', 'error'],
+      ['--context', 'content'],
+      ['--tab', '9'],
+      ['--url', 'other'],
+      ['--signals-only']
+    ]) {
+      logSpy.mockClear()
+      errorSpy.mockClear()
 
-    expect(printedLines().map((l) => JSON.parse(l))).toEqual([EVENTS[3], GAP])
+      expect(await run(['logs', dir, '--output', 'ndjson', ...filter])).toBe(0)
+
+      const rows = printedLines().map((l) => JSON.parse(l))
+      expect(rows.some((row) => row.type === 'gap')).toBe(false)
+      expect(rows.every((row) => Array.isArray(row.messageParts))).toBe(true)
+      expect(errorLines().join('\n')).toContain(
+        '4211 event(s) dropped (disk_slow)'
+      )
+    }
 
     logSpy.mockClear()
+    errorSpy.mockClear()
+    expect(
+      await run(['logs', dir, '--output', 'json', '--level', 'error'])
+    ).toBe(0)
+
+    expect(printedLines().map((l) => JSON.parse(l))).toEqual([EVENTS[3]])
+    expect(errorLines().join('\n')).toContain('4211 event(s) dropped')
+
+    logSpy.mockClear()
+    errorSpy.mockClear()
     expect(
       await run(['logs', dir, '--output', 'pretty', '--level', 'error'])
     ).toBe(0)
@@ -319,15 +372,14 @@ describe('extension logs (one-shot)', () => {
       /rotated to .*chromium[\\/]logs\.1\.ndjson at 2026-09-05T12:00:00\.000Z/
     )
 
+    // Under ndjson too: a header is not a log record, so it never lands on
+    // stdout where a reader takes every line for one.
     logSpy.mockClear()
     errorSpy.mockClear()
     expect(await run(['logs', dir, '--output', 'ndjson'])).toBe(0)
-    expect(printedLines().map((l) => JSON.parse(l))).toEqual([
-      header,
-      EVENTS[3]
-    ])
-
-    expect(errorLines()).toEqual([])
+    expect(printedLines().map((l) => JSON.parse(l))).toEqual([EVENTS[3]])
+    expect(errorLines()).toHaveLength(1)
+    expect(errorLines()[0]).toMatch(/rotated to .*logs\.1\.ndjson/)
   })
 
   it('honors an ISO --since by the event clock and refuses a value that is neither', async () => {
@@ -360,9 +412,9 @@ describe('extension logs (one-shot)', () => {
       return text.length
     }) as never)
 
-    expect(
-      await run(['logs', dir, '--output', 'ndjson', '--tab', 'abc'])
-    ).toBe(1)
+    expect(await run(['logs', dir, '--output', 'ndjson', '--tab', 'abc'])).toBe(
+      1
+    )
 
     expect(printedLines()).toEqual([])
     expect(String(errorSpy.mock.calls[0][0])).toContain('--tab')

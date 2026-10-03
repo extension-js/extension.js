@@ -7,10 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {Compilation, type Compiler, WebpackError} from '@rspack/core'
-import {
-  type DevSessionRestartReason,
-  requestDevSessionRestart
-} from '../../dev-server/session-restart'
+import {requestDevSessionRestart} from '../../dev-server/session-restart'
 import type {DevOptions, PluginInterface} from '../../types'
 import {manifestHtmlEntrypointChange} from '../feature-html/html-lib/messages'
 import {manifestIconsEntrypointChange} from '../feature-icons/messages'
@@ -242,12 +239,9 @@ export class ManifestFieldsChangeDetector {
   }
 
   private tryAutoRestart(compiler: Compiler): boolean {
-    const order: DevSessionRestartReason[] = [
-      'scripts',
-      'html',
-      'icons',
-      'json'
-    ]
+    // The categories this detector tracks, which are a subset of the reasons a
+    // session can restart for.
+    const order: CategoryName[] = ['scripts', 'html', 'icons', 'json']
 
     for (const reason of order) {
       const change = this.pending[reason]

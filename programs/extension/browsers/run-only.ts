@@ -55,6 +55,8 @@ type PreviewRunOptions = {
   logColor?: boolean
   logUrl?: string
   logTab?: number | string
+  // `start` runs the same launch, and its own name belongs on its lines.
+  command?: 'preview' | 'start'
 }
 
 function createPreviewCompilationLike(
@@ -261,7 +263,10 @@ export async function runOnlyPreviewBrowser(
     // Identity before the launch: the card is the header for the session, not
     // a summary trailing the browser it describes.
     await printProdBannerOnce(bannerOptions)
-    await launcher.runOnce(compilationLike, {enableCdpPostLaunch: false})
+    await launcher.runOnce(compilationLike, {
+      enableCdpPostLaunch: false,
+      sessionCommand: opts.command
+    })
 
     return
   }

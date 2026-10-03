@@ -1,11 +1,13 @@
 import EventEmitter from 'node:events'
+import net from 'node:net'
 import {describe, expect, it} from 'vitest'
 import {
+  evaluateExtensionDocument,
   evaluateThroughWatcher,
   extensionDocumentPagePath,
   isExtensionDocumentContext,
-  pickDocumentFrame,
   POLL_EXPRESSION,
+  pickDocumentFrame,
   readSettledSlot,
   startExpression
 } from '../run-firefox/rdp/evaluate-extension-document'
@@ -373,4 +375,51 @@ describe('the Gecko extension-document evaluator', () => {
 
     expect(outcome).toMatchObject({ok: false, error: {name: 'Timeout'}})
   })
+
+  // The transport waits its own 30 s for a greeting. A command promised an
+  // answer inside --timeout must not sit on a port that accepts and says
+  // nothing, or on one that answers with something other than RDP.
+  for (const [label, greet] of [
+    ['never greets', (_socket: net.Socket) => {}],
+    ['answers junk', (socket: net.Socket) => socket.write('not-rdp\n')]
+  ] as const) {
+    it(`reports a debugger port that ${label} as a timeout inside --timeout`, async () => {
+      const sockets: net.Socket[] = []
+      const server = net.createServer((socket) => {
+        sockets.push(socket)
+        greet(socket)
+      })
+
+      await new Promise<void>((resolve) =>
+        server.listen(0, '127.0.0.1', resolve)
+      )
+
+      const port = (server.address() as net.AddressInfo).port
+
+      try {
+        const started = Date.now()
+        const outcome = await evaluateExtensionDocument({
+          rdpPort: port,
+          extensionId: ADDON_ID,
+          context: 'background',
+          expression: '1 + 1',
+          timeoutMs: 300
+        })
+        const elapsed = Date.now() - started
+
+        expect(outcome).toMatchObject({
+          ok: false,
+          error: {
+            name: 'Timeout',
+            message: expect.stringContaining('within 300ms')
+          }
+        })
+
+        expect(elapsed).toBeLessThan(5000)
+      } finally {
+        for (const socket of sockets) socket.destroy()
+        await new Promise<void>((resolve) => server.close(() => resolve()))
+      }
+    })
+  }
 })

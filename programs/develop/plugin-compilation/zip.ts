@@ -15,6 +15,7 @@ import glob from 'tiny-glob'
 import * as messages from '../lib/messages'
 import {isDebug} from '../lib/messaging'
 import {parseJsonSafe} from '../lib/parse-json-safe'
+import {REMOTE_SOURCE_PROVENANCE_FILE} from '../lib/zip'
 import type {DevOptions} from '../types'
 import {recordZipArtifact, recordZipFailure} from './zip-artifacts'
 
@@ -36,8 +37,8 @@ function sanitize(input: string): string {
     .replace(/\s+/g, '-')
 }
 
-// An explicit --zip-filename is honored as typed: only path separators,
-// reserved characters and trailing dots are stripped, never dashes or case.
+// An explicit --zip-filename keeps its dashes and case: only path separators,
+// reserved characters and trailing dots are stripped.
 function explicitZipFilename(input: string): string {
   const flat = path.basename(input.trim())
   const safe = flat
@@ -47,6 +48,17 @@ function explicitZipFilename(input: string): string {
   if (!safe) return 'extension.zip'
 
   return /\.zip$/i.test(safe) ? safe : `${safe}.zip`
+}
+
+// Every archive name carries its browser, so two browsers built with one
+// explicit name in separate runs never write over each other.
+function withBrowserSuffix(zipName: string, browser: string): string {
+  const stem = zipName.replace(/\.zip$/i, '')
+  const suffix = `-${browser}`
+
+  if (stem.toLowerCase().endsWith(suffix.toLowerCase())) return `${stem}.zip`
+
+  return `${stem}${suffix}.zip`
 }
 
 // Resolve an i18n manifest name (__MSG_appName__) against the default locale's
@@ -156,8 +168,15 @@ function isCompanionExtension(file: string): boolean {
 // This deny list is the security boundary; the root .gitignore is only a
 // courtesy supplement on top of it. `.git` also matches the worktree case
 // where `.git` is a file, and matching any path segment covers nested
-// repositories and nested node_modules too.
-const DENIED_SEGMENTS = new Set(['.git', '.extension-js', 'node_modules'])
+// repositories and nested node_modules too. The two stamps are files the
+// tooling wrote about a tree, not the author's source, so neither is published.
+const DENIED_SEGMENTS = new Set([
+  '.git',
+  '.extension-js',
+  'node_modules',
+  '.extension-create.json',
+  REMOTE_SOURCE_PROVENANCE_FILE
+])
 
 // dist holds the compiled build, the archives of earlier runs and, under
 // dist/extension-js, managed browser profiles (cookies, logins) and session
@@ -388,13 +407,16 @@ export class ZipPlugin {
           )
         )
         const name = `${base}-${manifest.version || '0.0.0'}`
-        const zipName = this.zipData.zipFilename
+        const explicitName = this.zipData.zipFilename
           ? explicitZipFilename(this.zipData.zipFilename)
+          : undefined
+        const zipName = explicitName
+          ? withBrowserSuffix(explicitName, String(this.browser))
           : `${name}-${this.browser}.zip`
-        // An explicit name governs both archives. The source zip used to keep
-        // the derived name, so a job that asked for one name got another file.
-        const sourceName = this.zipData.zipFilename
-          ? zipName.replace(/\.zip$/i, '-source.zip')
+        // An explicit name governs both archives. The source is the same for
+        // every browser, so its name carries none, as the default name does.
+        const sourceName = explicitName
+          ? explicitName.replace(/\.zip$/i, '-source.zip')
           : `${name}-source.zip`
         const sourcePath = path.join(path.dirname(outPath), sourceName)
         // Beside the browser folder, never inside it: dist/<browser> is

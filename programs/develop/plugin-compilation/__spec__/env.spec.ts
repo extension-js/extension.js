@@ -451,6 +451,67 @@ describe('EnvPlugin', () => {
     expect(compilation.errors[0].message).not.toContain('JSON at position')
   })
 
+  it('does not blame the value for a file that was never strict JSON', () => {
+    const {compiler, triggerCompilation} = createCompiler('development')
+    new EnvPlugin({
+      manifestPath: '/proj/manifest.json',
+      browser: 'chrome'
+    }).apply(compiler as any)
+
+    const {compilation, runProcessAssets, updated} =
+      createCompilationWithAssets({
+        'config.json':
+          '{\n  // a comment the "loader" strips\n  "api": "$EXTENSION_PUBLIC_FOO"\n}'
+      })
+
+    triggerCompilation(compilation)
+    runProcessAssets()
+
+    expect(compilation.errors).toEqual([])
+    expect(updated['config.json']).toContain('"api": "sysFoo"')
+  })
+
+  it('inserts an unquoted JSON value as written', () => {
+    process.env.EXTENSION_PUBLIC_HOSTILE = '{"a":"</script>"}'
+
+    try {
+      const {compiler, triggerCompilation} = createCompiler('development')
+      new EnvPlugin({
+        manifestPath: '/proj/manifest.json',
+        browser: 'chrome'
+      }).apply(compiler as any)
+
+      const {compilation, runProcessAssets, updated} =
+        createCompilationWithAssets({
+          'config.json':
+            '{"cfg": $EXTENSION_PUBLIC_HOSTILE, "text": "$EXTENSION_PUBLIC_HOSTILE"}',
+          'sandbox.html':
+            '<script>/* it\'s */ window.CFG = $EXTENSION_PUBLIC_HOSTILE; window.S = `${"$EXTENSION_PUBLIC_HOSTILE"}`</script><p>after</p>'
+        })
+
+      triggerCompilation(compilation)
+      runProcessAssets()
+
+      expect(compilation.errors).toEqual([])
+      expect(JSON.parse(updated['config.json'])).toEqual({
+        cfg: {a: '</script>'},
+        text: '{"a":"</script>"}'
+      })
+
+      const html = updated['sandbox.html']
+      const open = '<script>'.length
+      const close = html.indexOf('</script>')
+      expect(html.slice(close)).toBe('</script><p>after</p>')
+
+      const scope: any = {}
+      new Function('window', html.slice(open, close))(scope)
+      expect(scope.CFG).toEqual({a: '</script>'})
+      expect(scope.S).toBe('{"a":"</script>"}')
+    } finally {
+      delete process.env.EXTENSION_PUBLIC_HOSTILE
+    }
+  })
+
   it('substitutes build-target synthetics so manifest/html match runtime', async () => {
     const {compiler, triggerCompilation} = createCompiler('production')
     const plugin = new EnvPlugin({
