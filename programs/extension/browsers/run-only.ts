@@ -8,12 +8,15 @@
 
 import * as fs from 'node:fs'
 import {getFirefoxVersion} from 'firefox-location2'
+import {CODES, hasChannelPrefix} from '../helpers/messaging'
 import {printProdBannerOnce} from './browsers-lib/banner'
 import {
   isChromiumBrowser,
   isFirefoxBrowser
 } from './browsers-lib/browser-family'
+import {browserNeverStarted} from './browsers-lib/messages'
 import {computeBinariesBaseDir} from './browsers-lib/output-binaries-resolver'
+import {describeLaunchFailure} from './browsers-lib/ready-stamp'
 import {buildBrowserLaunchRequest} from './browsers-lib/runtime-options'
 import {probeChromiumBinaryVersion} from './browsers-lib/shared-utils'
 import type {
@@ -227,6 +230,24 @@ function buildPreviewBannerOptions(opts: PreviewRunOptions) {
   }
 }
 
+// A launch that never produced a process is a refusal this command frames.
+// Left bare it reached the sink as a Node spawn error printed with a stack.
+function asLaunchFailure(
+  error: unknown,
+  browser: BrowserType,
+  spawned: boolean
+): unknown {
+  const message = error instanceof Error ? error.message : String(error)
+
+  // A browser that came up, or a refusal already framed, keeps its own words.
+  if (spawned || hasChannelPrefix(message)) return error
+
+  return Object.assign(
+    new Error(browserNeverStarted(browser, describeLaunchFailure(error))),
+    {code: CODES.E_BROWSER_LAUNCH, cause: error}
+  )
+}
+
 export async function runOnlyPreviewBrowser(
   opts: PreviewRunOptions
 ): Promise<void> {
@@ -263,10 +284,15 @@ export async function runOnlyPreviewBrowser(
     // Identity before the launch: the card is the header for the session, not
     // a summary trailing the browser it describes.
     await printProdBannerOnce(bannerOptions)
-    await launcher.runOnce(compilationLike, {
-      enableCdpPostLaunch: false,
-      sessionCommand: opts.command
-    })
+
+    try {
+      await launcher.runOnce(compilationLike, {
+        enableCdpPostLaunch: false,
+        sessionCommand: opts.command
+      })
+    } catch (error) {
+      throw asLaunchFailure(error, opts.browser, launcher.spawnedBrowser)
+    }
 
     return
   }
@@ -281,13 +307,18 @@ export async function runOnlyPreviewBrowser(
     // Identity before the launch here too: the add-on install still verifies
     // through the banner's nameability verdict, which survives a dedupe hit.
     await printProdBannerOnce(bannerOptions)
-    await launcher.runOnce(
-      compilationLike,
-      buildBrowserLaunchRequest(previewPluginOptions, 'production', {
-        persistProfile: previewPluginOptions.persistProfile,
-        geckoBinary: previewPluginOptions.geckoBinary
-      }) as unknown as Parameters<typeof launcher.runOnce>[1]
-    )
+
+    try {
+      await launcher.runOnce(
+        compilationLike,
+        buildBrowserLaunchRequest(previewPluginOptions, 'production', {
+          persistProfile: previewPluginOptions.persistProfile,
+          geckoBinary: previewPluginOptions.geckoBinary
+        }) as unknown as Parameters<typeof launcher.runOnce>[1]
+      )
+    } catch (error) {
+      throw asLaunchFailure(error, opts.browser, launcher.spawnedBrowser)
+    }
 
     return
   }

@@ -149,6 +149,12 @@ export class FirefoxLaunchPlugin {
     this.ctx = ctx
   }
 
+  // Whether a browser process came to exist, so a caller can tell a launch
+  // that never spawned from a failure that followed a live browser.
+  public get spawnedBrowser(): boolean {
+    return this.child !== null
+  }
+
   // Run the Firefox launch flow without a bundler compiler instance;
   // intended for run-only preview paths.
   public async runOnce(

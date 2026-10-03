@@ -31,7 +31,8 @@ import {
   InsecureTemplateUrlError,
   importExternalTemplate,
   TemplateDownloadError,
-  TemplateNotFoundError
+  TemplateNotFoundError,
+  TemplateNotZipError
 } from '../import-external-template'
 import {installDependencies} from '../install-dependencies'
 import {writeManifestJson} from '../write-manifest-json'
@@ -168,9 +169,66 @@ describe('a create refusal travels as one framed message on the thrown error', (
       'https://example.com/templates/mine'
     )
 
+    expect(error).toBeInstanceOf(TemplateNotZipError)
+    expect(error.message).toContain("doesn't point to a ZIP archive")
+    expect(error.message).toContain('URL https://example.com/templates/mine')
+    expect(error.message).toContain('GOT text/html')
+    expectOneFrameAndNoStack(error, logger)
+  })
+
+  // The name and the header both said ZIP, so the unzip was the first thing
+  // to notice, and its "invalid zip data" reached the sink with a stack.
+  it.each([
+    [
+      'a page behind a .zip name',
+      'https://example.com/t.zip',
+      {
+        data: Buffer.from('<!doctype html><html><body>Sign in</body></html>'),
+        headers: {'content-type': 'text/html; charset=utf-8'}
+      },
+      'GOT text/html; charset=utf-8'
+    ],
+    [
+      'an empty body sent as a ZIP',
+      'https://example.com/download',
+      {data: Buffer.alloc(0), headers: {'content-type': 'application/zip'}},
+      'GOT application/zip with an empty body'
+    ],
+    [
+      'bytes that are not an archive sent as one',
+      'https://example.com/t.zip',
+      {
+        data: Buffer.from('not an archive'),
+        headers: {'content-type': 'application/octet-stream'}
+      },
+      'GOT application/octet-stream that is not ZIP data'
+    ]
+  ])('for a ZIP template URL that answers with %s', async (_label, url, response, got) => {
+    vi.mocked(axios.get).mockResolvedValue(response)
+
+    const {error, logger} = await failingImport(url)
+
+    expect(error).toBeInstanceOf(TemplateNotZipError)
+    expect(error).not.toBeInstanceOf(TemplateDownloadError)
+    expect(error.message).toContain("doesn't point to a ZIP archive")
+    expect(error.message).toContain(`URL ${url}`)
+    expect(error.message).toContain(got)
+    expect(error.message).not.toContain('invalid zip data')
+    expectOneFrameAndNoStack(error, logger)
+  })
+
+  it('for a template URL the connection to which is refused', async () => {
+    vi.mocked(axios.get).mockRejectedValue(
+      Object.assign(new Error('connect ECONNREFUSED 127.0.0.1:1'), {
+        code: 'ECONNREFUSED'
+      })
+    )
+
+    const {error, logger} = await failingImport('https://127.0.0.1:1/t.zip')
+
     expect(error).toBeInstanceOf(TemplateDownloadError)
-    expect(error.message).toContain('https://example.com/templates/mine')
-    expect(error.message).toContain('not a ZIP archive')
+    expect(error.message).toContain("Couldn't fetch the template from that URL")
+    expect(error.message).toContain('ECONNREFUSED')
     expectOneFrameAndNoStack(error, logger)
   })
 

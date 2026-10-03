@@ -344,12 +344,12 @@ export function registerPreviewCommand(program: Command) {
             const declared = declaredErrorCode(error)
 
             if (declared) {
-              emit(
-                ENVELOPE.fail('preview', 'usage', {
-                  code: declared,
-                  message
-                })
-              )
+              // A browser that never spawned is a failed run, not a mistyped
+              // command line.
+              const status =
+                declared === CODES.E_BROWSER_LAUNCH ? 'failed' : 'usage'
+
+              emit(ENVELOPE.fail('preview', status, {code: declared, message}))
 
               await exitAfterDrain(1)
 

@@ -268,6 +268,17 @@ export function templateUrlFetchFailed(url: string, error: unknown) {
   )
 }
 
+// The server answered, with something that is not an archive. Create takes a
+// folder and not a local ZIP, so the remedy names the folder.
+export function templateUrlNotZip(url: string, got: string) {
+  return (
+    `${prefix('error')} The remote URL doesn't point to a ZIP archive.\n` +
+    `${fmt.label('URL')} ${fmt.val(fmt.truncate(url, 160))}\n` +
+    `${fmt.label('GOT')} ${fmt.val(fmt.truncate(got, 160))}\n` +
+    `${colors.red('Use a direct-download URL, or download and unpack the archive, then pass the folder path.')}`
+  )
+}
+
 // The template exists but the DOWNLOAD failed (network, rate limit, 5xx, a git
 // credential-helper hang); surface the real cause, not "choose a valid template".
 export function templateDownloadFailed(templateName: string, error: unknown) {

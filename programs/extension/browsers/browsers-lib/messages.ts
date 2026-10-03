@@ -585,6 +585,15 @@ export function devChannelSnapshotInUse(_binaryPath: string) {
   )
 }
 
+// The run-only twin of the dev block. No server stays behind to keep
+// watching, so the frame ends on the cause.
+export function browserNeverStarted(browser: Browser, reason: string) {
+  return (
+    `${getLoggingPrefix('error')} ${capitalizedBrowserName(browser)} couldn't start, so the extension isn't running.\n` +
+    `${colors.red(reason)}`
+  )
+}
+
 export function browserLaunchError(browser: Browser, error: unknown) {
   return (
     `${getLoggingPrefix('error')} Can't launch ${capitalizedBrowserName(browser)}.\n` +
