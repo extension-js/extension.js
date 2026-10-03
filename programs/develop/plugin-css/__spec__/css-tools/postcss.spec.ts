@@ -1,3 +1,4 @@
+import * as path from 'node:path'
 import postcss from 'postcss'
 import {beforeEach, describe, expect, it, vi} from 'vitest'
 
@@ -60,7 +61,7 @@ describe('postcss detection', () => {
       expect(Array.isArray(opts?.plugins)).toBe(true)
       expect((opts?.plugins as any[]).length).toBe(1)
     } else {
-      expect(opts?.config).toBe('/p')
+      expect(opts?.config).toBe(path.join('/p', 'postcss.config.js'))
     }
   })
 
@@ -89,7 +90,7 @@ describe('postcss detection', () => {
       expect(Array.isArray(opts?.plugins)).toBe(true)
       expect((opts?.plugins as any[]).length).toBe(1)
     } else {
-      expect(opts?.config).toBe('/p')
+      expect(opts?.config).toBe(path.join('/p', 'postcss.config.mjs'))
     }
   })
 
@@ -182,7 +183,7 @@ describe('postcss detection', () => {
     const rule = await maybeUsePostCss('/p', {mode: 'development'})
     const opts = rule.options?.postcssOptions
 
-    expect(opts?.config).toBe('/p')
+    expect(opts?.config).toBe(path.join('/p', 'postcss.config.js'))
     expect(opts?.cwd).toBe('/p')
     expect(opts?.plugins).toBeUndefined()
   })
@@ -404,7 +405,7 @@ describe('postcss detection', () => {
     const rule = await maybeUsePostCss('/p', {mode: 'development'})
     const opts = rule.options?.postcssOptions
 
-    expect(opts?.config).toBe('/p')
+    expect(opts?.config).toBe(path.join('/p', 'postcss.config.js'))
     expect(tailwindFactory).toHaveBeenCalledWith({base: '/p'})
     expect((opts?.plugins as any[])[0]).toEqual({
       '@tailwindcss/postcss': false
@@ -513,7 +514,7 @@ describe('postcss detection', () => {
     const rule = await maybeUsePostCss('/p', {mode: 'development'})
     const opts = rule.options?.postcssOptions
 
-    expect(opts?.config).toBe('/p')
+    expect(opts?.config).toBe(path.join('/p', 'postcss.config.mjs'))
     expect(Array.isArray(opts?.plugins)).toBe(true)
     expect((opts?.plugins as any[])[0]).toEqual({
       '@tailwindcss/postcss': false

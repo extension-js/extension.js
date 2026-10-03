@@ -1,4 +1,5 @@
 import {beforeEach, describe, expect, it, vi} from 'vitest'
+import {NOT_RAW_RESOURCE_QUERY} from '../../lib/resource-query'
 
 vi.mock('../common-style-loaders', () => ({
   commonStyleLoaders: vi.fn(async () => [{loader: 'mock-style-loader'}])
@@ -44,7 +45,9 @@ describe('cssInContentScriptLoader', () => {
     for (const rule of rules as any[]) {
       // Inlined sheets leave the chain as a runtime stylesheet module.
       expect(['javascript/auto', 'css/module']).toContain(rule.type)
-      expect(rule.resourceQuery).toBeUndefined()
+      // A ?raw import of a stylesheet is the file text, never a compiled sheet.
+      expect(rule.resourceQuery).toEqual(NOT_RAW_RESOURCE_QUERY)
+      expect(rule.resourceQuery.not[0].test('?raw')).toBe(true)
       expect(typeof rule.issuer).toBe('function')
       expect((rule.use as any[])?.length).toBeGreaterThan(0)
     }

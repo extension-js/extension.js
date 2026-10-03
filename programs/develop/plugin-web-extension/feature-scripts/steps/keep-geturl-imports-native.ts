@@ -11,6 +11,7 @@ import type {Compiler} from '@rspack/core'
 import {resolveDevelopDistFile} from '../../../lib/develop-context'
 import {findNearestProjectManifestSync} from '../../../lib/project-manifest'
 import {canonicalizeDir, isResourceUnderDirs} from '../../../lib/resource-path'
+import {NOT_RAW_RESOURCE_QUERY} from '../../../lib/resource-query'
 import type {PluginInterface} from '../../../types'
 
 // Keep `import(chrome.runtime.getURL(...))` native: the argument is a runtime
@@ -39,6 +40,7 @@ export class KeepGetURLImportsNative {
         (resource: string) => isResourceUnderDirs(resource, includeDirs)
       ],
       exclude: [/([\\/])node_modules\1/],
+      resourceQuery: NOT_RAW_RESOURCE_QUERY,
       use: [
         {
           loader: resolveDevelopDistFile(

@@ -15,6 +15,7 @@ import {
   canonicalizeResourcePath,
   isResourceUnderDirs
 } from '../../../../lib/resource-path'
+import {NOT_RAW_RESOURCE_QUERY} from '../../../../lib/resource-query'
 import type {DevOptions, FilepathList, PluginInterface} from '../../../../types'
 import {
   CONTENT_SCRIPT_CSS_PROBE_MARKER_PREFIX,
@@ -127,6 +128,7 @@ export class AddContentScriptWrapper {
       test: /\.(js|cjs|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
       include: [includeMatcher],
       exclude: [/([\\/])node_modules\1/],
+      resourceQuery: NOT_RAW_RESOURCE_QUERY,
       use: [
         {
           loader: this.resolveLoader(),

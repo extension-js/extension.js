@@ -41,10 +41,23 @@ export function perfBudgetWarning(assets: OversizedAsset[]): string {
     )
   })
 
-  const remediation =
-    'Lazy-load with dynamic import(), code-split per route, or replace ' +
-    'large SDKs with thin fetch wrappers.\n' +
-    'See https://rspack.rs/guide/optimization/code-splitting'
+  // A copied file never met the bundler, so code splitting is no answer
+  // for it: the remedy names the public/ source instead.
+  const remediation = [
+    ...(assets.some((a) => a.category !== 'public')
+      ? [
+          'Lazy-load with dynamic import(), code-split per route, or replace ' +
+            'large SDKs with thin fetch wrappers.\n' +
+            'See https://rspack.rs/guide/optimization/code-splitting'
+        ]
+      : []),
+    ...(assets.some((a) => a.category === 'public')
+      ? [
+          'A public/ file ships as authored: minify or trim it at its source, ' +
+            'or fetch it on demand instead of shipping it in the package.'
+        ]
+      : [])
+  ].join('\n')
 
   return `${header}\n\n${lines.join('\n')}\n\n${remediation}`
 }
@@ -59,6 +72,8 @@ function categoryRole(c: AssetCategory): string {
       return 'UI page, opened on demand'
     case 'shared':
       return 'shared chunk, loaded by every page that imports it'
+    case 'public':
+      return 'copied public file, shipped as authored'
     case 'runtime':
       return 'runtime payload, shipped at the output root'
     default:

@@ -22,35 +22,35 @@ import {getTailwindConfigFile, isUsingTailwind} from './tailwind'
 
 let userMessageDelivered = false
 
-// postcss-loader's own searchPlaces, in its order, minus package.json, which
-// this module reads on its own. A name missing here is a config never handed over.
+// postcss-load-config's documented order (rc files before postcss.config.*),
+// then the .config/ spellings postcss-loader also reads.
 export const postCssConfigSearchPlaces = [
-  'postcss.config.js',
-  'postcss.config.mjs',
-  'postcss.config.cjs',
-  'postcss.config.ts',
-  'postcss.config.mts',
-  'postcss.config.cts',
   '.postcssrc',
   '.postcssrc.json',
-  '.postcssrc.js',
-  '.postcssrc.mjs',
-  '.postcssrc.cjs',
-  '.postcssrc.ts',
-  '.postcssrc.mts',
-  '.postcssrc.cts',
   '.postcssrc.yaml',
   '.postcssrc.yml',
+  '.postcssrc.ts',
+  '.postcssrc.cts',
+  '.postcssrc.mts',
+  '.postcssrc.js',
+  '.postcssrc.cjs',
+  '.postcssrc.mjs',
+  'postcss.config.ts',
+  'postcss.config.cts',
+  'postcss.config.mts',
+  'postcss.config.js',
+  'postcss.config.cjs',
+  'postcss.config.mjs',
   '.config/postcssrc',
   '.config/postcssrc.json',
   '.config/postcssrc.yaml',
   '.config/postcssrc.yml',
-  '.config/postcssrc.js',
-  '.config/postcssrc.mjs',
-  '.config/postcssrc.cjs',
   '.config/postcssrc.ts',
+  '.config/postcssrc.cts',
   '.config/postcssrc.mts',
-  '.config/postcssrc.cts'
+  '.config/postcssrc.js',
+  '.config/postcssrc.cjs',
+  '.config/postcssrc.mjs'
 ]
 
 function orderedSearchPlaces(projectPath: string): string[] {
@@ -811,13 +811,15 @@ export async function maybeUsePostCss(
 
   // Let postcss-loader load the user's config; we only signal PostCSS use, point
   // it at the right project root, and optionally inject a pre-resolved Tailwind.
+  // The found file goes over as is: the loader's own search order differs,
+  // and a project that keeps two configs must not get the other one here.
   const postcssOptions: AnyModule = {
     ident: 'postcss',
     cwd: projectPath,
     config:
       userConfigIsCjsInEsm || bypassUserConfigForTailwindCompat
         ? false
-        : projectPath
+        : (userPostCssConfig ?? projectPath)
   }
 
   if (pluginsFromOptions) {
