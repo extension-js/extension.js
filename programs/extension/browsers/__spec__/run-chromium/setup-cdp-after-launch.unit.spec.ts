@@ -51,9 +51,10 @@ vi.mock('../../browsers-lib/shared-utils', async () => {
 })
 
 vi.mock('../../browsers-lib/banner', async () => {
-  const actual = (await vi.importActual(
-    '../../browsers-lib/banner'
-  )) as Record<string, unknown>
+  const actual = (await vi.importActual('../../browsers-lib/banner')) as Record<
+    string,
+    unknown
+  >
 
   return {
     ...actual,
@@ -578,8 +579,9 @@ describe('setupCdpAfterLaunch', () => {
       expect(output).toContain('/tmp/extension-profile')
     } finally {
       logSpy.mockRestore()
-      if (previousDebug === undefined) delete process.env.EXTENSION_DEBUG
-      else process.env.EXTENSION_DEBUG = previousDebug
+      if (previousDebug === undefined) {
+        Reflect.deleteProperty(process.env, 'EXTENSION_DEBUG')
+      } else process.env.EXTENSION_DEBUG = previousDebug
       if (previousCardKeys === undefined) {
         delete process.env.EXTENSION_CLI_CARD_KEYS
       } else process.env.EXTENSION_CLI_CARD_KEYS = previousCardKeys
@@ -624,8 +626,9 @@ describe('setupCdpAfterLaunch', () => {
       }
     } finally {
       logSpy.mockRestore()
-      if (previousDebug === undefined) delete process.env.EXTENSION_DEBUG
-      else process.env.EXTENSION_DEBUG = previousDebug
+      if (previousDebug === undefined) {
+        Reflect.deleteProperty(process.env, 'EXTENSION_DEBUG')
+      } else process.env.EXTENSION_DEBUG = previousDebug
       if (previousCardKeys === undefined) {
         delete process.env.EXTENSION_CLI_CARD_KEYS
       } else process.env.EXTENSION_CLI_CARD_KEYS = previousCardKeys

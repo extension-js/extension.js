@@ -74,7 +74,7 @@ async function runStart(opts?: {extensions?: string[]}) {
   const previousVitest = process.env.VITEST
   const previousAuthor = process.env.EXTENSION_AUTHOR_MODE
   process.env.VITEST = 'true'
-  delete process.env.EXTENSION_AUTHOR_MODE
+  Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')
 
   try {
     const {extensionBuild} = await import('../command-build')
@@ -119,7 +119,7 @@ async function runStart(opts?: {extensions?: string[]}) {
     }
   } finally {
     if (previousAuthor === undefined) {
-      delete process.env.EXTENSION_AUTHOR_MODE
+      Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')
     } else {
       process.env.EXTENSION_AUTHOR_MODE = previousAuthor
     }

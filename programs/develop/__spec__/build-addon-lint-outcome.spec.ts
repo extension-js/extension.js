@@ -95,9 +95,9 @@ async function build(
     EXTENSION_AUTHOR_MODE: process.env.EXTENSION_AUTHOR_MODE
   }
   process.env.VITEST = 'true'
-  delete process.env.EXTENSION_AUTHOR_MODE
+  Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')
   if (options.debug) process.env.EXTENSION_DEBUG = '1'
-  else delete process.env.EXTENSION_DEBUG
+  else Reflect.deleteProperty(process.env, 'EXTENSION_DEBUG')
 
   const lines: string[] = []
   const originalLog = console.log
@@ -178,7 +178,10 @@ describe('the store check outcome after a production firefox build', () => {
   }, 180_000)
 
   it('stays quiet on a clean lint and records that it ran', async () => {
-    injected.override = {loadLinter: linterReturning({errors: [], warnings: []})}
+    injected.override = {
+      loadLinter: linterReturning({errors: [], warnings: []})
+    }
+
     const {summary, receipt, output} = await build(project())
 
     expect(summary.errors_count).toBe(0)
@@ -193,7 +196,11 @@ describe('the store check outcome after a production firefox build', () => {
       loadLinter: linterReturning({
         errors: [],
         warnings: [
-          {code: 'DANGEROUS_EVAL', message: 'eval can be harmful.', file: 'x.js'}
+          {
+            code: 'DANGEROUS_EVAL',
+            message: 'eval can be harmful.',
+            file: 'x.js'
+          }
         ]
       })
     }

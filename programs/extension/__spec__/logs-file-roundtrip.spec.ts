@@ -1,7 +1,15 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type MockInstance,
+  vi
+} from 'vitest'
 import type {LogEvent} from '../../develop/dev-server/control-bridge/contracts'
 import {LogsFileWriter} from '../../develop/dev-server/control-bridge/logs-file'
 
@@ -87,7 +95,7 @@ const EVENTS: LogEvent[] = [
 ]
 
 let dir: string
-let logSpy: ReturnType<typeof vi.spyOn>
+let logSpy: MockInstance<typeof console.log>
 
 function writeWithProducer(options: {maxQueue?: number} = {}) {
   const out = path.join(dir, 'dist', 'extension-js', 'chromium')

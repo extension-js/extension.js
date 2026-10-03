@@ -241,7 +241,7 @@ describe('BridgeBroker (Slice 1: logs)', () => {
 describe('BridgeBroker.broadcastReload (controller-less dev loop)', () => {
   function hello(
     b: BridgeBroker,
-    conn: FakeConn,
+    conn: BridgeConnection,
     role: 'producer' | 'consumer'
   ) {
     b.onFrame(conn, {type: 'hello', v: 1, role, instanceId: 'inst-1'})

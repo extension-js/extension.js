@@ -87,12 +87,12 @@ describe('extension build', () => {
   })
 
   it('enables author diagnostics with --author', async () => {
-    delete process.env.EXTENSION_AUTHOR_MODE
+    Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')
     delete process.env.EXTENSION_VERBOSE
     expect(await run(['build', '.', '--author'])).toBe(0)
     expect(process.env.EXTENSION_AUTHOR_MODE).toBe('true')
     expect(process.env.EXTENSION_VERBOSE).toBe('1')
-    delete process.env.EXTENSION_AUTHOR_MODE
+    Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')
     delete process.env.EXTENSION_VERBOSE
   })
 

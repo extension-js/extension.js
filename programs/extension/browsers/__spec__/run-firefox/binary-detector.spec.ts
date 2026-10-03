@@ -4,6 +4,10 @@ import {
   isFirefoxHeadlessRequested
 } from '../../run-firefox/firefox-launch/binary-detector'
 
+// The published ExtensionEnv augmentation makes the bundler-injected keys
+// required, and a unit env object carries none of them.
+const env = (vars: Record<string, string> = {}) => vars as NodeJS.ProcessEnv
+
 const originalPlatform = process.platform
 
 const setPlatform = (value: NodeJS.Platform) => {
@@ -105,17 +109,25 @@ describe('FirefoxBinaryDetector.generateFirefoxArgs', () => {
 
 describe('isFirefoxHeadlessRequested', () => {
   it('is true for MOZ_HEADLESS=1 / true (case-insensitive), false otherwise', () => {
-    expect(isFirefoxHeadlessRequested({MOZ_HEADLESS: '1'})).toBe(true)
-    expect(isFirefoxHeadlessRequested({MOZ_HEADLESS: 'true'})).toBe(true)
-    expect(isFirefoxHeadlessRequested({MOZ_HEADLESS: 'TRUE'})).toBe(true)
-    expect(isFirefoxHeadlessRequested({MOZ_HEADLESS: '0'})).toBe(false)
-    expect(isFirefoxHeadlessRequested({MOZ_HEADLESS: ''})).toBe(false)
-    expect(isFirefoxHeadlessRequested({})).toBe(false)
+    expect(isFirefoxHeadlessRequested(env({MOZ_HEADLESS: '1'}))).toBe(true)
+    expect(isFirefoxHeadlessRequested(env({MOZ_HEADLESS: 'true'}))).toBe(true)
+    expect(isFirefoxHeadlessRequested(env({MOZ_HEADLESS: 'TRUE'}))).toBe(true)
+    expect(isFirefoxHeadlessRequested(env({MOZ_HEADLESS: '0'}))).toBe(false)
+    expect(isFirefoxHeadlessRequested(env({MOZ_HEADLESS: ''}))).toBe(false)
+    expect(isFirefoxHeadlessRequested(env({}))).toBe(false)
   })
 
   it('honors the cross-browser EXTENSION_HEADLESS focus-steal guard', () => {
-    expect(isFirefoxHeadlessRequested({EXTENSION_HEADLESS: '1'})).toBe(true)
-    expect(isFirefoxHeadlessRequested({EXTENSION_HEADLESS: 'true'})).toBe(true)
-    expect(isFirefoxHeadlessRequested({EXTENSION_HEADLESS: '0'})).toBe(false)
+    expect(isFirefoxHeadlessRequested(env({EXTENSION_HEADLESS: '1'}))).toBe(
+      true
+    )
+
+    expect(isFirefoxHeadlessRequested(env({EXTENSION_HEADLESS: 'true'}))).toBe(
+      true
+    )
+
+    expect(isFirefoxHeadlessRequested(env({EXTENSION_HEADLESS: '0'}))).toBe(
+      false
+    )
   })
 })

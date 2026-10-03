@@ -1,4 +1,12 @@
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type MockInstance,
+  vi
+} from 'vitest'
 
 const verifyGuestLoadedSpy = vi.fn()
 const ensureLoadedSpy = vi.fn(async () => ({
@@ -69,7 +77,7 @@ const runSetup = async (outPath: string, plugin: Record<string, unknown>) =>
   )
 
 describe('setupCdpAfterLaunch load-refusal differential', () => {
-  let errorSpy: ReturnType<typeof vi.spyOn>
+  let errorSpy: MockInstance<typeof console.error>
 
   beforeEach(() => {
     verifyGuestLoadedSpy.mockReset()

@@ -34,8 +34,8 @@ function createFirefoxMock(
       const send = (p: Record<string, unknown>) =>
         socket.write(buildRdpFrame(p))
       send({from: 'root', applicationType: 'browser'})
-      let incoming = Buffer.alloc(0)
-      socket.on('data', (chunk) => {
+      let incoming: Buffer = Buffer.alloc(0)
+      socket.on('data', (chunk: Buffer) => {
         incoming = Buffer.concat([incoming, chunk])
 
         for (;;) {

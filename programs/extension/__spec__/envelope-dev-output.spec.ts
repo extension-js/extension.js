@@ -1,7 +1,15 @@
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type MockInstance,
+  vi
+} from 'vitest'
 
 const extensionDev = vi.fn(async () => {})
-const runWaitMode = vi.fn(async () => ({
+const runWaitMode = vi.fn(async (_input: unknown) => ({
   format: 'pretty' as const,
   browsers: ['chromium'],
   results: [{browser: 'chromium', status: 'ready'}]
@@ -28,7 +36,7 @@ vi.mock('../browsers/run-safari/safari-launch/safari-config', () => ({
 vi.mock('../commands/dev-wait', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../commands/dev-wait')>()
 
-  return {...actual, runWaitMode: (input: unknown) => runWaitMode(input as any)}
+  return {...actual, runWaitMode: (input: unknown) => runWaitMode(input)}
 })
 
 import {registerDevCommand} from '../commands/dev'
@@ -38,7 +46,7 @@ import {makeProgram, runCli, stubProcessExit} from './command-harness'
 
 const ORIG_ENV = {...process.env}
 
-let logSpy: ReturnType<typeof vi.spyOn>
+let logSpy: MockInstance<typeof console.log>
 
 beforeEach(() => {
   stubProcessExit()

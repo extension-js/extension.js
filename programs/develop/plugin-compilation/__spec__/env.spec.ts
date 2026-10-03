@@ -123,8 +123,8 @@ describe('EnvPlugin', () => {
   afterEach(() => {
     delete process.env.EXTENSION_PUBLIC_FOO
     delete process.env.EXTENSION_QUX
-    delete process.env.EXTENSION_BROWSER
-    delete process.env.EXTENSION_PUBLIC_BROWSER
+    Reflect.deleteProperty(process.env, 'EXTENSION_BROWSER')
+    Reflect.deleteProperty(process.env, 'EXTENSION_PUBLIC_BROWSER')
     delete process.env.EXTENSION_PUBLIC_API_V2
     vi.restoreAllMocks()
   })
@@ -552,8 +552,8 @@ describe('EnvPlugin', () => {
       JSON.stringify('firefox')
     )
 
-    delete process.env.EXTENSION_BROWSER
-    delete process.env.EXTENSION_PUBLIC_BROWSER
+    Reflect.deleteProperty(process.env, 'EXTENSION_BROWSER')
+    Reflect.deleteProperty(process.env, 'EXTENSION_PUBLIC_BROWSER')
   })
 
   it('substitutes env names that contain digits (e.g. API_V2)', async () => {

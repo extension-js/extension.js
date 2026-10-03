@@ -158,8 +158,8 @@ describe('install-internal-deps', () => {
       )
     })
     expect(optionalCall).toBeTruthy()
-    expect(optionalCall.cwd).toBe(developRoot)
-    const optionalArgs = optionalCall.args.join(' ')
+    expect(optionalCall?.cwd).toBe(developRoot)
+    const optionalArgs = optionalCall?.args.join(' ') ?? ''
     expect(optionalArgs).toContain('react-refresh')
     expect(optionalArgs).toContain('@rspack/plugin-react-refresh')
     expect(optionalArgs).not.toContain('--prefix')

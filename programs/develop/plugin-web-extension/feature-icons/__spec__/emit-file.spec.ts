@@ -25,7 +25,7 @@ vi.mock('@rspack/core', () => {
 const FS = {
   existsSync: vi.fn(),
   readFileSync: vi.fn(() => Buffer.from('file-bytes')),
-  statSync: vi.fn(() => ({size: 10}))
+  statSync: vi.fn((_p: string) => ({size: 10}))
 }
 vi.mock('fs', () => ({
   ...FS

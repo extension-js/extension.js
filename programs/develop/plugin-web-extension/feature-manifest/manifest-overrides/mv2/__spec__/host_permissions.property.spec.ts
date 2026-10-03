@@ -43,11 +43,11 @@ type Input = typeof manifest extends fc.Arbitrary<infer T> ? T : never
 
 // The writer spreads the override over the source manifest and then drops the
 // mv2 host keys, so the property composes the same way.
-const fold = (m: Input) =>
-  dropMv2HostKeys({...m, ...hostPermissions(m as any)}) as Record<
-    string,
-    string[] | undefined
-  >
+const fold = (m: Input): Record<string, unknown> =>
+  dropMv2HostKeys({...m, ...hostPermissions(m as any)})
+
+const list = (source: Record<string, unknown>, key: string) =>
+  source[key] as string[] | undefined
 
 const PAIRS = [
   ['permissions', 'host_permissions'],
@@ -65,19 +65,20 @@ describe('mv2 host_permissions fold properties', () => {
           expect('optional_host_permissions' in out).toBe(false)
 
           for (const [permKey, hostKey] of PAIRS) {
-            const input = m as Partial<Record<string, string[]>>
+            const input: Record<string, unknown> = m
+            const hosts = list(input, hostKey)
 
-            if (!input[hostKey]) {
+            if (!hosts) {
               // Nothing to fold, so the declared list passes through untouched.
-              expect(out[permKey]).toEqual(input[permKey])
+              expect(list(out, permKey)).toEqual(list(input, permKey))
               continue
             }
 
-            const folded = out[permKey] ?? []
-            const declaredList = input[permKey] ?? []
+            const folded = list(out, permKey) ?? []
+            const declaredList = list(input, permKey) ?? []
             expect(folded.slice(0, declaredList.length)).toEqual(declaredList)
 
-            for (const pattern of new Set(input[hostKey])) {
+            for (const pattern of new Set(hosts)) {
               expect(folded.filter((entry) => entry === pattern)).toHaveLength(
                 1
               )
@@ -85,7 +86,7 @@ describe('mv2 host_permissions fold properties', () => {
 
             expect(new Set(folded).size).toBe(folded.length)
             expect(folded).toHaveLength(
-              new Set([...declaredList, ...input[hostKey]]).size
+              new Set([...declaredList, ...hosts]).size
             )
           }
         }

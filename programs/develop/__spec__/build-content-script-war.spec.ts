@@ -95,7 +95,7 @@ async function buildFixture(root: string, mode: 'production' | 'development') {
   const previousAuthorMode = process.env.EXTENSION_AUTHOR_MODE
   const previousVitest = process.env.VITEST
   process.env.VITEST = 'true'
-  delete process.env.EXTENSION_AUTHOR_MODE
+  Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')
 
   try {
     return await extensionBuild(root, {
@@ -107,7 +107,7 @@ async function buildFixture(root: string, mode: 'production' | 'development') {
     } as any)
   } finally {
     if (previousAuthorMode === undefined) {
-      delete process.env.EXTENSION_AUTHOR_MODE
+      Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')
     } else {
       process.env.EXTENSION_AUTHOR_MODE = previousAuthorMode
     }
@@ -170,16 +170,20 @@ function warResources(manifest: {
   )
 }
 
+type WarGroup = {resources: string[]; matches: string[]}
+
 function warMatchesFor(
-  manifest: {
-    web_accessible_resources?: Array<{resources: string[]; matches: string[]}>
-  },
+  manifest: {web_accessible_resources?: string[] | WarGroup[]},
   resource: string
 ): string[] {
-  const war = manifest.web_accessible_resources || []
+  const war: Array<string | WarGroup> = manifest.web_accessible_resources || []
 
   return war
-    .filter((group) => group.resources?.includes(resource))
+    .filter(
+      (group): group is WarGroup =>
+        typeof group !== 'string' &&
+        Boolean(group.resources?.includes(resource))
+    )
     .flatMap((group) => group.matches || [])
 }
 

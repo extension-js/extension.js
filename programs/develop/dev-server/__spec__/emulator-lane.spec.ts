@@ -20,6 +20,16 @@ import {
   resolveLivereloadPath
 } from '../emulator-lane'
 
+// The published ExtensionEnv augmentation makes the bundler-injected keys
+// required, and a unit env object carries none of them.
+const env = (vars: Record<string, string> = {}) => vars as NodeJS.ProcessEnv
+
+type FilesBody = {
+  version: number
+  livereload: {path: string}
+  files: Array<{sha256: string}>
+}
+
 let dir: string
 let server: http.Server | null = null
 
@@ -48,15 +58,18 @@ function sha(content: string) {
 
 describe('engine origin', () => {
   it('defaults to the hosted browsers origin', () => {
-    expect(resolveEmulatorOrigin({})).toBe('https://browsers.extension.land')
+    expect(resolveEmulatorOrigin(env({}))).toBe(
+      'https://browsers.extension.land'
+    )
+
     expect(DEFAULT_EMULATOR_ORIGIN).toBe('https://browsers.extension.land')
   })
 
   it('normalizes a configured origin to scheme, host and port', () => {
     expect(
-      resolveEmulatorOrigin({
-        EXTENSION_EMULATOR_ORIGIN: 'http://LOCALHOST:8787/some/path'
-      })
+      resolveEmulatorOrigin(
+        env({EXTENSION_EMULATOR_ORIGIN: 'http://LOCALHOST:8787/some/path'})
+      )
     ).toBe('http://localhost:8787')
 
     expect(normalizeWebOrigin('https://browsers.extension.land:443')).toBe(
@@ -66,7 +79,9 @@ describe('engine origin', () => {
 
   it('refuses an origin that is not http or https', () => {
     expect(() =>
-      resolveEmulatorOrigin({EXTENSION_EMULATOR_ORIGIN: 'chrome-extension://x'})
+      resolveEmulatorOrigin(
+        env({EXTENSION_EMULATOR_ORIGIN: 'chrome-extension://x'})
+      )
     ).toThrow(/http or https origin/)
 
     expect(normalizeWebOrigin('null')).toBeNull()
@@ -261,13 +276,13 @@ describe('files.json', () => {
 
     expect(first.headers.get('content-type')).toContain('application/json')
 
-    const body = await first.json()
+    const body = (await first.json()) as FilesBody
     expect(body.version).toBe(1)
     expect(body.livereload).toEqual({path: '/ws'})
     expect(body.files[0].sha256).toBe(sha('v1'))
 
     holder.publish([asset('background/service_worker.js', 'v2')])
-    const fresh = await (await fetch(url, fromViewer)).json()
+    const fresh = (await (await fetch(url, fromViewer)).json()) as FilesBody
     expect(fresh.files[0].sha256).toBe(sha('v2'))
 
     const preflight = await fetch(url, {method: 'OPTIONS', ...fromViewer})
@@ -363,7 +378,7 @@ describe('files.json while the compilation has errors', () => {
 
     expect(response.status).toBe(503)
     expect(response.headers.get('retry-after')).toBe('1')
-    expect((await response.json()).error).toContain(
+    expect(((await response.json()) as {error: string}).error).toContain(
       "Module not found: Can't resolve './missing'"
     )
   })

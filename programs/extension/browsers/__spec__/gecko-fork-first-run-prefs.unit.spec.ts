@@ -6,7 +6,7 @@ import masterPreferences, {
 
 describe('gecko fork first-run preferences', () => {
   it('marks Zen welcome screen as seen so a fresh profile opens on the extension', () => {
-    const prefs = getPreferences({}, 'zen')
+    const prefs: Record<string, unknown> = getPreferences({}, 'zen')
 
     expect(prefs['zen.welcome-screen.seen']).toBe(true)
     expect(prefs['zen.updates.show-update-notification']).toBe(false)
@@ -14,7 +14,7 @@ describe('gecko fork first-run preferences', () => {
   })
 
   it('keeps Floorp welcome page and release notes tabs closed', () => {
-    const prefs = getPreferences({}, 'floorp')
+    const prefs: Record<string, unknown> = getPreferences({}, 'floorp')
 
     expect(prefs['floorp.browser.welcome.page.shown']).toBe(true)
     expect(prefs['floorp.releaseNotes.mode']).toBe('disabled')
@@ -30,7 +30,10 @@ describe('gecko fork first-run preferences', () => {
   })
 
   it('lets a project preference override a fork default', () => {
-    const prefs = getPreferences({'zen.welcome-screen.seen': false}, 'zen')
+    const prefs: Record<string, unknown> = getPreferences(
+      {'zen.welcome-screen.seen': false},
+      'zen'
+    )
 
     expect(prefs['zen.welcome-screen.seen']).toBe(false)
   })

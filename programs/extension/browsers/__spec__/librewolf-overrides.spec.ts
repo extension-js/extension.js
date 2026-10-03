@@ -7,6 +7,10 @@ import {
   librewolfRemoteDebuggingEnabled
 } from '../run-firefox/firefox-launch/librewolf-overrides'
 
+// The published ExtensionEnv augmentation makes the bundler-injected keys
+// required, and a unit env object carries none of them.
+const env = (vars: Record<string, string> = {}) => vars as NodeJS.ProcessEnv
+
 let home: string
 
 beforeEach(() => {
@@ -27,7 +31,11 @@ function writeOverrides(relative: string, content: string) {
 
 describe('librewolfRemoteDebuggingEnabled', () => {
   it('reports the file to create when no overrides file exists', () => {
-    const result = librewolfRemoteDebuggingEnabled(fs, {HOME: home}, 'darwin')
+    const result = librewolfRemoteDebuggingEnabled(
+      fs,
+      env({HOME: home}),
+      'darwin'
+    )
 
     expect(result.enabled).toBe(false)
     expect(result.expectedPath).toBe(
@@ -41,9 +49,9 @@ describe('librewolfRemoteDebuggingEnabled', () => {
       'pref("devtools.debugger.remote-enabled", true);\n'
     )
 
-    expect(librewolfRemoteDebuggingEnabled(fs, {HOME: home}, 'darwin')).toEqual(
-      {enabled: true, expectedPath: file}
-    )
+    expect(
+      librewolfRemoteDebuggingEnabled(fs, env({HOME: home}), 'darwin')
+    ).toEqual({enabled: true, expectedPath: file})
   })
 
   it('accepts defaultPref and lockPref spellings and the XDG location', () => {
@@ -56,7 +64,7 @@ describe('librewolfRemoteDebuggingEnabled', () => {
     expect(
       librewolfRemoteDebuggingEnabled(
         fs,
-        {HOME: home, XDG_CONFIG_HOME: xdg},
+        env({HOME: home, XDG_CONFIG_HOME: xdg}),
         'linux'
       ).enabled
     ).toBe(true)
@@ -69,13 +77,13 @@ describe('librewolfRemoteDebuggingEnabled', () => {
     )
 
     expect(
-      librewolfRemoteDebuggingEnabled(fs, {HOME: home}, 'linux').enabled
+      librewolfRemoteDebuggingEnabled(fs, env({HOME: home}), 'linux').enabled
     ).toBe(false)
   })
 
   it('looks under the user profile on windows', () => {
-    expect(librewolfOverridesCandidates({USERPROFILE: home}, 'win32')).toEqual([
-      path.join(home, '.librewolf', 'librewolf.overrides.cfg')
-    ])
+    expect(
+      librewolfOverridesCandidates(env({USERPROFILE: home}), 'win32')
+    ).toEqual([path.join(home, '.librewolf', 'librewolf.overrides.cfg')])
   })
 })

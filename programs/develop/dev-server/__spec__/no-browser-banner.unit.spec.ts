@@ -1,8 +1,16 @@
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type MockInstance,
+  vi
+} from 'vitest'
 import {setupNoBrowserBannerOnFirstDone} from '../compiler-hooks'
 
 describe('setupNoBrowserBannerOnFirstDone', () => {
-  let consoleSpy: ReturnType<typeof vi.spyOn>
+  let consoleSpy: MockInstance<typeof console.log>
 
   beforeEach(() => {
     consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})

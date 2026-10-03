@@ -275,6 +275,38 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bash scripts/close-red-lane.sh "Nightly bundled template drift"
 
+  examples-catalog:
+    # The merge gate scaffolds from the bundled template over loopback, so the
+    # codeload fetch and the catalog lookup only run here, against the real
+    # pinned examples ref. A breakage there shows up within a day, not at the
+    # next release.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      # report-red-lane.sh opens or comments on the red lane issue
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+        with:
+          node-version: '22'
+      - name: Scaffold from the real examples catalog
+        run: pnpm test:remote
+      - name: Report a red lane
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RED_LANE_REPRO: |
+            pnpm test:remote
+        run: bash scripts/report-red-lane.sh "Nightly examples catalog"
+
+      - name: Close the red lane
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/close-red-lane.sh "Nightly examples catalog"
+
   # Bun and Deno already get a build and a headless dev run on every pull
   # request. A real browser launch is the one thing that lane cannot carry,
   # because browser flakiness has no business in a merge gate, so it lives

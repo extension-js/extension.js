@@ -92,8 +92,9 @@ describe('RemoteFirefox connect retry observability', () => {
       expect(progressLines[0]).toContain('attempt=10/25')
       expect(progressLines[1]).toContain('attempt=20/25')
     } finally {
-      if (previousDebug === undefined) delete process.env.EXTENSION_DEBUG
-      else process.env.EXTENSION_DEBUG = previousDebug
+      if (previousDebug === undefined) {
+        Reflect.deleteProperty(process.env, 'EXTENSION_DEBUG')
+      } else process.env.EXTENSION_DEBUG = previousDebug
     }
   })
 
@@ -102,8 +103,8 @@ describe('RemoteFirefox connect retry observability', () => {
     // nightly CI exports; scrub both so this test really runs the default tier.
     const previousDebug = process.env.EXTENSION_DEBUG
     const previousAuthorMode = process.env.EXTENSION_AUTHOR_MODE
-    delete process.env.EXTENSION_DEBUG
-    delete process.env.EXTENSION_AUTHOR_MODE
+    Reflect.deleteProperty(process.env, 'EXTENSION_DEBUG')
+    Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')
 
     try {
       const RemoteFirefox = await importRemoteFirefox(25)
@@ -119,11 +120,12 @@ describe('RemoteFirefox connect retry observability', () => {
         .filter((line: string) => line.includes('debugger=wait'))
       expect(progressLines).toHaveLength(0)
     } finally {
-      if (previousDebug === undefined) delete process.env.EXTENSION_DEBUG
-      else process.env.EXTENSION_DEBUG = previousDebug
+      if (previousDebug === undefined) {
+        Reflect.deleteProperty(process.env, 'EXTENSION_DEBUG')
+      } else process.env.EXTENSION_DEBUG = previousDebug
 
       if (previousAuthorMode === undefined) {
-        delete process.env.EXTENSION_AUTHOR_MODE
+        Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')
       } else {
         process.env.EXTENSION_AUTHOR_MODE = previousAuthorMode
       }

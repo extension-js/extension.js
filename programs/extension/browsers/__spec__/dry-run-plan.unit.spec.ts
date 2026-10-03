@@ -7,7 +7,15 @@ import {
 } from 'node:fs'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type MockInstance,
+  vi
+} from 'vitest'
 import {createChromiumContext} from '../run-chromium/chromium-context'
 import {ChromiumLaunchPlugin} from '../run-chromium/chromium-launch'
 import {
@@ -20,7 +28,7 @@ import {FirefoxBinaryDetector} from '../run-firefox/firefox-launch/binary-detect
 import {resolveFirefoxLaunchConfig} from '../run-firefox/firefox-launch/browser-config'
 
 const dirs: string[] = []
-let log: ReturnType<typeof vi.spyOn>
+let log: MockInstance<typeof console.log>
 let tmp: string
 let out: string
 let pin: string
