@@ -22,10 +22,11 @@ import * as utils from '../lib/utils'
 // as symlinks, so a hostile template archive cannot write outside its dir.
 async function extractZipBufferTo(
   zipBuffer: Buffer,
-  destinationDir: string
+  destinationDir: string,
+  sourceUrl: string
 ): Promise<void> {
   const root = path.resolve(destinationDir)
-  const entries = unzipSync(new Uint8Array(zipBuffer))
+  const entries = unzipRemoteArchive(zipBuffer, sourceUrl)
 
   await fs.mkdir(root, {recursive: true})
 
@@ -239,6 +240,31 @@ export class TemplateNotZipError extends Error {
   }
 }
 
+// The body opened like a ZIP and then would not unpack. It is still the URL's
+// archive to fix, so it is typed and never reaches the sink with a stack.
+export class TemplateArchiveDamagedError extends Error {
+  readonly url: string
+  readonly reason: string
+  constructor(url: string, cause: unknown) {
+    const reason = (cause as {message?: string})?.message ?? String(cause)
+    super(`template archive is damaged: ${url}`)
+    this.name = 'TemplateArchiveDamagedError'
+    this.url = url
+    this.reason = reason
+    ;(this as {cause?: unknown}).cause = cause
+  }
+}
+
+function unzipRemoteArchive(zipBuffer: Buffer, sourceUrl?: string) {
+  try {
+    return unzipSync(new Uint8Array(zipBuffer))
+  } catch (error) {
+    if (!sourceUrl) throw error
+
+    throw new TemplateArchiveDamagedError(sourceUrl, error)
+  }
+}
+
 // Every ZIP opens with a local file, an empty archive or a spanned marker.
 function isZipBuffer(buffer: Buffer): boolean {
   if (buffer.length < 4 || buffer[0] !== 0x50 || buffer[1] !== 0x4b) {
@@ -270,12 +296,12 @@ async function downloadArchive(
   url: string,
   timeoutMs: number,
   attempts = 2
-): Promise<Buffer> {
+): Promise<{body: Buffer; contentType: string}> {
   let lastError: unknown
 
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
-      const {data} = await axios.get(url, {
+      const {data, headers} = await axios.get(url, {
         responseType: 'arraybuffer',
         maxRedirects: 5,
         timeout: timeoutMs,
@@ -283,7 +309,10 @@ async function downloadArchive(
         beforeRedirect: refuseHttpRedirect
       })
 
-      return Buffer.from(data)
+      return {
+        body: Buffer.from(data),
+        contentType: String(headers?.['content-type'] || '')
+      }
     } catch (error) {
       lastError = error
       if (findInsecureTemplateUrlError(error)) break
@@ -306,9 +335,10 @@ async function downloadArchive(
 export async function extractExamplesTemplateFromZip(
   zipBuffer: Buffer,
   templateName: string,
-  projectPath: string
+  projectPath: string,
+  sourceUrl?: string
 ): Promise<number> {
-  const entries = Object.entries(unzipSync(new Uint8Array(zipBuffer)))
+  const entries = Object.entries(unzipRemoteArchive(zipBuffer, sourceUrl))
 
   if (!entries.length) {
     throw new TemplateNotFoundError(templateName, new Error('empty archive'))
@@ -365,6 +395,7 @@ async function importFromExamplesCatalog(
   const urls = resolveCatalogUrls(ref, overrideUrl)
 
   let buffer: Buffer | undefined
+  let contentType = ''
   let source: string | undefined
   let lastError: unknown
 
@@ -372,7 +403,9 @@ async function importFromExamplesCatalog(
   // present-but-missing slug still surfaces as TemplateNotFoundError below.
   for (const candidate of urls) {
     try {
-      buffer = await downloadArchive(candidate, NETWORK_TIMEOUT_MS)
+      const reply = await downloadArchive(candidate, NETWORK_TIMEOUT_MS)
+      buffer = reply.body
+      contentType = reply.contentType
       source = candidate
       break
     } catch (error) {
@@ -389,7 +422,21 @@ async function importFromExamplesCatalog(
     throw new TemplateDownloadError(templateName, lastError)
   }
 
-  await extractExamplesTemplateFromZip(buffer, templateName, projectPath)
+  // The same test a template URL on the command line gets. An override that
+  // answers with a page used to reach the unzip and fail there untyped.
+  if (!isZipBuffer(buffer)) {
+    throw new TemplateNotZipError(
+      source,
+      describeNonZipResponse(contentType, buffer)
+    )
+  }
+
+  await extractExamplesTemplateFromZip(
+    buffer,
+    templateName,
+    projectPath,
+    source
+  )
 
   // An explicit URL override is its own provenance; otherwise record the ref.
   return {source, ref: overrideUrl ? undefined : ref}
@@ -907,7 +954,7 @@ export async function importExternalTemplate(
         )
       })
 
-      await extractZipBufferTo(data, tempPath)
+      await extractZipBufferTo(data, tempPath, template)
       const sourcePath = await getZipSourcePath(tempPath, template)
       await utils.moveDirectoryContents(sourcePath, projectPath)
       provenance = {template: resolvedTemplateName, source: template}
@@ -987,11 +1034,13 @@ export async function importExternalTemplate(
             )
         : error instanceof TemplateNotZipError
           ? messages.templateUrlNotZip(error.url, error.got)
-          : error instanceof TemplateDownloadError
-            ? isHttp
-              ? messages.templateUrlFetchFailed(template, error)
-              : messages.templateDownloadFailed(templateName, error)
-            : null
+          : error instanceof TemplateArchiveDamagedError
+            ? messages.templateArchiveDamaged(error.url, error.reason)
+            : error instanceof TemplateDownloadError
+              ? isHttp
+                ? messages.templateUrlFetchFailed(template, error)
+                : messages.templateDownloadFailed(templateName, error)
+              : null
 
     // A step that framed its own refusal (an output path inside the template)
     // already carries the one frame the CLI prints.

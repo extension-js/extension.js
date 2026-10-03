@@ -279,6 +279,17 @@ export function templateUrlNotZip(url: string, got: string) {
   )
 }
 
+// The archive arrived and would not unpack. Fetching it again is the remedy a
+// cut-short download needs, and a good copy on disk the one a bad upload needs.
+export function templateArchiveDamaged(url: string, reason: string) {
+  return (
+    `${prefix('error')} The ZIP archive at the remote URL is damaged.\n` +
+    `${fmt.label('URL')} ${fmt.val(fmt.truncate(url, 160))}\n` +
+    `${fmt.label('REASON')} ${fmt.val(fmt.truncate(reason, 160))}\n` +
+    `${colors.red('Try again, or download and unpack a good copy of the archive, then pass the folder path.')}`
+  )
+}
+
 // The template exists but the DOWNLOAD failed (network, rate limit, 5xx, a git
 // credential-helper hang); surface the real cause, not "choose a valid template".
 export function templateDownloadFailed(templateName: string, error: unknown) {

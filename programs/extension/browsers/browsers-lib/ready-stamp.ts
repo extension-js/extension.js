@@ -11,12 +11,28 @@ import * as path from 'node:path'
 import {stripChannelPrefix} from '../../helpers/messaging'
 import {writeJsonAtomic} from './write-json-atomic'
 
-function readyPathFor(extensionOutputPath: string): string {
-  return path.join(
-    path.dirname(extensionOutputPath),
-    'extension-js',
-    path.basename(extensionOutputPath),
-    'ready.json'
+// A run-only session loading a source folder keeps its contract under the
+// project's dist, a place the loaded directory cannot name, so it claims it.
+const ownedReadyPaths = new Map<string, string>()
+
+export function claimReadyPath(
+  extensionOutputPath: string | undefined,
+  readyPath: string | undefined
+) {
+  if (!extensionOutputPath || !readyPath) return
+
+  ownedReadyPaths.set(path.resolve(extensionOutputPath), readyPath)
+}
+
+export function readyPathFor(extensionOutputPath: string): string {
+  return (
+    ownedReadyPaths.get(path.resolve(extensionOutputPath)) ??
+    path.join(
+      path.dirname(extensionOutputPath),
+      'extension-js',
+      path.basename(extensionOutputPath),
+      'ready.json'
+    )
   )
 }
 

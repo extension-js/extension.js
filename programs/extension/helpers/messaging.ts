@@ -437,6 +437,19 @@ function withExtras<T>(base: Envelope<T>, extras: EnvelopeExtras): Envelope<T> {
   }
 }
 
+// A frame built from a human block would ship the terminal glyph to a reader
+// of error.message. A message that carries none passes through untouched.
+function withoutGlyph(error: EnvelopeError): EnvelopeError {
+  const message = String(error.message ?? '')
+
+  if (!message.includes(GLYPH)) return error
+
+  // A nested block has its glyph mid-line, so every one goes, not the first.
+  const bare = message.replace(ANSI_PATTERN, '').split(`${GLYPH} `).join('')
+
+  return {...error, message: stripChannelPrefix(bare).split(GLYPH).join('')}
+}
+
 export const ENVELOPE = {
   schema: ENVELOPE_SCHEMA,
   ok<T>(
@@ -471,7 +484,7 @@ export const ENVELOPE = {
         command,
         status,
         value: extras.value ?? null,
-        error,
+        error: withoutGlyph(error),
         warnings: []
       },
       extras

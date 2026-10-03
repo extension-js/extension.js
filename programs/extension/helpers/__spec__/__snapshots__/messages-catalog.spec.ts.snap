@@ -6,6 +6,7 @@ exports[`extension message catalogs > matches the exported message surface 1`] =
     "addonInstallError: function(2)",
     "bestEffortBannerPrintFailed: function(1)",
     "binaryProvenanceNote: function(2)",
+    "browserExitedBeforeDebugger: function(1)",
     "browserExitedUnasked: function(4)",
     "browserGoneBeforeReady: function(1)",
     "browserInstanceExited: function(1)",

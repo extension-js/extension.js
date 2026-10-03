@@ -16,7 +16,7 @@ import {
 } from './browsers-lib/browser-family'
 import {browserNeverStarted} from './browsers-lib/messages'
 import {computeBinariesBaseDir} from './browsers-lib/output-binaries-resolver'
-import {describeLaunchFailure} from './browsers-lib/ready-stamp'
+import {claimReadyPath, describeLaunchFailure} from './browsers-lib/ready-stamp'
 import {buildBrowserLaunchRequest} from './browsers-lib/runtime-options'
 import {probeChromiumBinaryVersion} from './browsers-lib/shared-utils'
 import type {
@@ -264,6 +264,10 @@ export async function runOnlyPreviewBrowser(
   process.once('SIGINT', scheduleExitOnSignal)
   process.once('SIGTERM', scheduleExitOnSignal)
   process.once('SIGHUP', scheduleExitOnSignal)
+
+  // Every stamp the launchers write lands on the contract this session owns,
+  // which is not beside the loaded directory when that is a source folder.
+  claimReadyPath(opts.outPath, opts.readyPath)
 
   const compilationLike = createPreviewCompilationLike(opts)
   const previewPluginOptions = buildPreviewPluginOptions(opts)

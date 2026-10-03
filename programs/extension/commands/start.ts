@@ -368,26 +368,6 @@ export function registerStartCommand(program: Command) {
           return
         }
 
-        // start keeps running behind the launched browser, so json mode gets one
-        // startup frame now rather than a result frame at session end.
-        if (asJson) {
-          printFrame(
-            ENVELOPE.ok('start', 'started', {
-              projectPath: pathOrRemoteUrl || process.cwd(),
-              browser: list[0],
-              browsers: list,
-              // Run-only serves nothing, so no port is bound. The key stays
-              // for readers of the old frame, which echoed the requested one.
-              port: null,
-              pid: process.pid,
-              noBrowser: await resolveNoBrowser(
-                pathOrRemoteUrl || process.cwd(),
-                'start'
-              )
-            })
-          )
-        }
-
         // Counted here rather than at an exit `start` does not reach: it keeps
         // running behind the launched browser until a signal ends it.
         markCommandSessionStart('start')
@@ -499,6 +479,26 @@ export function registerStartCommand(program: Command) {
             },
             (opts: Parameters<typeof runOnlyPreviewBrowser>[0]) =>
               runOnlyPreviewBrowser({...opts, command: 'start'})
+          )
+        }
+
+        // json mode gets one startup frame, and only once the build and the
+        // launch are done. Printed first, it announced a run that then failed.
+        if (asJson) {
+          printFrame(
+            ENVELOPE.ok('start', 'started', {
+              projectPath: pathOrRemoteUrl || process.cwd(),
+              browser: list[0],
+              browsers: list,
+              // Run-only serves nothing, so no port is bound. The key stays
+              // for readers of the old frame, which echoed the requested one.
+              port: null,
+              pid: process.pid,
+              noBrowser: await resolveNoBrowser(
+                pathOrRemoteUrl || process.cwd(),
+                'start'
+              )
+            })
           )
         }
       }

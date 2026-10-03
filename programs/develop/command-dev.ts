@@ -39,7 +39,12 @@ import type {BrowserConfig, DevOptions} from './types'
 
 export async function extensionDev(
   pathOrRemoteUrl: string | undefined,
-  devOptions: DevOptions & {launcher?: BrowserLauncherFn}
+  devOptions: DevOptions & {
+    launcher?: BrowserLauncherFn
+    // Called once every refusal that can end the run before a server exists
+    // has passed, so a caller can announce the session only when there is one.
+    onSessionStart?: () => void
+  }
 ): Promise<BuildEmitter> {
   let browsersPlugin: RunnerPlugin | undefined
   let emitter: BuildEmitter = new BuildEmitter()
@@ -178,7 +183,8 @@ export async function extensionDev(
       mode: 'development',
       browser,
       geckoBinary,
-      browsersPlugin
+      browsersPlugin,
+      onSessionStart: devOptions.onSessionStart
     } as Parameters<typeof devServer>[1])
 
     return emitter

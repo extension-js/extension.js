@@ -30,6 +30,8 @@ export async function setupRdpAfterLaunch(
         // A refusal is the browser's verdict on these bytes, not a flaky
         // connect: retrying only delays the report and repeats the reason.
         if (controller.getAddonInstallRefusalReason()) break
+        // A browser that has left will not come back for another attempt.
+        if (plugin.isBrowserGone?.()) break
 
         if (isDebug()) {
           try {

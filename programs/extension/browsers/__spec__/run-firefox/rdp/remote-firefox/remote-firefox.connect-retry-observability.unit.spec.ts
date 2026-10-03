@@ -82,7 +82,9 @@ describe('RemoteFirefox connect retry observability', () => {
         browser: 'firefox'
       } as any)
 
-      await expect(rf.connectClient(9330)).rejects.toThrow('ECONNREFUSED')
+      await expect(rf.connectClient(9330)).rejects.toThrow(
+        "Can't connect to Firefox on port 9330"
+      )
 
       const progressLines = (console.log as any).mock.calls
         .map((c: unknown[]) => String(c[0]))
@@ -113,7 +115,9 @@ describe('RemoteFirefox connect retry observability', () => {
         browser: 'firefox'
       } as any)
 
-      await expect(rf.connectClient(9330)).rejects.toThrow('ECONNREFUSED')
+      await expect(rf.connectClient(9330)).rejects.toThrow(
+        "Can't connect to Firefox on port 9330"
+      )
 
       const progressLines = (console.log as any).mock.calls
         .map((c: unknown[]) => String(c[0]))
@@ -139,14 +143,38 @@ describe('RemoteFirefox connect retry observability', () => {
       browser: 'firefox'
     } as any)
 
-    await expect(rf.connectClient(9330)).rejects.toThrow('ECONNREFUSED')
+    const error = await rf.connectClient(9330).then(
+      () => undefined,
+      (reason: Error & {code?: string; cause?: Error}) => reason
+    )
 
-    const errorLines = (console.error as any).mock.calls.map((c: unknown[]) =>
-      String(c[0])
+    expect(error?.code).toBe('E_BROWSER_CONNECT')
+    expect(error?.message).toContain('port 9330')
+    expect(String(error?.cause?.message)).toContain('ECONNREFUSED')
+    // The block travels on the error. Printed here too, it showed once per
+    // outer retry and again where the error was caught.
+    expect(console.error).not.toHaveBeenCalled()
+  })
+
+  it('stops dialing once the launcher says the browser is gone', async () => {
+    const RemoteFirefox = await importRemoteFirefox(25)
+    const rf: any = new RemoteFirefox({
+      extension: 'dist/firefox',
+      browser: 'firefox',
+      isBrowserGone: () => connectAttempts >= 2
+    } as any)
+
+    const error = await rf.connectClient(9330).then(
+      () => undefined,
+      (reason: Error & {code?: string}) => reason
     )
-    expect(errorLines.some((line: string) => line.includes('port 9330'))).toBe(
-      true
+
+    expect(error?.code).toBe('E_BROWSER_LAUNCH')
+    expect(error?.message).toContain(
+      'Firefox exited before its debugger answered'
     )
+
+    expect(connectAttempts).toBe(2)
   })
 
   it('stays quiet when the connection succeeds before the first log threshold', async () => {

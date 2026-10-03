@@ -594,6 +594,15 @@ export function browserNeverStarted(browser: Browser, reason: string) {
   )
 }
 
+// A process did exist, and left before its debugger answered. There is
+// nothing to wait for, so this replaces minutes of dialing a dead port.
+export function browserExitedBeforeDebugger(browser: Browser) {
+  return (
+    `${getLoggingPrefix('error')} ${capitalizedBrowserName(browser)} exited before its debugger answered, so the extension isn't running.\n` +
+    `${colors.red('The browser crashed at startup or was closed. Run the command again.')}`
+  )
+}
+
 export function browserLaunchError(browser: Browser, error: unknown) {
   return (
     `${getLoggingPrefix('error')} Can't launch ${capitalizedBrowserName(browser)}.\n` +

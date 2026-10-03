@@ -61,6 +61,38 @@ describe('the schema-1 result envelope', () => {
     expect(frame.value).toBeNull()
   })
 
+  // Every failure frame is built here, so this is where a human block loses
+  // its terminal decoration, whichever command hands it over.
+  it('ships no terminal glyph or color inside error.message', () => {
+    const block =
+      '\u001b[31m⏵⏵⏵\u001b[39m Chrome could not start.\n' +
+      'REASON Error: ⏵⏵⏵ The download is not a ZIP archive.\n' +
+      'Pass --chromium-binary with a working path.'
+    const frame = ENVELOPE.fail('start', 'failed', {
+      code: CODES.E_BROWSER_LAUNCH,
+      message: block,
+      name: 'Error'
+    })
+
+    expect(frame.error?.message).toBe(
+      'Chrome could not start.\n' +
+        'REASON Error: The download is not a ZIP archive.\n' +
+        'Pass --chromium-binary with a working path.'
+    )
+
+    expect(Object.keys(frame.error ?? {})).toEqual(['code', 'message', 'name'])
+  })
+
+  it('leaves a message that carries no glyph byte for byte', () => {
+    const message = '  indented first line\n    at a code frame  \n'
+    const frame = ENVELOPE.fail('build', 'build-failed', {
+      code: CODES.E_COMPILE,
+      message
+    })
+
+    expect(frame.error?.message).toBe(message)
+  })
+
   it('rejects a frame whose error code is not an E_ identifier', () => {
     const bad = {
       ...ENVELOPE.fail('dev', 'x', {

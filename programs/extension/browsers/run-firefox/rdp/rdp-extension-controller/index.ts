@@ -10,6 +10,7 @@ import type {BrowserType, CompilationLike} from '../../../browsers-types'
 import {RemoteFirefox} from '../remote-firefox'
 
 type PluginLike = {
+  isBrowserGone?: () => boolean
   extension: string | string[]
   browser: BrowserType
   browserFlags?: string[]
@@ -51,7 +52,8 @@ export class FirefoxRDPController {
       browserVersionLine: plugin.browserVersionLine,
       launchProfilePath: plugin.launchProfilePath,
       launchBinaryPath: plugin.launchBinaryPath,
-      launchBinaryProvenance: plugin.launchBinaryProvenance
+      launchBinaryProvenance: plugin.launchBinaryProvenance,
+      isBrowserGone: plugin.isBrowserGone
     })
 
     this.debugPort = normalizedDebugPort

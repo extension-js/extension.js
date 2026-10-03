@@ -264,3 +264,144 @@ describe('downloadAndExtractZip', () => {
     expect(haystack.split(needle).length - 1).toBe(1)
   })
 })
+
+// One cause, one code: a reply that is not an archive and an archive that
+// will not unpack are the URL's to fix, a failed transport is not.
+describe('the code a remote archive failure carries', () => {
+  const damaged = Buffer.concat([
+    Buffer.from([0x50, 0x4b, 0x03, 0x04]),
+    Buffer.from('cut short on the way down '.repeat(8))
+  ])
+
+  async function failure(
+    handler: (req: http.IncomingMessage, res: http.ServerResponse) => void,
+    name = 'examples.zip'
+  ) {
+    const origin = await serve(handler)
+    const target = makeTempDir('extjs-zip-code-')
+    const error = await downloadAndExtractZip(`${origin}/${name}`, target).then(
+      () => undefined,
+      (reason: Error & {code?: string}) => reason
+    )
+
+    expect(fs.readdirSync(target)).toEqual([])
+
+    return {code: error?.code, message: String(error?.message)}
+  }
+
+  it.each([
+    [
+      'a page behind a .zip name',
+      'examples.zip',
+      'text/html; charset=utf-8',
+      Buffer.from('<!doctype html><html>Sign in</html>'),
+      /isn't a ZIP archive/
+    ],
+    [
+      'a page with no ZIP name or type',
+      'download',
+      'text/html',
+      Buffer.from('<html>Sign in</html>'),
+      /doesn't point to a ZIP archive/
+    ],
+    [
+      'an archive that will not unpack',
+      'examples.zip',
+      'application/zip',
+      damaged,
+      /The ZIP archive at the remote URL is damaged\.[\s\S]*invalid zip data/
+    ]
+  ])('is E_REMOTE_ZIP_INVALID for %s, as its own block', async (_label, name, type, body, sentence) => {
+    const {code, message} = await failure((_req, res) => {
+      res.writeHead(200, {'content-type': type})
+      res.end(body)
+    }, name)
+
+    expect(code).toBe('E_REMOTE_ZIP_INVALID')
+    expect(message).toMatch(sentence)
+    expect(message).not.toMatch(/Couldn't download or extract/)
+    expect(message.match(/⏵⏵⏵/g)).toHaveLength(1)
+  })
+
+  it('stays E_REMOTE_DOWNLOAD when the server answers 404', async () => {
+    const {code, message} = await failure((_req, res) => {
+      res.writeHead(404)
+      res.end('nope')
+    })
+
+    expect(code).toBe('E_REMOTE_DOWNLOAD')
+    expect(message).toMatch(/Couldn't download or extract/)
+  })
+
+  it('gives a local file that will not unpack its own block, with no URL advice', async () => {
+    const root = makeTempDir('extjs-zip-local-')
+    const zipPath = path.join(root, 'cut.zip')
+    fs.writeFileSync(zipPath, damaged)
+
+    const error = await extractLocalZip(
+      zipPath,
+      makeTempDir('extjs-zip-local-out-')
+    ).then(
+      () => undefined,
+      (reason: Error & {code?: string}) => reason
+    )
+
+    expect(error?.code).toBe('E_LOCAL_ZIP_NOT_FOUND')
+    expect(error?.message).toMatch(/isn't a ZIP archive that can be unpacked/)
+    expect(error?.message).toContain('invalid zip data')
+    expect(error?.message).not.toMatch(/network|login page/i)
+  })
+})
+
+// stdout is the machine's under json, so the lines about the download move
+// to stderr there and stay on stdout for a person.
+describe('the human lines around a remote fetch', () => {
+  const priorOutput = process.env.EXTENSION_OUTPUT
+
+  afterEach(() => {
+    if (priorOutput === undefined) delete process.env.EXTENSION_OUTPUT
+    else process.env.EXTENSION_OUTPUT = priorOutput
+  })
+
+  async function fetchOnce() {
+    const origin = await serve((_req, res) => {
+      sendZip(res, {'manifest.json': '{}'})
+    })
+
+    await downloadAndExtractZip(
+      `${origin}/examples.zip`,
+      makeTempDir('extjs-zip-lines-')
+    )
+  }
+
+  it('go to stderr in machine mode and leave stdout alone', async () => {
+    process.env.EXTENSION_OUTPUT = 'json'
+    const stderr = vi
+      .spyOn(process.stderr, 'write')
+      .mockImplementation(() => true)
+    const stdout = vi
+      .spyOn(process.stdout, 'write')
+      .mockImplementation(() => true)
+
+    await fetchOnce()
+
+    const written = stderr.mock.calls.map((call) => String(call[0])).join('')
+    expect(written).toContain('Downloading the browser extension')
+    expect(written).toContain('Unpackaging the browser extension')
+    expect(written).toContain('Extension unpackaged.')
+    expect(stdout).not.toHaveBeenCalled()
+    expect(logSpy).not.toHaveBeenCalled()
+  })
+
+  it('stay on stdout for a person', async () => {
+    delete process.env.EXTENSION_OUTPUT
+
+    await fetchOnce()
+
+    const printed = logSpy.mock.calls
+      .map((call: unknown[]) => String(call[0]))
+      .join('\n')
+    expect(printed).toContain('Downloading the browser extension')
+    expect(printed).toContain('Extension unpackaged.')
+  })
+})

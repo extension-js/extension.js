@@ -512,6 +512,7 @@ export async function devServer(
     publicHost?: string
     allowedHosts?: string | string[]
     authorMode?: boolean
+    onSessionStart?: () => void
     browsersPlugin?: {
       setReloadBroker?: (broker: unknown) => void
       setLogSink?: (sink: (event: BrowserLogSinkEvent) => void) => void
@@ -872,7 +873,6 @@ export async function devServer(
     readyPath: metadata.readyPath,
     eventsPath: metadata.eventsPath
   })
-  lifecycle.starting({requestedPort: Number(devOptions.port), port})
 
   // Say so when the requested port was taken. Compare numerically: a CLI
   // --port arrives as a string, and '55835' !== 55835 misreported every run.
@@ -1142,6 +1142,16 @@ export async function devServer(
 
   const firstBundle = await createCompilerAndServer({isRestart: false})
   let currentServer: RspackDevServer | null = firstBundle.server
+
+  // The session is announced once the config and compiler exist. Said before
+  // them, an ok frame went out ahead of a manifest the config then refused.
+  try {
+    extendedOptions.onSessionStart?.()
+  } catch {
+    // Best-effort: a caller's announcement must never stop the session.
+  }
+
+  lifecycle.starting({requestedPort: Number(devOptions.port), port})
   await startBundler(firstBundle.server)
 
   // Plugins that find an entrypoint change ask for this; the request outlives
