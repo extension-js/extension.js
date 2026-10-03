@@ -117,6 +117,7 @@ export class LifecycleStream {
   private browserExitEmitted = false
   private boundPort: number | null = null
   private exitWatcher: NodeJS.Timeout | undefined
+  private launchFailureWatcher: NodeJS.Timeout | undefined
 
   constructor(options: LifecycleStreamOptions) {
     this.options = options
@@ -344,6 +345,35 @@ export class LifecycleStream {
     }, intervalMs)
 
     this.exitWatcher.unref?.()
+
+    return stop
+  }
+
+  // Poll the ready contract for the launcher's launch-failure stamp. There is
+  // no frame of its own to emit: ready() already reports the contract's error
+  // status. The caller lands the stamp on the events timeline.
+  public watchBrowserLaunchFailure(
+    intervalMs = 1000,
+    onFailure: (ready: Record<string, unknown>) => void
+  ): () => void {
+    const stop = () => {
+      if (this.launchFailureWatcher) clearInterval(this.launchFailureWatcher)
+
+      this.launchFailureWatcher = undefined
+    }
+
+    if (!this.options.readyPath) return stop
+    if (this.launchFailureWatcher) return stop
+
+    this.launchFailureWatcher = setInterval(() => {
+      const ready = readReadyContract(this.options.readyPath)
+      if (typeof ready?.browserLaunchFailedAt !== 'string') return
+
+      onFailure(ready)
+      stop()
+    }, intervalMs)
+
+    this.launchFailureWatcher.unref?.()
 
     return stop
   }

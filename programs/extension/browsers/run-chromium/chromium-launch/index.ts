@@ -52,9 +52,11 @@ import * as binariesResolver from '../../browsers-lib/output-binaries-resolver'
 import {wasTerminatedByUs} from '../../browsers-lib/process-teardown'
 import {ready as devServerReady} from '../../browsers-lib/ready-message'
 import {
+  describeLaunchFailure,
   readReadyRunId,
   stampReadyBrowserExited,
   stampReadyBrowserLaunch,
+  stampReadyBrowserLaunchFailed,
   stampReadyExtensionLoadRefused,
   stampReadyProfileLocked
 } from '../../browsers-lib/ready-stamp'
@@ -192,6 +194,9 @@ export class ChromiumLaunchPlugin {
   // Set by the child's close handler when the browser left without being
   // asked. A ready claim after that would describe a browser that is gone.
   private browserGone = false
+  // Set once a browser process exists. A launch that throws before this is a
+  // launch that never spawned anything, and the contract has to say so.
+  private didSpawn = false
   // Chrome's own refusal reason, when it declined to load the guest at launch.
   private extensionLoadRefused: string | undefined
 
@@ -245,7 +250,28 @@ export class ChromiumLaunchPlugin {
       } as BrowserLogger
     }
 
-    await this.launchChromium(compilation, opts)
+    try {
+      await this.launchChromium(compilation, opts)
+    } catch (error) {
+      this.stampLaunchFailed(compilation, error)
+
+      throw error
+    }
+  }
+
+  // The contract is written by the compile, so a launch that rejects before a
+  // process exists leaves it saying ready over nothing. Record the failure
+  // there, once, unless a browser did come up and the throw came after it.
+  private stampLaunchFailed(compilation: CompilationLike, error: unknown) {
+    if (this.didSpawn) return
+
+    const outputPath = getExtensionOutputPath(compilation, undefined)
+
+    stampReadyBrowserLaunchFailed(
+      outputPath,
+      describeLaunchFailure(error),
+      readReadyRunId(outputPath)
+    )
   }
 
   apply(compiler: unknown) {
@@ -305,6 +331,8 @@ export class ChromiumLaunchPlugin {
           )
         }
       } catch (error) {
+        this.stampLaunchFailed(stats.compilation, error)
+
         // Do not swallow: otherwise users can get stuck after the compile line
         // with no feedback when the browser fails to launch (common in WSL/CI).
         try {
@@ -367,6 +395,16 @@ export class ChromiumLaunchPlugin {
     }
 
     const browser = this.options?.browser
+
+    // A launch that ends the process still owes the contract its verdict, or
+    // ready.json keeps saying ready over a pid that is about to die. The
+    // explicit type keeps the never-narrowing process.exit gave the callers.
+    const exitForLaunchFailure: (reason: string) => never = (reason) => {
+      this.stampLaunchFailed(compilation, reason)
+      process.exit(1)
+    }
+
+    const notInstalledReason = `${String(browser)} isn't installed and no binary was found`
 
     let browserBinaryLocation: string | null = null
     let printedGuidance = false
@@ -753,7 +791,7 @@ export class ChromiumLaunchPlugin {
                 if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
                   throw new Error('Chromium launch failed')
                 } else {
-                  process.exit(1)
+                  exitForLaunchFailure(notInstalledReason)
                 }
               }
             }
@@ -773,7 +811,7 @@ export class ChromiumLaunchPlugin {
               if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
                 throw new Error('Chromium launch failed')
               } else {
-                process.exit(1)
+                exitForLaunchFailure(notInstalledReason)
               }
             }
           }
@@ -789,7 +827,10 @@ export class ChromiumLaunchPlugin {
             throw new Error('chromium-based requires --chromium-binary')
           }
 
-          process.exit(1)
+          exitForLaunchFailure(
+            'the chromium-based target needs --chromium-binary <abs-path>'
+          )
+
           break
         }
 
@@ -892,7 +933,7 @@ export class ChromiumLaunchPlugin {
         if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
           throw new Error('Browser not installed or binary path not found')
         } else {
-          process.exit(1)
+          exitForLaunchFailure(notInstalledReason)
         }
       }
     }
@@ -1137,6 +1178,8 @@ export class ChromiumLaunchPlugin {
       chromiumConfig,
       usePipe
     )
+
+    this.didSpawn = true
 
     const launchOutputPath = this.closeHandlerContext?.extensionOutputPath
     stampReadyBrowserLaunch(

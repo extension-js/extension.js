@@ -46,9 +46,11 @@ import {
 } from '../../browsers-lib/process-teardown'
 import {ready as devServerReady} from '../../browsers-lib/ready-message'
 import {
+  describeLaunchFailure,
   readReadyRunId,
   stampReadyBrowserExited,
   stampReadyBrowserLaunch,
+  stampReadyBrowserLaunchFailed,
   stampReadyExtensionId,
   stampReadyExtensionLoadRefused,
   stampReadyRdpPort
@@ -162,7 +164,13 @@ export class FirefoxLaunchPlugin {
       } as BrowserLogger
     }
 
-    await this.launch(compilation, options)
+    try {
+      await this.launch(compilation, options)
+    } catch (error) {
+      this.stampLaunchFailed(error)
+
+      throw error
+    }
 
     // A claim about the browser waits for the browser: printing this before
     // the install announced add-ons Firefox had thrown out.
@@ -171,6 +179,39 @@ export class FirefoxLaunchPlugin {
     }
 
     this.ctx.didLaunch = true
+  }
+
+  // The contract is written by the compile, so a launch that fails before a
+  // process exists leaves it saying ready over nothing. Record the failure
+  // there, unless a browser did come up and the throw came after it.
+  private stampLaunchFailed(error: unknown) {
+    if (this.child) return
+
+    const outputPath =
+      this.extensionOutputPath ?? this.resolveExtensionOutputPath()
+
+    stampReadyBrowserLaunchFailed(
+      outputPath,
+      describeLaunchFailure(error),
+      this.launchRunId ?? readReadyRunId(outputPath)
+    )
+  }
+
+  // The user extension's dist dir anchors ready.json, so companions are
+  // filtered out, mirroring getExtensionOutputPath on the Chromium side.
+  private resolveExtensionOutputPath(): string | undefined {
+    const extensionsToLoad = toExtensionLoadList(this.host.extension)
+    const userExtensionCandidates = extensionsToLoad.filter(
+      (p) =>
+        !/[\\/]extension-js-devtools[\\/]/.test(p) &&
+        !/[\\/]extension-js-theme[\\/]/.test(p)
+    )
+
+    return (
+      userExtensionCandidates.length
+        ? userExtensionCandidates
+        : extensionsToLoad
+    ).slice(-1)[0]
   }
 
   apply(compiler: unknown) {
@@ -243,6 +284,7 @@ export class FirefoxLaunchPlugin {
 
         this.ctx.didLaunch = true
       } catch (error) {
+        this.stampLaunchFailed(error)
         this.ctx.logger?.error?.(messages.firefoxFailedToStart(error))
 
         if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
@@ -309,10 +351,16 @@ export class FirefoxLaunchPlugin {
       }
     }
 
+    // A launch that ends the process still owes the contract its verdict, or
+    // ready.json keeps saying ready over a pid that is about to die.
     const exitForLaunchFailure = (message?: string): never => {
       if (message) {
         humanError(message)
       }
+
+      this.stampLaunchFailed(
+        message || `${this.host.browser} could not be launched`
+      )
 
       process.exit(1)
     }
@@ -328,6 +376,10 @@ export class FirefoxLaunchPlugin {
       if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
         throw new Error('Firefox not installed or binary path not found')
       }
+
+      this.stampLaunchFailed(
+        `${this.host.browser} isn't installed and no binary was found`
+      )
 
       process.exit(1)
     }
@@ -376,6 +428,8 @@ export class FirefoxLaunchPlugin {
         if (inTestRunner) {
           throw new Error('LibreWolf remote debugging is disabled')
         }
+
+        this.stampLaunchFailed('LibreWolf remote debugging is disabled')
 
         process.exit(1)
       }
@@ -528,21 +582,7 @@ export class FirefoxLaunchPlugin {
       }
     }
 
-    const extensionsToLoad = toExtensionLoadList(this.host.extension)
-
-    // The user extension's dist dir anchors ready.json; companions are filtered
-    // out, mirroring getExtensionOutputPath on the Chromium side.
-    const userExtensionCandidates = extensionsToLoad.filter(
-      (p) =>
-        !/[\\/]extension-js-devtools[\\/]/.test(p) &&
-        !/[\\/]extension-js-theme[\\/]/.test(p)
-    )
-    this.extensionOutputPath = (
-      userExtensionCandidates.length
-        ? userExtensionCandidates
-        : extensionsToLoad
-    ).slice(-1)[0]
-
+    this.extensionOutputPath = this.resolveExtensionOutputPath()
     this.launchRunId = readReadyRunId(this.extensionOutputPath)
 
     const desiredDebugPort = deriveDebugPortWithInstance(

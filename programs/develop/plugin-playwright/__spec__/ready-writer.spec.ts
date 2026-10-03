@@ -74,6 +74,30 @@ describe('ready.json writer preservation', () => {
     expect(after.browserExitedAt).toBe('2026-07-12T00:00:00.000Z')
   })
 
+  it('keeps a browser that never spawned as an error across recompiles', () => {
+    const writer = makeWriter()
+    writer.writeReady()
+
+    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    ready.status = 'error'
+    ready.code = 'browser_launch_failed'
+    ready.message =
+      'the chromium process could not start (spawn /x/chrome EACCES), nothing is running'
+
+    ready.browserLaunchFailedAt = '2026-07-12T00:00:00.000Z'
+    ready.browserLaunchFailedReason = 'spawn /x/chrome EACCES'
+    fs.writeFileSync(writer.readyPath, JSON.stringify(ready))
+
+    writer.writeReady()
+
+    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    expect(after.status).toBe('error')
+    expect(after.code).toBe('browser_launch_failed')
+    expect(after.message).toMatch(/could not start/)
+    expect(after.browserLaunchFailedAt).toBe('2026-07-12T00:00:00.000Z')
+    expect(after.browserLaunchFailedReason).toBe('spawn /x/chrome EACCES')
+  })
+
   it('preserves the launcher-stamped rdpPort across recompiles', () => {
     const writer = makeWriter()
     writer.writeReady()
