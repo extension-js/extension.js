@@ -41,6 +41,7 @@ export const CREATE_ERROR_NEEDLES = {
     'that path on this machine'
   ],
   E_DEPENDENCY_INSTALL: ["Couldn't install the dependencies"],
+  E_REMOTE_ZIP_INVALID: ["The remote URL doesn't point to a ZIP archive"],
   E_INVALID_OPTION: [
     'A URL is not a valid project path',
     "Can't scaffold a project inside the template it copies"

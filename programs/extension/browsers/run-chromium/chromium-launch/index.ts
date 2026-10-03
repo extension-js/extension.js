@@ -235,6 +235,12 @@ export class ChromiumLaunchPlugin {
     private readonly ctx: ChromiumContext
   ) {}
 
+  // Whether a browser process came to exist, so a caller can tell a launch
+  // that never spawned from a failure that followed a live browser.
+  public get spawnedBrowser(): boolean {
+    return this.didSpawn
+  }
+
   // Run the Chromium launch flow without a bundler compiler instance;
   // intended for run-only preview paths.
   public async runOnce(
@@ -1497,7 +1503,9 @@ export class ChromiumLaunchPlugin {
 
       return child
     } catch (error) {
-      this.logger.error(messages.chromeFailedToSpawn(error))
+      // The caller frames this for the user, once. Printing it here as well
+      // showed the same refusal twice.
+      if (isDebug()) this.logger.error(messages.chromeFailedToSpawn(error))
 
       throw error
     }

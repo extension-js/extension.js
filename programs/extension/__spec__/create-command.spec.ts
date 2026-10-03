@@ -159,7 +159,15 @@ describe('extension create', () => {
           'npm error code ECONNREFUSED'
         )
     ],
-    ['E_INVALID_OPTION', () => createMessages.noUrlAllowed()]
+    ['E_INVALID_OPTION', () => createMessages.noUrlAllowed()],
+    [
+      'E_REMOTE_ZIP_INVALID',
+      () =>
+        createMessages.templateUrlNotZip(
+          'https://example.com/t.zip',
+          'text/html'
+        )
+    ]
   ]
 
   it.each(

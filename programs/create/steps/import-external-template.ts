@@ -226,6 +226,42 @@ export class TemplateDownloadError extends Error {
   }
 }
 
+// The URL answered, with something that is not an archive. That is a URL to
+// fix, so it never takes the network frame a failed download gets.
+export class TemplateNotZipError extends Error {
+  readonly url: string
+  readonly got: string
+  constructor(url: string, got: string) {
+    super(`template URL did not answer with a ZIP archive: ${url}`)
+    this.name = 'TemplateNotZipError'
+    this.url = url
+    this.got = got
+  }
+}
+
+// Every ZIP opens with a local file, an empty archive or a spanned marker.
+function isZipBuffer(buffer: Buffer): boolean {
+  if (buffer.length < 4 || buffer[0] !== 0x50 || buffer[1] !== 0x4b) {
+    return false
+  }
+
+  const marker = (buffer[2] << 8) | buffer[3]
+
+  return marker === 0x0304 || marker === 0x0506 || marker === 0x0708
+}
+
+// What the server sent, for the GOT row. A ZIP content type over a body that
+// is not one would otherwise read as the thing the refusal says is missing.
+function describeNonZipResponse(contentType: string, body: Buffer): string {
+  const type = contentType || 'unknown content type'
+
+  if (body.length === 0) return `${type} with an empty body`
+
+  return /zip|octet-stream/i.test(contentType)
+    ? `${type} that is not ZIP data`
+    : type
+}
+
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 // Fetch a repo tarball over plain HTTP (codeload), NOT a git pack negotiation:
@@ -819,17 +855,21 @@ export async function importExternalTemplate(
         beforeRedirect: refuseHttpRedirect
       })
       const contentType = String(headers?.['content-type'] || '')
+      const body = Buffer.from(data)
       const looksZip =
         /zip|octet-stream/i.test(contentType) ||
         template.toLowerCase().endsWith('.zip')
 
-      if (!looksZip) {
-        throw new Error(
-          `the response is not a ZIP archive (content-type ${contentType || 'unknown'})`
+      // The name and the header are claims. The first bytes are the answer,
+      // and a login page or an empty reply fails here, not in the unzip.
+      if (!looksZip || !isZipBuffer(body)) {
+        throw new TemplateNotZipError(
+          template,
+          describeNonZipResponse(contentType, body)
         )
       }
 
-      return data
+      return body
     }
 
     let provenance: TemplateProvenance
@@ -857,14 +897,17 @@ export async function importExternalTemplate(
       // answers with a 404 or an HTML page is the user's URL to fix, not a
       // fault to report with our stack.
       const data = await fetchZipArchive().catch((fetchError: unknown) => {
-        // A downgrade refusal is its own frame and must keep its own type.
+        // A downgrade refusal and a reply that is not an archive are their
+        // own frames and must keep their own types.
         throw (
           findInsecureTemplateUrlError(fetchError) ??
-          new TemplateDownloadError(template, fetchError)
+          (fetchError instanceof TemplateNotZipError
+            ? fetchError
+            : new TemplateDownloadError(template, fetchError))
         )
       })
 
-      await extractZipBufferTo(Buffer.from(data), tempPath)
+      await extractZipBufferTo(data, tempPath)
       const sourcePath = await getZipSourcePath(tempPath, template)
       await utils.moveDirectoryContents(sourcePath, projectPath)
       provenance = {template: resolvedTemplateName, source: template}
@@ -942,11 +985,13 @@ export async function importExternalTemplate(
               templateName,
               (error as {cause?: unknown}).cause
             )
-        : error instanceof TemplateDownloadError
-          ? isHttp
-            ? messages.templateUrlFetchFailed(template, error)
-            : messages.templateDownloadFailed(templateName, error)
-          : null
+        : error instanceof TemplateNotZipError
+          ? messages.templateUrlNotZip(error.url, error.got)
+          : error instanceof TemplateDownloadError
+            ? isHttp
+              ? messages.templateUrlFetchFailed(template, error)
+              : messages.templateDownloadFailed(templateName, error)
+            : null
 
     // A step that framed its own refusal (an output path inside the template)
     // already carries the one frame the CLI prints.

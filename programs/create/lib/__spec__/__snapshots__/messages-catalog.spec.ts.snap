@@ -35,6 +35,7 @@ exports[`create message catalogs > matches the exported message surface 1`] = `
     "templatePathNotFound: function(1)",
     "templateUrlFetchFailed: function(2)",
     "templateUrlNotHttps: function(1)",
+    "templateUrlNotZip: function(2)",
     "usingTemplate: function(2)",
     "writingDenoJsonc: function(0)",
     "writingDenoJsoncError: function(1)",
