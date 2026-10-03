@@ -4,8 +4,14 @@ import {createRequire} from 'node:module'
 import os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
-import {renderExtensionEnvTypes} from '../extension-env-template'
-import {generateExtensionTypes} from '../generate-extension-types'
+import {
+  EXTENSION_ENV_WILDCARD_MODULES,
+  renderExtensionEnvTypes
+} from '../extension-env-template'
+import {
+  generateExtensionTypes,
+  resolvesExtensionPackage
+} from '../generate-extension-types'
 
 const require = createRequire(__filename)
 
@@ -41,6 +47,27 @@ function wildcardPatternsIn(source: string) {
   )
 }
 
+// Each wildcard block with its default export type, local aliases resolved,
+// so the inline list and the shipped file compare as the compiler sees them.
+function wildcardDeclarationsIn(rawSource: string) {
+  const source = rawSource.replace(/\r\n/g, '\n')
+  const aliases = new Map(
+    [...source.matchAll(/^type (\w+) = (.+)$/gm)].map((match) => [
+      match[1],
+      match[2]
+    ])
+  )
+
+  return [
+    ...source.matchAll(
+      /^declare module '(\*[^']+)' \{\n(?: {2}\/\/[^\n]*\n)* {2}const content: ([^\n]+)\n {2}export default content\n\}/gm
+    )
+  ].map((match) => ({
+    pattern: match[1],
+    type: aliases.get(match[2]) ?? match[2]
+  }))
+}
+
 function packageDir(specifier: string) {
   return path.dirname(require.resolve(`${specifier}/package.json`))
 }
@@ -50,7 +77,10 @@ function linkDir(target: string, link: string) {
   fs.symlinkSync(target, link, 'junction')
 }
 
-function writeTypescriptProject(root: string) {
+function writeTypescriptProject(
+  root: string,
+  {withExtensionPackage = true} = {}
+) {
   const srcDir = path.join(root, 'src')
   fs.mkdirSync(srcDir, {recursive: true})
 
@@ -82,6 +112,17 @@ function writeTypescriptProject(root: string) {
     })
   )
 
+  if (withExtensionPackage) writeExtensionPackage(root)
+
+  for (const types of ['node', 'chrome', 'webextension-polyfill']) {
+    linkDir(
+      packageDir(`@types/${types}`),
+      path.join(root, 'node_modules', '@types', types)
+    )
+  }
+}
+
+function writeExtensionPackage(root: string) {
   const extensionDir = path.join(root, 'node_modules', 'extension')
   fs.mkdirSync(extensionDir, {recursive: true})
   fs.cpSync(publishedTypesDir, path.join(extensionDir, 'types'), {
@@ -99,13 +140,6 @@ function writeTypescriptProject(root: string) {
       }
     })
   )
-
-  for (const types of ['node', 'chrome', 'webextension-polyfill']) {
-    linkDir(
-      packageDir(`@types/${types}`),
-      path.join(root, 'node_modules', '@types', types)
-    )
-  }
 }
 
 function runTsc(root: string) {
@@ -155,12 +189,15 @@ describe('generate-extension-types', () => {
     expect(content).toContain('reference types="extension/types/polyfill"')
   })
 
-  it('leaves the asset and stylesheet declares to the shipped types', async () => {
+  it('leaves the asset and stylesheet declares to the shipped types when extension is installed', async () => {
     const root = makeTempDir('extjs-gen-wildcards-')
     fs.writeFileSync(
       path.join(root, 'manifest.json'),
       JSON.stringify({name: 'x'})
     )
+
+    writeExtensionPackage(root)
+    expect(resolvesExtensionPackage(root)).toBe(true)
 
     await generateExtensionTypes(root, root)
     const content = fs.readFileSync(
@@ -172,6 +209,44 @@ describe('generate-extension-types', () => {
     expect(content).toBe(renderExtensionEnvTypes())
     expect(content).not.toMatch(/^(import|export) /m)
     expect(wildcardPatternsIn(content)).toEqual([])
+  })
+
+  // Every example runs the CLI through npx and declares no extension of its
+  // own, so the reference above resolves to nothing and the declares go inline.
+  it('writes the asset and stylesheet declares when extension does not resolve', async () => {
+    const root = makeTempDir('extjs-gen-npx-')
+    fs.writeFileSync(
+      path.join(root, 'manifest.json'),
+      JSON.stringify({name: 'x'})
+    )
+
+    expect(resolvesExtensionPackage(root)).toBe(false)
+
+    await generateExtensionTypes(root, root)
+    const content = fs.readFileSync(
+      path.join(root, 'extension-env.d.ts'),
+      'utf8'
+    )
+
+    expect(content).toBe(
+      renderExtensionEnvTypes(undefined, {}, {inlineAssetTypes: true})
+    )
+
+    expect(content).toContain('/// <reference types="extension/types" />')
+    expect(content).not.toMatch(/^(import|export) /m)
+    expect(wildcardPatternsIn(content)).toEqual(
+      wildcardPatternsIn(fs.readFileSync(publishedTypesFile, 'utf8'))
+    )
+  })
+
+  it('finds a hoisted extension package the way the types reference does', () => {
+    const root = makeTempDir('extjs-gen-hoisted-')
+    const nested = path.join(root, 'packages', 'my-extension')
+    fs.mkdirSync(nested, {recursive: true})
+    expect(resolvesExtensionPackage(nested)).toBe(false)
+
+    writeExtensionPackage(root)
+    expect(resolvesExtensionPackage(nested)).toBe(true)
   })
 
   it('declares the define constants with the types their values resolve to', async () => {
@@ -237,6 +312,20 @@ describe('generate-extension-types', () => {
     expect(wildcardPatternsIn(renderExtensionEnvTypes())).toEqual([])
   })
 
+  it('keeps the inline wildcard list in step with extension/types/assets.d.ts', () => {
+    const published = wildcardDeclarationsIn(
+      fs.readFileSync(publishedTypesFile, 'utf8')
+    )
+
+    expect(published.length).toBeGreaterThan(0)
+    expect([...EXTENSION_ENV_WILDCARD_MODULES]).toEqual(published)
+    expect(
+      wildcardDeclarationsIn(
+        renderExtensionEnvTypes(undefined, {}, {inlineAssetTypes: true})
+      )
+    ).toEqual(published)
+  })
+
   it('typechecks every bundler import shape with no skipLibCheck', async () => {
     const root = makeTempDir('extjs-gen-tsc-')
     fs.writeFileSync(
@@ -251,6 +340,32 @@ describe('generate-extension-types', () => {
 
     expect(result.stdout + result.stderr).toBe('')
     expect(result.status).toBe(0)
+  })
+
+  it('types every bundler import shape with no extension installed', async () => {
+    const root = makeTempDir('extjs-gen-tsc-npx-')
+    fs.writeFileSync(
+      path.join(root, 'manifest.json'),
+      JSON.stringify({name: 'x'})
+    )
+
+    writeTypescriptProject(root, {withExtensionPackage: false})
+
+    await generateExtensionTypes(root, root)
+    const result = runTsc(root)
+    const diagnostics = (result.stdout + result.stderr)
+      .split('\n')
+      .filter(Boolean)
+      .map((line) =>
+        line.replace(/^.*extension-env\.d\.ts/, 'extension-env.d.ts')
+      )
+
+    // Only the two references find nothing, as on every release before:
+    // not one import fails to resolve, and no declare is duplicated.
+    expect(diagnostics).toEqual([
+      "extension-env.d.ts(6,23): error TS2688: Cannot find type definition file for 'extension/types'.",
+      "extension-env.d.ts(9,23): error TS2688: Cannot find type definition file for 'extension/types/polyfill'."
+    ])
   })
 
   it.skip('writes extension-paths.d.ts with unions', async () => {

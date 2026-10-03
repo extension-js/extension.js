@@ -13,6 +13,7 @@ import {filterKeysForThisBrowser} from '../lib/manifest-utils'
 import {isDebug} from '../lib/messaging'
 import {type ParsedJson, parseJsonSafe} from '../lib/parse-json-safe'
 import {toResourceKey} from '../lib/resource-path'
+import {NOT_RAW_RESOURCE_QUERY, RAW_RESOURCE_QUERY} from '../lib/resource-query'
 import {
   createNodeModulesExclude,
   isSubPath,
@@ -426,7 +427,8 @@ export class JsFrameworksPlugin {
       include: expandWithRealpaths(
         Array.from(new Set([tsRoot, ...swcIncludeDirs]))
       ),
-      exclude: [excludeNodeModules]
+      exclude: [excludeNodeModules],
+      resourceQuery: NOT_RAW_RESOURCE_QUERY
     }
 
     const jsxInPlainJs = isUsingJsxFramework(projectPath)
@@ -501,7 +503,9 @@ export class JsFrameworksPlugin {
         issuerLayer: {not: EXTENSIONJS_CONTENT_SCRIPT_LAYER},
         // Classic concat entries (content_scripts AND MV2 background.scripts) share one
         // scope and are never ESM; excluded here or Rspack emits hash-named assets.
-        resourceQuery: {not: /__extensionjs_classic_concat__/},
+        resourceQuery: {
+          not: [/__extensionjs_classic_concat__/, RAW_RESOURCE_QUERY]
+        },
         // Page/background scripts stay javascript/auto so script-vs-module is detected
         // per file, matching browser loading; platform-declared modules get ESM below.
         exclude: [
@@ -523,7 +527,9 @@ export class JsFrameworksPlugin {
                 (resourcePath: string) =>
                   isfeatureScriptsContentLike(resourcePath)
               ],
-              resourceQuery: {not: /__extensionjs_classic_concat__/},
+              resourceQuery: {
+                not: [/__extensionjs_classic_concat__/, RAW_RESOURCE_QUERY]
+              },
               type: 'javascript/esm',
               oneOf: parserVariants({
                 refresh: mode === 'development',

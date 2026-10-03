@@ -6,13 +6,14 @@
 // ╚═╝     ╚══════╝╚═╝  ╚═╝╚═╝          ╚═════╝  ╚═════╝ ╚═════╝  ╚═════╝ ╚══════╝   ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import {SHARED_CHUNK_DIR, classifyEntrySurface} from '../lib/split-chunks'
+import {classifyEntrySurface, SHARED_CHUNK_DIR} from '../lib/split-chunks'
 
 export const ASSET_CATEGORIES = [
   'content-script',
   'service-worker',
   'page',
   'shared',
+  'public',
   'runtime',
   'ignored'
 ] as const
@@ -29,13 +30,18 @@ const isServiceWorkerFile = (name: string) =>
   /(^|\/)service[-_]?worker\.(js|css|wasm)$/i.test(name)
 
 // The layout split-chunks reads: the script surfaces load one file each,
-// every other folder is a page the HTML links, copied public assets included.
-export function categorizeAsset(rawName: string): AssetCategory {
+// every other folder is a page the HTML links. A file the public/ copier
+// shipped as authored is told apart by its asset info, not by its path.
+export function categorizeAsset(
+  rawName: string,
+  info?: {copied?: boolean}
+): AssetCategory {
   const name = String(rawName || '').replace(/\\/g, '/')
   if (!name) return 'ignored'
   if (!isCodeAsset(name)) return 'ignored'
   if (isSourceMap(name)) return 'ignored'
   if (isHotUpdate(name)) return 'ignored'
+  if (info?.copied) return 'public'
   if (isSharedChunk(name)) return 'shared'
 
   const surface = classifyEntrySurface(name)
@@ -63,6 +69,7 @@ export const BUDGET_BYTES: Record<AssetCategory, number> = {
   'service-worker': 512 * 1024,
   page: 1024 * 1024,
   shared: 512 * 1024,
+  public: 1024 * 1024,
   runtime: 1024 * 1024,
   ignored: Number.POSITIVE_INFINITY
 }

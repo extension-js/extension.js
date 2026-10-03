@@ -208,24 +208,37 @@ function preloadEnvFiles(projectDir: string) {
 // which is what makes relative imports and import.meta.dirname stay correct.
 const IMPORT_META_ENV_GLOBAL = '__EXTENSION_IMPORT_META_ENV__'
 const IMPORT_META_ENV_HOOK = `
+import {readFileSync} from 'node:fs'
+import {fileURLToPath} from 'node:url'
+
 const CONFIG_FILE = /(^|\\/)extension\\.config\\.(js|mjs)$/
 
 export async function load(url, context, nextLoad) {
-  const loaded = await nextLoad(url, context)
+  if (!url.startsWith('file:') || !CONFIG_FILE.test(new URL(url).pathname)) {
+    return nextLoad(url, context)
+  }
 
-  if (loaded.format !== 'module' || !url.startsWith('file:')) return loaded
-  if (!CONFIG_FILE.test(new URL(url).pathname)) return loaded
+  let text
 
-  const text =
+  try {
+    text = readFileSync(fileURLToPath(url), 'utf8')
+  } catch {
+    return nextLoad(url, context)
+  }
+
+  if (!text.includes('import.meta.env')) return nextLoad(url, context)
+
+  // import.meta is module syntax, so the format is settled here. Left to
+  // Node, a package.json without "type" means a reparse and a warning per run.
+  const loaded = await nextLoad(url, {...context, format: 'module'})
+  const source =
     typeof loaded.source === 'string'
       ? loaded.source
       : Buffer.from(loaded.source).toString('utf8')
 
-  if (!text.includes('import.meta.env')) return loaded
-
   return {
     ...loaded,
-    source: text.replaceAll(
+    source: source.replaceAll(
       'import.meta.env',
       'globalThis.${IMPORT_META_ENV_GLOBAL}'
     )

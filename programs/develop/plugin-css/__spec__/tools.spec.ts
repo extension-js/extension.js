@@ -1,4 +1,5 @@
 import * as fs from 'node:fs'
+import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 const {toolsHasDependencyMock} = vi.hoisted(() => ({
@@ -75,7 +76,6 @@ describe('isContentScriptEntry', () => {
     const {isContentScriptEntry} = (await import(
       '../css-lib/is-content-script'
     )) as any
-    const path = require('node:path')
     const issuer = path.resolve('/project', 'content.js')
     const manifestPath = path.join('/project', 'manifest.json')
     expect(isContentScriptEntry(issuer, manifestPath, '/project')).toBe(true)
@@ -136,7 +136,10 @@ describe('css tools additional coverage', () => {
     const res = await maybeUsePostCss('/project', {mode: 'development'})
     expect(res.loader).toBeDefined()
     expect(String(res.loader)).toContain('postcss-loader')
-    expect(res.options?.postcssOptions?.config).toBe('/project')
+    expect(res.options?.postcssOptions?.config).toBe(
+      path.join('/project', 'postcss.config.js')
+    )
+
     expect(res.options?.postcssOptions?.plugins).toBeUndefined()
   })
 

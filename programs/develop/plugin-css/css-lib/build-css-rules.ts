@@ -8,6 +8,7 @@
 
 import type {RuleSetRule} from '@rspack/core'
 import {resolveDevelopDistFile} from '../../lib/develop-context'
+import {NOT_RAW_RESOURCE_QUERY} from '../../lib/resource-query'
 import type {DevOptions} from '../../types'
 import {commonStyleLoaders} from '../common-style-loaders'
 import {createSassLoaderOptions} from '../css-tools/sass'
@@ -204,6 +205,7 @@ export async function buildCssRules(
         exclude,
         type: ruleType,
         issuer,
+        resourceQuery: NOT_RAW_RESOURCE_QUERY,
         use,
         ...(parser ? {parser} : {})
       } as RuleSetRule
