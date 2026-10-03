@@ -33,7 +33,7 @@
     "test": "node scripts/run-test.mjs",
     "test:scripts": "node --test scripts/__spec__/*.spec.mjs",
     "test:cli": "node scripts/run-test.mjs cli",
-    "test:remote": "cross-env EXTENSION_TEST_REMOTE=true pnpm -C programs/create exec vitest run __spec__/examples-catalog.remote.spec.ts",
+    "test:remote": "pnpm compile && cross-env EXTENSION_TEST_REMOTE=true pnpm -C programs/create exec vitest run __spec__/examples-catalog.remote.spec.ts",
     "test:build": "node scripts/run-test.mjs develop",
     "test:dev": "node scripts/run-test.mjs develop",
     "test:e2e": "node scripts/run-e2e.mjs",

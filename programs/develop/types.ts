@@ -25,8 +25,19 @@ export interface ThemeExperiment {
   [key: string]: unknown
 }
 
-export type ChromeManifest = Partial<chrome.runtime.ManifestV2> &
-  Partial<chrome.runtime.ManifestV3> & {
+// Omit would drop every named key here, since ManifestBase carries a string
+// index signature, so the key is removed with a remapped mapped type instead.
+type WithoutManifestVersion<T> = {
+  [K in keyof T as Exclude<K, 'manifest_version'>]: T[K]
+}
+
+export type ChromeManifest = WithoutManifestVersion<
+  Partial<chrome.runtime.ManifestV2>
+> &
+  WithoutManifestVersion<Partial<chrome.runtime.ManifestV3>> & {
+    // Intersecting the two Partials collapses manifest_version to never, so
+    // it is declared once here with the two values the engine accepts.
+    manifest_version?: 2 | 3
     browser_action?: {
       theme_icons?: ThemeIcon[]
     }
