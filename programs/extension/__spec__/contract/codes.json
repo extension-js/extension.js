@@ -217,7 +217,7 @@
     },
     "E_REMOTE_ZIP_INVALID": {
       "area": "remote",
-      "summary": "The remote URL did not return a ZIP, or returned a damaged one that will not unpack."
+      "summary": "The remote URL did not return a ZIP, returned a damaged one that will not unpack, or one with an entry outside its folder."
     },
     "E_LOCAL_ZIP_NOT_FOUND": {
       "area": "remote",
@@ -241,7 +241,7 @@
     },
     "E_BROWSER_BINARY_INVALID": {
       "area": "browser-binary",
-      "summary": "The given binary path does not exist or is not executable."
+      "summary": "The given binary path does not exist, is not executable, or does not answer its version probe within 10 seconds."
     },
     "E_BROWSER_LAUNCH": {
       "area": "browser-binary",

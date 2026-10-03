@@ -43,7 +43,8 @@ export const CREATE_ERROR_NEEDLES = {
   E_DEPENDENCY_INSTALL: ["Couldn't install the dependencies"],
   E_REMOTE_ZIP_INVALID: [
     "The remote URL doesn't point to a ZIP archive",
-    'The ZIP archive at the remote URL is damaged'
+    'The ZIP archive at the remote URL is damaged',
+    'The ZIP archive at the remote URL contains a path outside its folder'
   ],
   E_INVALID_OPTION: [
     'A URL is not a valid project path',

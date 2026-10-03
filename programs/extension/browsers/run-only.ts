@@ -16,7 +16,13 @@ import {
 } from './browsers-lib/browser-family'
 import {browserNeverStarted} from './browsers-lib/messages'
 import {computeBinariesBaseDir} from './browsers-lib/output-binaries-resolver'
-import {claimReadyPath, describeLaunchFailure} from './browsers-lib/ready-stamp'
+import {
+  claimReadyPath,
+  describeLaunchFailure,
+  launchFailureCode,
+  readReadyRunId,
+  stampReadyBrowserLaunchFailed
+} from './browsers-lib/ready-stamp'
 import {buildBrowserLaunchRequest} from './browsers-lib/runtime-options'
 import {
   isVersionProbeTimeout,
@@ -279,7 +285,22 @@ export async function runOnlyPreviewBrowser(
 
   const compilationLike = createPreviewCompilationLike(opts)
   const previewPluginOptions = buildPreviewPluginOptions(opts)
-  const bannerOptions = await buildPreviewBannerOptions(opts)
+  let bannerOptions: Awaited<ReturnType<typeof buildPreviewBannerOptions>>
+
+  try {
+    bannerOptions = await buildPreviewBannerOptions(opts)
+  } catch (error) {
+    // The card probes a pin before any launcher runs, so a refusal here owes
+    // the contract the same verdict a launcher would have stamped.
+    stampReadyBrowserLaunchFailed(
+      opts.outPath,
+      describeLaunchFailure(error),
+      readReadyRunId(opts.outPath),
+      launchFailureCode(error)
+    )
+
+    throw error
+  }
 
   // Provide shared cache dir guidance to the runner (pretty install hints).
   // This matches the behavior expected by the chromium launcher guidance printer.

@@ -814,12 +814,23 @@ export function unpackagedSuccessfully() {
   return `${getLoggingPrefix('success')} Extension unpackaged.`
 }
 
-export function failedToDownloadOrExtractZIPFileError(error: unknown) {
+// Extraction failures carry their own code and block, so what lands here is
+// the download itself or the write of the unpacked files.
+export function failedToDownloadOrWriteZIPFileError(error: unknown) {
   return (
     `${getLoggingPrefix('error')} ` +
-    `Couldn't download or extract the ZIP file.\n` +
+    `Couldn't download the ZIP file or write it to disk.\n` +
     `${colors.gray('REASON')} ${colors.red(String(error))}\n` +
-    `Check the URL and your network, then try again.`
+    `Check the URL, your network and that the destination is writable, then try again.`
+  )
+}
+
+export function failedToWriteZIPFileError(error: unknown) {
+  return (
+    `${getLoggingPrefix('error')} ` +
+    `Couldn't write the unpacked ZIP file to disk.\n` +
+    `${colors.gray('REASON')} ${colors.red(String(error))}\n` +
+    `Check that the destination is writable, then try again.`
   )
 }
 
@@ -859,6 +870,28 @@ export function remoteZipDamaged(url: string, cause: unknown) {
     `${colors.gray('URL')} ${colors.underline(url)}\n` +
     `${colors.gray('REASON')} ${colors.red(detail)}\n` +
     `Try again, or download a good copy of the archive and pass the local path.`
+  )
+}
+
+// A path outside the folder is in the archive itself, so fetching it again
+// gets the same refusal and no retry is offered.
+export function zipEntryOutsideFolder(
+  source: {url: string} | {path: string},
+  entry: string
+) {
+  const where =
+    'url' in source ? 'The ZIP archive at the remote URL' : 'The ZIP file'
+  const row =
+    'url' in source
+      ? `${colors.gray('URL')} ${colors.underline(source.url)}`
+      : `${colors.gray('PATH')} ${colors.underline(source.path)}`
+
+  return (
+    `${getLoggingPrefix('error')} ` +
+    `${where} contains a path outside its folder, so it was refused. Nothing was written.\n` +
+    `${row}\n` +
+    `${colors.gray('ENTRY')} ${colors.red(entry)}\n` +
+    `Use an archive whose entries all stay inside its folder.`
   )
 }
 

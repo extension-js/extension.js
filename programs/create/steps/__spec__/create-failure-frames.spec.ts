@@ -1,6 +1,7 @@
 import * as fsp from 'node:fs/promises'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import {strToU8, zipSync} from 'fflate'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 vi.mock('go-git-it', () => ({default: vi.fn(async () => {})}))
@@ -31,6 +32,7 @@ import {
   InsecureTemplateUrlError,
   importExternalTemplate,
   TemplateArchiveDamagedError,
+  TemplateArchiveEntryOutsideError,
   TemplateDownloadError,
   TemplateNotFoundError,
   TemplateNotZipError
@@ -271,6 +273,73 @@ describe('a create refusal travels as one framed message on the thrown error', (
     expect(error.message).toContain(`URL ${override ?? template}`)
     expect(error.message).toContain('REASON invalid zip data')
     expectOneFrameAndNoStack(error, logger)
+  })
+
+  // The path is in the archive itself, so a retry gets the same refusal and
+  // none is offered. Every entry is vetted before the first write.
+  it.each([
+    [
+      'a template URL',
+      'https://example.com/t.zip',
+      undefined,
+      {
+        't/manifest.json': strToU8('{}'),
+        '../escaped.txt': strToU8('hostile')
+      },
+      '../escaped.txt'
+    ],
+    [
+      'a catalog override URL',
+      'react',
+      'https://example.com/catalog.zip',
+      {
+        'examples-main/examples/react/manifest.json': strToU8('{}'),
+        'examples-main/examples/react/../../../escaped.txt': strToU8('hostile')
+      },
+      'examples-main/examples/react/../../../escaped.txt'
+    ]
+  ])('for %s whose archive has an entry outside its folder', async (_label, template, override, files, entry) => {
+    if (override) process.env.EXTENSION_CREATE_TEMPLATE_URL = override
+
+    vi.mocked(axios.get).mockResolvedValue({
+      data: Buffer.from(zipSync(files)),
+      headers: {'content-type': 'application/zip'}
+    })
+
+    const projectPath = await makeProjectPath()
+    const staging = path.join(path.dirname(projectPath), 'staging')
+    await fsp.mkdir(staging)
+    const priorTmp = process.env.TMPDIR
+    process.env.TMPDIR = staging
+    const logger = makeLogger()
+
+    const error = (await importExternalTemplate(
+      projectPath,
+      'my-ext',
+      template,
+      logger,
+      {ownsProjectDir: true, allowOfflineFallback: false}
+    )
+      .catch((thrown: Error) => thrown)
+      .finally(() => {
+        if (priorTmp === undefined) delete process.env.TMPDIR
+        else process.env.TMPDIR = priorTmp
+      })) as Error
+
+    expect(error).toBeInstanceOf(TemplateArchiveEntryOutsideError)
+    expect(error).not.toBeInstanceOf(TemplateArchiveDamagedError)
+    expect(error.message).toContain(
+      'The ZIP archive at the remote URL contains a path outside its folder, so it was refused. Nothing was written.'
+    )
+
+    expect(error.message).toContain(`URL ${override ?? template}`)
+    expect(error.message).toContain(`ENTRY ${entry}`)
+    expect(error.message).not.toMatch(/damaged|try again/i)
+    expectOneFrameAndNoStack(error, logger)
+
+    // Nothing of the archive is left, in the project or where it was staged.
+    expect(await fsp.readdir(path.dirname(projectPath))).toEqual(['staging'])
+    expect(await fsp.readdir(staging)).toEqual([])
   })
 
   it('for a template URL the connection to which is refused', async () => {

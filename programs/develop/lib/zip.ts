@@ -47,7 +47,8 @@ function outsideDestination(name: string): Error {
 // or would unpack outside its folder, is told from an unwritable destination.
 function readEntries(
   zipBuffer: Buffer,
-  unreadable: (cause: unknown) => CodedError
+  unreadable: (cause: unknown) => CodedError,
+  outside: (entry: string) => CodedError
 ): ZipEntries {
   let entries: ZipEntries
 
@@ -60,7 +61,7 @@ function readEntries(
   const probeRoot = path.resolve(path.sep, 'extension-archive-root')
 
   for (const name of Object.keys(entries)) {
-    if (escapesRoot(probeRoot, name)) throw unreadable(outsideDestination(name))
+    if (escapesRoot(probeRoot, name)) throw outside(name)
   }
 
   return entries
@@ -126,7 +127,11 @@ function extractBuffer(entries: ZipEntries, destinationPath: string): void {
 
 // The message IS the printable block and the CLI prints the message of the
 // error it catches. Printing here as well is what showed every failure twice.
-function asZipError(error: unknown, code: ErrorCode): CodedError {
+function asZipError(
+  error: unknown,
+  code: ErrorCode,
+  frame: (error: unknown) => string
+): CodedError {
   const known = Object.values(CODES) as string[]
 
   // A refusal raised with its own code is already the block to print.
@@ -134,7 +139,7 @@ function asZipError(error: unknown, code: ErrorCode): CodedError {
     return error as CodedError
   }
 
-  return codedError(code, messages.failedToDownloadOrExtractZIPFileError(error))
+  return codedError(code, frame(error))
 }
 
 // Marks a tree as fetched by this tool from one source, which is what tells
@@ -263,11 +268,18 @@ export async function downloadAndExtractZip(
       )
     }
 
-    const entries = readEntries(zipBuffer, (cause) =>
-      codedError(
-        CODES.E_REMOTE_ZIP_INVALID,
-        messages.remoteZipDamaged(urlNoSearchParams, cause)
-      )
+    const entries = readEntries(
+      zipBuffer,
+      (cause) =>
+        codedError(
+          CODES.E_REMOTE_ZIP_INVALID,
+          messages.remoteZipDamaged(urlNoSearchParams, cause)
+        ),
+      (entry) =>
+        codedError(
+          CODES.E_REMOTE_ZIP_INVALID,
+          messages.zipEntryOutsideFolder({url: urlNoSearchParams}, entry)
+        )
     )
 
     extractBuffer(entries, destinationPath)
@@ -275,7 +287,11 @@ export async function downloadAndExtractZip(
 
     return destinationPath
   } catch (error) {
-    throw asZipError(error, CODES.E_REMOTE_DOWNLOAD)
+    throw asZipError(
+      error,
+      CODES.E_REMOTE_DOWNLOAD,
+      messages.failedToDownloadOrWriteZIPFileError
+    )
   }
 }
 
@@ -309,11 +325,18 @@ export async function extractLocalZip(
       )
     }
 
-    const entries = readEntries(zipBuffer, (cause) =>
-      codedError(
-        CODES.E_LOCAL_ZIP_NOT_FOUND,
-        messages.localZipUnreadable(zipFilePath, cause)
-      )
+    const entries = readEntries(
+      zipBuffer,
+      (cause) =>
+        codedError(
+          CODES.E_LOCAL_ZIP_NOT_FOUND,
+          messages.localZipUnreadable(zipFilePath, cause)
+        ),
+      (entry) =>
+        codedError(
+          CODES.E_LOCAL_ZIP_NOT_FOUND,
+          messages.zipEntryOutsideFolder({path: zipFilePath}, entry)
+        )
     )
 
     extractBuffer(entries, destinationPath)
@@ -321,6 +344,10 @@ export async function extractLocalZip(
 
     return destinationPath
   } catch (error) {
-    throw asZipError(error, CODES.E_LOCAL_ZIP_NOT_FOUND)
+    throw asZipError(
+      error,
+      CODES.E_LOCAL_ZIP_NOT_FOUND,
+      messages.failedToWriteZIPFileError
+    )
   }
 }
