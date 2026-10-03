@@ -62,7 +62,8 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "downloadingText: function(1)",
     "extensionLoadRecovered: function(0)",
     "extensionLoadStillRefused: function(1)",
-    "failedToDownloadOrExtractZIPFileError: function(1)",
+    "failedToDownloadOrWriteZIPFileError: function(1)",
+    "failedToWriteZIPFileError: function(1)",
     "fmt: object",
     "invalidRemoteZip: function(2)",
     "isUsingExperimentalConfig: function(1)",
@@ -103,6 +104,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "writingTypeDefinitionsError: function(1)",
     "zipArtifactNotCreated: function(3)",
     "zipArtifactReady: function(2)",
+    "zipEntryOutsideFolder: function(2)",
     "zipSkippedSymlinks: function(1)",
   ],
   "plugin-compatibility/compatibility-lib/messages.ts": [

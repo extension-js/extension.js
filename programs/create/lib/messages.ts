@@ -298,6 +298,23 @@ export function templateArchiveDamaged(
   )
 }
 
+// A path outside the folder is in the archive itself, so fetching it again
+// gets the same refusal and no retry is offered.
+export function templateArchiveEntryOutside(
+  url: string,
+  entry: string,
+  override?: string
+) {
+  return (
+    `${prefix('error')} The ZIP archive at the remote URL contains a path outside its folder, so it was refused. Nothing was written.\n` +
+    `${fmt.label('URL')} ${fmt.val(fmt.truncate(url, 160))}\n` +
+    `${fmt.label('ENTRY')} ${fmt.val(fmt.truncate(entry, 160))}\n` +
+    (override
+      ? `${fmt.label('SET BY')} ${fmt.val('EXTENSION_CREATE_TEMPLATE_URL')}\n${overrideRemedy()}`
+      : `${colors.red('Use an archive whose entries all stay inside its folder.')}`)
+  )
+}
+
 // The URL came from the environment and not the command line, so the remedy
 // names the variable to fix. No bundled template stands in for it.
 function overrideRemedy() {

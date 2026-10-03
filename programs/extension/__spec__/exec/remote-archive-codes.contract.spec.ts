@@ -62,6 +62,7 @@ describe('a remote archive, read by create and by develop', () => {
   let refused = ''
   let work = ''
   const homes: string[] = []
+  const slowHits: Array<{url: string; at: number}> = []
 
   beforeAll(async () => {
     server = http.createServer((req, res) => {
@@ -81,6 +82,7 @@ describe('a remote archive, read by create and by develop', () => {
         res.end(DAMAGED_ARCHIVE)
       } else if (url.startsWith('/slow/')) {
         // Never answered: the caller's own timeout has to end it.
+        slowHits.push({url, at: Date.now()})
       } else {
         res.writeHead(404)
         res.end('not here')
@@ -229,7 +231,7 @@ describe('a remote archive, read by create and by develop', () => {
     expect(result.createMessage).toContain('GOT text/html')
     expect(result.developMessage).toContain('GOT text/html')
     // The refusal is its own block, not the reason line of a download one.
-    expect(result.developMessage).not.toContain("Couldn't download or extract")
+    expect(result.developMessage).not.toContain("Couldn't download the ZIP")
   }, 120_000)
 
   it('codes a damaged archive the same in both', async () => {
@@ -251,8 +253,15 @@ describe('a remote archive, read by create and by develop', () => {
     expect(result.create).toBe('E_REMOTE_ZIP_INVALID')
     expect(result.develop).toBe('E_REMOTE_ZIP_INVALID')
 
+    // A retry fetches the same archive, so neither calls it damaged or
+    // offers one.
     for (const message of [result.createMessage, result.developMessage]) {
       expect(message).toContain('../escaped.txt')
+      expect(message).toContain(
+        'The ZIP archive at the remote URL contains a path outside its folder, so it was refused. Nothing was written.'
+      )
+
+      expect(message).not.toMatch(/damaged|try again/i)
     }
 
     expect(fs.existsSync(path.join(work, 'escaped.txt'))).toBe(false)
@@ -284,6 +293,48 @@ describe('a remote archive, read by create and by develop', () => {
     expect(run.stderr).not.toMatch(STACK_FRAME)
     expect(onlyFrame(run).error?.code).toBe('E_REMOTE_FETCH_TIMEOUT')
   }, 120_000)
+
+  // One budget for the whole fetch, as develop has: the retry used to start
+  // a second full wait, so a silent server held create twice as long.
+  it.each([
+    ['a template URL', (url: string) => ['-t', url], {}],
+    [
+      'a catalog override URL',
+      () => ['-t', 'react'],
+      (url: string) => ({EXTENSION_CREATE_TEMPLATE_URL: url})
+    ]
+  ] as const)(
+    'ends create within its fetch timeout for %s that never answers',
+    async (_label, args, extraEnv) => {
+      seq += 1
+      const bound = 4000
+      const url = `${origin}/slow/create-${seq}.zip`
+
+      const run = await runCli(
+        ['create', `./created-slow-${seq}`, ...args(url), '--output', 'json'],
+        {
+          env: {
+            EXTENSION_CREATE_TIMEOUT_MS: String(bound),
+            ...(typeof extraEnv === 'function' ? extraEnv(url) : extraEnv)
+          }
+        }
+      )
+      const ended = Date.now()
+      const hits = slowHits.filter((hit) => hit.url.includes(`create-${seq}`))
+
+      expect(run.status, run.stdout + run.stderr).toBe(1)
+      expect(run.stderr).not.toMatch(STACK_FRAME)
+      expect(hits).toHaveLength(1)
+      // Measured from the request, so a slow CLI start does not count.
+      expect(ended - hits[0].at).toBeLessThan(bound + 2500)
+
+      const frame = onlyFrame(run)
+      expect(frame.error?.code).toBe('E_NETWORK')
+      expect(frame.error?.message).toContain('No answer within 4 seconds')
+      expect(fs.existsSync(path.join(work, `created-slow-${seq}`))).toBe(false)
+    },
+    120_000
+  )
 
   // A remote that could not be fetched or unpacked is a run that failed, the
   // status dev gives it too, and never a usage error.

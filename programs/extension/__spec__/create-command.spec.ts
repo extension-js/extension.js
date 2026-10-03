@@ -179,6 +179,14 @@ describe('extension create', () => {
           'https://example.com/t.zip',
           'invalid zip data'
         )
+    ],
+    [
+      'E_REMOTE_ZIP_INVALID',
+      () =>
+        createMessages.templateArchiveEntryOutside(
+          'https://example.com/t.zip',
+          'examples-main/../escaped.txt'
+        )
     ]
   ]
 

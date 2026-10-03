@@ -20,6 +20,13 @@ import * as utils from '../lib/utils'
 // In-process unzip with a zip-slip guard: entries naming absolute paths or
 // escaping the destination throw, and symlink entries are never materialized
 // as symlinks, so a hostile template archive cannot write outside its dir.
+function escapesRoot(root: string, name: string): boolean {
+  const target = path.resolve(root, name.replace(/\\/g, '/'))
+  const relative = path.relative(root, target)
+
+  return !relative || relative.startsWith('..') || path.isAbsolute(relative)
+}
+
 async function extractZipBufferTo(
   zipBuffer: Buffer,
   destinationDir: string,
@@ -28,16 +35,17 @@ async function extractZipBufferTo(
   const root = path.resolve(destinationDir)
   const entries = unzipRemoteArchive(zipBuffer, sourceUrl)
 
+  // Every entry is vetted before the first write, so a refused archive
+  // leaves nothing behind.
+  for (const name of Object.keys(entries)) {
+    if (escapesRoot(root, name)) throw entryOutsideDestination(name, sourceUrl)
+  }
+
   await fs.mkdir(root, {recursive: true})
 
   for (const [name, data] of Object.entries(entries)) {
     const normalized = name.replace(/\\/g, '/')
     const target = path.resolve(root, normalized)
-    const relative = path.relative(root, target)
-
-    if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
-      throw entryOutsideDestination(name, sourceUrl)
-    }
 
     if (normalized.endsWith('/')) {
       await fs.mkdir(target, {recursive: true})
@@ -253,16 +261,25 @@ export class TemplateArchiveDamagedError extends Error {
   }
 }
 
-// An entry that would land outside the project is the archive's fault, so a
-// fetched one is refused like any archive that will not unpack.
-function entryOutsideDestination(name: string, sourceUrl?: string): Error {
-  const refusal = new Error(
-    `Refusing to extract zip entry outside the destination: ${name}`
-  )
+// An entry that would land outside the project is refused on purpose, and a
+// retry fetches the same archive, so it is not reported as a damaged one.
+export class TemplateArchiveEntryOutsideError extends Error {
+  readonly url: string
+  readonly entry: string
+  constructor(url: string, entry: string) {
+    super(`template archive has an entry outside its folder: ${entry}`)
+    this.name = 'TemplateArchiveEntryOutsideError'
+    this.url = url
+    this.entry = entry
+  }
+}
 
+function entryOutsideDestination(name: string, sourceUrl?: string): Error {
   return sourceUrl
-    ? new TemplateArchiveDamagedError(sourceUrl, refusal)
-    : refusal
+    ? new TemplateArchiveEntryOutsideError(sourceUrl, name)
+    : new Error(
+        `Refusing to extract zip entry outside the destination: ${name}`
+      )
 }
 
 function unzipRemoteArchive(zipBuffer: Buffer, sourceUrl?: string) {
@@ -300,21 +317,50 @@ function describeNonZipResponse(contentType: string, body: Buffer): string {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
+// One budget for the whole fetch, retries included, like the remote source
+// fetch in develop. A per-attempt timeout let a silent server double it.
+type FetchBudget = {deadline: number; ms: number}
+
+function startFetchBudget(ms: number): FetchBudget {
+  return {deadline: Date.now() + ms, ms}
+}
+
+function fetchBudgetSpent(budget: FetchBudget): Error {
+  return new Error(
+    `No answer within ${Math.round(budget.ms / 1000)} seconds (EXTENSION_CREATE_TIMEOUT_MS)`
+  )
+}
+
+// The budget ran out, by the clock or by the abort it armed.
+function budgetSpentBy(error: unknown, budget: FetchBudget): boolean {
+  const code = (error as {code?: unknown} | null)?.code
+
+  return (
+    Date.now() >= budget.deadline ||
+    code === 'ERR_CANCELED' ||
+    code === 'ECONNABORTED'
+  )
+}
+
 // Fetch a repo tarball over plain HTTP (codeload), NOT a git pack negotiation:
 // no git child, so no credential-helper hang (#56). One retry with backoff.
 async function downloadArchive(
   url: string,
-  timeoutMs: number,
+  budget: FetchBudget,
   attempts = 2
 ): Promise<{body: Buffer; contentType: string}> {
   let lastError: unknown
 
   for (let attempt = 1; attempt <= attempts; attempt++) {
+    const remaining = budget.deadline - Date.now()
+    if (remaining <= 0) throw fetchBudgetSpent(budget)
+
     try {
       const {data, headers} = await axios.get(url, {
         responseType: 'arraybuffer',
         maxRedirects: 5,
-        timeout: timeoutMs,
+        timeout: remaining,
+        signal: AbortSignal.timeout(remaining),
         headers: {'User-Agent': 'extension-create'},
         beforeRedirect: refuseHttpRedirect
       })
@@ -326,6 +372,7 @@ async function downloadArchive(
     } catch (error) {
       lastError = error
       if (findInsecureTemplateUrlError(error)) break
+      if (budgetSpentBy(error, budget)) throw fetchBudgetSpent(budget)
 
       // A deterministic 4xx (a ref that does not exist) will not change on a
       // retry; only back off for network errors, rate limits, and 5xx.
@@ -333,7 +380,7 @@ async function downloadArchive(
       const retriable = status === undefined || status === 429 || status >= 500
       if (attempt >= attempts || !retriable) break
 
-      await sleep(400 * attempt)
+      await sleep(Math.min(400 * attempt, budget.deadline - Date.now()))
     }
   }
 
@@ -365,17 +412,21 @@ export async function extractExamplesTemplateFromZip(
   const root = path.resolve(projectPath)
   let written = 0
 
+  // Zip-slip guard: a hostile archive must not write outside the project,
+  // and every entry is vetted before the first write.
+  for (const [name] of files) {
+    const rel = name.slice(wanted.length)
+
+    if (rel && escapesRoot(root, rel)) {
+      throw entryOutsideDestination(name, sourceUrl)
+    }
+  }
+
   for (const [name, data] of files) {
     const rel = name.slice(wanted.length)
     if (!rel) continue
 
     const dest = path.resolve(root, rel)
-    const relative = path.relative(root, dest)
-
-    // Zip-slip guard: a hostile archive must not write outside the project.
-    if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
-      throw entryOutsideDestination(name, sourceUrl)
-    }
 
     await fs.mkdir(path.dirname(dest), {recursive: true})
     await fs.writeFile(dest, data)
@@ -401,6 +452,7 @@ async function importFromExamplesCatalog(
   }
 
   const urls = resolveCatalogUrls(ref, overrideUrl)
+  const budget = startFetchBudget(NETWORK_TIMEOUT_MS)
 
   let buffer: Buffer | undefined
   let contentType = ''
@@ -411,7 +463,7 @@ async function importFromExamplesCatalog(
   // present-but-missing slug still surfaces as TemplateNotFoundError below.
   for (const candidate of urls) {
     try {
-      const reply = await downloadArchive(candidate, NETWORK_TIMEOUT_MS)
+      const reply = await downloadArchive(candidate, budget)
       buffer = reply.body
       contentType = reply.contentType
       source = candidate
@@ -803,6 +855,8 @@ export async function importExternalTemplate(
   const ownerGitignore = dirExistedBeforeImport
     ? await readOwnerGitignore(projectPath)
     : null
+  // The staging folder an archive unpacks into, removed on every way out.
+  let tempRoot: string | undefined
 
   try {
     if (isRefusedHttpTemplateUrl(template)) {
@@ -858,9 +912,7 @@ export async function importExternalTemplate(
       // Bundled copy missing (unexpected): fall through to the network fetch
     }
 
-    const tempRoot = await fs.mkdtemp(
-      path.join(os.tmpdir(), 'extension-js-create-')
-    )
+    tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'extension-js-create-'))
     const tempPath = path.join(tempRoot, `${projectName}-temp`)
     await fs.mkdir(tempPath, {recursive: true})
 
@@ -950,15 +1002,24 @@ export async function importExternalTemplate(
     } else if (isHttp) {
       // Typed for the same reason as the GitHub branch above: a ZIP URL that
       // answers with a 404 or an HTML page is the user's URL to fix, not a
-      // fault to report with our stack.
-      const data = await fetchZipArchive().catch((fetchError: unknown) => {
+      // fault to report with our stack. axios times out an idle socket and
+      // not a reply that trickles in, so the whole fetch gets one budget.
+      const budget = startFetchBudget(NETWORK_TIMEOUT_MS)
+      const data = await withTimeout(fetchZipArchive(), budget.ms, () =>
+        fetchBudgetSpent(budget)
+      ).catch((fetchError: unknown) => {
         // A downgrade refusal and a reply that is not an archive are their
         // own frames and must keep their own types.
         throw (
           findInsecureTemplateUrlError(fetchError) ??
           (fetchError instanceof TemplateNotZipError
             ? fetchError
-            : new TemplateDownloadError(template, fetchError))
+            : new TemplateDownloadError(
+                template,
+                budgetSpentBy(fetchError, budget)
+                  ? fetchBudgetSpent(budget)
+                  : fetchError
+              ))
         )
       })
 
@@ -987,8 +1048,6 @@ export async function importExternalTemplate(
     if (droppedLockfiles.length) {
       logger.log(messages.removedStaleTemplateLockfiles(droppedLockfiles))
     }
-
-    await fs.rm(tempRoot, {recursive: true, force: true})
 
     return provenance
   } catch (error) {
@@ -1050,19 +1109,28 @@ export async function importExternalTemplate(
             )
         : error instanceof TemplateNotZipError
           ? messages.templateUrlNotZip(error.url, error.got, catalogOverride)
-          : error instanceof TemplateArchiveDamagedError
-            ? messages.templateArchiveDamaged(
+          : error instanceof TemplateArchiveEntryOutsideError
+            ? messages.templateArchiveEntryOutside(
                 error.url,
-                error.reason,
+                error.entry,
                 catalogOverride
               )
-            : error instanceof TemplateDownloadError
-              ? isHttp
-                ? messages.templateUrlFetchFailed(template, error)
-                : catalogOverride
-                  ? messages.templateOverrideFetchFailed(catalogOverride, error)
-                  : messages.templateDownloadFailed(templateName, error)
-              : null
+            : error instanceof TemplateArchiveDamagedError
+              ? messages.templateArchiveDamaged(
+                  error.url,
+                  error.reason,
+                  catalogOverride
+                )
+              : error instanceof TemplateDownloadError
+                ? isHttp
+                  ? messages.templateUrlFetchFailed(template, error)
+                  : catalogOverride
+                    ? messages.templateOverrideFetchFailed(
+                        catalogOverride,
+                        error
+                      )
+                    : messages.templateDownloadFailed(templateName, error)
+                : null
 
     // A step that framed its own refusal (an output path inside the template)
     // already carries the one frame the CLI prints.
@@ -1082,5 +1150,9 @@ export async function importExternalTemplate(
     if (frame !== null && error instanceof Error) error.message = frame
 
     throw error
+  } finally {
+    if (tempRoot) {
+      await fs.rm(tempRoot, {recursive: true, force: true}).catch(() => {})
+    }
   }
 }

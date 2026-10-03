@@ -294,6 +294,9 @@ describe('the error-code table', () => {
 describe('a summary names the causes its code covers', () => {
   it.each([
     ['E_REMOTE_ZIP_INVALID', /not return a ZIP/, /damaged/],
+    ['E_REMOTE_ZIP_INVALID', /entry outside its folder/, /damaged/],
+    ['E_BROWSER_BINARY_INVALID', /not executable/, /does not exist/],
+    ['E_BROWSER_BINARY_INVALID', /version probe/, /within 10 seconds/],
     ['E_REMOTE_DOWNLOAD', /downloaded/, /written/],
     ['E_CONFIG_LOAD', /threw/, /not export an object/]
   ])('%s', (code, first, second) => {

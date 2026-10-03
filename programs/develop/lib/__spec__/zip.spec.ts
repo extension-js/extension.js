@@ -141,7 +141,7 @@ describe('extractLocalZip', () => {
     )
 
     expect(error?.message).toMatch(/wasn't extracted from this ZIP file/i)
-    expect(error?.message).not.toMatch(/Couldn't download or extract/i)
+    expect(error?.message).not.toMatch(/Couldn't download the ZIP file/i)
     expect(fs.readdirSync(stranger)).toEqual(['keep-me.txt'])
   })
 
@@ -210,8 +210,14 @@ describe('downloadAndExtractZip', () => {
     )
 
     expect(error?.code).toBe('E_REMOTE_ZIP_INVALID')
-    expect(error?.message).toMatch(/Refusing to extract zip entry/i)
-    expect(error?.message).not.toMatch(/Couldn't download or extract/i)
+    // A retry fetches the same archive, so this is no damaged download.
+    expect(error?.message).toContain(
+      'The ZIP archive at the remote URL contains a path outside its folder, so it was refused. Nothing was written.'
+    )
+
+    expect(error?.message).toContain('ENTRY ../escapes.txt')
+    expect(error?.message).not.toMatch(/damaged|try again/i)
+    expect(error?.message).not.toMatch(/Couldn't download the ZIP file/i)
 
     expect(fs.existsSync(path.join(target, 'examples'))).toBe(false)
     expect(fs.readdirSync(target)).toEqual([])
@@ -237,7 +243,7 @@ describe('downloadAndExtractZip', () => {
 
     // The refusal is its own block, not the reason line of a download failure.
     expect(error?.message).toMatch(/isn't a download from this URL/i)
-    expect(error?.message).not.toMatch(/Couldn't download or extract/i)
+    expect(error?.message).not.toMatch(/Couldn't download the ZIP file/i)
     expect(fs.readdirSync(stranger)).toEqual(['keep-me.txt'])
   })
 
@@ -263,7 +269,7 @@ describe('downloadAndExtractZip', () => {
       .map((call) => String(call[0]))
       .join('\n')
 
-    const needle = "Couldn't download or extract the ZIP file."
+    const needle = "Couldn't download the ZIP file or write it to disk."
     const haystack = `${printedHere}\n${printedByTheCli}`
 
     expect(haystack.split(needle).length - 1).toBe(1)
@@ -324,7 +330,7 @@ describe('the code a remote archive failure carries', () => {
 
     expect(code).toBe('E_REMOTE_ZIP_INVALID')
     expect(message).toMatch(sentence)
-    expect(message).not.toMatch(/Couldn't download or extract/)
+    expect(message).not.toMatch(/Couldn't download the ZIP file/)
     expect(message.match(/⏵⏵⏵/g)).toHaveLength(1)
   })
 
@@ -335,7 +341,42 @@ describe('the code a remote archive failure carries', () => {
     })
 
     expect(code).toBe('E_REMOTE_DOWNLOAD')
-    expect(message).toMatch(/Couldn't download or extract/)
+    // Unpacking is never this code's, so its message names only the two
+    // things it covers.
+    expect(message).toMatch(
+      /Couldn't download the ZIP file or write it to disk\./
+    )
+
+    expect(message).not.toMatch(/extract|unpack/i)
+  })
+
+  it('refuses a local file with an entry outside its folder in its own words', async () => {
+    const root = makeTempDir('extjs-zip-local-outside-')
+    const zipPath = path.join(root, 'hostile.zip')
+    fs.writeFileSync(
+      zipPath,
+      Buffer.from(
+        zipSync({
+          'manifest.json': strToU8('{}'),
+          '../escapes.txt': strToU8('hostile')
+        })
+      )
+    )
+
+    const target = makeTempDir('extjs-zip-local-outside-out-')
+    const error = await extractLocalZip(zipPath, target).then(
+      () => undefined,
+      (reason: Error & {code?: string}) => reason
+    )
+
+    expect(error?.code).toBe('E_LOCAL_ZIP_NOT_FOUND')
+    expect(error?.message).toContain(
+      'The ZIP file contains a path outside its folder, so it was refused. Nothing was written.'
+    )
+
+    expect(error?.message).toContain('ENTRY ../escapes.txt')
+    expect(error?.message).not.toMatch(/isn't a ZIP archive|try again/i)
+    expect(fs.readdirSync(target)).toEqual([])
   })
 
   it('gives a local file that will not unpack its own block, with no URL advice', async () => {
