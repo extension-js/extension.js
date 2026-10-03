@@ -33,7 +33,7 @@ const mockedSvelte = {
   plugins: [{apply: vi.fn()}]
 } as any
 const transpilePackagesMocks = vi.hoisted(() => ({
-  resolveTranspilePackageDirs: vi.fn(() => []),
+  resolveTranspilePackageDirs: vi.fn((): string[] => []),
   isSubPath: vi.fn(
     (resourcePath: string, directoryPath: string) =>
       resourcePath === directoryPath ||

@@ -6,7 +6,7 @@ const extensionPreview = vi.fn(
     launcher({launched: true})
   }
 )
-const runWaitMode = vi.fn(async () => ({
+const runWaitMode = vi.fn(async (_input: unknown) => ({
   format: 'json' as const,
   browsers: ['chromium'],
   results: [{browser: 'chromium', ok: true}]
@@ -29,7 +29,7 @@ vi.mock('../browsers/run-only', () => ({
 vi.mock('../commands/dev-wait', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../commands/dev-wait')>()
 
-  return {...actual, runWaitMode: (input: unknown) => runWaitMode(input as any)}
+  return {...actual, runWaitMode: (input: unknown) => runWaitMode(input)}
 })
 
 import {runOnlyPreviewBrowser} from '../browsers/run-only'
@@ -141,7 +141,7 @@ describe('extension start', () => {
   })
 
   it('enables author diagnostics with --author', async () => {
-    delete process.env.EXTENSION_AUTHOR_MODE
+    Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')
     delete process.env.EXTENSION_VERBOSE
     expect(await run(['start', '.', '--author'])).toBe(0)
     expect(process.env.EXTENSION_AUTHOR_MODE).toBe('true')

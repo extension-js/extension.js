@@ -1,7 +1,15 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type MockInstance,
+  vi
+} from 'vitest'
 
 const spawnMock = vi.hoisted(() => vi.fn())
 vi.mock('cross-spawn', () => ({
@@ -65,17 +73,15 @@ describe('install module exports', () => {
 describe('extensionUninstall against a temp cache root', () => {
   const prevEnv = {...process.env}
   let cacheRoot = ''
-  let logSpy: ReturnType<typeof vi.spyOn>
-  let stdoutSpy: ReturnType<typeof vi.spyOn>
+  let logSpy: MockInstance<typeof console.log>
+  let stdoutSpy: MockInstance<typeof process.stdout.write>
 
   beforeEach(() => {
     cacheRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-uninstall-'))
     process.env.EXT_BROWSERS_CACHE_DIR = cacheRoot
     fs.mkdirSync(path.join(cacheRoot, 'chrome'), {recursive: true})
     logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-    stdoutSpy = vi
-      .spyOn(process.stdout, 'write')
-      .mockImplementation(() => true)
+    stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
   })
 
   afterEach(() => {

@@ -1,7 +1,15 @@
 import fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type MockInstance,
+  vi
+} from 'vitest'
 
 const bridge = {
   ready: {controlPort: 9123, instanceId: 'inst-1'} as unknown,
@@ -48,8 +56,8 @@ vi.mock('../helpers/extension-develop-runtime', () => ({
 import {registerActCommands} from '../commands/act'
 import {makeProgram, runCli, stubProcessExit} from './command-harness'
 
-let logSpy: ReturnType<typeof vi.spyOn>
-let errorSpy: ReturnType<typeof vi.spyOn>
+let logSpy: MockInstance<typeof console.log>
+let errorSpy: MockInstance<typeof console.error>
 
 beforeEach(() => {
   stubProcessExit()
@@ -237,7 +245,10 @@ describe('numeric flags', () => {
 
   it('refuses a negative --tab on navigate', async () => {
     expect(
-      await refusal(['navigate', 'https://example.test/', '--tab', '-3'], '--tab')
+      await refusal(
+        ['navigate', 'https://example.test/', '--tab', '-3'],
+        '--tab'
+      )
     ).toMatchObject({
       command: 'navigate',
       status: 'usage',

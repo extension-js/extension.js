@@ -2,6 +2,7 @@ import {afterEach, describe, expect, it, vi} from 'vitest'
 import {
   bindDevSessionRestart,
   canAutoRestartDevSession,
+  type DevSessionRestartRequest,
   DevSessionRestartScheduler,
   isCompilerRestarting,
   requestDevSessionRestart,
@@ -39,7 +40,7 @@ describe('DevSessionRestartScheduler', () => {
     let release: () => void = () => {}
 
     const handler = vi.fn(
-      () =>
+      (_request: DevSessionRestartRequest) =>
         new Promise<void>((resolve) => {
           release = resolve
         })

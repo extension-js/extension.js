@@ -79,6 +79,76 @@ test('every ci:test script a workflow names exists', () => {
   }
 })
 
+test('every test script a workflow runs through pnpm at the root exists', () => {
+  let seen = 0
+
+  for (const file of fs.readdirSync(workflowsDir)) {
+    // A step with a working-directory runs another package's scripts, so
+    // only the steps that run at the repo root are held to this package.json.
+    const steps = workflow(file)
+      .split(/\n\s+- (?=name: |uses: )/)
+      .filter((chunk) => !/^\s+working-directory: /m.test(chunk))
+
+    for (const chunk of steps) {
+      const names = [
+        ...chunk.matchAll(/pnpm (?:run )?(test:[a-z0-9:-]+)/g)
+      ].map((m) => m[1])
+
+      for (const name of names) {
+        seen += 1
+        assert.ok(scripts[name], `${file}: ${name}`)
+      }
+    }
+  }
+
+  assert.ok(seen > 0)
+})
+
+test('the nightly examples catalog lane fetches through codeload and reports red', () => {
+  const lane = workflow('programs-nightly.yml')
+  const job = jobSection(lane, 'examples-catalog')
+
+  assert.match(lane, /cron: /)
+  assert.match(job, /issues: write/)
+  assert.match(job, /uses: \.\/\.github\/actions\/setup/)
+  assert.ok(!job.includes('|| true'))
+  assert.ok(!job.includes('continue-on-error'))
+
+  const fetch = step(job, 'Scaffold from the real examples catalog')
+  assert.match(fetch, /^\s+run: pnpm test:remote$/m)
+
+  assert.match(
+    step(job, 'Report a red lane'),
+    /if: failure\(\)[\s\S]*RED_LANE_REPRO[\s\S]*pnpm test:remote[\s\S]*report-red-lane\.sh "Nightly examples catalog"/
+  )
+
+  assert.match(
+    step(job, 'Close the red lane'),
+    /if: success\(\)[\s\S]*close-red-lane\.sh "Nightly examples catalog"/
+  )
+
+  // The script itself must opt into the network and run the one spec that is
+  // allowed to reach the catalog, or the lane goes green without a fetch.
+  const remote = scripts['test:remote']
+  assert.match(remote, /EXTENSION_TEST_REMOTE=true/)
+  const specs = [...remote.matchAll(/(\S+\.remote\.spec\.ts)/g)].map(
+    (m) => m[1]
+  )
+  assert.ok(specs.length > 0, remote)
+
+  for (const spec of specs) {
+    const file = path.join(root, 'programs', 'create', spec)
+    assert.ok(fs.existsSync(file), file)
+    assert.match(fs.readFileSync(file, 'utf8'), /codeload\.github\.com/)
+  }
+
+  const guard = fs.readFileSync(
+    path.join(root, 'programs', 'create', '__spec__', 'forbid-network.ts'),
+    'utf8'
+  )
+  assert.match(guard, /if \(!process\.env\.EXTENSION_TEST_REMOTE\)/)
+})
+
 test('the ci passed gate waits on every other job and reads each result', () => {
   const ci = workflow('ci.yml')
   const jobs = [

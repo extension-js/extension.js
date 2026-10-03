@@ -1,5 +1,6 @@
 import type {Compilation} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
+import type {FilepathList} from '../../../types'
 import {
   collectContentScriptAsyncChunkFiles,
   collectContentScriptEntryImports,
@@ -36,7 +37,7 @@ function makeCompilationMock(entries: Record<string, string[]>) {
   return {
     entrypoints,
     chunkGraph
-  } as Compilation
+  } as unknown as Compilation
 }
 
 describe('collectContentScriptEntryImports', () => {
@@ -46,10 +47,10 @@ describe('collectContentScriptEntryImports', () => {
       background: ['bg.map']
     })
 
-    const includeList = {
+    const includeList: FilepathList = {
       'content_scripts/content-a': 'src/content-a.ts',
       background: 'src/bg.ts'
-    } as Compilation
+    }
 
     const res = collectContentScriptEntryImports(compilation, includeList)
     expect(res['content_scripts/content-a']).toEqual(['a.css', 'a.svg'])

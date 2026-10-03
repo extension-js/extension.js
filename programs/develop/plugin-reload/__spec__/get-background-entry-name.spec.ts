@@ -32,10 +32,10 @@ function makeProject(files: string[] = []) {
 describe('getBackgroundEntryName', () => {
   it('names the declared service worker when its file exists', () => {
     const manifestDir = makeProject(['background/index.js'])
-    const manifest: Manifest = {
+    const manifest = {
       manifest_version: 3,
       background: {service_worker: 'background/index.js'}
-    }
+    } as Manifest
 
     expect(getBackgroundEntryName(manifest, 'chrome', {manifestDir})).toEqual({
       serviceWorkerEntry: 'background/service_worker',
@@ -63,7 +63,7 @@ describe('getBackgroundEntryName', () => {
     const manifest = {
       manifest_version: 3,
       background: {service_worker: 'sw.js', scripts: ['background.js']}
-    } as Manifest
+    } as unknown as Manifest
 
     const result = getBackgroundEntryName(manifest, 'chrome', {manifestDir})
     expect(result.serviceWorkerEntry).toBe('background/service_worker')
@@ -71,10 +71,10 @@ describe('getBackgroundEntryName', () => {
 
   it('omits the worker entry when the service worker file is missing', () => {
     const manifestDir = makeProject()
-    const manifest: Manifest = {
+    const manifest = {
       manifest_version: 3,
       background: {service_worker: 'background/missing.js'}
-    }
+    } as Manifest
 
     expect(getBackgroundEntryName(manifest, 'chrome', {manifestDir})).toEqual({
       tryCatchWrapper: true,
@@ -120,7 +120,7 @@ describe('getBackgroundEntryName', () => {
 
   it('falls back to the plain background page entry with no background key', () => {
     const manifestDir = makeProject()
-    const manifest: Manifest = {manifest_version: 3}
+    const manifest = {manifest_version: 3} as Manifest
 
     const result = getBackgroundEntryName(manifest, 'chrome', {manifestDir})
     expect(result.pageEntry).toBe('background')

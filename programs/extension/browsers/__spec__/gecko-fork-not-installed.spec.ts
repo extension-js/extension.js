@@ -1,7 +1,15 @@
 import {mkdtempSync, rmSync, writeFileSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type MockInstance,
+  vi
+} from 'vitest'
 import {createFirefoxContext} from '../run-firefox/firefox-context'
 import {FirefoxLaunchPlugin} from '../run-firefox/firefox-launch'
 
@@ -20,7 +28,7 @@ vi.mock('floorp-location', () => ({
 }))
 
 const dirs: string[] = []
-let errors: ReturnType<typeof vi.spyOn>
+let errors: MockInstance<typeof console.error>
 let tmp: string
 
 function compilation() {

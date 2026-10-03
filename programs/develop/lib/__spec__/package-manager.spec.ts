@@ -19,7 +19,7 @@ const fakeChild = {
     return fakeChild
   }
 }
-const spawnMock = vi.fn(() => fakeChild)
+const spawnMock = vi.fn((..._args: unknown[]) => fakeChild)
 
 vi.mock('child_process', () => ({
   execFileSync: vi.fn(),

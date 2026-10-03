@@ -430,12 +430,9 @@ describe('webpack/command-dev', () => {
   })
 
   it('rejects on failure so the CLI wrapper can frame or exit it', async () => {
-    const exitSpy = vi
-      .spyOn(process, 'exit')
-      // @ts-expect-error
-      .mockImplementation(() => {
-        throw new Error('exit 1')
-      })
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
+      throw new Error('exit 1')
+    })
 
     ;(devServerMod as any).devServer.mockImplementationOnce(async () => {
       throw new Error('boom')

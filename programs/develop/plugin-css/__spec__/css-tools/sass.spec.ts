@@ -1,7 +1,9 @@
 import {beforeEach, describe, expect, it, vi} from 'vitest'
 
 const {sassHasDependencyMock} = vi.hoisted(() => ({
-  sassHasDependencyMock: vi.fn(() => false)
+  sassHasDependencyMock: vi.fn(
+    (_projectPath: string, _dependency: string) => false
+  )
 }))
 
 vi.mock('../../../lib/has-dependency', () => ({

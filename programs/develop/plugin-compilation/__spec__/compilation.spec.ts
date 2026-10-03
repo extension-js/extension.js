@@ -1,4 +1,12 @@
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type MockInstance,
+  vi
+} from 'vitest'
 
 vi.mock('fs', async () => {
   const actual: any = await vi.importActual('fs')
@@ -77,9 +85,9 @@ vi.mock('case-sensitive-paths-webpack-plugin', () => ({
 import {CompilationPlugin} from '../index'
 
 describe('CompilationPlugin', () => {
-  let consoleLogSpy: ReturnType<typeof vi.spyOn>
-  let consoleWarnSpy: ReturnType<typeof vi.spyOn>
-  let stdoutWriteSpy: ReturnType<typeof vi.spyOn>
+  let consoleLogSpy: MockInstance<typeof console.log>
+  let consoleWarnSpy: MockInstance<typeof console.warn>
+  let stdoutWriteSpy: MockInstance<typeof process.stdout.write>
   const originalBrowserLaunchEnabled =
     process.env.EXTENSION_BROWSER_LAUNCH_ENABLED
 

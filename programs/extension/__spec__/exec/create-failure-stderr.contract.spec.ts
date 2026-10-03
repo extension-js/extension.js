@@ -58,7 +58,7 @@ function serveArchive(status: number): Promise<{
 
 function runCreate(
   args: string[],
-  env: NodeJS.ProcessEnv,
+  env: Record<string, string>,
   prepare?: (work: string) => void
 ): Promise<{status: number | null; stderr: string}> {
   const work = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-create-stderr-'))

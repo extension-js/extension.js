@@ -1,6 +1,7 @@
 import {spawn} from 'node:child_process'
 import * as fs from 'node:fs'
 import {createServer, type Server} from 'node:http'
+import type {AddressInfo} from 'node:net'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {strToU8, zipSync} from 'fflate'
@@ -59,8 +60,7 @@ describe('extension create from remote', () => {
       })
       srv.listen(0, '127.0.0.1', () => {
         server = srv
-        // @ts-expect-error
-        resolve((srv.address() as any).port)
+        resolve((srv.address() as AddressInfo).port)
       })
     })
     const url = `http://127.0.0.1:${port}/template.zip`
@@ -135,8 +135,7 @@ describe('extension create from remote', () => {
       })
       srv.listen(0, '127.0.0.1', () => {
         server = srv
-        // @ts-expect-error
-        resolve((srv.address() as any).port)
+        resolve((srv.address() as AddressInfo).port)
       })
     })
     const url = `http://127.0.0.1:${port}/template.zip`
@@ -220,8 +219,7 @@ describe('extension create from remote', () => {
         })
         srv.listen(0, '127.0.0.1', () => {
           server = srv
-          // @ts-expect-error
-          resolve((srv.address() as any).port)
+          resolve((srv.address() as AddressInfo).port)
         })
       })
       const url = `http://127.0.0.1:${port}/content-react.edge.zip`

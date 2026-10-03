@@ -1,7 +1,15 @@
 import * as fs from 'node:fs'
 import os from 'node:os'
 import * as path from 'node:path'
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type MockInstance,
+  vi
+} from 'vitest'
 import {
   getProjectPath,
   getProjectStructure,
@@ -48,11 +56,13 @@ describe('get-project-path', () => {
     const url =
       'https://github.com/extension-js/examples/releases/download/nightly/content-react.chrome.zip'
     const cwd = process.cwd()
-    const downloadAndExtractZip = vi.fn(async () => {
-      fs.mkdirSync(extracted, {recursive: true})
+    const downloadAndExtractZip = vi.fn(
+      async (_zipUrl: string, _targetPath: string) => {
+        fs.mkdirSync(extracted, {recursive: true})
 
-      return extracted
-    })
+        return extracted
+      }
+    )
 
     try {
       process.chdir(root)
@@ -482,17 +492,17 @@ describe('get-project-path (GitHub source)', () => {
   const rateLimitLine =
     'GitHub API rate limit reached, continuing without connectivity check...'
 
-  let stdoutSpy: ReturnType<typeof vi.spyOn>
-  let stderrSpy: ReturnType<typeof vi.spyOn>
-  let logSpy: ReturnType<typeof vi.spyOn>
+  let stdoutSpy: MockInstance<typeof process.stdout.write>
+  let stderrSpy: MockInstance<typeof process.stderr.write>
+  let logSpy: MockInstance<typeof console.log>
   let prevDebug: string | undefined
   let prevAuthor: string | undefined
 
   beforeEach(() => {
     prevDebug = process.env.EXTENSION_DEBUG
     prevAuthor = process.env.EXTENSION_AUTHOR_MODE
-    delete process.env.EXTENSION_DEBUG
-    delete process.env.EXTENSION_AUTHOR_MODE
+    Reflect.deleteProperty(process.env, 'EXTENSION_DEBUG')
+    Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')
     stdoutSpy = vi
       .spyOn(process.stdout, 'write')
       .mockImplementation((() => true) as never)
@@ -508,16 +518,18 @@ describe('get-project-path (GitHub source)', () => {
     stdoutSpy.mockRestore()
     stderrSpy.mockRestore()
     logSpy.mockRestore()
-    if (prevDebug === undefined) delete process.env.EXTENSION_DEBUG
-    else process.env.EXTENSION_DEBUG = prevDebug
-    if (prevAuthor === undefined) delete process.env.EXTENSION_AUTHOR_MODE
-    else process.env.EXTENSION_AUTHOR_MODE = prevAuthor
+    if (prevDebug === undefined) {
+      Reflect.deleteProperty(process.env, 'EXTENSION_DEBUG')
+    } else process.env.EXTENSION_DEBUG = prevDebug
+    if (prevAuthor === undefined) {
+      Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')
+    } else process.env.EXTENSION_AUTHOR_MODE = prevAuthor
 
     vi.doUnmock('go-git-it')
     vi.doUnmock('../zip')
   })
 
-  const writtenTo = (spy: ReturnType<typeof vi.spyOn>) =>
+  const writtenTo = (spy: MockInstance<typeof process.stdout.write>) =>
     spy.mock.calls.map((call) => String(call[0])).join('')
 
   // project.ts reads and writes the url-keyed provenance stamp through ../zip,

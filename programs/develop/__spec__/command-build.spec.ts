@@ -106,6 +106,7 @@ import {recordZipArtifact} from '../plugin-compilation/zip-artifacts'
 import * as tsToolsMod from '../plugin-js-frameworks/js-tools/typescript'
 import * as resolveConfigMod from '../plugin-special-folders/folder-extensions/resolve-config'
 import webpackConfig from '../rspack-config'
+import type {BuildOptions} from '../types'
 
 describe('webpack/command-build', () => {
   beforeEach(() => {
@@ -498,7 +499,7 @@ describe('webpack/command-build', () => {
         browser: 'firefox'
       })
 
-      await extensionBuild('/proj', {})
+      await extensionBuild('/proj', {} as BuildOptions)
       expect(webpackOpts()).toMatchObject({browser: 'firefox'})
 
       ;(configLoaderMod.loadCommandConfig as any).mockResolvedValue({
@@ -512,7 +513,7 @@ describe('webpack/command-build', () => {
         browser: 'nope'
       })
 
-      await expect(extensionBuild('/proj', {})).rejects.toThrow(
+      await expect(extensionBuild('/proj', {} as BuildOptions)).rejects.toThrow(
         /Unsupported browser in extension.config commands.build.browser: nope/
       )
       ;(configLoaderMod.loadCommandConfig as any).mockResolvedValue({

@@ -1,7 +1,7 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import {rspack} from '@rspack/core'
+import {type Compiler, rspack} from '@rspack/core'
 import {afterAll, describe, expect, it} from 'vitest'
 import {getProjectStructure} from '../../lib/project'
 import {eventsPath, readyContractPath} from '../../lib/session-paths'
@@ -48,16 +48,15 @@ async function makeCompiler(root: string) {
     output: {clean: false, path: path.join(root, 'dist', 'chrome')}
   } as never)
   config.plugins = (config.plugins || []).filter(
-    (plugin: {constructor: {name: string}} | undefined) =>
-      plugin?.constructor.name !== 'plugin-browsers'
+    (plugin) => plugin?.constructor.name !== 'plugin-browsers'
   )
 
   config.stats = false
 
-  return rspack(config as never)
+  return rspack(config)
 }
 
-function watchUntilDone(compiler: ReturnType<typeof rspack>) {
+function watchUntilDone(compiler: Compiler) {
   return new Promise<ReturnType<typeof compiler.watch>>((resolve) => {
     const watching = compiler.watch({}, () => resolve(watching))
   })

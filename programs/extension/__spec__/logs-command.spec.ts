@@ -1,7 +1,15 @@
 import fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type MockInstance,
+  vi
+} from 'vitest'
 
 const readReadyContract = vi.fn((): unknown => null)
 
@@ -61,9 +69,9 @@ const EVENTS = [
 ]
 
 let dir: string
-let logSpy: ReturnType<typeof vi.spyOn>
-let errorSpy: ReturnType<typeof vi.spyOn>
-let writeSyncSpy: ReturnType<typeof vi.spyOn>
+let logSpy: MockInstance<typeof console.log>
+let errorSpy: MockInstance<typeof console.error>
+let writeSyncSpy: MockInstance<typeof fs.writeSync>
 
 beforeEach(() => {
   stubProcessExit()

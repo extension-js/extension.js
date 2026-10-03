@@ -2,12 +2,24 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, beforeEach, describe, expect, it, vi} from 'vitest'
+import type {SafariPackagerFn, SafariPackagerOverrides} from '../types'
 
-const captured = vi.hoisted(() => ({
-  devPackager: undefined as
-    | undefined
-    | ((distPath: string, mode: 'full' | 'resync') => Promise<unknown>)
-}))
+// A reset through a method keeps TypeScript from narrowing the capture to
+// undefined for the rest of the function that reset it.
+const captured = vi.hoisted(() => {
+  type Packager = (
+    distPath: string,
+    mode: 'full' | 'resync'
+  ) => Promise<unknown>
+  const state: {devPackager: Packager | undefined} = {devPackager: undefined}
+
+  return {
+    state,
+    reset() {
+      state.devPackager = undefined
+    }
+  }
+})
 
 const rspackMock = vi.hoisted(() => vi.fn())
 
@@ -68,7 +80,7 @@ vi.mock('../plugin-browsers/safari-dev-plugin', () => ({
     constructor(
       packager: (distPath: string, mode: 'full' | 'resync') => Promise<unknown>
     ) {
-      captured.devPackager = packager
+      captured.state.devPackager = packager
     }
   }
 }))
@@ -150,14 +162,12 @@ const identityKeys = [
   'safariBinary'
 ] as const
 
-function identityOf(overrides: Record<string, unknown> | undefined) {
-  return Object.fromEntries(
-    identityKeys.map((key) => [key, overrides?.[key]])
-  )
+function identityOf(overrides: SafariPackagerOverrides | undefined) {
+  return Object.fromEntries(identityKeys.map((key) => [key, overrides?.[key]]))
 }
 
 async function buildPackagerInput(root: string) {
-  const safariPackager = vi.fn(async () => undefined)
+  const safariPackager = vi.fn<SafariPackagerFn>(async () => undefined)
 
   await extensionBuild(root, {
     browser: 'safari',
@@ -170,8 +180,8 @@ async function buildPackagerInput(root: string) {
 }
 
 async function devPackagerInput(root: string) {
-  const safariPackager = vi.fn(async () => undefined)
-  captured.devPackager = undefined
+  const safariPackager = vi.fn<SafariPackagerFn>(async () => undefined)
+  captured.reset()
 
   await extensionDev(root, {
     browser: 'safari',
@@ -180,7 +190,7 @@ async function devPackagerInput(root: string) {
     safariPackager
   })
 
-  await captured.devPackager?.(path.join(root, 'dist', 'safari'), 'full')
+  await captured.state.devPackager?.(path.join(root, 'dist', 'safari'), 'full')
 
   return safariPackager
 }
@@ -308,7 +318,7 @@ describe('safari identity, dev versus build', () => {
       output: {...cfg.output, path: missingOut}
     }))
 
-    const safariPackager = vi.fn(async () => undefined)
+    const safariPackager = vi.fn<SafariPackagerFn>(async () => undefined)
 
     await expect(
       extensionBuild(root, {

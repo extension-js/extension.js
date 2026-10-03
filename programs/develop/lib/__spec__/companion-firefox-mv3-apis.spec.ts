@@ -2,7 +2,7 @@ import {spawnSync} from 'node:child_process'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
-import {runAddonLint} from '../addon-lint'
+import {ADDON_LINT_PACKAGE, runAddonLint} from '../addon-lint'
 
 const FORBIDDEN_FIREFOX_TOKENS = [
   'chrome.action.',
@@ -170,7 +170,7 @@ describe('companion Firefox build: AMO store check', () => {
       browser: 'firefox',
       mode: 'production',
       loadLinter: async () => {
-        const loaded: any = await import('addons-linter')
+        const loaded = await import(ADDON_LINT_PACKAGE)
 
         return loaded.createInstance ? loaded : loaded.default
       },

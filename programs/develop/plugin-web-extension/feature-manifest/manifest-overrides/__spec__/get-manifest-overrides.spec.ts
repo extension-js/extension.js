@@ -22,7 +22,7 @@ describe('getManifestOverrides', () => {
     const result = getManifestOverrides(
       '/m/manifest.json',
       {name: 'x'} as any,
-      {}
+      '/m'
     )
     const parsed = JSON.parse(result)
 
