@@ -5,7 +5,9 @@ exports[`extension message catalogs > matches the exported message surface 1`] =
   "browsers/browsers-lib/messages.ts": [
     "addonInstallError: function(2)",
     "bestEffortBannerPrintFailed: function(1)",
+    "binaryNotExecutable: function(2)",
     "binaryProvenanceNote: function(2)",
+    "browserBinaryVersionTimedOut: function(3)",
     "browserExitedBeforeDebugger: function(1)",
     "browserExitedUnasked: function(4)",
     "browserGoneBeforeReady: function(1)",

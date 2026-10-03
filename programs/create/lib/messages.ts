@@ -270,23 +270,46 @@ export function templateUrlFetchFailed(url: string, error: unknown) {
 
 // The server answered, with something that is not an archive. Create takes a
 // folder and not a local ZIP, so the remedy names the folder.
-export function templateUrlNotZip(url: string, got: string) {
+export function templateUrlNotZip(url: string, got: string, override?: string) {
   return (
     `${prefix('error')} The remote URL doesn't point to a ZIP archive.\n` +
     `${fmt.label('URL')} ${fmt.val(fmt.truncate(url, 160))}\n` +
     `${fmt.label('GOT')} ${fmt.val(fmt.truncate(got, 160))}\n` +
-    `${colors.red('Use a direct-download URL, or download and unpack the archive, then pass the folder path.')}`
+    (override
+      ? `${fmt.label('SET BY')} ${fmt.val('EXTENSION_CREATE_TEMPLATE_URL')}\n${overrideRemedy()}`
+      : `${colors.red('Use a direct-download URL, or download and unpack the archive, then pass the folder path.')}`)
   )
 }
 
 // The archive arrived and would not unpack. Fetching it again is the remedy a
 // cut-short download needs, and a good copy on disk the one a bad upload needs.
-export function templateArchiveDamaged(url: string, reason: string) {
+export function templateArchiveDamaged(
+  url: string,
+  reason: string,
+  override?: string
+) {
   return (
     `${prefix('error')} The ZIP archive at the remote URL is damaged.\n` +
     `${fmt.label('URL')} ${fmt.val(fmt.truncate(url, 160))}\n` +
     `${fmt.label('REASON')} ${fmt.val(fmt.truncate(reason, 160))}\n` +
-    `${colors.red('Try again, or download and unpack a good copy of the archive, then pass the folder path.')}`
+    (override
+      ? `${fmt.label('SET BY')} ${fmt.val('EXTENSION_CREATE_TEMPLATE_URL')}\n${overrideRemedy()}`
+      : `${colors.red('Try again, or download and unpack a good copy of the archive, then pass the folder path.')}`)
+  )
+}
+
+// The URL came from the environment and not the command line, so the remedy
+// names the variable to fix. No bundled template stands in for it.
+function overrideRemedy() {
+  return `${colors.red('Point')} ${colors.blue('EXTENSION_CREATE_TEMPLATE_URL')} ${colors.red('at a ZIP of the examples catalog, or unset it to use the default catalog.')}`
+}
+
+export function templateOverrideFetchFailed(url: string, error: unknown) {
+  return (
+    `${prefix('error')} Couldn't fetch the template catalog from ${colors.blue('EXTENSION_CREATE_TEMPLATE_URL')}.\n` +
+    `${fmt.label('URL')} ${fmt.val(fmt.truncate(url, 160))}\n` +
+    `${fmt.label('REASON')} ${fmt.val(fmt.truncate(causeDigest(error), 600))}\n` +
+    overrideRemedy()
   )
 }
 

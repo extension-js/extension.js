@@ -47,7 +47,7 @@ Creates a new extension project with the specified configuration.
 
 - `projectName` (string, required) - The name of your extension project
 - `options` (object) - Configuration options
-  - `template` (string, optional) - Template name, URL or the path of a template directory on this machine (written as a path, such as `./my-template`). Defaults to `'javascript'` (`init` is an alias). A URL must use `https://`. A plain `http://` URL, and an `http://` value in `EXTENSION_CREATE_TEMPLATE_URL`, fails unless `EXTENSION_ALLOW_HTTP_TEMPLATE=true` is set
+  - `template` (string, optional) - Template name, URL or the path of a template directory on this machine (written as a path, such as `./my-template`). Defaults to `'typescript'`. A URL must use `https://`. A plain `http://` URL, and an `http://` value in `EXTENSION_CREATE_TEMPLATE_URL`, fails unless `EXTENSION_ALLOW_HTTP_TEMPLATE=true` is set. A default that cannot be downloaded falls back to the bundled `javascript` template, unless `EXTENSION_CREATE_TEMPLATE_URL` is set: a failed override is reported with its cause and never replaced
   - `install` (boolean, optional) - Whether to install dependencies after scaffolding. Defaults to `false` so project creation is fast and users see the familiar `npm install` output on their own.
   - `cliVersion` (string, optional) - CLI version for package.json
 

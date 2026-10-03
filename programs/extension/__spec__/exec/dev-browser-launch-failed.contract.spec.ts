@@ -34,14 +34,13 @@ function stripVitestEnv(extra: Record<string, string> = {}): NodeJS.ProcessEnv {
   return env
 }
 
-// A file that exists but cannot be executed: the shape of a truncated
-// download or a binary with lost permissions. spawn refuses it with EACCES,
-// so nothing is on screen and no browser is needed.
-function plantUnexecutableBinary(dir: string, name: string): string {
+// An executable file whose interpreter does not exist: it passes the pin
+// check, then spawn refuses it with ENOENT and no browser ever starts.
+function plantUnspawnableBinary(dir: string, name: string): string {
   const binary = join(dir, name)
   mkdirSync(dir, {recursive: true})
-  writeFileSync(binary, 'not a browser\n')
-  chmodSync(binary, 0o644)
+  writeFileSync(binary, '#!/nonexistent/interpreter\n')
+  chmodSync(binary, 0o755)
 
   return binary
 }
@@ -194,7 +193,7 @@ describe.skipIf(process.platform === 'win32')(
 
     it('reports the chromium spawn refusal on the contract, prints no ready line, and --wait exits with E_BROWSER_LAUNCH', async () => {
       const {work, projectDir} = makeWorkspace()
-      const binary = plantUnexecutableBinary(join(work, 'bin'), 'chrome')
+      const binary = plantUnspawnableBinary(join(work, 'bin'), 'chrome')
 
       session = startDev(projectDir, 'chrome', ['--chromium-binary', binary])
       await waitForLaunchFailure(session)
@@ -205,7 +204,7 @@ describe.skipIf(process.platform === 'win32')(
         /Chrome couldn't start, so the extension isn't running/
       )
 
-      expect(output, output).toMatch(/EACCES/)
+      expect(output, output).toMatch(/ENOENT/)
       expect(output, output).toMatch(/The dev server keeps watching/)
       expect(output, output).not.toMatch(/ready for development/)
       expect(output, output).not.toMatch(/Uncaught exception/)
@@ -215,7 +214,7 @@ describe.skipIf(process.platform === 'win32')(
       expect(ready?.status).toBe('error')
       expect(ready?.code).toBe('browser_launch_failed')
       expect(String(ready?.message)).toMatch(/could not start/)
-      expect(String(ready?.message)).toMatch(/EACCES/)
+      expect(String(ready?.message)).toMatch(/ENOENT/)
       expect(String(ready?.message)).toMatch(/nothing is running/)
       expect(typeof ready?.browserLaunchFailedAt).toBe('string')
       expect(String(ready?.browserLaunchFailedReason)).toContain(binary)
@@ -241,7 +240,7 @@ describe.skipIf(process.platform === 'win32')(
 
       const error = frame.error as {code: string; message: string}
       expect(error.code).toBe('E_BROWSER_LAUNCH')
-      expect(error.message).toMatch(/EACCES/)
+      expect(error.message).toMatch(/ENOENT/)
     }, 120_000)
 
     it('names a --chromium-binary path that does not exist', async () => {
@@ -265,14 +264,27 @@ describe.skipIf(process.platform === 'win32')(
       expect(String(ready?.message)).toContain(missing)
       // The human frame's glyph and line breaks stay out of the contract.
       expect(String(ready?.message)).not.toMatch(/\n|⏵/)
+      expect(ready?.browserLaunchFailedCode).toBe('E_BROWSER_BINARY_INVALID')
       expect(session.events(), session.events()).toMatch(
         /"type":"browser_launch_failed"/
       )
+
+      // A path the user typed is a usage error to --wait as well.
+      const waiter = runWaiter(projectDir, 'chrome')
+      expect(waiter.status, waiter.stderr).toBe(1)
+      const lines = waiter.stdout.split('\n').filter((line) => line.trim())
+      expect(lines, waiter.stdout).toHaveLength(1)
+      expect(JSON.parse(lines[0])).toMatchObject({
+        ok: false,
+        command: 'dev',
+        status: 'usage',
+        error: {code: 'E_BROWSER_BINARY_INVALID'}
+      })
     }, 120_000)
 
     it('reports the firefox spawn refusal the same way', async () => {
       const {work, projectDir} = makeWorkspace()
-      const binary = plantUnexecutableBinary(join(work, 'bin'), 'firefox')
+      const binary = plantUnspawnableBinary(join(work, 'bin'), 'firefox')
 
       session = startDev(projectDir, 'firefox', ['--gecko-binary', binary])
       await waitForLaunchFailure(session)
@@ -282,7 +294,7 @@ describe.skipIf(process.platform === 'win32')(
         /Firefox couldn't start, so the extension isn't running/
       )
 
-      expect(output, output).toMatch(/EACCES/)
+      expect(output, output).toMatch(/ENOENT/)
       expect(output, output).not.toMatch(/ready for development/)
 
       const ready = session.ready()

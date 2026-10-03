@@ -186,6 +186,10 @@ export function commanderHumanError(
 
 // A refusal raised deeper in the engine names its own failure class, so the
 // frame reports that instead of folding every throw into one generic code.
+export function isUsageCode(code: ErrorCode): boolean {
+  return code === CODES.E_BROWSER_BINARY_INVALID
+}
+
 export function declaredErrorCode(err: unknown): ErrorCode | undefined {
   const code = (err as {code?: unknown} | null | undefined)?.code
   if (typeof code !== 'string') return undefined
@@ -199,8 +203,11 @@ export function internalErrorEnvelope(
   err: unknown,
   command: string
 ): ReturnType<typeof ENVELOPE.fail> {
-  return ENVELOPE.fail(command, 'failed', {
-    code: declaredErrorCode(err) ?? CODES.E_INTERNAL,
+  const code = declaredErrorCode(err) ?? CODES.E_INTERNAL
+
+  // A bad pinned binary is a value the user typed, on every command.
+  return ENVELOPE.fail(command, isUsageCode(code) ? 'usage' : 'failed', {
+    code,
     message: err instanceof Error ? err.message : String(err),
     name: err instanceof Error ? err.name : 'Error'
   })

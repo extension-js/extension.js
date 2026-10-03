@@ -27,6 +27,7 @@ export type ReadyContractPayload = {
   message?: string
   errors?: string[]
   code?: string
+  browserLaunchFailedCode?: string
   command?: string
   browser?: string
   runId?: string
@@ -138,6 +139,15 @@ export function describeWaitError(error: unknown): WaitFailure {
       status: 'usage',
       message,
       hint: 'Pass a local project path to --wait. Remote URLs are not supported.'
+    }
+  }
+
+  if (code === CODES.E_BROWSER_BINARY_INVALID) {
+    return {
+      code,
+      status: 'usage',
+      message,
+      hint: 'Pass a browser binary path that exists and runs.'
     }
   }
 
@@ -263,9 +273,17 @@ async function waitForReadyContract(options: {
           const detail =
             payload.message || payload.errors?.[0] || 'unknown error'
 
+          // A bad pin keeps its own code, the one the launch was refused with.
+          const badPin =
+            payload.code === 'browser_launch_failed' &&
+            payload.browserLaunchFailedCode === CODES.E_BROWSER_BINARY_INVALID
+
           throw new WaitModeError(
             String(detail),
-            readyContractErrorCode(payload.code) ?? CODES.E_READY_ERROR_STATUS
+            badPin
+              ? CODES.E_BROWSER_BINARY_INVALID
+              : (readyContractErrorCode(payload.code) ??
+                  CODES.E_READY_ERROR_STATUS)
           )
         }
       }

@@ -93,8 +93,9 @@ describe.skipIf(process.platform === 'win32')(
       )
 
       unexecutable = join(work, 'bin', 'chrome')
-      writeFileSync(unexecutable, 'not a browser\n')
-      chmodSync(unexecutable, 0o644)
+      // Passes the pin check, then spawn refuses it: no browser starts.
+      writeFileSync(unexecutable, '#!/nonexistent/interpreter\n')
+      chmodSync(unexecutable, 0o755)
       missing = join(work, 'nowhere', 'chrome')
     })
 

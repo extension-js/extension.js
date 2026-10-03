@@ -22,7 +22,12 @@ import {loadExtensionDevelopPreviewModule} from '../helpers/extension-develop-ru
 import {LOG_CONTEXTS} from '../helpers/log-contexts'
 import * as messages from '../helpers/messages'
 import {commandDescriptions} from '../helpers/messages'
-import {CODES, ENVELOPE, stripChannelPrefix} from '../helpers/messaging'
+import {
+  CODES,
+  ENVELOPE,
+  type ErrorCode,
+  stripChannelPrefix
+} from '../helpers/messaging'
 import {
   BROWSER_LAUNCH_HELP_FOOTER,
   NO_OPEN_FLAG_DESCRIPTION,
@@ -64,6 +69,17 @@ type PreviewOptions = {
   author?: boolean
   authorMode?: boolean
 }
+
+// A run gone wrong, which dev and build report as failed too. Every other
+// coded refusal is a value the caller has to change.
+export const PREVIEW_FAILED_CODES: ReadonlySet<ErrorCode> = new Set([
+  CODES.E_BROWSER_LAUNCH,
+  CODES.E_BROWSER_CONNECT,
+  CODES.E_CONFIG_LOAD,
+  CODES.E_REMOTE_DOWNLOAD,
+  CODES.E_REMOTE_ZIP_INVALID,
+  CODES.E_REMOTE_FETCH_TIMEOUT
+])
 
 // Copy the preview failure path is matched on, pinned by a spec against the
 // real producers so a rewrite fails loudly instead of downgrading to E_INTERNAL.
@@ -344,14 +360,11 @@ export function registerPreviewCommand(program: Command) {
             const declared = declaredErrorCode(error)
 
             if (declared) {
-              // A browser that never came up or never answered, or a config
-              // file that threw, is a failed run and not a mistyped command.
-              const status =
-                declared === CODES.E_BROWSER_LAUNCH ||
-                declared === CODES.E_BROWSER_CONNECT ||
-                declared === CODES.E_CONFIG_LOAD
-                  ? 'failed'
-                  : 'usage'
+              // A browser, config or remote archive that failed is a failed
+              // run and not a mistyped command.
+              const status = PREVIEW_FAILED_CODES.has(declared)
+                ? 'failed'
+                : 'usage'
 
               emit(ENVELOPE.fail('preview', status, {code: declared, message}))
 

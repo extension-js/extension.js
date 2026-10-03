@@ -1504,6 +1504,31 @@ export function invalidGeckoBinaryPath(p: string) {
   return browserRunnerError(body)
 }
 
+export function binaryNotExecutable(
+  p: string,
+  flag: '--chromium-binary' | '--gecko-binary'
+) {
+  const body =
+    `The browser binary at the given path can't be run, it is not an executable file.\n` +
+    `${colors.gray('NOT EXECUTABLE')} ${colors.underline(p)}\n` +
+    `Pass ${colors.blue(flag)} ${colors.gray('<abs-path>')} with a working binary.`
+
+  return browserRunnerError(body)
+}
+
+export function browserBinaryVersionTimedOut(
+  p: string,
+  flag: '--chromium-binary' | '--gecko-binary',
+  seconds: number
+) {
+  const body =
+    `The browser binary at ${p} did not answer within ${seconds} seconds when asked for its version, so it can't be used.\n` +
+    `${colors.gray('NOT USABLE')} ${colors.underline(p)}\n` +
+    `Pass ${colors.blue(flag)} ${colors.gray('<abs-path>')} with a working binary.`
+
+  return browserRunnerError(body)
+}
+
 export function rdpInvalidRequestPayload() {
   return (
     `${getLoggingPrefix('error')} Received an unreadable Firefox remote debugging message.\n` +

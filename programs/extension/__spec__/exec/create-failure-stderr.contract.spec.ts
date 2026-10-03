@@ -131,9 +131,15 @@ describe('a known create refusal prints its frame and nothing else', () => {
     expect(result.status).toBe(1)
     expect(result.stderr).not.toMatch(STACK_FRAME)
     expect(result.stderr).not.toContain('TemplateDownloadError')
+    // The catalog came from the override, so the frame names it and not the
+    // public catalog it never asked.
     expect(
-      result.stderr.match(/Couldn't download the template react/g)
+      result.stderr.match(
+        /Couldn't fetch the template catalog from EXTENSION_CREATE_TEMPLATE_URL/g
+      )
     ).toHaveLength(1)
+
+    expect(result.stderr).not.toContain('github.com/extension-js/examples')
   }, 60000)
 
   it('when the template URL is plain http', async () => {

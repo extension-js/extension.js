@@ -18,7 +18,10 @@ import {browserNeverStarted} from './browsers-lib/messages'
 import {computeBinariesBaseDir} from './browsers-lib/output-binaries-resolver'
 import {claimReadyPath, describeLaunchFailure} from './browsers-lib/ready-stamp'
 import {buildBrowserLaunchRequest} from './browsers-lib/runtime-options'
-import {probeChromiumBinaryVersion} from './browsers-lib/shared-utils'
+import {
+  isVersionProbeTimeout,
+  probeChromiumBinaryVersion
+} from './browsers-lib/version-probe'
 import type {
   BrowserType,
   CompilationLike,
@@ -183,9 +186,9 @@ function buildPreviewFirefoxOptions(
 // The card renders before the launch now, so it cannot lean on the version the
 // launcher resolves. A pinned binary is the one case the card's own probe gets
 // wrong: it would name the system browser instead of the one being run.
-function resolvePinnedBinaryVersionLine(
+async function resolvePinnedBinaryVersionLine(
   opts: PreviewRunOptions
-): string | undefined {
+): Promise<string | undefined> {
   try {
     if (isFirefoxBrowser(opts.browser)) {
       if (!opts.geckoBinary || !fs.existsSync(opts.geckoBinary)) {
@@ -200,15 +203,20 @@ function resolvePinnedBinaryVersionLine(
     }
 
     return (
-      probeChromiumBinaryVersion(opts.chromiumBinary, String(opts.browser)) ||
-      undefined
+      (await probeChromiumBinaryVersion(
+        opts.chromiumBinary,
+        String(opts.browser)
+      )) || undefined
     )
-  } catch {
+  } catch (error) {
+    // The launch would ask the same binary again and wait as long.
+    if (isVersionProbeTimeout(error)) throw error
+
     return undefined
   }
 }
 
-function buildPreviewBannerOptions(opts: PreviewRunOptions) {
+async function buildPreviewBannerOptions(opts: PreviewRunOptions) {
   const chromiumPinned =
     !isFirefoxBrowser(opts.browser) &&
     typeof opts.chromiumBinary === 'string' &&
@@ -220,7 +228,7 @@ function buildPreviewBannerOptions(opts: PreviewRunOptions) {
     includeExtensionId: true,
     includeRunId: false,
     readyPath: opts.readyPath,
-    browserVersionLine: resolvePinnedBinaryVersionLine(opts),
+    browserVersionLine: await resolvePinnedBinaryVersionLine(opts),
     ...(chromiumPinned
       ? {
           binaryPath: opts.chromiumBinary,
@@ -271,7 +279,7 @@ export async function runOnlyPreviewBrowser(
 
   const compilationLike = createPreviewCompilationLike(opts)
   const previewPluginOptions = buildPreviewPluginOptions(opts)
-  const bannerOptions = buildPreviewBannerOptions(opts)
+  const bannerOptions = await buildPreviewBannerOptions(opts)
 
   // Provide shared cache dir guidance to the runner (pretty install hints).
   // This matches the behavior expected by the chromium launcher guidance printer.

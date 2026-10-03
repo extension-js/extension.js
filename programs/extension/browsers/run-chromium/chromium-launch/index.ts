@@ -49,10 +49,15 @@ import {
 } from '../../browsers-lib/manifest-refusal'
 import * as messages from '../../browsers-lib/messages'
 import * as binariesResolver from '../../browsers-lib/output-binaries-resolver'
+import {
+  type PinnedBinaryProblem,
+  pinnedBinaryProblem
+} from '../../browsers-lib/pinned-binary'
 import {wasTerminatedByUs} from '../../browsers-lib/process-teardown'
 import {ready as devServerReady} from '../../browsers-lib/ready-message'
 import {
   describeLaunchFailure,
+  launchFailureCode,
   readReadyRunId,
   stampReadyBrowserExited,
   stampReadyBrowserLaunch,
@@ -65,6 +70,10 @@ import {
   toExtensionLoadList
 } from '../../browsers-lib/runtime-options'
 import * as utils from '../../browsers-lib/shared-utils'
+import {
+  isVersionProbeTimeout,
+  probeChromiumBinaryVersion
+} from '../../browsers-lib/version-probe'
 import type {
   BrowserLogger,
   BrowserType,
@@ -178,9 +187,16 @@ async function maybePrintLaunchBanner(args: {
 
 // Thrown rather than exited, so the command that owns stdout can frame it: a
 // bare process.exit left a machine consumer reading exit 1 with nothing on it.
-function invalidBinaryPinError(requestedPath: string): Error {
+function invalidBinaryPinError(
+  requestedPath: string,
+  problem: PinnedBinaryProblem = 'missing'
+): Error {
   return Object.assign(
-    new Error(messages.invalidChromiumBinaryPath(requestedPath)),
+    new Error(
+      problem === 'not-executable'
+        ? messages.binaryNotExecutable(requestedPath, '--chromium-binary')
+        : messages.invalidChromiumBinaryPath(requestedPath)
+    ),
     {code: CODES.E_BROWSER_BINARY_INVALID}
   )
 }
@@ -276,7 +292,8 @@ export class ChromiumLaunchPlugin {
     stampReadyBrowserLaunchFailed(
       outputPath,
       describeLaunchFailure(error),
-      readReadyRunId(outputPath)
+      readReadyRunId(outputPath),
+      launchFailureCode(error)
     )
   }
 
@@ -362,9 +379,9 @@ export class ChromiumLaunchPlugin {
       const requested = String(this.options.chromiumBinary)
       const normalizedEarly = normalizeBinaryPathForWsl(requested)
 
-      if (!normalizedEarly || !fs.existsSync(normalizedEarly)) {
-        throw invalidBinaryPinError(requested)
-      }
+      const problem = pinnedBinaryProblem(normalizedEarly)
+
+      if (problem) throw invalidBinaryPinError(requested, problem)
     }
 
     const inTestRunner = Boolean(
@@ -605,8 +622,8 @@ export class ChromiumLaunchPlugin {
       browserBinaryLocation = preferRealChromeBinary(browserBinaryLocation)
     }
 
-    const getBrowserVersionLine = (bin: string): string =>
-      utils.probeChromiumBinaryVersion(bin, String(browser || ''))
+    const getBrowserVersionLine = (bin: string): Promise<string> =>
+      probeChromiumBinaryVersion(bin, String(browser || ''))
 
     const looksOfficialChromeBinaryPath = (bin: string): boolean => {
       const p = String(bin || '')
@@ -947,13 +964,15 @@ export class ChromiumLaunchPlugin {
     let browserVersionLine: string | undefined
 
     try {
-      const vLine = getBrowserVersionLine(browserBinaryLocation)
+      const vLine = await getBrowserVersionLine(browserBinaryLocation)
 
       if (vLine && vLine.trim().length > 0) {
         browserVersionLine = vLine.trim()
       }
-    } catch {
-      // ignore – banner will fall back to generic browser label
+    } catch (error) {
+      // A binary that never answers would hang the launch the same way.
+      if (isVersionProbeTimeout(error)) throw error
+      // Otherwise the banner falls back to the generic browser label
     }
 
     // The identity card names the exact binary this session runs, so a
