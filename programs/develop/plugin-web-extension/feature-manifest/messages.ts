@@ -31,6 +31,17 @@ export function serverRestartRequiredFromManifestError(
   return lines.join('\n')
 }
 
+// `folders: {public: false}` stops the copy, and the files the manifest still
+// reaches in public/ go missing with it. Names each one and says why.
+export function manifestFilesInTurnedOffPublic(files: string[]) {
+  return [
+    'manifest.json names files that the build did not emit:',
+    ...files.map((file) => `  - ${colors.underline(file)}`),
+    `The public folder is turned off, ${colors.blue('folders.public')} is ${colors.blue('false')} in extension.config.js, so nothing inside public/ ships.`,
+    'Turn the folder back on, or move these files out of public/ and name them by their path in the project.'
+  ].join('\n')
+}
+
 export function legacyManifestPathWarning(
   field: string,
   legacyPath: string,

@@ -17,6 +17,7 @@ import {
   type TracedFilePlan
 } from '../plugin-web-extension/feature-scripts/steps/trace-runtime-loaded-files'
 import {collectRootAbsoluteRefs} from '../plugin-web-extension/shared/paths'
+import * as folderMessages from './messages'
 
 // The asset a ref was read from, which names the surface in a warning.
 interface RefOrigin {
@@ -61,7 +62,9 @@ export function planRootAbsoluteRef(
 export async function emitRootAbsoluteRefs(
   compilation: Compilation,
   context: string,
-  publicDir: string
+  publicDir: string,
+  // `folders: {public: false}`: a ref public/ satisfies has no copier.
+  publicIsOff = false
 ): Promise<void> {
   const scanned = new Set<string>()
   const warned = new Set<string>()
@@ -124,6 +127,28 @@ export async function emitRootAbsoluteRefs(
         )
       }
 
+      if (
+        publicIsOff &&
+        plan.kind === 'skip' &&
+        plan.reason === 'public' &&
+        !hasAsset(plan.emitPath) &&
+        !warned.has(ref)
+      ) {
+        warned.add(ref)
+        warn(
+          compilation,
+          origin.asset,
+          folderMessages.publicFolderOffRef(
+            origin.asset,
+            origin.kind === 'css'
+              ? 'a CSS url()'
+              : 'an HTML src/href attribute',
+            ref
+          ),
+          'PublicFolderOffRef'
+        )
+      }
+
       switch (plan.kind) {
         case 'copy': {
           try {
@@ -180,12 +205,17 @@ export async function emitRootAbsoluteRefs(
   }
 }
 
-function warn(compilation: Compilation, file: string, message: string) {
+function warn(
+  compilation: Compilation,
+  file: string,
+  message: string,
+  name = 'RootAbsoluteRefCompiledSource'
+) {
   const warning = new WebpackError(message) as Error & {
     file?: string
     name?: string
   }
-  warning.name = 'RootAbsoluteRefCompiledSource'
+  warning.name = name
   warning.file = file
   compilation.warnings ||= []
   compilation.warnings.push(warning)

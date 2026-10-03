@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
+import type {FileConfig} from '../config-types'
 
 const pkgRoot = path.resolve(__dirname, '..')
 const pkg = JSON.parse(
@@ -75,5 +76,38 @@ describe('public config types (extension package)', () => {
 
     expect(internalKeys.length).toBeGreaterThan(5)
     expect(publicKeys).toEqual(internalKeys)
+  })
+
+  // The typecheck gate compiles this fixture, so it stops building the day a
+  // command loses a key the loader reads. The emitted declaration is what a
+  // project annotating its config with the package type gets.
+  it('accepts folders under every command, in the same shape as the top level', () => {
+    const config: FileConfig = {
+      folders: {scripts: 'src/scripts'},
+      commands: {
+        dev: {folders: {scripts: false}},
+        start: {folders: {pages: 'src/pages'}},
+        preview: {folders: {public: false}},
+        build: {folders: {scripts: false, pages: false, public: 'static'}}
+      }
+    }
+    expect(Object.keys(config.commands || {})).toHaveLength(4)
+
+    const dts = fs.readFileSync(
+      path.join(pkgRoot, path.dirname(pkg.types), 'config-types.d.ts'),
+      'utf8'
+    )
+
+    for (const name of [
+      'DevCommandConfig',
+      'ServeCommandConfig',
+      'BuildCommandConfig'
+    ]) {
+      const start = dts.indexOf(`interface ${name} `)
+      expect(start).toBeGreaterThan(-1)
+
+      const body = dts.slice(start, dts.indexOf('\n}', start))
+      expect(body).toMatch(/\n\s+folders\?: SpecialFoldersConfig;/)
+    }
   })
 })

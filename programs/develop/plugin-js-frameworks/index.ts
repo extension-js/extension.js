@@ -19,6 +19,7 @@ import {
   isSubPath,
   resolveTranspilePackageDirs
 } from '../lib/transpile-packages'
+import {scriptsFolderRoot} from '../plugin-special-folders/folders-config'
 import {getSpecialFoldersDataForCompiler} from '../plugin-special-folders/get-data'
 import {getAssetsFromHtml} from '../plugin-web-extension/feature-html/html-lib/utils'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../plugin-web-extension/feature-scripts/contracts'
@@ -251,9 +252,10 @@ export class JsFrameworksPlugin {
     // Every entry AND probe of these path sets goes through toResourceKey: mixing
     // path.resolve and path.normalize never matches on Windows (drive letter).
     const contentScriptLikePaths = new Set<string>()
-    const scriptsDirs = expandWithRealpaths([
-      path.resolve(projectPath, 'scripts')
-    ]).map(toResourceKey)
+    const scriptsRoot = scriptsFolderRoot(projectPath)
+    const scriptsDirs = expandWithRealpaths(
+      scriptsRoot ? [scriptsRoot] : []
+    ).map(toResourceKey)
 
     const isfeatureScriptsContentLike = (resourcePath: string) => {
       const normalized = toResourceKey(resourcePath)

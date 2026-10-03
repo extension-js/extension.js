@@ -71,6 +71,23 @@ export function resolvePublicFolder(
   return inspectPublicFolders(manifestPath, projectRoot).publicDir
 }
 
+// The public folders a `public: false` project still has on disk, at the
+// root and next to the manifest. Nothing in them ships.
+export function turnedOffPublicFolders(
+  manifestPath: string,
+  projectRoot?: string
+): string[] {
+  if (publicFolderSetting(projectRoot).kind !== 'off') return []
+
+  const {fromRoot, fromManifest} = inspectPublicFolders(
+    manifestPath,
+    projectRoot
+  )
+  const folders = new Set([path.resolve(fromRoot), path.resolve(fromManifest)])
+
+  return [...folders].filter(isUsableDir)
+}
+
 function isUsableFile(candidate: string): boolean {
   try {
     if (!fs.existsSync(candidate)) return false

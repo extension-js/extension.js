@@ -555,7 +555,6 @@ export interface FileConfig {
   commands?: {
     dev?: Pick<
       DevOptions,
-      | 'browser'
       | 'profile'
       | 'chromiumBinary'
       | 'geckoBinary'
@@ -580,6 +579,8 @@ export interface FileConfig {
         | 'logTab'
         | 'hashContentScripts'
       > & {
+        // Optional like every key here: the target can come from the flag.
+        browser?: BrowserType
         browserFlags?: string[]
         excludeBrowserFlags?: string[]
         preferences?: Record<string, unknown>
@@ -587,12 +588,12 @@ export interface FileConfig {
         extensions?: CompanionExtensionsConfig
         transpilePackages?: string[]
         define?: Record<string, unknown>
+        folders?: SpecialFoldersConfig
         perfBudgets?: PerfBudgetsConfig
       }
 
     start?: Pick<
       StartOptions,
-      | 'browser'
       | 'profile'
       | 'chromiumBinary'
       | 'geckoBinary'
@@ -609,6 +610,7 @@ export interface FileConfig {
       | 'logUrl'
       | 'logTab'
     > & {
+      browser?: BrowserType
       browserFlags?: string[]
       excludeBrowserFlags?: string[]
       preferences?: Record<string, unknown>
@@ -616,11 +618,11 @@ export interface FileConfig {
       extensions?: CompanionExtensionsConfig
       transpilePackages?: string[]
       define?: Record<string, unknown>
+      folders?: SpecialFoldersConfig
     }
 
     preview?: Pick<
       PreviewOptions,
-      | 'browser'
       | 'profile'
       | 'chromiumBinary'
       | 'geckoBinary'
@@ -636,6 +638,7 @@ export interface FileConfig {
       | 'logUrl'
       | 'logTab'
     > & {
+      browser?: BrowserType
       browserFlags?: string[]
       excludeBrowserFlags?: string[]
       preferences?: Record<string, unknown>
@@ -643,11 +646,11 @@ export interface FileConfig {
       extensions?: CompanionExtensionsConfig
       transpilePackages?: string[]
       define?: Record<string, unknown>
+      folders?: SpecialFoldersConfig
     }
 
     build?: Pick<
       BuildOptions,
-      | 'browser'
       | 'zipFilename'
       | 'zip'
       | 'zipSource'
@@ -662,9 +665,11 @@ export interface FileConfig {
       | 'macOsOnly'
       | 'forceRegenerate'
     > & {
+      browser?: BrowserType
       extensions?: CompanionExtensionsConfig
       transpilePackages?: string[]
       define?: Record<string, unknown>
+      folders?: SpecialFoldersConfig
       perfBudgets?: PerfBudgetsConfig
     }
   }
@@ -700,8 +705,12 @@ export interface FileConfig {
   config?: (config: Configuration) => Configuration
   /**
    * Runs once the bundler config is final, right before the first build, with
-   * every loader rule attached. Change `module`, `resolve`, `optimization` or
-   * `output` here; `entry` and `plugins` are fixed by then, use `config`.
+   * every loader rule attached. It can change `module`, `resolve`,
+   * `resolveLoader`, `node`, `optimization.minimize`, `optimization.minimizer`
+   * and the `output` options read at build time, such as file names and
+   * `environment`. Every other key is fixed by then (`entry`, `plugins`,
+   * `mode`, `devtool`, `target`, `externals`, `output.path`, the rest of
+   * `optimization`): a change is ignored with a warning, use `config`.
    */
   configResolved?: (
     config: Configuration

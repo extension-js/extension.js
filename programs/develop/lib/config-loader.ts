@@ -15,9 +15,10 @@ import * as vm from 'node:vm'
 import type {Configuration} from '@rspack/core'
 import dotenv from 'dotenv'
 import type {BrowserConfig, DevOptions, FileConfig} from '../types'
+import {type CodedError, codedError} from './coded-error'
 import {isWebkitBasedBrowser} from './constants'
 import * as messages from './messages'
-import {isDebug} from './messaging'
+import {CODES, isDebug} from './messaging'
 import type {ParsedJson} from './parse-json-safe'
 import {resolveProjectStructureSync} from './project'
 
@@ -279,7 +280,25 @@ function prepareImportMetaEnv(absolutePath: string): void {
   }
 }
 
-class ConfigShapeError extends Error {}
+class ConfigShapeError extends Error {
+  public readonly code = CODES.E_CONFIG_LOAD
+}
+
+// A config that throws is the author's to fix: one finished block naming the
+// file and the reason, coded so a JSON reader gets the documented class.
+function configLoadError(configPath: string, cause: unknown): CodedError {
+  return Object.assign(
+    codedError(
+      CODES.E_CONFIG_LOAD,
+      messages.configLoadingError(configPath, cause)
+    ),
+    {cause}
+  )
+}
+
+function isConfigLoadError(error: unknown): boolean {
+  return (error as {code?: unknown} | null)?.code === CODES.E_CONFIG_LOAD
+}
 
 const loadedConfigCache = new Map<string, Promise<FileConfig>>()
 
@@ -291,9 +310,9 @@ export function reportConfigLoadingErrorOnce(
   configPath: string,
   error: unknown
 ): void {
-  // A wrong shape is a finished message the command prints itself, and the
-  // file did load, so the "couldn't load" frame would say it a second time.
-  if (error instanceof ConfigShapeError) return
+  // A throwing config and a wrong shape are finished blocks the command
+  // prints itself, so a frame from here would say it a second time.
+  if (isConfigLoadError(error)) return
 
   const key = path.resolve(configPath)
   if (reportedConfigPaths.has(key)) return
@@ -445,10 +464,8 @@ async function loadConfigFileUncached(
       const content = fs.readFileSync(absolutePath, 'utf-8')
 
       return JSON.parse(content)
-    } catch (jsonErr: unknown) {
-      throw new Error(
-        `Failed to load config file: ${absolutePath}\nError: ${error.message || error}`
-      )
+    } catch {
+      throw configLoadError(absolutePath, error)
     }
   }
 }

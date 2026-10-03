@@ -156,6 +156,11 @@ export interface DevCommandConfig
    * top-level `define` for the keys it declares.
    */
   define?: Record<string, unknown>
+  /**
+   * Where the special folders live for this command, or `false` to skip one.
+   * Replaces the top-level and per-browser `folders`.
+   */
+  folders?: SpecialFoldersConfig
 }
 
 /** Shared `commands.start` / `commands.preview` overrides. */
@@ -177,6 +182,11 @@ export interface ServeCommandConfig
    * top-level `define` for the keys it declares.
    */
   define?: Record<string, unknown>
+  /**
+   * Where the special folders live for this command, or `false` to skip one.
+   * Replaces the top-level and per-browser `folders`.
+   */
+  folders?: SpecialFoldersConfig
 }
 
 /** `commands.build` overrides. */
@@ -205,6 +215,11 @@ export interface BuildCommandConfig {
    * top-level `define` for the keys it declares.
    */
   define?: Record<string, unknown>
+  /**
+   * Where the special folders live for this command, or `false` to skip one.
+   * Replaces the top-level and per-browser `folders`.
+   */
+  folders?: SpecialFoldersConfig
 }
 
 /**
@@ -264,8 +279,12 @@ export interface FileConfig {
   config?: (config: any) => any
   /**
    * Runs once the bundler config is final, right before the first build, with
-   * every loader rule attached. Change `module`, `resolve`, `optimization` or
-   * `output` here. `entry` and `plugins` are fixed by then, use `config`.
+   * every loader rule attached. It can change `module`, `resolve`,
+   * `resolveLoader`, `node`, `optimization.minimize`, `optimization.minimizer`
+   * and the `output` options read at build time, such as file names and
+   * `environment`. Every other key is fixed by then (`entry`, `plugins`,
+   * `mode`, `devtool`, `target`, `externals`, `output.path`, the rest of
+   * `optimization`): a change is ignored with a warning, use `config`.
    */
   configResolved?: (
     // biome-ignore lint/suspicious/noExplicitAny: public config API stays loose so user projects need no bundler types

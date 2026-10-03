@@ -11,11 +11,12 @@ import * as path from 'node:path'
 import {filterKeysForThisBrowser} from '../../lib/manifest-utils'
 import {parseJsonSafe} from '../../lib/parse-json-safe'
 import {canonicalizeDir, toResourceKey} from '../../lib/resource-path'
+import {scriptsFolderRoot} from '../../plugin-special-folders/folders-config'
 import type {DevOptions, Manifest} from '../../types'
 
 interface ContentScriptIndex {
   mtimeMs: number
-  scriptsDir: string
+  scriptsDir: string | undefined
   contentPaths: Set<string>
 }
 
@@ -30,7 +31,8 @@ function getContentScriptIndex(
 ): ContentScriptIndex {
   // The browser belongs in the key: the same manifest resolves to a different
   // content-script set per target, and a shared key would serve a stale one.
-  const cacheKey = `${manifestPath}::${projectPath}::${browser}`
+  const scriptsRoot = scriptsFolderRoot(projectPath)
+  const cacheKey = `${manifestPath}::${projectPath}::${browser}::${scriptsRoot}`
 
   let mtimeMs = -1
 
@@ -68,7 +70,7 @@ function getContentScriptIndex(
 
   const index: ContentScriptIndex = {
     mtimeMs,
-    scriptsDir: canonicalizeDir(path.resolve(projectPath, 'scripts')),
+    scriptsDir: scriptsRoot ? canonicalizeDir(scriptsRoot) : undefined,
     contentPaths
   }
   indexCache.set(cacheKey, index)
@@ -95,8 +97,11 @@ export function isContentScriptEntry(
   )
   const absPathNormalized = toResourceKey(absolutePath)
 
-  // Files inside <projectPath>/scripts are treated as content-script-like
-  const relToScripts = path.relative(scriptsDir, absPathNormalized)
+  // Files inside the scripts folder in use are content-script-like. The
+  // `folders` config moves that folder or turns it off.
+  const relToScripts = scriptsDir
+    ? path.relative(scriptsDir, absPathNormalized)
+    : ''
   const isScriptsFolderScript =
     relToScripts &&
     !relToScripts.startsWith('..') &&

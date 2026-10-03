@@ -10,8 +10,10 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import rspack, {Compilation, type Compiler} from '@rspack/core'
 import {isCompilerRestarting} from '../../../dev-server/session-restart'
+import {turnedOffPublicFolders} from '../../../plugin-special-folders/resolve-public-folder'
 import {isManifestAddress} from '../../shared/paths'
 import {getCurrentManifestContent} from '../manifest-lib/manifest'
+import * as messages from '../messages'
 
 function readJsonSafe(source: string) {
   try {
@@ -126,6 +128,62 @@ function collectRequiredManifestFiles(manifest: unknown): string[] {
   return [...required]
 }
 
+function isFile(candidate: string): boolean {
+  try {
+    return fs.statSync(candidate).isFile()
+  } catch {
+    return false
+  }
+}
+
+// Every file the manifest names that a turned-off public folder holds. The
+// JSON features rename what they read from there, so their paths count too.
+function collectFilesInTurnedOffPublic(
+  manifest: unknown,
+  offFolders: string[]
+): string[] {
+  const found = new Set<string>()
+
+  const visit = (value: unknown) => {
+    if (typeof value === 'string') {
+      const relative = normalizeManifestFile(value)
+
+      if (
+        relative &&
+        !relative.split('/').includes('..') &&
+        offFolders.some((folder) => isFile(path.join(folder, relative)))
+      ) {
+        found.add(relative)
+      }
+
+      return
+    }
+
+    if (value && typeof value === 'object') Object.values(value).forEach(visit)
+  }
+
+  visit(manifest)
+
+  const named = manifest as
+    | {
+        declarative_net_request?: {rule_resources?: Array<{path?: unknown}>}
+        storage?: {managed_schema?: unknown}
+      }
+    | undefined
+  const rules = named?.declarative_net_request?.rule_resources
+  const renamed = [
+    ...(Array.isArray(rules) ? rules.map((rule) => rule?.path) : []),
+    named?.storage?.managed_schema
+  ]
+
+  for (const value of renamed) {
+    const relative = normalizeManifestFile(value)
+    if (relative) found.add(relative)
+  }
+
+  return [...found]
+}
+
 function findMissingFilesOnDisk(
   outputPath: string,
   required: string[]
@@ -165,7 +223,10 @@ function writeFileAtomically(targetPath: string, content: string) {
 }
 
 export class PersistManifestToDisk {
+  constructor(private readonly options: {manifestPath?: string} = {}) {}
+
   apply(compiler: Compiler) {
+    const {manifestPath} = this.options
     let pendingManifestSource: string | undefined
     let pendingOutputPath: string | undefined
     let pendingHadErrors = false
@@ -210,6 +271,31 @@ export class PersistManifestToDisk {
 
         const manifest = readJsonSafe(manifestSource)
         if (!manifest) return
+
+        // With `public: false` every feature still finds a file in public/
+        // and leaves the emit to a copier that is off, so nothing ships it.
+        const offFolders = manifestPath
+          ? turnedOffPublicFolders(manifestPath, compiler.options.context)
+          : []
+        const strandedFiles =
+          offFolders.length > 0
+            ? findMissingFilesOnDisk(
+                outputPath,
+                collectFilesInTurnedOffPublic(manifest, offFolders)
+              )
+            : []
+
+        if (strandedFiles.length > 0) {
+          if (isCompilerRestarting(compiler)) return
+
+          const err = new rspack.WebpackError(
+            messages.manifestFilesInTurnedOffPublic(strandedFiles)
+          ) as Error & {file?: string}
+          err.file = 'manifest.json'
+          compilation.errors.push(err)
+
+          return
+        }
 
         const requiredFiles = collectRequiredManifestFiles(manifest)
         const missingFiles = findMissingFilesOnDisk(outputPath, requiredFiles)

@@ -12,13 +12,13 @@ import type {DevOptions, FilepathList, PluginInterface} from '../../types'
 import * as messages from './messages'
 import {AddDependencies} from './steps/add-dependencies'
 import {ApplyDevDefaults} from './steps/apply-dev-defaults'
-import {WarnUndeclaredPermissions} from './steps/warn-undeclared-permissions'
 import {EmitManifest} from './steps/emit-manifest'
 import {ManifestLegacyWarnings} from './steps/legacy-warnings'
 import {PatchWAR} from './steps/patch-war'
 import {PersistManifestToDisk} from './steps/persist-manifest'
 import {UpdateManifest} from './steps/update-manifest'
 import {ValidateThemeValues} from './steps/validate-theme-values'
+import {WarnUndeclaredPermissions} from './steps/warn-undeclared-permissions'
 
 export class ManifestPlugin {
   public readonly manifestPath: string
@@ -79,7 +79,7 @@ export class ManifestPlugin {
 
     // 5 - Persist the final manifest atomically so Chromium never
     // observes a partially written file during startup reloads.
-    new PersistManifestToDisk().apply(compiler)
+    new PersistManifestToDisk({manifestPath: this.manifestPath}).apply(compiler)
 
     new AddDependencies([this.manifestPath]).apply(compiler)
 

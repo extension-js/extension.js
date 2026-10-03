@@ -344,11 +344,12 @@ export function registerPreviewCommand(program: Command) {
             const declared = declaredErrorCode(error)
 
             if (declared) {
-              // A browser that never came up, or never answered, is a failed
-              // run and not a mistyped command line.
+              // A browser that never came up or never answered, or a config
+              // file that threw, is a failed run and not a mistyped command.
               const status =
                 declared === CODES.E_BROWSER_LAUNCH ||
-                declared === CODES.E_BROWSER_CONNECT
+                declared === CODES.E_BROWSER_CONNECT ||
+                declared === CODES.E_CONFIG_LOAD
                   ? 'failed'
                   : 'usage'
 

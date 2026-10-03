@@ -1,5 +1,6 @@
 import * as path from 'node:path'
 import {beforeEach, describe, expect, it, vi} from 'vitest'
+import {rememberSpecialFoldersConfig} from '../../plugin-special-folders/folders-config'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../../plugin-web-extension/feature-scripts/contracts'
 
 const projectFilesMocks = vi.hoisted(() => ({
@@ -152,5 +153,31 @@ describe('JsFrameworksPlugin content-script layer, browser-prefixed keys', () =>
       'chrome'
     )
     expect(include('/project/content/script.js')).toBe(true)
+  })
+
+  it('claims a file under scripts/ until the folder is turned off', async () => {
+    const claimed = await contentScriptLayerInclude({}, 'chrome')
+    expect(claimed('/project/scripts/inject.js')).toBe(true)
+
+    rememberSpecialFoldersConfig('/project', {scripts: false})
+
+    try {
+      const plain = await contentScriptLayerInclude({}, 'chrome')
+      expect(plain('/project/scripts/inject.js')).toBe(false)
+    } finally {
+      rememberSpecialFoldersConfig('/project', undefined)
+    }
+  })
+
+  it('follows scripts/ to the folder it was moved to', async () => {
+    rememberSpecialFoldersConfig('/project', {scripts: 'src/scripts'})
+
+    try {
+      const include = await contentScriptLayerInclude({}, 'chrome')
+      expect(include('/project/src/scripts/inject.js')).toBe(true)
+      expect(include('/project/scripts/inject.js')).toBe(false)
+    } finally {
+      rememberSpecialFoldersConfig('/project', undefined)
+    }
   })
 })

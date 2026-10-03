@@ -228,6 +228,41 @@ describe('the config loading frame says why it failed', () => {
   })
 })
 
+describe('a config file that throws', () => {
+  it('rejects with one coded block and prints nothing of its own', async () => {
+    const root = project({
+      'extension.config.js': "throw new Error('CONFIG_BOOM_MARK')\n"
+    })
+    const printed = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    try {
+      const thrown = await loadCustomConfig(root).then(
+        () => undefined,
+        (error: Error & {code?: string}) => error
+      )
+
+      expect(thrown?.code).toBe('E_CONFIG_LOAD')
+      expect(printed).not.toHaveBeenCalled()
+
+      const lines = String(thrown?.message).split('\n')
+      expect(lines[0]).toContain("Couldn't load")
+      expect(lines.filter((line) => line.includes('⏵⏵⏵'))).toHaveLength(1)
+      expect(thrown?.message).toContain(path.join(root, 'extension.config.js'))
+      expect(thrown?.message.match(/CONFIG_BOOM_MARK/g)).toHaveLength(1)
+      expect(thrown?.message).not.toMatch(/\n\s+at /)
+
+      // The second loader of the same run stays as quiet as the first.
+      await expect(loadCommandConfig(root, 'dev')).rejects.toMatchObject({
+        code: 'E_CONFIG_LOAD'
+      })
+
+      expect(printed).not.toHaveBeenCalled()
+    } finally {
+      printed.mockRestore()
+    }
+  })
+})
+
 describe('a config file must export an object', () => {
   const cases: Array<{name: string; source: string; found: string}> = [
     {
@@ -299,10 +334,12 @@ describe('a config file must export an object', () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     try {
-      await expect(loadCustomConfig(root)).rejects.toThrow(/boom while loading/)
+      // The frame travels on the error, for the command to print once.
+      await expect(loadCustomConfig(root)).rejects.toThrow(
+        /Couldn't load[\s\S]*boom while loading/
+      )
 
-      expect(errorSpy).toHaveBeenCalledTimes(1)
-      expect(String(errorSpy.mock.calls[0][0])).toContain('boom while loading')
+      expect(errorSpy).not.toHaveBeenCalled()
     } finally {
       errorSpy.mockRestore()
     }
