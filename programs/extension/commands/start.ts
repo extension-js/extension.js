@@ -26,6 +26,7 @@ import {
   loadExtensionDevelopModule,
   loadExtensionDevelopPreviewModule
 } from '../helpers/extension-develop-runtime'
+import {LOG_CONTEXTS} from '../helpers/log-contexts'
 import * as messages from '../helpers/messages'
 import {commandDescriptions} from '../helpers/messages'
 import {CODES, ENVELOPE, type ErrorCode} from '../helpers/messaging'
@@ -49,11 +50,7 @@ import {
   validateVendors,
   vendors
 } from '../helpers/vendors'
-import {
-  describeWaitError,
-  framedWaitFailure,
-  runWaitMode
-} from './dev-wait'
+import {describeWaitError, framedWaitFailure, runWaitMode} from './dev-wait'
 
 type StartOptions = {
   browser?: Browser | 'all'
@@ -64,6 +61,7 @@ type StartOptions = {
   startingUrl?: string
   port?: string | number
   host?: string
+  publicHost?: string
   polyfill?: boolean | string
   open?: boolean
   install?: boolean
@@ -149,9 +147,15 @@ export function registerStartCommand(program: Command) {
       '--host <host>',
       'specify the host to bind the dev server to. Use 0.0.0.0 for Docker/devcontainers. Defaults to `127.0.0.1`'
     )
+    // Accepted and ignored: start serves nothing a browser dials, and a
+    // caller that shares its flags with dev must not be refused for it.
+    .option(
+      '--public-host <host>',
+      'accepted for parity with `dev`. `start` serves nothing, so this has no effect'
+    )
     .option(
       '--log-context <list>',
-      '[experimental] comma-separated contexts to include (background,content,page,sidebar,popup,options,devtools). Use `all` to include all contexts (default)'
+      `[experimental] comma-separated contexts to include (${LOG_CONTEXTS.join(',')}). Use \`all\` to include all contexts (default)`
     )
     .option(
       '--logs <off|error|warn|info|debug|trace|all>',
@@ -372,6 +376,9 @@ export function registerStartCommand(program: Command) {
               projectPath: pathOrRemoteUrl || process.cwd(),
               browser: list[0],
               browsers: list,
+              // Run-only serves nothing, so no port is bound. The key stays
+              // for readers of the old frame, which echoed the requested one.
+              port: null,
               pid: process.pid,
               noBrowser: await resolveNoBrowser(
                 pathOrRemoteUrl || process.cwd(),

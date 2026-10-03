@@ -1,6 +1,9 @@
-import {describe, it, expect} from 'vitest'
+import {describe, expect, it} from 'vitest'
+import {LOG_CONTEXTS as BRIDGE_LOG_CONTEXTS} from '../../develop/dev-server/control-bridge/contracts'
+import {LOG_CONTEXTS} from '../helpers/log-contexts'
 import {
   parseExtensionsList,
+  parseLogContexts,
   parsePositiveInt
 } from '../helpers/normalize-options'
 
@@ -23,7 +26,10 @@ describe('parsePositiveInt', () => {
       value: undefined
     })
 
-    expect(parsePositiveInt('--tab', '  ')).toEqual({ok: true, value: undefined})
+    expect(parsePositiveInt('--tab', '  ')).toEqual({
+      ok: true,
+      value: undefined
+    })
   })
 
   it('accepts a whole positive number', () => {
@@ -42,5 +48,31 @@ describe('parsePositiveInt', () => {
         message: `--max-bytes expects a positive integer, got: ${raw}`
       })
     }
+  })
+})
+
+// One vocabulary for every log filter: what `dev --log-context` takes is
+// what `logs --context` and the bridge query take, `page` included.
+describe('parseLogContexts', () => {
+  it('reads the shared context list, as the bridge names it', () => {
+    expect(LOG_CONTEXTS).toEqual([...BRIDGE_LOG_CONTEXTS])
+    expect(LOG_CONTEXTS).toContain('page')
+    expect(parseLogContexts('page,newtab,background')).toEqual([
+      'page',
+      'newtab',
+      'background'
+    ])
+  })
+
+  it('drops names outside the list and treats all or blank as every context', () => {
+    expect(parseLogContexts('content, nope ,popup')).toEqual([
+      'content',
+      'popup'
+    ])
+
+    expect(parseLogContexts('nope')).toBeUndefined()
+    expect(parseLogContexts('all')).toBeUndefined()
+    expect(parseLogContexts('')).toBeUndefined()
+    expect(parseLogContexts(undefined)).toBeUndefined()
   })
 })

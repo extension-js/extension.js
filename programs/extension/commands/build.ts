@@ -209,13 +209,14 @@ export function registerBuildCommand(program: Command) {
         const asJson = isJsonOutput(buildOptions)
         const list = vendors(browser)
         let unsupportedBrowser = ''
+        let supportedBrowsers: string[] = []
 
         const vendorsAreSupported = validateVendors(
           list,
           (invalid, supported) => {
             unsupportedBrowser = invalid
-            if (asJson) return
-
+            supportedBrowsers = supported
+            // stderr in json mode too, so the valid choices are always named.
             // eslint-disable-next-line no-console
             console.error(messages.unsupportedBrowserFlag(invalid, supported))
           }
@@ -224,7 +225,9 @@ export function registerBuildCommand(program: Command) {
         if (!vendorsAreSupported) {
           failAndExit(asJson, 'usage', {
             code: CODES.E_UNSUPPORTED_BROWSER,
-            message: `Unsupported browser: ${unsupportedBrowser}`
+            message:
+              `Unsupported browser: ${unsupportedBrowser}. ` +
+              `Choose one of: ${supportedBrowsers.join(', ')}.`
           })
         }
 

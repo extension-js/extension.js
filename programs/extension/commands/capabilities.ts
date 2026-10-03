@@ -27,8 +27,8 @@ interface CommandLike {
 }
 
 // Accepting --output json is not the same as terminating with one envelope.
-// logs streams a record per event and frames only its failures, so a consumer
-// that read it here as an envelope command broke on the success path.
+// logs streams a record per event and frames only its failures, so it is
+// named in both lists: it takes the flag, and it answers with records.
 const RECORD_STREAM_COMMANDS = new Set(['logs'])
 
 function acceptsOutputJson(command: CommandLike): boolean {
@@ -46,9 +46,7 @@ export function collectOutputJsonCommands(program: Command): string[] {
   for (const command of program.commands as unknown as CommandLike[]) {
     const name = command.name()
 
-    if (acceptsOutputJson(command) && !RECORD_STREAM_COMMANDS.has(name)) {
-      names.add(name)
-    }
+    if (acceptsOutputJson(command)) names.add(name)
   }
 
   return Array.from(names).sort()

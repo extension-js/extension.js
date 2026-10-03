@@ -12,6 +12,7 @@ import colors from 'pintor'
 import {emulatorSessionRefusal} from '../helpers/emulator-session'
 import {exitAfterDrain} from '../helpers/exit-after-drain'
 import {loadExtensionDevelopBridgeModule} from '../helpers/extension-develop-runtime'
+import {LOG_CONTEXTS} from '../helpers/log-contexts'
 import {commandDescriptions} from '../helpers/messages'
 import {CODES, ENVELOPE} from '../helpers/messaging'
 import {parsePositiveInt} from '../helpers/normalize-options'
@@ -135,24 +136,14 @@ export interface LogEventLike {
 const LEVEL_ORDER = ['error', 'warn', 'info', 'debug', 'trace']
 const LEVEL_FILTERS = ['off', ...LEVEL_ORDER, 'all']
 
-// Every context a dev session logs from, as the develop bridge's LOG_CONTEXTS
-// names them; a copy lives here so the help can list them before it loads.
-export const LOG_CONTEXTS = [
-  'background',
-  'content',
-  'popup',
-  'options',
-  'sidebar',
-  'devtools',
-  'newtab',
-  'history',
-  'bookmarks'
-]
+// The CLI's copy of the bridge's LOG_CONTEXTS lists them in the help before
+// the bridge loads; the bridge's own list wins once it has.
+export {LOG_CONTEXTS}
 
 function knownContextsFrom(bridge: unknown): string[] {
   const published = (bridge as {LOG_CONTEXTS?: unknown} | null)?.LOG_CONTEXTS
 
-  return Array.isArray(published) ? published.map(String) : LOG_CONTEXTS
+  return Array.isArray(published) ? published.map(String) : [...LOG_CONTEXTS]
 }
 
 function levelRank(level: string): number {
@@ -224,10 +215,8 @@ function makeFilter(
     if (event.type === 'header') return false
     if (minLevel === 'off') return false
 
-    // A gap stands for events the writer lost. Their fields are gone, so no
-    // clause can judge them, and hiding the gap would hide the loss itself.
-    if (event.type === 'gap') return true
-
+    // A gap carries none of the fields a clause reads, so it stays a row only
+    // in a read nothing narrows. A filtered read reports it on stderr instead.
     if (opts.signalsOnly && event.eventType !== 'dx.signal') return false
 
     if (contexts && !contexts.has(String(event.context))) return false
@@ -264,16 +253,20 @@ function resolveFormat(opts: LogsOptions): 'pretty' | 'json' | 'ndjson' {
   return process.stdout.isTTY ? 'pretty' : 'ndjson'
 }
 
+// Dropped events are reported on stderr, never as a record on stdout: a
+// consumer that reads every stdout line as a log event must keep working.
+function printGapNotice(gap: LogEventLike, where: string) {
+  // eslint-disable-next-line no-console
+  console.error(
+    colors.dim(
+      colors.gray(`… ${gap.dropped} event(s) dropped (${gap.reason}), ${where}`)
+    )
+  )
+}
+
 function printEvent(event: LogEventLike, format: 'pretty' | 'json' | 'ndjson') {
   if (event.type === 'gap' && format === 'pretty') {
-    // eslint-disable-next-line no-console
-    console.error(
-      colors.dim(
-        colors.gray(
-          `… ${event.dropped} event(s) dropped (${event.reason}), missing from the log file`
-        )
-      )
-    )
+    printGapNotice(event, 'missing from the log file')
 
     return
   }
@@ -327,18 +320,9 @@ export function formatPrettyLogLine(event: LogEventLike): string {
 
 // The header of a generation that began mid-session is the only trace of the
 // rotation; the events before it live in the sibling the writer renamed to.
-function printRotation(
-  header: LogEventLike,
-  file: string,
-  format: 'pretty' | 'json' | 'ndjson'
-) {
+// A notice on stderr in every format: a header is not a log record.
+function printRotation(header: LogEventLike, file: string) {
   if (!header.rotatedFrom) return
-
-  if (format !== 'pretty') {
-    printEvent(header, format)
-
-    return
-  }
 
   const rotated = file.replace(/\.ndjson$/, '.1.ndjson')
   // eslint-disable-next-line no-console
@@ -530,13 +514,18 @@ export function registerLogsCommand(program: Command) {
       }
 
       const lines = fs.readFileSync(file, 'utf-8').split('\n').filter(Boolean)
+      // `off` asks for silence, and that covers the loss notice too.
+      const noticeGaps = levelFilterFrom(options.level) !== 'off'
 
       for (const line of lines) {
         const event = parseLogLine(line)
         if (!event) continue
 
-        if (event.type === 'header') printRotation(event, file, format)
+        if (event.type === 'header') printRotation(event, file)
         else if (matches(event)) printEvent(event, format)
+        else if (event.type === 'gap' && noticeGaps) {
+          printGapNotice(event, 'missing from the log file')
+        }
       }
     })
 }
@@ -665,7 +654,7 @@ async function followLogs(
     // reads log frames never learns the stream lost anything.
     onGap: (frame: LogEventLike) => {
       missingEvents += typeof frame.dropped === 'number' ? frame.dropped : 0
-      printEvent({...frame, type: 'gap'}, format)
+      printGapNotice(frame, 'stream is behind')
     },
     onClose: (close: {code: number; reason: string}) => {
       if (!refusals.has(close.code) && sessionStillNamed()) return

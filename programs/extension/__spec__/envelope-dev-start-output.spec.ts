@@ -75,13 +75,14 @@ describe('extension start --output json', () => {
       warnings: []
     })
 
+    // `port` stayed on the frame for readers of the 4.1.30 shape. It was the
+    // requested port then and nothing ever listened on it, so it is null now.
     expect(emitted[0].value).toMatchObject({
       browser: 'chromium',
       browsers: ['chromium'],
-      pid: process.pid
+      pid: process.pid,
+      port: null
     })
-
-    expect(emitted[0].value).not.toHaveProperty('port')
 
     expect(extensionBuild).toHaveBeenCalledTimes(1)
     expect(extensionPreview).toHaveBeenCalledTimes(1)

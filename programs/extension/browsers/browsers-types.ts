@@ -6,6 +6,8 @@
 // ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import type {LogContext as SharedLogContext} from '../helpers/log-contexts'
+
 export type BrowserType =
   | 'chrome'
   | 'edge'
@@ -139,15 +141,7 @@ export interface PluginInterface extends PluginOptions {
 
   logLevel?: 'off' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'all'
 
-  logContexts?: Array<
-    | 'background'
-    | 'content'
-    | 'page'
-    | 'sidebar'
-    | 'popup'
-    | 'options'
-    | 'devtools'
-  >
+  logContexts?: LogContext[]
 
   logFormat?: 'pretty' | 'json' | 'ndjson'
 
@@ -187,14 +181,7 @@ export type LogLevel =
   | 'trace'
   | 'all'
 
-export type LogContext =
-  | 'background'
-  | 'content'
-  | 'page'
-  | 'sidebar'
-  | 'popup'
-  | 'options'
-  | 'devtools'
+export type LogContext = SharedLogContext
 
 export type LogFormat = 'pretty' | 'json' | 'ndjson'
 
