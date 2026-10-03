@@ -8,6 +8,7 @@
 
 import type {RuleSetRule} from '@rspack/core'
 import {resolveDevelopDistFile} from '../../lib/develop-context'
+import {ensureOptionalContractPackageResolved} from '../../lib/optional-deps-resolver'
 import {NOT_RAW_RESOURCE_QUERY} from '../../lib/resource-query'
 import type {DevOptions} from '../../types'
 import {commonStyleLoaders} from '../common-style-loaders'
@@ -16,6 +17,30 @@ import {createSassLoaderOptions} from '../css-tools/sass'
 export interface PreprocessorUsage {
   useSass?: boolean
   useLess?: boolean
+}
+
+type PreprocessorLoader = 'sass-loader' | 'less-loader'
+
+// Same absolute path the vue, svelte and postcss loaders already get. A bare
+// name only resolves beside the project or beside extension-develop, and a
+// hoisted install keeps the loader above both, so Node resolves it instead.
+async function resolvePreprocessorLoader(
+  loader: PreprocessorLoader,
+  projectPath: string
+): Promise<string> {
+  try {
+    const resolved = await ensureOptionalContractPackageResolved({
+      contractId: loader === 'sass-loader' ? 'sass' : 'less',
+      projectPath,
+      dependencyId: loader
+    })
+
+    if (resolved !== projectPath) return resolved
+  } catch {
+    // Fall through to the bare name and rspack's own loader lookup.
+  }
+
+  return loader
 }
 
 interface BuildCssRulesOptions {
@@ -42,7 +67,7 @@ export async function buildCssRules(
     test: RegExp
     exclude?: RegExp
     type: string
-    loader: 'sass-loader' | 'less-loader' | null
+    loader: PreprocessorLoader | null
     missingTool?: 'sass' | 'less'
   }> = [
     {test: /\.module\.css$/, type: 'css/module', loader: null},
@@ -120,9 +145,7 @@ export async function buildCssRules(
       const use = loader
         ? await commonStyleLoaders(projectPath, {
             mode: mode as 'development' | 'production',
-            // Bare loader name; rspack resolves it via `resolveLoader.modules`,
-            // which includes extension-develop's node_modules as a fallback.
-            loader,
+            loader: await resolvePreprocessorLoader(loader, projectPath),
             loaderOptions:
               loader === 'sass-loader'
                 ? createSassLoaderOptions(

@@ -1,9 +1,12 @@
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import {beforeEach, describe, expect, it, vi} from 'vitest'
 
 vi.mock('../../common-style-loaders', () => ({
   commonStyleLoaders: vi.fn(async () => [])
 }))
 
+import {commonStyleLoaders} from '../../common-style-loaders'
 import {buildCssRules} from '../../css-lib/build-css-rules'
 
 const opts = {
@@ -71,6 +74,36 @@ describe('buildCssRules, missing-preprocessor passthrough (bug 26)', () => {
 
     for (const rule of rulesFor(rules, 'css')) {
       expect(hasPassthrough(rule)).toBe(false)
+    }
+  })
+})
+
+// A bare "sass-loader" is looked up through resolveLoader.modules, which stops
+// at extension-develop's parent. A project outside a hoisted checkout then
+// fails with "Unable to resolve loader sass-loader" although the package is
+// installed. The rule carries the absolute file instead, as vue and postcss do.
+describe('buildCssRules, preprocessor loader paths', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('hands rspack absolute sass-loader and less-loader files, never bare names', async () => {
+    await buildCssRules(
+      '/project',
+      'development',
+      {useSass: true, useLess: true},
+      opts
+    )
+
+    const loaders = vi
+      .mocked(commonStyleLoaders)
+      .mock.calls.map(([, styleOpts]) => styleOpts.loader)
+      .filter((loader): loader is string => typeof loader === 'string')
+
+    expect(loaders.some((loader) => loader.includes('sass-loader'))).toBe(true)
+    expect(loaders.some((loader) => loader.includes('less-loader'))).toBe(true)
+
+    for (const loader of loaders) {
+      expect(path.isAbsolute(loader), loader).toBe(true)
+      expect(fs.statSync(loader).isFile(), loader).toBe(true)
     }
   })
 })
