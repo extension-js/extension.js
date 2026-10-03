@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import type {Compilation} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
 import {
   buildSourceFeatureIndex,
@@ -278,7 +279,7 @@ describe('buildSourceFeatureIndex', () => {
           }))
         }
       }
-    }
+    } as unknown as Compilation
   }
 
   it('maps loader-prefixed, layered module identifiers to project-relative sources per feature', () => {

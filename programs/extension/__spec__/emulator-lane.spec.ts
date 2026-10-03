@@ -50,6 +50,11 @@ import {
   openCommandFor,
   probeEngineOrigin
 } from '../browsers/run-emulator'
+
+// The published ExtensionEnv augmentation makes the bundler-injected keys
+// required, and a unit env object carries none of them.
+const env = (vars: Record<string, string> = {}) => vars as NodeJS.ProcessEnv
+
 import {registerActCommands} from '../commands/act'
 import {runDoctor} from '../commands/doctor'
 import {registerLogsCommand} from '../commands/logs'
@@ -110,14 +115,14 @@ describe('chromium-emulator name gating', () => {
       refused: 'chromium-emulator'
     })
 
-    expect(supportedBrowserTargets({})).not.toContain('chromium-emulator')
+    expect(supportedBrowserTargets(env({}))).not.toContain('chromium-emulator')
   })
 
   it('accepts the name when EXTENSION_EXPERIMENTAL_EMULATOR=1', () => {
     process.env.EXTENSION_EXPERIMENTAL_EMULATOR = '1'
     expect(reject(['chromium-emulator'])).toEqual({ok: true, refused: ''})
     expect(
-      supportedBrowserTargets({EXTENSION_EXPERIMENTAL_EMULATOR: '1'})
+      supportedBrowserTargets(env({EXTENSION_EXPERIMENTAL_EMULATOR: '1'}))
     ).toContain('chromium-emulator')
   })
 
@@ -320,12 +325,18 @@ describe('tooling refuses an emulator session', () => {
     const reader = {
       readReadyContractDocument: () => ({engine: 'emulator'})
     }
-    expect(isEmulatorSession(reader, dir, 'chromium-emulator', {})).toBe(true)
-    expect(isEmulatorSession({}, dir, 'chromium-emulator', {})).toBe(false)
+    expect(isEmulatorSession(reader, dir, 'chromium-emulator', env())).toBe(
+      true
+    )
+
+    expect(isEmulatorSession({}, dir, 'chromium-emulator', env())).toBe(false)
     expect(
-      isEmulatorSession({}, dir, 'chromium-emulator', {
-        EXTENSION_EXPERIMENTAL_EMULATOR: '1'
-      })
+      isEmulatorSession(
+        {},
+        dir,
+        'chromium-emulator',
+        env({EXTENSION_EXPERIMENTAL_EMULATOR: '1'})
+      )
     ).toBe(true)
 
     expect(
@@ -333,7 +344,7 @@ describe('tooling refuses an emulator session', () => {
         {readReadyContractDocument: () => ({engine: undefined})},
         dir,
         'chromium',
-        {}
+        env()
       )
     ).toBe(false)
   })

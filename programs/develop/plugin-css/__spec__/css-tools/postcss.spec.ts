@@ -3,7 +3,7 @@ import postcss from 'postcss'
 import {beforeEach, describe, expect, it, vi} from 'vitest'
 
 const {hasDependencyMock} = vi.hoisted(() => ({
-  hasDependencyMock: vi.fn(() => false)
+  hasDependencyMock: vi.fn((_projectPath: string, _dependency: string) => false)
 }))
 
 vi.mock('../../../lib/has-dependency', () => ({

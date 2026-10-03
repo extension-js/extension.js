@@ -30,8 +30,9 @@ describe('validateLocales author-mode diagnostics (unit)', () => {
       fs.rmSync(tmpRoot, {recursive: true, force: true})
     }
 
-    if (prevAuthorMode === undefined) delete process.env.EXTENSION_AUTHOR_MODE
-    else process.env.EXTENSION_AUTHOR_MODE = prevAuthorMode
+    if (prevAuthorMode === undefined) {
+      Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')
+    } else process.env.EXTENSION_AUTHOR_MODE = prevAuthorMode
 
     vi.restoreAllMocks()
   })
@@ -57,7 +58,7 @@ describe('validateLocales author-mode diagnostics (unit)', () => {
   })
 
   it('stays silent when author mode is off', () => {
-    delete process.env.EXTENSION_AUTHOR_MODE
+    Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
 
     const result = validateLocales(

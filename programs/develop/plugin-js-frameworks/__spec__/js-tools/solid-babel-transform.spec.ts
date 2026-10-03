@@ -11,6 +11,11 @@ const solidPreset = requireFromEngine.resolve('babel-preset-solid')
 const typescriptPreset = requireFromEngine.resolve('@babel/preset-typescript')
 const babel = requireFromEngine('@babel/core') as typeof import('@babel/core')
 
+// The loader hands these options to Babel as plain data, so the preset pairs
+// infer as arrays. Babel's own option type wants the tuple shape back.
+const optionsFor = (input: Parameters<typeof solidBabelOptions>[0]) =>
+  solidBabelOptions(input) as import('@babel/core').InputOptions
+
 const counterTsx = `
 import {createSignal} from 'solid-js'
 
@@ -31,7 +36,7 @@ describe('the Solid Babel pass the engine configures', () => {
   it('compiles a .tsx component with Solid, types gone, JSX gone, nothing left for a JSX runtime', async () => {
     const result = await babel.transformAsync(counterTsx, {
       filename: '/project/Counter.tsx',
-      ...solidBabelOptions({
+      ...optionsFor({
         solidPreset,
         typescriptPreset,
         typescript: true,
@@ -65,7 +70,7 @@ describe('the Solid Babel pass the engine configures', () => {
         .replace('createSignal<number>', 'createSignal'),
       {
         filename: '/project/Counter.jsx',
-        ...solidBabelOptions({
+        ...optionsFor({
           solidPreset,
           typescriptPreset,
           typescript: false,
@@ -87,7 +92,7 @@ describe('the Solid Babel pass the engine configures', () => {
         .replace('createSignal<number>', 'createSignal'),
       {
         filename: '/project/Counter.js',
-        ...solidBabelOptions({
+        ...optionsFor({
           solidPreset,
           typescriptPreset,
           typescript: false,
@@ -106,7 +111,7 @@ describe('the Solid Babel pass the engine configures', () => {
       "var s = '\\101'\nthis.marker = s\n",
       {
         filename: '/project/content.js',
-        ...solidBabelOptions({
+        ...optionsFor({
           solidPreset,
           typescriptPreset,
           typescript: false,

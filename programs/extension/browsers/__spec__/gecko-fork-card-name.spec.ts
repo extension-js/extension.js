@@ -1,11 +1,19 @@
 import {mkdtempSync, rmSync, writeFileSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type MockInstance,
+  vi
+} from 'vitest'
 import {printRunningInDevelopmentSummary} from '../run-firefox/rdp/remote-firefox/firefox-utils'
 
 const dirs: string[] = []
-let log: ReturnType<typeof vi.spyOn>
+let log: MockInstance<typeof console.log>
 
 beforeEach(() => {
   log = vi.spyOn(console, 'log').mockImplementation(() => {})

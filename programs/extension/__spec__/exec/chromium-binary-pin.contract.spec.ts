@@ -27,8 +27,8 @@ function stripVitestEnv(): NodeJS.ProcessEnv {
     NO_COLOR: '1',
     FORCE_COLOR: '0'
   }
-  delete env.VITEST
-  delete env.VITEST_WORKER_ID
+  Reflect.deleteProperty(env, 'VITEST')
+  Reflect.deleteProperty(env, 'VITEST_WORKER_ID')
 
   return env
 }

@@ -8,7 +8,9 @@ vi.mock('../css-lib/is-content-script', () => ({
   isContentScriptEntry: vi.fn((issuer: string) => issuer.includes('content'))
 }))
 
-const resolveDevelopInstallRootMock = vi.fn(() => '/extension-root')
+const resolveDevelopInstallRootMock = vi.fn(
+  (..._args: unknown[]) => '/extension-root'
+)
 
 vi.mock('../../lib/develop-context', () => ({
   resolveDevelopInstallRoot: (...args: unknown[]) =>
@@ -86,8 +88,9 @@ describe('cssInHtmlLoader', () => {
     expect(rules.some((r: any) => r.type === 'css/module')).toBe(true)
 
     for (const rule of rules) {
-      expect(typeof rule.issuer).toBe('function')
-      expect(rule.issuer('content.js')).toBe(false)
+      const issuer = rule.issuer as (value: string) => boolean
+      expect(typeof issuer).toBe('function')
+      expect(issuer('content.js')).toBe(false)
       expect((rule.use as any[])?.length).toBeGreaterThan(0)
     }
   })

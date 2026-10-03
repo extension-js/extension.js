@@ -1,12 +1,20 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type MockInstance,
+  vi
+} from 'vitest'
 import {setupCompilerDoneDiagnostics} from '../compiler-hooks'
 
 let root: string
 let manifestPath: string
-let errors: ReturnType<typeof vi.spyOn>
+let errors: MockInstance<typeof console.error>
 
 function fakeCompiler() {
   let done: ((stats: unknown) => void) | undefined

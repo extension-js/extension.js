@@ -79,7 +79,7 @@ describe('CleanDistFolderPlugin', () => {
       compilerWithContext('/p', {info, warn: vi.fn(), error: vi.fn()})
     )
 
-    delete process.env.EXTENSION_AUTHOR_MODE
+    Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')
     expect(info).toHaveBeenCalled()
   })
 

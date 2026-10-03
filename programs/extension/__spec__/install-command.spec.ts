@@ -1,4 +1,12 @@
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type MockInstance,
+  vi
+} from 'vitest'
 
 function notInstallableError(browser: string): Error {
   const error = new Error(
@@ -50,9 +58,9 @@ import {
 import {registerInstallCommand} from '../commands/install'
 import {makeProgram, runCli, stubProcessExit} from './command-harness'
 
-let logSpy: ReturnType<typeof vi.spyOn>
-let errorSpy: ReturnType<typeof vi.spyOn>
-let stdoutSpy: ReturnType<typeof vi.spyOn>
+let logSpy: MockInstance<typeof console.log>
+let errorSpy: MockInstance<typeof console.error>
+let stdoutSpy: MockInstance<typeof process.stdout.write>
 const prevOutput = process.env.EXTENSION_OUTPUT
 
 beforeEach(() => {
@@ -77,13 +85,17 @@ function run(argv: string[]) {
   return runCli(makeProgram(registerInstallCommand), argv)
 }
 
-function wholeStdout(): Record<string, unknown> {
+type Frame = Record<string, unknown> & {
+  error?: {code?: string; message?: string}
+}
+
+function wholeStdout(): Frame {
   const printed = [
     ...logSpy.mock.calls.map((call) => call.map(String).join(' ')),
     ...stdoutSpy.mock.calls.map((call) => String(call[0]))
   ].join('\n')
 
-  return JSON.parse(printed) as Record<string, unknown>
+  return JSON.parse(printed) as Frame
 }
 
 describe('extension install', () => {
@@ -147,8 +159,8 @@ describe('extension install', () => {
       value: null
     })
 
-    expect(frame.error.code).toBe('E_BROWSER_DOWNLOAD')
-    expect(frame.error.message).toContain('404 from CDN')
+    expect(frame.error?.code).toBe('E_BROWSER_DOWNLOAD')
+    expect(frame.error?.message).toContain('404 from CDN')
     expect(frame.hint).toMatch(/Retry/)
   })
 
@@ -214,7 +226,7 @@ describe('extension install', () => {
     expect(await run(['install', 'netscape', '--output', 'json'])).toBe(1)
     const frame = wholeStdout()
     expect(frame.status).toBe('usage')
-    expect(frame.error.code).toBe('E_UNSUPPORTED_BROWSER')
+    expect(frame.error?.code).toBe('E_UNSUPPORTED_BROWSER')
   })
 
   it('emits E_BROWSER_NOT_INSTALLABLE for a known fork under --output json', async () => {
@@ -439,8 +451,8 @@ describe('extension uninstall', () => {
     const frame = wholeStdout()
     expect(frame.ok).toBe(false)
     expect(frame.status).toBe('failed')
-    expect(frame.error.code).toBe('E_BROWSER_UNINSTALL')
-    expect(frame.error.message).toContain('EBUSY')
+    expect(frame.error?.code).toBe('E_BROWSER_UNINSTALL')
+    expect(frame.error?.message).toContain('EBUSY')
   })
 
   it('uses the same three refusal codes as install for name errors', async () => {
