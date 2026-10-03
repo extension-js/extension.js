@@ -192,11 +192,11 @@ describe('downloadAndExtractZip', () => {
     expect(fs.existsSync(path.join(second, 'gone.js'))).toBe(false)
   })
 
-  it('leaves no destination behind when the extract throws partway', async () => {
+  it('refuses an archive with an entry outside its folder and writes nothing', async () => {
     const target = makeTempDir('extjs-zip-partial-')
     const origin = await serve((_req, res) => {
-      // The zip-slip guard throws on the second entry, after the first is
-      // already written: a merge-in-place would strand it on disk.
+      // The second entry escapes, after a first one that is fine: nothing of
+      // the archive may land, and the refusal is the archive's, not the network's.
       sendZip(res, {
         'written-first.txt': 'landed',
         '../escapes.txt': 'hostile'
@@ -204,9 +204,14 @@ describe('downloadAndExtractZip', () => {
     })
 
     const url = `${origin}/examples.zip`
-    await expect(downloadAndExtractZip(url, target)).rejects.toThrow(
-      /Refusing to extract zip entry/i
+    const error = await downloadAndExtractZip(url, target).then(
+      () => undefined,
+      (reason: Error & {code?: string}) => reason
     )
+
+    expect(error?.code).toBe('E_REMOTE_ZIP_INVALID')
+    expect(error?.message).toMatch(/Refusing to extract zip entry/i)
+    expect(error?.message).not.toMatch(/Couldn't download or extract/i)
 
     expect(fs.existsSync(path.join(target, 'examples'))).toBe(false)
     expect(fs.readdirSync(target)).toEqual([])

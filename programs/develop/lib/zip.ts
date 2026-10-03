@@ -30,17 +30,40 @@ function isZipBuffer(buffer: Buffer): boolean {
 
 type ZipEntries = Record<string, Uint8Array>
 
-// Read apart from the write, so a body that will not unpack is told from a
-// destination that cannot be written, and gets the caller's own refusal.
+function escapesRoot(root: string, name: string): boolean {
+  const target = path.resolve(root, name.replace(/\\/g, '/'))
+  const relative = path.relative(root, target)
+
+  return !relative || relative.startsWith('..') || path.isAbsolute(relative)
+}
+
+function outsideDestination(name: string): Error {
+  return new Error(
+    `Refusing to extract zip entry outside the destination: ${name}`
+  )
+}
+
+// Read and vetted apart from the write, so an archive that will not unpack,
+// or would unpack outside its folder, is told from an unwritable destination.
 function readEntries(
   zipBuffer: Buffer,
   unreadable: (cause: unknown) => CodedError
 ): ZipEntries {
+  let entries: ZipEntries
+
   try {
-    return unzipSync(new Uint8Array(zipBuffer))
+    entries = unzipSync(new Uint8Array(zipBuffer))
   } catch (cause) {
     throw unreadable(cause)
   }
+
+  const probeRoot = path.resolve(path.sep, 'extension-archive-root')
+
+  for (const name of Object.keys(entries)) {
+    if (escapesRoot(probeRoot, name)) throw unreadable(outsideDestination(name))
+  }
+
+  return entries
 }
 
 // A zip-slip guard: entries naming absolute paths or escaping the destination
@@ -51,13 +74,8 @@ function writeEntries(entries: ZipEntries, root: string): void {
   for (const [name, data] of Object.entries(entries)) {
     const normalized = name.replace(/\\/g, '/')
     const target = path.resolve(root, normalized)
-    const relative = path.relative(root, target)
 
-    if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
-      throw new Error(
-        `Refusing to extract zip entry outside the destination: ${name}`
-      )
-    }
+    if (escapesRoot(root, name)) throw outsideDestination(name)
 
     if (normalized.endsWith('/')) {
       fs.mkdirSync(target, {recursive: true})

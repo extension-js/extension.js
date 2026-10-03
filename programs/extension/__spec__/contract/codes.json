@@ -56,7 +56,7 @@
     },
     "E_CONFIG_LOAD": {
       "area": "project",
-      "summary": "extension.config.js threw while loading."
+      "summary": "extension.config.js threw while loading or did not export an object."
     },
     "E_MANAGED_DEP_CONFLICT": {
       "area": "project",
@@ -213,11 +213,11 @@
     },
     "E_REMOTE_DOWNLOAD": {
       "area": "remote",
-      "summary": "Download or extraction of a remote extension failed."
+      "summary": "A remote extension could not be downloaded or written to disk."
     },
     "E_REMOTE_ZIP_INVALID": {
       "area": "remote",
-      "summary": "The remote URL did not return a zip."
+      "summary": "The remote URL did not return a ZIP, or returned a damaged one that will not unpack."
     },
     "E_LOCAL_ZIP_NOT_FOUND": {
       "area": "remote",

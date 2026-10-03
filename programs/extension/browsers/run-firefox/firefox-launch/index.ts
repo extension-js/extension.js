@@ -9,8 +9,7 @@
 import type {ChildProcess} from 'node:child_process'
 import * as fs from 'node:fs'
 import locateFirefox, {
-  getInstallGuidance as getFirefoxInstallGuidance,
-  getFirefoxVersion
+  getInstallGuidance as getFirefoxInstallGuidance
 } from 'firefox-location2'
 import locateFloorp, {
   getInstallGuidance as getFloorpInstallGuidance
@@ -41,6 +40,10 @@ import {
   resolveFromBinaries
 } from '../../browsers-lib/output-binaries-resolver'
 import {
+  type PinnedBinaryProblem,
+  pinnedBinaryProblem
+} from '../../browsers-lib/pinned-binary'
+import {
   gracefulTerminateChild,
   gracefulTerminatePid,
   wasPidTerminatedByUs,
@@ -49,6 +52,7 @@ import {
 import {ready as devServerReady} from '../../browsers-lib/ready-message'
 import {
   describeLaunchFailure,
+  launchFailureCode,
   readReadyRunId,
   stampReadyBrowserExited,
   stampReadyBrowserLaunch,
@@ -73,6 +77,10 @@ import {
   findAvailablePortNear,
   removeManagedEphemeralProfile
 } from '../../browsers-lib/shared-utils'
+import {
+  isVersionProbeTimeout,
+  probeGeckoBinaryVersion
+} from '../../browsers-lib/version-probe'
 import type {
   BrowserConfig,
   BrowserLogger,
@@ -129,9 +137,16 @@ interface FirefoxLaunchDoneStats {
 
 // The Chromium launcher's twin: thrown with the same code, so a bad pin reads
 // the same on either engine.
-function invalidBinaryPinError(requestedPath: string): Error {
+function invalidBinaryPinError(
+  requestedPath: string,
+  problem: PinnedBinaryProblem = 'missing'
+): Error {
   return Object.assign(
-    new Error(messages.invalidGeckoBinaryPath(requestedPath)),
+    new Error(
+      problem === 'not-executable'
+        ? messages.binaryNotExecutable(requestedPath, '--gecko-binary')
+        : messages.invalidGeckoBinaryPath(requestedPath)
+    ),
     {
       code: CODES.E_BROWSER_BINARY_INVALID
     }
@@ -213,7 +228,8 @@ export class FirefoxLaunchPlugin {
     stampReadyBrowserLaunchFailed(
       outputPath,
       describeLaunchFailure(error),
-      this.launchRunId ?? readReadyRunId(outputPath)
+      this.launchRunId ?? readReadyRunId(outputPath),
+      launchFailureCode(error)
     )
   }
 
@@ -490,6 +506,20 @@ export class FirefoxLaunchPlugin {
       }
     }
 
+    // A pin that exists but will not run is refused here, before the block
+    // below reads every failure as a path that names nothing.
+    if (
+      typeof this.host.geckoBinary === 'string' &&
+      this.host.geckoBinary &&
+      !parseFlatpakBinary(this.host.geckoBinary)
+    ) {
+      const pinned = normalizePath(this.host.geckoBinary)
+
+      if (pinned && pinnedBinaryProblem(pinned) === 'not-executable') {
+        throw invalidBinaryPinError(this.host.geckoBinary, 'not-executable')
+      }
+    }
+
     try {
       if (this.host.geckoBinary && typeof this.host.geckoBinary === 'string') {
         // Flatpak: "flatpak:org.mozilla.firefox" is not a filesystem path
@@ -607,9 +637,11 @@ export class FirefoxLaunchPlugin {
     if (!isFlatpak) {
       try {
         this.host.browserVersionLine =
-          getFirefoxVersion(binaryPath, {allowExec: true}) || ''
-      } catch {
-        // best-effort only; banner will fall back to generic browser label
+          (await probeGeckoBinaryVersion(binaryPath)) || ''
+      } catch (error) {
+        // A binary that never answers would hang the launch the same way.
+        if (isVersionProbeTimeout(error)) throw error
+        // Otherwise the banner falls back to the generic browser label
       }
     }
 

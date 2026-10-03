@@ -289,6 +289,29 @@ describe('the error-code table', () => {
   })
 })
 
+// The behaviour specs (remote-archive-codes, config-load-failure) prove which
+// causes raise these codes, and the summary a reader gets has to name them.
+describe('a summary names the causes its code covers', () => {
+  it.each([
+    ['E_REMOTE_ZIP_INVALID', /not return a ZIP/, /damaged/],
+    ['E_REMOTE_DOWNLOAD', /downloaded/, /written/],
+    ['E_CONFIG_LOAD', /threw/, /not export an object/]
+  ])('%s', (code, first, second) => {
+    const summary = table.codes[code]?.summary ?? ''
+
+    expect(summary).toMatch(first)
+    expect(summary).toMatch(second)
+  })
+
+  // An archive that will not unpack is E_REMOTE_ZIP_INVALID now, so the
+  // transport code must not claim it.
+  it('keeps unpacking out of E_REMOTE_DOWNLOAD', () => {
+    expect(table.codes.E_REMOTE_DOWNLOAD?.summary).not.toMatch(
+      /extract|unpack|zip/i
+    )
+  })
+})
+
 describe('every declared code has an emit site', () => {
   const sources = collectSources(programsDir).map((file) =>
     fs.readFileSync(file, 'utf8')

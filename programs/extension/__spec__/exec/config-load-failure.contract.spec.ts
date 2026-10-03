@@ -152,3 +152,62 @@ describe('a throwing extension.config.js', () => {
     expect(heads).toBe(command === 'build' || command === 'start' ? 2 : 1)
   })
 })
+
+// A config that loads but exports something other than an object is the same
+// author mistake, so it takes the same code on every command.
+describe('an extension.config.js that does not export an object', () => {
+  let work = ''
+  let projectDir = ''
+
+  beforeAll(() => {
+    work = mkdtempSync(join(tmpdir(), 'extjs-config-shape-'))
+    projectDir = join(work, 'project')
+    mkdirSync(projectDir, {recursive: true})
+    writeFileSync(
+      join(projectDir, 'package.json'),
+      JSON.stringify({private: true, name: 'config-shape', version: '0.0.0'})
+    )
+
+    writeFileSync(
+      join(projectDir, 'manifest.json'),
+      JSON.stringify({
+        manifest_version: 3,
+        name: 'Config Shape',
+        version: '1.0.0',
+        background: {service_worker: 'background.js'}
+      })
+    )
+
+    writeFileSync(join(projectDir, 'background.js'), 'console.log("bg")\n')
+    writeFileSync(
+      join(projectDir, 'extension.config.js'),
+      "module.exports = ['not', 'an', 'object']\n"
+    )
+  })
+
+  afterAll(() => {
+    rmSync(work, {recursive: true, force: true})
+  })
+
+  it.each([
+    ['build', []],
+    ['preview', ['--no-browser']]
+  ])('answers %s --output json with E_CONFIG_LOAD', async (command, flags) => {
+    const run = await runCli([
+      command,
+      projectDir,
+      ...flags,
+      '--output',
+      'json'
+    ])
+    const emitted = frames(run.stdout)
+
+    expect(run.status).toBe(1)
+    expect(emitted).toHaveLength(1)
+    expect(emitted[0].status).not.toBe('usage')
+    expect(emitted[0].error?.code).toBe('E_CONFIG_LOAD')
+    expect(String(emitted[0].error?.message)).toContain(
+      'must export an object, found'
+    )
+  })
+})

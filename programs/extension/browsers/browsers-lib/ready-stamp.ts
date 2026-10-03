@@ -183,7 +183,8 @@ export function describeLaunchFailure(error: unknown): string {
 export function stampReadyBrowserLaunchFailed(
   extensionOutputPath: string | undefined,
   reason: string,
-  runId?: string
+  runId?: string,
+  errorCode?: string
 ) {
   try {
     if (!extensionOutputPath) return
@@ -210,11 +211,21 @@ export function stampReadyBrowserLaunchFailed(
     ready.message = `the ${ready.browser || 'browser'} process could not start (${detail}), nothing is running`
     ready.browserLaunchFailedAt = new Date().toISOString()
     ready.browserLaunchFailedReason = detail
+    // The coded class of the refusal, so a reader can tell a bad pin, which
+    // is a value to change, from a browser that would not start.
+    if (errorCode) ready.browserLaunchFailedCode = errorCode
 
     writeJsonAtomic(readyPath, ready)
   } catch {
     // best-effort, never block launch on this
   }
+}
+
+// The code a launcher refusal was thrown with, when it carries one.
+export function launchFailureCode(error: unknown): string | undefined {
+  const code = (error as {code?: unknown} | null)?.code
+
+  return typeof code === 'string' && code.startsWith('E_') ? code : undefined
 }
 
 // Publish the id the browser serves the extension under. Launch stamps the

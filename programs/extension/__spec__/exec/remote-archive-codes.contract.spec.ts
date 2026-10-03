@@ -29,6 +29,14 @@ const GOOD_ARCHIVE = Buffer.from(
   })
 )
 
+// Opens fine, then names a file outside the folder it unpacks into.
+const ESCAPING_ARCHIVE = Buffer.from(
+  zipSync({
+    'manifest.json': strToU8('{}'),
+    '../escaped.txt': strToU8('hostile')
+  })
+)
+
 // The right signature over a body that will not unpack.
 const DAMAGED_ARCHIVE = Buffer.concat([
   Buffer.from([0x50, 0x4b, 0x03, 0x04]),
@@ -65,6 +73,9 @@ describe('a remote archive, read by create and by develop', () => {
       } else if (url.startsWith('/page/')) {
         res.writeHead(200, {'content-type': 'text/html; charset=utf-8'})
         res.end('<!doctype html><html><body>Sign in</body></html>')
+      } else if (url.startsWith('/escaping/')) {
+        res.writeHead(200, {'content-type': 'application/zip'})
+        res.end(ESCAPING_ARCHIVE)
       } else if (url.startsWith('/damaged/')) {
         res.writeHead(200, {'content-type': 'application/zip'})
         res.end(DAMAGED_ARCHIVE)
@@ -200,6 +211,8 @@ describe('a remote archive, read by create and by develop', () => {
       expect(onlyFrame(run).error?.message).not.toContain('⏵')
     }
 
+    expect(onlyFrame(built).status).toBe('build-failed')
+
     return {
       create: onlyFrame(created).error?.code,
       develop: onlyFrame(built).error?.code,
@@ -231,6 +244,20 @@ describe('a remote archive, read by create and by develop', () => {
     }
   }, 120_000)
 
+  // Neither package unpacks it, and neither calls it a network failure.
+  it('codes an archive with an entry outside its folder the same in both', async () => {
+    const result = await codes(`${origin}/escaping`)
+
+    expect(result.create).toBe('E_REMOTE_ZIP_INVALID')
+    expect(result.develop).toBe('E_REMOTE_ZIP_INVALID')
+
+    for (const message of [result.createMessage, result.developMessage]) {
+      expect(message).toContain('../escaped.txt')
+    }
+
+    expect(fs.existsSync(path.join(work, 'escaped.txt'))).toBe(false)
+  }, 120_000)
+
   // The other side of the line: nothing usable answered, so each package
   // keeps the transport code it already had and never borrows the ZIP one.
   it.each([
@@ -257,6 +284,50 @@ describe('a remote archive, read by create and by develop', () => {
     expect(run.stderr).not.toMatch(STACK_FRAME)
     expect(onlyFrame(run).error?.code).toBe('E_REMOTE_FETCH_TIMEOUT')
   }, 120_000)
+
+  // A remote that could not be fetched or unpacked is a run that failed, the
+  // status dev gives it too, and never a usage error.
+  it.each([
+    [
+      'a reply that is not a ZIP',
+      () => `${origin}/page`,
+      'E_REMOTE_ZIP_INVALID'
+    ],
+    ['a damaged archive', () => `${origin}/damaged`, 'E_REMOTE_ZIP_INVALID'],
+    ['a 404', () => `${origin}/missing`, 'E_REMOTE_DOWNLOAD'],
+    ['a refused connection', () => refused, 'E_REMOTE_DOWNLOAD'],
+    [
+      'a fetch past its timeout',
+      () => `${origin}/slow`,
+      'E_REMOTE_FETCH_TIMEOUT'
+    ]
+  ])(
+    'preview reports %s as failed with its code',
+    async (_label, route, code) => {
+      seq += 1
+
+      const run = await runCli(
+        [
+          'preview',
+          `${route()}/previewed-${seq}.zip`,
+          '--no-browser',
+          '--output',
+          'json'
+        ],
+        {env: {EXTENSION_FETCH_TIMEOUT_MS: '1500'}}
+      )
+
+      expect(run.status, run.stdout + run.stderr).toBe(1)
+      expect(run.stderr).not.toMatch(STACK_FRAME)
+      expect(onlyFrame(run)).toMatchObject({
+        ok: false,
+        command: 'preview',
+        status: 'failed',
+        error: {code}
+      })
+    },
+    120_000
+  )
 
   it('refuses a plain http template with its own code and no stack', async () => {
     const run = await runCli(

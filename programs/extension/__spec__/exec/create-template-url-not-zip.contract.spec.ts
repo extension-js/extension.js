@@ -12,7 +12,7 @@ function cliBin(): string {
   return path.resolve(__dirname, '../..', 'dist', 'cli.cjs')
 }
 
-type Reply = {contentType?: string; body: string | Buffer}
+type Reply = {status?: number; contentType?: string; body: string | Buffer}
 
 function serve(reply: Reply): Promise<{
   origin: string
@@ -20,7 +20,7 @@ function serve(reply: Reply): Promise<{
 }> {
   const server = http.createServer((_req, res) => {
     res.writeHead(
-      200,
+      reply.status ?? 200,
       reply.contentType ? {'content-type': reply.contentType} : {}
     )
 
@@ -345,4 +345,78 @@ describe('create with a catalog override URL that is not a good archive', () => 
     expect(frame.error.message).toContain(`URL ${override}`)
     expect(result.leftBehind).toEqual([])
   }, 60000)
+})
+
+// The bundled template stands in for the default catalog on a machine with no
+// network. An override is set on purpose, so every way it fails is reported
+// against it and none of them scaffolds something else.
+describe('create with a catalog override URL that fails, and no --template', () => {
+  let close: (() => Promise<void>) | undefined
+
+  afterEach(async () => {
+    if (close) await close()
+
+    close = undefined
+  })
+
+  it.each([
+    [
+      'a page',
+      async () => {
+        const server = await serve({
+          contentType: 'text/html; charset=utf-8',
+          body: '<!doctype html><html><body>Sign in</body></html>'
+        })
+        close = server.close
+
+        return server.origin
+      },
+      'E_REMOTE_ZIP_INVALID'
+    ],
+    [
+      'a damaged archive',
+      async () => {
+        const server = await serve({
+          contentType: 'application/zip',
+          body: DAMAGED_ARCHIVE
+        })
+        close = server.close
+
+        return server.origin
+      },
+      'E_REMOTE_ZIP_INVALID'
+    ],
+    [
+      'a 404',
+      async () => {
+        const server = await serve({status: 404, body: 'not here'})
+        close = server.close
+
+        return server.origin
+      },
+      'E_NETWORK'
+    ],
+    ['a refused connection', refusedOrigin, 'E_NETWORK']
+  ])(
+    'refuses %s with its code and names the variable',
+    async (_label, origin, code) => {
+      const override = `${await origin()}/catalog.zip`
+
+      const result = await runCreate(['./proof', '--output', 'json'], {
+        EXTENSION_CREATE_TEMPLATE_URL: override
+      })
+
+      expect(result.status, result.stdout + result.stderr).toBe(1)
+      expect(result.stderr).not.toMatch(STACK_FRAME)
+      expect(result.stdout + result.stderr).not.toContain('offline')
+
+      const frame = onlyFrame(result.stdout)
+      expect(frame).toMatchObject({ok: false, command: 'create'})
+      expect(frame.error.code).toBe(code)
+      expect(frame.error.message).toContain(`URL ${override}`)
+      expect(frame.error.message).toContain('EXTENSION_CREATE_TEMPLATE_URL')
+      expect(result.leftBehind).toEqual([])
+    },
+    60000
+  )
 })

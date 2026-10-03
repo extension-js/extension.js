@@ -93,6 +93,7 @@ export type ReadyMetadata = {
   // refusal, a missing binary, a bad pin), preserved across recompiles.
   browserLaunchFailedAt?: string
   browserLaunchFailedReason?: string
+  browserLaunchFailedCode?: string
   // Runtime attachment signal: 'ready' means compiled; these mean the SW has
   // connected and can be driven. Act-tooling should wait for runtime:'attached'.
   runtime?: 'attached' | 'detached'
@@ -739,6 +740,10 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
 
         if (typeof prev.browserLaunchFailedReason === 'string') {
           target.browserLaunchFailedReason = prev.browserLaunchFailedReason
+        }
+
+        if (typeof prev.browserLaunchFailedCode === 'string') {
+          target.browserLaunchFailedCode = prev.browserLaunchFailedCode
         }
 
         if (

@@ -36,9 +36,7 @@ async function extractZipBufferTo(
     const relative = path.relative(root, target)
 
     if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
-      throw new Error(
-        `Refusing to extract zip entry outside the destination: ${name}`
-      )
+      throw entryOutsideDestination(name, sourceUrl)
     }
 
     if (normalized.endsWith('/')) {
@@ -255,6 +253,18 @@ export class TemplateArchiveDamagedError extends Error {
   }
 }
 
+// An entry that would land outside the project is the archive's fault, so a
+// fetched one is refused like any archive that will not unpack.
+function entryOutsideDestination(name: string, sourceUrl?: string): Error {
+  const refusal = new Error(
+    `Refusing to extract zip entry outside the destination: ${name}`
+  )
+
+  return sourceUrl
+    ? new TemplateArchiveDamagedError(sourceUrl, refusal)
+    : refusal
+}
+
 function unzipRemoteArchive(zipBuffer: Buffer, sourceUrl?: string) {
   try {
     return unzipSync(new Uint8Array(zipBuffer))
@@ -364,9 +374,7 @@ export async function extractExamplesTemplateFromZip(
 
     // Zip-slip guard: a hostile archive must not write outside the project.
     if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
-      throw new Error(
-        `Refusing to extract zip entry outside the destination: ${name}`
-      )
+      throw entryOutsideDestination(name, sourceUrl)
     }
 
     await fs.mkdir(path.dirname(dest), {recursive: true})
@@ -984,6 +992,13 @@ export async function importExternalTemplate(
 
     return provenance
   } catch (error) {
+    // A catalog override is a URL someone set on purpose, often to keep a run
+    // offline, so a failed one is reported and never swapped for the bundled one.
+    const catalogOverride =
+      !isHttp && !isGithub
+        ? process.env.EXTENSION_CREATE_TEMPLATE_URL || undefined
+        : undefined
+
     // The default template downloads, so an offline machine cannot fetch it. A
     // download failure on the default falls back to the bundled template rather
     // than failing the whole create, and the swap is named below so it is never
@@ -992,6 +1007,7 @@ export async function importExternalTemplate(
     if (
       error instanceof TemplateDownloadError &&
       options?.allowOfflineFallback &&
+      !catalogOverride &&
       resolvedTemplate !== OFFLINE_FALLBACK_TEMPLATE &&
       BUNDLED_TEMPLATES.includes(OFFLINE_FALLBACK_TEMPLATE)
     ) {
@@ -1033,13 +1049,19 @@ export async function importExternalTemplate(
               (error as {cause?: unknown}).cause
             )
         : error instanceof TemplateNotZipError
-          ? messages.templateUrlNotZip(error.url, error.got)
+          ? messages.templateUrlNotZip(error.url, error.got, catalogOverride)
           : error instanceof TemplateArchiveDamagedError
-            ? messages.templateArchiveDamaged(error.url, error.reason)
+            ? messages.templateArchiveDamaged(
+                error.url,
+                error.reason,
+                catalogOverride
+              )
             : error instanceof TemplateDownloadError
               ? isHttp
                 ? messages.templateUrlFetchFailed(template, error)
-                : messages.templateDownloadFailed(templateName, error)
+                : catalogOverride
+                  ? messages.templateOverrideFetchFailed(catalogOverride, error)
+                  : messages.templateDownloadFailed(templateName, error)
               : null
 
     // A step that framed its own refusal (an output path inside the template)

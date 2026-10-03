@@ -34,13 +34,13 @@ function stripVitestEnv(): NodeJS.ProcessEnv {
   return env
 }
 
-// A file that exists but cannot be executed. spawn refuses it with EACCES, so
-// nothing is on screen and no browser is needed.
-function plantUnexecutableBinary(dir: string, name: string): string {
+// An executable file whose interpreter does not exist: it passes the pin
+// check, then spawn refuses it with ENOENT and no browser ever starts.
+function plantUnspawnableBinary(dir: string, name: string): string {
   const binary = join(dir, name)
   mkdirSync(dir, {recursive: true})
-  writeFileSync(binary, 'not a browser\n')
-  chmodSync(binary, 0o644)
+  writeFileSync(binary, '#!/nonexistent/interpreter\n')
+  chmodSync(binary, 0o755)
 
   return binary
 }
@@ -189,7 +189,7 @@ describe.skipIf(process.platform === 'win32')(
 
     it('preview prints one frame for a chromium spawn refusal, with no stack', async () => {
       const {work, projectDir} = makeWorkspace()
-      const binary = plantUnexecutableBinary(join(work, 'bin'), 'chrome')
+      const binary = plantUnspawnableBinary(join(work, 'bin'), 'chrome')
 
       const result = await runCli([
         'preview',
@@ -207,12 +207,12 @@ describe.skipIf(process.platform === 'win32')(
         "Chrome couldn't start, so the extension isn't running."
       )
 
-      expect(result.stderr).toContain(`spawn ${binary} EACCES`)
+      expect(result.stderr).toContain(`spawn ${binary} ENOENT`)
     }, 90_000)
 
     it('preview codes it E_BROWSER_LAUNCH under --output json', async () => {
       const {work, projectDir} = makeWorkspace()
-      const binary = plantUnexecutableBinary(join(work, 'bin'), 'chrome')
+      const binary = plantUnspawnableBinary(join(work, 'bin'), 'chrome')
 
       const result = await runCli([
         'preview',
@@ -239,13 +239,13 @@ describe.skipIf(process.platform === 'win32')(
 
       expect(all[0].error?.code).toBe('E_BROWSER_LAUNCH')
       expect(all[0].error?.message).toContain("couldn't start")
-      expect(all[0].error?.message).toContain('EACCES')
+      expect(all[0].error?.message).toContain('ENOENT')
       expect(all[0].error?.message).not.toContain('⏵')
     }, 90_000)
 
     it('preview reports a firefox spawn refusal the same way', async () => {
       const {work, projectDir} = makeWorkspace()
-      const binary = plantUnexecutableBinary(join(work, 'bin'), 'firefox')
+      const binary = plantUnspawnableBinary(join(work, 'bin'), 'firefox')
 
       const result = await runCli([
         'preview',
@@ -268,12 +268,12 @@ describe.skipIf(process.platform === 'win32')(
         "Firefox couldn't start, so the extension isn't running."
       )
 
-      expect(all[0].error?.message).toContain('EACCES')
+      expect(all[0].error?.message).toContain('ENOENT')
     }, 90_000)
 
     it('start prints the same frame after its build, with no stack', async () => {
       const {work, projectDir} = makeWorkspace()
-      const binary = plantUnexecutableBinary(join(work, 'bin'), 'chrome')
+      const binary = plantUnspawnableBinary(join(work, 'bin'), 'chrome')
 
       const result = await runCli([
         'start',
@@ -292,7 +292,7 @@ describe.skipIf(process.platform === 'win32')(
         "Chrome couldn't start, so the extension isn't running."
       )
 
-      expect(result.stderr).toContain('EACCES')
+      expect(result.stderr).toContain('ENOENT')
     }, 120_000)
 
     // A pin that names nothing is refused before any spawn, with its own
@@ -376,13 +376,13 @@ describe.skipIf(process.platform === 'win32')(
     // The project has no build, so the browser loads the source folder and
     // the contract path cannot be derived from the loaded directory.
     it.each([
-      ['chrome', '--chromium-binary', 'EACCES'],
-      ['firefox', '--gecko-binary', 'EACCES']
+      ['chrome', '--chromium-binary', 'ENOENT'],
+      ['firefox', '--gecko-binary', 'ENOENT']
     ])(
       'preview of a project with no dist stamps the failed %s launch on its contract',
       async (browser, flag, reason) => {
         const {work, projectDir} = makeWorkspace()
-        const binary = plantUnexecutableBinary(join(work, 'bin'), browser)
+        const binary = plantUnspawnableBinary(join(work, 'bin'), browser)
 
         const result = await runCli([
           'preview',
@@ -437,7 +437,7 @@ describe.skipIf(process.platform === 'win32')(
       async (browser, flag, code, planted) => {
         const {work, projectDir} = makeWorkspace()
         const binary = planted
-          ? plantUnexecutableBinary(join(work, 'bin'), browser)
+          ? plantUnspawnableBinary(join(work, 'bin'), browser)
           : join(work, 'nowhere', browser)
 
         const result = await runCli(
