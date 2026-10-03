@@ -189,6 +189,9 @@ export {stampReadyBrowserExited}
 export class ChromiumLaunchPlugin {
   private didLaunch = false
   private didReportReady = false
+  // Set by the child's close handler when the browser left without being
+  // asked. A ready claim after that would describe a browser that is gone.
+  private browserGone = false
   // Chrome's own refusal reason, when it declined to load the guest at launch.
   private extensionLoadRefused: string | undefined
 
@@ -287,7 +290,11 @@ export class ChromiumLaunchPlugin {
         await this.launchChromium(stats.compilation)
         this.didLaunch = true
 
-        if (!this.didReportReady && !this.extensionLoadRefused) {
+        if (
+          !this.didReportReady &&
+          !this.extensionLoadRefused &&
+          !this.browserGone
+        ) {
           // Use the human sink so the message is always visible; infrastructure
           // logging level is 'error' by default, which suppresses logger.info()
           humanLine(
@@ -1181,6 +1188,7 @@ export class ChromiumLaunchPlugin {
     const reportReady = () => {
       if (compilation.options.mode !== 'development') return
       if (this.didReportReady || this.extensionLoadRefused) return
+      if (this.browserGone) return
 
       // Use the human sink so the message is always visible; infrastructure
       // logging level is 'error' by default, which suppresses logger.info()
@@ -1263,9 +1271,38 @@ export class ChromiumLaunchPlugin {
         ? " Chrome likely rejected the extension at launch, open chrome://extensions in the dev browser window for the exact error. Common causes: MV3 content_security_policy with 'unsafe-inline', manifest keys Chrome does not support, or manifest references to missing files. Reload/HMR cannot attach until this is fixed."
         : ''
       humanError(`[browser] ${message}${hint}`)
+
+      // A wire that died during the handshake is usually a browser on its way
+      // out. Let that exit land first, so the session reports the browser gone
+      // rather than ready and then gone.
+      await this.waitForBrowserGone(child, 1500)
+
+      if (this.browserGone) {
+        if (compilation.options.mode === 'development') {
+          humanError(messages.browserGoneBeforeReady(this.options.browser))
+        }
+
+        return
+      }
+
       // A broken CDP wire is not a refusal verdict; keep the pre-existing
       // behavior of still reporting ready so a flaky handshake stays cosmetic.
       reportReady()
+    }
+  }
+
+  // Resolves once the close handler has recorded an unasked exit, or after the
+  // grace period with the browser still alive, whichever comes first.
+  private async waitForBrowserGone(
+    child: import('child_process').ChildProcess | null | undefined,
+    graceMs: number
+  ): Promise<void> {
+    if (!child) return
+
+    const deadline = Date.now() + graceMs
+
+    while (!this.browserGone && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 50))
     }
   }
 
@@ -1375,6 +1412,9 @@ export class ChromiumLaunchPlugin {
         // An exit we didn't ask for means the browser died out from under a live
         // session. Say so loudly and stamp ready.json so automation sees it too.
         if (!wasTerminatedByUs(child)) {
+          const beforeReady = !this.didReportReady
+          this.browserGone = true
+
           this.logger.error(
             messages.browserExitedUnasked(
               this.options.browser,
@@ -1388,7 +1428,8 @@ export class ChromiumLaunchPlugin {
             this.closeHandlerContext?.extensionOutputPath,
             code,
             signal,
-            this.closeHandlerContext?.runId
+            this.closeHandlerContext?.runId,
+            {beforeReady}
           )
         }
 

@@ -183,9 +183,10 @@ describe('extensionInstall refusals and failures', () => {
       writable: true
     })
 
-    const error = await extensionInstall({browser: 'edge'}).catch(
-      (thrown: unknown) => thrown
-    )
+    const error = await extensionInstall({
+      browser: 'edge',
+      locateInstalledBinary: () => null
+    }).catch((thrown: unknown) => thrown)
 
     expect(isBrowserInstallPrivilegeError(error)).toBe(true)
     expect((error as Error).name).toBe('BrowserInstallPrivilegeError')
@@ -201,9 +202,10 @@ describe('extensionInstall refusals and failures', () => {
       fakeChild({code: 7, stderr: '[31mfake npx failure[0m\n'})
     )
 
-    const error = await extensionInstall({browser: 'chrome'}).catch(
-      (thrown: unknown) => thrown
-    )
+    const error = await extensionInstall({
+      browser: 'chrome',
+      locateInstalledBinary: () => null
+    }).catch((thrown: unknown) => thrown)
 
     const message = (error as Error).message
     expect(message).toMatch(/^Couldn't install Chrome\. /)
@@ -219,11 +221,114 @@ describe('extensionInstall refusals and failures', () => {
       fakeChild({code: null, signal: 'SIGKILL'})
     )
 
-    const error = await extensionInstall({browser: 'chrome'}).catch(
-      (thrown: unknown) => thrown
-    )
+    const error = await extensionInstall({
+      browser: 'chrome',
+      locateInstalledBinary: () => null
+    }).catch((thrown: unknown) => thrown)
 
     expect((error as Error).message).toMatch(/was killed by SIGKILL\./)
     expect((error as Error).message).not.toContain('null')
+  })
+})
+
+describe('extensionInstall checks the destination before claiming success', () => {
+  const prevEnv = {...process.env}
+  let cacheRoot = ''
+  let logSpy: MockInstance<typeof console.log>
+
+  beforeEach(() => {
+    spawnMock.mockReset()
+    cacheRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-install-ok-'))
+    process.env.EXT_BROWSERS_CACHE_DIR = cacheRoot
+    delete process.env.EXTENSION_OUTPUT
+    delete process.env.npm_config_user_agent
+    delete process.env.npm_execpath
+    logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+    vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+    process.env = {...prevEnv}
+    fs.rmSync(cacheRoot, {recursive: true, force: true})
+  })
+
+  function plantTruncatedTree(destination: string): string {
+    const dir = path.join(destination, 'chrome', 'mac_arm-152.0.9999.1')
+    fs.mkdirSync(dir, {recursive: true})
+    const stub = path.join(dir, 'Google Chrome for Testing')
+    fs.writeFileSync(stub, '')
+
+    return stub
+  }
+
+  it('reports a truncated tree as a failure naming the path, and removes it', async () => {
+    spawnMock.mockImplementation(() => fakeChild({code: 0}))
+    const destination = path.join(cacheRoot, 'chrome')
+    plantTruncatedTree(destination)
+    const locate = vi.fn(() => null)
+
+    const error = await extensionInstall({
+      browser: 'chrome',
+      locateInstalledBinary: locate
+    }).catch((thrown: unknown) => thrown)
+
+    expect(locate).toHaveBeenCalledWith(destination, 'chrome')
+    const message = (error as Error).message
+    expect(message).toMatch(/^Couldn't install Chrome\. /)
+    expect(message).toContain(destination)
+    expect(message).toMatch(/non-empty executable file/)
+    expect(message).toMatch(/The incomplete files were removed\./)
+    expect(message).not.toContain(GLYPH)
+    expect(message).not.toMatch(ANSI)
+    expect(fs.existsSync(destination)).toBe(false)
+
+    const printed = logSpy.mock.calls.map((call) => String(call[0])).join('\n')
+    expect(printed).not.toMatch(/is installed/)
+  })
+
+  it('claims success only once the locator finds the binary', async () => {
+    spawnMock.mockImplementation(() => fakeChild({code: 0}))
+    const destination = path.join(cacheRoot, 'chrome')
+    const binary = plantTruncatedTree(destination)
+
+    await extensionInstall({
+      browser: 'chrome',
+      locateInstalledBinary: () => binary
+    })
+
+    expect(fs.existsSync(destination)).toBe(true)
+    const printed = logSpy.mock.calls.map((call) => String(call[0])).join('\n')
+    expect(printed).toMatch(/Chrome is installed/)
+  })
+
+  it('leaves no browser directory behind when the installer fails mid-way', async () => {
+    spawnMock.mockImplementation(() =>
+      fakeChild({code: null, signal: 'SIGKILL'})
+    )
+
+    const destination = path.join(cacheRoot, 'chrome')
+    plantTruncatedTree(destination)
+
+    await extensionInstall({
+      browser: 'chrome',
+      locateInstalledBinary: () => null
+    }).catch(() => undefined)
+
+    expect(fs.existsSync(destination)).toBe(false)
+  })
+
+  it('keeps a destination the locator still finds a binary in when the installer fails', async () => {
+    spawnMock.mockImplementation(() => fakeChild({code: 7}))
+    const destination = path.join(cacheRoot, 'chrome')
+    const older = plantTruncatedTree(destination)
+
+    await extensionInstall({
+      browser: 'chrome',
+      locateInstalledBinary: () => older
+    }).catch(() => undefined)
+
+    expect(fs.existsSync(older)).toBe(true)
   })
 })

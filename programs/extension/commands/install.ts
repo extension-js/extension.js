@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {Command} from 'commander'
+import {resolveManagedBinaryIn} from '../browsers/browsers-lib/output-binaries-resolver'
 import {exitAfterDrain} from '../helpers/exit-after-drain'
 import * as messages from '../helpers/messages'
 import {commandDescriptions} from '../helpers/messages'
@@ -265,7 +266,11 @@ export function registerInstallCommand(program: Command) {
 
       for (const browser of browserList) {
         try {
-          await extensionInstall({browser})
+          await extensionInstall({
+            browser,
+            locateInstalledBinary: resolveManagedBinaryIn
+          })
+
           installed.push(browser)
         } catch (error) {
           if (isNotInstallableRefusal(error)) {

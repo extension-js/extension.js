@@ -169,8 +169,16 @@ export function resolveFromBinaries(
   browser: 'chrome' | 'chromium' | 'firefox' | 'edge'
 ) {
   const base = computeBinariesBaseDir(compilation)
-  const browserBase = path.join(base, browser)
 
+  return resolveManagedBinaryIn(path.join(base, browser), browser)
+}
+
+// The install verb asks this about the directory it just filled, so install
+// and the launcher share one verdict on whether a download left a browser.
+export function resolveManagedBinaryIn(
+  browserBase: string,
+  browser: 'chrome' | 'chromium' | 'firefox' | 'edge'
+): string | null {
   if (!fs.existsSync(browserBase)) return null
 
   // Some installs nest an extra browser segment,

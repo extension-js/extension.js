@@ -203,8 +203,9 @@ export function resolveBrowserVersionLine(
           return getChromiumVersion(managed) || 'Chromium'
         }
 
-        if (managedKey === 'chrome')
-          {return getChromeVersion(managed) || 'Chrome'}
+        if (managedKey === 'chrome') {
+          return getChromeVersion(managed) || 'Chrome'
+        }
 
         if (managedKey === 'edge') {
           return getEdgeVersion(managed) || 'Microsoft Edge'
@@ -739,6 +740,15 @@ export function browserExitedUnasked(
       : `The ${command} session is over.`
 
   return `[browser] ${browser} ${how}. ${next}`
+}
+
+// Printed where the ready line would have gone when the browser left before
+// the extension ever loaded: the session is watching, but nothing is running.
+export function browserGoneBeforeReady(browser: Browser) {
+  return (
+    `${getLoggingPrefix('error')} ${capitalizedBrowserName(browser)} exited before the extension loaded, so nothing is running.\n` +
+    `The dev server keeps watching, but nothing will load until the browser is relaunched. Restart "extension dev".`
+  )
 }
 
 export function chromeProcessError(error: unknown) {

@@ -41,6 +41,8 @@ export class CDPClient {
   private transportGoneReason: string | undefined
   public onTransportGone: ((reason: string) => void) | undefined
   private pipeBuffer: Buffer = Buffer.alloc(0)
+  // Our own pipe listeners, so disconnect can take exactly these off again.
+  private detachPipeListeners: (() => void) | undefined
   private targetWebSocketUrl: string | null = null
   private eventCallbacks = new Set<(message: CdpProtocolMessage) => void>()
   private messageId = 0
@@ -120,7 +122,7 @@ export class CDPClient {
     this.pipeOut = output
     this.pipeBuffer = Buffer.alloc(0)
 
-    input.on('data', (chunk: Buffer) => {
+    const onData = (chunk: Buffer) => {
       this.pipeBuffer = Buffer.concat([this.pipeBuffer, chunk])
       let idx: number
 
@@ -129,28 +131,28 @@ export class CDPClient {
         this.pipeBuffer = this.pipeBuffer.subarray(idx + 1)
         this.handleMessage(msg)
       }
-    })
+    }
 
-    input.on('error', (error: Error) => {
+    const onReadError = (error: Error) => {
       if (this.isDev()) {
         humanError(`[CDP] Pipe read error: ${error.message}`)
       }
 
       this.rejectAllPending('CDP pipe read error')
-    })
+    }
 
-    input.on('close', () => {
+    const onClose = () => {
       if (this.isDev()) humanLine('[CDP] Pipe closed')
 
       this.rejectAllPending('CDP pipe closed')
       this.pipeIn = null
       this.markTransportGone('the browser closed the CDP pipe')
-    })
+    }
 
     // A browser that dies mid-write makes the write side emit EPIPE. With no
     // listener that reaches the top-level sink as an uncaught exception, which
     // reads as a fault in the dev server rather than a browser that went away.
-    output.on('error', (error: Error) => {
+    const onWriteError = (error: Error) => {
       if (this.isDev()) {
         humanLine(`[CDP] Pipe write error: ${error.message}`)
       }
@@ -158,7 +160,19 @@ export class CDPClient {
       this.rejectAllPending(`CDP pipe write error: ${error.message}`)
       this.pipeOut = null
       this.markTransportGone(error.message)
-    })
+    }
+
+    input.on('data', onData)
+    input.on('error', onReadError)
+    input.on('close', onClose)
+    output.on('error', onWriteError)
+
+    this.detachPipeListeners = () => {
+      input.removeListener('data', onData)
+      input.removeListener('error', onReadError)
+      input.removeListener('close', onClose)
+      output.removeListener('error', onWriteError)
+    }
 
     this.startHeartbeat()
 
@@ -208,8 +222,12 @@ export class CDPClient {
     if (this.transport === 'pipe') {
       // NEVER end() the pipe here: closing --remote-debugging-pipe is Chromium's
       // shutdown signal; detach quietly, the fds close when our process exits.
+      // Only our listeners come off: the streams are the child's stdio, and
+      // child_process counts their close events to fire the child's own
+      // 'close', which is where a browser exit gets reported and stamped.
       try {
-        this.pipeIn?.removeAllListeners()
+        this.detachPipeListeners?.()
+        this.detachPipeListeners = undefined
         // Keep draining so Chromium's pipe writer never blocks on a full
         // buffer once nobody consumes events.
         this.pipeIn?.resume()

@@ -709,6 +709,18 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
           prev.browserExitCode ?? null
         ;(payload as Record<string, unknown>).browserExitSignal =
           prev.browserExitSignal ?? null
+
+        // A browser that left before anything loaded is not brought back by a
+        // recompile, so the error it was stamped with outlives the compile.
+        if (
+          status === 'ready' &&
+          prev.status === 'error' &&
+          prev.code === 'browser_exited'
+        ) {
+          payload.status = 'error' as ReadyStatus
+          payload.code = 'browser_exited'
+          payload.message = String(prev.message || 'the browser exited')
+        }
       }
 
       // The SW attaches once per session but the compile can re-run many

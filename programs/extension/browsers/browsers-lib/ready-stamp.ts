@@ -223,12 +223,15 @@ export function stampReadyProfileLocked(
 }
 
 // Stamp an unexpected browser exit into the session's ready.json so automation
-// sees a browserless session. Run-only commands flip to error; dev keeps compile status.
+// sees a browserless session. Run-only commands flip to error; dev keeps compile
+// status, unless the browser left before the extension ever loaded, in which
+// case ready would describe a session that never had anything running.
 export function stampReadyBrowserExited(
   extensionOutputPath: string | undefined,
   code: number | null,
   signal: string | null = null,
-  runId?: string
+  runId?: string,
+  details: {beforeReady?: boolean} = {}
 ) {
   try {
     if (!extensionOutputPath) return
@@ -245,14 +248,17 @@ export function stampReadyBrowserExited(
     // clue the contract can carry about why the browser went.
     ready.browserExitSignal = signal
 
+    const how =
+      code == null && signal ? `signal ${signal}` : `code ${code ?? 'unknown'}`
+
     if (ready.command === 'preview' || ready.command === 'start') {
       ready.status = 'error'
       ready.code = 'browser_exited'
-      ready.message = `the ${ready.browser || 'browser'} process exited (${
-        code == null && signal
-          ? `signal ${signal}`
-          : `code ${code ?? 'unknown'}`
-      }); nothing is running`
+      ready.message = `the ${ready.browser || 'browser'} process exited (${how}); nothing is running`
+    } else if (details.beforeReady) {
+      ready.status = 'error'
+      ready.code = 'browser_exited'
+      ready.message = `the ${ready.browser || 'browser'} process exited (${how}) before the extension loaded, nothing is running`
     }
 
     writeJsonAtomic(readyPath, ready)
