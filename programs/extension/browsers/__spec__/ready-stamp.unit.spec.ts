@@ -3,9 +3,11 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {
+  describeLaunchFailure,
   readReadyRunId,
   stampReadyBrowserExited,
   stampReadyBrowserLaunch,
+  stampReadyBrowserLaunchFailed,
   stampReadyExtensionId,
   stampReadyExtensionLoadRefused,
   stampReadyProfileLocked,
@@ -204,6 +206,96 @@ describe('stampReadyExtensionId', () => {
         'cccccccccccccccccccccccccccccccc'
       )
     ).not.toThrow()
+  })
+})
+
+describe('stampReadyBrowserLaunchFailed', () => {
+  let tmp: string
+  let outputPath: string
+  let readyPath: string
+
+  beforeEach(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ready-stamp-launch-'))
+    outputPath = path.join(tmp, 'dist', 'chrome')
+    readyPath = path.join(tmp, 'dist', 'extension-js', 'chrome', 'ready.json')
+    fs.mkdirSync(path.dirname(readyPath), {recursive: true})
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({
+        status: 'ready',
+        command: 'dev',
+        browser: 'chrome',
+        runId: 'run-A'
+      })
+    )
+  })
+
+  afterEach(() => {
+    fs.rmSync(tmp, {recursive: true, force: true})
+  })
+
+  const readReady = () => JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+
+  it('flips a dev session to an error that names the reason', () => {
+    stampReadyBrowserLaunchFailed(outputPath, 'spawn /x/chrome EACCES', 'run-A')
+
+    const ready = readReady()
+    expect(ready.status).toBe('error')
+    expect(ready.code).toBe('browser_launch_failed')
+    expect(ready.message).toBe(
+      'the chrome process could not start (spawn /x/chrome EACCES), nothing is running'
+    )
+
+    expect(typeof ready.browserLaunchFailedAt).toBe('string')
+    expect(ready.browserLaunchFailedReason).toBe('spawn /x/chrome EACCES')
+  })
+
+  it('leaves a more specific verdict already on the contract alone', () => {
+    stampReadyProfileLocked(outputPath, {message: 'profile is locked'}, 'run-A')
+    stampReadyBrowserLaunchFailed(outputPath, 'spawn /x/chrome EACCES', 'run-A')
+
+    const ready = readReady()
+    expect(ready.code).toBe('profile_locked')
+    expect(ready.browserLaunchFailedAt).toBeUndefined()
+  })
+
+  it('never stamps a run it does not belong to', () => {
+    stampReadyBrowserLaunchFailed(outputPath, 'spawn /x/chrome EACCES', 'run-B')
+
+    expect(readReady().status).toBe('ready')
+  })
+
+  it('is cleared by a later launch that did produce a browser', () => {
+    stampReadyBrowserLaunchFailed(outputPath, 'spawn /x/chrome EACCES', 'run-A')
+    stampReadyBrowserLaunch(outputPath, {browserPid: 4242}, 'run-A')
+
+    const ready = readReady()
+    expect(ready.status).toBe('ready')
+    expect(ready.code).toBeUndefined()
+    expect(ready.message).toBeUndefined()
+    expect(ready.browserLaunchFailedAt).toBeUndefined()
+    expect(ready.browserLaunchFailedReason).toBeUndefined()
+    expect(ready.browserPid).toBe(4242)
+  })
+})
+
+describe('describeLaunchFailure', () => {
+  it('flattens a human frame to one plain line', () => {
+    const framed = new Error(
+      "\u001b[31m⏵⏵⏵\u001b[39m Can't find a Chromium binary at the given path.\n\u001b[90mNOT FOUND\u001b[39m /nowhere/chrome\nPass --chromium-binary with a working path."
+    )
+
+    expect(describeLaunchFailure(framed)).toBe(
+      "Can't find a Chromium binary at the given path. NOT FOUND /nowhere/chrome Pass --chromium-binary with a working path."
+    )
+  })
+
+  it('keeps a plain spawn error as is', () => {
+    expect(describeLaunchFailure(new Error('spawn /x/chrome EACCES'))).toBe(
+      'spawn /x/chrome EACCES'
+    )
+
+    expect(describeLaunchFailure('a string reason')).toBe('a string reason')
   })
 })
 

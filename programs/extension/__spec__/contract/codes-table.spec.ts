@@ -40,6 +40,7 @@ const table: CodesTable = JSON.parse(
 // legacy id cannot appear in the tree without a row in codes.json.
 const READY_CODES = [
   'browser_exited',
+  'browser_launch_failed',
   'compile_error',
   'compile_failed',
   'dev_server_start_failed',

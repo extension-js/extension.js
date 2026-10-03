@@ -1207,5 +1207,21 @@ export async function devServer(
     })
   })
 
+  // Same mirror for a browser that never came up: the launcher stamps why on
+  // the contract, and the timeline says so beside the compile that tried.
+  lifecycle.watchBrowserLaunchFailure(1000, (ready) => {
+    metadata.appendEvent({
+      type: 'browser_launch_failed',
+      ts: new Date().toISOString(),
+      command: 'dev',
+      browser: browserName,
+      browserLaunchFailedAt: String(ready.browserLaunchFailedAt),
+      reason:
+        typeof ready.browserLaunchFailedReason === 'string'
+          ? ready.browserLaunchFailedReason
+          : undefined
+    })
+  })
+
   setupCleanupHandlers(() => currentServer, portManager)
 }

@@ -8,6 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {stripChannelPrefix} from '../../helpers/messaging'
 import {writeJsonAtomic} from './write-json-atomic'
 
 function readyPathFor(extensionOutputPath: string): string {
@@ -127,9 +128,76 @@ export function stampReadyBrowserLaunch(
     const provenance = String(details?.binaryProvenance || '').trim()
     if (provenance) ready.binaryProvenance = provenance
 
+    // A browser that is running now outranks an earlier attempt that never
+    // spawned one, so that verdict comes off along with its error status.
+    if (typeof ready.browserLaunchFailedAt === 'string') {
+      delete ready.browserLaunchFailedAt
+      delete ready.browserLaunchFailedReason
+
+      if (ready.code === 'browser_launch_failed') {
+        ready.status = 'ready'
+        delete ready.code
+        delete ready.message
+      }
+    }
+
     writeJsonAtomic(readyPath, ready)
   } catch {
     // best-effort; never block launch on this
+  }
+}
+
+// The reason a launch failed, as one plain line: a thrown human frame carries
+// its glyph, colors and line breaks, none of which belong in the contract.
+export function describeLaunchFailure(error: unknown): string {
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === 'string'
+        ? error
+        : String((error as {message?: unknown} | null)?.message ?? error ?? '')
+
+  return stripChannelPrefix(message).replace(/\s+/g, ' ').trim()
+}
+
+// Stamp a launch that never produced a browser process: a spawn refusal, a
+// missing binary, a bad pin. Nothing is running whatever the command, so the
+// contract flips to error and names why. A more specific verdict already on
+// the contract (a locked profile, a refused load) stands.
+export function stampReadyBrowserLaunchFailed(
+  extensionOutputPath: string | undefined,
+  reason: string,
+  runId?: string
+) {
+  try {
+    if (!extensionOutputPath) return
+
+    const readyPath = readyPathFor(extensionOutputPath)
+    if (!fs.existsSync(readyPath)) return
+
+    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    if (isForeignRun(ready, runId)) return
+
+    if (
+      ready.status === 'error' &&
+      ready.code &&
+      ready.code !== 'browser_launch_failed'
+    ) {
+      return
+    }
+
+    const detail =
+      String(reason || '').trim() || 'the browser process could not be started'
+
+    ready.status = 'error'
+    ready.code = 'browser_launch_failed'
+    ready.message = `the ${ready.browser || 'browser'} process could not start (${detail}), nothing is running`
+    ready.browserLaunchFailedAt = new Date().toISOString()
+    ready.browserLaunchFailedReason = detail
+
+    writeJsonAtomic(readyPath, ready)
+  } catch {
+    // best-effort, never block launch on this
   }
 }
 

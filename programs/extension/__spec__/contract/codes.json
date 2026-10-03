@@ -467,6 +467,7 @@
       "dev_server_start_failed": "E_DEV_SERVER_START",
       "preview_manifest_missing": "E_PREVIEW_NO_DIST",
       "browser_exited": "E_BROWSER_EXITED",
+      "browser_launch_failed": "E_BROWSER_LAUNCH",
       "extension_load_refused": "E_EXTENSION_LOAD_REFUSED",
       "profile_locked": "E_PROFILE_LOCKED"
     },

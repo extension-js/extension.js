@@ -167,6 +167,7 @@ describe('runDevWaitMode', () => {
       ['shutdown', 'E_SESSION_STOPPED'],
       ['compile_failed', 'E_COMPILE_FATAL'],
       ['browser_exited', 'E_BROWSER_EXITED'],
+      ['browser_launch_failed', 'E_BROWSER_LAUNCH'],
       ['extension_load_refused', 'E_EXTENSION_LOAD_REFUSED'],
       ['profile_locked', 'E_PROFILE_LOCKED']
     ]

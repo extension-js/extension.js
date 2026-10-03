@@ -45,11 +45,14 @@ current run only, join on `runId` to correlate across runs):
 - `compile_success`
 - `compile_error`
 - `browser_exited`
+- `browser_launch_failed`
 - `shutdown`
 
 Every row carries `type`, `ts`, `command`, `browser` and `runId`. A
 `compile_error` row adds `errorCount` and up to ten `errors`; a `browser_exited`
-row adds `exitCode`, `exitSignal` and `browserExitedAt`.
+row adds `exitCode`, `exitSignal` and `browserExitedAt`. A
+`browser_launch_failed` row adds `browserLaunchFailedAt` and `reason`, and the
+contract it mirrors reads `status: error` with `code: browser_launch_failed`.
 
 The stream is bounded like `logs.ndjson`: it rotates at 8 MB or 50,000 lines
 into `events.1.ndjson` through `events.3.ndjson`, and a single row over 64 KB

@@ -89,6 +89,10 @@ export type ReadyMetadata = {
   browserExitedAt?: string
   browserExitCode?: number | null
   browserExitSignal?: string | null
+  // Stamped by the launcher when no browser process came up at all (a spawn
+  // refusal, a missing binary, a bad pin), preserved across recompiles.
+  browserLaunchFailedAt?: string
+  browserLaunchFailedReason?: string
   // Runtime attachment signal: 'ready' means compiled; these mean the SW has
   // connected and can be driven. Act-tooling should wait for runtime:'attached'.
   runtime?: 'attached' | 'detached'
@@ -105,6 +109,7 @@ export type PlaywrightAutomationEvent = {
     | 'compile_error'
     | 'shutdown'
     | 'browser_exited'
+    | 'browser_launch_failed'
   ts: string
   command: PlaywrightAutomationCommand
   browser: string
@@ -117,6 +122,9 @@ export type PlaywrightAutomationEvent = {
   exitCode?: number | null
   exitSignal?: string | null
   browserExitedAt?: string
+  // browser_launch_failed: when the launcher gave up and why, off ready.json.
+  browserLaunchFailedAt?: string
+  reason?: string
   // Set when the per-event byte cap trimmed this row's error text, so a reader
   // never mistakes a shortened message for the whole diagnostic.
   truncated?: boolean
@@ -720,6 +728,29 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
           payload.status = 'error' as ReadyStatus
           payload.code = 'browser_exited'
           payload.message = String(prev.message || 'the browser exited')
+        }
+      }
+
+      // A launch that never produced a browser is not retried by a recompile
+      // either, so the failure it was stamped with outlives the compile too.
+      if (typeof prev.browserLaunchFailedAt === 'string') {
+        const target = payload as Record<string, unknown>
+        target.browserLaunchFailedAt = prev.browserLaunchFailedAt
+
+        if (typeof prev.browserLaunchFailedReason === 'string') {
+          target.browserLaunchFailedReason = prev.browserLaunchFailedReason
+        }
+
+        if (
+          status === 'ready' &&
+          prev.status === 'error' &&
+          prev.code === 'browser_launch_failed'
+        ) {
+          payload.status = 'error' as ReadyStatus
+          payload.code = 'browser_launch_failed'
+          payload.message = String(
+            prev.message || 'the browser process could not start'
+          )
         }
       }
 
