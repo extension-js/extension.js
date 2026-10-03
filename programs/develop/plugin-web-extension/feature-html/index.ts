@@ -13,6 +13,7 @@ import {resolveDevelopDistFile} from '../../lib/develop-context'
 import {filterKeysForThisBrowser} from '../../lib/manifest-utils'
 import {parseJsonSafe} from '../../lib/parse-json-safe'
 import {toResourceKey} from '../../lib/resource-path'
+import {NOT_RAW_RESOURCE_QUERY} from '../../lib/resource-query'
 import {isUsingReact} from '../../plugin-js-frameworks/js-tools/react'
 import {isUsingSvelte} from '../../plugin-js-frameworks/js-tools/svelte'
 import {isUsingVue} from '../../plugin-js-frameworks/js-tools/vue'
@@ -131,6 +132,7 @@ export class HtmlPlugin {
           (resourcePath: string) =>
             contentScriptEntryPaths.has(toResourceKey(resourcePath))
         ],
+        resourceQuery: NOT_RAW_RESOURCE_QUERY,
         use: [
           {
             loader: resolveDevelopDistFile('ensure-hmr-for-scripts'),

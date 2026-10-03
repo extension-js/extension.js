@@ -12,6 +12,7 @@ import * as path from 'node:path'
 import {resolveDevelopDistFile} from '../../lib/develop-context'
 import {isDebug, prefix} from '../../lib/messaging'
 import {ensureOptionalContractPackageResolved} from '../../lib/optional-deps-resolver'
+import {NOT_RAW_RESOURCE_QUERY} from '../../lib/resource-query'
 import {createNodeModulesExclude} from '../../lib/transpile-packages'
 import type {JsFramework} from '../../types'
 import {hasDependency} from '../frameworks-lib/integrations'
@@ -178,12 +179,14 @@ export async function maybeUseSolid(
     {
       test: /\.(jsx|mjsx)$/,
       exclude: excludeNodeModules,
+      resourceQuery: NOT_RAW_RESOURCE_QUERY,
       loader: babelLoader,
       options: javascriptOptions
     },
     {
       test: /\.(tsx|mtsx)$/,
       exclude: excludeNodeModules,
+      resourceQuery: NOT_RAW_RESOURCE_QUERY,
       loader: babelLoader,
       options: solidBabelOptions({
         solidPreset,
@@ -197,6 +200,7 @@ export async function maybeUseSolid(
     {
       test: /\.(js|mjs|cjs)$/,
       exclude: excludeNodeModules,
+      resourceQuery: NOT_RAW_RESOURCE_QUERY,
       loader: resolveDevelopDistFile('solid-jsx-gate-loader'),
       options: {...javascriptOptions, babelLoader}
     }

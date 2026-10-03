@@ -55,9 +55,20 @@ describe('categorizeAsset', () => {
     expect(categorizeAsset('pages/main.js')).toBe('page')
   })
 
-  it('classifies copied public code a page links as page', () => {
+  it('classifies code under an unknown folder as page when nothing says it was copied', () => {
     expect(categorizeAsset('css/file.css')).toBe('page')
     expect(categorizeAsset('js/file.js')).toBe('page')
+  })
+
+  it('classifies a file the public copier shipped as public, whatever its path', () => {
+    const copied = {copied: true}
+
+    expect(categorizeAsset('vendor/lib.js', copied)).toBe('public')
+    expect(categorizeAsset('css/file.css', copied)).toBe('public')
+    expect(categorizeAsset('scripts/tool.js', copied)).toBe('public')
+    expect(categorizeAsset('vendor/lib.js', {copied: false})).toBe('page')
+    expect(categorizeAsset('vendor/lib.js', {})).toBe('page')
+    expect(categorizeAsset('assets/icon.png', copied)).toBe('ignored')
   })
 
   it('classifies injected special folder scripts as content-script', () => {
@@ -97,11 +108,15 @@ describe('BUDGET_BYTES', () => {
     expect(BUDGET_BYTES.ignored).toBe(Number.POSITIVE_INFINITY)
   })
 
-  it('matches the documented 512/512/1024/512 KiB targets', () => {
+  it('matches the documented 512/512/1024 KiB targets', () => {
     expect(BUDGET_BYTES['content-script']).toBe(512 * 1024)
     expect(BUDGET_BYTES['service-worker']).toBe(512 * 1024)
     expect(BUDGET_BYTES.page).toBe(1024 * 1024)
+  })
+
+  it('budgets the shared chunk, copied public files and the runtime payload', () => {
     expect(BUDGET_BYTES.shared).toBe(512 * 1024)
+    expect(BUDGET_BYTES.public).toBe(BUDGET_BYTES.page)
     expect(BUDGET_BYTES.runtime).toBe(1024 * 1024)
   })
 
@@ -115,10 +130,14 @@ describe('BUDGET_BYTES', () => {
 })
 
 describe('PerfBudgetsPlugin', () => {
-  function fakeCompilation(assets: Record<string, number>): {
+  function fakeCompilation(
+    assets: Record<string, number>,
+    copied: string[] = []
+  ): {
     warnings: any[]
     errors: any[]
     assets: Record<string, any>
+    getAsset: (name: string) => {info: {copied?: boolean}} | undefined
   } {
     const built: Record<string, any> = {}
 
@@ -126,15 +145,24 @@ describe('PerfBudgetsPlugin', () => {
       built[name] = {size: () => size}
     }
 
-    return {warnings: [], errors: [], assets: built}
+    return {
+      warnings: [],
+      errors: [],
+      assets: built,
+      getAsset: (name) =>
+        name in built
+          ? {info: copied.includes(name) ? {copied: true} : {}}
+          : undefined
+    }
   }
 
   function applyAndRun(
     plugin: PerfBudgetsPlugin,
     mode: 'production' | 'development',
-    assets: Record<string, number>
+    assets: Record<string, number>,
+    copied: string[] = []
   ) {
-    const compilation: any = fakeCompilation(assets)
+    const compilation: any = fakeCompilation(assets, copied)
 
     let processAssetsCb: () => void = () => {}
 
@@ -203,6 +231,36 @@ describe('PerfBudgetsPlugin', () => {
     expect(msg).toContain('shared/framework.js')
     expect(msg).toContain('shared chunk')
     expect(msg).toContain('512.0 KiB')
+  })
+
+  it('names a copied public file by its own role, with its own remedy', () => {
+    const compilation = applyAndRun(
+      new PerfBudgetsPlugin(),
+      'production',
+      {'vendor/lib.js': 1500 * 1024},
+      ['vendor/lib.js']
+    )
+    expect(compilation.warnings).toHaveLength(1)
+    const msg = String(compilation.warnings[0].message)
+    expect(msg).toContain('vendor/lib.js')
+    expect(msg).toContain('copied public file, shipped as authored')
+    expect(msg).not.toContain('UI page')
+    expect(msg).toContain('A public/ file ships as authored')
+    expect(msg).not.toContain('code-split')
+  })
+
+  it('keeps the bundler remedy when a page and a copied file both overflow', () => {
+    const compilation = applyAndRun(
+      new PerfBudgetsPlugin(),
+      'production',
+      {'vendor/lib.js': 1500 * 1024, 'pages/main.js': 1500 * 1024},
+      ['vendor/lib.js']
+    )
+    const msg = String(compilation.warnings[0].message)
+    expect(msg).toContain('copied public file, shipped as authored')
+    expect(msg).toContain('UI page, opened on demand')
+    expect(msg).toContain('code-split')
+    expect(msg).toContain('A public/ file ships as authored')
   })
 
   it('warns when an override page or a panel exceeds the page budget', () => {

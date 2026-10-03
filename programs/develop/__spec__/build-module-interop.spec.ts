@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import * as vm from 'node:vm'
 import {afterAll, describe, expect, it} from 'vitest'
 
 const roots: string[] = []
@@ -70,6 +71,50 @@ describe('imports migrated projects rely on', () => {
       'utf8'
     )
     expect(js).toContain('className')
+  })
+
+  // The default export comes from namedExports false, and rspack then lists
+  // it beside the class names: a namespace import carries a default key.
+  it('lists the default object beside the class names on a CSS module namespace import', async () => {
+    const root = project({
+      'manifest.json': JSON.stringify({
+        manifest_version: 3,
+        name: 'css-namespace',
+        version: '1.0.0',
+        background: {service_worker: 'background.js'}
+      }),
+      'background.js': [
+        "import * as styles from './x.module.css'",
+        "import defaultStyles from './x.module.css'",
+        "import {title} from './x.module.css'",
+        'globalThis.__shape = {',
+        '  keys: Object.keys(styles).sort(),',
+        '  sameDefault: styles.default === defaultStyles,',
+        '  viaNamed: title === styles.title && title === defaultStyles.title,',
+        "  subTitle: styles['sub-title']",
+        '}',
+        ''
+      ].join('\n'),
+      'x.module.css': '.title { color: red }\n.sub-title { color: blue }\n'
+    })
+
+    const summary = await build(root, 'production')
+    expect(summary.errors_count).toBe(0)
+
+    const worker = fs.readFileSync(
+      path.join(root, 'dist', 'chrome', 'background', 'service_worker.js'),
+      'utf8'
+    )
+    const sandbox: Record<string, unknown> = {console}
+    sandbox.globalThis = sandbox
+    sandbox.self = sandbox
+    vm.runInNewContext(worker, sandbox)
+
+    const shape = sandbox.__shape as Record<string, unknown>
+    expect(shape.keys).toEqual(['default', 'sub-title', 'title'])
+    expect(shape.sameDefault).toBe(true)
+    expect(shape.viaNamed).toBe(true)
+    expect(shape.subTitle).toMatch(/^\S+$/)
   })
 
   it('links a namespace import of a JSON object in production the way development does', async () => {

@@ -53,6 +53,62 @@ describe('postcss config discovery', () => {
     expect([...postCssConfigSearchPlaces].sort()).toEqual([...searched].sort())
   })
 
+  // postcss-load-config's README order: every rc spelling, then
+  // postcss.config.*. postcss-loader lists postcss.config.* first, and a
+  // project with both files once flipped winners when this list followed it.
+  it('keeps the rc files ahead of postcss.config.* in the documented order', () => {
+    expect(postCssConfigSearchPlaces.slice(0, 16)).toEqual([
+      '.postcssrc',
+      '.postcssrc.json',
+      '.postcssrc.yaml',
+      '.postcssrc.yml',
+      '.postcssrc.ts',
+      '.postcssrc.cts',
+      '.postcssrc.mts',
+      '.postcssrc.js',
+      '.postcssrc.cjs',
+      '.postcssrc.mjs',
+      'postcss.config.ts',
+      'postcss.config.cts',
+      'postcss.config.mts',
+      'postcss.config.js',
+      'postcss.config.cjs',
+      'postcss.config.mjs'
+    ])
+
+    expect(
+      postCssConfigSearchPlaces
+        .slice(16)
+        .every((place) => place.startsWith('.config/'))
+    ).toBe(true)
+  })
+
+  it('picks .postcssrc.json over postcss.config.js when a project has both', async () => {
+    const dir = createProject({
+      'package.json': JSON.stringify({
+        name: 'two-configs',
+        devDependencies: {postcss: '^8.0.0'}
+      }),
+      '.postcssrc.json': '{}',
+      'postcss.config.js':
+        "module.exports = {plugins: [{postcssPlugin: 'marker', Once() {}}]}\n"
+    })
+
+    expect(findPostCssConfig(dir)).toBe(path.join(dir, '.postcssrc.json'))
+
+    // The loader is handed that same file, never the directory to search.
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    try {
+      const rule = await maybeUsePostCss(dir, {mode: 'production'})
+      const options = rule.options?.postcssOptions
+
+      expect(options?.config).toBe(path.join(dir, '.postcssrc.json'))
+    } finally {
+      warn.mockRestore()
+    }
+  })
+
   it('finds each search place in a project that holds only that file', () => {
     for (const place of postCssConfigSearchPlaces) {
       const dir = createProject({[place]: '{}'})
@@ -62,9 +118,11 @@ describe('postcss config discovery', () => {
   })
 
   it('leaves a plain .js config for last in a type module project', () => {
+    // In the documented order .postcssrc.js precedes postcss.config.cjs, so
+    // only the type module sort can make the unambiguous .cjs win.
     const files = {
-      'postcss.config.js': 'module.exports = {}',
-      'postcss.config.ts': 'export default {}'
+      '.postcssrc.js': 'module.exports = {}',
+      'postcss.config.cjs': 'module.exports = {}'
     }
 
     const esm = createProject({
@@ -76,8 +134,8 @@ describe('postcss config discovery', () => {
       'package.json': JSON.stringify({name: 'cjs-fixture'})
     })
 
-    expect(findPostCssConfig(esm)).toBe(path.join(esm, 'postcss.config.ts'))
-    expect(findPostCssConfig(cjs)).toBe(path.join(cjs, 'postcss.config.js'))
+    expect(findPostCssConfig(esm)).toBe(path.join(esm, 'postcss.config.cjs'))
+    expect(findPostCssConfig(cjs)).toBe(path.join(cjs, '.postcssrc.js'))
   })
 
   it('hands a postcss.config.ts to postcss-loader with the user plugins', async () => {
@@ -105,7 +163,7 @@ describe('postcss config discovery', () => {
         )
         expect(out.css).toContain('-webkit-user-select')
       } else {
-        expect(options?.config).toBe(dir)
+        expect(options?.config).toBe(path.join(dir, 'postcss.config.ts'))
       }
 
       expect(warn.mock.calls.flat().join(' ')).not.toContain(

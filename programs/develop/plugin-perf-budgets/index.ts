@@ -51,7 +51,10 @@ export class PerfBudgetsPlugin {
         const size = (source as {size?: () => number})?.size?.() ?? 0
         if (!size) continue
 
-        const category = categorizeAsset(name)
+        const category = categorizeAsset(
+          name,
+          compilation.getAsset?.(name)?.info
+        )
         if (category === 'ignored') continue
 
         const budget = budgets[category]

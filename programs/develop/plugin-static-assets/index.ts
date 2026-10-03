@@ -8,6 +8,7 @@
 
 import type {Compiler, RuleSetRule} from '@rspack/core'
 import {isDebug} from '../lib/messaging'
+import {RAW_RESOURCE_QUERY} from '../lib/resource-query'
 import type {DevOptions, PluginInterface} from '../types'
 import * as messages from './static-assets-lib/messages'
 
@@ -199,12 +200,13 @@ export class StaticAssetsPlugin {
             }
           ]),
       // Vite's ?raw: the file's text as the default export, whatever the
-      // extension. A migrated `import doc from './x.js?raw'` keeps working.
+      // extension. The compiling rules exclude this query so no loader
+      // rewrites the text before it lands here.
       ...(hasRawResourceQueryRule
         ? []
         : [
             {
-              resourceQuery: /(?:^\?|&)raw(?:&|=|$)/,
+              resourceQuery: RAW_RESOURCE_QUERY,
               type: 'asset/source'
             }
           ])
