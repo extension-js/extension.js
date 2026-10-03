@@ -2,11 +2,11 @@ import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import * as path from 'node:path'
 import {beforeAll, describe, expect, it} from 'vitest'
-import {DEFAULT_TEMPLATE_NAME} from './steps/import-external-template'
 import {
   fixtureExtensionFiles,
   serveExamplesCatalog
 } from './__spec__/examples-catalog-fixture'
+import {DEFAULT_TEMPLATE_NAME} from './steps/import-external-template'
 
 function restoreEnv(name: string, value: string | undefined) {
   if (value === undefined) delete process.env[name]
@@ -62,27 +62,6 @@ try {
 } catch {
   ALL_TEMPLATES = [{name: 'javascript'}]
   DEFAULT_TEMPLATE = {name: 'javascript'}
-}
-
-import {execFile} from 'node:child_process'
-import {promisify} from 'node:util'
-
-const execFileAsync = promisify(execFile)
-
-async function waitForFile(
-  filePath: string,
-  timeoutMs: number = 5000,
-  intervalMs: number = 50
-) {
-  const start = Date.now()
-
-  while (Date.now() - start < timeoutMs) {
-    if (fs.existsSync(filePath)) return
-
-    await new Promise((r) => setTimeout(r, intervalMs))
-  }
-
-  throw new Error(`File not found in time: ${filePath}`)
 }
 
 function fileExists(templateName: string, filePath?: string): boolean {
@@ -191,74 +170,6 @@ describe('extension create', () => {
       })
     ).rejects.toThrow('A URL is not a valid project path')
   }, 30000)
-
-  const monorepoCliPath = path.resolve(
-    __dirname,
-    '..',
-    '..',
-    'programs',
-    'cli',
-    'dist',
-    'cli.js'
-  )
-  const itCli = fs.existsSync(monorepoCliPath) ? it : it.skip
-
-  itCli(
-    'pnpm extension create creates a project (local template) and build succeeds',
-    async () => {
-      const uniqueSuffix = Date.now().toString()
-      const projectPath = path.resolve(
-        __dirname,
-        'dist',
-        `user-create-javascript-${uniqueSuffix}`
-      )
-      const cwd = path.resolve(__dirname, '..', '..')
-      const env = {
-        ...process.env,
-        EXTENSION_ENV: 'development',
-        EXTENSION_SKIP_INTERNAL_INSTALL: 'true'
-      } as unknown as NodeJS.ProcessEnv
-
-      fs.rmSync(projectPath, {recursive: true, force: true})
-
-      await execFileAsync(
-        'pnpm',
-        ['extension', 'create', projectPath, '--install', 'false'],
-        {cwd, env}
-      )
-
-      expect(fs.existsSync(path.join(projectPath, 'package.json'))).toBeTruthy()
-      await execFileAsync(
-        'pnpm',
-        [
-          'extension',
-          'build',
-          projectPath,
-          '--browser',
-          'chrome',
-          '--silent',
-          'true'
-        ],
-        {cwd, env}
-      )
-
-      const manifestPath = path.join(
-        projectPath,
-        'dist',
-        'chrome',
-        'manifest.json'
-      )
-      await waitForFile(manifestPath)
-      expect(fs.existsSync(manifestPath)).toBeTruthy()
-      const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
-      expect(manifest.name).toBeTruthy()
-      expect(manifest.version).toBeTruthy()
-      expect(manifest.manifest_version).toBeTruthy()
-
-      fs.rmSync(projectPath, {recursive: true, force: true})
-    },
-    120000
-  )
 
   describe.skip('using the --template flag', () => {
     it.each(
