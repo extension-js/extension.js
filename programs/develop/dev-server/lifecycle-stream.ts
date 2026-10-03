@@ -281,6 +281,8 @@ export class LifecycleStream {
     this.browserExitEmitted = true
     const ready = readReadyContract(this.options.readyPath)
     const locked = isProfileLocked(ready)
+    // This frame shipped coded E_BROWSER_LAUNCH and consumers key on it, so
+    // it stays, though --wait names the same contract state E_BROWSER_EXITED.
     const code = locked ? CODES.E_PROFILE_LOCKED : CODES.E_BROWSER_LAUNCH
     const message =
       args.message ||

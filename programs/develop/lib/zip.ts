@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {unzipSync} from 'fflate'
+import {humanLine} from '../dev-server/lifecycle-stream'
 import {type CodedError, codedError} from './coded-error'
 import * as messages from './messages'
 import {CODES, type ErrorCode} from './messaging'
@@ -27,12 +28,24 @@ function isZipBuffer(buffer: Buffer): boolean {
   )
 }
 
-// In-process unzip with a zip-slip guard: entries naming absolute paths or
-// escaping the destination throw, and symlink entries are never materialized
-// as symlinks, so a hostile archive cannot touch files outside the target.
-function writeEntries(zipBuffer: Buffer, root: string): void {
-  const entries = unzipSync(new Uint8Array(zipBuffer))
+type ZipEntries = Record<string, Uint8Array>
 
+// Read apart from the write, so a body that will not unpack is told from a
+// destination that cannot be written, and gets the caller's own refusal.
+function readEntries(
+  zipBuffer: Buffer,
+  unreadable: (cause: unknown) => CodedError
+): ZipEntries {
+  try {
+    return unzipSync(new Uint8Array(zipBuffer))
+  } catch (cause) {
+    throw unreadable(cause)
+  }
+}
+
+// A zip-slip guard: entries naming absolute paths or escaping the destination
+// throw, and symlink entries are never materialized as symlinks.
+function writeEntries(entries: ZipEntries, root: string): void {
   fs.mkdirSync(root, {recursive: true})
 
   for (const [name, data] of Object.entries(entries)) {
@@ -58,14 +71,14 @@ function writeEntries(zipBuffer: Buffer, root: string): void {
 
 // An extraction replaces the destination instead of merging into it, so a
 // file the archive dropped stops shipping and a failed extract leaves nothing.
-function extractBuffer(zipBuffer: Buffer, destinationPath: string): void {
-  console.log(messages.unpackagingExtension(destinationPath))
+function extractBuffer(entries: ZipEntries, destinationPath: string): void {
+  humanLine(messages.unpackagingExtension(destinationPath))
 
   const root = path.resolve(destinationPath)
   const staging = `${root}.extension-staging-${process.pid.toString(36)}-${Date.now().toString(36)}`
 
   try {
-    writeEntries(zipBuffer, staging)
+    writeEntries(entries, staging)
   } catch (error) {
     fs.rmSync(staging, {recursive: true, force: true})
 
@@ -90,7 +103,7 @@ function extractBuffer(zipBuffer: Buffer, destinationPath: string): void {
     throw error
   }
 
-  console.log(messages.unpackagedSuccessfully())
+  humanLine(messages.unpackagedSuccessfully())
 }
 
 // The message IS the printable block and the CLI prints the message of the
@@ -199,7 +212,7 @@ export async function downloadAndExtractZip(
   try {
     assertDestinationIsOurs(remoteZipDestination(url, targetPath), url)
 
-    console.log(messages.downloadingText(urlNoSearchParams))
+    humanLine(messages.downloadingText(urlNoSearchParams))
 
     const res = await fetch(url, {redirect: 'follow'})
 
@@ -211,9 +224,12 @@ export async function downloadAndExtractZip(
     const isZipExt = path.extname(urlNoSearchParams).toLowerCase() === '.zip'
     const isZipType = /zip|octet-stream/i.test(contentType)
 
+    // The server answered, with something that is not an archive. That is
+    // the URL to fix, so it keeps its own block and never the download one.
     if (!isZipExt && !isZipType) {
-      throw new Error(
-        `${messages.invalidRemoteZip(urlNoSearchParams, contentType)}`
+      throw codedError(
+        CODES.E_REMOTE_ZIP_INVALID,
+        messages.invalidRemoteZip(urlNoSearchParams, contentType)
       )
     }
 
@@ -223,12 +239,20 @@ export async function downloadAndExtractZip(
     const zipBuffer = Buffer.from(arrayBuffer)
 
     if (!isZipBuffer(zipBuffer)) {
-      throw new Error(
-        `${messages.notAZipArchive(urlNoSearchParams, contentType)}`
+      throw codedError(
+        CODES.E_REMOTE_ZIP_INVALID,
+        messages.notAZipArchive(urlNoSearchParams, contentType)
       )
     }
 
-    extractBuffer(zipBuffer, destinationPath)
+    const entries = readEntries(zipBuffer, (cause) =>
+      codedError(
+        CODES.E_REMOTE_ZIP_INVALID,
+        messages.remoteZipDamaged(urlNoSearchParams, cause)
+      )
+    )
+
+    extractBuffer(entries, destinationPath)
     writeRemoteSource(destinationPath, url)
 
     return destinationPath
@@ -261,10 +285,20 @@ export async function extractLocalZip(
     const zipBuffer = fs.readFileSync(zipFilePath)
 
     if (!isZipBuffer(zipBuffer)) {
-      throw new Error(`${messages.notAZipArchive(zipFilePath)}`)
+      throw codedError(
+        CODES.E_LOCAL_ZIP_NOT_FOUND,
+        messages.localZipUnreadable(zipFilePath)
+      )
     }
 
-    extractBuffer(zipBuffer, destinationPath)
+    const entries = readEntries(zipBuffer, (cause) =>
+      codedError(
+        CODES.E_LOCAL_ZIP_NOT_FOUND,
+        messages.localZipUnreadable(zipFilePath, cause)
+      )
+    )
+
+    extractBuffer(entries, destinationPath)
     writeRemoteSource(destinationPath, source)
 
     return destinationPath

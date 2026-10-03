@@ -48,6 +48,9 @@ export interface FirefoxPluginRuntime extends FirefoxPluginLike {
   launchBinaryPath?: string
   launchBinaryProvenance?: 'managed' | 'pinned' | 'system' | 'snapshot'
   logSink?: BrowserLogSink
+  // Set by the launcher, so the debugger dial stops waiting on a browser
+  // whose process has already left.
+  isBrowserGone?: () => boolean
   // Gecko's reason for throwing the add-on out, set at launch. Withholds the
   // ready line, exactly as the Chromium runtime's twin field does.
   extensionLoadRefused?: string

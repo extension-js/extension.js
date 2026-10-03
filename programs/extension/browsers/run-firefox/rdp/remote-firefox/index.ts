@@ -7,6 +7,8 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import {
+  CODES,
+  hasChannelPrefix,
   humanError,
   humanLine,
   humanWarn,
@@ -49,6 +51,7 @@ export class RemoteFirefox {
     launchProfilePath?: string
     launchBinaryPath?: string
     launchBinaryProvenance?: 'managed' | 'pinned' | 'system' | 'snapshot'
+    isBrowserGone?: () => boolean
   }
   private client: MessagingClient | null = null
   private loggingAttached = false
@@ -96,6 +99,7 @@ export class RemoteFirefox {
       launchProfilePath?: string
       launchBinaryPath?: string
       launchBinaryProvenance?: 'managed' | 'pinned' | 'system' | 'snapshot'
+      isBrowserGone?: () => boolean
     }
   ) {
     this.options = configOptions
@@ -133,6 +137,15 @@ export class RemoteFirefox {
     let lastError: unknown
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      // Nothing will answer on this port once the process has left, and the
+      // dial would otherwise keep trying for minutes.
+      if (this.options.isBrowserGone?.()) {
+        throw Object.assign(
+          new Error(messages.browserExitedBeforeDebugger(this.options.browser)),
+          {code: CODES.E_BROWSER_LAUNCH}
+        )
+      }
+
       try {
         const client = new MessagingClient()
         await client.connect(port)
@@ -175,9 +188,12 @@ export class RemoteFirefox {
       }
     }
 
-    humanError(messages.errorConnectingToBrowser(this.options.browser, port))
-
-    throw lastError
+    // Thrown as the block itself, coded. Printed here and rethrown bare, it
+    // showed once per outer retry and then again as a stack.
+    throw Object.assign(
+      new Error(messages.errorConnectingToBrowser(this.options.browser, port)),
+      {code: CODES.E_BROWSER_CONNECT, cause: lastError}
+    )
   }
 
   // Actor IDs belong to a specific Firefox connection; once we reconnect
@@ -406,8 +422,11 @@ export class RemoteFirefox {
       })
 
       this.loggingAttached = true
-    } catch {
-      // Ignore
+    } catch (error) {
+      // The dial throws its block now. Nothing above prints it on this path.
+      const message = error instanceof Error ? error.message : ''
+
+      if (hasChannelPrefix(message)) humanError(message)
     }
   }
 }

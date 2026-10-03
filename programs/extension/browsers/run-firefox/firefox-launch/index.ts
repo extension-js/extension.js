@@ -25,6 +25,8 @@ import locateZen, {
   getInstallGuidance as getZenInstallGuidance
 } from 'zen-location'
 import {
+  CODES,
+  hasChannelPrefix,
   humanError,
   humanLine,
   humanWarn,
@@ -125,6 +127,17 @@ interface FirefoxLaunchDoneStats {
   }
 }
 
+// The Chromium launcher's twin: thrown with the same code, so a bad pin reads
+// the same on either engine.
+function invalidBinaryPinError(requestedPath: string): Error {
+  return Object.assign(
+    new Error(messages.invalidGeckoBinaryPath(requestedPath)),
+    {
+      code: CODES.E_BROWSER_BINARY_INVALID
+    }
+  )
+}
+
 export class FirefoxLaunchPlugin {
   private readonly host: FirefoxPluginRuntime
   private readonly ctx: FirefoxContext
@@ -147,6 +160,7 @@ export class FirefoxLaunchPlugin {
   constructor(host: FirefoxPluginRuntime, ctx: FirefoxContext) {
     this.host = host
     this.ctx = ctx
+    this.host.isBrowserGone = () => this.browserGone
   }
 
   // Whether a browser process came to exist, so a caller can tell a launch
@@ -291,7 +305,15 @@ export class FirefoxLaunchPlugin {
         this.ctx.didLaunch = true
       } catch (error) {
         this.stampLaunchFailed(error)
-        this.ctx.logger?.error?.(messages.firefoxFailedToStart(error))
+
+        const rendered = error instanceof Error ? error.message : String(error)
+
+        // A refusal that framed itself is the whole block already.
+        if (hasChannelPrefix(rendered)) {
+          humanError(rendered)
+        } else {
+          this.ctx.logger?.error?.(messages.firefoxFailedToStart(error))
+        }
 
         if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
           done(error)
@@ -371,12 +393,15 @@ export class FirefoxLaunchPlugin {
       process.exit(1)
     }
 
-    const getGeckoBinaryErrorMessage = (): string =>
-      this.host.geckoBinary
-        ? messages.invalidGeckoBinaryPath(this.host.geckoBinary)
-        : messages.requireGeckoBinaryForGeckoBased()
-    const failGeckoBinaryRequirement = (): never =>
-      exitForLaunchFailure(getGeckoBinaryErrorMessage())
+    // A pin that names nothing is thrown, so the command that owns stdout can
+    // frame it. Exiting here left a json consumer with exit 1 and no envelope.
+    const failGeckoBinaryRequirement = (): never => {
+      if (this.host.geckoBinary) {
+        throw invalidBinaryPinError(String(this.host.geckoBinary))
+      }
+
+      return exitForLaunchFailure(messages.requireGeckoBinaryForGeckoBased())
+    }
 
     const throwOrExitNotInstalled = (): never => {
       if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
@@ -677,6 +702,13 @@ export class FirefoxLaunchPlugin {
         // timeout) stays a launch failure and keeps propagating as before.
         if (!reason) {
           stampReadyRdpPort(this.extensionOutputPath, debugPort)
+          // A process exists and the add-on never reached it, so the contract
+          // cannot go on saying starting or ready. An exit already on it stays.
+          stampReadyBrowserLaunchFailed(
+            this.extensionOutputPath,
+            describeLaunchFailure(error),
+            this.launchRunId
+          )
 
           throw error
         }

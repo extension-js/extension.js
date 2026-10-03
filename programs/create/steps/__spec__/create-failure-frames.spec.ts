@@ -30,6 +30,7 @@ import {createDirectory} from '../create-directory'
 import {
   InsecureTemplateUrlError,
   importExternalTemplate,
+  TemplateArchiveDamagedError,
   TemplateDownloadError,
   TemplateNotFoundError,
   TemplateNotZipError
@@ -42,6 +43,13 @@ const STACK_FRAME = /^\s+at /m
 const emptyArchive = Buffer.concat([
   Buffer.from([0x50, 0x4b, 0x05, 0x06]),
   Buffer.alloc(18)
+])
+
+// The signature of a ZIP over a body that is not one: the first bytes pass
+// and the unzip is the first thing to notice.
+const damagedArchive = Buffer.concat([
+  Buffer.from([0x50, 0x4b, 0x03, 0x04]),
+  Buffer.from('cut short on the way down '.repeat(8))
 ])
 
 const tmpRoots: string[] = []
@@ -86,11 +94,14 @@ function expectOneFrameAndNoStack(error: Error, logger: {errors: string[]}) {
 
 beforeEach(() => {
   delete process.env.EXTENSION_ALLOW_HTTP_TEMPLATE
+  delete process.env.EXTENSION_CREATE_TEMPLATE_URL
   vi.mocked(axios.get).mockReset()
   vi.mocked(goGitIt).mockReset()
 })
 
 afterEach(async () => {
+  delete process.env.EXTENSION_CREATE_TEMPLATE_URL
+
   for (const dir of tmpRoots.splice(0)) {
     await fsp.rm(dir, {recursive: true, force: true})
   }
@@ -214,6 +225,51 @@ describe('a create refusal travels as one framed message on the thrown error', (
     expect(error.message).toContain(`URL ${url}`)
     expect(error.message).toContain(got)
     expect(error.message).not.toContain('invalid zip data')
+    expectOneFrameAndNoStack(error, logger)
+  })
+
+  // The catalog override is a URL someone typed as well, and its reply went
+  // to the unzip with no test at all.
+  it('for a catalog override URL that answers with a page', async () => {
+    process.env.EXTENSION_CREATE_TEMPLATE_URL =
+      'https://example.com/catalog.zip'
+
+    vi.mocked(axios.get).mockResolvedValue({
+      data: Buffer.from('<!doctype html><html><body>Sign in</body></html>'),
+      headers: {'content-type': 'text/html; charset=utf-8'}
+    })
+
+    const {error, logger} = await failingImport('react')
+
+    expect(error).toBeInstanceOf(TemplateNotZipError)
+    expect(error.message).toContain("doesn't point to a ZIP archive")
+    expect(error.message).toContain('URL https://example.com/catalog.zip')
+    expect(error.message).toContain('GOT text/html; charset=utf-8')
+    expect(error.message).not.toContain('invalid zip data')
+    expectOneFrameAndNoStack(error, logger)
+  })
+
+  it.each([
+    ['a template URL', 'https://example.com/t.zip', undefined],
+    ['a catalog override URL', 'react', 'https://example.com/catalog.zip']
+  ])('for %s whose archive is damaged', async (_label, template, override) => {
+    if (override) process.env.EXTENSION_CREATE_TEMPLATE_URL = override
+
+    vi.mocked(axios.get).mockResolvedValue({
+      data: damagedArchive,
+      headers: {'content-type': 'application/zip'}
+    })
+
+    const {error, logger} = await failingImport(template)
+
+    expect(error).toBeInstanceOf(TemplateArchiveDamagedError)
+    expect(error).not.toBeInstanceOf(TemplateDownloadError)
+    expect(error.message).toContain(
+      'The ZIP archive at the remote URL is damaged.'
+    )
+
+    expect(error.message).toContain(`URL ${override ?? template}`)
+    expect(error.message).toContain('REASON invalid zip data')
     expectOneFrameAndNoStack(error, logger)
   })
 

@@ -94,6 +94,11 @@ describe('extension start --output json', () => {
 
     expect(extensionBuild).toHaveBeenCalledTimes(1)
     expect(extensionPreview).toHaveBeenCalledTimes(1)
+
+    // The frame says started, so it waits for the build and the launch.
+    const framedAt = logSpy.mock.invocationCallOrder[0]
+    expect(extensionBuild.mock.invocationCallOrder[0]).toBeLessThan(framedAt)
+    expect(extensionPreview.mock.invocationCallOrder[0]).toBeLessThan(framedAt)
   })
 
   it('hands the build its own error handling under json', async () => {
@@ -113,9 +118,9 @@ describe('extension start --output json', () => {
     extensionBuild.mockRejectedValueOnce(new Error('Build failed with errors'))
     expect(await run(['start', '.', '--output', 'json'])).toBe(1)
     const emitted = frames()
-    expect(emitted).toHaveLength(2)
-    expect(emitted[0]).toMatchObject({status: 'started'})
-    expect(emitted[1]).toMatchObject({
+    // One frame: an ok "started" ahead of it described a run that failed.
+    expect(emitted).toHaveLength(1)
+    expect(emitted[0]).toMatchObject({
       schema: 1,
       ok: false,
       command: 'start',
@@ -125,6 +130,20 @@ describe('extension start --output json', () => {
     })
 
     expect(extensionPreview).not.toHaveBeenCalled()
+  })
+
+  it('prints no ok frame when the launch rejects', async () => {
+    extensionPreview.mockRejectedValueOnce(
+      Object.assign(new Error('the browser never started'), {
+        code: CODES.E_BROWSER_LAUNCH
+      })
+    )
+
+    await expect(run(['start', '.', '--output', 'json'])).rejects.toThrow(
+      'the browser never started'
+    )
+
+    expect(frames()).toEqual([])
   })
 
   it('emits a failure frame for safari', async () => {

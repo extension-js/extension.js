@@ -161,11 +161,23 @@ describe('extension create', () => {
     ],
     ['E_INVALID_OPTION', () => createMessages.noUrlAllowed()],
     [
+      'E_INVALID_OPTION',
+      () => createMessages.templateUrlNotHttps('http://example.com/t.zip')
+    ],
+    [
       'E_REMOTE_ZIP_INVALID',
       () =>
         createMessages.templateUrlNotZip(
           'https://example.com/t.zip',
           'text/html'
+        )
+    ],
+    [
+      'E_REMOTE_ZIP_INVALID',
+      () =>
+        createMessages.templateArchiveDamaged(
+          'https://example.com/t.zip',
+          'invalid zip data'
         )
     ]
   ]

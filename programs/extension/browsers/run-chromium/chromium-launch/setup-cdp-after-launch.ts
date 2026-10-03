@@ -27,7 +27,10 @@ import {
 } from '../../browsers-lib/companion-session'
 import * as messages from '../../browsers-lib/messages'
 import {manifestDeclaresNewtabOverride} from '../../browsers-lib/newtab-override'
-import {stampReadyExtensionLoadRefused} from '../../browsers-lib/ready-stamp'
+import {
+  readyPathFor,
+  stampReadyExtensionLoadRefused
+} from '../../browsers-lib/ready-stamp'
 import {
   deriveDebugPortWithInstance,
   launchIsHeadless
@@ -147,12 +150,7 @@ export async function setupCdpAfterLaunch(
 
   try {
     if (extensionOutputPath && Number.isFinite(chromeRemoteDebugPort)) {
-      const readyPath = path.join(
-        path.dirname(extensionOutputPath),
-        'extension-js',
-        path.basename(extensionOutputPath),
-        'ready.json'
-      )
+      const readyPath = readyPathFor(extensionOutputPath)
 
       if (fs.existsSync(readyPath)) {
         const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))

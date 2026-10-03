@@ -8,6 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {humanLine} from '../dev-server/lifecycle-stream'
 import {codedError} from './coded-error'
 import * as messages from './messages'
 import {CODES, isDebug} from './messaging'
@@ -178,7 +179,13 @@ function withTimeout<T>(
 
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(
-      () => reject(new Error(messages.remoteFetchTimedOut(label, ms))),
+      () =>
+        reject(
+          codedError(
+            CODES.E_REMOTE_FETCH_TIMEOUT,
+            messages.remoteFetchTimedOut(label, ms)
+          )
+        ),
       ms
     )
   })
@@ -313,7 +320,7 @@ async function importUrlSourceFromGithub(
     const {default: goGitIt} = await import('go-git-it')
     // go-git-it echoes the progress text itself, but that echo is silenced
     // with the rest of its output, so the user still sees activity from here.
-    if (!isDebug()) console.log(text)
+    if (!isDebug()) humanLine(text)
 
     // The timeout races inside the silencer so a hung clone restores stdout
     // before the timeout error has to print.
@@ -474,7 +481,7 @@ export async function getProjectPath(
         )
       )
 
-      console.log(
+      humanLine(
         downloaded
           ? messages.creatingProjectPath()
           : messages.reusingDownloadedProject(projectPath, pathOrRemoteUrl)
@@ -613,7 +620,7 @@ export function resolveProjectStructureSync(
   options: {quiet?: boolean} = {}
 ): ProjectStructure {
   const log = (line: string) => {
-    if (!options.quiet) console.log(line)
+    if (!options.quiet) humanLine(line)
   }
 
   const isUnderDir = (baseDir: string, candidatePath: string): boolean => {

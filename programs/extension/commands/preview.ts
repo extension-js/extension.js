@@ -344,10 +344,13 @@ export function registerPreviewCommand(program: Command) {
             const declared = declaredErrorCode(error)
 
             if (declared) {
-              // A browser that never spawned is a failed run, not a mistyped
-              // command line.
+              // A browser that never came up, or never answered, is a failed
+              // run and not a mistyped command line.
               const status =
-                declared === CODES.E_BROWSER_LAUNCH ? 'failed' : 'usage'
+                declared === CODES.E_BROWSER_LAUNCH ||
+                declared === CODES.E_BROWSER_CONNECT
+                  ? 'failed'
+                  : 'usage'
 
               emit(ENVELOPE.fail('preview', status, {code: declared, message}))
 

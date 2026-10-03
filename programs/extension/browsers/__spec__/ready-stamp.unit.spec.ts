@@ -3,6 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {
+  claimReadyPath,
   describeLaunchFailure,
   readReadyRunId,
   stampReadyBrowserExited,
@@ -248,6 +249,34 @@ describe('stampReadyBrowserLaunchFailed', () => {
 
     expect(typeof ready.browserLaunchFailedAt).toBe('string')
     expect(ready.browserLaunchFailedReason).toBe('spawn /x/chrome EACCES')
+  })
+
+  // A run-only session loading a source folder: the loaded directory is the
+  // project root, and no contract lives at the path derived from it.
+  it('stamps the contract the session claimed when the loaded directory cannot name it', () => {
+    const sourceRoot = path.join(tmp, 'project')
+    fs.mkdirSync(sourceRoot, {recursive: true})
+
+    stampReadyBrowserLaunchFailed(sourceRoot, 'spawn /x/chrome EACCES')
+    expect(readReady().status).toBe('ready')
+
+    claimReadyPath(sourceRoot, readyPath)
+    expect(readReadyRunId(sourceRoot)).toBe('run-A')
+    stampReadyBrowserLaunchFailed(sourceRoot, 'spawn /x/chrome EACCES')
+
+    const failed = readReady()
+    expect(failed.status).toBe('error')
+    expect(failed.code).toBe('browser_launch_failed')
+    expect(failed.browserLaunchFailedReason).toBe('spawn /x/chrome EACCES')
+
+    // Every later stamp follows the claim, not only the launch failure.
+    stampReadyBrowserLaunch(sourceRoot, {browserPid: 4242}, 'run-A')
+    stampReadyBrowserExited(sourceRoot, 0, null, 'run-A', {beforeReady: true})
+
+    const exited = readReady()
+    expect(exited.browserPid).toBe(4242)
+    expect(exited.code).toBe('browser_exited')
+    expect(typeof exited.browserExitedAt).toBe('string')
   })
 
   it('leaves a more specific verdict already on the contract alone', () => {

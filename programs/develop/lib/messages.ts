@@ -15,7 +15,8 @@ import {
   type Channel,
   fmt,
   hasChannelPrefix,
-  prefix
+  prefix,
+  stripChannelPrefix
 } from './messaging'
 
 // Imported for local use and re-exported: consumers and snapshots read fmt
@@ -212,7 +213,9 @@ export function browserLaunchFailed(
 ) {
   return (
     `${getLoggingPrefix('error')} ${capitalizedBrowserName(browser)} couldn't start, so the extension isn't running.\n` +
-    `${reason}\n` +
+    // The reason is often a block of its own. Inside this one it is a detail,
+    // so it loses its glyph and the frame stays one frame.
+    `${hasChannelPrefix(reason) ? stripChannelPrefix(reason) : reason}\n` +
     `The dev server keeps watching, but nothing will load until this is fixed.`
   )
 }
@@ -845,6 +848,34 @@ export function notAZipArchive(source: string, contentType?: string) {
   )
 }
 
+// The archive arrived and would not unpack. A cut-short download is fixed by
+// fetching again, a bad upload by a good copy passed as a local path.
+export function remoteZipDamaged(url: string, cause: unknown) {
+  const detail = cause instanceof Error ? cause.message : String(cause)
+
+  return (
+    `${getLoggingPrefix('error')} ` +
+    `The ZIP archive at the remote URL is damaged.\n` +
+    `${colors.gray('URL')} ${colors.underline(url)}\n` +
+    `${colors.gray('REASON')} ${colors.red(detail)}\n` +
+    `Try again, or download a good copy of the archive and pass the local path.`
+  )
+}
+
+// A local file has no URL and no login page behind it, so it gets its own
+// block and not the one written for a download.
+export function localZipUnreadable(zipFilePath: string, cause?: unknown) {
+  const detail = cause instanceof Error ? cause.message : String(cause ?? '')
+
+  return (
+    `${getLoggingPrefix('error')} ` +
+    `The file isn't a ZIP archive that can be unpacked.\n` +
+    `${colors.gray('PATH')} ${colors.underline(zipFilePath)}\n` +
+    (detail ? `${colors.gray('REASON')} ${colors.red(detail)}\n` : '') +
+    `Check that the file opens as a ZIP, then try again.`
+  )
+}
+
 export function localZipNotFound(zipFilePath: string) {
   return (
     `${getLoggingPrefix('error')} ` +
@@ -1159,9 +1190,14 @@ export function devCommandFailed(error: unknown) {
     return String(error || 'Unknown error')
   })()
 
+  // A refusal that is already a block becomes the detail of this one.
+  const detail = hasChannelPrefix(message)
+    ? stripChannelPrefix(message)
+    : message
+
   return (
     `${getLoggingPrefix('error')} Dev mode failed.\n` +
-    `${colors.red(fmt.truncate(message, 1200))}`
+    `${colors.red(fmt.truncate(detail, 1200))}`
   )
 }
 

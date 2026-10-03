@@ -232,9 +232,10 @@ describe('extension dev --output json', () => {
     expect(await run(['dev', '.', '--output', 'json'])).toBe(1)
 
     const emitted = frames()
-    // Frame 1 is the startup frame; the failure closes the stream.
-    expect(emitted[0]).toMatchObject({ok: true, status: 'started'})
-    expect(emitted[1]).toMatchObject({
+    // One frame: the run was refused before a session existed, so no ok
+    // "started" may stand ahead of the failure.
+    expect(emitted).toHaveLength(1)
+    expect(emitted[0]).toMatchObject({
       schema: 1,
       ok: false,
       command: 'dev',
@@ -246,7 +247,44 @@ describe('extension dev --output json', () => {
       }
     })
 
-    expect(typeof emitted[1].hint).toBe('string')
+    expect(typeof emitted[0].hint).toBe('string')
+  })
+
+  it('prints the startup frame when develop says the session exists', async () => {
+    extensionDev.mockImplementationOnce((async (
+      _path: string,
+      opts: {onSessionStart?: () => void}
+    ) => {
+      expect(frames()).toEqual([])
+      opts.onSessionStart?.()
+      expect(frames()).toHaveLength(1)
+      // A second call, from a second browser, must not print it again.
+      opts.onSessionStart?.()
+    }) as never)
+
+    expect(await run(['dev', '.', '--output', 'json'])).toBe(0)
+
+    const emitted = frames()
+    expect(emitted).toHaveLength(1)
+    expect(emitted[0]).toMatchObject({ok: true, status: 'started'})
+  })
+
+  it('keeps the startup frame once a session failed after it began', async () => {
+    extensionDev.mockImplementationOnce((async (
+      _path: string,
+      opts: {onSessionStart?: () => void}
+    ) => {
+      opts.onSessionStart?.()
+
+      throw Object.assign(new Error('the port was taken'), {
+        code: 'E_DEV_SERVER_START'
+      })
+    }) as never)
+
+    expect(await run(['dev', '.', '--output', 'json'])).toBe(1)
+
+    const emitted = frames()
+    expect(emitted.map((frame) => frame.status)).toEqual(['started', 'failed'])
   })
 
   it('asks extensionDev to reject under json and to exit under pretty', async () => {
@@ -265,7 +303,8 @@ describe('extension dev --output json', () => {
   it('maps an untagged runtime failure to E_INTERNAL', async () => {
     extensionDev.mockRejectedValueOnce(new Error('boom'))
     expect(await run(['dev', '.', '--output', 'json'])).toBe(1)
-    expect(frames()[1]).toMatchObject({
+    expect(frames()).toHaveLength(1)
+    expect(frames()[0]).toMatchObject({
       ok: false,
       status: 'failed',
       error: {code: CODES.E_INTERNAL, message: 'boom'}

@@ -488,9 +488,14 @@ export function registerDevCommand(program: Command) {
         // envelopes and stays parseable one JSON object per line.
         if (asJson) process.env.EXTENSION_OUTPUT = 'json'
 
-        // dev never terminates, so json mode gets one startup frame now rather
+        // dev never terminates, so json mode gets one startup frame rather
         // than a result frame that would only arrive when the session dies.
-        if (asJson) {
+        let startedFramePrinted = false
+
+        const printStartedFrame = () => {
+          if (!asJson || startedFramePrinted) return
+
+          startedFramePrinted = true
           printFrame(
             ENVELOPE.ok('dev', 'started', {
               projectPath: pathOrRemoteUrl || process.cwd(),
@@ -572,6 +577,9 @@ export function registerDevCommand(program: Command) {
             // Inject the browser launcher, develop's BrowsersPlugin calls it
             // on first compile; browser lifecycle is managed by the plugin.
             launcher: noBrowser ? undefined : launchBrowser,
+            // The startup frame waits for the session to exist. Printed up
+            // front, it announced a run that a missing manifest then refused.
+            onSessionStart: printStartedFrame,
             // Inject the Safari packager. SafariDevPlugin calls it on each
             // rebuild (full first, then incremental resync). The merged noOpen
             // from develop arrives via packager overrides per call.
@@ -589,6 +597,8 @@ export function registerDevCommand(program: Command) {
           // Browser launch/reload is handled internally by the plugin.
           try {
             await extensionDev(pathOrRemoteUrl, devArgs)
+            // A develop that never called back still gets its frame.
+            printStartedFrame()
           } catch (error) {
             if (!asJson) throw error
 
