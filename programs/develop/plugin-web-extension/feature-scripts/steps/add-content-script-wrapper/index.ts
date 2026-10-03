@@ -16,6 +16,7 @@ import {
   isResourceUnderDirs
 } from '../../../../lib/resource-path'
 import {NOT_RAW_RESOURCE_QUERY} from '../../../../lib/resource-query'
+import {scriptsFolderRoot} from '../../../../plugin-special-folders/folders-config'
 import type {DevOptions, FilepathList, PluginInterface} from '../../../../types'
 import {
   CONTENT_SCRIPT_CSS_PROBE_MARKER_PREFIX,
@@ -99,11 +100,15 @@ export class AddContentScriptWrapper {
       projectPath: (compiler.options.context as string) || manifestDir
     }).flatMap((entry) => entry.files.map(canonicalizeResourcePath))
 
+    // The loader runs from its own bundle, so the `folders` answer travels
+    // with its options: the folder in use, or false for a plain scripts/.
+    const scriptsRoot = scriptsFolderRoot(compiler.options.context)
     const loaderOptions = {
       manifestPath: this.manifestPath,
       mode: compiler.options.mode,
       browser: this.browser,
-      mainWorldScripts
+      mainWorldScripts,
+      scriptsFolder: scriptsRoot ? canonicalizeDir(scriptsRoot) : false
     }
 
     // Classic concat loader must be registered before the content-script-wrapper

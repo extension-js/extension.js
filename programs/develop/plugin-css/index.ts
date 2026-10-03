@@ -17,6 +17,7 @@ import {
 } from '@rspack/core'
 import {hasDependency} from '../lib/has-dependency'
 import {isDebug} from '../lib/messaging'
+import {publicContainmentRoot} from '../plugin-special-folders/resolve-public-folder'
 import type {DevOptions, PluginInterface} from '../types'
 import {cssInContentScriptLoader} from './css-in-content-script-loader'
 import {cssInHtmlLoader} from './css-in-html-loader'
@@ -226,7 +227,7 @@ export class CssPlugin {
   private tolerateDeadUrlRefs(compiler: Compiler) {
     const manifestDir = path.dirname(this.manifestPath)
     const projectPath = (compiler.options.context as string) || process.cwd()
-    const roots = [path.join(projectPath, 'public'), manifestDir]
+    let roots = [manifestDir]
     const assetExt =
       /\.(png|jpe?g|gif|webp|svg|avif|ico|bmp|cur|woff2?|ttf|otf|eot|mp3|mp4|webm|ogg|wav)$/i
     let compilation: import('@rspack/core').Compilation | null = null
@@ -244,6 +245,11 @@ export class CssPlugin {
     compiler.hooks.thisCompilation.tap(`${CssPlugin.name}:dead-url`, (c) => {
       compilation = c
       warned.clear()
+      // The folder the copier ships from, which `folders` can move.
+      roots = [
+        publicContainmentRoot(this.manifestPath, projectPath),
+        manifestDir
+      ]
     })
 
     compiler.hooks.normalModuleFactory.tap(

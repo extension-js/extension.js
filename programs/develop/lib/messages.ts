@@ -1077,6 +1077,16 @@ export function runtimeChunkKeptInline(runtimeChunk: unknown) {
   )
 }
 
+export function configResolvedChangeIgnored(keys: string[]) {
+  const many = keys.length > 1
+
+  return (
+    `${getLoggingPrefix('warn')} configResolved changed ${keys.join(', ')}, ` +
+    `which the hook cannot change. ` +
+    `The change is ignored, set ${many ? 'them' : 'it'} in config instead.`
+  )
+}
+
 export function debugOutputPath(pathValue: string) {
   return `${prefix('debug')} output   path=${pathValue}`
 }

@@ -75,6 +75,14 @@ export function foldersRoots(projectRoot: string): SpecialFoldersRoots {
   return roots
 }
 
+// The folder whose files are content scripts by location: the moved one,
+// the root default, or none once `scripts: false` makes it a plain folder.
+export function scriptsFolderRoot(
+  projectRoot: string | undefined
+): string | undefined {
+  return projectRoot ? foldersRoots(projectRoot).scripts : undefined
+}
+
 export type PublicFolderSetting =
   | {kind: 'default'}
   | {kind: 'off'}

@@ -37,6 +37,7 @@ interface ContentScriptLoaderContext {
     mode?: string
     browser?: string
     mainWorldScripts?: string[]
+    scriptsFolder?: string | false
   }
   _compilation?: unknown
   resourcePath: string
@@ -51,7 +52,8 @@ const schema = {
     manifestPath: {type: 'string'},
     mode: {type: 'string'},
     browser: {type: 'string'},
-    mainWorldScripts: {type: 'array', items: {type: 'string'}}
+    mainWorldScripts: {type: 'array', items: {type: 'string'}},
+    scriptsFolder: {anyOf: [{type: 'string'}, {const: false}]}
   }
 } as Parameters<typeof validate>[0]
 
@@ -302,8 +304,13 @@ export default function contentScriptWrapper(
     (entry) => resourceAbsPath === path.normalize(entry.abs)
   )
 
-  const scriptsDir = path.resolve(packageJsonDir, 'scripts')
-  const relToScripts = path.relative(scriptsDir, resourceAbsPath)
+  // The `folders` config moves this folder or turns it off. Off, nothing in
+  // scripts/ is a content script unless the manifest declares it.
+  const scriptsDir =
+    options.scriptsFolder ?? path.resolve(packageJsonDir, 'scripts')
+  const relToScripts = scriptsDir
+    ? path.relative(scriptsDir, resourceAbsPath)
+    : ''
   const isScriptsFolderScript =
     relToScripts &&
     !relToScripts.startsWith('..') &&

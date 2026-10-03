@@ -12,6 +12,7 @@ import {type Compilation, WebpackError} from '@rspack/core'
 import * as parse5utilities from 'parse5-utilities'
 import {injectCssLink} from '../../../plugin-css/css-lib/inject-css-link'
 import {resolveCssAsset} from '../../../plugin-css/css-lib/resolve-css-asset'
+import {publicContainmentRoot} from '../../../plugin-special-folders/resolve-public-folder'
 import type {FilepathList} from '../../../types'
 import {handleStaticAsset} from './assets'
 import {bakeBaseHref} from './base-href'
@@ -37,7 +38,11 @@ function warnIfPublicRootAssetMissing(
   manifestDir?: string
 ): void {
   const projectDir = manifestDir || path.dirname(path.dirname(htmlEntry))
-  const publicDir = path.join(projectDir, 'public')
+  // The folder the copier ships from, which `folders` can move.
+  const publicDir = publicContainmentRoot(
+    path.join(projectDir, 'manifest.json'),
+    compilation.compiler?.options?.context || projectDir
+  )
   const publicCandidate = path.join(publicDir, cleanPath.slice(1))
 
   if (fs.existsSync(publicCandidate)) return

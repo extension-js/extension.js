@@ -44,6 +44,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "buildWarningsDetails: function(1)",
     "companionManifestNotProjectError: function(2)",
     "configLoadingError: function(2)",
+    "configResolvedChangeIgnored: function(1)",
     "configUnknownKeys: function(3)",
     "configWrongShape: function(2)",
     "creatingProjectPath: function(0)",
@@ -161,6 +162,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
   ],
   "plugin-special-folders/messages.ts": [
     "publicFileCollidesWithEntry: function(2)",
+    "publicFolderOffRef: function(3)",
     "publicFolderShadowed: function(3)",
     "publicMustBeAtProjectRoot: function(3)",
     "serverRestartRequiredFromSpecialFolderMessageOnly: function(3)",
@@ -234,6 +236,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "manifestDepsTracked: function(1)",
     "manifestEmitSuccess: function(0)",
     "manifestFieldMistyped: function(3)",
+    "manifestFilesInTurnedOffPublic: function(1)",
     "manifestIncludeSummary: function(2)",
     "manifestInvalidError: function(1)",
     "manifestLegacyWarningsSummary: function(1)",

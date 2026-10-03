@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {Compilation, type Compiler, sources} from '@rspack/core'
+import {publicContainmentRoot} from '../../../plugin-special-folders/resolve-public-folder'
 import type {FilepathList, PluginInterface} from '../../../types'
 import {reportToCompilation} from '../../shared/compilation-issues'
 import {isFolder, resolveRootAbsoluteRef} from '../../shared/paths'
@@ -308,7 +309,11 @@ export class AddAssetsToCompilation {
               htmlSource
             )
             const staticAssets = parsedAssets?.static
-            const publicRootForResource = path.join(projectRoot, 'public')
+            // The folder the copier ships from, which `folders` can move.
+            const publicRootForResource = publicContainmentRoot(
+              this.manifestPath,
+              projectRoot
+            )
             const outputRoot = compilation.options?.output?.path || ''
 
             warnRemoteResourceReferences({

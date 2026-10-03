@@ -101,7 +101,8 @@ export class SpecialFoldersPlugin {
             emitRootAbsoluteRefs(
               compilation,
               path.dirname(manifestPath),
-              publicDir
+              publicDir,
+              !readsPublicFolder
             )
         )
       }
