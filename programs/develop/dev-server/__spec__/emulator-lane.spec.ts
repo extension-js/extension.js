@@ -383,6 +383,42 @@ describe('files.json while the compilation has errors', () => {
     )
   })
 
+  it('never echoes a thrown value or its stack in the 503 body', async () => {
+    const real = createEmulatorFileIndexHolder('inst-1')
+    const holder = {
+      ...real,
+      current: () =>
+        Promise.reject({
+          stack: 'Error: secret\n    at /home/dev/project/leak.ts:1:1',
+          toString: () => 'at /home/dev/project/leak.ts:1:1'
+        })
+    }
+    const entry = createEmulatorFilesMiddlewareEntry(holder, {
+      options: {webSocketServer: false}
+    })
+
+    server = http.createServer((req, res) => {
+      void entry.middleware(req, res, () => {
+        res.statusCode = 404
+        res.end()
+      })
+    })
+
+    await new Promise<void>((resolve) => server?.listen(0, resolve))
+    const port = (server.address() as AddressInfo).port
+    const response = await fetch(
+      `http://127.0.0.1:${port}${EMULATOR_FILES_PATH}`
+    )
+    const text = await response.text()
+
+    expect(response.status).toBe(503)
+    expect(text).not.toContain('leak.ts')
+    expect(text).not.toContain('secret')
+    expect(JSON.parse(text)).toEqual({
+      error: 'No file index yet, no compilation has succeeded.'
+    })
+  })
+
   it('caps the requests it parks and settles them on a reset', async () => {
     const holder = createEmulatorFileIndexHolder('inst-1', {
       waitMs: 10_000,
