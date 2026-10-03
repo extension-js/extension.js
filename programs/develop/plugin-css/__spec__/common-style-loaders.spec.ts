@@ -1,4 +1,10 @@
-import {describe, it, expect, vi, beforeEach} from 'vitest'
+import type {RuleSetRule} from '@rspack/core'
+import {beforeEach, describe, expect, it, vi} from 'vitest'
+
+// The product returns rspack's RuleSetUse union. These specs only ever get
+// the array form back, so read it as one.
+type LoaderItem = {loader?: string; options?: Record<string, unknown>}
+const items = (use: RuleSetRule['use']) => use as LoaderItem[]
 
 vi.mock('../css-tools/tailwind', () => ({
   isUsingTailwind: vi.fn(() => false)
@@ -18,8 +24,8 @@ vi.mock('../css-tools/postcss', () => ({
 }))
 
 import {commonStyleLoaders} from '../common-style-loaders'
-import {isUsingSass} from '../css-tools/sass'
 import {maybeUsePostCss} from '../css-tools/postcss'
+import {isUsingSass} from '../css-tools/sass'
 
 describe('commonStyleLoaders', () => {
   beforeEach(() => vi.clearAllMocks())
@@ -35,9 +41,9 @@ describe('commonStyleLoaders', () => {
       loader: 'sass-loader',
       loaderOptions: {foo: true}
     })
-    expect(res[0].loader).toBe('sass-loader')
-    expect(res[0].options.sourceMap).toBe(true)
-    expect(res[0].options.foo).toBe(true)
+    expect(items(res)[0].loader).toBe('sass-loader')
+    expect(items(res)[0].options?.sourceMap).toBe(true)
+    expect(items(res)[0].options?.foo).toBe(true)
   })
 
   it('adds postcss when maybeUsePostCss returns a loader', async () => {
@@ -46,6 +52,6 @@ describe('commonStyleLoaders', () => {
     })
     ;(isUsingSass as any).mockReturnValueOnce(true)
     const res = await commonStyleLoaders('/p', {mode: 'production'})
-    expect(res.some((l: any) => l.loader === 'postcss-loader')).toBe(true)
+    expect(items(res).some((l) => l.loader === 'postcss-loader')).toBe(true)
   })
 })

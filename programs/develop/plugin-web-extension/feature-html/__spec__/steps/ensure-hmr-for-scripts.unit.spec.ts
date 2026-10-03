@@ -3,7 +3,14 @@ import os from 'node:os'
 import path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../../../../plugin-web-extension/feature-scripts/contracts'
+import type {LoaderInterface} from '../../../../types'
 import ensureHMRForScripts from '../../steps/ensure-hmr-for-scripts'
+
+// The real loader context is rspack's. These specs hand the loader only the
+// fields it reads, so the partial fake is widened in one place.
+function asLoaderContext(ctx: Record<string, unknown>): LoaderInterface {
+  return ctx as unknown as LoaderInterface
+}
 
 function makeLoaderCtx(options: any) {
   return {
@@ -47,13 +54,13 @@ describe('ensureHMRForScripts loader', () => {
   it('injects the CJS module.hot guard into script-parsed (javascript/dynamic) modules', () => {
     const src = 'var I18N = {};'
     const out = ensureHMRForScripts.call(
-      {
+      asLoaderContext({
         getOptions: () => ({manifestPath: '/m'}),
         resourcePath: '/proj/i18n.js',
         resourceQuery:
           '?__extensionjs_classic_concat__=%7B%22feature%22%3A%22action%2Findex%22%7D',
         _module: {type: 'javascript/dynamic'}
-      },
+      }),
       src
     )
     expect(out).toContain('module.hot')
@@ -63,11 +70,11 @@ describe('ensureHMRForScripts loader', () => {
 
   it('keeps import.meta.webpackHot for esm parses', () => {
     const out = ensureHMRForScripts.call(
-      {
+      asLoaderContext({
         getOptions: () => ({manifestPath: '/m'}),
         resourcePath: '/proj/page.js',
         _module: {type: 'javascript/esm'}
-      },
+      }),
       'console.log("x")'
     )
     expect(out).toContain('import.meta.webpackHot')
@@ -131,10 +138,10 @@ describe('ensureHMRForScripts loader', () => {
   it('skips Vue SFC virtual modules', () => {
     const src = 'console.log("x")'
     const out = ensureHMRForScripts.call(
-      {
+      asLoaderContext({
         getOptions: () => ({manifestPath: '/m'}),
         resourceQuery: '?vue&type=template&id=123'
-      },
+      }),
       src
     )
     expect(out).toBe(src)
@@ -169,13 +176,13 @@ describe('ensureHMRForScripts loader', () => {
   it('skips modules in the content-script layer', () => {
     const src = 'console.log("layered")'
     const out = ensureHMRForScripts.call(
-      {
+      asLoaderContext({
         getOptions: () => ({manifestPath: '/m'}),
         resourcePath: '/proj/layered.ts',
         _module: {
           layer: EXTENSIONJS_CONTENT_SCRIPT_LAYER
         }
-      },
+      }),
       src
     )
     expect(out).toBe(src)
@@ -196,7 +203,7 @@ describe('ensureHMRForScripts loader', () => {
 
     const src = 'console.log("imported")'
     const out = ensureHMRForScripts.call(
-      {
+      asLoaderContext({
         getOptions: () => ({manifestPath}),
         resourcePath: importedPath,
         _module: {
@@ -204,7 +211,7 @@ describe('ensureHMRForScripts loader', () => {
             resource: contentScriptPath
           }
         }
-      },
+      }),
       src
     )
     expect(out).toBe(src)

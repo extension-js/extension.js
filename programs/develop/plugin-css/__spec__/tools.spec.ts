@@ -2,7 +2,9 @@ import * as fs from 'node:fs'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 const {toolsHasDependencyMock} = vi.hoisted(() => ({
-  toolsHasDependencyMock: vi.fn(() => false)
+  toolsHasDependencyMock: vi.fn(
+    (_projectPath: string, _dependency: string) => false
+  )
 }))
 
 vi.mock('fs', async () => {
@@ -106,7 +108,7 @@ describe('css tools additional coverage', () => {
   it('isUsingTailwind logs only once across multiple calls', async () => {
     vi.resetModules()
     toolsHasDependencyMock.mockImplementation(
-      (_: any, dep: string) => dep === 'tailwindcss'
+      (_p: string, dep: string) => dep === 'tailwindcss'
     )
 
     const {isUsingTailwind} = await import('../css-tools/tailwind')

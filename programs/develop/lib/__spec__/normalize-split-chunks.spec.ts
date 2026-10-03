@@ -246,10 +246,12 @@ describe('applySplitChunksGuard', () => {
 
   afterEach(() => {
     vi.restoreAllMocks()
-    if (originalDebug === undefined) delete process.env.EXTENSION_DEBUG
-    else process.env.EXTENSION_DEBUG = originalDebug
-    if (originalAuthor === undefined) delete process.env.EXTENSION_AUTHOR_MODE
-    else process.env.EXTENSION_AUTHOR_MODE = originalAuthor
+    if (originalDebug === undefined) {
+      Reflect.deleteProperty(process.env, 'EXTENSION_DEBUG')
+    } else process.env.EXTENSION_DEBUG = originalDebug
+    if (originalAuthor === undefined) {
+      Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')
+    } else process.env.EXTENSION_AUTHOR_MODE = originalAuthor
   })
 
   it('prints one debug line naming what it narrowed under EXTENSION_DEBUG', () => {
@@ -281,7 +283,7 @@ describe('applySplitChunksGuard', () => {
     expect(log).not.toHaveBeenCalled()
 
     process.env.EXTENSION_DEBUG = '0'
-    delete process.env.EXTENSION_AUTHOR_MODE
+    Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')
     applySplitChunksGuard({optimization: {splitChunks: {chunks: 'all'}}})
     expect(log).not.toHaveBeenCalled()
   })

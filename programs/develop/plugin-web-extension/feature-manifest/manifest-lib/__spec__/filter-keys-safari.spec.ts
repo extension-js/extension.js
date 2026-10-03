@@ -238,7 +238,7 @@ describe('dropWebkitUnsupportedKeys', () => {
       ]
     })
     expect(manifest.content_scripts).toHaveLength(2)
-    expect(manifest.content_scripts[1]).toEqual({
+    expect(manifest.content_scripts?.[1]).toEqual({
       matches: ['<all_urls>'],
       js: ['main.js'],
       world: 'MAIN'

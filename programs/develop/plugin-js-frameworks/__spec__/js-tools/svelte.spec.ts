@@ -55,7 +55,7 @@ describe('svelte tools', () => {
     const svelteRule = result?.loaders?.find((r: any) =>
       String(r.test).includes('svelte\\.js')
     )
-    expect(svelteRule?.use?.options?.bar).toBe(2)
+    expect(svelteRule?.use).toMatchObject({options: {bar: 2}})
 
     const compiler: any = {
       options: {
@@ -119,8 +119,9 @@ describe('svelte tools', () => {
       )
       expect(rules).toHaveLength(1)
       const entries = [rules[0].use].flat()
-      const svelteEntries = entries.filter((entry: any) =>
-        String(entry?.loader).includes('svelte-loader')
+      const svelteEntries = entries.filter(
+        (entry): entry is {loader?: string; options?: unknown} =>
+          String((entry as {loader?: string})?.loader).includes('svelte-loader')
       )
       expect(svelteEntries).toHaveLength(1)
 
@@ -172,9 +173,7 @@ describe('svelte tools', () => {
         (rule: any) => rule.test instanceof RegExp && rule.test.test(file)
       ) as any[]
 
-    const component = rulesFor(
-      '/p/node_modules/fancy-svelte-lib/Button.svelte'
-    )
+    const component = rulesFor('/p/node_modules/fancy-svelte-lib/Button.svelte')
     expect(component).toHaveLength(1)
     expect(component[0].exclude).toBeUndefined()
 

@@ -129,8 +129,9 @@ describe('firefox new-tab courtesy after launch', () => {
     } finally {
       warn.mockRestore()
 
-      if (previousDebug === undefined) delete process.env.EXTENSION_DEBUG
-      else process.env.EXTENSION_DEBUG = previousDebug
+      if (previousDebug === undefined) {
+        Reflect.deleteProperty(process.env, 'EXTENSION_DEBUG')
+      } else process.env.EXTENSION_DEBUG = previousDebug
     }
   })
 

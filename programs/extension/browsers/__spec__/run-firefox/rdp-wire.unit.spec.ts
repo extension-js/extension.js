@@ -113,7 +113,7 @@ describe('RDP wire format', () => {
         {from: 'tab-1', type: 'b'},
         {from: 'tab-2', type: 'c'}
       ]
-      let buf = Buffer.from(msgs.map(buildRdpFrame).join(''))
+      let buf: Buffer = Buffer.from(msgs.map(buildRdpFrame).join(''))
       const parsed: unknown[] = []
 
       while (buf.length > 0) {

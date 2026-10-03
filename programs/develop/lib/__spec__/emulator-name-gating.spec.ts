@@ -16,13 +16,17 @@ import {
   normalizeBrowser
 } from '../paths'
 
+// The published ExtensionEnv augmentation makes the bundler-injected keys
+// required, and a unit env object carries none of them.
+const env = (vars: Record<string, string> = {}) => vars as NodeJS.ProcessEnv
+
 afterEach(() => {
   delete process.env.EXTENSION_EXPERIMENTAL_EMULATOR
 })
 
 describe('chromium-emulator behind EXTENSION_EXPERIMENTAL_EMULATOR', () => {
   it('is an unknown name while the flag is off', () => {
-    expect(isEmulatorLaneEnabled({})).toBe(false)
+    expect(isEmulatorLaneEnabled(env({}))).toBe(false)
     expect(isKnownBrowserName('chromium-emulator')).toBe(false)
     expect(normalizeBrowser('chromium-emulator')).toBe('chrome')
     expect(() => configBrowserOrThrow('chromium-emulator', 'dev')).toThrow(
@@ -41,12 +45,12 @@ describe('chromium-emulator behind EXTENSION_EXPERIMENTAL_EMULATOR', () => {
   })
 
   it('reads only 1 or true as on', () => {
-    expect(isEmulatorLaneEnabled({EXTENSION_EXPERIMENTAL_EMULATOR: '0'})).toBe(
-      false
-    )
+    expect(
+      isEmulatorLaneEnabled(env({EXTENSION_EXPERIMENTAL_EMULATOR: '0'}))
+    ).toBe(false)
 
     expect(
-      isEmulatorLaneEnabled({EXTENSION_EXPERIMENTAL_EMULATOR: 'true'})
+      isEmulatorLaneEnabled(env({EXTENSION_EXPERIMENTAL_EMULATOR: 'true'}))
     ).toBe(true)
   })
 

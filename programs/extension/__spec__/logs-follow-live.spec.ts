@@ -1,7 +1,15 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type MockInstance,
+  vi
+} from 'vitest'
 import {WebSocket} from 'ws'
 import {BridgeBroker} from '../../develop/dev-server/control-bridge/broker'
 import {
@@ -34,8 +42,8 @@ const BROWSER = 'chromium'
 
 let dir: string
 let server: ControlServer | null = null
-let logSpy: ReturnType<typeof vi.spyOn>
-let errorSpy: ReturnType<typeof vi.spyOn>
+let logSpy: MockInstance<typeof console.log>
+let errorSpy: MockInstance<typeof console.error>
 const sockets: WebSocket[] = []
 
 beforeEach(() => {

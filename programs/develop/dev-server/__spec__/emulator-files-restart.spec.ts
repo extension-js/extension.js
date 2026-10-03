@@ -14,6 +14,13 @@ import {
   type EmulatorFileIndexHolder
 } from '../emulator-lane'
 
+type FilesIndex = {
+  version: number
+  root: string
+  livereload: {path: string}
+  files: Array<{path: string}>
+}
+
 const roots: string[] = []
 
 function scaffold() {
@@ -143,15 +150,13 @@ describe('files.json across a dev server restart', () => {
       fs.writeFileSync(path.join(root, 'popup.js'), "console.log('run two')\n")
       await first.nextCompile(settled)
 
-      const during = await (
+      const during = (await (
         await fetch(`http://127.0.0.1:${first.port}${EMULATOR_FILES_PATH}`)
-      ).json()
+      ).json()) as FilesIndex
       expect(during.livereload).toEqual({path: '/ws'})
-      expect(
-        during.files.some((file: {path: string}) =>
-          file.path.startsWith('hot/')
-        )
-      ).toBe(false)
+      expect(during.files.some((file) => file.path.startsWith('hot/'))).toBe(
+        false
+      )
     } finally {
       await first.server.stop()
     }
@@ -167,13 +172,13 @@ describe('files.json across a dev server restart', () => {
       )
       expect(response.status).toBe(200)
 
-      const index = await response.json()
+      const index = (await response.json()) as FilesIndex
       expect(index.version).toBe(1)
       expect(index.livereload).toEqual({path: '/custom-livereload'})
 
-      const listed = index.files.map((file: {path: string}) => file.path)
+      const listed = index.files.map((file) => file.path)
       expect(listed).toContain('manifest.json')
-      expect(listed.some((file: string) => file.startsWith('hot/'))).toBe(false)
+      expect(listed.some((file) => file.startsWith('hot/'))).toBe(false)
 
       for (const file of listed) {
         const served = await fetch(

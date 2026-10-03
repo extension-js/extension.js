@@ -67,7 +67,9 @@ const metadataWriter = vi.hoisted(() => ({
   writeShutdown: vi.fn(),
   appendEvent: vi.fn()
 }))
-const createAutomationMetadataWriter = vi.fn(() => metadataWriter)
+const createAutomationMetadataWriter = vi.fn(
+  (..._args: unknown[]) => metadataWriter
+)
 vi.mock('../plugin-playwright', () => ({
   createPlaywrightMetadataWriter: (...args: any[]) =>
     createAutomationMetadataWriter(...args),

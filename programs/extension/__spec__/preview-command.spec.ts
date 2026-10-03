@@ -32,7 +32,7 @@ beforeEach(() => {
   vi.spyOn(console, 'error').mockImplementation(() => {})
   delete process.env.EXTJS_LIGHT
   delete process.env.EXTENSION_CLI_NO_BROWSER
-  delete process.env.EXTENSION_AUTHOR_MODE
+  Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')
   delete process.env.EXTENSION_VERBOSE
 })
 

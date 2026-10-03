@@ -73,7 +73,7 @@ describe('build: content script (real rspack)', () => {
     const previousAuthorMode = process.env.EXTENSION_AUTHOR_MODE
     const previousVitest = process.env.VITEST
     process.env.VITEST = 'true'
-    delete process.env.EXTENSION_AUTHOR_MODE
+    Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')
 
     try {
       const summary = await extensionBuild(FIXTURE_ROOT, {
@@ -88,7 +88,7 @@ describe('build: content script (real rspack)', () => {
       expect(summary.total_assets).toBeGreaterThan(0)
     } finally {
       if (previousAuthorMode === undefined) {
-        delete process.env.EXTENSION_AUTHOR_MODE
+        Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')
       } else {
         process.env.EXTENSION_AUTHOR_MODE = previousAuthorMode
       }

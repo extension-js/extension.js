@@ -1,7 +1,15 @@
 import {chmodSync, mkdtempSync, rmSync, writeFileSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type MockInstance,
+  vi
+} from 'vitest'
 import {
   buildBrowserLaunchRequest,
   resolveStartingUrl
@@ -25,7 +33,7 @@ import {
 const URL = 'https://example.com/'
 
 const dirs: string[] = []
-let log: ReturnType<typeof vi.spyOn>
+let log: MockInstance<typeof console.log>
 let tmp: string
 let out: string
 let pin: string

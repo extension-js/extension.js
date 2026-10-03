@@ -90,6 +90,6 @@ describe('native-geturl-import-loader', () => {
 
   it('loader entry fast-paths files without getURL untouched', () => {
     const source = "import('./plain.js')\n"
-    expect(loader.call(undefined, source)).toBe(source)
+    expect(loader.call({}, source)).toBe(source)
   })
 })

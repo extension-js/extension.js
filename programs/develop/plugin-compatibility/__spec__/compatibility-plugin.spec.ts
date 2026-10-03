@@ -18,9 +18,7 @@ describe('CompatibilityPlugin', () => {
 
     const plugin = new CompatibilityPlugin({
       manifestPath: '/abs/path/manifest.json',
-      // @ts-expect-error testing default browser fallback
       browser: undefined,
-      // @ts-expect-error testing default polyfill fallback
       polyfill: undefined
     })
 

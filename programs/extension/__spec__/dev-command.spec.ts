@@ -5,7 +5,7 @@ const loadCommandConfig = vi.fn(async (): Promise<unknown> => ({}))
 const packageSafariExtension = vi.fn(async () => {})
 const safariPreflightError = vi.fn((): string | null => null)
 const setupParentWatchdog = vi.fn()
-const runWaitMode = vi.fn(async () => ({
+const runWaitMode = vi.fn(async (_input: unknown) => ({
   format: 'json' as const,
   browsers: ['chromium'],
   results: [{browser: 'chromium', ok: true}]
@@ -45,7 +45,7 @@ vi.mock('../helpers/parent-watchdog', () => ({
 vi.mock('../commands/dev-wait', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../commands/dev-wait')>()
 
-  return {...actual, runWaitMode: (input: unknown) => runWaitMode(input as any)}
+  return {...actual, runWaitMode: (input: unknown) => runWaitMode(input)}
 })
 
 import {registerDevCommand} from '../commands/dev'
@@ -61,7 +61,7 @@ beforeEach(() => {
   logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
   errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
   delete process.env.EXTENSION_CLI_NO_BROWSER
-  delete process.env.EXTENSION_AUTHOR_MODE
+  Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')
   delete process.env.EXTENSION_VERBOSE
   safariPreflightError.mockReturnValue(null)
 })

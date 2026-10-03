@@ -80,7 +80,7 @@ async function buildThrough(root: string) {
   const previousAuthorMode = process.env.EXTENSION_AUTHOR_MODE
   const previousVitest = process.env.VITEST
   process.env.VITEST = 'true'
-  delete process.env.EXTENSION_AUTHOR_MODE
+  Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')
 
   try {
     return await extensionBuild(root, {
@@ -92,7 +92,7 @@ async function buildThrough(root: string) {
     } as any)
   } finally {
     if (previousAuthorMode === undefined) {
-      delete process.env.EXTENSION_AUTHOR_MODE
+      Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')
     } else {
       process.env.EXTENSION_AUTHOR_MODE = previousAuthorMode
     }

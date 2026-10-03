@@ -70,6 +70,7 @@ describe('withDarkMode', () => {
 
     const gecko = withDarkMode({
       browser: 'firefox',
+      preferences: undefined,
       excludeBrowserFlags: ['--force-dark-mode']
     })
     expect(gecko.preferences).toEqual({})
@@ -78,6 +79,7 @@ describe('withDarkMode', () => {
   it('lets excludeBrowserFlags drop just WebUIDarkMode', () => {
     const result = withDarkMode({
       browser: 'chrome',
+      browserFlags: undefined,
       excludeBrowserFlags: ['--enable-features=WebUIDarkMode']
     })
     expect(result.browserFlags).toEqual(['--force-dark-mode'])

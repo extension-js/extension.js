@@ -215,7 +215,7 @@ describe('isEmitTimeWarning', () => {
     expect(isEmitTimeWarning({code: 'ManifestFatalShapeWarning'})).toBe(true)
     expect(isEmitTimeWarning({code: 'ManifestLegacyWarning'})).toBe(true)
     expect(isEmitTimeWarning({code: 'AmoDataCollectionWarning'})).toBe(false)
-    expect(isEmitTimeWarning({message: 'no code'})).toBe(false)
+    expect(isEmitTimeWarning({code: undefined})).toBe(false)
     expect(isEmitTimeWarning('a warning')).toBe(false)
     expect(isEmitTimeWarning(null)).toBe(false)
   })

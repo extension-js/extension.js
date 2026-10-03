@@ -1925,7 +1925,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
   })
 
   it('the relay answers a surface inspect request for its own context', () => {
-    const listeners: Array<(m: any, s: any, r: any) => void> = []
+    const listeners: Array<(m: any, s: any, r: any) => unknown> = []
     const fakeDoc = {
       title: 'Popup',
       documentElement: {outerHTML: '<html><body><p>popup</p></body></html>'},
@@ -1977,7 +1977,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
   })
 
   it('the relay answers a surface eval request for its own context', () => {
-    const listeners: Array<(m: any, s: any, r: any) => void> = []
+    const listeners: Array<(m: any, s: any, r: any) => unknown> = []
     const fakeGlobal: Record<string, unknown> = {
       console: {log: () => {}},
       location: {href: 'chrome-extension://abc/popup.html'},
@@ -2049,7 +2049,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
   // A promise is not structured-cloneable, so the relay settles it before
   // replying; the reply then carries the value, or the rejection as an error.
   it('the relay settles a promise-valued expression before replying', async () => {
-    const listeners: Array<(m: any, s: any, r: any) => void> = []
+    const listeners: Array<(m: any, s: any, r: any) => unknown> = []
     const fakeGlobal: Record<string, unknown> = {
       console: {log: () => {}},
       location: {href: 'chrome-extension://abc/newtab.html'},

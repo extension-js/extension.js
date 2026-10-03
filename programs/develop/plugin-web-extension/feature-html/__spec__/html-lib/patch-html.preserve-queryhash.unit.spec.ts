@@ -39,7 +39,7 @@ describe('patchHtml (preserve query/hash)', () => {
         'feature/index',
         htmlFilePath,
         {'feature/index': htmlFilePath},
-        {}
+        undefined
       )
 
       expect(updatedHtml).toContain(`src="/assets/img/a.png?x=1#h"`)
@@ -66,7 +66,7 @@ describe('patchHtml (preserve query/hash)', () => {
         'feature/index',
         htmlFilePath,
         {'feature/index': htmlFilePath},
-        {}
+        undefined
       )
 
       expect(updatedHtml).toContain(`href="/public/x.css?ver=123#sec"`)

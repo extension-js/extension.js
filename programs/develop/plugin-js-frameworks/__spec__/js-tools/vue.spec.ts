@@ -75,7 +75,7 @@ describe('vue tools', () => {
 
     const result = await maybeUseVue('/p', 'development')
     expect(result?.loaders?.[0].test).toEqual(/\.vue$/)
-    expect(result?.loaders?.[0].options?.foo).toBe(1)
+    expect(result?.loaders?.[0].options).toMatchObject({foo: 1})
     expect(result?.loaders?.[0].include).toBeUndefined()
 
     const exclude = result?.loaders?.[0].exclude as (p: string) => boolean
