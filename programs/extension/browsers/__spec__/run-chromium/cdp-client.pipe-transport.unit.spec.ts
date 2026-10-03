@@ -34,6 +34,33 @@ describe('CDPClient pipe transport', () => {
     pipeOut.destroy()
   })
 
+  it('disconnect removes only its own listeners from the child stdio streams', async () => {
+    // child_process counts the stdio 'close' events to fire the child's own
+    // 'close', which is where a browser exit is reported. Those listeners are
+    // not ours to remove.
+    const childClose = vi.fn()
+    const childWriteClose = vi.fn()
+    pipeIn.on('close', childClose)
+    pipeOut.on('close', childWriteClose)
+
+    await client.connectViaPipe(pipeIn, pipeOut)
+    expect(pipeIn.listeners('close')).toContain(childClose)
+    expect(pipeIn.listenerCount('data')).toBe(1)
+    expect(pipeOut.listenerCount('error')).toBe(1)
+
+    client.disconnect()
+
+    expect(pipeIn.listeners('close')).toEqual([childClose])
+    expect(pipeOut.listeners('close')).toEqual([childWriteClose])
+    expect(pipeIn.listenerCount('data')).toBe(0)
+    expect(pipeIn.listenerCount('error')).toBe(0)
+    expect(pipeOut.listenerCount('error')).toBe(0)
+
+    pipeIn.destroy()
+    await new Promise((r) => setTimeout(r, 0))
+    expect(childClose).toHaveBeenCalledTimes(1)
+  })
+
   it('connects via pipe and reports isConnected', async () => {
     await client.connectViaPipe(pipeIn, pipeOut)
     expect(client.isConnected()).toBe(true)

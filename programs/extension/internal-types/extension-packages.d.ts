@@ -63,6 +63,10 @@ declare module 'extension-develop/preview' {
 declare module 'extension-install' {
   export interface InstallOptions {
     browser: string
+    locateInstalledBinary: (
+      destination: string,
+      browser: 'chrome' | 'chromium' | 'edge' | 'firefox'
+    ) => string | null
   }
 
   export interface UninstallOptions {

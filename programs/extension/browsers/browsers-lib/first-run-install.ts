@@ -10,6 +10,7 @@ import readline from 'node:readline'
 import {recordBrowserInstall} from '../../helpers/browser-install-outcome'
 import {humanLine} from '../../helpers/messaging'
 import * as messages from './messages'
+import {resolveManagedBinaryIn} from './output-binaries-resolver'
 
 export type InstallableTarget = 'chrome' | 'chromium' | 'edge' | 'firefox'
 
@@ -89,7 +90,11 @@ export async function offerManagedInstall(
 
   try {
     const {extensionInstall} = await import('extension-install')
-    await extensionInstall({browser: target})
+    await extensionInstall({
+      browser: target,
+      locateInstalledBinary: resolveManagedBinaryIn
+    })
+
     recordBrowserInstall('accepted', target, (Date.now() - startedAt) / 1000)
 
     return true

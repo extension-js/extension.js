@@ -139,6 +139,7 @@ export class FirefoxLaunchPlugin {
   private livePid: number | null = null
   private liveExitWatcher?: NodeJS.Timeout
   private browserGone = false
+  private didReportReady = false
   private disposeProcessHandlers?: () => void
 
   constructor(host: FirefoxPluginRuntime, ctx: FirefoxContext) {
@@ -166,7 +167,7 @@ export class FirefoxLaunchPlugin {
     // A claim about the browser waits for the browser: printing this before
     // the install announced add-ons Firefox had thrown out.
     if (options?.mode === 'development' && !this.host.extensionLoadRefused) {
-      this.ctx.logger?.info?.(devServerReady(options.mode, this.host.browser))
+      this.reportReady(options.mode)
     }
 
     this.ctx.didLaunch = true
@@ -237,12 +238,7 @@ export class FirefoxLaunchPlugin {
           stats.compilation.options.mode === 'development' &&
           !this.host.extensionLoadRefused
         ) {
-          humanLine(
-            devServerReady(
-              stats.compilation.options.mode as 'development' | 'production',
-              this.host.browser
-            )
-          )
+          this.reportReady('development')
         }
 
         this.ctx.didLaunch = true
@@ -807,6 +803,18 @@ export class FirefoxLaunchPlugin {
   // exit nobody asked for is said loudly and stamped, and the registry entry
   // goes away. The profile removal is marker-gated, so a persistent or
   // user-provided profile is never removed.
+  // A browser that already left gets the browserless line here, never ready.
+  private reportReady(mode: 'development' | 'production') {
+    if (this.browserGone) {
+      humanError(messages.browserGoneBeforeReady(this.host.browser))
+
+      return
+    }
+
+    humanLine(devServerReady(mode, this.host.browser))
+    this.didReportReady = true
+  }
+
   private onBrowserGone(
     code: number | null,
     expected: boolean,
@@ -846,7 +854,8 @@ export class FirefoxLaunchPlugin {
         this.extensionOutputPath,
         code,
         signal ?? null,
-        this.launchRunId
+        this.launchRunId,
+        {beforeReady: !this.didReportReady}
       )
     }
 

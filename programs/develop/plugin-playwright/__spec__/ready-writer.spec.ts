@@ -50,6 +50,30 @@ describe('ready.json writer preservation', () => {
     expect(after.cdpPort).toBe(9223)
   })
 
+  it('keeps a browser gone before anything loaded as an error across recompiles', () => {
+    const writer = makeWriter()
+    writer.writeReady()
+
+    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    ready.status = 'error'
+    ready.code = 'browser_exited'
+    ready.message =
+      'the chromium process exited (code 0) before the extension loaded, nothing is running'
+
+    ready.browserExitedAt = '2026-07-12T00:00:00.000Z'
+    ready.browserExitCode = 0
+    ready.browserExitSignal = null
+    fs.writeFileSync(writer.readyPath, JSON.stringify(ready))
+
+    writer.writeReady()
+
+    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    expect(after.status).toBe('error')
+    expect(after.code).toBe('browser_exited')
+    expect(after.message).toMatch(/before the extension loaded/)
+    expect(after.browserExitedAt).toBe('2026-07-12T00:00:00.000Z')
+  })
+
   it('preserves the launcher-stamped rdpPort across recompiles', () => {
     const writer = makeWriter()
     writer.writeReady()

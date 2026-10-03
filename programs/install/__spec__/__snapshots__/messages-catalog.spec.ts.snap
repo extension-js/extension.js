@@ -6,6 +6,7 @@ exports[`install message catalogs > matches the exported message surface 1`] = `
     "edgeInstallNeedsInteractivePrivilegedSession: function(0)",
     "edgeInstallUsingSystemBinary: function(1)",
     "installFailed: function(4)",
+    "installIncomplete: function(3)",
     "installSucceeded: function(2)",
     "installingBrowser: function(2)",
     "uninstallNoop: function(2)",

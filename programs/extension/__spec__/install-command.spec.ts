@@ -101,19 +101,31 @@ function wholeStdout(): Frame {
 describe('extension install', () => {
   it('installs chromium by default', async () => {
     expect(await run(['install'])).toBe(0)
-    expect(extensionInstall).toHaveBeenCalledWith({browser: 'chromium'})
+    expect(extensionInstall).toHaveBeenCalledWith(
+      expect.objectContaining({browser: 'chromium'})
+    )
   })
 
   it('installs every browser in a comma-separated list', async () => {
     expect(await run(['install', '--browser', 'chrome,firefox'])).toBe(0)
-    expect(extensionInstall).toHaveBeenCalledWith({browser: 'chrome'})
-    expect(extensionInstall).toHaveBeenCalledWith({browser: 'firefox'})
+    expect(extensionInstall).toHaveBeenCalledWith(
+      expect.objectContaining({browser: 'chrome'})
+    )
+
+    expect(extensionInstall).toHaveBeenCalledWith(
+      expect.objectContaining({browser: 'firefox'})
+    )
   })
 
   it('installs a positional comma-separated list', async () => {
     expect(await run(['install', 'chrome,edge'])).toBe(0)
-    expect(extensionInstall).toHaveBeenCalledWith({browser: 'chrome'})
-    expect(extensionInstall).toHaveBeenCalledWith({browser: 'edge'})
+    expect(extensionInstall).toHaveBeenCalledWith(
+      expect.objectContaining({browser: 'chrome'})
+    )
+
+    expect(extensionInstall).toHaveBeenCalledWith(
+      expect.objectContaining({browser: 'edge'})
+    )
   })
 
   it('prints per-browser install dirs with --where and a browser', async () => {

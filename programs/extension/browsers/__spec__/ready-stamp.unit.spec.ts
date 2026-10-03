@@ -207,6 +207,65 @@ describe('stampReadyExtensionId', () => {
   })
 })
 
+describe('stampReadyBrowserExited on a dev session', () => {
+  let tmp: string
+  let outputPath: string
+  let readyPath: string
+
+  beforeEach(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ready-stamp-exit-'))
+    outputPath = path.join(tmp, 'dist', 'chrome')
+    readyPath = path.join(tmp, 'dist', 'extension-js', 'chrome', 'ready.json')
+    fs.mkdirSync(path.dirname(readyPath), {recursive: true})
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({
+        status: 'ready',
+        command: 'dev',
+        browser: 'chrome',
+        runId: 'run-A'
+      })
+    )
+  })
+
+  afterEach(() => {
+    fs.rmSync(tmp, {recursive: true, force: true})
+  })
+
+  const readReady = () => JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+
+  it('keeps the compile status when the browser leaves after ready', () => {
+    stampReadyBrowserExited(outputPath, 0, null, 'run-A')
+
+    const ready = readReady()
+    expect(ready.status).toBe('ready')
+    expect(ready.code).toBeUndefined()
+    expect(ready.browserExitCode).toBe(0)
+    expect(typeof ready.browserExitedAt).toBe('string')
+  })
+
+  it('flips to a browser_exited error when the browser leaves before ready', () => {
+    stampReadyBrowserExited(outputPath, 0, null, 'run-A', {beforeReady: true})
+
+    const ready = readReady()
+    expect(ready.status).toBe('error')
+    expect(ready.code).toBe('browser_exited')
+    expect(ready.message).toBe(
+      'the chrome process exited (code 0) before the extension loaded, nothing is running'
+    )
+
+    expect(ready.browserExitCode).toBe(0)
+  })
+
+  it('names the signal when a browser that never loaded was killed', () => {
+    stampReadyBrowserExited(outputPath, null, 'SIGKILL', 'run-A', {
+      beforeReady: true
+    })
+
+    expect(readReady().message).toMatch(/\(signal SIGKILL\) before/)
+  })
+})
+
 describe('a stamp from a superseded run', () => {
   let tmp: string
   let outputPath: string

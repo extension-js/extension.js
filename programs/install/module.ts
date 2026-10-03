@@ -6,6 +6,7 @@
 //  ╚═╝╚═╝  ╚═══╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚══════╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import fs from 'node:fs'
 import {
   BrowserInstallPrivilegeError,
   BrowserNotInstallableError,
@@ -44,6 +45,13 @@ import {
 
 export interface InstallOptions {
   browser: string
+  // The executable the install left under destination, or null when nothing
+  // usable is there. The launcher's resolver is the one judge of that, so the
+  // caller hands it over rather than this package guessing a second time.
+  locateInstalledBinary: (
+    destination: string,
+    browser: InstallBrowserTarget
+  ) => string | null
 }
 
 export interface UninstallOptions {
@@ -67,8 +75,32 @@ export function getManagedBrowserInstallDir(browser: string): string {
   return resolveBrowserInstallDir(target)
 }
 
+// Edge's installer places the browser system-wide, so for edge the system
+// binary counts as the install. Anything else has to be under destination.
+function findInstalledBinary(
+  target: InstallBrowserTarget,
+  destination: string,
+  locate: InstallOptions['locateInstalledBinary']
+): string | null {
+  const located = locate(destination, target)
+  if (located) return located
+
+  return target === 'edge' ? detectSystemEdgeBinary() : null
+}
+
+// A destination with no usable binary is a broken tree, and leaving it behind
+// makes the next run stack on it. Nothing usable means nothing to lose.
+function discardUnusableInstallTree(destination: string): boolean {
+  if (!fs.existsSync(destination)) return false
+
+  fs.rmSync(destination, {recursive: true, force: true})
+
+  return true
+}
+
 export async function extensionInstall({
-  browser
+  browser,
+  locateInstalledBinary
 }: InstallOptions): Promise<void> {
   const target = normalizeBrowserName(browser)
   const destination = resolveBrowserInstallDir(target)
@@ -104,7 +136,19 @@ export async function extensionInstall({
       )
     }
 
+    if (!findInstalledBinary(target, destination, locateInstalledBinary)) {
+      discardUnusableInstallTree(destination)
+    }
+
     throw new Error(messages.installFailed(target, cmd, args, result))
+  }
+
+  // The installer's exit code says it finished, not that the files it left are
+  // a browser. An interrupted download exits 0 with a truncated tree.
+  if (!findInstalledBinary(target, destination, locateInstalledBinary)) {
+    const removed = discardUnusableInstallTree(destination)
+
+    throw new Error(messages.installIncomplete(target, destination, removed))
   }
 
   humanLine(messages.installSucceeded(target, destination))

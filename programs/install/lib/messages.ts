@@ -65,6 +65,22 @@ export function installFailed(
   )
 }
 
+export function installIncomplete(
+  browser: InstallBrowserTarget,
+  destination: string,
+  removed: boolean
+): string {
+  const name = titleCase(browser)
+
+  return (
+    `Couldn't install ${name}. ` +
+    `The installer finished, but ${destination} holds no ${name} binary ` +
+    `that is a non-empty executable file, so the download was likely interrupted. ` +
+    (removed ? `The incomplete files were removed. ` : '') +
+    `Run the install again.`
+  )
+}
+
 export function edgeInstallNeedsInteractivePrivilegedSession(): string {
   return (
     `Edge needs a privileged interactive session on Linux. ` +
