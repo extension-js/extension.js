@@ -151,6 +151,18 @@ export function portInUse(requestedPort: number, newPort: number) {
   )
 }
 
+// Printed once per refused name, so a proxy or tunnel is a one-step fix.
+export function devServerHostRefused(host: string) {
+  const name = host || 'an empty Host header'
+
+  return (
+    `${getLoggingPrefix('warn')} The dev server refused a request for the host ${colors.yellow(name)}.\n` +
+    `Allow it with ${colors.blue(`--allowed-hosts ${host || '<host>'}`)} or ` +
+    `${colors.blue('commands.dev.allowedHosts')} in extension.config.js. ` +
+    'Both take more than one host, comma-separated on the flag.'
+  )
+}
+
 // Reload has no other transport, so a session that comes up without the
 // control bridge must say so instead of looking healthy until the first save.
 export function controlBridgeUnavailable(reason: string) {

@@ -62,6 +62,34 @@ describe('sidebar pair translation', () => {
     expect(result).not.toHaveProperty('side_panel')
   })
 
+  it('turns off browser_style on a translated Manifest V2 sidebar_action', () => {
+    // Firefox defaults the key to true on MV2 and styles the panel, which
+    // Chromium never did to the side_panel page this manifest declared.
+    const result = canonical(
+      {...sidePanelOnly, 'firefox:manifest_version': 2},
+      'firefox'
+    )
+
+    expect(result.manifest_version).toBe(2)
+    expect(result.sidebar_action).toEqual({
+      default_panel: 'sidebar/index.html',
+      browser_style: false
+    })
+  })
+
+  it('keeps a browser_style the manifest set on the translated key', () => {
+    const result = canonical(
+      {
+        ...sidePanelOnly,
+        'firefox:manifest_version': 2,
+        side_panel: {default_path: 'sidebar.html', browser_style: true}
+      },
+      'firefox'
+    )
+
+    expect(result.sidebar_action.browser_style).toBe(true)
+  })
+
   it('leaves each family its own key when the manifest names both', () => {
     const both = {
       name: 'x',

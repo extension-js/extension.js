@@ -420,6 +420,7 @@ ${'Common options'}
 - ${code('--port')} ${arg('<number>')}                 Development server port (default: 8080, use 0 for OS-assigned)
 - ${code('--host')} ${arg('<address>')}               Dev server host (default: 127.0.0.1, use 0.0.0.0 for Docker/devcontainers)
 - ${code('--public-host')} ${arg('<address>')}        Connectable host the browser dials for HMR + reload bridge when it differs from ${code('--host')} (remote/devcontainer, default: the bind host, or 127.0.0.1 when bound to 0.0.0.0)
+- ${code('--allowed-hosts')} ${arg('<list>')}         Comma-separated host names the dev server answers besides localhost, IP addresses and ${code('--public-host')} (docker service names, tunnels, *.local)
 - ${code('--starting-url')} ${arg('<url>')}            Initial URL to load in browser
 - ${code('--silent')} ${arg('[boolean]')}              Suppress console output during build
 
@@ -705,7 +706,7 @@ ${'Non-interactive / auto mode (CI)'}
 - Set ${code(arg('EXTENSION_AUTO_EXIT_MS'))} to enable self-termination after N milliseconds.
   Useful when ${code('pnpm extension dev')} would otherwise hang under Rspack watch.
   Example: ${code(arg('EXTENSION_AUTO_EXIT_MS=6000'))} pnpm extension dev ./templates/react --browser chrome --starting-url ${arg('https://example.com')}
-- Optional: ${code(arg('EXTENSION_FORCE_KILL_MS'))} to hard-exit after N ms as a fallback, never sooner than auto-exit + 4000 (the default), and with exit code 1 because the session was truncated.
+- Optional: ${code(arg('EXTENSION_FORCE_KILL_MS'))} to hard-exit N ms after start (default: auto-exit + 4000). It exits 1 when it cuts an auto-exit teardown short, and 0 when it is set below the auto-exit deadline.
 
 ${'Docker / Devcontainers / Codespaces'}
 - Use ${code('--host 0.0.0.0')} to bind the dev server on all interfaces so HMR is reachable from the host.
@@ -837,6 +838,12 @@ export function programAIHelpJSON(version: string): ProgramAIHelpJSON {
         default: 'bind host (127.0.0.1 when bound to 0.0.0.0)',
         description:
           'Connectable host the browser dials for HMR + the reload bridge when it differs from the bind host (remote/devcontainer)'
+      },
+      {
+        name: '--allowed-hosts',
+        default: 'none',
+        description:
+          'Comma-separated host names the dev server answers besides localhost, IP addresses and --public-host (docker service names, tunnels, *.local). Also commands.dev.allowedHosts in extension.config.js'
       }
     ],
     templates: {

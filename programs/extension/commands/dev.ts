@@ -182,11 +182,15 @@ export function registerDevCommand(program: Command) {
     )
     .option(
       '--host <host>',
-      'specify the host to bind the dev server to. Use 0.0.0.0 for Docker/devcontainers. Defaults to `127.0.0.1`'
+      'specify the host to bind the dev server to. Use 0.0.0.0 for Docker/devcontainers, and --allowed-hosts for a name other than localhost. Defaults to `127.0.0.1`'
     )
     .option(
       '--public-host <host>',
       'connectable host the browser (HMR + reload bridge) dials when it differs from the bind host (e.g. a remote/devcontainer). Defaults to the bind host, or 127.0.0.1 when bound to 0.0.0.0'
+    )
+    .option(
+      '--allowed-hosts <list>',
+      'comma-separated host names the dev server answers besides localhost, IP addresses and --public-host (docker service names, tunnels, *.local). A leading dot allows every subdomain'
     )
     .option(
       '--log-context <list>',
