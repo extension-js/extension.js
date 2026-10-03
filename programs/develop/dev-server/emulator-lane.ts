@@ -194,6 +194,7 @@ export interface EmulatorFileIndexHolder {
   noteCompileFailure(errors: readonly unknown[] | undefined): void
   setLivereloadPath(socketPath: string | null): void
   current(): Promise<EmulatorFileIndex>
+  unavailableReason(): string
 }
 
 export function emulatorFilesUnavailable(failure: string | null): string {
@@ -275,6 +276,9 @@ export function createEmulatorFileIndexHolder(
     },
     setLivereloadPath(socketPath) {
       livereloadPath = socketPath
+    },
+    unavailableReason() {
+      return emulatorFilesUnavailable(failure)
     },
     current() {
       if (latest) return Promise.resolve(withLivereload(latest))
@@ -396,10 +400,10 @@ export function createEmulatorFilesMiddleware(
       res.setHeader('Content-Type', 'application/json; charset=utf-8')
       res.setHeader('Content-Length', Buffer.byteLength(body))
       res.end(method === 'HEAD' ? undefined : body)
-    } catch (error) {
-      const body = JSON.stringify({
-        error: error instanceof Error ? error.message : String(error)
-      })
+    } catch {
+      // The reason comes from the holder, never from the caught value, so a
+      // stack or an unexpected throw cannot reach a page on another origin.
+      const body = JSON.stringify({error: holder.unavailableReason()})
       res.statusCode = 503
       res.setHeader('Content-Type', 'application/json; charset=utf-8')
       res.setHeader('Content-Length', Buffer.byteLength(body))
