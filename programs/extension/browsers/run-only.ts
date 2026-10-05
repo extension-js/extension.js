@@ -7,7 +7,6 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'node:fs'
-import {getFirefoxVersion} from 'firefox-location2'
 import {CODES, hasChannelPrefix} from '../helpers/messaging'
 import {printProdBannerOnce} from './browsers-lib/banner'
 import {
@@ -26,7 +25,8 @@ import {
 import {buildBrowserLaunchRequest} from './browsers-lib/runtime-options'
 import {
   isVersionProbeTimeout,
-  probeChromiumBinaryVersion
+  probeChromiumBinaryVersion,
+  probeGeckoBinaryVersion
 } from './browsers-lib/version-probe'
 import type {
   BrowserType,
@@ -191,31 +191,33 @@ function buildPreviewFirefoxOptions(
   }
 }
 
+function pinnedBinaryPath(opts: PreviewRunOptions): string | undefined {
+  const pinned = isFirefoxBrowser(opts.browser)
+    ? opts.geckoBinary
+    : opts.chromiumBinary
+
+  return typeof pinned === 'string' && fs.existsSync(pinned)
+    ? pinned
+    : undefined
+}
+
 // The card renders before the launch now, so it cannot lean on the version the
 // launcher resolves. A pinned binary is the one case the card's own probe gets
 // wrong: it would name the system browser instead of the one being run.
 async function resolvePinnedBinaryVersionLine(
   opts: PreviewRunOptions
 ): Promise<string | undefined> {
+  const pinned = pinnedBinaryPath(opts)
+  if (!pinned) return undefined
+
   try {
-    if (isFirefoxBrowser(opts.browser)) {
-      if (!opts.geckoBinary || !fs.existsSync(opts.geckoBinary)) {
-        return undefined
-      }
+    // Ask the binary the way the launcher does. Metadata alone misses a
+    // binary outside an app bundle and the card fell back to another install.
+    const line = isFirefoxBrowser(opts.browser)
+      ? await probeGeckoBinaryVersion(pinned)
+      : await probeChromiumBinaryVersion(pinned, String(opts.browser))
 
-      return getFirefoxVersion(opts.geckoBinary) || undefined
-    }
-
-    if (!opts.chromiumBinary || !fs.existsSync(opts.chromiumBinary)) {
-      return undefined
-    }
-
-    return (
-      (await probeChromiumBinaryVersion(
-        opts.chromiumBinary,
-        String(opts.browser)
-      )) || undefined
-    )
+    return line || undefined
   } catch (error) {
     // The launch would ask the same binary again and wait as long.
     if (isVersionProbeTimeout(error)) throw error
@@ -225,10 +227,7 @@ async function resolvePinnedBinaryVersionLine(
 }
 
 async function buildPreviewBannerOptions(opts: PreviewRunOptions) {
-  const chromiumPinned =
-    !isFirefoxBrowser(opts.browser) &&
-    typeof opts.chromiumBinary === 'string' &&
-    fs.existsSync(opts.chromiumBinary)
+  const pinned = pinnedBinaryPath(opts)
 
   return {
     browser: opts.browser,
@@ -237,9 +236,9 @@ async function buildPreviewBannerOptions(opts: PreviewRunOptions) {
     includeRunId: false,
     readyPath: opts.readyPath,
     browserVersionLine: await resolvePinnedBinaryVersionLine(opts),
-    ...(chromiumPinned
+    ...(pinned
       ? {
-          binaryPath: opts.chromiumBinary,
+          binaryPath: pinned,
           binaryProvenance: 'pinned' as const
         }
       : {})
