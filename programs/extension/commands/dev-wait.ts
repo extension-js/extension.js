@@ -151,6 +151,15 @@ export function describeWaitError(error: unknown): WaitFailure {
     }
   }
 
+  if (code === CODES.E_FLAG_NOT_SUPPORTED_HERE) {
+    return {
+      code,
+      status: 'usage',
+      message,
+      hint: 'Let Extension.js manage the profile, or pass --profile=<path>.'
+    }
+  }
+
   if (code === CODES.E_READY_TIMEOUT) {
     return {
       code,
@@ -273,17 +282,22 @@ async function waitForReadyContract(options: {
           const detail =
             payload.message || payload.errors?.[0] || 'unknown error'
 
-          // A bad pin keeps its own code, the one the launch was refused with.
-          const badPin =
+          // A launch refused over a value the user set keeps the code it
+          // was refused with.
+          const refusedCode =
             payload.code === 'browser_launch_failed' &&
-            payload.browserLaunchFailedCode === CODES.E_BROWSER_BINARY_INVALID
+            (payload.browserLaunchFailedCode ===
+              CODES.E_BROWSER_BINARY_INVALID ||
+              payload.browserLaunchFailedCode ===
+                CODES.E_FLAG_NOT_SUPPORTED_HERE)
+              ? (payload.browserLaunchFailedCode as ErrorCode)
+              : undefined
 
           throw new WaitModeError(
             String(detail),
-            badPin
-              ? CODES.E_BROWSER_BINARY_INVALID
-              : (readyContractErrorCode(payload.code) ??
-                  CODES.E_READY_ERROR_STATUS)
+            refusedCode ??
+              readyContractErrorCode(payload.code) ??
+              CODES.E_READY_ERROR_STATUS
           )
         }
       }

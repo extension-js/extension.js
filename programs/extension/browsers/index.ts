@@ -40,6 +40,7 @@ export interface BrowserLaunchOptions {
   enableDevtools?: boolean
   noOpen?: boolean
   profile?: string | false
+  profileSource?: 'flag' | 'config'
   persistProfile?: boolean
   keepProfileChanges?: boolean
   copyFromProfile?: string
@@ -203,6 +204,7 @@ async function launchFirefox(
     extension: opts.extensionsToLoad,
     browser: opts.browser,
     profile: opts.profile,
+    profileSource: opts.profileSource,
     preferences: opts.preferences,
     browserFlags: opts.browserFlags,
     startingUrl: opts.startingUrl,

@@ -371,7 +371,7 @@
     },
     "E_CSP_BLOCKS_EVAL": {
       "area": "control",
-      "summary": "The extension's own content security policy forbids eval in this document, so no expression can run there."
+      "summary": "A content security policy forbids eval in the target, the extension's own for its documents and its content-script world or the page's own for a web page, so the in-page executor runs no expression there."
     },
     "E_TIMEOUT": {
       "area": "control",
@@ -395,7 +395,7 @@
     },
     "E_EVAL": {
       "area": "control",
-      "summary": "The evaluated expression threw inside the page."
+      "summary": "The evaluated expression threw inside the page, whatever the class of the error it threw."
     },
     "E_INSPECT": {
       "area": "control",

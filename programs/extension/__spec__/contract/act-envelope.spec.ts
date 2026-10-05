@@ -2,7 +2,11 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {describe, expect, it} from 'vitest'
-import {buildActEnvelope} from '../../commands/act'
+import {
+  buildActEnvelope,
+  cspBlocksEvalHint,
+  pickTargetTabUrl
+} from '../../commands/act'
 import {CODES} from '../../helpers/messaging'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
@@ -371,8 +375,11 @@ const FAILURE_FIXTURES = [
   },
   {
     // E_INTERNAL is the last resort now, not the home of the guest errors.
-    name: 'an unmapped class',
-    result: {ok: false, error: {name: 'Weird', message: 'something broke'}},
+    name: "a fault of the bridge's own executor",
+    result: {
+      ok: false,
+      error: {name: 'ExecutorError', message: 'something broke'}
+    },
     code: CODES.E_INTERNAL,
     status: 'failed'
   }
@@ -728,5 +735,176 @@ describe('the act frame as a schema-1 envelope', () => {
 
     expect(line.includes('\n')).toBe(false)
     expect(JSON.parse(line)).toEqual(frame)
+  })
+})
+
+describe('a throw inside the evaluated expression, as the bridge really names it', () => {
+  it.each([
+    ['ReferenceError', 'nope is not defined'],
+    ['TypeError', 'x.y is not a function'],
+    ['SyntaxError', 'expected expression, got end of script'],
+    ['Error', 'boom'],
+    ['NotFoundError', 'Node was not found'],
+    ['MyDomainError', 'custom class']
+  ])('codes a thrown %s as a guest error with the expression hint', (name, message) => {
+    const frame = buildActEnvelope('eval', {
+      ok: false,
+      error: {name, message, engine: 'firefox'}
+    })
+    const error = frame.error as {code: string; hint: string; name: string}
+
+    expect(error.code).toBe(CODES.E_EVAL)
+    expect(error.name).toBe(name)
+    expect(error.hint).toContain('Check the expression itself')
+    expect(frame.status).toBe('failed')
+  })
+
+  it("keeps the bridge's own faults and a nameless frame on E_INTERNAL", () => {
+    for (const error of [
+      {name: 'ExecutorError', message: 'executeCommand threw'},
+      {name: 'TabsError', message: 'tabs.query failed'},
+      {message: 'a frame with no name'}
+    ]) {
+      const frame = buildActEnvelope('eval', {ok: false, error} as never)
+
+      expect((frame.error as {code: string}).code, error.message).toBe(
+        CODES.E_INTERNAL
+      )
+    }
+  })
+
+  it('reads an error class as a guest throw for eval alone', () => {
+    const frame = buildActEnvelope('storage', {
+      ok: false,
+      error: {name: 'ReferenceError', message: 'nope is not defined'}
+    })
+
+    expect((frame.error as {code: string}).code).toBe(CODES.E_INTERNAL)
+  })
+})
+
+describe("the bridge's own frame fields", () => {
+  it('stay off the envelope while a hint and the console lines keep their place', () => {
+    const ok = buildActEnvelope('eval', {
+      type: 'result',
+      cmdId: 'c-69886-1791219834374-1',
+      ok: true,
+      value: 'host page',
+      console: [],
+      hint: 'kept'
+    } as never)
+
+    expect(ok).not.toHaveProperty('type')
+    expect(ok).not.toHaveProperty('cmdId')
+    expect(ok).toMatchObject({value: 'host page', console: [], hint: 'kept'})
+
+    const failed = buildActEnvelope('eval', {
+      type: 'result',
+      cmdId: 'c-69888-1791219834470-1',
+      ok: false,
+      error: {name: 'ReferenceError', message: 'nope is not defined'}
+    } as never)
+
+    expect(failed).not.toHaveProperty('type')
+    expect(failed).not.toHaveProperty('cmdId')
+    expect(problems(failed)).toEqual([])
+  })
+})
+
+describe('the hint of a CSP refusal names who owns the policy', () => {
+  const DOCUMENT_HINT = JSON.parse(
+    fs.readFileSync(path.join(here, 'golden.eval.csp-blocks-eval.json'), 'utf8')
+  ).error.hint as string
+
+  it('reproduces golden.eval.csp-blocks-eval.page.json for a page the site locks down', () => {
+    const golden = JSON.parse(
+      fs.readFileSync(
+        path.join(here, 'golden.eval.csp-blocks-eval.page.json'),
+        'utf8'
+      )
+    )
+    const frame = buildActEnvelope('eval', {
+      ok: false,
+      error: {
+        name: 'EvalError',
+        message: 'call to eval() blocked by CSP',
+        engine: 'firefox',
+        hint: cspBlocksEvalHint('page', 'firefox')
+      }
+    } as never)
+
+    expect(frame).toEqual(golden)
+  })
+
+  it("blames the page's policy for a page and offers no eval --context page", () => {
+    for (const browser of ['firefox', 'chrome']) {
+      const hint = cspBlocksEvalHint('page', browser)
+
+      expect(hint, browser).toContain("page's own Content-Security-Policy")
+      expect(hint).toContain("extension's policy is not involved")
+      expect(hint).toContain('extension inspect --context page')
+      expect(hint).not.toContain('extension eval --context page')
+    }
+  })
+
+  it('names the debugger route on a Gecko session alone', () => {
+    expect(cspBlocksEvalHint('page', 'firefox')).toContain('debugger')
+    expect(cspBlocksEvalHint('page', 'zen')).toContain('debugger')
+    expect(cspBlocksEvalHint('page', 'chrome')).not.toContain('debugger')
+    expect(cspBlocksEvalHint('page', 'edge')).not.toContain('Firefox')
+  })
+
+  it('names the content-script world and sends the caller to the page world', () => {
+    const hint = cspBlocksEvalHint('content', 'firefox')
+
+    expect(hint).toContain('content-script world')
+    expect(hint).toContain('extension eval --context page --tab <id>')
+    expect(hint).toContain('extension inspect --context content')
+  })
+
+  it('keeps the shipped hint for every extension document', () => {
+    for (const context of ['background', 'popup', 'options', 'sidebar']) {
+      expect(cspBlocksEvalHint(context, 'firefox'), context).toBe(DOCUMENT_HINT)
+    }
+  })
+})
+
+describe('the tab a page eval names, read off the bridge tab list', () => {
+  const tabs = [
+    {id: 1, url: 'http://127.0.0.1:8791/csp.html', active: false},
+    {id: 2, url: 'moz-extension://uuid/pages/welcome.html', active: true},
+    {id: 3, url: 'http://127.0.0.1:8791/index.html', active: false}
+  ]
+
+  it('follows --tab, then --url whole, then --url as a substring', () => {
+    expect(pickTargetTabUrl(tabs, {tabId: 3})).toBe(tabs[2].url)
+    expect(pickTargetTabUrl(tabs, {tabId: 9})).toBeUndefined()
+    expect(pickTargetTabUrl(tabs, {url: tabs[0].url})).toBe(tabs[0].url)
+    expect(pickTargetTabUrl(tabs, {url: 'index.html'})).toBe(tabs[2].url)
+    expect(pickTargetTabUrl(tabs, {url: 'nowhere'})).toBeUndefined()
+  })
+
+  it('prefers the whole url over an earlier tab that only contains it', () => {
+    const nested = [
+      {id: 1, url: 'http://a.test/x?next=http://b.test/', active: false},
+      {id: 2, url: 'http://b.test/', active: false}
+    ]
+
+    expect(pickTargetTabUrl(nested, {url: 'http://b.test/'})).toBe(
+      'http://b.test/'
+    )
+  })
+
+  it('takes the active tab only when exactly one is active', () => {
+    expect(pickTargetTabUrl(tabs, {})).toBe(tabs[1].url)
+
+    expect(
+      pickTargetTabUrl(
+        [...tabs, {id: 4, url: 'http://c.test/', active: true}],
+        {}
+      )
+    ).toBeUndefined()
+
+    expect(pickTargetTabUrl([{id: 5, active: true}], {})).toBeUndefined()
   })
 })

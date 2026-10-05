@@ -16,7 +16,11 @@ import {
 } from './lib/config-loader'
 import {withDarkMode} from './lib/dark-mode'
 import {computeExtensionsToLoad} from './lib/extensions-to-load'
-import {mergeOptionLayers, SERVE_COMMAND_DEFAULTS} from './lib/merge-options'
+import {
+  falseProfileSource,
+  mergeOptionLayers,
+  SERVE_COMMAND_DEFAULTS
+} from './lib/merge-options'
 import * as messages from './lib/messages'
 import {
   humanLine,
@@ -57,6 +61,7 @@ export interface ResolvedPreviewOptions {
   extensionsToLoad: string[]
   noOpen?: boolean
   profile?: string | false
+  profileSource?: 'flag' | 'config'
   persistProfile?: boolean
   preferences?: Record<string, unknown>
   browserFlags?: string[]
@@ -407,6 +412,10 @@ export async function extensionPreview(
     extensionsToLoad: unpackedExtensionDirsToLoad,
     noOpen: merged.noOpen,
     profile: merged.profile,
+    profileSource: falseProfileSource(
+      merged.profile,
+      safePreviewOptions.profile
+    ),
     persistProfile: merged.persistProfile,
     preferences: darkDefaults.preferences,
     browserFlags: darkDefaults.browserFlags,

@@ -88,7 +88,7 @@ exports[`extension message catalogs > matches the exported message surface 1`] =
     "firstRunInstallQuestion: function(1)",
     "geckoAddonLoadRefused: function(2)",
     "geckoForkNotInstalled: function(2)",
-    "geckoSystemProfileNoAddon: function(1)",
+    "geckoSystemProfileRefused: function(2)",
     "generalBrowserError: function(2)",
     "invalidChromiumBinaryPath: function(1)",
     "invalidGeckoBinaryPath: function(1)",

@@ -17,7 +17,11 @@ import {
   ensureUserProjectDependencies
 } from './lib/ensure-develop-artifacts'
 import {generateExtensionTypes} from './lib/generate-extension-types'
-import {DEV_COMMAND_DEFAULTS, mergeOptionLayers} from './lib/merge-options'
+import {
+  DEV_COMMAND_DEFAULTS,
+  falseProfileSource,
+  mergeOptionLayers
+} from './lib/merge-options'
 import * as messages from './lib/messages'
 import {isDebug} from './lib/messaging'
 import {getDirs, normalizeBrowser} from './lib/paths'
@@ -145,6 +149,7 @@ export async function extensionDev(
           enableDevtools: true,
           noOpen: merged.noOpen,
           profile: merged.profile,
+          profileSource: falseProfileSource(merged.profile, devOptions.profile),
           persistProfile: merged.persistProfile,
           keepProfileChanges: merged.keepProfileChanges,
           copyFromProfile: merged.copyFromProfile,
