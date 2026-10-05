@@ -9,7 +9,11 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {htmlStaticAssetOutputName} from '../../plugin-web-extension/feature-html/html-lib/utils'
-import {replaceCssUrlRefs, toPosixPath} from './dead-url-refs'
+import {
+  publicOwnedOutputName,
+  replaceCssUrlRefs,
+  toPosixPath
+} from './dead-url-refs'
 
 export const EXTENSION_ROOT_PLACEHOLDER = '__EXTENSIONJS_EXTENSION_ROOT__/'
 
@@ -27,6 +31,8 @@ export interface RewriteInlinedCssUrlsContext {
   manifestDir: string
   // The folder the public copier ships from, so names agree with its output.
   publicRoot: string
+  // The same folder when the copier does ship one, for a relative ref into it.
+  publicDir?: string
 }
 
 function isFile(candidate: string): boolean {
@@ -39,7 +45,12 @@ function isFile(candidate: string): boolean {
 
 function resolveTarget(
   req: string,
-  {resourcePath, manifestDir, publicRoot}: RewriteInlinedCssUrlsContext
+  {
+    resourcePath,
+    manifestDir,
+    publicRoot,
+    publicDir
+  }: RewriteInlinedCssUrlsContext
 ):
   | {absolutePath: string; outputName: string; publicOwned: boolean}
   | undefined {
@@ -73,6 +84,12 @@ function resolveTarget(
 
   const absolutePath = path.resolve(path.dirname(resourcePath), req)
   if (!isFile(absolutePath)) return undefined
+
+  const publicPath = publicOwnedOutputName(absolutePath, publicDir)
+
+  if (publicPath) {
+    return {absolutePath, outputName: publicPath, publicOwned: true}
+  }
 
   return {
     absolutePath,

@@ -10,7 +10,10 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {WebpackError} from '@rspack/core'
 import {canonicalizeDir, canonicalizeResourcePath} from '../lib/resource-path'
-import {publicContainmentRoot} from '../plugin-special-folders/resolve-public-folder'
+import {
+  publicContainmentRoot,
+  resolvePublicFolder
+} from '../plugin-special-folders/resolve-public-folder'
 import {
   extractCssUrlRefs,
   isDeadCssUrlRef,
@@ -90,12 +93,14 @@ function emitTargets(
   source: string,
   manifestDir: string,
   publicRoot: string,
+  publicDir: string | undefined,
   sheet: DeadCssUrlLoaderOptions['sheet']
 ): string {
   const {css, targets} = rewriteInlinedCssUrls(source, {
     resourcePath: canonicalizeResourcePath(loader.resourcePath),
     manifestDir,
-    publicRoot
+    publicRoot,
+    publicDir
   })
   if (typeof loader.emitFile !== 'function') return source
 
@@ -134,7 +139,14 @@ export default function deadCssUrlLoader(
         publicContainmentRoot(manifestPath, projectPath)
       )
       reportDeadRefs(this, source, manifestDir, publicRoot)
-      css = emitTargets(this, source, manifestDir, publicRoot, options.sheet)
+      css = emitTargets(
+        this,
+        source,
+        manifestDir,
+        publicRoot,
+        resolvePublicFolder(manifestPath, projectPath),
+        options.sheet
+      )
     }
   } catch {
     // A reference check must never break a build the browser would accept.

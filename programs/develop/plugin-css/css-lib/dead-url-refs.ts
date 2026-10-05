@@ -8,6 +8,10 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {
+  canonicalizeDir,
+  canonicalizeResourcePath
+} from '../../lib/resource-path'
 
 const ASSET_EXT =
   /\.(png|jpe?g|gif|webp|svg|avif|ico|bmp|cur|woff2?|ttf|otf|eot|mp3|mp4|webm|ogg|wav)$/i
@@ -53,15 +57,40 @@ export function isDeadCssUrlRef(
   return !candidates.some((candidate) => fs.existsSync(candidate))
 }
 
+// A file inside the folder the public copier ships is already at the output
+// root, under its path inside that folder, however the reference spelled it.
+export function publicOwnedOutputName(
+  absolutePath: string,
+  publicDir: string | undefined
+): string | undefined {
+  if (!publicDir) return undefined
+
+  const rel = path.relative(
+    canonicalizeDir(publicDir),
+    canonicalizeResourcePath(absolutePath)
+  )
+
+  if (!rel || path.isAbsolute(rel) || rel.split(path.sep)[0] === '..') {
+    return undefined
+  }
+
+  return toPosixPath(rel)
+}
+
+export interface CssUrlRef {
+  isImport: boolean
+}
+
 export function replaceCssUrlRefs(
   source: string,
-  replacer: (request: string) => string | undefined
+  replacer: (request: string, ref: CssUrlRef) => string | undefined
 ): string {
-  return source.replace(URL_REF, (whole, dq, sq, bare) => {
+  return source.replace(URL_REF, (whole, dq, sq, bare, offset: number) => {
     const request = dq ?? sq ?? bare ?? ''
     if (!request) return whole
 
-    const next = replacer(request)
+    const before = source.slice(Math.max(0, offset - 32), offset)
+    const next = replacer(request, {isImport: /@import\s*$/i.test(before)})
     if (next === undefined) return whole
 
     return `url("${next.replace(/["\\]/g, '\\$&')}")`
