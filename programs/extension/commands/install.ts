@@ -34,6 +34,8 @@ type UninstallOptions = {
   output?: 'pretty' | 'json'
 }
 
+const DEFAULT_INSTALL_TARGET: Browser = 'chromium'
+
 function emit(frame: unknown): void {
   // eslint-disable-next-line no-console
   console.log(JSON.stringify(frame))
@@ -200,7 +202,10 @@ async function refuseDownloadFailed(
 export function registerInstallCommand(program: Command) {
   program
     .command('install')
-    .arguments('[browser-name]')
+    .argument(
+      '[browser-name]',
+      `managed browser to install (default: ${DEFAULT_INSTALL_TARGET})`
+    )
     .usage('[browser-name] [options]')
     .description(commandDescriptions.install)
     .option(
@@ -215,9 +220,9 @@ export function registerInstallCommand(program: Command) {
     .action(async (browserArg: string | undefined, options: InstallOptions) => {
       const asJson = isJsonOutput(options)
       const named = Boolean(options.browser || browserArg)
-      const selectedBrowser = (options.browser || browserArg || 'chromium') as
-        | Browser
-        | 'all'
+      const selectedBrowser = (options.browser ||
+        browserArg ||
+        DEFAULT_INSTALL_TARGET) as Browser | 'all'
       const browserList = installTargets(selectedBrowser)
 
       // --where with no name prints the cache root; skip name validation.
@@ -268,6 +273,7 @@ export function registerInstallCommand(program: Command) {
         try {
           await extensionInstall({
             browser,
+            defaulted: !named,
             locateInstalledBinary: resolveManagedBinaryIn
           })
 

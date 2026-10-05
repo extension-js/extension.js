@@ -45,6 +45,9 @@ import {
 
 export interface InstallOptions {
   browser: string
+  // True when the caller picked the browser because the user named none, so
+  // the first line can say the name was a default and not a choice.
+  defaulted?: boolean
   // The executable the install left under destination, or null when nothing
   // usable is there. The launcher's resolver is the one judge of that, so the
   // caller hands it over rather than this package guessing a second time.
@@ -100,6 +103,7 @@ function discardUnusableInstallTree(destination: string): boolean {
 
 export async function extensionInstall({
   browser,
+  defaulted,
   locateInstalledBinary
 }: InstallOptions): Promise<void> {
   const target = normalizeBrowserName(browser)
@@ -111,7 +115,7 @@ export async function extensionInstall({
     )
   }
 
-  humanLine(messages.installingBrowser(target, destination))
+  humanLine(messages.installingBrowser(target, destination, Boolean(defaulted)))
 
   const cmd = browserInstallCommand(target)
   const args = browserInstallArgs(target, destination)
