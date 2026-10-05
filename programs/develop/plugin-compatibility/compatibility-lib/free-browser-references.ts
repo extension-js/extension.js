@@ -15,14 +15,14 @@ const GLOBAL_OBJECTS = new Set(['globalThis', 'self', 'window'])
 const QUICK_RE = /(?<![\w$.])browser\b/
 const NON_CHILD_KEYS = new Set(['type', 'start', 'end', 'loc', 'range'])
 
-interface AstNode {
+export interface AstNode {
   type: string
   [key: string]: unknown
 }
 
 type Child = AstNode | AstNode[] | null | undefined
 
-function isNode(value: unknown): value is AstNode {
+export function isNode(value: unknown): value is AstNode {
   return (
     typeof value === 'object' &&
     value !== null &&
@@ -30,11 +30,11 @@ function isNode(value: unknown): value is AstNode {
   )
 }
 
-function node(value: unknown): AstNode | undefined {
+export function node(value: unknown): AstNode | undefined {
   return isNode(value) ? value : undefined
 }
 
-function list(value: unknown): AstNode[] {
+export function list(value: unknown): AstNode[] {
   return Array.isArray(value) ? value.filter(isNode) : []
 }
 
@@ -44,7 +44,7 @@ function isName(value: unknown): boolean {
   )
 }
 
-function parse(source: string): AstNode | undefined {
+export function parse(source: string): AstNode | undefined {
   const acorn = requireModule('acorn')
   const shared = {
     ecmaVersion: 'latest',
@@ -125,7 +125,7 @@ function isFunction(value: AstNode): boolean {
   )
 }
 
-function children(value: AstNode): AstNode[] {
+export function children(value: AstNode): AstNode[] {
   const out: AstNode[] = []
 
   for (const key of Object.keys(value)) {

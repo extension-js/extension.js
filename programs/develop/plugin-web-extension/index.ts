@@ -8,7 +8,6 @@
 
 import type {Compiler} from '@rspack/core'
 import {getSpecialFoldersDataForCompiler} from '../plugin-special-folders/get-data'
-import {omitOwnedPages} from './shared/omit-owned-pages'
 import type {DevOptions, FilepathList, PluginInterface} from '../types'
 import {HtmlPlugin} from './feature-html'
 import {IconsPlugin} from './feature-icons'
@@ -27,6 +26,7 @@ import {
   settingsOverridesStartupPages,
   themeExperimentStylesheetEntries
 } from './shared/manifest-path-assets'
+import {omitOwnedPages} from './shared/omit-owned-pages'
 
 export class WebExtensionPlugin {
   public static readonly name: string = 'plugin-extension'
@@ -34,11 +34,13 @@ export class WebExtensionPlugin {
   public readonly manifestPath: string
   public readonly browser: DevOptions['browser']
   public readonly devSession?: boolean
+  public readonly define?: Record<string, unknown>
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
     this.devSession = options.devSession
+    this.define = options.define
   }
 
   public apply(compiler: Compiler): void {
@@ -86,6 +88,8 @@ export class WebExtensionPlugin {
     new ScriptsPlugin({
       manifestPath,
       browser: this.browser,
+      devSession: this.devSession,
+      define: this.define,
       includeList: {
         ...manifestFieldsData.scripts,
         ...specialFoldersData.scripts,
