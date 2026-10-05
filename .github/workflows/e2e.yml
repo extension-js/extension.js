@@ -30,7 +30,7 @@ jobs:
 
       - name: Get Playwright version
         id: pw-version
-        run: echo "version=$(npx playwright --version | awk '{print $2}')" >> $GITHUB_OUTPUT
+        run: echo "version=$(npx playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
 
       - name: Cache Playwright
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -91,6 +91,8 @@ jobs:
             code=$?
             if [ "$code" = "124" ] || [ "$code" = "137" ]; then
               echo "::error::the e2e suite hit the 105m inner timeout. The last test named by the list reporter above is where it wedged. Live processes:"
+              # ps keeps the user, CPU, memory and start columns that pgrep drops
+              # shellcheck disable=SC2009
               ps auxww | grep -E "chrome|chromium|firefox|Xvfb|playwright|node" | grep -v grep || true
             fi
             exit "$code"
