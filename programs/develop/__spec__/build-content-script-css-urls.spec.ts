@@ -257,30 +257,35 @@ function expectResolvedTargets(
   opts: {matches?: string[]}
 ) {
   const {distDir, manifest, source} = built
-  const names = emittedNamesIn(source)
-  const font = names.find((name) => name.endsWith('/fonts/probe.woff2'))
-  expect(font, `font target named in ${names.join(', ')}`).toBeTruthy()
-  expect(fs.readFileSync(path.join(distDir, String(font)))).toEqual(FONT_BYTES)
+  const fonts = fs
+    .readdirSync(path.join(distDir, 'assets'))
+    .filter((entry) => /^probe\.[0-9a-f]{8}\.woff2$/.test(entry))
+    .map((entry) => `assets/${entry}`)
+  expect(fonts).toHaveLength(1)
+  const font = fonts[0]
+  expect(fs.readFileSync(path.join(distDir, font))).toEqual(FONT_BYTES)
+  expect(emittedNamesIn(source)).toContain(font)
 
   // A public-owned root ref keeps the copier's name at the dist root, and
   // that is the only copy of the file the build ships.
   const image = 'img/bg.png'
   expect(fs.readFileSync(path.join(distDir, image))).toEqual(IMAGE_BYTES)
   expect(distFilesNamed(distDir, 'bg.png')).toEqual([image])
-  expect(distFilesNamed(distDir, 'probe.woff2')).toEqual([font])
+  expect(distFilesNamed(distDir, 'probe.woff2')).toEqual([])
 
   const resources = warResources(manifest)
   expect(resources).toContain(font)
   expect(resources).toContain(image)
 
   if (opts.matches) {
-    expect(warMatchesFor(manifest, String(font))).toEqual(opts.matches)
+    expect(warMatchesFor(manifest, font)).toEqual(opts.matches)
     expect(warMatchesFor(manifest, image)).toEqual(opts.matches)
   }
 
   expect(source).not.toMatch(BARE_URL)
-  expect(source).toContain(`__EXTENSIONJS_EXTENSION_ROOT__/${font}`)
-  expect(source).toContain(`__EXTENSIONJS_EXTENSION_ROOT__/${font}?v=2#frag`)
+  expect(source).toContain('__EXTENSIONJS_CSS_FILE_0__')
+  expect(source).toContain('__EXTENSIONJS_CSS_FILE_0__?v=2#frag')
+  expect(source).not.toContain('__EXTENSIONJS_CSS_FILE_1__')
   expect(source).toContain(`__EXTENSIONJS_EXTENSION_ROOT__/${image}`)
   expect(source).toContain('runtime.getURL')
 

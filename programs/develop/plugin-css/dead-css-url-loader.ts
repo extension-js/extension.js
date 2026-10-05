@@ -6,7 +6,6 @@
 //  ╚═════╝╚══════╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {WebpackError} from '@rspack/core'
 import {canonicalizeDir, canonicalizeResourcePath} from '../lib/resource-path'
@@ -40,7 +39,6 @@ interface DeadCssUrlLoaderContext {
   getOptions(): DeadCssUrlLoaderOptions
   emitWarning(warning: Error): void
   emitError(error: Error): void
-  emitFile?(name: string, content: string | Buffer): void
   addDependency?(file: string): void
   _compilation?: CompilationLike
 }
@@ -85,33 +83,42 @@ function reportDeadRefs(
   }
 }
 
-function emitTargets(
+function resolveTargets(
   loader: DeadCssUrlLoaderContext,
   source: string,
   manifestDir: string,
   publicRoot: string,
   publicDir: string | undefined
-): string {
+): {css: string; bundledRequests: string[]} {
+  const resourcePath = canonicalizeResourcePath(loader.resourcePath)
   const {css, targets} = rewriteInlinedCssUrls(source, {
-    resourcePath: canonicalizeResourcePath(loader.resourcePath),
+    resourcePath,
     manifestDir,
     publicRoot,
     publicDir
   })
-  if (typeof loader.emitFile !== 'function') return source
+  const bundledRequests: string[] = []
 
   for (const target of targets) {
-    // The public copier ships a public-owned file under this same name, and
-    // the inlined sheet's module names it for web_accessible_resources.
+    // The public copier ships a public-owned file. Any other file is asked
+    // of the bundler, so every sheet that names it shares the one emitted copy.
     if (!target.publicOwned) {
-      loader.emitFile(target.outputName, fs.readFileSync(target.absolutePath))
+      const request = toPosixPath(
+        path.relative(path.dirname(resourcePath), target.absolutePath)
+      )
+
+      bundledRequests.push(
+        request.startsWith('../') || path.isAbsolute(request)
+          ? request
+          : `./${request}`
+      )
     }
 
     // Keep watch mode honest: editing the file should rebuild the sheet.
     loader.addDependency?.(target.absolutePath)
   }
 
-  return css
+  return {css, bundledRequests}
 }
 
 export default function deadCssUrlLoader(
@@ -119,6 +126,7 @@ export default function deadCssUrlLoader(
   source: string
 ): string {
   let css = source
+  let bundledRequests: string[] = []
   const options = this.getOptions() || {}
 
   try {
@@ -133,17 +141,17 @@ export default function deadCssUrlLoader(
         publicContainmentRoot(manifestPath, projectPath)
       )
       reportDeadRefs(this, source, manifestDir, publicRoot)
-      css = emitTargets(
+      ;({css, bundledRequests} = resolveTargets(
         this,
         source,
         manifestDir,
         publicRoot,
         resolvePublicFolder(manifestPath, projectPath)
-      )
+      ))
     }
   } catch {
     // A reference check must never break a build the browser would accept.
   }
 
-  return toRuntimeStylesheetModule(css)
+  return toRuntimeStylesheetModule(css, bundledRequests)
 }

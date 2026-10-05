@@ -8,7 +8,6 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {htmlStaticAssetOutputName} from '../../plugin-web-extension/feature-html/html-lib/utils'
 import {
   publicOwnedOutputName,
   replaceCssUrlRefs,
@@ -17,13 +16,20 @@ import {
 
 export const EXTENSION_ROOT_PLACEHOLDER = '__EXTENSIONJS_EXTENSION_ROOT__/'
 
+const BUNDLED_FILE_TOKEN = /__EXTENSIONJS_CSS_FILE_(\d+)__([^"\\]*)/g
+
+export function bundledFileToken(index: number): string {
+  return `__EXTENSIONJS_CSS_FILE_${index}__`
+}
+
 export interface InlinedCssUrlTarget {
   request: string
   absolutePath: string
-  outputName: string
   // A file under public/ already ships at the dist root through the public
-  // copier, under the same name. Emitting it again would ship it twice.
+  // copier, under outputName. Any other file is the bundler's to emit and
+  // name, as it does for every other sheet, so url() carries a file token.
   publicOwned: boolean
+  outputName?: string
 }
 
 export interface RewriteInlinedCssUrlsContext {
@@ -52,7 +58,7 @@ function resolveTarget(
     publicDir
   }: RewriteInlinedCssUrlsContext
 ):
-  | {absolutePath: string; outputName: string; publicOwned: boolean}
+  | {absolutePath: string; outputName?: string; publicOwned: boolean}
   | undefined {
   // public/ keeps precedence for a root-absolute ref: it is the documented
   // output-root contract, and the same order the dead-reference scan uses.
@@ -71,15 +77,7 @@ function resolveTarget(
     const fromManifest = path.join(manifestDir, rel)
     if (!isFile(fromManifest)) return undefined
 
-    return {
-      absolutePath: fromManifest,
-      outputName: htmlStaticAssetOutputName(
-        manifestDir,
-        resourcePath,
-        fromManifest
-      ),
-      publicOwned: false
-    }
+    return {absolutePath: fromManifest, publicOwned: false}
   }
 
   const absolutePath = path.resolve(path.dirname(resourcePath), req)
@@ -91,15 +89,7 @@ function resolveTarget(
     return {absolutePath, outputName: publicPath, publicOwned: true}
   }
 
-  return {
-    absolutePath,
-    outputName: htmlStaticAssetOutputName(
-      manifestDir,
-      resourcePath,
-      absolutePath
-    ),
-    publicOwned: false
-  }
+  return {absolutePath, publicOwned: false}
 }
 
 export function rewriteInlinedCssUrls(
@@ -121,24 +111,39 @@ export function rewriteInlinedCssUrls(
     if (req.startsWith('~') || req.startsWith('@')) return undefined
     if (req.startsWith(EXTENSION_ROOT_PLACEHOLDER)) return undefined
 
-    let outputName = seen.get(req)
+    let named = seen.get(req)
 
-    if (!outputName) {
+    if (!named) {
       const target = resolveTarget(req, context)
       if (!target) return undefined
 
-      outputName = target.outputName
-      seen.set(req, outputName)
+      named = target.publicOwned
+        ? `${EXTENSION_ROOT_PLACEHOLDER}${target.outputName}`
+        : bundledFileToken(targets.filter((other) => !other.publicOwned).length)
+
+      seen.set(req, named)
       targets.push({request: req, ...target})
     }
 
-    return `${EXTENSION_ROOT_PLACEHOLDER}${outputName}${suffix}`
+    return `${named}${suffix}`
   })
 
   return {css, targets}
 }
 
-export function toRuntimeStylesheetModule(css: string): string {
+// bundledRequests[n] is the file token n stands for, as a request the bundler
+// resolves from the sheet's folder.
+export function toRuntimeStylesheetModule(
+  css: string,
+  bundledRequests: string[] = []
+): string {
+  const root = JSON.stringify(EXTENSION_ROOT_PLACEHOLDER)
+  const rooted = `__extjsCssText.split(${root}).join(__extjsExtensionRoot())`
+  const text =
+    bundledRequests.length === 0
+      ? rooted
+      : `${rooted}.replace(${String(BUNDLED_FILE_TOKEN)}, __extjsCssFile)`
+
   // A bare `browser` gets rewritten into a polyfill require that throws in
   // the MAIN world. Member reads on globalThis are never rewritten.
   return [
@@ -164,7 +169,27 @@ export function toRuntimeStylesheetModule(css: string): string {
     '  } catch (error) {}',
     '  return "/";',
     '}',
-    `module.exports = "data:text/css;charset=utf-8," + encodeURIComponent(__extjsCssText.split(${JSON.stringify(EXTENSION_ROOT_PLACEHOLDER)}).join(__extjsExtensionRoot()));`,
+    ...(bundledRequests.length === 0
+      ? []
+      : [
+          // The bundler answers with the file's place under its public path,
+          // or a data: URL when it inlined the file. Only the path is kept.
+          `var __extjsCssFiles = [${bundledRequests
+            .map(
+              (request) =>
+                `function(){ return new URL(${JSON.stringify(request)}, import.meta.url); }`
+            )
+            .join(', ')}];`,
+          'function __extjsCssFile(match, index, suffix) {',
+          '  try {',
+          '    var file = __extjsCssFiles[Number(index)]();',
+          '    if (file.protocol === "data:") return file.href;',
+          '    return __extjsExtensionRoot() + String(file.pathname).replace(/^\\/+/, "") + suffix;',
+          '  } catch (error) {}',
+          '  return "about:invalid";',
+          '}'
+        ]),
+    `module.exports = "data:text/css;charset=utf-8," + encodeURIComponent(${text});`,
     ''
   ].join('\n')
 }
