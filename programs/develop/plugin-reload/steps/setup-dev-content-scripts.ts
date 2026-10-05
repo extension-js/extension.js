@@ -6,6 +6,8 @@
 // ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import {Compilation, type Compiler, sources} from '@rspack/core'
 import {prependToEmittedAsset} from '../../lib/asset-source-maps'
 import {
@@ -18,6 +20,7 @@ import {
   contentScriptEntryForAsset,
   DEV_CONTENT_SCRIPT_REGISTRY_ASSET,
   DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE,
+  isDevContentScriptStandInAsset,
   planDevContentScripts
 } from '../reload-lib/dev-content-scripts'
 
@@ -33,6 +36,54 @@ function putAsset(compilation: Compilation, name: string, text: string) {
   else compilation.emitAsset(name, source)
 }
 
+// Dev never cleans its output, so the stub of a removed entry would stay for
+// good. One the manifest on disk still names is kept: that manifest must load.
+function pruneOrphanDevContentScriptFiles(
+  outputPath: string,
+  emitted: Set<string>
+) {
+  const folder = path.join(outputPath, 'content_scripts')
+  const kept = new Set(emitted)
+  let files: string[]
+
+  try {
+    files = fs.readdirSync(folder)
+    const manifest = JSON.parse(
+      fs.readFileSync(path.join(outputPath, 'manifest.json'), 'utf8')
+    ) as Manifest
+    const groups = Array.isArray(manifest.content_scripts)
+      ? (manifest.content_scripts as Array<{js?: unknown}>)
+      : []
+
+    for (const group of groups) {
+      for (const file of Array.isArray(group?.js) ? group.js : []) {
+        if (typeof file !== 'string') continue
+        if (!isDevContentScriptStandInAsset(file)) continue
+
+        kept.add(file)
+        kept.add(DEV_CONTENT_SCRIPT_REGISTRY_ASSET)
+      }
+    }
+  } catch {
+    return
+  }
+
+  for (const file of files) {
+    const asset = `content_scripts/${file}`
+    const generated =
+      asset === DEV_CONTENT_SCRIPT_REGISTRY_ASSET ||
+      isDevContentScriptStandInAsset(asset)
+
+    if (!generated || kept.has(asset)) continue
+
+    try {
+      fs.rmSync(path.join(folder, file), {force: true})
+    } catch {
+      // Ignore
+    }
+  }
+}
+
 // Chromium development only: the manifest's content_scripts entries become
 // signalling stubs, the real bundles are registered by a runtime in the
 // worker from a registry emitted beside them, and each bundle marks its
@@ -42,6 +93,20 @@ function putAsset(compilation: Compilation, name: string, text: string) {
 // still guards the stubs.
 export class SetupDevContentScripts {
   apply(compiler: Compiler) {
+    compiler.hooks.done?.tap(SetupDevContentScripts.name, (stats) => {
+      const outputPath = compiler.options.output?.path
+      if (!outputPath || stats.compilation.errors.length > 0) return
+
+      pruneOrphanDevContentScriptFiles(
+        outputPath,
+        new Set(
+          stats.compilation
+            .getAssets()
+            .map((asset) => String(asset.name || '').replace(/\\/g, '/'))
+        )
+      )
+    })
+
     compiler.hooks.thisCompilation.tap(
       SetupDevContentScripts.name,
       (compilation) => {
