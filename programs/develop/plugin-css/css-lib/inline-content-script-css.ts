@@ -140,6 +140,9 @@ export function toRuntimeStylesheetModule(css: string): string {
     '  try {',
     '    var base = (typeof globalThis === "object" && globalThis && globalThis.__EXTJS_EXTENSION_BASE__) ? String(globalThis.__EXTJS_EXTENSION_BASE__) : "";',
     '    if (!base && typeof document === "object" && document && document.documentElement) base = String(document.documentElement.getAttribute("data-extjs-extension-base") || "");',
+    // A shipped MAIN-world bundle clears that attribute once it has the base,
+    // and keeps it on the require function for a sheet that loads later.
+    '    if (!base && typeof __webpack_require__ === "function" && __webpack_require__.extjsBase) base = String(__webpack_require__.extjsBase);',
     '    if (base) return base.replace(/\\/+$/, "") + "/";',
     '  } catch (error) {}',
     '  return "/";',

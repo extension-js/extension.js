@@ -652,7 +652,7 @@ export default function webpackConfig(
       // The stock CSS minimizer also deletes CSS module classes no script
       // imports. Production keeps every rule development keeps, so it must not.
       minimizer: [
-        new SwcJsMinimizerRspackPlugin(),
+        new SwcJsMinimizerRspackPlugin({extractComments: true}),
         new LightningCssMinimizerRspackPlugin({removeUnusedLocalIdents: false})
       ],
       sideEffects: true,
