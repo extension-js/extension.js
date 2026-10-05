@@ -810,6 +810,13 @@ export function writingTypeDefinitions(manifest: Manifest) {
   )
 }
 
+export function updatingTypeDefinitions(filePath: string) {
+  return (
+    `${getLoggingPrefix('info')} ` +
+    `Updating the type definitions in ${filePath} to match this version.`
+  )
+}
+
 export function writingTypeDefinitionsError(error: unknown) {
   return (
     `${getLoggingPrefix('error')} Couldn't write the extension type definitions.\n` +

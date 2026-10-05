@@ -100,6 +100,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "treeWithSourceFiles: function(4)",
     "unpackagedSuccessfully: function(0)",
     "unpackagingExtension: function(1)",
+    "updatingTypeDefinitions: function(1)",
     "writingTypeDefinitions: function(1)",
     "writingTypeDefinitionsError: function(1)",
     "zipArtifactNotCreated: function(3)",
