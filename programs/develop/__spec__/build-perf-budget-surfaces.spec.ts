@@ -16,9 +16,7 @@ afterAll(() => {
 })
 
 function page(title: string, script: string, stylesheet?: string) {
-  const link = stylesheet
-    ? `<link rel="stylesheet" href="${stylesheet}">`
-    : ''
+  const link = stylesheet ? `<link rel="stylesheet" href="${stylesheet}">` : ''
 
   return (
     '<!doctype html><html><head><meta charset="utf-8">' +

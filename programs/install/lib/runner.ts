@@ -203,9 +203,7 @@ export async function runCommand(
   }
 
   return new Promise((resolve, reject) => {
-    child.on('close', (code, signal) =>
-      resolve({code, signal, stdout, stderr})
-    )
+    child.on('close', (code, signal) => resolve({code, signal, stdout, stderr}))
 
     child.on('error', (error) => reject(error))
   })

@@ -12,7 +12,10 @@ function repairWith(files: Record<string, Buffer>) {
     outputPath: () => OUTPUT,
     outputFileSystem: () => ({
       readFileSync(filePath: string) {
-        const relative = path.relative(OUTPUT, filePath).split(path.sep).join('/')
+        const relative = path
+          .relative(OUTPUT, filePath)
+          .split(path.sep)
+          .join('/')
         const buffer = files[relative]
 
         if (!buffer) throw new Error(`ENOENT ${filePath}`)
@@ -37,7 +40,9 @@ function readStream() {
 
 describe('createResponseDataRepair', () => {
   it('gives a one-byte asset its byte back when the stream was sized zero', () => {
-    const repair = repairWith({'content_scripts/content-0.css': Buffer.from('\n')})
+    const repair = repairWith({
+      'content_scripts/content-0.css': Buffer.from('\n')
+    })
     const stream = readStream()
 
     const out = repair(
@@ -88,12 +93,7 @@ describe('createResponseDataRepair', () => {
   it('reads the file the url names, query and fragment stripped', () => {
     const repair = repairWith({'x/y.css': Buffer.from('a')})
 
-    const out = repair(
-      request('/x/y.css?v=1#top'),
-      response(),
-      readStream(),
-      0
-    )
+    const out = repair(request('/x/y.css?v=1#top'), response(), readStream(), 0)
 
     expect(out.byteLength).toBe(1)
   })

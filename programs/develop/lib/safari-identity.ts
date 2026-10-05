@@ -19,9 +19,7 @@ export function isValidBundleId(value: string): boolean {
 
 // The identity the packager gets, read off the fully merged option layers so a
 // value from any config layer meets the same gate as the CLI flag.
-export function resolveSafariIdentity(
-  merged: SafariIdentity
-): SafariIdentity {
+export function resolveSafariIdentity(merged: SafariIdentity): SafariIdentity {
   if (merged.bundleId && !isValidBundleId(merged.bundleId)) {
     throw new Error(messages.safariInvalidBundleId(merged.bundleId))
   }

@@ -88,7 +88,10 @@ describe('the dist zip is named from the manifest the build emitted', () => {
   it('resolves values templated from a .env file', async () => {
     const built = await build(
       project(
-        {name: '$EXTENSION_PUBLIC_APP_NAME', version: '$EXTENSION_PUBLIC_APP_VERSION'},
+        {
+          name: '$EXTENSION_PUBLIC_APP_NAME',
+          version: '$EXTENSION_PUBLIC_APP_VERSION'
+        },
         {
           '.env':
             'EXTENSION_PUBLIC_APP_NAME=Env Probe\nEXTENSION_PUBLIC_APP_VERSION=5.6.7\n'

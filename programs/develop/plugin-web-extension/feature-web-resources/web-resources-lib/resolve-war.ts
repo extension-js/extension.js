@@ -246,8 +246,9 @@ export function resolveUserDeclaredWAR(
   // manifest folder but inside the project, or of a plain ref that is missing
   // beside the manifest; undefined when the manifest folder is the root.
   const rootRelativeOf = (abs: string, res: string): string | undefined => {
-    if (path.resolve(projectPath) === path.resolve(manifestDir))
-      {return undefined}
+    if (path.resolve(projectPath) === path.resolve(manifestDir)) {
+      return undefined
+    }
 
     if (path.isAbsolute(res)) return undefined
 

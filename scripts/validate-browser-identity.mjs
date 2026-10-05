@@ -921,7 +921,10 @@ async function assertIdentity({
 
     for (const page of ours) {
       const refusal = describeRefusedPage(page)
-      if (refusal) failures.push(`${target} refused our page ${page.url}: ${refusal}`)
+
+      if (refusal) {
+        failures.push(`${target} refused our page ${page.url}: ${refusal}`)
+      }
     }
 
     notes.push(

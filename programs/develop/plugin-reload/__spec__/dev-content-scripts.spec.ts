@@ -411,7 +411,12 @@ describe('dev content scripts runtime', () => {
   })
 
   it('a registration that lost exclude_matches, css or the origin fallback sheds them through the partial update', async () => {
-    const wide = worker({registry: {...registry, entries: [{...registry.entries[0], matchOriginAsFallback: true}]}})
+    const wide = worker({
+      registry: {
+        ...registry,
+        entries: [{...registry.entries[0], matchOriginAsFallback: true}]
+      }
+    })
     await wide.settle()
     expect(wide.registrations[0]).toMatchObject({
       excludeMatches: ['https://a.test/skip*'],
