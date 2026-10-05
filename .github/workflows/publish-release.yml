@@ -199,17 +199,20 @@ jobs:
             fi
           fi
 
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
           if [ "$CHANNEL" = "next" ]; then
-            echo "tag=next" >> $GITHUB_OUTPUT
+            NPM_TAG=next
           elif [ "$CHANNEL" = "canary" ]; then
-            echo "tag=canary" >> $GITHUB_OUTPUT
+            NPM_TAG=canary
           else
-            echo "tag=latest" >> $GITHUB_OUTPUT
+            NPM_TAG=latest
           fi
-          echo "should_tag=$SHOULD_TAG" >> $GITHUB_OUTPUT
-          echo "resume=$RESUME" >> $GITHUB_OUTPUT
-          echo "Resolved publish target: channel=$CHANNEL version=$VERSION npm_tag=$( [ \"$CHANNEL\" = \"next\" ] && echo next || ( [ \"$CHANNEL\" = \"canary\" ] && echo canary || echo latest ) )"
+          {
+            echo "version=$VERSION"
+            echo "tag=$NPM_TAG"
+            echo "should_tag=$SHOULD_TAG"
+            echo "resume=$RESUME"
+          } >> "$GITHUB_OUTPUT"
+          echo "Resolved publish target: channel=$CHANNEL version=$VERSION npm_tag=$NPM_TAG"
 
       # Notes are anchored on the on-branch release commit (not a git tag), so a
       # rewritten history can't explode the range. Highlights are read from
@@ -519,9 +522,9 @@ jobs:
           PKG=$(node -p "require('./package.json').name")
           VER=$(node -p "require('./package.json').version")
           if npm view "$PKG@$VER" version >/dev/null 2>&1; then
-            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "exists=true" >> "$GITHUB_OUTPUT"
           else
-            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Publish extension-create [OIDC+provenance]
@@ -560,9 +563,9 @@ jobs:
           PKG=$(node -p "require('./package.json').name")
           VER=$(node -p "require('./package.json').version")
           if npm view "$PKG@$VER" version >/dev/null 2>&1; then
-            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "exists=true" >> "$GITHUB_OUTPUT"
           else
-            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Publish extension-develop [OIDC+provenance]
@@ -601,9 +604,9 @@ jobs:
           PKG=$(node -p "require('./package.json').name")
           VER=$(node -p "require('./package.json').version")
           if npm view "$PKG@$VER" version >/dev/null 2>&1; then
-            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "exists=true" >> "$GITHUB_OUTPUT"
           else
-            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Publish extension-install [OIDC+provenance]
@@ -641,9 +644,9 @@ jobs:
           PKG=$(node -p "require('./package.json').name")
           VER=$(node -p "require('./package.json').version")
           if npm view "$PKG@$VER" version >/dev/null 2>&1; then
-            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "exists=true" >> "$GITHUB_OUTPUT"
           else
-            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Publish extension [OIDC+provenance]
