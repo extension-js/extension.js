@@ -106,6 +106,100 @@ describe('addon lint mapping', () => {
     expect(lines[0].location).toBe('manifest.json')
   })
 
+  it('names the key and both versions for a minimum version finding', () => {
+    const finding = (code: string, product: string, key: string) => ({
+      code,
+      message: `Manifest key not supported by the specified minimum ${product} version`,
+      description: `"strict_min_version" requires ${product} 109, which
+        was released before version 154 introduced support for
+        "${key}".`,
+      file: 'manifest.json'
+    })
+    const {findings, lines} = formatAddonLintFindings(
+      {
+        errors: [],
+        warnings: [
+          finding('KEY_FIREFOX_UNSUPPORTED_BY_MIN_VERSION', 'Firefox', 'sbx'),
+          finding(
+            'KEY_FIREFOX_ANDROID_UNSUPPORTED_BY_MIN_VERSION',
+            'Firefox for Android',
+            'sbx'
+          ),
+          finding(
+            'KEY_FIREFOX_UNSUPPORTED_BY_MIN_VERSION',
+            'Firefox',
+            'sbx.pages'
+          )
+        ]
+      },
+      'dist/firefox'
+    )
+    const plain = lines.map(stripAnsi)
+
+    expect(findings).toBe(3)
+    expect(plain[1]).toContain(
+      'AMO warning KEY_FIREFOX_UNSUPPORTED_BY_MIN_VERSION: "strict_min_version" requires Firefox 109, which was released before version 154 introduced support for "sbx". (manifest.json)'
+    )
+
+    expect(plain[2]).toContain(
+      'requires Firefox for Android 109, which was released before version 154 introduced support for "sbx".'
+    )
+
+    expect(plain[3]).toContain('introduced support for "sbx.pages".')
+    expect(plain.join('\n')).not.toContain('Manifest key not supported')
+  })
+
+  it('keeps the message of a finding that already names its subject', () => {
+    const lines = collectAddonLintLines({
+      errors: [],
+      warnings: [
+        {
+          code: 'MANIFEST_PERMISSIONS',
+          message: '/permissions: Invalid permissions "sidePanel" at 1.',
+          description:
+            'See https://mzl.la/1R1n1t0 (MDN Docs) for more information.',
+          file: 'manifest.json'
+        },
+        {
+          code: 'KEY_FIREFOX_UNSUPPORTED_BY_MIN_VERSION',
+          message:
+            'Manifest key not supported by the specified minimum Firefox version',
+          file: 'manifest.json'
+        }
+      ]
+    })
+
+    expect(lines.map((line) => line.message)).toEqual([
+      '/permissions: Invalid permissions "sidePanel" at 1.',
+      'Manifest key not supported by the specified minimum Firefox version'
+    ])
+  })
+
+  it('prints two findings that read the same as one line', () => {
+    const twice = {
+      code: 'KEY_FIREFOX_UNSUPPORTED_BY_MIN_VERSION',
+      message:
+        'Manifest key not supported by the specified minimum Firefox version',
+      description:
+        '"strict_min_version" requires Firefox 109, which was released before version 154 introduced support for "sbx".',
+      file: 'manifest.json'
+    }
+    const {findings, lines} = formatAddonLintFindings(
+      {
+        errors: [],
+        warnings: [twice, {...twice}, {...twice, file: 'other.json'}]
+      },
+      'dist/firefox'
+    )
+    const plain = lines.map(stripAnsi)
+
+    expect(findings).toBe(2)
+    expect(plain).toHaveLength(3)
+    expect(plain[0]).toContain('addons-linter found 2 warnings')
+    expect(plain[1]).toContain('support for "sbx". (manifest.json)')
+    expect(plain[2]).toContain('support for "sbx". (other.json)')
+  })
+
   it('prints one line per finding under a summary line', () => {
     const {findings, lines} = formatAddonLintFindings(
       FAKE_OUTPUT,

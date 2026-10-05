@@ -35,6 +35,13 @@ const DUPLICATED_BY_BUILD_WARNINGS = new Set([
   'MISSING_DATA_COLLECTION_PERMISSIONS'
 ])
 
+// The linter words these as a fixed title and names the key, with both
+// versions, only in the description.
+const SUBJECT_IN_DESCRIPTION = new Set([
+  'KEY_FIREFOX_UNSUPPORTED_BY_MIN_VERSION',
+  'KEY_FIREFOX_ANDROID_UNSUPPORTED_BY_MIN_VERSION'
+])
+
 export interface AddonLintFinding {
   code?: string
   message?: string
@@ -141,10 +148,15 @@ function locationOf(finding: AddonLintFinding): string {
 }
 
 function toLine(level: AddonLintLevel, finding: AddonLintFinding) {
+  const code = String(finding.code || 'UNKNOWN').trim()
+  const text = SUBJECT_IN_DESCRIPTION.has(code)
+    ? finding.description || finding.message
+    : finding.message || finding.description
+
   return {
     level,
-    code: String(finding.code || 'UNKNOWN').trim(),
-    message: String(finding.message || finding.description || '')
+    code,
+    message: String(text || '')
       .replace(/\s+/g, ' ')
       .trim(),
     location: locationOf(finding)
@@ -158,10 +170,24 @@ export function collectAddonLintLines(
   const errors = Array.isArray(output?.errors) ? output.errors : []
   const warnings = Array.isArray(output?.warnings) ? output.warnings : []
 
+  const seen = new Set<string>()
+
   return [
     ...errors.map((finding) => toLine('error', finding)),
     ...warnings.map((finding) => toLine('warning', finding))
-  ].filter((line) => !DUPLICATED_BY_BUILD_WARNINGS.has(line.code))
+  ]
+    .filter((line) => !DUPLICATED_BY_BUILD_WARNINGS.has(line.code))
+    .filter((line) => {
+      // Two findings that print the same line are one problem to act on.
+      const printed = [line.level, line.code, line.message, line.location].join(
+        '\0'
+      )
+      if (seen.has(printed)) return false
+
+      seen.add(printed)
+
+      return true
+    })
 }
 
 // The linter locates a finding by its path inside dist, which is the emitted

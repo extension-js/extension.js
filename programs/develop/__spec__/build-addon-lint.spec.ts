@@ -82,6 +82,37 @@ function codeSplitProject() {
   return root
 }
 
+function minVersionProject() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-addon-lint-min-'))
+  roots.push(root)
+  fs.writeFileSync(
+    path.join(root, 'package.json'),
+    JSON.stringify({private: true, name: 'minme', version: '0.0.0'})
+  )
+
+  fs.writeFileSync(path.join(root, 'background.js'), 'console.log("bg")\n')
+  fs.writeFileSync(
+    path.join(root, 'boxed.html'),
+    '<!doctype html><title>boxed</title><p>boxed</p>'
+  )
+
+  fs.writeFileSync(
+    path.join(root, 'manifest.json'),
+    JSON.stringify({
+      name: 'minme',
+      version: '1.0.0',
+      manifest_version: 3,
+      background: {scripts: ['background.js']},
+      sandbox: {pages: ['boxed.html']},
+      browser_specific_settings: {
+        gecko: {id: 'minme@example.com', strict_min_version: '109.0'}
+      }
+    })
+  )
+
+  return root
+}
+
 async function build(
   root: string,
   options: {
@@ -180,6 +211,33 @@ describe('addon lint after a production firefox build', () => {
     expect(
       script.match(/\bimport\(chrome\.runtime\.getURL\(/g) || []
     ).toHaveLength(imports.length)
+  }, 180_000)
+
+  it('names the key behind each minimum version finding', async () => {
+    const root = minVersionProject()
+    const {summary, output} = await build(root, {
+      browser: 'firefox',
+      mode: 'production'
+    })
+
+    expect(summary.errors_count).toBe(0)
+    expect(output).toMatch(
+      /AMO warning KEY_FIREFOX_UNSUPPORTED_BY_MIN_VERSION: "strict_min_version" requires Firefox 109, .* support for "sandbox"\. \(manifest\.json\)/
+    )
+
+    expect(output).toMatch(
+      /AMO warning KEY_FIREFOX_ANDROID_UNSUPPORTED_BY_MIN_VERSION: .* support for "sandbox\.pages"\./
+    )
+
+    expect(output).not.toContain(
+      'Manifest key not supported by the specified minimum'
+    )
+
+    const printed = output
+      .split('\n')
+      .filter((line) => line.includes('UNSUPPORTED_BY_MIN_VERSION'))
+
+    expect(new Set(printed).size).toBe(printed.length)
   }, 180_000)
 
   it('stays quiet when addonLint is off, in development mode, and for chromium', async () => {
