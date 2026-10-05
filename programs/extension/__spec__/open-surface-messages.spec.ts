@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import * as net from 'node:net'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {
@@ -312,17 +313,30 @@ describe('a 4003 close names the real cause', () => {
 })
 
 describe('the controller client states each close code as a cause', () => {
+  async function listen(): Promise<{server: WebSocketServer; port: number}> {
+    const server = new WebSocketServer({
+      host: '127.0.0.1',
+      port: 0,
+      path: '/extjs-control'
+    })
+    await new Promise<void>((resolve) => server.once('listening', resolve))
+
+    return {server, port: (server.address() as {port: number}).port}
+  }
+
   async function refuse(
     code: number,
     reason: string
   ): Promise<Error & {closeCode?: number}> {
-    const server = new WebSocketServer({port: 0, path: '/extjs-control'})
-    await new Promise<void>((resolve) => server.once('listening', resolve))
+    const {server, port} = await listen()
+    const hellos: Array<Record<string, unknown>> = []
     server.on('connection', (socket) => {
-      socket.once('message', () => socket.close(code, reason))
+      socket.once('message', (data) => {
+        hellos.push(JSON.parse(String(data)))
+        socket.close(code, reason)
+      })
     })
 
-    const port = (server.address() as {port: number}).port
     const controller = new BridgeController({
       controlPort: port,
       instanceId: 'inst-1',
@@ -334,12 +348,36 @@ describe('the controller client states each close code as a cause', () => {
 
       throw new Error('connect resolved')
     } catch (err) {
+      expect(hellos).toMatchObject([
+        {type: 'hello', role: 'controller', instanceId: 'inst-1'}
+      ])
+
       return err as Error & {closeCode?: number}
     } finally {
       controller.close()
       await new Promise<void>((resolve) => server.close(() => resolve()))
     }
   }
+
+  it('no second listener can answer on the port the controller dials', async () => {
+    const {server, port} = await listen()
+    const rival = net.createServer()
+
+    try {
+      const outcome = await new Promise<string>((resolve) => {
+        rival.once('error', (err: NodeJS.ErrnoException) =>
+          resolve(String(err.code))
+        )
+
+        rival.listen(port, '127.0.0.1', () => resolve('listening'))
+      })
+
+      expect(outcome).toBe('EADDRINUSE')
+    } finally {
+      rival.close()
+      await new Promise<void>((resolve) => server.close(() => resolve()))
+    }
+  })
 
   it('4003 says control is off in the session, and tags the code', async () => {
     const err = await refuse(4003, 'control channel not available')
