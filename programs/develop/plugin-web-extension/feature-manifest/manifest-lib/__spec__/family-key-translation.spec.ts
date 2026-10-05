@@ -143,11 +143,14 @@ describe('sidebar pair translation', () => {
     expect(chromium).not.toHaveProperty('permissions')
   })
 
-  it('keeps sidebar_action on a safari build, which has no side panel', () => {
-    const result = canonical(sidebarActionOnly, 'safari')
+  it('writes neither key of the pair on a safari build, which has no sidebar', () => {
+    for (const source of [sidebarActionOnly, sidePanelOnly]) {
+      const result = canonical(source, 'safari')
 
-    expect(result.sidebar_action.default_panel).toBe('sidebar/index.html')
-    expect(result).not.toHaveProperty('side_panel')
+      expect(result).not.toHaveProperty('sidebar_action')
+      expect(result).not.toHaveProperty('side_panel')
+      expect(result).not.toHaveProperty('permissions')
+    }
   })
 })
 

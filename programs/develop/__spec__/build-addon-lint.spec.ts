@@ -82,6 +82,118 @@ function codeSplitProject() {
   return root
 }
 
+function minVersionProject() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-addon-lint-min-'))
+  roots.push(root)
+  fs.writeFileSync(
+    path.join(root, 'package.json'),
+    JSON.stringify({private: true, name: 'minme', version: '0.0.0'})
+  )
+
+  fs.writeFileSync(path.join(root, 'background.js'), 'console.log("bg")\n')
+  fs.writeFileSync(
+    path.join(root, 'boxed.html'),
+    '<!doctype html><title>boxed</title><p>boxed</p>'
+  )
+
+  fs.writeFileSync(
+    path.join(root, 'manifest.json'),
+    JSON.stringify({
+      name: 'minme',
+      version: '1.0.0',
+      manifest_version: 3,
+      background: {scripts: ['background.js']},
+      sandbox: {pages: ['boxed.html']},
+      browser_specific_settings: {
+        gecko: {id: 'minme@example.com', strict_min_version: '109.0'}
+      }
+    })
+  )
+
+  return root
+}
+
+function permissionMinVersionProject() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-addon-lint-perm-'))
+  roots.push(root)
+  fs.writeFileSync(
+    path.join(root, 'package.json'),
+    JSON.stringify({private: true, name: 'permme', version: '0.0.0'})
+  )
+
+  fs.writeFileSync(path.join(root, 'background.js'), 'console.log("bg")\n')
+  fs.writeFileSync(
+    path.join(root, 'manifest.json'),
+    JSON.stringify({
+      name: 'permme',
+      version: '1.0.0',
+      manifest_version: 3,
+      background: {scripts: ['background.js']},
+      permissions: ['tabGroups'],
+      optional_permissions: ['userScripts'],
+      browser_specific_settings: {
+        gecko: {id: 'permme@example.com', strict_min_version: '112.0'}
+      }
+    })
+  )
+
+  return root
+}
+
+const LOPSIDED_PNG =
+  'iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAAAAADRSSBWAAAAC0lEQVR4nGNgYAAAAAMAAbitOmMAAAAASUVORK5CYII='
+const TINY_PNG =
+  'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAAAAABX3VL4AAAAC0lEQVR4nGNgAAEAAAYAAf6MZ8gAAAAASUVORK5CYII='
+
+function unnamedFileProject() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-addon-lint-file-'))
+  roots.push(root)
+  fs.writeFileSync(
+    path.join(root, 'package.json'),
+    JSON.stringify({private: true, name: 'fileme', version: '0.0.0'})
+  )
+
+  fs.writeFileSync(path.join(root, 'background.js'), 'console.log("bg")\n')
+  fs.mkdirSync(path.join(root, 'icons'))
+  fs.writeFileSync(
+    path.join(root, 'icons', 'lopsided.png'),
+    Buffer.from(LOPSIDED_PNG, 'base64')
+  )
+
+  fs.writeFileSync(
+    path.join(root, 'icons', 'tiny.png'),
+    Buffer.from(TINY_PNG, 'base64')
+  )
+
+  fs.writeFileSync(path.join(root, 'icons', 'torn.png'), 'not an image')
+  fs.mkdirSync(path.join(root, '_locales', 'en'), {recursive: true})
+  fs.mkdirSync(path.join(root, '_locales', 'zz'))
+  fs.writeFileSync(
+    path.join(root, '_locales', 'en', 'messages.json'),
+    JSON.stringify({title: {message: 'fileme'}})
+  )
+
+  fs.writeFileSync(path.join(root, '_locales', 'zz', 'notes.txt'), 'later\n')
+  fs.writeFileSync(
+    path.join(root, 'manifest.json'),
+    JSON.stringify({
+      name: 'fileme',
+      version: '1.0.0',
+      manifest_version: 3,
+      default_locale: 'en',
+      background: {scripts: ['background.js']},
+      icons: {
+        16: 'icons/torn.png',
+        32: 'icons/tiny.png',
+        48: 'icons/lopsided.png'
+      },
+      browser_specific_settings: {gecko: {id: 'fileme@example.com'}}
+    })
+  )
+
+  return root
+}
+
 async function build(
   root: string,
   options: {
@@ -180,6 +292,85 @@ describe('addon lint after a production firefox build', () => {
     expect(
       script.match(/\bimport\(chrome\.runtime\.getURL\(/g) || []
     ).toHaveLength(imports.length)
+  }, 180_000)
+
+  it('names the key behind each minimum version finding', async () => {
+    const root = minVersionProject()
+    const {summary, output} = await build(root, {
+      browser: 'firefox',
+      mode: 'production'
+    })
+
+    expect(summary.errors_count).toBe(0)
+    expect(output).toMatch(
+      /AMO warning KEY_FIREFOX_UNSUPPORTED_BY_MIN_VERSION: "strict_min_version" requires Firefox 109, .* support for "sandbox"\. \(manifest\.json\)/
+    )
+
+    expect(output).toMatch(
+      /AMO warning KEY_FIREFOX_ANDROID_UNSUPPORTED_BY_MIN_VERSION: .* support for "sandbox\.pages"\./
+    )
+
+    expect(output).not.toContain(
+      'Manifest key not supported by the specified minimum'
+    )
+
+    const printed = output
+      .split('\n')
+      .filter((line) => line.includes('UNSUPPORTED_BY_MIN_VERSION'))
+
+    expect(new Set(printed).size).toBe(printed.length)
+  }, 180_000)
+
+  it('reports a permission the minimum version does not support', async () => {
+    const root = permissionMinVersionProject()
+    const {summary, output} = await build(root, {
+      browser: 'firefox',
+      mode: 'production'
+    })
+
+    expect(summary.errors_count).toBe(0)
+    expect(output).toContain(
+      'AMO warning PERMISSION_FIREFOX_UNSUPPORTED_BY_MIN_VERSION: "strict_min_version" requires Firefox 112, which was released before version 139 introduced support for "permissions:tabGroups". (manifest.json)'
+    )
+
+    expect(output).toMatch(
+      /AMO warning PERMISSION_FIREFOX_ANDROID_UNSUPPORTED_BY_MIN_VERSION: "strict_min_version" requires Firefox for Android 112, .* support for "permissions:tabGroups"\./
+    )
+
+    expect(output).toMatch(
+      /AMO warning PERMISSION_FIREFOX_UNSUPPORTED_BY_MIN_VERSION: .* support for "optional_permissions:userScripts"\./
+    )
+
+    expect(
+      (summary.warnings || []).some((line) =>
+        line.includes('"permissions:tabGroups"')
+      )
+    ).toBe(true)
+  }, 180_000)
+
+  it('names the file behind each icon and locale finding', async () => {
+    const root = unnamedFileProject()
+    const {summary, output} = await build(root, {
+      browser: 'firefox',
+      mode: 'production'
+    })
+
+    expect(summary.errors_count).toBe(0)
+    expect(output).toContain(
+      'AMO error ICON_NOT_SQUARE: Icon at "icons/lopsided.png" must be square. (manifest.json)'
+    )
+
+    expect(output).toContain(
+      'AMO warning ICON_SIZE_INVALID: Expected icon at "icons/tiny.png" to be 32 pixels wide but was 2. (manifest.json)'
+    )
+
+    expect(output).toContain(
+      'AMO warning CORRUPT_ICON_FILE: Expected icon file at "icons/torn.png" is corrupted (manifest.json)'
+    )
+
+    expect(output).toMatch(
+      /AMO error NO_MESSAGES_FILE_IN_LOCALES: messages\.json file missing in "_locales[\\/]zz" \(manifest\.json\)/
+    )
   }, 180_000)
 
   it('stays quiet when addonLint is off, in development mode, and for chromium', async () => {
