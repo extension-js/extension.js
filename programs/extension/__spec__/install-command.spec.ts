@@ -106,6 +106,29 @@ describe('extension install', () => {
     )
   })
 
+  it('tells the installer the browser was a default when none was named', async () => {
+    expect(await run(['install'])).toBe(0)
+    expect(extensionInstall).toHaveBeenCalledTimes(1)
+    expect(extensionInstall).toHaveBeenCalledWith(
+      expect.objectContaining({browser: 'chromium', defaulted: true})
+    )
+  })
+
+  it('tells the installer the browser was a choice when it was named', async () => {
+    expect(await run(['install', 'chromium'])).toBe(0)
+    expect(await run(['install', '--browser', 'firefox'])).toBe(0)
+    expect(extensionInstall).toHaveBeenCalledTimes(2)
+    expect(extensionInstall).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({browser: 'chromium', defaulted: false})
+    )
+
+    expect(extensionInstall).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({browser: 'firefox', defaulted: false})
+    )
+  })
+
   it('installs every browser in a comma-separated list', async () => {
     expect(await run(['install', '--browser', 'chrome,firefox'])).toBe(0)
     expect(extensionInstall).toHaveBeenCalledWith(

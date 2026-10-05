@@ -523,7 +523,7 @@ export function webkitUnsupportedKeysDropped(
   const count = dropped.length
   const lines: string[] = []
   lines.push(
-    `${prefix('warn')} Safari has no support for ${String(count)} manifest ${count === 1 ? 'key' : 'keys'} this build inherited from its Chromium manifest, so the ${colors.blue(browser)} build dropped ${count === 1 ? 'it' : 'them'}.`
+    `${prefix('warn')} Safari has no support for ${String(count)} manifest ${count === 1 ? 'key' : 'keys'} this project declares, so the ${colors.blue(browser)} build dropped ${count === 1 ? 'it' : 'them'}.`
   )
 
   for (const entry of dropped) {
