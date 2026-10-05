@@ -50,9 +50,16 @@ function exceptionText(value: unknown): string {
   return typeof initial === 'string' ? initial : ''
 }
 
+export class PageThrewError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'PageThrewError'
+  }
+}
+
 // Gecko answers a throwing expression with a result packet, not a protocol
 // error, so the exception fields are the only sign the evaluation failed.
-function evaluationFailure(reply: unknown): Error | undefined {
+function evaluationFailure(reply: unknown): PageThrewError | undefined {
   if (!reply || typeof reply !== 'object') return undefined
 
   const r = reply as EvaluationReply
@@ -65,15 +72,17 @@ function evaluationFailure(reply: unknown): Error | undefined {
 
   if (!threw) return undefined
 
-  return new Error(message || 'The expression threw inside the page')
+  return new PageThrewError(message || 'The expression threw inside the page')
 }
 
 function buildEvaluationPayload(
   tabId: string,
   expression: string,
-  type: EvaluationType
+  type: EvaluationType,
+  extra?: Record<string, unknown>
 ): Record<string, unknown> {
   const payload: Record<string, unknown> = {
+    ...extra,
     to: tabId,
     type,
     text: expression
@@ -115,10 +124,13 @@ async function requestEvaluation(
   client: RdpClientLike,
   tabId: string,
   expression: string,
-  type: EvaluationType
+  type: EvaluationType,
+  extra?: Record<string, unknown>
 ): Promise<unknown> {
   if (type !== 'evaluateJSAsync') {
-    return await client.request(buildEvaluationPayload(tabId, expression, type))
+    return await client.request(
+      buildEvaluationPayload(tabId, expression, type, extra)
+    )
   }
 
   let expectedResultId = ''
@@ -173,7 +185,7 @@ async function requestEvaluation(
 
   try {
     const response = (await client.request(
-      buildEvaluationPayload(tabId, expression, type)
+      buildEvaluationPayload(tabId, expression, type, extra)
     )) as {resultID?: unknown; type?: unknown}
 
     if (response?.type === 'evaluationResult') {
@@ -216,7 +228,8 @@ async function requestEvaluation(
 export async function evaluate(
   client: RdpClientLike,
   tabId: string,
-  expression: string
+  expression: string,
+  extra?: Record<string, unknown>
 ) {
   let lastError: unknown = null
 
@@ -224,7 +237,7 @@ export async function evaluate(
     let response: unknown
 
     try {
-      response = await requestEvaluation(client, tabId, expression, type)
+      response = await requestEvaluation(client, tabId, expression, type, extra)
     } catch (err) {
       lastError = err
 

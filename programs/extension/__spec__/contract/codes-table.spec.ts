@@ -298,7 +298,8 @@ describe('a summary names the causes its code covers', () => {
     ['E_BROWSER_BINARY_INVALID', /not executable/, /does not exist/],
     ['E_BROWSER_BINARY_INVALID', /version probe/, /within 10 seconds/],
     ['E_REMOTE_DOWNLOAD', /downloaded/, /written/],
-    ['E_CONFIG_LOAD', /threw/, /not export an object/]
+    ['E_CONFIG_LOAD', /threw/, /not export an object/],
+    ['E_CSP_BLOCKS_EVAL', /extension's own/, /page's own/]
   ])('%s', (code, first, second) => {
     const summary = table.codes[code]?.summary ?? ''
 
@@ -378,6 +379,7 @@ describe('the golden envelope fixtures', () => {
     expect(fixtures).toContain('golden.eval.eval.json')
     expect(fixtures).toContain('golden.open.headed-window-required.json')
     expect(fixtures).toContain('golden.eval.target-not-found.json')
+    expect(fixtures).toContain('golden.eval.csp-blocks-eval.page.json')
   })
 
   it.each(fixtures)('%s validates against envelope.schema.json', (name) => {
@@ -410,6 +412,9 @@ describe('the golden envelope fixtures', () => {
           .replace(/^E_/, '')
           .toLowerCase()
           .replace(/_/g, '-')
-    expect(name).toBe(`golden.${frame.command}.${slug}.json`)
+    expect(name).toMatch(/^golden\.[a-z]+\.[a-z0-9-]+(\.[a-z0-9-]+)?\.json$/)
+    expect(name.split('.').slice(0, 3).join('.')).toBe(
+      `golden.${frame.command}.${slug}`
+    )
   })
 })

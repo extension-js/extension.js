@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "ok": false,
+  "command": "eval",
+  "status": "denied",
+  "value": null,
+  "error": {
+    "code": "E_CSP_BLOCKS_EVAL",
+    "message": "call to eval() blocked by CSP",
+    "name": "EvalError",
+    "engine": "firefox",
+    "hint": "The page's own Content-Security-Policy forbids eval, so the in-page executor runs no expression in this tab. The extension's policy is not involved. Read the page with extension inspect --context page --tab <id>. Firefox evaluates such a page through its debugger instead when exactly one open tab is on that url, so close the duplicate tab and run it again."
+  },
+  "warnings": []
+}
