@@ -15,6 +15,7 @@ import {
 } from '../browsers/browsers-lib/browser-family'
 import {
   evaluateExtensionDocument,
+  evaluateTabDocument,
   extensionDocumentPagePath,
   isExtensionDocumentContext
 } from '../browsers/run-firefox/rdp/evaluate-extension-document'
@@ -220,6 +221,30 @@ const CSP_BLOCKS_EVAL_HINT =
   'with extension inspect --context <context>, or evaluate in a web page ' +
   'with extension eval --context page --tab <id>.'
 
+// In a tab the refusal has another owner: the site's policy for the page
+// world, the extension's for the content-script world.
+const CSP_BLOCKS_EVAL_HINT_PAGE =
+  "The page's own Content-Security-Policy forbids eval, so the in-page " +
+  "executor runs no expression in this tab. The extension's policy is not " +
+  'involved. Read the page with extension inspect --context page --tab <id>.'
+const CSP_BLOCKS_EVAL_HINT_PAGE_GECKO =
+  ' Firefox evaluates such a page through its debugger instead when exactly ' +
+  'one open tab is on that url, so close the duplicate tab and run it again.'
+const CSP_BLOCKS_EVAL_HINT_CONTENT =
+  "The extension's own content_security_policy forbids eval in the " +
+  'content-script world of every tab, 1 + 1 included. Evaluate in the ' +
+  "page's own world with extension eval --context page --tab <id>, or read " +
+  'the DOM with extension inspect --context content --tab <id>.'
+
+export function cspBlocksEvalHint(context: string, browser: string): string {
+  if (context === 'content') return CSP_BLOCKS_EVAL_HINT_CONTENT
+  if (context !== 'page') return CSP_BLOCKS_EVAL_HINT
+
+  return isFirefoxBrowser(browser)
+    ? CSP_BLOCKS_EVAL_HINT_PAGE + CSP_BLOCKS_EVAL_HINT_PAGE_GECKO
+    : CSP_BLOCKS_EVAL_HINT_PAGE
+}
+
 // The engine's own sentence ("Illegal URL", "JavaScript URLs are not
 // allowed") does not say which urls are legal, so the CLI does, per engine.
 const URL_REFUSED_HINT_GECKO =
@@ -252,10 +277,14 @@ const GECKO_IDLE_EVENT_PAGE_HINT =
   'page has nothing to evaluate in. Wake the extension first, by opening one ' +
   'of its surfaces or triggering one of its listeners, then evaluate again.'
 
+// Every other name on a failed eval is the class of what the expression threw.
+const BRIDGE_FAULT_NAMES = new Set(['ExecutorError', 'TabsError'])
+
 function codeForBridgeError(
   name: string,
   message: string,
-  refusal?: string
+  refusal?: string,
+  command?: string
 ): ErrorCode {
   if (refusal && refusal in REFUSAL_TO_CODE) return REFUSAL_TO_CODE[refusal]
   if (name === 'Timeout') return CODES.E_TIMEOUT
@@ -294,6 +323,7 @@ function codeForBridgeError(
   if (name === 'EvalError') return CODES.E_EVAL
   if (name === 'InspectError') return CODES.E_INSPECT
   if (name === 'StorageError') return CODES.E_STORAGE
+  if (command === 'eval' && !BRIDGE_FAULT_NAMES.has(name)) return CODES.E_EVAL
 
   return CODES.E_INTERNAL
 }
@@ -325,8 +355,9 @@ export function buildActEnvelope(
   command: string,
   result: ActResultLike
 ): Record<string, unknown> {
-  const {ok, value, truncated, error, ...extras} = result as ActResultLike &
-    Record<string, unknown>
+  // type and cmdId belong to the bridge's own result frame, not to the caller.
+  const {ok, value, truncated, error, type, cmdId, ...extras} =
+    result as ActResultLike & Record<string, unknown>
   const wasTruncated = truncated === true
 
   // Extras go first so the envelope owns its own keys while a bridge-supplied
@@ -343,7 +374,13 @@ export function buildActEnvelope(
   const message =
     typeof raw.message === 'string' ? raw.message : 'command failed'
   const refusal = typeof raw.code === 'string' ? raw.code : undefined
-  const code = codeForBridgeError(name, message, refusal)
+  // A frame with no name at all is malformed, not something a guest threw.
+  const code = codeForBridgeError(
+    name,
+    message,
+    refusal,
+    typeof raw.name === 'string' ? command : undefined
+  )
   // The bridge error shape carries no hint, so the CLI mints the one the
   // shipped golden documents for a guest throw.
   const hint =
@@ -702,6 +739,78 @@ async function geckoProtocolEval(
   })
 }
 
+interface BridgeTab {
+  id?: unknown
+  url?: unknown
+  active?: unknown
+}
+
+// The same choice the bridge makes for a tab target: the id, else the url
+// (whole, then as a substring), else the one active tab.
+export function pickTargetTabUrl(
+  tabs: readonly BridgeTab[],
+  target: {tabId?: number; url?: string}
+): string | undefined {
+  const withUrl = tabs.filter(
+    (tab): tab is BridgeTab & {url: string} =>
+      typeof tab.url === 'string' && tab.url.length > 0
+  )
+
+  if (typeof target.tabId === 'number') {
+    return withUrl.find((tab) => tab.id === target.tabId)?.url
+  }
+
+  if (target.url) {
+    const wanted = target.url
+
+    return (
+      withUrl.find((tab) => tab.url === wanted) ??
+      withUrl.find((tab) => tab.url.includes(wanted))
+    )?.url
+  }
+
+  const active = withUrl.filter((tab) => tab.active === true)
+
+  return active.length === 1 ? active[0].url : undefined
+}
+
+// A page whose own policy forbids eval refuses the in-page executor, and the
+// tab's console actor sits outside that policy the way a devtools console does.
+async function geckoProtocolPageEval(
+  bridge: AnyDevelopModule,
+  projectPath: string,
+  browser: string,
+  listTabs: () => Promise<ActResultLike>,
+  target: {tabId?: number; url?: string},
+  expression: string,
+  timeoutMs: number
+): Promise<ActResultLike | undefined> {
+  const ready = bridge.readReadyContractDocument(projectPath, browser) as
+    | {rdpPort?: unknown}
+    | null
+    | undefined
+  const rdpPort = typeof ready?.rdpPort === 'number' ? ready.rdpPort : 0
+
+  if (!rdpPort) return undefined
+
+  let tabs: ActResultLike
+
+  try {
+    tabs = await listTabs()
+  } catch {
+    return undefined
+  }
+
+  const url = pickTargetTabUrl(
+    tabs?.ok && Array.isArray(tabs.value) ? tabs.value : [],
+    target
+  )
+
+  if (!url) return undefined
+
+  return await evaluateTabDocument({rdpPort, url, expression, timeoutMs})
+}
+
 async function runCommand(input: RunInput): Promise<void> {
   const bridge = await loadExtensionDevelopBridgeModule()
   const projectPath = resolveSessionProjectPath(bridge, input.projectPathArg)
@@ -818,33 +927,68 @@ async function runCommand(input: RunInput): Promise<void> {
         ? CODES.E_TIMEOUT
         : CODES.E_CONTROL_UNAVAILABLE
     })
+  }
+
+  const geckoEvalFailed =
+    input.op === 'eval' && result?.ok !== true && isFirefoxBrowser(browser)
+
+  try {
+    if (
+      geckoEvalFailed &&
+      isExtensionDocumentContext(input.target.context) &&
+      (bridgeBlamedTheExtensionCsp(result) || bridgeHadNoExecutor(result))
+    ) {
+      const overProtocol = await geckoProtocolEval(
+        bridge,
+        projectPath,
+        browser,
+        input.target.context,
+        String(input.args?.expression ?? ''),
+        timeoutMs
+      )
+
+      if (overProtocol) {
+        result = overProtocol
+      } else if (bridgeHadNoExecutor(result)) {
+        // The protocol route needs rdpPort and extensionId on the contract. With
+        // neither, say what an absent executor usually means on this engine.
+        const raw = (result?.error || {}) as Record<string, unknown>
+        if (typeof raw.hint !== 'string') raw.hint = GECKO_IDLE_EVENT_PAGE_HINT
+      }
+    } else if (
+      geckoEvalFailed &&
+      input.target.context === 'page' &&
+      bridgeBlamedTheExtensionCsp(result)
+    ) {
+      const overProtocol = await geckoProtocolPageEval(
+        bridge,
+        projectPath,
+        browser,
+        () =>
+          controller.command({
+            op: 'tabs.query',
+            target: {context: 'background'},
+            args: {},
+            timeoutMs
+          }),
+        input.target,
+        String(input.args?.expression ?? ''),
+        timeoutMs
+      )
+
+      if (overProtocol) result = overProtocol
+    }
   } finally {
     controller.close()
   }
 
-  if (
-    input.op === 'eval' &&
-    result?.ok !== true &&
-    isFirefoxBrowser(browser) &&
-    isExtensionDocumentContext(input.target.context) &&
-    (bridgeBlamedTheExtensionCsp(result) || bridgeHadNoExecutor(result))
-  ) {
-    const overProtocol = await geckoProtocolEval(
-      bridge,
-      projectPath,
-      browser,
-      input.target.context,
-      String(input.args?.expression ?? ''),
-      timeoutMs
-    )
+  // One code covers three owners of the refusal, so the hint is chosen by the
+  // context the caller named.
+  if (input.op === 'eval' && bridgeBlamedTheExtensionCsp(result)) {
+    const raw = (result?.error || {}) as Record<string, unknown>
 
-    if (overProtocol) {
-      result = overProtocol
-    } else if (bridgeHadNoExecutor(result)) {
-      // The protocol route needs rdpPort and extensionId on the contract. With
-      // neither, say what an absent executor usually means on this engine.
-      const raw = (result?.error || {}) as Record<string, unknown>
-      if (typeof raw.hint !== 'string') raw.hint = GECKO_IDLE_EVENT_PAGE_HINT
+    if (typeof raw.hint !== 'string') {
+      raw.hint = cspBlocksEvalHint(input.target.context, browser)
     }
   }
 

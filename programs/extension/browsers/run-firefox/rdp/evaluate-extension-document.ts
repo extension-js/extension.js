@@ -6,12 +6,17 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝      ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import {PageThrewError} from './remote-firefox/evaluate'
 import {MessagingClient} from './remote-firefox/messaging-client'
 
 const RESULT_SLOT = '__extjsRdpEval'
 const FRAME_POLL_INTERVAL_MS = 100
 const RESULT_POLL_INTERVAL_MS = 50
 const FRAME_WAIT_MS = 2000
+// The control bridge caps a result at this size and answers the same shape,
+// so one command reads the same whichever route carried it.
+const MAX_RESULT_BYTES = 256 * 1024
+const TRUNCATED_PREVIEW_CHARS = 1024
 
 export const EXTENSION_DOCUMENT_CONTEXTS = [
   'background',
@@ -39,13 +44,22 @@ export interface RdpDocumentFrame {
   isFallbackExtensionDocument?: unknown
 }
 
+export interface RdpTabDescriptor {
+  actor?: unknown
+  url?: unknown
+}
+
 export type RdpEvalOutcome =
-  | {ok: true; value: unknown}
+  | {ok: true; value: unknown; truncated?: true}
   | {ok: false; error: {name: string; message: string; engine: 'firefox'}}
 
 interface EvaluatingClient {
   request: (payload: Record<string, unknown>) => Promise<unknown>
-  evaluate: (consoleActor: string, expression: string) => Promise<unknown>
+  evaluate: (
+    consoleActor: string,
+    expression: string,
+    extra?: Record<string, unknown>
+  ) => Promise<unknown>
   on: (event: string, listener: (message: unknown) => void) => unknown
   off?: (event: string, listener: (message: unknown) => void) => unknown
   removeListener?: (
@@ -145,17 +159,27 @@ export function startExpression(expression: string): string {
   globalThis.${RESULT_SLOT} = slot;
   function settle(next) { if (globalThis.${RESULT_SLOT} === slot) globalThis.${RESULT_SLOT} = next; }
   function encode(value) {
-    if (value === undefined) return {state: "value"};
-    try { return {state: "value", json: JSON.stringify(value)}; }
-    catch (error) { return {state: "value", json: JSON.stringify(String(value))}; }
+    var json;
+    try { json = JSON.stringify(value); }
+    catch (error) { json = JSON.stringify(String(value)); }
+    if (json === undefined) return {state: "value"};
+    if (json.length > ${MAX_RESULT_BYTES}) {
+      return {state: "value", truncated: true, json: JSON.stringify({__type: "truncated", preview: json.slice(0, ${TRUNCATED_PREVIEW_CHARS})})};
+    }
+    return {state: "value", json: json};
+  }
+  function thrown(error) {
+    var message = (error && error.message) || String(error);
+    var name = error && typeof error.name === "string" ? error.name : "";
+    return {state: "throw", message: name && message.indexOf(name + ":") !== 0 ? name + ": " + message : message};
   }
   try {
     Promise.resolve((${expression})).then(
       function (value) { settle(encode(value)); },
-      function (error) { settle({state: "throw", message: (error && error.message) || String(error)}); }
+      function (error) { settle(thrown(error)); }
     );
   } catch (error) {
-    settle({state: "throw", message: (error && error.message) || String(error)});
+    settle(thrown(error));
   }
   return "started";
 })()`
@@ -167,10 +191,21 @@ export const POLL_EXPRESSION = `(function () {
   return JSON.stringify(slot);
 })()`
 
+// A console actor compiles source text itself, outside the document's policy.
+// The block keeps let and const out of the global scope, so an input runs twice.
+export function statementBlock(source: string): string {
+  return `{\n${source}\n}`
+}
+
 export function readSettledSlot(raw: unknown): RdpEvalOutcome | undefined {
   if (typeof raw !== 'string') return undefined
 
-  let slot: {state?: unknown; json?: unknown; message?: unknown} | null
+  let slot: {
+    state?: unknown
+    json?: unknown
+    message?: unknown
+    truncated?: unknown
+  } | null
 
   try {
     slot = JSON.parse(raw)
@@ -198,11 +233,103 @@ export function readSettledSlot(raw: unknown): RdpEvalOutcome | undefined {
   if (slot.state !== 'value') return undefined
   if (typeof slot.json !== 'string') return {ok: true, value: undefined}
 
+  let value: unknown = slot.json
+
   try {
-    return {ok: true, value: JSON.parse(slot.json)}
+    value = JSON.parse(slot.json)
   } catch {
-    return {ok: true, value: slot.json}
+    // Ignore
   }
+
+  return slot.truncated === true
+    ? {ok: true, value, truncated: true}
+    : {ok: true, value}
+}
+
+// Firefox answers a string past 10,000 characters as a longString grip that
+// holds only its head, and the rest is read from the grip's own actor.
+export async function readWholeString(
+  client: Pick<EvaluatingClient, 'request'>,
+  value: unknown,
+  limit = Number.POSITIVE_INFINITY
+): Promise<unknown> {
+  const grip = value as {type?: unknown; actor?: unknown; length?: unknown}
+
+  if (!grip || typeof grip !== 'object' || grip.type !== 'longString') {
+    return value
+  }
+
+  const length = typeof grip.length === 'number' ? grip.length : 0
+  const reply = (await client.request({
+    to: String(grip.actor),
+    type: 'substring',
+    start: 0,
+    end: Math.min(length, limit)
+  })) as {substring?: unknown}
+
+  if (typeof reply?.substring !== 'string') {
+    throw new Error(
+      `Firefox holds a ${length}-character result as a long string and did not hand it over`
+    )
+  }
+
+  return reply.substring
+}
+
+function capped(value: unknown): RdpEvalOutcome {
+  const json = JSON.stringify(value)
+
+  if (json !== undefined && json.length > MAX_RESULT_BYTES) {
+    return {
+      ok: true,
+      truncated: true,
+      value: {
+        __type: 'truncated',
+        preview: json.slice(0, TRUNCATED_PREVIEW_CHARS)
+      }
+    }
+  }
+
+  return {ok: true, value}
+}
+
+// Each grip reads as what JSON.stringify makes of that value inside the
+// document, so a statement list answers what the same expression would.
+export function readCompletionValue(
+  grip: unknown
+): RdpEvalOutcome | {objectActor: string} {
+  if (grip === null || typeof grip !== 'object') return capped(grip)
+
+  const {type, actor, text} = grip as {
+    type?: unknown
+    actor?: unknown
+    text?: unknown
+  }
+
+  if (type === 'object' && typeof actor === 'string') {
+    return {objectActor: actor}
+  }
+
+  if (type === 'undefined' || type === 'symbol') {
+    return {ok: true, value: undefined}
+  }
+
+  if (type === 'BigInt') return {ok: true, value: String(text)}
+  if (type === '-0') return {ok: true, value: 0}
+
+  if (
+    type === 'null' ||
+    type === 'NaN' ||
+    type === 'Infinity' ||
+    type === '-Infinity'
+  ) {
+    return {ok: true, value: null}
+  }
+
+  return refuse(
+    'Unsupported',
+    `Firefox answered a value of the kind "${String(type)}", which this route cannot read back. Wrap the statements in a function that returns the value`
+  )
 }
 
 const sleep = (ms: number) =>
@@ -246,6 +373,84 @@ async function locateAddonWatcher(
   }
 
   return {watcherActor: watcher.actor}
+}
+
+async function evaluateStatements(
+  client: EvaluatingClient,
+  consoleActor: string,
+  source: string
+): Promise<RdpEvalOutcome | {objectActor: string}> {
+  let completion: unknown
+
+  try {
+    completion = await client.evaluate(consoleActor, statementBlock(source))
+  } catch (error) {
+    if (!(error instanceof PageThrewError)) throw error
+
+    return refuse('EvalError', error.message)
+  }
+
+  return readCompletionValue(
+    await readWholeString(client, completion, MAX_RESULT_BYTES + 1)
+  )
+}
+
+export async function evaluateInConsole(options: {
+  client: EvaluatingClient
+  consoleActor: string
+  expression: string
+  timeoutMs: number
+  where: string
+}): Promise<RdpEvalOutcome> {
+  const {client, consoleActor, expression, timeoutMs, where} = options
+
+  try {
+    await client.evaluate(consoleActor, startExpression(expression))
+  } catch (error) {
+    if (!(error instanceof PageThrewError)) throw error
+
+    // The wrapper catches whatever the input throws, so it fails to parse
+    // only when the input is not one expression, before any of it has run.
+    if (!/^SyntaxError\b/.test(error.message)) {
+      return refuse('EvalError', error.message)
+    }
+
+    const completion = await evaluateStatements(
+      client,
+      consoleActor,
+      expression
+    )
+
+    if ('ok' in completion) return completion
+
+    // An object stays in the document as a grip. Binding it as _self lets the
+    // same wrapper serialize it there and await it when it is a promise.
+    await client.evaluate(consoleActor, startExpression('_self'), {
+      selectedObjectActor: completion.objectActor
+    })
+  }
+
+  const deadline = Date.now() + timeoutMs
+
+  for (;;) {
+    const settled = readSettledSlot(
+      await readWholeString(
+        client,
+        await client.evaluate(consoleActor, POLL_EXPRESSION)
+      )
+    )
+
+    if (settled) return settled
+
+    if (Date.now() >= deadline) {
+      return refuse(
+        'Timeout',
+        `the expression did not settle in ${where} within ${timeoutMs}ms`
+      )
+    }
+
+    await sleep(RESULT_POLL_INTERVAL_MS)
+  }
 }
 
 export async function evaluateThroughWatcher(options: {
@@ -301,26 +506,13 @@ export async function evaluateThroughWatcher(options: {
       )
     }
 
-    await client.evaluate(consoleActor, startExpression(expression))
-
-    const resultDeadline = Date.now() + timeoutMs
-
-    for (;;) {
-      const settled = readSettledSlot(
-        await client.evaluate(consoleActor, POLL_EXPRESSION)
-      )
-
-      if (settled) return settled
-
-      if (Date.now() >= resultDeadline) {
-        return refuse(
-          'Timeout',
-          `the expression did not settle in the ${context} document within ${timeoutMs}ms`
-        )
-      }
-
-      await sleep(RESULT_POLL_INTERVAL_MS)
-    }
+    return await evaluateInConsole({
+      client,
+      consoleActor,
+      expression,
+      timeoutMs,
+      where: `the ${context} document`
+    })
   } finally {
     stopListening()
     // Firefox sends no reply to unwatchTargets, so awaiting it burns the
@@ -359,29 +551,22 @@ function connectWithin(
   })
 }
 
-export async function evaluateExtensionDocument(options: {
-  rdpPort: number
-  extensionId: string
-  context: string
-  pagePath?: string
-  expression: string
-  timeoutMs: number
-}): Promise<RdpEvalOutcome> {
+async function withDebugger<Outcome>(
+  rdpPort: number,
+  timeoutMs: number,
+  run: (client: EvaluatingClient) => Promise<Outcome>
+): Promise<Outcome | RdpEvalOutcome> {
   const client = new MessagingClient()
 
   try {
-    const connected = await connectWithin(
-      client,
-      options.rdpPort,
-      options.timeoutMs
-    )
+    const connected = await connectWithin(client, rdpPort, timeoutMs)
 
     if (connected === 'timeout') {
       client.disconnect()
 
       return refuse(
         'Timeout',
-        `the Firefox debugger on port ${options.rdpPort} sent no RDP greeting within ${options.timeoutMs}ms`
+        `the Firefox debugger on port ${rdpPort} sent no RDP greeting within ${timeoutMs}ms`
       )
     }
   } catch (error) {
@@ -389,17 +574,14 @@ export async function evaluateExtensionDocument(options: {
 
     return refuse(
       'Unavailable',
-      `could not reach the Firefox debugger on port ${options.rdpPort}: ${
+      `could not reach the Firefox debugger on port ${rdpPort}: ${
         (error as Error | undefined)?.message || 'connection refused'
       }`
     )
   }
 
   try {
-    return await evaluateThroughWatcher({
-      ...options,
-      client: client as unknown as EvaluatingClient
-    })
+    return await run(client as unknown as EvaluatingClient)
   } catch (error) {
     return refuse(
       'Unavailable',
@@ -409,4 +591,84 @@ export async function evaluateExtensionDocument(options: {
   } finally {
     client.disconnect()
   }
+}
+
+export async function evaluateExtensionDocument(options: {
+  rdpPort: number
+  extensionId: string
+  context: string
+  pagePath?: string
+  expression: string
+  timeoutMs: number
+}): Promise<RdpEvalOutcome> {
+  return await withDebugger(options.rdpPort, options.timeoutMs, (client) =>
+    evaluateThroughWatcher({...options, client})
+  )
+}
+
+// Two tabs on one url cannot be told apart from here, and a guess would
+// answer from a document the caller did not name.
+export function pickTabDescriptor(
+  tabs: readonly RdpTabDescriptor[],
+  url: string
+): string | undefined {
+  const matches = tabs.filter(
+    (tab) => typeof tab.actor === 'string' && tab.actor && tab.url === url
+  )
+
+  return matches.length === 1 ? String(matches[0].actor) : undefined
+}
+
+export async function evaluateThroughTab(options: {
+  client: EvaluatingClient
+  url: string
+  expression: string
+  timeoutMs: number
+}): Promise<RdpEvalOutcome | undefined> {
+  const {client, url, expression, timeoutMs} = options
+  const listed = (await client.request({to: 'root', type: 'listTabs'})) as {
+    tabs?: RdpTabDescriptor[]
+  }
+  const descriptor = pickTabDescriptor(listed?.tabs || [], url)
+
+  if (!descriptor) return undefined
+
+  const target = (await client.request({
+    to: descriptor,
+    type: 'getTarget'
+  })) as {
+    frame?: {consoleActor?: unknown}
+  }
+  const consoleActor = target?.frame?.consoleActor
+
+  if (typeof consoleActor !== 'string' || !consoleActor) return undefined
+
+  return await evaluateInConsole({
+    client,
+    consoleActor,
+    expression,
+    timeoutMs,
+    where: 'the page'
+  })
+}
+
+// Answers nothing when the debugger or the tab cannot be reached, so the
+// caller keeps the page's own refusal, which is the truer account.
+export async function evaluateTabDocument(options: {
+  rdpPort: number
+  url: string
+  expression: string
+  timeoutMs: number
+}): Promise<RdpEvalOutcome | undefined> {
+  const outcome = await withDebugger(
+    options.rdpPort,
+    options.timeoutMs,
+    (client) => evaluateThroughTab({...options, client})
+  )
+
+  if (outcome && !outcome.ok && outcome.error.name === 'Unavailable') {
+    return undefined
+  }
+
+  return outcome
 }

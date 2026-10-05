@@ -137,7 +137,11 @@ export class MessagingClient extends EventEmitter {
     }
   }
 
-  async evaluate(tabId: string, expression: string) {
-    return evalHelper(this, tabId, expression)
+  async evaluate(
+    tabId: string,
+    expression: string,
+    extra?: Record<string, unknown>
+  ) {
+    return evalHelper(this, tabId, expression, extra)
   }
 }
