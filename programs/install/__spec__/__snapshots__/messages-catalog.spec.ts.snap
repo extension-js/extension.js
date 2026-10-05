@@ -8,7 +8,7 @@ exports[`install message catalogs > matches the exported message surface 1`] = `
     "installFailed: function(4)",
     "installIncomplete: function(3)",
     "installSucceeded: function(2)",
-    "installingBrowser: function(2)",
+    "installingBrowser: function(3)",
     "uninstallNoop: function(2)",
     "uninstallRequiresTarget: function(0)",
     "uninstallSucceeded: function(2)",

@@ -1,5 +1,8 @@
 import {describe, expect, it} from 'vitest'
-import {dropWebkitUnsupportedKeys} from '../filter-keys-safari'
+import {
+  dropWebkitUnsupportedKeys,
+  omitWebkitDroppedEntries
+} from '../filter-keys-safari'
 import {buildCanonicalManifest, filterKeysForThisBrowser} from '../manifest'
 
 describe('filterKeysForThisBrowser (manifest-lib), Safari', () => {
@@ -112,6 +115,17 @@ describe('dropWebkitUnsupportedKeys', () => {
     expect(manifest).not.toHaveProperty('side_panel')
     expect(dropped).toEqual([
       {path: 'side_panel', reason: 'Safari has no side panel surface'}
+    ])
+  })
+
+  it('drops sidebar_action, the other key of the sidebar pair', () => {
+    const {manifest, dropped} = drop({
+      name: 'x',
+      sidebar_action: {default_panel: 'sidebar/index.html'}
+    })
+    expect(manifest).not.toHaveProperty('sidebar_action')
+    expect(dropped).toEqual([
+      {path: 'sidebar_action', reason: 'Safari has no sidebar surface'}
     ])
   })
 
@@ -284,6 +298,44 @@ describe('dropWebkitUnsupportedKeys', () => {
     expect(source.side_panel).toEqual({default_path: 'p.html'})
     expect(source.permissions).toEqual(['sidePanel', 'storage'])
     expect(source.options_ui).toEqual({page: 'o.html', open_in_tab: true})
+  })
+})
+
+describe('omitWebkitDroppedEntries', () => {
+  const entries = {
+    'action/index': '/p/popup.html',
+    'options/index': '/p/options.html',
+    'sandbox/page-0': '/p/sbx.html',
+    'sidebar_action/index': '/p/side.html',
+    sidebar_action: '/p/side.png',
+    'user_scripts/api_script': '/p/api.js'
+  }
+
+  it('removes every entry a dropped top-level key owns', () => {
+    const {dropped} = dropWebkitUnsupportedKeys(
+      {
+        name: 'x',
+        sandbox: {pages: ['sbx.html']},
+        sidebar_action: {default_panel: 'side.html'},
+        user_scripts: {api_script: 'api.js'},
+        options_ui: {page: 'options.html', open_in_tab: true}
+      } as any,
+      'safari'
+    )
+
+    expect(omitWebkitDroppedEntries(entries, dropped)).toEqual({
+      'action/index': '/p/popup.html',
+      'options/index': '/p/options.html'
+    })
+  })
+
+  it('returns the entries untouched when nothing was dropped', () => {
+    const {dropped} = dropWebkitUnsupportedKeys(
+      {name: 'x', sandbox: {pages: ['sbx.html']}} as any,
+      'chrome'
+    )
+
+    expect(omitWebkitDroppedEntries(entries, dropped)).toBe(entries)
   })
 })
 
