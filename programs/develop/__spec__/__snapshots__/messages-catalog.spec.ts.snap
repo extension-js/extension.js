@@ -176,6 +176,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "assetsConfigsDetected: function(5)",
     "assetsEmittedSummary: function(2)",
     "assetsRulesEnabled: function(1)",
+    "namespaceImportReadAsValue: function(2)",
   ],
   "plugin-web-extension/feature-html/html-lib/messages.ts": [
     "cssError: function(3)",
