@@ -79,18 +79,15 @@
     },
     "E_OPTIONAL_DEP_UNRESOLVED": {
       "area": "project",
-      "summary": "An optional dependency contract could not be resolved.",
-      "reserved": true
+      "summary": "An optional dependency contract could not be resolved."
     },
     "E_OPTIONAL_DEP_LOAD": {
       "area": "project",
-      "summary": "An optional dependency resolved but failed to load.",
-      "reserved": true
+      "summary": "An optional dependency resolved but failed to load."
     },
     "E_OPTIONAL_DEP_UNKNOWN": {
       "area": "project",
-      "summary": "Unknown optional-dependency contract id.",
-      "reserved": true
+      "summary": "Unknown optional-dependency contract id."
     },
     "E_COMPANION_EXTENSION_PATH": {
       "area": "project",
@@ -250,8 +247,7 @@
     },
     "E_PROJECT_DOWNLOAD_EMPTY": {
       "area": "remote",
-      "summary": "Download succeeded but the extracted folder is absent.",
-      "reserved": true
+      "summary": "Download succeeded but the extracted folder is absent."
     },
     "E_NETWORK": {
       "area": "remote",
