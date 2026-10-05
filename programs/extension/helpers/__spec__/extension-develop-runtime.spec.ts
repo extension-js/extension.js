@@ -2,8 +2,11 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
+import {internalErrorEnvelope} from '../cli-failure'
 import {
+  loadExtensionDevelopBridgeModule,
   loadExtensionDevelopModule,
+  loadExtensionDevelopPreviewModule,
   resolveExtensionDevelopRoot,
   resolveExtensionDevelopVersion
 } from '../extension-develop-runtime'
@@ -136,5 +139,32 @@ describe('extension-develop runtime resolution', () => {
     await expect(loadExtensionDevelopModule(startDir)).rejects.toThrow(
       /Run `pnpm --filter extension-develop compile`/
     )
+  })
+
+  it.each([
+    ['the full module', loadExtensionDevelopModule],
+    ['the preview entry', loadExtensionDevelopPreviewModule],
+    ['the bridge entry', loadExtensionDevelopBridgeModule]
+  ])('codes an unbuilt workspace runtime as E_RUNTIME_NOT_FOUND for %s', async (_entry, load) => {
+    const root = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'extjs-develop-runtime-coded-')
+    )
+    const startDir = path.join(root, 'programs', 'cli', 'dist')
+
+    writeJson(path.join(root, 'programs', 'develop', 'package.json'), {
+      name: 'extension-develop',
+      version: '9.9.9'
+    })
+
+    fs.mkdirSync(startDir, {recursive: true})
+
+    const error = await load(startDir).catch((caught: unknown) => caught)
+
+    expect(error).toMatchObject({code: 'E_RUNTIME_NOT_FOUND'})
+    expect(internalErrorEnvelope(error, 'build')).toMatchObject({
+      ok: false,
+      status: 'failed',
+      error: {code: 'E_RUNTIME_NOT_FOUND'}
+    })
   })
 })

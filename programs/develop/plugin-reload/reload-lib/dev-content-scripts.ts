@@ -63,6 +63,14 @@ export function devContentScriptCssMarkerAssetName(index: number): string {
   return `content_scripts/dev-css-${index}.js`
 }
 
+const DEV_CONTENT_SCRIPT_STAND_IN_ASSET =
+  /^content_scripts\/dev-(?:stub|css)-\d+\.js$/
+
+// True for the per-entry files this plan emits: a stub or a CSS marker.
+export function isDevContentScriptStandInAsset(assetName: string): boolean {
+  return DEV_CONTENT_SCRIPT_STAND_IN_ASSET.test(assetName)
+}
+
 const HASHED_CONTENT_SCRIPT_ASSET =
   /^content_scripts\/content-(\d+)(?:\.[a-f0-9]+)?\.js$/i
 

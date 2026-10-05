@@ -1,4 +1,6 @@
+import fs from 'node:fs'
 import {afterEach, describe, expect, it, vi} from 'vitest'
+import {CODES} from '../messaging'
 import {
   detectBunVersion,
   detectDenoVersion,
@@ -8,6 +10,7 @@ import {
   isSupportedNodeVersion,
   unsupportedBunVersionMessage,
   unsupportedDenoVersionMessage,
+  unsupportedNodeVersionFrame,
   unsupportedNodeVersionMessage
 } from '../node-version-guard'
 
@@ -108,6 +111,78 @@ describe('enforceSupportedNodeVersion', () => {
     expect(message).toContain('22.12')
     expect(message).toContain('20.19.4')
     expect(message).not.toContain('\n')
+  })
+
+  it('writes one E_NODE_VERSION envelope on stdout when json output is asked for', () => {
+    const {exitSpy} = spies()
+    const writeSpy = vi.spyOn(fs, 'writeSync').mockImplementation(() => 0)
+
+    enforceSupportedNodeVersion('20.19.4', undefined, undefined, [
+      'node',
+      'extension',
+      'build',
+      '.',
+      '--output',
+      'json'
+    ])
+
+    expect(exitSpy).toHaveBeenCalledWith(1)
+    expect(writeSpy).toHaveBeenCalledTimes(1)
+    expect(writeSpy.mock.calls[0][0]).toBe(1)
+    expect(JSON.parse(String(writeSpy.mock.calls[0][1]))).toEqual({
+      schema: 1,
+      ok: false,
+      command: 'build',
+      status: 'usage',
+      value: null,
+      error: {
+        code: CODES.E_NODE_VERSION,
+        message:
+          'Requires Node.js >= 22.12 (you are on 20.19.4). Upgrade Node.js to run the extension CLI.',
+        name: 'CliError'
+      },
+      warnings: []
+    })
+  })
+
+  it('writes no envelope for an old Node version when json output is not asked for', () => {
+    const {exitSpy} = spies()
+    const writeSpy = vi.spyOn(fs, 'writeSync').mockImplementation(() => 0)
+
+    enforceSupportedNodeVersion('20.19.4', undefined, undefined, [
+      'node',
+      'extension',
+      'build',
+      '--output',
+      'pretty'
+    ])
+
+    expect(exitSpy).toHaveBeenCalledWith(1)
+    expect(writeSpy).not.toHaveBeenCalled()
+  })
+
+  it('reads the inline json flag and names the bare CLI when no command is given', () => {
+    expect(
+      unsupportedNodeVersionFrame('18.20.8', [
+        'node',
+        'extension',
+        '--output=json'
+      ])
+    ).toMatchObject({command: 'extension', error: {code: CODES.E_NODE_VERSION}})
+
+    expect(
+      unsupportedNodeVersionFrame('18.20.8', ['node', 'extension', 'dev'])
+    ).toBeUndefined()
+
+    expect(
+      unsupportedNodeVersionFrame('18.20.8', [
+        'node',
+        'extension',
+        '--output',
+        'json',
+        'dev'
+      ])
+    ).toMatchObject({command: 'dev'})
   })
 
   it('is silent on a supported Node version', () => {

@@ -154,6 +154,59 @@ describe('optional-deps-resolver', () => {
     ).rejects.toThrow(/could not be resolved/)
   })
 
+  it('codes a package missing everywhere as E_OPTIONAL_DEP_UNRESOLVED on both resolve paths', async () => {
+    const {
+      ensureOptionalPackageResolved,
+      resolveOptionalPackageWithoutInstall
+    } = await import('../optional-deps-resolver')
+
+    await expect(
+      ensureOptionalPackageResolved({
+        integration: 'PostCSS',
+        projectPath,
+        dependencyId: '@extjs-test/missing'
+      })
+    ).rejects.toMatchObject({code: 'E_OPTIONAL_DEP_UNRESOLVED'})
+
+    expect(() =>
+      resolveOptionalPackageWithoutInstall({
+        integration: 'PostCSS',
+        projectPath,
+        dependencyId: '@extjs-test/missing'
+      })
+    ).toThrow(expect.objectContaining({code: 'E_OPTIONAL_DEP_UNRESOLVED'}))
+  })
+
+  it('codes a package that resolves and then throws on load as E_OPTIONAL_DEP_LOAD on both load paths', async () => {
+    createPackage(
+      projectPath,
+      '@extjs-test/throws-on-load',
+      'throw new Error("lane-broken-on-load")'
+    )
+
+    const {ensureOptionalModuleLoaded, loadOptionalModuleWithoutInstall} =
+      await import('../optional-deps-resolver')
+
+    await expect(
+      ensureOptionalModuleLoaded({
+        integration: 'Vue',
+        projectPath,
+        dependencyId: '@extjs-test/throws-on-load'
+      })
+    ).rejects.toMatchObject({
+      code: 'E_OPTIONAL_DEP_LOAD',
+      message: expect.stringContaining('could not be loaded')
+    })
+
+    expect(() =>
+      loadOptionalModuleWithoutInstall({
+        integration: 'Vue',
+        projectPath,
+        dependencyId: '@extjs-test/throws-on-load'
+      })
+    ).toThrow(expect.objectContaining({code: 'E_OPTIONAL_DEP_LOAD'}))
+  })
+
   it('verifies React refresh contract at a flat install root', async () => {
     const dependencyId = '@extjs-test/react-refresh'
     const pluginId = '@extjs-test/plugin-react-refresh'
