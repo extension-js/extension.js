@@ -16,7 +16,6 @@ import {toResourceKey} from '../lib/resource-path'
 import {NOT_RAW_RESOURCE_QUERY, RAW_RESOURCE_QUERY} from '../lib/resource-query'
 import {
   createNodeModulesExclude,
-  isSubPath,
   resolveTranspilePackageDirs
 } from '../lib/transpile-packages'
 import {scriptsFolderRoot} from '../plugin-special-folders/folders-config'
@@ -204,18 +203,12 @@ export class JsFrameworksPlugin {
     // setup/throw must be triggered explicitly at this build chokepoint
     ensureTypeScriptConfig(projectPath)
 
-    const swcIncludeDirs = Array.from(
-      new Set([
-        projectPath,
-        manifestDir,
-        ...resolveTranspilePackageDirs(projectPath, this.transpilePackages)
-      ])
-    )
     // Computed before the framework integrations run: every compiling rule they
     // return needs the same carve-out, not just the swc rule below.
-    const transpilePackageDirs = swcIncludeDirs.filter(
-      (dir) => dir !== projectPath && dir !== manifestDir
-    )
+    const transpilePackageDirs = resolveTranspilePackageDirs(
+      projectPath,
+      this.transpilePackages
+    ).filter((dir) => dir !== projectPath && dir !== manifestDir)
     const excludeNodeModules = createNodeModulesExclude(transpilePackageDirs)
 
     // The bundler resolves symlinks, so loader resource paths arrive as
@@ -426,9 +419,8 @@ export class JsFrameworksPlugin {
       // Explicit javascript/auto so rspack detects script-vs-module from the file
       // itself; Chrome never reads package.json "type", unlike rspack's default inference.
       type: 'javascript/auto',
-      include: expandWithRealpaths(
-        Array.from(new Set([tsRoot, ...swcIncludeDirs]))
-      ),
+      // No include: a source outside the project root, such as a workspace
+      // sibling imported by path, compiles like any project file.
       exclude: [excludeNodeModules],
       resourceQuery: NOT_RAW_RESOURCE_QUERY
     }
@@ -488,9 +480,6 @@ export class JsFrameworksPlugin {
         ...swcRuleBase,
         layer: EXTENSIONJS_CONTENT_SCRIPT_LAYER,
         include: (resourcePath: string) =>
-          expandWithRealpaths(
-            Array.from(new Set([tsRoot, ...swcIncludeDirs]))
-          ).some((dir) => isSubPath(resourcePath, dir)) &&
           isfeatureScriptsContentLike(resourcePath),
         oneOf: parserVariants({refresh: false, module: false})
       },
