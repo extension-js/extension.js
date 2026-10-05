@@ -44,6 +44,25 @@ export interface ResolvedProfile {
   seededFrom?: string
 }
 
+// The env switches that hand a browser its own default profile, in the
+// order they are read. Returns the name of the one that is on.
+export function systemProfileEnvName(
+  env: NodeJS.ProcessEnv = process.env
+): string | undefined {
+  for (const name of [
+    'EXTENSION_USE_SYSTEM_PROFILE',
+    'EXTJS_USE_SYSTEM_PROFILE'
+  ]) {
+    const value = env[name]
+
+    if (value) {
+      return String(value).toLowerCase().trim() === 'true' ? name : undefined
+    }
+  }
+
+  return undefined
+}
+
 function hasExplicit(
   rawProfile: string | false | undefined
 ): rawProfile is string {

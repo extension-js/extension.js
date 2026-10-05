@@ -187,7 +187,10 @@ export function commanderHumanError(
 // A refusal raised deeper in the engine names its own failure class, so the
 // frame reports that instead of folding every throw into one generic code.
 export function isUsageCode(code: ErrorCode): boolean {
-  return code === CODES.E_BROWSER_BINARY_INVALID
+  return (
+    code === CODES.E_BROWSER_BINARY_INVALID ||
+    code === CODES.E_FLAG_NOT_SUPPORTED_HERE
+  )
 }
 
 export function declaredErrorCode(err: unknown): ErrorCode | undefined {
