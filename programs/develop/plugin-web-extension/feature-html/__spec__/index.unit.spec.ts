@@ -89,6 +89,12 @@ describe('HtmlPlugin', () => {
       not: EXTENSIONJS_CONTENT_SCRIPT_LAYER
     })
 
+    // Only an entry accepts its own update, an imported module bubbles to it.
+    expect(pageHmrRule?.issuer('')).toBe(true)
+    expect(pageHmrRule?.issuer(path.join(tmp, 'newtab', 'scripts.ts'))).toBe(
+      false
+    )
+
     // A top-level pages/ folder sits under the project root, so the root is
     // inside the injection scope beside the manifest folder.
     expect(pageHmrRule?.include).toContain(path.dirname(manifestPath))

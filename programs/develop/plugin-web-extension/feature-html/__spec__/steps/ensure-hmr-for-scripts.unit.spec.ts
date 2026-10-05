@@ -188,35 +188,6 @@ describe('ensureHMRForScripts loader', () => {
     expect(out).toBe(src)
   })
 
-  it('skips modules imported by declared content script entries', () => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ensure-hmr-'))
-    const manifestPath = path.join(tmpDir, 'manifest.json')
-    const contentScriptPath = path.join(tmpDir, 'content.ts')
-    const importedPath = path.join(tmpDir, 'imported.ts')
-    fs.writeFileSync(
-      manifestPath,
-      JSON.stringify({content_scripts: [{js: ['content.ts']}]})
-    )
-
-    fs.writeFileSync(contentScriptPath, 'console.log("content")')
-    fs.writeFileSync(importedPath, 'console.log("imported")')
-
-    const src = 'console.log("imported")'
-    const out = ensureHMRForScripts.call(
-      asLoaderContext({
-        getOptions: () => ({manifestPath}),
-        resourcePath: importedPath,
-        _module: {
-          issuer: {
-            resource: contentScriptPath
-          }
-        }
-      }),
-      src
-    )
-    expect(out).toBe(src)
-  })
-
   it('clears the #root mount point on dispose and nothing a content script owns', async () => {
     const out = await runLoader(
       makeLoaderCtx({manifestPath: '/proj/manifest.json'}),
@@ -225,15 +196,6 @@ describe('ensureHMRForScripts loader', () => {
     expect(out).toMatch(/getElementById\(\s*['"]root['"]\s*\)/)
     expect(out).not.toMatch(/getElementById\(\s*['"]app['"]\s*\)/)
     expect(out).not.toContain('data-extension-root')
-  })
-
-  it('leaves a module another module imports alone so the update reaches the entry', async () => {
-    const ctx = makeLoaderCtx({manifestPath: '/proj/manifest.json'})
-    ctx.resourcePath = '/proj/options/widget.js'
-    ctx._module = {issuer: {resource: '/proj/options/scripts.js'}}
-    const src = 'export const label = "hi"\n'
-    const out = await runLoader(ctx, src)
-    expect(out).toBe(src)
   })
 
   it('stays out of pages whose framework owns refresh', async () => {

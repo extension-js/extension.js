@@ -123,10 +123,23 @@ export class HtmlPlugin {
             isUsingSvelte(projectRoot))
       )
 
+      const debugHtmlHmr = process.env.EXTENSION_DEBUG_HTML_HMR_SKIP === '1'
+
       compiler.options.module.rules.push({
         test: /\.(js|cjs|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
         include: Array.from(pageDirs),
         issuerLayer: {not: EXTENSIONJS_CONTENT_SCRIPT_LAYER},
+        // Only an entry (no issuer) accepts its own update. A child that
+        // self-accepts re-runs alone and the entry never renders it again.
+        issuer: (issuer: string) => {
+          if (!issuer) return true
+
+          if (debugHtmlHmr) {
+            console.log(`[extjs:html-hmr] skip child issuer=${issuer}`)
+          }
+
+          return false
+        },
         exclude: [
           /([\\/])node_modules\1/,
           (resourcePath: string) =>
