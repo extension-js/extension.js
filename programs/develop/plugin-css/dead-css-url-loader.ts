@@ -33,9 +33,6 @@ interface CompilationLike {
 export interface DeadCssUrlLoaderOptions {
   manifestPath?: string
   projectPath?: string
-  // 'inline' (default): the sheet leaves as the runtime stylesheet module.
-  // 'chunk': the sheet stays CSS for rspack's native css/module pipeline.
-  sheet?: 'inline' | 'chunk'
 }
 
 interface DeadCssUrlLoaderContext {
@@ -93,8 +90,7 @@ function emitTargets(
   source: string,
   manifestDir: string,
   publicRoot: string,
-  publicDir: string | undefined,
-  sheet: DeadCssUrlLoaderOptions['sheet']
+  publicDir: string | undefined
 ): string {
   const {css, targets} = rewriteInlinedCssUrls(source, {
     resourcePath: canonicalizeResourcePath(loader.resourcePath),
@@ -106,10 +102,8 @@ function emitTargets(
 
   for (const target of targets) {
     // The public copier ships a public-owned file under this same name, and
-    // the inlined sheet's module names it for web_accessible_resources. A
-    // CSS module's chunk text is never scanned for that list, so the file is
-    // registered to the module too: same name, same bytes, still one file.
-    if (!target.publicOwned || sheet === 'chunk') {
+    // the inlined sheet's module names it for web_accessible_resources.
+    if (!target.publicOwned) {
       loader.emitFile(target.outputName, fs.readFileSync(target.absolutePath))
     }
 
@@ -144,15 +138,12 @@ export default function deadCssUrlLoader(
         source,
         manifestDir,
         publicRoot,
-        resolvePublicFolder(manifestPath, projectPath),
-        options.sheet
+        resolvePublicFolder(manifestPath, projectPath)
       )
     }
   } catch {
     // A reference check must never break a build the browser would accept.
   }
-
-  if (options.sheet === 'chunk') return css
 
   return toRuntimeStylesheetModule(css)
 }

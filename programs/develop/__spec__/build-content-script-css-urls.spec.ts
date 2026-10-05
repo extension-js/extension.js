@@ -10,7 +10,7 @@ const SUITE_ROOT = fs.mkdtempSync(
 )
 
 const MATCHES = 'https://fonts.example/*'
-const FONT_BYTES = Buffer.from('probe-woff2-bytes')
+const FONT_BYTES = Buffer.alloc(4096, 'probe-woff2-bytes')
 const IMAGE_BYTES = Buffer.from('bg-png-bytes')
 
 function write(root: string, relPath: string, contents: string | Buffer) {
@@ -316,46 +316,40 @@ describe('build: url() in a content-script stylesheet resolves to the extension 
     expectResolvedTargets(readBuilt(root, 'firefox'), {})
   }, 120_000)
 
-  it('production chrome MV3, CSS module: the scoped chunk names the extension root, the class map still reaches JavaScript', async () => {
+  it('production chrome MV3, CSS module: the scoped sheet names its targets from the extension root, the class map still reaches JavaScript', async () => {
     const root = writeFixture('mv3-chrome-prod-module', 3, 'module')
     const summary = await buildFixture(root, 'chrome', 'production')
     expect(summary.errors_count).toBe(0)
-    // The public-owned file is registered to the module under the copier's
-    // name, and that must stay silent: same name, same bytes.
     expect(summary.warnings_count).toBe(0)
 
     const {distDir, manifest, source} = readBuilt(root, 'chrome')
     const chunk = readContentScriptCssChunk(distDir)
-
-    // The injected text: nothing left that resolves against the host page.
-    expect(chunk.css).not.toMatch(BARE_URL)
-    expect(chunk.css).not.toMatch(/url\(\s*["']?\/assets\//)
-    const font = 'assets/src/fonts/probe.woff2'
+    const fonts = fs
+      .readdirSync(path.join(distDir, 'assets'))
+      .filter((entry) => /^probe\.[0-9a-f]{8}\.woff2$/.test(entry))
+      .map((entry) => `assets/${entry}`)
     const image = 'img/bg.png'
-    expect(chunk.css).toContain(`__EXTENSIONJS_EXTENSION_ROOT__/${font}`)
-    expect(chunk.css).toContain(
-      `__EXTENSIONJS_EXTENSION_ROOT__/${font}?v=2#frag`
-    )
 
-    expect(chunk.css).toContain(`__EXTENSIONJS_EXTENSION_ROOT__/${image}`)
+    expect(fonts).toHaveLength(1)
+    expect(chunk.css).not.toContain('__EXTENSIONJS_EXTENSION_ROOT__')
+    expect(chunk.css).not.toMatch(/url\(\s*["']?\.{1,2}\//)
+    expect(chunk.css.split(`url(/${fonts[0]})`)).toHaveLength(3)
+    expect(chunk.css).toContain(`url(/${image})`)
     expect(chunk.css).toContain('data:image/gif;base64,R0lGOD')
     expect(chunk.css).toContain('https://cdn.example/x.png')
     expect(chunk.css).toContain('url(#gradient)')
 
-    // Targets ship once, at the names the chunk uses, and are reachable.
-    expect(fs.readFileSync(path.join(distDir, font))).toEqual(FONT_BYTES)
+    expect(fs.readFileSync(path.join(distDir, fonts[0]))).toEqual(FONT_BYTES)
     expect(fs.readFileSync(path.join(distDir, image))).toEqual(IMAGE_BYTES)
-    expect(distFilesNamed(distDir, 'probe.woff2')).toEqual([font])
+    expect(distFilesNamed(distDir, 'probe.woff2')).toEqual([])
     expect(distFilesNamed(distDir, 'bg.png')).toEqual([image])
     const resources = warResources(manifest)
-    expect(resources).toContain(font)
+    expect(resources).toContain(fonts[0])
     expect(resources).toContain(image)
     expect(resources).toContain(chunk.name)
-    expect(warMatchesFor(manifest, font)).toEqual([MATCHES])
+    expect(warMatchesFor(manifest, fonts[0])).toEqual([MATCHES])
     expect(warMatchesFor(manifest, image)).toEqual([MATCHES])
 
-    // The module still scopes its classes and hands the map to JavaScript:
-    // every selector in the chunk is a value in the bundle's export map.
     const scoped = Array.from(
       chunk.css.matchAll(/\.([A-Za-z0-9_-]+)\s*\{/g),
       (match) => match[1]
@@ -376,9 +370,21 @@ describe('build: url() in a content-script stylesheet resolves to the extension 
       expect(source).toContain(JSON.stringify(name))
     }
 
-    // The bundle swaps the placeholder for the extension root when it
-    // injects the chunk text.
-    expect(source).toContain('__EXTENSIONJS_EXTENSION_ROOT__/')
+    expect(source).not.toContain('__EXTENSIONJS_EXTENSION_ROOT__')
+  }, 120_000)
+
+  it('production firefox MV2, CSS module: a public file the sheet names is web accessible too', async () => {
+    const root = writeFixture('mv2-firefox-prod-module', 2, 'module')
+    const summary = await buildFixture(root, 'firefox', 'production')
+    expect(summary.errors_count).toBe(0)
+
+    const {distDir, manifest} = readBuilt(root, 'firefox')
+    const chunk = readContentScriptCssChunk(distDir)
+    const resources = warResources(manifest)
+
+    expect(chunk.css).toContain('url(/img/bg.png)')
+    expect(resources).toContain('img/bg.png')
+    expect(resources.filter((name) => name.endsWith('.woff2'))).toHaveLength(1)
   }, 120_000)
 
   it('development chrome MV3: the dev bundle carries the same resolved sheet', async () => {

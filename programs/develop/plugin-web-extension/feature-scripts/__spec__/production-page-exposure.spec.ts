@@ -153,7 +153,7 @@ function element(tagName: string): FakeElement {
   return self
 }
 
-function page(options: {runtime: boolean}) {
+function page(options: {runtime: boolean; sheet?: string}) {
   const fetched: string[] = []
   const timers: Array<() => void> = []
   const html = element('html')
@@ -179,7 +179,7 @@ function page(options: {runtime: boolean}) {
 
       return Promise.resolve({
         ok: true,
-        text: () => Promise.resolve('.fetched{color:red}')
+        text: () => Promise.resolve(options.sheet ?? '.fetched{color:red}')
       })
     },
     setTimeout: (callback: () => void) => {
@@ -315,6 +315,90 @@ describe('a stylesheet a production content script declares', () => {
     expect(shadow.children.map((child) => child.textContent)).toEqual([
       '.fetched{color:red}'
     ])
+  }, 180_000)
+})
+
+describe('the sheet file a content script CSS module lands in', () => {
+  const files = {
+    'manifest.json': JSON.stringify({
+      manifest_version: 3,
+      name: 'exposure-module',
+      version: '1.0.0',
+      content_scripts: [
+        {matches: ['https://example.com/*'], js: ['content/index.ts']}
+      ]
+    }),
+    'public/images/root-owned.png': Buffer.alloc(3000, 3),
+    'local/beside.png': Buffer.alloc(5000, 5),
+    'content/panel.module.css':
+      ".rootOwned{background:url('/images/root-owned.png')}\n" +
+      ".beside{background:url('../local/beside.png')}\n",
+    'content/index.ts':
+      'import styles from "./panel.module.css"\n' +
+      'globalThis.__seenClasses = styles.rootOwned + " " + styles.beside\n' +
+      'export {}\n'
+  }
+  const sheetName = 'content_scripts/content-0.css'
+  const besideName = /^assets\/beside\.[0-9a-f]{8}\.png$/
+
+  it('names its url() targets from the extension root, in production and in development', async () => {
+    for (const mode of ['production', 'development'] as const) {
+      const build = await compile(scaffold(`module-${mode}`, files), mode)
+      expect(build.errors, mode).toEqual([])
+
+      const beside = build.emitted.filter((entry) => besideName.test(entry))
+      const sheets = build.emitted.filter((entry) => entry.endsWith('.css'))
+
+      expect(beside, mode).toHaveLength(1)
+      expect(sheets, mode).toEqual([sheetName])
+
+      const sheet = build.read(sheetName).replace(/"/g, '')
+
+      expect(sheet, mode).not.toContain('__EXTENSIONJS_EXTENSION_ROOT__')
+      expect(sheet, mode).toContain('url(/images/root-owned.png)')
+      expect(sheet, mode).toContain(`url(/${beside[0]})`)
+
+      expect(exposedResources(build), mode).toEqual(
+        expect.arrayContaining(['images/root-owned.png', beside[0]])
+      )
+
+      if (mode === 'production') {
+        expect(build.manifest().content_scripts[0].css).toEqual([sheetName])
+      } else {
+        expect(build.emitted).toContain(`${sheetName}.map`)
+      }
+    }
+  }, 180_000)
+
+  it('reaches a shadow root with every url() pointing at the extension', async () => {
+    const production = await compile(
+      scaffold('module-hydrated', files),
+      'production'
+    )
+    expect(production.errors).toEqual([])
+
+    const beside = production.emitted.find((entry) => besideName.test(entry))
+    const sheet = production.read(sheetName)
+    const mounted = page({runtime: true, sheet})
+    const shadow = element('#shadow-root')
+    const host = element('div')
+    host.setAttribute('data-extension-root', 'true')
+    host.shadowRoot = shadow
+    mounted.run(production.read('content_scripts/content-0.js'))
+    await mounted.settle(30, (round) => {
+      if (round === 3) mounted.hosts.push(host)
+    })
+
+    expect(mounted.fetched).toEqual([`${EXTENSION_BASE}${sheetName}`])
+    expect(shadow.children).toHaveLength(1)
+
+    const hydrated = shadow.children[0].textContent
+
+    expect(hydrated).toContain(`url(${EXTENSION_BASE}images/root-owned.png)`)
+    expect(hydrated).toContain(`url(${EXTENSION_BASE}${beside})`)
+    expect(hydrated).not.toMatch(/url\(\s*["']?\/(?!\/)/)
+    expect(hydrated).not.toContain('__EXTENSIONJS_EXTENSION_ROOT__')
+    expect(hydrated.split('url(')).toHaveLength(3)
   }, 180_000)
 })
 
