@@ -74,7 +74,6 @@ jobs:
       issues: write
     env:
       EXTENSION_AUTHOR_MODE: development
-      EXTENSION_AUTO_EXIT_MS: '8000'
       EXTENSION_FORCE_KILL_MS: '12000'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -110,17 +109,20 @@ jobs:
           pnpm extension build templates/react --browser edge --silent true
           pnpm extension build templates/svelte --browser edge --silent true
           pnpm extension build templates/vue --browser edge --silent true
+      # A headful browser on the runner needs an X server, without one it
+      # exits at once. The smoke passes only once ready.json shows the
+      # extension attached in the browser, an exit 0 from dev proves nothing.
       - name: Dev smoke – edge (Chromium)
-        run: pnpm extension dev templates/typescript --browser edge --chromium-binary "$CHROMIUM_BIN" --profile false --no-open --port 0
+        run: xvfb-run -a node scripts/nightly-dev-smoke.mjs templates/typescript --browser edge --chromium-binary "$CHROMIUM_BIN" --profile false --no-open --port 0
       - name: Report a red lane
         if: failure()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RED_LANE_REPRO: |
-            export EXTENSION_AUTHOR_MODE=development EXTENSION_AUTO_EXIT_MS=8000 EXTENSION_FORCE_KILL_MS=12000
+            export EXTENSION_AUTHOR_MODE=development EXTENSION_FORCE_KILL_MS=12000
             bash scripts/hydrate-templates-from-examples.sh
             pnpm extension build templates/typescript --browser edge --silent true
-            pnpm extension dev templates/typescript --browser edge --chromium-binary "<playwright chromium path>" --profile false --no-open --port 0
+            xvfb-run -a node scripts/nightly-dev-smoke.mjs templates/typescript --browser edge --chromium-binary "<playwright chromium path>" --profile false --no-open --port 0
         run: bash scripts/report-red-lane.sh "Nightly edge"
 
       - name: Close the red lane
@@ -138,7 +140,6 @@ jobs:
       issues: write
     env:
       EXTENSION_AUTHOR_MODE: development
-      EXTENSION_AUTO_EXIT_MS: '8000'
       EXTENSION_FORCE_KILL_MS: '12000'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -182,17 +183,19 @@ jobs:
           pnpm extension build templates/react --browser firefox --silent true
           pnpm extension build templates/svelte --browser firefox --silent true
           pnpm extension build templates/vue --browser firefox --silent true
+      # Same X server and load proof as the edge smoke. The managed profile is
+      # the only one the add-on installs into, Firefox's own has no debugger.
       - name: Dev smoke – firefox (Gecko)
-        run: pnpm extension dev templates/typescript --browser firefox --gecko-binary "$FIREFOX_BIN" --profile false --no-open --port 0
+        run: xvfb-run -a node scripts/nightly-dev-smoke.mjs templates/typescript --browser firefox --gecko-binary "$FIREFOX_BIN" --no-open --port 0
       - name: Report a red lane
         if: failure()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RED_LANE_REPRO: |
-            export EXTENSION_AUTHOR_MODE=development EXTENSION_AUTO_EXIT_MS=8000 EXTENSION_FORCE_KILL_MS=12000
+            export EXTENSION_AUTHOR_MODE=development EXTENSION_FORCE_KILL_MS=12000
             bash scripts/hydrate-templates-from-examples.sh
             pnpm extension build templates/typescript --browser firefox --silent true
-            pnpm extension dev templates/typescript --browser firefox --gecko-binary "<playwright firefox path>" --profile false --no-open --port 0
+            xvfb-run -a node scripts/nightly-dev-smoke.mjs templates/typescript --browser firefox --gecko-binary "<playwright firefox path>" --no-open --port 0
         run: bash scripts/report-red-lane.sh "Nightly firefox"
 
       - name: Close the red lane
@@ -383,8 +386,8 @@ jobs:
           echo "RUNTIME_SMOKE_BROWSER_BINARY=$BIN" >> "$GITHUB_ENV"
 
       # The smoke runs build, then a headless dev, then the real launch, and
-      # only calls the launch a pass once ready.json carries a browserPid. A
-      # ready contract alone would go green without a browser ever starting.
+      # only calls the launch a pass once ready.json shows the extension
+      # attached. A browserPid alone would pass a browser that died at launch.
       - name: Runtime + browser smoke
         env:
           RUNTIME_SMOKE_BROWSER: ${{ matrix.browser }}

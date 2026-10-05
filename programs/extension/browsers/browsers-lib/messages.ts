@@ -760,6 +760,23 @@ export function browserExitedUnasked(
   return `[browser] ${browser} ${how}. ${next}`
 }
 
+// --profile=false hands Firefox its own profile, where remote debugging is off,
+// so the session has no way to install the add-on into it.
+export function geckoSystemProfileNoAddon(browser: Browser) {
+  return (
+    `${getLoggingPrefix('warn')} ${capitalizedBrowserName(browser)} is running with its own profile, so the add-on was not installed and nothing is loaded.\n` +
+    `Drop --profile=false to let Extension.js manage the profile and install the add-on, or pass --profile=<path> to use a profile of your own.`
+  )
+}
+
+// What the browser itself printed before an early exit, the only place a cause
+// such as a missing display or a refused flag ever shows up.
+export function browserStderrTail(browser: Browser, lines: string[]) {
+  return `[browser] ${browser} wrote this before it exited:\n${lines
+    .map((line) => `  ${line}`)
+    .join('\n')}`
+}
+
 // Printed where the ready line would have gone when the browser left before
 // the extension ever loaded: the session is watching, but nothing is running.
 export function browserGoneBeforeReady(browser: Browser) {
