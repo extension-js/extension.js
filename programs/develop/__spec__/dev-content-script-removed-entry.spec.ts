@@ -23,7 +23,7 @@ const second: ContentScript = {
   js: ['content-second.js']
 }
 
-function writeManifest(root: string, contentScripts: ContentScript[]) {
+function writeManifest(root: string, contentScripts?: ContentScript[]) {
   fs.writeFileSync(
     path.join(root, 'manifest.json'),
     JSON.stringify({
@@ -137,5 +137,43 @@ describe('a content script removed from the manifest during extension dev', () =
       named: ['content_scripts/dev-stub-0.js'],
       registryIds: ['extjs-dev-cs-0']
     })
+  }, 120_000)
+
+  it('leaves no bundle of the last one once the manifest names none', async () => {
+    const root = project()
+    const vendor = path.join('content_scripts', 'vendor.0123abcd.js')
+    fs.mkdirSync(path.join(root, 'public', 'content_scripts'), {
+      recursive: true
+    })
+
+    fs.writeFileSync(
+      path.join(root, 'public', vendor),
+      'console.log("removed-entry-token:vendor")\n'
+    )
+
+    writeManifest(root, [first])
+    const before = await compileOnce(root)
+    const folder = path.join(before.distPath, 'content_scripts')
+    const bundlesIn = () =>
+      fs.readdirSync(folder).filter((name) => /^content-\d+\./.test(name))
+
+    expect(errorsOf(before.stats)).toEqual([])
+    expect(bundlesIn()).toHaveLength(2)
+    expect(
+      fs.readFileSync(path.join(folder, bundlesIn()[0]), 'utf8')
+    ).toContain('removed-entry-token:first')
+
+    writeManifest(root)
+    const after = await compileOnce(root)
+    const manifest = JSON.parse(
+      fs.readFileSync(path.join(after.distPath, 'manifest.json'), 'utf8')
+    )
+
+    expect(errorsOf(after.stats)).toEqual([])
+    expect(manifest.content_scripts).toBeUndefined()
+    expect(bundlesIn()).toEqual([])
+    expect(
+      fs.readFileSync(path.join(after.distPath, vendor), 'utf8')
+    ).toContain('removed-entry-token:vendor')
   }, 120_000)
 })
