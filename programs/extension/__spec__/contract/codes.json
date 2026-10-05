@@ -28,8 +28,7 @@
     },
     "E_NODE_VERSION": {
       "area": "usage",
-      "summary": "The running Node version is below the supported minimum.",
-      "reserved": true
+      "summary": "The running Node version is below the supported minimum."
     },
     "E_COMMAND_UNSUPPORTED_FOR_TARGET": {
       "area": "usage",
@@ -49,8 +48,7 @@
     },
     "E_REMOTE_URL_UNSUPPORTED": {
       "area": "usage",
-      "summary": "The operation does not accept a remote URL.",
-      "reserved": true
+      "summary": "The operation does not accept a remote URL."
     },
     "E_PROJECT_NOT_FOUND": {
       "area": "project",
@@ -104,8 +102,7 @@
     },
     "E_RUNTIME_NOT_FOUND": {
       "area": "project",
-      "summary": "The extension-develop runtime is missing or uncompiled.",
-      "reserved": true
+      "summary": "The extension-develop runtime is missing or uncompiled."
     },
     "E_MANIFEST_NOT_FOUND": {
       "area": "manifest",

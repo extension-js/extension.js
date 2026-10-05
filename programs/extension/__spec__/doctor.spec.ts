@@ -859,6 +859,43 @@ describe('extension doctor (command surface)', () => {
     }
   })
 
+  it('reports the code a throw out of the doctor run declares', async () => {
+    const {makeProgram, runCli, stubProcessExit} = await import(
+      './command-harness'
+    )
+    const {registerDoctorCommand} = await import('../commands/doctor')
+    state.mod = healthyModule({
+      readReadyContract: () => {
+        throw Object.assign(new Error('runtime is not built'), {
+          code: 'E_RUNTIME_NOT_FOUND'
+        })
+      }
+    })
+
+    stubProcessExit()
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    try {
+      const code = await runCli(makeProgram(registerDoctorCommand), [
+        'doctor',
+        '/proj',
+        '--output',
+        'json'
+      ])
+      expect(code).toBe(1)
+      const frame = JSON.parse(String(logSpy.mock.calls[0][0]))
+      expect(frame).toMatchObject({
+        ok: false,
+        command: 'doctor',
+        status: 'failed',
+        error: {code: 'E_RUNTIME_NOT_FOUND', message: 'runtime is not built'}
+      })
+    } finally {
+      vi.restoreAllMocks()
+    }
+  })
+
   it('emits a failure envelope when the doctor run itself throws', async () => {
     const {makeProgram, runCli, stubProcessExit} = await import(
       './command-harness'

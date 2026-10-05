@@ -152,6 +152,31 @@ describe.each(['dev', 'start'] as const)('%s --wait failure frame', (verb) => {
     expect(result.stderr).toContain('--wait requires a local project path')
   })
 
+  it('frames a remote url refusal as E_REMOTE_URL_UNSUPPORTED', async () => {
+    const result = await runCli([
+      verb,
+      'https://example.com',
+      '--wait',
+      '--browser=chromium',
+      `--wait-timeout=${TIMEOUT_BUDGET_MS}`,
+      '--output=json'
+    ])
+
+    expect(result.code).toBe(1)
+
+    const payload = JSON.parse(result.stdout.trim()) as {
+      ok: boolean
+      command: string
+      status: string
+      error: {code: string}
+    }
+
+    expect(payload.ok).toBe(false)
+    expect(payload.command).toBe(verb)
+    expect(payload.status).toBe('usage')
+    expect(payload.error.code).toBe('E_REMOTE_URL_UNSUPPORTED')
+  })
+
   it('keeps stderr free of stacks while stdout carries one timeout envelope', async () => {
     const {projectDir} = createProject()
 
