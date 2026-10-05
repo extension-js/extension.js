@@ -133,7 +133,7 @@ export function describeWaitError(error: unknown): WaitFailure {
       ? (tagged as ErrorCode)
       : CODES.E_INTERNAL
 
-  if (code === CODES.E_ARGS) {
+  if (code === CODES.E_ARGS || code === CODES.E_REMOTE_URL_UNSUPPORTED) {
     return {
       code,
       status: 'usage',
@@ -324,7 +324,7 @@ export async function runWaitMode(
   if (isHttpUrl(options.pathOrRemoteUrl)) {
     throw new WaitModeError(
       '--wait requires a local project path (remote URLs are not supported)',
-      CODES.E_ARGS
+      CODES.E_REMOTE_URL_UNSUPPORTED
     )
   }
 

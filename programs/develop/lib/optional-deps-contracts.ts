@@ -7,6 +7,8 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import developPackageJson from '../package.json'
+import {codedError} from './coded-error'
+import {CODES} from './messaging'
 import type {
   OptionalDependencyContract,
   OptionalDependencyVerificationRule
@@ -173,7 +175,10 @@ export function getOptionalDependencyContract(contractId: string) {
     ]
 
   if (!contract) {
-    throw new Error(`Unknown optional dependency contract: ${contractId}`)
+    throw codedError(
+      CODES.E_OPTIONAL_DEP_UNKNOWN,
+      `Unknown optional dependency contract: ${contractId}`
+    )
   }
 
   return contract
