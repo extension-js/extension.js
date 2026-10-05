@@ -760,12 +760,42 @@ export function browserExitedUnasked(
   return `[browser] ${browser} ${how}. ${next}`
 }
 
-// --profile=false hands Firefox its own profile, where remote debugging is off,
-// so the session has no way to install the add-on into it.
-export function geckoSystemProfileNoAddon(browser: Browser) {
+export type SystemProfileSource =
+  | {kind: 'flag'}
+  | {kind: 'config'}
+  | {kind: 'env'; name: string}
+
+function systemProfileSourceLabel(source: SystemProfileSource) {
+  if (source.kind === 'env') return `${source.name}=true`
+  if (source.kind === 'config') return 'profile: false in extension.config.js'
+
+  return '--profile=false'
+}
+
+function systemProfileSourceFix(source: SystemProfileSource) {
+  if (source.kind === 'env') return `unset ${source.name}`
+
+  if (source.kind === 'config') {
+    return 'remove profile: false from extension.config.js'
+  }
+
+  return 'drop --profile=false'
+}
+
+// A Gecko browser's own profile keeps remote debugging off, and that is the
+// only way the add-on gets in, so the browser is never launched there.
+export function geckoSystemProfileRefused(
+  browser: Browser,
+  sources: SystemProfileSource[]
+) {
+  const name = capitalizedBrowserName(browser)
+  const fixes = sources.map(systemProfileSourceFix).join(' and ')
+
   return (
-    `${getLoggingPrefix('warn')} ${capitalizedBrowserName(browser)} is running with its own profile, so the add-on was not installed and nothing is loaded.\n` +
-    `Drop --profile=false to let Extension.js manage the profile and install the add-on, or pass --profile=<path> to use a profile of your own.`
+    `${getLoggingPrefix('error')} ${name} can't load the add-on in its own profile, so it was not launched.\n` +
+    `${colors.gray('SET BY')} ${sources.map(systemProfileSourceLabel).join(', ')}\n` +
+    `Remote debugging is off in a browser's own profile, and the add-on can only be installed over it.\n` +
+    `To fix, ${fixes}, then let Extension.js manage the profile or pass ${colors.blue('--profile=<path>')} to use a profile of your own.`
   )
 }
 

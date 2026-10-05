@@ -11,7 +11,10 @@ import * as path from 'node:path'
 import {humanLine, isDebug} from '../../../helpers/messaging'
 import {stageCompanionForSession} from '../../browsers-lib/companion-session'
 import * as messages from '../../browsers-lib/messages'
-import {resolveProfileConfig} from '../../browsers-lib/resolve-profile'
+import {
+  resolveProfileConfig,
+  systemProfileEnvName
+} from '../../browsers-lib/resolve-profile'
 import {
   resolveStartingUrl,
   toExtensionLoadList
@@ -120,14 +123,7 @@ export async function resolveFirefoxLaunchConfig(
     compilation.options.output?.path ||
     path.resolve(process.cwd(), 'dist/firefox')
   const distRoot = path.dirname(outPath)
-  const useSystemProfile =
-    String(
-      process.env.EXTENSION_USE_SYSTEM_PROFILE ||
-        process.env.EXTJS_USE_SYSTEM_PROFILE ||
-        ''
-    )
-      .toLowerCase()
-      .trim() === 'true'
+  const useSystemProfile = Boolean(systemProfileEnvName())
 
   const contextDir = compilation?.options?.context || process.cwd()
 

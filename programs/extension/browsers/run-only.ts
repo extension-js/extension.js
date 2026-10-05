@@ -49,6 +49,7 @@ type PreviewRunOptions = {
   extensionsToLoad: string[]
   noOpen?: boolean
   profile?: string | false
+  profileSource?: 'flag' | 'config'
   persistProfile?: boolean
   preferences?: Record<string, unknown>
   browserFlags?: string[]
@@ -171,6 +172,7 @@ function buildPreviewFirefoxOptions(
     extension: pluginOptions.extension,
     browser: pluginOptions.browser,
     profile: pluginOptions.profile,
+    profileSource: opts.profileSource,
     preferences: pluginOptions.preferences,
     browserFlags: pluginOptions.browserFlags,
     startingUrl: pluginOptions.startingUrl,
