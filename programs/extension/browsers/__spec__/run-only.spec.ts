@@ -109,6 +109,81 @@ describe('runOnlyPreviewBrowser', () => {
     }
   )
 
+  // A bare script has no app bundle metadata, so only asking the binary
+  // itself names its version. Without that the card named another install.
+  for (const browser of ['firefox', 'waterfox'] as const) {
+    it.skipIf(process.platform === 'win32')(
+      `describes a ${browser} --gecko-binary pin on the card`,
+      async () => {
+        const {chmodSync, mkdtempSync, rmSync, writeFileSync} = await import(
+          'node:fs'
+        )
+        const {tmpdir} = await import('node:os')
+        const {join} = await import('node:path')
+        const dir = mkdtempSync(join(tmpdir(), 'extjs-run-only-gecko-pin-'))
+        const pin = join(dir, 'firefox')
+        writeFileSync(pin, '#!/bin/sh\necho "Mozilla Firefox 140.0"\n')
+        chmodSync(pin, 0o755)
+
+        try {
+          await runOnlyPreviewBrowser({
+            browser,
+            outPath: '/tmp/ext-firefox',
+            contextDir: '/tmp',
+            extensionsToLoad: ['/tmp/ext-firefox'],
+            geckoBinary: pin
+          })
+
+          expect(printProdBannerOnce).toHaveBeenCalledWith(
+            expect.objectContaining({
+              browser,
+              binaryPath: pin,
+              binaryProvenance: 'pinned',
+              browserVersionLine: '140.0'
+            })
+          )
+        } finally {
+          rmSync(dir, {recursive: true, force: true})
+        }
+      }
+    )
+  }
+
+  it.skipIf(process.platform === 'win32')(
+    'keeps a silent --gecko-binary pin marked pinned so no other install is named',
+    async () => {
+      const {chmodSync, mkdtempSync, rmSync, writeFileSync} = await import(
+        'node:fs'
+      )
+      const {tmpdir} = await import('node:os')
+      const {join} = await import('node:path')
+      const dir = mkdtempSync(join(tmpdir(), 'extjs-run-only-gecko-quiet-'))
+      const pin = join(dir, 'firefox')
+      writeFileSync(pin, '#!/bin/sh\nexit 0\n')
+      chmodSync(pin, 0o755)
+
+      try {
+        await runOnlyPreviewBrowser({
+          browser: 'firefox',
+          outPath: '/tmp/ext-firefox',
+          contextDir: '/tmp',
+          extensionsToLoad: ['/tmp/ext-firefox'],
+          geckoBinary: pin
+        })
+
+        expect(printProdBannerOnce).toHaveBeenCalledWith(
+          expect.objectContaining({
+            binaryPath: pin,
+            binaryProvenance: 'pinned',
+            browserVersionLine: undefined
+          })
+        )
+      } finally {
+        rmSync(dir, {recursive: true, force: true})
+      }
+    }
+  )
+
   it('prints the card before it launches chromium', async () => {
     await runOnlyPreviewBrowser({
       browser: 'chromium',
