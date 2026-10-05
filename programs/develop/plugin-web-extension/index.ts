@@ -8,7 +8,6 @@
 
 import type {Compiler} from '@rspack/core'
 import {getSpecialFoldersDataForCompiler} from '../plugin-special-folders/get-data'
-import {omitOwnedPages} from './shared/omit-owned-pages'
 import type {DevOptions, FilepathList, PluginInterface} from '../types'
 import {HtmlPlugin} from './feature-html'
 import {IconsPlugin} from './feature-icons'
@@ -19,6 +18,7 @@ import {LocalesPlugin} from './feature-locales'
 import {ManifestPlugin} from './feature-manifest'
 import {ScriptsPlugin} from './feature-scripts'
 import {WebResourcesPlugin} from './feature-web-resources'
+import {discoverWebAccessiblePages} from './feature-web-resources/web-resources-lib/declared-pages'
 import {discoverDevtoolsPanelPages} from './shared/discover-devtools-panels'
 import {getResolvedManifestFieldsData} from './shared/manifest-fields'
 import {ManifestFieldsChangeDetector} from './shared/manifest-fields-change-detector'
@@ -27,6 +27,7 @@ import {
   settingsOverridesStartupPages,
   themeExperimentStylesheetEntries
 } from './shared/manifest-path-assets'
+import {omitOwnedPages} from './shared/omit-owned-pages'
 
 export class WebExtensionPlugin {
   public static readonly name: string = 'plugin-extension'
@@ -78,6 +79,7 @@ export class WebExtensionPlugin {
       manifestPath,
       browser: this.browser,
       includeList: {
+        ...discoverWebAccessiblePages(manifestPath, this.browser, projectPath),
         ...ownedPages,
         ...omitOwnedPages(specialFoldersData.pages, ownedPages)
       }
