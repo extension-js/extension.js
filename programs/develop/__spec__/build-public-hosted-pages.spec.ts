@@ -87,9 +87,9 @@ function listFiles(dir: string, prefix = ''): string[] {
 
     const rel = prefix ? `${prefix}/${entry.name}` : entry.name
 
-    if (entry.isDirectory())
-      {out.push(...listFiles(path.join(dir, entry.name), rel))}
-    else out.push(rel)
+    if (entry.isDirectory()) {
+      out.push(...listFiles(path.join(dir, entry.name), rel))
+    } else out.push(rel)
   }
 
   return out.sort()

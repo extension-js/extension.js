@@ -60,9 +60,7 @@ async function build(
 }
 
 function polyfillWarnings(summary: {warnings?: string[]}) {
-  return (summary.warnings || []).filter((text) =>
-    text.includes('--polyfill')
-  )
+  return (summary.warnings || []).filter((text) => text.includes('--polyfill'))
 }
 
 function serviceWorker(root: string, browser: string) {

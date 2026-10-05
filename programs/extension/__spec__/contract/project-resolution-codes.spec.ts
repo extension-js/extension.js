@@ -93,16 +93,21 @@ describe('project resolution refusals carry their declared code', () => {
       version: '1.0'
     })
 
-    expect(
-      resolutionEnvelope(path.join(root, 'public')).error?.code
-    ).toBe(CODES.E_MANIFEST_IN_PUBLIC)
+    expect(resolutionEnvelope(path.join(root, 'public')).error?.code).toBe(
+      CODES.E_MANIFEST_IN_PUBLIC
+    )
   })
 
   it('names a root whose only manifest belongs to a companion', () => {
     const project = makeProject()
     write(path.join(project, 'package.json'), {name: 'p'})
     write(
-      path.join(project, 'extensions', 'extension-js-devtools', 'manifest.json'),
+      path.join(
+        project,
+        'extensions',
+        'extension-js-devtools',
+        'manifest.json'
+      ),
       {manifest_version: 3, name: 'built-in companion', version: '1.0'}
     )
 
@@ -112,7 +117,10 @@ describe('project resolution refusals carry their declared code', () => {
   })
 
   it('keeps an uncoded failure on the internal-error code', () => {
-    const envelope = internalErrorEnvelope(new Error('something broke'), 'build')
+    const envelope = internalErrorEnvelope(
+      new Error('something broke'),
+      'build'
+    )
 
     expect(envelope.error?.code).toBe(CODES.E_INTERNAL)
   })

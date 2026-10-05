@@ -22,7 +22,8 @@ describe('suppressManifestOutputWrites with two servers on one dist', () => {
   it('keeps the manifest guarded until the last owner releases', () => {
     const shared = makeSharedOutputFs()
     const manifest = path.resolve('dist', 'chrome', 'manifest.json')
-    const count = () => shared.fs.__extensionjsGuardedManifestPaths?.get(manifest)
+    const count = () =>
+      shared.fs.__extensionjsGuardedManifestPaths?.get(manifest)
 
     const releaseA = suppressManifestOutputWrites(
       {outputFileSystem: shared.fs},

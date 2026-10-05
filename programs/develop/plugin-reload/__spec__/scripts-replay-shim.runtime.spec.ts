@@ -281,7 +281,10 @@ describe('scripts-replay shim runtime', () => {
 
     const outcome = await fakeGlobal.__extjsScriptsReplay(['scripts/widget.js'])
 
-    expect(outcome).toEqual([{ok: true, tabId: 9, files: ['scripts/widget.js']}])
+    expect(outcome).toEqual([
+      {ok: true, tabId: 9, files: ['scripts/widget.js']}
+    ])
+
     expect(calls).toHaveLength(3)
     expect(calls[2].target).toEqual({tabId: 9})
 
@@ -324,7 +327,10 @@ describe('scripts-replay shim runtime', () => {
     close(7)
     const outcome = await fakeGlobal.__extjsScriptsReplay(['scripts/widget.js'])
 
-    expect(outcome).toEqual([{ok: true, tabId: 9, files: ['scripts/widget.js']}])
+    expect(outcome).toEqual([
+      {ok: true, tabId: 9, files: ['scripts/widget.js']}
+    ])
+
     expect(calls).toHaveLength(3)
     expect(tabGets).toEqual([9])
   })
@@ -345,9 +351,14 @@ describe('scripts-replay shim runtime', () => {
 
     tabGets.length = 0
 
-    expect(await fakeGlobal.__extjsScriptsReplay(['scripts/widget.js'])).toEqual([])
+    expect(
+      await fakeGlobal.__extjsScriptsReplay(['scripts/widget.js'])
+    ).toEqual([])
+
     navigate(7, 'https://example.com/')
-    expect(await fakeGlobal.__extjsScriptsReplay(['scripts/widget.js'])).toEqual([])
+    expect(
+      await fakeGlobal.__extjsScriptsReplay(['scripts/widget.js'])
+    ).toEqual([])
 
     expect(tabGets).toEqual([7])
     expect(calls).toHaveLength(1)

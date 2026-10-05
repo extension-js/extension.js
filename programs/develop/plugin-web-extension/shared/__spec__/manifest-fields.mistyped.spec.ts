@@ -12,7 +12,12 @@ function makeProject(manifest: Record<string, unknown>) {
   const manifestPath = path.join(root, 'manifest.json')
   fs.writeFileSync(
     manifestPath,
-    JSON.stringify({manifest_version: 3, name: 'x', version: '1.0.0', ...manifest})
+    JSON.stringify({
+      manifest_version: 3,
+      name: 'x',
+      version: '1.0.0',
+      ...manifest
+    })
   )
 
   return manifestPath
@@ -30,7 +35,10 @@ describe('getResolvedManifestFieldsData with mistyped list fields', () => {
       content_scripts: {matches: ['<all_urls>'], js: ['content.js']}
     })
 
-    const data = getResolvedManifestFieldsData({manifestPath, browser: 'chrome'})
+    const data = getResolvedManifestFieldsData({
+      manifestPath,
+      browser: 'chrome'
+    })
 
     expect(Object.values(data.scripts).filter(Boolean)).toEqual([])
     expect(Object.values(data.html).filter(Boolean)).toEqual([])
@@ -49,7 +57,10 @@ describe('getResolvedManifestFieldsData with mistyped list fields', () => {
       content_scripts: [{matches: ['<all_urls>'], js: ['content.js']}]
     })
 
-    const data = getResolvedManifestFieldsData({manifestPath, browser: 'chrome'})
+    const data = getResolvedManifestFieldsData({
+      manifestPath,
+      browser: 'chrome'
+    })
 
     expect(data.scripts['content_scripts/content-0']).toEqual([
       path.join(path.dirname(manifestPath), 'content.js')

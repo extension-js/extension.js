@@ -140,9 +140,7 @@ function isExecutorAttachGrace(
   return Date.now() - compiledMs < EXECUTOR_ATTACH_GRACE_MS
 }
 
-function readReadyDocument(
-  readyPath: string
-): Record<string, unknown> | null {
+function readReadyDocument(readyPath: string): Record<string, unknown> | null {
   try {
     const parsed = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
 
@@ -221,8 +219,7 @@ export function resolveDoctorBrowser(
   }
 
   return {
-    browser:
-      pickBrowser(sessions) ?? pickBrowser(receipts) ?? 'chromium',
+    browser: pickBrowser(sessions) ?? pickBrowser(receipts) ?? 'chromium',
     sessionBrowsers: sessions
   }
 }
@@ -332,7 +329,8 @@ async function browserCheck(ready: {
   binary?: unknown
   binaryProvenance?: unknown
 }): Promise<DoctorCheckResult> {
-  const pid = typeof ready.browserPid === 'number' ? ready.browserPid : undefined
+  const pid =
+    typeof ready.browserPid === 'number' ? ready.browserPid : undefined
   const port = debuggerPort(ready)
   const label = port ? `${port.name} ${port.port}` : ''
 

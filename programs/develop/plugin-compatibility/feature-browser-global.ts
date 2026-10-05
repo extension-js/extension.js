@@ -62,7 +62,9 @@ function sourcesBehind(
       const text = readProjectSource(resource)
       if (text === undefined || !mentionsBrowserName(text)) continue
 
-      sources.add(path.relative(manifestDir, resource).split(path.sep).join('/'))
+      sources.add(
+        path.relative(manifestDir, resource).split(path.sep).join('/')
+      )
     }
   }
 

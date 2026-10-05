@@ -382,13 +382,17 @@ describe('extension publish --ttl', () => {
     return JSON.parse(String(init.body)) as Record<string, unknown>
   }
 
-  it.each(['abc', '0', '-5', '1.5', '169', '99999'])(
-    'refuses %s before any request is sent',
-    async (ttl) => {
-      expect(await run(['publish', '--token', 'tok', '--ttl', ttl])).toBe(1)
-      expect(fetchMock).not.toHaveBeenCalled()
-    }
-  )
+  it.each([
+    'abc',
+    '0',
+    '-5',
+    '1.5',
+    '169',
+    '99999'
+  ])('refuses %s before any request is sent', async (ttl) => {
+    expect(await run(['publish', '--token', 'tok', '--ttl', ttl])).toBe(1)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
 
   it('reports a bad value as E_FLAG_VALUE_INVALID usage under --output json', async () => {
     expect(

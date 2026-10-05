@@ -89,7 +89,9 @@ describe('an install pinned to a loopback registry stays off the network', () =>
         )}\n`
       }
     })
-    const work = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-offline-install-'))
+    const work = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'extjs-offline-install-')
+    )
 
     cleanup = async () => {
       await catalog.close()

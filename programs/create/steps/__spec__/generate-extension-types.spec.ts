@@ -35,7 +35,10 @@ describe('create generate-extension-types', () => {
     )
     expect(content).toBe(renderExtensionEnvTypes())
     expect(content).toContain('/// <reference types="extension/types" />')
-    expect(content).toContain('/// <reference types="extension/types/polyfill" />')
+    expect(content).toContain(
+      '/// <reference types="extension/types/polyfill" />'
+    )
+
     expect(content).not.toContain('declare module')
   })
 })

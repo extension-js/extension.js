@@ -4,7 +4,15 @@ import http from 'node:http'
 import type {AddressInfo} from 'node:net'
 import os from 'node:os'
 import path from 'node:path'
-import {afterAll, afterEach, beforeAll, beforeEach, describe, expect, it} from 'vitest'
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it
+} from 'vitest'
 
 type Reply = {status: number; contentType: string; body: string}
 type Seen = {authorization: string; path: string}

@@ -310,7 +310,10 @@ describe('addon lint summary', () => {
 
     expect(
       summarizeAddonLint(
-        await runAddonLint({...baseInput(root), loadLinter: fakeLinter(FAKE_OUTPUT)})
+        await runAddonLint({
+          ...baseInput(root),
+          loadLinter: fakeLinter(FAKE_OUTPUT)
+        })
       )
     ).toEqual({status: 'linted', findings: 2})
 

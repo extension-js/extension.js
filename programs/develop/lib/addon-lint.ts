@@ -225,9 +225,7 @@ class AddonLintTimeout extends Error {}
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => {
-      reject(
-        new AddonLintTimeout(`timed out after ${Math.round(ms / 1000)} s`)
-      )
+      reject(new AddonLintTimeout(`timed out after ${Math.round(ms / 1000)} s`))
     }, ms)
     // A late linter must not keep a finished build process alive.
     timer.unref?.()
