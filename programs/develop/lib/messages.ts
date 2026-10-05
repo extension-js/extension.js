@@ -18,6 +18,7 @@ import {
   prefix,
   stripChannelPrefix
 } from './messaging'
+import {foldOutputFiles, type OutputFile} from './output-files'
 
 // Imported for local use and re-exported: consumers and snapshots read fmt
 // from this module, and the definition now lives in messaging.ts.
@@ -260,14 +261,35 @@ export function anotherDevSessionActive(
   )
 }
 
-export function buildAssetsTree(stats: Stats | undefined): string {
+export function buildAssetsTree(
+  stats: Stats | undefined,
+  outputFiles?: OutputFile[]
+): string {
   const statsJson = stats?.toJson?.({
     all: false,
     assets: true
   })
   const assets: StatsAsset[] = statsJson?.assets || []
+  const tree = getAssetsTree(assets)
 
-  return getAssetsTree(assets)
+  if (!tree || !outputFiles?.length) return tree
+
+  const folded = foldOutputFiles(
+    outputFiles,
+    assets.map((asset) => asset?.name)
+  )
+
+  if (folded.count === 0) return tree
+
+  const noun = folded.sourceMapsOnly ? 'source map' : 'file'
+
+  return (
+    tree +
+    colors.gray(
+      `+ ${pluralize(folded.count, noun)} not shown (${getFileSize(folded.bytes)})`
+    ) +
+    '\n'
+  )
 }
 
 export function buildComplete(

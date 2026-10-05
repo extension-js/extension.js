@@ -95,6 +95,58 @@ describe('rewriteInlinedCssUrls', () => {
   })
 })
 
+describe('rewriteInlinedCssUrls names a public-owned file by its copied path', () => {
+  for (const spelling of [
+    '/img/bg.png',
+    '../public/img/bg.png',
+    './../public/img/bg.png'
+  ]) {
+    it(`resolves url('${spelling}') to the one copy the public folder ships`, () => {
+      const dir = createProject()
+      const {css, targets} = rewriteInlinedCssUrls(
+        `.a { background: url('${spelling}'); }`,
+        {...contextFor(dir), publicDir: path.join(dir, 'public')}
+      )
+
+      expect(css).toBe(
+        `.a { background: url("${EXTENSION_ROOT_PLACEHOLDER}img/bg.png"); }`
+      )
+
+      expect(targets).toHaveLength(1)
+      expect(targets[0].outputName).toBe('img/bg.png')
+      expect(targets[0].publicOwned).toBe(true)
+    })
+  }
+
+  it('still emits a relative reference to a file outside the public folder', () => {
+    const dir = createProject()
+    const {targets} = rewriteInlinedCssUrls(
+      '.a { src: url(./fonts/a.woff2); }',
+      {...contextFor(dir), publicDir: path.join(dir, 'public')}
+    )
+
+    expect(targets.map((target) => target.outputName)).toEqual([
+      'assets/content/fonts/a.woff2'
+    ])
+
+    expect(targets[0].publicOwned).toBe(false)
+  })
+
+  it('still emits a relative reference into a public folder that does not ship', () => {
+    const dir = createProject()
+    const {targets} = rewriteInlinedCssUrls(
+      '.a { background: url(../public/img/bg.png); }',
+      contextFor(dir)
+    )
+
+    expect(targets.map((target) => target.outputName)).toEqual([
+      'assets/public/img/bg.png'
+    ])
+
+    expect(targets[0].publicOwned).toBe(false)
+  })
+})
+
 describe('toRuntimeStylesheetModule', () => {
   const css = `.a { background: url("${EXTENSION_ROOT_PLACEHOLDER}assets/img/bg.png"); }`
 
@@ -136,6 +188,20 @@ describe('toRuntimeStylesheetModule', () => {
     const exported = evaluateModule(toRuntimeStylesheetModule(css), {
       __EXTJS_EXTENSION_BASE__: 'chrome-extension://abc'
     })
+    expect(decodeURIComponent(String(exported))).toContain(
+      'url("chrome-extension://abc/assets/img/bg.png")'
+    )
+  })
+
+  it('reads the base a shipped MAIN world bundle kept, once <html> no longer carries it', () => {
+    const keptBase = Object.assign(() => {}, {
+      extjsBase: 'chrome-extension://abc/'
+    })
+    const exported = evaluateModule(toRuntimeStylesheetModule(css), {
+      __webpack_require__: keptBase,
+      document: {documentElement: {getAttribute: () => null}}
+    })
+
     expect(decodeURIComponent(String(exported))).toContain(
       'url("chrome-extension://abc/assets/img/bg.png")'
     )

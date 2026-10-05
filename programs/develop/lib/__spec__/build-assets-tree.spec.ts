@@ -43,4 +43,52 @@ describe('build assets tree', () => {
     expect(buildAssetsTree(makeStats([]))).toBe('')
     expect(buildAssetsTree(undefined)).toBe('')
   })
+
+  it('names the source maps the tree left out in one closing line', () => {
+    const out = strip(
+      buildAssetsTree(
+        makeStats([
+          {name: 'action/index.js', size: 40},
+          {name: 'manifest.json', size: 440}
+        ]),
+        [
+          {name: 'action/index.js', size: 40},
+          {name: 'action/index.js.map', size: 1024},
+          {name: 'action/index.css.map', size: 512},
+          {name: 'manifest.json', size: 440}
+        ]
+      )
+    )
+
+    expect(out.trimEnd().split('\n').at(-1)).toContain(
+      '+ 2 source maps not shown (1.50KB)'
+    )
+
+    expect(out.match(/not shown/g)).toHaveLength(1)
+    expect(out).not.toMatch(/index\.js\.map/)
+  })
+
+  it('calls them files when the tree left out more than source maps', () => {
+    const out = strip(
+      buildAssetsTree(makeStats([{name: 'manifest.json', size: 440}]), [
+        {name: 'manifest.json', size: 440},
+        {name: 'vendor.LICENSE.txt', size: 2048}
+      ])
+    )
+
+    expect(out.trimEnd().split('\n').at(-1)).toContain(
+      '+ 1 file not shown (2.00KB)'
+    )
+  })
+
+  it('adds no line when the tree already lists every file', () => {
+    const assets = [
+      {name: 'action/index.js', size: 40},
+      {name: 'manifest.json', size: 440}
+    ]
+
+    expect(buildAssetsTree(makeStats(assets), assets)).toBe(
+      buildAssetsTree(makeStats(assets))
+    )
+  })
 })

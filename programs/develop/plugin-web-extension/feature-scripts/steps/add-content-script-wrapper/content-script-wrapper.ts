@@ -367,6 +367,10 @@ export default function contentScriptWrapper(
   )
   const isMainWorld = declaredEntry?.world === 'MAIN' || isRuntimeMainWorld
   const hostInstrumentationEnabled = !isProd && !isMainWorld
+  // The bridge that runs right before a declared MAIN-world script leaves the
+  // extension base on <html>. A shipped bundle takes it and clears it at once.
+  const takesBridgeBase = isProd && declaredEntry?.world === 'MAIN'
+  const takenBridgeBase = takesBridgeBase ? '__EXTENSIONJS_BRIDGE_BASE || ' : ''
   const bundleKey = declaredEntry
     ? getCanonicalContentScriptEntryName(declaredEntry.index)
     : `scripts/${String(relToScripts || '').replace(/\\/g, '/')}`
@@ -394,7 +398,7 @@ export default function contentScriptWrapper(
     '    if (typeof globalThis === "object" && globalThis && globalThis.chrome && globalThis.chrome.runtime && typeof globalThis.chrome.runtime.getURL === "function") return globalThis.chrome.runtime.getURL(path);\n' +
     '  } catch (error) {}\n' +
     '  try {\n' +
-    '    var base = (typeof globalThis === "object" && globalThis && globalThis.__EXTJS_EXTENSION_BASE__) ? String(globalThis.__EXTJS_EXTENSION_BASE__) : "";\n' +
+    `    var base = ${takenBridgeBase}((typeof globalThis === "object" && globalThis && globalThis.__EXTJS_EXTENSION_BASE__) ? String(globalThis.__EXTJS_EXTENSION_BASE__) : "");\n` +
     '    if (!base && typeof document === "object" && document && document.documentElement) base = String(document.documentElement.getAttribute("data-extjs-extension-base") || "");\n' +
     '    if (!base) return "";\n' +
     '    return base.replace(/\\/+$/, "/") + String(path || "").replace(/^\\/+/, "");\n' +
@@ -450,6 +454,7 @@ export default function contentScriptWrapper(
     '      return cssPromise;\n' +
     '    };\n' +
     '    var tries = 0;\n' +
+    '    var wanted = false;\n' +
     '    var tick = function(){\n' +
     '      try {\n' +
     '        var __extjsToken = __EXTENSIONJS_ownerToken();\n' +
@@ -498,10 +503,15 @@ export default function contentScriptWrapper(
     '            if (String(injected.textContent || "") !== cssText) injected.textContent = cssText;\n' +
     '            return;\n' +
     '          }\n' +
+    '          wanted = true;\n' +
     '        }\n' +
     '      } catch (error) {}\n' +
     '      if (tries++ < 20) {\n' +
-    '        if (!cssPromise) readCss();\n' +
+    // A page with no shadow root of ours has nothing to style, so a shipped
+    // bundle asks for its sheet only once such a root is there to receive it.
+    (isProd
+      ? '        if (wanted && !cssPromise) readCss();\n'
+      : '        if (!cssPromise) readCss();\n') +
     '        setTimeout(tick, 250);\n' +
     '      }\n' +
     '    };\n' +
@@ -817,6 +827,19 @@ export default function contentScriptWrapper(
   const bootstrap =
     `var __EXTENSIONJS_BUNDLE_KEY=${JSON.stringify(bundleKey)};\n` +
     `var __EXTENSIONJS_REINJECT_KEY=${JSON.stringify(reinjectKey)};\n` +
+    // Later readers, a lazy chunk included, find the base on the require
+    // function, which no page script can reach.
+    (takesBridgeBase
+      ? 'var __EXTENSIONJS_BRIDGE_BASE = "";\n' +
+        'try {\n' +
+        '  var __EXTENSIONJS_html = document.documentElement;\n' +
+        '  __EXTENSIONJS_BRIDGE_BASE = String(__EXTENSIONJS_html.getAttribute("data-extjs-extension-base") || "");\n' +
+        '  if (__EXTENSIONJS_BRIDGE_BASE) {\n' +
+        '    __EXTENSIONJS_html.removeAttribute("data-extjs-extension-base");\n' +
+        '    if (typeof __webpack_require__ === "function") __webpack_require__.extjsBase = __EXTENSIONJS_BRIDGE_BASE;\n' +
+        '  }\n' +
+        '} catch (error) {}\n'
+      : '') +
     devOnly(
       `var __EXTENSIONJS_REINJECT_BUILD_TOKEN=${JSON.stringify(buildToken)};\n`
     ) +
@@ -960,6 +983,9 @@ export default function contentScriptWrapper(
         '      if (typeof globalThis === "object" && globalThis && globalThis.browser && globalThis.browser.runtime && typeof globalThis.browser.runtime.getURL === "function") base = String(globalThis.browser.runtime.getURL("/"));\n' +
         '      else if (typeof globalThis === "object" && globalThis && globalThis.chrome && globalThis.chrome.runtime && typeof globalThis.chrome.runtime.getURL === "function") base = String(globalThis.chrome.runtime.getURL("/"));\n' +
         '    } catch (error) {}\n' +
+        (takesBridgeBase
+          ? '    if (!base) base = __EXTENSIONJS_BRIDGE_BASE;\n'
+          : '') +
         '    if (!base) {\n' +
         '      try {\n' +
         '        if (typeof document === "object" && document && document.documentElement) base = String(document.documentElement.getAttribute("data-extjs-extension-base") || "");\n' +

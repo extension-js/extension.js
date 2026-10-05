@@ -8,8 +8,11 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {publicContainmentRoot} from '../plugin-special-folders/resolve-public-folder'
-import {replaceCssUrlRefs} from './css-lib/dead-url-refs'
+import {
+  publicContainmentRoot,
+  resolvePublicFolder
+} from '../plugin-special-folders/resolve-public-folder'
+import {publicOwnedOutputName, replaceCssUrlRefs} from './css-lib/dead-url-refs'
 
 export const PUBLIC_ROOT_SCHEME = 'https://extensionjs-public.invalid'
 
@@ -19,6 +22,7 @@ export interface PublicCssUrlLoaderOptions {
 }
 
 interface PublicCssUrlLoaderContext {
+  resourcePath?: string
   getOptions(): PublicCssUrlLoaderOptions
   addDependency?(file: string): void
 }
@@ -31,21 +35,54 @@ function isFile(candidate: string): boolean {
   }
 }
 
-export function keepPublicRootRefs(source: string, publicRoot: string): string {
-  return replaceCssUrlRefs(source, (request) => {
-    if (!request.startsWith('/') || request.startsWith('//')) return undefined
+export interface PublicRelativeRefs {
+  issuerDir: string
+  // The folder the public copier ships from.
+  publicDir: string
+}
+
+function publicPathOfRelativeRef(
+  req: string,
+  {issuerDir, publicDir}: PublicRelativeRefs
+): string | undefined {
+  if (!req || /^[a-z][a-z0-9+.-]*:/i.test(req)) return undefined
+  if (req.startsWith('~') || req.startsWith('@')) return undefined
+
+  const absolutePath = path.resolve(issuerDir, req)
+  if (!isFile(absolutePath)) return undefined
+
+  return publicOwnedOutputName(absolutePath, publicDir)
+}
+
+export function keepPublicRootRefs(
+  source: string,
+  publicRoot: string,
+  relative?: PublicRelativeRefs
+): string {
+  return replaceCssUrlRefs(source, (request, {isImport}) => {
+    if (request.startsWith('//')) return undefined
 
     const suffixAt = request.search(/[?#]/)
-    const rel = (suffixAt === -1 ? request : request.slice(0, suffixAt)).slice(
-      1
-    )
-    if (!rel || !isFile(path.join(publicRoot, rel))) return undefined
+    const req = suffixAt === -1 ? request : request.slice(0, suffixAt)
 
-    return `${PUBLIC_ROOT_SCHEME}${request}`
+    if (req.startsWith('/')) {
+      const rel = req.slice(1)
+      if (!rel || !isFile(path.join(publicRoot, rel))) return undefined
+
+      return `${PUBLIC_ROOT_SCHEME}${request}`
+    }
+
+    // A relative @import is bundled into the sheet, so it stays a request.
+    if (!relative || isImport) return undefined
+
+    const publicPath = publicPathOfRelativeRef(req, relative)
+    if (!publicPath) return undefined
+
+    return `${PUBLIC_ROOT_SCHEME}/${publicPath}${request.slice(req.length)}`
   })
 }
 
-// The emitted sheet names the file the way the author did.
+// The emitted sheet names the file by its path at the extension root.
 export function restorePublicRootRefs(source: string): string {
   return source.split(PUBLIC_ROOT_SCHEME).join('')
 }
@@ -59,8 +96,15 @@ export default function publicCssUrlLoader(
 
   try {
     const publicRoot = publicContainmentRoot(manifestPath, projectPath)
+    const publicDir = resolvePublicFolder(manifestPath, projectPath)
 
-    return keepPublicRootRefs(source, publicRoot)
+    return keepPublicRootRefs(
+      source,
+      publicRoot,
+      publicDir && this.resourcePath
+        ? {issuerDir: path.dirname(this.resourcePath), publicDir}
+        : undefined
+    )
   } catch {
     // A reference rewrite must never break a build the browser would accept.
     return source

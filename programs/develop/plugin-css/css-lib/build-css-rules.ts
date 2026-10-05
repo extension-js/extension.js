@@ -188,8 +188,8 @@ export async function buildCssRules(
       let ruleType = type
       let parser: RuleSetRule['parser']
 
-      // A page sheet keeps a root-absolute url() that public/ owns as the
-      // root path the copier ships; rspack would emit a hashed second copy.
+      // A page sheet names a file public/ owns by the root path the copier
+      // ships, however url() spelled it; rspack would emit a second copy.
       if (nonModuleType === 'css' && manifestPath && type !== 'asset/inline') {
         ;(use as Array<Record<string, unknown>>).unshift({
           loader: resolveDevelopDistFile('public-css-url-loader'),

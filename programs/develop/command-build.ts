@@ -44,6 +44,7 @@ import {
 import * as messages from './lib/messages'
 import {browserRowValue, card, claimCardKey, isDebug} from './lib/messaging'
 import {applySplitChunksGuard} from './lib/normalize-split-chunks'
+import {listOutputFiles} from './lib/output-files'
 import {parseJsonSafe} from './lib/parse-json-safe'
 import {
   collapseHomeDir,
@@ -371,6 +372,12 @@ export async function extensionBuild(
           )
         }
 
+        // One walk feeds the tree's folded line and the summary totals, so
+        // both describe the folder the build wrote and not the stats list.
+        const outputFiles = listOutputFiles(
+          useStagingSwap ? stagingDistPath : displayDistPath
+        )
+
         // The identity card and asset tree are informational; a throw here
         // would leave this promise pending and the process would exit 0.
         try {
@@ -381,7 +388,7 @@ export async function extensionBuild(
           )
 
           if (!silent) {
-            const assetsTree = messages.buildAssetsTree(stats)
+            const assetsTree = messages.buildAssetsTree(stats, outputFiles)
             if (assetsTree) humanLine(assetsTree)
           }
         } catch {
@@ -413,7 +420,7 @@ export async function extensionBuild(
 
           // The summary names the folder the artifacts landed in, which under
           // a re-pointed output.path is not dist/<browser>.
-          summary = getBuildSummary(browser, info, displayDistPath)
+          summary = getBuildSummary(browser, info, displayDistPath, outputFiles)
 
           const distDisplay = displayPath(displayDistPath)
 

@@ -67,9 +67,14 @@ export function getBuildSummary(
     warnings?: unknown[]
     errors?: unknown[]
   } | null,
-  outputPath?: string
+  outputPath?: string,
+  outputFiles?: Array<{size: number}>
 ): BuildSummary {
-  const assets = info?.assets || []
+  // The stats list leaves out source maps, so the files found in the output
+  // folder are what the totals count whenever the folder could be read.
+  const assets: Array<{size?: number}> = outputFiles?.length
+    ? outputFiles
+    : info?.assets || []
   const warnings = (info?.warnings || [])
     .slice(0, MAX_SUMMARY_WARNINGS)
     .map((warning) => {
