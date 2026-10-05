@@ -6,6 +6,13 @@ set -euo pipefail
 # issue tracker instead, one open issue per lane, commented on each failure.
 
 LANE="${1:?lane name required}"
+
+# A dispatch on a branch runs the same lanes, and its result says nothing
+# about main. Only a run of main may open, comment on or close the issue.
+if [[ "${GITHUB_REF:-}" != "refs/heads/main" ]]; then
+  echo "Not a run of main (${GITHUB_REF:-no ref}), the red lane issue is left alone"
+  exit 0
+fi
 # A lane that tracks a moving target (the browser-channel lane) names the
 # build it failed on, so each new build gets its own issue instead of a
 # comment on a stale one. Everything else keeps the "<lane> is red on main"

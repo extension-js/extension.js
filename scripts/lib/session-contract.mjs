@@ -94,6 +94,36 @@ export function describeReadyFailure(ready) {
   return parts.join(' ')
 }
 
+// Whether a dev session proved the extension is running in a real browser.
+// A compile-ready status, or a browserPid alone, only says a process was
+// spawned. The executor attach comes from inside the extension, so it is the
+// one signal a browser that died at launch can never produce.
+export function devLaunchVerdict(ready) {
+  if (!ready) return {state: 'pending'}
+
+  if (ready.status === 'error') {
+    return {state: 'failed', reason: describeReadyFailure(ready)}
+  }
+
+  if (ready.browserExitedAt) {
+    return {
+      state: 'failed',
+      reason:
+        `the browser exited at ${ready.browserExitedAt} ` +
+        `(code ${ready.browserExitCode ?? 'none'}, ` +
+        `signal ${ready.browserExitSignal ?? 'none'})`
+    }
+  }
+
+  if (ready.status !== 'ready' || !ready.browserPid) return {state: 'pending'}
+
+  if (ready.runtime !== 'attached' || !ready.executorAttachedAt) {
+    return {state: 'pending'}
+  }
+
+  return {state: 'loaded'}
+}
+
 function encodeChromiumExtensionIdFromDigest(digest) {
   let extensionId = ''
 

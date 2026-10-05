@@ -46,15 +46,16 @@ describe('CDPClient pipe transport', () => {
     await client.connectViaPipe(pipeIn, pipeOut)
     expect(pipeIn.listeners('close')).toContain(childClose)
     expect(pipeIn.listenerCount('data')).toBe(1)
-    expect(pipeOut.listenerCount('error')).toBe(1)
+    expect(pipeOut.listenerCount('error')).toBe(2)
 
     client.disconnect()
 
     expect(pipeIn.listeners('close')).toEqual([childClose])
     expect(pipeOut.listeners('close')).toEqual([childWriteClose])
     expect(pipeIn.listenerCount('data')).toBe(0)
-    expect(pipeIn.listenerCount('error')).toBe(0)
-    expect(pipeOut.listenerCount('error')).toBe(0)
+    // One guard stays, so a reset after the detach is never left uncaught.
+    expect(pipeIn.listenerCount('error')).toBe(1)
+    expect(pipeOut.listenerCount('error')).toBe(1)
 
     pipeIn.destroy()
     await new Promise((r) => setTimeout(r, 0))
@@ -243,5 +244,88 @@ describe('CDPClient pipe transport when the browser dies mid-write', () => {
     client.disconnect()
     pipeIn.destroy()
     pipeOut.destroy()
+  })
+})
+
+describe('CDPClient pipe transport when the browser resets the read side', () => {
+  function econnreset() {
+    const error = new Error('read ECONNRESET') as Error & {code?: string}
+    error.code = 'ECONNRESET'
+
+    return error
+  }
+
+  function brokenPipe() {
+    const {Writable} = require('node:stream') as typeof import('node:stream')
+
+    return new Writable({
+      write(_chunk, _encoding, callback) {
+        const error = new Error('write EPIPE') as Error & {code?: string}
+        error.code = 'EPIPE'
+        callback(error)
+      }
+    })
+  }
+
+  it('reports the transport gone when the read side errors', async () => {
+    const client = new CDPClient(0, '127.0.0.1')
+    const pipeIn = new PassThrough()
+    const pipeOut = new PassThrough()
+    const reasons: string[] = []
+    client.onTransportGone = (reason: string) => reasons.push(reason)
+
+    await client.connectViaPipe(pipeIn, pipeOut)
+    const pending = client.sendCommand('Target.getTargets')
+    pipeIn.emit('error', econnreset())
+
+    await expect(pending).rejects.toThrow(/ECONNRESET/)
+    expect(client.isTransportGone()).toBe(true)
+    expect(reasons).toEqual(['read ECONNRESET'])
+    client.disconnect()
+  })
+
+  it('absorbs a reset that lands after the client detached', async () => {
+    const client = new CDPClient(0, '127.0.0.1')
+    const pipeIn = new PassThrough()
+    const pipeOut = new PassThrough()
+    const reasons: string[] = []
+    client.onTransportGone = (reason: string) => reasons.push(reason)
+
+    await client.connectViaPipe(pipeIn, pipeOut)
+    client.disconnect()
+
+    expect(() => pipeIn.emit('error', econnreset())).not.toThrow()
+    expect(() => pipeOut.emit('error', econnreset())).not.toThrow()
+    expect(reasons).toEqual(['read ECONNRESET'])
+  })
+
+  it('absorbs the reset that follows a handshake the dead browser refused', async () => {
+    const {connectToChromeCdpViaPipe} = await import(
+      '../../run-chromium/cdp/cdp-extension-controller/connect'
+    )
+    const pipeIn = new PassThrough()
+    const pipeOut = brokenPipe()
+    const reasons: string[] = []
+
+    await expect(
+      connectToChromeCdpViaPipe(pipeIn, pipeOut, 0, '127.0.0.1', (reason) =>
+        reasons.push(reason)
+      )
+    ).rejects.toThrow(/EPIPE/)
+
+    expect(() => pipeOut.emit('error', econnreset())).not.toThrow()
+    expect(() => pipeIn.emit('error', econnreset())).not.toThrow()
+    expect(reasons).toEqual(['write EPIPE'])
+  })
+
+  it('absorbs a reset before any client attached once the launcher guards it', async () => {
+    const {guardCdpPipe} = await import('../../run-chromium/cdp/pipe-guard')
+    const pipeIn = new PassThrough()
+
+    guardCdpPipe(pipeIn)
+    guardCdpPipe(pipeIn)
+
+    expect(pipeIn.listenerCount('error')).toBe(1)
+    expect(() => pipeIn.emit('error', econnreset())).not.toThrow()
   })
 })

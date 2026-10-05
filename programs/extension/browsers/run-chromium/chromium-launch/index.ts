@@ -81,6 +81,7 @@ import type {
 } from '../../browsers-types'
 import type {CDPExtensionController} from '../cdp/cdp-extension-controller'
 import {checkChromeRemoteDebugging} from '../cdp/discovery'
+import {guardCdpPipe} from '../cdp/pipe-guard'
 import type {ChromiumContext} from '../chromium-context'
 import type {
   ChromiumLaunchOptions,
@@ -203,6 +204,8 @@ function invalidBinaryPinError(
 
 // Shared with the Firefox launcher; re-exported here for existing importers.
 export {stampReadyBrowserExited}
+
+const STDERR_TAIL_LINES = 8
 
 export class ChromiumLaunchPlugin {
   private didLaunch = false
@@ -1234,6 +1237,11 @@ export class ChromiumLaunchPlugin {
           }
         : undefined
 
+    // The browser can die before the CDP client attaches, and its reset would
+    // otherwise surface as an uncaught exception instead of the exit below.
+    guardCdpPipe(pipeStreams?.input)
+    guardCdpPipe(pipeStreams?.output)
+
     if (enableCdp && !pipeStreams) {
       let portReady = false
 
@@ -1445,8 +1453,19 @@ export class ChromiumLaunchPlugin {
         }
       ).stdio?.[2]
 
+      // The last lines Chromium wrote, so a browser that dies at launch can say
+      // why. Without them a missing display read as a bare exit code.
+      const stderrTail: string[] = []
+      let pending = ''
+
+      const keepStderrLine = (line: string) => {
+        if (!line) return
+
+        stderrTail.push(line)
+        if (stderrTail.length > STDERR_TAIL_LINES) stderrTail.shift()
+      }
+
       if (stderrStream && typeof stderrStream.on === 'function') {
-        let pending = ''
         stderrStream.on('data', (chunk: Buffer) => {
           pending += String(chunk)
           let newline: number
@@ -1454,6 +1473,7 @@ export class ChromiumLaunchPlugin {
           while ((newline = pending.indexOf('\n')) !== -1) {
             const line = pending.slice(0, newline).trim()
             pending = pending.slice(newline + 1)
+            keepStderrLine(line)
 
             if (
               /Failed to load extension|Manifest file is missing or unreadable|Manifest is not valid JSON/i.test(
@@ -1491,6 +1511,17 @@ export class ChromiumLaunchPlugin {
               this.closeHandlerContext?.command || 'preview'
             )
           )
+
+          if (beforeReady) {
+            keepStderrLine(pending.trim())
+            pending = ''
+
+            if (stderrTail.length > 0) {
+              this.logger.error(
+                messages.browserStderrTail(this.options.browser, stderrTail)
+              )
+            }
+          }
 
           stampReadyBrowserExited(
             this.closeHandlerContext?.extensionOutputPath,

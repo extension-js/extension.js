@@ -170,6 +170,9 @@ export class FirefoxLaunchPlugin {
   private liveExitWatcher?: NodeJS.Timeout
   private browserGone = false
   private didReportReady = false
+  // Firefox's own profile has no remote debugging, so nothing installs the
+  // add-on there and a ready line would announce an add-on that never loaded.
+  private addonNotInstalled = false
   private disposeProcessHandlers?: () => void
 
   constructor(host: FirefoxPluginRuntime, ctx: FirefoxContext) {
@@ -775,11 +778,7 @@ export class FirefoxLaunchPlugin {
         // Ignore
       }
     } else {
-      if (isDebug()) {
-        this.ctx.logger?.warn?.(
-          '[browser] Firefox profile not set; skipping RDP add-on install.'
-        )
-      }
+      this.addonNotInstalled = true
 
       this.child = await this.spawnFirefoxChild(
         plan.binary,
@@ -917,6 +916,12 @@ export class FirefoxLaunchPlugin {
   private reportReady(mode: 'development' | 'production') {
     if (this.browserGone) {
       humanError(messages.browserGoneBeforeReady(this.host.browser))
+
+      return
+    }
+
+    if (this.addonNotInstalled) {
+      humanWarn(messages.geckoSystemProfileNoAddon(this.host.browser))
 
       return
     }
