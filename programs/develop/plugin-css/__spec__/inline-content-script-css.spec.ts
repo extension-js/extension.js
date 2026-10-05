@@ -193,6 +193,20 @@ describe('toRuntimeStylesheetModule', () => {
     )
   })
 
+  it('reads the base a shipped MAIN world bundle kept, once <html> no longer carries it', () => {
+    const keptBase = Object.assign(() => {}, {
+      extjsBase: 'chrome-extension://abc/'
+    })
+    const exported = evaluateModule(toRuntimeStylesheetModule(css), {
+      __webpack_require__: keptBase,
+      document: {documentElement: {getAttribute: () => null}}
+    })
+
+    expect(decodeURIComponent(String(exported))).toContain(
+      'url("chrome-extension://abc/assets/img/bg.png")'
+    )
+  })
+
   it('never names the browser or chrome namespaces as free identifiers', () => {
     const code = toRuntimeStylesheetModule(css)
     expect(code).not.toMatch(/(^|[^.\w$])browser\b/)
