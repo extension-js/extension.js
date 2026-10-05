@@ -106,20 +106,8 @@ export default function ensureHMRForScripts(
     return source
   }
 
-  // Only a page entry accepts its own update: a module another module
-  // imports must let the update bubble to the entry that renders it, or a
-  // bare self-accept re-runs the child while the importer keeps the stale
-  // binding and the page shows the old text.
-  const issuer = (this as unknown as {_module?: {issuer?: unknown}})?._module
-    ?.issuer
-
-  if (issuer) {
-    if (debugHtmlHmr) {
-      console.log(`[extjs:html-hmr] skip child resource=${resourcePath}`)
-    }
-
-    return source
-  }
+  // Only page entries reach this point: the rule's issuer condition in
+  // feature-html/index.ts keeps imported modules out (rspack has no issuer here).
 
   // Declared content scripts never reach this loader: the rule in
   // feature-html/index.ts excludes them from the browser-resolved manifest.
