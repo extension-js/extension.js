@@ -88,7 +88,7 @@ export function injectedCompiledSourceLiteral(
 }
 
 const SPLIT_ENTRY_RECIPE_URL =
-  'https://extension.js.org/docs/features/rspack-configuration#share-a-module-between-entries'
+  'https://extension.js.org/docs/features/rspack-configuration?utm_source=cli#share-a-module-between-entries'
 
 // One loader per surface: the HTML tag, the background registration, the
 // content_scripts list or the injection call. Each names exactly one file.
