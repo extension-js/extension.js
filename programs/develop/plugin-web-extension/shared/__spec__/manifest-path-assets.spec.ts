@@ -106,6 +106,23 @@ describe('settingsOverridesStartupPages', () => {
   })
 })
 
+describe('settings overrides on a safari build', () => {
+  it('promises no favicon and no startup page for the key safari drops', () => {
+    const {manifestPath} = manifestWith(
+      {
+        chrome_settings_overrides: {
+          startup_pages: ['pages/start.html'],
+          search_provider: {favicon_url: 'icons/fav.png'}
+        }
+      },
+      ['pages/start.html']
+    )
+
+    expect(settingsOverridesIconFields(manifestPath, 'safari')).toEqual({})
+    expect(settingsOverridesStartupPages(manifestPath, 'safari')).toEqual({})
+  })
+})
+
 describe('browser-prefixed settings keys', () => {
   it('reads theme_experiment declared under a browser prefix', () => {
     const {dir, manifestPath} = manifestWith(
