@@ -303,6 +303,38 @@ describe('extensionInstall checks the destination before claiming success', () =
     expect(printed).toMatch(/Chrome is installed/)
   })
 
+  it('says on the first line that the browser was a default when none was named', async () => {
+    spawnMock.mockImplementation(() => fakeChild({code: 0}))
+    const destination = path.join(cacheRoot, 'chromium')
+    const binary = plantTruncatedTree(destination)
+
+    await extensionInstall({
+      browser: 'chromium',
+      defaulted: true,
+      locateInstalledBinary: () => binary
+    })
+
+    const firstLine = String(logSpy.mock.calls[0][0]).split('\n')[0]
+    expect(firstLine).toContain(GLYPH)
+    expect(firstLine).toMatch(/Installing .*Chromium/)
+    expect(firstLine).toContain('the default when no browser is named')
+  })
+
+  it('does not call a named browser a default', async () => {
+    spawnMock.mockImplementation(() => fakeChild({code: 0}))
+    const destination = path.join(cacheRoot, 'chromium')
+    const binary = plantTruncatedTree(destination)
+
+    await extensionInstall({
+      browser: 'chromium',
+      locateInstalledBinary: () => binary
+    })
+
+    const printed = logSpy.mock.calls.map((call) => String(call[0])).join('\n')
+    expect(printed).toMatch(/Installing .*Chromium/)
+    expect(printed).not.toMatch(/default/)
+  })
+
   it('leaves no browser directory behind when the installer fails mid-way', async () => {
     spawnMock.mockImplementation(() =>
       fakeChild({code: null, signal: 'SIGKILL'})
