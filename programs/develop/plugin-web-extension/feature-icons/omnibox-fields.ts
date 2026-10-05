@@ -11,6 +11,7 @@ import * as path from 'node:path'
 import {filterKeysForThisBrowser} from '../../lib/manifest-utils'
 import {stripBom} from '../../lib/parse-json-safe'
 import type {DevOptions, FilepathList, Manifest} from '../../types'
+import {dropWebkitUnsupportedKeys} from '../feature-manifest/manifest-lib/filter-keys-safari'
 
 // The manifest-fields package has no omnibox entry, so the omnibox icon had
 // no emitter at all: the manifest named a path nothing produced.
@@ -22,11 +23,15 @@ export function omniboxIconFields(
 
   try {
     // An omnibox written under a browser prefix is invisible to a raw read,
-    // and the manifest then names an icon path nothing produces.
-    manifest = filterKeysForThisBrowser(
-      JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf8'))) as Manifest,
+    // and the manifest then names an icon path nothing produces. Safari
+    // drops the key, so there it names no icon at all.
+    manifest = dropWebkitUnsupportedKeys(
+      filterKeysForThisBrowser(
+        JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf8'))) as Manifest,
+        browser
+      ) as Manifest,
       browser
-    ) as {omnibox?: {default_icon?: unknown}}
+    ).manifest as {omnibox?: {default_icon?: unknown}}
   } catch {
     return {}
   }

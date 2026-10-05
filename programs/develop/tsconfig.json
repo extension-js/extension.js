@@ -3,6 +3,7 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "noEmit": true,
+    "noEmitOnError": true,
     "types": ["node", "chrome"],
     "lib": ["ES2021", "DOM"]
   },

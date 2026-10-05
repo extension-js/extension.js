@@ -220,6 +220,41 @@ describe.each<Layout>([
     expect(instruction?.label).toBe(`extension (${rel})`)
     expect(fs.readFileSync(shipped, 'utf8')).toBe('{"value":"v2"}')
   }, 60000)
+
+  it('a file deleted or renamed mid-session leaves no copy of its old path in dist', async () => {
+    const files = project(layout)
+    const deleted = path.join(files.publicDir, 'deleted-mid-session.bin')
+    const before = path.join(files.publicDir, 'fonts', 'renamed-before.bin')
+    const after = path.join(files.publicDir, 'fonts', 'renamed-after.bin')
+    fs.mkdirSync(path.dirname(before), {recursive: true})
+    fs.writeFileSync(deleted, 'stale-public-token:deleted')
+    fs.writeFileSync(before, 'stale-public-token:renamed')
+    const session = await watchSession(files.root)
+    const inDist = (...segments: string[]) =>
+      path.join(session.distPath, ...segments)
+
+    const first = await session.doneAfter(0)
+    expect(errorsOf(first)).toEqual([])
+    expect(fs.existsSync(inDist('deleted-mid-session.bin'))).toBe(true)
+    expect(fs.existsSync(inDist('fonts', 'renamed-before.bin'))).toBe(true)
+    fs.writeFileSync(inDist('not-from-public.bin'), 'stale-public-token:other')
+
+    const seen = await session.settle()
+    fs.rmSync(deleted)
+    fs.renameSync(before, after)
+    const stats = await session.doneAfter(seen)
+    expect(errorsOf(stats)).toEqual([])
+    await session.settle()
+
+    expect(fs.existsSync(inDist('deleted-mid-session.bin'))).toBe(false)
+    expect(fs.existsSync(inDist('fonts', 'renamed-before.bin'))).toBe(false)
+    expect(fs.readFileSync(inDist('fonts', 'renamed-after.bin'), 'utf8')).toBe(
+      'stale-public-token:renamed'
+    )
+
+    expect(fs.readFileSync(inDist('data.json'), 'utf8')).toBe('{"value":"v1"}')
+    expect(fs.existsSync(inDist('not-from-public.bin'))).toBe(true)
+  }, 60000)
 })
 
 describe('public/ edits under extension dev (manifest-named ruleset)', () => {

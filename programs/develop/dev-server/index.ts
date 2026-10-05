@@ -107,6 +107,7 @@ import {
   DevSessionRestartScheduler,
   unbindDevSessionRestart
 } from './session-restart'
+import {withSessionStartPrune} from './session-start-prune'
 
 function shouldWriteAssetToDisk(filePath: string) {
   // A `..` segment means an emitted asset NAME escapes the output dir; writing
@@ -986,7 +987,15 @@ export async function devServer(
       ]
     }
 
-    const compiler = rspack(compilerConfig)
+    // Decided before the compiler exists: its metadata writer takes over
+    // ready.json, after which the earlier session's claim can not be read.
+    const compiler = rspack(
+      withSessionStartPrune(compilerConfig, {
+        isRestart: opts.isRestart,
+        distPath: primaryDistPath,
+        readyPath: metadata.readyPath
+      })
+    )
     activeCompiler = compiler
     const uninstallManifestGuard =
       installManifestDiskWriteGuard(manifestOutputPath)

@@ -12,7 +12,10 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compilation} from '@rspack/core'
 import type {Manifest} from '../../../types'
-import {parseCanonicalContentScriptAsset} from '../../feature-scripts/contracts'
+import {
+  isCanonicalContentScriptAsset,
+  parseCanonicalContentScriptAsset
+} from '../../feature-scripts/contracts'
 
 // Point manifest content_scripts at the hashed dev bundles so page reloads
 // load the same bytes as reinject; stale prior-build files are removed.
@@ -23,7 +26,18 @@ export function patchDevContentScriptManifestPaths(
   if (compilation.options.mode !== 'development') return manifest
 
   const cs = manifest.content_scripts
-  if (!Array.isArray(cs)) return manifest
+
+  // No entry is left to name a bundle, so the last removed one's files go
+  // here. Only a file named like an entry bundle can be such a leftover.
+  if (!Array.isArray(cs)) {
+    purgeStaleHashedContentScripts(
+      compilation,
+      new Set(),
+      isCanonicalContentScriptAsset
+    )
+
+    return manifest
+  }
 
   const assetNames = new Set(
     (compilation.getAssets?.() || []).map((a) => a.name || '').filter(Boolean)
@@ -89,7 +103,8 @@ function findHashedContentScriptAsset(
 // getAssets() is the source of truth for what this compile emitted.
 function purgeStaleHashedContentScripts(
   compilation: Compilation,
-  currentNames: Set<string>
+  currentNames: Set<string>,
+  isPurgeable: (assetName: string) => boolean = () => true
 ) {
   const outputPath = compilation.options.output?.path
   if (!outputPath) return
@@ -115,6 +130,7 @@ function purgeStaleHashedContentScripts(
       const rel = `content_scripts/${name}`
       const relNoMap = rel.replace(/\.map$/, '')
 
+      if (!isPurgeable(relNoMap)) continue
       if (currentNames.has(rel) || currentNames.has(relNoMap)) continue
       if (emittedNames.has(rel) || emittedNames.has(relNoMap)) continue
 

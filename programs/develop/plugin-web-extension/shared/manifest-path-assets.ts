@@ -12,6 +12,7 @@ import {filterKeysForThisBrowser} from '../../lib/manifest-utils'
 import {stripBom} from '../../lib/parse-json-safe'
 import {findPublicFile} from '../../plugin-special-folders/resolve-public-folder'
 import type {DevOptions, FilepathList, Manifest} from '../../types'
+import {dropWebkitUnsupportedKeys} from '../feature-manifest/manifest-lib/filter-keys-safari'
 import {isManifestAddress} from './paths'
 
 // The manifest-fields package does not extract theme_experiment.stylesheet,
@@ -34,10 +35,14 @@ function readManifest(
   browser: DevOptions['browser']
 ): SettingsManifest {
   try {
-    return filterKeysForThisBrowser(
+    const manifest = filterKeysForThisBrowser(
       JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf8'))) as Manifest,
       browser
-    ) as SettingsManifest
+    ) as Manifest
+
+    // A key the Safari filter drops promises no output path at all.
+    return dropWebkitUnsupportedKeys(manifest, browser)
+      .manifest as SettingsManifest
   } catch {
     return {}
   }

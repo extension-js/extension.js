@@ -147,7 +147,9 @@ function expectReportMatchesFolder(
     Math.max(...files.map((file) => file.size))
   )
 
-  expect(output).toContain(`dist/chrome (${humanSize(sum(files))}).`)
+  expect(output).toMatch(
+    new RegExp(`dist[\\\\/]chrome \\(${humanSize(sum(files))}\\)\\.`)
+  )
 }
 
 describe('the size a build reports', () => {

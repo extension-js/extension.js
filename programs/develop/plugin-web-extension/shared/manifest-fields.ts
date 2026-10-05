@@ -12,6 +12,10 @@ import {getManifestFieldsData} from 'browser-extension-manifest-fields'
 import {filterKeysForThisBrowser} from '../../lib/manifest-utils'
 import {parseJsonSafe} from '../../lib/parse-json-safe'
 import type {DevOptions, Manifest} from '../../types'
+import {
+  dropWebkitUnsupportedKeys,
+  omitWebkitDroppedEntries
+} from '../feature-manifest/manifest-lib/filter-keys-safari'
 import {findMistypedManifestFields} from '../feature-manifest/manifest-lib/sanitize-fatal-shapes'
 import {applyIndependentHtmlSurfaces} from './html-surfaces'
 
@@ -66,15 +70,28 @@ export function getResolvedManifestFieldsData(options: {
   if (!manifest) return data
 
   try {
+    // Safari ships none of the keys its filter drops, so the entries are read
+    // from the manifest that filter leaves behind.
+    const webkit = dropWebkitUnsupportedKeys(
+      manifest,
+      options.browser || 'chrome'
+    )
+
     return {
       ...data,
-      html: applyIndependentHtmlSurfaces(
-        (data.html || {}) as Record<string, string | undefined>,
-        manifest,
-        path.dirname(options.manifestPath),
-        options.browser,
-        options.projectPath
-      )
+      html: omitWebkitDroppedEntries(
+        applyIndependentHtmlSurfaces(
+          (data.html || {}) as Record<string, string | undefined>,
+          webkit.manifest,
+          path.dirname(options.manifestPath),
+          options.browser,
+          options.projectPath
+        ),
+        webkit.dropped
+      ),
+      icons: omitWebkitDroppedEntries(data.icons, webkit.dropped),
+      json: omitWebkitDroppedEntries(data.json, webkit.dropped),
+      scripts: omitWebkitDroppedEntries(data.scripts, webkit.dropped)
     }
   } catch {
     return data

@@ -18,6 +18,7 @@ const ANSI = /\x1b\[[0-9;]*m/g
 // A dependency no registry can satisfy, so the install fails on every lane
 // whether or not the pin held. The request log is what proves the pin held.
 const ABSENT_DEPENDENCY = '@extension-js-offline-proof/absent'
+const PACKAGE_MANAGER_REQUEST = /^\/(?:pnpm|yarn|@yarnpkg\/cli-dist)(?:\/|$)/
 
 function cliBin(): string {
   const root = path.resolve(__dirname, '../..')
@@ -111,9 +112,14 @@ describe('an install pinned to a loopback registry stays off the network', () =>
 
     status = result.status
     stderr = result.stderr
-    asked = registry
-      .requests()
-      .filter((url) => decodeURIComponent(url).includes(ABSENT_DEPENDENCY))
+    asked = registry.requests().filter((url) => {
+      const decoded = decodeURIComponent(url)
+
+      return (
+        decoded.includes(ABSENT_DEPENDENCY) ||
+        PACKAGE_MANAGER_REQUEST.test(decoded)
+      )
+    })
 
     engineInstalled = fs.existsSync(
       path.join(work, 'proof', 'node_modules', 'extension', 'package.json')
@@ -133,7 +139,7 @@ describe('an install pinned to a loopback registry stays off the network', () =>
   })
 
   it.skipIf(process.platform === 'win32')(
-    'asks the pinned registry for the dependency, so the pin governed',
+    'asks the pinned registry for the dependency or for the package manager, so the pin governed',
     () => {
       expect(asked.length).toBeGreaterThan(0)
     }
