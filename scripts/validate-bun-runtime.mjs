@@ -13,6 +13,7 @@ import {join} from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {
   describeReadyFailure,
+  devLaunchVerdict,
   isFreshContract,
   readReadyContract
 } from './lib/session-contract.mjs'
@@ -249,8 +250,12 @@ async function runDev(projectDir) {
 
 // A launch is a different proof from `--no-browser`: it exercises the browser
 // spawn, the profile, and the extension actually loading into the target.
+function isGecko(browser) {
+  return browser === 'firefox' || browser.includes('gecko')
+}
+
 function launchFixture(projectDir, browser) {
-  const gecko = browser === 'firefox' || browser.includes('gecko')
+  const gecko = isGecko(browser)
   const background = gecko
     ? {scripts: ['background.js']}
     : {service_worker: 'background.js'}
@@ -285,7 +290,11 @@ async function runLaunch(browser, binary) {
     args.push(binary)
   }
 
-  args.push('--profile', 'false', '--no-open', '--port', '0')
+  // Firefox's own profile has no debugger, so the add-on would never install
+  // there. Only Chromium loads an extension into its own profile.
+  if (!isGecko(browser)) args.push('--profile', 'false')
+
+  args.push('--no-open', '--port', '0')
 
   const startedAtMs = Date.now()
   const output = {value: ''}
@@ -340,8 +349,9 @@ function waitForLaunch(child, projectDir, browser, startedAtMs, output) {
     const timer = setTimeout(() => {
       finish(
         new Error(
-          `${browser} never reached "ready" with a browserPid within ` +
-            `${LAUNCH_TIMEOUT_MS}ms, so no browser was spawned.\n` +
+          `${browser} never showed the extension running within ` +
+            `${LAUNCH_TIMEOUT_MS}ms (ready, a browserPid and an attached ` +
+            `runtime).\n` +
             output.value.slice(-4000)
         )
       )
@@ -351,15 +361,17 @@ function waitForLaunch(child, projectDir, browser, startedAtMs, output) {
       const ready = readReadyContract(projectDir, browser)
       if (!ready || !isFreshContract(ready, startedAtMs)) return
 
-      if (ready.status === 'error') {
-        finish(new Error(describeReadyFailure(ready)))
+      // A browserPid only says a process was spawned. The attach comes from
+      // inside the extension, so a browser that died at launch never passes.
+      const verdict = devLaunchVerdict(ready)
+
+      if (verdict.state === 'failed') {
+        finish(new Error(`${verdict.reason}\n${output.value.slice(-4000)}`))
 
         return
       }
 
-      // The contract is written at compile-ready and stamped with browserPid
-      // only once the browser attaches, so a ready without a pid is early.
-      if (ready.status === 'ready' && ready.browserPid) finish(null, ready)
+      if (verdict.state === 'loaded') finish(null, ready)
     }, 500)
 
     child.on('exit', (code) => {

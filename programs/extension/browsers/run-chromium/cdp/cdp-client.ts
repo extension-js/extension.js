@@ -22,6 +22,7 @@ import * as messages from '../../browsers-lib/messages'
 import type {CdpProtocolMessage, CdpTargetInfo} from '../chromium-types'
 import {discoverWebSocketDebuggerUrl} from './discovery'
 import {getExtensionInfo} from './extensions'
+import {claimCdpPipe, guardCdpPipe} from './pipe-guard'
 import {establishBrowserConnection} from './ws'
 
 // Restrict browser-root auto-attach to extension-relevant target types;
@@ -138,7 +139,8 @@ export class CDPClient {
         humanError(`[CDP] Pipe read error: ${error.message}`)
       }
 
-      this.rejectAllPending('CDP pipe read error')
+      this.rejectAllPending(`CDP pipe read error: ${error.message}`)
+      this.markTransportGone(error.message)
     }
 
     const onClose = () => {
@@ -161,6 +163,11 @@ export class CDPClient {
       this.pipeOut = null
       this.markTransportGone(error.message)
     }
+
+    guardCdpPipe(input)
+    guardCdpPipe(output)
+    claimCdpPipe(input, this)
+    claimCdpPipe(output, this)
 
     input.on('data', onData)
     input.on('error', onReadError)
@@ -196,6 +203,12 @@ export class CDPClient {
         // Ignore
       }
     }
+  }
+
+  // The guard's entry point: a pipe error that arrives once this client has
+  // detached its own listeners still says the browser went away.
+  reportPipeGone(error: Error) {
+    this.markTransportGone(error?.message || 'the CDP pipe failed')
   }
 
   isTransportGone(): boolean {

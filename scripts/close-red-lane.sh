@@ -6,6 +6,13 @@ set -euo pipefail
 # naming that run, so an open red lane issue always means the lane is red now.
 
 LANE="${1:?lane name required}"
+
+# A dispatch on a branch runs the same lanes, and its result says nothing
+# about main. Only a run of main may open, comment on or close the issue.
+if [[ "${GITHUB_REF:-}" != "refs/heads/main" ]]; then
+  echo "Not a run of main (${GITHUB_REF:-no ref}), the red lane issue is left alone"
+  exit 0
+fi
 # Same title rule as report-red-lane.sh, so the dedupe search finds the issue
 # that script opened.
 TITLE="${RED_LANE_TITLE:-$LANE is red on main}"
