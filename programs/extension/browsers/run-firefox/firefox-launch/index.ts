@@ -68,6 +68,10 @@ import {
   resolveLiveBrowserPid
 } from '../../browsers-lib/resolve-live-pid'
 import {
+  normalizeProfileOption,
+  systemProfileEnvName
+} from '../../browsers-lib/resolve-profile'
+import {
   buildBrowserLaunchRequest,
   toExtensionLoadList
 } from '../../browsers-lib/runtime-options'
@@ -153,6 +157,37 @@ function invalidBinaryPinError(
   )
 }
 
+// Refused before any spawn: a Gecko browser on its own profile has remote
+// debugging off, so it would run with nothing loaded on the user's profile.
+function systemProfileRefusal(
+  browser: BrowserType,
+  sources: messages.SystemProfileSource[]
+): Error {
+  return Object.assign(
+    new Error(messages.geckoSystemProfileRefused(browser, sources)),
+    {code: CODES.E_FLAG_NOT_SUPPORTED_HERE}
+  )
+}
+
+// Every setting that asks for the browser's own profile, so the refusal can
+// name each one the user has to change.
+function systemProfileSources(host: {
+  profile?: string | false
+  profileSource?: 'flag' | 'config'
+}): messages.SystemProfileSource[] {
+  const sources: messages.SystemProfileSource[] = []
+
+  if (normalizeProfileOption(host.profile) === false) {
+    sources.push({kind: host.profileSource === 'config' ? 'config' : 'flag'})
+  }
+
+  const envName = systemProfileEnvName()
+
+  if (envName) sources.push({kind: 'env', name: envName})
+
+  return sources
+}
+
 export class FirefoxLaunchPlugin {
   private readonly host: FirefoxPluginRuntime
   private readonly ctx: FirefoxContext
@@ -170,9 +205,6 @@ export class FirefoxLaunchPlugin {
   private liveExitWatcher?: NodeJS.Timeout
   private browserGone = false
   private didReportReady = false
-  // Firefox's own profile has no remote debugging, so nothing installs the
-  // add-on there and a ready line would announce an add-on that never loaded.
-  private addonNotInstalled = false
   private disposeProcessHandlers?: () => void
 
   constructor(host: FirefoxPluginRuntime, ctx: FirefoxContext) {
@@ -361,6 +393,12 @@ export class FirefoxLaunchPlugin {
 
     if (isDebug()) {
       this.ctx.logger?.info?.(messages.firefoxLaunchCalled(this.host.browser))
+    }
+
+    const systemProfile = systemProfileSources(this.host)
+
+    if (systemProfile.length > 0) {
+      throw systemProfileRefusal(this.host.browser, systemProfile)
     }
 
     const normalizePath = (value?: string | null): string | null => {
@@ -778,34 +816,9 @@ export class FirefoxLaunchPlugin {
         // Ignore
       }
     } else {
-      this.addonNotInstalled = true
-
-      this.child = await this.spawnFirefoxChild(
-        plan.binary,
-        plan.args,
-        wslFallbackBinary
-      )
-
-      stampReadyBrowserLaunch(
-        this.extensionOutputPath,
-        {
-          browserPid: this.child?.pid,
-          binary: this.child?.spawnfile || plan.binary,
-          binaryProvenance: this.host.launchBinaryProvenance,
-          extensionId: this.extensionOutputPath
-            ? expectedGeckoExtensionId(this.extensionOutputPath)
-            : undefined
-        },
-        this.launchRunId
-      )
-
-      this.wireChildLifecycle()
-
-      if (debugPort > 0) {
-        stampReadyRdpPort(this.extensionOutputPath, debugPort)
-      }
-
-      this.scheduleWatchTimeout()
+      // Unreachable past the refusal at the top of launch, kept so a profile
+      // that resolves to nothing can never spawn the browser on its own one.
+      throw systemProfileRefusal(this.host.browser, [{kind: 'flag'}])
     }
   }
 
@@ -916,12 +929,6 @@ export class FirefoxLaunchPlugin {
   private reportReady(mode: 'development' | 'production') {
     if (this.browserGone) {
       humanError(messages.browserGoneBeforeReady(this.host.browser))
-
-      return
-    }
-
-    if (this.addonNotInstalled) {
-      humanWarn(messages.geckoSystemProfileNoAddon(this.host.browser))
 
       return
     }

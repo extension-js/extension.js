@@ -18,6 +18,7 @@ export type FirefoxPluginLike = Pick<
   | 'extension'
   | 'browserFlags'
   | 'profile'
+  | 'profileSource'
   | 'persistProfile'
   | 'keepProfileChanges'
   | 'copyFromProfile'

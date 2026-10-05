@@ -56,6 +56,8 @@ export interface BrowserLaunchOptions {
   enableDevtools?: boolean
   noOpen?: boolean
   profile?: string | false
+  // Where a false profile came from, so a refusal can name it.
+  profileSource?: 'flag' | 'config'
   persistProfile?: boolean
   keepProfileChanges?: boolean
   copyFromProfile?: string

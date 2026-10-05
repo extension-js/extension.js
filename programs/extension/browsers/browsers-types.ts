@@ -100,6 +100,9 @@ export interface PluginOptions {
 
   profile?: string | false
 
+  // Where a false profile came from, so a refusal can name it.
+  profileSource?: 'flag' | 'config'
+
   persistProfile?: boolean
 
   preferences?: Record<string, unknown>

@@ -253,18 +253,21 @@ export class LifecycleStream {
       if (this.readyErrorEmitted) return null
 
       this.readyErrorEmitted = true
-      // A pinned binary that is missing, will not run or never answers is a
-      // value the user typed, the status every other command gives it.
-      const badPin =
+      // A bad pin or a profile the browser cannot load into is a value the
+      // user set, the status every other command gives it.
+      const usageCode =
         ready.code === 'browser_launch_failed' &&
-        ready.browserLaunchFailedCode === CODES.E_BROWSER_BINARY_INVALID
+        (ready.browserLaunchFailedCode === CODES.E_BROWSER_BINARY_INVALID ||
+          ready.browserLaunchFailedCode === CODES.E_FLAG_NOT_SUPPORTED_HERE)
+          ? (ready.browserLaunchFailedCode as
+              | typeof CODES.E_BROWSER_BINARY_INVALID
+              | typeof CODES.E_FLAG_NOT_SUPPORTED_HERE)
+          : undefined
       const frame = ENVELOPE.fail(
         this.options.command,
-        badPin ? 'usage' : 'failed',
+        usageCode ? 'usage' : 'failed',
         {
-          code: badPin
-            ? CODES.E_BROWSER_BINARY_INVALID
-            : CODES.E_READY_ERROR_STATUS,
+          code: usageCode ?? CODES.E_READY_ERROR_STATUS,
           message:
             String(ready.message || '') ||
             'The ready contract reports an error for this session.'

@@ -136,3 +136,21 @@ export function mergeOptionLayers<T extends object>(
 
   return result as T
 }
+
+function isFalseProfile(value: unknown): boolean {
+  return (
+    value === false ||
+    (typeof value === 'string' && value.trim().toLowerCase() === 'false')
+  )
+}
+
+// The merge loses which layer said profile: false, and a refusal of the
+// browser's own profile has to name the one the user can change.
+export function falseProfileSource(
+  merged: unknown,
+  fromCommandLine: unknown
+): 'flag' | 'config' | undefined {
+  if (!isFalseProfile(merged)) return undefined
+
+  return isFalseProfile(fromCommandLine) ? 'flag' : 'config'
+}
