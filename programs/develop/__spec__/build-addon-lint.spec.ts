@@ -113,6 +113,33 @@ function minVersionProject() {
   return root
 }
 
+function permissionMinVersionProject() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-addon-lint-perm-'))
+  roots.push(root)
+  fs.writeFileSync(
+    path.join(root, 'package.json'),
+    JSON.stringify({private: true, name: 'permme', version: '0.0.0'})
+  )
+
+  fs.writeFileSync(path.join(root, 'background.js'), 'console.log("bg")\n')
+  fs.writeFileSync(
+    path.join(root, 'manifest.json'),
+    JSON.stringify({
+      name: 'permme',
+      version: '1.0.0',
+      manifest_version: 3,
+      background: {scripts: ['background.js']},
+      permissions: ['tabGroups'],
+      optional_permissions: ['userScripts'],
+      browser_specific_settings: {
+        gecko: {id: 'permme@example.com', strict_min_version: '112.0'}
+      }
+    })
+  )
+
+  return root
+}
+
 const LOPSIDED_PNG =
   'iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAAAAADRSSBWAAAAC0lEQVR4nGNgYAAAAAMAAbitOmMAAAAASUVORK5CYII='
 const TINY_PNG =
@@ -292,6 +319,33 @@ describe('addon lint after a production firefox build', () => {
       .filter((line) => line.includes('UNSUPPORTED_BY_MIN_VERSION'))
 
     expect(new Set(printed).size).toBe(printed.length)
+  }, 180_000)
+
+  it('reports a permission the minimum version does not support', async () => {
+    const root = permissionMinVersionProject()
+    const {summary, output} = await build(root, {
+      browser: 'firefox',
+      mode: 'production'
+    })
+
+    expect(summary.errors_count).toBe(0)
+    expect(output).toContain(
+      'AMO warning PERMISSION_FIREFOX_UNSUPPORTED_BY_MIN_VERSION: "strict_min_version" requires Firefox 112, which was released before version 139 introduced support for "permissions:tabGroups". (manifest.json)'
+    )
+
+    expect(output).toMatch(
+      /AMO warning PERMISSION_FIREFOX_ANDROID_UNSUPPORTED_BY_MIN_VERSION: "strict_min_version" requires Firefox for Android 112, .* support for "permissions:tabGroups"\./
+    )
+
+    expect(output).toMatch(
+      /AMO warning PERMISSION_FIREFOX_UNSUPPORTED_BY_MIN_VERSION: .* support for "optional_permissions:userScripts"\./
+    )
+
+    expect(
+      (summary.warnings || []).some((line) =>
+        line.includes('"permissions:tabGroups"')
+      )
+    ).toBe(true)
   }, 180_000)
 
   it('names the file behind each icon and locale finding', async () => {

@@ -266,6 +266,49 @@ describe('addon lint mapping', () => {
     )
   })
 
+  it('prints a permission the minimum version lacks as a warning', () => {
+    const notice = (code: string, product: string) => ({
+      code,
+      message: `Permission not supported by the specified minimum ${product} version`,
+      description: `"strict_min_version" requires ${product} 112, which
+        was released before version 139 introduced support for
+        "permissions:tabHerd".`,
+      file: 'manifest.json'
+    })
+    const {findings, lines} = formatAddonLintFindings(
+      {
+        errors: [],
+        warnings: [],
+        notices: [
+          notice('PERMISSION_FIREFOX_UNSUPPORTED_BY_MIN_VERSION', 'Firefox'),
+          notice(
+            'PERMISSION_FIREFOX_ANDROID_UNSUPPORTED_BY_MIN_VERSION',
+            'Firefox for Android'
+          ),
+          {
+            code: 'KNOWN_LIBRARY',
+            message: 'JavaScript library detected',
+            file: 'vendor/tabHerd.js'
+          }
+        ]
+      },
+      'dist/firefox'
+    )
+    const plain = lines.map(stripAnsi)
+
+    expect(findings).toBe(2)
+    expect(plain[0]).toContain('addons-linter found 2 warnings')
+    expect(plain[1]).toContain(
+      'AMO warning PERMISSION_FIREFOX_UNSUPPORTED_BY_MIN_VERSION: "strict_min_version" requires Firefox 112, which was released before version 139 introduced support for "permissions:tabHerd". (manifest.json)'
+    )
+
+    expect(plain[2]).toContain(
+      'AMO warning PERMISSION_FIREFOX_ANDROID_UNSUPPORTED_BY_MIN_VERSION: "strict_min_version" requires Firefox for Android 112,'
+    )
+
+    expect(plain.join('\n')).not.toContain('KNOWN_LIBRARY')
+  })
+
   it('prints two findings that read the same as one line', () => {
     const twice = {
       code: 'KEY_FIREFOX_UNSUPPORTED_BY_MIN_VERSION',

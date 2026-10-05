@@ -35,6 +35,13 @@ const DUPLICATED_BY_BUILD_WARNINGS = new Set([
   'MISSING_DATA_COLLECTION_PERMISSIONS'
 ])
 
+// The linter files these as notices while their manifest key twins are
+// warnings, and a permission the minimum version lacks is the same defect.
+const NOTICES_PRINTED_AS_WARNINGS = new Set([
+  'PERMISSION_FIREFOX_UNSUPPORTED_BY_MIN_VERSION',
+  'PERMISSION_FIREFOX_ANDROID_UNSUPPORTED_BY_MIN_VERSION'
+])
+
 export interface AddonLintFinding {
   code?: string
   message?: string
@@ -184,12 +191,16 @@ export function collectAddonLintLines(
 ): AddonLintLine[] {
   const errors = Array.isArray(output?.errors) ? output.errors : []
   const warnings = Array.isArray(output?.warnings) ? output.warnings : []
+  const notices = Array.isArray(output?.notices) ? output.notices : []
 
   const seen = new Set<string>()
 
   return [
     ...errors.map((finding) => toLine('error', finding)),
-    ...warnings.map((finding) => toLine('warning', finding))
+    ...warnings.map((finding) => toLine('warning', finding)),
+    ...notices
+      .map((finding) => toLine('warning', finding))
+      .filter((line) => NOTICES_PRINTED_AS_WARNINGS.has(line.code))
   ]
     .filter((line) => !DUPLICATED_BY_BUILD_WARNINGS.has(line.code))
     .filter((line) => {
