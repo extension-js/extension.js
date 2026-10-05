@@ -43,6 +43,13 @@ describe('omniboxIconFields', () => {
     expect(omniboxIconFields(manifestPath, 'firefox')).toEqual({})
   })
 
+  it('names no icon for safari, which drops the omnibox key', () => {
+    const {manifestPath} = manifestWith({
+      omnibox: {default_icon: 'icons/omni.png'}
+    })
+    expect(omniboxIconFields(manifestPath, 'safari')).toEqual({})
+  })
+
   it('keeps a sized icon map and resolves each entry', () => {
     const {dir, manifestPath} = manifestWith({
       'firefox:omnibox': {default_icon: {'16': 'icons/16.png'}}

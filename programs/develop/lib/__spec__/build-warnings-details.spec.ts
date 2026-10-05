@@ -81,9 +81,35 @@ describe('buildWarningsDetails', () => {
     )
     const lines = out.split('\n')
 
-    expect(lines[0]).toContain('Move the folder to the project root')
-    expect(lines[0]).not.toContain('│')
-    expect(lines[1]).toBe('│  Source: bundler')
-    expect(lines).toHaveLength(2)
+    expect(lines[1]).toBe(
+      'Move the folder to the project root to silence this warning.'
+    )
+
+    expect(lines[2]).toBe('│  Source: bundler')
+    expect(lines).toHaveLength(3)
+  })
+
+  it('keeps every line of a multi-line warning on its own line', () => {
+    const out = plain(
+      buildWarningsDetails([
+        {
+          message: reported(
+            'The _locales folder sits in the legacy next-to-manifest location.\n' +
+              'GOT src/_locales\n' +
+              'EXPECTED _locales\n' +
+              'Move the folder to the project root to silence this warning.'
+          ),
+          file: 'manifest.json'
+        }
+      ])
+    )
+
+    expect(out.split('\n')).toEqual([
+      `${GLYPH} Deprecation: The _locales folder sits in the legacy next-to-manifest location. (manifest.json)`,
+      'GOT src/_locales',
+      'EXPECTED _locales',
+      'Move the folder to the project root to silence this warning.',
+      '│  Source: bundler'
+    ])
   })
 })

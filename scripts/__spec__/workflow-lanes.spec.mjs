@@ -162,7 +162,7 @@ test('the ci passed gate waits on every other job and reads each result', () => 
   assert.deepEqual(needs.sort(), jobs.sort())
   assert.match(gate, /if: always\(\)/)
   assert.match(gate, /join\(needs\.\*\.result, ' '\)/)
-  assert.match(gate, /"failure"[\s\S]*"cancelled"[\s\S]*exit 1/)
+  assert.match(gate, /bash scripts\/check-ci-results\.sh "\$\{RESULTS\}"/)
 })
 
 test('the telemetry lane runs the tree, fails on a failed verb and asserts an event per verb', () => {
