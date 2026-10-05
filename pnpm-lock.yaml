@@ -185,7 +185,7 @@ importers:
         version: 7.29.7(@babel/core@7.29.7)
       '@prefresh/core':
         specifier: 1.5.9
-        version: 1.5.9(preact@10.27.3)
+        version: 1.5.9(preact@11.0.0)
       '@prefresh/utils':
         specifier: 1.2.1
         version: 1.2.1
@@ -197,7 +197,7 @@ importers:
         version: 2.1.0(@rspack/core@2.2.3(@swc/helpers@0.5.23))
       '@rspack/plugin-preact-refresh':
         specifier: 2.0.1
-        version: 2.0.1(@prefresh/core@1.5.9(preact@10.27.3))(@prefresh/utils@1.2.1)(@rspack/core@2.2.3(@swc/helpers@0.5.23))
+        version: 2.0.1(@prefresh/core@1.5.9(preact@11.0.0))(@prefresh/utils@1.2.1)(@rspack/core@2.2.3(@swc/helpers@0.5.23))
       '@rspack/plugin-react-refresh':
         specifier: 2.0.2
         version: 2.0.2(@rspack/core@2.2.3(@swc/helpers@0.5.23))(react-refresh@0.18.0)
@@ -268,8 +268,8 @@ importers:
         specifier: 4.0.9
         version: 4.0.9(postcss@8.5.25)
       preact:
-        specifier: 10.27.3
-        version: 10.27.3
+        specifier: 11.0.0
+        version: 11.0.0
       prefers-yarn:
         specifier: 2.0.1
         version: 2.0.1
@@ -309,7 +309,7 @@ importers:
     devDependencies:
       '@prefresh/webpack':
         specifier: 4.0.6
-        version: 4.0.6(@prefresh/babel-plugin@0.5.3)(preact@10.27.3)(webpack@5.104.1(@swc/core@1.15.8(@swc/helpers@0.5.23))(esbuild@0.27.2))
+        version: 4.0.6(@prefresh/babel-plugin@0.5.3)(preact@11.0.0)(webpack@5.104.1(@swc/core@1.15.8(@swc/helpers@0.5.23))(esbuild@0.27.2))
       '@rslib/core':
         specifier: ^1.0.0
         version: 1.0.0(core-js@3.47.0)(typescript@7.0.2)
@@ -4526,8 +4526,13 @@ packages:
     resolution: {integrity: sha512-RRuzqDtt5Y9h3quz5hWhK+TPnsmVs6WwSU6LkJMeY4HstUEDuYTG8UJSdawMRzmzAtV+KEoG8N3Qg2qLy5vM/A==}
     engines: {node: ^10 || ^12 || >=14}
 
-  preact@10.27.3:
-    resolution: {integrity: sha512-ZieIP3zQHiQsNF3BA+SNVS8dcuRIg/nsxlkFbCMBLS2L1Ww4Bkxd9n6Md2A1crfTZsEbQPADV0neYmh/EElgeQ==}
+  preact@11.0.0:
+    resolution: {integrity: sha512-LRTLKuSe6VYPhvBDjwFaX+nuZnpsw6IN2GSboisAvhGsncylBmrbDCERhgKDn6yP2mAwbGvsB5OVyTe33M8gBg==}
+    peerDependencies:
+      preact-render-to-string: '>=6.7.0'
+    peerDependenciesMeta:
+      preact-render-to-string:
+        optional: true
 
   prefers-yarn@2.0.1:
     resolution: {integrity: sha512-laDDLNlUaBMG6ae/MxsbAuRPiDilHL6Cs8jHFWL2AC1wnSug6Y3MvgJB98nzr+yAfYOhZjIPnsSfH8eQGgMsAQ==}
@@ -6533,18 +6538,18 @@ snapshots:
 
   '@prefresh/babel-plugin@0.5.3': {}
 
-  '@prefresh/core@1.5.9(preact@10.27.3)':
+  '@prefresh/core@1.5.9(preact@11.0.0)':
     dependencies:
-      preact: 10.27.3
+      preact: 11.0.0
 
   '@prefresh/utils@1.2.1': {}
 
-  '@prefresh/webpack@4.0.6(@prefresh/babel-plugin@0.5.3)(preact@10.27.3)(webpack@5.104.1(@swc/core@1.15.8(@swc/helpers@0.5.23))(esbuild@0.27.2))':
+  '@prefresh/webpack@4.0.6(@prefresh/babel-plugin@0.5.3)(preact@11.0.0)(webpack@5.104.1(@swc/core@1.15.8(@swc/helpers@0.5.23))(esbuild@0.27.2))':
     dependencies:
       '@prefresh/babel-plugin': 0.5.3
-      '@prefresh/core': 1.5.9(preact@10.27.3)
+      '@prefresh/core': 1.5.9(preact@11.0.0)
       '@prefresh/utils': 1.2.1
-      preact: 10.27.3
+      preact: 11.0.0
       webpack: 5.104.1(@swc/core@1.15.8(@swc/helpers@0.5.23))(esbuild@0.27.2)
 
   '@rolldown/binding-android-arm-eabi@1.2.12':
@@ -6815,9 +6820,9 @@ snapshots:
       '@rspack/core': 2.2.3(@swc/helpers@0.5.23)
       '@rspack/dev-middleware': 2.0.3(@rspack/core@2.2.3(@swc/helpers@0.5.23))
 
-  '@rspack/plugin-preact-refresh@2.0.1(@prefresh/core@1.5.9(preact@10.27.3))(@prefresh/utils@1.2.1)(@rspack/core@2.2.3(@swc/helpers@0.5.23))':
+  '@rspack/plugin-preact-refresh@2.0.1(@prefresh/core@1.5.9(preact@11.0.0))(@prefresh/utils@1.2.1)(@rspack/core@2.2.3(@swc/helpers@0.5.23))':
     dependencies:
-      '@prefresh/core': 1.5.9(preact@10.27.3)
+      '@prefresh/core': 1.5.9(preact@11.0.0)
       '@prefresh/utils': 1.2.1
     optionalDependencies:
       '@rspack/core': 2.2.3(@swc/helpers@0.5.23)
@@ -9090,7 +9095,7 @@ snapshots:
       picocolors: 1.1.1
       source-map-js: 1.2.2
 
-  preact@10.27.3: {}
+  preact@11.0.0: {}
 
   prefers-yarn@2.0.1: {}
 
