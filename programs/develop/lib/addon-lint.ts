@@ -35,13 +35,6 @@ const DUPLICATED_BY_BUILD_WARNINGS = new Set([
   'MISSING_DATA_COLLECTION_PERMISSIONS'
 ])
 
-// The linter words these as a fixed title and names the key, with both
-// versions, only in the description.
-const SUBJECT_IN_DESCRIPTION = new Set([
-  'KEY_FIREFOX_UNSUPPORTED_BY_MIN_VERSION',
-  'KEY_FIREFOX_ANDROID_UNSUPPORTED_BY_MIN_VERSION'
-])
-
 export interface AddonLintFinding {
   code?: string
   message?: string
@@ -147,18 +140,40 @@ function locationOf(finding: AddonLintFinding): string {
   return `${file}${line}`
 }
 
-function toLine(level: AddonLintLevel, finding: AddonLintFinding) {
-  const code = String(finding.code || 'UNKNOWN').trim()
-  const text = SUBJECT_IN_DESCRIPTION.has(code)
-    ? finding.description || finding.message
-    : finding.message || finding.description
+function oneLine(text: unknown): string {
+  return String(text || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
 
+function quotedIn(text: string): string[] {
+  return Array.from(text.matchAll(/"([^"]+)"/g), (match) => match[1])
+}
+
+// The linter words some findings as a fixed title and names the file or key
+// only in a one-sentence description, which is then the line worth printing.
+function textOf(finding: AddonLintFinding): string {
+  const message = oneLine(finding.message)
+  const description = oneLine(finding.description)
+
+  if (!message || !description) return message || description
+  if (quotedIn(message).length > 0) return message
+
+  const isOneSentence = !/[.!?]\s+\S/.test(
+    description.replace(/"[^"]*"/g, '""')
+  )
+  const namesMore = quotedIn(description).some(
+    (subject) => !message.includes(subject)
+  )
+
+  return isOneSentence && namesMore ? description : message
+}
+
+function toLine(level: AddonLintLevel, finding: AddonLintFinding) {
   return {
     level,
-    code,
-    message: String(text || '')
-      .replace(/\s+/g, ' ')
-      .trim(),
+    code: String(finding.code || 'UNKNOWN').trim(),
+    message: textOf(finding),
     location: locationOf(finding)
   } satisfies AddonLintLine
 }

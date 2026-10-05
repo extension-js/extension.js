@@ -175,6 +175,97 @@ describe('addon lint mapping', () => {
     ])
   })
 
+  it('prints the description when only it names the file', () => {
+    const missing = (name: string) => ({
+      code: 'MANIFEST_ICON_NOT_FOUND',
+      message:
+        'An icon defined in the manifest could not be found in the package.',
+      description: `Icon could not be found at "icons/${name}.png".`,
+      file: 'manifest.json'
+    })
+    const lines = collectAddonLintLines({
+      errors: [
+        {
+          code: 'ICON_NOT_SQUARE',
+          message: 'Icons must be square.',
+          description: 'Icon at "icons/lopsided.png" must be square.',
+          file: 'manifest.json'
+        },
+        missing('gone-light'),
+        missing('gone-dark'),
+        {
+          code: 'NO_MESSAGES_FILE_IN_LOCALES',
+          message: 'Empty language directory',
+          description: 'messages.json file missing in "_locales/zz"',
+          file: 'manifest.json'
+        }
+      ],
+      warnings: [
+        {
+          code: 'ICON_SIZE_INVALID',
+          message: 'The size of the icon does not match the manifest.',
+          description: `
+      Expected icon at "icons/roomy.png" to be 48 pixels wide but was 64.
+    `,
+          file: 'manifest.json'
+        }
+      ]
+    })
+
+    expect(lines.map((line) => line.message)).toEqual([
+      'Icon at "icons/lopsided.png" must be square.',
+      'Icon could not be found at "icons/gone-light.png".',
+      'Icon could not be found at "icons/gone-dark.png".',
+      'messages.json file missing in "_locales/zz"',
+      'Expected icon at "icons/roomy.png" to be 48 pixels wide but was 64.'
+    ])
+  })
+
+  it('keeps a message whose description only adds advice', () => {
+    const kept = [
+      {
+        code: 'MISSING_ADDON_ID',
+        message: 'The add-on ID is missing in the manifest.',
+        description:
+          'The "/browser_specific_settings/gecko/id" property (add-on ID) should be specified in the manifest. This property will become mandatory in the future. See https://mzl.la/3PLZYdo for more information.',
+        file: 'manifest.json'
+      },
+      {
+        code: 'JSON_BLOCK_COMMENTS',
+        message: 'Your JSON contains block comments.',
+        description:
+          'Only line comments (comments beginning with "//") are allowed in JSON files. Please remove block comments (comments beginning with "/*")',
+        file: 'data.json'
+      },
+      {
+        code: 'NO_MESSAGE',
+        message: 'Translation string is missing the message property',
+        description:
+          'No "message" message property is set for a string (https://mzl.la/2DSBTjA).',
+        file: '_locales/en/messages.json'
+      },
+      {
+        code: 'MANIFEST_UPDATE_URL',
+        message: '"update_url" is not allowed.',
+        description:
+          '"applications.gecko.update_url" or "browser_specific_settings.gecko.update_url" are not allowed for Mozilla-hosted add-ons.',
+        file: 'manifest.json'
+      },
+      {
+        code: 'DANGEROUS_EVAL',
+        message: 'eval can be harmful.',
+        description:
+          'Evaluation of strings as code can lead to security vulnerabilities and performance issues, even in the most innocuous of circumstances. Please avoid using `eval` and the `Function` constructor when possible.',
+        file: 'background.js'
+      }
+    ]
+    const lines = collectAddonLintLines({errors: [], warnings: kept})
+
+    expect(lines.map((line) => line.message)).toEqual(
+      kept.map((finding) => finding.message)
+    )
+  })
+
   it('prints two findings that read the same as one line', () => {
     const twice = {
       code: 'KEY_FIREFOX_UNSUPPORTED_BY_MIN_VERSION',
