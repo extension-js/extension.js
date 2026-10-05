@@ -70,11 +70,16 @@ beforeAll(() => {
       name: 'Warning Frame Fixture',
       version: '1.0.0',
       manifest_version: 3,
+      default_locale: 'en',
       'edge:homepage_url': 'https://example.com'
     })
   )
 
   write('src/public/note.txt', 'shipped')
+  write(
+    'src/_locales/en/messages.json',
+    JSON.stringify({frame_probe: {message: 'Warning Frame Locale'}})
+  )
 })
 
 afterAll(() => {
@@ -116,9 +121,40 @@ describe('build warnings that frame themselves (real build)', () => {
     const head = lines[index]
     expect(count(head, GLYPH)).toBe(1)
     expect(head).toMatch(new RegExp(`^${GLYPH} [A-Za-z-]+: The public folder`))
-    expect(lines[index + 1]).toMatch(/^│ {2}Source: /)
+    expect(lines[index + 1]).toBe(`GOT ${path.join('src', 'public')}`)
+    expect(lines[index + 2]).toBe('EXPECTED public')
+    expect(lines[index + 6]).toMatch(/^│ {2}Source: /)
 
     // The warning names its own fix, so the generic hint stays off.
-    expect(lines[index + 2] ?? '').not.toMatch(/Hint:/)
+    expect(lines[index + 7] ?? '').not.toMatch(/Hint:/)
+  }, 120_000)
+
+  it('prints the _locales layout warning with one fact per line', async () => {
+    const {failure, lines} = await build()
+
+    expect(failure).toBeUndefined()
+
+    const index = lines.findIndex((line) =>
+      line.includes('The _locales folder sits in the legacy next-to-manifest')
+    )
+    expect(index).toBeGreaterThan(-1)
+
+    expect(lines[index]).toBe(
+      `${GLYPH} Deprecation: The _locales folder sits in the legacy next-to-manifest location.`
+    )
+
+    expect(lines[index + 1]).toBe(`GOT ${path.join('src', '_locales')}`)
+    expect(lines[index + 2]).toBe('EXPECTED _locales')
+    expect(lines[index + 3]).toBe(
+      'Chrome reads locales from the extension root, so _locales/ is canonically placed at the project root.'
+    )
+
+    expect(lines[index + 4]).toBe('The build uses it either way.')
+    expect(lines[index + 5]).toBe(
+      'Move the folder to the project root to silence this warning.'
+    )
+
+    expect(lines[index + 6]).toMatch(/^│ {2}Source: /)
+    expect(lines.slice(index, index + 7).join('\n')).not.toContain(ROOT)
   }, 120_000)
 })
