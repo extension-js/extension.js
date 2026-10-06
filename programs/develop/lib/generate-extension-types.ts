@@ -10,12 +10,14 @@ import {existsSync} from 'node:fs'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import {humanLine} from '../dev-server/lifecycle-stream'
+import {recordCodedWarning} from './coded-warnings'
 import {loadDefineTypes} from './config-loader'
 import {
   EXTENSION_ENV_TYPES_PACKAGE,
   renderExtensionEnvTypes
 } from './extension-env-template'
 import * as messages from './messages'
+import {CODES} from './messaging'
 import {parseJsonSafe} from './parse-json-safe'
 
 // The same node_modules walk TypeScript takes for the reference the file
@@ -73,6 +75,13 @@ export async function generateExtensionTypes(
     try {
       await fs.writeFile(extensionEnvFile, fileContent)
     } catch (writeErr) {
+      recordCodedWarning(
+        CODES.E_TYPES_EMIT,
+        `Writing ${extensionEnvFile} failed: ${
+          writeErr instanceof Error ? writeErr.message : String(writeErr)
+        }`
+      )
+
       humanLine(messages.writingTypeDefinitionsError(writeErr))
     }
   }

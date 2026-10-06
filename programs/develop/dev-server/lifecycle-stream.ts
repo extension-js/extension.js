@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'node:fs'
+import {takeCodedWarnings} from '../lib/coded-warnings'
 import {
   CODES,
   ENVELOPE,
@@ -133,6 +134,7 @@ export interface LifecycleStreamOptions {
   distPath: string
   readyPath?: string
   eventsPath?: string
+  noBrowser?: boolean
   // Spec seam: every frame goes through one writer.
   write?: (line: string) => void
 }
@@ -203,20 +205,21 @@ export class LifecycleStream {
     const reassigned =
       port !== null && shouldWarnPortConflict(requestedPort, port)
     this.startingEmitted = true
+    const warnings = reassigned
+      ? [
+          `${CODES.E_PORT_IN_USE}: port ${requestedPort} was taken, ` +
+            `so the dev server listens on port ${port}`
+        ]
+      : []
+    // What the setup steps before the server warned about rides the first frame.
+    warnings.push(...takeCodedWarnings())
 
     return this.emit(
       ENVELOPE.ok(
         this.options.command,
         'starting',
         this.sessionValue({requestedPort, port}),
-        {
-          warnings: reassigned
-            ? [
-                `${CODES.E_PORT_IN_USE}: port ${requestedPort} was taken, ` +
-                  `so the dev server listens on port ${port}`
-              ]
-            : []
-        }
+        {warnings}
       )
     )
   }
@@ -225,20 +228,30 @@ export class LifecycleStream {
   public compiled(args: {
     assets?: number
     durationMs?: number
+    entrypoints?: number
   }): Envelope<unknown> | null {
     this.compileAttempts += 1
     this.successfulCompiles += 1
     const status: LifecycleStatus =
       this.successfulCompiles === 1 ? 'compiled' : 'recompiled'
+    const assets = toFiniteNumber(args.assets) ?? 0
+    // Green by the bundler's count and empty by every other, so the frame says so.
+    const warnings =
+      assets === 0 && toFiniteNumber(args.entrypoints) === 0
+        ? [
+            `${CODES.E_NO_ENTRYPOINTS}: the compilation produced no entrypoints or assets`
+          ]
+        : []
 
     return this.emit(
       ENVELOPE.ok(
         this.options.command,
         status,
         this.sessionValue({
-          assets: toFiniteNumber(args.assets) ?? 0,
+          assets,
           durationMs: toFiniteNumber(args.durationMs) ?? 0
-        })
+        }),
+        {warnings}
       )
     )
   }
@@ -259,11 +272,22 @@ export class LifecycleStream {
       (isFirst
         ? 'The first compilation failed.'
         : 'A recompilation failed after a change.')
+    // The launcher holds the browser back until a compile succeeds, which a
+    // reader of the stream would otherwise learn from the human line only.
+    const launchWithheld =
+      this.successfulCompiles === 0 && !this.options.noBrowser
     const frame = ENVELOPE.fail(
       this.options.command,
       'compile-failed',
       {code, message},
-      {truncated}
+      {
+        truncated,
+        warnings: launchWithheld
+          ? [
+              `${CODES.E_LAUNCH_SKIPPED_COMPILE_ERRORS}: the browser launch is withheld until the compile succeeds`
+            ]
+          : []
+      }
     ) as Envelope<unknown>
     // value carries the compiler output so a consumer never has to scrape stdout.
     frame.value = this.sessionValue({
@@ -506,6 +530,7 @@ export function createLifecycleStream(
 interface StatsLike {
   hasErrors?: () => boolean
   toString?: (options?: unknown) => string
+  toJson?: (options?: unknown) => {entrypoints?: Record<string, unknown>}
   compilation?: {
     startTime?: number
     endTime?: number
@@ -532,6 +557,21 @@ function assetCount(stats: StatsLike): number {
   }
 
   return Object.keys(compilation?.assets || {}).length
+}
+
+function entrypointCount(stats: StatsLike): number | undefined {
+  try {
+    const entrypoints = stats?.toJson?.({
+      all: false,
+      entrypoints: true
+    })?.entrypoints
+
+    return entrypoints && typeof entrypoints === 'object'
+      ? Object.keys(entrypoints).length
+      : undefined
+  } catch {
+    return undefined
+  }
 }
 
 function compileDuration(stats: StatsLike): number {
@@ -574,7 +614,8 @@ export function attachLifecycleStream(
 
       stream.compiled({
         assets: assetCount(stats),
-        durationMs: compileDuration(stats)
+        durationMs: compileDuration(stats),
+        entrypoints: entrypointCount(stats)
       })
 
       // The ready contract is written by the playwright plugin's done hook,

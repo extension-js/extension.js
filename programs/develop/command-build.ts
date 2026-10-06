@@ -23,6 +23,7 @@ import {
 } from './lib/atomic-dist'
 import {type BuildSummary, getBuildSummary} from './lib/build-summary'
 import {collectChunkDependencyProvenance} from './lib/chunk-dependency-provenance'
+import {takeCodedWarnings} from './lib/coded-warnings'
 import {
   loadBrowserConfig,
   loadCommandConfig,
@@ -171,6 +172,8 @@ export async function extensionBuild(
   const isAuthor = isDebug()
 
   try {
+    // What an earlier run in this process warned about is not this build's.
+    takeCodedWarnings()
     await ensureDevelopArtifacts()
 
     if (buildOptions?.install !== false) {
@@ -435,6 +438,18 @@ export async function extensionBuild(
           // The summary names the folder the artifacts landed in, which under
           // a re-pointed output.path is not dist/<browser>.
           summary = getBuildSummary(browser, info, displayDistPath, outputFiles)
+
+          // The setup steps and plugins said these on the human channel as
+          // they ran; the summary carries them with the code each one names.
+          const codedWarnings = takeCodedWarnings()
+
+          if (codedWarnings.length > 0) {
+            summary = {
+              ...summary,
+              warnings_count: summary.warnings_count + codedWarnings.length,
+              warnings: [...(summary.warnings || []), ...codedWarnings]
+            }
+          }
 
           const distDisplay = displayPath(displayDistPath)
 
