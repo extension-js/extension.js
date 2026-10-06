@@ -16,6 +16,7 @@ const DRIVER_POLL_MS = 100
 // on a cold start.
 const SESSION_CREATE_MS = 30_000
 const SESSION_CLOSE_MS = 5000
+const AUTOMATION_QUIT_MS = 3000
 
 export interface SafariWebDriverSession {
   port: number
@@ -148,6 +149,43 @@ export async function closeSafariWebDriverSessions(): Promise<void> {
   await Promise.all([...activeSessions].map((session) => session.close()))
 }
 
+function processAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0)
+
+    return true
+  } catch {
+    return false
+  }
+}
+
+// Safari's automation instance outlives both the deleted session and the
+// driver, so the one this session raised is quit by pid. Only pids that were
+// not there before the driver spawned qualify, a Safari the user had open
+// stays, automation flag or not.
+async function quitRaisedAutomation(
+  tools: SafariPipelineTools,
+  before: Set<number>
+): Promise<void> {
+  const raised = (await tools.listAutomationPids()).filter(
+    (pid) => !before.has(pid)
+  )
+
+  for (const pid of raised) {
+    try {
+      process.kill(pid, 'SIGTERM')
+    } catch {
+      // Already gone
+    }
+  }
+
+  const deadline = Date.now() + AUTOMATION_QUIT_MS
+
+  while (Date.now() < deadline && raised.some(processAlive)) {
+    await new Promise((resolve) => setTimeout(resolve, DRIVER_POLL_MS))
+  }
+}
+
 export async function openSafariWebDriverSession(
   tools: SafariPipelineTools
 ): Promise<SafariWebDriverOutcome> {
@@ -159,6 +197,7 @@ export async function openSafariWebDriverSession(
     return {reason: `no free port for safaridriver: ${String(error)}`}
   }
 
+  const before = new Set(await tools.listAutomationPids())
   const driver = await tools.startWebDriver(port)
 
   if (!driver.ok) {
@@ -168,11 +207,16 @@ export async function openSafariWebDriverSession(
   activeDrivers.add(driver)
   installHandlersOnce()
 
+  const stopDriver = async () => {
+    driver.stop()
+    activeDrivers.delete(driver)
+    await quitRaisedAutomation(tools, before)
+  }
+
   const notReady = await waitForDriver(port)
 
   if (notReady) {
-    driver.stop()
-    activeDrivers.delete(driver)
+    await stopDriver()
 
     return {reason: notReady}
   }
@@ -188,8 +232,7 @@ export async function openSafariWebDriverSession(
       SESSION_CREATE_MS
     )
   } catch (error) {
-    driver.stop()
-    activeDrivers.delete(driver)
+    await stopDriver()
 
     return {
       reason: `the WebDriver session request failed: ${String(
@@ -201,8 +244,7 @@ export async function openSafariWebDriverSession(
   const sessionId = created.body?.value?.sessionId
 
   if (created.status !== 200 || typeof sessionId !== 'string' || !sessionId) {
-    driver.stop()
-    activeDrivers.delete(driver)
+    await stopDriver()
 
     return {reason: refusalReason(created)}
   }
@@ -230,8 +272,7 @@ export async function openSafariWebDriverSession(
           // The driver may already be gone, the stop below covers it
         }
 
-        driver.stop()
-        activeDrivers.delete(driver)
+        await stopDriver()
       })()
 
       return closing

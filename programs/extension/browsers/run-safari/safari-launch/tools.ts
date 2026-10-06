@@ -53,6 +53,40 @@ export interface SafariPipelineTools {
   resolvePid(bundleId: string): Promise<number | null>
   pluginkitList(): Promise<string>
   startWebDriver(port: number): Promise<SafariWebDriverProcess>
+  listAutomationPids(): Promise<number[]>
+}
+
+// safaridriver raises Safari with `--automation` in its argv, which is the one
+// mark that tells its instance from a Safari the user opened.
+export function isAutomationSafariArgs(args: string): boolean {
+  const tokens = args.trim().split(/\s+/)
+  const exe = tokens[0] || ''
+  const name = exe.slice(exe.lastIndexOf('/') + 1)
+
+  return name === 'Safari' && tokens.includes('--automation')
+}
+
+export function listPidsWhere(
+  matches: (args: string) => boolean
+): Promise<number[]> {
+  return new Promise((resolve) => {
+    const child = spawn('ps', ['-axww', '-o', 'pid=,args='], {
+      stdio: ['ignore', 'pipe', 'ignore']
+    })
+    let out = ''
+    child.stdout?.on('data', (chunk) => (out += String(chunk)))
+    child.on('error', () => resolve([]))
+    child.on('close', () => {
+      const pids: number[] = []
+
+      for (const line of out.split('\n')) {
+        const row = /^\s*(\d+)\s+(.*)$/.exec(line)
+        if (row && matches(row[2])) pids.push(Number(row[1]))
+      }
+
+      resolve(pids)
+    })
+  })
 }
 
 export function spawnWebDriverProcess(
@@ -156,6 +190,7 @@ export function createSafariTools(): SafariPipelineTools {
       return ok ? output : ''
     },
     startWebDriver: (port) =>
-      spawnWebDriverProcess('safaridriver', ['-p', String(port)])
+      spawnWebDriverProcess('safaridriver', ['-p', String(port)]),
+    listAutomationPids: () => listPidsWhere(isAutomationSafariArgs)
   }
 }

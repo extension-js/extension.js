@@ -45,6 +45,8 @@ import {
 } from './webdriver'
 
 export {
+  isAutomationSafariArgs,
+  listPidsWhere,
   type SafariPipelineTools,
   type SafariToolResult,
   type SafariWebDriverProcess,

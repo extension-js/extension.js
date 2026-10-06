@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {
+  listPidsWhere,
   type SafariPipelineTools,
   type SafariToolResult,
   type SafariWebDriverProcess,
@@ -17,6 +18,9 @@ export interface FakeSafariToolsOptions {
   // A stand-in safaridriver to spawn with `-p <port>` appended, or the spawn
   // error to answer with. Unset means no driver at all.
   webdriver?: {command: string; args: string[]} | {spawnError: string}
+  // The argv fragment that marks a stand-in Safari in the real process list,
+  // paired with `--automation` the way the production matcher pairs `Safari`.
+  automationMatch?: string
 }
 
 export interface FakeSafariTools extends SafariPipelineTools {
@@ -179,6 +183,14 @@ export function fakeSafariTools(
       tools.webdriverProcesses.push(started)
 
       return started
+    },
+    listAutomationPids: () => {
+      const match = options.automationMatch
+      if (!match) return Promise.resolve([])
+
+      return listPidsWhere(
+        (args) => args.includes(match) && args.includes('--automation')
+      )
     }
   }
 
