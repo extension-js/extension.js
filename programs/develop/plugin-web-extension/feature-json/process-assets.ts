@@ -31,7 +31,11 @@ export function processJsonAssets(
   manifestPath: string,
   includeList: Record<string, string | string[] | undefined>
 ): void {
-  if (compilation.errors.length > 0) return
+  // A compile that already failed still names the JSON files the manifest
+  // cannot find, so one run reports every fix needed.
+  const reportOnly = compilation.errors.length > 0
+
+  if (reportOnly && !compilation.getAsset('manifest.json')) return
 
   const jsonFields = includeList || {}
   const manifestDir = path.dirname(manifestPath)
@@ -110,6 +114,8 @@ export function processJsonAssets(
           missingCount++
           continue
         }
+
+        if (reportOnly) continue
 
         // Under public: do not emit; track for watch and (for critical) validate JSON
         if (isUnderPublic) {
