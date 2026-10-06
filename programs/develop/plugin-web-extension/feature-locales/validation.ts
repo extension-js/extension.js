@@ -18,6 +18,58 @@ import {pushCompilationError} from './compilation-error'
 import {resolveLocalesFolder} from './get-locales'
 import * as messages from './messages'
 
+function readDefaultLocale(
+  manifestPath: string,
+  browser?: DevOptions['browser']
+): string | undefined {
+  try {
+    const manifest = filterKeysForThisBrowser(
+      JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf8'))) as Manifest,
+      browser || 'chrome'
+    ) as Record<string, unknown>
+    const defaultLocale = manifest?.default_locale
+
+    return typeof defaultLocale === 'string' && defaultLocale.trim()
+      ? defaultLocale
+      : undefined
+  } catch {
+    return undefined
+  }
+}
+
+// A plugin pushed from the config file can delete emitted locale assets, and
+// the browsers refuse a package whose default_locale folder is gone.
+export function validateDefaultLocaleEmitted(
+  compiler: Compiler,
+  compilation: Compilation,
+  manifestPath: string,
+  browser?: DevOptions['browser']
+): boolean {
+  if (compilation.errors.length > 0) return true
+
+  const projectRoot =
+    (compiler.options.context as string | undefined) || undefined
+  const defaultLocale = readDefaultLocale(manifestPath, browser)
+
+  if (!defaultLocale || !resolveLocalesFolder(manifestPath, projectRoot)) {
+    return true
+  }
+
+  if (compilation.getAsset(`_locales/${defaultLocale}/messages.json`)) {
+    return true
+  }
+
+  pushCompilationError(
+    compiler,
+    compilation,
+    'LocalesValidationError',
+    messages.defaultLocaleRemovedFromOutput(defaultLocale),
+    'manifest.json'
+  )
+
+  return false
+}
+
 export function validateLocales(
   compiler: Compiler,
   compilation: Compilation,

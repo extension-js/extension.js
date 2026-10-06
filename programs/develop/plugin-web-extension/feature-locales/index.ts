@@ -12,7 +12,7 @@ import type {DevOptions, FilepathList, PluginInterface} from '../../types'
 import * as messages from './messages'
 import {processLocaleAssets} from './process-assets'
 import {trackLocaleDependencies} from './track-dependencies'
-import {validateLocales} from './validation'
+import {validateDefaultLocaleEmitted, validateLocales} from './validation'
 
 export class LocalesPlugin {
   public readonly manifestPath: string
@@ -70,6 +70,15 @@ export class LocalesPlugin {
           processLocaleAssets(compiler, compilation, this.manifestPath)
         }
       )
+
+      compilation.hooks.afterProcessAssets.tap('locales:module', () => {
+        validateDefaultLocaleEmitted(
+          compiler,
+          compilation,
+          this.manifestPath,
+          this.browser
+        )
+      })
     })
 
     compiler.hooks.afterCompile.tap('locales:module', (compilation) => {

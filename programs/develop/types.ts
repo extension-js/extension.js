@@ -702,7 +702,11 @@ export interface FileConfig {
    * `browser.<vendor>.folders` and `commands.<name>.folders` override it.
    */
   folders?: SpecialFoldersConfig
-  config?: (config: Configuration) => Configuration
+  /**
+   * Customizes the bundler config before the compiler is built. The second
+   * argument names the target browser, the bundler mode and the command.
+   */
+  config?: (config: Configuration, context: ConfigHookContext) => Configuration
   /**
    * Runs once the bundler config is final, right before the first build, with
    * every loader rule attached. It can change `module`, `resolve`,
@@ -711,10 +715,19 @@ export interface FileConfig {
    * `environment`. Every other key is fixed by then (`entry`, `plugins`,
    * `mode`, `devtool`, `target`, `externals`, `output.path`, the rest of
    * `optimization`): a change is ignored with a warning, use `config`.
+   * The second argument is the same context `config` receives.
    */
   configResolved?: (
-    config: Configuration
+    config: Configuration,
+    context: ConfigHookContext
   ) => Configuration | undefined | Promise<Configuration | undefined>
+}
+
+/** What the `config` and `configResolved` hooks are told about the run. */
+export interface ConfigHookContext {
+  browser: BrowserType
+  mode: 'development' | 'production' | 'none'
+  command: 'dev' | 'build' | 'start' | 'preview'
 }
 
 export interface SpecialFoldersConfig {

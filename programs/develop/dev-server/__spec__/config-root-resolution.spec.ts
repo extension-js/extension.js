@@ -112,7 +112,11 @@ describe('dev-server config root resolution', () => {
 
     expect(loadCommandConfig).toHaveBeenCalledWith('/proj', 'dev')
     expect(loadBrowserConfig).toHaveBeenCalledWith('/proj', 'chrome')
-    expect(loadCustomConfig).toHaveBeenCalledWith('/proj')
+    expect(loadCustomConfig).toHaveBeenCalledWith('/proj', {
+      browser: 'chrome',
+      mode: 'development',
+      command: 'dev'
+    })
   })
 
   it('keeps manifest writes out of dev-middleware disk persistence', async () => {
