@@ -27,6 +27,7 @@ import {CODES, isDebug} from './lib/messaging'
 import {stripBom} from './lib/parse-json-safe'
 import {asAbsolute, getDirs, toPosixPath} from './lib/paths'
 import type {ProjectStructure} from './lib/project'
+import {sessionStateDir} from './lib/session-paths'
 import {defaultSplitChunks} from './lib/split-chunks'
 import {resolveTranspilePackageDirs} from './lib/transpile-packages'
 import {CompatibilityPlugin} from './plugin-compatibility'
@@ -520,6 +521,11 @@ export default function webpackConfig(
         ...(transpilePackageDirs.length > 0 ? [] : ['**/node_modules/**']),
         `${toPosixPath(primaryExtensionOutputDir)}/**`,
         `${toPosixPath(path.join(packageJsonDir, 'dist'))}/**`,
+        // Another session's control port and token land here, and the project
+        // root is a context dependency whenever a special folder is missing.
+        // Named without a globstar so the folder itself is ignored too: a file
+        // created right under it changes the folder, which `/**` lets through.
+        toPosixPath(sessionStateDir(packageJsonDir)),
         '**/extension-js/profiles/**'
       ],
       ...(process.env.EXTENSION_WATCH_POLL === 'true'
