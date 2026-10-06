@@ -164,6 +164,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "backgroundIsRequiredMessageOnly: function(1)",
   ],
   "plugin-special-folders/messages.ts": [
+    "packageScriptLeftOut: function(1)",
     "publicFileCollidesWithEntry: function(2)",
     "publicFolderOffRef: function(3)",
     "publicFolderShadowed: function(3)",
@@ -171,7 +172,6 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "serverRestartRequiredFromSpecialFolderMessageOnly: function(3)",
     "specialFolderChangeDetected: function(3)",
     "specialFoldersSetupSummary: function(3)",
-    "unreferencedScriptDropped: function(1)",
   ],
   "plugin-static-assets/static-assets-lib/messages.ts": [
     "assetsConfigsDetected: function(5)",
