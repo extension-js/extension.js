@@ -8,6 +8,7 @@
 
 import * as path from 'node:path'
 import {type Compiler, WebpackError} from '@rspack/core'
+import {toPosixPath} from '../lib/paths'
 import * as messages from './static-assets-lib/messages'
 
 const ASSET_MODULE_TYPES = new Set([
@@ -125,9 +126,8 @@ export class CheckNamespaceImports {
             // A child compilation's modules are unknown to the stats that
             // print its errors, so there the file names the place.
             if (compilation.compiler.isChild()) {
-              error.file = path.relative(
-                compiler.context,
-                resource.split('?')[0]
+              error.file = toPosixPath(
+                path.relative(compiler.context, resource.split('?')[0])
               )
             } else {
               error.module = originModule
