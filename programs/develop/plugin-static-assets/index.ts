@@ -11,6 +11,7 @@ import {isDebug} from '../lib/messaging'
 import {RAW_RESOURCE_QUERY} from '../lib/resource-query'
 import type {DevOptions, PluginInterface} from '../types'
 import {CheckNamespaceImports} from './check-namespace-imports'
+import {ASSET_FILENAME_PATTERN} from './static-assets-lib/asset-output-name'
 import * as messages from './static-assets-lib/messages'
 
 export class StaticAssetsPlugin {
@@ -27,9 +28,7 @@ export class StaticAssetsPlugin {
     compiler.options.module = compiler.options.module || {rules: []}
     compiler.options.module.rules = compiler.options.module.rules || []
 
-    // Content-hash in DEV too: same-basename assets in different folders collided
-    // on one output name; hashing, not [path], which can escape the output dir.
-    const filenamePattern = 'assets/[name].[contenthash:8][ext]'
+    const filenamePattern = ASSET_FILENAME_PATTERN
     const defaultSvgRule: RuleSetRule = {
       test: /\.svg$/i,
       type: 'asset',
