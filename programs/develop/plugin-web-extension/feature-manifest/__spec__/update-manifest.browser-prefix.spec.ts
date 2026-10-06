@@ -355,4 +355,94 @@ describe('UpdateManifest (browser-prefixed background keys)', () => {
       expect(out.key).toBe('firefox-only-key')
     })
   }
+
+  describe('content_scripts entry emptied by a prefix', () => {
+    const manifest = {
+      manifest_version: 3,
+      name: 'x',
+      version: '1.0.0',
+      content_scripts: [
+        {
+          matches: ['<all_urls>'],
+          'chromium:js': ['content/main-world-only.js'],
+          'chromium:world': 'MAIN'
+        },
+        {
+          matches: ['https://example.com/*'],
+          js: ['content/isolated-everywhere.js']
+        }
+      ]
+    }
+
+    it('leaves the entry out of the firefox build and names the keys', () => {
+      const warnings: Error[] = []
+      const out = runUpdateManifest({
+        mode: 'production',
+        browser: 'firefox',
+        manifest,
+        warnings
+      })
+
+      expect(out.content_scripts).toEqual([
+        {
+          matches: ['https://example.com/*'],
+          js: ['content_scripts/content-1.js'],
+          css: []
+        }
+      ])
+
+      const dropped = warnings.filter((warning) =>
+        warning.message.includes('content_scripts[0]')
+      )
+      expect(dropped).toHaveLength(1)
+      expect(dropped[0].message).toContain('chromium:js')
+      expect(dropped[0].message).toContain('chromium:world')
+      expect(dropped[0].message).toContain('firefox:js')
+    })
+
+    it('leaves it out of a development build the same way', () => {
+      const out = runUpdateManifest({
+        mode: 'development',
+        browser: 'firefox',
+        manifest
+      })
+
+      expect(out.content_scripts).toHaveLength(1)
+      expect(out.content_scripts[0].js).toEqual([
+        'content_scripts/content-1.js'
+      ])
+    })
+
+    it('ships an empty list when every entry was scoped to another browser', () => {
+      const out = runUpdateManifest({
+        mode: 'production',
+        browser: 'firefox',
+        manifest: {...manifest, content_scripts: [manifest.content_scripts[0]]}
+      })
+
+      expect(out.content_scripts).toEqual([])
+    })
+
+    it('keeps the MAIN world entry and its bridge on the chrome build', () => {
+      const warnings: Error[] = []
+      const out = runUpdateManifest({
+        mode: 'production',
+        browser: 'chrome',
+        manifest,
+        warnings
+      })
+
+      expect(out.content_scripts).toHaveLength(3)
+      expect(out.content_scripts[1].world).toBe('MAIN')
+      expect(out.content_scripts[1].js).toEqual([
+        'content_scripts/content-0.js'
+      ])
+
+      expect(
+        warnings.filter((warning) =>
+          warning.message.includes('content_scripts[0]')
+        )
+      ).toEqual([])
+    })
+  })
 })
