@@ -108,6 +108,26 @@ function stampedLaunchFailureCode(
     : undefined
 }
 
+// The launcher keeps a session whose CDP wire failed alive and ready and names
+// the fault on the contract, so the ready frame carries it as a coded warning.
+function cdpFaultWarnings(ready: Record<string, unknown> | null): string[] {
+  const code = ready?.cdpFaultCode
+
+  if (
+    typeof code !== 'string' ||
+    !Object.prototype.hasOwnProperty.call(CODES, code)
+  ) {
+    return []
+  }
+
+  const message =
+    typeof ready?.cdpFaultMessage === 'string' && ready.cdpFaultMessage.trim()
+      ? ready.cdpFaultMessage.trim()
+      : 'the CDP wire failed after launch'
+
+  return [`${code}: ${message}`]
+}
+
 function toFiniteNumber(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) return value
 
@@ -316,7 +336,9 @@ export class LifecycleStream {
     this.readyEmitted = true
 
     return this.emit(
-      ENVELOPE.ok(this.options.command, 'ready', this.sessionValue())
+      ENVELOPE.ok(this.options.command, 'ready', this.sessionValue(), {
+        warnings: cdpFaultWarnings(ready)
+      })
     )
   }
 

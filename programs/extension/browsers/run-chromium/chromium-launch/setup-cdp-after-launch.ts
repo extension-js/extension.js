@@ -10,6 +10,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Readable, Writable} from 'node:stream'
 import {
+  CODES,
   humanError,
   humanLine,
   humanWarn,
@@ -28,7 +29,9 @@ import {
 import * as messages from '../../browsers-lib/messages'
 import {manifestDeclaresNewtabOverride} from '../../browsers-lib/newtab-override'
 import {
+  describeLaunchFailure,
   readyPathFor,
+  stampReadyCdpFault,
   stampReadyExtensionLoadRefused
 } from '../../browsers-lib/ready-stamp'
 import {
@@ -41,6 +44,7 @@ import {
   CDPExtensionController,
   devtoolsCompanionWelcomeUrl
 } from '../cdp/cdp-extension-controller'
+import {codedError, declaredCode} from '../cdp/coded-error'
 import {
   developerModeFlipIsSafe,
   developerModeFromProfile
@@ -285,13 +289,27 @@ export async function setupCdpAfterLaunch(
         setTimeout(
           () =>
             reject(
-              new Error(`ensureLoaded timeout (${ensureLoadedTimeoutMs}ms)`)
+              codedError(
+                CODES.E_CDP_TIMEOUT,
+                `ensureLoaded timeout (${ensureLoadedTimeoutMs}ms)`
+              )
             ),
           ensureLoadedTimeoutMs
         )
       })
     ])
   } catch (error) {
+    const code = declaredCode(error)
+
+    if (code) {
+      stampReadyCdpFault(
+        extensionOutputPath,
+        code,
+        describeLaunchFailure(error),
+        plugin.launchRunId
+      )
+    }
+
     if (isDebug()) {
       humanWarn(
         `[CDP] ensureLoaded failed: ${String(

@@ -62,6 +62,7 @@ import {
   stampReadyBrowserExited,
   stampReadyBrowserLaunch,
   stampReadyBrowserLaunchFailed,
+  stampReadyCdpFault,
   stampReadyExtensionLoadRefused,
   stampReadyProfileLocked
 } from '../../browsers-lib/ready-stamp'
@@ -80,6 +81,7 @@ import type {
   CompilationLike
 } from '../../browsers-types'
 import type {CDPExtensionController} from '../cdp/cdp-extension-controller'
+import {codedError, declaredCode} from '../cdp/coded-error'
 import {checkChromeRemoteDebugging} from '../cdp/discovery'
 import {guardCdpPipe} from '../cdp/pipe-guard'
 import type {ChromiumContext} from '../chromium-context'
@@ -310,6 +312,20 @@ export class ChromiumLaunchPlugin {
       describeLaunchFailure(error),
       readReadyRunId(outputPath),
       launchFailureCode(error)
+    )
+  }
+
+  // The session stays ready past a CDP fault, so a machine reader learns of
+  // it from the contract, as the coded fault beside the status.
+  private stampCdpFault(compilation: CompilationLike, error: unknown) {
+    const code = declaredCode(error)
+    if (!code) return
+
+    stampReadyCdpFault(
+      getExtensionOutputPath(compilation, undefined),
+      code,
+      describeLaunchFailure(error),
+      this.closeHandlerContext?.runId
     )
   }
 
@@ -1300,7 +1316,8 @@ export class ChromiumLaunchPlugin {
             setTimeout(
               () =>
                 reject(
-                  new Error(
+                  codedError(
+                    CODES.E_CDP_TIMEOUT,
                     `CDP setup did not complete within ${
                       CDP_SETUP_TIMEOUT_MS / 1000
                     }s. Chrome likely rejected the extension at launch, open chrome://extensions in the dev browser window for the exact error. Common causes: MV3 content_security_policy with 'unsafe-inline', manifest keys Chrome does not support, or manifest references to files missing from the output. Reload/HMR cannot attach until this is fixed.`
@@ -1348,6 +1365,7 @@ export class ChromiumLaunchPlugin {
 
       // A broken CDP wire is not a refusal verdict; keep the pre-existing
       // behavior of still reporting ready so a flaky handshake stays cosmetic.
+      this.stampCdpFault(compilation, error)
       reportReady()
     }
   }

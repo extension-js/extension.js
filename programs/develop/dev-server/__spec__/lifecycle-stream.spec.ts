@@ -284,6 +284,34 @@ describe('lifecycle stream transitions', () => {
     expect(frame.truncated).toBe(true)
   })
 
+  it('warns on the ready frame with the CDP fault the launcher stamped', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-ndjson-'))
+    const readyPath = path.join(dir, 'ready.json')
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({
+        schemaVersion: 2,
+        status: 'ready',
+        runId: 'run-abc',
+        port: 8081,
+        pid: 4242,
+        cdpFaultCode: 'E_CDP_TIMEOUT',
+        cdpFaultMessage: 'ensureLoaded timeout (10000ms)'
+      })
+    )
+
+    const {stream, lines} = makeStream({readyPath})
+    stream.ready()
+    const [frame] = parseFrames(lines)
+    expect(frame.status).toBe('ready')
+    expect(frame.ok).toBe(true)
+    expect(frame.warnings).toEqual([
+      'E_CDP_TIMEOUT: ensureLoaded timeout (10000ms)'
+    ])
+
+    fs.rmSync(dir, {recursive: true, force: true})
+  })
+
   it('emits the ready frame once, with the contract projection', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-ndjson-'))
     const readyPath = path.join(dir, 'ready.json')

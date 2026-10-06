@@ -917,6 +917,7 @@ export function programAIHelpJSON(version: string): ProgramAIHelpJSON {
           'start with a browser to launch stays on starting, with compiledAt set, until the launch passed its binary checks, so --wait keeps waiting and reports a refused pin as that refusal',
           'events.ndjson is reset at every run start and appends entries with runId, durationMs and errorCount for that run only, join on runId across runs',
           'dev --browser safari holds one safaridriver session beside the app and stamps webdriverPort and webdriverSessionId, or webdriverUnavailableReason when Safari automation is off, attach to that session instead of opening a second',
+          'a Chromium dev session whose CDP wire failed after launch stays ready and stamps cdpFaultCode and cdpFaultMessage, the ready frame under --output json carries the same fault as a coded warning, reload and HMR cannot attach until it is fixed',
           '--wait requires a local project path (remote URLs are not supported)',
           'consumers should verify pid liveness and recency before trusting a contract',
           'a build-failed or compile-failed frame under --output json lists each diagnostic in error.details as {code?, message, file?, line?, column?, severity, name?}, errors first, capped at twenty with truncated: true when cut'
