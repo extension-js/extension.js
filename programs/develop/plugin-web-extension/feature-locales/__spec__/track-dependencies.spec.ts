@@ -41,4 +41,23 @@ describe('trackLocaleDependencies', () => {
       )
     ).toBe(true)
   })
+
+  it('tracks every file the locales copy emits, not only the JSON ones', () => {
+    const root = project()
+    const notes = path.join(root, '_locales', 'en', 'notes.txt')
+    const icon = path.join(root, '_locales', 'en', 'img', 'flag.svg')
+    fs.writeFileSync(notes, 'locale notes')
+    fs.mkdirSync(path.dirname(icon), {recursive: true})
+    fs.writeFileSync(icon, '<svg/>')
+
+    const compilation: any = {
+      errors: [],
+      fileDependencies: new Set<string>(),
+      missingDependencies: new Set<string>()
+    }
+    trackLocaleDependencies(compilation, path.join(root, 'manifest.json'), root)
+
+    expect(compilation.fileDependencies.has(notes)).toBe(true)
+    expect(compilation.fileDependencies.has(icon)).toBe(true)
+  })
 })
