@@ -47,8 +47,7 @@ import type {BrowserLogSinkEvent} from '../plugin-browsers'
 import {
   createPlaywrightMetadataWriter,
   detectLiveDevSessionOwner,
-  getSessionRunId,
-  shouldWarnDevOverDev
+  getSessionRunId
 } from '../plugin-playwright'
 import {
   buildSourceFeatureIndex,
@@ -563,13 +562,13 @@ export async function devServer(
     throw new Error('Failed to create instance')
   }
 
-  // The eval token and the ready contract have one slot per browser, so a
-  // second session over the same target would leave them naming different runs.
+  // The eval token and the ready contract have one slot per browser, and a
+  // distinct instance id keeps only the ports apart, so a second session is refused.
   const liveOwner = detectLiveDevSessionOwner(
     readyContractPath(packageJsonDir, String(devOptions.browser || 'chromium'))
   )
 
-  if (liveOwner && shouldWarnDevOverDev(liveOwner, currentInstance)) {
+  if (liveOwner) {
     await portManager.terminateCurrentInstance()
 
     throw codedError(

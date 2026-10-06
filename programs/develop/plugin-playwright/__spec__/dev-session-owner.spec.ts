@@ -4,8 +4,7 @@ import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {
   createPlaywrightMetadataWriter,
-  detectLiveDevSessionOwner,
-  shouldWarnDevOverDev
+  detectLiveDevSessionOwner
 } from '../index'
 
 function writeReadyFixture(overrides: Record<string, unknown> = {}): string {
@@ -86,51 +85,6 @@ describe('detectLiveDevSessionOwner', () => {
   })
 })
 
-describe('shouldWarnDevOverDev', () => {
-  it('warns when both sessions run auto-generated instances', () => {
-    expect(
-      shouldWarnDevOverDev(
-        {pid: 1, runId: 'r', instanceId: 'auto1', instanceExplicit: false},
-        {instanceId: 'auto2', instanceExplicit: false}
-      )
-    ).toBe(true)
-  })
-
-  it('warns when only one side asked for an instance', () => {
-    expect(
-      shouldWarnDevOverDev(
-        {pid: 1, runId: 'r', instanceId: 'alpha', instanceExplicit: true},
-        {instanceId: 'auto2', instanceExplicit: false}
-      )
-    ).toBe(true)
-
-    expect(
-      shouldWarnDevOverDev(
-        {pid: 1, runId: 'r', instanceId: 'auto1', instanceExplicit: false},
-        {instanceId: 'beta', instanceExplicit: true}
-      )
-    ).toBe(true)
-  })
-
-  it('stays silent when both asked for distinct instances', () => {
-    expect(
-      shouldWarnDevOverDev(
-        {pid: 1, runId: 'r', instanceId: 'alpha', instanceExplicit: true},
-        {instanceId: 'beta', instanceExplicit: true}
-      )
-    ).toBe(false)
-  })
-
-  it('warns when both asked for the same instance', () => {
-    expect(
-      shouldWarnDevOverDev(
-        {pid: 1, runId: 'r', instanceId: 'alpha', instanceExplicit: true},
-        {instanceId: 'alpha', instanceExplicit: true}
-      )
-    ).toBe(true)
-  })
-})
-
 describe('the notice about another dev session on the same target', () => {
   afterEach(() => vi.restoreAllMocks())
 
@@ -173,6 +127,49 @@ describe('the notice about another dev session on the same target', () => {
     expect(notices[0]).toContain(
       'Another dev session is already writing dist/chromium-owner-notice'
     )
+
+    fs.rmSync(projectDir, {recursive: true, force: true})
+  })
+
+  it('prints although both sessions asked for distinct instance ids', () => {
+    const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-owner-'))
+    const readyPath = path.join(
+      projectDir,
+      'dist',
+      'extension-js',
+      'chromium-owner-ids',
+      'ready.json'
+    )
+    fs.mkdirSync(path.dirname(readyPath), {recursive: true})
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({
+        command: 'dev',
+        status: 'ready',
+        pid: process.ppid,
+        runId: 'owner-ids-run',
+        instanceId: 'alpha',
+        instanceExplicit: true
+      })
+    )
+
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    createPlaywrightMetadataWriter({
+      packageJsonDir: projectDir,
+      browser: 'chromium-owner-ids',
+      command: 'dev' as const,
+      distPath: path.join(projectDir, 'dist', 'chromium-owner-ids'),
+      manifestPath: path.join(projectDir, 'manifest.json'),
+      instanceId: 'beta',
+      instanceExplicit: true
+    })
+
+    const notices = warn.mock.calls
+      .map((call) => String(call[0]))
+      .filter((line) => line.includes('owner-ids-run'))
+    expect(notices).toHaveLength(1)
+    expect(notices[0]).toContain('one session per browser')
 
     fs.rmSync(projectDir, {recursive: true, force: true})
   })
