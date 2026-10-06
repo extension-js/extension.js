@@ -9,6 +9,7 @@ import {
   contentScriptEntryForAsset,
   DEV_CONTENT_SCRIPT_MARKER_KEY,
   DEV_CONTENT_SCRIPT_REGISTRY_ASSET,
+  DEV_CONTENT_SCRIPT_STATIC_BUNDLES_KEY,
   DEV_CONTENT_SCRIPT_STATIC_RELOAD_KEY,
   DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE,
   planDevContentScripts
@@ -325,8 +326,18 @@ function worker(opts: {
     },
     storage: {
       local: {
-        get: (key: string, cb: (r: Record<string, unknown>) => void) =>
-          cb({[key]: storage[key]}),
+        get: (
+          keys: string | string[],
+          cb: (r: Record<string, unknown>) => void
+        ) =>
+          cb(
+            Object.fromEntries(
+              (Array.isArray(keys) ? keys : [keys]).map((key) => [
+                key,
+                storage[key]
+              ])
+            )
+          ),
         set: (items: Record<string, unknown>, cb?: () => void) => {
           Object.assign(storage, items)
           cb?.()
@@ -855,7 +866,69 @@ describe('dev content scripts runtime', () => {
 
     expect(w.calls.reload).toEqual([1])
     expect(w.calls.runtimeReload).toEqual([])
-    expect(w.storage).toEqual({})
+    expect(w.storage.__extjsDevPendingReinject).toBeUndefined()
+    expect(w.storage[DEV_CONTENT_SCRIPT_STATIC_RELOAD_KEY]).toBeUndefined()
+  })
+
+  it('a boot records the static bundle names and reloads the tabs of a static entry whose bundle changed', async () => {
+    const first = worker({
+      registry: withStatic,
+      tabs: [{id: 1, url: 'https://a.test/one'}]
+    })
+    await first.settle()
+    expect(first.calls.reload).toEqual([])
+    expect(first.storage[DEV_CONTENT_SCRIPT_STATIC_BUNDLES_KEY]).toEqual({
+      'content_scripts/content-1': 'content_scripts/content-1.NEW.js'
+    })
+
+    const sameBytes = worker({
+      registry: withStatic,
+      tabs: [{id: 1, url: 'https://a.test/one'}],
+      storage: {...first.storage}
+    })
+    await sameBytes.settle()
+    expect(sameBytes.calls.reload).toEqual([])
+
+    const shared = {
+      ...withStatic,
+      entries: [
+        withStatic.entries[0],
+        {...withStatic.entries[1], js: ['content_scripts/content-1.SHARED.js']}
+      ]
+    }
+    const next = worker({
+      registry: shared,
+      tabs: [
+        {id: 1, url: 'https://a.test/one'},
+        {id: 2, url: 'https://a.test/two'}
+      ],
+      storage: {...sameBytes.storage}
+    })
+    await next.settle()
+    expect(next.calls.reload).toEqual([1, 2])
+    expect(next.calls.runtimeReload).toEqual([])
+    expect(next.storage[DEV_CONTENT_SCRIPT_STATIC_BUNDLES_KEY]).toEqual({
+      'content_scripts/content-1': 'content_scripts/content-1.SHARED.js'
+    })
+  })
+
+  it('a boot that both carries the reload flag and sees a new bundle reloads each tab once', async () => {
+    const w = worker({
+      registry: withStatic,
+      tabs: [{id: 1, url: 'https://a.test/one'}],
+      storage: {
+        [DEV_CONTENT_SCRIPT_STATIC_RELOAD_KEY]: {
+          entries: ['content_scripts/content-1'],
+          at: Date.now()
+        },
+        [DEV_CONTENT_SCRIPT_STATIC_BUNDLES_KEY]: {
+          'content_scripts/content-1': 'content_scripts/content-1.OLD.js'
+        }
+      }
+    })
+    await w.settle()
+    expect(w.calls.reload).toEqual([1])
+    expect(w.storage[DEV_CONTENT_SCRIPT_STATIC_RELOAD_KEY]).toBeUndefined()
   })
 
   it('reload of an entry the frame does not name leaves every tab alone', async () => {

@@ -874,6 +874,7 @@ export async function devServer(
     readyPath: metadata.readyPath,
     eventsPath: metadata.eventsPath
   })
+  lifecycle.emitOnExit()
 
   // Say so when the requested port was taken. Compare numerically: a CLI
   // --port arrives as a string, and '55835' !== 55835 misreported every run.

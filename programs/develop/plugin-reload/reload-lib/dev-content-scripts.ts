@@ -24,6 +24,7 @@ export const DEV_CONTENT_SCRIPT_MARKER_KEY = '__extjsDevContentScripts'
 export const DEV_CONTENT_SCRIPT_STUB_MESSAGE_KEY = '__extjsDevCsStub'
 export const DEV_CONTENT_SCRIPT_ID_PREFIX = 'extjs-dev-cs-'
 export const DEV_CONTENT_SCRIPT_STATIC_RELOAD_KEY = '__extjsDevStaticReload'
+export const DEV_CONTENT_SCRIPT_STATIC_BUNDLES_KEY = '__extjsDevStaticBundles'
 
 export interface DevContentScriptRegistryEntry {
   id: string
@@ -245,6 +246,7 @@ export const DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE = `;(function () {
     var STUB = ${JSON.stringify(DEV_CONTENT_SCRIPT_STUB_MESSAGE_KEY)};
     var ID_PREFIX = ${JSON.stringify(DEV_CONTENT_SCRIPT_ID_PREFIX)};
     var STATIC_RELOAD_KEY = ${JSON.stringify(DEV_CONTENT_SCRIPT_STATIC_RELOAD_KEY)};
+    var STATIC_BUNDLES_KEY = ${JSON.stringify(DEV_CONTENT_SCRIPT_STATIC_BUNDLES_KEY)};
     // The file a frame runs says nothing about which extension generation
     // injected it, so every probe also stamps the booting worker's token.
     var GENERATION_KEY = "generation";
@@ -493,25 +495,46 @@ export const DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE = `;(function () {
       } }, 150);
     }
 
-    function consumeStaticReload() {
+    function staticBundlesOf(e) {
+      return (e.js || []).filter(isString).concat((e.css || []).filter(isString)).join("\\n");
+    }
+
+    // The static entries' hashed bundle names, as recorded by the previous
+    // generation: a service worker reload ships a shared module's edit to a
+    // static entry too, and nothing but the name says its tabs are stale.
+    function healStaticEntries() {
       try {
         if (!chrome.storage || !chrome.storage.local) return;
-        chrome.storage.local.get(STATIC_RELOAD_KEY, function (res) {
+        chrome.storage.local.get([STATIC_RELOAD_KEY, STATIC_BUNDLES_KEY], function (res) {
           noop();
           var flag = res && res[STATIC_RELOAD_KEY];
-          if (!flag) return;
-          try { chrome.storage.local.remove(STATIC_RELOAD_KEY, noop); } catch (e) {
-            // Ignore
+          var recorded = res && res[STATIC_BUNDLES_KEY];
+          if (flag) {
+            try { chrome.storage.local.remove(STATIC_RELOAD_KEY, noop); } catch (e) {
+              // Ignore
+            }
           }
-          if (typeof flag.at !== "number" || Date.now() - flag.at > 30000) return;
+          var flagged = flag && typeof flag.at === "number" && Date.now() - flag.at <= 30000 && Array.isArray(flag.entries) ? flag.entries : [];
+          var known = recorded && typeof recorded === "object" ? recorded : null;
           onReady(function () {
             if (!registry) return;
             var entries = [];
+            var current = {};
             for (var i = 0; i < registry.entries.length; i++) {
               var e = registry.entries[i];
-              if (e && e.static && Array.isArray(flag.entries) && flag.entries.indexOf(e.entry) !== -1) entries.push(e);
+              if (!e || !e.static || !isString(e.entry)) continue;
+              current[e.entry] = staticBundlesOf(e);
+              var changed = known && isString(known[e.entry]) && known[e.entry] !== current[e.entry];
+              if (changed || flagged.indexOf(e.entry) !== -1) entries.push(e);
             }
-            reloadTabs(entries);
+            try {
+              var record = {};
+              record[STATIC_BUNDLES_KEY] = current;
+              chrome.storage.local.set(record, noop);
+            } catch (e) {
+              // Ignore
+            }
+            if (entries.length) reloadTabs(entries);
           });
         });
       } catch (e) {
@@ -559,7 +582,7 @@ export const DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE = `;(function () {
       if (!reg) return markReady();
       sync(reg, markReady);
     });
-    consumeStaticReload();
+    healStaticEntries();
   } catch (e) {
     // Ignore
   }

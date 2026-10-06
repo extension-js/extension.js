@@ -14,6 +14,7 @@ import {InjectBridgeProducer} from './steps/inject-bridge-producer'
 import {InjectBridgeRelay} from './steps/inject-bridge-relay'
 import {InjectScriptsReplayShim} from './steps/inject-scripts-replay-shim'
 import {PruneStaleHotUpdates} from './steps/prune-stale-hot-updates'
+import {PruneUnreachableChunks} from './steps/prune-unreachable-chunks'
 import {SetupChunkLoadingTarget} from './steps/setup-chunk-loading-target'
 import {SetupDevContentScripts} from './steps/setup-dev-content-scripts'
 import {SetupReloadStrategy} from './steps/setup-reload-strategy'
@@ -129,5 +130,8 @@ export class ReloadPlugin {
     // Hot chunks are fetched from the extension origin (disk), so prune superseded
     // generations or long sessions accumulate stale files in what ships.
     new PruneStaleHotUpdates().apply(compiler)
+
+    // The same for a lazy chunk no entry of this compile reaches any more.
+    new PruneUnreachableChunks().apply(compiler)
   }
 }
