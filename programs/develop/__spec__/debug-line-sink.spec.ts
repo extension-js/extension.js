@@ -19,6 +19,7 @@ function isExcludedPath(entry: string): boolean {
 
 function sourceFiles(): string[] {
   return globSync(['**/*.ts'], {cwd: packageRoot, exclude: isExcludedPath})
+    .map((file) => file.split(path.sep).join('/'))
     .filter((file) => file !== SINK)
     .sort()
 }

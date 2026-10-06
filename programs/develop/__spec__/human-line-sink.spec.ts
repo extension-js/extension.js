@@ -23,9 +23,14 @@ function isExcludedPath(entry: string): boolean {
   )
 }
 
+function isPrinter(file: string): boolean {
+  return file.replace(/\\/g, '/') in PRINTERS
+}
+
 function sourceFiles(): string[] {
   return globSync(['**/*.ts'], {cwd: packageRoot, exclude: isExcludedPath})
-    .filter((file) => !(file in PRINTERS))
+    .map((file) => file.split(path.sep).join('/'))
+    .filter((file) => !isPrinter(file))
     .sort()
 }
 
@@ -60,6 +65,12 @@ describe('human lines reach one printer', () => {
     for (const file of Object.keys(PRINTERS)) {
       expect(existsSync(path.join(packageRoot, file)), file).toBe(true)
     }
+  })
+
+  it('recognises a printer by a backslash path as well', () => {
+    expect(isPrinter('lib\\messaging.ts')).toBe(true)
+    expect(isPrinter('dev-server\\lifecycle-stream.ts')).toBe(true)
+    expect(isPrinter('lib\\messages.ts')).toBe(false)
   })
 
   it('flags a console.log in code and nothing inside a literal', () => {
