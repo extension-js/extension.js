@@ -514,6 +514,25 @@ export function geckoActionUnsupportedOnMv2(file: string) {
   return lines.join('\n')
 }
 
+export function contentScriptEntryDroppedForBrowser(
+  index: number,
+  browser: string,
+  prefixedKeys: string[]
+) {
+  const lines: string[] = []
+  lines.push(
+    `${prefix('warn')} ${colors.yellow(`content_scripts[${String(index)}]`)} has no js and no css in the ${colors.blue(browser)} build, so the build left it out.`
+  )
+
+  if (prefixedKeys.length > 0) {
+    lines.push(
+      `${prefixedKeys.map((key) => colors.yellow(key)).join(', ')} ${prefixedKeys.length === 1 ? 'applies' : 'apply'} to another browser. Add ${colors.yellow(`${browser}:js`)} or a plain ${colors.yellow('js')} to keep the entry here.`
+    )
+  }
+
+  return lines.join('\n')
+}
+
 // Safari inherits chromium: keys by design, so a dropped key would otherwise
 // vanish with no trace and the user would debug a feature that never loaded.
 export function webkitUnsupportedKeysDropped(

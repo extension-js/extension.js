@@ -28,12 +28,26 @@ function isBundledContentPath(filePath: string, ext: 'js' | 'css') {
   return bundledAsset?.extension === ext
 }
 
-function isAlreadyBundledContentScripts(contentScripts: unknown[]) {
-  if (!Array.isArray(contentScripts) || contentScripts.length === 0) {
-    return false
-  }
+// No browser loads an entry with neither js nor css. Prefix resolution leaves
+// one behind when every script key was scoped to another browser.
+export function isHollowContentScript(entry: unknown) {
+  const contentObj = (entry || {}) as ContentObj
+  const js = Array.isArray(contentObj.js) ? contentObj.js : []
+  const css = Array.isArray(contentObj.css) ? contentObj.css : []
 
-  return (contentScripts as Array<{js?: unknown; css?: unknown}>).every(
+  return js.length === 0 && css.length === 0
+}
+
+function isAlreadyBundledContentScripts(contentScripts: unknown[]) {
+  if (!Array.isArray(contentScripts)) return false
+
+  const filled = contentScripts.filter(
+    (contentObj) => !isHollowContentScript(contentObj)
+  )
+
+  if (filled.length === 0) return false
+
+  return (filled as Array<{js?: unknown; css?: unknown}>).every(
     (contentObj) => {
       const js = Array.isArray(contentObj?.js) ? contentObj.js : []
       const css = Array.isArray(contentObj?.css) ? contentObj.css : []
@@ -67,6 +81,9 @@ export function contentScripts(manifest: Manifest, manifestPath?: string) {
   for (let index = 0; index < original.length; index++) {
     const contentObj: ContentObj & Record<string, unknown> =
       original[index] || {}
+
+    if (isHollowContentScript(contentObj)) continue
+
     // The compilation bundles all files into a single script plus public
     // paths; dedupe below prevents multiple bundles with the same name.
     const contentJs = [...new Set(contentObj.js || [])]
