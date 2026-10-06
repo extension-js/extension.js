@@ -343,6 +343,12 @@ export interface BuildOptions {
    * receipt names the command the user actually ran.
    */
   metadataCommand?: 'dev' | 'start' | 'preview' | 'build'
+  /**
+   * Internal: `extension start` sets it when a browser launch follows the
+   * build, so the receipt stays `starting` with `compiledAt` set and only
+   * the launch phase stamps `ready`.
+   */
+  launchFollows?: boolean
   appName?: SafariOptions['appName']
   bundleId?: SafariOptions['bundleId']
   developmentTeam?: SafariOptions['developmentTeam']

@@ -23,7 +23,7 @@ export function trackLocaleDependencies(
   }
 
   for (const thisResource of localesFields) {
-    if (path.extname(thisResource) !== '.json') continue
+    if (!thisResource) continue
 
     if (!fs.existsSync(thisResource)) {
       compilation.missingDependencies?.add(thisResource)
