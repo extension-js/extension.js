@@ -24,9 +24,12 @@ interface Frame {
   error: {code: string; message: string} | null
 }
 
-function runCli(args: string[]) {
+const EXIT_CEILING_MS = 120_000
+
+function runCli(args: string[], observe: () => string = () => 'no state') {
   return new Promise<{status: number; frames: Frame[]}>(
     (resolvePromise, reject) => {
+      const startedAt = Date.now()
       const env: NodeJS.ProcessEnv = {
         ...process.env,
         NO_COLOR: '1',
@@ -47,8 +50,14 @@ function runCli(args: string[]) {
 
       const timer = setTimeout(() => {
         child.kill('SIGKILL')
-        reject(new Error(`CLI did not exit: ${args.join(' ')}\n${stdout}`))
-      }, 100_000)
+        const elapsed = Math.round((Date.now() - startedAt) / 1000)
+        reject(
+          new Error(
+            `CLI did not exit after ${elapsed} s: ${args.join(' ')}\n` +
+              `last observed: ${observe()}\nstdout:\n${stdout}`
+          )
+        )
+      }, EXIT_CEILING_MS)
 
       child.on('close', (code) => {
         clearTimeout(timer)
@@ -89,6 +98,27 @@ describe.skipIf(process.platform === 'win32')(
       }
     })
 
+    // Where the CLI got to when it was killed: compiling, probing the pin,
+    // or refused in the contract but still running.
+    function stage(work: string, readyPath: string) {
+      let verdict = 'no ready.json'
+
+      if (existsSync(readyPath)) {
+        try {
+          const ready = JSON.parse(readFileSync(readyPath, 'utf8'))
+          verdict = `ready.json status=${ready.status} code=${ready.code}`
+        } catch {
+          verdict = 'ready.json unreadable'
+        }
+      }
+
+      const probe = existsSync(join(work, 'silent.pid'))
+        ? 'probe started'
+        : 'probe not started'
+
+      return `${probe}, ${verdict}`
+    }
+
     // The card probes a Chromium pin before any launcher runs, which is where
     // the refusal used to leave the contract saying ready or starting.
     it.each([
@@ -119,22 +149,6 @@ describe.skipIf(process.platform === 'win32')(
         )
 
         chmodSync(silent, 0o755)
-
-        const run = await runCli([
-          command,
-          projectDir,
-          '--browser',
-          browser,
-          flag,
-          silent,
-          '--no-open',
-          '--output',
-          'json'
-        ])
-
-        expect(run.status).toBe(1)
-        expect(run.frames.at(-1)?.error?.code).toBe('E_BROWSER_BINARY_INVALID')
-
         const readyPath = join(
           projectDir,
           'dist',
@@ -142,6 +156,25 @@ describe.skipIf(process.platform === 'win32')(
           browser,
           'ready.json'
         )
+
+        const run = await runCli(
+          [
+            command,
+            projectDir,
+            '--browser',
+            browser,
+            flag,
+            silent,
+            '--no-open',
+            '--output',
+            'json'
+          ],
+          () => stage(work, readyPath)
+        )
+
+        expect(run.status).toBe(1)
+        expect(run.frames.at(-1)?.error?.code).toBe('E_BROWSER_BINARY_INVALID')
+
         const ready = JSON.parse(readFileSync(readyPath, 'utf8'))
 
         expect(ready).toMatchObject({
@@ -155,16 +188,19 @@ describe.skipIf(process.platform === 'win32')(
 
         // A waiter in another process reads the same verdict and never ok.
         if (command === 'start') {
-          const waited = await runCli([
-            'start',
-            projectDir,
-            '--browser',
-            browser,
-            '--wait',
-            '--wait-timeout=20000',
-            '--output',
-            'json'
-          ])
+          const waited = await runCli(
+            [
+              'start',
+              projectDir,
+              '--browser',
+              browser,
+              '--wait',
+              '--wait-timeout=20000',
+              '--output',
+              'json'
+            ],
+            () => stage(work, readyPath)
+          )
 
           expect(waited.status).toBe(1)
           expect(waited.frames).toHaveLength(1)
@@ -176,7 +212,7 @@ describe.skipIf(process.platform === 'win32')(
           })
         }
       },
-      150_000
+      EXIT_CEILING_MS * 2 + 30_000
     )
   }
 )
