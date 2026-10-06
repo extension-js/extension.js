@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "note": "The durable error-code table for the schema-1 envelope. Codes may be added, never renamed or removed. One code per operator-distinguishable failure family; the envelope's command field carries the which-command context. 'folded' records finer inventory names that map onto a shipped family code. 'legacy' maps the three pre-envelope conventions (snake_case ready.json codes, PascalCase error names, kebab-case doctor check ids) onto the table. A row marked 'reserved' names a failure the CLI does not report under that code today, so no envelope carries it yet and a consumer need not handle it.",
+  "note": "The durable error-code table for the schema-1 envelope. Codes may be added, never renamed. A code retired after it shipped keeps a 'folded' row pointing at the code the same path reports now, so a consumer that still lists the name resolves it. One code per operator-distinguishable failure family; the envelope's command field carries the which-command context. 'folded' records finer inventory names that map onto a shipped family code. 'legacy' maps the three pre-envelope conventions (snake_case ready.json codes, PascalCase error names, kebab-case doctor check ids) onto the table. A row marked 'reserved' names a failure the CLI does not report under that code today, so no envelope carries it yet and a consumer need not handle it.",
   "codes": {
     "E_ARGS": {
       "area": "usage",
@@ -70,11 +70,6 @@
     "E_TYPES_EMIT": {
       "area": "project",
       "summary": "Writing extension-env.d.ts failed.",
-      "reserved": true
-    },
-    "E_TSCONFIG_MISSING": {
-      "area": "project",
-      "summary": "TypeScript sources exist with no tsconfig.json beside package.json.",
       "reserved": true
     },
     "E_OPTIONAL_DEP_UNRESOLVED": {
@@ -166,11 +161,6 @@
       "warn": true,
       "reserved": true
     },
-    "E_INTEGRATION_INSTALL": {
-      "area": "compile",
-      "summary": "A framework integration failed to install.",
-      "reserved": true
-    },
     "E_POLYFILL_NOT_FOUND": {
       "area": "compile",
       "summary": "webextension-polyfill requested but absent.",
@@ -184,11 +174,6 @@
     "E_WAR_INVALID": {
       "area": "compile",
       "summary": "web_accessible_resources shape or match pattern rejected.",
-      "reserved": true
-    },
-    "E_MATCH_PATTERN_INVALID": {
-      "area": "compile",
-      "summary": "The browser rejected a content-script match pattern.",
       "reserved": true
     },
     "E_BACKGROUND_REQUIRED": {
@@ -292,11 +277,6 @@
     "E_INSTANCE_AMBIGUOUS": {
       "area": "browser-binary",
       "summary": "More than one live instance matches the requested id."
-    },
-    "E_WSL_INTEROP": {
-      "area": "browser-binary",
-      "summary": "WSL interop could not resolve a Windows browser.",
-      "reserved": true
     },
     "E_BROWSER_DOWNLOAD": {
       "area": "browser-binary",
@@ -586,6 +566,10 @@
     "E_SAFARI_BUNDLE_ID_INVALID": "E_INVALID_OPTION",
     "E_PUBLISH_NO_TOKEN": "E_AUTH_REQUIRED",
     "E_PUBLISH_UNREACHABLE": "E_NETWORK",
-    "E_UNKNOWN": "E_INTERNAL"
+    "E_UNKNOWN": "E_INTERNAL",
+    "E_TSCONFIG_MISSING": "E_COMPILE",
+    "E_INTEGRATION_INSTALL": "E_DEPENDENCY_INSTALL",
+    "E_WSL_INTEROP": "E_BROWSER_NOT_FOUND",
+    "E_MATCH_PATTERN_INVALID": "E_EXTENSION_LOAD_REFUSED"
   }
 }

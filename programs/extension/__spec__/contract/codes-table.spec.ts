@@ -270,6 +270,17 @@ describe('the error-code table', () => {
       expect(alias).toMatch(/^E_[A-Z0-9_]+$/)
     }
   })
+
+  it.each([
+    'E_TSCONFIG_MISSING',
+    'E_INTEGRATION_INSTALL',
+    'E_WSL_INTEROP',
+    'E_MATCH_PATTERN_INVALID'
+  ])('keeps %s, retired after it shipped, as a fold and not a code', (retired) => {
+    expect(table.codes).not.toHaveProperty(retired)
+    expect(table.folded).toHaveProperty(retired)
+    expect(CODES).not.toHaveProperty(retired)
+  })
 })
 
 // The behaviour specs (remote-archive-codes, config-load-failure) prove which

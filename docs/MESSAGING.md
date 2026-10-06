@@ -293,7 +293,9 @@ The schema, golden envelopes, and the full error-code table (`codes.json`, with 
 from the legacy `ready.json` codes, bridge error names, and doctor check ids) live under
 `programs/extension/__spec__/contract/`. Copy them if you are building a tool on top of the
 CLI. They are also what the CLI's own tests validate against, so they cannot go stale. Codes
-may be added over time, but an existing code is never renamed or removed within a schema.
+may be added over time, and an existing code is never renamed within a schema. A code retired
+after it shipped keeps a row under `folded` that points at the code the same path reports now,
+so a consumer that still lists the old name resolves it.
 
 A row marked `reserved` in `codes.json` is a code the table declares and the CLI does not emit
 today, so no envelope carries it yet. The contract spec fails when a code is neither emitted by
