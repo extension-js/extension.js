@@ -304,5 +304,24 @@ describe.skipIf(process.platform === 'win32')(
       },
       150_000
     )
+
+    it('a LibreWolf with remote debugging locked off ends in E_BROWSER_CONNECT as failed', async () => {
+      const {work, projectDir} = makeWorkspace()
+      const binary = plantFakeGecko(join(work, 'bin'))
+      const home = join(work, 'home')
+      mkdirSync(home, {recursive: true})
+
+      session = startDev(projectDir, 'librewolf', ['--gecko-binary', binary], {
+        HOME: home,
+        XDG_CONFIG_HOME: ''
+      })
+
+      await expectLaunchRefusal(session, 'E_BROWSER_CONNECT', 'failed')
+      expect(String(session.ready()?.browserLaunchFailedReason)).toMatch(
+        /keeps remote debugging off/
+      )
+
+      expect(session.stderr()).toMatch(/librewolf\.overrides\.cfg/)
+    }, 120_000)
   }
 )
