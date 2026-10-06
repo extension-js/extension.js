@@ -25,6 +25,7 @@ import {
   findMistypedManifestFields,
   sanitizeFatalManifestShapes
 } from '../manifest-lib/sanitize-fatal-shapes'
+import {isHollowContentScript} from '../manifest-overrides/common/content_scripts'
 import {hasMv3StringPolicy} from '../manifest-overrides/common/content_security_policy'
 import {hasMv2SandboxPolicy} from '../manifest-overrides/mv2/content_security_policy'
 
@@ -235,6 +236,34 @@ export class UpdateManifest {
                   dropped.familyPath,
                   dropped.vendor,
                   String(this.browser)
+                ),
+                'warning',
+                'manifest.json'
+              )
+            }
+
+            const rawContentScripts = Array.isArray(manifest.content_scripts)
+              ? (manifest.content_scripts as unknown[])
+              : []
+
+            for (const [index, entry] of (
+              forBrowser.content_scripts ?? []
+            ).entries()) {
+              if (!isHollowContentScript(entry)) continue
+
+              const raw = rawContentScripts[index]
+              const prefixedKeys =
+                raw && typeof raw === 'object' && !Array.isArray(raw)
+                  ? Object.keys(raw).filter((key) => key.includes(':'))
+                  : []
+
+              reportToCompilation(
+                compilation,
+                compiler,
+                messages.contentScriptEntryDroppedForBrowser(
+                  index,
+                  String(this.browser),
+                  prefixedKeys
                 ),
                 'warning',
                 'manifest.json'
