@@ -916,6 +916,7 @@ export function programAIHelpJSON(version: string): ProgramAIHelpJSON {
           'ready.json is written atomically by the build (dev/start) on each compile',
           'start with a browser to launch stays on starting, with compiledAt set, until the launch passed its binary checks, so --wait keeps waiting and reports a refused pin as that refusal',
           'events.ndjson is reset at every run start and appends entries with runId, durationMs and errorCount for that run only, join on runId across runs',
+          'dev --browser safari holds one safaridriver session beside the app and stamps webdriverPort and webdriverSessionId, or webdriverUnavailableReason when Safari automation is off, attach to that session instead of opening a second',
           '--wait requires a local project path (remote URLs are not supported)',
           'consumers should verify pid liveness and recency before trusting a contract'
         ]

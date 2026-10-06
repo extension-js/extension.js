@@ -2,6 +2,8 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {recordCodedWarning, takeCodedWarnings} from '../../lib/coded-warnings'
+import {CODES} from '../../lib/messaging'
 import {
   attachLifecycleStream,
   createLifecycleStream,
@@ -21,7 +23,7 @@ type Frame = {
   truncated?: boolean
 }
 
-function makeStream(options: {readyPath?: string} = {}) {
+function makeStream(options: {readyPath?: string; noBrowser?: boolean} = {}) {
   const lines: string[] = []
   const stream = createLifecycleStream({
     command: 'dev',
@@ -29,6 +31,7 @@ function makeStream(options: {readyPath?: string} = {}) {
     distPath: '/proj/dist/chromium',
     readyPath: options.readyPath,
     eventsPath: '/proj/.extension-js/chromium/events.ndjson',
+    noBrowser: options.noBrowser,
     write: (line) => lines.push(line)
   })
 
@@ -55,16 +58,23 @@ function parseFrames(lines: string[]): Frame[] {
 function fakeStats(options: {
   errors?: boolean
   assets?: number
+  entrypoints?: number
   durationMs?: number
   text?: string
 }) {
   const assets = Array.from({length: options.assets ?? 0}, (_, i) => ({
     name: `asset-${i}.js`
   }))
+  const entrypoints = Object.fromEntries(
+    Array.from({length: options.entrypoints ?? 0}, (_, i) => [`entry-${i}`, {}])
+  )
 
   return {
     hasErrors: () => Boolean(options.errors),
     toString: () => options.text ?? '',
+    ...(options.entrypoints === undefined
+      ? {}
+      : {toJson: () => ({entrypoints})}),
     compilation: {
       startTime: 0,
       endTime: options.durationMs ?? 0,
@@ -634,5 +644,82 @@ describe('lifecycle stream transitions', () => {
     expect(frames[0].status).toBe('browser-exited')
     expect(frames[0].error?.code).toBe('E_BROWSER_LAUNCH')
     fs.rmSync(dir, {recursive: true, force: true})
+  })
+})
+
+describe('lifecycle stream warnings the run carries on past', () => {
+  const original = process.env.EXTENSION_OUTPUT
+
+  beforeEach(() => {
+    process.env.EXTENSION_OUTPUT = 'ndjson'
+    takeCodedWarnings()
+  })
+
+  afterEach(() => {
+    if (original === undefined) delete process.env.EXTENSION_OUTPUT
+    else process.env.EXTENSION_OUTPUT = original
+  })
+
+  it('carries what the setup steps recorded on the starting frame, once', () => {
+    recordCodedWarning(CODES.E_POLYFILL_NOT_FOUND, 'the polyfill is missing')
+    const first = makeStream()
+    first.stream.starting({requestedPort: 8080, port: 8081})
+    expect(parseFrames(first.lines)[0].warnings).toEqual([
+      'E_PORT_IN_USE: port 8080 was taken, so the dev server listens on port 8081',
+      'E_POLYFILL_NOT_FOUND: the polyfill is missing'
+    ])
+
+    const second = makeStream()
+    second.stream.starting({requestedPort: 8080, port: 8080})
+    expect(parseFrames(second.lines)[0].warnings).toEqual([])
+  })
+
+  it('warns with the declared code when a compile produced nothing', () => {
+    const {stream, lines} = makeStream()
+    stream.compiled({assets: 0, durationMs: 3, entrypoints: 0})
+    stream.compiled({assets: 0, durationMs: 3})
+    stream.compiled({assets: 2, durationMs: 3, entrypoints: 0})
+    const frames = parseFrames(lines)
+    expect(frames[0].warnings).toEqual([
+      'E_NO_ENTRYPOINTS: the compilation produced no entrypoints or assets'
+    ])
+
+    expect(frames[1].warnings).toEqual([])
+    expect(frames[2].warnings).toEqual([])
+  })
+
+  it('reads the entrypoint count off the stats for the compiled frame', () => {
+    const {stream, lines} = makeStream()
+    const compiler = fakeCompiler()
+    attachLifecycleStream(compiler, stream)
+    compiler.taps.done(fakeStats({assets: 0, entrypoints: 0}))
+    compiler.taps.done(fakeStats({assets: 0}))
+    const frames = parseFrames(lines)
+    expect(frames[0].warnings).toEqual([
+      'E_NO_ENTRYPOINTS: the compilation produced no entrypoints or assets'
+    ])
+
+    expect(frames[1].warnings).toEqual([])
+  })
+
+  it('says the launch is withheld on every failed compile before the first green one', () => {
+    const {stream, lines} = makeStream()
+    stream.compileFailed({output: 'boom'})
+    stream.compileFailed({output: 'boom again'})
+    stream.compiled({assets: 2, durationMs: 9})
+    stream.compileFailed({output: 'boom later'})
+    const frames = parseFrames(lines)
+    expect(frames[0].warnings).toEqual([
+      'E_LAUNCH_SKIPPED_COMPILE_ERRORS: the browser launch is withheld until the compile succeeds'
+    ])
+
+    expect(frames[1].warnings).toEqual(frames[0].warnings)
+    expect(frames[3].warnings).toEqual([])
+  })
+
+  it('leaves the compile-failed frame unwarned when no browser was asked for', () => {
+    const {stream, lines} = makeStream({noBrowser: true})
+    stream.compileFailed({output: 'boom'})
+    expect(parseFrames(lines)[0].warnings).toEqual([])
   })
 })

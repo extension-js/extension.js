@@ -33,6 +33,15 @@ export interface SafariToolResult {
   output: string
 }
 
+// A safaridriver the session keeps running beside the app. `output` carries
+// the spawn error when it never started.
+export interface SafariWebDriverProcess {
+  ok: boolean
+  pid?: number
+  output: string
+  stop(): void
+}
+
 // Every process the packaging pipeline talks to, behind one seam. Production
 // spawns the real tools; specs hand in fakes and drive the real control flow.
 export interface SafariPipelineTools {
@@ -43,6 +52,66 @@ export interface SafariPipelineTools {
   openSafari(binary: string): Promise<SafariToolResult>
   resolvePid(bundleId: string): Promise<number | null>
   pluginkitList(): Promise<string>
+  startWebDriver(port: number): Promise<SafariWebDriverProcess>
+  listAutomationPids(): Promise<number[]>
+}
+
+// safaridriver raises Safari with `--automation` in its argv, which is the one
+// mark that tells its instance from a Safari the user opened.
+export function isAutomationSafariArgs(args: string): boolean {
+  const tokens = args.trim().split(/\s+/)
+  const exe = tokens[0] || ''
+  const name = exe.slice(exe.lastIndexOf('/') + 1)
+
+  return name === 'Safari' && tokens.includes('--automation')
+}
+
+export function listPidsWhere(
+  matches: (args: string) => boolean
+): Promise<number[]> {
+  return new Promise((resolve) => {
+    const child = spawn('ps', ['-axww', '-o', 'pid=,args='], {
+      stdio: ['ignore', 'pipe', 'ignore']
+    })
+    let out = ''
+    child.stdout?.on('data', (chunk) => (out += String(chunk)))
+    child.on('error', () => resolve([]))
+    child.on('close', () => {
+      const pids: number[] = []
+
+      for (const line of out.split('\n')) {
+        const row = /^\s*(\d+)\s+(.*)$/.exec(line)
+        if (row && matches(row[2])) pids.push(Number(row[1]))
+      }
+
+      resolve(pids)
+    })
+  })
+}
+
+export function spawnWebDriverProcess(
+  bin: string,
+  args: string[]
+): Promise<SafariWebDriverProcess> {
+  return new Promise((resolve) => {
+    const child = spawn(bin, args, {stdio: 'ignore'})
+
+    const stop = () => {
+      try {
+        child.kill('SIGTERM')
+      } catch {
+        // Already gone
+      }
+    }
+
+    child.once('error', (error) =>
+      resolve({ok: false, output: String(error), stop})
+    )
+
+    child.once('spawn', () =>
+      resolve({ok: true, pid: child.pid, output: '', stop})
+    )
+  })
 }
 
 function runTool(
@@ -119,6 +188,9 @@ export function createSafariTools(): SafariPipelineTools {
       const {ok, output} = await runTool('pluginkit', ['-m'], {quiet: true})
 
       return ok ? output : ''
-    }
+    },
+    startWebDriver: (port) =>
+      spawnWebDriverProcess('safaridriver', ['-p', String(port)]),
+    listAutomationPids: () => listPidsWhere(isAutomationSafariArgs)
   }
 }
