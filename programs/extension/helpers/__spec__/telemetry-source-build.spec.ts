@@ -100,6 +100,7 @@ describe('a run from a clone is not a run from an install', () => {
     const properties = auditedProperties()
     expect(Object.keys(properties).sort()).toEqual(
       [
+        '$geoip_disable',
         '$ip',
         'app',
         'arch',
