@@ -4,7 +4,7 @@ import {StaticAssetsPlugin} from '../index'
 function applyPlugin(mode: 'development' | 'production' = 'production') {
   const compiler: any = {
     options: {module: {rules: []}},
-    hooks: {afterEmit: {tap() {}}}
+    hooks: {afterEmit: {tap() {}}, compilation: {tap() {}}}
   }
   new StaticAssetsPlugin({mode} as any).apply(compiler)
 
@@ -119,7 +119,7 @@ describe('StaticAssetsPlugin raw resourceQuery rule', () => {
     const mine = {resourceQuery: /raw/, type: 'asset/resource'}
     const compiler: any = {
       options: {module: {rules: [mine]}},
-      hooks: {afterEmit: {tap() {}}}
+      hooks: {afterEmit: {tap() {}}, compilation: {tap() {}}}
     }
     new StaticAssetsPlugin({mode: 'production'} as any).apply(compiler)
     const rawRules = compiler.options.module.rules.filter(

@@ -192,6 +192,7 @@ export default function webpackConfig(
     new WebExtensionPlugin({
       manifestPath,
       browser: devOptions.browser,
+      define: devOptions.define,
       devSession
     }),
     // Dev-session reload/HMR strategy. Must register AFTER WebExtensionPlugin,
@@ -615,6 +616,9 @@ export default function webpackConfig(
       ]
     },
     module: {
+      // The `config` hook runs before any plugin attaches a rule, so it gets
+      // a list it can push to. The built-in rules join it afterwards.
+      rules: [],
       // Allow CSS Modules default imports in addition to namespace and named
       // imports. See https://rspack.dev/guide/tech/css#css-modules
       parser: {

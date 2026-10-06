@@ -10,6 +10,7 @@ import type {Compiler, RuleSetRule} from '@rspack/core'
 import {isDebug} from '../lib/messaging'
 import {RAW_RESOURCE_QUERY} from '../lib/resource-query'
 import type {DevOptions, PluginInterface} from '../types'
+import {CheckNamespaceImports} from './check-namespace-imports'
 import * as messages from './static-assets-lib/messages'
 
 export class StaticAssetsPlugin {
@@ -21,6 +22,8 @@ export class StaticAssetsPlugin {
   }
 
   public apply(compiler: Compiler) {
+    new CheckNamespaceImports().apply(compiler)
+
     compiler.options.module = compiler.options.module || {rules: []}
     compiler.options.module.rules = compiler.options.module.rules || []
 

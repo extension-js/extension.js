@@ -54,12 +54,11 @@ export async function generateExtensionTypes(
     await fs.access(extensionEnvFile)
 
     const existingContent = await fs.readFile(extensionEnvFile, 'utf8')
+    if (existingContent === fileContent) return
 
-    if (existingContent.includes('develop/dist/types')) {
-      // Rewrite previous path for versions < 2.0.0. See #162
-      await fs.writeFile(extensionEnvFile, fileContent)
-    }
-
+    // The file is the project's own, often committed, so a rewrite that
+    // changes it is said out loud the way the first write is.
+    console.log(messages.updatingTypeDefinitions(extensionEnvFile))
     await fs.writeFile(extensionEnvFile, fileContent)
   } catch (err) {
     const manifestText = await fs.readFile(
