@@ -9,9 +9,10 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import programPackageJson from '../package.json'
+import {recordCodedWarning} from './coded-warnings'
 import {findConfigFile} from './config-loader'
 import * as messages from './messages'
-import {isDebug} from './messaging'
+import {CODES, isDebug} from './messaging'
 import {readProjectDependencies} from './project-manifest'
 
 function isReferencedAsModuleSpecifier(
@@ -71,6 +72,13 @@ export function assertNoManagedDependencyConflicts(
   }
 
   if (duplicates.length === 0) return
+
+  recordCodedWarning(
+    CODES.E_MANAGED_DEP_CONFLICT,
+    `${path.basename(configPath)} loads its own copy of ${duplicates
+      .map((name) => `${name} (Extension.js ships ${shipped[name]})`)
+      .join(', ')}.`
+  )
 
   warnOnce(
     messages.managedDependencyCopyWarning(

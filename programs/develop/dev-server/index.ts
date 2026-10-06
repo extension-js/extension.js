@@ -896,7 +896,8 @@ export async function devServer(
     browser: browserName,
     distPath: primaryDistPath,
     readyPath: metadata.readyPath,
-    eventsPath: metadata.eventsPath
+    eventsPath: metadata.eventsPath,
+    noBrowser: Boolean(devOptions.noBrowser)
   })
   lifecycle.emitOnExit()
 

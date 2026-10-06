@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {takeCodedWarnings} from '../coded-warnings'
 import {assertNoManagedDependencyConflicts} from '../validate-user-dependencies'
 
 const MANAGED_IMPORT =
@@ -231,5 +232,25 @@ describe('assertNoManagedDependencyConflicts', () => {
     assertNoManagedDependencyConflicts(packageJsonPath, root)
 
     expect(warnings()).toEqual([])
+  })
+
+  it('records the coded line for the envelope on every run while printing once', () => {
+    const {root, packageJsonPath} = makeProject('extjs-coded-', {
+      configName: 'extension.config.js'
+    })
+    takeCodedWarnings()
+
+    assertNoManagedDependencyConflicts(packageJsonPath, root)
+    const first = takeCodedWarnings()
+
+    expect(first).toHaveLength(1)
+    expect(first[0]).toMatch(
+      /^E_MANAGED_DEP_CONFLICT: extension\.config\.js loads its own copy of @rspack\/core \(Extension\.js ships \S+\)\.$/
+    )
+
+    assertNoManagedDependencyConflicts(packageJsonPath, root)
+
+    expect(takeCodedWarnings()).toEqual(first)
+    expect(warnings()).toHaveLength(1)
   })
 })

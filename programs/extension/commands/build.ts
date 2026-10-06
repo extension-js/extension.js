@@ -417,17 +417,48 @@ export function registerBuildCommand(program: Command) {
               // `summaries` carries what the pretty run only printed: output
               // path, asset totals, warning text and the Safari app identity.
               // Without it a machine caller has to scrape the human summary.
-              ENVELOPE.ok('build', 'built', {
-                projectPath: pathOrRemoteUrl,
-                browsers: built,
-                // The frame records the mode the build resolved to, so the
-                // key survives the default invocation with no --mode flag.
-                mode: mode ?? 'production',
-                summaries
-              })
+              ENVELOPE.ok(
+                'build',
+                'built',
+                {
+                  projectPath: pathOrRemoteUrl,
+                  browsers: built,
+                  // The frame records the mode the build resolved to, so the
+                  // key survives the default invocation with no --mode flag.
+                  mode: mode ?? 'production',
+                  summaries
+                },
+                {warnings: codedWarningsOf(summaries)}
+              )
             )
           )
         }
       }
     )
+}
+
+// A summary warning that opens with a declared code is one the run carried
+// on past, and the frame's own warnings array is where a consumer reads it.
+function codedWarningsOf(summaries: unknown[]): string[] {
+  const coded: string[] = []
+
+  for (const summary of summaries) {
+    const warnings = (summary as {warnings?: unknown} | null)?.warnings
+    if (!Array.isArray(warnings)) continue
+
+    for (const line of warnings) {
+      if (typeof line !== 'string') continue
+
+      const code = line.slice(0, line.indexOf(': '))
+
+      if (
+        Object.prototype.hasOwnProperty.call(CODES, code) &&
+        !coded.includes(line)
+      ) {
+        coded.push(line)
+      }
+    }
+  }
+
+  return coded
 }

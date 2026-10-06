@@ -8,7 +8,8 @@
 
 import {createRequire} from 'node:module'
 import rspack, {type Compiler} from '@rspack/core'
-import {debugLine, isDebug} from '../lib/messaging'
+import {recordCodedWarning} from '../lib/coded-warnings'
+import {CODES, debugLine, isDebug} from '../lib/messaging'
 import type {DevOptions, PluginInterface} from '../types'
 import * as messages from './compatibility-lib/messages'
 
@@ -54,6 +55,11 @@ export class PolyfillPlugin {
         )
       }
     } catch (error) {
+      recordCodedWarning(
+        CODES.E_POLYFILL_NOT_FOUND,
+        'webextension-polyfill is not installed, so the browser API polyfill is off for this build.'
+      )
+
       console.warn(messages.webextensionPolyfillNotFound())
     }
   }
