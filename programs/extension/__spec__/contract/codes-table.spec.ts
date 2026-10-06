@@ -20,6 +20,7 @@ interface CodeEntry {
   summary: string
   warn?: boolean
   reserved?: boolean
+  reason?: string
 }
 
 interface CodesTable {
@@ -198,6 +199,21 @@ describe('the error-code table', () => {
     }
   })
 
+  // A reader of a reserved row learns what keeps the code off the wire, and
+  // an emitted row carries no excuse.
+  it('gives every reserved code a reason and no other code one', () => {
+    for (const [code, entry] of Object.entries(table.codes)) {
+      if (entry.reserved) {
+        expect(entry.reason, `${code} is reserved with no reason`).toMatch(/\S/)
+      } else {
+        expect(
+          entry,
+          `${code} is emitted yet carries a reason`
+        ).not.toHaveProperty('reason')
+      }
+    }
+  })
+
   it('maps every legacy ready.json code onto the table', () => {
     expect(Object.keys(table.legacy.ready).sort()).toEqual(READY_CODES)
 
@@ -269,6 +285,26 @@ describe('the error-code table', () => {
 
       expect(alias).toMatch(/^E_[A-Z0-9_]+$/)
     }
+  })
+
+  // A legacy name has to resolve to a code a consumer can actually receive.
+  it('folds no name onto a reserved code', () => {
+    const ontoReserved = Object.entries(table.folded)
+      .filter(([, code]) => table.codes[code]?.reserved === true)
+      .map(([alias, code]) => `${alias} -> ${code}`)
+
+    expect(ontoReserved).toEqual([])
+  })
+
+  it.each([
+    'E_TSCONFIG_MISSING',
+    'E_INTEGRATION_INSTALL',
+    'E_WSL_INTEROP',
+    'E_MATCH_PATTERN_INVALID'
+  ])('keeps %s, retired after it shipped, as a fold and not a code', (retired) => {
+    expect(table.codes).not.toHaveProperty(retired)
+    expect(table.folded).toHaveProperty(retired)
+    expect(CODES).not.toHaveProperty(retired)
   })
 })
 

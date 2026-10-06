@@ -162,8 +162,10 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
   ],
   "plugin-reload/messages.ts": [
     "backgroundIsRequiredMessageOnly: function(1)",
+    "reloadingExtensionForStaticContentScript: function(1)",
   ],
   "plugin-special-folders/messages.ts": [
+    "packageScriptLeftOut: function(1)",
     "publicFileCollidesWithEntry: function(2)",
     "publicFolderOffRef: function(3)",
     "publicFolderShadowed: function(3)",
@@ -171,7 +173,6 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "serverRestartRequiredFromSpecialFolderMessageOnly: function(3)",
     "specialFolderChangeDetected: function(3)",
     "specialFoldersSetupSummary: function(3)",
-    "unreferencedScriptDropped: function(1)",
   ],
   "plugin-static-assets/static-assets-lib/messages.ts": [
     "assetsConfigsDetected: function(5)",
@@ -197,7 +198,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "iconsEmitSummary: function(2)",
     "iconsMissingFile: function(3)",
     "iconsNormalizationSummary: function(3)",
-    "iconsPathIsFolder: function(3)",
+    "iconsPathIsFolder: function(2)",
     "manifestIconsEntrypointChange: function(3)",
     "themeImageIsEmpty: function(2)",
     "themeImageMissingFile: function(3)",
@@ -222,6 +223,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "defaultLocaleSpecifiedButLocalesMissing: function(0)",
     "entryNotFoundMessageOnly: function(2)",
     "invalidMessagesJson: function(1)",
+    "localeFolderWithoutMessages: function(1)",
     "localesDepsTracked: function(1)",
     "localesEmitSummary: function(3)",
     "localesIncludeSummary: function(3)",

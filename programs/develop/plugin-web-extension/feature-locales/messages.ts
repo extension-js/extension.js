@@ -77,6 +77,15 @@ export function invalidMessagesJson(absPath: string) {
   )
 }
 
+export function localeFolderWithoutMessages(folder: string) {
+  return (
+    'A locale folder has no messages.json file, so the build left it out.\n' +
+    `FOLDER ${folder}\n` +
+    'Stores reject a locale folder that has no messages.json file.\n' +
+    'Add a messages.json file to ship the folder, or delete the folder to silence this warning.'
+  )
+}
+
 export function missingManifestMessageKey(key: string, defaultLocale?: string) {
   const localePath = defaultLocale
     ? `_locales/${defaultLocale}/messages.json`

@@ -6,6 +6,8 @@
 // ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import {CODES} from '../../helpers/messaging'
+
 export type InstanceRecord = {
   cdpPort?: number
   rdpPort?: number
@@ -16,6 +18,7 @@ export type DebugProtocol = 'cdp' | 'rdp'
 // Raised when tooling asks for the debug port of an instance it cannot
 // identify; signalling instead of guessing keeps consumers on their own instance.
 export class AmbiguousInstanceError extends Error {
+  public readonly code = CODES.E_INSTANCE_AMBIGUOUS
   public readonly protocol: DebugProtocol
   public readonly instanceId: string | undefined
 
