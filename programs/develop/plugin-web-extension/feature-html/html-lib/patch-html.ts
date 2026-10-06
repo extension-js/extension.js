@@ -377,7 +377,8 @@ export function patchHtmlNested(
                     const filepath = htmlStaticAssetOutputName(
                       manifestDir,
                       htmlEntry,
-                      absolutePath
+                      absolutePath,
+                      compilation.outputOptions
                     )
                     thisChildNode = applyRewrittenStaticUrl(
                       thisChildNode,

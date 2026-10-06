@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compilation} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
+import {bundledAssetOutputName} from '../../../../plugin-static-assets/static-assets-lib/asset-output-name'
 import {patchHtml, patchHtmlNested} from '../../html-lib/patch-html'
 
 function makeTmp(name: string) {
@@ -15,6 +16,12 @@ function makeTmp(name: string) {
 function writeFile(filePath: string, contents = 'x') {
   fs.mkdirSync(path.dirname(filePath), {recursive: true})
   fs.writeFileSync(filePath, contents)
+}
+
+function bundled(tmp: string, name: string) {
+  const abs = path.join(tmp, name)
+
+  return `/${bundledAssetOutputName(abs, fs.readFileSync(abs))}`
 }
 
 function makeCompilation(mode: 'development' | 'production'): Compilation {
@@ -48,10 +55,10 @@ describe('patchHtml static attribute rewrites', () => {
       {'feature/index': htmlPath}
     )
 
-    expect(updated).toContain('src="/assets/intro.mp4"')
-    expect(updated).toContain('poster="/assets/poster.jpg"')
-    expect(updated).not.toContain('src="/assets/poster.jpg"')
-    expect(updated).not.toContain('poster="/assets/intro.mp4"')
+    expect(updated).toContain(`src="${bundled(tmp, 'intro.mp4')}"`)
+    expect(updated).toContain(`poster="${bundled(tmp, 'poster.jpg')}"`)
+    expect(updated).not.toContain(`src="${bundled(tmp, 'poster.jpg')}"`)
+    expect(updated).not.toContain(`poster="${bundled(tmp, 'intro.mp4')}"`)
   })
 
   it('rewrites every srcset candidate and leaves the fallback src alone', () => {
@@ -71,12 +78,12 @@ describe('patchHtml static attribute rewrites', () => {
       {'feature/index': htmlPath}
     )
 
-    expect(updated).toContain('src="/assets/hero.png"')
+    expect(updated).toContain(`src="${bundled(tmp, 'hero.png')}"`)
     expect(updated).toContain(
-      'srcset="/assets/hero.png 1x, /assets/hero-2x.png 2x"'
+      `srcset="${bundled(tmp, 'hero.png')} 1x, ${bundled(tmp, 'hero-2x.png')} 2x"`
     )
 
-    expect(updated).not.toContain('src="/assets/hero-2x.png"')
+    expect(updated).not.toContain(`src="${bundled(tmp, 'hero-2x.png')}"`)
   })
 
   it('rewrites art-directed <source srcset> and the fallback img', () => {
@@ -96,8 +103,8 @@ describe('patchHtml static attribute rewrites', () => {
       {'feature/index': htmlPath}
     )
 
-    expect(updated).toContain('srcset="/assets/hero.webp"')
-    expect(updated).toContain('src="/assets/hero.jpg"')
+    expect(updated).toContain(`srcset="${bundled(tmp, 'hero.webp')}"`)
+    expect(updated).toContain(`src="${bundled(tmp, 'hero.jpg')}"`)
     expect(updated).not.toContain('src="hero.webp"')
   })
 
@@ -120,7 +127,7 @@ describe('patchHtml static attribute rewrites', () => {
 
     const preload = updated.match(/<link rel="preload"[^>]*>/)?.[0] || ''
     expect(preload).toContain(
-      'imagesrcset="/assets/hero.png 1x, /assets/hero-2x.png 2x"'
+      `imagesrcset="${bundled(tmp, 'hero.png')} 1x, ${bundled(tmp, 'hero-2x.png')} 2x"`
     )
 
     expect(preload).not.toMatch(/\shref=/)
@@ -139,7 +146,8 @@ describe('patchHtml static attribute rewrites', () => {
       {'feature/index': htmlPath}
     )
 
-    expect(updated).toContain('src="/assets/logo.png"')
+    expect(updated).toContain(`src="${bundled(tmp, 'logo.png')}"`)
+    expect(updated).toMatch(/src="\/assets\/logo\.[0-9a-f]{8}\.png"/)
   })
 })
 
@@ -156,8 +164,8 @@ describe('patchHtmlNested static attribute rewrites', () => {
 
     const updated = patchHtmlNested(makeCompilation('production'), htmlPath)
 
-    expect(updated).toContain('src="/assets/intro.mp4"')
-    expect(updated).toContain('poster="/assets/poster.jpg"')
-    expect(updated).not.toContain('src="/assets/poster.jpg"')
+    expect(updated).toContain(`src="${bundled(tmp, 'intro.mp4')}"`)
+    expect(updated).toContain(`poster="${bundled(tmp, 'poster.jpg')}"`)
+    expect(updated).not.toContain(`src="${bundled(tmp, 'poster.jpg')}"`)
   })
 })

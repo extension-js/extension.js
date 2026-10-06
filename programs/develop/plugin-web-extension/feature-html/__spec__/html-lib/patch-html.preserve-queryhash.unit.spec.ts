@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
+import {bundledAssetOutputName} from '../../../../plugin-static-assets/static-assets-lib/asset-output-name'
 import {patchHtml} from '../../html-lib/patch-html'
 
 function makeCompilation(mode: 'development' | 'production') {
@@ -15,7 +16,7 @@ function makeCompilation(mode: 'development' | 'production') {
 }
 
 describe('patchHtml (preserve query/hash)', () => {
-  it('rewrites relative static asset to assets/... and preserves ?query/#hash', () => {
+  it('rewrites a relative static asset to its bundled name and preserves ?query/#hash', () => {
     const tmpDirectoryPath = fs.mkdtempSync(
       path.join(os.tmpdir(), 'feature-html-patch-qh-')
     )
@@ -42,7 +43,10 @@ describe('patchHtml (preserve query/hash)', () => {
         undefined
       )
 
-      expect(updatedHtml).toContain(`src="/assets/img/a.png?x=1#h"`)
+      const emitted = bundledAssetOutputName(imageFilePath, Buffer.from('x'))
+
+      expect(emitted).toMatch(/^assets\/a\.[0-9a-f]{8}\.png$/)
+      expect(updatedHtml).toContain(`src="/${emitted}?x=1#h"`)
     } finally {
       fs.rmSync(tmpDirectoryPath, {recursive: true, force: true})
     }
