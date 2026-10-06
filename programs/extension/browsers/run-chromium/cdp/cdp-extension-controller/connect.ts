@@ -7,8 +7,9 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import type {Readable, Writable} from 'node:stream'
-import {humanWarn, isDebug} from '../../../../helpers/messaging'
+import {CODES, humanWarn, isDebug} from '../../../../helpers/messaging'
 import {CDPClient, EXTENSION_AUTO_ATTACH_FILTER} from '../cdp-client'
+import {codedError} from '../coded-error'
 import {checkChromeRemoteDebugging} from '../discovery'
 
 function isRecoverableBootstrapError(error: unknown): boolean {
@@ -119,5 +120,8 @@ export async function connectToChromeCdp(
 
   throw lastError instanceof Error
     ? lastError
-    : new Error('Failed to bootstrap CDP connection')
+    : codedError(
+        CODES.E_CDP_NOT_CONNECTED,
+        'Failed to bootstrap CDP connection'
+      )
 }

@@ -9,6 +9,7 @@
 import type {Readable, Writable} from 'node:stream'
 import WebSocket from 'ws'
 import {
+  CODES,
   humanError,
   humanLine,
   humanWarn,
@@ -20,6 +21,7 @@ import {
 } from '../../browsers-lib/constants'
 import * as messages from '../../browsers-lib/messages'
 import type {CdpProtocolMessage, CdpTargetInfo} from '../chromium-types'
+import {codedError, declaredCode} from './coded-error'
 import {discoverWebSocketDebuggerUrl} from './discovery'
 import {getExtensionInfo} from './extensions'
 import {claimCdpPipe, guardCdpPipe} from './pipe-guard'
@@ -113,7 +115,10 @@ export class CDPClient {
     } catch (error) {
       const err = error as Error
 
-      throw new Error(`Failed to connect to CDP: ${err.message || err}`)
+      throw codedError(
+        declaredCode(err) ?? CODES.E_CDP_NOT_CONNECTED,
+        `Failed to connect to CDP: ${err.message || err}`
+      )
     }
   }
 
@@ -346,7 +351,9 @@ export class CDPClient {
           this.pendingRequests.delete(message.id)
 
           if (message.error) {
-            pending.reject(new Error(JSON.stringify(message.error)))
+            pending.reject(
+              codedError(CODES.E_CDP_OP_FAILED, JSON.stringify(message.error))
+            )
           } else {
             pending.resolve(message.result)
           }
@@ -384,7 +391,9 @@ export class CDPClient {
   ): Promise<unknown> {
     return new Promise((resolve, reject) => {
       if (!this.isConnected()) {
-        return reject(new Error('CDP transport is not open'))
+        return reject(
+          codedError(CODES.E_CDP_NOT_CONNECTED, 'CDP transport is not open')
+        )
       }
 
       const id = ++this.messageId
@@ -399,7 +408,8 @@ export class CDPClient {
           this.pendingRequests.delete(id)
 
           pending.reject(
-            new Error(
+            codedError(
+              CODES.E_CDP_TIMEOUT,
               `CDP command timed out (${timeoutMs}ms): ${String(
                 pending.method || method
               )}`
@@ -505,7 +515,8 @@ export class CDPClient {
     try {
       return await getExtensionInfo(this, extensionId)
     } catch (error) {
-      throw new Error(
+      throw codedError(
+        declaredCode(error) ?? CODES.E_CDP_OP_FAILED,
         messages.cdpClientExtensionInfoFailed(
           extensionId,
           (error as Error).message

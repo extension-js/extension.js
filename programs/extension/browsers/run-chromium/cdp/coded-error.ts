@@ -6,52 +6,22 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝       ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝ ╚═════╝ ╚═╝     ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import WebSocket from 'ws'
-import {CODES, humanError, humanLine} from '../../../helpers/messaging'
-import * as messages from '../../browsers-lib/messages'
-import {codedError} from './coded-error'
+import {CODES, type ErrorCode} from '../../../helpers/messaging'
 
-export function establishBrowserConnection(
-  url: string,
-  isDev: boolean,
-  onMessage: (data: string) => void,
-  onRejectPending: (reason: string) => void
-): Promise<WebSocket> {
-  return new Promise((resolve, reject) => {
-    const ws = new WebSocket(url)
+export interface CodedError extends Error {
+  code: ErrorCode
+}
 
-    ws.on('open', () => {
-      if (isDev) {
-        humanLine(messages.cdpClientBrowserConnectionEstablished())
-      }
+export function codedError(code: ErrorCode, message: string): CodedError {
+  return Object.assign(new Error(message), {code})
+}
 
-      resolve(ws)
-    })
+// A wrap keeps the finer code the failure underneath was thrown with.
+export function declaredCode(error: unknown): ErrorCode | undefined {
+  const code = (error as {code?: unknown} | null | undefined)?.code
 
-    ws.on('message', (data: WebSocket.Data) => {
-      onMessage(data.toString())
-    })
-
-    ws.on('error', (error: Error) => {
-      if (isDev) {
-        humanError(messages.cdpClientConnectionError(error.message))
-      }
-
-      onRejectPending(error.message)
-      reject(error)
-    })
-
-    ws.on('close', () => {
-      if (isDev) humanLine(messages.cdpClientConnectionClosed())
-
-      onRejectPending('CDP connection closed')
-
-      reject(
-        codedError(
-          CODES.E_CDP_NOT_CONNECTED,
-          'CDP WebSocket closed before the connection opened'
-        )
-      )
-    })
-  })
+  return typeof code === 'string' &&
+    Object.prototype.hasOwnProperty.call(CODES, code)
+    ? (code as ErrorCode)
+    : undefined
 }

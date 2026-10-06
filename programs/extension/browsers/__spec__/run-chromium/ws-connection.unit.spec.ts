@@ -159,4 +159,25 @@ describe('establishBrowserConnection', () => {
     expect(onMessage).toHaveBeenCalledTimes(1)
     expect(onMessage).toHaveBeenCalledWith('{"id":1,"result":{}}')
   })
+
+  it('codes a socket that closes before it opens as E_CDP_NOT_CONNECTED', async () => {
+    const promise = establishBrowserConnection(
+      'ws://127.0.0.1:9222/devtools/browser',
+      false,
+      vi.fn(),
+      vi.fn()
+    ).then(
+      () => null,
+      (error: unknown) => error as Error & {code?: string}
+    )
+
+    getLastWs().emit('close')
+    const error = await promise
+
+    expect(error?.message).toBe(
+      'CDP WebSocket closed before the connection opened'
+    )
+
+    expect(error?.code).toBe('E_CDP_NOT_CONNECTED')
+  })
 })

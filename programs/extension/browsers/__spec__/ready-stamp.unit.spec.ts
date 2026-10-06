@@ -5,6 +5,7 @@ import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {
   claimReadyPath,
   describeLaunchFailure,
+  launchFailureCode,
   readReadyRunId,
   stampReadyBrowserExited,
   stampReadyBrowserLaunch,
@@ -14,6 +15,7 @@ import {
   stampReadyProfileLocked,
   stampReadyRdpPort
 } from '../browsers-lib/ready-stamp'
+import {CDPClient} from '../run-chromium/cdp/cdp-client'
 
 describe('stampReadyRdpPort', () => {
   let tmp: string
@@ -249,6 +251,27 @@ describe('stampReadyBrowserLaunchFailed', () => {
 
     expect(typeof ready.browserLaunchFailedAt).toBe('string')
     expect(ready.browserLaunchFailedReason).toBe('spawn /x/chrome EACCES')
+  })
+
+  it('carries the code a CDP refusal was thrown with', async () => {
+    const error = await new CDPClient(9222)
+      .sendCommand('Target.getTargets')
+      .then(
+        () => null,
+        (reason: unknown) => reason
+      )
+
+    stampReadyBrowserLaunchFailed(
+      outputPath,
+      describeLaunchFailure(error),
+      'run-A',
+      launchFailureCode(error)
+    )
+
+    const ready = readReady()
+    expect(ready.code).toBe('browser_launch_failed')
+    expect(ready.browserLaunchFailedReason).toBe('CDP transport is not open')
+    expect(ready.browserLaunchFailedCode).toBe('E_CDP_NOT_CONNECTED')
   })
 
   // A run-only session loading a source folder: the loaded directory is the

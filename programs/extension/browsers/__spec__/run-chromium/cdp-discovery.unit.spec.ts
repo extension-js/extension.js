@@ -133,6 +133,31 @@ describe('discoverWebSocketDebuggerUrl', () => {
     ).rejects.toThrow('No CDP WebSocket URL available')
   })
 
+  it('codes a missing WebSocket URL as E_CDP_NOT_CONNECTED', async () => {
+    const state = await createCdpServer({
+      '/json/version': (res) => {
+        res.writeHead(200, {'Content-Type': 'application/json'})
+        res.end(JSON.stringify({}))
+      },
+      '/json': (res) => {
+        res.writeHead(200, {'Content-Type': 'application/json'})
+        res.end(JSON.stringify([{type: 'background_page'}]))
+      }
+    })
+    server = state.server
+
+    const error = await discoverWebSocketDebuggerUrl(
+      '127.0.0.1',
+      state.port,
+      false
+    ).then(
+      () => null,
+      (reason: unknown) => reason as Error & {code?: string}
+    )
+
+    expect(error?.code).toBe('E_CDP_NOT_CONNECTED')
+  })
+
   it('skips non-page targets when falling back to /json', async () => {
     const state = await createCdpServer({
       '/json/version': (res) => {
