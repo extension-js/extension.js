@@ -112,7 +112,57 @@ describe('getSpecialFoldersDataForCompiler', () => {
     expect(data.scripts?.['scripts/widget']).toEqual([browserImport])
   })
 
-  it('drops scripts/ files the extension never references, keeps referenced ones (G13 gap)', () => {
+  it('drops a scripts/ file that reaches a Node builtin through a sibling', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-sibling-'))
+    tempDirs.push(dir)
+    const scriptsDir = path.join(dir, 'scripts')
+    fs.mkdirSync(path.join(scriptsDir, 'lib'), {recursive: true})
+
+    const helper = path.join(scriptsDir, 'lib', 'helper.js')
+    const tooling = path.join(scriptsDir, 'tooling.js')
+    const loop = path.join(scriptsDir, 'loop.js')
+    const widget = path.join(scriptsDir, 'widget.js')
+
+    fs.writeFileSync(
+      helper,
+      "export {default as proc} from 'node:process'\n",
+      'utf8'
+    )
+
+    fs.writeFileSync(
+      tooling,
+      "import {proc} from './lib/helper'\nconsole.log(proc.cwd())\n",
+      'utf8'
+    )
+
+    fs.writeFileSync(loop, "import './loop.js'\nimport './widget.js'\n", 'utf8')
+    fs.writeFileSync(
+      widget,
+      "import './loop.js'\ndocument.title = 'w'\n",
+      'utf8'
+    )
+
+    getSpecialFoldersDataMock.mockReturnValue({
+      pages: {},
+      scripts: {
+        'scripts/lib/helper': [helper],
+        'scripts/tooling': [tooling],
+        'scripts/loop': [loop],
+        'scripts/widget': [widget]
+      },
+      public: {}
+    })
+
+    const compiler = {options: {context: dir}} as any
+    const data = getSpecialFoldersDataForCompiler(compiler)
+
+    expect(data.scripts?.['scripts/lib/helper']).toBeUndefined()
+    expect(data.scripts?.['scripts/tooling']).toBeUndefined()
+    expect(data.scripts?.['scripts/loop']).toEqual([loop])
+    expect(data.scripts?.['scripts/widget']).toEqual([widget])
+  })
+
+  it('keeps a scripts/ file nothing references next to the referenced ones', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-g13gap-'))
     tempDirs.push(dir)
     const scriptsDir = path.join(dir, 'scripts')
@@ -160,14 +210,12 @@ describe('getSpecialFoldersDataForCompiler', () => {
 
     expect(data.scripts?.['scripts/content']).toEqual([contentScript])
     expect(data.scripts?.['scripts/injected']).toEqual([injectedScript])
-    expect(data.scripts?.['scripts/cell']).toBeUndefined()
+    expect(data.scripts?.['scripts/cell']).toEqual([orphanData])
   })
 
-  // Regression: dropping is correct, dropping in silence is not. The folder
-  // exists for files the manifest never names, so a user only found out in
-  // production that the entry never shipped.
-  it('warns, naming the file, when it drops an unreferenced scripts/ entry', () => {
+  it('keeps a scripts/ file nothing names and prints nothing about it', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-dropwarn-'))
     tempDirs.push(dir)
     const scriptsDir = path.join(dir, 'scripts')
@@ -190,11 +238,14 @@ describe('getSpecialFoldersDataForCompiler', () => {
     const compiler = {options: {context: dir}} as any
     const data = getSpecialFoldersDataForCompiler(compiler)
 
-    expect(data.scripts?.['scripts/never-mentioned']).toBeUndefined()
-    const printed = warn.mock.calls.map((call) => String(call[0])).join('\n')
-    expect(printed).toContain('scripts/never-mentioned.js')
-    expect(printed.toLowerCase()).toContain('unreferenced')
+    expect(data.scripts?.['scripts/never-mentioned']).toEqual([orphan])
+    const printed = [...warn.mock.calls, ...log.mock.calls]
+      .map((call) => String(call[0]))
+      .join('\n')
+    expect(printed).not.toContain('never-mentioned')
+    expect(printed).not.toContain('scripts/')
     warn.mockRestore()
+    log.mockRestore()
   })
 
   // Regression: a TS entry is injected by its emitted `.js` name, never by the
@@ -269,8 +320,7 @@ describe('getSpecialFoldersDataForCompiler', () => {
 })
 
 describe('scripts/ entries the package.json scripts run', () => {
-  it('drops a build helper quietly and still warns for a file nothing names', () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  function tooling(manifest: Record<string, unknown> = {manifest_version: 3}) {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-tooling-'))
     tempDirs.push(dir)
     const scriptsDir = path.join(dir, 'scripts')
@@ -291,7 +341,7 @@ describe('scripts/ entries the package.json scripts run', () => {
 
     fs.writeFileSync(
       path.join(dir, 'manifest.json'),
-      JSON.stringify({manifest_version: 3}),
+      JSON.stringify(manifest),
       'utf8'
     )
 
@@ -304,14 +354,61 @@ describe('scripts/ entries the package.json scripts run', () => {
       public: {}
     })
 
+    return {dir, helper, orphan}
+  }
+
+  it('drops a build helper quietly and keeps a file nothing names', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const {dir, orphan} = tooling()
+
     const compiler = {options: {context: dir}} as any
     const data = getSpecialFoldersDataForCompiler(compiler)
 
     expect(data.scripts?.['scripts/replace_browser']).toBeUndefined()
-    expect(data.scripts?.['scripts/forgotten']).toBeUndefined()
-    const printed = warn.mock.calls.map((call) => String(call[0])).join('\n')
-    expect(printed).toContain('scripts/forgotten.js')
-    expect(printed).not.toContain('scripts/replace_browser.js')
+    expect(data.scripts?.['scripts/forgotten']).toEqual([orphan])
+    expect(warn).not.toHaveBeenCalled()
+    expect(log).not.toHaveBeenCalled()
     warn.mockRestore()
+    log.mockRestore()
+  })
+
+  it('names the dropped helper on one debug line', () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const previous = process.env.EXTENSION_DEBUG
+    process.env.EXTENSION_DEBUG = 'true'
+    const {dir} = tooling()
+
+    try {
+      const compiler = {options: {context: dir}} as any
+      getSpecialFoldersDataForCompiler(compiler)
+    } finally {
+      if (previous === undefined) {
+        Reflect.deleteProperty(process.env, 'EXTENSION_DEBUG')
+      } else {
+        process.env.EXTENSION_DEBUG = previous
+      }
+    }
+
+    const printed = log.mock.calls.map((call) => String(call[0])).join('\n')
+    expect(log).toHaveBeenCalledTimes(1)
+    expect(printed).toContain('scripts/replace_browser.js')
+    expect(printed).toContain('package.json script')
+    expect(printed).not.toContain('scripts/forgotten.js')
+    log.mockRestore()
+  })
+
+  it('keeps a build helper the extension references', () => {
+    const {dir, helper} = tooling({
+      manifest_version: 3,
+      content_scripts: [
+        {matches: ['<all_urls>'], js: ['scripts/replace_browser.js']}
+      ]
+    })
+
+    const compiler = {options: {context: dir}} as any
+    const data = getSpecialFoldersDataForCompiler(compiler)
+
+    expect(data.scripts?.['scripts/replace_browser']).toEqual([helper])
   })
 })

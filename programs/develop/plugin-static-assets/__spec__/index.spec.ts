@@ -315,4 +315,31 @@ describe('StaticAssetsPlugin', () => {
     expect(defaultRule).toBeTruthy()
     expect(defaultRule.resourceQuery?.not).toEqual([/inline/])
   })
+
+  it('names an asset no rule claims under assets/ like every other asset', async () => {
+    const compiler = createCompiler()
+
+    await new StaticAssetsPlugin({
+      manifestPath: '/project/manifest.json',
+      mode: 'production'
+    }).apply(compiler)
+
+    expect(compiler.options.output.assetModuleFilename).toBe(
+      'assets/[name].[contenthash:8][ext]'
+    )
+  })
+
+  it('keeps an assetModuleFilename the user configured', async () => {
+    const compiler = createCompiler()
+    compiler.options.output = {assetModuleFilename: 'media/[name][ext]'}
+
+    await new StaticAssetsPlugin({
+      manifestPath: '/project/manifest.json',
+      mode: 'production'
+    }).apply(compiler)
+
+    expect(compiler.options.output.assetModuleFilename).toBe(
+      'media/[name][ext]'
+    )
+  })
 })

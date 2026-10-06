@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
+import {bundledAssetOutputName} from '../../../../plugin-static-assets/static-assets-lib/asset-output-name'
 import {AddAssetsToCompilation} from '../../steps/add-assets-to-compilation'
 
 function makeCompilation() {
@@ -30,7 +31,7 @@ function makeCompilation() {
 }
 
 describe('AddAssetsToCompilation (relative static assets emission)', () => {
-  it('emits relative static assets under assets/<relative>', () => {
+  it('emits relative static assets under assets/ by their bundled name', () => {
     const tmpDirectoryPath = fs.mkdtempSync(
       path.join(os.tmpdir(), 'feature-html-relative-assets-')
     )
@@ -112,15 +113,32 @@ describe('AddAssetsToCompilation (relative static assets emission)', () => {
       } as any).apply(compiler as any)
 
       const emittedAssetNames = Object.keys(compiler.compilationObj.assets)
+
+      const bundled = (name: string) => {
+        const abs = path.join(tmpDirectoryPath, name)
+
+        return bundledAssetOutputName(abs, fs.readFileSync(abs))
+      }
+
       expect(emittedAssetNames).toEqual(
         expect.arrayContaining([
-          'assets/intro.mp4',
-          'assets/poster.jpg',
-          'assets/hero.png',
-          'assets/hero-2x.png',
-          'assets/hero.webp',
-          'assets/hero.jpg'
+          bundled('intro.mp4'),
+          bundled('poster.jpg'),
+          bundled('hero.png'),
+          bundled('hero-2x.png'),
+          bundled('hero.webp'),
+          bundled('hero.jpg')
         ])
+      )
+
+      expect(emittedAssetNames.filter((name) => name !== 'index.html')).toEqual(
+        expect.arrayContaining(
+          emittedAssetNames
+            .filter((name) => name !== 'index.html')
+            .map(() =>
+              expect.stringMatching(/^assets\/[\w-]+\.[0-9a-f]{8}\.\w+$/)
+            )
+        )
       )
     } finally {
       fs.rmSync(tmpDirectoryPath, {recursive: true, force: true})

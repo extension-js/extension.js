@@ -59,7 +59,7 @@ import {
 } from '../plugin-special-folders/get-data'
 import {publicFolderOrDefault} from '../plugin-special-folders/resolve-public-folder'
 import webpackConfig from '../rspack-config'
-import type {DevOptions} from '../types'
+import type {ConfigHookContext, DevOptions} from '../types'
 import {setupCleanupHandlers} from './cleanup'
 import {
   setupCompilerLifecycleHooks,
@@ -974,7 +974,15 @@ export async function devServer(
   // the bundler is torn down.
   async function createCompilerAndServer(opts: {isRestart: boolean}) {
     const baseConfig = webpackConfig(projectStructure, webpackConfigOptions)
-    const customWebpackConfig = await loadCustomConfig(packageJsonDir)
+    const hookContext: ConfigHookContext = {
+      browser: webpackConfigOptions.browser,
+      mode: webpackConfigOptions.mode,
+      command: webpackConfigOptions.metadataCommand
+    }
+    const customWebpackConfig = await loadCustomConfig(
+      packageJsonDir,
+      hookContext
+    )
     const compilerConfig = applySplitChunksGuard(
       merge(customWebpackConfig(baseConfig), {})
     )
@@ -983,7 +991,7 @@ export async function devServer(
     if (configResolved) {
       compilerConfig.plugins = [
         ...(compilerConfig.plugins || []),
-        new ConfigResolvedPlugin(configResolved)
+        new ConfigResolvedPlugin(configResolved, hookContext)
       ]
     }
 

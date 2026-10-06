@@ -19,7 +19,7 @@ This module is part of the [Extension.js](https://extension.js.org) project. It 
 - Emits HTML for pages declared in the manifest and via `includeList`.
 - Consolidates local JS/CSS referenced by the HTML into page-level bundles.
 - Public-root absolute URLs (leading `/`) for scripts/styles are rewritten to relative paths; assets under `public/` are still handled by the special‑folders plugin.
-- Rewrites relative static assets (images/fonts/etc.) under `assets/<relative path>` while preserving directory structure and extensions.
+- Rewrites relative static assets (images/fonts/etc.) to `assets/<name>.<contenthash>.<ext>`, the name the bundler gives the same file from a stylesheet or an import, so one build ships one copy of it. A nested HTML page keeps `assets/<relative path>`.
 - Tracks file dependencies to recompile on change, provides HMR hooks for local scripts during development, and warns if page entry lists change (restart required).
 
 ### Path resolution convention (consistent across @plugin-extension)
@@ -46,7 +46,7 @@ This module is part of the [Extension.js](https://extension.js.org) project. It 
 | Manifest/Include HTML (`<feature>`)       | `<feature>.html`                    | E.g., `pages/main` → `pages/main.html`       |
 | Consolidated JS                           | `<feature>.js`                      | E.g., `pages/main.js`                        |
 | Consolidated CSS                          | `<feature>.css`                     | E.g., `pages/main.css`                       |
-| Relative static assets referenced by HTML | `assets/<relative path from HTML>`  | Preserves directory structure and extensions |
+| Relative static assets referenced by HTML | `assets/<name>.<contenthash>.<ext>` | One copy, shared with stylesheets and imports |
 | Public-root assets in HTML (leading `/`)  | normalized to relative output paths | E.g., `<img src="img/logo.png">`             |
 
 ## Supported pages/fields
