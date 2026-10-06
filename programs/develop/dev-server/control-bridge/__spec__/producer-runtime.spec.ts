@@ -1,4 +1,4 @@
-import {describe, expect, it, vi} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {
   BRIDGE_PRODUCER_SOURCE,
   buildBridgeProducerSource,
@@ -9,18 +9,31 @@ import {
 // loaded machine misses. Wait for the state instead, with a ceiling well
 // above the retry windows under test so a slow run waits rather than fails.
 const WAIT_CEILING_MS = 10_000
+const WAIT_STEP_MS = 10
 
 async function waitFor(
   predicate: () => boolean,
   label: string,
   ceilingMs = WAIT_CEILING_MS
 ): Promise<void> {
+  if (vi.isFakeTimers()) {
+    for (let waited = 0; waited <= ceilingMs; waited += WAIT_STEP_MS) {
+      if (predicate()) return
+
+      await vi.advanceTimersByTimeAsync(WAIT_STEP_MS)
+    }
+
+    throw new Error(
+      `timed out after ${ceilingMs} ms of fake time waiting for ${label}`
+    )
+  }
+
   const deadline = Date.now() + ceilingMs
 
   while (Date.now() < deadline) {
     if (predicate()) return
 
-    await new Promise((resolve) => setTimeout(resolve, 10))
+    await new Promise((resolve) => setTimeout(resolve, WAIT_STEP_MS))
   }
 
   throw new Error(`timed out after ${ceilingMs} ms waiting for ${label}`)
@@ -405,6 +418,14 @@ describe('bridge producer runtime', () => {
 })
 
 describe('bridge producer runtime, executor (Slice 2)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({toFake: ['setTimeout', 'clearTimeout']})
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   function setup(
     chromeApi: Record<string, unknown>,
     extraGlobals: Record<string, unknown> = {}
@@ -413,13 +434,6 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     const {fakeGlobal} = makeGlobal()
     fakeGlobal.chrome = chromeApi
     fakeGlobal.navigator = {userAgent: 'Chrome'}
-
-    fakeGlobal.setTimeout = (fn: () => void) => {
-      fn()
-
-      return 0
-    }
-
     Object.assign(fakeGlobal, extraGlobals)
     const src = buildBridgeProducerSource({
       controlPort: 9999,
@@ -1447,7 +1461,12 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     })
 
     expect(reloaded).toBe(false)
-    await waitFor(() => reloaded, 'the deferred extension reload')
+    expect(vi.getTimerCount()).toBe(1)
+
+    await vi.advanceTimersByTimeAsync(49)
+    expect(reloaded).toBe(false)
+
+    await vi.advanceTimersByTimeAsync(1)
     expect(reloaded).toBe(true)
   })
 
@@ -1479,7 +1498,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       changedFiles: ['popup/popup.js']
     })
 
-    await new Promise((r) => setTimeout(r, 0))
+    await vi.advanceTimersByTimeAsync(0)
 
     expect(replayed).toEqual([['scripts/widget.js']])
   })
@@ -1495,7 +1514,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       changedScriptFiles: ['scripts/widget.js']
     })
 
-    await new Promise((r) => setTimeout(r, 0))
+    await vi.advanceTimersByTimeAsync(0)
 
     // Notify-only page frames never reload, with or without a replay.
     expect(reloaded).toBe(false)
@@ -2628,7 +2647,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       changedContentScriptEntries: ['content_scripts/content-1']
     })
 
-    await new Promise((r) => setTimeout(r, 0))
+    await vi.advanceTimersByTimeAsync(0)
     expect(reloads).toEqual([['content_scripts/content-1']])
     expect(fetched).toEqual([])
   })
@@ -2840,7 +2859,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
 
     expect(installedListener).toBeTypeOf('function')
     installedListener!()
-    await new Promise((r) => setTimeout(r, 250))
+    await vi.advanceTimersByTimeAsync(250)
     await waitFor(() => executed.length > 0, 'the boot heal to inject')
     expect(executed).toHaveLength(1)
     expect(registered).toHaveLength(0)
@@ -2897,7 +2916,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     )
 
     installedListener!({reason: 'install'})
-    await new Promise((r) => setTimeout(r, 250))
+    await vi.advanceTimersByTimeAsync(250)
     expect(executed).toHaveLength(0)
 
     installedListener!({reason: 'update'})
@@ -2998,7 +3017,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       }
     )
 
-    await new Promise((r) => setTimeout(r, 250))
+    await vi.advanceTimersByTimeAsync(250)
     expect(removed).toEqual(['__extjsDevPendingReinject'])
     expect(fetched).toHaveLength(0)
   })
@@ -3053,7 +3072,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       label: 'sidebar page (src/sidebar/index.tsx)'
     })
 
-    await new Promise((r) => setTimeout(r, 150))
+    await vi.advanceTimersByTimeAsync(150)
 
     expect(runtimeReloaded).toBe(false)
     expect(execCalls).toHaveLength(0)
