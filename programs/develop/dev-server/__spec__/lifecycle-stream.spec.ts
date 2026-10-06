@@ -322,6 +322,122 @@ describe('lifecycle stream transitions', () => {
     fs.rmSync(dir, {recursive: true, force: true})
   })
 
+  it('ends the stream with a failed frame when the launcher exits the process', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-ndjson-'))
+    const readyPath = path.join(dir, 'ready.json')
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({
+        status: 'error',
+        code: 'browser_launch_failed',
+        message:
+          'the stand-in-binary process could not start, nothing is running',
+        browserLaunchFailedReason: 'stand-in-binary is not here'
+      })
+    )
+
+    const {stream, lines} = makeStream({readyPath})
+    stream.starting({requestedPort: 8080, port: 8080})
+    stream.exited(1)
+    stream.exited(1)
+    expect(lines).toHaveLength(2)
+    const [, frame] = parseFrames(lines)
+    expect(frame.status).toBe('failed')
+    expect(frame.ok).toBe(false)
+    expect(frame.error?.code).toBe('E_BROWSER_LAUNCH')
+    expect(frame.error?.message).toBe(
+      'the stand-in-binary process could not start, nothing is running'
+    )
+
+    expect(frame.value?.readyCode).toBe('browser_launch_failed')
+    fs.rmSync(dir, {recursive: true, force: true})
+  })
+
+  it('carries the code the launcher stamped on the contract at exit', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-ndjson-'))
+    const readyPath = path.join(dir, 'ready.json')
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({
+        status: 'error',
+        code: 'browser_launch_failed',
+        message: 'stand-in-binary was never installed',
+        browserLaunchFailedCode: 'E_BROWSER_NOT_FOUND'
+      })
+    )
+
+    const {stream, lines} = makeStream({readyPath})
+    stream.starting({requestedPort: 8080, port: 8080})
+    stream.exited(1)
+    const [, frame] = parseFrames(lines)
+    expect(frame.status).toBe('failed')
+    expect(frame.error?.code).toBe('E_BROWSER_NOT_FOUND')
+    fs.rmSync(dir, {recursive: true, force: true})
+  })
+
+  it('names the exit code when the process ends with no contract verdict', () => {
+    const {stream, lines} = makeStream()
+    stream.starting({requestedPort: 8080, port: 8080})
+    stream.exited(0)
+    expect(lines).toHaveLength(1)
+    stream.exited(7)
+    const [, frame] = parseFrames(lines)
+    expect(frame.status).toBe('failed')
+    expect(frame.error?.code).toBe('E_INTERNAL')
+    expect(frame.error?.message).toBe('The dev session ended with exit code 7.')
+    expect(frame.value?.exitCode).toBe(7)
+  })
+
+  it('adds no failed frame at exit after an interrupt', () => {
+    const {stream, lines} = makeStream()
+    stream.starting({requestedPort: 8080, port: 8080})
+    stream.interrupted('SIGINT')
+    stream.exited(130)
+    const frames = parseFrames(lines)
+    expect(frames.map((frame) => frame.status)).toEqual(['starting', 'stopped'])
+    expect(frames[1].error?.code).toBe('E_INTERRUPTED')
+  })
+
+  it('adds no second terminal frame at exit after a failed or browser-exited one', () => {
+    const failed = makeStream()
+    failed.stream.starting({requestedPort: 8080, port: 8080})
+    failed.stream.failed('listen EADDRINUSE')
+    failed.stream.exited(1)
+    expect(failed.lines).toHaveLength(2)
+
+    const exited = makeStream()
+    exited.stream.starting({requestedPort: 8080, port: 8080})
+    exited.stream.browserExited({exitCode: 9})
+    exited.stream.exited(1)
+    expect(exited.lines).toHaveLength(2)
+  })
+
+  it('leaves a failure before the starting frame to the command layer', () => {
+    const {stream, lines} = makeStream()
+    stream.exited(1)
+    expect(lines).toHaveLength(0)
+  })
+
+  it('writes the exit frame from the process exit event', () => {
+    const listeners: Array<(code: number) => void> = []
+    const once = vi.spyOn(process, 'once').mockImplementation(((
+      event: string,
+      listener: (code: number) => void
+    ) => {
+      if (event === 'exit') listeners.push(listener)
+
+      return process
+    }) as typeof process.once)
+    const {stream, lines} = makeStream()
+    const stop = stream.emitOnExit()
+    stream.starting({requestedPort: 8080, port: 8080})
+    expect(listeners).toHaveLength(1)
+    listeners[0](1)
+    expect(parseFrames(lines)[1].error?.code).toBe('E_INTERNAL')
+    stop()
+    once.mockRestore()
+  })
+
   it('emits browser-exited as E_BROWSER_LAUNCH when nothing says otherwise', () => {
     const {stream, lines} = makeStream()
     stream.browserExited({exitCode: 9})
@@ -378,6 +494,19 @@ describe('lifecycle stream transitions', () => {
     expect(frame.ok).toBe(false)
     expect(frame.error?.code).toBe('E_DEV_SERVER_START')
     expect(frame.error?.message).toBe('listen EADDRINUSE')
+  })
+
+  it('ends an interrupted session with one stopped frame coded E_INTERRUPTED', () => {
+    const {stream, lines} = makeStream()
+    stream.interrupted('SIGINT')
+    stream.interrupted('SIGTERM')
+    const frames = parseFrames(lines)
+    expect(frames).toHaveLength(1)
+    expect(frames[0].status).toBe('stopped')
+    expect(frames[0].ok).toBe(false)
+    expect(frames[0].error?.code).toBe('E_INTERRUPTED')
+    expect(frames[0].error?.message).toContain('SIGINT')
+    expect(frames[0].value?.signal).toBe('SIGINT')
   })
 
   it('drives the healthy sequence from compiler hooks', () => {

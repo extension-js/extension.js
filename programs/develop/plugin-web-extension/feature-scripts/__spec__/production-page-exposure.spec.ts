@@ -81,7 +81,10 @@ async function compile(root: string, mode: 'development' | 'production') {
     manifest: () =>
       JSON.parse(read('manifest.json')) as {
         content_scripts: Array<{js: string[]; css?: string[]; world?: string}>
-        web_accessible_resources?: Array<{resources: string[]}>
+        web_accessible_resources?: Array<{
+          resources: string[]
+          matches?: string[]
+        }>
       }
   }
 }
@@ -153,7 +156,7 @@ function element(tagName: string): FakeElement {
   return self
 }
 
-function page(options: {runtime: boolean}) {
+function page(options: {runtime: boolean; sheet?: string}) {
   const fetched: string[] = []
   const timers: Array<() => void> = []
   const html = element('html')
@@ -174,12 +177,19 @@ function page(options: {runtime: boolean}) {
       addEventListener() {},
       removeEventListener() {}
     },
+    URL,
     fetch: (url: unknown) => {
-      fetched.push(String(url))
+      const asked = String(url)
+      fetched.push(asked)
 
       return Promise.resolve({
         ok: true,
-        text: () => Promise.resolve('.fetched{color:red}')
+        text: () =>
+          Promise.resolve(
+            asked.startsWith('data:')
+              ? decodeURIComponent(asked.slice(asked.indexOf(',') + 1))
+              : (options.sheet ?? '.fetched{color:red}')
+          )
       })
     },
     setTimeout: (callback: () => void) => {
@@ -315,6 +325,284 @@ describe('a stylesheet a production content script declares', () => {
     expect(shadow.children.map((child) => child.textContent)).toEqual([
       '.fetched{color:red}'
     ])
+  }, 180_000)
+})
+
+describe('the sheet file a content script CSS module lands in', () => {
+  const files = {
+    'manifest.json': JSON.stringify({
+      manifest_version: 3,
+      name: 'exposure-module',
+      version: '1.0.0',
+      content_scripts: [
+        {matches: ['https://example.com/*'], js: ['content/index.ts']}
+      ]
+    }),
+    'public/images/root-owned.png': Buffer.alloc(3000, 3),
+    'local/beside.png': Buffer.alloc(5000, 5),
+    'content/panel.module.css':
+      ".rootOwned{background:url('/images/root-owned.png')}\n" +
+      ".beside{background:url('../local/beside.png')}\n",
+    'content/index.ts':
+      'import styles from "./panel.module.css"\n' +
+      'globalThis.__seenClasses = styles.rootOwned + " " + styles.beside\n' +
+      'export {}\n'
+  }
+  const sheetName = 'content_scripts/content-0.css'
+  const besideName = /^assets\/beside\.[0-9a-f]{8}\.png$/
+
+  it('names its url() targets from the extension root, in production and in development', async () => {
+    for (const mode of ['production', 'development'] as const) {
+      const build = await compile(scaffold(`module-${mode}`, files), mode)
+      expect(build.errors, mode).toEqual([])
+
+      const beside = build.emitted.filter((entry) => besideName.test(entry))
+      const sheets = build.emitted.filter((entry) => entry.endsWith('.css'))
+
+      expect(beside, mode).toHaveLength(1)
+      expect(sheets, mode).toEqual([sheetName])
+
+      const sheet = build.read(sheetName).replace(/"/g, '')
+
+      expect(sheet, mode).not.toContain('__EXTENSIONJS_EXTENSION_ROOT__')
+      expect(sheet, mode).toContain('url(/images/root-owned.png)')
+      expect(sheet, mode).toContain(`url(/${beside[0]})`)
+
+      expect(exposedResources(build), mode).toEqual(
+        expect.arrayContaining(['images/root-owned.png', beside[0]])
+      )
+
+      if (mode === 'production') {
+        expect(build.manifest().content_scripts[0].css).toEqual([sheetName])
+      } else {
+        expect(build.emitted).toContain(`${sheetName}.map`)
+      }
+    }
+  }, 180_000)
+
+  it('reaches a shadow root with every url() pointing at the extension', async () => {
+    const production = await compile(
+      scaffold('module-hydrated', files),
+      'production'
+    )
+    expect(production.errors).toEqual([])
+
+    const beside = production.emitted.find((entry) => besideName.test(entry))
+    const sheet = production.read(sheetName)
+    const mounted = page({runtime: true, sheet})
+    const shadow = element('#shadow-root')
+    const host = element('div')
+    host.setAttribute('data-extension-root', 'true')
+    host.shadowRoot = shadow
+    mounted.run(production.read('content_scripts/content-0.js'))
+    await mounted.settle(30, (round) => {
+      if (round === 3) mounted.hosts.push(host)
+    })
+
+    expect(mounted.fetched).toEqual([`${EXTENSION_BASE}${sheetName}`])
+    expect(shadow.children).toHaveLength(1)
+
+    const hydrated = shadow.children[0].textContent
+
+    expect(hydrated).toContain(`url(${EXTENSION_BASE}images/root-owned.png)`)
+    expect(hydrated).toContain(`url(${EXTENSION_BASE}${beside})`)
+    expect(hydrated).not.toMatch(/url\(\s*["']?\/(?!\/)/)
+    expect(hydrated).not.toContain('__EXTENSIONJS_EXTENSION_ROOT__')
+    expect(hydrated.split('url(')).toHaveLength(3)
+  }, 180_000)
+})
+
+describe('one image a declared sheet, an imported sheet and a page sheet all name', () => {
+  const matches = ['https://example.com/*']
+  const files = {
+    'manifest.json': JSON.stringify({
+      manifest_version: 3,
+      name: 'exposure-shared',
+      version: '1.0.0',
+      action: {default_popup: 'popup/index.html'},
+      content_scripts: [
+        {matches, js: ['content/index.ts'], css: ['content/declared.css']}
+      ]
+    }),
+    'local/shared.png': Buffer.alloc(5000, 9),
+    'content/declared.css':
+      ".declared{background:url('../local/shared.png')}\n",
+    'content/imported.css':
+      ".imported{background:url('../local/shared.png')}\n",
+    'content/index.ts': 'import "./imported.css"\nexport {}\n',
+    'popup/index.html':
+      '<!doctype html><html><head><link rel="stylesheet" href="./popup.css"></head><body></body></html>\n',
+    'popup/popup.css': ".page{background:url('../local/shared.png')}\n"
+  }
+  const sharedName = /^assets\/shared\.[0-9a-f]{8}\.png$/
+
+  it('ships once, under the name every sheet points at', async () => {
+    for (const mode of ['production', 'development'] as const) {
+      const build = await compile(scaffold(`shared-${mode}`, files), mode)
+      expect(build.errors, mode).toEqual([])
+
+      const images = build.emitted.filter((entry) => entry.endsWith('.png'))
+      const sheets = build.emitted.filter((entry) => entry.endsWith('.css'))
+
+      expect(images, mode).toHaveLength(1)
+      expect(images[0], mode).toMatch(sharedName)
+      expect(sheets, mode).toEqual([
+        'action/index.css',
+        'content_scripts/content-0.css'
+      ])
+
+      for (const sheet of sheets) {
+        expect(
+          build.read(sheet).replace(/"/g, ''),
+          `${mode} ${sheet}`
+        ).toContain(`url(/${images[0]})`)
+      }
+
+      const bundles = build.emitted
+        .filter((entry) => /^content_scripts\/content-0.*\.js$/.test(entry))
+        .map((entry) => build.read(entry))
+
+      expect(bundles.length, mode).toBeGreaterThan(0)
+
+      for (const bundle of bundles) {
+        expect(bundle, mode).toContain(images[0])
+        expect(bundle, mode).not.toContain('assets/local/shared.png')
+      }
+
+      const exposed = (build.manifest().web_accessible_resources || []).filter(
+        (group) => group.resources.includes(images[0])
+      )
+
+      expect(
+        exposed.map((group) => group.matches),
+        mode
+      ).toEqual([matches])
+    }
+  }, 180_000)
+
+  it('reaches a shadow root from the imported sheet and the declared sheet as that one copy', async () => {
+    const production = await compile(
+      scaffold('shared-hydrated', files),
+      'production'
+    )
+    expect(production.errors).toEqual([])
+
+    const image = production.emitted.find((entry) => sharedName.test(entry))
+    const sheetName = 'content_scripts/content-0.css'
+    const mounted = page({runtime: true, sheet: production.read(sheetName)})
+    const shadow = element('#shadow-root')
+    const host = element('div')
+    host.setAttribute('data-extension-root', 'true')
+    host.shadowRoot = shadow
+    mounted.run(production.read('content_scripts/content-0.js'))
+    await mounted.settle(30, (round) => {
+      if (round === 3) mounted.hosts.push(host)
+    })
+
+    expect(mounted.fetched).toHaveLength(2)
+    expect(mounted.fetched[0]).toMatch(/^data:text\/css/)
+    expect(mounted.fetched[1]).toBe(`${EXTENSION_BASE}${sheetName}`)
+    expect(shadow.children).toHaveLength(1)
+
+    const hydrated = shadow.children[0].textContent
+
+    expect(hydrated.replace(/"/g, '')).toContain(
+      `.imported{background:url(${EXTENSION_BASE}${image})}`
+    )
+
+    expect(hydrated.replace(/"/g, '')).toContain(
+      `.declared{background:url(${EXTENSION_BASE}${image})}`
+    )
+
+    expect(hydrated.indexOf('.imported')).toBeLessThan(
+      hydrated.indexOf('.declared')
+    )
+
+    expect(hydrated.split('url(')).toHaveLength(3)
+  }, 180_000)
+
+  it('lifts every imported sheet into the shadow root, in import order', async () => {
+    const production = await compile(
+      scaffold('two-imports', {
+        'manifest.json': JSON.stringify({
+          manifest_version: 3,
+          name: 'exposure-two-imports',
+          version: '1.0.0',
+          content_scripts: [{matches, js: ['content/index.ts']}]
+        }),
+        'content/first.css': '.first{color:blue}\n',
+        'content/second.css': '.second{color:green}\n',
+        'content/index.ts':
+          'import "./first.css"\nimport "./second.css"\nexport {}\n'
+      }),
+      'production'
+    )
+    expect(production.errors).toEqual([])
+
+    const mounted = page({runtime: true})
+    const shadow = element('#shadow-root')
+    const host = element('div')
+    host.setAttribute('data-extension-root', 'true')
+    host.shadowRoot = shadow
+    mounted.run(production.read('content_scripts/content-0.js'))
+    await mounted.settle(30, (round) => {
+      if (round === 3) mounted.hosts.push(host)
+    })
+
+    expect(mounted.fetched).toHaveLength(2)
+    expect(shadow.children.map((child) => child.textContent)).toEqual([
+      '.first{color:blue}\n\n.second{color:green}\n'
+    ])
+  }, 180_000)
+
+  it('reaches a MAIN world shadow root the same way, a file under the inline limit as a data: URL', async () => {
+    const production = await compile(
+      scaffold('shared-main', {
+        'manifest.json': JSON.stringify({
+          manifest_version: 3,
+          name: 'exposure-shared-main',
+          version: '1.0.0',
+          content_scripts: [{matches, js: ['content/index.ts'], world: 'MAIN'}]
+        }),
+        'local/shared.png': Buffer.alloc(5000, 9),
+        'local/small.png': Buffer.alloc(90, 9),
+        'content/imported.css':
+          ".imported{background:url('../local/shared.png?v=3#mark')}\n" +
+          ".small{background:url('../local/small.png')}\n",
+        'content/index.ts': 'import "./imported.css"\nexport {}\n'
+      }),
+      'production'
+    )
+    expect(production.errors).toEqual([])
+
+    const images = production.emitted.filter((entry) => entry.endsWith('.png'))
+    const main = production
+      .manifest()
+      .content_scripts.find((script) => script.world === 'MAIN')
+    const world = page({runtime: false})
+    const shadow = element('#shadow-root')
+    const host = element('div')
+    host.setAttribute('data-extension-root', 'true')
+    host.shadowRoot = shadow
+    world.html.setAttribute(BASE_ATTRIBUTE, EXTENSION_BASE)
+    world.run(production.read(String(main?.js[0])))
+    await world.settle(30, (round) => {
+      if (round === 3) world.hosts.push(host)
+    })
+
+    expect(images).toHaveLength(1)
+    expect(images[0]).toMatch(sharedName)
+    expect(shadow.children).toHaveLength(1)
+
+    const [imported, small] = shadow.children[0].textContent.split('\n')
+
+    expect(imported).toBe(
+      `.imported{background:url("${EXTENSION_BASE}${images[0]}?v=3#mark")}`
+    )
+
+    expect(small).toBe(
+      `.small{background:url("data:image/png;base64,${Buffer.alloc(90, 9).toString('base64')}")}`
+    )
   }, 180_000)
 })
 

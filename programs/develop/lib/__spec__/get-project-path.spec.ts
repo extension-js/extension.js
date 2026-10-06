@@ -716,6 +716,57 @@ describe('get-project-path (GitHub source)', () => {
     }
   })
 
+  it('codes a clone that lands no folder as E_PROJECT_DOWNLOAD_EMPTY', async () => {
+    const root = makeTempDir('extjs-github-empty-clone-')
+    const cwd = process.cwd()
+    vi.doMock('go-git-it', () => ({default: vi.fn(async () => {})}))
+
+    try {
+      process.chdir(root)
+      const {getProjectPath: fresh} = await import('../project')
+
+      await expect(fresh(url)).rejects.toMatchObject({
+        code: 'E_PROJECT_DOWNLOAD_EMPTY'
+      })
+    } finally {
+      process.chdir(cwd)
+    }
+  })
+
+  it('codes an archive without the requested folder as E_PROJECT_DOWNLOAD_EMPTY', async () => {
+    const root = makeTempDir('extjs-github-empty-zip-')
+    const cwd = process.cwd()
+    vi.doMock('go-git-it', () => ({
+      default: vi.fn(async () => {
+        throw new Error('Failed to connect to GitHub: offline')
+      })
+    }))
+
+    await mockZipDownload(
+      vi.fn(async (zipUrl: string) => {
+        if (!zipUrl.endsWith('/zip/main')) throw new Error('HTTP 404 Not Found')
+
+        fs.mkdirSync(path.join(root, 'chrome-extensions-samples-main'), {
+          recursive: true
+        })
+
+        return root
+      })
+    )
+
+    try {
+      process.chdir(root)
+      const {getProjectPath: fresh} = await import('../project')
+
+      await expect(fresh(url)).rejects.toMatchObject({
+        code: 'E_PROJECT_DOWNLOAD_EMPTY',
+        message: expect.stringContaining('sample.page-redder')
+      })
+    } finally {
+      process.chdir(cwd)
+    }
+  })
+
   // The refresh policy for a clone-shaped source: a stamped tree is reused and
   // the run says so, because that tree is the one the user edits and dev
   // watches, so refetching every restart would throw their work away.

@@ -64,9 +64,13 @@ describe('LocalesPlugin (unit)', () => {
 
   function applyAndProcess(
     plugin: LocalesPlugin,
-    overrides?: {mockGetLocales?: string[]}
+    overrides?: {
+      mockGetLocales?: string[]
+      afterEmit?: (compilation: any) => void
+    }
   ) {
     const processAssetsHook = createHook()
+    const afterProcessAssetsHook = createHook()
     const afterCompileHook = createHook()
     const thisCompilationHook = {
       tap: (_name: string, cb: (compilation: any) => void) => {
@@ -75,15 +79,26 @@ describe('LocalesPlugin (unit)', () => {
     }
 
     const compilation = {
-      assets: {},
+      assets: {} as Record<string, unknown>,
       errors: [] as any[],
       warnings: [] as any[],
       fileDependencies: new Set<string>(),
-      hooks: {processAssets: processAssetsHook},
-      emitAsset: (filename: string) => {
+      hooks: {
+        processAssets: processAssetsHook,
+        afterProcessAssets: afterProcessAssetsHook
+      },
+      emitAsset: (filename: string, source: unknown) => {
         ;(compilation as any)._emitted = (compilation as any)._emitted || []
         ;(compilation as any)._emitted.push(filename)
-      }
+        compilation.assets[filename] = source
+      },
+      deleteAsset: (filename: string) => {
+        delete compilation.assets[filename]
+      },
+      getAsset: (filename: string) =>
+        filename in compilation.assets
+          ? {name: filename, source: compilation.assets[filename]}
+          : undefined
     }
 
     const compiler = {
@@ -106,6 +121,8 @@ describe('LocalesPlugin (unit)', () => {
 
     plugin.apply(compiler)
     ;(processAssetsHook as any)._runAll()
+    overrides?.afterEmit?.(compilation)
+    ;(afterProcessAssetsHook as any)._runAll()
     ;(afterCompileHook as any)._runAll()
 
     return compilation as any
@@ -175,7 +192,8 @@ describe('LocalesPlugin (unit)', () => {
       hooks: {
         processAssets: {
           tap: () => tappedHooks.push('processAssets')
-        }
+        },
+        afterProcessAssets: {tap: () => {}}
       },
       emitAsset: () => {}
     }
@@ -215,6 +233,54 @@ describe('LocalesPlugin (unit)', () => {
     expect(hasAnsi(warn.message)).toBe(false)
     const emitted: string[] = (compilation as any)._emitted || []
     expect(emitted.length).toBe(0)
+  })
+
+  it('errors naming the locale when a plugin deletes the default locale after emit', () => {
+    fs.writeFileSync(
+      manifestPath,
+      '{"name":"x","manifest_version":3,"default_locale":"en"}'
+    )
+
+    const plugin = new LocalesPlugin({manifestPath})
+    const compilation = applyAndProcess(plugin, {
+      afterEmit: (c) => {
+        for (const name of Object.keys(c.assets)) {
+          if (name.startsWith('_locales/en/')) c.deleteAsset(name)
+        }
+      }
+    })
+
+    expect(compilation.errors.length).toBe(1)
+    const err: any = compilation.errors[0]
+    expect(err.name).toBe('LocalesValidationError')
+    expect(err.file).toBe('manifest.json')
+    expect(String(err.message)).toContain(
+      'The default locale was removed from the build output.'
+    )
+
+    expect(String(err.message)).toContain('NOT FOUND _locales/en/messages.json')
+    expect(hasAnsi(String(err.message))).toBe(false)
+  })
+
+  it('stays quiet when a plugin deletes only a non-default locale after emit', () => {
+    fs.writeFileSync(
+      manifestPath,
+      '{"name":"x","manifest_version":3,"default_locale":"en"}'
+    )
+
+    const plugin = new LocalesPlugin({manifestPath})
+    const compilation = applyAndProcess(plugin, {
+      afterEmit: (c) => {
+        for (const name of Object.keys(c.assets)) {
+          if (name.startsWith('_locales/pt_BR/')) c.deleteAsset(name)
+        }
+      }
+    })
+
+    expect(compilation.errors.length).toBe(0)
+    expect(Object.keys(compilation.assets)).toContain(
+      '_locales/en/messages.json'
+    )
   })
 
   it('errors when _locales exists but default_locale is missing', () => {
@@ -303,7 +369,10 @@ describe('LocalesPlugin (unit)', () => {
       errors: [],
       warnings: [],
       fileDependencies: new Set<string>(),
-      hooks: {processAssets: processAssetsHook},
+      hooks: {
+        processAssets: processAssetsHook,
+        afterProcessAssets: {tap: () => {}}
+      },
       emitAsset: vi.fn()
     }
     const compiler: any = {
@@ -434,7 +503,10 @@ describe('LocalesPlugin (unit)', () => {
         errors: [],
         warnings: [],
         fileDependencies: new Set<string>(),
-        hooks: {processAssets: processAssetsHook},
+        hooks: {
+          processAssets: processAssetsHook,
+          afterProcessAssets: {tap: () => {}}
+        },
         emitAsset: (filename: string) => {
           ;(compilation as any)._emitted = (compilation as any)._emitted || []
           ;(compilation as any)._emitted.push(filename)
@@ -483,7 +555,10 @@ describe('LocalesPlugin (unit)', () => {
       errors: [],
       warnings: [],
       fileDependencies: new Set<string>(),
-      hooks: {processAssets: processAssetsHook},
+      hooks: {
+        processAssets: processAssetsHook,
+        afterProcessAssets: {tap: () => {}}
+      },
       emitAsset: () => {}
     }
     const compiler: any = {
@@ -507,8 +582,11 @@ describe('LocalesPlugin (unit)', () => {
     )
     expect(warning).toBeDefined()
     expect(String(warning.message)).toContain('canonically placed')
-    expect(String(warning.message)).toContain(path.join(innerSrc, '_locales'))
-    expect(String(warning.message)).toContain(path.join(pkgRoot, '_locales'))
+
+    const rows = String(warning.message).split('\n')
+    expect(rows[1]).toBe(`GOT ${path.join('src', '_locales')}`)
+    expect(rows[2]).toBe('EXPECTED _locales')
+    expect(String(warning.message)).not.toContain(pkgRoot)
   })
 
   it('stays quiet when the manifest folder is its own extension root', () => {
@@ -533,7 +611,10 @@ describe('LocalesPlugin (unit)', () => {
       errors: [],
       warnings: [],
       fileDependencies: new Set<string>(),
-      hooks: {processAssets: processAssetsHook},
+      hooks: {
+        processAssets: processAssetsHook,
+        afterProcessAssets: {tap: () => {}}
+      },
       emitAsset: () => {}
     }
     const compiler: any = {

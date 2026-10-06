@@ -1,4 +1,4 @@
-import {describe, expect, it, vi} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {
   BRIDGE_PRODUCER_SOURCE,
   buildBridgeProducerSource,
@@ -9,18 +9,31 @@ import {
 // loaded machine misses. Wait for the state instead, with a ceiling well
 // above the retry windows under test so a slow run waits rather than fails.
 const WAIT_CEILING_MS = 10_000
+const WAIT_STEP_MS = 10
 
 async function waitFor(
   predicate: () => boolean,
   label: string,
   ceilingMs = WAIT_CEILING_MS
 ): Promise<void> {
+  if (vi.isFakeTimers()) {
+    for (let waited = 0; waited <= ceilingMs; waited += WAIT_STEP_MS) {
+      if (predicate()) return
+
+      await vi.advanceTimersByTimeAsync(WAIT_STEP_MS)
+    }
+
+    throw new Error(
+      `timed out after ${ceilingMs} ms of fake time waiting for ${label}`
+    )
+  }
+
   const deadline = Date.now() + ceilingMs
 
   while (Date.now() < deadline) {
     if (predicate()) return
 
-    await new Promise((resolve) => setTimeout(resolve, 10))
+    await new Promise((resolve) => setTimeout(resolve, WAIT_STEP_MS))
   }
 
   throw new Error(`timed out after ${ceilingMs} ms waiting for ${label}`)
@@ -227,7 +240,11 @@ describe('bridge producer runtime', () => {
     expect(fetched).toHaveLength(0)
 
     installedListener!()
-    await new Promise((r) => setTimeout(r, 400))
+    await waitFor(
+      () => fetched.length > 0,
+      'the boot heal to read the manifest'
+    )
+
     expect(fetched).toContain('chrome-extension://test/manifest.json')
   })
 
@@ -304,7 +321,7 @@ describe('bridge producer runtime', () => {
     run(src, fakeGlobal)
     expect(installedListener).toBeTypeOf('function')
     installedListener!()
-    await new Promise((r) => setTimeout(r, 400))
+    await waitFor(() => executed.length > 0, 'the boot reinject to run')
 
     expect(executed).toHaveLength(1)
     expect(executed[0].target.tabId).toBe(1)
@@ -383,9 +400,17 @@ describe('bridge producer runtime', () => {
     )
 
     FakeWebSocket.instances[0].close()
-    await new Promise((r) => setTimeout(r, 350))
+    await waitFor(
+      () => FakeWebSocket.instances.length >= 2,
+      'the baked port to be retried'
+    )
+
     FakeWebSocket.instances[1].close()
-    await new Promise((r) => setTimeout(r, 700))
+    await waitFor(
+      () => FakeWebSocket.instances.length >= 3,
+      'the retry after the unreadable port file'
+    )
+
     const last = FakeWebSocket.instances[FakeWebSocket.instances.length - 1]
     expect(FakeWebSocket.instances.length).toBeGreaterThanOrEqual(3)
     expect(last.url).toBe('ws://127.0.0.1:9100/extjs-control')
@@ -393,6 +418,14 @@ describe('bridge producer runtime', () => {
 })
 
 describe('bridge producer runtime, executor (Slice 2)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({toFake: ['setTimeout', 'clearTimeout']})
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   function setup(
     chromeApi: Record<string, unknown>,
     extraGlobals: Record<string, unknown> = {}
@@ -401,13 +434,6 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     const {fakeGlobal} = makeGlobal()
     fakeGlobal.chrome = chromeApi
     fakeGlobal.navigator = {userAgent: 'Chrome'}
-
-    fakeGlobal.setTimeout = (fn: () => void) => {
-      fn()
-
-      return 0
-    }
-
     Object.assign(fakeGlobal, extraGlobals)
     const src = buildBridgeProducerSource({
       controlPort: 9999,
@@ -1435,7 +1461,12 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     })
 
     expect(reloaded).toBe(false)
-    await new Promise((r) => setTimeout(r, 80))
+    expect(vi.getTimerCount()).toBe(1)
+
+    await vi.advanceTimersByTimeAsync(49)
+    expect(reloaded).toBe(false)
+
+    await vi.advanceTimersByTimeAsync(1)
     expect(reloaded).toBe(true)
   })
 
@@ -1467,7 +1498,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       changedFiles: ['popup/popup.js']
     })
 
-    await new Promise((r) => setTimeout(r, 20))
+    await vi.advanceTimersByTimeAsync(0)
 
     expect(replayed).toEqual([['scripts/widget.js']])
   })
@@ -1483,7 +1514,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       changedScriptFiles: ['scripts/widget.js']
     })
 
-    await new Promise((r) => setTimeout(r, 20))
+    await vi.advanceTimersByTimeAsync(0)
 
     // Notify-only page frames never reload, with or without a replay.
     expect(reloaded).toBe(false)
@@ -2085,7 +2116,11 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     // The channel stays open and the reply lands once the promise settles.
     expect(keepOpen).toBe(true)
     expect(responded).toBe('NONE')
-    await new Promise((resolve) => setTimeout(resolve, 0))
+    await waitFor(
+      () => responded !== 'NONE',
+      'the relay to reply with the settled value'
+    )
+
     expect(responded).toMatchObject({ok: true, value: 42})
 
     dispatch(
@@ -2097,7 +2132,11 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       (r: any) => (responded = r)
     )
 
-    await new Promise((resolve) => setTimeout(resolve, 0))
+    await waitFor(
+      () => responded.ok === false,
+      'the relay to reply with the rejection'
+    )
+
     expect(responded).toMatchObject({
       ok: false,
       error: {name: 'Error', message: 'boom'}
@@ -2395,7 +2434,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       label: 'content_script (src/content/scripts.ts)'
     })
 
-    await new Promise((r) => setTimeout(r, 20))
+    await waitFor(() => injected.length > 0, 'the open tabs to be re-injected')
 
     expect(injected.map((i) => i.tabId).sort()).toEqual([11, 12])
     expect(injected[0].files).toEqual(['content_scripts/content-0.NEWHASH.js'])
@@ -2433,7 +2472,10 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       label: 'content_script (src/content/scripts.ts)'
     })
 
-    await new Promise((r) => setTimeout(r, 20))
+    await waitFor(
+      () => ws.sent.some((s) => JSON.parse(s).type === 'reload-ack'),
+      'the reload ack'
+    )
 
     const ack = ws.sent
       .map((s) => JSON.parse(s))
@@ -2458,7 +2500,10 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       label: 'popup page (src/popup/index.tsx)'
     })
 
-    await new Promise((r) => setTimeout(r, 20))
+    await waitFor(
+      () => ws.sent.some((s) => JSON.parse(s).type === 'reload-ack'),
+      'the reload ack'
+    )
 
     const ack = ws.sent
       .map((s) => JSON.parse(s))
@@ -2490,7 +2535,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       label: 'extension'
     })
 
-    await new Promise((r) => setTimeout(r, 250))
+    await waitFor(() => reloadedAt >= 0, 'the worker restart')
 
     const sent = ws.sent.map((s) => JSON.parse(s))
     const ackIndex = sent.findIndex((f) => f.type === 'reload-ack')
@@ -2545,7 +2590,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     )
 
     ws.triggerMessage({type: 'reload', reloadType: 'content-scripts'})
-    await new Promise((r) => setTimeout(r, 20))
+    await waitFor(() => registered.length > 0, 'the dynamic registration')
     expect(updated).toHaveLength(0)
     expect(registered).toHaveLength(1)
     expect(registered[0]).toMatchObject({
@@ -2564,7 +2609,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
 
     existing = [{id: 'extjs-dev-cs-0'}]
     ws.triggerMessage({type: 'reload', reloadType: 'content-scripts'})
-    await new Promise((r) => setTimeout(r, 20))
+    await waitFor(() => updated.length > 0, 'the registration update')
     expect(registered).toHaveLength(1)
     expect(updated).toHaveLength(1)
     expect(updated[0].id).toBe('extjs-dev-cs-0')
@@ -2602,7 +2647,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       changedContentScriptEntries: ['content_scripts/content-1']
     })
 
-    await new Promise((r) => setTimeout(r, 20))
+    await vi.advanceTimersByTimeAsync(0)
     expect(reloads).toEqual([['content_scripts/content-1']])
     expect(fetched).toEqual([])
   })
@@ -2630,7 +2675,11 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     )
 
     ws.triggerMessage({type: 'reload', reloadType: 'content-scripts'})
-    await new Promise((r) => setTimeout(r, 20))
+    await waitFor(
+      () => fetched.length > 0,
+      'the manifest re-inject to read the manifest'
+    )
+
     expect(fetched).toEqual(['chrome-extension://abc/manifest.json'])
   })
 
@@ -2666,7 +2715,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       }
     )
 
-    await new Promise((r) => setTimeout(r, 400))
+    await waitFor(() => heals > 0, 'the boot heal to reach the dev runtime')
     expect(heals).toBe(1)
     expect(fetched).toEqual([])
   })
@@ -2684,7 +2733,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     ws.triggerMessage({type: 'reload', reloadType: 'full'})
 
     expect(runtimeReloaded).toBe(false)
-    await new Promise((r) => setTimeout(r, 250))
+    await waitFor(() => runtimeReloaded, 'the extension restart')
     expect(runtimeReloaded).toBe(true)
   })
 
@@ -2711,7 +2760,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
 
     expect(typeof stored.__extjsDevPendingReinject).toBe('number')
     expect(runtimeReloaded).toBe(false)
-    await new Promise((r) => setTimeout(r, 250))
+    await waitFor(() => runtimeReloaded, 'the extension restart')
     expect(runtimeReloaded).toBe(true)
   })
 
@@ -2747,7 +2796,11 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       }
     )
 
-    await new Promise((r) => setTimeout(r, 400))
+    await waitFor(
+      () => fetched.length > 0,
+      'the boot heal to read the manifest'
+    )
+
     expect(removed).toEqual(['__extjsDevPendingReinject'])
     expect(fetched).toContain('chrome-extension://abc/manifest.json')
   })
@@ -2806,7 +2859,8 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
 
     expect(installedListener).toBeTypeOf('function')
     installedListener!()
-    await new Promise((r) => setTimeout(r, 400))
+    await vi.advanceTimersByTimeAsync(250)
+    await waitFor(() => executed.length > 0, 'the boot heal to inject')
     expect(executed).toHaveLength(1)
     expect(registered).toHaveLength(0)
   })
@@ -2862,11 +2916,15 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     )
 
     installedListener!({reason: 'install'})
-    await new Promise((r) => setTimeout(r, 400))
+    await vi.advanceTimersByTimeAsync(250)
     expect(executed).toHaveLength(0)
 
     installedListener!({reason: 'update'})
-    await new Promise((r) => setTimeout(r, 400))
+    await waitFor(
+      () => executed.length > 0,
+      'the heal after an update to inject'
+    )
+
     expect(executed.map((o) => o.target.tabId)).toEqual([2, 3])
   })
 
@@ -2922,7 +2980,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       }
     )
 
-    await new Promise((r) => setTimeout(r, 400))
+    await waitFor(() => order.includes('execute'), 'the boot heal to inject')
     expect(unregistered).toEqual([['extjs-dev-cs-0', 'extjs-dev-cs-1']])
     expect(order).toEqual(['unregister', 'execute'])
   })
@@ -2959,7 +3017,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       }
     )
 
-    await new Promise((r) => setTimeout(r, 400))
+    await vi.advanceTimersByTimeAsync(250)
     expect(removed).toEqual(['__extjsDevPendingReinject'])
     expect(fetched).toHaveLength(0)
   })
@@ -3014,7 +3072,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       label: 'sidebar page (src/sidebar/index.tsx)'
     })
 
-    await new Promise((r) => setTimeout(r, 250))
+    await vi.advanceTimersByTimeAsync(150)
 
     expect(runtimeReloaded).toBe(false)
     expect(execCalls).toHaveLength(0)
@@ -3025,6 +3083,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
 
   it('reload broadcast (content-scripts): messages no other extension after reinjection', async () => {
     const external: Array<{id: string; msg: any}> = []
+    const queries: Array<{url?: unknown}> = []
     const diskManifest = {
       content_scripts: [
         {
@@ -3044,7 +3103,12 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
           },
           lastError: undefined
         },
-        tabs: {query: (_q: unknown, cb: (t: unknown[]) => void) => cb([])},
+        tabs: {
+          query: (q: {url?: unknown}, cb: (t: unknown[]) => void) => {
+            queries.push(q)
+            cb([])
+          }
+        },
         scripting: {
           executeScript: (_o: unknown, cb?: () => void) => cb?.()
         }
@@ -3061,7 +3125,10 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       label: 'content_script (src/content/scripts.ts)'
     })
 
-    await new Promise((r) => setTimeout(r, 20))
+    await waitFor(
+      () => queries.some((q) => q.url !== undefined),
+      'the reinjection to look for matching tabs'
+    )
 
     expect(external).toEqual([])
   })

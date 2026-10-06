@@ -7,7 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import type {Compiler} from '@rspack/core'
-import {isDebug} from '../../lib/messaging'
+import {debugLine, isDebug} from '../../lib/messaging'
 import type {
   DevOptions,
   FilepathList,
@@ -54,7 +54,7 @@ export class IconsPlugin {
       const changedCount = afterKeys.filter(
         (k) => k.includes('/default_icon') || k.includes('/theme_icons')
       ).length
-      console.log(
+      debugLine(
         messages.iconsNormalizationSummary(beforeKeys, afterKeys, changedCount)
       )
     }

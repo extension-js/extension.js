@@ -7,7 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import {Compilation, type Compiler} from '@rspack/core'
-import {isDebug} from '../../../lib/messaging'
+import {debugLine, isDebug} from '../../../lib/messaging'
 import type {FilepathList} from '../../../types'
 import {collectContentScriptEntryImports} from '../collect-entry-imports'
 import {entryImportsSummary} from '../web-resources-lib/messages'
@@ -45,7 +45,7 @@ export class CollectContentEntryImports {
                   ((entryImports as Record<string, unknown[]>)[k]?.length || 0),
                 0
               )
-              console.log(entryImportsSummary(keys.length, total))
+              debugLine(entryImportsSummary(keys.length, total))
             }
           }
         )

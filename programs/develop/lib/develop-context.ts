@@ -10,6 +10,7 @@ import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import * as path from 'node:path'
 import packageJson from '../package.json'
+import {debugLine} from './messaging'
 import {parseJsonSafe} from './parse-json-safe'
 
 const cjsRequire = createRequire(import.meta.url)
@@ -111,7 +112,7 @@ export function resolveDevelopDistFile(stem: string): string {
   for (const candidate of candidates) {
     if (fs.existsSync(candidate)) {
       if (process.env.EXTENSION_DEBUG_DEVELOP_ROOT === '1') {
-        console.log(
+        debugLine(
           `[extjs:develop-root] ${stem} -> ${candidate} (installRoot=${installRoot || '<none>'})`
         )
       }
@@ -121,7 +122,7 @@ export function resolveDevelopDistFile(stem: string): string {
   }
 
   if (process.env.EXTENSION_DEBUG_DEVELOP_ROOT === '1') {
-    console.log(
+    debugLine(
       `[extjs:develop-root] ${stem} -> ${base} (fallback, installRoot=${installRoot || '<none>'})`
     )
   }

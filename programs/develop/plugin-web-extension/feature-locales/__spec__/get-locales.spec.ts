@@ -1,7 +1,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
-import {getLocales} from '../get-locales'
+import {getLocales, localeFoldersWithoutMessages} from '../get-locales'
 
 const toPosix = (value: string) => value.replace(/\\/g, '/')
 
@@ -87,5 +87,21 @@ describe('getLocales (unit)', () => {
     expect(names).toContain('messages.json')
     expect(names).not.toContain('.DS_Store')
     expect(names).not.toContain('Thumbs.db')
+  })
+
+  it('leaves out a locale folder that has no messages.json and names it', () => {
+    const notesDir = path.join(localesRoot, 'fr_CA')
+    fs.mkdirSync(notesDir, {recursive: true})
+    fs.writeFileSync(path.join(notesDir, 'README.md'), 'translation notes')
+    fs.writeFileSync(path.join(notesDir, 'flag.png'), '')
+
+    const files = (getLocales(manifestPath) || []).map(toPosix)
+
+    expect(files.some((p) => p.includes('/_locales/fr_CA/'))).toBe(false)
+    expect(files.some((p) => p.endsWith('/_locales/pt_BR/messages.json'))).toBe(
+      true
+    )
+
+    expect(localeFoldersWithoutMessages(manifestPath)).toEqual([notesDir])
   })
 })

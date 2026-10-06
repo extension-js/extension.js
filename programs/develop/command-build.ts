@@ -42,7 +42,13 @@ import {
   START_BUILD_DEFAULTS
 } from './lib/merge-options'
 import * as messages from './lib/messages'
-import {browserRowValue, card, claimCardKey, isDebug} from './lib/messaging'
+import {
+  browserRowValue,
+  card,
+  claimCardKey,
+  debugLine,
+  isDebug
+} from './lib/messaging'
 import {applySplitChunksGuard} from './lib/normalize-split-chunks'
 import {listOutputFiles} from './lib/output-files'
 import {parseJsonSafe} from './lib/parse-json-safe'
@@ -80,7 +86,7 @@ import {
   getSpecialFoldersDataForProjectRoot,
   rememberSpecialFoldersConfig
 } from './plugin-special-folders/get-data'
-import type {BuildOptions} from './types'
+import type {BuildOptions, ConfigHookContext} from './types'
 
 const reportedBuildFailures = new WeakSet<object>()
 
@@ -238,8 +244,8 @@ export async function extensionBuild(
     removeStaleStagingDirs(distPath)
 
     if (debug) {
-      console.log(messages.debugDirs(manifestDir, packageJsonDir))
-      console.log(
+      debugLine(messages.debugDirs(manifestDir, packageJsonDir))
+      debugLine(
         messages.debugBrowser(
           browser,
           buildOptions?.chromiumBinary,
@@ -247,7 +253,7 @@ export async function extensionBuild(
         )
       )
 
-      console.log(messages.debugOutputPath(distPath))
+      debugLine(messages.debugOutputPath(distPath))
     }
 
     const mergedExtensionsConfig =
@@ -292,7 +298,15 @@ export async function extensionBuild(
       return plugin?.constructor.name !== 'plugin-browsers'
     })
 
-    const userExtensionConfig = await loadCustomConfig(packageJsonDir)
+    const hookContext: ConfigHookContext = {
+      browser,
+      mode: resolvedMode,
+      command: buildOptions?.metadataCommand || 'build'
+    }
+    const userExtensionConfig = await loadCustomConfig(
+      packageJsonDir,
+      hookContext
+    )
     const userConfig = userExtensionConfig({
       ...baseConfig,
       plugins: allPluginsButBrowserRunners
@@ -306,7 +320,7 @@ export async function extensionBuild(
     if (configResolved) {
       compilerConfig.plugins = [
         ...(compilerConfig.plugins || []),
-        new ConfigResolvedPlugin(configResolved)
+        new ConfigResolvedPlugin(configResolved, hookContext)
       ]
     }
 

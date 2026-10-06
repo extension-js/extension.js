@@ -101,6 +101,18 @@ export function humanError(...parts: unknown[]): void {
   console.error(...parts)
 }
 
+// Diagnostics were asked for, so they are never swallowed: they share stdout
+// with the pretty output and move to stderr while a machine owns stdout.
+export function debugLine(...parts: unknown[]): void {
+  if (isMachineOutput()) {
+    console.error(...parts)
+
+    return
+  }
+
+  console.log(...parts)
+}
+
 export const fmt = {
   heading: (title: string) => colors.underline(colors.blue(title)),
   label: (key: string) => colors.gray(key.toUpperCase()),
@@ -323,7 +335,6 @@ export const CODES = {
   E_CONFIG_LOAD: 'E_CONFIG_LOAD',
   E_MANAGED_DEP_CONFLICT: 'E_MANAGED_DEP_CONFLICT',
   E_TYPES_EMIT: 'E_TYPES_EMIT',
-  E_TSCONFIG_MISSING: 'E_TSCONFIG_MISSING',
   E_OPTIONAL_DEP_UNRESOLVED: 'E_OPTIONAL_DEP_UNRESOLVED',
   E_OPTIONAL_DEP_LOAD: 'E_OPTIONAL_DEP_LOAD',
   E_OPTIONAL_DEP_UNKNOWN: 'E_OPTIONAL_DEP_UNKNOWN',
@@ -339,11 +350,9 @@ export const CODES = {
   E_CSS_PARSE: 'E_CSS_PARSE',
   E_CSS_PREPROCESSOR_MISSING: 'E_CSS_PREPROCESSOR_MISSING',
   E_CSS_DEAD_REF: 'E_CSS_DEAD_REF',
-  E_INTEGRATION_INSTALL: 'E_INTEGRATION_INSTALL',
   E_POLYFILL_NOT_FOUND: 'E_POLYFILL_NOT_FOUND',
   E_LOCALES_LAYOUT: 'E_LOCALES_LAYOUT',
   E_WAR_INVALID: 'E_WAR_INVALID',
-  E_MATCH_PATTERN_INVALID: 'E_MATCH_PATTERN_INVALID',
   E_BACKGROUND_REQUIRED: 'E_BACKGROUND_REQUIRED',
   E_CONTENT_SCRIPT_SYNTAX: 'E_CONTENT_SCRIPT_SYNTAX',
   E_NO_ENTRYPOINTS: 'E_NO_ENTRYPOINTS',
@@ -362,7 +371,6 @@ export const CODES = {
   E_BROWSER_START_TIMEOUT: 'E_BROWSER_START_TIMEOUT',
   E_LAUNCH_SKIPPED_COMPILE_ERRORS: 'E_LAUNCH_SKIPPED_COMPILE_ERRORS',
   E_INSTANCE_AMBIGUOUS: 'E_INSTANCE_AMBIGUOUS',
-  E_WSL_INTEROP: 'E_WSL_INTEROP',
   E_EXTENSION_LOAD_REFUSED: 'E_EXTENSION_LOAD_REFUSED',
   E_ADDON_INSTALL: 'E_ADDON_INSTALL',
   E_BROWSER_CONNECT: 'E_BROWSER_CONNECT',
@@ -374,6 +382,7 @@ export const CODES = {
   E_RDP_PROTOCOL: 'E_RDP_PROTOCOL',
   E_PORT_IN_USE: 'E_PORT_IN_USE',
   E_SESSION_STOPPED: 'E_SESSION_STOPPED',
+  E_SESSION_EXISTS: 'E_SESSION_EXISTS',
   E_LOGS_STREAM_GAP: 'E_LOGS_STREAM_GAP',
   E_BROWSER_INSTALL_PRIVILEGE: 'E_BROWSER_INSTALL_PRIVILEGE',
   E_UNINSTALL_NOOP: 'E_UNINSTALL_NOOP'

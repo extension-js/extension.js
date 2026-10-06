@@ -19,6 +19,32 @@ Templates used by `extension create` live in the external
 [extension-js/examples](https://github.com/extension-js/examples) repo; CI hydrates
 them into a local `templates/` directory via `scripts/hydrate-templates-from-examples.sh`.
 
+### What is inside `templates/*/node_modules`
+
+The hydrate script clones the examples repo, copies every example into `templates/`,
+records the examples commit in `templates/.examples-commit`, and then runs
+`pnpm install --ignore-workspace --prefer-offline` inside `templates/` and inside each
+template folder. `templates/` is gitignored and excluded from the workspace, so each
+template is a standalone package and its `node_modules` holds only what its own
+`package.json` declares: the framework, its types and its build helpers. The CLI is not
+installed there. A template is built with the workspace CLI, as in
+`pnpm extension build templates/react`, or with a published `extension` package.
+
+A folder named `.ignored_<package>` inside a template's `node_modules` is a package pnpm
+found there that it did not install itself, usually left by an earlier install with a
+different layout. pnpm moves such a folder aside instead of deleting it. Nothing resolves
+through an `.ignored_*` folder, so it can be deleted, and a fresh
+`pnpm install --ignore-workspace` in that template does not bring it back.
+
+To build a template outside the repo, copy the whole template folder and keep two things
+intact. Keep symlinks as symlinks (`cp -R` and `rsync -a` do, `cp -RL` does not), since
+pnpm links packages into `node_modules/.pnpm` with relative paths. Keep every `dist`
+folder under `node_modules`, since packages such as `vue` and `preact` ship their code
+there. If the copy skips the template's own build output, skip only the top level `dist/`
+of the template, never `node_modules/**/dist`. A copy that drops either one reports
+"compiled with errors" for unresolved modules that have nothing to do with the change
+under test.
+
 ## Prerequisites
 
 - Node.js 22.12+ (CI runs on 22.x).

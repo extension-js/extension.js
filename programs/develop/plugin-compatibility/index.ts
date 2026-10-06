@@ -8,7 +8,7 @@
 
 import type {Compiler} from '@rspack/core'
 import {isGeckoBasedBrowser, isWebkitBasedBrowser} from '../lib/constants'
-import {isDebug} from '../lib/messaging'
+import {debugLine, isDebug} from '../lib/messaging'
 import type {DevOptions, PluginInterface} from '../types'
 import * as messages from './compatibility-lib/messages'
 import {WarnBrowserGlobalWithoutPolyfill} from './feature-browser-global'
@@ -47,7 +47,7 @@ export class CompatibilityPlugin {
     if (this.polyfill) {
       if (!skipReason) {
         if (isDebug()) {
-          console.log(
+          debugLine(
             messages.compatibilityPolyfillEnabled(
               this.browser,
               'webextension-polyfill'
@@ -61,14 +61,14 @@ export class CompatibilityPlugin {
         }).apply(compiler)
       } else {
         if (isDebug()) {
-          console.log(
+          debugLine(
             messages.compatibilityPolyfillSkipped(skipReason, this.browser)
           )
         }
       }
     } else {
       if (isDebug()) {
-        console.log(messages.compatibilityPolyfillDisabled(this.browser))
+        debugLine(messages.compatibilityPolyfillDisabled(this.browser))
       }
 
       if (!skipReason) {

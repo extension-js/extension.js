@@ -22,6 +22,7 @@ import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
 import {importMetaUrlForEmitPath} from '../../../plugin-compilation/env'
 import type {DevOptions, Manifest} from '../../../types'
 import {isClassicScript} from '../../shared/classic-concat'
+import {getResolvedManifestFieldsData} from '../../shared/manifest-fields'
 import * as messages from '../messages'
 
 // Structural view of the manifest fields the tracer reads; values stay
@@ -146,6 +147,7 @@ const STANDARD_BACKGROUND_KEYS = new Set([
 // through files importing further files, 8 hops is far beyond real usage.
 const MAX_TRACE_DEPTH = 8
 const SOURCE_SIBLING_EXTENSIONS = ['.ts', '.mts', '.tsx', '.jsx', '.mjs']
+const STYLESHEET_SIBLING_EXTENSIONS = ['.scss', '.sass', '.less']
 // Sources the compiler rewrites to .js: a runtime literal naming one asks the
 // browser for a path the build never emits.
 const COMPILED_TO_JS_EXTENSIONS = new Set([
@@ -496,8 +498,35 @@ export class TraceRuntimeLoadedFiles {
     }
   }
 
+  // The page each manifest surface names, by the path the author wrote it
+  // at, to the path the page pipeline emits it under.
+  private surfacePageOutputs(manifestDir: string): Map<string, string> {
+    const outputs = new Map<string, string>()
+
+    try {
+      const pages = getResolvedManifestFieldsData({
+        manifestPath: this.manifestPath,
+        browser: this.browser
+      }).html as Record<string, string | undefined>
+
+      for (const [feature, source] of Object.entries(pages)) {
+        if (!source) continue
+
+        const sourceRel = unixify(path.relative(manifestDir, source))
+        if (sourceRel.startsWith('..')) continue
+
+        outputs.set(sourceRel, `${feature}.html`)
+      }
+    } catch {
+      // A manifest the fields reader rejects has no surface pages to copy.
+    }
+
+    return outputs
+  }
+
   private traceGetURLFiles(run: TraceRun, only?: Set<string>) {
     const declaredSurfaces = manifestDeclaredSourcePaths(this.readManifest())
+    const surfacePages = this.surfacePageOutputs(run.manifestDir)
     const seen = run.seen.getURL
 
     // getURL literals resolve against the extension ROOT regardless of context,
@@ -573,8 +602,19 @@ export class TraceRuntimeLoadedFiles {
 
           // Manifest-declared page and background surfaces are compiled and
           // relocated by the main pipeline, copying their raw sources would
-          // ship duplicates.
-          if (declaredSurfaces.has(distRel)) continue
+          // ship duplicates. A page is also served where the literal asks for
+          // it: its compiled markup names its script and sheet from the root.
+          if (declaredSurfaces.has(distRel)) {
+            const output = surfacePages.get(distRel)
+            const page =
+              output && output !== distRel && !run.hasAsset(distRel)
+                ? run.compilation.getAsset(output)
+                : undefined
+
+            if (page) run.compilation.emitAsset(distRel, page.source)
+
+            continue
+          }
 
           // getURL paths are root-anchored, so source and dist paths match.
           const plan = planTracedFile({
@@ -977,6 +1017,21 @@ export function planTracedFile(opts: {
     }
   }
 
+  // The literal names the emitted .css of a Sass or Less source, the way a
+  // .js literal names the output of a TypeScript one.
+  if (inside && ext === '.css') {
+    const sibling = findStylesheetSibling(abs)
+
+    if (sibling) {
+      return {
+        kind: 'compile',
+        sourcePath: sibling,
+        emitPath: distRel,
+        format: 'classic'
+      }
+    }
+  }
+
   return {kind: 'missing', emitPath: distRel}
 }
 
@@ -1009,9 +1064,15 @@ async function compileTracedFile(
       ? 'import-scripts'
       : 'jsonp'
 
+  // A stylesheet entry emits its CSS under the entry name and a script with
+  // nothing in it, which is parked on a name of its own and dropped below.
+  const stylesheetScript = /\.css$/i.test(request.emitPath)
+    ? `${request.emitPath}.js`
+    : undefined
+
   const entry = new EntryPlugin(compiler.context, request.sourcePath, {
     name: request.emitPath.replace(/\.[^./]+$/, ''),
-    filename: request.emitPath,
+    filename: stylesheetScript || request.emitPath,
     chunkLoading,
     ...(isModule ? {library: {type: 'module'}} : {})
   })
@@ -1099,6 +1160,10 @@ async function compileTracedFile(
         } catch {
           // Ignore, watch registration is best-effort
         }
+      }
+
+      if (stylesheetScript && compilation.getAsset(stylesheetScript)) {
+        compilation.deleteAsset(stylesheetScript)
       }
 
       resolve()
@@ -1256,6 +1321,14 @@ function findSourceSibling(abs: string): string | undefined {
 
   return SOURCE_SIBLING_EXTENSIONS.map((ext) => base + ext).find((candidate) =>
     isFile(candidate)
+  )
+}
+
+function findStylesheetSibling(abs: string): string | undefined {
+  const base = abs.slice(0, -'.css'.length)
+
+  return STYLESHEET_SIBLING_EXTENSIONS.map((ext) => base + ext).find(
+    (candidate) => isFile(candidate)
   )
 }
 

@@ -8,7 +8,7 @@
 
 import {isDeepStrictEqual} from 'node:util'
 import type {Compiler, Configuration} from '@rspack/core'
-import type {FileConfig} from '../types'
+import type {ConfigHookContext, FileConfig} from '../types'
 import * as messages from './messages'
 
 type Options = Record<string, unknown>
@@ -152,7 +152,10 @@ export class ConfigResolvedPlugin {
   public static readonly name: string = 'plugin-config-resolved'
   private applied = false
 
-  constructor(private readonly hook: ConfigResolvedHook) {}
+  constructor(
+    private readonly hook: ConfigResolvedHook,
+    private readonly context: ConfigHookContext
+  ) {}
 
   apply(compiler: Compiler) {
     const options = compiler.options as unknown as Options
@@ -181,7 +184,10 @@ export class ConfigResolvedPlugin {
         return {fixed, holder, before: snapshotFixedKeys(holder, fixed)}
       })
 
-      const next = await this.hook(compiler.options as Configuration)
+      const next = await this.hook(
+        compiler.options as Configuration,
+        this.context
+      )
 
       if (next && next !== compiler.options) {
         for (const [key, value] of Object.entries(next)) options[key] = value

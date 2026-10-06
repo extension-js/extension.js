@@ -241,7 +241,8 @@ function emitNestedHtmlAndReferencedAssets(params: {
     const assetFilepath = htmlStaticAssetOutputName(
       manifestDir,
       absoluteFsPath,
-      assetFromHtml
+      assetFromHtml,
+      compilation.outputOptions
     )
 
     if (!compilation.getAsset(assetFilepath)) {
@@ -448,7 +449,8 @@ export class AddAssetsToCompilation {
               const filepath = htmlStaticAssetOutputName(
                 manifestDir,
                 resource as string,
-                absoluteFsPath
+                absoluteFsPath,
+                compilation.outputOptions
               )
 
               const isNestedHtml = asset.endsWith('.html')
@@ -490,9 +492,9 @@ export class AddAssetsToCompilation {
                 }
               }
 
-              // Chrome serves every packed file at its source path, so script-side refs only
-              // keep working if the file exists there too; emit a copy at the source path.
-              if (!isNestedHtml && fs.existsSync(absoluteFsPath)) {
+              // A root URL is served as written, so the file ships at its source
+              // path. A rewritten ref and a traced getURL literal need no copy here.
+              if (isRootUrl && !isNestedHtml && fs.existsSync(absoluteFsPath)) {
                 const manifestRelative = path.relative(
                   manifestDir,
                   absoluteFsPath

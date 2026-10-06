@@ -48,6 +48,12 @@ describe('optional dependency contracts', () => {
   it('throws for an unknown contract id', () => {
     expect(() => getOptionalDependencyContract('does-not-exist')).toThrow()
   })
+
+  it('codes an unknown contract id as E_OPTIONAL_DEP_UNKNOWN', () => {
+    expect(() => getOptionalDependencyContract('does-not-exist')).toThrow(
+      expect.objectContaining({code: 'E_OPTIONAL_DEP_UNKNOWN'})
+    )
+  })
 })
 
 describe('typescript is not a build-time requirement', () => {

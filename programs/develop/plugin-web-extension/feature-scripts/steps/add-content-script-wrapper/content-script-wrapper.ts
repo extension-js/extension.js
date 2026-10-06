@@ -22,7 +22,6 @@ import {
   canonicalizeDir,
   canonicalizeResourcePath
 } from '../../../../lib/resource-path'
-import {EXTENSION_ROOT_PLACEHOLDER} from '../../../../plugin-css/css-lib/inline-content-script-css'
 import type {DevOptions, Manifest} from '../../../../types'
 import {
   CANONICAL_CONTENT_SCRIPT_ENTRY_PREFIX,
@@ -431,23 +430,28 @@ export default function contentScriptWrapper(
     '    var cssPromise = null;\n' +
     '    var readCss = function(){\n' +
     '      if (cssPromise) return cssPromise;\n' +
-    '      cssPromise = (function fetchCandidate(index){\n' +
-    '        if (index >= cssUrls.length) return Promise.resolve("");\n' +
-    '        return fetch(cssUrls[index]).then(function(response){\n' +
+    // Every sheet the script owns reaches its shadow root, imports first and
+    // the declared sheet last, as one text so the owner token stays one.
+    '      cssPromise = Promise.all(cssUrls.map(function(url){\n' +
+    '        return Promise.resolve().then(function(){ return fetch(url); }).then(function(response){\n' +
     '          if (!response || !response.ok) return "";\n' +
     '          return response.text();\n' +
     '        }).catch(function(){\n' +
     '          return "";\n' +
-    '        }).then(function(text){\n' +
-    '          if (typeof text === "string" && text.trim().length > 0) return text;\n' +
-    '          return fetchCandidate(index + 1);\n' +
     '        });\n' +
-    '      })(0).then(function(text){\n' +
-    // A CSS module's chunk still carries the extension-root placeholder its
-    // url() targets were rewritten to. The inlined sheet swapped its own.
-    `        cssText = typeof text === "string" ? text.split(${JSON.stringify(
-      EXTENSION_ROOT_PLACEHOLDER
-    )}).join(__EXTENSIONJS_runtimeGetURL("/")) : "";\n` +
+    '      })).then(function(texts){\n' +
+    '        var seen = [];\n' +
+    '        for (var t = 0; t < texts.length; t++) {\n' +
+    '          if (typeof texts[t] !== "string" || !texts[t].trim().length || seen.indexOf(texts[t]) !== -1) continue;\n' +
+    '          seen.push(texts[t]);\n' +
+    '        }\n' +
+    '        return seen.join("\\n");\n' +
+    '      }).then(function(text){\n' +
+    // An emitted sheet names its url() targets from the extension root, which
+    // a <style> on the visited page would read as that page's own root.
+    '        cssText = typeof text === "string" ? text : "";\n' +
+    '        var root = __EXTENSIONJS_runtimeGetURL("/");\n' +
+    '        if (root) cssText = cssText.replace(/url\\(\\s*(["\']?)\\/(?!\\/)/gi, function(match, quote){ return "url(" + quote + root; });\n' +
     '        try { setTimeout(tick, 0); } catch (error) {}\n' +
     '        return cssText;\n' +
     '      }).catch(function(){ return ""; });\n' +

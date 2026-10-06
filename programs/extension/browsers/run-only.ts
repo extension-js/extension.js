@@ -254,8 +254,11 @@ function asLaunchFailure(
 ): unknown {
   const message = error instanceof Error ? error.message : String(error)
 
-  // A browser that came up, or a refusal already framed, keeps its own words.
-  if (spawned || hasChannelPrefix(message)) return error
+  // A browser that came up, or a refusal already framed or coded, keeps its
+  // own words.
+  if (spawned || hasChannelPrefix(message) || launchFailureCode(error)) {
+    return error
+  }
 
   return Object.assign(
     new Error(browserNeverStarted(browser, describeLaunchFailure(error))),

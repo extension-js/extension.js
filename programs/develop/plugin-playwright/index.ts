@@ -164,6 +164,7 @@ type PluginOptions = {
   controlPath?: string
   logsPath?: string
   managedExtensionDirs?: string[]
+  launchFollows?: boolean
 }
 
 function nowISO() {
@@ -278,6 +279,10 @@ export function getSessionRunId(
 // Writers of one run are told apart by the epoch their writeStarting opened:
 // a compiler torn down after its successor opened no longer owns the document.
 const writerEpochByMetadataDir = new Map<string, number>()
+
+// The dev server and its compiler plugin each open a writer on the same run,
+// so the other session is noticed twice and told of once.
+const devOverDevWarnedByMetadataDir = new Set<string>()
 
 // The one identifier a consumer cannot read from the manifest alone: gecko
 // declares it, chromium hashes the manifest key or the loaded dist path.
@@ -399,6 +404,7 @@ function writeJsonAtomic(filePath: string, value: unknown) {
 
 export interface LiveDevSessionOwner {
   pid: number
+  port?: number | null
   runId: string
   instanceId?: string
   instanceExplicit?: boolean
@@ -427,6 +433,7 @@ export function detectLiveDevSessionOwner(
 
     return {
       pid: prev.pid as number,
+      port: typeof prev.port === 'number' ? prev.port : null,
       runId: typeof prev.runId === 'string' ? prev.runId : '',
       instanceId:
         typeof prev.instanceId === 'string' ? prev.instanceId : undefined,
@@ -509,11 +516,13 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
   if (
     options.command === 'dev' &&
     liveOwner &&
+    !devOverDevWarnedByMetadataDir.has(metadataDir) &&
     shouldWarnDevOverDev(liveOwner, {
       instanceId: options.instanceId,
       instanceExplicit: options.instanceExplicit
     })
   ) {
+    devOverDevWarnedByMetadataDir.add(metadataDir)
     humanWarn(
       messages.anotherDevSessionActive(
         options.browser,
@@ -863,6 +872,11 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
 
       writeReady('starting', {compiledAt: null})
     },
+    // A compile that a browser launch follows is not the session being ready,
+    // so the receipt keeps starting and the launch phase stamps ready.
+    writeCompiled(compiledAt: string) {
+      writeReady('starting', {compiledAt})
+    },
     writeReady(compiledAt?: string | null) {
       if (compiledAt === undefined) {
         writeReady('ready')
@@ -963,11 +977,14 @@ export class PlaywrightPlugin {
   private readonly writer: ReturnType<typeof createPlaywrightMetadataWriter>
   private readonly command: PlaywrightAutomationCommand
   private readonly browser: string
+  private readonly launchFollows: boolean
 
   constructor(options: PluginOptions) {
     this.browser = String(options.browser || 'chromium')
     this.command =
       options.command || (options.mode === 'development' ? 'dev' : 'start')
+
+    this.launchFollows = options.launchFollows === true
 
     this.writer = createPlaywrightMetadataWriter({
       packageJsonDir: options.packageJsonDir,
@@ -1043,7 +1060,11 @@ export class PlaywrightPlugin {
         errorCount: 0
       })
 
-      this.writer.writeReady(nowISO())
+      if (this.launchFollows) {
+        this.writer.writeCompiled(nowISO())
+      } else {
+        this.writer.writeReady(nowISO())
+      }
     })
 
     compiler.hooks.failed.tap(PlaywrightPlugin.name, (error: unknown) => {

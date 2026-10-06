@@ -261,6 +261,20 @@ export function anotherDevSessionActive(
   )
 }
 
+export function anotherDevSessionRefused(
+  browser: string,
+  pid: number,
+  port: number | null
+) {
+  const where = port ? ` on port ${port}` : ''
+
+  return (
+    `${getLoggingPrefix('error')} Another dev session already owns dist/${browser} (PID ${pid}${where}).\n` +
+    `A second session would overwrite its eval token and leave its contract pointing at the wrong one.\n` +
+    `Stop that session first, or give each session its own ${fmt.code('EXTENSION_INSTANCE_ID')}.`
+  )
+}
+
 export function buildAssetsTree(
   stats: Stats | undefined,
   outputFiles?: OutputFile[]
@@ -662,11 +676,15 @@ export function buildWarningsDetails(warnings: LooseBuildWarning[]): string {
 
     // A body with a second line explains itself. The generic hint is for the
     // one-line warnings the bundler reports with nothing else to go on.
-    const explained = message.includes('\n')
-    const oneLine = message.replace(/\s+/g, ' ').trim()
+    const [headline, ...body] = message
+      .split('\n')
+      .map((line) => line.replace(/\s+/g, ' ').trim())
+      .filter(Boolean)
+    const explained = body.length > 0
     const artifactSuffix = artifact ? ` ${colors.gray(`(${artifact})`)}` : ''
     blocks.push(
-      `${getLoggingPrefix('warn')} ${category}: ${oneLine}${artifactSuffix}\n` +
+      `${getLoggingPrefix('warn')} ${category}: ${headline}${artifactSuffix}\n` +
+        body.map((line) => `${line}\n`).join('') +
         formatWarningLabelLine('Source', colors.gray(source)) +
         (explained ? '' : `\n${formatWarningLabelLine('Hint', hint)}`)
     )
@@ -807,6 +825,13 @@ export function writingTypeDefinitions(manifest: Manifest) {
   return (
     `${getLoggingPrefix('info')} ` +
     `Writing the type definitions for ${manifest.name || 'the extension'}…`
+  )
+}
+
+export function updatingTypeDefinitions(filePath: string) {
+  return (
+    `${getLoggingPrefix('info')} ` +
+    `Updating the type definitions in ${filePath} to match this version.`
   )
 }
 

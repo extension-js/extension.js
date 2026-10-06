@@ -9,8 +9,9 @@
 import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import * as path from 'node:path'
+import {codedError} from './coded-error'
 import {resolveDevelopInstallRoot} from './develop-context'
-import {prefix} from './messaging'
+import {CODES, debugLine, prefix} from './messaging'
 import type {
   OptionalDependencyContract,
   OptionalDependencyVerificationRule
@@ -27,7 +28,7 @@ import {hasProjectDependency} from './project-manifest'
 function debugSwallowed(step: string, error: unknown): void {
   if (!isVerboseMode()) return
 
-  console.log(
+  debugLine(
     `${prefix('debug')} optional-deps ${step}: ${String(
       (error as Error)?.message || error
     )}`
@@ -645,7 +646,8 @@ export async function ensureOptionalPackageResolved(
       ? ` Missing or invalid packages: ${missing.join(', ')}.`
       : '')
 
-  throw new Error(
+  throw codedError(
+    CODES.E_OPTIONAL_DEP_UNRESOLVED,
     formatResolverError({
       integration: input.integration,
       dependencyId: input.dependencyId,
@@ -684,7 +686,8 @@ export function resolveOptionalPackageWithoutInstall(
     verifyPackageIds: contract.installPackages
   })
 
-  throw new Error(
+  throw codedError(
+    CODES.E_OPTIONAL_DEP_UNRESOLVED,
     formatResolverError({
       integration: input.integration,
       dependencyId: input.dependencyId,
@@ -754,7 +757,8 @@ export async function ensureOptionalModuleLoaded<T = AnyModule>(
           : String(lastLoadError)
     }
 
-    throw new Error(
+    throw codedError(
+      CODES.E_OPTIONAL_DEP_LOAD,
       formatResolverError({
         integration: input.integration,
         dependencyId: input.dependencyId,
@@ -806,7 +810,8 @@ export function loadOptionalModuleWithoutInstall<T = AnyModule>(
   }
 
   if (!didLoad) {
-    throw new Error(
+    throw codedError(
+      CODES.E_OPTIONAL_DEP_LOAD,
       formatResolverError({
         integration: input.integration,
         dependencyId: input.dependencyId,

@@ -19,6 +19,8 @@ interface CodeEntry {
   area: string
   summary: string
   warn?: boolean
+  reserved?: boolean
+  reason?: string
 }
 
 interface CodesTable {
@@ -75,6 +77,13 @@ const flat = (value: string | string[]): string[] =>
 const programsDir = path.resolve(here, '../../..')
 const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.mjs', '.cjs'])
 const SKIPPED_DIRS = new Set(['node_modules', 'dist', '__spec__', '.rslib'])
+const SPEC_FILE = /\.(spec|test)\.[cm]?[jt]sx?$/
+
+interface SourceLine {
+  file: string
+  line: number
+  text: string
+}
 
 function collectSources(dir: string, found: string[] = []): string[] {
   for (const entry of fs.readdirSync(dir, {withFileTypes: true})) {
@@ -85,7 +94,7 @@ function collectSources(dir: string, found: string[] = []): string[] {
     if (entry.isDirectory()) collectSources(full, found)
     else if (
       SOURCE_EXTENSIONS.has(path.extname(entry.name)) &&
-      entry.name !== 'messaging.ts'
+      !SPEC_FILE.test(entry.name)
     ) {
       found.push(full)
     }
@@ -94,49 +103,23 @@ function collectSources(dir: string, found: string[] = []): string[] {
   return found
 }
 
-const CODES_WITHOUT_EMIT_SITE: string[] = [
-  'E_BROWSER_NOT_FOUND',
-  'E_NODE_VERSION',
-  'E_REMOTE_URL_UNSUPPORTED',
-  'E_MANAGED_DEP_CONFLICT',
-  'E_TYPES_EMIT',
-  'E_TSCONFIG_MISSING',
-  'E_OPTIONAL_DEP_UNRESOLVED',
-  'E_OPTIONAL_DEP_LOAD',
-  'E_OPTIONAL_DEP_UNKNOWN',
-  'E_RUNTIME_NOT_FOUND',
-  'E_MODULE_NOT_FOUND',
-  'E_ENTRY_NOT_FOUND',
-  'E_ASSET_MISSING',
-  'E_SCRIPT_DEP_MISSING',
-  'E_RESERVED_FOLDER',
-  'E_CSS_PARSE',
-  'E_CSS_PREPROCESSOR_MISSING',
-  'E_CSS_DEAD_REF',
-  'E_INTEGRATION_INSTALL',
-  'E_POLYFILL_NOT_FOUND',
-  'E_LOCALES_LAYOUT',
-  'E_WAR_INVALID',
-  'E_MATCH_PATTERN_INVALID',
-  'E_BACKGROUND_REQUIRED',
-  'E_CONTENT_SCRIPT_SYNTAX',
-  'E_NO_ENTRYPOINTS',
-  'E_REMOTE_RESOURCE_BLOCKED',
-  'E_PERF_BUDGET',
-  'E_ENV_NO_MATCH',
-  'E_PROJECT_DOWNLOAD_EMPTY',
-  'E_BROWSER_BINARY_REQUIRED',
-  'E_BROWSER_START_TIMEOUT',
-  'E_LAUNCH_SKIPPED_COMPILE_ERRORS',
-  'E_WSL_INTEROP',
-  'E_ADDON_INSTALL',
-  'E_BROWSER_CONNECTION_CLOSED',
-  'E_CDP_NOT_CONNECTED',
-  'E_CDP_TIMEOUT',
-  'E_CDP_OP_FAILED',
-  'E_EXTENSION_ID_UNKNOWN',
-  'E_RDP_PROTOCOL'
-]
+function codeLines(file: string, source: string): SourceLine[] {
+  return source
+    .split('\n')
+    .map((text, index) => ({file, line: index + 1, text}))
+    .filter(({text}) => text.includes('E_'))
+}
+
+function emitSites(code: string, lines: SourceLine[]): SourceLine[] {
+  const named = new RegExp(`\\b${code}\\b`)
+  const declaration = new RegExp(`^\\s*${code}: '${code}',?\\s*$`)
+  const comment = /^\s*(\/\/|\*|\/\*)/
+
+  return lines.filter(
+    ({text}) =>
+      named.test(text) && !declaration.test(text) && !comment.test(text)
+  )
+}
 
 // The same validation the schema states, hand-rolled so the spec has no
 // dependency on a JSON Schema runtime.
@@ -212,6 +195,22 @@ describe('the error-code table', () => {
       expect(entry.area, `${code} has no area`).toBeTruthy()
       expect(entry.summary, `${code} has no summary`).toBeTruthy()
       if ('warn' in entry) expect(entry.warn).toBe(true)
+      if ('reserved' in entry) expect(entry.reserved).toBe(true)
+    }
+  })
+
+  // A reader of a reserved row learns what keeps the code off the wire, and
+  // an emitted row carries no excuse.
+  it('gives every reserved code a reason and no other code one', () => {
+    for (const [code, entry] of Object.entries(table.codes)) {
+      if (entry.reserved) {
+        expect(entry.reason, `${code} is reserved with no reason`).toMatch(/\S/)
+      } else {
+        expect(
+          entry,
+          `${code} is emitted yet carries a reason`
+        ).not.toHaveProperty('reason')
+      }
     }
   })
 
@@ -287,6 +286,26 @@ describe('the error-code table', () => {
       expect(alias).toMatch(/^E_[A-Z0-9_]+$/)
     }
   })
+
+  // A legacy name has to resolve to a code a consumer can actually receive.
+  it('folds no name onto a reserved code', () => {
+    const ontoReserved = Object.entries(table.folded)
+      .filter(([, code]) => table.codes[code]?.reserved === true)
+      .map(([alias, code]) => `${alias} -> ${code}`)
+
+    expect(ontoReserved).toEqual([])
+  })
+
+  it.each([
+    'E_TSCONFIG_MISSING',
+    'E_INTEGRATION_INSTALL',
+    'E_WSL_INTEROP',
+    'E_MATCH_PATTERN_INVALID'
+  ])('keeps %s, retired after it shipped, as a fold and not a code', (retired) => {
+    expect(table.codes).not.toHaveProperty(retired)
+    expect(table.folded).toHaveProperty(retired)
+    expect(CODES).not.toHaveProperty(retired)
+  })
 })
 
 // The behaviour specs (remote-archive-codes, config-load-failure) prove which
@@ -316,43 +335,60 @@ describe('a summary names the causes its code covers', () => {
   })
 })
 
-describe('every declared code has an emit site', () => {
-  const sources = collectSources(programsDir).map((file) =>
-    fs.readFileSync(file, 'utf8')
+describe('every declared code is emitted or marked reserved', () => {
+  const files = collectSources(programsDir)
+  const lines = files.flatMap((file) =>
+    codeLines(path.relative(programsDir, file), fs.readFileSync(file, 'utf8'))
   )
 
-  const emitted = new Set<string>()
+  const emitted = new Set<string>(
+    Object.values(CODES).filter((code) => emitSites(code, lines).length > 0)
+  )
 
-  for (const code of Object.values(CODES)) {
-    const pattern = new RegExp(`\\b${code}\\b`)
-    if (sources.some((source) => pattern.test(source))) emitted.add(code)
-  }
+  const reserved = Object.entries(table.codes)
+    .filter(([, entry]) => entry.reserved === true)
+    .map(([code]) => code)
 
   it('scans a non-trivial source set', () => {
-    expect(sources.length).toBeGreaterThan(100)
+    expect(files.length).toBeGreaterThan(100)
     expect(emitted.has(CODES.E_ARGS)).toBe(true)
   })
 
-  it('raises every code that is not on the known dead list', () => {
-    const dead = Object.values(CODES).filter(
-      (code) => !emitted.has(code) && !CODES_WITHOUT_EMIT_SITE.includes(code)
+  it('counts a reference in source and nothing else as an emit site', () => {
+    const sample = codeLines(
+      'sample.ts',
+      [
+        "  E_SAMPLE: 'E_SAMPLE',",
+        '  // E_SAMPLE is only named here',
+        '   * E_SAMPLE inside a block comment',
+        '  code: CODES.E_SAMPLE_LONGER,',
+        '  code: CODES.E_SAMPLE,',
+        "  {code: 'E_SAMPLE'}"
+      ].join('\n')
     )
 
-    expect(dead).toEqual([])
+    expect(emitSites('E_SAMPLE', sample).map(({line}) => line)).toEqual([5, 6])
   })
 
-  it('drops a code from the dead list once it gains an emit site', () => {
-    const revived = CODES_WITHOUT_EMIT_SITE.filter((code) => emitted.has(code))
+  it('marks every code no source can produce as reserved in the table', () => {
+    const unmarked = Object.values(CODES).filter(
+      (code) => !emitted.has(code) && !reserved.includes(code)
+    )
+
+    expect(unmarked).toEqual([])
+  })
+
+  it('drops the reserved marker once a code gains an emit site', () => {
+    const revived = reserved
+      .filter((code) => emitted.has(code))
+      .map(
+        (code) =>
+          `${code} at ${emitSites(code, lines)
+            .map(({file, line}) => `${file}:${line}`)
+            .join(', ')}`
+      )
 
     expect(revived).toEqual([])
-  })
-
-  it('lists only declared codes as dead', () => {
-    const declared = new Set<string>(Object.values(CODES))
-
-    for (const code of CODES_WITHOUT_EMIT_SITE) {
-      expect(declared.has(code), `${code} is not a declared code`).toBe(true)
-    }
   })
 })
 

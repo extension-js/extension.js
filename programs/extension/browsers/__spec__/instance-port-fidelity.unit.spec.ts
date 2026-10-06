@@ -60,6 +60,15 @@ describe('resolvePortForInstance, the one shared contract', () => {
     }
   })
 
+  it('cannot-tell error carries the code the table maps its name onto', () => {
+    expect(() => resolvePortForInstance(undefined, 'rdp')).toThrow(
+      expect.objectContaining({
+        name: 'AmbiguousInstanceError',
+        code: 'E_INSTANCE_AMBIGUOUS'
+      })
+    )
+  })
+
   it('known-but-unregistered instance defers to the caller fallback, never another instance port', () => {
     const myDefault = 9555
     expect(resolvePortForInstance('not-yet-registered', 'cdp', myDefault)).toBe(

@@ -10,13 +10,65 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compilation, Compiler} from '@rspack/core'
 import {filterKeysForThisBrowser} from '../../lib/manifest-utils'
-import {isDebug} from '../../lib/messaging'
+import {debugLine, isDebug} from '../../lib/messaging'
 import {findUndefinedMsgReferences} from '../../lib/msg-placeholders'
 import {stripBom} from '../../lib/parse-json-safe'
 import type {DevOptions, Manifest} from '../../types'
 import {pushCompilationError} from './compilation-error'
 import {resolveLocalesFolder} from './get-locales'
 import * as messages from './messages'
+
+function readDefaultLocale(
+  manifestPath: string,
+  browser?: DevOptions['browser']
+): string | undefined {
+  try {
+    const manifest = filterKeysForThisBrowser(
+      JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf8'))) as Manifest,
+      browser || 'chrome'
+    ) as Record<string, unknown>
+    const defaultLocale = manifest?.default_locale
+
+    return typeof defaultLocale === 'string' && defaultLocale.trim()
+      ? defaultLocale
+      : undefined
+  } catch {
+    return undefined
+  }
+}
+
+// A plugin pushed from the config file can delete emitted locale assets, and
+// the browsers refuse a package whose default_locale folder is gone.
+export function validateDefaultLocaleEmitted(
+  compiler: Compiler,
+  compilation: Compilation,
+  manifestPath: string,
+  browser?: DevOptions['browser']
+): boolean {
+  if (compilation.errors.length > 0) return true
+
+  const projectRoot =
+    (compiler.options.context as string | undefined) || undefined
+  const defaultLocale = readDefaultLocale(manifestPath, browser)
+
+  if (!defaultLocale || !resolveLocalesFolder(manifestPath, projectRoot)) {
+    return true
+  }
+
+  if (compilation.getAsset(`_locales/${defaultLocale}/messages.json`)) {
+    return true
+  }
+
+  pushCompilationError(
+    compiler,
+    compilation,
+    'LocalesValidationError',
+    messages.defaultLocaleRemovedFromOutput(defaultLocale),
+    'manifest.json'
+  )
+
+  return false
+}
 
 export function validateLocales(
   compiler: Compiler,
@@ -64,7 +116,8 @@ export function validateLocales(
         const warning = new ErrorConstructor(
           messages.localesMustBeAtProjectRoot(
             resolvedLocalesRoot,
-            path.join(projectRoot, '_locales')
+            path.join(projectRoot, '_locales'),
+            projectRoot
           )
         )
         ;(warning as Error).name = 'LocalesLayoutWarning'
@@ -75,7 +128,7 @@ export function validateLocales(
     }
 
     if (isDebug()) {
-      console.log(
+      debugLine(
         messages.localesIncludeSummary(
           true,
           hasLocalesRoot,
@@ -87,7 +140,7 @@ export function validateLocales(
     if (typeof defaultLocale === 'string' && defaultLocale.trim()) {
       if (!hasLocalesRoot) {
         if (isDebug()) {
-          console.log(
+          debugLine(
             messages.localesValidationDetected(
               'default_locale set but _locales missing'
             )
@@ -109,7 +162,7 @@ export function validateLocales(
 
       if (!fs.existsSync(defaultLocaleDir)) {
         if (isDebug()) {
-          console.log(
+          debugLine(
             messages.localesValidationDetected(
               `missing _locales/${defaultLocale}`
             )
@@ -131,7 +184,7 @@ export function validateLocales(
 
       if (!fs.existsSync(messagesJsonPath)) {
         if (isDebug()) {
-          console.log(
+          debugLine(
             messages.localesValidationDetected(
               `missing _locales/${defaultLocale}/messages.json`
             )
@@ -158,7 +211,7 @@ export function validateLocales(
         defaultLocaleMessages = JSON.parse(stripBom(content))
       } catch {
         if (isDebug()) {
-          console.log(
+          debugLine(
             messages.localesValidationDetected(
               `invalid JSON in _locales/${defaultLocale}/messages.json`
             )
@@ -191,7 +244,7 @@ export function validateLocales(
 
         for (const key of referenced) {
           if (isDebug()) {
-            console.log(
+            debugLine(
               messages.localesValidationDetected(
                 `missing key "${key}" in default locale`
               )
@@ -210,7 +263,7 @@ export function validateLocales(
         }
       } catch (error) {
         if (isDebug()) {
-          console.log(
+          debugLine(
             messages.localesValidationDetected(
               `could not scan __MSG__ placeholders in _locales/${defaultLocale}/messages.json: ${String((error as Error)?.message || error)}`
             )
@@ -220,7 +273,7 @@ export function validateLocales(
     } else if (hasLocalesRoot) {
       // _locales present but no default_locale in manifest: browsers reject the extension
       if (isDebug()) {
-        console.log(
+        debugLine(
           messages.localesValidationDetected(
             '_locales present but no default_locale'
           )
@@ -239,7 +292,7 @@ export function validateLocales(
     }
   } catch (error) {
     if (isDebug()) {
-      console.log(
+      debugLine(
         messages.localesValidationDetected(
           `manifest.json could not be read for locale validation, deferring to manifest validation: ${String((error as Error)?.message || error)}`
         )
@@ -265,7 +318,7 @@ export function validateLocales(
             JSON.parse(stripBom(s))
           } catch {
             if (isDebug()) {
-              console.log(
+              debugLine(
                 messages.localesValidationDetected(`invalid JSON in ${msgPath}`)
               )
             }
@@ -285,7 +338,7 @@ export function validateLocales(
     }
   } catch (error) {
     if (isDebug()) {
-      console.log(
+      debugLine(
         messages.localesValidationDetected(
           `could not scan _locales for JSON validity: ${String((error as Error)?.message || error)}`
         )

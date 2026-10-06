@@ -9,7 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, sources, WebpackError} from '@rspack/core'
-import {isDebug} from '../../../lib/messaging'
+import {debugLine, isDebug} from '../../../lib/messaging'
 import type {Manifest} from '../../../types'
 import {
   getManifestContent,
@@ -513,48 +513,22 @@ export function generateManifestPatches(
     }
   }
 
-  // Last-resort fallback: expose emitted static assets under assets/ to the union of content_scripts matches
-  if (canonicalManifest.manifest_version === 3) {
-    const assetKeys: string[] = Object.keys(compilation.assets || {})
-    const staticAssets = assetKeys
-      .filter((k) => k.startsWith('assets/'))
-      .filter((k) => !k.endsWith('.js') && !k.endsWith('.map'))
-      .sort()
-
-    if (staticAssets.length > 0) {
-      const allMatches: string[] = Array.from(
-        new Set(
-          (canonicalManifest.content_scripts || []).flatMap(
-            (cs: {matches?: string[]}) => cs.matches || []
-          )
-        )
-      )
-      const normalizedMatches = cleanMatches(allMatches)
-      mergeIntoV3Group(
-        webAccessibleResourcesV3,
-        normalizedMatches,
-        staticAssets,
-        {createGroupWhenMissing: normalizedMatches.length > 0}
-      )
-    }
-  }
-
   // A content script's stylesheet reaches its own url() targets at runtime, so
   // every emitted file it names is exposed, whatever the extension. The font
   // rule below predates this and still covers fonts reached from JS.
-  if (canonicalManifest.manifest_version === 3) {
-    const cssKeys = Object.keys(compilation.assets || {}).filter(
-      (k) => k.startsWith('content_scripts/') && k.endsWith('.css')
-    )
-    const referenced = Array.from(
-      new Set(
-        cssKeys.flatMap((cssKey) =>
-          emittedFilesReferencedByCss(compilation, cssKey)
-        )
+  const contentSheetKeys = Object.keys(compilation.assets || {}).filter(
+    (k) => k.startsWith('content_scripts/') && k.endsWith('.css')
+  )
+  const contentSheetTargets = Array.from(
+    new Set(
+      contentSheetKeys.flatMap((cssKey) =>
+        emittedFilesReferencedByCss(compilation, cssKey)
       )
-    ).sort()
+    )
+  ).sort()
 
-    if (referenced.length > 0) {
+  if (canonicalManifest.manifest_version === 3) {
+    if (contentSheetTargets.length > 0) {
       const normalizedMatches = cleanMatches(
         Array.from(
           new Set(
@@ -569,8 +543,14 @@ export function generateManifestPatches(
         mergeIntoV3Group(
           webAccessibleResourcesV3,
           normalizedMatches,
-          referenced
+          contentSheetTargets
         )
+      }
+    }
+  } else if (canonicalManifest.manifest_version === 2) {
+    for (const resource of contentSheetTargets) {
+      if (!webAccessibleResourcesV2.includes(resource)) {
+        webAccessibleResourcesV2.push(resource)
       }
     }
   }
@@ -759,7 +739,7 @@ export function generateManifestPatches(
         canonicalManifest.manifest_version === 2
           ? webAccessibleResourcesV2.length
           : 0
-      console.log(warPatchedSummary(v3Groups, v3ResourcesTotal, v2Resources))
+      debugLine(warPatchedSummary(v3Groups, v3ResourcesTotal, v2Resources))
     } catch {
       // Ignore
     }

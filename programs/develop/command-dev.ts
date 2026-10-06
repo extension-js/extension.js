@@ -23,7 +23,7 @@ import {
   mergeOptionLayers
 } from './lib/merge-options'
 import * as messages from './lib/messages'
-import {isDebug} from './lib/messaging'
+import {debugLine, isDebug} from './lib/messaging'
 import {getDirs, normalizeBrowser} from './lib/paths'
 import {getProjectStructure} from './lib/project'
 import {resolveSafariIdentity} from './lib/safari-identity'
@@ -101,8 +101,8 @@ export async function extensionDev(
     const geckoBinary = devOptions.geckoBinary || devOptions.firefoxBinary
 
     if (debug) {
-      console.log(messages.debugDirs(manifestDir, packageJsonDir))
-      console.log(
+      debugLine(messages.debugDirs(manifestDir, packageJsonDir))
+      debugLine(
         messages.debugBrowser(browser, devOptions.chromiumBinary, geckoBinary)
       )
     }

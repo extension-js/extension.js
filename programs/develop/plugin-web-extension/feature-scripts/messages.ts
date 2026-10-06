@@ -88,7 +88,7 @@ export function injectedCompiledSourceLiteral(
 }
 
 const SPLIT_ENTRY_RECIPE_URL =
-  'https://extension.js.org/docs/features/rspack-configuration#share-a-module-between-entries'
+  'https://extension.js.org/docs/features/rspack-configuration?utm_source=cli#share-a-module-between-entries'
 
 // One loader per surface: the HTML tag, the background registration, the
 // content_scripts list or the injection call. Each names exactly one file.
@@ -258,6 +258,27 @@ export function staticImportDependencyMissing(
   lines.push(
     `Move the file to ${colors.blue(expectedPath)} or ${colors.blue('public/')} so it ships with the extension.`
   )
+
+  return lines.join('\n')
+}
+
+export function buildConstantNeverDefined(
+  file: string,
+  name: string,
+  entryName: string
+) {
+  const lines: string[] = []
+  lines.push(
+    `${file} reads ${name} as it loads, but nothing defines it, so ${entryName} throws "${name} is not defined" before it registers a listener.`
+  )
+
+  lines.push(`${colors.gray('FILE')} ${colors.underline(file)}`)
+  lines.push(`${colors.gray('CONSTANT')} ${colors.underline(name)}`)
+  lines.push(
+    `- Set it in extension.config.js: ${colors.blue(`define: {${name}: value}`)}, or ${colors.blue(`browser.<vendor>.define`)} for a value per browser.`
+  )
+
+  lines.push(`- Or declare it in the file before the first read.`)
 
   return lines.join('\n')
 }

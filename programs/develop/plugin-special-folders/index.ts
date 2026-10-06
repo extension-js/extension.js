@@ -9,7 +9,8 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, type Compiler, rspack} from '@rspack/core'
-import {isDebug} from '../lib/messaging'
+import {debugLine, isDebug} from '../lib/messaging'
+import {localeDirsWithoutMessages} from '../plugin-web-extension/feature-locales/get-locales'
 import type {SpecialFoldersConfig} from '../types'
 import {checkManifestInPublic} from './check-manifest-in-public'
 import {explainPublicOutputCollision} from './check-public-output-collision'
@@ -19,6 +20,7 @@ import {
   rememberSpecialFoldersConfig
 } from './folders-config'
 import * as messages from './messages'
+import {PruneRemovedPublicFiles} from './prune-removed-public-files'
 import {
   inspectPublicFolders,
   rememberPublicRoots
@@ -167,12 +169,16 @@ export class SpecialFoldersPlugin {
       // manifest; nested public/**/manifest.json is copied through. The glob
       // matches full paths, so a bare filename here would never exclude it.
       // A locale tree a file browser opened holds OS metadata files, and a
-      // store package is no place for them.
+      // store package is no place for them, nor for a locale folder that has
+      // no messages.json (the locales plugin names it in a warning).
       const publicLocales = path.join(publicDir, '_locales').replace(/\\/g, '/')
       const copyIgnore = [
         path.join(publicDir, 'manifest.json').replace(/\\/g, '/'),
         ...['.DS_Store', 'Thumbs.db', 'desktop.ini'].map(
           (name) => `${publicLocales}/**/${name}`
+        ),
+        ...localeDirsWithoutMessages(publicLocales).map(
+          (dir) => `${publicLocales}/${path.basename(dir)}/**`
         )
       ]
 
@@ -189,8 +195,12 @@ export class SpecialFoldersPlugin {
         ]
       }).apply(compiler)
 
+      if (watching && compiler.options.mode === 'development') {
+        new PruneRemovedPublicFiles(publicDir).apply(compiler)
+      }
+
       if (isDebug()) {
-        console.log(
+        debugLine(
           messages.specialFoldersSetupSummary(true, true, copyIgnore.length)
         )
       }

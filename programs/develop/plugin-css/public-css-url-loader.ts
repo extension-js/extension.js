@@ -13,6 +13,7 @@ import {
   resolvePublicFolder
 } from '../plugin-special-folders/resolve-public-folder'
 import {publicOwnedOutputName, replaceCssUrlRefs} from './css-lib/dead-url-refs'
+import {lineRewriteSourceMap} from './css-lib/line-rewrite-source-map'
 
 export const PUBLIC_ROOT_SCHEME = 'https://extensionjs-public.invalid'
 
@@ -25,6 +26,7 @@ interface PublicCssUrlLoaderContext {
   resourcePath?: string
   getOptions(): PublicCssUrlLoaderOptions
   addDependency?(file: string): void
+  callback(error: null, content: string, map?: unknown): void
 }
 
 function isFile(candidate: string): boolean {
@@ -82,31 +84,39 @@ export function keepPublicRootRefs(
   })
 }
 
-// The emitted sheet names the file by its path at the extension root.
-export function restorePublicRootRefs(source: string): string {
-  return source.split(PUBLIC_ROOT_SCHEME).join('')
-}
-
 export default function publicCssUrlLoader(
   this: PublicCssUrlLoaderContext,
-  source: string
-): string {
+  source: string,
+  map?: unknown
+): void {
   const {manifestPath, projectPath} = this.getOptions() || {}
-  if (!manifestPath || !projectPath) return source
+  let rewritten = source
 
-  try {
-    const publicRoot = publicContainmentRoot(manifestPath, projectPath)
-    const publicDir = resolvePublicFolder(manifestPath, projectPath)
+  if (manifestPath && projectPath) {
+    try {
+      const publicRoot = publicContainmentRoot(manifestPath, projectPath)
+      const publicDir = resolvePublicFolder(manifestPath, projectPath)
 
-    return keepPublicRootRefs(
-      source,
-      publicRoot,
-      publicDir && this.resourcePath
-        ? {issuerDir: path.dirname(this.resourcePath), publicDir}
-        : undefined
-    )
-  } catch {
-    // A reference rewrite must never break a build the browser would accept.
-    return source
+      rewritten = keepPublicRootRefs(
+        source,
+        publicRoot,
+        publicDir && this.resourcePath
+          ? {issuerDir: path.dirname(this.resourcePath), publicDir}
+          : undefined
+      )
+    } catch {
+      // A reference rewrite must never break a build the browser would accept.
+    }
   }
+
+  // The map a devtools panel reads must show the author's url(), not the
+  // placeholder host, so a rewrite with no map ahead of it makes its own.
+  this.callback(
+    null,
+    rewritten,
+    map ??
+      (rewritten === source
+        ? undefined
+        : lineRewriteSourceMap(source, rewritten, this.resourcePath || ''))
+  )
 }

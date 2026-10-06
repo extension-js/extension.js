@@ -181,11 +181,11 @@ describe('extension dev --output json', () => {
     expect(typeof frames()[0].hint).toBe('string')
   })
 
-  it('reports the remote-url refusal as E_ARGS', async () => {
+  it('reports the remote-url refusal as E_REMOTE_URL_UNSUPPORTED', async () => {
     runWaitMode.mockRejectedValueOnce(
       new WaitModeError(
         '--wait requires a local project path (remote URLs are not supported)',
-        CODES.E_ARGS
+        CODES.E_REMOTE_URL_UNSUPPORTED
       )
     )
 
@@ -197,7 +197,7 @@ describe('extension dev --output json', () => {
       ok: false,
       command: 'dev',
       status: 'usage',
-      error: {code: CODES.E_ARGS}
+      error: {code: CODES.E_REMOTE_URL_UNSUPPORTED}
     })
   })
 

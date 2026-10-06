@@ -17,10 +17,13 @@ function titleCase(value: string): string {
 
 export function installingBrowser(
   browser: InstallBrowserTarget,
-  destination: string
+  destination: string,
+  defaulted: boolean
 ): string {
+  const why = defaulted ? ', the default when no browser is named' : ''
+
   return (
-    `${prefix('info')} Installing ${colors.blue(titleCase(browser))}…\n` +
+    `${prefix('info')} Installing ${colors.blue(titleCase(browser))}${why}…\n` +
     `${fmt.label('PATH')} ${fmt.val(destination)}`
   )
 }

@@ -7,7 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import type {Compiler} from '@rspack/core'
-import {isDebug} from '../../lib/messaging'
+import {debugLine, isDebug} from '../../lib/messaging'
 import type {DevOptions, FilepathList, PluginInterface} from '../../types'
 import * as messages from './messages'
 import {AddDependencies} from './steps/add-dependencies'
@@ -35,7 +35,7 @@ export class ManifestPlugin {
 
   public apply(compiler: Compiler) {
     if (isDebug()) {
-      console.log(
+      debugLine(
         messages.manifestIncludeSummary(
           String(this.browser || 'chrome'),
           this.manifestPath

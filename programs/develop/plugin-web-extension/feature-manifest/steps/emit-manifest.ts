@@ -8,7 +8,7 @@
 
 import * as fs from 'node:fs'
 import rspack, {Compilation, type Compiler, sources} from '@rspack/core'
-import {isDebug} from '../../../lib/messaging'
+import {debugLine, isDebug} from '../../../lib/messaging'
 import {stripBom} from '../../../lib/parse-json-safe'
 import type {PluginInterface} from '../../../types'
 import {
@@ -65,7 +65,7 @@ export class EmitManifest {
             )
 
             if (isDebug()) {
-              console.log(messages.manifestEmitSuccess())
+              debugLine(messages.manifestEmitSuccess())
             }
           }
         )

@@ -6,6 +6,8 @@
 //  ╚═════╝╚══════╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import fs from 'node:fs'
+
 const MIN_NODE_MAJOR = 22
 const MIN_NODE_MINOR = 12
 
@@ -104,13 +106,71 @@ export function unsupportedNodeVersionMessage(version: string): string {
   )
 }
 
+function wantsJsonOutput(argv: string[]): boolean {
+  const inline = argv.find((arg) => arg.startsWith('--output='))
+  const index = argv.indexOf('--output')
+  const spaced = index >= 0 ? argv[index + 1] : undefined
+  const value = inline ? inline.slice('--output='.length) : spaced
+
+  return (
+    String(value || '')
+      .trim()
+      .toLowerCase() === 'json'
+  )
+}
+
+function commandFromArgv(argv: string[]): string {
+  for (let index = 2; index < argv.length; index += 1) {
+    if (argv[index] === '--output') index += 1
+    else if (!argv[index].startsWith('-')) return argv[index]
+  }
+
+  return 'extension'
+}
+
+// Built by hand because nothing may be imported before this check runs. The
+// shape is the schema-1 failure envelope every other early refusal writes.
+export function unsupportedNodeVersionFrame(
+  version: string,
+  argv: string[]
+): Record<string, unknown> | undefined {
+  if (!wantsJsonOutput(argv)) return undefined
+
+  return {
+    schema: 1,
+    ok: false,
+    command: commandFromArgv(argv),
+    status: 'usage',
+    value: null,
+    error: {
+      code: 'E_NODE_VERSION',
+      message: unsupportedNodeVersionMessage(version).replace(
+        '[Extension.js] ',
+        ''
+      ),
+      name: 'CliError'
+    },
+    warnings: []
+  }
+}
+
+function writeFrame(frame: Record<string, unknown>): void {
+  try {
+    fs.writeSync(1, `${JSON.stringify(frame)}\n`)
+  } catch {
+    // eslint-disable-next-line no-console
+    console.log(JSON.stringify(frame))
+  }
+}
+
 // Each runtime is judged on its own version. Bun and Deno both report an
 // emulated Node number that does not track their real capability: Bun 1.1.38
 // and Bun 1.2.0 both say Node 22.6.0, and only one of them works.
 export function enforceSupportedNodeVersion(
   version: string = process.versions.node,
   bunVersion: string | undefined = detectBunVersion(),
-  denoVersion: string | undefined = detectDenoVersion()
+  denoVersion: string | undefined = detectDenoVersion(),
+  argv: string[] = process.argv
 ): void {
   if (denoVersion) {
     if (isSupportedDenoVersion(denoVersion)) return
@@ -136,6 +196,10 @@ export function enforceSupportedNodeVersion(
 
   // eslint-disable-next-line no-console
   console.error(unsupportedNodeVersionMessage(version))
+
+  const frame = unsupportedNodeVersionFrame(version, argv)
+  if (frame) writeFrame(frame)
+
   process.exit(1)
 }
 

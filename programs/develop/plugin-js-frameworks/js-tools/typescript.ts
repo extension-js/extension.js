@@ -9,7 +9,8 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import colors from 'pintor'
-import {isDebug, prefix} from '../../lib/messaging'
+import {humanLine} from '../../dev-server/lifecycle-stream'
+import {debugLine, isDebug, prefix} from '../../lib/messaging'
 import type {DevOptions} from '../../types'
 import {isUsingJSFramework} from '../frameworks-lib/integrations'
 import {getJsxImportSource} from '../js-frameworks-lib/jsx-transform'
@@ -98,7 +99,7 @@ export function ensureTypeScriptConfig(projectPath: string): void {
   if (hasTsFiles || (hasDep && tsConfigFilePath)) {
     if (tsConfigFilePath) {
       if (!hasShownUserMessage && isDebug()) {
-        console.log(
+        debugLine(
           `${prefix('debug')} ${messages.isUsingIntegration('TypeScript')}`
         )
       }
@@ -107,7 +108,7 @@ export function ensureTypeScriptConfig(projectPath: string): void {
       // (19 of 5,187 swept repos). Scaffold the same default tsconfig the
       // declared-dep path writes instead of refusing the build.
       if (!hasShownUserMessage) {
-        console.log(messages.creatingTSConfig())
+        humanLine(messages.creatingTSConfig())
       }
 
       writeTsConfig(projectPath)

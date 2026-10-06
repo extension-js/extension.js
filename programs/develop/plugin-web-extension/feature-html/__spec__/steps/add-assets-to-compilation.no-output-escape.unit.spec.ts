@@ -101,7 +101,11 @@ describe('AddAssetsToCompilation (no output-dir escape)', () => {
         expect(name.split('/')).not.toContain('..')
       }
 
-      expect(emittedAssetNames).toContain('assets/icon16.png')
+      expect(emittedAssetNames).toContainEqual(
+        expect.stringMatching(/^assets\/icon16\.[0-9a-f]{8}\.png$/)
+      )
+
+      expect(emittedAssetNames).not.toContain('assets/icon16.png')
     } finally {
       fs.rmSync(tmpDirectoryPath, {recursive: true, force: true})
     }

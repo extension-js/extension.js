@@ -9,7 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {pathToFileURL} from 'node:url'
-import {isDebug} from '../../lib/messaging'
+import {debugLine, isDebug} from '../../lib/messaging'
 import type {AnyModule} from '../../lib/optional-deps-resolver'
 import * as messages from './messages'
 
@@ -61,7 +61,7 @@ export async function loadLoaderOptions(
   if (configPath) {
     if (!userMessageDelivered && isDebug()) {
       const display = path.basename(configPath)
-      console.log(messages.isUsingCustomLoader(display))
+      debugLine(messages.isUsingCustomLoader(display))
       userMessageDelivered = true
     }
 

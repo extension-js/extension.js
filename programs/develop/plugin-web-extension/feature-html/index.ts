@@ -11,6 +11,7 @@ import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
 import {resolveDevelopDistFile} from '../../lib/develop-context'
 import {filterKeysForThisBrowser} from '../../lib/manifest-utils'
+import {debugLine} from '../../lib/messaging'
 import {parseJsonSafe} from '../../lib/parse-json-safe'
 import {toResourceKey} from '../../lib/resource-path'
 import {NOT_RAW_RESOURCE_QUERY} from '../../lib/resource-query'
@@ -135,7 +136,7 @@ export class HtmlPlugin {
           if (!issuer) return true
 
           if (debugHtmlHmr) {
-            console.log(`[extjs:html-hmr] skip child issuer=${issuer}`)
+            debugLine(`[extjs:html-hmr] skip child issuer=${issuer}`)
           }
 
           return false

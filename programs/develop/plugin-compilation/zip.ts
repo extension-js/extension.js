@@ -13,7 +13,7 @@ import {type Zippable, zipSync} from 'fflate'
 import ignore from 'ignore'
 import glob from 'tiny-glob'
 import * as messages from '../lib/messages'
-import {isDebug} from '../lib/messaging'
+import {debugLine, isDebug} from '../lib/messaging'
 import {parseJsonSafe} from '../lib/parse-json-safe'
 import {REMOTE_SOURCE_PROVENANCE_FILE} from '../lib/zip'
 import type {DevOptions} from '../types'
@@ -440,7 +440,7 @@ export class ZipPlugin {
             }
 
             if (isDebug()) {
-              console.log(messages.packagingSourceFiles(sourcePath))
+              debugLine(messages.packagingSourceFiles(sourcePath))
             }
 
             writeZipFile(
@@ -464,7 +464,7 @@ export class ZipPlugin {
         if (this.zipData.zip) {
           try {
             if (isDebug()) {
-              console.log(messages.packagingDistributionFiles(distPath))
+              debugLine(messages.packagingDistributionFiles(distPath))
             }
 
             writeZipFile(
@@ -510,7 +510,7 @@ export class ZipPlugin {
           const distItem = created.find((c) => c.kind === 'dist')
 
           if (sourceItem && distItem) {
-            console.log(
+            debugLine(
               messages.treeWithSourceAndDistFiles(
                 this.browser,
                 name,
@@ -519,7 +519,7 @@ export class ZipPlugin {
               )
             )
           } else if (sourceItem) {
-            console.log(
+            debugLine(
               messages.treeWithSourceFiles(
                 name,
                 'zip',
@@ -528,7 +528,7 @@ export class ZipPlugin {
               )
             )
           } else if (distItem) {
-            console.log(
+            debugLine(
               messages.treeWithDistFilesBrowser(
                 name,
                 'zip',

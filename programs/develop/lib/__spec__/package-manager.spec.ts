@@ -455,6 +455,93 @@ describe('package-manager execInstallCommand', () => {
   })
 })
 
+describe('package-manager execInstallCommand Corepack registry', () => {
+  const REGISTRY_NAMES = ['npm_config_registry', 'corepack_npm_registry']
+  const tmpRoots: string[] = []
+  let saved: Record<string, string | undefined> = {}
+
+  beforeEach(() => {
+    spawnMock.mockClear()
+    saved = {}
+
+    for (const key of Object.keys(process.env)) {
+      if (REGISTRY_NAMES.includes(key.toLowerCase())) {
+        saved[key] = process.env[key]
+        delete process.env[key]
+      }
+    }
+  })
+
+  afterEach(() => {
+    for (const key of Object.keys(process.env)) {
+      if (REGISTRY_NAMES.includes(key.toLowerCase())) delete process.env[key]
+    }
+
+    Object.assign(process.env, saved)
+
+    for (const dir of tmpRoots.splice(0)) {
+      fs.rmSync(dir, {recursive: true, force: true})
+    }
+  })
+
+  function pinnedProject(npmrc: string | null): string {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-corepack-pin-'))
+    tmpRoots.push(dir)
+    fs.writeFileSync(
+      path.join(dir, 'package.json'),
+      '{"name":"pinned","packageManager":"pnpm@9.9.9"}\n'
+    )
+
+    if (npmrc !== null) fs.writeFileSync(path.join(dir, '.npmrc'), npmrc)
+
+    return dir
+  }
+
+  function spawnedEnv(): Record<string, string | undefined> {
+    return (spawnMock.mock.calls as any)[0][2].env
+  }
+
+  it('points Corepack at the registry the project .npmrc pins', async () => {
+    const cwd = pinnedProject('registry=http://127.0.0.1:4878/\n')
+
+    await execInstallCommand('pnpm', ['install'], {cwd})
+
+    expect(spawnedEnv().COREPACK_NPM_REGISTRY).toBe('http://127.0.0.1:4878')
+  })
+
+  it('points Corepack at a registry exported in the environment', async () => {
+    process.env.npm_config_registry = 'http://127.0.0.1:4879/'
+
+    await execInstallCommand('pnpm', ['install'], {cwd: pinnedProject(null)})
+
+    expect(spawnedEnv().COREPACK_NPM_REGISTRY).toBe('http://127.0.0.1:4879')
+  })
+
+  it('keeps the Corepack registry the user exported', async () => {
+    process.env.COREPACK_NPM_REGISTRY = 'http://127.0.0.1:4880'
+
+    await execInstallCommand('pnpm', ['install'], {
+      cwd: pinnedProject('registry=http://127.0.0.1:4878/\n')
+    })
+
+    expect(spawnedEnv().COREPACK_NPM_REGISTRY).toBe('http://127.0.0.1:4880')
+  })
+
+  it('lets the caller env win and sets nothing for an unpinned project', async () => {
+    await execInstallCommand('pnpm', ['install'], {
+      cwd: pinnedProject('registry=http://127.0.0.1:4878/\n'),
+      env: {COREPACK_NPM_REGISTRY: 'http://127.0.0.1:4881'}
+    })
+
+    expect(spawnedEnv().COREPACK_NPM_REGISTRY).toBe('http://127.0.0.1:4881')
+
+    spawnMock.mockClear()
+    await execInstallCommand('pnpm', ['install'], {cwd: pinnedProject(null)})
+
+    expect(spawnedEnv()).not.toHaveProperty('COREPACK_NPM_REGISTRY')
+  })
+})
+
 describe('installScriptSuppression: auto-install must not run wild lifecycle scripts', () => {
   afterEach(() => {
     delete process.env.EXTENSION_ALLOW_INSTALL_SCRIPTS

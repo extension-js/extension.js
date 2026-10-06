@@ -27,3 +27,19 @@ export function readyContractErrorCode(code: unknown): ErrorCode | undefined {
 
   return READY_CONTRACT_CODES[code.trim().toLowerCase()]
 }
+
+// The launcher stamps the code it refused with beside the generic id, and a
+// code the table declares outranks the id's own family code.
+export function stampedLaunchFailureCode(ready: {
+  code?: unknown
+  browserLaunchFailedCode?: unknown
+}): ErrorCode | undefined {
+  if (ready.code !== 'browser_launch_failed') return undefined
+
+  const code = ready.browserLaunchFailedCode
+
+  return typeof code === 'string' &&
+    Object.prototype.hasOwnProperty.call(CODES, code)
+    ? (code as ErrorCode)
+    : undefined
+}

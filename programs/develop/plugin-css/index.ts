@@ -16,7 +16,7 @@ import {
   WebpackError
 } from '@rspack/core'
 import {hasDependency} from '../lib/has-dependency'
-import {isDebug} from '../lib/messaging'
+import {debugLine, isDebug} from '../lib/messaging'
 import {publicContainmentRoot} from '../plugin-special-folders/resolve-public-folder'
 import type {DevOptions, PluginInterface} from '../types'
 import {cssInContentScriptLoader} from './css-in-content-script-loader'
@@ -31,10 +31,7 @@ import {maybeUseLess} from './css-tools/less'
 import {findPostCssConfig} from './css-tools/postcss'
 import {maybeUseSass} from './css-tools/sass'
 import {getTailwindConfigFile} from './css-tools/tailwind'
-import {
-  PUBLIC_ROOT_SCHEME,
-  restorePublicRootRefs as restorePublicRootRefsInSource
-} from './public-css-url-loader'
+import {PUBLIC_ROOT_SCHEME} from './public-css-url-loader'
 
 export {injectCssLink} from './css-lib/inject-css-link'
 export type {CssAssetResult} from './css-lib/resolve-css-asset'
@@ -115,13 +112,13 @@ export class CssPlugin {
       if (usingLess) integrations.push('Less')
       if (usingTailwind) integrations.push('Tailwind')
 
-      console.log(messages.cssIntegrationsEnabled(integrations))
+      debugLine(messages.cssIntegrationsEnabled(integrations))
 
       const postcssConfig = findPostCssConfig(projectPath)
       const tailwindConfig = getTailwindConfigFile(projectPath)
       const browserslistSource = findBrowserslistSource(projectPath)
 
-      console.log(
+      debugLine(
         messages.cssConfigsDetected(
           postcssConfig,
           tailwindConfig,
@@ -210,12 +207,18 @@ export class CssPlugin {
             if (!/\.(css|js)$/.test(asset.name)) continue
 
             const before = asset.source.source().toString()
-            if (!before.includes(PUBLIC_ROOT_SCHEME)) continue
+            let at = before.indexOf(PUBLIC_ROOT_SCHEME)
+            if (at === -1) continue
 
-            c.updateAsset(
-              asset.name,
-              new sources.RawSource(restorePublicRootRefsInSource(before))
-            )
+            // Cut in place, so the sheet keeps the source map it came with.
+            const restored = new sources.ReplaceSource(asset.source)
+
+            while (at !== -1) {
+              restored.replace(at, at + PUBLIC_ROOT_SCHEME.length - 1, '')
+              at = before.indexOf(PUBLIC_ROOT_SCHEME, at + 1)
+            }
+
+            c.updateAsset(asset.name, restored)
           }
         }
       )
