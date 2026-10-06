@@ -298,8 +298,9 @@ after it shipped keeps a row under `folded` that points at the code the same pat
 so a consumer that still lists the old name resolves it.
 
 A row marked `reserved` in `codes.json` is a code the table declares and the CLI does not emit
-today, so no envelope carries it yet. The contract spec fails when a code is neither emitted by
-the source nor marked, and when a marked code gains an emit site, so the marker cannot go stale.
+today, so no envelope carries it yet, and its `reason` says what keeps it off the wire. The
+contract spec fails when a code is neither emitted by the source nor marked, when a marked code
+gains an emit site, and when a reserved row has no reason, so the marker cannot go stale.
 
 `--output json` is arriving command by command. The envelope shape above is the target for all
 of them, and new code follows it.

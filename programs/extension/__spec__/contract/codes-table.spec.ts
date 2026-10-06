@@ -20,6 +20,7 @@ interface CodeEntry {
   summary: string
   warn?: boolean
   reserved?: boolean
+  reason?: string
 }
 
 interface CodesTable {
@@ -195,6 +196,21 @@ describe('the error-code table', () => {
       expect(entry.summary, `${code} has no summary`).toBeTruthy()
       if ('warn' in entry) expect(entry.warn).toBe(true)
       if ('reserved' in entry) expect(entry.reserved).toBe(true)
+    }
+  })
+
+  // A reader of a reserved row learns what keeps the code off the wire, and
+  // an emitted row carries no excuse.
+  it('gives every reserved code a reason and no other code one', () => {
+    for (const [code, entry] of Object.entries(table.codes)) {
+      if (entry.reserved) {
+        expect(entry.reason, `${code} is reserved with no reason`).toMatch(/\S/)
+      } else {
+        expect(
+          entry,
+          `${code} is emitted yet carries a reason`
+        ).not.toHaveProperty('reason')
+      }
     }
   })
 

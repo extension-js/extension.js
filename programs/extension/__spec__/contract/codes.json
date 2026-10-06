@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "note": "The durable error-code table for the schema-1 envelope. Codes may be added, never renamed. A code retired after it shipped keeps a 'folded' row pointing at the code the same path reports now, so a consumer that still lists the name resolves it. One code per operator-distinguishable failure family; the envelope's command field carries the which-command context. 'folded' records finer inventory names that map onto a shipped family code. 'legacy' maps the three pre-envelope conventions (snake_case ready.json codes, PascalCase error names, kebab-case doctor check ids) onto the table; a ready.json id that lists several codes resolves to the first unless the contract's browserLaunchFailedCode names another from the list. A row marked 'reserved' names a failure the CLI does not report under that code today, so no envelope carries it yet and a consumer need not handle it.",
+  "note": "The durable error-code table for the schema-1 envelope. Codes may be added, never renamed. A code retired after it shipped keeps a 'folded' row pointing at the code the same path reports now, so a consumer that still lists the name resolves it. One code per operator-distinguishable failure family; the envelope's command field carries the which-command context. 'folded' records finer inventory names that map onto a shipped family code. 'legacy' maps the three pre-envelope conventions (snake_case ready.json codes, PascalCase error names, kebab-case doctor check ids) onto the table; a ready.json id that lists several codes resolves to the first unless the contract's browserLaunchFailedCode names another from the list. A row marked 'reserved' names a failure the CLI does not report under that code today, so no envelope carries it yet and a consumer need not handle it; its 'reason' says what keeps it reserved.",
   "codes": {
     "E_ARGS": {
       "area": "usage",
@@ -61,7 +61,8 @@
     "E_MANAGED_DEP_CONFLICT": {
       "area": "project",
       "summary": "The project declares a package the toolchain manages.",
-      "reserved": true
+      "reserved": true,
+      "reason": "a warning the run continues past"
     },
     "E_DEPENDENCY_INSTALL": {
       "area": "project",
@@ -70,7 +71,8 @@
     "E_TYPES_EMIT": {
       "area": "project",
       "summary": "Writing extension-env.d.ts failed.",
-      "reserved": true
+      "reserved": true,
+      "reason": "a warning the run continues past"
     },
     "E_OPTIONAL_DEP_UNRESOLVED": {
       "area": "project",
@@ -119,89 +121,105 @@
     "E_MODULE_NOT_FOUND": {
       "area": "compile",
       "summary": "A module specifier could not be resolved.",
-      "reserved": true
+      "reserved": true,
+      "reason": "needs a per-diagnostic frame"
     },
     "E_ENTRY_NOT_FOUND": {
       "area": "compile",
       "summary": "A manifest, HTML, or JSON entry points at a missing file.",
       "warn": true,
-      "reserved": true
+      "reserved": true,
+      "reason": "needs a per-diagnostic frame"
     },
     "E_ASSET_MISSING": {
       "area": "compile",
       "summary": "An icon, static asset, or JSON dependency is missing.",
       "warn": true,
-      "reserved": true
+      "reserved": true,
+      "reason": "needs a per-diagnostic frame"
     },
     "E_SCRIPT_DEP_MISSING": {
       "area": "compile",
       "summary": "A runtime script dependency could not be traced.",
       "warn": true,
-      "reserved": true
+      "reserved": true,
+      "reason": "needs a per-diagnostic frame"
     },
     "E_RESERVED_FOLDER": {
       "area": "compile",
       "summary": "A reserved scripts/ folder shape was violated.",
-      "reserved": true
+      "reserved": true,
+      "reason": "needs a per-diagnostic frame"
     },
     "E_CSS_PARSE": {
       "area": "compile",
       "summary": "A stylesheet failed to parse.",
-      "reserved": true
+      "reserved": true,
+      "reason": "needs a per-diagnostic frame"
     },
     "E_CSS_PREPROCESSOR_MISSING": {
       "area": "compile",
       "summary": "A CSS preprocessor is requested but not resolvable.",
       "warn": true,
-      "reserved": true
+      "reserved": true,
+      "reason": "needs a per-diagnostic frame"
     },
     "E_CSS_DEAD_REF": {
       "area": "compile",
       "summary": "A CSS url() points at nothing.",
       "warn": true,
-      "reserved": true
+      "reserved": true,
+      "reason": "needs a per-diagnostic frame"
     },
     "E_POLYFILL_NOT_FOUND": {
       "area": "compile",
       "summary": "webextension-polyfill requested but absent.",
-      "reserved": true
+      "reserved": true,
+      "reason": "a warning the run continues past"
     },
     "E_LOCALES_LAYOUT": {
       "area": "compile",
       "summary": "_locales layout or messages.json is invalid.",
-      "reserved": true
+      "reserved": true,
+      "reason": "needs a per-diagnostic frame"
     },
     "E_WAR_INVALID": {
       "area": "compile",
       "summary": "web_accessible_resources shape or match pattern rejected.",
-      "reserved": true
+      "reserved": true,
+      "reason": "needs a per-diagnostic frame"
     },
     "E_BACKGROUND_REQUIRED": {
       "area": "compile",
       "summary": "The reload runtime needs a background chunk that is absent.",
-      "reserved": true
+      "reserved": true,
+      "reason": "needs a per-diagnostic frame"
     },
     "E_CONTENT_SCRIPT_SYNTAX": {
       "area": "compile",
       "summary": "A content script failed to parse.",
-      "reserved": true
+      "reserved": true,
+      "reason": "needs a per-diagnostic frame"
     },
     "E_NO_ENTRYPOINTS": {
       "area": "compile",
       "summary": "The compilation produced zero entrypoints.",
-      "reserved": true
+      "reserved": true,
+      "reason": "a warning the run continues past"
     },
     "E_REMOTE_RESOURCE_BLOCKED": {
       "area": "compile",
       "summary": "A remote script or stylesheet is blocked by extension CSP.",
       "warn": true,
-      "reserved": true
+      "reserved": true,
+      "reason": "needs a per-diagnostic frame"
     },
     "E_PERF_BUDGET": {
       "area": "compile",
       "summary": "An asset exceeds its size budget.",
       "warn": true,
-      "reserved": true
+      "reserved": true,
+      "reason": "needs a per-diagnostic frame"
     },
     "E_ZIP_SKIPPED": {
       "area": "compile",
@@ -212,7 +230,8 @@
       "area": "compile",
       "summary": "No .env file matched the mode.",
       "warn": true,
-      "reserved": true
+      "reserved": true,
+      "reason": "needs a per-diagnostic frame"
     },
     "E_REMOTE_FETCH_TIMEOUT": {
       "area": "remote",
@@ -269,7 +288,8 @@
     "E_LAUNCH_SKIPPED_COMPILE_ERRORS": {
       "area": "browser-binary",
       "summary": "Launch was withheld because the compile failed.",
-      "reserved": true
+      "reserved": true,
+      "reason": "a warning the run continues past"
     },
     "E_INSTANCE_AMBIGUOUS": {
       "area": "browser-binary",
@@ -311,22 +331,26 @@
     "E_CDP_NOT_CONNECTED": {
       "area": "debug-protocol",
       "summary": "An operation was issued with no live CDP transport.",
-      "reserved": true
+      "reserved": true,
+      "reason": "the Chromium launch reports ready past a CDP fault"
     },
     "E_CDP_TIMEOUT": {
       "area": "debug-protocol",
       "summary": "A CDP command or load event timed out.",
-      "reserved": true
+      "reserved": true,
+      "reason": "the Chromium launch reports ready past a CDP fault"
     },
     "E_CDP_OP_FAILED": {
       "area": "debug-protocol",
       "summary": "An extension operation over CDP failed.",
-      "reserved": true
+      "reserved": true,
+      "reason": "the Chromium launch reports ready past a CDP fault"
     },
     "E_EXTENSION_ID_UNKNOWN": {
       "area": "debug-protocol",
       "summary": "The extension id could not be determined over CDP.",
-      "reserved": true
+      "reserved": true,
+      "reason": "the Chromium launch reports ready past a CDP fault"
     },
     "E_RDP_PROTOCOL": {
       "area": "debug-protocol",
