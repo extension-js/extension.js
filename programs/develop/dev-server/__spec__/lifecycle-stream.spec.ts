@@ -18,7 +18,7 @@ type Frame = {
   command: string
   status: string
   value: Record<string, unknown> | null
-  error: {code: string; message: string} | null
+  error: {code: string; message: string; details?: unknown[]} | null
   warnings: string[]
   truncated?: boolean
 }
@@ -61,6 +61,7 @@ function fakeStats(options: {
   entrypoints?: number
   durationMs?: number
   text?: string
+  issues?: unknown[]
 }) {
   const assets = Array.from({length: options.assets ?? 0}, (_, i) => ({
     name: `asset-${i}.js`
@@ -78,7 +79,10 @@ function fakeStats(options: {
     compilation: {
       startTime: 0,
       endTime: options.durationMs ?? 0,
-      getAssets: () => assets
+      getAssets: () => assets,
+      errors: options.issues ?? [],
+      warnings: [],
+      compiler: {context: '/proj'}
     }
   }
 }
@@ -562,6 +566,66 @@ describe('lifecycle stream transitions', () => {
 
     expect(frames[1].error?.code).toBe('E_FIRST_COMPILE')
     expect(frames[1].value?.output).toContain('ERROR in ./src/missing.js')
+    expect(frames[1].error).not.toHaveProperty('details')
+  })
+
+  it('lists each compiler diagnostic behind a failed compile as details', () => {
+    const {stream, lines} = makeStream()
+    const compiler = fakeCompiler()
+    attachLifecycleStream(compiler as never, stream)
+    compiler.taps.done(
+      fakeStats({
+        errors: true,
+        text: 'ERROR in ./src/missing.js',
+        issues: [
+          Object.assign(new Error("  × Module not found: Can't resolve"), {
+            module: {resource: '/proj/src/missing.js'},
+            loc: {start: {line: 3, column: 8}}
+          }),
+          Object.assign(new Error('bad pattern'), {
+            name: 'WARInvalidMatchPattern',
+            file: 'manifest.json'
+          })
+        ]
+      })
+    )
+
+    const [frame] = parseFrames(lines)
+    expect(frame.status).toBe('compile-failed')
+    expect(frame.value?.output).toContain('ERROR in ./src/missing.js')
+    expect(frame.truncated).toBeUndefined()
+    expect(frame.error?.details).toEqual([
+      {
+        message: "Module not found: Can't resolve",
+        file: 'src/missing.js',
+        line: 3,
+        column: 8,
+        severity: 'error'
+      },
+      {
+        message: 'bad pattern',
+        file: 'manifest.json',
+        severity: 'error',
+        name: 'WARInvalidMatchPattern'
+      }
+    ])
+  })
+
+  it('caps the details list and says so with truncated', () => {
+    const {stream, lines} = makeStream()
+    const compiler = fakeCompiler()
+    attachLifecycleStream(compiler as never, stream)
+    compiler.taps.done(
+      fakeStats({
+        errors: true,
+        text: 'many',
+        issues: Array.from({length: 25}, (_, i) => new Error(`issue ${i}`))
+      })
+    )
+
+    const [frame] = parseFrames(lines)
+    expect(frame.truncated).toBe(true)
+    expect(frame.error?.details).toHaveLength(20)
   })
 
   it('reports a fatal compiler failure as a compile-failed frame', () => {

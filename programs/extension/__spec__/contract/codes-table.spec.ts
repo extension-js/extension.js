@@ -172,6 +172,38 @@ function validateEnvelope(frame: Record<string, unknown>): string[] {
         problems.push(`error.${key} must be a string`)
       }
     }
+
+    if ('details' in error) {
+      const details = error.details as unknown
+
+      if (!Array.isArray(details)) {
+        problems.push('error.details must be an array')
+      } else {
+        details.forEach((detail: Record<string, unknown>, index) => {
+          if (typeof detail?.message !== 'string') {
+            problems.push(`error.details[${index}].message must be a string`)
+          }
+
+          if (detail?.severity !== 'error' && detail?.severity !== 'warning') {
+            problems.push(
+              `error.details[${index}].severity must be error or warning`
+            )
+          }
+
+          if ('code' in detail && !/^E_[A-Z0-9_]+$/.test(String(detail.code))) {
+            problems.push(
+              `error.details[${index}].code is not an E_ identifier`
+            )
+          }
+
+          for (const key of ['line', 'column']) {
+            if (key in detail && !Number.isInteger(detail[key])) {
+              problems.push(`error.details[${index}].${key} must be an integer`)
+            }
+          }
+        })
+      }
+    }
   }
 
   if (frame.ok === true && frame.error !== null) {

@@ -406,6 +406,18 @@ export interface EnvelopeErrorRefs {
   version?: string
 }
 
+// One compiler diagnostic behind a failed compile, so a consumer reads each
+// cause with its own code and place instead of parsing the output blob.
+export interface Diagnostic {
+  code?: ErrorCode
+  message: string
+  file?: string
+  line?: number
+  column?: number
+  severity: 'error' | 'warning'
+  name?: string
+}
+
 // name and engine exist so the act frame stays a subset of this shape: the MCP
 // reads frame.error.message and frame.error.hint today and must keep working.
 export interface EnvelopeError {
@@ -415,6 +427,7 @@ export interface EnvelopeError {
   engine?: string
   hint?: string
   refs?: EnvelopeErrorRefs
+  details?: Diagnostic[]
 }
 
 export interface Envelope<T = unknown> {

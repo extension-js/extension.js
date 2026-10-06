@@ -6,8 +6,23 @@
   "value": null,
   "error": {
     "code": "E_COMPILE",
-    "message": "Build failed with 2 errors."
+    "message": "Build failed with errors",
+    "details": [
+      {
+        "message": "Module build failed (from builtin:swc-loader):\n  ╰─▶   × Syntax Error: Expression expected\n          ╭─[82:15]\n       80 │   return unmount;\n       81 │ }\n       82 │ const broken = ;\n          ·                ─\n       83 │\n       84 │ try { __EXTENSIONJS_scheduleBundleCssHydration() } catch (error) {\n          ╰────",
+        "file": "content/scripts.js",
+        "severity": "error",
+        "name": "ModuleBuildError"
+      },
+      {
+        "message": "Module not found: Can't resolve './missing' in '/home/dev/my-extension'\n   ╭─[1:0]\n 1 │ import './missing';\n   · ───────────────────\n 2 │ console.log('x');\n   ╰────",
+        "file": "background.js",
+        "line": 1,
+        "column": 1,
+        "severity": "error"
+      }
+    ]
   },
-  "hint": "Fix the error above and run build again.",
-  "warnings": []
+  "warnings": [],
+  "hint": "Fix the error above and run build again."
 }

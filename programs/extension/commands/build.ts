@@ -17,7 +17,12 @@ import {resolveConfigBrowser} from '../helpers/config-browser'
 import {loadExtensionDevelopModule} from '../helpers/extension-develop-runtime'
 import * as messages from '../helpers/messages'
 import {commandDescriptions} from '../helpers/messages'
-import {CODES, ENVELOPE, type ErrorCode} from '../helpers/messaging'
+import {
+  CODES,
+  type Diagnostic,
+  ENVELOPE,
+  type ErrorCode
+} from '../helpers/messaging'
 import {parseExtensionsList} from '../helpers/normalize-options'
 import {isJsonOutput} from '../helpers/output-flag'
 import {checkProjectCliVersion} from '../helpers/project-cli-version'
@@ -390,6 +395,13 @@ export function registerBuildCommand(program: Command) {
           } catch (error) {
             if (!asJson) throw error
 
+            // The engine lists each diagnostic behind the failure on the
+            // error it rejects with, and the frame carries them as details.
+            const {diagnostics, truncated} = (error ?? {}) as {
+              diagnostics?: Diagnostic[]
+              truncated?: boolean
+            }
+
             // eslint-disable-next-line no-console
             console.log(
               JSON.stringify(
@@ -399,9 +411,15 @@ export function registerBuildCommand(program: Command) {
                   {
                     code: declaredErrorCode(error) ?? CODES.E_COMPILE,
                     message:
-                      error instanceof Error ? error.message : String(error)
+                      error instanceof Error ? error.message : String(error),
+                    ...(Array.isArray(diagnostics) && diagnostics.length > 0
+                      ? {details: diagnostics}
+                      : {})
                   },
-                  {hint: `Fix the error above and run build again.`}
+                  {
+                    hint: `Fix the error above and run build again.`,
+                    truncated: truncated === true
+                  }
                 )
               )
             )
