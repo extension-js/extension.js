@@ -1453,7 +1453,7 @@ function customManifestFileReferences(
 
 // Extract string-literal getURL arguments. Matching on `runtime.getURL(`
 // keeps user-defined getURL functions out while surviving minification.
-function extractGetURLLiterals(source: string): string[] {
+export function extractGetURLLiterals(source: string): string[] {
   const code = blankComments(source)
   const literals: string[] = []
   const callRe = /\bruntime\s*\.\s*getURL\s*\(/g
