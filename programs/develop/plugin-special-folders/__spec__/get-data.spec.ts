@@ -320,13 +320,16 @@ describe('getSpecialFoldersDataForCompiler', () => {
 })
 
 describe('scripts/ entries the package.json scripts run', () => {
-  function tooling(manifest: Record<string, unknown> = {manifest_version: 3}) {
+  function tooling(
+    manifest: Record<string, unknown> = {manifest_version: 3},
+    helperName = 'replace_browser'
+  ) {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-tooling-'))
     tempDirs.push(dir)
     const scriptsDir = path.join(dir, 'scripts')
     fs.mkdirSync(scriptsDir, {recursive: true})
 
-    const helper = path.join(scriptsDir, 'replace_browser.js')
+    const helper = path.join(scriptsDir, `${helperName}.js`)
     const orphan = path.join(scriptsDir, 'forgotten.js')
     fs.writeFileSync(helper, "console.log('helper')\n", 'utf8')
     fs.writeFileSync(orphan, "console.log('orphan')\n", 'utf8')
@@ -334,7 +337,7 @@ describe('scripts/ entries the package.json scripts run', () => {
       path.join(dir, 'package.json'),
       JSON.stringify({
         name: 'tooling',
-        scripts: {'build:firefox': 'node scripts/replace_browser.js firefox'}
+        scripts: {'build:firefox': `node scripts/${helperName}.js firefox`}
       }),
       'utf8'
     )
@@ -348,7 +351,7 @@ describe('scripts/ entries the package.json scripts run', () => {
     getSpecialFoldersDataMock.mockReturnValue({
       pages: {},
       scripts: {
-        'scripts/replace_browser': [helper],
+        [`scripts/${helperName}`]: [helper],
         'scripts/forgotten': [orphan]
       },
       public: {}
@@ -395,6 +398,32 @@ describe('scripts/ entries the package.json scripts run', () => {
     expect(printed).toContain('scripts/replace_browser.js')
     expect(printed).toContain('package.json script')
     expect(printed).not.toContain('scripts/forgotten.js')
+    log.mockRestore()
+  })
+
+  it('prints the debug line once however many times a build scans the folder', () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const previous = process.env.EXTENSION_DEBUG
+    process.env.EXTENSION_DEBUG = 'true'
+    const {dir} = tooling({manifest_version: 3}, 'bump_version')
+
+    try {
+      const compiler = {options: {context: dir}} as any
+      getSpecialFoldersDataForCompiler(compiler)
+      getSpecialFoldersDataForCompiler(compiler)
+      getSpecialFoldersDataForCompiler(compiler)
+    } finally {
+      if (previous === undefined) {
+        Reflect.deleteProperty(process.env, 'EXTENSION_DEBUG')
+      } else {
+        process.env.EXTENSION_DEBUG = previous
+      }
+    }
+
+    const mentions = log.mock.calls.filter((call) =>
+      String(call[0]).includes('scripts/bump_version.js')
+    )
+    expect(mentions).toHaveLength(1)
     log.mockRestore()
   })
 

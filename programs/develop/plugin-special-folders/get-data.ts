@@ -320,6 +320,10 @@ function packageScriptsText(projectRoot: string): string {
   }
 }
 
+// The scan runs several times per compilation, so a set already named in
+// this process stays quiet until the set itself changes.
+const reportedDroppedScripts = new Set<string>()
+
 function filterPackageToolingScripts(
   list: FilepathList | undefined,
   projectRoot: string
@@ -382,7 +386,12 @@ function filterPackageToolingScripts(
   }
 
   if (dropped.length > 0 && isDebug()) {
-    console.log(messages.packageScriptLeftOut(dropped))
+    const signature = dropped.slice().sort().join('|')
+
+    if (!reportedDroppedScripts.has(signature)) {
+      reportedDroppedScripts.add(signature)
+      console.log(messages.packageScriptLeftOut(dropped))
+    }
   }
 
   return next
