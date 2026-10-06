@@ -12,6 +12,9 @@ const table = JSON.parse(
   fs.readFileSync(path.join(here, 'codes.json'), 'utf8')
 ) as {legacy: {ready: Record<string, string | string[]>}}
 
+const flat = (value: string | string[]): string[] =>
+  Array.isArray(value) ? value : [value]
+
 interface Frame {
   ok: boolean
   status: string
@@ -70,7 +73,10 @@ describe('a browser verdict on the ready contract, across the surfaces that repo
     }
   })
 
-  function writeContract(readyCode: string) {
+  function writeContract(
+    readyCode: string,
+    stamp: Record<string, unknown> = SURFACES[readyCode].stamp
+  ) {
     const projectDir = fs.mkdtempSync(
       path.join(os.tmpdir(), 'extjs-ready-surfaces-')
     )
@@ -87,7 +93,7 @@ describe('a browser verdict on the ready contract, across the surfaces that repo
         code: readyCode,
         message: `the session failed with ${readyCode}`,
         pid: process.pid,
-        ...SURFACES[readyCode].stamp
+        ...stamp
       })
     )
 
@@ -136,7 +142,7 @@ describe('a browser verdict on the ready contract, across the surfaces that repo
     // --wait, the resolver it reads, and the published table agree.
     expect(await waitCode(projectDir)).toBe(expected.wait)
     expect(READY_CONTRACT_CODES[readyCode]).toBe(expected.wait)
-    expect(table.legacy.ready[readyCode]).toBe(expected.wait)
+    expect(flat(table.legacy.ready[readyCode])[0]).toBe(expected.wait)
 
     const frames = await streamFrames(readyPath)
     const ready = frames.filter((frame) => frame.status === 'failed')
@@ -156,6 +162,48 @@ describe('a browser verdict on the ready contract, across the surfaces that repo
     }
 
     expect(frames).toHaveLength(expected.streamExit ? 2 : 1)
+  })
+
+  // The launcher stamps the code it refused with, and every surface carries
+  // that code instead of the id's family code. The table lists each one.
+  const CODED_LAUNCH_FAILURES: Array<[string, 'usage' | 'failed']> = [
+    ['E_BROWSER_BINARY_INVALID', 'usage'],
+    ['E_BROWSER_BINARY_REQUIRED', 'usage'],
+    ['E_FLAG_NOT_SUPPORTED_HERE', 'usage'],
+    ['E_BROWSER_NOT_FOUND', 'failed'],
+    ['E_BROWSER_START_TIMEOUT', 'failed'],
+    ['E_BROWSER_CONNECT', 'failed'],
+    ['E_BROWSER_CONNECTION_CLOSED', 'failed'],
+    ['E_RDP_PROTOCOL', 'failed'],
+    ['E_ADDON_INSTALL', 'failed']
+  ]
+
+  it.each(
+    CODED_LAUNCH_FAILURES
+  )('a launch stamped %s reads as that code on --wait and the stream, as %s', async (code, status) => {
+    const {projectDir, readyPath} = writeContract('browser_launch_failed', {
+      browserLaunchFailedAt: '2026-10-03T00:00:00.000Z',
+      browserLaunchFailedReason: `refused as ${code}`,
+      browserLaunchFailedCode: code
+    })
+
+    expect(await waitCode(projectDir)).toBe(code)
+    expect(flat(table.legacy.ready.browser_launch_failed)).toContain(code)
+
+    const frames = await streamFrames(readyPath)
+    expect(frames).toHaveLength(1)
+    expect(frames[0].status).toBe(status)
+    expect(frames[0].error?.code).toBe(code)
+    expect(frames[0].value?.readyCode).toBe('browser_launch_failed')
+  })
+
+  it('lists on the table exactly the codes a launch can be stamped with', () => {
+    expect(flat(table.legacy.ready.browser_launch_failed).sort()).toEqual(
+      [
+        'E_BROWSER_LAUNCH',
+        ...CODED_LAUNCH_FAILURES.map(([code]) => code)
+      ].sort()
+    )
   })
 
   it('covers every browser verdict the contract can carry', () => {

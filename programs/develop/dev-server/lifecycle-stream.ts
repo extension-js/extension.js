@@ -7,7 +7,13 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'node:fs'
-import {CODES, ENVELOPE, type Envelope, isMachineOutput} from '../lib/messaging'
+import {
+  CODES,
+  ENVELOPE,
+  type Envelope,
+  type ErrorCode,
+  isMachineOutput
+} from '../lib/messaging'
 import {shouldWarnPortConflict} from './messages'
 
 // A terminating envelope cannot describe a session, so dev/start/preview emit
@@ -83,6 +89,29 @@ function isProfileLocked(ready: Record<string, unknown> | null): boolean {
   const message = String(ready.message ?? '')
 
   return /profile\s+is\s+locked|singletonlock/i.test(message)
+}
+
+// A launch refused over a value the user set, which every other command
+// reports as usage rather than as a run that failed.
+const USAGE_LAUNCH_CODES: ReadonlySet<string> = new Set([
+  CODES.E_BROWSER_BINARY_INVALID,
+  CODES.E_BROWSER_BINARY_REQUIRED,
+  CODES.E_FLAG_NOT_SUPPORTED_HERE
+])
+
+// The launcher stamps the code it refused with beside the generic id, and a
+// code the table declares outranks the contract's own status code.
+function stampedLaunchFailureCode(
+  ready: Record<string, unknown>
+): ErrorCode | undefined {
+  if (ready.code !== 'browser_launch_failed') return undefined
+
+  const code = ready.browserLaunchFailedCode
+
+  return typeof code === 'string' &&
+    Object.prototype.hasOwnProperty.call(CODES, code)
+    ? (code as ErrorCode)
+    : undefined
 }
 
 function toFiniteNumber(value: unknown): number | null {
@@ -253,21 +282,12 @@ export class LifecycleStream {
       if (this.readyErrorEmitted) return null
 
       this.readyErrorEmitted = true
-      // A bad pin or a profile the browser cannot load into is a value the
-      // user set, the status every other command gives it.
-      const usageCode =
-        ready.code === 'browser_launch_failed' &&
-        (ready.browserLaunchFailedCode === CODES.E_BROWSER_BINARY_INVALID ||
-          ready.browserLaunchFailedCode === CODES.E_FLAG_NOT_SUPPORTED_HERE)
-          ? (ready.browserLaunchFailedCode as
-              | typeof CODES.E_BROWSER_BINARY_INVALID
-              | typeof CODES.E_FLAG_NOT_SUPPORTED_HERE)
-          : undefined
+      const launchCode = stampedLaunchFailureCode(ready)
       const frame = ENVELOPE.fail(
         this.options.command,
-        usageCode ? 'usage' : 'failed',
+        launchCode && USAGE_LAUNCH_CODES.has(launchCode) ? 'usage' : 'failed',
         {
-          code: usageCode ?? CODES.E_READY_ERROR_STATUS,
+          code: launchCode ?? CODES.E_READY_ERROR_STATUS,
           message:
             String(ready.message || '') ||
             'The ready contract reports an error for this session.'

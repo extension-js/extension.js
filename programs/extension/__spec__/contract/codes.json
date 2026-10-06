@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "note": "The durable error-code table for the schema-1 envelope. Codes may be added, never renamed. A code retired after it shipped keeps a 'folded' row pointing at the code the same path reports now, so a consumer that still lists the name resolves it. One code per operator-distinguishable failure family; the envelope's command field carries the which-command context. 'folded' records finer inventory names that map onto a shipped family code. 'legacy' maps the three pre-envelope conventions (snake_case ready.json codes, PascalCase error names, kebab-case doctor check ids) onto the table. A row marked 'reserved' names a failure the CLI does not report under that code today, so no envelope carries it yet and a consumer need not handle it.",
+  "note": "The durable error-code table for the schema-1 envelope. Codes may be added, never renamed. A code retired after it shipped keeps a 'folded' row pointing at the code the same path reports now, so a consumer that still lists the name resolves it. One code per operator-distinguishable failure family; the envelope's command field carries the which-command context. 'folded' records finer inventory names that map onto a shipped family code. 'legacy' maps the three pre-envelope conventions (snake_case ready.json codes, PascalCase error names, kebab-case doctor check ids) onto the table; a ready.json id that lists several codes resolves to the first unless the contract's browserLaunchFailedCode names another from the list. A row marked 'reserved' names a failure the CLI does not report under that code today, so no envelope carries it yet and a consumer need not handle it.",
   "codes": {
     "E_ARGS": {
       "area": "usage",
@@ -240,13 +240,11 @@
     },
     "E_BROWSER_NOT_FOUND": {
       "area": "browser-binary",
-      "summary": "No installed binary for the requested vendor.",
-      "reserved": true
+      "summary": "No installed binary for the requested vendor."
     },
     "E_BROWSER_BINARY_REQUIRED": {
       "area": "browser-binary",
-      "summary": "A -based target needs an explicit binary path.",
-      "reserved": true
+      "summary": "A -based target needs an explicit binary path."
     },
     "E_BROWSER_BINARY_INVALID": {
       "area": "browser-binary",
@@ -262,8 +260,7 @@
     },
     "E_BROWSER_START_TIMEOUT": {
       "area": "browser-binary",
-      "summary": "The browser never signalled startup.",
-      "reserved": true
+      "summary": "The browser accepted the debug socket but never sent its greeting."
     },
     "E_PROFILE_LOCKED": {
       "area": "browser-binary",
@@ -301,8 +298,7 @@
     },
     "E_ADDON_INSTALL": {
       "area": "browser-runtime",
-      "summary": "Gecko temporary add-on install failed.",
-      "reserved": true
+      "summary": "Gecko temporary add-on install failed."
     },
     "E_BROWSER_CONNECT": {
       "area": "debug-protocol",
@@ -310,8 +306,7 @@
     },
     "E_BROWSER_CONNECTION_CLOSED": {
       "area": "debug-protocol",
-      "summary": "The debug socket closed mid-session.",
-      "reserved": true
+      "summary": "The debug socket closed mid-session."
     },
     "E_CDP_NOT_CONNECTED": {
       "area": "debug-protocol",
@@ -335,8 +330,7 @@
     },
     "E_RDP_PROTOCOL": {
       "area": "debug-protocol",
-      "summary": "A malformed or unexpected RDP exchange.",
-      "reserved": true
+      "summary": "A malformed or unexpected RDP exchange."
     },
     "E_DEV_SERVER_START": {
       "area": "dev-server",
@@ -481,7 +475,18 @@
       "dev_server_start_failed": "E_DEV_SERVER_START",
       "preview_manifest_missing": "E_PREVIEW_NO_DIST",
       "browser_exited": "E_BROWSER_EXITED",
-      "browser_launch_failed": "E_BROWSER_LAUNCH",
+      "browser_launch_failed": [
+        "E_BROWSER_LAUNCH",
+        "E_BROWSER_BINARY_INVALID",
+        "E_FLAG_NOT_SUPPORTED_HERE",
+        "E_BROWSER_BINARY_REQUIRED",
+        "E_BROWSER_NOT_FOUND",
+        "E_BROWSER_START_TIMEOUT",
+        "E_BROWSER_CONNECT",
+        "E_BROWSER_CONNECTION_CLOSED",
+        "E_RDP_PROTOCOL",
+        "E_ADDON_INSTALL"
+      ],
       "extension_load_refused": "E_EXTENSION_LOAD_REFUSED",
       "profile_locked": "E_PROFILE_LOCKED"
     },

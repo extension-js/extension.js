@@ -271,6 +271,15 @@ describe('the error-code table', () => {
     }
   })
 
+  // A legacy name has to resolve to a code a consumer can actually receive.
+  it('folds no name onto a reserved code', () => {
+    const ontoReserved = Object.entries(table.folded)
+      .filter(([, code]) => table.codes[code]?.reserved === true)
+      .map(([alias, code]) => `${alias} -> ${code}`)
+
+    expect(ontoReserved).toEqual([])
+  })
+
   it.each([
     'E_TSCONFIG_MISSING',
     'E_INTEGRATION_INSTALL',
