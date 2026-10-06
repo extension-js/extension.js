@@ -52,7 +52,11 @@ export class EmitFile {
           stage: Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_TRANSFER
         },
         () => {
-          if (compilation.errors.length > 0) return
+          // A compile that already failed still names the icon files the
+          // manifest cannot find, so one run reports every fix needed.
+          const reportOnly = compilation.errors.length > 0
+
+          if (reportOnly && !compilation.getAsset('manifest.json')) return
 
           const iconFields = this.includeList || {}
           const manifestDir = path.dirname(this.manifestPath)
@@ -247,6 +251,8 @@ export class EmitFile {
                   missingCount++
                   continue
                 }
+
+                if (reportOnly) continue
 
                 // A 0-byte theme image still loads the extension, but Chrome drops
                 // the ENTIRE theme over it, so the build must not stay silent.
