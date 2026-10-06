@@ -9,7 +9,7 @@
 import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import * as path from 'node:path'
-import {isDebug} from '../../lib/messaging'
+import {debugLine, isDebug} from '../../lib/messaging'
 import {ensureOptionalContractPackageResolved} from '../../lib/optional-deps-resolver'
 import type {DevOptions, JsFramework} from '../../types'
 import {hasDependency} from '../frameworks-lib/integrations'
@@ -130,7 +130,7 @@ export function isUsingSvelte(projectPath: string) {
 
   if (using && !userMessageDelivered) {
     if (isDebug()) {
-      console.log(messages.isUsingIntegration('Svelte'))
+      debugLine(messages.isUsingIntegration('Svelte'))
     }
 
     userMessageDelivered = true

@@ -9,7 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {Compilation, type Compiler, sources} from '@rspack/core'
-import {isDebug} from '../../../lib/messaging'
+import {debugLine, isDebug} from '../../../lib/messaging'
 import {
   findPublicFile,
   inspectPublicFolders
@@ -105,8 +105,7 @@ export class EmitFile {
                       path.join(publicDir, basename)
 
                     if (process.env.EXTENSION_DEV_DEBUG_ICONS === '1') {
-                      // eslint-disable-next-line no-console
-                      console.log(
+                      debugLine(
                         '[icons:emit-file] absolute entry',
                         JSON.stringify({
                           entry,
@@ -130,8 +129,7 @@ export class EmitFile {
                       path.join(projectPath, 'public', entry.slice(1))
 
                     if (process.env.EXTENSION_DEV_DEBUG_ICONS === '1') {
-                      // eslint-disable-next-line no-console
-                      console.log(
+                      debugLine(
                         '[icons:emit-file] leading-slash entry',
                         JSON.stringify({
                           entry,
@@ -153,8 +151,7 @@ export class EmitFile {
                       path.join(publicDir, entry)
 
                     if (process.env.EXTENSION_DEV_DEBUG_ICONS === '1') {
-                      // eslint-disable-next-line no-console
-                      console.log(
+                      debugLine(
                         '[icons:emit-file] relative entry',
                         JSON.stringify({
                           entry,
@@ -339,7 +336,7 @@ export class EmitFile {
             }
 
             if (isDebug()) {
-              console.log(
+              debugLine(
                 messages.iconsEmitSummary(feature, {
                   entries: entriesTotal,
                   underPublic: underPublicCount,

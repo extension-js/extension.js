@@ -9,7 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, type Compiler, rspack} from '@rspack/core'
-import {isDebug} from '../lib/messaging'
+import {debugLine, isDebug} from '../lib/messaging'
 import {localeDirsWithoutMessages} from '../plugin-web-extension/feature-locales/get-locales'
 import type {SpecialFoldersConfig} from '../types'
 import {checkManifestInPublic} from './check-manifest-in-public'
@@ -200,7 +200,7 @@ export class SpecialFoldersPlugin {
       }
 
       if (isDebug()) {
-        console.log(
+        debugLine(
           messages.specialFoldersSetupSummary(true, true, copyIgnore.length)
         )
       }

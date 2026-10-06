@@ -9,7 +9,7 @@
 import {createRequire} from 'node:module'
 import * as path from 'node:path'
 import colors from 'pintor'
-import {isDebug, prefix} from '../../lib/messaging'
+import {debugLine, isDebug, prefix} from '../../lib/messaging'
 import type {JsFramework} from '../../types'
 import {hasDependency} from '../frameworks-lib/integrations'
 import * as messages from '../js-frameworks-lib/messages'
@@ -21,9 +21,7 @@ export function isUsingPreact(projectPath: string) {
   if (hasDependency(projectPath, 'preact')) {
     if (!userMessageDelivered) {
       if (isDebug()) {
-        console.log(
-          `${prefix('debug')} ${messages.isUsingIntegration('Preact')}`
-        )
+        debugLine(`${prefix('debug')} ${messages.isUsingIntegration('Preact')}`)
       }
 
       userMessageDelivered = true

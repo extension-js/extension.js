@@ -11,7 +11,7 @@ import {createRequire} from 'node:module'
 import * as path from 'node:path'
 import {codedError} from './coded-error'
 import {resolveDevelopInstallRoot} from './develop-context'
-import {CODES, prefix} from './messaging'
+import {CODES, debugLine, prefix} from './messaging'
 import type {
   OptionalDependencyContract,
   OptionalDependencyVerificationRule
@@ -28,7 +28,7 @@ import {hasProjectDependency} from './project-manifest'
 function debugSwallowed(step: string, error: unknown): void {
   if (!isVerboseMode()) return
 
-  console.log(
+  debugLine(
     `${prefix('debug')} optional-deps ${step}: ${String(
       (error as Error)?.message || error
     )}`

@@ -16,7 +16,7 @@ import {
   WebpackError
 } from '@rspack/core'
 import {hasDependency} from '../lib/has-dependency'
-import {isDebug} from '../lib/messaging'
+import {debugLine, isDebug} from '../lib/messaging'
 import {publicContainmentRoot} from '../plugin-special-folders/resolve-public-folder'
 import type {DevOptions, PluginInterface} from '../types'
 import {cssInContentScriptLoader} from './css-in-content-script-loader'
@@ -112,13 +112,13 @@ export class CssPlugin {
       if (usingLess) integrations.push('Less')
       if (usingTailwind) integrations.push('Tailwind')
 
-      console.log(messages.cssIntegrationsEnabled(integrations))
+      debugLine(messages.cssIntegrationsEnabled(integrations))
 
       const postcssConfig = findPostCssConfig(projectPath)
       const tailwindConfig = getTailwindConfigFile(projectPath)
       const browserslistSource = findBrowserslistSource(projectPath)
 
-      console.log(
+      debugLine(
         messages.cssConfigsDetected(
           postcssConfig,
           tailwindConfig,

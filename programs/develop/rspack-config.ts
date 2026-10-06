@@ -23,7 +23,7 @@ import {resolveDevelopInstallRoot} from './lib/develop-context'
 import {computeExtensionsToLoad} from './lib/extensions-to-load'
 import {filterKeysForThisBrowser} from './lib/manifest-utils'
 import * as messages from './lib/messages'
-import {CODES, isDebug} from './lib/messaging'
+import {CODES, debugLine, isDebug} from './lib/messaging'
 import {stripBom} from './lib/parse-json-safe'
 import {asAbsolute, getDirs, toPosixPath} from './lib/paths'
 import type {ProjectStructure} from './lib/project'
@@ -115,7 +115,7 @@ export default function webpackConfig(
   )
 
   if (debug) {
-    console.log(
+    debugLine(
       messages.debugBrowser(
         devOptions.browser,
         devOptions.chromiumBinary,
@@ -123,9 +123,9 @@ export default function webpackConfig(
       )
     )
 
-    console.log(messages.debugContextPath(packageJsonDir))
-    console.log(messages.debugOutputPath(primaryExtensionOutputDir))
-    console.log(messages.debugExtensionsToLoad(unpackedExtensionDirsToLoad))
+    debugLine(messages.debugContextPath(packageJsonDir))
+    debugLine(messages.debugOutputPath(primaryExtensionOutputDir))
+    debugLine(messages.debugExtensionsToLoad(unpackedExtensionDirsToLoad))
 
     if (
       typeof devOptions.extensions !== 'undefined' &&

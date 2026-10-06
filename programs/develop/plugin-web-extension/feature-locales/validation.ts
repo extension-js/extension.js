@@ -10,7 +10,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compilation, Compiler} from '@rspack/core'
 import {filterKeysForThisBrowser} from '../../lib/manifest-utils'
-import {isDebug} from '../../lib/messaging'
+import {debugLine, isDebug} from '../../lib/messaging'
 import {findUndefinedMsgReferences} from '../../lib/msg-placeholders'
 import {stripBom} from '../../lib/parse-json-safe'
 import type {DevOptions, Manifest} from '../../types'
@@ -128,7 +128,7 @@ export function validateLocales(
     }
 
     if (isDebug()) {
-      console.log(
+      debugLine(
         messages.localesIncludeSummary(
           true,
           hasLocalesRoot,
@@ -140,7 +140,7 @@ export function validateLocales(
     if (typeof defaultLocale === 'string' && defaultLocale.trim()) {
       if (!hasLocalesRoot) {
         if (isDebug()) {
-          console.log(
+          debugLine(
             messages.localesValidationDetected(
               'default_locale set but _locales missing'
             )
@@ -162,7 +162,7 @@ export function validateLocales(
 
       if (!fs.existsSync(defaultLocaleDir)) {
         if (isDebug()) {
-          console.log(
+          debugLine(
             messages.localesValidationDetected(
               `missing _locales/${defaultLocale}`
             )
@@ -184,7 +184,7 @@ export function validateLocales(
 
       if (!fs.existsSync(messagesJsonPath)) {
         if (isDebug()) {
-          console.log(
+          debugLine(
             messages.localesValidationDetected(
               `missing _locales/${defaultLocale}/messages.json`
             )
@@ -211,7 +211,7 @@ export function validateLocales(
         defaultLocaleMessages = JSON.parse(stripBom(content))
       } catch {
         if (isDebug()) {
-          console.log(
+          debugLine(
             messages.localesValidationDetected(
               `invalid JSON in _locales/${defaultLocale}/messages.json`
             )
@@ -244,7 +244,7 @@ export function validateLocales(
 
         for (const key of referenced) {
           if (isDebug()) {
-            console.log(
+            debugLine(
               messages.localesValidationDetected(
                 `missing key "${key}" in default locale`
               )
@@ -263,7 +263,7 @@ export function validateLocales(
         }
       } catch (error) {
         if (isDebug()) {
-          console.log(
+          debugLine(
             messages.localesValidationDetected(
               `could not scan __MSG__ placeholders in _locales/${defaultLocale}/messages.json: ${String((error as Error)?.message || error)}`
             )
@@ -273,7 +273,7 @@ export function validateLocales(
     } else if (hasLocalesRoot) {
       // _locales present but no default_locale in manifest: browsers reject the extension
       if (isDebug()) {
-        console.log(
+        debugLine(
           messages.localesValidationDetected(
             '_locales present but no default_locale'
           )
@@ -292,7 +292,7 @@ export function validateLocales(
     }
   } catch (error) {
     if (isDebug()) {
-      console.log(
+      debugLine(
         messages.localesValidationDetected(
           `manifest.json could not be read for locale validation, deferring to manifest validation: ${String((error as Error)?.message || error)}`
         )
@@ -318,7 +318,7 @@ export function validateLocales(
             JSON.parse(stripBom(s))
           } catch {
             if (isDebug()) {
-              console.log(
+              debugLine(
                 messages.localesValidationDetected(`invalid JSON in ${msgPath}`)
               )
             }
@@ -338,7 +338,7 @@ export function validateLocales(
     }
   } catch (error) {
     if (isDebug()) {
-      console.log(
+      debugLine(
         messages.localesValidationDetected(
           `could not scan _locales for JSON validity: ${String((error as Error)?.message || error)}`
         )

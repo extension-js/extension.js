@@ -17,6 +17,7 @@ import {
   inputOrIdentityMap,
   returnWithMap
 } from '../../../lib/loader-source-maps'
+import {debugLine} from '../../../lib/messaging'
 import type {LoaderInterface} from '../../../types'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../../feature-scripts/contracts'
 
@@ -83,7 +84,7 @@ export default function ensureHMRForScripts(
 
   if (moduleLayer === EXTENSIONJS_CONTENT_SCRIPT_LAYER) {
     if (debugHtmlHmr) {
-      console.log(
+      debugLine(
         `[extjs:html-hmr] skip layer resource=${resourcePath} layer=${moduleLayer}`
       )
     }
@@ -98,7 +99,7 @@ export default function ensureHMRForScripts(
     (options as {frameworkOwnsRefresh?: unknown})?.frameworkOwnsRefresh === true
   ) {
     if (debugHtmlHmr) {
-      console.log(
+      debugLine(
         `[extjs:html-hmr] skip framework-refresh resource=${resourcePath}`
       )
     }
@@ -115,7 +116,7 @@ export default function ensureHMRForScripts(
   // while a prefixed key overrides it, and would parse the manifest per file.
 
   if (debugHtmlHmr) {
-    console.log(
+    debugLine(
       `[extjs:html-hmr] inject resource=${resourcePath} manifest=${String(options?.manifestPath || '')} layer=${moduleLayer || '<none>'}`
     )
   }

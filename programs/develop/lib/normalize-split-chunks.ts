@@ -8,7 +8,7 @@
 
 import type {Configuration} from '@rspack/core'
 import * as messages from './messages'
-import {isDebug} from './messaging'
+import {debugLine, isDebug} from './messaging'
 import {
   type ChunkNameLike,
   isSurfaceLockedChunkName,
@@ -136,7 +136,7 @@ export function applySplitChunksGuard(config: Configuration): Configuration {
   const {config: next, narrowed} = normalizeSplitChunks(config)
 
   if (narrowed.length > 0 && isDebug()) {
-    console.log(messages.debugSplitChunksNarrowed(narrowed))
+    debugLine(messages.debugSplitChunksNarrowed(narrowed))
   }
 
   return keepRuntimeInline(keepUserEntriesWhole(next))

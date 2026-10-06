@@ -42,7 +42,13 @@ import {
   START_BUILD_DEFAULTS
 } from './lib/merge-options'
 import * as messages from './lib/messages'
-import {browserRowValue, card, claimCardKey, isDebug} from './lib/messaging'
+import {
+  browserRowValue,
+  card,
+  claimCardKey,
+  debugLine,
+  isDebug
+} from './lib/messaging'
 import {applySplitChunksGuard} from './lib/normalize-split-chunks'
 import {listOutputFiles} from './lib/output-files'
 import {parseJsonSafe} from './lib/parse-json-safe'
@@ -238,8 +244,8 @@ export async function extensionBuild(
     removeStaleStagingDirs(distPath)
 
     if (debug) {
-      console.log(messages.debugDirs(manifestDir, packageJsonDir))
-      console.log(
+      debugLine(messages.debugDirs(manifestDir, packageJsonDir))
+      debugLine(
         messages.debugBrowser(
           browser,
           buildOptions?.chromiumBinary,
@@ -247,7 +253,7 @@ export async function extensionBuild(
         )
       )
 
-      console.log(messages.debugOutputPath(distPath))
+      debugLine(messages.debugOutputPath(distPath))
     }
 
     const mergedExtensionsConfig =

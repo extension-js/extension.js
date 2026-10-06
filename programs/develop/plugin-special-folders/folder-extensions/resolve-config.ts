@@ -10,7 +10,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {fetchExtensionFromStore} from 'extension-from-store'
 import {isGeckoBasedBrowser} from '../../lib/constants'
-import {isDebug} from '../../lib/messaging'
+import {debugLine, isDebug} from '../../lib/messaging'
 import type {CompanionExtensionsConfig} from './types'
 import {
   isDir,
@@ -188,7 +188,7 @@ async function runExtensionFromStore(url: string, outDir: string) {
     extract: true,
     logger: isAuthor
       ? {
-          onInfo: (message) => console.log(message),
+          onInfo: (message) => debugLine(message),
           onWarn: (message) => console.warn(message),
           onError: (message, error) => console.error(message, error)
         }

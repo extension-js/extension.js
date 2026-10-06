@@ -10,7 +10,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
 import {filterKeysForThisBrowser} from '../lib/manifest-utils'
-import {isDebug} from '../lib/messaging'
+import {debugLine, isDebug} from '../lib/messaging'
 import {type ParsedJson, parseJsonSafe} from '../lib/parse-json-safe'
 import {toResourceKey} from '../lib/resource-path'
 import {NOT_RAW_RESOURCE_QUERY, RAW_RESOURCE_QUERY} from '../lib/resource-query'
@@ -579,9 +579,9 @@ export class JsFrameworksPlugin {
       if (maybeInstallSvelte) integrations.push('Svelte')
       if (preferTypeScript) integrations.push('TypeScript')
 
-      console.log(messages.jsFrameworksIntegrationsEnabled(integrations))
+      debugLine(messages.jsFrameworksIntegrationsEnabled(integrations))
 
-      console.log(
+      debugLine(
         messages.jsFrameworksConfigsDetected(tsConfigPath, tsRoot, targets)
       )
 
@@ -591,7 +591,7 @@ export class JsFrameworksPlugin {
       if (maybeInstallReact) hmrFrameworks.push('React')
       if (maybeInstallSvelte) hmrFrameworks.push('Svelte')
 
-      console.log(
+      debugLine(
         messages.jsFrameworksHmrSummary(mode === 'development', hmrFrameworks)
       )
     }
