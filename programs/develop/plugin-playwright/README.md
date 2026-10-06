@@ -39,6 +39,15 @@
 - optional `controlPortUnavailableReason`: the bind error, present whenever
   `controlPort` is `null` because the control bridge could not start. It is part
   of every write for the session, so a recompile never drops it
+- optional `webdriverPort` and `webdriverSessionId`: under `dev --browser safari`
+  the launcher holds one `safaridriver` session beside the app and stamps it
+  here. Safari allows one automation session at a time, so a client attaches to
+  this one instead of opening its own. Both are preserved across recompiles and
+  the session, its `safaridriver` and the Safari automation instance it raised
+  all end with the dev process, a Safari the user had open stays
+- optional `webdriverUnavailableReason`: why no session was opened (Allow Remote
+  Automation off, `safaridriver --enable` not run, no `safaridriver`), present
+  instead of the two fields above and preserved across recompiles
 
 `events.ndjson` events (the file is reset at every run start and holds the
 current run only, join on `runId` to correlate across runs):

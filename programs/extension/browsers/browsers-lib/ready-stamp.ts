@@ -87,6 +87,45 @@ export function stampReadyRdpPort(
   }
 }
 
+// Publish the safaridriver session the launcher holds beside the app, or why
+// it holds none. Safari grants one automation session at a time, so a client
+// attaches to this one instead of opening its own.
+export function stampReadyWebDriver(
+  extensionOutputPath: string | undefined,
+  details: {port?: number; sessionId?: string; unavailableReason?: string},
+  runId?: string
+) {
+  try {
+    if (!extensionOutputPath) return
+
+    const readyPath = readyPathFor(extensionOutputPath)
+    if (!fs.existsSync(readyPath)) return
+
+    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    if (isForeignRun(ready, runId)) return
+
+    const sessionId = String(details?.sessionId || '').trim()
+    const port = details?.port
+
+    if (typeof port === 'number' && Number.isFinite(port) && sessionId) {
+      ready.webdriverPort = port
+      ready.webdriverSessionId = sessionId
+      delete ready.webdriverUnavailableReason
+    } else {
+      const reason = String(details?.unavailableReason || '').trim()
+      if (!reason) return
+
+      delete ready.webdriverPort
+      delete ready.webdriverSessionId
+      ready.webdriverUnavailableReason = reason
+    }
+
+    writeJsonAtomic(readyPath, ready)
+  } catch {
+    // best-effort; never block launch on this
+  }
+}
+
 // Publish which profile directory and browser process this session launched.
 // An ephemeral profile's leaf name is generated, so no path helper can rebuild
 // it, and the pid is the only supported handle for reaping the browser.

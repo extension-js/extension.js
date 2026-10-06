@@ -13,7 +13,8 @@ import * as messages from '../../browsers-lib/messages'
 import {ready as devServerReady} from '../../browsers-lib/ready-message'
 import {
   readReadyRunId,
-  stampReadyBrowserLaunch
+  stampReadyBrowserLaunch,
+  stampReadyWebDriver
 } from '../../browsers-lib/ready-stamp'
 import type {BrowserLogger, CompilationLike} from '../../browsers-types'
 import type {SafariBuildConfig, SafariPluginLike} from '../safari-types'
@@ -38,12 +39,21 @@ import {
   type SafariPipelineTools,
   toolOutputTail
 } from './tools'
+import {
+  closeSafariWebDriverSessions,
+  openSafariWebDriverSession
+} from './webdriver'
 
 export {
+  isAutomationSafariArgs,
+  listPidsWhere,
   type SafariPipelineTools,
   type SafariToolResult,
+  type SafariWebDriverProcess,
+  spawnWebDriverProcess,
   toolOutputTail
 } from './tools'
+export {closeSafariWebDriverSessions} from './webdriver'
 
 function fallbackLogger(): BrowserLogger {
   return {
@@ -215,6 +225,35 @@ async function announceSafariDevSession(
   } catch {
     // The announcement must never fail the packaging pipeline.
   }
+}
+
+// Only a dev session lives long enough to hold a WebDriver session and end it
+// on the way out, which is why build packaging never opens one.
+async function holdWebDriverSession(
+  tools: SafariPipelineTools,
+  config: SafariBuildConfig,
+  logger: BrowserLogger
+): Promise<void> {
+  await closeSafariWebDriverSessions()
+
+  const runId = readReadyRunId(config.extensionDir)
+  const outcome = await openSafariWebDriverSession(tools)
+
+  if (outcome.session) {
+    const {port, sessionId} = outcome.session
+    stampReadyWebDriver(config.extensionDir, {port, sessionId}, runId)
+    logger.info?.(messages.safariWebDriverSession(port, sessionId))
+
+    return
+  }
+
+  stampReadyWebDriver(
+    config.extensionDir,
+    {unavailableReason: outcome.reason},
+    runId
+  )
+
+  logger.info?.(messages.safariWebDriverUnavailable(outcome.reason))
 }
 
 async function runSafariPipeline(
@@ -427,6 +466,7 @@ async function runSafariPipeline(
   }
 
   if (host.announceDevReady) {
+    await holdWebDriverSession(tools, config, logger)
     await announceSafariDevSession(host, config, appPath)
   }
 

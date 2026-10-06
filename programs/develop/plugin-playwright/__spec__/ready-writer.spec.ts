@@ -112,6 +112,38 @@ describe('ready.json writer preservation', () => {
     expect(after.rdpPort).toBe(9224)
   })
 
+  it('preserves the launcher-stamped WebDriver session across recompiles', () => {
+    const writer = makeWriter()
+    writer.writeReady()
+
+    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    ready.webdriverPort = 61234
+    ready.webdriverSessionId = 'E3A9-webdriver-writer'
+    fs.writeFileSync(writer.readyPath, JSON.stringify(ready))
+
+    writer.writeReady()
+
+    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    expect(after.webdriverPort).toBe(61234)
+    expect(after.webdriverSessionId).toBe('E3A9-webdriver-writer')
+  })
+
+  it('preserves the launcher-stamped WebDriver refusal across recompiles', () => {
+    const writer = makeWriter()
+    writer.writeReady()
+
+    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    ready.webdriverUnavailableReason = 'Allow Remote Automation is off'
+    fs.writeFileSync(writer.readyPath, JSON.stringify(ready))
+
+    writer.writeReady()
+
+    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    expect(after.webdriverUnavailableReason).toBe(
+      'Allow Remote Automation is off'
+    )
+  })
+
   it('preserves the launcher-stamped profilePath and browserPid across recompiles', () => {
     const writer = makeWriter()
     writer.writeReady()
