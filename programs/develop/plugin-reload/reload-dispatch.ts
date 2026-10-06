@@ -12,6 +12,7 @@ import type {Compiler} from '@rspack/core'
 import type {ReloadAckOutcome} from '../dev-server/control-bridge/contracts'
 import {prefix} from '../lib/messaging'
 import type {ReloadInstruction} from './classify-reload'
+import * as reloadMessages from './messages'
 
 // Every dev mode reloads through the control-bridge broker (the SW producer's
 // re-injection); CDP/RDP controllers are kept for logging only, NOT reload.
@@ -107,7 +108,15 @@ export async function dispatchReload(
         return
       }
 
-      if (instruction.label) console.log(formatReloadingLine(instruction.label))
+      if (instruction.label) {
+        console.log(
+          instruction.staticContentScriptEntries?.length
+            ? reloadMessages.reloadingExtensionForStaticContentScript(
+                instruction.label
+              )
+            : formatReloadingLine(instruction.label)
+        )
+      }
 
       return
     }

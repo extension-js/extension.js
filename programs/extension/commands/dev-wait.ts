@@ -12,7 +12,10 @@ import {loadExtensionDevelopBridgeModule} from '../helpers/extension-develop-run
 import * as messages from '../helpers/messages'
 import {CODES, type ErrorCode} from '../helpers/messaging'
 import {normalizeOutputFormat} from '../helpers/output-flag'
-import {readyContractErrorCode} from '../helpers/ready-contract-codes'
+import {
+  readyContractErrorCode,
+  stampedLaunchFailureCode
+} from '../helpers/ready-contract-codes'
 import {
   resolveSessionProjectPath,
   sessionReadyPath
@@ -151,6 +154,24 @@ export function describeWaitError(error: unknown): WaitFailure {
     }
   }
 
+  if (code === CODES.E_BROWSER_BINARY_REQUIRED) {
+    return {
+      code,
+      status: 'usage',
+      message,
+      hint: 'Pass --chromium-binary or --gecko-binary with the browser to run.'
+    }
+  }
+
+  if (code === CODES.E_BROWSER_NOT_FOUND) {
+    return {
+      code,
+      status: 'failed',
+      message,
+      hint: 'Install the browser, or pass its binary path to the command.'
+    }
+  }
+
   if (code === CODES.E_FLAG_NOT_SUPPORTED_HERE) {
     return {
       code,
@@ -282,20 +303,10 @@ async function waitForReadyContract(options: {
           const detail =
             payload.message || payload.errors?.[0] || 'unknown error'
 
-          // A launch refused over a value the user set keeps the code it
-          // was refused with.
-          const refusedCode =
-            payload.code === 'browser_launch_failed' &&
-            (payload.browserLaunchFailedCode ===
-              CODES.E_BROWSER_BINARY_INVALID ||
-              payload.browserLaunchFailedCode ===
-                CODES.E_FLAG_NOT_SUPPORTED_HERE)
-              ? (payload.browserLaunchFailedCode as ErrorCode)
-              : undefined
-
+          // A launch the launcher coded keeps the code it was refused with.
           throw new WaitModeError(
             String(detail),
-            refusedCode ??
+            stampedLaunchFailureCode(payload) ??
               readyContractErrorCode(payload.code) ??
               CODES.E_READY_ERROR_STATUS
           )

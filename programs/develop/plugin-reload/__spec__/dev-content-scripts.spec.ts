@@ -9,6 +9,8 @@ import {
   contentScriptEntryForAsset,
   DEV_CONTENT_SCRIPT_MARKER_KEY,
   DEV_CONTENT_SCRIPT_REGISTRY_ASSET,
+  DEV_CONTENT_SCRIPT_STATIC_BUNDLES_KEY,
+  DEV_CONTENT_SCRIPT_STATIC_RELOAD_KEY,
   DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE,
   planDevContentScripts
 } from '../reload-lib/dev-content-scripts'
@@ -137,6 +139,74 @@ describe('planDevContentScripts', () => {
     })
   })
 
+  it('keeps a document_start isolated group as emitted and marks it static in the registry', () => {
+    const group = {
+      matches: ['https://a.test/*'],
+      exclude_matches: ['https://a.test/skip*'],
+      js: ['content_scripts/content-0.abcdef12.js'],
+      css: ['content_scripts/content-0.abcdef12.css'],
+      run_at: 'document_start',
+      all_frames: true
+    }
+    const plan = planDevContentScripts(manifest([group]))!
+
+    expect(plan.manifest.content_scripts).toEqual([group])
+    expect(plan.stubs).toEqual({})
+    expect(plan.registry.entries).toEqual([
+      {
+        id: 'extjs-dev-cs-0',
+        entry: 'content_scripts/content-0',
+        matches: ['https://a.test/*'],
+        excludeMatches: ['https://a.test/skip*'],
+        js: ['content_scripts/content-0.abcdef12.js'],
+        css: ['content_scripts/content-0.abcdef12.css'],
+        runAt: 'document_start',
+        allFrames: true,
+        world: 'ISOLATED',
+        stubOnly: false,
+        static: true
+      }
+    ])
+  })
+
+  it('still stubs a document_start MAIN group and a document_idle isolated group', () => {
+    const plan = planDevContentScripts(
+      manifest([
+        {
+          matches: ['<all_urls>'],
+          js: ['content_scripts/content-0.abcdef12.js'],
+          run_at: 'document_start',
+          world: 'MAIN'
+        },
+        {
+          matches: ['<all_urls>'],
+          js: ['content_scripts/content-1.abcdef12.js'],
+          run_at: 'document_idle'
+        },
+        {
+          matches: ['<all_urls>'],
+          js: ['content_scripts/content-2.abcdef12.js']
+        }
+      ])
+    )!
+
+    expect(
+      (plan.manifest.content_scripts as Array<{js: string[]}>).map((g) => g.js)
+    ).toEqual([
+      ['content_scripts/dev-stub-0.js'],
+      ['content_scripts/dev-stub-1.js'],
+      ['content_scripts/dev-stub-2.js']
+    ])
+
+    expect(
+      plan.registry.entries.map((e) => [e.world, e.runAt, e.static])
+    ).toEqual([
+      ['MAIN', 'document_start', undefined],
+      ['ISOLATED', 'document_idle', undefined],
+      ['ISOLATED', 'document_idle', undefined]
+    ])
+  })
+
   it('leaves MV2 manifests and manifests without compiled entries alone', () => {
     expect(
       planDevContentScripts(
@@ -214,6 +284,7 @@ function worker(opts: {
   markers?: Record<string, Record<string, string>>
   worlds?: Record<string, any>
   assets?: Record<string, string>
+  storage?: Record<string, unknown>
 }) {
   const calls: Record<string, unknown[]> = {
     register: [],
@@ -221,8 +292,10 @@ function worker(opts: {
     unregister: [],
     execute: [],
     insertCSS: [],
-    reload: []
+    reload: [],
+    runtimeReload: []
   }
+  const storage: Record<string, unknown> = opts.storage || {}
   const registrations: Registration[] = (opts.registered || []).map((r) => ({
     ...r
   }))
@@ -242,9 +315,36 @@ function worker(opts: {
   const chrome: any = {
     runtime: {
       getURL: (p: string) => `chrome-extension://abc/${p}`,
+      reload: () => {
+        calls.runtimeReload.push(Date.now())
+      },
       onMessage: {
         addListener: (fn: typeof listener) => {
           listener = fn
+        }
+      }
+    },
+    storage: {
+      local: {
+        get: (
+          keys: string | string[],
+          cb: (r: Record<string, unknown>) => void
+        ) =>
+          cb(
+            Object.fromEntries(
+              (Array.isArray(keys) ? keys : [keys]).map((key) => [
+                key,
+                storage[key]
+              ])
+            )
+          ),
+        set: (items: Record<string, unknown>, cb?: () => void) => {
+          Object.assign(storage, items)
+          cb?.()
+        },
+        remove: (key: string, cb?: () => void) => {
+          delete storage[key]
+          cb?.()
         }
       }
     },
@@ -350,6 +450,7 @@ function worker(opts: {
     calls,
     registrations,
     worlds,
+    storage,
     stub: (entry: string, tabId: number, frameId = 0) =>
       listener?.({__extjsDevCsStub: {entry}}, {tab: {id: tabId}, frameId}),
     hooks: () => g.__extjsDevContentScripts,
@@ -374,6 +475,25 @@ const registry = {
       allFrames: false,
       world: 'ISOLATED',
       stubOnly: false
+    }
+  ]
+}
+
+const withStatic = {
+  version: 1,
+  entries: [
+    {...registry.entries[0], excludeMatches: []},
+    {
+      id: 'extjs-dev-cs-1',
+      entry: 'content_scripts/content-1',
+      matches: ['https://a.test/*'],
+      js: ['content_scripts/content-1.NEW.js'],
+      css: [],
+      runAt: 'document_start',
+      allFrames: false,
+      world: 'ISOLATED',
+      stubOnly: false,
+      static: true
     }
   ]
 }
@@ -679,6 +799,136 @@ describe('dev content scripts runtime', () => {
     expect(w.calls.update).toHaveLength(1)
     expect(w.calls.reload).toEqual([1, 8])
     expect(w.calls.execute).toEqual([])
+  })
+
+  it('a static entry is never registered, healed or served on a stub signal', async () => {
+    const w = worker({
+      registry: withStatic,
+      tabs: [{id: 1, url: 'https://a.test/one', status: 'complete'}]
+    })
+    await w.settle()
+    expect(w.calls.register.map((r: any) => r.id)).toEqual(['extjs-dev-cs-0'])
+
+    w.stub('content_scripts/content-1', 1)
+    w.hooks().heal()
+    await w.settle()
+    expect(fileInjections(w.calls).map((o: any) => o.files)).toEqual([
+      ['content_scripts/content-0.NEW.js']
+    ])
+  })
+
+  it('reload of a static entry reloads the extension instead of its tabs, and the next boot reloads those tabs', async () => {
+    const w = worker({
+      registry: withStatic,
+      tabs: [{id: 1, url: 'https://a.test/one'}]
+    })
+    await w.settle()
+
+    let handled: boolean | undefined
+    w.hooks().reload(['content_scripts/content-1'], (h: boolean) => {
+      handled = h
+    })
+
+    await new Promise((r) => setTimeout(r, 250))
+
+    expect(handled).toBe(true)
+    expect(w.calls.reload).toEqual([])
+    expect(w.calls.runtimeReload).toHaveLength(1)
+    expect(w.storage).toMatchObject({
+      __extjsDevPendingReinject: expect.any(Number),
+      [DEV_CONTENT_SCRIPT_STATIC_RELOAD_KEY]: {
+        entries: ['content_scripts/content-1'],
+        at: expect.any(Number)
+      }
+    })
+
+    const next = worker({
+      registry: withStatic,
+      tabs: [{id: 1, url: 'https://a.test/one'}],
+      storage: {...w.storage}
+    })
+    await next.settle()
+    expect(next.calls.reload).toEqual([1])
+    expect(next.calls.runtimeReload).toEqual([])
+    expect(next.storage[DEV_CONTENT_SCRIPT_STATIC_RELOAD_KEY]).toBeUndefined()
+  })
+
+  it('reload of a stubbed entry beside a static one still reloads its tabs in place', async () => {
+    const w = worker({
+      registry: withStatic,
+      registered: [{id: 'extjs-dev-cs-0'}],
+      tabs: [{id: 1, url: 'https://a.test/one'}]
+    })
+    await w.settle()
+
+    w.hooks().reload(['content_scripts/content-0'], () => {})
+    await new Promise((r) => setTimeout(r, 250))
+
+    expect(w.calls.reload).toEqual([1])
+    expect(w.calls.runtimeReload).toEqual([])
+    expect(w.storage.__extjsDevPendingReinject).toBeUndefined()
+    expect(w.storage[DEV_CONTENT_SCRIPT_STATIC_RELOAD_KEY]).toBeUndefined()
+  })
+
+  it('a boot records the static bundle names and reloads the tabs of a static entry whose bundle changed', async () => {
+    const first = worker({
+      registry: withStatic,
+      tabs: [{id: 1, url: 'https://a.test/one'}]
+    })
+    await first.settle()
+    expect(first.calls.reload).toEqual([])
+    expect(first.storage[DEV_CONTENT_SCRIPT_STATIC_BUNDLES_KEY]).toEqual({
+      'content_scripts/content-1': 'content_scripts/content-1.NEW.js'
+    })
+
+    const sameBytes = worker({
+      registry: withStatic,
+      tabs: [{id: 1, url: 'https://a.test/one'}],
+      storage: {...first.storage}
+    })
+    await sameBytes.settle()
+    expect(sameBytes.calls.reload).toEqual([])
+
+    const shared = {
+      ...withStatic,
+      entries: [
+        withStatic.entries[0],
+        {...withStatic.entries[1], js: ['content_scripts/content-1.SHARED.js']}
+      ]
+    }
+    const next = worker({
+      registry: shared,
+      tabs: [
+        {id: 1, url: 'https://a.test/one'},
+        {id: 2, url: 'https://a.test/two'}
+      ],
+      storage: {...sameBytes.storage}
+    })
+    await next.settle()
+    expect(next.calls.reload).toEqual([1, 2])
+    expect(next.calls.runtimeReload).toEqual([])
+    expect(next.storage[DEV_CONTENT_SCRIPT_STATIC_BUNDLES_KEY]).toEqual({
+      'content_scripts/content-1': 'content_scripts/content-1.SHARED.js'
+    })
+  })
+
+  it('a boot that both carries the reload flag and sees a new bundle reloads each tab once', async () => {
+    const w = worker({
+      registry: withStatic,
+      tabs: [{id: 1, url: 'https://a.test/one'}],
+      storage: {
+        [DEV_CONTENT_SCRIPT_STATIC_RELOAD_KEY]: {
+          entries: ['content_scripts/content-1'],
+          at: Date.now()
+        },
+        [DEV_CONTENT_SCRIPT_STATIC_BUNDLES_KEY]: {
+          'content_scripts/content-1': 'content_scripts/content-1.OLD.js'
+        }
+      }
+    })
+    await w.settle()
+    expect(w.calls.reload).toEqual([1])
+    expect(w.storage[DEV_CONTENT_SCRIPT_STATIC_RELOAD_KEY]).toBeUndefined()
   })
 
   it('reload of an entry the frame does not name leaves every tab alone', async () => {

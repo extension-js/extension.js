@@ -7,9 +7,9 @@
 
 # feature-locales
 
-> Emit extension `_locales/**/messages.json` files during build.
+> Emit the extension's `_locales` tree during build.
 
-The Locales plugin scans your extension project for `_locales` folders and emits their `messages.json` files into the final bundle. This ensures Chrome/Firefox localization files are correctly included and watched during development. This module is part of the Extension.js project.
+The Locales plugin scans your extension project for a `_locales` folder and emits every file under each locale folder into the final bundle. This ensures Chrome/Firefox localization files are correctly included and watched during development. This module is part of the Extension.js project.
 
 ### Early‑fail validation (break before the browser)
 
@@ -24,8 +24,9 @@ When any of the above is misconfigured, the build emits a compilation error so y
 ## What it does
 
 - Scans `_<locales>/<locale>/*` at the project root, next to your `manifest.json`, or inside `public/`. A `public/_locales` is shipped by the public copier, so this plugin emits nothing for it.
-- Emits only `.json` files (e.g., `messages.json`) to the output bundle. Non‑JSON files in `_locales` are ignored.
-- Adds discovered `.json` files to compilation file dependencies so changes are watched during `dev`.
+- Emits every file under each `_locales/<locale>/` folder, nested folders included, at `_locales/<locale>/...` in the output. A `privacy.md` or a data file beside `messages.json` ships with it. OS metadata files such as `.DS_Store` are the only files left out.
+- Leaves out a locale folder that has no `messages.json`, since stores reject it, and names the folder in a build warning so you can add the file or delete the folder.
+- Adds the discovered `.json` files to the compilation file dependencies so a `messages.json` change is picked up during `dev`. The other files under `_locales` are emitted but not watched.
 
 ## Usage
 
@@ -61,7 +62,7 @@ export class LocalesPlugin {
 
 - **manifestPath**: Absolute path to your `manifest.json`.
 - **browser**: Target browser whose manifest keys are resolved before validation. Defaults to `chrome`.
-- **includeList**: Optional file path list to include. Non-`.json` files are skipped automatically.
+- **includeList**: Optional file path list to include.
 
 ## License
 

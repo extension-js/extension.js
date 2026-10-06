@@ -2,11 +2,13 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {workspacePackage} from './helpers/workspace-package'
 
-const WORKSPACE_MODULES = path.resolve(__dirname, '../../../node_modules')
-const hasSvelte =
-  fs.existsSync(path.join(WORKSPACE_MODULES, 'svelte', 'package.json')) &&
-  fs.existsSync(path.join(WORKSPACE_MODULES, 'svelte-loader', 'package.json'))
+const SVELTE_PACKAGES = {
+  svelte: workspacePackage('svelte'),
+  'svelte-loader': workspacePackage('svelte-loader')
+}
+const hasSvelte = Object.values(SVELTE_PACKAGES).every(Boolean)
 
 const roots: string[] = []
 
@@ -23,17 +25,13 @@ function write(root: string, rel: string, content: string) {
 function linkSvelte(root: string) {
   fs.mkdirSync(path.join(root, 'node_modules'), {recursive: true})
 
-  for (const name of ['svelte', 'svelte-loader']) {
-    fs.symlinkSync(
-      path.join(WORKSPACE_MODULES, name),
-      path.join(root, 'node_modules', name),
-      'dir'
-    )
+  for (const [name, dir] of Object.entries(SVELTE_PACKAGES)) {
+    fs.symlinkSync(dir as string, path.join(root, 'node_modules', name), 'dir')
   }
 
   return JSON.parse(
     fs.readFileSync(
-      path.join(WORKSPACE_MODULES, 'svelte', 'package.json'),
+      path.join(SVELTE_PACKAGES.svelte as string, 'package.json'),
       'utf8'
     )
   ).version as string

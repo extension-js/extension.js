@@ -162,6 +162,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
   ],
   "plugin-reload/messages.ts": [
     "backgroundIsRequiredMessageOnly: function(1)",
+    "reloadingExtensionForStaticContentScript: function(1)",
   ],
   "plugin-special-folders/messages.ts": [
     "packageScriptLeftOut: function(1)",

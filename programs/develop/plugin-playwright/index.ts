@@ -279,6 +279,10 @@ export function getSessionRunId(
 // a compiler torn down after its successor opened no longer owns the document.
 const writerEpochByMetadataDir = new Map<string, number>()
 
+// The dev server and its compiler plugin each open a writer on the same run,
+// so the other session is noticed twice and told of once.
+const devOverDevWarnedByMetadataDir = new Set<string>()
+
 // The one identifier a consumer cannot read from the manifest alone: gecko
 // declares it, chromium hashes the manifest key or the loaded dist path.
 // Safari has no dist-derivable id at all: identity is the appex bundle id
@@ -509,11 +513,13 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
   if (
     options.command === 'dev' &&
     liveOwner &&
+    !devOverDevWarnedByMetadataDir.has(metadataDir) &&
     shouldWarnDevOverDev(liveOwner, {
       instanceId: options.instanceId,
       instanceExplicit: options.instanceExplicit
     })
   ) {
+    devOverDevWarnedByMetadataDir.add(metadataDir)
     humanWarn(
       messages.anotherDevSessionActive(
         options.browser,
