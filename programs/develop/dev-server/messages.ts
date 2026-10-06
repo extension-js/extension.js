@@ -265,12 +265,14 @@ export function devServerRestarting(request: {
 
   if (request.pathBefore) {
     lines.push(
-      `${colors.gray('BEFORE')} ${colors.underline(request.pathBefore)}`
+      `${colors.gray('BEFORE')} ${colors.underline(displayPath(request.pathBefore))}`
     )
   }
 
   if (request.pathAfter) {
-    lines.push(`${colors.gray('AFTER')} ${colors.underline(request.pathAfter)}`)
+    lines.push(
+      `${colors.gray('AFTER')} ${colors.underline(displayPath(request.pathAfter))}`
+    )
   }
 
   return lines.join('\n')

@@ -10,6 +10,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {sync as spawnSync} from 'cross-spawn'
 import {getPackageManagerSpec} from 'prefers-yarn'
+import {corepackRegistryEnv} from './corepack-registry'
 
 export {getPackageManagerSpec as getPackageManagerSpecFromEnv} from 'prefers-yarn'
 
@@ -149,7 +150,11 @@ export function resolvePackageManagerSpec(
     const probe = spawnSync(manager, ['--version'], {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
-      timeout: 5000
+      timeout: 5000,
+      env: {
+        ...process.env,
+        ...corepackRegistryEnv(process.env, projectPath)
+      }
     })
     const version =
       probe.status === 0

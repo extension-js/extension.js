@@ -15,7 +15,7 @@ import {
   type RspackPluginInstance,
   WebpackError
 } from '@rspack/core'
-import {isDebug, prefix} from '../../lib/messaging'
+import {debugLine, isDebug, prefix} from '../../lib/messaging'
 import {
   ensureOptionalContractModuleLoaded,
   ensureOptionalContractPackageResolved
@@ -40,7 +40,7 @@ export function isUsingVue(projectPath: string) {
 
   if (using && !userMessageDelivered) {
     if (isDebug()) {
-      console.log(`${prefix('debug')} ${messages.isUsingIntegration('Vue')}`)
+      debugLine(`${prefix('debug')} ${messages.isUsingIntegration('Vue')}`)
     }
 
     userMessageDelivered = true

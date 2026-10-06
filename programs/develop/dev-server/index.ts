@@ -15,6 +15,7 @@ import {Writable} from 'node:stream'
 import {type Compiler, rspack, type Stats} from '@rspack/core'
 import {type Configuration, RspackDevServer} from '@rspack/dev-server'
 import {merge} from 'webpack-merge'
+import {codedError} from '../lib/coded-error'
 import {
   loadBrowserConfig,
   loadCommandConfig,
@@ -29,7 +30,8 @@ import {
   isWebkitBasedBrowser
 } from '../lib/constants'
 import {DEV_COMMAND_DEFAULTS, mergeOptionLayers} from '../lib/merge-options'
-import {isDebug} from '../lib/messaging'
+import {anotherDevSessionRefused} from '../lib/messages'
+import {CODES, isDebug} from '../lib/messaging'
 import {applySplitChunksGuard} from '../lib/normalize-split-chunks'
 import {asAbsolute, getDistPath} from '../lib/paths'
 import type {ProjectStructure} from '../lib/project'
@@ -37,13 +39,16 @@ import {sanitize} from '../lib/sanitize'
 import {
   ensureSessionArtifactsIgnoreFile,
   ensureSessionStateInProjectGitignore,
+  readyContractPath,
   actionsPath as sessionActionsPath,
   logsPath as sessionLogsPath
 } from '../lib/session-paths'
 import type {BrowserLogSinkEvent} from '../plugin-browsers'
 import {
   createPlaywrightMetadataWriter,
-  getSessionRunId
+  detectLiveDevSessionOwner,
+  getSessionRunId,
+  shouldWarnDevOverDev
 } from '../plugin-playwright'
 import {
   buildSourceFeatureIndex,
@@ -59,7 +64,7 @@ import {
 } from '../plugin-special-folders/get-data'
 import {publicFolderOrDefault} from '../plugin-special-folders/resolve-public-folder'
 import webpackConfig from '../rspack-config'
-import type {DevOptions} from '../types'
+import type {ConfigHookContext, DevOptions} from '../types'
 import {setupCleanupHandlers} from './cleanup'
 import {
   setupCompilerLifecycleHooks,
@@ -107,6 +112,7 @@ import {
   DevSessionRestartScheduler,
   unbindDevSessionRestart
 } from './session-restart'
+import {withSessionStartPrune} from './session-start-prune'
 
 function shouldWriteAssetToDisk(filePath: string) {
   // A `..` segment means an emitted asset NAME escapes the output dir; writing
@@ -557,6 +563,25 @@ export async function devServer(
     throw new Error('Failed to create instance')
   }
 
+  // The eval token and the ready contract have one slot per browser, so a
+  // second session over the same target would leave them naming different runs.
+  const liveOwner = detectLiveDevSessionOwner(
+    readyContractPath(packageJsonDir, String(devOptions.browser || 'chromium'))
+  )
+
+  if (liveOwner && shouldWarnDevOverDev(liveOwner, currentInstance)) {
+    await portManager.terminateCurrentInstance()
+
+    throw codedError(
+      CODES.E_SESSION_EXISTS,
+      anotherDevSessionRefused(
+        String(devOptions.browser || 'chromium'),
+        liveOwner.pid,
+        liveOwner.port ?? null
+      )
+    )
+  }
+
   const port = portAllocation.port
 
   // `devServerHost` is the BIND host (e.g. 0.0.0.0 in a devcontainer). Clients
@@ -873,6 +898,7 @@ export async function devServer(
     readyPath: metadata.readyPath,
     eventsPath: metadata.eventsPath
   })
+  lifecycle.emitOnExit()
 
   // Say so when the requested port was taken. Compare numerically: a CLI
   // --port arrives as a string, and '55835' !== 55835 misreported every run.
@@ -973,7 +999,15 @@ export async function devServer(
   // the bundler is torn down.
   async function createCompilerAndServer(opts: {isRestart: boolean}) {
     const baseConfig = webpackConfig(projectStructure, webpackConfigOptions)
-    const customWebpackConfig = await loadCustomConfig(packageJsonDir)
+    const hookContext: ConfigHookContext = {
+      browser: webpackConfigOptions.browser,
+      mode: webpackConfigOptions.mode,
+      command: webpackConfigOptions.metadataCommand
+    }
+    const customWebpackConfig = await loadCustomConfig(
+      packageJsonDir,
+      hookContext
+    )
     const compilerConfig = applySplitChunksGuard(
       merge(customWebpackConfig(baseConfig), {})
     )
@@ -982,11 +1016,19 @@ export async function devServer(
     if (configResolved) {
       compilerConfig.plugins = [
         ...(compilerConfig.plugins || []),
-        new ConfigResolvedPlugin(configResolved)
+        new ConfigResolvedPlugin(configResolved, hookContext)
       ]
     }
 
-    const compiler = rspack(compilerConfig)
+    // Decided before the compiler exists: its metadata writer takes over
+    // ready.json, after which the earlier session's claim can not be read.
+    const compiler = rspack(
+      withSessionStartPrune(compilerConfig, {
+        isRestart: opts.isRestart,
+        distPath: primaryDistPath,
+        readyPath: metadata.readyPath
+      })
+    )
     activeCompiler = compiler
     const uninstallManifestGuard =
       installManifestDiskWriteGuard(manifestOutputPath)
@@ -1233,5 +1275,11 @@ export async function devServer(
     })
   })
 
-  setupCleanupHandlers(() => currentServer, portManager)
+  setupCleanupHandlers(
+    () => currentServer,
+    portManager,
+    (signal) => {
+      lifecycle.interrupted(signal)
+    }
+  )
 }

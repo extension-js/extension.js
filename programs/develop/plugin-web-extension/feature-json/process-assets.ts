@@ -9,7 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, sources, WebpackError} from '@rspack/core'
-import {isDebug} from '../../lib/messaging'
+import {debugLine, isDebug} from '../../lib/messaging'
 import {isFolder} from '../shared/paths'
 import {isCriticalJsonFeature, validateJsonAsset} from './json-validation'
 import * as messages from './messages'
@@ -44,7 +44,7 @@ export function processJsonAssets(
       isCriticalJsonFeature(key)
     ).length
 
-    console.log(messages.jsonIncludeSummary(featureKeys.length, criticalCount))
+    debugLine(messages.jsonIncludeSummary(featureKeys.length, criticalCount))
   }
 
   for (const field of Object.entries(jsonFields)) {
@@ -168,7 +168,7 @@ export function processJsonAssets(
           ? 1
           : 0
 
-      console.log(
+      debugLine(
         messages.jsonEmitSummary(feature, {
           entries,
           underPublic: underPublicCount,

@@ -192,6 +192,58 @@ describe('downloadAndExtractZip', () => {
     expect(fs.existsSync(path.join(second, 'gone.js'))).toBe(false)
   })
 
+  it('keeps the session root of the previous extraction while dropping its files', async () => {
+    const target = makeTempDir('extjs-zip-session-root-')
+    let version = 1
+    const origin = await serve((_req, res) => {
+      if (version === 1) {
+        sendZip(res, {
+          'manifest.json': '{"version":"1.0.0"}',
+          'gone.js': 'export const gone = true'
+        })
+
+        return
+      }
+
+      sendZip(res, {'manifest.json': '{"version":"2.0.0"}'})
+    })
+
+    const url = `${origin}/examples.zip`
+    const first = await downloadAndExtractZip(url, target)
+    const sessionRoot = path.join(first, 'dist', 'extension-js')
+    const readyFile = path.join(sessionRoot, 'chromium', 'ready.json')
+    const profileFile = path.join(
+      sessionRoot,
+      'profiles',
+      'chromium-profile',
+      'dev',
+      'Local State'
+    )
+
+    fs.mkdirSync(path.dirname(readyFile), {recursive: true})
+    fs.writeFileSync(readyFile, '{"runId":"session-root-first-run"}')
+    fs.mkdirSync(path.dirname(profileFile), {recursive: true})
+    fs.writeFileSync(profileFile, 'profile-bytes-session-root')
+    fs.mkdirSync(path.join(first, 'dist', 'chromium'), {recursive: true})
+    fs.writeFileSync(path.join(first, 'dist', 'chromium', 'stale.js'), '')
+
+    version = 2
+    const second = await downloadAndExtractZip(url, target)
+
+    expect(second).toBe(first)
+    expect(fs.readFileSync(readyFile, 'utf-8')).toBe(
+      '{"runId":"session-root-first-run"}'
+    )
+
+    expect(fs.readFileSync(profileFile, 'utf-8')).toBe(
+      'profile-bytes-session-root'
+    )
+
+    expect(fs.existsSync(path.join(second, 'gone.js'))).toBe(false)
+    expect(fs.existsSync(path.join(second, 'dist', 'chromium'))).toBe(false)
+    expect(fs.readdirSync(target)).toEqual(['examples'])
+  })
+
   it('refuses an archive with an entry outside its folder and writes nothing', async () => {
     const target = makeTempDir('extjs-zip-partial-')
     const origin = await serve((_req, res) => {

@@ -37,6 +37,7 @@ export type BrowserType =
   | 'firefox-based'
   | 'safari'
   | 'webkit-based'
+  | 'chromium-emulator'
 
 /**
  * Companion extensions are "load-only" unpacked extension directories loaded
@@ -274,9 +275,11 @@ export interface FileConfig {
    * Escape hatch to customize the underlying Rspack/webpack-compatible
    * configuration. Receives and returns a bundler `Configuration` object.
    * Typed loosely to avoid requiring bundler types in consumer projects.
+   * The second argument names the target browser, the bundler mode and
+   * the command.
    */
   // biome-ignore lint/suspicious/noExplicitAny: public config API stays loose so user projects need no bundler types
-  config?: (config: any) => any
+  config?: (config: any, context: ConfigHookContext) => any
   /**
    * Runs once the bundler config is final, right before the first build, with
    * every loader rule attached. It can change `module`, `resolve`,
@@ -285,10 +288,22 @@ export interface FileConfig {
    * `environment`. Every other key is fixed by then (`entry`, `plugins`,
    * `mode`, `devtool`, `target`, `externals`, `output.path`, the rest of
    * `optimization`): a change is ignored with a warning, use `config`.
+   * The second argument is the same context `config` receives.
    */
   configResolved?: (
     // biome-ignore lint/suspicious/noExplicitAny: public config API stays loose so user projects need no bundler types
-    config: any
+    config: any,
+    context: ConfigHookContext
     // biome-ignore lint/suspicious/noExplicitAny: public config API stays loose so user projects need no bundler types
   ) => any
+}
+
+/** What the `config` and `configResolved` hooks are told about the run. */
+export interface ConfigHookContext {
+  /** The browser the command targets, as `--browser` names it. */
+  browser: BrowserType
+  /** The bundler mode of the run. */
+  mode: 'development' | 'production' | 'none'
+  /** The command that started the run. */
+  command: 'dev' | 'build' | 'start' | 'preview'
 }

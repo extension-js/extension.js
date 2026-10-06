@@ -7,7 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import type {Compiler} from '@rspack/core'
-import {isDebug} from '../../../lib/messaging'
+import {debugLine, isDebug} from '../../../lib/messaging'
 import * as messages from '../messages'
 
 export class AddDependencies {
@@ -42,7 +42,7 @@ export class AddDependencies {
             : 0
           // Lazy import path from steps/ -> parent dir
           // eslint-disable-next-line @typescript-eslint/no-var-requires
-          console.log(messages.manifestDepsTracked(added))
+          debugLine(messages.manifestDepsTracked(added))
         }
       }
     )

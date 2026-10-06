@@ -20,6 +20,7 @@ import {
 } from '../../../browsers-lib/constants'
 import {resolvePortForInstance} from '../../../browsers-lib/instance-registry'
 import * as messages from '../../../browsers-lib/messages'
+import {launchFailureCode} from '../../../browsers-lib/ready-stamp'
 import {toExtensionLoadList} from '../../../browsers-lib/runtime-options'
 import {deriveDebugPortWithInstance} from '../../../browsers-lib/shared-utils'
 import type {CompilationLike, PluginInterface} from '../../../browsers-types'
@@ -176,10 +177,12 @@ export class RemoteFirefox {
           await new Promise((resolve) => setTimeout(resolve, RETRY_INTERVAL))
         } else {
           const err = error as Error
+          // The reason is the line that helps. The stack is for the author
+          // and the outer retry would print it once per attempt.
           humanError(
             messages.generalBrowserError(
               this.options.browser,
-              err.stack || String(error)
+              isDebug() ? err.stack || err : err
             )
           )
 
@@ -321,8 +324,10 @@ export class RemoteFirefox {
 
         const message = requestErrorToMessage(err)
 
-        throw new Error(
-          messages.addonInstallError(this.options.browser, message)
+        // A wire that died keeps its own code; anything else is the install.
+        throw Object.assign(
+          new Error(messages.addonInstallError(this.options.browser, message)),
+          {code: launchFailureCode(err) ?? CODES.E_ADDON_INSTALL}
         )
       }
     }

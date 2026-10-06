@@ -629,13 +629,16 @@ export class Telemetry {
       const exitCode = smallExitCode(props.exit_code)
       if (exitCode !== undefined) enforcedProps.exit_code = exitCode
 
+      // A null $ip is not an opt out on the capture endpoint, the project
+      // drops the address at ingestion and this keeps GeoIP from reading it.
       const payload = {
         event,
         properties: {
           ...enforcedProps,
           ...this.common,
           app: this.app,
-          $ip: null as unknown as undefined
+          $ip: null as unknown as undefined,
+          $geoip_disable: true
         },
         distinct_id: this.anonId
       }

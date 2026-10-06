@@ -9,6 +9,10 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as parse5utilities from 'parse5-utilities'
+import {
+  type AssetHashOptions,
+  bundledAssetOutputName
+} from '../../../plugin-static-assets/static-assets-lib/asset-output-name'
 import type {FilepathList} from '../../../types'
 import {externalAssetOutputPath} from '../../feature-manifest/normalize-manifest-path'
 import {type HtmlStaticAttribute, parseHtml} from './parse-html'
@@ -334,16 +338,29 @@ export function joinEmittedAssetName(prefix: string, rel: string): string {
   return parts.slice(i).join('/') || path.posix.basename(rel)
 }
 
-// Output name of a static asset an html page references. A file inside the
-// extension root keeps its manifest-relative path under assets/, so two pages
-// that each name their own ./logo.png stay two files; a file outside the
-// root gets a stable slot under assets/ instead of climbing out of dist.
-// Without a manifest dir the name falls back to the page-relative path.
+// Output name of a static asset an html page references: the name the
+// bundler gives the same file from a stylesheet or an import, so one build
+// ships one copy however many places name it. A nested page keeps its
+// manifest-relative path under assets/, or a stable slot there when it sits
+// outside the root. Without a manifest dir the name is page-relative.
 export function htmlStaticAssetOutputName(
   manifestDir: string | undefined,
   htmlEntry: string,
-  absolutePath: string
+  absolutePath: string,
+  output?: AssetHashOptions
 ): string {
+  if (!/\.html?$/i.test(absolutePath)) {
+    try {
+      return bundledAssetOutputName(
+        absolutePath,
+        fs.readFileSync(absolutePath),
+        output
+      )
+    } catch {
+      // A missing file still gets a name, for the warning that follows.
+    }
+  }
+
   if (typeof manifestDir === 'string' && manifestDir) {
     const rel = path.relative(manifestDir, absolutePath)
 

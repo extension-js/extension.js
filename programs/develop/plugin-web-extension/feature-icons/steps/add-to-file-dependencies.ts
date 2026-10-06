@@ -1,7 +1,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {Compilation, type Compiler} from '@rspack/core'
-import {isDebug} from '../../../lib/messaging'
+import {debugLine, isDebug} from '../../../lib/messaging'
 import type {FilepathList, PluginInterface} from '../../../types'
 import * as messages from '../messages'
 import {iconValuesToStrings} from '../normalize-keys'
@@ -50,7 +50,7 @@ export class AddToFileDependencies {
             }
 
             if (isDebug()) {
-              console.log(messages.iconsDepsTracked(added))
+              debugLine(messages.iconsDepsTracked(added))
             }
           }
         )

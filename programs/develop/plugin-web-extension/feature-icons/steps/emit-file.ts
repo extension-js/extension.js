@@ -9,17 +9,17 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {Compilation, type Compiler, sources} from '@rspack/core'
-import {isDebug} from '../../../lib/messaging'
+import {debugLine, isDebug} from '../../../lib/messaging'
+import {
+  findPublicFile,
+  inspectPublicFolders
+} from '../../../plugin-special-folders/resolve-public-folder'
 import type {FilepathList, PluginInterface} from '../../../types'
 import {
   iconOutputPath,
   themeIconOutputPath,
   themeImageOutputPath
 } from '../../feature-manifest/normalize-manifest-path'
-import {
-  findPublicFile,
-  inspectPublicFolders
-} from '../../../plugin-special-folders/resolve-public-folder'
 import {reportToCompilation} from '../../shared/compilation-issues'
 import {isFolder} from '../../shared/paths'
 import * as messages from '../messages'
@@ -105,8 +105,7 @@ export class EmitFile {
                       path.join(publicDir, basename)
 
                     if (process.env.EXTENSION_DEV_DEBUG_ICONS === '1') {
-                      // eslint-disable-next-line no-console
-                      console.log(
+                      debugLine(
                         '[icons:emit-file] absolute entry',
                         JSON.stringify({
                           entry,
@@ -130,8 +129,7 @@ export class EmitFile {
                       path.join(projectPath, 'public', entry.slice(1))
 
                     if (process.env.EXTENSION_DEV_DEBUG_ICONS === '1') {
-                      // eslint-disable-next-line no-console
-                      console.log(
+                      debugLine(
                         '[icons:emit-file] leading-slash entry',
                         JSON.stringify({
                           entry,
@@ -153,8 +151,7 @@ export class EmitFile {
                       path.join(publicDir, entry)
 
                     if (process.env.EXTENSION_DEV_DEBUG_ICONS === '1') {
-                      // eslint-disable-next-line no-console
-                      console.log(
+                      debugLine(
                         '[icons:emit-file] relative entry',
                         JSON.stringify({
                           entry,
@@ -217,12 +214,9 @@ export class EmitFile {
                       : path.isAbsolute(entry)
                         ? entry
                         : path.join(projectPath, entry)
-                  const isFatal =
-                    group === 'icons' || isDefaultIconFamily || isThemeImage
-                  const severity: 'error' | 'warning' = isFatal
-                    ? 'error'
-                    : 'warning'
 
+                  // Every icon path the manifest declares is one the built
+                  // manifest will point at, and a store rejects a dangling one.
                   reportToCompilation(
                     compilation,
                     compiler,
@@ -231,10 +225,9 @@ export class EmitFile {
                           publicRootHint: isPublicRoot
                         })
                       : messages.iconsMissingFile(feature, displayPath, {
-                          publicRootHint: isPublicRoot,
-                          fatal: isFatal
+                          publicRootHint: isPublicRoot
                         }),
-                    severity,
+                    'error',
                     'manifest.json'
                   )
 
@@ -243,16 +236,11 @@ export class EmitFile {
                 }
 
                 if (isFolder(resolved)) {
-                  const isFatal =
-                    group === 'icons' || isDefaultIconFamily || isThemeImage
-
                   reportToCompilation(
                     compilation,
                     compiler,
-                    messages.iconsPathIsFolder(feature, resolved, {
-                      fatal: isFatal
-                    }),
-                    isFatal ? 'error' : 'warning',
+                    messages.iconsPathIsFolder(feature, resolved),
+                    'error',
                     'manifest.json'
                   )
 
@@ -348,7 +336,7 @@ export class EmitFile {
             }
 
             if (isDebug()) {
-              console.log(
+              debugLine(
                 messages.iconsEmitSummary(feature, {
                   entries: entriesTotal,
                   underPublic: underPublicCount,

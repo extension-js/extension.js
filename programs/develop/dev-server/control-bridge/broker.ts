@@ -71,6 +71,8 @@ export {
   CLOSE_SLOW_CONSUMER
 } from './contracts'
 
+import {debugLine} from '../../lib/messaging'
+
 export const DEFAULT_CMD_TIMEOUT_MS = 5000
 export const MAX_CMD_TIMEOUT_MS = 30_000
 
@@ -720,7 +722,7 @@ export class BridgeBroker {
 
         if (this.allowStaleProducerResync()) {
           if (this.authorMode) {
-            console.log(
+            debugLine(
               `[control-bridge] stale producer (instance ${hello.instanceId}) → full-reload resync`
             )
           }

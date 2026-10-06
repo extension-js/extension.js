@@ -42,8 +42,15 @@ import {
   START_BUILD_DEFAULTS
 } from './lib/merge-options'
 import * as messages from './lib/messages'
-import {browserRowValue, card, claimCardKey, isDebug} from './lib/messaging'
+import {
+  browserRowValue,
+  card,
+  claimCardKey,
+  debugLine,
+  isDebug
+} from './lib/messaging'
 import {applySplitChunksGuard} from './lib/normalize-split-chunks'
+import {listOutputFiles} from './lib/output-files'
 import {parseJsonSafe} from './lib/parse-json-safe'
 import {
   collapseHomeDir,
@@ -79,7 +86,7 @@ import {
   getSpecialFoldersDataForProjectRoot,
   rememberSpecialFoldersConfig
 } from './plugin-special-folders/get-data'
-import type {BuildOptions} from './types'
+import type {BuildOptions, ConfigHookContext} from './types'
 
 const reportedBuildFailures = new WeakSet<object>()
 
@@ -237,8 +244,8 @@ export async function extensionBuild(
     removeStaleStagingDirs(distPath)
 
     if (debug) {
-      console.log(messages.debugDirs(manifestDir, packageJsonDir))
-      console.log(
+      debugLine(messages.debugDirs(manifestDir, packageJsonDir))
+      debugLine(
         messages.debugBrowser(
           browser,
           buildOptions?.chromiumBinary,
@@ -246,7 +253,7 @@ export async function extensionBuild(
         )
       )
 
-      console.log(messages.debugOutputPath(distPath))
+      debugLine(messages.debugOutputPath(distPath))
     }
 
     const mergedExtensionsConfig =
@@ -291,7 +298,15 @@ export async function extensionBuild(
       return plugin?.constructor.name !== 'plugin-browsers'
     })
 
-    const userExtensionConfig = await loadCustomConfig(packageJsonDir)
+    const hookContext: ConfigHookContext = {
+      browser,
+      mode: resolvedMode,
+      command: buildOptions?.metadataCommand || 'build'
+    }
+    const userExtensionConfig = await loadCustomConfig(
+      packageJsonDir,
+      hookContext
+    )
     const userConfig = userExtensionConfig({
       ...baseConfig,
       plugins: allPluginsButBrowserRunners
@@ -305,7 +320,7 @@ export async function extensionBuild(
     if (configResolved) {
       compilerConfig.plugins = [
         ...(compilerConfig.plugins || []),
-        new ConfigResolvedPlugin(configResolved)
+        new ConfigResolvedPlugin(configResolved, hookContext)
       ]
     }
 
@@ -371,6 +386,12 @@ export async function extensionBuild(
           )
         }
 
+        // One walk feeds the tree's folded line and the summary totals, so
+        // both describe the folder the build wrote and not the stats list.
+        const outputFiles = listOutputFiles(
+          useStagingSwap ? stagingDistPath : displayDistPath
+        )
+
         // The identity card and asset tree are informational; a throw here
         // would leave this promise pending and the process would exit 0.
         try {
@@ -381,7 +402,7 @@ export async function extensionBuild(
           )
 
           if (!silent) {
-            const assetsTree = messages.buildAssetsTree(stats)
+            const assetsTree = messages.buildAssetsTree(stats, outputFiles)
             if (assetsTree) humanLine(assetsTree)
           }
         } catch {
@@ -413,7 +434,7 @@ export async function extensionBuild(
 
           // The summary names the folder the artifacts landed in, which under
           // a re-pointed output.path is not dist/<browser>.
-          summary = getBuildSummary(browser, info, displayDistPath)
+          summary = getBuildSummary(browser, info, displayDistPath, outputFiles)
 
           const distDisplay = displayPath(displayDistPath)
 

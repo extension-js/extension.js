@@ -6,11 +6,15 @@
 //  ╚══╝╚══╝ ╚══════╝╚═════╝       ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═╝ ╚═════╝╚══════╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import * as crypto from 'node:crypto'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, sources, WebpackError} from '@rspack/core'
 import {isGeckoBasedBrowser, isWebkitBasedBrowser} from '../../../lib/constants'
+import {debugLine} from '../../../lib/messaging'
+import {
+  type AssetHashOptions,
+  bundledAssetOutputName
+} from '../../../plugin-static-assets/static-assets-lib/asset-output-name'
 import {normalizeManifestOutputPath} from '../../feature-manifest/normalize-manifest-path'
 import {unixify} from '../../shared/paths'
 import * as warMessages from './messages'
@@ -81,25 +85,15 @@ function emitDirectoryAsAssets(
   walk(absDir)
 }
 
+// Named the way the bundler names the same bytes, so a sheet or an import
+// reaching for this file shares the one copy instead of adding a second.
 function emitFileAsAsset(compilation: Compilation, absPath: string): string {
-  // Content-hash in dev too: an unhashed `assets/[name][ext]` makes two assets
-  // that merely share a basename overwrite each other (see plugin-static-assets).
-  const filenamePattern = 'assets/[name].[contenthash:8][ext]'
-
-  const ext = path.extname(absPath)
-  const name = path.basename(absPath, ext)
   const content = fs.readFileSync(absPath)
-
-  let outName = filenamePattern.replace('[name]', name).replace('[ext]', ext)
-
-  if (outName.includes('[contenthash:8]')) {
-    const hash = crypto
-      .createHash('sha1')
-      .update(content)
-      .digest('hex')
-      .slice(0, 8)
-    outName = outName.replace('[contenthash:8]', hash)
-  }
+  const outName = bundledAssetOutputName(
+    absPath,
+    content,
+    (compilation as {outputOptions?: AssetHashOptions}).outputOptions
+  )
 
   if (!compilation.getAsset(outName)) {
     compilation.emitAsset(outName, new sources.RawSource(content))
@@ -188,6 +182,79 @@ function validateMatchesOrReport(
   }
 }
 
+// The project-root-relative path of a ref that resolves outside the
+// manifest folder but inside the project, or of a plain ref that is missing
+// beside the manifest; undefined when the manifest folder is the root.
+function rootRelativeOf(
+  projectPath: string,
+  manifestDir: string,
+  abs: string,
+  res: string
+): string | undefined {
+  if (path.resolve(projectPath) === path.resolve(manifestDir)) {
+    return undefined
+  }
+
+  if (path.isAbsolute(res)) return undefined
+
+  const fromManifest = unixify(path.relative(projectPath, abs))
+  const plain = unixify(res).replace(/^\.\//, '')
+
+  if (fromManifest.startsWith('..')) return undefined
+  if (fs.existsSync(abs) && !unixify(res).startsWith('..')) return undefined
+
+  const candidate = unixify(res).startsWith('..') ? fromManifest : plain
+
+  return candidate && !candidate.startsWith('..') ? candidate : undefined
+}
+
+function isFile(candidate: string): boolean {
+  try {
+    return fs.statSync(candidate).isFile()
+  } catch {
+    return false
+  }
+}
+
+// The one source file a declared resource names and the path it ships at,
+// by the same order the resolver below walks. Globs, folders, public files
+// and misses name no single source.
+export function declaredResourceSource(
+  manifestPath: string,
+  projectPath: string | undefined,
+  res: string
+): {source: string; output: string} | undefined {
+  const manifestDir = path.dirname(manifestPath)
+  const root = projectPath || manifestDir
+
+  if (!res || path.isAbsolute(res) || /[*?[\]{}]/.test(res)) return undefined
+  if (isPublicRootLike(res)) return undefined
+
+  const normalizedOutput = normalizeManifestOutputPath(res)
+
+  if (
+    !normalizedOutput.split('/').includes('..') &&
+    fs.existsSync(path.join(root, 'public', normalizedOutput))
+  ) {
+    return undefined
+  }
+
+  const abs = path.join(manifestDir, res)
+  const rootRel = rootRelativeOf(root, manifestDir, abs, res)
+
+  if (rootRel) {
+    const rootAbs = path.join(root, rootRel)
+
+    return isFile(rootAbs) ? {source: rootAbs, output: rootRel} : undefined
+  }
+
+  const output = unixify(path.relative(manifestDir, abs))
+
+  return isFile(abs) && !output.startsWith('..')
+    ? {source: abs, output}
+    : undefined
+}
+
 export function resolveUserDeclaredWAR(
   compilation: Compilation,
   manifestPath: string,
@@ -240,27 +307,6 @@ export function resolveUserDeclaredWAR(
     }
 
     group.resources.add(resource)
-  }
-
-  // The project-root-relative path of a ref that resolves outside the
-  // manifest folder but inside the project, or of a plain ref that is missing
-  // beside the manifest; undefined when the manifest folder is the root.
-  const rootRelativeOf = (abs: string, res: string): string | undefined => {
-    if (path.resolve(projectPath) === path.resolve(manifestDir)) {
-      return undefined
-    }
-
-    if (path.isAbsolute(res)) return undefined
-
-    const fromManifest = unixify(path.relative(projectPath, abs))
-    const plain = unixify(res).replace(/^\.\//, '')
-
-    if (fromManifest.startsWith('..')) return undefined
-    if (fs.existsSync(abs) && !unixify(res).startsWith('..')) return undefined
-
-    const candidate = unixify(res).startsWith('..') ? fromManifest : plain
-
-    return candidate && !candidate.startsWith('..') ? candidate : undefined
   }
 
   const handleOne = (
@@ -323,8 +369,7 @@ export function resolveUserDeclaredWAR(
         (compilation.options?.mode || 'development') !== 'production'
 
       if (process.env.EXTENSION_DEV_DEBUG_WAR === '1') {
-        // eslint-disable-next-line no-console
-        console.log(
+        debugLine(
           '[web-resources:resolve-war] public-like resource',
           JSON.stringify({
             res,
@@ -367,7 +412,7 @@ export function resolveUserDeclaredWAR(
     // A ref the special folders own (pages/, scripts/) lives at the project
     // root, not beside a src/ manifest. Spelled from either place, it names
     // the compiled asset at its root-relative path, or ships the file there.
-    const rootRel = rootRelativeOf(abs, res)
+    const rootRel = rootRelativeOf(projectPath, manifestDir, abs, res)
 
     if (rootRel) {
       const compiled =

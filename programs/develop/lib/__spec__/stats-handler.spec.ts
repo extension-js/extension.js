@@ -1,4 +1,8 @@
-import {describe, expect, it, vi} from 'vitest'
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
+import {type Compiler, rspack, type Stats} from '@rspack/core'
+import {afterAll, describe, expect, it, vi} from 'vitest'
 import {
   humanizeCaseMismatchBlocks,
   isEmitTimeWarning,
@@ -78,6 +82,101 @@ describe('wrapStatsBlocks', () => {
 
     expect(wrapped.split('\n')[0]).toBe('⏵⏵⏵ Build error.')
   })
+
+  it('keeps the message of a warning with no file out of the header', () => {
+    const raw = [
+      '\u001b[1m\u001b[33mWARNING\u001b[39m\u001b[22m in \u001b[33m⚠\u001b[0m The folder sits in a legacy place.',
+      '  \u001b[2m│\u001b[0m GOT src/_locales',
+      '  \u001b[2m│\u001b[0m EXPECTED _locales'
+    ].join('\n')
+
+    expect(plain(wrapStatsBlocks(raw)).split('\n')).toEqual([
+      '⏵⏵⏵ Build warning.',
+      '    ⚠ The folder sits in a legacy place.',
+      '    │ GOT src/_locales',
+      '    │ EXPECTED _locales'
+    ])
+  })
+
+  it('keeps the message of an error with no file out of the header', () => {
+    const raw = [
+      '\u001b[1m\u001b[31mERROR\u001b[39m\u001b[22m in \u001b[1m  × The manifest names no entry.',
+      '  │ Add one.'
+    ].join('\n')
+
+    expect(plain(wrapStatsBlocks(raw)).split('\n')).toEqual([
+      '⏵⏵⏵ Build error.',
+      '    × The manifest names no entry.',
+      '    │ Add one.'
+    ])
+  })
+})
+
+describe('renderStatsBlocks on what the bundler prints', () => {
+  const roots: string[] = []
+
+  afterAll(() => {
+    for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
+  })
+
+  function compileWithWarnings() {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-stats-head-'))
+    roots.push(root)
+    fs.writeFileSync(path.join(root, 'index.js'), 'export const value = 1\n')
+
+    const compiler = rspack({
+      context: root,
+      mode: 'development',
+      entry: './index.js',
+      output: {path: path.join(root, 'out')},
+      plugins: [
+        {
+          apply(target: Compiler) {
+            target.hooks.thisCompilation.tap('spec-warnings', (compilation) => {
+              const WarningCtor = target.rspack.WebpackError
+              const located = new WarningCtor(
+                'stats-head-token: with a file.\nFix the file.'
+              ) as Error & {file?: string}
+              located.file = 'manifest.json'
+
+              compilation.warnings.push(
+                new WarningCtor('stats-head-token: no file.\nGOT here'),
+                located
+              )
+            })
+          }
+        }
+      ]
+    })
+
+    return new Promise<Stats>((resolve, reject) => {
+      compiler.run((error, stats) => {
+        compiler.close(() => {
+          if (error || !stats) return reject(error || new Error('no stats'))
+
+          resolve(stats)
+        })
+      })
+    })
+  }
+
+  it('names a file only for the warning that has one', async () => {
+    const stats = await compileWithWarnings()
+    const lines = plain(
+      renderStatsBlocks(stats, {errors: false, warnings: true})
+    )
+      .split('\n')
+      .filter((line) => line.trim().length > 0)
+
+    expect(lines).toEqual([
+      '⏵⏵⏵ Build warning.',
+      '    ⚠ stats-head-token: no file.',
+      '    │ GOT here',
+      '⏵⏵⏵ Build warning in manifest.json.',
+      '    ⚠ stats-head-token: with a file.',
+      '    │ Fix the file.'
+    ])
+  }, 60_000)
 })
 
 describe('renderStatsBlocks', () => {

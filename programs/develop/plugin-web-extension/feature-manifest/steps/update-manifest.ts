@@ -39,7 +39,7 @@ import {
   findPrefixedManifestVersionKeys,
   isValidManifestVersion
 } from '../../../lib/manifest-utils'
-import {isDebug} from '../../../lib/messaging'
+import {debugLine, isDebug} from '../../../lib/messaging'
 import {reportToCompilation} from '../../shared/compilation-issues'
 import {
   pageActionDropReason,
@@ -355,7 +355,7 @@ export class UpdateManifest {
                   }
                 }
 
-                console.log(
+                debugLine(
                   messages.manifestOverridesSummary(
                     overrideKeys,
                     devCssStubsAdded

@@ -20,6 +20,7 @@ export {buildExecEnv}
 const require = createRequire(import.meta.url)
 
 import type {SUPPORTED_PACKAGE_MANAGERS} from './constants'
+import {corepackRegistryEnv} from './corepack-registry'
 
 export type PackageManagerName = (typeof SUPPORTED_PACKAGE_MANAGERS)[number]
 
@@ -618,12 +619,16 @@ export function spawnInstallCommand(
   options?: ExecOptions
 ): ChildProcess {
   const invocation = buildSpawnInvocation(command, args)
-  const env = buildExecEnv()
+  const env = buildExecEnv() || process.env
 
   return spawn(invocation.command, invocation.args, {
     cwd: options?.cwd,
     stdio: options?.stdio ?? 'ignore',
-    env: {...(env || process.env), ...options?.env}
+    env: {
+      ...env,
+      ...corepackRegistryEnv(env, options?.cwd ?? process.cwd()),
+      ...options?.env
+    }
   })
 }
 

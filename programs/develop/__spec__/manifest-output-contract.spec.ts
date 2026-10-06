@@ -89,7 +89,12 @@ function writeFixture() {
   )
 
   write('src/background.ts', "console.log('bg')\nexport {}\n")
-  write('src/content.ts', "console.log('content')\nexport {}\n")
+  write(
+    'src/content.ts',
+    "import {label} from './label'\nconsole.log(label)\nexport {}\n"
+  )
+
+  write('src/label.ts', "export const label = 'content'\n")
   write('src/main-world.ts', "console.log('main-world')\nexport {}\n")
   write('src/content.css', 'body { outline: 1px solid red }\n')
 

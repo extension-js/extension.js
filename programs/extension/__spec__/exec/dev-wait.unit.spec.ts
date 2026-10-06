@@ -353,4 +353,18 @@ describe('runDevWaitMode', () => {
       })
     ).rejects.toThrow('requires a local project path')
   })
+
+  it('codes the remote URL refusal as E_REMOTE_URL_UNSUPPORTED', async () => {
+    const error = await runDevWaitMode({
+      pathOrRemoteUrl: 'https://example.com/ext.zip',
+      browsers: ['chromium'],
+      waitTimeout: 5000
+    }).catch((caught: unknown) => caught)
+
+    expect(describeWaitError(error)).toMatchObject({
+      code: 'E_REMOTE_URL_UNSUPPORTED',
+      status: 'usage',
+      hint: 'Pass a local project path to --wait. Remote URLs are not supported.'
+    })
+  })
 })

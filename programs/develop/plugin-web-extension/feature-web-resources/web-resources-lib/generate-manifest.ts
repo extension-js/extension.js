@@ -9,7 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, sources, WebpackError} from '@rspack/core'
-import {isDebug} from '../../../lib/messaging'
+import {debugLine, isDebug} from '../../../lib/messaging'
 import type {Manifest} from '../../../types'
 import {
   getManifestContent,
@@ -223,6 +223,37 @@ function toCanonicalContentScriptCss(jsFile: string) {
   return normalized.replace(/\.js$/, '.css')
 }
 
+// The browser injects a declared sheet itself, so a page must reach it only
+// when the script fetches its own sheet, and a script that does names it.
+function collectUnfetchedEntrySheets(
+  compilation: Compilation,
+  manifest: Manifest
+): Set<string> {
+  const unfetched = new Set<string>()
+
+  // A dev session reinjects sheets through its own runtime, by other names.
+  if ((compilation.options?.mode || 'development') !== 'production') {
+    return unfetched
+  }
+
+  for (const contentScript of manifest.content_scripts || []) {
+    const jsFiles: string[] = Array.isArray(contentScript.js)
+      ? contentScript.js
+      : []
+    const sources = jsFiles.map((jsFile) => getAssetSource(compilation, jsFile))
+
+    for (const jsFile of jsFiles) {
+      const sheet = toCanonicalContentScriptCss(jsFile)
+
+      if (sheet && !sources.some((source) => source.includes(sheet))) {
+        unfetched.add(sheet)
+      }
+    }
+  }
+
+  return unfetched
+}
+
 function declaredWarResources(manifest: Manifest): string[] {
   const war = manifest.web_accessible_resources as unknown
 
@@ -305,6 +336,10 @@ export function generateManifestPatches(
       : []
   const webAccessibleResourcesV2: string[] =
     canonicalManifest.manifest_version === 2 ? Array.from(resolved.v2) : []
+  const unfetchedEntrySheets = collectUnfetchedEntrySheets(
+    compilation,
+    canonicalManifest
+  )
 
   // Fallback scan: inspect emitted content-script JS for referenced payloads.
   // assets/* plus root-level wasm cores / model weights the bundler emits
@@ -421,17 +456,21 @@ export function generateManifestPatches(
         ).sort()
       }
 
-      if (filteredResources.length === 0) continue
+      const exposedResources = filteredResources.filter(
+        (resource) => !unfetchedEntrySheets.has(resource)
+      )
+
+      if (exposedResources.length === 0) continue
 
       if (canonicalManifest.manifest_version === 3) {
         const normalizedMatches = cleanMatches(matches)
         mergeIntoV3Group(
           webAccessibleResourcesV3,
           normalizedMatches,
-          filteredResources
+          exposedResources
         )
       } else {
-        filteredResources.forEach((resource) => {
+        exposedResources.forEach((resource) => {
           if (!webAccessibleResourcesV2.includes(resource)) {
             webAccessibleResourcesV2.push(resource)
           }
@@ -474,48 +513,22 @@ export function generateManifestPatches(
     }
   }
 
-  // Last-resort fallback: expose emitted static assets under assets/ to the union of content_scripts matches
-  if (canonicalManifest.manifest_version === 3) {
-    const assetKeys: string[] = Object.keys(compilation.assets || {})
-    const staticAssets = assetKeys
-      .filter((k) => k.startsWith('assets/'))
-      .filter((k) => !k.endsWith('.js') && !k.endsWith('.map'))
-      .sort()
-
-    if (staticAssets.length > 0) {
-      const allMatches: string[] = Array.from(
-        new Set(
-          (canonicalManifest.content_scripts || []).flatMap(
-            (cs: {matches?: string[]}) => cs.matches || []
-          )
-        )
-      )
-      const normalizedMatches = cleanMatches(allMatches)
-      mergeIntoV3Group(
-        webAccessibleResourcesV3,
-        normalizedMatches,
-        staticAssets,
-        {createGroupWhenMissing: normalizedMatches.length > 0}
-      )
-    }
-  }
-
   // A content script's stylesheet reaches its own url() targets at runtime, so
   // every emitted file it names is exposed, whatever the extension. The font
   // rule below predates this and still covers fonts reached from JS.
-  if (canonicalManifest.manifest_version === 3) {
-    const cssKeys = Object.keys(compilation.assets || {}).filter(
-      (k) => k.startsWith('content_scripts/') && k.endsWith('.css')
-    )
-    const referenced = Array.from(
-      new Set(
-        cssKeys.flatMap((cssKey) =>
-          emittedFilesReferencedByCss(compilation, cssKey)
-        )
+  const contentSheetKeys = Object.keys(compilation.assets || {}).filter(
+    (k) => k.startsWith('content_scripts/') && k.endsWith('.css')
+  )
+  const contentSheetTargets = Array.from(
+    new Set(
+      contentSheetKeys.flatMap((cssKey) =>
+        emittedFilesReferencedByCss(compilation, cssKey)
       )
-    ).sort()
+    )
+  ).sort()
 
-    if (referenced.length > 0) {
+  if (canonicalManifest.manifest_version === 3) {
+    if (contentSheetTargets.length > 0) {
       const normalizedMatches = cleanMatches(
         Array.from(
           new Set(
@@ -530,8 +543,14 @@ export function generateManifestPatches(
         mergeIntoV3Group(
           webAccessibleResourcesV3,
           normalizedMatches,
-          referenced
+          contentSheetTargets
         )
+      }
+    }
+  } else if (canonicalManifest.manifest_version === 2) {
+    for (const resource of contentSheetTargets) {
+      if (!webAccessibleResourcesV2.includes(resource)) {
+        webAccessibleResourcesV2.push(resource)
       }
     }
   }
@@ -632,8 +651,12 @@ export function generateManifestPatches(
     }
   }
 
+  const fetchedCssUnderContentScripts = cssUnderContentScripts.filter(
+    (resource) => !unfetchedEntrySheets.has(resource)
+  )
+
   if (canonicalManifest.manifest_version === 3) {
-    if (cssUnderContentScripts.length > 0) {
+    if (fetchedCssUnderContentScripts.length > 0) {
       const allMatches: string[] = Array.from(
         new Set(
           (canonicalManifest.content_scripts || []).flatMap(
@@ -648,12 +671,12 @@ export function generateManifestPatches(
         mergeIntoV3Group(
           webAccessibleResourcesV3,
           normalizedMatches,
-          cssUnderContentScripts
+          fetchedCssUnderContentScripts
         )
       }
     }
   } else if (canonicalManifest.manifest_version === 2) {
-    for (const resource of cssUnderContentScripts) {
+    for (const resource of fetchedCssUnderContentScripts) {
       if (!webAccessibleResourcesV2.includes(resource)) {
         webAccessibleResourcesV2.push(resource)
       }
@@ -716,7 +739,7 @@ export function generateManifestPatches(
         canonicalManifest.manifest_version === 2
           ? webAccessibleResourcesV2.length
           : 0
-      console.log(warPatchedSummary(v3Groups, v3ResourcesTotal, v2Resources))
+      debugLine(warPatchedSummary(v3Groups, v3ResourcesTotal, v2Resources))
     } catch {
       // Ignore
     }

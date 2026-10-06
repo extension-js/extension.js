@@ -20,7 +20,9 @@
 
 `ready.json` fields (stable for automation):
 
-- `status`: `starting` | `ready` | `error` | `stopped`
+- `status`: `starting` | `ready` | `error` | `stopped`. Under `start` with a
+  browser to launch, the build leaves `status: starting` with `compiledAt` set,
+  and `ready` is stamped only once the launch passed its binary checks
 - `command`: `dev` | `start` | `preview`
 - `browser`
 - `runId`

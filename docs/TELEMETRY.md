@@ -81,7 +81,7 @@ The `create` command adds two properties so a broken advertised starter shows up
 - Dependency lists, permission lists, or freeform project identifiers
 - Environment variable values, filesystem paths, or machine-local URLs
 - Stack traces, error messages, or free-text error names
-- IP addresses (`$ip` is explicitly set to `null` on every payload)
+- IP addresses. The project discards the request address at ingestion (`anonymize_ips`) and every payload sends `$ip: null` with `$geoip_disable: true`, so no location is derived from it either. Events sent before 2026-10-06 carried the request address.
 
 ## Volume controls
 

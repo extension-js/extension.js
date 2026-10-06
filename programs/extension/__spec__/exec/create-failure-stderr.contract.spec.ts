@@ -11,7 +11,8 @@ import {
 import {
   offlineRegistryEnv,
   offlineRegistryFiles,
-  serveOfflineRegistry
+  serveOfflineRegistry,
+  withoutInheritedRegistry
 } from '../../../create/__spec__/offline-registry-fixture'
 
 const ANSI = /\x1b\[[0-9;]*m/g
@@ -72,7 +73,7 @@ function runCreate(
       cwd: work,
       stdio: ['ignore', 'ignore', 'pipe'],
       env: {
-        ...process.env,
+        ...withoutInheritedRegistry(process.env),
         ...env,
         EXTENSION_ENV: 'test',
         EXTENSION_TELEMETRY: '0',

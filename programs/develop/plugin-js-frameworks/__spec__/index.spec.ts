@@ -321,10 +321,10 @@ describe('JsFrameworksPlugin', () => {
 
     const swcRule = compiler.options.module.rules.find(
       (rule: any) =>
-        Array.isArray(rule?.include) &&
+        Array.isArray(rule?.exclude) &&
         rule?.issuerLayer?.not === 'extensionjs-content-script'
     )
-    expect(swcRule.include).toContain('/project/node_modules/@workspace/ui')
+    expect(swcRule.include).toBeUndefined()
 
     const excludeFn = swcRule.exclude?.[0]
     expect(typeof excludeFn).toBe('function')
@@ -521,9 +521,11 @@ describe('JsFrameworksPlugin', () => {
 
     const swcRule = compiler.options.module.rules.find(
       (rule: any) =>
-        Array.isArray(rule?.include) &&
+        Array.isArray(rule?.exclude) &&
         rule?.issuerLayer?.not === 'extensionjs-content-script'
     )
-    expect(swcRule.include).toContain('/project/node_modules/@workspace/ui')
+    expect(
+      swcRule.exclude[0]('/project/node_modules/@workspace/ui/src/button.tsx')
+    ).toBe(false)
   })
 })

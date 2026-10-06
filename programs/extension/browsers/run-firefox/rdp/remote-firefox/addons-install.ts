@@ -6,6 +6,7 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝      ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import {CODES} from '../../../../helpers/messaging'
 import * as messages from '../../../browsers-lib/messages'
 import type {CompilationLike} from '../../../browsers-types'
 import {resolveAddonDirectory} from './addons'
@@ -129,11 +130,14 @@ export async function installTemporaryAddon(
   openDevTools: boolean
 ): Promise<{addon?: {id?: string}} | undefined> {
   if (!addonsActor) {
-    throw new Error(
-      messages.addonInstallError(
-        'firefox',
-        'No addonsActor available from Firefox RDP.'
-      )
+    throw Object.assign(
+      new Error(
+        messages.addonInstallError(
+          'firefox',
+          'No addonsActor available from Firefox RDP.'
+        )
+      ),
+      {code: CODES.E_ADDON_INSTALL}
     )
   }
 

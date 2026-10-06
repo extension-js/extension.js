@@ -6,6 +6,7 @@
 // ╚══════╝   ╚═╝   ╚═╝  ╚═╝   ╚═╝   ╚═╝ ╚═════╝ ╚═╝  ╚═╝╚══════╝╚══════╝╚══════╝   ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import colors from 'pintor'
 import {prefix} from '../../lib/messaging'
 
 export function assetsRulesEnabled(rules: string[]) {
@@ -38,5 +39,13 @@ export function assetsEmittedSummary(
     `${prefix('debug')} assets   emitted=${total} svg=${byCategory.svg} ` +
     `images=${byCategory.images} fonts=${byCategory.fonts} ` +
     `files=${byCategory.files}`
+  )
+}
+
+export function namespaceImportReadAsValue(binding: string, request: string) {
+  return (
+    `${colors.blue(`import * as ${binding}`)} from '${request}' is a module object, not the file's value.\n` +
+    `${colors.gray('READS AS')} [object Module]\n` +
+    `The value is the default export. Write ${colors.blue(`import ${binding} from '${request}'`)} instead.`
   )
 }

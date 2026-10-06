@@ -23,10 +23,11 @@ import {resolveDevelopInstallRoot} from './lib/develop-context'
 import {computeExtensionsToLoad} from './lib/extensions-to-load'
 import {filterKeysForThisBrowser} from './lib/manifest-utils'
 import * as messages from './lib/messages'
-import {CODES, isDebug} from './lib/messaging'
+import {CODES, debugLine, isDebug} from './lib/messaging'
 import {stripBom} from './lib/parse-json-safe'
 import {asAbsolute, getDirs, toPosixPath} from './lib/paths'
 import type {ProjectStructure} from './lib/project'
+import {sessionStateDir} from './lib/session-paths'
 import {defaultSplitChunks} from './lib/split-chunks'
 import {resolveTranspilePackageDirs} from './lib/transpile-packages'
 import {CompatibilityPlugin} from './plugin-compatibility'
@@ -114,7 +115,7 @@ export default function webpackConfig(
   )
 
   if (debug) {
-    console.log(
+    debugLine(
       messages.debugBrowser(
         devOptions.browser,
         devOptions.chromiumBinary,
@@ -122,9 +123,9 @@ export default function webpackConfig(
       )
     )
 
-    console.log(messages.debugContextPath(packageJsonDir))
-    console.log(messages.debugOutputPath(primaryExtensionOutputDir))
-    console.log(messages.debugExtensionsToLoad(unpackedExtensionDirsToLoad))
+    debugLine(messages.debugContextPath(packageJsonDir))
+    debugLine(messages.debugOutputPath(primaryExtensionOutputDir))
+    debugLine(messages.debugExtensionsToLoad(unpackedExtensionDirsToLoad))
 
     if (
       typeof devOptions.extensions !== 'undefined' &&
@@ -192,6 +193,7 @@ export default function webpackConfig(
     new WebExtensionPlugin({
       manifestPath,
       browser: devOptions.browser,
+      define: devOptions.define,
       devSession
     }),
     // Dev-session reload/HMR strategy. Must register AFTER WebExtensionPlugin,
@@ -354,7 +356,8 @@ export default function webpackConfig(
       // so consumers never hardcode the companion extension ids.
       managedExtensionDirs: unpackedExtensionDirsToLoad.filter(
         (dir) => path.resolve(dir) !== path.resolve(primaryExtensionOutputDir)
-      )
+      ),
+      launchFollows: devOptions.launchFollows
     })
   )
 
@@ -412,9 +415,26 @@ export default function webpackConfig(
 
           try {
             if (assetPath && !fs.existsSync(path.resolve(context, assetPath))) {
-              missingCssAssets.add(request)
+              const leaveUnresolved = () => {
+                missingCssAssets.add(request)
+                callback(null, request, 'asset')
+              }
 
-              return callback(null, request, 'asset')
+              // A bare specifier can name a file inside a package, which is
+              // on disk where only the bundler's own resolver looks.
+              if (
+                assetPath.startsWith('.') ||
+                typeof getResolve !== 'function'
+              ) {
+                return leaveUnresolved()
+              }
+
+              getResolve()(context, request, (err, result) => {
+                if (err || !result) leaveUnresolved()
+                else callback()
+              })
+
+              return
             }
           } catch {
             // Fall through to default resolution on any fs error.
@@ -502,6 +522,11 @@ export default function webpackConfig(
         ...(transpilePackageDirs.length > 0 ? [] : ['**/node_modules/**']),
         `${toPosixPath(primaryExtensionOutputDir)}/**`,
         `${toPosixPath(path.join(packageJsonDir, 'dist'))}/**`,
+        // Another session's control port and token land here, and the project
+        // root is a context dependency whenever a special folder is missing.
+        // Named without a globstar so the folder itself is ignored too: a file
+        // created right under it changes the folder, which `/**` lets through.
+        toPosixPath(sessionStateDir(packageJsonDir)),
         '**/extension-js/profiles/**'
       ],
       ...(process.env.EXTENSION_WATCH_POLL === 'true'
@@ -598,6 +623,9 @@ export default function webpackConfig(
       ]
     },
     module: {
+      // The `config` hook runs before any plugin attaches a rule, so it gets
+      // a list it can push to. The built-in rules join it afterwards.
+      rules: [],
       // Allow CSS Modules default imports in addition to namespace and named
       // imports. See https://rspack.dev/guide/tech/css#css-modules
       parser: {
@@ -652,7 +680,7 @@ export default function webpackConfig(
       // The stock CSS minimizer also deletes CSS module classes no script
       // imports. Production keeps every rule development keeps, so it must not.
       minimizer: [
-        new SwcJsMinimizerRspackPlugin(),
+        new SwcJsMinimizerRspackPlugin({extractComments: true}),
         new LightningCssMinimizerRspackPlugin({removeUnusedLocalIdents: false})
       ],
       sideEffects: true,

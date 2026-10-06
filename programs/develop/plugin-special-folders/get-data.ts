@@ -10,7 +10,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import type {Compiler} from '@rspack/core'
 import {getSpecialFoldersData} from 'browser-extension-manifest-fields'
-import {humanWarn, isDebug} from '../lib/messaging'
+import {debugLine, isDebug} from '../lib/messaging'
 import type {FilepathList, SpecialFoldersConfig} from '../types'
 import type {CompanionExtensionsConfig} from './folder-extensions/types'
 import {
@@ -123,7 +123,34 @@ function importsNodeOnly(specifier: string): boolean {
   )
 }
 
-function isNodeToolingScript(absPath: string): boolean {
+const SIBLING_EXTS = ['', '.js', '.mjs', '.cjs', '.ts', '.mts', '.cts']
+
+function resolveSibling(fromFile: string, specifier: string): string | null {
+  const base = path.resolve(path.dirname(fromFile), specifier)
+
+  for (const ext of SIBLING_EXTS) {
+    const candidate = `${base}${ext}`
+
+    try {
+      if (fs.statSync(candidate).isFile()) return candidate
+    } catch {
+      // Try the next spelling
+    }
+  }
+
+  return null
+}
+
+// A tooling script often reaches Node through a sibling it imports, so the
+// relative imports are followed too.
+function isNodeToolingScript(
+  absPath: string,
+  seen: Set<string> = new Set()
+): boolean {
+  if (seen.has(absPath)) return false
+
+  seen.add(absPath)
+
   let source: string
 
   try {
@@ -139,7 +166,12 @@ function isNodeToolingScript(absPath: string): boolean {
   let match: RegExpExecArray | null
 
   while ((match = specifierRe.exec(source)) !== null) {
-    if (importsNodeOnly(match[1])) return true
+    const specifier = match[1]
+    if (importsNodeOnly(specifier)) return true
+    if (!specifier.startsWith('.')) continue
+
+    const sibling = resolveSibling(absPath, specifier)
+    if (sibling && isNodeToolingScript(sibling, seen)) return true
   }
 
   return false
@@ -166,8 +198,8 @@ function filterNodeToolingScripts(
   return next
 }
 
-// Keep a scripts/ entry only if the extension actually references it (manifest,
-// HTML, or runtime string path); fail OPEN when no reference assets are readable.
+// A scripts/ file a package.json script runs is repo tooling, unless the
+// extension references it (manifest, HTML, or runtime string path).
 
 const REFERENCE_SOURCE_EXTS = new Set([
   '.html',
@@ -274,8 +306,6 @@ function referenceSpellings(relativePath: string): string[] {
   return [relativePath, `${relativePath.slice(0, -ext.length)}.js`]
 }
 
-const warnedDroppedScripts = new Set<string>()
-
 function packageScriptsText(projectRoot: string): string {
   try {
     const raw = fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf8')
@@ -290,22 +320,36 @@ function packageScriptsText(projectRoot: string): string {
   }
 }
 
-function filterUnreferencedScripts(
+// The scan runs several times per compilation, so a set already named in
+// this process stays quiet until the set itself changes.
+const reportedDroppedScripts = new Set<string>()
+
+function filterPackageToolingScripts(
   list: FilepathList | undefined,
   projectRoot: string
 ): FilepathList {
   const entries = Object.entries(list || {})
   if (entries.length === 0) return list || {}
 
+  const tooling = packageScriptsText(projectRoot)
+  if (tooling === '') return list || {}
+
+  const relativeTo = (abs: string) =>
+    path.relative(projectRoot, abs).split(path.sep).join('/')
+  const runByPackageScript = (entry: string) =>
+    path.isAbsolute(entry) && tooling.includes(relativeTo(entry))
+
+  const candidates = entries.flatMap(([, value]) =>
+    (Array.isArray(value) ? value : value ? [value] : []).map(String)
+  )
+  if (!candidates.some(runByPackageScript)) return list || {}
+
   const corpus = collectReferenceCorpus(projectRoot)
   // Fail open: no reference assets found → we can't tell, so keep everything.
   if (corpus === '') return list || {}
 
-  const isReferenced = (entry: string, key: string): boolean => {
-    const abs = String(entry)
-    if (!path.isAbsolute(abs)) return true
-
-    const rel = path.relative(projectRoot, abs).split(path.sep).join('/')
+  const isReferenced = (abs: string, key: string): boolean => {
+    const rel = relativeTo(abs)
 
     // Match the project-relative path (`scripts/foo.js`) as a substring, which
     // also covers `/scripts/foo.js` runtime-injection paths. A compiled source
@@ -326,17 +370,14 @@ function filterUnreferencedScripts(
 
   for (const [key, value] of entries) {
     const paths = Array.isArray(value) ? value : value ? [value] : []
-    const kept = paths.filter((entry) => isReferenced(String(entry), key))
+    const kept = paths.filter((entry) => {
+      const abs = String(entry)
+
+      return !runByPackageScript(abs) || isReferenced(abs, key)
+    })
 
     for (const entry of paths) {
-      if (kept.includes(entry)) continue
-
-      const abs = String(entry)
-      dropped.push(
-        path.isAbsolute(abs)
-          ? path.relative(projectRoot, abs).split(path.sep).join('/')
-          : abs
-      )
+      if (!kept.includes(entry)) dropped.push(relativeTo(String(entry)))
     }
 
     if (kept.length === 0) continue
@@ -344,26 +385,12 @@ function filterUnreferencedScripts(
     next[key] = Array.isArray(value) ? kept : (kept[0] as (typeof next)[string])
   }
 
-  // Say it out loud: a dropped entry is invisible until production, and the
-  // whole point of scripts/ is files the manifest never names. Once per set,
-  // since the filter runs for every browser target in the same run.
-  // A file the package.json scripts run is the repo's own tooling, not a
-  // content script the author forgot to inject: drop it quietly. Everything
-  // else is said out loud, since a silent drop is invisible until production.
-  const tooling = packageScriptsText(projectRoot)
-  const quiet = dropped.filter((rel) => tooling.includes(rel))
-  const loud = dropped.filter((rel) => !tooling.includes(rel))
+  if (dropped.length > 0 && isDebug()) {
+    const signature = dropped.slice().sort().join('|')
 
-  if (quiet.length > 0 && isDebug()) {
-    console.log(messages.unreferencedScriptDropped(quiet))
-  }
-
-  if (loud.length > 0) {
-    const signature = loud.slice().sort().join('|')
-
-    if (!warnedDroppedScripts.has(signature)) {
-      warnedDroppedScripts.add(signature)
-      humanWarn(messages.unreferencedScriptDropped(loud))
+    if (!reportedDroppedScripts.has(signature)) {
+      reportedDroppedScripts.add(signature)
+      debugLine(messages.packageScriptLeftOut(dropped))
     }
   }
 
@@ -504,10 +531,10 @@ function finalizeSpecialFoldersData(
     ...data,
     // public/ is copy-only; exclude nested public entries from compilation entrypoints.
     pages: filterPublicEntrypoints(data.pages, projectRoot, publicDir),
-    // Drop Node build/dev tooling living in scripts/, then drop scripts/ files the
-    // extension never references, then exclude public/ entries as pages.
+    // Drop Node build/dev tooling living in scripts/, then the files a
+    // package.json script runs, then exclude public/ entries as pages.
     scripts: filterPublicEntrypoints(
-      filterUnreferencedScripts(
+      filterPackageToolingScripts(
         filterNodeToolingScripts(data.scripts),
         projectRoot
       ),

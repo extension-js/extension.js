@@ -176,6 +176,31 @@ describe('CLI help parity contract', () => {
     expect(help).toContain('Minimum level (default: off)')
   })
 
+  it('contract #16: install help names the browser a bare install picks', () => {
+    const install = buildProgramForInspection().commands.find(
+      (command) => command.name() === 'install'
+    ) as Command
+
+    expect(stripAnsi(install.helpInformation())).toMatch(
+      /browser-name\s+managed browser to install \(default: chromium\)/
+    )
+
+    const spawned = spawnSync(
+      process.execPath,
+      [cliBin(), 'install', '--help'],
+      {cwd: cliRoot(), encoding: 'utf8'}
+    )
+
+    expect(spawned.status).toBe(0)
+    expect(stripAnsi(spawned.stdout)).toMatch(
+      /browser-name\s+managed browser to install \(default: chromium\)/
+    )
+
+    expect(stripAnsi(programUserHelp())).toContain(
+      'Defaults to chromium when no browser is named.'
+    )
+  })
+
   it('contract #3: top-level help documents global options', () => {
     const help = stripAnsi(programUserHelp())
 

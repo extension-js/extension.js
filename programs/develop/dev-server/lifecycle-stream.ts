@@ -7,7 +7,13 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'node:fs'
-import {CODES, ENVELOPE, type Envelope, isMachineOutput} from '../lib/messaging'
+import {
+  CODES,
+  ENVELOPE,
+  type Envelope,
+  type ErrorCode,
+  isMachineOutput
+} from '../lib/messaging'
 import {shouldWarnPortConflict} from './messages'
 
 // A terminating envelope cannot describe a session, so dev/start/preview emit
@@ -25,6 +31,7 @@ export type LifecycleStatus =
   | 'ready'
   | 'browser-exited'
   | 'failed'
+  | 'stopped'
 
 const MAX_OUTPUT_CHARS = 2000
 
@@ -85,6 +92,29 @@ function isProfileLocked(ready: Record<string, unknown> | null): boolean {
   return /profile\s+is\s+locked|singletonlock/i.test(message)
 }
 
+// A launch refused over a value the user set, which every other command
+// reports as usage rather than as a run that failed.
+const USAGE_LAUNCH_CODES: ReadonlySet<string> = new Set([
+  CODES.E_BROWSER_BINARY_INVALID,
+  CODES.E_BROWSER_BINARY_REQUIRED,
+  CODES.E_FLAG_NOT_SUPPORTED_HERE
+])
+
+// The launcher stamps the code it refused with beside the generic id, and a
+// code the table declares outranks the contract's own status code.
+function stampedLaunchFailureCode(
+  ready: Record<string, unknown>
+): ErrorCode | undefined {
+  if (ready.code !== 'browser_launch_failed') return undefined
+
+  const code = ready.browserLaunchFailedCode
+
+  return typeof code === 'string' &&
+    Object.prototype.hasOwnProperty.call(CODES, code)
+    ? (code as ErrorCode)
+    : undefined
+}
+
 function toFiniteNumber(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) return value
 
@@ -115,6 +145,9 @@ export class LifecycleStream {
   private readyEmitted = false
   private readyErrorEmitted = false
   private browserExitEmitted = false
+  private interruptEmitted = false
+  private terminalEmitted = false
+  private startingEmitted = false
   private boundPort: number | null = null
   private exitWatcher: NodeJS.Timeout | undefined
   private launchFailureWatcher: NodeJS.Timeout | undefined
@@ -169,6 +202,7 @@ export class LifecycleStream {
     this.boundPort = port
     const reassigned =
       port !== null && shouldWarnPortConflict(requestedPort, port)
+    this.startingEmitted = true
 
     return this.emit(
       ENVELOPE.ok(
@@ -253,31 +287,8 @@ export class LifecycleStream {
       if (this.readyErrorEmitted) return null
 
       this.readyErrorEmitted = true
-      // A bad pin or a profile the browser cannot load into is a value the
-      // user set, the status every other command gives it.
-      const usageCode =
-        ready.code === 'browser_launch_failed' &&
-        (ready.browserLaunchFailedCode === CODES.E_BROWSER_BINARY_INVALID ||
-          ready.browserLaunchFailedCode === CODES.E_FLAG_NOT_SUPPORTED_HERE)
-          ? (ready.browserLaunchFailedCode as
-              | typeof CODES.E_BROWSER_BINARY_INVALID
-              | typeof CODES.E_FLAG_NOT_SUPPORTED_HERE)
-          : undefined
-      const frame = ENVELOPE.fail(
-        this.options.command,
-        usageCode ? 'usage' : 'failed',
-        {
-          code: usageCode ?? CODES.E_READY_ERROR_STATUS,
-          message:
-            String(ready.message || '') ||
-            'The ready contract reports an error for this session.'
-        }
-      ) as Envelope<unknown>
-      frame.value = this.sessionValue({
-        ...(typeof ready.code === 'string' ? {readyCode: ready.code} : {})
-      })
 
-      return this.emit(frame)
+      return this.contractError(ready, CODES.E_READY_ERROR_STATUS)
     }
 
     this.readyEmitted = true
@@ -285,6 +296,78 @@ export class LifecycleStream {
     return this.emit(
       ENVELOPE.ok(this.options.command, 'ready', this.sessionValue())
     )
+  }
+
+  // A bad pin or a profile the browser cannot load into is a value the user
+  // set, the status every other command gives it.
+  private contractError(
+    ready: Record<string, unknown>,
+    fallback: ErrorCode
+  ): Envelope<unknown> | null {
+    const launchCode = stampedLaunchFailureCode(ready)
+    const frame = ENVELOPE.fail(
+      this.options.command,
+      launchCode && USAGE_LAUNCH_CODES.has(launchCode) ? 'usage' : 'failed',
+      {
+        code: launchCode ?? fallback,
+        message:
+          String(ready.message || '') ||
+          'The ready contract reports an error for this session.'
+      }
+    ) as Envelope<unknown>
+    frame.value = this.sessionValue({
+      ...(typeof ready.code === 'string' ? {readyCode: ready.code} : {})
+    })
+
+    this.terminalEmitted = true
+
+    return this.emit(frame)
+  }
+
+  // The launcher ends the process from inside the compile hook it owns, so
+  // the stream never sees that compile end: the exit is the last chance to
+  // name the failure the contract already carries. Before the starting frame
+  // the command layer still owns the failure and prints its own.
+  public exited(exitCode: number): Envelope<unknown> | null {
+    if (!this.startingEmitted || this.terminalEmitted || exitCode === 0) {
+      return null
+    }
+
+    const ready = readReadyContract(this.options.readyPath)
+
+    if (ready && ready.status === 'error') {
+      return this.contractError(
+        ready,
+        ready.code === 'browser_launch_failed'
+          ? CODES.E_BROWSER_LAUNCH
+          : CODES.E_READY_ERROR_STATUS
+      )
+    }
+
+    const frame = ENVELOPE.fail(this.options.command, 'failed', {
+      code: CODES.E_INTERNAL,
+      message: `The dev session ended with exit code ${exitCode}.`
+    }) as Envelope<unknown>
+    frame.value = this.sessionValue({exitCode})
+    this.terminalEmitted = true
+
+    return this.emit(frame)
+  }
+
+  public emitOnExit(): () => void {
+    const onExit = (code: number) => {
+      try {
+        this.exited(code)
+      } catch {
+        // Best-effort: the exit code is the verdict that must survive.
+      }
+    }
+
+    process.once('exit', onExit)
+
+    return () => {
+      process.removeListener('exit', onExit)
+    }
   }
 
   public browserExited(
@@ -319,6 +402,24 @@ export class LifecycleStream {
         : {})
     })
 
+    this.terminalEmitted = true
+
+    return this.emit(frame)
+  }
+
+  // The session was told to stop. The run did not fail, but a stream that
+  // just ends leaves a reader guessing, so the last frame says why it ended.
+  public interrupted(signal: string): Envelope<unknown> | null {
+    if (this.interruptEmitted) return null
+
+    this.interruptEmitted = true
+    this.terminalEmitted = true
+    const frame = ENVELOPE.fail(this.options.command, 'stopped', {
+      code: CODES.E_INTERRUPTED,
+      message: `The ${this.options.command} session was interrupted by ${signal}.`
+    }) as Envelope<unknown>
+    frame.value = this.sessionValue({signal})
+
     return this.emit(frame)
   }
 
@@ -329,6 +430,7 @@ export class LifecycleStream {
       message: stripAnsi(message)
     }) as Envelope<unknown>
     frame.value = this.sessionValue()
+    this.terminalEmitted = true
 
     return this.emit(frame)
   }

@@ -412,6 +412,64 @@ describe('the folders config in a build', () => {
     )
   }, 120_000)
 
+  it('emits every scripts/ and pages/ file but the Node helper, and says nothing about them', async () => {
+    const root = project({
+      'background.js': [
+        'chrome.action.onClicked.addListener((tab) => {',
+        "  chrome.scripting.executeScript({target: {tabId: tab.id}, files: ['scripts/x.js']})",
+        "  chrome.tabs.create({url: chrome.runtime.getURL('pages/extra.html')})",
+        '})',
+        ''
+      ].join('\n'),
+      'scripts/x.js': "document.title = 'NAMED_SCRIPT_MARK'\n",
+      'scripts/helper.js': "window.helperMark = 'PLAIN_HELPER_MARK'\n",
+      'scripts/bump.js':
+        "const fs = require('fs')\nfs.writeFileSync('out.txt', 'NODE_HELPER_MARK')\n",
+      'pages/extra.html':
+        '<!doctype html><html><body>EXTRA_PAGE_MARK</body></html>\n',
+      'pages/orphan.html':
+        '<!doctype html><html><body>ORPHAN_PAGE_MARK</body></html>\n'
+    })
+    const printed: string[] = []
+
+    const capture = (...args: unknown[]) => {
+      printed.push(args.map(String).join(' '))
+    }
+
+    const warn = vi.spyOn(console, 'warn').mockImplementation(capture)
+    const log = vi.spyOn(console, 'log').mockImplementation(capture)
+    let summary: {errors_count: number; warnings?: string[]}
+
+    try {
+      summary = await build(root)
+    } finally {
+      warn.mockRestore()
+      log.mockRestore()
+    }
+
+    expect(summary.errors_count).toBe(0)
+    expect(summary.warnings || []).toEqual([])
+    // eslint-disable-next-line no-control-regex
+    const text = printed.join('\n').replace(/\u001b\[[0-9;]*m/g, '')
+    expect(text).not.toContain('scripts/')
+    expect(text).not.toContain('pages/')
+    expect(text).not.toContain('Dropped')
+
+    const emitted = emittedFiles(root)
+    expect(emitted).toContain('scripts/x.js')
+    expect(emitted).toContain('scripts/helper.js')
+    expect(emitted).not.toContain('scripts/bump.js')
+    expect(emitted).toContain('pages/extra.html')
+    expect(emitted).toContain('pages/orphan.html')
+
+    const read = (rel: string) =>
+      fs.readFileSync(path.join(root, 'dist', 'chrome', rel), 'utf8')
+    expect(read('scripts/x.js')).toContain('NAMED_SCRIPT_MARK')
+    expect(read('scripts/helper.js')).toContain('PLAIN_HELPER_MARK')
+    expect(read('pages/extra.html')).toContain('EXTRA_PAGE_MARK')
+    expect(read('pages/orphan.html')).toContain('ORPHAN_PAGE_MARK')
+  }, 120_000)
+
   it('reads folders from the command it runs, not from another one', async () => {
     const files = {
       'background.js': 'console.log("worker")\n',

@@ -9,13 +9,42 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, type Compiler, sources} from '@rspack/core'
-import {isDebug} from '../../lib/messaging'
+import {debugLine, isDebug} from '../../lib/messaging'
 import {
   getLocales,
+  localeFoldersWithoutMessages,
   localesFolderIsCopiedByPublic,
   resolveLocalesFolder
 } from './get-locales'
 import * as messages from './messages'
+
+function warnLocaleFoldersWithoutMessages(
+  compiler: Compiler,
+  compilation: Compilation,
+  manifestPath: string,
+  projectRoot?: string
+): void {
+  const ErrorConstructor = compiler?.rspack?.WebpackError || Error
+
+  for (const folder of localeFoldersWithoutMessages(
+    manifestPath,
+    projectRoot
+  )) {
+    const warning = new ErrorConstructor(
+      messages.localeFolderWithoutMessages(`_locales/${path.basename(folder)}`)
+    )
+
+    // @ts-expect-error - file is not a property of Error
+    warning.file = folder
+    ;(warning as Error).name = 'LocalesFolderWithoutMessages'
+
+    if (!compilation.warnings) {
+      compilation.warnings = []
+    }
+
+    compilation.warnings.push(warning)
+  }
+}
 
 export function processLocaleAssets(
   compiler: Compiler,
@@ -27,10 +56,17 @@ export function processLocaleAssets(
   const projectRoot =
     (compiler.options.context as string | undefined) || undefined
 
+  warnLocaleFoldersWithoutMessages(
+    compiler,
+    compilation,
+    manifestPath,
+    projectRoot
+  )
+
   if (localesFolderIsCopiedByPublic(manifestPath, projectRoot)) {
     if (isDebug()) {
       const discovered = getLocales(manifestPath, projectRoot) || []
-      console.log(messages.localesEmitSummary(0, 0, discovered.length))
+      debugLine(messages.localesEmitSummary(0, 0, discovered.length))
     }
 
     return
@@ -93,7 +129,7 @@ export function processLocaleAssets(
   }
 
   if (isDebug()) {
-    console.log(
+    debugLine(
       messages.localesEmitSummary(
         emittedCount,
         missingCount,

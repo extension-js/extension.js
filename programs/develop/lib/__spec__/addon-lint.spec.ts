@@ -106,6 +106,234 @@ describe('addon lint mapping', () => {
     expect(lines[0].location).toBe('manifest.json')
   })
 
+  it('names the key and both versions for a minimum version finding', () => {
+    const finding = (code: string, product: string, key: string) => ({
+      code,
+      message: `Manifest key not supported by the specified minimum ${product} version`,
+      description: `"strict_min_version" requires ${product} 109, which
+        was released before version 154 introduced support for
+        "${key}".`,
+      file: 'manifest.json'
+    })
+    const {findings, lines} = formatAddonLintFindings(
+      {
+        errors: [],
+        warnings: [
+          finding('KEY_FIREFOX_UNSUPPORTED_BY_MIN_VERSION', 'Firefox', 'sbx'),
+          finding(
+            'KEY_FIREFOX_ANDROID_UNSUPPORTED_BY_MIN_VERSION',
+            'Firefox for Android',
+            'sbx'
+          ),
+          finding(
+            'KEY_FIREFOX_UNSUPPORTED_BY_MIN_VERSION',
+            'Firefox',
+            'sbx.pages'
+          )
+        ]
+      },
+      'dist/firefox'
+    )
+    const plain = lines.map(stripAnsi)
+
+    expect(findings).toBe(3)
+    expect(plain[1]).toContain(
+      'AMO warning KEY_FIREFOX_UNSUPPORTED_BY_MIN_VERSION: "strict_min_version" requires Firefox 109, which was released before version 154 introduced support for "sbx". (manifest.json)'
+    )
+
+    expect(plain[2]).toContain(
+      'requires Firefox for Android 109, which was released before version 154 introduced support for "sbx".'
+    )
+
+    expect(plain[3]).toContain('introduced support for "sbx.pages".')
+    expect(plain.join('\n')).not.toContain('Manifest key not supported')
+  })
+
+  it('keeps the message of a finding that already names its subject', () => {
+    const lines = collectAddonLintLines({
+      errors: [],
+      warnings: [
+        {
+          code: 'MANIFEST_PERMISSIONS',
+          message: '/permissions: Invalid permissions "sidePanel" at 1.',
+          description:
+            'See https://mzl.la/1R1n1t0 (MDN Docs) for more information.',
+          file: 'manifest.json'
+        },
+        {
+          code: 'KEY_FIREFOX_UNSUPPORTED_BY_MIN_VERSION',
+          message:
+            'Manifest key not supported by the specified minimum Firefox version',
+          file: 'manifest.json'
+        }
+      ]
+    })
+
+    expect(lines.map((line) => line.message)).toEqual([
+      '/permissions: Invalid permissions "sidePanel" at 1.',
+      'Manifest key not supported by the specified minimum Firefox version'
+    ])
+  })
+
+  it('prints the description when only it names the file', () => {
+    const missing = (name: string) => ({
+      code: 'MANIFEST_ICON_NOT_FOUND',
+      message:
+        'An icon defined in the manifest could not be found in the package.',
+      description: `Icon could not be found at "icons/${name}.png".`,
+      file: 'manifest.json'
+    })
+    const lines = collectAddonLintLines({
+      errors: [
+        {
+          code: 'ICON_NOT_SQUARE',
+          message: 'Icons must be square.',
+          description: 'Icon at "icons/lopsided.png" must be square.',
+          file: 'manifest.json'
+        },
+        missing('gone-light'),
+        missing('gone-dark'),
+        {
+          code: 'NO_MESSAGES_FILE_IN_LOCALES',
+          message: 'Empty language directory',
+          description: 'messages.json file missing in "_locales/zz"',
+          file: 'manifest.json'
+        }
+      ],
+      warnings: [
+        {
+          code: 'ICON_SIZE_INVALID',
+          message: 'The size of the icon does not match the manifest.',
+          description: `
+      Expected icon at "icons/roomy.png" to be 48 pixels wide but was 64.
+    `,
+          file: 'manifest.json'
+        }
+      ]
+    })
+
+    expect(lines.map((line) => line.message)).toEqual([
+      'Icon at "icons/lopsided.png" must be square.',
+      'Icon could not be found at "icons/gone-light.png".',
+      'Icon could not be found at "icons/gone-dark.png".',
+      'messages.json file missing in "_locales/zz"',
+      'Expected icon at "icons/roomy.png" to be 48 pixels wide but was 64.'
+    ])
+  })
+
+  it('keeps a message whose description only adds advice', () => {
+    const kept = [
+      {
+        code: 'MISSING_ADDON_ID',
+        message: 'The add-on ID is missing in the manifest.',
+        description:
+          'The "/browser_specific_settings/gecko/id" property (add-on ID) should be specified in the manifest. This property will become mandatory in the future. See https://mzl.la/3PLZYdo for more information.',
+        file: 'manifest.json'
+      },
+      {
+        code: 'JSON_BLOCK_COMMENTS',
+        message: 'Your JSON contains block comments.',
+        description:
+          'Only line comments (comments beginning with "//") are allowed in JSON files. Please remove block comments (comments beginning with "/*")',
+        file: 'data.json'
+      },
+      {
+        code: 'NO_MESSAGE',
+        message: 'Translation string is missing the message property',
+        description:
+          'No "message" message property is set for a string (https://mzl.la/2DSBTjA).',
+        file: '_locales/en/messages.json'
+      },
+      {
+        code: 'MANIFEST_UPDATE_URL',
+        message: '"update_url" is not allowed.',
+        description:
+          '"applications.gecko.update_url" or "browser_specific_settings.gecko.update_url" are not allowed for Mozilla-hosted add-ons.',
+        file: 'manifest.json'
+      },
+      {
+        code: 'DANGEROUS_EVAL',
+        message: 'eval can be harmful.',
+        description:
+          'Evaluation of strings as code can lead to security vulnerabilities and performance issues, even in the most innocuous of circumstances. Please avoid using `eval` and the `Function` constructor when possible.',
+        file: 'background.js'
+      }
+    ]
+    const lines = collectAddonLintLines({errors: [], warnings: kept})
+
+    expect(lines.map((line) => line.message)).toEqual(
+      kept.map((finding) => finding.message)
+    )
+  })
+
+  it('prints a permission the minimum version lacks as a warning', () => {
+    const notice = (code: string, product: string) => ({
+      code,
+      message: `Permission not supported by the specified minimum ${product} version`,
+      description: `"strict_min_version" requires ${product} 112, which
+        was released before version 139 introduced support for
+        "permissions:tabHerd".`,
+      file: 'manifest.json'
+    })
+    const {findings, lines} = formatAddonLintFindings(
+      {
+        errors: [],
+        warnings: [],
+        notices: [
+          notice('PERMISSION_FIREFOX_UNSUPPORTED_BY_MIN_VERSION', 'Firefox'),
+          notice(
+            'PERMISSION_FIREFOX_ANDROID_UNSUPPORTED_BY_MIN_VERSION',
+            'Firefox for Android'
+          ),
+          {
+            code: 'KNOWN_LIBRARY',
+            message: 'JavaScript library detected',
+            file: 'vendor/tabHerd.js'
+          }
+        ]
+      },
+      'dist/firefox'
+    )
+    const plain = lines.map(stripAnsi)
+
+    expect(findings).toBe(2)
+    expect(plain[0]).toContain('addons-linter found 2 warnings')
+    expect(plain[1]).toContain(
+      'AMO warning PERMISSION_FIREFOX_UNSUPPORTED_BY_MIN_VERSION: "strict_min_version" requires Firefox 112, which was released before version 139 introduced support for "permissions:tabHerd". (manifest.json)'
+    )
+
+    expect(plain[2]).toContain(
+      'AMO warning PERMISSION_FIREFOX_ANDROID_UNSUPPORTED_BY_MIN_VERSION: "strict_min_version" requires Firefox for Android 112,'
+    )
+
+    expect(plain.join('\n')).not.toContain('KNOWN_LIBRARY')
+  })
+
+  it('prints two findings that read the same as one line', () => {
+    const twice = {
+      code: 'KEY_FIREFOX_UNSUPPORTED_BY_MIN_VERSION',
+      message:
+        'Manifest key not supported by the specified minimum Firefox version',
+      description:
+        '"strict_min_version" requires Firefox 109, which was released before version 154 introduced support for "sbx".',
+      file: 'manifest.json'
+    }
+    const {findings, lines} = formatAddonLintFindings(
+      {
+        errors: [],
+        warnings: [twice, {...twice}, {...twice, file: 'other.json'}]
+      },
+      'dist/firefox'
+    )
+    const plain = lines.map(stripAnsi)
+
+    expect(findings).toBe(2)
+    expect(plain).toHaveLength(3)
+    expect(plain[0]).toContain('addons-linter found 2 warnings')
+    expect(plain[1]).toContain('support for "sbx". (manifest.json)')
+    expect(plain[2]).toContain('support for "sbx". (other.json)')
+  })
+
   it('prints one line per finding under a summary line', () => {
     const {findings, lines} = formatAddonLintFindings(
       FAKE_OUTPUT,

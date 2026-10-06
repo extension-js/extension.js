@@ -80,7 +80,7 @@ describe('patchHtml public folder references', () => {
       `<html><body><img src="./logo.png"></body></html>`
     )
 
-    expect(updated).toContain('assets/logo.png')
+    expect(updated).toMatch(/src="\/assets\/logo\.[0-9a-f]{8}\.png"/)
   })
 
   it('leaves the assets path alone when the project has no public folder', () => {
@@ -104,6 +104,6 @@ describe('patchHtml public folder references', () => {
     } as unknown as Compilation
 
     const updated = patchHtml(compilation, 'action', htmlPath, {}, root)
-    expect(updated).toContain('assets/logo.png')
+    expect(updated).toMatch(/src="\/assets\/logo\.[0-9a-f]{8}\.png"/)
   })
 })

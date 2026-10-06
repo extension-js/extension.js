@@ -8,7 +8,7 @@
 
 import {Compilation, type Compiler, WebpackError} from '@rspack/core'
 import {humanLine} from '../../../dev-server/lifecycle-stream'
-import {isDebug} from '../../../lib/messaging'
+import {debugLine, isDebug} from '../../../lib/messaging'
 import {parseJsonSafe} from '../../../lib/parse-json-safe'
 import {findLegacyManifestPathHits} from '../manifest-lib/legacy-paths'
 import {getOriginalManifestContent} from '../manifest-lib/manifest'
@@ -72,7 +72,7 @@ export class ManifestLegacyWarnings {
             }
 
             if (isDebug()) {
-              console.log(messages.manifestLegacyWarningsSummary(printed))
+              debugLine(messages.manifestLegacyWarningsSummary(printed))
             }
           }
         )

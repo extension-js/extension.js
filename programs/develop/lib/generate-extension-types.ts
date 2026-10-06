@@ -9,6 +9,7 @@
 import {existsSync} from 'node:fs'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
+import {humanLine} from '../dev-server/lifecycle-stream'
 import {loadDefineTypes} from './config-loader'
 import {
   EXTENSION_ENV_TYPES_PACKAGE,
@@ -54,12 +55,11 @@ export async function generateExtensionTypes(
     await fs.access(extensionEnvFile)
 
     const existingContent = await fs.readFile(extensionEnvFile, 'utf8')
+    if (existingContent === fileContent) return
 
-    if (existingContent.includes('develop/dist/types')) {
-      // Rewrite previous path for versions < 2.0.0. See #162
-      await fs.writeFile(extensionEnvFile, fileContent)
-    }
-
+    // The file is the project's own, often committed, so a rewrite that
+    // changes it is said out loud the way the first write is.
+    humanLine(messages.updatingTypeDefinitions(extensionEnvFile))
     await fs.writeFile(extensionEnvFile, fileContent)
   } catch (err) {
     const manifestText = await fs.readFile(
@@ -68,12 +68,12 @@ export async function generateExtensionTypes(
     )
 
     const manifest = parseJsonSafe(manifestText)
-    console.log(messages.writingTypeDefinitions(manifest))
+    humanLine(messages.writingTypeDefinitions(manifest))
 
     try {
       await fs.writeFile(extensionEnvFile, fileContent)
     } catch (writeErr) {
-      console.log(messages.writingTypeDefinitionsError(writeErr))
+      humanLine(messages.writingTypeDefinitionsError(writeErr))
     }
   }
 }

@@ -66,6 +66,22 @@ describe('dispatchReload', () => {
     )
   })
 
+  it('says the extension reloads, and why, when the edited entry is a static one', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    await dispatchReload(
+      {...CS, staticContentScriptEntries: ['content_scripts/content-0']},
+      {broker: {broadcastReload: vi.fn().mockReturnValue(1)}}
+    )
+
+    expect(log).toHaveBeenCalledTimes(1)
+    expect(String(log.mock.calls[0][0])).toContain(
+      'Reloading the extension for content_script (src/content/scripts.js)'
+    )
+
+    expect(String(log.mock.calls[0][0])).toContain('document_start')
+  })
+
   it('warns with the broker hint when a reload reaches zero producers', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
