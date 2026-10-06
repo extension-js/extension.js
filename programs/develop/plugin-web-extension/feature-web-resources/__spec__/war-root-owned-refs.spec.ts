@@ -23,8 +23,16 @@ function srcProject(files: Record<string, string>) {
   return {root, manifestPath: path.join(root, 'src', 'manifest.json')}
 }
 
-function compilationFor(root: string, assets: string[]) {
+function compilationFor(
+  root: string,
+  assets: string[],
+  sources: Record<string, string> = {}
+) {
   const emitAsset = vi.fn()
+  const assetFor = (name: string) => ({
+    name,
+    source: {source: () => sources[name] ?? ''}
+  })
 
   return {
     compilation: {
@@ -34,7 +42,8 @@ function compilationFor(root: string, assets: string[]) {
       warnings: [],
       assets: {},
       getAsset: (name: string) =>
-        assets.includes(name) ? {name, source: {source: () => ''}} : undefined,
+        assets.includes(name) ? assetFor(name) : undefined,
+      getAssets: () => assets.map(assetFor),
       emitAsset,
       fileDependencies: new Set<string>()
     } as unknown as Compilation,
@@ -77,12 +86,70 @@ describe('web_accessible_resources that the project root owns', () => {
     }
   })
 
-  it('ships a root file nothing compiled at its root path instead of a hashed slot', () => {
+  it('ships a root file nothing names in the bundler-named slot', () => {
+    const {root, manifestPath} = srcProject({
+      'src/manifest.json': '{}',
+      'docs/terms.txt': 'terms'
+    })
+    const {compilation, emitAsset} = compilationFor(root, ['background.js'], {
+      'background.js': "console.log(chrome.runtime.getURL('docs/other.txt'))"
+    })
+
+    const resolved = resolveUserDeclaredWAR(
+      compilation,
+      manifestPath,
+      {
+        manifest_version: 3,
+        web_accessible_resources: [
+          {matches: ['<all_urls>'], resources: ['../docs/terms.txt']}
+        ]
+      } as never,
+      'chrome'
+    )
+
+    const [resource] = Array.from(resolved.v3[0].resources)
+    expect(resource).toMatch(/^assets\/terms\.[0-9a-f]{8}\.txt$/)
+    expect(emitAsset).toHaveBeenCalledWith(resource, expect.anything())
+    expect(emitAsset).not.toHaveBeenCalledWith(
+      'docs/terms.txt',
+      expect.anything()
+    )
+
+    expect(compilation.warnings).toEqual([])
+  })
+
+  it('ships a root file at its root path when the manifest spells that path', () => {
     const {root, manifestPath} = srcProject({
       'src/manifest.json': '{}',
       'docs/terms.txt': 'terms'
     })
     const {compilation, emitAsset} = compilationFor(root, [])
+
+    const resolved = resolveUserDeclaredWAR(
+      compilation,
+      manifestPath,
+      {
+        manifest_version: 3,
+        web_accessible_resources: [
+          {matches: ['<all_urls>'], resources: ['docs/terms.txt']}
+        ]
+      } as never,
+      'chrome'
+    )
+
+    expect(Array.from(resolved.v3[0].resources)).toEqual(['docs/terms.txt'])
+    expect(emitAsset).toHaveBeenCalledWith('docs/terms.txt', expect.anything())
+    expect(compilation.warnings).toEqual([])
+  })
+
+  it('ships a root file at its root path when a runtime.getURL literal names it', () => {
+    const {root, manifestPath} = srcProject({
+      'src/manifest.json': '{}',
+      'docs/terms.txt': 'terms'
+    })
+    const {compilation, emitAsset} = compilationFor(root, ['background.js'], {
+      'background.js': "fetch(chrome.runtime.getURL('/docs/terms.txt'))"
+    })
 
     const resolved = resolveUserDeclaredWAR(
       compilation,

@@ -16,6 +16,10 @@ import {
   bundledAssetOutputName
 } from '../../../plugin-static-assets/static-assets-lib/asset-output-name'
 import {normalizeManifestOutputPath} from '../../feature-manifest/normalize-manifest-path'
+import {
+  extractGetURLLiterals,
+  resolveExtensionPath
+} from '../../feature-scripts/steps/trace-runtime-loaded-files'
 import {unixify} from '../../shared/paths'
 import * as warMessages from './messages'
 
@@ -216,6 +220,26 @@ function isFile(candidate: string): boolean {
   }
 }
 
+// The root-relative paths the emitted bundles ask the browser for by name.
+function collectRuntimeNamedPaths(compilation: Compilation): Set<string> {
+  const named = new Set<string>()
+  const assets =
+    typeof compilation.getAssets === 'function' ? compilation.getAssets() : []
+
+  for (const asset of assets) {
+    if (!/\.js$/i.test(String(asset.name))) continue
+
+    for (const literal of extractGetURLLiterals(
+      asset.source.source().toString()
+    )) {
+      const resolved = resolveExtensionPath(literal, '')
+      if (resolved) named.add(resolved)
+    }
+  }
+
+  return named
+}
+
 // The one source file a declared resource names and the path it ships at,
 // by the same order the resolver below walks. Globs, folders, public files
 // and misses name no single source.
@@ -284,6 +308,14 @@ export function resolveUserDeclaredWAR(
   const isMv2 = manifestObj.manifest_version !== 3
   const manifestDir = path.dirname(manifestPath)
   const projectPath = (compilation.options?.context as string) || manifestDir
+
+  let runtimeNamedPaths: Set<string> | undefined
+
+  const namedAtRuntime = (outputPath: string) => {
+    runtimeNamedPaths ??= collectRuntimeNamedPaths(compilation)
+
+    return runtimeNamedPaths.has(outputPath)
+  }
 
   const pushResource = (
     matches: string[] | undefined,
@@ -427,14 +459,26 @@ export function resolveUserDeclaredWAR(
         return
       }
 
-      if (fs.existsSync(rootAbs) && fs.statSync(rootAbs).isFile()) {
-        compilation.emitAsset(
-          rootRel,
-          new sources.RawSource(fs.readFileSync(rootAbs))
-        )
+      if (isFile(rootAbs)) {
+        // Spelled as the root path, or asked for by a runtime literal, the
+        // file is served there. Otherwise the bundler-named copy is the one.
+        const spelledAsRoot = unixify(res).replace(/^\.\//, '') === rootRel
 
-        compilation.fileDependencies.add(rootAbs)
-        pushResource(matches, rootRel, extra)
+        if (spelledAsRoot || namedAtRuntime(rootRel)) {
+          if (!compilation.getAsset(rootRel)) {
+            compilation.emitAsset(
+              rootRel,
+              new sources.RawSource(fs.readFileSync(rootAbs))
+            )
+          }
+
+          compilation.fileDependencies.add(rootAbs)
+          pushResource(matches, rootRel, extra)
+
+          return
+        }
+
+        pushResource(matches, emitFileAsAsset(compilation, rootAbs), extra)
 
         return
       }
