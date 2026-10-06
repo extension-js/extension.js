@@ -189,6 +189,7 @@ export function commanderHumanError(
 export function isUsageCode(code: ErrorCode): boolean {
   return (
     code === CODES.E_BROWSER_BINARY_INVALID ||
+    code === CODES.E_BROWSER_BINARY_REQUIRED ||
     code === CODES.E_FLAG_NOT_SUPPORTED_HERE
   )
 }
