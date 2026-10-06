@@ -180,7 +180,7 @@ describe('build with a user chunks selector on the default cache groups', () => 
     expect(warnings[0]).toContain('NOT LOADED shared/commons.js')
     expect(warnings[0]).toContain('the background script never starts')
     expect(warnings[0]).toContain(
-      'https://extension.js.org/docs/features/rspack-configuration#share-a-module-between-entries'
+      'https://extension.js.org/docs/features/rspack-configuration?utm_source=cli#share-a-module-between-entries'
     )
 
     for (const page of ['action', 'options']) {
