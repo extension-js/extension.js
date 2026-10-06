@@ -8,7 +8,6 @@ const packageRoot = path.join(__dirname, '..')
 const PRINTERS: Record<string, string> = {
   'lib/messaging.ts': 'the human and debug sinks',
   'dev-server/lifecycle-stream.ts': 'the frame printer and its human line',
-  'lib/branding.ts': 'the console facade handed to the bundler logger',
   'plugin-reload/reload-lib/minimum-files/minimum-background-file-chromium.ts':
     'runs inside the browser',
   'plugin-reload/reload-lib/minimum-files/minimum-background-file-firefox.ts':
