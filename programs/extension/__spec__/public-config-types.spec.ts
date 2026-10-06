@@ -1,7 +1,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
-import type {FileConfig} from '../config-types'
+import type {ConfigHookContext, FileConfig} from '../config-types'
 
 const pkgRoot = path.resolve(__dirname, '..')
 const pkg = JSON.parse(
@@ -76,6 +76,56 @@ describe('public config types (extension package)', () => {
 
     expect(internalKeys.length).toBeGreaterThan(5)
     expect(publicKeys).toEqual(internalKeys)
+  })
+
+  it('accepts config and configResolved hooks that read the second argument', () => {
+    const seen: ConfigHookContext[] = []
+    const config: FileConfig = {
+      config: (bundler, context) => {
+        seen.push(context)
+
+        return context.browser === 'edge' ? bundler : bundler
+      },
+      configResolved: (bundler, context) => {
+        seen.push({
+          browser: context.browser,
+          mode: context.mode,
+          command: context.command
+        })
+
+        return bundler
+      }
+    }
+    const legacy: FileConfig = {
+      config: (bundler) => bundler,
+      configResolved: (bundler) => bundler
+    }
+    const context: ConfigHookContext = {
+      browser: 'edge',
+      mode: 'production',
+      command: 'build'
+    }
+
+    config.config?.({}, context)
+    config.configResolved?.({}, context)
+    legacy.config?.({}, context)
+    expect(seen).toEqual([context, context])
+
+    const dts = fs.readFileSync(
+      path.join(pkgRoot, path.dirname(pkg.types), 'config-types.d.ts'),
+      'utf8'
+    )
+    expect(dts).toMatch(/export interface ConfigHookContext \{/)
+    expect(dts).toMatch(
+      /config\?: \(config: any, context: ConfigHookContext\) => any;/
+    )
+
+    expect(dts).toMatch(
+      /configResolved\?: \(config: any, context: ConfigHookContext\) => any;/
+    )
+
+    const rootDts = fs.readFileSync(path.join(pkgRoot, pkg.types), 'utf8')
+    expect(rootDts).toContain('ConfigHookContext')
   })
 
   // The typecheck gate compiles this fixture, so it stops building the day a

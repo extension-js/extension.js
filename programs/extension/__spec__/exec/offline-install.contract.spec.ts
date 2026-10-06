@@ -10,7 +10,8 @@ import {
 import {
   offlineRegistryEnv,
   offlineRegistryFiles,
-  serveOfflineRegistry
+  serveOfflineRegistry,
+  withoutInheritedRegistry
 } from '../../../create/__spec__/offline-registry-fixture'
 
 const ANSI = /\x1b\[[0-9;]*m/g
@@ -19,6 +20,7 @@ const ANSI = /\x1b\[[0-9;]*m/g
 // whether or not the pin held. The request log is what proves the pin held.
 const ABSENT_DEPENDENCY = '@extension-js-offline-proof/absent'
 const PACKAGE_MANAGER_REQUEST = /^\/(?:pnpm|yarn|@yarnpkg\/cli-dist)(?:\/|$)/
+const REGISTRY_VARIABLE = /^(?:npm_config_registry|corepack_npm_registry)$/i
 
 function cliBin(): string {
   const root = path.resolve(__dirname, '../..')
@@ -32,23 +34,27 @@ function runCreateIn(
   work: string,
   args: string[],
   env: Record<string, string>
-): Promise<{status: number | null; stderr: string}> {
+): Promise<{status: number | null; stderr: string; handed: string[]}> {
   const configHome = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-config-'))
   const cacheHome = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-cache-'))
+  const childEnv: NodeJS.ProcessEnv = {
+    ...withoutInheritedRegistry(process.env),
+    ...env,
+    EXTENSION_ENV: 'test',
+    EXTENSION_TELEMETRY: '0',
+    XDG_CONFIG_HOME: configHome,
+    XDG_CACHE_HOME: cacheHome
+  }
+  const handed = Object.keys(childEnv)
+    .filter((key) => REGISTRY_VARIABLE.test(key))
+    .map((key) => `${key}=${childEnv[key]}`)
 
   return new Promise((resolve) => {
     let stderr = ''
     const child = spawn(process.execPath, [cliBin(), ...args], {
       cwd: work,
       stdio: ['ignore', 'ignore', 'pipe'],
-      env: {
-        ...process.env,
-        ...env,
-        EXTENSION_ENV: 'test',
-        EXTENSION_TELEMETRY: '0',
-        XDG_CONFIG_HOME: configHome,
-        XDG_CACHE_HOME: cacheHome
-      }
+      env: childEnv
     })
     child.stderr.setEncoding('utf8')
 
@@ -57,7 +63,7 @@ function runCreateIn(
     })
 
     child.on('close', (status) => {
-      resolve({status, stderr: stderr.replace(ANSI, '')})
+      resolve({status, stderr: stderr.replace(ANSI, ''), handed})
     })
   })
 }
@@ -66,6 +72,7 @@ describe('an install pinned to a loopback registry stays off the network', () =>
   let status: number | null = null
   let stderr = ''
   let asked: string[] = []
+  let evidence = ''
   let engineInstalled = true
 
   let cleanup: () => Promise<void> = async () => {}
@@ -112,7 +119,8 @@ describe('an install pinned to a loopback registry stays off the network', () =>
 
     status = result.status
     stderr = result.stderr
-    asked = registry.requests().filter((url) => {
+    const requests = registry.requests()
+    asked = requests.filter((url) => {
       const decoded = decodeURIComponent(url)
 
       return (
@@ -120,6 +128,12 @@ describe('an install pinned to a loopback registry stays off the network', () =>
         PACKAGE_MANAGER_REQUEST.test(decoded)
       )
     })
+
+    evidence = [
+      `the loopback registry saw: ${requests.join(' ') || 'nothing'}`,
+      `registry variables handed to the CLI: ${result.handed.join(' ')}`,
+      `the install said: ${stderr.trim()}`
+    ].join('\n')
 
     engineInstalled = fs.existsSync(
       path.join(work, 'proof', 'node_modules', 'extension', 'package.json')
@@ -131,17 +145,14 @@ describe('an install pinned to a loopback registry stays off the network', () =>
   })
 
   it('fails the install and brings back nothing', () => {
-    expect(status).toBe(1)
+    expect(status, evidence).toBe(1)
     expect(engineInstalled).toBe(false)
     expect(stderr).not.toMatch(
       /NO_MATURE_MATCHING_VERSION|minimum[-_ ]?release[-_ ]?age/i
     )
   })
 
-  it.skipIf(process.platform === 'win32')(
-    'asks the pinned registry for the dependency or for the package manager, so the pin governed',
-    () => {
-      expect(asked.length).toBeGreaterThan(0)
-    }
-  )
+  it('asks the pinned registry for the dependency or for the package manager, so the pin governed', () => {
+    expect(asked.length, evidence).toBeGreaterThan(0)
+  })
 })

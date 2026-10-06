@@ -53,6 +53,15 @@ export function defaultLocaleMessagesMissing(defaultLocale: string) {
   )
 }
 
+export function defaultLocaleRemovedFromOutput(defaultLocale: string) {
+  return (
+    'The default locale was removed from the build output.\n' +
+    `NOT FOUND _locales/${defaultLocale}/messages.json\n` +
+    'A plugin added through the config file deleted it. Keep the ' +
+    'default_locale folder, or point default_locale at a locale the build keeps.'
+  )
+}
+
 export function localesPresentButNoDefaultLocale() {
   return (
     'The _locales folder exists, but manifest.json is missing default_locale.\n' +

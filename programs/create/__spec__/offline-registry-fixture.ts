@@ -104,10 +104,32 @@ export function offlineRegistryFiles(url: string): Record<string, string> {
   }
 }
 
+const REGISTRY_VARIABLES = ['npm_config_registry', 'corepack_npm_registry']
+
 // `pnpm run` exports its whole effective config, so every gate starts with
 // npm_config_registry pointing at npmjs.org, and an environment registry
 // outranks the project file. The inherited value has to be DISPLACED, not just
 // countered, and the request log is what proves one of the two pins held.
+// Corepack joins the path onto its own variable with a slash of its own.
 export function offlineRegistryEnv(url: string): Record<string, string> {
-  return {npm_config_registry: url}
+  return {
+    npm_config_registry: url,
+    COREPACK_NPM_REGISTRY: url.replace(/\/+$/, '')
+  }
+}
+
+// A Windows child keeps one casing per variable name, the first in sort order,
+// so an inherited NPM_CONFIG_REGISTRY would outrank the lowercase pin above.
+export function withoutInheritedRegistry(
+  inherited: Record<string, string | undefined> = process.env
+): NodeJS.ProcessEnv {
+  const env = {...inherited} as NodeJS.ProcessEnv
+
+  for (const key of Object.keys(env)) {
+    if (REGISTRY_VARIABLES.includes(key.toLowerCase())) {
+      Reflect.deleteProperty(env, key)
+    }
+  }
+
+  return env
 }

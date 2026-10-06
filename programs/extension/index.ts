@@ -59,6 +59,7 @@ export type {
   BrowserConfig,
   BrowserType,
   CompanionExtensionsConfig,
+  ConfigHookContext,
   FileConfig
 } from './config-types.js'
 
