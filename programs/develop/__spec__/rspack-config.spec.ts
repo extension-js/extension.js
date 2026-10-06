@@ -96,14 +96,17 @@ describe('webpack-config transpile packages watch behavior', () => {
     const posixRoot = root.split(path.sep).join('/')
     expect(ignored).toContain(`${posixRoot}/dist/chrome/**`)
     expect(ignored).toContain(`${posixRoot}/dist/**`)
+    expect(ignored).toContain(`${posixRoot}/dist`)
 
     for (const pattern of ignored) {
       expect(pattern === 'dist' || pattern === '**dist**').toBe(false)
 
       if (typeof pattern === 'string' && pattern.includes('dist')) {
-        expect(pattern.includes('/dist/') || pattern.endsWith('/dist/**')).toBe(
-          true
-        )
+        expect(
+          pattern.includes('/dist/') ||
+            pattern.endsWith('/dist/**') ||
+            pattern === `${posixRoot}/dist`
+        ).toBe(true)
       }
     }
   })

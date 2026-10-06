@@ -516,8 +516,8 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     )
   }
 
-  // A second dev session over the same target keeps going (distinct
-  // --instance-id runs are a supported flow) but never silently.
+  // A second dev session over the same target keeps going (two explicit
+  // EXTENSION_INSTANCE_ID values are not refused) but never silently.
   if (
     options.command === 'dev' &&
     liveOwner &&

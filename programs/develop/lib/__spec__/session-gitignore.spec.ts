@@ -116,7 +116,9 @@ describe('the append is announced', () => {
 
   it('keeps the line off stdout when stdout belongs to a machine', () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
-    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const stderr = vi
+      .spyOn(process.stderr, 'write')
+      .mockImplementation(() => true)
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-gitignore-json-'))
     fs.writeFileSync(path.join(dir, '.gitignore'), 'node_modules\n')
     vi.stubEnv('EXTENSION_OUTPUT', 'json')
@@ -129,14 +131,14 @@ describe('the append is announced', () => {
       )
 
       expect(log).not.toHaveBeenCalled()
-      expect(error).toHaveBeenCalledTimes(1)
-      expect(String(error.mock.calls[0][0])).toContain(
+      expect(stderr).toHaveBeenCalledTimes(1)
+      expect(String(stderr.mock.calls[0][0])).toContain(
         path.join(dir, '.gitignore')
       )
     } finally {
       vi.unstubAllEnvs()
       log.mockRestore()
-      error.mockRestore()
+      stderr.mockRestore()
       fs.rmSync(dir, {recursive: true, force: true})
     }
   })

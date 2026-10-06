@@ -11,6 +11,7 @@ import {
   readContentScriptCount
 } from '../plugin-reload'
 import webpackConfig from '../rspack-config'
+import {devWatchOptions} from './helpers/dev-watch-options'
 
 // An edit under public/ ships at the dist root, so the watch session must
 // observe it and answer with a full extension reload, whichever of the two
@@ -142,7 +143,10 @@ async function watchSession(root: string) {
       poll()
     })
 
-  const watching = compiler.watch({aggregateTimeout: 50}, () => {})
+  const watching = compiler.watch(
+    devWatchOptions(compiler, {aggregateTimeout: 50}),
+    () => {}
+  )
   const session = {
     compiler,
     tracker,

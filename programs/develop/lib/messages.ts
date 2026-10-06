@@ -257,7 +257,7 @@ export function anotherDevSessionActive(
   return (
     `${getLoggingPrefix('warn')} Another dev session is already writing dist/${browser} (PID ${pid}${run}).\n` +
     `Both sessions rebuild the same output, so the last compile wins.\n` +
-    `Stop the other session, or pass ${fmt.code('--instance-id')} to run them side by side.`
+    `Stop the other session. A distinct ${fmt.code('EXTENSION_INSTANCE_ID')} keeps the ports apart, but ready.json and the eval token hold one session per browser.`
   )
 }
 

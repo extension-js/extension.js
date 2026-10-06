@@ -136,6 +136,8 @@ pnpm exec playwright install
 
 New functionality lands with a spec next to the unit it changes, and a bug fix lands with the regression spec that fails on the parent commit. A pull request without either is asked for one before review.
 
+A spec that resolves an installed package must find it under both pnpm layouts. CI installs with the isolated linker, where a dependency of a workspace package lives under `node_modules/.pnpm/node_modules`, while a machine set to `node-linker=hoisted` sees it in the nearest `node_modules`. Resolve it with `workspacePackage()` from `programs/develop/__spec__/helpers/workspace-package.ts`, which walks both, and never gate a case on a bare `require.resolve` that only one layout answers, or the case skips on CI while it runs locally.
+
 ## Testing on Windows
 
 The test suite runs on Windows in CI. To avoid regressions:
