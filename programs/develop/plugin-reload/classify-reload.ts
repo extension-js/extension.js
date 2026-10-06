@@ -11,6 +11,7 @@ import * as path from 'node:path'
 import {stripBom} from '../lib/parse-json-safe'
 import {publicRootsFor} from '../plugin-special-folders/resolve-public-folder'
 import {getCanonicalContentScriptEntryName} from '../plugin-web-extension/feature-scripts/contracts'
+import {DEV_CONTENT_SCRIPT_REGISTRY_ASSET} from './reload-lib/dev-content-scripts'
 
 export type ReloadType = 'full' | 'service-worker' | 'content-scripts'
 
@@ -19,6 +20,9 @@ export interface ReloadInstruction {
   // still travels the bridge so every announcing surface reflects it.
   type: ReloadType | 'page'
   changedContentScriptEntries?: string[]
+  // The changed entries the dev manifest keeps static, so the extension
+  // reloads for them and the announcement says why.
+  staticContentScriptEntries?: string[]
   changedAssets?: string[]
   // Emitted scripts/ bundles a changed source lands in, so the SW replays
   // the programmatic executeScript calls that named them.
@@ -398,12 +402,17 @@ export function classifyReloadFromSources(opts: {
   }
 
   if (contentChanged.length > 0) {
-    return withScripts({
-      type: 'content-scripts',
-      changedContentScriptEntries: [...contentEntries].sort(),
-      changedAssets: changedSources,
-      label: formatReloadContextLabel('content_script', contentChanged)
-    })
+    return withScripts(
+      withStaticEntries(
+        {
+          type: 'content-scripts',
+          changedContentScriptEntries: [...contentEntries].sort(),
+          changedAssets: changedSources,
+          label: formatReloadContextLabel('content_script', contentChanged)
+        },
+        outputPath
+      )
+    )
   }
 
   if (pageChanged.length > 0 && unknown.length === 0) {
@@ -440,12 +449,17 @@ export function classifyReloadFromSources(opts: {
       entries.push(getCanonicalContentScriptEntryName(i))
     }
 
-    return withScripts({
-      type: 'content-scripts',
-      changedContentScriptEntries: entries,
-      changedAssets: changedSources,
-      label: formatReloadContextLabel('content_script', changedSources)
-    })
+    return withScripts(
+      withStaticEntries(
+        {
+          type: 'content-scripts',
+          changedContentScriptEntries: entries,
+          changedAssets: changedSources,
+          label: formatReloadContextLabel('content_script', changedSources)
+        },
+        outputPath
+      )
+    )
   }
 
   // Page-only edit: livereload owns the actual refresh; emit a notify-only
@@ -458,6 +472,45 @@ export function classifyReloadFromSources(opts: {
       changedSources
     )
   })
+}
+
+// The entries the emitted registry marks static: those the dev manifest
+// names as emitted, which only an extension reload can update.
+export function readStaticContentScriptEntries(outputPath?: string): string[] {
+  if (!outputPath) return []
+
+  try {
+    const registry = JSON.parse(
+      stripBom(
+        fs.readFileSync(
+          path.join(outputPath, DEV_CONTENT_SCRIPT_REGISTRY_ASSET),
+          'utf8'
+        )
+      )
+    ) as {entries?: Array<{entry?: unknown; static?: unknown}>}
+
+    return (registry?.entries || [])
+      .filter(
+        (entry) => entry?.static === true && typeof entry.entry === 'string'
+      )
+      .map((entry) => entry.entry as string)
+  } catch {
+    return []
+  }
+}
+
+function withStaticEntries(
+  instruction: ReloadInstruction,
+  outputPath?: string
+): ReloadInstruction {
+  const changed = new Set(instruction.changedContentScriptEntries || [])
+  const statics = readStaticContentScriptEntries(outputPath).filter((entry) =>
+    changed.has(entry)
+  )
+
+  return statics.length > 0
+    ? {...instruction, staticContentScriptEntries: statics}
+    : instruction
 }
 
 export function readContentScriptCount(
