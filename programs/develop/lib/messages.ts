@@ -261,6 +261,20 @@ export function anotherDevSessionActive(
   )
 }
 
+export function anotherDevSessionRefused(
+  browser: string,
+  pid: number,
+  port: number | null
+) {
+  const where = port ? ` on port ${port}` : ''
+
+  return (
+    `${getLoggingPrefix('error')} Another dev session already owns dist/${browser} (PID ${pid}${where}).\n` +
+    `A second session would overwrite its eval token and leave its contract pointing at the wrong one.\n` +
+    `Stop that session first, or give each session its own ${fmt.code('EXTENSION_INSTANCE_ID')}.`
+  )
+}
+
 export function buildAssetsTree(
   stats: Stats | undefined,
   outputFiles?: OutputFile[]

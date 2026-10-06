@@ -403,6 +403,7 @@ function writeJsonAtomic(filePath: string, value: unknown) {
 
 export interface LiveDevSessionOwner {
   pid: number
+  port?: number | null
   runId: string
   instanceId?: string
   instanceExplicit?: boolean
@@ -431,6 +432,7 @@ export function detectLiveDevSessionOwner(
 
     return {
       pid: prev.pid as number,
+      port: typeof prev.port === 'number' ? prev.port : null,
       runId: typeof prev.runId === 'string' ? prev.runId : '',
       instanceId:
         typeof prev.instanceId === 'string' ? prev.instanceId : undefined,

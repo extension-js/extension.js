@@ -15,6 +15,7 @@ import {Writable} from 'node:stream'
 import {type Compiler, rspack, type Stats} from '@rspack/core'
 import {type Configuration, RspackDevServer} from '@rspack/dev-server'
 import {merge} from 'webpack-merge'
+import {codedError} from '../lib/coded-error'
 import {
   loadBrowserConfig,
   loadCommandConfig,
@@ -29,7 +30,8 @@ import {
   isWebkitBasedBrowser
 } from '../lib/constants'
 import {DEV_COMMAND_DEFAULTS, mergeOptionLayers} from '../lib/merge-options'
-import {isDebug} from '../lib/messaging'
+import {anotherDevSessionRefused} from '../lib/messages'
+import {CODES, isDebug} from '../lib/messaging'
 import {applySplitChunksGuard} from '../lib/normalize-split-chunks'
 import {asAbsolute, getDistPath} from '../lib/paths'
 import type {ProjectStructure} from '../lib/project'
@@ -37,13 +39,16 @@ import {sanitize} from '../lib/sanitize'
 import {
   ensureSessionArtifactsIgnoreFile,
   ensureSessionStateInProjectGitignore,
+  readyContractPath,
   actionsPath as sessionActionsPath,
   logsPath as sessionLogsPath
 } from '../lib/session-paths'
 import type {BrowserLogSinkEvent} from '../plugin-browsers'
 import {
   createPlaywrightMetadataWriter,
-  getSessionRunId
+  detectLiveDevSessionOwner,
+  getSessionRunId,
+  shouldWarnDevOverDev
 } from '../plugin-playwright'
 import {
   buildSourceFeatureIndex,
@@ -556,6 +561,25 @@ export async function devServer(
 
   if (!currentInstance) {
     throw new Error('Failed to create instance')
+  }
+
+  // The eval token and the ready contract have one slot per browser, so a
+  // second session over the same target would leave them naming different runs.
+  const liveOwner = detectLiveDevSessionOwner(
+    readyContractPath(packageJsonDir, String(devOptions.browser || 'chromium'))
+  )
+
+  if (liveOwner && shouldWarnDevOverDev(liveOwner, currentInstance)) {
+    await portManager.terminateCurrentInstance()
+
+    throw codedError(
+      CODES.E_SESSION_EXISTS,
+      anotherDevSessionRefused(
+        String(devOptions.browser || 'chromium'),
+        liveOwner.pid,
+        liveOwner.port ?? null
+      )
+    )
   }
 
   const port = portAllocation.port

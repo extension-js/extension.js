@@ -377,6 +377,10 @@
       "area": "ready",
       "summary": "The session contract reports a stopped session."
     },
+    "E_SESSION_EXISTS": {
+      "area": "dev-server",
+      "summary": "A live dev session already owns this project and browser, so the new session was refused."
+    },
     "E_READY_TIMEOUT": {
       "area": "ready",
       "summary": "--wait expired before the session became ready."
