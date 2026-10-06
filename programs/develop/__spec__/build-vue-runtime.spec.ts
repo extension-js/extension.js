@@ -2,14 +2,15 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {workspacePackage} from './helpers/workspace-package'
 
 // A Vue project must ship the runtime-only build: the full build carries the
 // template compiler, which extension CSP cannot run and the Firefox store
 // rejects. The fixture copies the real vue package and stamps each bundler
 // entry with a marker, so the emitted bundle names the entry it was built from.
-const WORKSPACE_MODULES = path.resolve(__dirname, '../../../node_modules')
-const VUE_PACKAGE = path.join(WORKSPACE_MODULES, 'vue')
-const hasVue = fs.existsSync(path.join(VUE_PACKAGE, 'package.json'))
+const VUE_PACKAGE = workspacePackage('vue')
+const VUE_SCOPE = workspacePackage('@vue/runtime-dom')
+const hasVue = VUE_PACKAGE !== undefined && VUE_SCOPE !== undefined
 
 const roots: string[] = []
 
@@ -32,7 +33,11 @@ function stamp(file: string, entry: string) {
 
 function installVue(root: string) {
   const target = path.join(root, 'node_modules', 'vue')
-  fs.cpSync(VUE_PACKAGE, target, {recursive: true, dereference: true})
+  fs.cpSync(VUE_PACKAGE as string, target, {
+    recursive: true,
+    dereference: true
+  })
+
   stamp(path.join(target, 'dist', 'vue.runtime.esm-bundler.js'), 'runtime')
   stamp(path.join(target, 'dist', 'vue.esm-bundler.js'), 'full')
   stamp(path.join(target, 'dist', 'vue.cjs.js'), 'cjs')
@@ -40,7 +45,7 @@ function installVue(root: string) {
 
   // The @vue/* packages the copy imports resolve through this workspace.
   fs.symlinkSync(
-    path.join(WORKSPACE_MODULES, '@vue'),
+    path.dirname(VUE_SCOPE as string),
     path.join(root, 'node_modules', '@vue'),
     'dir'
   )
