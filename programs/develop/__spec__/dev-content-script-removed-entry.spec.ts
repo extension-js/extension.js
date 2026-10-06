@@ -176,4 +176,45 @@ describe('a content script removed from the manifest during extension dev', () =
       fs.readFileSync(path.join(after.distPath, vendor), 'utf8')
     ).toContain('removed-entry-token:vendor')
   }, 120_000)
+
+  it('leaves no lazy chunk of a removed script at the dist root', async () => {
+    const root = project()
+    fs.writeFileSync(
+      path.join(root, 'content-first.js'),
+      'import("./lazy-first.js").then((m) => console.log(m.token))\n'
+    )
+
+    fs.writeFileSync(
+      path.join(root, 'lazy-first.js'),
+      'export const token = "removed-entry-token:lazy"\n'
+    )
+
+    writeManifest(root, [first])
+    const before = await compileOnce(root)
+    const lazyChunksIn = () =>
+      fs.readdirSync(before.distPath).filter((name) => /^\d+\.js$/.test(name))
+
+    expect(errorsOf(before.stats)).toEqual([])
+    expect(lazyChunksIn()).toHaveLength(1)
+    expect(
+      fs.readFileSync(path.join(before.distPath, lazyChunksIn()[0]), 'utf8')
+    ).toContain('removed-entry-token:lazy')
+
+    expect(
+      fs.existsSync(path.join(before.distPath, `${lazyChunksIn()[0]}.map`))
+    ).toBe(true)
+
+    writeManifest(root)
+    const after = await compileOnce(root)
+
+    expect(errorsOf(after.stats)).toEqual([])
+    expect(lazyChunksIn()).toEqual([])
+    expect(
+      fs
+        .readdirSync(after.distPath)
+        .filter((name) => /^\d+\.js\.map$/.test(name))
+    ).toEqual([])
+
+    expect(fs.existsSync(path.join(after.distPath, 'manifest.json'))).toBe(true)
+  }, 120_000)
 })
