@@ -99,7 +99,7 @@ export function ensureTypeScriptConfig(projectPath: string): void {
   if (hasTsFiles || (hasDep && tsConfigFilePath)) {
     if (tsConfigFilePath) {
       if (!hasShownUserMessage && isDebug()) {
-        console.log(
+        humanLine(
           `${prefix('debug')} ${messages.isUsingIntegration('TypeScript')}`
         )
       }
