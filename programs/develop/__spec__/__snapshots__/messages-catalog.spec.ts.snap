@@ -221,6 +221,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "defaultLocaleSpecifiedButLocalesMissing: function(0)",
     "entryNotFoundMessageOnly: function(2)",
     "invalidMessagesJson: function(1)",
+    "localeFolderWithoutMessages: function(1)",
     "localesDepsTracked: function(1)",
     "localesEmitSummary: function(3)",
     "localesIncludeSummary: function(3)",
