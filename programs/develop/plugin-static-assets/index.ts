@@ -29,6 +29,15 @@ export class StaticAssetsPlugin {
     compiler.options.module.rules = compiler.options.module.rules || []
 
     const filenamePattern = ASSET_FILENAME_PATTERN
+
+    // A file no rule below claims (a stylesheet's .cur or .mp4) is still an
+    // asset module, which rspack would drop at the root as a bare hash.
+    compiler.options.output = compiler.options.output || {}
+
+    if (!compiler.options.output.assetModuleFilename) {
+      compiler.options.output.assetModuleFilename = filenamePattern
+    }
+
     const defaultSvgRule: RuleSetRule = {
       test: /\.svg$/i,
       type: 'asset',
