@@ -188,6 +188,79 @@ function validateMatchesOrReport(
   }
 }
 
+// The project-root-relative path of a ref that resolves outside the
+// manifest folder but inside the project, or of a plain ref that is missing
+// beside the manifest; undefined when the manifest folder is the root.
+function rootRelativeOf(
+  projectPath: string,
+  manifestDir: string,
+  abs: string,
+  res: string
+): string | undefined {
+  if (path.resolve(projectPath) === path.resolve(manifestDir)) {
+    return undefined
+  }
+
+  if (path.isAbsolute(res)) return undefined
+
+  const fromManifest = unixify(path.relative(projectPath, abs))
+  const plain = unixify(res).replace(/^\.\//, '')
+
+  if (fromManifest.startsWith('..')) return undefined
+  if (fs.existsSync(abs) && !unixify(res).startsWith('..')) return undefined
+
+  const candidate = unixify(res).startsWith('..') ? fromManifest : plain
+
+  return candidate && !candidate.startsWith('..') ? candidate : undefined
+}
+
+function isFile(candidate: string): boolean {
+  try {
+    return fs.statSync(candidate).isFile()
+  } catch {
+    return false
+  }
+}
+
+// The one source file a declared resource names and the path it ships at,
+// by the same order the resolver below walks. Globs, folders, public files
+// and misses name no single source.
+export function declaredResourceSource(
+  manifestPath: string,
+  projectPath: string | undefined,
+  res: string
+): {source: string; output: string} | undefined {
+  const manifestDir = path.dirname(manifestPath)
+  const root = projectPath || manifestDir
+
+  if (!res || path.isAbsolute(res) || /[*?[\]{}]/.test(res)) return undefined
+  if (isPublicRootLike(res)) return undefined
+
+  const normalizedOutput = normalizeManifestOutputPath(res)
+
+  if (
+    !normalizedOutput.split('/').includes('..') &&
+    fs.existsSync(path.join(root, 'public', normalizedOutput))
+  ) {
+    return undefined
+  }
+
+  const abs = path.join(manifestDir, res)
+  const rootRel = rootRelativeOf(root, manifestDir, abs, res)
+
+  if (rootRel) {
+    const rootAbs = path.join(root, rootRel)
+
+    return isFile(rootAbs) ? {source: rootAbs, output: rootRel} : undefined
+  }
+
+  const output = unixify(path.relative(manifestDir, abs))
+
+  return isFile(abs) && !output.startsWith('..')
+    ? {source: abs, output}
+    : undefined
+}
+
 export function resolveUserDeclaredWAR(
   compilation: Compilation,
   manifestPath: string,
@@ -240,27 +313,6 @@ export function resolveUserDeclaredWAR(
     }
 
     group.resources.add(resource)
-  }
-
-  // The project-root-relative path of a ref that resolves outside the
-  // manifest folder but inside the project, or of a plain ref that is missing
-  // beside the manifest; undefined when the manifest folder is the root.
-  const rootRelativeOf = (abs: string, res: string): string | undefined => {
-    if (path.resolve(projectPath) === path.resolve(manifestDir)) {
-      return undefined
-    }
-
-    if (path.isAbsolute(res)) return undefined
-
-    const fromManifest = unixify(path.relative(projectPath, abs))
-    const plain = unixify(res).replace(/^\.\//, '')
-
-    if (fromManifest.startsWith('..')) return undefined
-    if (fs.existsSync(abs) && !unixify(res).startsWith('..')) return undefined
-
-    const candidate = unixify(res).startsWith('..') ? fromManifest : plain
-
-    return candidate && !candidate.startsWith('..') ? candidate : undefined
   }
 
   const handleOne = (
@@ -367,7 +419,7 @@ export function resolveUserDeclaredWAR(
     // A ref the special folders own (pages/, scripts/) lives at the project
     // root, not beside a src/ manifest. Spelled from either place, it names
     // the compiled asset at its root-relative path, or ships the file there.
-    const rootRel = rootRelativeOf(abs, res)
+    const rootRel = rootRelativeOf(projectPath, manifestDir, abs, res)
 
     if (rootRel) {
       const compiled =
