@@ -89,7 +89,9 @@ export function createSassLoaderOptions(
   // Project declares "sass" but we cannot resolve any implementation from
   // the project or extension runtime – surface a clear error.
   if (usingSass && !implementation) {
-    throw new Error(messages.missingSassDependency())
+    throw Object.assign(new Error(messages.missingSassDependency()), {
+      name: 'CssPreprocessorMissing'
+    })
   }
 
   const base: Record<string, AnyModule> = {

@@ -85,7 +85,14 @@ export class SetupBackgroundEntry {
       compiler.hooks.thisCompilation.tap(
         'run-chromium:setup-background-entry',
         (compilation) => {
-          reportToCompilation(compilation, compiler, maybeError, 'error')
+          reportToCompilation(
+            compilation,
+            compiler,
+            maybeError,
+            'error',
+            undefined,
+            'BackgroundRequired'
+          )
         }
       )
     }

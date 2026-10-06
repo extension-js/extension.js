@@ -58,6 +58,7 @@ export class ValidateEmittedScriptSyntax {
                 ].join('\n')
               ) as Error & {file?: string}
               err.file = name
+              err.name = 'ContentScriptSyntax'
               compilation.errors.push(err)
             }
           }

@@ -317,6 +317,7 @@ export class CssPlugin {
                 messages.deadCssUrlRef(issuerPath, raw)
               )
               ;(warning as Error & {file?: string}).file = issuerPath
+              warning.name = 'CssDeadRef'
               compilation?.warnings.push(warning)
             }
 

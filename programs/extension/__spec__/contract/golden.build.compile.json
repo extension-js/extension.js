@@ -9,12 +9,14 @@
     "message": "Build failed with errors",
     "details": [
       {
+        "code": "E_CONTENT_SCRIPT_SYNTAX",
         "message": "Module build failed (from builtin:swc-loader):\n  ╰─▶   × Syntax Error: Expression expected\n          ╭─[82:15]\n       80 │   return unmount;\n       81 │ }\n       82 │ const broken = ;\n          ·                ─\n       83 │\n       84 │ try { __EXTENSIONJS_scheduleBundleCssHydration() } catch (error) {\n          ╰────",
         "file": "content/scripts.js",
         "severity": "error",
         "name": "ModuleBuildError"
       },
       {
+        "code": "E_MODULE_NOT_FOUND",
         "message": "Module not found: Can't resolve './missing' in '/home/dev/my-extension'\n   ╭─[1:0]\n 1 │ import './missing';\n   · ───────────────────\n 2 │ console.log('x');\n   ╰────",
         "file": "background.js",
         "line": 1,

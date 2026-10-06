@@ -47,8 +47,11 @@ export function pitch(this: CssParseGuardLoaderContext): void {
         callback(null)
       } catch (error) {
         this.emitWarning(
-          new Error(
-            messages.cssParseErrorShippedVerbatim(this.resourcePath, error)
+          Object.assign(
+            new Error(
+              messages.cssParseErrorShippedVerbatim(this.resourcePath, error)
+            ),
+            {name: 'CssParseWarning'}
           )
         )
 

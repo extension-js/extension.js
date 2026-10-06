@@ -47,7 +47,8 @@ function warnRemoteResourceReferences(params: {
         compiler,
         messages.remoteResourceWarning(resource, jsUrl, 'script'),
         'warning',
-        displayFile
+        displayFile,
+        'RemoteResourceBlocked'
       )
     }
   }
@@ -59,7 +60,8 @@ function warnRemoteResourceReferences(params: {
         compiler,
         messages.remoteResourceWarning(resource, cssUrl, 'style'),
         'warning',
-        displayFile
+        displayFile,
+        'RemoteResourceBlocked'
       )
     }
   }
@@ -72,7 +74,8 @@ function warnRemoteResourceReferences(params: {
           compiler,
           messages.remoteResourceWarning(resource, anyUrl, 'style'),
           'warning',
-          displayFile
+          displayFile,
+          'RemoteResourceBlocked'
         )
       }
     }
@@ -347,7 +350,8 @@ export class AddAssetsToCompilation {
                       kind
                     ),
                     'warning',
-                    path.relative(manifestDir, resource as string)
+                    path.relative(manifestDir, resource as string),
+                    'RemoteResourceBlocked'
                   )
                 }
               }

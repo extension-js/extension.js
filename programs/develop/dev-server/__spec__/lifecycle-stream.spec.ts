@@ -596,6 +596,7 @@ describe('lifecycle stream transitions', () => {
     expect(frame.truncated).toBeUndefined()
     expect(frame.error?.details).toEqual([
       {
+        code: 'E_MODULE_NOT_FOUND',
         message: "Module not found: Can't resolve",
         file: 'src/missing.js',
         line: 3,
@@ -603,6 +604,7 @@ describe('lifecycle stream transitions', () => {
         severity: 'error'
       },
       {
+        code: 'E_WAR_INVALID',
         message: 'bad pattern',
         file: 'manifest.json',
         severity: 'error',

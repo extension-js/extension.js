@@ -24,7 +24,10 @@ import {
 import {type BuildSummary, getBuildSummary} from './lib/build-summary'
 import {collectChunkDependencyProvenance} from './lib/chunk-dependency-provenance'
 import {takeCodedWarnings} from './lib/coded-warnings'
-import {compilationDiagnostics} from './lib/compilation-diagnostics'
+import {
+  compilationDiagnostics,
+  warningCodes
+} from './lib/compilation-diagnostics'
 import {
   loadBrowserConfig,
   loadCommandConfig,
@@ -439,7 +442,13 @@ export async function extensionBuild(
 
           // The summary names the folder the artifacts landed in, which under
           // a re-pointed output.path is not dist/<browser>.
-          summary = getBuildSummary(browser, info, displayDistPath, outputFiles)
+          summary = getBuildSummary(
+            browser,
+            info,
+            displayDistPath,
+            outputFiles,
+            warningCodes(stats.compilation)
+          )
 
           // The setup steps and plugins said these on the human channel as
           // they ran; the summary carries them with the code each one names.
