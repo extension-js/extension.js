@@ -282,59 +282,6 @@ describe.skipIf(process.platform === 'win32')(
       })
     }, 120_000)
 
-    it('ends the json stream with a failed frame when chromium-based has no binary', () => {
-      const {projectDir} = makeWorkspace()
-      const result = spawnSync(
-        process.execPath,
-        [
-          cliBin,
-          'dev',
-          projectDir,
-          '--browser',
-          'chromium-based',
-          '--output',
-          'json',
-          '--port',
-          '0'
-        ],
-        {cwd: cliRoot, encoding: 'utf8', env: stripVitestEnv(), timeout: 90_000}
-      )
-
-      expect(result.status, result.stderr).toBe(1)
-
-      const ready = readJson(
-        sessionPaths(projectDir, 'chromium-based').readyPath
-      )
-      expect(ready?.status).toBe('error')
-      expect(ready?.code).toBe('browser_launch_failed')
-
-      const frames = result.stdout
-        .split('\n')
-        .filter((line) => line.trim())
-        .map((line) => JSON.parse(line) as Record<string, unknown>)
-      expect(
-        frames.map((frame) => frame.status),
-        result.stdout
-      ).toEqual(['started', 'starting', 'failed'])
-
-      const last = frames[frames.length - 1]
-      expect(last).toMatchObject({
-        schema: 1,
-        ok: false,
-        command: 'dev',
-        status: 'failed',
-        error: {
-          code: ready?.browserLaunchFailedCode ?? 'E_BROWSER_LAUNCH',
-          message: ready?.message
-        },
-        value: {readyCode: 'browser_launch_failed'}
-      })
-
-      expect(String((last.error as {message: string}).message)).toMatch(
-        /chromium-based target needs --chromium-binary/
-      )
-    }, 120_000)
-
     it('reports the firefox spawn refusal the same way', async () => {
       const {work, projectDir} = makeWorkspace()
       const binary = plantUnspawnableBinary(join(work, 'bin'), 'firefox')

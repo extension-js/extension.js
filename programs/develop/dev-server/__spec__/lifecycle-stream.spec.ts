@@ -388,6 +388,16 @@ describe('lifecycle stream transitions', () => {
     expect(frame.value?.exitCode).toBe(7)
   })
 
+  it('adds no failed frame at exit after an interrupt', () => {
+    const {stream, lines} = makeStream()
+    stream.starting({requestedPort: 8080, port: 8080})
+    stream.interrupted('SIGINT')
+    stream.exited(130)
+    const frames = parseFrames(lines)
+    expect(frames.map((frame) => frame.status)).toEqual(['starting', 'stopped'])
+    expect(frames[1].error?.code).toBe('E_INTERRUPTED')
+  })
+
   it('adds no second terminal frame at exit after a failed or browser-exited one', () => {
     const failed = makeStream()
     failed.stream.starting({requestedPort: 8080, port: 8080})
