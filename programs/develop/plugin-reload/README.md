@@ -78,8 +78,13 @@ Applied by `ReloadPlugin` in order:
   probes that marker first, so a frame never runs two copies. Entries with
   `include_globs`/`exclude_globs` are stub-only (no dynamic form exists):
   the static stub decides where they run and the worker injects on its
-  signal. Firefox, MV2 and a build without a worker keep static entries and
-  the producer's manifest-based re-inject.
+  signal. A `run_at: document_start` entry in the isolated world stays
+  static, exactly as production emits it: a stub's injection lands tens of
+  milliseconds after document start and misses a message the page posts
+  once at that moment, so the registry marks it `static`, an edit to it
+  reloads the extension (then the tabs it matches), and the dev output says
+  so in one line. Firefox, MV2 and a build without a worker keep static
+  entries and the producer's manifest-based re-inject.
 
 - `steps/inject-bridge-producer.ts` / `steps/inject-bridge-relay.ts`
   Control-bridge instrumentation: forward background-SW and content-script

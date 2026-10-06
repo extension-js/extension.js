@@ -170,6 +170,59 @@ describe('classifyReloadFromSources with a chunk-graph source index', () => {
     ])
   })
 
+  it('names the changed entries the emitted registry keeps static, and only those', () => {
+    const outputPath = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-classify-'))
+    fs.mkdirSync(path.join(outputPath, 'content_scripts'), {recursive: true})
+    fs.writeFileSync(
+      path.join(outputPath, 'content_scripts/dev-registry.json'),
+      JSON.stringify({
+        version: 1,
+        entries: [
+          {id: 'extjs-dev-cs-0', entry: 'content_scripts/content-0'},
+          {
+            id: 'extjs-dev-cs-1',
+            entry: 'content_scripts/content-1',
+            static: true
+          }
+        ]
+      })
+    )
+
+    const featureIndex = () =>
+      index({
+        contentEntriesBySource: new Map([
+          ['src/relay.ts', new Set(['content_scripts/content-1'])],
+          ['src/widget.ts', new Set(['content_scripts/content-0'])]
+        ])
+      })
+
+    try {
+      const relay = classifyReloadFromSources({
+        changedSources: ['src/relay.ts'],
+        getContentScriptCount: count(2),
+        getSourceFeatureIndex: featureIndex,
+        outputPath
+      })
+      expect(relay).toMatchObject({
+        type: 'content-scripts',
+        changedContentScriptEntries: ['content_scripts/content-1'],
+        staticContentScriptEntries: ['content_scripts/content-1'],
+        label: 'content_script (src/relay.ts)'
+      })
+
+      const widget = classifyReloadFromSources({
+        changedSources: ['src/widget.ts'],
+        getContentScriptCount: count(2),
+        getSourceFeatureIndex: featureIndex,
+        outputPath
+      })
+      expect(widget?.type).toBe('content-scripts')
+      expect(widget?.staticContentScriptEntries).toBeUndefined()
+    } finally {
+      fs.rmSync(outputPath, {recursive: true, force: true})
+    }
+  })
+
   it('a changed emitted static asset (icon) → full reload, not a content reinject storm (Sappgulf regression)', () => {
     const outputPath = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-classify-'))
     fs.mkdirSync(path.join(outputPath, 'assets'), {recursive: true})

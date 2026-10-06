@@ -23,6 +23,7 @@ export const DEV_CONTENT_SCRIPT_REGISTRY_ASSET =
 export const DEV_CONTENT_SCRIPT_MARKER_KEY = '__extjsDevContentScripts'
 export const DEV_CONTENT_SCRIPT_STUB_MESSAGE_KEY = '__extjsDevCsStub'
 export const DEV_CONTENT_SCRIPT_ID_PREFIX = 'extjs-dev-cs-'
+export const DEV_CONTENT_SCRIPT_STATIC_RELOAD_KEY = '__extjsDevStaticReload'
 
 export interface DevContentScriptRegistryEntry {
   id: string
@@ -38,6 +39,8 @@ export interface DevContentScriptRegistryEntry {
   // Globs have no dynamic-registration form, so the static stub alone decides
   // where such an entry runs and the worker injects on its signal.
   stubOnly: boolean
+  // The manifest keeps this entry as emitted, so an edit reloads the extension.
+  static?: true
 }
 
 export interface DevContentScriptRegistry {
@@ -132,6 +135,27 @@ export function planDevContentScripts(
 
     const entryName = getCanonicalContentScriptEntryName(index)
     const excludeMatches = stringList(group.exclude_matches)
+
+    // A stub's injection lands after document start and misses a message the
+    // page posts right then, which only a manifest entry is in time for.
+    if (group.run_at === 'document_start' && group.world !== 'MAIN') {
+      entries.push({
+        id: `${DEV_CONTENT_SCRIPT_ID_PREFIX}${index}`,
+        entry: entryName,
+        matches,
+        ...(excludeMatches.length > 0 ? {excludeMatches} : {}),
+        js,
+        css,
+        runAt: 'document_start',
+        allFrames: group.all_frames === true,
+        world: 'ISOLATED',
+        stubOnly: false,
+        static: true
+      })
+
+      return group
+    }
+
     const stubOnly =
       stringList(group.include_globs).length > 0 ||
       stringList(group.exclude_globs).length > 0
@@ -220,6 +244,7 @@ export const DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE = `;(function () {
     var MARKER = ${JSON.stringify(DEV_CONTENT_SCRIPT_MARKER_KEY)};
     var STUB = ${JSON.stringify(DEV_CONTENT_SCRIPT_STUB_MESSAGE_KEY)};
     var ID_PREFIX = ${JSON.stringify(DEV_CONTENT_SCRIPT_ID_PREFIX)};
+    var STATIC_RELOAD_KEY = ${JSON.stringify(DEV_CONTENT_SCRIPT_STATIC_RELOAD_KEY)};
     // The file a frame runs says nothing about which extension generation
     // injected it, so every probe also stamps the booting worker's token.
     var GENERATION_KEY = "generation";
@@ -281,7 +306,7 @@ export const DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE = `;(function () {
         var wanted = [];
         for (var i = 0; i < reg.entries.length; i++) {
           var e = reg.entries[i] || {};
-          if (e.stubOnly || !isString(e.id) || !Array.isArray(e.matches) || !e.matches.length) continue;
+          if (e.stubOnly || e.static || !isString(e.id) || !Array.isArray(e.matches) || !e.matches.length) continue;
           var r = registrationOf(e);
           if (!r.js.length && !r.css.length) continue;
           wanted.push(r);
@@ -398,7 +423,7 @@ export const DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE = `;(function () {
         if (!registry) return;
         for (var i = 0; i < registry.entries.length; i++) {
           var e = registry.entries[i];
-          if (e && e.entry === msg.entry) inject(e, {tabId: tabId, frameIds: [frameId]}, false);
+          if (e && !e.static && e.entry === msg.entry) inject(e, {tabId: tabId, frameIds: [frameId]}, false);
         }
       });
     }
@@ -412,7 +437,7 @@ export const DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE = `;(function () {
         var step = function () { pending--; if (pending <= 0) call(done); };
         for (var i = 0; i < registry.entries.length; i++) {
           (function (e) {
-            if (!e || e.stubOnly) return;
+            if (!e || e.stubOnly || e.static) return;
             pending++;
             tabsFor(e, true, function (tabs) {
               var left = tabs.length;
@@ -427,37 +452,93 @@ export const DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE = `;(function () {
       });
     }
 
-    // A content script edit: re-register at the new files, then reload every
-    // tab the edited entries match so each runs exactly one fresh copy. Returns
-    // false when no registry exists, and the caller keeps its own path.
+    // Reload every tab the given entries match, each once.
+    function reloadTabs(entries, done) {
+      var seen = {};
+      var pending = 1;
+      var step = function () { pending--; if (pending <= 0) call(done); };
+      for (var i = 0; i < entries.length; i++) {
+        pending++;
+        tabsFor(entries[i], false, function (tabs) {
+          for (var t = 0; t < tabs.length; t++) {
+            var id = tabs[t].id;
+            if (seen[id]) continue;
+            seen[id] = true;
+            try { chrome.tabs.reload(id, {}, noop); } catch (x) {
+              // Ignore
+            }
+          }
+          step();
+        });
+      }
+      step();
+    }
+
+    // Only an extension reload ships a static entry's edit. The next generation
+    // reloads the tabs it matches, and the producer's flag heals the rest.
+    function reloadExtensionFor(entries) {
+      var names = [];
+      for (var i = 0; i < entries.length; i++) names.push(entries[i].entry);
+      try {
+        if (chrome.storage && chrome.storage.local) {
+          var flags = {__extjsDevPendingReinject: Date.now()};
+          flags[STATIC_RELOAD_KEY] = {entries: names, at: Date.now()};
+          chrome.storage.local.set(flags, noop);
+        }
+      } catch (e) {
+        // Ignore
+      }
+      setTimeout(function () { try { chrome.runtime.reload(); } catch (e) {
+        // Ignore
+      } }, 150);
+    }
+
+    function consumeStaticReload() {
+      try {
+        if (!chrome.storage || !chrome.storage.local) return;
+        chrome.storage.local.get(STATIC_RELOAD_KEY, function (res) {
+          noop();
+          var flag = res && res[STATIC_RELOAD_KEY];
+          if (!flag) return;
+          try { chrome.storage.local.remove(STATIC_RELOAD_KEY, noop); } catch (e) {
+            // Ignore
+          }
+          if (typeof flag.at !== "number" || Date.now() - flag.at > 30000) return;
+          onReady(function () {
+            if (!registry) return;
+            var entries = [];
+            for (var i = 0; i < registry.entries.length; i++) {
+              var e = registry.entries[i];
+              if (e && e.static && Array.isArray(flag.entries) && flag.entries.indexOf(e.entry) !== -1) entries.push(e);
+            }
+            reloadTabs(entries);
+          });
+        });
+      } catch (e) {
+        // Ignore
+      }
+    }
+
+    // A content script edit: re-register at the new files and reload the tabs
+    // the edited entries match, or the extension when a static one is edited.
     function reload(names, done) {
       load(function (reg) {
         if (!reg) return call(function () { done(false); });
         registry = reg;
+        var wanted = Array.isArray(names) && names.length ? names : null;
+        var edited = [], statics = [];
+        for (var i = 0; i < reg.entries.length; i++) {
+          var e = reg.entries[i];
+          if (!e || (wanted && wanted.indexOf(e.entry) === -1)) continue;
+          (e.static ? statics : edited).push(e);
+        }
+        if (statics.length) {
+          reloadExtensionFor(statics);
+          return call(function () { done(true); });
+        }
         sync(reg, function () {
           markReady();
-          var wanted = Array.isArray(names) && names.length ? names : null;
-          var seen = {};
-          var pending = 1;
-          var step = function () { pending--; if (pending <= 0) call(function () { done(true); }); };
-          for (var i = 0; i < reg.entries.length; i++) {
-            (function (e) {
-              if (!e || (wanted && wanted.indexOf(e.entry) === -1)) return;
-              pending++;
-              tabsFor(e, false, function (tabs) {
-                for (var t = 0; t < tabs.length; t++) {
-                  var id = tabs[t].id;
-                  if (seen[id]) continue;
-                  seen[id] = true;
-                  try { chrome.tabs.reload(id, {}, noop); } catch (x) {
-                    // Ignore
-                  }
-                }
-                step();
-              });
-            })(reg.entries[i]);
-          }
-          step();
+          reloadTabs(edited, function () { done(true); });
         });
       });
     }
@@ -478,6 +559,7 @@ export const DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE = `;(function () {
       if (!reg) return markReady();
       sync(reg, markReady);
     });
+    consumeStaticReload();
   } catch (e) {
     // Ignore
   }
