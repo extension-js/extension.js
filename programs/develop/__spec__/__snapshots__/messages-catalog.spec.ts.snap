@@ -275,6 +275,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "webkitUnsupportedKeysDropped: function(2)",
   ],
   "plugin-web-extension/feature-scripts/messages.ts": [
+    "buildConstantNeverDefined: function(3)",
     "compiledSourceSpelling: function(4)",
     "entrySplitAcrossInitialFiles: function(4)",
     "fetchedFileDependencyMissing: function(3)",
