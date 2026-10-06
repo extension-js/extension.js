@@ -542,19 +542,19 @@ export function generateManifestPatches(
   // A content script's stylesheet reaches its own url() targets at runtime, so
   // every emitted file it names is exposed, whatever the extension. The font
   // rule below predates this and still covers fonts reached from JS.
-  if (canonicalManifest.manifest_version === 3) {
-    const cssKeys = Object.keys(compilation.assets || {}).filter(
-      (k) => k.startsWith('content_scripts/') && k.endsWith('.css')
-    )
-    const referenced = Array.from(
-      new Set(
-        cssKeys.flatMap((cssKey) =>
-          emittedFilesReferencedByCss(compilation, cssKey)
-        )
+  const contentSheetKeys = Object.keys(compilation.assets || {}).filter(
+    (k) => k.startsWith('content_scripts/') && k.endsWith('.css')
+  )
+  const contentSheetTargets = Array.from(
+    new Set(
+      contentSheetKeys.flatMap((cssKey) =>
+        emittedFilesReferencedByCss(compilation, cssKey)
       )
-    ).sort()
+    )
+  ).sort()
 
-    if (referenced.length > 0) {
+  if (canonicalManifest.manifest_version === 3) {
+    if (contentSheetTargets.length > 0) {
       const normalizedMatches = cleanMatches(
         Array.from(
           new Set(
@@ -569,8 +569,14 @@ export function generateManifestPatches(
         mergeIntoV3Group(
           webAccessibleResourcesV3,
           normalizedMatches,
-          referenced
+          contentSheetTargets
         )
+      }
+    }
+  } else if (canonicalManifest.manifest_version === 2) {
+    for (const resource of contentSheetTargets) {
+      if (!webAccessibleResourcesV2.includes(resource)) {
+        webAccessibleResourcesV2.push(resource)
       }
     }
   }

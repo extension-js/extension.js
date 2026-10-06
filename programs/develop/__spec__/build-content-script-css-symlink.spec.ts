@@ -15,7 +15,7 @@ const LINK_PARENT = fs.mkdtempSync(
 )
 const LINKED_ROOT = path.join(LINK_PARENT, 'project')
 
-const FONT_BYTES = Buffer.from('probe-woff2-bytes')
+const FONT_BYTES = Buffer.alloc(4096, 'probe-woff2-bytes')
 
 function write(root: string, relPath: string, contents: string | Buffer) {
   const abs = path.join(root, relPath)
@@ -136,10 +136,7 @@ describe('build: a content-script stylesheet under a symlinked project path (rea
     // names the extension root. The html rule would have emitted a css
     // chunk instead and left the url() host-relative.
     expect(source).toContain('data:text/css;charset=utf-8,')
-    // Manifest-relative, not a path that climbed out through the symlink.
-    expect(source).toContain(
-      'url("__EXTENSIONJS_EXTENSION_ROOT__/assets/src/fonts/probe.woff2")'
-    )
+    expect(source).toContain('url("__EXTENSIONJS_CSS_FILE_0__")')
 
     expect(source).not.toMatch(/url\(\s*(?:\\?["'])?\.\//)
     expect(script?.css || []).toEqual([])
@@ -148,13 +145,18 @@ describe('build: a content-script stylesheet under a symlinked project path (rea
       .filter((entry) => entry.endsWith('.css'))
     expect(chunks).toEqual([])
 
-    expect(
-      fs.readFileSync(path.join(distDir, 'assets/src/fonts/probe.woff2'))
-    ).toEqual(FONT_BYTES)
+    const fonts = fs
+      .readdirSync(distDir, {recursive: true} as any)
+      .map((entry) => String(entry).split(path.sep).join('/'))
+      .filter((entry) => entry.endsWith('.woff2'))
+
+    expect(fonts).toHaveLength(1)
+    expect(fonts[0]).toMatch(/^assets\/probe\.[0-9a-f]{8}\.woff2$/)
+    expect(fs.readFileSync(path.join(distDir, fonts[0]))).toEqual(FONT_BYTES)
 
     const resources = (manifest.web_accessible_resources || []).flatMap(
       (group) => group.resources || []
     )
-    expect(resources).toContain('assets/src/fonts/probe.woff2')
+    expect(resources).toContain(fonts[0])
   }, 120_000)
 })

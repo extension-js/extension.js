@@ -181,23 +181,21 @@ describe('build: a stylesheet names a public-owned file once, whatever the spell
       }, 120_000)
     }
 
-    it(`${mode}: a relative url() to a file outside the public folder is still emitted as an asset`, async () => {
+    it(`${mode}: a relative url() to a file outside the public folder is still emitted as an asset, once`, async () => {
       const distDir = await build(project('../local/y.png'), mode)
-      const {pageCss, declaredCss, contentJs} = readBuilt(distDir)
+      const {pageCss, declaredCss, contentJs, war} = readBuilt(distDir)
       const hashed = /url\(\s*["']?\/(assets\/y\.[a-f0-9]+\.png)["']?\s*\)/
       const emitted = hashed.exec(pageCss)?.[1] || ''
 
       expect(emitted, `hashed asset in ${pageCss}`).toBeTruthy()
       expect(declaredCss).toContain(emitted)
-      expect(contentJs).toContain(
-        '__EXTENSIONJS_EXTENSION_ROOT__/assets/local/y.png'
-      )
-
-      expect(imagesIn(distDir)).toEqual(
-        ['assets/local/y.png', emitted, 'images/x.png'].sort()
-      )
-
+      expect(contentJs).toContain(emitted)
+      expect(contentJs).not.toContain('assets/local/y.png')
+      expect(imagesIn(distDir)).toEqual([emitted, 'images/x.png'].sort())
       expect(fs.readFileSync(path.join(distDir, emitted))).toEqual(LOCAL_BYTES)
+
+      const exposed = war.filter((group) => group.resources.includes(emitted))
+      expect(exposed.flatMap((group) => group.matches)).toEqual([MATCHES])
     }, 120_000)
   }
 })
