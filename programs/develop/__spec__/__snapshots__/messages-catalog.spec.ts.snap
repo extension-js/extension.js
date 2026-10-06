@@ -100,6 +100,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "treeWithSourceFiles: function(4)",
     "unpackagedSuccessfully: function(0)",
     "unpackagingExtension: function(1)",
+    "updatingTypeDefinitions: function(1)",
     "writingTypeDefinitions: function(1)",
     "writingTypeDefinitionsError: function(1)",
     "zipArtifactNotCreated: function(3)",
@@ -176,6 +177,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "assetsConfigsDetected: function(5)",
     "assetsEmittedSummary: function(2)",
     "assetsRulesEnabled: function(1)",
+    "namespaceImportReadAsValue: function(2)",
   ],
   "plugin-web-extension/feature-html/html-lib/messages.ts": [
     "cssError: function(3)",
@@ -216,6 +218,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
   "plugin-web-extension/feature-locales/messages.ts": [
     "defaultLocaleFolderMissing: function(1)",
     "defaultLocaleMessagesMissing: function(1)",
+    "defaultLocaleRemovedFromOutput: function(1)",
     "defaultLocaleSpecifiedButLocalesMissing: function(0)",
     "entryNotFoundMessageOnly: function(2)",
     "invalidMessagesJson: function(1)",
@@ -273,6 +276,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "webkitUnsupportedKeysDropped: function(2)",
   ],
   "plugin-web-extension/feature-scripts/messages.ts": [
+    "buildConstantNeverDefined: function(3)",
     "compiledSourceSpelling: function(4)",
     "entrySplitAcrossInitialFiles: function(4)",
     "fetchedFileDependencyMissing: function(3)",

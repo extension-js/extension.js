@@ -146,6 +146,7 @@ const STANDARD_BACKGROUND_KEYS = new Set([
 // through files importing further files, 8 hops is far beyond real usage.
 const MAX_TRACE_DEPTH = 8
 const SOURCE_SIBLING_EXTENSIONS = ['.ts', '.mts', '.tsx', '.jsx', '.mjs']
+const STYLESHEET_SIBLING_EXTENSIONS = ['.scss', '.sass', '.less']
 // Sources the compiler rewrites to .js: a runtime literal naming one asks the
 // browser for a path the build never emits.
 const COMPILED_TO_JS_EXTENSIONS = new Set([
@@ -977,6 +978,21 @@ export function planTracedFile(opts: {
     }
   }
 
+  // The literal names the emitted .css of a Sass or Less source, the way a
+  // .js literal names the output of a TypeScript one.
+  if (inside && ext === '.css') {
+    const sibling = findStylesheetSibling(abs)
+
+    if (sibling) {
+      return {
+        kind: 'compile',
+        sourcePath: sibling,
+        emitPath: distRel,
+        format: 'classic'
+      }
+    }
+  }
+
   return {kind: 'missing', emitPath: distRel}
 }
 
@@ -1009,9 +1025,15 @@ async function compileTracedFile(
       ? 'import-scripts'
       : 'jsonp'
 
+  // A stylesheet entry emits its CSS under the entry name and a script with
+  // nothing in it, which is parked on a name of its own and dropped below.
+  const stylesheetScript = /\.css$/i.test(request.emitPath)
+    ? `${request.emitPath}.js`
+    : undefined
+
   const entry = new EntryPlugin(compiler.context, request.sourcePath, {
     name: request.emitPath.replace(/\.[^./]+$/, ''),
-    filename: request.emitPath,
+    filename: stylesheetScript || request.emitPath,
     chunkLoading,
     ...(isModule ? {library: {type: 'module'}} : {})
   })
@@ -1099,6 +1121,10 @@ async function compileTracedFile(
         } catch {
           // Ignore, watch registration is best-effort
         }
+      }
+
+      if (stylesheetScript && compilation.getAsset(stylesheetScript)) {
+        compilation.deleteAsset(stylesheetScript)
       }
 
       resolve()
@@ -1256,6 +1282,14 @@ function findSourceSibling(abs: string): string | undefined {
 
   return SOURCE_SIBLING_EXTENSIONS.map((ext) => base + ext).find((candidate) =>
     isFile(candidate)
+  )
+}
+
+function findStylesheetSibling(abs: string): string | undefined {
+  const base = abs.slice(0, -'.css'.length)
+
+  return STYLESHEET_SIBLING_EXTENSIONS.map((ext) => base + ext).find(
+    (candidate) => isFile(candidate)
   )
 }
 
