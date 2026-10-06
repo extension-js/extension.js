@@ -155,3 +155,59 @@ describe('web_accessible_resources errors beside a module error (real build)', (
     ).toBe(true)
   }, 120_000)
 })
+
+describe('manifest file errors beside a module error (real build)', () => {
+  it('reports a missing icon file in the same failed compile as the missing import', async () => {
+    const root = project({
+      'manifest.json': JSON.stringify({
+        manifest_version: 3,
+        name: 'icon-beside-module-error',
+        version: '1.0.0',
+        background: {service_worker: 'background.js'},
+        icons: {'16': 'icons/beside-absent-icon.png'}
+      }),
+      'background.js': "import './beside-missing'\nconsole.log('bg')\n"
+    })
+    const {rendered, errors} = await build(root)
+
+    expect(rendered).toMatch(/Build failed with 2 errors\./)
+
+    const iconError = errors.find((error) =>
+      /Can't find an icon file listed in icons\./.test(error.message)
+    )
+    expect(iconError?.message).toMatch(/beside-absent-icon\.png/)
+    expect(
+      errors.some((error) =>
+        /Can't resolve '\.\/beside-missing'/.test(error.message)
+      )
+    ).toBe(true)
+
+    expect(errors).toHaveLength(2)
+  }, 120_000)
+
+  it('reports a missing managed schema in the same failed compile as the missing import', async () => {
+    const root = project({
+      'manifest.json': JSON.stringify({
+        manifest_version: 3,
+        name: 'schema-beside-module-error',
+        version: '1.0.0',
+        background: {service_worker: 'background.js'},
+        storage: {managed_schema: 'beside-absent-schema.json'}
+      }),
+      'background.js': "import './beside-missing'\nconsole.log('bg')\n"
+    })
+    const {rendered, errors} = await build(root)
+
+    expect(rendered).toMatch(/Build failed with 2 errors\./)
+
+    const schemaError = errors.find((error) => error.name === 'JSONMissingFile')
+    expect(schemaError?.message).toMatch(/beside-absent-schema\.json/)
+    expect(
+      errors.some((error) =>
+        /Can't resolve '\.\/beside-missing'/.test(error.message)
+      )
+    ).toBe(true)
+
+    expect(errors).toHaveLength(2)
+  }, 120_000)
+})
