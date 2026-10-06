@@ -11,10 +11,28 @@ const CS: ReloadInstruction = {
 
 afterEach(() => {
   delete process.env.EXTENSION_NO_RELOAD
+  delete process.env.EXTENSION_OUTPUT
   vi.restoreAllMocks()
 })
 
 describe('dispatchReload', () => {
+  it('keeps the reload line off stdout while a machine owns it', async () => {
+    process.env.EXTENSION_OUTPUT = 'json'
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const stderr = vi
+      .spyOn(process.stderr, 'write')
+      .mockImplementation(() => true)
+
+    await dispatchReload(CS, {
+      broker: {broadcastReload: vi.fn().mockReturnValue(1)}
+    })
+
+    expect(log).not.toHaveBeenCalled()
+    expect(stderr.mock.calls.join(' ')).toContain(
+      'content_script (src/content/scripts.js)'
+    )
+  })
+
   it('broadcasts over the broker with the shared label + changed files', async () => {
     const broker = {broadcastReload: vi.fn().mockReturnValue(1)}
     await dispatchReload(CS, {broker})

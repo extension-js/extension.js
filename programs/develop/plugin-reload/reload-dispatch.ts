@@ -10,6 +10,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
 import type {ReloadAckOutcome} from '../dev-server/control-bridge/contracts'
+import {humanLine} from '../dev-server/lifecycle-stream'
 import {prefix} from '../lib/messaging'
 import type {ReloadInstruction} from './classify-reload'
 import * as reloadMessages from './messages'
@@ -109,7 +110,7 @@ export async function dispatchReload(
       }
 
       if (instruction.label) {
-        console.log(
+        humanLine(
           instruction.staticContentScriptEntries?.length
             ? reloadMessages.reloadingExtensionForStaticContentScript(
                 instruction.label
@@ -138,7 +139,7 @@ export async function dispatchReload(
     // A restart the caller caused is not a failure, so name what happens to this
     // edit rather than leaving the save loop with nothing to show.
     if (executor.producerRestartExpected && instruction.label) {
-      console.log(formatQueuedReloadLine(instruction.label))
+      humanLine(formatQueuedReloadLine(instruction.label))
     }
   }
 }

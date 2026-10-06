@@ -1,6 +1,11 @@
-import {describe, expect, it, vi} from 'vitest'
+import {afterEach, describe, expect, it, vi} from 'vitest'
 
 import {BrowsersPlugin} from '../index'
+
+afterEach(() => {
+  delete process.env.EXTENSION_OUTPUT
+  vi.restoreAllMocks()
+})
 
 // Reach the private retry directly: the done hook needs a whole rspack
 // compiler, and the gate itself is what must never misfire.
@@ -46,6 +51,23 @@ describe('retryRefusedExtensionLoad', () => {
     await expect(retryOn(makePlugin(), controller)).resolves.toBe(true)
     expect(log.mock.calls.join(' ')).toContain('accepted the extension')
     log.mockRestore()
+  })
+
+  it('keeps the recovery line off stdout while a machine owns it', async () => {
+    process.env.EXTENSION_OUTPUT = 'json'
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const stderr = vi
+      .spyOn(process.stderr, 'write')
+      .mockImplementation(() => true)
+    const controller = {
+      enableUnifiedLogging: vi.fn(),
+      getExtensionLoadRefusal: () => 'Variable $2$ used but not defined.',
+      retryExtensionLoad: vi.fn(async () => ({status: 'loaded' as const}))
+    }
+
+    await expect(retryOn(makePlugin(), controller)).resolves.toBe(true)
+    expect(log).not.toHaveBeenCalled()
+    expect(stderr.mock.calls.join(' ')).toContain('accepted the extension')
   })
 
   // The operator just changed something, so a repeat refusal must show the
