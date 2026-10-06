@@ -9,6 +9,11 @@ import {configLoadingError} from '../messages'
 
 const KEYS = ['MY_CFG_VALUE', 'EXTENSION_PUBLIC_A']
 const roots: string[] = []
+const context = {
+  browser: 'chrome',
+  mode: 'production',
+  command: 'build'
+} as const
 const saved: Record<string, string | undefined> = {}
 
 beforeEach(() => {
@@ -236,7 +241,7 @@ describe('a config file that throws', () => {
     const printed = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     try {
-      const thrown = await loadCustomConfig(root).then(
+      const thrown = await loadCustomConfig(root, context).then(
         () => undefined,
         (error: Error & {code?: string}) => error
       )
@@ -315,7 +320,7 @@ describe('a config file must export an object', () => {
 
     try {
       for (const load of [
-        () => loadCustomConfig(root),
+        () => loadCustomConfig(root, context),
         () => loadCommandConfig(root, 'build')
       ]) {
         await expect(load()).rejects.toThrow(/must export an object/)
@@ -335,7 +340,7 @@ describe('a config file must export an object', () => {
 
     try {
       // The frame travels on the error, for the command to print once.
-      await expect(loadCustomConfig(root)).rejects.toThrow(
+      await expect(loadCustomConfig(root, context)).rejects.toThrow(
         /Couldn't load[\s\S]*boom while loading/
       )
 

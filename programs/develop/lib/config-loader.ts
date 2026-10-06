@@ -14,7 +14,12 @@ import {pathToFileURL} from 'node:url'
 import * as vm from 'node:vm'
 import type {Configuration} from '@rspack/core'
 import dotenv from 'dotenv'
-import type {BrowserConfig, DevOptions, FileConfig} from '../types'
+import type {
+  BrowserConfig,
+  ConfigHookContext,
+  DevOptions,
+  FileConfig
+} from '../types'
 import {type CodedError, codedError} from './coded-error'
 import {isWebkitBasedBrowser} from './constants'
 import * as messages from './messages'
@@ -470,7 +475,10 @@ async function loadConfigFileUncached(
   }
 }
 
-export async function loadCustomConfig(projectPath: string) {
+export async function loadCustomConfig(
+  projectPath: string,
+  context: ConfigHookContext
+) {
   const configPath = findConfigFile(projectPath)
 
   if (configPath) {
@@ -479,7 +487,9 @@ export async function loadCustomConfig(projectPath: string) {
         const userConfig = await loadConfigFile(configPath)
 
         if (userConfig && typeof userConfig.config === 'function') {
-          return userConfig.config
+          const hook = userConfig.config
+
+          return (config: Configuration) => hook(config, context)
         }
 
         if (userConfig?.config && typeof userConfig.config === 'object') {
