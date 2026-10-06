@@ -10,6 +10,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, sources, WebpackError} from '@rspack/core'
 import {isGeckoBasedBrowser, isWebkitBasedBrowser} from '../../../lib/constants'
+import {debugLine} from '../../../lib/messaging'
 import {
   type AssetHashOptions,
   bundledAssetOutputName
@@ -368,8 +369,7 @@ export function resolveUserDeclaredWAR(
         (compilation.options?.mode || 'development') !== 'production'
 
       if (process.env.EXTENSION_DEV_DEBUG_WAR === '1') {
-        // eslint-disable-next-line no-console
-        console.log(
+        debugLine(
           '[web-resources:resolve-war] public-like resource',
           JSON.stringify({
             res,

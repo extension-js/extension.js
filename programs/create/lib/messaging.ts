@@ -101,6 +101,18 @@ export function humanError(...parts: unknown[]): void {
   console.error(...parts)
 }
 
+// Diagnostics were asked for, so they are never swallowed: they share stdout
+// with the pretty output and move to stderr while a machine owns stdout.
+export function debugLine(...parts: unknown[]): void {
+  if (isMachineOutput()) {
+    console.error(...parts)
+
+    return
+  }
+
+  console.log(...parts)
+}
+
 export const fmt = {
   heading: (title: string) => colors.underline(colors.blue(title)),
   label: (key: string) => colors.gray(key.toUpperCase()),

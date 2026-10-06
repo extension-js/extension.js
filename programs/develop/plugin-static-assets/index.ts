@@ -7,7 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {Compiler, RuleSetRule} from '@rspack/core'
-import {isDebug} from '../lib/messaging'
+import {debugLine, isDebug} from '../lib/messaging'
 import {RAW_RESOURCE_QUERY} from '../lib/resource-query'
 import type {DevOptions, PluginInterface} from '../types'
 import {CheckNamespaceImports} from './check-namespace-imports'
@@ -235,9 +235,9 @@ export class StaticAssetsPlugin {
       rulesEnabled.push(fontsRule ? 'Fonts' : 'Fonts(custom)')
       rulesEnabled.push(filesRule ? 'Files' : 'Files(custom)')
 
-      console.log(messages.assetsRulesEnabled(rulesEnabled))
+      debugLine(messages.assetsRulesEnabled(rulesEnabled))
 
-      console.log(
+      debugLine(
         messages.assetsConfigsDetected(
           filenamePattern,
           hasCustomSvgRule ? 'custom' : 'default',
@@ -264,7 +264,7 @@ export class StaticAssetsPlugin {
             else counts.files++
           }
 
-          console.log(messages.assetsEmittedSummary(emitted.length, counts))
+          debugLine(messages.assetsEmittedSummary(emitted.length, counts))
         } catch {
           // Ignore
         }

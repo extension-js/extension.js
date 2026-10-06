@@ -23,7 +23,7 @@ import type {
 import {type CodedError, codedError} from './coded-error'
 import {isWebkitBasedBrowser} from './constants'
 import * as messages from './messages'
-import {CODES, isDebug} from './messaging'
+import {CODES, debugLine, isDebug} from './messaging'
 import type {ParsedJson} from './parse-json-safe'
 import {resolveProjectStructureSync} from './project'
 
@@ -761,7 +761,7 @@ export async function isUsingExperimentalConfig(projectPath: string) {
   if (configPath) {
     if (!userMessageDelivered) {
       if (isDebug()) {
-        console.log(messages.isUsingExperimentalConfig('extension.config.js'))
+        debugLine(messages.isUsingExperimentalConfig('extension.config.js'))
       }
 
       userMessageDelivered = true

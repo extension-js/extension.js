@@ -10,7 +10,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import type {Compiler} from '@rspack/core'
 import {getSpecialFoldersData} from 'browser-extension-manifest-fields'
-import {isDebug} from '../lib/messaging'
+import {debugLine, isDebug} from '../lib/messaging'
 import type {FilepathList, SpecialFoldersConfig} from '../types'
 import type {CompanionExtensionsConfig} from './folder-extensions/types'
 import {
@@ -390,7 +390,7 @@ function filterPackageToolingScripts(
 
     if (!reportedDroppedScripts.has(signature)) {
       reportedDroppedScripts.add(signature)
-      console.log(messages.packageScriptLeftOut(dropped))
+      debugLine(messages.packageScriptLeftOut(dropped))
     }
   }
 

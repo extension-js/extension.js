@@ -8,7 +8,7 @@
 
 import colors from 'pintor'
 import {hasDependency} from '../../lib/has-dependency'
-import {isDebug, prefix} from '../../lib/messaging'
+import {debugLine, isDebug, prefix} from '../../lib/messaging'
 import {ensureOptionalContractPackageResolved} from '../../lib/optional-deps-resolver'
 import * as messages from '../css-lib/messages'
 
@@ -18,7 +18,7 @@ export function isUsingLess(projectPath: string): boolean {
   if (hasDependency(projectPath, 'less')) {
     if (!userMessageDelivered) {
       if (isDebug()) {
-        console.log(`${prefix('debug')} ${messages.isUsingIntegration('LESS')}`)
+        debugLine(`${prefix('debug')} ${messages.isUsingIntegration('LESS')}`)
       }
 
       userMessageDelivered = true

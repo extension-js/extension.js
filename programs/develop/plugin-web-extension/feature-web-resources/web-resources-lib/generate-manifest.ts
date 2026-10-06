@@ -9,7 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, sources, WebpackError} from '@rspack/core'
-import {isDebug} from '../../../lib/messaging'
+import {debugLine, isDebug} from '../../../lib/messaging'
 import type {Manifest} from '../../../types'
 import {
   getManifestContent,
@@ -739,7 +739,7 @@ export function generateManifestPatches(
         canonicalManifest.manifest_version === 2
           ? webAccessibleResourcesV2.length
           : 0
-      console.log(warPatchedSummary(v3Groups, v3ResourcesTotal, v2Resources))
+      debugLine(warPatchedSummary(v3Groups, v3ResourcesTotal, v2Resources))
     } catch {
       // Ignore
     }

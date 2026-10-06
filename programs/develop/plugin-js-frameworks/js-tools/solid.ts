@@ -10,7 +10,7 @@ import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import * as path from 'node:path'
 import {resolveDevelopDistFile} from '../../lib/develop-context'
-import {isDebug, prefix} from '../../lib/messaging'
+import {debugLine, isDebug, prefix} from '../../lib/messaging'
 import {ensureOptionalContractPackageResolved} from '../../lib/optional-deps-resolver'
 import {NOT_RAW_RESOURCE_QUERY} from '../../lib/resource-query'
 import {createNodeModulesExclude} from '../../lib/transpile-packages'
@@ -25,7 +25,7 @@ export function isUsingSolid(projectPath: string) {
 
   if (using && !userMessageDelivered) {
     if (isDebug()) {
-      console.log(`${prefix('debug')} ${messages.isUsingIntegration('Solid')}`)
+      debugLine(`${prefix('debug')} ${messages.isUsingIntegration('Solid')}`)
     }
 
     userMessageDelivered = true

@@ -1,7 +1,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compilation} from '@rspack/core'
-import {isDebug} from '../../lib/messaging'
+import {debugLine, isDebug} from '../../lib/messaging'
 import {getLocales, localeFoldersWithoutMessages} from './get-locales'
 import * as messages from './messages'
 
@@ -37,6 +37,6 @@ export function trackLocaleDependencies(
   }
 
   if (isDebug()) {
-    console.log(messages.localesDepsTracked(added))
+    debugLine(messages.localesDepsTracked(added))
   }
 }

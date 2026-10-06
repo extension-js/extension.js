@@ -24,7 +24,7 @@ import {
   isChromiumBasedBrowser,
   isGeckoBasedBrowser
 } from '../lib/constants'
-import {isDebug} from '../lib/messaging'
+import {debugLine, isDebug} from '../lib/messaging'
 import {setCurrentManifestContent} from '../plugin-web-extension/feature-manifest/manifest-lib/manifest'
 import type {DevOptions, PluginInterface} from '../types'
 import * as messages from './compilation-lib/messages'
@@ -329,7 +329,7 @@ export class EnvPlugin {
     )
 
     if (isDebug()) {
-      console.log(messages.envSelectedFile(envPath))
+      debugLine(messages.envSelectedFile(envPath))
     }
 
     // Watch every path resolveEnvPaths consults, not only the one it picked,
@@ -481,7 +481,7 @@ export class EnvPlugin {
     ).length
 
     if (isDebug()) {
-      console.log(messages.envInjectedPublicVars(injectedCount))
+      debugLine(messages.envInjectedPublicVars(injectedCount))
     }
 
     // Provide a real browser process object so free process.* reads don't throw;
