@@ -133,6 +133,8 @@ exports[`extension message catalogs > matches the exported message surface 1`] =
     "safariSkippingConversion: function(0)",
     "safariToolFailed: function(3)",
     "safariToolchainMissing: function(1)",
+    "safariWebDriverSession: function(2)",
+    "safariWebDriverUnavailable: function(1)",
     "safariXcodeRequired: function(1)",
     "separatorLine: function(0)",
     "skippingBrowserLaunchDueToCompileErrors: function(0)",

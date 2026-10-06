@@ -61,8 +61,7 @@
     "E_MANAGED_DEP_CONFLICT": {
       "area": "project",
       "summary": "The project declares a package the toolchain manages.",
-      "reserved": true,
-      "reason": "a warning the run continues past"
+      "warn": true
     },
     "E_DEPENDENCY_INSTALL": {
       "area": "project",
@@ -71,8 +70,7 @@
     "E_TYPES_EMIT": {
       "area": "project",
       "summary": "Writing extension-env.d.ts failed.",
-      "reserved": true,
-      "reason": "a warning the run continues past"
+      "warn": true
     },
     "E_OPTIONAL_DEP_UNRESOLVED": {
       "area": "project",
@@ -174,8 +172,7 @@
     "E_POLYFILL_NOT_FOUND": {
       "area": "compile",
       "summary": "webextension-polyfill requested but absent.",
-      "reserved": true,
-      "reason": "a warning the run continues past"
+      "warn": true
     },
     "E_LOCALES_LAYOUT": {
       "area": "compile",
@@ -204,8 +201,7 @@
     "E_NO_ENTRYPOINTS": {
       "area": "compile",
       "summary": "The compilation produced zero entrypoints.",
-      "reserved": true,
-      "reason": "a warning the run continues past"
+      "warn": true
     },
     "E_REMOTE_RESOURCE_BLOCKED": {
       "area": "compile",
@@ -288,8 +284,7 @@
     "E_LAUNCH_SKIPPED_COMPILE_ERRORS": {
       "area": "browser-binary",
       "summary": "Launch was withheld because the compile failed.",
-      "reserved": true,
-      "reason": "a warning the run continues past"
+      "warn": true
     },
     "E_INSTANCE_AMBIGUOUS": {
       "area": "browser-binary",

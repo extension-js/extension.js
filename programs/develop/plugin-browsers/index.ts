@@ -8,6 +8,7 @@
 
 import {EventEmitter} from 'node:events'
 import type {Compiler} from '@rspack/core'
+import {humanLine} from '../dev-server/lifecycle-stream'
 import * as messages from '../lib/messages'
 import {
   buildSourceFeatureIndex,
@@ -217,7 +218,7 @@ export class BrowsersPlugin implements RunnerPlugin {
     }
 
     if (outcome.status === 'loaded') {
-      console.log(messages.extensionLoadRecovered())
+      humanLine(messages.extensionLoadRecovered())
 
       return true
     }

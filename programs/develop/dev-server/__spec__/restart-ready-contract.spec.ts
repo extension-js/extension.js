@@ -3,6 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {type Compiler, rspack} from '@rspack/core'
 import {afterAll, describe, expect, it} from 'vitest'
+import {devWatchOptions} from '../../__spec__/helpers/dev-watch-options'
 import {getProjectStructure} from '../../lib/project'
 import {eventsPath, readyContractPath} from '../../lib/session-paths'
 import webpackConfig from '../../rspack-config'
@@ -58,7 +59,9 @@ async function makeCompiler(root: string) {
 
 function watchUntilDone(compiler: Compiler) {
   return new Promise<ReturnType<typeof compiler.watch>>((resolve) => {
-    const watching = compiler.watch({}, () => resolve(watching))
+    const watching = compiler.watch(devWatchOptions(compiler), () =>
+      resolve(watching)
+    )
   })
 }
 

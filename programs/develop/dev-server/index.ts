@@ -896,7 +896,8 @@ export async function devServer(
     browser: browserName,
     distPath: primaryDistPath,
     readyPath: metadata.readyPath,
-    eventsPath: metadata.eventsPath
+    eventsPath: metadata.eventsPath,
+    noBrowser: Boolean(devOptions.noBrowser)
   })
   lifecycle.emitOnExit()
 
@@ -986,7 +987,10 @@ export async function devServer(
     // Rspack must inject `module.hot` so `@rspack/core/hot/dev-server` does not
     // throw; content bundles strip HMR startup, so liveReload cannot loop them.
     hot: true,
-    liveReload: true
+    liveReload: true,
+    // setupCleanupHandlers owns the signals. The server's own handler stopped
+    // it a second time, so one Ctrl+C closed the watch and logged twice.
+    setupExitSignals: false
   }
 
   const START_TIMEOUT_MS = parseInt(

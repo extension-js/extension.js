@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {takeCodedWarnings} from '../../lib/coded-warnings'
 import * as messages from '../../plugin-compatibility/compatibility-lib/messages'
 import {PolyfillPlugin} from '../feature-polyfill'
 
@@ -46,10 +47,15 @@ describe('PolyfillPlugin', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
     const plugin = new PolyfillPlugin({manifestPath: '/abs/manifest.json'})
+    takeCodedWarnings()
     plugin.apply(compiler)
 
     expect(warnSpy).toHaveBeenCalledWith(
       messages.webextensionPolyfillNotFound()
     )
+
+    expect(takeCodedWarnings()).toEqual([
+      'E_POLYFILL_NOT_FOUND: webextension-polyfill is not installed, so the browser API polyfill is off for this build.'
+    ])
   })
 })

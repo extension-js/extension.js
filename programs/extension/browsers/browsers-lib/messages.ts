@@ -1155,6 +1155,22 @@ export function safariNotYetRegistered(appName: string) {
   )
 }
 
+// Safari grants one automation session at a time, so the session names the one
+// it holds and a tool attaches to it instead of fighting for its own.
+export function safariWebDriverSession(port: number, sessionId: string) {
+  return (
+    `${getLoggingPrefix('info')} WebDriver session ${colors.gray(sessionId)} on port ${colors.yellow(String(port))}.\n` +
+    `ready.json carries it as ${colors.gray('webdriverPort')} and ${colors.gray('webdriverSessionId')}, attach to it instead of opening another.`
+  )
+}
+
+export function safariWebDriverUnavailable(reason: string) {
+  return (
+    `${getLoggingPrefix('info')} No WebDriver session for this run: ${reason}\n` +
+    `Run ${colors.gray('safaridriver --enable')} once and turn on Safari ▸ Develop ▸ Allow Remote Automation so tools can read Safari pages.`
+  )
+}
+
 // The reload that follows announces itself, and a reload that reached nobody
 // prints its own warning, so this line states the rebuild and nothing more.
 export function safariRebuilt(appName: string) {

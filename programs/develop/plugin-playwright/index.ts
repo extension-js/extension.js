@@ -68,6 +68,11 @@ export type ReadyMetadata = {
   // Gecko launches only: the RDP debugger-server port, stamped by the Firefox
   // launcher post-launch (the CDP-extras pairing seam for downstream tooling).
   rdpPort?: number
+  // Safari dev sessions only: the safaridriver session the launcher holds
+  // beside the app, or why it holds none. Stamped post-launch.
+  webdriverPort?: number
+  webdriverSessionId?: string
+  webdriverUnavailableReason?: string
   // Stamped by the browser launcher post-launch: the resolved profile dir (an
   // ephemeral profile's leaf name is generated) and the browser process pid.
   profilePath?: string
@@ -511,8 +516,8 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     )
   }
 
-  // A second dev session over the same target keeps going (distinct
-  // --instance-id runs are a supported flow) but never silently.
+  // A second dev session over the same target keeps going (two explicit
+  // EXTENSION_INSTANCE_ID values are not refused) but never silently.
   if (
     options.command === 'dev' &&
     liveOwner &&
@@ -688,6 +693,18 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     if (prev && sameRun) {
       if (typeof prev.cdpPort === 'number') payload.cdpPort = prev.cdpPort
       if (typeof prev.rdpPort === 'number') payload.rdpPort = prev.rdpPort
+
+      if (typeof prev.webdriverPort === 'number') {
+        payload.webdriverPort = prev.webdriverPort
+      }
+
+      if (typeof prev.webdriverSessionId === 'string') {
+        payload.webdriverSessionId = prev.webdriverSessionId
+      }
+
+      if (typeof prev.webdriverUnavailableReason === 'string') {
+        payload.webdriverUnavailableReason = prev.webdriverUnavailableReason
+      }
 
       if (typeof prev.profilePath === 'string') {
         payload.profilePath = prev.profilePath

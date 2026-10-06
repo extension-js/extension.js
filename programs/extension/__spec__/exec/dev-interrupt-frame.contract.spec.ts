@@ -148,6 +148,16 @@ describe.skipIf(process.platform === 'win32')(
       ) as {status: string; code: string}
       expect(ready.status).toBe('stopped')
       expect(ready.code).toBe('shutdown')
+
+      const shutdownRows = readFileSync(
+        join(projectDir, 'dist', 'extension-js', 'chrome', 'events.ndjson'),
+        'utf8'
+      )
+        .split('\n')
+        .filter((line) => line.trim())
+        .map((line) => JSON.parse(line) as {type: string})
+        .filter((row) => row.type === 'shutdown')
+      expect(shutdownRows).toHaveLength(1)
     }, 90_000)
   }
 )

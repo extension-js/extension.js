@@ -4,6 +4,7 @@ import {createRequire} from 'node:module'
 import os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
+import {takeCodedWarnings} from '../coded-warnings'
 import {
   EXTENSION_ENV_WILDCARD_MODULES,
   renderExtensionEnvTypes
@@ -430,5 +431,29 @@ describe('generate-extension-types', () => {
     expect(content).toContain("'/logo.png'")
     expect(content).toContain("'pages/home.html'")
     expect(content).toContain("'scripts/a.ts'")
+  })
+
+  it('records the coded line when extension-env.d.ts cannot be written', async () => {
+    const root = makeTempDir('extjs-gen-unwritable-')
+    fs.writeFileSync(
+      path.join(root, 'manifest.json'),
+      JSON.stringify({name: 'x'})
+    )
+
+    const target = path.join(root, 'extension-env.d.ts')
+    fs.mkdirSync(target)
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    takeCodedWarnings()
+
+    try {
+      await generateExtensionTypes(root, root)
+    } finally {
+      logSpy.mockRestore()
+    }
+
+    const coded = takeCodedWarnings()
+    expect(coded).toHaveLength(1)
+    expect(coded[0]).toContain(`E_TYPES_EMIT: Writing ${target} failed: `)
+    expect(coded[0]).toContain('EISDIR')
   })
 })
