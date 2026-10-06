@@ -16,6 +16,7 @@ import {
   isPidAlive,
   pidStartedAtMs
 } from '../browsers/browsers-lib/resolve-live-pid'
+import {declaredErrorCode} from '../helpers/cli-failure'
 import {emulatorSessionRefusal} from '../helpers/emulator-session'
 import {exitAfterDrain} from '../helpers/exit-after-drain'
 import {loadExtensionDevelopBridgeModule} from '../helpers/extension-develop-runtime'
@@ -814,7 +815,7 @@ export function registerDoctorCommand(program: Command): void {
           console.log(
             JSON.stringify(
               ENVELOPE.fail('doctor', 'failed', {
-                code: CODES.E_INTERNAL,
+                code: declaredErrorCode(err) ?? CODES.E_INTERNAL,
                 message
               })
             )

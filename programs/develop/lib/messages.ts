@@ -662,11 +662,15 @@ export function buildWarningsDetails(warnings: LooseBuildWarning[]): string {
 
     // A body with a second line explains itself. The generic hint is for the
     // one-line warnings the bundler reports with nothing else to go on.
-    const explained = message.includes('\n')
-    const oneLine = message.replace(/\s+/g, ' ').trim()
+    const [headline, ...body] = message
+      .split('\n')
+      .map((line) => line.replace(/\s+/g, ' ').trim())
+      .filter(Boolean)
+    const explained = body.length > 0
     const artifactSuffix = artifact ? ` ${colors.gray(`(${artifact})`)}` : ''
     blocks.push(
-      `${getLoggingPrefix('warn')} ${category}: ${oneLine}${artifactSuffix}\n` +
+      `${getLoggingPrefix('warn')} ${category}: ${headline}${artifactSuffix}\n` +
+        body.map((line) => `${line}\n`).join('') +
         formatWarningLabelLine('Source', colors.gray(source)) +
         (explained ? '' : `\n${formatWarningLabelLine('Hint', hint)}`)
     )

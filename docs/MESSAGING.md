@@ -295,6 +295,10 @@ from the legacy `ready.json` codes, bridge error names, and doctor check ids) li
 CLI. They are also what the CLI's own tests validate against, so they cannot go stale. Codes
 may be added over time, but an existing code is never renamed or removed within a schema.
 
+A row marked `reserved` in `codes.json` is a code the table declares and the CLI does not emit
+today, so no envelope carries it yet. The contract spec fails when a code is neither emitted by
+the source nor marked, and when a marked code gains an emit site, so the marker cannot go stale.
+
 `--output json` is arriving command by command. The envelope shape above is the target for all
 of them, and new code follows it.
 

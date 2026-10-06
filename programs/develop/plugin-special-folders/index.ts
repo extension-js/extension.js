@@ -19,6 +19,7 @@ import {
   rememberSpecialFoldersConfig
 } from './folders-config'
 import * as messages from './messages'
+import {PruneRemovedPublicFiles} from './prune-removed-public-files'
 import {
   inspectPublicFolders,
   rememberPublicRoots
@@ -188,6 +189,10 @@ export class SpecialFoldersPlugin {
           }
         ]
       }).apply(compiler)
+
+      if (watching && compiler.options.mode === 'development') {
+        new PruneRemovedPublicFiles(publicDir).apply(compiler)
+      }
 
       if (isDebug()) {
         console.log(

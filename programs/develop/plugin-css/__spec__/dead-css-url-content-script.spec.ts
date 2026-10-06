@@ -151,36 +151,30 @@ describe('dead url() in a content-script stylesheet', () => {
       {nonModuleType: 'css', issuer: () => true, manifestPath}
     )
 
-    const carriesScan = (rules: typeof inlined) =>
-      rules.filter((rule) =>
-        JSON.stringify(rule.use || []).includes('dead-css-url-loader')
-      )
+    const carrying = (rules: typeof inlined, loader: string) =>
+      rules.filter((rule) => JSON.stringify(rule.use || []).includes(loader))
 
-    // Every content-script rule carries it: the inlined sheets leave as a
-    // runtime module, the css/module siblings stay CSS with rspack told to
-    // leave url() alone, so the scan is the only pass that sees them.
-    expect(carriesScan(inlined).length).toBe(inlined.length)
-    expect(carriesScan(inlined).length).toBeGreaterThan(0)
-    const sheetModes = inlined.map((rule) => {
-      const scan = (rule.use as Array<{loader?: string; options?: any}>).find(
-        (entry) => String(entry.loader).includes('dead-css-url-loader')
-      )
+    const inlinedSheets = inlined.filter((rule) => rule.type !== 'css/module')
+    const moduleSheets = inlined.filter((rule) => rule.type === 'css/module')
 
-      return [rule.type, scan?.options?.sheet, rule.parser]
-    })
+    expect(inlinedSheets.length).toBeGreaterThan(0)
+    expect(moduleSheets.length).toBeGreaterThan(0)
+    expect(inlinedSheets.every((rule) => rule.type === 'javascript/auto')).toBe(
+      true
+    )
 
-    for (const [type, sheet, parser] of sheetModes) {
-      if (type === 'css/module') {
-        expect(sheet).toBe('chunk')
-        expect(parser).toEqual({url: false})
-      } else {
-        expect(type).toBe('javascript/auto')
-        expect(sheet).toBe('inline')
-        expect(parser).toBeUndefined()
-      }
-    }
+    expect(carrying(inlinedSheets, 'dead-css-url-loader')).toHaveLength(
+      inlinedSheets.length
+    )
 
-    expect(carriesScan(emitted)).toHaveLength(0)
-    expect(emitted.every((rule) => rule.parser === undefined)).toBe(true)
+    expect(carrying(moduleSheets, 'dead-css-url-loader')).toHaveLength(0)
+    expect(carrying(moduleSheets, 'public-css-url-loader')).toHaveLength(
+      moduleSheets.length
+    )
+
+    expect(carrying(emitted, 'dead-css-url-loader')).toHaveLength(0)
+    expect(
+      [...inlined, ...emitted].every((rule) => rule.parser === undefined)
+    ).toBe(true)
   })
 })

@@ -148,6 +148,17 @@ export function humanizeCaseMismatchBlocks(
   return out.join('\n')
 }
 
+// A diagnostic with no file is headed by its own first line, glyph included,
+// so that line is the top of the body and the header names no location.
+const MESSAGE_HEAD_PATTERN = /^[⚠×]\s/
+const LEADING_SPACE_PATTERN = new RegExp(`^((?:${ANSI_PATTERN.source})*)\\s+`)
+
+function messageOfHead(line: string): string {
+  return line
+    .slice(line.indexOf(' in ') + ' in '.length)
+    .replace(LEADING_SPACE_PATTERN, '$1')
+}
+
 // The bundler's ERROR/WARNING head lines become standard-anatomy headers; the
 // diagnostic body under them keeps its code frames and squiggles verbatim.
 export function wrapStatsBlocks(raw: string): string {
@@ -161,13 +172,15 @@ export function wrapStatsBlocks(raw: string): string {
     const warningHead = /^WARNING(?: in (.+))?$/.exec(plain)
 
     if (errorHead || warningHead) {
-      const file = String((errorHead || warningHead)?.[1] || '')
-        .trim()
-        .replace(/\.$/, '')
+      const subject = String((errorHead || warningHead)?.[1] || '').trim()
+      const headIsMessage = MESSAGE_HEAD_PATTERN.test(subject)
+      const file = headIsMessage ? '' : subject.replace(/\.$/, '')
       const kind = errorHead ? 'error' : 'warning'
       const channel = errorHead ? ('error' as const) : ('warn' as const)
       const location = file ? ` in ${file}` : ''
       wrapped.push(`${prefix(channel)} Build ${kind}${location}.`)
+      if (headIsMessage) wrapped.push(`    ${messageOfHead(line)}`)
+
       inBlock = true
       continue
     }

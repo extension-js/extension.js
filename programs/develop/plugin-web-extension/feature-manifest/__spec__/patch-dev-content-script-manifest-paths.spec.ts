@@ -125,4 +125,52 @@ describe('patchDevContentScriptManifestPaths: stale CSS chunk purge', () => {
     expect(fs.existsSync(path.join(csDir, fresh0))).toBe(true)
     expect(fs.existsSync(path.join(csDir, fresh1))).toBe(true)
   })
+
+  it('purges the bundles of the last removed entry when the manifest has no content_scripts', () => {
+    const leftovers = [
+      'content-0.aaaaaaaa.js',
+      'content-0.aaaaaaaa.js.map',
+      'content-0.bbbbbbbb.js',
+      'content-0.bbbbbbbb.js.map',
+      'content-1.cccccccc.css'
+    ]
+
+    for (const name of leftovers) {
+      fs.writeFileSync(path.join(csDir, name), '/* last-entry-leftover */')
+    }
+
+    const manifest: any = {manifest_version: 3, name: 'no-entry-left'}
+    const result = patchDevContentScriptManifestPaths(
+      makeCompilation(['background/service_worker.js']),
+      manifest
+    )
+
+    expect(result).toBe(manifest)
+    expect(fs.readdirSync(csDir)).toEqual([])
+  })
+
+  it('keeps what the current compile emitted and what is no entry bundle when no content script is left', () => {
+    const emitted = 'content-0.dddddddd.js'
+    const kept = [
+      emitted,
+      `${emitted}.map`,
+      'vendor.0123abcd.js',
+      'dev-registry.json',
+      'dev-stub-0.js',
+      'static-thing.txt'
+    ]
+
+    for (const name of kept) {
+      fs.writeFileSync(path.join(csDir, name), '/* owned-by-another */')
+    }
+
+    fs.writeFileSync(path.join(csDir, 'content-0.eeeeeeee.js'), '/* stale */')
+
+    patchDevContentScriptManifestPaths(
+      makeCompilation([`content_scripts/${emitted}`]),
+      {manifest_version: 3, name: 'no-entry-left'} as any
+    )
+
+    expect(fs.readdirSync(csDir).sort()).toEqual([...kept].sort())
+  })
 })

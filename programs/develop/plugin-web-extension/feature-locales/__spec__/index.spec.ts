@@ -507,8 +507,11 @@ describe('LocalesPlugin (unit)', () => {
     )
     expect(warning).toBeDefined()
     expect(String(warning.message)).toContain('canonically placed')
-    expect(String(warning.message)).toContain(path.join(innerSrc, '_locales'))
-    expect(String(warning.message)).toContain(path.join(pkgRoot, '_locales'))
+
+    const rows = String(warning.message).split('\n')
+    expect(rows[1]).toBe(`GOT ${path.join('src', '_locales')}`)
+    expect(rows[2]).toBe('EXPECTED _locales')
+    expect(String(warning.message)).not.toContain(pkgRoot)
   })
 
   it('stays quiet when the manifest folder is its own extension root', () => {

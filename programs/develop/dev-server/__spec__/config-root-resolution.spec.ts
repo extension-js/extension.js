@@ -70,6 +70,7 @@ vi.mock('../cleanup', () => ({
 
 vi.mock('../../plugin-playwright', () => ({
   createPlaywrightMetadataWriter: vi.fn(() => ({})),
+  detectLiveDevSessionOwner: vi.fn(() => null),
   getSessionRunId: vi.fn(() => 'run-test')
 }))
 
