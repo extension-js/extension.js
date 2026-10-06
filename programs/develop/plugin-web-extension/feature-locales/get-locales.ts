@@ -62,19 +62,46 @@ export function localesFolderIsCopiedByPublic(
   return path.resolve(localesFolder) === path.resolve(fromPublic)
 }
 
-function listLocaleFiles(folder: string): string[] {
+function listLocaleDirs(folder: string): string[] {
   const out: string[] = []
 
   for (const locale of fs.readdirSync(folder)) {
     const localeDir = path.join(folder, locale)
 
     try {
-      if (!fs.statSync(localeDir).isDirectory()) continue
-    } catch {
-      continue
-    }
+      if (fs.statSync(localeDir).isDirectory()) out.push(localeDir)
+    } catch {}
+  }
 
-    walk(localeDir, out)
+  return out
+}
+
+function hasMessagesFile(localeDir: string): boolean {
+  return fs.existsSync(path.join(localeDir, 'messages.json'))
+}
+
+// A locale folder without messages.json is one the stores refuse, so it
+// stays out of the output and the emitter warns about it by name.
+export function localeDirsWithoutMessages(localesFolder: string): string[] {
+  if (!isUsableDir(localesFolder)) return []
+
+  return listLocaleDirs(localesFolder).filter((dir) => !hasMessagesFile(dir))
+}
+
+export function localeFoldersWithoutMessages(
+  manifestPath: string,
+  projectRoot?: string
+): string[] {
+  const localesFolder = resolveLocalesFolder(manifestPath, projectRoot)
+
+  return localesFolder ? localeDirsWithoutMessages(localesFolder) : []
+}
+
+function listLocaleFiles(folder: string): string[] {
+  const out: string[] = []
+
+  for (const localeDir of listLocaleDirs(folder)) {
+    if (hasMessagesFile(localeDir)) walk(localeDir, out)
   }
 
   return out
