@@ -177,10 +177,12 @@ export class RemoteFirefox {
           await new Promise((resolve) => setTimeout(resolve, RETRY_INTERVAL))
         } else {
           const err = error as Error
+          // The reason is the line that helps. The stack is for the author
+          // and the outer retry would print it once per attempt.
           humanError(
             messages.generalBrowserError(
               this.options.browser,
-              err.stack || String(error)
+              isDebug() ? err.stack || err : err
             )
           )
 

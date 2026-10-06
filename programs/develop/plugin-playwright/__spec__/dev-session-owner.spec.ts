@@ -34,11 +34,12 @@ describe('detectLiveDevSessionOwner', () => {
 
   it('returns the owner for a live same-target dev session', () => {
     const owner = detectLiveDevSessionOwner(
-      writeReadyFixture({instanceExplicit: true}),
+      writeReadyFixture({instanceExplicit: true, port: 8931}),
       alive
     )
     expect(owner).toEqual({
       pid: 424242,
+      port: 8931,
       runId: 'f3a9',
       instanceId: 'alpha',
       instanceExplicit: true
@@ -77,6 +78,7 @@ describe('detectLiveDevSessionOwner', () => {
     })
     expect(detectLiveDevSessionOwner(readyPath, alive)).toEqual({
       pid: 424242,
+      port: null,
       runId: '',
       instanceId: undefined,
       instanceExplicit: false

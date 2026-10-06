@@ -366,13 +366,8 @@ export class FirefoxLaunchPlugin {
           this.ctx.logger?.error?.(messages.firefoxFailedToStart(error))
         }
 
-        if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
-          done(error)
-
-          return
-        } else {
-          process.exit(1)
-        }
+        // The contract carries the failure and its code, so the stream frames
+        // it. Exiting here ended a json stream with nothing on it.
       }
 
       done()
@@ -495,17 +490,14 @@ export class FirefoxLaunchPlugin {
       )
 
       if (!remoteDebugging.enabled) {
-        humanError(
-          messages.librewolfRemoteDebuggingLocked(remoteDebugging.expectedPath)
+        throw Object.assign(
+          new Error(
+            messages.librewolfRemoteDebuggingLocked(
+              remoteDebugging.expectedPath
+            )
+          ),
+          {code: CODES.E_BROWSER_CONNECT}
         )
-
-        if (inTestRunner) {
-          throw new Error('LibreWolf remote debugging is disabled')
-        }
-
-        this.stampLaunchFailed('LibreWolf remote debugging is disabled')
-
-        process.exit(1)
       }
     }
 
@@ -874,16 +866,12 @@ export class FirefoxLaunchPlugin {
     const child = this.child
     if (!child) return
 
+    // A process that errors after it spawned either closes, which the close
+    // handler stamps and reports, or lives on, so the session does too.
     child.on('error', (error) => {
       this.ctx.logger?.error?.(
         messages.browserLaunchError(this.host.browser, error)
       )
-
-      if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
-        throw new Error('Firefox startup timed out')
-      } else {
-        process.exit(1)
-      }
     })
 
     child.on('close', (code, signal) => {
