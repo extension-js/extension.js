@@ -164,6 +164,7 @@ type PluginOptions = {
   controlPath?: string
   logsPath?: string
   managedExtensionDirs?: string[]
+  launchFollows?: boolean
 }
 
 function nowISO() {
@@ -863,6 +864,11 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
 
       writeReady('starting', {compiledAt: null})
     },
+    // A compile that a browser launch follows is not the session being ready,
+    // so the receipt keeps starting and the launch phase stamps ready.
+    writeCompiled(compiledAt: string) {
+      writeReady('starting', {compiledAt})
+    },
     writeReady(compiledAt?: string | null) {
       if (compiledAt === undefined) {
         writeReady('ready')
@@ -963,11 +969,14 @@ export class PlaywrightPlugin {
   private readonly writer: ReturnType<typeof createPlaywrightMetadataWriter>
   private readonly command: PlaywrightAutomationCommand
   private readonly browser: string
+  private readonly launchFollows: boolean
 
   constructor(options: PluginOptions) {
     this.browser = String(options.browser || 'chromium')
     this.command =
       options.command || (options.mode === 'development' ? 'dev' : 'start')
+
+    this.launchFollows = options.launchFollows === true
 
     this.writer = createPlaywrightMetadataWriter({
       packageJsonDir: options.packageJsonDir,
@@ -1043,7 +1052,11 @@ export class PlaywrightPlugin {
         errorCount: 0
       })
 
-      this.writer.writeReady(nowISO())
+      if (this.launchFollows) {
+        this.writer.writeCompiled(nowISO())
+      } else {
+        this.writer.writeReady(nowISO())
+      }
     })
 
     compiler.hooks.failed.tap(PlaywrightPlugin.name, (error: unknown) => {

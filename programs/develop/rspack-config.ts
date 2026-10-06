@@ -355,7 +355,8 @@ export default function webpackConfig(
       // so consumers never hardcode the companion extension ids.
       managedExtensionDirs: unpackedExtensionDirsToLoad.filter(
         (dir) => path.resolve(dir) !== path.resolve(primaryExtensionOutputDir)
-      )
+      ),
+      launchFollows: devOptions.launchFollows
     })
   )
 

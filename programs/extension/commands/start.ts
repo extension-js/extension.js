@@ -373,6 +373,10 @@ export function registerStartCommand(program: Command) {
         markCommandSessionStart('start')
 
         const {extensionBuild} = await loadExtensionDevelopModule()
+        const noBrowser = await resolveNoBrowser(
+          pathOrRemoteUrl || process.cwd(),
+          'start'
+        )
 
         for (const vendor of list) {
           const logsOption = (startOptions as unknown as {logs?: string}).logs
@@ -395,6 +399,9 @@ export function registerStartCommand(program: Command) {
               exitOnError: !asJson,
               // The build-phase receipt should name the command the user ran.
               metadataCommand: 'start',
+              // With a launch ahead the receipt is not the session being
+              // ready, so the build leaves that stamp to the launch phase.
+              launchFollows: !noBrowser,
               // Pass polyfill only when typed so commands.start.polyfill can
               // apply. The start build phase still defaults it on downstream.
               polyfill: explicitCliValue(
@@ -424,11 +431,6 @@ export function registerStartCommand(program: Command) {
 
             process.exit(1)
           }
-
-          const noBrowser = await resolveNoBrowser(
-            pathOrRemoteUrl || process.cwd(),
-            'start'
-          )
 
           if (noBrowser) {
             continue
@@ -494,10 +496,7 @@ export function registerStartCommand(program: Command) {
               // for readers of the old frame, which echoed the requested one.
               port: null,
               pid: process.pid,
-              noBrowser: await resolveNoBrowser(
-                pathOrRemoteUrl || process.cwd(),
-                'start'
-              )
+              noBrowser
             })
           )
         }

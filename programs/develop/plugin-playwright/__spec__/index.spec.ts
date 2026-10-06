@@ -270,4 +270,54 @@ describe('plugin-playwright metadata writer', () => {
     )
     expect(ready.errors).toEqual(['errors: 2'])
   })
+
+  it('keeps the receipt on starting after a compile a launch follows', () => {
+    const projectRoot = createTempProject()
+    const plugin = new PlaywrightPlugin({
+      packageJsonDir: projectRoot,
+      browser: 'chrome',
+      mode: 'production',
+      command: 'start',
+      outputPath: path.join(projectRoot, 'dist', 'chrome'),
+      manifestPath: path.join(projectRoot, 'manifest.json'),
+      port: null,
+      launchFollows: true
+    })
+
+    const taps: Record<string, (arg?: unknown) => void> = {}
+    const hook = (name: string) => ({
+      tap: (_pluginName: string, fn: (arg?: unknown) => void) => {
+        taps[name] = fn
+      }
+    })
+    plugin.apply({
+      hooks: {
+        compile: hook('compile'),
+        done: hook('done'),
+        failed: hook('failed'),
+        watchClose: hook('watchClose')
+      }
+    } as any)
+
+    taps.done({
+      compilation: {startTime: 0, endTime: 25},
+      hasErrors: () => false,
+      toJson: () => ({errors: []})
+    })
+
+    const dir = getPlaywrightMetadataDir(projectRoot, 'chrome')
+    const ready = JSON.parse(
+      fs.readFileSync(path.join(dir, 'ready.json'), 'utf8')
+    )
+    expect(ready.status).toBe('starting')
+    expect(ready.command).toBe('start')
+    expect(typeof ready.compiledAt).toBe('string')
+
+    const events = fs
+      .readFileSync(path.join(dir, 'events.ndjson'), 'utf8')
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line))
+    expect(events.map((event) => event.type)).toContain('compile_success')
+  })
 })
