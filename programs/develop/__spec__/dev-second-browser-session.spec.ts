@@ -110,6 +110,18 @@ async function watchSession(root: string, browser: 'chromium' | 'firefox') {
 const sleep = (ms: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, ms))
 
+describe('a first dev session', () => {
+  it('compiles once at startup although it creates dist under the watched root', async () => {
+    const root = project()
+    const chromium = await watchSession(root, 'chromium')
+    const seen = await chromium.settle()
+    await sleep(2000)
+
+    expect(seen).toBe(1)
+    expect(chromium.dones).toHaveLength(1)
+  }, 30000)
+})
+
 describe('a second dev session for another browser', () => {
   it('starts without making the first session compile again', async () => {
     const root = project()
