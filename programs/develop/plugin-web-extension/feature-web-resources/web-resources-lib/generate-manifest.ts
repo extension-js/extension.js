@@ -513,32 +513,6 @@ export function generateManifestPatches(
     }
   }
 
-  // Last-resort fallback: expose emitted static assets under assets/ to the union of content_scripts matches
-  if (canonicalManifest.manifest_version === 3) {
-    const assetKeys: string[] = Object.keys(compilation.assets || {})
-    const staticAssets = assetKeys
-      .filter((k) => k.startsWith('assets/'))
-      .filter((k) => !k.endsWith('.js') && !k.endsWith('.map'))
-      .sort()
-
-    if (staticAssets.length > 0) {
-      const allMatches: string[] = Array.from(
-        new Set(
-          (canonicalManifest.content_scripts || []).flatMap(
-            (cs: {matches?: string[]}) => cs.matches || []
-          )
-        )
-      )
-      const normalizedMatches = cleanMatches(allMatches)
-      mergeIntoV3Group(
-        webAccessibleResourcesV3,
-        normalizedMatches,
-        staticAssets,
-        {createGroupWhenMissing: normalizedMatches.length > 0}
-      )
-    }
-  }
-
   // A content script's stylesheet reaches its own url() targets at runtime, so
   // every emitted file it names is exposed, whatever the extension. The font
   // rule below predates this and still covers fonts reached from JS.
