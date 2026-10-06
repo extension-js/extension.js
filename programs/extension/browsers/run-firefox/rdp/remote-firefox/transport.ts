@@ -8,7 +8,12 @@
 
 import EventEmitter from 'node:events'
 import net from 'node:net'
-import {humanError, humanLine, isDebug} from '../../../../helpers/messaging'
+import {
+  CODES,
+  humanError,
+  humanLine,
+  isDebug
+} from '../../../../helpers/messaging'
 import * as messages from '../../../browsers-lib/messages'
 import {buildRdpFrame, parseRdpFrame} from './rdp-wire'
 
@@ -90,6 +95,18 @@ export function surfaceTransportError(
   humanError(error instanceof Error ? error.message : String(error))
 }
 
+// Each way the wire fails carries its own code, so the contract a launch
+// stamps can tell a socket that closed from a browser that spoke garbage.
+function closedError(message: string): Error {
+  return Object.assign(new Error(message), {
+    code: CODES.E_BROWSER_CONNECTION_CLOSED
+  })
+}
+
+function protocolError(message: string): Error {
+  return Object.assign(new Error(message), {code: CODES.E_RDP_PROTOCOL})
+}
+
 export class RdpTransport extends EventEmitter {
   private conn?: net.Socket
   private incoming: Buffer = Buffer.alloc(0)
@@ -109,8 +126,11 @@ export class RdpTransport extends EventEmitter {
       const timeoutMs = rdpRequestTimeoutMs()
       const timer = setTimeout(() => {
         this.settleGreeting(
-          new Error(
-            `Firefox sent no RDP greeting on port ${port} within ${timeoutMs}ms`
+          Object.assign(
+            new Error(
+              `Firefox sent no RDP greeting on port ${port} within ${timeoutMs}ms`
+            ),
+            {code: CODES.E_BROWSER_START_TIMEOUT}
           )
         )
 
@@ -147,10 +167,10 @@ export class RdpTransport extends EventEmitter {
           this.settleGreeting(err)
         })
 
-        c.on('end', this.onConnectionLost.bind(this))
+        c.on('end', () => this.onConnectionLost())
         // A reset fires 'error' then 'close' and never 'end'; only 'close' is
         // guaranteed for every way the socket can die.
-        c.on('close', this.onConnectionLost.bind(this))
+        c.on('close', () => this.onConnectionLost())
         c.on('timeout', this.onTimeout.bind(this))
       } catch (err) {
         this.settleGreeting(err as Error)
@@ -163,7 +183,7 @@ export class RdpTransport extends EventEmitter {
   }
 
   disconnect(): void {
-    const closed = new Error(messages.messagingClientClosedError('firefox'))
+    const closed = closedError(messages.messagingClientClosedError('firefox'))
     this.settleGreeting(closed)
     const c = this.conn
     if (!c) return
@@ -211,7 +231,7 @@ export class RdpTransport extends EventEmitter {
       if (!this.conn) {
         // Reject and drop rather than throwing out of the filter callback,
         // which would abort iteration and leave `pending` in a corrupt state.
-        deferred.reject(new Error(messages.connectionClosedError('firefox')))
+        deferred.reject(closedError(messages.connectionClosedError('firefox')))
 
         return false
       }
@@ -229,7 +249,9 @@ export class RdpTransport extends EventEmitter {
 
   private expectReply(to: string, deferred: Deferred): void {
     if (this.active.has(to)) {
-      throw new Error(messages.targetActorHasActiveRequestError('firefox', to))
+      throw protocolError(
+        messages.targetActorHasActiveRequestError('firefox', to)
+      )
     }
 
     const timeoutMs = rdpRequestTimeoutMs()
@@ -260,14 +282,14 @@ export class RdpTransport extends EventEmitter {
     this.incoming = remainingData
 
     if (error) {
-      surfaceTransportError(
-        this,
-        new Error(messages.parsingPacketError('firefox', error))
+      const malformed = protocolError(
+        messages.parsingPacketError('firefox', error)
       )
+      surfaceTransportError(this, malformed)
 
       // A broken length prefix leaves no way to find the next frame boundary;
       // the connection is unusable, so fail its requests instead of waiting.
-      if (fatal) this.onConnectionLost()
+      if (fatal) this.onConnectionLost(malformed)
 
       return !fatal
     }
@@ -285,7 +307,7 @@ export class RdpTransport extends EventEmitter {
     if (!from) {
       surfaceTransportError(
         this,
-        new Error(messages.messageWithoutSenderError('firefox', message))
+        protocolError(messages.messageWithoutSenderError('firefox', message))
       )
 
       return
@@ -314,7 +336,8 @@ export class RdpTransport extends EventEmitter {
   // Every way a connection dies lands here once (FIN, reset, fatal frame):
   // in-flight and queued requests get the closed reason, the dead socket is
   // dropped so later requests fail fast, and 'end' lets the owner reconnect.
-  private onConnectionLost(): void {
+  // A greeting still pending learns the cause when the frame itself was bad.
+  private onConnectionLost(cause?: Error): void {
     if (this.lost) return
 
     this.lost = true
@@ -331,8 +354,8 @@ export class RdpTransport extends EventEmitter {
       c.destroy()
     }
 
-    const closed = new Error(messages.messagingClientClosedError('firefox'))
-    this.settleGreeting(closed)
+    const closed = closedError(messages.messagingClientClosedError('firefox'))
+    this.settleGreeting(cause ?? closed)
     this.rejectAll(closed)
     this.emit('end')
   }

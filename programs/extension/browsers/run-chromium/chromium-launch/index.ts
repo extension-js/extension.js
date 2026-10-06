@@ -202,6 +202,19 @@ function invalidBinaryPinError(
   )
 }
 
+// A target with no default binary and no pin, thrown for the same reason: a
+// process.exit here ended a json stream with no frame and an uncoded contract.
+function binaryRequiredError(): Error {
+  return Object.assign(
+    new Error(messages.requireChromiumBinaryForChromiumBased()),
+    {code: CODES.E_BROWSER_BINARY_REQUIRED}
+  )
+}
+
+function browserNotFoundError(reason: string): Error {
+  return Object.assign(new Error(reason), {code: CODES.E_BROWSER_NOT_FOUND})
+}
+
 // Shared with the Firefox launcher; re-exported here for existing importers.
 export {stampReadyBrowserExited}
 
@@ -421,14 +434,6 @@ export class ChromiumLaunchPlugin {
     }
 
     const browser = this.options?.browser
-
-    // A launch that ends the process still owes the contract its verdict, or
-    // ready.json keeps saying ready over a pid that is about to die. The
-    // explicit type keeps the never-narrowing process.exit gave the callers.
-    const exitForLaunchFailure: (reason: string) => never = (reason) => {
-      this.stampLaunchFailed(compilation, reason)
-      process.exit(1)
-    }
 
     const notInstalledReason = `${String(browser)} isn't installed and no binary was found`
 
@@ -814,14 +819,12 @@ export class ChromiumLaunchPlugin {
                 printInstallGuidance(guidance, 'edge')
                 browserBinaryLocation = null
 
-                if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
-                  throw new Error('Chromium launch failed')
-                } else {
-                  exitForLaunchFailure(notInstalledReason)
-                }
+                throw browserNotFoundError(notInstalledReason)
               }
             }
-          } catch {
+          } catch (error) {
+            if (launchFailureCode(error)) throw error
+
             const guidance = getInstallGuidanceText('edge')
 
             const fallback = resolveWslFallback()
@@ -834,11 +837,7 @@ export class ChromiumLaunchPlugin {
             }
 
             if (!browserBinaryLocation) {
-              if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
-                throw new Error('Chromium launch failed')
-              } else {
-                exitForLaunchFailure(notInstalledReason)
-              }
+              throw browserNotFoundError(notInstalledReason)
             }
           }
 
@@ -847,17 +846,7 @@ export class ChromiumLaunchPlugin {
 
         case 'chromium-based': {
           // A pin is handled above. This target has no managed/system default.
-          humanError(messages.requireChromiumBinaryForChromiumBased())
-
-          if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
-            throw new Error('chromium-based requires --chromium-binary')
-          }
-
-          exitForLaunchFailure(
-            'the chromium-based target needs --chromium-binary <abs-path>'
-          )
-
-          break
+          throw binaryRequiredError()
         }
 
         default: {
@@ -956,11 +945,7 @@ export class ChromiumLaunchPlugin {
           )
         }
 
-        if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
-          throw new Error('Browser not installed or binary path not found')
-        } else {
-          exitForLaunchFailure(notInstalledReason)
-        }
+        throw browserNotFoundError(notInstalledReason)
       }
     }
 

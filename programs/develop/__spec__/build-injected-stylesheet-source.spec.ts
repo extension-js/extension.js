@@ -2,24 +2,11 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {workspacePackage} from './helpers/workspace-package'
 
 const roots: string[] = []
 
-function resolveSass(): string | undefined {
-  let dir = __dirname
-
-  while (true) {
-    const candidate = path.join(dir, 'node_modules', 'sass')
-    if (fs.existsSync(path.join(candidate, 'package.json'))) return candidate
-
-    const parent = path.dirname(dir)
-    if (parent === dir) return undefined
-
-    dir = parent
-  }
-}
-
-const sassDir = resolveSass()
+const sassDir = workspacePackage('sass')
 
 afterAll(() => {
   for (const root of roots) fs.rmSync(root, {recursive: true, force: true})

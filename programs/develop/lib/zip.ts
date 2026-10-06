@@ -13,6 +13,7 @@ import {humanLine} from '../dev-server/lifecycle-stream'
 import {type CodedError, codedError} from './coded-error'
 import * as messages from './messages'
 import {CODES, type ErrorCode} from './messaging'
+import {sessionArtifactsRootDir} from './session-paths'
 
 function isZipBuffer(buffer: Buffer): boolean {
   if (buffer.length < 4) return false
@@ -88,6 +89,20 @@ function writeEntries(entries: ZipEntries, root: string): void {
   }
 }
 
+// The session root holds the managed profile and the last session's logs,
+// which the archive never carried, so a re-extract keeps them in place.
+function moveSessionArtifacts(from: string, to: string): void {
+  const kept = sessionArtifactsRootDir(from)
+
+  if (!fs.existsSync(kept)) return
+
+  const target = sessionArtifactsRootDir(to)
+
+  fs.rmSync(target, {recursive: true, force: true})
+  fs.mkdirSync(path.dirname(target), {recursive: true})
+  fs.renameSync(kept, target)
+}
+
 // An extraction replaces the destination instead of merging into it, so a
 // file the archive dropped stops shipping and a failed extract leaves nothing.
 function extractBuffer(entries: ZipEntries, destinationPath: string): void {
@@ -105,6 +120,7 @@ function extractBuffer(entries: ZipEntries, destinationPath: string): void {
   }
 
   try {
+    moveSessionArtifacts(root, staging)
     fs.rmSync(root, {recursive: true, force: true})
     fs.mkdirSync(path.dirname(root), {recursive: true})
 
@@ -117,6 +133,12 @@ function extractBuffer(entries: ZipEntries, destinationPath: string): void {
       fs.rmSync(staging, {recursive: true, force: true})
     }
   } catch (error) {
+    try {
+      moveSessionArtifacts(staging, root)
+    } catch {
+      // Best effort: the extract failure below is the error worth reporting.
+    }
+
     fs.rmSync(staging, {recursive: true, force: true})
 
     throw error

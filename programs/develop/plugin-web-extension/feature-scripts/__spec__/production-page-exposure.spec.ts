@@ -480,7 +480,7 @@ describe('one image a declared sheet, an imported sheet and a page sheet all nam
     }
   }, 180_000)
 
-  it('reaches a shadow root from the imported sheet as that one copy', async () => {
+  it('reaches a shadow root from the imported sheet and the declared sheet as that one copy', async () => {
     const production = await compile(
       scaffold('shared-hydrated', files),
       'production'
@@ -488,6 +488,57 @@ describe('one image a declared sheet, an imported sheet and a page sheet all nam
     expect(production.errors).toEqual([])
 
     const image = production.emitted.find((entry) => sharedName.test(entry))
+    const sheetName = 'content_scripts/content-0.css'
+    const mounted = page({runtime: true, sheet: production.read(sheetName)})
+    const shadow = element('#shadow-root')
+    const host = element('div')
+    host.setAttribute('data-extension-root', 'true')
+    host.shadowRoot = shadow
+    mounted.run(production.read('content_scripts/content-0.js'))
+    await mounted.settle(30, (round) => {
+      if (round === 3) mounted.hosts.push(host)
+    })
+
+    expect(mounted.fetched).toHaveLength(2)
+    expect(mounted.fetched[0]).toMatch(/^data:text\/css/)
+    expect(mounted.fetched[1]).toBe(`${EXTENSION_BASE}${sheetName}`)
+    expect(shadow.children).toHaveLength(1)
+
+    const hydrated = shadow.children[0].textContent
+
+    expect(hydrated.replace(/"/g, '')).toContain(
+      `.imported{background:url(${EXTENSION_BASE}${image})}`
+    )
+
+    expect(hydrated.replace(/"/g, '')).toContain(
+      `.declared{background:url(${EXTENSION_BASE}${image})}`
+    )
+
+    expect(hydrated.indexOf('.imported')).toBeLessThan(
+      hydrated.indexOf('.declared')
+    )
+
+    expect(hydrated.split('url(')).toHaveLength(3)
+  }, 180_000)
+
+  it('lifts every imported sheet into the shadow root, in import order', async () => {
+    const production = await compile(
+      scaffold('two-imports', {
+        'manifest.json': JSON.stringify({
+          manifest_version: 3,
+          name: 'exposure-two-imports',
+          version: '1.0.0',
+          content_scripts: [{matches, js: ['content/index.ts']}]
+        }),
+        'content/first.css': '.first{color:blue}\n',
+        'content/second.css': '.second{color:green}\n',
+        'content/index.ts':
+          'import "./first.css"\nimport "./second.css"\nexport {}\n'
+      }),
+      'production'
+    )
+    expect(production.errors).toEqual([])
+
     const mounted = page({runtime: true})
     const shadow = element('#shadow-root')
     const host = element('div')
@@ -498,10 +549,9 @@ describe('one image a declared sheet, an imported sheet and a page sheet all nam
       if (round === 3) mounted.hosts.push(host)
     })
 
-    expect(mounted.fetched).toHaveLength(1)
-    expect(mounted.fetched[0]).toMatch(/^data:text\/css/)
+    expect(mounted.fetched).toHaveLength(2)
     expect(shadow.children.map((child) => child.textContent)).toEqual([
-      `.imported{background:url("${EXTENSION_BASE}${image}")}\n`
+      '.first{color:blue}\n\n.second{color:green}\n'
     ])
   }, 180_000)
 

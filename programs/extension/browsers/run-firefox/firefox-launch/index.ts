@@ -366,13 +366,8 @@ export class FirefoxLaunchPlugin {
           this.ctx.logger?.error?.(messages.firefoxFailedToStart(error))
         }
 
-        if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
-          done(error)
-
-          return
-        } else {
-          process.exit(1)
-        }
+        // The contract carries the failure and its code, so the stream frames
+        // it. Exiting here ended a json stream with nothing on it.
       }
 
       done()
@@ -436,20 +431,6 @@ export class FirefoxLaunchPlugin {
       }
     }
 
-    // A launch that ends the process still owes the contract its verdict, or
-    // ready.json keeps saying ready over a pid that is about to die.
-    const exitForLaunchFailure = (message?: string): never => {
-      if (message) {
-        humanError(message)
-      }
-
-      this.stampLaunchFailed(
-        message || `${this.host.browser} could not be launched`
-      )
-
-      process.exit(1)
-    }
-
     // A pin that names nothing is thrown, so the command that owns stdout can
     // frame it. Exiting here left a json consumer with exit 1 and no envelope.
     const failGeckoBinaryRequirement = (): never => {
@@ -457,19 +438,19 @@ export class FirefoxLaunchPlugin {
         throw invalidBinaryPinError(String(this.host.geckoBinary))
       }
 
-      return exitForLaunchFailure(messages.requireGeckoBinaryForGeckoBased())
+      throw Object.assign(
+        new Error(messages.requireGeckoBinaryForGeckoBased()),
+        {code: CODES.E_BROWSER_BINARY_REQUIRED}
+      )
     }
 
-    const throwOrExitNotInstalled = (): never => {
-      if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
-        throw new Error('Firefox not installed or binary path not found')
-      }
-
-      this.stampLaunchFailed(
-        `${this.host.browser} isn't installed and no binary was found`
+    const throwNotInstalled = (): never => {
+      throw Object.assign(
+        new Error(
+          `${this.host.browser} isn't installed and no binary was found`
+        ),
+        {code: CODES.E_BROWSER_NOT_FOUND}
       )
-
-      process.exit(1)
     }
 
     const inTestRunner = Boolean(
@@ -509,17 +490,14 @@ export class FirefoxLaunchPlugin {
       )
 
       if (!remoteDebugging.enabled) {
-        humanError(
-          messages.librewolfRemoteDebuggingLocked(remoteDebugging.expectedPath)
+        throw Object.assign(
+          new Error(
+            messages.librewolfRemoteDebuggingLocked(
+              remoteDebugging.expectedPath
+            )
+          ),
+          {code: CODES.E_BROWSER_CONNECT}
         )
-
-        if (inTestRunner) {
-          throw new Error('LibreWolf remote debugging is disabled')
-        }
-
-        this.stampLaunchFailed('LibreWolf remote debugging is disabled')
-
-        process.exit(1)
       }
     }
 
@@ -653,7 +631,7 @@ export class FirefoxLaunchPlugin {
               browserBinaryLocation = wslFallback
             } else {
               this.printInstallHint(compilation, getInstallGuidanceText())
-              throwOrExitNotInstalled()
+              throwNotInstalled()
             }
           }
         }
@@ -780,7 +758,8 @@ export class FirefoxLaunchPlugin {
           stampReadyBrowserLaunchFailed(
             this.extensionOutputPath,
             describeLaunchFailure(error),
-            this.launchRunId
+            this.launchRunId,
+            launchFailureCode(error)
           )
 
           throw error
@@ -887,16 +866,12 @@ export class FirefoxLaunchPlugin {
     const child = this.child
     if (!child) return
 
+    // A process that errors after it spawned either closes, which the close
+    // handler stamps and reports, or lives on, so the session does too.
     child.on('error', (error) => {
       this.ctx.logger?.error?.(
         messages.browserLaunchError(this.host.browser, error)
       )
-
-      if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
-        throw new Error('Firefox startup timed out')
-      } else {
-        process.exit(1)
-      }
     })
 
     child.on('close', (code, signal) => {

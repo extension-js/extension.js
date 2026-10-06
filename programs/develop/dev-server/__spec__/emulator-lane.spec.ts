@@ -257,7 +257,10 @@ describe('files.json', () => {
       })
     })
 
-    await new Promise<void>((resolve) => server?.listen(0, resolve))
+    await new Promise<void>((resolve) =>
+      server?.listen(0, '127.0.0.1', resolve)
+    )
+
     const port = (server.address() as AddressInfo).port
     const url = `http://127.0.0.1:${port}${EMULATOR_FILES_PATH}`
     const fromViewer = {headers: {origin: DEFAULT_EMULATOR_ORIGIN}}
@@ -370,7 +373,10 @@ describe('files.json while the compilation has errors', () => {
       })
     })
 
-    await new Promise<void>((resolve) => server?.listen(0, resolve))
+    await new Promise<void>((resolve) =>
+      server?.listen(0, '127.0.0.1', resolve)
+    )
+
     const port = (server.address() as AddressInfo).port
     const response = await fetch(
       `http://127.0.0.1:${port}${EMULATOR_FILES_PATH}`
@@ -404,7 +410,10 @@ describe('files.json while the compilation has errors', () => {
       })
     })
 
-    await new Promise<void>((resolve) => server?.listen(0, resolve))
+    await new Promise<void>((resolve) =>
+      server?.listen(0, '127.0.0.1', resolve)
+    )
+
     const port = (server.address() as AddressInfo).port
     const response = await fetch(
       `http://127.0.0.1:${port}${EMULATOR_FILES_PATH}`

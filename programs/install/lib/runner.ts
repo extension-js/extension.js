@@ -12,6 +12,7 @@ import path from 'node:path'
 import {spawn} from 'cross-spawn'
 import type {InstallBrowserTarget} from './browser-target'
 import {resolveBrowsersCacheRoot} from './cache-root'
+import {corepackRegistryEnv} from './corepack-registry'
 import {
   PLAYWRIGHT_VERSION,
   PUPPETEER_BROWSERS_VERSION
@@ -152,14 +153,36 @@ export function browserInstallEnv(
   target: InstallBrowserTarget,
   destination: string
 ): NodeJS.ProcessEnv {
+  const env = withCorepackRegistry(process.env, process.cwd())
+
   if (target === 'edge') {
     return {
-      ...process.env,
+      ...env,
       PLAYWRIGHT_BROWSERS_PATH: destination
     }
   }
 
-  return {...process.env}
+  return env
+}
+
+// A Windows child keeps one casing per variable name, so every casing of the
+// Corepack variable leaves before the pin is spread over the inherited set.
+function withCorepackRegistry(
+  base: NodeJS.ProcessEnv,
+  projectDir: string
+): NodeJS.ProcessEnv {
+  const pin = corepackRegistryEnv(base, projectDir)
+  const env = {...base}
+
+  if (pin.COREPACK_NPM_REGISTRY) {
+    for (const key of Object.keys(env)) {
+      if (key.toLowerCase() === 'corepack_npm_registry') {
+        Reflect.deleteProperty(env, key)
+      }
+    }
+  }
+
+  return {...env, ...pin}
 }
 
 export interface CommandResult {

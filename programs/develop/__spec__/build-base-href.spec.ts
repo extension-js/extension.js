@@ -178,7 +178,12 @@ describe('<base href> on an extension page', () => {
     )
     const image = built.resolve(built.refsOf('img')[0])
     const script = built.resolve(built.refsOf('script')[0])
-    expect(image).toEqual({local: true, path: 'assets/sub/logo.png'})
+    expect(image).toEqual({
+      local: true,
+      path: expect.stringMatching(/^assets\/logo\.[0-9a-f]{8}\.png$/)
+    })
+
+    expect(built.files).toContain(image.path)
     expect(script).toEqual({local: true, path: 'action/index.js'})
     expect(built.read('action/index.js')).toContain('__BASE_HREF_SENTINEL__')
   }, 120_000)

@@ -6,11 +6,14 @@
 //  ╚══╝╚══╝ ╚══════╝╚═════╝       ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═╝ ╚═════╝╚══════╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import * as crypto from 'node:crypto'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, sources, WebpackError} from '@rspack/core'
 import {isGeckoBasedBrowser, isWebkitBasedBrowser} from '../../../lib/constants'
+import {
+  type AssetHashOptions,
+  bundledAssetOutputName
+} from '../../../plugin-static-assets/static-assets-lib/asset-output-name'
 import {normalizeManifestOutputPath} from '../../feature-manifest/normalize-manifest-path'
 import {unixify} from '../../shared/paths'
 import * as warMessages from './messages'
@@ -81,25 +84,15 @@ function emitDirectoryAsAssets(
   walk(absDir)
 }
 
+// Named the way the bundler names the same bytes, so a sheet or an import
+// reaching for this file shares the one copy instead of adding a second.
 function emitFileAsAsset(compilation: Compilation, absPath: string): string {
-  // Content-hash in dev too: an unhashed `assets/[name][ext]` makes two assets
-  // that merely share a basename overwrite each other (see plugin-static-assets).
-  const filenamePattern = 'assets/[name].[contenthash:8][ext]'
-
-  const ext = path.extname(absPath)
-  const name = path.basename(absPath, ext)
   const content = fs.readFileSync(absPath)
-
-  let outName = filenamePattern.replace('[name]', name).replace('[ext]', ext)
-
-  if (outName.includes('[contenthash:8]')) {
-    const hash = crypto
-      .createHash('sha1')
-      .update(content)
-      .digest('hex')
-      .slice(0, 8)
-    outName = outName.replace('[contenthash:8]', hash)
-  }
+  const outName = bundledAssetOutputName(
+    absPath,
+    content,
+    (compilation as {outputOptions?: AssetHashOptions}).outputOptions
+  )
 
   if (!compilation.getAsset(outName)) {
     compilation.emitAsset(outName, new sources.RawSource(content))

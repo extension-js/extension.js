@@ -37,6 +37,7 @@ export type BrowserType =
   | 'firefox-based'
   | 'safari'
   | 'webkit-based'
+  | 'chromium-emulator'
 
 /**
  * Companion extensions are "load-only" unpacked extension directories loaded

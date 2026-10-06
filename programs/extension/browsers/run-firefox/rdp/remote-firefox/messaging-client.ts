@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import EventEmitter from 'node:events'
+import {CODES} from '../../../../helpers/messaging'
 import * as messages from '../../../browsers-lib/messages'
 import {evaluate as evalHelper} from './evaluate'
 import * as api from './rdp-api'
@@ -100,7 +101,9 @@ export class MessagingClient extends EventEmitter {
       return await this.transport.request({...rp, to})
     }
 
-    throw new Error(messages.rdpInvalidRequestPayload())
+    throw Object.assign(new Error(messages.rdpInvalidRequestPayload()), {
+      code: CODES.E_RDP_PROTOCOL
+    })
   }
 
   async getTargets() {

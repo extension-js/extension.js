@@ -30,7 +30,7 @@ function makeCompilation(contextDirectory: string) {
 }
 
 describe('AddAssetsToCompilation (source-path copies)', () => {
-  it('also emits static assets at their manifest-relative source path', () => {
+  it('emits a relative static asset once, under its bundled name', () => {
     const tmpDirectoryPath = fs.mkdtempSync(
       path.join(os.tmpdir(), 'feature-html-source-path-copy-')
     )
@@ -62,13 +62,59 @@ describe('AddAssetsToCompilation (source-path copies)', () => {
       } as any).apply(compiler as any)
 
       const emittedAssetNames = Object.keys(compiler.compilationObj.assets)
-      expect(emittedAssetNames).toContain('assets/img/logo.png')
-      expect(emittedAssetNames).toContain('img/logo.png')
+      const bundled = emittedAssetNames.find((name) =>
+        /^assets\/logo\.[0-9a-f]{8}\.png$/.test(name)
+      )
+
+      expect(bundled).toBeDefined()
+      expect(emittedAssetNames).not.toContain('assets/img/logo.png')
+      expect(emittedAssetNames).not.toContain('img/logo.png')
       expect(
-        compiler.compilationObj.assets['img/logo.png'].source
+        compiler.compilationObj.assets[String(bundled)].source
           .source()
           .toString()
       ).toBe('PNG')
+    } finally {
+      fs.rmSync(tmpDirectoryPath, {recursive: true, force: true})
+    }
+  })
+
+  it('ships a root URL target at its source path, the one the page asks for', () => {
+    const tmpDirectoryPath = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'feature-html-root-url-copy-')
+    )
+
+    try {
+      const manifestFilePath = path.join(tmpDirectoryPath, 'manifest.json')
+      fs.writeFileSync(manifestFilePath, '{}', 'utf8')
+
+      const imageDirectoryPath = path.join(tmpDirectoryPath, 'img')
+      fs.mkdirSync(imageDirectoryPath, {recursive: true})
+      fs.writeFileSync(path.join(imageDirectoryPath, 'logo.png'), 'PNG')
+
+      const htmlFilePath = path.join(tmpDirectoryPath, 'index.html')
+      fs.writeFileSync(
+        htmlFilePath,
+        `<html><body><img src="/img/logo.png"></body></html>`,
+        'utf8'
+      )
+
+      const compiler: any = makeCompilation(tmpDirectoryPath)
+      compiler.compilationObj.assets[path.basename(htmlFilePath)] = {
+        source: {source: () => fs.readFileSync(htmlFilePath, 'utf8')}
+      }
+
+      new AddAssetsToCompilation({
+        manifestPath: manifestFilePath,
+        includeList: {'feature/index': htmlFilePath}
+      } as any).apply(compiler as any)
+
+      const emittedAssetNames = Object.keys(compiler.compilationObj.assets)
+
+      expect(emittedAssetNames).toContain('img/logo.png')
+      expect(emittedAssetNames.filter((name) => name.endsWith('.png'))).toEqual(
+        ['img/logo.png']
+      )
     } finally {
       fs.rmSync(tmpDirectoryPath, {recursive: true, force: true})
     }

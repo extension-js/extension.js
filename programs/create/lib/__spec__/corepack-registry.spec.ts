@@ -48,7 +48,7 @@ describe('the create copy of corepackRegistryEnv', () => {
 
     expect(
       belowHeader(copy),
-      'programs/create/lib/corepack-registry.ts drifted from programs/develop/lib/corepack-registry.ts. Copy the develop file over it and keep the create header. The two are duplicated on purpose, a cross-program import does not compile.'
+      'programs/create/lib/corepack-registry.ts drifted from programs/develop/lib/corepack-registry.ts. Copy the develop file over it and keep the create header. The three copies are duplicated on purpose, a cross-program import does not compile.'
     ).toBe(belowHeader(canonical))
   })
 })
