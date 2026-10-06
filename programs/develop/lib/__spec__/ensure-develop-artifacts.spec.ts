@@ -125,6 +125,27 @@ describe('ensureUserProjectDependencies', () => {
     expect(args).toContain('--ignore-scripts')
   })
 
+  it('sends the install output to stderr under machine output and inherits it otherwise', async () => {
+    resolvePackageManager.mockReturnValue({name: 'pnpm'})
+    execInstallCommand.mockResolvedValue(undefined)
+
+    vi.stubEnv('EXTENSION_OUTPUT', 'json')
+
+    try {
+      await ensureUserProjectDependencies('/nonexistent-project' as any)
+    } finally {
+      vi.unstubAllEnvs()
+    }
+
+    const [, , machineOptions] = execInstallCommand.mock.calls[0]
+    expect(machineOptions.stdio).toEqual(['inherit', 2, 2])
+
+    await ensureUserProjectDependencies('/nonexistent-project' as any)
+
+    const [, , prettyOptions] = execInstallCommand.mock.calls[1]
+    expect(prettyOptions.stdio).toBe('inherit')
+  })
+
   it('suppresses yarn scripts via env (Berry rejects --ignore-scripts, yarn 1 reads npm_config_*)', async () => {
     resolvePackageManager.mockReturnValue({name: 'yarn'})
     execInstallCommand.mockResolvedValueOnce(undefined)

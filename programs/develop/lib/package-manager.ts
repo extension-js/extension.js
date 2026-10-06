@@ -6,7 +6,11 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import {type ChildProcess, execFileSync} from 'node:child_process'
+import {
+  type ChildProcess,
+  execFileSync,
+  type StdioOptions
+} from 'node:child_process'
 import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import * as path from 'node:path'
@@ -33,7 +37,7 @@ export type PackageManagerResolution = {
 
 type ExecOptions = {
   cwd?: string
-  stdio?: 'inherit' | 'ignore' | 'pipe'
+  stdio?: StdioOptions
   env?: Record<string, string>
 }
 
