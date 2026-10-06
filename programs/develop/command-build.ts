@@ -80,7 +80,7 @@ import {
   getSpecialFoldersDataForProjectRoot,
   rememberSpecialFoldersConfig
 } from './plugin-special-folders/get-data'
-import type {BuildOptions} from './types'
+import type {BuildOptions, ConfigHookContext} from './types'
 
 const reportedBuildFailures = new WeakSet<object>()
 
@@ -292,7 +292,15 @@ export async function extensionBuild(
       return plugin?.constructor.name !== 'plugin-browsers'
     })
 
-    const userExtensionConfig = await loadCustomConfig(packageJsonDir)
+    const hookContext: ConfigHookContext = {
+      browser,
+      mode: resolvedMode,
+      command: buildOptions?.metadataCommand || 'build'
+    }
+    const userExtensionConfig = await loadCustomConfig(
+      packageJsonDir,
+      hookContext
+    )
     const userConfig = userExtensionConfig({
       ...baseConfig,
       plugins: allPluginsButBrowserRunners
@@ -306,7 +314,7 @@ export async function extensionBuild(
     if (configResolved) {
       compilerConfig.plugins = [
         ...(compilerConfig.plugins || []),
-        new ConfigResolvedPlugin(configResolved)
+        new ConfigResolvedPlugin(configResolved, hookContext)
       ]
     }
 

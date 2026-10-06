@@ -33,7 +33,11 @@ afterEach(() => {
 describe('get-extension-config defaults', () => {
   it('returns identity config when no user config exists', async () => {
     const tmp = makeTempDir('extjs-config-')
-    const identity = await loadCustomConfig(tmp)
+    const identity = await loadCustomConfig(tmp, {
+      browser: 'chrome',
+      mode: 'production',
+      command: 'build'
+    })
     const obj = {a: 1}
     expect(identity(obj as any)).toEqual(obj)
     expect(await loadCommandConfig(tmp, 'dev')).toEqual({})

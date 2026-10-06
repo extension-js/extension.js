@@ -37,7 +37,11 @@ describe('extension.config object-merge and command/browser defaults', () => {
     const cfg = `export default { config: { resolve: { alias: { foo: 'bar' } } } }`
     fs.writeFileSync(path.join(dir, 'extension.config.mjs'), cfg, 'utf-8')
 
-    const hook = await loadCustomConfig(dir)
+    const hook = await loadCustomConfig(dir, {
+      browser: 'chrome',
+      mode: 'production',
+      command: 'build'
+    })
     const base = {resolve: {alias: {baz: 'qux'}}}
     const merged = hook(base as any) as any
     expect(merged.resolve.alias).toMatchObject({baz: 'qux', foo: 'bar'})

@@ -36,7 +36,7 @@ describe('EmitFile step', () => {
     vi.clearAllMocks()
   })
 
-  it('warns when browser_action/theme_icons is missing', async () => {
+  it('stops the build when browser_action/theme_icons is missing', async () => {
     const {EmitFile} = await import('../steps/emit-file')
     const {compiler, compilation} = makeCompiler()
 
@@ -51,10 +51,12 @@ describe('EmitFile step', () => {
 
     step.apply(compiler as any)
 
-    expect(compilation.errors.length).toBe(0)
-    expect(compilation.warnings.length).toBe(1)
-    const w = String(compilation.warnings[0])
-    expect(w).toMatch(/NOT FOUND/i)
+    expect(compilation.warnings.length).toBe(0)
+    expect(compilation.errors.length).toBe(1)
+    const e = String(compilation.errors[0])
+    expect(e).toMatch(/browser_action\/theme_icons/)
+    expect(e).toMatch(/NOT FOUND.*missing\.png/)
+    expect(e).toMatch(/The build stops here/)
   })
 
   const makeCompiler = () => {

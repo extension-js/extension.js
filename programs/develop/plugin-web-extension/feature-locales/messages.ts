@@ -53,6 +53,15 @@ export function defaultLocaleMessagesMissing(defaultLocale: string) {
   )
 }
 
+export function defaultLocaleRemovedFromOutput(defaultLocale: string) {
+  return (
+    'The default locale was removed from the build output.\n' +
+    `NOT FOUND _locales/${defaultLocale}/messages.json\n` +
+    'A plugin added through the config file deleted it. Keep the ' +
+    'default_locale folder, or point default_locale at a locale the build keeps.'
+  )
+}
+
 export function localesPresentButNoDefaultLocale() {
   return (
     'The _locales folder exists, but manifest.json is missing default_locale.\n' +
@@ -65,6 +74,15 @@ export function invalidMessagesJson(absPath: string) {
     `Can't parse a locale messages.json file.\n` +
     `PATH ${absPath}\n` +
     'Fix the JSON syntax and try again.'
+  )
+}
+
+export function localeFolderWithoutMessages(folder: string) {
+  return (
+    'A locale folder has no messages.json file, so the build left it out.\n' +
+    `FOLDER ${folder}\n` +
+    'Stores reject a locale folder that has no messages.json file.\n' +
+    'Add a messages.json file to ship the folder, or delete the folder to silence this warning.'
   )
 }
 

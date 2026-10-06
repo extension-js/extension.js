@@ -12,17 +12,13 @@ import {prefix} from '../../lib/messaging'
 export function iconsMissingFile(
   manifestField: string,
   filePath: string,
-  opts?: {publicRootHint?: boolean; fatal?: boolean}
+  opts?: {publicRootHint?: boolean}
 ) {
   const lines: string[] = []
   lines.push(`Can't find an icon file listed in ${colors.blue(manifestField)}.`)
   lines.push(`${colors.gray('NOT FOUND')} ${colors.underline(filePath)}`)
-  // The build only stops for the fields a browser refuses the whole extension
-  // over, so the promise has to track the severity that ships with it.
   lines.push(
-    opts?.fatal
-      ? `Browsers reject the whole extension when this file is missing.\nThe build stops here.`
-      : `Browsers can reject or misrender the extension when this file is missing.\nThe build continues.`
+    `Browsers or stores reject the extension when this file is missing.\nThe build stops here.`
   )
 
   if (opts?.publicRootHint) {
@@ -38,11 +34,7 @@ export function iconsMissingFile(
   return lines.join('\n')
 }
 
-export function iconsPathIsFolder(
-  manifestField: string,
-  folderPath: string,
-  opts?: {fatal?: boolean}
-) {
+export function iconsPathIsFolder(manifestField: string, folderPath: string) {
   const lines: string[] = []
   lines.push(
     `The icon path listed in ${colors.blue(manifestField)} is a folder, not a file.`
@@ -50,9 +42,7 @@ export function iconsPathIsFolder(
 
   lines.push(`${colors.gray('FOLDER')} ${colors.underline(folderPath)}`)
   lines.push(
-    opts?.fatal
-      ? `Browsers reject the whole extension when an icon cannot be loaded.\nThe build stops here.`
-      : `Browsers can reject or misrender the extension when an icon cannot be loaded.\nThe build continues.`
+    `Browsers or stores reject the extension when an icon cannot be loaded.\nThe build stops here.`
   )
 
   lines.push(

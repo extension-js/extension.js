@@ -9,6 +9,11 @@ vi.mock('cross-spawn', () => ({
 }))
 
 import {
+  offlineRegistryEnv,
+  offlineRegistryFiles,
+  withoutInheritedRegistry
+} from '../../__spec__/offline-registry-fixture'
+import {
   invokingNpmrcReleaseAge,
   runInstall,
   withoutInheritedReleaseAge
@@ -230,6 +235,35 @@ describe('install-runner runInstall', () => {
       })
 
       expect(spawnedEnv()).not.toHaveProperty('COREPACK_NPM_REGISTRY')
+    })
+
+    it('hands the manager and Corepack the loopback pin the offline fixture sets, under one casing', async () => {
+      const registry = 'http://127.0.0.1:4878/'
+      const cwd = pinnedProject(offlineRegistryFiles(registry)['.npmrc'])
+      const pinned = {
+        ...withoutInheritedRegistry({
+          NPM_CONFIG_REGISTRY: 'https://registry.npmjs.org/',
+          COREPACK_NPM_REGISTRY: 'https://registry.npmjs.org'
+        }),
+        ...offlineRegistryEnv(registry)
+      }
+
+      expect(pinned).toEqual({
+        npm_config_registry: registry,
+        COREPACK_NPM_REGISTRY: 'http://127.0.0.1:4878'
+      })
+
+      Object.assign(process.env, pinned)
+      await runInstall('pnpm', ['install'], {cwd, stdio: 'pipe'})
+
+      const env = spawnedEnv()
+      const registries = Object.fromEntries(
+        Object.keys(env)
+          .filter((key) => REGISTRY_NAMES.includes(key.toLowerCase()))
+          .map((key) => [key, env[key]])
+      )
+
+      expect(registries).toEqual(pinned)
     })
   })
 })

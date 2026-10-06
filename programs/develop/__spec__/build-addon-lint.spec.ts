@@ -368,9 +368,8 @@ describe('addon lint after a production firefox build', () => {
       'AMO warning CORRUPT_ICON_FILE: Expected icon file at "icons/torn.png" is corrupted (manifest.json)'
     )
 
-    expect(output).toMatch(
-      /AMO error NO_MESSAGES_FILE_IN_LOCALES: messages\.json file missing in "_locales[\\/]zz" \(manifest\.json\)/
-    )
+    expect(output).toContain('FOLDER _locales/zz')
+    expect(output).not.toContain('NO_MESSAGES_FILE_IN_LOCALES')
   }, 180_000)
 
   it('stays quiet when addonLint is off, in development mode, and for chromium', async () => {
