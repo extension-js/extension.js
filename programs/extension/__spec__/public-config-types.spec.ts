@@ -162,14 +162,12 @@ describe('public config types (extension package)', () => {
   })
 
   it('declares every BrowserType member the internal union declares', () => {
-    const publicSource = fs.readFileSync(
-      path.join(pkgRoot, 'config-types.ts'),
-      'utf8'
-    )
-    const internalSource = fs.readFileSync(
-      path.resolve(pkgRoot, '..', 'develop', 'types.ts'),
-      'utf8'
-    )
+    const publicSource = fs
+      .readFileSync(path.join(pkgRoot, 'config-types.ts'), 'utf8')
+      .replace(/\r\n/g, '\n')
+    const internalSource = fs
+      .readFileSync(path.resolve(pkgRoot, '..', 'develop', 'types.ts'), 'utf8')
+      .replace(/\r\n/g, '\n')
 
     const unionMembers = (source: string): string[] => {
       const start = source.indexOf('export type BrowserType =')
