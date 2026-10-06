@@ -46,15 +46,23 @@ describe('human output sinks', () => {
     expect(log).toHaveBeenCalledWith('label:', ['x', 'y'])
   })
 
-  it('suppresses log and warn in machine mode', () => {
+  it('moves a line to stderr and suppresses warn in machine mode', () => {
+    const stderr = vi
+      .spyOn(process.stderr, 'write')
+      .mockImplementation(() => true)
+
     for (const mode of ['json', 'ndjson']) {
       process.env.EXTENSION_OUTPUT = mode
       humanLine('a line')
+      humanLine('label:', ['x', 'y'])
       humanWarn('a warning')
     }
 
     expect(log).not.toHaveBeenCalled()
     expect(warn).not.toHaveBeenCalled()
+    expect(stderr).toHaveBeenCalledTimes(4)
+    expect(stderr).toHaveBeenCalledWith('a line\n')
+    expect(stderr).toHaveBeenCalledWith("label: [ 'x', 'y' ]\n")
   })
 
   it('still writes error-level lines in machine mode', () => {

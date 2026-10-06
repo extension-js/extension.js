@@ -342,13 +342,13 @@ export class ChromiumLaunchPlugin {
             ? stats.hasErrors()
             : !!stats?.compilation?.errors?.length
 
-        if (hasErrors) {
-          this.logger.info(messages.skippingBrowserLaunchDueToCompileErrors())
-
+        if (this.didLaunch) {
           return
         }
 
-        if (this.didLaunch) {
+        if (hasErrors) {
+          this.logger.info(messages.skippingBrowserLaunchDueToCompileErrors())
+
           return
         }
 

@@ -6,11 +6,12 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import type {StdioOptions} from 'node:child_process'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {findExtensionDevelopRoot} from './develop-context'
 import * as messages from './messages'
-import {isDebug} from './messaging'
+import {isDebug, isMachineOutput} from './messaging'
 import {
   buildInstallCommand,
   execInstallCommand,
@@ -21,6 +22,12 @@ import {
   resolvePackageManager
 } from './package-manager'
 import {type AbsolutePath, needsInstall} from './paths'
+
+// Under machine output stdout carries only the envelope, so the manager's
+// progress follows the install notices to stderr.
+function projectInstallStdio(): StdioOptions {
+  return isMachineOutput() ? ['inherit', 2, 2] : 'inherit'
+}
 
 export async function ensureUserProjectDependencies(
   packageJsonDir: AbsolutePath
@@ -49,7 +56,7 @@ export async function ensureUserProjectDependencies(
   try {
     await execInstallCommand(cmd.command, cmd.args, {
       cwd: target.cwd,
-      stdio: 'inherit',
+      stdio: projectInstallStdio(),
       env: suppression.env
     })
   } catch (error) {
@@ -71,7 +78,7 @@ export async function ensureUserProjectDependencies(
     ])
     await execInstallCommand(npmCmd.command, npmCmd.args, {
       cwd: packageJsonDir,
-      stdio: 'inherit',
+      stdio: projectInstallStdio(),
       env: npmSuppression.env
     })
   }

@@ -6,6 +6,7 @@
 // ╚═╝     ╚═╝╚══════╝╚══════╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚═╝╚═╝  ╚═══╝ ╚═════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import {format} from 'node:util'
 import colors from 'pintor'
 
 export type Channel = 'info' | 'success' | 'warn' | 'error' | 'debug'
@@ -83,8 +84,14 @@ export function isMachineOutput(): boolean {
   )
 }
 
+// Human copy shares stdout with the frames, so it moves to stderr while a
+// machine owns stdout. The pretty path stays byte-identical to console.log.
 export function humanLine(...parts: unknown[]): void {
-  if (isMachineOutput()) return
+  if (isMachineOutput()) {
+    process.stderr.write(`${format(...parts)}\n`)
+
+    return
+  }
 
   console.log(...parts)
 }

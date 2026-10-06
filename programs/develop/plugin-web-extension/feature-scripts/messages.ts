@@ -205,10 +205,19 @@ export function fetchedFileDependencyMissing(
   return lines.join('\n')
 }
 
+function moveFileHint(expectedPath: string, foundOutside?: string) {
+  if (foundOutside) {
+    return `The file exists at ${colors.blue(foundOutside)}, outside the manifest folder. Declare it under ${colors.blue('web_accessible_resources')} so it ships at that path, or move it to ${colors.blue(expectedPath)} or ${colors.blue('public/')}.`
+  }
+
+  return `Move the file to ${colors.blue(expectedPath)} or ${colors.blue('public/')} so it ships with the extension.`
+}
+
 export function getURLDependencyMissing(
   assetName: string,
   literal: string,
-  expectedPath: string
+  expectedPath: string,
+  foundOutside?: string
 ) {
   const lines: string[] = []
   lines.push(
@@ -217,9 +226,7 @@ export function getURLDependencyMissing(
 
   lines.push(`${colors.gray('NOT FOUND')} ${colors.underline(expectedPath)}`)
   lines.push(`The reference fails at runtime.`)
-  lines.push(
-    `Move the file to ${colors.blue(expectedPath)} or ${colors.blue('public/')} so it ships with the extension.`
-  )
+  lines.push(moveFileHint(expectedPath, foundOutside))
 
   return lines.join('\n')
 }
@@ -227,7 +234,8 @@ export function getURLDependencyMissing(
 export function runtimeSetSurfaceDependencyMissing(
   assetName: string,
   literal: string,
-  expectedPath: string
+  expectedPath: string,
+  foundOutside?: string
 ) {
   const lines: string[] = []
   lines.push(
@@ -236,9 +244,7 @@ export function runtimeSetSurfaceDependencyMissing(
 
   lines.push(`${colors.gray('NOT FOUND')} ${colors.underline(expectedPath)}`)
   lines.push(`The surface opens a 404 at runtime.`)
-  lines.push(
-    `Move the file to ${colors.blue(expectedPath)} or ${colors.blue('public/')} so it ships with the extension.`
-  )
+  lines.push(moveFileHint(expectedPath, foundOutside))
 
   return lines.join('\n')
 }
@@ -246,7 +252,8 @@ export function runtimeSetSurfaceDependencyMissing(
 export function staticImportDependencyMissing(
   assetName: string,
   literal: string,
-  expectedPath: string
+  expectedPath: string,
+  foundOutside?: string
 ) {
   const lines: string[] = []
   lines.push(
@@ -255,9 +262,7 @@ export function staticImportDependencyMissing(
 
   lines.push(`${colors.gray('NOT FOUND')} ${colors.underline(expectedPath)}`)
   lines.push(`The import fails at runtime.`)
-  lines.push(
-    `Move the file to ${colors.blue(expectedPath)} or ${colors.blue('public/')} so it ships with the extension.`
-  )
+  lines.push(moveFileHint(expectedPath, foundOutside))
 
   return lines.join('\n')
 }

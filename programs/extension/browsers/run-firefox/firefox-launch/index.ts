@@ -317,17 +317,17 @@ export class FirefoxLaunchPlugin {
             ? stats.hasErrors()
             : !!stats?.compilation?.errors?.length
 
-        if (hasErrors) {
-          this.ctx.logger?.info?.(
-            messages.skippingBrowserLaunchDueToCompileErrors()
-          )
-
+        if (this.ctx.didLaunch) {
           done()
 
           return
         }
 
-        if (this.ctx.didLaunch) {
+        if (hasErrors) {
+          this.ctx.logger?.info?.(
+            messages.skippingBrowserLaunchDueToCompileErrors()
+          )
+
           done()
 
           return

@@ -52,7 +52,11 @@ function parseFrames(stdout: string): Frame[] {
     .map((line) => JSON.parse(line) as Frame)
 }
 
-function runDev(projectDir: string, extraArgs: string[]) {
+function runDev(
+  projectDir: string,
+  extraArgs: string[],
+  env: Record<string, string> = {}
+) {
   const child = spawn(
     process.execPath,
     [
@@ -67,7 +71,7 @@ function runDev(projectDir: string, extraArgs: string[]) {
       'json',
       ...extraArgs
     ],
-    {cwd: cliRoot, stdio: 'pipe', env: cliEnv()}
+    {cwd: cliRoot, stdio: 'pipe', env: {...cliEnv(), ...env}}
   )
   const out = {stdout: '', stderr: ''}
   child.stdout.on('data', (chunk) => (out.stdout += chunk.toString()))
@@ -181,6 +185,83 @@ describe.skipIf(process.platform === 'win32')(
       expect(
         (JSON.parse(readFileSync(readyPath, 'utf8')) as {pid: number}).pid
       ).toBe(first.child.pid)
+    }, 150_000)
+
+    it('refuses a second session that asked for a distinct instance id, the first ready.json survives', async () => {
+      const work = mkdtempSync(join(tmpdir(), 'extjs-session-exists-ids-'))
+      leftovers.push(work)
+      const projectDir = join(work, 'project')
+      mkdirSync(projectDir, {recursive: true})
+      writeFileSync(
+        join(projectDir, 'manifest.json'),
+        JSON.stringify({
+          manifest_version: 3,
+          name: 'Session Exists Ids Probe',
+          version: '1.0.0'
+        })
+      )
+
+      const first = runDev(projectDir, ['--port', '8933'], {
+        EXTENSION_INSTANCE_ID: 'ids-probe-a'
+      })
+      children.push(first)
+
+      const deadline = Date.now() + 60_000
+
+      while (
+        Date.now() < deadline &&
+        !parseFrames(first.out.stdout).some((frame) => frame.status === 'ready')
+      ) {
+        await sleep(250)
+      }
+
+      expect(
+        parseFrames(first.out.stdout).find((frame) => frame.status === 'ready'),
+        first.out.stderr
+      ).toBeDefined()
+
+      const readyPath = join(
+        projectDir,
+        'dist',
+        'extension-js',
+        'chrome',
+        'ready.json'
+      )
+      const firstReady = JSON.parse(readFileSync(readyPath, 'utf8')) as {
+        pid: number
+        instanceId: string
+      }
+      expect(firstReady.pid).toBe(first.child.pid)
+      expect(firstReady.instanceId).toBe('ids-probe-a')
+
+      const second = runDev(projectDir, ['--port', '8934'], {
+        EXTENSION_INSTANCE_ID: 'ids-probe-b'
+      })
+      children.push(second)
+      const exitCode = await Promise.race([
+        second.closed,
+        sleep(60_000).then(() => 'timeout' as const)
+      ])
+
+      expect(exitCode, second.out.stderr).toBe(1)
+
+      const frames = parseFrames(second.out.stdout)
+      expect(frames).toHaveLength(1)
+      expect(frames[0]).toMatchObject({
+        ok: false,
+        command: 'dev',
+        status: 'failed',
+        error: {code: 'E_SESSION_EXISTS'}
+      })
+
+      expect(frames[0].error?.message).toContain('dev session per browser')
+
+      const afterReady = JSON.parse(readFileSync(readyPath, 'utf8')) as {
+        pid: number
+        instanceId: string
+      }
+      expect(afterReady.pid).toBe(first.child.pid)
+      expect(afterReady.instanceId).toBe('ids-probe-a')
     }, 150_000)
   }
 )

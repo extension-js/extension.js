@@ -6,6 +6,8 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import {humanLine} from './messaging'
+
 export function scrubBrand(txt: string, brand = 'Extension.js'): string {
   if (!txt) return txt
 
@@ -44,9 +46,11 @@ export function makeSanitizedConsole(brand = 'Extension.js') {
   const sanitize = (a: unknown) =>
     typeof a === 'string' ? scrubBrand(a, brand) : a
 
+  // The bundler's infrastructure logger prints through this facade, so its
+  // stdout levels follow the human line off a machine-owned stdout.
   return {
-    log: (...args: unknown[]) => console.log(...args.map(sanitize)),
-    info: (...args: unknown[]) => console.info(...args.map(sanitize)),
+    log: (...args: unknown[]) => humanLine(...args.map(sanitize)),
+    info: (...args: unknown[]) => humanLine(...args.map(sanitize)),
     warn: (...args: unknown[]) => console.warn(...args.map(sanitize)),
     error: (...args: unknown[]) => console.error(...args.map(sanitize))
   }

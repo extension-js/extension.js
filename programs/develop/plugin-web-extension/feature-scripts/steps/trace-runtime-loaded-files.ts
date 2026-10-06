@@ -21,6 +21,7 @@ import {
 import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
 import {importMetaUrlForEmitPath} from '../../../plugin-compilation/env'
 import type {DevOptions, Manifest} from '../../../types'
+import {declaredResourceSource} from '../../feature-web-resources/web-resources-lib/resolve-war'
 import {isClassicScript} from '../../shared/classic-concat'
 import {getResolvedManifestFieldsData} from '../../shared/manifest-fields'
 import * as messages from '../messages'
@@ -44,6 +45,7 @@ interface TracedManifest {
   sidebar_action?: {default_panel?: unknown}
   chrome_url_overrides?: Record<string, unknown>
   content_scripts?: Array<{js?: unknown[]; css?: unknown[]}>
+  web_accessible_resources?: unknown
 }
 
 const EMITTED_WORKER_PATH = 'background/service_worker.js'
@@ -500,6 +502,29 @@ export class TraceRuntimeLoadedFiles {
 
   // The page each manifest surface names, by the path the author wrote it
   // at, to the path the page pipeline emits it under.
+  // The hint names where the file would resolve from, relative to the
+  // project, and says so when it already exists outside the manifest folder.
+  private missingFileHint(
+    run: TraceRun,
+    distRel: string
+  ): {expectedPath: string; foundOutside?: string} {
+    const projectPath =
+      (run.compilation.options?.context as string | undefined) ??
+      run.manifestDir
+    const expectedPath =
+      unixify(
+        path.relative(projectPath, path.join(run.manifestDir, distRel))
+      ) || distRel
+    const outside = path.join(projectPath, distRel)
+    const foundOutside =
+      path.relative(run.manifestDir, outside).startsWith('..') &&
+      fs.existsSync(outside)
+        ? unixify(path.relative(projectPath, outside))
+        : undefined
+
+    return {expectedPath, foundOutside}
+  }
+
   private surfacePageOutputs(manifestDir: string): Map<string, string> {
     const outputs = new Map<string, string>()
 
@@ -524,9 +549,42 @@ export class TraceRuntimeLoadedFiles {
     return outputs
   }
 
+  // The root paths web_accessible_resources files ship at: a sibling folder
+  // file the WAR step emits later in the compilation is not missing.
+  private webAccessibleOutputs(run: TraceRun): Set<string> {
+    const outputs = new Set<string>()
+    const declared = this.readManifest()?.web_accessible_resources
+    if (!Array.isArray(declared)) return outputs
+
+    const projectPath = run.compilation.options?.context as string | undefined
+
+    for (const entry of declared) {
+      const resources =
+        typeof entry === 'string'
+          ? [entry]
+          : Array.isArray(entry?.resources)
+            ? entry.resources
+            : []
+
+      for (const resource of resources) {
+        if (typeof resource !== 'string') continue
+
+        const file = declaredResourceSource(
+          this.manifestPath,
+          projectPath,
+          resource
+        )
+        if (file) outputs.add(file.output)
+      }
+    }
+
+    return outputs
+  }
+
   private traceGetURLFiles(run: TraceRun, only?: Set<string>) {
     const declaredSurfaces = manifestDeclaredSourcePaths(this.readManifest())
     const surfacePages = this.surfacePageOutputs(run.manifestDir)
+    let shippedByWar: Set<string> | undefined
     const seen = run.seen.getURL
 
     // getURL literals resolve against the extension ROOT regardless of context,
@@ -627,12 +685,20 @@ export class TraceRuntimeLoadedFiles {
           const copied = run.apply(plan, {
             context: item.kind === 'html' ? 'html' : 'getURL',
             onMissing: () => {
+              shippedByWar ??= this.webAccessibleOutputs(run)
+              if (shippedByWar.has(distRel)) return
+
               // Warn only for extensioned getURL misses found in JS: HTML
               // misses are the page author's problem, extensionless args
               // often origin math.
               if (item.kind !== 'js' || !/\.[a-zA-Z0-9]{1,8}$/.test(distRel)) {
                 return
               }
+
+              const {expectedPath, foundOutside} = this.missingFileHint(
+                run,
+                distRel
+              )
 
               run.warn(
                 isStaticImport
@@ -645,18 +711,21 @@ export class TraceRuntimeLoadedFiles {
                   ? messages.staticImportDependencyMissing(
                       assetName,
                       literal,
-                      distRel
+                      expectedPath,
+                      foundOutside
                     )
                   : isRuntimeSurface
                     ? messages.runtimeSetSurfaceDependencyMissing(
                         assetName,
                         literal,
-                        distRel
+                        expectedPath,
+                        foundOutside
                       )
                     : messages.getURLDependencyMissing(
                         assetName,
                         literal,
-                        distRel
+                        expectedPath,
+                        foundOutside
                       )
               )
             },

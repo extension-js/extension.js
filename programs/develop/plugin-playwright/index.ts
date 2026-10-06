@@ -449,25 +449,6 @@ export function detectLiveDevSessionOwner(
   }
 }
 
-// Every session gets an auto instance id, so id inequality means nothing.
-// Silence needs both sides to have ASKED for distinct instances.
-export function shouldWarnDevOverDev(
-  owner: LiveDevSessionOwner,
-  my: {instanceId?: string; instanceExplicit?: boolean}
-): boolean {
-  if (
-    owner.instanceExplicit &&
-    my.instanceExplicit &&
-    owner.instanceId &&
-    my.instanceId &&
-    owner.instanceId !== my.instanceId
-  ) {
-    return false
-  }
-
-  return true
-}
-
 export function getPlaywrightMetadataDir(
   packageJsonDir: string,
   browser: string
@@ -516,16 +497,12 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     )
   }
 
-  // A second dev session over the same target keeps going (two explicit
-  // EXTENSION_INSTANCE_ID values are not refused) but never silently.
+  // The dev server refuses a second session over a live one, so two writers
+  // meet here only when both started at once. Say so, and once.
   if (
     options.command === 'dev' &&
     liveOwner &&
-    !devOverDevWarnedByMetadataDir.has(metadataDir) &&
-    shouldWarnDevOverDev(liveOwner, {
-      instanceId: options.instanceId,
-      instanceExplicit: options.instanceExplicit
-    })
+    !devOverDevWarnedByMetadataDir.has(metadataDir)
   ) {
     devOverDevWarnedByMetadataDir.add(metadataDir)
     humanWarn(

@@ -1,7 +1,12 @@
-import {describe, expect, it, vi} from 'vitest'
+import {afterEach, describe, expect, it, vi} from 'vitest'
 import {makeSanitizedConsole, scrubBrand} from '../../lib/branding'
 
 describe('webpack-lib/branding', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.restoreAllMocks()
+  })
+
   it('scrubBrand replaces tool brands and normalizes errors/newlines', () => {
     const input = [
       'Rspack something',
@@ -31,6 +36,24 @@ describe('webpack-lib/branding', () => {
     sanitized.log('Rspack error', {keep: true})
     expect(logSpy).toHaveBeenCalledWith('Extension.js error', {keep: true})
     logSpy.mockRestore()
+  })
+
+  it('makeSanitizedConsole writes log and info to stderr under machine output', () => {
+    vi.stubEnv('EXTENSION_OUTPUT', 'json')
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {})
+    const stderr = vi
+      .spyOn(process.stderr, 'write')
+      .mockImplementation(() => true)
+
+    const sanitized = makeSanitizedConsole('Extension.js')
+    sanitized.log('Rspack infrastructure line')
+    sanitized.info('Webpack info line')
+
+    expect(logSpy).not.toHaveBeenCalled()
+    expect(infoSpy).not.toHaveBeenCalled()
+    expect(stderr).toHaveBeenCalledWith('Extension.js infrastructure line\n')
+    expect(stderr).toHaveBeenCalledWith('Extension.js info line\n')
   })
 
   it('preserves rspack optimization warnings and docs links', () => {
