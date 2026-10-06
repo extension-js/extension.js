@@ -47,17 +47,7 @@ export function isLifecycleStreamEnabled(): boolean {
   return isMachineOutput()
 }
 
-// Human copy shares stdout with the frames, so it moves to stderr while the
-// stream is on. The pretty path stays byte-identical to plain console.log.
-export function humanLine(line: string): void {
-  if (isMachineOutput()) {
-    process.stderr.write(`${line}\n`)
-
-    return
-  }
-
-  console.log(line)
-}
+export {humanLine} from '../lib/messaging'
 
 export function stripAnsi(input: string): string {
   return String(input || '').replace(ANSI_PATTERN, '')
