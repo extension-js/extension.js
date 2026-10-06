@@ -31,6 +31,7 @@ export type LifecycleStatus =
   | 'ready'
   | 'browser-exited'
   | 'failed'
+  | 'stopped'
 
 const MAX_OUTPUT_CHARS = 2000
 
@@ -144,6 +145,7 @@ export class LifecycleStream {
   private readyEmitted = false
   private readyErrorEmitted = false
   private browserExitEmitted = false
+  private interruptEmitted = false
   private boundPort: number | null = null
   private exitWatcher: NodeJS.Timeout | undefined
   private launchFailureWatcher: NodeJS.Timeout | undefined
@@ -338,6 +340,21 @@ export class LifecycleStream {
         ? {browserExitedAt: ready.browserExitedAt}
         : {})
     })
+
+    return this.emit(frame)
+  }
+
+  // The session was told to stop. The run did not fail, but a stream that
+  // just ends leaves a reader guessing, so the last frame says why it ended.
+  public interrupted(signal: string): Envelope<unknown> | null {
+    if (this.interruptEmitted) return null
+
+    this.interruptEmitted = true
+    const frame = ENVELOPE.fail(this.options.command, 'stopped', {
+      code: CODES.E_INTERRUPTED,
+      message: `The ${this.options.command} session was interrupted by ${signal}.`
+    }) as Envelope<unknown>
+    frame.value = this.sessionValue({signal})
 
     return this.emit(frame)
   }

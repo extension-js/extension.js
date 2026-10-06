@@ -380,6 +380,19 @@ describe('lifecycle stream transitions', () => {
     expect(frame.error?.message).toBe('listen EADDRINUSE')
   })
 
+  it('ends an interrupted session with one stopped frame coded E_INTERRUPTED', () => {
+    const {stream, lines} = makeStream()
+    stream.interrupted('SIGINT')
+    stream.interrupted('SIGTERM')
+    const frames = parseFrames(lines)
+    expect(frames).toHaveLength(1)
+    expect(frames[0].status).toBe('stopped')
+    expect(frames[0].ok).toBe(false)
+    expect(frames[0].error?.code).toBe('E_INTERRUPTED')
+    expect(frames[0].error?.message).toContain('SIGINT')
+    expect(frames[0].value?.signal).toBe('SIGINT')
+  })
+
   it('drives the healthy sequence from compiler hooks', () => {
     const {stream, lines} = makeStream()
     const compiler = fakeCompiler()

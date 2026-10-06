@@ -1242,5 +1242,11 @@ export async function devServer(
     })
   })
 
-  setupCleanupHandlers(() => currentServer, portManager)
+  setupCleanupHandlers(
+    () => currentServer,
+    portManager,
+    (signal) => {
+      lifecycle.interrupted(signal)
+    }
+  )
 }

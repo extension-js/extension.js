@@ -48,7 +48,8 @@ function closeAll(
 
 export function setupCleanupHandlers(
   devServer: DevServerHandle,
-  portManager: PortManager
+  portManager: PortManager,
+  onSignal?: (signal: NodeJS.Signals) => void
 ): () => void {
   let isShuttingDown = false
 
@@ -87,12 +88,16 @@ export function setupCleanupHandlers(
     cleanup
   )
 
-  const cancelAndCleanup = async () => {
+  const cancelAndCleanup = async (signal: NodeJS.Signals) => {
     try {
       cancelAutoExit()
     } catch {
       // Ignore
     }
+
+    // Before the server stops: closeAll ends the process, and a frame written
+    // after it would never reach the pipe.
+    if (!isShuttingDown) onSignal?.(signal)
 
     await cleanup()
   }
