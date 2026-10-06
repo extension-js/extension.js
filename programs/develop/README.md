@@ -292,6 +292,8 @@ dist/
 - Built on the Rspack stack; user config is loaded when an `extension.config.*` is present.
 - Only `EXTENSION_PUBLIC_*` variables are injected into client code; avoid secrets in templated `.json`/`.html`.
 
+- A `dev` session started within the watcher's accuracy margin of the last source write (up to 2 s, usually 10 to 100 ms, for example `create` followed at once by `dev`) compiles twice at startup. The second compile is the watcher reporting files written just before it attached, not a change in the project, and the session is unaffected.
+
 ## Plugins
 
 | Name                 | Group | Summary                                                                                                                                                                                                         |
