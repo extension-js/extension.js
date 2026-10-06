@@ -69,6 +69,10 @@ function stringLiteral(arg) {
   return match ? match[2] : null
 }
 
+function escapeRegExp(text) {
+  return text.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&')
+}
+
 function lineOf(source, index) {
   return source.slice(0, index).split('\n').length
 }
@@ -78,7 +82,7 @@ function isLoopbackHost(source, arg) {
   if (!/^[A-Za-z_$][\w$]*$/.test(arg ?? '')) return false
 
   const bound = new RegExp(
-    `\\b${arg}\\s*(?::[^=,)]+)?=\\s*(['"])${LOOPBACK.replace(/\./g, '\\.')}\\1`
+    `(?<![\\w$])${escapeRegExp(arg)}\\s*(?::[^=,)]+)?=\\s*(['"])${escapeRegExp(LOOPBACK)}\\1`
   )
 
   return bound.test(source)
