@@ -147,4 +147,64 @@ describe('ChromiumLaunchPlugin', () => {
     expect(readyCalls).toHaveLength(0)
     consoleSpy.mockRestore()
   })
+
+  it('reports the skipped launch only before the browser is up', async () => {
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const ctx = createChromiumContext()
+    const plugin = new ChromiumLaunchPlugin(
+      {
+        browser: 'chrome',
+        extension: ['/ext'],
+        dryRun: false
+      } as any,
+      ctx as any
+    )
+
+    let doneHandler: any = null
+    const logger = {
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn()
+    }
+    const compiler: any = {
+      getInfrastructureLogger: () => logger,
+      hooks: {
+        done: {
+          tapPromise: (_name: string, fn: any) => {
+            doneHandler = fn
+          }
+        }
+      }
+    }
+
+    ;(plugin as any).launchChromium = vi.fn().mockResolvedValue(undefined)
+
+    plugin.apply(compiler)
+
+    const failing = {
+      hasErrors: () => true,
+      compilation: {options: {mode: 'development'}, errors: [new Error('x')]}
+    }
+    const skipped = () =>
+      logger.info.mock.calls.filter((call) =>
+        /Skipping the browser launch/.test(String(call[0] || ''))
+      )
+
+    await doneHandler(failing)
+    expect(skipped()).toHaveLength(1)
+    expect((plugin as any).launchChromium).not.toHaveBeenCalled()
+
+    await doneHandler({
+      hasErrors: () => false,
+      compilation: {options: {mode: 'development'}, errors: []}
+    })
+
+    expect((plugin as any).launchChromium).toHaveBeenCalledTimes(1)
+
+    await doneHandler(failing)
+    expect(skipped()).toHaveLength(1)
+    expect((plugin as any).launchChromium).toHaveBeenCalledTimes(1)
+    consoleSpy.mockRestore()
+  })
 })

@@ -102,6 +102,57 @@ describe('a Firefox launch that fails inside the compiler done hook', () => {
   })
 })
 
+describe('a failing recompile once Firefox is up', () => {
+  it('skips the launch quietly, the skip line belongs before the first launch', async () => {
+    const plugin = makePlugin()
+    const log = logger()
+    let doneHandler: any = null
+    const compiler: any = {
+      getInfrastructureLogger: () => log,
+      hooks: {
+        done: {
+          tapAsync: (_name: string, fn: any) => {
+            doneHandler = fn
+          }
+        }
+      }
+    }
+    ;(plugin as any).launch = vi.fn().mockResolvedValue(undefined)
+    ;(plugin as any).reportReady = vi.fn()
+
+    plugin.apply(compiler)
+
+    const failing = {
+      hasErrors: () => true,
+      compilation: {options: {mode: 'development', output: {path: tmp}}}
+    }
+    const skipped = () =>
+      log.info.mock.calls.filter((call) =>
+        /Skipping the browser launch/.test(String(call[0] || ''))
+      )
+
+    await doneHandler(failing, vi.fn())
+    expect(skipped()).toHaveLength(1)
+    expect((plugin as any).launch).not.toHaveBeenCalled()
+
+    await doneHandler(
+      {
+        hasErrors: () => false,
+        compilation: {options: {mode: 'development', output: {path: tmp}}}
+      },
+      vi.fn()
+    )
+
+    expect((plugin as any).launch).toHaveBeenCalledTimes(1)
+
+    const done = vi.fn()
+    await doneHandler(failing, done)
+    expect(done).toHaveBeenCalledTimes(1)
+    expect(skipped()).toHaveLength(1)
+    expect((plugin as any).launch).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe('a Firefox child process that errors after it spawned', () => {
   it('is logged and left to its close handler instead of ending the process', () => {
     const plugin = makePlugin()
