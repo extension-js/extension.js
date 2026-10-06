@@ -49,6 +49,14 @@ function project() {
     })
   )
 
+  // The watcher treats a file written within its accuracy margin (up to 2s
+  // on coarse clocks) of the first compile as changed and compiles again.
+  const settled = new Date(Date.now() - 10_000)
+
+  for (const entry of fs.readdirSync(root)) {
+    fs.utimesSync(path.join(root, entry), settled, settled)
+  }
+
   return root
 }
 
