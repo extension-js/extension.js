@@ -1,8 +1,10 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import type {
-  SafariPipelineTools,
-  SafariToolResult
+import {
+  type SafariPipelineTools,
+  type SafariToolResult,
+  type SafariWebDriverProcess,
+  spawnWebDriverProcess
 } from '../run-safari/safari-launch'
 
 export interface FakeSafariToolsOptions {
@@ -12,6 +14,9 @@ export interface FakeSafariToolsOptions {
   xcodebuild?: {code?: number; output?: string}
   pid?: number | null
   registered?: boolean
+  // A stand-in safaridriver to spawn with `-p <port>` appended, or the spawn
+  // error to answer with. Unset means no driver at all.
+  webdriver?: {command: string; args: string[]} | {spawnError: string}
 }
 
 export interface FakeSafariTools extends SafariPipelineTools {
@@ -22,7 +27,9 @@ export interface FakeSafariTools extends SafariPipelineTools {
     openSafari: string[]
     resolvePid: string[]
     pluginkit: number
+    webdriver: number[]
   }
+  webdriverProcesses: SafariWebDriverProcess[]
   // Every tool call and logger line in the order the pipeline made them, so a
   // spec can prove what printed before which process ran.
   events: string[]
@@ -83,6 +90,10 @@ export function fakeSafariTools(
   const pid = options.pid === undefined ? 4242 : options.pid
   const registered = options.registered !== false
 
+  const webdriver = options.webdriver ?? {
+    spawnError: 'Error: spawn safaridriver ENOENT'
+  }
+
   const tools: FakeSafariTools = {
     calls: {
       converter: [],
@@ -90,8 +101,10 @@ export function fakeSafariTools(
       openApp: [],
       openSafari: [],
       resolvePid: [],
-      pluginkit: 0
+      pluginkit: 0,
+      webdriver: []
     },
+    webdriverProcesses: [],
     events: [],
     detectToolchain: () => ({
       platformOk,
@@ -149,6 +162,23 @@ export function fakeSafariTools(
       ]
 
       return known.map((bundleId) => `${bundleId}.Extension`).join('\n')
+    },
+    startWebDriver: async (port) => {
+      tools.calls.webdriver.push(port)
+      tools.events.push('webdriver')
+
+      const started =
+        'command' in webdriver
+          ? await spawnWebDriverProcess(webdriver.command, [
+              ...webdriver.args,
+              '-p',
+              String(port)
+            ])
+          : {ok: false, output: webdriver.spawnError, stop: () => {}}
+
+      tools.webdriverProcesses.push(started)
+
+      return started
     }
   }
 

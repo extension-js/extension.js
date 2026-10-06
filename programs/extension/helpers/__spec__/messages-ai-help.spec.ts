@@ -80,6 +80,15 @@ describe('programAIHelp', () => {
 
     expect(readyContract.readyFields).toContain('pid')
     expect(readyContract.readyFields).toContain('compiledAt')
+    expect(
+      readyContract.notes.some(
+        (note) =>
+          note.includes('webdriverPort') &&
+          note.includes('webdriverSessionId') &&
+          note.includes('webdriverUnavailableReason')
+      )
+    ).toBe(true)
+
     expect(readyContract.eventTypes).toEqual([
       'compile_start',
       'compile_success',

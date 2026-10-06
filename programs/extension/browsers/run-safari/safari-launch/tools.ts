@@ -33,6 +33,15 @@ export interface SafariToolResult {
   output: string
 }
 
+// A safaridriver the session keeps running beside the app. `output` carries
+// the spawn error when it never started.
+export interface SafariWebDriverProcess {
+  ok: boolean
+  pid?: number
+  output: string
+  stop(): void
+}
+
 // Every process the packaging pipeline talks to, behind one seam. Production
 // spawns the real tools; specs hand in fakes and drive the real control flow.
 export interface SafariPipelineTools {
@@ -43,6 +52,32 @@ export interface SafariPipelineTools {
   openSafari(binary: string): Promise<SafariToolResult>
   resolvePid(bundleId: string): Promise<number | null>
   pluginkitList(): Promise<string>
+  startWebDriver(port: number): Promise<SafariWebDriverProcess>
+}
+
+export function spawnWebDriverProcess(
+  bin: string,
+  args: string[]
+): Promise<SafariWebDriverProcess> {
+  return new Promise((resolve) => {
+    const child = spawn(bin, args, {stdio: 'ignore'})
+
+    const stop = () => {
+      try {
+        child.kill('SIGTERM')
+      } catch {
+        // Already gone
+      }
+    }
+
+    child.once('error', (error) =>
+      resolve({ok: false, output: String(error), stop})
+    )
+
+    child.once('spawn', () =>
+      resolve({ok: true, pid: child.pid, output: '', stop})
+    )
+  })
 }
 
 function runTool(
@@ -119,6 +154,8 @@ export function createSafariTools(): SafariPipelineTools {
       const {ok, output} = await runTool('pluginkit', ['-m'], {quiet: true})
 
       return ok ? output : ''
-    }
+    },
+    startWebDriver: (port) =>
+      spawnWebDriverProcess('safaridriver', ['-p', String(port)])
   }
 }
