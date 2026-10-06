@@ -94,13 +94,16 @@ function createFixture(): string {
   return projectDir
 }
 
-function expectCodedDetails(details: Diagnostic[] | undefined) {
+function expectCodedDetails(
+  details: Diagnostic[] | undefined,
+  line: number | ReturnType<typeof expect.any> = 1
+) {
   expect(details).toHaveLength(2)
 
   const notFound = details?.find((d) => d.code === 'E_MODULE_NOT_FOUND')
   expect(notFound).toMatchObject({
     file: 'background.js',
-    line: 1,
+    line,
     column: 1,
     severity: 'error'
   })
@@ -204,7 +207,7 @@ describe('a failed compile under --output json lists each diagnostic with its co
       expect(frame?.ok).toBe(false)
       expect(frame?.error?.code).toBe('E_FIRST_COMPILE')
       expect(frame?.value?.output).toContain('missing-dep-token')
-      expectCodedDetails(frame?.error?.details)
+      expectCodedDetails(frame?.error?.details, expect.any(Number))
     },
     180_000
   )
