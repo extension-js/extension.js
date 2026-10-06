@@ -83,8 +83,12 @@ Applied by `ReloadPlugin` in order:
   milliseconds after document start and misses a message the page posts
   once at that moment, so the registry marks it `static`, an edit to it
   reloads the extension (then the tabs it matches), and the dev output says
-  so in one line. Firefox, MV2 and a build without a worker keep static
-  entries and the producer's manifest-based re-inject.
+  so in one line. Every boot records the static entries' hashed bundle
+  names in `chrome.storage.local` and reloads the tabs of one whose name
+  changed since the previous generation, so a module shared with the
+  worker reaches its tabs after the worker reload too. Firefox, MV2 and a
+  build without a worker keep static entries and the producer's
+  manifest-based re-inject.
 
 - `steps/inject-bridge-producer.ts` / `steps/inject-bridge-relay.ts`
   Control-bridge instrumentation: forward background-SW and content-script
