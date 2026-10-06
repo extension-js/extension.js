@@ -3,6 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {type Compiler, rspack} from '@rspack/core'
 import {afterAll, describe, expect, it} from 'vitest'
+import {devWatchOptions} from '../../__spec__/helpers/dev-watch-options'
 import {getProjectStructure} from '../../lib/project'
 import {
   browserProfileRootDir,
@@ -92,7 +93,7 @@ function watchSession(compiler: Compiler) {
     dones.push({hasErrors: stats.hasErrors()})
   })
 
-  const watching = compiler.watch({}, () => {})
+  const watching = compiler.watch(devWatchOptions(compiler), () => {})
   const untilDone = (
     accept: (outcome: Outcome) => boolean,
     from = 0,
