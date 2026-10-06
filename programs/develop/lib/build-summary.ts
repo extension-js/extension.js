@@ -55,7 +55,7 @@ export type BuildSummary = {
   }>
 }
 
-const MAX_SUMMARY_WARNINGS = 20
+export const MAX_SUMMARY_WARNINGS = 20
 
 // eslint-disable-next-line no-control-regex
 const ANSI_PATTERN = /\u001b\[[0-9;]*m/g
@@ -68,7 +68,8 @@ export function getBuildSummary(
     errors?: unknown[]
   } | null,
   outputPath?: string,
-  outputFiles?: Array<{size: number}>
+  outputFiles?: Array<{size: number}>,
+  codes?: ReadonlyMap<string, string>
 ): BuildSummary {
   // The stats list leaves out source maps, so the files found in the output
   // folder are what the totals count whenever the folder could be read.
@@ -82,8 +83,12 @@ export function getBuildSummary(
         warning && typeof warning === 'object'
           ? String((warning as {message?: unknown}).message ?? '')
           : String(warning ?? '')
+      const text = message.replace(ANSI_PATTERN, '').trim()
+      const code = codes?.get(text)
 
-      return message.replace(ANSI_PATTERN, '').trim()
+      // A warning that resolves to a code reads the way the frame's own
+      // warnings do: the code, a colon, the text without the bundler glyph.
+      return code ? `${code}: ${text.replace(/^[×⚠]\s*/, '')}` : text
     })
     .filter(Boolean)
 

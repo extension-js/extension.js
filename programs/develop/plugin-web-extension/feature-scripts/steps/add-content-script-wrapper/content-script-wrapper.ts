@@ -326,8 +326,11 @@ export default function contentScriptWrapper(
         .split(path.sep)
         .join('/')
 
-      throw new Error(
-        messages.reservedScriptsFolder(relFromProject, nodeIndicators)
+      throw Object.assign(
+        new Error(
+          messages.reservedScriptsFolder(relFromProject, nodeIndicators)
+        ),
+        {name: 'ReservedScriptsFolder'}
       )
     }
   }

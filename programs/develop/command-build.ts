@@ -25,6 +25,10 @@ import {type BuildSummary, getBuildSummary} from './lib/build-summary'
 import {collectChunkDependencyProvenance} from './lib/chunk-dependency-provenance'
 import {takeCodedWarnings} from './lib/coded-warnings'
 import {
+  compilationDiagnostics,
+  warningCodes
+} from './lib/compilation-diagnostics'
+import {
   loadBrowserConfig,
   loadCommandConfig,
   loadConfigResolvedHook,
@@ -45,6 +49,7 @@ import {
 import * as messages from './lib/messages'
 import {
   browserRowValue,
+  CODES,
   card,
   claimCardKey,
   debugLine,
@@ -437,7 +442,13 @@ export async function extensionBuild(
 
           // The summary names the folder the artifacts landed in, which under
           // a re-pointed output.path is not dist/<browser>.
-          summary = getBuildSummary(browser, info, displayDistPath, outputFiles)
+          summary = getBuildSummary(
+            browser,
+            info,
+            displayDistPath,
+            outputFiles,
+            warningCodes(stats.compilation)
+          )
 
           // The setup steps and plugins said these on the human channel as
           // they ran; the summary carries them with the code each one names.
@@ -615,7 +626,18 @@ export async function extensionBuild(
           console.error(messages.buildFailed(errorCount))
 
           if (!shouldExitOnError) {
-            const failure = new Error('Build failed with errors')
+            const {details, truncated} = compilationDiagnostics(
+              stats.compilation,
+              packageJsonDir
+            )
+            const failure = Object.assign(
+              new Error('Build failed with errors'),
+              {
+                code: CODES.E_COMPILE,
+                diagnostics: details,
+                truncated
+              }
+            )
             reportedBuildFailures.add(failure)
 
             return reject(failure)

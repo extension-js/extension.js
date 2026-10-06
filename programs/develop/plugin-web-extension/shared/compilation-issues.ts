@@ -27,12 +27,14 @@ export function reportToCompilation(
   compiler: Compiler,
   message: string,
   type: IssueType = 'error',
-  file?: string
+  file?: string,
+  name?: string
 ) {
   const issue = createIssue(compiler, message, type) as Error & {
     file?: string
   }
   if (file) issue.file = file
+  if (name) issue.name = name
 
   const bucket = type === 'warning' ? 'warnings' : 'errors'
   compilation[bucket] ||= []

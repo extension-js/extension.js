@@ -918,7 +918,8 @@ export function programAIHelpJSON(version: string): ProgramAIHelpJSON {
           'events.ndjson is reset at every run start and appends entries with runId, durationMs and errorCount for that run only, join on runId across runs',
           'dev --browser safari holds one safaridriver session beside the app and stamps webdriverPort and webdriverSessionId, or webdriverUnavailableReason when Safari automation is off, attach to that session instead of opening a second',
           '--wait requires a local project path (remote URLs are not supported)',
-          'consumers should verify pid liveness and recency before trusting a contract'
+          'consumers should verify pid liveness and recency before trusting a contract',
+          'a build-failed or compile-failed frame under --output json lists each diagnostic in error.details as {code?, message, file?, line?, column?, severity, name?}, errors first, capped at twenty with truncated: true when cut'
         ]
       },
       dockerAndContainers: {

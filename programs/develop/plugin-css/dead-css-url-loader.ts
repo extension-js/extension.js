@@ -67,6 +67,7 @@ function reportDeadRefs(
 
     const report = new WebpackError(messages.deadCssUrlRef(issuerPath, request))
     ;(report as Error & {file?: string}).file = issuerPath
+    report.name = 'CssDeadRef'
 
     // Straight onto the compilation, the way the module-graph check reports
     // it. emitWarning would stamp a "Module Warning (from <loader>)" prefix

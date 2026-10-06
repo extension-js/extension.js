@@ -8,8 +8,10 @@
 
 import * as fs from 'node:fs'
 import {takeCodedWarnings} from '../lib/coded-warnings'
+import {compilationDiagnostics} from '../lib/compilation-diagnostics'
 import {
   CODES,
+  type Diagnostic,
   ENVELOPE,
   type Envelope,
   type ErrorCode,
@@ -250,18 +252,24 @@ export class LifecycleStream {
     output?: string
     durationMs?: number
     message?: string
+    diagnostics?: Diagnostic[]
+    diagnosticsTruncated?: boolean
   }): Envelope<unknown> | null {
     this.compileAttempts += 1
     const isFirst = this.compileAttempts === 1
     const code = isFirst ? CODES.E_FIRST_COMPILE : CODES.E_COMPILE
     const raw = stripAnsi(String(args.output || ''))
-    const truncated = raw.length > MAX_OUTPUT_CHARS
-    const output = truncated ? `${raw.slice(0, MAX_OUTPUT_CHARS)}…` : raw
+    const outputTruncated = raw.length > MAX_OUTPUT_CHARS
+    const output = outputTruncated ? `${raw.slice(0, MAX_OUTPUT_CHARS)}…` : raw
     const message =
       args.message ||
       (isFirst
         ? 'The first compilation failed.'
         : 'A recompilation failed after a change.')
+    const details =
+      Array.isArray(args.diagnostics) && args.diagnostics.length > 0
+        ? args.diagnostics
+        : undefined
     // The launcher holds the browser back until a compile succeeds, which a
     // reader of the stream would otherwise learn from the human line only.
     const launchWithheld =
@@ -269,9 +277,9 @@ export class LifecycleStream {
     const frame = ENVELOPE.fail(
       this.options.command,
       'compile-failed',
-      {code, message},
+      {code, message, ...(details ? {details} : {})},
       {
-        truncated,
+        truncated: outputTruncated || args.diagnosticsTruncated === true,
         warnings: launchWithheld
           ? [
               `${CODES.E_LAUNCH_SKIPPED_COMPILE_ERRORS}: the browser launch is withheld until the compile succeeds`
@@ -526,6 +534,9 @@ interface StatsLike {
     endTime?: number
     getAssets?: () => unknown[]
     assets?: Record<string, unknown>
+    errors?: unknown[]
+    warnings?: unknown[]
+    compiler?: {context?: string}
   }
 }
 
@@ -594,9 +605,12 @@ export function attachLifecycleStream(
   hooks?.done?.tap('extension.js:lifecycle-stream', (stats) => {
     try {
       if (stats?.hasErrors?.()) {
+        const {details, truncated} = compilationDiagnostics(stats.compilation)
         stream.compileFailed({
           output: errorText(stats),
-          durationMs: compileDuration(stats)
+          durationMs: compileDuration(stats),
+          diagnostics: details,
+          diagnosticsTruncated: truncated
         })
 
         return

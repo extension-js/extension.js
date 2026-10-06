@@ -21,7 +21,12 @@ export default function preprocessorPassthroughLoader(
   const ext = path.extname(this.resourcePath || '').toLowerCase()
   const tool = ext === '.less' ? 'less' : 'sass'
   this.emitWarning(
-    new Error(messages.preprocessorShippedUncompiled(this.resourcePath, tool))
+    Object.assign(
+      new Error(
+        messages.preprocessorShippedUncompiled(this.resourcePath, tool)
+      ),
+      {name: 'CssPreprocessorMissing'}
+    )
   )
 
   return source
