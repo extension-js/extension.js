@@ -179,7 +179,11 @@ describe('webpack/command-build', () => {
       'build'
     )
 
-    expect(configLoaderMod.loadCustomConfig).toHaveBeenCalledWith('/proj')
+    expect(configLoaderMod.loadCustomConfig).toHaveBeenCalledWith('/proj', {
+      browser: 'chrome',
+      mode: 'production',
+      command: 'build'
+    })
   })
 
   it('closes a clean build with the built-for-production line', async () => {

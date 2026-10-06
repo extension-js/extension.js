@@ -1,6 +1,12 @@
 import {describe, expect, it, vi} from 'vitest'
 import {ConfigResolvedPlugin} from '../config-resolved-plugin'
 
+const context = {
+  browser: 'chrome',
+  mode: 'production',
+  command: 'build'
+} as const
+
 function stubCompiler() {
   const taps: Record<string, Array<() => Promise<void>>> = {
     beforeRun: [],
@@ -69,13 +75,13 @@ function stubCompiler() {
 describe('ConfigResolvedPlugin', () => {
   it('hands the hook the final options and folds the answer back', async () => {
     const {compiler, taps} = stubCompiler()
-    const hook = vi.fn((config: any) => ({
+    const hook = vi.fn((config: any, _context: unknown) => ({
       ...config,
       module: {rules: [...config.module.rules, {test: /\.graphql$/}]},
       resolve: {extensions: ['.ts', '.graphql']}
     }))
 
-    new ConfigResolvedPlugin(hook as never).apply(compiler as never)
+    new ConfigResolvedPlugin(hook as never, context).apply(compiler as never)
     expect(taps.beforeRun).toHaveLength(1)
     expect(taps.watchRun).toHaveLength(1)
 
@@ -83,6 +89,12 @@ describe('ConfigResolvedPlugin', () => {
 
     expect(hook).toHaveBeenCalledTimes(1)
     expect(hook.mock.calls[0][0]).toBe(compiler.options)
+    expect(hook.mock.calls[0][1]).toEqual({
+      browser: 'chrome',
+      mode: 'production',
+      command: 'build'
+    })
+
     expect(compiler.options.module.rules).toHaveLength(2)
     expect(compiler.options.resolve.extensions).toEqual(['.ts', '.graphql'])
   })
@@ -90,11 +102,14 @@ describe('ConfigResolvedPlugin', () => {
   it('ignores entry and plugins, which the bundler fixed at construction', async () => {
     const {compiler, taps} = stubCompiler()
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    new ConfigResolvedPlugin(((config: any) => ({
-      ...config,
-      entry: {'x/y': {import: ['/p/y.js']}},
-      plugins: []
-    })) as never).apply(compiler as never)
+    new ConfigResolvedPlugin(
+      ((config: any) => ({
+        ...config,
+        entry: {'x/y': {import: ['/p/y.js']}},
+        plugins: []
+      })) as never,
+      context
+    ).apply(compiler as never)
 
     await taps.beforeRun[0]()
     expect(String(warn.mock.calls[0][0])).toContain('entry, plugins')
@@ -112,7 +127,7 @@ describe('ConfigResolvedPlugin', () => {
     const hook = vi.fn((config: any) => {
       config.module.rules.push({test: /\.svg$/})
     })
-    new ConfigResolvedPlugin(hook as never).apply(compiler as never)
+    new ConfigResolvedPlugin(hook as never, context).apply(compiler as never)
 
     await taps.watchRun[0]()
     await taps.watchRun[0]()
@@ -124,9 +139,12 @@ describe('ConfigResolvedPlugin', () => {
 
   it('holds the minimizers back so the hook can switch them off', async () => {
     const {compiler, taps, construct, minimizer} = stubCompiler()
-    new ConfigResolvedPlugin(((config: any) => {
-      config.optimization.minimize = false
-    }) as never).apply(compiler as never)
+    new ConfigResolvedPlugin(
+      ((config: any) => {
+        config.optimization.minimize = false
+      }) as never,
+      context
+    ).apply(compiler as never)
 
     expect(construct()).toBe(false)
     expect(compiler.options.optimization.minimize).toBe(true)
@@ -140,13 +158,16 @@ describe('ConfigResolvedPlugin', () => {
   it('applies the minimizers the hook leaves, once', async () => {
     const {compiler, taps, construct, minimizer} = stubCompiler()
     const added = {apply: vi.fn()}
-    new ConfigResolvedPlugin(((config: any) => ({
-      ...config,
-      optimization: {
-        ...config.optimization,
-        minimizer: [...config.optimization.minimizer, added]
-      }
-    })) as never).apply(compiler as never)
+    new ConfigResolvedPlugin(
+      ((config: any) => ({
+        ...config,
+        optimization: {
+          ...config.optimization,
+          minimizer: [...config.optimization.minimizer, added]
+        }
+      })) as never,
+      context
+    ).apply(compiler as never)
 
     construct()
     await taps.watchRun[0]()
@@ -163,18 +184,21 @@ describe('ConfigResolvedPlugin', () => {
     const splitChunks = compiler.options.optimization.splitChunks
 
     try {
-      new ConfigResolvedPlugin(((config: any) => {
-        config.plugins.push('late')
-        config.mode = 'development'
-        config.output.path = '/elsewhere'
-        config.output.iife = false
+      new ConfigResolvedPlugin(
+        ((config: any) => {
+          config.plugins.push('late')
+          config.mode = 'development'
+          config.output.path = '/elsewhere'
+          config.output.iife = false
 
-        return {
-          ...config,
-          context: '/other',
-          optimization: {...config.optimization, splitChunks: false}
-        }
-      }) as never).apply(compiler as never)
+          return {
+            ...config,
+            context: '/other',
+            optimization: {...config.optimization, splitChunks: false}
+          }
+        }) as never,
+        context
+      ).apply(compiler as never)
 
       construct()
       await taps.beforeRun[0]()
@@ -213,13 +237,16 @@ describe('ConfigResolvedPlugin', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
     try {
-      new ConfigResolvedPlugin(((config: any) => {
-        config.devtool = 'source-map'
-        config.target = 'node'
-        config.resolve.extensions.push('.mjs')
+      new ConfigResolvedPlugin(
+        ((config: any) => {
+          config.devtool = 'source-map'
+          config.target = 'node'
+          config.resolve.extensions.push('.mjs')
 
-        return {...config, externals: {lodash: '_'}, notAnOption: true}
-      }) as never).apply(compiler as never)
+          return {...config, externals: {lodash: '_'}, notAnOption: true}
+        }) as never,
+        context
+      ).apply(compiler as never)
 
       construct()
       await taps.beforeRun[0]()
@@ -244,10 +271,13 @@ describe('ConfigResolvedPlugin', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
     try {
-      new ConfigResolvedPlugin(((config: any) => {
-        config.optimization.splitChunks.cacheGroups.mine = {name: 'mine'}
-        config.entry['action/index'].import.push('/p/extra.js')
-      }) as never).apply(compiler as never)
+      new ConfigResolvedPlugin(
+        ((config: any) => {
+          config.optimization.splitChunks.cacheGroups.mine = {name: 'mine'}
+          config.entry['action/index'].import.push('/p/extra.js')
+        }) as never,
+        context
+      ).apply(compiler as never)
 
       construct()
       await taps.beforeRun[0]()
@@ -272,13 +302,16 @@ describe('ConfigResolvedPlugin', () => {
 
     try {
       // A merge helper hands back clones of what it left alone.
-      new ConfigResolvedPlugin(((config: any) => ({
-        ...config,
-        entry: JSON.parse(JSON.stringify(config.entry)),
-        plugins: [...config.plugins],
-        optimization: {minimize: false},
-        output: {...config.output, filename: '[name].bundle.js'}
-      })) as never).apply(compiler as never)
+      new ConfigResolvedPlugin(
+        ((config: any) => ({
+          ...config,
+          entry: JSON.parse(JSON.stringify(config.entry)),
+          plugins: [...config.plugins],
+          optimization: {minimize: false},
+          output: {...config.output, filename: '[name].bundle.js'}
+        })) as never,
+        context
+      ).apply(compiler as never)
 
       construct()
       await taps.beforeRun[0]()
