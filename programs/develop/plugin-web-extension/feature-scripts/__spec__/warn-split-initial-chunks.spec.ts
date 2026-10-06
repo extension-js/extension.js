@@ -155,7 +155,7 @@ describe('WarnSplitInitialChunks', () => {
     )
 
     expect(text).toContain(
-      'https://extension.js.org/docs/features/rspack-configuration#share-a-module-between-entries'
+      'https://extension.js.org/docs/features/rspack-configuration?utm_source=cli#share-a-module-between-entries'
     )
 
     expect(warnings[0].file).toBe('scripts/inject.js')
