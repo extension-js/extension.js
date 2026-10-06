@@ -91,7 +91,7 @@ export class CDPClient {
           // Reject any pending requests to avoid hangs
           this.pendingRequests.forEach(({reject, timeout}, id) => {
             try {
-              reject(new Error(reason))
+              reject(codedError(CODES.E_BROWSER_CONNECTION_CLOSED, reason))
             } catch {
               // Ignore
             }
@@ -223,7 +223,7 @@ export class CDPClient {
   private rejectAllPending(reason: string) {
     this.pendingRequests.forEach(({reject, timeout}, id) => {
       try {
-        reject(new Error(reason))
+        reject(codedError(CODES.E_BROWSER_CONNECTION_CLOSED, reason))
       } catch {
         // Ignore
       }

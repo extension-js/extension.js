@@ -21,6 +21,7 @@ vi.mock('../../run-chromium/cdp/extensions', () => ({
 
 import {CDPClient} from '../../run-chromium/cdp/cdp-client'
 import {codedError} from '../../run-chromium/cdp/coded-error'
+import {establishBrowserConnection} from '../../run-chromium/cdp/ws'
 
 const rejection = (promise: Promise<unknown>) =>
   promise.then(
@@ -135,5 +136,41 @@ describe('CDPClient error codes', () => {
 
     expect(error?.message).toContain('CDP endpoint timed out: /json')
     expect(error?.code).toBe('E_CDP_TIMEOUT')
+  })
+
+  it('codes a command left pending when the socket closes as E_BROWSER_CONNECTION_CLOSED', async () => {
+    discoverWebSocketDebuggerUrl.mockResolvedValueOnce(
+      'ws://127.0.0.1:9222/devtools/browser'
+    )
+
+    let dropWire: ((reason: string) => void) | undefined
+    vi.mocked(establishBrowserConnection).mockImplementationOnce(
+      async (_url, _isDev, _onMessage, onRejectPending) => {
+        dropWire = onRejectPending
+
+        return mockWs
+      }
+    )
+
+    const connected = new CDPClient(9222)
+    await connected.connect()
+
+    const promise = rejection(connected.sendCommand('Target.getTargets'))
+    dropWire?.('CDP connection closed')
+    const error = await promise
+    connected.disconnect()
+
+    expect(error?.message).toBe('CDP connection closed')
+    expect(error?.code).toBe('E_BROWSER_CONNECTION_CLOSED')
+  })
+
+  it('codes a command left pending when the pipe closes as E_BROWSER_CONNECTION_CLOSED', async () => {
+    const promise = rejection(client.sendCommand('Browser.getVersion'))
+
+    ;(client as any).rejectAllPending('CDP pipe closed')
+    const error = await promise
+
+    expect(error?.message).toBe('CDP pipe closed')
+    expect(error?.code).toBe('E_BROWSER_CONNECTION_CLOSED')
   })
 })
