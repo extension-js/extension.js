@@ -502,6 +502,29 @@ export class TraceRuntimeLoadedFiles {
 
   // The page each manifest surface names, by the path the author wrote it
   // at, to the path the page pipeline emits it under.
+  // The hint names where the file would resolve from, relative to the
+  // project, and says so when it already exists outside the manifest folder.
+  private missingFileHint(
+    run: TraceRun,
+    distRel: string
+  ): {expectedPath: string; foundOutside?: string} {
+    const projectPath =
+      (run.compilation.options?.context as string | undefined) ??
+      run.manifestDir
+    const expectedPath =
+      unixify(
+        path.relative(projectPath, path.join(run.manifestDir, distRel))
+      ) || distRel
+    const outside = path.join(projectPath, distRel)
+    const foundOutside =
+      path.relative(run.manifestDir, outside).startsWith('..') &&
+      fs.existsSync(outside)
+        ? unixify(path.relative(projectPath, outside))
+        : undefined
+
+    return {expectedPath, foundOutside}
+  }
+
   private surfacePageOutputs(manifestDir: string): Map<string, string> {
     const outputs = new Map<string, string>()
 
@@ -672,6 +695,11 @@ export class TraceRuntimeLoadedFiles {
                 return
               }
 
+              const {expectedPath, foundOutside} = this.missingFileHint(
+                run,
+                distRel
+              )
+
               run.warn(
                 isStaticImport
                   ? 'RuntimeStaticImportFileMissing'
@@ -683,18 +711,21 @@ export class TraceRuntimeLoadedFiles {
                   ? messages.staticImportDependencyMissing(
                       assetName,
                       literal,
-                      distRel
+                      expectedPath,
+                      foundOutside
                     )
                   : isRuntimeSurface
                     ? messages.runtimeSetSurfaceDependencyMissing(
                         assetName,
                         literal,
-                        distRel
+                        expectedPath,
+                        foundOutside
                       )
                     : messages.getURLDependencyMissing(
                         assetName,
                         literal,
-                        distRel
+                        expectedPath,
+                        foundOutside
                       )
               )
             },

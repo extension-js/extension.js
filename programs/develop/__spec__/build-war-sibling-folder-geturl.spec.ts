@@ -19,7 +19,7 @@ function write(root: string, relPath: string, contents: string | Buffer) {
   fs.writeFileSync(abs, contents)
 }
 
-function writeFixture(name: string): string {
+function writeFixture(name: string, declared = true): string {
   const root = path.join(SUITE_ROOT, name)
   fs.mkdirSync(root, {recursive: true})
 
@@ -43,9 +43,13 @@ function writeFixture(name: string): string {
       name: `Build Spec, WAR sibling getURL ${name}`,
       version: '1.0.0',
       background: {service_worker: 'background.js'},
-      web_accessible_resources: [
-        {resources: ['../shared/sibling-picture.png'], matches: [MATCHES]}
-      ]
+      ...(declared
+        ? {
+            web_accessible_resources: [
+              {resources: ['../shared/sibling-picture.png'], matches: [MATCHES]}
+            ]
+          }
+        : {})
     })
   )
 
@@ -110,5 +114,24 @@ describe('build: a runtime.getURL literal naming a web_accessible_resources file
     expect(fs.existsSync(literal)).toBe(true)
     expect(fs.readFileSync(literal)).toEqual(IMAGE_BYTES)
     expect(declaredResources(distDir)).toContain('shared/sibling-picture.png')
+  }, 120_000)
+
+  it('names the undeclared file where it is and where it would resolve from', async () => {
+    const root = writeFixture('undeclared', false)
+    const summary = await buildFixture(root)
+
+    expect(summary.errors_count).toBe(0)
+    const warning = (summary.warnings || []).find((line) => /getURL/.test(line))
+
+    expect(warning).toBeDefined()
+    expect(warning).toContain('src/shared/sibling-picture.png')
+    expect(warning).toContain('exists at shared/sibling-picture.png')
+    expect(warning).toContain('web_accessible_resources')
+    expect(warning).not.toMatch(/Move the file to shared\//)
+    expect(
+      fs.existsSync(
+        path.join(root, 'dist', 'chrome', 'shared/sibling-picture.png')
+      )
+    ).toBe(false)
   }, 120_000)
 })
