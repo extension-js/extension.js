@@ -186,6 +186,51 @@ function validateMatchesOrReport(
   }
 }
 
+type DeclaredWAR = Array<string | {resources?: string[]; matches?: string[]}>
+
+function declaredWAR(manifest: unknown): DeclaredWAR | undefined {
+  const war = (manifest as {web_accessible_resources?: unknown})
+    .web_accessible_resources
+
+  return Array.isArray(war) ? (war as DeclaredWAR) : undefined
+}
+
+// The author's own mistakes in the key, reported before any resolution so a
+// compile that already failed elsewhere still names them.
+export function validateUserDeclaredWAR(
+  compilation: Compilation,
+  manifest: unknown,
+  browser?: string
+) {
+  const war = declaredWAR(manifest)
+
+  if (!war) return
+
+  const isMv2 = (manifest as {manifest_version?: number}).manifest_version !== 3
+
+  for (const entry of war) {
+    if (typeof entry === 'string') {
+      if (isMv2) continue
+
+      const msg = warMessages.warStringEntryInMv3(entry)
+      const err = new WebpackError(msg) as Error & {
+        file?: string
+        name?: string
+      }
+      err.file = 'manifest.json'
+      err.name = 'WARStringEntryInMv3'
+      compilation.errors = compilation.errors || []
+      compilation.errors.push(err)
+
+      continue
+    }
+
+    if (!entry || typeof entry !== 'object') continue
+
+    validateMatchesOrReport(compilation, entry.matches || [], browser)
+  }
+}
+
 // The project-root-relative path of a ref that resolves outside the
 // manifest folder but inside the project, or of a plain ref that is missing
 // beside the manifest; undefined when the manifest folder is the root.
@@ -292,19 +337,15 @@ export function resolveUserDeclaredWAR(
     extra?: Record<string, unknown>
   }> = []
 
-  const manifestObj = manifest as {
-    manifest_version?: number
-    web_accessible_resources?: unknown
-    content_scripts?: unknown
-  }
-  const war = manifestObj.web_accessible_resources as
-    | Array<string | {resources?: string[]; matches?: string[]}>
-    | undefined
+  const manifestObj = manifest as {manifest_version?: number}
+  const war = declaredWAR(manifest)
 
   if (!war) return {v2, v3}
 
+  validateUserDeclaredWAR(compilation, manifest, browser)
+
   // String entries are the MV2 format; invalid in MV3 (Chrome rejects at load),
-  // so they become a build error below. Detection is per entry, not war[0].
+  // so they were reported above. Detection is per entry, not war[0].
   const isMv2 = manifestObj.manifest_version !== 3
   const manifestDir = path.dirname(manifestPath)
   const projectPath = (compilation.options?.context as string) || manifestDir
@@ -566,21 +607,7 @@ export function resolveUserDeclaredWAR(
 
   war.forEach((entry) => {
     if (typeof entry === 'string') {
-      if (isMv2) {
-        handleOne(undefined, entry)
-
-        return
-      }
-
-      const msg = warMessages.warStringEntryInMv3(entry)
-      const err = new WebpackError(msg) as Error & {
-        file?: string
-        name?: string
-      }
-      err.file = 'manifest.json'
-      err.name = 'WARStringEntryInMv3'
-      compilation.errors = compilation.errors || []
-      compilation.errors.push(err)
+      if (isMv2) handleOne(undefined, entry)
 
       return
     }
@@ -588,8 +615,6 @@ export function resolveUserDeclaredWAR(
     if (!entry || typeof entry !== 'object') return
 
     const matches = entry.matches || []
-
-    validateMatchesOrReport(compilation, matches, browser)
 
     if (!Array.isArray(entry.resources)) return
 
