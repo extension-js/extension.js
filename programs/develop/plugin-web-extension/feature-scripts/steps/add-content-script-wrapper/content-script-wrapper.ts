@@ -22,7 +22,6 @@ import {
   canonicalizeDir,
   canonicalizeResourcePath
 } from '../../../../lib/resource-path'
-import {EXTENSION_ROOT_PLACEHOLDER} from '../../../../plugin-css/css-lib/inline-content-script-css'
 import type {DevOptions, Manifest} from '../../../../types'
 import {
   CANONICAL_CONTENT_SCRIPT_ENTRY_PREFIX,
@@ -443,11 +442,11 @@ export default function contentScriptWrapper(
     '          return fetchCandidate(index + 1);\n' +
     '        });\n' +
     '      })(0).then(function(text){\n' +
-    // A CSS module's chunk still carries the extension-root placeholder its
-    // url() targets were rewritten to. The inlined sheet swapped its own.
-    `        cssText = typeof text === "string" ? text.split(${JSON.stringify(
-      EXTENSION_ROOT_PLACEHOLDER
-    )}).join(__EXTENSIONJS_runtimeGetURL("/")) : "";\n` +
+    // An emitted sheet names its url() targets from the extension root, which
+    // a <style> on the visited page would read as that page's own root.
+    '        cssText = typeof text === "string" ? text : "";\n' +
+    '        var root = __EXTENSIONJS_runtimeGetURL("/");\n' +
+    '        if (root) cssText = cssText.replace(/url\\(\\s*(["\']?)\\/(?!\\/)/gi, function(match, quote){ return "url(" + quote + root; });\n' +
     '        try { setTimeout(tick, 0); } catch (error) {}\n' +
     '        return cssText;\n' +
     '      }).catch(function(){ return ""; });\n' +

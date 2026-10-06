@@ -5,7 +5,7 @@ import {rspack} from '@rspack/core'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 
 import {cssInContentScriptLoader} from '../css-in-content-script-loader'
-import {EXTENSION_ROOT_PLACEHOLDER} from '../css-lib/inline-content-script-css'
+import {bundledFileToken} from '../css-lib/inline-content-script-css'
 
 const FIXTURE_RAW_MARKER = '/* RAW_CSS_MARKER */'
 const FIXTURE_PROCESSED_MARKER = '--regression-marker: processed;'
@@ -171,7 +171,7 @@ describe.each([
     expect(
       String(emitted),
       'emitted CSS kept an author-relative URL() reference, which has no base in a data: sheet'
-    ).toContain(EXTENSION_ROOT_PLACEHOLDER)
+    ).toContain(bundledFileToken(0))
 
     expect(String(emitted)).not.toContain('./icon.png')
   }, 60_000)

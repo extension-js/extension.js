@@ -82,11 +82,6 @@ export function keepPublicRootRefs(
   })
 }
 
-// The emitted sheet names the file by its path at the extension root.
-export function restorePublicRootRefs(source: string): string {
-  return source.split(PUBLIC_ROOT_SCHEME).join('')
-}
-
 export default function publicCssUrlLoader(
   this: PublicCssUrlLoaderContext,
   source: string

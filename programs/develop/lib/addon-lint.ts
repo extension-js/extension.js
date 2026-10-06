@@ -35,6 +35,13 @@ const DUPLICATED_BY_BUILD_WARNINGS = new Set([
   'MISSING_DATA_COLLECTION_PERMISSIONS'
 ])
 
+// The linter files these as notices while their manifest key twins are
+// warnings, and a permission the minimum version lacks is the same defect.
+const NOTICES_PRINTED_AS_WARNINGS = new Set([
+  'PERMISSION_FIREFOX_UNSUPPORTED_BY_MIN_VERSION',
+  'PERMISSION_FIREFOX_ANDROID_UNSUPPORTED_BY_MIN_VERSION'
+])
+
 export interface AddonLintFinding {
   code?: string
   message?: string
@@ -140,13 +147,40 @@ function locationOf(finding: AddonLintFinding): string {
   return `${file}${line}`
 }
 
+function oneLine(text: unknown): string {
+  return String(text || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function quotedIn(text: string): string[] {
+  return Array.from(text.matchAll(/"([^"]+)"/g), (match) => match[1])
+}
+
+// The linter words some findings as a fixed title and names the file or key
+// only in a one-sentence description, which is then the line worth printing.
+function textOf(finding: AddonLintFinding): string {
+  const message = oneLine(finding.message)
+  const description = oneLine(finding.description)
+
+  if (!message || !description) return message || description
+  if (quotedIn(message).length > 0) return message
+
+  const isOneSentence = !/[.!?]\s+\S/.test(
+    description.replace(/"[^"]*"/g, '""')
+  )
+  const namesMore = quotedIn(description).some(
+    (subject) => !message.includes(subject)
+  )
+
+  return isOneSentence && namesMore ? description : message
+}
+
 function toLine(level: AddonLintLevel, finding: AddonLintFinding) {
   return {
     level,
     code: String(finding.code || 'UNKNOWN').trim(),
-    message: String(finding.message || finding.description || '')
-      .replace(/\s+/g, ' ')
-      .trim(),
+    message: textOf(finding),
     location: locationOf(finding)
   } satisfies AddonLintLine
 }
@@ -157,11 +191,29 @@ export function collectAddonLintLines(
 ): AddonLintLine[] {
   const errors = Array.isArray(output?.errors) ? output.errors : []
   const warnings = Array.isArray(output?.warnings) ? output.warnings : []
+  const notices = Array.isArray(output?.notices) ? output.notices : []
+
+  const seen = new Set<string>()
 
   return [
     ...errors.map((finding) => toLine('error', finding)),
-    ...warnings.map((finding) => toLine('warning', finding))
-  ].filter((line) => !DUPLICATED_BY_BUILD_WARNINGS.has(line.code))
+    ...warnings.map((finding) => toLine('warning', finding)),
+    ...notices
+      .map((finding) => toLine('warning', finding))
+      .filter((line) => NOTICES_PRINTED_AS_WARNINGS.has(line.code))
+  ]
+    .filter((line) => !DUPLICATED_BY_BUILD_WARNINGS.has(line.code))
+    .filter((line) => {
+      // Two findings that print the same line are one problem to act on.
+      const printed = [line.level, line.code, line.message, line.location].join(
+        '\0'
+      )
+      if (seen.has(printed)) return false
+
+      seen.add(printed)
+
+      return true
+    })
 }
 
 // The linter locates a finding by its path inside dist, which is the emitted

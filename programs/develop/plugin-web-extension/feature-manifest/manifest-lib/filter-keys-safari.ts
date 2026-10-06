@@ -22,6 +22,7 @@ export interface WebkitDroppedKey {
 // implement, plus `incognito`, which Safari parses but always overrides.
 const UNSUPPORTED_TOP_LEVEL_KEYS: Record<string, string> = {
   side_panel: 'Safari has no side panel surface',
+  sidebar_action: 'Safari has no sidebar surface',
   sandbox: 'Safari cannot run sandboxed extension pages',
   user_scripts: 'Safari has no userScripts API',
   omnibox: 'Safari has no omnibox keyword API',
@@ -191,6 +192,22 @@ export function dropWebkitUnsupportedKeys(
   // warning names the same decision, keep the two agreed.
 
   return {manifest: next as Manifest, dropped}
+}
+
+// Entry slots are named after the top-level key that owns them, so a dropped
+// key takes the pages, scripts and icons only it referenced out of the build.
+export function omitWebkitDroppedEntries<T extends Record<string, unknown>>(
+  entries: T,
+  dropped: WebkitDroppedKey[]
+): T {
+  const owners = new Set(dropped.map((entry) => entry.path))
+  if (owners.size === 0) return entries
+
+  return Object.fromEntries(
+    Object.entries(entries).filter(
+      ([feature]) => !owners.has(feature.split('/')[0])
+    )
+  ) as T
 }
 
 // Dev recompiles rebuild the same manifest on every save. One human line per

@@ -3,7 +3,7 @@ import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import os from 'node:os'
 import * as path from 'node:path'
-import {afterEach, describe, expect, it} from 'vitest'
+import {afterEach, describe, expect, it, vi} from 'vitest'
 import {
   EXTENSION_ENV_WILDCARD_MODULES,
   renderExtensionEnvTypes
@@ -187,6 +187,44 @@ describe('generate-extension-types', () => {
     const content = fs.readFileSync(target, 'utf8')
     expect(content).toContain('reference types="extension/types"')
     expect(content).toContain('reference types="extension/types/polyfill"')
+  })
+
+  it('leaves an up to date extension-env.d.ts alone and says when it changes one', async () => {
+    const root = makeTempDir('extjs-gen-rewrite-')
+    fs.writeFileSync(
+      path.join(root, 'manifest.json'),
+      JSON.stringify({name: 'x'})
+    )
+
+    const target = path.join(root, 'extension-env.d.ts')
+    const printed: string[] = []
+    const logSpy = vi
+      .spyOn(console, 'log')
+      .mockImplementation((...args: unknown[]) => {
+        printed.push(args.map(String).join(' '))
+      })
+
+    try {
+      await generateExtensionTypes(root, root)
+      expect(printed.filter((line) => line.includes('Writing'))).toHaveLength(1)
+
+      const written = fs.statSync(target).mtimeMs
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      printed.length = 0
+      await generateExtensionTypes(root, root)
+      expect(fs.statSync(target).mtimeMs).toBe(written)
+      expect(printed).toEqual([])
+
+      fs.writeFileSync(target, '// stale\n')
+      printed.length = 0
+      await generateExtensionTypes(root, root)
+      expect(fs.readFileSync(target, 'utf8')).not.toContain('stale')
+      expect(printed).toHaveLength(1)
+      expect(printed[0]).toContain('Updating the type definitions')
+      expect(printed[0]).toContain(target)
+    } finally {
+      logSpy.mockRestore()
+    }
   })
 
   it('leaves the asset and stylesheet declares to the shipped types when extension is installed', async () => {

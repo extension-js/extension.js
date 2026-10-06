@@ -64,7 +64,8 @@ export function validateLocales(
         const warning = new ErrorConstructor(
           messages.localesMustBeAtProjectRoot(
             resolvedLocalesRoot,
-            path.join(projectRoot, '_locales')
+            path.join(projectRoot, '_locales'),
+            projectRoot
           )
         )
         ;(warning as Error).name = 'LocalesLayoutWarning'

@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import {prefix} from '../../lib/messaging'
+import {displayPath} from '../../lib/paths'
 
 export function manifestNotFoundMessageOnly(absPath: string) {
   return (
@@ -114,12 +115,13 @@ export function localesValidationDetected(issue: string) {
 
 export function localesMustBeAtProjectRoot(
   foundAt: string,
-  expectedAt: string
+  expectedAt: string,
+  projectRoot: string
 ) {
   return (
     'The _locales folder sits in the legacy next-to-manifest location.\n' +
-    `GOT ${foundAt}\n` +
-    `EXPECTED ${expectedAt}\n` +
+    `GOT ${displayPath(foundAt, projectRoot)}\n` +
+    `EXPECTED ${displayPath(expectedAt, projectRoot)}\n` +
     'Chrome reads locales from the extension root, so _locales/ is ' +
     'canonically placed at the project root.\n' +
     'The build uses it either way.\n' +

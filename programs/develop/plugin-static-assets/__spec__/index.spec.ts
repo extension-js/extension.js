@@ -11,6 +11,9 @@ function createCompiler() {
     hooks: {
       afterEmit: {
         tap: vi.fn()
+      },
+      compilation: {
+        tap: vi.fn()
       }
     }
   } as any

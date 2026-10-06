@@ -413,9 +413,26 @@ export default function webpackConfig(
 
           try {
             if (assetPath && !fs.existsSync(path.resolve(context, assetPath))) {
-              missingCssAssets.add(request)
+              const leaveUnresolved = () => {
+                missingCssAssets.add(request)
+                callback(null, request, 'asset')
+              }
 
-              return callback(null, request, 'asset')
+              // A bare specifier can name a file inside a package, which is
+              // on disk where only the bundler's own resolver looks.
+              if (
+                assetPath.startsWith('.') ||
+                typeof getResolve !== 'function'
+              ) {
+                return leaveUnresolved()
+              }
+
+              getResolve()(context, request, (err, result) => {
+                if (err || !result) leaveUnresolved()
+                else callback()
+              })
+
+              return
             }
           } catch {
             // Fall through to default resolution on any fs error.

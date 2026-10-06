@@ -18,6 +18,7 @@ import {LocalesPlugin} from './feature-locales'
 import {ManifestPlugin} from './feature-manifest'
 import {ScriptsPlugin} from './feature-scripts'
 import {WebResourcesPlugin} from './feature-web-resources'
+import {discoverWebAccessiblePages} from './feature-web-resources/web-resources-lib/declared-pages'
 import {discoverDevtoolsPanelPages} from './shared/discover-devtools-panels'
 import {getResolvedManifestFieldsData} from './shared/manifest-fields'
 import {ManifestFieldsChangeDetector} from './shared/manifest-fields-change-detector'
@@ -80,6 +81,7 @@ export class WebExtensionPlugin {
       manifestPath,
       browser: this.browser,
       includeList: {
+        ...discoverWebAccessiblePages(manifestPath, this.browser, projectPath),
         ...ownedPages,
         ...omitOwnedPages(specialFoldersData.pages, ownedPages)
       }

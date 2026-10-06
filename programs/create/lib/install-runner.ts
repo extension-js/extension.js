@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {spawn} from 'cross-spawn'
+import {corepackRegistryEnv} from './corepack-registry'
 
 // A package manager exports every npm config it read as an npm_config_* variable,
 // so the invoking checkout's release-age rule would govern the new project's
@@ -87,8 +88,11 @@ export function withoutInheritedReleaseAge(
   return env
 }
 
-function buildExecEnv(): Record<string, string | undefined> {
-  const env = withoutInheritedReleaseAge(process.env)
+function buildExecEnv(cwd: string): Record<string, string | undefined> {
+  const env = {
+    ...withoutInheritedReleaseAge(process.env),
+    ...corepackRegistryEnv(process.env, cwd)
+  }
 
   if (process.platform !== 'win32') return env
 
@@ -121,7 +125,7 @@ export async function runInstall(
     cwd: opts.cwd,
     // cross-spawn runs the .cmd shims on Windows and escapes each argument,
     // so the project path never becomes part of a shell string.
-    env: buildExecEnv() as NodeJS.ProcessEnv
+    env: buildExecEnv(opts.cwd) as NodeJS.ProcessEnv
   })
   let stdout = ''
   let stderr = ''

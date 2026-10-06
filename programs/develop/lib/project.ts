@@ -353,7 +353,8 @@ async function importUrlSourceFromGithub(
 
         if (fs.existsSync(withSubdir)) return withSubdir
 
-        throw new Error(
+        throw codedError(
+          CODES.E_PROJECT_DOWNLOAD_EMPTY,
           messages.downloadedProjectFolderNotFound(repoRoot, [candidate.subdir])
         )
       } catch (error) {
@@ -406,7 +407,10 @@ async function importUrlSourceFromGithub(
   })()
 
   if (!landed) {
-    throw new Error(messages.downloadedProjectFolderNotFound(cwd, candidates))
+    throw codedError(
+      CODES.E_PROJECT_DOWNLOAD_EMPTY,
+      messages.downloadedProjectFolderNotFound(cwd, candidates)
+    )
   }
 
   writeRemoteSource(landed, pathOrRemoteUrl)

@@ -10,6 +10,7 @@ import fs from 'node:fs'
 import {createRequire} from 'node:module'
 import path from 'node:path'
 import {pathToFileURL} from 'node:url'
+import {CODES} from './messaging'
 
 const require = createRequire(import.meta.url)
 
@@ -20,6 +21,18 @@ export type AnyDevelopModule = any
 
 function parseJsonSafe(filePath: string): AnyDevelopModule {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'))
+}
+
+// A broken install, not a fault in the CLI, so the frame names it.
+function runtimeNotFound(message: string): Error {
+  return Object.assign(new Error(message), {code: CODES.E_RUNTIME_NOT_FOUND})
+}
+
+function runtimeNotBuilt(root: string): Error {
+  return runtimeNotFound(
+    `Local extension-develop runtime is not built at ${path.join(root, 'dist')}. ` +
+      'Run `pnpm --filter extension-develop compile` before invoking the local CLI.'
+  )
 }
 
 function resolveDevelopRootFromDir(dir: string): string | undefined {
@@ -112,7 +125,7 @@ export function resolveExtensionDevelopRoot(
   const {root, source} = resolvePreferredDevelopRoot(startDir)
 
   if (!root) {
-    throw new Error('Unable to locate the extension-develop runtime.')
+    throw runtimeNotFound('Unable to locate the extension-develop runtime.')
   }
 
   process.env.EXTENSION_DEVELOP_ROOT = root
@@ -163,10 +176,7 @@ export async function loadExtensionDevelopModule<T = AnyDevelopModule>(
   }
 
   if (source === 'workspace') {
-    throw new Error(
-      `Local extension-develop runtime is not built at ${path.join(root, 'dist')}. ` +
-        'Run `pnpm --filter extension-develop compile` before invoking the local CLI.'
-    )
+    throw runtimeNotBuilt(root)
   }
 
   return (await import('extension-develop')) as T
@@ -194,10 +204,7 @@ export async function loadExtensionDevelopPreviewModule<T = AnyDevelopModule>(
   }
 
   if (source === 'workspace') {
-    throw new Error(
-      `Local extension-develop runtime is not built at ${path.join(root, 'dist')}. ` +
-        'Run `pnpm --filter extension-develop compile` before invoking the local CLI.'
-    )
+    throw runtimeNotBuilt(root)
   }
 
   return (await import('extension-develop/preview')) as T
@@ -217,10 +224,7 @@ export async function loadExtensionDevelopBridgeModule<T = AnyDevelopModule>(
   }
 
   if (source === 'workspace') {
-    throw new Error(
-      `Local extension-develop runtime is not built at ${path.join(root, 'dist')}. ` +
-        'Run `pnpm --filter extension-develop compile` before invoking the local CLI.'
-    )
+    throw runtimeNotBuilt(root)
   }
 
   // Non-literal specifier: resolved at runtime via the workspace symlink /
