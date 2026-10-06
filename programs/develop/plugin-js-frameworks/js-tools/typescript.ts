@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import colors from 'pintor'
+import {humanLine} from '../../dev-server/lifecycle-stream'
 import {isDebug, prefix} from '../../lib/messaging'
 import type {DevOptions} from '../../types'
 import {isUsingJSFramework} from '../frameworks-lib/integrations'
@@ -107,7 +108,7 @@ export function ensureTypeScriptConfig(projectPath: string): void {
       // (19 of 5,187 swept repos). Scaffold the same default tsconfig the
       // declared-dep path writes instead of refusing the build.
       if (!hasShownUserMessage) {
-        console.log(messages.creatingTSConfig())
+        humanLine(messages.creatingTSConfig())
       }
 
       writeTsConfig(projectPath)

@@ -2,7 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
-import {corepackRegistryEnv} from '../corepack-registry'
+import {corepackRegistryEnv} from '../lib/corepack-registry'
 
 const dirs: string[] = []
 
@@ -19,7 +19,7 @@ function belowHeader(file: string): string {
     .replace(/^(?:\/\/.*\n)+/, '')
 }
 
-describe('the create copy of corepackRegistryEnv', () => {
+describe('the install copy of corepackRegistryEnv', () => {
   it('hands Corepack the registry the project .npmrc pins', () => {
     const dir = fs.mkdtempSync(
       path.join(os.tmpdir(), 'extjs-corepack-registry-')
@@ -27,19 +27,19 @@ describe('the create copy of corepackRegistryEnv', () => {
     dirs.push(dir)
     fs.writeFileSync(
       path.join(dir, '.npmrc'),
-      'registry=http://127.0.0.1:4874/\n'
+      'registry=http://127.0.0.1:4875/\n'
     )
 
     expect(corepackRegistryEnv({}, dir)).toEqual({
-      COREPACK_NPM_REGISTRY: 'http://127.0.0.1:4874'
+      COREPACK_NPM_REGISTRY: 'http://127.0.0.1:4875'
     })
   })
 
   it('matches programs/develop/lib/corepack-registry.ts below the header', () => {
-    const copy = path.resolve(__dirname, '../corepack-registry.ts')
+    const copy = path.resolve(__dirname, '../lib/corepack-registry.ts')
     const canonical = path.resolve(
       __dirname,
-      '../../../develop/lib/corepack-registry.ts'
+      '../../develop/lib/corepack-registry.ts'
     )
 
     expect(belowHeader(canonical)).toContain(
@@ -48,7 +48,7 @@ describe('the create copy of corepackRegistryEnv', () => {
 
     expect(
       belowHeader(copy),
-      'programs/create/lib/corepack-registry.ts drifted from programs/develop/lib/corepack-registry.ts. Copy the develop file over it and keep the create header. The three copies are duplicated on purpose, a cross-program import does not compile.'
+      'programs/install/lib/corepack-registry.ts drifted from programs/develop/lib/corepack-registry.ts. Copy the develop file over it and keep the install header. The three copies are duplicated on purpose, a cross-program import does not compile.'
     ).toBe(belowHeader(canonical))
   })
 })

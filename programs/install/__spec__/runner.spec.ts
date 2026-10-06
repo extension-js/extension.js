@@ -132,6 +132,86 @@ describe('install runner runCommand', () => {
   })
 })
 
+describe('install runner browserInstallEnv', () => {
+  const prevEnv = {...process.env}
+  const prevCwd = process.cwd()
+  const dirs: string[] = []
+
+  function pinnedProject(npmrc: string): string {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-install-env-'))
+    dirs.push(dir)
+    fs.writeFileSync(path.join(dir, '.npmrc'), npmrc)
+    process.chdir(dir)
+
+    return dir
+  }
+
+  function spawnedEnv(): NodeJS.ProcessEnv {
+    return spawnMock.mock.calls[0][2].env
+  }
+
+  beforeEach(() => {
+    spawnMock.mockReset()
+    delete process.env.COREPACK_NPM_REGISTRY
+    delete process.env.corepack_npm_registry
+    delete process.env.npm_config_registry
+    delete process.env.NPM_CONFIG_REGISTRY
+  })
+
+  afterEach(() => {
+    process.chdir(prevCwd)
+    process.env = {...prevEnv}
+
+    for (const dir of dirs.splice(0)) {
+      fs.rmSync(dir, {recursive: true, force: true})
+    }
+  })
+
+  it('hands the package runner the Corepack registry the project .npmrc pins', async () => {
+    pinnedProject('registry=http://127.0.0.1:4876/\n')
+    process.env.corepack_npm_registry = ''
+
+    spawnMock.mockImplementation(() => ({
+      stdout: {on: () => undefined},
+      stderr: {on: () => undefined},
+      on: (event: string, cb: (code: number) => void) => {
+        if (event === 'close') setImmediate(() => cb(0))
+      }
+    }))
+
+    await runCommand('pnpm', browserInstallArgs('chrome', '/tmp/x'), {
+      cwd: process.cwd(),
+      env: browserInstallEnv('chrome', '/tmp/x')
+    })
+
+    const env = spawnedEnv()
+    const corepack = Object.keys(env).filter(
+      (key) => key.toLowerCase() === 'corepack_npm_registry'
+    )
+
+    expect(corepack).toEqual(['COREPACK_NPM_REGISTRY'])
+    expect(env.COREPACK_NPM_REGISTRY).toBe('http://127.0.0.1:4876')
+  })
+
+  it('keeps a Corepack registry the environment already carries', () => {
+    pinnedProject('registry=http://127.0.0.1:4876/\n')
+    process.env.COREPACK_NPM_REGISTRY = 'http://127.0.0.1:4877'
+
+    expect(browserInstallEnv('firefox', '/tmp/x').COREPACK_NPM_REGISTRY).toBe(
+      'http://127.0.0.1:4877'
+    )
+  })
+
+  it('still sets the Playwright browsers path for edge', () => {
+    pinnedProject('registry=http://127.0.0.1:4876/\n')
+
+    const env = browserInstallEnv('edge', '/tmp/edge')
+
+    expect(env.PLAYWRIGHT_BROWSERS_PATH).toBe('/tmp/edge')
+    expect(env.COREPACK_NPM_REGISTRY).toBe('http://127.0.0.1:4876')
+  })
+})
+
 describe('install runner pinned installer versions', () => {
   it('pins each installer to an exact version, never a tag or a range', () => {
     const exact = /^\d+\.\d+\.\d+$/

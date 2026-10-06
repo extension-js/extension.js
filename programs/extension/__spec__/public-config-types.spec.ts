@@ -160,4 +160,35 @@ describe('public config types (extension package)', () => {
       expect(body).toMatch(/\n\s+folders\?: SpecialFoldersConfig;/)
     }
   })
+
+  it('declares every BrowserType member the internal union declares', () => {
+    const publicSource = fs
+      .readFileSync(path.join(pkgRoot, 'config-types.ts'), 'utf8')
+      .replace(/\r\n/g, '\n')
+    const internalSource = fs
+      .readFileSync(path.resolve(pkgRoot, '..', 'develop', 'types.ts'), 'utf8')
+      .replace(/\r\n/g, '\n')
+
+    const unionMembers = (source: string): string[] => {
+      const start = source.indexOf('export type BrowserType =')
+      expect(start).toBeGreaterThan(-1)
+
+      const body = source.slice(start)
+      const end = body.indexOf('\n\n')
+      const members: string[] = []
+
+      for (const line of body.slice(0, end).split('\n')) {
+        const match = /^\s+\| '([a-z-]+)'$/.exec(line)
+        if (match) members.push(match[1])
+      }
+
+      return members.sort()
+    }
+
+    const internalMembers = unionMembers(internalSource)
+    const publicMembers = unionMembers(publicSource)
+
+    expect(internalMembers).toContain('chromium-emulator')
+    expect(publicMembers).toEqual(internalMembers)
+  })
 })
