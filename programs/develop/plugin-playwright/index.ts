@@ -99,6 +99,10 @@ export type ReadyMetadata = {
   browserLaunchFailedAt?: string
   browserLaunchFailedReason?: string
   browserLaunchFailedCode?: string
+  // Stamped by the Chromium launcher when the CDP wire failed after launch:
+  // the session stays ready and names the fault. Preserved across recompiles.
+  cdpFaultCode?: string
+  cdpFaultMessage?: string
   // Runtime attachment signal: 'ready' means compiled; these mean the SW has
   // connected and can be driven. Act-tooling should wait for runtime:'attached'.
   runtime?: 'attached' | 'detached'
@@ -670,6 +674,14 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     if (prev && sameRun) {
       if (typeof prev.cdpPort === 'number') payload.cdpPort = prev.cdpPort
       if (typeof prev.rdpPort === 'number') payload.rdpPort = prev.rdpPort
+
+      if (typeof prev.cdpFaultCode === 'string') {
+        payload.cdpFaultCode = prev.cdpFaultCode
+
+        if (typeof prev.cdpFaultMessage === 'string') {
+          payload.cdpFaultMessage = prev.cdpFaultMessage
+        }
+      }
 
       if (typeof prev.webdriverPort === 'number') {
         payload.webdriverPort = prev.webdriverPort

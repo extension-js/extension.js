@@ -53,4 +53,30 @@ describe('discoverWebSocketDebuggerUrl', () => {
     expect(wsUrl).toBe('ws://127.0.0.1/devtools/page/abc')
     expect(elapsedMs).toBeLessThan(5000)
   })
+
+  it('codes an endpoint that never answers as E_CDP_TIMEOUT', async () => {
+    server = http.createServer(() => {})
+
+    await new Promise<void>((resolve) =>
+      server!.listen(0, '127.0.0.1', () => resolve())
+    )
+
+    const address = server.address()
+    const port =
+      typeof address === 'object' && address?.port ? address.port : null
+
+    expect(port).toBeTruthy()
+
+    const error = await discoverWebSocketDebuggerUrl(
+      '127.0.0.1',
+      port!,
+      false
+    ).then(
+      () => null,
+      (reason: unknown) => reason as Error & {code?: string}
+    )
+
+    expect(error?.message).toBe('CDP endpoint timed out: /json')
+    expect(error?.code).toBe('E_CDP_TIMEOUT')
+  }, 10000)
 })

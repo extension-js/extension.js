@@ -112,6 +112,23 @@ describe('ready.json writer preservation', () => {
     expect(after.rdpPort).toBe(9224)
   })
 
+  it('preserves the launcher-stamped CDP fault across recompiles', () => {
+    const writer = makeWriter()
+    writer.writeReady()
+
+    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    ready.cdpFaultCode = 'E_CDP_TIMEOUT'
+    ready.cdpFaultMessage = 'ensureLoaded timeout (10000ms)'
+    fs.writeFileSync(writer.readyPath, JSON.stringify(ready))
+
+    writer.writeReady()
+
+    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    expect(after.status).toBe('ready')
+    expect(after.cdpFaultCode).toBe('E_CDP_TIMEOUT')
+    expect(after.cdpFaultMessage).toBe('ensureLoaded timeout (10000ms)')
+  })
+
   it('preserves the launcher-stamped WebDriver session across recompiles', () => {
     const writer = makeWriter()
     writer.writeReady()

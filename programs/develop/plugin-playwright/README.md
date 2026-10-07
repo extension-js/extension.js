@@ -48,6 +48,13 @@
 - optional `webdriverUnavailableReason`: why no session was opened (Allow Remote
   Automation off, `safaridriver --enable` not run, no `safaridriver`), present
   instead of the two fields above and preserved across recompiles
+- optional `cdpFaultCode` and `cdpFaultMessage`: under a Chromium `dev` the
+  launcher stamps them when the CDP wire failed after the browser came up (a
+  connect that found no endpoint, a command or load that timed out, an id it
+  could not resolve). The session stays `ready` because the browser is up, but
+  reload and HMR cannot attach until the fault is fixed. The `ready` frame under
+  `--output json` carries the same fault on `warnings` as `E_CDP_...: message`.
+  Both are preserved across recompiles of the same run
 
 `events.ndjson` events (the file is reset at every run start and holds the
 current run only, join on `runId` to correlate across runs):

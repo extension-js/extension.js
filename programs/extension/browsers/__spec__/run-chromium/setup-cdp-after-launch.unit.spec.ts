@@ -68,6 +68,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {claimCardKey} from '../../../helpers/messaging'
 import * as banner from '../../browsers-lib/banner'
+import {readyPathFor} from '../../browsers-lib/ready-stamp'
 import * as controllerModule from '../../run-chromium/cdp/cdp-extension-controller'
 import {setupCdpAfterLaunch} from '../../run-chromium/chromium-launch/setup-cdp-after-launch'
 
@@ -160,6 +161,55 @@ describe('setupCdpAfterLaunch', () => {
     }
 
     expect(getInfoBestEffortSpy).toHaveBeenCalled()
+  })
+
+  it('stamps a load that timed out as E_CDP_TIMEOUT on a contract that stays ready', async () => {
+    vi.useFakeTimers()
+
+    try {
+      const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-cdp-fault-'))
+      tempDirs.push(root)
+      const outPath = path.join(root, 'dist', 'chromium')
+      fs.mkdirSync(outPath, {recursive: true})
+      fs.writeFileSync(
+        path.join(outPath, 'manifest.json'),
+        JSON.stringify({manifest_version: 3, name: 'User', version: '1.0'}),
+        'utf-8'
+      )
+
+      const readyPath = readyPathFor(outPath)
+      fs.mkdirSync(path.dirname(readyPath), {recursive: true})
+      fs.writeFileSync(
+        readyPath,
+        JSON.stringify({status: 'ready', browser: 'chromium', runId: 'run-A'})
+      )
+
+      ensureLoadedSpy.mockImplementationOnce(() => new Promise(() => {}))
+
+      const plugin: any = {
+        browser: 'chromium',
+        port: 9333,
+        instanceId: 'test-instance',
+        launchRunId: 'run-A'
+      }
+      const compilation: any = {
+        options: {mode: 'development', output: {path: outPath}}
+      }
+
+      const done = setupCdpAfterLaunch(compilation, plugin, [
+        `--load-extension=${outPath}`,
+        '--remote-debugging-port=9333'
+      ])
+      await vi.advanceTimersByTimeAsync(10_001)
+      await done
+
+      const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+      expect(ready.status).toBe('ready')
+      expect(ready.cdpFaultCode).toBe('E_CDP_TIMEOUT')
+      expect(ready.cdpFaultMessage).toBe('ensureLoaded timeout (10000ms)')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('turns developer mode on for the profile it launched', async () => {

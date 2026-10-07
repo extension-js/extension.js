@@ -297,27 +297,19 @@
     },
     "E_CDP_NOT_CONNECTED": {
       "area": "debug-protocol",
-      "summary": "An operation was issued with no live CDP transport.",
-      "reserved": true,
-      "reason": "the Chromium launch reports ready past a CDP fault"
+      "summary": "An operation was issued with no live CDP transport."
     },
     "E_CDP_TIMEOUT": {
       "area": "debug-protocol",
-      "summary": "A CDP command or load event timed out.",
-      "reserved": true,
-      "reason": "the Chromium launch reports ready past a CDP fault"
+      "summary": "A CDP command or load event timed out."
     },
     "E_CDP_OP_FAILED": {
       "area": "debug-protocol",
-      "summary": "An extension operation over CDP failed.",
-      "reserved": true,
-      "reason": "the Chromium launch reports ready past a CDP fault"
+      "summary": "An extension operation over CDP failed."
     },
     "E_EXTENSION_ID_UNKNOWN": {
       "area": "debug-protocol",
-      "summary": "The extension id could not be determined over CDP.",
-      "reserved": true,
-      "reason": "the Chromium launch reports ready past a CDP fault"
+      "summary": "The extension id could not be determined over CDP."
     },
     "E_RDP_PROTOCOL": {
       "area": "debug-protocol",

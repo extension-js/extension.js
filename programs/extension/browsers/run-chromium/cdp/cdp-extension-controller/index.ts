@@ -9,7 +9,12 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Readable, Writable} from 'node:stream'
-import {humanLine, humanWarn, isDebug} from '../../../../helpers/messaging'
+import {
+  CODES,
+  humanLine,
+  humanWarn,
+  isDebug
+} from '../../../../helpers/messaging'
 import {expectedChromiumExtensionId} from '../../../browsers-lib/banner'
 import {loadsExtensionsOverCdpOnly} from '../../../browsers-lib/browser-family'
 import * as messages from '../../../browsers-lib/messages'
@@ -21,6 +26,7 @@ import type {
   CdpTargetInfo
 } from '../../chromium-types'
 import {type CDPClient, EXTENSION_AUTO_ATTACH_FILTER} from '../cdp-client'
+import {codedError, declaredCode} from '../coded-error'
 import {
   type DeveloperModeOutcome,
   ensureDeveloperMode
@@ -384,7 +390,9 @@ export class CDPExtensionController {
   }
 
   async ensureLoaded(): Promise<ExtensionInfoResult> {
-    if (!this.cdp) throw new Error('CDP not connected')
+    if (!this.cdp) {
+      throw codedError(CODES.E_CDP_NOT_CONNECTED, 'CDP not connected')
+    }
 
     const exists = fs.existsSync(this.outPath)
     if (!exists) throw new Error(`Output path not found: ${this.outPath}`)
@@ -494,7 +502,10 @@ export class CDPExtensionController {
       }
 
       if (!this.extensionId) {
-        throw new Error('Failed to determine extension ID via CDP')
+        throw codedError(
+          CODES.E_EXTENSION_ID_UNKNOWN,
+          'Failed to determine extension ID via CDP'
+        )
       }
 
       stampReadyExtensionId(this.outPath, this.extensionId)
@@ -525,7 +536,8 @@ export class CDPExtensionController {
 
       return {extensionId: this.extensionId, name, version}
     } catch (error) {
-      throw new Error(
+      throw codedError(
+        declaredCode(error) ?? CODES.E_CDP_OP_FAILED,
         `Failed to load extension from ${path.resolve(this.outPath)}: ${String(
           (error as Error).message || error
         )}`
@@ -597,7 +609,9 @@ export class CDPExtensionController {
   }
 
   onProtocolEvent(cb: (evt: CdpProtocolMessage) => void) {
-    if (!this.cdp) throw new Error('CDP not connected')
+    if (!this.cdp) {
+      throw codedError(CODES.E_CDP_NOT_CONNECTED, 'CDP not connected')
+    }
 
     this.cdp.onProtocolEvent((message: CdpProtocolMessage) => {
       cb(message)

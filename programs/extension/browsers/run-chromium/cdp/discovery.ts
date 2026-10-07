@@ -8,9 +8,10 @@
 
 import * as http from 'node:http'
 import * as net from 'node:net'
-import {humanLine, humanWarn} from '../../../helpers/messaging'
+import {CODES, humanLine, humanWarn} from '../../../helpers/messaging'
 import {CDP_HTTP_TIMEOUT_MS} from '../../browsers-lib/constants'
 import * as messages from '../../browsers-lib/messages'
+import {codedError} from './coded-error'
 
 async function getJson(
   host: string,
@@ -34,7 +35,9 @@ async function getJson(
     )
     req.on('error', (err) => reject(err))
     req.setTimeout(CDP_HTTP_TIMEOUT_MS, () => {
-      req.destroy(new Error(`CDP endpoint timed out: ${path}`))
+      req.destroy(
+        codedError(CODES.E_CDP_TIMEOUT, `CDP endpoint timed out: ${path}`)
+      )
     })
 
     req.end()
@@ -103,7 +106,7 @@ export async function discoverWebSocketDebuggerUrl(
     return pageWs
   }
 
-  throw new Error('No CDP WebSocket URL available')
+  throw codedError(CODES.E_CDP_NOT_CONNECTED, 'No CDP WebSocket URL available')
 }
 
 export async function checkChromeRemoteDebugging(

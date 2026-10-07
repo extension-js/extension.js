@@ -267,6 +267,33 @@ export function launchFailureCode(error: unknown): string | undefined {
   return typeof code === 'string' && code.startsWith('E_') ? code : undefined
 }
 
+// A CDP fault after launch keeps the session alive and ready, so the contract
+// names it beside the status instead of flipping to an error over it.
+export function stampReadyCdpFault(
+  extensionOutputPath: string | undefined,
+  code: string,
+  detail: string,
+  runId?: string
+) {
+  try {
+    if (!extensionOutputPath || !code) return
+
+    const readyPath = readyPathFor(extensionOutputPath)
+    if (!fs.existsSync(readyPath)) return
+
+    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    if (isForeignRun(ready, runId)) return
+
+    ready.cdpFaultCode = code
+    ready.cdpFaultMessage =
+      String(detail || '').trim() || 'the CDP wire failed after launch'
+
+    writeJsonAtomic(readyPath, ready)
+  } catch {
+    // best-effort, never block launch on this
+  }
+}
+
 // Publish the id the browser serves the extension under. Launch stamps the
 // derived id; a later browser confirmation overwrites it when they disagree.
 export function stampReadyExtensionId(

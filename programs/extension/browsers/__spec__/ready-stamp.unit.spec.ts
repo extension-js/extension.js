@@ -5,15 +5,18 @@ import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {
   claimReadyPath,
   describeLaunchFailure,
+  launchFailureCode,
   readReadyRunId,
   stampReadyBrowserExited,
   stampReadyBrowserLaunch,
   stampReadyBrowserLaunchFailed,
+  stampReadyCdpFault,
   stampReadyExtensionId,
   stampReadyExtensionLoadRefused,
   stampReadyProfileLocked,
   stampReadyRdpPort
 } from '../browsers-lib/ready-stamp'
+import {CDPClient} from '../run-chromium/cdp/cdp-client'
 
 describe('stampReadyRdpPort', () => {
   let tmp: string
@@ -251,6 +254,27 @@ describe('stampReadyBrowserLaunchFailed', () => {
     expect(ready.browserLaunchFailedReason).toBe('spawn /x/chrome EACCES')
   })
 
+  it('carries the code a CDP refusal was thrown with', async () => {
+    const error = await new CDPClient(9222)
+      .sendCommand('Target.getTargets')
+      .then(
+        () => null,
+        (reason: unknown) => reason
+      )
+
+    stampReadyBrowserLaunchFailed(
+      outputPath,
+      describeLaunchFailure(error),
+      'run-A',
+      launchFailureCode(error)
+    )
+
+    const ready = readReady()
+    expect(ready.code).toBe('browser_launch_failed')
+    expect(ready.browserLaunchFailedReason).toBe('CDP transport is not open')
+    expect(ready.browserLaunchFailedCode).toBe('E_CDP_NOT_CONNECTED')
+  })
+
   // A run-only session loading a source folder: the loaded directory is the
   // project root, and no contract lives at the path derived from it.
   it('stamps the contract the session claimed when the loaded directory cannot name it', () => {
@@ -305,6 +329,68 @@ describe('stampReadyBrowserLaunchFailed', () => {
     expect(ready.browserLaunchFailedAt).toBeUndefined()
     expect(ready.browserLaunchFailedReason).toBeUndefined()
     expect(ready.browserPid).toBe(4242)
+  })
+})
+
+describe('stampReadyCdpFault', () => {
+  let tmp: string
+  let outputPath: string
+  let readyPath: string
+
+  beforeEach(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ready-stamp-cdp-fault-'))
+    outputPath = path.join(tmp, 'dist', 'chrome')
+    readyPath = path.join(tmp, 'dist', 'extension-js', 'chrome', 'ready.json')
+    fs.mkdirSync(path.dirname(readyPath), {recursive: true})
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({
+        status: 'ready',
+        command: 'dev',
+        browser: 'chrome',
+        runId: 'run-A'
+      })
+    )
+  })
+
+  afterEach(() => {
+    fs.rmSync(tmp, {recursive: true, force: true})
+  })
+
+  const readReady = () => JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+
+  it('names the fault beside a status that stays ready', () => {
+    stampReadyCdpFault(
+      outputPath,
+      'E_CDP_TIMEOUT',
+      'ensureLoaded timeout (10000ms)',
+      'run-A'
+    )
+
+    const ready = readReady()
+    expect(ready.status).toBe('ready')
+    expect(ready.code).toBeUndefined()
+    expect(ready.cdpFaultCode).toBe('E_CDP_TIMEOUT')
+    expect(ready.cdpFaultMessage).toBe('ensureLoaded timeout (10000ms)')
+  })
+
+  it('never stamps a run it does not belong to', () => {
+    stampReadyCdpFault(outputPath, 'E_CDP_TIMEOUT', 'late', 'run-B')
+
+    expect('cdpFaultCode' in readReady()).toBe(false)
+  })
+
+  it('is a no-op without a code, an output path or a contract', () => {
+    stampReadyCdpFault(outputPath, '', 'late', 'run-A')
+    stampReadyCdpFault(undefined, 'E_CDP_TIMEOUT', 'late', 'run-A')
+    expect('cdpFaultCode' in readReady()).toBe(false)
+
+    fs.rmSync(readyPath)
+    expect(() =>
+      stampReadyCdpFault(outputPath, 'E_CDP_TIMEOUT', 'late', 'run-A')
+    ).not.toThrow()
+
+    expect(fs.existsSync(readyPath)).toBe(false)
   })
 })
 
