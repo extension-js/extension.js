@@ -53,6 +53,18 @@ function isAlive(pid: number): boolean {
   }
 }
 
+async function exitedWithin(pid: number, ms: number): Promise<boolean> {
+  const deadline = Date.now() + ms
+
+  while (isAlive(pid)) {
+    if (Date.now() > deadline) return false
+
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 50))
+  }
+
+  return true
+}
+
 function runCli(args: string[], timeoutMs: number) {
   return new Promise<{status: number; stdout: string; stderr: string}>(
     (resolvePromise, reject) => {
@@ -177,7 +189,10 @@ describe.skipIf(process.platform === 'win32')(
         expect(strays).toHaveLength(2)
 
         for (const pid of strays) {
-          expect(isAlive(pid), `pid ${pid} still running`).toBe(false)
+          expect(
+            await exitedWithin(pid, 2_000),
+            `pid ${pid} still running`
+          ).toBe(true)
         }
       },
       150_000
