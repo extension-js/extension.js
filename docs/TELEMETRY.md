@@ -16,7 +16,7 @@ Per CLI run, at most one of these, except for a watch session, which is explaine
 | `command_executed` | 20% (configurable, see below)     | `command`, `success: true`, `version` |
 | `command_failed`   | 100% (failures are always tracked)| `command`, `success: false`, `version`, `code`, `exit_code` |
 
-Common context attached to every event: `os` (`darwin`/`linux`/`win32`), `arch`, `node_major`, `is_ci`, `is_source_build`. Nothing else.
+Common context attached to every event: `os` (`darwin`/`linux`/`win32`), `arch`, `node_major`, `is_ci`, `is_source_build`, and `app`, which is always the word `extension`. Nothing else.
 
 A failure adds two more properties so a failure count can be read as a cause rather than a number:
 
@@ -68,9 +68,9 @@ The `create` command adds two properties so a broken advertised starter shows up
 | property   | value                                                                 |
 | ---------- | --------------------------------------------------------------------- |
 | `template` | the starter name as listed by `extension create --help`, or absent   |
-| `source`   | `cli`, or the surface that started the create (for example `templates`) |
+| `source`   | `cli`, or `templates` when the docs template gallery started the create   |
 
-`template` is checked against the published starter list before it is sent. A GitHub URL, a local folder path or any other value that is not an advertised name is dropped rather than trimmed, so a private repository or a directory name never leaves the machine.
+`template` is checked against the published starter list before it is sent. A GitHub URL, a local folder path or any other value that is not an advertised name is dropped rather than trimmed, so a private repository or a directory name never leaves the machine. `source` is checked the same way against the two surfaces above, and any other value is sent as `cli`.
 
 `is_source_build` is a boolean and nothing more. It is `false` when the CLI was resolved from a package manager directory, which is what an ordinary install looks like, and `true` when it was resolved from a checkout of this repository. It exists so a run of the framework's own development can be told apart from a run by somebody using it. No path, no directory name and no hash of either is collected or transmitted; only the boolean leaves the machine.
 
@@ -82,6 +82,10 @@ The `create` command adds two properties so a broken advertised starter shows up
 - Environment variable values, filesystem paths, or machine-local URLs
 - Stack traces, error messages, or free-text error names
 - IP addresses. The project discards the request address at ingestion (`anonymize_ips`) and every payload sends `$ip: null` with `$geoip_disable: true`, so no location is derived from it either. Events sent before 2026-10-06 carried the request address.
+
+## Releases before 4.0
+
+The 3.x line sent a different schema, published in this file until 2026-04-17: lifecycle events (`cli_boot`, `cli_command_start`, `cli_command_finish`, `cli_vendor_start`, `cli_vendor_finish`, `cli_shutdown`, `cli_telemetry_consent`), `manifest_summary` (permission and content script counts), `project_profile` (framework family and package manager), `workflow_profile` (a usage cohort) and `cli_build_summary` (asset counts and bytes). Counts, booleans and names from fixed lists, never a path, a URL or a project name. Installs still on 3.x keep sending those events, and since 2026-10-07 the project drops every event that is not one of the two above at ingestion, so nothing from that schema is stored any more.
 
 ## Volume controls
 

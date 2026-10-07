@@ -118,6 +118,25 @@ describe('the declared --source reaches the telemetry payload', () => {
       telemetryCommandContext('build', argv('build', '--source', 'templates'))
     ).toEqual({})
   })
+
+  it('sends only a known surface as the source and reads the rest as cli', () => {
+    for (const freeform of [
+      'acme-internal-0807',
+      '/Users/jane/private/ext',
+      'https://acme.example/gallery',
+      'Templates '
+    ]) {
+      expect(
+        telemetryCommandContext(
+          'create',
+          argv('create', 'my-extension', '--source', freeform)
+        ).source,
+        freeform
+      ).toBe(
+        freeform.trim().toLowerCase() === 'templates' ? 'templates' : 'cli'
+      )
+    }
+  })
 })
 
 describe('the two halves stay joined', () => {
