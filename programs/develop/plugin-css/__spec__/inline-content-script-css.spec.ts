@@ -349,6 +349,19 @@ describe('toRuntimeStylesheetModule', () => {
       expect(text).toContain('.a { background: url("about:invalid"); }')
       expect(text).not.toContain('__EXTENSIONJS_CSS_FILE_')
     })
+
+    it('writes a file request into the module as ASCII only', () => {
+      const request = './fonts/a"b</script>\u2028c\u2029d\u00e9.woff2'
+      const code = toRuntimeStylesheetModule(bundledCss, [request])
+
+      expect(code).toMatch(/^[\x00-\x7f]*$/)
+      expect(code).not.toContain('</script>')
+
+      const literal = code.match(
+        /new URL\(("(?:[^"\\]|\\.)*"), import\.meta\.url\)/
+      )?.[1]
+      expect(JSON.parse(String(literal))).toBe(request)
+    })
   })
 
   it('never names the browser or chrome namespaces as free identifiers', () => {
