@@ -8,6 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {toJsStringLiteral} from '../../plugin-compilation/env'
 import {
   publicOwnedOutputName,
   replaceCssUrlRefs,
@@ -177,7 +178,7 @@ export function toRuntimeStylesheetModule(
           `var __extjsCssFiles = [${bundledRequests
             .map(
               (request) =>
-                `function(){ return new URL(${JSON.stringify(request)}, import.meta.url); }`
+                `function(){ return new URL(${toJsStringLiteral(request)}, import.meta.url); }`
             )
             .join(', ')}];`,
           'function __extjsCssFile(match, index, suffix) {',
