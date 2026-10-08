@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+## 4.1.33 (October 8, 2026)
+
+- **Safari dev runs leave your Safari alone**, the app a run opens stays in the background and is the only one quit on stop. Safari guide: https://extension.js.org/docs/browsers/safari
+- **Sidebar starters read the page**, every `extension create` sidebar template now asks the open tab for its title through a ready-made message channel, so a panel that follows the page starts from working code
+
+<details>
+<summary>Other changes (7)</summary>
+
+- Resync the bundled javascript template and write the highlights (#837) ([fd5364b49](https://github.com/extension-js/extension.js/commit/fd5364b49146346ad49c5e010b6eb9fbd33533cd))
+- Point the Safari remote automation hint at Settings > Developer (#836) ([62e993305](https://github.com/extension-js/extension.js/commit/62e993305e3fac69a0641d228e6dff0b56db09d3))
+- Swallow a vanished pid in the Safari spec cleanup (#835) ([f14ae22d9](https://github.com/extension-js/extension.js/commit/f14ae22d9d9a77413bd63b96f4d8b9f122390c6e))
+- Ship the eval ok golden with the bare value the CLI answers (#834) ([2dd884e34](https://github.com/extension-js/extension.js/commit/2dd884e34c8c1691a8475859671318c9065c5b9d))
+- Quit the Safari app a dev run raised and open it in the background (#833) ([bf2872128](https://github.com/extension-js/extension.js/commit/bf28721282304002a6c49bdaf5ec0fa0af8c03f7))
+- Make the install stdout spec hermetic and print its run on failure (#832) ([f32bc0211](https://github.com/extension-js/extension.js/commit/f32bc0211f2ab3f6083e2313c46665f8c80f4700))
+- Pin the create source tag and state the full telemetry contract (#831) ([8bab149d1](https://github.com/extension-js/extension.js/commit/8bab149d10949a80a5a9774b2b49bf21721449b2))
+</details>
+
 ## 4.1.32 (October 7, 2026)
 
 ### Fixes
