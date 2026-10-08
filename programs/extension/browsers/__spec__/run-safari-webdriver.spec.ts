@@ -94,6 +94,16 @@ function processAlive(pid: number | undefined): boolean {
   }
 }
 
+function killIfAlive(pid: number | undefined): void {
+  if (!pid) return
+
+  try {
+    process.kill(pid, 'SIGKILL')
+  } catch {
+    return
+  }
+}
+
 async function waitForExit(pid: number | undefined): Promise<boolean> {
   for (let attempt = 0; attempt < 50; attempt += 1) {
     if (!processAlive(pid)) return true
@@ -231,8 +241,7 @@ describe('safari dev session and its safaridriver', () => {
   afterEach(async () => {
     await closeSafariWebDriverSessions()
     await closeSafariContainerApps()
-    const raised = fs.existsSync(driverLog) ? raisedPid() : undefined
-    if (raised && processAlive(raised)) process.kill(raised, 'SIGKILL')
+    killIfAlive(fs.existsSync(driverLog) ? raisedPid() : undefined)
 
     for (const sibling of siblings.splice(0)) sibling.kill('SIGKILL')
     fs.rmSync(root, {recursive: true, force: true})
