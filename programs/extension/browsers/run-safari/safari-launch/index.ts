@@ -33,6 +33,7 @@ import {
   saveManifestFingerprint,
   xcodeProjectPath
 } from './safari-config'
+import {rememberRaisedContainerApp} from './container-app'
 import {detectSafariToolchain} from './toolchain'
 import {
   createSafariTools,
@@ -44,9 +45,12 @@ import {
   openSafariWebDriverSession
 } from './webdriver'
 
+export {closeSafariContainerApps} from './container-app'
 export {
   isAutomationSafariArgs,
+  isContainerAppArgs,
   listPidsWhere,
+  openAppArgs,
   type SafariPipelineTools,
   type SafariToolResult,
   type SafariWebDriverProcess,
@@ -423,7 +427,14 @@ async function runSafariPipeline(
 
   logger.info?.(messages.safariOpening(target))
 
+  const appsBefore = new Set(await tools.listAppPids(appPath))
   await tools.openApp(target)
+
+  // Only a dev session is still around to quit the app it raised on the way
+  // out. A build run exits at once and the app it opened is the deliverable.
+  if (host.announceDevReady) {
+    await rememberRaisedContainerApp(tools, appPath, appsBefore)
+  }
 
   if (config.safariBinary) {
     await tools.openSafari(config.safariBinary)

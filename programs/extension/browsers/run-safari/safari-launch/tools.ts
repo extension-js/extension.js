@@ -54,6 +54,7 @@ export interface SafariPipelineTools {
   pluginkitList(): Promise<string>
   startWebDriver(port: number): Promise<SafariWebDriverProcess>
   listAutomationPids(): Promise<number[]>
+  listAppPids(appPath: string): Promise<number[]>
 }
 
 // safaridriver raises Safari with `--automation` in its argv, which is the one
@@ -64,6 +65,18 @@ export function isAutomationSafariArgs(args: string): boolean {
   const name = exe.slice(exe.lastIndexOf('/') + 1)
 
   return name === 'Safari' && tokens.includes('--automation')
+}
+
+// The container app's process is the executable inside its own bundle, which
+// is how a run tells the copy it opened from any other app on the machine.
+export function isContainerAppArgs(appPath: string, args: string): boolean {
+  return args.trim().startsWith(`${appPath}/Contents/MacOS/`)
+}
+
+// Registration with pluginkit happens on launch and needs no window in front,
+// so the app opens in the background and keeps the keyboard where it was.
+export function openAppArgs(target: string): string[] {
+  return ['-g', target]
 }
 
 export function listPidsWhere(
@@ -181,7 +194,7 @@ export function createSafariTools(): SafariPipelineTools {
     detectToolchain: () => detectSafariToolchain(),
     runConverter: (args) => runTool('xcrun', args),
     runXcodebuild: (args) => runTool('xcodebuild', args),
-    openApp: (target) => runTool('open', [target]),
+    openApp: (target) => runTool('open', openAppArgs(target)),
     openSafari: (binary) => runTool('open', ['-a', binary]),
     resolvePid: (bundleId) => resolvePidForBundle(bundleId),
     pluginkitList: async () => {
@@ -191,6 +204,8 @@ export function createSafariTools(): SafariPipelineTools {
     },
     startWebDriver: (port) =>
       spawnWebDriverProcess('safaridriver', ['-p', String(port)]),
-    listAutomationPids: () => listPidsWhere(isAutomationSafariArgs)
+    listAutomationPids: () => listPidsWhere(isAutomationSafariArgs),
+    listAppPids: (appPath) =>
+      listPidsWhere((args) => isContainerAppArgs(appPath, args))
   }
 }
