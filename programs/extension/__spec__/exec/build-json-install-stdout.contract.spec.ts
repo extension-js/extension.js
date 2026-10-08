@@ -103,10 +103,12 @@ describe('build --output json on a project whose dependencies are not installed'
         dependencies: {picocolors: 'file:./vendor/picocolors'}
       })
     )
+
     writeFileSync(
       join(projectDir, 'vendor', 'picocolors', 'package.json'),
       JSON.stringify({name: 'picocolors', version: '1.1.1', main: 'index.js'})
     )
+
     writeFileSync(
       join(projectDir, 'vendor', 'picocolors', 'index.js'),
       'module.exports = {}\n'
@@ -117,6 +119,7 @@ describe('build --output json on a project whose dependencies are not installed'
     )) {
       writeFileSync(join(projectDir, file), content)
     }
+
     writeFileSync(join(projectDir, '.npmrc'), 'offline=true\n', {flag: 'a'})
 
     writeFileSync(
@@ -158,6 +161,7 @@ describe('build --output json on a project whose dependencies are not installed'
       existsSync(join(projectDir, 'node_modules', 'picocolors')),
       transcript
     ).toBe(true)
+
     expect(
       registry.requests().filter((url) => url.includes('picocolors')),
       transcript
