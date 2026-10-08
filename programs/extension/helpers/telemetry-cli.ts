@@ -126,6 +126,18 @@ export function advertisedTemplateName(
   return undefined
 }
 
+// The surfaces that start a create. The tag is a word from this list or it
+// is `cli`: a freeform value would be a project identifier by another name.
+const CREATE_SOURCES: ReadonlySet<string> = new Set(['cli', 'templates'])
+
+export function createSourceTag(value: string | undefined): string {
+  const tag = String(value ?? '')
+    .trim()
+    .toLowerCase()
+
+  return CREATE_SOURCES.has(tag) ? tag : 'cli'
+}
+
 export function telemetryCommandContext(
   command: string,
   argv: string[] = process.argv
@@ -154,7 +166,7 @@ export function telemetryCommandContext(
   return {
     ...installContext,
     template: advertisedTemplateName(readArgValue(argv, ['--template', '-t'])),
-    source: readArgValue(argv, ['--source']) || 'cli'
+    source: createSourceTag(readArgValue(argv, ['--source']))
   }
 }
 

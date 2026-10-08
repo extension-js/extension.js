@@ -2,6 +2,62 @@
 
 ## Unreleased
 
+## 4.1.32 (October 7, 2026)
+
+### Fixes
+
+- Fix the close code spec port race and wait for state in specs (#799) ([fe5ddbae1](https://github.com/extension-js/extension.js/commit/fe5ddbae17176735f4e146318a3d2d412e9b819b))
+
+<details>
+<summary>Other changes (45)</summary>
+
+- Poll the probe stand-in's exit instead of reading it once (#829) ([5ee92fb2d](https://github.com/extension-js/extension.js/commit/5ee92fb2df56f85b5d5995125d64f498d193e87d))
+- Escape each bundled file request in the stylesheet module (#828) ([8f6f55bd3](https://github.com/extension-js/extension.js/commit/8f6f55bd37cacb015591944ef974ac3c4b6db8fa))
+- Code CDP launch failures with the four debug protocol codes (#825) ([ff24e8648](https://github.com/extension-js/extension.js/commit/ff24e8648a57db8ee3533c6b79af1ace6d1ead6f))
+- Carry each compile diagnostic with its code on the failure frame (#826) ([0387fe978](https://github.com/extension-js/extension.js/commit/0387fe978206886ddf5c2d560b252f24e4c31756))
+- Report manifest file errors beside a module error (#827) ([c1afd8b80](https://github.com/extension-js/extension.js/commit/c1afd8b80a85814330e7e526e0158025d37f91cf))
+- Keep machine stdout clean and one dev session per browser (#824) ([2e8386c50](https://github.com/extension-js/extension.js/commit/2e8386c50ca3491f82af9c4be8a5e11e05806d58))
+- Drop a content_scripts entry left without js or css by a prefix (#822) ([7eca6c463](https://github.com/extension-js/extension.js/commit/7eca6c463472ae6e3ff4ac2e95cf511ab410435b))
+- One shutdown row, one first compile and human lines off JSON stdout (#820) ([c64bfc823](https://github.com/extension-js/extension.js/commit/c64bfc823236a7215e0ad06b17f2191fee0fe1d5))
+- Stamp a safaridriver session into ready.json for Safari dev (#823) ([749a79b05](https://github.com/extension-js/extension.js/commit/749a79b05bac99a1ef3a091f43b0a8ec5c532fd8))
+- Ship a sibling web resource once and code the carried-on warnings (#819) ([da259cfa0](https://github.com/extension-js/extension.js/commit/da259cfa0bf37f597507bdc109ef11de66dc389d))
+- Move three transitive dependencies past their advisories (#821) ([e3999e1ba](https://github.com/extension-js/extension.js/commit/e3999e1baeca031835ae1bd7395557864f810972))
+- Drop the store submission pitch from the scaffolded STORE.md (#791) ([0819894c7](https://github.com/extension-js/extension.js/commit/0819894c735cea29aa57af890f671d03a1e05951))
+- Tag CLI docs links with a source and fix a stale docs path (#796) ([7f7832e4c](https://github.com/extension-js/extension.js/commit/7f7832e4cb3977bc8422195f437dde86f49ed7c7))
+- Raise the engine's Vue pins to 3.5.43 past the server-renderer advisory (#818) ([99cabbe9f](https://github.com/extension-js/extension.js/commit/99cabbe9f964834db099e743f5bb312de4c04979))
+- Send debug lines to stderr when stdout carries JSON (#817) ([372433116](https://github.com/extension-js/extension.js/commit/372433116ef5aefe7326a2cc66496da00b3938e2))
+- Hold start on starting until the probe passes, watch every locale (#816) ([4f0775d60](https://github.com/extension-js/extension.js/commit/4f0775d60df431efc607327ef486f7f196ca4546))
+- Scope web accessible assets and refuse a second dev session (#815) ([58f1694ba](https://github.com/extension-js/extension.js/commit/58f1694bab708074cd5b9dacbb251d33863aaeba))
+- Pin Corepack on install and keep a JSON build stdout to one frame (#809) ([7e122d3fd](https://github.com/extension-js/extension.js/commit/7e122d3fd8f38e70f7dd4bf830bdd1cea0933c60))
+- Keep a dev session honest about its end, files and siblings (#814) ([39d446a26](https://github.com/extension-js/extension.js/commit/39d446a26dfe4d964416d67ab95d0c32ca21e0de))
+- Run four specs CI always skipped and bind fake servers to loopback (#813) ([66c4db1bf](https://github.com/extension-js/extension.js/commit/66c4db1bffe936aee929e9791b3f6c7b67bdc648))
+- Carry launcher and interrupt codes to the stream, retire dead ones (#812) ([ac89ed211](https://github.com/extension-js/extension.js/commit/ac89ed211f5f6960ecd6b54d4d725dbe0d6c94df))
+- Ship one copy of every asset and lift every sheet of a script (#811) ([17ad2d472](https://github.com/extension-js/extension.js/commit/17ad2d472d0d21c9702d8a57f4d58ef02dba4c6c))
+- Keep a document_start isolated content script static in dev (#810) ([db9deaf03](https://github.com/extension-js/extension.js/commit/db9deaf0329bf6bcc01826a2caf5f505784ab29b))
+- Keep unreferenced scripts/ files and drop the per-build warning (#808) ([f5908e066](https://github.com/extension-js/extension.js/commit/f5908e0668f31289af22b3a2f57d5fdb157dcb0a))
+- Fail on any missing icon path and skip a locale with no messages (#807) ([03c389274](https://github.com/extension-js/extension.js/commit/03c38927445c58440caad60c347d13243d77f43a))
+- Prove the pinned offline install stayed offline on Windows too (#806) ([122daac0d](https://github.com/extension-js/extension.js/commit/122daac0d55d42e59c6a98ab697dfe0625d74ff9))
+- Give the config hooks the target browser, mode and command (#805) ([979e7ce9b](https://github.com/extension-js/extension.js/commit/979e7ce9be2cbf0eb1c5cf9509cbf7f593955c79))
+- Ask PostHog for no location on every CLI telemetry event (#804) ([9e04de574](https://github.com/extension-js/extension.js/commit/9e04de5745f46e01963b3ca12d4e1802ed595b37))
+- Compile workspace siblings and warn on a constant nothing defines (#803) ([433cbe709](https://github.com/extension-js/extension.js/commit/433cbe709f7ada0bf1d1a0f9106c74118c6e2b7b))
+- Fail asset namespace reads and compile pages the manifest lists (#802) ([42bf571af](https://github.com/extension-js/extension.js/commit/42bf571afef3164566a8bc868ff860af086458c7))
+- Name each stylesheet file once and point emitted sheets at root (#801) ([135ca6300](https://github.com/extension-js/extension.js/commit/135ca6300c58abd9c9fc2246266a93908917f26e))
+- Wire seven error codes and mark the ones no source emits (#798) ([b67f3f7cb](https://github.com/extension-js/extension.js/commit/b67f3f7cb591049e3120b50de135dda55849a392))
+- Keep a dev session's dist to what its project and compile produce (#797) ([cac3d9c57](https://github.com/extension-js/extension.js/commit/cac3d9c5745adc09b67f36aab810aef36f3387f6))
+- Name the install default and send Corepack to a pinned registry (#795) ([f5f89ae42](https://github.com/extension-js/extension.js/commit/f5f89ae42f6a04766d6b00ba8a8bc48386c51a0b))
+- Keep build warning lines apart and shorten the _locales paths (#794) ([e710445b9](https://github.com/extension-js/extension.js/commit/e710445b90ff0dbf88b9c61c4919553466f9dd66))
+- Ship no file for a key Safari drops and name store check keys (#793) ([b2198e33c](https://github.com/extension-js/extension.js/commit/b2198e33c0c3a890e7e1618544eaa88e2f7e58f6))
+- Fail CI on a dropped job and accept Windows paths in a size spec (#800) ([4e3d17edd](https://github.com/extension-js/extension.js/commit/4e3d17edd7ca7441d52fc6bc6c3b139c24de99e6))
+- Trim what a production build exposes and report its true size (#792) ([ef07204f4](https://github.com/extension-js/extension.js/commit/ef07204f4eb47dbabca9a95dbf31781337efd944))
+- Read the pinned Gecko binary's version for the preview card (#790) ([84f8d4d5e](https://github.com/extension-js/extension.js/commit/84f8d4d5e6e9c026b5d22d0b5ead62dc3ed5569e))
+- Format the 23 drifted files and check formatting in lint (#789) ([2303530c1](https://github.com/extension-js/extension.js/commit/2303530c1544ed7faabc978d58dfb5a9d5bc4bd0))
+- Make Firefox eval answer large results, statements and CSP pages (#788) ([af9e5d6d3](https://github.com/extension-js/extension.js/commit/af9e5d6d3a7486658e57833c089d7c943a5a7551))
+- Refuse to launch a Gecko browser on its own profile (#787) ([52e602c75](https://github.com/extension-js/extension.js/commit/52e602c751301fabc309d8064cf8f53399c489eb))
+- Let only the page entry accept a hot update so child edits render (#786) ([158c097fb](https://github.com/extension-js/extension.js/commit/158c097fb55a57cc2f12ea5d19a809fc26e24459))
+- Clear the shellcheck notes actionlint prints for three workflows (#785) ([4473d85a4](https://github.com/extension-js/extension.js/commit/4473d85a469eb27fc6c6e3151748897ebb3bd36f))
+- Run nightly dev smokes under Xvfb and require a loaded extension (#784) ([6995f4d49](https://github.com/extension-js/extension.js/commit/6995f4d498fcb492c8dde94ca23d17d1dd4f7330))
+</details>
+
 ## 4.1.31 (October 4, 2026)
 
 - **One sidebar or toolbar key builds for every browser.** Declare the Chrome side panel and Firefox gets a working sidebar, declare the Firefox sidebar and Chrome and Edge get the side panel, and the Firefox Manifest V2 recipe gets its toolbar button back. The build translates `side_panel`, `sidebar_action` and `action` to the key each browser reads and says so in one line.

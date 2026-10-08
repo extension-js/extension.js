@@ -6,8 +6,11 @@ import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import * as messages from '../browsers-lib/messages'
 import {
+  closeSafariContainerApps,
   closeSafariWebDriverSessions,
   isAutomationSafariArgs,
+  isContainerAppArgs,
+  openAppArgs,
   packageSafariExtension
 } from '../run-safari/safari-launch'
 import {
@@ -88,6 +91,16 @@ function processAlive(pid: number | undefined): boolean {
     return true
   } catch {
     return false
+  }
+}
+
+function killIfAlive(pid: number | undefined): void {
+  if (!pid) return
+
+  try {
+    process.kill(pid, 'SIGKILL')
+  } catch {
+    return
   }
 }
 
@@ -227,8 +240,8 @@ describe('safari dev session and its safaridriver', () => {
 
   afterEach(async () => {
     await closeSafariWebDriverSessions()
-    const raised = fs.existsSync(driverLog) ? raisedPid() : undefined
-    if (raised && processAlive(raised)) process.kill(raised, 'SIGKILL')
+    await closeSafariContainerApps()
+    killIfAlive(fs.existsSync(driverLog) ? raisedPid() : undefined)
 
     for (const sibling of siblings.splice(0)) sibling.kill('SIGKILL')
     fs.rmSync(root, {recursive: true, force: true})
@@ -263,8 +276,9 @@ describe('safari dev session and its safaridriver', () => {
 
     await closeSafariWebDriverSessions()
 
-    expect(driverRequests()).toEqual([
-      'GET /status',
+    const requests = driverRequests()
+    expect(requests[0]).toBe('GET /status')
+    expect(requests.filter((request) => request !== 'GET /status')).toEqual([
       'POST /session',
       `DELETE /session/${sessionId}`
     ])
@@ -287,6 +301,49 @@ describe('safari dev session and its safaridriver', () => {
     expect(await waitForExit(raised)).toBe(true)
     expect(processAlive(openBefore)).toBe(true)
     expect(processAlive(userSafari)).toBe(true)
+  })
+
+  it.skipIf(process.platform === 'win32')(
+    'stop: quits the container app this run raised and spares one already open',
+    async () => {
+      const userApp = await openSibling('--container-app')
+      const tools = fakeSafariTools({appMatch: '--container-app'})
+      const raisedOnOpen: number[] = []
+
+      tools.openApp = async () => {
+        raisedOnOpen.push(await openSibling('--container-app'))
+
+        return {ok: true, code: 0, output: ''}
+      }
+
+      await runDevPackage(tools)
+      const raised = raisedOnOpen[0]
+
+      expect(raised).toBeGreaterThan(0)
+      expect(processAlive(raised)).toBe(true)
+
+      await closeSafariContainerApps()
+
+      expect(await waitForExit(raised)).toBe(true)
+      expect(processAlive(userApp)).toBe(true)
+    }
+  )
+
+  it('build packaging: leaves the container app it opened running', async () => {
+    const tools = fakeSafariTools({appMatch: '--container-app'})
+    const raisedOnOpen: number[] = []
+
+    tools.openApp = async () => {
+      raisedOnOpen.push(await openSibling('--container-app'))
+
+      return {ok: true, code: 0, output: ''}
+    }
+
+    await runDevPackage(tools, {})
+
+    await closeSafariContainerApps()
+
+    expect(processAlive(raisedOnOpen[0])).toBe(true)
   })
 
   it('automation off: stamps the refusal as the reason and carries on', async () => {
@@ -333,6 +390,29 @@ describe('safari dev session and its safaridriver', () => {
     const ready = readReady()
     expect('webdriverPort' in ready).toBe(false)
     expect('webdriverUnavailableReason' in ready).toBe(false)
+  })
+})
+
+describe('openAppArgs', () => {
+  it('opens the container app in the background', () => {
+    expect(openAppArgs('/tmp/My.app')).toEqual(['-g', '/tmp/My.app'])
+  })
+})
+
+describe('isContainerAppArgs', () => {
+  it('matches only the executable inside that app bundle', () => {
+    expect(
+      isContainerAppArgs('/tmp/My.app', '/tmp/My.app/Contents/MacOS/My')
+    ).toBe(true)
+
+    expect(
+      isContainerAppArgs(
+        '/tmp/My.app',
+        '/Applications/Safari.app/Contents/MacOS/Safari --automation'
+      )
+    ).toBe(false)
+
+    expect(isContainerAppArgs('/tmp/My.app', '/tmp/My.app.bak/x')).toBe(false)
   })
 })
 
