@@ -1,5 +1,8 @@
 import './styles.css'
 import javascriptLogo from '../images/icon.png'
+import {watchPageTitle} from './page-title.js'
+
+const NO_PAGE_TEXT = 'Open a web page to see its title here.'
 
 function SidebarApp() {
   const root = document.getElementById('root')
@@ -27,8 +30,16 @@ function SidebarApp() {
   description.className = 'sidebar_description'
   description.append('Learn more in the ', link, ' .')
 
-  app.append(logo, title, description)
+  const pageTitle = document.createElement('p')
+  pageTitle.className = 'sidebar_page_title'
+  pageTitle.textContent = NO_PAGE_TEXT
+
+  app.append(logo, title, description, pageTitle)
   root.replaceChildren(app)
+
+  watchPageTitle((answer) => {
+    pageTitle.textContent = answer ? answer.title : NO_PAGE_TEXT
+  })
 }
 
 SidebarApp()
