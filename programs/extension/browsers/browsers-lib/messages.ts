@@ -1167,7 +1167,7 @@ export function safariWebDriverSession(port: number, sessionId: string) {
 export function safariWebDriverUnavailable(reason: string) {
   return (
     `${getLoggingPrefix('info')} No WebDriver session for this run: ${reason}\n` +
-    `Run ${colors.gray('safaridriver --enable')} once and turn on Safari ▸ Develop ▸ Allow Remote Automation so tools can read Safari pages.`
+    `Run ${colors.gray('safaridriver --enable')} once and turn on Safari ▸ Settings ▸ Developer ▸ Allow remote automation (Safari ▸ Develop ▸ Allow Remote Automation on older Safari) so tools can read Safari pages.`
   )
 }
 
