@@ -43,6 +43,7 @@ src/
 │   └── icon.png
 ├── sidebar/
 │   ├── index.html
+│   ├── page-title.js
 │   ├── scripts.js
 │   ├── SidebarApp.js
 │   └── styles.css

@@ -20,3 +20,6 @@
 -->
 
 ## Highlights
+
+- **Safari dev runs leave your Safari alone**, the app a run opens stays in the background and is the only one quit on stop. Safari guide: https://extension.js.org/docs/browsers/safari
+- **Sidebar starters read the page**, every `extension create` sidebar template now asks the open tab for its title through a ready-made message channel, so a panel that follows the page starts from working code
