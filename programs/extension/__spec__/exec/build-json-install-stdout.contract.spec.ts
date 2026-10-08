@@ -10,6 +10,13 @@ import {tmpdir} from 'node:os'
 import {dirname, join, resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
+import {
+  type OfflineRegistryFixture,
+  offlineRegistryEnv,
+  offlineRegistryFiles,
+  serveOfflineRegistry,
+  withoutInheritedRegistry
+} from '../../../create/__spec__/offline-registry-fixture'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -23,22 +30,28 @@ interface Frame {
   status: string
 }
 
-function runCli(args: string[], cwd: string, timeoutMs = 120_000) {
-  const env: NodeJS.ProcessEnv = {
-    ...process.env,
+function runCli(
+  args: string[],
+  cwd: string,
+  env: Record<string, string>,
+  timeoutMs = 120_000
+) {
+  const childEnv: NodeJS.ProcessEnv = {
+    ...withoutInheritedRegistry(process.env),
+    ...env,
     EXTENSION_ENV: 'test',
     EXTENSION_TELEMETRY: '0',
     EXTENSION_DEBUG: '0'
   }
-  delete env.VITEST
-  delete env.VITEST_WORKER_ID
+  delete childEnv.VITEST
+  delete childEnv.VITEST_WORKER_ID
 
   return new Promise<{status: number; stdout: string; stderr: string}>(
     (resolvePromise, reject) => {
       const child = spawn(process.execPath, [cliBin, ...args], {
         cwd,
         stdio: 'pipe',
-        env
+        env: childEnv
       })
       let stdout = ''
       let stderr = ''
@@ -71,23 +84,43 @@ function frames(stdout: string): Frame[] {
 
 describe('build --output json on a project whose dependencies are not installed', () => {
   let projectDir = ''
+  let registry: OfflineRegistryFixture
 
-  beforeAll(() => {
+  beforeAll(async () => {
     expect(existsSync(cliBin)).toBe(true)
+
+    registry = await serveOfflineRegistry()
 
     projectDir = mkdtempSync(join(tmpdir(), 'extjs-json-install-stdout-'))
     mkdirSync(join(projectDir, 'content'))
+    mkdirSync(join(projectDir, 'vendor', 'picocolors'), {recursive: true})
     writeFileSync(
       join(projectDir, 'package.json'),
       JSON.stringify({
         name: 'json-install-stdout',
         private: true,
         version: '1.0.0',
-        dependencies: {picocolors: '1.1.1'}
+        dependencies: {picocolors: 'file:./vendor/picocolors'}
       })
     )
 
-    writeFileSync(join(projectDir, '.npmrc'), 'offline=true\n')
+    writeFileSync(
+      join(projectDir, 'vendor', 'picocolors', 'package.json'),
+      JSON.stringify({name: 'picocolors', version: '1.1.1', main: 'index.js'})
+    )
+
+    writeFileSync(
+      join(projectDir, 'vendor', 'picocolors', 'index.js'),
+      'module.exports = {}\n'
+    )
+
+    for (const [file, content] of Object.entries(
+      offlineRegistryFiles(registry.url)
+    )) {
+      writeFileSync(join(projectDir, file), content)
+    }
+
+    writeFileSync(join(projectDir, '.npmrc'), 'offline=true\n', {flag: 'a'})
 
     writeFileSync(
       join(projectDir, 'manifest.json'),
@@ -103,29 +136,45 @@ describe('build --output json on a project whose dependencies are not installed'
       join(projectDir, 'content', 'scripts.js'),
       "console.log('json-install-stdout-fixture')\n"
     )
-  })
+  }, 60_000)
 
-  afterAll(() => {
+  afterAll(async () => {
+    await registry?.close()
     rmSync(projectDir, {recursive: true, force: true})
   })
 
   it('keeps the package manager output off stdout', async () => {
     const run = await runCli(
       ['build', '.', '--browser=chromium', '--output', 'json'],
-      projectDir
+      projectDir,
+      offlineRegistryEnv(registry.url)
     )
+    const transcript = [
+      `exit ${run.status}`,
+      `the loopback registry saw: ${registry.requests().join(' ') || 'nothing'}`,
+      `stdout:\n${run.stdout}`,
+      `stderr:\n${run.stderr}`
+    ].join('\n')
 
-    expect(run.status).toBe(0)
-    expect(existsSync(join(projectDir, 'node_modules', 'picocolors'))).toBe(
-      true
-    )
+    expect(run.status, transcript).toBe(0)
+    expect(
+      existsSync(join(projectDir, 'node_modules', 'picocolors')),
+      transcript
+    ).toBe(true)
+
+    expect(
+      registry.requests().filter((url) => url.includes('picocolors')),
+      transcript
+    ).toEqual([])
 
     const emitted = frames(run.stdout)
-    expect(emitted).toHaveLength(1)
+    expect(emitted, transcript).toHaveLength(1)
     expect(emitted[0].ok).toBe(true)
     expect(emitted[0].command).toBe('build')
     expect(emitted[0].status).toBe('built')
 
-    expect(run.stderr).toContain('Installing the project dependencies')
+    expect(run.stderr, transcript).toContain(
+      'Installing the project dependencies'
+    )
   }, 180_000)
 })
