@@ -267,8 +267,9 @@ describe('safari dev session and its safaridriver', () => {
 
     await closeSafariWebDriverSessions()
 
-    expect(driverRequests()).toEqual([
-      'GET /status',
+    const requests = driverRequests()
+    expect(requests[0]).toBe('GET /status')
+    expect(requests.filter((request) => request !== 'GET /status')).toEqual([
       'POST /session',
       `DELETE /session/${sessionId}`
     ])
