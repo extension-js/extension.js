@@ -294,28 +294,31 @@ describe('safari dev session and its safaridriver', () => {
     expect(processAlive(userSafari)).toBe(true)
   })
 
-  it('stop: quits the container app this run raised and spares one already open', async () => {
-    const userApp = await openSibling('--container-app')
-    const tools = fakeSafariTools({appMatch: '--container-app'})
-    const raisedOnOpen: number[] = []
+  it.skipIf(process.platform === 'win32')(
+    'stop: quits the container app this run raised and spares one already open',
+    async () => {
+      const userApp = await openSibling('--container-app')
+      const tools = fakeSafariTools({appMatch: '--container-app'})
+      const raisedOnOpen: number[] = []
 
-    tools.openApp = async () => {
-      raisedOnOpen.push(await openSibling('--container-app'))
+      tools.openApp = async () => {
+        raisedOnOpen.push(await openSibling('--container-app'))
 
-      return {ok: true, code: 0, output: ''}
+        return {ok: true, code: 0, output: ''}
+      }
+
+      await runDevPackage(tools)
+      const raised = raisedOnOpen[0]
+
+      expect(raised).toBeGreaterThan(0)
+      expect(processAlive(raised)).toBe(true)
+
+      await closeSafariContainerApps()
+
+      expect(await waitForExit(raised)).toBe(true)
+      expect(processAlive(userApp)).toBe(true)
     }
-
-    await runDevPackage(tools)
-    const raised = raisedOnOpen[0]
-
-    expect(raised).toBeGreaterThan(0)
-    expect(processAlive(raised)).toBe(true)
-
-    await closeSafariContainerApps()
-
-    expect(await waitForExit(raised)).toBe(true)
-    expect(processAlive(userApp)).toBe(true)
-  })
+  )
 
   it('build packaging: leaves the container app it opened running', async () => {
     const tools = fakeSafariTools({appMatch: '--container-app'})
