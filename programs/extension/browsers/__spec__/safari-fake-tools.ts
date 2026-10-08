@@ -21,6 +21,9 @@ export interface FakeSafariToolsOptions {
   // The argv fragment that marks a stand-in Safari in the real process list,
   // paired with `--automation` the way the production matcher pairs `Safari`.
   automationMatch?: string
+  // The argv fragment that marks a stand-in container app in the real process
+  // list. Unset means the app never shows up as running.
+  appMatch?: string
 }
 
 export interface FakeSafariTools extends SafariPipelineTools {
@@ -191,6 +194,12 @@ export function fakeSafariTools(
       return listPidsWhere(
         (args) => args.includes(match) && args.includes('--automation')
       )
+    },
+    listAppPids: () => {
+      const match = options.appMatch
+      if (!match) return Promise.resolve([])
+
+      return listPidsWhere((args) => args.includes(match))
     }
   }
 
