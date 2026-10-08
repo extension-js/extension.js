@@ -618,6 +618,16 @@ describe('the act frame as a schema-1 envelope', () => {
     expect(error.hint).toContain('extension inspect --list-tabs')
   })
 
+  it('reproduces golden.eval.ok.json from the bare value the bridge answers', () => {
+    const golden = JSON.parse(
+      fs.readFileSync(path.join(here, 'golden.eval.ok.json'), 'utf8')
+    )
+    const frame = buildActEnvelope('eval', {ok: true, value: 4})
+
+    expect(frame).toEqual(golden)
+    expect(golden.value).toBe(4)
+  })
+
   it('reproduces golden.eval.eval.json from a real guest throw', () => {
     const golden = JSON.parse(
       fs.readFileSync(path.join(here, 'golden.eval.eval.json'), 'utf8')

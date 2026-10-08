@@ -3,10 +3,7 @@
   "ok": true,
   "command": "eval",
   "status": "ok",
-  "value": {
-    "result": 4,
-    "context": "background"
-  },
+  "value": 4,
   "error": null,
   "warnings": []
 }
