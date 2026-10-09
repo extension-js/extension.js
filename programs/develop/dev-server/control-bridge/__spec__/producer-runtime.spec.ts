@@ -1609,6 +1609,9 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       ]
     })
 
+    // The control reload flags the next generation's tab heal too.
+    expect(typeof stored.__extjsDevPendingReinject).toBe('number')
+
     expect(reloads).toHaveLength(0)
     await vi.advanceTimersByTimeAsync(50)
     expect(reloads).toHaveLength(1)

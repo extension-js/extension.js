@@ -947,6 +947,15 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
     // Shared by every path that restarts the extension, so none of them
     // strands the override tabs.
     function restartExtension(delayMs, onRecorded) {
+      // Every restart path flags the next generation's heal, so open tabs get
+      // their content scripts back whichever path asked for the reload.
+      try {
+        if (g.chrome && g.chrome.storage && g.chrome.storage.local) {
+          g.chrome.storage.local.set({__extjsDevPendingReinject: Date.now()}, noopLastError);
+        }
+      } catch (e) {
+        // Ignore
+      }
       rememberOverrideTabs(function (list) {
         if (onRecorded) { try { onRecorded(list); } catch (e) {
           // Ignore
@@ -1006,15 +1015,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       if (!chrome) return;
 
       var fullReload = function () {
-        // Flag a pending reinject for the NEXT producer generation: the
-        // boot-time heal is what converges open tabs after a SW/full reload.
-        try {
-          if (chrome.storage && chrome.storage.local) {
-            chrome.storage.local.set({__extjsDevPendingReinject: Date.now()}, noopLastError);
-          }
-        } catch (e) {
-          // Ignore
-        }
+        // restartExtension flags the next generation's heal before it reloads.
         // Deferred so in-flight frames and the tab console announcement flush
         // before the SW dies; the devtools companion confirms completion.
         restartExtension(150);
