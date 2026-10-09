@@ -164,6 +164,10 @@ export function sessionStateIgnoreAdded(gitignorePath: string) {
   return `${getLoggingPrefix('info')} Added .extension-js to ${gitignorePath} so the local session state stays out of commits.`
 }
 
+export function sessionArtifactsExplained(sessionRoot: string) {
+  return `${getLoggingPrefix('info')} ${sessionRoot} holds Extension.js session files (contracts, logs, browser profiles), not a build. Its README.md lists them.`
+}
+
 export function previewingSourceFallback(
   browser: DevOptions['browser'],
   distDir: string
