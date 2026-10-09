@@ -440,10 +440,15 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
         }
         if (op === "reload") {
           if (ctx === "background") {
-            replyOk(cmdId, {reloading: true});
-            setTimeout(function () { try { chrome.runtime.reload(); } catch (e) {
-              // Ignore
-            } }, 50);
+            // The answer names the override tabs the next generation restores.
+            restartExtension(50, function (restoring) {
+              var value = {reloading: true, reloaded: ["background"]};
+              if (restoring.length) {
+                value.restoring = [];
+                for (var r = 0; r < restoring.length; r++) value.restoring.push({tabId: restoring[r].tabId, surface: restoring[r].surface});
+              }
+              replyOk(cmdId, value);
+            });
           } else if (target.tabId) {
             nsCall("tabs", "reload", [target.tabId], function (err) {
               if (err) replyTabsFailure(cmdId, err, "ReloadError");
@@ -874,6 +879,125 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       try { return g.__extjsDevContentScripts || null; } catch (e) { return null; }
     }
 
+    // An extension reload unloads chrome_url_overrides, and Chromium leaves
+    // the open override tabs on its stock page. Only a fresh navigation to the
+    // browser url (a tab reload does not) picks the override up again.
+    var OVERRIDE_TABS_KEY = "__extjsDevOverrideTabs";
+    var OVERRIDE_KINDS = ["newtab", "history", "bookmarks"];
+
+    function overriddenKinds() {
+      var m = null;
+      try { m = g.chrome.runtime.getManifest(); } catch (e) { return []; }
+      var o = m && m.chrome_url_overrides;
+      var out = [];
+      if (!o) return out;
+      for (var i = 0; i < OVERRIDE_KINDS.length; i++) {
+        if (typeof o[OVERRIDE_KINDS[i]] === "string" && o[OVERRIDE_KINDS[i]]) out.push(OVERRIDE_KINDS[i]);
+      }
+      return out;
+    }
+
+    // chrome://newtab/, edge://history and the like. Gecko shows about: urls
+    // there, which this never matches, so other engines record nothing.
+    function overrideKindOf(url, kinds) {
+      var match = /^[a-z-]+:[/][/]([a-z]+)[/]?(?:[?#].*)?$/.exec(String(url || ""));
+      return match && kinds.indexOf(match[1]) !== -1 ? match[1] : null;
+    }
+
+    // Records the open override tabs for the next generation and answers with
+    // them. The guard keeps a silent tabs.query from blocking the reload.
+    function rememberOverrideTabs(cb) {
+      var chrome = g.chrome;
+      var answered = false;
+      var guard = null;
+      var answer = function (list) {
+        if (answered) return;
+        answered = true;
+        if (guard) { try { clearTimeout(guard); } catch (e) {
+          // Ignore
+        } }
+        try { cb(list); } catch (e) {
+          // Ignore
+        }
+      };
+      var kinds = overriddenKinds();
+      if (!kinds.length || !chrome.tabs || !chrome.tabs.query || !chrome.storage || !chrome.storage.local) return answer([]);
+      try { guard = setTimeout(function () { answer([]); }, 1000); } catch (e) {
+        // Ignore
+      }
+      try {
+        chrome.tabs.query({}, function (tabs) {
+          noopLastError();
+          var list = [];
+          for (var i = 0; tabs && i < tabs.length; i++) {
+            var t = tabs[i];
+            var kind = t && t.id != null ? overrideKindOf(t.url, kinds) : null;
+            if (kind) list.push({tabId: t.id, surface: kind, url: t.url});
+          }
+          if (!list.length) return answer(list);
+          try {
+            var rec = {};
+            rec[OVERRIDE_TABS_KEY] = {at: Date.now(), tabs: list};
+            chrome.storage.local.set(rec, function () { noopLastError(); answer(list); });
+          } catch (e) { answer([]); }
+        });
+      } catch (e) { answer([]); }
+    }
+
+    // Shared by every path that restarts the extension, so none of them
+    // strands the override tabs.
+    function restartExtension(delayMs, onRecorded) {
+      rememberOverrideTabs(function (list) {
+        if (onRecorded) { try { onRecorded(list); } catch (e) {
+          // Ignore
+        } }
+        try { setTimeout(function () { try { g.chrome.runtime.reload(); } catch (e) {
+          // Ignore
+        } }, delayMs); } catch (e) {
+          // Ignore
+        }
+      });
+    }
+    g.__extjsDevRestartExtension = restartExtension;
+
+    // The new generation sends each recorded tab back to its browser url, once,
+    // unless the tab has navigated elsewhere since.
+    function restoreOverrideTabsAtBoot() {
+      var chrome = g.chrome;
+      if (!chrome || !chrome.storage || !chrome.storage.local || !chrome.tabs || !chrome.tabs.update) return;
+      chrome.storage.local.get(OVERRIDE_TABS_KEY, function (res) {
+        noopLastError();
+        var rec = res && res[OVERRIDE_TABS_KEY];
+        if (!rec || typeof rec !== "object" || !Array.isArray(rec.tabs)) return;
+        try { chrome.storage.local.remove(OVERRIDE_TABS_KEY, noopLastError); } catch (e) {
+          // Ignore
+        }
+        if (typeof rec.at !== "number" || Date.now() - rec.at > 30000) return;
+        var kinds = overriddenKinds();
+        setTimeout(function () {
+          for (var i = 0; i < rec.tabs.length; i++) {
+            (function (t) {
+              if (!t || t.tabId == null || kinds.indexOf(t.surface) === -1) return;
+              var go = function () {
+                try { chrome.tabs.update(t.tabId, {url: t.url}, noopLastError); } catch (e) {
+                  // Ignore
+                }
+              };
+              if (!chrome.tabs.get) return go();
+              try {
+                chrome.tabs.get(t.tabId, function (tab) {
+                  noopLastError();
+                  if (tab && overrideKindOf(tab.url, kinds) === t.surface) go();
+                });
+              } catch (e) {
+                // Ignore
+              }
+            })(rec.tabs[i]);
+          }
+        }, 250);
+      });
+    }
+
     // Dev-loop reload without the CDP controller: content-scripts reload the
     // matching tabs at the new bundle, or re-inject in place where no registry
     // exists; service-worker/full/manifest restart the extension.
@@ -893,9 +1017,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
         }
         // Deferred so in-flight frames and the tab console announcement flush
         // before the SW dies; the devtools companion confirms completion.
-        try { setTimeout(function () { try { chrome.runtime.reload(); } catch (e) {
-          // Ignore
-        } }, 150); } catch (e) {}
+        restartExtension(150);
       };
 
       if (type === "content-scripts" && chrome.scripting && chrome.tabs && chrome.tabs.query) {
@@ -1414,6 +1536,10 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
         });
       }
     } catch (e) {
+      // Ignore
+    }
+
+    try { restoreOverrideTabsAtBoot(); } catch (e) {
       // Ignore
     }
 

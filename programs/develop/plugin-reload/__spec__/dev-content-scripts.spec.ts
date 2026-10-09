@@ -853,6 +853,23 @@ describe('dev content scripts runtime', () => {
     expect(next.storage[DEV_CONTENT_SCRIPT_STATIC_RELOAD_KEY]).toBeUndefined()
   })
 
+  it("reload of a static entry restarts through the producer's restart when it is installed", async () => {
+    const w = worker({
+      registry: withStatic,
+      tabs: [{id: 1, url: 'https://a.test/one'}]
+    })
+    await w.settle()
+    const restarts: number[] = []
+    w.g.__extjsDevRestartExtension = (delay: number) => restarts.push(delay)
+
+    w.hooks().reload(['content_scripts/content-1'], () => {})
+    await new Promise((r) => setTimeout(r, 250))
+
+    expect(restarts).toEqual([150])
+    expect(w.calls.runtimeReload).toEqual([])
+    expect(w.storage.__extjsDevPendingReinject).toEqual(expect.any(Number))
+  })
+
   it('reload of a stubbed entry beside a static one still reloads its tabs in place', async () => {
     const w = worker({
       registry: withStatic,
