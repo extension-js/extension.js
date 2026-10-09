@@ -175,3 +175,38 @@ describe('a Firefox child process that errors after it spawned', () => {
     expect(String(log.error.mock.calls[0][0])).toMatch(/EPIPE after spawn/)
   })
 })
+
+describe('a Firefox that hands the session to a relaunched process', () => {
+  it('keeps the event loop on the adopted pid until that process is gone', async () => {
+    const plugin = makePlugin()
+    ;(plugin as any).ctx.logger = logger()
+    ;(plugin as any).onBrowserGone = vi.fn()
+
+    // A refused add-on leaves no RDP socket, so after the spawned child exits
+    // this probe is the only handle on the browser the session still owns.
+    ;(plugin as any).adoptLivePid(process.pid)
+    const watcher = (plugin as any).liveExitWatcher
+
+    try {
+      expect(watcher).toBeDefined()
+      expect(watcher.hasRef()).toBe(true)
+      expect((plugin as any).livePid).toBe(process.pid)
+    } finally {
+      clearInterval(watcher)
+    }
+  })
+
+  it('reports the adopted process gone once its pid stops answering', async () => {
+    const plugin = makePlugin()
+    ;(plugin as any).ctx.logger = logger()
+    const gone = vi.fn()
+    ;(plugin as any).onBrowserGone = gone
+
+    // Larger than any pid the OS hands out, so the probe finds nothing.
+    ;(plugin as any).adoptLivePid(2 ** 30)
+    await new Promise((resolve) => setTimeout(resolve, 1300))
+
+    expect(gone).toHaveBeenCalledTimes(1)
+    expect((plugin as any).liveExitWatcher).toBeUndefined()
+  })
+})

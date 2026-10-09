@@ -943,6 +943,17 @@ export function librewolfRemoteDebuggingLocked(overridesPath: string) {
   )
 }
 
+export function managedGeckoUpdatePolicyFailed(
+  policyPath: string,
+  error: string
+) {
+  return (
+    `${getLoggingPrefix('warn')} Extension.js couldn't turn off updates for the managed Firefox build.\n` +
+    `Firefox can update and restart during this session. Make ${colors.underline(policyPath)} writable to stop this.\n` +
+    `${colors.gray(error)}`
+  )
+}
+
 export function firefoxBinaryArgsExtracted(args: string) {
   return `${getLoggingPrefix('debug')} browser  args="${args}"`
 }
