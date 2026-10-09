@@ -8,7 +8,7 @@
 
 import * as path from 'node:path'
 import colors from 'pintor'
-import {fmt, prefix} from './messaging'
+import {fmt, isDebug, prefix} from './messaging'
 import {
   resolveScaffoldPackageManager,
   type ScaffoldPackageManager
@@ -157,17 +157,33 @@ export function installingFromTemplate(
   return `${prefix('info')} Copying the template ${colors.blue(templateName)}…`
 }
 
+// A codeload or github.com URL reads as its owner/repo; the archive URL and
+// its 40-character commit are noise on a first screen, so only debug shows them.
+function templateSourceLabel(source: string): string {
+  const match =
+    /^https?:\/\/(?:codeload\.github\.com|github\.com)\/([^/\s]+)\/([^/\s#?]+)/i.exec(
+      source
+    )
+  if (!match) return fmt.truncate(source, 120)
+
+  return `${match[1]}/${match[2].replace(/\.git$/i, '')}`
+}
+
 export function usingTemplate(templateName: string, source: string) {
   const origin =
     source === 'bundled'
       ? 'bundled with this CLI'
       : source === 'local'
         ? 'from a directory on this machine'
-        : `from ${fmt.val(fmt.truncate(source, 120))}`
+        : `from ${fmt.val(templateSourceLabel(source))}`
+  const debugSource =
+    isDebug() && source !== 'bundled' && source !== 'local'
+      ? ` (${source})`
+      : ''
 
   return (
     `${prefix('info')} Using the ${colors.blue(templateName)} template, ` +
-    `${origin}.`
+    `${origin}${debugSource}.`
   )
 }
 
