@@ -1548,6 +1548,191 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     expect(reloaded).toBe(true)
   })
 
+  // A newtab override extension with two stock-url override tabs, a web tab
+  // and a Gecko-style about: tab that must never be recorded.
+  function overrideChrome(stored: Record<string, unknown>, reloads: number[]) {
+    return {
+      runtime: {
+        getManifest: () => ({
+          chrome_url_overrides: {newtab: 'newtab/index.html'}
+        }),
+        reload: () => reloads.push(Date.now())
+      },
+      tabs: {
+        query: (_q: unknown, cb: (t: unknown[]) => void) =>
+          cb([
+            {id: 1, url: 'chrome://newtab/'},
+            {id: 2, url: 'https://example.com/'},
+            {id: 3, url: 'edge://newtab'},
+            {id: 4, url: 'about:newtab'},
+            {id: 5, url: 'chrome://history/'}
+          ])
+      },
+      storage: {
+        local: {
+          set: (items: Record<string, unknown>, cb?: () => void) => {
+            Object.assign(stored, items)
+            cb?.()
+          }
+        }
+      }
+    }
+  }
+
+  it('reload background records the override tabs, names them in the answer, then restarts', async () => {
+    const stored: Record<string, unknown> = {}
+    const reloads: number[] = []
+    const ws = setup(overrideChrome(stored, reloads))
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'r-ov',
+      op: 'reload',
+      target: {context: 'background'}
+    })
+
+    expect(results(ws).find((f) => f.cmdId === 'r-ov')).toMatchObject({
+      ok: true,
+      value: {
+        reloading: true,
+        reloaded: ['background'],
+        restoring: [
+          {tabId: 1, surface: 'newtab'},
+          {tabId: 3, surface: 'newtab'}
+        ]
+      }
+    })
+
+    expect(stored.__extjsDevOverrideTabs).toMatchObject({
+      tabs: [
+        {tabId: 1, surface: 'newtab', url: 'chrome://newtab/'},
+        {tabId: 3, surface: 'newtab', url: 'edge://newtab'}
+      ]
+    })
+
+    // The control reload flags the next generation's tab heal too.
+    expect(typeof stored.__extjsDevPendingReinject).toBe('number')
+
+    expect(reloads).toHaveLength(0)
+    await vi.advanceTimersByTimeAsync(50)
+    expect(reloads).toHaveLength(1)
+    // The no-answer guard is cleared once the tabs were recorded.
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('a service-worker reload broadcast records the override tabs before restarting', async () => {
+    const stored: Record<string, unknown> = {}
+    const reloads: number[] = []
+    const ws = setup(overrideChrome(stored, reloads))
+    ws.triggerMessage({type: 'reload', reloadType: 'service-worker'})
+
+    expect(typeof stored.__extjsDevPendingReinject).toBe('number')
+    expect(stored.__extjsDevOverrideTabs).toMatchObject({
+      tabs: [{tabId: 1}, {tabId: 3}]
+    })
+
+    expect(reloads).toHaveLength(0)
+    await waitFor(() => reloads.length === 1, 'the extension restart')
+  })
+
+  it('a silent tabs.query never blocks the background reload', async () => {
+    const reloads: number[] = []
+    const chromeApi = overrideChrome({}, reloads)
+
+    chromeApi.tabs.query = () => {}
+
+    const ws = setup(chromeApi)
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'r-silent',
+      op: 'reload',
+      target: {context: 'background'}
+    })
+
+    await waitFor(() => reloads.length === 1, 'the guarded restart')
+    const answer = results(ws).find((f) => f.cmdId === 'r-silent')
+    expect(answer).toMatchObject({ok: true, value: {reloading: true}})
+    expect(answer.value.restoring).toBeUndefined()
+  })
+
+  it('the next generation sends recorded override tabs back to their browser url, once', async () => {
+    const updated: Array<[number, unknown]> = []
+    const removed: string[] = []
+    const now = Date.now()
+    const tabUrls: Record<number, string> = {
+      1: 'chrome://newtab/',
+      3: 'https://example.com/'
+    }
+    setup({
+      runtime: {
+        getManifest: () => ({
+          chrome_url_overrides: {newtab: 'newtab/index.html'}
+        })
+      },
+      tabs: {
+        get: (id: number, cb: (t: unknown) => void) =>
+          cb(tabUrls[id] ? {id, url: tabUrls[id]} : undefined),
+        update: (id: number, props: unknown) => updated.push([id, props])
+      },
+      storage: {
+        local: {
+          get: (key: string, cb: (res: Record<string, unknown>) => void) =>
+            cb(
+              key === '__extjsDevOverrideTabs'
+                ? {
+                    [key]: {
+                      at: now,
+                      tabs: [
+                        {tabId: 1, surface: 'newtab', url: 'chrome://newtab/'},
+                        {tabId: 3, surface: 'newtab', url: 'chrome://newtab/'},
+                        {tabId: 9, surface: 'newtab', url: 'chrome://newtab/'}
+                      ]
+                    }
+                  }
+                : {}
+            ),
+          remove: (key: string, cb?: () => void) => {
+            removed.push(key)
+            cb?.()
+          }
+        }
+      }
+    })
+
+    expect(removed).toEqual(['__extjsDevOverrideTabs'])
+    await vi.advanceTimersByTimeAsync(250)
+    // Tab 3 navigated away and tab 9 is gone: only tab 1 is restored.
+    expect(updated).toEqual([[1, {url: 'chrome://newtab/'}]])
+  })
+
+  it('a stale override record is dropped without touching any tab', async () => {
+    const updated: number[] = []
+    const removed: string[] = []
+    setup({
+      runtime: {
+        getManifest: () => ({
+          chrome_url_overrides: {newtab: 'newtab/index.html'}
+        })
+      },
+      tabs: {update: (id: number) => updated.push(id)},
+      storage: {
+        local: {
+          get: (key: string, cb: (res: Record<string, unknown>) => void) =>
+            cb({
+              [key]: {
+                at: Date.now() - 60_000,
+                tabs: [{tabId: 1, surface: 'newtab', url: 'chrome://newtab/'}]
+              }
+            }),
+          remove: (key: string) => removed.push(key)
+        }
+      }
+    })
+
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(removed).toContain('__extjsDevOverrideTabs')
+    expect(updated).toEqual([])
+  })
+
   it('a reload frame with changedScriptFiles hands them to the scripts-replay shim once', async () => {
     const replayed: string[][] = []
     const ws = setup(

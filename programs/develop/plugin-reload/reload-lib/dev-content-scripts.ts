@@ -490,6 +490,12 @@ export const DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE = `;(function () {
       } catch (e) {
         // Ignore
       }
+      // The producer's restart also brings the url-override tabs back.
+      if (typeof g.__extjsDevRestartExtension === "function") {
+        try { g.__extjsDevRestartExtension(150); return; } catch (e) {
+          // Ignore
+        }
+      }
       setTimeout(function () { try { chrome.runtime.reload(); } catch (e) {
         // Ignore
       } }, 150);
