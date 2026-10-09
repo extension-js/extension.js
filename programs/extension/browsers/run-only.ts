@@ -311,8 +311,8 @@ export async function runOnlyPreviewBrowser(
   computeBinariesBaseDir(compilationLike)
 
   if (isChromiumBrowser(opts.browser)) {
-    // Run Chromium launch without CDP post-launch wiring (keeps `ws` optional).
-    // Chromium forks (brave/opera/vivaldi/yandex) route here too.
+    // No reload wiring here, only the load check that tells the contract
+    // whether the browser took the guest. Chromium forks route here too.
     const ctx = createChromiumContext()
     const launcher = new ChromiumLaunchPlugin(
       buildPreviewChromiumOptions(opts),

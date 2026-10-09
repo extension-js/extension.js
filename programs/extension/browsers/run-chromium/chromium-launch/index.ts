@@ -1106,7 +1106,7 @@ export class ChromiumLaunchPlugin {
           extension: extensionsToLoad,
           logLevel: this.options.logLevel
         },
-        {provision: !dryRun}
+        {provision: !dryRun, cdp: true}
       )
     } catch (error) {
       // A locked profile aborts before the spawn, so no exit handler will ever
@@ -1162,6 +1162,11 @@ export class ChromiumLaunchPlugin {
     })
 
     const enableCdp = opts?.enableCdpPostLaunch === false ? false : true
+    // Run-only skips the reload wiring but still asks the browser about the
+    // guest, unless the user stripped the debugging flags from the launch.
+    const verifyLoadOnly =
+      !enableCdp &&
+      chromiumConfig.some((flag) => flag.startsWith('--remote-debugging-'))
 
     try {
       await maybePrintLaunchBanner({
@@ -1243,7 +1248,7 @@ export class ChromiumLaunchPlugin {
     guardCdpPipe(pipeStreams?.input)
     guardCdpPipe(pipeStreams?.output)
 
-    if (enableCdp && !pipeStreams) {
+    if ((enableCdp || verifyLoadOnly) && !pipeStreams) {
       let portReady = false
 
       for (let attempt = 0; attempt < 10; attempt++) {
@@ -1298,8 +1303,8 @@ export class ChromiumLaunchPlugin {
         launchRunId: this.closeHandlerContext?.runId
       }
 
-      // Optional CDP wiring (dev + inspection). Run-only preview disables this
-      // to avoid pulling in WS/CDP dependencies.
+      // Full CDP wiring (dev + inspection). Run-only keeps to the load check
+      // below, it has no reload to deliver.
       if (enableCdp) {
         const mod = await import('./setup-cdp-after-launch')
         // Watchdog: a rejected extension at launch stalls startup behind a macOS modal
@@ -1331,6 +1336,42 @@ export class ChromiumLaunchPlugin {
         if (cdpConfig.extensionLoadRefused) {
           this.extensionLoadRefused = cdpConfig.extensionLoadRefused
           this.bannerOnRecovery = cdpConfig.printBannerOnRecovery
+        }
+
+        if (cdpConfig.cdpController) {
+          this.ctx.setController(
+            cdpConfig.cdpController as CDPExtensionController
+          )
+        }
+      } else if (verifyLoadOnly) {
+        const mod = await import('./setup-cdp-after-launch')
+        // Same watchdog as above: a refusal modal can stall the handshake.
+        const LOAD_CHECK_TIMEOUT_MS = 45_000
+        await Promise.race([
+          mod.verifyGuestLoadAfterLaunch(
+            compilation,
+            cdpConfig,
+            chromiumConfig,
+            pipeStreams
+          ),
+          new Promise((_, reject) =>
+            setTimeout(
+              () =>
+                reject(
+                  codedError(
+                    CODES.E_CDP_TIMEOUT,
+                    `The browser gave the extension load check no answer within ${
+                      LOAD_CHECK_TIMEOUT_MS / 1000
+                    }s.`
+                  )
+                ),
+              LOAD_CHECK_TIMEOUT_MS
+            ).unref?.()
+          )
+        ])
+
+        if (cdpConfig.extensionLoadRefused) {
+          this.extensionLoadRefused = cdpConfig.extensionLoadRefused
         }
 
         if (cdpConfig.cdpController) {
@@ -1394,7 +1435,11 @@ export class ChromiumLaunchPlugin {
   ) {
     const flags =
       chromiumConfig ??
-      browserConfig(compilation, {...this.options}, {provision: false})
+      browserConfig(
+        compilation,
+        {...this.options},
+        {provision: false, cdp: true}
+      )
     const plan = chromiumLaunchPlan(
       binary,
       flags,
