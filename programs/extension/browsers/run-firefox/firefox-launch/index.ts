@@ -765,7 +765,11 @@ export class FirefoxLaunchPlugin {
           throw error
         }
 
-        this.reportAddonLoadRefused(reason)
+        this.reportAddonLoadRefused(
+          reason,
+          compilation.options?.mode !== 'development'
+        )
+
         // Re-offering the dist needs the port and compilation resolved here,
         // so bind them now; the launcher's controller calls this on recompile.
         this.host.retryAddonInstall = () =>
@@ -1085,9 +1089,9 @@ export class FirefoxLaunchPlugin {
 
   // Report a Gecko refusal on every surface Chromium already reports one on:
   // stdout, logs.ndjson, and a non-ready contract. The session stays alive.
-  private reportAddonLoadRefused(reason: string) {
+  private reportAddonLoadRefused(reason: string, runOnly = false) {
     const refusedPath = this.extensionOutputPath || ''
-    humanError(messages.geckoAddonLoadRefused(refusedPath, reason))
+    humanError(messages.geckoAddonLoadRefused(refusedPath, reason, {runOnly}))
     this.host.logSink?.({
       level: 'error',
       text: `extension_load_refused: ${refusedPath}${

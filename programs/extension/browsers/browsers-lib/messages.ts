@@ -523,16 +523,24 @@ export function chromiumManifestLoadBlockers(
 // browser's own answer, so it reads the same headed (modal) and headless (silent).
 export function chromiumExtensionLoadRefused(
   extensionPath: string,
-  reason: string
+  reason: string,
+  options: {runOnly?: boolean} = {}
 ) {
   return (
     `${getLoggingPrefix('error')} ${colors.red("The browser refused to load this extension, so it isn't running.")}\n` +
     `${colors.gray('PATH')} ${colors.underline(extensionPath)}\n` +
     (reason ? `${colors.gray('REASON')} ${colors.red(reason)}\n` : '') +
     `No service worker, content script, or page from this extension will run, and no Extension ID was assigned.\n` +
-    `Fix the reason above and save.\n` +
-    `If the browser doesn't pick it up, restart the dev session.`
+    loadRefusalRecovery(options.runOnly)
   )
+}
+
+// A run-only session has no watcher, so saving the file changes nothing.
+function loadRefusalRecovery(runOnly?: boolean) {
+  return runOnly
+    ? `Fix the reason above, rebuild, and run the command again.`
+    : `Fix the reason above and save.\n` +
+        `If the browser doesn't pick it up, restart the dev session.`
 }
 
 // Chrome 150 drops --load-extension unless the switch policy is disabled, and
@@ -565,14 +573,17 @@ export function chromiumHeadlessPageTargetRecreated(browser: Browser) {
 
 // The Gecko twin of chromiumExtensionLoadRefused. Firefox volunteers its
 // reason at install time, so the shape is the same and only the nouns differ.
-export function geckoAddonLoadRefused(addonPath: string, reason: string) {
+export function geckoAddonLoadRefused(
+  addonPath: string,
+  reason: string,
+  options: {runOnly?: boolean} = {}
+) {
   return (
     `${getLoggingPrefix('error')} ${colors.red("The browser refused to load this add-on, so it isn't running.")}\n` +
     `${colors.gray('PATH')} ${colors.underline(addonPath)}\n` +
     (reason ? `${colors.gray('REASON')} ${colors.red(reason)}\n` : '') +
     `No background script, content script, or page from this add-on will run, and no Extension ID was assigned.\n` +
-    `Fix the reason above and save.\n` +
-    `If the browser doesn't pick it up, restart the dev session.`
+    loadRefusalRecovery(options.runOnly)
   )
 }
 

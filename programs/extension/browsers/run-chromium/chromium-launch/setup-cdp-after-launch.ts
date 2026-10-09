@@ -6,7 +6,6 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝       ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝ ╚═════╝ ╚═╝     ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Readable, Writable} from 'node:stream'
 import {
@@ -30,15 +29,14 @@ import * as messages from '../../browsers-lib/messages'
 import {manifestDeclaresNewtabOverride} from '../../browsers-lib/newtab-override'
 import {
   describeLaunchFailure,
-  readyPathFor,
   stampReadyCdpFault,
+  stampReadyCdpPort,
   stampReadyExtensionLoadRefused
 } from '../../browsers-lib/ready-stamp'
 import {
   deriveDebugPortWithInstance,
   launchIsHeadless
 } from '../../browsers-lib/shared-utils'
-import {writeJsonAtomic} from '../../browsers-lib/write-json-atomic'
 import type {CompilationLike} from '../../browsers-types'
 import {
   CDPExtensionController,
@@ -52,12 +50,13 @@ import {
 import type {ChromiumPluginRuntime} from '../chromium-types'
 import {getExtensionOutputPath} from './extension-output-path'
 
-export async function setupCdpAfterLaunch(
+// What the launch flags say about the session: which dist is the guest, which
+// port the browser debugs on, and which profile it runs.
+function readLaunchTargets(
   compilation: CompilationLike | undefined,
   plugin: ChromiumPluginRuntime,
-  chromiumArgs: string[],
-  pipeStreams?: {input: Readable; output: Writable}
-): Promise<void> {
+  chromiumArgs: string[]
+) {
   const loadExtensionFlag = chromiumArgs.find((flag: string) =>
     flag.startsWith('--load-extension=')
   )
@@ -96,6 +95,120 @@ export async function setupCdpAfterLaunch(
   const userDataDir = userDataDirFlag
     ? userDataDirFlag.replace('--user-data-dir=', '').replace(/^"|"$/g, '')
     : ''
+
+  return {
+    extensionOutputPath,
+    extensionPaths,
+    selectedExtensionPaths,
+    companionPath,
+    chromeRemoteDebugPort,
+    userDataDir
+  }
+}
+
+// Report a guest the browser threw away on every surface: stdout, logs and a
+// non-ready contract. The session stays up, the browser is still running.
+function reportGuestLoadRefused(
+  plugin: ChromiumPluginRuntime,
+  extensionOutputPath: string,
+  refusedPath: string,
+  reason: string,
+  runOnly = false
+) {
+  humanError(
+    messages.chromiumExtensionLoadRefused(refusedPath, reason, {runOnly})
+  )
+
+  plugin.logSink?.({
+    level: 'error',
+    text: `extension_load_refused: ${refusedPath}${
+      reason ? ` - ${reason}` : ''
+    }`,
+    source: 'browser'
+  })
+
+  stampReadyExtensionLoadRefused(
+    extensionOutputPath,
+    reason,
+    plugin.launchRunId
+  )
+
+  plugin.extensionLoadRefused = reason
+}
+
+// A run-only session gets the one answer a dev session gets before anything
+// else: did the browser take the guest. No reload wiring, banners or tabs.
+export async function verifyGuestLoadAfterLaunch(
+  compilation: CompilationLike | undefined,
+  plugin: ChromiumPluginRuntime,
+  chromiumArgs: string[],
+  pipeStreams?: {input: Readable; output: Writable}
+): Promise<void> {
+  const {
+    extensionOutputPath,
+    selectedExtensionPaths,
+    companionPath,
+    chromeRemoteDebugPort,
+    userDataDir
+  } = readLaunchTargets(compilation, plugin, chromiumArgs)
+
+  const cdpExtensionController = new CDPExtensionController({
+    outPath: extensionOutputPath,
+    browser: plugin.browser,
+    cdpPort: chromeRemoteDebugPort,
+    profilePath: userDataDir || undefined,
+    extensionPaths: selectedExtensionPaths,
+    companionPath,
+    pipeIn: pipeStreams?.input,
+    pipeOut: pipeStreams?.output,
+    logSink: plugin.logSink
+  })
+
+  await cdpExtensionController.connect()
+
+  // Held for the life of the session: closing the pipe tells Chromium to quit.
+  plugin.cdpController = cdpExtensionController
+
+  stampReadyCdpPort(
+    extensionOutputPath,
+    chromeRemoteDebugPort,
+    plugin.launchRunId
+  )
+
+  const loadOutcome =
+    (await cdpExtensionController.verifyGuestLoaded?.()) ??
+    ({status: 'unknown'} as const)
+  const guestPath = extensionOutputPath || selectedExtensionPaths[0] || ''
+
+  if (loadOutcome.status === 'unknown' && loadOutcome.unsupported) {
+    humanWarn(messages.chromiumExtensionLoadUnconfirmed(guestPath))
+  }
+
+  if (loadOutcome.status === 'refused') {
+    reportGuestLoadRefused(
+      plugin,
+      extensionOutputPath,
+      guestPath,
+      loadOutcome.reason,
+      true
+    )
+  }
+}
+
+export async function setupCdpAfterLaunch(
+  compilation: CompilationLike | undefined,
+  plugin: ChromiumPluginRuntime,
+  chromiumArgs: string[],
+  pipeStreams?: {input: Readable; output: Writable}
+): Promise<void> {
+  const {
+    extensionOutputPath,
+    extensionPaths,
+    selectedExtensionPaths,
+    companionPath,
+    chromeRemoteDebugPort,
+    userDataDir
+  } = readLaunchTargets(compilation, plugin, chromiumArgs)
 
   // The identity card carries the profile row now. The standalone line only
   // survives where this launch cannot show the card: the pair's key is already
@@ -152,22 +265,11 @@ export async function setupCdpAfterLaunch(
     }
   }
 
-  try {
-    if (extensionOutputPath && Number.isFinite(chromeRemoteDebugPort)) {
-      const readyPath = readyPathFor(extensionOutputPath)
-
-      if (fs.existsSync(readyPath)) {
-        const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
-
-        if (ready.cdpPort !== chromeRemoteDebugPort) {
-          ready.cdpPort = chromeRemoteDebugPort
-          writeJsonAtomic(readyPath, ready)
-        }
-      }
-    }
-  } catch {
-    // best-effort; never block launch on this
-  }
+  stampReadyCdpPort(
+    extensionOutputPath,
+    chromeRemoteDebugPort,
+    plugin.launchRunId
+  )
 
   // Ask the browser whether the guest actually loaded BEFORE any banner: the
   // banner's id falls back to a path hash, so it prints happily for an
@@ -189,22 +291,11 @@ export async function setupCdpAfterLaunch(
 
   if (loadOutcome.status === 'refused') {
     const refusedPath = extensionOutputPath || selectedExtensionPaths[0] || ''
-    humanError(
-      messages.chromiumExtensionLoadRefused(refusedPath, loadOutcome.reason)
-    )
-
-    plugin.logSink?.({
-      level: 'error',
-      text: `extension_load_refused: ${refusedPath}${
-        loadOutcome.reason ? ` - ${loadOutcome.reason}` : ''
-      }`,
-      source: 'browser'
-    })
-
-    stampReadyExtensionLoadRefused(
+    reportGuestLoadRefused(
+      plugin,
       extensionOutputPath,
-      loadOutcome.reason,
-      plugin.launchRunId
+      refusedPath,
+      loadOutcome.reason
     )
 
     // The refusal withholds the card, so the profile line keeps the
@@ -214,8 +305,7 @@ export async function setupCdpAfterLaunch(
     }
 
     // No banner and no Extension ID: there is nothing in the browser to name.
-    // The flag withholds the launch path's "ready for development" claim.
-    plugin.extensionLoadRefused = loadOutcome.reason
+    // The refusal flag withholds the launch path's "ready for development" claim.
     plugin.cdpController = cdpExtensionController
 
     // Bind the banner the refusal just withheld, so a later compile that gets

@@ -136,7 +136,7 @@ describe('chromium --dry-run', () => {
     const flags = chromiumBrowserConfig(
       compilation(),
       {browser: 'chrome', extension: [out], profile: join(tmp, 'p')} as any,
-      {provision: false}
+      {provision: false, cdp: true}
     )
     const plan = chromiumLaunchPlan(pin, flags, 'https://example.com')
     expect(argsLine('FLAGS')).toContain(plan.args.join(' '))

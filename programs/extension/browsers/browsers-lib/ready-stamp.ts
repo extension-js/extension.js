@@ -87,6 +87,29 @@ export function stampReadyRdpPort(
   }
 }
 
+// Publish the CDP port a client can attach to. Every Chromium session that
+// asked the browser about its guest names the wire it asked over.
+export function stampReadyCdpPort(
+  extensionOutputPath: string | undefined,
+  cdpPort: number,
+  runId?: string
+) {
+  try {
+    if (!extensionOutputPath || !Number.isFinite(cdpPort)) return
+
+    const readyPath = readyPathFor(extensionOutputPath)
+    if (!fs.existsSync(readyPath)) return
+
+    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    if (isForeignRun(ready, runId) || ready.cdpPort === cdpPort) return
+
+    ready.cdpPort = cdpPort
+    writeJsonAtomic(readyPath, ready)
+  } catch {
+    // best-effort; never block launch on this
+  }
+}
+
 // Publish the safaridriver session the launcher holds beside the app, or why
 // it holds none. Safari grants one automation session at a time, so a client
 // attaches to this one instead of opening its own.

@@ -164,6 +164,9 @@ export interface BrowserConfigMode {
   // false composes the launch flags without provisioning the profile, for a
   // dry run that must print the plan and touch nothing.
   provision?: boolean
+  // A run-only launch opens the debugging wire too, so it can ask the browser
+  // whether it took the guest instead of trusting --load-extension.
+  cdp?: boolean
 }
 
 // The argv a launch hands the binary: the composed flags, then the starting
@@ -191,7 +194,8 @@ export function browserConfig(
   const provision = mode.provision !== false
   const extensionsToLoad = toExtensionLoadList(configOptions.extension)
 
-  const devWantsCDP = compilation?.options?.mode === 'development'
+  const wantsCdp =
+    compilation?.options?.mode === 'development' || mode.cdp === true
   const rawProfile = configOptions.profile
   const useSystemProfile =
     String(
@@ -356,7 +360,7 @@ export function browserConfig(
     // Tooling flags sit below the exclusion knob like the defaults do, so a
     // user debugging container crashes can still cancel --disable-dev-shm-usage.
     ...filterBrowserFlags(aiOptimizedFlags, excludeFlags),
-    ...(devWantsCDP
+    ...(wantsCdp
       ? [
           `--remote-debugging-port=${cdpPort}`,
           '--remote-debugging-address=127.0.0.1',
