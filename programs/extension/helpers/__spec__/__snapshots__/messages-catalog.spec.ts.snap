@@ -94,6 +94,7 @@ exports[`extension message catalogs > matches the exported message surface 1`] =
     "invalidGeckoBinaryPath: function(1)",
     "librewolfRemoteDebuggingLocked: function(1)",
     "locatingBrowser: function(1)",
+    "managedGeckoUpdatePolicyFailed: function(2)",
     "messageWithoutSenderError: function(2)",
     "messagingClientClosedError: function(1)",
     "mv2NotSupportedByChromium: function(1)",

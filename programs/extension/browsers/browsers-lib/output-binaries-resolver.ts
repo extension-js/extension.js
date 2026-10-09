@@ -10,7 +10,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {CompilationLike} from '../browsers-types'
 
-function computeSharedCacheRoot(): string {
+export function computeSharedCacheRoot(): string {
   const explicit = String(process.env.EXT_BROWSERS_CACHE_DIR || '').trim()
   if (explicit) return path.resolve(explicit)
 

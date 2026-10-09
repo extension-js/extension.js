@@ -6,8 +6,10 @@
 //  ╚═════╝╚══════╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import * as path from 'node:path'
 import type {Command} from 'commander'
 import {resolveManagedBinaryIn} from '../browsers/browsers-lib/output-binaries-resolver'
+import {applyManagedFirefoxInstallPolicy} from '../browsers/run-firefox/firefox-launch/managed-update-policy'
 import {exitAfterDrain} from '../helpers/exit-after-drain'
 import * as messages from '../helpers/messages'
 import {commandDescriptions} from '../helpers/messages'
@@ -276,6 +278,15 @@ export function registerInstallCommand(program: Command) {
             defaulted: !named,
             locateInstalledBinary: resolveManagedBinaryIn
           })
+
+          const installDir = getManagedBrowserInstallDir(browser)
+
+          if (path.basename(installDir) === 'firefox') {
+            applyManagedFirefoxInstallPolicy(
+              installDir,
+              getManagedBrowsersCacheRoot()
+            )
+          }
 
           installed.push(browser)
         } catch (error) {

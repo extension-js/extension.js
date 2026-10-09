@@ -36,6 +36,7 @@ import {setInstancePorts} from '../../browsers-lib/instance-registry'
 import * as messages from '../../browsers-lib/messages'
 import {
   computeBinariesBaseDir,
+  computeSharedCacheRoot,
   managedBrowserCacheEnv,
   resolveFromBinaries
 } from '../../browsers-lib/output-binaries-resolver'
@@ -103,6 +104,7 @@ import {resolveFirefoxLaunchConfig} from './browser-config'
 import {attachChildOutput} from './child-output'
 import {logFirefoxDryRun} from './dry-run'
 import {librewolfRemoteDebuggingEnabled} from './librewolf-overrides'
+import {ensureManagedGeckoUpdatePolicy} from './managed-update-policy'
 import {
   type FirefoxBrowserKind,
   setupFirefoxProcessHandlers
@@ -708,6 +710,25 @@ export class FirefoxLaunchPlugin {
       logFirefoxDryRun(plan.binary, plan.args)
 
       return
+    }
+
+    if (!isFlatpak) {
+      const policy = ensureManagedGeckoUpdatePolicy({
+        binaryPath,
+        managedRoots: [
+          String(computeBinariesBaseDir(compilation) || ''),
+          computeSharedCacheRoot()
+        ]
+      })
+
+      if (policy.status === 'failed') {
+        humanWarn(
+          messages.managedGeckoUpdatePolicyFailed(
+            policy.policyPath,
+            policy.error
+          )
+        )
+      }
     }
 
     if (profilePath) {
