@@ -1044,8 +1044,8 @@ export class FirefoxLaunchPlugin {
     this.watchLivePidExit()
   }
 
-  // No 'close' event exists for a process we did not spawn, so its exit is
-  // found by probing. Unref'd: it never keeps the session alive on its own.
+  // A process we did not spawn has no 'close' event, so its exit is probed. Ref'd:
+  // after a handoff with a refused add-on it is the only handle keeping us alive.
   private watchLivePidExit() {
     if (this.liveExitWatcher) clearInterval(this.liveExitWatcher)
 
@@ -1057,8 +1057,6 @@ export class FirefoxLaunchPlugin {
       this.liveExitWatcher = undefined
       this.onBrowserGone(null, wasPidTerminatedByUs(pid))
     }, 1000)
-
-    this.liveExitWatcher.unref?.()
   }
 
   // Re-offer the dist to a browser that refused it. A fresh controller is
