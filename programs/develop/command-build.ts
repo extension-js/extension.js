@@ -72,7 +72,8 @@ import {resolveSafariIdentity} from './lib/safari-identity'
 import {
   buildSummaryPath,
   ensureSessionArtifactsIgnoreFile,
-  ensureSessionStateInProjectGitignore
+  ensureSessionStateInProjectGitignore,
+  sessionArtifactsRootDir
 } from './lib/session-paths'
 import {assertNoManagedDependencyConflicts} from './lib/validate-user-dependencies'
 import {
@@ -101,7 +102,8 @@ const reportedBuildFailures = new WeakSet<object>()
 function printBuildCard(
   manifestPath: string,
   browser: string,
-  distPath: string
+  distPath: string,
+  projectPath: string
 ) {
   if (!claimCardKey(`${browser}::${nodePath.resolve(distPath)}`)) return
 
@@ -130,7 +132,11 @@ function printBuildCard(
       rows: [
         {label: 'Browser', value: browserLabel},
         {label: 'Extension', value: extensionLabel},
-        {label: 'Output', value: collapseHomeDir(distPath)}
+        {label: 'Output', value: collapseHomeDir(distPath)},
+        {
+          label: 'Session',
+          value: `${collapseHomeDir(sessionArtifactsRootDir(projectPath))} (Extension.js files, not shipped)`
+        }
       ]
     })
   )
@@ -406,7 +412,8 @@ export async function extensionBuild(
           printBuildCard(
             projectStructure.manifestPath,
             browser,
-            displayDistPath
+            displayDistPath,
+            packageJsonDir
           )
 
           if (!silent) {

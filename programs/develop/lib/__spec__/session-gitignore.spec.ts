@@ -3,7 +3,10 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
-import {ensureSessionStateInProjectGitignore} from '../session-paths'
+import {
+  ensureSessionArtifactsIgnoreFile,
+  ensureSessionStateInProjectGitignore
+} from '../session-paths'
 
 const created: string[] = []
 
@@ -141,5 +144,25 @@ describe('the append is announced', () => {
       stderr.mockRestore()
       fs.rmSync(dir, {recursive: true, force: true})
     }
+  })
+})
+
+describe('ensureSessionArtifactsIgnoreFile', () => {
+  it('says what dist/extension-js is, also where an older run left only the ignore file', () => {
+    const root = makeTempDir()
+    fs.writeFileSync(path.join(root, 'package.json'), '{}')
+    const sessionRoot = path.join(root, 'dist', 'extension-js')
+    fs.mkdirSync(sessionRoot, {recursive: true})
+    fs.writeFileSync(path.join(sessionRoot, '.gitignore'), '*\n')
+
+    ensureSessionArtifactsIgnoreFile(root)
+
+    const readme = fs.readFileSync(path.join(sessionRoot, 'README.md'), 'utf8')
+    expect(readme).toContain('Extension.js writes this folder')
+    expect(readme).toContain('ready.json')
+    expect(readme).toContain('profiles/')
+    expect(fs.readFileSync(path.join(sessionRoot, '.gitignore'), 'utf8')).toBe(
+      '*\n'
+    )
   })
 })
