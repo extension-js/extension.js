@@ -37,6 +37,9 @@ import {
   openSurfaceNeedsGesture,
   openSurfaceNeedsGesturePlain,
   openSurfaceWarning,
+  optionsPageNotDeclared,
+  optionsPageNotDeclaredPlain,
+  optionsPageNotDeclaredStep,
   replayedActionClick,
   replayedCommand
 } from '../helpers/messages'
@@ -203,6 +206,8 @@ const REFUSAL_TO_CODE: Record<string, ErrorCode> = {
   url_refused: CODES.E_ARGS,
   // No tab carries the id or matches the filter the caller gave.
   tab_not_found: CODES.E_TARGET_NOT_FOUND,
+  // The manifest never declares the surface, so there is nothing to open.
+  surface_not_declared: CODES.E_TARGET_NOT_FOUND,
   // The document's own CSP forbids the in-page executor, so no expression
   // runs there. Not a fault in the expression and not a missing feature.
   csp_blocks_eval: CODES.E_CSP_BLOCKS_EVAL
@@ -403,7 +408,9 @@ export function buildActEnvelope(
                   'The browser opens this surface only in response to a click, and ' +
                   'refuses to open it any other way. Click the extension in the ' +
                   'browser toolbar to open it.'
-                : undefined
+                : refusal === 'surface_not_declared'
+                  ? optionsPageNotDeclaredStep()
+                  : undefined
 
   return {
     ...extras,
@@ -512,6 +519,32 @@ function readSessionManifest(
   }
 
   return undefined
+}
+
+// Chrome answers openOptionsPage on such a manifest with a lastError only, so
+// the CLI names the missing key before asking the browser at all.
+function optionsNotDeclaredRefusal(
+  surface: string,
+  bridge: AnyDevelopModule,
+  projectPath: string,
+  browser: string
+): Refusal | undefined {
+  if (surface !== 'options') return undefined
+
+  const manifest = readSessionManifest(bridge, projectPath, browser)
+  if (!manifest) return undefined
+
+  const declared = Object.keys(manifest).some((key) =>
+    /(?:^|:)(?:options_ui|options_page)$/.test(key)
+  )
+  if (declared) return undefined
+
+  return {
+    message: optionsPageNotDeclared(),
+    plain: optionsPageNotDeclaredPlain(),
+    code: CODES.E_TARGET_NOT_FOUND,
+    hint: optionsPageNotDeclaredStep()
+  }
 }
 
 // A popup under `action` or `browser_action`, with or without a browser
@@ -1375,7 +1408,8 @@ export function registerActCommands(program: Command): void {
         args,
         opts,
         preflight: (bridge, projectPath, browser) =>
-          gestureRefusal(surface, bridge, projectPath, browser),
+          gestureRefusal(surface, bridge, projectPath, browser) ??
+          optionsNotDeclaredRefusal(surface, bridge, projectPath, browser),
         pretty: {
           value: openResultLines,
           failure: (error) =>

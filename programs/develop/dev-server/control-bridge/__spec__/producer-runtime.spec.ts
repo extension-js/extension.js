@@ -142,6 +142,43 @@ describe('bridge producer runtime', () => {
     )
   })
 
+  it('keeps the dev server HMR chatter out of the log frames', () => {
+    FakeWebSocket.instances = []
+    const {fakeGlobal, originalCalls} = makeGlobal()
+    run(
+      buildBridgeProducerSource({
+        controlPort: 9999,
+        instanceId: 'inst-H',
+        context: 'background'
+      }),
+      fakeGlobal
+    )
+
+    const con = fakeGlobal.console as any
+    con.log('[HMR] Waiting for update signal from WDS...')
+    con.info('[webpack-dev-server] Hot Module Replacement enabled.')
+    con.warn('[HMR] Cannot apply update. Need to do a full reload!')
+    con.log('extension says hi')
+
+    const ws = FakeWebSocket.instances[0]
+    ws.triggerOpen()
+    const logs = ws.sent
+      .map((s) => JSON.parse(s))
+      .filter((f) => f.type === 'log')
+      .map((f) => f.event.messageParts[0])
+
+    expect(logs).toEqual([
+      '[HMR] Cannot apply update. Need to do a full reload!',
+      'extension says hi'
+    ])
+
+    // The browser console still prints the line, only the agent log skips it.
+    expect(originalCalls).toContainEqual({
+      level: 'log',
+      args: ['[HMR] Waiting for update signal from WDS...']
+    })
+  })
+
   it('sends a producer hello on open and forwards console as log frames', () => {
     FakeWebSocket.instances = []
     const {fakeGlobal, originalCalls} = makeGlobal()
@@ -488,6 +525,47 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     await Promise.resolve()
     const r = results(ws).find((f) => f.cmdId === 's2')
     expect(r).toMatchObject({ok: true, value: {hello: 'world'}})
+  })
+
+  it('storage.get of a whole area leaves out the dev runtime keys', async () => {
+    const store: Record<string, unknown> = {
+      __extjsDevStaticBundles: {},
+      __extjsPendingErrors: [],
+      theme: 'dark'
+    }
+    const area = {
+      get: (key: string | null) =>
+        Promise.resolve(key == null ? {...store} : {[key]: store[key]}),
+      set: () => Promise.resolve()
+    }
+    const ws = setup({storage: {local: area}})
+
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'sw',
+      op: 'storage.get',
+      target: {context: 'background'},
+      args: {area: 'local'}
+    })
+
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'sk',
+      op: 'storage.get',
+      target: {context: 'background'},
+      args: {area: 'local', key: '__extjsDevStaticBundles'}
+    })
+
+    await Promise.resolve()
+    await Promise.resolve()
+    const whole = results(ws).find((f) => f.cmdId === 'sw')
+    expect(whole).toMatchObject({ok: true})
+    expect(whole.value).toEqual({theme: 'dark'})
+    // A key asked for by name is still answered as is.
+    expect(results(ws).find((f) => f.cmdId === 'sk')).toMatchObject({
+      ok: true,
+      value: {__extjsDevStaticBundles: {}}
+    })
   })
 
   it('eval evaluates an expression in the background context', async () => {
@@ -1933,6 +2011,34 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     })
   })
 
+  it('open options: a lastError on the callback is a refusal, not an ok', async () => {
+    const runtime: Record<string, unknown> = {
+      lastError: undefined,
+      openOptionsPage: (cb: () => void) => {
+        runtime.lastError = {message: 'Could not create an options page.'}
+        cb()
+        runtime.lastError = undefined
+      }
+    }
+    const ws = setup({runtime})
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'op-opt-none',
+      op: 'open',
+      target: {context: 'options'},
+      args: {surface: 'options'}
+    })
+
+    await flush()
+    const r = results(ws).find((f) => f.cmdId === 'op-opt-none')
+    expect(r).toMatchObject({
+      ok: false,
+      error: {name: 'Unsupported', code: 'surface_not_declared'}
+    })
+
+    expect(r.error.message).toContain('options_ui')
+  })
+
   it('open popup: an unclassified engine sentence carries no error.code', async () => {
     const ws = setup({
       action: {
@@ -2141,6 +2247,33 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       ok: false,
       error: {name: 'Error', message: 'boom'}
     })
+  })
+
+  it('the relay keeps the dev server HMR chatter out of the log', () => {
+    const sent: any[] = []
+    const fakeGlobal: Record<string, unknown> = {
+      console: {log: () => {}},
+      location: {href: 'chrome-extension://abc/options.html'},
+      chrome: {
+        runtime: {
+          connect: () => ({
+            postMessage: (msg: any) => sent.push(msg),
+            onDisconnect: {addListener: () => {}}
+          }),
+          sendMessage: () => {},
+          lastError: undefined
+        }
+      }
+    }
+    run(buildBridgeRelaySource({context: 'options'}), fakeGlobal)
+    ;(fakeGlobal.console as any).log(
+      '[HMR] Waiting for update signal from WDS...'
+    )
+    ;(fakeGlobal.console as any).log('options ready')
+
+    expect(sent.map((m) => m.__extjsBridgeLog.messageParts[0])).toEqual([
+      'options ready'
+    ])
   })
 
   it('the relay (content) forwards console over a NAMED runtime.Port, never sendMessage (echo-SW loop guard)', () => {

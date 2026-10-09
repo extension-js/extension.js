@@ -178,6 +178,9 @@ export const REFUSAL_API_UNAVAILABLE = 'api_unavailable'
 export const REFUSAL_URL_REFUSED = 'url_refused'
 // No open tab carries the id or matches the url filter the caller gave.
 export const REFUSAL_TAB_NOT_FOUND = 'tab_not_found'
+// The manifest never declares the surface (options with no options_ui), so
+// there is nothing to open, unlike a declared surface that is closed.
+export const REFUSAL_SURFACE_NOT_DECLARED = 'surface_not_declared'
 
 export type BridgeRefusalCode =
   | typeof REFUSAL_NEEDS_HEADED_WINDOW
@@ -187,6 +190,7 @@ export type BridgeRefusalCode =
   | typeof REFUSAL_API_UNAVAILABLE
   | typeof REFUSAL_URL_REFUSED
   | typeof REFUSAL_TAB_NOT_FOUND
+  | typeof REFUSAL_SURFACE_NOT_DECLARED
 
 export interface ResultFrame {
   type: 'result'
