@@ -52,6 +52,8 @@ import {
 import {parsePositiveInt} from '../helpers/normalize-options'
 import {normalizeOutputFormat} from '../helpers/output-flag'
 import {
+  otherSessionBrowsers,
+  otherSessionsNote,
   resolveSessionProjectPath,
   sessionReadyPath
 } from '../helpers/session-project-path'
@@ -890,10 +892,18 @@ async function runCommand(input: RunInput): Promise<void> {
   const ready = readReadyContract(projectPath, browser)
 
   if (!ready) {
+    const others = otherSessionBrowsers(
+      bridge,
+      projectPath,
+      browser,
+      (candidate) => Boolean(readReadyContract(projectPath, candidate))
+    )
+
     fail(
       `No active control channel found for ${browser}. ` +
         `Looked at ${sessionReadyPath(bridge, projectPath, browser)}. ` +
-        `Run \`extension dev --browser=${browser} ${unlockFlag}\` first.`,
+        `Run \`extension dev --browser=${browser} ${unlockFlag}\` first.` +
+        otherSessionsNote(others),
       {...outputFrame, code: CODES.E_SESSION_NOT_FOUND}
     )
   }

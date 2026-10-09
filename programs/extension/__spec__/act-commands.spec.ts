@@ -25,7 +25,10 @@ const bridge = {
 
 vi.mock('../helpers/extension-develop-runtime', () => ({
   loadExtensionDevelopBridgeModule: vi.fn(async () => ({
-    readReadyContract: () => bridge.ready,
+    readReadyContract: (_projectPath: string, browser: string) =>
+      typeof bridge.ready === 'function'
+        ? (bridge.ready as (b: string) => unknown)(browser)
+        : bridge.ready,
     readReadyContractDocument: () => bridge.readyDoc,
     readControlToken: (...args: unknown[]) => {
       bridge.tokenReads.push(args)
@@ -148,6 +151,25 @@ describe('extension eval', () => {
     expect(String(errorSpy.mock.calls[0][0])).toContain(
       'No active control channel'
     )
+  })
+
+  it('names the browser a live session runs for when the default has none', async () => {
+    const project = fs.mkdtempSync(path.join(os.tmpdir(), 'act-other-session-'))
+    fs.mkdirSync(path.join(project, 'dist', 'extension-js', 'chrome'), {
+      recursive: true
+    })
+
+    bridge.ready = (browser: string) =>
+      browser === 'chrome' ? {controlPort: 9123, instanceId: 'inst-1'} : null
+
+    try {
+      expect(await run(['storage', 'get', project])).toBe(1)
+      expect(String(errorSpy.mock.calls[0][0])).toContain(
+        'A session is running for chrome: pass --browser chrome'
+      )
+    } finally {
+      fs.rmSync(project, {recursive: true, force: true})
+    }
   })
 
   it('the no-session remedy for eval names --allow-eval', async () => {

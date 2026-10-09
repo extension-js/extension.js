@@ -521,6 +521,10 @@ describe('extension logs (one-shot)', () => {
     ).toBe(1)
 
     expect(String(errorSpy.mock.calls[0][0])).toContain('No logs found')
+    // The fixture's chromium session has logs, so the refusal points there.
+    expect(String(errorSpy.mock.calls[0][0])).toContain(
+      'A session is running for chromium: pass --browser chromium'
+    )
   })
 })
 
