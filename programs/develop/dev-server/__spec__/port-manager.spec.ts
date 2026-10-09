@@ -133,12 +133,14 @@ describe('PortManager exhaustion', () => {
 describe('PortManager host-aware probing', () => {
   it('probes the requested host, skipping a port taken there', async () => {
     const host = '127.0.0.1'
-    const taken = 49533
     const blocker = net.createServer()
+    // An ephemeral port, since any fixed one can already be held on the host.
     await new Promise<void>((resolve, reject) => {
       blocker.once('error', reject)
-      blocker.listen(taken, host, resolve)
+      blocker.listen(0, host, resolve)
     })
+
+    const taken = (blocker.address() as net.AddressInfo).port
 
     try {
       const allocation = await new PortManager().allocatePorts(taken, host)

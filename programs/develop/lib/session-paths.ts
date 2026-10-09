@@ -59,6 +59,23 @@ export function sessionArtifactsIgnoreFilePath(projectPath: string): string {
   return path.join(sessionArtifactsRootDir(projectPath), '.gitignore')
 }
 
+// The folder sits beside the user's builds, so a reader listing dist/ (often
+// an agent) needs it to say what it is rather than guess.
+export const SESSION_ARTIFACTS_README_CONTENT =
+  '# dist/extension-js\n\n' +
+  'Extension.js writes this folder. It is not a browser build, is never\n' +
+  'zipped or published, and is safe to delete while no session is running.\n\n' +
+  '- `<browser>/ready.json`: the session contract (status, ports, browser pid)\n' +
+  '- `<browser>/events.ndjson`: the lifecycle events of the latest session\n' +
+  '- `<browser>/build-summary.json`: the summary of the latest build\n' +
+  '- `<browser>/logs.ndjson`, `<browser>/actions.ndjson`: dev session logs\n' +
+  '- `profiles/`: managed browser profiles (cookies, history, logins)\n\n' +
+  'The builds themselves are the sibling folders, such as `dist/chrome`.\n'
+
+export function sessionArtifactsReadmePath(projectPath: string): string {
+  return path.join(sessionArtifactsRootDir(projectPath), 'README.md')
+}
+
 const PROJECT_ROOT_MARKERS = [
   'package.json',
   'deno.jsonc',
@@ -77,10 +94,23 @@ export function ensureSessionArtifactsIgnoreFile(projectPath: string): void {
     if (!holdsProjectRootMarker(projectPath)) return
 
     const ignoreFile = sessionArtifactsIgnoreFilePath(projectPath)
-    if (fs.existsSync(ignoreFile)) return
-
     fs.mkdirSync(path.dirname(ignoreFile), {recursive: true})
-    fs.writeFileSync(ignoreFile, SESSION_ARTIFACTS_IGNORE_CONTENT)
+
+    if (!fs.existsSync(ignoreFile)) {
+      fs.writeFileSync(ignoreFile, SESSION_ARTIFACTS_IGNORE_CONTENT)
+    }
+
+    const readme = sessionArtifactsReadmePath(projectPath)
+
+    if (!fs.existsSync(readme)) {
+      fs.writeFileSync(readme, SESSION_ARTIFACTS_README_CONTENT)
+      // Once per project: the run that first creates the folder says what it is.
+      humanLine(
+        messages.sessionArtifactsExplained(
+          path.relative(projectPath, path.dirname(readme))
+        )
+      )
+    }
   } catch {
     // A hygiene guard must never break a dev session or build.
   }

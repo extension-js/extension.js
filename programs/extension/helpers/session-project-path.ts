@@ -6,6 +6,7 @@
 //  ╚═════╝╚══════╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import fs from 'node:fs'
 import path from 'node:path'
 import type {AnyDevelopModule} from './extension-develop-runtime'
 
@@ -76,4 +77,44 @@ export function sessionLogsPath(
     browser,
     'logs.ndjson'
   )
+}
+
+// A command that defaults to one browser while the only session runs another
+// should name that one, not send the user off to start a second session.
+export function otherSessionBrowsers(
+  bridge: AnyDevelopModule,
+  projectPath: string,
+  browser: string,
+  hasSession: (candidate: string) => boolean
+): string[] {
+  const root = path.dirname(
+    path.dirname(sessionReadyPath(bridge, projectPath, browser))
+  )
+
+  try {
+    return fs
+      .readdirSync(root, {withFileTypes: true})
+      .filter((entry) => entry.isDirectory() && entry.name !== browser)
+      .map((entry) => entry.name)
+      .filter((candidate) => {
+        try {
+          return hasSession(candidate)
+        } catch {
+          return false
+        }
+      })
+      .sort()
+  } catch {
+    return []
+  }
+}
+
+export function otherSessionsNote(browsers: string[]): string {
+  if (browsers.length === 0) return ''
+
+  if (browsers.length === 1) {
+    return ` A session is running for ${browsers[0]}: pass --browser ${browsers[0]} to use it.`
+  }
+
+  return ` Sessions are running for ${browsers.join(', ')}: pass --browser with one of them.`
 }

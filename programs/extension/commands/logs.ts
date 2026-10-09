@@ -17,6 +17,8 @@ import {commandDescriptions} from '../helpers/messages'
 import {CODES, ENVELOPE} from '../helpers/messaging'
 import {parsePositiveInt} from '../helpers/normalize-options'
 import {
+  otherSessionBrowsers,
+  otherSessionsNote,
   resolveSessionProjectPath,
   sessionLogsPath,
   sessionReadyPath
@@ -494,9 +496,17 @@ export function registerLogsCommand(program: Command) {
       const file = sessionLogsPath(bridge, projectPath, browser)
 
       if (!fs.existsSync(file)) {
+        const others = otherSessionBrowsers(
+          bridge,
+          projectPath,
+          browser,
+          (candidate) =>
+            fs.existsSync(sessionLogsPath(bridge, projectPath, candidate))
+        )
         const message =
           `No logs found at ${file}. Start a dev session (extension dev) first, ` +
-          `or pass --browser to match it.`
+          `or pass --browser to match it.` +
+          otherSessionsNote(others)
         // eslint-disable-next-line no-console
         console.error(message)
 

@@ -1081,6 +1081,21 @@ export function openSurfaceNeedsGesturePlain(surface: string): string {
   return `Chromium opens the ${openSurfaceNoun(surface)} only in response to a user gesture, so extension open ${surface} can't open it from the command line.`
 }
 
+export function optionsPageNotDeclaredStep(): string {
+  return 'Add an options_ui entry (or options_page) to manifest.json, then run extension open options again.'
+}
+
+export function optionsPageNotDeclaredPlain(): string {
+  return 'This extension has no options page: its manifest declares neither options_ui nor options_page, so extension open options has nothing to open.'
+}
+
+export function optionsPageNotDeclared() {
+  return (
+    `${getLoggingPrefix('error')} This extension has no options page: its manifest declares neither ${code('options_ui')} nor ${code('options_page')}, so ${code('extension open options')} has nothing to open.\n` +
+    optionsPageNotDeclaredStep()
+  )
+}
+
 export function openSurfaceNeedsGesture(surface: string) {
   return (
     `${getLoggingPrefix('error')} Chromium opens the ${openSurfaceNoun(surface)} only in response to a user gesture, so ${code(`extension open ${surface}`)} can't open it from the command line.\n` +

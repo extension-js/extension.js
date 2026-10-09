@@ -70,6 +70,14 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
     }
 
     var LEVELS = ["log", "info", "warn", "error", "debug", "trace"];
+    // The dev server's HMR client logs its own chatter ("[HMR] Waiting for
+    // update signal from WDS...") through the extension's console; it is not
+    // the extension's output. Its warnings and errors still ship.
+    function isDevServerChatter(level, args) {
+      if (level === "warn" || level === "error") return false;
+      var first = args && args[0];
+      return typeof first === "string" && /^\\[(?:HMR|webpack-dev-server|rspack-dev-server)\\] /.test(first);
+    }
     var socket = null;
     var open = false;
     var queue = [];
@@ -402,7 +410,17 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
           if (!storageArea) { replyErr(cmdId, "StorageError", "storage." + (args.area || "local") + " unavailable"); return; }
           var isSet = op === "storage.set";
           var callArgs = isSet ? [args.items || {}] : [args.key != null ? args.key : null];
-          var onStorageOk = function (r) { replyOk(cmdId, isSet ? {set: Object.keys(args.items || {})} : r); };
+          // The dev runtime keeps its own bookkeeping under __extjs* keys in
+          // the same area; a whole-area read shows only the extension's data.
+          var withoutFrameworkKeys = function (r) {
+            if (args.key != null || !r || typeof r !== "object") return r;
+            var own = {};
+            for (var k in r) {
+              if (Object.prototype.hasOwnProperty.call(r, k) && k.indexOf("__extjs") !== 0) own[k] = r[k];
+            }
+            return own;
+          };
+          var onStorageOk = function (r) { replyOk(cmdId, isSet ? {set: Object.keys(args.items || {})} : withoutFrameworkKeys(r)); };
           var onStorageErr = function (e) { replyErr(cmdId, "StorageError", (e && e.message) || String(e)); };
           var storageFn = isSet ? storageArea.set : storageArea.get;
           try {
@@ -487,7 +505,16 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
               });
             } else { replyErr(cmdId, "Unsupported", "action.openPopup not available", "api_unavailable"); }
           } else if (surface === "options") {
-            try { chrome.runtime.openOptionsPage(function () { replyOk(cmdId, {opened: "options"}); }); }
+            // Chrome answers a manifest with no options page through lastError
+            // and still calls back, so the callback must read it.
+            try {
+              chrome.runtime.openOptionsPage(function () {
+                var optErr = chrome.runtime.lastError;
+                if (optErr) {
+                  replyErr(cmdId, "Unsupported", "openOptionsPage: " + (optErr.message || optErr) + " (the manifest declares no options_ui or options_page)", "surface_not_declared");
+                } else replyOk(cmdId, {opened: "options"});
+              });
+            }
             catch (e) { replyErr(cmdId, "Unsupported", "openOptionsPage: " + e); }
           } else if (surface === "sidebar") {
             // The two member reads below are exactly what the Safari
@@ -1202,7 +1229,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
               if (arguments[ai] instanceof Error) noteErrorSig(errorSig(arguments[ai].message, arguments[ai].stack));
             }
           }
-          send({
+          if (!isDevServerChatter(level, arguments)) send({
             type: "log",
             event: {
               v: 1,
@@ -1433,6 +1460,12 @@ export const BRIDGE_RELAY_SOURCE = `;(function () {
     g.__extjsBridgeRelayInstalled = true;
     var consoleRef = g.console || {};
     var LEVELS = ["log", "info", "warn", "error", "debug", "trace"];
+    // Same filter as the producer: HMR chatter is not the page's output.
+    function isDevServerChatter(level, args) {
+      if (level === "warn" || level === "error") return false;
+      var first = args && args[0];
+      return typeof first === "string" && /^\\[(?:HMR|webpack-dev-server|rspack-dev-server)\\] /.test(first);
+    }
 
     // Every engine's wording for "this document's CSP forbids eval". Gecko
     // says "call to eval() blocked by CSP", Chromium quotes the directive.
@@ -1540,7 +1573,7 @@ export const BRIDGE_RELAY_SOURCE = `;(function () {
               if (arguments[ai] instanceof Error) noteErrorSig(errorSig(arguments[ai].message, arguments[ai].stack));
             }
           }
-          postLog({level: level, context: CONTEXT, messageParts: sanitize([].slice.call(arguments)), url: here()});
+          if (!isDevServerChatter(level, arguments)) postLog({level: level, context: CONTEXT, messageParts: sanitize([].slice.call(arguments)), url: here()});
         } catch (e) {
           // Ignore
         }

@@ -19,12 +19,17 @@ const bridge = {
   result: {ok: true, value: 'v'} as any,
   controllers: [] as any[],
   commands: [] as any[],
-  tokenReads: [] as any[]
+  tokenReads: [] as any[],
+  readyDoc: null as Record<string, unknown> | null
 }
 
 vi.mock('../helpers/extension-develop-runtime', () => ({
   loadExtensionDevelopBridgeModule: vi.fn(async () => ({
-    readReadyContract: () => bridge.ready,
+    readReadyContract: (_projectPath: string, browser: string) =>
+      typeof bridge.ready === 'function'
+        ? (bridge.ready as (b: string) => unknown)(browser)
+        : bridge.ready,
+    readReadyContractDocument: () => bridge.readyDoc,
     readControlToken: (...args: unknown[]) => {
       bridge.tokenReads.push(args)
 
@@ -71,6 +76,7 @@ beforeEach(() => {
   bridge.controllers = []
   bridge.commands = []
   bridge.tokenReads = []
+  bridge.readyDoc = null
 })
 
 afterEach(() => {
@@ -145,6 +151,25 @@ describe('extension eval', () => {
     expect(String(errorSpy.mock.calls[0][0])).toContain(
       'No active control channel'
     )
+  })
+
+  it('names the browser a live session runs for when the default has none', async () => {
+    const project = fs.mkdtempSync(path.join(os.tmpdir(), 'act-other-session-'))
+    fs.mkdirSync(path.join(project, 'dist', 'extension-js', 'chrome'), {
+      recursive: true
+    })
+
+    bridge.ready = (browser: string) =>
+      browser === 'chrome' ? {controlPort: 9123, instanceId: 'inst-1'} : null
+
+    try {
+      expect(await run(['storage', 'get', project])).toBe(1)
+      expect(String(errorSpy.mock.calls[0][0])).toContain(
+        'A session is running for chrome: pass --browser chrome'
+      )
+    } finally {
+      fs.rmSync(project, {recursive: true, force: true})
+    }
   })
 
   it('the no-session remedy for eval names --allow-eval', async () => {
@@ -472,6 +497,74 @@ describe('extension open', () => {
 
       expect(bridge.commands, browser).toHaveLength(0)
     }
+  })
+
+  it('refuses options before the bridge when the manifest declares no options page', async () => {
+    const distPath = fs.mkdtempSync(path.join(os.tmpdir(), 'act-no-options-'))
+    fs.writeFileSync(
+      path.join(distPath, 'manifest.json'),
+      JSON.stringify({manifest_version: 3, name: 'x', version: '1'})
+    )
+
+    bridge.readyDoc = {distPath}
+    const stdout: string[] = []
+    vi.spyOn(fs, 'writeSync').mockImplementation(((
+      _fd: number,
+      text: string
+    ) => {
+      stdout.push(String(text))
+
+      return text.length
+    }) as never)
+
+    try {
+      expect(await run(['open', 'options', '--output', 'json'])).toBe(1)
+      expect(bridge.commands).toHaveLength(0)
+      expect(JSON.parse(stdout[0])).toMatchObject({
+        ok: false,
+        status: 'not-found',
+        error: {
+          code: 'E_TARGET_NOT_FOUND',
+          message: expect.stringContaining('options_ui'),
+          hint: expect.stringContaining('options_ui')
+        }
+      })
+
+      // A prefixed key still declares the page, so the engine is asked.
+      fs.writeFileSync(
+        path.join(distPath, 'manifest.json'),
+        JSON.stringify({'chromium:options_ui': {page: 'options.html'}})
+      )
+
+      logSpy.mockClear()
+      expect(await run(['open', 'options'])).toBe(0)
+      expect(bridge.commands).toHaveLength(1)
+    } finally {
+      fs.rmSync(distPath, {recursive: true, force: true})
+    }
+  })
+
+  it('reports the engine refusing an undeclared options page as not-found', async () => {
+    bridge.result = {
+      ok: false,
+      error: {
+        name: 'Unsupported',
+        message:
+          'openOptionsPage: Could not create an options page. (the manifest declares no options_ui or options_page)',
+        engine: 'chromium',
+        code: 'surface_not_declared'
+      }
+    }
+
+    expect(await run(['open', 'options', '--output', 'json'])).toBe(1)
+    expect(JSON.parse(String(logSpy.mock.calls[0][0]))).toMatchObject({
+      ok: false,
+      status: 'not-found',
+      error: {
+        code: 'E_TARGET_NOT_FOUND',
+        hint: expect.stringContaining('options_ui')
+      }
+    })
   })
 
   it('rejects unknown surfaces', async () => {
