@@ -28,13 +28,18 @@ const PS_ROW = /^\s*(\d+)\s+(\d+)\s+(.*)$/
 const HELPER_PROCESS =
   /plugin-container|(^|\s)-contentproc(\s|$)|(^|\s)-childID(\s|$)|--type=/
 
-function runQuiet(bin: string, args: string[]): string | null {
+function runQuiet(
+  bin: string,
+  args: string[],
+  timeoutMs?: number
+): string | null {
   try {
     const result = spawnSync(bin, args, {
       encoding: 'utf-8',
       stdio: ['ignore', 'pipe', 'ignore'],
       windowsHide: true,
-      maxBuffer: 64 * 1024 * 1024
+      maxBuffer: 64 * 1024 * 1024,
+      ...(timeoutMs ? {timeout: timeoutMs} : {})
     })
 
     if (result.error || result.status !== 0) return null
@@ -206,6 +211,10 @@ export function isPidAlive(pid: number | null | undefined): boolean {
 // When a pid started, as the OS reports it. A pid that started after the file
 // naming it was written is another process wearing a recycled number, which a
 // signal-0 probe cannot tell apart from the one that is gone.
+// A cold PowerShell CIM query can take a minute on a loaded Windows machine,
+// so the answer is bounded and a slow one reads as unknown, like a failed one.
+export const PID_START_PROBE_TIMEOUT_MS = 5000
+
 export function pidStartedAtMs(
   pid: number | null | undefined,
   platform = process.platform
@@ -214,14 +223,22 @@ export function pidStartedAtMs(
 
   const output =
     platform === 'win32'
-      ? runQuiet('powershell.exe', [
-          '-NoProfile',
-          '-NonInteractive',
-          '-Command',
-          `(Get-CimInstance Win32_Process -Filter "ProcessId=${pid}")` +
-            '.CreationDate.ToUniversalTime().ToString("o")'
-        ])
-      : runQuiet('ps', ['-o', 'lstart=', '-p', String(pid)])
+      ? runQuiet(
+          'powershell.exe',
+          [
+            '-NoProfile',
+            '-NonInteractive',
+            '-Command',
+            `(Get-CimInstance Win32_Process -Filter "ProcessId=${pid}")` +
+              '.CreationDate.ToUniversalTime().ToString("o")'
+          ],
+          PID_START_PROBE_TIMEOUT_MS
+        )
+      : runQuiet(
+          'ps',
+          ['-o', 'lstart=', '-p', String(pid)],
+          PID_START_PROBE_TIMEOUT_MS
+        )
 
   const started = Date.parse(String(output || '').trim())
 
