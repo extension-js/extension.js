@@ -16,6 +16,19 @@ vi.mock('../helpers/extension-develop-runtime', () => ({
   loadExtensionDevelopBridgeModule: async () => state.mod
 }))
 
+// The pid start-time probe shells out (PowerShell on Windows, where one cold
+// call can take a minute), so the spec answers it; only the recycled pid case
+// needs a start time at all.
+const pidStart = vi.hoisted(() => ({value: null as number | null}))
+
+vi.mock('../browsers/browsers-lib/resolve-live-pid', async () => {
+  const actual = await vi.importActual<any>(
+    '../browsers/browsers-lib/resolve-live-pid'
+  )
+
+  return {...actual, pidStartedAtMs: () => pidStart.value}
+})
+
 const peer = vi.hoisted(() => ({
   engine: '2.2.3' as string | undefined,
   conflicts: [] as Array<{name: string; version: string; range: string}>,
@@ -111,6 +124,7 @@ function healthyModule(overrides: Record<string, unknown> = {}) {
 }
 
 beforeEach(() => {
+  pidStart.value = null
   StubController.connectError = null
   StubController.readyFrame = {capabilities: {storage: true, reload: true}}
   StubController.probeResult = {ok: true, value: {}}
@@ -506,6 +520,8 @@ describe('extension doctor', () => {
         browserPid: process.pid
       })
     })
+
+    pidStart.value = Date.now()
 
     const r = byCheck(await runDoctor('/proj', {}))
     expect(r['server-process'].status).toBe('fail')
