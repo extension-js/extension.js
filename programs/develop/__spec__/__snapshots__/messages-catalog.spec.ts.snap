@@ -94,7 +94,6 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "runtimeChunkKeptInline: function(1)",
     "safariBuildOutputNotFound: function(1)",
     "safariInvalidBundleId: function(1)",
-    "sessionArtifactsExplained: function(1)",
     "sessionStateIgnoreAdded: function(1)",
     "starting: function(2)",
     "treeWithDistFilesBrowser: function(4)",
