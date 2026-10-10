@@ -41,6 +41,22 @@ describe('the version the project asks for against the binary that answered', ()
     ).toBeNull()
   })
 
+  it('stays quiet for the exact canary a canary-created project pins', () => {
+    const canary = '4.1.34-canary.1791590112.895b2efa'
+
+    expect(
+      versionMismatch({manifest: scaffold(canary), running: canary})
+    ).toBeNull()
+
+    // A different canary than the one pinned still differs.
+    expect(
+      versionMismatch({
+        manifest: scaffold(canary),
+        running: '4.1.34-canary.1791595186.3762abe0'
+      })
+    ).toMatchObject({range: canary})
+  })
+
   it('still names a prerelease that is nowhere near the declared range', () => {
     expect(
       versionMismatch({manifest: scaffold('^4.1.22'), running: '2.0.0-rc.23'})

@@ -104,12 +104,6 @@ export function ensureSessionArtifactsIgnoreFile(projectPath: string): void {
 
     if (!fs.existsSync(readme)) {
       fs.writeFileSync(readme, SESSION_ARTIFACTS_README_CONTENT)
-      // Once per project: the run that first creates the folder says what it is.
-      humanLine(
-        messages.sessionArtifactsExplained(
-          path.relative(projectPath, path.dirname(readme))
-        )
-      )
     }
   } catch {
     // A hygiene guard must never break a dev session or build.
