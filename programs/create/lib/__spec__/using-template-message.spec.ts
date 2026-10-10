@@ -15,7 +15,8 @@ afterEach(() => {
 
 describe('usingTemplate', () => {
   it('names the repository a downloaded template came from, not its archive url', () => {
-    delete process.env[DEBUG_KEY]
+    // Explicit off: it beats an EXTENSION_AUTHOR_MODE the runner exports.
+    process.env.EXTENSION_DEBUG = '0'
     const line = plain(usingTemplate('init', CODELOAD))
 
     expect(line).toContain(
@@ -27,7 +28,8 @@ describe('usingTemplate', () => {
   })
 
   it('shortens a github.com url the user passed to its owner and repo', () => {
-    delete process.env[DEBUG_KEY]
+    // Explicit off: it beats an EXTENSION_AUTHOR_MODE the runner exports.
+    process.env.EXTENSION_DEBUG = '0'
     expect(
       plain(usingTemplate('x', 'https://github.com/acme/starter.git'))
     ).toContain('from acme/starter.')
