@@ -538,23 +538,7 @@ jobs:
       - name: Verify publish (extension-create)
         if: steps.check_create.outputs.exists == 'false'
         working-directory: programs/create
-        run: |
-          PKG=$(node -p "require('./package.json').name")
-          VER=$(node -p "require('./package.json').version")
-          echo "Verifying $PKG@$VER is visible on npm..."
-          # npm answers a publish with 202 and processes it afterwards; on
-          # 2026-09-04 that took longer than two minutes and the run died with
-          # the package published, so the wait is ten minutes now.
-          for i in {1..40}; do
-            if npm view "$PKG@$VER" version >/dev/null 2>&1; then
-              echo "Found $PKG@$VER on npm."
-              exit 0
-            fi
-            echo "Waiting for npm replication... ($i/40)"
-            sleep 15
-          done
-          echo "Publish not visible on npm after waiting." >&2
-          exit 1
+        run: bash "$GITHUB_WORKSPACE/scripts/verify-npm-publish.sh" "${{ steps.validate.outputs.tag }}"
 
       - name: Check if version exists (extension-develop)
         id: check_develop
@@ -579,23 +563,7 @@ jobs:
       - name: Verify publish (extension-develop)
         if: steps.check_develop.outputs.exists == 'false'
         working-directory: programs/develop
-        run: |
-          PKG=$(node -p "require('./package.json').name")
-          VER=$(node -p "require('./package.json').version")
-          echo "Verifying $PKG@$VER is visible on npm..."
-          # npm answers a publish with 202 and processes it afterwards; on
-          # 2026-09-04 that took longer than two minutes and the run died with
-          # the package published, so the wait is ten minutes now.
-          for i in {1..40}; do
-            if npm view "$PKG@$VER" version >/dev/null 2>&1; then
-              echo "Found $PKG@$VER on npm."
-              exit 0
-            fi
-            echo "Waiting for npm replication... ($i/40)"
-            sleep 15
-          done
-          echo "Publish not visible on npm after waiting." >&2
-          exit 1
+        run: bash "$GITHUB_WORKSPACE/scripts/verify-npm-publish.sh" "${{ steps.validate.outputs.tag }}"
 
       - name: Check if version exists (extension-install)
         id: check_install
@@ -619,23 +587,7 @@ jobs:
       - name: Verify publish (extension-install)
         if: steps.check_install.outputs.exists == 'false'
         working-directory: programs/install
-        run: |
-          PKG=$(node -p "require('./package.json').name")
-          VER=$(node -p "require('./package.json').version")
-          echo "Verifying $PKG@$VER is visible on npm..."
-          # npm answers a publish with 202 and processes it afterwards; on
-          # 2026-09-04 that took longer than two minutes and the run died with
-          # the package published, so the wait is ten minutes now.
-          for i in {1..40}; do
-            if npm view "$PKG@$VER" version >/dev/null 2>&1; then
-              echo "Found $PKG@$VER on npm."
-              exit 0
-            fi
-            echo "Waiting for npm replication... ($i/40)"
-            sleep 15
-          done
-          echo "Publish not visible on npm after waiting." >&2
-          exit 1
+        run: bash "$GITHUB_WORKSPACE/scripts/verify-npm-publish.sh" "${{ steps.validate.outputs.tag }}"
 
       - name: Check if version exists (extension)
         id: check_cli
@@ -660,23 +612,7 @@ jobs:
       - name: Verify publish (extension)
         if: steps.check_cli.outputs.exists == 'false'
         working-directory: programs/extension
-        run: |
-          PKG=$(node -p "require('./package.json').name")
-          VER=$(node -p "require('./package.json').version")
-          echo "Verifying $PKG@$VER is visible on npm..."
-          # npm answers a publish with 202 and processes it afterwards; on
-          # 2026-09-04 that took longer than two minutes and the run died with
-          # the package published, so the wait is ten minutes now.
-          for i in {1..40}; do
-            if npm view "$PKG@$VER" version >/dev/null 2>&1; then
-              echo "Found $PKG@$VER on npm."
-              exit 0
-            fi
-            echo "Waiting for npm replication... ($i/40)"
-            sleep 15
-          done
-          echo "Publish not visible on npm after waiting." >&2
-          exit 1
+        run: bash "$GITHUB_WORKSPACE/scripts/verify-npm-publish.sh" "${{ steps.validate.outputs.tag }}"
 
       - name: Verify the published tarball carries the shipped invariants
         env:
