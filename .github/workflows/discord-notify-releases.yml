@@ -47,7 +47,7 @@ jobs:
           RELEASE_TITLE: ${{ steps.release.outputs.title }}
           RELEASE_URL: ${{ steps.release.outputs.url }}
           RELEASE_BODY: ${{ steps.release.outputs.body }}
-          AVATAR_URL: "https://user-images.githubusercontent.com/4672033/102850460-4d22aa80-43f8-11eb-82db-9efce586f73e.png"
+          AVATAR_URL: "https://media.extension.land/track/extension-js.png"
         run: |
           python - <<'PY'
           import json, os, datetime, urllib.request, urllib.error

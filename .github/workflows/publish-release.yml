@@ -339,7 +339,7 @@ jobs:
           RELEASE_TITLE: ${{ steps.validate.outputs.version }}
           RELEASE_URL: ${{ steps.create_release.outputs.url }}
           RELEASE_BODY: ${{ steps.changelog.outputs.discord }}
-          AVATAR_URL: "https://user-images.githubusercontent.com/4672033/102850460-4d22aa80-43f8-11eb-82db-9efce586f73e.png"
+          AVATAR_URL: "https://media.extension.land/track/extension-js.png"
         run: |
           python - <<'PY'
           import datetime
