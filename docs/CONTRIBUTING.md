@@ -164,6 +164,6 @@ git clean -xfd && pnpm install && pnpm compile
 
 ## Communication
 
-- Discussions and questions: join our Discord, https://discord.gg/v9h2RgeTSN
+- Discussions and questions: join our Discord, https://discord.gg/BRqbPDfPxb
 
 Thanks again for contributing! 🙌
