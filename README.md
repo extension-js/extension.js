@@ -5,7 +5,7 @@
 [action-image]: https://github.com/extension-js/extension.js/actions/workflows/ci.yml/badge.svg?branch=main&color=0971fe
 [action-url]: https://github.com/extension-js/extension.js/actions
 [discord-image]: https://img.shields.io/discord/1253608412890271755?label=Discord&logo=discord&style=flat&color=0971fe
-[discord-url]: https://discord.gg/v9h2RgeTSN
+[discord-url]: https://discord.gg/BRqbPDfPxb
 [bestpractices-image]: https://img.shields.io/cii/level/14662?label=Best%20Practices&style=flat&color=0971fe
 [bestpractices-url]: https://www.bestpractices.dev/projects/14662
 
@@ -196,7 +196,7 @@ Which runtime the CLI then executes on is a separate question, answered below.
 ## Community
 
 - Star the repo if Extension.js helped you ship faster
-- Join the [Discord](https://discord.gg/v9h2RgeTSN) for help and feedback
+- Join the [Discord](https://discord.gg/BRqbPDfPxb) for help and feedback
 - Open issues and feature requests on [GitHub](https://github.com/extension-js/extension.js/issues)
 - Browse production-ready [examples](https://github.com/extension-js/examples)
 
