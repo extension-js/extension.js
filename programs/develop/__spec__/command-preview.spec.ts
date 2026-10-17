@@ -232,6 +232,28 @@ describe('webpack/command-preview (run-only)', () => {
     expect(printedLines()).toContain('Control channel open')
   })
 
+  it("hands the launched browser's background wake to the control broker", async () => {
+    startProductionControl.mockClear()
+    ;(fs.existsSync as any).mockImplementation(
+      (p: string) =>
+        p === path.join('/proj', 'dist', 'firefox', 'manifest.json')
+    )
+
+    const wakeBackground = vi.fn(async () => true)
+    const launcher = vi.fn(async (..._args: any[]) => ({wakeBackground}))
+
+    await extensionPreview(
+      '/proj',
+      {browser: 'firefox', allowControl: true, metadataCommand: 'start'} as any,
+      launcher
+    )
+
+    const [controlOpts] = startProductionControl.mock.calls[0] as any[]
+    expect(typeof controlOpts.wakeExecutor).toBe('function')
+    await expect(controlOpts.wakeExecutor()).resolves.toBe(true)
+    expect(wakeBackground).toHaveBeenCalledTimes(1)
+  })
+
   it('opens no control channel unless asked', async () => {
     startProductionControl.mockClear()
     ;(fs.existsSync as any).mockImplementation(

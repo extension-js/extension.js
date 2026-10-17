@@ -2,7 +2,7 @@ import * as fs from 'node:fs'
 import * as net from 'node:net'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterEach, describe, expect, it} from 'vitest'
+import {afterEach, describe, expect, it, vi} from 'vitest'
 import {buildBridgeProducerSource} from '../producer-runtime'
 import {
   controlledBuildDir,
@@ -197,6 +197,173 @@ describe('startProductionControl', () => {
     }).split('__extjsBridgeProducerInstalled').length
     expect(controlled.split('__extjsBridgeProducerInstalled').length).toBe(
       perProducer
+    )
+  })
+})
+
+function makeFirefoxProject(manifest: Record<string, unknown>): {
+  projectDir: string
+  distPath: string
+  shipped: string
+} {
+  tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-production-control-'))
+  const distPath = path.join(tmpDir, 'dist', 'firefox')
+  fs.mkdirSync(path.join(distPath, 'background'), {recursive: true})
+  const shipped = JSON.stringify({
+    name: 'x',
+    version: '1.0.0',
+    browser_specific_settings: {gecko: {id: 'x@example.com'}},
+    background: {scripts: ['background/scripts.js']},
+    ...manifest
+  })
+  fs.writeFileSync(path.join(distPath, 'manifest.json'), shipped)
+  fs.writeFileSync(path.join(distPath, 'background', 'scripts.js'), WORKER)
+  fs.writeFileSync(path.join(tmpDir, 'package.json'), '{"name":"x"}')
+
+  return {projectDir: tmpDir, distPath, shipped}
+}
+
+function controlledManifest(controlledPath: string) {
+  return JSON.parse(
+    fs.readFileSync(path.join(controlledPath, 'manifest.json'), 'utf-8')
+  )
+}
+
+// Firefox's default MV3 policy carries upgrade-insecure-requests, which turns
+// the producer's ws:// dial into a TLS handshake the control port never
+// answers. Dev writes its own policy; the controlled copy needs one too.
+describe("the controlled copy's content security policy", () => {
+  it('gives a Firefox MV3 copy with no policy one that leaves ws:// alone', async () => {
+    const {projectDir, distPath, shipped} = makeFirefoxProject({
+      manifest_version: 3
+    })
+
+    session = await startProductionControl({
+      packageJsonDir: projectDir,
+      browser: 'firefox',
+      distPath,
+      allowControl: true
+    })
+
+    const pages = controlledManifest(session.controlledPath)
+      .content_security_policy?.extension_pages
+    expect(typeof pages).toBe('string')
+    expect(pages).toContain("script-src 'self'")
+    expect(pages).not.toContain('upgrade-insecure-requests')
+    expect(fs.readFileSync(path.join(distPath, 'manifest.json'), 'utf-8')).toBe(
+      shipped
+    )
+  })
+
+  it("drops upgrade-insecure-requests from the author's policy and admits the control port", async () => {
+    const {projectDir, distPath, shipped} = makeFirefoxProject({
+      manifest_version: 3,
+      content_security_policy: {
+        extension_pages:
+          "script-src 'self'; connect-src 'self' https://api.example.com; upgrade-insecure-requests;",
+        sandbox: "sandbox allow-scripts; script-src 'self'"
+      }
+    })
+
+    session = await startProductionControl({
+      packageJsonDir: projectDir,
+      browser: 'firefox',
+      distPath,
+      allowControl: true
+    })
+
+    const policy = controlledManifest(
+      session.controlledPath
+    ).content_security_policy
+    expect(policy.extension_pages).not.toContain('upgrade-insecure-requests')
+    expect(policy.extension_pages).toContain("script-src 'self'")
+    expect(policy.extension_pages).toContain('https://api.example.com')
+    expect(policy.extension_pages).toContain(
+      `ws://127.0.0.1:${session.controlPort}`
+    )
+
+    expect(policy.sandbox).toBe("sandbox allow-scripts; script-src 'self'")
+    expect(fs.readFileSync(path.join(distPath, 'manifest.json'), 'utf-8')).toBe(
+      shipped
+    )
+  })
+
+  it('drops upgrade-insecure-requests from an MV2 string policy', async () => {
+    const {projectDir, distPath} = makeFirefoxProject({
+      manifest_version: 2,
+      content_security_policy:
+        "script-src 'self'; object-src 'self'; upgrade-insecure-requests"
+    })
+
+    session = await startProductionControl({
+      packageJsonDir: projectDir,
+      browser: 'firefox',
+      distPath,
+      allowControl: true
+    })
+
+    const policy = controlledManifest(
+      session.controlledPath
+    ).content_security_policy
+    expect(typeof policy).toBe('string')
+    expect(policy).toContain("object-src 'self'")
+    expect(policy).not.toContain('upgrade-insecure-requests')
+  })
+
+  it('wakes a suspended Firefox background once its producer has connected', async () => {
+    const {projectDir, distPath} = makeFirefoxProject({manifest_version: 3})
+    const wakeExecutor = vi.fn(async () => true)
+
+    session = await startProductionControl({
+      packageJsonDir: projectDir,
+      browser: 'firefox',
+      distPath,
+      allowControl: true,
+      wakeExecutor
+    })
+
+    const conn = (id: string) => ({
+      id,
+      sent: [] as unknown[],
+      send(frame: unknown) {
+        this.sent.push(frame)
+
+        return true
+      },
+      close() {}
+    })
+    const hello = (c: ReturnType<typeof conn>, role: string) =>
+      session?.broker.onFrame(c, {
+        type: 'hello',
+        v: 1,
+        role,
+        instanceId: session.instanceId
+      } as never)
+    const page = conn('event-page')
+    hello(page, 'producer')
+    session.broker.onClose(page)
+    const ctl = conn('ctl')
+    hello(ctl, 'controller')
+    ctl.sent = []
+
+    session.broker.onFrame(ctl, {
+      type: 'command',
+      cmdId: 'c1',
+      op: 'storage.get',
+      target: {context: 'background'},
+      args: {}
+    } as never)
+
+    await new Promise((resolve) => setImmediate(resolve))
+
+    expect(wakeExecutor).toHaveBeenCalledTimes(1)
+
+    const woken = conn('woken-page')
+    hello(woken, 'producer')
+    await new Promise((resolve) => setImmediate(resolve))
+
+    expect(woken.sent).toContainEqual(
+      expect.objectContaining({type: 'command', cmdId: 'c1'})
     )
   })
 })
