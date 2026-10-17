@@ -8,6 +8,8 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {CONTROL_WS_PATH} from './dev-server/control-bridge/contracts'
+import {startProductionControl} from './dev-server/control-bridge/production-control'
 import * as devServerMessages from './dev-server/messages'
 import {
   loadBrowserConfig,
@@ -192,7 +194,7 @@ export async function extensionPreview(
   // The run record describes the directory the browser loads, so its path
   // and the extension id derived from it name the actual load, not the
   // stock build folder the flag may have replaced.
-  const metadata = createPlaywrightMetadataWriter({
+  let metadata = createPlaywrightMetadataWriter({
     packageJsonDir,
     browser: String(browser),
     command: metadataCommand,
@@ -294,6 +296,52 @@ export async function extensionPreview(
     return {warnings}
   }
 
+  let launchPath = outputPath
+
+  if (previewOptions.allowControl || previewOptions.allowEval) {
+    let stampAttached: (() => void) | undefined
+    let stampDetached: (() => void) | undefined
+    const control = await startProductionControl({
+      packageJsonDir,
+      browser: String(browser),
+      distPath: outputPath,
+      allowControl: previewOptions.allowControl,
+      allowEval: previewOptions.allowEval,
+      host: previewOptions.host,
+      runId: getSessionRunId(packageJsonDir, String(browser)),
+      onExecutorAttached: () => stampAttached?.(),
+      onExecutorDetached: () => stampDetached?.()
+    })
+
+    launchPath = control.controlledPath
+    // Same ready.json, now naming the folder loaded and the control port the
+    // act verbs dial; writeStarting already ran, so nothing is reset.
+    metadata = createPlaywrightMetadataWriter({
+      packageJsonDir,
+      browser: String(browser),
+      command: metadataCommand,
+      distPath: launchPath,
+      manifestPath: projectStructure.manifestPath,
+      port: null,
+      instanceId: control.instanceId,
+      controlPort: control.controlPort,
+      controlPath: CONTROL_WS_PATH,
+      logsPath: control.logsPath
+    })
+
+    stampAttached = () => metadata.stampExecutorAttached()
+    stampDetached = () => metadata.stampExecutorDetached()
+
+    humanLine(
+      messages.productionControlOpen(
+        browser,
+        launchPath,
+        outputPath,
+        Boolean(previewOptions.allowEval)
+      )
+    )
+  }
+
   humanLine(runningMessage(browser))
 
   if (warnings.length) {
@@ -393,20 +441,20 @@ export async function extensionPreview(
     path.resolve(__dirname, '..'),
     'production',
     browser,
-    outputPath,
+    launchPath,
     companionUnpackedExtensionDirs,
     projectStructure.manifestPath
   )
 
   metadata.setManagedExtensionDirs(
     unpackedExtensionDirsToLoad.filter(
-      (dir) => path.resolve(dir) !== path.resolve(outputPath)
+      (dir) => path.resolve(dir) !== path.resolve(launchPath)
     )
   )
 
   const resolvedOpts: ResolvedPreviewOptions = {
     browser,
-    outPath: outputPath,
+    outPath: launchPath,
     contextDir: packageJsonDir,
     readyPath: metadata.readyPath,
     extensionsToLoad: unpackedExtensionDirsToLoad,

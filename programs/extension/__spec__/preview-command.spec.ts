@@ -89,6 +89,19 @@ describe('extension preview', () => {
     expect(runOnlyPreviewBrowser).toHaveBeenCalledWith({launched: true})
   })
 
+  it('opens the control channel on the previewed build with --allow-eval', async () => {
+    expect(await run(['preview', '.', '--allow-eval'])).toBe(0)
+    const [, opts] = extensionPreview.mock.calls[0] as any[]
+    expect(opts).toMatchObject({allowControl: true, allowEval: true})
+  })
+
+  it('keeps the control channel closed by default', async () => {
+    expect(await run(['preview', '.'])).toBe(0)
+    const [, opts] = extensionPreview.mock.calls[0] as any[]
+    expect(opts.allowControl).toBe(false)
+    expect(opts.allowEval).toBe(false)
+  })
+
   it('forwards a typed --no-open and leaves it unset otherwise', async () => {
     expect(await run(['preview', '.', '--no-open'])).toBe(0)
     const [, withFlag] = extensionPreview.mock.calls[0]

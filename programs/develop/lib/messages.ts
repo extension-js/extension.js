@@ -1182,6 +1182,18 @@ export function previewingCustomOutput(
   )
 }
 
+export function productionControlOpen(
+  browser: DevOptions['browser'],
+  controlledPath: string,
+  distPath: string,
+  allowEval: boolean
+) {
+  return (
+    `${getLoggingPrefix('info')} Control channel open for the ${String(browser)} production build (${allowEval ? 'eval, ' : ''}storage, reload, open).\n` +
+    `The browser loads ${controlledPath}, a copy of ${distPath} with the control producer prepended to the background. ${distPath} is unchanged.`
+  )
+}
+
 export function debugPreviewOutput(outputPath: string, distPath: string) {
   return `${prefix('debug')} preview  output=${outputPath} dist=${distPath}`
 }
