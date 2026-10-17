@@ -13,6 +13,7 @@ import {stageCompanionForSession} from '../../browsers-lib/companion-session'
 import * as messages from '../../browsers-lib/messages'
 import {resolveProfileConfig} from '../../browsers-lib/resolve-profile'
 import {
+  LAUNCH_TAB_URL,
   resolveStartingUrl,
   toExtensionLoadList
 } from '../../browsers-lib/runtime-options'
@@ -171,14 +172,22 @@ export interface BrowserConfigMode {
 
 // The argv a launch hands the binary: the composed flags, then the starting
 // URL as Chromium's positional argument. The dry run prints this; the spawn
-// runs it. --no-open drops the URL, matching Gecko.
+// runs it. --no-open drops the URL, matching Gecko. With a debugging wire the
+// argv opens about:blank and the wire opens the URL once the extension's
+// background is up, since a page loaded from the argv races the install and
+// misses its document_start content scripts.
 export function chromiumLaunchPlan(
   binary: string,
   chromiumConfig: string[],
   startingUrl?: string,
   noOpen?: boolean
 ): {binary: string; args: string[]} {
-  const launchUrl = resolveStartingUrl({startingUrl, noOpen})
+  const startUrl = resolveStartingUrl({startingUrl, noOpen})
+  const launchUrl =
+    startUrl &&
+    chromiumConfig.some((flag) => flag.startsWith('--remote-debugging-'))
+      ? LAUNCH_TAB_URL
+      : startUrl
 
   return {
     binary,

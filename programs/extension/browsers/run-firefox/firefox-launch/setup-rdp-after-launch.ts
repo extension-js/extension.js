@@ -8,6 +8,7 @@
 
 import {humanWarn, isDebug} from '../../../helpers/messaging'
 import {manifestDeclaresNewtabOverride} from '../../browsers-lib/newtab-override'
+import {resolveStartingUrl} from '../../browsers-lib/runtime-options'
 import type {CompilationLike} from '../../browsers-types'
 import type {FirefoxPluginRuntime} from '../firefox-types'
 import {FirefoxRDPController} from '../rdp/rdp-extension-controller'
@@ -84,6 +85,25 @@ export async function setupRdpAfterLaunch(
     controller.disconnect()
 
     throw withRefusalReason(error)
+  }
+
+  // The launch opened about:blank, so the starting page loads only now that
+  // the add-on is in and its document_start content scripts can reach it.
+  try {
+    const startingUrl = resolveStartingUrl(plugin)
+
+    if (startingUrl) {
+      const live = (plugin.rdpController || controller) as {
+        openStartingUrl?: (url: string) => Promise<boolean>
+      }
+      const opened = await live.openStartingUrl?.(startingUrl)
+
+      if (opened === false && isDebug()) {
+        humanWarn(`[browser] Firefox: could not open ${startingUrl}.`)
+      }
+    }
+  } catch {
+    // best-effort only, never block launch on the starting page
   }
 
   // The launch tab predates add-on registration, so it sits on about:blank

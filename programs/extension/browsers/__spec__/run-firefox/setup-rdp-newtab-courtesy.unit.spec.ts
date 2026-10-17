@@ -13,12 +13,18 @@ const openNewTab = vi.fn(async () => {
   return true
 })
 const getAddonInstallRefusalReason = vi.fn(() => null)
+const openStartingUrl = vi.fn(async (url: string) => {
+  calls.push(`openStartingUrl ${url}`)
+
+  return 'navigated'
+})
 
 vi.mock('../../run-firefox/rdp/rdp-extension-controller', () => ({
   FirefoxRDPController: class {
     ensureLoaded = ensureLoaded
     openNewTab = openNewTab
     getAddonInstallRefusalReason = getAddonInstallRefusalReason
+    openStartingUrl = openStartingUrl
   }
 }))
 
@@ -39,6 +45,7 @@ beforeEach(() => {
   calls.length = 0
   ensureLoaded.mockClear()
   openNewTab.mockClear()
+  openStartingUrl.mockClear()
 })
 
 afterEach(() => {
@@ -79,6 +86,39 @@ describe('firefox new-tab courtesy after launch', () => {
     )
 
     expect(openNewTab).not.toHaveBeenCalled()
+  })
+
+  // The launch opens about:blank, so the starting page loads once the add-on
+  // is installed and its document_start content scripts can reach it.
+  it('opens the starting url after the add-on is loaded', async () => {
+    writeManifest({manifest_version: 3, name: 'plain'})
+
+    await setupRdpAfterLaunch(
+      {browser: 'firefox', startingUrl: 'https://example.com/'} as any,
+      compilation(),
+      9222
+    )
+
+    expect(calls).toEqual([
+      'ensureLoaded',
+      'openStartingUrl https://example.com/'
+    ])
+  })
+
+  it('opens no starting url under --no-open', async () => {
+    writeManifest({manifest_version: 3, name: 'plain'})
+
+    await setupRdpAfterLaunch(
+      {
+        browser: 'firefox',
+        startingUrl: 'https://example.com/',
+        noOpen: true
+      } as any,
+      compilation(),
+      9222
+    )
+
+    expect(openStartingUrl).not.toHaveBeenCalled()
   })
 
   it('keeps quiet mode quiet', async () => {

@@ -38,6 +38,7 @@ import {openManagerNewTab} from './manager-tab'
 import {isErrorWithCode, requestErrorToMessage} from './message-utils'
 import {MessagingClient} from './messaging-client'
 import {deriveMozExtensionId} from './moz-id'
+import {openStartingUrlAfterBackground} from './starting-url'
 
 const MAX_RETRIES = RDP_MAX_RETRIES
 const RETRY_INTERVAL = RDP_RETRY_INTERVAL_MS
@@ -382,6 +383,20 @@ export class RemoteFirefox {
     if (!this.client) return false
 
     return await openManagerNewTab(this.client)
+  }
+
+  public async openStartingUrl(url: string): Promise<boolean> {
+    if (!this.client) return false
+
+    const client = this.client
+
+    return (
+      (await openStartingUrlAfterBackground({
+        client: {request: (payload) => client.request(payload)},
+        extensionId: this.derivedExtensionId,
+        url
+      })) === 'navigated'
+    )
   }
 
   // Unified logging via Firefox RDP (parity with Chromium CDP)

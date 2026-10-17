@@ -16,6 +16,7 @@ import {
   systemProfileEnvName
 } from '../../browsers-lib/resolve-profile'
 import {
+  LAUNCH_TAB_URL,
   resolveStartingUrl,
   toExtensionLoadList
 } from '../../browsers-lib/runtime-options'
@@ -111,12 +112,11 @@ export async function resolveFirefoxLaunchConfig(
   // browserFlags and NOT subject to excludeBrowserFlags. The env is explicit.
   binaryArgs.push(...parseEnvBrowserFlags(process.env.EXTENSION_BROWSER_FLAGS))
 
-  // Firefox accepts a URL as the last argument (parity with Chromium's
-  // startingUrl). Deliberately unquoted; the caller wraps the args string.
-  const launchUrl = resolveStartingUrl(configOptions)
-
-  if (launchUrl) {
-    binaryArgs.push('--url', String(launchUrl))
+  // The starting URL waits for the add-on: the launch opens about:blank and
+  // the debugger opens the URL once the add-on's background runs. Loaded from
+  // the argv it raced the install and missed document_start content scripts.
+  if (resolveStartingUrl(configOptions)) {
+    binaryArgs.push('--url', LAUNCH_TAB_URL)
   }
 
   const outPath =
