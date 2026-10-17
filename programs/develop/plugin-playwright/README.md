@@ -33,7 +33,9 @@
 - `pid`
 - `ts`
 - `compiledAt`
-- `errors`
+- `errors`: the last failed compile's messages as plain text (no color),
+  whether the compile reported errors or the compiler itself failed; empty
+  otherwise
 - `controlPort`: the agent-bridge control port, or `null` when there is none
 - optional `code` and `message` on failures
 - optional `controlPortUnavailableReason`: the bind error, present whenever

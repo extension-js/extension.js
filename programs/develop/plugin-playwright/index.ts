@@ -1073,18 +1073,25 @@ export class PlaywrightPlugin {
       }
     })
 
+    // The same plain text the done path writes, so a contract reader finds
+    // the failure in `errors` and never has to strip color from `message`.
     compiler.hooks.failed.tap(PlaywrightPlugin.name, (error: unknown) => {
+      const errors = formatStatsErrors([error])
+      const contractErrors = errors.length ? errors : ['Compilation failed']
+
       this.writer.appendEvent({
         type: 'compile_error',
         ts: nowISO(),
         command: this.command,
         browser: this.browser,
-        errorCount: 1
+        errorCount: 1,
+        errors: contractErrors
       })
 
       this.writer.writeError(
         'compile_failed',
-        error instanceof Error ? error.message : String(error)
+        contractErrors[0],
+        contractErrors
       )
     })
 
