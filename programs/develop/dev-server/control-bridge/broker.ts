@@ -60,6 +60,9 @@ export interface BridgeBrokerOptions {
   // stamps a distinct "runtime attached" signal into ready.json.
   onExecutorAttached?: () => void
   onExecutorDetached?: () => void
+  // Asks the browser to start the extension's background again. Firefox
+  // suspends an idle event page and its producer leaves with it.
+  wakeExecutor?: () => Promise<boolean>
 }
 
 // Defined with the wire constants in ./contracts, re-exported here because
@@ -75,6 +78,8 @@ import {debugLine} from '../../lib/messaging'
 
 export const DEFAULT_CMD_TIMEOUT_MS = 5000
 export const MAX_CMD_TIMEOUT_MS = 30_000
+// How long a verb waits for a woken background's producer to say hello.
+export const WAKE_HELLO_WAIT_MS = 5000
 
 // How long a producer that negotiated the ack protocol has to confirm a
 // reload. The ack is sent from the frame handler itself, so a receipt that
@@ -123,6 +128,7 @@ type ExecutorAbsence =
   | 'stale-resync-pending'
   | 'never-connected'
   | 'recently-disconnected'
+  | 'suspended-event-page'
   | 'browser-exited'
 
 const EXECUTOR_ABSENT: Record<ExecutorAbsence, (secs?: number) => string> = {
@@ -141,6 +147,13 @@ const EXECUTOR_ABSENT: Record<ExecutorAbsence, (secs?: number) => string> = {
     'this dev session started. The browser may still be launching, the ' +
     "profile's cached service worker may predate this session, or the " +
     'session runs with --no-browser; check ready.json status and retry',
+  'suspended-event-page': (secs) =>
+    "no executor connected: Firefox suspended the extension's idle " +
+    `background event page${secs != null ? ` ${secs}s ago` : ''}, and a ` +
+    'suspended page does not reconnect on its own: only an extension event ' +
+    'wakes it, and waking it over the debugger brought nothing back. Click ' +
+    "the extension's toolbar button or open one of its pages in the browser, " +
+    'then retry; if it stays down, restart extension dev',
   'recently-disconnected': (secs) =>
     "no executor connected: the extension's service worker disconnected" +
     `${secs != null ? ` ${secs}s ago` : ''}, MV3 workers idle out and ` +
@@ -282,6 +295,10 @@ export class BridgeBroker {
   private controlPortUnavailable: string | null = null
   private readonly onExecutorAttached?: () => void
   private readonly onExecutorDetached?: () => void
+  private readonly wakeExecutor?: () => Promise<boolean>
+  // Verbs held while a woken background starts, answered on its hello.
+  private readonly executorWaiters = new Set<() => void>()
+  private readonly waking = new Set<string>()
   private lastProducerDisconnectedAt: number | null = null
   // The launcher's exit stamp, once the dev server has read it off ready.json.
   // Cleared by a producer hello, since a worker that talks means a browser
@@ -321,6 +338,7 @@ export class BridgeBroker {
     this.authorMode = options.authorMode ?? false
     this.onExecutorAttached = options.onExecutorAttached
     this.onExecutorDetached = options.onExecutorDetached
+    this.wakeExecutor = options.wakeExecutor
     this.now = options.now ?? (() => Date.now())
     this.setTimer = options.setTimer ?? ((fn, ms) => setTimeout(fn, ms))
     this.clearTimer = options.clearTimer ?? ((h) => clearTimeout(h))
@@ -787,6 +805,10 @@ export class BridgeBroker {
       }
     }
 
+    if (hello.role === 'producer') {
+      for (const release of [...this.executorWaiters]) release()
+    }
+
     if (hello.role === 'producer' && this.pendingReload) {
       // An edit landed while no SW was connected (idle-stopped or not yet
       // started). Deliver the latched instruction so that edit still applies.
@@ -854,6 +876,14 @@ export class BridgeBroker {
 
     if (!this.producerEverConnected) {
       return EXECUTOR_ABSENT['never-connected']()
+    }
+
+    if (this.engine === 'firefox') {
+      return EXECUTOR_ABSENT['suspended-event-page'](
+        this.lastProducerDisconnectedAt != null
+          ? Math.round((now - this.lastProducerDisconnectedAt) / 1000)
+          : undefined
+      )
     }
 
     return EXECUTOR_ABSENT['recently-disconnected'](
@@ -947,7 +977,7 @@ export class BridgeBroker {
 
     // The id is client-chosen; letting a second one replace the entry would
     // orphan the first caller's timer and route its answer to the newcomer.
-    if (this.pending.has(cmd.cmdId)) {
+    if (this.pending.has(cmd.cmdId) || this.waking.has(cmd.cmdId)) {
       deny(
         'BadRequest',
         `cmdId ${cmd.cmdId} is still pending for another command, ` +
@@ -959,12 +989,96 @@ export class BridgeBroker {
 
     const executor = this.firstExecutor()
 
+    if (!executor && this.canWakeExecutor()) {
+      void this.wakeThenRoute(controller, cmd, deny, {
+        principal,
+        exprHash,
+        expr
+      })
+
+      return
+    }
+
     if (!executor) {
       deny('Unavailable', this.diagnoseExecutorAbsence())
 
       return
     }
 
+    this.routeCommand(controller, executor, cmd, {principal, exprHash, expr})
+  }
+
+  // A producer was here and left while the browser still runs: the shape of
+  // a suspended Firefox event page, which the launcher can start again.
+  private canWakeExecutor(): boolean {
+    return (
+      Boolean(this.wakeExecutor) &&
+      this.producerEverConnected &&
+      this.browserExitedAt == null &&
+      this.controlPortUnavailable == null
+    )
+  }
+
+  private async wakeThenRoute(
+    controller: BridgeConnection,
+    cmd: CommandFrame,
+    deny: (name: string, message: string) => void,
+    audit: {principal: string; exprHash?: string; expr?: string}
+  ): Promise<void> {
+    this.waking.add(cmd.cmdId)
+
+    let woke = false
+
+    try {
+      woke = (await this.wakeExecutor?.()) === true
+    } catch {
+      woke = false
+    }
+
+    const executor = woke
+      ? await this.waitForExecutor(
+          Math.min(cmd.timeoutMs ?? WAKE_HELLO_WAIT_MS, WAKE_HELLO_WAIT_MS)
+        )
+      : null
+
+    this.waking.delete(cmd.cmdId)
+
+    // The caller hung up while the page started: nobody is left to answer.
+    if (!this.roles.has(controller)) return
+
+    if (!executor) {
+      deny('Unavailable', this.diagnoseExecutorAbsence())
+
+      return
+    }
+
+    this.routeCommand(controller, executor, cmd, audit)
+  }
+
+  private waitForExecutor(ms: number): Promise<BridgeConnection | null> {
+    const ready = this.firstExecutor()
+    if (ready) return Promise.resolve(ready)
+
+    return new Promise((resolve) => {
+      const release = () => {
+        this.executorWaiters.delete(release)
+        this.clearTimer(timer)
+        resolve(this.firstExecutor())
+      }
+
+      const timer = this.setTimer(release, Math.max(ms, 1))
+
+      this.executorWaiters.add(release)
+    })
+  }
+
+  private routeCommand(
+    controller: BridgeConnection,
+    executor: BridgeConnection,
+    cmd: CommandFrame,
+    audit: {principal: string; exprHash?: string; expr?: string}
+  ): void {
+    const {principal, exprHash, expr} = audit
     const timeoutMs = Math.min(
       Math.max(cmd.timeoutMs ?? DEFAULT_CMD_TIMEOUT_MS, 1),
       MAX_CMD_TIMEOUT_MS
