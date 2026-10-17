@@ -387,7 +387,7 @@ describe('extension publish --ttl', () => {
     '0',
     '-5',
     '1.5',
-    '169',
+    '8761',
     '99999'
   ])('refuses %s before any request is sent', async (ttl) => {
     expect(await run(['publish', '--token', 'tok', '--ttl', ttl])).toBe(1)
@@ -415,7 +415,15 @@ describe('extension publish --ttl', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it.each(['1', '24', '168'])('sends %s as a number', async (ttl) => {
+  // The plan's share window (30 days on Free, 365 on Pro) is the server's to
+  // enforce; it clamps anything longer, so the CLI only bounds a year.
+  it.each([
+    '1',
+    '24',
+    '168',
+    '720',
+    '8760'
+  ])('sends %s as a number', async (ttl) => {
     respondWith(200, JSON.stringify({shareUrl: 'https://ext.dev/s/abc'}))
     expect(await run(['publish', '--token', 'tok', '--ttl', ttl])).toBe(0)
     expect(sentBody().ttlHours).toBe(Number(ttl))
@@ -427,5 +435,18 @@ describe('extension publish --ttl', () => {
     respondWith(200, JSON.stringify({shareUrl: 'https://ext.dev/s/abc'}))
     expect(await run(['publish', '--token', 'tok'])).toBe(0)
     expect('ttlHours' in sentBody()).toBe(false)
+  })
+
+  it('leaves the default to the server and says so in the help', async () => {
+    respondWith(200, JSON.stringify({shareUrl: 'https://ext.dev/s/abc'}))
+    expect(await run(['publish', '--token', 'tok'])).toBe(0)
+    expect(sentBody()).not.toHaveProperty('ttlHours')
+
+    const publish = makeProgram(registerPublishCommand).commands.find(
+      (command) => command.name() === 'publish'
+    )
+    const help = (publish?.helpInformation() ?? '').replace(/\s+/g, ' ')
+    expect(help).toContain("defaults to 7 days; up to your plan's share window")
+    expect(help).not.toContain('default 24')
   })
 })

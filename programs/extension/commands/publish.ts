@@ -198,8 +198,10 @@ export class PublishPlanError extends Error {
   }
 }
 
+// A year bounds the flag; the platform clamps a link to the workspace plan's
+// share window and applies its own default when no ttl is sent.
 export const TTL_MIN_HOURS = 1
-export const TTL_MAX_HOURS = 168
+export const TTL_MAX_HOURS = 8760
 
 // Number('abc') is NaN, which JSON.stringify writes as null, and the platform
 // reads an absent ttl as "use the default". Refuse before any request is sent.
@@ -354,7 +356,10 @@ export function registerPublishCommand(program: Command) {
       'platform access token (or EXTENSION_DEV_TOKEN, or the stored login)'
     )
     .option('--api <url>', 'platform base URL (or EXTENSION_DEV_API_URL)')
-    .option('--ttl <hours>', 'share-link lifetime in hours (1–168, default 24)')
+    .option(
+      '--ttl <hours>',
+      "share-link lifetime in hours (defaults to 7 days; up to your plan's share window)"
+    )
     .option('--build-sha <sha>', 'pin the share URL to a specific build')
     .option(
       '--project <slug>',
