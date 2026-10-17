@@ -513,6 +513,64 @@ function withStaticEntries(
     : instruction
 }
 
+// The bundles the emitted manifest's content_scripts name. Without the dev
+// stubs (Gecko, MV2) these are the hashed names, and the browser keeps the
+// list it read at load until the extension reloads.
+export function readContentScriptFiles(
+  compilation: import('@rspack/core').Compilation
+): string[] {
+  try {
+    const asset = compilation.getAsset?.('manifest.json')
+    if (!asset?.source) return []
+
+    const manifest = JSON.parse(String(asset.source.source()))
+    const groups = manifest?.content_scripts
+    if (!Array.isArray(groups)) return []
+
+    return groups
+      .flatMap((group: {js?: unknown; css?: unknown}) => [
+        ...(Array.isArray(group?.js) ? group.js : []),
+        ...(Array.isArray(group?.css) ? group.css : [])
+      ])
+      .filter((file: unknown): file is string => typeof file === 'string')
+  } catch {
+    return []
+  }
+}
+
+// A compile that renames a bundle deletes the file the loaded manifest names,
+// and only an extension reload makes the browser read the new names. A
+// reinject alone left every page after it without the content script.
+export function reloadForRenamedContentScripts(
+  instruction: ReloadInstruction | undefined,
+  loadedFiles: string[],
+  emittedFiles: string[]
+): ReloadInstruction | undefined {
+  if (instruction?.type === 'full' || instruction?.type === 'service-worker') {
+    return instruction
+  }
+
+  const renamed =
+    emittedFiles.length !== loadedFiles.length ||
+    emittedFiles.some((file, index) => file !== loadedFiles[index])
+
+  if (!renamed) return instruction
+
+  const changedAssets = instruction?.changedAssets?.length
+    ? instruction.changedAssets
+    : ['manifest.json']
+
+  return {
+    ...instruction,
+    type: 'full',
+    changedAssets,
+    label:
+      instruction?.type === 'content-scripts' && instruction.label
+        ? instruction.label
+        : formatReloadContextLabel('extension', changedAssets)
+  }
+}
+
 export function readContentScriptCount(
   compilation: import('@rspack/core').Compilation,
   outputPath: string

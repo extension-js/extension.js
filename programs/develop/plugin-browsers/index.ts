@@ -17,7 +17,9 @@ import {
   dispatchReload,
   type ReloadBroker,
   type ReloadInstruction,
-  readContentScriptCount
+  readContentScriptCount,
+  readContentScriptFiles,
+  reloadForRenamedContentScripts
 } from '../plugin-reload'
 import type {DevOptions} from '../types'
 
@@ -172,6 +174,9 @@ export class BrowsersPlugin implements RunnerPlugin {
   private emulatorViewerUrl: string | undefined
   // The refusal text last shown to the operator, so repeats stay quiet.
   private lastReportedRefusal: string | null | undefined
+  // The content script files the manifest named when the browser last read
+  // it: at launch, or at the last reload of the whole extension.
+  private loadedContentScriptFiles: string[] = []
 
   constructor(private readonly options: BrowsersPluginOptions) {}
 
@@ -273,18 +278,31 @@ export class BrowsersPlugin implements RunnerPlugin {
       // Classify reload from changed sources, not asset names (every compile
       // emits all assets). Page-only edits stay undefined: livereload covers them.
       let reloadInstruction: ReloadInstruction | undefined
+      const contentScriptFiles = readContentScriptFiles(compilation)
 
       if (!this.isFirstCompile) {
         const {forcedFull, changedSources: sources} = changedSources.snapshot()
-        reloadInstruction = classifyReloadFromSources({
-          changedSources: sources,
-          forcedFull,
-          getContentScriptCount: () =>
-            readContentScriptCount(compilation, outputPath),
-          getSourceFeatureIndex: () =>
-            buildSourceFeatureIndex(compilation, contextDir),
-          outputPath
-        })
+        reloadInstruction = reloadForRenamedContentScripts(
+          classifyReloadFromSources({
+            changedSources: sources,
+            forcedFull,
+            getContentScriptCount: () =>
+              readContentScriptCount(compilation, outputPath),
+            getSourceFeatureIndex: () =>
+              buildSourceFeatureIndex(compilation, contextDir),
+            outputPath
+          }),
+          this.loadedContentScriptFiles,
+          contentScriptFiles
+        )
+      }
+
+      if (
+        this.isFirstCompile ||
+        reloadInstruction?.type === 'full' ||
+        reloadInstruction?.type === 'service-worker'
+      ) {
+        this.loadedContentScriptFiles = contentScriptFiles
       }
 
       const wasFirstCompile = this.isFirstCompile
@@ -332,6 +350,7 @@ export class BrowsersPlugin implements RunnerPlugin {
       } else if (await this.retryRefusedExtensionLoad()) {
         // The guest was absent until this compile, so there is nothing to
         // reload: it just started from the dist that was written.
+        this.loadedContentScriptFiles = contentScriptFiles
       } else if (this.reloadBroker) {
         // Launched-browser reload routes to the SW producer over the control
         // bridge, the same executor as `--no-browser`. Honors EXTENSION_NO_RELOAD.

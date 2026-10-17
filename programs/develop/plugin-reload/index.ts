@@ -29,6 +29,8 @@ export {
   type ReloadInstruction,
   type ReloadType,
   readContentScriptCount,
+  readContentScriptFiles,
+  reloadForRenamedContentScripts,
   type SourceFeatureIndex
 } from './classify-reload'
 export {
