@@ -37,6 +37,26 @@ export interface ReloadBroker {
   // The receipt for the newest broadcast. 'not-expected' covers a producer
   // that cannot ack, so an old cached worker is never called unapplied.
   awaitReloadAck?(): Promise<ReloadAckOutcome>
+  // Stamps the applied reload into ready.json, so a tool waiting for the
+  // rebuild to be live reads it instead of guessing from a reconnect.
+  noteReloadApplied?(kind: ReloadKind, label?: string): void
+}
+
+// The public names ready.json publishes in reloadKind. safari-resync is the
+// appex Safari reloads after a rebuild, stamped by the Safari dev plugin.
+export type ReloadKind =
+  | 'full'
+  | 'background'
+  | 'content'
+  | 'page'
+  | 'safari-resync'
+
+export function reloadKindFor(type: ReloadInstruction['type']): ReloadKind {
+  if (type === 'service-worker') return 'background'
+  if (type === 'content-scripts') return 'content'
+  if (type === 'page') return 'page'
+
+  return 'full'
 }
 
 export interface ReloadExecutor {
@@ -108,6 +128,11 @@ export async function dispatchReload(
 
         return
       }
+
+      executor.broker.noteReloadApplied?.(
+        reloadKindFor(instruction.type),
+        instruction.label
+      )
 
       if (instruction.label) {
         humanLine(

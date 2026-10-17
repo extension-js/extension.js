@@ -73,6 +73,11 @@ export type ReadyMetadata = {
   webdriverPort?: number
   webdriverSessionId?: string
   webdriverUnavailableReason?: string
+  // Dev only: the last reload dev applied after a compile, its kind (full,
+  // background, content, page, safari-resync) and the shared reload label.
+  reloadedAt?: string
+  reloadKind?: string
+  reloadLabel?: string
   // Stamped by the browser launcher post-launch: the resolved profile dir (an
   // ephemeral profile's leaf name is generated) and the browser process pid.
   profilePath?: string
@@ -687,6 +692,18 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
         payload.webdriverPort = prev.webdriverPort
       }
 
+      if (typeof prev.reloadedAt === 'string') {
+        payload.reloadedAt = prev.reloadedAt
+
+        if (typeof prev.reloadKind === 'string') {
+          payload.reloadKind = prev.reloadKind
+        }
+
+        if (typeof prev.reloadLabel === 'string') {
+          payload.reloadLabel = prev.reloadLabel
+        }
+      }
+
       if (typeof prev.webdriverSessionId === 'string') {
         payload.webdriverSessionId = prev.webdriverSessionId
       }
@@ -909,6 +926,27 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       prev.status = 'stopped'
       prev.code = 'shutdown'
       prev.message = message
+      prev.ts = nowISO()
+
+      try {
+        writeJsonAtomic(readyPath, prev)
+      } catch {
+        // Ignore
+      }
+    },
+    // A reload dev applied after a compile. A tool waiting for the rebuild to
+    // be live compares reloadedAt with compiledAt instead of guessing from a
+    // background reconnect, which a content, page or Safari reload never does.
+    stampReload(kind: string, label?: string) {
+      const prev = readContract()
+      if (!prev || !ownsDocument(prev)) return
+
+      prev.reloadedAt = nowISO()
+      prev.reloadKind = kind
+
+      if (label) prev.reloadLabel = label
+      else delete prev.reloadLabel
+
       prev.ts = nowISO()
 
       try {

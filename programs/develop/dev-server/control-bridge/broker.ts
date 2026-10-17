@@ -63,6 +63,8 @@ export interface BridgeBrokerOptions {
   // Asks the browser to start the extension's background again. Firefox
   // suspends an idle event page and its producer leaves with it.
   wakeExecutor?: () => Promise<boolean>
+  // A reload dev applied after a compile, for the session to stamp.
+  onReloadApplied?: (kind: string, label?: string) => void
 }
 
 // Defined with the wire constants in ./contracts, re-exported here because
@@ -299,6 +301,7 @@ export class BridgeBroker {
   // Verbs held while a woken background starts, answered on its hello.
   private readonly executorWaiters = new Set<() => void>()
   private readonly waking = new Set<string>()
+  private readonly onReloadApplied?: (kind: string, label?: string) => void
   private lastProducerDisconnectedAt: number | null = null
   // The launcher's exit stamp, once the dev server has read it off ready.json.
   // Cleared by a producer hello, since a worker that talks means a browser
@@ -339,6 +342,7 @@ export class BridgeBroker {
     this.onExecutorAttached = options.onExecutorAttached
     this.onExecutorDetached = options.onExecutorDetached
     this.wakeExecutor = options.wakeExecutor
+    this.onReloadApplied = options.onReloadApplied
     this.now = options.now ?? (() => Date.now())
     this.setTimer = options.setTimer ?? ((fn, ms) => setTimeout(fn, ms))
     this.clearTimer = options.clearTimer ?? ((h) => clearTimeout(h))
@@ -525,6 +529,14 @@ export class BridgeBroker {
 
   // Resolves once the newest broadcast is provably applied, once its ack
   // window closes unanswered, or at once when no receiver acks at all.
+  noteReloadApplied(kind: string, label?: string): void {
+    try {
+      this.onReloadApplied?.(kind, label)
+    } catch {
+      // A stamp must never fail the reload it records.
+    }
+  }
+
   awaitReloadAck(): Promise<ReloadAckOutcome> {
     return this.reloadAck?.outcome ?? Promise.resolve('not-expected')
   }

@@ -38,6 +38,8 @@ export {
   dispatchReload,
   type ReloadBroker,
   type ReloadExecutor,
+  type ReloadKind,
+  reloadKindFor,
   type UndeliveredReloadContext
 } from './reload-dispatch'
 export {SetupChunkLoadingTarget} from './steps/setup-chunk-loading-target'
