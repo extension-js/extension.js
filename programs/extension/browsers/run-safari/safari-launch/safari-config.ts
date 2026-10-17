@@ -6,6 +6,7 @@
 // ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import {createHash} from 'node:crypto'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {CompilationLike} from '../../browsers-types'
@@ -302,6 +303,71 @@ export function isProjectStale(config: SafariBuildConfig): boolean {
   const stored = fs.readFileSync(fpPath, 'utf8')
 
   return stored !== composeProjectFingerprint(config)
+}
+
+export function buildFingerprintPath(config: SafariBuildConfig): string {
+  return path.join(config.projectLocation, '.build-fingerprint')
+}
+
+function listBuildFiles(root: string, dir = ''): string[] {
+  const out: string[] = []
+
+  for (const entry of fs.readdirSync(path.join(root, dir), {
+    withFileTypes: true
+  })) {
+    const rel = dir ? `${dir}/${entry.name}` : entry.name
+
+    if (!dir && entry.name === HOT_UPDATE_DIR) continue
+
+    if (entry.isDirectory()) out.push(...listBuildFiles(root, rel))
+    else out.push(rel)
+  }
+
+  return out.sort()
+}
+
+// What xcodebuild would turn into the app: every byte of the build folder the
+// project copies (dev's hot updates aside) and the arguments, signing included.
+// A session start with the same fingerprint and the app on disk reuses it.
+export function composeBuildFingerprint(
+  config: SafariBuildConfig,
+  xcodebuildArgs: string[]
+): string {
+  const hash = createHash('sha256')
+  hash.update(JSON.stringify(xcodebuildArgs))
+
+  try {
+    for (const rel of listBuildFiles(config.extensionDir)) {
+      hash.update(`\0${rel}\0`)
+      hash.update(fs.readFileSync(path.join(config.extensionDir, rel)))
+    }
+  } catch {
+    // An unreadable build folder never matches, so the build runs.
+    return ''
+  }
+
+  return hash.digest('hex')
+}
+
+export function saveBuildFingerprint(
+  config: SafariBuildConfig,
+  fingerprint: string
+): void {
+  fs.mkdirSync(path.dirname(buildFingerprintPath(config)), {recursive: true})
+  fs.writeFileSync(buildFingerprintPath(config), fingerprint, 'utf8')
+}
+
+export function isBuildCurrent(
+  config: SafariBuildConfig,
+  fingerprint: string
+): boolean {
+  if (!fingerprint || !fs.existsSync(builtAppPath(config))) return false
+
+  try {
+    return fs.readFileSync(buildFingerprintPath(config), 'utf8') === fingerprint
+  } catch {
+    return false
+  }
 }
 
 // The converter derives the parent app id from the app name, not verbatim from
