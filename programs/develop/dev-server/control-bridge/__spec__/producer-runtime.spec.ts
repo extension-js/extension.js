@@ -1983,6 +1983,279 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     })
   })
 
+  it('open action: replays browserAction.onClicked on an MV2 browser_action (Gecko)', async () => {
+    const fired: unknown[] = []
+    // Real Firefox MV2: no action namespace, browserAction on both globals,
+    // and browser.* events are distinct wrappers.
+    const browserApi: Record<string, any> = {
+      browserAction: {
+        getPopup: () => Promise.resolve(''),
+        openPopup: () => Promise.resolve(),
+        onClicked: {addListener() {}}
+      }
+    }
+    const chromeApi: Record<string, any> = {
+      browserAction: {
+        getPopup: (_d: unknown, cb: (p: string) => void) => cb(''),
+        openPopup: () => Promise.resolve(),
+        onClicked: {addListener() {}}
+      },
+      tabs: {
+        query: (_q: unknown, cb: (t: unknown[]) => void) =>
+          cb([{id: 4, active: true}])
+      },
+      runtime: {
+        getManifest: () => ({
+          manifest_version: 2,
+          browser_action: {default_title: 'Go'}
+        })
+      }
+    }
+    const ws = setup(chromeApi, {browser: browserApi})
+    browserApi.browserAction.onClicked.addListener((tab: unknown) =>
+      fired.push(tab)
+    )
+
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'act-ba',
+      op: 'open',
+      target: {context: 'background'},
+      args: {surface: 'action'}
+    })
+
+    await flush()
+    expect(fired).toEqual([{id: 4, active: true}])
+    expect(results(ws).find((f) => f.cmdId === 'act-ba')).toMatchObject({
+      ok: true,
+      value: {
+        triggered: 'onClicked',
+        listeners: 1,
+        gesture: false,
+        manifestKey: 'browser_action'
+      }
+    })
+  })
+
+  it('open action: replays browserAction.onClicked on an MV2 Chromium build', async () => {
+    const fired: unknown[] = []
+    const chromeApi: Record<string, any> = {
+      browserAction: {
+        getPopup: (_d: unknown, cb: (p: string) => void) => cb(''),
+        onClicked: {addListener() {}}
+      },
+      tabs: {
+        query: (_q: unknown, cb: (t: unknown[]) => void) =>
+          cb([{id: 6, active: true}])
+      },
+      runtime: {
+        getManifest: () => ({manifest_version: 2, browser_action: {}})
+      }
+    }
+    const ws = setup(chromeApi)
+    chromeApi.browserAction.onClicked.addListener((tab: unknown) =>
+      fired.push(tab)
+    )
+
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'act-ba-cr',
+      op: 'open',
+      target: {context: 'background'},
+      args: {surface: 'action'}
+    })
+
+    await flush()
+    expect(fired).toEqual([{id: 6, active: true}])
+    expect(results(ws).find((f) => f.cmdId === 'act-ba-cr')).toMatchObject({
+      ok: true,
+      value: {triggered: 'onClicked', manifestKey: 'browser_action'}
+    })
+  })
+
+  it('open action: opens an MV2 browser_action popup through browserAction.openPopup', async () => {
+    let opened = false
+    const chromeApi: Record<string, any> = {
+      browserAction: {
+        getPopup: (_d: unknown, cb: (p: string) => void) =>
+          cb('moz-extension://x/action/index.html'),
+        openPopup: () => {
+          opened = true
+
+          return Promise.resolve()
+        },
+        onClicked: {addListener() {}}
+      },
+      runtime: {
+        getManifest: () => ({
+          manifest_version: 2,
+          browser_action: {default_popup: 'action/index.html'}
+        })
+      }
+    }
+    const ws = setup(chromeApi)
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'act-ba-pop',
+      op: 'open',
+      target: {context: 'background'},
+      args: {surface: 'action'}
+    })
+
+    await flush()
+    expect(opened).toBe(true)
+    expect(results(ws).find((f) => f.cmdId === 'act-ba-pop')).toMatchObject({
+      ok: true,
+      value: {triggered: 'popup', manifestKey: 'browser_action'}
+    })
+  })
+
+  it('open action: replays pageAction.onClicked on an MV2 page_action, asking the popup for the tab', async () => {
+    const fired: unknown[] = []
+    const asked: unknown[] = []
+    const chromeApi: Record<string, any> = {
+      pageAction: {
+        // Both engines require a tabId for a page action's popup.
+        getPopup: (d: {tabId?: number}, cb: (p: string) => void) => {
+          asked.push(d)
+          if (typeof d?.tabId !== 'number') throw new Error('tabId required')
+
+          cb('')
+        },
+        onClicked: {addListener() {}}
+      },
+      tabs: {
+        query: (_q: unknown, cb: (t: unknown[]) => void) =>
+          cb([{id: 12, active: true}])
+      },
+      runtime: {
+        getManifest: () => ({manifest_version: 2, page_action: {}})
+      }
+    }
+    const ws = setup(chromeApi)
+    chromeApi.pageAction.onClicked.addListener((tab: unknown) =>
+      fired.push(tab)
+    )
+
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'act-pa',
+      op: 'open',
+      target: {context: 'background'},
+      args: {surface: 'action'}
+    })
+
+    await flush()
+    expect(asked).toEqual([{tabId: 12}])
+    expect(fired).toEqual([{id: 12, active: true}])
+    expect(results(ws).find((f) => f.cmdId === 'act-pa')).toMatchObject({
+      ok: true,
+      value: {triggered: 'onClicked', listeners: 1, manifestKey: 'page_action'}
+    })
+  })
+
+  it('open action: opens an MV2 page_action popup through pageAction.openPopup', async () => {
+    let opened = false
+    const chromeApi: Record<string, any> = {
+      pageAction: {
+        getPopup: (_d: unknown, cb: (p: string) => void) => cb('page.html'),
+        openPopup: () => {
+          opened = true
+
+          return Promise.resolve()
+        },
+        onClicked: {addListener() {}}
+      },
+      tabs: {
+        query: (_q: unknown, cb: (t: unknown[]) => void) =>
+          cb([{id: 2, active: true}])
+      },
+      runtime: {
+        getManifest: () => ({
+          manifest_version: 2,
+          page_action: {default_popup: 'page.html'}
+        })
+      }
+    }
+    const ws = setup(chromeApi)
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'act-pa-pop',
+      op: 'open',
+      target: {context: 'background'},
+      args: {surface: 'action'}
+    })
+
+    await flush()
+    expect(opened).toBe(true)
+    expect(results(ws).find((f) => f.cmdId === 'act-pa-pop')).toMatchObject({
+      ok: true,
+      value: {triggered: 'popup', manifestKey: 'page_action'}
+    })
+  })
+
+  it('open action: an MV3 action names its key and leaves pageAction listeners alone', async () => {
+    const fired: string[] = []
+    // Firefox MV3 still exposes pageAction next to action.
+    const chromeApi: Record<string, any> = {
+      action: {
+        getPopup: (_d: unknown, cb: (p: string) => void) => cb(''),
+        onClicked: {addListener() {}}
+      },
+      pageAction: {
+        getPopup: (_d: unknown, cb: (p: string) => void) => cb(''),
+        onClicked: {addListener() {}}
+      },
+      tabs: {
+        query: (_q: unknown, cb: (t: unknown[]) => void) =>
+          cb([{id: 5, active: true}])
+      },
+      runtime: {
+        getManifest: () => ({manifest_version: 3, action: {}})
+      }
+    }
+    const ws = setup(chromeApi)
+    chromeApi.action.onClicked.addListener(() => fired.push('action'))
+    chromeApi.pageAction.onClicked.addListener(() => fired.push('page'))
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'act-v3',
+      op: 'open',
+      target: {context: 'background'},
+      args: {surface: 'action'}
+    })
+
+    await flush()
+    expect(fired).toEqual(['action'])
+    expect(results(ws).find((f) => f.cmdId === 'act-v3')).toMatchObject({
+      ok: true,
+      value: {triggered: 'onClicked', listeners: 1, manifestKey: 'action'}
+    })
+  })
+
+  it('open action: names the missing keys when the manifest declares no action', async () => {
+    const ws = setup({
+      tabs: {query: (_q: unknown, cb: (t: unknown[]) => void) => cb([])},
+      runtime: {getManifest: () => ({manifest_version: 2})}
+    })
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'act-none',
+      op: 'open',
+      target: {context: 'background'},
+      args: {surface: 'action'}
+    })
+
+    await flush()
+    const r = results(ws).find((f) => f.cmdId === 'act-none')
+    expect(r).toMatchObject({
+      ok: false,
+      error: {name: 'Unsupported', code: 'surface_not_declared'}
+    })
+
+    expect(r.error.message).toMatch(/action, browser_action or page_action/)
+  })
+
   it('open command: replays an onCommand listener registered via browser.* only', async () => {
     const got: Array<[unknown, unknown]> = []
     const browserApi: Record<string, any> = {

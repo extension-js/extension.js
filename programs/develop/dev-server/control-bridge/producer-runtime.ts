@@ -51,7 +51,10 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
 
     // Use the raw globals (not the hoisted chrome var below). This runs first.
     // On Gecko browser.* is a DISTINCT wrapper object: hook BOTH namespaces.
-    var actionClickedListeners = [];
+    // One sink per manifest key, so a replay fires only the entry it clicks.
+    var ACTION_KEYS = ["action", "browser_action", "page_action"];
+    var ACTION_NAMESPACES = {action: "action", browser_action: "browserAction", page_action: "pageAction"};
+    var actionClickedListeners = {action: [], browser_action: [], page_action: []};
     var commandListeners = [];
     var capturedEvents = [];
     function captureEventOnce(event, sink) {
@@ -65,7 +68,10 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
     for (var cn = 0; cn < captureNamespaces.length; cn++) {
       var capNS = captureNamespaces[cn];
       if (!capNS) continue;
-      captureEventOnce(capNS.action && capNS.action.onClicked, actionClickedListeners);
+      for (var ak = 0; ak < ACTION_KEYS.length; ak++) {
+        var akNS = capNS[ACTION_NAMESPACES[ACTION_KEYS[ak]]];
+        captureEventOnce(akNS && akNS.onClicked, actionClickedListeners[ACTION_KEYS[ak]]);
+      }
       captureEventOnce(capNS.commands && capNS.commands.onCommand, commandListeners);
     }
 
@@ -182,7 +188,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       try { m = g.chrome.runtime.getManifest(); } catch (e) { return null; }
       if (!m) return null;
       var p = null;
-      if (ctx === "popup") p = (m.action && m.action.default_popup) || (m.browser_action && m.browser_action.default_popup);
+      if (ctx === "popup") p = (m.action && m.action.default_popup) || (m.browser_action && m.browser_action.default_popup) || (m.page_action && m.page_action.default_popup);
       else if (ctx === "options") p = (m.options_ui && m.options_ui.page) || m.options_page;
       else if (ctx === "sidebar") p = (m.side_panel && m.side_panel.default_path) || (m.sidebar_action && m.sidebar_action.default_panel);
       else if (ctx === "newtab" || ctx === "history" || ctx === "bookmarks") p = m.chrome_url_overrides && m.chrome_url_overrides[ctx];
@@ -472,20 +478,32 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
         }
         if (op === "open") {
           var surface = args.surface || ctx;
-          // getPopup is promise-style on Gecko and (MV3) Chromium; fall back to
-          // callback-style for older Chromium. Always resolves to a string.
-          var getActionPopup = function (cb) {
-            try {
-              var r = chrome.action && chrome.action.getPopup && chrome.action.getPopup({});
-              if (r && typeof r.then === "function") {
-                r.then(function (p) { cb(p || ""); }, function () { cb(""); });
-                return;
-              }
-            } catch (e) {
-              // Ignore
+          // The toolbar entry a click lands on: MV3 declares action, MV2
+          // browser_action or page_action. Firefox MV3 still exposes
+          // pageAction, so the manifest picks first, and its namespace has to
+          // exist. Without a declared key, the first namespace present wins.
+          var actionManifestKey = function () {
+            var m = null;
+            try { m = chrome.runtime.getManifest(); } catch (e) { m = null; }
+            var hasNS = function (key) {
+              var n = ACTION_NAMESPACES[key];
+              return !!((g.browser && g.browser[n]) || (g.chrome && g.chrome[n]));
+            };
+            for (var k = 0; k < ACTION_KEYS.length; k++) {
+              if (m && m[ACTION_KEYS[k]] && hasNS(ACTION_KEYS[k])) return ACTION_KEYS[k];
             }
-            try { chrome.action.getPopup({}, function (p) { cb(p || ""); }); }
-            catch (e) { cb(""); }
+            for (var n = 0; n < ACTION_KEYS.length; n++) {
+              if (hasNS(ACTION_KEYS[n])) return ACTION_KEYS[n];
+            }
+            return null;
+          };
+          // A page action's popup is per tab, and both engines require the
+          // tabId. Always resolves to a string.
+          var getActionPopup = function (key, tab, cb) {
+            var details = key === "page_action" ? {tabId: tab && tab.id} : {};
+            nsCall(ACTION_NAMESPACES[key], "getPopup", [details], function (err, p) {
+              cb(err ? "" : (p || ""));
+            });
           };
           var resolveActiveTab = function (a, cb) {
             if (a && typeof a.tabId === "number") {
@@ -512,14 +530,16 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
             return null;
           };
           if (surface === "popup") {
-            if (chrome.action && chrome.action.openPopup) {
-              nsCall("action", "openPopup", [], function (err) {
+            var popupKey = actionManifestKey();
+            var popupNS = popupKey && ACTION_NAMESPACES[popupKey];
+            if (popupNS && chrome[popupNS] && chrome[popupNS].openPopup) {
+              nsCall(popupNS, "openPopup", [], function (err) {
                 if (err) {
                   var openMsg = (err && err.message) || err;
                   replyErr(cmdId, "Unsupported", "openPopup: " + openMsg, openRefusalCode(openMsg));
                 } else replyOk(cmdId, {opened: "popup"});
               });
-            } else { replyErr(cmdId, "Unsupported", "action.openPopup not available", "api_unavailable"); }
+            } else { replyErr(cmdId, "Unsupported", (popupNS || "action") + ".openPopup not available", "api_unavailable"); }
           } else if (surface === "options") {
             // Chrome answers a manifest with no options page through lastError
             // and still calls back, so the callback must read it.
@@ -549,35 +569,39 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
               });
             } else { replyErr(cmdId, "Unsupported", "sidePanel not available (engine: " + engineName() + ")", "api_unavailable"); }
           } else if (surface === "action") {
-            // With a default_popup the click opens it; without one, replay the
-            // onClicked listeners captured at install time.
-            if (chrome.action) {
-              getActionPopup(function (popup) {
-                if (popup) {
-                  nsCall("action", "openPopup", [], function (err) {
-                    if (err) {
-                      var actMsg = (err && err.message) || err;
-                      replyErr(cmdId, "Unsupported", "openPopup: " + actMsg, openRefusalCode(actMsg));
-                    } else replyOk(cmdId, {triggered: "popup"});
-                  });
-                } else if (actionClickedListeners.length) {
-                  resolveActiveTab(args, function (tab) {
+            // With a popup the click opens it; without one, replay the
+            // onClicked listeners captured at install time. The answer names
+            // the manifest key the click went through.
+            var actionKey = actionManifestKey();
+            if (actionKey) {
+              var actionNS = ACTION_NAMESPACES[actionKey];
+              var clicked = actionClickedListeners[actionKey];
+              resolveActiveTab(args, function (tab) {
+                getActionPopup(actionKey, tab, function (popup) {
+                  if (popup) {
+                    nsCall(actionNS, "openPopup", [], function (err) {
+                      if (err) {
+                        var actMsg = (err && err.message) || err;
+                        replyErr(cmdId, "Unsupported", "openPopup: " + actMsg, openRefusalCode(actMsg));
+                      } else replyOk(cmdId, {triggered: "popup", manifestKey: actionKey});
+                    });
+                  } else if (clicked.length) {
                     var fired = 0;
-                    for (var i = 0; i < actionClickedListeners.length; i++) {
-                      try { actionClickedListeners[i](tab); fired++; } catch (e) {
+                    for (var i = 0; i < clicked.length; i++) {
+                      try { clicked[i](tab); fired++; } catch (e) {
                         // Ignore
                       }
                     }
-                    var reply = {triggered: "onClicked", listeners: fired, gesture: false};
+                    var reply = {triggered: "onClicked", listeners: fired, gesture: false, manifestKey: actionKey};
                     var warning = activeTabWarning();
                     if (warning) reply.warning = warning;
                     replyOk(cmdId, reply);
-                  });
-                } else {
-                  replyErr(cmdId, "Unsupported", "action has no popup and no onClicked listener registered");
-                }
+                  } else {
+                    replyErr(cmdId, "Unsupported", actionKey + " has no popup and no " + actionNS + ".onClicked listener registered");
+                  }
+                });
               });
-            } else { replyErr(cmdId, "Unsupported", "chrome.action not available (engine: " + engineName() + ")", "api_unavailable"); }
+            } else { replyErr(cmdId, "Unsupported", "the manifest declares no action, browser_action or page_action (engine: " + engineName() + ")", "surface_not_declared"); }
           } else if (surface === "command") {
             var commandName = (args && args.name) || undefined;
             if (!commandListeners.length) {
