@@ -26,6 +26,7 @@ import {
   devInjectedPermissions,
   partiallyGatedNote,
   partiallyGatedWarning,
+  permissionsGrantedByHosts,
   usesGatedPart
 } from './apply-dev-defaults-lib/dev-injected-permissions'
 import {
@@ -309,9 +310,12 @@ export class ApplyDevDefaults {
             // An optional permission counts as undeclared here: the shipped
             // build has it only after a runtime request the dev build skips.
             try {
-              const declared = new Set<string>(
-                (canonicalManifest.permissions as string[]) || []
-              )
+              const declared = new Set<string>([
+                ...((canonicalManifest.permissions as string[]) || []),
+                ...permissionsGrantedByHosts(
+                  declaredHostPatterns(canonicalManifest)
+                )
+              ])
               const uses = findInjectedOnlyPermissionUses(
                 compilation as unknown as PermissionScanCompilation,
                 declared,

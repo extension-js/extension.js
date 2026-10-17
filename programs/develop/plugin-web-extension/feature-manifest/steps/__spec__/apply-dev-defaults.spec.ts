@@ -371,6 +371,69 @@ describe('ApplyDevDefaults', () => {
     }
   })
 
+  it('stays quiet on chrome.tabs url reads when host_permissions grant every site', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-dev-tabs-hosts-'))
+    const file = path.join(dir, 'background.js')
+    fs.writeFileSync(
+      file,
+      "chrome.tabs.query({url: ['http://*/*', 'https://*/*']}, (t) => console.log(t[0].url))\n"
+    )
+
+    try {
+      const tabsWarnings = (manifest: Record<string, unknown>) =>
+        runDevDefaultsWithWarnings(manifest, 'chrome', [
+          {resource: file}
+        ]).warnings.filter(
+          (w) =>
+            w.name === 'DevInjectedPermissionWarning' &&
+            w.message.includes('"tabs"')
+        )
+
+      expect(
+        tabsWarnings({
+          manifest_version: 3,
+          name: 'x',
+          permissions: ['storage', 'scripting'],
+          host_permissions: ['<all_urls>']
+        })
+      ).toHaveLength(0)
+
+      expect(
+        tabsWarnings({
+          manifest_version: 3,
+          name: 'x',
+          host_permissions: ['http://*/*', 'https://*/*']
+        })
+      ).toHaveLength(0)
+
+      expect(
+        tabsWarnings({
+          manifest_version: 2,
+          name: 'x',
+          permissions: ['<all_urls>']
+        })
+      ).toHaveLength(0)
+
+      expect(
+        tabsWarnings({
+          manifest_version: 3,
+          name: 'x',
+          host_permissions: ['https://example.com/*']
+        })
+      ).toHaveLength(1)
+
+      expect(
+        tabsWarnings({
+          manifest_version: 3,
+          name: 'x',
+          permissions: ['activeTab']
+        })
+      ).toHaveLength(1)
+    } finally {
+      fs.rmSync(dir, {recursive: true, force: true})
+    }
+  })
+
   // Six templates guard their Safari-only calls with import.meta.env. The
   // browser constant is substituted into the development bundle but nothing
   // folds it there, so the text below is what a gecko dev session really
