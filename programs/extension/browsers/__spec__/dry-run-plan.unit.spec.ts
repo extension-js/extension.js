@@ -86,7 +86,9 @@ describe('chromium --dry-run', () => {
     expect(flags).toContain(`--load-extension=${out}`)
     expect(flags).toMatch(/--user-data-dir=\S+chrome-profile/)
     expect(flags).toContain('--window-size=800,600')
-    expect(flags).toMatch(/https:\/\/example\.com\S*$/)
+    // The starting url opens over the debugger once the extension is in.
+    expect(flags).toMatch(/about:blank$/)
+    expect(flags).not.toContain('https://example.com')
   })
 
   it('touches no profile on disk', async () => {

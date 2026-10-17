@@ -72,6 +72,10 @@ export class FirefoxRDPController {
     return await this.remote.openNewTab()
   }
 
+  async openStartingUrl(url: string): Promise<boolean> {
+    return await this.remote.openStartingUrl(url)
+  }
+
   disconnect(): void {
     this.remote.disconnect()
   }

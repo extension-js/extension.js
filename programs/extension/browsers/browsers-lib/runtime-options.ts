@@ -49,6 +49,10 @@ export function pickSharedBrowserRuntimeOptions(
   }, {} as SharedBrowserRuntimeOptions)
 }
 
+// What a launch opens while the starting URL waits for the extension: a page
+// loaded before the install never gets its document_start content scripts.
+export const LAUNCH_TAB_URL = 'about:blank'
+
 // --no-open means open nothing at all, so it suppresses the starting URL the
 // same way it suppresses the courtesy new-tab. Every family reads the launch
 // URL through here so the two readings can never drift apart again.

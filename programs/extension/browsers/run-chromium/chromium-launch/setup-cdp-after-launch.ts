@@ -33,6 +33,7 @@ import {
   stampReadyCdpPort,
   stampReadyExtensionLoadRefused
 } from '../../browsers-lib/ready-stamp'
+import {resolveStartingUrl} from '../../browsers-lib/runtime-options'
 import {
   deriveDebugPortWithInstance,
   launchIsHeadless
@@ -138,6 +139,22 @@ function reportGuestLoadRefused(
 
 // A run-only session gets the one answer a dev session gets before anything
 // else: did the browser take the guest. No reload wiring, banners or tabs.
+// The launch argv opened about:blank, so the starting page loads once the
+// guest is installed and its document_start content scripts can reach it.
+async function openStartingUrlAfterLoad(
+  plugin: ChromiumPluginRuntime,
+  controller: CDPExtensionController
+): Promise<void> {
+  const startingUrl = resolveStartingUrl(plugin)
+  if (!startingUrl) return
+
+  try {
+    await controller.openStartingUrl(startingUrl)
+  } catch {
+    // best-effort only, never block launch on the starting page
+  }
+}
+
 export async function verifyGuestLoadAfterLaunch(
   compilation: CompilationLike | undefined,
   plugin: ChromiumPluginRuntime,
@@ -192,7 +209,11 @@ export async function verifyGuestLoadAfterLaunch(
       loadOutcome.reason,
       true
     )
+
+    return
   }
+
+  await openStartingUrlAfterLoad(plugin, cdpExtensionController)
 }
 
 export async function setupCdpAfterLaunch(
@@ -500,6 +521,8 @@ export async function setupCdpAfterLaunch(
   } catch {
     // best-effort only, the guest is loaded and the session still works
   }
+
+  await openStartingUrlAfterLoad(plugin, cdpExtensionController)
 
   // The launch tab predates extension registration, so it shows the default new
   // tab; open a fresh tab onto the newtab override. Skipped for startingUrl/--no-open.

@@ -14,6 +14,7 @@ import {
 const verifyGuestLoadedSpy = vi.fn()
 const ensureLoadedSpy = vi.fn()
 const connectSpy = vi.fn(async () => {})
+const openStartingUrlSpy = vi.fn(async (_url: string) => 'navigated')
 
 vi.mock('../../run-chromium/cdp/cdp-extension-controller', () => {
   class CDPExtensionController {
@@ -22,6 +23,7 @@ vi.mock('../../run-chromium/cdp/cdp-extension-controller', () => {
     ensureLoaded = ensureLoadedSpy
     getInfoBestEffort = vi.fn(async () => null)
     openTab = vi.fn(async () => {})
+    openStartingUrl = openStartingUrlSpy
   }
 
   return {CDPExtensionController}
@@ -141,6 +143,7 @@ describe('verifyGuestLoadAfterLaunch (run-only load evidence)', () => {
     verifyGuestLoadedSpy.mockReset()
     ensureLoadedSpy.mockReset()
     connectSpy.mockClear()
+    openStartingUrlSpy.mockClear()
     ;(banner.printDevBannerOnce as any).mockClear()
     ;(banner.printProdBannerOnce as any).mockClear()
     errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -200,6 +203,38 @@ describe('verifyGuestLoadAfterLaunch (run-only load evidence)', () => {
         String(c[0]?.text || '').startsWith('extension_load_refused:')
       )
     ).toBe(true)
+  })
+
+  // A start session opens about:blank, so the starting page loads once the
+  // guest is in the browser and its document_start CSS can reach it.
+  it('opens the starting url once the guest has loaded', async () => {
+    const {outPath} = makeStartSession()
+    verifyGuestLoadedSpy.mockResolvedValue({
+      status: 'loaded',
+      extensionId: 'abcdefghijklmnopabcdefghijklmnop'
+    })
+
+    await runCheck(outPath, {
+      browser: 'chrome',
+      startingUrl: 'https://example.com/'
+    })
+
+    expect(openStartingUrlSpy).toHaveBeenCalledWith('https://example.com/')
+    expect(verifyGuestLoadedSpy.mock.invocationCallOrder[0]).toBeLessThan(
+      openStartingUrlSpy.mock.invocationCallOrder[0]
+    )
+  })
+
+  it('opens no starting url for a refused guest', async () => {
+    const {outPath} = makeStartSession()
+    verifyGuestLoadedSpy.mockResolvedValue({status: 'refused', reason: 'no'})
+
+    await runCheck(outPath, {
+      browser: 'chrome',
+      startingUrl: 'https://example.com/'
+    })
+
+    expect(openStartingUrlSpy).not.toHaveBeenCalled()
   })
 
   it('stamps the cdp port and leaves a loaded guest ready', async () => {

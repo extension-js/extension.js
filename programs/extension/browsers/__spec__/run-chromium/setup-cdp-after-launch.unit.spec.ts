@@ -16,6 +16,7 @@ const openTabSpy = vi.fn(async () => {})
 const ensureDeveloperModeSpy = vi.fn(async () => 'enabled' as const)
 const loadCompanionsSpy = vi.fn(async (_paths: string[]) => [])
 const ensurePageTargetSpy = vi.fn(async (_url: string) => 'created' as string)
+const openStartingUrlSpy = vi.fn(async (_url: string) => 'navigated')
 
 vi.mock('../../run-chromium/cdp/cdp-extension-controller', async () => {
   const actual = (await vi.importActual(
@@ -33,6 +34,7 @@ vi.mock('../../run-chromium/cdp/cdp-extension-controller', async () => {
     ensureDeveloperMode = ensureDeveloperModeSpy
     loadCompanions = loadCompanionsSpy
     ensurePageTarget = ensurePageTargetSpy
+    openStartingUrl = openStartingUrlSpy
   }
 
   return {
@@ -112,6 +114,7 @@ describe('setupCdpAfterLaunch', () => {
     ensureDeveloperModeSpy.mockClear()
     loadCompanionsSpy.mockClear()
     ensurePageTargetSpy.mockClear()
+    openStartingUrlSpy.mockClear()
     vi.mocked(banner.printDevBannerOnce).mockClear()
     vi.mocked(banner.printProdBannerOnce).mockClear()
   })
@@ -424,6 +427,59 @@ describe('setupCdpAfterLaunch', () => {
     await setupCdpAfterLaunch(compilation, plugin, chromiumArgs)
 
     expect(openTabSpy).not.toHaveBeenCalled()
+  })
+
+  // The launch tab opens on about:blank, so the starting page loads only
+  // once the extension is installed and its document_start scripts apply.
+  it('opens the starting url only after the guest is loaded', async () => {
+    const extDir = makeExtensionDir({manifest_version: 3, name: 'Plain Ext'})
+    const order: string[] = []
+    ensureLoadedSpy.mockImplementationOnce(async () => {
+      order.push('loaded')
+
+      return {extensionId: 'user-ext-id', name: 'x', version: '1.0.0'}
+    })
+
+    openStartingUrlSpy.mockImplementationOnce(async (url: string) => {
+      order.push(`open ${url}`)
+
+      return 'navigated'
+    })
+
+    await setupCdpAfterLaunch(
+      {options: {mode: 'development', output: {path: extDir}}} as any,
+      {
+        browser: 'chromium',
+        port: 9333,
+        instanceId: 'i',
+        startingUrl: 'https://example.com/'
+      } as any,
+      [
+        `--load-extension=${extDir}`,
+        '--remote-debugging-port=9333',
+        '--user-data-dir=/tmp/extension-profile'
+      ]
+    )
+
+    expect(order).toEqual(['loaded', 'open https://example.com/'])
+  })
+
+  it('opens no starting url under --no-open', async () => {
+    const extDir = makeExtensionDir({manifest_version: 3, name: 'Plain Ext'})
+
+    await setupCdpAfterLaunch(
+      {options: {mode: 'development', output: {path: extDir}}} as any,
+      {
+        browser: 'chromium',
+        port: 9333,
+        instanceId: 'i',
+        startingUrl: 'https://example.com/',
+        noOpen: true
+      } as any,
+      [`--load-extension=${extDir}`, '--remote-debugging-port=9333']
+    )
+
+    expect(openStartingUrlSpy).not.toHaveBeenCalled()
   })
 
   it('respects an explicit startingUrl and --no-open (no courtesy tab)', async () => {
