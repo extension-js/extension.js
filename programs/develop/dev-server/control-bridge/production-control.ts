@@ -16,11 +16,13 @@ import {
   browserArtifactsDir,
   logsPath
 } from '../../lib/session-paths'
+import {RELAY_TARGETS} from '../../plugin-reload/steps/inject-bridge-relay'
 import {ActionsFileWriter} from './actions-file'
 import {BridgeBroker} from './broker'
 import {LogsFileWriter} from './logs-file'
 import {
   buildBridgeProducerSource,
+  buildBridgeRelaySource,
   CONTROL_PORT_ASSET_NAME
 } from './producer-runtime'
 import {LogRingBuffer} from './ring-buffer'
@@ -187,6 +189,24 @@ export function prepareControlledBuild(input: {
   const injected: string[] = []
 
   for (const rel of listFiles(input.controlledPath)) {
+    // The same relay dev bundles into each page and content script: the only
+    // route from the background to a production page's DOM and console.
+    const relay = RELAY_TARGETS.find((target) => target.re.test(rel))
+
+    if (relay) {
+      const file = path.join(input.controlledPath, rel)
+      const original = fs.readFileSync(file, 'utf-8')
+
+      if (!original.includes('__extjsBridgeRelayInstalled')) {
+        fs.writeFileSync(
+          file,
+          `${buildBridgeRelaySource({context: relay.context})}\n${original}`
+        )
+      }
+
+      continue
+    }
+
     if (!BACKGROUND_ASSET.test(rel)) continue
 
     const file = path.join(input.controlledPath, rel)

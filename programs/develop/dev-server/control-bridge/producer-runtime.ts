@@ -315,11 +315,23 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
 
     // Only a tab the engine could not find is a missing target. Anything else
     // happened in a tab that exists, a value it could not clone back above all.
+    // Firefox refuses to script a moz-extension:// page or a page outside
+    // host access with the tab right there, so that refusal is named too.
     function injectionErrorName(err) {
       var msg = String((err && err.message) || err || "");
       if (/no tab with id|invalid tab id/i.test(msg)) return "TargetNotFound";
       if (/clon/i.test(msg)) return "DataCloneError";
+      if (injectionRefused(msg)) return "InjectionRefused";
       return "ExecutorError";
+    }
+
+    function injectionRefused(msg) {
+      return /missing host permission|cannot access contents|cannot be scripted|cannot access a chrome|extensions gallery/i.test(String(msg));
+    }
+
+    function replyInjectionErr(cmdId, err) {
+      var msg = (err && err.message) || err;
+      replyErr(cmdId, injectionErrorName(err), msg, injectionRefused(msg) ? "injection_refused" : undefined);
     }
 
     function executeCommand(cmd) {
@@ -380,7 +392,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
               },
               args: [String(args.expression)]
             }], function (err, res) {
-              if (err) { replyErr(cmdId, injectionErrorName(err), (err && err.message) || err); return; }
+              if (err) { replyInjectionErr(cmdId, err); return; }
               var frame = res && res[0] ? res[0].result : undefined;
               if (!frame || frame.__extjsEval !== 1) {
                 replyErr(cmdId, "TargetNotFound", "the expression never executed in tab " + target.tabId + ": no injectable frame returned a result (restricted page, or outside host_permissions)");
@@ -694,7 +706,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
               },
               args: [includeHtml, maxBytes]
             }], function (err, res) {
-              if (err) { replyErr(cmdId, "TargetNotFound", (err && err.message) || err); return; }
+              if (err) { replyInjectionErr(cmdId, err); return; }
               var snap = res && res[0] ? res[0].result : undefined;
               if (snap == null) { replyErr(cmdId, "TargetNotFound", "no injectable frame returned a snapshot for tab " + target.tabId + " (restricted page, or outside host_permissions)"); return; }
               replyOk(cmdId, snap);

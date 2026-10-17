@@ -367,3 +367,56 @@ describe("the controlled copy's content security policy", () => {
     )
   })
 })
+
+// Dev bundles a relay into every extension page and content script, which is
+// how the background reaches a page's DOM. A production build has none, so
+// the controlled copy carries it, and dist/ still ships without it.
+describe("the controlled copy's page relays", () => {
+  it('prepends the relay to each extension page and content script', async () => {
+    const {projectDir, distPath} = makeFirefoxProject({
+      manifest_version: 3,
+      options_ui: {page: 'options/index.html'},
+      action: {default_popup: 'action/index.html'},
+      content_scripts: [
+        {matches: ['<all_urls>'], js: ['content_scripts/content-0.js']}
+      ]
+    })
+    const PAGE = 'document.body.dataset.ready = "1"\n'
+
+    for (const rel of [
+      'options/index.js',
+      'action/index.js',
+      'content_scripts/content-0.js'
+    ]) {
+      fs.mkdirSync(path.dirname(path.join(distPath, rel)), {recursive: true})
+      fs.writeFileSync(path.join(distPath, rel), PAGE)
+    }
+
+    session = await startProductionControl({
+      packageJsonDir: projectDir,
+      browser: 'firefox',
+      distPath,
+      allowControl: true
+    })
+
+    for (const rel of [
+      'options/index.js',
+      'action/index.js',
+      'content_scripts/content-0.js'
+    ]) {
+      const controlled = fs.readFileSync(
+        path.join(session.controlledPath, rel),
+        'utf-8'
+      )
+      expect(controlled, rel).toContain('__extjsBridgeRelayInstalled')
+      expect(controlled.endsWith(PAGE), rel).toBe(true)
+      expect(fs.readFileSync(path.join(distPath, rel), 'utf-8'), rel).toBe(PAGE)
+    }
+
+    const background = fs.readFileSync(
+      path.join(session.controlledPath, 'background', 'scripts.js'),
+      'utf-8'
+    )
+    expect(background).not.toContain('__extjsBridgeRelayInstalled')
+  })
+})

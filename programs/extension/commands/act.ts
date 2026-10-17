@@ -17,6 +17,7 @@ import {
   evaluateExtensionDocument,
   evaluateTabDocument,
   extensionDocumentPagePath,
+  inspectSnapshotExpression,
   isExtensionDocumentContext
 } from '../browsers/run-firefox/rdp/evaluate-extension-document'
 import {emulatorSessionRefusal} from '../helpers/emulator-session'
@@ -213,7 +214,10 @@ const REFUSAL_TO_CODE: Record<string, ErrorCode> = {
   surface_not_declared: CODES.E_TARGET_NOT_FOUND,
   // The document's own CSP forbids the in-page executor, so no expression
   // runs there. Not a fault in the expression and not a missing feature.
-  csp_blocks_eval: CODES.E_CSP_BLOCKS_EVAL
+  csp_blocks_eval: CODES.E_CSP_BLOCKS_EVAL,
+  // The tab exists and the engine refused to script it (Firefox on a
+  // moz-extension:// page): the target is real, this route cannot reach it.
+  injection_refused: CODES.E_COMMAND_UNSUPPORTED_FOR_TARGET
 }
 
 // Gecko ("call to eval() blocked by CSP") and Chromium ("Refused to evaluate
@@ -748,6 +752,18 @@ export function bridgeHadNoExecutor(result: ActResultLike): boolean {
 // forbids eval refuses every expression. The RDP console actor is outside that
 // policy, and rdpPort only lands on the contract once the launcher has it, so
 // the contract is re-read here rather than trusted from the earlier look.
+// A surface refusal that can mean the page has no relay: a production page
+// on a start session carries none, so the bridge cannot tell it is open.
+function bridgeCouldNotReachSurface(result: ActResultLike): boolean {
+  const raw = (result?.error || {}) as {code?: unknown}
+
+  return (
+    bridgeHadNoExecutor(result) ||
+    raw.code === 'surface_not_open' ||
+    raw.code === 'surface_reply_failed'
+  )
+}
+
 async function geckoProtocolEval(
   bridge: AnyDevelopModule,
   projectPath: string,
@@ -986,9 +1002,31 @@ async function runCommand(input: RunInput): Promise<void> {
 
   const geckoEvalFailed =
     input.op === 'eval' && result?.ok !== true && isFirefoxBrowser(browser)
+  const geckoInspectFailed =
+    input.op === 'inspect' && result?.ok !== true && isFirefoxBrowser(browser)
 
   try {
     if (
+      geckoInspectFailed &&
+      input.target.context !== 'background' &&
+      isExtensionDocumentContext(input.target.context) &&
+      bridgeCouldNotReachSurface(result)
+    ) {
+      const include = Array.isArray(input.args?.include)
+        ? (input.args.include as string[])
+        : ['summary']
+      const overProtocol = await geckoProtocolEval(
+        bridge,
+        projectPath,
+        browser,
+        input.target.context,
+        inspectSnapshotExpression(include, Number(input.args?.maxBytes)),
+        timeoutMs
+      )
+
+      // The bridge's refusal says more than a debugger that found no page.
+      if (overProtocol?.ok) result = overProtocol
+    } else if (
       geckoEvalFailed &&
       isExtensionDocumentContext(input.target.context) &&
       (bridgeBlamedTheExtensionCsp(result) || bridgeHadNoExecutor(result))

@@ -817,6 +817,36 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     expect(r.error.message).toBe('result is non-structured-clonable data')
   })
 
+  // Firefox refuses to script another extension's moz-extension:// page, and
+  // its own pages without host access, though the tab is right there.
+  for (const op of ['inspect', 'eval'] as const) {
+    it(`${op} page: a refused injection in a tab that exists gets its own error`, async () => {
+      const ws = setup({
+        scripting: {
+          executeScript: () =>
+            Promise.reject(new Error('Missing host permission for the tab'))
+        },
+        tabs: {query: (_q: unknown, cb: (t: unknown[]) => void) => cb([])}
+      })
+      ws.triggerMessage({
+        type: 'command',
+        cmdId: `refused-${op}`,
+        op,
+        target: {context: 'page', tabId: 8},
+        args: op === 'eval' ? {expression: 'document.title'} : {}
+      })
+
+      await flush()
+      const r = results(ws).find((f) => f.cmdId === `refused-${op}`)
+      expect(r.ok).toBe(false)
+      expect(r.error).toMatchObject({
+        name: 'InjectionRefused',
+        code: 'injection_refused',
+        message: 'Missing host permission for the tab'
+      })
+    })
+  }
+
   it('eval content: a CSP-blocked eval inside the tab reports Unsupported with the MAIN-world alternative', async () => {
     const ws = setup({
       scripting: {
