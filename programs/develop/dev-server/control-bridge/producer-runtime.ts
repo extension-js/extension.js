@@ -307,6 +307,15 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       }
     }
 
+    // Only a tab the engine could not find is a missing target. Anything else
+    // happened in a tab that exists, a value it could not clone back above all.
+    function injectionErrorName(err) {
+      var msg = String((err && err.message) || err || "");
+      if (/no tab with id|invalid tab id/i.test(msg)) return "TargetNotFound";
+      if (/clon/i.test(msg)) return "DataCloneError";
+      return "ExecutorError";
+    }
+
     function executeCommand(cmd) {
       var op = cmd.op, target = cmd.target || {}, args = cmd.args || {};
       var ctx = target.context || "background";
@@ -354,16 +363,18 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
           } else if ((ctx === "content" || ctx === "page") && target.tabId && chrome.scripting) {
             // Wrap the eval so a throw INSIDE the tab comes back as data:
             // Chrome swallows an injected function's exception (null result).
+            // A returned promise is settled in the tab, since Firefox cannot
+            // clone one that sits inside the result object.
             nsCall("scripting", "executeScript", [{
               target: {tabId: target.tabId},
               world: ctx === "page" ? "MAIN" : "ISOLATED",
-              func: function (src) {
-                try { return {__extjsEval: 1, ok: true, value: eval(src)}; }
+              func: async function (src) {
+                try { return {__extjsEval: 1, ok: true, value: await eval(src)}; }
                 catch (e) { return {__extjsEval: 1, ok: false, name: (e && e.name) || "EvalError", message: (e && e.message) || String(e)}; }
               },
               args: [String(args.expression)]
             }], function (err, res) {
-              if (err) { replyErr(cmdId, "TargetNotFound", (err && err.message) || err); return; }
+              if (err) { replyErr(cmdId, injectionErrorName(err), (err && err.message) || err); return; }
               var frame = res && res[0] ? res[0].result : undefined;
               if (!frame || frame.__extjsEval !== 1) {
                 replyErr(cmdId, "TargetNotFound", "the expression never executed in tab " + target.tabId + ": no injectable frame returned a result (restricted page, or outside host_permissions)");
