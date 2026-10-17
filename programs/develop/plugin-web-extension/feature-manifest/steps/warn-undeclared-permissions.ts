@@ -15,8 +15,10 @@ import {
   findInjectedOnlyPermissionUses,
   type PermissionScanCompilation
 } from './apply-dev-defaults'
+import {declaredHostPatterns} from './apply-dev-defaults-lib/dev-injected-hosts'
 import {
   partiallyGatedNote,
+  permissionsGrantedByHosts,
   scannedPermissions
 } from './apply-dev-defaults-lib/dev-injected-permissions'
 
@@ -62,9 +64,10 @@ export class WarnUndeclaredPermissions {
                 compilation,
                 this.manifestPath
               )
-              const declared = new Set<string>(
-                (manifest.permissions as string[]) || []
-              )
+              const declared = new Set<string>([
+                ...((manifest.permissions as string[]) || []),
+                ...permissionsGrantedByHosts(declaredHostPatterns(manifest))
+              ])
               const uses = findInjectedOnlyPermissionUses(
                 compilation as unknown as PermissionScanCompilation,
                 declared,

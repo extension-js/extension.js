@@ -72,6 +72,24 @@ export function usesGatedPart(api: string, source: string): boolean {
   return !patterns || patterns.some((pattern) => pattern.test(source))
 }
 
+// A host permission for a tab's URL unlocks the same url, title and
+// favIconUrl fields "tabs" does, so a manifest that grants every site needs
+// no "tabs" for them. A narrower host list leaves the other tabs empty, and
+// activeTab only the invoked one, so both still earn the warning.
+const ALL_SITES_PATTERNS = new Set(['<all_urls>', '*://*/*'])
+
+function grantsEverySite(hosts: readonly string[]): boolean {
+  if (hosts.some((host) => ALL_SITES_PATTERNS.has(host))) return true
+
+  return hosts.includes('http://*/*') && hosts.includes('https://*/*')
+}
+
+export function permissionsGrantedByHosts(
+  hosts: readonly string[]
+): readonly string[] {
+  return grantsEverySite(hosts) ? Object.keys(PARTIALLY_GATED_APIS) : []
+}
+
 export function partiallyGatedNote(api: string): string {
   const note = PARTIALLY_GATED_APIS[api]
 
