@@ -63,6 +63,8 @@ type PreviewOptions = {
   logUrl?: string
   logTab?: string | number
   extensions?: string
+  allowControl?: boolean
+  allowEval?: boolean
   outputPath?: string
   output?: 'pretty' | 'json'
   debug?: boolean
@@ -166,6 +168,14 @@ export function registerPreviewCommand(program: Command) {
     .option(
       '--extensions <list>',
       'comma-separated list of companion extensions or store URLs to load'
+    )
+    .option(
+      '--allow-control',
+      'open the agent-bridge control channel on the previewed build for bounded act (storage/reload/open). The browser loads a copy of the build with the control producer added; the build folder is unchanged'
+    )
+    .option(
+      '--allow-eval',
+      'additionally enable `extension eval` on the previewed build (implies --allow-control, runs arbitrary code in a context, writes a 0600 session token)'
     )
     .option(
       '--output-path <dir>',
@@ -324,6 +334,10 @@ export function registerPreviewCommand(program: Command) {
                 ),
                 extensions: parseExtensionsList(previewOptions.extensions),
                 outputPath: previewOptions.outputPath,
+                allowControl: Boolean(
+                  previewOptions.allowControl || previewOptions.allowEval
+                ),
+                allowEval: Boolean(previewOptions.allowEval),
                 // Only pass logger values the user typed. Stock defaults and
                 // commands.preview.* are applied inside extensionPreview.
                 logLevel: logsOption || previewOptions.logLevel || undefined,

@@ -75,6 +75,8 @@ type StartOptions = {
   logUrl?: string
   logTab?: string | number
   extensions?: string
+  allowControl?: boolean
+  allowEval?: boolean
   wait?: boolean
   waitTimeout?: string | number
   waitFormat?: 'pretty' | 'json'
@@ -175,6 +177,14 @@ export function registerStartCommand(program: Command) {
     .option(
       '--extensions <list>',
       'comma-separated list of companion extensions or store URLs to load'
+    )
+    .option(
+      '--allow-control',
+      'open the agent-bridge control channel on the production run for bounded act (storage/reload/open). The browser loads a copy of the build with the control producer added; dist/ is unchanged'
+    )
+    .option(
+      '--allow-eval',
+      'additionally enable `extension eval` on the production run (implies --allow-control, runs arbitrary code in a context, writes a 0600 session token)'
     )
     .option(
       '--install [boolean]',
@@ -461,6 +471,10 @@ export function registerStartCommand(program: Command) {
               ),
               extensions: parseExtensionsList(startOptions.extensions),
               metadataCommand: 'start',
+              allowControl: Boolean(
+                startOptions.allowControl || startOptions.allowEval
+              ),
+              allowEval: Boolean(startOptions.allowEval),
               logLevel,
               logContexts,
               // Only pass logger values the user typed. Stock defaults and
@@ -496,7 +510,11 @@ export function registerStartCommand(program: Command) {
               // for readers of the old frame, which echoed the requested one.
               port: null,
               pid: process.pid,
-              noBrowser
+              noBrowser,
+              allowControl: Boolean(
+                startOptions.allowControl || startOptions.allowEval
+              ),
+              allowEval: Boolean(startOptions.allowEval)
             })
           )
         }

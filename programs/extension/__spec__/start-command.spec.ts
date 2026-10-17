@@ -91,6 +91,34 @@ describe('extension start', () => {
     })
   })
 
+  it('opens the control channel on the production run with --allow-control', async () => {
+    expect(await run(['start', '.', '--allow-control'])).toBe(0)
+    const [, previewOpts] = extensionPreview.mock.calls[0] as any[]
+    expect(previewOpts).toMatchObject({allowControl: true, allowEval: false})
+  })
+
+  it('lets --allow-eval imply --allow-control', async () => {
+    expect(await run(['start', '.', '--allow-eval'])).toBe(0)
+    const [, previewOpts] = extensionPreview.mock.calls[0] as any[]
+    expect(previewOpts).toMatchObject({allowControl: true, allowEval: true})
+  })
+
+  it('keeps the control channel closed by default', async () => {
+    expect(await run(['start', '.'])).toBe(0)
+    const [, previewOpts] = extensionPreview.mock.calls[0] as any[]
+    expect(previewOpts.allowControl).toBe(false)
+    expect(previewOpts.allowEval).toBe(false)
+  })
+
+  it('lists both control flags in start --help', () => {
+    const program = makeProgram(registerStartCommand)
+    const help = program.commands
+      .find((c) => c.name() === 'start')!
+      .helpInformation()
+    expect(help).toContain('--allow-control')
+    expect(help).toContain('--allow-eval')
+  })
+
   it('disables the polyfill with --polyfill false', async () => {
     expect(await run(['start', '.', '--polyfill', 'false'])).toBe(0)
     const [, buildOpts] = extensionBuild.mock.calls[0] as any[]
