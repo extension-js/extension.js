@@ -1012,8 +1012,14 @@ export function openedSurface(surface: string) {
   return `${getLoggingPrefix('success')} Opened the ${openSurfaceNoun(surface)}.`
 }
 
-export function replayedActionClick(listeners: number) {
-  return `${getLoggingPrefix('success')} Replayed ${listenerCount(listeners, 'onClicked')} without a user gesture.`
+export function openedActionPopup(manifestKey: string) {
+  return `${getLoggingPrefix('success')} Opened the ${manifestKey} popup.`
+}
+
+export function replayedActionClick(listeners: number, manifestKey?: string) {
+  const event = manifestKey ? `${manifestKey} onClicked` : 'onClicked'
+
+  return `${getLoggingPrefix('success')} Replayed ${listenerCount(listeners, event)} without a user gesture.`
 }
 
 export function replayedCommand(listeners: number, command?: string) {

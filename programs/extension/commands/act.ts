@@ -31,6 +31,7 @@ import {
   controlDisabledInSessionPlain,
   navigatedTab,
   navigateFailed,
+  openedActionPopup,
   openedSurface,
   openSurfaceFailed,
   openSurfaceGestureStep,
@@ -549,11 +550,11 @@ function optionsNotDeclaredRefusal(
   }
 }
 
-// A popup under `action` or `browser_action`, with or without a browser
-// prefix, since the source manifest may still carry `chromium:action`.
+// A popup under `action`, `browser_action` or `page_action`, with or without
+// a browser prefix, since the source manifest may still carry `chromium:action`.
 function manifestDeclaresPopup(manifest: Record<string, unknown>): boolean {
   for (const [key, value] of Object.entries(manifest)) {
-    if (!/(?:^|:)(?:action|browser_action)$/.test(key)) continue
+    if (!/(?:^|:)(?:action|browser_action|page_action)$/.test(key)) continue
 
     const popup = (value as {default_popup?: unknown} | null)?.default_popup
     if (typeof popup === 'string' && popup.trim()) return true
@@ -616,16 +617,27 @@ function openResultLines(value: unknown): string[] | undefined {
     listeners?: unknown
     command?: unknown
     warning?: unknown
+    manifestKey?: unknown
   }
+  const manifestKey =
+    typeof reply.manifestKey === 'string' && reply.manifestKey
+      ? reply.manifestKey
+      : undefined
 
   if (typeof reply.opened === 'string') return [openedSurface(reply.opened)]
-  if (reply.triggered === 'popup') return [openedSurface('action')]
+
+  if (reply.triggered === 'popup') {
+    return [
+      manifestKey ? openedActionPopup(manifestKey) : openedSurface('action')
+    ]
+  }
+
   if (typeof reply.listeners !== 'number') return undefined
 
   const lines: string[] = []
 
   if (reply.triggered === 'onClicked') {
-    lines.push(replayedActionClick(reply.listeners))
+    lines.push(replayedActionClick(reply.listeners, manifestKey))
   } else if (reply.triggered === 'command') {
     lines.push(
       replayedCommand(
