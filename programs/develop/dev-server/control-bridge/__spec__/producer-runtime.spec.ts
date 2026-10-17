@@ -624,7 +624,10 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
         }) => {
           executed.push(opts)
 
-          return Promise.resolve([{result: opts.func(...(opts.args || []))}])
+          // The browser settles the injected function before it answers.
+          return Promise.resolve(opts.func(...(opts.args || []))).then(
+            (result) => [{result}]
+          )
         }
       },
       tabs: {
@@ -665,7 +668,10 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
         }) => {
           executed.push(opts)
 
-          return Promise.resolve([{result: opts.func(...(opts.args || []))}])
+          // The browser settles the injected function before it answers.
+          return Promise.resolve(opts.func(...(opts.args || []))).then(
+            (result) => [{result}]
+          )
         }
       },
       tabs: {
@@ -749,6 +755,66 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     const r = results(ws).find((f) => f.cmdId === 'e-gone')
     expect(r).toMatchObject({ok: false, error: {name: 'TargetNotFound'}})
     expect(r.error.message).toContain('No tab with id: 404')
+  })
+
+  // Firefox cannot clone a promise that sits inside the returned object, so
+  // the in-tab function has to settle it before it hands the value back.
+  it('eval page: the in-tab function awaits a promise the expression returns', async () => {
+    let injected: {func: (src: string) => unknown} | undefined
+    const ws = setup({
+      scripting: {
+        executeScript: async (details: {
+          func: (src: string) => unknown
+          args: string[]
+        }) => {
+          injected = details
+
+          return [{result: await details.func(details.args[0])}]
+        }
+      },
+      tabs: {query: (_q: unknown, cb: (t: unknown[]) => void) => cb([])}
+    })
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'e-promise',
+      op: 'eval',
+      target: {context: 'page', tabId: 7},
+      args: {expression: 'Promise.resolve(41 + 1)'}
+    })
+
+    await flush()
+    await flush()
+
+    expect(injected?.func('Promise.resolve(1)')).toBeInstanceOf(Promise)
+    expect(results(ws).find((f) => f.cmdId === 'e-promise')).toMatchObject({
+      ok: true,
+      value: 42
+    })
+  })
+
+  // The tab was there: the browser refused to hand back what ran in it. The
+  // MCP reads this text as E_EVAL_NOT_CLONEABLE, so it stays verbatim.
+  it('eval page: a clone failure in a tab that exists is not TargetNotFound', async () => {
+    const ws = setup({
+      scripting: {
+        executeScript: () =>
+          Promise.reject(new Error('result is non-structured-clonable data'))
+      },
+      tabs: {query: (_q: unknown, cb: (t: unknown[]) => void) => cb([])}
+    })
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'e-clone',
+      op: 'eval',
+      target: {context: 'page', tabId: 7},
+      args: {expression: 'document.body'}
+    })
+
+    await flush()
+    const r = results(ws).find((f) => f.cmdId === 'e-clone')
+    expect(r.ok).toBe(false)
+    expect(r.error.name).not.toBe('TargetNotFound')
+    expect(r.error.message).toBe('result is non-structured-clonable data')
   })
 
   it('eval content: a CSP-blocked eval inside the tab reports Unsupported with the MAIN-world alternative', async () => {
