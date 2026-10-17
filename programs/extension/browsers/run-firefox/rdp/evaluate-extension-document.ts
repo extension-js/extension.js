@@ -606,6 +606,71 @@ export async function evaluateExtensionDocument(options: {
   )
 }
 
+// Firefox has no debugger request that starts a suspended event page, only
+// extension events do. The parent process holds the extension object, and its
+// wakeupBackground is what such an event calls before it is dispatched.
+export function wakeBackgroundExpression(extensionId: string): string {
+  return `(function () {
+  var mod = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
+  var extension = mod.ExtensionParent.GlobalManager.getExtension(${JSON.stringify(extensionId)});
+  if (!extension) return "no-extension";
+  if (typeof extension.wakeupBackground !== "function") return "no-wakeup";
+  Promise.resolve(extension.wakeupBackground()).catch(function () {});
+  return "woken";
+})()`
+}
+
+export async function wakeThroughParentProcess(options: {
+  client: EvaluatingClient
+  extensionId: string
+}): Promise<boolean> {
+  const {client, extensionId} = options
+  const process = (await client.request({
+    to: 'root',
+    type: 'getProcess',
+    id: 0
+  })) as {processDescriptor?: {actor?: unknown}}
+  const descriptor = process?.processDescriptor?.actor
+
+  if (typeof descriptor !== 'string') return false
+
+  const target = (await client.request({
+    to: descriptor,
+    type: 'getTarget'
+  })) as {process?: {consoleActor?: unknown}; consoleActor?: unknown}
+  const consoleActor = target?.process?.consoleActor ?? target?.consoleActor
+
+  if (typeof consoleActor !== 'string' || !consoleActor) return false
+
+  return (
+    (await client.evaluate(
+      consoleActor,
+      wakeBackgroundExpression(extensionId)
+    )) === 'woken'
+  )
+}
+
+// False whenever the debugger, the parent process or the extension cannot be
+// reached, so the caller keeps its own account of the absence.
+export async function wakeExtensionBackground(options: {
+  rdpPort: number
+  extensionId: string
+  timeoutMs: number
+}): Promise<boolean> {
+  const outcome = await withDebugger(
+    options.rdpPort,
+    options.timeoutMs,
+    async (client) => ({
+      woke: await wakeThroughParentProcess({
+        client,
+        extensionId: options.extensionId
+      })
+    })
+  )
+
+  return (outcome as {woke?: unknown}).woke === true
+}
+
 // Two tabs on one url cannot be told apart from here, and a guess would
 // answer from a document the caller did not name.
 export function pickTabDescriptor(

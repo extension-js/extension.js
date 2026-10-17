@@ -116,6 +116,8 @@ export interface BrowserController {
   getExtensionLoadRefusal?(): string | null
   /** Re-offer the current dist. Only ever called while the session is refused. */
   retryExtensionLoad?(): Promise<ExtensionLoadRetryResult>
+  /** Start a suspended background again. Firefox only. */
+  wakeBackground?(): Promise<boolean>
 }
 
 export type BrowserLauncherFn = (
@@ -190,6 +192,16 @@ export class BrowsersPlugin implements RunnerPlugin {
 
   setEmulatorViewerUrl(url: string): void {
     this.emulatorViewerUrl = url
+  }
+
+  // The broker calls this for a verb that finds no executor. False until the
+  // browser is up, and for any browser that cannot be asked.
+  async wakeBackground(): Promise<boolean> {
+    try {
+      return (await this.controller?.wakeBackground?.()) === true
+    } catch {
+      return false
+    }
   }
 
   private async retryRefusedExtensionLoad(): Promise<boolean> {

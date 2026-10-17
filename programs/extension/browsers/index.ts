@@ -78,7 +78,11 @@ export interface BrowserController {
   }): Promise<void>
   getExtensionLoadRefusal?(): string | null
   retryExtensionLoad?(): Promise<ExtensionLoadRetryResult>
+  wakeBackground?(): Promise<boolean>
 }
+
+// Long enough for the debugger to greet and the parent process to answer.
+const WAKE_BACKGROUND_TIMEOUT_MS = 3000
 
 function createCompilationLike(opts: BrowserLaunchOptions): CompilationLike {
   return {
@@ -273,6 +277,14 @@ async function launchFirefox(
       if (!firefoxOpts.retryAddonInstall) return {status: 'unknown' as const}
 
       return await firefoxOpts.retryAddonInstall()
+    },
+
+    // Firefox suspends an idle event page and the control producer with it,
+    // so the bridge asks for it back before it refuses a verb.
+    async wakeBackground() {
+      if (!rdpController) return false
+
+      return await rdpController.wakeBackground(WAKE_BACKGROUND_TIMEOUT_MS)
     },
 
     // Reload is owned by the control-bridge SW producer (same executor for

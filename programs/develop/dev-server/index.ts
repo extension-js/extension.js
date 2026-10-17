@@ -522,6 +522,7 @@ export async function devServer(
       setReloadBroker?: (broker: unknown) => void
       setLogSink?: (sink: (event: BrowserLogSinkEvent) => void) => void
       setEmulatorViewerUrl?: (url: string) => void
+      wakeBackground?: () => Promise<boolean>
     }
   }
   process.env.EXTENSION_BROWSER_LAUNCH_ENABLED = devOptions.noBrowser
@@ -665,7 +666,15 @@ export async function devServer(
     actions: bridgeActionsFile,
     authorMode,
     onExecutorAttached: () => stampExecutorAttached?.(),
-    onExecutorDetached: () => stampExecutorDetached?.()
+    onExecutorDetached: () => stampExecutorDetached?.(),
+    // Only Gecko suspends the background with no way back short of an event.
+    ...(isGeckoBasedBrowser(browserName) &&
+    typeof extendedOptions.browsersPlugin?.wakeBackground === 'function'
+      ? {
+          wakeExecutor: async () =>
+            (await extendedOptions.browsersPlugin?.wakeBackground?.()) === true
+        }
+      : {})
   })
 
   // Hand the broker to a launched runner plugin so Chromium and Safari reload

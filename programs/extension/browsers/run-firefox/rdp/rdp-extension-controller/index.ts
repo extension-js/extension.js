@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import type {BrowserType, CompilationLike} from '../../../browsers-types'
+import {wakeExtensionBackground} from '../evaluate-extension-document'
 import {RemoteFirefox} from '../remote-firefox'
 
 type PluginLike = {
@@ -77,6 +78,17 @@ export class FirefoxRDPController {
 
   getExtensionId(): string | undefined {
     return this.remote.getDerivedExtensionId()
+  }
+
+  async wakeBackground(timeoutMs: number): Promise<boolean> {
+    const extensionId = this.getExtensionId()
+    if (!extensionId || !this.debugPort) return false
+
+    return await wakeExtensionBackground({
+      rdpPort: this.debugPort,
+      extensionId,
+      timeoutMs
+    })
   }
 
   async enableUnifiedLogging(opts: {
