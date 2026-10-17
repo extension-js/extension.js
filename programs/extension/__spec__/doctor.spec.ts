@@ -402,6 +402,62 @@ describe('extension doctor', () => {
     expect(r.executor.status).toBe('fail')
   })
 
+  it('fails the executor on a failed compile and names the compile error, never still launching', async () => {
+    state.mod = healthyModule({
+      readReadyContract: () => ({
+        controlPort: 4001,
+        instanceId: 'inst-1',
+        runId: 'run-A',
+        status: 'error',
+        code: 'compile_failed',
+        message: 'Compilation failed',
+        errors: ['× Module build failed: Unterminated string constant'],
+        pid: process.pid,
+        compiledAt: null,
+        ts: new Date().toISOString()
+      })
+    })
+
+    StubController.probeResult = {
+      ok: false,
+      error: {name: 'Unavailable', message: 'no executor connected'}
+    }
+
+    const r = byCheck(await runDoctor('/proj', {}))
+    expect(r.executor.status).toBe('fail')
+    expect(r.executor.detail).not.toMatch(/still launching/)
+    expect(r.executor.detail).toContain(
+      '× Module build failed: Unterminated string constant'
+    )
+
+    expect(r['ready-contract'].detail).toContain(
+      '× Module build failed: Unterminated string constant'
+    )
+  })
+
+  it('falls back to the contract message when a failed compile carries no errors', async () => {
+    state.mod = healthyModule({
+      readReadyContract: () => ({
+        controlPort: 4001,
+        instanceId: 'inst-1',
+        runId: 'run-A',
+        status: 'error',
+        code: 'compile_failed',
+        message: 'Cannot read the rspack config',
+        errors: [],
+        pid: process.pid,
+        compiledAt: null,
+        ts: new Date().toISOString()
+      })
+    })
+
+    StubController.probeResult = new Error('socket closed')
+
+    const r = byCheck(await runDoctor('/proj', {}))
+    expect(r.executor.status).toBe('fail')
+    expect(r.executor.detail).toContain('Cannot read the rspack config')
+  })
+
   it('does not grace-warn the executor once the SW has attached (runtime attached)', async () => {
     state.mod = healthyModule({
       readReadyContract: () => ({

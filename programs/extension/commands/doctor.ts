@@ -122,6 +122,7 @@ function isExecutorAttachGrace(
         runtime?: unknown
         browserExitedAt?: unknown
         compiledAt?: unknown
+        status?: unknown
         ts?: unknown
       }
     | null
@@ -129,6 +130,9 @@ function isExecutorAttachGrace(
 ): boolean {
   // Once the SW has attached, absence is a real regression, never a grace warn.
   if (ready?.executorAttachedAt || ready?.runtime === 'attached') return false
+  // An error write stamps a fresh `ts` with `compiledAt: null`, so a failed
+  // compile would otherwise read as a launch still in progress.
+  if (ready?.status === 'error') return false
   // A browser that exited under a live server is a real failure, not launching.
   if (ready?.browserExitedAt) return false
 
@@ -139,6 +143,37 @@ function isExecutorAttachGrace(
   if (Number.isNaN(compiledMs)) return false
 
   return Date.now() - compiledMs < EXECUTOR_ATTACH_GRACE_MS
+}
+
+// eslint-disable-next-line no-control-regex
+const ANSI_PATTERN = /\u001b\[[0-9;]*m/g
+
+// Why a contract in `error` failed: its first error, else its message, as one
+// plain line. Older engines wrote a fatal compile as colored text in `message`.
+function contractFailure(
+  ready: {status?: unknown; errors?: unknown; message?: unknown} | null
+): string | undefined {
+  if (ready?.status !== 'error') return undefined
+
+  const errors = Array.isArray(ready.errors) ? ready.errors : []
+  const candidates = [...errors, ready.message]
+
+  for (const candidate of candidates) {
+    if (typeof candidate !== 'string') continue
+
+    const line = candidate
+      .replace(ANSI_PATTERN, '')
+      .split('\n')
+      .map((part) => part.trim())
+      .find(Boolean)
+    if (line) return line
+  }
+
+  return undefined
+}
+
+function isCompileFailure(ready: {code?: unknown} | null): boolean {
+  return ready?.code === 'compile_error' || ready?.code === 'compile_failed'
 }
 
 function readReadyDocument(readyPath: string): Record<string, unknown> | null {
@@ -467,6 +502,17 @@ export async function runDoctor(
       status: 'pass',
       detail: `status ready, controlPort ${ready.controlPort}, instanceId ${ready.instanceId}${ready.ts ? `, written ${ready.ts}` : ''}`
     })
+  } else if (isCompileFailure(ready)) {
+    results.push({
+      check: 'ready-contract',
+      status: 'fail',
+      detail:
+        `contract status is 'error', the last compile failed` +
+        `${contractFailure(ready) ? `: ${contractFailure(ready)}` : ''}`,
+      remediation:
+        'Fix the compile error and save; the session rebuilds on its own. ' +
+        'ready.json `errors` carries the full text'
+    })
   } else {
     results.push({
       check: 'ready-contract',
@@ -477,6 +523,18 @@ export async function runDoctor(
         '(extension dev --wait) or check the dev-server output'
     })
   }
+
+  // A failed compile is why no executor attaches, so the executor leg names it.
+  const compileFailure = isCompileFailure(ready)
+    ? contractFailure(ready)
+    : undefined
+  const compileFailureResult = (): DoctorCheckResult => ({
+    check: 'executor',
+    status: 'fail',
+    detail: `no executor can attach: the last compile failed${compileFailure ? `: ${compileFailure}` : ''}`,
+    remediation:
+      'Fix the compile error and save; the extension attaches after the next clean compile'
+  })
 
   let serverAlive = true
 
@@ -672,6 +730,8 @@ export async function runDoctor(
             remediation:
               'Reload the extension, or restart the dev session if it stays silent'
           })
+        } else if (isCompileFailure(ready)) {
+          results.push(compileFailureResult())
         } else if (isExecutorAttachGrace(ready)) {
           results.push({
             check: 'executor',
@@ -695,7 +755,9 @@ export async function runDoctor(
           })
         }
       } catch (err) {
-        if (isExecutorAttachGrace(ready)) {
+        if (isCompileFailure(ready)) {
+          results.push(compileFailureResult())
+        } else if (isExecutorAttachGrace(ready)) {
           results.push({
             check: 'executor',
             status: 'warn',
