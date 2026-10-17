@@ -150,6 +150,43 @@ export function pickDocumentFrame(
   return match ? String(match.consoleActor) : undefined
 }
 
+// The snapshot the bridge's in-page inspect answers, built in the document
+// over the debugger for a page the bridge cannot reach.
+export function inspectSnapshotExpression(
+  include: readonly string[],
+  maxBytes: number
+): string {
+  const wantHtml = include.includes('html')
+  const cap = Number.isFinite(maxBytes) && maxBytes > 0 ? maxBytes : 262144
+
+  return `(function () {
+  function countShadow(root) {
+    var n = 0, els = root.querySelectorAll("*");
+    for (var i = 0; i < els.length; i++) { if (els[i].shadowRoot) { n++; n += countShadow(els[i].shadowRoot); } }
+    return n;
+  }
+  var doc = document;
+  var out = {
+    url: location.href,
+    title: doc.title,
+    summary: {
+      htmlLength: doc.documentElement.outerHTML.length,
+      scriptCount: doc.querySelectorAll("script").length,
+      styleCount: doc.querySelectorAll("style,link[rel=stylesheet]").length,
+      extensionRootCount: doc.querySelectorAll("#extension-root,[data-extension-root]").length,
+      openShadowRoots: countShadow(doc),
+      bodyChildCount: doc.body ? doc.body.children.length : 0
+    }
+  };
+  if (${wantHtml}) {
+    var html = doc.documentElement.outerHTML;
+    if (html.length > ${cap}) { out.html = html.slice(0, ${cap}); out.htmlTruncated = true; }
+    else { out.html = html; }
+  }
+  return out;
+})()`
+}
+
 // The value is JSON-encoded inside the document and read back as a string:
 // a console actor answers an object with an actor grip, not a cloneable value,
 // and never awaits a promise the expression returns.
