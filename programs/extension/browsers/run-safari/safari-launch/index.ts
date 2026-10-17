@@ -18,22 +18,25 @@ import {
 } from '../../browsers-lib/ready-stamp'
 import type {BrowserLogger, CompilationLike} from '../../browsers-types'
 import type {SafariBuildConfig, SafariPluginLike} from '../safari-types'
+import {rememberRaisedContainerApp} from './container-app'
 import {logSafariDryRun} from './dry-run'
 import {
   alignBundleIdentifiers,
   backupAndRestoreXcodeSettings,
   builtAppPath,
+  composeBuildFingerprint,
   composeConverterArgs,
   composeXcodebuildArgs,
+  isBuildCurrent,
   isProjectStale,
   macOsSchemeName,
   PRESERVED_SETTINGS,
   pbxprojPath,
   resolveSafariBuildConfig,
+  saveBuildFingerprint,
   saveManifestFingerprint,
   xcodeProjectPath
 } from './safari-config'
-import {rememberRaisedContainerApp} from './container-app'
 import {detectSafariToolchain} from './toolchain'
 import {
   createSafariTools,
@@ -387,24 +390,42 @@ async function runSafariPipeline(
     logger.info?.(messages.safariSkippingConversion())
   }
 
-  if (mode === 'full') {
-    logger.info?.(messages.safariBuilding(macOsSchemeName(config)))
-  }
+  const buildFingerprint = composeBuildFingerprint(config, xcodebuildArgs)
+  const reuseBuild =
+    !needsConversion && isBuildCurrent(config, buildFingerprint)
 
-  const built = await tools.runXcodebuild(xcodebuildArgs)
+  if (reuseBuild) {
+    // Nothing xcodebuild reads changed, so the app on disk is this build. A
+    // rebuild would re-sign it and Safari would load it as a new appex.
+    if (mode === 'full') logger.info?.(messages.safariBuildUpToDate())
+  } else {
+    if (mode === 'full') {
+      logger.info?.(messages.safariBuilding(macOsSchemeName(config)))
+    }
 
-  if (!built.ok) {
-    const tail = toolOutputTail(built.output)
-    logger.error?.(messages.safariToolFailed('xcodebuild', built.code, tail))
+    const built = await tools.runXcodebuild(xcodebuildArgs)
 
-    throw new Error(`xcodebuild failed (exit ${built.code})\n${tail}`)
+    if (!built.ok) {
+      const tail = toolOutputTail(built.output)
+      logger.error?.(messages.safariToolFailed('xcodebuild', built.code, tail))
+
+      throw new Error(`xcodebuild failed (exit ${built.code})\n${tail}`)
+    }
+
+    saveBuildFingerprint(config, buildFingerprint)
+
+    // Safari keeps an extension's storage under its appex id and team, so an
+    // ad-hoc build has none to keep: every build it loads starts empty.
+    if (host.announceDevReady && !isSigned) {
+      logger.warn?.(messages.safariStorageReset(config.appName))
+    }
   }
 
   const appPath = builtAppPath(config)
 
   // Resync mode (dev rebuilds): just report and stop, no reopen/re-guide.
   if (mode === 'resync') {
-    logger.info?.(messages.safariRebuilt(config.appName))
+    if (!reuseBuild) logger.info?.(messages.safariRebuilt(config.appName))
 
     return describePackage(config)
   }

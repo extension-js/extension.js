@@ -1126,8 +1126,15 @@ describe('safari pipeline through the injected tool host', () => {
 
   it('resync: reuses a fresh project, rebuilds, and neither opens nor mentions skipping', async () => {
     await runPipeline(manifest)
+    // A resync follows a compile, which changed what xcodebuild copies.
     const tools = fakeSafariTools()
-    const {logs} = await runPipeline(manifest, {tools, mode: 'resync'})
+    const {logs} = await runPipeline(
+      {
+        ...manifest,
+        content_scripts: [{matches: ['<all_urls>'], js: ['content.b2.js']}]
+      },
+      {tools, mode: 'resync'}
+    )
 
     expect(tools.calls.converter).toHaveLength(0)
     expect(tools.calls.xcodebuild).toHaveLength(1)
@@ -1145,11 +1152,13 @@ describe('safari pipeline through the injected tool host', () => {
     const tools = fakeSafariTools()
     const {logs} = await runPipeline(manifest, {tools})
 
+    // Nothing changed, so the app the last run built is reused as well.
     expect(tools.calls.converter).toHaveLength(0)
-    expect(tools.calls.xcodebuild).toHaveLength(1)
+    expect(tools.calls.xcodebuild).toHaveLength(0)
     expect(tools.calls.openApp).toHaveLength(1)
     expect(logs).toContain(messages.safariSkippingConversion())
-    expect(logs).toContain(messages.safariBuilding('MyExt'))
+    expect(logs).toContain(messages.safariBuildUpToDate())
+    expect(logs).not.toContain(messages.safariBuilding('MyExt'))
   })
 
   it('content-script rehash alone: reuses the project', async () => {
@@ -1186,14 +1195,16 @@ describe('safari pipeline through the injected tool host', () => {
 
     const {logs} = await runPipeline(manifest, {tools, mode: 'resync'})
 
+    // The project never references hot/, so xcodebuild has nothing new to
+    // copy either and the app on disk stays.
     expect(tools.calls.converter).toHaveLength(1)
-    expect(tools.calls.xcodebuild).toHaveLength(2)
+    expect(tools.calls.xcodebuild).toHaveLength(1)
     expect(logs).not.toContain(messages.safariProjectStale())
     expect(logs).not.toContain(
       messages.safariRegenerationDiscards([...PRESERVED_SETTINGS])
     )
 
-    expect(logs).toContain(messages.safariRebuilt('MyExt'))
+    expect(logs).not.toContain(messages.safariRebuilt('MyExt'))
   })
 
   it('permissions change: converts again and warns about discarded customizations first', async () => {
