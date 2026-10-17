@@ -228,6 +228,19 @@ export async function resolveFirefoxLaunchConfig(
     }
   }
 
+  // Firefox caches each add-on's parsed manifest by id and version and drops
+  // it only on an upgrade. A dev build and a production build share both, so
+  // a fresh install read the last run's manifest. Its other caches stay.
+  if (profilePath && provision && !ownsProfilePrefs) {
+    try {
+      fs.rmSync(path.join(profilePath, 'startupCache', 'webext.sc.lz4'), {
+        force: true
+      })
+    } catch {
+      // best-effort; a locked live profile keeps its cache
+    }
+  }
+
   // Firefox has no flag for these, and without them the debugger server never
   // listens, so the extension would silently not load in the profile.
   if (profilePath && provision && !ownsProfilePrefs) {
