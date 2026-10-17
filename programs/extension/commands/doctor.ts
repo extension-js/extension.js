@@ -496,19 +496,23 @@ export async function runDoctor(
     return {browser, checks: results}
   }
 
+  // The reader keeps only the fields it types; why a session failed (`code`,
+  // `message`, `errors`) is on the document itself.
+  const failure = {...ready, ...(document ?? {})}
+
   if (ready.status === 'ready') {
     results.push({
       check: 'ready-contract',
       status: 'pass',
       detail: `status ready, controlPort ${ready.controlPort}, instanceId ${ready.instanceId}${ready.ts ? `, written ${ready.ts}` : ''}`
     })
-  } else if (isCompileFailure(ready)) {
+  } else if (isCompileFailure(failure)) {
     results.push({
       check: 'ready-contract',
       status: 'fail',
       detail:
         `contract status is 'error', the last compile failed` +
-        `${contractFailure(ready) ? `: ${contractFailure(ready)}` : ''}`,
+        `${contractFailure(failure) ? `: ${contractFailure(failure)}` : ''}`,
       remediation:
         'Fix the compile error and save; the session rebuilds on its own. ' +
         'ready.json `errors` carries the full text'
@@ -525,8 +529,8 @@ export async function runDoctor(
   }
 
   // A failed compile is why no executor attaches, so the executor leg names it.
-  const compileFailure = isCompileFailure(ready)
-    ? contractFailure(ready)
+  const compileFailure = isCompileFailure(failure)
+    ? contractFailure(failure)
     : undefined
   const compileFailureResult = (): DoctorCheckResult => ({
     check: 'executor',
@@ -730,7 +734,7 @@ export async function runDoctor(
             remediation:
               'Reload the extension, or restart the dev session if it stays silent'
           })
-        } else if (isCompileFailure(ready)) {
+        } else if (isCompileFailure(failure)) {
           results.push(compileFailureResult())
         } else if (isExecutorAttachGrace(ready)) {
           results.push({
@@ -755,7 +759,7 @@ export async function runDoctor(
           })
         }
       } catch (err) {
-        if (isCompileFailure(ready)) {
+        if (isCompileFailure(failure)) {
           results.push(compileFailureResult())
         } else if (isExecutorAttachGrace(ready)) {
           results.push({

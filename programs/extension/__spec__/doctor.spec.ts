@@ -402,60 +402,106 @@ describe('extension doctor', () => {
     expect(r.executor.status).toBe('fail')
   })
 
-  it('fails the executor on a failed compile and names the compile error, never still launching', async () => {
+  // The engine's readReadyContract keeps only the fields it types, so `code`,
+  // `message` and `errors` reach doctor only through the document on disk.
+  function failedCompileProject(contract: Record<string, unknown>) {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-doctor-'))
+    const dir = path.join(root, 'dist', 'extension-js', 'chrome')
+    const document = {
+      status: 'error',
+      command: 'dev',
+      port: 8080,
+      controlPort: 4001,
+      instanceId: 'inst-1',
+      runId: 'run-A',
+      pid: process.pid,
+      compiledAt: null,
+      ts: new Date().toISOString(),
+      ...contract
+    }
+    fs.mkdirSync(dir, {recursive: true})
+    fs.writeFileSync(path.join(dir, 'ready.json'), JSON.stringify(document))
     state.mod = healthyModule({
       readReadyContract: () => ({
-        controlPort: 4001,
-        instanceId: 'inst-1',
-        runId: 'run-A',
-        status: 'error',
-        code: 'compile_failed',
-        message: 'Compilation failed',
-        errors: ['× Module build failed: Unterminated string constant'],
-        pid: process.pid,
-        compiledAt: null,
-        ts: new Date().toISOString()
+        controlPort: document.controlPort,
+        instanceId: document.instanceId,
+        runId: document.runId,
+        status: document.status,
+        pid: document.pid,
+        compiledAt: undefined,
+        ts: document.ts
       })
     })
 
+    return root
+  }
+
+  it('fails the executor on a failed compile and names the compile error, never still launching', async () => {
+    const root = failedCompileProject({
+      code: 'compile_error',
+      message: 'Compilation failed',
+      errors: ['× Module build failed: Unterminated string constant']
+    })
     StubController.probeResult = {
       ok: false,
       error: {name: 'Unavailable', message: 'no executor connected'}
     }
 
-    const r = byCheck(await runDoctor('/proj', {}))
-    expect(r.executor.status).toBe('fail')
-    expect(r.executor.detail).not.toMatch(/still launching/)
-    expect(r.executor.detail).toContain(
-      '× Module build failed: Unterminated string constant'
-    )
+    try {
+      const r = byCheck(await runDoctor(root, {browser: 'chrome'}))
+      expect(r.executor.status).toBe('fail')
+      expect(r.executor.detail).not.toMatch(/still launching/)
+      expect(r.executor.detail).toContain(
+        '× Module build failed: Unterminated string constant'
+      )
 
-    expect(r['ready-contract'].detail).toContain(
-      '× Module build failed: Unterminated string constant'
-    )
+      expect(r['ready-contract'].detail).toContain(
+        '× Module build failed: Unterminated string constant'
+      )
+    } finally {
+      fs.rmSync(root, {recursive: true, force: true})
+    }
   })
 
-  it('falls back to the contract message when a failed compile carries no errors', async () => {
-    state.mod = healthyModule({
-      readReadyContract: () => ({
-        controlPort: 4001,
-        instanceId: 'inst-1',
-        runId: 'run-A',
-        status: 'error',
-        code: 'compile_failed',
-        message: 'Cannot read the rspack config',
-        errors: [],
-        pid: process.pid,
-        compiledAt: null,
-        ts: new Date().toISOString()
-      })
+  it('names the first plain line of a colored message when a failed compile carries no errors', async () => {
+    const root = failedCompileProject({
+      code: 'compile_failed',
+      message:
+        '  \u001b[31m×\u001b[0m Error: Cannot read the rspack config\n  │     at x (y.js:1:1)',
+      errors: []
     })
-
     StubController.probeResult = new Error('socket closed')
 
-    const r = byCheck(await runDoctor('/proj', {}))
-    expect(r.executor.status).toBe('fail')
-    expect(r.executor.detail).toContain('Cannot read the rspack config')
+    try {
+      const r = byCheck(await runDoctor(root, {browser: 'chrome'}))
+      expect(r.executor.status).toBe('fail')
+      expect(r.executor.detail).toContain(
+        'the last compile failed: × Error: Cannot read the rspack config'
+      )
+
+      expect(r.executor.detail).not.toContain('at x')
+    } finally {
+      fs.rmSync(root, {recursive: true, force: true})
+    }
+  })
+
+  it('never grace-warns a session in error, even one that is not a compile failure', async () => {
+    const root = failedCompileProject({
+      code: 'browser_launch_failed',
+      message: 'the browser did not start'
+    })
+    StubController.probeResult = {
+      ok: false,
+      error: {name: 'Unavailable', message: 'no executor connected'}
+    }
+
+    try {
+      const r = byCheck(await runDoctor(root, {browser: 'chrome'}))
+      expect(r.executor.status).toBe('fail')
+      expect(r.executor.detail).not.toMatch(/still launching|compile/)
+    } finally {
+      fs.rmSync(root, {recursive: true, force: true})
+    }
   })
 
   it('does not grace-warn the executor once the SW has attached (runtime attached)', async () => {
