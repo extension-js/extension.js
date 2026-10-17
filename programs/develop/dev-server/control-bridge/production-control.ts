@@ -9,6 +9,7 @@
 import {randomUUID} from 'node:crypto'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import parse from 'content-security-policy-parser'
 import {isGeckoBasedBrowser, isWebkitBasedBrowser} from '../../lib/constants'
 import {
   actionsPath,
@@ -43,6 +44,9 @@ export interface ProductionControlOptions {
   runId?: string
   onExecutorAttached?: () => void
   onExecutorDetached?: () => void
+  // Starts a suspended background again. Bound late, the browser launches
+  // after the broker exists.
+  wakeExecutor?: () => Promise<boolean>
 }
 
 export interface ProductionControlSession {
@@ -81,6 +85,70 @@ function listFiles(root: string, dir = ''): string[] {
   return out
 }
 
+function buildPolicy(csp: Map<string, string[]>): string {
+  const directives = [...csp.entries()].map(([directive, values]) =>
+    values.length ? `${directive} ${values.join(' ')}` : directive
+  )
+
+  return `${directives.join('; ')}; `
+}
+
+// The producer dials ws:// on loopback. Firefox's default MV3 policy carries
+// upgrade-insecure-requests, which turns that dial into a TLS handshake the
+// control port never answers, and an author's connect-src can refuse it.
+// Dev writes its own policy for the same reason; this is the copy's.
+function controlledPagesPolicy(
+  policy: string | undefined,
+  controlSource: string
+): string {
+  const csp = parse(policy || "script-src 'self'; object-src 'self'")
+
+  csp.delete('upgrade-insecure-requests')
+
+  const connectSrc = csp.get('connect-src') || csp.get('default-src')
+
+  if (connectSrc && !connectSrc.includes(controlSource)) {
+    csp.set('connect-src', [...connectSrc, controlSource])
+  }
+
+  return buildPolicy(csp)
+}
+
+export function patchControlledManifest(
+  manifest: Record<string, unknown>,
+  controlSource: string
+): Record<string, unknown> {
+  const policy = manifest.content_security_policy
+
+  if (Number(manifest.manifest_version) !== 3) {
+    if (typeof policy !== 'string') return manifest
+
+    return {
+      ...manifest,
+      content_security_policy: controlledPagesPolicy(policy, controlSource)
+    }
+  }
+
+  const slots =
+    policy && typeof policy === 'object' && !Array.isArray(policy)
+      ? (policy as Record<string, unknown>)
+      : {}
+  const pages =
+    typeof policy === 'string'
+      ? policy
+      : typeof slots.extension_pages === 'string'
+        ? slots.extension_pages
+        : undefined
+
+  return {
+    ...manifest,
+    content_security_policy: {
+      ...slots,
+      extension_pages: controlledPagesPolicy(pages, controlSource)
+    }
+  }
+}
+
 export function prepareControlledBuild(input: {
   distPath: string
   controlledPath: string
@@ -98,6 +166,18 @@ export function prepareControlledBuild(input: {
     context: 'background',
     host: input.host
   })
+
+  const manifestPath = path.join(input.controlledPath, 'manifest.json')
+
+  if (fs.existsSync(manifestPath)) {
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
+    const controlSource = `ws://${input.host || '127.0.0.1'}:${input.controlPort}`
+
+    fs.writeFileSync(
+      manifestPath,
+      JSON.stringify(patchControlledManifest(manifest, controlSource), null, 2)
+    )
+  }
 
   fs.writeFileSync(
     path.join(input.controlledPath, CONTROL_PORT_ASSET_NAME),
@@ -155,7 +235,11 @@ export async function startProductionControl(
     controlToken,
     actions,
     onExecutorAttached: options.onExecutorAttached,
-    onExecutorDetached: options.onExecutorDetached
+    onExecutorDetached: options.onExecutorDetached,
+    // Only Gecko suspends the background with no way back short of an event.
+    ...(isGeckoBasedBrowser(browser) && options.wakeExecutor
+      ? {wakeExecutor: options.wakeExecutor}
+      : {})
   })
 
   logFile.start()

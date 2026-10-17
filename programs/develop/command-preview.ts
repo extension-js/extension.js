@@ -87,7 +87,17 @@ export interface ResolvedPreviewOptions {
  * Browser launcher callback. When provided, extensionPreview calls it
  * instead of requiring plugin-browsers internally.
  */
-export type PreviewLauncherFn = (opts: ResolvedPreviewOptions) => Promise<void>
+/**
+ * What a launcher may hand back about the browser it started.
+ */
+export interface PreviewBrowserSession {
+  /** Start a suspended background again. Firefox only. */
+  wakeBackground?(): Promise<boolean>
+}
+
+export type PreviewLauncherFn = (
+  opts: ResolvedPreviewOptions
+) => Promise<PreviewBrowserSession> | Promise<void>
 
 function readRunIdFromReadyFile(readyPath: string): string | undefined {
   try {
@@ -297,6 +307,7 @@ export async function extensionPreview(
   }
 
   let launchPath = outputPath
+  let launched: PreviewBrowserSession | undefined
 
   if (previewOptions.allowControl || previewOptions.allowEval) {
     let stampAttached: (() => void) | undefined
@@ -310,7 +321,14 @@ export async function extensionPreview(
       host: previewOptions.host,
       runId: getSessionRunId(packageJsonDir, String(browser)),
       onExecutorAttached: () => stampAttached?.(),
-      onExecutorDetached: () => stampDetached?.()
+      onExecutorDetached: () => stampDetached?.(),
+      wakeExecutor: async () => {
+        try {
+          return (await launched?.wakeBackground?.()) === true
+        } catch {
+          return false
+        }
+      }
     })
 
     launchPath = control.controlledPath
@@ -490,7 +508,7 @@ export async function extensionPreview(
     )
   }
 
-  await browserLauncher(resolvedOpts)
+  launched = (await browserLauncher(resolvedOpts)) || undefined
 
   metadata.writeReady()
 

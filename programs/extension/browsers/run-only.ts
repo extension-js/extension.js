@@ -266,9 +266,16 @@ function asLaunchFailure(
   )
 }
 
+// Long enough for the debugger to greet and the parent process to answer.
+const WAKE_BACKGROUND_TIMEOUT_MS = 3000
+
+export interface PreviewBrowserSession {
+  wakeBackground?(): Promise<boolean>
+}
+
 export async function runOnlyPreviewBrowser(
   opts: PreviewRunOptions
-): Promise<void> {
+): Promise<PreviewBrowserSession | undefined> {
   let exitScheduled = false
 
   const scheduleExitOnSignal = () => {
@@ -357,7 +364,16 @@ export async function runOnlyPreviewBrowser(
       throw asLaunchFailure(error, opts.browser, launcher.spawnedBrowser)
     }
 
-    return
+    // Firefox suspends an idle event page and the control producer with it,
+    // so a start session's bridge asks for it back the way dev's does.
+    return {
+      async wakeBackground() {
+        const controller = ctx.getController?.()
+        if (!controller) return false
+
+        return await controller.wakeBackground(WAKE_BACKGROUND_TIMEOUT_MS)
+      }
+    }
   }
 
   throw new Error(`Unsupported browser: ${String(opts.browser)}`)
