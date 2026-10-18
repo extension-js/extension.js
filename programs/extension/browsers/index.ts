@@ -305,6 +305,7 @@ async function launchFirefox(
   }
 }
 
+export {sharedManagedCacheEnv} from './browsers-lib/output-binaries-resolver'
 // Re-export run-only for backward compatibility with the preview command
 export {runOnlyPreviewBrowser} from './run-only'
 
