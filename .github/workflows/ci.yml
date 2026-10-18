@@ -373,6 +373,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Compile the CLI
+        run: pnpm --filter extension compile
+
+      - name: Prove the system Edge is found with an empty managed cache
+        run: node scripts/verify-edge-system-locate.mjs
+
       - name: Run full test suite
         run: pnpm test
 

@@ -862,7 +862,8 @@ export function chromiumDryRunFlags(flags: string) {
 export function prettyPuppeteerInstallGuidance(
   browser: Browser,
   rawGuidance: string,
-  cacheDir: string
+  cacheDir: string,
+  platform: NodeJS.Platform = process.platform
 ): string {
   const dim = colors.gray
   const body: string[] = []
@@ -912,6 +913,28 @@ export function prettyPuppeteerInstallGuidance(
     body.push('')
     body.push(
       `  ${colors.bold(colors.blue(preferredManagedInstallCommand('chrome')))}`
+    )
+  }
+
+  if (browserNorm === 'edge' && platform === 'win32') {
+    body.push('')
+    body.push(colors.gray('Or use an Edge already installed. Looked at:'))
+
+    for (const root of [
+      '%LOCALAPPDATA%',
+      '%ProgramFiles%',
+      '%ProgramFiles(x86)%'
+    ]) {
+      body.push(
+        `  ${colors.gray(`${root}\\Microsoft\\Edge\\Application\\msedge.exe`)}`
+      )
+    }
+
+    body.push('')
+    body.push(
+      colors.gray(
+        `Point at one elsewhere with ${colors.blue('EDGE_BINARY=<path>')} or ${colors.blue('--chromium-binary <path>')}.`
+      )
     )
   }
 

@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {CompilationLike} from '../browsers-types'
+import {locatorEnv} from './locator-env'
 
 export function computeSharedCacheRoot(): string {
   const explicit = String(process.env.EXT_BROWSERS_CACHE_DIR || '').trim()
@@ -64,10 +65,10 @@ export function computeSharedCacheRoot(): string {
 export function sharedManagedCacheEnv(
   browser: Parameters<typeof managedBrowserCacheEnv>[1]
 ): NodeJS.ProcessEnv {
-  return {
-    ...process.env,
-    ...managedBrowserCacheEnv(computeSharedCacheRoot(), browser)
-  }
+  return locatorEnv(
+    process.env,
+    managedBrowserCacheEnv(computeSharedCacheRoot(), browser)
+  )
 }
 
 export function getCompilationOutputPath(compilation: CompilationLike): string {

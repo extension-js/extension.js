@@ -74,6 +74,55 @@ describe('prettyPuppeteerInstallGuidance', () => {
     expect(msg).toContain('npx extension install chrome')
   })
 
+  it('names the system Edge locations and the overrides on Windows', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-guidance-'))
+    fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({}))
+
+    process.chdir(root)
+    delete process.env.npm_config_user_agent
+
+    const msg = prettyPuppeteerInstallGuidance(
+      'edge' as any,
+      'raw guidance (unused)',
+      'C:\\Users\\cosmo\\AppData\\Local\\extension.js\\browsers',
+      'win32'
+    )
+
+    expect(msg).toContain("Edge isn't available")
+    expect(msg).toContain(
+      '%LOCALAPPDATA%\\Microsoft\\Edge\\Application\\msedge.exe'
+    )
+
+    expect(msg).toContain(
+      '%ProgramFiles%\\Microsoft\\Edge\\Application\\msedge.exe'
+    )
+
+    expect(msg).toContain(
+      '%ProgramFiles(x86)%\\Microsoft\\Edge\\Application\\msedge.exe'
+    )
+
+    expect(msg).toContain('EDGE_BINARY')
+    expect(msg).toContain('--chromium-binary')
+  })
+
+  it('keeps the Windows Edge note off other platforms', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-guidance-'))
+    fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({}))
+
+    process.chdir(root)
+    delete process.env.npm_config_user_agent
+
+    const msg = prettyPuppeteerInstallGuidance(
+      'edge' as any,
+      'raw guidance (unused)',
+      '/tmp/extension.js/browsers',
+      'darwin'
+    )
+
+    expect(msg).not.toContain('%ProgramFiles%')
+    expect(msg).not.toContain('EDGE_BINARY')
+  })
+
   it('does not add the Chrome alternative for non-chromium targets', () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-guidance-'))
     fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({}))

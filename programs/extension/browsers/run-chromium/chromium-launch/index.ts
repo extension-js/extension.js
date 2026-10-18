@@ -39,6 +39,7 @@ import {
   offerManagedInstall
 } from '../../browsers-lib/first-run-install'
 import * as instanceRegistry from '../../browsers-lib/instance-registry'
+import {locatorEnv} from '../../browsers-lib/locator-env'
 import {
   diagnoseChromiumManifestRefusal,
   findChromiumLoadBlockers,
@@ -670,10 +671,11 @@ export class ChromiumLaunchPlugin {
 
     const managedCacheRoot =
       binariesResolver.computeBinariesBaseDir(compilation)
-    const managedEnvFor = (b: ChromiumLaunchOptions['browser']) => ({
-      ...process.env,
-      ...binariesResolver.managedBrowserCacheEnv(String(managedCacheRoot), b)
-    })
+    const managedEnvFor = (b: ChromiumLaunchOptions['browser']) =>
+      locatorEnv(
+        process.env,
+        binariesResolver.managedBrowserCacheEnv(String(managedCacheRoot), b)
+      )
 
     const isAuthorMode = isDebug()
 
