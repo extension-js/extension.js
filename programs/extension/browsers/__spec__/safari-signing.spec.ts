@@ -56,22 +56,25 @@ describe('safari xcodebuild signing', () => {
   })
 })
 
-// No message may send anyone to the developer menu. An ad-hoc app does not need
-// it, and the one path that does, folder loading, is not something the CLI ships.
-describe('safari enabling hints never prescribe the developer menu', () => {
-  it('keeps the developer menu out of both signatures', () => {
+describe('safari enabling hints name the Settings ▸ Developer toggle Safari 27 needs for an ad-hoc build (observed 2026-10-18, Safari 27.0, macOS 26.5)', () => {
+  it('names Settings ▸ Developer for an ad-hoc build only', () => {
+    expect(messages.safariNextSteps('My App')).toMatch(
+      /Settings ▸ Developer ▸ Allow unsigned extensions/
+    )
+
+    expect(messages.safariNextSteps('My App', true)).not.toMatch(/unsigned/)
+
     for (const steps of [
       messages.safariNextSteps('My App'),
       messages.safariNextSteps('My App', true)
     ]) {
-      expect(steps).not.toMatch(/Allow Unsigned Extensions/)
-      expect(steps).not.toMatch(/Develop/)
+      expect(steps).not.toMatch(/Develop menu/)
       expect(steps).toMatch(/Settings/)
       expect(steps).toMatch(/Extensions/)
     }
   })
 
-  it('enables the same way whatever signed the build', () => {
+  it('opens the same way whatever signed the build', () => {
     const hint = messages.safariOpenHint('/tmp/My App.app', 'My App')
     expect(hint).not.toMatch(/Allow Unsigned Extensions/)
     expect(hint).toMatch(/Settings/)
@@ -81,6 +84,8 @@ describe('safari enabling hints never prescribe the developer menu', () => {
 
   it('names what a team id buys without claiming it changes loading', () => {
     expect(messages.safariNextSteps('My App', true)).toMatch(/distribution/)
-    expect(messages.safariNextSteps('My App')).toMatch(/stays enabled/)
+    expect(messages.safariNextSteps('My App')).toMatch(
+      /only while unsigned extensions are allowed/
+    )
   })
 })

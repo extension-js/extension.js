@@ -30,6 +30,16 @@ import {FirefoxLaunchPlugin} from './run-firefox/firefox-launch'
 import type {FirefoxPluginRuntime} from './run-firefox/firefox-types'
 
 export type {BrowserType, CompilationLike, Controller} from './browsers-types'
+export {
+  checkAccessibility,
+  enableSafariExtension,
+  pressShortcut,
+  readSafariExtensionEnabled,
+  readShortcut,
+  readToolbarButton,
+  readToolbarMenu,
+  setSafariExtensionEnabled
+} from './run-safari/safari-ui'
 
 export interface BrowserLaunchOptions {
   browser: BrowserType
