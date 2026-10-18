@@ -20,6 +20,12 @@ import {
   readProjectSource,
   shippableText
 } from './apply-dev-defaults-lib/emitted-evidence'
+import {
+  matchesOutside,
+  type Range,
+  type WebkitMissingApis,
+  webkitGuardedRanges
+} from './apply-dev-defaults-lib/webkit-guarded-ranges'
 
 // Namespaces Safari ships on no version, per MDN browser-compat-data and
 // Apple's browser-compatibility page, each paired with the warning it earns.
@@ -108,6 +114,11 @@ const webkitMemberByKey = new Map<string, WebkitUnsupportedMember>(
   ])
 )
 
+export const webkitMissingApis: WebkitMissingApis = {
+  namespaces: new Set(Object.keys(webkitUnsupportedApis)),
+  members: new Set(webkitMemberByKey.keys())
+}
+
 // gecko follows addons-linter, which flags any static read. webkit follows
 // the Safari runtime, where only an unguarded call on a missing namespace throws.
 export type UnsupportedApiEngine = 'gecko' | 'webkit'
@@ -147,18 +158,22 @@ export function geckoUnsupportedApis(
 // A static member read on the namespace is what addons-linter matches, so a
 // runtime guard around the same call still trips it and must still warn.
 // Safari only throws when the call reads through the missing namespace, so
-// optional chaining on it is safe there.
+// optional chaining on it is safe there, and so is a call inside a span the
+// author's own feature check keeps closed, which the ranges carry.
 export function usesGeckoUnsupportedApi(
   source: string,
   api: GeckoUnsupportedApi,
-  engine: UnsupportedApiEngine = 'gecko'
+  engine: UnsupportedApiEngine = 'gecko',
+  guarded?: Range[]
 ): boolean {
   const chain = engine === 'webkit' ? '' : '\\??'
   const memberRe = new RegExp(
     `\\b(?:chrome|browser)\\s*\\.\\s*${api}\\s*${chain}\\.\\s*[A-Za-z_$]`
   )
 
-  return memberRe.test(source)
+  return guarded?.length
+    ? matchesOutside(source, memberRe, guarded)
+    : memberRe.test(source)
 }
 
 // Safari resolves the namespace, so only the deeper access throws. A call kind
@@ -173,14 +188,34 @@ export function usesGeckoUnsupportedApi(
 // stays quiet there too rather than arguing with a defensive author.
 export function usesWebkitUnsupportedMember(
   source: string,
-  entry: WebkitUnsupportedMember
+  entry: WebkitUnsupportedMember,
+  guarded?: Range[]
 ): boolean {
   const tail = entry.kind === 'call' ? '\\s*\\(' : '\\s*\\.\\s*[A-Za-z_$]'
   const memberRe = new RegExp(
     `\\b(?:chrome|browser)\\s*\\.\\s*${entry.api}\\s*\\.\\s*${entry.member}(?![\\w$])${tail}`
   )
 
-  return memberRe.test(source)
+  return guarded?.length
+    ? matchesOutside(source, memberRe, guarded)
+    : memberRe.test(source)
+}
+
+// Parsing is paid once per text and only when a pattern already matched it,
+// so a project that never names a missing API never parses anything.
+export function webkitGuardedRangesOf(): (text: string) => Range[] {
+  const known = new Map<string, Range[]>()
+
+  return (text: string) => {
+    let ranges = known.get(text)
+
+    if (!ranges) {
+      ranges = webkitGuardedRanges(text, webkitMissingApis)
+      known.set(text, ranges)
+    }
+
+    return ranges
+  }
 }
 
 interface ScanTarget {
@@ -197,13 +232,16 @@ function scanTargets(
   manifestVersion: unknown,
   engine: UnsupportedApiEngine
 ): ScanTarget[] {
+  const rangesOf = engine === 'webkit' ? webkitGuardedRangesOf() : () => []
   const targets: ScanTarget[] = geckoUnsupportedApis(
     manifestVersion,
     engine
   ).map((api) => ({
     key: api,
     api,
-    test: (text: string) => usesGeckoUnsupportedApi(text, api, engine)
+    test: (text: string) =>
+      usesGeckoUnsupportedApi(text, api, engine) &&
+      usesGeckoUnsupportedApi(text, api, engine, rangesOf(text))
   }))
   if (engine !== 'webkit') return targets
 
@@ -212,7 +250,9 @@ function scanTargets(
       key: `${entry.api}.${entry.member}`,
       api: entry.api,
       member: entry.member,
-      test: (text: string) => usesWebkitUnsupportedMember(text, entry)
+      test: (text: string) =>
+        usesWebkitUnsupportedMember(text, entry) &&
+        usesWebkitUnsupportedMember(text, entry, rangesOf(text))
     })
   }
 

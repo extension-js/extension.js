@@ -336,7 +336,7 @@ function safariUnsupportedApi(file: string, api: string, detail: string) {
 
   lines.push(detail)
   lines.push(
-    `Move the call behind a build-time branch on ${colors.blue('import.meta.env.EXTENSION_PUBLIC_BROWSER')}, or guard it with ${colors.yellow(`chrome.${api}?.`)}.`
+    `Move the call behind a build-time branch on ${colors.blue('import.meta.env.EXTENSION_PUBLIC_BROWSER')}, guard it with ${colors.yellow(`chrome.${api}?.`)}, or keep it inside an ${colors.yellow(`if (chrome.${api})`)} branch.`
   )
 
   return lines.join('\n')
@@ -491,7 +491,7 @@ export function safariMemberUnsupported(
   )
 
   lines.push(
-    `Safari has ${colors.blue(`chrome.${api}`)} itself, so a guard on the namespace does not help. Move the call behind a build-time branch on ${colors.blue('import.meta.env.EXTENSION_PUBLIC_BROWSER')}, or guard it with ${colors.yellow(guard)}.`
+    `Safari has ${colors.blue(`chrome.${api}`)} itself, so a guard on the namespace does not help. Move the call behind a build-time branch on ${colors.blue('import.meta.env.EXTENSION_PUBLIC_BROWSER')}, guard it with ${colors.yellow(guard)}, or keep it inside an ${colors.yellow(`if (chrome.${api}.${member})`)} branch.`
   )
 
   return lines.join('\n')
