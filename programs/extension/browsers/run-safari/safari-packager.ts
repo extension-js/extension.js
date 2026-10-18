@@ -13,6 +13,7 @@ import {
   type SafariPipelineMode,
   type SafariPipelineTools
 } from './safari-launch'
+import type {SafariUiTools} from './safari-ui/tools'
 
 export interface SafariPackagerOverrides {
   appName?: string
@@ -30,6 +31,8 @@ export interface SafariPackagerOptions extends SafariPackagerOverrides {
   dryRun?: boolean
   logger?: BrowserLogger
   tools?: SafariPipelineTools
+  enableExtension?: boolean
+  uiTools?: SafariUiTools
 }
 
 export type SafariPackagerFn = (
@@ -58,6 +61,8 @@ export function createSafariPackager(
     dryRun = false,
     logger,
     tools,
+    enableExtension = false,
+    uiTools,
     ...identity
   } = options
 
@@ -69,6 +74,8 @@ export function createSafariPackager(
         noOpen,
         dryRun,
         tools,
+        enableExtension,
+        uiTools,
         ...withoutUndefined(identity),
         ...withoutUndefined(overrides)
       },

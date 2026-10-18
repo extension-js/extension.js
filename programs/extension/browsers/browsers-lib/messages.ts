@@ -1161,12 +1161,19 @@ export function safariDryRunXcodebuild(cmd: string) {
 }
 
 export function safariNextSteps(appName: string, signed?: boolean) {
+  const name = colors.yellow(appName)
+  const unsignedStep = signed
+    ? ''
+    : `  ${colors.gray('1.')} Safari ▸ Settings ▸ Developer ▸ Allow unsigned extensions (Safari forgets it on quit)\n`
+  const enableStep = `  ${colors.gray(signed ? '1.' : '2.')} Safari ▸ Settings ▸ Extensions ▸ turn on ${name}\n`
+  const websitesStep = `  ${colors.gray(signed ? '2.' : '3.')} Safari ▸ Settings ▸ Websites ▸ ${name} ▸ For other websites ▸ Allow\n`
   const steps =
-    `${getLoggingPrefix('info')} One-time setup to load ${colors.yellow(appName)} in Safari:\n` +
-    `  ${colors.gray('1.')} Safari ▸ Settings ▸ Extensions ▸ turn on ${colors.yellow(appName)}\n`
+    `${getLoggingPrefix('info')} One-time setup to load ${name} in Safari, or pass ${colors.blue('--enable-extension')} to let Extension.js do it:\n` +
+    unsignedStep +
+    enableStep +
+    websitesStep +
+    `  ${colors.gray('→')} Use a regular Safari window for this, a trip to Settings from the automation window ends the WebDriver session.\n`
 
-  // An ad-hoc build is listed and stays enabled too, so the note names what a
-  // team id actually buys rather than implying it is needed to load at all.
   if (signed) {
     return (
       steps +
@@ -1176,7 +1183,39 @@ export function safariNextSteps(appName: string, signed?: boolean) {
 
   return (
     steps +
-    `  ${colors.gray('→')} Ad-hoc signed, so it stays enabled across restarts.`
+    `  ${colors.gray('→')} Ad-hoc signed, so Safari lists it only while unsigned extensions are allowed.`
+  )
+}
+
+export function safariEnableStep(
+  step: string,
+  before: string | null,
+  after: string | null,
+  detail?: string
+) {
+  const reading =
+    before === null
+      ? `${colors.gray('read back')} ${colors.yellow(after ?? 'nothing')}`
+      : `${colors.gray('read')} ${colors.yellow(before)} ${colors.gray('→')} ${colors.yellow(after ?? 'nothing')}`
+
+  return `${getLoggingPrefix('info')} Safari ${step}: ${reading}${detail ? ` ${colors.gray(detail)}` : ''}.`
+}
+
+export function safariEnabled(appName: string, otherWebsites: string | null) {
+  return `${getLoggingPrefix('success')} ${colors.yellow(appName)} is on in Safari, other websites ${colors.yellow(otherWebsites ?? 'unread')}.`
+}
+
+export function safariEnableIncomplete(appName: string, reason: string) {
+  return (
+    `${getLoggingPrefix('warn')} Couldn't finish enabling ${colors.yellow(appName)} in Safari: ${reason}\n` +
+    `Finish the steps below by hand.`
+  )
+}
+
+export function safariAccessibilityDenied(host: string) {
+  return (
+    `${getLoggingPrefix('warn')} Can't drive Safari's settings without an Accessibility grant for ${colors.yellow(host)}.\n` +
+    `Open System Settings ▸ Privacy & Security ▸ Accessibility, add ${colors.yellow(host)}, and run again.`
   )
 }
 

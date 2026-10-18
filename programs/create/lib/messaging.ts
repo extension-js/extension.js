@@ -314,6 +314,8 @@ export const CODES = {
   E_PUBLISH_REJECTED: 'E_PUBLISH_REJECTED',
   E_AUTH_REQUIRED: 'E_AUTH_REQUIRED',
   E_SAFARI_TOOLCHAIN: 'E_SAFARI_TOOLCHAIN',
+  E_SAFARI_UI: 'E_SAFARI_UI',
+  E_ACCESSIBILITY_DENIED: 'E_ACCESSIBILITY_DENIED',
   // Distinct from E_INTERNAL: these are exceptions thrown by the page or the
   // extension under test, not faults in the CLI itself.
   E_EVAL: 'E_EVAL',

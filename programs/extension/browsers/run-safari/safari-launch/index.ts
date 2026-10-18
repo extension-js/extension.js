@@ -18,6 +18,13 @@ import {
 } from '../../browsers-lib/ready-stamp'
 import type {BrowserLogger, CompilationLike} from '../../browsers-types'
 import type {SafariBuildConfig, SafariPluginLike} from '../safari-types'
+import {
+  checkAccessibility,
+  createSafariUiTools,
+  type EnableStep,
+  enableSafariExtension,
+  SafariUiError
+} from '../safari-ui'
 import {rememberRaisedContainerApp} from './container-app'
 import {logSafariDryRun} from './dry-run'
 import {
@@ -129,6 +136,92 @@ async function confirmRegisteredWithSafari(
 }
 
 export type SafariPipelineMode = 'full' | 'resync'
+
+const ENABLE_STEP_LABELS: Record<EnableStep['step'], string> = {
+  unsigned: 'unsigned extensions',
+  pluginkit: 'pluginkit registration',
+  enabled: 'extension switch',
+  websites: 'other websites'
+}
+
+function switchWord(value: string | null): string | null {
+  if (value === '1') return 'on'
+  if (value === '0') return 'off'
+
+  return value
+}
+
+async function enableThroughSafariUi(
+  host: SafariPluginLike,
+  config: SafariBuildConfig,
+  appPath: string,
+  logger: BrowserLogger
+): Promise<boolean> {
+  const uiTools = host.uiTools || createSafariUiTools()
+  const access = await checkAccessibility(uiTools)
+
+  if (!access.granted) {
+    logger.warn?.(messages.safariAccessibilityDenied(access.host))
+
+    return false
+  }
+
+  try {
+    const report = await enableSafariExtension({
+      target: {
+        bundleId: config.bundleIdentifier,
+        developmentTeam: config.developmentTeam
+      },
+      appPath,
+      tools: uiTools,
+      onStep: (step) =>
+        logger.info?.(
+          messages.safariEnableStep(
+            ENABLE_STEP_LABELS[step.step],
+            switchWord(step.before),
+            switchWord(step.after),
+            step.step === 'enabled' && !step.changed && step.ok
+              ? 'already on'
+              : undefined
+          )
+        )
+    })
+
+    if (report.enabled && report.otherWebsites === 'Allow') {
+      logger.info?.(
+        messages.safariEnabled(config.appName, report.otherWebsites)
+      )
+
+      return true
+    }
+
+    logger.warn?.(
+      messages.safariEnableIncomplete(
+        config.appName,
+        report.listed
+          ? `the switch reads ${report.enabled ? 'on' : 'off'} and other websites read ${report.otherWebsites ?? 'nothing'}.`
+          : 'Safari does not list the extension.'
+      )
+    )
+
+    return false
+  } catch (error) {
+    if (error instanceof SafariUiError && error.kind === 'accessibility') {
+      logger.warn?.(
+        messages.safariAccessibilityDenied(error.host || access.host)
+      )
+    } else {
+      logger.warn?.(
+        messages.safariEnableIncomplete(
+          config.appName,
+          error instanceof Error ? error.message : String(error)
+        )
+      )
+    }
+
+    return false
+  }
+}
 
 export interface SafariPackageResult {
   appName: string
@@ -489,12 +582,22 @@ async function runSafariPipeline(
     logger.warn?.(messages.safariPidUnresolved(config.appName))
   }
 
-  logger.info?.(messages.safariNextSteps(config.appName, isSigned))
+  if (!host.enableExtension) {
+    logger.info?.(messages.safariNextSteps(config.appName, isSigned))
+  }
 
   if (await confirmRegisteredWithSafari(tools, config.bundleIdentifier)) {
     logger.info?.(messages.safariRegistered(config.appName))
   } else {
     logger.info?.(messages.safariNotYetRegistered(config.appName))
+  }
+
+  if (host.enableExtension) {
+    const enabled = await enableThroughSafariUi(host, config, appPath, logger)
+
+    if (!enabled) {
+      logger.info?.(messages.safariNextSteps(config.appName, isSigned))
+    }
   }
 
   if (host.announceDevReady) {
