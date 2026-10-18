@@ -193,6 +193,20 @@ const COMMAND_TABLE = [
     supportsSourceInspection: true
   },
   {
+    name: 'safari',
+    positionals: [
+      {
+        name: 'action',
+        required: true,
+        values: ['enable', 'button', 'menu', 'press', 'shortcut']
+      },
+      {name: 'project-path', required: false}
+    ],
+    description:
+      "Read or drive Safari's own UI for an extension: enable it, read its toolbar button, its context menu, or a command shortcut (macOS, needs an Accessibility grant)",
+    supportsSourceInspection: false
+  },
+  {
     name: 'publish',
     positionals: [{name: 'project-path', required: false}],
     description:
@@ -562,6 +576,64 @@ export function safariOnlyOption(flags: string[]) {
   )
 }
 
+export const SAFARI_UI_ACTIONS = [
+  'enable',
+  'button',
+  'menu',
+  'press',
+  'shortcut'
+] as const
+
+export function safariUiUnknownAction(action: string) {
+  return (
+    `${getLoggingPrefix('error')} Can't run ${code(`safari ${action}`)}, it is not a Safari action.\n` +
+    `Choose one of ${SAFARI_UI_ACTIONS.map(code).join(', ')}.`
+  )
+}
+
+export function safariUiMacOnly(platform: string) {
+  return (
+    `${getLoggingPrefix('error')} Safari's own UI can be read on macOS only, this is ${arg(platform)}.\n` +
+    `Run ${code('extension safari')} on a Mac with the Safari app built.`
+  )
+}
+
+export function safariUiNoBuiltApp(appPath: string) {
+  return (
+    `${getLoggingPrefix('error')} No Safari app to enable at ${arg(appPath)}.\n` +
+    `Run ${code('extension dev --browser safari')} or ${code('extension build --browser safari')} first.`
+  )
+}
+
+export function safariUiNoShortcut() {
+  return (
+    `${getLoggingPrefix('error')} The manifest declares no ${code('commands')} shortcut to press.\n` +
+    `Pass ${code('--keys <shortcut>')}, for example ${code('--keys Alt+Shift+H')}.`
+  )
+}
+
+export function safariUiNotListed(bundleId: string) {
+  return (
+    `${getLoggingPrefix('error')} Safari does not list ${arg(bundleId)} in Settings ▸ Extensions.\n` +
+    `Run ${code('extension safari enable')} first, or turn on Allow unsigned extensions in Settings ▸ Developer.`
+  )
+}
+
+export function safariUiButtonMissing(buttonId: string) {
+  return (
+    `${getLoggingPrefix('error')} Safari's toolbar has no button ${arg(buttonId)}.\n` +
+    `Turn the extension on in Safari ▸ Settings ▸ Extensions, then run again.`
+  )
+}
+
+export function safariUiFailed(reason: string) {
+  return `${getLoggingPrefix('error')} Safari's UI could not be driven: ${reason}`
+}
+
+export function safariUiStep(label: string, reading: string) {
+  return `${getLoggingPrefix('info')} Safari ${label}: ${reading}.`
+}
+
 export function safariInvalidBundleId(bundleId: string) {
   return (
     `${getLoggingPrefix('error')} Can't use ${code(bundleId)} as a bundle identifier.\n` +
@@ -917,6 +989,7 @@ export function programAIHelpJSON(version: string): ProgramAIHelpJSON {
           'start with a browser to launch stays on starting, with compiledAt set, until the launch passed its binary checks, so --wait keeps waiting and reports a refused pin as that refusal',
           'events.ndjson is reset at every run start and appends entries with runId, durationMs and errorCount for that run only, join on runId across runs',
           'dev --browser safari holds one safaridriver session beside the app and stamps webdriverPort and webdriverSessionId, or webdriverUnavailableReason when Safari automation is off, attach to that session instead of opening a second',
+          'dev stamps reloadedAt, reloadKind (full, background, content, page, safari-resync) and reloadLabel each time it applies a reload after a compile, so the reload of a compile is live once reloadedAt is later than the compiledAt of that compile, and a compile that reloads nothing leaves the stamp as it was',
           'a Chromium dev session whose CDP wire failed after launch stays ready and stamps cdpFaultCode and cdpFaultMessage, the ready frame under --output json carries the same fault as a coded warning, reload and HMR cannot attach until it is fixed',
           '--wait requires a local project path (remote URLs are not supported)',
           'consumers should verify pid liveness and recency before trusting a contract',
@@ -1012,8 +1085,14 @@ export function openedSurface(surface: string) {
   return `${getLoggingPrefix('success')} Opened the ${openSurfaceNoun(surface)}.`
 }
 
-export function replayedActionClick(listeners: number) {
-  return `${getLoggingPrefix('success')} Replayed ${listenerCount(listeners, 'onClicked')} without a user gesture.`
+export function openedActionPopup(manifestKey: string) {
+  return `${getLoggingPrefix('success')} Opened the ${manifestKey} popup.`
+}
+
+export function replayedActionClick(listeners: number, manifestKey?: string) {
+  const event = manifestKey ? `${manifestKey} onClicked` : 'onClicked'
+
+  return `${getLoggingPrefix('success')} Replayed ${listenerCount(listeners, event)} without a user gesture.`
 }
 
 export function replayedCommand(listeners: number, command?: string) {

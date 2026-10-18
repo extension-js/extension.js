@@ -150,6 +150,43 @@ export function pickDocumentFrame(
   return match ? String(match.consoleActor) : undefined
 }
 
+// The snapshot the bridge's in-page inspect answers, built in the document
+// over the debugger for a page the bridge cannot reach.
+export function inspectSnapshotExpression(
+  include: readonly string[],
+  maxBytes: number
+): string {
+  const wantHtml = include.includes('html')
+  const cap = Number.isFinite(maxBytes) && maxBytes > 0 ? maxBytes : 262144
+
+  return `(function () {
+  function countShadow(root) {
+    var n = 0, els = root.querySelectorAll("*");
+    for (var i = 0; i < els.length; i++) { if (els[i].shadowRoot) { n++; n += countShadow(els[i].shadowRoot); } }
+    return n;
+  }
+  var doc = document;
+  var out = {
+    url: location.href,
+    title: doc.title,
+    summary: {
+      htmlLength: doc.documentElement.outerHTML.length,
+      scriptCount: doc.querySelectorAll("script").length,
+      styleCount: doc.querySelectorAll("style,link[rel=stylesheet]").length,
+      extensionRootCount: doc.querySelectorAll("#extension-root,[data-extension-root]").length,
+      openShadowRoots: countShadow(doc),
+      bodyChildCount: doc.body ? doc.body.children.length : 0
+    }
+  };
+  if (${wantHtml}) {
+    var html = doc.documentElement.outerHTML;
+    if (html.length > ${cap}) { out.html = html.slice(0, ${cap}); out.htmlTruncated = true; }
+    else { out.html = html; }
+  }
+  return out;
+})()`
+}
+
 // The value is JSON-encoded inside the document and read back as a string:
 // a console actor answers an object with an actor grip, not a cloneable value,
 // and never awaits a promise the expression returns.
@@ -604,6 +641,71 @@ export async function evaluateExtensionDocument(options: {
   return await withDebugger(options.rdpPort, options.timeoutMs, (client) =>
     evaluateThroughWatcher({...options, client})
   )
+}
+
+// Firefox has no debugger request that starts a suspended event page, only
+// extension events do. The parent process holds the extension object, and its
+// wakeupBackground is what such an event calls before it is dispatched.
+export function wakeBackgroundExpression(extensionId: string): string {
+  return `(function () {
+  var mod = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
+  var extension = mod.ExtensionParent.GlobalManager.getExtension(${JSON.stringify(extensionId)});
+  if (!extension) return "no-extension";
+  if (typeof extension.wakeupBackground !== "function") return "no-wakeup";
+  Promise.resolve(extension.wakeupBackground()).catch(function () {});
+  return "woken";
+})()`
+}
+
+export async function wakeThroughParentProcess(options: {
+  client: EvaluatingClient
+  extensionId: string
+}): Promise<boolean> {
+  const {client, extensionId} = options
+  const process = (await client.request({
+    to: 'root',
+    type: 'getProcess',
+    id: 0
+  })) as {processDescriptor?: {actor?: unknown}}
+  const descriptor = process?.processDescriptor?.actor
+
+  if (typeof descriptor !== 'string') return false
+
+  const target = (await client.request({
+    to: descriptor,
+    type: 'getTarget'
+  })) as {process?: {consoleActor?: unknown}; consoleActor?: unknown}
+  const consoleActor = target?.process?.consoleActor ?? target?.consoleActor
+
+  if (typeof consoleActor !== 'string' || !consoleActor) return false
+
+  return (
+    (await client.evaluate(
+      consoleActor,
+      wakeBackgroundExpression(extensionId)
+    )) === 'woken'
+  )
+}
+
+// False whenever the debugger, the parent process or the extension cannot be
+// reached, so the caller keeps its own account of the absence.
+export async function wakeExtensionBackground(options: {
+  rdpPort: number
+  extensionId: string
+  timeoutMs: number
+}): Promise<boolean> {
+  const outcome = await withDebugger(
+    options.rdpPort,
+    options.timeoutMs,
+    async (client) => ({
+      woke: await wakeThroughParentProcess({
+        client,
+        extensionId: options.extensionId
+      })
+    })
+  )
+
+  return (outcome as {woke?: unknown}).woke === true
 }
 
 // Two tabs on one url cannot be told apart from here, and a guess would

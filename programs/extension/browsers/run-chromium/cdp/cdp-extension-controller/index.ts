@@ -19,6 +19,7 @@ import {expectedChromiumExtensionId} from '../../../browsers-lib/banner'
 import {loadsExtensionsOverCdpOnly} from '../../../browsers-lib/browser-family'
 import * as messages from '../../../browsers-lib/messages'
 import {stampReadyExtensionId} from '../../../browsers-lib/ready-stamp'
+import {LAUNCH_TAB_URL} from '../../../browsers-lib/runtime-options'
 import type {BrowserLogSink} from '../../../browsers-types'
 import type {
   CdpProtocolMessage,
@@ -138,6 +139,50 @@ export class CDPExtensionController {
     if (!this.cdp) return
 
     await this.cdp.sendCommand('Target.createTarget', {url})
+  }
+
+  // The launch tab opened on about:blank so the starting page waits for the
+  // extension: navigated once its background target is up, so the page gets
+  // the document_start content scripts and CSS. A launch that left no blank
+  // tab gets a new one. A background that never shows still gets the page.
+  async openStartingUrl(
+    url: string,
+    options: {attempts?: number; intervalMs?: number} = {}
+  ): Promise<'navigated' | 'opened' | 'unavailable'> {
+    if (!this.cdp) return 'unavailable'
+
+    const extensionId =
+      this.extensionId || expectedChromiumExtensionId(this.outPath)
+
+    if (extensionId && declaresBackgroundContext(this.outPath)) {
+      await this.waitForExtensionTarget(
+        extensionId,
+        options.attempts ?? 40,
+        options.intervalMs ?? 100
+      )
+    }
+
+    const targets = await this.cdp.getTargets()
+    const launchTab = targets.find(
+      (target) => target?.type === 'page' && target?.url === LAUNCH_TAB_URL
+    )
+
+    if (launchTab?.targetId) {
+      const attached = (await this.cdp.sendCommand('Target.attachToTarget', {
+        targetId: launchTab.targetId,
+        flatten: true
+      })) as {sessionId?: string} | undefined
+
+      if (attached?.sessionId) {
+        await this.cdp.sendCommand('Page.navigate', {url}, attached.sessionId)
+
+        return 'navigated'
+      }
+    }
+
+    await this.cdp.sendCommand('Target.createTarget', {url})
+
+    return 'opened'
   }
 
   // Yandex under --headless=new tears down its own last page target once the

@@ -92,7 +92,8 @@ describe('--no-open suppresses the starting URL', () => {
       browser: 'firefox',
       startingUrl: URL
     } as any)
-    expect(withOpen).toContain(URL)
+    // The launch opens about:blank; the URL follows the add-on install.
+    expect(withOpen).toContain('--url about:blank')
 
     const withNoOpen = await firefoxBrowserConfig(compilation(), {
       extension: '/ext',

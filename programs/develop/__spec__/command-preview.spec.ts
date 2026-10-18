@@ -65,7 +65,9 @@ const metadataWriter = vi.hoisted(() => ({
   writeReady: vi.fn(),
   writeError: vi.fn(),
   writeShutdown: vi.fn(),
-  appendEvent: vi.fn()
+  appendEvent: vi.fn(),
+  stampExecutorAttached: vi.fn(),
+  stampExecutorDetached: vi.fn()
 }))
 const createAutomationMetadataWriter = vi.fn(
   (..._args: unknown[]) => metadataWriter
@@ -77,6 +79,21 @@ vi.mock('../plugin-playwright', () => ({
 }))
 
 const runOnlyPreviewBrowser = vi.fn(async (..._args: any[]) => {})
+
+const startProductionControl = vi.hoisted(() =>
+  vi.fn(async (_options: any) => ({
+    controlPort: 5555,
+    instanceId: 'inst-1',
+    controlledPath: '/proj/dist/extension-js/chrome/controlled',
+    logsPath: 'dist/extension-js/chrome/logs.ndjson',
+    backgroundAssets: ['background/service_worker.js'],
+    broker: {},
+    close: vi.fn(async () => {})
+  }))
+)
+vi.mock('../dev-server/control-bridge/production-control', () => ({
+  startProductionControl
+}))
 
 const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 const printed: string[] = []
@@ -174,6 +191,84 @@ describe('webpack/command-preview (run-only)', () => {
     } catch {
       // Ignore
     }
+  })
+
+  it('loads the controlled copy and publishes its control port with allowControl', async () => {
+    startProductionControl.mockClear()
+    ;(fs.existsSync as any).mockImplementation(
+      (p: string) => p === path.join('/proj', 'dist', 'chrome', 'manifest.json')
+    )
+
+    await extensionPreview(
+      '/proj',
+      {browser: 'chrome', allowEval: true, metadataCommand: 'start'} as any,
+      runOnlyPreviewBrowser
+    )
+
+    expect(startProductionControl).toHaveBeenCalledTimes(1)
+    const [controlOpts] = startProductionControl.mock.calls[0] as any[]
+    expect(controlOpts).toMatchObject({
+      packageJsonDir: '/proj',
+      browser: 'chrome',
+      distPath: path.join('/proj', 'dist', 'chrome'),
+      allowEval: true
+    })
+
+    const call = runOnlyPreviewBrowser.mock.calls[0]?.[0] as any
+    expect(call.outPath).toBe('/proj/dist/extension-js/chrome/controlled')
+
+    const writerOpts = createAutomationMetadataWriter.mock.calls.at(
+      -1
+    )?.[0] as any
+    expect(writerOpts).toMatchObject({
+      command: 'start',
+      distPath: '/proj/dist/extension-js/chrome/controlled',
+      controlPort: 5555,
+      instanceId: 'inst-1',
+      logsPath: 'dist/extension-js/chrome/logs.ndjson'
+    })
+
+    expect(metadataWriter.writeReady).toHaveBeenCalled()
+    expect(printedLines()).toContain('Control channel open')
+  })
+
+  it("hands the launched browser's background wake to the control broker", async () => {
+    startProductionControl.mockClear()
+    ;(fs.existsSync as any).mockImplementation(
+      (p: string) =>
+        p === path.join('/proj', 'dist', 'firefox', 'manifest.json')
+    )
+
+    const wakeBackground = vi.fn(async () => true)
+    const launcher = vi.fn(async (..._args: any[]) => ({wakeBackground}))
+
+    await extensionPreview(
+      '/proj',
+      {browser: 'firefox', allowControl: true, metadataCommand: 'start'} as any,
+      launcher
+    )
+
+    const [controlOpts] = startProductionControl.mock.calls[0] as any[]
+    expect(typeof controlOpts.wakeExecutor).toBe('function')
+    await expect(controlOpts.wakeExecutor()).resolves.toBe(true)
+    expect(wakeBackground).toHaveBeenCalledTimes(1)
+  })
+
+  it('opens no control channel unless asked', async () => {
+    startProductionControl.mockClear()
+    ;(fs.existsSync as any).mockImplementation(
+      (p: string) => p === path.join('/proj', 'dist', 'chrome', 'manifest.json')
+    )
+
+    await extensionPreview(
+      '/proj',
+      {browser: 'chrome'} as any,
+      runOnlyPreviewBrowser
+    )
+
+    expect(startProductionControl).not.toHaveBeenCalled()
+    const call = runOnlyPreviewBrowser.mock.calls[0]?.[0] as any
+    expect(call.outPath).toBe(path.join('/proj', 'dist', 'chrome'))
   })
 
   it('falls back to manifest directory when dist/<browser> lacks manifest.json', async () => {

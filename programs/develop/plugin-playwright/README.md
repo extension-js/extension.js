@@ -33,7 +33,9 @@
 - `pid`
 - `ts`
 - `compiledAt`
-- `errors`
+- `errors`: the last failed compile's messages as plain text (no color),
+  whether the compile reported errors or the compiler itself failed; empty
+  otherwise
 - `controlPort`: the agent-bridge control port, or `null` when there is none
 - optional `code` and `message` on failures
 - optional `controlPortUnavailableReason`: the bind error, present whenever
@@ -48,6 +50,14 @@
 - optional `webdriverUnavailableReason`: why no session was opened (Allow Remote
   Automation off, `safaridriver --enable` not run, no `safaridriver`), present
   instead of the two fields above and preserved across recompiles
+- optional `reloadedAt`, `reloadKind` and `reloadLabel`: under `dev`, stamped
+  each time dev applies a reload after a compile. `reloadKind` is `full`,
+  `background`, `content`, `page` or `safari-resync` (the rebuilt Safari appex);
+  `reloadLabel` is the label the reload line prints. A reload the extension
+  never confirmed or never received is not stamped, and a compile that
+  reloads nothing leaves the stamp as it was. A compile's reload is live once
+  `reloadedAt` is later than that compile's `compiledAt`; preserved across
+  recompiles
 - optional `cdpFaultCode` and `cdpFaultMessage`: under a Chromium `dev` the
   launcher stamps them when the CDP wire failed after the browser came up (a
   connect that found no endpoint, a command or load that timed out, an id it

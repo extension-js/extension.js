@@ -232,6 +232,56 @@ describe('plugin-playwright metadata writer', () => {
     ])
   })
 
+  it('writes the failed-hook error as plain text into errors and the event', () => {
+    const projectRoot = createTempProject()
+    const plugin = new PlaywrightPlugin({
+      packageJsonDir: projectRoot,
+      browser: 'firefox',
+      mode: 'development',
+      outputPath: path.join(projectRoot, 'dist', 'firefox'),
+      manifestPath: path.join(projectRoot, 'manifest.json'),
+      port: 8080
+    })
+
+    const taps: Record<string, (arg?: unknown) => void> = {}
+    const hook = (name: string) => ({
+      tap: (_pluginName: string, fn: (arg?: unknown) => void) => {
+        taps[name] = fn
+      }
+    })
+    plugin.apply({
+      hooks: {
+        compile: hook('compile'),
+        done: hook('done'),
+        failed: hook('failed'),
+        watchClose: hook('watchClose')
+      }
+    } as any)
+
+    taps.failed(
+      new Error('\u001b[31mERROR\u001b[39m Cannot read the rspack config')
+    )
+
+    const dir = getPlaywrightMetadataDir(projectRoot, 'firefox')
+    const ready = JSON.parse(
+      fs.readFileSync(path.join(dir, 'ready.json'), 'utf8')
+    )
+    expect(ready.status).toBe('error')
+    expect(ready.code).toBe('compile_failed')
+    expect(ready.compiledAt).toBeNull()
+    expect(ready.message).toBe('ERROR Cannot read the rspack config')
+    expect(ready.errors).toEqual(['ERROR Cannot read the rspack config'])
+
+    const events = fs
+      .readFileSync(path.join(dir, 'events.ndjson'), 'utf8')
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line))
+    const errorEvent = events.find((event) => event.type === 'compile_error')
+    expect(errorEvent.errorCount).toBe(1)
+    expect(errorEvent.errors).toEqual(['ERROR Cannot read the rspack config'])
+  })
+
   it('falls back to the errors: N placeholder when stats carry no messages', () => {
     const projectRoot = createTempProject()
     const plugin = new PlaywrightPlugin({

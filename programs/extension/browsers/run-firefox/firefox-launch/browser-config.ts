@@ -16,6 +16,7 @@ import {
   systemProfileEnvName
 } from '../../browsers-lib/resolve-profile'
 import {
+  LAUNCH_TAB_URL,
   resolveStartingUrl,
   toExtensionLoadList
 } from '../../browsers-lib/runtime-options'
@@ -111,12 +112,11 @@ export async function resolveFirefoxLaunchConfig(
   // browserFlags and NOT subject to excludeBrowserFlags. The env is explicit.
   binaryArgs.push(...parseEnvBrowserFlags(process.env.EXTENSION_BROWSER_FLAGS))
 
-  // Firefox accepts a URL as the last argument (parity with Chromium's
-  // startingUrl). Deliberately unquoted; the caller wraps the args string.
-  const launchUrl = resolveStartingUrl(configOptions)
-
-  if (launchUrl) {
-    binaryArgs.push('--url', String(launchUrl))
+  // The starting URL waits for the add-on: the launch opens about:blank and
+  // the debugger opens the URL once the add-on's background runs. Loaded from
+  // the argv it raced the install and missed document_start content scripts.
+  if (resolveStartingUrl(configOptions)) {
+    binaryArgs.push('--url', LAUNCH_TAB_URL)
   }
 
   const outPath =
@@ -225,6 +225,19 @@ export async function resolveFirefoxLaunchConfig(
       )
     } catch {
       // Ignore
+    }
+  }
+
+  // Firefox caches each add-on's parsed manifest by id and version and drops
+  // it only on an upgrade. A dev build and a production build share both, so
+  // a fresh install read the last run's manifest. Its other caches stay.
+  if (profilePath && provision && !ownsProfilePrefs) {
+    try {
+      fs.rmSync(path.join(profilePath, 'startupCache', 'webext.sc.lz4'), {
+        force: true
+      })
+    } catch {
+      // best-effort; a locked live profile keeps its cache
     }
   }
 

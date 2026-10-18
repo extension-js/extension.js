@@ -30,6 +30,16 @@ import {FirefoxLaunchPlugin} from './run-firefox/firefox-launch'
 import type {FirefoxPluginRuntime} from './run-firefox/firefox-types'
 
 export type {BrowserType, CompilationLike, Controller} from './browsers-types'
+export {
+  checkAccessibility,
+  enableSafariExtension,
+  pressShortcut,
+  readSafariExtensionEnabled,
+  readShortcut,
+  readToolbarButton,
+  readToolbarMenu,
+  setSafariExtensionEnabled
+} from './run-safari/safari-ui'
 
 export interface BrowserLaunchOptions {
   browser: BrowserType
@@ -78,7 +88,11 @@ export interface BrowserController {
   }): Promise<void>
   getExtensionLoadRefusal?(): string | null
   retryExtensionLoad?(): Promise<ExtensionLoadRetryResult>
+  wakeBackground?(): Promise<boolean>
 }
+
+// Long enough for the debugger to greet and the parent process to answer.
+const WAKE_BACKGROUND_TIMEOUT_MS = 3000
 
 function createCompilationLike(opts: BrowserLaunchOptions): CompilationLike {
   return {
@@ -275,6 +289,14 @@ async function launchFirefox(
       return await firefoxOpts.retryAddonInstall()
     },
 
+    // Firefox suspends an idle event page and the control producer with it,
+    // so the bridge asks for it back before it refuses a verb.
+    async wakeBackground() {
+      if (!rdpController) return false
+
+      return await rdpController.wakeBackground(WAKE_BACKGROUND_TIMEOUT_MS)
+    },
+
     // Reload is owned by the control-bridge SW producer (same executor for
     // launched + --no-browser); the RDP controller is kept only for logging.
     async enableUnifiedLogging(logOpts) {
@@ -293,6 +315,7 @@ async function launchFirefox(
   }
 }
 
+export {sharedManagedCacheEnv} from './browsers-lib/output-binaries-resolver'
 // Re-export run-only for backward compatibility with the preview command
 export {runOnlyPreviewBrowser} from './run-only'
 

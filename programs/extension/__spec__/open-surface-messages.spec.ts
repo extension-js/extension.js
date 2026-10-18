@@ -194,6 +194,34 @@ describe('open refuses gesture-gated surfaces before connecting', () => {
     }
   })
 
+  it('action on MV2 is refused when browser_action or page_action declares a popup', async () => {
+    const browserAction = projectWithManifest({
+      manifest_version: 2,
+      browser_action: {default_popup: 'popup.html'}
+    })
+    const pageAction = projectWithManifest({
+      manifest_version: 2,
+      page_action: {default_popup: 'page.html'}
+    })
+    const pageActionNoPopup = projectWithManifest({
+      manifest_version: 2,
+      page_action: {}
+    })
+
+    try {
+      expect(await run(['open', 'action', browserAction])).toBe(1)
+      expect(await run(['open', 'action', pageAction])).toBe(1)
+      expect(bridge.controllers).toHaveLength(0)
+
+      expect(await run(['open', 'action', pageActionNoPopup])).toBe(0)
+      expect(bridge.commands[0]).toMatchObject({args: {surface: 'action'}})
+    } finally {
+      for (const dir of [browserAction, pageAction, pageActionNoPopup]) {
+        fs.rmSync(dir, {recursive: true, force: true})
+      }
+    }
+  })
+
   it('action reads the emitted manifest the session names first', async () => {
     const dist = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-open-dist-'))
     const project = projectWithManifest({manifest_version: 3, action: {}})

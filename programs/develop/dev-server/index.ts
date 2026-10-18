@@ -522,6 +522,7 @@ export async function devServer(
       setReloadBroker?: (broker: unknown) => void
       setLogSink?: (sink: (event: BrowserLogSinkEvent) => void) => void
       setEmulatorViewerUrl?: (url: string) => void
+      wakeBackground?: () => Promise<boolean>
     }
   }
   process.env.EXTENSION_BROWSER_LAUNCH_ENABLED = devOptions.noBrowser
@@ -644,6 +645,7 @@ export async function devServer(
   // the SW connects after that, so a mutable holder bridges the ordering.
   let stampExecutorAttached: (() => void) | undefined
   let stampExecutorDetached: (() => void) | undefined
+  let stampReload: ((kind: string, label?: string) => void) | undefined
   const bridgeBroker = new BridgeBroker({
     instanceId: currentInstance.instanceId,
     runId: sessionRunId,
@@ -665,7 +667,16 @@ export async function devServer(
     actions: bridgeActionsFile,
     authorMode,
     onExecutorAttached: () => stampExecutorAttached?.(),
-    onExecutorDetached: () => stampExecutorDetached?.()
+    onExecutorDetached: () => stampExecutorDetached?.(),
+    // Only Gecko suspends the background with no way back short of an event.
+    ...(isGeckoBasedBrowser(browserName) &&
+    typeof extendedOptions.browsersPlugin?.wakeBackground === 'function'
+      ? {
+          wakeExecutor: async () =>
+            (await extendedOptions.browsersPlugin?.wakeBackground?.()) === true
+        }
+      : {}),
+    onReloadApplied: (kind, label) => stampReload?.(kind, label)
   })
 
   // Hand the broker to a launched runner plugin so Chromium and Safari reload
@@ -887,6 +898,7 @@ export async function devServer(
   })
   stampExecutorAttached = () => metadata.stampExecutorAttached()
   stampExecutorDetached = () => metadata.stampExecutorDetached()
+  stampReload = (kind, label) => metadata.stampReload(kind, label)
 
   // One schema-1 frame per lifecycle transition, on stdout, only when the
   // command layer asked for machine output (EXTENSION_OUTPUT=ndjson).

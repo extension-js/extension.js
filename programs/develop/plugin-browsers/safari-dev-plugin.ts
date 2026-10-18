@@ -264,6 +264,15 @@ export class SafariDevPlugin implements RunnerPlugin {
       })
     }
 
+    // The rebuilt appex is itself the reload: Safari restarts the extension
+    // from it whether or not an instruction rode along.
+    if (!wasFirstRun) {
+      this.reloadBroker?.noteReloadApplied?.(
+        'safari-resync',
+        target.instruction?.label
+      )
+    }
+
     this.emitter.emit('compiled', {
       outputPath: target.outputPath,
       contextDir: target.contextDir,

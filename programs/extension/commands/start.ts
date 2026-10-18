@@ -75,6 +75,8 @@ type StartOptions = {
   logUrl?: string
   logTab?: string | number
   extensions?: string
+  allowControl?: boolean
+  allowEval?: boolean
   wait?: boolean
   waitTimeout?: string | number
   waitFormat?: 'pretty' | 'json'
@@ -130,6 +132,10 @@ export function registerStartCommand(program: Command) {
     .option('--no-polyfill', 'disable the cross-browser polyfill')
     .option('--no-open', NO_OPEN_FLAG_DESCRIPTION)
     .option(
+      '--enable-extension',
+      'turn the extension on in Safari Settings through macOS Accessibility (safari targets only, and start has no Safari path yet)'
+    )
+    .option(
       '--chromium-binary <path-to-binary>',
       'specify a path to the Chromium binary. This option overrides the --browser setting. Defaults to the system default'
     )
@@ -175,6 +181,14 @@ export function registerStartCommand(program: Command) {
     .option(
       '--extensions <list>',
       'comma-separated list of companion extensions or store URLs to load'
+    )
+    .option(
+      '--allow-control',
+      'open the agent-bridge control channel on the production run for bounded act (storage/reload/open). The browser loads a copy of the build with the control producer added; dist/ is unchanged'
+    )
+    .option(
+      '--allow-eval',
+      'additionally enable `extension eval` on the production run (implies --allow-control, runs arbitrary code in a context, writes a 0600 session token)'
     )
     .option(
       '--install [boolean]',
@@ -284,6 +298,20 @@ export function registerStartCommand(program: Command) {
           failAndExit(asJson, 'usage', {
             code: CODES.E_UNSUPPORTED_BROWSER,
             message: `Unsupported browser: ${unsupportedBrowser}`
+          })
+        }
+
+        if (
+          (startOptions as {enableExtension?: boolean}).enableExtension &&
+          !list.some(isSafariVendor)
+        ) {
+          if (!asJson) {
+            console.error(messages.safariOnlyOption(['--enable-extension']))
+          }
+
+          failAndExit(asJson, 'usage', {
+            code: CODES.E_INVALID_OPTION,
+            message: '--enable-extension applies to safari targets only.'
           })
         }
 
@@ -461,6 +489,10 @@ export function registerStartCommand(program: Command) {
               ),
               extensions: parseExtensionsList(startOptions.extensions),
               metadataCommand: 'start',
+              allowControl: Boolean(
+                startOptions.allowControl || startOptions.allowEval
+              ),
+              allowEval: Boolean(startOptions.allowEval),
               logLevel,
               logContexts,
               // Only pass logger values the user typed. Stock defaults and
@@ -496,7 +528,11 @@ export function registerStartCommand(program: Command) {
               // for readers of the old frame, which echoed the requested one.
               port: null,
               pid: process.pid,
-              noBrowser
+              noBrowser,
+              allowControl: Boolean(
+                startOptions.allowControl || startOptions.allowEval
+              ),
+              allowEval: Boolean(startOptions.allowEval)
             })
           )
         }

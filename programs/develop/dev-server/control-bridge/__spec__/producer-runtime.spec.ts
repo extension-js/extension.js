@@ -624,7 +624,10 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
         }) => {
           executed.push(opts)
 
-          return Promise.resolve([{result: opts.func(...(opts.args || []))}])
+          // The browser settles the injected function before it answers.
+          return Promise.resolve(opts.func(...(opts.args || []))).then(
+            (result) => [{result}]
+          )
         }
       },
       tabs: {
@@ -665,7 +668,10 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
         }) => {
           executed.push(opts)
 
-          return Promise.resolve([{result: opts.func(...(opts.args || []))}])
+          // The browser settles the injected function before it answers.
+          return Promise.resolve(opts.func(...(opts.args || []))).then(
+            (result) => [{result}]
+          )
         }
       },
       tabs: {
@@ -750,6 +756,96 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     expect(r).toMatchObject({ok: false, error: {name: 'TargetNotFound'}})
     expect(r.error.message).toContain('No tab with id: 404')
   })
+
+  // Firefox cannot clone a promise that sits inside the returned object, so
+  // the in-tab function has to settle it before it hands the value back.
+  it('eval page: the in-tab function awaits a promise the expression returns', async () => {
+    let injected: {func: (src: string) => unknown} | undefined
+    const ws = setup({
+      scripting: {
+        executeScript: async (details: {
+          func: (src: string) => unknown
+          args: string[]
+        }) => {
+          injected = details
+
+          return [{result: await details.func(details.args[0])}]
+        }
+      },
+      tabs: {query: (_q: unknown, cb: (t: unknown[]) => void) => cb([])}
+    })
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'e-promise',
+      op: 'eval',
+      target: {context: 'page', tabId: 7},
+      args: {expression: 'Promise.resolve(41 + 1)'}
+    })
+
+    await flush()
+    await flush()
+
+    expect(injected?.func('Promise.resolve(1)')).toBeInstanceOf(Promise)
+    expect(results(ws).find((f) => f.cmdId === 'e-promise')).toMatchObject({
+      ok: true,
+      value: 42
+    })
+  })
+
+  // The tab was there: the browser refused to hand back what ran in it. The
+  // MCP reads this text as E_EVAL_NOT_CLONEABLE, so it stays verbatim.
+  it('eval page: a clone failure in a tab that exists is not TargetNotFound', async () => {
+    const ws = setup({
+      scripting: {
+        executeScript: () =>
+          Promise.reject(new Error('result is non-structured-clonable data'))
+      },
+      tabs: {query: (_q: unknown, cb: (t: unknown[]) => void) => cb([])}
+    })
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'e-clone',
+      op: 'eval',
+      target: {context: 'page', tabId: 7},
+      args: {expression: 'document.body'}
+    })
+
+    await flush()
+    const r = results(ws).find((f) => f.cmdId === 'e-clone')
+    expect(r.ok).toBe(false)
+    expect(r.error.name).not.toBe('TargetNotFound')
+    expect(r.error.message).toBe('result is non-structured-clonable data')
+  })
+
+  // Firefox refuses to script another extension's moz-extension:// page, and
+  // its own pages without host access, though the tab is right there.
+  for (const op of ['inspect', 'eval'] as const) {
+    it(`${op} page: a refused injection in a tab that exists gets its own error`, async () => {
+      const ws = setup({
+        scripting: {
+          executeScript: () =>
+            Promise.reject(new Error('Missing host permission for the tab'))
+        },
+        tabs: {query: (_q: unknown, cb: (t: unknown[]) => void) => cb([])}
+      })
+      ws.triggerMessage({
+        type: 'command',
+        cmdId: `refused-${op}`,
+        op,
+        target: {context: 'page', tabId: 8},
+        args: op === 'eval' ? {expression: 'document.title'} : {}
+      })
+
+      await flush()
+      const r = results(ws).find((f) => f.cmdId === `refused-${op}`)
+      expect(r.ok).toBe(false)
+      expect(r.error).toMatchObject({
+        name: 'InjectionRefused',
+        code: 'injection_refused',
+        message: 'Missing host permission for the tab'
+      })
+    })
+  }
 
   it('eval content: a CSP-blocked eval inside the tab reports Unsupported with the MAIN-world alternative', async () => {
     const ws = setup({
@@ -1915,6 +2011,279 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       ok: true,
       value: {triggered: 'onClicked', listeners: 1}
     })
+  })
+
+  it('open action: replays browserAction.onClicked on an MV2 browser_action (Gecko)', async () => {
+    const fired: unknown[] = []
+    // Real Firefox MV2: no action namespace, browserAction on both globals,
+    // and browser.* events are distinct wrappers.
+    const browserApi: Record<string, any> = {
+      browserAction: {
+        getPopup: () => Promise.resolve(''),
+        openPopup: () => Promise.resolve(),
+        onClicked: {addListener() {}}
+      }
+    }
+    const chromeApi: Record<string, any> = {
+      browserAction: {
+        getPopup: (_d: unknown, cb: (p: string) => void) => cb(''),
+        openPopup: () => Promise.resolve(),
+        onClicked: {addListener() {}}
+      },
+      tabs: {
+        query: (_q: unknown, cb: (t: unknown[]) => void) =>
+          cb([{id: 4, active: true}])
+      },
+      runtime: {
+        getManifest: () => ({
+          manifest_version: 2,
+          browser_action: {default_title: 'Go'}
+        })
+      }
+    }
+    const ws = setup(chromeApi, {browser: browserApi})
+    browserApi.browserAction.onClicked.addListener((tab: unknown) =>
+      fired.push(tab)
+    )
+
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'act-ba',
+      op: 'open',
+      target: {context: 'background'},
+      args: {surface: 'action'}
+    })
+
+    await flush()
+    expect(fired).toEqual([{id: 4, active: true}])
+    expect(results(ws).find((f) => f.cmdId === 'act-ba')).toMatchObject({
+      ok: true,
+      value: {
+        triggered: 'onClicked',
+        listeners: 1,
+        gesture: false,
+        manifestKey: 'browser_action'
+      }
+    })
+  })
+
+  it('open action: replays browserAction.onClicked on an MV2 Chromium build', async () => {
+    const fired: unknown[] = []
+    const chromeApi: Record<string, any> = {
+      browserAction: {
+        getPopup: (_d: unknown, cb: (p: string) => void) => cb(''),
+        onClicked: {addListener() {}}
+      },
+      tabs: {
+        query: (_q: unknown, cb: (t: unknown[]) => void) =>
+          cb([{id: 6, active: true}])
+      },
+      runtime: {
+        getManifest: () => ({manifest_version: 2, browser_action: {}})
+      }
+    }
+    const ws = setup(chromeApi)
+    chromeApi.browserAction.onClicked.addListener((tab: unknown) =>
+      fired.push(tab)
+    )
+
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'act-ba-cr',
+      op: 'open',
+      target: {context: 'background'},
+      args: {surface: 'action'}
+    })
+
+    await flush()
+    expect(fired).toEqual([{id: 6, active: true}])
+    expect(results(ws).find((f) => f.cmdId === 'act-ba-cr')).toMatchObject({
+      ok: true,
+      value: {triggered: 'onClicked', manifestKey: 'browser_action'}
+    })
+  })
+
+  it('open action: opens an MV2 browser_action popup through browserAction.openPopup', async () => {
+    let opened = false
+    const chromeApi: Record<string, any> = {
+      browserAction: {
+        getPopup: (_d: unknown, cb: (p: string) => void) =>
+          cb('moz-extension://x/action/index.html'),
+        openPopup: () => {
+          opened = true
+
+          return Promise.resolve()
+        },
+        onClicked: {addListener() {}}
+      },
+      runtime: {
+        getManifest: () => ({
+          manifest_version: 2,
+          browser_action: {default_popup: 'action/index.html'}
+        })
+      }
+    }
+    const ws = setup(chromeApi)
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'act-ba-pop',
+      op: 'open',
+      target: {context: 'background'},
+      args: {surface: 'action'}
+    })
+
+    await flush()
+    expect(opened).toBe(true)
+    expect(results(ws).find((f) => f.cmdId === 'act-ba-pop')).toMatchObject({
+      ok: true,
+      value: {triggered: 'popup', manifestKey: 'browser_action'}
+    })
+  })
+
+  it('open action: replays pageAction.onClicked on an MV2 page_action, asking the popup for the tab', async () => {
+    const fired: unknown[] = []
+    const asked: unknown[] = []
+    const chromeApi: Record<string, any> = {
+      pageAction: {
+        // Both engines require a tabId for a page action's popup.
+        getPopup: (d: {tabId?: number}, cb: (p: string) => void) => {
+          asked.push(d)
+          if (typeof d?.tabId !== 'number') throw new Error('tabId required')
+
+          cb('')
+        },
+        onClicked: {addListener() {}}
+      },
+      tabs: {
+        query: (_q: unknown, cb: (t: unknown[]) => void) =>
+          cb([{id: 12, active: true}])
+      },
+      runtime: {
+        getManifest: () => ({manifest_version: 2, page_action: {}})
+      }
+    }
+    const ws = setup(chromeApi)
+    chromeApi.pageAction.onClicked.addListener((tab: unknown) =>
+      fired.push(tab)
+    )
+
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'act-pa',
+      op: 'open',
+      target: {context: 'background'},
+      args: {surface: 'action'}
+    })
+
+    await flush()
+    expect(asked).toEqual([{tabId: 12}])
+    expect(fired).toEqual([{id: 12, active: true}])
+    expect(results(ws).find((f) => f.cmdId === 'act-pa')).toMatchObject({
+      ok: true,
+      value: {triggered: 'onClicked', listeners: 1, manifestKey: 'page_action'}
+    })
+  })
+
+  it('open action: opens an MV2 page_action popup through pageAction.openPopup', async () => {
+    let opened = false
+    const chromeApi: Record<string, any> = {
+      pageAction: {
+        getPopup: (_d: unknown, cb: (p: string) => void) => cb('page.html'),
+        openPopup: () => {
+          opened = true
+
+          return Promise.resolve()
+        },
+        onClicked: {addListener() {}}
+      },
+      tabs: {
+        query: (_q: unknown, cb: (t: unknown[]) => void) =>
+          cb([{id: 2, active: true}])
+      },
+      runtime: {
+        getManifest: () => ({
+          manifest_version: 2,
+          page_action: {default_popup: 'page.html'}
+        })
+      }
+    }
+    const ws = setup(chromeApi)
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'act-pa-pop',
+      op: 'open',
+      target: {context: 'background'},
+      args: {surface: 'action'}
+    })
+
+    await flush()
+    expect(opened).toBe(true)
+    expect(results(ws).find((f) => f.cmdId === 'act-pa-pop')).toMatchObject({
+      ok: true,
+      value: {triggered: 'popup', manifestKey: 'page_action'}
+    })
+  })
+
+  it('open action: an MV3 action names its key and leaves pageAction listeners alone', async () => {
+    const fired: string[] = []
+    // Firefox MV3 still exposes pageAction next to action.
+    const chromeApi: Record<string, any> = {
+      action: {
+        getPopup: (_d: unknown, cb: (p: string) => void) => cb(''),
+        onClicked: {addListener() {}}
+      },
+      pageAction: {
+        getPopup: (_d: unknown, cb: (p: string) => void) => cb(''),
+        onClicked: {addListener() {}}
+      },
+      tabs: {
+        query: (_q: unknown, cb: (t: unknown[]) => void) =>
+          cb([{id: 5, active: true}])
+      },
+      runtime: {
+        getManifest: () => ({manifest_version: 3, action: {}})
+      }
+    }
+    const ws = setup(chromeApi)
+    chromeApi.action.onClicked.addListener(() => fired.push('action'))
+    chromeApi.pageAction.onClicked.addListener(() => fired.push('page'))
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'act-v3',
+      op: 'open',
+      target: {context: 'background'},
+      args: {surface: 'action'}
+    })
+
+    await flush()
+    expect(fired).toEqual(['action'])
+    expect(results(ws).find((f) => f.cmdId === 'act-v3')).toMatchObject({
+      ok: true,
+      value: {triggered: 'onClicked', listeners: 1, manifestKey: 'action'}
+    })
+  })
+
+  it('open action: names the missing keys when the manifest declares no action', async () => {
+    const ws = setup({
+      tabs: {query: (_q: unknown, cb: (t: unknown[]) => void) => cb([])},
+      runtime: {getManifest: () => ({manifest_version: 2})}
+    })
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'act-none',
+      op: 'open',
+      target: {context: 'background'},
+      args: {surface: 'action'}
+    })
+
+    await flush()
+    const r = results(ws).find((f) => f.cmdId === 'act-none')
+    expect(r).toMatchObject({
+      ok: false,
+      error: {name: 'Unsupported', code: 'surface_not_declared'}
+    })
+
+    expect(r.error.message).toMatch(/action, browser_action or page_action/)
   })
 
   it('open command: replays an onCommand listener registered via browser.* only', async () => {

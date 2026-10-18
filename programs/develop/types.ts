@@ -378,6 +378,18 @@ export interface PreviewOptions extends BrowserOptionsBase {
    */
   noBrowser?: boolean
   /**
+   * Open the agent-bridge control channel on the production run, so the act
+   * verbs (storage/reload/open) reach it. The browser loads a copy of the
+   * build with the control producer prepended; dist/ stays the shipped bytes.
+   * The CLI sets this from `start --allow-control`.
+   */
+  allowControl?: boolean
+  /**
+   * Additionally allow `eval` on the production run. Implies `allowControl`.
+   * The CLI sets this from `start --allow-eval`.
+   */
+  allowEval?: boolean
+  /**
    * Internal auto-generated instance ID, not user-configurable.
    */
   instanceId?: string

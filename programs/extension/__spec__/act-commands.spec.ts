@@ -823,6 +823,34 @@ describe('extension open', () => {
     ])
   })
 
+  it('names the manifest key the action replay used', async () => {
+    bridge.result = {
+      ok: true,
+      value: {
+        triggered: 'onClicked',
+        listeners: 1,
+        gesture: false,
+        manifestKey: 'browser_action'
+      }
+    }
+
+    expect(await run(['open', 'action'])).toBe(0)
+    expect(String(logSpy.mock.calls[0][0])).toBe(
+      '⏵⏵⏵ Replayed 1 browser_action onClicked listener without a user gesture.'
+    )
+
+    logSpy.mockClear()
+    bridge.result = {
+      ok: true,
+      value: {triggered: 'popup', manifestKey: 'page_action'}
+    }
+
+    expect(await run(['open', 'action'])).toBe(0)
+    expect(String(logSpy.mock.calls[0][0])).toBe(
+      '⏵⏵⏵ Opened the page_action popup.'
+    )
+  })
+
   it('keeps the json envelope and unknown result shapes unchanged', async () => {
     const value = {triggered: 'onClicked', listeners: 1, gesture: false}
     bridge.result = {ok: true, value}

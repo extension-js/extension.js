@@ -166,6 +166,10 @@ export function registerDevCommand(program: Command) {
       'regenerate the Safari Xcode project even when up to date (safari targets only)'
     )
     .option(
+      '--enable-extension',
+      'turn the extension on in Safari Settings and allow it on other websites through macOS Accessibility, after the one-time grant for your terminal app (safari targets only)'
+    )
+    .option(
       '--polyfill [boolean]',
       'whether or not to apply the cross-browser polyfill. Defaults to `true` (`build` defaults to `false`)',
       parseOptionalBoolean
@@ -363,13 +367,15 @@ export function registerDevCommand(program: Command) {
           developmentTeam?: string
           macosOnly?: boolean
           forceRegenerate?: boolean
+          enableExtension?: boolean
         }
         const safariOnlyFlags = [
           ['--safari-binary', opts.safariBinary],
           ['--app-name', opts.appName],
           ['--bundle-id', opts.bundleId],
           ['--development-team', opts.developmentTeam],
-          ['--force-regenerate', opts.forceRegenerate]
+          ['--force-regenerate', opts.forceRegenerate],
+          ['--enable-extension', opts.enableExtension]
         ]
           .filter(([, value]) => value !== undefined && value !== false)
           .map(([flag]) => flag as string)
@@ -589,7 +595,8 @@ export function registerDevCommand(program: Command) {
               noOpen: explicitNoOpen ?? false,
               // Dev sessions get the identity card and ready line the other
               // launchers print; build packaging stays quiet.
-              announceDevReady: true
+              announceDevReady: true,
+              enableExtension: opts.enableExtension === true
             })
           }
 

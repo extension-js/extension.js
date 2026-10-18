@@ -20,6 +20,7 @@ import {registerInstallCommand} from './commands/install'
 import {registerLogsCommand} from './commands/logs'
 import {registerPreviewCommand} from './commands/preview'
 import {registerPublishCommand} from './commands/publish'
+import {registerSafariCommand} from './commands/safari'
 import {registerStartCommand} from './commands/start'
 import {registerTelemetryCommand} from './commands/telemetry'
 import checkUpdates from './helpers/check-updates'
@@ -245,6 +246,7 @@ registerBuildCommand(extensionJs)
 registerLogsCommand(extensionJs)
 registerActCommands(extensionJs)
 registerPublishCommand(extensionJs)
+registerSafariCommand(extensionJs)
 registerInstallCommand(extensionJs)
 registerTelemetryCommand(extensionJs)
 registerDoctorCommand(extensionJs)

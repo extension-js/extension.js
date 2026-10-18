@@ -12,9 +12,11 @@ vi.mock('../run-chromium/chromium-context', () => ({
   createChromiumContext: vi.fn(() => ({}))
 }))
 
-vi.mock('../run-firefox/firefox-context', () => ({
-  createFirefoxContext: vi.fn(() => ({}))
+const {createFirefoxContext} = vi.hoisted(() => ({
+  createFirefoxContext: vi.fn((): Record<string, unknown> => ({}))
 }))
+
+vi.mock('../run-firefox/firefox-context', () => ({createFirefoxContext}))
 
 vi.mock('../run-chromium/chromium-launch', () => ({
   ChromiumLaunchPlugin: class {
@@ -247,6 +249,38 @@ describe('runOnlyPreviewBrowser', () => {
       readyPath: undefined,
       browserVersionLine: undefined
     })
+  })
+
+  // A start session's broker wakes a suspended event page the way dev's does,
+  // through the debugger connection this launch opened.
+  it('hands back a wake for the Firefox background it launched', async () => {
+    const wakeBackground = vi.fn(async (_timeoutMs: number) => true)
+    createFirefoxContext.mockReturnValueOnce({
+      getController: () => ({wakeBackground})
+    })
+
+    const session = await runOnlyPreviewBrowser({
+      browser: 'firefox',
+      outPath: '/tmp/ext-firefox',
+      contextDir: '/tmp',
+      extensionsToLoad: ['/tmp/ext-firefox']
+    })
+
+    await expect(session?.wakeBackground?.()).resolves.toBe(true)
+    expect(wakeBackground).toHaveBeenCalledTimes(1)
+  })
+
+  it('answers false for a wake before the debugger is up', async () => {
+    createFirefoxContext.mockReturnValueOnce({getController: () => undefined})
+
+    const session = await runOnlyPreviewBrowser({
+      browser: 'firefox',
+      outPath: '/tmp/ext-firefox',
+      contextDir: '/tmp',
+      extensionsToLoad: ['/tmp/ext-firefox']
+    })
+
+    await expect(session?.wakeBackground?.()).resolves.toBe(false)
   })
 
   for (const browser of ['brave', 'opera', 'vivaldi', 'yandex'] as const) {

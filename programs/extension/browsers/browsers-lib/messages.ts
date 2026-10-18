@@ -862,7 +862,8 @@ export function chromiumDryRunFlags(flags: string) {
 export function prettyPuppeteerInstallGuidance(
   browser: Browser,
   rawGuidance: string,
-  cacheDir: string
+  cacheDir: string,
+  platform: NodeJS.Platform = process.platform
 ): string {
   const dim = colors.gray
   const body: string[] = []
@@ -912,6 +913,28 @@ export function prettyPuppeteerInstallGuidance(
     body.push('')
     body.push(
       `  ${colors.bold(colors.blue(preferredManagedInstallCommand('chrome')))}`
+    )
+  }
+
+  if (browserNorm === 'edge' && platform === 'win32') {
+    body.push('')
+    body.push(colors.gray('Or use an Edge already installed. Looked at:'))
+
+    for (const root of [
+      '%LOCALAPPDATA%',
+      '%ProgramFiles%',
+      '%ProgramFiles(x86)%'
+    ]) {
+      body.push(
+        `  ${colors.gray(`${root}\\Microsoft\\Edge\\Application\\msedge.exe`)}`
+      )
+    }
+
+    body.push('')
+    body.push(
+      colors.gray(
+        `Point at one elsewhere with ${colors.blue('EDGE_BINARY=<path>')} or ${colors.blue('--chromium-binary <path>')}.`
+      )
     )
   }
 
@@ -1138,12 +1161,19 @@ export function safariDryRunXcodebuild(cmd: string) {
 }
 
 export function safariNextSteps(appName: string, signed?: boolean) {
+  const name = colors.yellow(appName)
+  const unsignedStep = signed
+    ? ''
+    : `  ${colors.gray('1.')} Safari ▸ Settings ▸ Developer ▸ Allow unsigned extensions (Safari forgets it on quit)\n`
+  const enableStep = `  ${colors.gray(signed ? '1.' : '2.')} Safari ▸ Settings ▸ Extensions ▸ turn on ${name}\n`
+  const websitesStep = `  ${colors.gray(signed ? '2.' : '3.')} Safari ▸ Settings ▸ Websites ▸ ${name} ▸ For other websites ▸ Allow\n`
   const steps =
-    `${getLoggingPrefix('info')} One-time setup to load ${colors.yellow(appName)} in Safari:\n` +
-    `  ${colors.gray('1.')} Safari ▸ Settings ▸ Extensions ▸ turn on ${colors.yellow(appName)}\n`
+    `${getLoggingPrefix('info')} One-time setup to load ${name} in Safari, or pass ${colors.blue('--enable-extension')} to let Extension.js do it:\n` +
+    unsignedStep +
+    enableStep +
+    websitesStep +
+    `  ${colors.gray('→')} Use a regular Safari window for this, a trip to Settings from the automation window ends the WebDriver session.\n`
 
-  // An ad-hoc build is listed and stays enabled too, so the note names what a
-  // team id actually buys rather than implying it is needed to load at all.
   if (signed) {
     return (
       steps +
@@ -1153,7 +1183,39 @@ export function safariNextSteps(appName: string, signed?: boolean) {
 
   return (
     steps +
-    `  ${colors.gray('→')} Ad-hoc signed, so it stays enabled across restarts.`
+    `  ${colors.gray('→')} Ad-hoc signed, so Safari lists it only while unsigned extensions are allowed.`
+  )
+}
+
+export function safariEnableStep(
+  step: string,
+  before: string | null,
+  after: string | null,
+  detail?: string
+) {
+  const reading =
+    before === null
+      ? `${colors.gray('read back')} ${colors.yellow(after ?? 'nothing')}`
+      : `${colors.gray('read')} ${colors.yellow(before)} ${colors.gray('→')} ${colors.yellow(after ?? 'nothing')}`
+
+  return `${getLoggingPrefix('info')} Safari ${step}: ${reading}${detail ? ` ${colors.gray(detail)}` : ''}.`
+}
+
+export function safariEnabled(appName: string, otherWebsites: string | null) {
+  return `${getLoggingPrefix('success')} ${colors.yellow(appName)} is on in Safari, other websites ${colors.yellow(otherWebsites ?? 'unread')}.`
+}
+
+export function safariEnableIncomplete(appName: string, reason: string) {
+  return (
+    `${getLoggingPrefix('warn')} Couldn't finish enabling ${colors.yellow(appName)} in Safari: ${reason}\n` +
+    `Finish the steps below by hand.`
+  )
+}
+
+export function safariAccessibilityDenied(host: string) {
+  return (
+    `${getLoggingPrefix('warn')} Can't drive Safari's settings without an Accessibility grant for ${colors.yellow(host)}.\n` +
+    `Open System Settings ▸ Privacy & Security ▸ Accessibility, add ${colors.yellow(host)}, and run again.`
   )
 }
 
@@ -1220,6 +1282,18 @@ export function safariSettingsPreserved(keys: string[]) {
   return (
     `${getLoggingPrefix('info')} Preserved Xcode build settings across regeneration: ${colors.yellow(keys.join(', '))}.\n` +
     `If any other project-level tweaks were lost, reconfigure them in Xcode.`
+  )
+}
+
+export function safariBuildUpToDate() {
+  return `${getLoggingPrefix('info')} Skipping xcodebuild, the Safari app is up to date with the build.`
+}
+
+export function safariStorageReset(appName: string) {
+  return (
+    `${getLoggingPrefix('warn')} Safari reset the extension's storage: ${colors.yellow(appName)} is signed ad hoc, ` +
+    `and Safari keeps an extension's storage only for a build signed by a team, so each rebuild starts with an empty ${colors.yellow('storage.local')}.\n` +
+    `Pass ${colors.blue('--development-team <TEAM_ID>')} to keep it across rebuilds.`
   )
 }
 

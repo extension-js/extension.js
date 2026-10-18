@@ -66,13 +66,15 @@ describe('Firefox profile args', () => {
     expect(args).not.toContain('--foo=value')
   })
 
-  it('includes startingUrl in binary args when provided', async () => {
+  // The debugger opens the starting url after the add-on is installed.
+  it('opens about:blank in binary args when a startingUrl is provided', async () => {
     const args = await browserConfig(makeCompilation(), {
       extension: '/ext',
       browser: 'firefox',
       startingUrl: 'https://en.wikipedia.org/'
     } as any)
-    expect(args).toContain('https://en.wikipedia.org/')
+    expect(args).toContain('--url about:blank')
+    expect(args).not.toContain('https://en.wikipedia.org/')
   })
 
   it('does not include startingUrl when noOpen is true', async () => {

@@ -8,6 +8,7 @@
 
 import type {PluginInterface} from '../browsers-types'
 import type {SafariPipelineTools} from './safari-launch/tools'
+import type {SafariUiTools} from './safari-ui/tools'
 
 export type SafariPluginLike = Pick<
   PluginInterface,
@@ -26,6 +27,8 @@ export type SafariPluginLike = Pick<
   // The processes the pipeline drives. Unset means the real xcrun,
   // xcodebuild, open, osascript and pluginkit.
   tools?: SafariPipelineTools
+  enableExtension?: boolean
+  uiTools?: SafariUiTools
 }
 
 export interface SafariBuildConfig {

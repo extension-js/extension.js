@@ -82,6 +82,52 @@ describe('firefox explicit profile preferences', () => {
     ).toBe(true)
   })
 
+  it('drops the add-on manifest cache from a profile the developer owns', async () => {
+    const profile = path.join(scratch, 'dev-owned-profile')
+    const cache = path.join(profile, 'startupCache')
+    fs.mkdirSync(cache, {recursive: true})
+    fs.writeFileSync(path.join(profile, 'prefs.js'), '// Mozilla\n')
+    fs.writeFileSync(path.join(cache, 'startupCache.8.little'), 'cache')
+    fs.writeFileSync(
+      path.join(cache, 'webext.sc.lz4'),
+      'content_scripts/content-0.62b25f00.js'
+    )
+
+    await launchOn(profile)
+
+    expect(fs.existsSync(path.join(cache, 'webext.sc.lz4'))).toBe(false)
+    expect(fs.existsSync(path.join(cache, 'startupCache.8.little'))).toBe(true)
+  })
+
+  // Firefox keys its manifest cache on add-on id and version, which a dev
+  // build and a production build of one extension share. The start run then
+  // ran the dev manifest, naming a hashed content script that was gone.
+  it('starts a production build on the profile a dev run used without the dev manifest', async () => {
+    const profile = path.join(scratch, 'shared-profile')
+    const cache = path.join(profile, 'startupCache', 'webext.sc.lz4')
+
+    const launchFor = (mode: 'development' | 'production') => {
+      const compilation = makeCompilation()
+      compilation.options.mode = mode
+
+      return resolveFirefoxLaunchConfig(compilation, {
+        extension: '/ext',
+        browser: 'firefox',
+        profile
+      } as any)
+    }
+
+    await launchFor('development')
+    // What the dev run's Firefox left behind when it quit.
+    fs.writeFileSync(path.join(profile, 'prefs.js'), '// Mozilla\n')
+    fs.mkdirSync(path.dirname(cache), {recursive: true})
+    fs.writeFileSync(cache, 'content_scripts/content-0.62b25f00.js')
+
+    await launchFor('production')
+
+    expect(fs.existsSync(cache)).toBe(false)
+  })
+
   it('hands the developer their user.js back byte for byte when the session ends', async () => {
     const profile = path.join(scratch, 'real-profile')
     const ownWithoutFinalNewline = 'user_pref("my.own.pref", true);'
