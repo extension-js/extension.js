@@ -193,6 +193,20 @@ const COMMAND_TABLE = [
     supportsSourceInspection: true
   },
   {
+    name: 'safari',
+    positionals: [
+      {
+        name: 'action',
+        required: true,
+        values: ['enable', 'button', 'menu', 'press', 'shortcut']
+      },
+      {name: 'project-path', required: false}
+    ],
+    description:
+      "Read or drive Safari's own UI for an extension: enable it, read its toolbar button, its context menu, or a command shortcut (macOS, needs an Accessibility grant)",
+    supportsSourceInspection: false
+  },
+  {
     name: 'publish',
     positionals: [{name: 'project-path', required: false}],
     description:
@@ -560,6 +574,64 @@ export function safariOnlyOption(flags: string[]) {
     `only appl${flags.length === 1 ? 'ies' : 'y'} to Safari targets.\n` +
     `Add ${code('--browser safari')} (or ${code('webkit-based')}).`
   )
+}
+
+export const SAFARI_UI_ACTIONS = [
+  'enable',
+  'button',
+  'menu',
+  'press',
+  'shortcut'
+] as const
+
+export function safariUiUnknownAction(action: string) {
+  return (
+    `${getLoggingPrefix('error')} Can't run ${code(`safari ${action}`)}, it is not a Safari action.\n` +
+    `Choose one of ${SAFARI_UI_ACTIONS.map(code).join(', ')}.`
+  )
+}
+
+export function safariUiMacOnly(platform: string) {
+  return (
+    `${getLoggingPrefix('error')} Safari's own UI can be read on macOS only, this is ${arg(platform)}.\n` +
+    `Run ${code('extension safari')} on a Mac with the Safari app built.`
+  )
+}
+
+export function safariUiNoBuiltApp(appPath: string) {
+  return (
+    `${getLoggingPrefix('error')} No Safari app to enable at ${arg(appPath)}.\n` +
+    `Run ${code('extension dev --browser safari')} or ${code('extension build --browser safari')} first.`
+  )
+}
+
+export function safariUiNoShortcut() {
+  return (
+    `${getLoggingPrefix('error')} The manifest declares no ${code('commands')} shortcut to press.\n` +
+    `Pass ${code('--keys <shortcut>')}, for example ${code('--keys Alt+Shift+H')}.`
+  )
+}
+
+export function safariUiNotListed(bundleId: string) {
+  return (
+    `${getLoggingPrefix('error')} Safari does not list ${arg(bundleId)} in Settings ▸ Extensions.\n` +
+    `Run ${code('extension safari enable')} first, or turn on Allow unsigned extensions in Settings ▸ Developer.`
+  )
+}
+
+export function safariUiButtonMissing(buttonId: string) {
+  return (
+    `${getLoggingPrefix('error')} Safari's toolbar has no button ${arg(buttonId)}.\n` +
+    `Turn the extension on in Safari ▸ Settings ▸ Extensions, then run again.`
+  )
+}
+
+export function safariUiFailed(reason: string) {
+  return `${getLoggingPrefix('error')} Safari's UI could not be driven: ${reason}`
+}
+
+export function safariUiStep(label: string, reading: string) {
+  return `${getLoggingPrefix('info')} Safari ${label}: ${reading}.`
 }
 
 export function safariInvalidBundleId(bundleId: string) {

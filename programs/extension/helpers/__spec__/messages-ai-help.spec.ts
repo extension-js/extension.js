@@ -37,6 +37,7 @@ describe('programAIHelp', () => {
       'open',
       'navigate',
       'inspect',
+      'safari',
       'publish',
       'install',
       'uninstall',

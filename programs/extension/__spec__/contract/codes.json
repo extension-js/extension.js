@@ -429,6 +429,14 @@
       "area": "safari",
       "summary": "The Safari toolchain is unavailable or an invocation failed."
     },
+    "E_SAFARI_UI": {
+      "area": "safari",
+      "summary": "A read or action on Safari's own settings or toolbar failed."
+    },
+    "E_ACCESSIBILITY_DENIED": {
+      "area": "safari",
+      "summary": "macOS has not granted the host app Accessibility, so Safari's own UI can't be read or driven."
+    },
     "E_PUBLISH_REJECTED": {
       "area": "publish",
       "summary": "The platform rejected the upload."

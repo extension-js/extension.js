@@ -132,6 +132,10 @@ export function registerStartCommand(program: Command) {
     .option('--no-polyfill', 'disable the cross-browser polyfill')
     .option('--no-open', NO_OPEN_FLAG_DESCRIPTION)
     .option(
+      '--enable-extension',
+      'turn the extension on in Safari Settings through macOS Accessibility (safari targets only, and start has no Safari path yet)'
+    )
+    .option(
       '--chromium-binary <path-to-binary>',
       'specify a path to the Chromium binary. This option overrides the --browser setting. Defaults to the system default'
     )
@@ -294,6 +298,20 @@ export function registerStartCommand(program: Command) {
           failAndExit(asJson, 'usage', {
             code: CODES.E_UNSUPPORTED_BROWSER,
             message: `Unsupported browser: ${unsupportedBrowser}`
+          })
+        }
+
+        if (
+          (startOptions as {enableExtension?: boolean}).enableExtension &&
+          !list.some(isSafariVendor)
+        ) {
+          if (!asJson) {
+            console.error(messages.safariOnlyOption(['--enable-extension']))
+          }
+
+          failAndExit(asJson, 'usage', {
+            code: CODES.E_INVALID_OPTION,
+            message: '--enable-extension applies to safari targets only.'
           })
         }
 
