@@ -3,6 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {safariMissingMemberDetails} from '../../messages'
+import {webkitGuardedRanges} from '../apply-dev-defaults-lib/webkit-guarded-ranges'
 import {UpdateManifest} from '../update-manifest'
 import {
   findGeckoUnsupportedApiUses,
@@ -10,6 +11,7 @@ import {
   type ScannableCompilation,
   usesGeckoUnsupportedApi,
   usesWebkitUnsupportedMember,
+  webkitMissingApis,
   webkitUnsupportedMembers
 } from '../warn-gecko-unsupported-apis'
 
@@ -998,5 +1000,266 @@ describe('UpdateManifest Gecko unsupported API warning', () => {
     const opts = {chunkGraph: true, instance: step}
     expect(run('production', 'safari', mv3, SIDE_PANEL, opts)).toHaveLength(1)
     expect(run('production', 'safari', mv3, SIDE_PANEL, opts)).toHaveLength(1)
+  })
+
+  const OFFSCREEN_GUARDED = [
+    'async function ensureOffscreen() {',
+    '  const contexts = await chrome.runtime.getContexts({contextTypes: ["OFFSCREEN_DOCUMENT"]})',
+    '  if (contexts.length) return',
+    '  await chrome.offscreen.createDocument({url: "o.html", reasons: ["DOM_PARSER"], justification: "x"})',
+    '}',
+    'if (globalThis.chrome?.offscreen) {',
+    '  ensureOffscreen()',
+    '}',
+    ''
+  ].join('\n')
+
+  it('stays quiet for a namespace and a member reached only behind a feature check', () => {
+    expect(run('production', 'safari', mv3, OFFSCREEN_GUARDED)).toEqual([])
+    expect(
+      run('development', 'safari', mv3, OFFSCREEN_GUARDED, {chunkGraph: true})
+    ).toEqual([])
+
+    expect(
+      run('production', 'safari', mv3, OFFSCREEN_GUARDED, {chunkGraph: true})
+    ).toEqual([])
+  })
+
+  it('decides on the emitted script when the source is TypeScript', () => {
+    const typed = OFFSCREEN_GUARDED.replace(
+      'async function ensureOffscreen() {',
+      'async function ensureOffscreen(): Promise<void> {'
+    )
+    expect(
+      run('production', 'safari', mv3, typed, {
+        chunkGraph: true,
+        emitted: OFFSCREEN_GUARDED
+      })
+    ).toEqual([])
+
+    const warnings = run('production', 'safari', mv3, typed, {
+      chunkGraph: true,
+      emitted: OFFSCREEN_GUARDED.replace(
+        'if (globalThis.chrome?.offscreen)',
+        'if (ready)'
+      )
+    })
+    expect(warnings.map((w) => w.message)).toEqual([
+      expect.stringContaining('chrome.offscreen'),
+      expect.stringContaining('chrome.runtime.getContexts')
+    ])
+  })
+
+  it('still warns when the same call also runs outside the feature check', () => {
+    const leaked = `${OFFSCREEN_GUARDED}ensureOffscreen()\n`
+    const warnings = run('production', 'safari', mv3, leaked)
+    expect(warnings.map((w) => w.message)).toEqual([
+      expect.stringContaining(
+        'calls chrome.offscreen, which Safari does not have'
+      ),
+      expect.stringContaining(
+        'calls chrome.runtime.getContexts, which Safari does not have'
+      )
+    ])
+  })
+
+  it('names the if branch next to optional chaining in the advice', () => {
+    const [namespace] = run(
+      'production',
+      'safari',
+      mv3,
+      'chrome.offscreen.createDocument({})\n'
+    )
+    expect(namespace.message).toContain('chrome.offscreen?.')
+    expect(namespace.message).toContain('if (chrome.offscreen)')
+
+    const [member] = run(
+      'production',
+      'safari',
+      mv3,
+      'chrome.runtime.getContexts({})\n'
+    )
+    expect(member.message).toContain('chrome.runtime.getContexts?.()')
+    expect(member.message).toContain('if (chrome.runtime.getContexts)')
+  })
+})
+
+describe('webkitGuardedRanges', () => {
+  const offscreen = (source: string) =>
+    usesGeckoUnsupportedApi(
+      source,
+      'offscreen',
+      'webkit',
+      webkitGuardedRanges(source, webkitMissingApis)
+    )
+
+  const getContexts = (source: string) =>
+    usesWebkitUnsupportedMember(
+      source,
+      {api: 'runtime', member: 'getContexts', kind: 'call'},
+      webkitGuardedRanges(source, webkitMissingApis)
+    )
+
+  const CALL = 'chrome.offscreen.createDocument({url: "o.html"})'
+
+  it('keeps every presence check on the namespace quiet', () => {
+    const guards = [
+      'chrome.offscreen',
+      'globalThis.chrome?.offscreen',
+      'self.chrome.offscreen',
+      'window.chrome?.offscreen',
+      'browser.offscreen',
+      'typeof chrome.offscreen !== "undefined"',
+      'typeof chrome.offscreen === "object"',
+      '"offscreen" in chrome',
+      'chrome.offscreen !== undefined',
+      'chrome.offscreen != null',
+      'Boolean(chrome.offscreen)',
+      '!!chrome.offscreen',
+      'ready && chrome.offscreen',
+      'chrome.offscreen && ready'
+    ]
+
+    for (const guard of guards) {
+      expect(offscreen(`if (${guard}) { ${CALL} }`), guard).toBe(false)
+    }
+  })
+
+  it('reads the closed branch of a negated check and an early exit', () => {
+    expect(offscreen(`if (!chrome.offscreen) { log() } else { ${CALL} }`)).toBe(
+      false
+    )
+
+    expect(
+      offscreen(
+        `if (typeof chrome.offscreen === "undefined") {} else { ${CALL} }`
+      )
+    ).toBe(false)
+
+    expect(
+      offscreen(`if (chrome.offscreen === undefined) {} else { ${CALL} }`)
+    ).toBe(false)
+
+    expect(offscreen(`if (chrome.offscreen == null) {} else { ${CALL} }`)).toBe(
+      false
+    )
+
+    expect(offscreen(`if (!("offscreen" in chrome)) {} else { ${CALL} }`)).toBe(
+      false
+    )
+
+    expect(
+      offscreen(`function f() { if (!chrome.offscreen) return; ${CALL} }`)
+    ).toBe(false)
+
+    expect(
+      offscreen(
+        `function f() { if (!chrome.offscreen) { throw new Error("no") } ${CALL} }`
+      )
+    ).toBe(false)
+
+    expect(
+      offscreen(
+        `function f() { if (!chrome.offscreen || !ready) return; ${CALL} }`
+      )
+    ).toBe(false)
+  })
+
+  it('reads a logical and a conditional expression', () => {
+    expect(offscreen(`chrome.offscreen && ${CALL}`)).toBe(false)
+    expect(offscreen(`!chrome.offscreen || ${CALL}`)).toBe(false)
+    expect(offscreen(`chrome.offscreen ? ${CALL} : noop()`)).toBe(false)
+    expect(offscreen(`!chrome.offscreen ? noop() : ${CALL}`)).toBe(false)
+  })
+
+  it('lets a check on any missing API close the branch for every call inside', () => {
+    expect(
+      getContexts(
+        'if (chrome.offscreen) { await chrome.runtime.getContexts({}) }'
+      )
+    ).toBe(false)
+
+    expect(offscreen(`if (chrome.runtime.getContexts) { ${CALL} }`)).toBe(false)
+
+    expect(
+      getContexts(
+        'if ("getContexts" in chrome.runtime) { chrome.runtime.getContexts({}) }'
+      )
+    ).toBe(false)
+  })
+
+  it('follows a function that only a closed branch reaches', () => {
+    const declaredFirst = `async function ensure() { await ${CALL} }\nif (chrome.offscreen) { ensure() }`
+    expect(offscreen(declaredFirst)).toBe(false)
+
+    const declaredAfter = `if (chrome.offscreen) { ensure() }\nasync function ensure() { await ${CALL} }`
+    expect(offscreen(declaredAfter)).toBe(false)
+
+    const arrow = `const ensure = async () => { await ${CALL} }\nif (chrome.offscreen) { ensure() }`
+    expect(offscreen(arrow)).toBe(false)
+
+    const twoDeep = `function inner() { ${CALL} }\nfunction outer() { inner() }\nif (chrome.offscreen) { outer() }`
+    expect(offscreen(twoDeep)).toBe(false)
+
+    const recursive = `async function ensure() { await ${CALL}; return ensure() }\nif (chrome.offscreen) { ensure() }`
+    expect(offscreen(recursive)).toBe(false)
+
+    const listener = `if (chrome.offscreen) { chrome.runtime.onMessage.addListener(() => { ${CALL} }) }`
+    expect(offscreen(listener)).toBe(false)
+  })
+
+  it('still warns when a reference escapes the closed branch', () => {
+    expect(
+      offscreen(
+        `function ensure() { ${CALL} }\nif (chrome.offscreen) { ensure() }\nensure()`
+      )
+    ).toBe(true)
+
+    expect(
+      offscreen(
+        `export function ensure() { ${CALL} }\nif (chrome.offscreen) { ensure() }`
+      )
+    ).toBe(true)
+
+    expect(
+      offscreen(
+        `function ensure() { ${CALL} }\nif (chrome.offscreen) { ensure() }\nexport {ensure}`
+      )
+    ).toBe(true)
+
+    expect(
+      offscreen(
+        `function ensure() { ${CALL} }\nif (chrome.offscreen) { ensure() }\nconst later = ensure`
+      )
+    ).toBe(true)
+
+    expect(offscreen(`function ensure() { ${CALL} }`)).toBe(true)
+  })
+
+  it('still warns on the open branch, the check that throws, and a bare try', () => {
+    expect(offscreen(`if (chrome.offscreen) { log() } else { ${CALL} }`)).toBe(
+      true
+    )
+
+    expect(offscreen(`if (!chrome.offscreen) { ${CALL} }`)).toBe(true)
+    expect(offscreen(`if (chrome.offscreen.createDocument) { log() }`)).toBe(
+      true
+    )
+
+    expect(offscreen(`if (ready) { ${CALL} }`)).toBe(true)
+    expect(offscreen(`if (chrome.tabs) { ${CALL} }`)).toBe(true)
+    expect(offscreen(`if (chrome.offscreen || ready) { ${CALL} }`)).toBe(true)
+    expect(offscreen(`try { ${CALL} } finally { done() }`)).toBe(true)
+    expect(offscreen(`if (chrome.offscreen) {} ${CALL}`)).toBe(true)
+  })
+
+  it('treats a catch as handling the throw', () => {
+    expect(offscreen(`try { ${CALL} } catch { }`)).toBe(false)
+  })
+
+  it('falls back to the plain match when the text does not parse', () => {
+    expect(
+      offscreen(`if (chrome.offscreen) { const n: number = 1; ${CALL} }`)
+    ).toBe(true)
   })
 })
