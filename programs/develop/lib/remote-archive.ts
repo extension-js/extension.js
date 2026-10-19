@@ -75,7 +75,7 @@ export function tokenExpiry(
 // Where previewed archives land: under the user's cache, never the folder
 // the command happened to run from.
 export function remoteArchiveCacheRoot(
-  env: NodeJS.ProcessEnv = process.env,
+  env: Record<string, string | undefined> = process.env,
   platform: NodeJS.Platform = process.platform
 ): string {
   const xdg = String(env.XDG_CACHE_HOME || '').trim()

@@ -378,7 +378,9 @@ describe('a remote archive sent to one folder', () => {
     expect(stamp).toContain(`${origin}/chrome.zip`)
     expect(stamp).not.toContain('token')
 
-    const printed = logSpy.mock.calls.map((call) => String(call[0])).join('\n')
+    const printed = logSpy.mock.calls
+      .map((call: unknown[]) => String(call[0]))
+      .join('\n')
     expect(printed).toContain('Using the extension already downloaded here')
     expect(printed).not.toContain('first-token')
   })
