@@ -209,6 +209,10 @@
       "area": "remote",
       "summary": "A remote extension could not be downloaded or written to disk."
     },
+    "E_REMOTE_ACCESS_DENIED": {
+      "area": "remote",
+      "summary": "The server refused access to the remote URL with a 401 or 403, so its access token has expired, was revoked, or was changed while copying."
+    },
     "E_REMOTE_ZIP_INVALID": {
       "area": "remote",
       "summary": "The remote URL did not return a ZIP, returned a damaged one that will not unpack, or one with an entry outside its folder."

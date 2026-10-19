@@ -328,6 +328,103 @@ describe('downloadAndExtractZip', () => {
   })
 })
 
+describe('a remote archive sent to one folder', () => {
+  it('lands in the named destination instead of under the target', async () => {
+    const target = makeTempDir('extjs-zip-destination-')
+    const destination = path.join(target, 'elsewhere', 'copy')
+    const origin = await serve((_req, res) => {
+      sendZip(res, {'manifest.json': '{"version":"1.0.0"}'})
+    })
+
+    const landed = await downloadAndExtractZip(
+      `${origin}/examples.zip`,
+      target,
+      {destination}
+    )
+
+    expect(landed).toBe(destination)
+    expect(fs.existsSync(path.join(target, 'examples'))).toBe(false)
+    expect(fs.existsSync(path.join(destination, 'manifest.json'))).toBe(true)
+  })
+
+  it('reuses its own copy of the url path and never stores the token', async () => {
+    const target = makeTempDir('extjs-zip-reuse-')
+    const destination = path.join(target, 'cached')
+    let hits = 0
+    const origin = await serve((_req, res) => {
+      hits += 1
+      sendZip(res, {'manifest.json': '{"version":"1.0.0"}'})
+    })
+
+    const first = await downloadAndExtractZip(
+      `${origin}/chrome.zip?t=first-token`,
+      target,
+      {destination, reuse: true}
+    )
+    const second = await downloadAndExtractZip(
+      `${origin}/chrome.zip?t=second-token`,
+      target,
+      {destination, reuse: true}
+    )
+
+    expect(second).toBe(first)
+    expect(hits).toBe(1)
+
+    const stamp = fs.readFileSync(
+      path.join(destination, '.extension-source.json'),
+      'utf-8'
+    )
+
+    expect(stamp).toContain(`${origin}/chrome.zip`)
+    expect(stamp).not.toContain('token')
+
+    const printed = logSpy.mock.calls
+      .map((call: unknown[]) => String(call[0]))
+      .join('\n')
+    expect(printed).toContain('Using the extension already downloaded here')
+    expect(printed).not.toContain('first-token')
+  })
+
+  it('fetches again without reuse, even into its own folder', async () => {
+    const target = makeTempDir('extjs-zip-no-reuse-')
+    const destination = path.join(target, 'copy')
+    let hits = 0
+    const origin = await serve((_req, res) => {
+      hits += 1
+      sendZip(res, {'manifest.json': `{"version":"${hits}.0.0"}`})
+    })
+
+    await downloadAndExtractZip(`${origin}/chrome.zip`, target, {destination})
+    await downloadAndExtractZip(`${origin}/chrome.zip`, target, {destination})
+
+    expect(hits).toBe(2)
+    expect(
+      fs.readFileSync(path.join(destination, 'manifest.json'), 'utf-8')
+    ).toBe('{"version":"2.0.0"}')
+  })
+
+  it('refuses a stranger folder at the destination', async () => {
+    const target = makeTempDir('extjs-zip-dest-stranger-')
+    const destination = path.join(target, 'taken')
+    fs.mkdirSync(destination, {recursive: true})
+    fs.writeFileSync(path.join(destination, 'keep-me.txt'), 'local work')
+    const origin = await serve((_req, res) => {
+      sendZip(res, {'manifest.json': '{}'})
+    })
+
+    const error = await downloadAndExtractZip(`${origin}/chrome.zip`, target, {
+      destination,
+      reuse: true
+    }).then(
+      () => undefined,
+      (reason: Error & {code?: string}) => reason
+    )
+
+    expect(error?.code).toBe('E_DESTINATION_NOT_EMPTY')
+    expect(fs.readdirSync(destination)).toEqual(['keep-me.txt'])
+  })
+})
+
 // One cause, one code: a reply that is not an archive and an archive that
 // will not unpack are the URL's to fix, a failed transport is not.
 describe('the code a remote archive failure carries', () => {
@@ -400,6 +497,41 @@ describe('the code a remote archive failure carries', () => {
     )
 
     expect(message).not.toMatch(/extract|unpack/i)
+  })
+
+  it.each([
+    401, 403
+  ])('is E_REMOTE_ACCESS_DENIED for a %s, as its own block', async (status) => {
+    const {code, message} = await failure((_req, res) => {
+      res.writeHead(status)
+      res.end('no')
+    }, 'chrome.zip?t=secret-token')
+
+    expect(code).toBe('E_REMOTE_ACCESS_DENIED')
+    expect(message).toMatch(
+      new RegExp(`refused access to this link \\(HTTP ${status}\\)`)
+    )
+
+    expect(message).toMatch(
+      /expired, been revoked, or been changed while copying/
+    )
+
+    expect(message).toMatch(/on one line/)
+    expect(message).not.toMatch(/Couldn't download the ZIP file/)
+    expect(message).not.toMatch(/secret-token/)
+    expect(message.match(/⏵⏵⏵/g)).toHaveLength(1)
+  })
+
+  it('names the expiry a refused token carries', async () => {
+    const exp = Math.floor(Date.UTC(2026, 0, 2) / 1000)
+    const token = `eyJhbGciOiJIUzI1NiJ9.${Buffer.from(JSON.stringify({exp})).toString('base64url')}.sig`
+    const {code, message} = await failure((_req, res) => {
+      res.writeHead(401)
+      res.end('no')
+    }, `chrome.zip?t=${token}`)
+
+    expect(code).toBe('E_REMOTE_ACCESS_DENIED')
+    expect(message).toMatch(/EXPIRED 2026-01-02T00:00:00\.000Z/)
   })
 
   it('refuses a local file with an entry outside its folder in its own words', async () => {

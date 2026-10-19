@@ -2,7 +2,8 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
-import {explicitUnpackedDir} from '../command-preview'
+import {explicitUnpackedDir, previewArchiveTarget} from '../command-preview'
+import {remoteArchiveCacheRoot} from '../lib/remote-archive'
 
 const created: string[] = []
 
@@ -58,5 +59,24 @@ describe('explicitUnpackedDir', () => {
     const root = tree({'package.json': '{"name":"repo"}', 'build/x.js': ''})
 
     expect(explicitUnpackedDir(path.join(root, 'build'), root)).toBeUndefined()
+  })
+})
+
+describe('previewArchiveTarget', () => {
+  it('sends a previewed archive to the cache', () => {
+    expect(previewArchiveTarget('preview')).toEqual({
+      cacheRoot: remoteArchiveCacheRoot()
+    })
+  })
+
+  it('sends it to --output-path when one is given', () => {
+    expect(previewArchiveTarget('preview', 'unpacked/here')).toEqual({
+      destination: path.resolve(process.cwd(), 'unpacked/here')
+    })
+  })
+
+  it('leaves start on the current directory', () => {
+    expect(previewArchiveTarget('start')).toBeUndefined()
+    expect(previewArchiveTarget('start', 'unpacked/here')).toBeUndefined()
   })
 })
