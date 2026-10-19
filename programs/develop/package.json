@@ -155,7 +155,7 @@
     "addons-linter": "10.12.0",
     "fast-check": "^4.10.0",
     "svelte": "5.55.9",
-    "tsup": "^8.5.1",
+    "tsup": "^9.0.0",
     "typescript": "7.0.2",
     "vitest": "^5.0.0",
     "vue-style-loader": "4.1.3",
