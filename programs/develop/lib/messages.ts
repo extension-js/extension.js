@@ -872,6 +872,35 @@ export function failedToDownloadOrWriteZIPFileError(error: unknown) {
   )
 }
 
+// A 401 or 403 is the link's to fix, not the network's: the token in it
+// has expired, been revoked, or been changed on the way through a clipboard.
+export function remoteZipAccessRefused(
+  url: string,
+  status: number,
+  expiry?: {at: Date; expired: boolean}
+) {
+  const when = expiry
+    ? `${colors.gray(expiry.expired ? 'EXPIRED' : 'EXPIRES')} ${expiry.at.toISOString()}\n`
+    : ''
+
+  return (
+    `${getLoggingPrefix('error')} ` +
+    `The server refused access to this link (HTTP ${status}).\n` +
+    `${colors.gray('URL')} ${colors.underline(url)}\n` +
+    when +
+    `Its access token may have expired, been revoked, or been changed while copying.\n` +
+    `Copy the link again on one line, or get a new one from where it was shared.`
+  )
+}
+
+export function removedWhitespaceFromUrl(url: string) {
+  return (
+    `${getLoggingPrefix('warn')} The link had spaces inside it, so they were removed.\n` +
+    `${colors.gray('URL')} ${colors.underline(url)}\n` +
+    `A line wrapped by the terminal does that. Copy the link again on one line if the download is refused.`
+  )
+}
+
 export function failedToWriteZIPFileError(error: unknown) {
   return (
     `${getLoggingPrefix('error')} ` +

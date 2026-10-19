@@ -15,6 +15,7 @@ import {CODES, isDebug} from './messaging'
 import {findNearestPackageJsonSync, validatePackageJson} from './package-json'
 import {type ParsedJson, parseJsonSafe} from './parse-json-safe'
 import {findNearestDenoConfigSync, validateDenoConfig} from './project-manifest'
+import {remoteArchiveCacheKey, repairPastedUrl} from './remote-archive'
 
 // Any of these in a project manifest means that project is an Extension.js
 // project, so it owns a manifest one directory below it.
@@ -429,12 +430,34 @@ function listDirectories(dir: string): string[] {
   }
 }
 
-async function importUrlSourceFromZip(pathOrRemoteUrl: string) {
-  // Extract directly into the current working directory so users can edit it
+// Where a remote archive unpacks. By default it lands in the current
+// directory, to be edited and watched. A command that only reads it names a
+// cache root, keyed per archive and reused, or one explicit folder.
+export type RemoteArchiveTarget = {cacheRoot: string} | {destination: string}
+
+export interface ProjectPathOptions {
+  remoteArchive?: RemoteArchiveTarget
+}
+
+async function importUrlSourceFromZip(
+  pathOrRemoteUrl: string,
+  remoteArchive?: RemoteArchiveTarget
+) {
   const cwd = process.cwd()
   const {downloadAndExtractZip} = await import('./zip')
+  const archive = !remoteArchive
+    ? {}
+    : 'destination' in remoteArchive
+      ? {destination: remoteArchive.destination}
+      : {
+          destination: path.join(
+            remoteArchive.cacheRoot,
+            remoteArchiveCacheKey(pathOrRemoteUrl)
+          ),
+          reuse: true
+        }
   const extractedPath = await withTimeout(
-    downloadAndExtractZip(pathOrRemoteUrl, cwd),
+    downloadAndExtractZip(pathOrRemoteUrl, cwd, archive),
     REMOTE_FETCH_TIMEOUT_MS,
     pathOrRemoteUrl
   )
@@ -450,35 +473,42 @@ async function importLocalSourceFromZip(zipFilePath: string) {
 }
 
 export async function getProjectPath(
-  pathOrRemoteUrl: string | undefined
+  pathOrRemoteUrl: string | undefined,
+  options: ProjectPathOptions = {}
 ): Promise<string> {
   if (!pathOrRemoteUrl) {
     return process.cwd()
   }
 
   if (isUrl(pathOrRemoteUrl)) {
-    const url = new URL(pathOrRemoteUrl)
+    const pasted = /^\s*https?:/i.test(pathOrRemoteUrl)
+      ? repairPastedUrl(pathOrRemoteUrl)
+      : {url: pathOrRemoteUrl, repaired: false}
+    const source = pasted.url
+    const url = new URL(source)
 
     if (url.protocol.startsWith('http')) {
+      if (pasted.repaired) {
+        humanLine(messages.removedWhitespaceFromUrl(source.split('?')[0]))
+      }
+
       const pathname = url.pathname.toLowerCase()
 
       // GitHub release artifacts and other direct ZIP URLs should bypass
       // repository cloning logic and be downloaded/extracted directly.
       if (pathname.endsWith('.zip')) {
-        return await importUrlSourceFromZip(pathOrRemoteUrl)
+        return await importUrlSourceFromZip(source, options.remoteArchive)
       }
 
       if (url.origin !== 'https://github.com') {
-        const urlSource = await importUrlSourceFromZip(pathOrRemoteUrl)
-
-        return urlSource
+        return await importUrlSourceFromZip(source, options.remoteArchive)
       }
 
       const [owner, project] = url.pathname.split('/').slice(1, 3)
       const projectName = path.basename(url.pathname)
 
       const {projectPath, downloaded} = await importUrlSourceFromGithub(
-        pathOrRemoteUrl,
+        source,
         messages.downloadingProjectPath(
           projectName,
           `https://github.com/${owner}/${project}`
@@ -488,7 +518,7 @@ export async function getProjectPath(
       humanLine(
         downloaded
           ? messages.creatingProjectPath()
-          : messages.reusingDownloadedProject(projectPath, pathOrRemoteUrl)
+          : messages.reusingDownloadedProject(projectPath, source)
       )
 
       return projectPath
@@ -610,9 +640,10 @@ function findLoneExtensionUnderCompanionDir(
 }
 
 export async function getProjectStructure(
-  pathOrRemoteUrl: string | undefined
+  pathOrRemoteUrl: string | undefined,
+  options: ProjectPathOptions = {}
 ): Promise<ProjectStructure> {
-  const projectPath = await getProjectPath(pathOrRemoteUrl)
+  const projectPath = await getProjectPath(pathOrRemoteUrl, options)
 
   return resolveProjectStructureSync(projectPath)
 }
