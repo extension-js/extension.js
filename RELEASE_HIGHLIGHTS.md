@@ -20,5 +20,3 @@
 -->
 
 ## Highlights
-
-- **Sidebar scaffolds name their page**, the greeting a fresh `extension create` sidebar logs now says it is the sidebar page, so a busy console reads at a glance

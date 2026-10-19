@@ -2,6 +2,50 @@
 
 ## Unreleased
 
+## 4.1.34 (October 19, 2026)
+
+- **Sidebar scaffolds name their page**, the greeting a fresh `extension create` sidebar logs now says it is the sidebar page, so a busy console reads at a glance
+
+### Features
+
+- Enable a Safari extension and read its UI through Accessibility (#874) ([48030be45](https://github.com/extension-js/extension.js/commit/48030be450537dc01fd1ce78f6ef5947eefa2754))
+
+### Fixes
+
+- Stop asking for tabs when host permissions already grant every site (#857) ([482293d0c](https://github.com/extension-js/extension.js/commit/482293d0c60aaa3fdfd1fb23238ada9e8626ac85))
+- Stop managed Firefox self-updates and name the template source (#841) ([895b2efa5](https://github.com/extension-js/extension.js/commit/895b2efa53ce7024c09aa2f43cd715ee73accf51))
+- Restore url override tabs after a dev extension reload (#839) ([9597c94e1](https://github.com/extension-js/extension.js/commit/9597c94e1d4565094180c3e3a9f46cb5f99d15af))
+
+<details>
+<summary>Other changes (25)</summary>
+
+- Keep the Safari API warning quiet behind a feature check (#875) ([54f554a57](https://github.com/extension-js/extension.js/commit/54f554a578653d5c6d96a886debbccdedc20b21e))
+- Find the system Edge on Windows and name the overrides when it is missed (#873) ([5f01e93dd](https://github.com/extension-js/extension.js/commit/5f01e93dda5c562d7c46f78321d44984ed567505))
+- Resync the bundled javascript template to the examples corpus head (#872) ([72a28406f](https://github.com/extension-js/extension.js/commit/72a28406f17d7f91b444368e7091e9d88914fc5e))
+- Accept publish share links up to a year and let the server set the default (#871) ([e01a1666d](https://github.com/extension-js/extension.js/commit/e01a1666d75792fb6b433f22f32da362526e2b42))
+- Reach production Firefox pages through relays and the debugger (#866) ([e536a6cc7](https://github.com/extension-js/extension.js/commit/e536a6cc75274ed3f59675e78b772bbd9e3dd8c9))
+- Name the compile error in doctor instead of calling the session launching (#870) ([8381a382f](https://github.com/extension-js/extension.js/commit/8381a382f5063bd3c412efd438aef89bbe51eef6))
+- Write a failed compiler's error as plain text into ready.json errors (#869) ([12cd33298](https://github.com/extension-js/extension.js/commit/12cd332989e67abc9f63b83ab447a7c70f840d92))
+- Let a Firefox start session connect and wake its control producer (#865) ([eff75668c](https://github.com/extension-js/extension.js/commit/eff75668c7a21f70b8fdba3a8f8df469bb535c62))
+- Replay MV2 browser_action and page_action clicks in open action (#868) ([2f07dce20](https://github.com/extension-js/extension.js/commit/2f07dce205a2a7afb5cd138daf49ea6a9c091279))
+- Stamp each reload dev applies after a compile into ready.json (#867) ([1bd92fa7b](https://github.com/extension-js/extension.js/commit/1bd92fa7b0910809028112779d70a30fedad817c))
+- Reuse an unchanged Safari build and say when Safari resets storage (#864) ([857fc090e](https://github.com/extension-js/extension.js/commit/857fc090e28572ffaa52a460f5e8f88f6c1953de))
+- Open the starting URL only after the extension is installed (#863) ([b8c277d7d](https://github.com/extension-js/extension.js/commit/b8c277d7d80abd5c7cf7dcf0b5447902d6f9d126))
+- Drop the Firefox add-on manifest cache before every launch (#862) ([9b3d9da18](https://github.com/extension-js/extension.js/commit/9b3d9da18da5f90d556211a87ebab163c67e21ec))
+- Let start and preview open the control channel on a production run (#858) ([b95230444](https://github.com/extension-js/extension.js/commit/b95230444c0cb1a42d29d46920e9210310e26c6c))
+- Await a page eval in the tab and stop calling every failure a lost tab (#861) ([47a828eae](https://github.com/extension-js/extension.js/commit/47a828eae299da768f1b731c15d0d3e8216fa9f2))
+- Reload the extension when a compile renames a bundle its manifest names (#859) ([7941aed1b](https://github.com/extension-js/extension.js/commit/7941aed1b3ad43b5cc87f0a7b324ad6712e2480e))
+- Wake a suspended Firefox event page before refusing a control verb (#860) ([0f9ed7686](https://github.com/extension-js/extension.js/commit/0f9ed7686babfa2a8e240b8fdc0b45fc043adf9d))
+- Use the Extension.js logo as the Discord release avatar (#856) ([12154d1bf](https://github.com/extension-js/extension.js/commit/12154d1bfe7056ed441c68f7963e28eff4ba20c7))
+- Replace the expired Discord invite with a permanent one (#855) ([df378e2af](https://github.com/extension-js/extension.js/commit/df378e2af1daf856ccc1e7977685ce193b16de5b))
+- Keep the template line spec quiet under an exported author mode (#846) ([29df24031](https://github.com/extension-js/extension.js/commit/29df240312ea2d118f6e40fd799c863b42b96966))
+- Name an npm staged publish instead of timing out the release job (#844) ([1c1f0a043](https://github.com/extension-js/extension.js/commit/1c1f0a0436be54badfa9efb63675a502197aa925))
+- Accept an exact canary pin and drop the session folder notice (#843) ([418cd395c](https://github.com/extension-js/extension.js/commit/418cd395c4380ea38558bbcd7af55c7a60ddc04d))
+- Bound the Windows pid probe that stalls doctor and its spec (#842) ([3762abe05](https://github.com/extension-js/extension.js/commit/3762abe050b785258693de26db0bfc0177986454))
+- Confirm the browser loaded the extension in start and preview (#840) ([2a99be90f](https://github.com/extension-js/extension.js/commit/2a99be90fd74c68b6f6e8038a3aedf4fdcbd29ae))
+- Refuse a missing options page and keep dev noise out of tools (#838) ([7cebaaf33](https://github.com/extension-js/extension.js/commit/7cebaaf3306852f30470312f4355a9260320ed8a))
+</details>
+
 ## 4.1.33 (October 8, 2026)
 
 - **Safari dev runs leave your Safari alone**, the app a run opens stays in the background and is the only one quit on stop. Safari guide: https://extension.js.org/docs/browsers/safari
