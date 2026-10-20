@@ -58,7 +58,19 @@ function project() {
     '<!doctype html><title>options</title><p>options</p>\n'
   )
 
+  ageFiles(root)
+
   return root
+}
+
+function ageFiles(dir: string) {
+  const past = new Date(Date.now() - 60000)
+
+  for (const entry of fs.readdirSync(dir, {withFileTypes: true})) {
+    const full = path.join(dir, entry.name)
+    if (entry.isDirectory()) ageFiles(full)
+    else fs.utimesSync(full, past, past)
+  }
 }
 
 async function readySession(root: string) {
