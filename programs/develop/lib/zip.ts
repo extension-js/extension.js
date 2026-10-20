@@ -13,6 +13,7 @@ import {humanLine} from '../dev-server/lifecycle-stream'
 import {type CodedError, codedError} from './coded-error'
 import * as messages from './messages'
 import {CODES, type ErrorCode} from './messaging'
+import {tokenExpiry} from './remote-archive'
 import {sessionArtifactsRootDir} from './session-paths'
 
 function isZipBuffer(buffer: Buffer): boolean {
@@ -248,18 +249,53 @@ export function assertDestinationIsOurs(
   )
 }
 
+export interface RemoteArchiveOptions {
+  // Unpack here instead of under targetPath/<archive name>.
+  destination?: string
+  // Keep the copy this tool fetched from the same url path before, instead
+  // of fetching it again. The query string, where a share token lives, is
+  // not part of that identity and is never written to disk.
+  reuse?: boolean
+}
+
 export async function downloadAndExtractZip(
   url: string,
-  targetPath: string
+  targetPath: string,
+  options: RemoteArchiveOptions = {}
 ): Promise<string> {
   const urlNoSearchParams = url.split('?')[0]
+  const destinationPath =
+    options.destination ?? remoteZipDestination(url, targetPath)
+  const source = options.reuse ? urlNoSearchParams : url
 
   try {
-    assertDestinationIsOurs(remoteZipDestination(url, targetPath), url)
+    assertDestinationIsOurs(destinationPath, source)
+
+    if (
+      options.reuse &&
+      readRemoteSource(destinationPath) === sourceKey(source)
+    ) {
+      humanLine(
+        messages.reusingDownloadedProject(destinationPath, urlNoSearchParams)
+      )
+
+      return destinationPath
+    }
 
     humanLine(messages.downloadingText(urlNoSearchParams))
 
     const res = await fetch(url, {redirect: 'follow'})
+
+    if (res.status === 401 || res.status === 403) {
+      throw codedError(
+        CODES.E_REMOTE_ACCESS_DENIED,
+        messages.remoteZipAccessRefused(
+          urlNoSearchParams,
+          res.status,
+          tokenExpiry(url)
+        )
+      )
+    }
 
     if (!res.ok || !res.body) {
       throw new Error(`HTTP ${res.status} ${res.statusText}`)
@@ -277,8 +313,6 @@ export async function downloadAndExtractZip(
         messages.invalidRemoteZip(urlNoSearchParams, contentType)
       )
     }
-
-    const destinationPath = remoteZipDestination(url, targetPath)
 
     const arrayBuffer = await res.arrayBuffer()
     const zipBuffer = Buffer.from(arrayBuffer)
@@ -305,7 +339,7 @@ export async function downloadAndExtractZip(
     )
 
     extractBuffer(entries, destinationPath)
-    writeRemoteSource(destinationPath, url)
+    writeRemoteSource(destinationPath, source)
 
     return destinationPath
   } catch (error) {

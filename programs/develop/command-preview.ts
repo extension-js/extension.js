@@ -37,7 +37,8 @@ import {
   getDistPath,
   normalizeBrowser
 } from './lib/paths'
-import {getProjectStructure} from './lib/project'
+import {getProjectStructure, type RemoteArchiveTarget} from './lib/project'
+import {remoteArchiveCacheRoot} from './lib/remote-archive'
 import {sanitize} from './lib/sanitize'
 import {ensureSessionArtifactsIgnoreFile} from './lib/session-paths'
 import {assertNoManagedDependencyConflicts} from './lib/validate-user-dependencies'
@@ -151,12 +152,33 @@ export function explicitUnpackedDir(
   return typed
 }
 
+// A previewed archive is read, never edited, so it lands in the user's cache
+// and the folder the command ran from stays as it was. --output-path names
+// the one folder it may land in instead. `start` builds its archive where
+// it unpacked it, so that path keeps the current directory.
+export function previewArchiveTarget(
+  metadataCommand: 'start' | 'preview',
+  outputPath?: string
+): RemoteArchiveTarget | undefined {
+  if (metadataCommand !== 'preview') return undefined
+  if (outputPath) return {destination: path.resolve(process.cwd(), outputPath)}
+
+  return {cacheRoot: remoteArchiveCacheRoot()}
+}
+
 export async function extensionPreview(
   pathOrRemoteUrl: string | undefined,
   previewOptions: PreviewOptions,
   browserLauncher?: PreviewLauncherFn
 ) {
-  const projectStructure = await getProjectStructure(pathOrRemoteUrl)
+  const metadataCommand =
+    previewOptions.metadataCommand === 'start' ? 'start' : 'preview'
+  const projectStructure = await getProjectStructure(pathOrRemoteUrl, {
+    remoteArchive: previewArchiveTarget(
+      metadataCommand,
+      previewOptions.outputPath
+    )
+  })
   const debug = isDebug()
   const {manifestDir, packageJsonDir} = getDirs(projectStructure)
 
@@ -167,8 +189,6 @@ export async function extensionPreview(
     assertNoManagedDependencyConflicts(userManifestPath, packageJsonDir)
   }
 
-  const metadataCommand =
-    previewOptions.metadataCommand === 'start' ? 'start' : 'preview'
   // A browser passed in wins; with none, commands.<cmd>.browser from the
   // project config decides which build is previewed.
   const configBrowser = previewOptions.browser

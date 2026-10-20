@@ -98,7 +98,7 @@ import {
   createEmulatorFilesMiddlewareEntry,
   resolveEmulatorOrigin
 } from './emulator-lane'
-import {isUsingJSFramework} from './frameworks'
+import {attachHtmlRefresh} from './html-refresh'
 import {
   attachLifecycleStream,
   createLifecycleStream,
@@ -948,12 +948,11 @@ export async function devServer(
       })
     },
     watchFiles: {
-      paths: [
-        ...(publicFolder ? [path.join(publicFolder, '**/*')] : []),
-        ...(isUsingJSFramework(packageJsonDir)
-          ? []
-          : [path.join(packageJsonDir, '**/*.html')])
-      ],
+      // Only public/ is watched outside the compiler: every page the build
+      // knows is a file dependency, so its edit rebuilds and the done hook
+      // refreshes it (html-refresh.ts). A project-wide html glob refreshed
+      // every open page for a demo page the extension never loads.
+      paths: publicFolder ? [path.join(publicFolder, '**/*')] : [],
       options: {
         // Prevent startup self-rebuild: initial emit writes dist/**/*.html.
         // Those generated files must not be treated as source watch inputs.
@@ -1150,6 +1149,7 @@ export async function devServer(
     })
 
     const server = new RspackDevServer(serverConfig, compiler)
+    attachHtmlRefresh(compiler, server)
 
     // The fs guard is process-global; a stopped server must release its path
     // or later in-process writers to this dist are silently swallowed.

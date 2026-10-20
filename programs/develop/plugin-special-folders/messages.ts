@@ -72,6 +72,14 @@ export function publicFolderShadowed(
   )
 }
 
+export function publicFolderAppeared(publicDir: string, projectRoot: string) {
+  return (
+    `${displayPath(publicDir, projectRoot)} appeared after the session started.\n` +
+    'Its files are copied only by a session that saw the folder at startup.\n' +
+    'Restart `extension dev` to ship them.'
+  )
+}
+
 export function specialFoldersSetupSummary(
   hasPublic: boolean,
   copyEnabled: boolean,

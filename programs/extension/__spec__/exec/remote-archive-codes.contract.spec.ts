@@ -63,6 +63,7 @@ describe('a remote archive, read by create and by develop', () => {
   let work = ''
   const homes: string[] = []
   const slowHits: Array<{url: string; at: number}> = []
+  const tokenHits: string[] = []
 
   beforeAll(async () => {
     server = http.createServer((req, res) => {
@@ -80,6 +81,24 @@ describe('a remote archive, read by create and by develop', () => {
       } else if (url.startsWith('/damaged/')) {
         res.writeHead(200, {'content-type': 'application/zip'})
         res.end(DAMAGED_ARCHIVE)
+      } else if (url.startsWith('/denied/')) {
+        res.writeHead(401, {'content-type': 'text/plain'})
+        res.end('Unauthorized')
+      } else if (url.startsWith('/forbidden/')) {
+        res.writeHead(403, {'content-type': 'text/plain'})
+        res.end('Forbidden')
+      } else if (url.startsWith('/token/')) {
+        tokenHits.push(url)
+
+        if (
+          new URL(url, 'http://local').searchParams.get('t') === 'good-token'
+        ) {
+          res.writeHead(200, {'content-type': 'application/zip'})
+          res.end(GOOD_ARCHIVE)
+        } else {
+          res.writeHead(401, {'content-type': 'text/plain'})
+          res.end('Unauthorized')
+        }
       } else if (url.startsWith('/slow/')) {
         // Never answered: the caller's own timeout has to end it.
         slowHits.push({url, at: Date.now()})
@@ -283,6 +302,24 @@ describe('a remote archive, read by create and by develop', () => {
     120_000
   )
 
+  it.each([
+    ['a 401', () => `${origin}/denied`, 401],
+    ['a 403', () => `${origin}/forbidden`, 403]
+  ])(
+    'codes %s as a refused link in develop',
+    async (_label, route, status) => {
+      const result = await codes(route())
+
+      expect(result.develop).toBe('E_REMOTE_ACCESS_DENIED')
+      expect(result.developMessage).toContain(
+        `The server refused access to this link (HTTP ${status}).`
+      )
+
+      expect(result.developMessage).not.toContain("Couldn't download the ZIP")
+    },
+    120_000
+  )
+
   it('codes a fetch that outlives its timeout in develop', async () => {
     const run = await runCli(
       ['build', `${origin}/slow/extension.zip`, '--output', 'json'],
@@ -347,6 +384,7 @@ describe('a remote archive, read by create and by develop', () => {
     ['a damaged archive', () => `${origin}/damaged`, 'E_REMOTE_ZIP_INVALID'],
     ['a 404', () => `${origin}/missing`, 'E_REMOTE_DOWNLOAD'],
     ['a refused connection', () => refused, 'E_REMOTE_DOWNLOAD'],
+    ['a refused link', () => `${origin}/denied`, 'E_REMOTE_ACCESS_DENIED'],
     [
       'a fetch past its timeout',
       () => `${origin}/slow`,
@@ -436,6 +474,104 @@ describe('a remote archive, read by create and by develop', () => {
     expect(run.status, run.stdout + run.stderr).toBe(0)
     expect(onlyFrame(run)).toMatchObject({ok: true, command: 'preview'})
     expect(run.stderr).toContain('Downloading the browser extension')
+  }, 120_000)
+
+  it('preview unpacks a remote archive into the cache, not the current directory', async () => {
+    const cacheHome = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-cache-'))
+    homes.push(cacheHome)
+    const before = new Set(fs.readdirSync(work))
+    const url = `${origin}/token/cached/chrome.zip?t=good-token`
+    const args = ['preview', url, '--no-browser', '--output', 'json']
+
+    const first = await runCli(args, {env: {XDG_CACHE_HOME: cacheHome}})
+
+    expect(first.status, first.stdout + first.stderr).toBe(0)
+    expect(onlyFrame(first)).toMatchObject({ok: true, command: 'preview'})
+    expect(
+      [...fs.readdirSync(work)].filter((name) => !before.has(name))
+    ).toEqual([])
+
+    const previews = path.join(cacheHome, 'extension.js', 'previews')
+    const folders = fs.readdirSync(previews)
+    expect(folders).toHaveLength(1)
+    expect(folders[0]).toMatch(/^token-cached-chrome-[0-9a-f]{8}$/)
+    expect(first.stderr).toContain(path.join(previews, folders[0]))
+
+    const landed = path.join(previews, folders[0])
+    expect(fs.existsSync(path.join(landed, 'manifest.json'))).toBe(true)
+    expect(
+      fs.readFileSync(path.join(landed, '.extension-source.json'), 'utf-8')
+    ).not.toContain('good-token')
+
+    const hitsBefore = tokenHits.length
+    const second = await runCli(args, {env: {XDG_CACHE_HOME: cacheHome}})
+
+    expect(second.status, second.stdout + second.stderr).toBe(0)
+    expect(tokenHits.length).toBe(hitsBefore)
+    expect(second.stderr).toContain(
+      'Using the extension already downloaded here'
+    )
+  }, 120_000)
+
+  it('preview repairs a link the terminal wrapped and never shows its token', async () => {
+    const url = `${origin}/token/wrapped/chrome.zip?t=good- tok\ten`
+    const run = await runCli([
+      'preview',
+      url,
+      '--no-browser',
+      '--output',
+      'json'
+    ])
+
+    expect(run.status, run.stdout + run.stderr).toBe(0)
+    expect(onlyFrame(run)).toMatchObject({ok: true, command: 'preview'})
+    expect(run.stderr).toContain(
+      'The link had spaces inside it, so they were removed.'
+    )
+
+    expect(run.stderr).not.toContain('good-token')
+    expect(run.stderr).not.toContain('tok\ten')
+  }, 120_000)
+
+  it('preview unpacks a remote archive into --output-path and refuses a taken one', async () => {
+    const taken = path.join(work, 'taken')
+    fs.mkdirSync(taken, {recursive: true})
+    fs.writeFileSync(path.join(taken, 'keep-me.txt'), 'local work')
+
+    const chosen = await runCli([
+      'preview',
+      `${origin}/good/chosen.zip`,
+      '--output-path',
+      'chosen-copy',
+      '--no-browser',
+      '--output',
+      'json'
+    ])
+
+    expect(chosen.status, chosen.stdout + chosen.stderr).toBe(0)
+    expect(fs.existsSync(path.join(work, 'chosen-copy', 'manifest.json'))).toBe(
+      true
+    )
+
+    const refused = await runCli([
+      'preview',
+      `${origin}/good/taken.zip`,
+      '--output-path',
+      'taken',
+      '--no-browser',
+      '--output',
+      'json'
+    ])
+
+    expect(refused.status, refused.stdout + refused.stderr).toBe(1)
+    expect(refused.stderr).not.toMatch(STACK_FRAME)
+    expect(onlyFrame(refused)).toMatchObject({
+      ok: false,
+      command: 'preview',
+      error: {code: 'E_DESTINATION_NOT_EMPTY'}
+    })
+
+    expect(fs.readdirSync(taken)).toEqual(['keep-me.txt'])
   }, 120_000)
 
   it('dev of a remote archive writes only frames to stdout, started first', async () => {

@@ -252,7 +252,9 @@ export function devServerRestarting(request: {
           ? 'a manifest JSON entry'
           : request.reason === 'env'
             ? 'an environment file'
-            : 'a manifest script entry'
+            : request.reason === 'public'
+              ? 'a public folder'
+              : 'a manifest script entry'
   const lines = [
     `${getLoggingPrefix('info')} Restarting the dev server to pick up ${what} change…`
   ]
