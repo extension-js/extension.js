@@ -1,0 +1,77 @@
+name: CI – E2E content reload hunt
+
+on:
+  workflow_dispatch:
+    inputs:
+      rounds:
+        description: 'How many times to run the content-reload spec'
+        required: false
+        default: '6'
+
+permissions:
+  contents: read
+
+jobs:
+  hunt:
+    name: Loop the content-reload spec
+    timeout-minutes: 180
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/setup
+        with:
+          node-version: '22'
+
+      - name: Get Playwright version
+        id: pw-version
+        run: echo "version=$(npx playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ steps.pw-version.outputs.version }}-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            pw-${{ runner.os }}-${{ steps.pw-version.outputs.version }}-
+
+      - name: Compile Extension.js
+        run: pnpm compile
+
+      - name: Assert the compiled CLI answers
+        run: node programs/extension/bin/extension.cjs --version
+
+      - name: Hydrate templates from examples repo
+        run: bash scripts/hydrate-templates-from-examples.sh
+
+      - name: Install Playwright browsers
+        run: |
+          sudo apt-mark hold firefox
+          npx playwright install --with-deps chromium
+
+      # Retries stay off so every miss fails loudly with the capture the spec
+      # prints, and the loop keeps going so one job collects several.
+      - name: Run the content-reload spec in a loop (headed under Xvfb)
+        env:
+          PLAYWRIGHT_HEADLESS: '0'
+          EXTENSION_LOCAL_CLI_CJS: ${{ github.workspace }}/programs/extension/bin/extension.cjs
+          ROUNDS: ${{ github.event.inputs.rounds }}
+        run: |
+          mkdir -p hunt
+          for i in $(seq 1 "${ROUNDS:-6}"); do
+            echo "::group::round $i"
+            xvfb-run -a pnpm exec playwright test templates/template.content-reload.spec.ts \
+              --project=chromium --retries=0 --reporter=list \
+              > "hunt/round-$i.log" 2>&1 || true
+            grep -cE '^\s+✘' "hunt/round-$i.log" | sed "s/^/round $i misses: /"
+            echo "::endgroup::"
+          done
+          grep -lE '^\s+✘' hunt/*.log || echo "no miss in ${ROUNDS:-6} rounds"
+
+      - name: Upload the round logs
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: content-reload-hunt
+          path: hunt/
+          retention-days: 7
