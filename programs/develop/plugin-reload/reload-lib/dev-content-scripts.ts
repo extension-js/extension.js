@@ -417,16 +417,51 @@ export const DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE = `;(function () {
       } catch (x) { collect({}); }
     }
 
+    // The boot read can fail or land on a registry mid-write, and the file on
+    // disk can name an entry the loaded one does not. One re-read per need,
+    // shared by the callers waiting on it, and no re-sync of an unchanged file.
+    var refreshing = [];
+    function refresh(cb) {
+      refreshing.push(cb);
+      if (refreshing.length > 1) return;
+      var finish = function () {
+        var fns = refreshing;
+        refreshing = [];
+        for (var i = 0; i < fns.length; i++) call(fns[i]);
+      };
+      load(function (reg) {
+        if (!reg) return finish();
+        var same = false;
+        try { same = !!registry && JSON.stringify(reg) === JSON.stringify(registry); } catch (e) {
+          // Ignore
+        }
+        registry = reg;
+        if (same) return finish();
+        sync(reg, finish);
+      });
+    }
+
+    function entriesFor(name) {
+      var out = [];
+      if (!registry) return out;
+      for (var i = 0; i < registry.entries.length; i++) {
+        var e = registry.entries[i];
+        if (e && !e.static && e.entry === name) out.push(e);
+      }
+      return out;
+    }
+
     function onStub(msg, sender) {
       if (!msg || !isString(msg.entry) || !sender || !sender.tab || sender.tab.id == null) return;
       var tabId = sender.tab.id;
       var frameId = typeof sender.frameId === "number" ? sender.frameId : 0;
       onReady(function () {
-        if (!registry) return;
-        for (var i = 0; i < registry.entries.length; i++) {
-          var e = registry.entries[i];
-          if (e && !e.static && e.entry === msg.entry) inject(e, {tabId: tabId, frameIds: [frameId]}, false);
-        }
+        var serve = function () {
+          var entries = entriesFor(msg.entry);
+          for (var i = 0; i < entries.length; i++) inject(entries[i], {tabId: tabId, frameIds: [frameId]}, false);
+        };
+        if (entriesFor(msg.entry).length) return serve();
+        refresh(serve);
       });
     }
 
@@ -434,24 +469,29 @@ export const DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE = `;(function () {
     // and Chromium never injects into a tab that finished loading before it.
     function heal(done) {
       onReady(function () {
-        if (!registry) return call(done);
-        var pending = 1;
-        var step = function () { pending--; if (pending <= 0) call(done); };
-        for (var i = 0; i < registry.entries.length; i++) {
-          (function (e) {
-            if (!e || e.stubOnly || e.static) return;
-            pending++;
-            tabsFor(e, true, function (tabs) {
-              var left = tabs.length;
-              if (!left) return step();
-              for (var t = 0; t < tabs.length; t++) {
-                inject(e, {tabId: tabs[t].id, allFrames: !!e.allFrames}, true, function () { if (--left === 0) step(); });
-              }
-            });
-          })(registry.entries[i]);
-        }
-        step();
+        if (registry) return healEntries(done);
+        refresh(function () { healEntries(done); });
       });
+    }
+
+    function healEntries(done) {
+      if (!registry) return call(done);
+      var pending = 1;
+      var step = function () { pending--; if (pending <= 0) call(done); };
+      for (var i = 0; i < registry.entries.length; i++) {
+        (function (e) {
+          if (!e || e.stubOnly || e.static) return;
+          pending++;
+          tabsFor(e, true, function (tabs) {
+            var left = tabs.length;
+            if (!left) return step();
+            for (var t = 0; t < tabs.length; t++) {
+              inject(e, {tabId: tabs[t].id, allFrames: !!e.allFrames}, true, function () { if (--left === 0) step(); });
+            }
+          });
+        })(registry.entries[i]);
+      }
+      step();
     }
 
     // Reload every tab the given entries match, each once.
