@@ -642,6 +642,89 @@ describe('dev content scripts runtime', () => {
     })
   })
 
+  it('a stub signal that finds no registry re-reads the one on disk, registers it and serves the frame', async () => {
+    const opts: any = {}
+    const w = worker(opts)
+    await w.settle()
+    expect(w.calls.register).toEqual([])
+
+    opts.registry = registry
+    w.stub('content_scripts/content-0', 4)
+    await w.settle()
+    expect(w.calls.register.map((r: any) => r.id)).toEqual(['extjs-dev-cs-0'])
+    expect(fileInjections(w.calls).map((o: any) => o.target)).toEqual([
+      {tabId: 4, frameIds: [0]}
+    ])
+  })
+
+  it('a stub signal for an entry the loaded registry lacks picks it up from the file on disk', async () => {
+    const opts: any = {registry}
+    const w = worker(opts)
+    await w.settle()
+
+    opts.registry = {
+      ...registry,
+      entries: [
+        registry.entries[0],
+        {
+          ...registry.entries[0],
+          id: 'extjs-dev-cs-1',
+          entry: 'content_scripts/content-1',
+          js: ['content_scripts/content-1.NEW.js'],
+          css: []
+        }
+      ]
+    }
+
+    w.stub('content_scripts/content-1', 6)
+    await w.settle()
+    expect(w.calls.register.map((r: any) => r.id)).toEqual([
+      'extjs-dev-cs-0',
+      'extjs-dev-cs-1'
+    ])
+
+    expect(fileInjections(w.calls).map((o: any) => o.files)).toEqual([
+      ['content_scripts/content-1.NEW.js']
+    ])
+  })
+
+  it('a stub signal for an entry no registry names re-reads once and registers nothing more', async () => {
+    const w = worker({registry})
+    await w.settle()
+
+    w.stub('content_scripts/nope', 6)
+    w.stub('content_scripts/nope', 7)
+    await w.settle()
+    expect(w.calls.register).toHaveLength(1)
+    expect(w.calls.update).toEqual([])
+    expect(w.calls.execute).toEqual([])
+  })
+
+  it('a heal that finds no registry re-reads the one on disk before reaching the tabs', async () => {
+    const opts: any = {
+      tabs: [
+        {id: 1, url: 'https://a.test/one', status: 'complete'},
+        {id: 3, url: 'https://a.test/skip/me', status: 'complete'}
+      ],
+      excludedTabs: [{id: 3, url: 'https://a.test/skip/me'}]
+    }
+    const w = worker(opts)
+    await w.settle()
+
+    opts.registry = registry
+    let healed = false
+    w.hooks().heal(() => {
+      healed = true
+    })
+
+    await w.settle()
+    expect(healed).toBe(true)
+    expect(w.calls.register.map((r: any) => r.id)).toEqual(['extjs-dev-cs-0'])
+    expect(fileInjections(w.calls).map((o: any) => o.target)).toEqual([
+      {tabId: 1, frameIds: [0]}
+    ])
+  })
+
   it('heal reaches the complete tabs an entry matches, honors exclude_matches, and skips a frame already on the current file', async () => {
     const w = worker({
       registry,
