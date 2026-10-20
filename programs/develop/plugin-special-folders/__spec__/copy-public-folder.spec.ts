@@ -60,6 +60,7 @@ const createFakeCompiler = (
           emitAsset: () => {},
           fileDependencies: new Set<string>(),
           contextDependencies: new Set<string>(),
+          missingDependencies: new Set<string>(),
           compiler: {
             webpack: {WebpackError: class WebpackError extends Error {}}
           }
@@ -119,9 +120,7 @@ describe('SpecialFoldersPlugin (public copying and guards)', () => {
     )
   })
 
-  it('registers the copier when public/ is not there yet', async () => {
-    // A folder created mid-session is only copied if the copier was wired for
-    // it at startup, when the folder did not exist.
+  it('wires no copier when public/ is not there yet', async () => {
     ;(FS.existsSync as any).mockReturnValue(false)
 
     const compiler = createFakeCompiler('development', true)
@@ -129,15 +128,14 @@ describe('SpecialFoldersPlugin (public copying and guards)', () => {
       compiler as any
     )
 
-    expect(copyApply).toHaveBeenCalledTimes(1)
-    expect(toPosix(lastCopyOptions.patterns[0].from)).toBe('/project/public')
-    expect(lastCopyOptions.patterns[0].noErrorOnMissing).toBe(true)
+    expect(copyApply).not.toHaveBeenCalled()
   })
 
-  it('watches the parent so the folder appearing is a change', async () => {
+  it('watches the missing folder by its own path, never the project root', async () => {
     ;(FS.existsSync as any).mockReturnValue(false)
 
     let watched = new Set<string>()
+    let awaited = new Set<string>()
     const compiler = createFakeCompiler('development', true)
     const originalTap = compiler.hooks.thisCompilation.tap
     compiler.hooks.thisCompilation.tap = (
@@ -146,6 +144,7 @@ describe('SpecialFoldersPlugin (public copying and guards)', () => {
     ) =>
       originalTap(name, (compilation: any) => {
         watched = compilation.contextDependencies
+        awaited = compilation.missingDependencies
         callback(compilation)
       })
 
@@ -153,7 +152,8 @@ describe('SpecialFoldersPlugin (public copying and guards)', () => {
       compiler as any
     )
 
-    expect([...watched].map(toPosix)).toContain('/project')
+    expect([...watched].map(toPosix)).not.toContain('/project')
+    expect([...awaited].map(toPosix)).toContain('/project/public')
   })
 
   it('reads no folder at all when public is turned off', async () => {

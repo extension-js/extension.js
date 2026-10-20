@@ -72,16 +72,23 @@ export class WarnUponFolderChanges {
     }
   }
 
-  private getContextDependencyPaths(projectPath: string): string[] {
-    const dependencies = new Set<string>()
+  // A folder that exists is watched whole. One that does not is watched by
+  // its own path as a missing dependency, so creating it later still
+  // recompiles without the whole project root under watch: a screenshot or a
+  // demo page written anywhere in the project is not a reason to rebuild.
+  private getWatchedFolders(projectPath: string): {
+    present: string[]
+    missing: string[]
+  } {
+    const present = new Set<string>()
+    const missing = new Set<string>()
 
     for (const folderPath of Object.values(foldersRoots(projectPath))) {
-      // Watching a missing folder can trigger an empty startup invalidation.
-      // Fall back to the project root so later folder creation is detected.
-      dependencies.add(fs.existsSync(folderPath) ? folderPath : projectPath)
+      if (fs.existsSync(folderPath)) present.add(folderPath)
+      else missing.add(folderPath)
     }
 
-    return Array.from(dependencies)
+    return {present: Array.from(present), missing: Array.from(missing)}
   }
 
   private throwCompilationError(
@@ -236,10 +243,14 @@ export class WarnUponFolderChanges {
         const projectPath: string =
           (compiler.options.context as string) || process.cwd()
 
-        for (const dependencyPath of this.getContextDependencyPaths(
-          projectPath
-        )) {
-          compilation.contextDependencies?.add(dependencyPath)
+        const folders = this.getWatchedFolders(projectPath)
+
+        for (const folderPath of folders.present) {
+          compilation.contextDependencies?.add(folderPath)
+        }
+
+        for (const folderPath of folders.missing) {
+          compilation.missingDependencies?.add(folderPath)
         }
 
         this.applyPendingChanges(compilation)
