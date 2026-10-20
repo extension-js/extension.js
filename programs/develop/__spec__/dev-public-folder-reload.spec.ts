@@ -1,23 +1,19 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import {type Compiler, rspack, type Stats} from '@rspack/core'
 import {afterAll, describe, expect, it} from 'vitest'
-import {getProjectStructure} from '../lib/project'
 import {
-  buildSourceFeatureIndex,
-  classifyReloadFromSources,
-  createChangedSourcesTracker,
-  readContentScriptCount
-} from '../plugin-reload'
-import webpackConfig from '../rspack-config'
-import {devWatchOptions} from './helpers/dev-watch-options'
+  classifyFromSession,
+  type DevWatchSession,
+  errorsOf,
+  openDevWatchSession
+} from './helpers/dev-watch-session'
 
 // An edit under public/ ships at the dist root, so the watch session must
 // observe it and answer with a full extension reload, whichever of the two
 // public/ layouts the project uses. Real watch-mode compiles, no browser.
 const roots: string[] = []
-const sessions: Array<{close: () => Promise<void>}> = []
+const sessions: DevWatchSession[] = []
 
 afterAll(async () => {
   for (const session of sessions) await session.close()
@@ -84,113 +80,8 @@ function project(layout: Layout) {
   return {root, manifestDir, publicDir}
 }
 
-async function watchSession(root: string) {
-  const projectStructure = await getProjectStructure(root)
-  const distPath = path.join(root, 'dist', 'chrome')
-  const config = webpackConfig(projectStructure, {
-    browser: 'chrome',
-    mode: 'development',
-    metadataCommand: 'dev',
-    silent: true,
-    output: {clean: false, path: distPath}
-  } as any)
-  config.plugins = (config.plugins || []).filter(
-    (plugin) =>
-      plugin?.constructor.name !== 'plugin-browsers' &&
-      plugin?.constructor.name !== 'plugin-playwright'
-  )
-
-  config.stats = false
-  const compiler: Compiler = rspack(config)
-  const tracker = createChangedSourcesTracker(compiler)
-
-  // Every finished compile lands here; a test waits for the one after the
-  // count it last saw, so a startup invalidation never masquerades as the edit.
-  const dones: Stats[] = []
-  let lastDoneAt = 0
-  compiler.hooks.done.tap('spec-public-reload', (stats) => {
-    dones.push(stats)
-    lastDoneAt = Date.now()
-  })
-
-  const doneAfter = (seen: number, timeoutMs = 15000) =>
-    new Promise<Stats>((resolve, reject) => {
-      const startedAt = Date.now()
-
-      const poll = () => {
-        if (dones.length > seen) return resolve(dones[seen])
-
-        if (Date.now() - startedAt > timeoutMs) {
-          return reject(new Error('no rebuild observed within 15s'))
-        }
-
-        setTimeout(poll, 25)
-      }
-
-      poll()
-    })
-  // Quiet for a full second: the watcher has finished any startup churn.
-  const settle = () =>
-    new Promise<number>((resolve) => {
-      const poll = () => {
-        if (dones.length > 0 && Date.now() - lastDoneAt > 1000) {
-          return resolve(dones.length)
-        }
-
-        setTimeout(poll, 50)
-      }
-
-      poll()
-    })
-
-  const watching = compiler.watch(
-    devWatchOptions(compiler, {aggregateTimeout: 50}),
-    () => {}
-  )
-  const session = {
-    compiler,
-    tracker,
-    distPath,
-    doneAfter,
-    settle,
-    close: () =>
-      new Promise<void>((resolve) => {
-        watching.close(() => resolve())
-      })
-  }
-  sessions.push(session)
-
-  return session
-}
-
-// The same classification the launched and --no-browser paths perform.
-function classify(
-  session: Awaited<ReturnType<typeof watchSession>>,
-  stats: Stats
-) {
-  const compilation = stats.compilation
-  const outputPath = String(compilation.options?.output?.path || '')
-  const contextDir = String(compilation.options?.context || '')
-  const {forcedFull, changedSources} = session.tracker.snapshot()
-
-  return classifyReloadFromSources({
-    changedSources,
-    forcedFull,
-    getContentScriptCount: () =>
-      readContentScriptCount(compilation, outputPath),
-    getSourceFeatureIndex: () =>
-      buildSourceFeatureIndex(compilation, contextDir),
-    outputPath
-  })
-}
-
-const errorsOf = (stats: Stats) =>
-  Array.from(stats.compilation.errors || []).map((error) =>
-    String((error as Error)?.message || error)
-  )
-
 async function editAndClassify(
-  session: Awaited<ReturnType<typeof watchSession>>,
+  session: DevWatchSession,
   file: string,
   from: string,
   to: string
@@ -200,7 +91,7 @@ async function editAndClassify(
   const stats = await session.doneAfter(seen)
   expect(errorsOf(stats)).toEqual([])
 
-  return classify(session, stats)
+  return classifyFromSession(session, stats)
 }
 
 describe.each<Layout>([
@@ -209,7 +100,8 @@ describe.each<Layout>([
 ])('public/ edits under extension dev (%s layout)', (layout) => {
   it('a file only the copier ships is observed, classified as a full reload, and re-shipped', async () => {
     const files = project(layout)
-    const session = await watchSession(files.root)
+    const session = await openDevWatchSession(files.root)
+    sessions.push(session)
     const source = path.join(files.publicDir, 'data.json')
     const rel = path.relative(files.root, source).replace(/\\/g, '/')
 
@@ -233,7 +125,8 @@ describe.each<Layout>([
     fs.mkdirSync(path.dirname(before), {recursive: true})
     fs.writeFileSync(deleted, 'stale-public-token:deleted')
     fs.writeFileSync(before, 'stale-public-token:renamed')
-    const session = await watchSession(files.root)
+    const session = await openDevWatchSession(files.root)
+    sessions.push(session)
     const inDist = (...segments: string[]) =>
       path.join(session.distPath, ...segments)
 
@@ -264,7 +157,8 @@ describe.each<Layout>([
 describe('public/ edits under extension dev (manifest-named ruleset)', () => {
   it('a DNR ruleset edit is classified as a full reload and re-shipped', async () => {
     const files = project('root')
-    const session = await watchSession(files.root)
+    const session = await openDevWatchSession(files.root)
+    sessions.push(session)
     const source = path.join(files.publicDir, 'rules.json')
 
     const first = await session.doneAfter(0)

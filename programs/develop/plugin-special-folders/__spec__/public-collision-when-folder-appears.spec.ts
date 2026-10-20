@@ -49,6 +49,7 @@ type Compilation = {
   errors: Error[]
   warnings: Error[]
   contextDependencies: Set<string>
+  missingDependencies: Set<string>
   fileDependencies: Set<string>
   hooks: {
     processAssets: {
@@ -63,6 +64,7 @@ function createCompilation(errors: Error[]): Compilation {
     errors,
     warnings: [],
     contextDependencies: new Set<string>(),
+    missingDependencies: new Set<string>(),
     fileDependencies: new Set<string>(),
     hooks: {
       processAssets: {

@@ -522,10 +522,10 @@ export default function webpackConfig(
         ...(transpilePackageDirs.length > 0 ? [] : ['**/node_modules/**']),
         `${toPosixPath(primaryExtensionOutputDir)}/**`,
         `${toPosixPath(path.join(packageJsonDir, 'dist'))}/**`,
-        // The project root is a context dependency whenever a special folder is
-        // missing, and these two folders get written under it by the session.
-        // Named without a globstar so the folder itself is ignored too: a file
-        // created right under it changes the folder, which `/**` lets through.
+        // These two folders get written by the session itself, under a root a
+        // special folder setting can point at. Named without a globstar so the
+        // folder itself is ignored too: a file created right under it changes
+        // the folder, which `/**` lets through.
         toPosixPath(path.join(packageJsonDir, 'dist')),
         toPosixPath(sessionStateDir(packageJsonDir)),
         '**/extension-js/profiles/**'

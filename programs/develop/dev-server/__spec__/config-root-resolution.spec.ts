@@ -145,7 +145,7 @@ describe('dev-server config root resolution', () => {
     ).toBe(false)
   })
 
-  it('watches public/** and HTML sources for non-framework projects', async () => {
+  it('watches public/** and no project-wide html glob for non-framework projects', async () => {
     await devServer(
       {
         manifestPath: '/proj/src/manifest.json',
@@ -159,7 +159,7 @@ describe('dev-server config root resolution', () => {
     const norm = (p: string) => p.replace(/\\/g, '/')
     const paths = (watchFiles.paths as string[]).map(norm)
     expect(paths.some((p) => p.includes('/public/'))).toBe(true)
-    expect(paths.some((p) => p.endsWith('/**/*.html'))).toBe(true)
+    expect(paths.some((p) => p.endsWith('/**/*.html'))).toBe(false)
     const ignored = (watchFiles.options.ignored as string[]).map(norm)
     expect(ignored).toContain('/proj/dist/**/*')
   })

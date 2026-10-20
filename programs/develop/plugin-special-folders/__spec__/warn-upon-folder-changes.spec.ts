@@ -67,6 +67,7 @@ const runCycle = (
     warnings: any[]
     errors: any[]
     contextDependencies: Set<string>
+    missingDependencies: Set<string>
   }
 ) => {
   ;(compiler.hooks.watchRun as any).__invokeAll()
@@ -77,11 +78,19 @@ let compilation: {
   warnings: any[]
   errors: any[]
   contextDependencies: Set<string>
+  missingDependencies: Set<string>
 }
 const tempDirs = new Set<string>()
+const toPosix = (value: string) => value.split(path.sep).join('/')
 
 beforeEach(() => {
-  compilation = {warnings: [], errors: [], contextDependencies: new Set()}
+  compilation = {
+    warnings: [],
+    errors: [],
+    contextDependencies: new Set(),
+    missingDependencies: new Set()
+  }
+
   vi.clearAllMocks()
 })
 
@@ -233,17 +242,19 @@ describe('WarnUponFolderChanges', () => {
     expect(compilation.warnings.length).toBe(0)
   })
 
-  it('falls back to the project root when special folders are missing', () => {
+  it('watches a missing special folder by its own path, never the project root', () => {
     const {compiler, projectRoot} = createFakeCompiler()
     tempDirs.add(projectRoot)
 
     new WarnUponFolderChanges().apply(compiler as any)
     runCycle(compiler, compilation)
 
-    const deps = Array.from(compilation.contextDependencies).map((p) =>
-      String(p).replace(/\\/g, '/')
-    )
-    expect(deps).toEqual([projectRoot.replace(/\\/g, '/')])
+    expect(Array.from(compilation.contextDependencies)).toEqual([])
+    const missing = Array.from(compilation.missingDependencies).map(toPosix)
+    expect(missing).toEqual([
+      toPosix(path.join(projectRoot, 'pages')),
+      toPosix(path.join(projectRoot, 'scripts'))
+    ])
   })
 
   it('restarts a live session on an addition but still refuses a removal', async () => {
@@ -292,8 +303,6 @@ describe('WarnUponFolderChanges', () => {
     return handler
   }
 
-  const toPosix = (value: string) => value.split(path.sep).join('/')
-
   it('restarts for a relocated scripts folder exactly as for the canonical one', async () => {
     const handler = bindRestartHandler()
 
@@ -306,7 +315,12 @@ describe('WarnUponFolderChanges', () => {
       rememberSpecialFoldersConfig(projectRoot, folders)
       fs.mkdirSync(path.join(projectRoot, scriptsDir), {recursive: true})
       new WarnUponFolderChanges().apply(compiler as any)
-      compilation = {warnings: [], errors: [], contextDependencies: new Set()}
+      compilation = {
+        warnings: [],
+        errors: [],
+        contextDependencies: new Set(),
+        missingDependencies: new Set()
+      }
 
       const fresh = path.join(projectRoot, scriptsDir, 'fresh.ts')
       compiler.modifiedFiles = new Set([fresh])

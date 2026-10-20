@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, type Compiler, rspack} from '@rspack/core'
+import {requestDevSessionRestart} from '../dev-server/session-restart'
 import {debugLine, isDebug} from '../lib/messaging'
 import {localeDirsWithoutMessages} from '../plugin-web-extension/feature-locales/get-locales'
 import type {SpecialFoldersConfig} from '../types'
@@ -115,7 +116,11 @@ export class SpecialFoldersPlugin {
     // under `public: false` would be blamed for a clash between two generated
     // entries.
     if (readsPublicFolder) {
-      const watching = Boolean(compiler.options.watchOptions)
+      // The copier only takes a folder that exists: pointed at one that does
+      // not, it watches the whole project root instead, and a screenshot or
+      // a demo page written anywhere in the project rebuilt and reloaded.
+      const copierWired = fs.existsSync(publicDir)
+      let pickupRequested = false
 
       // Guard against dangerous files in public/ that would overwrite generated assets
       compiler.hooks.thisCompilation.tap(
@@ -123,15 +128,34 @@ export class SpecialFoldersPlugin {
         (compilation: Compilation) => {
           // A file only the copier ships (a DNR ruleset, a fetched data file)
           // has no module or manifest reference to watch it, so watch the folder.
-          // A folder that is not there yet is watched through its parent, so
-          // creating it mid-session is a change the next compile acts on.
-          const folderToWatch = fs.existsSync(publicDir)
-            ? publicDir
-            : watching
-              ? path.dirname(publicDir)
-              : undefined
+          // A folder that is not there yet is watched by its own path as a
+          // missing dependency, so its creation is the next compile's trigger.
+          if (fs.existsSync(publicDir)) {
+            compilation.contextDependencies?.add(publicDir)
+          } else {
+            compilation.missingDependencies?.add(publicDir)
+          }
 
-          if (folderToWatch) compilation.contextDependencies?.add(folderToWatch)
+          // A folder that appeared mid-session needs the copier the session
+          // started without, so the session restarts the way it does for a new
+          // page or script entry.
+          if (!copierWired && !pickupRequested && fs.existsSync(publicDir)) {
+            pickupRequested = true
+
+            if (
+              !requestDevSessionRestart(compiler, {
+                reason: 'public',
+                pathAfter: publicDir
+              })
+            ) {
+              pushLayoutWarning(
+                compiler,
+                compilation,
+                'PublicFolderAppearedWarning',
+                messages.publicFolderAppeared(publicDir, context)
+              )
+            }
+          }
 
           compilation.hooks.processAssets.tap(
             {
@@ -182,18 +206,22 @@ export class SpecialFoldersPlugin {
         )
       ]
 
-      new rspack.CopyRspackPlugin({
-        patterns: [
-          {
-            from: publicDir,
-            to: '.',
-            noErrorOnMissing: true,
-            globOptions: {
-              ignore: copyIgnore
+      if (copierWired) {
+        new rspack.CopyRspackPlugin({
+          patterns: [
+            {
+              from: publicDir,
+              to: '.',
+              noErrorOnMissing: true,
+              globOptions: {
+                ignore: copyIgnore
+              }
             }
-          }
-        ]
-      }).apply(compiler)
+          ]
+        }).apply(compiler)
+      }
+
+      const watching = Boolean(compiler.options.watchOptions)
 
       if (watching && compiler.options.mode === 'development') {
         new PruneRemovedPublicFiles(publicDir).apply(compiler)

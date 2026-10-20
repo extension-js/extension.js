@@ -12,6 +12,7 @@ export type DevSessionRestartReason =
   | 'icons'
   | 'json'
   | 'env'
+  | 'public'
 
 export interface DevSessionRestartRequest {
   reason: DevSessionRestartReason
