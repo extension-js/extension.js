@@ -4,9 +4,23 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {
+  checkIgnoreSource,
   ensureSessionArtifactsIgnoreFile,
   ensureSessionStateInProjectGitignore
 } from '../session-paths'
+
+const realpathMode = vi.hoisted(() => ({unexpanded: false}))
+
+vi.mock('node:fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs')>()
+  const realpathSync = ((target: fs.PathLike, options?: never) =>
+    realpathMode.unexpanded
+      ? String(target)
+      : actual.realpathSync(target, options)) as typeof actual.realpathSync
+  realpathSync.native = actual.realpathSync.native
+
+  return {...actual, realpathSync, default: {...actual, realpathSync}}
+})
 
 const created: string[] = []
 
@@ -80,6 +94,7 @@ describe('ensureSessionStateInProjectGitignore', () => {
 
     git('init')
     fs.writeFileSync(path.join(repoRoot, '.gitignore'), '.extension-js/\n')
+    git('add', '.gitignore')
 
     const projectPath = path.join(repoRoot, 'examples', 'content')
     fs.mkdirSync(projectPath, {recursive: true})
@@ -89,6 +104,88 @@ describe('ensureSessionStateInProjectGitignore', () => {
     ensureSessionStateInProjectGitignore(projectPath)
 
     expect(fs.readFileSync(gitignorePath, 'utf8')).toBe('dist\n')
+  })
+
+  describe('a rule a clone never sees still gets the line appended', () => {
+    const makeRepoProject = () => {
+      const repoRoot = fs.realpathSync(makeTempDir())
+      const git = (...args: string[]) =>
+        spawnSync('git', args, {cwd: repoRoot, stdio: 'ignore'})
+      git('init')
+      const projectPath = path.join(repoRoot, 'apps', 'ext')
+      fs.mkdirSync(projectPath, {recursive: true})
+      const gitignorePath = path.join(projectPath, '.gitignore')
+      fs.writeFileSync(gitignorePath, 'dist\n')
+
+      return {repoRoot, projectPath, gitignorePath, git}
+    }
+
+    it('appends when only .git/info/exclude names the path', () => {
+      const {repoRoot, projectPath, gitignorePath} = makeRepoProject()
+      fs.appendFileSync(
+        path.join(repoRoot, '.git', 'info', 'exclude'),
+        '\n.extension-js\n'
+      )
+
+      ensureSessionStateInProjectGitignore(projectPath)
+
+      expect(fs.readFileSync(gitignorePath, 'utf8').split('\n')).toContain(
+        '.extension-js'
+      )
+    })
+
+    it('appends when only a global excludes file names the path', () => {
+      const {projectPath, gitignorePath, git} = makeRepoProject()
+      const globalExcludes = path.join(makeTempDir(), 'global-ignore')
+      fs.writeFileSync(globalExcludes, '.extension-js/\n')
+      git('config', 'core.excludesFile', globalExcludes)
+
+      ensureSessionStateInProjectGitignore(projectPath)
+
+      expect(fs.readFileSync(gitignorePath, 'utf8').split('\n')).toContain(
+        '.extension-js'
+      )
+    })
+
+    it('appends when the covering root .gitignore is not tracked', () => {
+      const {repoRoot, projectPath, gitignorePath} = makeRepoProject()
+      fs.writeFileSync(path.join(repoRoot, '.gitignore'), '.extension-js/\n')
+
+      ensureSessionStateInProjectGitignore(projectPath)
+
+      expect(fs.readFileSync(gitignorePath, 'utf8').split('\n')).toContain(
+        '.extension-js'
+      )
+    })
+
+    it('still skips through a symlinked checkout of a tracked rule', () => {
+      const {repoRoot, gitignorePath, git} = makeRepoProject()
+      fs.writeFileSync(path.join(repoRoot, '.gitignore'), '.extension-js/\n')
+      git('add', '.gitignore')
+      const link = path.join(makeTempDir(), 'checkout')
+      fs.symlinkSync(repoRoot, link, 'junction')
+
+      ensureSessionStateInProjectGitignore(path.join(link, 'apps', 'ext'))
+
+      expect(fs.readFileSync(gitignorePath, 'utf8')).toBe('dist\n')
+    })
+
+    it('still skips when the project path is an unexpanded alias of the repo', () => {
+      const {repoRoot, gitignorePath, git} = makeRepoProject()
+      fs.writeFileSync(path.join(repoRoot, '.gitignore'), '.extension-js/\n')
+      git('add', '.gitignore')
+      const alias = path.join(makeTempDir(), 'RUNNER~1')
+      fs.symlinkSync(repoRoot, alias, 'junction')
+      realpathMode.unexpanded = true
+
+      try {
+        ensureSessionStateInProjectGitignore(path.join(alias, 'apps', 'ext'))
+      } finally {
+        realpathMode.unexpanded = false
+      }
+
+      expect(fs.readFileSync(gitignorePath, 'utf8')).toBe('dist\n')
+    })
   })
 
   it('never creates a .gitignore where none exists', () => {
@@ -164,5 +261,27 @@ describe('ensureSessionArtifactsIgnoreFile', () => {
     expect(fs.readFileSync(path.join(sessionRoot, '.gitignore'), 'utf8')).toBe(
       '*\n'
     )
+  })
+})
+
+describe('checkIgnoreSource', () => {
+  it('reads a relative source', () => {
+    expect(
+      checkIgnoreSource(
+        '.gitignore:1:.extension-js/\tapps/ext/.extension-js/\n'
+      )
+    ).toBe('.gitignore')
+  })
+
+  it('keeps the drive letter of an absolute Windows source', () => {
+    expect(
+      checkIgnoreSource(
+        'C:/Users/runneradmin/.config/git/ignore:3:.extension-js/\tapps/.extension-js/\n'
+      )
+    ).toBe('C:/Users/runneradmin/.config/git/ignore')
+  })
+
+  it('returns nothing for output it cannot read', () => {
+    expect(checkIgnoreSource('')).toBeUndefined()
   })
 })
