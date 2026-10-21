@@ -64,20 +64,14 @@ export class CssPlugin {
     await maybeUseLess(projectPath)
 
     const loaders: RuleSetRule[] = [
-      ...(await cssInContentScriptLoader(
-        projectPath,
-        manifestPath,
-        mode,
-        {useSass: usingSass, useLess: usingLess},
-        this.browser
-      )),
-      ...(await cssInHtmlLoader(
-        projectPath,
-        mode,
-        manifestPath,
-        {useSass: usingSass, useLess: usingLess},
-        this.browser
-      )),
+      ...(await cssInContentScriptLoader(projectPath, manifestPath, mode, {
+        useSass: usingSass,
+        useLess: usingLess
+      })),
+      ...(await cssInHtmlLoader(projectPath, mode, manifestPath, {
+        useSass: usingSass,
+        useLess: usingLess
+      })),
       // ?inline stylesheet imports (vue-loader emits them for *.ce.vue) must resolve
       // to the CSS string default export; this rule only flips the module type.
       {

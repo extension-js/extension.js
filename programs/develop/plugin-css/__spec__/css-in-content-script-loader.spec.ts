@@ -5,10 +5,6 @@ vi.mock('../common-style-loaders', () => ({
   commonStyleLoaders: vi.fn(async () => [{loader: 'mock-style-loader'}])
 }))
 
-vi.mock('../css-lib/is-content-script', () => ({
-  isContentScriptEntry: vi.fn((_issuer: string) => true)
-}))
-
 import {cssInContentScriptLoader} from '../css-in-content-script-loader'
 
 describe('cssInContentScriptLoader', () => {
@@ -48,7 +44,8 @@ describe('cssInContentScriptLoader', () => {
       // A ?raw import of a stylesheet is the file text, never a compiled sheet.
       expect(rule.resourceQuery).toEqual(NOT_RAW_RESOURCE_QUERY)
       expect(rule.resourceQuery.not[0].test('?raw')).toBe(true)
-      expect(typeof rule.issuer).toBe('function')
+      expect(rule.issuerLayer).toBe('extensionjs-content-script')
+      expect(String(rule.issuer)).toBe(String(/./))
       expect((rule.use as any[])?.length).toBeGreaterThan(0)
     }
   })
