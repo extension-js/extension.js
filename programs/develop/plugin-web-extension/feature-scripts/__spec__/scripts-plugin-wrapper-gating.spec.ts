@@ -89,4 +89,16 @@ describe('ScriptsPlugin content-script wrapper gating', () => {
 
     expect(AddContentScriptWrapper).toHaveBeenCalledTimes(1)
   })
+
+  it('hands the dev session flag to the wrapper', () => {
+    new ScriptsPlugin({
+      manifestPath: fixtureManifest,
+      browser: 'chromium',
+      devSession: false
+    } as any).apply(makeCompiler('development'))
+
+    expect(AddContentScriptWrapper).toHaveBeenCalledWith(
+      expect.objectContaining({devSession: false})
+    )
+  })
 })

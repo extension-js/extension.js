@@ -77,7 +77,8 @@ export class ScriptsPlugin {
     new AddContentScriptWrapper({
       manifestPath: this.manifestPath,
       includeList: this.includeList || {},
-      browser: this.browser
+      browser: this.browser,
+      devSession: this.devSession
     }).apply(compiler)
 
     if (compiler.options.mode === 'production') {
