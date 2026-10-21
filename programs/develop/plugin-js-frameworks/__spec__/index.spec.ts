@@ -241,6 +241,7 @@ describe('JsFrameworksPlugin', () => {
       vi.mocked(getUserTypeScriptConfigFile).mockReturnValue(
         '/project/tsconfig.json'
       )
+
       vi.mocked(getUserJsConfigFile).mockReturnValue(undefined)
     }
   })
