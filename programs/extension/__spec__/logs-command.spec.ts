@@ -26,6 +26,10 @@ vi.mock('../helpers/extension-develop-runtime', async () => ({
 }))
 
 import {LOG_CONTEXTS as BRIDGE_LOG_CONTEXTS} from '../../develop/dev-server/control-bridge/contracts'
+import {
+  LOG_LEVEL_FILTERS,
+  matchesLogQuery
+} from '../../develop/dev-server/control-bridge/log-rule'
 import {LOG_CONTEXTS, registerLogsCommand} from '../commands/logs'
 import {makeProgram, runCli, stubProcessExit} from './command-harness'
 
@@ -276,6 +280,41 @@ describe('extension logs (one-shot)', () => {
     const help = makeProgram(registerLogsCommand).commands[0].helpInformation()
     expect(help).toContain(BRIDGE_LOG_CONTEXTS.join(', '))
     expect(help).toContain('--level <off|error|warn|info|debug|trace|all>')
+  })
+
+  it('selects exactly what the published rule selects', async () => {
+    const queries = [
+      ...LOG_LEVEL_FILTERS.map((level) => ({level})),
+      {context: ' content , popup '},
+      {level: 'warn', context: 'content', url: '*example*'}
+    ]
+
+    for (const query of queries) {
+      logSpy.mockClear()
+      const argv = ['logs', dir, '--output', 'ndjson']
+      if (query.level) argv.push('--level', query.level)
+      if ('context' in query) argv.push('--context', String(query.context))
+      if ('url' in query) argv.push('--url', String(query.url))
+
+      expect(await run(argv)).toBe(0)
+
+      const expected = EVENTS.filter((event) =>
+        matchesLogQuery(event, query)
+      ).map((event) => (event as {seq?: number}).seq)
+      const printed = printedLines().map(
+        (line) => (JSON.parse(line) as {seq?: number}).seq
+      )
+
+      expect(printed).toEqual(expected)
+    }
+  })
+
+  it('lists the level names the bridge publishes', () => {
+    const help = makeProgram(registerLogsCommand)
+      .commands.find((command) => command.name() === 'logs')
+      ?.helpInformation()
+
+    expect(help).toContain(`<${LOG_LEVEL_FILTERS.join('|')}>`)
   })
 
   it('reports a gap sentinel on stderr under pretty output, with its count', async () => {
