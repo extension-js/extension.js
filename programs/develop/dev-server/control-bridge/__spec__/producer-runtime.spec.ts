@@ -3820,6 +3820,119 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     expect(external).toEqual([])
   })
 
+  it('reload broadcast (content-scripts): honors include_globs and exclude_globs and registers no globbed copy', async () => {
+    const executed: number[] = []
+    const registered: Array<{id: string}> = []
+    const diskManifest = {
+      content_scripts: [
+        {
+          matches: ['https://*/*'],
+          include_globs: ['https://x.test/keep*'],
+          exclude_globs: ['*skip*'],
+          js: ['content_scripts/content-0.NEWHASH.js']
+        },
+        {
+          matches: ['https://plain.test/*'],
+          js: ['content_scripts/content-1.NEWHASH.js']
+        }
+      ]
+    }
+    const tabs = [
+      {id: 1, url: 'https://x.test/keep-me', status: 'complete'},
+      {id: 2, url: 'https://x.test/keep-skip', status: 'complete'},
+      {id: 3, url: 'https://y.test/other', status: 'complete'},
+      {id: 4, url: 'https://x.test/k?ep', status: 'complete'}
+    ]
+    const ws = setup(
+      {
+        runtime: {
+          getURL: (p: string) => `chrome-extension://abc/${p}`,
+          sendMessage: () => {},
+          lastError: undefined
+        },
+        tabs: {
+          query: (q: {url?: string[]}, cb: (t: unknown[]) => void) => {
+            const urls = q.url || []
+            cb(urls.includes('https://plain.test/*') ? [] : tabs)
+          }
+        },
+        scripting: {
+          executeScript: (
+            opts: {target: {tabId: number}; files?: string[]},
+            cb?: () => void
+          ) => {
+            if (opts.files) executed.push(opts.target.tabId)
+
+            cb?.()
+          },
+          registerContentScripts: (
+            scripts: Array<{id: string}>,
+            cb?: () => void
+          ) => {
+            registered.push(...scripts)
+            cb?.()
+          },
+          getRegisteredContentScripts: (cb: (s: unknown[]) => void) => cb([]),
+          updateContentScripts: (_s: unknown, cb?: () => void) => cb?.()
+        }
+      },
+      {
+        fetch: (_url: string) =>
+          Promise.resolve({json: () => Promise.resolve(diskManifest)})
+      }
+    )
+
+    ws.triggerMessage({
+      type: 'reload',
+      reloadType: 'content-scripts',
+      label: 'content_script (src/content/scripts.ts)'
+    })
+
+    await waitFor(() => registered.length > 0, 'the plain entry to register')
+
+    expect(executed).toEqual([1])
+    expect(registered.map((script) => script.id)).toEqual(['extjs-dev-cs-1'])
+  })
+
+  it('inspect fits markup that grows under JSON escaping inside the transport cap', async () => {
+    const html = '<p title="q">' + '"'.repeat(262_144) + '</p>'
+    const ws = setup({
+      scripting: {
+        executeScript: () =>
+          Promise.resolve([
+            {
+              result: {
+                url: 'https://x.test/',
+                title: 'X',
+                summary: {extensionRootCount: 0},
+                html: html.slice(0, 262_144),
+                htmlTruncated: true
+              }
+            }
+          ])
+      }
+    })
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'i-big',
+      op: 'inspect',
+      target: {context: 'content', tabId: 5},
+      args: {include: ['html']}
+    })
+
+    await Promise.resolve()
+    await Promise.resolve()
+    const r = results(ws).find((f) => f.cmdId === 'i-big')
+
+    expect(r?.ok).toBe(true)
+    expect(r.value.__type).toBeUndefined()
+    expect(typeof r.value.html).toBe('string')
+    expect(r.value.html.length).toBeGreaterThan(0)
+    expect(r.value.htmlTruncated).toBe(true)
+    expect(html.startsWith(r.value.html)).toBe(true)
+    expect(JSON.stringify(r.value).length).toBeLessThanOrEqual(256 * 1024)
+  })
+
   it('inspect of a content tab extracts a DOM snapshot via chrome.scripting', async () => {
     const ws = setup({
       scripting: {

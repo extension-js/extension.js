@@ -130,6 +130,30 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       }
     }
 
+    // A page cap counts characters, the transport counts the escaped JSON, and
+    // markup grows under escaping. Shrink the html until the whole snapshot
+    // fits, so a capped inspect still returns html instead of a placeholder.
+    function fitSnapshot(snap) {
+      try {
+        if (!snap || typeof snap.html !== "string") return snap;
+        if (JSON.stringify(snap).length <= MAX_RESULT_BYTES) return snap;
+        var html = snap.html;
+        var cut = html.length;
+        for (var attempt = 0; attempt < 40 && cut > 0; attempt++) {
+          snap.html = html.slice(0, cut);
+          snap.htmlTruncated = true;
+          var size = JSON.stringify(snap).length;
+          if (size <= MAX_RESULT_BYTES) return snap;
+          cut = Math.floor(cut * (MAX_RESULT_BYTES / size) * 0.98);
+        }
+        snap.html = "";
+        snap.htmlTruncated = true;
+        return snap;
+      } catch (e) {
+        return snap;
+      }
+    }
+
     function replyOk(cmdId, value) {
       var s = safeValue(value);
       var frame = {type: "result", cmdId: cmdId, ok: true, value: s.value};
@@ -709,7 +733,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
               if (err) { replyInjectionErr(cmdId, err); return; }
               var snap = res && res[0] ? res[0].result : undefined;
               if (snap == null) { replyErr(cmdId, "TargetNotFound", "no injectable frame returned a snapshot for tab " + target.tabId + " (restricted page, or outside host_permissions)"); return; }
-              replyOk(cmdId, snap);
+              replyOk(cmdId, fitSnapshot(snap));
             });
           } else if (ctx === "popup" || ctx === "options" || ctx === "sidebar" || ctx === "devtools" || ctx === "newtab" || ctx === "history" || ctx === "bookmarks") {
             // The SW can't read a surface page's DOM; ask the surface's own
@@ -721,7 +745,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
                   if (relayErr) {
                     replyErr(cmdId, "Unsupported", relayErr.message, relayErr.code);
                   } else if (resp.ok) {
-                    replyOk(cmdId, resp.value);
+                    replyOk(cmdId, fitSnapshot(resp.value));
                   } else {
                     replyErr(cmdId, (resp.error && resp.error.name) || "InspectError", (resp.error && resp.error.message) || "inspect failed");
                   }
@@ -751,6 +775,42 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       return typeof url === "string" && /^(https?|file|ftp):/i.test(url);
     }
 
+    function stringList(value) {
+      return Array.isArray(value) ? value.filter(function (v) { return typeof v === "string"; }) : [];
+    }
+
+    // The manifest glob dialect: * is any run of characters, ? exactly one,
+    // and the pattern covers the whole url.
+    function globMatches(glob, text) {
+      var gi = 0, ti = 0, star = -1, mark = 0;
+      while (ti < text.length) {
+        if (gi < glob.length && (glob.charAt(gi) === "?" || glob.charAt(gi) === text.charAt(ti))) { gi++; ti++; }
+        else if (gi < glob.length && glob.charAt(gi) === "*") { star = gi++; mark = ti; }
+        else if (star !== -1) { gi = star + 1; ti = ++mark; }
+        else return false;
+      }
+      while (gi < glob.length && glob.charAt(gi) === "*") gi++;
+      return gi === glob.length;
+    }
+
+    // include_globs narrows matches and exclude_globs removes from them, the
+    // same way the browser decides where the built extension runs.
+    function passesGlobs(url, includeGlobs, excludeGlobs) {
+      var u = String(url || "");
+      var i;
+      if (includeGlobs.length) {
+        var included = false;
+        for (i = 0; i < includeGlobs.length; i++) {
+          if (globMatches(includeGlobs[i], u)) { included = true; break; }
+        }
+        if (!included) return false;
+      }
+      for (i = 0; i < excludeGlobs.length; i++) {
+        if (globMatches(excludeGlobs[i], u)) return false;
+      }
+      return true;
+    }
+
     // Re-inject one declared entry's fresh files into every matching open tab.
     // exclude_matches MUST be honored: query the excludes and subtract them.
     // opts.completeOnly skips a tab still loading: Chrome injects the static
@@ -761,6 +821,8 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       var matches = (entry && entry.matches) || [];
       if (!Array.isArray(matches) || !matches.length) return;
       var excludeMatches = (entry && entry.exclude_matches) || [];
+      var includeGlobs = stringList(entry && entry.include_globs);
+      var excludeGlobs = stringList(entry && entry.exclude_globs);
       var jsFiles = ((entry && entry.js) || []).filter(function (f) { return typeof f === "string"; });
       var cssFiles = ((entry && entry.css) || []).filter(function (f) { return typeof f === "string"; });
       if (!jsFiles.length && !cssFiles.length) return;
@@ -778,6 +840,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
               (function (tab) {
                 if (!tab || tab.id == null || !isInjectableUrl(tab.url)) return;
                 if (excludedTabIds[tab.id]) return;
+                if (!passesGlobs(tab.url, includeGlobs, excludeGlobs)) return;
                 if (completeOnly && tab.status === "loading") return;
                 var target = {tabId: tab.id, allFrames: allFrames};
                 if (cssFiles.length && chrome.scripting.insertCSS) {
@@ -870,6 +933,9 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       for (var i = 0; i < entries.length; i++) {
         var e = entries[i] || {};
         if (!Array.isArray(e.matches) || !e.matches.length) continue;
+        // registerContentScripts has no glob keys, so a copy of a globbed
+        // entry would run on pages the built extension never reaches.
+        if (stringList(e.include_globs).length || stringList(e.exclude_globs).length) continue;
         var js = (e.js || []).filter(function (f) { return typeof f === "string"; });
         var css = (e.css || []).filter(function (f) { return typeof f === "string"; });
         if (!js.length && !css.length) continue;

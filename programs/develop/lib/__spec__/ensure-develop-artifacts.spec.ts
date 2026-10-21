@@ -115,6 +115,48 @@ describe('ensureUserProjectDependencies', () => {
     }
   })
 
+  it.each([
+    ['npm', 'package-lock.json'],
+    ['yarn', 'yarn.lock']
+  ])('installs a %s workspace member from the workspace root', async (manager, lockfile) => {
+    const root = fs.realpathSync(
+      fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-eda-pkgws-'))
+    )
+
+    try {
+      fs.mkdirSync(path.join(root, '.git'))
+      fs.writeFileSync(
+        path.join(root, 'package.json'),
+        JSON.stringify({name: 'root', workspaces: ['apps/*']})
+      )
+
+      fs.writeFileSync(path.join(root, lockfile), '')
+
+      const member = path.join(root, 'apps', 'ext')
+      fs.mkdirSync(member, {recursive: true})
+      fs.writeFileSync(
+        path.join(member, 'package.json'),
+        JSON.stringify({name: 'ext', dependencies: {vue: '^3.0.0'}})
+      )
+
+      resolvePackageManager.mockReturnValue({name: manager})
+      execInstallCommand.mockResolvedValueOnce(undefined)
+
+      await ensureUserProjectDependencies(member as any)
+
+      expect(resolvePackageManager).toHaveBeenCalledWith({cwd: root})
+      const [, args, options] = execInstallCommand.mock.calls[0]
+      expect(args).not.toContain('--ignore-workspace')
+      expect(options.cwd).toBe(root)
+      const warned = (console.warn as any).mock.calls
+        .map((call: any[]) => String(call[0]))
+        .join('\n')
+      expect(warned).toContain(`${manager} workspace member`)
+    } finally {
+      fs.rmSync(root, {recursive: true, force: true})
+    }
+  })
+
   it('suppresses lifecycle scripts by default: auto-install must not run wild postinstall', async () => {
     resolvePackageManager.mockReturnValue({name: 'npm'})
     execInstallCommand.mockResolvedValueOnce(undefined)

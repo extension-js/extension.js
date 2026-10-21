@@ -15,11 +15,12 @@ import {isDebug, isMachineOutput} from './messaging'
 import {
   buildInstallCommand,
   execInstallCommand,
-  findPnpmWorkspaceMember,
+  findWorkspaceMember,
   installScriptSuppression,
   projectInstallTarget,
   resolveNpmPackageManager,
-  resolvePackageManager
+  resolvePackageManager,
+  workspaceManagerOverride
 } from './package-manager'
 import {type AbsolutePath, needsInstall} from './paths'
 
@@ -32,11 +33,13 @@ function projectInstallStdio(): StdioOptions {
 export async function ensureUserProjectDependencies(
   packageJsonDir: AbsolutePath
 ) {
-  const member = findPnpmWorkspaceMember(packageJsonDir)
+  const member = findWorkspaceMember(packageJsonDir)
   if (!needsInstall(packageJsonDir, member?.root)) return
 
   // A member's lockfile lives at its workspace root, so the manager is read there.
-  const pm = resolvePackageManager({cwd: member?.root ?? packageJsonDir})
+  const pm =
+    (member && workspaceManagerOverride(member)) ||
+    resolvePackageManager({cwd: member?.root ?? packageJsonDir})
   const suppression = installScriptSuppression(pm)
   const target = projectInstallTarget(pm, packageJsonDir, member)
   const cmd = buildInstallCommand(pm, [
@@ -50,7 +53,7 @@ export async function ensureUserProjectDependencies(
   }
 
   if (target.cwd !== packageJsonDir) {
-    console.warn(messages.projectInstallInWorkspaceRoot(target.cwd))
+    console.warn(messages.projectInstallInWorkspaceRoot(target.cwd, pm.name))
   }
 
   try {
