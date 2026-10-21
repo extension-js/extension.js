@@ -94,6 +94,7 @@ export type ReadyMetadata = {
   // The id the browser serves the dist under: browser-confirmed when the
   // launcher stamped it, otherwise derived the way the browser derives it.
   extensionId?: string
+  extensionIdSource?: ExtensionIdSource
   // Stamped by the browser launcher when the browser exits mid-session
   // without the dev server asking it to; preserved across recompiles.
   browserExitedAt?: string
@@ -323,21 +324,33 @@ function deriveDistExtensionId(
   }
 }
 
-// Backfill only: a browser-confirmed or earlier stamp always outranks a
-// late derivation, so an existing id is never overwritten here.
-function stampReadyExtensionIdIfAbsent(
+// Where the published id came from. Only a derived id is ever recomputed: the
+// browser's own answer and the packager's bundle id describe what really runs.
+export type ExtensionIdSource = 'browser' | 'derived' | 'packager'
+
+function stampReadyExtensionIdFrom(
   packageJsonDir: string,
   browser: string,
-  extensionId: string
+  extensionId: string,
+  source: Exclude<ExtensionIdSource, 'browser'>
 ): void {
   try {
     const readyPath = readyContractPath(packageJsonDir, browser)
     if (!fs.existsSync(readyPath)) return
 
     const prev = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
-    if (typeof prev.extensionId === 'string' && prev.extensionId) return
+    const prevIsAnswer =
+      prev.extensionIdSource === 'browser' ||
+      prev.extensionIdSource === 'packager'
+
+    if (prev.extensionId && prevIsAnswer) return
+
+    if (prev.extensionId === extensionId && prev.extensionIdSource === source) {
+      return
+    }
 
     prev.extensionId = extensionId
+    prev.extensionIdSource = source
     prev.ts = nowISO()
     writeJsonAtomic(readyPath, prev)
   } catch {
@@ -346,8 +359,8 @@ function stampReadyExtensionIdIfAbsent(
 }
 
 // One-shot builds stamp ready.json at compile done, before the staging dist
-// is promoted, so a first build finds no manifest at distPath yet. The build
-// command calls this after the promote to backfill the derived id only.
+// is promoted, so the id read then comes from the previous build or from no
+// dist at all. The build command calls this after the promote to correct it.
 export function stampReadyDistExtensionId(
   packageJsonDir: string,
   browser: string,
@@ -356,7 +369,7 @@ export function stampReadyDistExtensionId(
   const derived = deriveDistExtensionId(browser, distPath)
   if (!derived) return
 
-  stampReadyExtensionIdIfAbsent(packageJsonDir, browser, derived)
+  stampReadyExtensionIdFrom(packageJsonDir, browser, derived, 'derived')
 }
 
 // Safari's identity cannot be derived from the dist: the packager resolves
@@ -368,7 +381,7 @@ export function stampReadyKnownExtensionId(
 ): void {
   if (!extensionId) return
 
-  stampReadyExtensionIdIfAbsent(packageJsonDir, browser, extensionId)
+  stampReadyExtensionIdFrom(packageJsonDir, browser, extensionId, 'packager')
 }
 
 // Candidates in preference order. The loaded directory describes the run, so a
@@ -663,7 +676,11 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       options.browser,
       options.distPath
     )
-    if (derivedExtensionId) payload.extensionId = derivedExtensionId
+
+    if (derivedExtensionId) {
+      payload.extensionId = derivedExtensionId
+      payload.extensionIdSource = 'derived'
+    }
 
     // Preserve fields the launcher wrote post-launch (cdpPort, browser exit
     // evidence): a recompile must not clobber them.
@@ -737,10 +754,16 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
           prev.binaryProvenance
       }
 
-      // The launcher's stamp may carry the browser-confirmed id, which
-      // outranks the derived one, so the previous value wins on recompile.
-      if (typeof prev.extensionId === 'string' && prev.extensionId) {
+      // A browser-confirmed id outranks the derivation, so it survives a
+      // recompile. A derived one is recomputed, since the key may have moved.
+      if (
+        typeof prev.extensionId === 'string' &&
+        prev.extensionId &&
+        (prev.extensionIdSource === 'browser' ||
+          prev.extensionIdSource === 'packager')
+      ) {
         payload.extensionId = prev.extensionId
+        payload.extensionIdSource = prev.extensionIdSource
       }
 
       if (typeof prev.browserExitedAt === 'string') {
