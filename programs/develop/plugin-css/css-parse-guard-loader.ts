@@ -11,6 +11,7 @@ import postcss from 'postcss'
 import * as messages from './css-lib/messages'
 import {
   registerVerbatimCss,
+  verbatimCssModulePlaceholder,
   verbatimCssPlaceholder
 } from './css-lib/verbatim-css'
 
@@ -62,9 +63,17 @@ export function pitch(this: CssParseGuardLoaderContext): void {
         const moduleType = String(this._module?.type || '')
 
         if (moduleType.startsWith('css')) {
+          const id = registerVerbatimCss(raw, this.resourcePath)
+          const isCssModule =
+            moduleType === 'css/module' ||
+            (moduleType === 'css/auto' &&
+              /\.module\.css$/i.test(this.resourcePath))
+
           callback(
             null,
-            verbatimCssPlaceholder(registerVerbatimCss(raw, this.resourcePath))
+            isCssModule
+              ? verbatimCssModulePlaceholder(id, raw)
+              : verbatimCssPlaceholder(id)
           )
 
           return
