@@ -111,21 +111,56 @@ export function ensureSessionArtifactsIgnoreFile(projectPath: string): void {
 }
 
 // A monorepo ignores .extension-js/ once at its root, so appending per project
-// dirtied every example in the tree for a rule that already applied. Ask git,
-// which is the only thing that reads the whole ignore chain. Exit 0 means
-// ignored; anything else (not a repository, git missing) falls through to the
-// append that adopted projects need. Query the trailing-slash form: the
-// directory does not exist yet on a first run, so without it a directory-only
-// `.extension-js/` pattern reports not-ignored.
+// dirtied every example in the tree for a rule that already applied. Ask git
+// which rule ignores the directory, and skip the append only when that rule
+// lives in a .gitignore the repository tracks: .git/info/exclude, a global
+// excludes file or an untracked .gitignore never reach a clone. Query the
+// trailing-slash form, the directory may not exist yet on a first run.
+function runGit(args: string[], cwd: string) {
+  return spawnSync('git', args, {cwd, encoding: 'utf8', stdio: 'pipe'})
+}
+
 function isAlreadyIgnoredByGit(projectPath: string): boolean {
   try {
-    const result = spawnSync(
-      'git',
-      ['check-ignore', '-q', '--', '.extension-js/'],
-      {cwd: projectPath, stdio: 'ignore'}
+    const top = runGit(['rev-parse', '--show-toplevel'], projectPath)
+    if (top.status !== 0) return false
+
+    const repoRoot = fs.realpathSync(String(top.stdout).trim())
+    const projectFromRoot = path
+      .relative(repoRoot, fs.realpathSync(projectPath))
+      .split(path.sep)
+      .join('/')
+    const target = projectFromRoot
+      ? `${projectFromRoot}/.extension-js/`
+      : '.extension-js/'
+
+    const match = runGit(['check-ignore', '-v', '--', target], repoRoot)
+    if (match.status !== 0) return false
+
+    const source = String(match.stdout).split(':')[0]
+    if (!source) return false
+
+    const sourcePath = path.resolve(repoRoot, source)
+    if (path.basename(sourcePath) !== '.gitignore') return false
+
+    let sourceFromRoot: string
+
+    try {
+      sourceFromRoot = path.relative(repoRoot, fs.realpathSync(sourcePath))
+    } catch {
+      return false
+    }
+
+    if (sourceFromRoot.startsWith('..') || path.isAbsolute(sourceFromRoot)) {
+      return false
+    }
+
+    const tracked = runGit(
+      ['ls-files', '--error-unmatch', '--', sourceFromRoot],
+      repoRoot
     )
 
-    return result.status === 0
+    return tracked.status === 0
   } catch {
     return false
   }
