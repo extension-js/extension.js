@@ -9,7 +9,11 @@
 
 .test-output
 *.d.ts.map
-# *.d.ts
+programs/**/*.d.ts
+!programs/extension/types/*.d.ts
+!programs/extension/internal-types/*.d.ts
+!programs/develop/lib/extension-env-template.d.ts
+!programs/develop/plugin-reload/steps/setup-reload-strategy/webpack-target-webextension-fork/index.d.ts
 
 # dependencies
 node_modules
