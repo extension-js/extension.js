@@ -19,6 +19,7 @@ import {
 import {makeSanitizedConsole} from './lib/branding'
 import {codedError} from './lib/coded-error'
 import {isChromiumBasedBrowser} from './lib/constants'
+import {cssMinimizerOptions} from './lib/css-minimizer-options'
 import {resolveDevelopInstallRoot} from './lib/develop-context'
 import {computeExtensionsToLoad} from './lib/extensions-to-load'
 import {filterKeysForThisBrowser} from './lib/manifest-utils'
@@ -682,7 +683,10 @@ export default function webpackConfig(
       // imports. Production keeps every rule development keeps, so it must not.
       minimizer: [
         new SwcJsMinimizerRspackPlugin({extractComments: true}),
-        new LightningCssMinimizerRspackPlugin({removeUnusedLocalIdents: false})
+        new LightningCssMinimizerRspackPlugin({
+          removeUnusedLocalIdents: false,
+          minimizerOptions: cssMinimizerOptions(rawManifest, devOptions.browser)
+        })
       ],
       sideEffects: true,
       usedExports: 'global',
