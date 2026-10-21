@@ -10,7 +10,7 @@ import fs from 'node:fs'
 import type {Command} from 'commander'
 import colors from 'pintor'
 import {emulatorSessionRefusal} from '../helpers/emulator-session'
-import {exitAfterDrain} from '../helpers/exit-after-drain'
+import {exitAfterDrain, exitWithFailure} from '../helpers/exit-after-drain'
 import {loadExtensionDevelopBridgeModule} from '../helpers/extension-develop-runtime'
 import {LOG_CONTEXTS} from '../helpers/log-contexts'
 import {commandDescriptions} from '../helpers/messages'
@@ -412,7 +412,7 @@ export function registerLogsCommand(program: Command) {
           )
         }
 
-        process.exit(1)
+        exitWithFailure(CODES.E_FLAG_VALUE_INVALID)
       }
 
       if (
@@ -467,7 +467,7 @@ export function registerLogsCommand(program: Command) {
           )
         }
 
-        process.exit(1)
+        exitWithFailure(CODES.E_COMMAND_UNSUPPORTED_FOR_TARGET)
       }
 
       const matches = makeFilter(options, since ?? null, tab.value, helpers)
@@ -520,7 +520,7 @@ export function registerLogsCommand(program: Command) {
           )
         }
 
-        process.exit(1)
+        exitWithFailure(CODES.E_LOGS_NOT_FOUND)
       }
 
       const lines = fs.readFileSync(file, 'utf-8').split('\n').filter(Boolean)
@@ -567,7 +567,7 @@ function refuseUsage(
     )
   }
 
-  process.exit(1)
+  exitWithFailure(CODES.E_INVALID_OPTION)
 }
 
 async function followLogs(
@@ -599,7 +599,7 @@ async function followLogs(
       )
     }
 
-    process.exit(1)
+    exitWithFailure(CODES.E_SESSION_NOT_FOUND)
   }
 
   // A follow outlives its channel in two ways that no reconnect can mend: the

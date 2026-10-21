@@ -101,7 +101,7 @@ function refsFromMessage(
   return undefined
 }
 
-function codeForCommanderError(code: string): ErrorCode {
+export function codeForCommanderError(code: string): ErrorCode {
   if (code === 'commander.unknownCommand') return CODES.E_UNKNOWN_COMMAND
   if (code === 'commander.unknownOption') return CODES.E_FLAG_NOT_SUPPORTED_HERE
 

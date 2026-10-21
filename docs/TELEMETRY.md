@@ -29,6 +29,10 @@ A failure adds two more properties so a failure count can be read as a cause rat
 value that is not a catalog name is dropped and the event reports `E_INTERNAL` instead, so
 no error text ever travels.
 
+`command` is always one of the CLI's registered command names. A word that is not one, such as
+a typo or a project folder, is reported as `unknown` with `code` `E_UNKNOWN_COMMAND`, and the
+word itself is never sent.
+
 ### Long-running commands
 
 `dev`, `start` and `preview` do not end on their own, they watch until you stop them. Counting
