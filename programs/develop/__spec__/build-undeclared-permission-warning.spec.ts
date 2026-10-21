@@ -73,6 +73,20 @@ describe('a production build and a permission the source leans on', () => {
     expect(warnings[0]).toContain('Add "tabs" to permissions')
   })
 
+  it('names what activeTab already grants instead of asking for tabs', async () => {
+    const summary = await build(project(['activeTab']))
+
+    expect(summary.errors_count).toBe(0)
+    const warnings = permissionWarnings(summary)
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0]).toContain('"activeTab" is declared')
+    expect(warnings[0]).toContain('captureVisibleTab')
+    expect(warnings[0]).not.toContain('Nothing grants it here')
+    expect(warnings[0]).not.toContain(
+      'Add "tabs" to permissions in manifest.json'
+    )
+  })
+
   it('stays quiet once tabs is declared', async () => {
     const summary = await build(project(['tabs']))
 
