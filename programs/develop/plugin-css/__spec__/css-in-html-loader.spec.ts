@@ -5,16 +5,12 @@ vi.mock('../common-style-loaders', () => ({
   commonStyleLoaders: vi.fn(async () => [{loader: 'mock-style-loader'}])
 }))
 
-vi.mock('../css-lib/is-content-script', () => ({
-  isContentScriptEntry: vi.fn((issuer: string) => issuer.includes('content'))
-}))
-
 import {cssInHtmlLoader} from '../css-in-html-loader'
 
 describe('cssInHtmlLoader', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it('returns css and css/module types and issuer excludes content scripts', async () => {
+  it('returns css and css/module types and the content-script layer is excluded', async () => {
     const projectPath = '/project'
     const mode = 'development' as const
     const manifestPath = '/project/manifest.json'
@@ -44,8 +40,14 @@ describe('cssInHtmlLoader', () => {
       // A ?raw import of a stylesheet is the file text, never a compiled sheet.
       expect(rule.resourceQuery).toEqual(NOT_RAW_RESOURCE_QUERY)
       expect(rule.resourceQuery.not[0].test('?raw')).toBe(true)
-      expect(typeof rule.issuer).toBe('function')
-      expect(rule.issuer('content.js')).toBe(false)
+      const pageRule =
+        JSON.stringify(rule.issuerLayer) ===
+          JSON.stringify({not: 'extensionjs-content-script'}) &&
+        rule.issuer === undefined
+      const declaredContentRule =
+        rule.issuerLayer === 'extensionjs-content-script' &&
+        String(rule.issuer?.not) === String(/./)
+      expect(pageRule || declaredContentRule).toBe(true)
       expect((rule.use as any[])?.length).toBeGreaterThan(0)
     }
   })

@@ -132,19 +132,18 @@ describe.each([
         mode: 'development',
         devtool: false,
         entry: {
-          'content/scripts': path.join(
-            fixtureDir,
-            'src',
-            'content',
-            'scripts.js'
-          )
+          'content/scripts': {
+            import: path.join(fixtureDir, 'src', 'content', 'scripts.js'),
+            layer: 'extensionjs-content-script'
+          }
         },
         output: {
           path: distDir,
           clean: true,
           filename: '[name].js'
         },
-        module: {rules: rules as any}
+        module: {rules: rules as any},
+        experiments: {layers: true}
       } as any)
       compiler.run((err, stats) => {
         if (err) return reject(err)
