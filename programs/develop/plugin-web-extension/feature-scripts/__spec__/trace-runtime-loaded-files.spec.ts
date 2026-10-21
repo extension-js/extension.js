@@ -460,3 +460,67 @@ describe('TraceRuntimeLoadedFiles relocated pages', () => {
     )
   })
 })
+
+describe('TraceRuntimeLoadedFiles importScripts choices', () => {
+  const classic = (name: string) => `var ${name} = true\n`
+
+  // importScripts resolves against the worker URL, background/service_worker.js.
+  it('ships the literal branches of a conditional importScripts argument', async () => {
+    const projectDir = createTempProject(
+      {
+        'background.js': '',
+        'shared/x.js': classic('X_READY'),
+        'shared/fallback.js': classic('FALLBACK_READY')
+      },
+      {background: {service_worker: 'background.js'}}
+    )
+    const {emitted} = await runTrace(projectDir, {
+      'background/service_worker.js':
+        'importScripts(base ? chrome.runtime.getURL(base + "/x.js") : "shared/x.js");\n' +
+        'importScripts(useFallback ? "shared/fallback.js" : "shared/x.js");'
+    })
+
+    expect(emitted.has('background/shared/x.js')).toBe(true)
+    expect(emitted.has('background/shared/fallback.js')).toBe(true)
+  })
+
+  it('ships the paths a worker lists and imports through a variable', async () => {
+    const projectDir = createTempProject(
+      {
+        'background.js': '',
+        'shared/y.js': classic('Y_READY'),
+        'shared/z.js': classic('Z_READY')
+      },
+      {background: {service_worker: 'background.js'}}
+    )
+    const {emitted, compilation} = await runTrace(projectDir, {
+      'background/service_worker.js':
+        'for (const [name, path] of [["Y", "shared/y.js"], ["Z", "shared/z.js"], ["Gone", "shared/gone.js"]]) {\n' +
+        '  importScripts(path)\n' +
+        '}'
+    })
+
+    expect(emitted.has('background/shared/y.js')).toBe(true)
+    expect(emitted.has('background/shared/z.js')).toBe(true)
+    expect(emitted.has('background/shared/gone.js')).toBe(false)
+    expect(compilation.warnings).toHaveLength(0)
+  })
+
+  it('ships a path held in a constant that importScripts reads', async () => {
+    const projectDir = createTempProject(
+      {
+        'background.js': '',
+        'shared/projection.js': classic('PROJECTION_READY')
+      },
+      {background: {service_worker: 'background.js'}}
+    )
+    const {emitted} = await runTrace(projectDir, {
+      'background/service_worker.js':
+        'const base = String(globalThis.BASE || "");\n' +
+        'const projectionPath = base ? `${base}/src/shared/projection.js` : "shared/projection.js";\n' +
+        'importScripts(base ? chrome.runtime.getURL(projectionPath) : projectionPath);'
+    })
+
+    expect(emitted.has('background/shared/projection.js')).toBe(true)
+  })
+})
