@@ -10,6 +10,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import rspack, {Compilation, type Compiler} from '@rspack/core'
 import {isCompilerRestarting} from '../../../dev-server/session-restart'
+import {renameSyncWithRetry} from '../../../lib/rename-with-retry'
 import {turnedOffPublicFolders} from '../../../plugin-special-folders/resolve-public-folder'
 import {isManifestAddress} from '../../shared/paths'
 import {getCurrentManifestContent} from '../manifest-lib/manifest'
@@ -212,7 +213,7 @@ function writeFileAtomically(targetPath: string, content: string) {
 
   try {
     fs.writeFileSync(tempPath, content, 'utf-8')
-    fs.renameSync(tempPath, targetPath)
+    renameSyncWithRetry(tempPath, targetPath)
   } finally {
     try {
       if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath)
