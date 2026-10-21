@@ -120,16 +120,30 @@ function runGit(args: string[], cwd: string) {
   return spawnSync('git', args, {cwd, encoding: 'utf8', stdio: 'pipe'})
 }
 
+function canonicalPath(filePath: string): string {
+  return (fs.realpathSync.native || fs.realpathSync)(filePath)
+}
+
+function toPosix(filePath: string): string {
+  return filePath.split(path.sep).join('/')
+}
+
+export function checkIgnoreSource(stdout: string): string | undefined {
+  const match = /^(.*?):\d+:[^\t]*\t/.exec(stdout)
+
+  return match?.[1] || undefined
+}
+
 function isAlreadyIgnoredByGit(projectPath: string): boolean {
   try {
     const top = runGit(['rev-parse', '--show-toplevel'], projectPath)
     if (top.status !== 0) return false
 
-    const repoRoot = fs.realpathSync(String(top.stdout).trim())
-    const projectFromRoot = path
-      .relative(repoRoot, fs.realpathSync(projectPath))
-      .split(path.sep)
-      .join('/')
+    const repoRoot = String(top.stdout).trim()
+    const canonicalRoot = canonicalPath(repoRoot)
+    const projectFromRoot = toPosix(
+      path.relative(canonicalRoot, canonicalPath(projectPath))
+    )
     const target = projectFromRoot
       ? `${projectFromRoot}/.extension-js/`
       : '.extension-js/'
@@ -137,7 +151,7 @@ function isAlreadyIgnoredByGit(projectPath: string): boolean {
     const match = runGit(['check-ignore', '-v', '--', target], repoRoot)
     if (match.status !== 0) return false
 
-    const source = String(match.stdout).split(':')[0]
+    const source = checkIgnoreSource(String(match.stdout))
     if (!source) return false
 
     const sourcePath = path.resolve(repoRoot, source)
@@ -146,7 +160,7 @@ function isAlreadyIgnoredByGit(projectPath: string): boolean {
     let sourceFromRoot: string
 
     try {
-      sourceFromRoot = path.relative(repoRoot, fs.realpathSync(sourcePath))
+      sourceFromRoot = path.relative(canonicalRoot, canonicalPath(sourcePath))
     } catch {
       return false
     }
@@ -156,7 +170,7 @@ function isAlreadyIgnoredByGit(projectPath: string): boolean {
     }
 
     const tracked = runGit(
-      ['ls-files', '--error-unmatch', '--', sourceFromRoot],
+      ['ls-files', '--error-unmatch', '--', toPosix(sourceFromRoot)],
       repoRoot
     )
 
