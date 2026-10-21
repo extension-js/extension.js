@@ -59,6 +59,9 @@ function hasTypeScriptSourceFiles(projectPath: string, depth = 0): boolean {
 
         const sub = path.join(projectPath, entry.name)
 
+        // A folder with its own package.json is another package's sources.
+        if (fs.existsSync(path.join(sub, 'package.json'))) return false
+
         return hasTypeScriptSourceFiles(sub, depth + 1)
       }
 
