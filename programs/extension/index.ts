@@ -26,6 +26,7 @@ import {registerTelemetryCommand} from './commands/telemetry'
 import checkUpdates from './helpers/check-updates'
 import {
   collectValuedLongFlags,
+  movePreCommandOutputArgv,
   resolveCommandFromArgv as resolveCommandFromArgvWithFlags,
   rewriteOutputAliasArgv,
   scanArgvValue
@@ -139,7 +140,7 @@ function applyOutputAliasArgvShim(argv: string[]): string[] {
   const {argv: next, rewritten} = rewriteOutputAliasArgv(argv, valuedLongFlags)
   if (rewritten) warnDeprecatedOutputAlias('--format')
 
-  return next
+  return movePreCommandOutputArgv(next, valuedLongFlags)
 }
 
 function applyNoBrowserArgvShim(argv: string[]): string[] {

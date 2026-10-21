@@ -33,6 +33,10 @@ no error text ever travels.
 a typo or a project folder, is reported as `unknown` with `code` `E_UNKNOWN_COMMAND`, and the
 word itself is never sent.
 
+A Node.js, Bun or Deno version below the supported floor stops the CLI before it loads. That
+run reports one `command_failed` with `code` `E_NODE_VERSION`, and only on a machine that
+already showed the first-run notice, because the notice is printed by the part that never loads.
+
 ### Long-running commands
 
 `dev`, `start` and `preview` do not end on their own, they watch until you stop them. Counting
