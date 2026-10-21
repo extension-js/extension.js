@@ -10,7 +10,7 @@ afterEach(async () => {
   for (const close of closers.splice(0).reverse()) await close()
 })
 
-function track(server: net.Server) {
+function track<T extends net.Server>(server: T): T {
   closers.push(
     () =>
       new Promise((resolve) => {
