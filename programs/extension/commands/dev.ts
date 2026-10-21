@@ -25,6 +25,7 @@ import {
 } from '../helpers/cli-options'
 import {getCliPackageJson} from '../helpers/cli-package-json'
 import {resolveConfigBrowser} from '../helpers/config-browser'
+import {exitWithFailure} from '../helpers/exit-after-drain'
 import {loadExtensionDevelopModule} from '../helpers/extension-develop-runtime'
 import {LOG_CONTEXTS} from '../helpers/log-contexts'
 import * as messages from '../helpers/messages'
@@ -100,7 +101,7 @@ function failAndExit(
     printFrame(ENVELOPE.fail('dev', status, error, hint ? {hint} : {}))
   }
 
-  process.exit(1)
+  exitWithFailure(error.code)
 }
 
 // The dev server can move off a busy port after this frame is emitted, so this
@@ -626,7 +627,7 @@ export function registerDevCommand(program: Command) {
               )
             )
 
-            process.exit(1)
+            exitWithFailure(code)
           }
         }
       }

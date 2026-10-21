@@ -14,6 +14,7 @@ import {createSafariPackager} from '../browsers/run-safari/safari-packager'
 import {declaredErrorCode} from '../helpers/cli-failure'
 import {getCliPackageJson} from '../helpers/cli-package-json'
 import {resolveConfigBrowser} from '../helpers/config-browser'
+import {exitWithFailure} from '../helpers/exit-after-drain'
 import {loadExtensionDevelopModule} from '../helpers/extension-develop-runtime'
 import * as messages from '../helpers/messages'
 import {commandDescriptions} from '../helpers/messages'
@@ -71,7 +72,7 @@ function failAndExit(
     console.log(JSON.stringify(ENVELOPE.fail('build', status, error)))
   }
 
-  process.exit(1)
+  exitWithFailure(error.code)
 }
 
 export function registerBuildCommand(program: Command) {
@@ -424,7 +425,7 @@ export function registerBuildCommand(program: Command) {
               )
             )
 
-            process.exit(1)
+            exitWithFailure(declaredErrorCode(error) ?? CODES.E_COMPILE)
           }
         }
 

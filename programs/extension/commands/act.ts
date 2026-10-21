@@ -21,7 +21,7 @@ import {
   isExtensionDocumentContext
 } from '../browsers/run-firefox/rdp/evaluate-extension-document'
 import {emulatorSessionRefusal} from '../helpers/emulator-session'
-import {exitAfterDrain} from '../helpers/exit-after-drain'
+import {exitAfterDrain, exitWithFailure} from '../helpers/exit-after-drain'
 import {
   type AnyDevelopModule,
   loadExtensionDevelopBridgeModule
@@ -465,7 +465,7 @@ function fail(message: string, frame?: FailFrame): never {
     )
   }
 
-  process.exit(1)
+  exitWithFailure(frame?.code)
 }
 
 function positiveIntFlag(

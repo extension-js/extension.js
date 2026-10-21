@@ -8,6 +8,7 @@
 
 import colors from 'pintor'
 import {readBrowserInstall} from './browser-install-outcome'
+import {resolveCommandFromArgv} from './cli-argv'
 import {getCliPackageJson} from './cli-package-json'
 import {CODES} from './messaging'
 import {
@@ -67,16 +68,17 @@ export const KNOWN_COMMANDS: ReadonlySet<KnownCommand> = new Set([
   'unknown'
 ])
 
-export function detectInvokedCommand(argv: string[]): KnownCommand {
-  for (let i = 2; i < argv.length; i += 1) {
-    const arg = argv[i]
-    if (!arg || arg.startsWith('-')) continue
-    if (KNOWN_COMMANDS.has(arg as KnownCommand)) return arg as KnownCommand
+// Same scan the JSON envelope uses, so `--output json dev` reports `dev` in
+// both places instead of reading the flag's value as the command.
+export function detectInvokedCommand(
+  argv: string[],
+  valuedFlags: ReadonlySet<string> = new Set()
+): KnownCommand {
+  const arg = resolveCommandFromArgv(argv, valuedFlags)
 
-    return 'unknown'
-  }
-
-  return 'unknown'
+  return arg && KNOWN_COMMANDS.has(arg as KnownCommand)
+    ? (arg as KnownCommand)
+    : 'unknown'
 }
 
 function readArgValue(argv: string[], names: string[]): string | undefined {
@@ -171,7 +173,7 @@ export function telemetryCommandContext(
 }
 
 const consent = resolveTelemetryConsent(process.argv)
-const invoked = detectInvokedCommand(process.argv)
+let invoked = detectInvokedCommand(process.argv)
 const version = String(getCliPackageJson().version || '0.0.0')
 
 export const telemetry = new Telemetry({
@@ -191,6 +193,15 @@ export function getTelemetryConsent(): {
 // command never got to mark itself.
 export function invokedCommand(): string {
   return invoked
+}
+
+// The first scan runs before any command registers its flags. Once they all
+// have, the entry point resolves again with the flags that take a value.
+export function resolveInvokedCommand(
+  argv: string[],
+  valuedFlags: ReadonlySet<string>
+): void {
+  invoked = detectInvokedCommand(argv, valuedFlags)
 }
 
 export function setTelemetryConsent(value: 'enabled' | 'disabled'): {
@@ -322,6 +333,15 @@ export function markCommandFailure(
     ...(exitCode === undefined ? {} : {exit_code: exitCode}),
     ...telemetryCommandContext(command)
   })
+}
+
+// For a refusal that ends in a bare process.exit, which skips beforeExit and
+// so the queued send. Bounded like the crash path, and only a failing run pays it.
+export function reportCommandFailureNow(
+  details: CommandFailureDetails = {}
+): void {
+  markCommandFailure(undefined, details)
+  telemetry.flushSync(CRASH_FLUSH_TIMEOUT_MS)
 }
 
 function printOptOutNoticeIfFirstRun(): void {
