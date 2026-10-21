@@ -136,6 +136,10 @@ export function commanderErrorEnvelope(
 
 const SUGGESTION_PATTERN = /\(Did you mean (one of )?(.+)\?\)/
 
+// The verbs other scaffolders use. Spelling suggestions never reach `create`
+// from them, so the remedy names it.
+const PROJECT_START_VERBS = new Set(['init', 'new'])
+
 function sentenceCase(input: string): string {
   const trimmed = input.trim()
   const capitalized = trimmed.charAt(0).toUpperCase() + trimmed.slice(1)
@@ -177,9 +181,14 @@ export function commanderHumanError(
       ? `extension ${command}`
       : 'extension'
   const suggestion = SUGGESTION_PATTERN.exec(message)
-  const remedy = suggestion
-    ? `Did you mean ${suggestion[1] || ''}${colors.blue(suggestion[2])}?`
-    : `Run ${colors.blue(`${helpTarget} --help`)} to see the ${noun}.`
+  const startsAProject =
+    commanderCode === 'commander.unknownCommand' &&
+    PROJECT_START_VERBS.has(String(refs?.command))
+  const remedy = startsAProject
+    ? `Run ${colors.blue('extension create my-extension')} to start a new extension.`
+    : suggestion
+      ? `Did you mean ${suggestion[1] || ''}${colors.blue(suggestion[2])}?`
+      : `Run ${colors.blue(`${helpTarget} --help`)} to see the ${noun}.`
 
   return `${prefix('error')} ${label}\n${remedy}`
 }

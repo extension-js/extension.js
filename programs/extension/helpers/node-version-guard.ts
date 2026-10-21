@@ -7,6 +7,9 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import fs from 'node:fs'
+import {getCliPackageJson} from './cli-package-json'
+import {KNOWN_COMMANDS, type KnownCommand} from './known-commands'
+import {resolveTelemetryConsent, Telemetry} from './telemetry'
 
 const MIN_NODE_MAJOR = 22
 const MIN_NODE_MINOR = 12
@@ -154,6 +157,36 @@ export function unsupportedNodeVersionFrame(
   }
 }
 
+const UNSUPPORTED_RUNTIME_FLUSH_MS = 1500
+
+// Only a machine whose owner already saw the first-run notice reports here,
+// since this exit comes before the CLI that prints the notice can load.
+export function reportUnsupportedRuntime(argv: string[] = process.argv): void {
+  try {
+    const consent = resolveTelemetryConsent(argv)
+    if (!consent.enabled || consent.source === 'default') return
+
+    const verb = commandFromArgv(argv)
+    const command: KnownCommand = KNOWN_COMMANDS.has(verb as KnownCommand)
+      ? (verb as KnownCommand)
+      : 'unknown'
+    const version = String(getCliPackageJson().version || '0.0.0')
+    const telemetry = new Telemetry({app: 'extension', version})
+
+    telemetry.track('command_failed', {
+      command,
+      success: false,
+      version,
+      code: 'E_NODE_VERSION',
+      exit_code: 1
+    })
+
+    telemetry.flushSync(UNSUPPORTED_RUNTIME_FLUSH_MS)
+  } catch {
+    // Ignore
+  }
+}
+
 function writeFrame(frame: Record<string, unknown>): void {
   try {
     fs.writeSync(1, `${JSON.stringify(frame)}\n`)
@@ -177,6 +210,7 @@ export function enforceSupportedNodeVersion(
 
     // eslint-disable-next-line no-console
     console.error(unsupportedDenoVersionMessage(denoVersion))
+    reportUnsupportedRuntime(argv)
     process.exit(1)
 
     return
@@ -187,6 +221,7 @@ export function enforceSupportedNodeVersion(
 
     // eslint-disable-next-line no-console
     console.error(unsupportedBunVersionMessage(bunVersion))
+    reportUnsupportedRuntime(argv)
     process.exit(1)
 
     return
@@ -200,9 +235,10 @@ export function enforceSupportedNodeVersion(
   const frame = unsupportedNodeVersionFrame(version, argv)
   if (frame) writeFrame(frame)
 
+  reportUnsupportedRuntime(argv)
   process.exit(1)
 }
 
-// This module must stay dependency-free and be the entry's FIRST import: the
-// check runs at load time, before any import can transitively require ESM.
+// This module must stay free of package dependencies and be the entry's FIRST
+// import: the check runs at load time, before any import can require ESM.
 enforceSupportedNodeVersion()
