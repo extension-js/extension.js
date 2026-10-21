@@ -38,7 +38,10 @@ function createTempProject(
   return dir
 }
 
-function makeCompilation(assets: Record<string, string>) {
+function makeCompilation(
+  assets: Record<string, string>,
+  entry: Record<string, unknown> = {}
+) {
   const emitted = new Map(
     Object.entries(assets).map(([name, src]) => [
       name,
@@ -54,6 +57,9 @@ function makeCompilation(assets: Record<string, string>) {
     emitAsset: (name: string, source: any) => {
       emitted.set(name, {name, source})
     },
+    updateAsset: (name: string, source: any) => {
+      emitted.set(name, {name, source})
+    },
     // The fake never reaches the bundler: a plan that needs it fails loudly
     // here instead of silently passing.
     createChildCompiler: () => {
@@ -64,7 +70,7 @@ function makeCompilation(assets: Record<string, string>) {
     }
   }
   const compiler: any = {
-    options: {entry: {}},
+    options: {entry},
     hooks: {
       thisCompilation: {tap: (_n: string, fn: any) => fn(compilation)}
     }
@@ -76,9 +82,10 @@ function makeCompilation(assets: Record<string, string>) {
 async function runTrace(
   projectDir: string,
   assets: Record<string, string>,
-  browser?: string
+  browser?: string,
+  entry?: Record<string, unknown>
 ) {
-  const made = makeCompilation(assets)
+  const made = makeCompilation(assets, entry)
   new TraceRuntimeLoadedFiles({
     manifestPath: path.join(projectDir, 'manifest.json'),
     browser: browser as any
@@ -396,5 +403,60 @@ describe('planTracedFile', () => {
     expect(
       plan({}, {sourceRel: '../../etc/passwd', distRel: 'etc/passwd'}).result
     ).toEqual({kind: 'missing', emitPath: 'etc/passwd'})
+  })
+})
+
+describe('TraceRuntimeLoadedFiles relocated pages', () => {
+  it("points a moved page's relative tabs.create url at the emitted file", async () => {
+    const projectDir = createTempProject(
+      {
+        'pages/settings/settings.html': '<html></html>',
+        'pages/settings/settings.js': '',
+        'pages/changelog.html': '<html><body>changes</body></html>'
+      },
+      {options_ui: {page: 'pages/settings/settings.html'}}
+    )
+    const {emitted} = await runTrace(
+      projectDir,
+      {
+        'options/index.js': 'chrome.tabs.create({ url: "../changelog.html" });'
+      },
+      'chrome',
+      {
+        'options/index': {
+          import: [path.join(projectDir, 'pages/settings/settings.js')]
+        }
+      }
+    )
+
+    expect(emitted.has('pages/changelog.html')).toBe(true)
+    expect(String(emitted.get('options/index.js')?.source.source())).toContain(
+      'url: "/pages/changelog.html"'
+    )
+  })
+
+  it('leaves the url alone when the page did not move', async () => {
+    const projectDir = createTempProject(
+      {
+        'options/index.html': '<html></html>',
+        'options/index.js': '',
+        'changelog.html': '<html></html>'
+      },
+      {options_ui: {page: 'options/index.html'}}
+    )
+    const {emitted} = await runTrace(
+      projectDir,
+      {'options/index.js': 'chrome.tabs.create({ url: "../changelog.html" });'},
+      'chrome',
+      {
+        'options/index': {
+          import: [path.join(projectDir, 'options/index.js')]
+        }
+      }
+    )
+
+    expect(String(emitted.get('options/index.js')?.source.source())).toContain(
+      'url: "../changelog.html"'
+    )
   })
 })
