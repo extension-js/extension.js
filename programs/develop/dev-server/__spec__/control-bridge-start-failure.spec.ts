@@ -83,6 +83,10 @@ const {MockPortManager} = vi.hoisted(() => ({
     getCurrentInstance = vi.fn(() => ({instanceId: 'instance-1'}))
     releaseReservedPort = vi.fn(async () => {})
     takeReservation = vi.fn(() => null)
+    holdPortAcrossRestart = vi.fn()
+    shouldHoldPortOnClose = vi.fn(() => false)
+    adoptHeldPort = vi.fn()
+    endRestartHold = vi.fn()
     terminateCurrentInstance = vi.fn(async () => {})
   }
 }))
