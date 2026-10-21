@@ -6,6 +6,7 @@ import {
   rmSync,
   writeFileSync
 } from 'node:fs'
+import {createServer} from 'node:net'
 import {tmpdir} from 'node:os'
 import {dirname, join, resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
@@ -43,6 +44,18 @@ function cliEnv(): NodeJS.ProcessEnv {
 
 function sleep(ms: number) {
   return new Promise((resolvePromise) => setTimeout(resolvePromise, ms))
+}
+
+function freePort(): Promise<number> {
+  return new Promise((resolvePromise, rejectPromise) => {
+    const server = createServer()
+    server.once('error', rejectPromise)
+    server.listen(0, '127.0.0.1', () => {
+      const address = server.address()
+      const port = typeof address === 'object' && address ? address.port : 0
+      server.close(() => resolvePromise(port))
+    })
+  })
 }
 
 function parseFrames(stdout: string): Frame[] {
@@ -123,7 +136,8 @@ describe.skipIf(process.platform === 'win32')(
         })
       )
 
-      const first = runDev(projectDir, ['--port', '8931'])
+      const firstPort = await freePort()
+      const first = runDev(projectDir, ['--port', String(firstPort)])
       children.push(first)
 
       const deadline = Date.now() + 60_000
@@ -158,9 +172,9 @@ describe.skipIf(process.platform === 'win32')(
       }
       const firstToken = readFileSync(tokenPath, 'utf8')
       expect(firstReady.pid).toBe(first.child.pid)
-      expect(firstReady.port).toBe(8931)
+      expect(firstReady.port).toBe(firstPort)
 
-      const second = runDev(projectDir, ['--port', '8932'])
+      const second = runDev(projectDir, ['--port', String(await freePort())])
       children.push(second)
       const exitCode = await Promise.race([
         second.closed,
@@ -179,7 +193,7 @@ describe.skipIf(process.platform === 'win32')(
       })
 
       expect(frames[0].error?.message).toContain(`PID ${firstReady.pid}`)
-      expect(frames[0].error?.message).toContain('port 8931')
+      expect(frames[0].error?.message).toContain(`port ${firstPort}`)
 
       expect(readFileSync(tokenPath, 'utf8')).toBe(firstToken)
       expect(
@@ -201,7 +215,7 @@ describe.skipIf(process.platform === 'win32')(
         })
       )
 
-      const first = runDev(projectDir, ['--port', '8933'], {
+      const first = runDev(projectDir, ['--port', String(await freePort())], {
         EXTENSION_INSTANCE_ID: 'ids-probe-a'
       })
       children.push(first)
@@ -234,7 +248,7 @@ describe.skipIf(process.platform === 'win32')(
       expect(firstReady.pid).toBe(first.child.pid)
       expect(firstReady.instanceId).toBe('ids-probe-a')
 
-      const second = runDev(projectDir, ['--port', '8934'], {
+      const second = runDev(projectDir, ['--port', String(await freePort())], {
         EXTENSION_INSTANCE_ID: 'ids-probe-b'
       })
       children.push(second)
