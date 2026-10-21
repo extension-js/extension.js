@@ -222,7 +222,7 @@ describe('build: root-absolute HTML and CSS refs compile JS-like files and copy 
     expect(exists('lib/word.js')).toBe(false)
   }, 120_000)
 
-  it('ships the scripts/ source referenced as .ts once, compiled, and warns about the spelling', async () => {
+  it('ships the scripts/ source referenced as .ts once, compiled, and points the page at it', async () => {
     const summary = await buildFixture('production')
     expect(listDist().filter((rel) => rel.startsWith('scripts/util'))).toEqual([
       'scripts/util.js'
@@ -236,10 +236,11 @@ describe('build: root-absolute HTML and CSS refs compile JS-like files and copy 
     const spelling = (summary.warnings || []).filter((message) =>
       message.includes('/scripts/util.ts is compiled to scripts/util.js')
     )
-    expect(spelling).toHaveLength(1)
-    expect(spelling[0]).toContain(
-      "loads '/scripts/util.ts' via an HTML src/href attribute"
-    )
+    expect(spelling).toHaveLength(0)
+
+    const page = read('action/index.html')
+    expect(page).toContain('src="/scripts/util.js"')
+    expect(page).not.toContain('/scripts/util.ts')
   }, 120_000)
 
   it('copies the stylesheet, the data file it names and the classic script byte for byte', () => {
