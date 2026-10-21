@@ -89,6 +89,82 @@ function emitDirectoryAsAssets(
   walk(absDir)
 }
 
+const GLOB_SKIP_DIRS = new Set(['node_modules', '.git', 'dist'])
+// Sources the build compiles never ship raw: the browser cannot run them.
+const GLOB_SKIP_SOURCES = /\.(?:ts|tsx|mts|cts|jsx|vue|svelte|scss|sass|less)$/i
+
+// Chrome serves every packaged file a `*` pattern matches, `/` included, so a
+// glob under a folder ships each matching source file at its own path. A
+// pattern with no folder before its first `*` names the built output itself.
+function emitGlobMatches(
+  compilation: Compilation,
+  manifestDir: string,
+  projectPath: string,
+  res: string
+): void {
+  const pattern = unixify(res).replace(/^\.?\//, '')
+  const prefix = pattern.slice(0, pattern.indexOf('*')).replace(/[^/]*$/, '')
+  const folder = prefix.replace(/\/+$/, '')
+
+  if (!folder || /^public(\/|$)/i.test(folder)) return
+  if (fs.existsSync(path.join(projectPath, 'public', folder))) return
+
+  const base = path.join(manifestDir, folder)
+  if (!isDirectory(base)) return
+
+  const matcher = new RegExp(
+    `^${pattern
+      .split('*')
+      .map((part) => part.replace(/[.+?^${}()|[\]\\]/g, '\\$&'))
+      .join('.*')}$`
+  )
+
+  const walk = (dir: string) => {
+    let entries: fs.Dirent[]
+
+    try {
+      entries = fs.readdirSync(dir, {withFileTypes: true})
+    } catch {
+      return
+    }
+
+    for (const entry of entries) {
+      const full = path.join(dir, entry.name)
+
+      if (entry.isDirectory()) {
+        if (!GLOB_SKIP_DIRS.has(entry.name)) walk(full)
+
+        continue
+      }
+
+      if (!entry.isFile()) continue
+
+      const outName = unixify(path.relative(manifestDir, full))
+      if (!matcher.test(outName) || GLOB_SKIP_SOURCES.test(outName)) continue
+
+      if (!compilation.getAsset(outName)) {
+        compilation.emitAsset(
+          outName,
+          new sources.RawSource(fs.readFileSync(full))
+        )
+      }
+
+      compilation.fileDependencies.add(full)
+    }
+  }
+
+  walk(base)
+  compilation.contextDependencies?.add(base)
+}
+
+function isDirectory(abs: string): boolean {
+  try {
+    return fs.statSync(abs).isDirectory()
+  } catch {
+    return false
+  }
+}
+
 // Named the way the bundler names the same bytes, so a sheet or an import
 // reaching for this file shares the one copy instead of adding a second.
 function emitFileAsAsset(compilation: Compilation, absPath: string): string {
@@ -412,6 +488,7 @@ export function resolveUserDeclaredWAR(
         )
 
     if (/[*?[\]{}]/.test(res)) {
+      emitGlobMatches(compilation, manifestDir, projectPath, res)
       pushResource(matches, res, extra)
 
       return

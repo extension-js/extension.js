@@ -110,11 +110,10 @@ describe('generateManifestPatches', () => {
       web_accessible_resources: [
         {
           matches: ['*://example.com/*'],
-          resources: ['content_scripts/content-0.svg']
-        },
-        {
-          matches: ['*://example.com/logout?e=4'],
-          resources: ['content_scripts/content-1.json']
+          resources: [
+            'content_scripts/content-0.svg',
+            'content_scripts/content-1.json'
+          ]
         }
       ]
     })
