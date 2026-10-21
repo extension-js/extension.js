@@ -6,8 +6,12 @@ import {chromiumExtensionId} from '../../lib/extension-id'
 import {
   createPlaywrightMetadataWriter,
   getSessionRunId,
+  stampReadyDistExtensionId,
   stampReadyKnownExtensionId
 } from '../index'
+
+const KEY =
+  'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAu1SU1LfVLPHCozMxH2Mo4lgOEePzNm0tRgeLezV6ffAt0gunVTLw7onLRnrq0/IzW7yWR7QkrmBL7jTKEn5u+qKhbwKfBstIs+bMY2Zkp18gnTxKLxoS2tFczGkPLPgizskuemMghRniWaoLcyehkd3qqGElvW/VDL5AaWTg0nLVkjRo9z+40RQzuVaE8AkAFmxZzow3x+VJYKdjykkJ0iT9wCS0DRTXu269V264Vf/3jvredZiKRkgwlL9xNAwxXFg0x/XFw005UWVRIkdgcKWTjpBP2dPwVZ4WWC+9aGVd+Gyn1o0CLelf4rEjGoXbAAEgAqeGUxrcIlbjXfbcmwIDAQAB'
 
 describe('ready.json writer preservation', () => {
   let tmp: string
@@ -309,9 +313,98 @@ describe('ready.json writer preservation', () => {
 
     const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
     ready.extensionId = 'glocgelajdejkheibpdooiagpkkbfmhe'
+    ready.extensionIdSource = 'browser'
     fs.writeFileSync(writer.readyPath, JSON.stringify(ready))
 
     writer.writeReady()
+
+    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    expect(after.extensionId).toBe('glocgelajdejkheibpdooiagpkkbfmhe')
+    expect(after.extensionIdSource).toBe('browser')
+  })
+
+  it('recomputes a derived id when the manifest key changes mid-session', () => {
+    const distPath = path.join(tmp, 'dist', 'chromium')
+
+    const writeDist = (manifest: Record<string, unknown>) => {
+      fs.mkdirSync(distPath, {recursive: true})
+      fs.writeFileSync(
+        path.join(distPath, 'manifest.json'),
+        JSON.stringify({name: 'Fixture', version: '1.0.0', ...manifest})
+      )
+    }
+
+    const readId = () =>
+      JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8')) as {
+        extensionId?: string
+        extensionIdSource?: string
+      }
+
+    writeDist({})
+    const writer = makeWriter()
+    writer.writeReady()
+    const pathHashed = readId()
+    expect(pathHashed.extensionIdSource).toBe('derived')
+
+    writeDist({key: KEY})
+    writer.writeReady()
+    const keyed = readId()
+    expect(keyed.extensionId).toBe(chromiumExtensionId(distPath))
+    expect(keyed.extensionId).not.toBe(pathHashed.extensionId)
+    expect(keyed.extensionIdSource).toBe('derived')
+
+    writeDist({})
+    writer.writeReady()
+    expect(readId().extensionId).toBe(pathHashed.extensionId)
+  })
+
+  it('corrects the id a one-shot build read off the previous dist', () => {
+    const distPath = path.join(tmp, 'dist', 'chromium')
+    fs.mkdirSync(distPath, {recursive: true})
+    fs.writeFileSync(
+      path.join(distPath, 'manifest.json'),
+      JSON.stringify({name: 'Fixture', version: '1.0.0'})
+    )
+
+    const writer = createPlaywrightMetadataWriter({
+      packageJsonDir: tmp,
+      browser: 'chromium',
+      command: 'build',
+      distPath,
+      manifestPath: path.join(tmp, 'src', 'manifest.json')
+    })
+    writer.writeReady()
+    const stale = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+
+    fs.writeFileSync(
+      path.join(distPath, 'manifest.json'),
+      JSON.stringify({name: 'Fixture', version: '1.0.0', key: KEY})
+    )
+
+    stampReadyDistExtensionId(tmp, 'chromium', distPath)
+
+    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    expect(after.extensionId).toBe(chromiumExtensionId(distPath))
+    expect(after.extensionId).not.toBe(stale.extensionId)
+  })
+
+  it('never lets a derivation replace a browser-confirmed id', () => {
+    const distPath = path.join(tmp, 'dist', 'chromium')
+    fs.mkdirSync(distPath, {recursive: true})
+    fs.writeFileSync(
+      path.join(distPath, 'manifest.json'),
+      JSON.stringify({name: 'Fixture', version: '1.0.0'})
+    )
+
+    const writer = makeWriter()
+    writer.writeReady()
+
+    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    ready.extensionId = 'glocgelajdejkheibpdooiagpkkbfmhe'
+    ready.extensionIdSource = 'browser'
+    fs.writeFileSync(writer.readyPath, JSON.stringify(ready))
+
+    stampReadyDistExtensionId(tmp, 'chromium', distPath)
 
     const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
     expect(after.extensionId).toBe('glocgelajdejkheibpdooiagpkkbfmhe')
