@@ -6,28 +6,18 @@
 //  ╚══╝╚══╝ ╚══════╝╚═════╝       ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═╝ ╚═════╝╚══════╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+const MATCH_PATTERN_ORIGIN = /^([a-z*][a-z0-9+.*-]*):\/\/([^/?#]*)/i
+
+// A web_accessible_resources match must be an origin with the path `/*`,
+// so anything after the host (path, query, fragment) is dropped.
 export function cleanMatches(matches: string[]) {
   return matches.map((match) => {
-    try {
-      const url = new URL(
-        // Using a wildcard for the scheme (`*://`) is supported,
-        // but URL cannot parse it
-        match.replace(/^\*:\/\//, 'https://')
-      )
+    const origin = MATCH_PATTERN_ORIGIN.exec(match)
 
-      // URL.pathname will return `/` even if the URL is just
-      // `https://extension.js.org`
-      if (match.endsWith(url.pathname)) {
-        return `${match.substring(0, match.length - url.pathname.length)}/*`
-      } else if (url.pathname === '/') {
-        return `${match}/*`
-      }
+    if (!origin) return match
 
-      return match
-    } catch {
-      // Special cases like <all_urls> will fail the URL parse,
-      // but we can ignore them
-      return match
-    }
+    const [, scheme, host] = origin
+
+    return `${scheme}://${host}/*`
   })
 }
