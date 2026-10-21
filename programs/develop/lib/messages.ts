@@ -264,6 +264,28 @@ export function anotherDevSessionActive(
   )
 }
 
+export function buildOutDirInvalid(value: string) {
+  return (
+    `${getLoggingPrefix('error')} ${fmt.code('--out-dir')} needs a folder path other than the project root, got ${fmt.code(value || '(empty)')}.\n` +
+    `Pass a folder such as ${fmt.code('--out-dir build')}, and the build writes ${fmt.code('build/<browser>')}.`
+  )
+}
+
+export function buildSharesDevDist(
+  browser: string,
+  distDisplay: string,
+  pid: number
+) {
+  return (
+    `${getLoggingPrefix('warn')} A dev session (PID ${pid}) is serving ${distDisplay}, and this build replaces its files.\n` +
+    `Pass ${fmt.code('--out-dir <path>')} to write the ${browser} build next to it and keep the dev session as it is.`
+  )
+}
+
+export function buildSharesDevDistText(distDisplay: string, pid: number) {
+  return `a dev session (PID ${pid}) is serving ${distDisplay}, so this build replaces its files unless it runs with --out-dir <path>.`
+}
+
 export function anotherDevSessionRefused(
   browser: string,
   pid: number,

@@ -23,7 +23,7 @@ import {
 } from './lib/atomic-dist'
 import {type BuildSummary, getBuildSummary} from './lib/build-summary'
 import {collectChunkDependencyProvenance} from './lib/chunk-dependency-provenance'
-import {takeCodedWarnings} from './lib/coded-warnings'
+import {recordCodedWarning, takeCodedWarnings} from './lib/coded-warnings'
 import {
   compilationDiagnostics,
   warningCodes
@@ -41,6 +41,7 @@ import {
   ensureUserProjectDependencies
 } from './lib/ensure-develop-artifacts'
 import {generateExtensionTypes} from './lib/generate-extension-types'
+import {findLiveDevSession} from './lib/live-dev-session'
 import {
   BUILD_COMMAND_DEFAULTS,
   mergeOptionLayers,
@@ -62,14 +63,15 @@ import {
   collapseHomeDir,
   configBrowserOrThrow,
   displayPath,
+  getBuildDistPath,
   getDirs,
-  getDistPath,
   normalizeBrowser,
   relativeToDir
 } from './lib/paths'
 import {getProjectStructure} from './lib/project'
 import {resolveSafariIdentity} from './lib/safari-identity'
 import {
+  browserDistDir,
   buildSummaryPath,
   ensureSessionArtifactsIgnoreFile,
   ensureSessionStateInProjectGitignore
@@ -139,6 +141,25 @@ function printBuildCard(
   process.env.EXTENSION_CLI_BANNER_PRINTED = 'true'
 }
 
+function resolveOutDir(
+  raw: unknown,
+  packageJsonDir: string
+): string | undefined {
+  if (raw === undefined || raw === null) return undefined
+
+  if (typeof raw !== 'string' || !raw.trim()) {
+    throw new Error(messages.buildOutDirInvalid(String(raw)))
+  }
+
+  const resolved = nodePath.resolve(packageJsonDir, raw.trim())
+
+  if (resolved === nodePath.resolve(packageJsonDir)) {
+    throw new Error(messages.buildOutDirInvalid(raw))
+  }
+
+  return raw.trim()
+}
+
 export async function extensionBuild(
   pathOrRemoteUrl: string | undefined,
   buildOptions?: BuildOptions
@@ -170,10 +191,10 @@ export async function extensionBuild(
     buildOptions?.safariBinary
   )
 
-  const distPath = getDistPath(packageJsonDir, browser)
-  // Assets are emitted into this staging sibling and a rename publishes it,
-  // so an interrupted build can never leave a manifest without its pages.
-  const stagingDistPath = stagingDistPathFor(distPath)
+  // The out dir comes from the command config, which loads inside the try so
+  // a throwing config reports like every other build failure.
+  let distPath = ''
+  let stagingDistPath = ''
   const isAuthor = isDebug()
 
   try {
@@ -214,6 +235,37 @@ export async function extensionBuild(
 
     const projectConfig = await loadProjectConfigDefaults(packageJsonDir)
     const commandConfig = await loadCommandConfig(packageJsonDir, commandKey)
+    const outDir = resolveOutDir(
+      buildOptions?.outDir ?? commandConfig.outDir,
+      packageJsonDir
+    )
+    distPath = getBuildDistPath(packageJsonDir, browser, outDir)
+    // Assets are emitted into this staging sibling and a rename publishes it,
+    // so an interrupted build can never leave a manifest without its pages.
+    stagingDistPath = stagingDistPathFor(distPath)
+
+    // A live dev session owns ready.json and its events for this browser, so
+    // a build beside it leaves them alone instead of stamping its receipt.
+    const liveDevSession = findLiveDevSession(packageJsonDir, browser)
+
+    if (
+      liveDevSession &&
+      nodePath.resolve(
+        liveDevSession.distPath || browserDistDir(packageJsonDir, browser)
+      ) === nodePath.resolve(distPath)
+    ) {
+      const distDisplay = displayPath(distPath)
+
+      recordCodedWarning(
+        CODES.E_DEV_SESSION_DIST_SHARED,
+        messages.buildSharesDevDistText(distDisplay, liveDevSession.pid)
+      )
+
+      console.warn(
+        messages.buildSharesDevDist(browser, distDisplay, liveDevSession.pid)
+      )
+    }
+
     const browserConfig = await loadBrowserConfig(packageJsonDir, browser)
     const foldersConfig =
       commandConfig.folders ?? browserConfig.folders ?? projectConfig.folders
@@ -303,7 +355,11 @@ export async function extensionBuild(
     })
 
     const allPluginsButBrowserRunners = baseConfig.plugins?.filter((plugin) => {
-      return plugin?.constructor.name !== 'plugin-browsers'
+      const name = plugin?.constructor.name
+
+      if (name === 'plugin-browsers') return false
+
+      return !(liveDevSession && name === 'plugin-playwright')
     })
 
     const hookContext: ConfigHookContext = {
@@ -429,7 +485,9 @@ export async function extensionBuild(
               return reject(promoteError)
             }
 
-            stampReadyDistExtensionId(packageJsonDir, browser, distPath)
+            if (!liveDevSession) {
+              stampReadyDistExtensionId(packageJsonDir, browser, distPath)
+            }
           }
 
           // Anonymized aggregates (no filenames or paths)
@@ -678,7 +736,7 @@ export async function extensionBuild(
 
         // Safari registers the extension under the appex identity,
         // `<bundleId>.Extension`, so that is the truthful ready.json id.
-        if (safari.bundleId) {
+        if (safari.bundleId && !liveDevSession) {
           stampReadyKnownExtensionId(
             packageJsonDir,
             browser,
@@ -690,7 +748,8 @@ export async function extensionBuild(
 
     return summary
   } catch (error) {
-    removeStagingDir(stagingDistPath)
+    if (stagingDistPath) removeStagingDir(stagingDistPath)
+
     const alreadyReported =
       error instanceof Error && reportedBuildFailures.has(error)
 

@@ -193,6 +193,12 @@ export interface ServeCommandConfig
 /** `commands.build` overrides. */
 export interface BuildCommandConfig {
   browser?: BrowserType
+  /**
+   * Base folder for the build output, relative to the project root. The
+   * build writes `<outDir>/<browser>` instead of `dist/<browser>`, zip
+   * included, so it can run beside a dev session that serves `dist`.
+   */
+  outDir?: string
   polyfill?: boolean
   zip?: boolean
   zipSource?: boolean

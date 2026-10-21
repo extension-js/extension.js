@@ -120,6 +120,7 @@ Useful flags:
 - `--zip` packages the build into a ZIP ready for store upload
 - `--zip-source` includes source files for store source-code review
 - `--zip-filename <name>` controls the output filename, written as `dist/<name>-<browser>.zip`
+- `--out-dir <path>` writes the build to `<path>/<browser>` instead of `dist/<browser>`, so a build can run beside a dev session
 - `--polyfill` enables the cross-browser webextension polyfill
 
 ## Manage browser binaries
