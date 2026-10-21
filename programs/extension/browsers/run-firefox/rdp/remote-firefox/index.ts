@@ -155,7 +155,13 @@ export class RemoteFirefox {
         // A new RDP connection invalidates prior actor IDs (namespaced per
         // connection); clear caches so a retry never targets a dead actor.
         this.invalidateConnectionScopedCaches()
-        client.on('reconnected', () => this.invalidateConnectionScopedCaches())
+        client.on('reconnected', () => {
+          this.invalidateConnectionScopedCaches()
+
+          // Console actors belong to the old connection. The message listener
+          // survives, so only the actor-side listeners need starting again.
+          if (this.loggingAttached) void attachConsoleListeners(client)
+        })
 
         return client
       } catch (error: unknown) {
