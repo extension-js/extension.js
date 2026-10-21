@@ -61,7 +61,9 @@ function writeFixture() {
     'sw.js',
     [
       'importScripts("lib/worker-util.js");',
+      'importScripts("lib/worker-shared.js");',
       'console.log(typeof WORKER_UTIL, workerUtil(1));',
+      'console.log(typeof workerShared, workerShared(1));',
       'chrome.runtime.onInstalled.addListener(() => {',
       '  console.log(chrome.runtime.getURL("scripts/helper.ts"));',
       '  console.log(chrome.runtime.getURL("scripts/helper.js"));',
@@ -69,11 +71,16 @@ function writeFixture() {
       'chrome.action.onClicked.addListener((tab) => {',
       '  chrome.scripting.executeScript({',
       '    target: {tabId: tab.id},',
-      '    files: ["inject/classic.js"]',
+      '    files: ["inject/classic.js", "inject/shared-classic.js"]',
       '  });',
       '});',
       ''
     ].join('\n')
+  )
+
+  write(
+    'lib/shared.ts',
+    'export function sharedAdd(n: number): number {\n  return n + 10;\n}\n'
   )
 
   write(
@@ -88,12 +95,34 @@ function writeFixture() {
   )
 
   write(
+    'lib/worker-shared.ts',
+    [
+      'import {sharedAdd} from "./shared";',
+      'function workerShared(n: number): number {',
+      '  return sharedAdd(n);',
+      '}',
+      ''
+    ].join('\n')
+  )
+
+  write(
     'inject/classic.ts',
     [
       'function classicHello(name: string): string {',
       '  return "hi " + name;',
       '}',
       'if (typeof document !== "undefined") document.title = classicHello("page");',
+      ''
+    ].join('\n')
+  )
+
+  write(
+    'inject/shared-classic.ts',
+    [
+      'import {sharedAdd} from "../lib/shared";',
+      'function classicShared(name: string): string {',
+      '  return "hi " + name + sharedAdd(1);',
+      '}',
       ''
     ].join('\n')
   )
@@ -214,7 +243,9 @@ describe('build: traced runtime-loaded sources are compiled, not copied (real rs
         'scripts/helper.ts',
         'scripts/helper.js',
         'inject/classic.js',
-        'background/lib/worker-util.js'
+        'inject/shared-classic.js',
+        'background/lib/worker-util.js',
+        'background/lib/worker-shared.js'
       ]) {
         console.log(
           `\n--- ${rel} ---\n${exists(rel) ? read(rel).slice(0, 600) : '(absent)'}`
@@ -272,6 +303,29 @@ describe('build: traced runtime-loaded sources are compiled, not copied (real rs
     expect(exists('inject/classic.ts')).toBe(false)
   })
 
+  it('inlines a shared import into an importScripts helper and keeps the helper callable', () => {
+    const rel = 'background/lib/worker-shared.js'
+    expect(exists(rel), `missing ${rel}`).toBe(true)
+    const code = read(rel)
+    expect(code).not.toMatch(/from\s*["']\.\/shared["']/)
+    expect(exists('lib/shared.ts')).toBe(false)
+    expect(exists('lib/shared.js')).toBe(false)
+    const globals = runAsClassicScript(code)
+    expect(typeof globals.workerShared).toBe('function')
+    expect((globals.workerShared as (n: number) => number)(1)).toBe(11)
+  })
+
+  it('inlines a shared import into an executeScript payload and keeps the helper callable', () => {
+    expect(exists('inject/shared-classic.js')).toBe(true)
+    const code = read('inject/shared-classic.js')
+    expect(code).not.toMatch(/from\s*["'].*shared["']/)
+    const globals = runAsClassicScript(code)
+    expect(typeof globals.classicShared).toBe('function')
+    expect((globals.classicShared as (name: string) => string)('x')).toBe(
+      'hi x11'
+    )
+  })
+
   it('emits a scripts/ file that is both an entry and a getURL target exactly once, compiled', () => {
     const files = listDist().filter((rel) => rel.startsWith('scripts/helper'))
     expect(files).toEqual(['scripts/helper.js'])
@@ -294,6 +348,15 @@ describe('build: traced runtime-loaded sources are compiled, not copied (real rs
     expect(helper).toContain('"traced"')
     const globals = runAsClassicScript(read('background/lib/worker-util.js'))
     expect(globals.WORKER_UTIL).toBe('loaded')
+    const shared = runAsClassicScript(read('background/lib/worker-shared.js'))
+    expect(typeof shared.workerShared).toBe('function')
+    expect((shared.workerShared as (n: number) => number)(1)).toBe(11)
+    const injected = runAsClassicScript(read('inject/shared-classic.js'))
+    expect(typeof injected.classicShared).toBe('function')
+    expect((injected.classicShared as (name: string) => string)('x')).toBe(
+      'hi x11'
+    )
+
     expect(listDist().filter((rel) => /\.ts$/.test(rel))).toEqual([])
   }, 120_000)
 })

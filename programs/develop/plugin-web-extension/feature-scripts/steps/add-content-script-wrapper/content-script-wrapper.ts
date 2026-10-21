@@ -34,6 +34,7 @@ interface ContentScriptLoaderContext {
   getOptions(): {
     manifestPath: string
     mode?: string
+    devSession?: boolean
     browser?: string
     mainWorldScripts?: string[]
     scriptsFolder?: string | false
@@ -50,6 +51,7 @@ const schema = {
   properties: {
     manifestPath: {type: 'string'},
     mode: {type: 'string'},
+    devSession: {type: 'boolean'},
     browser: {type: 'string'},
     mainWorldScripts: {type: 'array', items: {type: 'string'}},
     scriptsFolder: {anyOf: [{type: 'string'}, {const: false}]}
@@ -252,11 +254,15 @@ export default function contentScriptWrapper(
   )
   const browser = (options.browser as DevOptions['browser']) || 'chrome'
   const manifest = readManifestCached(manifestPath, browser)
-  const isProd = String(options?.mode || '').toLowerCase() === 'production'
+  const devSession =
+    typeof options?.devSession === 'boolean'
+      ? options.devSession
+      : String(options?.mode || '').toLowerCase() !== 'production'
+  const isShippedBundle = !devSession
   // The reinject scaffolding (a global registry, its DOM markers and the root
   // sweeps) only exists so a bundle can replace itself in a live page. A
   // production bundle is injected once, so none of that text ships.
-  const devOnly = (code: string): string => (isProd ? '' : code)
+  const devOnly = (code: string): string => (isShippedBundle ? '' : code)
   const rewrittenSource = String(source)
 
   const declaredContentJsAbsEntries: Array<{
@@ -368,10 +374,10 @@ export default function contentScriptWrapper(
     (candidate) => resourceAbsPath === canonicalizeResourcePath(candidate)
   )
   const isMainWorld = declaredEntry?.world === 'MAIN' || isRuntimeMainWorld
-  const hostInstrumentationEnabled = !isProd && !isMainWorld
+  const hostInstrumentationEnabled = !isShippedBundle && !isMainWorld
   // The bridge that runs right before a declared MAIN-world script leaves the
   // extension base on <html>. A shipped bundle takes it and clears it at once.
-  const takesBridgeBase = isProd && declaredEntry?.world === 'MAIN'
+  const takesBridgeBase = isShippedBundle && declaredEntry?.world === 'MAIN'
   const takenBridgeBase = takesBridgeBase ? '__EXTENSIONJS_BRIDGE_BASE || ' : ''
   const bundleKey = declaredEntry
     ? getCanonicalContentScriptEntryName(declaredEntry.index)
@@ -480,7 +486,7 @@ export default function contentScriptWrapper(
         '          if (!hostOwner && __EXTENSIONJS_PRE_MOUNT_ROOTS.indexOf(host) !== -1) continue;\n' +
         '          if (!hostOwner && String(host.getAttribute("data-extjs-reinject-key") || "") && String(host.getAttribute("data-extjs-reinject-key") || "") !== String(__EXTENSIONJS_BUNDLE_KEY || "")) continue;\n'
     ) +
-    (isProd
+    (isShippedBundle
       ? '          if (__EXTENSIONJS_NO_FOREIGN_ADOPT) continue;\n' +
         '          if (__EXTENSIONJS_PRE_MOUNT_ROOTS.indexOf(host) !== -1) continue;\n'
       : '') +
@@ -516,7 +522,7 @@ export default function contentScriptWrapper(
     '      if (tries++ < 20) {\n' +
     // A page with no shadow root of ours has nothing to style, so a shipped
     // bundle asks for its sheet only once such a root is there to receive it.
-    (isProd
+    (isShippedBundle
       ? '        if (wanted && !cssPromise) readCss();\n'
       : '        if (!cssPromise) readCss();\n') +
     '        setTimeout(tick, 250);\n' +
@@ -862,7 +868,7 @@ export default function contentScriptWrapper(
     '  return String(__EXTENSIONJS_REINJECT_KEY || "") + (extId ? "@" + extId : "");\n' +
     '}\n' +
     devOnly(
-      `var __EXTENSIONJS_DEV_MARKERS_ENABLED=${JSON.stringify(!isProd)};\n` +
+      `var __EXTENSIONJS_DEV_MARKERS_ENABLED=${JSON.stringify(!isShippedBundle)};\n` +
         // A MAIN world script shares the page's own globals and DOM prototypes,
         // so the observer and the removal API patches would land on the host
         // page itself, those stay in the isolated world.
@@ -872,7 +878,7 @@ export default function contentScriptWrapper(
     // corrupts ownership and roots accumulate across reinjects. Only the markers
     // and the hydration ever adopt a root, so a bundle with neither keeps the
     // stub and never walks the document to fill a list nobody reads.
-    (!isProd || bundleCssHydrationEnabled
+    (!isShippedBundle || bundleCssHydrationEnabled
       ? 'var __EXTENSIONJS_PRE_MOUNT_ROOTS = [];\n' +
         'function __EXTENSIONJS_snapshotPreMountRoots(){\n' +
         '  try {\n' +
@@ -982,7 +988,7 @@ export default function contentScriptWrapper(
     // The public path only matters to a bundle that resolves something its
     // module graph brought in: an emitted asset, a split chunk or, in
     // development, the update chunks the refresh runtime fetches.
-    (!isProd || hasModuleGraph
+    (!isShippedBundle || hasModuleGraph
       ? 'function __EXTENSIONJS_syncAssetBase(){\n' +
         '  try {\n' +
         '    var base = "";\n' +

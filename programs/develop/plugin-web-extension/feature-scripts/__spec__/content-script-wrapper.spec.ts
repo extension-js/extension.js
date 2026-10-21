@@ -30,7 +30,8 @@ function createLoaderContext(
   resourcePath: string,
   manifestPath: string,
   browser?: string,
-  mode = 'development'
+  mode = 'development',
+  devSession?: boolean
 ) {
   return {
     resourcePath,
@@ -40,6 +41,7 @@ function createLoaderContext(
       return {
         manifestPath,
         mode,
+        ...(typeof devSession === 'boolean' ? {devSession} : {}),
         ...(browser ? {browser} : {})
       }
     }
@@ -625,5 +627,31 @@ describe('content-script-wrapper loader', () => {
 
       expect(readMarkerGeneration(realm)).toBe('3')
     }
+  })
+
+  it('ships no host-page instrumentation from a development build outside a dev session', () => {
+    const entry = writeDeclaredEntry()
+    const source = 'export default function mount(){ return () => {} }'
+    const wrap = (mode: string, devSession?: boolean) =>
+      contentScriptWrapper.call(
+        createLoaderContext(
+          entry.resourcePath,
+          entry.manifestPath,
+          undefined,
+          mode,
+          devSession
+        ) as any,
+        source
+      )
+
+    const developmentBuild = wrap('development', false)
+    expect(developmentBuild).not.toContain('MutationObserver')
+    expect(developmentBuild).not.toContain('data-extjs-debug-')
+    expect(developmentBuild).not.toContain('__EXTENSIONJS_DEV_MARKERS_ENABLED')
+    expect(developmentBuild).toBe(wrap('production'))
+
+    const devSessionBundle = wrap('development', true)
+    expect(devSessionBundle).toContain('MutationObserver')
+    expect(devSessionBundle).toBe(wrap('development'))
   })
 })
