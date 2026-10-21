@@ -326,3 +326,35 @@ export function compiledSourceSpelling(
 
   return lines.join('\n')
 }
+
+export function runtimeAssetFolderNotShipped(
+  assetName: string,
+  literal: string,
+  folder: string,
+  missing: string[]
+) {
+  const shown = folder ? `${folder}/` : 'the extension root'
+  const publicPath = folder ? `public/${folder}/` : 'public/'
+  const lines: string[] = []
+  lines.push(
+    `${assetName} names '${literal}' at runtime, but ${missing.length} file${missing.length === 1 ? '' : 's'} in ${shown} ${missing.length === 1 ? "isn't" : "aren't"} in the output.`
+  )
+
+  for (const file of missing.slice(0, 3)) {
+    lines.push(`${colors.gray('NOT SHIPPED')} ${colors.underline(file)}`)
+  }
+
+  if (missing.length > 3) {
+    lines.push(colors.gray(`and ${missing.length - 3} more`))
+  }
+
+  lines.push(
+    `Paths built from strings at runtime are not traced, so these files fail to load.`
+  )
+
+  lines.push(
+    `Move the folder to ${colors.blue(publicPath)} at the project root so it ships at the same path.`
+  )
+
+  return lines.join('\n')
+}
