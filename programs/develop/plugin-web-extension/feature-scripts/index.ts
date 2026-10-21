@@ -19,6 +19,7 @@ import {ValidateEmittedScriptSyntax} from './steps/validate-emitted-script-synta
 import {WarnMissingBuildConstants} from './steps/warn-missing-build-constants'
 import {WarnPageContextWorker} from './steps/warn-page-context-worker'
 import {WarnSplitInitialChunks} from './steps/warn-split-initial-chunks'
+import {WarnUnshippedRuntimeAssets} from './steps/warn-unshipped-runtime-assets'
 
 export class ScriptsPlugin {
   public readonly manifestPath: string
@@ -103,6 +104,12 @@ export class ScriptsPlugin {
       browser: this.browser,
       devSession: this.devSession,
       define: this.define
+    }).apply(compiler)
+
+    // A path a script builds or keeps as a string is not traced, so its
+    // folder is left out while the build stays green. Name the folder.
+    new WarnUnshippedRuntimeAssets({
+      manifestPath: this.manifestPath
     }).apply(compiler)
   }
 }
