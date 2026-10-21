@@ -22,6 +22,7 @@ declare module 'extension-create' {
     projectName: string
     template: string
     depsInstalled: boolean
+    installSeconds?: number
   }
 
   export function extensionCreate(

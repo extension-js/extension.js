@@ -62,6 +62,8 @@ export interface CreateResult {
   projectName: string
   template: string
   depsInstalled: boolean
+  // Whole seconds the dependency install took, absent when none ran.
+  installSeconds?: number
   // The package manager the scaffold was created with; programmatic hosts read
   // this to render correct next steps instead of re-deriving from a lockfile.
   packageManager: ScaffoldPackageManager
@@ -246,7 +248,10 @@ async function scaffoldProject({
 
   await writeTemplateProvenance(projectPath, templateProvenance, logger)
 
+  let installSeconds: number | undefined
+
   if (install) {
+    const installStartedAt = Date.now()
     // The requested template, not the scaffolded one: a failure names the
     // create the user would run again, and they asked for what they typed.
     const requestedTemplate = templateWasOmitted ? undefined : effectiveTemplate
@@ -265,6 +270,8 @@ async function scaffoldProject({
       packageManager,
       requestedTemplate
     )
+
+    installSeconds = Math.round((Date.now() - installStartedAt) / 1000)
   }
 
   await writeReadmeFile(projectPath, projectName, logger, packageManager)
@@ -314,6 +321,7 @@ async function scaffoldProject({
     // the scaffolded template is the result even when no provenance exists.
     template: templateProvenance?.template ?? scaffoldedTemplate,
     depsInstalled: install,
+    ...(installSeconds === undefined ? {} : {installSeconds}),
     packageManager,
     templateProvenance
   }

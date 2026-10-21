@@ -67,12 +67,14 @@ the offer can be told apart from a dead end:
 | `browser_install_browser` | the managed browser name, for example `chrome`     |
 | `browser_install_seconds` | whole seconds the download took, when one ran      |
 
-The `create` command adds two properties so a broken advertised starter shows up in its failure counts:
+The `create` command adds four properties, so a broken advertised starter shows up in its failure counts and a slow or failed dependency install can be told apart from a project nobody ran:
 
 | property   | value                                                                 |
 | ---------- | --------------------------------------------------------------------- |
 | `template` | the starter name as listed by `extension create --help`, or absent   |
 | `source`   | `cli`, or `templates` when the docs template gallery started the create   |
+| `deps_install` | `skipped`, `installed` or `failed`, for the dependency install `--install` runs |
+| `deps_install_seconds` | whole seconds the dependency install took, when one ran |
 
 `template` is checked against the published starter list before it is sent. A GitHub URL, a local folder path or any other value that is not an advertised name is dropped rather than trimmed, so a private repository or a directory name never leaves the machine. `source` is checked the same way against the two surfaces above, and any other value is sent as `cli`.
 

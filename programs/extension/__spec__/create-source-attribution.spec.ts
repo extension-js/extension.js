@@ -18,6 +18,7 @@ vi.mock('../helpers/cli-package-json', () => ({
 
 import type {Command} from 'commander'
 import {registerCreateCommand} from '../commands/create'
+import {resetDependencyInstall} from '../helpers/dependency-install-outcome'
 import {telemetryCommandContext} from '../helpers/telemetry-cli'
 import {makeProgram, runCli, stubProcessExit} from './command-harness'
 
@@ -34,6 +35,7 @@ afterEach(() => {
 
   vi.restoreAllMocks()
   vi.clearAllMocks()
+  resetDependencyInstall()
 })
 
 function createCommand(): Command {

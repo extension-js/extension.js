@@ -10,6 +10,7 @@ import colors from 'pintor'
 import {readBrowserInstall} from './browser-install-outcome'
 import {resolveCommandFromArgv} from './cli-argv'
 import {getCliPackageJson} from './cli-package-json'
+import {readDependencyInstall} from './dependency-install-outcome'
 import {CODES} from './messaging'
 import {
   claimFirstRunNotice,
@@ -149,6 +150,8 @@ export function telemetryCommandContext(
   browser_install?: string
   browser_install_browser?: string
   browser_install_seconds?: number
+  deps_install?: string
+  deps_install_seconds?: number
 } {
   // Whether the first-run download offer converts, on whichever command made
   // it. Four fixed outcomes and a managed browser name, never a path.
@@ -165,10 +168,14 @@ export function telemetryCommandContext(
 
   if (command !== 'create') return installContext
 
+  const deps = readDependencyInstall()
+
   return {
     ...installContext,
     template: advertisedTemplateName(readArgValue(argv, ['--template', '-t'])),
-    source: createSourceTag(readArgValue(argv, ['--source']))
+    source: createSourceTag(readArgValue(argv, ['--source'])),
+    ...(deps ? {deps_install: deps.outcome} : {}),
+    ...(deps?.seconds === undefined ? {} : {deps_install_seconds: deps.seconds})
   }
 }
 

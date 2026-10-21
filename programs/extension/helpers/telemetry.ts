@@ -27,6 +27,11 @@ export type TelemetryProps = {
   // integer. They are re-checked below, since this is the last gate.
   code?: string
   exit_code?: number
+  browser_install?: string
+  browser_install_browser?: string
+  browser_install_seconds?: number
+  deps_install?: string
+  deps_install_seconds?: number
 }
 
 /* @invariant THIS CAP USED TO BE THIRTY-TWO AND IT WAS SILENTLY MANGLING THE
@@ -65,6 +70,26 @@ function catalogCode(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined
 
   return CATALOG_CODE.test(value) ? value : undefined
+}
+
+const BROWSER_INSTALL_OUTCOMES = new Set([
+  'offered',
+  'accepted',
+  'declined',
+  'failed'
+])
+const INSTALLABLE_BROWSERS = new Set(['chrome', 'chromium', 'edge', 'firefox'])
+const DEPS_INSTALL_OUTCOMES = new Set(['skipped', 'installed', 'failed'])
+const MAX_INSTALL_SECONDS = 86_400
+
+function fixedWord(value: unknown, allowed: Set<string>): string | undefined {
+  return typeof value === 'string' && allowed.has(value) ? value : undefined
+}
+
+function wholeSeconds(value: unknown): number | undefined {
+  if (typeof value !== 'number' || !Number.isInteger(value)) return undefined
+
+  return value >= 0 && value <= MAX_INSTALL_SECONDS ? value : undefined
 }
 
 function smallExitCode(value: unknown): number | undefined {
@@ -628,6 +653,35 @@ export class Telemetry {
 
       const exitCode = smallExitCode(props.exit_code)
       if (exitCode !== undefined) enforcedProps.exit_code = exitCode
+
+      // The install outcomes were documented as sent and dropped right here,
+      // so each one passes only as a fixed word or a bounded whole number.
+      const browserInstall = fixedWord(
+        props.browser_install,
+        BROWSER_INSTALL_OUTCOMES
+      )
+      if (browserInstall) enforcedProps.browser_install = browserInstall
+
+      const installBrowser = fixedWord(
+        props.browser_install_browser,
+        INSTALLABLE_BROWSERS
+      )
+      if (installBrowser) enforcedProps.browser_install_browser = installBrowser
+
+      const browserSeconds = wholeSeconds(props.browser_install_seconds)
+
+      if (browserSeconds !== undefined) {
+        enforcedProps.browser_install_seconds = browserSeconds
+      }
+
+      const depsInstall = fixedWord(props.deps_install, DEPS_INSTALL_OUTCOMES)
+      if (depsInstall) enforcedProps.deps_install = depsInstall
+
+      const depsSeconds = wholeSeconds(props.deps_install_seconds)
+
+      if (depsSeconds !== undefined) {
+        enforcedProps.deps_install_seconds = depsSeconds
+      }
 
       // A null $ip is not an opt out on the capture endpoint, the project
       // drops the address at ingestion and this keeps GeoIP from reading it.
