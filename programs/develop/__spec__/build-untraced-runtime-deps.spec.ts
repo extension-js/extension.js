@@ -742,10 +742,10 @@ describe('build: untraced runtime-loaded deps (real rspack)', () => {
 
     for (const rel of [
       'Alt.html',
-      'alt.js',
+      'Alt.js',
       'Panel.html',
       path.join('offscreen', 'index.html'),
-      path.join('offscreen', 'offscreen.js')
+      path.join('offscreen', 'index.js')
     ]) {
       const abs = path.join(distDir, rel)
       expect(fs.existsSync(abs), `missing ${abs}`).toBe(true)
