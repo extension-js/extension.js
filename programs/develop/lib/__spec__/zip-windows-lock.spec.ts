@@ -5,7 +5,7 @@ import {strToU8, zipSync} from 'fflate'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 const lock = vi.hoisted(() => ({
-  match: (_to: string) => false,
+  match: (_to: string): boolean => false,
   remaining: 0,
   calls: 0,
   copies: 0
