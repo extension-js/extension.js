@@ -11,8 +11,10 @@ import * as net from 'node:net'
 import {codedError} from '../lib/coded-error'
 import {CODES} from '../lib/messaging'
 
-interface PortReservation {
+export interface PortReservation {
   port: number
+  host: string
+  server: net.Server
   release(): Promise<void>
 }
 
@@ -65,6 +67,8 @@ async function reservePortNear(
 
       return {
         port: address?.port ?? candidate,
+        host,
+        server,
         release: () => closeReservation(server)
       }
     }
@@ -144,8 +148,15 @@ export class PortManager {
     return this.currentInstance
   }
 
-  // The dev server cannot bind a port this process still holds, so the
-  // reservation is dropped the moment the real listener takes over.
+  // The dev server listens on the reservation's own socket, so no other
+  // session can take the port between the probe and the real bind.
+  takeReservation(): PortReservation | null {
+    const reservation = this.reservation
+    this.reservation = null
+
+    return reservation
+  }
+
   async releaseReservedPort(): Promise<void> {
     const reservation = this.reservation
     this.reservation = null
