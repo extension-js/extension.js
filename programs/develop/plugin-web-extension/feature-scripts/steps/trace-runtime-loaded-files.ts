@@ -586,6 +586,14 @@ export class TraceRuntimeLoadedFiles {
     const surfacePages = this.surfacePageOutputs(run.manifestDir)
     let shippedByWar: Set<string> | undefined
     const seen = run.seen.getURL
+    const pageSources = new Map(
+      [...surfacePages].map(([sourceRel, output]) => [output, sourceRel])
+    )
+    const relocatedSurfaceRefs: Array<{
+      assetName: string
+      literal: string
+      distRel: string
+    }> = []
 
     // getURL literals resolve against the extension ROOT regardless of context,
     // so, unlike relative fetch(), content scripts are traceable here.
@@ -624,7 +632,14 @@ export class TraceRuntimeLoadedFiles {
                 ...extractRuntimeSurfaceLiterals(item.content).map(
                   (literal) => ({
                     literal,
-                    baseRel: '',
+                    baseRel: item.copied
+                      ? ''
+                      : movedPageSourceBase(
+                          run,
+                          pageSources,
+                          item.assetName,
+                          literal
+                        ),
                     isRuntimeSurface: true
                   })
                 ),
@@ -654,7 +669,17 @@ export class TraceRuntimeLoadedFiles {
           isRuntimeSurface
         } of refs) {
           const distRel = resolveExtensionPath(literal, baseRel)
-          if (!distRel || seen.has(distRel)) continue
+          if (!distRel) continue
+
+          if (isRuntimeSurface && baseRel && item.kind === 'js') {
+            relocatedSurfaceRefs.push({
+              assetName: item.assetName,
+              literal,
+              distRel
+            })
+          }
+
+          if (seen.has(distRel)) continue
 
           seen.add(distRel)
 
@@ -760,6 +785,21 @@ export class TraceRuntimeLoadedFiles {
       }
 
       pending = next
+    }
+
+    for (const ref of relocatedSurfaceRefs) {
+      const target = declaredSurfaces.has(ref.distRel)
+        ? surfacePages.get(ref.distRel) || ref.distRel
+        : ref.distRel
+
+      if (!run.hasAsset(target)) continue
+
+      rewriteStringLiteral(
+        run.compilation,
+        ref.assetName,
+        ref.literal,
+        `/${target}`
+      )
     }
   }
 
@@ -1416,6 +1456,60 @@ function unixify(filePath: string): string {
 
 // Resolve a runtime URL literal the way the browser does and return the
 // extension-root-relative path, or null for non-same-origin references.
+// tabs.create and friends resolve a relative url against the calling page,
+// which moved in dist, so read it from the page's source folder instead.
+function movedPageSourceBase(
+  run: TraceRun,
+  pageSources: Map<string, string>,
+  assetName: string,
+  literal: string
+): string {
+  if (!/^\.\.?\//.test(literal.trim())) return ''
+
+  const entryName = assetName.replace(/\.js$/i, '')
+  const pageSource = pageSources.get(`${entryName}.html`)
+  const entryDir = run.entrySourceDirs.get(entryName)
+  const entryDirRel = entryDir
+    ? unixify(path.relative(run.manifestDir, entryDir))
+    : undefined
+  const sourceRel =
+    pageSource ||
+    (entryDirRel === undefined
+      ? ''
+      : entryDirRel
+        ? `${entryDirRel}/index.js`
+        : 'index.js')
+
+  if (!sourceRel || sourceRel.startsWith('..')) return ''
+
+  const sourceDirRel = path.posix.dirname(sourceRel)
+  if (sourceDirRel === path.posix.dirname(unixify(assetName))) return ''
+
+  return sourceRel.replace(/^\.\//, '')
+}
+
+function rewriteStringLiteral(
+  compilation: Compilation,
+  assetName: string,
+  literal: string,
+  replacement: string
+) {
+  const asset = compilation.getAsset(assetName)
+  if (!asset) return
+
+  const escaped = literal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const quoted = new RegExp(`(['"\`])${escaped}\\1`, 'g')
+  const content = asset.source.source().toString()
+  const updated = content.replace(
+    quoted,
+    (_match, quote: string) => `${quote}${replacement}${quote}`
+  )
+
+  if (updated !== content) {
+    compilation.updateAsset(assetName, new sources.RawSource(updated))
+  }
+}
+
 export function resolveExtensionPath(
   literal: string,
   basePath: string
