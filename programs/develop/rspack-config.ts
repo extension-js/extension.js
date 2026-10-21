@@ -19,6 +19,7 @@ import {
 import {makeSanitizedConsole} from './lib/branding'
 import {codedError} from './lib/coded-error'
 import {isChromiumBasedBrowser} from './lib/constants'
+import {cssMinimizerOptions} from './lib/css-minimizer-options'
 import {resolveDevelopInstallRoot} from './lib/develop-context'
 import {computeExtensionsToLoad} from './lib/extensions-to-load'
 import {filterKeysForThisBrowser} from './lib/manifest-utils'
@@ -43,6 +44,8 @@ import {publicResolveRoots} from './plugin-special-folders/resolve-public-folder
 import {StaticAssetsPlugin} from './plugin-static-assets'
 import {WasmPlugin} from './plugin-wasm'
 import {WebExtensionPlugin} from './plugin-web-extension'
+import {findMistypedManifestFields} from './plugin-web-extension/feature-manifest/manifest-lib/sanitize-fatal-shapes'
+import {manifestFieldMistyped} from './plugin-web-extension/feature-manifest/messages'
 import type {WebpackConfigOptions} from './types'
 
 export default function webpackConfig(
@@ -75,6 +78,23 @@ export default function webpackConfig(
     rawManifest as Parameters<typeof filterKeysForThisBrowser>[0],
     devOptions.browser
   )
+  // Entry discovery reads a mistyped field as empty, and an MV3 service worker
+  // with no entry then fails inside the target plugin with no field named.
+  const mistypedFields = findMistypedManifestFields(
+    manifest as Parameters<typeof findMistypedManifestFields>[0]
+  )
+
+  if (mistypedFields.length > 0) {
+    throw codedError(
+      CODES.E_MANIFEST_INVALID,
+      mistypedFields
+        .map((entry) =>
+          manifestFieldMistyped(entry.field, entry.expected, entry.received)
+        )
+        .join('\n\n')
+    )
+  }
+
   const primaryExtensionOutputDir = asAbsolute(
     path.isAbsolute(devOptions.output.path)
       ? devOptions.output.path
@@ -367,6 +387,24 @@ export default function webpackConfig(
     plugins.push(browsersPlugin)
   }
 
+  // A top-level resolve list without '...' wipes rspack's per-type defaults,
+  // so every dependency type is restated here, the mode condition included.
+  const modeCondition =
+    (devOptions.mode || 'development') === 'production'
+      ? 'production'
+      : 'development'
+  const importResolve = {
+    conditionNames: ['browser', 'import', 'module', modeCondition, 'default']
+  }
+  const requireResolve = {
+    conditionNames: ['browser', 'require', 'module', modeCondition, 'default']
+  }
+  const cssImportResolve = {
+    conditionNames: [modeCondition, 'style'],
+    extensions: ['.css'],
+    mainFields: ['style', '...']
+  }
+
   return {
     mode: devOptions.mode || 'development',
     entry: {},
@@ -545,14 +583,26 @@ export default function webpackConfig(
       mainFields: ['browser', 'module', 'main'],
       // ESM imports get `import`, CJS requires get `require`: using `import`
       // for a CJS require() returns an ESM namespace the caller cannot invoke.
-      conditionNames: ['browser', 'import', 'require', 'module', 'default'],
+      conditionNames: [
+        'browser',
+        'import',
+        'require',
+        'module',
+        modeCondition,
+        'default'
+      ],
       byDependency: {
-        esm: {
-          conditionNames: ['browser', 'import', 'module', 'default']
-        },
-        commonjs: {
-          conditionNames: ['browser', 'require', 'module', 'default']
-        }
+        esm: importResolve,
+        wasm: importResolve,
+        loaderImport: importResolve,
+        worker: importResolve,
+        commonjs: requireResolve,
+        amd: requireResolve,
+        loader: requireResolve,
+        unknown: requireResolve,
+        'css-import': cssImportResolve,
+        'css-import-local-module': cssImportResolve,
+        'css-import-global-module': cssImportResolve
       },
       aliasFields: ['browser'],
       fallback: nodeFallbacks,
@@ -682,7 +732,10 @@ export default function webpackConfig(
       // imports. Production keeps every rule development keeps, so it must not.
       minimizer: [
         new SwcJsMinimizerRspackPlugin({extractComments: true}),
-        new LightningCssMinimizerRspackPlugin({removeUnusedLocalIdents: false})
+        new LightningCssMinimizerRspackPlugin({
+          removeUnusedLocalIdents: false,
+          minimizerOptions: cssMinimizerOptions(rawManifest, devOptions.browser)
+        })
       ],
       sideEffects: true,
       usedExports: 'global',

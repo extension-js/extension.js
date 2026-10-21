@@ -53,6 +53,24 @@ export function verbatimCssPlaceholder(id: string): string {
   return `.__extjs_verbatim_${id}__{--extjs-verbatim:1}\n`
 }
 
+// A css module renames local classes, so the marker stays global and each
+// class the raw sheet names is exported as itself, matching the shipped text.
+export function verbatimCssModulePlaceholder(id: string, raw: string): string {
+  const scrubbed = raw.replace(/\/\*[\s\S]*?\*\//g, ' ')
+  const names = new Set<string>()
+
+  for (const match of scrubbed.matchAll(/\.(-?[_a-zA-Z][\w-]*)/g)) {
+    names.add(match[1])
+  }
+
+  const exported = [...names].map((name) => `${name}:${name}`).join(';')
+
+  return (
+    `:global(.__extjs_verbatim_${id}__){--extjs-verbatim:1}\n` +
+    (exported ? `:export{${exported}}\n` : '')
+  )
+}
+
 export function takeVerbatimCss(id: string): string | undefined {
   return registry().get(id)?.raw
 }
