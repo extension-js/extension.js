@@ -335,6 +335,9 @@ export class BrowsersPlugin implements RunnerPlugin {
             })
           }
         } catch (error) {
+          // No browser came up, so the next compile must try the launch again.
+          if (!this.controller) this.isFirstCompile = true
+
           const reason = error instanceof Error ? error.message : String(error)
           // Print before emitting: the emitter's default 'error' listener
           // swallows, so this is the only surface the operator ever sees.
