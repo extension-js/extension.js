@@ -7,6 +7,7 @@ const series = (start, counts) =>
     const day = new Date(Date.parse(start) + index * 864e5)
       .toISOString()
       .slice(0, 10)
+
     return {day, downloads}
   })
 

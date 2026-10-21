@@ -78,6 +78,7 @@ async function npmRange(pkg, from, to) {
       `https://api.npmjs.org/downloads/range/${from}:${to}/${pkg}`
     )
     const text = await response.text()
+
     try {
       return JSON.parse(text).downloads || []
     } catch {
@@ -115,6 +116,7 @@ async function main() {
   const own = summarizePackage(own28, reference28)
 
   const packages = {}
+
   for (const sibling of SIBLING_PACKAGES) {
     await sleep(pause)
     packages[sibling] = summarizePackage(
@@ -158,10 +160,11 @@ async function main() {
 
   if (dryRun) {
     console.log(JSON.stringify(line))
+
     return
   }
 
-  fs.appendFileSync(out, JSON.stringify(line) + '\n')
+  fs.appendFileSync(out, `${JSON.stringify(line)}\n`)
   const trafficNote = traffic
     ? `${views.views.length} view days, ${referrers.length} referrers`
     : 'no traffic access (token lacks push rights, set TRAFFIC_TOKEN)'
