@@ -40,6 +40,7 @@ import {maybeUseSolid} from './js-tools/solid'
 import {maybeUseSvelte} from './js-tools/svelte'
 import {
   ensureTypeScriptConfig,
+  getUserJsConfigFile,
   getUserTypeScriptConfigFile,
   isUsingTypeScript
 } from './js-tools/typescript'
@@ -563,9 +564,11 @@ export class JsFrameworksPlugin {
       compiler.options.module.rules as LooseRuleSetRule[]
     )
 
-    if (isUsingTypeScript(projectPath) || !!tsConfigPath) {
+    const resolveConfigPath = tsConfigPath ?? getUserJsConfigFile(projectPath)
+
+    if (isUsingTypeScript(projectPath) || !!resolveConfigPath) {
       compiler.options.resolve.tsConfig = {
-        configFile: tsConfigPath as string
+        configFile: resolveConfigPath as string
       }
     }
 

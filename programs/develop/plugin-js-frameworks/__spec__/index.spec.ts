@@ -74,7 +74,8 @@ vi.mock('../js-tools/svelte', () => ({
 vi.mock('../js-tools/typescript', () => ({
   isUsingTypeScript: vi.fn(() => true),
   ensureTypeScriptConfig: vi.fn(),
-  getUserTypeScriptConfigFile: vi.fn(() => '/project/tsconfig.json')
+  getUserTypeScriptConfigFile: vi.fn(() => '/project/tsconfig.json'),
+  getUserJsConfigFile: vi.fn(() => undefined)
 }))
 
 vi.mock('../../lib/transpile-packages', async () => ({
@@ -115,6 +116,11 @@ vi.mock('fs', async () => {
 })
 
 import {JsFrameworksPlugin} from '../index'
+import {
+  getUserJsConfigFile,
+  getUserTypeScriptConfigFile,
+  isUsingTypeScript
+} from '../js-tools/typescript'
 
 function createCompiler(
   mode: 'development' | 'production' | 'none' = 'development',
@@ -211,6 +217,32 @@ describe('JsFrameworksPlugin', () => {
     expect(compiler.options.resolve.tsConfig?.configFile).toBe(
       '/project/tsconfig.json'
     )
+  })
+
+  it('resolves path aliases from jsconfig.json in a JavaScript project with no tsconfig', async () => {
+    vi.mocked(isUsingTypeScript).mockReturnValue(false)
+    vi.mocked(getUserTypeScriptConfigFile).mockReturnValue(undefined)
+    vi.mocked(getUserJsConfigFile).mockReturnValue('/project/jsconfig.json')
+
+    try {
+      const compiler = createCompiler('development')
+      const plugin = new JsFrameworksPlugin({
+        manifestPath: path.join('/project', 'manifest.json'),
+        mode: 'development'
+      })
+
+      await plugin.apply(compiler)
+
+      expect(compiler.options.resolve.tsConfig?.configFile).toBe(
+        '/project/jsconfig.json'
+      )
+    } finally {
+      vi.mocked(isUsingTypeScript).mockReturnValue(true)
+      vi.mocked(getUserTypeScriptConfigFile).mockReturnValue(
+        '/project/tsconfig.json'
+      )
+      vi.mocked(getUserJsConfigFile).mockReturnValue(undefined)
+    }
   })
 
   it('gates a one-shot development build on the same configure promise as watch', async () => {
