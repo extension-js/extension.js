@@ -1,7 +1,7 @@
 import {beforeEach, describe, expect, it, vi} from 'vitest'
 
-const attachConsoleListeners = vi.fn(async () => {})
-const subscribeUnifiedLogging = vi.fn()
+const attachConsoleListeners = vi.fn(async (..._a: unknown[]) => {})
+const subscribeUnifiedLogging = vi.fn((..._a: unknown[]) => {})
 
 vi.mock('../../../../run-firefox/rdp/remote-firefox/logging', () => ({
   attachConsoleListeners: (...a: unknown[]) => attachConsoleListeners(...a),
