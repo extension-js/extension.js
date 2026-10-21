@@ -303,7 +303,18 @@ export class CssPlugin {
                     ? roots.map((root) => path.join(root, req))
                     : [])
                 ]
-            if (candidates.some((candidate) => fs.existsSync(candidate))) return
+            const withCssExtension = path.extname(req)
+              ? []
+              : candidates.map((candidate) => `${candidate}.css`)
+
+            if (
+              [...candidates, ...withCssExtension].some((candidate) =>
+                fs.existsSync(candidate)
+              )
+            ) {
+              return
+            }
+
             if (process.env.EXTENSION_STRICT_REFS === 'true') return
 
             const key = `${issuer}|${req}`

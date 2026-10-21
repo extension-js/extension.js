@@ -367,6 +367,24 @@ export default function webpackConfig(
     plugins.push(browsersPlugin)
   }
 
+  // A top-level resolve list without '...' wipes rspack's per-type defaults,
+  // so every dependency type is restated here, the mode condition included.
+  const modeCondition =
+    (devOptions.mode || 'development') === 'production'
+      ? 'production'
+      : 'development'
+  const importResolve = {
+    conditionNames: ['browser', 'import', 'module', modeCondition, 'default']
+  }
+  const requireResolve = {
+    conditionNames: ['browser', 'require', 'module', modeCondition, 'default']
+  }
+  const cssImportResolve = {
+    conditionNames: [modeCondition, 'style'],
+    extensions: ['.css'],
+    mainFields: ['style', '...']
+  }
+
   return {
     mode: devOptions.mode || 'development',
     entry: {},
@@ -545,14 +563,26 @@ export default function webpackConfig(
       mainFields: ['browser', 'module', 'main'],
       // ESM imports get `import`, CJS requires get `require`: using `import`
       // for a CJS require() returns an ESM namespace the caller cannot invoke.
-      conditionNames: ['browser', 'import', 'require', 'module', 'default'],
+      conditionNames: [
+        'browser',
+        'import',
+        'require',
+        'module',
+        modeCondition,
+        'default'
+      ],
       byDependency: {
-        esm: {
-          conditionNames: ['browser', 'import', 'module', 'default']
-        },
-        commonjs: {
-          conditionNames: ['browser', 'require', 'module', 'default']
-        }
+        esm: importResolve,
+        wasm: importResolve,
+        loaderImport: importResolve,
+        worker: importResolve,
+        commonjs: requireResolve,
+        amd: requireResolve,
+        loader: requireResolve,
+        unknown: requireResolve,
+        'css-import': cssImportResolve,
+        'css-import-local-module': cssImportResolve,
+        'css-import-global-module': cssImportResolve
       },
       aliasFields: ['browser'],
       fallback: nodeFallbacks,
