@@ -24,6 +24,7 @@ import * as messages from '../lib/messages'
 import {humanWarn} from '../lib/messaging'
 import {parseJsonSafe} from '../lib/parse-json-safe'
 import {type AbsolutePath, asAbsolute} from '../lib/paths'
+import {renameSyncWithRetry} from '../lib/rename-with-retry'
 import {
   browserArtifactsDir,
   readyContractPath,
@@ -230,12 +231,12 @@ function rotateEventsFile(eventsPath: string) {
       const from = rotatedEventsName(eventsPath, n)
 
       if (fs.existsSync(from)) {
-        fs.renameSync(from, rotatedEventsName(eventsPath, n + 1))
+        renameSyncWithRetry(from, rotatedEventsName(eventsPath, n + 1))
       }
     }
 
     if (fs.existsSync(eventsPath)) {
-      fs.renameSync(eventsPath, rotatedEventsName(eventsPath, 1))
+      renameSyncWithRetry(eventsPath, rotatedEventsName(eventsPath, 1))
     }
   } catch {
     // Ignore
@@ -419,13 +420,22 @@ function ensureDirSync(dirPath: string) {
   }
 }
 
-function writeJsonAtomic(filePath: string, value: unknown) {
+function writeJsonAtomic(filePath: string, value: unknown): boolean {
+  const tmpPath = `${filePath}.tmp-${process.pid}`
+
   try {
-    const tmpPath = `${filePath}.tmp-${process.pid}`
     fs.writeFileSync(tmpPath, `${JSON.stringify(value, null, 2)}\n`, 'utf-8')
-    fs.renameSync(tmpPath, filePath)
+    renameSyncWithRetry(tmpPath, filePath)
+
+    return true
   } catch {
-    // Ignore
+    try {
+      fs.rmSync(tmpPath, {force: true})
+    } catch {
+      // Ignore
+    }
+
+    return false
   }
 }
 
