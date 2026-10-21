@@ -18,6 +18,7 @@ import {
   sources,
   WebpackError
 } from '@rspack/core'
+import {resolveDevelopDistFile} from '../../../lib/develop-context'
 import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
 import {importMetaUrlForEmitPath} from '../../../plugin-compilation/env'
 import type {DevOptions, Manifest} from '../../../types'
@@ -1139,12 +1140,18 @@ async function compileTracedFile(
     ? `${request.emitPath}.js`
     : undefined
 
-  const entry = new EntryPlugin(compiler.context, request.sourcePath, {
-    name: request.emitPath.replace(/\.[^./]+$/, ''),
-    filename: stylesheetScript || request.emitPath,
-    chunkLoading,
-    ...(isModule ? {library: {type: 'module'}} : {})
-  })
+  const entry = new EntryPlugin(
+    compiler.context,
+    isModule
+      ? request.sourcePath
+      : `${request.sourcePath}${CLASSIC_GLOBALS_QUERY}`,
+    {
+      name: request.emitPath.replace(/\.[^./]+$/, ''),
+      filename: stylesheetScript || request.emitPath,
+      chunkLoading,
+      ...(isModule ? {library: {type: 'module'}} : {})
+    }
+  )
 
   // The file is fetched at its emit path, so import.meta.url is that URL,
   // not the page-or-root guess the inherited define gives main entries.
@@ -1191,9 +1198,10 @@ async function compileTracedFile(
       child.options.module.parser as Record<string, unknown> | undefined
     ) as typeof child.options.module.parser,
     // Fast-refresh code needs the dev runtime the parent entries carry.
-    rules: withoutDevRefresh(
-      child.options.module.rules as LooseRule[]
-    ) as typeof child.options.module.rules
+    rules: [
+      ...(isModule ? [] : [classicGlobalsRule()]),
+      ...withoutDevRefresh(child.options.module.rules as LooseRule[])
+    ] as typeof child.options.module.rules
   }
 
   await new Promise<void>((resolve) => {
@@ -1258,6 +1266,21 @@ export function withEagerDynamicImports(
   }
 
   return next
+}
+
+// Marks only the classic entry itself, so the modules it imports stay private.
+const CLASSIC_GLOBALS_QUERY = '?__extensionjs_traced_classic__'
+
+function classicGlobalsRule(): LooseRule {
+  return {
+    resourceQuery: /[?&]__extensionjs_traced_classic__/,
+    enforce: 'post',
+    use: {
+      loader: resolveDevelopDistFile(
+        'feature-scripts-classic-traced-globals-loader'
+      )
+    }
+  }
 }
 
 type LooseUse =
