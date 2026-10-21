@@ -360,7 +360,16 @@ export class TraceRuntimeLoadedFiles {
       const next: string[] = []
 
       for (const content of pending) {
-        for (const literal of extractImportScriptsLiterals(content)) {
+        const listed = importScriptsListedPaths(content).filter((literal) => {
+          const rel = resolveExtensionPath(literal, sourceWorkerPath)
+
+          return Boolean(rel) && isFile(path.join(run.manifestDir, String(rel)))
+        })
+
+        for (const literal of [
+          ...extractImportScriptsLiterals(content),
+          ...listed
+        ]) {
           const sourceRel = resolveExtensionPath(literal, sourceWorkerPath)
           const distRel = resolveExtensionPath(literal, EMITTED_WORKER_PATH)
           if (!sourceRel || !distRel || seen.has(distRel)) continue
@@ -1780,14 +1789,103 @@ function extractImportScriptsLiterals(source: string): string[] {
     if (args == null) continue
 
     for (const arg of splitTopLevelArgs(args)) {
-      const literal = pureStringLiteral(arg)
       // Computed arguments (including the SDK's own chunk-loading runtime)
-      // cannot be traced statically, skip them silently.
-      if (literal != null) literals.push(literal)
+      // cannot be traced statically, only their literal branches can.
+      literals.push(...conditionalStringLiterals(arg))
     }
   }
 
   return literals
+}
+
+// The string literals an expression can evaluate to through ?: branches.
+function conditionalStringLiterals(expression: string, depth = 0): string[] {
+  const literal = pureStringLiteral(expression)
+  if (literal != null) return [literal]
+  if (depth > 8) return []
+
+  const trimmed = expression.trim()
+  const unwrapped =
+    trimmed.startsWith('(') &&
+    readBalancedArgs(trimmed, 0) === trimmed.slice(1, -1)
+      ? trimmed.slice(1, -1)
+      : trimmed
+  const branches = splitTopLevelConditional(unwrapped)
+  if (!branches) return []
+
+  return [
+    ...conditionalStringLiterals(branches[0], depth + 1),
+    ...conditionalStringLiterals(branches[1], depth + 1)
+  ]
+}
+
+function splitTopLevelConditional(expression: string): [string, string] | null {
+  let depth = 0
+  let question = -1
+  let pending = 0
+
+  for (let i = 0; i < expression.length; i++) {
+    const char = expression[i]
+
+    if (char === '"' || char === "'" || char === '`') {
+      i = skipString(expression, i, expression.length)
+      continue
+    }
+
+    if (char === '(' || char === '[' || char === '{') depth++
+    if (char === ')' || char === ']' || char === '}') depth--
+    if (depth !== 0) continue
+
+    const next = expression[i + 1]
+
+    if (char === '?' && next !== '?' && next !== '.') {
+      if (question < 0) question = i
+      else pending++
+    } else if (char === '?' && (next === '?' || next === '.')) {
+      i++
+    } else if (char === ':' && question >= 0) {
+      if (pending > 0) {
+        pending--
+        continue
+      }
+
+      return [expression.slice(question + 1, i), expression.slice(i + 1)]
+    }
+  }
+
+  return null
+}
+
+// A worker that feeds importScripts a variable usually keeps the paths in a
+// constant or a list, so every script path it spells is a candidate. The
+// caller keeps only candidates that exist as files.
+function importScriptsListedPaths(source: string): string[] {
+  const code = blankComments(source)
+  const callRe = /\bimportScripts\s*\(/g
+  let computed = false
+  let call: RegExpExecArray | null
+
+  while (!computed && (call = callRe.exec(code))) {
+    const args = readBalancedArgs(code, call.index + call[0].length - 1)
+    if (args == null) continue
+
+    computed = splitTopLevelArgs(args).some(
+      (arg) => pureStringLiteral(arg) == null
+    )
+  }
+
+  if (!computed) return []
+
+  const paths: string[] = []
+  const scriptString = /(['"])((?:\\.|(?!\1)[^\\\n])*?\.m?js)\1/g
+  let match: RegExpExecArray | null
+
+  while ((match = scriptString.exec(code))) {
+    const value = unescapeStringBody(match[2])
+    if (!/^[a-z][\w+.-]*:/i.test(value)) paths.push(value)
+  }
+
+  return paths
 }
 
 function arrayPropStringLiterals(args: string, prop: string): string[] {
