@@ -86,11 +86,11 @@ export function createExtensionsPageTab(
   })
 }
 
-function repointTab(tabId: number, url: string) {
+function repointTab(tabId: number, url: string, browser?: string) {
   let attempts = 0
   const onUpdated = (
     id: number,
-    change: chrome.tabs.TabChangeInfo,
+    change: chrome.tabs.OnUpdatedInfo,
     tab: chrome.tabs.Tab
   ) => {
     const decision = decideRepoint({
@@ -99,7 +99,8 @@ function repointTab(tabId: number, url: string) {
       status: change.status,
       url: tab.url,
       targetUrl: url,
-      attempts
+      attempts,
+      browser
     })
 
     if (decision === 'wait') return
@@ -117,24 +118,16 @@ function repointTab(tabId: number, url: string) {
   chrome.tabs.update(tabId, {url})
 }
 
-export async function handleFirstRun() {
+export async function handleFirstRun(startTab?: chrome.tabs.Tab) {
   const browser = (import.meta as any).env?.EXTENSION_BROWSER
   const isFirefox = browser === 'firefox'
   const isEdge = browser === 'edge'
   const scheme = isFirefox ? 'about' : isEdge ? 'edge' : 'chrome'
   const extensionsPage = isFirefox ? 'about:addons' : `${scheme}://extensions/`
 
-  // Capture the current active tab id so we can repurpose it (Chromium/Edge)
-  // after opening the welcome tab in front.
-  let originalActiveTabId: number | undefined
-  try {
-    chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
-      const tab = Array.isArray(tabs) ? tabs[0] : undefined
-      if (tab && typeof tab.id === 'number') originalActiveTabId = tab.id
-    })
-  } catch {
-    console.error('Error querying active tab')
-  }
+  // Only the start tab the caller checked is ours to repoint. A second look at
+  // the active tab can land on a page another tool opened in the meantime.
+  const startTabId = typeof startTab?.id === 'number' ? startTab.id : undefined
 
   let devExtension: chrome.management.ExtensionInfo | undefined
   devExtension = await getDevExtension()
@@ -200,9 +193,9 @@ export async function handleFirstRun() {
 
         // Then update the original active tab to the extensions page
         // in the background (avoid stealing focus on Edge).
-        if (typeof originalActiveTabId === 'number') {
+        if (typeof startTabId === 'number') {
           try {
-            repointTab(originalActiveTabId, extensionsPage)
+            repointTab(startTabId, extensionsPage, browser)
           } catch {
             console.error('Error updating original active tab')
           }

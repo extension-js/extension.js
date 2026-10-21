@@ -172,6 +172,7 @@ export class BrowsersPlugin implements RunnerPlugin {
   private reloadBroker: ReloadBroker | undefined
   private logSink: BrowserLogSink | undefined
   private emulatorViewerUrl: string | undefined
+  private instanceId: string | undefined
   // The refusal text last shown to the operator, so repeats stay quiet.
   private lastReportedRefusal: string | null | undefined
   // The content script files the manifest named when the browser last read
@@ -197,6 +198,12 @@ export class BrowsersPlugin implements RunnerPlugin {
 
   setEmulatorViewerUrl(url: string): void {
     this.emulatorViewerUrl = url
+  }
+
+  // The session's instance id offsets the browser's debugging port, so two
+  // dev sessions started together do not both pick the base port.
+  setInstanceId(instanceId: string): void {
+    this.instanceId = instanceId
   }
 
   // The broker calls this for a verb that finds no executor. False until the
@@ -316,6 +323,9 @@ export class BrowsersPlugin implements RunnerPlugin {
             contextDir,
             extensionsToLoad: this.extensionsToLoad,
             logSink: this.logSink,
+            ...(this.options.browserOptions.instanceId || !this.instanceId
+              ? {}
+              : {instanceId: this.instanceId}),
             ...(this.emulatorViewerUrl
               ? {emulatorViewerUrl: this.emulatorViewerUrl}
               : {})
