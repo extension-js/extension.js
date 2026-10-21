@@ -51,12 +51,16 @@ export function decideRepoint(input: {
   url: string | undefined
   targetUrl: string
   attempts: number
+  browser?: string
 }): RepointDecision {
   if (input.updatedTabId !== input.tabId || input.status !== 'complete') {
     return 'wait'
   }
 
-  if (String(input.url || '').startsWith(input.targetUrl)) return 'wait'
+  const url = String(input.url || '')
+
+  if (url.startsWith(input.targetUrl)) return 'wait'
+  if (!isStartPage(url, input.browser)) return 'stop'
   if (input.attempts >= MAX_REPOINT_ATTEMPTS) return 'stop'
 
   return 'repoint'
