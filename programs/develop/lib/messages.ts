@@ -225,9 +225,12 @@ export function authorInstallNotice(target: string) {
   return `${prefix('debug')} install  target=${target}`
 }
 
-export function projectInstallInWorkspaceRoot(workspaceRoot: string) {
+export function projectInstallInWorkspaceRoot(
+  workspaceRoot: string,
+  managerName = 'pnpm'
+) {
   return (
-    `${getLoggingPrefix('info')} This project is a pnpm workspace member, ` +
+    `${getLoggingPrefix('info')} This project is a ${managerName} workspace member, ` +
     `installing from the workspace root at ${colors.blue(workspaceRoot)}.`
   )
 }
