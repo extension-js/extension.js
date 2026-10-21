@@ -141,7 +141,7 @@ export function collectExposableClassicNames(content: string): string[] {
     if (statement.type === 'ExportNamedDeclaration') {
       addFromDeclaration(statement.declaration, names)
 
-      // `export { foo }` re-exports a local binding; `export { foo } from`
+      // `export { foo }` re-exports a local binding, while `export { foo } from`
       // does not create one.
       if (!statement.source) {
         for (const specifier of statement.specifiers || []) {

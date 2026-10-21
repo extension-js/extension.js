@@ -29,9 +29,8 @@ function literalsFrom(file: string, projectDir: string): string[] {
     : scanScriptGraph(file, extractRuntimeSurfaceLiterals)
 }
 
-// Pages opened only at runtime (setPopup, sidePanel.setOptions,
-// offscreen.createDocument, tabs.create) never appear in the manifest. Found
-// from the manifest's own scripts and pages, so they build like declared pages.
+// Pages opened only at runtime (setPopup, setOptions, createDocument) never
+// appear in the manifest, so they are found from the scripts it names.
 export function discoverRuntimeSurfacePages(
   manifestPath: string,
   manifestScripts: FilepathList,
