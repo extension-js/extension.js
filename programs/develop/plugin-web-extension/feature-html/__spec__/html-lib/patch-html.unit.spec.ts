@@ -46,6 +46,27 @@ describe('patchHtml', () => {
     expect(updated).not.toContain('src="a.js"')
   })
 
+  it('removes every bundled link when the links sit side by side', () => {
+    const tmp = makeTmp('adjacent')
+    const htmlPath = path.join(tmp, 'index.html')
+    fs.writeFileSync(
+      htmlPath,
+      `<html><head><link rel="stylesheet" href="a.css"><link rel="stylesheet" href="b.css"><link rel="stylesheet" href="c.css"><link rel="stylesheet" href="d.css"></head><body><script src="a.js"></script></body></html>`
+    )
+
+    const updated = patchHtml(
+      makeCompilation('production'),
+      'feature/index',
+      htmlPath,
+      {'feature/index': htmlPath}
+    )
+    expect(updated).toContain('href="/feature/index.css"')
+
+    for (const name of ['a', 'b', 'c', 'd']) {
+      expect(updated).not.toContain(`href="${name}.css"`)
+    }
+  })
+
   it('patches the given markup instead of the file when html is passed', () => {
     const tmp = makeTmp('override')
     const htmlPath = path.join(tmp, 'index.html')
