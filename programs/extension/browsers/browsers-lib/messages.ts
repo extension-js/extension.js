@@ -26,6 +26,7 @@ import {
 import type {BrowserType} from '../browsers-types'
 import {LIBREWOLF_REMOTE_DEBUGGING_LINES} from '../run-firefox/firefox-launch/librewolf-overrides'
 import {isFirefoxBrowser} from './browser-family'
+import {isRefusedOfficialChrome} from './official-chrome'
 import {
   resolveFromBinaries,
   sharedManagedCacheEnv
@@ -227,6 +228,8 @@ export function resolveBrowserVersionLine(
       }
     } else if (browser === 'chrome') {
       const p = locateChrome(true, {env: sharedManagedCacheEnv('chrome')})
+
+      if (p && typeof p === 'string' && isRefusedOfficialChrome(p)) return ''
 
       if (p && typeof p === 'string' && fs.existsSync(p)) {
         return getChromeVersion(p) || 'Chrome'

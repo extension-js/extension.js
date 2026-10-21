@@ -18,6 +18,7 @@ import {
   sources,
   WebpackError
 } from '@rspack/core'
+import {resolveDevelopDistFile} from '../../../lib/develop-context'
 import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
 import {importMetaUrlForEmitPath} from '../../../plugin-compilation/env'
 import type {DevOptions, Manifest} from '../../../types'
@@ -360,7 +361,16 @@ export class TraceRuntimeLoadedFiles {
       const next: string[] = []
 
       for (const content of pending) {
-        for (const literal of extractImportScriptsLiterals(content)) {
+        const listed = importScriptsListedPaths(content).filter((literal) => {
+          const rel = resolveExtensionPath(literal, sourceWorkerPath)
+
+          return Boolean(rel) && isFile(path.join(run.manifestDir, String(rel)))
+        })
+
+        for (const literal of [
+          ...extractImportScriptsLiterals(content),
+          ...listed
+        ]) {
           const sourceRel = resolveExtensionPath(literal, sourceWorkerPath)
           const distRel = resolveExtensionPath(literal, EMITTED_WORKER_PATH)
           if (!sourceRel || !distRel || seen.has(distRel)) continue
@@ -586,6 +596,14 @@ export class TraceRuntimeLoadedFiles {
     const surfacePages = this.surfacePageOutputs(run.manifestDir)
     let shippedByWar: Set<string> | undefined
     const seen = run.seen.getURL
+    const pageSources = new Map(
+      [...surfacePages].map(([sourceRel, output]) => [output, sourceRel])
+    )
+    const relocatedSurfaceRefs: Array<{
+      assetName: string
+      literal: string
+      distRel: string
+    }> = []
 
     // getURL literals resolve against the extension ROOT regardless of context,
     // so, unlike relative fetch(), content scripts are traceable here.
@@ -624,7 +642,14 @@ export class TraceRuntimeLoadedFiles {
                 ...extractRuntimeSurfaceLiterals(item.content).map(
                   (literal) => ({
                     literal,
-                    baseRel: '',
+                    baseRel: item.copied
+                      ? ''
+                      : movedPageSourceBase(
+                          run,
+                          pageSources,
+                          item.assetName,
+                          literal
+                        ),
                     isRuntimeSurface: true
                   })
                 ),
@@ -654,7 +679,17 @@ export class TraceRuntimeLoadedFiles {
           isRuntimeSurface
         } of refs) {
           const distRel = resolveExtensionPath(literal, baseRel)
-          if (!distRel || seen.has(distRel)) continue
+          if (!distRel) continue
+
+          if (isRuntimeSurface && baseRel && item.kind === 'js') {
+            relocatedSurfaceRefs.push({
+              assetName: item.assetName,
+              literal,
+              distRel
+            })
+          }
+
+          if (seen.has(distRel)) continue
 
           seen.add(distRel)
 
@@ -760,6 +795,21 @@ export class TraceRuntimeLoadedFiles {
       }
 
       pending = next
+    }
+
+    for (const ref of relocatedSurfaceRefs) {
+      const target = declaredSurfaces.has(ref.distRel)
+        ? surfacePages.get(ref.distRel) || ref.distRel
+        : ref.distRel
+
+      if (!run.hasAsset(target)) continue
+
+      rewriteStringLiteral(
+        run.compilation,
+        ref.assetName,
+        ref.literal,
+        `/${target}`
+      )
     }
   }
 
@@ -1139,12 +1189,18 @@ async function compileTracedFile(
     ? `${request.emitPath}.js`
     : undefined
 
-  const entry = new EntryPlugin(compiler.context, request.sourcePath, {
-    name: request.emitPath.replace(/\.[^./]+$/, ''),
-    filename: stylesheetScript || request.emitPath,
-    chunkLoading,
-    ...(isModule ? {library: {type: 'module'}} : {})
-  })
+  const entry = new EntryPlugin(
+    compiler.context,
+    isModule
+      ? request.sourcePath
+      : `${request.sourcePath}${CLASSIC_GLOBALS_QUERY}`,
+    {
+      name: request.emitPath.replace(/\.[^./]+$/, ''),
+      filename: stylesheetScript || request.emitPath,
+      chunkLoading,
+      ...(isModule ? {library: {type: 'module'}} : {})
+    }
+  )
 
   // The file is fetched at its emit path, so import.meta.url is that URL,
   // not the page-or-root guess the inherited define gives main entries.
@@ -1191,9 +1247,10 @@ async function compileTracedFile(
       child.options.module.parser as Record<string, unknown> | undefined
     ) as typeof child.options.module.parser,
     // Fast-refresh code needs the dev runtime the parent entries carry.
-    rules: withoutDevRefresh(
-      child.options.module.rules as LooseRule[]
-    ) as typeof child.options.module.rules
+    rules: [
+      ...(isModule ? [] : [classicGlobalsRule()]),
+      ...withoutDevRefresh(child.options.module.rules as LooseRule[])
+    ] as typeof child.options.module.rules
   }
 
   await new Promise<void>((resolve) => {
@@ -1258,6 +1315,21 @@ export function withEagerDynamicImports(
   }
 
   return next
+}
+
+// Marks only the classic entry itself, so the modules it imports stay private.
+const CLASSIC_GLOBALS_QUERY = '?__extensionjs_traced_classic__'
+
+function classicGlobalsRule(): LooseRule {
+  return {
+    resourceQuery: /[?&]__extensionjs_traced_classic__/,
+    enforce: 'post',
+    use: {
+      loader: resolveDevelopDistFile(
+        'feature-scripts-classic-traced-globals-loader'
+      )
+    }
+  }
 }
 
 type LooseUse =
@@ -1416,6 +1488,60 @@ function unixify(filePath: string): string {
 
 // Resolve a runtime URL literal the way the browser does and return the
 // extension-root-relative path, or null for non-same-origin references.
+// tabs.create and friends resolve a relative url against the calling page,
+// which moved in dist, so read it from the page's source folder instead.
+function movedPageSourceBase(
+  run: TraceRun,
+  pageSources: Map<string, string>,
+  assetName: string,
+  literal: string
+): string {
+  if (!/^\.\.?\//.test(literal.trim())) return ''
+
+  const entryName = assetName.replace(/\.js$/i, '')
+  const pageSource = pageSources.get(`${entryName}.html`)
+  const entryDir = run.entrySourceDirs.get(entryName)
+  const entryDirRel = entryDir
+    ? unixify(path.relative(run.manifestDir, entryDir))
+    : undefined
+  const sourceRel =
+    pageSource ||
+    (entryDirRel === undefined
+      ? ''
+      : entryDirRel
+        ? `${entryDirRel}/index.js`
+        : 'index.js')
+
+  if (!sourceRel || sourceRel.startsWith('..')) return ''
+
+  const sourceDirRel = path.posix.dirname(sourceRel)
+  if (sourceDirRel === path.posix.dirname(unixify(assetName))) return ''
+
+  return sourceRel.replace(/^\.\//, '')
+}
+
+function rewriteStringLiteral(
+  compilation: Compilation,
+  assetName: string,
+  literal: string,
+  replacement: string
+) {
+  const asset = compilation.getAsset(assetName)
+  if (!asset) return
+
+  const escaped = literal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const quoted = new RegExp(`(['"\`])${escaped}\\1`, 'g')
+  const content = asset.source.source().toString()
+  const updated = content.replace(
+    quoted,
+    (_match, quote: string) => `${quote}${replacement}${quote}`
+  )
+
+  if (updated !== content) {
+    compilation.updateAsset(assetName, new sources.RawSource(updated))
+  }
+}
+
 export function resolveExtensionPath(
   literal: string,
   basePath: string
@@ -1686,14 +1812,103 @@ function extractImportScriptsLiterals(source: string): string[] {
     if (args == null) continue
 
     for (const arg of splitTopLevelArgs(args)) {
-      const literal = pureStringLiteral(arg)
       // Computed arguments (including the SDK's own chunk-loading runtime)
-      // cannot be traced statically, skip them silently.
-      if (literal != null) literals.push(literal)
+      // cannot be traced statically, only their literal branches can.
+      literals.push(...conditionalStringLiterals(arg))
     }
   }
 
   return literals
+}
+
+// The string literals an expression can evaluate to through ?: branches.
+function conditionalStringLiterals(expression: string, depth = 0): string[] {
+  const literal = pureStringLiteral(expression)
+  if (literal != null) return [literal]
+  if (depth > 8) return []
+
+  const trimmed = expression.trim()
+  const unwrapped =
+    trimmed.startsWith('(') &&
+    readBalancedArgs(trimmed, 0) === trimmed.slice(1, -1)
+      ? trimmed.slice(1, -1)
+      : trimmed
+  const branches = splitTopLevelConditional(unwrapped)
+  if (!branches) return []
+
+  return [
+    ...conditionalStringLiterals(branches[0], depth + 1),
+    ...conditionalStringLiterals(branches[1], depth + 1)
+  ]
+}
+
+function splitTopLevelConditional(expression: string): [string, string] | null {
+  let depth = 0
+  let question = -1
+  let pending = 0
+
+  for (let i = 0; i < expression.length; i++) {
+    const char = expression[i]
+
+    if (char === '"' || char === "'" || char === '`') {
+      i = skipString(expression, i, expression.length)
+      continue
+    }
+
+    if (char === '(' || char === '[' || char === '{') depth++
+    if (char === ')' || char === ']' || char === '}') depth--
+    if (depth !== 0) continue
+
+    const next = expression[i + 1]
+
+    if (char === '?' && next !== '?' && next !== '.') {
+      if (question < 0) question = i
+      else pending++
+    } else if (char === '?' && (next === '?' || next === '.')) {
+      i++
+    } else if (char === ':' && question >= 0) {
+      if (pending > 0) {
+        pending--
+        continue
+      }
+
+      return [expression.slice(question + 1, i), expression.slice(i + 1)]
+    }
+  }
+
+  return null
+}
+
+// A worker that feeds importScripts a variable usually keeps the paths in a
+// constant or a list, so every script path it spells is a candidate. The
+// caller keeps only candidates that exist as files.
+function importScriptsListedPaths(source: string): string[] {
+  const code = blankComments(source)
+  const callRe = /\bimportScripts\s*\(/g
+  let computed = false
+  let call: RegExpExecArray | null
+
+  while (!computed && (call = callRe.exec(code))) {
+    const args = readBalancedArgs(code, call.index + call[0].length - 1)
+    if (args == null) continue
+
+    computed = splitTopLevelArgs(args).some(
+      (arg) => pureStringLiteral(arg) == null
+    )
+  }
+
+  if (!computed) return []
+
+  const paths: string[] = []
+  const scriptString = /(['"])((?:\\.|(?!\1)[^\\\n])*?\.m?js)\1/g
+  let match: RegExpExecArray | null
+
+  while ((match = scriptString.exec(code))) {
+    const value = unescapeStringBody(match[2])
+    if (!/^[a-z][\w+.-]*:/i.test(value)) paths.push(value)
+  }
+
+  return paths
 }
 
 function arrayPropStringLiterals(args: string, prop: string): string[] {

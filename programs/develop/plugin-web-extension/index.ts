@@ -20,6 +20,7 @@ import {ScriptsPlugin} from './feature-scripts'
 import {WebResourcesPlugin} from './feature-web-resources'
 import {discoverWebAccessiblePages} from './feature-web-resources/web-resources-lib/declared-pages'
 import {discoverDevtoolsPanelPages} from './shared/discover-devtools-panels'
+import {discoverRuntimeSurfacePages} from './shared/discover-runtime-surfaces'
 import {getResolvedManifestFieldsData} from './shared/manifest-fields'
 import {ManifestFieldsChangeDetector} from './shared/manifest-fields-change-detector'
 import {
@@ -81,6 +82,11 @@ export class WebExtensionPlugin {
       manifestPath,
       browser: this.browser,
       includeList: {
+        ...discoverRuntimeSurfacePages(
+          manifestPath,
+          manifestFieldsData.scripts,
+          manifestFieldsData.html
+        ),
         ...discoverWebAccessiblePages(manifestPath, this.browser, projectPath),
         ...ownedPages,
         ...omitOwnedPages(specialFoldersData.pages, ownedPages)

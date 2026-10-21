@@ -179,13 +179,15 @@ export function launchIsHeadless(flags: readonly string[]): boolean {
 // --disable/enable-features into one comma-joined switch each.
 export function mergeChromiumFeatureSwitches(flags: string[]): string[] {
   const merged: string[] = []
+  const prefixes = ['--enable-features=', '--disable-features='] as const
   const featureValues: Record<string, string[]> = {
     '--enable-features=': [],
     '--disable-features=': []
   }
+  const featureName = (value: string) => value.split(/[<:]/)[0].trim()
 
   for (const flag of flags) {
-    const prefix = Object.keys(featureValues).find((p) => flag.startsWith(p))
+    const prefix = prefixes.find((p) => flag.startsWith(p))
 
     if (!prefix) {
       merged.push(flag)
@@ -194,14 +196,22 @@ export function mergeChromiumFeatureSwitches(flags: string[]): string[] {
 
     for (const value of flag.slice(prefix.length).split(',')) {
       const trimmed = value.trim()
+      if (!trimmed) continue
 
-      if (trimmed && !featureValues[prefix].includes(trimmed)) {
-        featureValues[prefix].push(trimmed)
+      const name = featureName(trimmed)
+
+      for (const other of prefixes) {
+        featureValues[other] = featureValues[other].filter(
+          (existing) => featureName(existing) !== name
+        )
       }
+
+      featureValues[prefix].push(trimmed)
     }
   }
 
-  for (const [prefix, values] of Object.entries(featureValues)) {
+  for (const prefix of prefixes) {
+    const values = featureValues[prefix]
     if (values.length) merged.push(`${prefix}${values.join(',')}`)
   }
 

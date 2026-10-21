@@ -66,6 +66,38 @@ describe('telemetry command coverage', () => {
       detectInvokedCommand(['node', 'extension', '--browser', 'chrome', 'dev'])
     ).toBe('unknown')
   })
+
+  it('skips the value of a flag that takes one once the flags are known', () => {
+    const valued = new Set(['--browser', '--output', '--format'])
+
+    expect(
+      detectInvokedCommand(
+        ['node', 'extension', '--browser', 'chrome', 'dev'],
+        valued
+      )
+    ).toBe('dev')
+
+    expect(
+      detectInvokedCommand(
+        ['node', 'extension', '--output=json', 'build'],
+        valued
+      )
+    ).toBe('build')
+
+    expect(
+      detectInvokedCommand(
+        ['node', 'extension', '--format', 'json', 'install', '--where'],
+        valued
+      )
+    ).toBe('install')
+
+    expect(
+      detectInvokedCommand(
+        ['node', 'extension', '--browser', 'chrome', './my-project'],
+        valued
+      )
+    ).toBe('unknown')
+  })
 })
 
 describe('failure payload scrubbing', () => {

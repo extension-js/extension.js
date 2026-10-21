@@ -49,6 +49,7 @@ import {
   findUnloadableIconFiles
 } from '../../browsers-lib/manifest-refusal'
 import * as messages from '../../browsers-lib/messages'
+import {isRefusedOfficialChrome} from '../../browsers-lib/official-chrome'
 import * as binariesResolver from '../../browsers-lib/output-binaries-resolver'
 import {
   type PinnedBinaryProblem,
@@ -650,25 +651,6 @@ export class ChromiumLaunchPlugin {
     const getBrowserVersionLine = (bin: string): Promise<string> =>
       probeChromiumBinaryVersion(bin, String(browser || ''))
 
-    const looksOfficialChromeBinaryPath = (bin: string): boolean => {
-      const p = String(bin || '')
-      if (!p) return false
-
-      if (
-        /\/Applications\/Google Chrome(?: (?:Beta|Dev|Canary))?\.app\/Contents\/MacOS\/Google Chrome/i.test(
-          p
-        )
-      ) {
-        return true
-      }
-
-      if (/\\Google\\Chrome\\Application\\chrome\.exe$/i.test(p)) return true
-      if (/\/opt\/google\/chrome\//i.test(p)) return true
-      if (/\/google-chrome(?:-stable)?$/i.test(p)) return true
-
-      return false
-    }
-
     const managedCacheRoot =
       binariesResolver.computeBinariesBaseDir(compilation)
     const managedEnvFor = (b: ChromiumLaunchOptions['browser']) =>
@@ -689,7 +671,7 @@ export class ChromiumLaunchPlugin {
           const normalized = normalizePath(located || null)
 
           if (isUsableBinary(normalized)) {
-            if (looksOfficialChromeBinaryPath(normalized) && !isWslEnv()) {
+            if (isRefusedOfficialChrome(normalized)) {
               printInstallGuidance(getInstallGuidanceText('chrome'), browser)
 
               return null
@@ -705,7 +687,7 @@ export class ChromiumLaunchPlugin {
           const normalized = normalizePath(candidate || null)
 
           if (normalized) {
-            if (looksOfficialChromeBinaryPath(normalized) && !isWslEnv()) {
+            if (isRefusedOfficialChrome(normalized)) {
               printInstallGuidance(getInstallGuidanceText('chrome'), browser)
               candidate = null
             }

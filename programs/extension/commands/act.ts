@@ -21,7 +21,7 @@ import {
   isExtensionDocumentContext
 } from '../browsers/run-firefox/rdp/evaluate-extension-document'
 import {emulatorSessionRefusal} from '../helpers/emulator-session'
-import {exitAfterDrain} from '../helpers/exit-after-drain'
+import {exitAfterDrain, exitWithFailure} from '../helpers/exit-after-drain'
 import {
   type AnyDevelopModule,
   loadExtensionDevelopBridgeModule
@@ -59,6 +59,7 @@ import {
   resolveSessionProjectPath,
   sessionReadyPath
 } from '../helpers/session-project-path'
+import {markCommandFailure} from '../helpers/telemetry-cli'
 import {SESSION_BROWSER_TARGETS_HELP} from '../helpers/vendors'
 import {formatPrettyLogLine, type LogEventLike} from './logs'
 
@@ -465,7 +466,7 @@ function fail(message: string, frame?: FailFrame): never {
     )
   }
 
-  process.exit(1)
+  exitWithFailure(frame?.code)
 }
 
 function positiveIntFlag(
@@ -717,10 +718,16 @@ function printResult(
   }
 
   const err = result.error || {name: 'Error', message: 'command failed'}
+  const {error} = buildActEnvelope(command, result) as {error?: EnvelopeError}
   // eslint-disable-next-line no-console
   console.error(
     `${err.name}: ${err.message}${err.engine ? ` (engine: ${err.engine})` : ''}`
   )
+
+  if (error?.hint) {
+    // eslint-disable-next-line no-console
+    console.error(error.hint)
+  }
 }
 
 function bridgeErrorCode(result: ActResultLike): ErrorCode {
@@ -1094,6 +1101,14 @@ async function runCommand(input: RunInput): Promise<void> {
   }
 
   printResult(result, input.opts.output, input.command, input.pretty)
+
+  if (!result.ok) {
+    const {error} = buildActEnvelope(input.command, result) as {
+      error?: {code?: unknown}
+    }
+    markCommandFailure(undefined, {code: error?.code, exitCode: 1})
+  }
+
   await exitAfterDrain(result.ok ? 0 : 1)
 }
 

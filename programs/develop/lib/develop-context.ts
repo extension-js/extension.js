@@ -50,29 +50,9 @@ function findDevelopRootFrom(startDir: string): string | undefined {
   return undefined
 }
 
-export function findExtensionDevelopRoot(): string | null {
-  const libDir = __dirname
-  const buildDir = path.resolve(libDir, '..')
-  const packageRoot = path.resolve(buildDir, '..')
-
-  const packageJsonPath = path.join(packageRoot, 'package.json')
-
-  if (fs.existsSync(packageJsonPath)) {
-    try {
-      const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'))
-
-      if (pkg.name === 'extension-develop') {
-        return packageRoot
-      }
-    } catch {
-      // Ignore
-    }
-  }
-
-  return null
-}
-
-export function resolveDevelopInstallRoot(): string | undefined {
+export function findExtensionDevelopRoot(
+  startDir: string = __dirname
+): string | null {
   const envRoot = process.env.EXTENSION_DEVELOP_ROOT
 
   if (envRoot) {
@@ -80,15 +60,12 @@ export function resolveDevelopInstallRoot(): string | undefined {
     if (resolvedEnvRoot) return resolvedEnvRoot
   }
 
+  return findDevelopRootFrom(startDir) || null
+}
+
+export function resolveDevelopInstallRoot(): string | undefined {
   const directRoot = findExtensionDevelopRoot()
   if (directRoot) return directRoot
-
-  try {
-    const candidateRoot = findDevelopRootFrom(__dirname)
-    if (candidateRoot) return candidateRoot
-  } catch {
-    // Ignore
-  }
 
   try {
     const pkgPath = cjsRequire.resolve('extension-develop/package.json', {

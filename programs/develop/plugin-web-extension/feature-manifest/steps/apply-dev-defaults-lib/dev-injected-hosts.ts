@@ -91,7 +91,11 @@ function escapeForRegExp(value: string): string {
 
 // Chrome match-pattern semantics: a bare "*" scheme covers http and https,
 // a "*." host prefix covers the base domain plus every subdomain.
-export function matchesHostPattern(pattern: string, url: string): boolean {
+export function matchesHostPattern(
+  pattern: string,
+  url: string,
+  {ignorePath = false}: {ignorePath?: boolean} = {}
+): boolean {
   if (!pattern) return false
   if (pattern === '<all_urls>') return true
 
@@ -128,12 +132,19 @@ export function matchesHostPattern(pattern: string, url: string): boolean {
     }
   }
 
+  if (ignorePath) return true
+
   const pathPattern = rawPath || '/*'
   const pathRe = new RegExp(
     `^${pathPattern.split('*').map(escapeForRegExp).join('.*')}$`
   )
 
   return pathRe.test(parsed.pathname + parsed.search)
+}
+
+// Host permissions grant a whole origin: Chrome drops the path of the pattern.
+export function matchesHostPermission(pattern: string, url: string): boolean {
+  return matchesHostPattern(pattern, url, {ignorePath: true})
 }
 
 export interface InjectedOnlyHostUse {
@@ -237,10 +248,12 @@ export function findInjectedOnlyHostUses(
     }
 
     for (const url of findAbsoluteRequestUrls(source)) {
-      if (declared.some((pattern) => matchesHostPattern(pattern, url))) continue
+      if (declared.some((pattern) => matchesHostPermission(pattern, url))) {
+        continue
+      }
 
       const pattern = injected.find((candidate) =>
-        matchesHostPattern(candidate, url)
+        matchesHostPermission(candidate, url)
       )
       if (!pattern) continue
 
@@ -259,7 +272,7 @@ export function findInjectedOnlyHostUses(
         file: resource,
         pattern,
         optional: optional.some((candidate) =>
-          matchesHostPattern(candidate, url)
+          matchesHostPermission(candidate, url)
         )
       })
     }

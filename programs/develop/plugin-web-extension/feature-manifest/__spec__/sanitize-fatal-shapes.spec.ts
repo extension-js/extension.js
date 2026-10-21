@@ -411,6 +411,42 @@ describe('findMistypedManifestFields', () => {
     ).toEqual(['permissions'])
   })
 
+  it('names an object-only field that holds a string, an array or null', () => {
+    const mistyped = findMistypedManifestFields({
+      manifest_version: 3,
+      name: 'x',
+      version: '1.0.0',
+      action: 'popup.html',
+      side_panel: ['panel.html'],
+      options_ui: null,
+      background: 'sw.js'
+    } as unknown as Manifest)
+    expect(mistyped.map((entry) => entry.field)).toEqual([
+      'action',
+      'background',
+      'side_panel',
+      'options_ui'
+    ])
+
+    expect(mistyped[0]).toEqual({
+      field: 'action',
+      expected: 'an object',
+      received: 'the string "popup.html"'
+    })
+  })
+
+  it('names a string browser_action or page_action on Manifest V2', () => {
+    expect(
+      findMistypedManifestFields({
+        manifest_version: 2,
+        name: 'x',
+        version: '1.0.0',
+        browser_action: 'popup.html',
+        page_action: 'page.html'
+      } as unknown as Manifest).map((entry) => entry.field)
+    ).toEqual(['browser_action', 'page_action'])
+  })
+
   it('reports nothing for a well-typed manifest', () => {
     expect(
       findMistypedManifestFields({

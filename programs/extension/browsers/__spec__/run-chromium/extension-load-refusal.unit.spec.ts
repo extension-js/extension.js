@@ -46,6 +46,31 @@ describe('loadUnpacked verdict classification', () => {
     })
   })
 
+  it('treats a transport failure as unknown, never as a refusal', async () => {
+    const cdp = {
+      sendCommand: vi.fn(async () => {
+        throw new Error('CDP pipe closed')
+      })
+    } as any
+
+    await expect(loadUnpacked(cdp, '/dist/chrome')).resolves.toEqual({
+      status: 'unknown',
+      transportError: 'CDP pipe closed'
+    })
+  })
+
+  it('treats a timeout as unknown, never as a refusal', async () => {
+    const cdp = {
+      sendCommand: vi.fn(async () => {
+        throw new Error('CDP command timed out: Extensions.loadUnpacked')
+      })
+    } as any
+
+    await expect(loadUnpacked(cdp, '/dist/chrome')).resolves.toMatchObject({
+      status: 'unknown'
+    })
+  })
+
   it('treats a missing method as unknown, never as a refusal', async () => {
     const cdp = cdpThatFailsWith({
       code: -32601,

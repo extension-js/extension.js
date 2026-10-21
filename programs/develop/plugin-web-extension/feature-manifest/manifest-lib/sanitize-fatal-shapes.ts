@@ -23,6 +23,24 @@ export interface MistypedManifestField {
 
 const STRING_LIST_FIELDS = ['permissions', 'host_permissions'] as const
 
+// The build spreads these into new objects, so a string or an array turns into
+// numbered keys and the browser gets a broken manifest at exit 0.
+const OBJECT_FIELDS = [
+  'action',
+  'browser_action',
+  'page_action',
+  'background',
+  'side_panel',
+  'sidebar_action',
+  'options_ui',
+  'sandbox',
+  'storage',
+  'theme',
+  'chrome_url_overrides',
+  'declarative_net_request',
+  'user_scripts'
+] as const
+
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 }
@@ -48,6 +66,18 @@ export function findMistypedManifestFields(
     if (value === undefined || Array.isArray(value)) return
 
     mistyped.push({field, expected, received: describeValue(value)})
+  }
+
+  for (const field of OBJECT_FIELDS) {
+    const value = source[field]
+
+    if (value === undefined || isPlainObject(value)) continue
+
+    mistyped.push({
+      field,
+      expected: 'an object',
+      received: describeValue(value)
+    })
   }
 
   const contentScripts = source.content_scripts

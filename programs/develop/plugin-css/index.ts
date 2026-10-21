@@ -64,20 +64,14 @@ export class CssPlugin {
     await maybeUseLess(projectPath)
 
     const loaders: RuleSetRule[] = [
-      ...(await cssInContentScriptLoader(
-        projectPath,
-        manifestPath,
-        mode,
-        {useSass: usingSass, useLess: usingLess},
-        this.browser
-      )),
-      ...(await cssInHtmlLoader(
-        projectPath,
-        mode,
-        manifestPath,
-        {useSass: usingSass, useLess: usingLess},
-        this.browser
-      )),
+      ...(await cssInContentScriptLoader(projectPath, manifestPath, mode, {
+        useSass: usingSass,
+        useLess: usingLess
+      })),
+      ...(await cssInHtmlLoader(projectPath, mode, manifestPath, {
+        useSass: usingSass,
+        useLess: usingLess
+      })),
       // ?inline stylesheet imports (vue-loader emits them for *.ce.vue) must resolve
       // to the CSS string default export; this rule only flips the module type.
       {
@@ -303,7 +297,18 @@ export class CssPlugin {
                     ? roots.map((root) => path.join(root, req))
                     : [])
                 ]
-            if (candidates.some((candidate) => fs.existsSync(candidate))) return
+            const withCssExtension = path.extname(req)
+              ? []
+              : candidates.map((candidate) => `${candidate}.css`)
+
+            if (
+              [...candidates, ...withCssExtension].some((candidate) =>
+                fs.existsSync(candidate)
+              )
+            ) {
+              return
+            }
+
             if (process.env.EXTENSION_STRICT_REFS === 'true') return
 
             const key = `${issuer}|${req}`

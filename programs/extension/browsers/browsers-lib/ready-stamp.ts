@@ -198,7 +198,11 @@ export function stampReadyBrowserLaunch(
     }
 
     const extensionId = String(details?.extensionId || '').trim()
-    if (extensionId) ready.extensionId = extensionId
+
+    if (extensionId && ready.extensionIdSource !== 'browser') {
+      ready.extensionId = extensionId
+      ready.extensionIdSource = 'derived'
+    }
 
     const binary = String(details?.binary || '').trim()
     if (binary) ready.binary = binary
@@ -318,7 +322,7 @@ export function stampReadyCdpFault(
 }
 
 // Publish the id the browser serves the extension under. Launch stamps the
-// derived id; a later browser confirmation overwrites it when they disagree.
+// derived id; this browser confirmation overwrites it and is never recomputed.
 export function stampReadyExtensionId(
   extensionOutputPath: string | undefined,
   extensionId: string | undefined
@@ -331,9 +335,13 @@ export function stampReadyExtensionId(
     if (!fs.existsSync(readyPath)) return
 
     const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
-    if (ready.extensionId === id) return
+
+    if (ready.extensionId === id && ready.extensionIdSource === 'browser') {
+      return
+    }
 
     ready.extensionId = id
+    ready.extensionIdSource = 'browser'
     writeJsonAtomic(readyPath, ready)
   } catch {
     // best-effort; never block launch on this

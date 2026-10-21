@@ -111,7 +111,10 @@ export async function emitRootAbsoluteRefs(
       // would ask for a path the output does not contain.
       const spelledAs = 'spelledAs' in plan ? plan.spelledAs : undefined
 
-      if (spelledAs && !warned.has(ref)) {
+      // A page names the source, so point it at the file the build emits.
+      if (spelledAs && origin.kind === 'html') {
+        rewriteHtmlRef(compilation, origin.asset, ref, `/${plan.emitPath}`)
+      } else if (spelledAs && !warned.has(ref)) {
         warned.add(ref)
         warn(
           compilation,
@@ -202,6 +205,32 @@ export async function emitRootAbsoluteRefs(
     }
 
     if (emitted === 0) return
+  }
+}
+
+function rewriteHtmlRef(
+  compilation: Compilation,
+  assetName: string,
+  ref: string,
+  replacement: string
+) {
+  const asset = compilation.getAsset(assetName)
+  if (!asset) return
+
+  const escaped = ref.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const quoted = new RegExp(`=(\\s*)(["'])${escaped}\\2`, 'g')
+  const bare = new RegExp(`=(\\s*)${escaped}(?=[\\s>])`, 'g')
+  const html = String(asset.source.source())
+  const updated = html
+    .replace(
+      quoted,
+      (_match, space: string, quote: string) =>
+        `=${space}${quote}${replacement}${quote}`
+    )
+    .replace(bare, (_match, space: string) => `=${space}${replacement}`)
+
+  if (updated !== html) {
+    compilation.updateAsset(assetName, new rspack.sources.RawSource(updated))
   }
 }
 

@@ -261,6 +261,80 @@ export function collectClassicTopLevelBindings(
   return bindings
 }
 
+// The concatenated module resolves every specifier from the first file's
+// folder, while a classic script's import() resolves from its own URL.
+export function rebaseDynamicImports(
+  file: string,
+  content: string,
+  baseDir: string
+): string {
+  const fileDir = path.dirname(file)
+
+  if (path.resolve(fileDir) === path.resolve(baseDir)) return content
+
+  let ast: unknown
+
+  try {
+    ast = requireModule('acorn').parse(content, {
+      ecmaVersion: 'latest',
+      sourceType: 'script',
+      allowReturnOutsideFunction: true,
+      allowAwaitOutsideFunction: true,
+      allowHashBang: true
+    })
+  } catch {
+    return content
+  }
+
+  const edits: Array<{start: number; end: number; text: string}> = []
+  const stack: unknown[] = [ast]
+
+  while (stack.length > 0) {
+    const node = stack.pop() as Record<string, unknown> | null
+
+    if (!node || typeof node !== 'object') continue
+
+    if (Array.isArray(node)) {
+      stack.push(...node)
+      continue
+    }
+
+    const source = node.source as Record<string, unknown> | undefined
+
+    if (
+      node.type === 'ImportExpression' &&
+      source?.type === 'Literal' &&
+      typeof source.value === 'string' &&
+      /^\.\.?\//.test(source.value)
+    ) {
+      const target = path.resolve(fileDir, source.value)
+      let rebased = path.relative(baseDir, target).split(path.sep).join('/')
+
+      if (!rebased.startsWith('.')) rebased = `./${rebased}`
+
+      edits.push({
+        start: Number(source.start),
+        end: Number(source.end),
+        text: JSON.stringify(rebased)
+      })
+    }
+
+    for (const [key, value] of Object.entries(node)) {
+      if (!NON_CHILD_KEYS.has(key) && value && typeof value === 'object') {
+        stack.push(value)
+      }
+    }
+  }
+
+  let output = content
+
+  for (const edit of edits.sort((a, b) => b.start - a.start)) {
+    output = output.slice(0, edit.start) + edit.text + output.slice(edit.end)
+  }
+
+  return output
+}
+
 interface ClassicConcatLoaderContext {
   resourcePath: string
   resourceQuery: string
@@ -433,7 +507,11 @@ export default function classicConcatLoader(
     const transpiled = /\.ts$/i.test(file)
       ? transpileClassicTs(file, raw)
       : {code: raw, lineTable: null}
-    const content = transpiled.code
+    const content = rebaseDynamicImports(
+      file,
+      transpiled.code,
+      path.dirname(this.resourcePath || jsFiles[0])
+    )
 
     try {
       const bindings = collectClassicTopLevelBindings(file, content)

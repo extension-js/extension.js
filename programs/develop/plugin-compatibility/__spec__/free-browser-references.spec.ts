@@ -159,4 +159,29 @@ describe('referencesBrowserGlobal', () => {
       )
     ).toBe(true)
   })
+
+  it('ignores a browser read on the branch a chrome check rules out', () => {
+    for (const source of [
+      'const storage = (typeof chrome !== "undefined" && chrome.storage) ? chrome.storage : browser.storage',
+      'if (globalThis.chrome && chrome.runtime) { chrome.runtime.id } else { browser.runtime.id }',
+      'const api = chrome.storage || browser.storage',
+      'const api = globalThis.chrome?.runtime ?? browser.runtime'
+    ]) {
+      expect(referencesBrowserGlobal(source)).toBe(false)
+    }
+  })
+
+  it('still finds a browser read that runs when chrome is present', () => {
+    expect(
+      referencesBrowserGlobal(
+        'const api = chrome.storage && browser.storage.local'
+      )
+    ).toBe(true)
+
+    expect(
+      referencesBrowserGlobal(
+        'const storage = chrome.storage ? browser.storage : null'
+      )
+    ).toBe(true)
+  })
 })

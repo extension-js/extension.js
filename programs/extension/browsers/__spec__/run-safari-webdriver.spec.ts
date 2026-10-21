@@ -122,6 +122,7 @@ describe('safari dev session and its safaridriver', () => {
   let fakeSafari: string
   let driverLog: string
   let sessionId: string
+  let containerApp: string
   const siblings: ChildProcess[] = []
 
   const manifest = {
@@ -224,6 +225,7 @@ describe('safari dev session and its safaridriver', () => {
     fakeSafari = path.join(root, 'Safari-stand-in.cjs')
     driverLog = path.join(root, 'safaridriver.log')
     sessionId = `standin-${crypto.randomBytes(6).toString('hex')}`
+    containerApp = `--container-app-${crypto.randomBytes(6).toString('hex')}`
     fs.mkdirSync(path.dirname(readyPath), {recursive: true})
     fs.writeFileSync(standIn, STAND_IN)
     fs.writeFileSync(fakeSafari, FAKE_SAFARI)
@@ -306,12 +308,12 @@ describe('safari dev session and its safaridriver', () => {
   it.skipIf(process.platform === 'win32')(
     'stop: quits the container app this run raised and spares one already open',
     async () => {
-      const userApp = await openSibling('--container-app')
-      const tools = fakeSafariTools({appMatch: '--container-app'})
+      const userApp = await openSibling(containerApp)
+      const tools = fakeSafariTools({appMatch: containerApp})
       const raisedOnOpen: number[] = []
 
       tools.openApp = async () => {
-        raisedOnOpen.push(await openSibling('--container-app'))
+        raisedOnOpen.push(await openSibling(containerApp))
 
         return {ok: true, code: 0, output: ''}
       }
@@ -330,11 +332,11 @@ describe('safari dev session and its safaridriver', () => {
   )
 
   it('build packaging: leaves the container app it opened running', async () => {
-    const tools = fakeSafariTools({appMatch: '--container-app'})
+    const tools = fakeSafariTools({appMatch: containerApp})
     const raisedOnOpen: number[] = []
 
     tools.openApp = async () => {
-      raisedOnOpen.push(await openSibling('--container-app'))
+      raisedOnOpen.push(await openSibling(containerApp))
 
       return {ok: true, code: 0, output: ''}
     }
