@@ -8,7 +8,7 @@
 
 import * as http from 'node:http'
 import type * as net from 'node:net'
-import type {PortReservation} from './port-manager'
+import {holdPortNow, type PortReservation} from './port-manager'
 
 const BIND_ERROR_CODES = new Set(['EADDRINUSE', 'EACCES', 'EADDRNOTAVAIL'])
 
@@ -33,6 +33,8 @@ function targetMatches(target: unknown, reservation: PortReservation): boolean {
 export interface ReservedHttpServerOptions {
   takeReservation: () => PortReservation | null
   onBindError: (error: NodeJS.ErrnoException) => void
+  holdOnClose?: () => boolean
+  onHeld?: (reservation: PortReservation) => void
 }
 
 export function reservedHttpServer(options: ReservedHttpServerOptions) {
@@ -48,7 +50,9 @@ export function reservedHttpServer(options: ReservedHttpServerOptions) {
       event: string | symbol,
       ...args: unknown[]
     ) => boolean
+    const close = server.close.bind(server)
     let binding = false
+    let listenHost: string | undefined
 
     server.emit = ((event: string | symbol, ...args: unknown[]) => {
       // The dev server rethrows a listen error from inside the event, which
@@ -68,6 +72,10 @@ export function reservedHttpServer(options: ReservedHttpServerOptions) {
       const callback = typeof last === 'function' ? (last as () => void) : null
       const target = args[0]
       const reservation = options.takeReservation()
+      listenHost =
+        target && typeof target === 'object'
+          ? (target as ListenTarget).host
+          : undefined
 
       const listening = () => {
         binding = false
@@ -93,6 +101,27 @@ export function reservedHttpServer(options: ReservedHttpServerOptions) {
 
       return listen(target, listening)
     }) as typeof server.listen
+
+    server.close = ((callback?: (error?: Error) => void) => {
+      const address = server.address()
+      const hold =
+        options.holdOnClose?.() === true &&
+        address !== null &&
+        typeof address === 'object'
+      const result = close(callback)
+
+      if (hold) {
+        options.onHeld?.(
+          holdPortNow(
+            address.port,
+            listenHost || address.address,
+            address.address
+          )
+        )
+      }
+
+      return result
+    }) as typeof server.close
 
     return server
   }

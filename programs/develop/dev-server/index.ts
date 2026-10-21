@@ -1010,7 +1010,9 @@ export async function devServer(
     server: {
       type: reservedHttpServer({
         takeReservation: () => portManager.takeReservation(),
-        onBindError: (error) => failStart(error)
+        onBindError: (error) => failStart(error),
+        holdOnClose: () => portManager.shouldHoldPortOnClose(),
+        onHeld: (reservation) => portManager.adoptHeldPort(reservation)
       })
     }
   }
@@ -1233,12 +1235,20 @@ export async function devServer(
     const previous = currentServer
     currentServer = null
 
+    portManager.holdPortAcrossRestart()
+
     if (previous && typeof previous.stop === 'function') {
       await previous.stop()
     }
 
     currentServer = nextBundle.server
-    await startBundler(nextBundle.server)
+
+    try {
+      await startBundler(nextBundle.server)
+    } finally {
+      portManager.endRestartHold()
+    }
+
     const stats = await nextBundle.firstCompile
 
     if (stats && typeof stats.hasErrors === 'function' && stats.hasErrors()) {

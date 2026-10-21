@@ -82,6 +82,27 @@ async function reservePortNear(
   )
 }
 
+// A restart closes the old server and holds the port in the same tick, so the
+// next server can listen on the hold instead of racing other sessions for it.
+export function holdPortNow(
+  port: number,
+  host: string,
+  bindHost: string = host
+): PortReservation {
+  const server = net.createServer()
+  server.on('error', () => {})
+  server.on('connection', (socket) => socket.destroy())
+  server.unref()
+
+  try {
+    server.listen(port, bindHost)
+  } catch {
+    // Ignore
+  }
+
+  return {port, host, server, release: () => closeReservation(server)}
+}
+
 export interface PortAllocation {
   port: number
   instanceId: string
@@ -112,6 +133,7 @@ export class PortManager {
   private readonly basePort: number
   private currentInstance: LocalInstanceInfo | null = null
   private reservation: PortReservation | null = null
+  private holdOnClose = false
 
   constructor(basePort: number = 8080) {
     this.basePort = basePort
@@ -155,6 +177,26 @@ export class PortManager {
     this.reservation = null
 
     return reservation
+  }
+
+  holdPortAcrossRestart(): void {
+    this.holdOnClose = true
+  }
+
+  shouldHoldPortOnClose(): boolean {
+    return this.holdOnClose
+  }
+
+  adoptHeldPort(reservation: PortReservation): void {
+    const previous = this.reservation
+    this.holdOnClose = false
+    this.reservation = reservation
+
+    if (previous) void previous.release()
+  }
+
+  endRestartHold(): void {
+    this.holdOnClose = false
   }
 
   async releaseReservedPort(): Promise<void> {
