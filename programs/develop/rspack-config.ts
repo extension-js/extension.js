@@ -44,6 +44,8 @@ import {publicResolveRoots} from './plugin-special-folders/resolve-public-folder
 import {StaticAssetsPlugin} from './plugin-static-assets'
 import {WasmPlugin} from './plugin-wasm'
 import {WebExtensionPlugin} from './plugin-web-extension'
+import {findMistypedManifestFields} from './plugin-web-extension/feature-manifest/manifest-lib/sanitize-fatal-shapes'
+import {manifestFieldMistyped} from './plugin-web-extension/feature-manifest/messages'
 import type {WebpackConfigOptions} from './types'
 
 export default function webpackConfig(
@@ -76,6 +78,23 @@ export default function webpackConfig(
     rawManifest as Parameters<typeof filterKeysForThisBrowser>[0],
     devOptions.browser
   )
+  // Entry discovery reads a mistyped field as empty, and an MV3 service worker
+  // with no entry then fails inside the target plugin with no field named.
+  const mistypedFields = findMistypedManifestFields(
+    manifest as Parameters<typeof findMistypedManifestFields>[0]
+  )
+
+  if (mistypedFields.length > 0) {
+    throw codedError(
+      CODES.E_MANIFEST_INVALID,
+      mistypedFields
+        .map((entry) =>
+          manifestFieldMistyped(entry.field, entry.expected, entry.received)
+        )
+        .join('\n\n')
+    )
+  }
+
   const primaryExtensionOutputDir = asAbsolute(
     path.isAbsolute(devOptions.output.path)
       ? devOptions.output.path

@@ -64,8 +64,13 @@ async function build(root: string) {
   }
 
   const rendered = printed.join('\n').replace(/\[[0-9;]*m/g, '')
+  const refusal = failure as {code?: string; message?: string} | undefined
+  const refusalMessage = String(refusal?.message || '').replace(
+    /\[[0-9;]*m/g,
+    ''
+  )
 
-  return {failure, rendered}
+  return {failure, rendered, code: refusal?.code, refusalMessage}
 }
 
 function readManifest(root: string) {
@@ -80,13 +85,13 @@ describe('mistyped manifest values (real build)', () => {
       manifest_version: 3,
       content_scripts: {matches: ['<all_urls>'], js: ['content.js']}
     })
-    const {failure, rendered} = await build(root)
+    const {code, rendered, refusalMessage} = await build(root)
 
-    expect(String(failure)).toMatch(/Build failed with errors/)
-    expect(String(failure)).not.toMatch(/TypeError/)
+    expect(code).toBe('E_MANIFEST_INVALID')
+    expect(refusalMessage).not.toMatch(/TypeError/)
     expect(rendered).not.toMatch(/TypeError|is not a function/)
-    expect(rendered).toMatch(/content_scripts/)
-    expect(rendered).toMatch(/array/i)
+    expect(refusalMessage).toMatch(/content_scripts/)
+    expect(refusalMessage).toMatch(/array/i)
     expect(fs.existsSync(path.join(root, 'dist', 'chrome'))).toBe(false)
   }, 120_000)
 
@@ -95,12 +100,12 @@ describe('mistyped manifest values (real build)', () => {
       manifest_version: 3,
       sandbox: {pages: 'sandbox.html'}
     })
-    const {failure, rendered} = await build(root)
+    const {code, rendered, refusalMessage} = await build(root)
 
-    expect(String(failure)).toMatch(/Build failed with errors/)
+    expect(code).toBe('E_MANIFEST_INVALID')
     expect(rendered).not.toMatch(/TypeError|is not a function/)
-    expect(rendered).toMatch(/sandbox\.pages/)
-    expect(rendered).toMatch(/array/i)
+    expect(refusalMessage).toMatch(/sandbox\.pages/)
+    expect(refusalMessage).toMatch(/array/i)
   }, 120_000)
 
   it('refuses background.scripts written as a string and names the field', async () => {
@@ -108,12 +113,43 @@ describe('mistyped manifest values (real build)', () => {
       manifest_version: 2,
       background: {scripts: 'bg.js'}
     })
-    const {failure, rendered} = await build(root)
+    const {code, rendered, refusalMessage} = await build(root)
 
-    expect(String(failure)).toMatch(/Build failed with errors/)
+    expect(code).toBe('E_MANIFEST_INVALID')
     expect(rendered).not.toMatch(/TypeError|is not a function/)
-    expect(rendered).toMatch(/background\.scripts/)
-    expect(rendered).toMatch(/array/i)
+    expect(refusalMessage).toMatch(/background\.scripts/)
+    expect(refusalMessage).toMatch(/array/i)
+  }, 120_000)
+
+  it.each([
+    ['action', {manifest_version: 3, action: 'popup.html'}],
+    ['side_panel', {manifest_version: 3, side_panel: ['panel.html']}],
+    ['browser_action', {manifest_version: 2, browser_action: 'popup.html'}]
+  ])(
+    'refuses a %s that is not an object and names the field',
+    async (field, manifest) => {
+      const root = project(manifest)
+      const {code, refusalMessage} = await build(root)
+
+      expect(code).toBe('E_MANIFEST_INVALID')
+      expect(refusalMessage).toContain(field)
+      expect(refusalMessage).toMatch(/an object/)
+      expect(fs.existsSync(path.join(root, 'dist', 'chrome'))).toBe(false)
+    },
+    120_000
+  )
+
+  it('names the field instead of a missing service worker entry', async () => {
+    const root = project({
+      manifest_version: 3,
+      background: {service_worker: 'bg.js'},
+      content_scripts: {matches: ['<all_urls>'], js: ['content.js']}
+    })
+    const {code, refusalMessage} = await build(root)
+
+    expect(code).toBe('E_MANIFEST_INVALID')
+    expect(refusalMessage).toMatch(/content_scripts/)
+    expect(refusalMessage).not.toMatch(/no entry called/)
   }, 120_000)
 
   it('repairs a string permissions into an array and says so', async () => {
