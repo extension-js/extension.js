@@ -3,11 +3,6 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
 
-// Pages opened only through sidePanel.setOptions / offscreen.createDocument
-// must go through the same HTML pipeline as a manifest page: script-imported
-// CSS is injected, and url() images in a linked stylesheet ship in dist.
-// They stay at the path the runtime asks for. A default side_panel in the
-// same project still remaps to sidebar/index.html.
 const roots: string[] = []
 
 afterAll(() => {
@@ -86,7 +81,6 @@ function project() {
   )
 
   write(root, 'imported.css', '.from-import { color: tomato }\n')
-  // Larger than the inline threshold, so it is emitted rather than inlined.
   write(root, 'bg.png', 'BGPNG'.repeat(512))
 
   write(
@@ -180,7 +174,6 @@ describe('build: runtime-set HTML surfaces compile like manifest pages', () => {
     it(`${mode}: styles, imported CSS and stylesheet images ship at the runtime path`, async () => {
       const distDir = await build(project(), mode)
 
-      // Manifest default panel still remaps; the runtime pages do not.
       expect(fs.existsSync(path.join(distDir, 'sidebar', 'index.html'))).toBe(
         true
       )
