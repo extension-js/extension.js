@@ -164,6 +164,8 @@ exports[`extension message catalogs > matches the exported message surface 1`] =
     "commandSpec: function(1)",
     "controlDisabledInSession: function(3)",
     "controlDisabledInSessionPlain: function(3)",
+    "createNeedsProjectName: function(1)",
+    "createProjectNameQuestion: function(1)",
     "deprecatedOutputAlias: function(1)",
     "doctorHeader: function(3)",
     "doctorRemedy: function(2)",

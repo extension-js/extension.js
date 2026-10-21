@@ -6,7 +6,6 @@
 //  ╚═════╝╚══════╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as path from 'node:path'
 import colors from 'pintor'
 import {type Channel, fmt, hasChannelPrefix, prefix} from './messaging'
 import {
@@ -87,7 +86,7 @@ export function registeredArgSignature(
 const COMMAND_TABLE = [
   {
     name: 'create',
-    positionals: [{name: 'project-name|project-path', required: true}],
+    positionals: [{name: 'project-name|project-path', required: false}],
     description:
       'Create a new extension from a template (React, TypeScript, Vue, Svelte, etc.)',
     supportsSourceInspection: false
@@ -390,6 +389,17 @@ export function checkUpdates(
     `Update to the latest stable to get fixes and new features.`
 
   return {suffix, message}
+}
+
+export function createNeedsProjectName(command: string) {
+  return (
+    `${getLoggingPrefix('error')} A project name is required.\n` +
+    `Run ${code(command)} to start one.`
+  )
+}
+
+export function createProjectNameQuestion(defaultName: string) {
+  return `Project name ${arg(`(${defaultName})`)}: `
 }
 
 export function noURLWithoutStart(argument: string) {
