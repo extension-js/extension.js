@@ -49,7 +49,7 @@ const TEAM_CODESIGN = [
   'Format=app bundle with Mach-O thin (arm64)',
   'CodeDirectory v=20400 size=1234 flags=0x0(none) hashes=30+7 location=embedded',
   'Signature size=4795',
-  'Authority=Apple Development: hello@extension.dev (ABCDE12345)',
+  'Authority=Apple Development: hello@example.com (ABCDE12345)',
   'Authority=Apple Worldwide Developer Relations Certification Authority',
   'TeamIdentifier=JU3XAJJQ2G'
 ].join('\n')
@@ -58,7 +58,7 @@ const NO_ACCOUNT_LINE =
   "error: No Account for Team \"62ZL6K4MM4\". Add a new Account in Accounts settings or verify that your accounts have valid credentials. (in target 'Leon' from project 'Leon')"
 
 const XCODE_TEAMS = `{
-    "hello@extension.dev" =     (
+    "hello@example.com" =     (
                 {
             isFreeProvisioningTeam = 0;
             teamID = JU3XAJJQ2G;
