@@ -105,7 +105,7 @@ describe('extension build --out-dir', () => {
     ).toBe(true)
 
     expect(fs.existsSync(path.join(root, 'dist', 'chrome'))).toBe(false)
-    expect(summary.output_path.split(path.sep).join('/')).toMatch(
+    expect(String(summary.output_path).split(path.sep).join('/')).toMatch(
       /\/build\/chrome$/
     )
   })
