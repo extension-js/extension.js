@@ -19,6 +19,7 @@ import {bakeBaseHref} from './base-href'
 import {findCompiledRootRefSource} from './compiled-root-ref'
 import {createScriptTag, injectJsScript, scriptTagAttrs} from './inject'
 import * as messages from './messages'
+import {injectOptionsDialogFloor} from './options-dialog-floor'
 import {parseHtml} from './parse-html'
 import {
   applyRewrittenStaticUrl,
@@ -85,6 +86,8 @@ function insertBefore(
 // html is the markup to patch when the caller already holds the current
 // asset, so earlier processAssets work on it survives. htmlEntry then only
 // anchors relative refs. Without it the source file is read from disk.
+// optionsDialogFloor asks for the min-height style Chrome's embedded options
+// dialog needs, decided by the caller from the manifest and browser.
 export function patchHtml(
   compilation: Compilation,
   feature: string,
@@ -92,7 +95,8 @@ export function patchHtml(
   includeList: FilepathList,
   manifestDir?: string,
   siblingScripts: string[] = [],
-  html?: string
+  html?: string,
+  options: {optionsDialogFloor?: boolean} = {}
 ): string {
   const htmlFile =
     typeof html === 'string'
@@ -234,6 +238,12 @@ export function patchHtml(
       if (htmlChildNode.nodeName === 'head') {
         if (hasCssEntry) {
           injectCssLink(htmlChildNode, feature, firstLinkAttrs, cssHrefOverride)
+        }
+
+        if (options.optionsDialogFloor) {
+          injectOptionsDialogFloor(
+            htmlChildNode as Parameters<typeof parse5utilities.prepend>[0]
+          )
         }
       }
 

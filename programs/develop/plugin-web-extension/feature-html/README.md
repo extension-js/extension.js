@@ -21,6 +21,7 @@ This module is part of the [Extension.js](https://extension.js.org) project. It 
 - Public-root absolute URLs (leading `/`) for scripts/styles are rewritten to relative paths; assets under `public/` are still handled by the special‑folders plugin.
 - Rewrites relative static assets (images/fonts/etc.) to `assets/<name>.<contenthash>.<ext>`, the name the bundler gives the same file from a stylesheet or an import, so one build ships one copy of it. A nested HTML page keeps `assets/<relative path>`.
 - Tracks file dependencies to recompile on change, provides HMR hooks for local scripts during development, and warns if page entry lists change (restart required).
+- Gives a Chromium `options_ui` page that opens in the embedded dialog (`open_in_tab` not `true`) a `<style data-extension-js="options-dialog-floor">html{min-height:32px}</style>` first in `<head>`. Chrome opens that dialog on the page's first non-empty layout and stops drawing a guest shorter than 8px, so a page that paints empty until data arrives would never open it, and a 1px first paint would open it and never grow. Author styles come later and win. Pages that open in a tab, the legacy `options_page`, Gecko and Safari builds are left untouched.
 
 ### Path resolution convention (consistent across @plugin-extension)
 
