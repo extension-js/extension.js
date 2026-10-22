@@ -30,6 +30,7 @@ import {asAbsolute, getDirs, toPosixPath} from './lib/paths'
 import type {ProjectStructure} from './lib/project'
 import {sessionStateDir} from './lib/session-paths'
 import {defaultSplitChunks} from './lib/split-chunks'
+import {StableLoaderPathsPlugin} from './lib/stable-loader-paths'
 import {resolveTranspilePackageDirs} from './lib/transpile-packages'
 import {CompatibilityPlugin} from './plugin-compatibility'
 import {CompilationPlugin} from './plugin-compilation'
@@ -387,6 +388,11 @@ export default function webpackConfig(
     plugins.push(browsersPlugin)
   }
 
+  // Last, so it sees every rule the plugins above attach: the loader paths
+  // inside the module identifiers (which the deterministic ids hash) are
+  // named through the project's node_modules, not where the package sits.
+  plugins.push(new StableLoaderPathsPlugin())
+
   // A top-level resolve list without '...' wipes rspack's per-type defaults,
   // so every dependency type is restated here, the mode condition included.
   const modeCondition =
@@ -647,6 +653,9 @@ export default function webpackConfig(
       global: false
     },
     resolveLoader: {
+      // A loader named through a node_modules symlink (pnpm, npm link) keeps
+      // that name: its real location would otherwise enter the module ids.
+      symlinks: false,
       // Bundled preprocessor loaders resolve by bare name: project copy wins,
       // then extension-develop's own and hoisted node_modules (no upward walk).
       modules: [

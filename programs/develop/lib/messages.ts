@@ -10,6 +10,7 @@ import * as path from 'node:path'
 import type {Stats, StatsAsset} from '@rspack/core'
 import colors from 'pintor'
 import type {DevOptions, Manifest} from '../types'
+import type {BuildToolchain} from './build-toolchain'
 import {
   artifactNoun,
   type Channel,
@@ -354,6 +355,19 @@ export function buildComplete(
   return (
     `${getLoggingPrefix('success')} ${noun} ${builtFor} ` +
     `${colors.underline(distDisplayPath)}${size}.`
+  )
+}
+
+// A store reviewer rebuilds the package and compares; the versions that made
+// it are what the note has to quote for the rebuild to match.
+export function buildToolchain(toolchain: BuildToolchain) {
+  const packageManager = toolchain.package_manager
+    ? ` and ${toolchain.package_manager.name} ${toolchain.package_manager.version}`
+    : ''
+
+  return (
+    `${getLoggingPrefix('info')} Built with Node ${toolchain.node}${packageManager}. ` +
+    `A reviewer note that names them lets a rebuild match this one.`
   )
 }
 

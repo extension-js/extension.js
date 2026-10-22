@@ -6,6 +6,8 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import type {BuildToolchain} from './build-toolchain'
+
 /**
  * What the injected Safari packager reports back about the app it produced.
  * `bundleIdDerived` is the load-bearing one: a generated `dev.extensionjs.*`
@@ -45,6 +47,9 @@ export type BuildSummary = {
   /** Present only for safari/webkit-based builds that ran the packager. */
   safari?: SafariPackageSummary
   addon_lint?: AddonLintSummary
+  /** The Node and package manager versions the build ran under, for the
+   * reviewer note that asks a store to rebuild and compare. */
+  toolchain?: BuildToolchain
   /** Archives this build wrote, with their promoted paths. The name is
    * rewritten from the manifest, so a caller reads it here rather than
    * composing it. Absent when neither --zip nor --zip-source was asked for. */
