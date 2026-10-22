@@ -9,10 +9,13 @@ import {
 import {type FakeSafariTools, fakeSafariTools} from './safari-fake-tools'
 
 // Safari keeps an extension's storage under "<appex id> (<team id>)" in its
-// WebKit data, so an ad-hoc signed build, which has no team, gets a fresh
-// store each time Safari loads a rebuilt appex. Nothing the engine can sign
-// locally changes that, so a dev session says so on every build it runs.
-const STORAGE_RESET = "Safari reset the extension's storage"
+// WebKit data, with UNSIGNED in the team slot for an ad-hoc build, so the
+// store survives a rebuild even though every ad-hoc signature carries a new
+// cdhash. Measured on Safari 27.0 (macOS 26.5.2): a storage.local key written
+// by build A read back unchanged after two ad-hoc rebuilds (ledger 1043). An
+// earlier warning said the opposite and asked for a team id, so a dev session
+// never says a rebuild resets storage, signed or not.
+const STORAGE_RESET = /reset the extension's storage|--development-team/
 
 let distDir: string
 
@@ -68,18 +71,24 @@ async function run(
 }
 
 describe("a Safari dev rebuild and the extension's storage", () => {
-  it('says Safari reset the storage on each ad-hoc rebuild', async () => {
+  it('never says an ad-hoc rebuild reset the storage', async () => {
     const tools = fakeSafariTools()
-    await run(tools, 'full')
+    const lines = [...(await run(tools, 'full'))]
 
     fs.writeFileSync(path.join(distDir, 'background.js'), 'void 1\n')
-    const first = await run(tools, 'resync')
+    lines.push(...(await run(tools, 'resync')))
     fs.writeFileSync(path.join(distDir, 'background.js'), 'void 2\n')
-    const second = await run(tools, 'resync')
+    lines.push(...(await run(tools, 'resync')))
 
-    expect(first.filter((l) => l.includes(STORAGE_RESET))).toHaveLength(1)
-    expect(second.filter((l) => l.includes(STORAGE_RESET))).toHaveLength(1)
-    expect(first.join('\n')).toContain('--development-team')
+    expect(tools.calls.xcodebuild).toHaveLength(3)
+    expect(lines.filter((l) => STORAGE_RESET.test(l))).toEqual([])
+  })
+
+  it('says in the setup steps that storage.local survives rebuilds', async () => {
+    const tools = fakeSafariTools()
+    const lines = await run(tools, 'full', {noOpen: false})
+
+    expect(lines.join('\n')).toMatch(/storage\.local.*survives rebuilds/)
   })
 
   it('stays quiet about storage when a team signs the build', async () => {
@@ -88,14 +97,7 @@ describe("a Safari dev rebuild and the extension's storage", () => {
     fs.writeFileSync(path.join(distDir, 'background.js'), 'void 1\n')
     const lines = await run(tools, 'resync', {developmentTeam: 'ABCDE12345'})
 
-    expect(lines.some((l) => l.includes(STORAGE_RESET))).toBe(false)
-  })
-
-  it('leaves build packaging out of it', async () => {
-    const tools = fakeSafariTools()
-    const lines = await run(tools, 'full', {announceDevReady: false})
-
-    expect(lines.some((l) => l.includes(STORAGE_RESET))).toBe(false)
+    expect(lines.some((l) => STORAGE_RESET.test(l))).toBe(false)
   })
 })
 
@@ -106,7 +108,7 @@ describe('a Safari session start with nothing changed', () => {
     const second = await run(tools, 'full')
 
     expect(tools.calls.xcodebuild).toHaveLength(1)
-    expect(second.some((l) => l.includes(STORAGE_RESET))).toBe(false)
+    expect(second.some((l) => STORAGE_RESET.test(l))).toBe(false)
   })
 
   it('builds again once a file in the build changed', async () => {

@@ -1186,7 +1186,7 @@ export function safariNextSteps(appName: string, signed?: boolean) {
 
   return (
     steps +
-    `  ${colors.gray('→')} Ad-hoc signed, so Safari lists it only while unsigned extensions are allowed.`
+    `  ${colors.gray('→')} Ad-hoc signed, so Safari lists it only while unsigned extensions are allowed. Safari keys stored data on the appex id, so ${colors.yellow('storage.local')} survives rebuilds.`
   )
 }
 
@@ -1290,14 +1290,6 @@ export function safariSettingsPreserved(keys: string[]) {
 
 export function safariBuildUpToDate() {
   return `${getLoggingPrefix('info')} Skipping xcodebuild, the Safari app is up to date with the build.`
-}
-
-export function safariStorageReset(appName: string) {
-  return (
-    `${getLoggingPrefix('warn')} Safari reset the extension's storage: ${colors.yellow(appName)} is signed ad hoc, ` +
-    `and Safari keeps an extension's storage only for a build signed by a team, so each rebuild starts with an empty ${colors.yellow('storage.local')}.\n` +
-    `Pass ${colors.blue('--development-team <TEAM_ID>')} to keep it across rebuilds.`
-  )
 }
 
 export function safariSkippingConversion() {

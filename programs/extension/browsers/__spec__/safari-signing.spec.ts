@@ -88,4 +88,16 @@ describe('safari enabling hints name the Settings ▸ Developer toggle Safari 27
       /only while unsigned extensions are allowed/
     )
   })
+
+  // Measured on Safari 27.0: storage.local written under one ad-hoc cdhash
+  // read back after two rebuilds, so the ad-hoc line says so and no message
+  // asks for a team id to keep stored data.
+  it('says an ad-hoc build keeps storage.local across rebuilds', () => {
+    expect(messages.safariNextSteps('My App')).toMatch(
+      /storage\.local.*survives rebuilds/
+    )
+
+    expect(messages.safariNextSteps('My App')).not.toMatch(/reset/)
+    expect('safariStorageReset' in messages).toBe(false)
+  })
 })
