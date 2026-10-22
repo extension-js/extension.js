@@ -22,6 +22,7 @@ import {
   deriveDebugPortWithInstance,
   filterBrowserFlags,
   isHeadlessGuardRequested,
+  launchIsHeadless,
   mergeChromiumFeatureSwitches,
   parseEnvBrowserFlags,
   prepareChromiumProfileForLaunch
@@ -50,7 +51,6 @@ export const DEFAULT_BROWSER_FLAGS: DefaultBrowserFlags[] = [
   // page with differing language is detected.
   '--disable-features=Translate',
   '--hide-scrollbars',
-  '--mute-audio',
   '--no-default-browser-check',
   // Avoids blue bubble "user education" nudges
   // (eg., "... give your browser a new look", Memory Saver)
@@ -91,6 +91,76 @@ export const DEFAULT_BROWSER_FLAGS: DefaultBrowserFlags[] = [
   // (claude.ai, Google, etc.) aren't pushed behind a persistent banner.
   '--silent-debugger-extension-api'
 ]
+
+// A window a person watches must play sound, so only an unattended launch
+// is muted.
+export const HEADLESS_ONLY_BROWSER_FLAGS = ['--mute-audio']
+
+const AUTOMATION_CONTROLLED = 'AutomationControlled'
+const DISABLE_BLINK_FEATURES = '--disable-blink-features='
+
+// The CDP pipe the controller rides makes Chromium report navigator.webdriver
+// as true, and sites such as YouTube then refuse to play. A headed window
+// clears it unless the launch asked for automation itself.
+function asksForAutomation(flags: string[]) {
+  return flags.some(
+    (flag) =>
+      flag === '--enable-automation' ||
+      (flag.startsWith('--enable-blink-features=') &&
+        flag
+          .slice('--enable-blink-features='.length)
+          .split(',')
+          .some((name) => name.trim() === AUTOMATION_CONTROLLED))
+  )
+}
+
+function withBlinkFeatureDisabled(flags: string[], feature: string) {
+  const values: string[] = []
+  let at = -1
+  const rest: string[] = []
+
+  for (const flag of flags) {
+    if (!flag.startsWith(DISABLE_BLINK_FEATURES)) {
+      rest.push(flag)
+      continue
+    }
+
+    if (at < 0) at = rest.length
+
+    for (const value of flag.slice(DISABLE_BLINK_FEATURES.length).split(',')) {
+      const trimmed = value.trim()
+      if (trimmed && !values.includes(trimmed)) values.push(trimmed)
+    }
+  }
+
+  if (!values.includes(feature)) values.push(feature)
+
+  rest.splice(
+    at < 0 ? rest.length : at,
+    0,
+    DISABLE_BLINK_FEATURES + values.join(',')
+  )
+
+  return rest
+}
+
+export function applyLaunchModeFlags(
+  flags: string[],
+  excludeFlags: string[] = []
+): string[] {
+  if (launchIsHeadless(flags)) {
+    const muted = filterBrowserFlags(HEADLESS_ONLY_BROWSER_FLAGS, excludeFlags)
+
+    return [...flags, ...muted.filter((flag) => !flags.includes(flag))]
+  }
+
+  if (asksForAutomation(flags)) return flags
+
+  const clearWebdriver = `${DISABLE_BLINK_FEATURES}${AUTOMATION_CONTROLLED}`
+  if (!filterBrowserFlags([clearWebdriver], excludeFlags).length) return flags
+
+  return withBlinkFeatureDisabled(flags, AUTOMATION_CONTROLLED)
+}
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value)
@@ -395,5 +465,7 @@ export function browserConfig(
 
   // Chromium only honors the last repeated --enable-features/--disable-features
   // switch, so merge them (defaults + user browserFlags) into one of each.
-  return mergeChromiumFeatureSwitches(baseFlags)
+  return mergeChromiumFeatureSwitches(
+    applyLaunchModeFlags(baseFlags, excludeFlags)
+  )
 }
