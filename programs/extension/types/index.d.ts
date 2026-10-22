@@ -9,12 +9,27 @@ declare global {
   // webextension-polyfill in Chromium; Firefox and Safari ship it natively.
   const browser: typeof import('webextension-polyfill')
 
+  // Every target the CLI accepts for --browser, so a branch on
+  // process.env.EXTENSION_PUBLIC_BROWSER typechecks for each of them.
   type ExtensionBrowser =
     | 'chrome'
     | 'edge'
     | 'firefox'
+    | 'chromium'
+    | 'brave'
+    | 'opera'
+    | 'vivaldi'
+    | 'yandex'
+    | 'waterfox'
+    | 'librewolf'
+    | 'zen'
+    | 'floorp'
     | 'chromium-based'
     | 'gecko-based'
+    | 'firefox-based'
+    | 'safari'
+    | 'webkit-based'
+    | 'chromium-emulator'
 
   type ExtensionMode = 'development' | 'production'
 
