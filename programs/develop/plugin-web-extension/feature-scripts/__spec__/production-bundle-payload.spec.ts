@@ -162,11 +162,9 @@ describe('what a production bundle ships', () => {
           {matches: ['https://example.com/*'], js: ['content/index.ts']}
         ]
       }),
-      // The stylesheet rides in through a sibling module, so the sheet is
-      // emitted next to the bundle instead of inlined into it.
-      'content/styles.css': styles,
+      'content/styles.module.css': styles,
       'content/panel.ts':
-        'import "./styles.css"\nexport const label = "panel"\n',
+        'import * as styles from "./styles.module.css"\nexport const label = String(Object.keys(styles).length)\n',
       'content/index.ts':
         'import {label} from "./panel"\n' +
         'export default function(){\n' +

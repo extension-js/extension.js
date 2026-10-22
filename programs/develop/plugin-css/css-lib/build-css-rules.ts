@@ -47,7 +47,8 @@ interface BuildCssRulesOptions {
   // Module `type` for non-`.module` stylesheets. Content scripts inline their
   // CSS (`asset/inline`); HTML entries emit a real stylesheet (`css`)
   nonModuleType: 'asset/inline' | 'css'
-  issuer: (issuer: string) => boolean
+  issuer?: RuleSetRule['issuer']
+  issuerLayer?: RuleSetRule['issuerLayer']
   // Set for inlined stylesheets, whose url() children never reach the module
   // graph. The sheet then leaves the loader chain as a JavaScript module that
   // resolves its url() targets at runtime, and its rule type follows.
@@ -61,7 +62,7 @@ export async function buildCssRules(
   opts: BuildCssRulesOptions
 ): Promise<RuleSetRule[]> {
   const {useSass = true, useLess = true} = usage
-  const {nonModuleType, issuer, manifestPath} = opts
+  const {nonModuleType, issuer, issuerLayer, manifestPath} = opts
 
   const fileTypes: Array<{
     test: RegExp
@@ -209,7 +210,8 @@ export async function buildCssRules(
         test,
         exclude,
         type: ruleType,
-        issuer,
+        ...(issuer ? {issuer} : {}),
+        ...(issuerLayer ? {issuerLayer} : {}),
         resourceQuery: NOT_RAW_RESOURCE_QUERY,
         use
       } as RuleSetRule

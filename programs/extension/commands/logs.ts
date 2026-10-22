@@ -10,7 +10,7 @@ import fs from 'node:fs'
 import type {Command} from 'commander'
 import colors from 'pintor'
 import {emulatorSessionRefusal} from '../helpers/emulator-session'
-import {exitAfterDrain} from '../helpers/exit-after-drain'
+import {exitAfterDrain, exitWithFailure} from '../helpers/exit-after-drain'
 import {loadExtensionDevelopBridgeModule} from '../helpers/extension-develop-runtime'
 import {LOG_CONTEXTS} from '../helpers/log-contexts'
 import {commandDescriptions} from '../helpers/messages'
@@ -134,9 +134,22 @@ export interface LogEventLike {
   rotatedFrom?: unknown
 }
 
-// Increasing verbosity; selecting a level includes it + everything more severe.
-const LEVEL_ORDER = ['error', 'warn', 'info', 'debug', 'trace']
-const LEVEL_FILTERS = ['off', ...LEVEL_ORDER, 'all']
+// The help lists the level names before the bridge loads; selecting them is
+// the bridge's published rule, so the command and a host never disagree.
+const LEVEL_FILTERS = ['off', 'error', 'warn', 'info', 'debug', 'trace', 'all']
+
+type LogRule = {
+  matchesLogQuery: (
+    event: LogEventLike,
+    query: Record<string, unknown>
+  ) => boolean
+  parseLogLevelFilter: (value: unknown) => string | undefined
+  LOG_LEVEL_FILTERS: readonly string[]
+}
+
+function logRuleFrom(bridge: unknown): LogRule {
+  return bridge as LogRule
+}
 
 // The CLI's copy of the bridge's LOG_CONTEXTS lists them in the help before
 // the bridge loads; the bridge's own list wins once it has.
@@ -148,22 +161,6 @@ function knownContextsFrom(bridge: unknown): string[] {
   return Array.isArray(published) ? published.map(String) : [...LOG_CONTEXTS]
 }
 
-function levelRank(level: string): number {
-  const l = level === 'log' ? 'info' : level
-  const i = LEVEL_ORDER.indexOf(l)
-
-  return i === -1 ? LEVEL_ORDER.length : i
-}
-
-function levelFilterFrom(value: string | undefined): string | undefined {
-  const text = String(value || 'all')
-    .trim()
-    .toLowerCase()
-  const level = text === 'log' ? 'info' : text
-
-  return LEVEL_FILTERS.includes(level) ? level : undefined
-}
-
 function contextNamesFrom(value: string | undefined): string[] {
   return String(value || '')
     .split(',')
@@ -171,71 +168,26 @@ function contextNamesFrom(value: string | undefined): string[] {
     .filter(Boolean)
 }
 
-function contextFilterFrom(names: string[]): Set<string> | null {
-  if (names.length === 0) return null
-  if (names.some((name) => name.toLowerCase() === 'all')) return null
-
-  return new Set(names)
-}
-
-// `--url` accepts a glob (`*` = any run of chars) or a plain substring, matched
-// against url then hostname. Shared with the MCP extension_logs tool.
-function makeUrlMatcher(pattern: string): (event: LogEventLike) => boolean {
-  const hasGlob = pattern.includes('*')
-  let re: RegExp | null = null
-
-  if (hasGlob) {
-    const escaped = pattern
-      .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
-      .replace(/\*/g, '.*')
-    re = new RegExp(escaped)
-  }
-
-  return (event: LogEventLike): boolean => {
-    const candidates = [event.url, event.hostname].filter(
-      (v) => typeof v === 'string'
-    ) as string[]
-
-    if (candidates.length === 0) return false
-
-    return candidates.some((c) => (re ? re.test(c) : c.includes(pattern)))
-  }
-}
-
 function makeFilter(
   opts: LogsOptions,
   since: LogSince | null,
   tabId: number | undefined,
-  helpers: SinceHelpers
+  helpers: SinceHelpers,
+  rule: LogRule
 ) {
-  const minLevel = levelFilterFrom(opts.level) ?? 'all'
-  const contexts = contextFilterFrom(contextNamesFrom(opts.context))
-  const urlMatches = opts.url ? makeUrlMatcher(opts.url) : null
+  const query = {
+    context: opts.context,
+    level: opts.level,
+    signalsOnly: opts.signalsOnly,
+    url: opts.url,
+    tab: tabId
+  }
 
   return (event: LogEventLike): boolean => {
     if (!event || typeof event !== 'object') return false
-    if (event.type === 'header') return false
-    if (minLevel === 'off') return false
-
-    // A gap carries none of the fields a clause reads, so it stays a row only
-    // in a read nothing narrows. A filtered read reports it on stderr instead.
-    if (opts.signalsOnly && event.eventType !== 'dx.signal') return false
-
-    if (contexts && !contexts.has(String(event.context))) return false
-
-    if (minLevel !== 'all') {
-      if (levelRank(String(event.level || '')) > levelRank(minLevel)) {
-        return false
-      }
-    }
-
     if (since && !helpers.isAfterSince(event, since)) return false
 
-    if (urlMatches && !urlMatches(event)) return false
-
-    if (tabId !== undefined && event.tabId !== tabId) return false
-
-    return true
+    return rule.matchesLogQuery(event, query)
   }
 }
 
@@ -395,6 +347,7 @@ export function registerLogsCommand(program: Command) {
       const browser = options.browser || 'chromium'
       const format = resolveFormat(options)
       const helpers = sinceHelpersFrom(bridge)
+      const rule = logRuleFrom(bridge)
       const since = helpers.parseLogSince(options.since)
       const tab = parsePositiveInt('--tab', options.tab)
 
@@ -412,7 +365,7 @@ export function registerLogsCommand(program: Command) {
           )
         }
 
-        process.exit(1)
+        exitWithFailure(CODES.E_FLAG_VALUE_INVALID)
       }
 
       if (
@@ -439,10 +392,10 @@ export function registerLogsCommand(program: Command) {
         )
       }
 
-      if (levelFilterFrom(options.level) === undefined) {
+      if (rule.parseLogLevelFilter(options.level) === undefined) {
         refuseUsage(
           format,
-          `extension logs --level expects one of ${LEVEL_FILTERS.join(', ')}, got: ${options.level}`
+          `extension logs --level expects one of ${rule.LOG_LEVEL_FILTERS.join(', ')}, got: ${options.level}`
         )
       }
 
@@ -467,10 +420,16 @@ export function registerLogsCommand(program: Command) {
           )
         }
 
-        process.exit(1)
+        exitWithFailure(CODES.E_COMMAND_UNSUPPORTED_FOR_TARGET)
       }
 
-      const matches = makeFilter(options, since ?? null, tab.value, helpers)
+      const matches = makeFilter(
+        options,
+        since ?? null,
+        tab.value,
+        helpers,
+        rule
+      )
 
       // An advertised filter that silently matches nothing teaches the wrong
       // lesson (ledger 181, same class as 179): the user reads the silence as
@@ -520,12 +479,12 @@ export function registerLogsCommand(program: Command) {
           )
         }
 
-        process.exit(1)
+        exitWithFailure(CODES.E_LOGS_NOT_FOUND)
       }
 
       const lines = fs.readFileSync(file, 'utf-8').split('\n').filter(Boolean)
       // `off` asks for silence, and that covers the loss notice too.
-      const noticeGaps = levelFilterFrom(options.level) !== 'off'
+      const noticeGaps = rule.parseLogLevelFilter(options.level) !== 'off'
 
       for (const line of lines) {
         const event = parseLogLine(line)
@@ -567,7 +526,7 @@ function refuseUsage(
     )
   }
 
-  process.exit(1)
+  exitWithFailure(CODES.E_INVALID_OPTION)
 }
 
 async function followLogs(
@@ -599,7 +558,7 @@ async function followLogs(
       )
     }
 
-    process.exit(1)
+    exitWithFailure(CODES.E_SESSION_NOT_FOUND)
   }
 
   // A follow outlives its channel in two ways that no reconnect can mend: the

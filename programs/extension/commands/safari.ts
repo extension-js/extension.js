@@ -27,7 +27,7 @@ import {
   SafariUiError,
   type SafariUiTools
 } from '../browsers/run-safari/safari-ui'
-import {exitAfterDrain} from '../helpers/exit-after-drain'
+import {exitAfterDrain, exitWithFailure} from '../helpers/exit-after-drain'
 import {loadExtensionDevelopBridgeModule} from '../helpers/extension-develop-runtime'
 import * as messages from '../helpers/messages'
 import {CODES, ENVELOPE, type ErrorCode, humanLine} from '../helpers/messaging'
@@ -88,7 +88,7 @@ function fail(
     )
   }
 
-  process.exit(1)
+  exitWithFailure(code)
 }
 
 function accessibilityHint(host: string): string {

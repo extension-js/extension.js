@@ -5,7 +5,8 @@ import {describe, expect, it} from 'vitest'
 import {
   loadBrowserConfig,
   loadCommandConfig,
-  loadProjectConfigDefaults
+  loadProjectConfigDefaults,
+  requireCommonJsCopyBesideSource
 } from '../config-loader'
 
 describe('config-loader', () => {
@@ -172,5 +173,58 @@ export default {
 
     const cfg = await loadBrowserConfig(root, 'firefox')
     expect(cfg.preferences).toEqual({where: 'root'})
+  })
+})
+
+describe('requireCommonJsCopyBesideSource', () => {
+  it('keeps relative requires and __dirname on the project and leaves no copy', () => {
+    const dir = fs.realpathSync(
+      fs.mkdtempSync(path.join(os.tmpdir(), 'tmp-extjs-hashbang-'))
+    )
+    fs.writeFileSync(
+      path.join(dir, 'profile-name.cjs'),
+      "module.exports = 'hashbang-profile'\n"
+    )
+
+    const configPath = path.join(dir, 'extension.config.js')
+    fs.writeFileSync(
+      configPath,
+      `#!/usr/bin/env node
+const path = require('path')
+const name = require('./profile-name.cjs')
+module.exports = {profile: path.join(__dirname, 'dist', name)}
+`
+    )
+
+    try {
+      expect(requireCommonJsCopyBesideSource(configPath)).toEqual({
+        profile: path.join(dir, 'dist', 'hashbang-profile')
+      })
+
+      expect(fs.readdirSync(dir).sort()).toEqual([
+        'extension.config.js',
+        'profile-name.cjs'
+      ])
+    } finally {
+      fs.rmSync(dir, {recursive: true, force: true})
+    }
+  })
+
+  it('removes the copy when the config throws', () => {
+    const dir = fs.realpathSync(
+      fs.mkdtempSync(path.join(os.tmpdir(), 'tmp-extjs-throws-'))
+    )
+    const configPath = path.join(dir, 'extension.config.js')
+    fs.writeFileSync(configPath, "throw new Error('broken config')\n")
+
+    try {
+      expect(() => requireCommonJsCopyBesideSource(configPath)).toThrow(
+        'broken config'
+      )
+
+      expect(fs.readdirSync(dir)).toEqual(['extension.config.js'])
+    } finally {
+      fs.rmSync(dir, {recursive: true, force: true})
+    }
   })
 })

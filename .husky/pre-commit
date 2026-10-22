@@ -1,1 +1,1 @@
-pnpm lint-staged
+node scripts/pre-commit-lint-staged.mjs

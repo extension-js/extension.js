@@ -189,7 +189,8 @@ export function parseHtml(
 
   const {childNodes = []} = node
 
-  for (const childNode of childNodes) {
+  // A callback may remove the node it was handed, so walk a snapshot.
+  for (const childNode of [...childNodes]) {
     if (childNode.nodeName === '#comment' || childNode.nodeName === '#text') {
       continue
     }

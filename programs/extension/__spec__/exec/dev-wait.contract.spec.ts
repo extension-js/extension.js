@@ -1,15 +1,10 @@
 import {spawn} from 'node:child_process'
-import {
-  mkdirSync,
-  mkdtempSync,
-  renameSync,
-  rmSync,
-  writeFileSync
-} from 'node:fs'
+import {mkdirSync, mkdtempSync, rmSync, writeFileSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {dirname, join, resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {describe, expect, it} from 'vitest'
+import {renameSyncWithRetry} from '../../browsers/browsers-lib/rename-with-retry'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -21,7 +16,7 @@ const cliBin = resolve(cliRoot, 'dist', 'cli.cjs')
 function writeContractAtomic(filePath: string, contents: string) {
   const tmpPath = `${filePath}.tmp-${process.pid}`
   writeFileSync(tmpPath, contents)
-  renameSync(tmpPath, filePath)
+  renameSyncWithRetry(tmpPath, filePath)
 }
 
 // A CI runner spends more of the budget spawning node and loading cli.cjs,

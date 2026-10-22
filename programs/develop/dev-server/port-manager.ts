@@ -11,8 +11,10 @@ import * as net from 'node:net'
 import {codedError} from '../lib/coded-error'
 import {CODES} from '../lib/messaging'
 
-interface PortReservation {
+export interface PortReservation {
   port: number
+  host: string
+  server: net.Server
   release(): Promise<void>
 }
 
@@ -65,6 +67,8 @@ async function reservePortNear(
 
       return {
         port: address?.port ?? candidate,
+        host,
+        server,
         release: () => closeReservation(server)
       }
     }
@@ -76,6 +80,27 @@ async function reservePortNear(
     CODES.E_PORT_UNAVAILABLE,
     `Could not find an available port near ${startPort} after ${attempts} attempts`
   )
+}
+
+// A restart closes the old server and holds the port in the same tick, so the
+// next server can listen on the hold instead of racing other sessions for it.
+export function holdPortNow(
+  port: number,
+  host: string,
+  bindHost: string = host
+): PortReservation {
+  const server = net.createServer()
+  server.on('error', () => {})
+  server.on('connection', (socket) => socket.destroy())
+  server.unref()
+
+  try {
+    server.listen(port, bindHost)
+  } catch {
+    // Ignore
+  }
+
+  return {port, host, server, release: () => closeReservation(server)}
 }
 
 export interface PortAllocation {
@@ -108,6 +133,7 @@ export class PortManager {
   private readonly basePort: number
   private currentInstance: LocalInstanceInfo | null = null
   private reservation: PortReservation | null = null
+  private holdOnClose = false
 
   constructor(basePort: number = 8080) {
     this.basePort = basePort
@@ -144,8 +170,35 @@ export class PortManager {
     return this.currentInstance
   }
 
-  // The dev server cannot bind a port this process still holds, so the
-  // reservation is dropped the moment the real listener takes over.
+  // The dev server listens on the reservation's own socket, so no other
+  // session can take the port between the probe and the real bind.
+  takeReservation(): PortReservation | null {
+    const reservation = this.reservation
+    this.reservation = null
+
+    return reservation
+  }
+
+  holdPortAcrossRestart(): void {
+    this.holdOnClose = true
+  }
+
+  shouldHoldPortOnClose(): boolean {
+    return this.holdOnClose
+  }
+
+  adoptHeldPort(reservation: PortReservation): void {
+    const previous = this.reservation
+    this.holdOnClose = false
+    this.reservation = reservation
+
+    if (previous) void previous.release()
+  }
+
+  endRestartHold(): void {
+    this.holdOnClose = false
+  }
+
   async releaseReservedPort(): Promise<void> {
     const reservation = this.reservation
     this.reservation = null

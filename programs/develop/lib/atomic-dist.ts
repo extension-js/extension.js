@@ -8,6 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {renameSyncWithRetry} from './rename-with-retry'
 
 // One-shot builds emit into a hidden staging sibling of dist/<browser> and
 // only a whole-directory rename publishes it, so consumers that gate on
@@ -92,18 +93,18 @@ export function promoteStagingDist(
   let retired = false
 
   if (fs.existsSync(distPath)) {
-    fs.renameSync(distPath, retiredPath)
+    renameSyncWithRetry(distPath, retiredPath)
     retired = true
   }
 
   try {
-    fs.renameSync(stagingPath, distPath)
+    renameSyncWithRetry(stagingPath, distPath)
   } catch (error) {
     // Put the previous build back so a failed promote never costs the
     // last-good dist the staging swap exists to protect.
     if (retired) {
       try {
-        fs.renameSync(retiredPath, distPath)
+        renameSyncWithRetry(retiredPath, distPath)
       } catch {
         // Ignore
       }

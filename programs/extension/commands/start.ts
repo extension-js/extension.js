@@ -22,6 +22,7 @@ import {
 } from '../helpers/cli-options'
 import {getCliPackageJson} from '../helpers/cli-package-json'
 import {resolveConfigBrowser} from '../helpers/config-browser'
+import {exitWithFailure} from '../helpers/exit-after-drain'
 import {
   loadExtensionDevelopModule,
   loadExtensionDevelopPreviewModule
@@ -100,7 +101,7 @@ function failAndExit(
     printFrame(ENVELOPE.fail('start', status, error, hint ? {hint} : {}))
   }
 
-  process.exit(1)
+  exitWithFailure(error.code)
 }
 
 export function registerStartCommand(program: Command) {
@@ -457,7 +458,7 @@ export function registerStartCommand(program: Command) {
               )
             )
 
-            process.exit(1)
+            exitWithFailure(declaredErrorCode(error) ?? CODES.E_COMPILE)
           }
 
           if (noBrowser) {

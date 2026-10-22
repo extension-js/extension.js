@@ -8,6 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {renameSyncWithRetry} from '../../lib/rename-with-retry'
 import type {BridgeTarget, CommandOp} from './contracts'
 
 export const ACTION_RECORD_VERSION = 1 as const
@@ -108,11 +109,14 @@ export class ActionsFileWriter implements ActionsSink {
 
       for (let n = generations - 1; n >= 1; n--) {
         const from = this.rotatedName(n)
-        if (fs.existsSync(from)) fs.renameSync(from, this.rotatedName(n + 1))
+
+        if (fs.existsSync(from)) {
+          renameSyncWithRetry(from, this.rotatedName(n + 1))
+        }
       }
 
       if (fs.existsSync(this.opts.filePath)) {
-        fs.renameSync(this.opts.filePath, this.rotatedName(1))
+        renameSyncWithRetry(this.opts.filePath, this.rotatedName(1))
       }
     } catch {
       // Ignore

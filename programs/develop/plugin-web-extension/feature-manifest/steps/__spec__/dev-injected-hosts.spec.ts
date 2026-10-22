@@ -10,6 +10,7 @@ import {
   isContentScriptModule,
   isHostPattern,
   matchesHostPattern,
+  matchesHostPermission,
   optionalHostPatterns,
   scannableSourcePath
 } from '../apply-dev-defaults-lib/dev-injected-hosts'
@@ -111,6 +112,48 @@ describe('findInjectedOnlyHostUses', () => {
     )
     expect(uses.map((use) => use.file).sort()).toEqual([legacy, worker].sort())
     fs.rmSync(dir, {recursive: true, force: true})
+  })
+})
+
+describe('findInjectedOnlyHostUses with path-scoped patterns', () => {
+  const scan = (declared: string[], optional: string[] = []) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-host-path-'))
+    const worker = path.join(dir, 'worker.js')
+    fs.writeFileSync(worker, "fetch('https://api.three.test/bar/ping')\n")
+    const uses = findInjectedOnlyHostUses(
+      [{resource: worker}],
+      ['https://api.three.test/*'],
+      declared,
+      optional
+    )
+    fs.rmSync(dir, {recursive: true, force: true})
+
+    return uses
+  }
+
+  it('treats a declared host with another path as covering the origin', () => {
+    expect(scan(['https://api.three.test/foo/*'])).toEqual([])
+  })
+
+  it('marks a use optional when only a path-scoped optional host covers it', () => {
+    const uses = scan([], ['https://api.three.test/foo/*'])
+    expect(uses.map((use) => use.optional)).toEqual([true])
+  })
+
+  it('still reports a host nobody declared', () => {
+    expect(scan(['https://other.test/*'])).toHaveLength(1)
+  })
+})
+
+describe('matchesHostPermission', () => {
+  it.each([
+    ['https://x.test/foo/*', 'https://x.test/bar', true],
+    ['https://x.test/', 'https://x.test/deep/path?q=1', true],
+    ['https://x.test/foo/*', 'http://x.test/foo/a', false],
+    ['https://x.test/foo/*', 'https://y.test/foo/a', false],
+    ['*://*.x.test/a/*', 'https://sub.x.test/b', true]
+  ])('%s vs %s', (pattern, url, expected) => {
+    expect(matchesHostPermission(pattern, url)).toBe(expected)
   })
 })
 

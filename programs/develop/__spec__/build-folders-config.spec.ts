@@ -45,7 +45,8 @@ function project(
 
 async function build(
   root: string,
-  mode: 'production' | 'development' = 'production'
+  mode: 'production' | 'development' = 'production',
+  metadataCommand?: 'dev'
 ) {
   const {extensionBuild} = await import('../command-build')
   const previous = process.env.VITEST
@@ -57,6 +58,7 @@ async function build(
       silent: true,
       install: false,
       mode,
+      ...(metadataCommand ? {metadataCommand} : {}),
       exitOnError: false
     } as any)
   } finally {
@@ -176,11 +178,11 @@ describe('the folders config in a build', () => {
     )
   }, 120_000)
 
-  it('gives a moved scripts/ the reinjection scaffolding in development', async () => {
+  it('gives a moved scripts/ the reinjection scaffolding in a dev session', async () => {
     const {atRoot, moved} = twins()
 
-    expect((await build(atRoot, 'development')).errors_count).toBe(0)
-    expect((await build(moved, 'development')).errors_count).toBe(0)
+    expect((await build(atRoot, 'development', 'dev')).errors_count).toBe(0)
+    expect((await build(moved, 'development', 'dev')).errors_count).toBe(0)
 
     expect(emittedFiles(moved)).toEqual(emittedFiles(atRoot))
 
@@ -193,6 +195,20 @@ describe('the folders config in a build', () => {
     ]) {
       expect(script(atRoot)).toMatch(marker)
       expect(script(moved)).toMatch(marker)
+    }
+  }, 120_000)
+
+  it('ships no reinjection scaffolding from a development build', async () => {
+    const {atRoot, moved} = twins()
+
+    expect((await build(atRoot, 'development')).errors_count).toBe(0)
+    expect((await build(moved, 'development')).errors_count).toBe(0)
+
+    expect(emittedFiles(moved)).toEqual(emittedFiles(atRoot))
+
+    for (const root of [atRoot, moved]) {
+      expect(script(root)).not.toMatch(/data-extjs-reinject-key/)
+      expect(script(root)).not.toMatch(/data-extjs-debug-/)
     }
   }, 120_000)
 

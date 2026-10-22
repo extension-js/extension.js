@@ -63,11 +63,13 @@ export class AddContentScriptWrapper {
   private readonly manifestPath: string
   private readonly browser: DevOptions['browser']
   private readonly includeList: FilepathList
+  private readonly devSession?: boolean
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.browser = (options.browser as DevOptions['browser']) || 'chrome'
     this.includeList = options.includeList || {}
+    this.devSession = options.devSession
   }
 
   private resolveLoader(): string {
@@ -106,6 +108,9 @@ export class AddContentScriptWrapper {
     const loaderOptions = {
       manifestPath: this.manifestPath,
       mode: compiler.options.mode,
+      ...(typeof this.devSession === 'boolean'
+        ? {devSession: this.devSession}
+        : {}),
       browser: this.browser,
       mainWorldScripts,
       scriptsFolder: scriptsRoot ? canonicalizeDir(scriptsRoot) : false

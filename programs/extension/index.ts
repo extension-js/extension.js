@@ -26,11 +26,13 @@ import {registerTelemetryCommand} from './commands/telemetry'
 import checkUpdates from './helpers/check-updates'
 import {
   collectValuedLongFlags,
+  movePreCommandOutputArgv,
   resolveCommandFromArgv as resolveCommandFromArgvWithFlags,
   rewriteOutputAliasArgv,
   scanArgvValue
 } from './helpers/cli-argv'
 import {
+  codeForCommanderError,
   commanderErrorEnvelope,
   commanderExitCode,
   commanderHumanError,
@@ -42,7 +44,7 @@ import {
   writeStdoutFrame
 } from './helpers/cli-failure'
 import {getCliPackageJson} from './helpers/cli-package-json'
-import {exitAfterDrain} from './helpers/exit-after-drain'
+import {exitAfterDrain, exitWithFailure} from './helpers/exit-after-drain'
 import {resolveExtensionDevelopVersion} from './helpers/extension-develop-runtime'
 import * as messages from './helpers/messages'
 import {CODES} from './helpers/messaging'
@@ -50,6 +52,7 @@ import {warnDeprecatedOutputAlias} from './helpers/output-flag'
 import {
   markCommandFailure,
   markCommandSuccess,
+  resolveInvokedCommand,
   telemetryFailureCode
 } from './helpers/telemetry-cli'
 import {installTelemetrySignalHandlers} from './helpers/telemetry-signals'
@@ -124,7 +127,7 @@ function failBeforeParse(
     )
   }
 
-  process.exit(1)
+  exitWithFailure(code)
 }
 
 // --format is a deprecated alias of --output. Only the root program declares
@@ -137,7 +140,7 @@ function applyOutputAliasArgvShim(argv: string[]): string[] {
   const {argv: next, rewritten} = rewriteOutputAliasArgv(argv, valuedLongFlags)
   if (rewritten) warnDeprecatedOutputAlias('--format')
 
-  return next
+  return movePreCommandOutputArgv(next, valuedLongFlags)
 }
 
 function applyNoBrowserArgvShim(argv: string[]): string[] {
@@ -252,6 +255,7 @@ registerTelemetryCommand(extensionJs)
 registerDoctorCommand(extensionJs)
 registerCapabilitiesCommand(extensionJs)
 valuedLongFlags = collectValuedLongFlags(extensionJs)
+resolveInvokedCommand(process.argv, valuedLongFlags)
 
 // Handled before commander parses: the JSON frame can outgrow one pipe
 // buffer, so the exit must wait for stdout to drain (#79).
@@ -308,7 +312,11 @@ if (process.argv.includes('--ai-help')) {
         // exitCode 0 is help or version display, not a failure.
         if (exitCode === 0) process.exit(0)
 
-        markCommandFailure(undefined, {code: CODES.E_ARGS, exitCode})
+        markCommandFailure(undefined, {
+          code: codeForCommanderError(String(err.code)),
+          exitCode
+        })
+
         // eslint-disable-next-line no-console
         console.error(commanderHumanError(err, commandName))
 

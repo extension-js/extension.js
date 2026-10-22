@@ -18,6 +18,7 @@ vi.mock('../helpers/extension-develop-runtime', async () => {
 
   return {
     loadExtensionDevelopBridgeModule: vi.fn(async () => ({
+      ...(await import('../../develop/dev-server/control-bridge/log-rule')),
       resolveSessionProjectRoot,
       readReadyContract: (...args: unknown[]) => {
         state.readyReads.push(args)

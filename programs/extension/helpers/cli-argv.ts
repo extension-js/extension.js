@@ -41,12 +41,10 @@ export function collectValuedLongFlags(program: Command): Set<string> {
   return flags
 }
 
-// The command name is the first bare token that is not the value of a flag
-// that takes one; commander decides the same way once it parses.
-export function resolveCommandFromArgv(
+function resolveCommandIndex(
   argv: string[],
-  valuedFlags: ReadonlySet<string> = new Set()
-): string | undefined {
+  valuedFlags: ReadonlySet<string>
+): number {
   for (let i = 2; i < argv.length; i += 1) {
     const arg = argv[i]
 
@@ -56,10 +54,52 @@ export function resolveCommandFromArgv(
       continue
     }
 
-    return arg
+    return i
   }
 
-  return undefined
+  return -1
+}
+
+// The command name is the first bare token that is not the value of a flag
+// that takes one; commander decides the same way once it parses.
+export function resolveCommandFromArgv(
+  argv: string[],
+  valuedFlags: ReadonlySet<string> = new Set()
+): string | undefined {
+  const index = resolveCommandIndex(argv, valuedFlags)
+
+  return index < 0 ? undefined : argv[index]
+}
+
+// Only subcommands declare --output, so in front of the command commander
+// refuses it. It moves behind the command, as its deprecated alias does.
+export function movePreCommandOutputArgv(
+  argv: string[],
+  valuedFlags: ReadonlySet<string> = new Set()
+): string[] {
+  const commandIndex = resolveCommandIndex(argv, valuedFlags)
+  if (commandIndex < 0) return argv
+
+  const index = argv.findIndex(
+    (arg, i) =>
+      i >= 2 &&
+      i < commandIndex &&
+      (arg === '--output' || arg.startsWith('--output='))
+  )
+  if (index < 0) return argv
+
+  const next = [...argv]
+  const value = next[index + 1]
+  const takesValue =
+    next[index] === '--output' &&
+    value !== undefined &&
+    !value.startsWith('-') &&
+    index + 1 < commandIndex
+  const tokens = next.splice(index, takesValue ? 2 : 1)
+
+  next.splice(commandIndex - tokens.length + 1, 0, ...tokens)
+
+  return next
 }
 
 // --format is a deprecated alias of --output that only the root program

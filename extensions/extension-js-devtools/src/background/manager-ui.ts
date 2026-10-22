@@ -94,7 +94,7 @@ MIT (c) ${new Date().getFullYear()} - Cezar Augusto and the Extension.js authors
       }
 
       if (isInitialPage) {
-        await handleFirstRun()
+        await handleFirstRun(initialTab)
         return
       }
 

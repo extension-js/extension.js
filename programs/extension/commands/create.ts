@@ -11,11 +11,22 @@ import * as path from 'node:path'
 import type {Command} from 'commander'
 import type {CreateOptions} from 'extension-create'
 import {getCliPackageJson} from '../helpers/cli-package-json'
+import {recordDependencyInstall} from '../helpers/dependency-install-outcome'
 import {exitAfterDrain} from '../helpers/exit-after-drain'
 import {resolveExtensionDevelopRoot} from '../helpers/extension-develop-runtime'
-import {commandDescriptions} from '../helpers/messages'
+import {
+  commandDescriptions,
+  createNeedsProjectName,
+  createProjectNameQuestion
+} from '../helpers/messages'
 import {CODES, ENVELOPE, type ErrorCode} from '../helpers/messaging'
 import {isJsonOutput} from '../helpers/output-flag'
+import {
+  askProjectName,
+  canPromptForProjectName,
+  createCommandFor,
+  DEFAULT_PROJECT_NAME
+} from '../helpers/project-name-prompt'
 import {markCommandFailure} from '../helpers/telemetry-cli'
 import {
   DEFAULT_TEMPLATE,
@@ -71,10 +82,53 @@ function createErrorCode(error: unknown): ErrorCode {
   return CODES.E_INTERNAL
 }
 
+// A missing name was the most common first-run failure. A person at a
+// terminal is asked for one, anything else gets the exact command to copy.
+async function resolveProjectName(
+  template: string | undefined,
+  asJson: boolean
+): Promise<string | undefined> {
+  if (!asJson && canPromptForProjectName()) {
+    const answer = await askProjectName(
+      createProjectNameQuestion(DEFAULT_PROJECT_NAME)
+    )
+
+    if (answer) return answer
+
+    markCommandFailure(undefined, {code: CODES.E_INTERRUPTED, exitCode: 130})
+    await exitAfterDrain(130)
+
+    return undefined
+  }
+
+  const command = createCommandFor(template)
+  markCommandFailure(undefined, {code: CODES.E_ARGS, exitCode: 1})
+
+  // eslint-disable-next-line no-console
+  console.error(createNeedsProjectName(command))
+
+  if (asJson) {
+    // eslint-disable-next-line no-console
+    console.log(
+      JSON.stringify(
+        ENVELOPE.fail('create', 'usage', {
+          code: CODES.E_ARGS,
+          message: `A project name is required. Run ${command} to start one.`,
+          name: 'CliError'
+        })
+      )
+    )
+  }
+
+  await exitAfterDrain(1)
+
+  return undefined
+}
+
 export function registerCreateCommand(program: Command) {
   program
     .command('create')
-    .arguments('<project-name|project-path>')
+    .arguments('[project-name|project-path]')
     .usage('<project-name|project-path> [options]')
     .description(commandDescriptions.create)
     .option(
@@ -98,7 +152,7 @@ export function registerCreateCommand(program: Command) {
     .addHelpText('after', renderCreateTemplateHelp())
     .action(
       async (
-        pathOrRemoteUrl: string,
+        projectInput: string | undefined,
         {
           template,
           install,
@@ -106,6 +160,10 @@ export function registerCreateCommand(program: Command) {
         }: CreateOptions & {output?: 'pretty' | 'json'}
       ) => {
         const asJson = isJsonOutput({output})
+        const pathOrRemoteUrl =
+          projectInput || (await resolveProjectName(template, asJson))
+
+        if (!pathOrRemoteUrl) return
 
         if (!process.env.EXTENSION_CREATE_DEVELOP_ROOT) {
           try {
@@ -154,6 +212,10 @@ export function registerCreateCommand(program: Command) {
             cliVersion: getCliPackageJson().version
           })
         } catch (error) {
+          if (createErrorCode(error) === CODES.E_DEPENDENCY_INSTALL) {
+            recordDependencyInstall('failed')
+          }
+
           // The non-json path throws and index.ts marks the failure there. The
           // json path returns instead of throwing, so it has to mark its own,
           // and without this create could not report a failure at all.
@@ -178,6 +240,11 @@ export function registerCreateCommand(program: Command) {
 
           return
         }
+
+        recordDependencyInstall(
+          result?.depsInstalled ? 'installed' : 'skipped',
+          result?.installSeconds
+        )
 
         if (asJson) {
           // eslint-disable-next-line no-console
