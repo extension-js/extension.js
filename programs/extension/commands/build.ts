@@ -42,6 +42,7 @@ type BuildOptions = {
   zip?: boolean
   zipSource?: boolean
   zipFilename?: string
+  outDir?: string
   silent?: boolean
   addonLint?: boolean
   minify?: boolean
@@ -104,6 +105,10 @@ export function registerBuildCommand(program: Command) {
     .option(
       '--zip-filename <string>',
       'specify the name of the ZIP file, the browser name is appended. Defaults to the extension name and version'
+    )
+    .option(
+      '--out-dir <path>',
+      'write the build to `<path>/<browser>` instead of `dist/<browser>`, relative to the project root, so it can run beside a dev session that serves `dist`'
     )
     .option(
       '--silent [boolean]',
@@ -370,6 +375,7 @@ export function registerBuildCommand(program: Command) {
               zip: buildOptions.zip,
               zipSource: buildOptions.zipSource,
               zipFilename: buildOptions.zipFilename,
+              outDir: buildOptions.outDir,
               silent: buildOptions.silent,
               addonLint: buildOptions.addonLint,
               minify: buildOptions.minify,

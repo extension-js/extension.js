@@ -457,6 +457,7 @@ ${'Build options'}
 - ${code('--zip')} ${arg('[boolean]')}                 Create ZIP archive of built extension
 - ${code('--zip-source')} ${arg('[boolean]')}          Include source files in ZIP
 - ${code('--zip-filename')} ${arg('<name>')}           Custom ZIP filename
+- ${code('--out-dir')} ${arg('<path>')}                Write the build to <path>/<browser> instead of dist/<browser>
 - ${code('--no-addon-lint')}                          Skip the addons.mozilla.org lint of Firefox builds (runs when addons-linter is installed)
 - ${code('--no-minify')}                              Ship readable first-party code (the default for ${code('--browser=opera')}, whose store rejects minified code)
 

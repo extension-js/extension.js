@@ -174,3 +174,75 @@ describe('the notice about another dev session on the same target', () => {
     fs.rmSync(projectDir, {recursive: true, force: true})
   })
 })
+
+describe("the notice about a live dev session owning another command's target", () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  function liveDevProject(browser: string) {
+    const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-owner-'))
+    const readyPath = path.join(
+      projectDir,
+      'dist',
+      'extension-js',
+      browser,
+      'ready.json'
+    )
+    fs.mkdirSync(path.dirname(readyPath), {recursive: true})
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({
+        command: 'dev',
+        status: 'ready',
+        pid: process.ppid,
+        runId: 'foreign-owner-run',
+        distPath: path.join(projectDir, 'dist', browser)
+      })
+    )
+
+    return projectDir
+  }
+
+  function buildNotices(projectDir: string, browser: string, distPath: string) {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    createPlaywrightMetadataWriter({
+      packageJsonDir: projectDir,
+      browser,
+      command: 'build',
+      distPath,
+      manifestPath: path.join(projectDir, 'manifest.json')
+    })
+
+    return warn.mock.calls
+      .map((call) => String(call[0]))
+      .filter((line) => line.includes('a live dev session (pid'))
+  }
+
+  it('prints when a build writes the folder the dev session serves', () => {
+    const browser = 'chromium-shared-dist'
+    const projectDir = liveDevProject(browser)
+
+    const notices = buildNotices(
+      projectDir,
+      browser,
+      path.join(projectDir, 'dist', browser)
+    )
+    expect(notices).toHaveLength(1)
+    expect(notices[0]).toContain('The output dir is shared')
+
+    fs.rmSync(projectDir, {recursive: true, force: true})
+  })
+
+  it('stays quiet when the build writes another folder', () => {
+    const browser = 'chromium-own-out-dir'
+    const projectDir = liveDevProject(browser)
+
+    const notices = buildNotices(
+      projectDir,
+      browser,
+      path.join(projectDir, 'build', browser)
+    )
+    expect(notices).toEqual([])
+
+    fs.rmSync(projectDir, {recursive: true, force: true})
+  })
+})

@@ -305,6 +305,18 @@ export function getDistPath(
   return asAbsolute(path.join(packageJsonDir, 'dist', browser))
 }
 
+// `--out-dir` swaps the `dist` base only: the browser folder stays, so a
+// multi-browser build into one base never lands two targets in one folder.
+export function getBuildDistPath(
+  packageJsonDir: AbsolutePath,
+  browser: string,
+  outDir?: string
+): AbsolutePath {
+  if (!outDir) return getDistPath(packageJsonDir, browser)
+
+  return asAbsolute(path.resolve(packageJsonDir, outDir, browser))
+}
+
 export function computePreviewOutputPath(
   struct: ProjectStructure,
   browser: string,

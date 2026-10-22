@@ -86,6 +86,12 @@ describe('extension build', () => {
     })
   })
 
+  it('passes --out-dir through to the build', async () => {
+    expect(await run(['build', '.', '--out-dir', 'build'])).toBe(0)
+    const [, opts] = extensionBuild.mock.calls[0] as any[]
+    expect(opts.outDir).toBe('build')
+  })
+
   it('enables author diagnostics with --author', async () => {
     Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')
     delete process.env.EXTENSION_VERBOSE

@@ -168,6 +168,11 @@
       "area": "compile",
       "summary": "web_accessible_resources shape or match pattern rejected."
     },
+    "E_DEV_SESSION_DIST_SHARED": {
+      "area": "compile",
+      "summary": "A build writes the dist folder a running dev session serves.",
+      "warn": true
+    },
     "E_BACKGROUND_REQUIRED": {
       "area": "compile",
       "summary": "The reload runtime needs a background chunk that is absent."

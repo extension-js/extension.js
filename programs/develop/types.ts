@@ -295,6 +295,12 @@ export interface DevOptions extends BrowserOptionsBase {
 
 export interface BuildOptions {
   browser: BrowserOptionsBase['browser']
+  /**
+   * Base folder for the build output, relative to the project root. The
+   * build writes `<outDir>/<browser>` instead of `dist/<browser>`, zip
+   * included, so it can run beside a dev session that serves `dist`.
+   */
+  outDir?: string
   chromiumBinary?: ChromiumOptions['chromiumBinary']
   geckoBinary?: GeckoOptions['geckoBinary']
   firefoxBinary?: GeckoOptions['geckoBinary']
@@ -669,6 +675,7 @@ export interface FileConfig {
 
     build?: Pick<
       BuildOptions,
+      | 'outDir'
       | 'zipFilename'
       | 'zip'
       | 'zipSource'
