@@ -112,7 +112,7 @@ describe('stageCompanionForSession', () => {
       JSON.parse(
         fs.readFileSync(path.join(staged, COMPANION_SESSION_FLAGS_FILE), 'utf8')
       )
-    ).toEqual({noOpen: false})
+    ).toEqual({noOpen: false, startingUrl: false})
 
     expect(readManifest(companion).chrome_url_overrides).toEqual({
       newtab: 'newtab.html'
@@ -135,7 +135,27 @@ describe('stageCompanionForSession', () => {
           'utf8'
         )
       )
-    ).toEqual({noOpen: true})
+    ).toEqual({noOpen: true, startingUrl: false})
+  })
+
+  it('stages a copy that says a starting URL is coming, so the welcome page opens behind it', () => {
+    const next = stageCompanionForSession({
+      extensionPaths: [companion, user],
+      startingUrl: true,
+      stageRoot: profile
+    })
+
+    const staged = stagedCompanionPath(profile, companion)
+    expect(next).toEqual([staged, user])
+    expect(
+      JSON.parse(
+        fs.readFileSync(path.join(staged, COMPANION_SESSION_FLAGS_FILE), 'utf8')
+      )
+    ).toEqual({noOpen: false, startingUrl: true})
+
+    expect(readManifest(staged).chrome_url_overrides).toEqual({
+      newtab: 'newtab.html'
+    })
   })
 
   it('leaves the list alone when the session has no profile dir to own', () => {
@@ -177,7 +197,7 @@ describe('stageCompanionForSession', () => {
       JSON.parse(
         fs.readFileSync(path.join(staged, COMPANION_SESSION_FLAGS_FILE), 'utf8')
       )
-    ).toEqual({noOpen: true})
+    ).toEqual({noOpen: true, startingUrl: false})
 
     // The shared dist never carries the flag.
     expect(
@@ -326,6 +346,27 @@ describe('the launch configs load the staged companion under --no-open', () => {
       {provision: false}
     )
     expect(config.profilePath).toBe(firefoxProfile)
+    expect(config.extensionsToLoad).toEqual([
+      stagedCompanionPath(firefoxProfile, companion),
+      user
+    ])
+  })
+
+  it('firefox hands the RDP install the copy when a starting URL is set', async () => {
+    const firefoxProfile = path.join(root, 'profiles', 'firefox-profile', 'dev')
+    const config = await resolveFirefoxLaunchConfig(
+      {
+        options: {mode: 'development', context: root, output: {path: user}}
+      } as any,
+      {
+        extension: [companion, user],
+        browser: 'firefox',
+        profile: firefoxProfile,
+        startingUrl: 'http://127.0.0.1:4330/',
+        mode: 'development'
+      } as any,
+      {provision: false}
+    )
     expect(config.extensionsToLoad).toEqual([
       stagedCompanionPath(firefoxProfile, companion),
       user

@@ -7,7 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {createExtensionsPageTab, handleFirstRun} from './define-initial-tab'
-import {readSessionFlags} from './session-flags'
+import {readSessionFlags, sessionBrowser} from './session-flags'
 import {isStartPage} from './start-pages'
 
 function bgGreen(str: string) {
@@ -23,8 +23,7 @@ export async function initManagerUI() {
   try {
     chrome.tabs.query({active: true, currentWindow: true}, async (tabs) => {
       const initialTab = Array.isArray(tabs) ? tabs[0] : undefined
-      // @ts-ignore
-      const browser = (import.meta as any).env?.EXTENSION_BROWSER
+      const browser = sessionBrowser()
       const isFirefox = browser === 'firefox'
       const isEdge = browser === 'edge'
       const scheme = isFirefox ? 'about' : isEdge ? 'edge' : 'chrome'
@@ -64,7 +63,7 @@ MIT (c) ${new Date().getFullYear()} - Cezar Augusto and the Extension.js authors
 
       if (!initialTab) {
         try {
-          await handleFirstRun()
+          await handleFirstRun(undefined, {welcomeBehind: session.startingUrl})
         } catch {
           try {
             chrome.tabs.create({url: extensionsPage})
@@ -86,7 +85,7 @@ MIT (c) ${new Date().getFullYear()} - Cezar Augusto and the Extension.js authors
         // Always attempt first-run handling on Firefox.
         // Firefox does not always start on an initial page,
         // so we ensure the welcome page is still available.
-        await handleFirstRun()
+        await handleFirstRun(undefined, {welcomeBehind: session.startingUrl})
         if (!isInitialPage) {
           createExtensionsPageTab(initialTab, extensionsPage)
         }

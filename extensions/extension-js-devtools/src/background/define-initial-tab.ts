@@ -6,6 +6,7 @@
 // ╚═════╝ ╚══════╝  ╚═══╝     ╚═╝    ╚═════╝  ╚═════╝ ╚══════╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import {sessionBrowser} from './session-flags'
 import {decideRepoint} from './start-pages'
 
 export async function getDevExtensions() {
@@ -60,7 +61,7 @@ export function createExtensionsPageTab(
   initialTab: chrome.tabs.Tab,
   url: string
 ) {
-  const browser = (import.meta as any).env?.EXTENSION_BROWSER
+  const browser = sessionBrowser()
   const isFirefox = browser === 'firefox'
   const isEdge = browser === 'edge'
   const scheme = isFirefox ? 'about' : isEdge ? 'edge' : 'chrome'
@@ -118,8 +119,17 @@ function repointTab(tabId: number, url: string, browser?: string) {
   chrome.tabs.update(tabId, {url})
 }
 
-export async function handleFirstRun(startTab?: chrome.tabs.Tab) {
-  const browser = (import.meta as any).env?.EXTENSION_BROWSER
+export type FirstRunOptions = {
+  // The CLI is about to load a starting URL into the launch tab, so the
+  // welcome page opens without taking the window.
+  welcomeBehind?: boolean
+}
+
+export async function handleFirstRun(
+  startTab?: chrome.tabs.Tab,
+  options: FirstRunOptions = {}
+) {
+  const browser = sessionBrowser()
   const isFirefox = browser === 'firefox'
   const isEdge = browser === 'edge'
   const scheme = isFirefox ? 'about' : isEdge ? 'edge' : 'chrome'
@@ -132,10 +142,7 @@ export async function handleFirstRun(startTab?: chrome.tabs.Tab) {
   let devExtension: chrome.management.ExtensionInfo | undefined
   devExtension = await getDevExtension()
 
-  const browserStr = String(
-    // @ts-ignore
-    import.meta.env?.EXTENSION_BROWSER || 'chromium'
-  ).toLowerCase()
+  const browserStr = String(browser || 'chromium').toLowerCase()
   const storageKey = devExtension?.id || `__first_run__:${browserStr}`
 
   chrome.storage.local.get(storageKey, async (result) => {
@@ -175,7 +182,10 @@ export async function handleFirstRun(startTab?: chrome.tabs.Tab) {
       const welcomeUrl = chrome.runtime.getURL('pages/welcome.html')
 
       if (isFirefox) {
-        opened = await createTab({url: welcomeUrl, active: true})
+        opened = await createTab({
+          url: welcomeUrl,
+          active: !options.welcomeBehind
+        })
 
         // Ensure the addons manager exists in the background for convenience.
         // Best-effort: not gated on the welcome tab guard.
