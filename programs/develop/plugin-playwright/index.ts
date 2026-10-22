@@ -445,6 +445,7 @@ export interface LiveDevSessionOwner {
   runId: string
   instanceId?: string
   instanceExplicit?: boolean
+  distPath?: string
 }
 
 export function detectLiveDevSessionOwner(
@@ -474,7 +475,10 @@ export function detectLiveDevSessionOwner(
       runId: typeof prev.runId === 'string' ? prev.runId : '',
       instanceId:
         typeof prev.instanceId === 'string' ? prev.instanceId : undefined,
-      instanceExplicit: prev.instanceExplicit === true
+      instanceExplicit: prev.instanceExplicit === true,
+      ...(typeof prev.distPath === 'string' && prev.distPath
+        ? {distPath: prev.distPath}
+        : {})
     }
   } catch {
     return null
@@ -519,7 +523,14 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
   const foreignLiveDevSession =
     options.command !== 'dev' && liveOwner ? liveOwner : null
 
-  if (foreignLiveDevSession) {
+  // A build sent elsewhere with --out-dir shares nothing with the session,
+  // so only a run into the session's own folder earns the notice.
+  const sharesSessionOutput =
+    !foreignLiveDevSession?.distPath ||
+    path.resolve(foreignLiveDevSession.distPath) ===
+      path.resolve(options.distPath)
+
+  if (foreignLiveDevSession && sharesSessionOutput) {
     console.warn(
       `[extension] a live dev session (pid ${foreignLiveDevSession.pid}) owns ` +
         `${readyPath}; this ${options.command} run will not rewrite the ` +
