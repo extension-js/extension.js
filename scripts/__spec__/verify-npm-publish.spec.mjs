@@ -12,11 +12,16 @@ const script = path.resolve(
   'verify-npm-publish.sh'
 )
 
-// A stand-in npm: `view` answers from an explicit state file, `publish` prints
-// what the case asks and can make the version visible. It writes only to the
-// state file path the case passes in.
+// A stand-in npm: `view` answers from an explicit state file and can flip it
+// after a given number of looks, `publish` prints what the case asks and can
+// make the version visible. It writes only to the state file paths the case
+// passes in.
 const STUB = `#!/usr/bin/env bash
 if [ "$1" = "view" ]; then
+  echo view >> "$STUB_VIEWS_FILE"
+  if [ -n "$STUB_VISIBLE_AFTER_VIEWS" ] && [ "$(wc -l < "$STUB_VIEWS_FILE")" -ge "$STUB_VISIBLE_AFTER_VIEWS" ]; then
+    : > "$STUB_VISIBLE_FILE"
+  fi
   [ -f "$STUB_VISIBLE_FILE" ] && { echo 1.0.0-canary.1; exit 0; }
   exit 1
 fi
@@ -29,7 +34,13 @@ fi
 exit 2
 `
 
-function run({visible = false, output = '', status = 0, makesVisible = false}) {
+function run({
+  visible = false,
+  output = '',
+  status = 0,
+  makesVisible = false,
+  visibleAfterViews = ''
+}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'verify-npm-publish-'))
   const bin = path.join(dir, 'bin')
   const pkg = path.join(dir, 'pkg')
@@ -43,6 +54,7 @@ function run({visible = false, output = '', status = 0, makesVisible = false}) {
 
   const visibleFile = path.join(dir, 'visible')
   const callsFile = path.join(dir, 'calls')
+  const viewsFile = path.join(dir, 'views')
   if (visible) fs.writeFileSync(visibleFile, '')
 
   try {
@@ -58,7 +70,9 @@ function run({visible = false, output = '', status = 0, makesVisible = false}) {
         STUB_CALLS_FILE: callsFile,
         STUB_PUBLISH_OUTPUT: output,
         STUB_PUBLISH_STATUS: String(status),
-        STUB_PUBLISH_MAKES_VISIBLE: makesVisible ? '1' : '0'
+        STUB_PUBLISH_MAKES_VISIBLE: makesVisible ? '1' : '0',
+        STUB_VIEWS_FILE: viewsFile,
+        STUB_VISIBLE_AFTER_VIEWS: String(visibleAfterViews)
       }
     })
     const calls = fs.existsSync(callsFile)
@@ -77,7 +91,27 @@ test('passes as soon as the version is visible, without publishing again', () =>
   assert.deepEqual(result.calls, [])
 })
 
-test('names a staged version and tells the maintainer what to do', () => {
+test('waits once more after a 409 and passes when npm serves the version', () => {
+  const result = run({
+    output:
+      'npm error 409 Conflict - PUT https://registry.npmjs.org/extension-develop - Cannot publish over previously staged version "1.0.0-canary.1".',
+    status: 1,
+    visibleAfterViews: 3
+  })
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+  assert.match(result.stdout, /does not serve it yet/)
+  assert.match(
+    result.stdout,
+    /Found extension-develop@1\.0\.0-canary\.1 on npm/
+  )
+
+  assert.doesNotMatch(result.stdout, /::error::/)
+  assert.deepEqual(result.calls, [
+    'publish publish --access public --tag canary --provenance'
+  ])
+})
+
+test('names a held version after the second wait and tells the maintainer what to do', () => {
   const result = run({
     output:
       'npm error 409 Conflict - PUT https://registry.npmjs.org/extension-develop - Cannot publish over previously staged version "1.0.0-canary.1".',
@@ -86,10 +120,16 @@ test('names a staged version and tells the maintainer what to do', () => {
   assert.equal(result.status, 1)
   assert.match(
     result.stdout,
-    /::error::npm staged extension-develop@1\.0\.0-canary\.1/
+    /::error::npm has held extension-develop@1\.0\.0-canary\.1 for 0 minutes/
   )
 
-  assert.match(result.stdout, /Approve it on npmjs\.com/)
+  assert.match(result.stdout, /approve it there/)
+  assert.match(result.stdout, /re-run the failed job or dispatch/)
+  assert.equal(
+    (result.stdout.match(/Waiting for npm replication/g) || []).length,
+    4
+  )
+
   assert.deepEqual(result.calls, [
     'publish publish --access public --tag canary --provenance'
   ])
