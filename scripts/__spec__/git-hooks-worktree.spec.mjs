@@ -5,7 +5,11 @@ import os from 'node:os'
 import path from 'node:path'
 import {test} from 'node:test'
 import {fileURLToPath} from 'node:url'
-import {HOOKS_PATH, installGitHooks} from '../install-git-hooks.mjs'
+import {
+  DISPATCH_DIR,
+  HOOKS_PATH,
+  installGitHooks
+} from '../install-git-hooks.mjs'
 
 const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -69,7 +73,7 @@ function makeRepoWithHooks() {
   )
 
   const result = installGitHooks({env: isolatedEnv, cwd: main})
-  assert.deepEqual(result, {installed: true})
+  assert.equal(result.installed, true)
 
   return {base, main}
 }
@@ -91,13 +95,28 @@ function stageAndCommit(cwd, file, contents, env = isolatedEnv) {
 
 const runsShellHooks = process.platform !== 'win32'
 
-test('the installer points core.hooksPath at the tracked hooks folder', () => {
+test('the installer points core.hooksPath at a dispatcher in the common git dir', () => {
   const {main} = makeRepoWithHooks()
+  const hooksPath = git(['config', 'core.hooksPath'], main).stdout.trim()
 
-  assert.equal(
-    git(['config', 'core.hooksPath'], main).stdout.trim(),
-    HOOKS_PATH
-  )
+  assert.ok(path.isAbsolute(hooksPath), hooksPath)
+  assert.equal(path.basename(hooksPath), DISPATCH_DIR)
+  assert.ok(fs.existsSync(path.join(hooksPath, 'pre-commit')))
+})
+
+test('installing in a tree with no tracked hooks folder writes nothing', () => {
+  const {base, main} = makeRepoWithHooks()
+  const worktree = addWorktree(main, base, 'older')
+  const before = git(['config', 'core.hooksPath'], main).stdout
+
+  fs.rmSync(path.join(worktree, HOOKS_PATH), {recursive: true})
+
+  assert.deepEqual(installGitHooks({env: isolatedEnv, cwd: worktree}), {
+    installed: false,
+    reason: 'no-hooks-dir'
+  })
+
+  assert.equal(git(['config', 'core.hooksPath'], main).stdout, before)
 })
 
 test('the installer does nothing when HUSKY=0 or outside a work tree', () => {
@@ -149,6 +168,23 @@ test('a fresh worktree with no install refuses the commit and names the fix', {
   const refused = stageAndCommit(worktree, 'file.txt', 'fine\n')
   assert.notEqual(refused.status, 0)
   assert.match(refused.stderr, /run pnpm install in .* first, or set HUSKY=0/)
+})
+
+test('a tree without the tracked hooks folder still runs its husky hooks', {
+  skip: !runsShellHooks
+}, () => {
+  const {base, main} = makeRepoWithHooks()
+  const worktree = addWorktree(main, base, 'legacy')
+
+  fs.rmSync(path.join(worktree, HOOKS_PATH), {recursive: true})
+  writeExecutable(
+    path.join(worktree, '.husky/_/pre-commit'),
+    '#!/usr/bin/env sh\nif git diff --cached | grep -q LINT_ERROR; then\n  echo "legacy-hook: LINT_ERROR staged" >&2\n  exit 1\nfi\n'
+  )
+
+  const refused = stageAndCommit(worktree, 'bad.txt', 'LINT_ERROR\n')
+  assert.notEqual(refused.status, 0)
+  assert.match(refused.stderr, /legacy-hook: LINT_ERROR staged/)
 })
 
 test('HUSKY=0 skips the hook in a worktree', {skip: !runsShellHooks}, () => {
