@@ -443,15 +443,15 @@ export function addonLintDependencyAttribution(
 // browser name at compile time and the production minifier drops the branch.
 export function addonLintUnsupportedApiFix(browser: string) {
   return (
-    `- this names a browser API, so it is your code, not a library's: guard it with ` +
-    `if (process.env.EXTENSION_PUBLIC_BROWSER !== "${browser}") and the production build drops the branch from the ${browser} bundle`
+    `- this names a browser API, so it is your code, not a library's: guard it with a build-time check of ` +
+    `process.env.EXTENSION_PUBLIC_BROWSER (return early when it reads "${browser}") and the production build drops the branch from the ${browser} bundle`
   )
 }
 
 export function addonLintReviewerNote(noteDisplay: string) {
   return (
-    `${getLoggingPrefix('info')} Notes to reviewer for addons.mozilla.org written to ${colors.underline(noteDisplay)}. ` +
-    `Paste its bundled libraries section into the submission, the author findings are yours to fix.`
+    `${getLoggingPrefix('info')} Notes to reviewer for addons.mozilla.org are at ${colors.underline(noteDisplay)} ` +
+    `(paste its bundled libraries section into the submission, the author findings are yours to fix)`
   )
 }
 

@@ -267,7 +267,7 @@ describe('addon lint after a production firefox build', () => {
     // the line that names them is printed but is not a warning.
     const notePath = path.join(root, 'dist', 'amo-reviewer-note.md')
     expect(output).toMatch(
-      /Notes to reviewer for addons\.mozilla\.org written to .*dist[\\/]amo-reviewer-note\.md/
+      /Notes to reviewer for addons\.mozilla\.org are at .*dist[\\/]amo-reviewer-note\.md/
     )
 
     expect(

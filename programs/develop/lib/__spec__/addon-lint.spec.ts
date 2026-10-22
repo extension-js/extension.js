@@ -680,7 +680,7 @@ describe('dependency attribution', () => {
     expect(line).not.toContain('may be theirs')
     expect(line).toContain('your code, not a library')
     expect(line).toContain(
-      'if (process.env.EXTENSION_PUBLIC_BROWSER !== "firefox")'
+      'process.env.EXTENSION_PUBLIC_BROWSER (return early when it reads "firefox")'
     )
 
     expect(line).not.toContain('=== "chrome"')
@@ -703,7 +703,7 @@ describe('dependency attribution', () => {
       'AMO warning UNSUPPORTED_API: offscreen.createDocument is not supported (background/scripts.js:29)'
     )
 
-    expect(finding).toContain('EXTENSION_PUBLIC_BROWSER !== "firefox"')
+    expect(finding).toContain('return early when it reads "firefox"')
   })
 
   it('keeps the hedge for an eval finding in a file that bundles dependencies', () => {
@@ -751,7 +751,7 @@ describe('dependency attribution', () => {
     )
 
     expect(stripAnsi(result.reviewerNote?.line || '')).toContain(
-      `Notes to reviewer for addons.mozilla.org written to ${path.join('dist', 'amo-reviewer-note.md')}`
+      `Notes to reviewer for addons.mozilla.org are at ${path.join('dist', 'amo-reviewer-note.md')}`
     )
 
     const note = fs.readFileSync(result.reviewerNote?.path as string, 'utf8')
