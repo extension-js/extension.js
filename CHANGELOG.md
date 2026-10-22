@@ -2,6 +2,54 @@
 
 ## Unreleased
 
+## 4.1.35 (October 22, 2026)
+
+- **Build beside a running dev session**, `extension build --out-dir <path>` writes `<path>/<browser>` and leaves `dist/<browser>` to the dev server, so a test suite or store packaging never stops the window you are working in
+- **Embedded options pages open every time**, a Chromium `options_ui` page that paints empty until its data arrives used to leave Chrome's options dialog closed; builds now give it a first layout, so the dialog opens and grows with the content
+- **Your `web_accessible_resources` scope wins**, a resource you already list for a few sites stays on those sites even when a `scripts/` file references it, instead of being widened to every origin
+
+### Features
+
+- Add --out-dir to build and leave a live dev session alone (#907) ([d9982b4bb](https://github.com/extension-js/extension.js/commit/d9982b4bb552795bc27e5e48d8b889f4c86e7adf))
+- Add a dispatchable loop of the content-reload spec (#882) ([48dfbd3c1](https://github.com/extension-js/extension.js/commit/48dfbd3c1815def72ee69897ae3492da442af9e3))
+
+### Fixes
+
+- Fix commit hooks in worktrees and gitignore rule provenance (#902) ([9e0037287](https://github.com/extension-js/extension.js/commit/9e00372879d1c47f19880fb397e6625aa712d17f))
+- Fix browser launch reports, dev server port holds and reconnects (#901) ([e1d736bed](https://github.com/extension-js/extension.js/commit/e1d736bed8629aa1bf1bb6ece89e3c93f6cad149))
+- Fix dev session state, workspace installs and Windows renames (#900) ([05b6299ff](https://github.com/extension-js/extension.js/commit/05b6299ffec3214d303ce97dba2762ef2d307b05))
+- Fix asset rules, host matching, polyfill and web resources (#899) ([785bde177](https://github.com/extension-js/extension.js/commit/785bde1779d5f1ad62e311b1d9613d65f22aec91))
+- Fix runtime file tracing, page scripts and dev root lookup (#898) ([2ece71246](https://github.com/extension-js/extension.js/commit/2ece71246ab3e9aee6254028b1a64615c9d11ed3))
+- Fix CSS, resolve and manifest field handling in builds (#897) ([1aa9a47eb](https://github.com/extension-js/extension.js/commit/1aa9a47ebfe7f7a06fe2fd92815fa0109af28bb1))
+
+<details>
+<summary>Other changes (23)</summary>
+
+- Write the release highlights for the next stable (#914) ([6eb672810](https://github.com/extension-js/extension.js/commit/6eb67281003129def0b2373ba5eba4eac694b70b))
+- Move the template pin to the examples head and resync STORE.md (#913) ([e2a34a818](https://github.com/extension-js/extension.js/commit/e2a34a818b8a606c3cb85f70f2d260537656665e))
+- Keep the author's scope for resources a scripts/ file names (#911) ([83f79bcb0](https://github.com/extension-js/extension.js/commit/83f79bcb0e6d9cc7b99fba9fa994f8be2116357d))
+- Bound the exec runner probes so a slow registry skips a runner (#912) ([b44318712](https://github.com/extension-js/extension.js/commit/b4431871245c8236c14f382ce546688b11e08850))
+- Take the port-manager spec's base ports from the OS (#910) ([c056e0113](https://github.com/extension-js/extension.js/commit/c056e01130923c5a35cd0172baf6dbd487a7180c))
+- Bump vitest to 5.0.5 for the patched @vitest/mocker (#909) ([9e2998caa](https://github.com/extension-js/extension.js/commit/9e2998caa1a59c43a076605eb319554d98dc619f))
+- Point git hooks at a dispatcher every worktree can reach (#908) ([4a4bf7f15](https://github.com/extension-js/extension.js/commit/4a4bf7f15ed52dbacec7cc26873819e2a1c82581))
+- Floor the options page height so Chrome's embedded dialog opens (#905) ([00a95f9c0](https://github.com/extension-js/extension.js/commit/00a95f9c037532b1add9290f6ff5002cc66d038e))
+- Bump github/codeql-action to 4.39.0 in every workflow (#906) ([0d9a9e1c3](https://github.com/extension-js/extension.js/commit/0d9a9e1c35dfcff8a499ce01c44478cf1b020647))
+- Name activeTab grants and resolve jsconfig path aliases (#904) ([182a83d11](https://github.com/extension-js/extension.js/commit/182a83d113060726523f7fc18a62c25d64529a7d))
+- Isolate spec ports and Safari stand-ins between parallel suites (#903) ([7561fd17b](https://github.com/extension-js/extension.js/commit/7561fd17be25de29907ec7c12aadbb09629a28b3))
+- Retry the browser launch on the next compile after it fails (#896) ([402fd0537](https://github.com/extension-js/extension.js/commit/402fd0537cf51da6b4e6c42a30b2e5e46a6cd077))
+- Load the fallback config copy beside its source (#895) ([3f3ca7860](https://github.com/extension-js/extension.js/commit/3f3ca786062087e5837092f346231bac6038e28e))
+- Ignore declarations a compile drops beside program sources (#894) ([04ebb41bc](https://github.com/extension-js/extension.js/commit/04ebb41bcb7b34a1500471fc24d2ccba35a6e717))
+- Raise vite, launch-editor and follow-redirects past advisories (#893) ([452047191](https://github.com/extension-js/extension.js/commit/4520471911c9cda10b6b2f095cfe827d7c9c7a93))
+- Honor a leading --output and report failed act and old Node runs (#892) ([f75cf5e80](https://github.com/extension-js/extension.js/commit/f75cf5e80c10eecd2daf8f41b8525386c0b23eda))
+- Ask for a project name on create and report the dependency install (#891) ([1384bc857](https://github.com/extension-js/extension.js/commit/1384bc857597ce3d8720c9fff6509934730c24df))
+- Name the command and code on every failed run in telemetry (#890) ([c8a4282b2](https://github.com/extension-js/extension.js/commit/c8a4282b2a838c4d87c039b1bd98f89343cd3363))
+- Record a corrected npm weekly figure in the traffic snapshot (#889) ([30cc29674](https://github.com/extension-js/extension.js/commit/30cc296740cbe6dcc91a0f284d8bbd99d6dcec06))
+- Re-read the dev content-script registry when a stub finds none (#884) ([e75e65232](https://github.com/extension-js/extension.js/commit/e75e65232ddbb936146335bc99138b0a165079a9))
+- Age fixture sources so the startup rescan has nothing to compile (#881) ([6a0479720](https://github.com/extension-js/extension.js/commit/6a047972074ad351bea14f69ba6a22e42f9378d4))
+- Rebuild only for files the build knows and refresh pages it owns (#879) ([8450c202a](https://github.com/extension-js/extension.js/commit/8450c202ada804fd8a7dfe41ca9085c02025e6fc))
+- Cache previewed archives and name a refused share link (#878) ([e6044ff29](https://github.com/extension-js/extension.js/commit/e6044ff29ec4bc8238958b67d1d83ea9535d28ce))
+</details>
+
 ## 4.1.34 (October 19, 2026)
 
 - **Sidebar scaffolds name their page**, the greeting a fresh `extension create` sidebar logs now says it is the sidebar page, so a busy console reads at a glance

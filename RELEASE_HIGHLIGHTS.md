@@ -20,7 +20,3 @@
 -->
 
 ## Highlights
-
-- **Build beside a running dev session**, `extension build --out-dir <path>` writes `<path>/<browser>` and leaves `dist/<browser>` to the dev server, so a test suite or store packaging never stops the window you are working in
-- **Embedded options pages open every time**, a Chromium `options_ui` page that paints empty until its data arrives used to leave Chrome's options dialog closed; builds now give it a first layout, so the dialog opens and grows with the content
-- **Your `web_accessible_resources` scope wins**, a resource you already list for a few sites stays on those sites even when a `scripts/` file references it, instead of being widened to every origin
