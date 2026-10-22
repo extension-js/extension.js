@@ -57,11 +57,13 @@ const PARTIALLY_GATED_APIS: Record<string, string> = {
 // Source that touches the gated part. tabs.query({active: true}) followed by
 // tabs.sendMessage ships fine without "tabs", so only a field read or a url
 // or title query filter earns the warning. document.title and import.meta.url
-// are the two lookalikes a page script carries on its own.
+// are the two lookalikes a page script carries on its own. A destructured
+// field is one on the left of an assignment or in a parameter list;
+// tabs.create({url}) passes the field in and reads nothing.
 const GATED_USES: Record<string, RegExp[]> = {
   tabs: [
     /(?<!\b(?:document|meta)\s*)\.\s*(?:url|pendingUrl|title|favIconUrl)\b/,
-    /\{[^{}:]*\b(?:url|pendingUrl|title|favIconUrl)\b[^{}:]*\}\s*(?:=|\))/,
+    /\{[^{}:]*\b(?:url|pendingUrl|title|favIconUrl)\b[^{}:]*\}\s*(?:=(?![=>])|\)\s*(?:=>|\{))/,
     /\btabs\s*\.\s*query\s*\(\s*\{[^{}]*\b(?:url|title)\s*:/
   ]
 }
