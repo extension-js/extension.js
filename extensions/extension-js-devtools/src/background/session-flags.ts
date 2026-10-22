@@ -11,14 +11,25 @@
 // beside its manifest, so the shared dist always says the session may open.
 export const SESSION_FLAGS_FILE = 'extension-js-session.json'
 
+// The build inlines the browser this copy of the companion was made for.
+export function sessionBrowser(): string | undefined {
+  // @ts-ignore
+  return (import.meta as any).env?.EXTENSION_BROWSER
+}
+
 export type SessionFlags = {
   noOpen: boolean
+  // The session opens a starting URL, so the welcome page stays behind it.
+  startingUrl: boolean
 }
 
 export function parseSessionFlags(raw: unknown): SessionFlags {
   const record =
     raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}
-  return {noOpen: record.noOpen === true}
+  return {
+    noOpen: record.noOpen === true,
+    startingUrl: record.startingUrl === true
+  }
 }
 
 export async function readSessionFlags(): Promise<SessionFlags> {

@@ -262,11 +262,14 @@ export async function resolveFirefoxLaunchConfig(
 
   // Same reason as the Chromium side: the companion reads a flag file from a
   // per-session copy, and the profile dir is the one place only this run owns.
+  // The starting URL lands in the launch tab after the add-on installs, so
+  // the companion's first-run welcome page has to open behind it.
   const extensionsToLoad = stageCompanionForSession({
     extensionPaths: configOptions.extension
       ? toExtensionLoadList(configOptions.extension)
       : [],
     noOpen: configOptions.noOpen,
+    startingUrl: Boolean(resolveStartingUrl(configOptions)),
     stageRoot: profilePath || undefined,
     provision
   })

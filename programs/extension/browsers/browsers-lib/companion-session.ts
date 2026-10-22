@@ -20,6 +20,7 @@ const COMPANION_DIR_NAME = 'extension-js-devtools'
 
 export interface CompanionSessionFlags {
   noOpen: boolean
+  startingUrl: boolean
 }
 
 export function isDevtoolsCompanionPath(extensionPath: string): boolean {
@@ -77,22 +78,26 @@ export function stagedCompanionPath(
 }
 
 // Under --no-open the companion must not open its welcome page or the
-// extensions page. It only learns that from a flag file next to its manifest,
-// so the session gets its own copy of the companion with the file written in.
-// A browser that only takes extensions over CDP gets the same copy with the
-// new tab override dropped, since it refuses a manifest that carries one.
-// The stage root is the profile dir: a profile has exactly one browser at a
-// time, so the copy is never shared and an ephemeral profile takes it along.
+// extensions page, and under a starting URL its welcome page must open
+// behind the page the person configured. It only learns either from a flag
+// file next to its manifest, so the session gets its own copy of the
+// companion with the file written in. A browser that only takes extensions
+// over CDP gets the same copy with the new tab override dropped, since it
+// refuses a manifest that carries one. The stage root is the profile dir: a
+// profile has exactly one browser at a time, so the copy is never shared and
+// an ephemeral profile takes it along.
 export function stageCompanionForSession(input: {
   extensionPaths: string[]
   noOpen?: boolean
+  startingUrl?: boolean
   browser?: string
   stageRoot?: string
   provision?: boolean
 }): string[] {
   const {extensionPaths} = input
   const cdpOnly = loadsExtensionsOverCdpOnly(input.browser || '')
-  if ((!input.noOpen && !cdpOnly) || !input.stageRoot) return extensionPaths
+  const plain = !input.noOpen && !input.startingUrl && !cdpOnly
+  if (plain || !input.stageRoot) return extensionPaths
 
   const index = extensionPaths.findIndex((p) => isDevtoolsCompanionPath(p))
   if (index === -1) return extensionPaths
@@ -105,7 +110,10 @@ export function stageCompanionForSession(input: {
     try {
       fs.rmSync(staged, {recursive: true, force: true})
       fs.cpSync(source, staged, {recursive: true})
-      const flags: CompanionSessionFlags = {noOpen: Boolean(input.noOpen)}
+      const flags: CompanionSessionFlags = {
+        noOpen: Boolean(input.noOpen),
+        startingUrl: Boolean(input.startingUrl)
+      }
       fs.writeFileSync(
         path.join(staged, COMPANION_SESSION_FLAGS_FILE),
         `${JSON.stringify(flags)}\n`,
