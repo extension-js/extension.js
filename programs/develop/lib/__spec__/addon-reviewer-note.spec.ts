@@ -154,7 +154,7 @@ describe('reviewer note rendering', () => {
       '- DANGEROUS_EVAL: eval can be harmful. (options/scripts.js:7)'
     )
 
-    expect(text).not.toContain('—')
+    expect(text).not.toContain('\u2014')
   })
 
   it('says when a version or license could not be read', () => {
