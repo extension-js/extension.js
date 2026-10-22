@@ -144,6 +144,27 @@ export function warUnreachableResource(resource: string, entryName: string) {
   return lines.join('\n')
 }
 
+export function warInjectedScriptExposed(file: string, resources: string[]) {
+  const lines: string[] = []
+  lines.push(
+    `${colors.underline(file)} names ${resources.map((r) => colors.blue(r)).join(', ')}, which no ${colors.blue('web_accessible_resources')} group lists.`
+  )
+
+  lines.push(
+    `The build exposes it to ${colors.blue('<all_urls>')} because the scripting API can inject this file into any page.`
+  )
+
+  lines.push(
+    `To narrow it, list it in ${colors.blue('web_accessible_resources')} in ${colors.blue('manifest.json')} with the matches the script runs on.`
+  )
+
+  lines.push(
+    `Learn more: ${colors.underline('https://extension.js.org/docs/implementation-guide/web-accessible-resources?utm_source=cli')}`
+  )
+
+  return lines.join('\n')
+}
+
 export function entryImportsSummary(
   entryCount: number,
   totalResources: number
