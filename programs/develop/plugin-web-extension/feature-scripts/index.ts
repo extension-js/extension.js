@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import type {Compiler} from '@rspack/core'
 import type {DevOptions, FilepathList, PluginInterface} from '../../types'
+import {AddBaseUriRuntimeModule} from './steps/add-base-uri-runtime-module'
 import {AddContentScriptWrapper} from './steps/add-content-script-wrapper'
 import {AddPublicPathRuntimeModule} from './steps/add-public-path-runtime-module'
 import {AddScripts} from './steps/add-scripts'
@@ -85,6 +86,10 @@ export class ScriptsPlugin {
     if (compiler.options.mode === 'production') {
       new AddPublicPathRuntimeModule().apply(compiler)
     }
+
+    // Every mode: a worker entry that builds a URL from the base must not
+    // read document, and a page keeps the same extension-root base.
+    new AddBaseUriRuntimeModule().apply(compiler)
 
     // swc tolerates some early syntax errors and emits them into the bundle; the
     // browser then silently never injects the file. Fail loudly in every mode.
