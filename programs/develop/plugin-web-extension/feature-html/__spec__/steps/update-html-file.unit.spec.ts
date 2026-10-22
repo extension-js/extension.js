@@ -98,4 +98,68 @@ describe('UpdateHtmlFile', () => {
     expect(call[6]).toBe(templated.toString('utf8'))
     expect(innerCompilation.updateAsset).toHaveBeenCalledTimes(1)
   })
+
+  it('asks patchHtml for the options dialog floor only on the Chromium options_ui page', () => {
+    const tmp = path.join(__dirname, '.tmp-update-options-floor')
+    fs.rmSync(tmp, {recursive: true, force: true})
+    fs.mkdirSync(tmp, {recursive: true})
+    const manifestPath = path.join(tmp, 'manifest.json')
+    fs.writeFileSync(
+      manifestPath,
+      JSON.stringify({
+        options_ui: {page: 'options.html', open_in_tab: false},
+        action: {default_popup: 'popup.html'}
+      }),
+      'utf8'
+    )
+
+    const options = path.join(tmp, 'options.html')
+    const popup = path.join(tmp, 'popup.html')
+    fs.writeFileSync(options, '<html></html>')
+    fs.writeFileSync(popup, '<html></html>')
+
+    const run = (browser: string) => {
+      vi.mocked(patchHtml).mockClear()
+      const assets: Record<string, any> = {
+        'options/index.html': {source: () => '<html></html>'},
+        'action/index.html': {source: () => '<html></html>'}
+      }
+      const innerCompilation: any = {
+        hooks: {processAssets: {tap: (_: any, cb: any) => cb()}},
+        assets,
+        updateAsset: vi.fn(),
+        errors: [] as any[]
+      }
+      const c: any = {
+        options: {mode: 'production'},
+        hooks: {
+          thisCompilation: {tap: (_: any, fn: any) => fn(innerCompilation)}
+        }
+      }
+      new UpdateHtmlFile({
+        manifestPath,
+        browser,
+        includeList: {'options/index': options, 'action/index': popup}
+      } as any).apply(c as any)
+
+      return Object.fromEntries(
+        vi
+          .mocked(patchHtml)
+          .mock.calls.map((call: any[]) => [
+            call[1],
+            call[7]?.optionsDialogFloor
+          ])
+      )
+    }
+
+    expect(run('chrome')).toEqual({
+      'options/index': true,
+      'action/index': false
+    })
+
+    expect(run('firefox')).toEqual({
+      'options/index': false,
+      'action/index': false
+    })
+  })
 })

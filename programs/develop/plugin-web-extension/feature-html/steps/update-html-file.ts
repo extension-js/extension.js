@@ -9,12 +9,20 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {Compilation, type Compiler, sources} from '@rspack/core'
-import type {FilepathList, PluginInterface} from '../../../types'
+import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
+import {stripBom} from '../../../lib/parse-json-safe'
+import type {
+  DevOptions,
+  FilepathList,
+  Manifest,
+  PluginInterface
+} from '../../../types'
 import {
   type EntrypointLike,
   entryOwnJsFile,
   initialJsFiles
 } from '../../shared/initial-files'
+import {needsOptionsDialogFloor} from '../html-lib/options-dialog-floor'
 import {patchHtml} from '../html-lib/patch-html'
 import {getFilePath} from '../html-lib/utils'
 
@@ -68,6 +76,21 @@ export class UpdateHtmlFile {
     this.browser = options.browser
   }
 
+  // The manifest as this browser reads it, so a prefixed options_ui key
+  // counts the same way the include list counted it.
+  private readManifestForBrowser(): Manifest | undefined {
+    try {
+      return filterKeysForThisBrowser(
+        JSON.parse(
+          stripBom(fs.readFileSync(this.manifestPath, 'utf-8'))
+        ) as Manifest,
+        (this.browser || 'chrome') as DevOptions['browser']
+      ) as Manifest
+    } catch {
+      return undefined
+    }
+  }
+
   public apply(compiler: Compiler) {
     compiler.hooks.thisCompilation.tap(
       'html:update-html-file',
@@ -75,6 +98,7 @@ export class UpdateHtmlFile {
         const run = () => {
           const htmlEntries = this.includeList || {}
           const projectDir = path.dirname(this.manifestPath)
+          const manifest = this.readManifestForBrowser()
 
           for (const [feature, resource] of Object.entries(htmlEntries)) {
             if (!resource || typeof resource !== 'string') continue
@@ -114,7 +138,14 @@ export class UpdateHtmlFile {
               (this.includeList || {}) as FilepathList,
               projectDir,
               siblingScriptsFor(compilation as unknown as Compilation, feature),
-              currentHtml
+              currentHtml,
+              {
+                optionsDialogFloor: needsOptionsDialogFloor(
+                  manifest,
+                  this.browser,
+                  feature
+                )
+              }
             )
 
             const updatedHtml =
