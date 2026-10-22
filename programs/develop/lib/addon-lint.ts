@@ -6,8 +6,14 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import * as path from 'node:path'
+import {
+  ADDON_REVIEWER_NOTE_FILE,
+  AUTHOR_ONLY_CODES,
+  writeAddonReviewerNote
+} from './addon-reviewer-note'
 import type {AddonLintSummary} from './build-summary'
-import type {ChunkProvenance} from './chunk-dependency-provenance'
+import {type ChunkProvenance, chunkFileOf} from './chunk-dependency-provenance'
 import {isGeckoBasedBrowser} from './constants'
 import * as messages from './messages'
 import {
@@ -70,7 +76,12 @@ export type AddonLintResult =
   | {status: 'skipped'; reason: 'disabled' | 'mode' | 'browser'}
   | {status: 'missing'; hint: string | null}
   | {status: 'failed'; reason: string; line: string; debugLine: string}
-  | {status: 'linted'; findings: number; lines: string[]}
+  | {
+      status: 'linted'
+      findings: number
+      lines: string[]
+      reviewerNote: {path: string; line: string} | null
+    }
 
 type LinterModule = {
   createInstance: (options: {
@@ -220,17 +231,17 @@ export function collectAddonLintLines(
 // chunk name the provenance map is keyed by.
 export function attributionFor(
   location: string,
-  chunkProvenance?: Map<string, ChunkProvenance>
+  chunkProvenance?: Map<string, ChunkProvenance>,
+  code = '',
+  browser = 'firefox'
 ): string {
+  if (AUTHOR_ONLY_CODES.has(code)) {
+    return messages.addonLintUnsupportedApiFix(browser)
+  }
+
   if (!chunkProvenance || chunkProvenance.size === 0) return ''
 
-  // The map is keyed by the bundler's chunk names, which are always POSIX,
-  // while a Windows linter run reports the same file back separated by \.
-  const file = location
-    .split(':')[0]
-    .replace(/\\/g, '/')
-    .replace(/^\.?\//, '')
-  const provenance = chunkProvenance.get(file)
+  const provenance = chunkProvenance.get(chunkFileOf(location))
 
   if (!provenance) return ''
 
@@ -244,7 +255,8 @@ export function formatAddonLintFindings(
   output: AddonLintOutput | null | undefined,
   distDisplay: string,
   maxPrinted: number = ADDON_LINT_MAX_PRINTED,
-  chunkProvenance?: Map<string, ChunkProvenance>
+  chunkProvenance?: Map<string, ChunkProvenance>,
+  browser = 'firefox'
 ): {findings: number; lines: string[]} {
   const all = collectAddonLintLines(output)
   if (all.length === 0) return {findings: 0, lines: []}
@@ -260,7 +272,7 @@ export function formatAddonLintFindings(
         line.code,
         line.message,
         line.location,
-        attributionFor(line.location, chunkProvenance)
+        attributionFor(line.location, chunkProvenance, line.code, browser)
       )
     )
   ]
@@ -270,6 +282,35 @@ export function formatAddonLintFindings(
   }
 
   return {findings: all.length, lines}
+}
+
+// The note is a convenience beside the findings, so a disk that refuses it
+// costs the line that names it and nothing else.
+function reviewerNoteFor(
+  input: RunAddonLintInput,
+  output: AddonLintOutput,
+  chunkProvenance?: Map<string, ChunkProvenance>
+) {
+  try {
+    const written = writeAddonReviewerNote({
+      projectPath: input.projectPath,
+      distPath: input.distPath,
+      distDisplay: input.distDisplay,
+      lines: collectAddonLintLines(output),
+      chunkProvenance
+    })
+
+    if (!written) return null
+
+    return {
+      path: written,
+      line: messages.addonLintReviewerNote(
+        path.join(path.dirname(input.distDisplay), ADDON_REVIEWER_NOTE_FILE)
+      )
+    }
+  } catch {
+    return null
+  }
 }
 
 class AddonLintTimeout extends Error {}
@@ -346,14 +387,18 @@ export async function runAddonLint(
       input.timeoutMs ?? ADDON_LINT_TIMEOUT_MS
     )
 
+    const chunkProvenance = input.chunkProvenance?.()
+
     return {
       status: 'linted',
       ...formatAddonLintFindings(
         output,
         input.distDisplay,
         ADDON_LINT_MAX_PRINTED,
-        input.chunkProvenance?.()
-      )
+        chunkProvenance,
+        input.browser
+      ),
+      reviewerNote: reviewerNoteFor(input, output, chunkProvenance)
     }
   } catch (error) {
     return failedAddonLint(error, input.distDisplay)

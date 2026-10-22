@@ -22,6 +22,7 @@ import {
   stagingDistPathFor
 } from './lib/atomic-dist'
 import {type BuildSummary, getBuildSummary} from './lib/build-summary'
+import {getBuildToolchain} from './lib/build-toolchain'
 import {collectChunkDependencyProvenance} from './lib/chunk-dependency-provenance'
 import {recordCodedWarning, takeCodedWarnings} from './lib/coded-warnings'
 import {
@@ -500,13 +501,16 @@ export async function extensionBuild(
 
           // The summary names the folder the artifacts landed in, which under
           // a re-pointed output.path is not dist/<browser>.
-          summary = getBuildSummary(
-            browser,
-            info,
-            displayDistPath,
-            outputFiles,
-            warningCodes(stats.compilation)
-          )
+          summary = {
+            ...getBuildSummary(
+              browser,
+              info,
+              displayDistPath,
+              outputFiles,
+              warningCodes(stats.compilation)
+            ),
+            toolchain: getBuildToolchain()
+          }
 
           // The setup steps and plugins said these on the human channel as
           // they ran; the summary carries them with the code each one names.
@@ -549,6 +553,9 @@ export async function extensionBuild(
               if (isDebug()) lintLines.push(lint.debugLine)
             } else if (lint.status === 'linted' && lint.findings > 0) {
               lintLines.push(...lint.lines)
+              // Printed, never a warning: it only says where the note is.
+              if (lint.reviewerNote) lintLines.push(lint.reviewerNote.line)
+
               summary = {
                 ...summary,
                 warnings_count: summary.warnings_count + lint.findings,
@@ -626,6 +633,12 @@ export async function extensionBuild(
               resolvedMode
             )
           )
+
+          // The versions a store reviewer has to rebuild under to get these
+          // bytes back; the ids inside the bundles depend on the lockfile too.
+          if (resolvedMode === 'production' && summary.toolchain) {
+            humanLine(messages.buildToolchain(summary.toolchain))
+          }
 
           for (const artifact of zipArtifacts) {
             const zipDisplay =

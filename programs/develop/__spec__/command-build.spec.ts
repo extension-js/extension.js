@@ -98,6 +98,7 @@ const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
 import {extensionBuild} from '../command-build'
+import {getBuildToolchain} from '../lib/build-toolchain'
 import * as configLoaderMod from '../lib/config-loader'
 import * as ensureArtifactsMod from '../lib/ensure-develop-artifacts'
 import * as genTypesMod from '../lib/generate-extension-types'
@@ -165,7 +166,8 @@ describe('webpack/command-build', () => {
       largest_asset_bytes: 30,
       warnings_count: 0,
       errors_count: 0,
-      addon_lint: {status: 'skipped', reason: 'browser'}
+      addon_lint: {status: 'skipped', reason: 'browser'},
+      toolchain: getBuildToolchain()
     })
 
     expect((configLoaderMod as any).userConfigSpy).toHaveBeenCalledTimes(1)

@@ -10,6 +10,7 @@ import * as path from 'node:path'
 import type {Stats, StatsAsset} from '@rspack/core'
 import colors from 'pintor'
 import type {DevOptions, Manifest} from '../types'
+import type {BuildToolchain} from './build-toolchain'
 import {
   artifactNoun,
   type Channel,
@@ -357,6 +358,19 @@ export function buildComplete(
   )
 }
 
+// A store reviewer rebuilds the package and compares; the versions that made
+// it are what the note has to quote for the rebuild to match.
+export function buildToolchain(toolchain: BuildToolchain) {
+  const packageManager = toolchain.package_manager
+    ? ` and ${toolchain.package_manager.name} ${toolchain.package_manager.version}`
+    : ''
+
+  return (
+    `${getLoggingPrefix('info')} Built with Node ${toolchain.node}${packageManager}. ` +
+    `A reviewer note that names them lets a rebuild match this one.`
+  )
+}
+
 export function operaBuildUnminified() {
   return (
     `${getLoggingPrefix('info')} Opera Add-ons reviews readable source, so this build does ` +
@@ -422,6 +436,23 @@ export function addonLintDependencyAttribution(
   return onlyDependencies
     ? `- this file is bundled dependency code (${named}${rest}), not yours`
     : `- this file also bundles ${named}${rest}, so the finding may be theirs`
+}
+
+// Library code never names a browser API, so an API-name finding is the
+// author's own and the engine already has the fix: `EnvPlugin` replaces the
+// browser name at compile time and the production minifier drops the branch.
+export function addonLintUnsupportedApiFix(browser: string) {
+  return (
+    `- this names a browser API, so it is your code, not a library's: guard it with a build-time check of ` +
+    `process.env.EXTENSION_PUBLIC_BROWSER (return early when it reads "${browser}") and the production build drops the branch from the ${browser} bundle`
+  )
+}
+
+export function addonLintReviewerNote(noteDisplay: string) {
+  return (
+    `${getLoggingPrefix('info')} Notes to reviewer for addons.mozilla.org are at ${colors.underline(noteDisplay)} ` +
+    `(paste its bundled libraries section into the submission, the author findings are yours to fix)`
+  )
 }
 
 export function addonLintMore(hiddenCount: number, distDisplay: string) {

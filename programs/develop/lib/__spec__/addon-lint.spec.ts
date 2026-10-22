@@ -668,6 +668,110 @@ describe('dependency attribution', () => {
     expect(withMap.lines).toEqual(withoutMap.lines)
   })
 
+  it('tells the author to guard an UNSUPPORTED_API finding instead of blaming the bundle', () => {
+    const line = stripAnsi(
+      attributionFor(
+        'content_scripts/content-0.js:29',
+        provenance,
+        'UNSUPPORTED_API',
+        'firefox'
+      )
+    )
+    expect(line).not.toContain('may be theirs')
+    expect(line).toContain('your code, not a library')
+    expect(line).toContain(
+      'process.env.EXTENSION_PUBLIC_BROWSER (return early when it reads "firefox")'
+    )
+
+    expect(line).not.toContain('=== "chrome"')
+  })
+
+  it('says the guard for an UNSUPPORTED_API finding even without provenance', () => {
+    const output: AddonLintOutput = {
+      warnings: [
+        {
+          code: 'UNSUPPORTED_API',
+          message: 'offscreen.createDocument is not supported',
+          file: 'background/scripts.js',
+          line: 29
+        }
+      ]
+    }
+    const {lines} = formatAddonLintFindings(output, 'dist/firefox')
+    const finding = stripAnsi(lines[1])
+    expect(finding).toContain(
+      'AMO warning UNSUPPORTED_API: offscreen.createDocument is not supported (background/scripts.js:29)'
+    )
+
+    expect(finding).toContain('return early when it reads "firefox"')
+  })
+
+  it('keeps the hedge for an eval finding in a file that bundles dependencies', () => {
+    const line = stripAnsi(
+      attributionFor(
+        'content_scripts/content-0.js:1',
+        provenance,
+        'DANGEROUS_EVAL',
+        'firefox'
+      )
+    )
+    expect(line).toContain('may be theirs')
+    expect(line).not.toContain('EXTENSION_PUBLIC_BROWSER')
+  })
+
+  it('writes the notes to reviewer beside the browser folder and says where', async () => {
+    const root = project()
+    const output: AddonLintOutput = {
+      warnings: [
+        {
+          code: 'UNSAFE_VAR_ASSIGNMENT',
+          message: 'Unsafe assignment to innerHTML',
+          file: 'shared/framework.js',
+          line: 1
+        },
+        {
+          code: 'UNSUPPORTED_API',
+          message: 'offscreen.createDocument is not supported',
+          file: 'background/scripts.js',
+          line: 29
+        }
+      ]
+    }
+    const result = await runAddonLint({
+      ...baseInput(root),
+      loadLinter: fakeLinter(output),
+      chunkProvenance: () => provenance
+    })
+
+    expect(result.status).toBe('linted')
+    if (result.status !== 'linted') return
+
+    expect(result.reviewerNote?.path).toBe(
+      path.join(root, 'dist', 'amo-reviewer-note.md')
+    )
+
+    expect(stripAnsi(result.reviewerNote?.line || '')).toContain(
+      `Notes to reviewer for addons.mozilla.org are at ${path.join('dist', 'amo-reviewer-note.md')}`
+    )
+
+    const note = fs.readFileSync(result.reviewerNote?.path as string, 'utf8')
+    expect(note).toContain('### react')
+    expect(note).toContain('unmodified from npm')
+    expect(note).toContain(
+      '## Findings in the extension author code\n\nThese are not library noise and must not be presented as such.\n\n- UNSUPPORTED_API: offscreen.createDocument is not supported (background/scripts.js:29)'
+    )
+
+    // The printed lines are the same as before, apart from the note line.
+    expect(result.lines.map(stripAnsi)).toEqual(
+      formatAddonLintFindings(
+        output,
+        'dist/firefox',
+        ADDON_LINT_MAX_PRINTED,
+        provenance
+      ).lines.map(stripAnsi)
+    )
+  })
+
   it('never walks the chunk graph when the lint is skipped', async () => {
     const root = project()
     let walked = 0

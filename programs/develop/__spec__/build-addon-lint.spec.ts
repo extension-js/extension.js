@@ -262,6 +262,30 @@ describe('addon lint after a production firefox build', () => {
     expect(
       (summary.warnings || []).some((line) => line.includes('DANGEROUS_EVAL'))
     ).toBe(true)
+
+    // The notes to reviewer land beside the browser folder, never in it, and
+    // the line that names them is printed but is not a warning.
+    const notePath = path.join(root, 'dist', 'amo-reviewer-note.md')
+    expect(output).toMatch(
+      /Notes to reviewer for addons\.mozilla\.org are at .*dist[\\/]amo-reviewer-note\.md/
+    )
+
+    expect(
+      (summary.warnings || []).some((line) =>
+        line.includes('Notes to reviewer')
+      )
+    ).toBe(false)
+
+    expect(fs.existsSync(notePath)).toBe(true)
+    expect(
+      fs.existsSync(path.join(root, 'dist', 'firefox', 'amo-reviewer-note.md'))
+    ).toBe(false)
+
+    const note = fs.readFileSync(notePath, 'utf8')
+    expect(note).toContain('## Findings in the extension author code')
+    expect(note).toMatch(
+      /- DANGEROUS_EVAL: eval can be harmful\. \(background[\\/]scripts\.js:\d+\)/
+    )
   }, 180_000)
 
   it('does not flag the MV2 manifest or the chunk loader the build emits', async () => {
