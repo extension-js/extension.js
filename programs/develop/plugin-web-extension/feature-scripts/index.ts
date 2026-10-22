@@ -14,6 +14,7 @@ import {AddPublicPathRuntimeModule} from './steps/add-public-path-runtime-module
 import {AddScripts} from './steps/add-scripts'
 import {CompileMainWorldScripts} from './steps/compile-main-world-scripts'
 import {KeepGetURLImportsNative} from './steps/keep-geturl-imports-native'
+import {StampWebkitUtf8Bom} from './steps/stamp-webkit-utf8-bom'
 import {TraceRuntimeLoadedFiles} from './steps/trace-runtime-loaded-files'
 import {ValidateEmittedScriptSyntax} from './steps/validate-emitted-script-syntax'
 import {WarnMissingBuildConstants} from './steps/warn-missing-build-constants'
@@ -89,6 +90,8 @@ export class ScriptsPlugin {
     // swc tolerates some early syntax errors and emits them into the bundle; the
     // browser then silently never injects the file. Fail loudly in every mode.
     new ValidateEmittedScriptSyntax().apply(compiler)
+
+    new StampWebkitUtf8Bom({browser: this.browser}).apply(compiler)
 
     // A user cache group can split an entry into several initial files while
     // every surface loads one. The build stays green, so name it here.
