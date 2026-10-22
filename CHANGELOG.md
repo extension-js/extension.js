@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **A Safari dev session always says why it has no WebDriver session**, ready.json now carries `webdriverUnavailableReason` from the moment the app opens ("the launcher has not asked safaridriver for a session yet"), then while the session request is pending (up to 30 s), until the session or the refusal replaces it, so a tool that reads the contract early no longer finds neither
+
 ## 4.1.35 (October 22, 2026)
 
 - **Build beside a running dev session**, `extension build --out-dir <path>` writes `<path>/<browser>` and leaves `dist/<browser>` to the dev server, so a test suite or store packaging never stops the window you are working in

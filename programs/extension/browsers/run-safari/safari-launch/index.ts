@@ -63,7 +63,9 @@ import {
 } from './tools'
 import {
   closeSafariWebDriverSessions,
-  openSafariWebDriverSession
+  openSafariWebDriverSession,
+  WEBDRIVER_NOT_ASKED_YET,
+  WEBDRIVER_SESSION_PENDING
 } from './webdriver'
 
 export {closeSafariContainerApps} from './container-app'
@@ -375,9 +377,15 @@ async function holdWebDriverSession(
   config: SafariBuildConfig,
   logger: BrowserLogger
 ): Promise<void> {
+  const runId = readReadyRunId(config.extensionDir)
+  stampReadyWebDriver(
+    config.extensionDir,
+    {unavailableReason: WEBDRIVER_SESSION_PENDING},
+    runId
+  )
+
   await closeSafariWebDriverSessions()
 
-  const runId = readReadyRunId(config.extensionDir)
   const outcome = await openSafariWebDriverSession(tools)
 
   if (outcome.session) {
@@ -655,6 +663,14 @@ async function runSafariPipeline(
     },
     readReadyRunId(config.extensionDir)
   )
+
+  if (host.announceDevReady) {
+    stampReadyWebDriver(
+      config.extensionDir,
+      {unavailableReason: WEBDRIVER_NOT_ASKED_YET},
+      readReadyRunId(config.extensionDir)
+    )
+  }
 
   if (!browserPid) {
     logger.warn?.(messages.safariPidUnresolved(config.appName))

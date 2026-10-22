@@ -14,6 +14,10 @@ import {
   packageSafariExtension
 } from '../run-safari/safari-launch'
 import {
+  WEBDRIVER_NOT_ASKED_YET,
+  WEBDRIVER_SESSION_PENDING
+} from '../run-safari/safari-launch/webdriver'
+import {
   type FakeSafariTools,
   type FakeSafariToolsOptions,
   fakeSafariTools
@@ -269,6 +273,43 @@ describe('safari dev session and its safaridriver', () => {
     expect(logs).toContain(messages.safariWebDriverSession(port, sessionId))
     expect(logs).toContain(messages.safariRegistered('MyExt'))
     expect(processAlive(tools.webdriverProcesses[0]?.pid)).toBe(true)
+  })
+
+  it('records why there is no session at every step before safaridriver answers', async () => {
+    const tools = standInTools('refuse')
+    const seen: Record<string, unknown> = {}
+    const pluginkitList = tools.pluginkitList
+    const startWebDriver = tools.startWebDriver
+
+    tools.pluginkitList = async () => {
+      seen.atPluginkit = readReady().webdriverUnavailableReason
+
+      return pluginkitList()
+    }
+
+    tools.startWebDriver = async (port) => {
+      seen.atDriverStart = readReady().webdriverUnavailableReason
+
+      return startWebDriver(port)
+    }
+
+    await runDevPackage(tools)
+
+    expect(seen.atPluginkit).toBe(WEBDRIVER_NOT_ASKED_YET)
+    expect(seen.atDriverStart).toBe(WEBDRIVER_SESSION_PENDING)
+    expect(readReady().webdriverUnavailableReason).toBe(
+      'Could not create a session: Allow Remote Automation is off'
+    )
+
+    expect('webdriverPort' in readReady()).toBe(false)
+  })
+
+  it('stamps no pending reason on a build run, which opens no session', async () => {
+    const tools = standInTools('refuse')
+    await runDevPackage(tools, {announceDevReady: false})
+
+    expect('webdriverUnavailableReason' in readReady()).toBe(false)
+    expect(tools.calls.webdriver).toHaveLength(0)
   })
 
   it('stop: deletes the session it opened and ends its safaridriver', async () => {
