@@ -424,6 +424,16 @@ export function addonLintDependencyAttribution(
     : `- this file also bundles ${named}${rest}, so the finding may be theirs`
 }
 
+// Library code never names a browser API, so an API-name finding is the
+// author's own and the engine already has the fix: `EnvPlugin` replaces the
+// browser name at compile time and the production minifier drops the branch.
+export function addonLintUnsupportedApiFix(browser: string) {
+  return (
+    `- this names a browser API, so it is your code, not a library's: guard it with ` +
+    `if (process.env.EXTENSION_PUBLIC_BROWSER !== "${browser}") and the production build drops the branch from the ${browser} bundle`
+  )
+}
+
 export function addonLintMore(hiddenCount: number, distDisplay: string) {
   return (
     `${getLoggingPrefix('info')} ${pluralize(hiddenCount, 'more finding')} not shown. ` +

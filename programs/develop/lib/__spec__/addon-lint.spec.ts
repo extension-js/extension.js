@@ -668,6 +668,57 @@ describe('dependency attribution', () => {
     expect(withMap.lines).toEqual(withoutMap.lines)
   })
 
+  it('tells the author to guard an UNSUPPORTED_API finding instead of blaming the bundle', () => {
+    const line = stripAnsi(
+      attributionFor(
+        'content_scripts/content-0.js:29',
+        provenance,
+        'UNSUPPORTED_API',
+        'firefox'
+      )
+    )
+    expect(line).not.toContain('may be theirs')
+    expect(line).toContain('your code, not a library')
+    expect(line).toContain(
+      'if (process.env.EXTENSION_PUBLIC_BROWSER !== "firefox")'
+    )
+
+    expect(line).not.toContain('=== "chrome"')
+  })
+
+  it('says the guard for an UNSUPPORTED_API finding even without provenance', () => {
+    const output: AddonLintOutput = {
+      warnings: [
+        {
+          code: 'UNSUPPORTED_API',
+          message: 'offscreen.createDocument is not supported',
+          file: 'background/scripts.js',
+          line: 29
+        }
+      ]
+    }
+    const {lines} = formatAddonLintFindings(output, 'dist/firefox')
+    const finding = stripAnsi(lines[1])
+    expect(finding).toContain(
+      'AMO warning UNSUPPORTED_API: offscreen.createDocument is not supported (background/scripts.js:29)'
+    )
+
+    expect(finding).toContain('EXTENSION_PUBLIC_BROWSER !== "firefox"')
+  })
+
+  it('keeps the hedge for an eval finding in a file that bundles dependencies', () => {
+    const line = stripAnsi(
+      attributionFor(
+        'content_scripts/content-0.js:1',
+        provenance,
+        'DANGEROUS_EVAL',
+        'firefox'
+      )
+    )
+    expect(line).toContain('may be theirs')
+    expect(line).not.toContain('EXTENSION_PUBLIC_BROWSER')
+  })
+
   it('never walks the chunk graph when the lint is skipped', async () => {
     const root = project()
     let walked = 0

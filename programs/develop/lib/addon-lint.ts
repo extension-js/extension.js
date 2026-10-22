@@ -216,21 +216,34 @@ export function collectAddonLintLines(
     })
 }
 
+// A finding that names a browser API by name is the author's: no library
+// calls chrome.offscreen, whatever else the same file bundles.
+export const AUTHOR_ONLY_CODES = new Set(['UNSUPPORTED_API'])
+
+// The map is keyed by the bundler's chunk names, which are always POSIX,
+// while a Windows linter run reports the same file back separated by \.
+export function chunkFileOf(location: string): string {
+  return location
+    .split(':')[0]
+    .replace(/\\/g, '/')
+    .replace(/^\.?\//, '')
+}
+
 // The linter locates a finding by its path inside dist, which is the emitted
 // chunk name the provenance map is keyed by.
 export function attributionFor(
   location: string,
-  chunkProvenance?: Map<string, ChunkProvenance>
+  chunkProvenance?: Map<string, ChunkProvenance>,
+  code = '',
+  browser = 'firefox'
 ): string {
+  if (AUTHOR_ONLY_CODES.has(code)) {
+    return messages.addonLintUnsupportedApiFix(browser)
+  }
+
   if (!chunkProvenance || chunkProvenance.size === 0) return ''
 
-  // The map is keyed by the bundler's chunk names, which are always POSIX,
-  // while a Windows linter run reports the same file back separated by \.
-  const file = location
-    .split(':')[0]
-    .replace(/\\/g, '/')
-    .replace(/^\.?\//, '')
-  const provenance = chunkProvenance.get(file)
+  const provenance = chunkProvenance.get(chunkFileOf(location))
 
   if (!provenance) return ''
 
@@ -244,7 +257,8 @@ export function formatAddonLintFindings(
   output: AddonLintOutput | null | undefined,
   distDisplay: string,
   maxPrinted: number = ADDON_LINT_MAX_PRINTED,
-  chunkProvenance?: Map<string, ChunkProvenance>
+  chunkProvenance?: Map<string, ChunkProvenance>,
+  browser = 'firefox'
 ): {findings: number; lines: string[]} {
   const all = collectAddonLintLines(output)
   if (all.length === 0) return {findings: 0, lines: []}
@@ -260,7 +274,7 @@ export function formatAddonLintFindings(
         line.code,
         line.message,
         line.location,
-        attributionFor(line.location, chunkProvenance)
+        attributionFor(line.location, chunkProvenance, line.code, browser)
       )
     )
   ]
@@ -352,7 +366,8 @@ export async function runAddonLint(
         output,
         input.distDisplay,
         ADDON_LINT_MAX_PRINTED,
-        input.chunkProvenance?.()
+        input.chunkProvenance?.(),
+        input.browser
       )
     }
   } catch (error) {
