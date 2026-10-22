@@ -740,7 +740,14 @@ export default function webpackConfig(
       // The stock CSS minimizer also deletes CSS module classes no script
       // imports. Production keeps every rule development keeps, so it must not.
       minimizer: [
-        new SwcJsMinimizerRspackPlugin({extractComments: true}),
+        // The SWC minifier inlines a single-use const across a delete of the same
+        // property, so the read ran after the delete (2026-10-22). Keep both off.
+        new SwcJsMinimizerRspackPlugin({
+          extractComments: true,
+          minimizerOptions: {
+            compress: {reduce_vars: false, collapse_vars: false}
+          }
+        }),
         new LightningCssMinimizerRspackPlugin({
           removeUnusedLocalIdents: false,
           minimizerOptions: cssMinimizerOptions(rawManifest, devOptions.browser)
