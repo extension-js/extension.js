@@ -607,6 +607,77 @@ describe('ApplyDevDefaults', () => {
   })
 
   it.each([
+    ['a tabs.create shorthand', 'chrome.tabs.create({url})'],
+    [
+      'a tabs.create with a url value',
+      "chrome.tabs.create({url: 'https://example.com/'})"
+    ],
+    [
+      'a tabs.update shorthand',
+      'chrome.tabs.update(tabId, {url, active: true})'
+    ],
+    [
+      'a tabs.create followed by a callback',
+      'chrome.tabs.create({url}, (tab) => tab.id)'
+    ]
+  ])('stays quiet on %s, which needs no permission', (_label, call) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-dev-tabs-create-'))
+    const file = path.join(dir, 'plan.js')
+    fs.writeFileSync(
+      file,
+      ['export function openUpgrade(url) {', `  ${call}`, '}', ''].join('\n')
+    )
+
+    try {
+      const {warnings} = runDevDefaultsWithWarnings(
+        {manifest_version: 3, name: 'x'},
+        'chrome',
+        [{resource: file}]
+      )
+      expect(
+        warnings.filter((w) => w.name === 'DevInjectedPermissionWarning')
+      ).toEqual([])
+    } finally {
+      fs.rmSync(dir, {recursive: true, force: true})
+    }
+  })
+
+  it.each([
+    ['a destructured parameter', 'chrome.tabs.get(1, ({url}) => url)'],
+    [
+      'a destructured function parameter',
+      'chrome.tabs.get(1, function ({title}) { return title })'
+    ],
+    [
+      'a destructured assignment',
+      'chrome.tabs.get(1, (tab) => { const {favIconUrl} = tab; return favIconUrl })'
+    ]
+  ])('still warns on %s', (_label, source) => {
+    const dir = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'extjs-dev-tabs-destructured-')
+    )
+    const file = path.join(dir, 'background.js')
+    fs.writeFileSync(file, `${source}\n`)
+
+    try {
+      const {warnings} = runDevDefaultsWithWarnings(
+        {manifest_version: 3, name: 'x'},
+        'chrome',
+        [{resource: file}]
+      )
+      expect(
+        warnings
+          .filter((w) => w.name === 'DevInjectedPermissionWarning')
+          .map((w) => w.message)
+      ).toEqual([
+        expect.stringContaining('does not declare the "tabs" permission')
+      ])
+    } finally {
+      fs.rmSync(dir, {recursive: true, force: true})
+    }
+  })
+
+  it.each([
     [
       'a field read',
       'chrome.tabs.get(1, (tab) => console.log(tab.favIconUrl))'
