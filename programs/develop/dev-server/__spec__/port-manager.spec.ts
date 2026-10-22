@@ -2,6 +2,20 @@ import * as net from 'node:net'
 import {afterEach, describe, expect, it} from 'vitest'
 import {PortManager} from '../port-manager'
 
+// A base the OS just handed out sits inside a range this host can bind, which
+// a constant cannot promise: Windows runners exclude whole blocks of the
+// 49xxx dynamic range, and the manager probes twenty ports from the base.
+function freeBase(host = '127.0.0.1') {
+  return new Promise<number>((resolve, reject) => {
+    const server = net.createServer()
+    server.once('error', reject)
+    server.listen(0, host, () => {
+      const {port} = server.address() as net.AddressInfo
+      server.close(() => resolve(port))
+    })
+  })
+}
+
 describe('PortManager instance ids', () => {
   const OLD_ENV = {...process.env}
 
@@ -15,7 +29,7 @@ describe('PortManager instance ids', () => {
       EXTENSION_INSTANCE_ID: 'firefox-suite:content-react/attempt-1'
     }
 
-    const manager = new PortManager(48080)
+    const manager = new PortManager(await freeBase())
     const allocation = await manager.allocatePorts()
 
     expect(allocation.instanceId).toBe('firefox-suite-content-react-attempt-1')
@@ -27,7 +41,7 @@ describe('PortManager instance ids', () => {
     delete process.env.EXTENSION_DEV_INSTANCE_ID
     delete process.env.EXTJS_INSTANCE_ID
 
-    const manager = new PortManager(48180)
+    const manager = new PortManager(await freeBase())
     const allocation = await manager.allocatePorts()
 
     expect(allocation.instanceId).toMatch(/^[a-f0-9]{16}$/)
@@ -51,11 +65,12 @@ describe('PortManager port 0 (OS-assigned)', () => {
   })
 
   it('falls back to basePort when requestedPort is undefined', async () => {
-    const manager = new PortManager(49100)
+    const base = await freeBase()
+    const manager = new PortManager(base)
     const allocation = await manager.allocatePorts()
 
-    expect(allocation.port).toBeGreaterThanOrEqual(49100)
-    expect(allocation.port).toBeLessThan(49200)
+    expect(allocation.port).toBeGreaterThanOrEqual(base)
+    expect(allocation.port).toBeLessThan(base + 100)
   })
 })
 
@@ -69,8 +84,9 @@ describe('PortManager port reservation', () => {
   }
 
   it('keeps the allocated port taken until the dev server binds it', async () => {
-    const manager = new PortManager(49640)
-    const {port} = await manager.allocatePorts(49640, '127.0.0.1')
+    const base = await freeBase()
+    const manager = new PortManager(base)
+    const {port} = await manager.allocatePorts(base, '127.0.0.1')
 
     await expect(bind(port)).rejects.toMatchObject({code: 'EADDRINUSE'})
 
@@ -85,13 +101,14 @@ describe('PortManager port reservation', () => {
   })
 
   it('steps a session that starts while the first one boots to the next port', async () => {
-    const first = new PortManager(49660)
-    const second = new PortManager(49660)
+    const base = await freeBase()
+    const first = new PortManager(base)
+    const second = new PortManager(base)
 
     // The first session is still loading config and building its compiler, so
     // it has not bound anything yet when the second one asks.
-    const booting = await first.allocatePorts(49660, '127.0.0.1')
-    const joining = await second.allocatePorts(49660, '127.0.0.1')
+    const booting = await first.allocatePorts(base, '127.0.0.1')
+    const joining = await second.allocatePorts(base, '127.0.0.1')
 
     try {
       expect(joining.port).toBeGreaterThan(booting.port)
@@ -102,8 +119,9 @@ describe('PortManager port reservation', () => {
   })
 
   it('releases the reservation when the instance is terminated', async () => {
-    const manager = new PortManager(49680)
-    const {port} = await manager.allocatePorts(49680, '127.0.0.1')
+    const base = await freeBase()
+    const manager = new PortManager(base)
+    const {port} = await manager.allocatePorts(base, '127.0.0.1')
     await manager.terminateCurrentInstance()
 
     const late = await bind(port)
