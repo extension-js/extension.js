@@ -149,22 +149,31 @@ function cleanupWorkspaceAfterTimedDev(targetPath: string, timedOut: boolean) {
   }
 }
 
+// A runner probe that cannot install the packed tarballs within this budget
+// is skipped, with a line in the log saying so. npm waits five minutes per
+// stuck fetch, so a degraded registry would otherwise outlive the hook.
+const PROBE_TIMEOUT_MS = 90_000
+
 function runCommand(
   command: string,
   args: string[],
-  options: {cwd?: string; env?: NodeJS.ProcessEnv} = {}
+  options: {cwd?: string; env?: NodeJS.ProcessEnv; timeoutMs?: number} = {}
 ) {
+  const {timeoutMs, ...spawnOptions} = options
   const useShell =
     process.platform === 'win32' &&
     (command.endsWith('.cmd') || command.endsWith('.bat'))
   const result = spawnSync(command, args, {
-    ...options,
+    ...spawnOptions,
     stdio: 'pipe',
     encoding: 'utf8',
+    ...(timeoutMs ? {timeout: timeoutMs, killSignal: 'SIGKILL' as const} : {}),
     ...(useShell ? {shell: true} : {})
   })
 
-  if (result.error) {
+  const errorCode = (result.error as NodeJS.ErrnoException | undefined)?.code
+
+  if (result.error && errorCode !== 'ETIMEDOUT') {
     throw result.error
   }
 
@@ -384,53 +393,6 @@ function getPackagesForRunner(runnerName: string) {
   return [cliTgz, createTgz, developTgz]
 }
 
-beforeAll(async () => {
-  catalog = await serveExamplesCatalog({
-    [DEFAULT_TEMPLATE]: fixtureExtensionFiles(DEFAULT_TEMPLATE)
-  })
-
-  defaultEnv.EXTENSION_CREATE_TEMPLATE_URL = catalog.url
-  packDir = mkdtempSync(join(tmpdir(), 'extjs-cli-pack-'))
-  ensureCompiled(cliDir, resolve(cliDir, 'dist/cli.cjs'))
-  ensureCompiled(createDir, resolve(createDir, 'dist/module.cjs'))
-  ensureCompiled(developDir, resolve(developDir, 'dist/module.cjs'))
-  cliTgz = packPackage(cliDir, packDir)
-  createTgz = packPackage(createDir, packDir)
-  developTgz = packPackage(developDir, packDir)
-
-  for (const runner of runners) {
-    if (!runner.isAvailable()) {
-      runnerReady.set(runner.name, false)
-      continue
-    }
-
-    // Probe in a throwaway dir, NOT repoRoot: at repoRoot the runner finds the
-    // workspace-installed `extension` and passes without ever installing the
-    // tarballs, so a runner that cannot install local file: tarballs (e.g. pnpm
-    // dlx on Windows) reads as ready and its real tests then fail mid-flight.
-    const smokeDir = mkdtempSync(join(tmpdir(), 'extjs-cli-smoke-'))
-
-    try {
-      const smoke = runCommand(
-        runner.command,
-        runner.buildArgs(getPackagesForRunner(runner.name), ['--help']),
-        {cwd: smokeDir, env: defaultEnv}
-      )
-      runnerReady.set(runner.name, (smoke.status || 0) === 0)
-    } finally {
-      rmSync(smokeDir, {recursive: true, force: true})
-    }
-  }
-})
-
-afterAll(async () => {
-  if (packDir) {
-    rmSync(packDir, {recursive: true, force: true})
-  }
-
-  await catalog?.close()
-})
-
 const runners: Runner[] = [
   {
     name: 'npx',
@@ -483,6 +445,67 @@ const runners: Runner[] = [
 ]
 
 const availableRunners = runners.filter((runner) => runner.isAvailable())
+
+beforeAll(
+  async () => {
+    catalog = await serveExamplesCatalog({
+      [DEFAULT_TEMPLATE]: fixtureExtensionFiles(DEFAULT_TEMPLATE)
+    })
+
+    defaultEnv.EXTENSION_CREATE_TEMPLATE_URL = catalog.url
+    packDir = mkdtempSync(join(tmpdir(), 'extjs-cli-pack-'))
+    ensureCompiled(cliDir, resolve(cliDir, 'dist/cli.cjs'))
+    ensureCompiled(createDir, resolve(createDir, 'dist/module.cjs'))
+    ensureCompiled(developDir, resolve(developDir, 'dist/module.cjs'))
+    cliTgz = packPackage(cliDir, packDir)
+    createTgz = packPackage(createDir, packDir)
+    developTgz = packPackage(developDir, packDir)
+
+    for (const runner of runners) {
+      if (!runner.isAvailable()) {
+        runnerReady.set(runner.name, false)
+        continue
+      }
+
+      // Probe in a throwaway dir, NOT repoRoot: at repoRoot the runner finds the
+      // workspace-installed `extension` and passes without ever installing the
+      // tarballs, so a runner that cannot install local file: tarballs (e.g. pnpm
+      // dlx on Windows) reads as ready and its real tests then fail mid-flight.
+      const smokeDir = mkdtempSync(join(tmpdir(), 'extjs-cli-smoke-'))
+
+      try {
+        const smoke = runCommand(
+          runner.command,
+          runner.buildArgs(getPackagesForRunner(runner.name), ['--help']),
+          {cwd: smokeDir, env: defaultEnv, timeoutMs: PROBE_TIMEOUT_MS}
+        )
+        const ready = !smoke.error && (smoke.status || 0) === 0
+        runnerReady.set(runner.name, ready)
+
+        if (!ready) {
+          const why = smoke.error
+            ? `did not finish within ${PROBE_TIMEOUT_MS} ms`
+            : `exited ${smoke.status ?? smoke.signal}`
+          console.warn(
+            `[cli-exec] ${runner.name} probe ${why}; its cases are skipped`
+          )
+        }
+      } finally {
+        rmSync(smokeDir, {recursive: true, force: true})
+      }
+    }
+    // Packing three tarballs plus one bounded probe per runner.
+  },
+  120_000 + runners.length * PROBE_TIMEOUT_MS
+)
+
+afterAll(async () => {
+  if (packDir) {
+    rmSync(packDir, {recursive: true, force: true})
+  }
+
+  await catalog?.close()
+})
 
 describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
   // Tarballs are packed in the top-level beforeAll, which runs AFTER collection;
