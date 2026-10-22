@@ -23,7 +23,11 @@ import {
   listEmittedAssetNames
 } from '../collect-entry-imports'
 import {cleanMatches} from './clean-matches'
-import {warPatchedSummary, warUnreachableResource} from './messages'
+import {
+  warInjectedScriptExposed,
+  warPatchedSummary,
+  warUnreachableResource
+} from './messages'
 import {resolveUserDeclaredWAR} from './resolve-war'
 import {findUnreachableRuntimeResources} from './unreachable-resources'
 
@@ -402,23 +406,44 @@ export function generateManifestPatches(
     }
   }
 
+  const authorDeclared =
+    canonicalManifest.manifest_version === 3
+      ? resolved.v3.flatMap((group) => Array.from(group.resources))
+      : Array.from(resolved.v2)
+  const declaredByAuthor = (resource: string) =>
+    authorDeclared.includes(resource) ||
+    isCoveredByExistingGlobs(authorDeclared, resource)
+  const widenedByEntry = new Map<string, Set<string>>()
+
   // A scripting API file or a user script runs on whichever page the
   // extension injects it into, unknown at build time, so what the page
   // fetches for it is exposed to every origin, the group dev already uses.
-  const addInjectedScriptResources = (resources: string[]) => {
-    if (resources.length === 0) return
+  // A resource the author already lists keeps the author's own scope.
+  const addInjectedScriptResources = (
+    entryName: string,
+    resources: string[]
+  ) => {
+    const undeclared = resources.filter(
+      (resource) => !declaredByAuthor(resource)
+    )
+
+    if (undeclared.length === 0) return
+
+    const widened = widenedByEntry.get(entryName) || new Set<string>()
+    for (const resource of undeclared) widened.add(resource)
+    widenedByEntry.set(entryName, widened)
 
     if (canonicalManifest.manifest_version === 3) {
       mergeIntoV3Group(
         webAccessibleResourcesV3,
         cleanMatches(['<all_urls>']),
-        resources
+        undeclared
       )
 
       return
     }
 
-    for (const resource of resources) {
+    for (const resource of undeclared) {
       if (!webAccessibleResourcesV2.includes(resource)) {
         webAccessibleResourcesV2.push(resource)
       }
@@ -433,6 +458,7 @@ export function generateManifestPatches(
 
     if (!contentScript && isInjectedScriptEntry(entryName)) {
       addInjectedScriptResources(
+        entryName,
         resources.filter(
           (resource) => !resource.endsWith('.map') && !resource.endsWith('.js')
         )
@@ -492,7 +518,7 @@ export function generateManifestPatches(
 
     if (!contentScript) {
       if (isInjectedScriptEntry(entryName)) {
-        addInjectedScriptResources(chunkFiles)
+        addInjectedScriptResources(entryName, chunkFiles)
       }
 
       continue
@@ -510,6 +536,24 @@ export function generateManifestPatches(
           webAccessibleResourcesV2.push(file)
         }
       }
+    }
+  }
+
+  // The widening is silent in dev, where a blanket group covers every file.
+  if (
+    canonicalManifest.manifest_version === 3 &&
+    (compilation.options?.mode || 'development') === 'production'
+  ) {
+    for (const [entryName, widened] of widenedByEntry) {
+      compilation.warnings = compilation.warnings || []
+      const warning = new WebpackError(
+        warInjectedScriptExposed(`${entryName}.js`, Array.from(widened).sort())
+      ) as Error & {file?: string}
+      warning.name = 'InjectedScriptResourceExposedWarning'
+      warning.file = 'manifest.json'
+      compilation.warnings.push(
+        warning as unknown as (typeof compilation.warnings)[number]
+      )
     }
   }
 
