@@ -88,12 +88,20 @@ async function projectWith(gitignore: string | null) {
   return projectPath
 }
 
-function isIgnoredByGit(projectPath: string, file: string) {
-  return (
-    spawnSync('git', ['check-ignore', '-q', file], {cwd: projectPath})
-      .status === 0
-  )
+// One git process for every file at once: a spawn per file took the cell
+// past its budget on a slow Windows runner.
+function ignoredByGit(projectPath: string, files: string[]) {
+  const result = spawnSync('git', ['check-ignore', '--stdin'], {
+    cwd: projectPath,
+    input: `${files.join('\n')}\n`,
+    encoding: 'utf8'
+  })
+  const ignored = new Set(String(result.stdout || '').split('\n'))
+
+  return files.map((file) => [file, ignored.has(file)])
 }
+
+const GIT_CELL_TIMEOUT_MS = 60_000
 
 function headersWithNothingUnderThem(contents: string) {
   const lines = contents.split('\n')
@@ -122,86 +130,106 @@ describe('writeGitignore', () => {
     expect(contents).toContain('\ncoverage')
   })
 
-  it('ignores every env file by default and keeps the example templates', async () => {
-    const projectPath = await projectWith(null)
+  it(
+    'ignores every env file by default and keeps the example templates',
+    async () => {
+      const projectPath = await projectWith(null)
 
-    await writeGitignore(projectPath, console)
-    spawnSync('git', ['init', '-q'], {cwd: projectPath})
+      await writeGitignore(projectPath, console)
+      spawnSync('git', ['init', '-q'], {cwd: projectPath})
 
-    const contents = await fsp.readFile(
-      path.join(projectPath, '.gitignore'),
-      'utf8'
-    )
-    const lines = contents.split('\n')
-    expect(lines.filter((line) => line.includes('.env'))).toEqual([
-      '.env*',
-      '!.env.example',
-      '!.env.*.example'
-    ])
-
-    for (const file of [...secretEnvFiles, ...realEnvFiles]) {
-      expect([file, isIgnoredByGit(projectPath, file)]).toEqual([file, true])
-    }
-
-    for (const file of ['.env.example', '.env.production.example']) {
-      expect([file, isIgnoredByGit(projectPath, file)]).toEqual([file, false])
-    }
-  })
-
-  it('keeps the per-browser env files a template ships out of the ignore rules', async () => {
-    const projectPath = await projectWith(templateGitignore)
-
-    for (const file of [...perBrowserEnvFiles, ...secretEnvFiles]) {
-      await fsp.writeFile(
-        path.join(projectPath, file),
-        'EXTENSION_PUBLIC_X=1\n'
+      const contents = await fsp.readFile(
+        path.join(projectPath, '.gitignore'),
+        'utf8'
       )
-    }
+      const lines = contents.split('\n')
+      expect(lines.filter((line) => line.includes('.env'))).toEqual([
+        '.env*',
+        '!.env.example',
+        '!.env.*.example'
+      ])
 
-    await writeGitignore(projectPath, console)
+      const hidden = [...secretEnvFiles, ...realEnvFiles]
+      const kept = ['.env.example', '.env.production.example']
+      expect(ignoredByGit(projectPath, [...hidden, ...kept])).toEqual([
+        ...hidden.map((file) => [file, true]),
+        ...kept.map((file) => [file, false])
+      ])
+    },
+    GIT_CELL_TIMEOUT_MS
+  )
 
-    spawnSync('git', ['init', '-q'], {cwd: projectPath})
+  it(
+    'keeps the per-browser env files a template ships out of the ignore rules',
+    async () => {
+      const projectPath = await projectWith(templateGitignore)
 
-    for (const file of perBrowserEnvFiles) {
-      expect([file, isIgnoredByGit(projectPath, file)]).toEqual([file, false])
-    }
+      for (const file of [...perBrowserEnvFiles, ...secretEnvFiles]) {
+        await fsp.writeFile(
+          path.join(projectPath, file),
+          'EXTENSION_PUBLIC_X=1\n'
+        )
+      }
 
-    for (const file of [...secretEnvFiles, ...realEnvFiles]) {
-      expect([file, isIgnoredByGit(projectPath, file)]).toEqual([file, true])
-    }
-  })
+      await writeGitignore(projectPath, console)
 
-  it('re-allows only the env files the template put there, never the owner ones', async () => {
-    const projectPath = await projectWith(null)
+      spawnSync('git', ['init', '-q'], {cwd: projectPath})
 
-    for (const file of [
-      '.env.chrome',
-      '.env.production',
-      '.env',
-      '.env.local'
-    ]) {
-      await fsp.writeFile(path.join(projectPath, file), 'X=1\n')
-    }
+      const hidden = [...secretEnvFiles, ...realEnvFiles]
+      expect(
+        ignoredByGit(projectPath, [...perBrowserEnvFiles, ...hidden])
+      ).toEqual([
+        ...perBrowserEnvFiles.map((file) => [file, false]),
+        ...hidden.map((file) => [file, true])
+      ])
+    },
+    GIT_CELL_TIMEOUT_MS
+  )
 
-    await writeGitignore(projectPath, console, {
-      ownedEntries: ['.env.production', 'notes.txt']
-    })
+  it(
+    're-allows only the env files the template put there, never the owner ones',
+    async () => {
+      const projectPath = await projectWith(null)
 
-    spawnSync('git', ['init', '-q'], {cwd: projectPath})
+      for (const file of [
+        '.env.chrome',
+        '.env.production',
+        '.env',
+        '.env.local'
+      ]) {
+        await fsp.writeFile(path.join(projectPath, file), 'X=1\n')
+      }
 
-    const contents = await fsp.readFile(
-      path.join(projectPath, '.gitignore'),
-      'utf8'
-    )
-    expect(contents.split('\n').filter((line) => line.startsWith('!'))).toEqual(
-      ['!.env.example', '!.env.*.example', '!.env.chrome']
-    )
+      await writeGitignore(projectPath, console, {
+        ownedEntries: ['.env.production', 'notes.txt']
+      })
 
-    expect(isIgnoredByGit(projectPath, '.env.chrome')).toBe(false)
-    expect(isIgnoredByGit(projectPath, '.env.production')).toBe(true)
-    expect(isIgnoredByGit(projectPath, '.env')).toBe(true)
-    expect(isIgnoredByGit(projectPath, '.env.local')).toBe(true)
-  })
+      spawnSync('git', ['init', '-q'], {cwd: projectPath})
+
+      const contents = await fsp.readFile(
+        path.join(projectPath, '.gitignore'),
+        'utf8'
+      )
+      expect(
+        contents.split('\n').filter((line) => line.startsWith('!'))
+      ).toEqual(['!.env.example', '!.env.*.example', '!.env.chrome'])
+
+      expect(
+        ignoredByGit(projectPath, [
+          '.env.chrome',
+          '.env.production',
+          '.env',
+          '.env.local'
+        ])
+      ).toEqual([
+        ['.env.chrome', false],
+        ['.env.production', true],
+        ['.env', true],
+        ['.env.local', true]
+      ])
+    },
+    GIT_CELL_TIMEOUT_MS
+  )
 
   it('appends whole groups under one header each, with a trailing newline', async () => {
     const projectPath = await projectWith(templateGitignore)
