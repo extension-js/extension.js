@@ -29,6 +29,14 @@ A failure adds two more properties so a failure count can be read as a cause rat
 value that is not a catalog name is dropped and the event reports `E_INTERNAL` instead, so
 no error text ever travels.
 
+`command` is always one of the CLI's registered command names. A word that is not one, such as
+a typo or a project folder, is reported as `unknown` with `code` `E_UNKNOWN_COMMAND`, and the
+word itself is never sent.
+
+A Node.js, Bun or Deno version below the supported floor stops the CLI before it loads. That
+run reports one `command_failed` with `code` `E_NODE_VERSION`, and only on a machine that
+already showed the first-run notice, because the notice is printed by the part that never loads.
+
 ### Long-running commands
 
 `dev`, `start` and `preview` do not end on their own, they watch until you stop them. Counting
@@ -63,12 +71,14 @@ the offer can be told apart from a dead end:
 | `browser_install_browser` | the managed browser name, for example `chrome`     |
 | `browser_install_seconds` | whole seconds the download took, when one ran      |
 
-The `create` command adds two properties so a broken advertised starter shows up in its failure counts:
+The `create` command adds four properties, so a broken advertised starter shows up in its failure counts and a slow or failed dependency install can be told apart from a project nobody ran:
 
 | property   | value                                                                 |
 | ---------- | --------------------------------------------------------------------- |
 | `template` | the starter name as listed by `extension create --help`, or absent   |
 | `source`   | `cli`, or `templates` when the docs template gallery started the create   |
+| `deps_install` | `skipped`, `installed` or `failed`, for the dependency install `--install` runs |
+| `deps_install_seconds` | whole seconds the dependency install took, when one ran |
 
 `template` is checked against the published starter list before it is sent. A GitHub URL, a local folder path or any other value that is not an advertised name is dropped rather than trimmed, so a private repository or a directory name never leaves the machine. `source` is checked the same way against the two surfaces above, and any other value is sent as `cli`.
 

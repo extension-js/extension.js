@@ -106,6 +106,7 @@ import {
 } from './lifecycle-stream'
 import * as messages from './messages'
 import {PortManager} from './port-manager'
+import {reservedHttpServer} from './reserved-listen'
 import {
   bindDevSessionRestart,
   DevSessionRestartScheduler,
@@ -522,6 +523,7 @@ export async function devServer(
       setReloadBroker?: (broker: unknown) => void
       setLogSink?: (sink: (event: BrowserLogSinkEvent) => void) => void
       setEmulatorViewerUrl?: (url: string) => void
+      setInstanceId?: (instanceId: string) => void
       wakeBackground?: () => Promise<boolean>
     }
   }
@@ -685,6 +687,10 @@ export async function devServer(
 
   if (launchedPlugin && typeof launchedPlugin.setReloadBroker === 'function') {
     launchedPlugin.setReloadBroker(bridgeBroker)
+  }
+
+  if (launchedPlugin && typeof launchedPlugin.setInstanceId === 'function') {
+    launchedPlugin.setInstanceId(currentInstance.instanceId)
   }
 
   // Browser-generated warnings (CDP Log.entryAdded) never pass through the
@@ -1000,7 +1006,15 @@ export async function devServer(
     liveReload: true,
     // setupCleanupHandlers owns the signals. The server's own handler stopped
     // it a second time, so one Ctrl+C closed the watch and logged twice.
-    setupExitSignals: false
+    setupExitSignals: false,
+    server: {
+      type: reservedHttpServer({
+        takeReservation: () => portManager.takeReservation(),
+        onBindError: (error) => failStart(error),
+        holdOnClose: () => portManager.shouldHoldPortOnClose(),
+        onHeld: (reservation) => portManager.adoptHeldPort(reservation)
+      })
+    }
   }
 
   const START_TIMEOUT_MS = parseInt(
@@ -1177,24 +1191,25 @@ export async function devServer(
         console.error(messages.devServerStartTimeout(START_TIMEOUT_MS))
       }, START_TIMEOUT_MS)
 
-      // The probe's listener held the port through config load and compiler
-      // creation; the real bind can only take it once we let go.
-      await portManager.releaseReservedPort()
       await server.start()
 
       if (startTimeout) clearTimeout(startTimeout)
     } catch (error) {
       if (startTimeout) clearTimeout(startTimeout)
 
-      metadata.writeError(
-        'dev_server_start_failed',
-        error instanceof Error ? error.message : String(error)
-      )
-
-      lifecycle.failed(error instanceof Error ? error.message : String(error))
-      humanLine(messages.extensionJsRunnerError(error))
-      process.exit(1)
+      failStart(error)
     }
+  }
+
+  function failStart(error: unknown): never {
+    metadata.writeError(
+      'dev_server_start_failed',
+      error instanceof Error ? error.message : String(error)
+    )
+
+    lifecycle.failed(error instanceof Error ? error.message : String(error))
+    humanLine(messages.extensionJsRunnerError(error))
+    process.exit(1)
   }
 
   const firstBundle = await createCompilerAndServer({isRestart: false})
@@ -1220,12 +1235,20 @@ export async function devServer(
     const previous = currentServer
     currentServer = null
 
+    portManager.holdPortAcrossRestart()
+
     if (previous && typeof previous.stop === 'function') {
       await previous.stop()
     }
 
     currentServer = nextBundle.server
-    await startBundler(nextBundle.server)
+
+    try {
+      await startBundler(nextBundle.server)
+    } finally {
+      portManager.endRestartHold()
+    }
+
     const stats = await nextBundle.firstCompile
 
     if (stats && typeof stats.hasErrors === 'function' && stats.hasErrors()) {

@@ -16,7 +16,9 @@
       "devalue": "^5.9.3",
       "serialize-javascript": "^7.0.3",
       "yauzl": "^3.2.1",
-      "vite": "^8.0.16",
+      "vite": "^8.3.3",
+      "launch-editor": "^2.14.2",
+      "follow-redirects": "^1.16.1",
       "which": "^4.0.0",
       "js-yaml": "^4.3.2",
       "read-yaml-file": "^2.1.0",
@@ -52,7 +54,7 @@
     "ci:test:create": "node scripts/run-test.mjs create",
     "ci:test:toolchain-preflight": "pnpm --dir programs/develop exec vitest run lib/__spec__/optional-deps-resolver.spec.ts",
     "postcompile": "node scripts/build-extensions.cjs",
-    "prepare": "husky",
+    "prepare": "node scripts/install-git-hooks.mjs",
     "check:prose": "node scripts/check-prose.mjs",
     "check:messaging": "node scripts/check-messaging.mjs",
     "check:runtime-html": "node scripts/check-runtime-html.mjs",
@@ -73,7 +75,6 @@
     "cross-spawn": "^7.0.6",
     "dotenv-cli": "^11.0.0",
     "eslint": "^10.10.0",
-    "husky": "9.1.7",
     "lint-staged": "17.0.8",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
@@ -81,7 +82,7 @@
     "tsx": "^4.21.0",
     "turbo": "^2.9.14",
     "typescript": "7.0.2",
-    "vite": "^8.1.0"
+    "vite": "^8.3.3"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,mjs,cjs}": [

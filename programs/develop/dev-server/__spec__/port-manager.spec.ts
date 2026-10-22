@@ -115,9 +115,12 @@ describe('PortManager exhaustion', () => {
   it('refuses with the declared port code when no candidate is free', async () => {
     const host = '127.0.0.1'
     const blocker = net.createServer()
-    await new Promise<void>((resolve, reject) => {
-      blocker.once('error', reject)
-      blocker.listen(65535, host, resolve)
+    const ownsBlocker = await new Promise<boolean>((resolve, reject) => {
+      blocker.once('error', (error: NodeJS.ErrnoException) =>
+        error.code === 'EADDRINUSE' ? resolve(false) : reject(error)
+      )
+
+      blocker.listen(65535, host, () => resolve(true))
     })
 
     try {
@@ -125,7 +128,9 @@ describe('PortManager exhaustion', () => {
         new PortManager().allocatePorts(65535, host)
       ).rejects.toMatchObject({code: 'E_PORT_UNAVAILABLE'})
     } finally {
-      await new Promise<void>((resolve) => blocker.close(() => resolve()))
+      if (ownsBlocker) {
+        await new Promise<void>((resolve) => blocker.close(() => resolve()))
+      }
     }
   })
 })

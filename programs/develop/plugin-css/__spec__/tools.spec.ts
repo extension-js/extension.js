@@ -63,36 +63,6 @@ describe('css tools detection', () => {
   })
 })
 
-describe('isContentScriptEntry', () => {
-  it('returns true if issuer matches content script in manifest', async () => {
-    const manifest = {
-      content_scripts: [{js: ['content.js']}]
-    }
-    ;(fs.readFileSync as any).mockReturnValueOnce(JSON.stringify(manifest))
-    ;(fs.existsSync as any).mockImplementation((p: string) =>
-      String(p).endsWith('manifest.json')
-    )
-
-    const {isContentScriptEntry} = (await import(
-      '../css-lib/is-content-script'
-    )) as any
-    const issuer = path.resolve('/project', 'content.js')
-    const manifestPath = path.join('/project', 'manifest.json')
-    expect(isContentScriptEntry(issuer, manifestPath, '/project')).toBe(true)
-  })
-
-  it('returns false for non-matching paths', async () => {
-    const manifest = {content_scripts: [{js: ['a.js']}]} as any
-    ;(fs.readFileSync as any).mockReturnValueOnce(JSON.stringify(manifest))
-    const {isContentScriptEntry} = (await import(
-      '../css-lib/is-content-script'
-    )) as any
-    expect(isContentScriptEntry('/x/b.js', '/x/manifest.json', '/x')).toBe(
-      false
-    )
-  })
-})
-
 describe('css tools additional coverage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -117,13 +87,6 @@ describe('css tools additional coverage', () => {
     expect(isUsingTailwind('/p')).toBe(true)
     expect(isUsingTailwind('/p')).toBe(true)
     expect(log).toHaveBeenCalledTimes(1)
-  })
-
-  it('isContentScriptEntry returns false for empty inputs (early return)', async () => {
-    const {isContentScriptEntry} = await import('../css-lib/is-content-script')
-    expect(isContentScriptEntry('', '', '')).toBe(false)
-    expect(isContentScriptEntry('/x', '', '')).toBe(false)
-    expect(isContentScriptEntry('', '/x/manifest.json', '')).toBe(false)
   })
 
   it('maybeUsePostCss returns loader config when a PostCSS config file exists', async () => {

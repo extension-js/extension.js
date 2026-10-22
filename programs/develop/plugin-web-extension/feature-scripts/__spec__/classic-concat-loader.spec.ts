@@ -71,6 +71,53 @@ describe('classic-concat-loader', () => {
     expect(sourceMap.mappings).toBeTruthy()
   })
 
+  it("resolves a later file's import() from that file's folder", () => {
+    const dir = createTempProject()
+    fs.mkdirSync(path.join(dir, 'lib', 'katex'), {recursive: true})
+    fs.mkdirSync(path.join(dir, 'sidebar'), {recursive: true})
+    const firstPath = path.join(dir, 'lib', 'katex', 'katex.min.js')
+    const laterPath = path.join(dir, 'sidebar', 'qa.js')
+    fs.writeFileSync(firstPath, 'var katex = {};\n', 'utf8')
+    fs.writeFileSync(
+      laterPath,
+      "async function loadPdf() { return import('../lib/pdfjs/pdf.min.mjs') }\n" +
+        "var keep = import('https://cdn.example.com/x.mjs')\n",
+      'utf8'
+    )
+
+    const ctx = createLoaderContext(firstPath, {
+      feature: 'sidebar/index',
+      js: [firstPath, laterPath]
+    })
+
+    classicConcatLoader.call(ctx as any, '')
+
+    const [err, output] = ctx.callback.mock.calls[0]
+    expect(err).toBeNull()
+    expect(output).toContain('import("../pdfjs/pdf.min.mjs")')
+    expect(output).not.toContain("import('../lib/pdfjs/pdf.min.mjs')")
+    expect(output).toContain("import('https://cdn.example.com/x.mjs')")
+  })
+
+  it("leaves the first file's import() as written", () => {
+    const dir = createTempProject()
+    const firstPath = path.join(dir, 'a.js')
+    const laterPath = path.join(dir, 'b.js')
+    fs.writeFileSync(firstPath, "var a = import('./x.mjs')\n", 'utf8')
+    fs.writeFileSync(laterPath, "var b = import('./y.mjs')\n", 'utf8')
+
+    const ctx = createLoaderContext(firstPath, {
+      feature: 'popup/index',
+      js: [firstPath, laterPath]
+    })
+
+    classicConcatLoader.call(ctx as any, '')
+
+    const [, output] = ctx.callback.mock.calls[0]
+    expect(output).toContain("import('./x.mjs')")
+    expect(output).toContain("import('./y.mjs')")
+  })
+
   it('registers each JS file as a dependency for watch mode', () => {
     const dir = createTempProject()
     const aPath = path.join(dir, 'a.js')

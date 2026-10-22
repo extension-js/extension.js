@@ -10,6 +10,7 @@ const bridge = vi.hoisted(() => ({
 
 vi.mock('../helpers/extension-develop-runtime', () => ({
   loadExtensionDevelopBridgeModule: vi.fn(async () => ({
+    ...(await import('../../develop/dev-server/control-bridge/log-rule')),
     readReadyContractDocument: () => bridge.document,
     readReadyContract: () =>
       bridge.document

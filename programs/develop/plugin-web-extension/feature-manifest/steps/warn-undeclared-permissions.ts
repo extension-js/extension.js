@@ -84,9 +84,17 @@ export class WarnUndeclaredPermissions {
                   ? `in the packaged build${gated.replace(/^ Only part of the namespace is gated:/, ',')}`
                   : 'in the packaged build that call fails.'
                 const text =
-                  `manifest.json does not declare the "${api}" permission, but ` +
-                  `${relative} uses chrome.${api}. Nothing grants it here, so ` +
-                  `${outcome} Add "${api}" to permissions in manifest.json.`
+                  api === 'tabs' && declared.has('activeTab')
+                    ? `manifest.json does not declare the "tabs" permission, but ` +
+                      `${relative} uses chrome.tabs. "activeTab" is declared, and it ` +
+                      `grants url, title and favIconUrl for the tab the person invoked ` +
+                      `the extension on (toolbar click, shortcut, context menu) and ` +
+                      `captureVisibleTab of that tab; a read of any other tab comes ` +
+                      `back without those fields. Add "tabs" only if the code reads ` +
+                      `tabs the person did not invoke it on.`
+                    : `manifest.json does not declare the "${api}" permission, but ` +
+                      `${relative} uses chrome.${api}. Nothing grants it here, so ` +
+                      `${outcome} Add "${api}" to permissions in manifest.json.`
 
                 const WebpackErrorCtor = compiler.rspack?.WebpackError
                 const warning = WebpackErrorCtor

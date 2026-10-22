@@ -421,12 +421,23 @@ class FreeReferenceScan {
         if (guardsName(current.test as Child)) return
 
         this.visit(current.consequent as Child, shadowed)
+        // A branch taken only when the chrome test fails runs where chrome
+        // is missing, which is exactly where the browser name exists.
+        if (mentionsChrome(current.test as Child)) return
+
         this.visit(current.alternate as Child, shadowed)
 
         return
       case 'LogicalExpression':
         this.visit(current.left as Child, shadowed)
         if (guardsName(current.left as Child)) return
+
+        if (
+          (current.operator === '||' || current.operator === '??') &&
+          mentionsChrome(current.left as Child)
+        ) {
+          return
+        }
 
         this.visit(current.right as Child, shadowed)
 

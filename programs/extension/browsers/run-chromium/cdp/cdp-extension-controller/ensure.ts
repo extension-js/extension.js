@@ -58,7 +58,7 @@ export function declaresBackgroundContext(outPath: string): boolean {
 export type LoadUnpackedOutcome =
   | {status: 'loaded'; extensionId: string}
   | {status: 'refused'; reason: string}
-  | {status: 'unknown'; unsupported?: boolean}
+  | {status: 'unknown'; unsupported?: boolean; transportError?: string}
 
 // CDP failures arrive as Error(JSON.stringify({code, message})); recover the
 // pair so a protocol complaint can be told apart from Chrome's own verdict.
@@ -137,6 +137,12 @@ export async function loadUnpacked(
 
   if (PROTOCOL_ERROR_CODES.has(result.code as number) || !result.message) {
     return {status: 'unknown'}
+  }
+
+  // A closed socket or a timeout carries no protocol code. Chrome never
+  // answered, so it is not a verdict on the extension.
+  if (typeof result.code !== 'number') {
+    return {status: 'unknown', transportError: result.message}
   }
 
   return {status: 'refused', reason: result.message}

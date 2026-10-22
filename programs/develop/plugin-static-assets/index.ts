@@ -54,9 +54,34 @@ export class StaticAssetsPlugin {
     type InspectableRule = {
       test?: unknown
       use?: unknown
+      loader?: unknown
       type?: unknown
       resourceQuery?: unknown
+      include?: unknown
+      exclude?: unknown
+      resource?: unknown
+      issuer?: unknown
+      issuerLayer?: unknown
     } | null
+
+    const SCOPE_KEYS = [
+      'include',
+      'exclude',
+      'resource',
+      'issuer',
+      'issuerLayer'
+    ] as const
+
+    const hasEffect = (rule: InspectableRule) =>
+      Boolean(
+        rule &&
+          (rule.type !== undefined ||
+            rule.use !== undefined ||
+            rule.loader !== undefined)
+      )
+
+    const hasScope = (rule: InspectableRule) =>
+      Boolean(rule && SCOPE_KEYS.some((key) => rule[key] !== undefined))
 
     // A resourceQuery-scoped rule (SVGR's ?react split) only claims that query
     // slice, so it must not suppress the default rule for plain imports.
@@ -67,9 +92,71 @@ export class StaticAssetsPlugin {
         rule &&
           rule.test instanceof RegExp &&
           rule.test.test(sample) &&
-          (rule.type !== undefined || rule.use !== undefined) &&
-          rule.resourceQuery === undefined
+          hasEffect(rule) &&
+          rule.resourceQuery === undefined &&
+          !hasScope(rule)
       )
+    }
+
+    // A path- or issuer-scoped rule (a string test is a path prefix) claims part
+    // of an extension: the default steps aside inside that scope only.
+    const isPartialRuleFor = (thisRule: unknown, sample: string) => {
+      const rule = thisRule as InspectableRule
+
+      if (!rule || !hasEffect(rule) || isFullCustomRuleFor(rule, sample)) {
+        return false
+      }
+
+      if (rule.test instanceof RegExp) {
+        return rule.test.test(sample) && hasScope(rule)
+      }
+
+      const assetTyped =
+        typeof rule.type === 'string' && rule.type.startsWith('asset')
+
+      return assetTyped && (rule.test !== undefined || hasScope(rule))
+    }
+
+    const scopeConditionsOf = (rule: InspectableRule): RuleSetRule => {
+      const conditions: Record<string, unknown> = {}
+
+      for (const key of ['test', 'resourceQuery', ...SCOPE_KEYS] as const) {
+        if (rule?.[key] !== undefined) conditions[key] = rule[key]
+      }
+
+      return conditions as RuleSetRule
+    }
+
+    const partialScopesFor = (extensions: string[]): RuleSetRule[] => {
+      const seen = new Set<unknown>()
+      const scopes: RuleSetRule[] = []
+
+      for (const thisRule of compiler.options.module.rules) {
+        if (seen.has(thisRule)) continue
+
+        if (extensions.some((ext) => isPartialRuleFor(thisRule, `.${ext}`))) {
+          seen.add(thisRule)
+          scopes.push(scopeConditionsOf(thisRule as InspectableRule))
+        }
+      }
+
+      return scopes
+    }
+
+    const withPartialScopes = (
+      rule: RuleSetRule,
+      extensions: string[]
+    ): RuleSetRule => {
+      const scopes = partialScopesFor(extensions)
+      if (!scopes.length) return rule
+
+      const {test, resourceQuery, ...effects} = rule
+
+      return {
+        test,
+        ...(resourceQuery ? {resourceQuery} : {}),
+        oneOf: [...scopes, effects]
+      }
     }
 
     // Query slices claimed by scoped custom rules: the default rule excludes
@@ -82,8 +169,9 @@ export class StaticAssetsPlugin {
             rule &&
               rule.test instanceof RegExp &&
               rule.test.test(sample) &&
-              (rule.type !== undefined || rule.use !== undefined) &&
-              rule.resourceQuery instanceof RegExp
+              hasEffect(rule) &&
+              rule.resourceQuery instanceof RegExp &&
+              !hasScope(rule)
           )
         )
         .map((rule) => rule?.resourceQuery as RegExp)
@@ -151,17 +239,20 @@ export class StaticAssetsPlugin {
 
       const scoped = scopedQueriesForAll(remaining)
 
-      return {
-        test: new RegExp(`\\.(${remaining.join('|')})$`, 'i'),
-        type: 'asset',
-        generator: {
-          filename: filenamePattern
+      return withPartialScopes(
+        {
+          test: new RegExp(`\\.(${remaining.join('|')})$`, 'i'),
+          type: 'asset',
+          generator: {
+            filename: filenamePattern
+          },
+          ...(inline
+            ? {parser: {dataUrlCondition: {maxSize: inlineKB * 1024}}}
+            : {}),
+          ...(scoped.length ? {resourceQuery: {not: scoped}} : {})
         },
-        ...(inline
-          ? {parser: {dataUrlCondition: {maxSize: inlineKB * 1024}}}
-          : {}),
-        ...(scoped.length ? {resourceQuery: {not: scoped}} : {})
-      }
+        remaining
+      )
     }
 
     const hasCustomSvgRule = unclaimedExtensions(['svg']).length === 0
@@ -188,9 +279,12 @@ export class StaticAssetsPlugin {
       ...(hasCustomSvgRule
         ? []
         : [
-            svgScopedQueries.length
-              ? {...defaultSvgRule, resourceQuery: {not: svgScopedQueries}}
-              : defaultSvgRule
+            withPartialScopes(
+              svgScopedQueries.length
+                ? {...defaultSvgRule, resourceQuery: {not: svgScopedQueries}}
+                : defaultSvgRule,
+              ['svg']
+            )
           ]),
       ...(imagesRule ? [imagesRule] : []),
       ...(fontsRule ? [fontsRule] : []),

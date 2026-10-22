@@ -59,6 +59,9 @@ function hasTypeScriptSourceFiles(projectPath: string, depth = 0): boolean {
 
         const sub = path.join(projectPath, entry.name)
 
+        // A folder with its own package.json is another package's sources.
+        if (fs.existsSync(path.join(sub, 'package.json'))) return false
+
         return hasTypeScriptSourceFiles(sub, depth + 1)
       }
 
@@ -163,6 +166,24 @@ export function getUserTypeScriptConfigFile(projectPath: string) {
 
     const tsconfigPath = path.join(dir, 'tsconfig.json')
     if (fs.existsSync(tsconfigPath)) return tsconfigPath
+  }
+
+  return undefined
+}
+
+// A JavaScript project keeps its path aliases in jsconfig.json, which the
+// bundler's resolver reads the same way; without this a shadcn-style
+// `@/*` alias in a JS project resolved nothing until the person moved the
+// same block into a tsconfig (leon, 2026-10-21). Resolution only: a
+// jsconfig earns no TypeScript scaffold and no TypeScript parser.
+export function getUserJsConfigFile(projectPath: string) {
+  const searchDirs = [findNearestPackageJsonDirectory(projectPath), projectPath]
+
+  for (const dir of searchDirs) {
+    if (!dir) continue
+
+    const jsconfigPath = path.join(dir, 'jsconfig.json')
+    if (fs.existsSync(jsconfigPath)) return jsconfigPath
   }
 
   return undefined

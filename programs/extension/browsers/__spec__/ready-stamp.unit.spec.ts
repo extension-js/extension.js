@@ -139,7 +139,28 @@ describe('stampReadyBrowserLaunch', () => {
 
     const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
     expect(ready.extensionId).toBe('glocgelajdejkheibpdooiagpkkbfmhe')
+    expect(ready.extensionIdSource).toBe('derived')
     expect(ready.browserPid).toBe(4242)
+  })
+
+  it('leaves a browser-confirmed id alone at launch', () => {
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({
+        status: 'ready',
+        extensionId: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+        extensionIdSource: 'browser'
+      })
+    )
+
+    stampReadyBrowserLaunch(outputPath, {
+      browserPid: 4242,
+      extensionId: 'glocgelajdejkheibpdooiagpkkbfmhe'
+    })
+
+    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    expect(ready.extensionId).toBe('bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb')
+    expect(ready.extensionIdSource).toBe('browser')
   })
 
   it('omits the extension id when none resolved at launch', () => {
@@ -195,6 +216,23 @@ describe('stampReadyExtensionId', () => {
 
     const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
     expect(ready.extensionId).toBe('bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb')
+    expect(ready.extensionIdSource).toBe('browser')
+  })
+
+  it('marks a matching derived id as browser-confirmed', () => {
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({
+        status: 'ready',
+        extensionId: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        extensionIdSource: 'derived'
+      })
+    )
+
+    stampReadyExtensionId(outputPath, 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
+
+    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    expect(ready.extensionIdSource).toBe('browser')
   })
 
   it('is a no-op for an empty id, missing path, or missing contract', () => {

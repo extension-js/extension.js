@@ -35,7 +35,8 @@ vi.mock('../js-tools/svelte', () => ({
 vi.mock('../js-tools/typescript', () => ({
   isUsingTypeScript: vi.fn(() => false),
   ensureTypeScriptConfig: vi.fn(),
-  getUserTypeScriptConfigFile: vi.fn(() => undefined)
+  getUserTypeScriptConfigFile: vi.fn(() => undefined),
+  getUserJsConfigFile: vi.fn(() => undefined)
 }))
 
 vi.mock('../../lib/transpile-packages', async () => ({

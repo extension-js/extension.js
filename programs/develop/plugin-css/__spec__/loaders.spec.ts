@@ -4,10 +4,6 @@ vi.mock('../common-style-loaders', () => ({
   commonStyleLoaders: vi.fn(async () => [{loader: 'mock-style-loader'}])
 }))
 
-vi.mock('../css-lib/is-content-script', () => ({
-  isContentScriptEntry: vi.fn((issuer: string) => issuer.includes('content'))
-}))
-
 const resolveDevelopInstallRootMock = vi.fn(
   (..._args: unknown[]) => '/extension-root'
 )
@@ -56,7 +52,7 @@ describe('cssInContentScriptLoader', () => {
 
     for (const rule of rules) {
       expect(['javascript/auto', 'css/module']).toContain((rule as any).type)
-      expect(typeof rule.issuer).toBe('function')
+      expect(rule.issuerLayer).toBe('extensionjs-content-script')
       expect((rule.use as any[])?.length).toBeGreaterThan(0)
     }
   })
@@ -88,9 +84,12 @@ describe('cssInHtmlLoader', () => {
     expect(rules.some((r: any) => r.type === 'css/module')).toBe(true)
 
     for (const rule of rules) {
-      const issuer = rule.issuer as (value: string) => boolean
-      expect(typeof issuer).toBe('function')
-      expect(issuer('content.js')).toBe(false)
+      expect(
+        JSON.stringify(rule.issuerLayer) ===
+          JSON.stringify({not: 'extensionjs-content-script'}) ||
+          rule.issuerLayer === 'extensionjs-content-script'
+      ).toBe(true)
+
       expect((rule.use as any[])?.length).toBeGreaterThan(0)
     }
   })

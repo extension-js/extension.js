@@ -10,6 +10,7 @@ import {
   invokedCommand,
   markCommandFailure,
   markCommandSuccess,
+  reportCommandFailureNow,
   telemetry
 } from './telemetry-cli'
 
@@ -71,6 +72,16 @@ function markOutcomeForExit(code: number): void {
   } catch {
     // Ignore
   }
+}
+
+export function exitWithFailure(code?: unknown, exitCode = 1): never {
+  try {
+    reportCommandFailureNow({code, exitCode})
+  } catch {
+    // Ignore
+  }
+
+  process.exit(exitCode)
 }
 
 // Node writes to a piped stdout/stderr asynchronously, so process.exit right

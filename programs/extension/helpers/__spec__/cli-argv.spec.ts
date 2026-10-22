@@ -2,6 +2,7 @@ import {Command} from 'commander'
 import {describe, expect, it} from 'vitest'
 import {
   collectValuedLongFlags,
+  movePreCommandOutputArgv,
   resolveCommandFromArgv,
   rewriteOutputAliasArgv,
   scanArgvValue
@@ -97,5 +98,42 @@ describe('scanArgvValue', () => {
     expect(scanArgvValue(argv('--output', 'json'), '--output')).toBe('json')
     expect(scanArgvValue(argv('--output=JSON'), '--output')).toBe('JSON')
     expect(scanArgvValue(argv('dev'), '--output')).toBeUndefined()
+  })
+})
+
+describe('movePreCommandOutputArgv', () => {
+  const valued = new Set(['--output', '--browser'])
+
+  it('moves a spaced --output behind the command', () => {
+    expect(
+      movePreCommandOutputArgv(argv('--output', 'json', 'dev', './x'), valued)
+    ).toEqual(argv('dev', '--output', 'json', './x'))
+  })
+
+  it('moves the equals form behind the command', () => {
+    expect(
+      movePreCommandOutputArgv(argv('--output=json', 'build'), valued)
+    ).toEqual(argv('build', '--output=json'))
+  })
+
+  it('skips other valued flags in front of the command', () => {
+    expect(
+      movePreCommandOutputArgv(
+        argv('--browser', 'firefox', '--output', 'json', 'dev'),
+        valued
+      )
+    ).toEqual(argv('--browser', 'firefox', 'dev', '--output', 'json'))
+  })
+
+  it('leaves an --output that already follows the command alone', () => {
+    const input = argv('dev', '--output', 'json')
+
+    expect(movePreCommandOutputArgv(input, valued)).toEqual(input)
+  })
+
+  it('leaves argv alone when there is no command', () => {
+    const input = argv('--output', 'json')
+
+    expect(movePreCommandOutputArgv(input, valued)).toEqual(input)
   })
 })

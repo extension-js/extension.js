@@ -532,6 +532,105 @@ export function findPnpmWorkspaceMember(
   return {root, relativeDir}
 }
 
+export type WorkspaceMember = PnpmWorkspaceMember & {
+  manager: PackageManagerName
+}
+
+function readPackageJsonWorkspaces(dir: string): string[] | undefined {
+  try {
+    const pkg = JSON.parse(
+      fs.readFileSync(path.join(dir, 'package.json'), 'utf8')
+    )
+    const field = pkg?.workspaces
+    const list = Array.isArray(field) ? field : field?.packages
+
+    if (!Array.isArray(list)) return undefined
+
+    return list.filter((item): item is string => typeof item === 'string')
+  } catch {
+    return undefined
+  }
+}
+
+// Nearest dir whose package.json declares `workspaces` (npm, yarn, bun), the
+// project dir included. Stops at the project's own .git, like pnpm's lookup.
+export function findPackageJsonWorkspaceRoot(
+  startDir: string
+): string | undefined {
+  let current = path.resolve(startDir)
+
+  while (true) {
+    if (readPackageJsonWorkspaces(current)) return current
+
+    if (fs.existsSync(path.join(current, '.git'))) return undefined
+
+    const parent = path.dirname(current)
+    if (parent === current) return undefined
+
+    current = parent
+  }
+}
+
+function packageJsonWorkspaceManager(
+  root: string
+): PackageManagerName | undefined {
+  const lockPm = detectPackageManagerFromLockfile(root)
+
+  // pnpm reads only pnpm-workspace.yaml, so this list is not its workspace.
+  if (lockPm === 'pnpm') return undefined
+  if (lockPm) return lockPm
+
+  try {
+    const pkg = JSON.parse(
+      fs.readFileSync(path.join(root, 'package.json'), 'utf8')
+    )
+    const pinned = /^(npm|yarn|bun)@/.exec(String(pkg?.packageManager || ''))
+    if (pinned) return pinned[1] as PackageManagerName
+  } catch {
+    // Unreadable package.json. npm is the manager every Node ships.
+  }
+
+  return 'npm'
+}
+
+// A pnpm workspace member first, then a member of a package.json workspace.
+export function findWorkspaceMember(
+  projectDir: string
+): WorkspaceMember | undefined {
+  const pnpmMember = findPnpmWorkspaceMember(projectDir)
+  if (pnpmMember) return {...pnpmMember, manager: 'pnpm'}
+
+  const root = findPackageJsonWorkspaceRoot(projectDir)
+  if (!root) return undefined
+
+  const resolvedProject = path.resolve(projectDir)
+  if (root === resolvedProject) return undefined
+
+  const relativeDir = path
+    .relative(root, resolvedProject)
+    .split(path.sep)
+    .join('/')
+  const patterns = readPackageJsonWorkspaces(root) || []
+
+  if (!isPnpmWorkspaceMemberDir(patterns, relativeDir)) return undefined
+
+  const manager = packageJsonWorkspaceManager(root)
+  if (!manager) return undefined
+
+  return {root, relativeDir, manager}
+}
+
+// A package.json workspace root with no lockfile keeps its own manager. Every
+// other case reads the root lockfile through resolvePackageManager.
+export function workspaceManagerOverride(
+  member: WorkspaceMember
+): PackageManagerResolution | undefined {
+  if (member.manager === 'pnpm') return undefined
+  if (detectPackageManagerFromLockfile(member.root)) return undefined
+
+  return hydrateResolvedPackageManager(member.manager) || {name: member.manager}
+}
+
 export type ProjectInstallTarget = {cwd: string; args: string[]}
 
 // Where an auto-install runs and what confines it. A pnpm workspace member
@@ -540,13 +639,24 @@ export type ProjectInstallTarget = {cwd: string; args: string[]}
 export function projectInstallTarget(
   pm: PackageManagerResolution,
   projectDir: string,
-  member: PnpmWorkspaceMember | undefined
+  member: PnpmWorkspaceMember | WorkspaceMember | undefined
 ): ProjectInstallTarget {
-  if (pm.name === 'pnpm' && member) {
+  const memberManager = member
+    ? 'manager' in member
+      ? member.manager
+      : 'pnpm'
+    : undefined
+
+  if (member && pm.name === 'pnpm' && memberManager === 'pnpm') {
     return {
       cwd: member.root,
       args: ['--filter', `{${member.relativeDir}}...`]
     }
+  }
+
+  // npm, yarn and bun install every workspace member from the root.
+  if (member && memberManager && memberManager !== 'pnpm') {
+    return {cwd: member.root, args: []}
   }
 
   return {cwd: projectDir, args: projectInstallArgs(pm, projectDir)}

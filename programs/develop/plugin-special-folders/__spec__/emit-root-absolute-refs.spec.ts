@@ -58,6 +58,9 @@ function makeCompilation(assets: Record<string, string>) {
     getAssets: () => Array.from(emitted.values()),
     emitAsset: (name: string, source: any) => {
       emitted.set(name, {name, source})
+    },
+    updateAsset: (name: string, source: any) => {
+      emitted.set(name, {name, source})
     }
   }
 
@@ -229,17 +232,35 @@ describe('emitRootAbsoluteRefs', () => {
 
     expect(compileRuntimeLoadedFiles).not.toHaveBeenCalled()
 
-    expect(compilation.warnings).toHaveLength(1)
-    const [warning] = compilation.warnings
-    expect(warning.name).toBe('RootAbsoluteRefCompiledSource')
-    expect(warning.file).toBe('action/index.html')
-    expect(String(warning.message)).toContain(
-      "action/index.html loads '/scripts/util.ts' via an HTML src/href attribute, but /scripts/util.ts is compiled to scripts/util.js"
+    // The page named the source, so it now names the emitted file instead.
+    expect(compilation.warnings).toHaveLength(0)
+    expect(text(emitted, 'action/index.html')).toContain(
+      '<script src="/scripts/util.js"></script>'
     )
+
+    expect(text(emitted, 'action/index.html')).not.toContain('util.ts')
 
     for (const rel of ['styles/page.css', 'data/x.json', 'vendor/classic.js']) {
       expect(compilation.fileDependencies.has(path.join(root, rel))).toBe(true)
     }
+  })
+
+  it('points a page at the compiled file for a root-absolute jsx source', async () => {
+    const {root, publicDir} = createProject({
+      'src/app.jsx': 'export function App() { return null }\n'
+    })
+    const {compilation, emitted} = makeCompilation({
+      'index.html':
+        "<div id=root></div><script type='module' src='/src/app.jsx'></script>"
+    })
+
+    await emitRootAbsoluteRefs(compilation, root, publicDir)
+
+    expect(text(emitted, 'index.html')).toContain(
+      "<script type='module' src='/src/app.js'></script>"
+    )
+
+    expect(compilation.warnings).toHaveLength(0)
   })
 
   it('hands JS-like refs to the bundler once per output path instead of walking their imports', async () => {
@@ -284,9 +305,9 @@ describe('emitRootAbsoluteRefs', () => {
     expect(emitted.has('lib/dep.js')).toBe(false)
     expect(emitted.has('lib/widget.ts')).toBe(false)
 
-    expect(compilation.warnings).toHaveLength(1)
-    expect(String(compilation.warnings[0].message)).toContain(
-      "loads '/lib/widget.ts' via an HTML src/href attribute"
+    expect(compilation.warnings).toHaveLength(0)
+    expect(text(emitted, 'action/index.html')).toContain(
+      '<script src="/lib/widget.js" type="module"></script>'
     )
 
     expect(

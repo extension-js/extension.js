@@ -8,7 +8,10 @@
 
 import colors from 'pintor'
 import {readBrowserInstall} from './browser-install-outcome'
+import {resolveCommandFromArgv} from './cli-argv'
 import {getCliPackageJson} from './cli-package-json'
+import {readDependencyInstall} from './dependency-install-outcome'
+import {KNOWN_COMMANDS, type KnownCommand} from './known-commands'
 import {CODES} from './messaging'
 import {
   claimFirstRunNotice,
@@ -20,63 +23,19 @@ import {
 } from './telemetry'
 import {listTemplates, templateAliasFor} from './template-catalog'
 
-type KnownCommand =
-  | 'build'
-  | 'capabilities'
-  | 'create'
-  | 'dev'
-  | 'doctor'
-  | 'eval'
-  | 'inspect'
-  | 'install'
-  | 'logs'
-  | 'navigate'
-  | 'open'
-  | 'preview'
-  | 'publish'
-  | 'reload'
-  | 'start'
-  | 'storage'
-  | 'telemetry'
-  | 'uninstall'
-  | 'unknown'
+export {KNOWN_COMMANDS}
 
-// Every command the CLI registers. An unlisted verb reports as 'unknown', which
-// is what keeps a project path or a typo out of the payload, so the list has to
-// stay complete or half the failures land under 'unknown'. A spec pins it to the
-// registered commands.
-export const KNOWN_COMMANDS: ReadonlySet<KnownCommand> = new Set([
-  'build',
-  'capabilities',
-  'create',
-  'dev',
-  'doctor',
-  'eval',
-  'inspect',
-  'install',
-  'logs',
-  'navigate',
-  'open',
-  'preview',
-  'publish',
-  'reload',
-  'start',
-  'storage',
-  'telemetry',
-  'uninstall',
-  'unknown'
-])
+// Same scan the JSON envelope uses, so `--output json dev` reports `dev` in
+// both places instead of reading the flag's value as the command.
+export function detectInvokedCommand(
+  argv: string[],
+  valuedFlags: ReadonlySet<string> = new Set()
+): KnownCommand {
+  const arg = resolveCommandFromArgv(argv, valuedFlags)
 
-export function detectInvokedCommand(argv: string[]): KnownCommand {
-  for (let i = 2; i < argv.length; i += 1) {
-    const arg = argv[i]
-    if (!arg || arg.startsWith('-')) continue
-    if (KNOWN_COMMANDS.has(arg as KnownCommand)) return arg as KnownCommand
-
-    return 'unknown'
-  }
-
-  return 'unknown'
+  return arg && KNOWN_COMMANDS.has(arg as KnownCommand)
+    ? (arg as KnownCommand)
+    : 'unknown'
 }
 
 function readArgValue(argv: string[], names: string[]): string | undefined {
@@ -147,6 +106,8 @@ export function telemetryCommandContext(
   browser_install?: string
   browser_install_browser?: string
   browser_install_seconds?: number
+  deps_install?: string
+  deps_install_seconds?: number
 } {
   // Whether the first-run download offer converts, on whichever command made
   // it. Four fixed outcomes and a managed browser name, never a path.
@@ -163,15 +124,19 @@ export function telemetryCommandContext(
 
   if (command !== 'create') return installContext
 
+  const deps = readDependencyInstall()
+
   return {
     ...installContext,
     template: advertisedTemplateName(readArgValue(argv, ['--template', '-t'])),
-    source: createSourceTag(readArgValue(argv, ['--source']))
+    source: createSourceTag(readArgValue(argv, ['--source'])),
+    ...(deps ? {deps_install: deps.outcome} : {}),
+    ...(deps?.seconds === undefined ? {} : {deps_install_seconds: deps.seconds})
   }
 }
 
 const consent = resolveTelemetryConsent(process.argv)
-const invoked = detectInvokedCommand(process.argv)
+let invoked = detectInvokedCommand(process.argv)
 const version = String(getCliPackageJson().version || '0.0.0')
 
 export const telemetry = new Telemetry({
@@ -191,6 +156,15 @@ export function getTelemetryConsent(): {
 // command never got to mark itself.
 export function invokedCommand(): string {
   return invoked
+}
+
+// The first scan runs before any command registers its flags. Once they all
+// have, the entry point resolves again with the flags that take a value.
+export function resolveInvokedCommand(
+  argv: string[],
+  valuedFlags: ReadonlySet<string>
+): void {
+  invoked = detectInvokedCommand(argv, valuedFlags)
 }
 
 export function setTelemetryConsent(value: 'enabled' | 'disabled'): {
@@ -322,6 +296,15 @@ export function markCommandFailure(
     ...(exitCode === undefined ? {} : {exit_code: exitCode}),
     ...telemetryCommandContext(command)
   })
+}
+
+// For a refusal that ends in a bare process.exit, which skips beforeExit and
+// so the queued send. Bounded like the crash path, and only a failing run pays it.
+export function reportCommandFailureNow(
+  details: CommandFailureDetails = {}
+): void {
+  markCommandFailure(undefined, details)
+  telemetry.flushSync(CRASH_FLUSH_TIMEOUT_MS)
 }
 
 function printOptOutNoticeIfFirstRun(): void {

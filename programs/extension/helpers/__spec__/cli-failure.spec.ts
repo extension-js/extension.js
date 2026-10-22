@@ -200,6 +200,37 @@ describe('commanderHumanError', () => {
   })
 })
 
+describe('commanderHumanError for verbs other scaffolders use', () => {
+  for (const verb of ['init', 'new']) {
+    it(`points ${verb} at create`, () => {
+      const lines = humanLines(
+        {
+          code: 'commander.unknownCommand',
+          message: `error: unknown command '${verb}'`
+        },
+        'extension'
+      )
+
+      expect(lines[0]).toBe(`⏵⏵⏵ Unknown command ${verb}.`)
+      expect(lines[1]).toBe(
+        'Run extension create my-extension to start a new extension.'
+      )
+    })
+  }
+
+  it('keeps the help remedy for any other unknown verb', () => {
+    const lines = humanLines(
+      {
+        code: 'commander.unknownCommand',
+        message: "error: unknown command 'frobnicate'"
+      },
+      'extension'
+    )
+
+    expect(lines[1]).toBe('Run extension --help to see the commands.')
+  })
+})
+
 describe('internalErrorEnvelope', () => {
   it('frames an unhandled throw as E_INTERNAL', () => {
     const frame = internalErrorEnvelope(new TypeError('boom'), 'dev')

@@ -8,7 +8,6 @@
 
 import * as fs from 'node:fs'
 import {createRequire, register as registerModuleHooks} from 'node:module'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import {pathToFileURL} from 'node:url'
 import * as vm from 'node:vm'
@@ -92,6 +91,30 @@ function loadCommonJsConfigWithStableDirname(absolutePath: string) {
   fn(exports, requireFn, module, absolutePath, dirname)
 
   return unwrapDefaultExport(module.exports)
+}
+
+// Node's CJS loader covers what the vm wrapper cannot (a hashbang line). A
+// sibling copy keeps relative requires and __dirname pointing at the project.
+export function requireCommonJsCopyBesideSource(absolutePath: string) {
+  const requireFn = createRequire(absolutePath)
+  const siblingCjsPath = path.join(
+    path.dirname(absolutePath),
+    `.${path.basename(absolutePath, path.extname(absolutePath))}.${process.pid}-${Date.now()}.cjs`
+  )
+
+  try {
+    fs.copyFileSync(absolutePath, siblingCjsPath)
+
+    return requireFn(siblingCjsPath) as ParsedJson
+  } finally {
+    delete requireFn.cache[siblingCjsPath]
+
+    try {
+      fs.rmSync(siblingCjsPath, {force: true})
+    } catch {
+      // Ignore
+    }
+  }
 }
 
 function findNearestWorkspaceRoot(startDir: string): string | undefined {
@@ -432,27 +455,7 @@ async function loadConfigFileUncached(
             try {
               required = loadCommonJsConfigWithStableDirname(absolutePath)
             } catch {
-              // Fallback: legacy behavior (temp copy + require). This may break __dirname,
-              // but keeps compatibility for edge cases where vm evaluation fails.
-              const tmpDir = fs.mkdtempSync(
-                path.join(os.tmpdir(), 'extension-config-')
-              )
-
-              try {
-                const tmpCjsPath = path.join(
-                  tmpDir,
-                  path.basename(absolutePath, path.extname(absolutePath)) +
-                    '.cjs'
-                )
-                fs.copyFileSync(absolutePath, tmpCjsPath)
-                required = requireFn(tmpCjsPath)
-              } finally {
-                try {
-                  fs.rmSync(tmpDir, {recursive: true, force: true})
-                } catch {
-                  // Ignore
-                }
-              }
+              required = requireCommonJsCopyBesideSource(absolutePath)
             }
           } else {
             throw requireErr

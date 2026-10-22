@@ -14,6 +14,7 @@ import {type CodedError, codedError} from './coded-error'
 import * as messages from './messages'
 import {CODES, type ErrorCode} from './messaging'
 import {tokenExpiry} from './remote-archive'
+import {renameSyncWithRetry} from './rename-with-retry'
 import {sessionArtifactsRootDir} from './session-paths'
 
 function isZipBuffer(buffer: Buffer): boolean {
@@ -101,7 +102,7 @@ function moveSessionArtifacts(from: string, to: string): void {
 
   fs.rmSync(target, {recursive: true, force: true})
   fs.mkdirSync(path.dirname(target), {recursive: true})
-  fs.renameSync(kept, target)
+  renameSyncWithRetry(kept, target)
 }
 
 // An extraction replaces the destination instead of merging into it, so a
@@ -126,7 +127,7 @@ function extractBuffer(entries: ZipEntries, destinationPath: string): void {
     fs.mkdirSync(path.dirname(root), {recursive: true})
 
     try {
-      fs.renameSync(staging, root)
+      renameSyncWithRetry(staging, root)
     } catch {
       // The staging directory is a sibling, so a rename only fails on a file
       // system that refuses it outright. Copy, then drop the staged tree.
