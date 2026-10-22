@@ -52,6 +52,44 @@ jobs:
           # step, so no step needs the workflow token stored in git config.
           persist-credentials: false
 
+      # A release that died between the tag and npm (a publish npm was still
+      # processing when the visibility wait gave up, on 2026-09-04 and on
+      # 2026-10-22) is resumed by re-running the failed job or by dispatching
+      # the workflow again. Both have to publish the tagged commit: a re-run
+      # checks out the commit the workflow was dispatched on, before the
+      # bump, and a new dispatch checks out whatever main holds by then. So
+      # when the tag exists and carries the version in every package, the
+      # job checks the tag out here, before anything is installed or built.
+      # The later steps then skip the bump, the tag, the release, the
+      # announcements and the changelog, and publish what npm does not have.
+      - name: Resume from the release tag when it exists
+        id: resume
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_CHANNEL: ${{ inputs.channel }}
+        run: |
+          VERSION=$(echo "$INPUT_VERSION" | xargs)
+          RESUME=false
+          if [ "$INPUT_CHANNEL" != "canary" ] && [ -n "$VERSION" ] \
+            && git ls-remote --tags origin | grep -q "refs/tags/v$VERSION$"; then
+            git rev-parse -q --verify "refs/tags/v$VERSION^{commit}" >/dev/null \
+              || git fetch --quiet --no-tags origin "refs/tags/v$VERSION:refs/tags/v$VERSION"
+            ALL_BUMPED=true
+            for d in programs/extension programs/develop programs/create programs/install; do
+              TAGGED=$(git show "refs/tags/v$VERSION:$d/package.json" | node -p "JSON.parse(require('fs').readFileSync(0, 'utf8')).version")
+              [ "$TAGGED" = "$VERSION" ] || ALL_BUMPED=false
+            done
+            if [ "$ALL_BUMPED" = "true" ]; then
+              RESUME=true
+              git checkout --quiet "refs/tags/v$VERSION"
+              echo "tag v$VERSION exists and carries the version: resuming the publish from $(git rev-parse --short HEAD)"
+            else
+              echo "tag v$VERSION already exists on origin and its packages are not at $VERSION" >&2
+              exit 1
+            fi
+          fi
+          echo "resume=$RESUME" >> "$GITHUB_OUTPUT"
+
       # `extension create` scaffolds from a pinned extension-js/examples
       # commit. A release used to ship whatever pin the last repin PR left,
       # so fixes that landed in the corpus since never reached a fresh
@@ -61,7 +99,7 @@ jobs:
       # and the tests below fail the release with that reason. Escape hatch
       # for an urgent release: EXTENSION_SKIP_TEMPLATE_REPIN=1.
       - name: Repin the template catalog to the examples corpus head
-        if: ${{ inputs.channel != 'canary' }}
+        if: ${{ inputs.channel != 'canary' && steps.resume.outputs.resume != 'true' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -179,23 +217,13 @@ jobs:
           fi
 
           SHOULD_TAG=true
-          RESUME=false
+          RESUME='${{ steps.resume.outputs.resume }}'
           if [ "$CHANNEL" = "canary" ]; then SHOULD_TAG=false; fi
-          if [ "$SHOULD_TAG" = "true" ]; then
+          # The resume step above checked the tag out when it carries the
+          # version; a tag that exists without that is a version already cut.
+          if [ "$SHOULD_TAG" = "true" ] && [ "$RESUME" != "true" ]; then
             if git ls-remote --tags origin | grep -q "refs/tags/v$VERSION$"; then
-              # The tag exists. When every package on this checkout already
-              # carries the version, the bump commit landed and a previous run
-              # died between the tag and npm (a publish that npm was still
-              # processing when the visibility check gave up, on 2026-09-04).
-              # Resume: skip the bump, the tag, the release, the announcements
-              # and the changelog, and publish whatever npm does not have.
-              ALL_BUMPED=$(node -p "['programs/extension','programs/develop','programs/create','programs/install'].every(d=>require('./'+d+'/package.json').version===process.argv[1])" "$VERSION")
-              if [ "$ALL_BUMPED" = "true" ]; then
-                RESUME=true
-                echo "tag v$VERSION exists and main is bumped to it: resuming the publish"
-              else
-                echo "tag v$VERSION already exists on origin" >&2; exit 1
-              fi
+              echo "tag v$VERSION already exists on origin" >&2; exit 1
             fi
           fi
 
