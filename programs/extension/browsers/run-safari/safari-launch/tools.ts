@@ -55,6 +55,12 @@ export interface SafariPipelineTools {
   startWebDriver(port: number): Promise<SafariWebDriverProcess>
   listAutomationPids(): Promise<number[]>
   listAppPids(appPath: string): Promise<number[]>
+  // `codesign -dv --verbose=2 <app>`: the signature the app on disk carries,
+  // which is what Safari sees, as opposed to what the build asked for.
+  readCodeSignature(appPath: string): Promise<SafariToolResult>
+  // Xcode's own account preferences, the teams it can sign for. Best effort:
+  // an empty string when they cannot be read.
+  readXcodeTeams(): Promise<string>
 }
 
 // safaridriver raises Safari with `--automation` in its argv, which is the one
@@ -206,6 +212,17 @@ export function createSafariTools(): SafariPipelineTools {
       spawnWebDriverProcess('safaridriver', ['-p', String(port)]),
     listAutomationPids: () => listPidsWhere(isAutomationSafariArgs),
     listAppPids: (appPath) =>
-      listPidsWhere((args) => isContainerAppArgs(appPath, args))
+      listPidsWhere((args) => isContainerAppArgs(appPath, args)),
+    readCodeSignature: (appPath) =>
+      runTool('codesign', ['-dv', '--verbose=2', appPath], {quiet: true}),
+    readXcodeTeams: async () => {
+      const {ok, output} = await runTool(
+        'defaults',
+        ['read', 'com.apple.dt.Xcode', 'IDEProvisioningTeams'],
+        {quiet: true}
+      )
+
+      return ok ? output : ''
+    }
   }
 }

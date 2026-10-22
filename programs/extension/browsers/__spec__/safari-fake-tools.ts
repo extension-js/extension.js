@@ -24,6 +24,12 @@ export interface FakeSafariToolsOptions {
   // The argv fragment that marks a stand-in container app in the real process
   // list. Unset means the app never shows up as running.
   appMatch?: string
+  // What codesign answers for the built app. Unset means the signature the
+  // fake xcodebuild wrote into the app: the DEVELOPMENT_TEAM it was given, or
+  // ad-hoc without one.
+  codesign?: {output: string}
+  // What `defaults read com.apple.dt.Xcode IDEProvisioningTeams` answers.
+  xcodeTeams?: string
 }
 
 export interface FakeSafariTools extends SafariPipelineTools {
@@ -35,6 +41,8 @@ export interface FakeSafariTools extends SafariPipelineTools {
     resolvePid: string[]
     pluginkit: number
     webdriver: number[]
+    codesign: string[]
+    xcodeTeams: number
   }
   webdriverProcesses: SafariWebDriverProcess[]
   // Every tool call and logger line in the order the pipeline made them, so a
@@ -71,16 +79,51 @@ function writeConvertedProject(args: string[]) {
   )
 }
 
-// What a green xcodebuild leaves behind: the .app under the derived data path.
+const FAKE_SIGNATURE_FILE = path.join('Contents', 'fake-codesign.txt')
+
+// The codesign rows a real build carries: the team it was signed with, or
+// the ad-hoc marks when no team was given.
+function signatureRowsFor(args: string[]): string {
+  const team = args
+    .map((arg) => /^DEVELOPMENT_TEAM=(.+)$/.exec(arg)?.[1] || '')
+    .find((value) => value.length > 0)
+
+  return team
+    ? `Identifier=com.fake.app\nFormat=app bundle with Mach-O thin (arm64)\nTeamIdentifier=${team}\n`
+    : 'Identifier=com.fake.app\nFormat=app bundle with Mach-O thin (arm64)\nSignature=adhoc\nTeamIdentifier=not set\n'
+}
+
+// What a green xcodebuild leaves behind: the .app under the derived data path,
+// carrying the signature the arguments asked for.
 function writeBuiltApp(args: string[]) {
   const derivedData = argAfter(args, '-derivedDataPath')
   const project = argAfter(args, '-project')
   const appName = path.basename(project, '.xcodeproj')
-
-  fs.mkdirSync(
-    path.join(derivedData, 'Build', 'Products', 'Release', `${appName}.app`),
-    {recursive: true}
+  const appPath = path.join(
+    derivedData,
+    'Build',
+    'Products',
+    'Release',
+    `${appName}.app`
   )
+
+  fs.mkdirSync(path.join(appPath, 'Contents'), {recursive: true})
+  fs.writeFileSync(
+    path.join(appPath, FAKE_SIGNATURE_FILE),
+    signatureRowsFor(args),
+    'utf8'
+  )
+}
+
+function readFakeSignature(appPath: string): SafariToolResult {
+  try {
+    return result(
+      0,
+      fs.readFileSync(path.join(appPath, FAKE_SIGNATURE_FILE), 'utf8')
+    )
+  } catch {
+    return result(1, `${appPath}: code object is not signed at all`)
+  }
 }
 
 function result(code: number, output: string): SafariToolResult {
@@ -109,7 +152,9 @@ export function fakeSafariTools(
       openSafari: [],
       resolvePid: [],
       pluginkit: 0,
-      webdriver: []
+      webdriver: [],
+      codesign: [],
+      xcodeTeams: 0
     },
     webdriverProcesses: [],
     events: [],
@@ -200,6 +245,20 @@ export function fakeSafariTools(
       if (!match) return Promise.resolve([])
 
       return listPidsWhere((args) => args.includes(match))
+    },
+    readCodeSignature: async (appPath) => {
+      tools.calls.codesign.push(appPath)
+      tools.events.push('codesign')
+
+      return options.codesign
+        ? result(0, options.codesign.output)
+        : readFakeSignature(appPath)
+    },
+    readXcodeTeams: async () => {
+      tools.calls.xcodeTeams += 1
+      tools.events.push('xcodeTeams')
+
+      return options.xcodeTeams ?? ''
     }
   }
 
