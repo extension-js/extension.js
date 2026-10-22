@@ -719,6 +719,59 @@ describe('dependency attribution', () => {
     expect(line).not.toContain('EXTENSION_PUBLIC_BROWSER')
   })
 
+  it('writes the notes to reviewer beside the browser folder and says where', async () => {
+    const root = project()
+    const output: AddonLintOutput = {
+      warnings: [
+        {
+          code: 'UNSAFE_VAR_ASSIGNMENT',
+          message: 'Unsafe assignment to innerHTML',
+          file: 'shared/framework.js',
+          line: 1
+        },
+        {
+          code: 'UNSUPPORTED_API',
+          message: 'offscreen.createDocument is not supported',
+          file: 'background/scripts.js',
+          line: 29
+        }
+      ]
+    }
+    const result = await runAddonLint({
+      ...baseInput(root),
+      loadLinter: fakeLinter(output),
+      chunkProvenance: () => provenance
+    })
+
+    expect(result.status).toBe('linted')
+    if (result.status !== 'linted') return
+
+    expect(result.reviewerNote?.path).toBe(
+      path.join(root, 'dist', 'amo-reviewer-note.md')
+    )
+
+    expect(stripAnsi(result.reviewerNote?.line || '')).toContain(
+      `Notes to reviewer for addons.mozilla.org written to ${path.join('dist', 'amo-reviewer-note.md')}`
+    )
+
+    const note = fs.readFileSync(result.reviewerNote?.path as string, 'utf8')
+    expect(note).toContain('### react')
+    expect(note).toContain('unmodified from npm')
+    expect(note).toContain(
+      '## Findings in the extension author code\n\nThese are not library noise and must not be presented as such.\n\n- UNSUPPORTED_API: offscreen.createDocument is not supported (background/scripts.js:29)'
+    )
+
+    // The printed lines are the same as before, apart from the note line.
+    expect(result.lines.map(stripAnsi)).toEqual(
+      formatAddonLintFindings(
+        output,
+        'dist/firefox',
+        ADDON_LINT_MAX_PRINTED,
+        provenance
+      ).lines.map(stripAnsi)
+    )
+  })
+
   it('never walks the chunk graph when the lint is skipped', async () => {
     const root = project()
     let walked = 0

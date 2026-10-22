@@ -6,8 +6,14 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import * as path from 'node:path'
+import {
+  ADDON_REVIEWER_NOTE_FILE,
+  AUTHOR_ONLY_CODES,
+  writeAddonReviewerNote
+} from './addon-reviewer-note'
 import type {AddonLintSummary} from './build-summary'
-import type {ChunkProvenance} from './chunk-dependency-provenance'
+import {type ChunkProvenance, chunkFileOf} from './chunk-dependency-provenance'
 import {isGeckoBasedBrowser} from './constants'
 import * as messages from './messages'
 import {
@@ -70,7 +76,12 @@ export type AddonLintResult =
   | {status: 'skipped'; reason: 'disabled' | 'mode' | 'browser'}
   | {status: 'missing'; hint: string | null}
   | {status: 'failed'; reason: string; line: string; debugLine: string}
-  | {status: 'linted'; findings: number; lines: string[]}
+  | {
+      status: 'linted'
+      findings: number
+      lines: string[]
+      reviewerNote: {path: string; line: string} | null
+    }
 
 type LinterModule = {
   createInstance: (options: {
@@ -216,19 +227,6 @@ export function collectAddonLintLines(
     })
 }
 
-// A finding that names a browser API by name is the author's: no library
-// calls chrome.offscreen, whatever else the same file bundles.
-export const AUTHOR_ONLY_CODES = new Set(['UNSUPPORTED_API'])
-
-// The map is keyed by the bundler's chunk names, which are always POSIX,
-// while a Windows linter run reports the same file back separated by \.
-export function chunkFileOf(location: string): string {
-  return location
-    .split(':')[0]
-    .replace(/\\/g, '/')
-    .replace(/^\.?\//, '')
-}
-
 // The linter locates a finding by its path inside dist, which is the emitted
 // chunk name the provenance map is keyed by.
 export function attributionFor(
@@ -284,6 +282,35 @@ export function formatAddonLintFindings(
   }
 
   return {findings: all.length, lines}
+}
+
+// The note is a convenience beside the findings, so a disk that refuses it
+// costs the line that names it and nothing else.
+function reviewerNoteFor(
+  input: RunAddonLintInput,
+  output: AddonLintOutput,
+  chunkProvenance?: Map<string, ChunkProvenance>
+) {
+  try {
+    const written = writeAddonReviewerNote({
+      projectPath: input.projectPath,
+      distPath: input.distPath,
+      distDisplay: input.distDisplay,
+      lines: collectAddonLintLines(output),
+      chunkProvenance
+    })
+
+    if (!written) return null
+
+    return {
+      path: written,
+      line: messages.addonLintReviewerNote(
+        path.join(path.dirname(input.distDisplay), ADDON_REVIEWER_NOTE_FILE)
+      )
+    }
+  } catch {
+    return null
+  }
 }
 
 class AddonLintTimeout extends Error {}
@@ -360,15 +387,18 @@ export async function runAddonLint(
       input.timeoutMs ?? ADDON_LINT_TIMEOUT_MS
     )
 
+    const chunkProvenance = input.chunkProvenance?.()
+
     return {
       status: 'linted',
       ...formatAddonLintFindings(
         output,
         input.distDisplay,
         ADDON_LINT_MAX_PRINTED,
-        input.chunkProvenance?.(),
+        chunkProvenance,
         input.browser
-      )
+      ),
+      reviewerNote: reviewerNoteFor(input, output, chunkProvenance)
     }
   } catch (error) {
     return failedAddonLint(error, input.distDisplay)

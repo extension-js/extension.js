@@ -549,6 +549,9 @@ export async function extensionBuild(
               if (isDebug()) lintLines.push(lint.debugLine)
             } else if (lint.status === 'linted' && lint.findings > 0) {
               lintLines.push(...lint.lines)
+              // Printed, never a warning: it only says where the note is.
+              if (lint.reviewerNote) lintLines.push(lint.reviewerNote.line)
+
               summary = {
                 ...summary,
                 warnings_count: summary.warnings_count + lint.findings,

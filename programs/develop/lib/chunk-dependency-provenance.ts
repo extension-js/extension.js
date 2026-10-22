@@ -29,6 +29,15 @@ interface ChunkGraphLike {
   getChunkModulesIterable: (chunk: never) => Iterable<unknown>
 }
 
+// The map is keyed by the bundler's chunk names, which are always POSIX,
+// while a Windows linter run reports the same file back separated by \.
+export function chunkFileOf(location: string): string {
+  return location
+    .split(':')[0]
+    .replace(/\\/g, '/')
+    .replace(/^\.?\//, '')
+}
+
 export interface CompilationLike {
   chunks?: Iterable<unknown>
   chunkGraph?: ChunkGraphLike

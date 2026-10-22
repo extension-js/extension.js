@@ -434,6 +434,13 @@ export function addonLintUnsupportedApiFix(browser: string) {
   )
 }
 
+export function addonLintReviewerNote(noteDisplay: string) {
+  return (
+    `${getLoggingPrefix('info')} Notes to reviewer for addons.mozilla.org written to ${colors.underline(noteDisplay)}. ` +
+    `Paste its bundled libraries section into the submission, the author findings are yours to fix.`
+  )
+}
+
 export function addonLintMore(hiddenCount: number, distDisplay: string) {
   return (
     `${getLoggingPrefix('info')} ${pluralize(hiddenCount, 'more finding')} not shown. ` +
