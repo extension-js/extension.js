@@ -1089,10 +1089,13 @@ export function safariOpening(target: string) {
   return `${getLoggingPrefix('info')} Opening ${colors.underline(target)}`
 }
 
+// `cause` is the one line the tool's own output buried, named before the raw
+// tail so the user reads the reason and the remedy without grepping for them.
 export function safariToolFailed(
   tool: string,
   exitCode: number | null,
-  outputTail: string
+  outputTail: string,
+  cause?: string
 ) {
   const code = exitCode === null ? 'no exit code' : `exit ${exitCode}`
   const tail = outputTail.trim().length
@@ -1101,8 +1104,66 @@ export function safariToolFailed(
 
   return (
     `${getLoggingPrefix('error')} Safari packaging tool ${colors.underline(tool)} ` +
-    `failed (${colors.red(code)}).${tail}`
+    `failed (${colors.red(code)}).${cause ? `\n${cause}` : ''}${tail}`
   )
+}
+
+export interface SafariKnownTeam {
+  id: string
+  name: string | null
+}
+
+function safariKnownTeamsList(teams: SafariKnownTeam[]) {
+  return teams
+    .map((team) =>
+      team.name
+        ? `${colors.yellow(team.id)} (${team.name})`
+        : colors.yellow(team.id)
+    )
+    .join(', ')
+}
+
+// The three ways out of a team Xcode cannot sign for, one action per line.
+// Each caller prefixes the lines for its own shape (`- ` in an error remedy,
+// `→` in the setup footnotes).
+export function safariTeamRemedyLines(
+  team: string,
+  knownTeams: SafariKnownTeam[] = []
+) {
+  const known = knownTeams.length
+    ? `Set ${colors.blue('developmentTeam')} to a team Xcode knows: ${safariKnownTeamsList(knownTeams)}.`
+    : `Set ${colors.blue('developmentTeam')} to a team Xcode is signed into.`
+
+  return [
+    `Sign in to Xcode (Settings, Accounts) with the Apple ID that owns team ${colors.yellow(team)}.`,
+    known,
+    `Drop ${colors.blue('developmentTeam')} for an ad-hoc build.`
+  ]
+}
+
+// xcodebuild said "No Account for Team": the configured team is one Xcode
+// cannot sign for, so the build could not be signed as asked.
+export function safariNoAccountForTeam(
+  team: string,
+  knownTeams: SafariKnownTeam[] = []
+) {
+  return (
+    `Xcode has no account for team ${colors.yellow(team)}, so it couldn't sign the app with it.\n` +
+    safariTeamRemedyLines(team, knownTeams)
+      .map((line) => `- ${line}`)
+      .join('\n')
+  )
+}
+
+// What codesign read off the built app, next to what the build asked for.
+export interface SafariSigningNote {
+  // The team the app on disk is signed with, null for an ad-hoc signature.
+  team?: string | null
+  // The developmentTeam the configuration asked for, when any.
+  requestedTeam?: string
+  // xcodebuild named the requested team in a "No Account for Team" line.
+  noAccount?: boolean
+  knownTeams?: SafariKnownTeam[]
 }
 
 // Apple's converter table is years out of date, so it also flags keys the
@@ -1163,7 +1224,11 @@ export function safariDryRunXcodebuild(cmd: string) {
   return `${getLoggingPrefix('info')} xcodebuild: ${colors.gray(cmd)}.`
 }
 
-export function safariNextSteps(appName: string, signed?: boolean) {
+export function safariNextSteps(
+  appName: string,
+  signed?: boolean,
+  signing: SafariSigningNote = {}
+) {
   const name = colors.yellow(appName)
   const unsignedStep = signed
     ? ''
@@ -1178,15 +1243,47 @@ export function safariNextSteps(appName: string, signed?: boolean) {
     `  ${colors.gray('→')} Use a regular Safari window for this, a trip to Settings from the automation window ends the WebDriver session.\n`
 
   if (signed) {
+    const team = signing.team
+      ? `team ${colors.yellow(signing.team)}`
+      : 'your team id'
+
     return (
       steps +
-      `  ${colors.gray('→')} Signed with your team id, so the identity is stable for distribution.`
+      `  ${colors.gray('→')} Signed with ${team}, so the identity is stable for distribution.`
     )
   }
 
+  const adHoc = `  ${colors.gray('→')} Ad-hoc signed, so Safari lists it only while unsigned extensions are allowed. Safari keys stored data on the appex id, so ${colors.yellow('storage.local')} survives rebuilds.`
+  const requested = String(signing.requestedTeam || '').trim()
+
+  if (!requested) return steps + adHoc
+
+  // The configuration asked for a team and the app on disk carries none, so
+  // the line says what happened instead of echoing the configuration.
+  const why = signing.noAccount
+    ? 'Xcode has no account for that team'
+    : 'Xcode did not sign with it'
+
   return (
     steps +
-    `  ${colors.gray('→')} Ad-hoc signed, so Safari lists it only while unsigned extensions are allowed. Safari keys stored data on the appex id, so ${colors.yellow('storage.local')} survives rebuilds.`
+    `  ${colors.gray('→')} Ad-hoc signed although ${colors.blue('developmentTeam')} ${colors.yellow(requested)} was set: ${why}.\n` +
+    safariTeamRemedyLines(requested, signing.knownTeams)
+      .map((line) => `  ${colors.gray('→')} ${line}`)
+      .join('\n')
+  )
+}
+
+// The signature decides the identity Safari files the extension under, so a
+// build whose team changed (ad-hoc to team, team to team) is a new extension
+// to Safari and has to be enabled again.
+export function safariSigningChanged(
+  appName: string,
+  before: string,
+  after: string
+) {
+  return (
+    `${getLoggingPrefix('info')} ${colors.yellow(appName)} is now ${after} signed and the last build was ${before} signed, ` +
+    `so Safari treats it as a new extension and the setup steps run again.`
   )
 }
 

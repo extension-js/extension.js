@@ -1074,6 +1074,7 @@ describe('safari pipeline through the injected tool host', () => {
     expect(processEvents(tools)).toEqual([
       'converter',
       'xcodebuild',
+      'codesign',
       'openApp',
       'resolvePid',
       'pluginkit'
@@ -1121,7 +1122,15 @@ describe('safari pipeline through the injected tool host', () => {
     })
 
     expect(tools.calls.xcodebuild[0]).toContain('DEVELOPMENT_TEAM=TEAM123')
-    expect(logs).toContain(messages.safariNextSteps('MyExt', true))
+    // The line reads the team off the built app, not the configuration.
+    expect(logs).toContain(
+      messages.safariNextSteps('MyExt', true, {
+        team: 'TEAM123',
+        requestedTeam: 'TEAM123',
+        noAccount: false,
+        knownTeams: []
+      })
+    )
   })
 
   it('resync: reuses a fresh project, rebuilds, and neither opens nor mentions skipping', async () => {

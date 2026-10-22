@@ -44,6 +44,17 @@ import {
   saveManifestFingerprint,
   xcodeProjectPath
 } from './safari-config'
+import {
+  describeSignature,
+  noAccountForTeam,
+  parseCodeSignature,
+  parseXcodeTeams,
+  readSignatureRecord,
+  type SafariCodeSignature,
+  saveSignatureRecord,
+  signatureKey,
+  type XcodeTeam
+} from './signature'
 import {detectSafariToolchain} from './toolchain'
 import {
   createSafariTools,
@@ -151,11 +162,16 @@ function switchWord(value: string | null): string | null {
   return value
 }
 
+// Which team Safari filed the appex under is the one codesign read off the
+// app, not the one the configuration asked for. A build that ended ad-hoc
+// despite a configured team lives under UNSIGNED, and the switch to flip is
+// that one.
 async function enableThroughSafariUi(
   host: SafariPluginLike,
   config: SafariBuildConfig,
   appPath: string,
-  logger: BrowserLogger
+  logger: BrowserLogger,
+  signedTeam: string | null
 ): Promise<boolean> {
   const uiTools = host.uiTools || createSafariUiTools()
   const access = await checkAccessibility(uiTools)
@@ -170,7 +186,7 @@ async function enableThroughSafariUi(
     const report = await enableSafariExtension({
       target: {
         bundleId: config.bundleIdentifier,
-        developmentTeam: config.developmentTeam
+        developmentTeam: signedTeam ?? undefined
       },
       appPath,
       tools: uiTools,
@@ -220,6 +236,31 @@ async function enableThroughSafariUi(
     }
 
     return false
+  }
+}
+
+async function readAppSignature(
+  tools: SafariPipelineTools,
+  appPath: string
+): Promise<SafariCodeSignature> {
+  try {
+    const {output} = await tools.readCodeSignature(appPath)
+
+    return parseCodeSignature(output)
+  } catch {
+    return {signed: false, team: null}
+  }
+}
+
+// Best effort: the teams only decorate a remedy, so an unreadable preference
+// file yields an empty list and never a failure.
+async function listXcodeTeams(
+  tools: SafariPipelineTools
+): Promise<XcodeTeam[]> {
+  try {
+    return parseXcodeTeams(await tools.readXcodeTeams())
+  } catch {
+    return []
   }
 }
 
@@ -367,11 +408,6 @@ async function runSafariPipeline(
   const converterArgs = composeConverterArgs(config)
   const xcodebuildArgs = composeXcodebuildArgs(config)
 
-  // Which set of enabling steps the user is about to be told to follow. Read
-  // from the resolved config rather than the raw flag so extension.config.js
-  // counts the same as --development-team.
-  const isSigned = Boolean(config.developmentTeam)
-
   if (host.dryRun) {
     logSafariDryRun(
       `xcrun ${converterArgs.join(' ')}`,
@@ -486,6 +522,7 @@ async function runSafariPipeline(
   const buildFingerprint = composeBuildFingerprint(config, xcodebuildArgs)
   const reuseBuild =
     !needsConversion && isBuildCurrent(config, buildFingerprint)
+  let buildOutput = ''
 
   if (reuseBuild) {
     // Nothing xcodebuild reads changed, so the app on disk is this build. A
@@ -502,15 +539,60 @@ async function runSafariPipeline(
 
     if (!built.ok) {
       const tail = toolOutputTail(built.output)
-      logger.error?.(messages.safariToolFailed('xcodebuild', built.code, tail))
+      const missingTeam = noAccountForTeam(built.output)
+      const cause = missingTeam
+        ? messages.safariNoAccountForTeam(
+            missingTeam,
+            await listXcodeTeams(tools)
+          )
+        : undefined
 
-      throw new Error(`xcodebuild failed (exit ${built.code})\n${tail}`)
+      logger.error?.(
+        messages.safariToolFailed('xcodebuild', built.code, tail, cause)
+      )
+
+      throw new Error(
+        `xcodebuild failed (exit ${built.code})\n${cause ? `${cause}\n` : ''}${tail}`
+      )
     }
 
+    buildOutput = built.output
     saveBuildFingerprint(config, buildFingerprint)
   }
 
   const appPath = builtAppPath(config)
+
+  // The setup line and the enabling automation go by the signature the app
+  // carries, which is what Safari sees. The configuration only says what was
+  // asked for, and the two part ways when Xcode has no account for the team.
+  const signature = await readAppSignature(tools, appPath)
+  const isSigned = signature.signed
+  const previousSignature = readSignatureRecord(config)
+  const requestedTeam = String(config.developmentTeam || '').trim()
+  const noAccount = Boolean(noAccountForTeam(buildOutput))
+  const signingNote: messages.SafariSigningNote = {
+    team: signature.team,
+    requestedTeam: requestedTeam || undefined,
+    noAccount,
+    knownTeams: !isSigned && requestedTeam ? await listXcodeTeams(tools) : []
+  }
+
+  if (!reuseBuild) {
+    saveSignatureRecord(config, signature)
+
+    if (
+      previousSignature !== null &&
+      previousSignature !== signatureKey(signature)
+    ) {
+      logger.info?.(
+        messages.safariSigningChanged(
+          config.appName,
+          describeSignature(previousSignature),
+          describeSignature(signatureKey(signature))
+        )
+      )
+    }
+  }
 
   // Resync mode (dev rebuilds): just report and stop, no reopen/re-guide.
   if (mode === 'resync') {
@@ -579,7 +661,9 @@ async function runSafariPipeline(
   }
 
   if (!host.enableExtension) {
-    logger.info?.(messages.safariNextSteps(config.appName, isSigned))
+    logger.info?.(
+      messages.safariNextSteps(config.appName, isSigned, signingNote)
+    )
   }
 
   if (await confirmRegisteredWithSafari(tools, config.bundleIdentifier)) {
@@ -589,10 +673,18 @@ async function runSafariPipeline(
   }
 
   if (host.enableExtension) {
-    const enabled = await enableThroughSafariUi(host, config, appPath, logger)
+    const enabled = await enableThroughSafariUi(
+      host,
+      config,
+      appPath,
+      logger,
+      signature.team
+    )
 
     if (!enabled) {
-      logger.info?.(messages.safariNextSteps(config.appName, isSigned))
+      logger.info?.(
+        messages.safariNextSteps(config.appName, isSigned, signingNote)
+      )
     }
   }
 
