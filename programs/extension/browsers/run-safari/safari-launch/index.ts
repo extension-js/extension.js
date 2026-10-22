@@ -489,7 +489,9 @@ async function runSafariPipeline(
 
   if (reuseBuild) {
     // Nothing xcodebuild reads changed, so the app on disk is this build. A
-    // rebuild would re-sign it and Safari would load it as a new appex.
+    // rebuild would re-sign it and Safari would reload the appex. Its storage
+    // stays either way: Safari keys the store on the appex id with UNSIGNED in
+    // the team slot, measured across ad-hoc rebuilds on Safari 27.0.
     if (mode === 'full') logger.info?.(messages.safariBuildUpToDate())
   } else {
     if (mode === 'full') {
@@ -506,12 +508,6 @@ async function runSafariPipeline(
     }
 
     saveBuildFingerprint(config, buildFingerprint)
-
-    // Safari keeps an extension's storage under its appex id and team, so an
-    // ad-hoc build has none to keep: every build it loads starts empty.
-    if (host.announceDevReady && !isSigned) {
-      logger.warn?.(messages.safariStorageReset(config.appName))
-    }
   }
 
   const appPath = builtAppPath(config)
