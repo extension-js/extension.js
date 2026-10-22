@@ -18,6 +18,11 @@ const SESSION_CREATE_MS = 30_000
 const SESSION_CLOSE_MS = 5000
 const AUTOMATION_QUIT_MS = 3000
 
+export const WEBDRIVER_NOT_ASKED_YET =
+  'the launcher has not asked safaridriver for a session yet: it opens the app and enables the extension first, then asks, and this line is replaced by the session or by the reason it got none'
+
+export const WEBDRIVER_SESSION_PENDING = `the launcher is asking safaridriver for a session now: the request alone waits up to ${SESSION_CREATE_MS / 1000} s, and this line is replaced by the session or by the reason it got none`
+
 export interface SafariWebDriverSession {
   port: number
   sessionId: string
