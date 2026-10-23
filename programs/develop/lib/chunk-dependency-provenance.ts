@@ -38,9 +38,15 @@ export function chunkFileOf(location: string): string {
     .replace(/^\.?\//, '')
 }
 
+interface AssetLike {
+  name?: unknown
+  info?: {sourceFilename?: unknown}
+}
+
 export interface CompilationLike {
   chunks?: Iterable<unknown>
   chunkGraph?: ChunkGraphLike
+  getAssets?: () => Iterable<AssetLike>
 }
 
 // The last node_modules segment wins, which is what nesting means: a package
@@ -73,6 +79,16 @@ export function packageNameFromPath(candidate: string): string | null {
 
 function isAbsoluteFilePath(candidate: string): boolean {
   return /^([a-zA-Z]:[\\/]|[\\/])/.test(candidate)
+}
+
+// The bundler records where a copied asset came from relative to the
+// project, so a bare `node_modules/...` needs the slash the lookup keys on.
+function packageNameFromSourceFilename(source: string): string | null {
+  const normalized = source.replace(/\\/g, '/')
+
+  return packageNameFromPath(
+    normalized.startsWith('/') ? normalized : `/${normalized}`
+  )
 }
 
 function pathOfModule(moduleObj: unknown): string | null {
@@ -164,6 +180,30 @@ export function collectChunkDependencyProvenance(
         onlyDependencies: existing.onlyDependencies && entry.onlyDependencies
       })
     }
+  }
+
+  // A script a dependency ships as a file (a worker, a wasm loader) is copied
+  // out under a hashed name instead of bundled, and a store check reads it
+  // like any other script. It is that package's code and nothing else's.
+  let assets: Iterable<AssetLike> | undefined
+
+  try {
+    assets = compilation?.getAssets?.()
+  } catch {
+    assets = undefined
+  }
+
+  for (const asset of assets || []) {
+    const name = asset?.name
+    const source = asset?.info?.sourceFilename
+
+    if (typeof name !== 'string' || typeof source !== 'string') continue
+    if (!/\.[cm]?js$/.test(name) || provenance.has(name)) continue
+
+    const packageName = packageNameFromSourceFilename(source)
+    if (!packageName) continue
+
+    provenance.set(name, {packages: [packageName], onlyDependencies: true})
   }
 
   return provenance
