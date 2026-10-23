@@ -37,6 +37,7 @@ import {
   loadProjectConfigDefaults
 } from './lib/config-loader'
 import {ConfigResolvedPlugin} from './lib/config-resolved-plugin'
+import {removeDevelopmentArtifacts} from './lib/development-artifacts'
 import {
   ensureDevelopArtifacts,
   ensureUserProjectDependencies
@@ -340,6 +341,9 @@ export async function extensionBuild(
       process.env.NODE_ENV = resolvedMode
     }
 
+    const buildType: BuildSummary['buildType'] =
+      resolvedMode === 'development' ? 'development' : 'production'
+
     const baseConfig: Configuration = webpackConfig(projectStructure, {
       ...mergedBuildOptions,
       extensions: resolvedExtensionsConfig,
@@ -422,6 +426,7 @@ export async function extensionBuild(
 
     let summary: BuildSummary = {
       browser,
+      buildType,
       output_path: distPath,
       total_assets: 0,
       total_bytes: 0,
@@ -491,6 +496,10 @@ export async function extensionBuild(
             }
           }
 
+          if (buildType === 'production') {
+            removeDevelopmentArtifacts(displayDistPath)
+          }
+
           // Anonymized aggregates (no filenames or paths)
           const info = stats?.toJson({
             all: false,
@@ -502,6 +511,7 @@ export async function extensionBuild(
           // The summary names the folder the artifacts landed in, which under
           // a re-pointed output.path is not dist/<browser>.
           summary = {
+            ...summary,
             ...getBuildSummary(
               browser,
               info,

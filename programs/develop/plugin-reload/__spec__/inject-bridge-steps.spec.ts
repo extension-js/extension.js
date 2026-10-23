@@ -111,7 +111,8 @@ describe('InjectBridgeProducer', () => {
 
     expect(JSON.parse(getAssetSource('extension-js-control.json'))).toEqual({
       port: 9001,
-      instanceId: 'this-session'
+      instanceId: 'this-session',
+      buildType: 'development'
     })
   })
 
@@ -127,8 +128,43 @@ describe('InjectBridgeProducer', () => {
 
     expect(JSON.parse(getAssetSource('extension-js-control.json'))).toEqual({
       port: 9002,
-      instanceId: 'fresh-session'
+      instanceId: 'fresh-session',
+      buildType: 'development'
     })
+  })
+
+  it('stamps the control file as a development build', () => {
+    process.env.EXTENSION_CONTROL_PORT = '9003'
+    process.env.EXTENSION_INSTANCE_ID = 'stamped-session'
+    const {compiler, runProcessAssets, setAsset, getAssetSource} =
+      makeCompiler()
+    new InjectBridgeProducer().apply(compiler)
+    setAsset('background/service_worker.js', '/* sw */')
+
+    runProcessAssets()
+
+    const control = JSON.parse(getAssetSource('extension-js-control.json'))
+    expect(control.buildType).toBe('development')
+  })
+
+  it('keeps port and instanceId first and unchanged beside the stamp', () => {
+    process.env.EXTENSION_CONTROL_PORT = '9004'
+    process.env.EXTENSION_INSTANCE_ID = 'kept-session'
+    const {compiler, runProcessAssets, setAsset, getAssetSource} =
+      makeCompiler()
+    new InjectBridgeProducer().apply(compiler)
+    setAsset('background/service_worker.js', '/* sw */')
+
+    runProcessAssets()
+
+    const raw = getAssetSource('extension-js-control.json')
+    const {port, instanceId} = JSON.parse(raw)
+    expect({port, instanceId}).toEqual({port: 9004, instanceId: 'kept-session'})
+    expect(Object.keys(JSON.parse(raw))).toEqual([
+      'port',
+      'instanceId',
+      'buildType'
+    ])
   })
 
   it('covers the Firefox background/scripts.js and MV2 background/script.js forms', () => {
@@ -206,7 +242,11 @@ describe('InjectBridgeProducer', () => {
     runProcessAssets()
     const raw = getAssetSource('extension-js-control.json')
     expect(raw).toBeTruthy()
-    expect(JSON.parse(raw)).toEqual({port: 8123, instanceId: 'abc123'})
+    expect(JSON.parse(raw)).toEqual({
+      port: 8123,
+      instanceId: 'abc123',
+      buildType: 'development'
+    })
   })
 
   it('does not emit the control-port file when the bridge is off', () => {

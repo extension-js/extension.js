@@ -33,6 +33,7 @@ export type AddonLintSummary =
 
 export type BuildSummary = {
   browser: string
+  buildType: 'production' | 'development'
   /** Absolute dist directory the build emitted into. Hosts that shell out
    * would otherwise have to re-derive `<project>/dist/<browser>` themselves. */
   output_path?: string
@@ -75,7 +76,7 @@ export function getBuildSummary(
   outputPath?: string,
   outputFiles?: Array<{size: number}>,
   codes?: ReadonlyMap<string, string>
-): BuildSummary {
+): Omit<BuildSummary, 'buildType'> {
   // The stats list leaves out source maps, so the files found in the output
   // folder are what the totals count whenever the folder could be read.
   const assets: Array<{size?: number}> = outputFiles?.length

@@ -160,6 +160,7 @@ describe('webpack/command-build', () => {
     })
     expect(summary).toEqual({
       browser: 'chrome',
+      buildType: 'production',
       output_path: path.join('/proj', 'dist', 'chrome'),
       total_assets: 2,
       total_bytes: 40,
@@ -855,6 +856,160 @@ describe('webpack/command-build', () => {
       expect(persisted.browser).toBe('chrome')
       expect(persisted.warnings_count).toBe(1)
       expect(persisted.warnings).toEqual(['Deprecation: legacy API'])
+    } finally {
+      realFs.rmSync(tmp, {recursive: true, force: true})
+    }
+  })
+
+  it('stamps a production build as buildType production in the summary', async () => {
+    const os = await import('node:os')
+    const realFs = await vi.importActual<typeof import('node:fs')>('node:fs')
+    const tmp = realFs.mkdtempSync(path.join(os.tmpdir(), 'build-type-prod-'))
+    const projectMod = await import('../lib/project')
+    ;(projectMod.getProjectStructure as any).mockResolvedValueOnce({
+      manifestPath: path.join(tmp, 'src', 'manifest.json'),
+      packageJsonPath: path.join(tmp, 'package.json')
+    })
+    ;(fs.existsSync as any).mockImplementation((p: fs.PathLike) =>
+      String(p).endsWith('node_modules')
+    )
+    ;(fs.readdirSync as any).mockReturnValue(['something'])
+    rspackMock.mockReturnValue(
+      makeCompiler({hasErrors: () => false, toJson: () => ({assets: []})})
+    )
+
+    try {
+      const summary = await extensionBuild(tmp, {
+        browser: 'chrome',
+        silent: true
+      })
+
+      expect(summary.buildType).toBe('production')
+
+      const persisted = JSON.parse(
+        realFs.readFileSync(
+          path.join(
+            tmp,
+            'dist',
+            'extension-js',
+            'chrome',
+            'build-summary.json'
+          ),
+          'utf8'
+        )
+      )
+      expect(persisted.buildType).toBe('production')
+      expect(Object.keys(persisted).slice(0, 2)).toEqual([
+        'browser',
+        'buildType'
+      ])
+    } finally {
+      realFs.rmSync(tmp, {recursive: true, force: true})
+    }
+  })
+
+  it('stamps a development mode build as buildType development in the summary', async () => {
+    const os = await import('node:os')
+    const realFs = await vi.importActual<typeof import('node:fs')>('node:fs')
+    const tmp = realFs.mkdtempSync(path.join(os.tmpdir(), 'build-type-dev-'))
+    const projectMod = await import('../lib/project')
+    ;(projectMod.getProjectStructure as any).mockResolvedValueOnce({
+      manifestPath: path.join(tmp, 'src', 'manifest.json'),
+      packageJsonPath: path.join(tmp, 'package.json')
+    })
+    ;(fs.existsSync as any).mockImplementation((p: fs.PathLike) =>
+      String(p).endsWith('node_modules')
+    )
+    ;(fs.readdirSync as any).mockReturnValue(['something'])
+    rspackMock.mockReturnValue(
+      makeCompiler({hasErrors: () => false, toJson: () => ({assets: []})})
+    )
+
+    try {
+      const summary = await extensionBuild(tmp, {
+        browser: 'chrome',
+        silent: true,
+        mode: 'development'
+      })
+
+      expect(summary.buildType).toBe('development')
+
+      const persisted = JSON.parse(
+        realFs.readFileSync(
+          path.join(
+            tmp,
+            'dist',
+            'extension-js',
+            'chrome',
+            'build-summary.json'
+          ),
+          'utf8'
+        )
+      )
+      expect(persisted.buildType).toBe('development')
+    } finally {
+      realFs.rmSync(tmp, {recursive: true, force: true})
+    }
+  })
+
+  it('removes the development artifacts a dev compile left in dist', async () => {
+    const os = await import('node:os')
+    const realFs = await vi.importActual<typeof import('node:fs')>('node:fs')
+    const tmp = realFs.mkdtempSync(path.join(os.tmpdir(), 'build-over-dev-'))
+    const distPath = path.join(tmp, 'dist', 'chrome')
+    const devFiles = [
+      'extension-js-control.json',
+      'hot/main.abc123.hot-update.js',
+      'content_scripts/dev-stub-0.js',
+      'content_scripts/dev-css-1.js',
+      'content_scripts/dev-registry.json'
+    ]
+
+    for (const relative of [
+      ...devFiles,
+      'manifest.json',
+      'content_scripts/content-0.js'
+    ]) {
+      const target = path.join(distPath, relative)
+      realFs.mkdirSync(path.dirname(target), {recursive: true})
+      realFs.writeFileSync(target, '{}')
+    }
+
+    const projectMod = await import('../lib/project')
+    ;(projectMod.getProjectStructure as any).mockResolvedValueOnce({
+      manifestPath: path.join(tmp, 'src', 'manifest.json'),
+      packageJsonPath: path.join(tmp, 'package.json')
+    })
+    ;(fs.existsSync as any).mockImplementation((p: fs.PathLike) =>
+      String(p).endsWith('node_modules')
+    )
+    ;(fs.readdirSync as any).mockImplementation(
+      (p: fs.PathLike, options?: unknown) =>
+        String(p).startsWith(distPath)
+          ? (realFs.readdirSync as any)(p, options)
+          : ['something']
+    )
+
+    rspackMock.mockReturnValue(
+      makeCompiler({hasErrors: () => false, toJson: () => ({assets: []})})
+    )
+
+    try {
+      await extensionBuild(tmp, {browser: 'chrome', silent: true})
+
+      for (const relative of devFiles) {
+        expect(realFs.existsSync(path.join(distPath, relative)), relative).toBe(
+          false
+        )
+      }
+
+      expect(realFs.existsSync(path.join(distPath, 'hot'))).toBe(false)
+      expect(realFs.existsSync(path.join(distPath, 'manifest.json'))).toBe(true)
+      expect(
+        realFs.existsSync(
+          path.join(distPath, 'content_scripts', 'content-0.js')
+        )
+      ).toBe(true)
     } finally {
       realFs.rmSync(tmp, {recursive: true, force: true})
     }
