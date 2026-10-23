@@ -9,6 +9,7 @@
 import * as path from 'node:path'
 import {type Command, Option} from 'commander'
 import {launchBrowser} from '../browsers'
+import {SAFARI_DEVELOPMENT_TEAM_HELP} from '../browsers/browsers-lib/messages'
 import {normalizeProfileOption} from '../browsers/browsers-lib/resolve-profile'
 import {safariPreflightError} from '../browsers/run-safari/safari-launch'
 import {isValidBundleId} from '../browsers/run-safari/safari-launch/safari-config'
@@ -153,10 +154,7 @@ export function registerDevCommand(program: Command) {
       '--bundle-id <reverse.dns>',
       'set a user-owned Safari bundle identifier (safari targets only). Defaults to a generated dev.extensionjs.* id shared by every build of the same source, so set your own before the first submission'
     )
-    .option(
-      '--development-team <id>',
-      'sign the Safari app with an Apple Developer team id (safari targets only). Without it the build is ad-hoc signed, which Safari loads locally with no per-launch toggle. Use a team id for a stable identity you can distribute'
-    )
+    .option('--development-team <id>', SAFARI_DEVELOPMENT_TEAM_HELP)
     .option(
       '--macos-only [boolean]',
       'generate a macOS-only Safari Xcode project (safari targets only). Pass `false` for a universal macOS + iOS project. Defaults to `true`',

@@ -149,8 +149,8 @@ export function composeXcodebuildArgs(config: SafariBuildConfig): string[] {
     derivedDataPath(config)
   ]
 
-  // Measured with the toggle off: an ad-hoc signed app stays listed in Safari
-  // Settings, so a team id buys a distributable identity, not local loading.
+  // Measured on Safari 26: an ad-hoc app runs only while unsigned extensions
+  // are allowed, a team-signed app needs no toggle.
   // Automatic signing lets Xcode mint the profile, and
   // -allowProvisioningUpdates is what permits that without opening Xcode.
   // Trimmed here as well as at config time: this function is exported and a

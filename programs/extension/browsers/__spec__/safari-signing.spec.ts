@@ -14,9 +14,6 @@ const base: SafariBuildConfig = {
   open: true
 }
 
-// Measured with the toggle off: an ad-hoc signed app stays listed in Safari
-// Settings while a folder-loaded extension disappears. So a signature decides
-// the identity a build carries, not whether Safari will load it locally.
 describe('safari xcodebuild signing', () => {
   it('signs ad-hoc when no team is given, so a local build still works', () => {
     const args = composeXcodebuildArgs(base)
@@ -82,10 +79,22 @@ describe('safari enabling hints name the Settings ▸ Developer toggle Safari 27
     expect(hint).toMatch(/My App\.app/)
   })
 
-  it('names what a team id buys without claiming it changes loading', () => {
+  it('names what a team id buys, a stable identity and no developer toggle', () => {
     expect(messages.safariNextSteps('My App', true)).toMatch(/distribution/)
     expect(messages.safariNextSteps('My App')).toMatch(
       /only while unsigned extensions are allowed/
+    )
+  })
+
+  it('tells an ad-hoc owner why the toolbar button stops answering after a relaunch', () => {
+    const steps = messages.safariNextSteps('My App')
+    expect(steps).toMatch(/turns that off at quit/)
+    expect(steps).toMatch(/toolbar button stays but does nothing/)
+    expect(steps).toMatch(/--development-team/)
+    expect(steps).toMatch(/Apple Development certificate/)
+    expect(steps).toMatch(/no Developer ID needed/)
+    expect(messages.safariNextSteps('My App', true)).toMatch(
+      /no developer toggle/
     )
   })
 

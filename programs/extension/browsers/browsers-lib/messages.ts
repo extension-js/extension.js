@@ -1251,6 +1251,17 @@ export function safariDryRunXcodebuild(cmd: string) {
   return `${getLoggingPrefix('info')} xcodebuild: ${colors.gray(cmd)}.`
 }
 
+export const SAFARI_AD_HOC_LOADING =
+  'Safari runs an ad-hoc build only while unsigned extensions are allowed, and Safari turns that off at quit'
+
+export const SAFARI_TEAM_SIGNED_LOADING =
+  'A team-signed build needs no toggle, and the Apple Development certificate of an Xcode account signed in on this Mac is enough for local runs, no Developer ID needed'
+
+export const SAFARI_DEVELOPMENT_TEAM_HELP =
+  'sign the Safari app with an Apple Developer team id (safari targets only), so Safari loads it with no per-launch toggle. ' +
+  `Without it the build is ad-hoc signed. ${SAFARI_AD_HOC_LOADING} (Settings ▸ Developer ▸ Allow unsigned extensions). ` +
+  `${SAFARI_TEAM_SIGNED_LOADING}`
+
 export function safariNextSteps(
   appName: string,
   signed?: boolean,
@@ -1259,7 +1270,7 @@ export function safariNextSteps(
   const name = colors.yellow(appName)
   const unsignedStep = signed
     ? ''
-    : `  ${colors.gray('1.')} Safari ▸ Settings ▸ Developer ▸ Allow unsigned extensions (Safari forgets it on quit)\n`
+    : `  ${colors.gray('1.')} Safari ▸ Settings ▸ Developer ▸ Allow unsigned extensions (Safari turns it off at quit, so turn it on after each relaunch)\n`
   const enableStep = `  ${colors.gray(signed ? '1.' : '2.')} Safari ▸ Settings ▸ Extensions ▸ turn on ${name}\n`
   const websitesStep = `  ${colors.gray(signed ? '2.' : '3.')} Safari ▸ Settings ▸ Websites ▸ ${name} ▸ For other websites ▸ Allow\n`
   const steps =
@@ -1276,11 +1287,14 @@ export function safariNextSteps(
 
     return (
       steps +
-      `  ${colors.gray('→')} Signed with ${team}, so the identity is stable for distribution.`
+      `  ${colors.gray('→')} Signed with ${team}, so Safari loads it with no developer toggle and the identity is stable for distribution.`
     )
   }
 
-  const adHoc = `  ${colors.gray('→')} Ad-hoc signed, so Safari lists it only while unsigned extensions are allowed. Safari keys stored data on the appex id, so ${colors.yellow('storage.local')} survives rebuilds.`
+  const adHoc =
+    `  ${colors.gray('→')} Ad-hoc signed. ${SAFARI_AD_HOC_LOADING}. With the toggle off after a relaunch, the toolbar button stays but does nothing.\n` +
+    `  ${colors.gray('→')} Pass ${colors.blue('--development-team')} to sign with your team. ${SAFARI_TEAM_SIGNED_LOADING}.\n` +
+    `  ${colors.gray('→')} Safari keys stored data on the appex id, so ${colors.yellow('storage.local')} survives rebuilds.`
   const requested = String(signing.requestedTeam || '').trim()
 
   if (!requested) return steps + adHoc
