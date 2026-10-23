@@ -238,6 +238,63 @@ async function build(
   return {summary, output: stripAnsi(lines.join('\n'))}
 }
 
+// A dependency that ships a worker file the build copies out as an asset,
+// with an eval the linter flags: that finding belongs to the package.
+function copiedAssetProject() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-addon-lint-asset-'))
+  roots.push(root)
+  const lib = path.join(root, 'node_modules', 'fake-lib')
+  fs.mkdirSync(path.join(lib, 'dist'), {recursive: true})
+  fs.writeFileSync(
+    path.join(root, 'package.json'),
+    JSON.stringify({
+      private: true,
+      name: 'assetme',
+      version: '0.0.0',
+      dependencies: {'fake-lib': '1.0.0'}
+    })
+  )
+
+  fs.writeFileSync(
+    path.join(lib, 'package.json'),
+    JSON.stringify({
+      name: 'fake-lib',
+      version: '1.0.0',
+      license: 'MIT',
+      main: 'index.js'
+    })
+  )
+
+  fs.writeFileSync(path.join(lib, 'index.js'), 'export const lib = 1\n')
+  fs.writeFileSync(
+    path.join(lib, 'dist', 'worker.mjs'),
+    'self.onmessage = (event) => { eval("1 + 1"); self.postMessage(event.data) }\n'
+  )
+
+  fs.writeFileSync(
+    path.join(root, 'background.js'),
+    [
+      "import {lib} from 'fake-lib'",
+      "const workerUrl = new URL('fake-lib/dist/worker.mjs', import.meta.url)",
+      'console.log(lib, String(workerUrl))',
+      ''
+    ].join('\n')
+  )
+
+  fs.writeFileSync(
+    path.join(root, 'manifest.json'),
+    JSON.stringify({
+      name: 'assetme',
+      version: '1.0.0',
+      manifest_version: 2,
+      background: {scripts: ['background.js']},
+      browser_specific_settings: {gecko: {id: 'assetme@extension.js'}}
+    })
+  )
+
+  return root
+}
+
 describe('addon lint after a production firefox build', () => {
   it('prints the linter findings as warnings and keeps the build green', async () => {
     const root = project()
@@ -286,6 +343,32 @@ describe('addon lint after a production firefox build', () => {
     expect(note).toMatch(
       /- DANGEROUS_EVAL: eval can be harmful\. \(background[\\/]scripts\.js:\d+\)/
     )
+  }, 180_000)
+
+  it('files a finding in a script copied out of a dependency under that package', async () => {
+    const root = copiedAssetProject()
+    const {summary} = await build(root, {
+      browser: 'firefox',
+      mode: 'production'
+    })
+
+    expect(summary.errors_count).toBe(0)
+
+    const note = fs.readFileSync(
+      path.join(root, 'dist', 'amo-reviewer-note.md'),
+      'utf8'
+    )
+    const [libraries, own] = note.split(
+      '## Findings in the extension author code'
+    )
+
+    expect(libraries).toContain('### fake-lib 1.0.0')
+    expect(libraries).toMatch(
+      /- DANGEROUS_EVAL: eval can be harmful\. \(assets[\\/]worker\.[0-9a-f]{8}\.mjs:\d+\)$/m
+    )
+
+    expect(libraries).not.toContain('confirm before pasting')
+    expect(own).not.toContain('assets')
   }, 180_000)
 
   it('does not flag the MV2 manifest or the chunk loader the build emits', async () => {

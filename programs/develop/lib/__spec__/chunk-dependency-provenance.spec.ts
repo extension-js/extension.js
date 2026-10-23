@@ -5,7 +5,8 @@ import {
 } from '../chunk-dependency-provenance'
 
 function compilation(
-  chunks: Array<{files: string[]; modules: Array<string | object>}>
+  chunks: Array<{files: string[]; modules: Array<string | object>}>,
+  assets: Array<{name: string; info?: {sourceFilename?: string}}> = []
 ) {
   return {
     chunks,
@@ -14,7 +15,8 @@ function compilation(
         (chunk as {modules: Array<string | object>}).modules.map((entry) =>
           typeof entry === 'string' ? {resource: entry} : entry
         )
-    }
+    },
+    getAssets: () => assets
   }
 }
 
@@ -91,6 +93,61 @@ describe('collectChunkDependencyProvenance', () => {
 
     expect(map.get('content_scripts/content-0.js')).toEqual({
       packages: ['react-dom'],
+      onlyDependencies: false
+    })
+  })
+
+  it('files a script a dependency ships as a copied asset under that package', () => {
+    const map = collectChunkDependencyProvenance(
+      compilation(
+        [
+          {
+            files: ['pages/live.js'],
+            modules: [
+              '/app/src/live.ts',
+              '/app/node_modules/onnxruntime-web/dist/ort.webgpu.mjs'
+            ]
+          }
+        ],
+        [
+          {
+            name: 'assets/ort.webgpu.bundle.min.23620d94.mjs',
+            info: {
+              sourceFilename:
+                'node_modules/onnxruntime-web/dist/ort.webgpu.bundle.min.mjs'
+            }
+          },
+          {
+            name: 'assets/worker.469ab8de.js',
+            info: {sourceFilename: '..\\node_modules\\fake-lib\\worker.js'}
+          },
+          {
+            name: 'assets/logo.1a2b3c4d.png',
+            info: {sourceFilename: 'node_modules/fake-lib/logo.png'}
+          },
+          {
+            name: 'assets/own.5e6f7a8b.mjs',
+            info: {sourceFilename: 'src/workers/own.mjs'}
+          },
+          {name: 'pages/live.js', info: {}}
+        ]
+      )
+    )
+
+    expect(map.get('assets/ort.webgpu.bundle.min.23620d94.mjs')).toEqual({
+      packages: ['onnxruntime-web'],
+      onlyDependencies: true
+    })
+
+    expect(map.get('assets/worker.469ab8de.js')).toEqual({
+      packages: ['fake-lib'],
+      onlyDependencies: true
+    })
+
+    expect(map.has('assets/logo.1a2b3c4d.png')).toBe(false)
+    expect(map.has('assets/own.5e6f7a8b.mjs')).toBe(false)
+    expect(map.get('pages/live.js')).toEqual({
+      packages: ['onnxruntime-web'],
       onlyDependencies: false
     })
   })
