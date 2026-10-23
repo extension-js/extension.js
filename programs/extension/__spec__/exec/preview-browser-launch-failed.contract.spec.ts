@@ -79,11 +79,35 @@ function plantSilentBinary(dir: string, name: string, pidFile: string) {
 function isAlive(pid: number): boolean {
   try {
     process.kill(pid, 0)
-
-    return true
   } catch {
     return false
   }
+
+  // A killed child the runner's init has not reaped yet still answers the
+  // signal probe; on Linux its status file says so.
+  try {
+    const status = readFileSync(`/proc/${pid}/status`, 'utf8')
+
+    if (/^State:\s+Z/m.test(status)) return false
+  } catch {
+    // Not Linux, or the process is gone: the probe above is the answer.
+  }
+
+  return true
+}
+
+// The CLI reaps the browser before it exits, but the runner reaps the
+// zombie on its own clock, so "dead" means dead within a grace period.
+async function exitedWithin(pid: number, ms: number): Promise<boolean> {
+  const deadline = Date.now() + ms
+
+  while (isAlive(pid)) {
+    if (Date.now() > deadline) return false
+
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 50))
+  }
+
+  return true
 }
 
 function runCli(
@@ -566,7 +590,7 @@ describe.skipIf(process.platform === 'win32')(
         const contract = readContract(projectDir, 'firefox')
         expect(contract.status).toBe('error')
         expect(contract.code).toBe('browser_launch_failed')
-        expect(isAlive(pid)).toBe(false)
+        expect(await exitedWithin(pid, 5000)).toBe(true)
       } finally {
         if (pid && isAlive(pid)) process.kill(pid, 'SIGKILL')
       }
