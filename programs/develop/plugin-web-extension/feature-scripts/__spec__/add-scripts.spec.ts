@@ -116,22 +116,23 @@ describe('AddScripts', () => {
     return (compiler.options.entry as any)['background/service_worker']
   }
 
-  it('gives a module service worker the module chunk loader whether the key is plain or prefixed', () => {
-    // importScripts throws inside a module worker, so a chromium:background
-    // module worker on a chrome build must not get the import-scripts loader.
+  it('gives a module service worker no chunk loader whether the key is plain or prefixed', () => {
+    // importScripts throws inside a module worker and the default jsonp
+    // loader reads document on start, so a chromium:background module
+    // worker on a chrome build gets neither.
     expect(
       buildServiceWorkerEntry(
         {'chromium:background': {type: 'module', service_worker: 'sw.js'}},
         'chrome'
       ).chunkLoading
-    ).toBeUndefined()
+    ).toBe(false)
 
     expect(
       buildServiceWorkerEntry(
         {background: {type: 'module', service_worker: 'sw.js'}},
         'chrome'
       ).chunkLoading
-    ).toBeUndefined()
+    ).toBe(false)
 
     // A classic worker keeps importScripts chunk loading.
     expect(

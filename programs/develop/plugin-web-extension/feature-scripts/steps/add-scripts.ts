@@ -8,7 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import type {Compiler, EntryObject} from '@rspack/core'
+import type {Compiler} from '@rspack/core'
 import {isGeckoBasedBrowser} from '../../../lib/constants'
 import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
 import {stripBom} from '../../../lib/parse-json-safe'
@@ -146,7 +146,13 @@ export class AddScripts {
       )
     }
 
-    const newEntries: Record<string, EntryObject> = {}
+    const newEntries: Record<
+      string,
+      Exclude<
+        Compiler['options']['entry'],
+        (...args: never[]) => unknown
+      >[string]
+    > = {}
     const manifestDir = path.dirname(this.manifestPath)
     const projectPath = (compiler.options.context as string) || manifestDir
     let manifestJson: {
@@ -225,13 +231,14 @@ export class AddScripts {
           Number(manifestJson.manifest_version) === 3 &&
           !isGeckoBasedBrowser(String(this.browser)))
 
+      // A module worker cannot importScripts, and a service worker cannot
+      // import() either, so it gets no chunk loader at all: the default
+      // jsonp loader would read document.baseURI and kill it on start.
+      const workerChunkLoading: false | 'import-scripts' =
+        manifestJson.background?.type === 'module' ? false : 'import-scripts'
+
       newEntries[feature] = runsAsWorker
-        ? {
-            import: finalEntryImports,
-            ...(manifestJson.background?.type === 'module'
-              ? {}
-              : {chunkLoading: 'import-scripts'})
-          }
+        ? {import: finalEntryImports, chunkLoading: workerChunkLoading}
         : {
             import: finalEntryImports,
             ...(isContentScriptFeature(feature) ||
