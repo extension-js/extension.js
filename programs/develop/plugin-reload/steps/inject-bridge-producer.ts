@@ -59,7 +59,11 @@ export class InjectBridgeProducer {
             // instance id gates every hello, so the extension could never
             // reconnect to the new session.
             const controlAsset = new sources.RawSource(
-              JSON.stringify({port: controlPort, instanceId})
+              JSON.stringify({
+                port: controlPort,
+                instanceId,
+                buildType: 'development'
+              })
             )
 
             if (compilation.getAsset(CONTROL_PORT_ASSET_NAME)) {
