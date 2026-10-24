@@ -272,19 +272,18 @@ export function buildOutDirInvalid(value: string) {
   )
 }
 
+// A production bundle written over a live dev session's folder takes the dev
+// stubs and the control file away from the browser that is running them, so
+// the build stops before it writes anything.
 export function buildSharesDevDist(
   browser: string,
   distDisplay: string,
   pid: number
 ) {
   return (
-    `${getLoggingPrefix('warn')} A dev session (PID ${pid}) is serving ${distDisplay}, and this build replaces its files.\n` +
-    `Pass ${fmt.code('--out-dir <path>')} to write the ${browser} build next to it and keep the dev session as it is.`
+    `${getLoggingPrefix('error')} A dev session (PID ${pid}) owns ${distDisplay}, so this build was not written.\n` +
+    `Stop that session, or pass ${fmt.code('--out-dir <path>')} to write the ${browser} build next to it and keep the dev session as it is.`
   )
-}
-
-export function buildSharesDevDistText(distDisplay: string, pid: number) {
-  return `a dev session (PID ${pid}) is serving ${distDisplay}, so this build replaces its files unless it runs with --out-dir <path>.`
 }
 
 export function anotherDevSessionRefused(

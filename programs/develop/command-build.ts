@@ -24,7 +24,8 @@ import {
 import {type BuildSummary, getBuildSummary} from './lib/build-summary'
 import {getBuildToolchain} from './lib/build-toolchain'
 import {collectChunkDependencyProvenance} from './lib/chunk-dependency-provenance'
-import {recordCodedWarning, takeCodedWarnings} from './lib/coded-warnings'
+import {codedError} from './lib/coded-error'
+import {takeCodedWarnings} from './lib/coded-warnings'
 import {
   compilationDiagnostics,
   warningCodes
@@ -246,8 +247,12 @@ export async function extensionBuild(
     // so an interrupted build can never leave a manifest without its pages.
     stagingDistPath = stagingDistPathFor(distPath)
 
-    // A live dev session owns ready.json and its events for this browser, so
-    // a build beside it leaves them alone instead of stamping its receipt.
+    // A live dev session owns dist/<browser> the way a second dev session
+    // learns it does: the files under it are what the browser is running, and
+    // a production bundle written over them pulls the dev stubs and the control
+    // file out from under that browser with no word to its owner. So the build
+    // is refused, and --out-dir is the way to build beside the session. A build
+    // elsewhere still leaves the session's ready.json and events alone.
     const liveDevSession = findLiveDevSession(packageJsonDir, browser)
 
     if (
@@ -256,15 +261,13 @@ export async function extensionBuild(
         liveDevSession.distPath || browserDistDir(packageJsonDir, browser)
       ) === nodePath.resolve(distPath)
     ) {
-      const distDisplay = displayPath(distPath)
-
-      recordCodedWarning(
+      throw codedError(
         CODES.E_DEV_SESSION_DIST_SHARED,
-        messages.buildSharesDevDistText(distDisplay, liveDevSession.pid)
-      )
-
-      console.warn(
-        messages.buildSharesDevDist(browser, distDisplay, liveDevSession.pid)
+        messages.buildSharesDevDist(
+          browser,
+          displayPath(distPath),
+          liveDevSession.pid
+        )
       )
     }
 
