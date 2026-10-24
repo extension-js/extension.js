@@ -6,10 +6,12 @@ import {
   claimReadyPath,
   describeLaunchFailure,
   launchFailureCode,
+  readReadyExecutorAttached,
   readReadyRunId,
   stampReadyBrowserExited,
   stampReadyBrowserLaunch,
   stampReadyBrowserLaunchFailed,
+  stampReadyBrowserUpNotAttached,
   stampReadyCdpFault,
   stampReadyExtensionId,
   stampReadyExtensionLoadRefused,
@@ -574,5 +576,113 @@ describe('a stamp from a superseded run', () => {
     expect(readReadyRunId(outputPath)).toBe('run-B')
     expect(readReadyRunId(undefined)).toBeUndefined()
     expect(readReadyRunId(path.join(tmp, 'dist', 'edge'))).toBeUndefined()
+  })
+})
+
+describe('readReadyExecutorAttached', () => {
+  let tmp: string
+  let outputPath: string
+  let readyPath: string
+
+  beforeEach(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ready-attached-'))
+    outputPath = path.join(tmp, 'dist', 'chrome')
+    readyPath = path.join(tmp, 'dist', 'extension-js', 'chrome', 'ready.json')
+    fs.mkdirSync(path.dirname(readyPath), {recursive: true})
+  })
+
+  afterEach(() => {
+    fs.rmSync(tmp, {recursive: true, force: true})
+  })
+
+  it('is false until the dev server stamps the attach', () => {
+    fs.writeFileSync(readyPath, JSON.stringify({status: 'ready', runId: 'r1'}))
+    expect(readReadyExecutorAttached(outputPath, 'r1')).toBe(false)
+
+    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    ready.executorAttachedAt = new Date().toISOString()
+    fs.writeFileSync(readyPath, JSON.stringify(ready))
+    expect(readReadyExecutorAttached(outputPath, 'r1')).toBe(true)
+  })
+
+  it("does not take another run's attach for this one", () => {
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({
+        status: 'ready',
+        runId: 'old',
+        executorAttachedAt: new Date().toISOString()
+      })
+    )
+
+    expect(readReadyExecutorAttached(outputPath, 'new')).toBe(false)
+  })
+
+  it('is false with no contract or an unreadable one', () => {
+    expect(readReadyExecutorAttached(outputPath, 'r1')).toBe(false)
+    fs.writeFileSync(readyPath, '{not json')
+    expect(readReadyExecutorAttached(outputPath, 'r1')).toBe(false)
+    expect(readReadyExecutorAttached(undefined, 'r1')).toBe(false)
+  })
+})
+
+describe('stampReadyBrowserUpNotAttached', () => {
+  let tmp: string
+  let outputPath: string
+  let readyPath: string
+
+  beforeEach(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ready-not-attached-'))
+    outputPath = path.join(tmp, 'dist', 'chrome')
+    readyPath = path.join(tmp, 'dist', 'extension-js', 'chrome', 'ready.json')
+    fs.mkdirSync(path.dirname(readyPath), {recursive: true})
+  })
+
+  afterEach(() => {
+    fs.rmSync(tmp, {recursive: true, force: true})
+  })
+
+  it('records the wait beside a status that stays ready', () => {
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({status: 'ready', browser: 'chrome', runId: 'r1'})
+    )
+
+    stampReadyBrowserUpNotAttached(
+      outputPath,
+      {waitedMs: 15000, hint: 'Chrome (pid 7) is up, but nothing connected'},
+      'r1'
+    )
+
+    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    expect(ready.status).toBe('ready')
+    expect(typeof ready.browserUpNotAttachedAt).toBe('string')
+    expect(ready.browserUpNotAttachedWaitMs).toBe(15000)
+    expect(ready.browserUpNotAttachedHint).toBe(
+      'Chrome (pid 7) is up, but nothing connected'
+    )
+  })
+
+  it("leaves a foreign run's contract alone", () => {
+    fs.writeFileSync(readyPath, JSON.stringify({status: 'ready', runId: 'r2'}))
+
+    stampReadyBrowserUpNotAttached(outputPath, {waitedMs: 1, hint: 'x'}, 'r1')
+
+    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    expect('browserUpNotAttachedAt' in ready).toBe(false)
+  })
+
+  it('stamps profileReused with the launch details', () => {
+    fs.writeFileSync(readyPath, JSON.stringify({status: 'ready', runId: 'r1'}))
+
+    stampReadyBrowserLaunch(
+      outputPath,
+      {profilePath: '/p', browserPid: 9, profileReused: true},
+      'r1'
+    )
+
+    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    expect(ready.profileReused).toBe(true)
+    expect(ready.profilePath).toBe('/p')
   })
 })

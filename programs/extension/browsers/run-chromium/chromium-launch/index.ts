@@ -26,7 +26,8 @@ import {
   humanError,
   humanLine,
   humanWarn,
-  isDebug
+  isDebug,
+  stripChannelPrefix
 } from '../../../helpers/messaging'
 import {
   expectedChromiumExtensionId,
@@ -60,10 +61,12 @@ import {ready as devServerReady} from '../../browsers-lib/ready-message'
 import {
   describeLaunchFailure,
   launchFailureCode,
+  readReadyExecutorAttached,
   readReadyRunId,
   stampReadyBrowserExited,
   stampReadyBrowserLaunch,
   stampReadyBrowserLaunchFailed,
+  stampReadyBrowserUpNotAttached,
   stampReadyCdpFault,
   stampReadyExtensionLoadRefused,
   stampReadyProfileLocked
@@ -223,10 +226,50 @@ function browserNotFoundError(reason: string): Error {
 export {stampReadyBrowserExited}
 
 const STDERR_TAIL_LINES = 8
+// How long a dev session waits for the runtime inside the guest to connect
+// before it says the browser is up with nothing attached, and how often it
+// re-reads the contract while waiting. A healthy attach lands in a second or
+// two; fifteen is long enough to cover a slow first service worker start.
+const ATTACH_GRACE_MS = 15_000
+const ATTACH_POLL_MS = 250
+
+// Chrome writes "Local State" at the profile root on its first run, and the
+// launcher provisions only an empty directory, so the file marks a profile a
+// browser has already run with.
+function profileWasRunBefore(profilePath: string | undefined): boolean {
+  if (!profilePath) return false
+
+  try {
+    return fs.existsSync(path.join(profilePath, 'Local State'))
+  } catch {
+    return false
+  }
+}
+
+// A static theme is the one dev build that ships no background, so nothing in
+// it can connect and the ready line has no attach to wait for.
+function hostsNoDevRuntime(extensionOutputPath: string): boolean {
+  try {
+    const manifest = JSON.parse(
+      fs.readFileSync(path.join(extensionOutputPath, 'manifest.json'), 'utf-8')
+    ) as {theme?: unknown; background?: unknown}
+
+    return Boolean(manifest.theme) && !manifest.background
+  } catch {
+    return false
+  }
+}
 
 export class ChromiumLaunchPlugin {
   private didLaunch = false
   private didReportReady = false
+  // Set when the ready line is held back for the dev runtime to connect, so
+  // the done hook does not print the claim the launch path chose to withhold.
+  private readyDeferred = false
+  // Whether the profile had been run by a browser before this launch. Chrome
+  // writes "Local State" on its first run, so its presence at spawn time is
+  // the one reliable mark of a reused profile, managed or explicit.
+  private profileReused = false
   // Set by the child's close handler when the browser left without being
   // asked. A ready claim after that would describe a browser that is gone.
   private browserGone = false
@@ -375,6 +418,7 @@ export class ChromiumLaunchPlugin {
 
         if (
           !this.didReportReady &&
+          !this.readyDeferred &&
           !this.extensionLoadRefused &&
           !this.browserGone
         ) {
@@ -1200,13 +1244,16 @@ export class ChromiumLaunchPlugin {
     this.didSpawn = true
 
     const launchOutputPath = this.closeHandlerContext?.extensionOutputPath
+    const launchProfilePath = chromiumConfig
+      .find((flag) => flag.startsWith('--user-data-dir='))
+      ?.slice('--user-data-dir='.length)
+      .replace(/^"|"$/g, '')
+    this.profileReused = profileWasRunBefore(launchProfilePath)
     stampReadyBrowserLaunch(
       launchOutputPath,
       {
-        profilePath: chromiumConfig
-          .find((flag) => flag.startsWith('--user-data-dir='))
-          ?.slice('--user-data-dir='.length)
-          .replace(/^"|"$/g, ''),
+        profilePath: launchProfilePath,
+        profileReused: this.profileReused,
         browserPid: child?.pid,
         binary: browserBinaryLocation ?? undefined,
         binaryProvenance,
@@ -1365,7 +1412,13 @@ export class ChromiumLaunchPlugin {
         }
       }
 
-      reportReady()
+      await this.reportReadyWhenAttached({
+        compilation,
+        enableCdp,
+        reportReady,
+        browserPid: child?.pid,
+        profilePath: launchProfilePath
+      })
     } catch (error) {
       // A dead CDP wire means no reload delivery for the whole session,
       // always tell the user (previously author-mode-only, i.e. silent).
@@ -1391,8 +1444,100 @@ export class ChromiumLaunchPlugin {
       // A broken CDP wire is not a refusal verdict; keep the pre-existing
       // behavior of still reporting ready so a flaky handshake stays cosmetic.
       this.stampCdpFault(compilation, error)
-      reportReady()
+      await this.reportReadyWhenAttached({
+        compilation,
+        enableCdp,
+        reportReady,
+        browserPid: child?.pid,
+        profilePath: launchProfilePath
+      })
     }
+  }
+
+  // "ready" names an extension the browser is running, and the one proof of
+  // that is the dev runtime inside the guest connecting to the control bridge.
+  // The CDP flow only shows the browser accepted the dist; a reused profile
+  // can hold a picker, a restore prompt or a stale copy of the extension that
+  // keeps the runtime from ever connecting, with the window out of sight. So a
+  // dev session waits for the attach, and past the grace period says what it is
+  // waiting on, names the handles a person can act on, and keeps watching.
+  async reportReadyWhenAttached(opts: {
+    compilation: CompilationLike
+    enableCdp: boolean
+    reportReady: () => void
+    browserPid?: number
+    profilePath?: string
+    graceMs?: number
+    pollMs?: number
+  }): Promise<void> {
+    const outputPath = this.closeHandlerContext?.extensionOutputPath
+    const runId = this.closeHandlerContext?.runId
+
+    if (
+      opts.compilation.options.mode !== 'development' ||
+      !opts.enableCdp ||
+      !outputPath ||
+      this.extensionLoadRefused ||
+      hostsNoDevRuntime(outputPath)
+    ) {
+      opts.reportReady()
+
+      return
+    }
+
+    const graceMs = opts.graceMs ?? ATTACH_GRACE_MS
+    const pollMs = opts.pollMs ?? ATTACH_POLL_MS
+    const attached = () => readReadyExecutorAttached(outputPath, runId)
+    const deadline = Date.now() + graceMs
+
+    while (!this.browserGone && !attached() && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, pollMs))
+    }
+
+    if (this.browserGone) return
+
+    if (attached()) {
+      opts.reportReady()
+
+      return
+    }
+
+    const waitedMs = graceMs
+    const message = messages.browserUpNotAttached({
+      browser: this.options.browser,
+      browserPid: opts.browserPid,
+      profilePath: opts.profilePath,
+      profileReused: this.profileReused,
+      waitedMs
+    })
+    humanWarn(message)
+    stampReadyBrowserUpNotAttached(
+      outputPath,
+      {
+        waitedMs,
+        hint: stripChannelPrefix(message)
+      },
+      runId
+    )
+
+    this.readyDeferred = true
+
+    // The session is alive and the person may still fix the window, so the
+    // claim is only postponed: the first attach prints it, a browser exit ends
+    // the watch, and the timer never holds the process open.
+    const watcher = setInterval(() => {
+      if (this.browserGone || this.didReportReady) {
+        clearInterval(watcher)
+
+        return
+      }
+
+      if (attached()) {
+        clearInterval(watcher)
+        opts.reportReady()
+      }
+    }, pollMs)
+    watcher.unref?.()
   }
 
   // Resolves once the close handler has recorded an unasked exit, or after the

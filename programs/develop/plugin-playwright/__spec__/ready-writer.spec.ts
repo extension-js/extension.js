@@ -430,6 +430,36 @@ describe('ready.json writer preservation', () => {
     expect(afterReattach.executorAttachedAt).toBe(firstStamp)
   })
 
+  it('an attach clears the browser-up-not-attached note, a recompile keeps it', () => {
+    const writer = makeWriter()
+    writer.writeReady()
+
+    const held = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    held.browserUpNotAttachedAt = '2026-10-23T00:00:00.000Z'
+    held.browserUpNotAttachedWaitMs = 15000
+    held.browserUpNotAttachedHint = 'Chrome is up, but nothing connected'
+    fs.writeFileSync(writer.readyPath, JSON.stringify(held))
+
+    writer.writeReady()
+    const afterCompile = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    expect(afterCompile.browserUpNotAttachedAt).toBe('2026-10-23T00:00:00.000Z')
+    expect(afterCompile.browserUpNotAttachedWaitMs).toBe(15000)
+    expect(afterCompile.browserUpNotAttachedHint).toBe(
+      'Chrome is up, but nothing connected'
+    )
+
+    writer.stampExecutorAttached()
+    const attached = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    expect(attached.runtime).toBe('attached')
+    expect('browserUpNotAttachedAt' in attached).toBe(false)
+    expect('browserUpNotAttachedWaitMs' in attached).toBe(false)
+    expect('browserUpNotAttachedHint' in attached).toBe(false)
+
+    writer.writeReady()
+    const later = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    expect('browserUpNotAttachedAt' in later).toBe(false)
+  })
+
   it('does not invent the runtime signal before the SW attaches', () => {
     const writer = makeWriter()
     writer.writeReady()
