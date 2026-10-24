@@ -89,6 +89,8 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "previewingCustomOutput: function(3)",
     "previewingSourceFallback: function(2)",
     "productionControlOpen: function(4)",
+    "productionLoopbackOrigins: function(1)",
+    "productionLoopbackOriginsText: function(1)",
     "projectInstallFallbackToNpm: function(1)",
     "projectInstallInWorkspaceRoot: function(1)",
     "projectInstallScriptsDisabled: function(1)",
@@ -245,6 +247,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
   ],
   "plugin-web-extension/feature-manifest/messages.ts": [
     "contentScriptEntryDroppedForBrowser: function(3)",
+    "edgeEmbeddedOptionsDialog: function(0)",
     "edgeStoreKeyDropped: function(1)",
     "fatalManifestShapeFixed: function(2)",
     "geckoActionUnsupportedOnMv2: function(1)",

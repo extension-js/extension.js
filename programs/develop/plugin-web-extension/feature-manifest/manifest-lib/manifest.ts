@@ -22,6 +22,7 @@ import {
 import {getManifestOverrides} from '../manifest-overrides'
 import {dropMv2ObjectPolicy} from '../manifest-overrides/mv2/content_security_policy'
 import {dropMv2HostKeys} from '../manifest-overrides/mv2/host_permissions'
+import {reportEdgeEmbeddedOptions} from './edge-options-notice'
 import {
   dropWebkitUnsupportedKeys,
   reportWebkitDroppedKeys
@@ -219,6 +220,7 @@ export function buildCanonicalManifestWithOverrides(
   // rewrites a side_panel or sandbox path would otherwise put the key back.
   const webkit = dropWebkitUnsupportedKeys(translated, browser)
   reportWebkitDroppedKeys(webkit.dropped, browser)
+  reportEdgeEmbeddedOptions(webkit.manifest, browser)
 
   return {manifest: webkit.manifest, overrides}
 }

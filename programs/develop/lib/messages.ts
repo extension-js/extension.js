@@ -272,6 +272,30 @@ export function buildOutDirInvalid(value: string) {
   )
 }
 
+// One line per loopback origin, with where it sits, then the per-mode recipe.
+export function productionLoopbackOrigins(
+  origins: Array<{pattern: string; where: string}>
+) {
+  const list = origins
+    .map((origin) => `  ${fmt.code(origin.pattern)} in ${origin.where}`)
+    .join('\n')
+
+  return (
+    `${getLoggingPrefix('warn')} The production manifest reaches the local machine:\n${list}\n` +
+    `Store reviewers read a loopback origin as host access with no purpose in a published extension. Keep it to development with an ${fmt.code('$EXTENSION_PUBLIC_*')} placeholder in the manifest and its value in ${fmt.code('.env.development')}.`
+  )
+}
+
+export function productionLoopbackOriginsText(
+  origins: Array<{pattern: string; where: string}>
+) {
+  const list = origins
+    .map((origin) => `${origin.pattern} in ${origin.where}`)
+    .join(', ')
+
+  return `the production manifest reaches the local machine (${list}). Keep loopback origins to development with an $EXTENSION_PUBLIC_* placeholder and a .env.development value.`
+}
+
 // A production bundle written over a live dev session's folder takes the dev
 // stubs and the control file away from the browser that is running them, so
 // the build stops before it writes anything.
