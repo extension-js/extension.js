@@ -851,6 +851,25 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
         }
       }
 
+      // The wait for the runtime outlives a recompile the same way: the browser
+      // is still up and still has nothing connected until the attach says so.
+      if (
+        status !== 'starting' &&
+        typeof prev.executorAttachedAt !== 'string' &&
+        typeof prev.browserUpNotAttachedAt === 'string'
+      ) {
+        const target = payload as Record<string, unknown>
+        target.browserUpNotAttachedAt = prev.browserUpNotAttachedAt
+
+        if (typeof prev.browserUpNotAttachedWaitMs === 'number') {
+          target.browserUpNotAttachedWaitMs = prev.browserUpNotAttachedWaitMs
+        }
+
+        if (typeof prev.browserUpNotAttachedHint === 'string') {
+          target.browserUpNotAttachedHint = prev.browserUpNotAttachedHint
+        }
+      }
+
       // A browser-side load refusal outlives the compile that follows it: the
       // rebuild succeeding says nothing about the guest the browser threw out.
       // 'starting' is a new run, which re-asks the browser, so it resets.
@@ -1035,6 +1054,12 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
         }
 
         prev.executorAttachedAt = nowISO()
+
+        // The launcher's "browser is up, nothing attached" note describes the
+        // wait that just ended, so the attach takes it off the contract.
+        delete prev.browserUpNotAttachedAt
+        delete prev.browserUpNotAttachedWaitMs
+        delete prev.browserUpNotAttachedHint
 
         // The executor runs INSIDE the guest, so an attach is proof the browser
         // is running it. Any earlier refusal is stale however it got fixed -

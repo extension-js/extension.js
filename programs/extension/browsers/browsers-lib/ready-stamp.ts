@@ -168,6 +168,9 @@ export function stampReadyBrowserLaunch(
     // contract is where that fact lives.
     binary?: string
     binaryProvenance?: 'managed' | 'pinned' | 'system' | 'snapshot'
+    // Whether a browser had run with this profile before, the first thing to
+    // know when the browser is up and nothing inside it ever connects.
+    profileReused?: boolean
   },
   runId?: string
 ) {
@@ -182,6 +185,10 @@ export function stampReadyBrowserLaunch(
 
     const profilePath = String(details?.profilePath || '').trim()
     if (profilePath) ready.profilePath = profilePath
+
+    if (typeof details?.profileReused === 'boolean') {
+      ready.profileReused = details.profileReused
+    }
 
     if (
       typeof details?.browserPid === 'number' &&
@@ -222,6 +229,61 @@ export function stampReadyBrowserLaunch(
         delete ready.message
       }
     }
+
+    writeJsonAtomic(readyPath, ready)
+  } catch {
+    // best-effort; never block launch on this
+  }
+}
+
+// Whether the runtime inside the guest has connected for THIS run. The dev
+// server stamps the attach; the launcher reads it to decide when the browser
+// is truly running the extension and not merely open.
+export function readReadyExecutorAttached(
+  extensionOutputPath: string | undefined,
+  runId?: string
+): boolean {
+  try {
+    if (!extensionOutputPath) return false
+
+    const readyPath = readyPathFor(extensionOutputPath)
+    if (!fs.existsSync(readyPath)) return false
+
+    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    if (isForeignRun(ready, runId)) return false
+
+    return (
+      typeof ready.executorAttachedAt === 'string' ||
+      ready.runtime === 'attached'
+    )
+  } catch {
+    return false
+  }
+}
+
+// The browser is up and the extension compiled, yet nothing inside the guest
+// has connected past the grace period. The session stays ready and alive, so
+// this sits beside the status, with the sentence a reader can act on, and the
+// dev server clears it on the first attach.
+export function stampReadyBrowserUpNotAttached(
+  extensionOutputPath: string | undefined,
+  details: {waitedMs: number; hint: string},
+  runId?: string
+) {
+  try {
+    if (!extensionOutputPath) return
+
+    const readyPath = readyPathFor(extensionOutputPath)
+    if (!fs.existsSync(readyPath)) return
+
+    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    if (isForeignRun(ready, runId)) return
+
+    ready.browserUpNotAttachedAt = new Date().toISOString()
+    ready.browserUpNotAttachedWaitMs = details.waitedMs
+    ready.browserUpNotAttachedHint =
+      String(details.hint || '').trim() ||
+      'the browser is up, but the extension has not connected'
 
     writeJsonAtomic(readyPath, ready)
   } catch {

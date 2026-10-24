@@ -830,6 +830,33 @@ export function browserGoneBeforeReady(browser: Browser) {
   )
 }
 
+// Printed where the ready line would have gone when the browser is up and the
+// dev runtime inside the extension has not connected. The window may be out of
+// sight, so the line carries every handle a person needs: the process, the
+// profile and whether it was reused, and the fresh-profile way out.
+export function browserUpNotAttached(opts: {
+  browser: Browser
+  browserPid?: number
+  profilePath?: string
+  profileReused: boolean
+  waitedMs: number
+}) {
+  const name = capitalizedBrowserName(opts.browser)
+  const pid = opts.browserPid ? ` (pid ${opts.browserPid})` : ''
+  const seconds = Math.round(opts.waitedMs / 1000)
+  const profile = opts.profilePath
+    ? opts.profileReused
+      ? `Profile ${colors.underline(opts.profilePath)} had been run before: a profile picker, a restore prompt or a stale copy of the extension in it can keep the extension from connecting.`
+      : `Profile ${colors.underline(opts.profilePath)} is fresh, so look at the browser window for a dialog or an extensions page error.`
+    : `Look at the browser window for a dialog or an extensions page error.`
+
+  return (
+    `${getLoggingPrefix('warn')} ${name}${pid} is up, but the extension has not connected after ${seconds} s.\n` +
+    `${profile}\n` +
+    `Dismiss any dialog there, or stop this session and run again on a fresh profile (delete that folder, or pass ${colors.yellow('--profile <new path>')}). The session keeps waiting and says "ready" once the extension connects.`
+  )
+}
+
 export function chromeProcessError(error: unknown) {
   return `${getLoggingPrefix('error')} The Chrome process reported an error.\n${colors.red(errorDetail(error))}`
 }
