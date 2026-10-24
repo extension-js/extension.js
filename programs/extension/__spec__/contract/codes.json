@@ -170,8 +170,7 @@
     },
     "E_DEV_SESSION_DIST_SHARED": {
       "area": "compile",
-      "summary": "A build writes the dist folder a running dev session serves.",
-      "warn": true
+      "summary": "A build would write the dist folder a running dev session serves, so it was refused; pass --out-dir to build beside it."
     },
     "E_BACKGROUND_REQUIRED": {
       "area": "compile",

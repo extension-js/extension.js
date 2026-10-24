@@ -143,15 +143,29 @@ describe('extension build --out-dir', () => {
 })
 
 describe('extension build beside a running dev session', () => {
-  it('warns with a code and keeps the dev contract when it shares dist', async () => {
+  it('refuses to write the dist a live dev session owns, and names the way out', async () => {
     const root = project()
-    const {contractPath, body} = writeDevContract(root, liveProcess())
-    const summary = await build(root)
+    const pid = liveProcess()
+    const {contractPath, body} = writeDevContract(root, pid)
+    const distDir = path.join(root, 'dist', 'chrome')
+    fs.mkdirSync(distDir, {recursive: true})
+    fs.writeFileSync(path.join(distDir, 'manifest.json'), '{"dev":true}')
 
-    expect(summary.errors_count).toBe(0)
-    const warnings = sharedDistWarnings(summary)
-    expect(warnings).toHaveLength(1)
-    expect(warnings[0]).toContain('--out-dir')
+    let error: (Error & {code?: string}) | undefined
+
+    try {
+      await build(root)
+    } catch (caught) {
+      error = caught as Error & {code?: string}
+    }
+
+    expect(error?.code).toBe('E_DEV_SESSION_DIST_SHARED')
+    expect(error?.message).toContain(`PID ${pid}`)
+    expect(error?.message).toContain('--out-dir')
+    expect(fs.readFileSync(path.join(distDir, 'manifest.json'), 'utf-8')).toBe(
+      '{"dev":true}'
+    )
+
     expect(fs.readFileSync(contractPath, 'utf-8')).toBe(body)
   })
 
