@@ -25,7 +25,7 @@ import {type BuildSummary, getBuildSummary} from './lib/build-summary'
 import {getBuildToolchain} from './lib/build-toolchain'
 import {collectChunkDependencyProvenance} from './lib/chunk-dependency-provenance'
 import {codedError} from './lib/coded-error'
-import {takeCodedWarnings} from './lib/coded-warnings'
+import {recordCodedWarning, takeCodedWarnings} from './lib/coded-warnings'
 import {
   compilationDiagnostics,
   warningCodes
@@ -45,6 +45,7 @@ import {
 } from './lib/ensure-develop-artifacts'
 import {generateExtensionTypes} from './lib/generate-extension-types'
 import {findLiveDevSession} from './lib/live-dev-session'
+import {findLoopbackOrigins} from './lib/loopback-origins'
 import {
   BUILD_COMMAND_DEFAULTS,
   mergeOptionLayers,
@@ -161,6 +162,29 @@ function resolveOutDir(
   }
 
   return raw.trim()
+}
+
+// Reads the promoted manifest, so the warning names exactly what ships.
+function warnProductionLoopbackOrigins(distPath: string): void {
+  let manifest: unknown
+
+  try {
+    manifest = JSON.parse(
+      fs.readFileSync(nodePath.join(distPath, 'manifest.json'), 'utf-8')
+    )
+  } catch {
+    return
+  }
+
+  const origins = findLoopbackOrigins(manifest)
+  if (origins.length === 0) return
+
+  recordCodedWarning(
+    CODES.E_PROD_LOOPBACK_ORIGIN,
+    messages.productionLoopbackOriginsText(origins)
+  )
+
+  console.warn(messages.productionLoopbackOrigins(origins))
 }
 
 export async function extensionBuild(
@@ -501,6 +525,7 @@ export async function extensionBuild(
 
           if (buildType === 'production') {
             removeDevelopmentArtifacts(displayDistPath)
+            warnProductionLoopbackOrigins(displayDistPath)
           }
 
           // Anonymized aggregates (no filenames or paths)

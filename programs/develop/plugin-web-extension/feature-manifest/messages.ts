@@ -533,6 +533,15 @@ export function contentScriptEntryDroppedForBrowser(
   return lines.join('\n')
 }
 
+// Edge caps its embedded settings dialog and never sizes it from the page,
+// so the one remedy is a tab on Edge only, which the browser prefix gives.
+export function edgeEmbeddedOptionsDialog() {
+  return (
+    `${prefix('warn')} Edge shows an embedded settings page in a dialog at most 400px wide (368px for the page), so a wider settings page is clipped on Edge.\n` +
+    `Add ${colors.yellow('edge:options_ui')} with ${colors.yellow('"open_in_tab": true')} to open settings in a tab on Edge only.`
+  )
+}
+
 // Safari inherits chromium: keys by design, so a dropped key would otherwise
 // vanish with no trace and the user would debug a feature that never loaded.
 export function webkitUnsupportedKeysDropped(
