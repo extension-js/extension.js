@@ -3,6 +3,9 @@
 exports[`extension message catalogs > matches the exported message surface 1`] = `
 {
   "browsers/browsers-lib/messages.ts": [
+    "SAFARI_AD_HOC_LOADING: string",
+    "SAFARI_DEVELOPMENT_TEAM_HELP: string",
+    "SAFARI_TEAM_SIGNED_LOADING: string",
     "addonInstallError: function(2)",
     "bestEffortBannerPrintFailed: function(1)",
     "binaryNotExecutable: function(2)",

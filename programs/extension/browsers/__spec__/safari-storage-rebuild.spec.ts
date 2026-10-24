@@ -15,7 +15,8 @@ import {type FakeSafariTools, fakeSafariTools} from './safari-fake-tools'
 // by build A read back unchanged after two ad-hoc rebuilds (ledger 1043). An
 // earlier warning said the opposite and asked for a team id, so a dev session
 // never says a rebuild resets storage, signed or not.
-const STORAGE_RESET = /reset the extension's storage|--development-team/
+const STORAGE_RESET =
+  /reset the extension's storage|storage[^.\n]*--development-team|--development-team[^.\n]*storage/
 
 let distDir: string
 
