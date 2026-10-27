@@ -1657,8 +1657,8 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       // Ignore
     }
 
-    // runtime.reload() does NOT fire onInstalled (verified Chromium 146), so
-    // consume the pre-reload storage flag here (fresh only) to heal open tabs.
+    // Chromium 146 fires no onInstalled on runtime.reload() while 151 reports
+    // an "update": the pre-reload storage flag (fresh only) covers the former.
     try {
       var stBoot = g.chrome;
       if (stBoot && stBoot.storage && stBoot.storage.local) {

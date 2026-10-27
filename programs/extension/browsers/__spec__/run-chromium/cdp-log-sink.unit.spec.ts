@@ -90,6 +90,50 @@ describe('registerAutoEnableLogging log sink (E21)', () => {
     expect(events).toHaveLength(0)
   })
 
+  it("enables Runtime and Log only on the extension's own targets", () => {
+    const {cdp, emit} = createFakeCdp()
+    const sendCommand = cdp.sendCommand as unknown as ReturnType<typeof vi.fn>
+    registerAutoEnableLogging(cdp, () => 'abc')
+
+    emit({
+      method: 'Target.attachedToTarget',
+      params: {
+        sessionId: 's-site',
+        targetInfo: {
+          type: 'service_worker',
+          url: 'https://mail.google.com/mail/u/0/sw.js'
+        }
+      }
+    })
+
+    emit({
+      method: 'Target.attachedToTarget',
+      params: {
+        sessionId: 's-other',
+        targetInfo: {
+          type: 'service_worker',
+          url: 'chrome-extension://zzz/background.js'
+        }
+      }
+    })
+
+    emit({
+      method: 'Target.attachedToTarget',
+      params: {
+        sessionId: 's-own',
+        targetInfo: {
+          type: 'service_worker',
+          url: 'chrome-extension://abc/background.js'
+        }
+      }
+    })
+
+    const enabled = sendCommand.mock.calls.map(
+      (call: unknown[]) => `${call[0]}@${call[2]}`
+    )
+    expect(enabled).toEqual(['Runtime.enable@s-own', 'Log.enable@s-own'])
+  })
+
   it('is a no-op without a sink and never throws on malformed entries', () => {
     const {cdp, emit} = createFakeCdp()
     registerAutoEnableLogging(cdp, () => null)

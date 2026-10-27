@@ -29,11 +29,6 @@ import {establishBrowserConnection} from './ws'
 
 // Restrict browser-root auto-attach to extension-relevant target types;
 // attaching pages/iframes trips anti-debug checks in third-party OAuth popups.
-export const EXTENSION_AUTO_ATTACH_FILTER: Array<{
-  type?: string
-  exclude?: boolean
-}> = [{type: 'page', exclude: true}, {type: 'iframe', exclude: true}, {}]
-
 export class CDPClient {
   private port: number
   private host: string
@@ -472,14 +467,6 @@ export class CDPClient {
     })) as {sessionId?: string}
 
     return response.sessionId || ''
-  }
-
-  async enableAutoAttach() {
-    await this.sendCommand('Target.setAutoAttach', {
-      autoAttach: true,
-      waitForDebuggerOnStart: false,
-      flatten: true
-    })
   }
 
   async enableRuntimeAndLog(sessionId?: string) {

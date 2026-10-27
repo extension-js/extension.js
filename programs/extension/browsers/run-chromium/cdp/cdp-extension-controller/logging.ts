@@ -15,6 +15,7 @@ import type {
   CdpTargetInfo
 } from '../../chromium-types'
 import type {CDPClient} from '../cdp-client'
+import {isExtensionOwnedUrl} from './attach'
 
 // Map CDP Log.LogEntry levels ('verbose' | 'info' | 'warning' | 'error')
 // onto the log pipeline's level vocabulary.
@@ -35,8 +36,8 @@ function toSinkLevel(
   }
 }
 
-// Auto-enable Runtime/Log domains for attached
-// extension sessions, and emit unified CDP log lines.
+// Enable Runtime/Log on a session the moment it attaches, for the
+// extension's own targets only, and emit unified CDP log lines.
 export function registerAutoEnableLogging(
   cdp: CDPClient,
   getExtensionId: () => string | null,
@@ -51,12 +52,8 @@ export function registerAutoEnableLogging(
         const targetInfo: CdpTargetInfo = params.targetInfo || {}
         const sessionId = params.sessionId
         const url: string = String(targetInfo.url || '')
-        const type: string = String(targetInfo.type || '')
         const extId = getExtensionId()
-        const matchesExtension = !!(
-          (extId && url.includes(`chrome-extension://${extId}/`)) ||
-          type === 'service_worker'
-        )
+        const matchesExtension = !!extId && isExtensionOwnedUrl(url, extId)
 
         if (sessionId && matchesExtension) {
           cdp.sendCommand('Runtime.enable', {}, sessionId).catch(() => {})

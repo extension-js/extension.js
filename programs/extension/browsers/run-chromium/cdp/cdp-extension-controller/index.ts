@@ -9,29 +9,23 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Readable, Writable} from 'node:stream'
-import {
-  CODES,
-  humanLine,
-  humanWarn,
-  isDebug
-} from '../../../../helpers/messaging'
+import {CODES, humanWarn, isDebug} from '../../../../helpers/messaging'
 import {expectedChromiumExtensionId} from '../../../browsers-lib/banner'
 import {loadsExtensionsOverCdpOnly} from '../../../browsers-lib/browser-family'
-import * as messages from '../../../browsers-lib/messages'
 import {stampReadyExtensionId} from '../../../browsers-lib/ready-stamp'
 import {LAUNCH_TAB_URL} from '../../../browsers-lib/runtime-options'
 import type {BrowserLogSink} from '../../../browsers-types'
-import type {
-  CdpProtocolMessage,
-  CdpProtocolParams,
-  CdpTargetInfo
-} from '../../chromium-types'
-import {type CDPClient, EXTENSION_AUTO_ATTACH_FILTER} from '../cdp-client'
+import type {CdpProtocolMessage} from '../../chromium-types'
+import type {CDPClient} from '../cdp-client'
 import {codedError, declaredCode} from '../coded-error'
 import {
   type DeveloperModeOutcome,
   ensureDeveloperMode
 } from '../ensure-developer-mode'
+import {
+  type ExtensionTargetAttacher,
+  registerExtensionTargetAttach
+} from './attach'
 import {connectToChromeCdp, connectToChromeCdpViaPipe} from './connect'
 import {deriveExtensionIdFromTargetsHelper} from './derive-id'
 import {
@@ -93,8 +87,9 @@ export class CDPExtensionController {
   private readonly pipeOut?: Writable
   private readonly logSink?: BrowserLogSink
   private cdp: CDPClient | null = null
+  private targetAttacher: ExtensionTargetAttacher | null = null
   public onTransportGone: ((reason: string) => void) | undefined
-  private extensionId: string | null = null
+  private extensionIdValue: string | null = null
   private loadRefusalReason: string | null = null
 
   constructor(args: {
@@ -117,6 +112,21 @@ export class CDPExtensionController {
     this.pipeIn = args.pipeIn
     this.pipeOut = args.pipeOut
     this.logSink = args.logSink
+  }
+
+  // Several paths learn the id (CDP targets, the profile, the expected key
+  // hash); whichever lands first also attaches the targets it owns.
+  private get extensionId(): string | null {
+    return this.extensionIdValue
+  }
+
+  private set extensionId(value: string | null) {
+    const changed = value !== this.extensionIdValue
+    this.extensionIdValue = value
+
+    if (value && changed) {
+      void this.targetAttacher?.attachOwned().catch(() => {})
+    }
   }
 
   async connect(): Promise<void> {
@@ -639,16 +649,14 @@ export class CDPExtensionController {
       await this.cdp.sendCommand('Target.setDiscoverTargets', {
         discover: true
       })
-
-      await this.cdp.sendCommand('Target.setAutoAttach', {
-        autoAttach: true,
-        waitForDebuggerOnStart: false,
-        flatten: true,
-        filter: EXTENSION_AUTO_ATTACH_FILTER
-      })
     } catch {
       // Ignore
     }
+
+    this.targetAttacher = registerExtensionTargetAttach(
+      this.cdp,
+      () => this.extensionId
+    )
 
     registerAutoEnableLogging(this.cdp, () => this.extensionId, this.logSink)
   }
@@ -663,83 +671,26 @@ export class CDPExtensionController {
     })
   }
 
+  // Unified logging adds the extension's own pages (popup, options, sidebar)
+  // to the attached set; websites are never attached.
   async enableUnifiedLogging() {
     if (!this.cdp) return
 
     try {
-      await this.cdp.enableAutoAttach()
       await this.cdp.enableRuntimeAndLog()
-
-      try {
-        const targets = await this.cdp.getTargets()
-
-        for (const t of targets || []) {
-          const type = String(t?.type || '')
-
-          if (
-            type === 'page' ||
-            type === 'service_worker' ||
-            type === 'background_page' ||
-            type === 'worker'
-          ) {
-            const targetId = String(t?.targetId || '')
-            if (!targetId) continue
-
-            const sessionId = await this.cdp.attachToTarget(targetId)
-            await this.cdp.enableRuntimeAndLog(sessionId)
-          }
-        }
-      } catch {
-        // Ignore
-      }
-      // Filtering is performed in the caller using event metadata
+      await this.targetAttacher?.attachOwned({pages: true})
     } catch {
       // Ignore
     }
   }
 
+  // The id is known from here on: attach the worker targets that were
+  // discovered before it was, and every owned target created since.
   private async enableLogging() {
     if (!this.cdp) return
 
     try {
-      const extId = this.extensionId
-      this.onProtocolEvent(async (message: CdpProtocolMessage) => {
-        try {
-          if (!message || !message.method) return
-
-          if (message.method === 'Target.attachedToTarget') {
-            const params: CdpProtocolParams = message.params || {}
-            const targetInfo: CdpTargetInfo = params.targetInfo || {
-              url: '',
-              type: ''
-            }
-            const sessionId = params.sessionId
-            const url: string = String(targetInfo.url || '')
-            const type: string = String(targetInfo.type || '')
-            const matchesExtension = !!(
-              (this.extensionId &&
-                url.includes(`chrome-extension://${this.extensionId}/`)) ||
-              (extId && url.includes(`chrome-extension://${extId}/`)) ||
-              type === 'service_worker'
-            )
-
-            if (sessionId && matchesExtension) {
-              await this.cdp!.sendCommand('Runtime.enable', {}, sessionId)
-              await this.cdp!.sendCommand('Log.enable', {}, sessionId)
-            }
-          } else if (
-            message.method === 'Runtime.consoleAPICalled' ||
-            message.method === 'Log.entryAdded'
-          ) {
-            if (String(process.env.EXTENSION_VERBOSE || '').trim() === '1') {
-              const ts = new Date().toISOString()
-              humanLine(messages.cdpUnifiedExtensionLog(ts, message.params))
-            }
-          }
-        } catch {
-          // Ignore
-        }
-      })
+      await this.targetAttacher?.attachOwned()
     } catch (e) {
       if (isDebug()) {
         humanWarn('[CDP] enableLogging failed:', String(e))
