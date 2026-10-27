@@ -2,7 +2,42 @@
 
 ## Unreleased
 
-- **A Safari dev session always says why it has no WebDriver session**, ready.json now carries `webdriverUnavailableReason` from the moment the app opens ("the launcher has not asked safaridriver for a session yet"), then while the session request is pending (up to 30 s), until the session or the refusal replaces it, so a tool that reads the contract early no longer finds neither
+## 4.1.36 (October 27, 2026)
+
+- **"Ready" means the extension is running**, Chrome dev sessions print ready only once the extension connects, and name the stuck profile when it never does
+- **A build never overwrites a live dev session**, `extension build` into the folder a running `extension dev` serves now stops before writing anything and points to `--out-dir`, so the browser you are working in keeps its files
+- **Store warnings before you upload**, a production build flags `localhost` and other loopback origins left in the manifest, and an Edge build says when its embedded settings page will be clipped to 368px, with the one-line `edge:options_ui` fix
+
+### Fixes
+
+- Stop the tabs permission warning on tabs.create({url}) (#920) ([eeed54671](https://github.com/extension-js/extension.js/commit/eeed546718a95ceb9b24fd9d886612c438c9f4bf))
+
+<details>
+<summary>Other changes (22)</summary>
+
+- Stabilize the create cleanup spec and write 4.1.36 highlights (#937) ([838500366](https://github.com/extension-js/extension.js/commit/83850036658cdacc5b205f1109908efb2a34c53d))
+- Repin the template corpus and resync the bundled STORE.md (#936) ([4778c796e](https://github.com/extension-js/extension.js/commit/4778c796e279283cf336222c9c0df1759e6ea51c))
+- Warn on production loopback origins and Edge embedded options (#935) ([ddca7eaa0](https://github.com/extension-js/extension.js/commit/ddca7eaa0974bd8134c2088a2df11cd9b173d951))
+- Refuse a build into the dist a live dev session owns (#934) ([bedbe9c48](https://github.com/extension-js/extension.js/commit/bedbe9c4869ffc613e3b7ce53747f112b9ed4027))
+- Say an ad-hoc Safari build needs the toggle after each relaunch (#933) ([7b6bf7fca](https://github.com/extension-js/extension.js/commit/7b6bf7fca2c7c684ddedac53ea25c5af1bc221d9))
+- Print ready only once the extension attaches and explain the wait (#932) ([d520f0dfb](https://github.com/extension-js/extension.js/commit/d520f0dfba487d7230b0936a70e50d4052deadf5))
+- Stamp the build mode on every dist and prune dev files from production ([76ee34e47](https://github.com/extension-js/extension.js/commit/76ee34e47a25eedbceec677617f629e0d50be78f))
+- File a copied dependency script under its package in the AMO note (#930) ([1731540f2](https://github.com/extension-js/extension.js/commit/1731540f2c2e2cfe14fa354274a5b01d4658ace1))
+- Give the launch-failed contract spec a grace period to reap (#929) ([9d66dd15a](https://github.com/extension-js/extension.js/commit/9d66dd15aa49f1c8b2d08b9aaefd676a3d2a5b9a))
+- Keep a module service worker alive in development builds (#928) ([fc43bf189](https://github.com/extension-js/extension.js/commit/fc43bf189e4090759ac8bb623d1b5fb736211b84))
+- Record why a Safari session has no WebDriver connection yet ([396a813de](https://github.com/extension-js/extension.js/commit/396a813dec1755cef0bd07710b8e959fe5597973))
+- Stamp a UTF-8 byte order mark on every WebKit script asset ([b61c8705d](https://github.com/extension-js/extension.js/commit/b61c8705df99acb3e98cd9a7724594ab4466fd36))
+- List every CLI browser target in the published browser type (#927) ([92d7ee73b](https://github.com/extension-js/extension.js/commit/92d7ee73bb40874eed14213a1faf8f05eb102945))
+- Read the Safari signature off the built app and name a team Xcode lacks ([3f1776ae9](https://github.com/extension-js/extension.js/commit/3f1776ae9dfb774d13a53f44b47d7d8a0be79855))
+- Open the Firefox welcome page behind a configured starting URL (#922) ([9c13f68fb](https://github.com/extension-js/extension.js/commit/9c13f68fb073600ead6b9ba328a6192bbf048728))
+- Keep a property read ahead of its delete in production builds (#921) ([56356f60a](https://github.com/extension-js/extension.js/commit/56356f60ab56c6f3bba16d317ed6f3d82abaf4ec))
+- Ask git once per cell in the gitignore spec so Windows stays green (#923) ([2a3ac21a6](https://github.com/extension-js/extension.js/commit/2a3ac21a60cb891b9731ac746139c7d386b43506))
+- Let a headed Chrome dev window play sound and drop webdriver (#919) ([553de755c](https://github.com/extension-js/extension.js/commit/553de755c1c360d9a03a42d3a6a4ebb027237320))
+- Drop persistent on every Safari build and stop claiming a storage reset ([b806eef2b](https://github.com/extension-js/extension.js/commit/b806eef2b53a18c71f15140c2ae5f10b9dd49b5f))
+- Keep module ids stable and write the AMO reviewer note for Firefox ([e89cd091b](https://github.com/extension-js/extension.js/commit/e89cd091b7489a4ff47ed6082e05dcb17d67cb11))
+- Resume a release publish from its tag before anything is built (#916) ([e4c317d71](https://github.com/extension-js/extension.js/commit/e4c317d71eb6349a0773865af81741ebb3b706b9))
+- Wait once more after npm's 409 before calling a publish held (#915) ([8849da813](https://github.com/extension-js/extension.js/commit/8849da81310effe78c200d271888a30f732f78c6))
+</details>
 
 ## 4.1.35 (October 22, 2026)
 
