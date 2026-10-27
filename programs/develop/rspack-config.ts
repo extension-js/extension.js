@@ -474,7 +474,8 @@ export default function webpackConfig(
               }
 
               getResolve()(context, request, (err, result) => {
-                if (err || !result) leaveUnresolved()
+                // `false` is an alias to the empty module, which is resolved.
+                if (err || (!result && result !== false)) leaveUnresolved()
                 else callback()
               })
 
@@ -500,7 +501,9 @@ export default function webpackConfig(
         ) {
           const resolve = getResolve()
           resolve(context, request, (err, result) => {
-            if (err || !result) {
+            // An alias to `false` resolves to rspack's empty module: leaving
+            // it to the bundler is what keeps the require() out of the output.
+            if (err || (!result && result !== false)) {
               if (!unresolvedBareRequires.has(request)) {
                 unresolvedBareRequires.set(request, contextInfo?.issuer || '')
               }
