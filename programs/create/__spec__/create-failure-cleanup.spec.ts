@@ -21,11 +21,23 @@ vi.mock('../steps/install-dependencies', () => ({
   }
 }))
 
+// The scaffold asks the package manager for its version to pin it, a real
+// process (through corepack on a runner) that took the whole 5 s budget on a
+// cold CI host. None of these cells reads the pin, so the probe answers nothing.
+vi.mock('../lib/package-manager', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/package-manager')>()),
+  resolvePackageManagerSpec: () => undefined
+}))
+
 import {extensionCreate} from '../module'
 
 const noopLogger = {log: () => {}, error: () => {}}
 
-describe('a failed create leaves nothing half-personalized on disk', () => {
+// Each cell runs a whole create on disk, which a loaded Windows runner can
+// stretch well past the 5 s default.
+describe('a failed create leaves nothing half-personalized on disk', {
+  timeout: 30_000
+}, () => {
   const prevEnv = process.env.EXTENSION_ENV
   const tempRoots: string[] = []
 
