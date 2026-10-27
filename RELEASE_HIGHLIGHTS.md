@@ -20,3 +20,7 @@
 -->
 
 ## Highlights
+
+- **"Ready" means the extension is running**, Chrome dev sessions print ready only once the extension connects, and name the stuck profile when it never does
+- **A build never overwrites a live dev session**, `extension build` into the folder a running `extension dev` serves now stops before writing anything and points to `--out-dir`, so the browser you are working in keeps its files
+- **Store warnings before you upload**, a production build flags `localhost` and other loopback origins left in the manifest, and an Edge build says when its embedded settings page will be clipped to 368px, with the one-line `edge:options_ui` fix
