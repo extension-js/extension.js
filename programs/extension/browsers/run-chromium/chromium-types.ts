@@ -166,6 +166,7 @@ export interface CdpStackTrace {
 
 export interface CdpProtocolParams {
   targetInfo?: CdpTargetInfo
+  targetId?: string
   context?: CdpExecutionContextDescription
   sessionId?: string
   executionContextId?: number

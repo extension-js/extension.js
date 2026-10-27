@@ -21,13 +21,8 @@ vi.mock('../../run-chromium/cdp/cdp-client', () => {
     sendCommand = mocks.sendCommandMock
     disconnect = mocks.disconnectMock
   }
-  const EXTENSION_AUTO_ATTACH_FILTER = [
-    {type: 'page', exclude: true},
-    {type: 'iframe', exclude: true},
-    {}
-  ]
 
-  return {CDPClient, EXTENSION_AUTO_ATTACH_FILTER}
+  return {CDPClient}
 })
 
 import {connectToChromeCdp} from '../../run-chromium/cdp/cdp-extension-controller/connect'
@@ -45,7 +40,7 @@ describe('connectToChromeCdp', () => {
     mocks.sendCommandMock.mockResolvedValue({})
   })
 
-  it('retries bootstrap when early socket churn closes CDP before auto-attach', async () => {
+  it('retries bootstrap when early socket churn closes CDP before discovery', async () => {
     mocks.sendCommandMock
       .mockRejectedValueOnce(new Error('WebSocket is not open'))
       .mockResolvedValue({})
@@ -60,17 +55,14 @@ describe('connectToChromeCdp', () => {
         discover: true
       }
     )
+  })
 
-    expect(mocks.sendCommandMock).toHaveBeenCalledWith('Target.setAutoAttach', {
-      autoAttach: true,
-      waitForDebuggerOnStart: false,
-      flatten: true,
-      filter: [
-        {type: 'page', exclude: true},
-        {type: 'iframe', exclude: true},
-        {}
-      ]
-    })
+  it('never auto-attaches at the browser level, since that stalls a page window.open', async () => {
+    await connectToChromeCdp(9222)
+
+    const methods = mocks.sendCommandMock.mock.calls.map((call) => call[0])
+    expect(methods).toContain('Target.setDiscoverTargets')
+    expect(methods).not.toContain('Target.setAutoAttach')
   })
 
   it('does not retry non-recoverable bootstrap failures', async () => {

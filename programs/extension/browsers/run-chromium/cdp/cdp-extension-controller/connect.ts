@@ -8,7 +8,7 @@
 
 import type {Readable, Writable} from 'node:stream'
 import {CODES, humanWarn, isDebug} from '../../../../helpers/messaging'
-import {CDPClient, EXTENSION_AUTO_ATTACH_FILTER} from '../cdp-client'
+import {CDPClient} from '../cdp-client'
 import {codedError} from '../coded-error'
 import {checkChromeRemoteDebugging} from '../discovery'
 
@@ -42,13 +42,9 @@ export async function connectToChromeCdpViaPipe(
   try {
     await cdp.connectViaPipe(pipeIn, pipeOut)
 
+    // Discovery only: the controller attaches the extension's own targets
+    // one by one, since a browser-level auto-attach stalls pages' window.open.
     await cdp.sendCommand('Target.setDiscoverTargets', {discover: true})
-    await cdp.sendCommand('Target.setAutoAttach', {
-      autoAttach: true,
-      waitForDebuggerOnStart: false,
-      flatten: true,
-      filter: EXTENSION_AUTO_ATTACH_FILTER
-    })
 
     return cdp
   } catch (error: unknown) {
@@ -84,15 +80,9 @@ export async function connectToChromeCdp(
     try {
       await cdp.connect()
 
-      // Treat discover/auto-attach as part of startup readiness. If this
-      // handshake fails due to early socket churn, retry with a fresh client.
+      // Treat discovery as part of startup readiness. If this handshake
+      // fails due to early socket churn, retry with a fresh client.
       await cdp.sendCommand('Target.setDiscoverTargets', {discover: true})
-      await cdp.sendCommand('Target.setAutoAttach', {
-        autoAttach: true,
-        waitForDebuggerOnStart: false,
-        flatten: true,
-        filter: EXTENSION_AUTO_ATTACH_FILTER
-      })
 
       return cdp
     } catch (error: unknown) {
