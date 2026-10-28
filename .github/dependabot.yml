@@ -51,6 +51,12 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    # Every github/codeql-action step must run the same version, or analyze
+    # fails against the config init wrote, so the bumps land as one PR.
+    groups:
+      codeql-action:
+        patterns:
+          - "github/codeql-action*"
     open-pull-requests-limit: 10
     rebase-strategy: "auto"
     labels:
