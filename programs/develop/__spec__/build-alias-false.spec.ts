@@ -9,7 +9,7 @@ afterAll(() => {
   for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
 })
 
-function project(opts: {alias?: Record<string, false>; request: string}) {
+function project(opts: {alias?: Record<string, false>; background: string}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-alias-false-'))
   roots.push(root)
   fs.writeFileSync(
@@ -27,15 +27,13 @@ function project(opts: {alias?: Record<string, false>; request: string}) {
     })
   )
 
-  fs.writeFileSync(
-    path.join(root, 'background.js'),
-    `const dead = require(${JSON.stringify(opts.request)})\nconsole.log(dead)\n`
-  )
+  fs.writeFileSync(path.join(root, 'background.js'), opts.background)
 
   if (opts.alias) {
+    fs.writeFileSync(path.join(root, 'alias.json'), JSON.stringify(opts.alias))
     fs.writeFileSync(
       path.join(root, 'extension.config.js'),
-      `module.exports = {config: (config) => ({...config, resolve: {...config.resolve, alias: {...(config.resolve && config.resolve.alias), ...${JSON.stringify(opts.alias)}}}})}\n`
+      "const alias = require('./alias.json')\nmodule.exports = {config: (config) => ({...config, resolve: {...config.resolve, alias: {...(config.resolve && config.resolve.alias), ...alias}}})}\n"
     )
   }
 
@@ -70,7 +68,8 @@ const bundle = (root: string) =>
 describe('a bare require() the project aliases to false', () => {
   it('becomes the empty module, so the browser bundle carries no require() call', async () => {
     const root = project({
-      request: 'regenerator-runtime/runtime',
+      background:
+        "const dead = require('regenerator-runtime/runtime')\nconsole.log(dead)\n",
       alias: {'regenerator-runtime/runtime$': false}
     })
     const summary = await build(root)
@@ -85,7 +84,10 @@ describe('a bare require() the project aliases to false', () => {
   })
 
   it('still warns, naming request and issuer, when nothing resolves the require', async () => {
-    const root = project({request: 'no-such-package-anywhere'})
+    const root = project({
+      background:
+        "const dead = require('no-such-package-anywhere')\nconsole.log(dead)\n"
+    })
     const summary = await build(root)
 
     expect(summary.errors_count).toBe(0)

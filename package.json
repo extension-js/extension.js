@@ -8,13 +8,14 @@
   "pnpm": {
     "overrides": {
       "postcss": "^8.5.23",
-      "fast-uri": "3.1.7",
+      "fast-uri": "3.1.9",
       "browserslist": "4.28.8",
       "baseline-browser-mapping": "2.11.20",
       "electron-to-chromium": "1.5.419",
       "postcss-selector-parser@7": "7.1.6",
       "devalue": "^5.9.3",
-      "serialize-javascript": "^7.0.3",
+      "serialize-javascript": "^7.1.4",
+      "undici@7": "^7.30.1",
       "yauzl": "^3.2.1",
       "vite": "^8.3.3",
       "launch-editor": "^2.14.2",
