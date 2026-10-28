@@ -516,6 +516,7 @@ describe('webpack-config transpile packages watch behavior', () => {
         cb: (err?: Error | null, result?: string | false) => void
       ) => {
         if (request === 'resolvable-pkg') cb(null, '/fake/node_modules/x.js')
+        else if (request === 'ignored-pkg') cb(null, false)
         else cb(new Error(`Can't resolve '${request}'`))
       }
 
@@ -543,6 +544,8 @@ describe('webpack-config transpile packages watch behavior', () => {
     expect(run('file')).toEqual(['file', 'commonjs'])
     expect(run('system')).toEqual(['system', 'commonjs'])
     expect(run('resolvable-pkg')).toEqual([undefined, undefined])
+    // An alias to false is rspack's empty module, so it stays with the bundler.
+    expect(run('ignored-pkg')).toEqual([undefined, undefined])
     expect(run('./missing-local')).toEqual([undefined, undefined])
     expect(run('/abs/missing')).toEqual([undefined, undefined])
     expect(run('fs')).toEqual([undefined, undefined])
