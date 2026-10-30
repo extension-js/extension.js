@@ -15,6 +15,7 @@ import type {FilepathList, SpecialFoldersConfig} from '../types'
 import type {CompanionExtensionsConfig} from './folder-extensions/types'
 import {
   isScriptsFolderEntry,
+  omitDevOnlyEntries,
   publicFolderSetting,
   rememberedFolders,
   rememberSpecialFoldersConfig
@@ -493,24 +494,31 @@ function onlyScriptEntries(
   return next
 }
 
+export type CompileMode = 'development' | 'production' | 'none'
+
 export function getSpecialFoldersDataForCompiler(
   compiler: Compiler
 ): SpecialFoldersData {
   const projectRoot = compiler.options.context || ''
 
-  return getSpecialFoldersDataForProjectRoot(projectRoot)
+  return getSpecialFoldersDataForProjectRoot(
+    projectRoot,
+    rememberedFolders(projectRoot),
+    compiler.options.mode as CompileMode | undefined
+  )
 }
 
 export function getSpecialFoldersDataForProjectRoot(
   projectRoot: string,
-  folders: SpecialFoldersConfig = rememberedFolders(projectRoot)
+  folders: SpecialFoldersConfig = rememberedFolders(projectRoot),
+  mode?: CompileMode
 ): SpecialFoldersData {
   const setting = publicFolderSetting(projectRoot)
   const publicDir =
     setting.kind === 'path' ? setting.dir : path.join(projectRoot, 'public')
   const data = scanSpecialFolders(projectRoot, folders)
 
-  return finalizeSpecialFoldersData(data, projectRoot, publicDir)
+  return finalizeSpecialFoldersData(data, projectRoot, publicDir, mode)
 }
 
 type SpecialFoldersData = Omit<
@@ -522,27 +530,54 @@ type SpecialFoldersData = Omit<
   extensions?: CompanionExtensionsConfig
 }
 
+const reportedDevOnlyEntries = new Set<string>()
+
 function finalizeSpecialFoldersData(
   data: ReturnType<typeof getSpecialFoldersData>,
   projectRoot: string,
-  publicDir: string
+  publicDir: string,
+  mode?: CompileMode
 ): SpecialFoldersData {
-  return {
+  // A `*.dev.*` page or script is a development-only entry, so a production
+  // compile never sees it: no HTML, no chunk, nothing for the manifest to name.
+  const dropped: string[] = []
+  const forThisMode = <T extends Record<string, unknown>>(list: T) =>
+    mode === 'production' ? omitDevOnlyEntries(list, dropped) : list
+
+  const next: SpecialFoldersData = {
     ...data,
     // public/ is copy-only; exclude nested public entries from compilation entrypoints.
-    pages: filterPublicEntrypoints(data.pages, projectRoot, publicDir),
+    pages: forThisMode(
+      filterPublicEntrypoints(data.pages, projectRoot, publicDir)
+    ),
     // Drop Node build/dev tooling living in scripts/, then the files a
     // package.json script runs, then exclude public/ entries as pages.
-    scripts: filterPublicEntrypoints(
-      filterPackageToolingScripts(
-        filterNodeToolingScripts(data.scripts),
-        projectRoot
-      ),
-      projectRoot,
-      publicDir
+    scripts: forThisMode(
+      filterPublicEntrypoints(
+        filterPackageToolingScripts(
+          filterNodeToolingScripts(data.scripts),
+          projectRoot
+        ),
+        projectRoot,
+        publicDir
+      )
     ),
     // Default behavior: auto-scan top-level ./extensions for companion unpacked
     // extensions (one level deep), optional browser subfolders via the resolver.
     extensions: {dir: './extensions'}
   }
+
+  if (dropped.length > 0 && isDebug()) {
+    const relative = dropped.map((abs) =>
+      path.relative(projectRoot, abs).split(path.sep).join('/')
+    )
+    const signature = relative.slice().sort().join('|')
+
+    if (!reportedDevOnlyEntries.has(signature)) {
+      reportedDevOnlyEntries.add(signature)
+      debugLine(messages.devOnlyEntriesLeftOut(relative))
+    }
+  }
+
+  return next
 }

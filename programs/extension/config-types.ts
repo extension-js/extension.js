@@ -86,6 +86,13 @@ export interface SpecialFoldersConfig {
   public?: string | false
 }
 
+/**
+ * Extra files for the build output. Each key is the output path, relative
+ * to the extension root, and each value the source path, relative to the
+ * project root. A folder source copies its tree under the output path.
+ */
+export type IncludeFilesConfig = Record<string, string>
+
 /** Browser launch options shared across commands and per-browser overrides. */
 interface BrowserLaunchConfig {
   browserFlags?: string[]
@@ -116,6 +123,8 @@ export interface BrowserConfig extends BrowserLaunchConfig {
   firefoxBinary?: string
   /** Where the special folders live for this browser, or `false` to skip one. */
   folders?: SpecialFoldersConfig
+  /** Extra files for this browser's output, added to the top-level `include`. */
+  include?: IncludeFilesConfig
 }
 
 /**
@@ -162,6 +171,11 @@ export interface DevCommandConfig
    * Replaces the top-level and per-browser `folders`.
    */
   folders?: SpecialFoldersConfig
+  /**
+   * Extra files for this command's output. Adds to the top-level and
+   * per-browser `include` key by key.
+   */
+  include?: IncludeFilesConfig
 }
 
 /** Shared `commands.start` / `commands.preview` overrides. */
@@ -188,6 +202,11 @@ export interface ServeCommandConfig
    * Replaces the top-level and per-browser `folders`.
    */
   folders?: SpecialFoldersConfig
+  /**
+   * Extra files for this command's output. Adds to the top-level and
+   * per-browser `include` key by key.
+   */
+  include?: IncludeFilesConfig
 }
 
 /** `commands.build` overrides. */
@@ -227,6 +246,11 @@ export interface BuildCommandConfig {
    * Replaces the top-level and per-browser `folders`.
    */
   folders?: SpecialFoldersConfig
+  /**
+   * Extra files for this command's output. Adds to the top-level and
+   * per-browser `include` key by key.
+   */
+  include?: IncludeFilesConfig
 }
 
 /**
@@ -277,6 +301,12 @@ export interface FileConfig {
   define?: Record<string, unknown>
   /** Where the special folders live, or `false` to skip one. */
   folders?: SpecialFoldersConfig
+  /**
+   * Extra files copied into the output, keyed by their output path, for
+   * example `{'models/x.onnx': './models/x.onnx'}`. `browser.<vendor>.include`
+   * and `commands.<name>.include` add to it key by key.
+   */
+  include?: IncludeFilesConfig
   /**
    * Escape hatch to customize the underlying Rspack/webpack-compatible
    * configuration. Receives and returns a bundler `Configuration` object.

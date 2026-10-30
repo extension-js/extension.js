@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import type {Compiler} from '@rspack/core'
+import {omitDevOnlyEntries} from '../plugin-special-folders/folders-config'
 import {getSpecialFoldersDataForCompiler} from '../plugin-special-folders/get-data'
 import type {DevOptions, FilepathList, PluginInterface} from '../types'
 import {HtmlPlugin} from './feature-html'
@@ -56,6 +57,10 @@ export class WebExtensionPlugin {
     })
 
     const specialFoldersData = getSpecialFoldersDataForCompiler(compiler)
+    // A `*.dev.html` page a script names by literal is still development
+    // only: production code that reads it is dead code behind a mode guard.
+    const forThisMode = (pages: FilepathList): FilepathList =>
+      compiler.options.mode === 'production' ? omitDevOnlyEntries(pages) : pages
 
     new ManifestPlugin({
       browser: this.browser,
@@ -82,10 +87,12 @@ export class WebExtensionPlugin {
       manifestPath,
       browser: this.browser,
       includeList: {
-        ...discoverRuntimeSurfacePages(
-          manifestPath,
-          manifestFieldsData.scripts,
-          manifestFieldsData.html
+        ...forThisMode(
+          discoverRuntimeSurfacePages(
+            manifestPath,
+            manifestFieldsData.scripts,
+            manifestFieldsData.html
+          )
         ),
         ...discoverWebAccessiblePages(manifestPath, this.browser, projectPath),
         ...ownedPages,
