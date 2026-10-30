@@ -1,3 +1,4 @@
+import {EXTENSION_BASE_FROM_STACK} from '../../../../../../../lib/extension-base-from-stack'
 import {TemplateFn} from '../helper'
 import {RuntimeGlobal, RuntimeGlobalIsBrowser} from './BrowserRuntime'
 
@@ -11,6 +12,8 @@ const WORKER_LOADER = 'workerLoader'
 const CLASSIC_LOADER = 'classicLoader'
 // MAIN world bridge loader (avoid redeclare)
 const MAIN_CLASSIC_LOADER = 'classicLoaderMainWorld'
+// MAIN world loader that needs no bridge
+const MAIN_DIRECT_LOADER = 'directLoaderMainWorld'
 // fallback choice when DYNAMIC_IMPORT_LOADER fails
 const FALLBACK_LOADER = 'fallbackLoader'
 
@@ -244,7 +247,20 @@ export default function LoadScriptRuntimeModule(
                       'setTimeout(function(){ try { window.removeEventListener("message", onMessage); } catch(_){} done(Object.assign(new Error("Bridge timeout"), { type: "missing" })); }, 5000);'
                     ]) +
                     ';',
-                  `if (!isWorker) ${RuntimeGlobals.loadScript} = ${MAIN_CLASSIC_LOADER};`
+                  // A base the bundle read off its own stack means no bridge
+                  // shipped, so the chunk is appended here, as the bridge would.
+                  `${_const} __extjsStackBase = ${EXTENSION_BASE_FROM_STACK};`,
+                  `${_const} ${MAIN_DIRECT_LOADER} = ` +
+                    f('url, done', [
+                      `${_const} script = document.createElement("script");`,
+                      'script.src = url;',
+                      'script.async = false;',
+                      `script.onload = ${f('', ['try { script.remove(); } catch (_) {}', 'done();'])};`,
+                      `script.onerror = ${f('', ['try { script.remove(); } catch (_) {}', 'done(Object.assign(new Error("Failed to load script: " + url), { type: "missing" }));'])};`,
+                      '(document.head || document.documentElement).appendChild(script);'
+                    ]) +
+                    ';',
+                  `if (!isWorker) ${RuntimeGlobals.loadScript} = __extjsStackBase ? ${MAIN_DIRECT_LOADER} : ${MAIN_CLASSIC_LOADER};`
                 ])
               : Template.asString([
                   `if (!isWorker && hasExtensionRuntime) ${RuntimeGlobals.loadScript} = ${CLASSIC_LOADER};`,

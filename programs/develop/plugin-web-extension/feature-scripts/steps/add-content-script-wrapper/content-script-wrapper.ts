@@ -10,6 +10,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import {parse as parseModuleSyntax} from 'es-module-lexer'
 import {validate} from 'schema-utils'
+import {EXTENSION_BASE_FROM_STACK} from '../../../../lib/extension-base-from-stack'
 import {
   adjustLoaderSourceMap,
   inputOrIdentityMap,
@@ -841,16 +842,15 @@ export default function contentScriptWrapper(
     `var __EXTENSIONJS_BUNDLE_KEY=${JSON.stringify(bundleKey)};\n` +
     `var __EXTENSIONJS_REINJECT_KEY=${JSON.stringify(reinjectKey)};\n` +
     // Later readers, a lazy chunk included, find the base on the require
-    // function, which no page script can reach.
+    // function, which no page script can reach. The bundle's own stack names
+    // it first, and the bridge attribute is only the fallback.
     (takesBridgeBase
-      ? 'var __EXTENSIONJS_BRIDGE_BASE = "";\n' +
+      ? `var __EXTENSIONJS_BRIDGE_BASE = ${EXTENSION_BASE_FROM_STACK};\n` +
         'try {\n' +
         '  var __EXTENSIONJS_html = document.documentElement;\n' +
-        '  __EXTENSIONJS_BRIDGE_BASE = String(__EXTENSIONJS_html.getAttribute("data-extjs-extension-base") || "");\n' +
-        '  if (__EXTENSIONJS_BRIDGE_BASE) {\n' +
-        '    __EXTENSIONJS_html.removeAttribute("data-extjs-extension-base");\n' +
-        '    if (typeof __webpack_require__ === "function") __webpack_require__.extjsBase = __EXTENSIONJS_BRIDGE_BASE;\n' +
-        '  }\n' +
+        '  if (!__EXTENSIONJS_BRIDGE_BASE) __EXTENSIONJS_BRIDGE_BASE = String(__EXTENSIONJS_html.getAttribute("data-extjs-extension-base") || "");\n' +
+        '  if (__EXTENSIONJS_html.hasAttribute("data-extjs-extension-base")) __EXTENSIONJS_html.removeAttribute("data-extjs-extension-base");\n' +
+        '  if (__EXTENSIONJS_BRIDGE_BASE && typeof __webpack_require__ === "function") __webpack_require__.extjsBase = __EXTENSIONJS_BRIDGE_BASE;\n' +
         '} catch (error) {}\n'
       : '') +
     devOnly(

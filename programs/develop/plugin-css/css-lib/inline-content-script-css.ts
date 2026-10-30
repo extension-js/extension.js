@@ -8,6 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {EXTENSION_BASE_FROM_STACK} from '../../lib/extension-base-from-stack'
 import {toJsStringLiteral} from '../../plugin-compilation/env'
 import {
   publicOwnedOutputName,
@@ -161,7 +162,7 @@ export function toRuntimeStylesheetModule(
     // A MAIN-world script has no runtime API. The bridge publishes the
     // extension base for it on globalThis and on <html>, as public path reads.
     '  try {',
-    '    var base = (typeof globalThis === "object" && globalThis && globalThis.__EXTJS_EXTENSION_BASE__) ? String(globalThis.__EXTJS_EXTENSION_BASE__) : "";',
+    `    var base = ${EXTENSION_BASE_FROM_STACK} || ((typeof globalThis === "object" && globalThis && globalThis.__EXTJS_EXTENSION_BASE__) ? String(globalThis.__EXTJS_EXTENSION_BASE__) : "");`,
     '    if (!base && typeof document === "object" && document && document.documentElement) base = String(document.documentElement.getAttribute("data-extjs-extension-base") || "");',
     // A shipped MAIN-world bundle clears that attribute once it has the base,
     // and keeps it on the require function for a sheet that loads later.
