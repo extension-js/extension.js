@@ -590,19 +590,50 @@ describe('content-script-wrapper loader', () => {
           'production'
         ) as any,
         source
+      ),
+      mainWorldDev: contentScriptWrapper.call(
+        createLoaderContext(
+          mainWorld.resourcePath,
+          mainWorld.manifestPath
+        ) as any,
+        source
       )
     }
 
     for (const output of Object.values(outputs)) {
       expect(output).not.toContain('globalThis.registerCleanup')
+    }
+
+    // The prefixed registry stays in an isolated world, and in a MAIN world
+    // dev session where the tooling labels it. A shipped MAIN world bundle
+    // runs on the host page's window and plants nothing there.
+    for (const output of [
+      outputs.dev,
+      outputs.production,
+      outputs.mainWorldDev
+    ]) {
       expect(output).toContain('globalThis.__EXTENSIONJS_registerCleanup')
     }
 
-    for (const output of [outputs.dev, outputs.mainWorld]) {
+    expect(outputs.mainWorld).not.toContain(
+      'globalThis.__EXTENSIONJS_registerCleanup'
+    )
+
+    expect(outputs.mainWorld).not.toMatch(/globalThis\.__EXTENSIONJS_\w+\s*=/)
+
+    for (const output of [
+      outputs.dev,
+      outputs.mainWorld,
+      outputs.mainWorldDev
+    ]) {
       const realm = createRealm()
       runWrapped(output, realm)
       expect('registerCleanup' in realm.sandbox).toBe(false)
     }
+
+    const shipped = createRealm()
+    runWrapped(outputs.mainWorld, shipped)
+    expect('__EXTENSIONJS_registerCleanup' in shipped.sandbox).toBe(false)
   })
 
   it('counts reinject generations across injections for both script shapes', () => {
