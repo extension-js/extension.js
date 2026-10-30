@@ -754,6 +754,22 @@ describe('a MAIN-world script that never resolves a URL against the extension', 
     for (const file of shipped) {
       expect(production.read(file)).not.toContain('EXTJS_WTW_LOADED')
     }
+
+    // The bundle runs on the host page's own window, so it plants no
+    // extension-named global there, the cleanup registry included.
+    const bundle = production.read(scripts[0].js[0])
+    expect(bundle).not.toContain('__EXTENSIONJS_registerCleanup')
+    expect(bundle).not.toMatch(/globalThis\.__EXTENSIONJS_\w+\s*=/)
+
+    const world = page({runtime: false})
+    world.context.HTMLMediaElement = {prototype: {play() {}}}
+    world.run(bundle)
+    await world.settle(5)
+
+    const planted = Object.keys(world.context).filter((key) =>
+      /EXTENSIONJS|extjs/i.test(key)
+    )
+    expect(planted).toEqual([])
   }, 180_000)
 
   it('keeps the bridge in development, where the reload runtime reads the base', async () => {

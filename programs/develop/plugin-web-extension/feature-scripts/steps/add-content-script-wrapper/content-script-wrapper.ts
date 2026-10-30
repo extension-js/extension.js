@@ -948,11 +948,15 @@ export default function contentScriptWrapper(
         '  } catch (error) {}\n' +
         '}\n'
     ) +
-    'try {\n' +
-    '  if (typeof globalThis === "object" && globalThis) {\n' +
-    '    globalThis.__EXTENSIONJS_registerCleanup = __EXTENSIONJS_registerCleanup;\n' +
-    '  }\n' +
-    '} catch (error) {}\n' +
+    // A shipped MAIN world bundle runs on the host page's own window, where
+    // the global would tell any page script an extension is installed.
+    (isShippedBundle && isMainWorld
+      ? ''
+      : 'try {\n' +
+        '  if (typeof globalThis === "object" && globalThis) {\n' +
+        '    globalThis.__EXTENSIONJS_registerCleanup = __EXTENSIONJS_registerCleanup;\n' +
+        '  }\n' +
+        '} catch (error) {}\n') +
     hostInstrumentationInline +
     devOnly(
       'if (__EXTENSIONJS_DEV_MARKERS_ENABLED) {\n' +
