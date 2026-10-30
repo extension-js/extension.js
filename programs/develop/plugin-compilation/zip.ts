@@ -29,12 +29,30 @@ export interface ZipPluginOptions {
   }
 }
 
-function sanitize(input: string): string {
-  return input
+// Letters NFKD does not split into a base letter plus a mark
+const LATIN_LIGATURES: Record<string, string> = {
+  ß: 'ss',
+  æ: 'ae',
+  œ: 'oe',
+  ø: 'o',
+  ł: 'l',
+  đ: 'd',
+  ð: 'd',
+  þ: 'th'
+}
+
+// Transliterates before stripping, so "análise" keeps its letters as "analise"
+export function sanitize(input: string): string {
+  const slug = input
     .toLowerCase()
+    .normalize('NFKD')
+    .replace(/\p{M}/gu, '')
+    .replace(/[ßæœøłđðþ]/g, (letter) => LATIN_LIGATURES[letter])
     .replace(/[^a-z0-9 ]/gi, '')
     .trim()
     .replace(/\s+/g, '-')
+
+  return slug || 'extension'
 }
 
 // An explicit --zip-filename keeps its dashes and case: only path separators,
