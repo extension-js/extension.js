@@ -171,8 +171,80 @@ function moduleResourcesFromIdentifier(
   return out
 }
 
+type IndexChunk = {
+  name?: string | null
+  runtime?: Iterable<string> | string
+  files?: Iterable<string>
+  groupsIterable?: Iterable<{
+    origins?: Array<{module?: {identifier(): string} | null}>
+  }>
+}
+
+function chunkModuleResources(
+  compilation: import('@rspack/core').Compilation,
+  chunk: IndexChunk,
+  contextDir: string
+): string[] {
+  const out: string[] = []
+
+  for (const module of compilation.chunkGraph.getChunkModulesIterable(
+    chunk as never
+  )) {
+    try {
+      out.push(
+        ...moduleResourcesFromIdentifier(
+          String(module.identifier()),
+          contextDir
+        )
+      )
+    } catch {
+      // A module without an identifier names no source
+    }
+  }
+
+  return out
+}
+
+// A nameless chunk belongs to the entries it runs under: a lazy chunk shares
+// its entry's runtime, a worker has its own and names the module that made it.
+function ownersOfNamelessChunk(
+  chunk: IndexChunk,
+  entryNames: Set<string>,
+  ownersBySource: Map<string, Set<string>>,
+  contextDir: string
+): Set<string> {
+  const owners = new Set<string>()
+  const runtime = chunk.runtime
+  const runtimes =
+    typeof runtime === 'string' ? [runtime] : runtime ? [...runtime] : []
+
+  for (const name of runtimes) {
+    if (entryNames.has(name)) owners.add(name)
+  }
+
+  if (owners.size > 0) return owners
+
+  for (const group of chunk.groupsIterable || []) {
+    for (const origin of group.origins || []) {
+      let identifier = ''
+
+      try {
+        identifier = origin.module ? String(origin.module.identifier()) : ''
+      } catch {
+        identifier = ''
+      }
+
+      for (const rel of moduleResourcesFromIdentifier(identifier, contextDir)) {
+        for (const owner of ownersBySource.get(rel) || []) owners.add(owner)
+      }
+    }
+  }
+
+  return owners
+}
+
 // Walk the finished compilation and record, for every bundled source file,
-// which reload feature its chunks belong to. Nameless (async) chunks skipped.
+// which reload feature its chunks belong to, nameless chunks by their owners.
 export function buildSourceFeatureIndex(
   compilation: import('@rspack/core').Compilation,
   contextDir: string
@@ -185,31 +257,77 @@ export function buildSourceFeatureIndex(
     scriptFilesBySource,
     publicRoots: relativePublicRoots(compilation, contextDir)
   }
-  const chunkGraph = compilation.chunkGraph
+  const chunks = [...(compilation.chunks || [])] as IndexChunk[]
+  const entryNames = new Set(
+    chunks.map((chunk) => String(chunk?.name || '')).filter(Boolean)
+  )
+  const ownersBySource = new Map<string, Set<string>>()
+  const sourcesByChunk = new Map<IndexChunk, string[]>()
+  const ownersByChunk = new Map<IndexChunk, Set<string>>()
 
-  for (const chunk of compilation.chunks || []) {
+  const own = (chunk: IndexChunk, owners: Set<string>) => {
+    ownersByChunk.set(chunk, owners)
+
+    for (const rel of sourcesByChunk.get(chunk) || []) {
+      let known = ownersBySource.get(rel)
+
+      if (!known) {
+        known = new Set()
+        ownersBySource.set(rel, known)
+      }
+
+      for (const owner of owners) known.add(owner)
+    }
+  }
+
+  for (const chunk of chunks) {
+    sourcesByChunk.set(
+      chunk,
+      chunkModuleResources(compilation, chunk, contextDir)
+    )
+
     const name = String(chunk?.name || '')
-    if (!name) continue
+    if (name) own(chunk, new Set([name]))
+  }
 
-    const isBackground = /^background\//.test(name)
-    const isContent = /^content_scripts\//.test(name)
+  // A worker made from another nameless chunk resolves once that one has
+  // owners, so settle in a few passes.
+  for (let pass = 0; pass < 3; pass++) {
+    let settled = true
+
+    for (const chunk of chunks) {
+      if (ownersByChunk.has(chunk)) continue
+
+      const owners = ownersOfNamelessChunk(
+        chunk,
+        entryNames,
+        ownersBySource,
+        contextDir
+      )
+
+      if (owners.size === 0) continue
+
+      own(chunk, owners)
+      settled = false
+    }
+
+    if (settled) break
+  }
+
+  for (const chunk of chunks) {
+    const owners = ownersByChunk.get(chunk)
+    if (!owners) continue
+
+    const name = String(chunk?.name || '')
     const scriptFiles = /^scripts\//.test(name)
       ? emittedScriptFiles(chunk, name)
       : []
 
-    for (const module of chunkGraph.getChunkModulesIterable(chunk)) {
-      let identifier = ''
-
-      try {
-        identifier = String(module.identifier())
-      } catch {
-        continue
-      }
-
-      for (const rel of moduleResourcesFromIdentifier(identifier, contextDir)) {
-        if (isBackground) {
+    for (const rel of sourcesByChunk.get(chunk) || []) {
+      for (const owner of owners) {
+        if (/^background\//.test(owner)) {
           index.swSources.add(rel)
-        } else if (isContent) {
+        } else if (/^content_scripts\//.test(owner)) {
           let entries = index.contentEntriesBySource.get(rel)
 
           if (!entries) {
@@ -217,21 +335,21 @@ export function buildSourceFeatureIndex(
             index.contentEntriesBySource.set(rel, entries)
           }
 
-          entries.add(name)
+          entries.add(owner)
         } else {
           index.pageSources.add(rel)
         }
+      }
 
-        if (scriptFiles.length > 0) {
-          let files = scriptFilesBySource.get(rel)
+      if (scriptFiles.length > 0) {
+        let files = scriptFilesBySource.get(rel)
 
-          if (!files) {
-            files = new Set()
-            scriptFilesBySource.set(rel, files)
-          }
-
-          for (const file of scriptFiles) files.add(file)
+        if (!files) {
+          files = new Set()
+          scriptFilesBySource.set(rel, files)
         }
+
+        for (const file of scriptFiles) files.add(file)
       }
     }
   }
