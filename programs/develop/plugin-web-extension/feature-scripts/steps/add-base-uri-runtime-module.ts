@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {Compiler} from '@rspack/core'
+import {EXTENSION_BASE_FROM_STACK} from '../../../lib/extension-base-from-stack'
 
 // The bundler's base URI runtime is document.baseURI under the jsonp loader
 // and undefined under no loader, and a worker has neither a document nor a
@@ -57,6 +58,7 @@ export function baseUriRuntimeSource(baseUriGlobal: string): string[] {
     `  var __extjsApi = (typeof browser === "object" && browser && browser.runtime) ? browser : (typeof chrome === "object" && chrome && chrome.runtime) ? chrome : null;`,
     `  if (__extjsApi && typeof __extjsApi.runtime.getURL === "function") __extjsBase = String(__extjsApi.runtime.getURL("/"));`,
     `} catch (_) { __extjsBase = ""; }`,
+    `if (!__extjsBase) __extjsBase = ${EXTENSION_BASE_FROM_STACK};`,
     `if (!__extjsBase && typeof globalThis === "object" && globalThis && globalThis.__EXTJS_EXTENSION_BASE__) {`,
     `  __extjsBase = String(globalThis.__EXTJS_EXTENSION_BASE__ || "");`,
     `}`,

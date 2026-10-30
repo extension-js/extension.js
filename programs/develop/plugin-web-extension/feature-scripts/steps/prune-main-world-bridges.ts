@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import {Compilation, type Compiler, sources} from '@rspack/core'
+import {isChromiumBasedBrowser} from '../../../lib/constants'
 import type {DevOptions} from '../../../types'
 import {setCurrentManifestContent} from '../../feature-manifest/manifest-lib/manifest'
 import {
@@ -27,7 +28,8 @@ const BASE_READERS = [
 
 // The bridge writes the extension's base URL onto every matching page, where
 // any site script can read it, so a production build ships it only for a
-// MAIN-world bundle that resolves URLs against that base.
+// MAIN-world bundle that resolves URLs against that base and cannot find it
+// on its own.
 export class PruneMainWorldBridges {
   constructor(
     private readonly options: {
@@ -40,6 +42,11 @@ export class PruneMainWorldBridges {
     if (compiler.options?.mode !== 'production') return
     if (!compiler.webpack || !compiler.hooks?.thisCompilation) return
 
+    // A Chromium MAIN bundle reads the base off its own stack, so it needs
+    // no bridge at all. Elsewhere the stack names no extension file.
+    const selfLocating = isChromiumBasedBrowser(
+      String(this.options.browser || 'chrome')
+    )
     const {RuntimeGlobals} = compiler.webpack
     const readers = new Set<string>(
       BASE_READERS.flatMap((key) => {
@@ -81,6 +88,7 @@ export class PruneMainWorldBridges {
             )
               .filter(
                 ({mainIndex}) =>
+                  selfLocating ||
                   !readsBase.has(getCanonicalContentScriptEntryName(mainIndex))
               )
               .map(({bridgeIndex}) =>

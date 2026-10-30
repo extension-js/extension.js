@@ -10,6 +10,7 @@
 // Released under the MIT License.
 
 import type {Compiler} from '@rspack/core'
+import {EXTENSION_BASE_FROM_STACK} from '../../../lib/extension-base-from-stack'
 
 const basic = [
   `var isBrowser = !!(() => { try { return globalThis.browser.runtime.getURL("/") } catch(e) {
@@ -57,7 +58,7 @@ function PublicPathRuntimeModule(compiler: Compiler) {
 
       return Template.asString([
         ...weakRuntimeCheck,
-        `var __extjsBase = (typeof globalThis === "object" && globalThis && globalThis.__EXTJS_EXTENSION_BASE__) ? String(globalThis.__EXTJS_EXTENSION_BASE__) : "";`,
+        `var __extjsBase = ${EXTENSION_BASE_FROM_STACK} || ((typeof globalThis === "object" && globalThis && globalThis.__EXTJS_EXTENSION_BASE__) ? String(globalThis.__EXTJS_EXTENSION_BASE__) : "");`,
         `if (!__extjsBase && typeof document === "object" && document && document.documentElement) {`,
         Template.indent([
           `try { __extjsBase = document.documentElement.getAttribute("data-extjs-extension-base") || ""; } catch(_) { __extjsBase = ""; }`

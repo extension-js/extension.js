@@ -35,11 +35,15 @@ function scaffold(name: string, files: Record<string, string | Buffer>) {
   return root
 }
 
-async function compile(root: string, mode: 'development' | 'production') {
-  const distPath = path.join(root, 'dist', 'chrome')
+async function compile(
+  root: string,
+  mode: 'development' | 'production',
+  browser: 'chrome' | 'firefox' = 'chrome'
+) {
+  const distPath = path.join(root, 'dist', browser)
   const projectStructure = await getProjectStructure(root)
   const config = webpackConfig(projectStructure, {
-    browser: 'chrome',
+    browser,
     mode,
     metadataCommand: mode === 'production' ? 'build' : 'dev',
     silent: true,
@@ -220,7 +224,8 @@ function page(options: {runtime: boolean; sheet?: string}) {
     fetched,
     hosts,
     html,
-    run: (source: string) => vm.runInContext(source, context),
+    run: (source: string, filename?: string) =>
+      vm.runInContext(source, context, filename ? {filename} : undefined),
     settle: async (rounds: number, between?: (round: number) => void) => {
       for (let round = 0; round < rounds; round++) {
         between?.(round)
@@ -649,7 +654,39 @@ describe('the extension base a MAIN-world bundle reads off the page', () => {
     expect(world.context.__seenAsset).toBe(`${EXTENSION_BASE}${asset}`)
     expect(world.context).not.toHaveProperty('__EXTJS_EXTENSION_BASE__')
 
-    // The asset URL is resolved against the base, so the bridge must ship
+    // A Chromium bundle finds the base on its own, so no bridge ships
+    expect(scripts, JSON.stringify(scripts)).toHaveLength(1)
+  }, 180_000)
+
+  it('reads the base off its own script URL in a Chromium production bundle, with nothing on <html>', async () => {
+    const production = await compile(scaffold('main-self', files), 'production')
+    expect(production.errors).toEqual([])
+
+    const main = production
+      .manifest()
+      .content_scripts.find((script) => script.world === 'MAIN')
+    const asset = production.emitted.find((entry) => entry.endsWith('.bin'))
+    const world = page({runtime: false})
+    world.run(
+      production.read(String(main?.js[0])),
+      `${EXTENSION_BASE}${String(main?.js[0])}`
+    )
+
+    await world.settle(5)
+
+    expect(world.html.hasAttribute(BASE_ATTRIBUTE)).toBe(false)
+    expect(world.context.__seenAsset).toBe(`${EXTENSION_BASE}${asset}`)
+  }, 180_000)
+
+  it('keeps the bridge in a Firefox production bundle, whose stack names no extension file', async () => {
+    const production = await compile(
+      scaffold('main-firefox', files),
+      'production',
+      'firefox'
+    )
+    expect(production.errors).toEqual([])
+
+    const scripts = production.manifest().content_scripts
     const bridge = scripts.find((script) => script.world !== 'MAIN')
     expect(bridge, JSON.stringify(scripts)).toBeDefined()
     expect(production.emitted).toContain(String(bridge?.js[0]))

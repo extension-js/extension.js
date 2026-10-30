@@ -1,4 +1,5 @@
 import type * as webpack from 'webpack'
+import {EXTENSION_BASE_FROM_STACK} from '../../../../../../../lib/extension-base-from-stack'
 import {RuntimeGlobal} from './BrowserRuntime'
 
 export default function AutoPublicPathRuntimeModule(
@@ -81,7 +82,7 @@ export default function AutoPublicPathRuntimeModule(
             ]),
         '// When supporting browsers where an automatic publicPath is not supported you must specify an output.publicPath manually via configuration',
         '// or pass an empty string ("") and set the __webpack_public_path__ variable from your code to use your own logic.',
-        `var __extjsBase = (typeof globalThis === "object" && globalThis && globalThis.__EXTJS_EXTENSION_BASE__) ? String(globalThis.__EXTJS_EXTENSION_BASE__) : "";`,
+        `var __extjsBase = ${EXTENSION_BASE_FROM_STACK} || ((typeof globalThis === "object" && globalThis && globalThis.__EXTJS_EXTENSION_BASE__) ? String(globalThis.__EXTJS_EXTENSION_BASE__) : "");`,
         `if (!__extjsBase && typeof document === "object" && document && document.documentElement) {`,
         Template.indent([
           `try { __extjsBase = document.documentElement.getAttribute("data-extjs-extension-base") || ""; } catch(_) { __extjsBase = ""; }`

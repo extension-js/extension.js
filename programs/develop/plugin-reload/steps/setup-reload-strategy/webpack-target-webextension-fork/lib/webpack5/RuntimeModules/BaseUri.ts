@@ -1,4 +1,5 @@
 import type * as webpack from 'webpack'
+import {EXTENSION_BASE_FROM_STACK} from '../../../../../../../lib/extension-base-from-stack'
 import {RuntimeGlobal} from './BrowserRuntime'
 
 export default function BaseUriRuntimeModule(
@@ -23,6 +24,7 @@ export default function BaseUriRuntimeModule(
           `}`
         ]),
         `} catch (_) {}`,
+        `if (!__extjsBase) __extjsBase = ${EXTENSION_BASE_FROM_STACK};`,
         `if (!__extjsBase && typeof globalThis === "object" && globalThis && globalThis.__EXTJS_EXTENSION_BASE__) {`,
         Template.indent([
           `__extjsBase = String(globalThis.__EXTJS_EXTENSION_BASE__ || "");`
