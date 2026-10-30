@@ -20,3 +20,7 @@
 -->
 
 ## Highlights
+
+- **Development-only pages and scripts**, a `player.dev.html` in `pages/` or a `bench.dev.ts` in `scripts/` runs in `extension dev` and never reaches a production build, no HTML, no chunk, no manifest entry
+- **Extra files in the build with `include`**, map output paths to files or folders in `extension.config.js`, model weights or an exported tree outside the project included, layered per browser and per command
+- **A MAIN-world content script leaves nothing on the page**, production builds stop publishing the extension's base URL and the cleanup global to the host page, and the dev browser now passes bot checks and keeps sign-in pop-ups responsive
