@@ -171,6 +171,18 @@ export function mergeIntoV3Group(
   resources: string[],
   options?: {createGroupWhenMissing?: boolean}
 ): void {
+  // Chrome serves a resource statically if any group lists it without
+  // use_dynamic_url, so re-listing one the author made dynamic cancels the flag.
+  const dynamicGroups = groups.filter((group) => group.use_dynamic_url)
+  resources = resources.filter(
+    (resource) =>
+      !dynamicGroups.some(
+        (group) =>
+          group.resources.includes(resource) ||
+          isCoveredByExistingGlobs(group.resources, resource)
+      )
+  )
+
   if (resources.length === 0) return
 
   const createGroupWhenMissing = options?.createGroupWhenMissing ?? true

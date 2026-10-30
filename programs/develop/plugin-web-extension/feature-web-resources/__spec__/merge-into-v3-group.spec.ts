@@ -96,6 +96,26 @@ describe('mergeIntoV3Group', () => {
     })
   })
 
+  it('never re-lists a resource a use_dynamic_url group already lists', () => {
+    const groups: Array<Group & {use_dynamic_url?: boolean}> = [
+      {
+        resources: ['pages/engine.html', 'models/*'],
+        matches: ['https://e.com/*'],
+        use_dynamic_url: true
+      }
+    ]
+    mergeIntoV3Group(groups, ['https://e.com/*'], ['pages/engine.html'])
+    mergeIntoV3Group(groups, ['https://other.com/*'], ['models/w.bin'])
+
+    expect(groups).toEqual([
+      {
+        resources: ['pages/engine.html', 'models/*'],
+        matches: ['https://e.com/*'],
+        use_dynamic_url: true
+      }
+    ])
+  })
+
   it('does the same for an extension_ids group', () => {
     const groups: Array<Group & {extension_ids?: string[]}> = [
       {resources: ['img/a.png'], matches: [], extension_ids: ['abc']}
