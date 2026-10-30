@@ -18,6 +18,7 @@ import {PruneUnreachableChunks} from './steps/prune-unreachable-chunks'
 import {SetupChunkLoadingTarget} from './steps/setup-chunk-loading-target'
 import {SetupDevContentScripts} from './steps/setup-dev-content-scripts'
 import {SetupReloadStrategy} from './steps/setup-reload-strategy'
+import {StableContentScriptNames} from './steps/stable-content-script-names'
 import {StripContentScriptDevServerRuntime} from './steps/strip-content-script-dev-server-runtime'
 
 export {
@@ -97,6 +98,7 @@ export class ReloadPlugin {
     }
 
     new StripContentScriptDevServerRuntime().apply(compiler)
+    new StableContentScriptNames().apply(compiler)
 
     new SetupReloadStrategy({
       manifestPath: this.manifestPath,
