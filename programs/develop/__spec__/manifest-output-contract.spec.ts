@@ -187,11 +187,8 @@ describe('manifest output contract (real rspack, golden fixture)', () => {
         js: ['content_scripts/content-0.js'],
         css: ['content_scripts/content-0.css']
       },
-      {
-        matches: ['<all_urls>'],
-        js: ['content_scripts/content-2.js'],
-        css: []
-      },
+      // A MAIN-world script that resolves no URL against the extension
+      // ships without the isolated bridge that would publish the base
       {
         matches: ['<all_urls>'],
         world: 'MAIN',
@@ -227,12 +224,15 @@ describe('manifest output contract (real rspack, golden fixture)', () => {
       'content_scripts/content-0.js',
       'content_scripts/content-0.css',
       'content_scripts/content-1.js',
-      'content_scripts/content-2.js',
       'icons/icon16.png'
     ]
 
     for (const file of expectedFiles) {
       expect(fs.existsSync(path.join(distDir, file)), file).toBe(true)
     }
+
+    expect(
+      fs.existsSync(path.join(distDir, 'content_scripts/content-2.js'))
+    ).toBe(false)
   }, 120_000)
 })

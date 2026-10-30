@@ -78,11 +78,13 @@ export function resolveMainWorldBridgeSourcePath(options?: {
   ])
 }
 
-export function getMainWorldBridgeScripts(
+// Each MAIN-world script gets an isolated-world bridge listed after every
+// declared script, so its index is the declared count plus its ordinal.
+export function getMainWorldBridgePairs(
   manifestPath: string,
   browser: DevOptions['browser'] = 'chrome'
-): FilepathList {
-  const bridgeScripts: FilepathList = {}
+): Array<{mainIndex: number; bridgeIndex: number}> {
+  const pairs: Array<{mainIndex: number; bridgeIndex: number}> = []
 
   try {
     const raw = JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf-8')))
@@ -94,27 +96,34 @@ export function getMainWorldBridgeScripts(
     )
       ? (resolved.content_scripts as Array<{world?: unknown}>)
       : []
-    const originalCount = contentScripts.length
-
-    const bridgeSource = resolveMainWorldBridgeSourcePath()
-
-    if (!bridgeSource) {
-      return bridgeScripts
-    }
-
-    let bridgeOrdinal = 0
 
     for (let i = 0; i < contentScripts.length; i++) {
-      const cs = contentScripts[i]
+      if (contentScripts[i]?.world !== 'MAIN') continue
 
-      if (cs?.world !== 'MAIN') continue
-
-      const bridgeIndex = originalCount + bridgeOrdinal++
-      bridgeScripts[getCanonicalContentScriptEntryName(bridgeIndex)] =
-        bridgeSource
+      pairs.push({
+        mainIndex: i,
+        bridgeIndex: contentScripts.length + pairs.length
+      })
     }
   } catch {
     // ignore: bridge is best-effort and only needed for MAIN world users
+  }
+
+  return pairs
+}
+
+export function getMainWorldBridgeScripts(
+  manifestPath: string,
+  browser: DevOptions['browser'] = 'chrome'
+): FilepathList {
+  const bridgeScripts: FilepathList = {}
+  const bridgeSource = resolveMainWorldBridgeSourcePath()
+
+  if (!bridgeSource) return bridgeScripts
+
+  for (const {bridgeIndex} of getMainWorldBridgePairs(manifestPath, browser)) {
+    bridgeScripts[getCanonicalContentScriptEntryName(bridgeIndex)] =
+      bridgeSource
   }
 
   return bridgeScripts

@@ -15,6 +15,7 @@ import {AddPublicPathRuntimeModule} from './steps/add-public-path-runtime-module
 import {AddScripts} from './steps/add-scripts'
 import {CompileMainWorldScripts} from './steps/compile-main-world-scripts'
 import {KeepGetURLImportsNative} from './steps/keep-geturl-imports-native'
+import {PruneMainWorldBridges} from './steps/prune-main-world-bridges'
 import {StampWebkitUtf8Bom} from './steps/stamp-webkit-utf8-bom'
 import {TraceRuntimeLoadedFiles} from './steps/trace-runtime-loaded-files'
 import {ValidateEmittedScriptSyntax} from './steps/validate-emitted-script-syntax'
@@ -91,6 +92,11 @@ export class ScriptsPlugin {
     // Every mode: a worker entry that builds a URL from the base must not
     // read document, and a page keeps the same extension-root base.
     new AddBaseUriRuntimeModule().apply(compiler)
+
+    new PruneMainWorldBridges({
+      manifestPath: this.manifestPath,
+      browser: this.browser
+    }).apply(compiler)
 
     // swc tolerates some early syntax errors and emits them into the bundle; the
     // browser then silently never injects the file. Fail loudly in every mode.

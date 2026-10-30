@@ -648,6 +648,11 @@ describe('the extension base a MAIN-world bundle reads off the page', () => {
     expect(world.context.__seenAttribute).toBeNull()
     expect(world.context.__seenAsset).toBe(`${EXTENSION_BASE}${asset}`)
     expect(world.context).not.toHaveProperty('__EXTJS_EXTENSION_BASE__')
+
+    // The asset URL is resolved against the base, so the bridge must ship
+    const bridge = scripts.find((script) => script.world !== 'MAIN')
+    expect(bridge, JSON.stringify(scripts)).toBeDefined()
+    expect(production.emitted).toContain(String(bridge?.js[0]))
   }, 180_000)
 
   it('stays on <html> in development, where the reload runtime reads it later', async () => {
@@ -669,5 +674,57 @@ describe('the extension base a MAIN-world bundle reads off the page', () => {
       expect(bundle).not.toContain('removeAttribute')
       expect(bundle).not.toContain('__EXTENSIONJS_BRIDGE_BASE')
     }
+  }, 180_000)
+})
+
+describe('a MAIN-world script that never resolves a URL against the extension', () => {
+  const files = {
+    'manifest.json': JSON.stringify({
+      manifest_version: 3,
+      name: 'exposure-main-plain',
+      version: '1.0.0',
+      content_scripts: [
+        {
+          matches: ['https://example.com/*'],
+          js: ['content/hook.ts'],
+          run_at: 'document_start',
+          world: 'MAIN'
+        }
+      ]
+    }),
+    'content/hook.ts':
+      'const original = HTMLMediaElement.prototype.play\n' +
+      'HTMLMediaElement.prototype.play = function () {\n' +
+      '  return original.call(this)\n' +
+      '}\n' +
+      'export {}\n'
+  }
+
+  it('ships no bridge in a production build, so no page learns the extension base', async () => {
+    const production = await compile(
+      scaffold('main-plain', files),
+      'production'
+    )
+    expect(production.errors).toEqual([])
+
+    const scripts = production.manifest().content_scripts
+    expect(scripts, JSON.stringify(scripts)).toHaveLength(1)
+    expect(scripts[0].world).toBe('MAIN')
+
+    const shipped = production.emitted.filter((entry) => entry.endsWith('.js'))
+    expect(shipped, shipped.join(', ')).toEqual([scripts[0].js[0]])
+
+    for (const file of shipped) {
+      expect(production.read(file)).not.toContain('EXTJS_WTW_LOADED')
+    }
+  }, 180_000)
+
+  it('keeps the bridge in development, where the reload runtime reads the base', async () => {
+    const development = await compile(
+      scaffold('main-plain-dev', files),
+      'development'
+    )
+    expect(development.errors).toEqual([])
+    expect(development.manifest().content_scripts).toHaveLength(2)
   }, 180_000)
 })
