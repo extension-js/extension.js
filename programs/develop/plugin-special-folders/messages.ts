@@ -128,3 +128,38 @@ export function publicFileCollidesWithEntry(
     `subfolder that no generated page uses.`
   )
 }
+
+export function devOnlyEntriesLeftOut(relativePaths: string[]) {
+  const one = relativePaths.length === 1
+  const list = relativePaths
+    .map((entry) => `  ${colors.yellow(entry)}`)
+    .join('\n')
+
+  return (
+    `${prefix('debug')} Left ${relativePaths.length} development-only ` +
+    `${one ? 'entry' : 'entries'} out of the production build ` +
+    `(a ${colors.yellow('.dev.')} file in pages/ or scripts/):\n${list}`
+  )
+}
+
+export function includeSourceMissing(
+  outputPath: string,
+  sourcePath: string,
+  projectRoot: string
+) {
+  return (
+    `${colors.blue('include')} in extension.config.js maps ` +
+    `${colors.yellow(outputPath)} to a file that is not there.\n` +
+    `SOURCE ${displayPath(sourcePath, projectRoot)}\n` +
+    'Add the file, fix the path, or remove the entry.'
+  )
+}
+
+export function includeOutputPathInvalid(outputPath: string, reason: string) {
+  return (
+    `${colors.blue('include')} in extension.config.js cannot write ` +
+    `${colors.yellow(outputPath)}: ${reason}.\n` +
+    'Each key is an output path relative to the extension root, ' +
+    `such as ${colors.blue('models/x.onnx')}.`
+  )
+}

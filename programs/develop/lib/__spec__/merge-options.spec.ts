@@ -221,6 +221,23 @@ describe('mergeOptionLayers', () => {
     })
   })
 
+  it('merges include key by key, a later layer winning one output path', () => {
+    const merged = mergeOptionLayers<Record<string, any>>(
+      BUILD_COMMAND_DEFAULTS,
+      {
+        include: {'models/a.onnx': './models/a.onnx', 'data/x.json': './x.json'}
+      },
+      {include: {'models/b.onnx': './models/b.onnx'}},
+      {include: {'data/x.json': './command/x.json'}}
+    )
+
+    expect(merged.include).toEqual({
+      'models/a.onnx': './models/a.onnx',
+      'models/b.onnx': './models/b.onnx',
+      'data/x.json': './command/x.json'
+    })
+  })
+
   it('keeps scalar last-wins while combining flags and preferences', () => {
     const merged = mergeOptionLayers<Record<string, any>>(
       DEV_COMMAND_DEFAULTS,

@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
+import {isDevOnlyEntry, omitDevOnlyEntries} from '../folders-config'
 import {
   getSpecialFoldersDataForCompiler,
   getSpecialFoldersDataForProjectRoot,
@@ -134,5 +135,85 @@ describe('the public folder setting', () => {
 
     expect(inspectPublicFolders(manifestPath, root).publicDir).toBeUndefined()
     expect(publicResolveRoots(root, manifestPath)).toEqual([root])
+  })
+})
+
+describe('development-only entries', () => {
+  it('recognizes a .dev. file by its name alone', () => {
+    expect(isDevOnlyEntry('pages/player.dev.html')).toBe(true)
+    expect(isDevOnlyEntry('/abs/scripts/bench.dev.ts')).toBe(true)
+    expect(isDevOnlyEntry('pages/nested/parity.DEV.html')).toBe(true)
+    expect(isDevOnlyEntry('pages/player.html')).toBe(false)
+    expect(isDevOnlyEntry('pages/dev/player.html')).toBe(false)
+    expect(isDevOnlyEntry('scripts/devtools.js')).toBe(false)
+    expect(isDevOnlyEntry('scripts/player.dev.module.css')).toBe(false)
+  })
+
+  it('drops the dev-only files from a list and names them', () => {
+    const dropped: string[] = []
+    const next = omitDevOnlyEntries(
+      {
+        'pages/player': '/p/pages/player.dev.html',
+        'pages/engine': '/p/pages/engine.html',
+        'scripts/pair': ['/p/scripts/a.js', '/p/scripts/b.dev.js']
+      },
+      dropped
+    )
+
+    expect(next).toEqual({
+      'pages/engine': '/p/pages/engine.html',
+      'scripts/pair': ['/p/scripts/a.js']
+    })
+
+    expect(dropped).toEqual(['/p/pages/player.dev.html', '/p/scripts/b.dev.js'])
+  })
+
+  it('leaves them out of a production scan only', () => {
+    const root = project({
+      'pages/engine.html': '<html></html>',
+      'pages/player.dev.html': '<html></html>',
+      'pages/bench/parity.dev.html': '<html></html>',
+      'scripts/content.js': 'document.title = "c"',
+      'scripts/bench.dev.js': 'document.title = "b"'
+    })
+
+    const production = getSpecialFoldersDataForProjectRoot(
+      root,
+      undefined,
+      'production'
+    )
+    expect(keys(production.pages)).toEqual(['pages/engine'])
+    expect(keys(production.scripts)).toEqual(['scripts/content'])
+
+    const development = getSpecialFoldersDataForProjectRoot(
+      root,
+      undefined,
+      'development'
+    )
+    expect(keys(development.pages)).toEqual([
+      'pages/bench/parity.dev',
+      'pages/engine',
+      'pages/player.dev'
+    ])
+
+    expect(keys(development.scripts)).toEqual([
+      'scripts/bench.dev',
+      'scripts/content'
+    ])
+
+    // No mode given, nothing is left out: a caller that only reads the
+    // companion extensions list has no mode to give.
+    expect(keys(getSpecialFoldersDataForProjectRoot(root).pages)).toEqual(
+      keys(development.pages)
+    )
+
+    const compiler = (mode: string) => ({options: {context: root, mode}}) as any
+    expect(
+      keys(getSpecialFoldersDataForCompiler(compiler('production')).pages)
+    ).toEqual(['pages/engine'])
+
+    expect(
+      keys(getSpecialFoldersDataForCompiler(compiler('development')).scripts)
+    ).toEqual(['scripts/bench.dev', 'scripts/content'])
   })
 })

@@ -23,6 +23,8 @@ Output mapping overview:
 | `public/**`     | Emitted 1:1 into output root (e.g., `public/img/icon.png` → `dist/img/icon.png`). |
 | `pages/**`      | Surfaced via HTML feature; nested routes preserved and `/index` collapses.        |
 | `scripts/**`    | Surfaced via Scripts feature; not copied by this plugin.                          |
+| `*.dev.*`       | A page or script named `.dev.` is a development-only entry: compiled in development, left out of production. |
+| `include`       | Files the config declares are copied to their output path (`{'models/x.onnx': './models/x.onnx'}`), a folder source copies its tree. |
 | `extensions/**` | Load-only companion extensions; scanned when no CLI/config `extensions` provided. |
 
 ## Usage
@@ -43,7 +45,8 @@ export default {
 
 ## Include semantics
 
-- This plugin does not accept include/exclude lists. It always emits from `public/` and watches `pages/` and `scripts` (dev-only) based on the `manifestPath` project root. It also exposes a default `extensions/` scan when no CLI/config `extensions` are provided.
+- This plugin takes no glob lists. It always emits from `public/` and watches `pages/` and `scripts` (dev-only) based on the `manifestPath` project root. It also exposes a default `extensions/` scan when no CLI/config `extensions` are provided.
+- `include` (from `extension.config.js`, layered top-level, per browser and per command) names extra files by output path. A missing source or an output path outside the extension root fails the compilation with a message naming the key.
 - For handling specific assets referenced in `manifest.json`, use the respective plugins (HTML, Icons, Scripts) with their `includeList` options.
 
 ## Path resolution convention (consistent across @plugin-extension)
@@ -64,6 +67,8 @@ This plugin mirrors that convention by emitting `public/` into the output root s
 ```ts
 export interface SpecialFoldersPluginOptions {
   manifestPath: string
+  folders?: SpecialFoldersConfig
+  include?: Record<string, string>
 }
 
 export class SpecialFoldersPlugin {

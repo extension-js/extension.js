@@ -48,6 +48,36 @@ export function isScriptsFolderEntry(filePath: string): boolean {
   return SCRIPTS_FOLDER_EXTENSIONS.has(path.extname(filePath).toLowerCase())
 }
 
+// `pages/player.dev.html` and `scripts/bench.dev.ts` are development-only
+// entries: a development compile serves them, a production one leaves them out.
+const DEV_ONLY_ENTRY = /\.dev\.[^.]+$/i
+
+export function isDevOnlyEntry(filePath: string): boolean {
+  return DEV_ONLY_ENTRY.test(path.basename(String(filePath)))
+}
+
+export function omitDevOnlyEntries<T extends Record<string, unknown>>(
+  list: T | undefined,
+  dropped?: string[]
+): T {
+  const next: Record<string, unknown> = {}
+
+  for (const [key, value] of Object.entries(list || {})) {
+    const files = Array.isArray(value) ? value : value ? [value] : []
+    const kept = files.filter((file) => !isDevOnlyEntry(String(file)))
+
+    for (const file of files) {
+      if (!kept.includes(file)) dropped?.push(String(file))
+    }
+
+    if (kept.length === 0) continue
+
+    next[key] = Array.isArray(value) ? kept : kept[0]
+  }
+
+  return next as T
+}
+
 export type SpecialFolderName = 'pages' | 'scripts'
 export type SpecialFoldersRoots = Partial<Record<SpecialFolderName, string>>
 

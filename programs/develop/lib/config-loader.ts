@@ -359,6 +359,7 @@ const CONFIG_TOP_LEVEL_KEYS = [
   'define',
   'extensions',
   'folders',
+  'include',
   'perfBudgets',
   'transpilePackages'
 ] as const
@@ -616,7 +617,12 @@ export async function loadDefineTypes(
 
 export type ProjectConfigDefaults = Pick<
   FileConfig,
-  'extensions' | 'transpilePackages' | 'perfBudgets' | 'define' | 'folders'
+  | 'extensions'
+  | 'transpilePackages'
+  | 'perfBudgets'
+  | 'define'
+  | 'folders'
+  | 'include'
 >
 
 // Top-level `extensions`/`transpilePackages`/`perfBudgets` are the weakest
@@ -651,6 +657,9 @@ export async function loadProjectConfigDefaults(
             : {}),
           ...(userConfig?.folders && typeof userConfig.folders === 'object'
             ? {folders: userConfig.folders}
+            : {}),
+          ...(userConfig?.include && typeof userConfig.include === 'object'
+            ? {include: userConfig.include}
             : {})
         }
       } catch (err: unknown) {

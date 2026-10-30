@@ -12,7 +12,7 @@ import {type Compilation, type Compiler, rspack} from '@rspack/core'
 import {requestDevSessionRestart} from '../dev-server/session-restart'
 import {debugLine, isDebug} from '../lib/messaging'
 import {localeDirsWithoutMessages} from '../plugin-web-extension/feature-locales/get-locales'
-import type {SpecialFoldersConfig} from '../types'
+import type {IncludeFilesConfig, SpecialFoldersConfig} from '../types'
 import {checkManifestInPublic} from './check-manifest-in-public'
 import {explainPublicOutputCollision} from './check-public-output-collision'
 import {emitRootAbsoluteRefs} from './emit-root-absolute-refs'
@@ -20,6 +20,7 @@ import {
   publicFolderSetting,
   rememberSpecialFoldersConfig
 } from './folders-config'
+import {IncludeFiles} from './include-files'
 import * as messages from './messages'
 import {PruneRemovedPublicFiles} from './prune-removed-public-files'
 import {
@@ -31,6 +32,7 @@ import {WarnUponFolderChanges} from './warn-upon-folder-changes'
 interface SpecialFoldersPluginOptions {
   manifestPath: string
   folders?: SpecialFoldersConfig
+  include?: IncludeFilesConfig
 }
 
 export class SpecialFoldersPlugin {
@@ -43,9 +45,13 @@ export class SpecialFoldersPlugin {
   }
 
   apply(compiler: Compiler) {
-    const {manifestPath, folders} = this.options
+    const {manifestPath, folders, include} = this.options
     const context = compiler.options.context || path.dirname(manifestPath)
     if (folders) rememberSpecialFoldersConfig(context, folders)
+
+    // Declared files ride the same copier as public/, so they land in the
+    // output and reload on edit without a plugin of the project's own.
+    new IncludeFiles({include, projectRoot: context}).apply(compiler)
 
     const inspection = inspectPublicFolders(manifestPath, context)
     // Every project but one ships from a public folder, whether or not that

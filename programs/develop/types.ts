@@ -484,6 +484,8 @@ export interface BrowserConfig extends BrowserOptionsBase {
   forceRegenerate?: SafariOptions['forceRegenerate']
   /** Where the special folders live for this browser, or `false` to skip one. */
   folders?: SpecialFoldersConfig
+  /** Extra files for this browser's output, added to the top-level `include`. */
+  include?: IncludeFilesConfig
   /**
    * Companion extensions (load-only) scoped to a browser config.
    * Useful for per-browser store URLs or local unpacked extensions.
@@ -528,6 +530,7 @@ export interface CommonWebpackOptions {
    */
   define?: Record<string, unknown>
   folders?: SpecialFoldersConfig
+  include?: IncludeFilesConfig
   perfBudgets?: PerfBudgetsConfig
   /**
    * Companion extensions (load-only). Each entry must be an unpacked extension root
@@ -613,6 +616,7 @@ export interface FileConfig {
         transpilePackages?: string[]
         define?: Record<string, unknown>
         folders?: SpecialFoldersConfig
+        include?: IncludeFilesConfig
         perfBudgets?: PerfBudgetsConfig
       }
 
@@ -643,6 +647,7 @@ export interface FileConfig {
       transpilePackages?: string[]
       define?: Record<string, unknown>
       folders?: SpecialFoldersConfig
+      include?: IncludeFilesConfig
     }
 
     preview?: Pick<
@@ -695,6 +700,7 @@ export interface FileConfig {
       transpilePackages?: string[]
       define?: Record<string, unknown>
       folders?: SpecialFoldersConfig
+      include?: IncludeFilesConfig
       perfBudgets?: PerfBudgetsConfig
     }
   }
@@ -728,6 +734,13 @@ export interface FileConfig {
    */
   folders?: SpecialFoldersConfig
   /**
+   * Extra files copied into the output, keyed by their output path, for
+   * example `{'models/x.onnx': './models/x.onnx'}`. A source can be a file
+   * or a folder, inside or outside the project. `browser.<vendor>.include`
+   * adds to or overrides it, and `commands.<name>.include` adds to both.
+   */
+  include?: IncludeFilesConfig
+  /**
    * Customizes the bundler config before the compiler is built. The second
    * argument names the target browser, the bundler mode and the command.
    */
@@ -760,3 +773,10 @@ export interface SpecialFoldersConfig {
   pages?: string | false
   public?: string | false
 }
+
+/**
+ * Extra files for the build output. Each key is the output path, relative
+ * to the extension root, and each value the source path, relative to the
+ * project root. A folder source copies its tree under the output path.
+ */
+export type IncludeFilesConfig = Record<string, string>
