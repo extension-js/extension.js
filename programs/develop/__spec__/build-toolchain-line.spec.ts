@@ -4,6 +4,9 @@ import {fileURLToPath} from 'node:url'
 import {describe, expect, it} from 'vitest'
 import {getBuildToolchain} from '../lib/build-toolchain'
 import * as messages from '../lib/messages'
+import packageJson from '../package.json'
+
+const EXTENSION_JS = packageJson.version
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 
@@ -24,6 +27,7 @@ describe('build toolchain line', () => {
       )
     ).toEqual({
       node: 'v24.18.1',
+      extension_js: EXTENSION_JS,
       package_manager: {name: 'npm', version: '12.0.2'}
     })
 
@@ -45,37 +49,48 @@ describe('build toolchain line', () => {
   })
 
   it('records Node alone when no package manager script started the build', () => {
-    expect(getBuildToolchain({}, 'v22.23.1')).toEqual({node: 'v22.23.1'})
+    const nodeAlone = {node: 'v22.23.1', extension_js: EXTENSION_JS}
+    expect(getBuildToolchain({}, 'v22.23.1')).toEqual(nodeAlone)
     expect(
       getBuildToolchain({npm_config_user_agent: '   '}, 'v22.23.1')
-    ).toEqual({node: 'v22.23.1'})
+    ).toEqual(nodeAlone)
 
     expect(
       getBuildToolchain({npm_config_user_agent: 'bun/? node/v22'}, 'v22.23.1')
-    ).toEqual({node: 'v22.23.1'})
+    ).toEqual(nodeAlone)
   })
 
   it('reads the versions off the process by default', () => {
     expect(getBuildToolchain().node).toBe(process.version)
+    expect(getBuildToolchain().extension_js).toBe(EXTENSION_JS)
   })
 
-  it('prints both versions on one line a reviewer note can quote', () => {
+  it('prints every version on one line and says what to do with them', () => {
     const line = stripAnsi(
       messages.buildToolchain({
         node: 'v22.23.1',
+        extension_js: '4.1.36',
         package_manager: {name: 'npm', version: '10.9.8'}
       })
     )
 
-    expect(line).toContain('Built with Node v22.23.1 and npm 10.9.8.')
+    expect(line).toContain(
+      'Built with Node v22.23.1, npm 10.9.8 and Extension.js 4.1.36.'
+    )
+
     expect(line).not.toContain('\n')
-    expect(line.toLowerCase()).toContain('reviewer')
+    // The sentence names what the reader copies and where it goes, so no
+    // pronoun is left pointing at nothing.
+    expect(line).toContain("Name these versions in the store's reviewer note")
+    expect(line).not.toMatch(/\bthem\b/)
   })
 
-  it('prints Node alone when the package manager is unknown', () => {
-    const line = stripAnsi(messages.buildToolchain({node: 'v22.23.1'}))
+  it('prints Node and Extension.js when the package manager is unknown', () => {
+    const line = stripAnsi(
+      messages.buildToolchain({node: 'v22.23.1', extension_js: '4.1.36'})
+    )
 
-    expect(line).toContain('Built with Node v22.23.1.')
+    expect(line).toContain('Built with Node v22.23.1 and Extension.js 4.1.36.')
     expect(line).not.toContain('undefined')
   })
 

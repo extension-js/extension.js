@@ -861,3 +861,87 @@ describe('githubZipCandidates', () => {
     ])
   })
 })
+
+// A folder with no manifest and no package.json above it. One project below
+// is adopted and announced. A folder of projects is refused with the list,
+// since a build that picked one wrote a neighbor's dist without a word.
+describe('a folder with no manifest and no package.json', () => {
+  it('refuses an empty folder and names the directory it looked in', () => {
+    const root = makeTempDir('extjs-gps-empty-')
+
+    expect(() => resolveProjectStructureSync(root, {quiet: true})).toThrow(
+      /Manifest file not found/
+    )
+
+    try {
+      resolveProjectStructureSync(root, {quiet: true})
+    } catch (error) {
+      const message = String((error as Error).message)
+      expect(message).toContain(path.join(root, 'manifest.json'))
+      expect((error as {code?: string}).code).toBe('E_MANIFEST_NOT_FOUND')
+    }
+
+    expect(fs.readdirSync(root)).toEqual([])
+  })
+
+  it('refuses a folder of projects and lists them as paths to pass', () => {
+    const root = makeTempDir('extjs-gps-neighbors-')
+
+    for (const name of ['chrome', 'hands-free', 'leon']) {
+      fs.mkdirSync(path.join(root, name), {recursive: true})
+      fs.writeFileSync(
+        path.join(root, name, 'manifest.json'),
+        JSON.stringify({manifest_version: 3, name, version: '0.1.0'})
+      )
+    }
+
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    try {
+      expect(() => resolveProjectStructureSync(root)).toThrow(
+        /Manifest file not found/
+      )
+
+      try {
+        resolveProjectStructureSync(root)
+      } catch (error) {
+        const message = String((error as Error).message)
+        expect(message).toContain('one of these workspace packages')
+
+        for (const name of ['chrome', 'hands-free', 'leon']) {
+          expect(message).toContain(`extension dev ${name}`)
+        }
+      }
+
+      expect(log).not.toHaveBeenCalled()
+    } finally {
+      log.mockRestore()
+    }
+
+    // Nothing was built or written on the author's behalf.
+    for (const name of ['chrome', 'hands-free', 'leon']) {
+      expect(fs.readdirSync(path.join(root, name))).toEqual(['manifest.json'])
+    }
+  })
+
+  it('adopts the one project below and says so on the first line', () => {
+    const root = makeTempDir('extjs-gps-lone-')
+    fs.mkdirSync(path.join(root, 'app'), {recursive: true})
+    fs.writeFileSync(path.join(root, 'app', 'manifest.json'), '{}')
+
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    try {
+      const structure = resolveProjectStructureSync(root)
+      expect(structure.manifestPath).toBe(
+        path.join(root, 'app', 'manifest.json')
+      )
+
+      const printed = log.mock.calls.map((call) => String(call[0])).join('\n')
+      expect(printed).toContain('Workspace root detected')
+      expect(printed).toContain('app')
+    } finally {
+      log.mockRestore()
+    }
+  })
+})

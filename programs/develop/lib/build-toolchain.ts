@@ -6,8 +6,10 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import packageJson from '../package.json'
 export interface BuildToolchain {
   node: string
+  extension_js: string
   package_manager?: {name: string; version: string}
 }
 
@@ -23,10 +25,13 @@ export function getBuildToolchain(
   const agent = String(env.npm_config_user_agent || '').trim()
   const head = USER_AGENT_HEAD.exec(agent)
 
-  if (!head || head[2] === '?') return {node: nodeVersion}
+  if (!head || head[2] === '?') {
+    return {node: nodeVersion, extension_js: packageJson.version}
+  }
 
   return {
     node: nodeVersion,
+    extension_js: packageJson.version,
     package_manager: {name: head[1].toLowerCase(), version: head[2]}
   }
 }

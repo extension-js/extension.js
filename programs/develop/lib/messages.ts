@@ -385,12 +385,13 @@ export function buildComplete(
 // it are what the note has to quote for the rebuild to match.
 export function buildToolchain(toolchain: BuildToolchain) {
   const packageManager = toolchain.package_manager
-    ? ` and ${toolchain.package_manager.name} ${toolchain.package_manager.version}`
+    ? `, ${toolchain.package_manager.name} ${toolchain.package_manager.version}`
     : ''
 
   return (
-    `${getLoggingPrefix('info')} Built with Node ${toolchain.node}${packageManager}. ` +
-    `A reviewer note that names them lets a rebuild match this one.`
+    `${getLoggingPrefix('info')} Built with Node ${toolchain.node}${packageManager} ` +
+    `and Extension.js ${toolchain.extension_js}. Name these versions in the ` +
+    `store's reviewer note so a reviewer can rebuild it and match these bytes.`
   )
 }
 
