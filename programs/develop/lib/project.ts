@@ -765,19 +765,36 @@ export function resolveProjectStructureSync(
 
       // Source folders win. A lone extension under extensions/ comes next, and
       // a folder named like build output is only read when nothing else is.
+      // One manifest below is adopted and said out loud. Several are a folder
+      // of projects, and picking one on the author's behalf once wrote a
+      // neighbor's dist, so that case lists them and stops.
+      const inSourceFolders = collectManifestCandidates(projectPath, MAX_DEPTH)
+      const candidates =
+        inSourceFolders.length > 0
+          ? inSourceFolders
+          : [findLoneExtensionUnderCompanionDir(projectPath)].filter(
+              (candidate): candidate is string => Boolean(candidate)
+            )
       const foundManifest =
-        findManifest(projectPath, 0) ||
-        findLoneExtensionUnderCompanionDir(projectPath) ||
-        findManifest(
-          projectPath,
-          0,
-          new Set([...ALWAYS_SKIPPED_DIRS, COMPANION_EXTENSIONS_DIR])
-        )
+        candidates.length === 1
+          ? candidates[0]
+          : candidates.length === 0
+            ? findManifest(
+                projectPath,
+                0,
+                new Set([...ALWAYS_SKIPPED_DIRS, COMPANION_EXTENSIONS_DIR])
+              )
+            : null
 
       if (foundManifest) {
         manifestPath = foundManifest
+        log(messages.resolvedWorkspaceManifest(projectPath, manifestPath))
       } else {
-        throw missingManifestError()
+        throw missingManifestError(
+          candidates.map(
+            (candidate) => path.relative(projectPath, candidate) || candidate
+          )
+        )
       }
     }
   }
