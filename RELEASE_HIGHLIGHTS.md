@@ -20,6 +20,3 @@
 -->
 
 ## Highlights
-
-- **Emulated Chromium needs no flag**, `extension dev --browser=chromium-emulator` opens the emulated browser on its own now that the engine is public, and names the engine origin when it cannot be reached instead of opening a dead page
-- **The wasm budget reads the surface that fetches the file**, a `.wasm` reached only by pages and workers gets the 32 MiB budget while one a content script or the service worker reaches keeps 1 MiB and still warns, and `perfBudgets.ignore` excuses any asset by its output path or a glob

@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## 4.1.38 (October 31, 2026)
+
+- **Emulated Chromium needs no flag**, `extension dev --browser=chromium-emulator` opens the emulated browser on its own now that the engine is public, and names the engine origin when it cannot be reached instead of opening a dead page
+- **The wasm budget reads the surface that fetches the file**, a `.wasm` reached only by pages and workers gets the 32 MiB budget while one a content script or the service worker reaches keeps 1 MiB and still warns, and `perfBudgets.ignore` excuses any asset by its output path or a glob
+
+<details>
+<summary>Other changes (2)</summary>
+
+- Open emulated Chromium from --browser chromium-emulator with no flag (#957) ([5aac87619](https://github.com/extension-js/extension.js/commit/5aac876195b81fb82de4d4fb27308ec258be64d2))
+- Budget a wasm runtime by its surfaces and add perfBudgets.ignore (#956) ([790cf92bf](https://github.com/extension-js/extension.js/commit/790cf92bffa75228114d3cd5ccb8593e9e2468ad))
+</details>
+
 ## 4.1.37 (October 31, 2026)
 
 - **Development-only pages and scripts**, a `player.dev.html` in `pages/` or a `bench.dev.ts` in `scripts/` runs in `extension dev` and never reaches a production build, no HTML, no chunk, no manifest entry
