@@ -290,12 +290,12 @@ export function sidebarKeyTranslatedForBrowser(
 ) {
   const permission =
     to === 'side_panel'
-      ? `, and added the ${colors.yellow('sidePanel')} permission the panel needs to appear`
+      ? `, and added the ${colors.yellow('sidePanel')} permission the panel needs`
       : ''
 
   return (
-    `${prefix('warn')} ${colors.blue(browser)} reads a sidebar only from ${colors.yellow(to)}, and the manifest declared ${colors.yellow(from)} alone, so the panel never opens.\n` +
-    `The build wrote the key as ${colors.yellow(to)} in the built manifest${permission}, pointing at the same compiled page. ` +
+    `${prefix('info')} The build folded ${colors.yellow(from)} into ${colors.yellow(to)} for ${colors.blue(browser)}, which reads a sidebar only from ${colors.yellow(to)}${permission}. ` +
+    `The panel opens and points at the same compiled page.\n` +
     `Declare both keys to ship a panel of its own per vendor, or scope ${colors.yellow(from)} with a prefix to keep it off this build.`
   )
 }

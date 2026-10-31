@@ -67,6 +67,9 @@ export class UpdateManifest {
   // enough; a restarted session gets a fresh instance and prints again.
   // Production builds never consult this set so build output stays complete.
   private reportedFatalFixes = new Set<string>()
+  // A sidebar key folded for the target is said once per session, as a note:
+  // the build fixed it, so a warning would claim a panel that does open.
+  private reportedSidebarFolds = new Set<string>()
   // Same contract for the Safari unsupported-API warning, which fires in
   // development too: one line per distinct call, not one on every save.
   private reportedUnsupportedApis = new Set<string>()
@@ -195,19 +198,20 @@ export class UpdateManifest {
             const sidebarFold = sidebarFoldTarget(forBrowser, this.browser)
 
             if (sidebarFold) {
-              reportToCompilation(
-                compilation,
-                compiler,
-                messages.sidebarKeyTranslatedForBrowser(
-                  String(this.browser),
-                  sidebarFold === 'side_panel'
-                    ? 'sidebar_action'
-                    : 'side_panel',
-                  sidebarFold
-                ),
-                'warning',
-                'manifest.json'
-              )
+              const signature = `${String(this.browser)}\0${sidebarFold}`
+
+              if (!this.reportedSidebarFolds.has(signature)) {
+                this.reportedSidebarFolds.add(signature)
+                humanLine(
+                  messages.sidebarKeyTranslatedForBrowser(
+                    String(this.browser),
+                    sidebarFold === 'side_panel'
+                      ? 'sidebar_action'
+                      : 'side_panel',
+                    sidebarFold
+                  )
+                )
+              }
             }
 
             if (hasUnsupportedMv3BackgroundPage(forBrowser, this.browser)) {
