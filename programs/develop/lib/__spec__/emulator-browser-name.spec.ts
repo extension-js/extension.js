@@ -3,7 +3,6 @@ import {afterEach, describe, expect, it} from 'vitest'
 import {
   isChromiumBasedBrowser,
   isEmulatorBrowser,
-  isEmulatorLaneEnabled,
   isGeckoBasedBrowser
 } from '../constants'
 import {filterKeysForThisBrowser} from '../manifest-utils'
@@ -16,27 +15,13 @@ import {
   normalizeBrowser
 } from '../paths'
 
-// The published ExtensionEnv augmentation makes the bundler-injected keys
-// required, and a unit env object carries none of them.
-const env = (vars: Record<string, string> = {}) => vars as NodeJS.ProcessEnv
-
 afterEach(() => {
   delete process.env.EXTENSION_EXPERIMENTAL_EMULATOR
 })
 
-describe('chromium-emulator behind EXTENSION_EXPERIMENTAL_EMULATOR', () => {
-  it('is an unknown name while the flag is off', () => {
-    expect(isEmulatorLaneEnabled(env({}))).toBe(false)
-    expect(isKnownBrowserName('chromium-emulator')).toBe(false)
-    expect(normalizeBrowser('chromium-emulator')).toBe('chrome')
-    expect(() => configBrowserOrThrow('chromium-emulator', 'dev')).toThrow(
-      /Unsupported browser/
-    )
-  })
-
-  it('is a known name that normalizes to itself with the flag on', () => {
-    process.env.EXTENSION_EXPERIMENTAL_EMULATOR = '1'
-    expect(isEmulatorLaneEnabled()).toBe(true)
+describe('chromium-emulator as a browser name', () => {
+  it('is a known name that normalizes to itself with no env flag', () => {
+    delete process.env.EXTENSION_EXPERIMENTAL_EMULATOR
     expect(isKnownBrowserName('chromium-emulator')).toBe(true)
     expect(normalizeBrowser('chromium-emulator')).toBe('chromium-emulator')
     expect(configBrowserOrThrow('chromium-emulator', 'dev')).toBe(
@@ -44,14 +29,22 @@ describe('chromium-emulator behind EXTENSION_EXPERIMENTAL_EMULATOR', () => {
     )
   })
 
-  it('reads only 1 or true as on', () => {
-    expect(
-      isEmulatorLaneEnabled(env({EXTENSION_EXPERIMENTAL_EMULATOR: '0'}))
-    ).toBe(false)
+  it('reads the same with the retired EXTENSION_EXPERIMENTAL_EMULATOR set either way', () => {
+    for (const value of ['0', '1', 'true', 'false']) {
+      process.env.EXTENSION_EXPERIMENTAL_EMULATOR = value
+      expect(normalizeBrowser('chromium-emulator'), value).toBe(
+        'chromium-emulator'
+      )
 
-    expect(
-      isEmulatorLaneEnabled(env({EXTENSION_EXPERIMENTAL_EMULATOR: 'true'}))
-    ).toBe(true)
+      expect(isKnownBrowserName('chromium-emulator'), value).toBe(true)
+    }
+  })
+
+  it('still refuses a name nobody spells', () => {
+    expect(isKnownBrowserName('chromium-emulatr')).toBe(false)
+    expect(() => configBrowserOrThrow('chromium-emulatr', 'dev')).toThrow(
+      /Unsupported browser/
+    )
   })
 
   it('is chromium family for manifests and output, in dist/chromium-emulator', () => {

@@ -47,14 +47,11 @@ import {
   isEmulatorBrowser
 } from '../browsers/browsers-lib/browser-family'
 import {
+  engineOriginLine,
   launchEmulator,
   openCommandFor,
   probeEngineOrigin
 } from '../browsers/run-emulator'
-
-// The published ExtensionEnv augmentation makes the bundler-injected keys
-// required, and a unit env object carries none of them.
-const env = (vars: Record<string, string> = {}) => vars as NodeJS.ProcessEnv
 
 import {registerActCommands} from '../commands/act'
 import {runDoctor} from '../commands/doctor'
@@ -68,7 +65,6 @@ import {
   BROWSER_TARGETS_HELP,
   NO_SAFARI_BROWSER_TARGETS_HELP,
   SUPPORTED_BROWSER_TARGETS,
-  supportedBrowserTargets,
   validateVendors
 } from '../helpers/vendors'
 import {makeProgram, runCli, stubProcessExit} from './command-harness'
@@ -109,33 +105,33 @@ function reject(list: string[], options?: {allowEmulator?: boolean}) {
   return {ok, refused}
 }
 
-describe('chromium-emulator name gating', () => {
-  it('refuses the name like any unknown name without the env flag', () => {
-    expect(reject(['chromium-emulator'])).toEqual({
+describe('chromium-emulator as a public browser name', () => {
+  it('accepts the name with no env flag', () => {
+    expect(reject(['chromium-emulator'])).toEqual({ok: true, refused: ''})
+    expect(SUPPORTED_BROWSER_TARGETS).toContain('chromium-emulator')
+  })
+
+  it('reads the same with the retired EXTENSION_EXPERIMENTAL_EMULATOR set either way', () => {
+    for (const value of ['0', '1']) {
+      process.env.EXTENSION_EXPERIMENTAL_EMULATOR = value
+      expect(reject(['chromium-emulator']), value).toEqual({
+        ok: true,
+        refused: ''
+      })
+    }
+  })
+
+  it('keeps start and preview refusing it while every other target passes', () => {
+    expect(reject(['chromium-emulator'], {allowEmulator: false})).toEqual({
       ok: false,
       refused: 'chromium-emulator'
     })
 
-    expect(supportedBrowserTargets(env({}))).not.toContain('chromium-emulator')
+    expect(reject(['chrome', 'firefox'], {allowEmulator: false}).ok).toBe(true)
   })
 
-  it('accepts the name when EXTENSION_EXPERIMENTAL_EMULATOR=1', () => {
-    process.env.EXTENSION_EXPERIMENTAL_EMULATOR = '1'
-    expect(reject(['chromium-emulator'])).toEqual({ok: true, refused: ''})
-    expect(
-      supportedBrowserTargets(env({EXTENSION_EXPERIMENTAL_EMULATOR: '1'}))
-    ).toContain('chromium-emulator')
-  })
-
-  it('keeps start and preview refusing it even with the flag set', () => {
-    process.env.EXTENSION_EXPERIMENTAL_EMULATOR = '1'
-    expect(reject(['chromium-emulator'], {allowEmulator: false}).ok).toBe(false)
-  })
-
-  it('never lists the hidden name in help or the public target list', () => {
-    process.env.EXTENSION_EXPERIMENTAL_EMULATOR = '1'
-    expect(SUPPORTED_BROWSER_TARGETS).not.toContain('chromium-emulator')
-    expect(BROWSER_TARGETS_HELP).not.toContain('emulator')
+  it('lists the name in dev and build help but not in start and preview help', () => {
+    expect(BROWSER_TARGETS_HELP).toContain('chromium-emulator')
     expect(NO_SAFARI_BROWSER_TARGETS_HELP).not.toContain('emulator')
   })
 
@@ -264,7 +260,8 @@ describe('emulator launcher', () => {
     expect(warnSpy).not.toHaveBeenCalled()
   })
 
-  it('fails open when the origin cannot be read, and never dials it on a dry run', async () => {
+  it('refuses when the origin does not answer, naming it, and never dials it on a dry run', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const opened: string[] = []
     const dialed: string[] = []
     const failing = (url: string) =>
@@ -288,7 +285,10 @@ describe('emulator launcher', () => {
       'https://browsers.extension.land/chromium/version.json'
     ])
 
-    expect(opened).toEqual([VIEWER_URL])
+    expect(opened).toEqual([])
+    expect(String(warnSpy.mock.calls.flat().join('\n'))).toMatch(
+      /origin https:\/\/browsers\.extension\.land did not answer/
+    )
 
     for (const quiet of [{dryRun: true}, {noOpen: true}]) {
       dialed.length = 0
@@ -305,6 +305,29 @@ describe('emulator launcher', () => {
 
       expect(dialed, JSON.stringify(quiet)).toEqual([])
     }
+
+    expect(opened).toEqual([])
+  })
+
+  it('reads a timed out probe as unreachable and an odd status as unknown', async () => {
+    const hanging = (_url: string, init: {signal: AbortSignal}) =>
+      new Promise<{status: number; json(): Promise<unknown>}>((_, reject) => {
+        init.signal.addEventListener('abort', () => reject(new Error('abort')))
+      })
+
+    expect(await probeEngineOrigin(VIEWER_URL, hanging, 5)).toBe('unreachable')
+
+    expect(
+      await probeEngineOrigin(VIEWER_URL, async () => ({
+        status: 404,
+        json: async () => ({})
+      }))
+    ).toBe('unknown')
+
+    expect(engineOriginLine('unknown', VIEWER_URL)).toBeNull()
+    expect(engineOriginLine('unreachable', VIEWER_URL)).toContain(
+      'https://browsers.extension.land'
+    )
   })
 
   it('picks the platform opener without a shell', () => {
@@ -322,30 +345,18 @@ describe('emulator launcher', () => {
 })
 
 describe('tooling refuses an emulator session', () => {
-  it('detects the session from ready.json engine, not from the name alone', () => {
+  it('detects the session from the name or from ready.json engine', () => {
     const reader = {
       readReadyContractDocument: () => ({engine: 'emulator'})
     }
-    expect(isEmulatorSession(reader, dir, 'chromium-emulator', env())).toBe(
-      true
-    )
-
-    expect(isEmulatorSession({}, dir, 'chromium-emulator', env())).toBe(false)
-    expect(
-      isEmulatorSession(
-        {},
-        dir,
-        'chromium-emulator',
-        env({EXTENSION_EXPERIMENTAL_EMULATOR: '1'})
-      )
-    ).toBe(true)
+    expect(isEmulatorSession(reader, dir, 'chromium')).toBe(true)
+    expect(isEmulatorSession({}, dir, 'chromium-emulator')).toBe(true)
 
     expect(
       isEmulatorSession(
         {readReadyContractDocument: () => ({engine: undefined})},
         dir,
-        'chromium',
-        env()
+        'chromium'
       )
     ).toBe(false)
   })
