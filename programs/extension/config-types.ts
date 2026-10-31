@@ -130,8 +130,9 @@ export interface BrowserConfig extends BrowserLaunchConfig {
 /**
  * Asset categories the perf-budgets plugin recognizes. `shared` is the chunk
  * every page that imports a framework or a common module loads. `public` is
- * a file copied from the public folder as authored. `runtime` covers wasm
- * cores and root-level runtime helpers emitted outside a surface folder.
+ * a file copied from the public folder as authored. `runtime` covers
+ * root-level runtime helpers emitted outside a surface folder, and `wasm`
+ * every WebAssembly file, which cannot be split and gets 32 MiB by default.
  */
 export type PerfBudgetCategory =
   | 'content-script'
@@ -140,6 +141,7 @@ export type PerfBudgetCategory =
   | 'shared'
   | 'public'
   | 'runtime'
+  | 'wasm'
   | 'ignored'
 
 /**

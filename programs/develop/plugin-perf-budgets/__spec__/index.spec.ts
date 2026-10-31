@@ -91,11 +91,19 @@ describe('categorizeAsset', () => {
     expect(categorizeAsset('_locales/en/messages.json')).toBe('ignored')
   })
 
-  it('classifies top-level runtime payloads and leftover wasm cores', () => {
-    expect(categorizeAsset('03bc89f8e5771202.wasm')).toBe('runtime')
+  it('classifies top-level runtime helpers as runtime', () => {
     expect(categorizeAsset('ffmpeg-core.js')).toBe('runtime')
     expect(categorizeAsset('ffmpeg-core.worker.js')).toBe('runtime')
-    expect(categorizeAsset('assets/ffmpeg-core.wasm')).toBe('runtime')
+  })
+
+  it('classifies every .wasm file as wasm, wherever it lands', () => {
+    expect(categorizeAsset('03bc89f8e5771202.wasm')).toBe('wasm')
+    expect(categorizeAsset('assets/ffmpeg-core.wasm')).toBe('wasm')
+    expect(categorizeAsset('assets/ort-wasm-simd-threaded.asyncify.wasm')).toBe(
+      'wasm'
+    )
+
+    expect(categorizeAsset('sidebar/engine.wasm')).toBe('wasm')
   })
 })
 
@@ -118,6 +126,11 @@ describe('BUDGET_BYTES', () => {
     expect(BUDGET_BYTES.shared).toBe(512 * 1024)
     expect(BUDGET_BYTES.public).toBe(BUDGET_BYTES.page)
     expect(BUDGET_BYTES.runtime).toBe(1024 * 1024)
+  })
+
+  it('gives a wasm runtime room for an on-device ML core', () => {
+    expect(BUDGET_BYTES.wasm).toBe(32 * 1024 * 1024)
+    expect(BUDGET_BYTES.wasm).toBeGreaterThan(26 * 1024 * 1024)
   })
 
   it('gives every category but ignored a finite budget', () => {
@@ -212,14 +225,26 @@ describe('PerfBudgetsPlugin', () => {
     expect(compilation.warnings).toHaveLength(0)
   })
 
-  it('warns when a top-level wasm core exceeds the runtime budget', () => {
+  it('says nothing about a 26 MB WebAssembly runtime, which is its normal size', () => {
     const compilation = applyAndRun(new PerfBudgetsPlugin(), 'production', {
+      'assets/ort-wasm-simd-threaded.asyncify.wasm': 26 * 1024 * 1024,
       '03bc89f8e5771202.wasm': 20 * 1024 * 1024
+    })
+    expect(compilation.warnings).toHaveLength(0)
+  })
+
+  it('warns for a wasm core past its own budget, with a wasm remedy and no code-splitting advice', () => {
+    const compilation = applyAndRun(new PerfBudgetsPlugin(), 'production', {
+      'assets/ort-wasm-simd-threaded.asyncify.wasm': 40 * 1024 * 1024
     })
     expect(compilation.warnings).toHaveLength(1)
     const msg = String(compilation.warnings[0].message)
-    expect(msg).toContain('03bc89f8e5771202.wasm')
-    expect(msg).toContain('runtime payload')
+    expect(msg).toContain('ort-wasm-simd-threaded.asyncify.wasm')
+    expect(msg).toContain('WebAssembly runtime')
+    expect(msg).toContain('32.00 MiB')
+    expect(msg).toContain('cannot be code-split')
+    expect(msg).toContain('perfBudgets.wasm')
+    expect(msg).not.toContain('Lazy-load with dynamic import()')
   })
 
   it('warns when the shared chunk exceeds its own budget', () => {
@@ -303,22 +328,30 @@ describe('PerfBudgetsPlugin', () => {
     expect(compilation.warnings).toHaveLength(0)
   })
 
-  it('honors a runtime budget override for a large wasm core', () => {
-    const wasm = {'03bc89f8e5771202.wasm': 20 * 1024 * 1024}
+  it('honors a wasm budget override in both directions', () => {
+    const wasm = {'03bc89f8e5771202.wasm': 40 * 1024 * 1024}
     const raised = applyAndRun(
-      new PerfBudgetsPlugin({budgets: {runtime: 25 * 1024 * 1024}}),
+      new PerfBudgetsPlugin({budgets: {wasm: 48 * 1024 * 1024}}),
       'production',
       wasm
     )
     expect(raised.warnings).toHaveLength(0)
 
     const lowered = applyAndRun(
-      new PerfBudgetsPlugin({budgets: {runtime: 10 * 1024 * 1024}}),
+      new PerfBudgetsPlugin({budgets: {wasm: 10 * 1024 * 1024}}),
       'production',
-      wasm
+      {'03bc89f8e5771202.wasm': 20 * 1024 * 1024}
     )
     expect(lowered.warnings).toHaveLength(1)
     expect(String(lowered.warnings[0].message)).toContain('10.00 MiB')
+
+    // The runtime budget no longer reaches a wasm file.
+    const runtimeOnly = applyAndRun(
+      new PerfBudgetsPlugin({budgets: {runtime: 1024}}),
+      'production',
+      {'03bc89f8e5771202.wasm': 20 * 1024 * 1024}
+    )
+    expect(runtimeOnly.warnings).toHaveLength(0)
   })
 
   it('reports multiple oversized assets sorted by size desc', () => {
