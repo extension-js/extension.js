@@ -6,7 +6,11 @@
 // ╚═╝     ╚══════╝╚═╝  ╚═╝╚═╝          ╚═════╝  ╚═════╝ ╚═════╝  ╚═════╝ ╚══════╝   ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import {classifyEntrySurface, SHARED_CHUNK_DIR} from '../lib/split-chunks'
+import {
+  classifyEntrySurface,
+  type EntrySurface,
+  SHARED_CHUNK_DIR
+} from '../lib/split-chunks'
 
 export const ASSET_CATEGORIES = [
   'content-script',
@@ -29,13 +33,24 @@ const isHotUpdate = (name: string) => /(^|\/)hot\//.test(name)
 const isSharedChunk = (name: string) => name.startsWith(`${SHARED_CHUNK_DIR}/`)
 const isServiceWorkerFile = (name: string) =>
   /(^|\/)service[-_]?worker\.(js|css|wasm)$/i.test(name)
+const isWasm = (name: string) => /\.wasm$/i.test(name)
+
+// The surfaces that pay for a file on every navigation or on every cold
+// start. A wasm binary one of them reaches keeps the tight runtime budget.
+const HOT_SURFACES: ReadonlySet<EntrySurface> = new Set([
+  'background',
+  'content_script',
+  'script'
+])
 
 // The layout split-chunks reads: the script surfaces load one file each,
 // every other folder is a page the HTML links. A file the public/ copier
-// shipped as authored is told apart by its asset info, not by its path.
+// shipped as authored is told apart by its asset info, not by its path, and
+// a wasm binary by the surfaces whose chunks list it.
 export function categorizeAsset(
   rawName: string,
-  info?: {copied?: boolean}
+  info?: {copied?: boolean},
+  referrers?: Iterable<EntrySurface>
 ): AssetCategory {
   const name = String(rawName || '').replace(/\\/g, '/')
   if (!name) return 'ignored'
@@ -59,8 +74,16 @@ export function categorizeAsset(
 
   // A WebAssembly runtime (onnxruntime, ffmpeg, tesseract) is one file that
   // cannot be split and is fetched only when its feature runs, so it gets a
-  // budget of its own instead of tripping the 1 MiB one on every build.
-  if (/\.wasm$/i.test(name)) return 'wasm'
+  // budget of its own instead of tripping the 1 MiB one on every build. One
+  // a content script or the service worker reaches is paid for on a hot
+  // path and keeps the runtime budget.
+  if (isWasm(name)) {
+    const hot = Array.from(referrers || []).some((surface) =>
+      HOT_SURFACES.has(surface)
+    )
+
+    return hot ? 'runtime' : 'wasm'
+  }
 
   // Sibling runtime helpers (ffmpeg-core.js, its worker) emit at the output
   // root, not under a named surface folder. Count them so the size report is
