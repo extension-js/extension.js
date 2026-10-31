@@ -20,16 +20,6 @@ export type Browser =
 
 export const EMULATOR_BROWSER_TARGET = 'chromium-emulator'
 
-export function isEmulatorLaneEnabled(
-  env: NodeJS.ProcessEnv = process.env
-): boolean {
-  const value = String(env.EXTENSION_EXPERIMENTAL_EMULATOR || '')
-    .trim()
-    .toLowerCase()
-
-  return value === '1' || value === 'true'
-}
-
 export function isEmulatorVendor(value: unknown): boolean {
   return value === EMULATOR_BROWSER_TARGET
 }
@@ -58,18 +48,11 @@ export const SUPPORTED_BROWSER_TARGETS = [
   'gecko-based',
   'firefox-based',
   'safari',
-  'webkit-based'
+  'webkit-based',
+  EMULATOR_BROWSER_TARGET
 ]
 
 export const BROWSER_TARGETS_HELP = SUPPORTED_BROWSER_TARGETS.join(' | ')
-
-export function supportedBrowserTargets(
-  env: NodeJS.ProcessEnv = process.env
-): string[] {
-  return isEmulatorLaneEnabled(env)
-    ? [...SUPPORTED_BROWSER_TARGETS, EMULATOR_BROWSER_TARGET]
-    : [...SUPPORTED_BROWSER_TARGETS]
-}
 
 // The act verbs (logs, eval, reload, storage, inspect, open) and doctor attach
 // to a RUNNING dev session, and a session can be Safari since it grew a working
@@ -82,10 +65,11 @@ export const SESSION_BROWSER_TARGETS_HELP = [
   'safari'
 ].join(' | ')
 
-// start/preview refuse the webkit family on purpose, so their help lists
-// every accepted target except safari and webkit-based.
+// start/preview refuse the webkit family and emulated Chromium on purpose
+// (the emulator needs the dev server), so their help lists every accepted
+// target except safari, webkit-based and chromium-emulator.
 export const NO_SAFARI_BROWSER_TARGETS_HELP = SUPPORTED_BROWSER_TARGETS.filter(
-  (target) => !isSafariVendor(target)
+  (target) => !isSafariVendor(target) && !isEmulatorVendor(target)
 ).join(' | ')
 
 export function parseOptionalBoolean(value?: string): boolean {
@@ -150,8 +134,8 @@ export function validateVendors(
 ): boolean {
   const supported =
     options.allowEmulator === false
-      ? [...SUPPORTED_BROWSER_TARGETS]
-      : supportedBrowserTargets()
+      ? SUPPORTED_BROWSER_TARGETS.filter((target) => !isEmulatorVendor(target))
+      : [...SUPPORTED_BROWSER_TARGETS]
 
   for (const v of vendorsList) {
     if (!supported.includes(v)) {

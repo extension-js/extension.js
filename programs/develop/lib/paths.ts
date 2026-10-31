@@ -9,7 +9,6 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import {isEmulatorBrowser, isEmulatorLaneEnabled} from './constants'
 import type {ProjectStructure} from './project'
 import {
   PROJECT_MANIFEST_FILENAMES,
@@ -194,12 +193,12 @@ const KNOWN_BROWSER_NAMES = new Set([
   'gecko-based',
   'firefox-based',
   'safari',
-  'webkit-based'
+  'webkit-based',
+  'chromium-emulator'
 ])
 
 export function isKnownBrowserName(name: unknown): boolean {
   if (typeof name !== 'string') return false
-  if (isEmulatorBrowser(name)) return isEmulatorLaneEnabled()
 
   return KNOWN_BROWSER_NAMES.has(name)
 }
@@ -288,9 +287,7 @@ export function normalizeBrowser(
     case 'webkit-based':
       return 'webkit-based'
     case 'chromium-emulator':
-      if (isEmulatorLaneEnabled()) return 'chromium-emulator'
-
-      return 'chrome'
+      return 'chromium-emulator'
     default:
       // Unrecognized input falls back to the documented default; the CLI validates
       // upstream, this is defense-in-depth.

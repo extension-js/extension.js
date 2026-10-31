@@ -6,7 +6,7 @@
 //  ╚═════╝╚══════╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import {isEmulatorLaneEnabled, isEmulatorVendor} from './vendors'
+import {isEmulatorVendor} from './vendors'
 
 export const EMULATOR_LOGS_REFUSAL =
   'emulated Chromium runs in a web page, so extension logs has nothing to attach to. Open your browser devtools on that page to read the console.'
@@ -27,10 +27,9 @@ interface ReadyDocumentReader {
 export function isEmulatorSession(
   bridge: unknown,
   projectPath: string,
-  browser: string,
-  env: NodeJS.ProcessEnv = process.env
+  browser: string
 ): boolean {
-  if (isEmulatorVendor(browser) && isEmulatorLaneEnabled(env)) return true
+  if (isEmulatorVendor(browser)) return true
 
   const reader = (bridge as ReadyDocumentReader | null)
     ?.readReadyContractDocument
@@ -48,10 +47,9 @@ export function emulatorSessionRefusal(
   bridge: unknown,
   projectPath: string,
   browser: string,
-  command: string,
-  env: NodeJS.ProcessEnv = process.env
+  command: string
 ): string | null {
-  return isEmulatorSession(bridge, projectPath, browser, env)
+  return isEmulatorSession(bridge, projectPath, browser)
     ? emulatorRefusalFor(command)
     : null
 }

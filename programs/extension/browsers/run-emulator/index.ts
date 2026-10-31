@@ -50,7 +50,12 @@ export function openCommandFor(
   return {command: 'xdg-open', args: [url]}
 }
 
-export type EngineOriginVerdict = 'open' | 'held' | 'throttled' | 'unknown'
+export type EngineOriginVerdict =
+  | 'open'
+  | 'held'
+  | 'throttled'
+  | 'unreachable'
+  | 'unknown'
 
 export type OriginFetch = (
   url: string,
@@ -93,13 +98,28 @@ export async function probeEngineOrigin(
 
     return report && report.hold === 'held' ? 'held' : 'open'
   } catch {
-    return 'unknown'
+    return 'unreachable'
   } finally {
     clearTimeout(timer)
   }
 }
 
-export function engineOriginLine(verdict: EngineOriginVerdict): string | null {
+export function engineOriginName(viewerUrl: string): string {
+  try {
+    return new URL(viewerUrl).origin
+  } catch {
+    return viewerUrl
+  }
+}
+
+export function engineOriginLine(
+  verdict: EngineOriginVerdict,
+  viewerUrl: string
+): string | null {
+  if (verdict === 'unreachable') {
+    return `${prefix('warn')} the emulated Chromium origin ${engineOriginName(viewerUrl)} did not answer, so there is no page to open. Check your connection, then run extension dev again, or run this project with --browser=chrome.`
+  }
+
   if (verdict === 'held') {
     return `${prefix('warn')} emulated Chromium is not open to the public yet, so this address answers 503 until it is. Run this project with --browser=chrome in the meantime.`
   }
@@ -150,7 +170,7 @@ export async function launchEmulator(
 
   const willOpen = !opts.noOpen && !opts.dryRun
   const verdict = willOpen ? await probe(url) : 'unknown'
-  const originLine = engineOriginLine(verdict)
+  const originLine = engineOriginLine(verdict, url)
 
   if (originLine) console.warn(originLine)
 
