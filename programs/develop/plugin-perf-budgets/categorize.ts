@@ -15,6 +15,7 @@ export const ASSET_CATEGORIES = [
   'shared',
   'public',
   'runtime',
+  'wasm',
   'ignored'
 ] as const
 
@@ -56,10 +57,15 @@ export function categorizeAsset(
     return 'content-script'
   }
 
-  // Hashed wasm cores and sibling runtime helpers (ffmpeg, tesseract, …)
-  // emit at the output root, not under a named surface folder. Count them
-  // so the size report is not fiction for the largest thing in the package.
-  if (!name.includes('/') || /\.wasm$/i.test(name)) return 'runtime'
+  // A WebAssembly runtime (onnxruntime, ffmpeg, tesseract) is one file that
+  // cannot be split and is fetched only when its feature runs, so it gets a
+  // budget of its own instead of tripping the 1 MiB one on every build.
+  if (/\.wasm$/i.test(name)) return 'wasm'
+
+  // Sibling runtime helpers (ffmpeg-core.js, its worker) emit at the output
+  // root, not under a named surface folder. Count them so the size report is
+  // not fiction for the largest thing in the package.
+  if (!name.includes('/')) return 'runtime'
 
   return 'page'
 }
@@ -71,5 +77,6 @@ export const BUDGET_BYTES: Record<AssetCategory, number> = {
   shared: 512 * 1024,
   public: 1024 * 1024,
   runtime: 1024 * 1024,
+  wasm: 32 * 1024 * 1024,
   ignored: Number.POSITIVE_INFINITY
 }

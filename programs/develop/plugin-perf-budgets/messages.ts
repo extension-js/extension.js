@@ -42,9 +42,10 @@ export function perfBudgetWarning(assets: OversizedAsset[]): string {
   })
 
   // A copied file never met the bundler, so code splitting is no answer
-  // for it: the remedy names the public/ source instead.
+  // for it: the remedy names the public/ source instead. A wasm runtime is
+  // one file by nature, so its remedy is a smaller build or a remote fetch.
   const remediation = [
-    ...(assets.some((a) => a.category !== 'public')
+    ...(assets.some((a) => a.category !== 'public' && a.category !== 'wasm')
       ? [
           'Lazy-load with dynamic import(), code-split per route, or replace ' +
             'large SDKs with thin fetch wrappers.\n' +
@@ -55,6 +56,14 @@ export function perfBudgetWarning(assets: OversizedAsset[]): string {
       ? [
           'A public/ file ships as authored: minify or trim it at its source, ' +
             'or fetch it on demand instead of shipping it in the package.'
+        ]
+      : []),
+    ...(assets.some((a) => a.category === 'wasm')
+      ? [
+          'A .wasm runtime cannot be code-split: pick a smaller build of the ' +
+            'library when it offers one (no threads, no SIMD), fetch it from ' +
+            'your own server on demand, or raise perfBudgets.wasm in ' +
+            'extension.config.js when this size is intended.'
         ]
       : [])
   ].join('\n')
@@ -76,6 +85,8 @@ function categoryRole(c: AssetCategory): string {
       return 'copied public file, shipped as authored'
     case 'runtime':
       return 'runtime payload, shipped at the output root'
+    case 'wasm':
+      return 'WebAssembly runtime, fetched when its feature runs'
     default:
       return 'asset'
   }
