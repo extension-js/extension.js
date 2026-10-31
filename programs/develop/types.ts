@@ -505,15 +505,17 @@ export type OutputConfig = {
 }
 
 /**
- * Per-category asset size budgets (bytes) for the perf-budgets plugin.
- * Set at the top level of extension.config.js (weakest), under
- * `browser.<vendor>.perfBudgets`, or per command via
+ * Per-category asset size budgets (bytes) for the perf-budgets plugin, plus
+ * `ignore`, the output paths no budget applies to (exact, or `*` and `**`
+ * globs). A `.wasm` file only pages and workers reach is budgeted as `wasm`
+ * (32 MiB); one a content script or the service worker reaches stays
+ * `runtime` (1 MiB). Set at the top level of extension.config.js (weakest),
+ * under `browser.<vendor>.perfBudgets`, or per command via
  * `commands.dev.perfBudgets` / `commands.build.perfBudgets` (strongest
  * below a CLI flag).
  */
-export type PerfBudgetsConfig = Partial<
-  Record<import('./plugin-perf-budgets').AssetCategory, number>
->
+export type PerfBudgetsConfig =
+  import('./plugin-perf-budgets').PerfBudgetsConfig
 
 export interface CommonWebpackOptions {
   output: OutputConfig

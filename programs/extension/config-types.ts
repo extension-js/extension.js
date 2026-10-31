@@ -130,9 +130,12 @@ export interface BrowserConfig extends BrowserLaunchConfig {
 /**
  * Asset categories the perf-budgets plugin recognizes. `shared` is the chunk
  * every page that imports a framework or a common module loads. `public` is
- * a file copied from the public folder as authored. `runtime` covers
- * root-level runtime helpers emitted outside a surface folder, and `wasm`
- * every WebAssembly file, which cannot be split and gets 32 MiB by default.
+ * a file copied from the public folder as authored. `wasm` is a WebAssembly
+ * file only extension pages and workers fetch when they run it, such as an
+ * onnxruntime or ffmpeg core, which cannot be split and gets 32 MiB by
+ * default. `runtime` covers a WebAssembly file a content script or the
+ * service worker reaches, and root-level runtime helpers emitted outside a
+ * surface folder, 1 MiB by default.
  */
 export type PerfBudgetCategory =
   | 'content-script'
@@ -145,10 +148,23 @@ export type PerfBudgetCategory =
   | 'ignored'
 
 /**
- * Per-category asset size budgets (bytes) for compiling commands.
- * Set at the top level, or per command via `commands.dev|build.perfBudgets`.
+ * Per-category asset size budgets (bytes) for compiling commands, plus
+ * `ignore`, the output paths no budget applies to: exact paths as the
+ * warning prints them, or globs where `*` stays inside one folder and `**`
+ * spans folders. Set at the top level, or per command via
+ * `commands.dev|build.perfBudgets`.
+ *
+ * @example
+ * export default {
+ *   perfBudgets: {
+ *     wasm: 48 * 1024 * 1024,
+ *     ignore: ['assets/ort-wasm-simd-threaded.asyncify.wasm']
+ *   }
+ * }
  */
-export type PerfBudgetsConfig = Partial<Record<PerfBudgetCategory, number>>
+export type PerfBudgetsConfig = Partial<Record<PerfBudgetCategory, number>> & {
+  ignore?: string[]
+}
 
 /** `commands.dev` overrides. */
 export interface DevCommandConfig

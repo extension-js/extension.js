@@ -20,3 +20,5 @@
 -->
 
 ## Highlights
+
+- **The wasm budget reads the surface that fetches the file**, a `.wasm` reached only by pages and workers gets the 32 MiB budget while one a content script or the service worker reaches keeps 1 MiB and still warns, and `perfBudgets.ignore` excuses any asset by its output path or a glob
