@@ -54,6 +54,7 @@ async function build(root: string, browser: 'chrome' | 'firefox') {
   console.warn = (...args: unknown[]) => lines.push(args.join(' '))
   let summary: {
     errors_count: number
+    warnings_count?: number
     addon_lint?: {status: string; findings?: number}
   }
 
@@ -98,16 +99,25 @@ describe('cross-browser manifest translation at build time', () => {
     expect(manifest).not.toHaveProperty('sidebar_action')
     expect(manifest.permissions).toEqual(['sidePanel'])
     expect(has('sidebar/index.html')).toBe(true)
-    expect(output).toContain('side_panel')
+    expect(output).toContain('The build folded sidebar_action into side_panel')
+    expect(output).not.toContain('never opens')
   }, 180_000)
 
   it('ships a side_panel-only manifest to gecko as sidebar_action', async () => {
     const root = project('sidepanelonly', {
       manifest_version: 3,
+      // A complete Gecko identity, so the store check has nothing to say and
+      // the warning count below speaks for the sidebar alone.
+      browser_specific_settings: {
+        gecko: {
+          id: 'sidepanelonly@example.com',
+          data_collection_permissions: {required: ['none']}
+        }
+      },
       background: {service_worker: 'background.js'},
       side_panel: {default_path: 'panel.html'}
     })
-    const {manifest, output, has} = await build(root, 'firefox')
+    const {manifest, output, summary, has} = await build(root, 'firefox')
 
     expect(manifest.sidebar_action).toEqual({
       default_panel: 'sidebar/index.html'
@@ -115,7 +125,12 @@ describe('cross-browser manifest translation at build time', () => {
 
     expect(manifest).not.toHaveProperty('side_panel')
     expect(has('sidebar/index.html')).toBe(true)
-    expect(output).toContain('sidebar_action')
+
+    // The fold worked, so the build says so in a note and raises no warning
+    // that claims the panel never opens.
+    expect(output).toContain('The build folded side_panel into sidebar_action')
+    expect(output).not.toContain('never opens')
+    expect(summary.warnings_count ?? 0, output).toBe(0)
   }, 180_000)
 
   it('ships an MV3 action to a Manifest V2 gecko build as browser_action', async () => {

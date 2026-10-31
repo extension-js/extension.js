@@ -17,6 +17,7 @@ import {
   returnWithMap
 } from '../../../../lib/loader-source-maps'
 import {filterKeysForThisBrowser} from '../../../../lib/manifest-utils'
+import {humanLine} from '../../../../lib/messaging'
 import {stripBom} from '../../../../lib/parse-json-safe'
 import {findNearestProjectManifestSync} from '../../../../lib/project-manifest'
 import {
@@ -193,6 +194,10 @@ function hasDefaultExport(
     return fallback
   }
 }
+
+// One hint per entry per process: a dev session recompiles the entry on every
+// save, and the advice does not change between them.
+const hintedEntriesWithoutDefaultExport = new Set<string>()
 
 const __EXTENSIONJS_manifestParseCache = new Map<
   string,
@@ -1091,6 +1096,24 @@ export default function contentScriptWrapper(
     '}\n'
 
   if (!hasDefaultExport(rewrittenSource, this.resourcePath, compilation)) {
+    // A declared entry that starts itself at import cannot be cleaned up, so
+    // each dev re-inject adds a copy. Said in the session, where it bites.
+    if (
+      !isShippedBundle &&
+      declaredEntry &&
+      !hintedEntriesWithoutDefaultExport.has(resourceAbsPath)
+    ) {
+      hintedEntriesWithoutDefaultExport.add(resourceAbsPath)
+      humanLine(
+        messages.contentScriptWithoutDefaultExport(
+          path
+            .relative(packageJsonDir, resourceAbsPath)
+            .split(path.sep)
+            .join('/') || resourceAbsPath
+        )
+      )
+    }
+
     const prefix =
       `var __EXTJS_WRAPPER_KIND="FS3_INLINE";\n` +
       `${bootstrap}` +

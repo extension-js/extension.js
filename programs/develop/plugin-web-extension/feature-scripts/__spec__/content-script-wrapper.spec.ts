@@ -686,3 +686,72 @@ describe('content-script-wrapper loader', () => {
     expect(devSessionBundle).toBe(wrap('development'))
   })
 })
+
+// A declared entry that starts itself at import is cloned by every dev
+// re-inject, so the session says why once and names the file.
+describe('a declared content script with no default export', () => {
+  const selfStarting =
+    'const node = document.createElement("div")\ndocument.body.appendChild(node)\n'
+  const strip = (value: string) =>
+    // eslint-disable-next-line no-control-regex
+    value.replace(/\u001b\[[0-9;]*m/g, '')
+
+  function hintsFor(run: () => void): string[] {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    try {
+      run()
+
+      return log.mock.calls
+        .map((call) => strip(call.map(String).join(' ')))
+        .filter((line) => line.includes('has no default export'))
+    } finally {
+      log.mockRestore()
+    }
+  }
+
+  it('prints the cleanup hint once in a dev session and names the file', () => {
+    const entry = writeDeclaredEntry()
+    const hints = hintsFor(() => {
+      for (let save = 0; save < 3; save++) {
+        contentScriptWrapper.call(
+          createLoaderContext(entry.resourcePath, entry.manifestPath) as any,
+          selfStarting
+        )
+      }
+    })
+
+    expect(hints).toHaveLength(1)
+    expect(hints[0]).toContain('src/content/scripts.ts has no default export')
+    expect(hints[0]).toContain('Export a default function')
+    expect(hints[0]).toContain('returns a cleanup')
+    expect(hints[0]).toContain('whole-extension reload')
+  })
+
+  it('says nothing for a script with a default export, or in a production build', () => {
+    const withDefault = writeDeclaredEntry()
+    const shipped = writeDeclaredEntry()
+
+    expect(
+      hintsFor(() => {
+        contentScriptWrapper.call(
+          createLoaderContext(
+            withDefault.resourcePath,
+            withDefault.manifestPath
+          ) as any,
+          'export default function mount(){ return () => {} }'
+        )
+
+        contentScriptWrapper.call(
+          createLoaderContext(
+            shipped.resourcePath,
+            shipped.manifestPath,
+            undefined,
+            'production'
+          ) as any,
+          selfStarting
+        )
+      })
+    ).toEqual([])
+  })
+})
