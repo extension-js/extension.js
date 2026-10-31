@@ -2,6 +2,35 @@
 
 ## Unreleased
 
+## 4.1.37 (October 31, 2026)
+
+- **Development-only pages and scripts**, a `player.dev.html` in `pages/` or a `bench.dev.ts` in `scripts/` runs in `extension dev` and never reaches a production build, no HTML, no chunk, no manifest entry
+- **Extra files in the build with `include`**, map output paths to files or folders in `extension.config.js`, model weights or an exported tree outside the project included, layered per browser and per command
+- **A MAIN-world content script leaves nothing on the page**, production builds stop publishing the extension's base URL and the cleanup global to the host page, and the dev browser now passes bot checks and keeps sign-in pop-ups responsive
+- **WebAssembly runtimes get their own 32 MiB budget**, an on-device ML build with onnxruntime or ffmpeg ends "compiled" instead of a budget warning it could never act on, and `perfBudgets.wasm` caps it when you want to
+
+### Features
+
+- Add dev-only pages and scripts and an include config key (#951) ([cfe62f1f3](https://github.com/extension-js/extension.js/commit/cfe62f1f381810c8bb5dd1f220532a404fc07c0a))
+
+<details>
+<summary>Other changes (13)</summary>
+
+- Give WebAssembly runtimes a 32 MiB budget of their own (#955) ([1bd9a73e3](https://github.com/extension-js/extension.js/commit/1bd9a73e3345da9e308d3b7d6a21acba39403006))
+- Write the 4.1.37 release highlights (#954) ([b612631b0](https://github.com/extension-js/extension.js/commit/b612631b0405bc49f17a802c668453669aa66c4b))
+- Refuse a folder of projects and name versions on the build line (#953) ([232b1c981](https://github.com/extension-js/extension.js/commit/232b1c98111ab5f33ab41ca9c2c27c52d98e2c6c))
+- Keep the cleanup registry off the page in a shipped MAIN bundle (#952) ([ae7dce445](https://github.com/extension-js/extension.js/commit/ae7dce445f43e50ac1b7db3a93d12ebb3ae28f0f))
+- Keep dev content-script names stable and index worker chunks (#950) ([4f7af0f6c](https://github.com/extension-js/extension.js/commit/4f7af0f6cb43efbae1fe0f198e6e91478d278537))
+- Let a Chromium MAIN-world bundle find its base without the bridge (#949) ([44a41ab5a](https://github.com/extension-js/extension.js/commit/44a41ab5afcdb4146a2604f9715a9e46d5da4646))
+- Drop the MAIN-world bridge in production when nothing reads it (#948) ([8a872848b](https://github.com/extension-js/extension.js/commit/8a872848b1ef32d472c383a5cca67a1e4457abf0))
+- Transliterate accented letters in the zip file name (#947) ([12f42d6d7](https://github.com/extension-js/extension.js/commit/12f42d6d76dc964c4e4bf7754db5d6a885655013))
+- Keep a use_dynamic_url resource out of a second static WAR group (#946) ([24556bf13](https://github.com/extension-js/extension.js/commit/24556bf13779b9ce38e9dcbd276156618f1098c2))
+- Group CodeQL bumps, patch flagged deps, fix a scanning alert (#945) ([092314322](https://github.com/extension-js/extension.js/commit/09231432245c6d7fbde1c7edb023f969026aa72c))
+- Bump github/codeql-action init and analyze to 4.39.1 (#941) ([0f1b34125](https://github.com/extension-js/extension.js/commit/0f1b34125945e51e53aac29e86516dc4e540cf48))
+- Keep a require() aliased to false out of the bundle (#939) ([4d6fab5bd](https://github.com/extension-js/extension.js/commit/4d6fab5bdc0987b908f63463b04e5f214f383523))
+- Attach the extension's own CDP targets explicitly, no auto-attach (#938) ([ed2d765ec](https://github.com/extension-js/extension.js/commit/ed2d765ec03696d4f31246e6983288a03d4cb266))
+</details>
+
 ## 4.1.36 (October 27, 2026)
 
 - **"Ready" means the extension is running**, Chrome dev sessions print ready only once the extension connects, and name the stuck profile when it never does
