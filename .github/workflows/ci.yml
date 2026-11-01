@@ -26,6 +26,7 @@ jobs:
   quality:
     name: Lint + typecheck
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -92,6 +93,7 @@ jobs:
   tests:
     name: Run test suite (${{ matrix.suite }})
     runs-on: ubuntu-latest
+    timeout-minutes: 35
     strategy:
       fail-fast: false
       # Every entry is a distinct suite. The per-plugin names that used to sit
@@ -118,9 +120,10 @@ jobs:
         # 30+20 minutes on snap-store contact and aborts the job. We
         # only need xvfb for any headed display the tests touch.
         if: matrix.suite == 'ci:test:cli'
+        timeout-minutes: 5
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends xvfb
+          sudo apt-get -o Acquire::Retries=3 update
+          sudo apt-get -o Acquire::Retries=3 install -y --no-install-recommends xvfb
 
       - name: Start Xvfb (cli suite)
         if: matrix.suite == 'ci:test:cli'
@@ -149,6 +152,7 @@ jobs:
     # excludes landed in 22.14) reaches users before it reaches CI otherwise.
     name: Node ${{ matrix.node }} (${{ matrix.suite }})
     runs-on: ubuntu-latest
+    timeout-minutes: 35
     strategy:
       fail-fast: false
       matrix:
@@ -163,9 +167,10 @@ jobs:
 
       - name: Install xvfb (cli suite)
         if: matrix.suite == 'ci:test:cli'
+        timeout-minutes: 5
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends xvfb
+          sudo apt-get -o Acquire::Retries=3 update
+          sudo apt-get -o Acquire::Retries=3 install -y --no-install-recommends xvfb
 
       - name: Start Xvfb (cli suite)
         if: matrix.suite == 'ci:test:cli'
@@ -191,6 +196,7 @@ jobs:
   smoke-npx:
     name: Packed-tarball smoke (npx)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -218,6 +224,7 @@ jobs:
   bundled-extensions:
     name: Bundled extensions build (chromium)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -252,6 +259,7 @@ jobs:
   deno-runtime:
     name: Deno runtime (${{ matrix.deno }} / ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
@@ -304,6 +312,7 @@ jobs:
   bun-runtime:
     name: Bun runtime (${{ matrix.bun }} / ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
@@ -355,6 +364,7 @@ jobs:
   tests-windows:
     name: Run test suite (Windows)
     runs-on: windows-latest
+    timeout-minutes: 40
     # Only run Windows tests on PRs and main, skip on workflow_dispatch unless explicitly needed
     if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
     steps:
