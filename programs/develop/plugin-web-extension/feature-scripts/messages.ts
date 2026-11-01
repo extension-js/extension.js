@@ -363,6 +363,6 @@ export function contentScriptWithoutDefaultExport(file: string) {
   return (
     `${prefix('warn')} ${colors.yellow(file)} has no default export, so each re-inject in this dev session runs it again and the copy before it keeps running.\n` +
     `Export a default function that mounts the script and returns a cleanup, and Extension.js calls that cleanup before the next copy starts.\n` +
-    'The cleanup reaches copies in the same world only. A whole-extension reload starts the new copy in a fresh world on Firefox, so a script that must stop the old copy there signals it through the page, for example with a DOM event.'
+    "A whole-extension reload discards the old copy's code, so no cleanup runs for it and what it added to the page stays. Mount that under an element with data-extension-root and the next copy removes it."
   )
 }

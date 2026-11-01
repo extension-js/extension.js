@@ -1716,6 +1716,11 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
     function healOpenTabsAtBoot() {
       if (bootHealDone) return;
       bootHealDone = true;
+      // Firefox injects declared content scripts into open tabs on a reload
+      // itself, so a heal there runs every script a second time.
+      try { if (engineName() === "firefox") return; } catch (e) {
+        // Ignore
+      }
       setTimeout(function () {
         var dev = devContentScripts();
         if (dev && typeof dev.heal === "function") {
