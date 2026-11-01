@@ -26,6 +26,10 @@ import {
   saveSignatureRecord,
   signatureKey
 } from '../run-safari/safari-launch/signature'
+import {
+  readXcodeTeamDefaults,
+  XCODE_TEAM_KEYS
+} from '../run-safari/safari-launch/tools'
 import {extensionCheckboxId} from '../run-safari/safari-ui/scripts'
 import {type FakeSafariTools, fakeSafariTools} from './safari-fake-tools'
 import {fakeSafariUiTools} from './safari-fake-ui-tools'
@@ -75,6 +79,36 @@ const XCODE_TEAMS = `{
         }
     );
 }`
+
+// Xcode 26 shape: the account identifier, not the Apple ID, keys the rows.
+const XCODE_26_TEAMS = `{
+    "F6F605E1-BC2F-4694-BB0B-08A4FE3229D8" =     (
+                {
+            isFreeProvisioningTeam = 0;
+            teamID = NEWTEAM123;
+            teamName = "New Xcode Team";
+            teamType = Individual;
+        }
+    );
+}`
+
+const MISSING_KEY = (key: string) =>
+  `The domain/default pair of (com.apple.dt.Xcode, ${key}) does not exist`
+
+function stubDefaults(answers: Record<string, string | null>) {
+  const asked: string[] = []
+
+  const readKey = async (key: string) => {
+    asked.push(key)
+    const output = answers[key]
+
+    return output == null
+      ? {ok: false, output: MISSING_KEY(key)}
+      : {ok: true, output}
+  }
+
+  return {asked, readKey}
+}
 
 describe('the signature codesign reads off the built app', () => {
   it('reads the team off a team-signed app', () => {
@@ -158,6 +192,56 @@ describe('the teams Xcode is signed into', () => {
         'The domain/default pair of (com.apple.dt.Xcode, IDEProvisioningTeams) does not exist'
       )
     ).toEqual([])
+  })
+})
+
+describe('the Xcode defaults keys the teams are read from', () => {
+  it('lists the team Xcode 26 keeps under IDEProvisioningTeamByIdentifier', async () => {
+    const {asked, readKey} = stubDefaults({
+      IDEProvisioningTeamByIdentifier: XCODE_26_TEAMS,
+      IDEProvisioningTeams: null
+    })
+    expect(parseXcodeTeams(await readXcodeTeamDefaults(readKey))).toEqual([
+      {id: 'NEWTEAM123', name: 'New Xcode Team'}
+    ])
+
+    expect(asked).toEqual([...XCODE_TEAM_KEYS])
+  })
+
+  it('still lists the teams an older Xcode keeps under IDEProvisioningTeams', async () => {
+    const {readKey} = stubDefaults({
+      IDEProvisioningTeamByIdentifier: null,
+      IDEProvisioningTeams: XCODE_TEAMS
+    })
+    expect(parseXcodeTeams(await readXcodeTeamDefaults(readKey))).toEqual([
+      {id: 'JU3XAJJQ2G', name: 'Cezar Augusto'},
+      {id: 'ABCDE12345', name: 'Other Person'}
+    ])
+  })
+
+  it('lists each team once, newest key first, when both keys answer', async () => {
+    const {readKey} = stubDefaults({
+      IDEProvisioningTeamByIdentifier: XCODE_26_TEAMS.replace(
+        'NEWTEAM123',
+        'JU3XAJJQ2G'
+      ),
+      IDEProvisioningTeams: XCODE_TEAMS
+    })
+    expect(parseXcodeTeams(await readXcodeTeamDefaults(readKey))).toEqual([
+      {id: 'JU3XAJJQ2G', name: 'New Xcode Team'},
+      {id: 'ABCDE12345', name: 'Other Person'}
+    ])
+  })
+
+  it('answers empty when neither key can be read', async () => {
+    const {readKey} = stubDefaults({})
+    expect(await readXcodeTeamDefaults(readKey)).toBe('')
+
+    const throwing = async () => {
+      throw new Error('spawn defaults ENOENT')
+    }
+
+    expect(await readXcodeTeamDefaults(throwing)).toBe('')
   })
 })
 

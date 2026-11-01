@@ -195,6 +195,30 @@ async function resolvePidForBundle(bundleId: string): Promise<number | null> {
   return null
 }
 
+// Xcode 26 keeps the signed-in teams under IDEProvisioningTeamByIdentifier
+// (account identifier to team rows); older Xcode used IDEProvisioningTeams
+// (account to the same rows). Read both, newest first, and hand the parser
+// every readable answer; it dedupes by team id.
+export const XCODE_TEAM_KEYS = [
+  'IDEProvisioningTeamByIdentifier',
+  'IDEProvisioningTeams'
+] as const
+
+export async function readXcodeTeamDefaults(
+  readKey: (key: string) => Promise<{ok: boolean; output: string}>
+): Promise<string> {
+  const answers: string[] = []
+
+  for (const key of XCODE_TEAM_KEYS) {
+    try {
+      const {ok, output} = await readKey(key)
+      if (ok && output.trim()) answers.push(output)
+    } catch {}
+  }
+
+  return answers.join('\n')
+}
+
 export function createSafariTools(): SafariPipelineTools {
   return {
     detectToolchain: () => detectSafariToolchain(),
@@ -215,14 +239,9 @@ export function createSafariTools(): SafariPipelineTools {
       listPidsWhere((args) => isContainerAppArgs(appPath, args)),
     readCodeSignature: (appPath) =>
       runTool('codesign', ['-dv', '--verbose=2', appPath], {quiet: true}),
-    readXcodeTeams: async () => {
-      const {ok, output} = await runTool(
-        'defaults',
-        ['read', 'com.apple.dt.Xcode', 'IDEProvisioningTeams'],
-        {quiet: true}
+    readXcodeTeams: () =>
+      readXcodeTeamDefaults((key) =>
+        runTool('defaults', ['read', 'com.apple.dt.Xcode', key], {quiet: true})
       )
-
-      return ok ? output : ''
-    }
   }
 }
