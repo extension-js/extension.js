@@ -132,7 +132,7 @@ export async function extensionDev(
       // `browser.safari` (already merged CLI-last above).
       const safariPackager = devOptions.safariPackager
       const safariOverrides = {
-        ...resolveSafariIdentity(merged),
+        ...resolveSafariIdentity(merged, packageJsonDir),
         noOpen: merged.noOpen,
         startingUrl: merged.startingUrl
       }

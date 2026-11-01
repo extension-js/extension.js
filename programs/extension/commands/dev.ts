@@ -161,6 +161,10 @@ export function registerDevCommand(program: Command) {
       parseOptionalBoolean
     )
     .option(
+      '--app-icon <path>',
+      'make the Safari app icon from this square PNG, 1024 px, unchanged (safari targets only). Defaults to the icon set the converter builds from the manifest icons'
+    )
+    .option(
       '--force-regenerate',
       'regenerate the Safari Xcode project even when up to date (safari targets only)'
     )
@@ -365,6 +369,7 @@ export function registerDevCommand(program: Command) {
           bundleId?: string
           developmentTeam?: string
           macosOnly?: boolean
+          appIcon?: string
           forceRegenerate?: boolean
           enableExtension?: boolean
         }
@@ -373,6 +378,7 @@ export function registerDevCommand(program: Command) {
           ['--app-name', opts.appName],
           ['--bundle-id', opts.bundleId],
           ['--development-team', opts.developmentTeam],
+          ['--app-icon', opts.appIcon],
           ['--force-regenerate', opts.forceRegenerate],
           ['--enable-extension', opts.enableExtension]
         ]

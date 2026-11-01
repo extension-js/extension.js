@@ -20,6 +20,8 @@ export type SafariPluginLike = Pick<
   appName?: string
   bundleId?: string
   macOsOnly?: boolean
+  // Absolute path of a square PNG the app icon set is made from, unchanged.
+  appIcon?: string
   forceRegenerate?: boolean
   // Opened in the automation window once the dev session holds one.
   startingUrl?: string
@@ -44,4 +46,5 @@ export interface SafariBuildConfig {
   open: boolean
   safariBinary?: string
   developmentTeam?: string
+  appIcon?: string
 }

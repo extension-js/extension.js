@@ -183,6 +183,11 @@ export interface SafariOptions extends BrowserOptionsBase {
   developmentTeam?: string
   /** Generate the macOS-only Xcode project (default true). */
   macOsOnly?: boolean
+  /**
+   * A square PNG (1024 px) the Safari app's icon set is made from, relative to
+   * the project. Unset, Apple's converter builds it from the manifest icons.
+   */
+  appIcon?: string
   /** Regenerate the Xcode project even when its fingerprint is current. */
   forceRegenerate?: boolean
 }
@@ -197,6 +202,8 @@ export interface SafariPackagerOverrides {
   bundleId?: string
   developmentTeam?: string
   macOsOnly?: boolean
+  /** Absolute path of the PNG the app icon set is made from. */
+  appIcon?: string
   forceRegenerate?: boolean
   safariBinary?: string
   /** When set, overrides the factory `noOpen` for this packaging call. */
@@ -291,6 +298,7 @@ export interface DevOptions extends BrowserOptionsBase {
   bundleId?: SafariOptions['bundleId']
   developmentTeam?: SafariOptions['developmentTeam']
   macOsOnly?: SafariOptions['macOsOnly']
+  appIcon?: SafariOptions['appIcon']
   forceRegenerate?: boolean
   safariPackager?: SafariPackagerFn
 }
@@ -361,6 +369,7 @@ export interface BuildOptions {
   bundleId?: SafariOptions['bundleId']
   developmentTeam?: SafariOptions['developmentTeam']
   macOsOnly?: SafariOptions['macOsOnly']
+  appIcon?: SafariOptions['appIcon']
   forceRegenerate?: boolean
   safariPackager?: SafariPackagerFn
 }
@@ -483,6 +492,7 @@ export interface BrowserConfig extends BrowserOptionsBase {
   bundleId?: SafariOptions['bundleId']
   developmentTeam?: SafariOptions['developmentTeam']
   macOsOnly?: SafariOptions['macOsOnly']
+  appIcon?: SafariOptions['appIcon']
   forceRegenerate?: SafariOptions['forceRegenerate']
   /** Where the special folders live for this browser, or `false` to skip one. */
   folders?: SpecialFoldersConfig
@@ -594,6 +604,7 @@ export interface FileConfig {
       | 'bundleId'
       | 'developmentTeam'
       | 'macOsOnly'
+      | 'appIcon'
       | 'forceRegenerate'
       | 'noOpen'
       | 'noBrowser'
@@ -697,6 +708,7 @@ export interface FileConfig {
       | 'bundleId'
       | 'developmentTeam'
       | 'macOsOnly'
+      | 'appIcon'
       | 'forceRegenerate'
     > & {
       browser?: BrowserType

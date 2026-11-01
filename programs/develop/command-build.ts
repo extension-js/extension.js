@@ -324,7 +324,7 @@ export async function extensionBuild(
         ? buildOptions?.safariPackager
         : undefined
     const safariIdentity = safariPackager
-      ? resolveSafariIdentity(mergedBuildOptions)
+      ? resolveSafariIdentity(mergedBuildOptions, packageJsonDir)
       : undefined
 
     // Vite-style `emptyOutDir` determinism now comes from the staging swap:

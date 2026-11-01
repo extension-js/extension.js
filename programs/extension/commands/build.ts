@@ -55,6 +55,7 @@ type BuildOptions = {
   bundleId?: string
   developmentTeam?: string
   macosOnly?: boolean
+  appIcon?: string
   forceRegenerate?: boolean
   debug?: boolean
   output?: 'pretty' | 'json'
@@ -167,6 +168,10 @@ export function registerBuildCommand(program: Command) {
       parseOptionalBoolean
     )
     .option(
+      '--app-icon <path>',
+      'make the Safari app icon from this square PNG, 1024 px, unchanged (safari targets only). Defaults to the icon set the converter builds from the manifest icons'
+    )
+    .option(
       '--force-regenerate',
       'regenerate the Safari Xcode project even when up to date (safari targets only)'
     )
@@ -273,6 +278,7 @@ export function registerBuildCommand(program: Command) {
           ['--app-name', buildOptions.appName],
           ['--bundle-id', buildOptions.bundleId],
           ['--development-team', buildOptions.developmentTeam],
+          ['--app-icon', buildOptions.appIcon],
           ['--force-regenerate', buildOptions.forceRegenerate]
         ]
           .filter(([, value]) => value !== undefined && value !== false)
@@ -384,6 +390,7 @@ export function registerBuildCommand(program: Command) {
               bundleId: buildOptions.bundleId,
               developmentTeam: buildOptions.developmentTeam,
               macOsOnly: buildOptions.macosOnly,
+              appIcon: buildOptions.appIcon,
               forceRegenerate: buildOptions.forceRegenerate,
               safariPackager: safariPackagingEnabled
                 ? createSafariPackager({

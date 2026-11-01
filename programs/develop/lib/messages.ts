@@ -1420,6 +1420,13 @@ export function safariInvalidBundleId(bundleId: string) {
   )
 }
 
+export function safariAppIconNotFound(iconPath: string) {
+  return (
+    `${getLoggingPrefix('error')} Can't find the Safari app icon ${fmt.code(iconPath)}.\n` +
+    `Point ${fmt.code('appIcon')} at a square PNG, 1024 px, relative to the project.`
+  )
+}
+
 export function safariBuildOutputNotFound(outputPath: string) {
   return (
     `${getLoggingPrefix('error')} No build output to package for Safari.\n` +
