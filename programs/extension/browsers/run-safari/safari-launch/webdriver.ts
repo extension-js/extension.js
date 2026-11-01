@@ -15,6 +15,7 @@ const DRIVER_POLL_MS = 100
 // Creating the session raises a Safari automation window, which takes seconds
 // on a cold start.
 const SESSION_CREATE_MS = 30_000
+const SESSION_ATTEMPTS = 2
 const SESSION_CLOSE_MS = 5000
 const NAVIGATE_MS = 30_000
 const AUTOMATION_QUIT_MS = 3000
@@ -22,7 +23,7 @@ const AUTOMATION_QUIT_MS = 3000
 export const WEBDRIVER_NOT_ASKED_YET =
   'the launcher has not asked safaridriver for a session yet: it opens the app and enables the extension first, then asks, and this line is replaced by the session or by the reason it got none'
 
-export const WEBDRIVER_SESSION_PENDING = `the launcher is asking safaridriver for a session now: the request alone waits up to ${SESSION_CREATE_MS / 1000} s, and this line is replaced by the session or by the reason it got none`
+export const WEBDRIVER_SESSION_PENDING = `the launcher is asking safaridriver for a session now: each request waits up to ${SESSION_CREATE_MS / 1000} s and one Safari never answered is asked once more, and this line is replaced by the session or by the reason it got none`
 
 export interface SafariWebDriverSession {
   port: number
@@ -215,22 +216,76 @@ export async function navigateSafariWebDriverSession(
   }
 }
 
-export async function openSafariWebDriverSession(
-  tools: SafariPipelineTools
-): Promise<SafariWebDriverOutcome> {
+// What a session request that never answered leaves behind, read off the
+// process table: a Safari automation instance that was already up before this
+// driver spawned belongs to another session, and Safari serves one at a time.
+// Remote Automation being off is never the cause, safaridriver refuses that at
+// once in its own words.
+function asSeconds(ms: number): number {
+  return Number((ms / 1000).toFixed(1))
+}
+
+export function describeSessionTimeout(input: {
+  waitedMs: number
+  before: number[]
+  after: number[]
+}): {reason: string; retry: boolean} {
+  const seconds = asSeconds(input.waitedMs)
+  const waited = `safaridriver did not answer the session request within ${seconds} s`
+
+  if (input.before.length > 0) {
+    return {
+      retry: false,
+      reason: `${waited}: Safari already runs an automation instance from another WebDriver session (pid ${input.before.join(', ')}), and Safari serves one session at a time. End that session or quit that automation Safari, then run again`
+    }
+  }
+
+  const raised = input.after.filter((pid) => !input.before.includes(pid))
+
+  if (raised.length === 0) {
+    return {
+      retry: true,
+      reason: `${waited}, and Safari never started its automation instance: Safari holds the request behind a window that waits for an answer (Safari Settings, a password prompt or a dialog). Close it in Safari, then run again`
+    }
+  }
+
+  return {
+    retry: true,
+    reason: `${waited}: Safari started its automation instance (pid ${raised.join(', ')}) but did not open the automation window, which a dialog or a prompt in Safari holds. Answer it in Safari, then run again`
+  }
+}
+
+export interface SafariWebDriverOptions {
+  createMs?: number
+  attempts?: number
+}
+
+async function requestSession(
+  tools: SafariPipelineTools,
+  createMs: number
+): Promise<
+  | {session: SafariWebDriverSession; reason?: undefined; retry?: undefined}
+  | {session?: undefined; reason: string; retry: boolean}
+> {
   let port: number
 
   try {
     port = await freePort()
   } catch (error) {
-    return {reason: `no free port for safaridriver: ${String(error)}`}
+    return {
+      reason: `no free port for safaridriver: ${String(error)}`,
+      retry: false
+    }
   }
 
   const before = new Set(await tools.listAutomationPids())
   const driver = await tools.startWebDriver(port)
 
   if (!driver.ok) {
-    return {reason: `safaridriver could not start: ${driver.output}`}
+    return {
+      reason: `safaridriver could not start: ${driver.output}`,
+      retry: false
+    }
   }
 
   activeDrivers.add(driver)
@@ -247,7 +302,7 @@ export async function openSafariWebDriverSession(
   if (notReady) {
     await stopDriver()
 
-    return {reason: notReady}
+    return {reason: notReady, retry: false}
   }
 
   let created: DriverReply
@@ -258,15 +313,31 @@ export async function openSafariWebDriverSession(
       'POST',
       '/session',
       {capabilities: {alwaysMatch: {browserName: 'safari'}}},
-      SESSION_CREATE_MS
+      createMs
     )
   } catch (error) {
+    const message = String((error as Error)?.message || error)
+
+    if (message !== 'timed out') {
+      await stopDriver()
+
+      return {
+        reason: `the WebDriver session request failed: ${message}`,
+        retry: false
+      }
+    }
+
+    const after = await tools.listAutomationPids()
     await stopDriver()
+    const timeout = describeSessionTimeout({
+      waitedMs: createMs,
+      before: [...before],
+      after
+    })
 
     return {
-      reason: `the WebDriver session request failed: ${String(
-        (error as Error)?.message || error
-      )}`
+      reason: `the WebDriver session request failed: ${timeout.reason}`,
+      retry: timeout.retry
     }
   }
 
@@ -275,7 +346,7 @@ export async function openSafariWebDriverSession(
   if (created.status !== 200 || typeof sessionId !== 'string' || !sessionId) {
     await stopDriver()
 
-    return {reason: refusalReason(created)}
+    return {reason: refusalReason(created), retry: false}
   }
 
   let closing: Promise<void> | null = null
@@ -311,4 +382,31 @@ export async function openSafariWebDriverSession(
   activeSessions.add(session)
 
   return {session}
+}
+
+export async function openSafariWebDriverSession(
+  tools: SafariPipelineTools,
+  options: SafariWebDriverOptions = {}
+): Promise<SafariWebDriverOutcome> {
+  const createMs = options.createMs ?? SESSION_CREATE_MS
+  const attempts = Math.max(1, options.attempts ?? SESSION_ATTEMPTS)
+  const reasons: string[] = []
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    const outcome = await requestSession(tools, createMs)
+
+    if (outcome.session) return {session: outcome.session}
+
+    reasons.push(outcome.reason)
+
+    if (!outcome.retry) break
+  }
+
+  if (reasons.length === 1) return {reason: reasons[0]}
+
+  const last = reasons[reasons.length - 1]
+
+  return {
+    reason: `${last} (asked ${reasons.length} times, ${asSeconds(createMs)} s each)`
+  }
 }

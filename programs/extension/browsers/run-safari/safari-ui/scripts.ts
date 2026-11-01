@@ -221,9 +221,21 @@ function showPane(proc, title) {
   if (String(attr(w, 'AXTitle') || '') !== title) {
     button.click()
     const shown = wait(() => String(attr(settingsWindow(proc), 'AXTitle') || '') === title, 6)
-    if (!shown) throw new Error('Safari Settings did not switch to ' + title)
+    if (!shown) {
+      const now = settingsWindow(proc)
+      const reads = 'the window still reads ' + JSON.stringify(String(attr(now, 'AXTitle') || '')) + ' after a click on its ' + title + ' button'
+      throw new Error('Safari Settings did not switch to ' + title + ': ' + (blockerOf(now) || reads))
+    }
   }
   return settingsWindow(proc)
+}
+function blockerOf(w) {
+  if (w && kids(w).some((k) => role(k) === 'AXSheet')) return 'a sheet is open on Safari Settings and waits for an answer'
+  for (const name of ['SecurityAgent', 'coreautha']) {
+    const list = se.processes.whose({name: name})()
+    if (list.length && windows(list[0]).length) return 'the macOS password prompt (' + name + ') is open and waits for an answer'
+  }
+  return null
 }
 function closeSettings(proc) {
   const w = settingsWindow(proc)
@@ -283,6 +295,8 @@ function literal(value: string): string {
 export interface ScriptHeader {
   kind:
     | 'probe'
+    | 'running'
+    | 'close'
     | 'unsigned'
     | 'enabled'
     | 'websites'
@@ -322,6 +336,26 @@ export function accessibilityProbeScript(): string {
 })()`
 }
 
+export function safariRunningScript(): string {
+  return `${header({kind: 'running'})}${PRELUDE}
+(() => {
+  try { return answer({ok: true, running: Boolean(safari())}) } catch (e) { return failure(e) }
+})()`
+}
+
+export function closeSettingsScript(): string {
+  return `${header({kind: 'close'})}${PRELUDE}
+(() => {
+  try {
+    const proc = safari()
+    if (!proc) return answer({ok: true, open: false, blocker: null})
+    const blocker = blockerOf(settingsWindow(proc))
+    if (!blocker) closeSettings(proc)
+    return answer({ok: true, open: Boolean(settingsWindow(proc)), blocker: blocker})
+  } catch (e) { return failure(e) }
+})()`
+}
+
 export function unsignedExtensionsScript(action: 'read' | 'on'): string {
   return `${header({kind: 'unsigned', action})}${PRELUDE}
 (() => {
@@ -333,7 +367,8 @@ export function unsignedExtensionsScript(action: 'read' | 'on'): string {
     if (!cb) return answer({ok: false, error: 'no checkbox titled ${UNSIGNED_EXTENSIONS_TITLE}'})
     const before = readValue(cb)
     const result = ${action === 'on' ? 'setChecked(cb, true)' : '{before, after: before, clicked: false}'}
-    return answer({ok: true, before: result.before, after: result.after, clicked: result.clicked})
+    const blocker = result.after === 1 ? null : blockerOf(settingsWindow(proc))
+    return answer({ok: true, before: result.before, after: result.after, clicked: result.clicked, blocker: blocker})
   } catch (e) { return failure(e) }
 })()`
 }

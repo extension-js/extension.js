@@ -22,6 +22,7 @@ export interface SafariUiTools {
   platform: NodeJS.Platform
   runScript(source: string): Promise<SafariUiScriptResult>
   pluginkitAdd(appexPath: string): Promise<SafariUiScriptResult>
+  launchSafari(): Promise<SafariUiScriptResult>
   hostApp(): string
 }
 
@@ -164,6 +165,7 @@ export function createSafariUiTools(): SafariUiTools {
     runScript: (source) =>
       runProcess('osascript', ['-l', 'JavaScript'], source),
     pluginkitAdd: (appexPath) => runProcess('pluginkit', ['-a', appexPath]),
+    launchSafari: () => runProcess('open', ['-g', '-b', 'com.apple.Safari']),
     hostApp: () => hostAppName()
   }
 }
