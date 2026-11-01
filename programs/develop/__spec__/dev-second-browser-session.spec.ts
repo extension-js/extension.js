@@ -98,6 +98,21 @@ async function watchSession(root: string, browser: 'chromium' | 'firefox') {
       poll()
     })
 
+  const compiledPast = (count: number, deadlineMs: number) =>
+    new Promise<number>((resolve) => {
+      const startedAt = Date.now()
+
+      const poll = () => {
+        if (dones.length > count || Date.now() - startedAt > deadlineMs) {
+          return resolve(dones.length)
+        }
+
+        setTimeout(poll, 50)
+      }
+
+      poll()
+    })
+
   const watching = compiler.watch(
     devWatchOptions(compiler, {aggregateTimeout: 50}),
     () => {}
@@ -105,6 +120,7 @@ async function watchSession(root: string, browser: 'chromium' | 'firefox') {
   const session = {
     dones,
     settle,
+    compiledPast,
     close: () =>
       new Promise<void>((resolve) => {
         watching.close(() => resolve())
@@ -151,7 +167,6 @@ describe('a second dev session for another browser', () => {
       'console.log("second-session-bg-v2")\n'
     )
 
-    await sleep(3000)
-    expect(chromium.dones.length).toBeGreaterThan(seen)
+    expect(await chromium.compiledPast(seen, 30000)).toBeGreaterThan(seen)
   }, 60000)
 })
