@@ -14,6 +14,7 @@ import {ready as devServerReady} from '../../browsers-lib/ready-message'
 import {
   readReadyRunId,
   stampReadyBrowserLaunch,
+  stampReadyStartingUrl,
   stampReadyWebDriver
 } from '../../browsers-lib/ready-stamp'
 import type {BrowserLogger, CompilationLike} from '../../browsers-types'
@@ -63,6 +64,7 @@ import {
 } from './tools'
 import {
   closeSafariWebDriverSessions,
+  navigateSafariWebDriverSession,
   openSafariWebDriverSession,
   WEBDRIVER_NOT_ASKED_YET,
   WEBDRIVER_SESSION_PENDING
@@ -375,7 +377,8 @@ async function announceSafariDevSession(
 async function holdWebDriverSession(
   tools: SafariPipelineTools,
   config: SafariBuildConfig,
-  logger: BrowserLogger
+  logger: BrowserLogger,
+  startingUrl?: string
 ): Promise<void> {
   const runId = readReadyRunId(config.extensionDir)
   stampReadyWebDriver(
@@ -393,6 +396,14 @@ async function holdWebDriverSession(
     stampReadyWebDriver(config.extensionDir, {port, sessionId}, runId)
     logger.info?.(messages.safariWebDriverSession(port, sessionId))
 
+    if (startingUrl) {
+      const refused = await navigateSafariWebDriverSession(
+        outcome.session,
+        startingUrl
+      )
+      noteStartingUrl(config, logger, startingUrl, refused, runId)
+    }
+
     return
   }
 
@@ -403,6 +414,33 @@ async function holdWebDriverSession(
   )
 
   logger.info?.(messages.safariWebDriverUnavailable(outcome.reason))
+
+  if (startingUrl) {
+    noteStartingUrl(
+      config,
+      logger,
+      startingUrl,
+      `Safari opens it in the automation window, and this run holds no WebDriver session (${outcome.reason})`,
+      runId
+    )
+  }
+}
+
+function noteStartingUrl(
+  config: SafariBuildConfig,
+  logger: BrowserLogger,
+  url: string,
+  refused: string | null,
+  runId?: string
+) {
+  stampReadyStartingUrl(
+    config.extensionDir,
+    refused ? {url, opened: false, reason: refused} : {url, opened: true},
+    runId
+  )
+
+  if (refused) logger.warn?.(messages.safariStartingUrlNotOpened(url, refused))
+  else logger.info?.(messages.safariStartingUrlOpened(url))
 }
 
 async function runSafariPipeline(
@@ -705,7 +743,7 @@ async function runSafariPipeline(
   }
 
   if (host.announceDevReady) {
-    await holdWebDriverSession(tools, config, logger)
+    await holdWebDriverSession(tools, config, logger, host.startingUrl)
     await announceSafariDevSession(host, config, appPath)
   }
 

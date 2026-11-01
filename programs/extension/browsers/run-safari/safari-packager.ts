@@ -27,6 +27,7 @@ export interface SafariPackagerOverrides {
 export interface SafariPackagerOptions extends SafariPackagerOverrides {
   browser?: 'safari' | 'webkit-based'
   announceDevReady?: boolean
+  startingUrl?: string
   noOpen?: boolean
   dryRun?: boolean
   logger?: BrowserLogger

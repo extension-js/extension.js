@@ -595,6 +595,7 @@ export function registerDevCommand(program: Command) {
               // Dev sessions get the identity card and ready line the other
               // launchers print; build packaging stays quiet.
               announceDevReady: true,
+              startingUrl: devOptions.startingUrl,
               enableExtension: opts.enableExtension === true
             })
           }

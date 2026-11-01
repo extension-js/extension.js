@@ -1389,6 +1389,14 @@ export function safariWebDriverSession(port: number, sessionId: string) {
   )
 }
 
+export function safariStartingUrlOpened(url: string) {
+  return `${getLoggingPrefix('info')} Opened the starting URL ${colors.underline(url)} in the Safari automation window.`
+}
+
+export function safariStartingUrlNotOpened(url: string, reason: string) {
+  return `${getLoggingPrefix('warn')} Did not open the starting URL ${colors.underline(url)}: ${reason}`
+}
+
 export function safariWebDriverUnavailable(reason: string) {
   return (
     `${getLoggingPrefix('info')} No WebDriver session for this run: ${reason}\n` +
