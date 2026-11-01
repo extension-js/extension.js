@@ -25,6 +25,11 @@ export interface FakeSafariState {
   shortcut: string | null
   pluginkitFails?: boolean
   scriptFails?: string
+  running: boolean
+  startsAfterPolls?: number | null
+  launchFails?: string
+  unsignedSticks?: boolean
+  blocker?: string | null
 }
 
 export interface FakeSafariUiTools extends SafariUiTools {
@@ -53,6 +58,7 @@ export function fakeSafariUiTools(
       {title: 'Settings', enabled: true}
     ],
     shortcut: '⌥⇧H',
+    running: true,
     ...overrides
   }
   const calls: string[] = []
@@ -64,6 +70,17 @@ export function fakeSafariUiTools(
     calls,
     platform: state.platform,
     hostApp: () => state.host,
+    launchSafari: async () => {
+      calls.push('launch')
+
+      if (state.launchFails) {
+        return {ok: false, code: 1, output: state.launchFails}
+      }
+
+      if (state.startsAfterPolls === undefined) state.running = true
+
+      return ok({})
+    },
     pluginkitAdd: async (appexPath) => {
       calls.push(`pluginkit:${appexPath}`)
 
@@ -91,6 +108,27 @@ export function fakeSafariUiTools(
 
       if (kind === 'probe') return ok({ok: true, elements: 3})
 
+      if (kind === 'running') {
+        if (
+          !state.running &&
+          typeof state.startsAfterPolls === 'number' &&
+          calls.includes('launch')
+        ) {
+          state.startsAfterPolls -= 1
+          if (state.startsAfterPolls <= 0) state.running = true
+        }
+
+        return ok({ok: true, running: state.running})
+      }
+
+      if (kind === 'close') {
+        return ok({
+          ok: true,
+          open: Boolean(state.blocker),
+          blocker: state.blocker ?? null
+        })
+      }
+
       if (state.scriptFails) {
         return {ok: false, code: 1, output: state.scriptFails}
       }
@@ -98,13 +136,14 @@ export function fakeSafariUiTools(
       switch (kind) {
         case 'unsigned': {
           const before = state.unsigned
-          if (head?.action === 'on') state.unsigned = 1
+          if (head?.action === 'on' && !state.unsignedSticks) state.unsigned = 1
 
           return ok({
             ok: true,
             before,
             after: state.unsigned,
-            clicked: before !== state.unsigned
+            clicked: head?.action === 'on' && before === 0,
+            blocker: state.unsigned === 1 ? null : (state.blocker ?? null)
           })
         }
 

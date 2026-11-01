@@ -1022,3 +1022,23 @@ describe('BridgeBroker with no control port', () => {
     expect(message).not.toContain('service worker')
   })
 })
+
+describe('BridgeBroker producer attach origin', () => {
+  it('hands the producer origin to the attach stamp', () => {
+    const seen: Array<{origin?: string} | undefined> = []
+    const b = new BridgeBroker({
+      ...opts,
+      engine: 'webkit',
+      ring: new LogRingBuffer(),
+      onExecutorAttached: (attached) => seen.push(attached)
+    })
+    const c = Object.assign(new FakeConn('p1'), {
+      origin: 'safari-web-extension://3F2A9C10-1B2C-4D5E-8F90-ABCDEF012345'
+    })
+    b.onFrame(c, {type: 'hello', v: 1, role: 'producer', instanceId: 'inst-1'})
+
+    expect(seen).toEqual([
+      {origin: 'safari-web-extension://3F2A9C10-1B2C-4D5E-8F90-ABCDEF012345'}
+    ])
+  })
+})

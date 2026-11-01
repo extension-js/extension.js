@@ -64,6 +64,7 @@ describe('enableSafariExtension', () => {
     })
 
     expect(tools.calls).toEqual([
+      'running',
       'enabled:read',
       'unsigned:on',
       `pluginkit:${path.join(appPath, 'Contents', 'PlugIns', 'MyExt Extension.appex')}`,
@@ -116,9 +117,72 @@ describe('enableSafariExtension', () => {
       onStep: (step) => steps.push(`${step.step}:${step.changed}`)
     })
 
-    expect(tools.calls).toEqual(['enabled:read', 'websites:allow'])
+    expect(tools.calls).toEqual(['running', 'enabled:read', 'websites:allow'])
     expect(steps).toEqual(['enabled:false', 'websites:false'])
     expect(report.enabled).toBe(true)
+  })
+
+  it('starts Safari and waits for it before it reads Settings', async () => {
+    const tools = fakeSafariUiTools({running: false, startsAfterPolls: 3})
+    const steps: string[] = []
+    const report = await enableSafariExtension({
+      target: {bundleId: BUNDLE},
+      appPath,
+      tools,
+      onStep: (step) => steps.push(`${step.step}:${step.before}:${step.after}`)
+    })
+
+    expect(tools.calls.slice(0, 5)).toEqual([
+      'running',
+      'launch',
+      'running',
+      'running',
+      'running'
+    ])
+
+    expect(tools.calls[5]).toBe('enabled:read')
+    expect(steps[0]).toBe('safari:not running:running')
+    expect(report.enabled).toBe(true)
+  })
+
+  it('names a Safari that never started instead of reading Settings', async () => {
+    const tools = fakeSafariUiTools({running: false, startsAfterPolls: null})
+
+    await expect(
+      enableSafariExtension({
+        target: {bundleId: BUNDLE},
+        appPath,
+        tools,
+        startWaitMs: 600
+      })
+    ).rejects.toMatchObject({
+      kind: 'not-running',
+      message:
+        'Safari is not running: it was started in the background and System Events still listed no Safari process 0.6 s later'
+    })
+
+    expect(tools.calls).not.toContain('enabled:read')
+  })
+
+  it('stops at an unsigned toggle that stays off and names the prompt that holds it', async () => {
+    const tools = fakeSafariUiTools({
+      unsignedSticks: true,
+      blocker:
+        'the macOS password prompt (SecurityAgent) is open and waits for an answer'
+    })
+    const report = await enableSafariExtension({
+      target: {bundleId: BUNDLE},
+      appPath,
+      tools
+    })
+
+    expect(report).toMatchObject({
+      enabled: false,
+      reason:
+        'Safari > Settings > Developer > Allow unsigned extensions still reads off after the click, and the macOS password prompt (SecurityAgent) is open and waits for an answer: answer it in Safari, then run again'
+    })
+
+    expect(tools.calls).toEqual(['running', 'enabled:read', 'unsigned:on'])
   })
 
   it('reports the row missing instead of pretending it was ticked', async () => {
@@ -316,6 +380,7 @@ describe('dev --enable-extension through the pipeline', () => {
 
     expect(ui.calls).toEqual([
       'probe',
+      'running',
       'enabled:read',
       'unsigned:on',
       expect.stringMatching(/^pluginkit:/),
@@ -346,6 +411,27 @@ describe('dev --enable-extension through the pipeline', () => {
     const registeredAt = logs.indexOf(messages.safariRegistered('MyExt'))
     expect(registeredAt).toBeGreaterThanOrEqual(0)
     expect(enabledAt).toBeGreaterThan(registeredAt)
+  })
+
+  it('logs the step that failed, closes Settings and names what it could not close', async () => {
+    const blocker = 'a sheet is open on Safari Settings and waits for an answer'
+    const ui = fakeSafariUiTools({unsignedSticks: true, blocker})
+    const {logs} = await run({enableExtension: true, uiTools: ui})
+
+    expect(ui.calls).toEqual([
+      'probe',
+      'running',
+      'enabled:read',
+      'unsigned:on',
+      'close'
+    ])
+
+    expect(logs).toContain(
+      messages.safariEnableIncomplete(
+        'MyExt',
+        `Safari > Settings > Developer > Allow unsigned extensions still reads off after the click, and ${blocker}: answer it in Safari, then run again. Still open in Safari: ${blocker}, which holds the WebDriver session request until it is answered`
+      )
+    )
   })
 
   it('falls back to the manual steps and names the host when Accessibility is missing', async () => {

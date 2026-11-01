@@ -231,6 +231,7 @@ describe('extension safari', () => {
 
     expect(tools.calls).toEqual([
       'probe',
+      'running',
       'enabled:read',
       'unsigned:on',
       expect.stringMatching(/My Ext Extension\.appex$/),

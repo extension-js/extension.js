@@ -74,6 +74,7 @@ export type ReadyMetadata = {
   webdriverPort?: number
   webdriverSessionId?: string
   webdriverUnavailableReason?: string
+  webdriverRequestPath?: string
   // Dev only: the last reload dev applied after a compile, its kind (full,
   // background, content, page, safari-resync) and the shared reload label.
   reloadedAt?: string
@@ -114,6 +115,7 @@ export type ReadyMetadata = {
   // connected and can be driven. Act-tooling should wait for runtime:'attached'.
   runtime?: 'attached' | 'detached'
   executorAttachedAt?: string
+  extensionBaseUrl?: string
   // Every extension the engine loads besides the user's (built-in companions
   // plus --extensions dirs), so a target census can subtract them by id.
   managedExtensions?: ManagedExtensionRecord[]
@@ -439,6 +441,14 @@ function writeJsonAtomic(filePath: string, value: unknown): boolean {
   }
 }
 
+export function safariExtensionBase(origin: unknown): string | null {
+  const found = /^safari-web-extension:\/\/([0-9A-Za-z-]{8,64})\/?$/.exec(
+    String(origin || '')
+  )
+
+  return found ? `safari-web-extension://${found[1]}/` : null
+}
+
 export interface LiveDevSessionOwner {
   pid: number
   port?: number | null
@@ -750,6 +760,10 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
         payload.webdriverUnavailableReason = prev.webdriverUnavailableReason
       }
 
+      if (typeof prev.webdriverRequestPath === 'string') {
+        payload.webdriverRequestPath = prev.webdriverRequestPath
+      }
+
       if (typeof prev.profilePath === 'string') {
         payload.profilePath = prev.profilePath
       }
@@ -837,6 +851,11 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
 
       // The SW attaches once per session but the compile can re-run many
       // times; a recompile must not erase the runtime-attached signal.
+      if (typeof prev.extensionBaseUrl === 'string') {
+        ;(payload as Record<string, unknown>).extensionBaseUrl =
+          prev.extensionBaseUrl
+      }
+
       if (typeof prev.executorAttachedAt === 'string') {
         ;(payload as Record<string, unknown>).executorAttachedAt =
           prev.executorAttachedAt
@@ -1038,13 +1057,16 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     },
     // Stamp the runtime-attached signal on first SW connect; read-modify-write and
     // idempotent so reconnects don't disturb status or launcher-stamped fields.
-    stampExecutorAttached() {
+    stampExecutorAttached(attached?: {origin?: string}) {
       try {
         if (!fs.existsSync(readyPath)) return
 
         const prev = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
         prev.runtime = 'attached'
         delete prev.executorDetachedAt
+
+        const base = safariExtensionBase(attached?.origin)
+        if (base) prev.extensionBaseUrl = base
 
         if (typeof prev.executorAttachedAt === 'string') {
           prev.ts = nowISO()

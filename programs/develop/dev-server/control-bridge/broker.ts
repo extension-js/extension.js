@@ -41,6 +41,12 @@ export interface BridgeConnection {
   close(code?: number, reason?: string): void
 }
 
+// The producer's own origin: Safari's per-install safari-web-extension://<uuid>
+// is the one place the extension's page base is known before any page logs.
+export interface ExecutorAttachInfo {
+  origin?: string
+}
+
 export interface BridgeBrokerOptions {
   instanceId: string
   runId: string
@@ -58,7 +64,7 @@ export interface BridgeBrokerOptions {
   clearTimer?: (handle: ReturnType<typeof setTimeout>) => void
   // Called once when the extension's SW first connects over the control channel;
   // stamps a distinct "runtime attached" signal into ready.json.
-  onExecutorAttached?: () => void
+  onExecutorAttached?: (attached?: ExecutorAttachInfo) => void
   onExecutorDetached?: () => void
   // Asks the browser to start the extension's background again. Firefox
   // suspends an idle event page and its producer leaves with it.
@@ -295,7 +301,7 @@ export class BridgeBroker {
   // Why the dev server has no control port, once it has told the broker. No
   // producer can ever dial in, so this outranks every other absence cause.
   private controlPortUnavailable: string | null = null
-  private readonly onExecutorAttached?: () => void
+  private readonly onExecutorAttached?: (attached?: ExecutorAttachInfo) => void
   private readonly onExecutorDetached?: () => void
   private readonly wakeExecutor?: () => Promise<boolean>
   // Verbs held while a woken background starts, answered on its hello.
@@ -811,7 +817,7 @@ export class BridgeBroker {
       // Stamp ready.json's runtime signal on EVERY producer hello: idempotent, and
       // firing each time closes the startup race where the callback wasn't wired yet.
       try {
-        this.onExecutorAttached?.()
+        this.onExecutorAttached?.({origin: conn.origin})
       } catch {
         // best-effort stamp; never let it disturb the hello path
       }

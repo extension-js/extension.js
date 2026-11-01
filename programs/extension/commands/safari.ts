@@ -189,6 +189,7 @@ export async function resolveSafariTarget(
 }
 
 const STEP_LABELS: Record<EnableStep['step'], string> = {
+  safari: 'app',
   unsigned: 'unsigned extensions',
   pluginkit: 'pluginkit registration',
   enabled: 'extension switch',
@@ -271,7 +272,8 @@ async function runAction(
       enabled: report.enabled,
       listed: report.listed,
       otherWebsites: report.otherWebsites,
-      steps: report.steps
+      steps: report.steps,
+      ...(report.reason ? {reason: report.reason} : {})
     }
   }
 

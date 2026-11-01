@@ -13,6 +13,7 @@ import * as messages from '../../browsers-lib/messages'
 import {ready as devServerReady} from '../../browsers-lib/ready-message'
 import {
   readReadyRunId,
+  readyPathFor,
   stampReadyBrowserLaunch,
   stampReadyStartingUrl,
   stampReadyWebDriver
@@ -21,6 +22,7 @@ import type {BrowserLogger, CompilationLike} from '../../browsers-types'
 import type {SafariBuildConfig, SafariPluginLike} from '../safari-types'
 import {
   checkAccessibility,
+  closeSafariSettings,
   createSafariUiTools,
   type EnableStep,
   enableSafariExtension,
@@ -69,6 +71,10 @@ import {
   WEBDRIVER_NOT_ASKED_YET,
   WEBDRIVER_SESSION_PENDING
 } from './webdriver'
+import {
+  watchWebDriverRequests,
+  webdriverRequestPathFor
+} from './webdriver-request'
 
 export {closeSafariContainerApps} from './container-app'
 export {
@@ -153,6 +159,7 @@ async function confirmRegisteredWithSafari(
 export type SafariPipelineMode = 'full' | 'resync'
 
 const ENABLE_STEP_LABELS: Record<EnableStep['step'], string> = {
+  safari: 'app',
   unsigned: 'unsigned extensions',
   pluginkit: 'pluginkit registration',
   enabled: 'extension switch',
@@ -215,12 +222,16 @@ async function enableThroughSafariUi(
       return true
     }
 
+    const reason =
+      report.reason ||
+      (report.listed
+        ? `the switch reads ${report.enabled ? 'on' : 'off'} and other websites read ${report.otherWebsites ?? 'nothing'}.`
+        : 'Safari does not list the extension.')
+
     logger.warn?.(
       messages.safariEnableIncomplete(
         config.appName,
-        report.listed
-          ? `the switch reads ${report.enabled ? 'on' : 'off'} and other websites read ${report.otherWebsites ?? 'nothing'}.`
-          : 'Safari does not list the extension.'
+        await withSettingsLeftOpen(uiTools, reason)
       )
     )
 
@@ -234,12 +245,33 @@ async function enableThroughSafariUi(
       logger.warn?.(
         messages.safariEnableIncomplete(
           config.appName,
-          error instanceof Error ? error.message : String(error)
+          await withSettingsLeftOpen(
+            uiTools,
+            error instanceof Error ? error.message : String(error)
+          )
         )
       )
     }
 
     return false
+  }
+}
+
+// A Settings window or a prompt left in front of Safari holds the WebDriver
+// session request that follows, so a failed enable closes Settings and says
+// what it could not close.
+async function withSettingsLeftOpen(
+  uiTools: ReturnType<typeof createSafariUiTools>,
+  reason: string
+): Promise<string> {
+  try {
+    const blocker = await closeSafariSettings(uiTools)
+
+    return blocker
+      ? `${reason.replace(/\.$/, '')}. Still open in Safari: ${blocker}, which holds the WebDriver session request until it is answered`
+      : reason
+  } catch {
+    return reason
   }
 }
 
@@ -441,6 +473,38 @@ function noteStartingUrl(
 
   if (refused) logger.warn?.(messages.safariStartingUrlNotOpened(url, refused))
   else logger.info?.(messages.safariStartingUrlOpened(url))
+}
+
+const requestWatchers = new Map<string, () => void>()
+
+// One watcher per dev output: each request opens a new session the way the
+// launch did, so ready.json names the new session or why there is none.
+function answerWebDriverRequests(
+  tools: SafariPipelineTools,
+  config: SafariBuildConfig,
+  logger: BrowserLogger
+): void {
+  const requestPath = webdriverRequestPathFor(readyPathFor(config.extensionDir))
+
+  stampReadyWebDriver(
+    config.extensionDir,
+    {requestPath},
+    readReadyRunId(config.extensionDir)
+  )
+
+  if (requestWatchers.has(requestPath)) return
+
+  requestWatchers.set(
+    requestPath,
+    watchWebDriverRequests(requestPath, () =>
+      holdWebDriverSession(tools, config, logger)
+    )
+  )
+}
+
+export function stopWebDriverRequestWatchers(): void {
+  for (const stop of requestWatchers.values()) stop()
+  requestWatchers.clear()
 }
 
 async function runSafariPipeline(
@@ -744,6 +808,7 @@ async function runSafariPipeline(
 
   if (host.announceDevReady) {
     await holdWebDriverSession(tools, config, logger, host.startingUrl)
+    answerWebDriverRequests(tools, config, logger)
     await announceSafariDevSession(host, config, appPath)
   }
 
