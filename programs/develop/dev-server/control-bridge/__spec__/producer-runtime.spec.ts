@@ -1129,6 +1129,65 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     })
   })
 
+  const firefoxCopyWithout = (manifest: Record<string, unknown>) => ({
+    runtime: {getManifest: () => manifest},
+    tabs: {query: () => Promise.resolve([])}
+  })
+
+  for (const op of ['eval', 'inspect'] as const) {
+    for (const context of ['content', 'page'] as const) {
+      it(`${op} ${context} on an MV3 copy with no scripting permission names the permission, not MV2 or a tabId`, async () => {
+        const ws = setup(
+          firefoxCopyWithout({
+            manifest_version: 3,
+            permissions: ['storage', 'tabs']
+          }),
+          {navigator: {userAgent: 'Mozilla/5.0 Firefox/160.0'}}
+        )
+        ws.triggerMessage({
+          type: 'command',
+          cmdId: `no-scripting-${op}-${context}`,
+          op,
+          target: {context, tabId: 7},
+          args: op === 'eval' ? {expression: '1'} : {}
+        })
+
+        await flush()
+        const frame = results(ws).find(
+          (f) => f.cmdId === `no-scripting-${op}-${context}`
+        )
+        expect(frame).toMatchObject({
+          ok: false,
+          error: {name: 'Unsupported', code: 'scripting_unavailable'}
+        })
+
+        expect(frame.error.message).toContain(
+          'this MV3 build\'s manifest has no "scripting" permission'
+        )
+
+        expect(frame.error.message).toContain('tab 7')
+        expect(frame.error.message).toContain('use a dev session')
+        expect(frame.error.message).not.toContain('MV2')
+        expect(frame.error.message).not.toContain('requires a tabId')
+      })
+    }
+  }
+
+  it('eval content on an MV2 copy keeps the MV2 reason', async () => {
+    const ws = setup(firefoxCopyWithout({manifest_version: 2, permissions: []}))
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'mv2-eval',
+      op: 'eval',
+      target: {context: 'content', tabId: 7},
+      args: {expression: '1'}
+    })
+
+    await flush()
+    const frame = results(ws).find((f) => f.cmdId === 'mv2-eval')
+    expect(frame.error.message).toContain('MV2 has no scripting API')
+  })
+
   it('tabs.query works on a callback-only chrome.* (Gecko MV2)', async () => {
     const ws = setup({
       tabs: {

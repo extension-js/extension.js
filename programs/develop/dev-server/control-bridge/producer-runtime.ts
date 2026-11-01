@@ -205,6 +205,24 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       return {code: "surface_reply_failed", message: "surface '" + ctx + "' answered but the reply did not arrive: " + lem};
     }
 
+    // Why a tab injection cannot run here. An MV3 copy whose manifest omits
+    // the scripting permission has no chrome.scripting (Firefox gates the
+    // whole namespace on it); only MV2 lacks the API by design.
+    function scriptingMissingReason(tabId) {
+      var m = null;
+      try { m = g.chrome.runtime.getManifest(); } catch (e) { m = null; }
+      var mv = m && m.manifest_version;
+      if (mv >= 3) {
+        var perms = stringList(m.permissions);
+        if (perms.indexOf("scripting") === -1) {
+          return "cannot inject into tab " + tabId + ": this MV3 build's manifest has no \\"scripting\\" permission, so chrome.scripting is missing (Firefox exposes it only with that permission). Add \\"scripting\\" to permissions, or use a dev session (extension dev), which adds it; --context background still works";
+        }
+        return "cannot inject into tab " + tabId + ": chrome.scripting is missing on this engine even though the manifest declares \\"scripting\\"; use --context background";
+      }
+      if (mv === 2) return "chrome.scripting is not available on this engine (MV2 has no scripting API); use --context background";
+      return "cannot inject into tab " + tabId + ": chrome.scripting is not available on this engine; use --context background";
+    }
+
     // The page a surface lives in, as the manifest names it, so the background
     // can ask the engine whether that page is open at all.
     function surfacePagePath(ctx) {
@@ -448,8 +466,8 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
             );
           } else if (ctx === "content" || ctx === "page") {
             replyErr(cmdId, "Unsupported", target.tabId
-              ? "chrome.scripting is not available on this engine (MV2 has no scripting API); use --context background"
-              : "eval in context " + ctx + " requires a tabId");
+              ? scriptingMissingReason(target.tabId)
+              : "eval in context " + ctx + " requires a tabId", target.tabId ? "scripting_unavailable" : undefined);
           } else {
             replyErr(cmdId, "BadRequest", "unknown eval context: " + ctx);
           }
@@ -752,6 +770,8 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
                 });
               }
             );
+          } else if ((ctx === "content" || ctx === "page") && target.tabId) {
+            replyErr(cmdId, "Unsupported", scriptingMissingReason(target.tabId), "scripting_unavailable");
           } else if (ctx === "background") {
             replyErr(cmdId, "Unsupported", "the service worker has no DOM; inspect a content/page (with --tab) or an open surface");
           } else {
