@@ -22,6 +22,7 @@ export interface SafariPackagerOverrides {
   forceRegenerate?: boolean
   safariBinary?: string
   noOpen?: boolean
+  startingUrl?: string
 }
 
 export interface SafariPackagerOptions extends SafariPackagerOverrides {

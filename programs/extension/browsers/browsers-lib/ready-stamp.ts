@@ -149,6 +149,35 @@ export function stampReadyWebDriver(
   }
 }
 
+// Publish whether the starting URL reached the window, or why it did not.
+// Safari opens it in the automation window the WebDriver session holds, so a
+// run without that session has nowhere to open it and has to say so.
+export function stampReadyStartingUrl(
+  extensionOutputPath: string | undefined,
+  details: {url: string; opened: boolean; reason?: string},
+  runId?: string
+) {
+  try {
+    if (!extensionOutputPath) return
+
+    const readyPath = readyPathFor(extensionOutputPath)
+    if (!fs.existsSync(readyPath)) return
+
+    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    if (isForeignRun(ready, runId)) return
+
+    ready.startingUrl = details.url
+    ready.startingUrlOpened = details.opened
+
+    if (details.opened) delete ready.startingUrlUnopenedReason
+    else ready.startingUrlUnopenedReason = String(details.reason || '').trim()
+
+    writeJsonAtomic(readyPath, ready)
+  } catch {
+    // best-effort; never block launch on this
+  }
+}
+
 // Publish which profile directory and browser process this session launched.
 // An ephemeral profile's leaf name is generated, so no path helper can rebuild
 // it, and the pid is the only supported handle for reaping the browser.

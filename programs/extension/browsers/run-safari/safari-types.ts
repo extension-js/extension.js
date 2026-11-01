@@ -21,6 +21,8 @@ export type SafariPluginLike = Pick<
   bundleId?: string
   macOsOnly?: boolean
   forceRegenerate?: boolean
+  // Opened in the automation window once the dev session holds one.
+  startingUrl?: string
   // Dev sessions announce the identity card and ready line after the first
   // full package; build/preview packaging stays quiet.
   announceDevReady?: boolean

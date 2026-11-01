@@ -16,6 +16,7 @@ const DRIVER_POLL_MS = 100
 // on a cold start.
 const SESSION_CREATE_MS = 30_000
 const SESSION_CLOSE_MS = 5000
+const NAVIGATE_MS = 30_000
 const AUTOMATION_QUIT_MS = 3000
 
 export const WEBDRIVER_NOT_ASKED_YET =
@@ -188,6 +189,29 @@ async function quitRaisedAutomation(
 
   while (Date.now() < deadline && raised.some(processAlive)) {
     await new Promise((resolve) => setTimeout(resolve, DRIVER_POLL_MS))
+  }
+}
+
+// Points the automation window at a page. Answers null once Safari loaded it,
+// or the reason it did not.
+export async function navigateSafariWebDriverSession(
+  session: Pick<SafariWebDriverSession, 'port' | 'sessionId'>,
+  url: string
+): Promise<string | null> {
+  try {
+    const reply = await driverRequest(
+      session.port,
+      'POST',
+      `/session/${session.sessionId}/url`,
+      {url},
+      NAVIGATE_MS
+    )
+
+    return reply.status === 200 ? null : refusalReason(reply)
+  } catch (error) {
+    return `the navigation request failed: ${String(
+      (error as Error)?.message || error
+    )}`
   }
 }
 

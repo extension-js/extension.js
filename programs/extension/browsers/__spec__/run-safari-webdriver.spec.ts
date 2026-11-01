@@ -80,6 +80,12 @@ http
       if (req.method === 'DELETE' && req.url === '/session/' + sessionId) {
         return send(200, null)
       }
+      if (req.method === 'POST' && req.url === '/session/' + sessionId + '/url') {
+        if (mode === 'refuse-url') {
+          return send(500, {error: 'unknown error', message: 'Safari refused the page'})
+        }
+        return send(200, null)
+      }
       send(404, {error: 'unknown command', message: req.url})
     })
   })
@@ -139,7 +145,10 @@ describe('safari dev session and its safaridriver', () => {
     return JSON.parse(fs.readFileSync(readyPath, 'utf8'))
   }
 
-  function standInTools(mode: 'ok' | 'refuse', automationMatch?: string) {
+  function standInTools(
+    mode: 'ok' | 'refuse' | 'refuse-url',
+    automationMatch?: string
+  ) {
     return fakeSafariTools({
       webdriver: {
         command: process.execPath,
@@ -310,6 +319,78 @@ describe('safari dev session and its safaridriver', () => {
 
     expect('webdriverUnavailableReason' in readReady()).toBe(false)
     expect(tools.calls.webdriver).toHaveLength(0)
+  })
+
+  const STARTING_URL = 'http://127.0.0.1:8766/call.html'
+
+  it('starting URL: opens it in the automation window and stamps that it did', async () => {
+    const tools = standInTools('ok')
+    const logs = await runDevPackage(tools, {
+      announceDevReady: true,
+      startingUrl: STARTING_URL
+    })
+
+    const navigation = fs
+      .readFileSync(driverLog, 'utf8')
+      .split('\n')
+      .find((line) => line.startsWith(`POST /session/${sessionId}/url `))
+    expect(
+      navigation && JSON.parse(navigation.split(' ').slice(2).join(' '))
+    ).toEqual({url: STARTING_URL})
+
+    expect(readReady()).toMatchObject({
+      startingUrl: STARTING_URL,
+      startingUrlOpened: true
+    })
+
+    expect('startingUrlUnopenedReason' in readReady()).toBe(false)
+    expect(logs).toContain(messages.safariStartingUrlOpened(STARTING_URL))
+  })
+
+  it('starting URL: says it was not opened when the run holds no session', async () => {
+    const tools = standInTools('refuse')
+    const logs = await runDevPackage(tools, {
+      announceDevReady: true,
+      startingUrl: STARTING_URL
+    })
+
+    expect(readReady()).toMatchObject({
+      startingUrl: STARTING_URL,
+      startingUrlOpened: false
+    })
+
+    expect(readReady().startingUrlUnopenedReason).toContain(
+      'Allow Remote Automation is off'
+    )
+
+    expect(
+      logs.some((line) => line.includes(`Did not open the starting URL`))
+    ).toBe(true)
+  })
+
+  it('starting URL: carries the refusal when Safari will not load the page', async () => {
+    const tools = standInTools('refuse-url')
+    await runDevPackage(tools, {
+      announceDevReady: true,
+      startingUrl: STARTING_URL
+    })
+
+    expect(readReady()).toMatchObject({
+      startingUrlOpened: false,
+      startingUrlUnopenedReason: 'Safari refused the page'
+    })
+  })
+
+  it('starting URL: --no-open opens nothing and stamps nothing', async () => {
+    const tools = standInTools('ok')
+    await runDevPackage(tools, {
+      announceDevReady: true,
+      noOpen: true,
+      startingUrl: STARTING_URL
+    })
+
+    expect(driverRequests()).not.toContain(`POST /session/${sessionId}/url`)
+    expect('startingUrl' in readReady()).toBe(false)
   })
 
   it('stop: deletes the session it opened and ends its safaridriver', async () => {
