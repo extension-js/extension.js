@@ -7,7 +7,7 @@ const OUTPUT = '/tmp/ext/dist/firefox'
 
 // Gecko keeps the hashed bundle names in the manifest it registers, so each
 // compile hands the done hook the manifest with this compile's names.
-function createHarness() {
+function createHarness(browser = 'firefox') {
   const reload = vi.fn()
   const controller: BrowserController = {
     enableUnifiedLogging: vi.fn().mockResolvedValue(undefined)
@@ -15,7 +15,7 @@ function createHarness() {
   const launcher = vi.fn().mockResolvedValue(controller)
   const plugin = new BrowsersPlugin({
     launcher,
-    browserOptions: {browser: 'firefox'} as never
+    browserOptions: {browser} as never
   })
   plugin.extensionsToLoad = [OUTPUT]
   plugin.emitter.on(
@@ -108,6 +108,22 @@ describe('BrowsersPlugin after a compile renames a content script bundle', () =>
 
     expect(h.reload.mock.calls[0][0]).toMatchObject({
       type: 'full',
+      label: 'content_script (src/content.js)',
+      changedAssets: ['src/content.js']
+    })
+  })
+
+  // The emulator keeps the static entry, reads the new file index on every
+  // reload and swaps the content script itself, so a full reload there
+  // replaced the whole session for a content edit and was never acked.
+  it('keeps a renamed bundle a content-scripts reload in emulated Chromium', async () => {
+    const h = createHarness('chromium-emulator')
+
+    await h.compile('content_scripts/content-0.e5213110.js')
+    await h.compile('content_scripts/content-0.0b8b79c0.js', ['src/content.js'])
+
+    expect(h.reload.mock.calls[0][0]).toMatchObject({
+      type: 'content-scripts',
       label: 'content_script (src/content.js)',
       changedAssets: ['src/content.js']
     })

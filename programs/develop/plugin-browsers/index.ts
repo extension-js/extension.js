@@ -9,6 +9,7 @@
 import {EventEmitter} from 'node:events'
 import type {Compiler} from '@rspack/core'
 import {humanLine} from '../dev-server/lifecycle-stream'
+import {isEmulatorBrowser} from '../lib/constants'
 import * as messages from '../lib/messages'
 import {
   buildSourceFeatureIndex,
@@ -289,19 +290,27 @@ export class BrowsersPlugin implements RunnerPlugin {
 
       if (!this.isFirstCompile) {
         const {forcedFull, changedSources: sources} = changedSources.snapshot()
-        reloadInstruction = reloadForRenamedContentScripts(
-          classifyReloadFromSources({
-            changedSources: sources,
-            forcedFull,
-            getContentScriptCount: () =>
-              readContentScriptCount(compilation, outputPath),
-            getSourceFeatureIndex: () =>
-              buildSourceFeatureIndex(compilation, contextDir),
-            outputPath
-          }),
-          this.loadedContentScriptFiles,
-          contentScriptFiles
+        const classified = classifyReloadFromSources({
+          changedSources: sources,
+          forcedFull,
+          getContentScriptCount: () =>
+            readContentScriptCount(compilation, outputPath),
+          getSourceFeatureIndex: () =>
+            buildSourceFeatureIndex(compilation, contextDir),
+          outputPath
+        })
+        // Emulated Chromium reads the new file index on every reload and
+        // swaps a renamed static content script itself, so only a browser
+        // that keeps the manifest it loaded needs the whole extension again.
+        reloadInstruction = isEmulatorBrowser(
+          this.options.browserOptions.browser
         )
+          ? classified
+          : reloadForRenamedContentScripts(
+              classified,
+              this.loadedContentScriptFiles,
+              contentScriptFiles
+            )
       }
 
       if (
