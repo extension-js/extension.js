@@ -31,6 +31,7 @@ env:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    timeout-minutes: 75
     environment: ${{ inputs.channel }}
     permissions:
       # Version bump commit, tag push and the GitHub Release

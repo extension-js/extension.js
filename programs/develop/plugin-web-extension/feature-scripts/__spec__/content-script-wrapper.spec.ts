@@ -726,6 +726,8 @@ describe('a declared content script with no default export', () => {
     expect(hints[0]).toContain('Export a default function')
     expect(hints[0]).toContain('returns a cleanup')
     expect(hints[0]).toContain('whole-extension reload')
+    expect(hints[0]).toContain('data-extension-root')
+    expect(hints[0]).not.toContain('DOM event')
   })
 
   it('says nothing for a script with a default export, or in a production build', () => {

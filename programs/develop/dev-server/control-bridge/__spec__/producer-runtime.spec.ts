@@ -285,6 +285,67 @@ describe('bridge producer runtime', () => {
     expect(fetched).toContain('chrome-extension://test/manifest.json')
   })
 
+  // Firefox injects declared content scripts into open tabs on a reload by
+  // itself, so a heal there would run each script twice.
+  it('skips the boot reinject on Firefox, which injects open tabs itself', async () => {
+    const {fakeGlobal} = makeGlobal()
+    let installedListener: (() => void) | undefined
+    const fetched: string[] = []
+    let pendingRead: ((res: Record<string, unknown>) => void) | undefined
+
+    fakeGlobal.fetch = (url: string) => {
+      fetched.push(String(url))
+
+      return Promise.resolve({
+        json: () => Promise.resolve({content_scripts: []})
+      })
+    }
+
+    fakeGlobal.chrome = {
+      runtime: {
+        id: 'test',
+        getURL: (p: string) => `moz-extension://test/${p}`,
+        onInstalled: {
+          addListener: (fn: () => void) => {
+            installedListener = fn
+          }
+        },
+        onMessage: {addListener: () => {}},
+        sendMessage: () => {}
+      },
+      storage: {
+        local: {
+          get: (_key: string, cb: (res: Record<string, unknown>) => void) => {
+            pendingRead = cb
+          },
+          remove: () => {}
+        }
+      },
+      scripting: {},
+      tabs: {query: (_q: unknown, cb: (t: unknown[]) => void) => cb([])}
+    }
+
+    vi.stubGlobal('location', {protocol: 'moz-extension:'})
+
+    try {
+      run(
+        buildBridgeProducerSource({
+          controlPort: 4004,
+          instanceId: 'firefox-heal'
+        }),
+        fakeGlobal
+      )
+
+      installedListener!()
+      pendingRead?.({__extjsDevPendingReinject: Date.now()})
+      await new Promise((resolve) => setTimeout(resolve, 600))
+
+      expect(fetched).not.toContain('moz-extension://test/manifest.json')
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
   it('honors exclude_matches on the boot reinject and registers no dynamic copy of a fresh static manifest', async () => {
     const {fakeGlobal} = makeGlobal()
     let installedListener: (() => void) | undefined
