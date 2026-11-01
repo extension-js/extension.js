@@ -14,6 +14,7 @@ import {humanLine} from '../dev-server/lifecycle-stream'
 import {prefix} from '../lib/messaging'
 import type {ReloadInstruction} from './classify-reload'
 import * as reloadMessages from './messages'
+import {projectRelative} from './project-relative'
 
 // Every dev mode reloads through the control-bridge broker (the SW producer's
 // re-injection); CDP/RDP controllers are kept for logging only, NOT reload.
@@ -196,27 +197,6 @@ function isDirectory(absolute: string): boolean {
   }
 }
 
-// macOS reports watched files by their real path (/private/var/...) while the
-// project context can keep the symlinked spelling (/var/...); relativizing one
-// against the other climbs to the root and names the same file twice. A path
-// that no longer exists resolves through its nearest existing ancestor.
-function resolveReal(absolute: string): string {
-  let head = absolute
-  const tail: string[] = []
-
-  while (true) {
-    try {
-      return path.join(fs.realpathSync.native(head), ...tail)
-    } catch {
-      const parent = path.dirname(head)
-      if (parent === head) return absolute
-
-      tail.unshift(path.basename(head))
-      head = parent
-    }
-  }
-}
-
 function normalizeChangedPath(
   file: string,
   contextDir: string
@@ -228,12 +208,7 @@ function normalizeChangedPath(
   if (path.isAbsolute(raw) && isDirectory(raw)) return undefined
 
   const normalized = path.isAbsolute(raw)
-    ? path
-        .relative(
-          contextDir ? resolveReal(contextDir) : contextDir,
-          resolveReal(raw)
-        )
-        .replace(/\\/g, '/')
+    ? projectRelative(contextDir, raw)
     : raw.replace(/\\/g, '/')
   // rspack sometimes reports the watch root itself as modified; it relativizes
   // to '' and would leak a dangling comma into the reload label.
