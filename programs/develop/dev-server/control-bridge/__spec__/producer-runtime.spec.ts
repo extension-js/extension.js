@@ -4449,12 +4449,12 @@ describe('bridge producer runtime, parked errors (#375)', () => {
     const {data, area} = makeStore()
     const {handlers} = startContext(area)
 
-    for (let i = 0; i < 25; i++) throwAt(handlers, `boom ${i}`)
+    for (let i = 0; i < 105; i++) throwAt(handlers, `boom ${i}`)
 
     const parked = parkedOf(data)
-    expect(parked).toHaveLength(20)
+    expect(parked).toHaveLength(100)
     expect(parked[0].event.messageParts[0]).toContain('boom 5')
-    expect(parked[19].event.messageParts[0]).toContain('boom 24')
+    expect(parked[99].event.messageParts[0]).toContain('boom 104')
   })
 
   it('stays silent when the context has no extension storage', () => {

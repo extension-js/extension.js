@@ -92,10 +92,12 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
     var connectFailures = 0;
     var MAX_QUEUE = 1000;
     var MAX_RESULT_BYTES = 256 * 1024;
-    // Where error frames are parked so a context that dies before its socket
-    // opens does not take them along. Capped, and old entries are dropped.
+    // Where log frames of every level are parked so a context that dies before
+    // its socket opens does not take them along: a Safari background woken by
+    // an event can unload before it connects. Capped; plain lines go before
+    // errors when the cap bites.
     var PENDING_ERRORS_KEY = "__extjsPendingErrors";
-    var MAX_PENDING_ERRORS = 20;
+    var MAX_PENDING_ERRORS = 100;
     var PENDING_ERROR_TTL = 300000;
 
     function nowId() {
@@ -1262,15 +1264,19 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       return out;
     }
 
+    // While an earlier context's parked lines replay, this context's own
+    // frames wait in the queue so the agent reads them in the order written.
+    var replaying = false;
+
     function flush() {
-      while (queue.length && open && socket) {
+      while (queue.length && open && socket && !replaying) {
         var f = queue.shift();
         try { socket.send(JSON.stringify(f)); } catch (e) { break; }
       }
     }
 
     function send(frame) {
-      if (open && socket) {
+      if (open && socket && !replaying) {
         try { socket.send(JSON.stringify(frame)); return; } catch (e) {
           // Ignore
         }
@@ -1281,11 +1287,15 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
 
     // The queue above lives in this context's memory only, so a background
     // that throws while it evaluates dies with the error still queued: the
-    // socket has not finished its handshake yet. Park error frames in
-    // extension storage too, where the NEXT context to connect can ship them.
+    // socket has not finished its handshake yet. Park log frames in extension
+    // storage too, where the NEXT context to connect can ship them.
     // Best effort by construction: the write is asynchronous, so a teardown
     // can cut it before the browser records anything.
     var parkedErrors = [];
+    // What an earlier context parked and this one has not shipped yet. Null
+    // until read: the key is rewritten whole, so a write before the read
+    // would erase the lines a background that just unloaded left behind.
+    var inheritedParked = null;
     function storageLocalArea() {
       try {
         var ns = (g.chrome && g.chrome.storage) || (g.browser && g.browser.storage);
@@ -1294,20 +1304,16 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
         return area;
       } catch (e) { return null; }
     }
-    function parkPendingError(frame) {
-      if (open) return;
-      if (!frame || frame.type !== "log" || !frame.event || frame.event.level !== "error") return;
-      var area = storageLocalArea();
-      if (!area) return;
-      // The whole list is rewritten on every park, so two errors in one turn
-      // cannot lose each other to a read-modify-write, and the cap holds.
-      parkedErrors.push(frame);
-      while (parkedErrors.length > MAX_PENDING_ERRORS) parkedErrors.shift();
-      var items = {};
-      items[PENDING_ERRORS_KEY] = parkedErrors;
-      try { area.set(items, noopLastError); } catch (e) {
-        // Ignore
+    function trimParked(list) {
+      while (list.length > MAX_PENDING_ERRORS) {
+        var dropped = false;
+        for (var i = 0; i < list.length; i++) {
+          var ev = list[i] && list[i].event;
+          if (!ev || ev.level !== "error") { list.splice(i, 1); dropped = true; break; }
+        }
+        if (!dropped) list.shift();
       }
+      return list;
     }
     function parkedHere(id) {
       for (var i = 0; i < parkedErrors.length; i++) {
@@ -1316,40 +1322,107 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       }
       return false;
     }
-    // Ship what an earlier context parked and never got to send. Entries from
-    // another build (a different instance id) or from an older run are dropped,
-    // and the key is cleared on read so one failure is reported once.
-    function flushPendingErrors() {
+    function replayable(frame) {
+      var ev = frame && frame.event;
+      if (!ev || ev.runId !== INSTANCE_ID) return false;
+      if (parkedHere(ev.id)) return false;
+      return typeof ev.timestamp === "number" && Date.now() - ev.timestamp <= PENDING_ERROR_TTL;
+    }
+    // The whole list is rewritten on every park, so two lines in one turn
+    // cannot lose each other to a read-modify-write, and the cap holds.
+    function writeParked() {
+      if (inheritedParked === null) return;
       var area = storageLocalArea();
       if (!area) return;
+      var items = {};
+      items[PENDING_ERRORS_KEY] = trimParked(inheritedParked.concat(parkedErrors));
+      try { area.set(items, noopLastError); } catch (e) {
+        // Ignore
+      }
+    }
+    function parkPendingError(frame) {
+      if (open) return;
+      if (!frame || frame.type !== "log" || !frame.event) return;
+      if (!storageLocalArea()) return;
+      parkedErrors.push(frame);
+      trimParked(parkedErrors);
+      writeParked();
+    }
+    function readParked(area, onList) {
       var read = false;
       function onRead(res) {
         if (read) return;
         read = true;
         var list = res && res[PENDING_ERRORS_KEY];
-        if (!list || !list.length) return;
-        try {
-          if (typeof area.remove === "function") area.remove(PENDING_ERRORS_KEY, noopLastError);
-        } catch (e) {
-          // Ignore
-        }
-        var now = Date.now();
-        for (var i = 0; i < list.length; i++) {
-          var frame = list[i];
-          var ev = frame && frame.event;
-          if (!ev || ev.runId !== INSTANCE_ID) continue;
-          // This context parked it, so the queue flush above already has it.
-          if (parkedHere(ev.id)) continue;
-          if (typeof ev.timestamp !== "number" || now - ev.timestamp > PENDING_ERROR_TTL) continue;
-          send(frame);
-        }
+        onList(Array.isArray(list) ? list : []);
       }
       try {
         var ret = area.get(PENDING_ERRORS_KEY, function (res) { noopLastError(); onRead(res); });
-        if (ret && typeof ret.then === "function") ret.then(onRead, function () {});
+        if (ret && typeof ret.then === "function") ret.then(onRead, function () { onRead(null); });
+      } catch (e) {
+        onRead(null);
+      }
+    }
+    function adoptInheritedParked() {
+      var area = storageLocalArea();
+      if (!area) { inheritedParked = []; return; }
+      readParked(area, function (list) {
+        if (inheritedParked !== null) return;
+        inheritedParked = [];
+        for (var i = 0; i < list.length; i++) {
+          if (replayable(list[i])) inheritedParked.push(list[i]);
+        }
+        if (parkedErrors.length && !open) writeParked();
+      });
+    }
+    // Ship what an earlier context parked and never got to send. Entries from
+    // another build (a different instance id) or from an older run are dropped,
+    // and the key is cleared on read so one failure is reported once. They
+    // were written before anything this context queued, so they go first and
+    // straight to the socket; done() then releases this context's own queue.
+    var PENDING_READ_TIMEOUT = 1000;
+    function flushPendingErrors(done) {
+      var area = storageLocalArea();
+      if (!area) { done(); return; }
+      var finished = false;
+      function finish() {
+        if (finished) return;
+        finished = true;
+        done();
+      }
+      try {
+        setTimeout(finish, PENDING_READ_TIMEOUT);
       } catch (e) {
         // Ignore
       }
+      readParked(area, function (list) {
+        if (finished) return;
+        if (list.length) {
+          try {
+            if (typeof area.remove === "function") area.remove(PENDING_ERRORS_KEY, noopLastError);
+          } catch (e) {
+            // Ignore
+          }
+        }
+        var earlier = [];
+        for (var i = 0; i < list.length; i++) {
+          if (replayable(list[i])) earlier.push(list[i]);
+        }
+        // Shipped or queued from here on, so nothing parked so far may be
+        // written back for a later context to report twice.
+        inheritedParked = [];
+        parkedErrors = [];
+        if (open && socket) {
+          for (var j = 0; j < earlier.length; j++) {
+            try { socket.send(JSON.stringify(earlier[j])); } catch (e) {
+              // Ignore
+            }
+          }
+        } else {
+          queue = earlier.concat(queue).slice(0, MAX_QUEUE);
+        }
+        finish();
+      });
     }
 
     // The baked PORT is a snapshot of an ephemeral port. After a dev-server
@@ -1402,10 +1475,13 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
         } catch (e) {
           // Ignore
         }
-        flush();
-        // Hello went first and this context's own queue is out; now replay any
-        // error a previous context parked before it died.
-        flushPendingErrors();
+        // Hello goes first, then whatever a previous context parked before it
+        // died, then this context's own queue.
+        replaying = true;
+        flushPendingErrors(function () {
+          replaying = false;
+          flush();
+        });
       };
       socket.onmessage = function (ev) {
         var frame;
@@ -1677,6 +1753,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       // Ignore
     }
 
+    adoptInheritedParked();
     connect();
   } catch (e) {
     // Ignore
