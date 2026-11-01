@@ -7,7 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {createHash} from 'node:crypto'
-import {Compilation, type Compiler, sources} from '@rspack/core'
+import {type AssetInfo, Compilation, type Compiler, sources} from '@rspack/core'
 
 const HASHED_CONTENT_SCRIPT =
   /^content_scripts\/content-(\d+)\.([a-f0-9]+)\.js$/
@@ -25,6 +25,10 @@ export function stableContentScriptHash(source: string, assetName: string) {
     .join(`content-${index}.js`)
 
   return createHash('sha256').update(normalized).digest('hex').slice(0, 8)
+}
+
+function mutable(info: AssetInfo): AssetInfo {
+  return {...info, immutable: false}
 }
 
 // A static content script is read once at extension load, so a new file name
@@ -50,7 +54,21 @@ export class StableContentScriptNames {
               const [, index, current] = match
               const source = asset.source.source().toString()
               const stable = stableContentScriptHash(source, asset.name)
-              if (stable === current) continue
+
+              // The name leaves the compilation hash out, so the same name
+              // can carry new bytes, and an immutable asset whose name was
+              // already written is never written again: the dist kept the
+              // stale file while the compile, and every index of it, moved on.
+              if (stable === current) {
+                compilation.updateAsset(asset.name, asset.source, mutable)
+                const sameMap = compilation.getAsset(`${asset.name}.map`)
+
+                if (sameMap) {
+                  compilation.updateAsset(sameMap.name, sameMap.source, mutable)
+                }
+
+                continue
+              }
 
               const oldBase = `content-${index}.${current}.js`
               const newBase = `content-${index}.${stable}.js`
@@ -58,7 +76,8 @@ export class StableContentScriptNames {
 
               compilation.updateAsset(
                 asset.name,
-                new sources.RawSource(source.split(oldBase).join(newBase))
+                new sources.RawSource(source.split(oldBase).join(newBase)),
+                mutable
               )
 
               compilation.renameAsset(asset.name, newName)
@@ -70,7 +89,8 @@ export class StableContentScriptNames {
                 map.name,
                 new sources.RawSource(
                   map.source.source().toString().split(oldBase).join(newBase)
-                )
+                ),
+                mutable
               )
 
               compilation.renameAsset(map.name, `${newName}.map`)

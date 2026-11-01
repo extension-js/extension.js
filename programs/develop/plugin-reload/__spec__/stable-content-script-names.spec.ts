@@ -1,7 +1,7 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import {rspack} from '@rspack/core'
+import {type Compiler, rspack} from '@rspack/core'
 import {afterAll, describe, expect, it} from 'vitest'
 import {getProjectStructure} from '../../lib/project'
 import webpackConfig from '../../rspack-config'
@@ -51,7 +51,7 @@ function scaffold() {
   return root
 }
 
-async function contentScriptAsset(root: string) {
+async function devConfig(root: string) {
   const config = webpackConfig(await getProjectStructure(root), {
     browser: 'chrome',
     mode: 'development',
@@ -70,18 +70,37 @@ async function contentScriptAsset(root: string) {
 
   config.stats = false
 
-  const assets = await new Promise<string[]>((resolve, reject) => {
-    rspack(config).run((error, stats) => {
+  return config
+}
+
+async function devCompiler(root: string): Promise<Compiler> {
+  const compiler = rspack(await devConfig(root))
+  if (!compiler) throw new Error('no compiler')
+
+  return compiler as Compiler
+}
+
+function compileOnce(compiler: Compiler) {
+  return new Promise<Record<string, string>>((resolve, reject) => {
+    compiler.run((error, stats) => {
       if (error) return reject(error)
       if (!stats) return reject(new Error('no stats'))
 
-      resolve(Object.keys(stats.compilation.assets))
+      const out: Record<string, string> = {}
+
+      for (const asset of stats.compilation.getAssets()) {
+        if (/^content_scripts\/content-0\.[a-f0-9]+\.js$/.test(asset.name)) {
+          out[asset.name] = String(asset.source.source())
+        }
+      }
+
+      resolve(out)
     })
   })
+}
 
-  return assets.filter((name) =>
-    /^content_scripts\/content-0\.[a-f0-9]+\.js$/.test(name)
-  )
+async function contentScriptAsset(root: string) {
+  return Object.keys(await compileOnce(await devCompiler(root)))
 }
 
 describe('a dev content script file name', () => {
@@ -97,6 +116,28 @@ describe('a dev content script file name', () => {
 
     expect(before).toHaveLength(1)
     expect(after).toEqual(before)
+  }, 180_000)
+
+  // The name no longer covers the hot runtime's compilation hash, so the same
+  // name can carry new bytes. Emulated Chromium hashes what the compile
+  // produced and refused the stale file the dist still held under that name.
+  it('writes the new bytes to the dist when a page edit keeps the name', async () => {
+    const root = scaffold()
+    const compiler = await devCompiler(root)
+    const before = await compileOnce(compiler)
+    fs.writeFileSync(
+      path.join(root, 'src/page-only.ts'),
+      "export const P = 'b'\n"
+    )
+
+    const after = await compileOnce(compiler)
+    const [name] = Object.keys(after)
+
+    expect(Object.keys(before)).toEqual([name])
+    expect(after[name]).not.toBe(before[name])
+    expect(
+      fs.readFileSync(path.join(root, 'dist', 'chrome', name), 'utf8')
+    ).toBe(after[name])
   }, 180_000)
 
   it('changes when the content script itself changes', async () => {
