@@ -2,7 +2,10 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
-import {classifyReloadFromSources} from '../classify-reload'
+import {
+  buildSourceFeatureIndex,
+  classifyReloadFromSources
+} from '../classify-reload'
 import type {ReloadInstruction} from '../index'
 import {createChangedSourcesTracker, dispatchReload} from '../reload-dispatch'
 
@@ -614,5 +617,52 @@ describe('createChangedSourcesTracker on a symlinked project dir', () => {
     fireWatchRun()
 
     expect(tracker.snapshot().changedSources).toEqual(['src/x.js'])
+  })
+
+  it('classifies a popup script edit as a page edit when the index holds resolved module paths', () => {
+    const {real, unresolved} = symlinkedProject()
+    fs.mkdirSync(path.join(real, 'src', 'action'), {recursive: true})
+    fs.mkdirSync(path.join(real, 'src', 'content'), {recursive: true})
+    fs.writeFileSync(path.join(real, 'src', 'action', 'scripts.js'), '\n')
+    fs.writeFileSync(path.join(real, 'src', 'content', 'scripts.js'), '\n')
+
+    const chunks = [
+      {
+        name: 'action/index',
+        modules: [path.join(real, 'src', 'action', 'scripts.js')]
+      },
+      {
+        name: 'content_scripts/content-0',
+        modules: [
+          `/abs/wrapper.js!${path.join(real, 'src', 'content', 'scripts.js')}|extensionjs-content-script`
+        ]
+      }
+    ]
+    const compilation: any = {
+      chunks: chunks.map((chunk) => ({name: chunk.name})),
+      chunkGraph: {
+        getChunkModulesIterable: (chunk: {name: string}) =>
+          chunks
+            .find((each) => each.name === chunk.name)!
+            .modules.map((id) => ({identifier: () => id}))
+      }
+    }
+
+    const {compiler, tracker, fireWatchRun} = trackerAt(unresolved)
+    compiler.modifiedFiles = new Set([
+      path.join(real, 'src', 'action', 'scripts.js')
+    ])
+
+    fireWatchRun()
+
+    const instruction = classifyReloadFromSources({
+      changedSources: tracker.snapshot().changedSources,
+      getContentScriptCount: () => 1,
+      getSourceFeatureIndex: () =>
+        buildSourceFeatureIndex(compilation, unresolved)
+    })
+
+    expect(instruction?.type).toBe('page')
+    expect(instruction?.label).toBe('popup page (src/action/scripts.js)')
   })
 })

@@ -11,6 +11,7 @@ import * as path from 'node:path'
 import {stripBom} from '../lib/parse-json-safe'
 import {publicRootsFor} from '../plugin-special-folders/resolve-public-folder'
 import {getCanonicalContentScriptEntryName} from '../plugin-web-extension/feature-scripts/contracts'
+import {projectRelative} from './project-relative'
 import {DEV_CONTENT_SCRIPT_REGISTRY_ASSET} from './reload-lib/dev-content-scripts'
 
 export type ReloadType = 'full' | 'service-worker' | 'content-scripts'
@@ -126,7 +127,7 @@ function relativePublicRoots(
   const out: string[] = []
 
   for (const root of publicRootsFor(compilation?.compiler)) {
-    const rel = path.relative(contextDir, root).replace(/\\/g, '/')
+    const rel = projectRelative(contextDir, root)
     if (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) out.push(rel)
   }
 
@@ -152,7 +153,7 @@ function moduleResourcesFromIdentifier(
   const push = (absolute: string) => {
     if (!absolute || !path.isAbsolute(absolute)) return
 
-    out.push(path.relative(contextDir, absolute).replace(/\\/g, '/'))
+    out.push(projectRelative(contextDir, absolute))
   }
 
   push(resourcePath)
