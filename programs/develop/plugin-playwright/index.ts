@@ -69,6 +69,9 @@ export type ReadyMetadata = {
   // Gecko launches only: the RDP debugger-server port, stamped by the Firefox
   // launcher post-launch (the CDP-extras pairing seam for downstream tooling).
   rdpPort?: number
+  // Why rdpPort is absent: Firefox never opened the port, left first, or a dry
+  // run launched nothing. A ready Gecko dev contract carries one of the two.
+  rdpPortError?: string
   // Safari dev sessions only: the safaridriver session the launcher holds
   // beside the app, or why it holds none. Stamped post-launch.
   webdriverPort?: number
@@ -164,6 +167,9 @@ type WriterOptions = {
   controlPath?: string
   logsPath?: string
   managedExtensionDirs?: string[]
+  // A Gecko dev session with a launch ahead: ready waits for the launcher to
+  // stamp the RDP port, or the reason Firefox has none.
+  readyAwaitsRdpPort?: boolean
 }
 
 type PluginOptions = {
@@ -183,6 +189,7 @@ type PluginOptions = {
   logsPath?: string
   managedExtensionDirs?: string[]
   launchFollows?: boolean
+  readyAwaitsRdpPort?: boolean
 }
 
 function nowISO() {
@@ -728,6 +735,10 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       if (typeof prev.cdpPort === 'number') payload.cdpPort = prev.cdpPort
       if (typeof prev.rdpPort === 'number') payload.rdpPort = prev.rdpPort
 
+      if (typeof prev.rdpPortError === 'string') {
+        payload.rdpPortError = prev.rdpPortError
+      }
+
       if (typeof prev.cdpFaultCode === 'string') {
         payload.cdpFaultCode = prev.cdpFaultCode
 
@@ -911,6 +922,23 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
           )
         }
       }
+    }
+
+    // A compile is not the session being ready while the launcher still owes
+    // the debugger port: readers pair RDP clients off this contract alone.
+    const rdpPortSettled =
+      sameRun &&
+      (typeof prev?.rdpPort === 'number' ||
+        typeof prev?.rdpPortError === 'string')
+
+    if (
+      payload.status === 'ready' &&
+      options.readyAwaitsRdpPort &&
+      options.command === 'dev' &&
+      isGeckoBasedBrowser(options.browser) &&
+      !rdpPortSettled
+    ) {
+      payload.status = 'starting'
     }
 
     writeJsonAtomic(readyPath, payload)
@@ -1135,7 +1163,8 @@ export class PlaywrightPlugin {
       controlPortUnavailableReason: options.controlPortUnavailableReason,
       controlPath: options.controlPath,
       logsPath: options.logsPath,
-      managedExtensionDirs: options.managedExtensionDirs
+      managedExtensionDirs: options.managedExtensionDirs,
+      readyAwaitsRdpPort: options.readyAwaitsRdpPort === true
     })
   }
 

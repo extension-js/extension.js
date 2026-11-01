@@ -65,6 +65,20 @@ function isForeignRun(ready: unknown, runId: string | undefined): boolean {
   return typeof owner === 'string' && owner !== '' && owner !== runId
 }
 
+// A dev session's compile leaves a Gecko contract at starting until the
+// launcher knows the debugger port, so a reader never takes ready without it.
+// The port, or the reason there is none, is what turns it ready.
+function promoteHeldDevReady(ready: Record<string, unknown>) {
+  if (
+    ready.command === 'dev' &&
+    ready.status === 'starting' &&
+    typeof ready.compiledAt === 'string' &&
+    !ready.code
+  ) {
+    ready.status = 'ready'
+  }
+}
+
 // Publish the Gecko RDP debugger-server port next to Chromium's cdpPort so
 // downstream tooling can pair protocol clients from the ready contract alone.
 export function stampReadyRdpPort(
@@ -78,9 +92,40 @@ export function stampReadyRdpPort(
     if (!fs.existsSync(readyPath)) return
 
     const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
-    if (ready.rdpPort === rdpPort) return
+    const held = ready.command === 'dev' && ready.status === 'starting'
+    if (ready.rdpPort === rdpPort && !ready.rdpPortError && !held) return
 
     ready.rdpPort = rdpPort
+    delete ready.rdpPortError
+    promoteHeldDevReady(ready)
+    writeJsonAtomic(readyPath, ready)
+  } catch {
+    // best-effort; never block launch on this
+  }
+}
+
+// Firefox never opened its debugger port, or never got the chance to. The
+// contract says why instead of going ready without the port, or never ready.
+export function stampReadyRdpPortError(
+  extensionOutputPath: string | undefined,
+  reason: string,
+  runId?: string
+) {
+  try {
+    if (!extensionOutputPath) return
+
+    const readyPath = readyPathFor(extensionOutputPath)
+    if (!fs.existsSync(readyPath)) return
+
+    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    if (isForeignRun(ready, runId)) return
+
+    delete ready.rdpPort
+    ready.rdpPortError =
+      String(reason || '').trim() ||
+      'Firefox did not open its remote debugging port'
+
+    promoteHeldDevReady(ready)
     writeJsonAtomic(readyPath, ready)
   } catch {
     // best-effort; never block launch on this
