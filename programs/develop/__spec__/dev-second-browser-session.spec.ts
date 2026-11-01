@@ -118,6 +118,11 @@ async function watchSession(root: string, browser: 'chromium' | 'firefox') {
 const sleep = (ms: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, ms))
 
+async function waitUntil(check: () => boolean, deadlineMs: number) {
+  const giveUpAt = Date.now() + deadlineMs
+  while (!check() && Date.now() < giveUpAt) await sleep(50)
+}
+
 describe('a first dev session', () => {
   it('compiles once at startup although it creates dist under the watched root', async () => {
     const root = project()
@@ -142,6 +147,8 @@ describe('a second dev session for another browser', () => {
     await firefox.settle()
     writePersistedControlPort(controlPortFilePath(root, 'firefox'), 18999)
     writeControlToken(root, 'firefox')
+    // A negative check needs a fixed window: any stray recompile from the
+    // second session's writes lands well inside three seconds.
     await sleep(3000)
 
     expect(chromium.dones).toHaveLength(seen)
@@ -151,7 +158,8 @@ describe('a second dev session for another browser', () => {
       'console.log("second-session-bg-v2")\n'
     )
 
-    await sleep(3000)
+    // Edit-to-done latency grows on a loaded machine, so poll up to 30s.
+    await waitUntil(() => chromium.dones.length > seen, 30_000)
     expect(chromium.dones.length).toBeGreaterThan(seen)
-  }, 60000)
+  }, 90000)
 })
