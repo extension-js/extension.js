@@ -430,6 +430,27 @@ describe('ready.json writer preservation', () => {
     expect(afterReattach.executorAttachedAt).toBe(firstStamp)
   })
 
+  it('stamps the Safari extension base from the producer origin and keeps it across recompiles', () => {
+    const writer = makeWriter()
+    writer.writeReady()
+
+    writer.stampExecutorAttached({origin: 'http://127.0.0.1:3000'})
+    expect(
+      'extensionBaseUrl' in
+        JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    ).toBe(false)
+
+    writer.stampExecutorAttached({
+      origin: 'safari-web-extension://3F2A9C10-1B2C-4D5E-8F90-ABCDEF012345'
+    })
+
+    writer.writeReady()
+
+    expect(
+      JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8')).extensionBaseUrl
+    ).toBe('safari-web-extension://3F2A9C10-1B2C-4D5E-8F90-ABCDEF012345/')
+  })
+
   it('an attach clears the browser-up-not-attached note, a recompile keeps it', () => {
     const writer = makeWriter()
     writer.writeReady()

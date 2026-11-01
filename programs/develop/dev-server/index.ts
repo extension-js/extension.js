@@ -645,7 +645,9 @@ export async function devServer(
       : undefined
   // The metadata writer is created later (it needs the resolved control port);
   // the SW connects after that, so a mutable holder bridges the ordering.
-  let stampExecutorAttached: (() => void) | undefined
+  let stampExecutorAttached:
+    | ((attached?: {origin?: string}) => void)
+    | undefined
   let stampExecutorDetached: (() => void) | undefined
   let stampReload: ((kind: string, label?: string) => void) | undefined
   const bridgeBroker = new BridgeBroker({
@@ -668,7 +670,7 @@ export async function devServer(
     controlToken: bridgeControlToken,
     actions: bridgeActionsFile,
     authorMode,
-    onExecutorAttached: () => stampExecutorAttached?.(),
+    onExecutorAttached: (attached) => stampExecutorAttached?.(attached),
     onExecutorDetached: () => stampExecutorDetached?.(),
     // Only Gecko suspends the background with no way back short of an event.
     ...(isGeckoBasedBrowser(browserName) &&
@@ -902,7 +904,7 @@ export async function devServer(
     controlPath: CONTROL_WS_PATH,
     logsPath: bridgeLogsRelPath
   })
-  stampExecutorAttached = () => metadata.stampExecutorAttached()
+  stampExecutorAttached = (attached) => metadata.stampExecutorAttached(attached)
   stampExecutorDetached = () => metadata.stampExecutorDetached()
   stampReload = (kind, label) => metadata.stampReload(kind, label)
 

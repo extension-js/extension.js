@@ -11,9 +11,12 @@ import {
   isAutomationSafariArgs,
   isContainerAppArgs,
   openAppArgs,
-  packageSafariExtension
+  packageSafariExtension,
+  stopWebDriverRequestWatchers
 } from '../run-safari/safari-launch'
 import {
+  describeSessionTimeout,
+  openSafariWebDriverSession,
   WEBDRIVER_NOT_ASKED_YET,
   WEBDRIVER_SESSION_PENDING
 } from '../run-safari/safari-launch/webdriver'
@@ -65,6 +68,11 @@ http
         return send(200, {ready: true, message: ''})
       }
       if (req.method === 'POST' && req.url === '/session') {
+        if (mode === 'hang') return
+        if (mode === 'hang-raise') {
+          raiseSafari()
+          return
+        }
         if (mode === 'refuse') {
           return send(500, {
             error: 'session not created',
@@ -146,7 +154,7 @@ describe('safari dev session and its safaridriver', () => {
   }
 
   function standInTools(
-    mode: 'ok' | 'refuse' | 'refuse-url',
+    mode: 'ok' | 'refuse' | 'refuse-url' | 'hang' | 'hang-raise',
     automationMatch?: string
   ) {
     return fakeSafariTools({
@@ -254,6 +262,7 @@ describe('safari dev session and its safaridriver', () => {
   })
 
   afterEach(async () => {
+    stopWebDriverRequestWatchers()
     await closeSafariWebDriverSessions()
     await closeSafariContainerApps()
     killIfAlive(fs.existsSync(driverLog) ? raisedPid() : undefined)
@@ -492,6 +501,93 @@ describe('safari dev session and its safaridriver', () => {
     expect(await waitForExit(pid)).toBe(true)
   })
 
+  it('opens a new session on request when the first one is gone', async () => {
+    const tools = standInTools('ok', fakeSafari)
+    await runDevPackage(tools)
+    const first = readReady()
+
+    expect(first.webdriverRequestPath).toBe(
+      path.join(path.dirname(readyPath), 'webdriver-request.json')
+    )
+
+    expect(tools.calls.webdriver).toHaveLength(1)
+
+    fs.writeFileSync(first.webdriverRequestPath, '{}')
+
+    for (let i = 0; i < 60 && tools.calls.webdriver.length < 2; i += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 100))
+    }
+
+    for (
+      let i = 0;
+      i < 60 && readReady().webdriverPort !== tools.calls.webdriver[1];
+      i += 1
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 100))
+    }
+
+    expect(tools.calls.webdriver).toHaveLength(2)
+    expect(readReady().webdriverPort).toBe(tools.calls.webdriver[1])
+    expect(readReady().webdriverSessionId).toBe(sessionId)
+    expect(fs.existsSync(first.webdriverRequestPath)).toBe(false)
+    expect(await waitForExit(tools.webdriverProcesses[0]?.pid)).toBe(true)
+  })
+
+  it('a session request Safari never answers names why and asks once more', async () => {
+    const tools = standInTools('hang', fakeSafari)
+    const outcome = await openSafariWebDriverSession(tools, {createMs: 400})
+
+    expect(outcome.session).toBeUndefined()
+    expect(outcome.reason).toBe(
+      'the WebDriver session request failed: safaridriver did not answer the session request within 0.4 s, and Safari never started its automation instance: Safari holds the request behind a window that waits for an answer (Safari Settings, a password prompt or a dialog). Close it in Safari, then run again (asked 2 times, 0.4 s each)'
+    )
+
+    expect(tools.calls.webdriver).toHaveLength(2)
+    expect(
+      driverRequests().filter((line) => line === 'POST /session')
+    ).toHaveLength(2)
+
+    for (const driver of tools.webdriverProcesses) {
+      expect(await waitForExit(driver.pid)).toBe(true)
+    }
+  })
+
+  it.skipIf(process.platform === 'win32')(
+    'a session request held by another automation Safari is not asked again',
+    async () => {
+      const competitor = await openSibling('--automation')
+      const tools = standInTools('hang', fakeSafari)
+      const outcome = await openSafariWebDriverSession(tools, {createMs: 400})
+
+      expect(outcome.reason).toContain(
+        `Safari already runs an automation instance from another WebDriver session (pid ${competitor})`
+      )
+
+      expect(outcome.reason).not.toContain('asked 2 times')
+      expect(tools.calls.webdriver).toHaveLength(1)
+      expect(processAlive(competitor)).toBe(true)
+    }
+  )
+
+  it.skipIf(process.platform === 'win32')(
+    'names the automation Safari that started and never opened its window, and quits it',
+    async () => {
+      const tools = standInTools('hang-raise', fakeSafari)
+      const outcome = await openSafariWebDriverSession(tools, {
+        createMs: 1500,
+        attempts: 1
+      })
+      const raised = raisedPid()
+
+      expect(raised).toBeGreaterThan(0)
+      expect(outcome.reason).toContain(
+        `Safari started its automation instance (pid ${raised}) but did not open the automation window`
+      )
+
+      expect(await waitForExit(raised)).toBe(true)
+    }
+  )
+
   it('no safaridriver: names the spawn error as the reason and carries on', async () => {
     const tools = fakeSafariTools({
       webdriver: {spawnError: 'Error: spawn safaridriver ENOENT'}
@@ -559,5 +655,23 @@ describe('isAutomationSafariArgs', () => {
     ).toBe(false)
 
     expect(isAutomationSafariArgs('Safari --automation')).toBe(true)
+  })
+})
+
+describe('describeSessionTimeout', () => {
+  it('never blames Remote Automation, which safaridriver refuses at once', () => {
+    for (const after of [[], [7]]) {
+      const {reason} = describeSessionTimeout({
+        waitedMs: 30_000,
+        before: [],
+        after
+      })
+
+      expect(reason).toMatch(
+        /^safaridriver did not answer the session request within 30 s/
+      )
+
+      expect(reason).not.toMatch(/remote automation/i)
+    }
   })
 })

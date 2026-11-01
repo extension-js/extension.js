@@ -6,9 +6,10 @@
 // ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import {describe, expect, it} from 'vitest'
+import {afterEach, describe, expect, it, vi} from 'vitest'
 import {
   accessibilityProbeScript,
+  closeSettingsScript,
   extensionCheckboxId,
   extensionEnabledScript,
   otherWebsitesScript,
@@ -16,6 +17,7 @@ import {
   pressShortcutScript,
   readScriptHeader,
   readShortcutScript,
+  safariRunningScript,
   shortcutFromGlyphs,
   toolbarButtonId,
   toolbarButtonScript,
@@ -114,7 +116,9 @@ describe('generated scripts', () => {
     button: toolbarButtonScript(button),
     menu: toolbarMenuScript(button),
     press: pressShortcutScript(parseCommandShortcut('Alt+Shift+H')),
-    pressCode: pressShortcutScript(parseCommandShortcut('Ctrl+Comma'))
+    pressCode: pressShortcutScript(parseCommandShortcut('Ctrl+Comma')),
+    running: safariRunningScript(),
+    close: closeSettingsScript()
   }
 
   it('every script parses as JavaScript', () => {
@@ -244,5 +248,135 @@ describe('host app name', () => {
     )
 
     expect(hostAppName(5, lookup, {})).toMatch(/terminal app/)
+  })
+})
+
+interface FakeElement {
+  role: string
+  attrs: Record<string, unknown>
+  children: FakeElement[]
+  onClick?: () => void
+}
+
+function element(
+  role: string,
+  attrs: Record<string, unknown> = {},
+  children: FakeElement[] = [],
+  onClick?: () => void
+): FakeElement {
+  return {role, attrs, children, onClick}
+}
+
+function jxa(el: FakeElement): unknown {
+  return {
+    role: () => el.role,
+    attributes: {byName: (name: string) => ({value: () => el.attrs[name]})},
+    uiElements: () => el.children.map(jxa),
+    click: () => el.onClick?.()
+  }
+}
+
+function runInFakeSafari(
+  source: string,
+  processes: Record<string, FakeElement>
+): Record<string, unknown> {
+  const systemEvents = {
+    processes: {
+      whose:
+        ({name}: {name: string}) =>
+        () =>
+          processes[name] ? [jxa(processes[name])] : []
+    }
+  }
+  const safariApp = {activate: () => {}}
+  const delay = (seconds: number) =>
+    vi.setSystemTime(Date.now() + seconds * 1000)
+  const body = source.replace(/\n\(\(\) => \{/, '\nreturn (() => {')
+  const run = new Function('ObjC', 'Application', 'delay', '$', body)
+  const output = run(
+    {import: () => {}},
+    (name: string) => (name === 'System Events' ? systemEvents : safariApp),
+    delay,
+    {}
+  )
+
+  return JSON.parse(String(output))
+}
+
+function settingsWindow(title: string, extra: FakeElement[] = []): FakeElement {
+  const toolbar = element('AXToolbar', {}, [
+    element('AXButton', {AXTitle: 'General'}),
+    element('AXButton', {AXTitle: 'Websites'}),
+    element('AXButton', {AXTitle: 'Extensions'}),
+    element('AXButton', {AXTitle: 'Developer'})
+  ])
+
+  return element('AXWindow', {AXTitle: title}, [toolbar, ...extra])
+}
+
+describe('Settings pane switch failures name what holds them', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  const checkbox = extensionCheckboxId(BUNDLE)
+
+  it('names a sheet on Settings that keeps the pane from switching', () => {
+    vi.useFakeTimers({toFake: ['Date']})
+    const sheet = element('AXSheet')
+    const safari = element('AXApplication', {}, [
+      settingsWindow('Developer', [sheet])
+    ])
+    const answer = runInFakeSafari(extensionEnabledScript(checkbox, 'read'), {
+      Safari: safari
+    })
+
+    expect(answer).toEqual({
+      ok: false,
+      error:
+        'Safari Settings did not switch to Extensions: a sheet is open on Safari Settings and waits for an answer'
+    })
+  })
+
+  it('names the password prompt and else the title the window still reads', () => {
+    vi.useFakeTimers({toFake: ['Date']})
+    const prompt = element('AXApplication', {}, [element('AXWindow')])
+    const safari = element('AXApplication', {}, [settingsWindow('Developer')])
+
+    expect(
+      runInFakeSafari(extensionEnabledScript(checkbox, 'read'), {
+        Safari: safari,
+        SecurityAgent: prompt
+      }).error
+    ).toBe(
+      'Safari Settings did not switch to Extensions: the macOS password prompt (SecurityAgent) is open and waits for an answer'
+    )
+
+    expect(
+      runInFakeSafari(extensionEnabledScript(checkbox, 'read'), {
+        Safari: safari
+      }).error
+    ).toBe(
+      'Safari Settings did not switch to Extensions: the window still reads "Developer" after a click on its Extensions button'
+    )
+  })
+
+  it('reads whether Safari runs and leaves Settings open behind a prompt', () => {
+    vi.useFakeTimers({toFake: ['Date']})
+    expect(runInFakeSafari(safariRunningScript(), {})).toEqual({
+      ok: true,
+      running: false
+    })
+
+    const sheet = element('AXSheet')
+    const safari = element('AXApplication', {}, [
+      settingsWindow('Developer', [sheet])
+    ])
+
+    expect(runInFakeSafari(closeSettingsScript(), {Safari: safari})).toEqual({
+      ok: true,
+      open: true,
+      blocker: 'a sheet is open on Safari Settings and waits for an answer'
+    })
   })
 })

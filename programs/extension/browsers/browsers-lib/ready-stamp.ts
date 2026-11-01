@@ -115,7 +115,12 @@ export function stampReadyCdpPort(
 // attaches to this one instead of opening its own.
 export function stampReadyWebDriver(
   extensionOutputPath: string | undefined,
-  details: {port?: number; sessionId?: string; unavailableReason?: string},
+  details: {
+    port?: number
+    sessionId?: string
+    unavailableReason?: string
+    requestPath?: string
+  },
   runId?: string
 ) {
   try {
@@ -129,6 +134,9 @@ export function stampReadyWebDriver(
 
     const sessionId = String(details?.sessionId || '').trim()
     const port = details?.port
+    const requestPath = String(details?.requestPath || '').trim()
+
+    if (requestPath) ready.webdriverRequestPath = requestPath
 
     if (typeof port === 'number' && Number.isFinite(port) && sessionId) {
       ready.webdriverPort = port
@@ -136,7 +144,12 @@ export function stampReadyWebDriver(
       delete ready.webdriverUnavailableReason
     } else {
       const reason = String(details?.unavailableReason || '').trim()
-      if (!reason) return
+
+      if (!reason) {
+        if (requestPath) writeJsonAtomic(readyPath, ready)
+
+        return
+      }
 
       delete ready.webdriverPort
       delete ready.webdriverSessionId

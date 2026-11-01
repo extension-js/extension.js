@@ -8,6 +8,7 @@
 
 import {
   accessibilityProbeScript,
+  closeSettingsScript,
   extensionCheckboxId,
   extensionEnabledScript,
   OTHER_WEBSITES_ALLOW,
@@ -15,6 +16,7 @@ import {
   parseCommandShortcut,
   pressShortcutScript,
   readShortcutScript,
+  safariRunningScript,
   shortcutFromGlyphs,
   toolbarButtonId,
   toolbarButtonScript,
@@ -50,6 +52,7 @@ export type SafariUiFailureKind =
   | 'accessibility'
   | 'script'
   | 'not-found'
+  | 'not-running'
 
 export class SafariUiError extends Error {
   kind: SafariUiFailureKind
@@ -116,7 +119,7 @@ async function runAnswer(
 }
 
 export interface EnableStep {
-  step: 'unsigned' | 'pluginkit' | 'enabled' | 'websites'
+  step: 'safari' | 'unsigned' | 'pluginkit' | 'enabled' | 'websites'
   before: string | null
   after: string | null
   changed: boolean
@@ -129,6 +132,7 @@ export interface EnableReport {
   listed: boolean
   otherWebsites: string | null
   steps: EnableStep[]
+  reason?: string
 }
 
 function asText(value: unknown): string | null {
@@ -142,6 +146,69 @@ export interface EnableInput {
   appPath: string
   tools?: SafariUiTools
   onStep?: (step: EnableStep) => void
+  startWaitMs?: number
+}
+
+const SAFARI_START_MS = 20_000
+const SAFARI_START_POLL_MS = 250
+
+async function safariRunning(tools: SafariUiTools): Promise<boolean> {
+  return Boolean((await runAnswer(tools, safariRunningScript())).running)
+}
+
+async function ensureSafariRunning(
+  tools: SafariUiTools,
+  waitMs: number
+): Promise<EnableStep | null> {
+  if (await safariRunning(tools)) return null
+
+  const launched = await tools.launchSafari()
+
+  if (!launched.ok) {
+    throw new SafariUiError(
+      'not-running',
+      `Safari is not running and could not be started: ${launched.output.trim() || `open answered exit ${launched.code}`}`
+    )
+  }
+
+  const deadline = Date.now() + waitMs
+
+  while (Date.now() < deadline) {
+    if (await safariRunning(tools)) {
+      return {
+        step: 'safari',
+        before: 'not running',
+        after: 'running',
+        changed: true,
+        ok: true
+      }
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, SAFARI_START_POLL_MS))
+  }
+
+  throw new SafariUiError(
+    'not-running',
+    `Safari is not running: it was started in the background and System Events still listed no Safari process ${Number((waitMs / 1000).toFixed(1))} s later`
+  )
+}
+
+function unsignedBlockedReason(blocker: unknown): string {
+  const where = 'Safari > Settings > Developer > Allow unsigned extensions'
+
+  return typeof blocker === 'string' && blocker
+    ? `${where} still reads off after the click, and ${blocker}: answer it in Safari, then run again`
+    : `${where} still reads off after the click, and no prompt this run can see waits for an answer: turn it on there by hand, then run again`
+}
+
+export async function closeSafariSettings(
+  tools: SafariUiTools = createSafariUiTools()
+): Promise<string | null> {
+  const answer = await runAnswer(tools, closeSettingsScript())
+
+  return typeof answer.blocker === 'string' && answer.blocker
+    ? answer.blocker
+    : null
 }
 
 export async function enableSafariExtension(
@@ -164,6 +231,13 @@ export async function enableSafariExtension(
     )
   }
 
+  const started = await ensureSafariRunning(
+    tools,
+    input.startWaitMs ?? SAFARI_START_MS
+  )
+
+  if (started) record(started)
+
   const adHoc = !String(developmentTeam || '').trim()
   const current = await runAnswer(
     tools,
@@ -183,13 +257,24 @@ export async function enableSafariExtension(
   } else {
     if (adHoc) {
       const unsigned = await runAnswer(tools, unsignedExtensionsScript('on'))
+      const unsignedOn = asText(unsigned.after) === '1'
       record({
         step: 'unsigned',
         before: asText(unsigned.before),
         after: asText(unsigned.after),
         changed: Boolean(unsigned.clicked),
-        ok: asText(unsigned.after) === '1'
+        ok: unsignedOn
       })
+
+      if (!unsignedOn) {
+        return {
+          enabled: false,
+          listed: false,
+          otherWebsites: null,
+          steps,
+          reason: unsignedBlockedReason(unsigned.blocker)
+        }
+      }
     }
 
     const appex = appexPathFor(input.appPath)
