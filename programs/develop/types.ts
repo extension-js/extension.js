@@ -201,6 +201,8 @@ export interface SafariPackagerOverrides {
   safariBinary?: string
   /** When set, overrides the factory `noOpen` for this packaging call. */
   noOpen?: boolean
+  /** Opened in the automation window once the dev session holds one. */
+  startingUrl?: string
 }
 
 /**

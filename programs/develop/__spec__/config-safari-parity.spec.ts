@@ -239,6 +239,20 @@ describe('safari identity, dev versus build', () => {
     expect(identityOf(dev.mock.calls[0][2])).toEqual(browserLayer)
   })
 
+  it('hands the dev packager the starting URL a config layer sets', async () => {
+    const root = project()
+    pointAt(root)
+    ;(configLoaderMod.loadBrowserConfig as any).mockResolvedValue({
+      startingUrl: 'http://127.0.0.1:8766/call.html'
+    })
+
+    const dev = await devPackagerInput(root)
+
+    expect(dev.mock.calls[0][2]?.startingUrl).toBe(
+      'http://127.0.0.1:8766/call.html'
+    )
+  })
+
   it('accepts a config bundle id whose segment starts with a digit', async () => {
     const root = project()
     pointAt(root)

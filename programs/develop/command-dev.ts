@@ -133,7 +133,8 @@ export async function extensionDev(
       const safariPackager = devOptions.safariPackager
       const safariOverrides = {
         ...resolveSafariIdentity(merged),
-        noOpen: merged.noOpen
+        noOpen: merged.noOpen,
+        startingUrl: merged.startingUrl
       }
       browsersPlugin = new SafariDevPlugin((distPath, packagerMode) =>
         safariPackager(distPath, packagerMode, safariOverrides)
