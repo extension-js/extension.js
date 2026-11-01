@@ -1,4 +1,8 @@
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
+import {classifyReloadFromSources} from '../classify-reload'
 import type {ReloadInstruction} from '../index'
 import {createChangedSourcesTracker, dispatchReload} from '../reload-dispatch'
 
@@ -528,5 +532,87 @@ describe('dispatchReload with an expected producer restart', () => {
 
     expect(undeliveredReloadWarning).not.toHaveBeenCalled()
     expect(String(log.mock.calls[0][0])).toContain('Reloading')
+  })
+})
+
+describe('createChangedSourcesTracker on a symlinked project dir', () => {
+  const made: string[] = []
+
+  afterEach(() => {
+    for (const dir of made.splice(0)) {
+      fs.rmSync(dir, {recursive: true, force: true})
+    }
+  })
+
+  function symlinkedProject() {
+    const root = fs.realpathSync.native(
+      fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-reload-symlink-'))
+    )
+    made.push(root)
+    const real = path.join(root, 'private', 'var', 'proj')
+    fs.mkdirSync(path.join(real, 'src'), {recursive: true})
+    fs.writeFileSync(path.join(real, 'src', 'x.js'), 'export {}\n')
+    const link = path.join(root, 'var')
+    fs.symlinkSync(path.join(root, 'private', 'var'), link, 'dir')
+
+    return {real, unresolved: path.join(link, 'proj')}
+  }
+
+  function trackerAt(context: string) {
+    let runner: (() => void) | undefined
+    const compiler: any = {
+      modifiedFiles: undefined as Set<string> | undefined,
+      options: {context},
+      hooks: {
+        watchRun: {
+          tap: (_name: string, fn: () => void) => {
+            runner = fn
+          }
+        }
+      }
+    }
+    const tracker = createChangedSourcesTracker(compiler)
+
+    return {compiler, tracker, fireWatchRun: () => runner?.()}
+  }
+
+  it('labels a watcher path reported by its real spelling relative to the project', () => {
+    const {real, unresolved} = symlinkedProject()
+    const {compiler, tracker, fireWatchRun} = trackerAt(unresolved)
+    compiler.modifiedFiles = new Set([path.join(real, 'src', 'x.js')])
+    fireWatchRun()
+
+    const {changedSources} = tracker.snapshot()
+    expect(changedSources).toEqual(['src/x.js'])
+
+    const label = classifyReloadFromSources({
+      changedSources,
+      getContentScriptCount: () => 0
+    })?.label
+    expect(label).toContain('(src/x.js)')
+    expect(label).not.toContain('..')
+  })
+
+  it('keeps one entry when the same file arrives under both spellings', () => {
+    const {real, unresolved} = symlinkedProject()
+    const {compiler, tracker, fireWatchRun} = trackerAt(unresolved)
+    compiler.modifiedFiles = new Set([
+      path.join(unresolved, 'src', 'x.js'),
+      path.join(real, 'src', 'x.js')
+    ])
+
+    fireWatchRun()
+
+    expect(tracker.snapshot().changedSources).toEqual(['src/x.js'])
+  })
+
+  it('resolves a deleted file through its nearest existing folder', () => {
+    const {real, unresolved} = symlinkedProject()
+    const {compiler, tracker, fireWatchRun} = trackerAt(unresolved)
+    fs.rmSync(path.join(real, 'src', 'x.js'))
+    compiler.modifiedFiles = new Set([path.join(real, 'src', 'x.js')])
+    fireWatchRun()
+
+    expect(tracker.snapshot().changedSources).toEqual(['src/x.js'])
   })
 })
