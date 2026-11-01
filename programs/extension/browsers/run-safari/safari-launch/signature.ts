@@ -66,9 +66,9 @@ export interface XcodeTeam {
   name: string | null
 }
 
-// Xcode keeps the teams of every signed-in Apple ID under
-// IDEProvisioningTeams in its defaults, as plist text when read with
-// `defaults read`. Each team row carries teamID and teamName. Anything that
+// Xcode keeps the teams of every signed-in Apple ID in its defaults
+// (IDEProvisioningTeamByIdentifier on Xcode 26, IDEProvisioningTeams before),
+// as plist text when read with `defaults read`. Each team row carries teamID and teamName. Anything that
 // does not parse yields no team, never an error, because this listing only
 // decorates a remedy.
 export function parseXcodeTeams(output: string): XcodeTeam[] {
