@@ -38,6 +38,7 @@ jobs:
   optional-deps-lib-specs:
     name: toolchain preflight specs (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
@@ -67,6 +68,7 @@ jobs:
   optional-deps-smoke:
     name: smoke (${{ matrix.os }} / ${{ matrix.pm }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:

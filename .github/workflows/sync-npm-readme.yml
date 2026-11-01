@@ -24,6 +24,7 @@ jobs:
   sync:
     name: Sync the npm README copy
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     # The key is an environment secret of the release environments, whose
     # branch policy only admits main.
     environment: next
