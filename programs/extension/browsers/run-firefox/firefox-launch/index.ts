@@ -60,7 +60,8 @@ import {
   stampReadyBrowserLaunchFailed,
   stampReadyExtensionId,
   stampReadyExtensionLoadRefused,
-  stampReadyRdpPort
+  stampReadyRdpPort,
+  stampReadyRdpPortError
 } from '../../browsers-lib/ready-stamp'
 import {
   findLiveBrowserPid,
@@ -95,6 +96,7 @@ import type {
 } from '../../browsers-types'
 import type {FirefoxContext} from '../firefox-context'
 import type {FirefoxPluginRuntime} from '../firefox-types'
+import {stampReadyWhenRdpPortOpens} from './await-rdp-port'
 import {
   FirefoxBinaryDetector,
   isFirefoxHeadlessRequested,
@@ -267,6 +269,19 @@ export class FirefoxLaunchPlugin {
       describeLaunchFailure(error),
       this.launchRunId ?? readReadyRunId(outputPath),
       launchFailureCode(error)
+    )
+  }
+
+  // A dry run starts no Firefox, so there is no debugger port to wait for and
+  // the contract says so instead of holding a dev session at starting.
+  private stampNoBrowserLaunched() {
+    const outputPath =
+      this.extensionOutputPath ?? this.resolveExtensionOutputPath()
+
+    stampReadyRdpPortError(
+      outputPath,
+      'a dry run prints the Firefox launch plan and starts no browser',
+      this.launchRunId ?? readReadyRunId(outputPath)
     )
   }
 
@@ -465,6 +480,7 @@ export class FirefoxLaunchPlugin {
     // placeholder when there is no pin to find inside the test runner.
     if (inTestRunner && !dryRun) {
       logFirefoxDryRun('firefox-mock-binary', [])
+      this.stampNoBrowserLaunched()
 
       return
     }
@@ -480,6 +496,8 @@ export class FirefoxLaunchPlugin {
           ? normalizeBinaryPathForWsl(String(this.host.geckoBinary))
           : 'firefox-mock-binary'
       )
+
+      this.stampNoBrowserLaunched()
 
       return
     }
@@ -708,6 +726,7 @@ export class FirefoxLaunchPlugin {
 
     if (dryRun) {
       logFirefoxDryRun(plan.binary, plan.args)
+      this.stampNoBrowserLaunched()
 
       return
     }
@@ -754,6 +773,15 @@ export class FirefoxLaunchPlugin {
       this.wireChildLifecycle()
       void this.trackLiveBrowserPid()
 
+      const portWait = await stampReadyWhenRdpPortOpens(
+        this.extensionOutputPath,
+        {
+          port: debugPort,
+          isBrowserGone: () => this.browserGone,
+          runId: this.launchRunId
+        }
+      )
+
       let ctrl: Awaited<ReturnType<typeof setupRdpAfterLaunch>> | undefined
 
       try {
@@ -773,7 +801,10 @@ export class FirefoxLaunchPlugin {
         // Only Gecko's own verdict is a refusal. Anything else (dead socket,
         // timeout) stays a launch failure and keeps propagating as before.
         if (!reason) {
-          stampReadyRdpPort(this.extensionOutputPath, debugPort)
+          if (portWait.open) {
+            stampReadyRdpPort(this.extensionOutputPath, debugPort)
+          }
+
           // A process exists and the add-on never reached it, so the contract
           // cannot go on saying starting or ready. An exit already on it stays.
           stampReadyBrowserLaunchFailed(

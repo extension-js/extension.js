@@ -35,6 +35,13 @@ export const RDP_RETRY_INTERVAL_MS = envMs(
   1_000
 )
 
+// The wait for Firefox's debugger port gets the same budget the RDP client
+// spends dialing it, so neither gives up while the other still waits.
+export const RDP_PORT_DEADLINE_MS = envMs(
+  'EXTENSION_RDP_PORT_DEADLINE_MS',
+  RDP_MAX_RETRIES * RDP_RETRY_INTERVAL_MS
+)
+
 export const CDP_HEARTBEAT_INTERVAL_MS = envMs(
   'EXTENSION_CDP_HEARTBEAT_INTERVAL_MS',
   30_000

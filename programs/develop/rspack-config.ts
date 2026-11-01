@@ -379,7 +379,10 @@ export default function webpackConfig(
       managedExtensionDirs: unpackedExtensionDirsToLoad.filter(
         (dir) => path.resolve(dir) !== path.resolve(primaryExtensionOutputDir)
       ),
-      launchFollows: devOptions.launchFollows
+      launchFollows: devOptions.launchFollows,
+      // The Firefox launcher stamps the RDP port after the compile, so a dev
+      // contract with a browser ahead holds ready until it does.
+      readyAwaitsRdpPort: Boolean(devOptions.browsersPlugin)
     })
   )
 
