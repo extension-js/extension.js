@@ -61,6 +61,13 @@ export interface SafariPipelineTools {
   // Xcode's own account preferences, the teams it can sign for. Best effort:
   // an empty string when they cannot be read.
   readXcodeTeams(): Promise<string>
+  // `sips -z <px> <px> <input> --out <output>`: one icon size of the app
+  // icon set, scaled from the supplied PNG. sips opens no window.
+  resizePng(
+    input: string,
+    output: string,
+    pixels: number
+  ): Promise<SafariToolResult>
 }
 
 // safaridriver raises Safari with `--automation` in its argv, which is the one
@@ -83,6 +90,14 @@ export function isContainerAppArgs(appPath: string, args: string): boolean {
 // so the app opens in the background and keeps the keyboard where it was.
 export function openAppArgs(target: string): string[] {
   return ['-g', target]
+}
+
+export function resizePngArgs(
+  input: string,
+  output: string,
+  pixels: number
+): string[] {
+  return ['-z', String(pixels), String(pixels), input, '--out', output]
 }
 
 export function listPidsWhere(
@@ -242,6 +257,8 @@ export function createSafariTools(): SafariPipelineTools {
     readXcodeTeams: () =>
       readXcodeTeamDefaults((key) =>
         runTool('defaults', ['read', 'com.apple.dt.Xcode', key], {quiet: true})
-      )
+      ),
+    resizePng: (input, output, pixels) =>
+      runTool('sips', resizePngArgs(input, output, pixels), {quiet: true})
   }
 }

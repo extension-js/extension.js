@@ -19,6 +19,7 @@ export interface SafariPackagerOverrides {
   appName?: string
   bundleId?: string
   macOsOnly?: boolean
+  appIcon?: string
   forceRegenerate?: boolean
   safariBinary?: string
   noOpen?: boolean

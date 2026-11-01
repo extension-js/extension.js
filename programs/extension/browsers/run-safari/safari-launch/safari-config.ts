@@ -84,7 +84,8 @@ export function resolveSafariBuildConfig(
     // launcher skips the starting URL too.
     open: !host.noOpen,
     safariBinary: host.safariBinary,
-    developmentTeam: String(host.developmentTeam || '').trim() || undefined
+    developmentTeam: String(host.developmentTeam || '').trim() || undefined,
+    appIcon: String(host.appIcon || '').trim() || undefined
   }
 }
 
@@ -220,6 +221,20 @@ function iconsFingerprint(extensionDir: string): string {
   }
 }
 
+// A supplied app icon replaces the converter's icon set after each conversion,
+// so its bytes are a project input: a new file regenerates the project, and
+// dropping the option regenerates it back to the converter's own set. The key
+// is left out when unset so projects without one keep their fingerprint.
+function appIconFingerprint(appIcon: string | undefined): string {
+  if (!appIcon) return ''
+
+  try {
+    return createHash('sha256').update(fs.readFileSync(appIcon)).digest('hex')
+  } catch {
+    return 'unreadable'
+  }
+}
+
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -282,7 +297,8 @@ export function composeProjectFingerprint(config: SafariBuildConfig): string {
     },
     entries: topLevelEntries(config.extensionDir),
     icons: iconsFingerprint(config.extensionDir),
-    judged: judgedManifestSurface(config.extensionDir)
+    judged: judgedManifestSurface(config.extensionDir),
+    ...(config.appIcon ? {appIcon: appIconFingerprint(config.appIcon)} : {})
   })
 }
 

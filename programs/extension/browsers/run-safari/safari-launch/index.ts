@@ -26,6 +26,7 @@ import {
   enableSafariExtension,
   SafariUiError
 } from '../safari-ui'
+import {APP_ICON_FULL_SIZE, applyAppIcon} from './app-icon'
 import {rememberRaisedContainerApp} from './container-app'
 import {logSafariDryRun} from './dry-run'
 import {
@@ -550,6 +551,30 @@ async function runSafariPipeline(
     }
 
     restore()
+
+    if (config.appIcon) {
+      const applied = await applyAppIcon(config, tools)
+
+      if (applied.sets.length === 0) {
+        logger.warn?.(messages.safariAppIconNoSet(config.projectLocation))
+      } else {
+        logger.info?.(
+          messages.safariAppIconApplied(applied.source, applied.files)
+        )
+      }
+
+      if (applied.pixels < APP_ICON_FULL_SIZE) {
+        logger.warn?.(
+          messages.safariAppIconSmall(
+            applied.source,
+            applied.pixels,
+            APP_ICON_FULL_SIZE
+          )
+        )
+      }
+    } else {
+      logger.info?.(messages.safariAppIconFromManifest())
+    }
 
     const preservedKeys = Object.keys(saved)
 

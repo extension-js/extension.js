@@ -1101,6 +1101,29 @@ export function safariConverted(projectDir: string) {
   )
 }
 
+export function safariAppIconApplied(source: string, files: number) {
+  return `${getLoggingPrefix('info')} Made the Safari app icon from ${colors.underline(source)} as it is, ${files} sizes, with no plate added.`
+}
+
+export function safariAppIconFromManifest() {
+  return (
+    `${getLoggingPrefix('info')} The Safari app icon comes from the manifest icons, which the converter sets on a white macOS plate.\n` +
+    `To supply the app icon, set ${colors.blue('browser.safari.appIcon')} in extension.config.js (or pass ${colors.blue('--app-icon')}) to a square 1024 px PNG.`
+  )
+}
+
+export function safariAppIconSmall(
+  source: string,
+  pixels: number,
+  full: number
+) {
+  return `${getLoggingPrefix('warn')} ${colors.underline(source)} is ${pixels} px. The app icon set wants ${full} px, so the larger sizes are scaled up.`
+}
+
+export function safariAppIconNoSet(projectDir: string) {
+  return `${getLoggingPrefix('warn')} No AppIcon.appiconset in ${colors.underline(projectDir)}, so the supplied app icon was not applied.`
+}
+
 export function safariBuilding(scheme: string) {
   return `${getLoggingPrefix('info')} Building the Safari app with xcodebuild (scheme ${colors.gray(scheme)})…`
 }

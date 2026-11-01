@@ -43,6 +43,7 @@ export interface FakeSafariTools extends SafariPipelineTools {
     webdriver: number[]
     codesign: string[]
     xcodeTeams: number
+    resizePng: Array<[string, string, number]>
   }
   webdriverProcesses: SafariWebDriverProcess[]
   // Every tool call and logger line in the order the pipeline made them, so a
@@ -77,6 +78,38 @@ function writeConvertedProject(args: string[]) {
       '};'
     ].join('\n')
   )
+
+  writeConverterIconSet(path.join(location, appName, appName))
+}
+
+export const CONVERTER_PLATE = 'converter icon on a white plate'
+
+const MAC_ICON_SLOTS = [16, 32, 128, 256, 512].flatMap((size) =>
+  ['1x', '2x'].map((scale) => ({
+    size: `${size}x${size}`,
+    idiom: 'mac',
+    filename: `mac-icon-${size}@${scale}.png`,
+    scale
+  }))
+)
+
+// The macOS icon set the real converter writes beside the app sources: ten
+// slots from 16 px to 512@2x, each its own file.
+function writeConverterIconSet(appSources: string) {
+  const set = path.join(appSources, 'Assets.xcassets', 'AppIcon.appiconset')
+
+  fs.mkdirSync(set, {recursive: true})
+  fs.writeFileSync(
+    path.join(set, 'Contents.json'),
+    JSON.stringify({
+      images: MAC_ICON_SLOTS,
+      info: {version: 1, author: 'xcode'}
+    })
+  )
+
+  for (const slot of MAC_ICON_SLOTS) {
+    fs.writeFileSync(path.join(set, slot.filename), CONVERTER_PLATE)
+  }
 }
 
 const FAKE_SIGNATURE_FILE = path.join('Contents', 'fake-codesign.txt')
@@ -154,7 +187,8 @@ export function fakeSafariTools(
       pluginkit: 0,
       webdriver: [],
       codesign: [],
-      xcodeTeams: 0
+      xcodeTeams: 0,
+      resizePng: []
     },
     webdriverProcesses: [],
     events: [],
@@ -259,6 +293,13 @@ export function fakeSafariTools(
       tools.events.push('xcodeTeams')
 
       return options.xcodeTeams ?? ''
+    },
+    resizePng: async (input, output, pixels) => {
+      tools.calls.resizePng.push([input, output, pixels])
+      tools.events.push('sips')
+      fs.writeFileSync(output, `sips ${pixels} px of ${path.basename(input)}`)
+
+      return result(0, '')
     }
   }
 
