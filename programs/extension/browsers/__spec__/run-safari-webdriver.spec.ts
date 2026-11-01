@@ -552,35 +552,41 @@ describe('safari dev session and its safaridriver', () => {
     }
   })
 
-  it('a session request held by another automation Safari is not asked again', async () => {
-    const competitor = await openSibling('--automation')
-    const tools = standInTools('hang', fakeSafari)
-    const outcome = await openSafariWebDriverSession(tools, {createMs: 400})
+  it.skipIf(process.platform === 'win32')(
+    'a session request held by another automation Safari is not asked again',
+    async () => {
+      const competitor = await openSibling('--automation')
+      const tools = standInTools('hang', fakeSafari)
+      const outcome = await openSafariWebDriverSession(tools, {createMs: 400})
 
-    expect(outcome.reason).toContain(
-      `Safari already runs an automation instance from another WebDriver session (pid ${competitor})`
-    )
+      expect(outcome.reason).toContain(
+        `Safari already runs an automation instance from another WebDriver session (pid ${competitor})`
+      )
 
-    expect(outcome.reason).not.toContain('asked 2 times')
-    expect(tools.calls.webdriver).toHaveLength(1)
-    expect(processAlive(competitor)).toBe(true)
-  })
+      expect(outcome.reason).not.toContain('asked 2 times')
+      expect(tools.calls.webdriver).toHaveLength(1)
+      expect(processAlive(competitor)).toBe(true)
+    }
+  )
 
-  it('names the automation Safari that started and never opened its window, and quits it', async () => {
-    const tools = standInTools('hang-raise', fakeSafari)
-    const outcome = await openSafariWebDriverSession(tools, {
-      createMs: 1500,
-      attempts: 1
-    })
-    const raised = raisedPid()
+  it.skipIf(process.platform === 'win32')(
+    'names the automation Safari that started and never opened its window, and quits it',
+    async () => {
+      const tools = standInTools('hang-raise', fakeSafari)
+      const outcome = await openSafariWebDriverSession(tools, {
+        createMs: 1500,
+        attempts: 1
+      })
+      const raised = raisedPid()
 
-    expect(raised).toBeGreaterThan(0)
-    expect(outcome.reason).toContain(
-      `Safari started its automation instance (pid ${raised}) but did not open the automation window`
-    )
+      expect(raised).toBeGreaterThan(0)
+      expect(outcome.reason).toContain(
+        `Safari started its automation instance (pid ${raised}) but did not open the automation window`
+      )
 
-    expect(await waitForExit(raised)).toBe(true)
-  })
+      expect(await waitForExit(raised)).toBe(true)
+    }
+  )
 
   it('no safaridriver: names the spawn error as the reason and carries on', async () => {
     const tools = fakeSafariTools({
