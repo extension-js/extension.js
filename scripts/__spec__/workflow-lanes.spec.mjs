@@ -222,3 +222,28 @@ test('a canary week that ran no tests cannot close a red lane', () => {
     /if: success\(\) && steps\.overrides\.outputs\.count != '0'/
   )
 })
+
+test('a canary red is allowed only when it names a known upstream break', () => {
+  const lane = workflow('deps-canary.yml')
+  const suite = step(lane, 'Run the rspack suite')
+
+  assert.match(suite, /id: suite/)
+  assert.match(suite, /continue-on-error: true/)
+  assert.match(suite, /set -o pipefail/)
+  assert.match(suite, /tee "\$RUNNER_TEMP\/canary-suite\.log"/)
+
+  assert.match(
+    step(lane, 'Name an upstream break'),
+    /deps-canary-known-breaks\.mjs "\$\{\{ matrix\.leg \}\}" "\$\{\{ steps\.suite\.outcome \}\}"/
+  )
+
+  assert.match(
+    step(lane, 'Close the red lane'),
+    /steps\.suite\.outcome == 'success'/
+  )
+
+  assert.match(
+    step(lane, 'Run the frameworks plugin specs'),
+    /if: steps\.suite\.outcome == 'success'/
+  )
+})
