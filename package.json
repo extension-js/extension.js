@@ -19,11 +19,13 @@
       "yauzl": "^3.2.1",
       "vite": "^8.3.3",
       "launch-editor": "^2.14.2",
-      "follow-redirects": "^1.16.1",
+      "follow-redirects": "^1.16.2",
       "which": "^4.0.0",
       "js-yaml": "^4.3.2",
       "read-yaml-file": "^2.1.0",
-      "image-size@2": "2.0.4"
+      "image-size@2": "2.0.4",
+      "minimatch@10": "^11.0.1",
+      "minimatch@3": "^11.0.1"
     }
   },
   "scripts": {
