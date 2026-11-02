@@ -561,7 +561,7 @@ jobs:
         working-directory: programs/create
         env:
           NPM_CONFIG_LOGLEVEL: verbose
-        run: npm publish --access public --tag ${{ steps.validate.outputs.tag }} --provenance
+        run: bash "$GITHUB_WORKSPACE/scripts/npm-publish.sh" "${{ steps.validate.outputs.tag }}"
 
       # Ensure npm has replicated the new version before proceeding.
       - name: Verify publish (extension-create)
@@ -586,7 +586,7 @@ jobs:
         working-directory: programs/develop
         env:
           NPM_CONFIG_LOGLEVEL: verbose
-        run: npm publish --access public --tag ${{ steps.validate.outputs.tag }} --provenance
+        run: bash "$GITHUB_WORKSPACE/scripts/npm-publish.sh" "${{ steps.validate.outputs.tag }}"
 
       # Ensure npm has replicated the new version before proceeding.
       - name: Verify publish (extension-develop)
@@ -611,7 +611,7 @@ jobs:
         working-directory: programs/install
         env:
           NPM_CONFIG_LOGLEVEL: verbose
-        run: npm publish --access public --tag ${{ steps.validate.outputs.tag }} --provenance
+        run: bash "$GITHUB_WORKSPACE/scripts/npm-publish.sh" "${{ steps.validate.outputs.tag }}"
 
       - name: Verify publish (extension-install)
         if: steps.check_install.outputs.exists == 'false'
@@ -635,7 +635,7 @@ jobs:
         working-directory: programs/extension
         env:
           NPM_CONFIG_LOGLEVEL: verbose
-        run: npm publish --access public --tag ${{ steps.validate.outputs.tag }} --provenance
+        run: bash "$GITHUB_WORKSPACE/scripts/npm-publish.sh" "${{ steps.validate.outputs.tag }}"
 
       # Ensure npm has replicated the new version before proceeding.
       - name: Verify publish (extension)
