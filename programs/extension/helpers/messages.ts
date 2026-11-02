@@ -718,7 +718,8 @@ ${'Environment variables'}
 - Use ${code(arg('EXTENSION_PUBLIC_*'))} prefix for variables accessible in extension code
 - Supported in both ${code('process.env')} and ${code('import.meta.env')}
 - Environment file priority: ${colors.underline(code(arg('.env.{browser}.{mode}')))} > ${colors.underline(code(arg('.env.{browser}')))} > ${colors.underline(code(arg('.env.{mode}')))} > ${colors.underline(code(arg('.env')))}
-- Example: ${code(arg('EXTENSION_PUBLIC_API_KEY=your_key'))}
+- Example: ${code(arg('EXTENSION_PUBLIC_API_URL=https://api.example.com'))}
+- Every ${code(arg('EXTENSION_PUBLIC_*'))} value is written into the built JavaScript that every user and store review can read. Never put an API key, token, password or other secret behind the prefix, keep it on a server the extension calls
 
 ${'Available templates'}
 ${TEMPLATE_GROUPS.map(
