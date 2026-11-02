@@ -77,15 +77,27 @@ jobs:
           pnpm -r ls --depth 0 ${{ steps.overrides.outputs.packages }}
           git diff --no-color -- package.json
 
+      # The suite may go red for a break already traced upstream and fixed
+      # there but not released. The next step decides: a failure that prints
+      # a known break's signature is a named, allowed upstream failure, any
+      # other red fails the job and reports the lane as before.
       - name: Run the rspack suite
+        id: suite
         if: steps.overrides.outputs.count != '0'
-        run: pnpm run ci:test:rspack
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          pnpm run ci:test:rspack 2>&1 | tee "$RUNNER_TEMP/canary-suite.log"
+
+      - name: Name an upstream break
+        if: steps.overrides.outputs.count != '0'
+        run: node scripts/deps-canary-known-breaks.mjs "${{ matrix.leg }}" "${{ steps.suite.outcome }}" "$RUNNER_TEMP/canary-suite.log"
 
       # ci:test:rspack already carries real-refresh-compile and every build-*
       # spec, build-framework-pages included. This adds the rest of the
       # frameworks plugin surface on top of the compiled dist it left behind.
       - name: Run the frameworks plugin specs
-        if: steps.overrides.outputs.count != '0' && matrix.leg == 'frameworks-next'
+        if: steps.suite.outcome == 'success' && matrix.leg == 'frameworks-next'
         run: pnpm -C programs/develop exec vitest run plugin-js-frameworks/__spec__
 
       - name: Report a red lane
@@ -100,9 +112,10 @@ jobs:
         run: bash scripts/report-red-lane.sh "Dependency canary ${{ matrix.leg }}"
 
       # A week with nothing to test ran no suite, so it has no evidence the
-      # lane is green and must not close an issue a real run opened.
+      # lane is green and must not close an issue a real run opened. Nor does
+      # a week whose suite failed on an allowed upstream break.
       - name: Close the red lane
-        if: success() && steps.overrides.outputs.count != '0'
+        if: success() && steps.overrides.outputs.count != '0' && steps.suite.outcome == 'success'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RED_LANE_TITLE: 'Dependency canary is red: ${{ matrix.leg }}'
