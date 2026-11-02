@@ -135,6 +135,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "envChangedRestartRequired: function(1)",
     "envInjectedPublicVars: function(1)",
     "envNoMatchingFile: function(4)",
+    "envPublicSecretName: function(1)",
     "envSelectedFile: function(1)",
     "envValueBreaksJsonAsset: function(2)",
     "projectConfigChangedRestartRequired: function(1)",
