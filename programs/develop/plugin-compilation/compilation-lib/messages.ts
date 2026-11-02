@@ -95,6 +95,20 @@ export function envChangedRestartRequired(envPath: string) {
   )
 }
 
+export function envPublicSecretName(names: string[]) {
+  const one = names.length === 1
+
+  return (
+    `${names.map((name) => colors.yellow(name)).join(', ')} ` +
+    `${one ? 'looks' : 'look'} like ${one ? 'a secret' : 'secrets'}, and every ` +
+    `${colors.yellow('EXTENSION_PUBLIC_*')} value is written into the built ` +
+    `JavaScript that every user and every store review can read.\n` +
+    `Keep the secret on a server the extension calls, under a name without the ` +
+    `${colors.yellow('EXTENSION_PUBLIC_')} prefix. If the value is public by ` +
+    `design, such as a Firebase web API key, this warning does not apply to it.`
+  )
+}
+
 export function envNoMatchingFile(
   browser: string,
   mode: string,

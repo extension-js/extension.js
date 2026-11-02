@@ -302,6 +302,33 @@ export function getEnvFileCandidates(
   ]
 }
 
+const SECRET_SEGMENTS = new Set([
+  'SECRET',
+  'TOKEN',
+  'PASSWORD',
+  'PASSWD',
+  'PRIVATE'
+])
+const KEY_QUALIFIERS = new Set(['API', 'ACCESS', 'AUTH', 'SECRET', 'PRIVATE'])
+
+// Whole name segments only, so KEYBOARD or TOKENIZER never match. A name that
+// says PUBLISHABLE is public by design, the way a Stripe publishable key is.
+export function looksLikeSecretName(name: string): boolean {
+  const segments = name
+    .replace(/^EXTENSION_PUBLIC_/, '')
+    .toUpperCase()
+    .split('_')
+    .filter(Boolean)
+
+  if (segments.includes('PUBLISHABLE')) return false
+  if (segments.some((segment) => SECRET_SEGMENTS.has(segment))) return true
+
+  return segments.some(
+    (segment, index) =>
+      segment === 'KEY' && index > 0 && KEY_QUALIFIERS.has(segments[index - 1])
+  )
+}
+
 export class EnvPlugin {
   public readonly browser: DevOptions['browser']
   public readonly manifestPath?: string
@@ -407,6 +434,29 @@ export class EnvPlugin {
       ...defaultsVars,
       ...envVars,
       ...systemEnv
+    }
+
+    // Every EXTENSION_PUBLIC_* value is inlined into the bundle that ships to
+    // users and stores, so a production build names any that looks secret.
+    if (mode === 'production') {
+      const secretLooking = Object.keys(combinedVars)
+        .filter((key) => key.startsWith('EXTENSION_PUBLIC_'))
+        .filter((key) => String(combinedVars[key] ?? '') !== '')
+        .filter(looksLikeSecretName)
+        .sort()
+
+      if (secretLooking.length > 0) {
+        compiler.hooks.thisCompilation.tap(
+          'env:warn-public-secret',
+          (compilation) => {
+            const warn = new WebpackError(
+              messages.envPublicSecretName(secretLooking)
+            ) as Error & {name?: string}
+            warn.name = 'EnvPublicSecretName'
+            compilation.warnings.push(warn)
+          }
+        )
+      }
     }
 
     const filteredEnvVars = Object.keys(combinedVars)
