@@ -104,10 +104,34 @@ interface BrowserLaunchConfig {
 }
 
 /**
+ * Safari app identity and packaging, read for `safari` and `webkit-based`
+ * targets. A CLI flag of the same name wins over these.
+ */
+export interface SafariConfig {
+  /** Safari binary to open after packaging. */
+  safariBinary?: string
+  /** Override the Safari app name. Defaults to the manifest `name`. */
+  appName?: string
+  /** Reverse-DNS bundle identifier. Defaults to a `dev.extensionjs.*` id. */
+  bundleId?: string
+  /** Apple Developer team id to sign with. Unset, the app is ad-hoc signed. */
+  developmentTeam?: string
+  /** Generate a macOS-only Xcode project. Defaults to `true`. */
+  macOsOnly?: boolean
+  /**
+   * A square PNG, ideally 1024 px, used as is for the Safari app icon,
+   * relative to the project. Unset, the manifest icon on a white plate.
+   */
+  appIcon?: string
+  /** Regenerate the Xcode project even when it is up to date. */
+  forceRegenerate?: boolean
+}
+
+/**
  * Per-browser configuration, keyed by {@link BrowserType} under
  * {@link FileConfig.browser}.
  */
-export interface BrowserConfig extends BrowserLaunchConfig {
+export interface BrowserConfig extends BrowserLaunchConfig, SafariConfig {
   /**
    * The browser target. Optional here because it is implied by the key of the
    * {@link FileConfig.browser} map.
@@ -169,7 +193,8 @@ export type PerfBudgetsConfig = Partial<Record<PerfBudgetCategory, number>> & {
 /** `commands.dev` overrides. */
 export interface DevCommandConfig
   extends BrowserLaunchConfig,
-    UnifiedLoggerConfig {
+    UnifiedLoggerConfig,
+    SafariConfig {
   browser?: BrowserType
   profile?: string | false
   chromiumBinary?: string
@@ -228,7 +253,7 @@ export interface ServeCommandConfig
 }
 
 /** `commands.build` overrides. */
-export interface BuildCommandConfig {
+export interface BuildCommandConfig extends SafariConfig {
   browser?: BrowserType
   /**
    * Base folder for the build output, relative to the project root. The
