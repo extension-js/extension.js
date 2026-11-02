@@ -17,6 +17,21 @@ describe('programAIHelp', () => {
     expect(help).toMatch(/print an error and abort/i)
   })
 
+  it('never models a secret behind the public env prefix', () => {
+    const help = programAIHelp()
+    const publicNames = help.match(/EXTENSION_PUBLIC_[A-Z0-9_]+/g) || []
+
+    expect(publicNames).toContain('EXTENSION_PUBLIC_API_URL')
+
+    for (const name of publicNames) {
+      expect(name).not.toMatch(/(^|_)(KEY|SECRET|TOKEN|PASSWORD)(_|$)/)
+    }
+
+    expect(help).toMatch(
+      /Never put an API key, token, password or other secret/
+    )
+  })
+
   it('exposes stable machine-readable schema', () => {
     const help = programAIHelpJSON('3.5.0')
     expect(help.version).toBe('3.5.0')
