@@ -132,6 +132,7 @@ export const CURATED_GROUPS: readonly TemplateGroup[] = [
       'devtools-react',
       'devtools-svelte',
       'devtools-typescript',
+      'devtools-typescript-sqlite',
       'devtools-vue'
     ]
   },
