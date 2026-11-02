@@ -13,7 +13,7 @@
 
 export const TEMPLATE_CORPUS_REPO = 'extension-js/examples'
 
-export const TEMPLATE_CORPUS_REF = '4938dfdd46b37fb237ab19c4157d5a9d2f222ca8'
+export const TEMPLATE_CORPUS_REF = 'b790fde32cba5ff86cc0da1a04dd2ce6e96aa2e6'
 
 export const TEMPLATE_CORPUS_SLUGS: readonly string[] = [
   'action',
@@ -43,6 +43,7 @@ export const TEMPLATE_CORPUS_SLUGS: readonly string[] = [
   'devtools-react',
   'devtools-svelte',
   'devtools-typescript',
+  'devtools-typescript-sqlite',
   'devtools-vue',
   'init',
   'javascript',
