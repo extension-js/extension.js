@@ -14,7 +14,6 @@ import {
   getCanonicalContentScriptJsAssetName,
   parseCanonicalContentScriptAsset
 } from '../../feature-scripts/contracts'
-import {dropEdgeStoreKey} from '../manifest-lib/filter-key-edge'
 import {missingGeckoDataCollectionPermissions} from '../manifest-lib/gecko-data-collection'
 import {
   buildCanonicalManifestWithOverrides,
@@ -302,24 +301,6 @@ export class UpdateManifest {
             )
             const overrides = canonical.overrides
             let patchedManifest = canonical.manifest
-
-            // Edge Add-ons refuses a package that carries `key` at all, and
-            // both edge: and chromium: resolve into one. Production only, a dev
-            // build keeps the stable id that key pins.
-            if (compiler.options.mode === 'production') {
-              const edgeKey = dropEdgeStoreKey(patchedManifest, this.browser)
-
-              if (edgeKey.dropped) {
-                patchedManifest = edgeKey.manifest
-                reportToCompilation(
-                  compilation,
-                  compiler,
-                  messages.edgeStoreKeyDropped(String(this.browser)),
-                  'warning',
-                  'manifest.json'
-                )
-              }
-            }
 
             // Firefox can't load background.service_worker, translate it to a
             // background.scripts event page pointing at the same emitted bundle.

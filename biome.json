@@ -6,6 +6,9 @@
     "includes": [
       "**",
       "!_FUTURE",
+      "!.claude",
+      "!test-results",
+      "!test-results.json",
       "!extensions",
       "!extensions/**/dist",
       "!templates",

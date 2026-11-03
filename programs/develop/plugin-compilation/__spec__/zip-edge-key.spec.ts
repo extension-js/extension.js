@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest'
-import {dropEdgeStoreKey} from '../filter-key-edge'
-import {buildCanonicalManifest} from '../manifest'
+import {buildCanonicalManifest} from '../../plugin-web-extension/feature-manifest/manifest-lib/manifest'
+import {dropEdgeStoreKey} from '../zip-edge-key'
 
 describe('dropEdgeStoreKey', () => {
   const withKey = {
