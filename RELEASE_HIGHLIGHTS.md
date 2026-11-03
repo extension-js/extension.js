@@ -20,3 +20,9 @@
 -->
 
 ## Highlights
+
+- **Safari builds take your own app icon**, `extension build --browser=safari --app-icon=icon.png` uses the PNG as is instead of plating the manifest icon on a white tile. [Docs](https://extension.js.org/docs/browsers/safari#app-identity-and-packaging-options)
+- **A production build warns when a public env variable is named like a secret**, so an `EXTENSION_PUBLIC_API_KEY` never ships in a bundle unnoticed. [Docs](https://extension.js.org/docs/features/environment-variables#secrets-never-take-the-extension_public_-prefix)
+- **SQLite in DevTools**, `npx extension@latest create my-extension --template=devtools-typescript-sqlite` starts a DevTools panel backed by SQLite in the browser.
+- **Firefox content scripts run once after a reload**, the dev session no longer injects a second copy, and a missing `scripting` permission is named instead of failing quietly.
+- **The Edge store zip leaves the manifest `key` out, `dist/edge` keeps it**, so an unpacked Edge install keeps the pinned id your OAuth redirects depend on.
