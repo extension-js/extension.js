@@ -63,6 +63,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "debugSplitChunksNarrowed: function(1)",
     "declinedProjectRoot: function(2)",
     "devCommandFailed: function(1)",
+    "developmentArtifactsKept: function(2)",
     "downloadedProjectFolderNotFound: function(2)",
     "downloadingProjectPath: function(2)",
     "downloadingText: function(1)",
@@ -117,6 +118,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "writingTypeDefinitionsError: function(1)",
     "zipArtifactNotCreated: function(3)",
     "zipArtifactReady: function(2)",
+    "zipEdgeKeyDropped: function(1)",
     "zipEntryOutsideFolder: function(2)",
     "zipSkippedSymlinks: function(1)",
   ],
@@ -253,7 +255,6 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
   "plugin-web-extension/feature-manifest/messages.ts": [
     "contentScriptEntryDroppedForBrowser: function(3)",
     "edgeEmbeddedOptionsDialog: function(0)",
-    "edgeStoreKeyDropped: function(1)",
     "fatalManifestShapeFixed: function(2)",
     "geckoActionUnsupportedOnMv2: function(1)",
     "geckoSidePanelUnsupported: function(1)",

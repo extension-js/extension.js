@@ -57,8 +57,8 @@ function identifierOf(module: ModuleLike | null | undefined): string {
 }
 
 type ChunkGraphLike = {
-  getModuleChunksIterable?: (module: never) => Iterable<ChunkLike>
-  getChunkModulesIterable?: (chunk: never) => Iterable<ModuleLike>
+  getModuleChunksIterable?: (module: unknown) => Iterable<ChunkLike>
+  getChunkModulesIterable?: (chunk: unknown) => Iterable<ModuleLike>
 }
 
 // Which surfaces reach each emitted file. A named chunk is its own entry, a
@@ -97,7 +97,7 @@ export function collectAssetReferrers(
     let modules: ModuleLike[] = []
 
     try {
-      modules = toArray(chunkGraph?.getChunkModulesIterable?.(chunk as never))
+      modules = toArray(chunkGraph?.getChunkModulesIterable?.(chunk))
     } catch {
       modules = []
     }
@@ -122,7 +122,7 @@ export function collectAssetReferrers(
 
     try {
       for (const chunk of toArray(
-        chunkGraph?.getModuleChunksIterable?.(module as never)
+        chunkGraph?.getModuleChunksIterable?.(module)
       )) {
         keys.add(keyOf(chunk))
       }

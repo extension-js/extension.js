@@ -55,7 +55,7 @@ export async function openDevWatchSession(
     lastDoneAt = Date.now()
   })
 
-  const doneAfter = (seen: number, timeoutMs = 15000) =>
+  const doneAfter = (seen: number, timeoutMs = 30000) =>
     new Promise<Stats>((resolve, reject) => {
       const startedAt = Date.now()
 
@@ -63,7 +63,9 @@ export async function openDevWatchSession(
         if (dones.length > seen) return resolve(dones[seen])
 
         if (Date.now() - startedAt > timeoutMs) {
-          return reject(new Error('no rebuild observed within 15s'))
+          return reject(
+            new Error(`no rebuild observed within ${timeoutMs / 1000}s`)
+          )
         }
 
         setTimeout(poll, 25)

@@ -861,6 +861,27 @@ export function zipArtifactReady(zipPath: string, sizeInBytes: number) {
   )
 }
 
+export function zipEdgeKeyDropped(zipPath: string) {
+  return (
+    `${prefix('warn')} Edge Add-ons refuses a package whose manifest carries ${colors.yellow('key')}, so ${colors.underline(zipPath)} leaves it out.\n` +
+    `The ${colors.yellow('dist/edge')} folder keeps it, so an unpacked install and the OAuth redirect id it pins stay stable. ` +
+    `Partner Center assigns the store id, and the zip is the package it reads.`
+  )
+}
+
+export function developmentArtifactsKept(distPath: string, kept: string[]) {
+  const count =
+    kept.length === 1
+      ? 'a development file'
+      : `${kept.length} development files`
+  const names = kept.map((name) => colors.yellow(name)).join(', ')
+
+  return (
+    `${prefix('warn')} The production build could not delete ${count} from ${colors.underline(distPath)}, so the package still carries ${names}.\n` +
+    `Delete ${kept.length === 1 ? 'it' : 'them'} before you upload, and check the folder permissions.`
+  )
+}
+
 export function packagingDistributionFiles(zipPath: string) {
   return `${prefix('debug')} zip      pack=dist path=${zipPath}`
 }

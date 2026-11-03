@@ -4,6 +4,7 @@ exports[`extension message catalogs > matches the exported message surface 1`] =
 {
   "browsers/browsers-lib/messages.ts": [
     "SAFARI_AD_HOC_LOADING: string",
+    "SAFARI_APP_ICON_HELP: string",
     "SAFARI_DEVELOPMENT_TEAM_HELP: string",
     "SAFARI_TEAM_SIGNED_LOADING: string",
     "addonInstallError: function(2)",
@@ -105,7 +106,7 @@ exports[`extension message catalogs > matches the exported message surface 1`] =
     "mv3BackgroundScriptsNotSupportedByChromium: function(1)",
     "parsingPacketError: function(2)",
     "preferringSystemBrowserOverSnapshot: function(2)",
-    "prettyPuppeteerInstallGuidance: function(3)",
+    "prettyPuppeteerInstallGuidance: function(2)",
     "profilePathIsNotADirectory: function(1)",
     "rdpInvalidRequestPayload: function(0)",
     "requireChromiumBinaryForChromiumBased: function(0)",

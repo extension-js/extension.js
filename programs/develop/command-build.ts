@@ -524,7 +524,14 @@ export async function extensionBuild(
           }
 
           if (buildType === 'production') {
-            removeDevelopmentArtifacts(displayDistPath)
+            const pruned = removeDevelopmentArtifacts(displayDistPath)
+
+            if (pruned.kept.length > 0) {
+              console.warn(
+                messages.developmentArtifactsKept(displayDistPath, pruned.kept)
+              )
+            }
+
             warnProductionLoopbackOrigins(displayDistPath)
           }
 

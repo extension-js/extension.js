@@ -4056,7 +4056,7 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
   it('inspect of a content tab extracts a DOM snapshot via chrome.scripting', async () => {
     const ws = setup({
       scripting: {
-        executeScript: (opts: any) =>
+        executeScript: () =>
           Promise.resolve([
             {
               result: {

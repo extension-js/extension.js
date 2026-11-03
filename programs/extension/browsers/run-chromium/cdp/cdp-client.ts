@@ -27,8 +27,6 @@ import {getExtensionInfo} from './extensions'
 import {claimCdpPipe, guardCdpPipe} from './pipe-guard'
 import {establishBrowserConnection} from './ws'
 
-// Restrict browser-root auto-attach to extension-relevant target types;
-// attaching pages/iframes trips anti-debug checks in third-party OAuth popups.
 export class CDPClient {
   private port: number
   private host: string

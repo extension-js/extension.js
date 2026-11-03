@@ -55,6 +55,7 @@ describe('the --development-team help and the Safari setup summary agree', () =>
     for (const file of ['build.ts', 'dev.ts']) {
       const src = readFileSync(join(__dirname, '..', file), 'utf-8')
       expect(src).toContain('SAFARI_DEVELOPMENT_TEAM_HELP')
+      expect(src).toContain('SAFARI_APP_ICON_HELP')
     }
   })
 })

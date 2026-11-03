@@ -33,7 +33,6 @@ import {
 } from './output-binaries-resolver'
 
 type Browser = BrowserType
-type Mode = 'development' | 'production' | 'none'
 type PackageManagerName = 'pnpm' | 'yarn' | 'npm' | 'bun' | 'unknown'
 type PackageJson = {
   packageManager?: string
@@ -891,7 +890,6 @@ export function chromiumDryRunFlags(flags: string) {
 
 export function prettyPuppeteerInstallGuidance(
   browser: Browser,
-  rawGuidance: string,
   cacheDir: string,
   platform: NodeJS.Platform = process.platform
 ): string {
@@ -1285,6 +1283,9 @@ export const SAFARI_DEVELOPMENT_TEAM_HELP =
   `Without it the build is ad-hoc signed. ${SAFARI_AD_HOC_LOADING} (Settings ▸ Developer ▸ Allow unsigned extensions). ` +
   `${SAFARI_TEAM_SIGNED_LOADING}`
 
+export const SAFARI_APP_ICON_HELP =
+  'make the Safari app icon from this square PNG, 1024 px, unchanged (safari targets only). Defaults to the icon set the converter builds from the manifest icons'
+
 export function safariNextSteps(
   appName: string,
   signed?: boolean,
@@ -1633,7 +1634,6 @@ export function runningInDevelopment(
 ) {
   const capitalize = (str: string) => str.charAt(0).toUpperCase() + str.slice(1)
   const manifestName = manifest.name || 'Extension.js'
-  const {hostPermissions, permissions} = manifest
   let browserDevToolsUrl: string
 
   switch (browser) {
@@ -1706,7 +1706,6 @@ export function runningInDevelopment(
 
   const cleanId = String(id || '').trim()
 
-  const lines: string[] = []
   const includeExtensionId = opts?.includeExtensionId !== false
 
   const updateNotice = updateSuffix ? ` ${updateSuffix}` : ''

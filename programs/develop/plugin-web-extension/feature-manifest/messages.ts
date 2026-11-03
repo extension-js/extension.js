@@ -7,7 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import colors from 'pintor'
-import {type Channel, prefix} from '../../lib/messaging'
+import {prefix} from '../../lib/messaging'
 
 export function serverRestartRequiredFromManifestError(
   fileAdded: string,
@@ -240,14 +240,6 @@ export function manifestVersionLostForBrowser(
     `${prefix('error')} ${lead}\n` +
     `No browser loads a manifest without it, so the build was refused. ` +
     `Add a plain ${field}, or scope one to this browser: ${colors.yellow('chromium:manifest_version')} for every Chromium-based browser, ${colors.yellow('firefox:manifest_version')} for Firefox.`
-  )
-}
-
-export function edgeStoreKeyDropped(browser: string) {
-  return (
-    `${prefix('warn')} Edge Add-ons refuses a package whose manifest carries ${colors.yellow('key')}, so the ${colors.blue(browser)} production build dropped it.\n` +
-    `Partner Center assigns the id that ${colors.yellow('key')} pins everywhere else, so the field has no use in this package. ` +
-    `Write it as ${colors.yellow('chrome:key')} if it is meant for the Chrome Web Store build only.`
   )
 }
 
