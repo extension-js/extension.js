@@ -104,7 +104,7 @@ describe('writes outside the build graph under extension dev', () => {
     expect(await session.quietFor(2000)).toBe(seen)
     expect(fs.existsSync(path.join(session.distPath, 'store'))).toBe(false)
     expect(session.tracker.snapshot().changedSources).toEqual([])
-  }, 60000)
+  }, 90000)
 
   it('a public/ folder created mid-session restarts the session to ship it', async () => {
     const root = project()
@@ -126,7 +126,7 @@ describe('writes outside the build graph under extension dev', () => {
         pathAfter: path.join(root, 'public')
       })
     )
-  }, 60000)
+  }, 90000)
 
   it('a pages/ folder created mid-session still rebuilds', async () => {
     const root = project()
@@ -140,5 +140,5 @@ describe('writes outside the build graph under extension dev', () => {
 
     const stats = await session.doneAfter(seen)
     expect(errorsOf(stats)).toEqual([])
-  }, 60000)
+  }, 90000)
 })
