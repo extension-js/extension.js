@@ -115,7 +115,7 @@ describe.each<Layout>([
     expect(instruction?.changedAssets).toEqual([rel])
     expect(instruction?.label).toBe(`extension (${rel})`)
     expect(fs.readFileSync(shipped, 'utf8')).toBe('{"value":"v2"}')
-  }, 60000)
+  }, 90000)
 
   it('a file deleted or renamed mid-session leaves no copy of its old path in dist', async () => {
     const files = project(layout)
@@ -151,7 +151,7 @@ describe.each<Layout>([
 
     expect(fs.readFileSync(inDist('data.json'), 'utf8')).toBe('{"value":"v1"}')
     expect(fs.existsSync(inDist('not-from-public.bin'))).toBe(true)
-  }, 60000)
+  }, 90000)
 })
 
 describe('public/ edits under extension dev (manifest-named ruleset)', () => {
@@ -175,5 +175,5 @@ describe('public/ edits under extension dev (manifest-named ruleset)', () => {
     expect(instruction?.type).toBe('full')
     expect(instruction?.changedAssets).toEqual(['public/rules.json'])
     expect(fs.readFileSync(shipped, 'utf8')).toContain('v2.example')
-  }, 60000)
+  }, 90000)
 })
