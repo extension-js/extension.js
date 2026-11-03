@@ -1,11 +1,12 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import {unzipSync} from 'fflate'
 import {afterAll, describe, expect, it} from 'vitest'
 
-// Edge Add-ons refuses a package whose manifest carries `key`, so a
-// production Edge build drops the field and says so once. A development
-// build keeps it, where the stable id is useful, and Chrome keeps it always.
+// Edge Add-ons refuses a package whose manifest carries `key`, so the store
+// zip leaves it out and says so once. dist/edge keeps it: an unpacked install
+// gets the id the key pins, which an OAuth redirect allow-list depends on.
 const roots: string[] = []
 
 afterAll(() => {
@@ -42,7 +43,8 @@ function project() {
 async function build(
   root: string,
   browser: 'chrome' | 'edge',
-  mode: 'production' | 'development'
+  mode: 'production' | 'development',
+  zip = false
 ) {
   const {extensionBuild} = await import('../command-build')
   const previous = process.env.VITEST
@@ -62,6 +64,7 @@ async function build(
       silent: false,
       install: false,
       mode,
+      zip,
       exitOnError: false
     } as any)
 
@@ -85,30 +88,54 @@ async function build(
   return {manifest, output, printed}
 }
 
+function zippedManifest(root: string, browser: 'chrome' | 'edge') {
+  const zipPath = path.join(root, 'dist', `edge-key-1.0.0-${browser}.zip`)
+  const unzipped = unzipSync(new Uint8Array(fs.readFileSync(zipPath)))
+
+  return {
+    zipPath,
+    manifest: JSON.parse(Buffer.from(unzipped['manifest.json']).toString())
+  }
+}
+
 const NOTICE = /Edge Add-ons refuses a package whose manifest carries/
 
 describe('the manifest key on an Edge build', () => {
-  it('edge production: drops the top-level key and prints the notice once', async () => {
+  it('edge production: keeps the key in dist and stays quiet', async () => {
     const built = await build(project(), 'edge', 'production')
 
-    expect(built.manifest).not.toHaveProperty('key')
-    expect(built.manifest.name).toBe('edge key')
+    expect(built.manifest.key).toBe(KEY)
+    expect(built.output).not.toMatch(NOTICE)
+  })
+
+  it('edge --zip: dist keeps the key, the zip leaves it out, one notice', async () => {
+    const root = project()
+    const built = await build(root, 'edge', 'production', true)
+    const zipped = zippedManifest(root, 'edge')
+
+    expect(built.manifest.key).toBe(KEY)
+    expect(zipped.manifest).not.toHaveProperty('key')
+    expect(zipped.manifest.name).toBe('edge key')
     expect(built.output).toMatch(NOTICE)
-    expect(built.output).toMatch(/production build dropped it/)
-    expect(built.printed.match(/production build dropped it/g)).toHaveLength(1)
-  }, 180_000)
+    expect(built.output).toContain(zipped.zipPath)
+    expect(built.output).toMatch(/dist\/edge.*keeps it/)
+    expect(built.printed.match(NOTICE)).toHaveLength(1)
+  })
 
   it('edge development: keeps the key and stays quiet', async () => {
     const built = await build(project(), 'edge', 'development')
 
     expect(built.manifest.key).toBe(KEY)
     expect(built.output).not.toMatch(NOTICE)
-  }, 180_000)
+  })
 
-  it('chrome production: keeps the key and stays quiet', async () => {
-    const built = await build(project(), 'chrome', 'production')
+  it('chrome --zip: the zip keeps the key and stays quiet', async () => {
+    const root = project()
+    const built = await build(root, 'chrome', 'production', true)
+    const zipped = zippedManifest(root, 'chrome')
 
     expect(built.manifest.key).toBe(KEY)
+    expect(zipped.manifest.key).toBe(KEY)
     expect(built.output).not.toMatch(NOTICE)
-  }, 180_000)
+  })
 })

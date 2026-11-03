@@ -861,6 +861,14 @@ export function zipArtifactReady(zipPath: string, sizeInBytes: number) {
   )
 }
 
+export function zipEdgeKeyDropped(zipPath: string) {
+  return (
+    `${prefix('warn')} Edge Add-ons refuses a package whose manifest carries ${colors.yellow('key')}, so ${colors.underline(zipPath)} leaves it out.\n` +
+    `The ${colors.yellow('dist/edge')} folder keeps it, so an unpacked install and the OAuth redirect id it pins stay stable. ` +
+    `Partner Center assigns the store id, and the zip is the package it reads.`
+  )
+}
+
 export function packagingDistributionFiles(zipPath: string) {
   return `${prefix('debug')} zip      pack=dist path=${zipPath}`
 }

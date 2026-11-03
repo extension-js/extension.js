@@ -18,6 +18,7 @@ import {parseJsonSafe} from '../lib/parse-json-safe'
 import {REMOTE_SOURCE_PROVENANCE_FILE} from '../lib/zip'
 import type {DevOptions} from '../types'
 import {recordZipArtifact, recordZipFailure} from './zip-artifacts'
+import {dropEdgeStoreKey} from './zip-edge-key'
 
 export interface ZipPluginOptions {
   manifestPath?: string
@@ -126,12 +127,16 @@ function zipEntryFor(absPath: string): Zippable[string] {
 
 function writeZipFile(
   zipPath: string,
-  entries: Array<{name: string; absPath: string}>
+  entries: Array<{name: string; absPath: string; content?: Uint8Array}>
 ): void {
   const zippable: Zippable = {}
 
   for (const entry of entries) {
-    zippable[toPosix(entry.name)] = zipEntryFor(entry.absPath)
+    const file = zipEntryFor(entry.absPath)
+
+    if (entry.content) file[0] = entry.content
+
+    zippable[toPosix(entry.name)] = file
   }
 
   fs.writeFileSync(zipPath, zipSync(zippable))
@@ -485,6 +490,10 @@ export class ZipPlugin {
               debugLine(messages.packagingDistributionFiles(distPath))
             }
 
+            const edgeKey = distManifest
+              ? dropEdgeStoreKey(distManifest, this.browser)
+              : {manifest: undefined, dropped: false}
+
             writeZipFile(
               distPath,
               // A store zip carries the extension, not its debugging aids: a
@@ -493,9 +502,21 @@ export class ZipPlugin {
                 .filter((file) => !file.endsWith('.map'))
                 .map((file) => ({
                   name: file,
-                  absPath: path.join(outPath, file)
+                  absPath: path.join(outPath, file),
+                  content:
+                    edgeKey.dropped && toPosix(file) === 'manifest.json'
+                      ? new TextEncoder().encode(
+                          `${JSON.stringify(edgeKey.manifest, null, 2)}\n`
+                        )
+                      : undefined
                 }))
             )
+
+            if (edgeKey.dropped) {
+              stats?.compilation?.warnings?.push(
+                new Error(messages.zipEdgeKeyDropped(distPath))
+              )
+            }
 
             created.push({kind: 'dist', path: distPath})
           } catch (error) {
