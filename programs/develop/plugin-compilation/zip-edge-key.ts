@@ -6,24 +6,14 @@
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import type {DevOptions, Manifest} from '../../../types'
+import type {DevOptions} from '../types'
 
-// Edge Add-ons refuses a package whose manifest carries `key` at all, with
-// "The manifest shouldn't contain the key field". Partner Center assigns the
-// id instead, so the field has no purpose in an Edge package, and a build that
-// honors it produces a zip the store will not accept.
-//
-// A user reaches that state by writing `edge:key`, or `chromium:key` which
-// reaches every Chromium target, and nothing in the build said a word about it.
-// Only `chrome:key` was already safe, since 4.1.19 made that prefix vendor
-// exact and drops it on Edge.
-//
-// The caller runs this on PRODUCTION Edge builds only. A dev build keeps the
-// key, where a stable extension id is useful and no store is involved.
-export function dropEdgeStoreKey(
-  manifest: Manifest,
+// Edge Add-ons refuses a package whose manifest carries `key` at all. The field
+// stays in dist/edge, where it pins the unpacked id. Only the store zip loses it.
+export function dropEdgeStoreKey<T extends object>(
+  manifest: T,
   browser: DevOptions['browser']
-): {manifest: Manifest; dropped: boolean} {
+): {manifest: T; dropped: boolean} {
   if (String(browser) !== 'edge') return {manifest, dropped: false}
 
   const source = manifest as Record<string, unknown>
@@ -32,5 +22,5 @@ export function dropEdgeStoreKey(
   // Only the top-level key goes. Anything else the user wrote for Edge stays.
   const {key: _key, ...rest} = source
 
-  return {manifest: rest as Manifest, dropped: true}
+  return {manifest: rest as T, dropped: true}
 }
