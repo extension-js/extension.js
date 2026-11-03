@@ -574,7 +574,7 @@ export class CDPExtensionController {
         const info = await this.cdp.getExtensionInfo(this.extensionId)
         name = info?.extensionInfo?.name
         version = info?.extensionInfo?.version
-      } catch (error) {
+      } catch {
         try {
           const manifest = readManifestInfo(this.outPath)
           name = String(manifest?.name || '') || undefined
@@ -744,7 +744,7 @@ export class CDPExtensionController {
       }
 
       return {extensionId: this.extensionId, name, version}
-    } catch (error) {
+    } catch {
       return null
     }
   }

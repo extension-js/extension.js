@@ -33,7 +33,6 @@ describe('prettyPuppeteerInstallGuidance', () => {
 
     const msg = prettyPuppeteerInstallGuidance(
       'chrome' as any,
-      'npx extension install chrome',
       '/tmp/extension.js/browsers'
     )
 
@@ -61,7 +60,6 @@ describe('prettyPuppeteerInstallGuidance', () => {
 
     const msg = prettyPuppeteerInstallGuidance(
       'chromium' as any,
-      'raw guidance (unused)',
       '/tmp/extension.js/browsers'
     )
 
@@ -83,7 +81,6 @@ describe('prettyPuppeteerInstallGuidance', () => {
 
     const msg = prettyPuppeteerInstallGuidance(
       'edge' as any,
-      'raw guidance (unused)',
       'C:\\Users\\cosmo\\AppData\\Local\\extension.js\\browsers',
       'win32'
     )
@@ -114,7 +111,6 @@ describe('prettyPuppeteerInstallGuidance', () => {
 
     const msg = prettyPuppeteerInstallGuidance(
       'edge' as any,
-      'raw guidance (unused)',
       '/tmp/extension.js/browsers',
       'darwin'
     )
@@ -132,7 +128,6 @@ describe('prettyPuppeteerInstallGuidance', () => {
 
     const msg = prettyPuppeteerInstallGuidance(
       'firefox' as any,
-      'raw guidance (unused)',
       '/tmp/extension.js/browsers'
     )
 

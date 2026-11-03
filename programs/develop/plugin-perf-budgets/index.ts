@@ -29,8 +29,6 @@ interface PerfBudgetsPluginOptions {
   // Per-category overrides (bytes). Useful for one-off projects that
   // legitimately need a bigger sidebar. Defaults live in BUDGET_BYTES.
   budgets?: PerfBudgetsConfig
-  // Output paths excused from every budget, exact or with * and ** globs.
-  ignore?: string[]
 }
 
 const CATEGORY_SET: ReadonlySet<string> = new Set(ASSET_CATEGORIES)
@@ -78,10 +76,7 @@ export class PerfBudgetsPlugin {
       }
     }
 
-    const ignored = [
-      ...(this.options.ignore || []),
-      ...(this.options.budgets?.ignore || [])
-    ]
+    const ignored = [...(this.options.budgets?.ignore || [])]
       .filter((pattern) => typeof pattern === 'string' && pattern.trim())
       .map(ignorePatternToRegExp)
 

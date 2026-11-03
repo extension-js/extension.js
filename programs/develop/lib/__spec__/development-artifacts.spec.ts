@@ -41,8 +41,9 @@ describe('removeDevelopmentArtifacts', () => {
       'content_scripts/dev-registry.json'
     ])
 
-    const removed = removeDevelopmentArtifacts(distPath)
+    const {removed, kept} = removeDevelopmentArtifacts(distPath)
 
+    expect(kept).toEqual([])
     expect(removed).toEqual([
       'extension-js-control.json',
       'hot',
@@ -84,12 +85,33 @@ describe('removeDevelopmentArtifacts', () => {
   it('reports nothing on a dist with no development artifacts', () => {
     writeTree(['manifest.json'])
 
-    expect(removeDevelopmentArtifacts(distPath)).toEqual([])
+    expect(removeDevelopmentArtifacts(distPath)).toEqual({
+      removed: [],
+      kept: []
+    })
   })
 
   it('tolerates a dist that does not exist', () => {
-    expect(removeDevelopmentArtifacts(path.join(distPath, 'missing'))).toEqual(
-      []
-    )
+    expect(removeDevelopmentArtifacts(path.join(distPath, 'missing'))).toEqual({
+      removed: [],
+      kept: []
+    })
   })
+
+  it.skipIf(process.platform === 'win32')(
+    'names every artifact it could not delete',
+    () => {
+      writeTree(['manifest.json', 'hot/x.js'])
+      fs.chmodSync(distPath, 0o555)
+
+      try {
+        expect(removeDevelopmentArtifacts(distPath)).toEqual({
+          removed: [],
+          kept: ['hot']
+        })
+      } finally {
+        fs.chmodSync(distPath, 0o755)
+      }
+    }
+  )
 })

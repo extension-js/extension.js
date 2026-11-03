@@ -216,15 +216,15 @@ export async function navigateSafariWebDriverSession(
   }
 }
 
+function asSeconds(ms: number): number {
+  return Number((ms / 1000).toFixed(1))
+}
+
 // What a session request that never answered leaves behind, read off the
 // process table: a Safari automation instance that was already up before this
 // driver spawned belongs to another session, and Safari serves one at a time.
 // Remote Automation being off is never the cause, safaridriver refuses that at
 // once in its own words.
-function asSeconds(ms: number): number {
-  return Number((ms / 1000).toFixed(1))
-}
-
 export function describeSessionTimeout(input: {
   waitedMs: number
   before: number[]

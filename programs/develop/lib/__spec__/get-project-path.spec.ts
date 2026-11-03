@@ -43,7 +43,6 @@ afterEach(() => {
 
 describe('get-project-path', () => {
   it('resolves relative path to absolute path', async () => {
-    const tmp = makeTempDir('extjs-gpp-')
     const rel = 'some/sub/dir'
     const cwd = process.cwd()
     const abs = path.resolve(cwd, rel)
