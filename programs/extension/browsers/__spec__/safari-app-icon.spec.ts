@@ -20,7 +20,7 @@ import {
   fakeSafariTools
 } from './safari-fake-tools'
 
-// A supplied app icon (ledger 356): the converter builds the macOS icon set
+// A supplied app icon: the converter builds the macOS icon set
 // from the manifest icons and sets them on a white plate, so a project whose
 // icon already is a rounded tile shipped a tile inside a tile. With appIcon the
 // set is made from that file as it is, and without it the set stays the

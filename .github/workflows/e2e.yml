@@ -56,6 +56,7 @@ jobs:
         run: bash scripts/hydrate-templates-from-examples.sh
 
       - name: Install Playwright browsers
+        timeout-minutes: 10
         # See `nightly-firefox` in programs-nightly.yml: hold the firefox
         # apt package so `--with-deps` doesn't try to upgrade it into the
         # snap transitional shim that hangs on snap-store contact for

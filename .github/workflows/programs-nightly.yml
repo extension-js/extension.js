@@ -36,6 +36,7 @@ jobs:
       - name: Hydrate templates from examples repo
         run: bash scripts/hydrate-templates-from-examples.sh
       - name: Install Playwright Chromium
+        timeout-minutes: 10
         run: npx playwright install --with-deps chromium
       - name: Run CLI Tests
         run: pnpm test:cli
@@ -93,6 +94,7 @@ jobs:
       - name: Hydrate templates from examples repo
         run: bash scripts/hydrate-templates-from-examples.sh
       - name: Install Playwright Chromium
+        timeout-minutes: 10
         run: npx playwright install --with-deps chromium
       - name: Resolve Chromium binary
         # `@playwright/test` is the workspace-root devDependency and
@@ -159,6 +161,7 @@ jobs:
       - name: Hydrate templates from examples repo
         run: bash scripts/hydrate-templates-from-examples.sh
       - name: Install Playwright Firefox
+        timeout-minutes: 10
         # On Ubuntu 24.04 (noble), the `firefox` apt package is a snap
         # transitional shim. `playwright install --with-deps firefox`
         # ends up upgrading that shim, which triggers `Installing the
@@ -361,6 +364,7 @@ jobs:
           pnpm --filter extension compile
 
       - name: Install Playwright Chromium
+        timeout-minutes: 10
         if: matrix.browser == 'chromium'
         run: npx playwright install --with-deps chromium
 
@@ -370,6 +374,7 @@ jobs:
       # only runtime libraries, and Playwright's own Firefox comes from its CDN.
       # The nightly-firefox job above carries the same guard for the same reason.
       - name: Install Playwright Firefox
+        timeout-minutes: 10
         if: matrix.browser == 'firefox'
         run: |
           sudo apt-mark hold firefox
