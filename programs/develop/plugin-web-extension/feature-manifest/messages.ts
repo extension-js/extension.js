@@ -7,7 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import colors from 'pintor'
-import {type Channel, prefix} from '../../lib/messaging'
+import {prefix} from '../../lib/messaging'
 
 export function serverRestartRequiredFromManifestError(
   fileAdded: string,

@@ -121,6 +121,11 @@ import {
   spawnFirefoxProcess
 } from './wsl-support'
 
+const DRY_RUN_NO_BROWSER =
+  'a dry run prints the Firefox launch plan and starts no browser'
+const TEST_RUNNER_NO_BROWSER =
+  'the test runner prints the Firefox launch plan and starts no browser'
+
 type LaunchOptions = {
   browser: BrowserType
   mode: 'development' | 'production' | 'none'
@@ -274,13 +279,13 @@ export class FirefoxLaunchPlugin {
 
   // A dry run starts no Firefox, so there is no debugger port to wait for and
   // the contract says so instead of holding a dev session at starting.
-  private stampNoBrowserLaunched() {
+  private stampNoBrowserLaunched(reason: string) {
     const outputPath =
       this.extensionOutputPath ?? this.resolveExtensionOutputPath()
 
     stampReadyRdpPortError(
       outputPath,
-      'a dry run prints the Firefox launch plan and starts no browser',
+      reason,
       this.launchRunId ?? readReadyRunId(outputPath)
     )
   }
@@ -480,7 +485,7 @@ export class FirefoxLaunchPlugin {
     // placeholder when there is no pin to find inside the test runner.
     if (inTestRunner && !dryRun) {
       logFirefoxDryRun('firefox-mock-binary', [])
-      this.stampNoBrowserLaunched()
+      this.stampNoBrowserLaunched(TEST_RUNNER_NO_BROWSER)
 
       return
     }
@@ -497,7 +502,7 @@ export class FirefoxLaunchPlugin {
           : 'firefox-mock-binary'
       )
 
-      this.stampNoBrowserLaunched()
+      this.stampNoBrowserLaunched(DRY_RUN_NO_BROWSER)
 
       return
     }
@@ -726,7 +731,7 @@ export class FirefoxLaunchPlugin {
 
     if (dryRun) {
       logFirefoxDryRun(plan.binary, plan.args)
-      this.stampNoBrowserLaunched()
+      this.stampNoBrowserLaunched(DRY_RUN_NO_BROWSER)
 
       return
     }
@@ -1239,7 +1244,6 @@ export class FirefoxLaunchPlugin {
       const displayCacheDir = computeBinariesBaseDir(compilation)
       const pretty = messages.prettyPuppeteerInstallGuidance(
         this.host.browser || 'firefox',
-        raw,
         displayCacheDir
       )
       humanError(pretty)

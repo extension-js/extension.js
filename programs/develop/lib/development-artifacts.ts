@@ -45,7 +45,10 @@ function devContentScriptStandIns(distPath: string): string[] {
     .sort()
 }
 
-export function removeDevelopmentArtifacts(distPath: string): string[] {
+export function removeDevelopmentArtifacts(distPath: string): {
+  removed: string[]
+  kept: string[]
+} {
   const candidates = [
     CONTROL_PORT_ASSET_NAME,
     DEV_HOT_UPDATES_DIR,
@@ -53,6 +56,7 @@ export function removeDevelopmentArtifacts(distPath: string): string[] {
     ...devContentScriptStandIns(distPath)
   ]
   const removed: string[] = []
+  const kept: string[] = []
 
   for (const relative of candidates) {
     const target = path.join(distPath, relative)
@@ -62,8 +66,10 @@ export function removeDevelopmentArtifacts(distPath: string): string[] {
     try {
       fs.rmSync(target, {recursive: true, force: true})
       removed.push(relative)
-    } catch {}
+    } catch {
+      kept.push(relative)
+    }
   }
 
-  return removed
+  return {removed, kept}
 }

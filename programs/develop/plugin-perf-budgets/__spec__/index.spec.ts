@@ -543,7 +543,7 @@ describe('PerfBudgetsPlugin', () => {
 
   it('ignores only the named asset, so an oversize page still warns', () => {
     const compilation = applyAndRun(
-      new PerfBudgetsPlugin({ignore: [ORT_WASM]}),
+      new PerfBudgetsPlugin({budgets: {ignore: [ORT_WASM]}}),
       'production',
       {[ORT_WASM]: 26 * 1000 * 1000, 'pages/engine.js': 1500 * 1024},
       [],

@@ -160,7 +160,7 @@ const isUrl = (url: string) => {
     new URL(url)
 
     return true
-  } catch (e) {
+  } catch {
     return false
   }
 }

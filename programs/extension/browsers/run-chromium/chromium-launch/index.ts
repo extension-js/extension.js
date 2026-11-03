@@ -1748,7 +1748,6 @@ export class ChromiumLaunchPlugin {
         binariesResolver.computeBinariesBaseDir(compilation)
       const pretty = messages.prettyPuppeteerInstallGuidance(
         browserName || this.options.browser,
-        raw,
         displayCacheDir
       )
       humanError(pretty)
@@ -1756,7 +1755,6 @@ export class ChromiumLaunchPlugin {
       try {
         const pretty = messages.prettyPuppeteerInstallGuidance(
           browserName || this.options.browser,
-          raw,
           ''
         )
         humanError(pretty)
