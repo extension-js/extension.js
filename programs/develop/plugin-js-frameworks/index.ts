@@ -22,6 +22,7 @@ import {scriptsFolderRoot} from '../plugin-special-folders/folders-config'
 import {getSpecialFoldersDataForCompiler} from '../plugin-special-folders/get-data'
 import {getAssetsFromHtml} from '../plugin-web-extension/feature-html/html-lib/utils'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../plugin-web-extension/feature-scripts/contracts'
+import {htmlPageEntries} from '../plugin-web-extension/shared/html-page-entries'
 import {getResolvedManifestFieldsData} from '../plugin-web-extension/shared/manifest-fields'
 import type {DevOptions, Manifest, PluginInterface} from '../types'
 import {
@@ -325,14 +326,22 @@ export class JsFrameworksPlugin {
         )
       }
 
-      const htmlPages: Record<string, unknown> = {
-        ...getResolvedManifestFieldsData({
-          manifestPath: this.manifestPath,
-          browser: this.browser,
-          projectPath: compiler.options?.context as string | undefined
-        }).html,
-        ...getSpecialFoldersDataForCompiler(compiler).pages
-      }
+      // The same page list the HTML plugin compiles, so a module script on a
+      // page only a script opens at runtime is marked ESM like a manifest one.
+      const manifestFieldsData = getResolvedManifestFieldsData({
+        manifestPath: this.manifestPath,
+        browser: this.browser,
+        projectPath
+      })
+      const htmlPages: Record<string, unknown> = htmlPageEntries({
+        manifestPath: this.manifestPath,
+        browser: this.browser,
+        projectPath,
+        mode: compiler.options?.mode,
+        manifestHtml: manifestFieldsData.html,
+        manifestScripts: manifestFieldsData.scripts,
+        specialFolderPages: getSpecialFoldersDataForCompiler(compiler).pages
+      })
 
       for (const htmlPage of Object.values(htmlPages)) {
         if (typeof htmlPage !== 'string') continue
