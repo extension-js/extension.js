@@ -100,7 +100,6 @@ function run(args: string[]) {
       }
       delete env.EXTENSION_DEV_TOKEN
       delete env.EXTENSION_DEV_API_URL
-      delete env.EXTENSION_DEV_DOCS_URL
       const child = spawn(
         process.execPath,
         [cliBin(), 'publish', projectDir, '--api', api, ...args],

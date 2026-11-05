@@ -26,28 +26,6 @@ async function pathExists(target: string): Promise<boolean> {
   }
 }
 
-// The docs host for the share and store flow comes from the environment, so
-// an unset value writes no section at all.
-function platformDocsUrl(): string {
-  return String(process.env.EXTENSION_DEV_DOCS_URL || '')
-    .trim()
-    .replace(/\/+$/, '')
-}
-
-function shipItSection(): string {
-  const docs = platformDocsUrl()
-  if (!docs) return ''
-
-  return (
-    `\n` +
-    `## Ship it\n` +
-    `\n` +
-    `Building and running your extension is local and free. When you are ready ` +
-    `to share a build or submit it to the stores, see the ` +
-    `[publish overview](${docs}/publish/overview?utm_source=create-readme).\n`
-  )
-}
-
 export async function writeReadmeFile(
   projectPath: string,
   projectName: string,
@@ -124,8 +102,7 @@ export async function writeReadmeFile(
     `\n` +
     `## Learn more\n` +
     `\n` +
-    `[Extension.js docs](https://extension.js.org).\n` +
-    shipItSection()
+    `[Extension.js docs](https://extension.js.org).\n`
 
   try {
     if (isDebug()) logger.log(messages.writingReadmeMetaData())

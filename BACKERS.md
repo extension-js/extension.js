@@ -7,11 +7,6 @@ Placement on this page, on [extension.js.org](https://extension.js.org/docs/hall
 and in the README follows the published sponsorship tiers. Recurring sponsorships earn
 placement. One-time gifts are thanked here under Backers.
 
-## Partner
-
-Extension.js is built by the team behind [extension.dev](https://extension.dev/?utm_medium=sponsor&utm_source=extensionjs),
-the platform that hosts the build, share and store submission side of shipping an extension.
-
 ## Platinum sponsors
 
 _This tier is open._

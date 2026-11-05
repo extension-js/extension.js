@@ -402,14 +402,6 @@ export function operaBuildUnminified() {
   )
 }
 
-// The docs host for the share flow comes from the environment, so an unset
-// value prints nothing instead of a dead link.
-function platformDocsUrl(): string {
-  return String(process.env.EXTENSION_DEV_DOCS_URL || '')
-    .trim()
-    .replace(/\/+$/, '')
-}
-
 function pluralize(count: number, noun: string) {
   return `${count} ${noun}${count === 1 ? '' : 's'}`
 }
@@ -502,18 +494,6 @@ export function addonLintFailed(reason: string, distDisplay: string) {
 
 export function addonLintFailedDebug(reason: string) {
   return `${getLoggingPrefix('debug')} addon-lint failed=true reason="${reason}"`
-}
-
-export function buildShareHint() {
-  const docs = platformDocsUrl()
-  if (!docs) return ''
-
-  return (
-    `${getLoggingPrefix('info')} Send this build to someone for review: ` +
-    colors.underline(
-      `${docs}/share/unpublished-build-for-review?utm_source=cli-build`
-    )
-  )
 }
 
 export function buildFailed(errorCount: number) {
