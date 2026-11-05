@@ -1085,10 +1085,12 @@ export function safariToolchainMissing(tool: string) {
   )
 }
 
+// The line after this one names the project the converter wrote, also as a
+// path, so this one says which folder it read.
 export function safariConverting(extensionDir: string) {
   return (
     `${getLoggingPrefix('info')} Converting the web extension into a Safari app project…\n` +
-    `${colors.gray('PATH')} ${colors.underline(extensionDir)}`
+    `${colors.gray('FROM')} ${colors.underline(extensionDir)}`
   )
 }
 
@@ -1130,6 +1132,57 @@ export function safariBuilt(appPath: string) {
   return (
     `${getLoggingPrefix('success')} Built the Safari app.\n` +
     `${colors.gray('PATH')} ${colors.underline(appPath)}`
+  )
+}
+
+export interface SafariAppIdentity {
+  bundleId: string
+  bundleIdDerived: boolean
+  version: string
+  // What codesign read off the built app, not what the configuration asked.
+  signed: boolean
+  team: string | null
+  requestedTeam?: string
+  xcodeProjectPath: string
+}
+
+function safariSigningLine(identity: SafariAppIdentity) {
+  if (identity.signed) {
+    const team = identity.team
+      ? `team ${colors.yellow(identity.team)}`
+      : 'a team'
+
+    return `signed with ${team}, so Safari loads it with no developer toggle`
+  }
+
+  const toggle = `Safari ▸ Settings ▸ Developer ▸ Allow unsigned extensions must be on`
+  const requested = String(identity.requestedTeam || '').trim()
+
+  if (requested) {
+    return `ad-hoc although ${colors.blue('developmentTeam')} ${colors.yellow(requested)} was set, so ${toggle}`
+  }
+
+  return `ad-hoc, so ${toggle} (pass ${colors.blue('--development-team')} to sign)`
+}
+
+// One block after "Built the Safari app.": the facts build-summary.json
+// records, said to the person who has to write them into a README or a store
+// listing. Every value is read, none is guessed: the id and version from the
+// configuration, the signing from codesign.
+export function safariAppIdentity(identity: SafariAppIdentity) {
+  const label = (text: string) => colors.gray(text.padEnd(20))
+  const bundleIdLine = identity.bundleIdDerived
+    ? `${colors.yellow(identity.bundleId)} (generated from the app name, set ${colors.blue('browser.safari.bundleId')} or ${colors.blue('--bundle-id')} to own it)`
+    : `${colors.yellow(identity.bundleId)} (yours, set in extension.config.js or by flag)`
+
+  return (
+    `${getLoggingPrefix('info')} Safari app identity\n` +
+    `  ${label('App bundle id')} ${bundleIdLine}\n` +
+    `  ${label('Extension bundle id')} ${colors.yellow(`${identity.bundleId}.Extension`)}\n` +
+    `  ${label('Version')} ${colors.yellow(identity.version)} (build ${identity.version}), from the manifest version. ` +
+    `App Store Connect wants a new build number per upload, so bump the manifest version before the next archive.\n` +
+    `  ${label('Signing')} ${safariSigningLine(identity)}\n` +
+    `  ${label('Xcode project')} ${colors.underline(identity.xcodeProjectPath)}`
   )
 }
 

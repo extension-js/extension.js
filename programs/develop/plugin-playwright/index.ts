@@ -394,8 +394,27 @@ export function stampReadyKnownExtensionId(
   stampReadyExtensionIdFrom(packageJsonDir, browser, extensionId, 'packager')
 }
 
-// Candidates in preference order. The loaded directory describes the run, so a
-// stale dist is reported as what the browser took, not as the unbuilt source.
+// Which manifest names the run. A dev session and a preview load the dist as it
+// is, so a stale dist is reported as what the browser took, not as the unbuilt
+// source. A one-shot compile (build, start) writes to a staging folder and
+// promotes it after this writer opens, so the dist on disk at that moment is
+// the previous build's; the source manifest is what the compile is turning
+// into the product, and its name and version are the ones the receipt owes.
+function manifestProvenanceCandidates(
+  command: PlaywrightAutomationCommand,
+  distPath: string | undefined,
+  manifestPath: string | undefined
+): Array<string | undefined> {
+  const distManifest = distPath
+    ? path.join(distPath, 'manifest.json')
+    : undefined
+
+  return command === 'dev' || command === 'preview'
+    ? [distManifest, manifestPath]
+    : [manifestPath, distManifest]
+}
+
+// Candidates in preference order, see manifestProvenanceCandidates.
 function readManifestProvenance(...manifestPaths: Array<string | undefined>): {
   extensionName?: string
   extensionVersion?: string
@@ -641,10 +660,11 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     logsPath: options.logsPath,
     toolchainVersion: packageJson.version,
     ...readManifestProvenance(
-      options.distPath
-        ? path.join(options.distPath, 'manifest.json')
-        : undefined,
-      options.manifestPath
+      ...manifestProvenanceCandidates(
+        options.command,
+        options.distPath,
+        options.manifestPath
+      )
     ),
     ...(isEmulatorBrowser(options.browser)
       ? {engine: 'emulator' as const, browserPid: null}

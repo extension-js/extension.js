@@ -9,6 +9,7 @@ const base: SafariBuildConfig = {
   appName: 'my-ext',
   bundleIdentifier: 'dev.extensionjs.my-ext',
   bundleIdDerived: true,
+  appVersion: '0.2.0',
   macOsOnly: true,
   language: 'swift',
   open: true
@@ -39,6 +40,14 @@ describe('safari xcodebuild signing', () => {
       const args = composeXcodebuildArgs({...base, developmentTeam: team})
       expect(args).toContain('CODE_SIGN_IDENTITY=-')
       expect(args.some((a) => a.startsWith('DEVELOPMENT_TEAM='))).toBe(false)
+    }
+  })
+
+  it('stamps the manifest version as both Xcode versions in both modes', () => {
+    for (const cfg of [base, {...base, developmentTeam: 'JU3XAJJQ2G'}]) {
+      const args = composeXcodebuildArgs(cfg)
+      expect(args).toContain('MARKETING_VERSION=0.2.0')
+      expect(args).toContain('CURRENT_PROJECT_VERSION=0.2.0')
     }
   })
 
@@ -96,6 +105,42 @@ describe('safari enabling hints name the Settings ▸ Developer toggle Safari 27
     expect(messages.safariNextSteps('My App', true)).toMatch(
       /no developer toggle/
     )
+  })
+
+  it('the identity block says what signed the app and whether Safari needs the toggle', () => {
+    const identity = {
+      bundleId: 'com.example.mine',
+      bundleIdDerived: false,
+      version: '0.2.0',
+      xcodeProjectPath: '/tmp/proj/dist/safari-xcode/My App/My App.xcodeproj'
+    }
+
+    const signed = messages.safariAppIdentity({
+      ...identity,
+      signed: true,
+      team: 'JU3XAJJQ2G'
+    })
+    expect(signed).toMatch(/signed with team .*JU3XAJJQ2G/)
+    expect(signed).toMatch(/no developer toggle/)
+    expect(signed).not.toMatch(/ad-hoc/)
+
+    const adHoc = messages.safariAppIdentity({
+      ...identity,
+      signed: false,
+      team: null
+    })
+    expect(adHoc).toMatch(/ad-hoc, so/)
+    expect(adHoc).toMatch(/Settings ▸ Developer ▸ Allow unsigned extensions/)
+    expect(adHoc).toMatch(/--development-team/)
+
+    const refused = messages.safariAppIdentity({
+      ...identity,
+      signed: false,
+      team: null,
+      requestedTeam: 'JU3XAJJQ2G'
+    })
+    expect(refused).toMatch(/ad-hoc although .*developmentTeam.* JU3XAJJQ2G/)
+    expect(refused).toMatch(/Allow unsigned extensions/)
   })
 
   // Measured on Safari 27.0: storage.local written under one ad-hoc cdhash

@@ -39,6 +39,22 @@ export function isValidBundleId(value: string): boolean {
   return /^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*$/.test(value)
 }
 
+// Apple's converter writes 1.0 (1) into every project it makes, whatever the
+// manifest says, so Finder, the About box, Safari's extension list and an
+// App Store Connect upload all read 1.0 for a 0.2.0 extension. Both Xcode
+// versions follow the manifest instead: CFBundleShortVersionString and
+// CFBundleVersion take up to three period-separated integers, which is the
+// shape a manifest version already has, so the first three components are
+// stamped as both. A fourth component is dropped, and a version that is not
+// numeric keeps the converter's 1.0.
+export const CONVERTER_APP_VERSION = '1.0'
+
+export function xcodeAppVersion(manifestVersion: unknown): string {
+  const found = /^\d+(\.\d+){0,2}/.exec(String(manifestVersion ?? '').trim())
+
+  return found ? found[0] : CONVERTER_APP_VERSION
+}
+
 function readManifest(extensionDir: string): Record<string, unknown> {
   try {
     const manifestPath = path.join(extensionDir, 'manifest.json')
@@ -78,6 +94,7 @@ export function resolveSafariBuildConfig(
     appName,
     bundleIdentifier,
     bundleIdDerived,
+    appVersion: xcodeAppVersion(manifest?.version),
     macOsOnly: host.macOsOnly !== false,
     language: 'swift',
     // --no-open means open nothing at all: no app raise here, and the dev
@@ -146,7 +163,12 @@ export function composeXcodebuildArgs(config: SafariBuildConfig): string[] {
     '-configuration',
     'Release',
     '-derivedDataPath',
-    derivedDataPath(config)
+    derivedDataPath(config),
+    // The project file carries the same two values (alignProjectVersion), and
+    // passing them here as well makes the build fingerprint move on a version
+    // bump, so a reused project still gets a rebuilt app with the new number.
+    `MARKETING_VERSION=${config.appVersion}`,
+    `CURRENT_PROJECT_VERSION=${config.appVersion}`
   ]
 
   // Measured on Safari 26: an ad-hoc app runs only while unsigned extensions
@@ -398,6 +420,24 @@ export function alignBundleIdentifiers(
         ? `PRODUCT_BUNDLE_IDENTIFIER = "${bundleId}.Extension";`
         : `PRODUCT_BUNDLE_IDENTIFIER = "${bundleId}";`
   )
+}
+
+// The converter stamps MARKETING_VERSION = 1.0 and CURRENT_PROJECT_VERSION = 1
+// on every target. Rewrite each occurrence to the manifest version so the app,
+// the appex and a hand archive in Xcode all carry the number the manifest has.
+export function alignProjectVersion(
+  pbxprojContent: string,
+  appVersion: string
+): string {
+  return pbxprojContent
+    .replace(
+      /MARKETING_VERSION = ("?)[^;"]*\1;/g,
+      `MARKETING_VERSION = ${appVersion};`
+    )
+    .replace(
+      /CURRENT_PROJECT_VERSION = ("?)[^;"]*\1;/g,
+      `CURRENT_PROJECT_VERSION = ${appVersion};`
+    )
 }
 
 export const PRESERVED_SETTINGS = [
