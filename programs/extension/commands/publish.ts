@@ -31,19 +31,6 @@ const NO_TOKEN_REMEDY =
 const NO_API_REMEDY =
   'Publishing needs a platform URL. Pass --api or set EXTENSION_DEV_API_URL.'
 
-function platformDocsUrl(): string {
-  return String(process.env.EXTENSION_DEV_DOCS_URL || '')
-    .trim()
-    .replace(/\/+$/, '')
-}
-
-// The token page on the platform docs, or nothing when no docs host is set.
-export function publishDocsHint(): string {
-  const docs = platformDocsUrl()
-
-  return docs ? `Get a token: ${docs}/tools/publish` : ''
-}
-
 // Where the platform MCP login stores the device login. This mirrors the
 // MCP's credentialsPath so both surfaces read the same file.
 function storedLoginPath(): string {
@@ -261,14 +248,10 @@ export function buildPublishPlan(opts: PublishInput): {
       : 'stored-login'
 
   if (!token) {
-    const docsHint = publishDocsHint()
-
     throw new PublishPlanError(
-      'No token. Publishing needs a platform access token.\n' +
-        (docsHint ? `${docsHint}\n` : '') +
-        NO_TOKEN_REMEDY,
+      'No token. Publishing needs a platform access token.\n' + NO_TOKEN_REMEDY,
       CODES.E_AUTH_REQUIRED,
-      `${docsHint ? `${docsHint}. ` : ''}${NO_TOKEN_REMEDY}`
+      NO_TOKEN_REMEDY
     )
   }
 

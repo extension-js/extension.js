@@ -20,7 +20,6 @@ beforeEach(() => {
   process.env.XDG_CONFIG_HOME = configDir
   process.env.APPDATA = configDir
   delete process.env.EXTENSION_DEV_TOKEN
-  delete process.env.EXTENSION_DEV_DOCS_URL
   process.env.EXTENSION_DEV_API_URL = API
 })
 
@@ -43,15 +42,6 @@ describe('buildPublishRequest', () => {
   it('throws a helpful error when no token is set', () => {
     delete process.env.EXTENSION_DEV_TOKEN
     expect(() => buildPublishRequest({})).toThrow(/EXTENSION_DEV_TOKEN/)
-  })
-
-  it('names the docs token page only when a docs host is configured', () => {
-    delete process.env.EXTENSION_DEV_TOKEN
-    expect(() => buildPublishRequest({})).not.toThrow(/Get a token/)
-    process.env.EXTENSION_DEV_DOCS_URL = 'https://docs.platform.test/'
-    expect(() => buildPublishRequest({})).toThrow(
-      /Get a token: https:\/\/docs\.platform\.test\/tools\/publish/
-    )
   })
 
   it('refuses with the API remedy when no platform URL is configured', () => {

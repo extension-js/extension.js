@@ -25,7 +25,7 @@ Works with `npm`, `pnpm`, `yarn`, `bun`, and `deno`.
 
 The CLI itself runs on Node.js 22.12+, Deno 2.5+, and Bun 1.2+.
 
-[Documentation](https://extension.js.org/docs) · [Templates](https://templates.extension.dev/?utm_source=readme&utm_campaign=nav-templates) · [YouTube](https://www.youtube.com/@BrowserExtension) · [Showcase](https://extension.js.org/showcase) · [Blog](https://extension.js.org/blog)
+[Documentation](https://extension.js.org/docs) · [Examples](https://github.com/extension-js/examples) · [YouTube](https://www.youtube.com/@BrowserExtension) · [Showcase](https://extension.js.org/showcase) · [Blog](https://extension.js.org/blog)
 
 ## Why Extension.js
 
@@ -43,8 +43,6 @@ Browser extensions ship with the worst dev experience in modern web. Manifest V3
 
 [![One command, and the extension is running in a real browser](https://media.extension.land/video/extension-js/sixty-second-demo.gif)](https://extension.js.org/docs)
 
-Or skip the install and try a [live template](https://templates.extension.dev) in your browser.
-
 ## How is this different
 
 If you have used [Plasmo](https://www.plasmo.com), [WXT](https://wxt.dev), or [CRXJS](https://crxjs.dev), here is what Extension.js does that the others do not:
@@ -55,10 +53,8 @@ If you have used [Plasmo](https://www.plasmo.com), [WXT](https://wxt.dev), or [C
 | Managed browser binaries | `extension install firefox` downloads an isolated build |
 | Targeted content-script reload across browsers | Built in, only the changed entries re-inject, no plugin glue |
 | Production zip for the stores | `extension build --zip` |
-| Framework agnostic | [Vanilla](https://templates.extension.dev/javascript), [TS](https://templates.extension.dev/typescript), [React](https://templates.extension.dev/react), [Vue](https://templates.extension.dev/vue), [Svelte](https://templates.extension.dev/svelte), [Preact](https://templates.extension.dev/preact), no lock-in |
+| Framework agnostic | [Vanilla](https://github.com/extension-js/examples/tree/main/examples/javascript), [TS](https://github.com/extension-js/examples/tree/main/examples/typescript), [React](https://github.com/extension-js/examples/tree/main/examples/react), [Vue](https://github.com/extension-js/examples/tree/main/examples/vue), [Svelte](https://github.com/extension-js/examples/tree/main/examples/svelte), [Preact](https://github.com/extension-js/examples/tree/main/examples/preact), no lock-in |
 | Custom Chromium and Gecko binaries | `--chromium-binary`, `--gecko-binary` |
-
-Extension.js is sponsored by [extension.dev](https://docs.extension.dev/?utm_source=readme), the platform that hosts the build, share and store submission side of shipping an extension. To hand someone an unpublished build behind a link, with no zip and no install on their side, see [Share an unpublished build for review](https://docs.extension.dev/share/unpublished-build-for-review?utm_source=readme).
 
 ## Frameworks
 
@@ -66,7 +62,7 @@ Extension.js is sponsored by [extension.dev](https://docs.extension.dev/?utm_sou
 
 | <img alt="ESNext" src="https://github.com/cezaraugusto/extension.js/assets/4672033/a9e2541a-96f0-4caa-9fc9-5fc5c3e901c8" width="70"> | <img alt="TypeScript" src="https://github.com/cezaraugusto/extension.js/assets/4672033/b42c5330-9e2a-4045-99c3-1f7d264dfaf4" width="70"> | <img alt="WASM" src="https://github.com/cezaraugusto/extension.js/assets/4672033/f19edff3-9005-4f50-b05c-fba615896a7f" width="70"> | <img alt="React" src="https://github.com/cezaraugusto/extension.js/assets/4672033/ff64721d-d145-4213-930d-e70193f8d57e" width="70"> | <img alt="Vue" src="https://github.com/cezaraugusto/extension.js/assets/4672033/15f1314a-aa65-4ce2-a3f3-cf53c4f730cf" width="70"> | <img alt="Svelte" src="https://github.com/cezaraugusto/extension.js/assets/4672033/de1082fd-7cf6-4202-8c12-a5c3cd3e5b42" width="70"> | <img alt="Preact" src="https://github.com/cezaraugusto/extension.js/assets/4672033/8807efd9-93e5-4db5-a1d2-9ac524f7ecc2" width="70"> |
 | :-: | :-: | :-: | :-: | :-: | :-: | :-: |
-| ESNext<br>[Try out](https://templates.extension.dev/javascript) | TypeScript<br>[Try out](https://templates.extension.dev/typescript) | WASM<br>[Try out](https://github.com/extension-js/examples/tree/main/examples/transformers-js) | React<br>[Try out](https://templates.extension.dev/react) | Vue<br>[Try out](https://templates.extension.dev/vue) | Svelte<br>[Try out](https://templates.extension.dev/svelte) | Preact<br>[Try out](https://templates.extension.dev/preact) |
+| ESNext<br>[Try out](https://github.com/extension-js/examples/tree/main/examples/javascript) | TypeScript<br>[Try out](https://github.com/extension-js/examples/tree/main/examples/typescript) | WASM<br>[Try out](https://github.com/extension-js/examples/tree/main/examples/transformers-js) | React<br>[Try out](https://github.com/extension-js/examples/tree/main/examples/react) | Vue<br>[Try out](https://github.com/extension-js/examples/tree/main/examples/vue) | Svelte<br>[Try out](https://github.com/extension-js/examples/tree/main/examples/svelte) | Preact<br>[Try out](https://github.com/extension-js/examples/tree/main/examples/preact) |
 
 </div>
 
@@ -206,15 +202,6 @@ Which runtime the CLI then executes on is a separate question, answered below.
 Sponsors help the project ship faster releases, better developer experience, and long-term reliability for extension teams.
 
 <div align="center">
-  <p>
-    <a href="https://extension.dev/?utm_medium=sponsor&utm_source=extensionjs" target="_blank" rel="noopener noreferrer">
-      <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="https://extension.js.org/images/sponsors/extensiondev_dark.svg" />
-        <source media="(prefers-color-scheme: light)" srcset="https://extension.js.org/images/sponsors/extensiondev.svg" />
-        <img src="https://extension.js.org/images/sponsors/extensiondev.svg" width="220" alt="extension.dev" />
-      </picture>
-    </a>
-  </p>
   <p>
     <a href="https://github.com/sponsors/cezaraugusto">Become a sponsor</a>
   </p>

@@ -720,9 +720,6 @@ export async function extensionBuild(
             return
           }
 
-          const shareHint = messages.buildShareHint()
-          if (shareHint) humanLine(shareHint)
-
           resolve()
         } else {
           // A failed compile keeps the last-good dist: nothing was written to

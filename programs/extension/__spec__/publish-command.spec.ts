@@ -21,7 +21,6 @@ beforeEach(() => {
   configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-publish-cmd-'))
   process.env.XDG_CONFIG_HOME = configDir
   process.env.APPDATA = configDir
-  delete process.env.EXTENSION_DEV_DOCS_URL
   process.env.EXTENSION_DEV_API_URL = 'https://platform.test'
 })
 
@@ -52,15 +51,6 @@ describe('extension publish', () => {
     expect(String(errorSpy.mock.calls[0][0])).toContain('EXTENSION_DEV_TOKEN')
     expect(String(errorSpy.mock.calls[0][0])).not.toContain('Get a token')
     expect(fetchMock).not.toHaveBeenCalled()
-  })
-
-  it('names the docs token page in the refusal when a docs host is configured', async () => {
-    delete process.env.EXTENSION_DEV_TOKEN
-    process.env.EXTENSION_DEV_DOCS_URL = 'https://docs.platform.test'
-    expect(await run(['publish'])).toBe(1)
-    expect(String(errorSpy.mock.calls[0][0])).toContain(
-      'https://docs.platform.test/tools/publish'
-    )
   })
 
   it('names the platform login in the no-token refusal', async () => {

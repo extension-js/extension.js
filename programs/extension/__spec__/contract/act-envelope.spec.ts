@@ -16,7 +16,6 @@ const schema = JSON.parse(
 
 // Every path the MCP takes over an act frame, read out of its source rather
 // than guessed. Each row is <what it reads> -> <where it reads it>.
-// extension-dev/packages/public-extensiondev-mcp/src/...
 const MCP_TOP_LEVEL_READS = [
   {key: 'ok', site: 'lib/act.ts:65,92 · lib/bridge-tabs.ts:40,122,178'},
   {key: 'value', site: 'lib/bridge-tabs.ts:43,45,178 · tools/eval.ts:88'},
