@@ -44,7 +44,8 @@ export const START_BUILD_DEFAULTS = {
 
 export const CONCAT_ARRAY_KEYS = new Set([
   'browserFlags',
-  'excludeBrowserFlags'
+  'excludeBrowserFlags',
+  'exclude'
 ])
 
 export const DEEP_MERGE_OBJECT_KEYS = new Set([

@@ -6,8 +6,15 @@
 //  ╚══╝╚══╝ ╚══════╝╚═════╝       ╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝╚═╝  ╚═══╝╚══════╝╚═╝ ╚═════╝ ╚═╝  ╚═══╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
+import {
+  excludedFiles,
+  isExcludedEntry,
+  omitExcludedEntries
+} from '../plugin-special-folders/folders-config'
 import {getSpecialFoldersDataForCompiler} from '../plugin-special-folders/get-data'
+import * as specialFoldersMessages from '../plugin-special-folders/messages'
 import type {DevOptions, FilepathList, PluginInterface} from '../types'
 import {HtmlPlugin} from './feature-html'
 import {IconsPlugin} from './feature-icons'
@@ -18,6 +25,7 @@ import {LocalesPlugin} from './feature-locales'
 import {ManifestPlugin} from './feature-manifest'
 import {ScriptsPlugin} from './feature-scripts'
 import {WebResourcesPlugin} from './feature-web-resources'
+import {reportToCompilation} from './shared/compilation-issues'
 import {htmlPageEntries} from './shared/html-page-entries'
 import {getResolvedManifestFieldsData} from './shared/manifest-fields'
 import {ManifestFieldsChangeDetector} from './shared/manifest-fields-change-detector'
@@ -53,6 +61,43 @@ export class WebExtensionPlugin {
 
     const specialFoldersData = getSpecialFoldersDataForCompiler(compiler)
 
+    // A file the `exclude` config leaves out of this browser's build gets no
+    // entry anywhere, and a manifest field that still names it is an error:
+    // the field would point at a file the output does not hold.
+    const excluded = excludedFiles(projectPath)
+    const forThisBuild = (list: FilepathList): FilepathList =>
+      omitExcludedEntries(list, excluded)
+    const manifestNamesExcluded = Object.values({
+      ...manifestFieldsData.html,
+      ...manifestFieldsData.scripts
+    })
+      .flatMap((value) => (Array.isArray(value) ? value : value ? [value] : []))
+      .map(String)
+      .filter((file) => isExcludedEntry(file, excluded))
+
+    if (manifestNamesExcluded.length > 0) {
+      compiler.hooks.thisCompilation.tap(
+        WebExtensionPlugin.name,
+        (compilation) => {
+          for (const file of manifestNamesExcluded) {
+            reportToCompilation(
+              compilation,
+              compiler,
+              specialFoldersMessages.manifestNamesExcludedFile(
+                path
+                  .relative(projectPath || path.dirname(manifestPath), file)
+                  .split(path.sep)
+                  .join('/'),
+                String(this.browser)
+              ),
+              'error',
+              'manifest.json'
+            )
+          }
+        }
+      )
+    }
+
     new ManifestPlugin({
       browser: this.browser,
       devSession: this.devSession,
@@ -69,15 +114,17 @@ export class WebExtensionPlugin {
       devSession: this.devSession,
       manifestPath,
       browser: this.browser,
-      includeList: htmlPageEntries({
-        manifestPath,
-        browser: this.browser,
-        projectPath,
-        mode: compiler.options.mode,
-        manifestHtml: manifestFieldsData.html,
-        manifestScripts: manifestFieldsData.scripts,
-        specialFolderPages: specialFoldersData.pages
-      })
+      includeList: forThisBuild(
+        htmlPageEntries({
+          manifestPath,
+          browser: this.browser,
+          projectPath,
+          mode: compiler.options.mode,
+          manifestHtml: manifestFieldsData.html,
+          manifestScripts: manifestFieldsData.scripts,
+          specialFolderPages: specialFoldersData.pages
+        })
+      )
     }).apply(compiler)
 
     new ScriptsPlugin({
@@ -85,7 +132,7 @@ export class WebExtensionPlugin {
       browser: this.browser,
       devSession: this.devSession,
       define: this.define,
-      includeList: {
+      includeList: forThisBuild({
         ...manifestFieldsData.scripts,
         ...specialFoldersData.scripts,
         ...themeExperimentStylesheetEntries(
@@ -93,7 +140,7 @@ export class WebExtensionPlugin {
           this.browser,
           projectPath
         )
-      }
+      })
     }).apply(compiler)
 
     new LocalesPlugin({
@@ -122,10 +169,10 @@ export class WebExtensionPlugin {
 
     new WebResourcesPlugin({
       manifestPath,
-      includeList: {
+      includeList: forThisBuild({
         ...manifestFieldsData.scripts,
         ...specialFoldersData.scripts
-      }
+      })
     }).apply(compiler)
 
     // Single unified manifest-fields change detector (dev only); replaces

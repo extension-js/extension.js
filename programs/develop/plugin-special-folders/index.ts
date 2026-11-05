@@ -12,12 +12,19 @@ import {type Compilation, type Compiler, rspack} from '@rspack/core'
 import {requestDevSessionRestart} from '../dev-server/session-restart'
 import {debugLine, isDebug} from '../lib/messaging'
 import {localeDirsWithoutMessages} from '../plugin-web-extension/feature-locales/get-locales'
-import type {IncludeFilesConfig, SpecialFoldersConfig} from '../types'
+import type {
+  DevOptions,
+  ExcludeFilesConfig,
+  IncludeFilesConfig,
+  SpecialFoldersConfig
+} from '../types'
 import {checkManifestInPublic} from './check-manifest-in-public'
 import {explainPublicOutputCollision} from './check-public-output-collision'
 import {emitRootAbsoluteRefs} from './emit-root-absolute-refs'
 import {
+  excludedFiles,
   publicFolderSetting,
+  rememberExcludedFiles,
   rememberSpecialFoldersConfig
 } from './folders-config'
 import {IncludeFiles} from './include-files'
@@ -31,8 +38,10 @@ import {WarnUponFolderChanges} from './warn-upon-folder-changes'
 
 interface SpecialFoldersPluginOptions {
   manifestPath: string
+  browser?: DevOptions['browser']
   folders?: SpecialFoldersConfig
   include?: IncludeFilesConfig
+  exclude?: ExcludeFilesConfig
 }
 
 export class SpecialFoldersPlugin {
@@ -45,13 +54,39 @@ export class SpecialFoldersPlugin {
   }
 
   apply(compiler: Compiler) {
-    const {manifestPath, folders, include} = this.options
+    const {manifestPath, browser, folders, include, exclude} = this.options
     const context = compiler.options.context || path.dirname(manifestPath)
     if (folders) rememberSpecialFoldersConfig(context, folders)
+    if (exclude) rememberExcludedFiles(context, exclude)
 
     // Declared files ride the same copier as public/, so they land in the
     // output and reload on edit without a plugin of the project's own.
     new IncludeFiles({include, projectRoot: context}).apply(compiler)
+
+    const excluded = excludedFiles(context)
+
+    // An excluded path with no file behind it is a typo more often than not,
+    // and the page it meant to leave out ships without a word otherwise.
+    if (excluded.size > 0) {
+      compiler.hooks.thisCompilation.tap(
+        SpecialFoldersPlugin.name,
+        (compilation: Compilation) => {
+          for (const file of excluded) {
+            if (fs.existsSync(file)) continue
+
+            pushLayoutWarning(
+              compiler,
+              compilation,
+              'ExcludeFilesWarning',
+              messages.excludeEntryMissing(
+                path.relative(context, file).split(path.sep).join('/'),
+                String(browser || 'chrome')
+              )
+            )
+          }
+        }
+      )
+    }
 
     const inspection = inspectPublicFolders(manifestPath, context)
     // Every project but one ships from a public folder, whether or not that
@@ -209,7 +244,11 @@ export class SpecialFoldersPlugin {
         ),
         ...localeDirsWithoutMessages(publicLocales).map(
           (dir) => `${publicLocales}/${path.basename(dir)}/**`
-        )
+        ),
+        // A public file the `exclude` config names stays out of this build.
+        ...[...excluded]
+          .filter((file) => isUnderDir(file, publicDir))
+          .map((file) => file.replace(/\\/g, '/'))
       ]
 
       if (copierWired) {
@@ -246,6 +285,12 @@ export class SpecialFoldersPlugin {
       }
     }
   }
+}
+
+function isUnderDir(file: string, dir: string): boolean {
+  const rel = path.relative(dir, file)
+
+  return Boolean(rel) && !rel.startsWith('..') && !path.isAbsolute(rel)
 }
 
 function pushLayoutWarning(

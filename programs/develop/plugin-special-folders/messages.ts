@@ -142,6 +142,42 @@ export function devOnlyEntriesLeftOut(relativePaths: string[]) {
   )
 }
 
+export function excludedEntriesLeftOut(relativePaths: string[]) {
+  const one = relativePaths.length === 1
+  const list = relativePaths
+    .map((entry) => `  ${colors.yellow(entry)}`)
+    .join('\n')
+
+  return (
+    `${prefix('debug')} Left ${relativePaths.length} ` +
+    `${one ? 'entry' : 'entries'} out of the build, ` +
+    `${colors.blue('exclude')} in extension.config.js names ${one ? 'it' : 'them'}:\n${list}`
+  )
+}
+
+export function excludeEntryMissing(entry: string, browser: string) {
+  return (
+    `${colors.blue('exclude')} in extension.config.js names ` +
+    `${colors.yellow(entry)}, and no such file is in the project.\n` +
+    `Nothing is left out of the ${colors.blue(browser)} build for it. ` +
+    'Fix the path, or remove the entry.'
+  )
+}
+
+export function manifestNamesExcludedFile(
+  relativePath: string,
+  browser: string
+) {
+  return (
+    `manifest.json names ${colors.yellow(relativePath)}, and ` +
+    `${colors.blue('exclude')} in extension.config.js leaves that file ` +
+    `out of the ${colors.blue(browser)} build.\n` +
+    'The reference would answer 404, so the build stops here. Scope the ' +
+    `manifest key to the browsers that ship the file (a ${colors.yellow('chromium:')}, ` +
+    `${colors.yellow('gecko:')} or ${colors.yellow('safari:')} prefix), or remove the file from exclude.`
+  )
+}
+
 export function includeSourceMissing(
   outputPath: string,
   sourcePath: string,

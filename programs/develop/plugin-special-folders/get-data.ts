@@ -14,15 +14,18 @@ import {debugLine, isDebug} from '../lib/messaging'
 import type {FilepathList, SpecialFoldersConfig} from '../types'
 import type {CompanionExtensionsConfig} from './folder-extensions/types'
 import {
+  excludedFiles,
   isScriptsFolderEntry,
   omitDevOnlyEntries,
+  omitExcludedEntries,
   publicFolderSetting,
+  rememberExcludedFiles,
   rememberedFolders,
   rememberSpecialFoldersConfig
 } from './folders-config'
 import * as messages from './messages'
 
-export {rememberSpecialFoldersConfig}
+export {rememberExcludedFiles, rememberSpecialFoldersConfig}
 
 // scripts/ enrolls EVERY file as a content-script-like entry, but Node build
 // tooling (Node-builtin imports, node shebang) can never be one; exclude it.
@@ -531,6 +534,7 @@ type SpecialFoldersData = Omit<
 }
 
 const reportedDevOnlyEntries = new Set<string>()
+const reportedExcludedEntries = new Set<string>()
 
 function finalizeSpecialFoldersData(
   data: ReturnType<typeof getSpecialFoldersData>,
@@ -543,16 +547,22 @@ function finalizeSpecialFoldersData(
   const dropped: string[] = []
   const forThisMode = <T extends Record<string, unknown>>(list: T) =>
     mode === 'production' ? omitDevOnlyEntries(list, dropped) : list
+  // A file the `exclude` config names is left out in every mode: the key is
+  // how a page one browser has no use for stays out of that browser's build.
+  const excluded = excludedFiles(projectRoot)
+  const excludedDropped: string[] = []
+  const forThisBuild = <T extends Record<string, unknown>>(list: T) =>
+    omitExcludedEntries(forThisMode(list), excluded, excludedDropped)
 
   const next: SpecialFoldersData = {
     ...data,
     // public/ is copy-only; exclude nested public entries from compilation entrypoints.
-    pages: forThisMode(
+    pages: forThisBuild(
       filterPublicEntrypoints(data.pages, projectRoot, publicDir)
     ),
     // Drop Node build/dev tooling living in scripts/, then the files a
     // package.json script runs, then exclude public/ entries as pages.
-    scripts: forThisMode(
+    scripts: forThisBuild(
       filterPublicEntrypoints(
         filterPackageToolingScripts(
           filterNodeToolingScripts(data.scripts),
@@ -576,6 +586,18 @@ function finalizeSpecialFoldersData(
     if (!reportedDevOnlyEntries.has(signature)) {
       reportedDevOnlyEntries.add(signature)
       debugLine(messages.devOnlyEntriesLeftOut(relative))
+    }
+  }
+
+  if (excludedDropped.length > 0 && isDebug()) {
+    const relative = excludedDropped.map((abs) =>
+      path.relative(projectRoot, abs).split(path.sep).join('/')
+    )
+    const signature = relative.slice().sort().join('|')
+
+    if (!reportedExcludedEntries.has(signature)) {
+      reportedExcludedEntries.add(signature)
+      debugLine(messages.excludedEntriesLeftOut(relative))
     }
   }
 
