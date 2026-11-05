@@ -201,6 +201,104 @@ describe('startProductionControl', () => {
   })
 })
 
+// An --output-path folder holding only a manifest and built files, with no
+// package.json above it, resolves to its own project root. The copy must
+// still land outside the folder it copies, or cpSync refuses to copy a
+// directory into itself.
+describe('a build folder that is its own project root', () => {
+  function makeBareBuild(): string {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-bare-build-'))
+    fs.mkdirSync(path.join(tmpDir, 'background'), {recursive: true})
+    fs.writeFileSync(
+      path.join(tmpDir, 'manifest.json'),
+      JSON.stringify({
+        manifest_version: 3,
+        name: 'x',
+        version: '1.0.0',
+        background: {service_worker: 'background/service_worker.js'}
+      })
+    )
+
+    fs.writeFileSync(
+      path.join(tmpDir, 'background', 'service_worker.js'),
+      WORKER
+    )
+
+    return tmpDir
+  }
+
+  function isInside(parent: string, child: string): boolean {
+    const rel = path.relative(path.resolve(parent), path.resolve(child))
+
+    return rel === '' || (!path.isAbsolute(rel) && !rel.startsWith('..'))
+  }
+
+  it('keeps the in-project location while it sits outside the build folder', () => {
+    const {projectDir, distPath} = makeProject()
+
+    expect(controlledBuildDir(projectDir, 'chrome', distPath)).toBe(
+      controlledBuildDir(projectDir, 'chrome')
+    )
+  })
+
+  it('moves the copy out of a build folder that would contain it', () => {
+    const root = makeBareBuild()
+    const chosen = controlledBuildDir(root, 'chrome', root)
+
+    expect(isInside(root, chosen)).toBe(false)
+    expect(chosen.split(path.sep).slice(-2)).toEqual(['chrome', 'controlled'])
+    expect(controlledBuildDir(root, 'chrome', root)).toBe(chosen)
+    expect(controlledBuildDir(root, 'firefox', root)).not.toBe(chosen)
+
+    // --output-path pointed at dist/ itself still contains dist/extension-js.
+    const fromDist = controlledBuildDir(root, 'chrome', path.join(root, 'dist'))
+    expect(isInside(root, fromDist)).toBe(false)
+    expect(fromDist).not.toBe(chosen)
+  })
+
+  it('prepares the controlled copy outside the build folder and leaves it untouched', async () => {
+    const root = makeBareBuild()
+
+    session = await startProductionControl({
+      packageJsonDir: root,
+      browser: 'chrome',
+      distPath: root,
+      allowControl: true
+    })
+
+    expect(isInside(root, session.controlledPath)).toBe(false)
+    expect(session.backgroundAssets).toEqual(['background/service_worker.js'])
+
+    const controlled = fs.readFileSync(
+      path.join(session.controlledPath, 'background', 'service_worker.js'),
+      'utf-8'
+    )
+    expect(controlled).toContain('__extjsBridgeProducerInstalled')
+    expect(controlled.endsWith(WORKER)).toBe(true)
+    expect(
+      fs.existsSync(
+        path.join(session.controlledPath, 'extension-js-control.json')
+      )
+    ).toBe(true)
+
+    expect(
+      fs.readFileSync(
+        path.join(root, 'background', 'service_worker.js'),
+        'utf-8'
+      )
+    ).toBe(WORKER)
+
+    expect(fs.existsSync(path.join(root, 'extension-js-control.json'))).toBe(
+      false
+    )
+
+    fs.rmSync(path.dirname(path.dirname(session.controlledPath)), {
+      recursive: true,
+      force: true
+    })
+  })
+})
+
 function makeFirefoxProject(manifest: Record<string, unknown>): {
   projectDir: string
   distPath: string

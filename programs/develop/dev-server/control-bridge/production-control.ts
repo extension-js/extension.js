@@ -6,8 +6,9 @@
 // ╚═════╝ ╚══════╝  ╚═══╝        ╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import {randomUUID} from 'node:crypto'
+import {createHash, randomUUID} from 'node:crypto'
 import * as fs from 'node:fs'
+import * as os from 'node:os'
 import * as path from 'node:path'
 import parse from 'content-security-policy-parser'
 import {isGeckoBasedBrowser, isWebkitBasedBrowser} from '../../lib/constants'
@@ -63,13 +64,43 @@ export interface ProductionControlSession {
   close(): Promise<void>
 }
 
+function isSameOrInside(parent: string, child: string): boolean {
+  const rel = path.relative(path.resolve(parent), path.resolve(child))
+
+  return (
+    rel === '' || (!path.isAbsolute(rel) && rel.split(path.sep)[0] !== '..')
+  )
+}
+
 // Outside dist/ on purpose: dist/<browser> is what gets zipped and shipped,
-// so the control producer must never land in it.
+// so the control producer must never land in it. An --output-path folder
+// that is its own project root (a bare manifest, no package.json above) puts
+// every per-project root inside the folder being copied, and copying a
+// directory into itself fails, so the copy moves to the OS temp directory.
 export function controlledBuildDir(
   packageJsonDir: string,
-  browser: string
+  browser: string,
+  distPath?: string
 ): string {
-  return path.join(browserArtifactsDir(packageJsonDir, browser), 'controlled')
+  const inProject = path.join(
+    browserArtifactsDir(packageJsonDir, browser),
+    'controlled'
+  )
+
+  if (
+    !distPath ||
+    (!isSameOrInside(distPath, inProject) &&
+      !isSameOrInside(inProject, distPath))
+  ) {
+    return inProject
+  }
+
+  const key = createHash('sha1')
+    .update(path.resolve(distPath))
+    .digest('hex')
+    .slice(0, 12)
+
+  return path.join(os.tmpdir(), 'extension-js', key, browser, 'controlled')
 }
 
 function listFiles(root: string, dir = ''): string[] {
@@ -269,7 +300,11 @@ export async function startProductionControl(
     broker,
     host: options.host || '127.0.0.1'
   })
-  const controlledPath = controlledBuildDir(packageJsonDir, browser)
+  const controlledPath = controlledBuildDir(
+    packageJsonDir,
+    browser,
+    options.distPath
+  )
   const backgroundAssets = prepareControlledBuild({
     distPath: options.distPath,
     controlledPath,
