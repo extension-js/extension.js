@@ -7,7 +7,6 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import type {Compiler} from '@rspack/core'
-import {omitDevOnlyEntries} from '../plugin-special-folders/folders-config'
 import {getSpecialFoldersDataForCompiler} from '../plugin-special-folders/get-data'
 import type {DevOptions, FilepathList, PluginInterface} from '../types'
 import {HtmlPlugin} from './feature-html'
@@ -19,17 +18,13 @@ import {LocalesPlugin} from './feature-locales'
 import {ManifestPlugin} from './feature-manifest'
 import {ScriptsPlugin} from './feature-scripts'
 import {WebResourcesPlugin} from './feature-web-resources'
-import {discoverWebAccessiblePages} from './feature-web-resources/web-resources-lib/declared-pages'
-import {discoverDevtoolsPanelPages} from './shared/discover-devtools-panels'
-import {discoverRuntimeSurfacePages} from './shared/discover-runtime-surfaces'
+import {htmlPageEntries} from './shared/html-page-entries'
 import {getResolvedManifestFieldsData} from './shared/manifest-fields'
 import {ManifestFieldsChangeDetector} from './shared/manifest-fields-change-detector'
 import {
   settingsOverridesIconFields,
-  settingsOverridesStartupPages,
   themeExperimentStylesheetEntries
 } from './shared/manifest-path-assets'
-import {omitOwnedPages} from './shared/omit-owned-pages'
 
 export class WebExtensionPlugin {
   public static readonly name: string = 'plugin-extension'
@@ -57,10 +52,6 @@ export class WebExtensionPlugin {
     })
 
     const specialFoldersData = getSpecialFoldersDataForCompiler(compiler)
-    // A `*.dev.html` page a script names by literal is still development
-    // only: production code that reads it is dead code behind a mode guard.
-    const forThisMode = (pages: FilepathList): FilepathList =>
-      compiler.options.mode === 'production' ? omitDevOnlyEntries(pages) : pages
 
     new ManifestPlugin({
       browser: this.browser,
@@ -74,30 +65,19 @@ export class WebExtensionPlugin {
       }
     }).apply(compiler)
 
-    const ownedPages: FilepathList = {
-      ...manifestFieldsData.html,
-      // Pages reachable only through chrome.devtools.panels.create never
-      // appear in the manifest; without this the panel 404s in the browser.
-      ...discoverDevtoolsPanelPages(manifestPath, this.browser),
-      ...settingsOverridesStartupPages(manifestPath, this.browser, projectPath)
-    }
-
     new HtmlPlugin({
       devSession: this.devSession,
       manifestPath,
       browser: this.browser,
-      includeList: {
-        ...forThisMode(
-          discoverRuntimeSurfacePages(
-            manifestPath,
-            manifestFieldsData.scripts,
-            manifestFieldsData.html
-          )
-        ),
-        ...discoverWebAccessiblePages(manifestPath, this.browser, projectPath),
-        ...ownedPages,
-        ...omitOwnedPages(specialFoldersData.pages, ownedPages)
-      }
+      includeList: htmlPageEntries({
+        manifestPath,
+        browser: this.browser,
+        projectPath,
+        mode: compiler.options.mode,
+        manifestHtml: manifestFieldsData.html,
+        manifestScripts: manifestFieldsData.scripts,
+        specialFolderPages: specialFoldersData.pages
+      })
     }).apply(compiler)
 
     new ScriptsPlugin({
