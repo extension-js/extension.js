@@ -2,6 +2,56 @@
 
 ## Unreleased
 
+## 4.1.39 (November 6, 2026)
+
+- **Safari builds take your own app icon**, `extension build --browser=safari --app-icon=icon.png` uses the PNG as is instead of plating the manifest icon on a white tile. [Docs](https://extension.js.org/docs/browsers/safari#app-identity-and-packaging-options)
+- **A production build warns when a public env variable is named like a secret**, so an `EXTENSION_PUBLIC_API_KEY` never ships in a bundle unnoticed. [Docs](https://extension.js.org/docs/features/environment-variables#secrets-never-take-the-extension_public_-prefix)
+- **SQLite in DevTools**, `npx extension@latest create my-extension --template=devtools-typescript-sqlite` starts a DevTools panel backed by SQLite in the browser.
+- **Firefox content scripts run once after a reload**, the dev session no longer injects a second copy, and a missing `scripting` permission is named instead of failing quietly.
+- **The Edge store zip leaves the manifest `key` out, `dist/edge` keeps it**, so an unpacked Edge install keeps the pinned id your OAuth redirects depend on.
+
+### Features
+
+- Add an exclude config key to leave files out of one browser build (#991) ([151892d3d](https://github.com/extension-js/extension.js/commit/151892d3daa273d34f3f2a6762fc7a3238cd5913))
+
+### Fixes
+
+- Resolve symlinked project paths before naming a reloaded file (#970) ([c68fe6349](https://github.com/extension-js/extension.js/commit/c68fe6349a1bf4c3f605672ff3bd2ed6ba75de51))
+
+<details>
+<summary>Other changes (29)</summary>
+
+- Stamp the Safari app version and sharpen the build's warnings (#992) ([0f5b204fd](https://github.com/extension-js/extension.js/commit/0f5b204fd1ede3151128c1f33c29a45f6fe06644))
+- Keep the controlled preview copy outside the folder it copies (#990) ([4fb2e2fb6](https://github.com/extension-js/extension.js/commit/4fb2e2fb6a5f3dc74f402dce58ad05889b3bb2ba))
+- Compile a module script on a runtime-opened page as ESM (#989) ([20428c462](https://github.com/extension-js/extension.js/commit/20428c46266d78ac6b4a4aa6e0777a0bbc83d0b6))
+- Drop extension.dev pointers from the CLI, READMEs and templates (#988) ([ad5863177](https://github.com/extension-js/extension.js/commit/ad5863177da3c858279333e9379a025849bf113e))
+- Write the 4.1.39 highlights (#986) ([67ae97524](https://github.com/extension-js/extension.js/commit/67ae97524e182a2985a9ab3cb5f4f13f3383f474))
+- Name an unpruned dist file and clear what the code audit found (#985) ([1bd95a428](https://github.com/extension-js/extension.js/commit/1bd95a4281b584bc24fff105b567f14de3f6cc86))
+- Give the dev watch specs a 30s rebuild window and a 90s budget (#983) ([ec0be495f](https://github.com/extension-js/extension.js/commit/ec0be495faffab4a082f9b851f1a802f525062af))
+- Drop the manifest key from the Edge store zip only, not from dist (#982) ([c7afecebf](https://github.com/extension-js/extension.js/commit/c7afecebf8e8ec5b87d877246a566cf09ac46f92))
+- Bound the Playwright install steps and keep lint off worktrees (#984) ([44b4959bf](https://github.com/extension-js/extension.js/commit/44b4959bf588384b304e4f484c9c4da1f572ca9e))
+- Publish again once when Sigstore's log answers 409 after a 502 (#981) ([51583f892](https://github.com/extension-js/extension.js/commit/51583f892b32739bfe6cdc4636c333abdc9a4754))
+- Repin the template catalog to add the SQLite devtools template (#980) ([b99353b0b](https://github.com/extension-js/extension.js/commit/b99353b0be6bc9f75975e57b47f09d72bb6ae22d))
+- Warn when a public env variable is named like a secret (#979) ([2fa49b40e](https://github.com/extension-js/extension.js/commit/2fa49b40ec5933abf26002870eb378a490311a9e))
+- Show a public env example that is not a secret in the AI help (#978) ([1bec7126c](https://github.com/extension-js/extension.js/commit/1bec7126cf47e4da72699574cdc53d9203fb529e))
+- Let the dependency canary name a known upstream break instead of red (#977) ([a4fe2db27](https://github.com/extension-js/extension.js/commit/a4fe2db27715edc9838fc0d9279dc0522fa80f0b))
+- Raise follow-redirects and minimatch to clear two alerts (#976) ([282267534](https://github.com/extension-js/extension.js/commit/28226753420c7af2fce4223a310b0743f2f9203e))
+- Declare the Safari config keys in the public config types (#975) ([0c194e2dd](https://github.com/extension-js/extension.js/commit/0c194e2dd5c8c1e124fa84d67ac07959580af31d))
+- Hold a Firefox dev session at starting until its RDP port is known (#972) ([ebfda7f0f](https://github.com/extension-js/extension.js/commit/ebfda7f0f45c37de6a0bbc4891a37f1bf7ce297e))
+- Name changed files and indexed modules by one project-relative path (#971) ([4e405e9fc](https://github.com/extension-js/extension.js/commit/4e405e9fcf41b0b0ca625a32e3c9e6dbb189f0a1))
+- Keep emulated Chromium reloads partial and write each content script anew (#969) ([6e336f0c4](https://github.com/extension-js/extension.js/commit/6e336f0c4a71f2eac70a3f5aceab936391a16228))
+- Build the Safari app icon from a supplied PNG, not a plated tile (#967) ([08b683456](https://github.com/extension-js/extension.js/commit/08b683456746ed0d3b384d68c41675567ed579c9))
+- Wait for Safari, name what blocks Settings, renew WebDriver (#964) ([d584469a3](https://github.com/extension-js/extension.js/commit/d584469a3e2da05be0b2c8b8f0f23b3c75e7f9ff))
+- Give every CI job a timeout and bound the xvfb apt step (#968) ([9a240c8ef](https://github.com/extension-js/extension.js/commit/9a240c8eff9db1e72ac264c9b1081a1ad8ecc6e7))
+- Wait for the recompile in the second dev session spec (#966) ([7f97862dd](https://github.com/extension-js/extension.js/commit/7f97862dda1b0de9a7ebf4fd0fc68c48797e7877))
+- Skip the reinject after a Firefox reload, which injects on its own (#965) ([7cf52a56b](https://github.com/extension-js/extension.js/commit/7cf52a56bf2338bf05aaed93b96ad2c1d3b06764))
+- Open the starting URL in the Safari automation window, or say why not (#960) ([5408ad895](https://github.com/extension-js/extension.js/commit/5408ad8955b2abd4ecf5c0d562ac3ad1ea181fe8))
+- Read the Xcode 26 team key so the Safari remedy lists a known team (#962) ([e9fe63a9f](https://github.com/extension-js/extension.js/commit/e9fe63a9fbb1592dc8a493d88b638e7e85cbfff0))
+- Park every console level before the bridge connects and replay it in order (#961) ([f062d1810](https://github.com/extension-js/extension.js/commit/f062d18101d8fddd2191ff7e5a8679f30d5280c5))
+- Name the missing scripting permission when Firefox cannot inject (#959) ([acf885a93](https://github.com/extension-js/extension.js/commit/acf885a934f54ac2800e69cbafcb08064f00d62f))
+- Note a folded sidebar key and hint at a missing default export (#958) ([d2160f5be](https://github.com/extension-js/extension.js/commit/d2160f5bee2ca331cec29dfdda0fdbcfa8e0d72c))
+</details>
+
 ## 4.1.38 (October 31, 2026)
 
 - **Emulated Chromium needs no flag**, `extension dev --browser=chromium-emulator` opens the emulated browser on its own now that the engine is public, and names the engine origin when it cannot be reached instead of opening a dead page
