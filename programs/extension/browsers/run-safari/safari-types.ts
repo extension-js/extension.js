@@ -41,6 +41,9 @@ export interface SafariBuildConfig {
   appName: string
   bundleIdentifier: string
   bundleIdDerived: boolean
+  // Stamped as MARKETING_VERSION and CURRENT_PROJECT_VERSION, from the
+  // manifest version. See xcodeAppVersion in safari-config.
+  appVersion: string
   macOsOnly: boolean
   language: 'swift' | 'objc'
   open: boolean

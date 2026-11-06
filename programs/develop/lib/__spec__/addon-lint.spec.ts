@@ -452,6 +452,8 @@ describe('addon lint when the linter is not installed', () => {
 
     expect(hint).toContain('Install it with: pnpm add -D addons-linter')
     expect(hint).toContain('--no-addon-lint')
+    expect(hint).toContain('commands.build.addonLint: false')
+    expect(hint).not.toContain('moved to')
 
     const second = await runAddonLint({...baseInput(root), loadLinter: missing})
     expect(second).toEqual({status: 'missing', hint: null})
@@ -463,6 +465,37 @@ describe('addon lint when the linter is not installed', () => {
     })
     expect(other.status).toBe('missing')
     expect((other as {hint: string | null}).hint).not.toBeNull()
+  })
+
+  it('retires a reviewer note an earlier lint wrote when the linter is missing', async () => {
+    const root = project()
+    const dist = path.join(root, 'dist')
+    fs.mkdirSync(dist, {recursive: true})
+    fs.writeFileSync(path.join(dist, 'amo-reviewer-note.md'), 'old note\n')
+    fs.writeFileSync(path.join(dist, 'amo-reviewer-note.stale.md'), 'older\n')
+
+    const missing: LoadAddonLinter = async () => {
+      throw new Error('[AMO] addons-linter could not be resolved.')
+    }
+
+    const result = await runAddonLint({...baseInput(root), loadLinter: missing})
+    expect(result.status).toBe('missing')
+    expect(fs.existsSync(path.join(dist, 'amo-reviewer-note.md'))).toBe(false)
+    expect(
+      fs.readFileSync(path.join(dist, 'amo-reviewer-note.stale.md'), 'utf8')
+    ).toBe('old note\n')
+
+    const hint = stripAnsi((result as {hint: string}).hint)
+    expect(hint).toContain(
+      `The reviewer note of the last lint moved to ${path.join('dist', 'amo-reviewer-note.stale.md')}`
+    )
+
+    // A second run with no note left says nothing about one.
+    const again = await runAddonLint({
+      ...baseInput(project()),
+      loadLinter: missing
+    })
+    expect(stripAnsi((again as {hint: string}).hint)).not.toContain('moved to')
   })
 })
 

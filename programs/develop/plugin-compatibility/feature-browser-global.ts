@@ -40,6 +40,21 @@ function offendingScripts(compilation: ScanCompilation): string[] {
   return offenders
 }
 
+const READS_BROWSER_RE = /(?<![\w$.'"`])browser\s*[.[]/
+const GUARDED_READ_RE = /typeof\s+browser\b|['"]browser['"]\s+in\b/
+
+// The first line of a source that reads browser.* outside a typeof or `in`
+// guard, so the warning names a line the author can open. A file whose only
+// mentions are guarded still names its first mention, with no line.
+export function browserReadLine(text: string): number | undefined {
+  const lines = text.split(/\r?\n/)
+  const at = lines.findIndex(
+    (line) => READS_BROWSER_RE.test(line) && !GUARDED_READ_RE.test(line)
+  )
+
+  return at >= 0 ? at + 1 : undefined
+}
+
 // The project files bundled into an offending script that spell the name
 // out, so the warning points at source the author wrote, not at dist.
 function sourcesBehind(
@@ -62,9 +77,13 @@ function sourcesBehind(
       const text = readProjectSource(resource)
       if (text === undefined || !mentionsBrowserName(text)) continue
 
-      sources.add(
-        path.relative(manifestDir, resource).split(path.sep).join('/')
-      )
+      const relative = path
+        .relative(manifestDir, resource)
+        .split(path.sep)
+        .join('/')
+      const line = browserReadLine(text)
+
+      sources.add(line ? `${relative}:${String(line)}` : relative)
     }
   }
 

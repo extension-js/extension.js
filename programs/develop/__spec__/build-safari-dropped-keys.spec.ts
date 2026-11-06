@@ -120,7 +120,7 @@ describe('a safari build ships nothing for the keys its filter drops', () => {
     expect(files).toEqual(['background/service_worker.js', 'manifest.json'])
     expect(output).toContain('side_panel Safari has no side panel surface')
     expect(output).toContain(
-      'Safari has no support for 2 manifest keys this project declares, so the safari build dropped them.'
+      'Safari has no support for 2 manifest keys this project declares, so the safari build dropped them:'
     )
   }, 180_000)
 
@@ -137,9 +137,8 @@ describe('a safari build ships nothing for the keys its filter drops', () => {
     expect(manifest).not.toHaveProperty('sidebar_action')
     expect(manifest).not.toHaveProperty('side_panel')
     expect(files).toEqual(['background/service_worker.js', 'manifest.json'])
-    expect(output).toContain('sidebar_action Safari has no sidebar surface')
     expect(output).toContain(
-      'Safari has no support for 1 manifest key this project declares, so the safari build dropped it.'
+      'Safari has no support for sidebar_action (Safari has no sidebar surface), so the safari build dropped it, and nothing the app could have run was lost.'
     )
 
     expect(output).not.toContain('Chromium manifest')

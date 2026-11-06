@@ -5,11 +5,14 @@ import {afterAll, describe, expect, it} from 'vitest'
 import type {AddonLintLine} from '../addon-lint'
 import {
   ADDON_REVIEWER_NOTE_FILE,
+  ADDON_REVIEWER_NOTE_STALE_FILE,
   addonReviewerNotePath,
   classifyAddonLintLines,
   lockfilePackageVersion,
   packageFacts,
   renderAddonReviewerNote,
+  retireAddonReviewerNote,
+  reviewerNoteBuildLine,
   writeAddonReviewerNote
 } from '../addon-reviewer-note'
 import type {ChunkProvenance} from '../chunk-dependency-provenance'
@@ -170,6 +173,47 @@ describe('reviewer note rendering', () => {
     expect(text).toContain('license not found in its package.json')
   })
 
+  it('opens with the toolchain, the commit and the date when given them', () => {
+    const text = renderAddonReviewerNote(
+      classifyAddonLintLines(LINES.slice(0, 1), PROVENANCE, FACTS),
+      'dist/firefox',
+      {
+        toolchain: {
+          node: 'v24.18.1',
+          extension_js: '4.1.38',
+          package_manager: {name: 'npm', version: '12.0.2'}
+        },
+        commit: 'abc1234',
+        date: '2026-11-05'
+      }
+    )
+
+    expect(text.split('\n')[2]).toBe(
+      'Built with Node v24.18.1, npm 12.0.2 and Extension.js 4.1.38 from commit abc1234 on 2026-11-05.'
+    )
+
+    expect(text).toContain(
+      'Paste the build line and the bundled libraries section'
+    )
+  })
+
+  it('leaves the build line out when no toolchain is known, and the commit when unreadable', () => {
+    expect(reviewerNoteBuildLine({})).toBe('')
+    expect(
+      reviewerNoteBuildLine({
+        toolchain: {node: 'v22.0.0', extension_js: '4.1.38'},
+        commit: null
+      })
+    ).toBe('Built with Node v22.0.0 and Extension.js 4.1.38.')
+
+    const text = renderAddonReviewerNote(
+      classifyAddonLintLines(LINES.slice(0, 1), PROVENANCE, FACTS),
+      'dist/firefox'
+    )
+    expect(text).not.toContain('Built with')
+    expect(text).toContain('Paste the bundled libraries section')
+  })
+
   it('says so when nothing is the author own', () => {
     const text = renderAddonReviewerNote(
       classifyAddonLintLines(LINES.slice(0, 1), PROVENANCE, FACTS),
@@ -307,5 +351,25 @@ describe('writing the note', () => {
     ).toBe(null)
 
     expect(fs.existsSync(target)).toBe(false)
+  })
+})
+
+describe('retiring the note', () => {
+  it('renames the note to its stale name and replaces an older stale one', () => {
+    const root = project()
+    const distPath = path.join(root, 'dist', 'firefox')
+    fs.mkdirSync(distPath, {recursive: true})
+    const note = addonReviewerNotePath(distPath)
+    const stale = path.join(root, 'dist', ADDON_REVIEWER_NOTE_STALE_FILE)
+    fs.writeFileSync(note, 'current\n')
+    fs.writeFileSync(stale, 'older\n')
+
+    expect(retireAddonReviewerNote(distPath)).toBe(stale)
+    expect(fs.existsSync(note)).toBe(false)
+    expect(fs.readFileSync(stale, 'utf8')).toBe('current\n')
+
+    // Nothing to retire answers null and touches nothing.
+    expect(retireAddonReviewerNote(distPath)).toBeNull()
+    expect(fs.readFileSync(stale, 'utf8')).toBe('current\n')
   })
 })

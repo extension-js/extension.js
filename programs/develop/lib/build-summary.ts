@@ -18,6 +18,9 @@ export interface SafariPackageSummary {
   appName?: string
   bundleId?: string
   bundleIdDerived?: boolean
+  /** The CFBundleShortVersionString and CFBundleVersion the app carries,
+   * stamped from the manifest version. */
+  version?: string
   appPath?: string
   xcodeProjectPath?: string
   macOsOnly?: boolean

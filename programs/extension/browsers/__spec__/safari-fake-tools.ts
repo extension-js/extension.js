@@ -58,7 +58,8 @@ function argAfter(args: string[], flag: string): string {
 }
 
 // What the real converter leaves behind: a project folder named after the app
-// whose pbxproj carries ids derived from the app name, not --bundle-identifier.
+// whose pbxproj carries ids derived from the app name, not --bundle-identifier,
+// and the 1.0 (1) version it stamps whatever the manifest says.
 function writeConvertedProject(args: string[]) {
   const location = argAfter(args, '--project-location')
   const appName = argAfter(args, '--app-name')
@@ -70,10 +71,14 @@ function writeConvertedProject(args: string[]) {
     path.join(projDir, 'project.pbxproj'),
     [
       'buildSettings = {',
+      '  CURRENT_PROJECT_VERSION = 1;',
+      '  MARKETING_VERSION = 1.0;',
       `  PRODUCT_BUNDLE_IDENTIFIER = "com.converter.${derived}";`,
       '  PRODUCT_NAME = "$(TARGET_NAME)";',
       '};',
       'buildSettings = {',
+      '  CURRENT_PROJECT_VERSION = 1;',
+      '  MARKETING_VERSION = 1.0;',
       `  PRODUCT_BUNDLE_IDENTIFIER = "com.converter.${derived}.Extension";`,
       '};'
     ].join('\n')

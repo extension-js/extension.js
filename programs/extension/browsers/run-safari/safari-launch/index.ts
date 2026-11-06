@@ -33,6 +33,7 @@ import {rememberRaisedContainerApp} from './container-app'
 import {logSafariDryRun} from './dry-run'
 import {
   alignBundleIdentifiers,
+  alignProjectVersion,
   backupAndRestoreXcodeSettings,
   builtAppPath,
   composeBuildFingerprint,
@@ -305,6 +306,8 @@ export interface SafariPackageResult {
   appName: string
   bundleId: string
   bundleIdDerived: boolean
+  // The CFBundleShortVersionString and CFBundleVersion the app carries.
+  version: string
   appPath: string
   xcodeProjectPath: string
   macOsOnly: boolean
@@ -315,22 +318,40 @@ function describePackage(config: SafariBuildConfig): SafariPackageResult {
     appName: config.appName,
     bundleId: config.bundleIdentifier,
     bundleIdDerived: config.bundleIdDerived,
+    version: config.appVersion,
     appPath: builtAppPath(config),
     xcodeProjectPath: xcodeProjectPath(config),
     macOsOnly: config.macOsOnly
   }
 }
 
+// A full package that built the app has already printed its identity block,
+// generated bundle id included. The short note covers the paths that never
+// reach the app: a dry run and a host with no toolchain.
 function completePackage(
   config: SafariBuildConfig,
   logger: BrowserLogger,
-  mode: SafariPipelineMode
+  mode: SafariPipelineMode,
+  identityPrinted = false
 ): SafariPackageResult {
-  if (mode === 'full' && config.bundleIdDerived) {
+  if (mode === 'full' && config.bundleIdDerived && !identityPrinted) {
     logger.info?.(messages.safariDefaultBundleIdNote(config.bundleIdentifier))
   }
 
   return describePackage(config)
+}
+
+// The project file is rewritten on every package, not only after a
+// conversion: a version bump alone leaves the project fingerprint as it was,
+// and the number still has to reach the pbxproj for a hand archive in Xcode.
+function stampProjectVersion(config: SafariBuildConfig): void {
+  const projFile = pbxprojPath(config)
+  if (!fs.existsSync(projFile)) return
+
+  const content = fs.readFileSync(projFile, 'utf8')
+  const aligned = alignProjectVersion(content, config.appVersion)
+
+  if (aligned !== content) fs.writeFileSync(projFile, aligned, 'utf8')
 }
 
 export function safariPreflightError(): string | null {
@@ -654,6 +675,8 @@ async function runSafariPipeline(
     logger.info?.(messages.safariSkippingConversion())
   }
 
+  stampProjectVersion(config)
+
   const buildFingerprint = composeBuildFingerprint(config, xcodebuildArgs)
   const reuseBuild =
     !needsConversion && isBuildCurrent(config, buildFingerprint)
@@ -738,6 +761,20 @@ async function runSafariPipeline(
 
   logger.info?.(messages.safariBuilt(appPath))
 
+  // What the build summary already records, said once to the person: the
+  // signing facts are the ones codesign read off the app, never the request.
+  logger.info?.(
+    messages.safariAppIdentity({
+      bundleId: config.bundleIdentifier,
+      bundleIdDerived: config.bundleIdDerived,
+      version: config.appVersion,
+      signed: isSigned,
+      team: signature.team,
+      requestedTeam: requestedTeam || undefined,
+      xcodeProjectPath: xcodeProjectPath(config)
+    })
+  )
+
   if (!config.open) {
     // Registration with macOS only happens once the app has been launched, so
     // polling pluginkit here would just warn spuriously. Point at the app.
@@ -747,7 +784,7 @@ async function runSafariPipeline(
       await announceSafariDevSession(host, config, appPath)
     }
 
-    return completePackage(config, logger, mode)
+    return completePackage(config, logger, mode, true)
   }
 
   const target = fs.existsSync(appPath) ? appPath : xcodeProjectPath(config)
@@ -837,7 +874,7 @@ async function runSafariPipeline(
     await announceSafariDevSession(host, config, appPath)
   }
 
-  return completePackage(config, logger, mode)
+  return completePackage(config, logger, mode, true)
 }
 
 export async function packageSafariExtension(

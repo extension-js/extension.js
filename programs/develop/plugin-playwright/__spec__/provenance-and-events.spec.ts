@@ -45,6 +45,46 @@ describe('ready.json provenance + events.ndjson run attribution (bugs 32/33)', (
     expect(ready.extensionVersion).toBe('1.2.3')
   })
 
+  const writeDistManifest = (manifest: Record<string, unknown>) => {
+    fs.mkdirSync(path.join(tmp, 'dist', 'chromium'), {recursive: true})
+    fs.writeFileSync(
+      path.join(tmp, 'dist', 'chromium', 'manifest.json'),
+      JSON.stringify(manifest)
+    )
+  }
+
+  it('a build names the manifest it compiles, not the dist of the previous build', () => {
+    writeDistManifest({name: 'Old Name', version: '0.1.0'})
+    writeManifest({name: 'New Name', version: '0.2.0'})
+    const writer = makeWriter('build')
+    writer.writeReady()
+
+    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    expect(ready.extensionName).toBe('New Name')
+    expect(ready.extensionVersion).toBe('0.2.0')
+  })
+
+  it('a dev session names the dist the browser loaded, stale or not', () => {
+    writeDistManifest({name: 'Old Name', version: '0.1.0'})
+    writeManifest({name: 'New Name', version: '0.2.0'})
+    const writer = makeWriter('dev')
+    writer.writeReady()
+
+    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    expect(ready.extensionName).toBe('Old Name')
+    expect(ready.extensionVersion).toBe('0.1.0')
+  })
+
+  it('a build falls back to the dist when the source manifest is unreadable', () => {
+    writeDistManifest({name: 'Dist Only', version: '0.1.0'})
+    const writer = makeWriter('build')
+    writer.writeReady()
+
+    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    expect(ready.extensionName).toBe('Dist Only')
+    expect(ready.extensionVersion).toBe('0.1.0')
+  })
+
   it('omits extension provenance when the manifest is unreadable', () => {
     const writer = makeWriter()
     writer.writeReady()

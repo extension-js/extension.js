@@ -1,4 +1,5 @@
 import {describe, expect, it} from 'vitest'
+import * as messages from '../../messages'
 import {
   dropWebkitUnsupportedKeys,
   omitWebkitDroppedEntries
@@ -373,5 +374,54 @@ describe('safari drops survive the manifest overrides', () => {
     expect(result.side_panel).toBeDefined()
     expect(result.sandbox).toBeDefined()
     expect(result.permissions).toEqual(['sidePanel'])
+  })
+})
+
+describe('the dropped-keys notice reads as one block', () => {
+  const strip = (value: string) =>
+    // eslint-disable-next-line no-control-regex
+    value.replace(/\u001b\[[0-9;]*m/g, '')
+
+  it('one key: one sentence that names the key, its reason and the verdict', () => {
+    const text = strip(
+      messages.webkitUnsupportedKeysDropped('safari', [
+        {
+          path: 'options_ui.open_in_tab',
+          reason: 'Safari always opens the options page in a tab'
+        }
+      ])
+    )
+
+    expect(text).not.toContain('\n')
+    expect(text).toContain(
+      'Safari has no support for options_ui.open_in_tab (Safari always opens the options page in a tab), so the safari build dropped it, and nothing the app could have run was lost.'
+    )
+
+    expect(text).toContain('safari: prefix')
+    expect(text).not.toMatch(/Every key above|1 manifest key/)
+  })
+
+  it('many keys: a prefixed header, then every key and the verdict on bar lines', () => {
+    const lines = strip(
+      messages.webkitUnsupportedKeysDropped('safari', [
+        {path: 'side_panel', reason: 'Safari has no side panel surface'},
+        {path: 'permissions.sidePanel', reason: 'Safari has no sidePanel API'}
+      ])
+    ).split('\n')
+
+    expect(lines[0]).toContain(
+      'Safari has no support for 2 manifest keys this project declares, so the safari build dropped them:'
+    )
+
+    for (const line of lines.slice(1)) expect(line).toMatch(/^│ {2}\S/)
+
+    expect(lines[1]).toContain('side_panel Safari has no side panel surface')
+    expect(lines[2]).toContain('permissions.sidePanel')
+    expect(lines[3]).toContain(
+      'These 2 keys are inert on Safari, so the built app lost nothing it could have run.'
+    )
+
+    expect(lines).toHaveLength(4)
+    expect(lines.join('\n')).not.toContain('Every key above')
   })
 })

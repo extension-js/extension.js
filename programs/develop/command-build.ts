@@ -40,6 +40,10 @@ import {
 import {ConfigResolvedPlugin} from './lib/config-resolved-plugin'
 import {removeDevelopmentArtifacts} from './lib/development-artifacts'
 import {
+  findDuplicateOutputFiles,
+  importedAssetSources
+} from './lib/duplicate-output-files'
+import {
   ensureDevelopArtifacts,
   ensureUserProjectDependencies
 } from './lib/ensure-develop-artifacts'
@@ -106,6 +110,14 @@ import type {
 } from './types'
 
 const reportedBuildFailures = new WeakSet<object>()
+
+// Projects whose toolchain sentence this process already printed.
+const toolchainLinePrinted = new Set<string>()
+
+// Specs build the same project more than once in one process.
+export function resetBuildToolchainLine(): void {
+  toolchainLinePrinted.clear()
+}
 
 // The card is the session header, printed before the first work line, and its
 // key is what lets `start` dedupe the preview leg instead of reprinting.
@@ -501,6 +513,13 @@ export async function extensionBuild(
           useStagingSwap ? stagingDistPath : displayDistPath
         )
 
+        // The same bytes under two names ship twice, and nothing else in
+        // the build says so: the tree lists both, the total adds both.
+        const duplicateGroups = findDuplicateOutputFiles(
+          useStagingSwap ? stagingDistPath : displayDistPath,
+          outputFiles
+        )
+
         // The identity card and asset tree are informational; a throw here
         // would leave this promise pending and the process would exit 0.
         try {
@@ -583,6 +602,25 @@ export async function extensionBuild(
 
           const distDisplay = displayPath(displayDistPath)
 
+          const duplicateLines = duplicateGroups.map((group) =>
+            messages.duplicateOutputFiles(
+              distDisplay,
+              group,
+              importedAssetSources(stats.compilation, duplicateGroups)
+            )
+          )
+
+          if (duplicateLines.length > 0) {
+            summary = {
+              ...summary,
+              warnings_count: summary.warnings_count + duplicateLines.length,
+              warnings: [
+                ...(summary.warnings || []),
+                ...duplicateLines.map((line) => stripAnsi(line))
+              ]
+            }
+          }
+
           // Store readiness for Gecko targets: addons-linter runs over the
           // promoted dist and its findings join the warnings, never the
           // errors. A missing linter is one hint, a broken one says so, and
@@ -598,7 +636,8 @@ export async function extensionBuild(
               mode: resolvedMode,
               enabled: mergedBuildOptions.addonLint,
               chunkProvenance: () =>
-                collectChunkDependencyProvenance(stats.compilation)
+                collectChunkDependencyProvenance(stats.compilation),
+              toolchain: summary.toolchain
             })
 
             summary = {...summary, addon_lint: summarizeAddonLint(lint)}
@@ -672,6 +711,7 @@ export async function extensionBuild(
             }
           }
 
+          for (const line of duplicateLines) humanLine(line)
           for (const line of lintLines) humanLine(line)
 
           if (
@@ -693,7 +733,14 @@ export async function extensionBuild(
 
           // The versions a store reviewer has to rebuild under to get these
           // bytes back; the ids inside the bundles depend on the lockfile too.
-          if (resolvedMode === 'production' && summary.toolchain) {
+          // One process builds every target with the same toolchain, so
+          // `--browser all` reads the sentence once, not after every browser.
+          if (
+            resolvedMode === 'production' &&
+            summary.toolchain &&
+            !toolchainLinePrinted.has(packageJsonDir)
+          ) {
+            toolchainLinePrinted.add(packageJsonDir)
             humanLine(messages.buildToolchain(summary.toolchain))
           }
 

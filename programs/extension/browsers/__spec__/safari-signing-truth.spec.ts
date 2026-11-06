@@ -148,6 +148,7 @@ describe('the signature codesign reads off the built app', () => {
       appName: 'Leon',
       bundleIdentifier: 'dev.extensionjs.Leon',
       bundleIdDerived: true,
+      appVersion: '1.0.0',
       macOsOnly: true,
       language: 'swift' as const,
       open: true

@@ -15,6 +15,7 @@ import {
 } from '../run-safari/safari-launch'
 import {
   alignBundleIdentifiers,
+  alignProjectVersion,
   applyXcodeUserSettings,
   backupAndRestoreXcodeSettings,
   builtAppPath,
@@ -29,6 +30,7 @@ import {
   pbxprojPath,
   resolveSafariBuildConfig,
   saveManifestFingerprint,
+  xcodeAppVersion,
   xcodeProjectPath
 } from '../run-safari/safari-launch/safari-config'
 import {
@@ -122,6 +124,50 @@ describe('run-safari config', () => {
       /PRODUCT_BUNDLE_IDENTIFIER = "com\.example\.safari-smoke";/g
     )
     expect(appIds).toHaveLength(2)
+  })
+
+  it('takes the app version from the manifest version, three components at most', () => {
+    expect(xcodeAppVersion('0.2.0')).toBe('0.2.0')
+    expect(xcodeAppVersion('2')).toBe('2')
+    expect(xcodeAppVersion(' 1.4 ')).toBe('1.4')
+    // Chrome allows a fourth component, Apple does not.
+    expect(xcodeAppVersion('1.2.3.4')).toBe('1.2.3')
+    // Nothing numeric to stamp keeps what the converter writes.
+    expect(xcodeAppVersion('')).toBe('1.0')
+    expect(xcodeAppVersion(undefined)).toBe('1.0')
+    expect(xcodeAppVersion('beta')).toBe('1.0')
+
+    writeManifest(distDir, {name: 'Versioned', version: '0.2.0'})
+    const config = resolveSafariBuildConfig(makeCompilation(distDir), {
+      extension: [distDir],
+      browser: 'safari'
+    } as any)
+    expect(config.appVersion).toBe('0.2.0')
+    expect(composeXcodebuildArgs(config)).toContain('MARKETING_VERSION=0.2.0')
+    expect(composeXcodebuildArgs(config)).toContain(
+      'CURRENT_PROJECT_VERSION=0.2.0'
+    )
+  })
+
+  it('rewrites every MARKETING_VERSION and CURRENT_PROJECT_VERSION the converter stamped', () => {
+    const pbxproj = [
+      'buildSettings = {',
+      '  CURRENT_PROJECT_VERSION = 1;',
+      '  MARKETING_VERSION = 1.0;',
+      '  PRODUCT_BUNDLE_IDENTIFIER = "com.example.app";',
+      '};',
+      'buildSettings = {',
+      '  CURRENT_PROJECT_VERSION = "7";',
+      '  MARKETING_VERSION = "1.0";',
+      '};'
+    ].join('\n')
+
+    const aligned = alignProjectVersion(pbxproj, '0.2.0')
+
+    expect(aligned.match(/MARKETING_VERSION = 0\.2\.0;/g)).toHaveLength(2)
+    expect(aligned.match(/CURRENT_PROJECT_VERSION = 0\.2\.0;/g)).toHaveLength(2)
+    expect(aligned).not.toMatch(/= 1\.0;|= 1;|"7"/)
+    expect(aligned).toContain('PRODUCT_BUNDLE_IDENTIFIER = "com.example.app";')
   })
 
   it('validates bundle identifiers by the characters Apple accepts', () => {
@@ -297,6 +343,20 @@ describe('run-safari messages', () => {
     expect(messages.safariProjectStale()).toMatch(/identity options/)
   })
 
+  it('says which folder the converter reads, since the next line names the project it wrote', () => {
+    expect(messages.safariConverting('/tmp/proj/dist/safari')).toMatch(
+      /FROM.*dist\/safari/
+    )
+
+    expect(messages.safariConverting('/tmp/proj/dist/safari')).not.toMatch(
+      /PATH/
+    )
+
+    expect(messages.safariConverted('/tmp/proj/dist/safari-xcode')).toMatch(
+      /PATH.*safari-xcode/
+    )
+  })
+
   it('hints how to launch and enable the app when not opening it', () => {
     const msg = messages.safariOpenHint('/tmp/My App.app', 'My App')
     expect(msg).toMatch(/open/)
@@ -389,7 +449,7 @@ describe('derived bundle id note timing', () => {
     }
   }
 
-  it('reports the derived bundle id once when the full package completes', async () => {
+  it('reports the derived bundle id once, in the identity block after the app is built', async () => {
     const tools = fakeSafariTools()
     const {logger, warns, infos} = channelLogger(tools)
     await packageSafariExtension(
@@ -401,19 +461,47 @@ describe('derived bundle id note timing', () => {
 
     const notes = infos.filter((line) => /--bundle-id/.test(line))
     expect(notes).toHaveLength(1)
-    expect(notes[0]).toBe(
+    expect(notes[0]).toMatch(/Safari app identity/)
+    expect(notes[0]).toMatch(/dev\.extensionjs\.Warn-Demo.*generated/)
+    expect(notes[0]).toMatch(/dev\.extensionjs\.Warn-Demo\.Extension/)
+    expect(infos).not.toContain(
       messages.safariDefaultBundleIdNote('dev.extensionjs.Warn-Demo')
     )
 
     expect(warns).toHaveLength(0)
 
-    // The note closes the package: it is the last line, printed after every
-    // tool has run, not a warning ahead of the converter.
-    expect(infos[infos.length - 1]).toBe(notes[0])
-    expect(tools.events[tools.events.length - 1]).toBe('info')
-    expect(tools.events.indexOf('xcodebuild')).toBeLessThan(
-      tools.events.lastIndexOf('info')
+    // The block follows the build: printed after every tool has run, not a
+    // warning ahead of the converter.
+    const noteEvent = tools.events.indexOf(
+      'info',
+      tools.events.indexOf('codesign')
     )
+    expect(tools.events.indexOf('xcodebuild')).toBeLessThan(noteEvent)
+    expect(tools.events.indexOf('codesign')).toBeLessThan(noteEvent)
+  })
+
+  it('a dry run still names the derived bundle id with the short note', async () => {
+    const tools = fakeSafariTools()
+    const {logger, warns, infos} = channelLogger(tools)
+    await packageSafariExtension(
+      {
+        extension: [distDir],
+        browser: 'safari',
+        noOpen: true,
+        dryRun: true,
+        tools
+      } as any,
+      distDir,
+      logger,
+      'full'
+    )
+
+    expect(warns).toHaveLength(0)
+    expect(infos).toContain(
+      messages.safariDefaultBundleIdNote('dev.extensionjs.Warn-Demo')
+    )
+
+    expect(infos.some((line) => /Safari app identity/.test(line))).toBe(false)
   })
 
   it('stays silent when the user supplies their own bundle id', async () => {
@@ -1131,6 +1219,83 @@ describe('safari pipeline through the injected tool host', () => {
         knownTeams: []
       })
     )
+  })
+
+  it('stamps the manifest version into the project and the build, and moves with a bump', async () => {
+    const first = await runPipeline({...manifest, version: '0.2.0'})
+    const config = configFor()
+
+    expect(first.tools.calls.converter).toHaveLength(1)
+    expect(first.tools.calls.xcodebuild[0]).toContain('MARKETING_VERSION=0.2.0')
+    expect(first.tools.calls.xcodebuild[0]).toContain(
+      'CURRENT_PROJECT_VERSION=0.2.0'
+    )
+
+    const pbxproj = fs.readFileSync(pbxprojPath(config), 'utf8')
+    expect(pbxproj.match(/MARKETING_VERSION = 0\.2\.0;/g)).toHaveLength(2)
+    expect(pbxproj.match(/CURRENT_PROJECT_VERSION = 0\.2\.0;/g)).toHaveLength(2)
+    expect(pbxproj).not.toMatch(/MARKETING_VERSION = 1\.0;/)
+    expect(first.result.version).toBe('0.2.0')
+
+    const identity = first.logs.find((line) => /Safari app identity/.test(line))
+    expect(identity).toMatch(/Version\s+.*0\.2\.0.*\(build 0\.2\.0\)/)
+    expect(identity).toMatch(/App Store Connect wants a new build number/)
+
+    // A version bump alone is not a project change, so the converter stays
+    // out, but the number reaches the project file and xcodebuild runs again.
+    const bumped = await runPipeline({...manifest, version: '0.3.0'})
+    expect(bumped.tools.calls.converter).toHaveLength(0)
+    expect(bumped.tools.calls.xcodebuild).toHaveLength(1)
+    expect(bumped.tools.calls.xcodebuild[0]).toContain(
+      'MARKETING_VERSION=0.3.0'
+    )
+
+    expect(fs.readFileSync(pbxprojPath(config), 'utf8')).toMatch(
+      /MARKETING_VERSION = 0\.3\.0;/
+    )
+
+    expect(bumped.result.version).toBe('0.3.0')
+  })
+
+  it('names the app identity after the build: both bundle ids, the signing and the project', async () => {
+    const {logs, tools} = await runPipeline(manifest, {
+      host: {bundleId: 'com.example.mine', developmentTeam: 'TEAM123'}
+    })
+    const config = configFor({bundleId: 'com.example.mine'})
+    const appPath = builtAppPath(config)
+    const identity = logs.find((line) => /Safari app identity/.test(line))
+
+    expect(identity).toBe(
+      messages.safariAppIdentity({
+        bundleId: 'com.example.mine',
+        bundleIdDerived: false,
+        version: '1.0',
+        signed: true,
+        team: 'TEAM123',
+        requestedTeam: 'TEAM123',
+        xcodeProjectPath: xcodeProjectPath(config)
+      })
+    )
+
+    expect(identity).toMatch(/com\.example\.mine\.Extension/)
+    expect(identity).toMatch(/TEAM123/)
+    expect(identity).not.toMatch(/generated/)
+
+    // Right after "Built the Safari app." and before the app is opened.
+    const builtAt = logs.indexOf(messages.safariBuilt(appPath))
+    expect(logs.indexOf(identity as string)).toBe(builtAt + 1)
+    expect(eventIndexOfLog(tools, logs, identity as string)).toBeLessThan(
+      tools.events.indexOf('openApp')
+    )
+  })
+
+  it('an ad-hoc build says so in the identity block and names the toggle', async () => {
+    const {logs} = await runPipeline(manifest, {host: {noOpen: true}})
+    const identity = logs.find((line) => /Safari app identity/.test(line))
+
+    expect(identity).toMatch(/ad-hoc/)
+    expect(identity).toMatch(/Allow unsigned extensions/)
+    expect(identity).toMatch(/dev\.extensionjs\.MyExt.*generated/)
   })
 
   it('resync: reuses a fresh project, rebuilds, and neither opens nor mentions skipping', async () => {

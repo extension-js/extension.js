@@ -184,4 +184,85 @@ describe('referencesBrowserGlobal', () => {
       )
     ).toBe(true)
   })
+
+  it('ignores a guard written with the test first or through the global object', () => {
+    expect(
+      referencesBrowserGlobal(
+        '"undefined"!=typeof browser&&console.log(browser.runtime.id)'
+      )
+    ).toBe(false)
+
+    expect(
+      referencesBrowserGlobal(
+        'if ("browser" in globalThis) { browser.runtime.id }'
+      )
+    ).toBe(false)
+
+    expect(
+      referencesBrowserGlobal(
+        'const guarded = typeof browser !== "undefined" ? browser.runtime.id : chrome.runtime.id'
+      )
+    ).toBe(false)
+  })
+
+  it('ignores a branch the define plugin folded away for this browser', () => {
+    // What import.meta.env.EXTENSION_PUBLIC_BROWSER === "firefox" becomes in
+    // a chrome build once the define plugin has run.
+    expect(
+      referencesBrowserGlobal(
+        'if ("chrome" === "firefox") { browser.runtime.id }'
+      )
+    ).toBe(false)
+
+    expect(
+      referencesBrowserGlobal('"chrome" === "firefox" && browser.runtime.id')
+    ).toBe(false)
+
+    expect(
+      referencesBrowserGlobal('"chrome" !== "firefox" || browser.runtime.id')
+    ).toBe(false)
+
+    expect(
+      referencesBrowserGlobal(
+        '"chrome" !== "firefox" ? chrome.runtime.id : browser.runtime.id'
+      )
+    ).toBe(false)
+
+    expect(
+      referencesBrowserGlobal(
+        '(() => { const isFirefoxLike = "chrome" === "firefox" || "chrome" === "gecko-based"; if (isFirefoxLike) { browser.runtime.id } })()'
+      )
+    ).toBe(false)
+
+    expect(
+      referencesBrowserGlobal(
+        'const isFirefox = !("chrome" !== "firefox"); if (!isFirefox) {} else { browser.runtime.id }'
+      )
+    ).toBe(false)
+  })
+
+  it('still counts the branch a firefox build keeps, and an unfoldable test', () => {
+    expect(
+      referencesBrowserGlobal(
+        'if ("firefox" === "firefox") { browser.runtime.id }'
+      )
+    ).toBe(true)
+
+    expect(
+      referencesBrowserGlobal('"firefox" === "firefox" && browser.runtime.id')
+    ).toBe(true)
+
+    expect(
+      referencesBrowserGlobal(
+        'if (location.host === "firefox") { browser.runtime.id }'
+      )
+    ).toBe(true)
+
+    // A let can change, so its first value is no verdict.
+    expect(
+      referencesBrowserGlobal(
+        'let isFirefox = "chrome" === "firefox"; if (isFirefox) { browser.runtime.id }'
+      )
+    ).toBe(true)
+  })
 })

@@ -6,14 +6,60 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import {spawnSync} from 'node:child_process'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {AddonLintLine} from './addon-lint'
+import type {BuildToolchain} from './build-toolchain'
 import {type ChunkProvenance, chunkFileOf} from './chunk-dependency-provenance'
 
 // Next to the browser folder, never inside it: dist/<browser> is the package
 // that ships, and a note to reviewers is not part of the add-on.
 export const ADDON_REVIEWER_NOTE_FILE = 'amo-reviewer-note.md'
+
+// Where a note from an earlier lint goes when this build ran no lint, so a
+// reader beside a fresh dist never takes the old findings for its own.
+export const ADDON_REVIEWER_NOTE_STALE_FILE = 'amo-reviewer-note.stale.md'
+
+// What a reviewer rebuilding the package needs to match it, written into the
+// note itself so the paste the note asks for already carries the versions.
+export interface ReviewerNoteBuild {
+  toolchain?: BuildToolchain
+  commit?: string | null
+  date?: string
+}
+
+// Best effort: a project outside git, or one with no git on the PATH, gets a
+// note without the commit and nothing else changes.
+export function readProjectCommit(projectPath: string): string | null {
+  try {
+    const result = spawnSync('git', ['rev-parse', '--short', 'HEAD'], {
+      cwd: projectPath,
+      encoding: 'utf8',
+      stdio: 'pipe'
+    })
+    const commit = String(result.stdout || '').trim()
+
+    return result.status === 0 && /^[0-9a-f]{4,40}$/.test(commit)
+      ? commit
+      : null
+  } catch {
+    return null
+  }
+}
+
+export function reviewerNoteBuildLine(build: ReviewerNoteBuild): string {
+  const toolchain = build.toolchain
+  if (!toolchain) return ''
+
+  const packageManager = toolchain.package_manager
+    ? `, ${toolchain.package_manager.name} ${toolchain.package_manager.version}`
+    : ''
+  const commit = build.commit ? ` from commit ${build.commit}` : ''
+  const date = build.date ? ` on ${build.date}` : ''
+
+  return `Built with Node ${toolchain.node}${packageManager} and Extension.js ${toolchain.extension_js}${commit}${date}.`
+}
 
 // A finding that names a browser API is the author's: no library calls
 // chrome.offscreen, whatever else the same file bundles.
@@ -232,13 +278,16 @@ function findingText(line: AddonLintLine): string {
 
 export function renderAddonReviewerNote(
   note: ReviewerNote,
-  distDisplay: string
+  distDisplay: string,
+  build: ReviewerNoteBuild = {}
 ): string {
+  const buildLine = reviewerNoteBuildLine(build)
   const out: string[] = [
     '# Notes to reviewer',
     '',
+    ...(buildLine ? [buildLine, ''] : []),
     `Written by Extension.js from the addons-linter run over ${distDisplay}. ` +
-      'Paste the bundled libraries section into the notes to reviewer field of the addons.mozilla.org submission.',
+      `Paste the ${buildLine ? 'build line and the ' : ''}bundled libraries section into the notes to reviewer field of the addons.mozilla.org submission.`,
     ''
   ]
 
@@ -303,6 +352,7 @@ export interface WriteAddonReviewerNoteInput {
   distDisplay: string
   lines: AddonLintLine[]
   chunkProvenance?: Map<string, ChunkProvenance>
+  toolchain?: BuildToolchain
 }
 
 // A build with nothing to report removes an earlier note, so the file never
@@ -327,9 +377,32 @@ export function writeAddonReviewerNote(
   fs.mkdirSync(path.dirname(target), {recursive: true})
   fs.writeFileSync(
     target,
-    renderAddonReviewerNote(note, input.distDisplay),
+    renderAddonReviewerNote(note, input.distDisplay, {
+      toolchain: input.toolchain,
+      commit: readProjectCommit(input.projectPath),
+      date: new Date().toISOString().slice(0, 10)
+    }),
     'utf8'
   )
 
   return target
+}
+
+// A build that ran no lint has no findings to write and no right to leave the
+// previous run's findings beside its dist. The note is kept under a name that
+// says so, since it is still the last lint the project saw.
+export function retireAddonReviewerNote(distPath: string): string | null {
+  const target = addonReviewerNotePath(distPath)
+  if (!fs.existsSync(target)) return null
+
+  const stale = path.join(path.dirname(target), ADDON_REVIEWER_NOTE_STALE_FILE)
+
+  try {
+    fs.rmSync(stale, {force: true})
+    fs.renameSync(target, stale)
+
+    return stale
+  } catch {
+    return null
+  }
 }

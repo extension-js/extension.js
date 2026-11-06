@@ -94,16 +94,17 @@ describe('build toolchain line', () => {
     expect(line).not.toContain('undefined')
   })
 
-  it('is printed on every production build and recorded in the summary', () => {
+  it('is printed once per production build run, recorded in every summary and handed to the reviewer note', () => {
     const source = readFileSync(resolve(HERE, '../command-build.ts'), 'utf8')
 
     expect(source).toContain('toolchain: getBuildToolchain()')
-    expect(source).toContain(
-      "if (resolvedMode === 'production' && summary.toolchain) {"
-    )
-
+    expect(source).toContain("resolvedMode === 'production' &&")
+    expect(source).toContain('!toolchainLinePrinted.has(packageJsonDir)')
     expect(source).toContain(
       'humanLine(messages.buildToolchain(summary.toolchain))'
     )
+
+    // The note the sentence asks for is written with the same versions.
+    expect(source).toContain('toolchain: summary.toolchain')
   })
 })

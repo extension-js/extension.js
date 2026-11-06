@@ -536,22 +536,40 @@ export function edgeEmbeddedOptionsDialog() {
 
 // Safari inherits chromium: keys by design, so a dropped key would otherwise
 // vanish with no trace and the user would debug a feature that never loaded.
+// One key is one sentence that names it. More keys are one block whose
+// continuation lines carry the same bar the Compatibility reporter uses, so a
+// reader keeping or dropping prefixed lines keeps or drops the whole verdict
+// with its subject, never a bare "Every key above" pointing at another build.
 export function webkitUnsupportedKeysDropped(
   browser: string,
   dropped: Array<{path: string; reason: string}>
 ) {
   const count = dropped.length
-  const lines: string[] = []
-  lines.push(
-    `${prefix('warn')} Safari has no support for ${String(count)} manifest ${count === 1 ? 'key' : 'keys'} this project declares, so the ${colors.blue(browser)} build dropped ${count === 1 ? 'it' : 'them'}.`
-  )
+  const target = colors.blue(browser)
+  const replacement = `Declare a Safari-only replacement with the ${colors.yellow('safari:')} prefix if you have one.`
+
+  if (count === 1) {
+    const [entry] = dropped
+
+    return (
+      `${prefix('warn')} Safari has no support for ${colors.yellow(entry.path)} (${entry.reason}), ` +
+      `so the ${target} build dropped it, and nothing the app could have run was lost. ${replacement}`
+    )
+  }
+
+  const bar = `${colors.gray('│')}  `
+  const lines: string[] = [
+    `${prefix('warn')} Safari has no support for ${String(count)} manifest keys this project declares, so the ${target} build dropped them:`
+  ]
 
   for (const entry of dropped) {
-    lines.push(`${colors.yellow(entry.path)} ${colors.gray(entry.reason)}`)
+    lines.push(
+      `${bar}${colors.yellow(entry.path)} ${colors.gray(entry.reason)}`
+    )
   }
 
   lines.push(
-    `Every key above is inert on Safari, so the built app lost nothing it could have run. Declare a Safari-only replacement with the ${colors.yellow('safari:')} prefix if you have one.`
+    `${bar}These ${String(count)} keys are inert on Safari, so the built app lost nothing it could have run. ${replacement}`
   )
 
   return lines.join('\n')

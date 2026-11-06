@@ -78,7 +78,7 @@ describe('a build of browser.* code on a Chromium target', () => {
     expect(summary.errors_count).toBe(0)
     const warnings = polyfillWarnings(summary)
     expect(warnings).toHaveLength(1)
-    expect(warnings[0]).toContain('background.js uses browser.*')
+    expect(warnings[0]).toContain('background.js:1 uses browser.*')
     expect(warnings[0]).toContain('extension dev and extension start')
     expect(warnings[0]).toContain('extension build leaves it off')
     expect(serviceWorker(root, 'chrome')).toContain('browser.storage.local')

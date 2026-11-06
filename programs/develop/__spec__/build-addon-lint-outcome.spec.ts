@@ -7,6 +7,10 @@ import type {
   LoadAddonLinter,
   RunAddonLintInput
 } from '../lib/addon-lint'
+import {
+  ADDON_REVIEWER_NOTE_FILE,
+  ADDON_REVIEWER_NOTE_STALE_FILE
+} from '../lib/addon-reviewer-note'
 import type {BuildSummary} from '../lib/build-summary'
 import {buildSummaryPath} from '../lib/session-paths'
 
@@ -230,5 +234,78 @@ describe('the store check outcome after a production firefox build', () => {
       status: 'skipped',
       reason: 'disabled'
     })
+  }, 180_000)
+
+  it('a missing linter retires the note of the last lint and names the config key', async () => {
+    const root = project()
+    const note = path.join(root, 'dist', ADDON_REVIEWER_NOTE_FILE)
+    fs.mkdirSync(path.dirname(note), {recursive: true})
+    fs.writeFileSync(note, '# Notes to reviewer\n\nold findings\n')
+
+    injected.override = {loadLinter: absent}
+    const {output, receipt} = await build(root)
+
+    expect(receipt.addon_lint).toEqual({status: 'missing'})
+    expect(fs.existsSync(note)).toBe(false)
+    expect(
+      fs.readFileSync(
+        path.join(root, 'dist', ADDON_REVIEWER_NOTE_STALE_FILE),
+        'utf8'
+      )
+    ).toContain('old findings')
+
+    expect(output).toContain('commands.build.addonLint: false')
+    expect(output).toMatch(
+      /reviewer note of the last lint moved to .*amo-reviewer-note\.stale\.md/
+    )
+  }, 180_000)
+
+  it('the reviewer note opens with the toolchain the build ran under', async () => {
+    injected.override = {
+      loadLinter: linterReturning({
+        errors: [],
+        warnings: [
+          {
+            code: 'DANGEROUS_EVAL',
+            message: 'eval can be harmful.',
+            file: 'x.js'
+          }
+        ]
+      })
+    }
+
+    const root = project()
+    await build(root)
+    const note = fs.readFileSync(
+      path.join(root, 'dist', ADDON_REVIEWER_NOTE_FILE),
+      'utf8'
+    )
+
+    const buildLine = note.split('\n')[2]
+
+    expect(buildLine.startsWith(`Built with Node ${process.version}`)).toBe(
+      true
+    )
+
+    expect(buildLine).toMatch(/ and Extension\.js \d/)
+
+    expect(note).toContain(
+      'Paste the build line and the bundled libraries section'
+    )
+  }, 180_000)
+
+  it('prints the toolchain sentence once per process, not after every browser', async () => {
+    const {resetBuildToolchainLine} = await import('../command-build')
+    resetBuildToolchainLine()
+    injected.override = {loadLinter: absent}
+
+    const root = project()
+    const first = await build(root)
+    const second = await build(root)
+
+    expect(first.output).toContain('Built with Node')
+    expect(second.output).toContain('built for production')
+    expect(second.output).not.toContain('Built with Node')
+    expect(second.summary.toolchain).toEqual(first.summary.toolchain)
   }, 180_000)
 })

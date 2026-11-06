@@ -14,7 +14,7 @@ import {
   colors as ucColors,
   uniqueNamesGenerator
 } from 'unique-names-generator'
-import {humanWarn} from '../../helpers/messaging'
+import {humanLine, humanWarn} from '../../helpers/messaging'
 import * as messages from './messages'
 import {markManagedEphemeralProfile} from './shared-utils'
 
@@ -33,6 +33,10 @@ export interface ResolveProfileInput {
   // false composes the same decision without creating, marking or seeding
   // the directory, so a dry run can name the profile it would use.
   provision?: boolean
+  // The project root, so an explicit profile under it gets the ignore file
+  // and README the managed root gets, and one line that says what it holds.
+  projectDir?: string
+  browser?: string
 }
 
 export interface ResolvedProfile {
@@ -130,6 +134,107 @@ export function ensureProfileRootIgnoreFile(managedBaseDir: string): void {
   }
 }
 
+export const EXPLICIT_PROFILE_IGNORE_CONTENT =
+  '# Extension.js browser profile (cookies, history, logins), configured by\n' +
+  '# browser.<name>.profile in extension.config.js. Personal data lives here:\n' +
+  '# this directory must never be committed or shipped.\n' +
+  '*\n'
+
+export function explicitProfileReadmeContent(
+  browser: string,
+  relativePath: string
+): string {
+  return (
+    `# ${relativePath}\n\n` +
+    `Extension.js writes this folder: the ${browser} profile that \`browser.${browser}.profile\`\n` +
+    'in extension.config.js points at. It holds cookies, history and logins and is\n' +
+    'kept between runs. It is not a browser build, is never zipped or published,\n' +
+    'and is safe to delete while no session is running.\n'
+  )
+}
+
+const PROJECT_MARKERS = ['package.json', 'manifest.json', 'extension.config.js']
+
+// A configured path that is the project itself, holds it, or holds a project
+// file is not a folder a '*' ignore file may land in.
+function isProfileFolderOfProject(
+  profilePath: string,
+  projectDir: string
+): boolean {
+  const relative = path.relative(path.resolve(projectDir), profilePath)
+
+  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
+    return false
+  }
+
+  if (relative.split(path.sep).includes('node_modules')) return false
+
+  try {
+    if (fs.existsSync(profilePath) && !fs.statSync(profilePath).isDirectory()) {
+      return false
+    }
+
+    return !PROJECT_MARKERS.some((marker) =>
+      fs.existsSync(path.join(profilePath, marker))
+    )
+  } catch {
+    return false
+  }
+}
+
+const notedExplicitProfiles = new Set<string>()
+
+// Tests resolve the same path more than once in one process.
+export function resetExplicitProfileNotes(): void {
+  notedExplicitProfiles.clear()
+}
+
+// The managed root under dist/extension-js/ gets a '*' ignore file and a
+// README; a profile the config points at under the project gets the same,
+// inside the profile folder, where it hides the profile and nothing else.
+export function ensureExplicitProfileHygiene(
+  profilePath: string,
+  projectDir: string,
+  browser: string
+): {ignoreFile: string; readme: string} | null {
+  try {
+    if (!isProfileFolderOfProject(profilePath, projectDir)) return null
+
+    fs.mkdirSync(profilePath, {recursive: true})
+
+    const ignoreFile = path.join(profilePath, '.gitignore')
+    const readme = path.join(profilePath, 'README.md')
+    const relative = path
+      .relative(path.resolve(projectDir), profilePath)
+      .split(path.sep)
+      .join('/')
+
+    if (!fs.existsSync(ignoreFile)) {
+      fs.writeFileSync(ignoreFile, EXPLICIT_PROFILE_IGNORE_CONTENT)
+    }
+
+    if (!fs.existsSync(readme)) {
+      fs.writeFileSync(readme, explicitProfileReadmeContent(browser, relative))
+    }
+
+    if (!notedExplicitProfiles.has(profilePath)) {
+      notedExplicitProfiles.add(profilePath)
+      humanLine(
+        messages.explicitProfileUnderProject(
+          browser,
+          relative,
+          relative === 'dist' || relative.startsWith('dist/')
+        )
+      )
+    }
+
+    return {ignoreFile, readme}
+  } catch {
+    // A hygiene guard must never break a browser launch.
+    return null
+  }
+}
+
 // A live Chromium's lock, socket and cookie describe that browser's process,
 // never the copy, so dragging them along would lock the seeded profile.
 const CHROMIUM_SINGLETON_ARTIFACTS = new Set([
@@ -178,6 +283,14 @@ export function resolveProfileConfig(
 
   if (hasExplicit(rawProfile)) {
     const profilePath = resolveExplicit(rawProfile.trim())
+
+    if (provision && input.projectDir) {
+      ensureExplicitProfileHygiene(
+        profilePath,
+        input.projectDir,
+        String(input.browser || 'chrome')
+      )
+    }
 
     return {kind: 'explicit', profilePath, persisted: false}
   }

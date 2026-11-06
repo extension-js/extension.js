@@ -730,7 +730,12 @@ describe('ApplyDevDefaults', () => {
     it.each(injected)('warns on undeclared chrome.%s use', (api: string) => {
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-dev-cover-'))
       const file = path.join(dir, 'background.js')
-      fs.writeFileSync(file, `chrome.${api}.someCall().then((r) => r.url)\n`)
+      fs.writeFileSync(
+        file,
+        api === 'tabs'
+          ? 'chrome.tabs.query({}).then((r) => r[0].url)\n'
+          : `chrome.${api}.someCall().then((r) => r.url)\n`
+      )
 
       try {
         const {warnings} = runDevDefaultsWithWarnings(
@@ -1285,8 +1290,8 @@ describe('findInjectedOnlyPermissionUses', () => {
       new Set<string>(),
       ['tabs', 'scripting']
     )
-    expect(uses.get('tabs')).toBe(worker)
-    expect(uses.get('scripting')).toBe(legacy)
+    expect(uses.get('tabs')).toEqual({file: worker, line: 1, field: 'url'})
+    expect(uses.get('scripting')).toEqual({file: legacy})
     fs.rmSync(dir, {recursive: true, force: true})
   })
 })
