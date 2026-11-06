@@ -268,6 +268,108 @@ function definesName(program: AstNode): boolean {
   return false
 }
 
+// The define plugin has already written the build's browser into the script
+// as a string literal, so a branch on EXTENSION_PUBLIC_BROWSER reads here as
+// a comparison of two literals, or as a const bound to one. The production
+// minifier drops the dead side; this reads the same verdict, so an
+// unminified build and a const the minifier kept agree with it.
+function constantTruth(
+  value: Child,
+  constants: ReadonlyMap<string, boolean>
+): boolean | undefined {
+  if (!isNode(value)) return undefined
+
+  switch (value.type) {
+    case 'Literal':
+      return Boolean(value.value)
+    case 'Identifier':
+      return constants.get(String(value.name))
+    case 'ParenthesizedExpression':
+      return constantTruth(value.expression as Child, constants)
+
+    case 'UnaryExpression': {
+      if (value.operator !== '!') return undefined
+
+      const inner = constantTruth(value.argument as Child, constants)
+
+      return inner === undefined ? undefined : !inner
+    }
+
+    case 'BinaryExpression': {
+      const left = node(value.left)
+      const right = node(value.right)
+
+      if (left?.type !== 'Literal' || right?.type !== 'Literal') {
+        return undefined
+      }
+
+      switch (value.operator) {
+        case '===':
+        case '==':
+          return left.value === right.value
+        case '!==':
+        case '!=':
+          return left.value !== right.value
+        default:
+          return undefined
+      }
+    }
+
+    case 'LogicalExpression': {
+      const left = constantTruth(value.left as Child, constants)
+      const right = constantTruth(value.right as Child, constants)
+
+      if (value.operator === '&&') {
+        if (left === false || right === false) return false
+
+        return left === true && right === true ? true : undefined
+      }
+
+      if (value.operator === '||') {
+        if (left === true || right === true) return true
+
+        return left === false && right === false ? false : undefined
+      }
+
+      return undefined
+    }
+
+    default:
+      return undefined
+  }
+}
+
+// `const isFirefox = "chrome" === "firefox"` in the same scope is the shape a
+// concatenated module leaves behind, so the name carries the verdict on.
+function withConstants(
+  outer: ReadonlyMap<string, boolean>,
+  statements: AstNode[]
+): ReadonlyMap<string, boolean> {
+  let scoped: Map<string, boolean> | undefined
+
+  for (const statement of statements) {
+    if (
+      statement.type !== 'VariableDeclaration' ||
+      statement.kind !== 'const'
+    ) {
+      continue
+    }
+
+    for (const declarator of list(statement.declarations)) {
+      const id = node(declarator.id)
+      if (id?.type !== 'Identifier') continue
+
+      const truth = constantTruth(declarator.init as Child, scoped ?? outer)
+      if (truth === undefined) continue
+
+      scoped ??= new Map(outer)
+      scoped.set(String(id.name), truth)
+    }
+  }
+
+  return scoped ?? outer
+}
+
 function mentionsChrome(value: Child): boolean {
   if (!isNode(value)) return false
 
@@ -286,6 +388,7 @@ function mentionsChrome(value: Child): boolean {
 
 class FreeReferenceScan {
   public found = false
+  private constants: ReadonlyMap<string, boolean> = new Map()
 
   constructor(program: AstNode) {
     const body = list(program.body)
@@ -294,6 +397,18 @@ class FreeReferenceScan {
 
   private visitAll(values: unknown, shadowed: boolean): void {
     for (const value of list(values)) this.visit(value, shadowed)
+  }
+
+  // A block's own const verdicts hold for the block and what it nests.
+  private visitScope(statements: unknown, shadowed: boolean): void {
+    const outer = this.constants
+    this.constants = withConstants(outer, list(statements))
+    this.visitAll(statements, shadowed)
+    this.constants = outer
+  }
+
+  private truthOf(test: Child): boolean | undefined {
+    return constantTruth(test, this.constants)
   }
 
   private visitClass(current: AstNode, shadowed: boolean): void {
@@ -335,7 +450,7 @@ class FreeReferenceScan {
 
         return
       case 'Program':
-        this.visitAll(current.body, shadowed)
+        this.visitScope(current.body, shadowed)
 
         return
       case 'FunctionDeclaration':
@@ -351,7 +466,7 @@ class FreeReferenceScan {
         return
       case 'BlockStatement':
       case 'StaticBlock':
-        this.visitAll(
+        this.visitScope(
           current.body,
           shadowed || lexicalDeclares(list(current.body))
         )
@@ -416,19 +531,25 @@ class FreeReferenceScan {
 
         return
       case 'IfStatement':
-      case 'ConditionalExpression':
+
+      case 'ConditionalExpression': {
         this.visit(current.test as Child, shadowed)
         if (guardsName(current.test as Child)) return
 
-        this.visit(current.consequent as Child, shadowed)
+        // A side the build folded away never runs on this browser.
+        const truth = this.truthOf(current.test as Child)
+
+        if (truth !== false) this.visit(current.consequent as Child, shadowed)
         // A branch taken only when the chrome test fails runs where chrome
         // is missing, which is exactly where the browser name exists.
         if (mentionsChrome(current.test as Child)) return
 
-        this.visit(current.alternate as Child, shadowed)
+        if (truth !== true) this.visit(current.alternate as Child, shadowed)
 
         return
-      case 'LogicalExpression':
+      }
+
+      case 'LogicalExpression': {
         this.visit(current.left as Child, shadowed)
         if (guardsName(current.left as Child)) return
 
@@ -439,9 +560,16 @@ class FreeReferenceScan {
           return
         }
 
+        const truth = this.truthOf(current.left as Child)
+
+        if (current.operator === '&&' && truth === false) return
+        if (current.operator === '||' && truth === true) return
+
         this.visit(current.right as Child, shadowed)
 
         return
+      }
+
       case 'LabeledStatement':
         this.visit(current.body as Child, shadowed)
 

@@ -28,20 +28,27 @@ function browserKey(browser: DevOptions['browser']) {
   return String(browser || 'unknown')
 }
 
+// The scan reads the emitted script, where a typeof guard, a chrome fallback
+// and a branch the define plugin folded are all left out of the count. What
+// is left is a read the scan could not prove safe, not one proven to throw,
+// so the sentence says "may" and names the guard that would settle it.
 export function browserGlobalWithoutPolyfill(
   browser: DevOptions['browser'],
   files: string[]
 ) {
   const subject = files.length === 1 ? files[0] : files.join(', ')
+  const target = browserKey(browser)
 
   return (
-    `${subject} uses browser.*, which ${browserKey(browser)} only has through ` +
+    `${subject} uses browser.*, which ${target} only has through ` +
     `the cross-browser polyfill, and this build has the polyfill off. ` +
     `extension dev and extension start turn it on by default while ` +
     `extension build leaves it off, so the dev session works and the ` +
-    `packaged build throws "browser is not defined". Build with ` +
-    `--polyfill, set commands.build.polyfill to true in extension.config.js, ` +
-    `or call chrome.* instead.`
+    `packaged build may throw "browser is not defined" if this code runs ` +
+    `on ${target}. Build with --polyfill, set commands.build.polyfill to ` +
+    `true in extension.config.js, guard the read with a typeof browser ` +
+    `check or a branch on ` +
+    `import.meta.env.EXTENSION_PUBLIC_BROWSER, or call chrome.* instead.`
   )
 }
 
