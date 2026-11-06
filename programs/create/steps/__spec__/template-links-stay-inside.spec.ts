@@ -49,7 +49,7 @@ afterEach(async () => {
 
 async function expectLinksKeptInside(destination: string, outside: string) {
   const inside = await fs.readlink(path.join(destination, 'src', 'inside.js'))
-  expect(inside).toBe('shared/util.js')
+  expect(inside.split(path.sep).join('/')).toBe('shared/util.js')
   expect(
     await fs.readFile(path.join(destination, 'src', 'inside.js'), 'utf8')
   ).toBe('ok')
