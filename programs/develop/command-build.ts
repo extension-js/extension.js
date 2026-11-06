@@ -94,9 +94,9 @@ import {
   stampReadyKnownExtensionId
 } from './plugin-playwright'
 import {resolveCompanionExtensionsConfig} from './plugin-special-folders/folder-extensions/resolve-config'
+import {rememberExcludedFiles} from './plugin-special-folders/folders-config'
 import {
   getSpecialFoldersDataForProjectRoot,
-  rememberExcludedFiles,
   rememberSpecialFoldersConfig
 } from './plugin-special-folders/get-data'
 import type {

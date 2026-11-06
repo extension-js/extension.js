@@ -8,12 +8,12 @@ import {
   isExcludedEntry,
   omitDevOnlyEntries,
   omitExcludedEntries,
+  rememberExcludedFiles,
   resolveExcludedFiles
 } from '../folders-config'
 import {
   getSpecialFoldersDataForCompiler,
   getSpecialFoldersDataForProjectRoot,
-  rememberExcludedFiles,
   rememberSpecialFoldersConfig
 } from '../get-data'
 import {

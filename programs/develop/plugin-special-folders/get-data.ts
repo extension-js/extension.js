@@ -19,13 +19,12 @@ import {
   omitDevOnlyEntries,
   omitExcludedEntries,
   publicFolderSetting,
-  rememberExcludedFiles,
   rememberedFolders,
   rememberSpecialFoldersConfig
 } from './folders-config'
 import * as messages from './messages'
 
-export {rememberExcludedFiles, rememberSpecialFoldersConfig}
+export {rememberSpecialFoldersConfig}
 
 // scripts/ enrolls EVERY file as a content-script-like entry, but Node build
 // tooling (Node-builtin imports, node shebang) can never be one; exclude it.

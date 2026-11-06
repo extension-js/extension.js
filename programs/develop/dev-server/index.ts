@@ -57,9 +57,9 @@ import {
   readContentScriptCount
 } from '../plugin-reload'
 import {resolveCompanionExtensionsConfig} from '../plugin-special-folders/folder-extensions/resolve-config'
+import {rememberExcludedFiles} from '../plugin-special-folders/folders-config'
 import {
   getSpecialFoldersDataForProjectRoot,
-  rememberExcludedFiles,
   rememberSpecialFoldersConfig
 } from '../plugin-special-folders/get-data'
 import {publicFolderOrDefault} from '../plugin-special-folders/resolve-public-folder'
