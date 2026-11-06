@@ -55,9 +55,12 @@ async function recreateLink(
   real: string
 ): Promise<void> {
   const target = path.relative(path.dirname(sourcePath), real) || '.'
+  // Windows keeps file links and directory links apart, and reads a
+  // directory behind a file link as a permission error.
+  const kind = (await fs.stat(real)).isDirectory() ? 'dir' : 'file'
 
   try {
-    await fs.symlink(target, destPath)
+    await fs.symlink(target, destPath, kind)
   } catch (caught) {
     const err = caught as NodeJS.ErrnoException | undefined
 
