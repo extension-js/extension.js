@@ -113,4 +113,32 @@ describe('BoringPlugin done tap vs invalid manifest JSON', () => {
     getDoneTap()(makeStats())
     expect(String(logSpy.mock.calls[2][0])).toContain('My App')
   })
+
+  it('prints the default_locale value for a __MSG_ manifest name', () => {
+    fs.mkdirSync(path.join(tmpDir, '_locales', 'en'), {recursive: true})
+    fs.writeFileSync(
+      path.join(tmpDir, '_locales', 'en', 'messages.json'),
+      JSON.stringify({extName: {message: 'Lance'}})
+    )
+
+    fs.writeFileSync(
+      manifestPath,
+      JSON.stringify({
+        manifest_version: 3,
+        name: '__MSG_extName__',
+        default_locale: 'en',
+        version: '0.1.0'
+      })
+    )
+
+    const {compiler, getDoneTap} = makeCompiler()
+    new BoringPlugin({manifestPath, browser: 'chromium'}).apply(
+      compiler as never
+    )
+
+    getDoneTap()(makeStats())
+    const line = String(logSpy.mock.calls[0][0])
+    expect(line).toContain('Lance compiled')
+    expect(line).not.toContain('__MSG_')
+  })
 })

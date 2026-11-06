@@ -135,6 +135,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "cleanDistSkippedNotFound: function(1)",
     "cleanDistStarting: function(1)",
     "envChangedRestartRequired: function(1)",
+    "envIgnoredFiles: function(2)",
     "envInjectedPublicVars: function(1)",
     "envNoMatchingFile: function(4)",
     "envPublicSecretName: function(1)",

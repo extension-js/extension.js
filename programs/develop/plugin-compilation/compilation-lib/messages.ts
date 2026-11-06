@@ -109,19 +109,28 @@ export function envPublicSecretName(names: string[]) {
   )
 }
 
+export function envIgnoredFiles(files: string[], mode: string) {
+  return `${prefix('debug')} env      ignored=${files.join(',')} mode=${mode}`
+}
+
 export function envNoMatchingFile(
   browser: string,
   mode: string,
   presentFiles: string[],
-  expectedCandidates: string[]
+  expectedCandidates: string[],
+  publicValuesDefined = false
 ) {
+  const undefinedLine = publicValuesDefined
+    ? ''
+    : `EXTENSION_PUBLIC_* variables read from code are ` +
+      `${colors.yellow('undefined')} in this build.\n`
+
   return (
     `Found ${presentFiles.map((file) => colors.yellow(file)).join(', ')}, ` +
     `but none match browser ${colors.yellow(browser)} in mode ${colors.yellow(
       mode
     )}.\n` +
-    `EXTENSION_PUBLIC_* variables read from code are ` +
-    `${colors.yellow('undefined')} in this build.\n` +
+    undefinedLine +
     `Rename the file to one of these, in priority order: ` +
     `${expectedCandidates.map((file) => colors.gray(file)).join(', ')}.\n` +
     `Family names apply to every family member, so ` +

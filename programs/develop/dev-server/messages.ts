@@ -10,6 +10,7 @@ import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import * as path from 'node:path'
 import colors from 'pintor'
+import {resolveLocalizedManifestName} from '../lib/localized-manifest-name'
 import {
   artifactNoun,
   browserRowValue,
@@ -85,7 +86,11 @@ export function browserRunnerDisabled(args: {
     : pid
       ? `PID ${pid}`
       : ''
-  const extensionName = String(manifest?.name || 'Extension')
+  const extensionName =
+    resolveLocalizedManifestName(manifest, [
+      path.dirname(args.manifestPath),
+      String(args.distPath || '')
+    ]) || 'Extension'
   const extensionVersion = String(manifest?.version || '').trim()
   const extensionLabel = extensionVersion
     ? `${extensionName} ${extensionVersion}`

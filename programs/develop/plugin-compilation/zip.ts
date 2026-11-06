@@ -12,6 +12,7 @@ import type {Compiler} from '@rspack/core'
 import {type Zippable, zipSync} from 'fflate'
 import ignore from 'ignore'
 import glob from 'tiny-glob'
+import {resolveLocalizedManifestName} from '../lib/localized-manifest-name'
 import * as messages from '../lib/messages'
 import {debugLine, isDebug} from '../lib/messaging'
 import {parseJsonSafe} from '../lib/parse-json-safe'
@@ -78,34 +79,6 @@ function withBrowserSuffix(zipName: string, browser: string): string {
   if (stem.toLowerCase().endsWith(suffix.toLowerCase())) return `${stem}.zip`
 
   return `${stem}${suffix}.zip`
-}
-
-// Resolve an i18n manifest name (__MSG_appName__) against the default locale's
-// messages.json so the zip carries the real name; falls back to dir basename.
-function resolveManifestName(
-  rawName: unknown,
-  manifest: {default_locale?: unknown},
-  searchRoots: string[],
-  fallback: string
-): string {
-  const raw = typeof rawName === 'string' ? rawName : ''
-  const msgMatch = raw.match(/^__MSG_(.+)__$/)
-  if (!msgMatch) return raw || fallback
-
-  const locale = String(manifest.default_locale || 'en')
-
-  for (const root of searchRoots) {
-    try {
-      const messagesPath = path.join(root, '_locales', locale, 'messages.json')
-      const parsed = parseJsonSafe(fs.readFileSync(messagesPath, 'utf-8'))
-      const message = parsed?.[msgMatch[1]]?.message
-      if (typeof message === 'string' && message.trim()) return message
-    } catch {
-      // Ignore
-    }
-  }
-
-  return fallback
 }
 
 const toPosix = (p: string): string => p.replace(/\\/g, '/')
@@ -421,13 +394,14 @@ export class ZipPlugin {
         }
 
         const manifest = distManifest || sourceManifest || {}
+        // The zip carries the localized name, and the folder name stands in
+        // when no messages file resolves it.
         const base = sanitize(
-          resolveManifestName(
-            manifest.name,
+          resolveLocalizedManifestName(
             manifest,
             [outPath, path.dirname(sourceManifestPath), packageJsonDir],
-            path.basename(packageJsonDir)
-          )
+            {whenUnresolved: path.basename(packageJsonDir)}
+          ) || path.basename(packageJsonDir)
         )
         const name = `${base}-${manifest.version || '0.0.0'}`
         const explicitName = this.zipData.zipFilename

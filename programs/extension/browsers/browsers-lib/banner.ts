@@ -9,6 +9,7 @@
 import {createHash} from 'node:crypto'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {resolveLocalizedManifestName} from '../../helpers/localized-manifest-name'
 import {
   browserRowValue,
   card,
@@ -296,7 +297,11 @@ export async function printDevBannerOnce(opts: {
 
   if (alreadyPrinted) return true
 
-  const name = info?.name || opts.fallback?.name || manifest.name
+  // The dist carries _locales, so a __MSG_ name reads as the browser shows it.
+  const name =
+    info?.name ||
+    opts.fallback?.name ||
+    resolveLocalizedManifestName(manifest, [opts.outPath])
   const version = info?.version || opts.fallback?.version || manifest.version
 
   const message = {
@@ -388,7 +393,9 @@ export async function printProdBannerOnce(opts: {
         data: {
           id: resolvedExtensionId,
           management: {
-            name: opts.runtime?.name || manifest.name,
+            name:
+              opts.runtime?.name ||
+              resolveLocalizedManifestName(manifest, [opts.outPath]),
             version: opts.runtime?.version || manifest.version
           }
         }
@@ -421,7 +428,7 @@ export async function printProdBannerOnce(opts: {
         data: {
           id: '',
           management: {
-            name: manifest.name,
+            name: resolveLocalizedManifestName(manifest, [opts.outPath]),
             version: manifest.version
           }
         }
