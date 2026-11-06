@@ -1,4 +1,5 @@
 import {beforeEach, describe, expect, it, vi} from 'vitest'
+import {BridgeBroker} from '../control-bridge/broker'
 
 const {
   loadCommandConfig,
@@ -191,6 +192,12 @@ describe('dev-server config root resolution', () => {
   })
 
   it('reflects allow-origin for the extension alone, never a star', async () => {
+    // The origin the session's own extension said hello from.
+    vi.spyOn(
+      BridgeBroker.prototype,
+      'isSessionExtensionOrigin'
+    ).mockImplementation((origin) => origin === 'chrome-extension://abcdefgh')
+
     await devServer(
       {
         manifestPath: '/proj/src/manifest.json',
@@ -220,6 +227,10 @@ describe('dev-server config root resolution', () => {
     )
 
     expect(headerFor('https://evil.test')).toEqual(
+      new Map([['vary', 'Origin']])
+    )
+
+    expect(headerFor('chrome-extension://zzzzzzzz')).toEqual(
       new Map([['vary', 'Origin']])
     )
 

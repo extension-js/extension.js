@@ -82,6 +82,8 @@ export function startControlServer(
       const conn: BridgeConnection = {
         id: `c${++connSeq}`,
         origin: typeof origin === 'string' ? origin : undefined,
+        // A socket with no address reads as a remote one, never as local.
+        remoteAddress: String(request?.socket?.remoteAddress ?? ''),
         send(frame: ServerFrame) {
           // Every return reports delivery: a worker that idled out before `ws`
           // emitted close drops the frame here without throwing.

@@ -387,6 +387,16 @@ export function removedStaleTemplateLockfiles(fileNames: string[]) {
   )
 }
 
+export function droppedTemplateLinks(linkPaths: string[]) {
+  const noun = linkPaths.length === 1 ? 'link' : 'links'
+
+  return (
+    `${prefix('info')} Left out the template ${noun} ` +
+    `${linkPaths.map((name) => fmt.val(name)).join(', ')}: ` +
+    `${linkPaths.length === 1 ? 'it points' : 'they point'} outside the template.`
+  )
+}
+
 export function initializingGitForRepository(projectName: string) {
   return `${prefix('debug')} create git init name=${projectName}`
 }

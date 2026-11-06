@@ -4,6 +4,7 @@ import {
   type BridgeConnection,
   CLOSE_BAD_INSTANCE,
   CLOSE_CONTROL_UNAVAILABLE,
+  CLOSE_TOKEN_REQUIRED,
   RELOAD_ACK_TIMEOUT_MS
 } from '../broker'
 import type {IncomingLogEvent, ServerFrame} from '../contracts'
@@ -1040,5 +1041,159 @@ describe('BridgeBroker producer attach origin', () => {
     expect(seen).toEqual([
       {origin: 'safari-web-extension://3F2A9C10-1B2C-4D5E-8F90-ABCDEF012345'}
     ])
+  })
+})
+
+class PeerConn extends FakeConn {
+  constructor(
+    id: string,
+    readonly remoteAddress: string,
+    readonly origin?: string
+  ) {
+    super(id)
+  }
+}
+
+describe('a peer beyond loopback', () => {
+  const token = 'tok-secret'
+  const remote = {...opts, allowControl: true, controlToken: token}
+
+  it('is refused the consumer and controller roles without the session token', () => {
+    const b = new BridgeBroker(remote)
+    const consumer = new PeerConn('c', '192.168.1.20')
+    b.onFrame(consumer, {
+      type: 'hello',
+      v: 1,
+      role: 'consumer',
+      instanceId: 'inst-1'
+    })
+
+    expect(consumer.closed?.code).toBe(CLOSE_TOKEN_REQUIRED)
+    expect(b.consumerCount).toBe(0)
+
+    const controller = new PeerConn('k', '::ffff:10.0.0.7')
+    b.onFrame(controller, {
+      type: 'hello',
+      v: 1,
+      role: 'controller',
+      instanceId: 'inst-1',
+      token: 'wrong'
+    })
+
+    expect(controller.closed?.code).toBe(CLOSE_TOKEN_REQUIRED)
+  })
+
+  it('is admitted with the session token, and as the producer without it', () => {
+    const b = new BridgeBroker(remote)
+    const consumer = new PeerConn('c', '192.168.1.20')
+    b.onFrame(consumer, {
+      type: 'hello',
+      v: 1,
+      role: 'consumer',
+      instanceId: 'inst-1',
+      token
+    })
+
+    expect(consumer.closed).toBeNull()
+    expect(b.consumerCount).toBe(1)
+
+    const producer = new PeerConn(
+      'p',
+      '192.168.1.30',
+      'chrome-extension://abcdefghijklmnop'
+    )
+    b.onFrame(producer, {
+      type: 'hello',
+      v: 1,
+      role: 'producer',
+      instanceId: 'inst-1'
+    })
+
+    expect(producer.closed).toBeNull()
+  })
+
+  it('is refused when the session never wrote a token', () => {
+    const b = new BridgeBroker({...opts, allowControl: true})
+    const consumer = new PeerConn('c', '192.168.1.20')
+    b.onFrame(consumer, {
+      type: 'hello',
+      v: 1,
+      role: 'consumer',
+      instanceId: 'inst-1',
+      token: 'anything'
+    })
+
+    expect(consumer.closed?.code).toBe(CLOSE_TOKEN_REQUIRED)
+  })
+
+  it('does not gate a loopback peer or an in-process one', () => {
+    const b = new BridgeBroker(remote)
+
+    for (const conn of [
+      new PeerConn('v4', '127.0.0.1'),
+      new PeerConn('v6', '::1'),
+      new PeerConn('mapped', '::ffff:127.0.0.1'),
+      new FakeConn('in-process')
+    ]) {
+      b.onFrame(conn, {
+        type: 'hello',
+        v: 1,
+        role: 'consumer',
+        instanceId: 'inst-1'
+      })
+
+      expect(conn.closed, conn.id).toBeNull()
+    }
+
+    expect(b.consumerCount).toBe(4)
+  })
+})
+
+describe('the extension origins a session owns', () => {
+  it('are the ones that said hello with the instance id', () => {
+    const b = new BridgeBroker(opts)
+    const own = new PeerConn('p', '127.0.0.1', 'chrome-extension://abcdefgh')
+    b.onFrame(own, {
+      type: 'hello',
+      v: 1,
+      role: 'producer',
+      instanceId: 'inst-1'
+    })
+
+    const stale = new PeerConn('s', '127.0.0.1', 'chrome-extension://zzzzzzzz')
+    b.onFrame(stale, {type: 'hello', v: 1, role: 'producer', instanceId: 'OLD'})
+
+    const node = new PeerConn('n', '127.0.0.1')
+    b.onFrame(node, {
+      type: 'hello',
+      v: 1,
+      role: 'consumer',
+      instanceId: 'inst-1'
+    })
+
+    expect(b.isSessionExtensionOrigin('chrome-extension://abcdefgh')).toBe(true)
+    expect(b.isSessionExtensionOrigin('chrome-extension://zzzzzzzz')).toBe(
+      false
+    )
+
+    expect(b.isSessionExtensionOrigin(undefined)).toBe(false)
+    expect(b.isSessionExtensionOrigin('')).toBe(false)
+  })
+
+  it('stay known after the worker that named them idles out', () => {
+    const b = new BridgeBroker(opts)
+    const own = new PeerConn('p', '127.0.0.1', 'moz-extension://11111111-2222')
+    b.onFrame(own, {
+      type: 'hello',
+      v: 1,
+      role: 'producer',
+      instanceId: 'inst-1'
+    })
+
+    b.onClose(own)
+
+    expect(b.isSessionExtensionOrigin('moz-extension://11111111-2222')).toBe(
+      true
+    )
   })
 })

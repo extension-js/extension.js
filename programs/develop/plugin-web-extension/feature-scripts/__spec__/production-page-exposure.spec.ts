@@ -692,10 +692,32 @@ describe('the extension base a MAIN-world bundle reads off the page', () => {
     expect(production.emitted).toContain(String(bridge?.js[0]))
   }, 180_000)
 
-  it('stays on <html> in development, where the reload runtime reads it later', async () => {
+  it('is cleared from <html> in a Chromium development bundle, whose stack names it again', async () => {
     const development = await compile(
       scaffold('main-dev', files),
       'development'
+    )
+    expect(development.errors).toEqual([])
+
+    // The dev manifest names stubs, the real bundle is the one that runs.
+    const bundles = development.emitted
+      .filter((entry) => entry.endsWith('.js'))
+      .map((entry) => development.read(entry))
+      .filter((source) => source.includes('__seenAsset'))
+
+    expect(bundles.length, development.emitted.join(', ')).toBeGreaterThan(0)
+
+    for (const bundle of bundles) {
+      expect(bundle).toContain('__EXTENSIONJS_BRIDGE_BASE')
+      expect(bundle).toContain(`removeAttribute("${BASE_ATTRIBUTE}")`)
+    }
+  }, 180_000)
+
+  it('stays on <html> in a Firefox development bundle, where the reload runtime reads it later', async () => {
+    const development = await compile(
+      scaffold('main-dev-firefox', files),
+      'development',
+      'firefox'
     )
     expect(development.errors).toEqual([])
 

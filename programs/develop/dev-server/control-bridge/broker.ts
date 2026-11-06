@@ -6,6 +6,7 @@
 // ╚═════╝ ╚══════╝  ╚═══╝        ╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import {isExtensionOrigin} from '../cors'
 import {isSameWebOrigin, normalizeWebOrigin} from '../emulator-lane'
 import {type ActionRecord, type ActionsSink, fnv1aHex} from './actions-file'
 import {
@@ -16,6 +17,7 @@ import {
   CLOSE_BAD_HELLO,
   CLOSE_BAD_INSTANCE,
   CLOSE_CONTROL_UNAVAILABLE,
+  CLOSE_TOKEN_REQUIRED,
   CONTROL_ENVELOPE_VERSION,
   type CommandFrame,
   type CommandOp,
@@ -30,11 +32,15 @@ import {
   type ServerFrame
 } from './contracts'
 import type {LogsFileWriter} from './logs-file'
+import {isLoopbackAddress} from './loopback'
 import {LogRingBuffer} from './ring-buffer'
 
 export interface BridgeConnection {
   readonly id: string
   readonly origin?: string
+  // The peer's address as the socket saw it. Absent only for an in-process
+  // connection, which has no socket to read it from.
+  readonly remoteAddress?: string
   // True only when the frame reached an open socket. An adapter that drops it
   // silently must say so, or a reload nothing received counts as delivered.
   send(frame: ServerFrame | CommandFrame): boolean
@@ -79,7 +85,8 @@ export {
   CLOSE_BAD_HELLO,
   CLOSE_BAD_INSTANCE,
   CLOSE_CONTROL_UNAVAILABLE,
-  CLOSE_SLOW_CONSUMER
+  CLOSE_SLOW_CONSUMER,
+  CLOSE_TOKEN_REQUIRED
 } from './contracts'
 
 import {debugLine} from '../../lib/messaging'
@@ -273,6 +280,9 @@ export class BridgeBroker {
   private readonly ring: LogRingBuffer
   private readonly file?: LogsFileWriter
   private readonly roles = new Map<BridgeConnection, BridgeRole>()
+  // Extension origins that said hello with this session's instance id. The
+  // dev server reflects allow-origin for these and for no other extension.
+  private readonly sessionExtensionOrigins = new Set<string>()
 
   private readonly allowControl: boolean
   private readonly allowEval: boolean
@@ -776,6 +786,24 @@ export class BridgeBroker {
       return
     }
 
+    // A peer beyond loopback sits on the network --host opened, and the
+    // bundle it can fetch there names the instance id. Reading or steering
+    // the session from there takes the token only this machine holds.
+    if (hello.role !== 'producer' && this.isRemotePeer(conn)) {
+      if (!this.controlToken || hello.token !== this.controlToken) {
+        conn.close(
+          CLOSE_TOKEN_REQUIRED,
+          'session token required from beyond loopback'
+        )
+
+        return
+      }
+    }
+
+    if (isExtensionOrigin(conn.origin)) {
+      this.sessionExtensionOrigins.add(String(conn.origin).trim())
+    }
+
     if (hello.role === 'controller') {
       if (!this.allowControl) {
         // Control was not enabled this session (no --allow-control).
@@ -908,6 +936,16 @@ export class BridgeBroker {
       this.lastProducerDisconnectedAt != null
         ? Math.round((now - this.lastProducerDisconnectedAt) / 1000)
         : undefined
+    )
+  }
+
+  isSessionExtensionOrigin(origin: unknown): boolean {
+    return this.sessionExtensionOrigins.has(String(origin ?? '').trim())
+  }
+
+  private isRemotePeer(conn: BridgeConnection): boolean {
+    return (
+      conn.remoteAddress !== undefined && !isLoopbackAddress(conn.remoteAddress)
     )
   }
 

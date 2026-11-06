@@ -141,6 +141,9 @@ export interface ConsumerOptions {
   instanceId: string
   host?: string
   path?: string
+  // The session token under .extension-js/, which a consumer dialing from
+  // beyond loopback must present.
+  token?: string
   reconnect?: boolean
   onReady?: (frame: ReadyFrame) => void
   onLog?: (event: LogEvent) => void
@@ -215,7 +218,8 @@ export class BridgeConsumer {
             type: 'hello',
             v: CONTROL_ENVELOPE_VERSION,
             role: 'consumer',
-            instanceId: this.opts.instanceId
+            instanceId: this.opts.instanceId,
+            ...(this.opts.token ? {token: this.opts.token} : {})
           })
         )
       } catch {

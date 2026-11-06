@@ -17,17 +17,26 @@ export function isExtensionOrigin(value: unknown): boolean {
   return EXTENSION_ORIGIN.test(String(value ?? '').trim())
 }
 
+// Whether an extension origin belongs to this session: one that said hello on
+// the control channel with the session's instance id.
+export type SessionExtensionOriginCheck = (origin: string) => boolean
+
 // The origin a response may be read by, null when the request carries none the
 // session needs. A star let every page the developer visited read the whole
-// compiled extension off loopback.
+// compiled extension off loopback, and any extension origin let every other
+// extension in the profile read it.
 export function resolveAllowedCorsOrigin(
   requestOrigin: unknown,
-  allowedWebOrigins: readonly (string | null | undefined)[] = []
+  allowedWebOrigins: readonly (string | null | undefined)[] = [],
+  isSessionExtensionOrigin: SessionExtensionOriginCheck = () => false
 ): string | null {
   const origin = String(requestOrigin ?? '').trim()
 
   if (!origin) return null
-  if (isExtensionOrigin(origin)) return origin
+
+  if (isExtensionOrigin(origin)) {
+    return isSessionExtensionOrigin(origin) ? origin : null
+  }
 
   for (const allowed of allowedWebOrigins) {
     if (isSameWebOrigin(origin, allowed)) return normalizeWebOrigin(origin)
@@ -38,10 +47,15 @@ export function resolveAllowedCorsOrigin(
 
 export function devServerCorsHeaders(
   requestOrigin: unknown,
-  allowedWebOrigins: readonly (string | null | undefined)[] = []
+  allowedWebOrigins: readonly (string | null | undefined)[] = [],
+  isSessionExtensionOrigin: SessionExtensionOriginCheck = () => false
 ): Array<{key: string; value: string}> {
   const headers = [{key: 'Vary', value: 'Origin'}]
-  const allowed = resolveAllowedCorsOrigin(requestOrigin, allowedWebOrigins)
+  const allowed = resolveAllowedCorsOrigin(
+    requestOrigin,
+    allowedWebOrigins,
+    isSessionExtensionOrigin
+  )
 
   if (!allowed) return headers
 
@@ -164,6 +178,7 @@ export function devServerAccessConfig(options: {
   connectableHost: string
   emulatorOrigin?: string | null
   allowedHosts?: unknown
+  isSessionExtensionOrigin: SessionExtensionOriginCheck
 }): {
   allowedHosts: string[]
   headers: (req: IncomingMessage) => Array<{key: string; value: string}>
@@ -180,6 +195,10 @@ export function devServerAccessConfig(options: {
   return {
     allowedHosts: [...new Set(hosts)],
     headers: (req) =>
-      devServerCorsHeaders(req.headers.origin, allowedWebOrigins)
+      devServerCorsHeaders(
+        req.headers.origin,
+        allowedWebOrigins,
+        options.isSessionExtensionOrigin
+      )
   }
 }
