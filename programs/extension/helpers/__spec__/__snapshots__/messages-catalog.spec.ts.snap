@@ -68,6 +68,7 @@ exports[`extension message catalogs > matches the exported message surface 1`] =
     "enhancedProcessManagementUncaughtException: function(2)",
     "enhancedProcessManagementUnhandledRejection: function(2)",
     "errorConnectingToBrowser: function(2)",
+    "explicitProfileUnderProject: function(3)",
     "extensionOutputIsIncomplete: function(3)",
     "firefoxBinaryArgsExtracted: function(1)",
     "firefoxDryRunArgs: function(1)",

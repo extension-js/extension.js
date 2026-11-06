@@ -24,7 +24,10 @@ import {
 } from '../run-chromium/chromium-launch/browser-config'
 import {createFirefoxContext} from '../run-firefox/firefox-context'
 import {FirefoxLaunchPlugin} from '../run-firefox/firefox-launch'
-import {FirefoxBinaryDetector} from '../run-firefox/firefox-launch/binary-detector'
+import {
+  FirefoxBinaryDetector,
+  isFirefoxHeadlessRequested
+} from '../run-firefox/firefox-launch/binary-detector'
 import {resolveFirefoxLaunchConfig} from '../run-firefox/firefox-launch/browser-config'
 
 const dirs: string[] = []
@@ -218,7 +221,9 @@ describe('firefox --dry-run', () => {
       profilePath: config.profilePath,
       debugPort: port,
       binaryArgs: config.binaryArgs,
-      headless: false
+      // The launch reads MOZ_HEADLESS and EXTENSION_HEADLESS from the shell,
+      // so the plan this spec compares against has to read them the same way.
+      headless: isFirefoxHeadlessRequested()
     })
     expect(argsLine('ARGS')).toContain(plan.args.join(' '))
   })

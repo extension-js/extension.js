@@ -39,7 +39,7 @@ describe('findInjectedOnlyPermissionUses', () => {
       new Set(),
       ['storage', 'scripting', 'management']
     )
-    expect(hits.get('storage')).toBe(sw)
+    expect(hits.get('storage')).toEqual({file: sw})
     expect(hits.has('scripting')).toBe(false)
   })
 
@@ -53,7 +53,7 @@ describe('findInjectedOnlyPermissionUses', () => {
       new Set(['storage']),
       devInjectedPermissions(3)
     )
-    expect(hits.get('tabs')).toBe(sw)
+    expect(hits.get('tabs')).toEqual({file: sw, line: 1, field: 'url'})
     expect(hits.has('storage')).toBe(false)
   })
 
@@ -74,7 +74,7 @@ describe('findInjectedOnlyPermissionUses', () => {
       new Set(),
       scannedPermissions(3)
     )
-    expect(hits.get('management')).toBe(sw)
+    expect(hits.get('management')).toEqual({file: sw})
     expect([...devInjectedPermissions(3)]).not.toContain('management')
     expect([...scannedPermissions(3, 'safari')]).not.toContain('management')
   })
