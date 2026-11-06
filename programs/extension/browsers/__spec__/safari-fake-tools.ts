@@ -30,6 +30,10 @@ export interface FakeSafariToolsOptions {
   codesign?: {output: string}
   // What `defaults read com.apple.dt.Xcode IDEProvisioningTeams` answers.
   xcodeTeams?: string
+  // Extra `pluginkit -m -v` rows, appended verbatim to the fake listing.
+  pluginkitRows?: string[]
+  // What plutil answers for Safari's Extensions.plist. Unset means unreadable.
+  extensionRegistry?: string
 }
 
 export interface FakeSafariTools extends SafariPipelineTools {
@@ -44,6 +48,7 @@ export interface FakeSafariTools extends SafariPipelineTools {
     codesign: string[]
     xcodeTeams: number
     resizePng: Array<[string, string, number]>
+    extensionRegistry: number
   }
   webdriverProcesses: SafariWebDriverProcess[]
   // Every tool call and logger line in the order the pipeline made them, so a
@@ -193,7 +198,8 @@ export function fakeSafariTools(
       webdriver: [],
       codesign: [],
       xcodeTeams: 0,
-      resizePng: []
+      resizePng: [],
+      extensionRegistry: 0
     },
     webdriverProcesses: [],
     events: [],
@@ -241,7 +247,8 @@ export function fakeSafariTools(
       tools.calls.pluginkit += 1
       tools.events.push('pluginkit')
 
-      if (!registered) return ''
+      const extra = options.pluginkitRows ?? []
+      if (!registered) return extra.join('\n')
 
       // pluginkit lists the appex by the id the converter baked in, which is
       // the id the pipeline polls for even when a pinned Safari was raised.
@@ -252,7 +259,16 @@ export function fakeSafariTools(
         ...tools.calls.resolvePid
       ]
 
-      return known.map((bundleId) => `${bundleId}.Extension`).join('\n')
+      return [
+        ...known.map((bundleId) => `${bundleId}.Extension`),
+        ...extra
+      ].join('\n')
+    },
+    readSafariExtensionRegistry: async () => {
+      tools.calls.extensionRegistry += 1
+      tools.events.push('extensionRegistry')
+
+      return options.extensionRegistry ?? ''
     },
     startWebDriver: async (port) => {
       tools.calls.webdriver.push(port)

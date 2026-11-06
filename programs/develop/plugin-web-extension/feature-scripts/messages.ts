@@ -231,6 +231,33 @@ export function getURLDependencyMissing(
   return lines.join('\n')
 }
 
+// The page the literal opens was declared only under a key the WebKit filter
+// drops, so the build emitted nothing for it and the open fails in Safari.
+export function webkitDroppedPageOpened(
+  assetName: string,
+  literal: string,
+  page: {path: string; key: string; reason: string},
+  browser: string
+) {
+  const lines: string[] = []
+  lines.push(
+    `${assetName} opens '${literal}' via chrome.runtime.getURL(), but the ${browser} build emitted no such page: ` +
+      `${page.key} was the only manifest key naming it, and Safari drops that key (${page.reason}).`
+  )
+
+  lines.push(`${colors.gray('NOT EMITTED')} ${colors.underline(page.path)}`)
+  lines.push(
+    `Safari answers "can't find the file" when the extension opens it.`
+  )
+
+  lines.push(
+    `Move the page under ${colors.blue('pages/')}, which every browser emits as ${colors.blue('pages/<name>.html')}, and open that path, ` +
+      `or declare it under a manifest key Safari keeps.`
+  )
+
+  return lines.join('\n')
+}
+
 export function runtimeSetSurfaceDependencyMissing(
   assetName: string,
   literal: string,

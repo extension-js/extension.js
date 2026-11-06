@@ -363,6 +363,15 @@ describe('dev --enable-extension through the pipeline', () => {
     return {logs, pipeline}
   }
 
+  function readReady() {
+    return JSON.parse(
+      fs.readFileSync(
+        path.join(distDir, '..', 'extension-js', 'safari', 'ready.json'),
+        'utf8'
+      )
+    )
+  }
+
   beforeEach(() => {
     root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-safari-enable-'))
     distDir = path.join(root, 'dist', 'safari')
@@ -452,6 +461,137 @@ describe('dev --enable-extension through the pipeline', () => {
 
     expect(ui.calls).toEqual([])
     expect(logs).toContain(messages.safariNextSteps('MyExt', false))
+    expect(readReady().safari).toMatchObject({
+      bundleId: 'dev.extensionjs.MyExt',
+      extensionId: 'dev.extensionjs.MyExt.Extension',
+      team: 'UNSIGNED',
+      switchId: 'dev.extensionjs.MyExt.Extension (UNSIGNED)-checkbox',
+      enableAttempted: false,
+      step: 'not-asked',
+      enabled: null,
+      listed: null
+    })
+
+    expect(readReady().safari.reason).toMatch(/--enable-extension/)
+  })
+
+  it('stamps the finished enable into ready.json so no reader parses the log', async () => {
+    const ui = fakeSafariUiTools()
+    await run({enableExtension: true, uiTools: ui})
+
+    expect(readReady().safari).toEqual({
+      bundleId: 'dev.extensionjs.MyExt',
+      extensionId: 'dev.extensionjs.MyExt.Extension',
+      team: 'UNSIGNED',
+      switchId: 'dev.extensionjs.MyExt.Extension (UNSIGNED)-checkbox',
+      enableAttempted: true,
+      step: 'done',
+      enabled: true,
+      listed: true,
+      otherWebsites: 'Allow'
+    })
+  })
+
+  it('stamps the step reached and the script error when Settings never opens', async () => {
+    const detail =
+      'Safari Settings did not open within 12 s of the menu click and the Command-Comma shortcut: System Events lists no Safari window at all and Terminal is frontmost'
+    const ui = fakeSafariUiTools({scriptFails: detail})
+    const {logs} = await run({enableExtension: true, uiTools: ui})
+
+    expect(logs).toContain(messages.safariEnableIncomplete('MyExt', detail))
+    expect(readReady().safari).toMatchObject({
+      enableAttempted: true,
+      step: 'accessibility',
+      enabled: null,
+      listed: null,
+      reason: detail
+    })
+
+    expect(logs).toContain(messages.safariNextSteps('MyExt', false))
+  })
+
+  it('stamps the Accessibility refusal as the step it stopped at', async () => {
+    const ui = fakeSafariUiTools({accessibility: false, host: 'Cursor'})
+    await run({enableExtension: true, uiTools: ui})
+
+    expect(readReady().safari).toMatchObject({
+      enableAttempted: true,
+      step: 'accessibility',
+      enabled: null,
+      reason: 'no Accessibility grant for Cursor'
+    })
+  })
+
+  it('names an earlier bundle id of this project and says its switch does not carry over', async () => {
+    const earlier = `dev.extensionjs.Hands-free.Extension(1.0)\t357049B0-4365-43EF-B7CC-874A49D2CEC9\t2026-11-05 22:24:03 +0000\t${path.join(distDir, '..', 'safari-xcode', '.derived', 'Build', 'Products', 'Release', 'Hands-free.app', 'Contents', 'PlugIns', 'Hands-free Extension.appex')}`
+    const elsewhere = `com.other.Project.Extension(1.0)\tB1E43AE8-6840-4134-9920-A44A79BD2571\t2026-11-04 20:58:02 +0000\t/Users/someone/other/dist/safari-xcode/.derived/Build/Products/Release/Other.app/Contents/PlugIns/Other Extension.appex`
+    const pipeline = fakeSafariTools({pluginkitRows: [earlier, elsewhere]})
+    const ui = fakeSafariUiTools({unsigned: 1, registered: false})
+    // The fake never lists the row for the new id, so the switch is "not listed".
+    ui.pluginkitAdd = async () => ({ok: true, code: 0, output: ''})
+    const {logs} = await run({enableExtension: true, uiTools: ui}, pipeline)
+
+    expect(logs).toContain(
+      messages.safariEarlierBuildListed(
+        'MyExt',
+        ['dev.extensionjs.Hands-free.Extension'],
+        'dev.extensionjs.MyExt.Extension'
+      )
+    )
+
+    const ready = readReady()
+    expect(ready.safari.earlierExtensionIds).toEqual([
+      'dev.extensionjs.Hands-free.Extension'
+    ])
+
+    expect(ready.safari.listed).toBe(false)
+    expect(ready.safari.reason).toContain(
+      "Safari's switch for dev.extensionjs.Hands-free.Extension does not carry over to dev.extensionjs.MyExt.Extension, turn that row on"
+    )
+
+    expect(
+      logs.some((line) =>
+        /does not carry over to dev.extensionjs.MyExt.Extension/.test(line)
+      )
+    ).toBe(true)
+  })
+
+  it('warns when an earlier signed build of the same id is still on in Safari', async () => {
+    const registry = JSON.stringify({
+      'dev.extensionjs.MyExt.Extension (JU3XAJJQ2G)': {Enabled: true},
+      'dev.extensionjs.MyExt.Extension (UNSIGNED)': {Enabled: true},
+      'com.other.Extension (UNSIGNED)': {Enabled: true}
+    })
+    const pipeline = fakeSafariTools({extensionRegistry: registry})
+    const ui = fakeSafariUiTools()
+    const {logs} = await run({enableExtension: true, uiTools: ui}, pipeline)
+
+    expect(logs).toContain(messages.safariEnabled('MyExt', 'Allow'))
+    expect(logs).toContain(
+      messages.safariStaleSignedRowEnabled(
+        'dev.extensionjs.MyExt.Extension',
+        'JU3XAJJQ2G',
+        'UNSIGNED'
+      )
+    )
+
+    expect(pipeline.calls.extensionRegistry).toBe(1)
+    expect(readReady().safari).toMatchObject({
+      step: 'done',
+      enabled: true,
+      reason:
+        'Safari also has the JU3XAJJQ2G-signed build of dev.extensionjs.MyExt.Extension turned on.'
+    })
+  })
+
+  it("stays quiet about the registry when Safari's container cannot be read", async () => {
+    const pipeline = fakeSafariTools()
+    const ui = fakeSafariUiTools()
+    const {logs} = await run({enableExtension: true, uiTools: ui}, pipeline)
+
+    expect(pipeline.calls.extensionRegistry).toBe(1)
+    expect(logs.some((line) => /turned on beside/.test(line))).toBe(false)
+    expect(readReady().safari.reason).toBeUndefined()
   })
 })
 

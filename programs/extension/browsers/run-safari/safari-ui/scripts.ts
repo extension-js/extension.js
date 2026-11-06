@@ -180,15 +180,42 @@ function windowTitled(proc, title) {
   for (const w of windows(proc)) { if (String(attr(w, 'AXTitle') || '') === title) return w }
   return null
 }
-function isSettingsWindow(w) {
+function toolbarTitles(w) {
   const bar = first(w, (e) => role(e) === 'AXToolbar')
-  if (!bar) return false
-  const names = kids(bar).map((b) => String(attr(b, 'AXTitle') || ''))
-  return names.indexOf('Extensions') >= 0 && names.indexOf('Websites') >= 0
+  return bar ? kids(bar).map((b) => String(attr(b, 'AXTitle') || '')) : null
+}
+function isSettingsWindow(w) {
+  const names = toolbarTitles(w)
+  if (!names) return false
+  if (names.indexOf('Extensions') >= 0 && names.indexOf('Websites') >= 0) return true
+  // Settings titles itself after the selected pane, and that pane is one of
+  // its toolbar buttons. A browser window's title is the page title instead.
+  const title = String(attr(w, 'AXTitle') || '')
+  return title.length > 0 && names.length >= 6 && names.indexOf(title) >= 0
 }
 function settingsWindow(proc) {
   for (const w of windows(proc)) { if (isSettingsWindow(w)) return w }
   return null
+}
+function browserWindow(proc) {
+  for (const w of windows(proc)) {
+    if (isSettingsWindow(w)) continue
+    const bar = first(w, (e) => role(e) === 'AXToolbar')
+    if (bar && kids(bar).some((b) => String(attr(b, 'AXIdentifier') || '').indexOf('WebExtension-') === 0 || String(attr(b, 'AXIdentifier') || '') === 'NewTabButton')) return w
+  }
+  return null
+}
+function frontmostName() {
+  try {
+    const front = se.processes.whose({frontmost: true})()
+    return front.length ? String(front[0].name()) : 'no app'
+  } catch (e) { return 'an unknown app' }
+}
+function describeWindows(proc) {
+  const list = windows(proc)
+  if (list.length === 0) return 'System Events lists no Safari window at all and ' + frontmostName() + ' is frontmost'
+  const titles = list.map((w) => JSON.stringify(String(attr(w, 'AXTitle') || '')) + (toolbarTitles(w) ? '' : ' (no toolbar)'))
+  return 'System Events lists ' + list.length + ' Safari window' + (list.length === 1 ? '' : 's') + ' (' + titles.join(', ') + ') and ' + frontmostName() + ' is frontmost'
 }
 function wait(check, seconds) {
   const deadline = Date.now() + seconds * 1000
@@ -200,21 +227,36 @@ function wait(check, seconds) {
   }
   return null
 }
+const SETTINGS_MENU_WAIT = 8
+const SETTINGS_SHORTCUT_WAIT = 4
 function openSettings(proc) {
+  // System Events lists no windows for a Safari that is not frontmost, and
+  // Settings opened from the automation window closes with it, so Safari
+  // comes to the front and gets a plain window before the menu is used.
   safariApp.activate()
   delay(0.4)
   let w = settingsWindow(proc)
   if (w) return w
+  if (!browserWindow(proc)) {
+    try { safariApp.Document().make() } catch (e) {}
+    wait(() => browserWindow(proc), 6)
+    safariApp.activate()
+    delay(0.3)
+  }
   const items = proc.menuBars[0].menuBarItems.byName('Safari').menus[0].menuItems()
   for (const it of items) {
     const name = String(attr(it, 'AXTitle') || '')
     if (/^(Settings|Preferences)/.test(name)) { it.click(); break }
   }
-  return wait(() => settingsWindow(proc), 8)
+  w = wait(() => settingsWindow(proc), SETTINGS_MENU_WAIT)
+  if (w) return w
+  se.keystroke(',', {using: ['command down']})
+  w = wait(() => settingsWindow(proc), SETTINGS_SHORTCUT_WAIT)
+  if (w) return w
+  throw new Error('Safari Settings did not open within ' + (SETTINGS_MENU_WAIT + SETTINGS_SHORTCUT_WAIT) + ' s of the menu click and the Command-Comma shortcut: ' + describeWindows(proc))
 }
 function showPane(proc, title) {
   const w = openSettings(proc)
-  if (!w) throw new Error('Safari Settings did not open')
   const bar = first(w, (e) => role(e) === 'AXToolbar')
   const button = kids(bar).filter((b) => String(attr(b, 'AXTitle') || '') === title)[0]
   if (!button) throw new Error('Safari Settings has no ' + title + ' pane')
@@ -456,14 +498,6 @@ export function readShortcutScript(checkboxId: string): string {
 }
 
 const BROWSER_WINDOW = `
-function browserWindow(proc) {
-  for (const w of windows(proc)) {
-    if (isSettingsWindow(w)) continue
-    const bar = first(w, (e) => role(e) === 'AXToolbar')
-    if (bar && kids(bar).some((b) => String(attr(b, 'AXIdentifier') || '').indexOf('WebExtension-') === 0 || String(attr(b, 'AXIdentifier') || '') === 'NewTabButton')) return w
-  }
-  return null
-}
 function toolbarButton(proc, id) {
   safariApp.activate()
   delay(0.3)

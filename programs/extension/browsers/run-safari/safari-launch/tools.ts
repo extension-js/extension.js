@@ -7,6 +7,8 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import {spawn} from 'node:child_process'
+import * as os from 'node:os'
+import * as path from 'node:path'
 import {isDebug} from '../../../helpers/messaging'
 import {detectSafariToolchain, type SafariToolchain} from './toolchain'
 
@@ -44,6 +46,13 @@ export interface SafariWebDriverProcess {
 
 // Every process the packaging pipeline talks to, behind one seam. Production
 // spawns the real tools; specs hand in fakes and drive the real control flow.
+// Safari keeps its per-extension switches here, keyed by appex id and the
+// team that signed it, which is what Safari Settings reads and writes.
+export const SAFARI_EXTENSION_REGISTRY_PATH = path.join(
+  os.homedir(),
+  'Library/Containers/com.apple.Safari/Data/Library/Safari/WebExtensions/Extensions.plist'
+)
+
 export interface SafariPipelineTools {
   detectToolchain(): SafariToolchain
   runConverter(args: string[]): Promise<SafariToolResult>
@@ -51,7 +60,12 @@ export interface SafariPipelineTools {
   openApp(target: string): Promise<SafariToolResult>
   openSafari(binary: string): Promise<SafariToolResult>
   resolvePid(bundleId: string): Promise<number | null>
+  // `pluginkit -m -v -p com.apple.Safari.web-extension`: every Safari appex
+  // macOS knows, one per line with its election mark, id, version and path.
   pluginkitList(): Promise<string>
+  // Safari's own switch registry (Extensions.plist in its container) as JSON,
+  // or an empty string when the container cannot be read.
+  readSafariExtensionRegistry(): Promise<string>
   startWebDriver(port: number): Promise<SafariWebDriverProcess>
   listAutomationPids(): Promise<number[]>
   listAppPids(appPath: string): Promise<number[]>
@@ -243,7 +257,20 @@ export function createSafariTools(): SafariPipelineTools {
     openSafari: (binary) => runTool('open', ['-a', binary]),
     resolvePid: (bundleId) => resolvePidForBundle(bundleId),
     pluginkitList: async () => {
-      const {ok, output} = await runTool('pluginkit', ['-m'], {quiet: true})
+      const {ok, output} = await runTool(
+        'pluginkit',
+        ['-m', '-v', '-p', 'com.apple.Safari.web-extension'],
+        {quiet: true}
+      )
+
+      return ok ? output : ''
+    },
+    readSafariExtensionRegistry: async () => {
+      const {ok, output} = await runTool(
+        'plutil',
+        ['-convert', 'json', '-o', '-', SAFARI_EXTENSION_REGISTRY_PATH],
+        {quiet: true}
+      )
 
       return ok ? output : ''
     },

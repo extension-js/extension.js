@@ -10,6 +10,20 @@ import {humanLine} from '../../../dev-server/lifecycle-stream'
 import {isWebkitBasedBrowser} from '../../../lib/constants'
 import type {DevOptions, Manifest} from '../../../types'
 import * as messages from '../messages'
+import {
+  WEBKIT_UNSUPPORTED_OPTIONS_UI_KEYS as UNSUPPORTED_OPTIONS_UI_KEYS,
+  WEBKIT_UNSUPPORTED_PERMISSIONS as UNSUPPORTED_PERMISSIONS,
+  WEBKIT_UNSUPPORTED_TOP_LEVEL_KEYS as UNSUPPORTED_TOP_LEVEL_KEYS
+} from './webkit-unsupported-keys'
+
+export {
+  WEBKIT_UNSUPPORTED_PERMISSIONS as UNSUPPORTED_PERMISSIONS,
+  type WebkitDroppedPage,
+  type WebkitUnsupportedKey,
+  webkitDroppedSurfacePages,
+  webkitUnsupportedManifestKeys,
+  webkitUnsupportedPermissions
+} from './webkit-unsupported-keys'
 
 export interface WebkitDroppedKey {
   // Dotted location of what was dropped, like permissions.sidePanel
@@ -17,90 +31,6 @@ export interface WebkitDroppedKey {
   // Short why, rendered beside the path in the build warning
   reason: string
 }
-
-// Top-level keys the converter rejects and MDN confirms Safari does not
-// implement, plus `incognito`, which Safari parses but always overrides.
-const UNSUPPORTED_TOP_LEVEL_KEYS: Record<string, string> = {
-  side_panel: 'Safari has no side panel surface',
-  sidebar_action: 'Safari has no sidebar surface',
-  sandbox: 'Safari cannot run sandboxed extension pages',
-  user_scripts: 'Safari has no userScripts API',
-  omnibox: 'Safari has no omnibox keyword API',
-  chrome_settings_overrides: 'Safari lets no extension override these settings',
-  tts_engine: 'Safari has no speech engine API',
-  file_browser_handlers: 'ChromeOS only',
-  input_components: 'ChromeOS only',
-  cross_origin_embedder_policy: 'Safari reads no COEP key from a manifest',
-  cross_origin_opener_policy: 'Safari reads no COOP key from a manifest',
-  requirements: 'Chrome Web Store only',
-  oauth2: 'Safari has no identity API to consume it',
-  nacl_modules: 'Native Client is Chrome only',
-  replacement_web_app: 'Chrome Web Store only',
-  offline_enabled: 'Chrome Web Store only',
-  differential_fingerprint: 'Chrome Web Store only',
-  incognito:
-    'Safari always runs extensions in spanning mode and ignores the declared value'
-}
-
-// Permission strings the converter rejects. Every one of them also reads as
-// unsupported or absent in MDN browser-compat-data, so none is a false drop.
-export const UNSUPPORTED_PERMISSIONS: ReadonlySet<string> = new Set<string>([
-  'accessibilityFeatures.modify',
-  'accessibilityFeatures.read',
-  'audio',
-  'background',
-  'bookmarks',
-  'browsingData',
-  'certificateProvider',
-  'clipboardRead',
-  'contentSettings',
-  'debugger',
-  'declarativeContent',
-  'desktopCapture',
-  'documentScan',
-  'downloads',
-  'enterprise.deviceAttributes',
-  'enterprise.platformKeys',
-  'experimental',
-  'favicon',
-  'fileSystemProvider',
-  'fontSettings',
-  'gcm',
-  'geolocation',
-  'history',
-  'identity',
-  'identity.email',
-  'idle',
-  'management',
-  'notifications',
-  'offscreen',
-  'pageCapture',
-  'platformKeys',
-  'power',
-  'printerProvider',
-  'privacy',
-  'processes',
-  'proxy',
-  'readingList',
-  'search',
-  'sessions',
-  'sidePanel',
-  'system.cpu',
-  'system.display',
-  'system.memory',
-  'system.storage',
-  'systemLog',
-  'tabCapture',
-  'tabGroups',
-  'topSites',
-  'tts',
-  'ttsEngine',
-  'userScripts',
-  'vpnProvider',
-  'wallpaper',
-  'webAuthenticationProxy',
-  'webRequestBlocking'
-])
 
 // Both arrays carry the same permission strings, so both get filtered.
 const PERMISSION_LISTS = ['permissions', 'optional_permissions'] as const
@@ -115,12 +45,6 @@ export function isWebkitUnsupportedPermission(
     isWebkitBasedBrowser(String(browser)) &&
     UNSUPPORTED_PERMISSIONS.has(permission)
   )
-}
-
-// Nested properties that are inert on Safari. `open_in_tab` is accepted but
-// ignored, since Safari always opens an options page in its own tab.
-const UNSUPPORTED_OPTIONS_UI_KEYS: Record<string, string> = {
-  open_in_tab: 'Safari always opens the options page in a tab'
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {

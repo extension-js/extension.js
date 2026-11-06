@@ -255,6 +255,61 @@ describe('TraceRuntimeLoadedFiles getURL targets', () => {
   })
 })
 
+describe('TraceRuntimeLoadedFiles pages a WebKit build dropped', () => {
+  const files = {
+    'sidebar/index.html': '<!doctype html><p>panel</p>',
+    'background.js': 'console.log(1)'
+  }
+  const manifest = {side_panel: {default_path: 'sidebar/index.html'}}
+  const background =
+    'chrome.windows.create({url: chrome.runtime.getURL("sidebar/index.html")})'
+
+  it('warns on safari when a getURL literal opens the page a dropped side_panel named', async () => {
+    const projectDir = createTempProject(files, manifest)
+    const {compilation, emitted} = await runTrace(
+      projectDir,
+      {'background/service_worker.js': background},
+      'safari'
+    )
+
+    expect(emitted.has('sidebar/index.html')).toBe(false)
+    expect(compilation.warnings).toHaveLength(1)
+    expect(compilation.warnings[0].name).toBe('WebkitDroppedPageOpened')
+    expect(compilation.warnings[0].file).toBe('background/service_worker.js')
+
+    const message = String(compilation.warnings[0].message)
+    expect(message).toContain("opens 'sidebar/index.html'")
+    expect(message).toContain('side_panel.default_path')
+    expect(message).toContain('Safari has no side panel surface')
+    expect(message).toContain('sidebar/index.html')
+    expect(message).toContain('pages/')
+  })
+
+  it('stays silent on chrome, where the page ships under its key', async () => {
+    const projectDir = createTempProject(files, manifest)
+    const {compilation} = await runTrace(
+      projectDir,
+      {'background/service_worker.js': background},
+      'chrome'
+    )
+
+    expect(compilation.warnings).toHaveLength(0)
+  })
+
+  it('stays silent on safari when the page is declared under a key Safari keeps', async () => {
+    const projectDir = createTempProject(files, {
+      action: {default_popup: 'sidebar/index.html'}
+    })
+    const {compilation} = await runTrace(
+      projectDir,
+      {'background/service_worker.js': background},
+      'safari'
+    )
+
+    expect(compilation.warnings).toHaveLength(0)
+  })
+})
+
 describe('planTracedFile', () => {
   const hasNone = () => false
 

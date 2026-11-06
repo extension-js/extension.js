@@ -207,6 +207,70 @@ export function stampReadyWebDriver(
   }
 }
 
+export interface SafariEnableStamp {
+  bundleId: string
+  extensionId: string
+  team: string
+  switchId: string
+  enableAttempted: boolean
+  step:
+    | 'not-asked'
+    | 'accessibility'
+    | 'safari'
+    | 'unsigned'
+    | 'pluginkit'
+    | 'enabled'
+    | 'websites'
+    | 'done'
+  enabled: boolean | null
+  listed: boolean | null
+  otherWebsites: string | null
+  reason?: string
+  earlierExtensionIds?: string[]
+}
+
+// Publish how far the Safari enable step got and why it stopped, so a reader
+// never parses the session log to learn whether the switch is on.
+export function stampReadySafariEnable(
+  extensionOutputPath: string | undefined,
+  details: SafariEnableStamp,
+  runId?: string
+) {
+  try {
+    if (!extensionOutputPath) return
+
+    const readyPath = readyPathFor(extensionOutputPath)
+    if (!fs.existsSync(readyPath)) return
+
+    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    if (isForeignRun(ready, runId)) return
+
+    const safari: Record<string, unknown> = {
+      bundleId: details.bundleId,
+      extensionId: details.extensionId,
+      team: details.team,
+      switchId: details.switchId,
+      enableAttempted: details.enableAttempted,
+      step: details.step,
+      enabled: details.enabled,
+      listed: details.listed,
+      otherWebsites: details.otherWebsites
+    }
+
+    const reason = String(details.reason || '').trim()
+    if (reason) safari.reason = reason
+
+    if (details.earlierExtensionIds && details.earlierExtensionIds.length > 0) {
+      safari.earlierExtensionIds = [...details.earlierExtensionIds]
+    }
+
+    ready.safari = safari
+    writeJsonAtomic(readyPath, ready)
+  } catch {
+    // best-effort; never block launch on this
+  }
+}
+
 // Publish whether the starting URL reached the window, or why it did not.
 // Safari opens it in the automation window the WebDriver session holds, so a
 // run without that session has nowhere to open it and has to say so.

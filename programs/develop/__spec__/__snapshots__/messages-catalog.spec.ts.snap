@@ -315,6 +315,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "runtimeAssetFolderNotShipped: function(4)",
     "runtimeSetSurfaceDependencyMissing: function(4)",
     "staticImportDependencyMissing: function(4)",
+    "webkitDroppedPageOpened: function(4)",
     "workerStartedFromPageContext: function(2)",
   ],
   "plugin-web-extension/feature-web-resources/web-resources-lib/messages.ts": [
