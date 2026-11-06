@@ -160,7 +160,9 @@ export async function resolveFirefoxLaunchConfig(
       path.isAbsolute(trimmedProfile)
         ? trimmedProfile
         : path.resolve(contextDir, trimmedProfile),
-    provision
+    provision,
+    projectDir: contextDir,
+    browser: String(browser)
   })
 
   const profilePath: string = resolved.profilePath

@@ -253,6 +253,25 @@ export function resolveBrowserVersionLine(
   return ''
 }
 
+// A configured profile path under the project is a full browser profile the
+// engine never reclaims, so the one line says what it holds, that git
+// ignores it, and where it sits. The default managed profile is fresh on
+// every run, so the config line has a reason; persistProfile is the way to
+// keep one under the folder the engine already ignores.
+export function explicitProfileUnderProject(
+  browser: string,
+  profilePath: string,
+  underDist: boolean
+) {
+  const beside = underDist ? ', beside your store zips under dist/' : ''
+
+  return (
+    `${getLoggingPrefix('info')} The ${capitalizedBrowserName(browser as Browser)} profile at ${colors.underline(profilePath)} keeps cookies and logins between runs. ` +
+    `Git ignores it (a .gitignore inside it says so)${beside}. ` +
+    `The default profile under dist/extension-js/profiles/ is fresh on every run. Set ${colors.blue(`browser.${browser}.persistProfile`)} to true to keep one there instead.`
+  )
+}
+
 export function copyFromProfileSourceMissing(source: string) {
   return (
     `${getLoggingPrefix('warn')} The profile to copy from doesn't exist, so this run starts from an empty profile.\n` +
