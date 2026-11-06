@@ -14,8 +14,8 @@ const script = path.resolve(
 
 // A stand-in npm: `view` answers from an explicit state file and can flip it
 // after a given number of looks, `publish` prints what the case asks and can
-// make the version visible. It writes only to the state file paths the case
-// passes in.
+// make the version visible, `stage list` prints the JSON the case gives it.
+// It writes only to the state file paths the case passes in.
 const STUB = `#!/usr/bin/env bash
 if [ "$1" = "view" ]; then
   echo view >> "$STUB_VIEWS_FILE"
@@ -31,6 +31,12 @@ if [ "$1" = "publish" ]; then
   [ "$STUB_PUBLISH_MAKES_VISIBLE" = 1 ] && : > "$STUB_VISIBLE_FILE"
   exit "$STUB_PUBLISH_STATUS"
 fi
+if [ "$1" = "stage" ]; then
+  echo "stage $*" >> "$STUB_CALLS_FILE"
+  [ "$STUB_STAGE_STATUS" = 0 ] || exit "$STUB_STAGE_STATUS"
+  printf '%s\\n' "$STUB_STAGE_JSON"
+  exit 0
+fi
 exit 2
 `
 
@@ -39,7 +45,9 @@ function run({
   output = '',
   status = 0,
   makesVisible = false,
-  visibleAfterViews = ''
+  visibleAfterViews = '',
+  stageJson = '[]',
+  stageStatus = 0
 }) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'verify-npm-publish-'))
   const bin = path.join(dir, 'bin')
@@ -72,7 +80,9 @@ function run({
         STUB_PUBLISH_STATUS: String(status),
         STUB_PUBLISH_MAKES_VISIBLE: makesVisible ? '1' : '0',
         STUB_VIEWS_FILE: viewsFile,
-        STUB_VISIBLE_AFTER_VIEWS: String(visibleAfterViews)
+        STUB_VISIBLE_AFTER_VIEWS: String(visibleAfterViews),
+        STUB_STAGE_JSON: stageJson,
+        STUB_STAGE_STATUS: String(stageStatus)
       }
     })
     const calls = fs.existsSync(callsFile)
@@ -85,6 +95,9 @@ function run({
   }
 }
 
+const STAGED_409 =
+  'npm error 409 Conflict - PUT https://registry.npmjs.org/extension-develop - Cannot publish over previously staged version "1.0.0-canary.1".'
+
 test('passes as soon as the version is visible, without publishing again', () => {
   const result = run({visible: true})
   assert.equal(result.status, 0, result.stdout + result.stderr)
@@ -93,8 +106,7 @@ test('passes as soon as the version is visible, without publishing again', () =>
 
 test('waits once more after a 409 and passes when npm serves the version', () => {
   const result = run({
-    output:
-      'npm error 409 Conflict - PUT https://registry.npmjs.org/extension-develop - Cannot publish over previously staged version "1.0.0-canary.1".',
+    output: STAGED_409,
     status: 1,
     visibleAfterViews: 3
   })
@@ -107,23 +119,72 @@ test('waits once more after a 409 and passes when npm serves the version', () =>
 
   assert.doesNotMatch(result.stdout, /::error::/)
   assert.deepEqual(result.calls, [
-    'publish publish --access public --tag canary --provenance'
+    'publish publish --access public --tag canary --provenance',
+    'stage stage list extension-develop --json'
   ])
 })
 
-test('names a held version after the second wait and tells the maintainer what to do', () => {
+test('stops at once when npm stage lists the version and names the stage to approve', () => {
   const result = run({
-    output:
-      'npm error 409 Conflict - PUT https://registry.npmjs.org/extension-develop - Cannot publish over previously staged version "1.0.0-canary.1".',
-    status: 1
+    output: STAGED_409,
+    status: 1,
+    stageJson: JSON.stringify([
+      {
+        id: 'stg_7f3a',
+        name: 'extension-develop',
+        version: '1.0.0-canary.1',
+        status: 'pending'
+      }
+    ])
   })
   assert.equal(result.status, 1)
+  assert.match(
+    result.stdout,
+    /npm stage list names extension-develop@1\.0\.0-canary\.1 as staged: \{"id":"stg_7f3a"/
+  )
+
+  assert.match(
+    result.stdout,
+    /::error::npm is holding extension-develop@1\.0\.0-canary\.1 for approval as stage stg_7f3a/
+  )
+
+  assert.match(result.stdout, /'npm stage approve stg_7f3a'/)
+  assert.match(result.stdout, /re-run the failed job or dispatch/)
+  // No second wait: the answer came from the listing.
+  assert.equal(
+    (result.stdout.match(/Waiting for npm replication/g) || []).length,
+    2
+  )
+})
+
+test('ignores a staged entry for another version', () => {
+  const result = run({
+    output: STAGED_409,
+    status: 1,
+    visibleAfterViews: 3,
+    stageJson: JSON.stringify([
+      {id: 'stg_old', name: 'extension-develop', version: '0.9.0-canary.9'}
+    ])
+  })
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+  assert.doesNotMatch(result.stdout, /as staged/)
+})
+
+test('names a held version after the second wait when the listing answers nothing', () => {
+  const result = run({
+    output: STAGED_409,
+    status: 1,
+    stageStatus: 1
+  })
+  assert.equal(result.status, 1)
+  assert.match(result.stdout, /answers nothing from this job/)
   assert.match(
     result.stdout,
     /::error::npm has held extension-develop@1\.0\.0-canary\.1 for 0 minutes/
   )
 
-  assert.match(result.stdout, /approve it there/)
+  assert.match(result.stdout, /'npm stage list extension-develop'/)
+  assert.match(result.stdout, /'npm stage approve <stage-id>'/)
   assert.match(result.stdout, /re-run the failed job or dispatch/)
   assert.equal(
     (result.stdout.match(/Waiting for npm replication/g) || []).length,
@@ -131,7 +192,8 @@ test('names a held version after the second wait and tells the maintainer what t
   )
 
   assert.deepEqual(result.calls, [
-    'publish publish --access public --tag canary --provenance'
+    'publish publish --access public --tag canary --provenance',
+    'stage stage list extension-develop --json'
   ])
 })
 
