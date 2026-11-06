@@ -20,10 +20,58 @@ export const NEVER_SCAFFOLDED_DIRS = [
   '.git'
 ]
 
+// A link a template carries is kept only when it resolves inside the
+// template. One that reaches out of it would carry every later write to
+// package.json or README.md to wherever the template author pointed it.
+async function linkTargetInside(
+  linkPath: string,
+  root: string
+): Promise<string | null> {
+  let real: string
+
+  try {
+    real = await fs.realpath(linkPath)
+  } catch {
+    return null
+  }
+
+  const relative = path.relative(root, real)
+
+  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
+    return null
+  }
+
+  return real
+}
+
+async function recreateLink(
+  sourcePath: string,
+  destPath: string,
+  real: string
+): Promise<void> {
+  const target = path.relative(path.dirname(sourcePath), real) || '.'
+
+  try {
+    await fs.symlink(target, destPath)
+  } catch (caught) {
+    const err = caught as NodeJS.ErrnoException | undefined
+
+    if (err?.code === 'EPERM' || err?.code === 'ENOTSUP') {
+      await fs.cp(real, destPath, {recursive: true})
+    } else {
+      throw err
+    }
+  }
+}
+
+// Answers the links it left behind, relative to the template root.
 export async function copyDirectoryWithSymlinks(
   source: string,
-  destination: string
-) {
+  destination: string,
+  root?: string
+): Promise<string[]> {
+  const templateRoot = root ?? (await fs.realpath(source))
+  const dropped: string[] = []
   const entries = await fs.readdir(source, {withFileTypes: true})
   await fs.mkdir(destination, {recursive: true})
 
@@ -34,31 +82,33 @@ export async function copyDirectoryWithSymlinks(
     if (entry.isDirectory()) {
       if (NEVER_SCAFFOLDED_DIRS.includes(entry.name)) continue
 
-      await copyDirectoryWithSymlinks(sourcePath, destPath)
+      dropped.push(
+        ...(await copyDirectoryWithSymlinks(sourcePath, destPath, templateRoot))
+      )
     } else if (entry.isSymbolicLink()) {
-      try {
-        const target = await fs.readlink(sourcePath)
-        await fs.symlink(target, destPath)
-      } catch (caught) {
-        const err = caught as NodeJS.ErrnoException | undefined
+      const real = await linkTargetInside(sourcePath, templateRoot)
 
-        if (err?.code === 'EPERM' || err?.code === 'ENOTSUP') {
-          const real = await fs.realpath(sourcePath)
-          await fs.cp(real, destPath, {recursive: true})
-        } else {
-          throw err
-        }
+      if (!real) {
+        dropped.push(path.relative(templateRoot, sourcePath))
+        continue
       }
+
+      await recreateLink(sourcePath, destPath, real)
     } else {
       await fs.copyFile(sourcePath, destPath)
     }
   }
+
+  return dropped
 }
 
 export async function moveDirectoryContents(
   source: string,
-  destination: string
-) {
+  destination: string,
+  root?: string
+): Promise<string[]> {
+  const templateRoot = root ?? (await fs.realpath(source))
+  const dropped: string[] = []
   await fs.mkdir(destination, {recursive: true})
 
   const entries = await fs.readdir(source, {withFileTypes: true})
@@ -68,21 +118,18 @@ export async function moveDirectoryContents(
     const destPath = path.join(destination, entry.name)
 
     if (entry.isDirectory()) {
-      await moveDirectoryContents(sourcePath, destPath)
+      dropped.push(
+        ...(await moveDirectoryContents(sourcePath, destPath, templateRoot))
+      )
     } else if (entry.isSymbolicLink()) {
-      try {
-        const target = await fs.readlink(sourcePath)
-        await fs.symlink(target, destPath)
-      } catch (caught) {
-        const err = caught as NodeJS.ErrnoException | undefined
+      const real = await linkTargetInside(sourcePath, templateRoot)
 
-        if (err?.code === 'EPERM' || err?.code === 'ENOTSUP') {
-          const real = await fs.realpath(sourcePath)
-          await fs.cp(real, destPath, {recursive: true})
-        } else {
-          throw err
-        }
+      if (!real) {
+        dropped.push(path.relative(templateRoot, sourcePath))
+        continue
       }
+
+      await recreateLink(sourcePath, destPath, real)
     } else {
       // Move files with EXDEV (cross-device) fallback to copy+unlink
       try {
@@ -101,6 +148,8 @@ export async function moveDirectoryContents(
   }
 
   await fs.rm(source, {recursive: true, force: true})
+
+  return dropped
 }
 
 // A path printed as a command is pasted into a shell, so anything outside the

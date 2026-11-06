@@ -7,6 +7,7 @@ exports[`create message catalogs > matches the exported message surface 1`] = `
     "createDirectoryError: function(2)",
     "destinationNotWriteable: function(2)",
     "directoryHasConflicts: function(2)",
+    "droppedTemplateLinks: function(1)",
     "existingRepositoryKept: function(1)",
     "firstCommitSkipped: function(2)",
     "foundSpecializedDependencies: function(1)",

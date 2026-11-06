@@ -555,7 +555,15 @@ async function copyTemplateDirectory(
   logger: {log(...args: unknown[]): void; error(...args: unknown[]): void},
   ownerGitignore: string | null
 ): Promise<void> {
-  await utils.copyDirectoryWithSymlinks(sourceDir, projectPath)
+  const droppedLinks = await utils.copyDirectoryWithSymlinks(
+    sourceDir,
+    projectPath
+  )
+
+  if (droppedLinks.length) {
+    logger.log(messages.droppedTemplateLinks(droppedLinks))
+  }
+
   await restoreOwnerGitignore(projectPath, ownerGitignore)
   await removeTemplateScaffoldingFiles(projectPath)
   const dropped = await removeStaleTemplateLockfiles(projectPath)
@@ -980,6 +988,7 @@ export async function importExternalTemplate(
     }
 
     let provenance: TemplateProvenance
+    let droppedLinks: string[] = []
 
     if (isGithub) {
       // A URL that cannot be fetched is a DOWNLOAD failure, same as a catalog
@@ -997,7 +1006,7 @@ export async function importExternalTemplate(
         (d) => d.isDirectory() && d.name === templateName
       )
       const srcPath = preferred ? path.join(tempPath, templateName) : tempPath
-      await utils.moveDirectoryContents(srcPath, projectPath)
+      droppedLinks = await utils.moveDirectoryContents(srcPath, projectPath)
       provenance = {template: resolvedTemplateName, source: template}
     } else if (isHttp) {
       // Typed for the same reason as the GitHub branch above: a ZIP URL that
@@ -1025,7 +1034,7 @@ export async function importExternalTemplate(
 
       await extractZipBufferTo(data, tempPath, template)
       const sourcePath = await getZipSourcePath(tempPath, template)
-      await utils.moveDirectoryContents(sourcePath, projectPath)
+      droppedLinks = await utils.moveDirectoryContents(sourcePath, projectPath)
       provenance = {template: resolvedTemplateName, source: template}
     } else {
       // Built-in template names resolve to one folder in the extension-js/
@@ -1039,6 +1048,10 @@ export async function importExternalTemplate(
         source: catalog.source,
         ...(catalog.ref ? {ref: catalog.ref} : {})
       }
+    }
+
+    if (droppedLinks.length) {
+      logger.log(messages.droppedTemplateLinks(droppedLinks))
     }
 
     await restoreOwnerGitignore(projectPath, ownerGitignore)

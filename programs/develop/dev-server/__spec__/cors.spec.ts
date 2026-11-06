@@ -17,9 +17,11 @@ import {
 const VIEWER_ORIGIN = 'https://browsers.extension.land'
 const roots: string[] = []
 
+const session = (origin: string) => origin === 'chrome-extension://abcdefgh'
+
 function headerMap(origin: string | undefined, allowed: string[] = []) {
   return new Map(
-    devServerCorsHeaders(origin, allowed).map(({key, value}) => [
+    devServerCorsHeaders(origin, allowed, session).map(({key, value}) => [
       key.toLowerCase(),
       value
     ])
@@ -69,7 +71,9 @@ async function startServer(
   const access = devServerAccessConfig({
     connectableHost: '127.0.0.1',
     emulatorOrigin: VIEWER_ORIGIN,
-    allowedHosts: options.allowedHosts
+    allowedHosts: options.allowedHosts,
+    isSessionExtensionOrigin: (origin) =>
+      origin === 'chrome-extension://abcdefghijklmnop'
   })
 
   const server = new RspackDevServer(
@@ -103,17 +107,34 @@ async function startServer(
 
 describe('dev server allow-origin policy', () => {
   it('reflects the extension origin the hot client fetches from', () => {
-    expect(resolveAllowedCorsOrigin('chrome-extension://abcdefgh')).toBe(
-      'chrome-extension://abcdefgh'
-    )
+    const session = (origin: string) => origin.endsWith('://abcdefgh')
 
-    expect(resolveAllowedCorsOrigin('moz-extension://abcdefgh')).toBe(
-      'moz-extension://abcdefgh'
-    )
+    expect(
+      resolveAllowedCorsOrigin('chrome-extension://abcdefgh', [], session)
+    ).toBe('chrome-extension://abcdefgh')
 
-    expect(resolveAllowedCorsOrigin('safari-web-extension://abcdefgh')).toBe(
-      'safari-web-extension://abcdefgh'
-    )
+    expect(
+      resolveAllowedCorsOrigin('moz-extension://abcdefgh', [], session)
+    ).toBe('moz-extension://abcdefgh')
+
+    expect(
+      resolveAllowedCorsOrigin('safari-web-extension://abcdefgh', [], session)
+    ).toBe('safari-web-extension://abcdefgh')
+  })
+
+  it('refuses every other extension in the profile', () => {
+    const session = (origin: string) => origin === 'chrome-extension://abcdefgh'
+
+    expect(
+      resolveAllowedCorsOrigin('chrome-extension://zzzzzzzz', [], session)
+    ).toBeNull()
+
+    expect(resolveAllowedCorsOrigin('chrome-extension://abcdefgh')).toBeNull()
+    expect(
+      headerMap('chrome-extension://zzzzzzzz').get(
+        'access-control-allow-origin'
+      )
+    ).toBeUndefined()
   })
 
   it('refuses every web origin the session did not ask for', () => {
@@ -177,7 +198,8 @@ describe('dev server allow-origin policy', () => {
     expect(
       devServerAccessConfig({
         connectableHost: '127.0.0.1',
-        allowedHosts: 'web,127.0.0.1,host.docker.internal'
+        allowedHosts: 'web,127.0.0.1,host.docker.internal',
+        isSessionExtensionOrigin: session
       }).allowedHosts
     ).toEqual(['127.0.0.1', 'web', 'host.docker.internal'])
   })
@@ -191,13 +213,17 @@ describe('dev server allow-origin policy', () => {
 
   it('names the hosts a session is dialed on instead of all', () => {
     expect(
-      devServerAccessConfig({connectableHost: '127.0.0.1'}).allowedHosts
+      devServerAccessConfig({
+        connectableHost: '127.0.0.1',
+        isSessionExtensionOrigin: session
+      }).allowedHosts
     ).toEqual(['127.0.0.1'])
 
     expect(
       devServerAccessConfig({
         connectableHost: 'dev.internal',
-        emulatorOrigin: VIEWER_ORIGIN
+        emulatorOrigin: VIEWER_ORIGIN,
+        isSessionExtensionOrigin: session
       }).allowedHosts
     ).toEqual(['dev.internal', 'browsers.extension.land'])
   })
@@ -229,6 +255,11 @@ describe('dev server access config (real boot)', () => {
 
       const page = await request(port, {origin: 'https://evil.test'})
       expect(page.headers['access-control-allow-origin']).toBeUndefined()
+
+      const neighbor = await request(port, {
+        origin: 'chrome-extension://zzzzzzzzzzzzzzzz'
+      })
+      expect(neighbor.headers['access-control-allow-origin']).toBeUndefined()
 
       // The Host-header check is what stops a name that resolves to loopback
       // from becoming same-origin with the dev server.

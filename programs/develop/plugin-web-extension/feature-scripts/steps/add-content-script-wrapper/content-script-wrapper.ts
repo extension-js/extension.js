@@ -10,6 +10,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import {parse as parseModuleSyntax} from 'es-module-lexer'
 import {validate} from 'schema-utils'
+import {isChromiumBasedBrowser} from '../../../../lib/constants'
 import {EXTENSION_BASE_FROM_STACK} from '../../../../lib/extension-base-from-stack'
 import {
   adjustLoaderSourceMap,
@@ -382,8 +383,11 @@ export default function contentScriptWrapper(
   const isMainWorld = declaredEntry?.world === 'MAIN' || isRuntimeMainWorld
   const hostInstrumentationEnabled = !isShippedBundle && !isMainWorld
   // The bridge that runs right before a declared MAIN-world script leaves the
-  // extension base on <html>. A shipped bundle takes it and clears it at once.
-  const takesBridgeBase = isShippedBundle && declaredEntry?.world === 'MAIN'
+  // extension base on <html>. The bundle takes it and clears it at once when
+  // its own stack can name the base again later, which only Firefox cannot.
+  const takesBridgeBase =
+    declaredEntry?.world === 'MAIN' &&
+    (isShippedBundle || isChromiumBasedBrowser(browser))
   const takenBridgeBase = takesBridgeBase ? '__EXTENSIONJS_BRIDGE_BASE || ' : ''
   const bundleKey = declaredEntry
     ? getCanonicalContentScriptEntryName(declaredEntry.index)

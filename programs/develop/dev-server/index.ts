@@ -85,6 +85,7 @@ import {
   writePersistedControlPort
 } from './control-bridge/control-port-store'
 import {LogsFileWriter} from './control-bridge/logs-file'
+import {isLoopbackAddress} from './control-bridge/loopback'
 import {LogRingBuffer} from './control-bridge/ring-buffer'
 import {
   clearControlToken,
@@ -643,9 +644,10 @@ export async function devServer(
       })
     : undefined
 
-  // The eval token is written 0600 OUTSIDE dist/ only when eval is enabled.
+  // The eval token is written 0600 OUTSIDE dist/ when eval is enabled, and
+  // when the bind host admits peers beyond loopback, who must present it.
   const bridgeControlToken =
-    allowControl && allowEval
+    (allowControl && allowEval) || !isLoopbackAddress(devServerHost)
       ? writeControlToken(packageJsonDir, browserName)
       : undefined
   // The metadata writer is created later (it needs the resolved control port);
@@ -948,7 +950,9 @@ export async function devServer(
   const access = devServerAccessConfig({
     connectableHost,
     emulatorOrigin,
-    allowedHosts: extendedOptions.allowedHosts
+    allowedHosts: extendedOptions.allowedHosts,
+    isSessionExtensionOrigin: (origin) =>
+      bridgeBroker.isSessionExtensionOrigin(origin)
   })
 
   const serverConfig: Configuration = {

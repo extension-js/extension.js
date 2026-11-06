@@ -287,5 +287,7 @@ export const CLOSE_BAD_INSTANCE = 4001
 export const CLOSE_BAD_HELLO = 4002
 /** A controller dialed a session started without `--allow-control`. */
 export const CLOSE_CONTROL_UNAVAILABLE = 4003
+/** A consumer or controller beyond loopback sent no session token, or the wrong one. */
+export const CLOSE_TOKEN_REQUIRED = 4004
 /** The socket fell far enough behind that it was dropped to protect the broker. */
 export const CLOSE_SLOW_CONSUMER = 4008
