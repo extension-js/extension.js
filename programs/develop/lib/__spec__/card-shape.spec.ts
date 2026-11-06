@@ -1,4 +1,8 @@
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
+import {resolveLocalizedManifestName} from '../localized-manifest-name'
 import {card, MAX_CARD_ROWS} from '../messaging'
 
 // The card is a glance, not output to read. These are the invariants that keep
@@ -35,6 +39,33 @@ describe('card shape', () => {
     expect(body).toHaveLength(MAX_CARD_ROWS)
     expect(body.some((line) => line.includes('Binary'))).toBe(false)
     expect(body[2]).toContain('Profile')
+  })
+
+  it('names a localized extension by its default_locale value, not the key', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'card-shape-locale-'))
+
+    try {
+      fs.mkdirSync(path.join(root, '_locales', 'en'), {recursive: true})
+      fs.writeFileSync(
+        path.join(root, '_locales', 'en', 'messages.json'),
+        JSON.stringify({extName: {message: 'Lance'}})
+      )
+
+      const name = resolveLocalizedManifestName(
+        {name: '__MSG_extName__', default_locale: 'en'},
+        [root]
+      )
+      const body = card({
+        version: '4.1.39',
+        rows: [rows[0], {label: 'Extension', value: `${name} 0.1.0`}, rows[2]]
+      })
+        .split('\n')
+        .slice(1)
+      expect(body[1]).toContain('Extension      Lance 0.1.0')
+      expect(body[1]).not.toContain('__MSG_')
+    } finally {
+      fs.rmSync(root, {recursive: true, force: true})
+    }
   })
 
   it('prints the product name in the default terminal color', () => {

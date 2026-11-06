@@ -49,6 +49,7 @@ import {
 } from './lib/ensure-develop-artifacts'
 import {generateExtensionTypes} from './lib/generate-extension-types'
 import {findLiveDevSession} from './lib/live-dev-session'
+import {resolveLocalizedManifestName} from './lib/localized-manifest-name'
 import {findLoopbackOrigins} from './lib/loopback-origins'
 import {
   BUILD_COMMAND_DEFAULTS,
@@ -124,7 +125,8 @@ export function resetBuildToolchainLine(): void {
 function printBuildCard(
   manifestPath: string,
   browser: string,
-  distPath: string
+  distPath: string,
+  projectRoot: string
 ) {
   if (!claimCardKey(`${browser}::${nodePath.resolve(distPath)}`)) return
 
@@ -132,7 +134,10 @@ function printBuildCard(
 
   try {
     const manifest = parseJsonSafe(fs.readFileSync(manifestPath, 'utf-8'))
-    const name = String(manifest?.name || '').trim()
+    const name = resolveLocalizedManifestName(manifest, [
+      nodePath.dirname(manifestPath),
+      projectRoot
+    ])
     const version = String(manifest?.version || '').trim()
     extensionLabel = name && version ? `${name} ${version}` : name
   } catch {
@@ -526,7 +531,8 @@ export async function extensionBuild(
           printBuildCard(
             projectStructure.manifestPath,
             browser,
-            displayDistPath
+            displayDistPath,
+            packageJsonDir
           )
 
           if (!silent) {

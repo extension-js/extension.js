@@ -135,9 +135,21 @@ describe('build: .env injection (real rspack)', () => {
     expect(logs).toContain('missing: undefined')
   }, 120_000)
 
-  it('warns when the shipped .env files match no candidate for the target browser', async () => {
+  it('stays quiet when the shipped .env file is named for another browser', async () => {
     const root = makeFixture({
       '.env.firefox': 'EXTENSION_PUBLIC_KNOWN="firefox-only"\n'
+    })
+    const summary = await buildFixture(root)
+    expect(summary.errors_count).toBe(0)
+    expect(summary.warnings_count).toBe(0)
+
+    const logs = runWorker(root)
+    expect(logs).toContain('known: undefined')
+  }, 120_000)
+
+  it('warns when the shipped .env file matches no name the build knows', async () => {
+    const root = makeFixture({
+      '.env.staging': 'EXTENSION_PUBLIC_KNOWN="staging-only"\n'
     })
     const summary = await buildFixture(root)
     expect(summary.errors_count).toBe(0)

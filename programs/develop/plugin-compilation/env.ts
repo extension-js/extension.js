@@ -22,7 +22,9 @@ import {
   CHROMIUM_FAMILY_ALIASES,
   GECKO_FAMILY_ALIASES,
   isChromiumBasedBrowser,
-  isGeckoBasedBrowser
+  isGeckoBasedBrowser,
+  SUPPORTED_BROWSERS,
+  WEBKIT_BASED_BROWSERS
 } from '../lib/constants'
 import {debugLine, isDebug} from '../lib/messaging'
 import {setCurrentManifestContent} from '../plugin-web-extension/feature-manifest/manifest-lib/manifest'
@@ -302,6 +304,30 @@ export function getEnvFileCandidates(
   ]
 }
 
+const KNOWN_ENV_MODES = new Set(['development', 'production', 'test', 'none'])
+const KNOWN_ENV_BROWSERS = new Set([
+  ...SUPPORTED_BROWSERS,
+  ...CHROMIUM_FAMILY_ALIASES,
+  ...GECKO_FAMILY_ALIASES,
+  ...WEBKIT_BASED_BROWSERS
+])
+
+// A file named for another mode or browser is kept on purpose, so a production
+// build leaves .env.development alone instead of asking for a rename.
+export function isEnvFileForAnotherTarget(file: string): boolean {
+  const parts = file.split('.').slice(2)
+
+  if (parts.length === 1) {
+    return KNOWN_ENV_MODES.has(parts[0]) || KNOWN_ENV_BROWSERS.has(parts[0])
+  }
+
+  return (
+    parts.length === 2 &&
+    KNOWN_ENV_BROWSERS.has(parts[0]) &&
+    KNOWN_ENV_MODES.has(parts[1])
+  )
+}
+
 const SECRET_SEGMENTS = new Set([
   'SECRET',
   'TOKEN',
@@ -371,44 +397,6 @@ export class EnvPlugin {
       ]).apply(compiler)
     }
 
-    // The project ships .env files but none match this browser/mode; every
-    // EXTENSION_PUBLIC_* read would be undefined, so surface a build warning.
-    if (!envPath && projectPath) {
-      let unmatchedEnvFiles: string[] = []
-
-      try {
-        unmatchedEnvFiles = fs
-          .readdirSync(projectPath)
-          .filter(
-            (file) =>
-              file.startsWith('.env') &&
-              file !== '.env.defaults' &&
-              file !== '.env.example'
-          )
-          .sort()
-      } catch {
-        // unreadable project dir, nothing to warn about
-      }
-
-      if (unmatchedEnvFiles.length > 0) {
-        compiler.hooks.thisCompilation.tap(
-          'env:warn-unmatched',
-          (compilation) => {
-            const warn = new WebpackError(
-              messages.envNoMatchingFile(
-                String(this.browser),
-                String(mode),
-                unmatchedEnvFiles,
-                envFiles
-              )
-            ) as Error & {file?: string; name?: string}
-            warn.name = 'EnvNoMatchingFile'
-            compilation.warnings.push(warn)
-          }
-        )
-      }
-    }
-
     // dotenv.parse (not .config) on purpose: .config mutates process.env, which
     // wins the merge, so the first build's values would leak into later builds.
     const envVars = envPath ? dotenv.parse(fs.readFileSync(envPath)) : {}
@@ -434,6 +422,62 @@ export class EnvPlugin {
       ...defaultsVars,
       ...envVars,
       ...systemEnv
+    }
+
+    // The project ships .env files but none match this browser and mode. A
+    // file named for another target is skipped quietly, any other earns a warning.
+    if (!envPath && projectPath) {
+      let presentEnvFiles: string[] = []
+
+      try {
+        presentEnvFiles = fs
+          .readdirSync(projectPath)
+          .filter(
+            (file) =>
+              file.startsWith('.env') &&
+              file !== '.env.defaults' &&
+              file !== '.env.example'
+          )
+          .sort()
+      } catch {
+        // unreadable project dir, nothing to warn about
+      }
+
+      const ignoredEnvFiles = presentEnvFiles.filter(isEnvFileForAnotherTarget)
+      const unmatchedEnvFiles = presentEnvFiles.filter(
+        (file) => !isEnvFileForAnotherTarget(file)
+      )
+
+      if (ignoredEnvFiles.length > 0 && isDebug()) {
+        debugLine(messages.envIgnoredFiles(ignoredEnvFiles, String(mode)))
+      }
+
+      if (unmatchedEnvFiles.length > 0) {
+        // Values extension.config.js or the shell put on process.env still
+        // reach the bundle, so "undefined" is said only when nothing did.
+        const publicValuesDefined = Object.keys(combinedVars).some(
+          (key) =>
+            key.startsWith('EXTENSION_PUBLIC_') &&
+            String(combinedVars[key] ?? '') !== ''
+        )
+
+        compiler.hooks.thisCompilation.tap(
+          'env:warn-unmatched',
+          (compilation) => {
+            const warn = new WebpackError(
+              messages.envNoMatchingFile(
+                String(this.browser),
+                String(mode),
+                unmatchedEnvFiles,
+                envFiles,
+                publicValuesDefined
+              )
+            ) as Error & {file?: string; name?: string}
+            warn.name = 'EnvNoMatchingFile'
+            compilation.warnings.push(warn)
+          }
+        )
+      }
     }
 
     // Every EXTENSION_PUBLIC_* value is inlined into the bundle that ships to

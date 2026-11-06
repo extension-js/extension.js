@@ -7,8 +7,10 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'node:fs'
+import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
 import {humanLine} from '../dev-server/lifecycle-stream'
+import {resolveLocalizedManifestName} from '../lib/localized-manifest-name'
 import {parseJsonSafe} from '../lib/parse-json-safe'
 import type {PluginInterface} from '../types'
 import * as messages from './compilation-lib/messages'
@@ -48,9 +50,15 @@ export class BoringPlugin {
       let manifestName: string | undefined
 
       try {
-        const parsedName = parseJsonSafe(
-          fs.readFileSync(this.manifestPath, 'utf-8')
-        ).name
+        // A __MSG_ name reads as the default locale's value, the way the
+        // browser shows it, instead of the key.
+        const parsedName = resolveLocalizedManifestName(
+          parseJsonSafe(fs.readFileSync(this.manifestPath, 'utf-8')),
+          [
+            path.dirname(this.manifestPath),
+            String(compiler.options?.context || '')
+          ]
+        )
 
         if (typeof parsedName === 'string' && parsedName) {
           this.lastKnownManifestName = parsedName
