@@ -44,6 +44,11 @@ async function linkTargetInside(
   return real
 }
 
+// The path a dropped link is named by, with forward slashes on every platform.
+function templateRelative(root: string, file: string): string {
+  return path.relative(root, file).split(path.sep).join('/')
+}
+
 async function recreateLink(
   sourcePath: string,
   destPath: string,
@@ -89,7 +94,7 @@ export async function copyDirectoryWithSymlinks(
       const real = await linkTargetInside(sourcePath, templateRoot)
 
       if (!real) {
-        dropped.push(path.relative(templateRoot, sourcePath))
+        dropped.push(templateRelative(templateRoot, sourcePath))
         continue
       }
 
@@ -125,7 +130,7 @@ export async function moveDirectoryContents(
       const real = await linkTargetInside(sourcePath, templateRoot)
 
       if (!real) {
-        dropped.push(path.relative(templateRoot, sourcePath))
+        dropped.push(templateRelative(templateRoot, sourcePath))
         continue
       }
 
