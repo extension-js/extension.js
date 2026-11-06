@@ -21,6 +21,10 @@ import {
 import {resolveDevelopDistFile} from '../../../lib/develop-context'
 import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
 import {importMetaUrlForEmitPath} from '../../../plugin-compilation/env'
+import {
+  excludedFiles,
+  isExcludedEntry
+} from '../../../plugin-special-folders/folders-config'
 import type {DevOptions, Manifest} from '../../../types'
 import {declaredResourceSource} from '../../feature-web-resources/web-resources-lib/resolve-war'
 import {isClassicScript} from '../../shared/classic-concat'
@@ -923,6 +927,9 @@ class TraceRun {
   readonly entrySourceDirs: Map<string, string>
   readonly hasAsset: (name: string) => boolean
   private readonly queue = new Map<string, CompileRequest>()
+  // Files the `exclude` config leaves out of this build. A literal that names
+  // one is dead code on this browser, so the trace ships nothing for it.
+  private readonly excluded: ReadonlySet<string>
 
   constructor(
     readonly compilation: Compilation,
@@ -931,6 +938,9 @@ class TraceRun {
   ) {
     this.entrySourceDirs = collectEntrySourceDirs(compiler)
     this.hasAsset = (name) => Boolean(compilation.getAsset(name))
+    this.excluded = excludedFiles(
+      (compiler.options.context as string | undefined) || manifestDir
+    )
   }
 
   jsAssets(only?: Set<string>) {
@@ -944,6 +954,13 @@ class TraceRun {
   // Copies return their text so the caller can keep scanning it. Compiles are
   // queued and return null: their output is scanned in the next round.
   apply(plan: TracedFilePlan, ctx: ApplyContext): string | null {
+    if (
+      (plan.kind === 'copy' || plan.kind === 'compile') &&
+      isExcludedEntry(plan.sourcePath, this.excluded)
+    ) {
+      return null
+    }
+
     switch (plan.kind) {
       case 'skip':
         if (plan.reason === 'compiled-elsewhere') {
@@ -982,6 +999,8 @@ class TraceRun {
   }
 
   emitCopy(abs: string, distRel: string): string {
+    if (isExcludedEntry(abs, this.excluded)) return ''
+
     const buffer = fs.readFileSync(abs)
     this.compilation.emitAsset(distRel, new sources.RawSource(buffer))
     this.watch(abs)

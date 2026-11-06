@@ -357,6 +357,7 @@ const CONFIG_TOP_LEVEL_KEYS = [
   'config',
   'configResolved',
   'define',
+  'exclude',
   'extensions',
   'folders',
   'include',
@@ -623,6 +624,7 @@ export type ProjectConfigDefaults = Pick<
   | 'define'
   | 'folders'
   | 'include'
+  | 'exclude'
 >
 
 // Top-level `extensions`/`transpilePackages`/`perfBudgets` are the weakest
@@ -660,6 +662,9 @@ export async function loadProjectConfigDefaults(
             : {}),
           ...(userConfig?.include && typeof userConfig.include === 'object'
             ? {include: userConfig.include}
+            : {}),
+          ...(Array.isArray(userConfig?.exclude)
+            ? {exclude: userConfig.exclude}
             : {})
         }
       } catch (err: unknown) {

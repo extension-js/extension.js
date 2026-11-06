@@ -498,6 +498,8 @@ export interface BrowserConfig extends BrowserOptionsBase {
   folders?: SpecialFoldersConfig
   /** Extra files for this browser's output, added to the top-level `include`. */
   include?: IncludeFilesConfig
+  /** Files this browser's build leaves out, added to the top-level `exclude`. */
+  exclude?: ExcludeFilesConfig
   /**
    * Companion extensions (load-only) scoped to a browser config.
    * Useful for per-browser store URLs or local unpacked extensions.
@@ -545,6 +547,7 @@ export interface CommonWebpackOptions {
   define?: Record<string, unknown>
   folders?: SpecialFoldersConfig
   include?: IncludeFilesConfig
+  exclude?: ExcludeFilesConfig
   perfBudgets?: PerfBudgetsConfig
   /**
    * Companion extensions (load-only). Each entry must be an unpacked extension root
@@ -632,6 +635,7 @@ export interface FileConfig {
         define?: Record<string, unknown>
         folders?: SpecialFoldersConfig
         include?: IncludeFilesConfig
+        exclude?: ExcludeFilesConfig
         perfBudgets?: PerfBudgetsConfig
       }
 
@@ -663,6 +667,7 @@ export interface FileConfig {
       define?: Record<string, unknown>
       folders?: SpecialFoldersConfig
       include?: IncludeFilesConfig
+      exclude?: ExcludeFilesConfig
     }
 
     preview?: Pick<
@@ -717,6 +722,7 @@ export interface FileConfig {
       define?: Record<string, unknown>
       folders?: SpecialFoldersConfig
       include?: IncludeFilesConfig
+      exclude?: ExcludeFilesConfig
       perfBudgets?: PerfBudgetsConfig
     }
   }
@@ -757,6 +763,13 @@ export interface FileConfig {
    */
   include?: IncludeFilesConfig
   /**
+   * Files the build leaves out, each relative to the project root, for
+   * example `['pages/offscreen.html']`. A page or script named here gets no
+   * entry and emits nothing, a public file named here is not copied.
+   * `browser.<vendor>.exclude` and `commands.<name>.exclude` add to it.
+   */
+  exclude?: ExcludeFilesConfig
+  /**
    * Customizes the bundler config before the compiler is built. The second
    * argument names the target browser, the bundler mode and the command.
    */
@@ -796,3 +809,10 @@ export interface SpecialFoldersConfig {
  * project root. A folder source copies its tree under the output path.
  */
 export type IncludeFilesConfig = Record<string, string>
+
+/**
+ * Files the build leaves out, each relative to the project root. A page or
+ * script in a special folder named here gets no entry, a public file named
+ * here is not copied. The lists of every config layer add up.
+ */
+export type ExcludeFilesConfig = string[]

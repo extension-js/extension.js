@@ -57,13 +57,18 @@ import {
   readContentScriptCount
 } from '../plugin-reload'
 import {resolveCompanionExtensionsConfig} from '../plugin-special-folders/folder-extensions/resolve-config'
+import {rememberExcludedFiles} from '../plugin-special-folders/folders-config'
 import {
   getSpecialFoldersDataForProjectRoot,
   rememberSpecialFoldersConfig
 } from '../plugin-special-folders/get-data'
 import {publicFolderOrDefault} from '../plugin-special-folders/resolve-public-folder'
 import webpackConfig from '../rspack-config'
-import type {ConfigHookContext, DevOptions} from '../types'
+import type {
+  CommonWebpackOptions,
+  ConfigHookContext,
+  DevOptions
+} from '../types'
 import {setupCleanupHandlers} from './cleanup'
 import {
   setupCompilerLifecycleHooks,
@@ -850,6 +855,14 @@ export async function devServer(
     safeBrowserConfig.folders ??
     safeProjectConfig.folders
   rememberSpecialFoldersConfig(packageJsonDir, foldersConfig)
+  // Same reason as the folders config: the first plugin that reads the
+  // special folders holds only a compiler and runs before the plugin that
+  // owns the key.
+  rememberExcludedFiles(
+    packageJsonDir,
+    (mergedDevOptions as Partial<CommonWebpackOptions>).exclude
+  )
+
   const specialFoldersData = getSpecialFoldersDataForProjectRoot(
     packageJsonDir,
     foldersConfig

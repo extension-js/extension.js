@@ -94,11 +94,16 @@ import {
   stampReadyKnownExtensionId
 } from './plugin-playwright'
 import {resolveCompanionExtensionsConfig} from './plugin-special-folders/folder-extensions/resolve-config'
+import {rememberExcludedFiles} from './plugin-special-folders/folders-config'
 import {
   getSpecialFoldersDataForProjectRoot,
   rememberSpecialFoldersConfig
 } from './plugin-special-folders/get-data'
-import type {BuildOptions, ConfigHookContext} from './types'
+import type {
+  BuildOptions,
+  CommonWebpackOptions,
+  ConfigHookContext
+} from './types'
 
 const reportedBuildFailures = new WeakSet<object>()
 
@@ -315,6 +320,13 @@ export async function extensionBuild(
       commandConfig,
       buildOptions
     )
+    // The plugins that read the special folders hold only a compiler, and
+    // the first of them runs before the special-folders plugin itself.
+    rememberExcludedFiles(
+      packageJsonDir,
+      (mergedBuildOptions as Partial<CommonWebpackOptions>).exclude
+    )
+
     const silent = Boolean(mergedBuildOptions.silent)
 
     // The Safari identity is settled from the same layers before any compile,

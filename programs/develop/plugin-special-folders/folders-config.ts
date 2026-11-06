@@ -7,7 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import * as path from 'node:path'
-import type {SpecialFoldersConfig} from '../types'
+import type {ExcludeFilesConfig, SpecialFoldersConfig} from '../types'
 
 // The `folders` config of each project, keyed by its root, so the plugins
 // that only hold a compiler find the same answer the commands resolved.
@@ -56,15 +56,16 @@ export function isDevOnlyEntry(filePath: string): boolean {
   return DEV_ONLY_ENTRY.test(path.basename(String(filePath)))
 }
 
-export function omitDevOnlyEntries<T extends Record<string, unknown>>(
+function omitEntries<T extends Record<string, unknown>>(
   list: T | undefined,
+  leftOut: (file: string) => boolean,
   dropped?: string[]
 ): T {
   const next: Record<string, unknown> = {}
 
   for (const [key, value] of Object.entries(list || {})) {
     const files = Array.isArray(value) ? value : value ? [value] : []
-    const kept = files.filter((file) => !isDevOnlyEntry(String(file)))
+    const kept = files.filter((file) => !leftOut(String(file)))
 
     for (const file of files) {
       if (!kept.includes(file)) dropped?.push(String(file))
@@ -76,6 +77,77 @@ export function omitDevOnlyEntries<T extends Record<string, unknown>>(
   }
 
   return next as T
+}
+
+export function omitDevOnlyEntries<T extends Record<string, unknown>>(
+  list: T | undefined,
+  dropped?: string[]
+): T {
+  return omitEntries(list, isDevOnlyEntry, dropped)
+}
+
+// The `exclude` config of each project, resolved to absolute paths and keyed
+// by the project root for the same reason the folders config is: the plugins
+// that only hold a compiler must drop the same files the commands resolved.
+const excludedFilesByProjectRoot = new Map<string, ReadonlySet<string>>()
+const NO_EXCLUDED_FILES: ReadonlySet<string> = new Set()
+
+export function resolveExcludedFiles(
+  projectRoot: string,
+  exclude: ExcludeFilesConfig | undefined
+): ReadonlySet<string> {
+  const files = new Set<string>()
+
+  for (const entry of Array.isArray(exclude) ? exclude : []) {
+    if (typeof entry !== 'string' || entry.trim() === '') continue
+
+    files.add(path.resolve(projectRoot, entry.trim()))
+  }
+
+  return files
+}
+
+export function rememberExcludedFiles(
+  projectRoot: string,
+  exclude: ExcludeFilesConfig | undefined
+): void {
+  if (!projectRoot) return
+
+  const root = path.resolve(projectRoot)
+  const files = resolveExcludedFiles(root, exclude)
+
+  if (files.size > 0) excludedFilesByProjectRoot.set(root, files)
+  else excludedFilesByProjectRoot.delete(root)
+}
+
+export function excludedFiles(
+  projectRoot: string | undefined
+): ReadonlySet<string> {
+  if (!projectRoot) return NO_EXCLUDED_FILES
+
+  return (
+    excludedFilesByProjectRoot.get(path.resolve(projectRoot)) ||
+    NO_EXCLUDED_FILES
+  )
+}
+
+export function isExcludedEntry(
+  filePath: string,
+  excluded: ReadonlySet<string>
+): boolean {
+  if (excluded.size === 0) return false
+
+  return excluded.has(path.resolve(String(filePath)))
+}
+
+export function omitExcludedEntries<T extends Record<string, unknown>>(
+  list: T | undefined,
+  excluded: ReadonlySet<string>,
+  dropped?: string[]
+): T {
+  if (excluded.size === 0) return (list || {}) as T
+
+  return omitEntries(list, (file) => isExcludedEntry(file, excluded), dropped)
 }
 
 export type SpecialFolderName = 'pages' | 'scripts'

@@ -93,6 +93,13 @@ export interface SpecialFoldersConfig {
  */
 export type IncludeFilesConfig = Record<string, string>
 
+/**
+ * Files the build leaves out, each relative to the project root. A page or
+ * script in a special folder named here gets no entry, a public file named
+ * here is not copied. The lists of every config layer add up.
+ */
+export type ExcludeFilesConfig = string[]
+
 /** Browser launch options shared across commands and per-browser overrides. */
 interface BrowserLaunchConfig {
   browserFlags?: string[]
@@ -149,6 +156,8 @@ export interface BrowserConfig extends BrowserLaunchConfig, SafariConfig {
   folders?: SpecialFoldersConfig
   /** Extra files for this browser's output, added to the top-level `include`. */
   include?: IncludeFilesConfig
+  /** Files this browser's build leaves out, added to the top-level `exclude`. */
+  exclude?: ExcludeFilesConfig
 }
 
 /**
@@ -219,6 +228,11 @@ export interface DevCommandConfig
    * per-browser `include` key by key.
    */
   include?: IncludeFilesConfig
+  /**
+   * Files this command's build leaves out. Adds to the top-level and
+   * per-browser `exclude`.
+   */
+  exclude?: ExcludeFilesConfig
 }
 
 /** Shared `commands.start` / `commands.preview` overrides. */
@@ -250,6 +264,11 @@ export interface ServeCommandConfig
    * per-browser `include` key by key.
    */
   include?: IncludeFilesConfig
+  /**
+   * Files this command's build leaves out. Adds to the top-level and
+   * per-browser `exclude`.
+   */
+  exclude?: ExcludeFilesConfig
 }
 
 /** `commands.build` overrides. */
@@ -294,6 +313,11 @@ export interface BuildCommandConfig extends SafariConfig {
    * per-browser `include` key by key.
    */
   include?: IncludeFilesConfig
+  /**
+   * Files this command's build leaves out. Adds to the top-level and
+   * per-browser `exclude`.
+   */
+  exclude?: ExcludeFilesConfig
 }
 
 /**
@@ -350,6 +374,13 @@ export interface FileConfig {
    * and `commands.<name>.include` add to it key by key.
    */
   include?: IncludeFilesConfig
+  /**
+   * Files the build leaves out, each relative to the project root, for
+   * example `['pages/offscreen.html']`. A page or script named here gets no
+   * entry and emits nothing, a public file named here is not copied.
+   * `browser.<vendor>.exclude` and `commands.<name>.exclude` add to it.
+   */
+  exclude?: ExcludeFilesConfig
   /**
    * Escape hatch to customize the underlying Rspack/webpack-compatible
    * configuration. Receives and returns a bundler `Configuration` object.

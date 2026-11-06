@@ -2,7 +2,15 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
-import {isDevOnlyEntry, omitDevOnlyEntries} from '../folders-config'
+import {
+  excludedFiles,
+  isDevOnlyEntry,
+  isExcludedEntry,
+  omitDevOnlyEntries,
+  omitExcludedEntries,
+  rememberExcludedFiles,
+  resolveExcludedFiles
+} from '../folders-config'
 import {
   getSpecialFoldersDataForCompiler,
   getSpecialFoldersDataForProjectRoot,
@@ -39,6 +47,7 @@ function project(files: Record<string, string>) {
 afterEach(() => {
   for (const dir of created.splice(0)) {
     rememberSpecialFoldersConfig(dir, undefined)
+    rememberExcludedFiles(dir, undefined)
     fs.rmSync(dir, {recursive: true, force: true})
   }
 })
@@ -215,5 +224,100 @@ describe('development-only entries', () => {
     expect(
       keys(getSpecialFoldersDataForCompiler(compiler('development')).scripts)
     ).toEqual(['scripts/bench.dev', 'scripts/content'])
+  })
+})
+
+describe('excluded entries', () => {
+  it('resolves the exclude list against the project root', () => {
+    const files = resolveExcludedFiles('/p', [
+      'pages/offscreen.html',
+      ' scripts/bench.ts ',
+      '',
+      './public/rules.json'
+    ])
+
+    expect([...files].sort()).toEqual([
+      path.resolve('/p/pages/offscreen.html'),
+      path.resolve('/p/public/rules.json'),
+      path.resolve('/p/scripts/bench.ts')
+    ])
+
+    expect(resolveExcludedFiles('/p', undefined).size).toBe(0)
+  })
+
+  it('matches a file by its resolved path only', () => {
+    const excluded = resolveExcludedFiles('/p', ['pages/offscreen.html'])
+
+    expect(isExcludedEntry('/p/pages/offscreen.html', excluded)).toBe(true)
+    expect(isExcludedEntry('/p/pages/../pages/offscreen.html', excluded)).toBe(
+      true
+    )
+
+    expect(isExcludedEntry('/p/pages/offscreen.ts', excluded)).toBe(false)
+    expect(isExcludedEntry('/p/pages/settings.html', excluded)).toBe(false)
+    expect(isExcludedEntry('/p/pages/offscreen.html', new Set())).toBe(false)
+  })
+
+  it('drops the excluded files from a list and names them', () => {
+    const excluded = resolveExcludedFiles('/p', [
+      'pages/offscreen.html',
+      'scripts/b.js'
+    ])
+    const dropped: string[] = []
+    const list = {
+      'pages/offscreen': '/p/pages/offscreen.html',
+      'pages/settings': '/p/pages/settings.html',
+      'scripts/pair': ['/p/scripts/a.js', '/p/scripts/b.js']
+    }
+
+    expect(omitExcludedEntries(list, excluded, dropped)).toEqual({
+      'pages/settings': '/p/pages/settings.html',
+      'scripts/pair': ['/p/scripts/a.js']
+    })
+
+    expect(dropped).toEqual(['/p/pages/offscreen.html', '/p/scripts/b.js'])
+
+    // An empty exclude list hands the same entries back.
+    expect(omitExcludedEntries(list, new Set())).toEqual(list)
+  })
+
+  it('leaves a remembered exclude out of the scan in every mode', () => {
+    const root = project({
+      'pages/offscreen.html': '<html></html>',
+      'pages/settings.html': '<html></html>',
+      'scripts/content.js': 'document.title = "c"',
+      'scripts/bench.js': 'document.title = "b"'
+    })
+
+    expect(excludedFiles(root).size).toBe(0)
+    expect(keys(getSpecialFoldersDataForProjectRoot(root).pages)).toEqual([
+      'pages/offscreen',
+      'pages/settings'
+    ])
+
+    rememberExcludedFiles(root, ['pages/offscreen.html', 'scripts/bench.js'])
+    expect([...excludedFiles(root)].sort()).toEqual([
+      path.join(root, 'pages', 'offscreen.html'),
+      path.join(root, 'scripts', 'bench.js')
+    ])
+
+    for (const mode of ['production', 'development', undefined] as const) {
+      const data = getSpecialFoldersDataForProjectRoot(root, undefined, mode)
+      expect(keys(data.pages)).toEqual(['pages/settings'])
+      expect(keys(data.scripts)).toEqual(['scripts/content'])
+    }
+
+    const compiler = {options: {context: root, mode: 'development'}} as any
+    expect(keys(getSpecialFoldersDataForCompiler(compiler).pages)).toEqual([
+      'pages/settings'
+    ])
+
+    // Forgetting the list brings the entries back, and an empty list forgets.
+    rememberExcludedFiles(root, [])
+    expect(excludedFiles(root).size).toBe(0)
+    expect(keys(getSpecialFoldersDataForProjectRoot(root).pages)).toEqual([
+      'pages/offscreen',
+      'pages/settings'
+    ])
   })
 })
