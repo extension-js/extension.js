@@ -487,7 +487,7 @@ describe('addon lint when the linter is not installed', () => {
 
     const hint = stripAnsi((result as {hint: string}).hint)
     expect(hint).toContain(
-      'The reviewer note of the last lint moved to dist/amo-reviewer-note.stale.md'
+      `The reviewer note of the last lint moved to ${path.join('dist', 'amo-reviewer-note.stale.md')}`
     )
 
     // A second run with no note left says nothing about one.
