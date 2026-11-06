@@ -282,9 +282,11 @@ describe('the store check outcome after a production firefox build', () => {
     )
 
     const buildLine = note.split('\n')[2]
+
     expect(buildLine.startsWith(`Built with Node ${process.version}`)).toBe(
       true
     )
+
     expect(buildLine).toMatch(/ and Extension\.js \d/)
 
     expect(note).toContain(
