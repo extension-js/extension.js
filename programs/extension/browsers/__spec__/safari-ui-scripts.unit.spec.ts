@@ -165,6 +165,24 @@ describe('generated scripts', () => {
 
   it('ticks the unsigned toggle in the Developer pane by its title', () => {
     expect(scripts.unsignedOn).toContain("showPane(proc, 'Developer')")
+    // Settings opened from the automation window closes with it and System
+    // Events lists no windows for a Safari in the back, so the script raises
+    // a plain window first, falls back to the shortcut and names what it saw.
+    expect(scripts.unsignedOn).toContain('if (!browserWindow(proc)) {')
+    expect(scripts.unsignedOn).toContain('safariApp.Document().make()')
+    expect(scripts.unsignedOn).toContain(
+      "se.keystroke(',', {using: ['command down']})"
+    )
+
+    expect(scripts.unsignedOn).toContain('Safari Settings did not open within ')
+    expect(scripts.unsignedOn).toContain('describeWindows(proc)')
+    expect(scripts.unsignedOn).toContain('is frontmost')
+    expect(scripts.unsignedOn).not.toContain(
+      "throw new Error('Safari Settings did not open')"
+    )
+
+    // The pane title doubles as the window title, a locale-free second read.
+    expect(scripts.unsignedOn).toContain('names.indexOf(title) >= 0')
     expect(scripts.unsignedOn).toContain('"Allow unsigned extensions"')
     expect(scripts.unsignedOn).toContain('setChecked(cb, true)')
     expect(scripts.unsignedRead).not.toContain('setChecked(cb, true)')

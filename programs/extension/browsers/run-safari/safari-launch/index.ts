@@ -14,7 +14,9 @@ import {ready as devServerReady} from '../../browsers-lib/ready-message'
 import {
   readReadyRunId,
   readyPathFor,
+  type SafariEnableStamp,
   stampReadyBrowserLaunch,
+  stampReadySafariEnable,
   stampReadyStartingUrl,
   stampReadyWebDriver
 } from '../../browsers-lib/ready-stamp'
@@ -26,11 +28,18 @@ import {
   createSafariUiTools,
   type EnableStep,
   enableSafariExtension,
+  extensionCheckboxId,
   SafariUiError
 } from '../safari-ui'
 import {APP_ICON_FULL_SIZE, applyAppIcon} from './app-icon'
 import {rememberRaisedContainerApp} from './container-app'
 import {logSafariDryRun} from './dry-run'
+import {
+  earlierAppexRows,
+  parsePluginkitRows,
+  parseSafariExtensionRegistry,
+  staleSignedRows
+} from './registry'
 import {
   alignBundleIdentifiers,
   alignProjectVersion,
@@ -140,22 +149,40 @@ export function converterWarnings(output: string): string[] {
   return collected
 }
 
+interface RegistrationCheck {
+  registered: boolean
+  // Appex ids macOS still lists from this project's Xcode output under an
+  // id other than the one this run installed.
+  earlierIds: string[]
+}
+
 async function confirmRegisteredWithSafari(
   tools: SafariPipelineTools,
-  bundleIdentifier: string
-): Promise<boolean> {
-  const needle = `${bundleIdentifier}.Extension`
+  config: SafariBuildConfig
+): Promise<RegistrationCheck> {
+  const needle = `${config.bundleIdentifier}.Extension`
+  let listing = ''
+  let registered = false
 
   for (let attempt = 0; attempt < 6; attempt += 1) {
-    const listing = await tools.pluginkitList()
+    listing = await tools.pluginkitList()
 
-    if (listing.includes(needle)) return true
+    if (listing.includes(needle)) {
+      registered = true
+      break
+    }
 
     // Spread attempts over ~5s without blocking the event loop.
     await delay(800)
   }
 
-  return false
+  const earlierIds = earlierAppexRows(
+    parsePluginkitRows(listing),
+    config.projectLocation,
+    needle
+  ).map((row) => row.id)
+
+  return {registered, earlierIds: [...new Set(earlierIds)]}
 }
 
 export type SafariPipelineMode = 'full' | 'resync'
@@ -175,6 +202,59 @@ function switchWord(value: string | null): string | null {
   return value
 }
 
+const UNSIGNED = 'UNSIGNED'
+
+interface EnableOutcome {
+  enabled: boolean
+  stamp: SafariEnableStamp
+}
+
+function enableStampFor(
+  config: SafariBuildConfig,
+  team: string,
+  earlierIds: string[]
+): SafariEnableStamp {
+  return {
+    bundleId: config.bundleIdentifier,
+    extensionId: `${config.bundleIdentifier}.Extension`,
+    team,
+    switchId: extensionCheckboxId(config.bundleIdentifier, team),
+    enableAttempted: false,
+    step: 'not-asked',
+    enabled: null,
+    listed: null,
+    otherWebsites: null,
+    ...(earlierIds.length > 0 ? {earlierExtensionIds: earlierIds} : {})
+  }
+}
+
+// Safari's own registry says whether an earlier build of the same appex is on
+// under another signing identity, the case where the fresh build is listed,
+// its switch reads on, and Safari still serves the stale files.
+async function staleSignedNote(
+  tools: SafariPipelineTools,
+  logger: BrowserLogger,
+  appexId: string,
+  team: string
+): Promise<string | null> {
+  try {
+    const rows = staleSignedRows(
+      parseSafariExtensionRegistry(await tools.readSafariExtensionRegistry()),
+      appexId,
+      team
+    )
+    if (rows.length === 0) return null
+
+    logger.warn?.(
+      messages.safariStaleSignedRowEnabled(appexId, rows[0].team, team)
+    )
+
+    return `Safari also has the ${rows[0].team === UNSIGNED ? 'unsigned' : `${rows[0].team}-signed`} build of ${appexId} turned on`
+  } catch {
+    return null
+  }
+}
+
 // Which team Safari filed the appex under is the one codesign read off the
 // app, not the one the configuration asked for. A build that ended ad-hoc
 // despite a configured team lives under UNSIGNED, and the switch to flip is
@@ -184,16 +264,35 @@ async function enableThroughSafariUi(
   config: SafariBuildConfig,
   appPath: string,
   logger: BrowserLogger,
-  signedTeam: string | null
-): Promise<boolean> {
+  signedTeam: string | null,
+  tools: SafariPipelineTools,
+  earlierIds: string[]
+): Promise<EnableOutcome> {
   const uiTools = host.uiTools || createSafariUiTools()
+  const team = String(signedTeam || '').trim() || UNSIGNED
+  const appexId = `${config.bundleIdentifier}.Extension`
+  const stamp = enableStampFor(config, team, earlierIds)
+  stamp.enableAttempted = true
+  stamp.step = 'accessibility'
+
   const access = await checkAccessibility(uiTools)
 
   if (!access.granted) {
     logger.warn?.(messages.safariAccessibilityDenied(access.host))
+    stamp.reason = `no Accessibility grant for ${access.host}`
 
-    return false
+    return {enabled: false, stamp}
   }
+
+  // The earlier id's switch is a different row, so a run that finds its own
+  // row off or missing says which row to use instead of "not enabled".
+  const earlierNote =
+    earlierIds.length > 0
+      ? `Safari's switch for ${earlierIds.join(', ')} does not carry over to ${appexId}, turn that row on`
+      : null
+
+  const withNotes = (reason: string, notes: Array<string | null>) =>
+    `${[reason.replace(/\.$/, ''), ...notes.filter(Boolean)].join('. ')}.`
 
   try {
     const report = await enableSafariExtension({
@@ -203,7 +302,9 @@ async function enableThroughSafariUi(
       },
       appPath,
       tools: uiTools,
-      onStep: (step) =>
+      onStep: (step) => {
+        stamp.step = step.step
+
         logger.info?.(
           messages.safariEnableStep(
             ENABLE_STEP_LABELS[step.step],
@@ -214,14 +315,25 @@ async function enableThroughSafariUi(
               : undefined
           )
         )
+      }
     })
 
+    stamp.enabled = report.enabled
+    stamp.listed = report.listed
+    stamp.otherWebsites = report.otherWebsites
+
     if (report.enabled && report.otherWebsites === 'Allow') {
+      stamp.step = 'done'
       logger.info?.(
         messages.safariEnabled(config.appName, report.otherWebsites)
       )
 
-      return true
+      // A switch that reads on can still lose to an earlier signed build of
+      // the same id, which is the one case the switch alone never shows.
+      const stale = await staleSignedNote(tools, logger, appexId, team)
+      if (stale) stamp.reason = `${stale}.`
+
+      return {enabled: true, stamp}
     }
 
     const reason =
@@ -229,33 +341,36 @@ async function enableThroughSafariUi(
       (report.listed
         ? `the switch reads ${report.enabled ? 'on' : 'off'} and other websites read ${report.otherWebsites ?? 'nothing'}.`
         : 'Safari does not list the extension.')
+    const stale = await staleSignedNote(tools, logger, appexId, team)
+    const full = withNotes(reason, [report.listed ? null : earlierNote, stale])
+    stamp.reason = full
 
     logger.warn?.(
       messages.safariEnableIncomplete(
         config.appName,
-        await withSettingsLeftOpen(uiTools, reason)
+        await withSettingsLeftOpen(uiTools, full)
       )
     )
 
-    return false
+    return {enabled: false, stamp}
   } catch (error) {
     if (error instanceof SafariUiError && error.kind === 'accessibility') {
+      stamp.reason = `no Accessibility grant for ${error.host || access.host}`
       logger.warn?.(
         messages.safariAccessibilityDenied(error.host || access.host)
       )
     } else {
+      const reason = error instanceof Error ? error.message : String(error)
+      stamp.reason = reason
       logger.warn?.(
         messages.safariEnableIncomplete(
           config.appName,
-          await withSettingsLeftOpen(
-            uiTools,
-            error instanceof Error ? error.message : String(error)
-          )
+          await withSettingsLeftOpen(uiTools, reason)
         )
       )
     }
 
-    return false
+    return {enabled: false, stamp}
   }
 }
 
@@ -846,26 +961,58 @@ async function runSafariPipeline(
     )
   }
 
-  if (await confirmRegisteredWithSafari(tools, config.bundleIdentifier)) {
+  const registration = await confirmRegisteredWithSafari(tools, config)
+
+  if (registration.registered) {
     logger.info?.(messages.safariRegistered(config.appName))
   } else {
     logger.info?.(messages.safariNotYetRegistered(config.appName))
   }
 
+  if (registration.earlierIds.length > 0) {
+    logger.info?.(
+      messages.safariEarlierBuildListed(
+        config.appName,
+        registration.earlierIds,
+        `${config.bundleIdentifier}.Extension`
+      )
+    )
+  }
+
+  const runId = readReadyRunId(config.extensionDir)
+
   if (host.enableExtension) {
-    const enabled = await enableThroughSafariUi(
+    const outcome = await enableThroughSafariUi(
       host,
       config,
       appPath,
       logger,
-      signature.team
+      signature.team,
+      tools,
+      registration.earlierIds
     )
 
-    if (!enabled) {
+    stampReadySafariEnable(config.extensionDir, outcome.stamp, runId)
+
+    if (!outcome.enabled) {
       logger.info?.(
         messages.safariNextSteps(config.appName, isSigned, signingNote)
       )
     }
+  } else {
+    stampReadySafariEnable(
+      config.extensionDir,
+      {
+        ...enableStampFor(
+          config,
+          String(signature.team || '').trim() || UNSIGNED,
+          registration.earlierIds
+        ),
+        reason:
+          'pass --enable-extension to let Extension.js turn the switch on, or finish the steps printed above'
+      },
+      runId
+    )
   }
 
   if (host.announceDevReady) {

@@ -1449,6 +1449,48 @@ export function safariEnableIncomplete(appName: string, reason: string) {
   )
 }
 
+// macOS still lists this project's appex under an id it had before. Safari
+// keeps one switch per id, so the earlier one being on does nothing for this.
+export function safariEarlierBuildListed(
+  appName: string,
+  earlierIds: string[],
+  currentId: string
+) {
+  const earlier = earlierIds.map((id) => colors.yellow(id)).join(', ')
+  const plural = earlierIds.length === 1 ? 'an earlier build' : 'earlier builds'
+
+  return (
+    `${getLoggingPrefix('info')} Safari also lists ${earlier} from ${plural} of ${colors.yellow(appName)} in this project. ` +
+    `Its switch does not carry over to ${colors.yellow(currentId)}, the one this run installed, so that is the row to turn on.`
+  )
+}
+
+// The same appex id is on under another signing identity, so Safari runs
+// that earlier build beside this one and can answer with its files.
+export function safariStaleSignedRowEnabled(
+  appexId: string,
+  staleTeam: string,
+  currentTeam: string
+) {
+  const stale =
+    staleTeam === 'UNSIGNED'
+      ? 'the unsigned'
+      : `the ${colors.yellow(staleTeam)}-signed`
+  const current =
+    currentTeam === 'UNSIGNED'
+      ? 'unsigned'
+      : `${colors.yellow(currentTeam)}-signed`
+
+  return (
+    `${getLoggingPrefix('warn')} Safari has ${stale} build of ${colors.yellow(appexId)} turned on beside this ${current} one, ` +
+    `and serves that stale build's files when the two share an id ("Safari can't find the file" on a page the new build moved). ` +
+    `Turn ${stale} row off in Safari ▸ Settings ▸ Extensions` +
+    (staleTeam === 'UNSIGNED'
+      ? '.'
+      : `, or sign this build with ${colors.blue('--development-team')} ${colors.yellow(staleTeam)} so it replaces it.`)
+  )
+}
+
 export function safariAccessibilityDenied(host: string) {
   return (
     `${getLoggingPrefix('warn')} Can't drive Safari's settings without an Accessibility grant for ${colors.yellow(host)}.\n` +

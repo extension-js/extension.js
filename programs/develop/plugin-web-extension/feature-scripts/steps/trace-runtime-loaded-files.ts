@@ -18,6 +18,7 @@ import {
   sources,
   WebpackError
 } from '@rspack/core'
+import {isWebkitBasedBrowser} from '../../../lib/constants'
 import {resolveDevelopDistFile} from '../../../lib/develop-context'
 import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
 import {importMetaUrlForEmitPath} from '../../../plugin-compilation/env'
@@ -26,6 +27,7 @@ import {
   isExcludedEntry
 } from '../../../plugin-special-folders/folders-config'
 import type {DevOptions, Manifest} from '../../../types'
+import {webkitDroppedSurfacePages} from '../../feature-manifest/manifest-lib/webkit-unsupported-keys'
 import {declaredResourceSource} from '../../feature-web-resources/web-resources-lib/resolve-war'
 import {isClassicScript} from '../../shared/classic-concat'
 import {getResolvedManifestFieldsData} from '../../shared/manifest-fields'
@@ -596,7 +598,17 @@ export class TraceRuntimeLoadedFiles {
   }
 
   private traceGetURLFiles(run: TraceRun, only?: Set<string>) {
-    const declaredSurfaces = manifestDeclaredSourcePaths(this.readManifest())
+    const manifest = this.readManifest()
+    const declaredSurfaces = manifestDeclaredSourcePaths(manifest)
+    // A WebKit build emits no page for a key its filter drops, so a literal
+    // that still opens one names a file Safari cannot find.
+    const droppedPages = new Map(
+      isWebkitBasedBrowser(String(this.browser))
+        ? webkitDroppedSurfacePages(
+            manifest as Record<string, unknown> | undefined
+          ).map((page) => [page.path, page] as const)
+        : []
+    )
     const surfacePages = this.surfacePageOutputs(run.manifestDir)
     let shippedByWar: Set<string> | undefined
     const seen = run.seen.getURL
@@ -696,6 +708,25 @@ export class TraceRuntimeLoadedFiles {
           if (seen.has(distRel)) continue
 
           seen.add(distRel)
+
+          const droppedOwner = droppedPages.get(distRel)
+
+          if (droppedOwner) {
+            if (item.kind === 'js') {
+              run.warn(
+                'WebkitDroppedPageOpened',
+                assetName,
+                messages.webkitDroppedPageOpened(
+                  assetName,
+                  literal,
+                  droppedOwner,
+                  String(this.browser)
+                )
+              )
+            }
+
+            continue
+          }
 
           // Manifest-declared page and background surfaces are compiled and
           // relocated by the main pipeline, copying their raw sources would

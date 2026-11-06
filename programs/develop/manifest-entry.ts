@@ -16,3 +16,10 @@ export {
   filterKeysForThisBrowser,
   findDroppedVendorKeys
 } from './lib/manifest-utils'
+export {
+  type WebkitDroppedPage,
+  type WebkitUnsupportedKey,
+  webkitDroppedSurfacePages,
+  webkitUnsupportedManifestKeys,
+  webkitUnsupportedPermissions
+} from './plugin-web-extension/feature-manifest/manifest-lib/webkit-unsupported-keys'

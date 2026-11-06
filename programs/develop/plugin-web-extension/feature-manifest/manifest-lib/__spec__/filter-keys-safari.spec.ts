@@ -2,7 +2,10 @@ import {describe, expect, it} from 'vitest'
 import * as messages from '../../messages'
 import {
   dropWebkitUnsupportedKeys,
-  omitWebkitDroppedEntries
+  omitWebkitDroppedEntries,
+  webkitDroppedSurfacePages,
+  webkitUnsupportedManifestKeys,
+  webkitUnsupportedPermissions
 } from '../filter-keys-safari'
 import {buildCanonicalManifest, filterKeysForThisBrowser} from '../manifest'
 
@@ -423,5 +426,84 @@ describe('the dropped-keys notice reads as one block', () => {
 
     expect(lines).toHaveLength(4)
     expect(lines.join('\n')).not.toContain('Every key above')
+  })
+})
+
+describe('the exported dropped-key list', () => {
+  it('names every top-level key the filter drops, so a consumer need not copy the list', () => {
+    const listed = webkitUnsupportedManifestKeys()
+    const topLevel = listed
+      .map((entry) => entry.key)
+      .filter((key) => !key.includes('.'))
+    const manifest = {
+      name: 'x',
+      ...Object.fromEntries(topLevel.map((key) => [key, {}]))
+    } as any
+
+    const {dropped} = dropWebkitUnsupportedKeys(manifest, 'safari')
+
+    expect([...dropped.map((entry) => entry.path)].sort()).toEqual(
+      [...topLevel].sort()
+    )
+
+    expect(listed.every((entry) => entry.reason.length > 0)).toBe(true)
+    expect(listed.map((entry) => entry.key)).toContain('options_ui.open_in_tab')
+  })
+
+  it('names every permission the filter drops', () => {
+    const permissions = webkitUnsupportedPermissions()
+    const {dropped} = dropWebkitUnsupportedKeys(
+      {name: 'x', permissions} as any,
+      'safari'
+    )
+
+    expect(
+      dropped.map((entry) => entry.path.replace(/^permissions\./, ''))
+    ).toEqual(permissions)
+  })
+})
+
+describe('webkitDroppedSurfacePages', () => {
+  it('names the pages side_panel, sidebar_action and sandbox declared', () => {
+    const pages = webkitDroppedSurfacePages({
+      side_panel: {default_path: '/sidebar/index.html?x=1'},
+      sidebar_action: {default_panel: 'panel.html'},
+      sandbox: {pages: ['sandbox/one.html', 'sandbox/two.html']}
+    })
+
+    expect(pages).toEqual([
+      {
+        path: 'sidebar/index.html',
+        key: 'side_panel.default_path',
+        reason: 'Safari has no side panel surface'
+      },
+      {
+        path: 'panel.html',
+        key: 'sidebar_action.default_panel',
+        reason: 'Safari has no sidebar surface'
+      },
+      {
+        path: 'sandbox/one.html',
+        key: 'sandbox.pages.0',
+        reason: 'Safari cannot run sandboxed extension pages'
+      },
+      {
+        path: 'sandbox/two.html',
+        key: 'sandbox.pages.1',
+        reason: 'Safari cannot run sandboxed extension pages'
+      }
+    ])
+  })
+
+  it('names nothing for a manifest whose dropped keys name no page', () => {
+    expect(
+      webkitDroppedSurfacePages({
+        omnibox: {keyword: 'x'},
+        side_panel: {},
+        action: {default_popup: 'popup.html'}
+      })
+    ).toEqual([])
+
+    expect(webkitDroppedSurfacePages(undefined)).toEqual([])
   })
 })

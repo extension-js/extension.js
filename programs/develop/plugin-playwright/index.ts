@@ -78,6 +78,21 @@ export type ReadyMetadata = {
   webdriverSessionId?: string
   webdriverUnavailableReason?: string
   webdriverRequestPath?: string
+  // Safari dev sessions only: how far the enable step got (the switch in
+  // Safari Settings) and why it stopped, stamped by the launcher post-launch.
+  safari?: {
+    bundleId: string
+    extensionId: string
+    team: string
+    switchId: string
+    enableAttempted: boolean
+    step: string
+    enabled: boolean | null
+    listed: boolean | null
+    otherWebsites: string | null
+    reason?: string
+    earlierExtensionIds?: string[]
+  }
   // Dev only: the last reload dev applied after a compile, its kind (full,
   // background, content, page, safari-resync) and the shared reload label.
   reloadedAt?: string
@@ -793,6 +808,10 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
 
       if (typeof prev.webdriverRequestPath === 'string') {
         payload.webdriverRequestPath = prev.webdriverRequestPath
+      }
+
+      if (prev.safari && typeof prev.safari === 'object') {
+        payload.safari = prev.safari as ReadyMetadata['safari']
       }
 
       if (typeof prev.profilePath === 'string') {
