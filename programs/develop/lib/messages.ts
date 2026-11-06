@@ -478,10 +478,18 @@ export function addonLintMore(hiddenCount: number, distDisplay: string) {
   )
 }
 
-export function addonLintNotInstalled(installHint: string) {
+export function addonLintNotInstalled(
+  installHint: string,
+  staleNote: string | null = null
+) {
+  const retired = staleNote
+    ? ` The reviewer note of the last lint moved to ${colors.underline(staleNote)}, since it does not describe this build.`
+    : ''
+
   return (
     `${getLoggingPrefix('info')} Skipped the addons.mozilla.org lint: addons-linter is not installed. ` +
-    `Install it with: ${colors.blue(installHint)} or pass ${colors.blue('--no-addon-lint')} to silence this.`
+    `Install it with: ${colors.blue(installHint)}, or turn the lint off with ${colors.blue('--no-addon-lint')} ` +
+    `or ${colors.blue('commands.build.addonLint: false')} in extension.config.js.${retired}`
   )
 }
 
@@ -846,6 +854,38 @@ export function zipEdgeKeyDropped(zipPath: string) {
     `${prefix('warn')} Edge Add-ons refuses a package whose manifest carries ${colors.yellow('key')}, so ${colors.underline(zipPath)} leaves it out.\n` +
     `The ${colors.yellow('dist/edge')} folder keeps it, so an unpacked install and the OAuth redirect id it pins stay stable. ` +
     `Partner Center assigns the store id, and the zip is the package it reads.`
+  )
+}
+
+// Two emitted files with one content, named together with the size, and
+// with the cause when the bundler recorded one: the asset an import emitted
+// names its source file, so the other one is the copy to drop.
+export function duplicateOutputFiles(
+  distDisplay: string,
+  group: {names: string[]; size: number},
+  importedFrom: ReadonlyMap<string, string>
+) {
+  const names = group.names.map((name) => colors.yellow(name))
+  const subject = `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
+  const times =
+    group.names.length === 2 ? 'twice' : `${group.names.length} times`
+  const imported = group.names.filter((name) => importedFrom.has(name))
+  const copies = group.names.filter((name) => !importedFrom.has(name))
+  const cause =
+    imported.length > 0 && copies.length > 0
+      ? ` ${imported
+          .map(
+            (name) =>
+              `${colors.yellow(name)} comes from the import of ${colors.underline(String(importedFrom.get(name)))}`
+          )
+          .join(
+            ', '
+          )}, so ${copies.map((name) => colors.yellow(name)).join(', ')} ${copies.length === 1 ? 'is a copy' : 'are copies'} a config plugin or public/ added.`
+      : ''
+
+  return (
+    `${prefix('warn')} ${subject} in ${colors.underline(distDisplay)} are the same ${getHumanSize(group.size)}, byte for byte, so the package carries that file ${times}.${cause} ` +
+    `Drop ${copies.length > 0 && imported.length > 0 ? 'the copy' : 'one of them'} to shrink the package.`
   )
 }
 

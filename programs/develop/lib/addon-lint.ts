@@ -10,9 +10,11 @@ import * as path from 'node:path'
 import {
   ADDON_REVIEWER_NOTE_FILE,
   AUTHOR_ONLY_CODES,
+  retireAddonReviewerNote,
   writeAddonReviewerNote
 } from './addon-reviewer-note'
 import type {AddonLintSummary} from './build-summary'
+import type {BuildToolchain} from './build-toolchain'
 import {type ChunkProvenance, chunkFileOf} from './chunk-dependency-provenance'
 import {isGeckoBasedBrowser} from './constants'
 import * as messages from './messages'
@@ -103,6 +105,8 @@ export interface RunAddonLintInput {
   timeoutMs?: number
   // A thunk, so a build that skips the lint never walks the chunk graph.
   chunkProvenance?: () => Map<string, ChunkProvenance>
+  // The versions the reviewer note opens with, so the paste carries them.
+  toolchain?: BuildToolchain
 }
 
 // The hint is per project rather than per build so `--browser all` and a
@@ -297,7 +301,8 @@ function reviewerNoteFor(
       distPath: input.distPath,
       distDisplay: input.distDisplay,
       lines: collectAddonLintLines(output),
-      chunkProvenance
+      chunkProvenance,
+      toolchain: input.toolchain
     })
 
     if (!written) return null
@@ -350,6 +355,9 @@ export async function runAddonLint(
   try {
     linter = await (input.loadLinter || defaultLoadLinter)(input.projectPath)
   } catch {
+    // No lint ran, so a note an earlier lint wrote describes another dist.
+    const staleNote = retireAddonReviewerNote(input.distPath)
+
     if (hintedProjects.has(input.projectPath)) {
       return {status: 'missing', hint: null}
     }
@@ -359,7 +367,10 @@ export async function runAddonLint(
     return {
       status: 'missing',
       hint: messages.addonLintNotInstalled(
-        formatInstallHint(input.projectPath, [ADDON_LINT_PACKAGE])
+        formatInstallHint(input.projectPath, [ADDON_LINT_PACKAGE]),
+        staleNote
+          ? path.join(path.dirname(input.distDisplay), path.basename(staleNote))
+          : null
       )
     }
   }
