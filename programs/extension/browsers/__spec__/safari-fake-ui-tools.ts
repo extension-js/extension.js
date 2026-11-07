@@ -29,6 +29,7 @@ export interface FakeSafariState {
   startsAfterPolls?: number | null
   launchFails?: string
   unsignedSticks?: boolean
+  enabledSticks?: boolean
   blocker?: string | null
 }
 
@@ -159,15 +160,16 @@ export function fakeSafariUiTools(
           }
 
           const before = state.enabled
-          if (head?.action === 'on') state.enabled = 1
-          if (head?.action === 'off') state.enabled = 0
+          const wants =
+            head?.action === 'on' ? 1 : head?.action === 'off' ? 0 : before
+          if (!state.enabledSticks) state.enabled = wants
 
           return ok({
             ok: true,
             listed: true,
             before,
             after: state.enabled,
-            clicked: before !== state.enabled
+            clicked: wants !== before
           })
         }
 

@@ -49,6 +49,12 @@ vi.mock('../steps/legacy-warnings', () => ({
   }
 }))
 
+vi.mock('../steps/warn-description-length', () => ({
+  WarnDescriptionLength: class {
+    apply = applySpy
+  }
+}))
+
 import {ManifestPlugin} from '../index'
 
 describe('ManifestPlugin', () => {
@@ -68,6 +74,6 @@ describe('ManifestPlugin', () => {
     plugin.apply(compiler as any)
 
     expect(applySpy).toHaveBeenCalled()
-    expect(applySpy.mock.calls.length).toBe(7)
+    expect(applySpy.mock.calls.length).toBe(8)
   })
 })
