@@ -574,3 +574,31 @@ export function webkitUnsupportedKeysDropped(
 
   return lines.join('\n')
 }
+
+// A description that passes a Chrome build is exactly the one Apple refuses,
+// since Chrome allows 132 characters and App Store Connect 112.
+export function manifestDescriptionOverStoreLimit(
+  browser: string,
+  length: number,
+  limit: number,
+  store: string
+) {
+  const apple = limit === 112 ? ' (Apple error 90849)' : ''
+
+  return [
+    `${prefix('warn')} manifest.json ${colors.blue('description')} runs ${length} characters, and ${store} refuses a ${browser} build whose description is over ${limit}${apple}.`,
+    `${colors.gray('LIMIT')} ${limit} characters, ${colors.gray('GOT')} ${length}`,
+    `Shorten it to ${limit} characters or fewer, the store reads this field from the manifest.`
+  ].join('\n')
+}
+
+export function manifestDescriptionMissingForStore(
+  browser: string,
+  store: string,
+  limit: number
+) {
+  return [
+    `${prefix('warn')} manifest.json has no ${colors.blue('description')}, and ${store} refuses a ${browser} build without one (Apple error 90849).`,
+    `Add a description of ${limit} characters or fewer.`
+  ].join('\n')
+}

@@ -28,7 +28,8 @@ export interface StatsToStringLike {
 // plugin acted, so the stats render skips them to keep one visible line each.
 const EMIT_TIME_WARNING_CODES = new Set([
   'ManifestFatalShapeWarning',
-  'ManifestLegacyWarning'
+  'ManifestLegacyWarning',
+  'ManifestDescriptionWarning'
 ])
 
 export function isEmitTimeWarning(

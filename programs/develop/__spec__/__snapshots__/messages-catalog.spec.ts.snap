@@ -265,6 +265,8 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "invalidThemeValue: function(3)",
     "legacyManifestPathWarning: function(3)",
     "manifestDepsTracked: function(1)",
+    "manifestDescriptionMissingForStore: function(3)",
+    "manifestDescriptionOverStoreLimit: function(4)",
     "manifestEmitSuccess: function(0)",
     "manifestFieldMistyped: function(3)",
     "manifestFilesInTurnedOffPublic: function(1)",

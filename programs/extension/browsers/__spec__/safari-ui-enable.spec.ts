@@ -185,6 +185,47 @@ describe('enableSafariExtension', () => {
     expect(tools.calls).toEqual(['running', 'enabled:read', 'unsigned:on'])
   })
 
+  it('names the unsigned row that drops the scripted switch and both ways out', async () => {
+    const tools = fakeSafariUiTools({enabledSticks: true})
+    const report = await enableSafariExtension({
+      target: {bundleId: BUNDLE},
+      appPath,
+      tools
+    })
+
+    expect(report).toMatchObject({enabled: false, listed: true})
+    expect(report.reason).toMatch(
+      /^Safari read the switch for .* off again after the script turned it on: an unsigned row drops a scripted switch/
+    )
+
+    expect(report.reason).toMatch(/browser\.safari\.developmentTeam/)
+    expect(report.steps.find((step) => step.step === 'enabled')).toMatchObject({
+      before: '0',
+      after: '0',
+      changed: true,
+      ok: false
+    })
+
+    expect(tools.calls).not.toContain('websites:allow')
+  })
+
+  it('tells a team-signed row that drops the switch to turn it on by hand', async () => {
+    const tools = fakeSafariUiTools({enabledSticks: true, registered: true})
+    tools.state.unsigned = 1
+    const report = await enableSafariExtension({
+      target: {bundleId: BUNDLE, developmentTeam: 'ABCDE12345'},
+      appPath,
+      tools
+    })
+
+    expect(report).toMatchObject({enabled: false, listed: true})
+    expect(report.reason).toMatch(
+      /turn it on by hand in Safari > Settings > Extensions, then run again$/
+    )
+
+    expect(report.reason).not.toMatch(/developmentTeam/)
+  })
+
   it('reports the row missing instead of pretending it was ticked', async () => {
     const tools = fakeSafariUiTools({pluginkitFails: true})
     const report = await enableSafariExtension({
@@ -508,6 +549,22 @@ describe('dev --enable-extension through the pipeline', () => {
     })
 
     expect(logs).toContain(messages.safariNextSteps('MyExt', false))
+  })
+
+  it('stamps the dropped unsigned switch with the signing way out', async () => {
+    const ui = fakeSafariUiTools({enabledSticks: true})
+    const {logs} = await run({enableExtension: true, uiTools: ui})
+    const ready = readReady()
+
+    expect(ready.safari).toMatchObject({
+      enableAttempted: true,
+      step: 'enabled',
+      enabled: false,
+      listed: true
+    })
+
+    expect(ready.safari.reason).toMatch(/browser\.safari\.developmentTeam/)
+    expect(logs.join('\n')).toMatch(/off again after the script turned it on/)
   })
 
   it('stamps the Accessibility refusal as the step it stopped at', async () => {

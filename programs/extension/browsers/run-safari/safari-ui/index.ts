@@ -201,6 +201,16 @@ function unsignedBlockedReason(blocker: unknown): string {
     : `${where} still reads off after the click, and no prompt this run can see waits for an answer: turn it on there by hand, then run again`
 }
 
+// Safari 26 kept a scripted click on a team-signed row and dropped the same
+// click on an UNSIGNED row, so an ad-hoc build is told both ways out.
+function switchDroppedReason(checkboxId: string, adHoc: boolean): string {
+  const read = `Safari read the switch for ${checkboxId} off again after the script turned it on`
+
+  return adHoc
+    ? `${read}: an unsigned row drops a scripted switch that a team-signed row keeps, so turn it on by hand in Safari > Settings > Extensions, or set browser.safari.developmentTeam in extension.config.js so the build is signed and the switch sticks`
+    : `${read}: turn it on by hand in Safari > Settings > Extensions, then run again`
+}
+
 export async function closeSafariSettings(
   tools: SafariUiTools = createSafariUiTools()
 ): Promise<string | null> {
@@ -311,11 +321,14 @@ export async function enableSafariExtension(
     })
 
     if (!listed || asText(enabled.after) !== '1') {
+      const dropped = listed && Boolean(enabled.clicked)
+
       return {
         enabled: false,
         listed,
         otherWebsites: null,
-        steps
+        steps,
+        ...(dropped ? {reason: switchDroppedReason(checkboxId, adHoc)} : {})
       }
     }
   }

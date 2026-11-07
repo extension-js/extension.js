@@ -227,6 +227,9 @@ function wait(check, seconds) {
   }
   return null
 }
+// Safari can read a switch on and drop it a moment later, so the value that
+// counts is the one read after a settle.
+const SWITCH_SETTLE_S = 1
 const SETTINGS_MENU_WAIT = 8
 const SETTINGS_SHORTCUT_WAIT = 4
 function openSettings(proc) {
@@ -296,7 +299,8 @@ function setChecked(cb, on) {
   const before = readValue(cb)
   if (before === (on ? 1 : 0)) return {before, after: before, clicked: false}
   cb.click()
-  const after = wait(() => (readValue(cb) === (on ? 1 : 0) ? 1 : null), 5)
+  const settled = wait(() => (readValue(cb) === (on ? 1 : 0) ? 1 : null), 5)
+  if (settled) delay(SWITCH_SETTLE_S)
   return {before, after: readValue(cb), clicked: true}
 }
 function center(el) {

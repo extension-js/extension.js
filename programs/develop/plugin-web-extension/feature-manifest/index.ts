@@ -18,6 +18,7 @@ import {PatchWAR} from './steps/patch-war'
 import {PersistManifestToDisk} from './steps/persist-manifest'
 import {UpdateManifest} from './steps/update-manifest'
 import {ValidateThemeValues} from './steps/validate-theme-values'
+import {WarnDescriptionLength} from './steps/warn-description-length'
 import {WarnUndeclaredPermissions} from './steps/warn-undeclared-permissions'
 
 export class ManifestPlugin {
@@ -80,6 +81,8 @@ export class ManifestPlugin {
     // 5 - Persist the final manifest atomically so Chromium never
     // observes a partially written file during startup reloads.
     new PersistManifestToDisk({manifestPath: this.manifestPath}).apply(compiler)
+
+    new WarnDescriptionLength({browser: this.browser}).apply(compiler)
 
     new AddDependencies([this.manifestPath]).apply(compiler)
 
