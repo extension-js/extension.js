@@ -183,6 +183,7 @@ export function setTelemetryConsent(value: 'enabled' | 'disabled'): {
 
 let tracked = false
 let sessionStarted = false
+let sessionReady = false
 
 // How long a crashing process waits for its failure report to be
 // acknowledged before the default death goes on, startup of the sender
@@ -234,6 +235,25 @@ export function markCommandSessionStart(command = invoked): void {
   })
 
   // Sent now, not queued. Holding it for the exit is the defect being fixed.
+  void telemetry.flush()
+}
+
+// Without this row a `dev` that opened its browser and one that hung before
+// it are the same started row. Sent once per process and right away, for the
+// reasons the started row is, and never for a session that was not counted
+// at its start or that already reported its failure.
+export function markCommandSessionReady(command = invoked): void {
+  if (!sessionStarted || sessionReady || tracked) return
+
+  sessionReady = true
+  telemetry.track('command_executed', {
+    command,
+    success: true,
+    version,
+    session: 'ready',
+    ...telemetryCommandContext(command)
+  })
+
   void telemetry.flush()
 }
 

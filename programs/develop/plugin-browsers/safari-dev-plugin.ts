@@ -123,12 +123,18 @@ export class SafariDevPlugin implements RunnerPlugin {
   private pending: SafariPackageTarget | null = null
   private idleWaiters: Array<() => void> = []
   private reloadBroker: ReloadBroker | undefined
+  private readyListener: (() => void) | undefined
 
   constructor(private readonly packager: SafariPackagerFn) {}
 
   // Duck-typed by the dev server, the same seam the launched-browser plugin has.
   setReloadBroker(broker: ReloadBroker): void {
     this.reloadBroker = broker
+  }
+
+  // Safari is ready when its first full package pass finished.
+  setReadyListener(listener: () => void): void {
+    this.readyListener = listener
   }
 
   apply(compiler: Compiler) {
@@ -250,7 +256,15 @@ export class SafariDevPlugin implements RunnerPlugin {
       return
     }
 
-    if (wasFirstRun) this.firstRun = false
+    if (wasFirstRun) {
+      this.firstRun = false
+
+      try {
+        this.readyListener?.()
+      } catch {
+        // Best-effort: a listener must never break the package loop.
+      }
+    }
 
     // Only after the package succeeded: the appex Safari reads is replaced by
     // xcodebuild, so a signal sent earlier would reload the previous bytes.

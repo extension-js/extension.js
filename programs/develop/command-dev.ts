@@ -44,6 +44,9 @@ import type {BrowserConfig, DevOptions} from './types'
 export async function extensionDev(
   pathOrRemoteUrl: string | undefined,
   devOptions: DevOptions & {
+    // Called once when the session is usable: the browser opened with the
+    // extension loaded, or the first compile finished when none is launched.
+    onReady?: () => void
     launcher?: BrowserLauncherFn
     // Called once every refusal that can end the run before a server exists
     // has passed, so a caller can announce the session only when there is one.
@@ -189,6 +192,7 @@ export async function extensionDev(
     // launcher above.
     await devServer(projectStructure, {
       ...merged,
+      onReady: devOptions.onReady,
       mode: 'development',
       browser,
       geckoBinary,

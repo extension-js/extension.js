@@ -16,7 +16,9 @@ Per CLI run, at most one of these, except for a watch session, which is explaine
 | `command_executed` | 20% (configurable, see below)     | `command`, `success: true`, `version` |
 | `command_failed`   | 100% (failures are always tracked)| `command`, `success: false`, `version`, `code`, `exit_code` |
 
-Common context attached to every event: `os` (`darwin`/`linux`/`win32`), `arch`, `node_major`, `is_ci`, `is_source_build`, and `app`, which is always the word `extension`. Nothing else.
+Common context attached to every event: `os` (`darwin`/`linux`/`win32`), `arch`, `node_major`, `is_ci`, `is_source_build`, `package_manager`, and `app`, which is always the word `extension`. Nothing else.
+
+`package_manager` is the package manager that ran the command: `npm`, `pnpm`, `yarn`, `bun` or `unknown`. It is the first word of the `npm_config_user_agent` variable a package manager sets for the scripts and binaries it runs, checked against those four names. The version and the rest of that variable are never sent. A run that no package manager started, such as a globally installed `extension` called on its own, reports `unknown`, and so does any other name.
 
 A failure adds two more properties so a failure count can be read as a cause rather than a number:
 
@@ -48,19 +50,40 @@ row, and the failure then arrives as its own `command_failed` row.
 | property  | value                                                              |
 | --------- | ------------------------------------------------------------------ |
 | `session` | `started`, present only on `command_executed` for these commands   |
+| `session` | `ready`, present only on a second `command_executed` for `dev`     |
+
+A started row alone cannot tell a `dev` that worked from one that hung before the browser
+opened. So `dev` reports once more, at most once per run, when the session is ready to use:
+
+- with a launched browser, when the browser launch finished and the browser accepted the
+  extension. A session the browser refused reports ready only if a later compile gets the
+  extension loaded. `--no-open` changes nothing here: the browser still launches and only the
+  extension tab is skipped, so the row is sent at the same moment.
+- with Safari, when the first packaging pass finished: the app was converted and built, or
+  reused when nothing changed, then opened and checked for registration with Safari. With
+  `--no-open` the pass ends once the app is built. The row does not say the extension is
+  enabled in Safari. It is sent whether or not that switch was turned on.
+- with `--no-browser`, when the first compile finished without errors, since there is no
+  browser to wait for.
+
+The ready row carries the same properties as the started row and nothing more: no timing, no
+browser name, no project detail. `start` and `preview` do not send it.
 
 Three consequences worth stating plainly:
 
-- **A watch session can produce two rows**, one `command_executed` with `session: started` at
-  the handoff, and one `command_failed` later if it breaks, first compile included. That is
-  deliberate. It gives the failure count a denominator counted the same way.
-- **Session rows are never sampled.** Sampling the denominator while failures ship in full would
-  overstate the failure rate by five times, which is the reporting error this exists to fix.
+- **A watch session can produce two rows, and a `dev` session three**: one `command_executed`
+  with `session: started` at the handoff, for `dev` one `command_executed` with
+  `session: ready`, and one `command_failed` later if it breaks, first compile included. That
+  is deliberate. It gives the failure count a denominator counted the same way.
+- **Session rows are never sampled**, the ready row included. Sampling the denominator while
+  failures ship in full would overstate the failure rate by five times, which is the reporting
+  error this exists to fix, and a sampled ready row could not be compared with a started row
+  that is not.
 - **Stopping a watch session with Ctrl-C is not a failure** and is not reported as one. A short
   command killed by a signal does report a failure, with `code` `E_INTERRUPTED`.
 
-Nothing extra is collected here. `session` is a single word with two possible states, attached
-to an event that was already being sent.
+Nothing extra is collected here. `session` is a single word, `started` or `ready`, attached to
+an event that was already being sent.
 
 When a run offers to download a managed browser, the command's event carries the outcome so
 the offer can be told apart from a dead end:
@@ -101,9 +124,9 @@ The 3.x line sent a different schema, published in this file until 2026-04-17: l
 
 Three independent controls, all combined:
 
-- **Sampling**, `command_executed` is sampled at 20% by default. Override via `EXTENSION_TELEMETRY_SAMPLE_RATE` (0.0 - 1.0). Failures are never sampled, and neither are the `session: started` rows for `dev`, `start` and `preview`.
+- **Sampling**, `command_executed` is sampled at 20% by default. Override via `EXTENSION_TELEMETRY_SAMPLE_RATE` (0.0 - 1.0). Failures are never sampled, and neither are the `session: started` rows for `dev`, `start` and `preview` or the `session: ready` row for `dev`.
 - **Per-run cap**, at most **3 events** per CLI process. Override via `EXTENSION_TELEMETRY_MAX_EVENTS`.
-- **Debounce**, duplicate `(event, command, success)` tuples within 60s are dropped. Override via `EXTENSION_TELEMETRY_DEBOUNCE_MS`.
+- **Debounce**, duplicate `(event, command, success, session)` tuples within 60s are dropped. Override via `EXTENSION_TELEMETRY_DEBOUNCE_MS`.
 
 All three together mean a normal day of CLI usage sits comfortably under the PostHog free tier (1M events / month).
 
