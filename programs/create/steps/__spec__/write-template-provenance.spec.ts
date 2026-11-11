@@ -31,7 +31,7 @@ describe('writeTemplateProvenance (.extension-create.json)', () => {
       {
         template: 'react',
         source:
-          'https://codeload.github.com/extension-js/examples/zip/refs/heads/main',
+          'https://codeload.github.com/extension-js/templates/zip/refs/heads/main',
         ref: 'main'
       },
       silent
@@ -52,7 +52,7 @@ describe('writeTemplateProvenance (.extension-create.json)', () => {
       project,
       {
         template: 'action',
-        source: `https://codeload.github.com/extension-js/examples/zip/${sha}`,
+        source: `https://codeload.github.com/extension-js/templates/zip/${sha}`,
         ref: sha
       },
       silent

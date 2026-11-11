@@ -14,7 +14,7 @@ describe('DEFAULT_TEMPLATES_REF', () => {
   it('pins the shipped corpus to an immutable commit, never a branch', () => {
     expect(DEFAULT_TEMPLATES_REF).toMatch(/^[0-9a-f]{40}$/)
     expect(resolveCatalogUrls(DEFAULT_TEMPLATES_REF)).toEqual([
-      `https://codeload.github.com/extension-js/examples/zip/${DEFAULT_TEMPLATES_REF}`
+      `https://codeload.github.com/extension-js/templates/zip/${DEFAULT_TEMPLATES_REF}`
     ])
   })
 })
@@ -86,7 +86,7 @@ describe('extractExamplesTemplateFromZip (#56, per-template subtree extraction)'
 })
 
 describe('resolveCatalogUrls (EXTENSION_CREATE_TEMPLATE_REF -> codeload namespace)', () => {
-  const BASE = 'https://codeload.github.com/extension-js/examples/zip'
+  const BASE = 'https://codeload.github.com/extension-js/templates/zip'
 
   it('serves a bare branch from refs/heads first, tag as fallback', () => {
     expect(resolveCatalogUrls('main')).toEqual([

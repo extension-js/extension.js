@@ -131,7 +131,7 @@ _FUTURE/
 extensions/browser-extension/
 extensions/monorepo/
 
-# Hydrated from extension-js/examples by scripts/hydrate-templates-from-examples.sh
+# Hydrated from extension-js/templates by scripts/hydrate-templates-from-examples.sh
 templates/
 
 # Published production dists the hydrated spec fixtures write at the repo root

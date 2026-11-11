@@ -1,3 +1,3 @@
 # Extension.js templates
 
-For more templates, check the [examples repo](https://github.com/extension-js/examples/tree/main/examples).
+For more templates, check the [templates repo](https://github.com/extension-js/templates/tree/main/examples).

@@ -80,7 +80,7 @@ jobs:
       - name: Test release-notes generator
         run: pnpm test:scripts
 
-      # The bundled javascript template is synced from extension-js/examples,
+      # The bundled javascript template is synced from extension-js/templates,
       # and publish-release.yml gates every release on it being in sync. That
       # gate lived ONLY at release time and nightly, so a push to the examples
       # repo could redden a release hours later with no warning, which is what

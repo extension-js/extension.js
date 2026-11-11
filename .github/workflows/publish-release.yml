@@ -91,7 +91,7 @@ jobs:
           fi
           echo "resume=$RESUME" >> "$GITHUB_OUTPUT"
 
-      # `extension create` scaffolds from a pinned extension-js/examples
+      # `extension create` scaffolds from a pinned extension-js/templates
       # commit. A release used to ship whatever pin the last repin PR left,
       # so fixes that landed in the corpus since never reached a fresh
       # scaffold. The cut moves the pin to the corpus head and the release
@@ -113,7 +113,7 @@ jobs:
 
       # The bundled `javascript` template ships in the npm package as the
       # offline fast-path for `extension create`; gate releases on it being
-      # in sync with the extension-js/examples source of truth at the pin the
+      # in sync with the extension-js/templates source of truth at the pin the
       # step above just moved. Escape hatch for an urgent release:
       # EXTENSION_SKIP_TEMPLATE_DRIFT=1.
       - name: Check bundled create template drift
