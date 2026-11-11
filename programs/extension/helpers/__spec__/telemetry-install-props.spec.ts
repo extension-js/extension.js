@@ -2,10 +2,11 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import {afterAll, afterEach, describe, expect, it, vi} from 'vitest'
-import {Telemetry} from '../telemetry'
+import {packageManagerName, Telemetry} from '../telemetry'
 
 const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-install-props-'))
 const savedConfigHome = process.env.XDG_CONFIG_HOME
+const savedUserAgent = process.env.npm_config_user_agent
 process.env.XDG_CONFIG_HOME = sandbox
 
 afterAll(() => {
@@ -17,6 +18,9 @@ afterAll(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals()
+
+  if (savedUserAgent === undefined) delete process.env.npm_config_user_agent
+  else process.env.npm_config_user_agent = savedUserAgent
 })
 
 async function sentProperties(
@@ -86,5 +90,51 @@ describe('install outcomes reach the wire', () => {
     expect(properties).not.toHaveProperty('browser_install_seconds')
     expect(properties).not.toHaveProperty('deps_install')
     expect(properties).not.toHaveProperty('deps_install_seconds')
+  })
+})
+
+describe('the package manager that ran the command', () => {
+  it('reads the name from the head of the user agent', () => {
+    const agents: Array<[string, string]> = [
+      ['npm/10.8.2 node/v22.11.0 darwin arm64 workspaces/false', 'npm'],
+      ['pnpm/10.28.0 npm/? node/v23.8.0 darwin arm64', 'pnpm'],
+      ['yarn/1.22.22 npm/? node/v24.0.0 linux x64', 'yarn'],
+      ['bun/1.2.4 npm/? node/v22.6.0 darwin arm64', 'bun'],
+      ['  PNPM/9.0.0 npm/? node/v20.0.0', 'pnpm']
+    ]
+
+    for (const [agent, name] of agents) {
+      expect(packageManagerName({npm_config_user_agent: agent})).toBe(name)
+    }
+  })
+
+  it('answers unknown for a bare binary call and for any other head', () => {
+    expect(packageManagerName({})).toBe('unknown')
+    expect(packageManagerName({npm_config_user_agent: '   '})).toBe('unknown')
+    expect(packageManagerName({npm_config_user_agent: 'deno/2.1.0'})).toBe(
+      'unknown'
+    )
+
+    expect(
+      packageManagerName({npm_config_user_agent: '/Users/someone/project'})
+    ).toBe('unknown')
+  })
+
+  it('sends the name alone on a failure, never the version or the agent', async () => {
+    process.env.npm_config_user_agent =
+      'pnpm/10.28.0 npm/? node/v23.8.0 darwin arm64'
+
+    const properties = await sentProperties({})
+
+    expect(properties.package_manager).toBe('pnpm')
+    expect(JSON.stringify(properties)).not.toContain('10.28.0')
+  })
+
+  it('sends unknown when no package manager started the run', async () => {
+    delete process.env.npm_config_user_agent
+
+    const properties = await sentProperties({})
+
+    expect(properties.package_manager).toBe('unknown')
   })
 })

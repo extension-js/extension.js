@@ -9,6 +9,7 @@ import {
 } from 'vitest'
 
 const extensionDev = vi.fn(async () => {})
+const reportCommandFailureNow = vi.fn()
 const runWaitMode = vi.fn(async (_input: unknown) => ({
   format: 'pretty' as const,
   browsers: ['chromium'],
@@ -31,6 +32,18 @@ vi.mock('../browsers/run-safari/safari-launch', () => ({
 vi.mock('../browsers/run-safari/safari-launch/safari-config', () => ({
   isValidBundleId: (id: string) => id.includes('.') && !id.includes(' ')
 }))
+
+// The one call that sends a failure row, so a spec can read what would travel.
+vi.mock('../helpers/telemetry-cli', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('../helpers/telemetry-cli')>()
+
+  return {
+    ...actual,
+    reportCommandFailureNow: (details: unknown) =>
+      reportCommandFailureNow(details)
+  }
+})
 
 // Only runWaitMode is stubbed: describeWaitError is the code under test here.
 vi.mock('../commands/dev-wait', async (importOriginal) => {
@@ -269,6 +282,21 @@ describe('extension dev --output json', () => {
     expect(emitted[0]).toMatchObject({ok: true, status: 'started'})
   })
 
+  it('hands develop an onReady that prints no frame of its own', async () => {
+    extensionDev.mockImplementationOnce((async (
+      _path: string,
+      opts: {onReady?: () => void}
+    ) => {
+      expect(typeof opts.onReady).toBe('function')
+      opts.onReady?.()
+      opts.onReady?.()
+    }) as never)
+
+    expect(await run(['dev', '.', '--output', 'json'])).toBe(0)
+
+    expect(frames().map((frame) => frame.status)).toEqual(['started'])
+  })
+
   it('keeps the startup frame once a session failed after it began', async () => {
     extensionDev.mockImplementationOnce((async (
       _path: string,
@@ -298,6 +326,44 @@ describe('extension dev --output json', () => {
     expect((extensionDev.mock.calls[0] as unknown[])?.[1]).toMatchObject({
       exitOnError: true
     })
+  })
+
+  it('reports a failure develop exits on itself, with its catalog code', async () => {
+    type ExitHook = (error: unknown, code?: string) => void
+    const hookOf = () =>
+      (extensionDev.mock.calls[0] as unknown[])?.[1] as {onExitError: ExitHook}
+
+    expect(await run(['dev', '.'])).toBe(0)
+    expect(reportCommandFailureNow).not.toHaveBeenCalled()
+
+    hookOf().onExitError(
+      Object.assign(new Error('bad config'), {code: 'E_CONFIG_LOAD'})
+    )
+
+    hookOf().onExitError(new Error('port taken'), 'E_DEV_SERVER_START')
+    hookOf().onExitError(new Error('boom'))
+
+    expect(reportCommandFailureNow.mock.calls).toEqual([
+      [{code: CODES.E_CONFIG_LOAD, exitCode: 1}],
+      [{code: CODES.E_DEV_SERVER_START, exitCode: 1}],
+      [{code: CODES.E_INTERNAL, exitCode: 1}]
+    ])
+
+    // Reporting prints nothing: develop already said what failed.
+    expect(logSpy).not.toHaveBeenCalled()
+    expect(console.error).not.toHaveBeenCalled()
+  })
+
+  it('keeps the json failure on the path that frames it, reported once', async () => {
+    extensionDev.mockRejectedValueOnce(
+      Object.assign(new Error('bad config'), {code: 'E_CONFIG_LOAD'})
+    )
+
+    expect(await run(['dev', '.', '--output', 'json'])).toBe(1)
+    expect(frames().map((frame) => frame.status)).toEqual(['failed'])
+    expect(reportCommandFailureNow.mock.calls).toEqual([
+      [{code: CODES.E_CONFIG_LOAD, exitCode: 1}]
+    ])
   })
 
   it('maps an untagged runtime failure to E_INTERNAL', async () => {

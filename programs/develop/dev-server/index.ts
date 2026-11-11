@@ -521,15 +521,18 @@ export async function devServer(
   // public options contract. allowControl/allowEval used to live here too;
   // they are declared on DevOptions now so a library caller can name them.
   const extendedOptions = devOptions as DevOptions & {
+    onReady?: () => void
     publicHost?: string
     allowedHosts?: string | string[]
     authorMode?: boolean
     onSessionStart?: () => void
+    onExitError?: (error: unknown, code?: string) => void
     browsersPlugin?: {
       setReloadBroker?: (broker: unknown) => void
       setLogSink?: (sink: (event: BrowserLogSinkEvent) => void) => void
       setEmulatorViewerUrl?: (url: string) => void
       setInstanceId?: (instanceId: string) => void
+      setReadyListener?: (listener: () => void) => void
       wakeBackground?: () => Promise<boolean>
     }
   }
@@ -700,6 +703,26 @@ export async function devServer(
 
   if (launchedPlugin && typeof launchedPlugin.setInstanceId === 'function') {
     launchedPlugin.setInstanceId(currentInstance.instanceId)
+  }
+
+  // Ready is said once per session, by whoever knows it: the plugin that
+  // opens the browser, or the first clean compile when nothing is launched.
+  let readyAnnounced = false
+
+  const announceReady = () => {
+    if (readyAnnounced) return
+
+    readyAnnounced = true
+
+    try {
+      extendedOptions.onReady?.()
+    } catch {
+      // Best-effort: a caller's announcement must never stop the session.
+    }
+  }
+
+  if (launchedPlugin && typeof launchedPlugin.setReadyListener === 'function') {
+    launchedPlugin.setReadyListener(announceReady)
   }
 
   // Browser-generated warnings (CDP Log.entryAdded) never pass through the
@@ -1125,6 +1148,12 @@ export async function devServer(
       )
     }
 
+    if (!extendedOptions.browsersPlugin && compiler?.hooks?.done?.tap) {
+      compiler.hooks.done.tap('extjs-session-ready', (stats: Stats) => {
+        if (!stats?.hasErrors?.()) announceReady()
+      })
+    }
+
     if (emulatorFiles) attachEmulatorFileIndex(compiler, emulatorFiles)
 
     if (emulatorViewer && !opts.isRestart && devOptions.noBrowser) {
@@ -1228,6 +1257,13 @@ export async function devServer(
 
     lifecycle.failed(error instanceof Error ? error.message : String(error))
     humanLine(messages.extensionJsRunnerError(error))
+
+    try {
+      extendedOptions.onExitError?.(error, CODES.E_DEV_SERVER_START)
+    } catch {
+      // Best-effort: a caller's report must never change how the run ends.
+    }
+
     process.exit(1)
   }
 

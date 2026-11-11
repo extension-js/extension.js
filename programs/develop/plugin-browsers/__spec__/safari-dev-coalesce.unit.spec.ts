@@ -209,6 +209,30 @@ describe('SafariDevPlugin watch-loop coalescing', () => {
     expect(h.compiled[0].isFirstCompile).toBe(true)
   })
 
+  it('tells the ready listener once, after the first package that worked', async () => {
+    const h = harness()
+    const listener = vi.fn()
+    h.plugin.setReadyListener(listener)
+
+    const p1 = h.trigger('/out1')
+    await flush()
+    h.callFor('/out1').reject(new Error('boom'))
+    await p1
+    expect(listener).not.toHaveBeenCalled()
+
+    const p2 = h.trigger('/out1b')
+    await flush()
+    h.callFor('/out1b').resolve()
+    await p2
+    expect(listener).toHaveBeenCalledTimes(1)
+
+    void h.trigger('/v2')
+    await flush()
+    h.callFor('/v2').resolve()
+    await h.plugin.idle()
+    expect(listener).toHaveBeenCalledTimes(1)
+  })
+
   it('a mid-burst failure emits an error AND still runs the pending follow-up', async () => {
     const h = harness()
     await settleFirst(h)

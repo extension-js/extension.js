@@ -20,6 +20,7 @@ exports[`create message catalogs > matches the exported message surface 1`] = `
     "installingFromTemplateError: function(2)",
     "installingProjectIntegrations: function(1)",
     "keepingExistingGitignore: function(1)",
+    "keepingExistingMcpConfig: function(1)",
     "malformedPackageJson: function(2)",
     "manifestNotFound: function(2)",
     "manifestNotParseable: function(2)",

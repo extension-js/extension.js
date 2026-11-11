@@ -47,7 +47,11 @@ import {
 import {resolveOutputFormat} from '../helpers/output-flag'
 import {parseParentPid, setupParentWatchdog} from '../helpers/parent-watchdog'
 import {checkProjectCliVersion} from '../helpers/project-cli-version'
-import {markCommandSessionStart} from '../helpers/telemetry-cli'
+import {
+  markCommandSessionReady,
+  markCommandSessionStart,
+  reportCommandFailureNow
+} from '../helpers/telemetry-cli'
 import {
   BROWSER_TARGETS_HELP,
   type Browser,
@@ -525,6 +529,15 @@ export function registerDevCommand(program: Command) {
         // `dev` never returns and the exit that used to report it is a signal.
         markCommandSessionStart('dev')
 
+        // develop exits the process itself on a failure it already printed,
+        // which skips every reporting path, so the failure row is sent here.
+        const reportExitError = (error: unknown, fallbackCode?: string) => {
+          reportCommandFailureNow({
+            code: declaredErrorCode(error) ?? fallbackCode ?? CODES.E_INTERNAL,
+            exitCode: 1
+          })
+        }
+
         const {extensionDev} = await loadExtensionDevelopModule()
 
         for (const vendor of list) {
@@ -569,6 +582,8 @@ export function registerDevCommand(program: Command) {
             startingUrl: devOptions.startingUrl,
             install: devOptions.install,
             noBrowser,
+            // The session is usable: counted once, beside its started row.
+            onReady: () => markCommandSessionReady('dev'),
             extensions: parseExtensionsList(devOptions.extensions),
             logLevel,
             logContexts,
@@ -591,6 +606,7 @@ export function registerDevCommand(program: Command) {
             // The startup frame waits for the session to exist. Printed up
             // front, it announced a run that a missing manifest then refused.
             onSessionStart: printStartedFrame,
+            onExitError: reportExitError,
             // Inject the Safari packager. SafariDevPlugin calls it on each
             // rebuild (full first, then incremental resync). The merged noOpen
             // from develop arrives via packager overrides per call.

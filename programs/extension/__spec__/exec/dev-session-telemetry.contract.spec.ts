@@ -3,6 +3,8 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
+  realpathSync,
   rmSync,
   writeFileSync
 } from 'node:fs'
@@ -35,7 +37,9 @@ function cliBin(): string {
 }
 
 function createFixture(): string {
-  const projectDir = mkdtempSync(join(tmpdir(), 'extjs-session-telemetry-'))
+  const projectDir = realpathSync(
+    mkdtempSync(join(tmpdir(), 'extjs-session-telemetry-'))
+  )
   mkdirSync(join(projectDir, 'content'), {recursive: true})
   writeFileSync(
     join(projectDir, 'package.json'),
@@ -100,6 +104,37 @@ function startCaptureServer(): Promise<{
   })
 }
 
+// The local audit log is written before any send, so it holds every row the
+// run produced, including one the process died too soon to deliver.
+function auditRows(configHome: string): CaptureEvent[] {
+  const file = join(configHome, 'extensionjs', 'telemetry', 'events.jsonl')
+  if (!existsSync(file)) return []
+
+  return readFileSync(file, 'utf8')
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => JSON.parse(line) as CaptureEvent)
+}
+
+function runToExit(
+  args: string[],
+  env: Record<string, string>
+): Promise<{status: number | null; stdout: string; stderr: string}> {
+  return new Promise((done) => {
+    const child = spawn(process.execPath, [cliBin(), ...args], {
+      cwd: cliRoot,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: {...process.env, ...env}
+    })
+
+    let stdout = ''
+    let stderr = ''
+    child.stdout.on('data', (chunk) => (stdout += chunk.toString()))
+    child.stderr.on('data', (chunk) => (stderr += chunk.toString()))
+    child.on('close', (status) => done({status, stdout, stderr}))
+  })
+}
+
 function waitFor(
   predicate: () => boolean,
   timeoutMs: number,
@@ -158,7 +193,8 @@ describe('a dev session reports itself while it is still running', () => {
           // for sampling: the failure rate needs a matching denominator.
           EXTENSION_TELEMETRY_SAMPLE_RATE: '0',
           XDG_CONFIG_HOME: configHome,
-          XDG_CACHE_HOME: configHome
+          XDG_CACHE_HOME: configHome,
+          npm_config_user_agent: 'pnpm/10.28.0 npm/? node/v23.8.0 darwin arm64'
         }
       }
     )
@@ -179,16 +215,19 @@ describe('a dev session reports itself while it is still running', () => {
     )
 
     // Still running: nothing here waited for an exit, which is the whole point.
+    // The ready row is the later of the two, so both are in once it lands.
     await waitFor(
-      () => server.events.some((event) => event.properties.command === 'dev'),
+      () => server.events.some((event) => event.properties.session === 'ready'),
       15_000,
-      'the dev session event'
+      'the dev session events'
     )
 
     expect(closed).toBe(false)
 
     const started = server.events.filter(
-      (event) => event.properties.command === 'dev'
+      (event) =>
+        event.properties.command === 'dev' &&
+        event.properties.session === 'started'
     )
     expect(started).toHaveLength(1)
     expect(started[0].event).toBe('command_executed')
@@ -196,6 +235,19 @@ describe('a dev session reports itself while it is still running', () => {
     expect(started[0].properties.session).toBe('started')
     expect(typeof started[0].properties.is_source_build).toBe('boolean')
     expect(typeof started[0].properties.is_ci).toBe('boolean')
+    expect(started[0].properties.package_manager).toBe('pnpm')
+
+    // No browser is launched here, so ready is the first clean compile.
+    const ready = server.events.filter(
+      (event) => event.properties.session === 'ready'
+    )
+    expect(ready).toHaveLength(1)
+    expect(ready[0].event).toBe('command_executed')
+    expect(ready[0].properties.command).toBe('dev')
+    expect(ready[0].properties.success).toBe(true)
+    expect(Object.keys(ready[0].properties).sort()).toEqual(
+      Object.keys(started[0].properties).sort()
+    )
 
     child.kill('SIGINT')
     await waitFor(() => closed, 20_000, 'the dev session to end').catch(() => {
@@ -203,13 +255,119 @@ describe('a dev session reports itself while it is still running', () => {
       // spec is about the row, not about who ends the process.
     })
 
-    // A Ctrl-C is not a failure, and the session is not counted twice.
+    // A Ctrl-C is not a failure, and neither row is counted twice.
     const devEvents = server.events.filter(
       (event) => event.properties.command === 'dev'
     )
-    expect(devEvents).toHaveLength(1)
+    expect(devEvents.map((event) => event.properties.session)).toEqual([
+      'started',
+      'ready'
+    ])
+
     expect(
       server.events.filter((event) => event.event === 'command_failed')
     ).toEqual([])
   }, 150_000)
+
+  it('reports a session that died on a throwing config, in both outputs', async () => {
+    const server = await startCaptureServer()
+    cleanups.push(server.close)
+
+    const projectDir = createFixture()
+    cleanups.push(() => rmSync(projectDir, {recursive: true, force: true}))
+    writeFileSync(
+      join(projectDir, 'extension.config.js'),
+      "throw new Error('config exploded on purpose')\n"
+    )
+
+    // What develop prints for this failure, pinned so reporting it can never
+    // add a line, repeat one or print a stack.
+    const printed =
+      '⏵⏵⏵ Dev mode failed.\n' +
+      "Couldn't load extension.config.js.\n" +
+      `PATH ${join(projectDir, 'extension.config.js')}\n` +
+      'config exploded on purpose\n' +
+      'Fix the config file, then run the command again.\n'
+
+    for (const output of ['pretty', 'json'] as const) {
+      const configHome = mkdtempSync(join(tmpdir(), 'extjs-session-config-'))
+      cleanups.push(() => rmSync(configHome, {recursive: true, force: true}))
+      server.events.length = 0
+
+      const run = await runToExit(
+        [
+          'dev',
+          projectDir,
+          '--no-browser',
+          '--browser=chromium',
+          ...(output === 'json' ? ['--output', 'json'] : [])
+        ],
+        {
+          NO_COLOR: '1',
+          // Node 22.12 warns on stderr when CommonJS loads an ES module; that
+          // line is Node's, not ours, and stderr is compared whole below.
+          NODE_NO_WARNINGS: '1',
+          EXTENSION_ENV: 'test',
+          POSTHOG_HOST: `http://127.0.0.1:${server.port}`,
+          EXTENSION_TELEMETRY: '1',
+          // Inherited, it turns develop's exit into a rejection and the run
+          // would take the top-level handler instead of the path under test.
+          VITEST: '',
+          XDG_CONFIG_HOME: configHome,
+          XDG_CACHE_HOME: configHome
+        }
+      )
+
+      expect(run.status).toBe(1)
+      expect(run.stderr).toBe(printed)
+
+      if (output === 'pretty') {
+        expect(run.stdout).toBe('')
+      } else {
+        const frame = JSON.parse(run.stdout) as {
+          status: string
+          error: {code: string}
+        }
+        expect(frame.status).toBe('failed')
+        expect(frame.error.code).toBe('E_CONFIG_LOAD')
+      }
+
+      // Two rows of the three a process may send: the start, then the death.
+      const rows = auditRows(configHome).map((row) => ({
+        event: row.event,
+        command: row.properties.command,
+        session: row.properties.session,
+        code: row.properties.code,
+        exit_code: row.properties.exit_code
+      }))
+      expect(rows).toEqual([
+        {
+          event: 'command_executed',
+          command: 'dev',
+          session: 'started',
+          code: undefined,
+          exit_code: undefined
+        },
+        {
+          event: 'command_failed',
+          command: 'dev',
+          session: undefined,
+          code: 'E_CONFIG_LOAD',
+          exit_code: 1
+        }
+      ])
+
+      // The failure row is sent before the exit, not left in the queue.
+      const delivered = server.events.filter(
+        (event) => event.event === 'command_failed'
+      )
+      expect(delivered).toHaveLength(1)
+      expect(delivered[0].properties).toMatchObject({
+        command: 'dev',
+        success: false,
+        code: 'E_CONFIG_LOAD',
+        exit_code: 1
+      })
+    }
+  }, 60_000)
 })

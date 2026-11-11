@@ -174,6 +174,7 @@ export class BrowsersPlugin implements RunnerPlugin {
   private logSink: BrowserLogSink | undefined
   private emulatorViewerUrl: string | undefined
   private instanceId: string | undefined
+  private readyListener: (() => void) | undefined
   // The refusal text last shown to the operator, so repeats stay quiet.
   private lastReportedRefusal: string | null | undefined
   // The content script files the manifest named when the browser last read
@@ -205,6 +206,22 @@ export class BrowsersPlugin implements RunnerPlugin {
   // dev sessions started together do not both pick the base port.
   setInstanceId(instanceId: string): void {
     this.instanceId = instanceId
+  }
+
+  // The dev server asks to hear when the browser is open with the extension
+  // loaded. A session the browser refused says so only once a retry loads it.
+  setReadyListener(listener: () => void): void {
+    this.readyListener = listener
+  }
+
+  private announceReady(): void {
+    if (this.controller?.getExtensionLoadRefusal?.()) return
+
+    try {
+      this.readyListener?.()
+    } catch {
+      // Best-effort: a listener must never break the compile loop.
+    }
   }
 
   // The broker calls this for a verb that finds no executor. False until the
@@ -353,6 +370,8 @@ export class BrowsersPlugin implements RunnerPlugin {
               tabFilter: this.options.browserOptions.logTab
             })
           }
+
+          this.announceReady()
         } catch (error) {
           // No browser came up, so the next compile must try the launch again.
           if (!this.controller) this.isFirstCompile = true
@@ -373,6 +392,7 @@ export class BrowsersPlugin implements RunnerPlugin {
         // The guest was absent until this compile, so there is nothing to
         // reload: it just started from the dist that was written.
         this.loadedContentScriptFiles = contentScriptFiles
+        this.announceReady()
       } else if (this.reloadBroker) {
         // Launched-browser reload routes to the SW producer over the control
         // bridge, the same executor as `--no-browser`. Honors EXTENSION_NO_RELOAD.

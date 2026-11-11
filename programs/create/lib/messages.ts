@@ -667,6 +667,13 @@ export function keepingExistingGitignore(projectName: string) {
   )
 }
 
+export function keepingExistingMcpConfig(projectName: string) {
+  return (
+    `${prefix('info')} ${colors.blue(projectName)} already has a ${colors.blue('.mcp.json')}.\n` +
+    'Keeping it as it is. The template file was not written over it.'
+  )
+}
+
 export function existingRepositoryKept(projectName: string) {
   return (
     `${prefix('info')} ${colors.blue(projectName)} is already a git repository with history.\n` +
