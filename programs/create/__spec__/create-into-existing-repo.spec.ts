@@ -4,6 +4,10 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {sync as spawnSync} from 'cross-spawn'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
+import {
+  fixtureExtensionFiles,
+  serveExamplesCatalog
+} from './examples-catalog-fixture'
 
 // Scaffolding into a directory that is already someone's repository keeps
 // what is theirs: the ignore rules they wrote, the paths they ignore, and a
@@ -28,12 +32,15 @@ function git(cwd: string, args: string[]): string {
   ).trim()
 }
 
-async function runCreate(dir: string) {
+const OWNER_MCP_CONFIG = '{"mcpServers":{"mine":{"command":"true"}}}'
+const TEMPLATE_MCP_CONFIG = '{"mcpServers":{"shipped":{"command":"true"}}}\n'
+
+async function runCreate(dir: string, template = 'javascript') {
   const {extensionCreate} = await import('../module')
 
   try {
     await extensionCreate(dir, {
-      template: 'javascript',
+      template,
       install: false,
       cliVersion: '4.1.12',
       logger
@@ -103,6 +110,45 @@ beforeAll(async () => {
     const result = await runCreate(dir)
     expect(result, dir).toEqual({ok: true, error: ''})
   }
+
+  R.adoptedLogs = logs.join('\n')
+
+  // The same owner file meets both copies: the bundled template, and a
+  // catalog template that arrives as an archive.
+  const catalog = await serveExamplesCatalog({
+    'ships-mcp': {
+      ...fixtureExtensionFiles('ships-mcp'),
+      '.mcp.json': TEMPLATE_MCP_CONFIG
+    }
+  })
+
+  try {
+    process.env.EXTENSION_CREATE_TEMPLATE_URL = catalog.url
+    process.env.EXTENSION_ALLOW_HTTP_TEMPLATE = 'true'
+
+    for (const [key, template] of [
+      ['mcpBundled', 'javascript'],
+      ['mcpCatalog', 'ships-mcp'],
+      ['mcpFresh', 'ships-mcp']
+    ]) {
+      const dir = path.join(root, key)
+      await fs.mkdir(dir, {recursive: true})
+
+      if (key !== 'mcpFresh') {
+        await fs.writeFile(path.join(dir, '.mcp.json'), OWNER_MCP_CONFIG)
+      }
+
+      logs.length = 0
+      const result = await runCreate(dir, template)
+      expect(result, dir).toEqual({ok: true, error: ''})
+      R[key] = dir
+      R[`${key}Logs`] = logs.join('\n')
+    }
+  } finally {
+    delete process.env.EXTENSION_CREATE_TEMPLATE_URL
+    delete process.env.EXTENSION_ALLOW_HTTP_TEMPLATE
+    await catalog.close()
+  }
 }, 300_000)
 
 afterAll(async () => {
@@ -116,7 +162,7 @@ afterAll(async () => {
 
 describe('create into a directory that is already a repository', () => {
   it('accounts for the hidden files it keeps', () => {
-    expect(logs.join('\n')).toMatch(/\.gitignore/)
+    expect(R.adoptedLogs).toMatch(/\.gitignore/)
   })
 
   it('keeps the rules the owner wrote and adds the template rules', async () => {
@@ -140,5 +186,23 @@ describe('create into a directory that is already a repository', () => {
     expect(git(R.empty, ['rev-list', '--count', 'HEAD'])).toBe('1')
     expect(existsSync(path.join(R.bare, 'src', 'manifest.json'))).toBe(true)
     expect(git(R.bare, ['rev-list', '--count', 'HEAD'])).toBe('1')
+  })
+
+  it('keeps the MCP client file the owner wrote, byte for byte, and says so', async () => {
+    for (const key of ['mcpBundled', 'mcpCatalog']) {
+      const kept = await fs.readFile(path.join(R[key], '.mcp.json'), 'utf8')
+      expect.soft(kept, key).toBe(OWNER_MCP_CONFIG)
+      expect.soft(R[`${key}Logs`], key).toMatch(/already has a .*\.mcp\.json/)
+      expect(existsSync(path.join(R[key], 'src', 'manifest.json'))).toBe(true)
+    }
+  })
+
+  it('still gives a folder without one the MCP client file the template ships', async () => {
+    const shipped = await fs.readFile(
+      path.join(R.mcpFresh, '.mcp.json'),
+      'utf8'
+    )
+    expect(shipped).toBe(TEMPLATE_MCP_CONFIG)
+    expect(R.mcpFreshLogs).not.toMatch(/\.mcp\.json/)
   })
 })

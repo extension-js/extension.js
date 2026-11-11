@@ -553,7 +553,7 @@ async function copyTemplateDirectory(
   sourceDir: string,
   projectPath: string,
   logger: {log(...args: unknown[]): void; error(...args: unknown[]): void},
-  ownerGitignore: string | null
+  ownerFiles: OwnerHiddenFiles
 ): Promise<void> {
   const droppedLinks = await utils.copyDirectoryWithSymlinks(
     sourceDir,
@@ -564,7 +564,7 @@ async function copyTemplateDirectory(
     logger.log(messages.droppedTemplateLinks(droppedLinks))
   }
 
-  await restoreOwnerGitignore(projectPath, ownerGitignore)
+  await restoreOwnerHiddenFiles(projectPath, ownerFiles)
   await removeTemplateScaffoldingFiles(projectPath)
   const dropped = await removeStaleTemplateLockfiles(projectPath)
 
@@ -579,17 +579,12 @@ async function copyBundledTemplate(
   templateName: string,
   projectPath: string,
   logger: {log(...args: unknown[]): void; error(...args: unknown[]): void},
-  ownerGitignore: string | null = null
+  ownerFiles: OwnerHiddenFiles = NO_OWNER_FILES
 ): Promise<TemplateProvenance | undefined> {
   const localTemplate = bundledTemplateDir(templateName)
   if (!existsSync(localTemplate)) return undefined
 
-  await copyTemplateDirectory(
-    localTemplate,
-    projectPath,
-    logger,
-    ownerGitignore
-  )
+  await copyTemplateDirectory(localTemplate, projectPath, logger, ownerFiles)
 
   return {template: templateName, source: 'bundled'}
 }
@@ -815,6 +810,46 @@ async function restoreOwnerGitignore(
   await fs.writeFile(target, merged)
 }
 
+// An owner's .mcp.json is theirs alone: the bytes read before the copy are
+// written back after it, and nothing from the template is merged in.
+async function readOwnerMcpConfig(projectPath: string): Promise<Buffer | null> {
+  try {
+    return await fs.readFile(path.join(projectPath, '.mcp.json'))
+  } catch {
+    return null
+  }
+}
+
+interface OwnerHiddenFiles {
+  gitignore: string | null
+  mcpConfig: Buffer | null
+}
+
+const NO_OWNER_FILES: OwnerHiddenFiles = {gitignore: null, mcpConfig: null}
+
+async function readOwnerHiddenFiles(
+  projectPath: string
+): Promise<OwnerHiddenFiles> {
+  return {
+    gitignore: await readOwnerGitignore(projectPath),
+    mcpConfig: await readOwnerMcpConfig(projectPath)
+  }
+}
+
+async function restoreOwnerHiddenFiles(
+  projectPath: string,
+  ownerFiles: OwnerHiddenFiles
+): Promise<void> {
+  await restoreOwnerGitignore(projectPath, ownerFiles.gitignore)
+
+  if (ownerFiles.mcpConfig !== null) {
+    await fs.writeFile(
+      path.join(projectPath, '.mcp.json'),
+      ownerFiles.mcpConfig
+    )
+  }
+}
+
 export async function importExternalTemplate(
   projectPath: string,
   projectName: string,
@@ -860,9 +895,9 @@ export async function importExternalTemplate(
     }
   }
 
-  const ownerGitignore = dirExistedBeforeImport
-    ? await readOwnerGitignore(projectPath)
-    : null
+  const ownerFiles = dirExistedBeforeImport
+    ? await readOwnerHiddenFiles(projectPath)
+    : NO_OWNER_FILES
   // The staging folder an archive unpacks into, removed on every way out.
   let tempRoot: string | undefined
 
@@ -901,7 +936,7 @@ export async function importExternalTemplate(
         localTemplateDir,
         projectPath,
         logger,
-        ownerGitignore
+        ownerFiles
       )
 
       // The name alone: the path holds a home folder, and the record this
@@ -914,7 +949,7 @@ export async function importExternalTemplate(
         resolvedTemplate,
         projectPath,
         logger,
-        ownerGitignore
+        ownerFiles
       )
       if (provenance) return provenance
       // Bundled copy missing (unexpected): fall through to the network fetch
@@ -1054,7 +1089,7 @@ export async function importExternalTemplate(
       logger.log(messages.droppedTemplateLinks(droppedLinks))
     }
 
-    await restoreOwnerGitignore(projectPath, ownerGitignore)
+    await restoreOwnerHiddenFiles(projectPath, ownerFiles)
     await removeTemplateScaffoldingFiles(projectPath)
     const droppedLockfiles = await removeStaleTemplateLockfiles(projectPath)
 
@@ -1089,7 +1124,7 @@ export async function importExternalTemplate(
         OFFLINE_FALLBACK_TEMPLATE,
         projectPath,
         logger,
-        ownerGitignore
+        ownerFiles
       )
 
       if (fallback) {
