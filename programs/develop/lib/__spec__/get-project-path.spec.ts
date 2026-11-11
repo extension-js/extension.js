@@ -53,7 +53,7 @@ describe('get-project-path', () => {
     const root = makeTempDir('extjs-github-zip-')
     const extracted = path.join(root, 'content-react.chrome')
     const url =
-      'https://github.com/extension-js/examples/releases/download/nightly/content-react.chrome.zip'
+      'https://github.com/extension-js/templates/releases/download/nightly/content-react.chrome.zip'
     const cwd = process.cwd()
     const downloadAndExtractZip = vi.fn(
       async (_zipUrl: string, _targetPath: string) => {
@@ -653,10 +653,10 @@ describe('get-project-path (GitHub source)', () => {
 
   // A folder named after the repo is not the repo. Adopting it built and
   // served an unrelated local project as if it had come from the url.
-  const examplesUrl = 'https://github.com/extension-js/examples'
+  const examplesUrl = 'https://github.com/extension-js/templates'
 
   function strangerNamedExamples(root: string) {
-    const stranger = path.join(root, 'examples')
+    const stranger = path.join(root, 'templates')
     fs.mkdirSync(stranger, {recursive: true})
     fs.writeFileSync(
       path.join(stranger, 'manifest.json'),

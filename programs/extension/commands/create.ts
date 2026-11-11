@@ -45,7 +45,7 @@ export const CREATE_ERROR_NEEDLES = {
   // A template with no readable manifest is the same refusal class as a
   // template the catalog does not have, which is what this code documents.
   E_TEMPLATE_NOT_FOUND: [
-    'is not in the extension-js/examples catalog',
+    'is not in the extension-js/templates catalog',
     "Couldn't read a manifest.json",
     // A path-shaped --template that names neither a directory here nor a
     // catalog entry is the same refusal class, reported against the path.

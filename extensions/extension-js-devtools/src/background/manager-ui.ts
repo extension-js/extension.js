@@ -11,7 +11,7 @@ import {readSessionFlags, sessionBrowser} from './session-flags'
 import {isStartPage} from './start-pages'
 
 function bgGreen(str: string) {
-  return `background: transparent; color: #0971fe; ${str}`
+  return `background: transparent; color: #0065e6; ${str}`
 }
 
 export async function initManagerUI() {

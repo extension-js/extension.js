@@ -3,14 +3,14 @@ set -euo pipefail
 
 # The default `javascript` template ships bundled inside the npm package
 # (programs/create/templates/javascript) as an offline fast-path, while
-# extension-js/examples remains the source of truth (discussion #478).
+# extension-js/templates remains the source of truth (discussion #478).
 # Nothing kept the two in sync, so improvements landing in examples never
 # reached fresh scaffolds. This guard diffs the bundled copy against the
 # examples repo and fails on drift, printing the exact resync command.
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 BUNDLED_DIR="$ROOT_DIR/programs/create/templates/javascript"
-REPO_URL="https://github.com/extension-js/examples"
+REPO_URL="https://github.com/extension-js/templates"
 PIN_FILE="$ROOT_DIR/programs/create/steps/import-external-template.ts"
 
 # Compare against the commit the scaffolder downloads, not the branch tip. The
@@ -76,7 +76,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-echo "Checking bundled javascript template against extension-js/examples @ ${EXAMPLES_REF}"
+echo "Checking bundled javascript template against extension-js/templates @ ${EXAMPLES_REF}"
 if git clone --depth 1 --branch "$EXAMPLES_REF" "$REPO_URL" "$TMP_DIR/examples" 2>/dev/null; then
   :
 else
@@ -96,7 +96,7 @@ for name in "${EXCLUDES[@]}"; do
 done
 
 if diff "${DIFF_ARGS[@]}" "$BUNDLED_DIR" "$UPSTREAM_DIR"; then
-  echo "Bundled javascript template is in sync with extension-js/examples."
+  echo "Bundled javascript template is in sync with extension-js/templates."
   report_pin_health || exit 1
   exit 0
 fi

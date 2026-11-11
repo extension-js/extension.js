@@ -1,6 +1,6 @@
-[npm-version-image]: https://img.shields.io/npm/v/extension-create.svg?color=0971fe
+[npm-version-image]: https://img.shields.io/npm/v/extension-create.svg?color=0065e6
 [npm-version-url]: https://www.npmjs.com/package/extension-create
-[npm-downloads-image]: https://img.shields.io/npm/dm/extension-create.svg?color=0971fe
+[npm-downloads-image]: https://img.shields.io/npm/dm/extension-create.svg?color=0065e6
 [npm-downloads-url]: https://www.npmjs.com/package/extension-create
 [action-image]: https://github.com/extension-js/extension.js/actions/workflows/ci.yml/badge.svg?branch=main
 [action-url]: https://github.com/extension-js/extension.js/actions/workflows/ci.yml
@@ -53,7 +53,7 @@ Creates a new extension project with the specified configuration.
 
 ## Templates
 
-Templates are sourced from the public examples repository. Browse the catalog in the [Extension.js examples](https://github.com/extension-js/examples) and reference templates by name (for example, `content`, `content-react`, `content-vue`).
+Templates are sourced from the public templates repository. Browse the catalog in the [Extension.js templates](https://github.com/extension-js/templates) and reference templates by name (for example, `content`, `content-react`, `content-vue`).
 
 ## License
 

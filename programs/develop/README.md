@@ -1,10 +1,10 @@
-[npm-version-image]: https://img.shields.io/npm/v/extension-develop.svg?color=0971fe
+[npm-version-image]: https://img.shields.io/npm/v/extension-develop.svg?color=0065e6
 [npm-version-url]: https://www.npmjs.com/package/extension-develop
-[npm-downloads-image]: https://img.shields.io/npm/dm/extension-develop.svg?color=0971fe
+[npm-downloads-image]: https://img.shields.io/npm/dm/extension-develop.svg?color=0065e6
 [npm-downloads-url]: https://www.npmjs.com/package/extension-develop
-[powered-image]: https://img.shields.io/badge/Powered%20by-Extension.js-0971fe
+[powered-image]: https://img.shields.io/badge/Powered%20by-Extension.js-0065e6
 [powered-url]: https://extension.js.org
-[action-image]: https://github.com/extension-js/extension.js/actions/workflows/ci.yml/badge.svg?branch=main&color=0971fe
+[action-image]: https://github.com/extension-js/extension.js/actions/workflows/ci.yml/badge.svg?branch=main&color=0065e6
 [action-url]: https://github.com/extension-js/extension.js/actions
 
 [![Powered by Extension.js][powered-image]][powered-url]

@@ -104,7 +104,7 @@ test('every test script a workflow runs through pnpm at the root exists', () => 
   assert.ok(seen > 0)
 })
 
-test('the nightly examples catalog lane fetches through codeload and reports red', () => {
+test('the nightly templates catalog lane fetches through codeload and reports red', () => {
   const lane = workflow('programs-nightly.yml')
   const job = jobSection(lane, 'examples-catalog')
 
@@ -114,17 +114,17 @@ test('the nightly examples catalog lane fetches through codeload and reports red
   assert.ok(!job.includes('|| true'))
   assert.ok(!job.includes('continue-on-error'))
 
-  const fetch = step(job, 'Scaffold from the real examples catalog')
+  const fetch = step(job, 'Scaffold from the real templates catalog')
   assert.match(fetch, /^\s+run: pnpm test:remote$/m)
 
   assert.match(
     step(job, 'Report a red lane'),
-    /if: failure\(\)[\s\S]*RED_LANE_REPRO[\s\S]*pnpm test:remote[\s\S]*report-red-lane\.sh "Nightly examples catalog"/
+    /if: failure\(\)[\s\S]*RED_LANE_REPRO[\s\S]*pnpm test:remote[\s\S]*report-red-lane\.sh "Nightly templates catalog"/
   )
 
   assert.match(
     step(job, 'Close the red lane'),
-    /if: success\(\)[\s\S]*close-red-lane\.sh "Nightly examples catalog"/
+    /if: success\(\)[\s\S]*close-red-lane\.sh "Nightly templates catalog"/
   )
 
   // The script itself must opt into the network and run the one spec that is
