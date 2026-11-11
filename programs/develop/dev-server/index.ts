@@ -525,6 +525,7 @@ export async function devServer(
     allowedHosts?: string | string[]
     authorMode?: boolean
     onSessionStart?: () => void
+    onExitError?: (error: unknown, code?: string) => void
     browsersPlugin?: {
       setReloadBroker?: (broker: unknown) => void
       setLogSink?: (sink: (event: BrowserLogSinkEvent) => void) => void
@@ -1228,6 +1229,13 @@ export async function devServer(
 
     lifecycle.failed(error instanceof Error ? error.message : String(error))
     humanLine(messages.extensionJsRunnerError(error))
+
+    try {
+      extendedOptions.onExitError?.(error, CODES.E_DEV_SERVER_START)
+    } catch {
+      // Best-effort: a caller's report must never change how the run ends.
+    }
+
     process.exit(1)
   }
 

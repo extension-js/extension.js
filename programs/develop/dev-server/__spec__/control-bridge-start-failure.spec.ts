@@ -20,9 +20,13 @@ vi.mock('@rspack/core', () => ({
   rspack: vi.fn(() => ({}))
 }))
 
+const {serverStart} = vi.hoisted(() => ({
+  serverStart: vi.fn(async () => {})
+}))
+
 vi.mock('@rspack/dev-server', () => ({
   RspackDevServer: class MockRspackDevServer {
-    start = vi.fn(async () => {})
+    start = serverStart
   }
 }))
 
@@ -168,6 +172,43 @@ describe('dev-server control-bridge startup failure', () => {
     expect(compilerOptions?.controlPort).toBeNull()
     expect(compilerOptions?.controlPortUnavailableReason).toContain(
       'EADDRNOTAVAIL'
+    )
+  })
+
+  it('hands a server that cannot start to onExitError before exiting', async () => {
+    const failure = new Error('listen EADDRINUSE 127.0.0.1:8080')
+    const writeError = vi.fn()
+    const onExitError = vi.fn()
+    serverStart.mockRejectedValueOnce(failure)
+    ;(createPlaywrightMetadataWriter as any).mockReturnValueOnce({writeError})
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
+      throw new Error('exit 1')
+    })
+
+    await expect(
+      devServer(
+        {
+          manifestPath: path.join(projectRoot, 'manifest.json'),
+          packageJsonPath: path.join(projectRoot, 'package.json')
+        },
+        {browser: 'chrome', noBrowser: true, onExitError} as any
+      )
+    ).rejects.toThrow('exit 1')
+
+    expect(writeError).toHaveBeenCalledWith(
+      'dev_server_start_failed',
+      failure.message
+    )
+
+    expect(onExitError).toHaveBeenCalledTimes(1)
+    expect(onExitError).toHaveBeenCalledWith(failure, 'E_DEV_SERVER_START')
+    expect(exitSpy).toHaveBeenCalledWith(1)
+    expect(
+      logged.filter((line) => line.includes("couldn't start the runner"))
+    ).toHaveLength(1)
+
+    expect(onExitError.mock.invocationCallOrder[0]).toBeLessThan(
+      exitSpy.mock.invocationCallOrder[0]
     )
   })
 

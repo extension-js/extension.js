@@ -48,6 +48,9 @@ export async function extensionDev(
     // Called once every refusal that can end the run before a server exists
     // has passed, so a caller can announce the session only when there is one.
     onSessionStart?: () => void
+    // Called with the failure right before exitOnError ends the process, so
+    // a caller can report a run that died after its session was announced.
+    onExitError?: (error: unknown, code?: string) => void
   }
 ): Promise<BuildEmitter> {
   let browsersPlugin: RunnerPlugin | undefined
@@ -190,7 +193,8 @@ export async function extensionDev(
       browser,
       geckoBinary,
       browsersPlugin,
-      onSessionStart: devOptions.onSessionStart
+      onSessionStart: devOptions.onSessionStart,
+      onExitError: devOptions.onExitError
     } as Parameters<typeof devServer>[1])
 
     return emitter
@@ -205,6 +209,12 @@ export async function extensionDev(
 
     if (!shouldExitOnError) {
       throw error
+    }
+
+    try {
+      devOptions.onExitError?.(error)
+    } catch {
+      // Best-effort: a caller's report must never change how the run ends.
     }
 
     process.exit(1)
