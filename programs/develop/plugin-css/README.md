@@ -1,4 +1,4 @@
-[powered-image]: https://img.shields.io/badge/Empowering-Extension.js-0971fe
+[powered-image]: https://img.shields.io/badge/Empowering-Extension.js-0065e6
 [powered-url]: https://extension.js.org
 [pr-welcome-image]: https://img.shields.io/badge/pull--requests-welcome-2ecc40
 [pr-welcome-url]: https://github.com/extension-js/extension.js/pulls
