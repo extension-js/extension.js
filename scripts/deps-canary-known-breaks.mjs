@@ -18,19 +18,9 @@ import {pathToFileURL} from 'node:url'
 // would hide behind it. Each entry names one such break by the exact text it
 // prints, so only that failure is allowed; any other red still opens the
 // issue. An entry whose leg runs green again asks to be deleted.
-export const KNOWN_UPSTREAM_BREAKS = [
-  {
-    leg: 'typescript-next',
-    name: 'rsbuild-plugin-dts calls getExePath() with no argument',
-    signature: 'Failed to resolve the native TypeScript executable',
-    upstream: [
-      'https://github.com/microsoft/TypeScript/pull/64174',
-      'https://github.com/web-infra-dev/rslib/pull/1993'
-    ],
-    retire:
-      'an rsbuild-plugin-dts release after 1.0.5 carries rslib#1993 and the lockfile takes it'
-  }
-]
+// Empty when no break is waiting on an upstream release. The last entry,
+// rsbuild-plugin-dts calling getExePath() bare, left with rslib 1.0.6.
+export const KNOWN_UPSTREAM_BREAKS = []
 
 export function findKnownBreak(leg, log, breaks = KNOWN_UPSTREAM_BREAKS) {
   return (

@@ -14,8 +14,24 @@ const typescriptNextLog = [
   ' ELIFECYCLE  Command failed with exit code 1.'
 ].join('\n')
 
+// The shape an entry takes while a break waits on an upstream release, kept
+// here so the classifier stays covered when the shipped list is empty.
+const getExePathBreak = {
+  leg: 'typescript-next',
+  name: 'rsbuild-plugin-dts calls getExePath() with no argument',
+  signature: 'Failed to resolve the native TypeScript executable',
+  upstream: [
+    'https://github.com/microsoft/TypeScript/pull/64174',
+    'https://github.com/web-infra-dev/rslib/pull/1993'
+  ],
+  retire:
+    'an rsbuild-plugin-dts release after 1.0.5 carries rslib#1993 and the lockfile takes it'
+}
+
+const breaks = [getExePathBreak]
+
 test('every known break names a real leg, a signature and an upstream link', () => {
-  for (const entry of KNOWN_UPSTREAM_BREAKS) {
+  for (const entry of [...KNOWN_UPSTREAM_BREAKS, ...breaks]) {
     assert.ok(LEGS[entry.leg], entry.leg)
     assert.ok(entry.signature.length > 20, entry.name)
     assert.ok(entry.upstream.length > 0, entry.name)
@@ -31,12 +47,11 @@ test('every known break names a real leg, a signature and an upstream link', () 
   }
 })
 
-test('the 2026-11-02 typescript-next red is an allowed upstream break', () => {
-  const result = classify({
-    leg: 'typescript-next',
-    outcome: 'failure',
-    log: typescriptNextLog
-  })
+test('a red that prints a listed signature is an allowed upstream break', () => {
+  const result = classify(
+    {leg: 'typescript-next', outcome: 'failure', log: typescriptNextLog},
+    breaks
+  )
 
   assert.equal(result.exitCode, 0)
   assert.equal(
@@ -54,11 +69,14 @@ test('the 2026-11-02 typescript-next red is an allowed upstream break', () => {
 })
 
 test('any other red on the same leg still fails and is reported as ours', () => {
-  const result = classify({
-    leg: 'typescript-next',
-    outcome: 'failure',
-    log: 'FAIL __spec__/build-env.spec.ts > inlines the public env\n'
-  })
+  const result = classify(
+    {
+      leg: 'typescript-next',
+      outcome: 'failure',
+      log: 'FAIL __spec__/build-env.spec.ts > inlines the public env\n'
+    },
+    breaks
+  )
 
   assert.equal(result.exitCode, 1)
   assert.equal(result.upstream, undefined)
@@ -69,16 +87,21 @@ test('any other red on the same leg still fails and is reported as ours', () => 
 })
 
 test('a known signature on another leg is not allowed there', () => {
-  assert.equal(findKnownBreak('rspack-canary', typescriptNextLog), null)
+  assert.equal(findKnownBreak('rspack-canary', typescriptNextLog, breaks), null)
   assert.equal(
-    classify({leg: 'rspack-canary', outcome: 'failure', log: typescriptNextLog})
-      .exitCode,
+    classify(
+      {leg: 'rspack-canary', outcome: 'failure', log: typescriptNextLog},
+      breaks
+    ).exitCode,
     1
   )
 })
 
 test('a leg that runs green again asks for its known break to be deleted', () => {
-  const result = classify({leg: 'typescript-next', outcome: 'success', log: ''})
+  const result = classify(
+    {leg: 'typescript-next', outcome: 'success', log: ''},
+    breaks
+  )
 
   assert.equal(result.exitCode, 0)
   assert.equal(result.lines.length, 1)
@@ -88,7 +111,21 @@ test('a leg that runs green again asks for its known break to be deleted', () =>
   )
 
   assert.deepEqual(
-    classify({leg: 'frameworks-next', outcome: 'success', log: ''}).lines,
+    classify({leg: 'frameworks-next', outcome: 'success', log: ''}, breaks)
+      .lines,
     []
   )
+})
+
+test('with rslib 1.0.6 locked, the getExePath red is ours to read again', () => {
+  assert.deepEqual(KNOWN_UPSTREAM_BREAKS, [])
+
+  const result = classify({
+    leg: 'typescript-next',
+    outcome: 'failure',
+    log: typescriptNextLog
+  })
+
+  assert.equal(result.exitCode, 1)
+  assert.equal(result.upstream, undefined)
 })
