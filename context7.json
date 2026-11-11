@@ -1,5 +1,7 @@
 {
   "$schema": "https://context7.com/schema/context7.json",
+  "url": "https://context7.com/extension-js/extension.js",
+  "public_key": "pk_VcO6c2WCClM0T0GZiniRw",
   "projectTitle": "Extension.js",
   "description": "Build browser extensions for Chrome, Edge, Firefox and Safari from one manifest.json, with no build configuration.",
   "excludeFolders": [
