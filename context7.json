@@ -1,5 +1,7 @@
 {
   "$schema": "https://context7.com/schema/context7.json",
+  "url": "https://context7.com/extension-js/extension.js",
+  "public_key": "pk_VcO6c2WCClM0T0GZiniRw",
   "projectTitle": "Extension.js",
   "description": "Build browser extensions for Chrome, Edge, Firefox and Safari from one manifest.json, with no build configuration.",
   "excludeFolders": [
@@ -10,7 +12,9 @@
     "scripts",
     "e2e-report",
     "test-results",
-    "UPSTREAM_BUG_repros"
+    "UPSTREAM_BUG_repros",
+    "programs/develop",
+    "extensions"
   ],
   "excludeFiles": [
     "CHANGELOG.md",
@@ -20,7 +24,10 @@
     "ASSURANCE_CASE.md",
     "TELEMETRY.md",
     "RELEASING.md",
-    "VERIFYING_RELEASES.md"
+    "VERIFYING_RELEASES.md",
+    "CONTRIBUTING.md",
+    "ARCHITECTURE.md",
+    "MESSAGING.md"
   ],
   "rules": [
     "The full documentation lives at https://extension.js.org and is indexed separately as /extension-js/extension.js.org. Prefer it for usage questions.",
@@ -28,8 +35,8 @@
     "Prefix a manifest key with a browser name when browsers differ. chromium: covers every Chromium browser, chrome: and edge: cover that one browser, firefox: and safari: cover theirs. A prefixed key wins over the plain key and is dropped elsewhere.",
     "Run npx extension@latest dev in the extension folder to open a browser with the extension loaded and reload it on save. Pass --browser=firefox, --browser=edge or --browser=safari to target another browser.",
     "Run npx extension@latest build --browser=<target> --zip to produce the package to upload to a store.",
-    "Scaffold a new project with npx extension@latest create <name>, optionally with --template <name>.",
-    "There is no bundler configuration to write. TypeScript, React, Vue, Svelte and Preact compile without one, so do not add a webpack or rspack config to a project.",
+    "Scaffold a new project with npx extension@latest create <name>, optionally with --template <name>. Template names come from github.com/extension-js/templates.",
+    "There is no bundler configuration to write. TypeScript, React, Vue, Svelte and Preact compile without one, so do not add a webpack or Rspack config to a project.",
     "A content script with world set to MAIN is Chromium only. Declare it with the chromium: prefix so the Firefox build leaves it out.",
     "Do not put a top-level key field in a manifest meant for Edge. Edge Add-ons rejects any manifest that contains one, and production Edge builds drop it."
   ]
