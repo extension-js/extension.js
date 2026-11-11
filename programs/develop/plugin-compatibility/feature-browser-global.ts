@@ -8,6 +8,7 @@
 
 import * as path from 'node:path'
 import {Compilation, type Compiler} from '@rspack/core'
+import {getManifestContent} from '../plugin-web-extension/feature-manifest/manifest-lib/manifest'
 import {scannableSourcePath} from '../plugin-web-extension/feature-manifest/steps/apply-dev-defaults-lib/dev-injected-hosts'
 import {
   type EmittedCompilation,
@@ -22,6 +23,7 @@ import {
   referencesBrowserGlobal
 } from './compatibility-lib/free-browser-references'
 import * as messages from './compatibility-lib/messages'
+import {nativeBrowserNamespaceFloor} from './compatibility-lib/native-browser-namespace'
 
 const HOT_UPDATE_RE = /\.hot-update\.js$/
 
@@ -90,6 +92,17 @@ function sourcesBehind(
   return [...sources].sort()
 }
 
+// The build's manifest refuses every Chromium too old to have the namespace,
+// so no browser that can install this extension lacks `browser`.
+export function declaresNativeBrowserNamespace(manifest: {
+  minimum_chrome_version?: unknown
+  devtools_page?: unknown
+}): boolean {
+  const major = Number.parseInt(String(manifest.minimum_chrome_version), 10)
+
+  return major >= nativeBrowserNamespaceFloor(manifest)
+}
+
 // Dev and start provide `browser` through the polyfill by default and build
 // does not, so a project written against it runs all through development and
 // ships a bundle that throws on first use. This names that before it ships.
@@ -125,6 +138,12 @@ export class WarnBrowserGlobalWithoutPolyfill {
             if (compilation.errors.length > 0) return
 
             try {
+              const manifest = getManifestContent(
+                compilation,
+                this.manifestPath
+              ) as {minimum_chrome_version?: unknown; devtools_page?: unknown}
+              if (declaresNativeBrowserNamespace(manifest)) return
+
               const scan = compilation as unknown as ScanCompilation
               const scripts = offendingScripts(scan)
               if (!scripts.length) return
@@ -136,7 +155,8 @@ export class WarnBrowserGlobalWithoutPolyfill {
               )
               const text = messages.browserGlobalWithoutPolyfill(
                 this.browser,
-                sources.length ? sources : scripts
+                sources.length ? sources : scripts,
+                nativeBrowserNamespaceFloor(manifest)
               )
 
               const WebpackErrorCtor = compiler.rspack?.WebpackError

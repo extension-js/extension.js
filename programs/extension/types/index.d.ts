@@ -5,8 +5,8 @@
 /// <reference path="./assets.d.ts" />
 
 declare global {
-  // Align types with Extension.js runtime: we provide the browser global via
-  // webextension-polyfill in Chromium; Firefox and Safari ship it natively.
+  // Firefox, Safari and Chromium 148 onward ship the browser global natively,
+  // and webextension-polyfill provides it on an older Chromium.
   const browser: typeof import('webextension-polyfill')
 
   // Every target the CLI accepts for --browser, so a branch on

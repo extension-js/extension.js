@@ -60,6 +60,7 @@ export class CompatibilityPlugin {
 
 - The polyfill is resolved from the bundler context. Ensure `webextension-polyfill` is installed next to the bundler config if you enable it.
 - Firefox and Safari natively support the promise-based `browser` global; we avoid injecting a polyfill for gecko and webkit targets (including `firefox`, `gecko-based`, `safari`, and `webkit-based`).
+- Chromium has the `browser` namespace natively from version 148, and from 152 for an extension that declares a `devtools_page`. The polyfill only matters for older Chromium browsers. A production build that reads `browser.*` with the polyfill off warns about it, and stays quiet once `minimum_chrome_version` in the manifest is at least 148 (152 with a `devtools_page`).
 
 ### License
 
