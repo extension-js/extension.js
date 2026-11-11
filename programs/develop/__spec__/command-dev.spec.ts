@@ -447,4 +447,55 @@ describe('webpack/command-dev', () => {
     expect(exitSpy).not.toHaveBeenCalled()
     exitSpy.mockRestore()
   })
+
+  it('hands the failure to onExitError only on the path that exits', async () => {
+    const failure = new Error('boom')
+    const onExitError = vi.fn()
+    const printed = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
+      throw new Error('exit 1')
+    })
+
+    ;(devServerMod as any).devServer.mockImplementation(async () => {
+      throw failure
+    })
+
+    await expect(
+      extensionDev('/proj', {browser: 'firefox', onExitError} as any)
+    ).rejects.toThrow('boom')
+
+    expect(onExitError).not.toHaveBeenCalled()
+
+    printed.mockClear()
+    // The exit path is off under vitest, so this run stands in for the CLI.
+    vi.stubEnv('VITEST', 'false')
+
+    try {
+      await expect(
+        extensionDev('/proj', {
+          browser: 'firefox',
+          exitOnError: true,
+          onExitError
+        } as any)
+      ).rejects.toThrow('exit 1')
+    } finally {
+      vi.unstubAllEnvs()
+      ;(devServerMod as any).devServer.mockImplementation(async () => {})
+    }
+
+    expect(onExitError).toHaveBeenCalledTimes(1)
+    expect(onExitError).toHaveBeenCalledWith(failure)
+    expect(exitSpy).toHaveBeenCalledWith(1)
+    // The report comes after the one printed block and before the exit.
+    expect(printed).toHaveBeenCalledTimes(1)
+    expect(printed.mock.invocationCallOrder[0]).toBeLessThan(
+      onExitError.mock.invocationCallOrder[0]
+    )
+
+    expect(onExitError.mock.invocationCallOrder[0]).toBeLessThan(
+      exitSpy.mock.invocationCallOrder[0]
+    )
+
+    exitSpy.mockRestore()
+  })
 })
