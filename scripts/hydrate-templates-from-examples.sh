@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 TEMPLATES_DIR="$ROOT_DIR/templates"
 SCRIPTS_DIR="$ROOT_DIR/scripts"
-REPO_URL="https://github.com/extension-js/examples"
+REPO_URL="https://github.com/extension-js/templates"
 
 # Pin the examples ref so a readiness verdict maps to a known examples commit.
 # Default stays `main` (prior behavior); set EXAMPLES_REF=<sha|tag|branch> in CI
@@ -37,7 +37,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-echo "Hydrating templates from extension-js/examples @ ${EXAMPLES_REF}"
+echo "Hydrating templates from extension-js/templates @ ${EXAMPLES_REF}"
 # Shallow-clone the requested ref. A branch/tag clones directly; a full SHA
 # (not a named ref) is fetched explicitly since `git clone --branch` rejects
 # raw commit hashes.
@@ -126,4 +126,4 @@ for template_dir in "$TEMPLATES_DIR"/*/; do
   )
 done
 
-echo "Templates hydrated from extension-js/examples."
+echo "Templates hydrated from extension-js/templates."

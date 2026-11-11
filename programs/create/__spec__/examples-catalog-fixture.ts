@@ -4,7 +4,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {strToU8, zipSync} from 'fflate'
 
-// A stand-in for the extension-js/examples archive. The bytes are fixture bytes,
+// A stand-in for the extension-js/templates archive. The bytes are fixture bytes,
 // never the published starter's: a spec that needs the real corpus goes in a
 // *.remote.spec.ts file, which the gates skip.
 export interface ExamplesCatalogFixture {
@@ -90,7 +90,7 @@ export async function serveExamplesCatalog(
   const port = await new Promise<string>((resolve, reject) => {
     let out = ''
     const timer = setTimeout(() => {
-      reject(new Error('the examples catalog fixture never reported a port'))
+      reject(new Error('the templates catalog fixture never reported a port'))
     }, 20_000)
 
     child.stdout.setEncoding('utf8')

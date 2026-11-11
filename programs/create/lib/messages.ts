@@ -222,7 +222,7 @@ export function templateNotFoundInCatalog(
 ) {
   return (
     `${prefix('error')} The template ${colors.blue(templateName)} ` +
-    `is not in the extension-js/examples catalog.\n` +
+    `is not in the extension-js/templates catalog.\n` +
     (error
       ? `${fmt.label('REASON')} ${fmt.val(fmt.truncate(String(error)))}\n`
       : '') +
@@ -251,7 +251,7 @@ function causeDigest(error: unknown) {
 export function templatePathNotFound(requested: string) {
   return (
     `${prefix('error')} Couldn't find the template ${colors.blue(requested)}.\n` +
-    `${fmt.label('SEARCHED')} ${fmt.val(`that path on this machine, then the extension-js/examples catalog for ${path.basename(requested)}`)}\n` +
+    `${fmt.label('SEARCHED')} ${fmt.val(`that path on this machine, then the extension-js/templates catalog for ${path.basename(requested)}`)}\n` +
     `${colors.red('- Pass the path of a template directory that exists.')}\n` +
     `${colors.red('- Run')} ${colors.blue('extension create --help')} ${colors.red('to list the valid template names.')}`
   )
@@ -334,7 +334,7 @@ export function templateArchiveEntryOutside(
 // The URL came from the environment and not the command line, so the remedy
 // names the variable to fix. No bundled template stands in for it.
 function overrideRemedy() {
-  return `${colors.red('Point')} ${colors.blue('EXTENSION_CREATE_TEMPLATE_URL')} ${colors.red('at a ZIP of the examples catalog, or unset it to use the default catalog.')}`
+  return `${colors.red('Point')} ${colors.blue('EXTENSION_CREATE_TEMPLATE_URL')} ${colors.red('at a ZIP of the templates catalog, or unset it to use the default catalog.')}`
 }
 
 export function templateOverrideFetchFailed(url: string, error: unknown) {
@@ -351,7 +351,7 @@ export function templateOverrideFetchFailed(url: string, error: unknown) {
 export function templateDownloadFailed(templateName: string, error: unknown) {
   return (
     `${prefix('error')} Couldn't download the template ${colors.blue(templateName)} ` +
-    `from ${fmt.val('github.com/extension-js/examples')}.\n` +
+    `from ${fmt.val('github.com/extension-js/templates')}.\n` +
     `${fmt.label('REASON')} ${fmt.val(fmt.truncate(String((error as Error | undefined)?.message || error)))}\n` +
     `${colors.red('- Check your network connection and any GitHub rate limit, then try again.')}\n` +
     `${colors.red('- Set')} ${colors.blue('EXTENSION_CREATE_TIMEOUT_MS')} ${colors.red('to allow more time.')}`
@@ -369,7 +369,7 @@ export function templateOfflineFallback(
 ) {
   return (
     `${prefix('info')} Couldn't download the template ${colors.blue(requestedTemplate)} ` +
-    `from ${fmt.val('github.com/extension-js/examples')}, so this scaffold uses the ` +
+    `from ${fmt.val('github.com/extension-js/templates')}, so this scaffold uses the ` +
     `offline ${colors.blue(fallbackTemplate)} template instead.\n` +
     `${fmt.label('REASON')} ${fmt.val(fmt.truncate(String((error as Error | undefined)?.message || error)))}\n` +
     `${colors.gray('- Reconnect and run')} ${colors.blue(`extension create --template ${requestedTemplate}`)} ${colors.gray('to scaffold it.')}`

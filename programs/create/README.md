@@ -53,7 +53,7 @@ Creates a new extension project with the specified configuration.
 
 ## Templates
 
-Templates are sourced from the public examples repository. Browse the catalog in the [Extension.js examples](https://github.com/extension-js/examples) and reference templates by name (for example, `content`, `content-react`, `content-vue`).
+Templates are sourced from the public templates repository. Browse the catalog in the [Extension.js templates](https://github.com/extension-js/templates) and reference templates by name (for example, `content`, `content-react`, `content-vue`).
 
 ## License
 

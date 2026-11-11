@@ -16,7 +16,7 @@ Related workspaces:
 - `extensions/*`, built-in extensions loaded by Extension.js
 
 Templates used by `extension create` live in the external
-[extension-js/examples](https://github.com/extension-js/examples) repo; CI hydrates
+[extension-js/templates](https://github.com/extension-js/templates) repo; CI hydrates
 them into a local `templates/` directory via `scripts/hydrate-templates-from-examples.sh`.
 
 ### What is inside `templates/*/node_modules`

@@ -3,7 +3,7 @@ name: CI – Reload Matrix Smoke
 # EXPERIMENTAL / MANUAL. The reload-matrix harness measures ground-truth
 # service-worker-restart and page-navigation counts for `extension dev` against
 # real Chrome via CDP, the most user-visible correctness signal we have. It
-# lives in the separate extension-js/examples repo and, in `local` mode, is
+# lives in the separate extension-js/templates repo and, in `local` mode, is
 # hardcoded to resolve the CLI from `<monorepo>/programs/extension/dist/cli.cjs`
 # and its fixtures from `<monorepo>/_FUTURE/examples/examples`, both relative to
 # its own location at `_FUTURE/examples/scripts/reload-matrix/`. `_FUTURE/` is
@@ -19,7 +19,7 @@ on:
   workflow_dispatch:
     inputs:
       examples_ref:
-        description: 'extension-js/examples ref to pin (sha/tag/branch)'
+        description: 'extension-js/templates ref to pin (sha/tag/branch)'
         required: false
         default: 'main'
 
@@ -52,10 +52,10 @@ jobs:
         run: |
           REF="${{ github.event.inputs.examples_ref }}"
           mkdir -p _FUTURE
-          if git clone --depth 1 --branch "$REF" https://github.com/extension-js/examples _FUTURE/examples 2>/dev/null; then
+          if git clone --depth 1 --branch "$REF" https://github.com/extension-js/templates _FUTURE/examples 2>/dev/null; then
             :
           else
-            git clone https://github.com/extension-js/examples _FUTURE/examples
+            git clone https://github.com/extension-js/templates _FUTURE/examples
             git -C _FUTURE/examples checkout "$REF"
           fi
           echo "examples_commit=$(git -C _FUTURE/examples rev-parse HEAD)" >> "$GITHUB_OUTPUT"

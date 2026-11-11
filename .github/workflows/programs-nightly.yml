@@ -255,7 +255,7 @@ jobs:
 
   bundled-template-drift:
     # Early warning for discussion #478: the bundled `javascript` template
-    # (programs/create/templates/javascript) must track extension-js/examples.
+    # (programs/create/templates/javascript) must track extension-js/templates.
     # publish-release.yml runs the same check as a hard release gate.
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -297,7 +297,7 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           node-version: '22'
-      - name: Scaffold from the real examples catalog
+      - name: Scaffold from the real templates catalog
         run: pnpm test:remote
       - name: Report a red lane
         if: failure()
@@ -305,13 +305,13 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RED_LANE_REPRO: |
             pnpm test:remote
-        run: bash scripts/report-red-lane.sh "Nightly examples catalog"
+        run: bash scripts/report-red-lane.sh "Nightly templates catalog"
 
       - name: Close the red lane
         if: success()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: bash scripts/close-red-lane.sh "Nightly examples catalog"
+        run: bash scripts/close-red-lane.sh "Nightly templates catalog"
 
   # Bun and Deno already get a build and a headless dev run on every pull
   # request. A real browser launch is the one thing that lane cannot carry,

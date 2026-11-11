@@ -116,7 +116,7 @@ describe('a known create refusal prints its frame and nothing else', () => {
     expect(result.stderr).not.toMatch(STACK_FRAME)
     expect(result.stderr).not.toContain('TemplateNotFoundError')
     expect(
-      result.stderr.match(/is not in the extension-js\/examples catalog/g)
+      result.stderr.match(/is not in the extension-js\/templates catalog/g)
     ).toHaveLength(1)
   }, 60000)
 
@@ -140,7 +140,7 @@ describe('a known create refusal prints its frame and nothing else', () => {
       )
     ).toHaveLength(1)
 
-    expect(result.stderr).not.toContain('github.com/extension-js/examples')
+    expect(result.stderr).not.toContain('github.com/extension-js/templates')
   }, 60000)
 
   it('when the template URL is plain http', async () => {

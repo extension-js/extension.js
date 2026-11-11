@@ -4,7 +4,7 @@ import {isUrlProjectName} from '../project-name'
 describe('isUrlProjectName', () => {
   it('refuses an http or https URL in any case', () => {
     expect(isUrlProjectName('http://example.com')).toBe(true)
-    expect(isUrlProjectName('https://github.com/extension-js/examples')).toBe(
+    expect(isUrlProjectName('https://github.com/extension-js/templates')).toBe(
       true
     )
 

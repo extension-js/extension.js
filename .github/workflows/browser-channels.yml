@@ -25,7 +25,7 @@ jobs:
         include:
           # `spec` is what @puppeteer/browsers resolves, `binary_env` is the
           # variable the hydrated specs read (extension-fixtures.ts and the
-          # content-reload specs in extension-js/examples), `deps` names the
+          # content-reload specs in extension-js/templates), `deps` names the
           # Playwright system-library set the channel binary needs.
           - channel: chrome-canary
             spec: chrome@canary
