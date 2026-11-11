@@ -9,6 +9,10 @@
 import colors from 'pintor'
 import {type Channel, prefix} from '../../lib/messaging'
 import type {DevOptions} from '../../types'
+import {
+  NATIVE_BROWSER_NAMESPACE_CHROMIUM,
+  NATIVE_BROWSER_NAMESPACE_CHROMIUM_DEVTOOLS
+} from './native-browser-namespace'
 
 function getLoggingPrefix(type: Channel): string {
   return prefix(type)
@@ -34,18 +38,26 @@ function browserKey(browser: DevOptions['browser']) {
 // so the sentence says "may" and names the guard that would settle it.
 export function browserGlobalWithoutPolyfill(
   browser: DevOptions['browser'],
-  files: string[]
+  files: string[],
+  floor: number = NATIVE_BROWSER_NAMESPACE_CHROMIUM
 ) {
   const subject = files.length === 1 ? files[0] : files.join(', ')
   const target = browserKey(browser)
+  const since =
+    floor === NATIVE_BROWSER_NAMESPACE_CHROMIUM_DEVTOOLS
+      ? `Chromium ${String(floor)} for an extension with a devtools_page`
+      : `Chromium ${String(floor)}`
 
   return (
-    `${subject} uses browser.*, which ${target} only has through ` +
-    `the cross-browser polyfill, and this build has the polyfill off. ` +
+    `${subject} uses browser.*, which ${target} has natively only from ` +
+    `${since}. Older versions get it through the cross-browser polyfill, ` +
+    `and this build has the polyfill off. ` +
     `extension dev and extension start turn it on by default while ` +
     `extension build leaves it off, so the dev session works and the ` +
     `packaged build may throw "browser is not defined" if this code runs ` +
-    `on ${target}. Build with --polyfill, set commands.build.polyfill to ` +
+    `on ${target} older than ${String(floor)}. Set minimum_chrome_version ` +
+    `to "${String(floor)}" in manifest.json if older versions are out of ` +
+    `scope, build with --polyfill, set commands.build.polyfill to ` +
     `true in extension.config.js, guard the read with a typeof browser ` +
     `check or a branch on ` +
     `import.meta.env.EXTENSION_PUBLIC_BROWSER, or call chrome.* instead.`

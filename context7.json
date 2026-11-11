@@ -37,7 +37,7 @@
     "Run npx extension@latest build --browser=<target> --zip to produce the package to upload to a store.",
     "Scaffold a new project with npx extension@latest create <name>, optionally with --template <name>. Template names come from github.com/extension-js/templates.",
     "There is no bundler configuration to write. TypeScript, React, Vue, Svelte and Preact compile without one, so do not add a webpack or Rspack config to a project.",
-    "A content script with world set to MAIN is Chromium only. Declare it with the chromium: prefix so the Firefox build leaves it out.",
+    "A content script with world set to MAIN runs in the page's own JavaScript world on Chrome 111, Firefox 128 and Safari 18 or later. It has no extension APIs there, so pair it with an isolated content script to reach the extension.",
     "Do not put a top-level key field in a manifest meant for Edge. Edge Add-ons rejects any manifest that contains one, and production Edge builds drop it."
   ]
 }

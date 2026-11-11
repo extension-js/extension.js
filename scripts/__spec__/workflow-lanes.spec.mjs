@@ -247,3 +247,21 @@ test('a canary red is allowed only when it names a known upstream break', () => 
     /if: steps\.suite\.outcome == 'success'/
   )
 })
+
+test('the cli suite reaches the apt archive only when the image has no Xvfb', () => {
+  const installs = workflow('ci.yml')
+    .split('- name: Install xvfb (cli suite)')
+    .slice(1)
+    .map((rest) => rest.split('\n      - name: ')[0])
+
+  assert.equal(installs.length, 2)
+
+  for (const install of installs) {
+    const guard = install.indexOf('if command -v Xvfb >/dev/null 2>&1; then')
+    const archive = install.indexOf('sudo apt-get')
+
+    assert.notEqual(guard, -1)
+    assert.ok(guard < archive)
+    assert.match(install.slice(guard, archive), /exit 0/)
+  }
+})

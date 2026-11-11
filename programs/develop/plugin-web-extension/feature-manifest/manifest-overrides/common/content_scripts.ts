@@ -17,7 +17,7 @@ import {getFilename} from '../../../shared/paths'
 interface ContentObj {
   js?: string[] | undefined
   css?: string[] | undefined
-  // Chromium-only (MV3+) field
+  // Chrome 111, Firefox 128 and Safari 18 onward, MV2 included on Firefox
   world?: 'MAIN' | 'ISOLATED' | string | undefined
 }
 
