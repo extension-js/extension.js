@@ -31,6 +31,8 @@ export interface FakeSafariState {
   unsignedSticks?: boolean
   enabledSticks?: boolean
   blocker?: string | null
+  alert?: {text: string; buttons: string[]} | null
+  unsignedTurnsOnAfterReads?: number
 }
 
 export interface FakeSafariUiTools extends SafariUiTools {
@@ -122,6 +124,8 @@ export function fakeSafariUiTools(
         return ok({ok: true, running: state.running})
       }
 
+      if (kind === 'alert') return ok({ok: true, alert: state.alert ?? null})
+
       if (kind === 'close') {
         return ok({
           ok: true,
@@ -138,6 +142,14 @@ export function fakeSafariUiTools(
         case 'unsigned': {
           const before = state.unsigned
           if (head?.action === 'on' && !state.unsignedSticks) state.unsigned = 1
+
+          if (
+            head?.action === 'read' &&
+            typeof state.unsignedTurnsOnAfterReads === 'number'
+          ) {
+            state.unsignedTurnsOnAfterReads -= 1
+            if (state.unsignedTurnsOnAfterReads <= 0) state.unsigned = 1
+          }
 
           return ok({
             ok: true,

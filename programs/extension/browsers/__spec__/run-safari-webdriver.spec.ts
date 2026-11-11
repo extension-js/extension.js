@@ -533,6 +533,20 @@ describe('safari dev session and its safaridriver', () => {
     expect(await waitForExit(tools.webdriverProcesses[0]?.pid)).toBe(true)
   })
 
+  it('a session request held by an alert quotes it and does not ask again', async () => {
+    const tools = standInTools('hang', fakeSafari)
+    const blocker =
+      'Safari shows an alert that waits for an answer ("the address is invalid", buttons OK), and it holds every step behind it: answer it in Safari, then run again'
+    const outcome = await openSafariWebDriverSession(tools, {
+      createMs: 400,
+      readBlocker: async () => blocker
+    })
+
+    expect(outcome.reason).toBe(
+      `the WebDriver session request failed: safaridriver did not answer the session request within 0.4 s. ${blocker}`
+    )
+  })
+
   it('a session request Safari never answers names why and asks once more', async () => {
     const tools = standInTools('hang', fakeSafari)
     const outcome = await openSafariWebDriverSession(tools, {createMs: 400})

@@ -23,14 +23,17 @@ import {
 import type {BrowserLogger, CompilationLike} from '../../browsers-types'
 import type {SafariBuildConfig, SafariPluginLike} from '../safari-types'
 import {
+  alertReason,
   checkAccessibility,
   closeSafariSettings,
   createSafariUiTools,
   type EnableStep,
   enableSafariExtension,
   extensionCheckboxId,
+  readSafariAlert,
   SafariUiError
 } from '../safari-ui'
+import type {SafariUiTools} from '../safari-ui/tools'
 import {APP_ICON_FULL_SIZE, applyAppIcon} from './app-icon'
 import {rememberRaisedContainerApp} from './container-app'
 import {logSafariDryRun} from './dry-run'
@@ -302,6 +305,10 @@ async function enableThroughSafariUi(
       },
       appPath,
       tools: uiTools,
+      unsignedWaitMs: host.unsignedWaitMs,
+      onUnsignedWait: (seconds) => {
+        logger.info?.(messages.safariUnsignedWait(seconds))
+      },
       onStep: (step) => {
         stamp.step = step.step
 
@@ -315,6 +322,10 @@ async function enableThroughSafariUi(
               : undefined
           )
         )
+
+        if (step.step === 'unsigned' && step.changed && step.ok) {
+          logger.info?.(messages.safariUnsignedWakesOthers())
+        }
       }
     })
 
@@ -547,7 +558,8 @@ async function holdWebDriverSession(
   tools: SafariPipelineTools,
   config: SafariBuildConfig,
   logger: BrowserLogger,
-  startingUrl?: string
+  startingUrl?: string,
+  uiTools?: SafariUiTools
 ): Promise<void> {
   const runId = readReadyRunId(config.extensionDir)
   stampReadyWebDriver(
@@ -558,7 +570,20 @@ async function holdWebDriverSession(
 
   await closeSafariWebDriverSessions()
 
-  const outcome = await openSafariWebDriverSession(tools)
+  // Safari's UI is read only for a run that asked to drive it, so no other
+  // run meets an Accessibility prompt it did not ask for.
+  const outcome = await openSafariWebDriverSession(
+    tools,
+    uiTools
+      ? {
+          readBlocker: async () => {
+            const alert = await readSafariAlert(uiTools)
+
+            return alert ? alertReason(alert) : null
+          }
+        }
+      : {}
+  )
 
   if (outcome.session) {
     const {port, sessionId} = outcome.session
@@ -1016,7 +1041,14 @@ async function runSafariPipeline(
   }
 
   if (host.announceDevReady) {
-    await holdWebDriverSession(tools, config, logger, host.startingUrl)
+    await holdWebDriverSession(
+      tools,
+      config,
+      logger,
+      host.startingUrl,
+      host.enableExtension ? host.uiTools || createSafariUiTools() : undefined
+    )
+
     answerWebDriverRequests(tools, config, logger)
     await announceSafariDevSession(host, config, appPath)
   }

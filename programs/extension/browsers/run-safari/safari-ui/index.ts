@@ -16,6 +16,7 @@ import {
   parseCommandShortcut,
   pressShortcutScript,
   readShortcutScript,
+  safariAlertScript,
   safariRunningScript,
   shortcutFromGlyphs,
   toolbarButtonId,
@@ -146,7 +147,10 @@ export interface EnableInput {
   appPath: string
   tools?: SafariUiTools
   onStep?: (step: EnableStep) => void
+  onUnsignedWait?: (seconds: number) => void
   startWaitMs?: number
+  unsignedWaitMs?: number
+  unsignedPollMs?: number
 }
 
 const SAFARI_START_MS = 20_000
@@ -193,12 +197,72 @@ async function ensureSafariRunning(
   )
 }
 
-function unsignedBlockedReason(blocker: unknown): string {
+function unsignedBlockedReason(blocker: unknown, waitedMs: number): string {
   const where = 'Safari > Settings > Developer > Allow unsigned extensions'
 
   return typeof blocker === 'string' && blocker
     ? `${where} still reads off after the click, and ${blocker}: answer it in Safari, then run again`
-    : `${where} still reads off after the click, and no prompt this run can see waits for an answer: turn it on there by hand, then run again`
+    : `${where} still reads off ${Number((waitedMs / 1000).toFixed(1))} s after the click: Safari asks for Touch ID or the password before it turns this on, and this run cannot answer that. Answer it or turn the box on by hand, then run again`
+}
+
+const UNSIGNED_WAIT_MS = 60_000
+const UNSIGNED_POLL_MS = 1000
+
+// Safari turns the box on once the person answers Touch ID or the password,
+// a prompt System Events never lists, so the box is read until the wait ends.
+async function waitForUnsignedOn(
+  tools: SafariUiTools,
+  waitMs: number,
+  pollMs: number
+): Promise<boolean> {
+  const deadline = Date.now() + waitMs
+
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, pollMs))
+
+    try {
+      const read = await runAnswer(tools, unsignedExtensionsScript('read'))
+
+      if (asText(read.after) === '1') return true
+    } catch {
+      // A read held behind the prompt is tried again until the wait ends
+    }
+  }
+
+  return false
+}
+
+export function alertReason(alert: SafariAlert): string {
+  const buttons =
+    alert.buttons.length > 0 ? `, buttons ${alert.buttons.join(', ')}` : ''
+
+  return `Safari shows an alert that waits for an answer ("${alert.text || 'no text'}"${buttons}), and it holds every step behind it: answer it in Safari, then run again`
+}
+
+export interface SafariAlert {
+  text: string
+  buttons: string[]
+}
+
+// Never throws: a read that fails says nothing about an alert.
+export async function readSafariAlert(
+  tools: SafariUiTools = createSafariUiTools()
+): Promise<SafariAlert | null> {
+  try {
+    if (tools.platform !== 'darwin') return null
+
+    const answer = await runAnswer(tools, safariAlertScript())
+    const alert = answer.alert as Record<string, unknown> | null | undefined
+
+    if (!alert || typeof alert !== 'object') return null
+
+    return {
+      text: String(alert.text || ''),
+      buttons: Array.isArray(alert.buttons) ? alert.buttons.map(String) : []
+    }
+  } catch {
+    return null
+  }
 }
 
 // Safari 26 kept a scripted click on a team-signed row and dropped the same
@@ -248,6 +312,18 @@ export async function enableSafariExtension(
 
   if (started) record(started)
 
+  const alert = await readSafariAlert(tools)
+
+  if (alert) {
+    return {
+      enabled: false,
+      listed: false,
+      otherWebsites: null,
+      steps,
+      reason: alertReason(alert)
+    }
+  }
+
   const adHoc = !String(developmentTeam || '').trim()
   const current = await runAnswer(
     tools,
@@ -267,11 +343,25 @@ export async function enableSafariExtension(
   } else {
     if (adHoc) {
       const unsigned = await runAnswer(tools, unsignedExtensionsScript('on'))
-      const unsignedOn = asText(unsigned.after) === '1'
+      const waitMs = input.unsignedWaitMs ?? UNSIGNED_WAIT_MS
+      let unsignedOn = asText(unsigned.after) === '1'
+      let waitedMs = 0
+
+      if (!unsignedOn && unsigned.clicked && !unsigned.blocker && waitMs > 0) {
+        input.onUnsignedWait?.(Number((waitMs / 1000).toFixed(1)))
+        unsignedOn = await waitForUnsignedOn(
+          tools,
+          waitMs,
+          input.unsignedPollMs ?? UNSIGNED_POLL_MS
+        )
+
+        waitedMs = waitMs
+      }
+
       record({
         step: 'unsigned',
         before: asText(unsigned.before),
-        after: asText(unsigned.after),
+        after: unsignedOn ? '1' : asText(unsigned.after),
         changed: Boolean(unsigned.clicked),
         ok: unsignedOn
       })
@@ -282,7 +372,7 @@ export async function enableSafariExtension(
           listed: false,
           otherWebsites: null,
           steps,
-          reason: unsignedBlockedReason(unsigned.blocker)
+          reason: unsignedBlockedReason(unsigned.blocker, waitedMs)
         }
       }
     }

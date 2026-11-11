@@ -1438,6 +1438,18 @@ export function safariEnableStep(
   return `${getLoggingPrefix('info')} Safari ${step}: ${reading}${detail ? ` ${colors.gray(detail)}` : ''}.`
 }
 
+export function safariUnsignedWait(seconds: number) {
+  return `${getLoggingPrefix('info')} Safari asks for Touch ID or the password before it allows unsigned extensions. Answer it in Safari, this run reads the box for ${seconds} s.`
+}
+
+// The box is one setting for all of Safari, not for this project.
+export function safariUnsignedWakesOthers() {
+  return (
+    `${getLoggingPrefix('info')} Allow unsigned extensions is on for every unsigned extension Safari remembers, so one from another project can run or open a window too. ` +
+    `Pass ${colors.yellow('--development-team')} to sign this build and leave the box off.`
+  )
+}
+
 export function safariEnabled(appName: string, otherWebsites: string | null) {
   return `${getLoggingPrefix('success')} ${colors.yellow(appName)} is on in Safari, other websites ${colors.yellow(otherWebsites ?? 'unread')}.`
 }
