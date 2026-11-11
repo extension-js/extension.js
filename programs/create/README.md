@@ -1,6 +1,6 @@
-[npm-version-image]: https://img.shields.io/npm/v/extension-create.svg?color=0971fe
+[npm-version-image]: https://img.shields.io/npm/v/extension-create.svg?color=0065e6
 [npm-version-url]: https://www.npmjs.com/package/extension-create
-[npm-downloads-image]: https://img.shields.io/npm/dm/extension-create.svg?color=0971fe
+[npm-downloads-image]: https://img.shields.io/npm/dm/extension-create.svg?color=0065e6
 [npm-downloads-url]: https://www.npmjs.com/package/extension-create
 [action-image]: https://github.com/extension-js/extension.js/actions/workflows/ci.yml/badge.svg?branch=main
 [action-url]: https://github.com/extension-js/extension.js/actions/workflows/ci.yml

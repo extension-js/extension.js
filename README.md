@@ -1,12 +1,12 @@
-[npm-version-image]: https://img.shields.io/npm/v/extension.svg?color=0971fe
+[npm-version-image]: https://img.shields.io/npm/v/extension.svg?color=0065e6
 [npm-version-url]: https://www.npmjs.com/package/extension
-[npm-downloads-image]: https://img.shields.io/npm/dm/extension.svg?color=0971fe
+[npm-downloads-image]: https://img.shields.io/npm/dm/extension.svg?color=0065e6
 [npm-downloads-url]: https://www.npmjs.com/package/extension
-[action-image]: https://github.com/extension-js/extension.js/actions/workflows/ci.yml/badge.svg?branch=main&color=0971fe
+[action-image]: https://github.com/extension-js/extension.js/actions/workflows/ci.yml/badge.svg?branch=main&color=0065e6
 [action-url]: https://github.com/extension-js/extension.js/actions
-[discord-image]: https://img.shields.io/discord/1253608412890271755?label=Discord&logo=discord&style=flat&color=0971fe
+[discord-image]: https://img.shields.io/discord/1253608412890271755?label=Discord&logo=discord&style=flat&color=0065e6
 [discord-url]: https://discord.gg/BRqbPDfPxb
-[bestpractices-image]: https://img.shields.io/cii/level/14662?label=Best%20Practices&style=flat&color=0971fe
+[bestpractices-image]: https://img.shields.io/cii/level/14662?label=Best%20Practices&style=flat&color=0065e6
 [bestpractices-url]: https://www.bestpractices.dev/projects/14662
 
 # Extension.js [![Version][npm-version-image]][npm-version-url] [![Downloads][npm-downloads-image]][npm-downloads-url] [![CI][action-image]][action-url] [![Discord][discord-image]][discord-url] [![Best Practices][bestpractices-image]][bestpractices-url]
