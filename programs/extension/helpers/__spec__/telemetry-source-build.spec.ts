@@ -89,7 +89,7 @@ describe('a run from a clone is not a run from an install', () => {
     expect(typeof properties.is_ci).toBe('boolean')
   })
 
-  it('carries no path, no user and no new field beyond the boolean', () => {
+  it('carries no path, no user and no field beyond the audited list', () => {
     const telemetry = new Telemetry({app: 'extension', version: '4.0.24'})
     telemetry.track('command_executed', {
       command: 'create',
@@ -109,6 +109,7 @@ describe('a run from a clone is not a run from an install', () => {
         'is_source_build',
         'node_major',
         'os',
+        'package_manager',
         'success',
         'version'
       ].sort()

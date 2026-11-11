@@ -55,9 +55,14 @@ row, and the failure then arrives as its own `command_failed` row.
 A started row alone cannot tell a `dev` that worked from one that hung before the browser
 opened. So `dev` reports once more, at most once per run, when the session is ready to use:
 
-- with a browser, when the browser launch finished and the browser accepted the extension. A
-  session the browser refused reports ready only if a later compile gets the extension loaded.
-- with Safari, when the first build of the Safari app finished.
+- with a launched browser, when the browser launch finished and the browser accepted the
+  extension. A session the browser refused reports ready only if a later compile gets the
+  extension loaded. `--no-open` changes nothing here: the browser still launches and only the
+  extension tab is skipped, so the row is sent at the same moment.
+- with Safari, when the first packaging pass finished: the app was converted and built, or
+  reused when nothing changed, then opened and checked for registration with Safari. With
+  `--no-open` the pass ends once the app is built. The row does not say the extension is
+  enabled in Safari. It is sent whether or not that switch was turned on.
 - with `--no-browser`, when the first compile finished without errors, since there is no
   browser to wait for.
 
