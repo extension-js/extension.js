@@ -283,6 +283,9 @@ describe('a dev session reports itself while it is still running', () => {
         ],
         {
           NO_COLOR: '1',
+          // Node 22.12 warns on stderr when CommonJS loads an ES module; that
+          // line is Node's, not ours, and stderr is compared whole below.
+          NODE_NO_WARNINGS: '1',
           EXTENSION_ENV: 'test',
           POSTHOG_HOST: `http://127.0.0.1:${server.port}`,
           EXTENSION_TELEMETRY: '1',
