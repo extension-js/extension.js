@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "extension-dev": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@extension.dev/mcp@latest"],
+      "env": {}
+    },
+    "extensionjs": {
+      "type": "http",
+      "url": "https://extensionjs.mintlify.app/mcp"
+    }
+  }
+}
