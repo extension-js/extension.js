@@ -26,7 +26,13 @@ export interface CreateDirectoryResult {
 // Hidden files pass the conflict check so a repository can adopt the
 // scaffold in place, but the ones a template ships are named up front
 // rather than silently written over.
-const HIDDEN_FILES_TEMPLATES_SHIP = ['.gitignore']
+const HIDDEN_FILES_TEMPLATES_SHIP: Record<
+  string,
+  (projectName: string) => string
+> = {
+  '.gitignore': messages.keepingExistingGitignore,
+  '.mcp.json': messages.keepingExistingMcpConfig
+}
 
 export async function createDirectory(
   projectPath: string,
@@ -71,9 +77,11 @@ export async function createDirectory(
       throw new Error(conflictMessage)
     }
 
-    for (const hidden of HIDDEN_FILES_TEMPLATES_SHIP) {
+    for (const [hidden, keeping] of Object.entries(
+      HIDDEN_FILES_TEMPLATES_SHIP
+    )) {
       if (currentDir.includes(hidden)) {
-        logger.log(messages.keepingExistingGitignore(projectName))
+        logger.log(keeping(projectName))
       }
     }
   } catch (error) {
