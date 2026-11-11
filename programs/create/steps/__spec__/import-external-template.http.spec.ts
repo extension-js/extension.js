@@ -55,7 +55,7 @@ describe('importExternalTemplate refuses plain HTTP template URLs', () => {
   it.each([
     'http://example.com/template.zip',
     'HTTP://example.com/template.zip',
-    'http://github.com/extension-js/examples/tree/main/examples/content'
+    'http://github.com/extension-js/templates/tree/main/examples/content'
   ])('refuses %s before any network request', async (url) => {
     const projectPath = await makeProjectPath()
 

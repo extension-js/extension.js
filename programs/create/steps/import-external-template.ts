@@ -68,7 +68,7 @@ const NETWORK_TIMEOUT_MS = (() => {
 
 // codeload serves a repo archive per ref namespace: a commit at /zip/<sha>, a tag
 // at /zip/refs/tags/<tag>, a branch at /zip/refs/heads/<branch>.
-const CODELOAD_BASE = 'https://codeload.github.com/extension-js/examples/zip'
+const CODELOAD_BASE = 'https://codeload.github.com/extension-js/templates/zip'
 
 // The default corpus is PINNED to an immutable commit, so two scaffolds of the
 // same template always match and the shipped CLI never tracks a moving branch.
@@ -124,7 +124,7 @@ export function resolveCatalogUrls(
 // Where a scaffold's files actually came from, so the created project can record
 // exactly which corpus it was cut from (reproducibility). `source` is the
 // resolved URL, `bundled` for the local fallback or `local` for a directory; `ref` is the requested
-// template ref when the examples catalog was used.
+// template ref when the templates catalog was used.
 export interface TemplateProvenance {
   template: string
   source: string
@@ -646,7 +646,7 @@ function realPathOrResolved(target: string): string {
   }
 }
 
-// Gallery + E2E files the extension-js/examples repo carries; useless in a
+// Gallery + E2E files the extension-js/templates repo carries; useless in a
 // scaffolded project (template.spec.ts even trips tsc --noEmit). Issue #476.
 export const TEMPLATE_SCAFFOLDING_FILES = [
   'template.meta.json',
@@ -1038,7 +1038,7 @@ export async function importExternalTemplate(
       provenance = {template: resolvedTemplateName, source: template}
     } else {
       // Built-in template names resolve to one folder in the extension-js/
-      // examples catalog, fetched as an HTTP tarball; no git, one template (#56).
+      // templates catalog, fetched as an HTTP tarball; no git, one template (#56).
       const catalog = await importFromExamplesCatalog(
         resolvedTemplateName,
         projectPath

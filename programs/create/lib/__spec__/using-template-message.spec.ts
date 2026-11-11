@@ -4,7 +4,7 @@ import {usingTemplate} from '../messages'
 const ANSI = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'g')
 const plain = (text: string) => text.replace(ANSI, '')
 const CODELOAD =
-  'https://codeload.github.com/extension-js/examples/zip/d69e46b311c27d11a98d241494023101b337281f'
+  'https://codeload.github.com/extension-js/templates/zip/d69e46b311c27d11a98d241494023101b337281f'
 const DEBUG_KEY = 'EXTENSION_DEBUG' as string
 const savedDebug = process.env[DEBUG_KEY]
 
@@ -20,7 +20,7 @@ describe('usingTemplate', () => {
     const line = plain(usingTemplate('init', CODELOAD))
 
     expect(line).toContain(
-      'Using the init template, from extension-js/examples.'
+      'Using the init template, from extension-js/templates.'
     )
 
     expect(line).not.toContain('codeload')
@@ -38,7 +38,7 @@ describe('usingTemplate', () => {
   it('keeps the full source under debug output', () => {
     process.env.EXTENSION_DEBUG = '1'
     expect(plain(usingTemplate('init', CODELOAD))).toContain(
-      `from extension-js/examples (${CODELOAD}).`
+      `from extension-js/templates (${CODELOAD}).`
     )
   })
 

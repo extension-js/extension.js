@@ -118,7 +118,7 @@ describe('a create refusal travels as one framed message on the thrown error', (
     expect(error).toBeInstanceOf(TemplateNotFoundError)
     expect(error.message).toContain('nope-xyz')
     expect(error.message).toContain(
-      'is not in the extension-js/examples catalog'
+      'is not in the extension-js/templates catalog'
     )
 
     expectOneFrameAndNoStack(error, logger)

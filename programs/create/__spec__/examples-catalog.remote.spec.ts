@@ -14,7 +14,7 @@ import {
 
 const noopLogger = {log() {}, error() {}}
 
-describe('the pinned examples catalog still serves the default template', () => {
+describe('the pinned templates catalog still serves the default template', () => {
   let workDir = ''
 
   beforeEach(async () => {

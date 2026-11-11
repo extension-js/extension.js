@@ -41,7 +41,7 @@ test('refuses to move a pin the file does not declare', () => {
 
 test('renders the ref and every slug it was given', () => {
   const rendered = renderCorpusModule({
-    repo: 'extension-js/examples',
+    repo: 'extension-js/templates',
     ref: 'd'.repeat(40),
     slugs: ['action', 'init', 'javascript']
   })

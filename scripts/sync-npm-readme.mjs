@@ -40,7 +40,7 @@ export function transformReadme(content) {
 
   out = out.replace(
     /(\[npm-version-url\]: [^\n]*\n)/,
-    '$1[stars-image]: https://img.shields.io/github/stars/extension-js/extension.js?style=flat&color=0971fe\n' +
+    '$1[stars-image]: https://img.shields.io/github/stars/extension-js/extension.js?style=flat&color=0065e6\n' +
       '[stars-url]: https://github.com/extension-js/extension.js/stargazers\n'
   )
 
