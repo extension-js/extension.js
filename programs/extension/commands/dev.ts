@@ -48,6 +48,7 @@ import {resolveOutputFormat} from '../helpers/output-flag'
 import {parseParentPid, setupParentWatchdog} from '../helpers/parent-watchdog'
 import {checkProjectCliVersion} from '../helpers/project-cli-version'
 import {
+  markCommandSessionReady,
   markCommandSessionStart,
   reportCommandFailureNow
 } from '../helpers/telemetry-cli'
@@ -581,6 +582,8 @@ export function registerDevCommand(program: Command) {
             startingUrl: devOptions.startingUrl,
             install: devOptions.install,
             noBrowser,
+            // The session is usable: counted once, beside its started row.
+            onReady: () => markCommandSessionReady('dev'),
             extensions: parseExtensionsList(devOptions.extensions),
             logLevel,
             logContexts,

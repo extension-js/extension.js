@@ -193,7 +193,8 @@ describe('a dev session reports itself while it is still running', () => {
           // for sampling: the failure rate needs a matching denominator.
           EXTENSION_TELEMETRY_SAMPLE_RATE: '0',
           XDG_CONFIG_HOME: configHome,
-          XDG_CACHE_HOME: configHome
+          XDG_CACHE_HOME: configHome,
+          npm_config_user_agent: 'pnpm/10.28.0 npm/? node/v23.8.0 darwin arm64'
         }
       }
     )
@@ -214,16 +215,19 @@ describe('a dev session reports itself while it is still running', () => {
     )
 
     // Still running: nothing here waited for an exit, which is the whole point.
+    // The ready row is the later of the two, so both are in once it lands.
     await waitFor(
-      () => server.events.some((event) => event.properties.command === 'dev'),
+      () => server.events.some((event) => event.properties.session === 'ready'),
       15_000,
-      'the dev session event'
+      'the dev session events'
     )
 
     expect(closed).toBe(false)
 
     const started = server.events.filter(
-      (event) => event.properties.command === 'dev'
+      (event) =>
+        event.properties.command === 'dev' &&
+        event.properties.session === 'started'
     )
     expect(started).toHaveLength(1)
     expect(started[0].event).toBe('command_executed')
@@ -231,6 +235,19 @@ describe('a dev session reports itself while it is still running', () => {
     expect(started[0].properties.session).toBe('started')
     expect(typeof started[0].properties.is_source_build).toBe('boolean')
     expect(typeof started[0].properties.is_ci).toBe('boolean')
+    expect(started[0].properties.package_manager).toBe('pnpm')
+
+    // No browser is launched here, so ready is the first clean compile.
+    const ready = server.events.filter(
+      (event) => event.properties.session === 'ready'
+    )
+    expect(ready).toHaveLength(1)
+    expect(ready[0].event).toBe('command_executed')
+    expect(ready[0].properties.command).toBe('dev')
+    expect(ready[0].properties.success).toBe(true)
+    expect(Object.keys(ready[0].properties).sort()).toEqual(
+      Object.keys(started[0].properties).sort()
+    )
 
     child.kill('SIGINT')
     await waitFor(() => closed, 20_000, 'the dev session to end').catch(() => {
@@ -238,11 +255,15 @@ describe('a dev session reports itself while it is still running', () => {
       // spec is about the row, not about who ends the process.
     })
 
-    // A Ctrl-C is not a failure, and the session is not counted twice.
+    // A Ctrl-C is not a failure, and neither row is counted twice.
     const devEvents = server.events.filter(
       (event) => event.properties.command === 'dev'
     )
-    expect(devEvents).toHaveLength(1)
+    expect(devEvents.map((event) => event.properties.session)).toEqual([
+      'started',
+      'ready'
+    ])
+
     expect(
       server.events.filter((event) => event.event === 'command_failed')
     ).toEqual([])

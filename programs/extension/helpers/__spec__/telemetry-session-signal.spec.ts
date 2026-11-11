@@ -216,6 +216,119 @@ describe('a watch session is counted when it starts', () => {
   })
 })
 
+describe('a dev session says once that it became ready', () => {
+  it('sends a ready row beside the started row, inside the debounce window', async () => {
+    const {cli} = await loadTelemetry()
+    const sent = captureSends()
+
+    cli.markCommandSessionStart('dev')
+    cli.markCommandSessionReady('dev')
+
+    expect(sent.map((row) => row.event)).toEqual([
+      'command_executed',
+      'command_executed'
+    ])
+
+    expect(sent.map((row) => row.properties.session)).toEqual([
+      'started',
+      'ready'
+    ])
+
+    expect(sent[1].properties.command).toBe('dev')
+    expect(sent[1].properties.success).toBe(true)
+  })
+
+  it('reports ready once, however many browsers say so', async () => {
+    const {cli} = await loadTelemetry()
+    const sent = captureSends()
+
+    cli.markCommandSessionStart('dev')
+    cli.markCommandSessionReady('dev')
+    cli.markCommandSessionReady('dev')
+
+    expect(sent).toHaveLength(2)
+  })
+
+  it('is not sampled away, so ready and started share a denominator', async () => {
+    // Sampling is zero for this load, and both session rows still arrive.
+    const {cli} = await loadTelemetry()
+    const sent = captureSends()
+
+    cli.markCommandSessionStart('dev')
+    cli.markCommandSessionReady('dev')
+
+    expect(sent).toHaveLength(2)
+  })
+
+  it('says nothing for a session that was never counted at its start', async () => {
+    const {cli} = await loadTelemetry()
+    const sent = captureSends()
+
+    cli.markCommandSessionReady('dev')
+    await cli.telemetry.flush()
+
+    expect(sent).toEqual([])
+  })
+
+  it('says nothing after the session already reported its failure', async () => {
+    const {cli} = await loadTelemetry()
+    const sent = captureSends()
+
+    cli.markCommandSessionStart('dev')
+    cli.markCommandFailure('dev', {code: 'E_BROWSER_LAUNCH', exitCode: 1})
+    cli.markCommandSessionReady('dev')
+    await cli.telemetry.flush()
+
+    expect(sent.map((row) => row.properties.session)).toEqual([
+      'started',
+      undefined
+    ])
+
+    expect(sent[1].event).toBe('command_failed')
+  })
+
+  it('sends nothing at all when the run opted out', async () => {
+    const {cli} = await loadTelemetry({EXTENSION_TELEMETRY_DISABLED: '1'})
+    const sent = captureSends()
+
+    cli.markCommandSessionStart('dev')
+    cli.markCommandSessionReady('dev')
+    await cli.telemetry.flush()
+
+    expect(sent).toEqual([])
+  })
+
+  it('sends nothing at all under --no-telemetry', async () => {
+    const {cli} = await loadTelemetry({EXTENSION_TELEMETRY: undefined}, [
+      'node',
+      'extension',
+      'dev',
+      '--no-telemetry'
+    ])
+    const sent = captureSends()
+
+    cli.markCommandSessionStart('dev')
+    cli.markCommandSessionReady('dev')
+    await cli.telemetry.flush()
+
+    expect(sent).toEqual([])
+  })
+
+  it('carries no property the started row does not already carry', async () => {
+    const {cli} = await loadTelemetry()
+    const sent = captureSends()
+
+    cli.markCommandSessionStart('dev')
+    cli.markCommandSessionReady('dev')
+
+    expect(Object.keys(sent[1].properties).sort()).toEqual(
+      Object.keys(sent[0].properties).sort()
+    )
+
+    expect(sent[1].distinct_id).toBe(sent[0].distinct_id)
+  })
+})
+
 describe('a signal is an ending the CLI has to report', () => {
   it('flushes a command_failed for a run interrupted before it finished', async () => {
     const {cli, signals} = await loadTelemetry()

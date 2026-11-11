@@ -282,6 +282,21 @@ describe('extension dev --output json', () => {
     expect(emitted[0]).toMatchObject({ok: true, status: 'started'})
   })
 
+  it('hands develop an onReady that prints no frame of its own', async () => {
+    extensionDev.mockImplementationOnce((async (
+      _path: string,
+      opts: {onReady?: () => void}
+    ) => {
+      expect(typeof opts.onReady).toBe('function')
+      opts.onReady?.()
+      opts.onReady?.()
+    }) as never)
+
+    expect(await run(['dev', '.', '--output', 'json'])).toBe(0)
+
+    expect(frames().map((frame) => frame.status)).toEqual(['started'])
+  })
+
   it('keeps the startup frame once a session failed after it began', async () => {
     extensionDev.mockImplementationOnce((async (
       _path: string,

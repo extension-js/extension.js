@@ -25,6 +25,54 @@ const makePlugin = () =>
     browserOptions: {browser: 'chrome'}
   } as never)
 
+// The same reach for the ready gate: the launch and the retry both end in it.
+const announceOn = (
+  plugin: BrowsersPlugin,
+  controller: unknown,
+  listener: () => void
+) => {
+  ;(plugin as unknown as {controller: unknown}).controller = controller
+  plugin.setReadyListener(listener)
+  ;(plugin as unknown as {announceReady: () => void}).announceReady()
+}
+
+describe('the ready listener', () => {
+  it('hears a browser that is open with the extension loaded', () => {
+    const listener = vi.fn()
+
+    announceOn(
+      makePlugin(),
+      {enableUnifiedLogging: vi.fn(), getExtensionLoadRefusal: () => null},
+      listener
+    )
+
+    expect(listener).toHaveBeenCalledTimes(1)
+  })
+
+  it('hears nothing while the browser refuses the extension', () => {
+    const listener = vi.fn()
+
+    announceOn(
+      makePlugin(),
+      {
+        enableUnifiedLogging: vi.fn(),
+        getExtensionLoadRefusal: () => 'Variable $2$ used but not defined.'
+      },
+      listener
+    )
+
+    expect(listener).not.toHaveBeenCalled()
+  })
+
+  it('never lets a throwing listener break the compile loop', () => {
+    expect(() =>
+      announceOn(makePlugin(), {enableUnifiedLogging: vi.fn()}, () => {
+        throw new Error('listener failed')
+      })
+    ).not.toThrow()
+  })
+})
+
 describe('retryRefusedExtensionLoad', () => {
   // The regression that matters: loadUnpacked RESTARTS an already-loaded
   // extension, so a healthy session must never reach the retry.

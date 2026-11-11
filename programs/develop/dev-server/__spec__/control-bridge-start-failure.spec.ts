@@ -99,6 +99,7 @@ vi.mock('../port-manager', () => ({
   PortManager: MockPortManager
 }))
 
+import {rspack} from '@rspack/core'
 import {createPlaywrightMetadataWriter} from '../../plugin-playwright'
 import rspackConfig from '../../rspack-config'
 import {devServer} from '../index'
@@ -129,6 +130,65 @@ describe('dev-server control-bridge startup failure', () => {
   afterEach(() => {
     vi.restoreAllMocks()
     fs.rmSync(projectRoot, {recursive: true, force: true})
+  })
+
+  it('says ready once, at the first clean compile, when no browser is launched', async () => {
+    const doneTaps: Array<(stats: unknown) => void> = []
+    const onReady = vi.fn()
+    ;(rspack as any).mockReturnValueOnce({
+      hooks: {
+        done: {
+          tap: (_name: string, fn: (stats: unknown) => void) =>
+            doneTaps.push(fn)
+        }
+      }
+    })
+
+    await devServer(
+      {
+        manifestPath: path.join(projectRoot, 'manifest.json'),
+        packageJsonPath: path.join(projectRoot, 'package.json')
+      },
+      {browser: 'chrome', noBrowser: true, onReady} as any
+    )
+
+    const compile = (hasErrors: boolean) => {
+      for (const tap of doneTaps) {
+        try {
+          tap({hasErrors: () => hasErrors})
+        } catch {
+          // Other taps read stats this fake does not carry.
+        }
+      }
+    }
+
+    expect(onReady).not.toHaveBeenCalled()
+    compile(true)
+    expect(onReady).not.toHaveBeenCalled()
+    compile(false)
+    compile(false)
+    expect(onReady).toHaveBeenCalledTimes(1)
+  })
+
+  it('leaves ready to the plugin that opens the browser', async () => {
+    const onReady = vi.fn()
+    const setReadyListener = vi.fn()
+
+    await devServer(
+      {
+        manifestPath: path.join(projectRoot, 'manifest.json'),
+        packageJsonPath: path.join(projectRoot, 'package.json')
+      },
+      {browser: 'chrome', onReady, browsersPlugin: {setReadyListener}} as any
+    )
+
+    expect(setReadyListener).toHaveBeenCalledTimes(1)
+    expect(onReady).not.toHaveBeenCalled()
+
+    const announce = setReadyListener.mock.calls[0][0] as () => void
+    announce()
+    announce()
+    expect(onReady).toHaveBeenCalledTimes(1)
   })
 
   it('reports a control port that cannot bind instead of swallowing it', async () => {

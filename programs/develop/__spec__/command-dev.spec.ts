@@ -117,6 +117,21 @@ describe('webpack/command-dev', () => {
     ).not.toHaveBeenCalled()
   })
 
+  it('hands the caller onReady to the dev server', async () => {
+    ;(fs.existsSync as any).mockReturnValue(false)
+    ;(fs.readdirSync as any).mockReturnValue([])
+    const onReady = vi.fn()
+
+    await extensionDev('/proj', {browser: 'chrome', port: 0, onReady} as any)
+
+    expect(devServerMod.devServer).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({onReady})
+    )
+
+    expect(onReady).not.toHaveBeenCalled()
+  })
+
   it('forwards extension.config.js browser.profile to the BrowsersPlugin launcher', async () => {
     ;(fs.existsSync as any).mockReturnValue(false)
     ;(fs.readdirSync as any).mockReturnValue([])

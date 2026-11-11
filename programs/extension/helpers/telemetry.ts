@@ -22,7 +22,8 @@ export type TelemetryProps = {
   source?: string
   // 'started' marks the one event a watch command emits when its session
   // comes up, since `dev`, `start` and `preview` have no exit to report.
-  session?: 'started'
+  // 'ready' marks the one a `dev` session emits once it is usable.
+  session?: 'started' | 'ready'
   // Both are already validated by the caller: a catalog name and a small
   // integer. They are re-checked below, since this is the last gate.
   code?: string
@@ -96,6 +97,25 @@ function smallExitCode(value: unknown): number | undefined {
   if (typeof value !== 'number' || !Number.isInteger(value)) return undefined
 
   return value >= 0 && value <= 255 ? value : undefined
+}
+
+const SESSION_STATES = new Set(['started', 'ready'])
+const PACKAGE_MANAGERS = new Set(['npm', 'pnpm', 'yarn', 'bun'])
+
+export type PackageManagerName = 'npm' | 'pnpm' | 'yarn' | 'bun' | 'unknown'
+
+// Only the name travels, never the version or the rest of the agent string.
+// A package manager sets npm_config_user_agent for the scripts and binaries
+// it runs, so a binary called on its own has none and reads as unknown.
+export function packageManagerName(
+  env: Record<string, string | undefined> = process.env
+): PackageManagerName {
+  const head = String(env.npm_config_user_agent || '')
+    .trim()
+    .split('/')[0]
+    .toLowerCase()
+
+  return PACKAGE_MANAGERS.has(head) ? (head as PackageManagerName) : 'unknown'
 }
 
 function sanitizeTag(value: string): string {
@@ -572,6 +592,7 @@ export class Telemetry {
     node_major: number
     is_ci: boolean
     is_source_build: boolean
+    package_manager: PackageManagerName
   }
   private recent = new Map<string, number>()
   private buffer: Array<{
@@ -600,7 +621,8 @@ export class Telemetry {
       arch: process.arch,
       node_major: Number(String(process.versions.node).split('.')[0]) || 0,
       is_ci: isCI(),
-      is_source_build: isSourceCheckout()
+      is_source_build: isSourceCheckout(),
+      package_manager: packageManagerName()
     }
 
     if (!this.disabled) {
@@ -627,7 +649,12 @@ export class Telemetry {
       if (this.disabled) return
       if (this.sent >= this.maxEventsPerRun) return
 
-      const key = `${event}|${props.command}|${props.success}`
+      const session = fixedWord(props.session, SESSION_STATES) as
+        | TelemetryProps['session']
+        | undefined
+      // A session's ready row follows its started row within the debounce
+      // window by design, so the session state is part of what repeats.
+      const key = `${event}|${props.command}|${props.success}|${session ?? ''}`
       const now = Date.now()
       const last = this.recent.get(key)
       if (last != null && now - last < this.debounceMs) return
@@ -644,7 +671,7 @@ export class Telemetry {
       }
       if (props.template) enforcedProps.template = sanitizeTag(props.template)
       if (props.source) enforcedProps.source = sanitizeTag(props.source)
-      if (props.session === 'started') enforcedProps.session = 'started'
+      if (session) enforcedProps.session = session
 
       // A failure count that cannot be read as a cause is a number and
       // nothing else, so the two properties that name the cause travel.
@@ -702,7 +729,7 @@ export class Telemetry {
       if (
         event === 'command_executed' &&
         props.command !== 'create' &&
-        props.session !== 'started' &&
+        !session &&
         Math.random() > this.sampleRate
       ) {
         return
