@@ -151,3 +151,175 @@ describe('a runtime-registered MAIN world script that calls import()', () => {
     expect(isolated).not.toContain(MAIN_WORLD_LOADER_MARK)
   }, 180_000)
 })
+
+// Every scripts/ file is an entry of its own, so the wrapper once built it a
+// single time, as an isolated script, wherever it was imported from.
+function importingProject() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-main-import-'))
+  roots.push(root)
+  fs.writeFileSync(
+    path.join(root, 'package.json'),
+    JSON.stringify({private: true, name: 'main-import', version: '0.0.0'})
+  )
+
+  fs.mkdirSync(path.join(root, 'scripts'))
+  fs.mkdirSync(path.join(root, 'content'))
+
+  for (const name of ['static', 'dynamic', 'isolated']) {
+    fs.writeFileSync(
+      path.join(root, 'scripts', `lazy-${name}.js`),
+      `window.__LAZY_MARK__ = "LAZY_${name.toUpperCase()}_VALUE"\nexport const lazy = 1\n`
+    )
+  }
+
+  const importsStatic = 'import "./lazy-static.js"\nwindow.__HOOK__ = 1\n'
+  const importsDynamic = 'import("./lazy-dynamic.js")\nwindow.__HOOK__ = 1\n'
+  fs.writeFileSync(path.join(root, 'scripts', 'hook-static.js'), importsStatic)
+  fs.writeFileSync(
+    path.join(root, 'scripts', 'hook-dynamic.js'),
+    importsDynamic
+  )
+
+  fs.writeFileSync(
+    path.join(root, 'scripts', 'injected-static.js'),
+    importsStatic
+  )
+
+  fs.writeFileSync(
+    path.join(root, 'scripts', 'isolated.js'),
+    'import "./lazy-isolated.js"\ndocument.title = "isolated"\n'
+  )
+
+  fs.writeFileSync(
+    path.join(root, 'content', 'main-static.js'),
+    importsStatic.replace('./', '../scripts/')
+  )
+
+  fs.writeFileSync(
+    path.join(root, 'content', 'main-dynamic.js'),
+    importsDynamic.replace('./', '../scripts/')
+  )
+
+  fs.writeFileSync(
+    path.join(root, 'background.js'),
+    [
+      'chrome.runtime.onInstalled.addListener(function () {',
+      '  chrome.scripting.registerContentScripts([',
+      '    {',
+      '      id: "page-hook",',
+      '      js: ["scripts/hook-static.js", "scripts/hook-dynamic.js"],',
+      '      world: "MAIN",',
+      '      matches: ["<all_urls>"],',
+      '      runAt: "document_start"',
+      '    },',
+      '    {',
+      '      id: "isolated-hook",',
+      '      js: ["scripts/isolated.js"],',
+      '      matches: ["<all_urls>"]',
+      '    }',
+      '  ])',
+      '})',
+      'chrome.tabs.onUpdated.addListener(function (tabId) {',
+      '  chrome.scripting.executeScript({',
+      '    target: {tabId: tabId},',
+      '    files: ["scripts/injected-static.js"],',
+      '    world: "MAIN"',
+      '  })',
+      '})',
+      ''
+    ].join('\n')
+  )
+
+  fs.writeFileSync(
+    path.join(root, 'manifest.json'),
+    JSON.stringify({
+      manifest_version: 3,
+      name: 'main-import',
+      version: '1.0.0',
+      permissions: ['scripting'],
+      background: {service_worker: 'background.js'},
+      content_scripts: [
+        {
+          matches: ['https://a.example/*'],
+          js: ['content/main-static.js'],
+          world: 'MAIN',
+          run_at: 'document_start'
+        },
+        {
+          matches: ['https://b.example/*'],
+          js: ['content/main-dynamic.js'],
+          world: 'MAIN',
+          run_at: 'document_start'
+        }
+      ]
+    })
+  )
+
+  return root
+}
+
+// A global the wrapper sets on whatever window the bundle runs in.
+const PAGE_GLOBAL_ASSIGNMENT =
+  /(?:globalThis|window|self)\.__EXTENSIONJS_\w+\s*=(?!=)/
+
+function splitChunksCarrying(root: string, mark: string): string[] {
+  const distDir = path.join(root, 'dist', 'chrome')
+
+  return fs
+    .readdirSync(distDir)
+    .filter((file) => file.endsWith('.js'))
+    .map((file) => fs.readFileSync(path.join(distDir, file), 'utf8'))
+    .filter((source) => source.includes(mark))
+}
+
+describe('a scripts/ module a MAIN world entry imports', () => {
+  it('production: plants no global on the page from a static import', async () => {
+    const built = await build(importingProject())
+
+    for (const file of [
+      'scripts/hook-static.js',
+      'scripts/injected-static.js',
+      'content_scripts/content-0.js'
+    ]) {
+      const bundle = built.read(file)
+      expect(bundle, file).toContain('LAZY_STATIC_VALUE')
+      expect(bundle, file).not.toMatch(PAGE_GLOBAL_ASSIGNMENT)
+    }
+  }, 180_000)
+
+  it('production: plants no global on the page from a split chunk', async () => {
+    const root = importingProject()
+    const built = await build(root)
+
+    for (const file of [
+      'scripts/hook-dynamic.js',
+      'content_scripts/content-1.js'
+    ]) {
+      const bundle = built.read(file)
+      expect(bundle, file).not.toContain('LAZY_DYNAMIC_VALUE')
+      expect(bundle, file).not.toMatch(PAGE_GLOBAL_ASSIGNMENT)
+    }
+
+    const chunks = splitChunksCarrying(root, 'LAZY_DYNAMIC_VALUE')
+    expect(chunks.length).toBeGreaterThan(0)
+
+    for (const chunk of chunks) {
+      expect(chunk).not.toMatch(PAGE_GLOBAL_ASSIGNMENT)
+    }
+  }, 180_000)
+
+  it('production: leaves the same file built as its own entry and an isolated importer alone', async () => {
+    const built = await build(importingProject())
+
+    // The copy scripts/ emits as its own file may be injected anywhere.
+    for (const name of ['static', 'dynamic', 'isolated']) {
+      expect(built.read(`scripts/lazy-${name}.js`)).toMatch(
+        PAGE_GLOBAL_ASSIGNMENT
+      )
+    }
+
+    const isolated = built.read('scripts/isolated.js')
+    expect(isolated).toContain('LAZY_ISOLATED_VALUE')
+    expect(isolated.split('__EXTENSIONJS_registerCleanup=').length - 1).toBe(2)
+  }, 180_000)
+})

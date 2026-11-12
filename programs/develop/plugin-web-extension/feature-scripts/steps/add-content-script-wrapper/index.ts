@@ -6,9 +6,12 @@
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {Compilation, type Compiler, sources} from '@rspack/core'
 import {resolveDevelopDistFile} from '../../../../lib/develop-context'
+import {filterKeysForThisBrowser} from '../../../../lib/manifest-utils'
+import {stripBom} from '../../../../lib/parse-json-safe'
 import {findNearestProjectManifestSync} from '../../../../lib/project-manifest'
 import {
   canonicalizeDir,
@@ -17,7 +20,12 @@ import {
 } from '../../../../lib/resource-path'
 import {NOT_RAW_RESOURCE_QUERY} from '../../../../lib/resource-query'
 import {scriptsFolderRoot} from '../../../../plugin-special-folders/folders-config'
-import type {DevOptions, FilepathList, PluginInterface} from '../../../../types'
+import type {
+  DevOptions,
+  FilepathList,
+  Manifest,
+  PluginInterface
+} from '../../../../types'
 import {
   CONTENT_SCRIPT_CSS_PROBE_MARKER_PREFIX,
   createContentScriptCssProbeMarkerPattern,
@@ -50,6 +58,32 @@ export function resolveBundleCssProbeMarker(
   }
 
   return ''
+}
+
+// Every js file of a declared MAIN world group, resolved the way the wrapper
+// loader resolves a declared entry.
+export function findDeclaredMainWorldFiles(
+  manifestPath: string,
+  browser: DevOptions['browser']
+): string[] {
+  try {
+    const manifest = filterKeysForThisBrowser(
+      JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf8'))) as Manifest,
+      browser
+    )
+    const groups = Array.isArray(manifest.content_scripts)
+      ? (manifest.content_scripts as Array<{world?: unknown; js?: unknown}>)
+      : []
+    const manifestDir = canonicalizeDir(path.dirname(manifestPath))
+
+    return groups
+      .filter((group) => group?.world === 'MAIN')
+      .flatMap((group) => (Array.isArray(group.js) ? group.js : []))
+      .filter((file): file is string => typeof file === 'string' && !!file)
+      .map((file) => path.normalize(path.resolve(manifestDir, file)))
+  } catch {
+    return []
+  }
 }
 
 export class AddContentScriptWrapper {
@@ -116,6 +150,18 @@ export class AddContentScriptWrapper {
       scriptsFolder: scriptsRoot ? canonicalizeDir(scriptsRoot) : false
     }
 
+    // A module a MAIN world entry imports rides that entry's bundle onto the
+    // page, so it builds apart from the copy scripts/ emits as its own file.
+    const mainWorldEntryFiles = new Set([
+      ...findDeclaredMainWorldFiles(this.manifestPath, this.browser),
+      ...mainWorldScripts
+    ])
+    const importedByMainWorldEntry = (issuer: string): boolean =>
+      typeof issuer === 'string' &&
+      issuer.length > 0 &&
+      mainWorldEntryFiles.has(canonicalizeResourcePath(issuer))
+    const hasMainWorldEntries = mainWorldEntryFiles.size > 0
+
     // Classic concat loader must be registered before the content-script-wrapper
     // so the wrapper receives the concatenated source + source map.
     compiler.options.module.rules.push({
@@ -139,6 +185,7 @@ export class AddContentScriptWrapper {
       include: [includeMatcher],
       exclude: [/([\\/])node_modules\1/],
       resourceQuery: NOT_RAW_RESOURCE_QUERY,
+      ...(hasMainWorldEntries ? {issuer: {not: importedByMainWorldEntry}} : {}),
       use: [
         {
           loader: this.resolveLoader(),
@@ -146,6 +193,22 @@ export class AddContentScriptWrapper {
         }
       ]
     })
+
+    if (hasMainWorldEntries) {
+      compiler.options.module.rules.push({
+        test: /\.(js|cjs|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
+        include: [includeMatcher],
+        exclude: [/([\\/])node_modules\1/],
+        resourceQuery: NOT_RAW_RESOURCE_QUERY,
+        issuer: importedByMainWorldEntry,
+        use: [
+          {
+            loader: this.resolveLoader(),
+            options: {...loaderOptions, mainWorldBundle: true}
+          }
+        ]
+      })
+    }
 
     compiler.hooks.thisCompilation.tap(
       'scripts:add-content-script-wrapper',
