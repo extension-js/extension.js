@@ -19,6 +19,7 @@ import {
 } from '../scripts-lib/main-world-bridge-pairing'
 import {findRuntimeMainWorldEntries} from '../scripts-lib/runtime-main-world-scripts'
 import {resolveMainWorldBridgeSourcePath} from './add-content-script-wrapper/get-bridge-scripts'
+import {getBaseReaderRequirements} from './prune-main-world-bridges'
 
 const BACKGROUND_ASSET =
   /(^|\/)background\/(?:service_worker|scripts?|index)\.js$/i
@@ -59,9 +60,32 @@ export class PairRuntimeMainWorldBridges {
       }
     }
 
+    // A production file that resolves nothing against the base goes
+    // unpaired. Development pairs every file, as a declared group does.
+    const shipped = compiler.options?.mode === 'production'
+    const readers = getBaseReaderRequirements(compiler)
+    const bridgeFile = `${MAIN_WORLD_BRIDGE_ENTRY}.js`
+
     compiler.hooks.thisCompilation.tap(
       PairRuntimeMainWorldBridges.name,
       (compilation) => {
+        const readsBase = new Set<string>()
+
+        compilation.hooks.additionalTreeRuntimeRequirements.tap(
+          PairRuntimeMainWorldBridges.name,
+          (chunk, set) => {
+            if (!chunk.name) return
+
+            for (const requirement of set) {
+              if (readers.has(String(requirement))) {
+                readsBase.add(chunk.name)
+
+                return
+              }
+            }
+          }
+        )
+
         compilation.hooks.processAssets.tap(
           {
             name: PairRuntimeMainWorldBridges.name,
@@ -69,6 +93,20 @@ export class PairRuntimeMainWorldBridges {
             stage: Compilation.PROCESS_ASSETS_STAGE_REPORT + 100
           },
           () => {
+            const baseReaders = shipped
+              ? registered
+                  .filter(({entryName}) => readsBase.has(entryName))
+                  .map(({entryName}) => `${entryName}.js`)
+              : null
+
+            if (baseReaders && baseReaders.length === 0) {
+              for (const name of [bridgeFile, `${bridgeFile}.map`]) {
+                if (compilation.getAsset(name)) compilation.deleteAsset(name)
+              }
+
+              return
+            }
+
             for (const asset of compilation.getAssets()) {
               if (!BACKGROUND_ASSET.test(asset.name)) continue
 
@@ -78,7 +116,7 @@ export class PairRuntimeMainWorldBridges {
               prependToEmittedAsset(
                 compilation,
                 asset,
-                `${buildMainWorldBridgePairingSource()}\n`
+                `${buildMainWorldBridgePairingSource(bridgeFile, baseReaders)}\n`
               )
             }
           }

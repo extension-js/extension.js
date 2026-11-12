@@ -29,6 +29,7 @@ import type {
 import {
   CONTENT_SCRIPT_CSS_PROBE_MARKER_PREFIX,
   createContentScriptCssProbeMarkerPattern,
+  EXTENSIONJS_MAIN_WORLD_IMPORT_LAYER,
   parseCanonicalContentScriptAsset
 } from '../../contracts'
 import {findRuntimeMainWorldEntries} from '../../scripts-lib/runtime-main-world-scripts'
@@ -161,6 +162,10 @@ export class AddContentScriptWrapper {
       issuer.length > 0 &&
       mainWorldEntryFiles.has(canonicalizeResourcePath(issuer))
     const hasMainWorldEntries = mainWorldEntryFiles.size > 0
+    // A path cannot tell the copy in that bundle from the standalone one, so
+    // deeper imports are told apart by the layer the first import is given.
+    const inMainWorldImportLayer = (layer: string): boolean =>
+      layer === EXTENSIONJS_MAIN_WORLD_IMPORT_LAYER
 
     // Classic concat loader must be registered before the content-script-wrapper
     // so the wrapper receives the concatenated source + source map.
@@ -185,7 +190,12 @@ export class AddContentScriptWrapper {
       include: [includeMatcher],
       exclude: [/([\\/])node_modules\1/],
       resourceQuery: NOT_RAW_RESOURCE_QUERY,
-      ...(hasMainWorldEntries ? {issuer: {not: importedByMainWorldEntry}} : {}),
+      ...(hasMainWorldEntries
+        ? {
+            issuer: {not: importedByMainWorldEntry},
+            issuerLayer: {not: inMainWorldImportLayer}
+          }
+        : {}),
       use: [
         {
           loader: this.resolveLoader(),
@@ -195,17 +205,31 @@ export class AddContentScriptWrapper {
     })
 
     if (hasMainWorldEntries) {
-      compiler.options.module.rules.push({
+      const mainWorldImportRule = {
         test: /\.(js|cjs|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
         include: [includeMatcher],
         exclude: [/([\\/])node_modules\1/],
         resourceQuery: NOT_RAW_RESOURCE_QUERY,
-        issuer: importedByMainWorldEntry,
+        // Named on both: an earlier rule hands a content script's imports
+        // the plain layer back, and the last rule to name a layer wins.
+        layer: EXTENSIONJS_MAIN_WORLD_IMPORT_LAYER,
         use: [
           {
             loader: this.resolveLoader(),
+            // One name for both branches, or a module reached directly and
+            // through another import would be built and run twice.
+            ident: 'extensionjs-main-world-import',
             options: {...loaderOptions, mainWorldBundle: true}
           }
+        ]
+      }
+
+      // One slot in the rule list: a loader is named after its rule's
+      // position, so a second slot would rename every rule added after it.
+      compiler.options.module.rules.push({
+        oneOf: [
+          {...mainWorldImportRule, issuer: importedByMainWorldEntry},
+          {...mainWorldImportRule, issuerLayer: inMainWorldImportLayer}
         ]
       })
     }

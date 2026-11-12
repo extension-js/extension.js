@@ -323,3 +323,168 @@ describe('a scripts/ module a MAIN world entry imports', () => {
     expect(isolated.split('__EXTENSIONJS_registerCleanup=').length - 1).toBe(2)
   }, 180_000)
 })
+
+// A rule sees only the path of the importing module, and that path is the
+// same for the copy inside a MAIN world bundle and the standalone one.
+function chainProject() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-main-chain-'))
+  roots.push(root)
+  fs.writeFileSync(
+    path.join(root, 'package.json'),
+    JSON.stringify({private: true, name: 'main-chain', version: '0.0.0'})
+  )
+
+  fs.mkdirSync(path.join(root, 'scripts'))
+  fs.mkdirSync(path.join(root, 'content'))
+  fs.mkdirSync(path.join(root, 'lib'))
+
+  const files: Record<string, string> = {
+    'scripts/deep.js': 'window.__DEEP__ = "DEEP_STATIC_VALUE"\n',
+    'scripts/deep-dynamic.js': 'window.__DEEP__ = "DEEP_DYNAMIC_VALUE"\n',
+    'scripts/deep-lib.js': 'window.__DEEP__ = "DEEP_LIB_VALUE"\n',
+    'scripts/deep-styled.js': 'window.__DEEP__ = "DEEP_STYLED_VALUE"\n',
+    'scripts/deep.css': '.deep-sheet-mark { color: rgb(1, 2, 3) }\n',
+    'scripts/mid.js': 'import "./deep.js"\nwindow.__MID__ = 1\n',
+    'scripts/mid-three.js': 'import "./mid.js"\nwindow.__MID_THREE__ = 1\n',
+    'scripts/mid-dynamic.js':
+      'import("./deep-dynamic.js")\nwindow.__MID_DYNAMIC__ = 1\n',
+    'scripts/mid-styled.js':
+      'import "./deep.css"\nimport "./deep-styled.js"\nwindow.__MID_STYLED__ = 1\n',
+    'lib/mid.js': 'import "../scripts/deep-lib.js"\nwindow.__MID_LIB__ = 1\n',
+    'scripts/hook-two.js': 'import "./mid.js"\nwindow.__HOOK__ = 1\n',
+    'scripts/hook-three.js': 'import "./mid-three.js"\nwindow.__HOOK__ = 1\n',
+    'scripts/hook-dynamic.js':
+      'import("./mid-dynamic.js")\nwindow.__HOOK__ = 1\n',
+    'scripts/hook-lib.js': 'import "../lib/mid.js"\nwindow.__HOOK__ = 1\n',
+    'scripts/hook-diamond.js':
+      'import "./deep.js"\nimport "./mid.js"\nwindow.__HOOK__ = 1\n',
+    'scripts/hook-styled.js': 'import "./mid-styled.js"\nwindow.__HOOK__ = 1\n',
+    'scripts/isolated.js': 'import "./mid.js"\ndocument.title = "isolated"\n',
+    'scripts/isolated-styled.js':
+      'import "./mid-styled.js"\ndocument.title = "isolated"\n',
+    'content/main.js': 'import "../scripts/mid.js"\nwindow.__HOOK__ = 1\n'
+  }
+
+  for (const [file, source] of Object.entries(files)) {
+    fs.writeFileSync(path.join(root, file), source)
+  }
+
+  fs.writeFileSync(
+    path.join(root, 'background.js'),
+    [
+      'chrome.runtime.onInstalled.addListener(function () {',
+      '  chrome.scripting.registerContentScripts([',
+      '    {',
+      '      id: "page-hook",',
+      '      js: [',
+      '        "scripts/hook-two.js",',
+      '        "scripts/hook-three.js",',
+      '        "scripts/hook-dynamic.js",',
+      '        "scripts/hook-lib.js",',
+      '        "scripts/hook-diamond.js",',
+      '        "scripts/hook-styled.js"',
+      '      ],',
+      '      world: "MAIN",',
+      '      matches: ["<all_urls>"],',
+      '      runAt: "document_start"',
+      '    },',
+      '    {',
+      '      id: "isolated-hook",',
+      '      js: ["scripts/isolated.js", "scripts/isolated-styled.js"],',
+      '      matches: ["<all_urls>"]',
+      '    }',
+      '  ])',
+      '})',
+      ''
+    ].join('\n')
+  )
+
+  fs.writeFileSync(
+    path.join(root, 'manifest.json'),
+    JSON.stringify({
+      manifest_version: 3,
+      name: 'main-chain',
+      version: '1.0.0',
+      permissions: ['scripting'],
+      background: {service_worker: 'background.js'},
+      content_scripts: [
+        {
+          matches: ['https://a.example/*'],
+          js: ['content/main.js'],
+          world: 'MAIN',
+          run_at: 'document_start'
+        }
+      ]
+    })
+  )
+
+  return root
+}
+
+const CLEANUP_GLOBAL = '__EXTENSIONJS_registerCleanup='
+
+function count(source: string, needle: string): number {
+  return source.split(needle).length - 1
+}
+
+describe('a scripts/ module a MAIN world entry reaches through another import', () => {
+  it('production: plants no global on the page two and three imports down', async () => {
+    const built = await build(chainProject())
+
+    for (const [file, mark] of [
+      ['scripts/hook-two.js', 'DEEP_STATIC_VALUE'],
+      ['scripts/hook-three.js', 'DEEP_STATIC_VALUE'],
+      ['scripts/hook-lib.js', 'DEEP_LIB_VALUE'],
+      // Reached directly and through mid.js, and still one module.
+      ['scripts/hook-diamond.js', 'DEEP_STATIC_VALUE'],
+      ['content_scripts/content-0.js', 'DEEP_STATIC_VALUE']
+    ]) {
+      const bundle = built.read(file)
+      expect(count(bundle, mark), file).toBe(1)
+      expect(bundle, file).not.toMatch(PAGE_GLOBAL_ASSIGNMENT)
+    }
+  }, 180_000)
+
+  it('production: plants no global on the page from a chunk a split chunk loads', async () => {
+    const root = chainProject()
+    const built = await build(root)
+
+    const hook = built.read('scripts/hook-dynamic.js')
+    expect(hook).not.toContain('DEEP_DYNAMIC_VALUE')
+    expect(hook).not.toMatch(PAGE_GLOBAL_ASSIGNMENT)
+
+    // One chunk rides the MAIN world bundle, the other belongs to the copy
+    // scripts/mid-dynamic.js emits as its own file.
+    const chunks = splitChunksCarrying(root, 'DEEP_DYNAMIC_VALUE')
+    const planting = chunks.filter((chunk) =>
+      PAGE_GLOBAL_ASSIGNMENT.test(chunk)
+    )
+    expect(chunks.length).toBe(2)
+    expect(planting.length).toBe(1)
+  }, 180_000)
+
+  it('production: keeps a stylesheet imported down the chain in the bundle', async () => {
+    const built = await build(chainProject())
+
+    const hook = built.read('scripts/hook-styled.js')
+    expect(hook).toContain('DEEP_STYLED_VALUE')
+    expect(hook).toContain('deep-sheet-mark')
+    expect(hook).not.toMatch(PAGE_GLOBAL_ASSIGNMENT)
+
+    const isolated = built.read('scripts/isolated-styled.js')
+    expect(isolated).toContain('deep-sheet-mark')
+    expect(count(isolated, CLEANUP_GLOBAL)).toBe(3)
+  }, 180_000)
+
+  it('production: leaves the standalone copies and an isolated chain alone', async () => {
+    const built = await build(chainProject())
+
+    expect(count(built.read('scripts/deep.js'), CLEANUP_GLOBAL)).toBe(1)
+    expect(count(built.read('scripts/mid.js'), CLEANUP_GLOBAL)).toBe(2)
+    expect(count(built.read('scripts/mid-three.js'), CLEANUP_GLOBAL)).toBe(3)
+
+    const isolated = built.read('scripts/isolated.js')
+    expect(isolated).toContain('DEEP_STATIC_VALUE')
+    expect(count(isolated, CLEANUP_GLOBAL)).toBe(3)
+  }, 180_000)
+})
