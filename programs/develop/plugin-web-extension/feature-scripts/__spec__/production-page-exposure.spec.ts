@@ -805,11 +805,11 @@ describe('the extension base two runtime-registered MAIN world files share', () 
 
     await world.settle(3)
 
-    expect(asked.map((message) => String(message.url))).toEqual([
-      expect.stringMatching(
-        new RegExp(`^${FIREFOX_BASE.replace(/[/.]/g, '\\$&')}.+\\.js$`)
-      )
-    ])
+    const askedUrls = asked.map((message) => String(message.url))
+
+    expect(askedUrls).toHaveLength(1)
+    expect(askedUrls[0].startsWith(FIREFOX_BASE)).toBe(true)
+    expect(askedUrls[0].endsWith('.js')).toBe(true)
   }, 180_000)
 
   it('stays on <html> in a Firefox development build, as it does for a declared group', async () => {
