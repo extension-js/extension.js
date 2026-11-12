@@ -7,6 +7,9 @@
 // MIT License (c) 2020-present Cezar Augusto - presence implies inheritance
 
 export const EXTENSIONJS_CONTENT_SCRIPT_LAYER = 'extensionjs-content-script'
+// What a MAIN world entry imports, at any depth. The name extends the layer
+// above because a rule matches a layer by prefix, so every rule still applies.
+export const EXTENSIONJS_MAIN_WORLD_IMPORT_LAYER = `${EXTENSIONJS_CONTENT_SCRIPT_LAYER}-main-world-import`
 
 export const CANONICAL_CONTENT_SCRIPT_ENTRY_PREFIX = 'content_scripts/content-'
 
