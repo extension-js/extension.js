@@ -80,6 +80,8 @@ MAIN-world content scripts get wrapper-side bridge script generation in `add-con
 
 The main bundle and bridge bundle are both registered under canonical content asset names so browser-side reinjection and source tracking stay deterministic.
 
+A file the background registers into the MAIN world at runtime has no manifest group to pair a bridge with. On Gecko targets `pair-runtime-main-world-bridges` emits the bridge as `scripts/extjs-main-world-bridge.js` and prepends a wrapper to the background bundle that registers it beside each `world: 'MAIN'` registration, under the id `extjs-main-world-bridge:<id>`. The wrapper follows updates and unregistrations and hides the pairs from `getRegisteredContentScripts`. Chromium targets and projects with no such registration are left alone.
+
 ## Testing
 
 Focused unit coverage for this feature lives in `__spec__/`.
