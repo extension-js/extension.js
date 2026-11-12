@@ -820,7 +820,7 @@ async function readOwnerMcpConfig(projectPath: string): Promise<Buffer | null> {
   }
 }
 
-interface OwnerHiddenFiles {
+export interface OwnerHiddenFiles {
   gitignore: string | null
   mcpConfig: Buffer | null
 }
@@ -847,6 +847,24 @@ async function restoreOwnerHiddenFiles(
       path.join(projectPath, '.mcp.json'),
       ownerFiles.mcpConfig
     )
+  }
+}
+
+// A copy that failed partway may already have replaced these two by name.
+// The owner's bytes go back exactly as read, with nothing merged in.
+export async function putBackOwnerHiddenFiles(
+  projectPath: string,
+  ownerFiles: OwnerHiddenFiles
+): Promise<void> {
+  const files: Array<[string, string | Buffer | null]> = [
+    ['.gitignore', ownerFiles.gitignore],
+    ['.mcp.json', ownerFiles.mcpConfig]
+  ]
+
+  for (const [name, contents] of files) {
+    if (contents === null) continue
+
+    await fs.writeFile(path.join(projectPath, name), contents).catch(() => {})
   }
 }
 
@@ -1192,6 +1210,8 @@ export async function importExternalTemplate(
     // Clean the partial scaffold so a retry into the same name is not
     // poisoned, without ever touching content that pre-existed this run.
     await cleanupFailedImport(projectPath, ownsProjectDir, preExistingEntries)
+
+    if (!ownsProjectDir) await putBackOwnerHiddenFiles(projectPath, ownerFiles)
 
     // The CLI prints a framed message as-is and a bare one with its stack,
     // so the frame travels on the error and is never logged here as well.
