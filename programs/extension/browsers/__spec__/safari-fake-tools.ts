@@ -44,6 +44,7 @@ export interface FakeSafariTools extends SafariPipelineTools {
     openSafari: string[]
     resolvePid: string[]
     pluginkit: number
+    pluginkitAdd: string[]
     webdriver: number[]
     codesign: string[]
     xcodeTeams: number
@@ -150,7 +151,12 @@ function writeBuiltApp(args: string[]) {
     `${appName}.app`
   )
 
-  fs.mkdirSync(path.join(appPath, 'Contents'), {recursive: true})
+  // A built app carries its appex, which is what the pipeline registers.
+  fs.mkdirSync(
+    path.join(appPath, 'Contents', 'PlugIns', `${appName} Extension.appex`),
+    {recursive: true}
+  )
+
   fs.writeFileSync(
     path.join(appPath, FAKE_SIGNATURE_FILE),
     signatureRowsFor(args),
@@ -195,6 +201,7 @@ export function fakeSafariTools(
       openSafari: [],
       resolvePid: [],
       pluginkit: 0,
+      pluginkitAdd: [],
       webdriver: [],
       codesign: [],
       xcodeTeams: 0,
@@ -242,6 +249,12 @@ export function fakeSafariTools(
       tools.events.push('resolvePid')
 
       return pid
+    },
+    pluginkitAdd: async (appexPath) => {
+      tools.calls.pluginkitAdd.push(appexPath)
+      tools.events.push('pluginkitAdd')
+
+      return result(0, '')
     },
     pluginkitList: async () => {
       tools.calls.pluginkit += 1

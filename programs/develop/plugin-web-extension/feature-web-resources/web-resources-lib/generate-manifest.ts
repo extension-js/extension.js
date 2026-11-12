@@ -342,13 +342,22 @@ export function generateManifestPatches(
     browser
   )
 
+  // Groups the author wrote with no matches key. The working shape keeps an
+  // empty array, and the final write leaves the key out again.
+  const matchesAbsent = new WeakSet<WarV3Group>()
   const webAccessibleResourcesV3: WarV3Group[] =
     canonicalManifest.manifest_version === 3
-      ? resolved.v3.map((g) => ({
-          ...(g.extra || {}),
-          matches: g.matches,
-          resources: Array.from(g.resources)
-        }))
+      ? resolved.v3.map((g) => {
+          const group: WarV3Group = {
+            ...(g.extra || {}),
+            matches: g.matches,
+            resources: Array.from(g.resources)
+          }
+
+          if (g.matchesAbsent) matchesAbsent.add(group)
+
+          return group
+        })
       : []
   const webAccessibleResourcesV2: string[] =
     canonicalManifest.manifest_version === 2 ? Array.from(resolved.v2) : []
@@ -748,7 +757,10 @@ export function generateManifestPatches(
 
           // A group addressed by extension_ids alone declares no matches, and
           // an empty array is a different shape from the one it was given.
-          if (matches.length === 0 && !entry.matches) {
+          if (
+            matches.length === 0 &&
+            (!entry.matches || matchesAbsent.has(entry))
+          ) {
             const {matches: _absent, ...rest} = entry
 
             return {...rest, resources}

@@ -35,6 +35,11 @@ export interface FakeSafariState {
   unsignedTurnsOnAfterReads?: number
   enabledTurnsOnAfterReads?: number
   cancelWorks?: boolean
+  // The automation Safari: Settings needs a plain window, and only the
+  // every-website button grants access.
+  everyWebsite?: boolean
+  madeWindows?: number[]
+  closedWindows?: number[]
 }
 
 export interface FakeSafariUiTools extends SafariUiTools {
@@ -135,6 +140,13 @@ export function fakeSafariUiTools(
         return ok({ok: true, canceled})
       }
 
+      if (kind === 'close-windows') {
+        const ids = /for \(const id of (\[[^\]]*\])\)/.exec(source)
+        state.closedWindows = ids ? (JSON.parse(ids[1]) as number[]) : []
+
+        return ok({ok: true, closed: state.closedWindows})
+      }
+
       if (kind === 'close') {
         return ok({
           ok: true,
@@ -216,7 +228,13 @@ export function fakeSafariUiTools(
             ok: true,
             listed: true,
             before,
-            after: state.otherWebsites
+            after: state.otherWebsites,
+            ...(state.everyWebsite && head?.automation && before !== 'Allow'
+              ? {everyWebsite: true}
+              : {}),
+            ...(state.madeWindows && head?.automation
+              ? {madeWindows: state.madeWindows}
+              : {})
           })
         }
 

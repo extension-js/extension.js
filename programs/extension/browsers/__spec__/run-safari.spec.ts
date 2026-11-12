@@ -1164,6 +1164,7 @@ describe('safari pipeline through the injected tool host', () => {
       'xcodebuild',
       'codesign',
       'openApp',
+      'pluginkitAdd',
       'resolvePid',
       'pluginkit'
     ])

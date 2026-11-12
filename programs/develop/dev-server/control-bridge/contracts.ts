@@ -251,6 +251,14 @@ export interface ReloadAckFrame {
 // acks at all and delivery is the only claim the dev server can make.
 export type ReloadAckOutcome = 'acked' | 'unacked' | 'not-expected'
 
+// What became of the restart an acked full or service-worker reload starts:
+// a producer said hello again, none did inside the window, or the reload was
+// of a kind that restarts nothing.
+export type ReloadRestartOutcome =
+  | 'restarted'
+  | 'not-restarted'
+  | 'not-expected'
+
 /**
  * Server → producer keepalive. An MV3 service worker idles out after ~30s
  * without events, and a stopped SW holds no control socket, reload

@@ -10,6 +10,7 @@ import {
   accessibilityProbeScript,
   cancelPromptScript,
   closeSettingsScript,
+  closeWindowsScript,
   extensionCheckboxId,
   extensionEnabledScript,
   OTHER_WEBSITES_ALLOW,
@@ -120,6 +121,9 @@ async function runAnswer(
   throw new SafariUiError('script', detail || 'the Safari UI script failed')
 }
 
+export const EVERY_WEBSITE_DETAIL =
+  'through Always Allow on Every Website, which grants every site'
+
 export interface EnableStep {
   step: 'safari' | 'unsigned' | 'pluginkit' | 'enabled' | 'websites'
   before: string | null
@@ -133,6 +137,9 @@ export interface EnableReport {
   enabled: boolean
   listed: boolean
   otherWebsites: string | null
+  // The grant went through Always Allow on Every Website, the only button
+  // that works in the Safari a WebDriver session raised.
+  everyWebsite?: boolean
   steps: EnableStep[]
   reason?: string
 }
@@ -321,7 +328,24 @@ export async function closeSafariSettings(
 export async function enableSafariExtension(
   input: EnableInput
 ): Promise<EnableReport> {
-  const tools = input.tools || createSafariUiTools()
+  const baseTools = input.tools || createSafariUiTools()
+  const madeWindows = new Set<number>()
+  // Every script reports the plain windows it made to reach Settings.
+  const tools: SafariUiTools = {
+    ...baseTools,
+    runScript: async (source) => {
+      const result = await baseTools.runScript(source)
+      const made = parseScriptAnswer(result.output)?.madeWindows
+
+      if (Array.isArray(made)) {
+        for (const id of made) {
+          if (Number.isInteger(id)) madeWindows.add(id as number)
+        }
+      }
+
+      return result
+    }
+  }
   const {bundleId, developmentTeam} = input.target
   const checkboxId = extensionCheckboxId(bundleId, developmentTeam)
   const steps: EnableStep[] = []
@@ -495,18 +519,30 @@ export async function enableSafariExtension(
     tools,
     otherWebsitesScript(checkboxId, 'allow', automation)
   )
+  const everyWebsite = websites.everyWebsite === true
+
   record({
     step: 'websites',
     before: asText(websites.before),
     after: asText(websites.after),
     changed: asText(websites.before) !== asText(websites.after),
-    ok: asText(websites.after) === OTHER_WEBSITES_ALLOW
+    ok: asText(websites.after) === OTHER_WEBSITES_ALLOW,
+    ...(everyWebsite ? {detail: EVERY_WEBSITE_DETAIL} : {})
   })
+
+  // Settings is closed by now, so the plain windows made to reach it in the
+  // automation Safari have no use left. A failed close leaves them open.
+  if (automation && madeWindows.size > 0) {
+    try {
+      await baseTools.runScript(closeWindowsScript([...madeWindows]))
+    } catch {}
+  }
 
   return {
     enabled: true,
     listed: true,
     otherWebsites: asText(websites.after),
+    ...(everyWebsite ? {everyWebsite: true} : {}),
     steps
   }
 }

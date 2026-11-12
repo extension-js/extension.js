@@ -23,6 +23,7 @@ import {
 import type {BrowserLogger, CompilationLike} from '../../browsers-types'
 import type {SafariBuildConfig, SafariPluginLike} from '../safari-types'
 import {
+  appexPathFor,
   checkAccessibility,
   closeSafariSettings,
   createSafariUiTools,
@@ -38,6 +39,7 @@ import {
   earlierAppexRows,
   parsePluginkitRows,
   parseSafariExtensionRegistry,
+  rowDroppedBySafari,
   staleSignedRows
 } from './registry'
 import {
@@ -233,6 +235,60 @@ function enableStampFor(
   }
 }
 
+const ROW_WATCH_MS = 5000
+const ROW_WATCH_LIMIT_MS = 10 * 60 * 1000
+
+// One check: true once Safari lists the unsigned row. Until then the appex is
+// registered again, which lists it the moment unsigned extensions are allowed.
+export async function reRegisterDroppedRow(
+  tools: SafariPipelineTools,
+  appexPath: string,
+  appexId: string
+): Promise<boolean> {
+  const rows = parseSafariExtensionRegistry(
+    await tools.readSafariExtensionRegistry()
+  )
+
+  if (!rowDroppedBySafari(rows, appexId, UNSIGNED)) return true
+
+  await tools.pluginkitAdd(appexPath)
+
+  return false
+}
+
+function keepRowRegistered(
+  tools: SafariPipelineTools,
+  appexPath: string,
+  appexId: string,
+  everyMs = ROW_WATCH_MS
+): void {
+  if (everyMs <= 0) return
+
+  const started = Date.now()
+  let busy = false
+
+  const timer = setInterval(async () => {
+    if (busy) return
+
+    busy = true
+
+    try {
+      const listed = await reRegisterDroppedRow(tools, appexPath, appexId)
+
+      if (listed || Date.now() - started >= ROW_WATCH_LIMIT_MS) {
+        clearInterval(timer)
+      }
+    } catch {
+      clearInterval(timer)
+    } finally {
+      busy = false
+    }
+  }, everyMs)
+
+  // The watch never keeps a finished run alive.
+  timer.unref?.()
+}
+
 // Safari's own registry says whether an earlier build of the same appex is on
 // under another signing identity, the case where the fresh build is listed,
 // its switch reads on, and Safari still serves the stale files.
@@ -323,7 +379,9 @@ async function enableThroughSafariUi(
             switchWord(step.after),
             step.step === 'enabled' && !step.changed && step.ok
               ? 'already on'
-              : undefined
+              : step.step === 'websites'
+                ? step.detail
+                : undefined
           )
         )
 
@@ -340,7 +398,11 @@ async function enableThroughSafariUi(
     if (report.enabled && report.otherWebsites === 'Allow') {
       stamp.step = 'done'
       logger.info?.(
-        messages.safariEnabled(config.appName, report.otherWebsites)
+        messages.safariEnabled(
+          config.appName,
+          report.otherWebsites,
+          report.everyWebsite === true
+        )
       )
 
       // A switch that reads on can still lose to an earlier signed build of
@@ -930,6 +992,23 @@ async function runSafariPipeline(
 
   const appsBefore = new Set(await tools.listAppPids(appPath))
   await tools.openApp(target)
+
+  // Safari drops an ad-hoc row at quit, and opening an app that already runs
+  // does not bring it back. Registering the appex again does.
+  const appex = target === appPath ? appexPathFor(appPath) : null
+
+  if (appex) await tools.pluginkitAdd(appex)
+
+  // An ad-hoc row only appears once unsigned extensions are allowed, and the
+  // printed steps turn that on after this point, so the session keeps asking.
+  if (appex && host.announceDevReady && !isSigned) {
+    keepRowRegistered(
+      tools,
+      appex,
+      `${config.bundleIdentifier}.Extension`,
+      host.rowWatchMs
+    )
+  }
 
   // Only a dev session is still around to quit the app it raised on the way
   // out. A build run exits at once and the app it opened is the deliverable.

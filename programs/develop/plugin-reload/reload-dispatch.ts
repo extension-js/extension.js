@@ -9,7 +9,10 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
-import type {ReloadAckOutcome} from '../dev-server/control-bridge/contracts'
+import type {
+  ReloadAckOutcome,
+  ReloadRestartOutcome
+} from '../dev-server/control-bridge/contracts'
 import {humanLine} from '../dev-server/lifecycle-stream'
 import {prefix} from '../lib/messaging'
 import type {ReloadInstruction} from './classify-reload'
@@ -38,6 +41,8 @@ export interface ReloadBroker {
   // The receipt for the newest broadcast. 'not-expected' covers a producer
   // that cannot ack, so an old cached worker is never called unapplied.
   awaitReloadAck?(): Promise<ReloadAckOutcome>
+  // Whether the extension came back after an acked reload that restarts it.
+  awaitReloadRestart?(): Promise<ReloadRestartOutcome>
   // Stamps the applied reload into ready.json, so a tool waiting for the
   // rebuild to be live reads it instead of guessing from a reconnect.
   noteReloadApplied?(kind: ReloadKind, label?: string): void
@@ -98,6 +103,16 @@ export function formatUnappliedReloadLine(label: string): string {
   )
 }
 
+// The worker acked the reload and then never said hello again, so the edit
+// was handed over and the extension is not there to run it.
+export function formatNotRestartedLine(label: string): string {
+  return (
+    `${prefix('warn')} ${label} reloaded but the extension has not come back ` +
+    'since, so this edit may not be live. Reload the extension from the ' +
+    'browser.'
+  )
+}
+
 // The zero-producer line for a caller that restarted the extension itself. The
 // broker latched the instruction, so the reconnecting producer still applies it.
 export function formatQueuedReloadLine(label: string): string {
@@ -142,6 +157,22 @@ export async function dispatchReload(
                 instruction.label
               )
             : formatReloadingLine(instruction.label)
+        )
+      }
+
+      // The restart outlives this dispatch, so its verdict is reported when it
+      // arrives and never holds the next compile.
+      const label = instruction.label
+      const restart = executor.broker.awaitReloadRestart?.()
+
+      if (restart && label) {
+        void restart.then(
+          (outcome) => {
+            if (outcome === 'not-restarted') {
+              console.warn(formatNotRestartedLine(label))
+            }
+          },
+          () => undefined
         )
       }
 
