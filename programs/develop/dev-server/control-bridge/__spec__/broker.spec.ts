@@ -5,7 +5,8 @@ import {
   CLOSE_BAD_INSTANCE,
   CLOSE_CONTROL_UNAVAILABLE,
   CLOSE_TOKEN_REQUIRED,
-  RELOAD_ACK_TIMEOUT_MS
+  RELOAD_ACK_TIMEOUT_MS,
+  RELOAD_RESTART_TIMEOUT_MS
 } from '../broker'
 import type {IncomingLogEvent, ServerFrame} from '../contracts'
 import {LogRingBuffer} from '../ring-buffer'
@@ -569,7 +570,16 @@ describe('BridgeBroker reload receipts', () => {
         pending[0].fn()
       },
       ackWindows: () =>
-        timers.filter((t) => t.ms === RELOAD_ACK_TIMEOUT_MS).length
+        timers.filter((t) => t.ms === RELOAD_ACK_TIMEOUT_MS).length,
+      closeRestartWindow: () => {
+        const pending = timers.filter(
+          (t) => !t.cleared && t.ms === RELOAD_RESTART_TIMEOUT_MS
+        )
+        expect(pending).toHaveLength(1)
+        pending[0].fn()
+      },
+      restartWindows: () =>
+        timers.filter((t) => t.ms === RELOAD_RESTART_TIMEOUT_MS).length
     }
   }
 
@@ -656,6 +666,84 @@ describe('BridgeBroker reload receipts', () => {
 
     closeAckWindow()
     await expect(b.awaitReloadAck()).resolves.toBe('unacked')
+  })
+
+  it('confirms the restart when a producer says hello after an acked full reload', async () => {
+    const {b} = brokerWithTimers()
+    const prod = new FakeConn('p')
+    helloProducer(b, prod, true)
+
+    b.broadcastReload({type: 'full', label: 'extension'})
+    b.onFrame(prod, {
+      type: 'reload-ack',
+      reloadType: 'full',
+      reloadId: reloadIdOf(prod)
+    })
+
+    helloProducer(b, new FakeConn('next-generation'), true)
+    await expect(b.awaitReloadRestart()).resolves.toBe('restarted')
+  })
+
+  it('reports the extension never came back once the restart window closes', async () => {
+    const {b, closeRestartWindow} = brokerWithTimers()
+    const prod = new FakeConn('p')
+    helloProducer(b, prod, true)
+
+    b.broadcastReload({type: 'service-worker', label: 'service_worker'})
+    b.onFrame(prod, {
+      type: 'reload-ack',
+      reloadType: 'service-worker',
+      reloadId: reloadIdOf(prod)
+    })
+
+    closeRestartWindow()
+    await expect(b.awaitReloadRestart()).resolves.toBe('not-restarted')
+    expect(prod.sent.filter((f) => f.type === 'reload')).toHaveLength(1)
+  })
+
+  it('leaves a browser that exited to the line that already reports it', async () => {
+    const {b, closeRestartWindow} = brokerWithTimers()
+    const prod = new FakeConn('p')
+    helloProducer(b, prod, true)
+
+    b.broadcastReload({type: 'full', label: 'extension'})
+    b.onFrame(prod, {
+      type: 'reload-ack',
+      reloadType: 'full',
+      reloadId: reloadIdOf(prod)
+    })
+
+    b.noteBrowserExited(new Date().toISOString(), 'signal SIGKILL')
+
+    closeRestartWindow()
+    await expect(b.awaitReloadRestart()).resolves.toBe('not-expected')
+  })
+
+  it('expects no restart from a content-scripts reload, an unacked one or a superseded one', async () => {
+    const {b, restartWindows} = brokerWithTimers()
+    const prod = new FakeConn('p')
+    helloProducer(b, prod, true)
+
+    b.broadcastReload({type: 'content-scripts', label: 'content_script'})
+    b.onFrame(prod, {
+      type: 'reload-ack',
+      reloadType: 'content-scripts',
+      reloadId: reloadIdOf(prod)
+    })
+
+    expect(restartWindows()).toBe(0)
+    await expect(b.awaitReloadRestart()).resolves.toBe('not-expected')
+
+    b.broadcastReload({type: 'full', label: 'extension'})
+    await expect(b.awaitReloadRestart()).resolves.toBe('not-expected')
+
+    const ids = prod.sent
+      .filter((f) => f.type === 'reload')
+      .map((f) => String((f as {reloadId?: string}).reloadId))
+    b.onFrame(prod, {type: 'reload-ack', reloadType: 'full', reloadId: ids[1]})
+    const first = b.awaitReloadRestart()
+    b.broadcastReload({type: 'full', label: 'extension'})
+    await expect(first).resolves.toBe('not-expected')
   })
 
   it('releases the content-scripts latch on an acked reload id', () => {
