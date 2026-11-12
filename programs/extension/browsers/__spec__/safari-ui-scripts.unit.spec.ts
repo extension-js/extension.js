@@ -168,7 +168,10 @@ describe('generated scripts', () => {
     // Settings opened from the automation window closes with it and System
     // Events lists no windows for a Safari in the back, so the script raises
     // a plain window first, falls back to the shortcut and names what it saw.
-    expect(scripts.unsignedOn).toContain('if (!browserWindow(proc)) {')
+    expect(scripts.unsignedOn).toContain(
+      'if (SCRIPT.automation || !browserWindow(proc)) {'
+    )
+
     expect(scripts.unsignedOn).toContain('safariApp.Document().make()')
     expect(scripts.unsignedOn).toContain(
       "se.keystroke(',', {using: ['command down']})"
@@ -193,6 +196,30 @@ describe('generated scripts', () => {
     expect(scripts.websitesAllow).toContain("'AXPopUpButton'")
     expect(scripts.websitesAllow).toContain('"Allow"')
     expect(scripts.websitesAllow).not.toContain('Always Allow on Every Website')
+  })
+
+  it('marks the scripts that drive the Safari a WebDriver session raised', () => {
+    expect(
+      readScriptHeader(unsignedExtensionsScript('on', true))
+    ).toMatchObject({kind: 'unsigned', automation: true})
+
+    expect(
+      readScriptHeader(extensionEnabledScript('id-checkbox', 'on', true))
+    ).toMatchObject({kind: 'enabled', automation: true})
+
+    expect(readScriptHeader(unsignedExtensionsScript('on'))).not.toHaveProperty(
+      'automation'
+    )
+  })
+
+  it('falls back to the every-website button only in that Safari', () => {
+    const inSession = otherWebsitesScript('id-checkbox', 'allow', true)
+
+    expect(inSession).toContain('"Always Allow on Every Website"')
+    expect(inSession).toContain('everyWebsite: true')
+    expect(otherWebsitesScript('id-checkbox', 'read', true)).not.toContain(
+      'Always Allow on Every Website'
+    )
   })
 
   it('opens the toolbar menu with a synthesized right click and closes it', () => {

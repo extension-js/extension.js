@@ -9,6 +9,7 @@
 export const UNSIGNED_TEAM = 'UNSIGNED'
 export const UNSIGNED_EXTENSIONS_TITLE = 'Allow unsigned extensions'
 export const EDIT_WEBSITES_TITLE = 'Edit Websites…'
+const ALWAYS_ALLOW_TITLE = 'Always Allow on Every Website'
 export const OTHER_WEBSITES_ALLOW = 'Allow'
 
 export type OtherWebsitesChoice = 'Ask' | 'Deny' | 'Allow'
@@ -170,7 +171,23 @@ function walk(root, pred, depth, out) {
   }
   return out
 }
-function first(root, pred) { const out = walk(root, pred, 0, []); return out.length ? out[0] : null }
+// Stops at the first match and can be held to a depth: a full walk of every
+// Safari window took 48 s on a Settings window with a long extension list.
+function first(root, pred, maxDepth) {
+  const limit = maxDepth === undefined ? 16 : maxDepth
+  const visit = (el, depth) => {
+    if (depth > limit) return null
+    for (const k of kids(el)) {
+      let hit = false
+      try { hit = pred(k) } catch (e) { hit = false }
+      if (hit) return k
+      const deeper = visit(k, depth + 1)
+      if (deeper) return deeper
+    }
+    return null
+  }
+  return visit(root, 0)
+}
 function safari() {
   const list = se.processes.whose({name: 'Safari'})()
   return list.length ? list[0] : null
@@ -181,7 +198,7 @@ function windowTitled(proc, title) {
   return null
 }
 function toolbarTitles(w) {
-  const bar = first(w, (e) => role(e) === 'AXToolbar')
+  const bar = first(w, (e) => role(e) === 'AXToolbar', 1)
   return bar ? kids(bar).map((b) => String(attr(b, 'AXTitle') || '')) : null
 }
 function isSettingsWindow(w) {
@@ -200,7 +217,7 @@ function settingsWindow(proc) {
 function browserWindow(proc) {
   for (const w of windows(proc)) {
     if (isSettingsWindow(w)) continue
-    const bar = first(w, (e) => role(e) === 'AXToolbar')
+    const bar = first(w, (e) => role(e) === 'AXToolbar', 1)
     if (bar && kids(bar).some((b) => String(attr(b, 'AXIdentifier') || '').indexOf('WebExtension-') === 0 || String(attr(b, 'AXIdentifier') || '') === 'NewTabButton')) return w
   }
   return null
@@ -246,7 +263,9 @@ function openSettings(proc) {
   delay(0.4)
   let w = settingsWindow(proc)
   if (w) return w
-  if (!browserWindow(proc)) {
+  // In the Safari a WebDriver session raised, Settings asked for from the
+  // automation window never opens, so a plain window is made and used.
+  if (SCRIPT.automation || !browserWindow(proc)) {
     try { safariApp.Document().make() } catch (e) {}
     wait(() => browserWindow(proc), 6)
     safariApp.activate()
@@ -275,7 +294,7 @@ function showPane(proc, title) {
   // System Events also stops listing the window when another app takes the
   // front, so a read that finds no toolbar brings Safari forward again.
   const button = wait(() => {
-    const bar = first(settingsWindow(proc) || w, (e) => role(e) === 'AXToolbar')
+    const bar = first(settingsWindow(proc) || w, (e) => role(e) === 'AXToolbar', 1)
     if (!bar) { safariApp.activate(); return null }
     return kids(bar).filter((b) => String(attr(b, 'AXTitle') || '') === title)[0]
   }, PANE_BUTTON_WAIT)
@@ -314,7 +333,7 @@ function isAlert(e) {
 }
 function alertOf(proc) {
   for (const w of windows(proc)) {
-    const box = isAlert(w) ? w : first(w, isAlert)
+    const box = isAlert(w) ? w : first(w, isAlert, 5)
     if (!box) continue
     // Safari 27 puts the message in the dialog's title and a text area, and
     // the address it refused in a static text, so all three are read.
@@ -406,6 +425,7 @@ export interface ScriptHeader {
   id?: string
   key?: string
   modifiers?: string[]
+  automation?: boolean
 }
 
 function header(value: ScriptHeader): string {
@@ -487,8 +507,11 @@ export function safariAlertScript(): string {
 })()`
 }
 
-export function unsignedExtensionsScript(action: 'read' | 'on'): string {
-  return `${header({kind: 'unsigned', action})}${PRELUDE}
+export function unsignedExtensionsScript(
+  action: 'read' | 'on',
+  automation = false
+): string {
+  return `${header({kind: 'unsigned', action, ...(automation ? {automation} : {})})}${PRELUDE}
 (() => {
   try {
     const proc = safari()
@@ -506,14 +529,15 @@ export function unsignedExtensionsScript(action: 'read' | 'on'): string {
 
 export function extensionEnabledScript(
   checkboxId: string,
-  action: 'read' | 'on' | 'off'
+  action: 'read' | 'on' | 'off',
+  automation = false
 ): string {
   const set =
     action === 'read'
       ? '{before, after: before, clicked: false}'
       : `setChecked(cb, ${action === 'on'})`
 
-  return `${header({kind: 'enabled', action, id: checkboxId})}${PRELUDE}
+  return `${header({kind: 'enabled', action, id: checkboxId, ...(automation ? {automation} : {})})}${PRELUDE}
 (() => {
   try {
     const proc = safari()
@@ -531,9 +555,35 @@ export function extensionEnabledScript(
 
 export function otherWebsitesScript(
   checkboxId: string,
-  action: 'read' | 'allow'
+  action: 'read' | 'allow',
+  automation = false
 ): string {
-  return `${header({kind: 'websites', action, id: checkboxId})}${PRELUDE}
+  const everyWebsite =
+    automation && action === 'allow'
+      ? `    if (!sites) {
+      // The automation Safari leaves that button dead. The every-website
+      // button and its confirm sheet grant the same access there.
+      const details = box()
+      const every = first(details, (e) => role(e) === 'AXButton' && String(attr(e, 'AXTitle') || '').indexOf(${literal(ALWAYS_ALLOW_TITLE)}) === 0)
+      const notYet = () => first(box(), (e) => role(e) === 'AXStaticText' && String(attr(e, 'AXValue') || '').indexOf('have not allowed this extension') >= 0)
+      if (!every && !notYet()) { closeSettings(proc); return answer({ok: true, listed: true, before: ${literal(OTHER_WEBSITES_ALLOW)}, after: ${literal(OTHER_WEBSITES_ALLOW)}, everyWebsite: true}) }
+      if (!every) return answer({ok: false, error: 'the Websites pane did not open and the row has no ${ALWAYS_ALLOW_TITLE} button'})
+      every.click()
+      const confirm = wait(() => {
+        const sheet = kids(settingsWindow(proc)).filter((k) => role(k) === 'AXSheet')[0]
+        return sheet ? first(sheet, (e) => role(e) === 'AXButton' && String(attr(e, 'AXTitle') || '') === ${literal(ALWAYS_ALLOW_TITLE)}) : null
+      }, 6)
+      if (!confirm) return answer({ok: false, error: 'no confirm sheet after ${ALWAYS_ALLOW_TITLE}'})
+      confirm.click()
+      const gone = wait(() => (kids(settingsWindow(proc)).some((k) => role(k) === 'AXSheet') ? null : 1), 6)
+      const still = notYet()
+      closeSettings(proc)
+      return answer({ok: true, listed: true, before: 'Ask', after: gone && !still ? ${literal(OTHER_WEBSITES_ALLOW)} : 'Ask', everyWebsite: true})
+    }
+`
+      : ''
+
+  return `${header({kind: 'websites', action, id: checkboxId, ...(automation ? {automation} : {})})}${PRELUDE}
 (() => {
   try {
     const proc = safari()
@@ -542,11 +592,12 @@ export function otherWebsitesScript(
     const cb = wait(() => checkboxById(settingsWindow(proc), ${literal(checkboxId)}), 6)
     if (!cb) return answer({ok: true, listed: false, before: null, after: null})
     selectRowOf(proc, ${literal(checkboxId)})
-    const edit = wait(() => first(settingsWindow(proc), (e) => role(e) === 'AXButton' && String(attr(e, 'AXTitle') || '') === ${literal(EDIT_WEBSITES_TITLE)}), 6)
+    const box = () => detailsOf(settingsWindow(proc))
+    const edit = wait(() => first(box(), (e) => role(e) === 'AXButton' && String(attr(e, 'AXTitle') || '') === ${literal(EDIT_WEBSITES_TITLE)}), 6)
     if (!edit) return answer({ok: false, error: 'no ${EDIT_WEBSITES_TITLE} button for the selected row'})
     edit.click()
     const sites = wait(() => (String(attr(settingsWindow(proc), 'AXTitle') || '') === 'Websites' ? settingsWindow(proc) : null), 6)
-    if (!sites) return answer({ok: false, error: 'the Websites pane did not open'})
+${everyWebsite}    if (!sites) return answer({ok: false, error: 'the Websites pane did not open'})
     const pop = wait(() => first(settingsWindow(proc), (e) => role(e) === 'AXPopUpButton' && ['Ask', 'Deny', 'Allow'].indexOf(String(attr(e, 'AXValue') || '')) >= 0), 6)
     if (!pop) return answer({ok: false, error: 'no For other websites pop-up on the Websites pane'})
     const before = String(attr(pop, 'AXValue') || '')
@@ -597,7 +648,7 @@ function toolbarButton(proc, id) {
     w = wait(() => browserWindow(proc), 8)
   }
   if (!w) throw new Error('Safari has no browser window')
-  const bar = first(w, (e) => role(e) === 'AXToolbar')
+  const bar = first(w, (e) => role(e) === 'AXToolbar', 1)
   return kids(bar).filter((b) => String(attr(b, 'AXIdentifier') || '') === id)[0] || null
 }
 function describeButton(b) {

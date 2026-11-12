@@ -574,7 +574,7 @@ describe('dev --enable-extension through the pipeline', () => {
     fs.rmSync(root, {recursive: true, force: true})
   })
 
-  it('enables after registration and before the WebDriver session, and skips the manual steps', async () => {
+  it('enables after registration and the WebDriver session request, and skips the manual steps', async () => {
     const ui = fakeSafariUiTools()
     const {logs, pipeline} = await run({enableExtension: true, uiTools: ui})
 
@@ -586,8 +586,7 @@ describe('dev --enable-extension through the pipeline', () => {
       'unsigned:on',
       expect.stringMatching(/^pluginkit:/),
       'enabled:on',
-      'websites:allow',
-      'close'
+      'websites:allow'
     ])
 
     const events = pipeline.events.filter((e) => !e.startsWith('log:'))
@@ -632,7 +631,6 @@ describe('dev --enable-extension through the pipeline', () => {
       'unsigned:on',
       'unsigned:read',
       'cancel',
-      'close',
       'close'
     ])
 

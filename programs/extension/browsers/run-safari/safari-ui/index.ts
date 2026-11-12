@@ -152,6 +152,8 @@ export interface EnableInput {
   startWaitMs?: number
   promptWaitMs?: number
   promptPollMs?: number
+  // True when the Safari to drive is the one a WebDriver session raised.
+  automation?: boolean
 }
 
 const SAFARI_START_MS = 20_000
@@ -323,6 +325,7 @@ export async function enableSafariExtension(
   const {bundleId, developmentTeam} = input.target
   const checkboxId = extensionCheckboxId(bundleId, developmentTeam)
   const steps: EnableStep[] = []
+  const automation = Boolean(input.automation)
 
   const record = (step: EnableStep) => {
     steps.push(step)
@@ -358,7 +361,7 @@ export async function enableSafariExtension(
   const adHoc = !String(developmentTeam || '').trim()
   const current = await runAnswer(
     tools,
-    extensionEnabledScript(checkboxId, 'read')
+    extensionEnabledScript(checkboxId, 'read', automation)
   )
   const alreadyOn = Boolean(current.listed) && asText(current.after) === '1'
 
@@ -373,7 +376,10 @@ export async function enableSafariExtension(
     })
   } else {
     if (adHoc) {
-      const unsigned = await runAnswer(tools, unsignedExtensionsScript('on'))
+      const unsigned = await runAnswer(
+        tools,
+        unsignedExtensionsScript('on', automation)
+      )
       const waitMs = input.promptWaitMs ?? UNSIGNED_WAIT_MS
       let unsignedOn = asText(unsigned.after) === '1'
       let waitedMs = 0
@@ -382,7 +388,7 @@ export async function enableSafariExtension(
         input.onPromptWait?.('unsigned', Number((waitMs / 1000).toFixed(1)))
         unsignedOn = await waitForOn(
           tools,
-          unsignedExtensionsScript('read'),
+          unsignedExtensionsScript('read', automation),
           waitMs,
           input.promptPollMs ?? UNSIGNED_POLL_MS
         )
@@ -433,7 +439,7 @@ export async function enableSafariExtension(
 
     const enabled = await runAnswer(
       tools,
-      extensionEnabledScript(checkboxId, 'on')
+      extensionEnabledScript(checkboxId, 'on', automation)
     )
     const listed = Boolean(enabled.listed)
     const switchWaitMs = input.promptWaitMs ?? UNSIGNED_WAIT_MS
@@ -444,7 +450,7 @@ export async function enableSafariExtension(
       input.onPromptWait?.('enabled', Number((switchWaitMs / 1000).toFixed(1)))
       switchOn = await waitForOn(
         tools,
-        extensionEnabledScript(checkboxId, 'read'),
+        extensionEnabledScript(checkboxId, 'read', automation),
         switchWaitMs,
         input.promptPollMs ?? UNSIGNED_POLL_MS
       )
@@ -487,7 +493,7 @@ export async function enableSafariExtension(
 
   const websites = await runAnswer(
     tools,
-    otherWebsitesScript(checkboxId, 'allow')
+    otherWebsitesScript(checkboxId, 'allow', automation)
   )
   record({
     step: 'websites',
