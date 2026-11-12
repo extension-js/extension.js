@@ -32,12 +32,16 @@ export interface ReadyContractInfo {
   engine?: string
   /** Dev-server pid; absent in pre-4.1 contracts. */
   pid?: number
+  /** When that pid's process started (ISO UTC); a reused pid will not match it. */
+  pidStartedAt?: string
   /** Browser CDP port, stamped post-launch, may lag `status: 'ready'`. */
   cdpPort?: number
   /** Gecko debugger-server port, the `cdpPort` of a Firefox-family session. */
   rdpPort?: number
   /** The launched browser process, the only handle on its liveness. */
   browserPid?: number
+  /** When the browser process started (ISO UTC), the same check for `browserPid`. */
+  browserStartedAt?: string
   /** Stamped when the launched browser exits while the server keeps running. */
   browserExitedAt?: string
   browserExitCode?: number
@@ -102,9 +106,13 @@ export function readReadyContract(
       status: c.status,
       engine: typeof c.engine === 'string' ? c.engine : undefined,
       pid: typeof c.pid === 'number' ? c.pid : undefined,
+      pidStartedAt:
+        typeof c.pidStartedAt === 'string' ? c.pidStartedAt : undefined,
       cdpPort: typeof c.cdpPort === 'number' ? c.cdpPort : undefined,
       rdpPort: typeof c.rdpPort === 'number' ? c.rdpPort : undefined,
       browserPid: typeof c.browserPid === 'number' ? c.browserPid : undefined,
+      browserStartedAt:
+        typeof c.browserStartedAt === 'string' ? c.browserStartedAt : undefined,
       startedAt: typeof c.startedAt === 'string' ? c.startedAt : undefined,
       browserExitedAt:
         typeof c.browserExitedAt === 'string' ? c.browserExitedAt : undefined,

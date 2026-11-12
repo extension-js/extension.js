@@ -53,6 +53,9 @@ describe('launch facts are scoped to the run that produced them', () => {
     patchContract({
       runId: 'a-run-that-already-ended',
       browserPid: 999_999,
+      browserStartedAt: '2020-01-01T00:00:00.000Z',
+      launcherPid: 999_998,
+      launcherStartedAt: '2020-01-01T00:00:00.000Z',
       cdpPort: 9222,
       binary: '/Applications/Gone.app',
       binaryProvenance: 'pinned',
@@ -66,6 +69,9 @@ describe('launch facts are scoped to the run that produced them', () => {
 
     for (const field of [
       'browserPid',
+      'browserStartedAt',
+      'launcherPid',
+      'launcherStartedAt',
       'cdpPort',
       'binary',
       'binaryProvenance',

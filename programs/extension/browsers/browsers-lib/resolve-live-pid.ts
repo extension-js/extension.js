@@ -31,7 +31,8 @@ const HELPER_PROCESS =
 function runQuiet(
   bin: string,
   args: string[],
-  timeoutMs?: number
+  timeoutMs?: number,
+  env?: NodeJS.ProcessEnv
 ): string | null {
   try {
     const result = spawnSync(bin, args, {
@@ -39,7 +40,8 @@ function runQuiet(
       stdio: ['ignore', 'pipe', 'ignore'],
       windowsHide: true,
       maxBuffer: 64 * 1024 * 1024,
-      ...(timeoutMs ? {timeout: timeoutMs} : {})
+      ...(timeoutMs ? {timeout: timeoutMs} : {}),
+      ...(env ? {env} : {})
     })
 
     if (result.error || result.status !== 0) return null
@@ -213,6 +215,8 @@ export function isPidAlive(pid: number | null | undefined): boolean {
 // signal-0 probe cannot tell apart from the one that is gone.
 // A cold PowerShell CIM query can take a minute on a loaded Windows machine,
 // so the answer is bounded and a slow one reads as unknown, like a failed one.
+// ps prints the day and month in the shell's language, so it is asked in C,
+// the one spelling Date.parse reads.
 export const PID_START_PROBE_TIMEOUT_MS = 5000
 
 export function pidStartedAtMs(
@@ -237,12 +241,24 @@ export function pidStartedAtMs(
       : runQuiet(
           'ps',
           ['-o', 'lstart=', '-p', String(pid)],
-          PID_START_PROBE_TIMEOUT_MS
+          PID_START_PROBE_TIMEOUT_MS,
+          {...process.env, LC_ALL: 'C'}
         )
 
   const started = Date.parse(String(output || '').trim())
 
   return Number.isNaN(started) ? null : started
+}
+
+// The same answer as the ISO 8601 UTC string the ready contract carries, or
+// undefined when the table could not date the pid.
+export function pidStartedAtIso(
+  pid: number | null | undefined,
+  platform = process.platform
+): string | undefined {
+  const started = pidStartedAtMs(pid, platform)
+
+  return started == null ? undefined : new Date(started).toISOString()
 }
 
 // The handoff happens shortly after spawn, so poll for a few seconds and
