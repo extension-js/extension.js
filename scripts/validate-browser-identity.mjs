@@ -19,7 +19,20 @@ import {
 } from 'node:fs'
 import {homedir, tmpdir} from 'node:os'
 import {dirname, join, resolve, sep} from 'node:path'
+import {
+  debugPortFromArgv,
+  isOwnOrBlankPage,
+  isOwnPage,
+  ownExtensionIds
+} from './lib/browser-identity-pages.mjs'
 import {judgeIdentityRun} from './lib/browser-identity-verdict.mjs'
+import {
+  argvIsHeadless,
+  judgeNativeWindows,
+  listNativeWindows,
+  nativeWindowSkipReason,
+  themeCompanionPaths
+} from './lib/native-windows.mjs'
 import {
   cliSpawnArgs,
   describeDevCli,
@@ -116,6 +129,9 @@ const cacheMode = parseArg('--cache', 'warm')
 const timeoutMs = Number(parseArg('--timeout-ms', '180000'))
 const keepTemp = parseFlag('--keep-temp')
 const allowSkips = parseFlag('--allow-skips')
+// Runs the native dialog check alone against a pid the caller launched, which
+// is how its positive control (a forced Opera load error) is proved red.
+const checkWindowsOf = Number(parseArg('--check-windows-of', '0'))
 
 const nodeDir = dirname(process.execPath)
 const pathDelim = process.platform === 'win32' ? ';' : ':'
@@ -384,7 +400,15 @@ function tail(text, lines = 25) {
 
 // One dev session: spawn, wait for the contract to name a live browser, read
 // everything the assertions need, then tear the session down.
-function runDevSession({projectDir, browser, devArgs, env, cli, inspect}) {
+function runDevSession({
+  projectDir,
+  browser,
+  devArgs,
+  env,
+  cli,
+  inspect,
+  diagnose
+}) {
   return new Promise((resolveRun) => {
     const child = spawn(...cliSpawnArgs(cli, ['dev', ...devArgs]), {
       cwd: projectDir,
@@ -408,8 +432,12 @@ function runDevSession({projectDir, browser, devArgs, env, cli, inspect}) {
       // The identity checks read the live pid, so they run before teardown.
       const verdict =
         result.outcome === 'ready' ? await inspect({ready, output}) : null
+      // A session that never got ready is asked what it left on screen, so a
+      // timeout names the dialog or the page behind it instead of a stage.
+      const onScreen =
+        result.outcome !== 'ready' && ready ? await diagnose({ready}) : []
       await killTree(child, ready?.browserPid)
-      resolveRun({...result, verdict, output, ready, exitCode})
+      resolveRun({...result, verdict, onScreen, output, ready, exitCode})
     }
 
     const timer = setTimeout(() => {
@@ -476,43 +504,6 @@ function runDevSession({projectDir, browser, devArgs, env, cli, inspect}) {
   })
 }
 
-// What the browser put on screen. A page is ours when it belongs to the user
-// extension or a companion the session loaded, or when it is the engine's own
-// blank surface. Anything else in front of a reader on a fresh profile is a
-// fork's onboarding: Zen's import wizard, Floorp's release notes, Vivaldi's
-// signup wizard (a chrome-extension:// page of Vivaldi's own UI, which is why
-// the check compares ids and never trusts the scheme).
-const ENGINE_BLANK_PAGES = [
-  /^about:(blank|newtab|home|privatebrowsing)$/,
-  // newtab-footer is a companion surface of the new tab page, not a page
-  // competing for the reader: system Chromium 146 exposes it as its own target
-  // while managed Chrome 151 does not, and it failed the check on that alone.
-  /^chrome:\/\/(newtab|newtab-footer|new-tab-page|extensions|startpage|startpageshared)\/?$/,
-  /^edge:\/\/(newtab|extensions)\/?$/,
-  /^moz-extension:\/\//
-]
-
-function ownExtensionIds(ready) {
-  const ids = new Set()
-  if (typeof ready.extensionId === 'string') ids.add(ready.extensionId)
-
-  for (const managed of Array.isArray(ready.managedExtensions)
-    ? ready.managedExtensions
-    : []) {
-    if (typeof managed?.id === 'string' && managed.id) ids.add(managed.id)
-  }
-
-  return ids
-}
-
-function isOwnPage(url, ownIds) {
-  const text = String(url || '')
-  const extension = /^chrome-extension:\/\/([a-p]{32})\//.exec(text)
-  if (extension) return ownIds.has(extension[1])
-
-  return /^moz-extension:\/\//.test(text)
-}
-
 // Why a page of ours did not render, or null when it did. Chromium pages carry
 // what Runtime.evaluate read inside them; gecko tabs carry only a title.
 function describeRefusedPage(page) {
@@ -535,21 +526,46 @@ function describeRefusedPage(page) {
   return null
 }
 
-function isOwnOrBlankPage(url, ownIds) {
-  const text = String(url || '')
-  if (!text) return true
-
-  const extension = /^chrome-extension:\/\/([a-p]{32})\//.exec(text)
-  if (extension) return ownIds.has(extension[1])
-
-  return ENGINE_BLANK_PAGES.some((pattern) => pattern.test(text))
-}
-
 // What the document inside a page target says about itself. A target keeps
 // the url that was REQUESTED even when the browser refused it and painted its
 // own error there (Yandex blocks unpacked extension pages this way), so the
 // url alone is not evidence that a page rendered. Null means the page could
 // not be asked, which the caller reports rather than treats as a pass.
+// The full command line of a pid, or null where the platform gives none.
+function argvOfPid(pid) {
+  if (process.platform === 'win32' || typeof pid !== 'number') return null
+
+  try {
+    const out = execFileSync('ps', ['-ww', '-o', 'args=', '-p', String(pid)], {
+      encoding: 'utf8',
+      timeout: 10_000
+    }).trim()
+
+    return out || null
+  } catch {
+    return null
+  }
+}
+
+// g. No native dialog of the browser's own is on screen. Page targets cannot
+// see one, so the window server answers for the pid the contract names.
+function nativeDialogVerdict(pid) {
+  const argvText = argvOfPid(pid)
+  const listing =
+    process.platform === 'darwin' && !argvIsHeadless(argvText)
+      ? listNativeWindows(pid)
+      : null
+  const skip = nativeWindowSkipReason({
+    platform: process.platform,
+    argvText,
+    listing
+  })
+
+  if (skip) return {status: 'skip', detail: skip}
+
+  return judgeNativeWindows(listing.windows)
+}
+
 function renderedDocument(webSocketDebuggerUrl) {
   return new Promise((resolveProbe) => {
     let settled = false
@@ -699,9 +715,20 @@ function geckoPages(cli, projectDir, browser) {
 
 async function foregroundPages({browser, ready, cli, projectDir}) {
   if (CHROMIUM_FAMILY.has(browser)) {
-    if (typeof ready.cdpPort !== 'number') return null
+    // A CDP setup that never finished leaves the contract without its port
+    // while the browser still listens on the one in its argv.
+    const port =
+      typeof ready.cdpPort === 'number'
+        ? ready.cdpPort
+        : debugPortFromArgv(argvOfPid(ready.browserPid))
 
-    return chromiumPages(ready.cdpPort)
+    if (!port) {
+      throw new Error(
+        'ready.json has no cdpPort and the browser argv names no debugging port'
+      )
+    }
+
+    return chromiumPages(port)
   }
 
   return geckoPages(cli, projectDir, browser)
@@ -932,6 +959,43 @@ async function assertIdentity({
     )
   }
 
+  // g. No native dialog of the browser's own is on screen.
+  if (typeof pid === 'number' && pidAlive(pid)) {
+    const windows = nativeDialogVerdict(pid)
+
+    if (windows.status === 'fail') {
+      failures.push(
+        `${target} put a native dialog on screen: ${windows.detail}`
+      )
+    } else if (windows.status === 'skip') {
+      notes.push(`native dialog check SKIPPED, not proved: ${windows.detail}`)
+    } else {
+      notes.push(`native windows: ${windows.detail}`)
+    }
+  }
+
+  // h. Opera refuses a theme with a load-error dialog, so its command line
+  // must not carry the theme companion at all.
+  if (browser === 'opera' && typeof pid === 'number' && pidAlive(pid)) {
+    const argvText = argvOfPid(pid)
+
+    if (argvText === null) {
+      notes.push(
+        'theme companion check SKIPPED, not proved: this platform gave no argv for the pid'
+      )
+    } else {
+      const themed = themeCompanionPaths(argvText)
+
+      if (themed.length) {
+        failures.push(
+          `opera was handed the theme companion on --load-extension, which it answers with a load-error dialog: ${themed.join(', ')}`
+        )
+      } else {
+        notes.push('--load-extension carries no theme companion')
+      }
+    }
+  }
+
   return {
     failures,
     notes,
@@ -941,6 +1005,43 @@ async function assertIdentity({
     pid,
     liveExe
   }
+}
+
+// What a session that never got ready still shows: the native dialog check
+// and the browser's own pages, each only when it has something to say.
+async function describeStuckSession({target, browser, ready, cli, projectDir}) {
+  const found = []
+  const pid = ready?.browserPid
+
+  if (typeof pid !== 'number' || !pidAlive(pid)) return found
+
+  const windows = nativeDialogVerdict(pid)
+
+  if (windows.status === 'fail') {
+    found.push(`${target} put a native dialog on screen: ${windows.detail}`)
+  } else if (windows.status === 'skip') {
+    found.push(`native dialog check SKIPPED, not proved: ${windows.detail}`)
+  }
+
+  try {
+    const pages = await foregroundPages({browser, ready, cli, projectDir})
+    const ownIds = ownExtensionIds(ready)
+    const foreign = (pages || []).filter(
+      (page) => !isOwnOrBlankPage(page.url, ownIds)
+    )
+
+    if (foreign.length) {
+      found.push(
+        `${target} put its own page in front of the extension: ${foreign
+          .map((page) => page.url)
+          .join(', ')}`
+      )
+    }
+  } catch {
+    // A browser stuck behind a dialog answers no listing, the dialog says why.
+  }
+
+  return found
 }
 
 function classifyEarlyExit(session) {
@@ -1005,6 +1106,14 @@ async function runTarget({
         pinnedBinary,
         cli,
         projectDir
+      }),
+    diagnose: (live) =>
+      describeStuckSession({
+        target,
+        browser,
+        ready: live.ready,
+        cli,
+        projectDir
       })
   })
 
@@ -1017,12 +1126,13 @@ async function runTarget({
       return {target, cacheLabel, status: early.status, detail: early.reason}
     }
 
-    const detail =
+    const stopped =
       session.outcome === 'timeout'
         ? `timed out after ${timeoutMs} ms at stage "${session.stage}"`
         : session.outcome === 'contract-error'
           ? `ready.json reported ${session.ready?.code || 'error'}: ${session.ready?.message || ''}`
           : `dev exited with code ${session.exitCode} before the browser was ready`
+    const detail = [stopped, ...(session.onScreen || [])].join('; ')
     console.log(`  FAIL: ${detail}\n${tail(session.output)}`)
 
     return {target, cacheLabel, status: 'FAIL', detail}
@@ -1074,7 +1184,28 @@ function printSummary(rows) {
   }
 }
 
+// The native dialog check alone, against a pid the caller owns.
+function checkWindowsOfPid(pid) {
+  if (!Number.isInteger(pid) || pid <= 0 || !pidAlive(pid)) {
+    throw new Error(`--check-windows-of needs a live pid, got ${pid}`)
+  }
+
+  const verdict = nativeDialogVerdict(pid)
+  const label = {fail: 'FAIL', skip: 'SKIPPED, not proved', pass: 'PASS'}
+  console.log(
+    `native dialog check for pid ${pid}: ${label[verdict.status]}: ${verdict.detail}`
+  )
+
+  if (verdict.status === 'fail') process.exit(1)
+}
+
 async function main() {
+  if (parseArg('--check-windows-of', '')) {
+    checkWindowsOfPid(checkWindowsOf)
+
+    return
+  }
+
   if (!['warm', 'cold', 'both'].includes(cacheMode)) {
     throw new Error(`--cache must be warm, cold or both, got ${cacheMode}`)
   }
