@@ -28,7 +28,8 @@ import WebExtension from './setup-reload-strategy/webpack-target-webextension-fo
 // group, so its world is read off the entries the scripts step created.
 function buildRuntimeMainWorldMeta(
   compiler: Compiler,
-  manifestPath: string
+  manifestPath: string,
+  manifest: Manifest
 ): Record<string, unknown> {
   const entries = compiler.options.entry
   if (!entries || typeof entries !== 'object') return {}
@@ -40,6 +41,16 @@ function buildRuntimeMainWorldMeta(
     if (!Array.isArray(imports)) continue
 
     includeList[name] = imports.filter(
+      (file): file is string => typeof file === 'string'
+    )
+  }
+
+  // Several background.scripts files enter as one generated module, so the
+  // files that may hold the registration are read from the manifest.
+  const backgroundScripts = manifest.background?.scripts
+
+  if (Array.isArray(backgroundScripts)) {
+    includeList['background/scripts'] = backgroundScripts.filter(
       (file): file is string => typeof file === 'string'
     )
   }
@@ -113,7 +124,11 @@ export class SetupChunkLoadingTarget {
       weakRuntimeCheck: true,
       contentScriptsMeta: {
         ...buildContentScriptsMeta(patchedManifest),
-        ...buildRuntimeMainWorldMeta(compiler, this.manifestPath)
+        ...buildRuntimeMainWorldMeta(
+          compiler,
+          this.manifestPath,
+          patchedManifest
+        )
       }
     }).apply(
       compiler as Parameters<InstanceType<typeof WebExtension>['apply']>[0]

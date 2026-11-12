@@ -162,6 +162,45 @@ describe('SetupChunkLoadingTarget', () => {
     expect(meta['content_scripts/content-0.js'].world).toBe('extension')
   })
 
+  // Several background.scripts files enter as one generated module, which
+  // hides the file that holds the registration from the entry list.
+  it('finds a MAIN world registration in a background made of several files', () => {
+    const manifestPath = writeManifest(
+      {
+        manifest_version: 3,
+        name: 'split background',
+        version: '1.0',
+        background: {scripts: ['first.js', 'register.js']}
+      },
+      ['first.js', 'scripts/hook.js']
+    )
+    const dir = path.dirname(manifestPath)
+    fs.writeFileSync(
+      path.join(dir, 'register.js'),
+      'chrome.scripting.registerContentScripts([' +
+        '{id: "a", js: ["scripts/hook.js"], world: "MAIN", matches: ["<all_urls>"]}])'
+    )
+
+    const compiler = makeCompiler('production')
+    compiler.options.context = dir
+    compiler.options.entry = {
+      'background/scripts': {
+        import: ['data:text/javascript;charset=utf-8,generated']
+      },
+      'scripts/hook': {import: [path.join(dir, 'scripts', 'hook.js')]}
+    }
+
+    new SetupChunkLoadingTarget({manifestPath, browser: 'chrome'}).apply(
+      compiler
+    )
+
+    const meta = (webExtensionCtor.mock.calls[0][0] as any).contentScriptsMeta
+    expect(meta['scripts/hook.js']).toEqual({
+      bundleId: 'scripts/hook.js',
+      world: 'main'
+    })
+  })
+
   it('never runs without a readable manifest', () => {
     new SetupChunkLoadingTarget({
       manifestPath: path.join(os.tmpdir(), 'extjs-nope', 'manifest.json'),
