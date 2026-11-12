@@ -225,6 +225,36 @@ describe('collectContentScriptEntryImports', () => {
     expect(res['content_scripts/content-0']).toContain('img/bg.png')
     expect(res['content_scripts/content-0']).not.toContain('img/other.png')
   })
+
+  // Dev compiles a MAIN world file in a child compilation, so the parent has
+  // its bundle and its assets and no entrypoint to walk.
+  it('scans the emitted bundle of an entry compiled apart from the compilation', () => {
+    const base = makeCompilationMock({})
+    const sources: Record<string, string> = {
+      'scripts/hook.js':
+        'module.exports = __webpack_require__.p + "assets/logo.54144ab3.svg";'
+    }
+    const compilation = {
+      ...base,
+      getAsset: (name: string) =>
+        sources[name] ? {source: {source: () => sources[name]}} : undefined,
+      getAssets: () => [
+        {name: 'scripts/hook.js'},
+        {name: 'assets/logo.54144ab3.svg'},
+        {name: 'assets/unused.11111111.svg'}
+      ]
+    } as unknown as Compilation
+    const includeList: FilepathList = {
+      'scripts/hook': 'scripts/hook.js',
+      'scripts/absent': 'scripts/absent.js',
+      'background/service_worker': 'background.js'
+    }
+
+    const res = collectContentScriptEntryImports(compilation, includeList)
+    expect(res['scripts/hook']).toEqual(['assets/logo.54144ab3.svg'])
+    expect(res['scripts/absent']).toBeUndefined()
+    expect(res['background/service_worker']).toBeUndefined()
+  })
 })
 
 describe('page-context entry classification', () => {

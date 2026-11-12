@@ -99,6 +99,131 @@ function runtimeRegisteredProject() {
   return {root}
 }
 
+function runtimeInjectedProject() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-main-world-ex-'))
+  roots.push(root)
+  fs.writeFileSync(
+    path.join(root, 'package.json'),
+    JSON.stringify({private: true, name: 'main-world-ex', version: '0.0.0'})
+  )
+
+  fs.mkdirSync(path.join(root, 'scripts'), {recursive: true})
+  fs.writeFileSync(
+    path.join(root, 'scripts', 'logo.svg'),
+    `<svg xmlns="http://www.w3.org/2000/svg"><!-- ${'x'.repeat(20000)} --></svg>\n`
+  )
+
+  const hook =
+    'import logo from "./logo.svg"\nwindow.__PAGE_HOOK__ = logo\n' +
+    'document.body.removeChild(document.body.lastChild)\n'
+  fs.writeFileSync(path.join(root, 'scripts', 'hook.js'), hook)
+  fs.writeFileSync(path.join(root, 'scripts', 'isolated.js'), hook)
+
+  fs.writeFileSync(
+    path.join(root, 'background.js'),
+    [
+      'chrome.tabs.onUpdated.addListener(function (tabId, info) {',
+      '  if (info.status !== "complete") return',
+      '  chrome.scripting.executeScript({',
+      '    target: {tabId: tabId},',
+      '    files: ["scripts/hook.js"],',
+      '    world: "MAIN"',
+      '  })',
+      '  chrome.scripting.executeScript({',
+      '    target: {tabId: tabId},',
+      '    files: ["scripts/isolated.js"]',
+      '  })',
+      '})',
+      ''
+    ].join('\n')
+  )
+
+  fs.writeFileSync(
+    path.join(root, 'manifest.json'),
+    JSON.stringify({
+      manifest_version: 3,
+      name: 'main-world-ex',
+      version: '1.0.0',
+      permissions: ['scripting', 'tabs'],
+      host_permissions: ['<all_urls>'],
+      background: {service_worker: 'background.js'}
+    })
+  )
+
+  return {root}
+}
+
+function importingProject() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-main-world-im-'))
+  roots.push(root)
+  fs.writeFileSync(
+    path.join(root, 'package.json'),
+    JSON.stringify({private: true, name: 'main-world-im', version: '0.0.0'})
+  )
+
+  fs.mkdirSync(path.join(root, 'scripts'), {recursive: true})
+  fs.writeFileSync(
+    path.join(root, 'scripts', 'lazy.js'),
+    'window.__LAZY_MARK__ = "lazy"\nexport const lazy = 1\n'
+  )
+
+  fs.writeFileSync(
+    path.join(root, 'scripts', 'later.js'),
+    'window.__LATER_MARK__ = "later"\nexport const later = 1\n'
+  )
+
+  fs.writeFileSync(
+    path.join(root, 'scripts', 'hook.js'),
+    'import "./lazy.js"\nimport("./later.js")\n' +
+      'window.__PAGE_HOOK__ = "installed"\n'
+  )
+
+  fs.writeFileSync(
+    path.join(root, 'page-world.js'),
+    'import "./scripts/lazy.js"\nimport("./scripts/later.js")\n' +
+      'window.__MAIN_WORLD_MARK__ = "page"\n'
+  )
+
+  fs.writeFileSync(
+    path.join(root, 'background.js'),
+    [
+      'chrome.runtime.onInstalled.addListener(function () {',
+      '  chrome.scripting.registerContentScripts([',
+      '    {',
+      '      id: "page-hook",',
+      '      js: ["scripts/hook.js"],',
+      '      world: "MAIN",',
+      '      matches: ["<all_urls>"],',
+      '      runAt: "document_start"',
+      '    }',
+      '  ])',
+      '})',
+      ''
+    ].join('\n')
+  )
+
+  fs.writeFileSync(
+    path.join(root, 'manifest.json'),
+    JSON.stringify({
+      manifest_version: 3,
+      name: 'main-world-im',
+      version: '1.0.0',
+      permissions: ['scripting'],
+      background: {service_worker: 'background.js'},
+      content_scripts: [
+        {
+          matches: ['https://a.example/*'],
+          js: ['page-world.js'],
+          world: 'MAIN',
+          run_at: 'document_start'
+        }
+      ]
+    })
+  )
+
+  return {root}
+}
+
 // The dev server runs the bundler with HMR on, which is what puts the hot
 // update runtime into every entry chunk, so the spec compiles the same way.
 async function compileDev(
@@ -223,5 +348,106 @@ describe('a MAIN world script registered at runtime in dev', () => {
     expect(hook).not.toContain('rspackHotUpdate')
     expect(hook).not.toContain('hmrC')
     expect(hook).not.toContain('hot-update')
+  }, 120_000)
+})
+
+describe('a MAIN world script injected with executeScript in dev', () => {
+  it('ships without the HMR runtime or the host instrumentation', async () => {
+    const {root} = runtimeInjectedProject()
+    const built = await compileDev(root)
+    expect(built.stats.hasErrors()).toBe(false)
+
+    const read = (file: string) =>
+      fs.readFileSync(path.join(built.distPath, file), 'utf8')
+    const hook = read('scripts/hook.js')
+
+    expect(hook).toContain('__PAGE_HOOK__')
+    expect(hook).toMatch(
+      /__EXTENSIONJS_HOST_INSTRUMENTATION_ENABLED\s*=\s*false/
+    )
+
+    expect(hook).not.toContain('Node.prototype.removeChild')
+    expect(hook).not.toContain('new MutationObserver')
+    expect(hook).not.toContain('rspackHotUpdate')
+    expect(hook).not.toContain('hmrC')
+    expect(hook).not.toContain('hot-update')
+
+    // An injection with no world runs isolated and keeps the dev runtime.
+    const isolated = read('scripts/isolated.js')
+    expect(isolated).toContain('rspackHotUpdate')
+    expect(isolated).toContain('Node.prototype.removeChild')
+  }, 120_000)
+
+  // The page fetches the asset from the extension origin, and the bundle
+  // compiled apart from the build is the only thing that names it.
+  it('lists the asset the injected file imports as web accessible', async () => {
+    const {root} = runtimeInjectedProject()
+    const built = await compileDev(root)
+    expect(built.stats.hasErrors()).toBe(false)
+
+    const hook = fs.readFileSync(
+      path.join(built.distPath, 'scripts', 'hook.js'),
+      'utf8'
+    )
+    const asset = hook.match(/assets\/logo\.[a-f0-9]+\.svg/)?.[0]
+    expect(asset).toBeTruthy()
+    expect(fs.existsSync(path.join(built.distPath, asset as string))).toBe(true)
+
+    const resources = (built.manifest.web_accessible_resources || []).flatMap(
+      (group: {resources?: string[]}) => group.resources || []
+    )
+    expect(resources).toContain(asset)
+  }, 120_000)
+})
+
+// Every scripts/ file is an entry of its own, so the same file is a content
+// script when it stands alone and a plain module inside a MAIN world bundle.
+describe('a scripts/ file a MAIN world script imports in dev', () => {
+  const expectNoHostInstrumentation = (text: string) => {
+    expect(text).toContain('__LAZY_MARK__')
+    expect(text).toContain('__LATER_MARK__')
+    expect(text).not.toMatch(
+      /__EXTENSIONJS_HOST_INSTRUMENTATION_ENABLED\s*=\s*true/
+    )
+
+    expect(text).not.toContain('Node.prototype.removeChild')
+    expect(text).not.toContain('new MutationObserver')
+    expect(text).not.toContain('__EXTJS_DEBUG')
+    expect(text).not.toContain('rspackHotUpdate')
+  }
+
+  it('stays uninstrumented inside a runtime registered bundle', async () => {
+    const {root} = importingProject()
+    const built = await compileDev(root)
+    expect(built.stats.hasErrors()).toBe(false)
+
+    const read = (file: string) =>
+      fs.readFileSync(path.join(built.distPath, file), 'utf8')
+    const hook = read('scripts/hook.js')
+
+    expect(hook).toContain('__PAGE_HOOK__')
+    expectNoHostInstrumentation(hook)
+
+    // Emitted on its own the same file runs isolated and keeps the dev runtime.
+    for (const file of ['scripts/lazy.js', 'scripts/later.js']) {
+      const standalone = read(file)
+      expect(standalone).toMatch(
+        /__EXTENSIONJS_HOST_INSTRUMENTATION_ENABLED\s*=\s*true/
+      )
+
+      expect(standalone).toContain('Node.prototype.removeChild')
+      expect(standalone).toContain('rspackHotUpdate')
+    }
+  }, 120_000)
+
+  it('stays uninstrumented inside a declared MAIN world bundle', async () => {
+    const {root} = importingProject()
+    const built = await compileDev(root)
+    expect(built.stats.hasErrors()).toBe(false)
+
+    const main = built.bundleOf('content_scripts/content-0')
+    expect(main.world).toBe('MAIN')
+    expect(main.text).toContain('__MAIN_WORLD_MARK__')
+    expectNoHostInstrumentation(main.text)
   }, 120_000)
 })

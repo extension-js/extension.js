@@ -48,8 +48,8 @@ function collectScriptEntries(options: {
   return entries
 }
 
-// Every entry name a runtime registration puts in the MAIN world, read from
-// the sources of the entries this build already compiles.
+// Every entry name a runtime registration or injection puts in the MAIN
+// world, read from the sources of the entries this build already compiles.
 function readRegisteredMainWorldEntryNames(
   entries: Map<string, string[]>
 ): Set<string> {
@@ -80,10 +80,10 @@ function readRegisteredMainWorldEntryNames(
   return names
 }
 
-// The scripts/ entries a runtime registration runs in the page's own world,
-// which the manifest never names. Declared content_scripts groups are left to
-// the manifest lane: one also registered at runtime still has its declared
-// injection to serve.
+// The scripts/ entries a registerContentScripts or executeScript call runs in
+// the page's own world, which the manifest never names. Declared
+// content_scripts groups are left to the manifest lane: one also registered
+// at runtime still has its declared injection to serve.
 export function findRuntimeMainWorldEntries(options: {
   includeList: FilepathList
   manifestDir: string

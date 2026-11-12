@@ -1979,8 +1979,8 @@ function arrayPropStringLiterals(args: string, prop: string): string[] {
   return literals
 }
 
-// The object literals a registerContentScripts call passes, so a property is
-// read per registration instead of across the whole argument blob.
+// The object literals a scripting call passes first, so a property is read
+// per registration or injection instead of across the whole argument blob.
 function splitRegisteredScriptGroups(args: string): string[] {
   const [first] = splitTopLevelArgs(args)
   if (first == null) return []
@@ -1994,26 +1994,33 @@ function splitRegisteredScriptGroups(args: string): string[] {
   return splitTopLevelArgs(trimmed.slice(1, close))
 }
 
-// Extract the js files a runtime registration asks the browser to run in the
-// page's own world. The world rides the same object literal as the files, so
-// it is only readable per registration.
+// Extract the js files a runtime registration or injection asks the browser to
+// run in the page's own world. The world rides the same object as the files.
 export function extractMainWorldRegisteredFileLiterals(
   source: string
 ): string[] {
   const code = blankComments(source)
   const literals: string[] = []
-  const callRe = /\b(?:registerContentScripts|updateContentScripts)\s*\(/g
+  const calls = [
+    {
+      callRe: /\b(?:registerContentScripts|updateContentScripts)\s*\(/g,
+      arrayProp: 'js'
+    },
+    {callRe: /\bexecuteScript\s*\(/g, arrayProp: 'files'}
+  ]
 
-  let match: RegExpExecArray | null
+  for (const {callRe, arrayProp} of calls) {
+    let match: RegExpExecArray | null
 
-  while ((match = callRe.exec(code))) {
-    const args = readBalancedArgs(code, match.index + match[0].length - 1)
-    if (args == null) continue
+    while ((match = callRe.exec(code))) {
+      const args = readBalancedArgs(code, match.index + match[0].length - 1)
+      if (args == null) continue
 
-    for (const group of splitRegisteredScriptGroups(args)) {
-      if (!/["']?world["']?\s*:\s*(['"])MAIN\1/.test(group)) continue
+      for (const group of splitRegisteredScriptGroups(args)) {
+        if (!/["']?world["']?\s*:\s*(['"])MAIN\1/.test(group)) continue
 
-      literals.push(...arrayPropStringLiterals(group, 'js'))
+        literals.push(...arrayPropStringLiterals(group, arrayProp))
+      }
     }
   }
 

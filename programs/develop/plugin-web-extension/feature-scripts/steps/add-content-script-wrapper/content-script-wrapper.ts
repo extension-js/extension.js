@@ -40,6 +40,7 @@ interface ContentScriptLoaderContext {
     devSession?: boolean
     browser?: string
     mainWorldScripts?: string[]
+    mainWorldBundle?: boolean
     scriptsFolder?: string | false
   }
   _compilation?: unknown
@@ -57,6 +58,7 @@ const schema = {
     devSession: {type: 'boolean'},
     browser: {type: 'string'},
     mainWorldScripts: {type: 'array', items: {type: 'string'}},
+    mainWorldBundle: {type: 'boolean'},
     scriptsFolder: {anyOf: [{type: 'string'}, {const: false}]}
   }
 } as Parameters<typeof validate>[0]
@@ -380,7 +382,12 @@ export default function contentScriptWrapper(
   const isRuntimeMainWorld = (options.mainWorldScripts || []).some(
     (candidate) => resourceAbsPath === canonicalizeResourcePath(candidate)
   )
-  const isMainWorld = declaredEntry?.world === 'MAIN' || isRuntimeMainWorld
+  // A bundle compiled for the page's own world carries every module it
+  // imports there, and a scripts/ file among them is no entry of its own.
+  const isMainWorld =
+    declaredEntry?.world === 'MAIN' ||
+    isRuntimeMainWorld ||
+    options.mainWorldBundle === true
   const hostInstrumentationEnabled = !isShippedBundle && !isMainWorld
   // The bridge that runs right before a declared MAIN-world script leaves the
   // extension base on <html>. The bundle takes it and clears it at once when

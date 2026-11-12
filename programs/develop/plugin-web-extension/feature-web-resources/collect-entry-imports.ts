@@ -422,6 +422,20 @@ export function collectContentScriptEntryImports(
     entryImports[entryName] = Array.from(collectedFilesSet)
   })
 
+  // An entry compiled apart from this compilation has no entrypoint here,
+  // and the bundle it emitted still names what the page fetches.
+  for (const entryName of contentEntryNames) {
+    if (entryName in entryImports) continue
+
+    const source = getAssetSource(compilation, `${entryName}.js`)
+    if (!source) continue
+
+    entryImports[entryName] = collectReferencedRuntimePayloads(
+      source,
+      listEmittedAssetNames(compilation)
+    )
+  }
+
   const entryImportsEntries = Object.entries(entryImports)
 
   for (let i = 0; i < entryImportsEntries.length; i++) {

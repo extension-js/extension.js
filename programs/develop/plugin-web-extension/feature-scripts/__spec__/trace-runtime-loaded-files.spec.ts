@@ -4,6 +4,7 @@ import path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
 import {
   extractInjectedFileLiterals,
+  extractMainWorldRegisteredFileLiterals,
   planTracedFile,
   TraceRuntimeLoadedFiles
 } from '../steps/trace-runtime-loaded-files'
@@ -155,6 +156,45 @@ describe('extractInjectedFileLiterals', () => {
     const literals = extractInjectedFileLiterals(
       '// chrome.scripting.registerContentScripts([{js: ["scripts/old.js"]}])\n' +
         'chrome.scripting.executeScript({target, files: list})'
+    )
+    expect(literals).toEqual([])
+  })
+})
+
+describe('extractMainWorldRegisteredFileLiterals', () => {
+  it('reads the js of a registration that names the MAIN world', () => {
+    const literals = extractMainWorldRegisteredFileLiterals(
+      'chrome.scripting.registerContentScripts([' +
+        '{id: "a", js: ["scripts/hook.js"], world: "MAIN", matches: ["<all_urls>"]},' +
+        '{id: "b", js: ["scripts/plain.js"], matches: ["<all_urls>"]}]);' +
+        "browser.scripting.updateContentScripts([{id: 'a', js: ['scripts/next.js'], world: 'MAIN'}])"
+    )
+    expect(literals).toEqual(['scripts/hook.js', 'scripts/next.js'])
+  })
+
+  it('reads the files of an executeScript call that names the MAIN world', () => {
+    const literals = extractMainWorldRegisteredFileLiterals(
+      'chrome.scripting.executeScript({target: {tabId}, files: ["scripts/hook.js"], world: "MAIN"});' +
+        "browser.scripting.executeScript({world: 'MAIN', files: ['scripts/a.js', 'scripts/b.js'], target: {tabId: id}})"
+    )
+    expect(literals).toEqual([
+      'scripts/hook.js',
+      'scripts/a.js',
+      'scripts/b.js'
+    ])
+  })
+
+  // An injection with no world runs isolated, and a world or a file list the
+  // source computes cannot be read off the call.
+  it('skips an executeScript call whose world or files are not MAIN literals', () => {
+    const literals = extractMainWorldRegisteredFileLiterals(
+      'chrome.scripting.executeScript({target: {tabId}, files: ["scripts/isolated.js"]});' +
+        'chrome.scripting.executeScript({target: {tabId}, files: ["scripts/named.js"], world: "ISOLATED"});' +
+        'chrome.scripting.executeScript({target: {tabId}, files: ["scripts/computed.js"], world: where});' +
+        'chrome.scripting.executeScript({target: {tabId}, files: list, world: "MAIN"});' +
+        'chrome.scripting.executeScript({target: {tabId}, func: run, world: "MAIN"});' +
+        'chrome.tabs.executeScript(tabId, {file: "legacy.js"});' +
+        '// chrome.scripting.executeScript({target, files: ["scripts/old.js"], world: "MAIN"})\n'
     )
     expect(literals).toEqual([])
   })
