@@ -99,6 +99,60 @@ function runtimeRegisteredProject() {
   return {root}
 }
 
+function runtimeInjectedProject() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-main-world-ex-'))
+  roots.push(root)
+  fs.writeFileSync(
+    path.join(root, 'package.json'),
+    JSON.stringify({private: true, name: 'main-world-ex', version: '0.0.0'})
+  )
+
+  fs.mkdirSync(path.join(root, 'scripts'), {recursive: true})
+  fs.writeFileSync(
+    path.join(root, 'scripts', 'logo.svg'),
+    `<svg xmlns="http://www.w3.org/2000/svg"><!-- ${'x'.repeat(20000)} --></svg>\n`
+  )
+
+  const hook =
+    'import logo from "./logo.svg"\nwindow.__PAGE_HOOK__ = logo\n' +
+    'document.body.removeChild(document.body.lastChild)\n'
+  fs.writeFileSync(path.join(root, 'scripts', 'hook.js'), hook)
+  fs.writeFileSync(path.join(root, 'scripts', 'isolated.js'), hook)
+
+  fs.writeFileSync(
+    path.join(root, 'background.js'),
+    [
+      'chrome.tabs.onUpdated.addListener(function (tabId, info) {',
+      '  if (info.status !== "complete") return',
+      '  chrome.scripting.executeScript({',
+      '    target: {tabId: tabId},',
+      '    files: ["scripts/hook.js"],',
+      '    world: "MAIN"',
+      '  })',
+      '  chrome.scripting.executeScript({',
+      '    target: {tabId: tabId},',
+      '    files: ["scripts/isolated.js"]',
+      '  })',
+      '})',
+      ''
+    ].join('\n')
+  )
+
+  fs.writeFileSync(
+    path.join(root, 'manifest.json'),
+    JSON.stringify({
+      manifest_version: 3,
+      name: 'main-world-ex',
+      version: '1.0.0',
+      permissions: ['scripting', 'tabs'],
+      host_permissions: ['<all_urls>'],
+      background: {service_worker: 'background.js'}
+    })
+  )
+
+  return {root}
+}
+
 // The dev server runs the bundler with HMR on, which is what puts the hot
 // update runtime into every entry chunk, so the spec compiles the same way.
 async function compileDev(
@@ -223,5 +277,54 @@ describe('a MAIN world script registered at runtime in dev', () => {
     expect(hook).not.toContain('rspackHotUpdate')
     expect(hook).not.toContain('hmrC')
     expect(hook).not.toContain('hot-update')
+  }, 120_000)
+})
+
+describe('a MAIN world script injected with executeScript in dev', () => {
+  it('ships without the HMR runtime or the host instrumentation', async () => {
+    const {root} = runtimeInjectedProject()
+    const built = await compileDev(root)
+    expect(built.stats.hasErrors()).toBe(false)
+
+    const read = (file: string) =>
+      fs.readFileSync(path.join(built.distPath, file), 'utf8')
+    const hook = read('scripts/hook.js')
+
+    expect(hook).toContain('__PAGE_HOOK__')
+    expect(hook).toMatch(
+      /__EXTENSIONJS_HOST_INSTRUMENTATION_ENABLED\s*=\s*false/
+    )
+
+    expect(hook).not.toContain('Node.prototype.removeChild')
+    expect(hook).not.toContain('new MutationObserver')
+    expect(hook).not.toContain('rspackHotUpdate')
+    expect(hook).not.toContain('hmrC')
+    expect(hook).not.toContain('hot-update')
+
+    // An injection with no world runs isolated and keeps the dev runtime.
+    const isolated = read('scripts/isolated.js')
+    expect(isolated).toContain('rspackHotUpdate')
+    expect(isolated).toContain('Node.prototype.removeChild')
+  }, 120_000)
+
+  // The page fetches the asset from the extension origin, and the bundle
+  // compiled apart from the build is the only thing that names it.
+  it('lists the asset the injected file imports as web accessible', async () => {
+    const {root} = runtimeInjectedProject()
+    const built = await compileDev(root)
+    expect(built.stats.hasErrors()).toBe(false)
+
+    const hook = fs.readFileSync(
+      path.join(built.distPath, 'scripts', 'hook.js'),
+      'utf8'
+    )
+    const asset = hook.match(/assets\/logo\.[a-f0-9]+\.svg/)?.[0]
+    expect(asset).toBeTruthy()
+    expect(fs.existsSync(path.join(built.distPath, asset as string))).toBe(true)
+
+    const resources = (built.manifest.web_accessible_resources || []).flatMap(
+      (group: {resources?: string[]}) => group.resources || []
+    )
+    expect(resources).toContain(asset)
   }, 120_000)
 })

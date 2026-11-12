@@ -162,6 +162,47 @@ describe('SetupChunkLoadingTarget', () => {
     expect(meta['content_scripts/content-0.js'].world).toBe('extension')
   })
 
+  // executeScript names its file and its world the same way a registration
+  // does, and the manifest names neither.
+  it('marks a scripts/ entry the background injects into the MAIN world', () => {
+    const manifestPath = writeManifest(manifest)
+    const dir = path.dirname(manifestPath)
+    const background = path.join(dir, 'background', 'index.js')
+    const hook = path.join(dir, 'scripts', 'hook.js')
+    const plain = path.join(dir, 'scripts', 'plain.js')
+    fs.mkdirSync(path.dirname(background), {recursive: true})
+    fs.mkdirSync(path.dirname(hook), {recursive: true})
+    fs.writeFileSync(
+      background,
+      'chrome.tabs.onUpdated.addListener((tabId) => {' +
+        'chrome.scripting.executeScript({target: {tabId}, files: ["scripts/hook.js"], world: "MAIN"});' +
+        'browser.scripting.executeScript({target: {tabId}, files: ["scripts/plain.js"]})})'
+    )
+
+    fs.writeFileSync(hook, '// stub')
+    fs.writeFileSync(plain, '// stub')
+
+    const compiler = makeCompiler('production')
+    compiler.options.context = dir
+    compiler.options.entry = {
+      'background/service_worker': {import: [background]},
+      'scripts/hook': {import: [hook]},
+      'scripts/plain': {import: [plain]}
+    }
+
+    new SetupChunkLoadingTarget({manifestPath, browser: 'chrome'}).apply(
+      compiler
+    )
+
+    const meta = (webExtensionCtor.mock.calls[0][0] as any).contentScriptsMeta
+    expect(meta['scripts/hook.js']).toEqual({
+      bundleId: 'scripts/hook.js',
+      world: 'main'
+    })
+
+    expect(meta['scripts/plain.js']).toBeUndefined()
+  })
+
   // Several background.scripts files enter as one generated module, which
   // hides the file that holds the registration from the entry list.
   it('finds a MAIN world registration in a background made of several files', () => {

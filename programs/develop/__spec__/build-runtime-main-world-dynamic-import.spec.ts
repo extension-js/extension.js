@@ -31,6 +31,8 @@ function project() {
     'import("./lazy.js").then(({lazy}) => { window.__PAGE_HOOK__ = lazy })\n'
   fs.writeFileSync(path.join(root, 'scripts', 'hook.js'), hook)
   fs.writeFileSync(path.join(root, 'scripts', 'isolated.js'), hook)
+  fs.writeFileSync(path.join(root, 'scripts', 'injected.js'), hook)
+  fs.writeFileSync(path.join(root, 'scripts', 'injected-isolated.js'), hook)
   fs.writeFileSync(
     path.join(root, 'declared.js'),
     hook.replace('./lazy.js', './scripts/lazy.js')
@@ -54,6 +56,17 @@ function project() {
       '      matches: ["<all_urls>"]',
       '    }',
       '  ])',
+      '})',
+      'chrome.tabs.onUpdated.addListener(function (tabId) {',
+      '  chrome.scripting.executeScript({',
+      '    target: {tabId: tabId},',
+      '    files: ["scripts/injected.js"],',
+      '    world: "MAIN"',
+      '  })',
+      '  chrome.scripting.executeScript({',
+      '    target: {tabId: tabId},',
+      '    files: ["scripts/injected-isolated.js"]',
+      '  })',
       '})',
       ''
     ].join('\n')
@@ -123,6 +136,18 @@ describe('a runtime-registered MAIN world script that calls import()', () => {
 
     // A registration with no world runs isolated and keeps the runtime loader.
     const isolated = built.read('scripts/isolated.js')
+    expect(isolated).not.toContain(MAIN_WORLD_LOADER_MARK)
+  }, 180_000)
+
+  it('production: gives a file executeScript injects into the MAIN world the same loader', async () => {
+    const built = await build(project())
+
+    const injected = built.read('scripts/injected.js')
+    expect(injected).not.toContain('RT_MAIN_LAZY_VALUE')
+    expect(injected).toContain(MAIN_WORLD_LOADER_MARK)
+
+    // An injection with no world runs isolated and keeps the runtime loader.
+    const isolated = built.read('scripts/injected-isolated.js')
     expect(isolated).not.toContain(MAIN_WORLD_LOADER_MARK)
   }, 180_000)
 })
