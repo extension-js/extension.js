@@ -411,6 +411,8 @@ export function resolveUserDeclaredWAR(
     matches: string[]
     resources: Set<string>
     extra?: Record<string, unknown>
+    // The author's group had no matches key, as an extension_ids group has.
+    matchesAbsent?: boolean
   }> = []
 
   const manifestObj = manifest as {manifest_version?: number}
@@ -434,6 +436,8 @@ export function resolveUserDeclaredWAR(
     return runtimeNamedPaths.has(outputPath)
   }
 
+  let authorGroupHasNoMatches = false
+
   const pushResource = (
     matches: string[] | undefined,
     resource: string,
@@ -449,7 +453,13 @@ export function resolveUserDeclaredWAR(
     let group = v3.find((g) => g.matches.join(',') === key)
 
     if (!group) {
-      group = {matches: matches || [], resources: new Set(), extra}
+      group = {
+        matches: matches || [],
+        resources: new Set(),
+        extra,
+        ...(authorGroupHasNoMatches ? {matchesAbsent: true} : {})
+      }
+
       v3.push(group)
     } else if (extra && !group.extra) {
       group.extra = extra
@@ -698,7 +708,11 @@ export function resolveUserDeclaredWAR(
     const {resources: _resources, matches: _matches, ...extra} = entry
     const extraFields = Object.keys(extra).length > 0 ? extra : undefined
 
+    authorGroupHasNoMatches = entry.matches === undefined
+
     for (const res of entry.resources) handleOne(matches, res, extraFields)
+
+    authorGroupHasNoMatches = false
   })
 
   return {v2, v3}
