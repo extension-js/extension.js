@@ -180,20 +180,23 @@ describe('enableSafariExtension', () => {
     const report = await enableSafariExtension({
       target: {bundleId: BUNDLE},
       appPath,
-      tools
+      tools,
+      promptWaitMs: 30,
+      promptPollMs: 5
     })
 
     expect(report).toMatchObject({
       enabled: false,
       reason:
-        'Safari > Settings > Developer > Allow unsigned extensions still reads off after the click, and the macOS password prompt (SecurityAgent) is open and waits for an answer: answer it in Safari, then run again'
+        'Safari > Settings > Developer > Allow unsigned extensions still reads off 0 s after the click, and the macOS password prompt (SecurityAgent) is open and waits for an answer: answer it in Safari, then run again'
     })
 
-    expect(tools.calls).toEqual([
+    expect(tools.calls.slice(0, 5)).toEqual([
       'running',
       'alert',
       'enabled:read',
-      'unsigned:on'
+      'unsigned:on',
+      'unsigned:read'
     ])
   })
 
@@ -207,9 +210,9 @@ describe('enableSafariExtension', () => {
       target: {bundleId: BUNDLE},
       appPath,
       tools,
-      unsignedWaitMs: 2000,
-      unsignedPollMs: 5,
-      onUnsignedWait: (seconds) => waits.push(seconds)
+      promptWaitMs: 2000,
+      promptPollMs: 5,
+      onPromptWait: (_step, seconds) => waits.push(seconds)
     })
 
     expect(waits).toEqual([2])
@@ -232,8 +235,8 @@ describe('enableSafariExtension', () => {
       target: {bundleId: BUNDLE},
       appPath,
       tools,
-      unsignedWaitMs: 30,
-      unsignedPollMs: 5
+      promptWaitMs: 30,
+      promptPollMs: 5
     })
 
     expect(report.enabled).toBe(false)
@@ -269,7 +272,9 @@ describe('enableSafariExtension', () => {
     const report = await enableSafariExtension({
       target: {bundleId: BUNDLE},
       appPath,
-      tools
+      tools,
+      promptWaitMs: 30,
+      promptPollMs: 5
     })
 
     expect(report).toMatchObject({enabled: false, listed: true})
@@ -288,13 +293,79 @@ describe('enableSafariExtension', () => {
     expect(tools.calls).not.toContain('websites:allow')
   })
 
+  it('keeps reading the switch while Safari asks to confirm the scripted click', async () => {
+    const tools = fakeSafariUiTools({
+      enabledSticks: true,
+      enabledTurnsOnAfterReads: 2
+    })
+    const waits: string[] = []
+    const report = await enableSafariExtension({
+      target: {bundleId: BUNDLE},
+      appPath,
+      tools,
+      promptWaitMs: 2000,
+      promptPollMs: 5,
+      onPromptWait: (step, seconds) => waits.push(`${step}:${seconds}`)
+    })
+
+    expect(waits).toEqual(['enabled:2'])
+    expect(report).toMatchObject({enabled: true, otherWebsites: 'Allow'})
+    expect(report.steps.find((step) => step.step === 'enabled')).toMatchObject({
+      before: '0',
+      after: '1',
+      ok: true
+    })
+  })
+
+  it('quotes the prompt that holds the switch when nobody answers it', async () => {
+    const blocker =
+      'the macOS password prompt (coreautha) is open and waits for an answer ("Safari detected an app or service that interfered with clicking. Are you sure you want to turn on this Safari Extension? Touch ID to allow this.")'
+    const tools = fakeSafariUiTools({enabledSticks: true, blocker})
+    const report = await enableSafariExtension({
+      target: {bundleId: BUNDLE},
+      appPath,
+      tools,
+      promptWaitMs: 30,
+      promptPollMs: 5
+    })
+
+    expect(report.reason).toBe(
+      `Safari read the switch for ${BUNDLE}.Extension (UNSIGNED)-checkbox off 0 s after the script clicked it, and ${blocker}: answer it in Safari or turn the switch on by hand in Safari > Settings > Extensions, or set browser.safari.developmentTeam in extension.config.js so the build is signed, then run again`
+    )
+  })
+
+  it('cancels a prompt nobody answered and says so', async () => {
+    const tools = fakeSafariUiTools({
+      enabledSticks: true,
+      cancelWorks: true,
+      blocker:
+        'the macOS password prompt (coreautha) is open and waits for an answer'
+    })
+    const report = await enableSafariExtension({
+      target: {bundleId: BUNDLE},
+      appPath,
+      tools,
+      promptWaitMs: 30,
+      promptPollMs: 5
+    })
+
+    expect(report.reason).toMatch(
+      /then run again\. Nobody answered, so this run canceled the prompt and Safari is not held behind it$/
+    )
+
+    expect(tools.calls[tools.calls.length - 1]).toBe('cancel')
+    expect(tools.state.blocker).toBeNull()
+  })
+
   it('tells a team-signed row that drops the switch to turn it on by hand', async () => {
     const tools = fakeSafariUiTools({enabledSticks: true, registered: true})
     tools.state.unsigned = 1
     const report = await enableSafariExtension({
       target: {bundleId: BUNDLE, developmentTeam: 'ABCDE12345'},
       appPath,
-      tools
+      tools,
+      promptWaitMs: 30,
+      promptPollMs: 5
     })
 
     expect(report).toMatchObject({enabled: false, listed: true})
@@ -515,7 +586,8 @@ describe('dev --enable-extension through the pipeline', () => {
       'unsigned:on',
       expect.stringMatching(/^pluginkit:/),
       'enabled:on',
-      'websites:allow'
+      'websites:allow',
+      'close'
     ])
 
     const events = pipeline.events.filter((e) => !e.startsWith('log:'))
@@ -546,7 +618,11 @@ describe('dev --enable-extension through the pipeline', () => {
   it('logs the step that failed, closes Settings and names what it could not close', async () => {
     const blocker = 'a sheet is open on Safari Settings and waits for an answer'
     const ui = fakeSafariUiTools({unsignedSticks: true, blocker})
-    const {logs} = await run({enableExtension: true, uiTools: ui})
+    const {logs} = await run({
+      enableExtension: true,
+      uiTools: ui,
+      promptWaitMs: 30
+    })
 
     expect(ui.calls).toEqual([
       'probe',
@@ -554,13 +630,16 @@ describe('dev --enable-extension through the pipeline', () => {
       'alert',
       'enabled:read',
       'unsigned:on',
+      'unsigned:read',
+      'cancel',
+      'close',
       'close'
     ])
 
     expect(logs).toContain(
       messages.safariEnableIncomplete(
         'MyExt',
-        `Safari > Settings > Developer > Allow unsigned extensions still reads off after the click, and ${blocker}: answer it in Safari, then run again. Still open in Safari: ${blocker}, which holds the WebDriver session request until it is answered`
+        `Safari > Settings > Developer > Allow unsigned extensions still reads off 0 s after the click, and ${blocker}: answer it in Safari, then run again. Still open in Safari: ${blocker}, which holds the WebDriver session request until it is answered`
       )
     )
   })
@@ -634,7 +713,11 @@ describe('dev --enable-extension through the pipeline', () => {
 
   it('stamps the dropped unsigned switch with the signing way out', async () => {
     const ui = fakeSafariUiTools({enabledSticks: true})
-    const {logs} = await run({enableExtension: true, uiTools: ui})
+    const {logs} = await run({
+      enableExtension: true,
+      uiTools: ui,
+      promptWaitMs: 30
+    })
     const ready = readReady()
 
     expect(ready.safari).toMatchObject({

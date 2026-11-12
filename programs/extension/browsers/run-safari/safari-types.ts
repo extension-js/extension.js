@@ -34,7 +34,7 @@ export type SafariPluginLike = Pick<
   enableExtension?: boolean
   uiTools?: SafariUiTools
   // How long the enable step reads the unsigned box for an answered prompt.
-  unsignedWaitMs?: number
+  promptWaitMs?: number
 }
 
 export interface SafariBuildConfig {

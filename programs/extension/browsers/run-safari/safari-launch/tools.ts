@@ -68,6 +68,8 @@ export interface SafariPipelineTools {
   readSafariExtensionRegistry(): Promise<string>
   startWebDriver(port: number): Promise<SafariWebDriverProcess>
   listAutomationPids(): Promise<number[]>
+  // Every other Safari: the one the person or the enable step opened.
+  listRegularSafariPids?(): Promise<number[]>
   listAppPids(appPath: string): Promise<number[]>
   // `codesign -dv --verbose=2 <app>`: the signature the app on disk carries,
   // which is what Safari sees, as opposed to what the build asked for.
@@ -82,6 +84,13 @@ export interface SafariPipelineTools {
     output: string,
     pixels: number
   ): Promise<SafariToolResult>
+}
+
+export function isRegularSafariArgs(args: string): boolean {
+  return (
+    /\/Safari\.app\/Contents\/MacOS\/Safari(\s|$)/.test(args.trim()) &&
+    !isAutomationSafariArgs(args)
+  )
 }
 
 // safaridriver raises Safari with `--automation` in its argv, which is the one
@@ -277,6 +286,7 @@ export function createSafariTools(): SafariPipelineTools {
     startWebDriver: (port) =>
       spawnWebDriverProcess('safaridriver', ['-p', String(port)]),
     listAutomationPids: () => listPidsWhere(isAutomationSafariArgs),
+    listRegularSafariPids: () => listPidsWhere(isRegularSafariArgs),
     listAppPids: (appPath) =>
       listPidsWhere((args) => isContainerAppArgs(appPath, args)),
     readCodeSignature: (appPath) =>

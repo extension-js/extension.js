@@ -8,6 +8,7 @@
 
 import {
   accessibilityProbeScript,
+  cancelPromptScript,
   closeSettingsScript,
   extensionCheckboxId,
   extensionEnabledScript,
@@ -147,10 +148,10 @@ export interface EnableInput {
   appPath: string
   tools?: SafariUiTools
   onStep?: (step: EnableStep) => void
-  onUnsignedWait?: (seconds: number) => void
+  onPromptWait?: (step: 'unsigned' | 'enabled', seconds: number) => void
   startWaitMs?: number
-  unsignedWaitMs?: number
-  unsignedPollMs?: number
+  promptWaitMs?: number
+  promptPollMs?: number
 }
 
 const SAFARI_START_MS = 20_000
@@ -201,17 +202,18 @@ function unsignedBlockedReason(blocker: unknown, waitedMs: number): string {
   const where = 'Safari > Settings > Developer > Allow unsigned extensions'
 
   return typeof blocker === 'string' && blocker
-    ? `${where} still reads off after the click, and ${blocker}: answer it in Safari, then run again`
+    ? `${where} still reads off ${Number((waitedMs / 1000).toFixed(1))} s after the click, and ${blocker}: answer it in Safari, then run again`
     : `${where} still reads off ${Number((waitedMs / 1000).toFixed(1))} s after the click: Safari asks for Touch ID or the password before it turns this on, and this run cannot answer that. Answer it or turn the box on by hand, then run again`
 }
 
 const UNSIGNED_WAIT_MS = 60_000
 const UNSIGNED_POLL_MS = 1000
 
-// Safari turns the box on once the person answers Touch ID or the password,
-// a prompt System Events never lists, so the box is read until the wait ends.
-async function waitForUnsignedOn(
+// Safari keeps a scripted click only after the person answers its Touch ID
+// or password prompt, so the control is read again until the wait ends.
+async function waitForOn(
   tools: SafariUiTools,
+  script: string,
   waitMs: number,
   pollMs: number
 ): Promise<boolean> {
@@ -221,7 +223,7 @@ async function waitForUnsignedOn(
     await new Promise((resolve) => setTimeout(resolve, pollMs))
 
     try {
-      const read = await runAnswer(tools, unsignedExtensionsScript('read'))
+      const read = await runAnswer(tools, script)
 
       if (asText(read.after) === '1') return true
     } catch {
@@ -230,6 +232,21 @@ async function waitForUnsignedOn(
   }
 
   return false
+}
+
+const PROMPT_CANCELED =
+  'Nobody answered, so this run canceled the prompt and Safari is not held behind it'
+
+// Never throws: a prompt this run raised and nobody answered is canceled, so
+// it does not hold the steps and the WebDriver request that follow.
+async function cancelPrompt(tools: SafariUiTools): Promise<boolean> {
+  try {
+    const answer = await runAnswer(tools, cancelPromptScript())
+
+    return Number(answer.canceled) > 0
+  } catch {
+    return false
+  }
 }
 
 export function alertReason(alert: SafariAlert): string {
@@ -267,8 +284,22 @@ export async function readSafariAlert(
 
 // Safari 26 kept a scripted click on a team-signed row and dropped the same
 // click on an UNSIGNED row, so an ad-hoc build is told both ways out.
-function switchDroppedReason(checkboxId: string, adHoc: boolean): string {
+function switchDroppedReason(
+  checkboxId: string,
+  adHoc: boolean,
+  blocker: unknown,
+  waitedMs: number
+): string {
   const read = `Safari read the switch for ${checkboxId} off again after the script turned it on`
+
+  // Safari 27 flags the scripted click and asks the person to confirm it.
+  if (typeof blocker === 'string' && blocker) {
+    const signed = adHoc
+      ? ', or set browser.safari.developmentTeam in extension.config.js so the build is signed'
+      : ''
+
+    return `Safari read the switch for ${checkboxId} off ${Number((waitedMs / 1000).toFixed(1))} s after the script clicked it, and ${blocker}: answer it in Safari or turn the switch on by hand in Safari > Settings > Extensions${signed}, then run again`
+  }
 
   return adHoc
     ? `${read}: an unsigned row drops a scripted switch that a team-signed row keeps, so turn it on by hand in Safari > Settings > Extensions, or set browser.safari.developmentTeam in extension.config.js so the build is signed and the switch sticks`
@@ -343,16 +374,17 @@ export async function enableSafariExtension(
   } else {
     if (adHoc) {
       const unsigned = await runAnswer(tools, unsignedExtensionsScript('on'))
-      const waitMs = input.unsignedWaitMs ?? UNSIGNED_WAIT_MS
+      const waitMs = input.promptWaitMs ?? UNSIGNED_WAIT_MS
       let unsignedOn = asText(unsigned.after) === '1'
       let waitedMs = 0
 
-      if (!unsignedOn && unsigned.clicked && !unsigned.blocker && waitMs > 0) {
-        input.onUnsignedWait?.(Number((waitMs / 1000).toFixed(1)))
-        unsignedOn = await waitForUnsignedOn(
+      if (!unsignedOn && unsigned.clicked && waitMs > 0) {
+        input.onPromptWait?.('unsigned', Number((waitMs / 1000).toFixed(1)))
+        unsignedOn = await waitForOn(
           tools,
+          unsignedExtensionsScript('read'),
           waitMs,
-          input.unsignedPollMs ?? UNSIGNED_POLL_MS
+          input.promptPollMs ?? UNSIGNED_POLL_MS
         )
 
         waitedMs = waitMs
@@ -367,12 +399,15 @@ export async function enableSafariExtension(
       })
 
       if (!unsignedOn) {
+        const canceled = waitedMs > 0 && (await cancelPrompt(tools))
+        const reason = unsignedBlockedReason(unsigned.blocker, waitedMs)
+
         return {
           enabled: false,
           listed: false,
           otherWebsites: null,
           steps,
-          reason: unsignedBlockedReason(unsigned.blocker, waitedMs)
+          reason: canceled ? `${reason}. ${PROMPT_CANCELED}` : reason
         }
       }
     }
@@ -401,24 +436,51 @@ export async function enableSafariExtension(
       extensionEnabledScript(checkboxId, 'on')
     )
     const listed = Boolean(enabled.listed)
+    const switchWaitMs = input.promptWaitMs ?? UNSIGNED_WAIT_MS
+    let switchOn = listed && asText(enabled.after) === '1'
+    let switchWaitedMs = 0
+
+    if (listed && !switchOn && enabled.clicked && switchWaitMs > 0) {
+      input.onPromptWait?.('enabled', Number((switchWaitMs / 1000).toFixed(1)))
+      switchOn = await waitForOn(
+        tools,
+        extensionEnabledScript(checkboxId, 'read'),
+        switchWaitMs,
+        input.promptPollMs ?? UNSIGNED_POLL_MS
+      )
+
+      switchWaitedMs = switchWaitMs
+    }
+
     record({
       step: 'enabled',
       before: asText(enabled.before),
-      after: asText(enabled.after),
+      after: switchOn ? '1' : asText(enabled.after),
       changed: Boolean(enabled.clicked),
-      ok: listed && asText(enabled.after) === '1',
+      ok: switchOn,
       detail: listed ? checkboxId : `${checkboxId} is not listed`
     })
 
-    if (!listed || asText(enabled.after) !== '1') {
+    if (!switchOn) {
       const dropped = listed && Boolean(enabled.clicked)
+      const canceled = switchWaitedMs > 0 && (await cancelPrompt(tools))
+      const tail = canceled ? `. ${PROMPT_CANCELED}` : ''
 
       return {
         enabled: false,
         listed,
         otherWebsites: null,
         steps,
-        ...(dropped ? {reason: switchDroppedReason(checkboxId, adHoc)} : {})
+        ...(dropped
+          ? {
+              reason: `${switchDroppedReason(
+                checkboxId,
+                adHoc,
+                enabled.blocker,
+                switchWaitedMs
+              )}${tail}`
+            }
+          : {})
       }
     }
   }

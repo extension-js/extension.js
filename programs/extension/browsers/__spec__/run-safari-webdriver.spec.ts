@@ -10,6 +10,7 @@ import {
   closeSafariWebDriverSessions,
   isAutomationSafariArgs,
   isContainerAppArgs,
+  isRegularSafariArgs,
   openAppArgs,
   packageSafariExtension,
   stopWebDriverRequestWatchers
@@ -673,6 +674,33 @@ describe('isAutomationSafariArgs', () => {
 })
 
 describe('describeSessionTimeout', () => {
+  it('names a regular Safari that is open and does not ask again', () => {
+    expect(
+      describeSessionTimeout({
+        waitedMs: 30_000,
+        before: [],
+        after: [],
+        regular: [83502]
+      })
+    ).toEqual({
+      retry: false,
+      reason:
+        'safaridriver did not answer the session request within 30 s, and Safari never started its automation instance while a regular Safari was open (pid 83502). Safari 27 answers this request within seconds once no other Safari is open: quit Safari, then run again'
+    })
+  })
+
+  it('tells a regular Safari from the automation one by its arguments', () => {
+    const exe = '/Applications/Safari.app/Contents/MacOS/Safari'
+
+    expect(isRegularSafariArgs(exe)).toBe(true)
+    expect(isRegularSafariArgs(`${exe} --automation`)).toBe(false)
+    expect(
+      isRegularSafariArgs(
+        '/Applications/Safari.app/Contents/XPCServices/com.apple.Safari.SandboxBroker.xpc/Contents/MacOS/com.apple.Safari.SandboxBroker'
+      )
+    ).toBe(false)
+  })
+
   it('never blames Remote Automation, which safaridriver refuses at once', () => {
     for (const after of [[], [7]]) {
       const {reason} = describeSessionTimeout({

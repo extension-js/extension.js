@@ -229,6 +229,7 @@ export function describeSessionTimeout(input: {
   waitedMs: number
   before: number[]
   after: number[]
+  regular?: number[]
 }): {reason: string; retry: boolean} {
   const seconds = asSeconds(input.waitedMs)
   const waited = `safaridriver did not answer the session request within ${seconds} s`
@@ -241,6 +242,15 @@ export function describeSessionTimeout(input: {
   }
 
   const raised = input.after.filter((pid) => !input.before.includes(pid))
+
+  // Measured on Safari 27: asked with a regular Safari open, safaridriver
+  // never answered, and asked with Safari closed it answered within 2 s.
+  if (raised.length === 0 && input.regular && input.regular.length > 0) {
+    return {
+      retry: false,
+      reason: `${waited}, and Safari never started its automation instance while a regular Safari was open (pid ${input.regular.join(', ')}). Safari 27 answers this request within seconds once no other Safari is open: quit Safari, then run again`
+    }
+  }
 
   if (raised.length === 0) {
     return {
@@ -331,11 +341,15 @@ async function requestSession(
     }
 
     const after = await tools.listAutomationPids()
+    const regular = tools.listRegularSafariPids
+      ? await tools.listRegularSafariPids()
+      : []
     await stopDriver()
     const timeout = describeSessionTimeout({
       waitedMs: createMs,
       before: [...before],
-      after
+      after,
+      regular
     })
 
     return {
