@@ -120,6 +120,48 @@ describe('SetupChunkLoadingTarget', () => {
     )
   })
 
+  // The manifest never names a file the background registers at runtime, so
+  // its world is read off the entry sources the scripts step created.
+  it('marks a scripts/ entry the background registers into the MAIN world', () => {
+    const manifestPath = writeManifest(manifest)
+    const dir = path.dirname(manifestPath)
+    const background = path.join(dir, 'background', 'index.js')
+    const hook = path.join(dir, 'scripts', 'hook.js')
+    const plain = path.join(dir, 'scripts', 'plain.js')
+    fs.mkdirSync(path.dirname(background), {recursive: true})
+    fs.mkdirSync(path.dirname(hook), {recursive: true})
+    fs.writeFileSync(
+      background,
+      'chrome.scripting.registerContentScripts([' +
+        '{id: "a", js: ["scripts/hook.js"], world: "MAIN", matches: ["<all_urls>"]},' +
+        '{id: "b", js: ["scripts/plain.js"], matches: ["<all_urls>"]}])'
+    )
+
+    fs.writeFileSync(hook, '// stub')
+    fs.writeFileSync(plain, '// stub')
+
+    const compiler = makeCompiler('production')
+    compiler.options.context = dir
+    compiler.options.entry = {
+      'background/service_worker': {import: [background]},
+      'scripts/hook': {import: [hook]},
+      'scripts/plain': {import: [plain]}
+    }
+
+    new SetupChunkLoadingTarget({manifestPath, browser: 'chrome'}).apply(
+      compiler
+    )
+
+    const meta = (webExtensionCtor.mock.calls[0][0] as any).contentScriptsMeta
+    expect(meta['scripts/hook.js']).toEqual({
+      bundleId: 'scripts/hook.js',
+      world: 'main'
+    })
+
+    expect(meta['scripts/plain.js']).toBeUndefined()
+    expect(meta['content_scripts/content-0.js'].world).toBe('extension')
+  })
+
   it('never runs without a readable manifest', () => {
     new SetupChunkLoadingTarget({
       manifestPath: path.join(os.tmpdir(), 'extjs-nope', 'manifest.json'),

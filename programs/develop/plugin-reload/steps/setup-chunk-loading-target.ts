@@ -11,12 +11,53 @@ import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
 import {stripBom} from '../../lib/parse-json-safe'
 import {filterKeysForThisBrowser} from '../../plugin-web-extension/feature-manifest/manifest-lib/manifest'
-import type {DevOptions, Manifest, PluginInterface} from '../../types'
+import {findRuntimeMainWorldEntries} from '../../plugin-web-extension/feature-scripts/scripts-lib/runtime-main-world-scripts'
+import type {
+  DevOptions,
+  FilepathList,
+  Manifest,
+  PluginInterface
+} from '../../types'
 import {
   buildContentScriptsMeta,
   getBackgroundEntryName
 } from './setup-reload-strategy'
 import WebExtension from './setup-reload-strategy/webpack-target-webextension-fork'
+
+// A file the background registers into the MAIN world is in no manifest
+// group, so its world is read off the entries the scripts step created.
+function buildRuntimeMainWorldMeta(
+  compiler: Compiler,
+  manifestPath: string
+): Record<string, unknown> {
+  const entries = compiler.options.entry
+  if (!entries || typeof entries !== 'object') return {}
+
+  const includeList: FilepathList = {}
+
+  for (const [name, entry] of Object.entries(entries)) {
+    const imports = (entry as {import?: unknown} | undefined)?.import
+    if (!Array.isArray(imports)) continue
+
+    includeList[name] = imports.filter(
+      (file): file is string => typeof file === 'string'
+    )
+  }
+
+  const manifestDir = path.dirname(manifestPath)
+  const meta: Record<string, unknown> = {}
+
+  for (const {entryName} of findRuntimeMainWorldEntries({
+    includeList,
+    manifestDir,
+    projectPath: (compiler.options.context as string) || manifestDir
+  })) {
+    const bundleId = `${entryName}.js`
+    meta[bundleId] = {bundleId, world: 'main'}
+  }
+
+  return meta
+}
 
 export class SetupChunkLoadingTarget {
   private readonly manifestPath: string
@@ -70,7 +111,10 @@ export class SetupChunkLoadingTarget {
       },
       hmrConfig: false,
       weakRuntimeCheck: true,
-      contentScriptsMeta: buildContentScriptsMeta(patchedManifest)
+      contentScriptsMeta: {
+        ...buildContentScriptsMeta(patchedManifest),
+        ...buildRuntimeMainWorldMeta(compiler, this.manifestPath)
+      }
     }).apply(
       compiler as Parameters<InstanceType<typeof WebExtension>['apply']>[0]
     )
