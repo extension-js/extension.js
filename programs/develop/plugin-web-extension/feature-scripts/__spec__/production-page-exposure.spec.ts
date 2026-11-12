@@ -736,6 +736,113 @@ describe('the extension base a MAIN-world bundle reads off the page', () => {
   }, 180_000)
 })
 
+describe('the extension base two runtime-registered MAIN world files share', () => {
+  const FIREFOX_BASE = 'moz-extension://0f0f0f0f-aaaa-bbbb-cccc-121212121212/'
+  const files = {
+    'manifest.json': JSON.stringify({
+      manifest_version: 3,
+      name: 'exposure-runtime-main',
+      version: '1.0.0',
+      permissions: ['scripting'],
+      host_permissions: ['<all_urls>'],
+      background: {scripts: ['background.js']},
+      browser_specific_settings: {gecko: {id: 'exposure@example.com'}}
+    }),
+    'background.js':
+      'const api = globalThis.browser || globalThis.chrome\n' +
+      'api.scripting.registerContentScripts([{id: "pair", js: ["scripts/first.js", "scripts/second.js"], world: "MAIN", matches: ["<all_urls>"]}])\n',
+    'media/first.bin': Buffer.alloc(40_000, 3),
+    'media/second.bin': Buffer.alloc(40_000, 4),
+    'scripts/first.js':
+      'import blobUrl from "../media/first.bin?url"\n' +
+      'globalThis.__firstAsset = String(blobUrl)\n',
+    'scripts/second.js':
+      'import blobUrl from "../media/second.bin?url"\n' +
+      'globalThis.__secondAsset = String(blobUrl)\n' +
+      'globalThis.__secondLater = () => import("../media/lazy.js")\n',
+    'media/lazy.js': 'export const lazy = "LAZY"\n'
+  }
+
+  it('reaches both files in a Firefox production build and is cleared once they have run', async () => {
+    const production = await compile(
+      scaffold('runtime-main', files),
+      'production',
+      'firefox'
+    )
+    expect(production.errors).toEqual([])
+
+    const assets = production.emitted.filter((entry) => entry.endsWith('.bin'))
+    expect(assets, production.emitted.join(', ')).toHaveLength(2)
+
+    const world = page({runtime: false})
+    Object.assign(world.context.location as object, {protocol: 'https:'})
+    world.html.setAttribute(BASE_ATTRIBUTE, FIREFOX_BASE)
+    // One registration runs its files back to back, with no turn between.
+    world.run(production.read('scripts/first.js'))
+    world.run(production.read('scripts/second.js'))
+
+    const seen = [world.context.__firstAsset, world.context.__secondAsset]
+    expect(seen.sort()).toEqual(
+      assets.map((asset) => `${FIREFOX_BASE}${asset}`).sort()
+    )
+
+    await world.settle(1)
+
+    expect(world.html.hasAttribute(BASE_ATTRIBUTE)).toBe(false)
+
+    // A chunk asked for later is still named from the base taken at boot.
+    // No module loader runs here, so the request falls to the bridge.
+    const asked: Array<{url?: string}> = []
+    Object.assign(world.context, {
+      addEventListener() {},
+      removeEventListener() {},
+      postMessage: (message: {url?: string}) => asked.push(message)
+    })
+
+    void (world.context.__secondLater as () => Promise<unknown>)().catch(
+      () => {}
+    )
+
+    await world.settle(3)
+
+    const askedUrls = asked.map((message) => String(message.url))
+
+    expect(askedUrls).toHaveLength(1)
+    expect(askedUrls[0].startsWith(FIREFOX_BASE)).toBe(true)
+    expect(askedUrls[0].endsWith('.js')).toBe(true)
+  }, 180_000)
+
+  it('stays on <html> in a Firefox development build, as it does for a declared group', async () => {
+    const development = await compile(
+      scaffold('runtime-main-dev', files),
+      'development',
+      'firefox'
+    )
+    expect(development.errors).toEqual([])
+
+    const bundles = development.emitted
+      .filter((entry) => entry.endsWith('.js'))
+      .map((entry) => development.read(entry))
+      .filter((source) => source.includes('__firstAsset'))
+
+    expect(bundles.length, development.emitted.join(', ')).toBeGreaterThan(0)
+
+    for (const bundle of bundles) {
+      expect(bundle).not.toContain('removeAttribute')
+    }
+  }, 180_000)
+
+  it('leaves a Chromium production bundle without the take or the clear', async () => {
+    const production = await compile(
+      scaffold('runtime-main-chrome', files),
+      'production'
+    )
+    expect(production.errors).toEqual([])
+
+    expect(production.read('scripts/first.js')).not.toContain('removeAttribute')
+  }, 180_000)
+})
+
 describe('a MAIN-world script that never resolves a URL against the extension', () => {
   const files = {
     'manifest.json': JSON.stringify({
