@@ -17,6 +17,17 @@ describe('isStartPage', () => {
   it('takes the start pages of browsers that never open a new tab', () => {
     expect(isStartPage('chrome://startpage/', 'chromium')).toBe(true)
     expect(isStartPage('chrome://startpageshared/', 'chromium')).toBe(true)
+    expect(isStartPage('chrome://vivaldi-webui/startpage', 'chromium')).toBe(
+      true
+    )
+
+    expect(
+      isStartPage(
+        'chrome://vivaldi-webui/startpage?section=Speed-dials',
+        'chromium'
+      )
+    ).toBe(true)
+
     expect(
       isStartPage('https://ntp.msn.com/edge/ntp?locale=en-BR', 'edge')
     ).toBe(true)
@@ -37,6 +48,10 @@ describe('isStartPage', () => {
     expect(isStartPage('https://notyandex.com/', 'chromium')).toBe(false)
     expect(isStartPage('https://msn.com.example.com/', 'edge')).toBe(false)
     expect(isStartPage('chrome://extensions/', 'chromium')).toBe(false)
+    expect(isStartPage('chrome://vivaldi-webui/settings', 'chromium')).toBe(
+      false
+    )
+
     expect(isStartPage('https://example.com/', 'firefox')).toBe(false)
     expect(isStartPage('', 'chromium')).toBe(false)
   })

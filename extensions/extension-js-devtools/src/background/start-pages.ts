@@ -15,6 +15,8 @@
 // reader gets no sign the extension loaded.
 export const START_PAGES_WITHOUT_NEW_TAB: readonly RegExp[] = [
   /^chrome:\/\/startpage(?:shared)?\/?/,
+  // Vivaldi 8.3 moved its start page here from chrome://startpage.
+  /^chrome:\/\/vivaldi-webui\/startpage(?:[/?#]|$)/,
   /^https:\/\/(?:[a-z0-9-]+\.)*msn\.com\//i,
   /^https:\/\/(?:[a-z0-9-]+\.)*(?:ya\.ru|yandex\.[a-z.]+)\//i
 ]
