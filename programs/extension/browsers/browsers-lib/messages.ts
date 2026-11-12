@@ -1458,8 +1458,16 @@ export function safariUnsignedWakesOthers() {
   )
 }
 
-export function safariEnabled(appName: string, otherWebsites: string | null) {
-  return `${getLoggingPrefix('success')} ${colors.yellow(appName)} is on in Safari, other websites ${colors.yellow(otherWebsites ?? 'unread')}.`
+export function safariEnabled(
+  appName: string,
+  otherWebsites: string | null,
+  everyWebsite = false
+) {
+  const access = everyWebsite
+    ? `allowed on ${colors.yellow('every website')}`
+    : `other websites ${colors.yellow(otherWebsites ?? 'unread')}`
+
+  return `${getLoggingPrefix('success')} ${colors.yellow(appName)} is on in Safari, ${access}.`
 }
 
 export function safariEnableIncomplete(appName: string, reason: string) {

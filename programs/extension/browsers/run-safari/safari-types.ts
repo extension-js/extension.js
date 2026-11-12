@@ -35,6 +35,8 @@ export type SafariPluginLike = Pick<
   uiTools?: SafariUiTools
   // How long the enable step reads the unsigned box for an answered prompt.
   promptWaitMs?: number
+  // How often a dev session checks that Safari still lists an ad-hoc row.
+  rowWatchMs?: number
 }
 
 export interface SafariBuildConfig {
