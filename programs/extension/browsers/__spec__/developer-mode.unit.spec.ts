@@ -60,6 +60,52 @@ function transportFor(options: {
   return {transport, calls}
 }
 
+// Vivaldi 8.3: the created target keeps an empty url and every evaluate on
+// it runs into the command timeout until the page is navigated by hand.
+function silentTransport(options: {answersAfterNavigate: boolean}) {
+  const calls: Array<Call & {timeoutMs?: number}> = []
+  let navigated = false
+
+  const transport = {
+    async sendCommand(
+      method: string,
+      params?: Record<string, unknown>,
+      sessionId?: string,
+      timeoutMs?: number
+    ) {
+      calls.push({method, params, sessionId, timeoutMs})
+
+      if (method === 'Target.createTarget') return {targetId: 't1'}
+      if (method === 'Target.attachToTarget') return {sessionId: 's1'}
+
+      if (method === 'Page.navigate') {
+        navigated = true
+
+        return {frameId: 'f1'}
+      }
+
+      if (method === 'Runtime.evaluate') {
+        if (!navigated || !options.answersAfterNavigate) {
+          throw Object.assign(
+            new Error(`CDP command timed out (${timeoutMs}ms): ${method}`),
+            {code: 'E_CDP_TIMEOUT'}
+          )
+        }
+
+        const expression = String(params?.expression ?? '')
+
+        return {
+          result: {value: expression.includes('updateProfileConfiguration')}
+        }
+      }
+
+      return {}
+    }
+  }
+
+  return {transport, calls}
+}
+
 const noSleep = async () => {}
 
 describe('the developer-mode toggle the profile seed cannot reach', () => {
@@ -123,6 +169,48 @@ describe('the developer-mode toggle the profile seed cannot reach', () => {
     await expect(
       ensureDeveloperMode({transport, attempts: 3, sleep: noSleep})
     ).resolves.toBe('unavailable')
+
+    expect(calls.at(-1)?.method).toBe('Target.closeTarget')
+  })
+
+  it('navigates a target that never committed its url, then flips the toggle', async () => {
+    const {transport, calls} = silentTransport({answersAfterNavigate: true})
+
+    await expect(
+      ensureDeveloperMode({transport, sleep: noSleep})
+    ).resolves.toBe('enabled')
+
+    expect(calls.map((call) => call.method)).toEqual([
+      'Target.createTarget',
+      'Target.attachToTarget',
+      'Runtime.evaluate',
+      'Page.navigate',
+      'Runtime.evaluate',
+      'Runtime.evaluate',
+      'Target.closeTarget'
+    ])
+
+    expect(calls[3]).toMatchObject({
+      params: {url: 'chrome://extensions'},
+      sessionId: 's1'
+    })
+  })
+
+  it('stops after a few unanswered reads instead of outlasting the launch watchdog', async () => {
+    const {transport, calls} = silentTransport({answersAfterNavigate: false})
+
+    await expect(
+      ensureDeveloperMode({transport, sleep: noSleep})
+    ).resolves.toBe('unavailable')
+
+    const reads = calls.filter((call) => call.method === 'Runtime.evaluate')
+
+    expect(reads).toHaveLength(4)
+    // Every read carries its own short budget, never the 12s command default.
+    expect(reads.every((call) => call.timeoutMs === 2000)).toBe(true)
+    expect(
+      calls.filter((call) => call.method === 'Page.navigate')
+    ).toHaveLength(1)
 
     expect(calls.at(-1)?.method).toBe('Target.closeTarget')
   })
