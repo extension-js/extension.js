@@ -23,17 +23,14 @@ import {
 import type {BrowserLogger, CompilationLike} from '../../browsers-types'
 import type {SafariBuildConfig, SafariPluginLike} from '../safari-types'
 import {
-  alertReason,
   checkAccessibility,
   closeSafariSettings,
   createSafariUiTools,
   type EnableStep,
   enableSafariExtension,
   extensionCheckboxId,
-  readSafariAlert,
   SafariUiError
 } from '../safari-ui'
-import type {SafariUiTools} from '../safari-ui/tools'
 import {APP_ICON_FULL_SIZE, applyAppIcon} from './app-icon'
 import {rememberRaisedContainerApp} from './container-app'
 import {logSafariDryRun} from './dry-run'
@@ -104,6 +101,8 @@ export {
   toolOutputTail
 } from './tools'
 export {closeSafariWebDriverSessions} from './webdriver'
+
+import type {SafariWebDriverSession} from './webdriver'
 
 function fallbackLogger(): BrowserLogger {
   return {
@@ -272,7 +271,8 @@ async function enableThroughSafariUi(
   logger: BrowserLogger,
   signedTeam: string | null,
   tools: SafariPipelineTools,
-  earlierIds: string[]
+  earlierIds: string[],
+  automation = false
 ): Promise<EnableOutcome> {
   const uiTools = host.uiTools || createSafariUiTools()
   const team = String(signedTeam || '').trim() || UNSIGNED
@@ -308,6 +308,7 @@ async function enableThroughSafariUi(
       },
       appPath,
       tools: uiTools,
+      automation,
       promptWaitMs: host.promptWaitMs,
       onPromptWait: (step, seconds) => {
         logger.info?.(messages.safariPromptWait(step, seconds))
@@ -557,13 +558,17 @@ async function announceSafariDevSession(
 
 // Only a dev session lives long enough to hold a WebDriver session and end it
 // on the way out, which is why build packaging never opens one.
+interface HeldSession {
+  session: SafariWebDriverSession | null
+  reason?: string
+}
+
 async function holdWebDriverSession(
   tools: SafariPipelineTools,
   config: SafariBuildConfig,
   logger: BrowserLogger,
-  startingUrl?: string,
-  uiTools?: SafariUiTools
-): Promise<void> {
+  startingUrl?: string
+): Promise<HeldSession> {
   const runId = readReadyRunId(config.extensionDir)
   stampReadyWebDriver(
     config.extensionDir,
@@ -573,28 +578,7 @@ async function holdWebDriverSession(
 
   await closeSafariWebDriverSessions()
 
-  // Safari's UI is read only for a run that asked to drive it, so no other
-  // run meets an Accessibility prompt it did not ask for.
-  if (uiTools) {
-    try {
-      await closeSafariSettings(uiTools)
-    } catch {
-      // A Settings window that cannot be read is left for the request below
-    }
-  }
-
-  const outcome = await openSafariWebDriverSession(
-    tools,
-    uiTools
-      ? {
-          readBlocker: async () => {
-            const alert = await readSafariAlert(uiTools)
-
-            return alert ? alertReason(alert) : null
-          }
-        }
-      : {}
-  )
+  const outcome = await openSafariWebDriverSession(tools)
 
   if (outcome.session) {
     const {port, sessionId} = outcome.session
@@ -609,7 +593,7 @@ async function holdWebDriverSession(
       noteStartingUrl(config, logger, startingUrl, refused, runId)
     }
 
-    return
+    return {session: outcome.session}
   }
 
   stampReadyWebDriver(
@@ -629,6 +613,8 @@ async function holdWebDriverSession(
       runId
     )
   }
+
+  return {session: null, reason: outcome.reason}
 }
 
 function noteStartingUrl(
@@ -669,9 +655,9 @@ function answerWebDriverRequests(
 
   requestWatchers.set(
     requestPath,
-    watchWebDriverRequests(requestPath, () =>
-      holdWebDriverSession(tools, config, logger)
-    )
+    watchWebDriverRequests(requestPath, async () => {
+      await holdWebDriverSession(tools, config, logger)
+    })
   )
 }
 
@@ -1017,7 +1003,13 @@ async function runSafariPipeline(
 
   const runId = readReadyRunId(config.extensionDir)
 
-  let uiReadable = false
+  // Safari 27 never answers a session request while a regular Safari is open,
+  // and the enable step opens one. So the session comes first and the switch
+  // is turned on inside the Safari that session raised.
+  const early =
+    host.enableExtension && host.announceDevReady
+      ? await holdWebDriverSession(tools, config, logger)
+      : null
 
   if (host.enableExtension) {
     const outcome = await enableThroughSafariUi(
@@ -1027,11 +1019,19 @@ async function runSafariPipeline(
       logger,
       signature.team,
       tools,
-      registration.earlierIds
+      registration.earlierIds,
+      Boolean(early?.session)
     )
 
     stampReadySafariEnable(config.extensionDir, outcome.stamp, runId)
-    uiReadable = outcome.accessible !== false
+
+    if (early?.session && outcome.accessible !== false) {
+      try {
+        await closeSafariSettings(host.uiTools || createSafariUiTools())
+      } catch {
+        // Settings left open does not end the session this run already holds
+      }
+    }
 
     if (!outcome.enabled) {
       logger.info?.(
@@ -1055,13 +1055,23 @@ async function runSafariPipeline(
   }
 
   if (host.announceDevReady) {
-    await holdWebDriverSession(
-      tools,
-      config,
-      logger,
-      host.startingUrl,
-      uiReadable ? host.uiTools || createSafariUiTools() : undefined
-    )
+    if (!early) {
+      await holdWebDriverSession(tools, config, logger, host.startingUrl)
+    } else if (host.startingUrl) {
+      // The page is opened after the switch, so the extension is on for it.
+      noteStartingUrl(
+        config,
+        logger,
+        host.startingUrl,
+        early.session
+          ? await navigateSafariWebDriverSession(
+              early.session,
+              host.startingUrl
+            )
+          : `Safari opens it in the automation window, and this run holds no WebDriver session (${early.reason})`,
+        runId
+      )
+    }
 
     answerWebDriverRequests(tools, config, logger)
     await announceSafariDevSession(host, config, appPath)
