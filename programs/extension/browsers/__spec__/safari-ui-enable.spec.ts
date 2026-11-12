@@ -65,6 +65,7 @@ describe('enableSafariExtension', () => {
 
     expect(tools.calls).toEqual([
       'running',
+      'alert',
       'enabled:read',
       'unsigned:on',
       `pluginkit:${path.join(appPath, 'Contents', 'PlugIns', 'MyExt Extension.appex')}`,
@@ -117,7 +118,13 @@ describe('enableSafariExtension', () => {
       onStep: (step) => steps.push(`${step.step}:${step.changed}`)
     })
 
-    expect(tools.calls).toEqual(['running', 'enabled:read', 'websites:allow'])
+    expect(tools.calls).toEqual([
+      'running',
+      'alert',
+      'enabled:read',
+      'websites:allow'
+    ])
+
     expect(steps).toEqual(['enabled:false', 'websites:false'])
     expect(report.enabled).toBe(true)
   })
@@ -140,7 +147,7 @@ describe('enableSafariExtension', () => {
       'running'
     ])
 
-    expect(tools.calls[5]).toBe('enabled:read')
+    expect(tools.calls.slice(5, 7)).toEqual(['alert', 'enabled:read'])
     expect(steps[0]).toBe('safari:not running:running')
     expect(report.enabled).toBe(true)
   })
@@ -182,7 +189,79 @@ describe('enableSafariExtension', () => {
         'Safari > Settings > Developer > Allow unsigned extensions still reads off after the click, and the macOS password prompt (SecurityAgent) is open and waits for an answer: answer it in Safari, then run again'
     })
 
-    expect(tools.calls).toEqual(['running', 'enabled:read', 'unsigned:on'])
+    expect(tools.calls).toEqual([
+      'running',
+      'alert',
+      'enabled:read',
+      'unsigned:on'
+    ])
+  })
+
+  it('keeps reading the unsigned box while Safari waits for Touch ID or the password', async () => {
+    const tools = fakeSafariUiTools({
+      unsignedSticks: true,
+      unsignedTurnsOnAfterReads: 2
+    })
+    const waits: number[] = []
+    const report = await enableSafariExtension({
+      target: {bundleId: BUNDLE},
+      appPath,
+      tools,
+      unsignedWaitMs: 2000,
+      unsignedPollMs: 5,
+      onUnsignedWait: (seconds) => waits.push(seconds)
+    })
+
+    expect(waits).toEqual([2])
+    expect(report.enabled).toBe(true)
+    expect(report.steps[0]).toMatchObject({
+      step: 'unsigned',
+      before: '0',
+      after: '1',
+      ok: true
+    })
+
+    expect(tools.calls.filter((call) => call === 'unsigned:read')).toHaveLength(
+      2
+    )
+  })
+
+  it('says Safari waits on a prompt it cannot answer when the box never turns on', async () => {
+    const tools = fakeSafariUiTools({unsignedSticks: true})
+    const report = await enableSafariExtension({
+      target: {bundleId: BUNDLE},
+      appPath,
+      tools,
+      unsignedWaitMs: 30,
+      unsignedPollMs: 5
+    })
+
+    expect(report.enabled).toBe(false)
+    expect(report.reason).toBe(
+      'Safari > Settings > Developer > Allow unsigned extensions still reads off 0 s after the click: Safari asks for Touch ID or the password before it turns this on, and this run cannot answer that. Answer it or turn the box on by hand, then run again'
+    )
+  })
+
+  it('stops before any Settings step when Safari shows an alert, and quotes it', async () => {
+    const tools = fakeSafariUiTools({
+      alert: {
+        text: 'Safari cannot open the page because the address is invalid.',
+        buttons: ['OK']
+      }
+    })
+    const report = await enableSafariExtension({
+      target: {bundleId: BUNDLE},
+      appPath,
+      tools
+    })
+
+    expect(report).toMatchObject({
+      enabled: false,
+      reason:
+        'Safari shows an alert that waits for an answer ("Safari cannot open the page because the address is invalid.", buttons OK), and it holds every step behind it: answer it in Safari, then run again'
+    })
+
+    expect(tools.calls).toEqual(['running', 'alert'])
   })
 
   it('names the unsigned row that drops the scripted switch and both ways out', async () => {
@@ -431,6 +510,7 @@ describe('dev --enable-extension through the pipeline', () => {
     expect(ui.calls).toEqual([
       'probe',
       'running',
+      'alert',
       'enabled:read',
       'unsigned:on',
       expect.stringMatching(/^pluginkit:/),
@@ -471,6 +551,7 @@ describe('dev --enable-extension through the pipeline', () => {
     expect(ui.calls).toEqual([
       'probe',
       'running',
+      'alert',
       'enabled:read',
       'unsigned:on',
       'close'

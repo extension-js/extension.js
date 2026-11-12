@@ -213,7 +213,12 @@ function frontmostName() {
 }
 function describeWindows(proc) {
   const list = windows(proc)
-  if (list.length === 0) return 'System Events lists no Safari window at all and ' + frontmostName() + ' is frontmost'
+  if (list.length === 0) {
+    const front = frontmostName()
+    return front === 'Safari'
+      ? 'System Events lists no Safari window at all and Safari is frontmost'
+      : 'Safari could not be brought to the front, ' + front + ' holds it, and System Events lists no Safari window from there. Leave Safari in front while this step runs'
+  }
   const titles = list.map((w) => JSON.stringify(String(attr(w, 'AXTitle') || '')) + (toolbarTitles(w) ? '' : ' (no toolbar)'))
   return 'System Events lists ' + list.length + ' Safari window' + (list.length === 1 ? '' : 's') + ' (' + titles.join(', ') + ') and ' + frontmostName() + ' is frontmost'
 }
@@ -232,6 +237,7 @@ function wait(check, seconds) {
 const SWITCH_SETTLE_S = 1
 const SETTINGS_MENU_WAIT = 8
 const SETTINGS_SHORTCUT_WAIT = 4
+const PANE_BUTTON_WAIT = 5
 function openSettings(proc) {
   // System Events lists no windows for a Safari that is not frontmost, and
   // Settings opened from the automation window closes with it, so Safari
@@ -253,16 +259,27 @@ function openSettings(proc) {
   }
   w = wait(() => settingsWindow(proc), SETTINGS_MENU_WAIT)
   if (w) return w
-  se.keystroke(',', {using: ['command down']})
-  w = wait(() => settingsWindow(proc), SETTINGS_SHORTCUT_WAIT)
-  if (w) return w
+  // A keystroke goes to whichever app is in front, so the shortcut is only
+  // sent once Safari holds the front.
+  safariApp.activate()
+  delay(0.3)
+  if (frontmostName() === 'Safari') {
+    se.keystroke(',', {using: ['command down']})
+    w = wait(() => settingsWindow(proc), SETTINGS_SHORTCUT_WAIT)
+    if (w) return w
+  }
   throw new Error('Safari Settings did not open within ' + (SETTINGS_MENU_WAIT + SETTINGS_SHORTCUT_WAIT) + ' s of the menu click and the Command-Comma shortcut: ' + describeWindows(proc))
 }
 function showPane(proc, title) {
   const w = openSettings(proc)
-  const bar = first(w, (e) => role(e) === 'AXToolbar')
-  const button = kids(bar).filter((b) => String(attr(b, 'AXTitle') || '') === title)[0]
-  if (!button) throw new Error('Safari Settings has no ' + title + ' pane')
+  // System Events also stops listing the window when another app takes the
+  // front, so a read that finds no toolbar brings Safari forward again.
+  const button = wait(() => {
+    const bar = first(settingsWindow(proc) || w, (e) => role(e) === 'AXToolbar')
+    if (!bar) { safariApp.activate(); return null }
+    return kids(bar).filter((b) => String(attr(b, 'AXTitle') || '') === title)[0]
+  }, PANE_BUTTON_WAIT)
+  if (!button) throw new Error('Safari Settings has no ' + title + ' pane after ' + PANE_BUTTON_WAIT + ' s: ' + describeWindows(proc))
   if (String(attr(w, 'AXTitle') || '') !== title) {
     button.click()
     const shown = wait(() => String(attr(settingsWindow(proc), 'AXTitle') || '') === title, 6)
@@ -279,6 +296,22 @@ function blockerOf(w) {
   for (const name of ['SecurityAgent', 'coreautha']) {
     const list = se.processes.whose({name: name})()
     if (list.length && windows(list[0]).length) return 'the macOS password prompt (' + name + ') is open and waits for an answer'
+  }
+  return null
+}
+// An alert Safari raises over a page is not a sheet of Settings, so it is
+// looked for under every window, and read as its text and its buttons.
+function isAlert(e) {
+  const r = role(e), sub = String(attr(e, 'AXSubrole') || '')
+  return r === 'AXSheet' || sub === 'AXDialog' || sub === 'AXSystemDialog'
+}
+function alertOf(proc) {
+  for (const w of windows(proc)) {
+    const box = isAlert(w) ? w : first(w, isAlert)
+    if (!box) continue
+    const texts = walk(box, (e) => role(e) === 'AXStaticText', 0, []).map((t) => String(attr(t, 'AXValue') || '').trim()).filter(Boolean)
+    const buttons = walk(box, (e) => role(e) === 'AXButton', 0, []).map((b) => String(attr(b, 'AXTitle') || '').trim()).filter(Boolean)
+    return {text: texts.join(' ').slice(0, 240), buttons: buttons.slice(0, 4)}
   }
   return null
 }
@@ -343,6 +376,7 @@ export interface ScriptHeader {
     | 'probe'
     | 'running'
     | 'close'
+    | 'alert'
     | 'unsigned'
     | 'enabled'
     | 'websites'
@@ -398,6 +432,16 @@ export function closeSettingsScript(): string {
     const blocker = blockerOf(settingsWindow(proc))
     if (!blocker) closeSettings(proc)
     return answer({ok: true, open: Boolean(settingsWindow(proc)), blocker: blocker})
+  } catch (e) { return failure(e) }
+})()`
+}
+
+export function safariAlertScript(): string {
+  return `${header({kind: 'alert'})}${PRELUDE}
+(() => {
+  try {
+    const proc = safari()
+    return answer({ok: true, alert: proc ? alertOf(proc) : null})
   } catch (e) { return failure(e) }
 })()`
 }

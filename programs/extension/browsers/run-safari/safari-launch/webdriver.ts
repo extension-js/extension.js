@@ -258,6 +258,9 @@ export function describeSessionTimeout(input: {
 export interface SafariWebDriverOptions {
   createMs?: number
   attempts?: number
+  // Reads what holds Safari after a request that timed out. An answer names
+  // the blocker, and asking again behind the same blocker is skipped.
+  readBlocker?: () => Promise<string | null>
 }
 
 async function requestSession(
@@ -396,6 +399,24 @@ export async function openSafariWebDriverSession(
     const outcome = await requestSession(tools, createMs)
 
     if (outcome.session) return {session: outcome.session}
+
+    if (outcome.retry && options.readBlocker) {
+      let blocker: string | null = null
+
+      try {
+        blocker = await options.readBlocker()
+      } catch {
+        blocker = null
+      }
+
+      if (blocker) {
+        reasons.push(
+          `the WebDriver session request failed: safaridriver did not answer the session request within ${asSeconds(createMs)} s. ${blocker}`
+        )
+
+        break
+      }
+    }
 
     reasons.push(outcome.reason)
 
