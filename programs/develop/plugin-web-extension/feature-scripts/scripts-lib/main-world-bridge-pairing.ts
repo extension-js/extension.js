@@ -11,7 +11,7 @@ export const MAIN_WORLD_BRIDGE_PAIR_PREFIX = 'extjs-main-world-bridge:'
 export const MAIN_WORLD_BRIDGE_PAIRING_MARK = '__extjsMainWorldBridgePaired'
 
 // Firefox names no extension file on a MAIN world stack, so a file the
-// background registers there needs the bridge a declared group gets.
+// background or a page registers there needs the bridge a declared group gets.
 // A list of base readers leaves every other MAIN world file unpaired, the
 // way a declared group that reads no base ships without its bridge.
 export function buildMainWorldBridgePairingSource(

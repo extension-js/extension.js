@@ -68,6 +68,8 @@ export type PluginInterface = {
   manifestPath: string
   browser?: DevOptions['browser']
   includeList?: FilepathList
+  /** The HTML page entries of this build, for a step that reads page scripts. */
+  pageList?: FilepathList
   transpilePackages?: string[]
   /**
    * Compile-time constants, each value JSON-serialized into the bundle the

@@ -99,6 +99,58 @@ function runtimeRegisteredProject() {
   return {root}
 }
 
+function pageRegisteredProject() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-main-world-pg-'))
+  roots.push(root)
+  fs.writeFileSync(
+    path.join(root, 'package.json'),
+    JSON.stringify({private: true, name: 'main-world-pg', version: '0.0.0'})
+  )
+
+  fs.mkdirSync(path.join(root, 'scripts'), {recursive: true})
+  fs.writeFileSync(
+    path.join(root, 'scripts', 'hook.js'),
+    'window.__PAGE_HOOK__ = "installed"\n'
+  )
+
+  fs.mkdirSync(path.join(root, 'options'), {recursive: true})
+  fs.writeFileSync(
+    path.join(root, 'options', 'index.html'),
+    '<!doctype html><html><body><script src="./options.js"></script></body></html>\n'
+  )
+
+  fs.writeFileSync(
+    path.join(root, 'options', 'options.js'),
+    [
+      'chrome.scripting.registerContentScripts([',
+      '  {',
+      '    id: "page-hook",',
+      '    js: ["scripts/hook.js"],',
+      '    world: "MAIN",',
+      '    matches: ["<all_urls>"],',
+      '    runAt: "document_start"',
+      '  }',
+      '])',
+      ''
+    ].join('\n')
+  )
+
+  fs.writeFileSync(path.join(root, 'background.js'), 'console.log("bg")\n')
+  fs.writeFileSync(
+    path.join(root, 'manifest.json'),
+    JSON.stringify({
+      manifest_version: 3,
+      name: 'main-world-pg',
+      version: '1.0.0',
+      permissions: ['scripting'],
+      background: {service_worker: 'background.js'},
+      options_ui: {page: 'options/index.html', open_in_tab: true}
+    })
+  )
+
+  return {root}
+}
+
 function runtimeInjectedProject() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-main-world-ex-'))
   roots.push(root)
@@ -330,6 +382,30 @@ describe('a MAIN world content script in dev', () => {
 describe('a MAIN world script registered at runtime in dev', () => {
   it('ships without the HMR runtime or the host instrumentation', async () => {
     const {root} = runtimeRegisteredProject()
+    const built = await compileDev(root)
+    expect(built.stats.hasErrors()).toBe(false)
+
+    const hook = fs.readFileSync(
+      path.join(built.distPath, 'scripts', 'hook.js'),
+      'utf8'
+    )
+
+    expect(hook).toContain('__PAGE_HOOK__')
+    expect(hook).toMatch(
+      /__EXTENSIONJS_HOST_INSTRUMENTATION_ENABLED\s*=\s*false/
+    )
+
+    expect(hook).not.toContain('Node.prototype.removeChild')
+    expect(hook).not.toContain('new MutationObserver')
+    expect(hook).not.toContain('rspackHotUpdate')
+    expect(hook).not.toContain('hmrC')
+    expect(hook).not.toContain('hot-update')
+  }, 120_000)
+})
+
+describe('a MAIN world script an options page registers in dev', () => {
+  it('ships without the HMR runtime or the host instrumentation', async () => {
+    const {root} = pageRegisteredProject()
     const built = await compileDev(root)
     expect(built.stats.hasErrors()).toBe(false)
 
