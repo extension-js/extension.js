@@ -153,6 +153,77 @@ function runtimeInjectedProject() {
   return {root}
 }
 
+function importingProject() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-main-world-im-'))
+  roots.push(root)
+  fs.writeFileSync(
+    path.join(root, 'package.json'),
+    JSON.stringify({private: true, name: 'main-world-im', version: '0.0.0'})
+  )
+
+  fs.mkdirSync(path.join(root, 'scripts'), {recursive: true})
+  fs.writeFileSync(
+    path.join(root, 'scripts', 'lazy.js'),
+    'window.__LAZY_MARK__ = "lazy"\nexport const lazy = 1\n'
+  )
+
+  fs.writeFileSync(
+    path.join(root, 'scripts', 'later.js'),
+    'window.__LATER_MARK__ = "later"\nexport const later = 1\n'
+  )
+
+  fs.writeFileSync(
+    path.join(root, 'scripts', 'hook.js'),
+    'import "./lazy.js"\nimport("./later.js")\n' +
+      'window.__PAGE_HOOK__ = "installed"\n'
+  )
+
+  fs.writeFileSync(
+    path.join(root, 'page-world.js'),
+    'import "./scripts/lazy.js"\nimport("./scripts/later.js")\n' +
+      'window.__MAIN_WORLD_MARK__ = "page"\n'
+  )
+
+  fs.writeFileSync(
+    path.join(root, 'background.js'),
+    [
+      'chrome.runtime.onInstalled.addListener(function () {',
+      '  chrome.scripting.registerContentScripts([',
+      '    {',
+      '      id: "page-hook",',
+      '      js: ["scripts/hook.js"],',
+      '      world: "MAIN",',
+      '      matches: ["<all_urls>"],',
+      '      runAt: "document_start"',
+      '    }',
+      '  ])',
+      '})',
+      ''
+    ].join('\n')
+  )
+
+  fs.writeFileSync(
+    path.join(root, 'manifest.json'),
+    JSON.stringify({
+      manifest_version: 3,
+      name: 'main-world-im',
+      version: '1.0.0',
+      permissions: ['scripting'],
+      background: {service_worker: 'background.js'},
+      content_scripts: [
+        {
+          matches: ['https://a.example/*'],
+          js: ['page-world.js'],
+          world: 'MAIN',
+          run_at: 'document_start'
+        }
+      ]
+    })
+  )
+
+  return {root}
+}
+
 // The dev server runs the bundler with HMR on, which is what puts the hot
 // update runtime into every entry chunk, so the spec compiles the same way.
 async function compileDev(
@@ -326,5 +397,57 @@ describe('a MAIN world script injected with executeScript in dev', () => {
       (group: {resources?: string[]}) => group.resources || []
     )
     expect(resources).toContain(asset)
+  }, 120_000)
+})
+
+// Every scripts/ file is an entry of its own, so the same file is a content
+// script when it stands alone and a plain module inside a MAIN world bundle.
+describe('a scripts/ file a MAIN world script imports in dev', () => {
+  const expectNoHostInstrumentation = (text: string) => {
+    expect(text).toContain('__LAZY_MARK__')
+    expect(text).toContain('__LATER_MARK__')
+    expect(text).not.toMatch(
+      /__EXTENSIONJS_HOST_INSTRUMENTATION_ENABLED\s*=\s*true/
+    )
+
+    expect(text).not.toContain('Node.prototype.removeChild')
+    expect(text).not.toContain('new MutationObserver')
+    expect(text).not.toContain('__EXTJS_DEBUG')
+    expect(text).not.toContain('rspackHotUpdate')
+  }
+
+  it('stays uninstrumented inside a runtime registered bundle', async () => {
+    const {root} = importingProject()
+    const built = await compileDev(root)
+    expect(built.stats.hasErrors()).toBe(false)
+
+    const read = (file: string) =>
+      fs.readFileSync(path.join(built.distPath, file), 'utf8')
+    const hook = read('scripts/hook.js')
+
+    expect(hook).toContain('__PAGE_HOOK__')
+    expectNoHostInstrumentation(hook)
+
+    // Emitted on its own the same file runs isolated and keeps the dev runtime.
+    for (const file of ['scripts/lazy.js', 'scripts/later.js']) {
+      const standalone = read(file)
+      expect(standalone).toMatch(
+        /__EXTENSIONJS_HOST_INSTRUMENTATION_ENABLED\s*=\s*true/
+      )
+
+      expect(standalone).toContain('Node.prototype.removeChild')
+      expect(standalone).toContain('rspackHotUpdate')
+    }
+  }, 120_000)
+
+  it('stays uninstrumented inside a declared MAIN world bundle', async () => {
+    const {root} = importingProject()
+    const built = await compileDev(root)
+    expect(built.stats.hasErrors()).toBe(false)
+
+    const main = built.bundleOf('content_scripts/content-0')
+    expect(main.world).toBe('MAIN')
+    expect(main.text).toContain('__MAIN_WORLD_MARK__')
+    expectNoHostInstrumentation(main.text)
   }, 120_000)
 })

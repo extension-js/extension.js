@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {Compilation, type Compiler, EntryPlugin} from '@rspack/core'
+import {resolveDevelopDistFile} from '../../../lib/develop-context'
 import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
 import {stripBom} from '../../../lib/parse-json-safe'
 import type {
@@ -95,6 +96,29 @@ export function findMainWorldGroups(
 }
 
 type LooseRules = Parameters<typeof withoutDevRefresh>[0]
+
+// The wrapper judges each module by its own path, so a scripts/ file this
+// bundle imports would bring the isolated world's page patches along.
+function withMainWorldBundle(rules: LooseRules): LooseRules {
+  const wrapper = resolveDevelopDistFile(
+    'feature-scripts-content-script-wrapper'
+  )
+
+  return rules.map((rule) => {
+    if (!rule || typeof rule !== 'object' || !Array.isArray(rule.use)) {
+      return rule
+    }
+
+    return {
+      ...rule,
+      use: rule.use.map((use) =>
+        typeof use === 'object' && use.loader === wrapper
+          ? {...use, options: {...use.options, mainWorldBundle: true}}
+          : use
+      )
+    }
+  })
+}
 
 // In dev the bundler's HMR runtime rides every entry chunk, and a MAIN world
 // script runs on the page itself, so the hot update callback landed on the
@@ -211,8 +235,8 @@ async function compileGroup(
       child.options.module.parser as Record<string, unknown> | undefined
     ) as typeof child.options.module.parser,
     // Refresh signatures need the dev runtime the page entries carry.
-    rules: withoutDevRefresh(
-      child.options.module.rules as LooseRules
+    rules: withMainWorldBundle(
+      withoutDevRefresh(child.options.module.rules as LooseRules)
     ) as typeof child.options.module.rules
   }
 
