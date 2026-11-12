@@ -255,6 +255,11 @@ const SWITCH_SETTLE_S = 1
 const SETTINGS_MENU_WAIT = 8
 const SETTINGS_SHORTCUT_WAIT = 4
 const PANE_BUTTON_WAIT = 5
+// Windows this script made, so the run can close them once Settings is done.
+const MADE_WINDOWS = []
+function windowIds() {
+  try { return safariApp.windows().map((w) => w.id()) } catch (e) { return [] }
+}
 function openSettings(proc) {
   // System Events lists no windows for a Safari that is not frontmost, and
   // Settings opened from the automation window closes with it, so Safari
@@ -266,8 +271,10 @@ function openSettings(proc) {
   // In the Safari a WebDriver session raised, Settings asked for from the
   // automation window never opens, so a plain window is made and used.
   if (SCRIPT.automation || !browserWindow(proc)) {
+    const had = windowIds()
     try { safariApp.Document().make() } catch (e) {}
     wait(() => browserWindow(proc), 6)
+    for (const id of windowIds()) { if (had.indexOf(id) < 0) MADE_WINDOWS.push(id) }
     safariApp.activate()
     delay(0.3)
   }
@@ -399,7 +406,10 @@ function selectRowOf(proc, id) {
 function detailsOf(w) {
   return first(w, (e) => role(e) === 'AXGroup' && String(attr(e, 'AXIdentifier') || '') === 'Extension Details Box')
 }
-function answer(value) { return JSON.stringify(value) }
+function answer(value) {
+  if (MADE_WINDOWS.length && value && typeof value === 'object') value.madeWindows = MADE_WINDOWS
+  return JSON.stringify(value)
+}
 function failure(error) { return JSON.stringify({ok: false, error: String(error && error.message ? error.message : error)}) }
 `
 
@@ -412,6 +422,7 @@ export interface ScriptHeader {
     | 'probe'
     | 'running'
     | 'close'
+    | 'close-windows'
     | 'alert'
     | 'cancel'
     | 'unsigned'
@@ -470,6 +481,23 @@ export function closeSettingsScript(): string {
     const blocker = blockerOf(settingsWindow(proc))
     if (!blocker) closeSettings(proc)
     return answer({ok: true, open: Boolean(settingsWindow(proc)), blocker: blocker})
+  } catch (e) { return failure(e) }
+})()`
+}
+
+// Closes the plain windows an earlier script made to reach Settings, by the
+// window ids those scripts reported, so no other window is ever touched.
+export function closeWindowsScript(ids: number[]): string {
+  const wanted = ids.filter((id) => Number.isInteger(id))
+
+  return `${header({kind: 'close-windows'})}${PRELUDE}
+(() => {
+  try {
+    const closed = []
+    for (const id of ${JSON.stringify(wanted)}) {
+      try { const w = safariApp.windows.byId(id); if (w.exists()) { w.close(); closed.push(id) } } catch (e) {}
+    }
+    return answer({ok: true, closed: closed})
   } catch (e) { return failure(e) }
 })()`
 }
@@ -566,7 +594,7 @@ export function otherWebsitesScript(
       const details = box()
       const every = first(details, (e) => role(e) === 'AXButton' && String(attr(e, 'AXTitle') || '').indexOf(${literal(ALWAYS_ALLOW_TITLE)}) === 0)
       const notYet = () => first(box(), (e) => role(e) === 'AXStaticText' && String(attr(e, 'AXValue') || '').indexOf('have not allowed this extension') >= 0)
-      if (!every && !notYet()) { closeSettings(proc); return answer({ok: true, listed: true, before: ${literal(OTHER_WEBSITES_ALLOW)}, after: ${literal(OTHER_WEBSITES_ALLOW)}, everyWebsite: true}) }
+      if (!every && !notYet()) { closeSettings(proc); return answer({ok: true, listed: true, before: ${literal(OTHER_WEBSITES_ALLOW)}, after: ${literal(OTHER_WEBSITES_ALLOW)}}) }
       if (!every) return answer({ok: false, error: 'the Websites pane did not open and the row has no ${ALWAYS_ALLOW_TITLE} button'})
       every.click()
       const confirm = wait(() => {
