@@ -63,11 +63,12 @@ export class PairRuntimeMainWorldBridges {
     if (!isGeckoBasedBrowser(String(this.browser))) return
 
     const manifestDir = path.dirname(this.manifestPath)
+    const projectPath = (compiler.options.context as string) || manifestDir
     const registered = findRuntimeMainWorldEntries({
       includeList: this.includeList,
       pageList: this.pageList,
       manifestDir,
-      projectPath: (compiler.options.context as string) || manifestDir
+      projectPath
     })
     if (registered.length === 0) return
 
@@ -89,7 +90,7 @@ export class PairRuntimeMainWorldBridges {
     const bridgeFile = `${MAIN_WORLD_BRIDGE_ENTRY}.js`
     // The registry is one per extension and the wrapper one per realm, so
     // a page that reaches the registry carries the wrapper as well.
-    const pages = findRegistryCallingPages(this.pageList)
+    const pages = findRegistryCallingPages(this.pageList, projectPath)
 
     compiler.hooks.thisCompilation.tap(
       PairRuntimeMainWorldBridges.name,

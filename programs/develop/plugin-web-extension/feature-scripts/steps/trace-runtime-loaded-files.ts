@@ -1979,19 +1979,128 @@ function arrayPropStringLiterals(args: string, prop: string): string[] {
   return literals
 }
 
+const IDENTIFIER = /^[A-Za-z_$][\w$]*$/
+
+// The array or object literal a const of this file holds. A name declared
+// more than once is left alone, since no scope is read here.
+function constLiteralText(code: string, name: string): string | null {
+  if (!IDENTIFIER.test(name)) return null
+
+  const declarationRe = new RegExp(
+    `(?<![\\w$.])const\\s+${name.replace(/\$/g, '\\$')}\\s*(?::[^=;]*)?=\\s*(?=[\\[{])`,
+    'g'
+  )
+  const declarations = [...code.matchAll(declarationRe)]
+  if (declarations.length !== 1) return null
+
+  const [declaration] = declarations
+
+  return readBalancedLiteral(
+    code,
+    (declaration.index || 0) + declaration[0].length
+  )
+}
+
+// Return the bracketed literal that opens at openIndex, brackets included
+// (string-aware), or null when it never closes.
+function readBalancedLiteral(code: string, openIndex: number): string | null {
+  let depth = 0
+
+  for (let i = openIndex; i < code.length; i++) {
+    const char = code[i]
+
+    if (char === '"' || char === "'" || char === '`') {
+      i = skipString(code, i, code.length)
+      continue
+    }
+
+    if (char === '(' || char === '[' || char === '{') depth++
+
+    if (char === ')' || char === ']' || char === '}') {
+      depth--
+      if (depth === 0) return code.slice(openIndex, i + 1)
+    }
+  }
+
+  return null
+}
+
+interface RegisteredScriptGroup {
+  text: string
+  // Whether the text was read through a constant, which is the one hop.
+  viaConstant: boolean
+}
+
 // The object literals a scripting call passes first, so a property is read
 // per registration or injection instead of across the whole argument blob.
-function splitRegisteredScriptGroups(args: string): string[] {
+function splitRegisteredScriptGroups(
+  code: string,
+  args: string
+): RegisteredScriptGroup[] {
   const [first] = splitTopLevelArgs(args)
   if (first == null) return []
 
-  const trimmed = first.trim()
-  if (!trimmed.startsWith('[')) return [trimmed]
+  let trimmed = first.trim()
+  let viaConstant = false
+
+  if (IDENTIFIER.test(trimmed)) {
+    const literal = constLiteralText(code, trimmed)
+    if (literal == null) return []
+
+    trimmed = literal
+    viaConstant = true
+  }
+
+  if (!trimmed.startsWith('[')) return [{text: trimmed, viaConstant}]
 
   const close = trimmed.lastIndexOf(']')
   if (close < 1) return []
 
-  return splitTopLevelArgs(trimmed.slice(1, close))
+  const groups: RegisteredScriptGroup[] = []
+
+  for (const element of splitTopLevelArgs(trimmed.slice(1, close))) {
+    const text = element.trim()
+
+    if (viaConstant || !IDENTIFIER.test(text)) {
+      groups.push({text, viaConstant})
+      continue
+    }
+
+    const literal = constLiteralText(code, text)
+    if (literal != null) groups.push({text: literal, viaConstant: true})
+  }
+
+  return groups
+}
+
+// The string literals of a const array a group names for a property, as
+// `js: hookFiles` or the shorthand `files`.
+function constArrayPropStringLiterals(
+  code: string,
+  group: string,
+  prop: string
+): string[] {
+  const literals: string[] = []
+  const namedRe = new RegExp(
+    `(?<![\\w$.])["']?${prop}["']?\\s*:\\s*([A-Za-z_$][\\w$]*)\\s*(?=[,}])`,
+    'g'
+  )
+  const shorthandRe = new RegExp(`[{,]\\s*(${prop})\\s*(?=[,}])`, 'g')
+
+  for (const match of [
+    ...group.matchAll(namedRe),
+    ...group.matchAll(shorthandRe)
+  ]) {
+    const literal = constLiteralText(code, match[1])
+    if (!literal?.startsWith('[')) continue
+
+    for (const element of splitTopLevelArgs(literal.slice(1, -1))) {
+      const value = pureStringLiteral(element)
+      if (value != null) literals.push(value)
+    }
+  }
+
+  return literals
 }
 
 // Extract the js files a runtime registration or injection asks the browser to
@@ -2016,10 +2125,17 @@ export function extractMainWorldRegisteredFileLiterals(
       const args = readBalancedArgs(code, match.index + match[0].length - 1)
       if (args == null) continue
 
-      for (const group of splitRegisteredScriptGroups(args)) {
-        if (!/["']?world["']?\s*:\s*(['"])MAIN\1/.test(group)) continue
+      for (const group of splitRegisteredScriptGroups(code, args)) {
+        if (!/["']?world["']?\s*:\s*(['"])MAIN\1/.test(group.text)) continue
 
-        literals.push(...arrayPropStringLiterals(group, arrayProp))
+        literals.push(...arrayPropStringLiterals(group.text, arrayProp))
+
+        // A list held in a constant is read when the group itself was not.
+        if (!group.viaConstant) {
+          literals.push(
+            ...constArrayPropStringLiterals(code, group.text, arrayProp)
+          )
+        }
       }
     }
   }

@@ -10,7 +10,15 @@ import * as fs from 'node:fs'
 import type {FilepathList} from '../../../types'
 import {getAssetsFromHtml} from '../../feature-html/html-lib/utils'
 import {
+  collectModuleSpecifiers,
+  createLocalImportResolver,
+  type LocalImportResolver,
+  readScriptText,
+  walkLocalImportGraph
+} from '../../shared/script-graph'
+import {
   compiledSourceEmittedPath,
+  extractInjectedFileLiterals,
   extractMainWorldRegisteredFileLiterals,
   resolveExtensionPath
 } from '../steps/trace-runtime-loaded-files'
@@ -89,31 +97,115 @@ function collectPageScripts(
   return pages
 }
 
-function readSource(file: string): string {
+// What one source file says, kept per file so the steps that ask the same
+// question of the same build read and resolve each file once.
+interface SourceFacts {
+  file: string
+  stamp: string
+  mainWorldFiles: string[]
+  // Every path a registration or injection names, whatever the world.
+  injectedFiles: string[]
+  callsRegistry: boolean
+  imports: string[]
+}
+
+const factsCache = new Map<string, SourceFacts>()
+
+function readSourceFacts(
+  file: string,
+  resolveImport: LocalImportResolver
+): SourceFacts | undefined {
+  let stamp: string
+
   try {
-    return fs.readFileSync(file, 'utf8')
+    const stat = fs.statSync(file)
+    if (!stat.isFile()) return undefined
+
+    stamp = `${stat.mtimeMs}:${stat.size}`
   } catch {
-    return ''
+    return undefined
   }
+
+  const cached = factsCache.get(file)
+  if (cached?.stamp === stamp) return cached
+
+  const source = readScriptText(file) || ''
+  const imports = new Set<string>()
+
+  for (const specifier of collectModuleSpecifiers(source)) {
+    const resolved = resolveImport(file, specifier)
+    if (resolved) imports.add(resolved)
+  }
+
+  const names = MAIN_WORLD_CALL.test(source)
+  const mainWorldFiles = names
+    ? extractMainWorldRegisteredFileLiterals(source)
+    : []
+  const facts: SourceFacts = {
+    file,
+    stamp,
+    mainWorldFiles,
+    injectedFiles: names
+      ? [
+          ...new Set([
+            ...extractInjectedFileLiterals(source),
+            ...mainWorldFiles
+          ])
+        ]
+      : [],
+    callsRegistry: REGISTRY_CALL.test(source),
+    imports: [...imports]
+  }
+  factsCache.set(file, facts)
+
+  return facts
+}
+
+// The facts of every source the entries reach: the entry files and the
+// local modules they import, never a package.
+function readReachableFacts(
+  entries: string[],
+  projectPath: string
+): SourceFacts[] {
+  const resolveImport = createLocalImportResolver(projectPath)
+  const reached: SourceFacts[] = []
+
+  walkLocalImportGraph(entries, (file) => {
+    const facts = readSourceFacts(file, resolveImport)
+    if (!facts) return []
+
+    reached.push(facts)
+
+    return facts.imports
+  })
+
+  return reached
+}
+
+// The entry name a registered or injected path names once the build has
+// emitted it, or null when it names no script.
+function registeredEntryName(literal: string): string | null {
+  const distRel = resolveExtensionPath(literal, '')
+  if (!distRel) return null
+
+  const emitted = compiledSourceEmittedPath(distRel) || distRel
+  if (!/\.js$/i.test(emitted)) return null
+
+  return emitted.replace(/\.js$/i, '')
 }
 
 // Every entry name a runtime registration or injection puts in the MAIN
 // world, read from the sources this build already compiles.
-function readRegisteredMainWorldEntryNames(files: string[]): Set<string> {
+function readRegisteredMainWorldEntryNames(
+  files: string[],
+  projectPath: string
+): Set<string> {
   const names = new Set<string>()
 
-  for (const file of files) {
-    const source = readSource(file)
-    if (!MAIN_WORLD_CALL.test(source)) continue
-
-    for (const literal of extractMainWorldRegisteredFileLiterals(source)) {
-      const distRel = resolveExtensionPath(literal, '')
-      if (!distRel) continue
-
-      const emitted = compiledSourceEmittedPath(distRel) || distRel
-      if (!/\.js$/i.test(emitted)) continue
-
-      names.add(emitted.replace(/\.js$/i, ''))
+  for (const facts of readReachableFacts(files, projectPath)) {
+    for (const literal of facts.mainWorldFiles) {
+      const name = registeredEntryName(literal)
+      if (name) names.add(name)
     }
   }
 
@@ -134,28 +226,78 @@ export function findRuntimeMainWorldEntries(
   // No scripts/ entry can be registered, so no source is read at all.
   if (candidates.length === 0) return []
 
-  // An extension page registers through the same API as the background.
-  const registered = readRegisteredMainWorldEntryNames([
-    ...[...entries.values()].flat(),
-    ...[...collectPageScripts(options.pageList).values()].flat()
-  ])
+  // An extension page registers through the same API as the background,
+  // and either one may keep the call in a module it imports.
+  const registered = readRegisteredMainWorldEntryNames(
+    [
+      ...[...entries.values()].flat(),
+      ...[...collectPageScripts(options.pageList).values()].flat()
+    ],
+    options.projectPath
+  )
 
   return candidates
     .filter(([entryName]) => registered.has(entryName))
     .map(([entryName, files]) => ({entryName, files}))
 }
 
+export interface PageRelativeScriptPath {
+  page: string
+  // The source that names the path, which may be a module the page imports.
+  file: string
+  literal: string
+  // Where a browser that resolves against the page looks, and the file meant.
+  requested: string
+  emitted: string
+}
+
+// A scripts/ file a page names without a leading slash. Gecko resolves that
+// path against the page, so it points at a file the build never emits.
+export function findPageRelativeScriptPaths(
+  options: RuntimeMainWorldOptions
+): PageRelativeScriptPath[] {
+  const scripts = new Set(
+    [...collectScriptEntries(options).keys()].filter(isScriptsFolderFeature)
+  )
+  if (scripts.size === 0) return []
+
+  const found: PageRelativeScriptPath[] = []
+
+  for (const [page, files] of collectPageScripts(options.pageList)) {
+    for (const facts of readReachableFacts(files, options.projectPath)) {
+      for (const literal of facts.injectedFiles) {
+        const fromRoot = resolveExtensionPath(literal, '')
+        const fromPage = resolveExtensionPath(literal, `${page}.html`)
+        if (!fromRoot || !fromPage || fromRoot === fromPage) continue
+
+        const entryName = registeredEntryName(literal)
+        if (!entryName || !scripts.has(entryName)) continue
+
+        found.push({
+          page,
+          file: facts.file,
+          literal,
+          requested: fromPage,
+          emitted: `${entryName}.js`
+        })
+      }
+    }
+  }
+
+  return found
+}
+
 // The pages whose scripts reach the content script registry. Each runs in
 // its own realm, so each needs the pairing the background carries.
 export function findRegistryCallingPages(
-  pageList: FilepathList | undefined
+  pageList: FilepathList | undefined,
+  projectPath: string
 ): string[] {
   const found: string[] = []
 
   for (const [feature, files] of collectPageScripts(pageList)) {
-    if (files.some((file) => REGISTRY_CALL.test(readSource(file)))) {
-      found.push(feature)
-    }
+    const reached = readReachableFacts(files, projectPath)
+    if (reached.some((facts) => facts.callsRegistry)) found.push(feature)
   }
 
   return found

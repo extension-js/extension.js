@@ -313,6 +313,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "importScriptsDependencyMissing: function(4)",
     "injectedCompiledSourceLiteral: function(3)",
     "injectedFileDependencyMissing: function(4)",
+    "pageRelativeScriptPath: function(4)",
     "reservedScriptsFolder: function(2)",
     "runtimeAssetFolderNotShipped: function(4)",
     "runtimeSetSurfaceDependencyMissing: function(4)",
