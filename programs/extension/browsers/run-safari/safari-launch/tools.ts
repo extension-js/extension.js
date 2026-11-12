@@ -63,7 +63,10 @@ export interface SafariPipelineTools {
   // `pluginkit -m -v -p com.apple.Safari.web-extension`: every Safari appex
   // macOS knows, one per line with its election mark, id, version and path.
   pluginkitList(): Promise<string>
-  // Safari's own switch registry (Extensions.plist in its container) as JSON,
+  // `pluginkit -a <appex>`: registers the appex again, which is what makes
+  // Safari list a row it dropped at its last quit.
+  pluginkitAdd(appexPath: string): Promise<SafariToolResult>
+  // Safari's own switch registry (Extensions.plist in its container) as XML,
   // or an empty string when the container cannot be read.
   readSafariExtensionRegistry(): Promise<string>
   startWebDriver(port: number): Promise<SafariWebDriverProcess>
@@ -265,6 +268,8 @@ export function createSafariTools(): SafariPipelineTools {
     openApp: (target) => runTool('open', openAppArgs(target)),
     openSafari: (binary) => runTool('open', ['-a', binary]),
     resolvePid: (bundleId) => resolvePidForBundle(bundleId),
+    pluginkitAdd: (appexPath) =>
+      runTool('pluginkit', ['-a', appexPath], {quiet: true}),
     pluginkitList: async () => {
       const {ok, output} = await runTool(
         'pluginkit',
@@ -277,7 +282,7 @@ export function createSafariTools(): SafariPipelineTools {
     readSafariExtensionRegistry: async () => {
       const {ok, output} = await runTool(
         'plutil',
-        ['-convert', 'json', '-o', '-', SAFARI_EXTENSION_REGISTRY_PATH],
+        ['-convert', 'xml1', '-o', '-', SAFARI_EXTENSION_REGISTRY_PATH],
         {quiet: true}
       )
 

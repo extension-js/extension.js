@@ -19,6 +19,7 @@ import {
 } from '../run-safari/safari-launch/safari-config'
 import {
   checkAccessibility,
+  EVERY_WEBSITE_DETAIL,
   enableSafariExtension,
   pressShortcut,
   readSafariExtensionEnabled,
@@ -28,6 +29,10 @@ import {
   SafariUiError,
   setSafariExtensionEnabled
 } from '../run-safari/safari-ui'
+import {
+  closeWindowsScript,
+  unsignedExtensionsScript
+} from '../run-safari/safari-ui/scripts'
 import {type FakeSafariTools, fakeSafariTools} from './safari-fake-tools'
 import {fakeSafariUiTools} from './safari-fake-ui-tools'
 
@@ -426,6 +431,85 @@ describe('enableSafariExtension', () => {
       enableSafariExtension({target: {bundleId: BUNDLE}, appPath: bare, tools})
     ).rejects.toBeInstanceOf(SafariUiError)
   })
+
+  it('says so when the grant went through the every-website button', async () => {
+    const tools = fakeSafariUiTools({unsigned: 1, everyWebsite: true})
+    const report = await enableSafariExtension({
+      target: {bundleId: BUNDLE},
+      appPath,
+      tools,
+      automation: true
+    })
+
+    expect(report).toMatchObject({otherWebsites: 'Allow', everyWebsite: true})
+    expect(report.steps.at(-1)).toMatchObject({
+      step: 'websites',
+      detail: EVERY_WEBSITE_DETAIL
+    })
+
+    expect(messages.safariEnabled('My App', 'Allow', true)).toMatch(
+      /allowed on .*every website/
+    )
+
+    expect(messages.safariEnabled('My App', 'Allow')).toMatch(
+      /other websites .*Allow/
+    )
+  })
+
+  it('keeps the plain wording when the row was allowed through the pane', async () => {
+    const tools = fakeSafariUiTools({unsigned: 1})
+    const report = await enableSafariExtension({
+      target: {bundleId: BUNDLE},
+      appPath,
+      tools
+    })
+
+    expect(report.everyWebsite).toBeUndefined()
+    expect(report.steps.at(-1)?.detail).toBeUndefined()
+  })
+
+  it('closes the plain windows it made in the automation Safari, by id', async () => {
+    const tools = fakeSafariUiTools({unsigned: 1, madeWindows: [41, 42]})
+    await enableSafariExtension({
+      target: {bundleId: BUNDLE},
+      appPath,
+      tools,
+      automation: true
+    })
+
+    expect(tools.calls.at(-1)).toBe('close-windows')
+    expect(tools.state.closedWindows).toEqual([41, 42])
+  })
+
+  it('closes no window in a regular Safari or when it made none', async () => {
+    const regular = fakeSafariUiTools({unsigned: 1, madeWindows: [41]})
+    await enableSafariExtension({
+      target: {bundleId: BUNDLE},
+      appPath,
+      tools: regular
+    })
+
+    const none = fakeSafariUiTools({unsigned: 1})
+    await enableSafariExtension({
+      target: {bundleId: BUNDLE},
+      appPath,
+      tools: none,
+      automation: true
+    })
+
+    expect(regular.calls).not.toContain('close-windows')
+    expect(none.calls).not.toContain('close-windows')
+  })
+
+  it('writes scripts that report the windows they made and close only those', () => {
+    const settings = unsignedExtensionsScript('read', true)
+    const close = closeWindowsScript([41, 42, 1.5])
+
+    expect(settings).toContain('MADE_WINDOWS.push(id)')
+    expect(settings).toContain('value.madeWindows = MADE_WINDOWS')
+    expect(close).toContain('for (const id of [41,42])')
+    expect(close).toContain('safariApp.windows.byId(id)')
+  })
 })
 
 describe('safari ui readers', () => {
@@ -544,6 +628,8 @@ describe('dev --enable-extension through the pipeline', () => {
         browser: 'safari',
         tools: pipeline,
         announceDevReady: true,
+        // The row watch is timed, and these cases count registry reads.
+        rowWatchMs: 0,
         ...host
       } as never,
       distDir,
