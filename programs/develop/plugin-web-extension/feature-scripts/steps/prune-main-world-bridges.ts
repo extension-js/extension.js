@@ -26,6 +26,18 @@ const BASE_READERS = [
   'loadScript'
 ]
 
+export function getBaseReaderRequirements(compiler: Compiler): Set<string> {
+  const {RuntimeGlobals} = compiler.webpack
+
+  return new Set<string>(
+    BASE_READERS.flatMap((key) => {
+      const global = (RuntimeGlobals as Record<string, unknown>)[key]
+
+      return typeof global === 'string' ? [key, global] : [key]
+    })
+  )
+}
+
 // The bridge writes the extension's base URL onto every matching page, where
 // any site script can read it, so a production build ships it only for a
 // MAIN-world bundle that resolves URLs against that base and cannot find it
@@ -47,14 +59,7 @@ export class PruneMainWorldBridges {
     const selfLocating = isChromiumBasedBrowser(
       String(this.options.browser || 'chrome')
     )
-    const {RuntimeGlobals} = compiler.webpack
-    const readers = new Set<string>(
-      BASE_READERS.flatMap((key) => {
-        const global = (RuntimeGlobals as Record<string, unknown>)[key]
-
-        return typeof global === 'string' ? [key, global] : [key]
-      })
-    )
+    const readers = getBaseReaderRequirements(compiler)
 
     compiler.hooks.thisCompilation.tap(
       PruneMainWorldBridges.name,

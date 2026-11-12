@@ -15,7 +15,7 @@ function fakeScripting(initial: Script[] = []) {
   let registry: Script[] = initial.map((script) => ({...script}))
   const calls: string[] = []
 
-  const scripting = {
+  const promised = {
     registerContentScripts: async (scripts: Script[]) => {
       calls.push('register')
 
@@ -69,17 +69,50 @@ function fakeScripting(initial: Script[] = []) {
         .map((known) => ({...known}))
   }
 
-  return {scripting, calls, raw: () => registry}
+  // A trailing callback is answered the way the browser does it: with no
+  // argument on a failure, and runtime.lastError set only while it runs.
+  const runtime: {lastError?: {message: string}} = {}
+  const scripting = Object.fromEntries(
+    Object.entries(promised).map(([name, method]) => [
+      name,
+      (...args: unknown[]) => {
+        const callback =
+          typeof args[args.length - 1] === 'function'
+            ? (args.pop() as (...values: unknown[]) => void)
+            : null
+        const result = (method as (arg?: unknown) => Promise<unknown>)(args[0])
+
+        if (!callback) return result
+
+        result.then(
+          (value) => callback(value),
+          (error: Error) => {
+            runtime.lastError = {message: error.message}
+            callback()
+            delete runtime.lastError
+          }
+        )
+      }
+    ])
+  ) as typeof promised
+
+  return {scripting, runtime, calls, raw: () => registry}
 }
 
-function install(globals: Record<string, unknown>) {
-  new Function('globalThis', buildMainWorldBridgePairingSource(BRIDGE))(globals)
+function install(
+  globals: Record<string, unknown>,
+  baseReaders: string[] | null = null
+) {
+  new Function(
+    'globalThis',
+    buildMainWorldBridgePairingSource(BRIDGE, baseReaders)
+  )(globals)
 }
 
-function setup(initial: Script[] = []) {
+function setup(initial: Script[] = [], baseReaders: string[] | null = null) {
   const fake = fakeScripting(initial)
-  const browser = {scripting: fake.scripting}
-  install({browser})
+  const browser = {scripting: fake.scripting, runtime: fake.runtime}
+  install({browser}, baseReaders)
 
   return {...fake, api: browser.scripting}
 }
@@ -106,14 +139,89 @@ describe('the MAIN world bridge pairing a Gecko background carries', () => {
       {
         id: pairId('page-hook'),
         js: [BRIDGE],
-        runAt: 'document_start',
         matches: hook.matches,
         excludeMatches: hook.excludeMatches,
         allFrames: true,
         matchOriginAsFallback: true,
-        persistAcrossSessions: false
+        persistAcrossSessions: false,
+        runAt: 'document_idle'
       },
       hook
+    ])
+  })
+
+  it("puts each pair right before its own file, at that file's timing", async () => {
+    const {api, raw} = setup()
+    const early = {...hook, id: 'early', runAt: 'document_start'}
+    const plain = {id: 'plain', js: ['scripts/a.js'], matches: ['<all_urls>']}
+
+    await api.registerContentScripts([early, plain, hook])
+
+    expect(raw().map((script) => `${script.id}@${script.runAt}`)).toEqual([
+      `${pairId('early')}@document_start`,
+      'early@document_start',
+      'plain@undefined',
+      `${pairId('page-hook')}@document_idle`,
+      'page-hook@document_idle'
+    ])
+  })
+
+  it('keeps each pair right before its file when an update reorders them', async () => {
+    const {api, raw} = setup()
+    const other = {...hook, id: 'other'}
+    await api.registerContentScripts([hook, other])
+
+    await api.updateContentScripts([
+      {id: 'page-hook', runAt: 'document_end'},
+      {id: 'other', matches: ['https://b.example/*']}
+    ])
+
+    expect(raw().map((script) => `${script.id}@${script.runAt}`)).toEqual([
+      `${pairId('page-hook')}@document_end`,
+      'page-hook@document_end',
+      `${pairId('other')}@document_idle`,
+      'other@document_idle'
+    ])
+  })
+
+  it('keeps two files an update moves into the MAIN world next to their pairs', async () => {
+    const {api, raw} = setup()
+    await api.registerContentScripts([
+      {id: 'one', js: ['scripts/a.js'], matches: ['<all_urls>']},
+      {id: 'two', js: ['scripts/b.js'], matches: ['<all_urls>']}
+    ])
+
+    await api.updateContentScripts([
+      {id: 'one', world: 'MAIN'},
+      {id: 'two', world: 'MAIN'}
+    ])
+
+    expect(raw().map((script) => script.id)).toEqual([
+      pairId('one'),
+      'one',
+      pairId('two'),
+      'two'
+    ])
+  })
+
+  it('pairs only a file the build saw reading the base', async () => {
+    const {api, raw} = setup([], ['scripts/hook.js'])
+    const plain = {...hook, id: 'plain', js: ['scripts/plain.js']}
+    const rooted = {...hook, id: 'rooted', js: ['/scripts/hook.js']}
+    const mixed = {
+      ...hook,
+      id: 'mixed',
+      js: ['scripts/plain.js', './scripts/hook.js']
+    }
+
+    await api.registerContentScripts([plain, rooted, mixed])
+
+    expect(raw().map((script) => script.id)).toEqual([
+      'plain',
+      pairId('rooted'),
+      'rooted',
+      pairId('mixed'),
+      'mixed'
     ])
   })
 
@@ -244,6 +352,105 @@ describe('the MAIN world bridge pairing a Gecko background carries', () => {
       )
     })
     expect(listed).toEqual([hook])
+  })
+
+  it('lets a callback read the failure off runtime.lastError', async () => {
+    const {api, runtime} = setup()
+    const call = (method: unknown, argument: unknown) =>
+      new Promise<{error?: string; values: unknown[]}>((resolve) => {
+        ;(method as (...args: unknown[]) => unknown)(
+          argument,
+          (...values: unknown[]) =>
+            resolve({error: runtime.lastError?.message, values})
+        )
+      })
+
+    expect(await call(api.registerContentScripts, [hook])).toEqual({
+      error: undefined,
+      values: [undefined]
+    })
+
+    expect(await call(api.registerContentScripts, [hook])).toEqual({
+      error: 'Content script with id "page-hook" is already registered.',
+      values: []
+    })
+
+    expect(
+      await call(api.updateContentScripts, [{id: 'missing', world: 'MAIN'}])
+    ).toEqual({
+      error: 'Content script with id "missing" does not exist.',
+      values: []
+    })
+
+    expect(
+      await call(api.unregisterContentScripts, {ids: ['missing']})
+    ).toEqual({
+      error: 'Content script with id "missing" does not exist.',
+      values: []
+    })
+
+    expect(runtime.lastError).toBeUndefined()
+  })
+
+  it('drops a pair only after the update that needs it gone went through', async () => {
+    const {api, raw, runtime} = setup()
+    await api.registerContentScripts([hook])
+
+    const seen = await new Promise<string | undefined>((resolve) => {
+      ;(api.updateContentScripts as (...args: unknown[]) => unknown)(
+        [
+          {id: 'page-hook', world: 'ISOLATED'},
+          {id: 'missing', world: 'ISOLATED'}
+        ],
+        () => resolve(runtime.lastError?.message)
+      )
+    })
+
+    expect(seen).toBe('Content script with id "missing" does not exist.')
+    expect(raw().map((script) => script.id)).toEqual([
+      pairId('page-hook'),
+      'page-hook'
+    ])
+
+    await new Promise<void>((resolve) => {
+      ;(api.updateContentScripts as (...args: unknown[]) => unknown)(
+        [{id: 'page-hook', world: 'ISOLATED'}],
+        () => resolve()
+      )
+    })
+
+    expect(raw().map((script) => script.id)).toEqual(['page-hook'])
+  })
+
+  it('answers through the promise where the namespace takes no callback', async () => {
+    const fake = fakeScripting()
+    const strict = Object.fromEntries(
+      Object.entries(fake.scripting).map(([name, method]) => [
+        name,
+        (...args: unknown[]) => {
+          if (args.some((arg) => typeof arg === 'function')) {
+            throw new Error('Incorrect argument types')
+          }
+
+          return (method as (...rest: unknown[]) => unknown)(...args)
+        }
+      ])
+    )
+    const browser = {scripting: strict}
+    install({browser})
+
+    await new Promise<void>((resolve) => {
+      ;(
+        browser.scripting.registerContentScripts as (
+          ...args: unknown[]
+        ) => unknown
+      )([hook], () => resolve())
+    })
+
+    expect(fake.raw().map((script) => script.id)).toEqual([
+      pairId('page-hook'),
+      'page-hook'
+    ])
   })
 
   it('wraps browser and chrome once each and never twice', async () => {

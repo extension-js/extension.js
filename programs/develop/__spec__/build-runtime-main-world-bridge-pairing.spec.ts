@@ -11,7 +11,7 @@ afterAll(() => {
   for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
 })
 
-function project(world: 'MAIN' | 'ISOLATED') {
+function project(world: 'MAIN' | 'ISOLATED', readsBase = true) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-rt-main-pair-'))
   roots.push(root)
   fs.writeFileSync(
@@ -20,9 +20,14 @@ function project(world: 'MAIN' | 'ISOLATED') {
   )
 
   fs.mkdirSync(path.join(root, 'scripts'))
+  fs.mkdirSync(path.join(root, 'media'))
+  fs.writeFileSync(path.join(root, 'media', 'blob.bin'), Buffer.alloc(40_000))
   fs.writeFileSync(
     path.join(root, 'scripts', 'hook.js'),
-    'window.__PAGE_HOOK__ = "RT_MAIN_PAIR_VALUE"\n'
+    readsBase
+      ? 'import blobUrl from "../media/blob.bin?url"\n' +
+          'window.__PAGE_HOOK__ = String(blobUrl)\n'
+      : 'window.__PAGE_HOOK__ = "RT_MAIN_PAIR_VALUE"\n'
   )
 
   fs.writeFileSync(
@@ -107,6 +112,19 @@ describe('a runtime-registered MAIN world script and its bridge', () => {
     expect(built.hasBridge).toBe(true)
     // The pair is a runtime registration, so the manifest stays as written.
     expect(built.manifest.content_scripts).toBeUndefined()
+  }, 180_000)
+
+  it('firefox: the wrapper names the files that read the base', async () => {
+    const built = await build(project('MAIN'), 'firefox')
+
+    expect(built.background).toContain('var READERS = ["scripts/hook.js"];')
+  }, 180_000)
+
+  it('firefox: a MAIN world file that never reads the base goes unpaired', async () => {
+    const built = await build(project('MAIN', false), 'firefox')
+
+    expect(built.background).not.toContain(PAIRING_MARK)
+    expect(built.hasBridge).toBe(false)
   }, 180_000)
 
   it('firefox: a project with no MAIN world registration gets no wrapper', async () => {

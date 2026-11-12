@@ -10,7 +10,10 @@ import fs from 'node:fs'
 import path from 'node:path'
 import {parse as parseModuleSyntax} from 'es-module-lexer'
 import {validate} from 'schema-utils'
-import {isChromiumBasedBrowser} from '../../../../lib/constants'
+import {
+  isChromiumBasedBrowser,
+  isGeckoBasedBrowser
+} from '../../../../lib/constants'
 import {EXTENSION_BASE_FROM_STACK} from '../../../../lib/extension-base-from-stack'
 import {
   adjustLoaderSourceMap,
@@ -389,12 +392,20 @@ export default function contentScriptWrapper(
     isRuntimeMainWorld ||
     options.mainWorldBundle === true
   const hostInstrumentationEnabled = !isShippedBundle && !isMainWorld
+  // A runtime file shares one bridge with every file of its registration,
+  // so it clears the base once they have all run instead of at once.
+  const sharesBridgeBase =
+    !declaredEntry &&
+    isRuntimeMainWorld &&
+    isShippedBundle &&
+    isGeckoBasedBrowser(browser)
   // The bridge that runs right before a declared MAIN-world script leaves the
   // extension base on <html>. The bundle takes it and clears it at once when
   // its own stack can name the base again later, which only Firefox cannot.
   const takesBridgeBase =
-    declaredEntry?.world === 'MAIN' &&
-    (isShippedBundle || isChromiumBasedBrowser(browser))
+    sharesBridgeBase ||
+    (declaredEntry?.world === 'MAIN' &&
+      (isShippedBundle || isChromiumBasedBrowser(browser)))
   const takenBridgeBase = takesBridgeBase ? '__EXTENSIONJS_BRIDGE_BASE || ' : ''
   const bundleKey = declaredEntry
     ? getCanonicalContentScriptEntryName(declaredEntry.index)
@@ -865,7 +876,10 @@ export default function contentScriptWrapper(
         'try {\n' +
         '  var __EXTENSIONJS_html = document.documentElement;\n' +
         '  if (!__EXTENSIONJS_BRIDGE_BASE) __EXTENSIONJS_BRIDGE_BASE = String(__EXTENSIONJS_html.getAttribute("data-extjs-extension-base") || "");\n' +
-        '  if (__EXTENSIONJS_html.hasAttribute("data-extjs-extension-base")) __EXTENSIONJS_html.removeAttribute("data-extjs-extension-base");\n' +
+        (sharesBridgeBase
+          ? '  var __EXTENSIONJS_clearBase = function(){ try { if (__EXTENSIONJS_html.hasAttribute("data-extjs-extension-base")) __EXTENSIONJS_html.removeAttribute("data-extjs-extension-base"); } catch (error) {} };\n' +
+            '  try { Promise.resolve().then(__EXTENSIONJS_clearBase); } catch (error) { __EXTENSIONJS_clearBase(); }\n'
+          : '  if (__EXTENSIONJS_html.hasAttribute("data-extjs-extension-base")) __EXTENSIONJS_html.removeAttribute("data-extjs-extension-base");\n') +
         '  if (__EXTENSIONJS_BRIDGE_BASE && typeof __webpack_require__ === "function") __webpack_require__.extjsBase = __EXTENSIONJS_BRIDGE_BASE;\n' +
         '} catch (error) {}\n'
       : '') +

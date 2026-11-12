@@ -82,6 +82,10 @@ The main bundle and bridge bundle are both registered under canonical content as
 
 A file the background registers into the MAIN world at runtime has no manifest group to pair a bridge with. On Gecko targets `pair-runtime-main-world-bridges` emits the bridge as `scripts/extjs-main-world-bridge.js` and prepends a wrapper to the background bundle that registers it beside each `world: 'MAIN'` registration, under the id `extjs-main-world-bridge:<id>`. The wrapper follows updates and unregistrations and hides the pairs from `getRegisteredContentScripts`. Chromium targets and projects with no such registration are left alone.
 
+Each pair is registered right before its own file and at that file's `runAt`. A production bundle takes the base at boot and clears the attribute in a microtask, so every file of one registration reads it first, and a later `import()` uses the base taken at boot. A development bundle keeps the attribute, as a declared group does. A production file that resolves nothing against the base is left unpaired, and a build where no file does ships neither the wrapper nor the bridge. A callback passed to a wrapped method is answered from the browser's own callback, so `runtime.lastError` names a failure there.
+
+A registration made from an extension page (options, popup) is not seen by the build, so its files get neither the MAIN world treatment nor the pair.
+
 ## Testing
 
 Focused unit coverage for this feature lives in `__spec__/`.
