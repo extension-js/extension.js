@@ -15,6 +15,7 @@ import {AddPublicPathRuntimeModule} from './steps/add-public-path-runtime-module
 import {AddScripts} from './steps/add-scripts'
 import {CompileMainWorldScripts} from './steps/compile-main-world-scripts'
 import {KeepGetURLImportsNative} from './steps/keep-geturl-imports-native'
+import {PairRuntimeMainWorldBridges} from './steps/pair-runtime-main-world-bridges'
 import {PruneMainWorldBridges} from './steps/prune-main-world-bridges'
 import {StampWebkitUtf8Bom} from './steps/stamp-webkit-utf8-bom'
 import {TraceRuntimeLoadedFiles} from './steps/trace-runtime-loaded-files'
@@ -58,6 +59,14 @@ export class ScriptsPlugin {
     // In dev a MAIN world script compiles apart from the HMR runtime, which
     // would otherwise land on the host page. Takes its entry back out.
     new CompileMainWorldScripts({
+      manifestPath: this.manifestPath,
+      includeList: this.includeList || {},
+      browser: this.browser
+    }).apply(compiler)
+
+    // Firefox cannot name the extension from a MAIN world stack, so a file
+    // registered there at runtime is paired with the bridge that publishes it.
+    new PairRuntimeMainWorldBridges({
       manifestPath: this.manifestPath,
       includeList: this.includeList || {},
       browser: this.browser
