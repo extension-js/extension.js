@@ -163,6 +163,43 @@ describe('dispatchReload', () => {
     expect(warn).not.toHaveBeenCalled()
   })
 
+  it('says so when the extension never comes back after an acked reload', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    await dispatchReload(CS, {
+      broker: {
+        broadcastReload: vi.fn().mockReturnValue(1),
+        awaitReloadAck: vi.fn().mockResolvedValue('acked'),
+        awaitReloadRestart: vi.fn().mockResolvedValue('not-restarted')
+      }
+    })
+
+    await Promise.resolve()
+
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(String(warn.mock.calls[0][0])).toContain('has not come back')
+  })
+
+  it('stays quiet when the extension came back or no restart was due', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    for (const outcome of ['restarted', 'not-expected']) {
+      await dispatchReload(CS, {
+        broker: {
+          broadcastReload: vi.fn().mockReturnValue(1),
+          awaitReloadAck: vi.fn().mockResolvedValue('acked'),
+          awaitReloadRestart: vi.fn().mockResolvedValue(outcome)
+        }
+      })
+    }
+
+    await Promise.resolve()
+
+    expect(warn).not.toHaveBeenCalled()
+  })
+
   it('tells the user the edit may not be live when no ack arrives', async () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})

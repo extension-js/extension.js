@@ -28,6 +28,7 @@ import {
   type ReloadAckFrame,
   type ReloadAckOutcome,
   type ReloadFrame,
+  type ReloadRestartOutcome,
   type ResultFrame,
   type ServerFrame
 } from './contracts'
@@ -100,6 +101,11 @@ export const WAKE_HELLO_WAIT_MS = 5000
 // reload. The ack is sent from the frame handler itself, so a receipt that
 // has not arrived by now means the worker never processed the broadcast.
 export const RELOAD_ACK_TIMEOUT_MS = 3000
+
+// How long the extension has to say hello again after it acked a reload that
+// restarts it. The ack is sent before the restart, so it proves the frame was
+// processed and says nothing about the worker coming back.
+export const RELOAD_RESTART_TIMEOUT_MS = 15000
 
 const CONTROL_OPS: ReadonlySet<CommandOp> = new Set([
   'eval',
@@ -340,6 +346,11 @@ export class BridgeBroker {
     outcome: Promise<ReloadAckOutcome>
     settle: (outcome: ReloadAckOutcome) => void
   } | null = null
+  private reloadRestart: {
+    reloadId: string
+    outcome: Promise<ReloadRestartOutcome>
+    settle: (outcome: ReloadRestartOutcome) => void
+  } | null = null
 
   constructor(options: BridgeBrokerOptions) {
     this.instanceId = options.instanceId
@@ -562,6 +573,8 @@ export class BridgeBroker {
     // its caller must not warn about an edit this one already replaced.
     this.reloadAck?.settle('not-expected')
     this.reloadAck = null
+    this.reloadRestart?.settle('not-expected')
+    this.reloadRestart = null
 
     const reloadId = frame?.reloadId
     if (!reloadId) return
@@ -605,6 +618,59 @@ export class BridgeBroker {
     // producer the broadcast never expected one from.
     if (frame.reloadId && this.reloadAck?.reloadId === frame.reloadId) {
       this.reloadAck.settle('acked')
+
+      if (
+        frame.reloadType === 'full' ||
+        frame.reloadType === 'service-worker'
+      ) {
+        this.armReloadRestart(frame.reloadId)
+      }
+    }
+  }
+
+  // Resolves once a producer says hello after the acked reload restarted the
+  // extension, or once the window closes with none.
+  awaitReloadRestart(): Promise<ReloadRestartOutcome> {
+    return this.reloadRestart?.outcome ?? Promise.resolve('not-expected')
+  }
+
+  private armReloadRestart(reloadId: string): void {
+    let settled = false
+    let resolve: (outcome: ReloadRestartOutcome) => void = () => undefined
+    const outcome = new Promise<ReloadRestartOutcome>((r) => {
+      resolve = r
+    })
+    const timer = this.setTimer(() => {
+      if (settled) return
+
+      settled = true
+
+      // A browser that exited is already reported, and has nothing to wake.
+      if (this.browserExitedAt !== null) {
+        resolve('not-expected')
+
+        return
+      }
+
+      // A background the browser suspended can still be woken. The reload is
+      // never replayed, since a wedged worker would restart in a loop.
+      void this.wakeExecutor?.().catch(() => false)
+      resolve('not-restarted')
+    }, RELOAD_RESTART_TIMEOUT_MS)
+
+    // The watch never keeps a finished dev server alive.
+    ;(timer as {unref?: () => void}).unref?.()
+
+    this.reloadRestart = {
+      reloadId,
+      outcome,
+      settle: (next) => {
+        if (settled) return
+
+        settled = true
+        this.clearTimer(timer)
+        resolve(next)
+      }
     }
   }
 
@@ -834,6 +900,9 @@ export class BridgeBroker {
     if (hello.role === 'producer') {
       this.producerEverConnected = true
       if (hello.acksReloads) this.ackingProducers.add(conn)
+
+      // The extension is back after the reload that restarted it.
+      this.reloadRestart?.settle('restarted')
 
       // A producer is back: clear the undelivered-reload dedup so a later detach
       // can warn again (the attach state genuinely transitioned).
