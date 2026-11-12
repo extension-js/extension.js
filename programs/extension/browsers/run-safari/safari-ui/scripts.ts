@@ -309,7 +309,10 @@ function alertOf(proc) {
   for (const w of windows(proc)) {
     const box = isAlert(w) ? w : first(w, isAlert)
     if (!box) continue
-    const texts = walk(box, (e) => role(e) === 'AXStaticText', 0, []).map((t) => String(attr(t, 'AXValue') || '').trim()).filter(Boolean)
+    // Safari 27 puts the message in the dialog's title and a text area, and
+    // the address it refused in a static text, so all three are read.
+    const read = (kind) => walk(box, (e) => role(e) === kind, 0, []).map((t) => String(attr(t, 'AXValue') || '').trim())
+    const texts = [String(attr(box, 'AXTitle') || '').trim()].concat(read('AXTextArea'), read('AXStaticText')).filter((t, i, all) => t && all.indexOf(t) === i)
     const buttons = walk(box, (e) => role(e) === 'AXButton', 0, []).map((b) => String(attr(b, 'AXTitle') || '').trim()).filter(Boolean)
     return {text: texts.join(' ').slice(0, 240), buttons: buttons.slice(0, 4)}
   }
