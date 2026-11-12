@@ -94,6 +94,7 @@ export {closeSafariContainerApps} from './container-app'
 export {
   isAutomationSafariArgs,
   isContainerAppArgs,
+  isRegularSafariArgs,
   listPidsWhere,
   openAppArgs,
   type SafariPipelineTools,
@@ -210,6 +211,8 @@ const UNSIGNED = 'UNSIGNED'
 interface EnableOutcome {
   enabled: boolean
   stamp: SafariEnableStamp
+  // False when Safari's UI could not be read, so nothing reads it again.
+  accessible?: boolean
 }
 
 function enableStampFor(
@@ -284,7 +287,7 @@ async function enableThroughSafariUi(
     logger.warn?.(messages.safariAccessibilityDenied(access.host))
     stamp.reason = `no Accessibility grant for ${access.host}`
 
-    return {enabled: false, stamp}
+    return {enabled: false, stamp, accessible: false}
   }
 
   // The earlier id's switch is a different row, so a run that finds its own
@@ -305,9 +308,9 @@ async function enableThroughSafariUi(
       },
       appPath,
       tools: uiTools,
-      unsignedWaitMs: host.unsignedWaitMs,
-      onUnsignedWait: (seconds) => {
-        logger.info?.(messages.safariUnsignedWait(seconds))
+      promptWaitMs: host.promptWaitMs,
+      onPromptWait: (step, seconds) => {
+        logger.info?.(messages.safariPromptWait(step, seconds))
       },
       onStep: (step) => {
         stamp.step = step.step
@@ -572,6 +575,14 @@ async function holdWebDriverSession(
 
   // Safari's UI is read only for a run that asked to drive it, so no other
   // run meets an Accessibility prompt it did not ask for.
+  if (uiTools) {
+    try {
+      await closeSafariSettings(uiTools)
+    } catch {
+      // A Settings window that cannot be read is left for the request below
+    }
+  }
+
   const outcome = await openSafariWebDriverSession(
     tools,
     uiTools
@@ -1006,6 +1017,8 @@ async function runSafariPipeline(
 
   const runId = readReadyRunId(config.extensionDir)
 
+  let uiReadable = false
+
   if (host.enableExtension) {
     const outcome = await enableThroughSafariUi(
       host,
@@ -1018,6 +1031,7 @@ async function runSafariPipeline(
     )
 
     stampReadySafariEnable(config.extensionDir, outcome.stamp, runId)
+    uiReadable = outcome.accessible !== false
 
     if (!outcome.enabled) {
       logger.info?.(
@@ -1046,7 +1060,7 @@ async function runSafariPipeline(
       config,
       logger,
       host.startingUrl,
-      host.enableExtension ? host.uiTools || createSafariUiTools() : undefined
+      uiReadable ? host.uiTools || createSafariUiTools() : undefined
     )
 
     answerWebDriverRequests(tools, config, logger)

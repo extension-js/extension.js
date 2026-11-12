@@ -1438,8 +1438,16 @@ export function safariEnableStep(
   return `${getLoggingPrefix('info')} Safari ${step}: ${reading}${detail ? ` ${colors.gray(detail)}` : ''}.`
 }
 
-export function safariUnsignedWait(seconds: number) {
-  return `${getLoggingPrefix('info')} Safari asks for Touch ID or the password before it allows unsigned extensions. Answer it in Safari, this run reads the box for ${seconds} s.`
+export function safariPromptWait(
+  step: 'unsigned' | 'enabled',
+  seconds: number
+) {
+  const what =
+    step === 'unsigned'
+      ? 'allows unsigned extensions'
+      : 'turns the extension on'
+
+  return `${getLoggingPrefix('info')} Safari asks for Touch ID or the password before it ${what}. Answer it in Safari, this run reads the setting for ${seconds} s.`
 }
 
 // The box is one setting for all of Safari, not for this project.

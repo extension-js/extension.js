@@ -33,6 +33,8 @@ export interface FakeSafariState {
   blocker?: string | null
   alert?: {text: string; buttons: string[]} | null
   unsignedTurnsOnAfterReads?: number
+  enabledTurnsOnAfterReads?: number
+  cancelWorks?: boolean
 }
 
 export interface FakeSafariUiTools extends SafariUiTools {
@@ -126,6 +128,13 @@ export function fakeSafariUiTools(
 
       if (kind === 'alert') return ok({ok: true, alert: state.alert ?? null})
 
+      if (kind === 'cancel') {
+        const canceled = state.cancelWorks && state.blocker ? 1 : 0
+        if (canceled) state.blocker = null
+
+        return ok({ok: true, canceled})
+      }
+
       if (kind === 'close') {
         return ok({
           ok: true,
@@ -171,6 +180,15 @@ export function fakeSafariUiTools(
             })
           }
 
+          if (
+            head?.action === 'read' &&
+            typeof state.enabledTurnsOnAfterReads === 'number' &&
+            calls.includes('enabled:on')
+          ) {
+            state.enabledTurnsOnAfterReads -= 1
+            if (state.enabledTurnsOnAfterReads <= 0) state.enabled = 1
+          }
+
           const before = state.enabled
           const wants =
             head?.action === 'on' ? 1 : head?.action === 'off' ? 0 : before
@@ -181,7 +199,8 @@ export function fakeSafariUiTools(
             listed: true,
             before,
             after: state.enabled,
-            clicked: wants !== before
+            clicked: wants !== before,
+            blocker: state.enabled === wants ? null : (state.blocker ?? null)
           })
         }
 

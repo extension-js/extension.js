@@ -292,10 +292,17 @@ function showPane(proc, title) {
   return settingsWindow(proc)
 }
 function blockerOf(w) {
-  if (w && kids(w).some((k) => role(k) === 'AXSheet')) return 'a sheet is open on Safari Settings and waits for an answer'
+  const sheet = w ? kids(w).filter((k) => role(k) === 'AXSheet')[0] : null
+  if (sheet) {
+    const said = walk(sheet, (e) => role(e) === 'AXStaticText', 0, []).map((t) => String(attr(t, 'AXValue') || '').trim()).filter((t) => t && t !== 'Safari')
+    return 'a sheet is open on Safari Settings and waits for an answer' + (said.length ? ' ("' + said.join(' ').slice(0, 200) + '")' : '')
+  }
   for (const name of ['SecurityAgent', 'coreautha']) {
     const list = se.processes.whose({name: name})()
-    if (list.length && windows(list[0]).length) return 'the macOS password prompt (' + name + ') is open and waits for an answer'
+    if (list.length && windows(list[0]).length) {
+      const said = walk(windows(list[0])[0], (e) => role(e) === 'AXStaticText', 0, []).map((t) => String(attr(t, 'AXValue') || '').trim()).filter((t) => t && t !== 'Safari')
+      return 'the macOS password prompt (' + name + ') is open and waits for an answer' + (said.length ? ' ("' + said.join(' ').slice(0, 240) + '")' : '')
+    }
   }
   return null
 }
@@ -360,8 +367,15 @@ function selectRowOf(proc, id) {
   const cell = first(settingsWindow(proc), (e) => role(e) === 'AXCell' && kids(e).some((k) => role(k) === 'AXCheckBox' && String(attr(k, 'AXIdentifier') || '') === id))
   const label = cell ? kids(cell).filter((k) => role(k) === 'AXStaticText')[0] : null
   const target = label || checkboxById(settingsWindow(proc), id)
-  leftClick(center(target))
-  delay(0.8)
+  // The click is a real mouse event, so a window of another app or extension
+  // lying over the row takes it. Settings is raised first and read back.
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    safariApp.activate()
+    try { settingsWindow(proc).actions.byName('AXRaise').perform() } catch (e) {}
+    delay(0.3)
+    leftClick(center(target))
+    if (wait(() => detailsOf(settingsWindow(proc)), 2)) return
+  }
 }
 function detailsOf(w) {
   return first(w, (e) => role(e) === 'AXGroup' && String(attr(e, 'AXIdentifier') || '') === 'Extension Details Box')
@@ -380,6 +394,7 @@ export interface ScriptHeader {
     | 'running'
     | 'close'
     | 'alert'
+    | 'cancel'
     | 'unsigned'
     | 'enabled'
     | 'websites'
@@ -439,6 +454,29 @@ export function closeSettingsScript(): string {
 })()`
 }
 
+export function cancelPromptScript(): string {
+  return `${header({kind: 'cancel'})}${PRELUDE}
+(() => {
+  try {
+    const proc = safari()
+    const roots = []
+    const w = proc ? settingsWindow(proc) : null
+    if (w) kids(w).filter((k) => role(k) === 'AXSheet').forEach((k) => roots.push(k))
+    for (const name of ['SecurityAgent', 'coreautha']) {
+      const list = se.processes.whose({name: name})()
+      if (list.length) windows(list[0]).forEach((k) => roots.push(k))
+    }
+    let canceled = 0
+    for (const root of roots) {
+      const cancel = first(root, (e) => role(e) === 'AXButton' && String(attr(e, 'AXTitle') || '') === 'Cancel')
+      if (cancel) { cancel.click(); canceled += 1 }
+    }
+    if (canceled) delay(0.8)
+    return answer({ok: true, canceled: canceled})
+  } catch (e) { return failure(e) }
+})()`
+}
+
 export function safariAlertScript(): string {
   return `${header({kind: 'alert'})}${PRELUDE}
 (() => {
@@ -485,7 +523,8 @@ export function extensionEnabledScript(
     if (!cb) return answer({ok: true, listed: false, before: null, after: null, clicked: false})
     const before = readValue(cb)
     const result = ${set}
-    return answer({ok: true, listed: true, before: result.before, after: result.after, clicked: result.clicked})
+    const blocker = result.clicked && result.after !== result.before ? null : (result.clicked ? blockerOf(settingsWindow(proc)) : null)
+    return answer({ok: true, listed: true, before: result.before, after: result.after, clicked: result.clicked, blocker: blocker})
   } catch (e) { return failure(e) }
 })()`
 }
