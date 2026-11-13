@@ -2,7 +2,10 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
-import {CHROMIUM_EXTENSION_ROOT} from '../plugin-web-extension/feature-scripts/scripts-lib/injected-sheet-urls'
+import {
+  CHROMIUM_EXTENSION_ROOT,
+  GECKO_EXTENSION_ROOT
+} from '../plugin-web-extension/feature-scripts/scripts-lib/injected-sheet-urls'
 
 // The raw tmpdir on purpose: on macOS it is a symlink, and the content-script
 // issuer index must match the sheet to its script through it.
@@ -405,7 +408,7 @@ describe('build: url() in a content-script stylesheet resolves to the extension 
     const chunk = readContentScriptCssChunk(distDir)
     const resources = warResources(manifest)
 
-    expect(chunk.css).toContain('url(/img/bg.png)')
+    expect(chunk.css).toContain(`url("${GECKO_EXTENSION_ROOT}img/bg.png")`)
     expect(resources).toContain('img/bg.png')
     expect(resources.filter((name) => name.endsWith('.woff2'))).toHaveLength(1)
   }, 120_000)

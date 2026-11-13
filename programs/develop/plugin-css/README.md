@@ -21,6 +21,30 @@
 | <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Stylelint (optional)**<br/>Enables style linting if installed/configured.                          |
 | <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **PostCSS (optional)**<br/>Auto‑enables for Tailwind/PostCSS config.                                 |
 
+### Content script styles on a page with a strict style policy
+
+In a content script, `import href from './panel.css'` and `new URL('./panel.css', import.meta.url)` both answer a `data:text/css` URL that holds the compiled sheet. What a page's Content Security Policy does with it depends on the world the script runs in. Measured on Chrome 151 and Firefox 160, in `dev` and in a production build, on a page that sends `style-src 'self'`:
+
+| The script's own call                         | Isolated world | MAIN world                        |
+| --------------------------------------------- | -------------- | --------------------------------- |
+| `fetch(href)`                                 | answers        | answers                           |
+| a `<style>` element holding the fetched text  | applies        | refused, `style-src-elem` inline  |
+| `<link rel="stylesheet" href={href}>`         | applies        | refused, `style-src-elem` `data:` |
+| a `<link>` to a web accessible extension file | applies        | applies                           |
+| a constructed sheet in `adoptedStyleSheets`   | applies        | applies                           |
+
+A `<style>` element inside a shadow root is refused the same way as one in the document. On a page that sends `default-src 'self'`, `fetch(href)` is refused as well (`connect-src`), in the MAIN world on both browsers and in the isolated world on Firefox.
+
+The build cannot see the policy of a page the script will visit, and these are the script's own DOM calls, so it changes none of them and prints no warning. A MAIN world script that has to work under such a policy reads the sheet out of the URL, with no request, and adopts it:
+
+```js
+import href from './panel.css'
+
+const sheet = new CSSStyleSheet()
+sheet.replaceSync(decodeURIComponent(href.slice(href.indexOf(',') + 1)))
+document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet]
+```
+
 ### Usage
 
 ```ts
