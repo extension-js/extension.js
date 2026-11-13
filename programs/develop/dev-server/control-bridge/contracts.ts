@@ -123,6 +123,8 @@ export interface HelloFrame {
   // profile-cached worker of an older build, which is then ack-exempt: the
   // broker must never ask it for a receipt it cannot send.
   acksReloads?: boolean
+  // The build whose background this producer runs, as its bundle names it.
+  build?: string
 }
 
 export interface ReadyFrame {
@@ -235,6 +237,10 @@ export interface ReloadFrame {
   changedScriptFiles?: string[]
   /** Declared stylesheets rewritten under the same name, to swap on open tabs. */
   refreshedStylesheets?: {file: string; digest: string}[]
+  /** Pages shipped as written, with no dev client, whose open tabs reload. */
+  standalonePages?: string[]
+  /** The build this reload ships, compared with the one a returning worker runs. */
+  build?: string
 }
 
 // Producer-to-server receipt confirmation for a ReloadFrame: a socket write

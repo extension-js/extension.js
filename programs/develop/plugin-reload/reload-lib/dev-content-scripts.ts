@@ -42,6 +42,9 @@ export interface DevContentScriptRegistryEntry {
   stubOnly: boolean
   // The manifest keeps this entry as emitted, so an edit reloads the extension.
   static?: true
+  // Registered beside the entry's sheets: the custom property it sets on a
+  // frame says the browser added those sheets there itself.
+  sheetProbe?: {file: string; property: string}
 }
 
 export interface DevContentScriptRegistry {
@@ -67,10 +70,21 @@ export function devContentScriptCssMarkerAssetName(index: number): string {
   return `content_scripts/dev-css-${index}.js`
 }
 
-const DEV_CONTENT_SCRIPT_STAND_IN_ASSET =
-  /^content_scripts\/dev-(?:stub|css)-\d+\.js$/
+// Chromium adds a registered sheet at document start and offers no way to ask
+// whether it did. A one-rule sheet registered with the entry's own answers.
+export function devContentScriptSheetProbeAssetName(index: number): string {
+  return `content_scripts/dev-sheet-${index}.css`
+}
 
-// True for the per-entry files this plan emits: a stub or a CSS marker.
+export function devContentScriptSheetProbeProperty(index: number): string {
+  return `--extjs-dev-sheet-${index}`
+}
+
+const DEV_CONTENT_SCRIPT_STAND_IN_ASSET =
+  /^content_scripts\/(?:dev-(?:stub|css)-\d+\.js|dev-sheet-\d+\.css)$/
+
+// True for the per-entry files this plan emits: a stub, a CSS marker or a
+// sheet probe.
 export function isDevContentScriptStandInAsset(assetName: string): boolean {
   return DEV_CONTENT_SCRIPT_STAND_IN_ASSET.test(assetName)
 }
@@ -170,6 +184,19 @@ export function planDevContentScripts(
       )
     }
 
+    // A globbed entry is never registered, so the browser adds no sheet.
+    const sheetProbe =
+      css.length > 0 && !stubOnly
+        ? {
+            file: devContentScriptSheetProbeAssetName(index),
+            property: devContentScriptSheetProbeProperty(index)
+          }
+        : undefined
+
+    if (sheetProbe) {
+      stubs[sheetProbe.file] = `:root{${sheetProbe.property}:1}\n`
+    }
+
     entries.push({
       id: `${DEV_CONTENT_SCRIPT_ID_PREFIX}${index}`,
       entry: entryName,
@@ -183,7 +210,8 @@ export function planDevContentScripts(
       ...(group.match_origin_as_fallback === true
         ? {matchOriginAsFallback: true}
         : {}),
-      stubOnly
+      stubOnly,
+      ...(sheetProbe ? {sheetProbe} : {})
     })
 
     const stubAsset = devContentScriptStubAssetName(index)
@@ -290,13 +318,20 @@ export const DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE = `;(function () {
 
     // Every field is sent: updateContentScripts keeps any key left out, so a
     // dropped exclude_matches, css file or fallback would outlive the edit.
+    function sheetProbeOf(e) {
+      var p = e && e.sheetProbe;
+      return p && isString(p.file) && isString(p.property) ? p : null;
+    }
+
     function registrationOf(e) {
+      var css = (e.css || []).filter(isString);
+      var sheetProbe = sheetProbeOf(e);
       return {
         id: e.id,
         matches: e.matches,
         excludeMatches: Array.isArray(e.excludeMatches) ? e.excludeMatches.filter(isString) : [],
         js: (e.js || []).filter(isString),
-        css: (e.css || []).filter(isString),
+        css: sheetProbe && css.length ? [sheetProbe.file].concat(css) : css,
         runAt: e.runAt === "document_start" || e.runAt === "document_end" ? e.runAt : "document_idle",
         allFrames: !!e.allFrames,
         world: e.world === "MAIN" ? "MAIN" : "ISOLATED",
@@ -357,12 +392,14 @@ export const DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE = `;(function () {
     // Inject one entry into the frames of a tab whose world does not already
     // run the current file, or on a heal ran it for a previous extension
     // generation. Chromium's own injection sets the same marker.
-    // True for a frame that may have committed before its entry was registered
-    // in this worker's lifetime. A second copy of a sheet changes no cascade.
-    function missedSheet(e, committedAt) {
+    // True for a frame the browser gave no sheet, as the probe says. Without
+    // one, a frame that may have committed before the registration missed it.
+    function missedSheet(e, state) {
+      if (state.sheetApplied === true) return false;
+      if (state.sheetApplied === false) return true;
       var at = registeredAt[e.id];
       if (!at) return false;
-      return !(typeof committedAt === "number" && committedAt > at + REGISTRATION_SLACK_MS);
+      return !(typeof state.committedAt === "number" && state.committedAt > at + REGISTRATION_SLACK_MS);
     }
 
     function insertSheets(tabId, frameIds, css) {
@@ -375,9 +412,10 @@ export const DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE = `;(function () {
     function inject(e, target, sameGeneration, done) {
       var world = e.world === "MAIN" ? "MAIN" : "ISOLATED";
       var js = (e.js || []).filter(isString), css = (e.css || []).filter(isString);
+      var sheetProbe = sheetProbeOf(e);
       var probe = {target: target, world: world, injectImmediately: true,
-        args: [MARKER, GENERATION_KEY, SHEETS_KEY, e.entry, js[0] || "", GENERATION, !!sameGeneration],
-        func: function (key, genKey, sheetsKey, entry, file, gen, needGen) {
+        args: [MARKER, GENERATION_KEY, SHEETS_KEY, e.entry, js[0] || "", GENERATION, !!sameGeneration, sheetProbe ? sheetProbe.property : ""],
+        func: function (key, genKey, sheetsKey, entry, file, gen, needGen, sheetProperty) {
           try {
             var g = globalThis, m = g[key] = g[key] || {}, gens = m[genKey] = m[genKey] || {};
             var sheets = m[sheetsKey] = m[sheetsKey] || {};
@@ -390,9 +428,16 @@ export const DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE = `;(function () {
             } catch (x) {
               // Ignore
             }
+            var sheetApplied = null;
+            try {
+              var root = sheetProperty ? g.document.documentElement : null;
+              if (root) sheetApplied = g.getComputedStyle(root).getPropertyValue(sheetProperty).trim() === "1";
+            } catch (x) {
+              // Ignore
+            }
             gens[entry] = gen;
             sheets[entry] = true;
-            return {covered: covered, sheetSeen: sheetSeen, committedAt: committedAt};
+            return {covered: covered, sheetSeen: sheetSeen, committedAt: committedAt, sheetApplied: sheetApplied};
           } catch (x) { return null; }
         }};
       try {
@@ -406,7 +451,7 @@ export const DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE = `;(function () {
               var frameId = typeof r.frameId === "number" ? r.frameId : 0;
               var state = r.result;
               if (!state || state.covered !== true) { frameIds.push(frameId); continue; }
-              if (css.length && !state.sheetSeen && missedSheet(e, state.committedAt)) sheetOnly.push(frameId);
+              if (css.length && !state.sheetSeen && missedSheet(e, state)) sheetOnly.push(frameId);
             }
           }
           insertSheets(target.tabId, sheetOnly, css);

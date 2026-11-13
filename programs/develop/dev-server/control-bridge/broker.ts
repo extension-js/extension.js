@@ -277,6 +277,24 @@ interface Pending {
   expr?: string
 }
 
+// Only a reload whose whole effect is the worker restarting is settled by a
+// worker that names the same build. Anything it must also do is still sent.
+export function alreadyRunsLatchedBuild(
+  hello: HelloFrame,
+  frame: ReloadFrame
+): boolean {
+  return (
+    frame.reloadType === 'service-worker' &&
+    typeof frame.build === 'string' &&
+    frame.build !== '' &&
+    hello.build === frame.build &&
+    !frame.changedContentScriptEntries?.length &&
+    !frame.changedScriptFiles?.length &&
+    !frame.refreshedStylesheets?.length &&
+    !frame.standalonePages?.length
+  )
+}
+
 export class BridgeBroker {
   private readonly instanceId: string
   private readonly runId: string
@@ -342,6 +360,8 @@ export class BridgeBroker {
   // an older build is absent here and stays ack-exempt, so its reloads are
   // never reported as unapplied.
   private readonly ackingProducers = new Set<BridgeConnection>()
+  // The build each connected producer said its background runs.
+  private readonly producerBuilds = new Map<BridgeConnection, string>()
   private reloadSeq = 0
   private reloadAck: {
     reloadId: string
@@ -442,6 +462,7 @@ export class BridgeBroker {
     this.roles.delete(conn)
     this.evalGate.delete(conn)
     this.ackingProducers.delete(conn)
+    this.producerBuilds.delete(conn)
 
     if (role === 'producer') {
       this.lastProducerDisconnectedAt = this.now()
@@ -507,6 +528,8 @@ export class BridgeBroker {
     changedFiles?: string[]
     changedScriptFiles?: string[]
     refreshedStylesheets?: {file: string; digest: string}[]
+    standalonePages?: string[]
+    build?: string
   }): number {
     const receivers: BridgeConnection[] = []
 
@@ -529,7 +552,11 @@ export class BridgeBroker {
         : {}),
       ...(instruction.refreshedStylesheets?.length
         ? {refreshedStylesheets: instruction.refreshedStylesheets}
-        : {})
+        : {}),
+      ...(instruction.standalonePages?.length
+        ? {standalonePages: instruction.standalonePages}
+        : {}),
+      ...(instruction.build ? {build: instruction.build} : {})
     }
 
     let notified = 0
@@ -558,6 +585,23 @@ export class BridgeBroker {
     this.armReloadAck(awaitingAck > 0 ? frame : undefined)
 
     return notified
+  }
+
+  // True when a background is connected and every connected one named this
+  // build in its hello, so restarting it would only run the same code again.
+  runsBuild(build: string): boolean {
+    if (!build) return false
+
+    let producers = 0
+
+    for (const [conn, role] of this.roles) {
+      if (role !== 'producer') continue
+      if (this.producerBuilds.get(conn) !== build) return false
+
+      producers++
+    }
+
+    return producers > 0
   }
 
   // Resolves once the newest broadcast is provably applied, once its ack
@@ -930,6 +974,10 @@ export class BridgeBroker {
       this.producerEverConnected = true
       if (hello.acksReloads) this.ackingProducers.add(conn)
 
+      if (typeof hello.build === 'string' && hello.build) {
+        this.producerBuilds.set(conn, hello.build)
+      }
+
       // The extension is back after the reload that restarted it.
       this.reloadRestart?.settle('restarted')
 
@@ -958,7 +1006,14 @@ export class BridgeBroker {
       // started). Deliver the latched instruction so that edit still applies.
       const frame = this.pendingReload
       this.pendingReload = undefined
-      if (conn.send(frame)) this.latchedReloadDelivered = frame
+
+      // A worker that restarted for an earlier save may have read this very
+      // build from disk. Reloading it again would only run the same code twice.
+      if (alreadyRunsLatchedBuild(hello, frame)) {
+        this.latchedReloadDelivered = frame
+      } else if (conn.send(frame)) {
+        this.latchedReloadDelivered = frame
+      }
     }
 
     if (hello.role === 'consumer') {
