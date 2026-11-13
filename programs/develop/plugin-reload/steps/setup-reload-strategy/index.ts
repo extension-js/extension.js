@@ -182,7 +182,8 @@ export class SetupReloadStrategy {
       }),
       hmrConfig: false,
       weakRuntimeCheck: true,
-      contentScriptsMeta
+      contentScriptsMeta,
+      gecko: isGeckoBasedBrowser(String(this.browser))
     }).apply(
       compiler as Parameters<InstanceType<typeof WebExtension>['apply']>[0]
     )

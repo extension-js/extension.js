@@ -12,6 +12,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import parse from 'content-security-policy-parser'
 import {isGeckoBasedBrowser, isWebkitBasedBrowser} from '../../lib/constants'
+import {prependBehindTakeBlock} from '../../lib/extension-base-from-stack'
 import {
   actionsPath,
   browserArtifactsDir,
@@ -231,7 +232,10 @@ export function prepareControlledBuild(input: {
       if (!original.includes('__extjsBridgeRelayInstalled')) {
         fs.writeFileSync(
           file,
-          `${buildBridgeRelaySource({context: relay.context})}\n${original}`
+          prependBehindTakeBlock(
+            original,
+            `${buildBridgeRelaySource({context: relay.context})}\n`
+          )
         )
       }
 
@@ -260,12 +264,13 @@ export async function startProductionControl(
   const allowControl = Boolean(options.allowControl) || allowEval
   const instanceId = randomUUID()
   const runId = options.runId || instanceId
-  const logFile = new LogsFileWriter({
-    filePath: logsPath(packageJsonDir, browser),
-    runId
-  })
+  const logsFilePath = logsPath(packageJsonDir, browser)
+  const logFile = new LogsFileWriter({filePath: logsFilePath, runId})
   const actions = allowControl
-    ? new ActionsFileWriter({filePath: actionsPath(packageJsonDir, browser)})
+    ? new ActionsFileWriter({
+        filePath: actionsPath(packageJsonDir, browser),
+        owner: {runId, logsFilePath}
+      })
     : undefined
   const controlToken = allowEval
     ? writeControlToken(packageJsonDir, browser)

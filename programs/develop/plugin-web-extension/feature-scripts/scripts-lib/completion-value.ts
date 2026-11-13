@@ -280,7 +280,7 @@ export function keepCompletionValue(
 }
 
 export function carriesCompletionValue(text: string): boolean {
-  return text.includes(COMPLETION_VALUE_SETTER) && !text.startsWith(BLOCK_OPEN)
+  return text.includes(COMPLETION_VALUE_SETTER) && !text.includes(BLOCK_OPEN)
 }
 
 // The emitted file ends on the value, with its source map comment kept last.
