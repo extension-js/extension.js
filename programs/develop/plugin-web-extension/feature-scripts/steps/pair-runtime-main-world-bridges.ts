@@ -25,11 +25,14 @@ import {extensionBaseGlobalFor} from '../scripts-lib/taken-extension-base'
 import {resolveMainWorldBridgeSourcePath} from './add-content-script-wrapper/get-bridge-scripts'
 import {getBaseReaderRequirements} from './prune-main-world-bridges'
 
-const BACKGROUND_ASSET =
+export const BACKGROUND_ASSET =
   /(^|\/)background\/(?:service_worker|scripts?|index)\.js$/i
 
 // The file that starts a page entry, which runs ahead of the page's code.
-function pageBundleNames(compilation: Compilation, page: string): string[] {
+export function pageBundleNames(
+  compilation: Compilation,
+  page: string
+): string[] {
   const fallback = [`${page}.js`]
 
   try {

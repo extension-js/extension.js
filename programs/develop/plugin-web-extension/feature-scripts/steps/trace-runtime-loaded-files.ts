@@ -1997,7 +1997,9 @@ function conditionalStringLiterals(expression: string, depth = 0): string[] {
   ]
 }
 
-function splitTopLevelConditional(expression: string): [string, string] | null {
+export function splitTopLevelConditional(
+  expression: string
+): [string, string] | null {
   let depth = 0
   let question = -1
   let pending = 0
@@ -2040,7 +2042,7 @@ const BUNDLER_CHUNK_URL = /^\s*([\w$]+)\.p\s*\+\s*\1\.\w+\(/
 
 // The strings of an array literal, a name among them read where the
 // literal lives. Strict: one element that is no string leaves no answer.
-function stringElements(
+export function stringElements(
   found: ResolvedLiteral,
   strict: boolean
 ): string[] | null {
@@ -2063,7 +2065,7 @@ function stringElements(
 
 // The strings a constant stands for where a path is expected: one string,
 // or behind a spread a list of them. Null when that cannot be known.
-function constantStrings(
+export function constantStrings(
   lookup: LiteralLookup,
   expression: string,
   useIndex: number
@@ -2208,7 +2210,7 @@ function arrayPropEntries(
   return entries
 }
 
-interface RegisteredScriptGroup {
+export interface RegisteredScriptGroup {
   text: string
   // Whether the text was read through a constant.
   viaConstant: boolean
@@ -2219,7 +2221,7 @@ interface RegisteredScriptGroup {
 
 // The object literals a scripting call passes first, so a property is read
 // per registration or injection instead of across the whole argument blob.
-function splitRegisteredScriptGroups(
+export function splitRegisteredScriptGroups(
   lookup: LiteralLookup,
   args: string,
   useIndex: number
@@ -2301,7 +2303,7 @@ function constArrayPropStringLiterals(
 
 // The paths one group names under a property, inline or through a
 // constant, each name read where the group itself is written.
-function groupPropEntries(
+export function groupPropEntries(
   group: RegisteredScriptGroup,
   prop: string
 ): PathEntry[] {
@@ -2316,44 +2318,6 @@ function groupPropEntries(
       group.at
     ).map((value) => ({value, viaConstant: true}))
   ]
-}
-
-// Extract the js files a runtime registration or injection asks the browser to
-// run in the page's own world. The world rides the same object as the files.
-export function extractMainWorldRegisteredFileLiterals(
-  source: string,
-  readImported?: ImportedModuleReader
-): string[] {
-  const code = blankComments(source)
-  const lookup = literalLookup(code, readImported)
-  const literals: string[] = []
-  const calls = [
-    {
-      callRe: /\b(?:registerContentScripts|updateContentScripts)\s*\(/g,
-      arrayProp: 'js'
-    },
-    {callRe: /\bexecuteScript\s*\(/g, arrayProp: 'files'}
-  ]
-
-  for (const {callRe, arrayProp} of calls) {
-    let match: RegExpExecArray | null
-
-    while ((match = callRe.exec(code))) {
-      const at = match.index
-      const args = readBalancedArgs(code, at + match[0].length - 1)
-      if (args == null) continue
-
-      for (const group of splitRegisteredScriptGroups(lookup, args, at)) {
-        if (!/["']?world["']?\s*:\s*(['"])MAIN\1/.test(group.text)) continue
-
-        literals.push(
-          ...groupPropEntries(group, arrayProp).map((entry) => entry.value)
-        )
-      }
-    }
-  }
-
-  return literals
 }
 
 const SINGULAR_FILE = /["']?file["']?\s*:\s*(['"])((?:\\.|(?!\1)[^\\])*)\1/g

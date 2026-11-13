@@ -133,12 +133,20 @@ export class AddContentScriptWrapper {
     // A file the extension registers into the MAIN world at runtime shares the
     // page's globals and DOM prototypes exactly like a declared MAIN world
     // group, and the manifest never names it.
-    const mainWorldScripts = findRuntimeMainWorldEntries({
+    const runtimeMainWorld = findRuntimeMainWorldEntries({
       includeList: this.includeList,
       pageList: this.pageList,
       manifestDir,
       projectPath: (compiler.options.context as string) || manifestDir
-    }).flatMap((entry) => entry.files.map(canonicalizeResourcePath))
+    })
+    const mainWorldScripts = runtimeMainWorld
+      .filter((entry) => !entry.copyOf)
+      .flatMap((entry) => entry.files.map(canonicalizeResourcePath))
+    // A file both worlds run is a MAIN world file in its copy's bundle
+    // alone, which the path it shares with the isolated build cannot say.
+    const mainWorldCopies = runtimeMainWorld
+      .filter((entry) => entry.copyOf)
+      .flatMap((entry) => entry.files.map(canonicalizeResourcePath))
 
     // The loader runs from its own bundle, so the `folders` answer travels
     // with its options: the folder in use, or false for a plain scripts/.
@@ -151,6 +159,7 @@ export class AddContentScriptWrapper {
         : {}),
       browser: this.browser,
       mainWorldScripts,
+      ...(mainWorldCopies.length > 0 ? {mainWorldCopies} : {}),
       scriptsFolder: scriptsRoot ? canonicalizeDir(scriptsRoot) : false
     }
 
@@ -164,7 +173,8 @@ export class AddContentScriptWrapper {
       typeof issuer === 'string' &&
       issuer.length > 0 &&
       mainWorldEntryFiles.has(canonicalizeResourcePath(issuer))
-    const hasMainWorldEntries = mainWorldEntryFiles.size > 0
+    const hasMainWorldEntries =
+      mainWorldEntryFiles.size > 0 || mainWorldCopies.length > 0
     // A path cannot tell the copy in that bundle from the standalone one, so
     // deeper imports are told apart by the layer the first import is given.
     const inMainWorldImportLayer = (layer: string): boolean =>

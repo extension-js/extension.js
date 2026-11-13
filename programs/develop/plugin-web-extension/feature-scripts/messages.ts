@@ -449,6 +449,40 @@ export function mainWorldRegistrationChanged(
   return lines.join('\n')
 }
 
+export function unknownRegistrationWorld(
+  sourcePath: string,
+  line: number,
+  emittedPaths: string[]
+) {
+  const lines: string[] = []
+  const named = emittedPaths.join(', ')
+  const treated =
+    emittedPaths.length > 1
+      ? 'They are treated as isolated world scripts'
+      : 'It is treated as an isolated world script'
+  lines.push(
+    `${sourcePath}:${line} names ${named} in a scripting call whose world is only known when the call runs.`
+  )
+
+  lines.push(
+    `${colors.gray('CALL')} ${colors.underline(`${sourcePath}:${line}`)}`
+  )
+
+  for (const emittedPath of emittedPaths) {
+    lines.push(`${colors.gray('FILE')} ${colors.underline(emittedPath)}`)
+  }
+
+  lines.push(
+    `${treated}, so a call that runs with world: 'MAIN' puts the isolated world build on the page.`
+  )
+
+  lines.push(
+    `Write the world as ${colors.blue("'MAIN'")} or ${colors.blue("'ISOLATED'")} in the call, or as a choice between the two, and the build prepares the file for each world it names.`
+  )
+
+  return lines.join('\n')
+}
+
 export function contentScriptWithoutDefaultExport(file: string) {
   return (
     `${prefix('warn')} ${colors.yellow(file)} has no default export, so each re-inject in this dev session runs it again and the copy before it keeps running.\n` +

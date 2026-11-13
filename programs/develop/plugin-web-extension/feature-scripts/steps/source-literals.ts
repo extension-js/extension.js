@@ -821,13 +821,13 @@ function collectSightings(scope: SourceScope, name: string): Sightings | null {
   return seen
 }
 
-// The value of the nearest declaration around the place a name is used.
+// Where the value of the nearest declaration around a use starts.
 // Undefined when the file declares no such name, null when it is unknown.
-function scopedLiteralText(
+function scopedValueIndex(
   scope: SourceScope,
   name: string,
   useIndex: number | undefined
-): LiteralAt | null | undefined {
+): number | null | undefined {
   const seen = collectSightings(scope, name)
   // A name seen too often is left to the import rule, as it always was.
   if (!seen) return undefined
@@ -889,9 +889,38 @@ function scopedLiteralText(
     return null
   }
 
+  return valueAt
+}
+
+// The value of the nearest declaration around the place a name is used.
+// Undefined when the file declares no such name, null when it is unknown.
+function scopedLiteralText(
+  scope: SourceScope,
+  name: string,
+  useIndex: number | undefined
+): LiteralAt | null | undefined {
+  const valueAt = scopedValueIndex(scope, name, useIndex)
+  if (valueAt == null) return valueAt
+
   const text = readInitializer(scope.code, valueAt)
 
   return text == null ? null : {text, index: valueAt}
+}
+
+// Where the value a name of this file holds at a use starts, whatever the
+// value is, or null when no single declaration of the file gives it.
+export function declaredValueIndex(
+  code: string,
+  name: string,
+  useIndex: number
+): number | null {
+  if (!IDENTIFIER.test(name)) return null
+
+  try {
+    return scopedValueIndex(new SourceScope(code), name, useIndex) ?? null
+  } catch {
+    return null
+  }
 }
 
 // Whether the file declares the name itself, which leaves an import of

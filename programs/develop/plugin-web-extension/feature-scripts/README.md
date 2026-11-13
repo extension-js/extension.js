@@ -88,6 +88,16 @@ The build finds these calls by reading source (`scripts-lib/runtime-main-world-s
 
 It does not see a call inside an installed package under `node_modules`, a link that leads out of the workspace, a `let`, a name declared twice, a constant behind a second hop, or a path built at runtime. Such a file gets neither the MAIN world treatment nor the pair. A declared `content_scripts` group stays with the manifest lane.
 
+### One file in both worlds
+
+Chromium injects one file path once per frame, so a file registered in both worlds under one path runs in the isolated world alone. The two worlds also need two builds: the isolated one carries the extension APIs and the reload hooks, the MAIN one runs on the page itself. When the source names a `scripts/` file in the MAIN world and in the isolated world, the build keeps `scripts/<name>.js` as the isolated build and emits a second one, `scripts/<name>.extjs-main-world.js` (`mainWorldCopyEntryName` in `contracts.ts`). An author's own file of that name wins, and no copy is made.
+
+`route-main-world-copies` prepends a wrapper to the background bundle, and to the bundle of each page that registers or injects. It sends a `world: 'MAIN'` use of the file through `registerContentScripts`, `updateContentScripts` and `executeScript` to the copy, and `getRegisteredContentScripts` answers with the name the author wrote. On Gecko it sits inside the bridge pairing, so the pair is made for the copy.
+
+The world is read by `scripts-lib/registration-worlds.ts`. It reads a literal, a `const`, a choice between the two literals, a spread over a literal or constant object, and a `.map(...)` over a literal or constant list where the element is the world or the file. A call with no `world` is an isolated one.
+
+A world the reading cannot settle (a parameter, a function call, a spread of an unknown value) is unknown, and never the MAIN world alone. An unknown world keeps the isolated build under the author's path, and `warn-unknown-registration-world` names the call site once.
+
 The steps take this list once, as the compiler is made. When a later edit changes it, `warn-main-world-registration-changed` restarts the dev session, and warns instead where no session can restart.
 
 ## Testing

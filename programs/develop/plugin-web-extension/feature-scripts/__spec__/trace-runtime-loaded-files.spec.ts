@@ -6,10 +6,10 @@ import {
   createLocalImportResolver,
   readScriptText
 } from '../../shared/script-graph'
+import {extractMainWorldRegisteredFileLiterals} from '../scripts-lib/registration-worlds'
 import {findRuntimeMainWorldEntries} from '../scripts-lib/runtime-main-world-scripts'
 import {
   extractInjectedFileLiterals,
-  extractMainWorldRegisteredFileLiterals,
   type ImportedModuleReader,
   planTracedFile,
   TraceRuntimeLoadedFiles

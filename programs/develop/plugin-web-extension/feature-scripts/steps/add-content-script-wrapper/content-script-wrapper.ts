@@ -36,7 +36,8 @@ import type {DevOptions, Manifest} from '../../../../types'
 import {
   CANONICAL_CONTENT_SCRIPT_ENTRY_PREFIX,
   getCanonicalContentScriptEntryName,
-  getContentScriptCssProbeMarker
+  getContentScriptCssProbeMarker,
+  MAIN_WORLD_COPY_SUFFIX
 } from '../../contracts'
 import * as messages from '../../messages'
 import {keepCompletionValue} from '../../scripts-lib/completion-value'
@@ -52,6 +53,7 @@ interface ContentScriptLoaderContext {
     devSession?: boolean
     browser?: string
     mainWorldScripts?: string[]
+    mainWorldCopies?: string[]
     mainWorldBundle?: boolean
     scriptsFolder?: string | false
   }
@@ -70,6 +72,7 @@ const schema = {
     devSession: {type: 'boolean'},
     browser: {type: 'string'},
     mainWorldScripts: {type: 'array', items: {type: 'string'}},
+    mainWorldCopies: {type: 'array', items: {type: 'string'}},
     mainWorldBundle: {type: 'boolean'},
     scriptsFolder: {anyOf: [{type: 'string'}, {const: false}]}
   }
@@ -419,9 +422,16 @@ export default function contentScriptWrapper(
   const runAt = declaredEntry?.runAt || 'document_idle'
   // A scripts/ file handed to registerContentScripts with world: "MAIN" runs
   // in the page's own world with nothing in the manifest to say so.
-  const isRuntimeMainWorld = (options.mainWorldScripts || []).some(
-    (candidate) => resourceAbsPath === canonicalizeResourcePath(candidate)
-  )
+  const namedIn = (files: string[] | undefined) =>
+    (files || []).some(
+      (candidate) => resourceAbsPath === canonicalizeResourcePath(candidate)
+    )
+  // A file both worlds run shares its path with the isolated build, so it
+  // is a MAIN world file only inside the bundle compiled for the page.
+  const isMainWorldCopy =
+    options.mainWorldBundle === true && namedIn(options.mainWorldCopies)
+  const isRuntimeMainWorld =
+    namedIn(options.mainWorldScripts) || isMainWorldCopy
   // A bundle compiled for the page's own world carries every module it
   // imports there, and a scripts/ file among them is no entry of its own.
   const isMainWorld =
@@ -462,9 +472,12 @@ export default function contentScriptWrapper(
   const dropsBaseGetter = takesFromFile
     ? `try { delete window.${extensionBaseGlobalFor(manifestPath, browser)}; } catch (error) {} `
     : ''
+  const scriptKey = `scripts/${String(relToScripts || '').replace(/\\/g, '/')}`
   const bundleKey = declaredEntry
     ? getCanonicalContentScriptEntryName(declaredEntry.index)
-    : `scripts/${String(relToScripts || '').replace(/\\/g, '/')}`
+    : isMainWorldCopy
+      ? scriptKey.replace(/(\.[^./]+)?$/, `${MAIN_WORLD_COPY_SUFFIX}$1`)
+      : scriptKey
   const reinjectKey = declaredEntry
     ? `${bundleKey}::script-${declaredEntry.scriptIndex}`
     : bundleKey
