@@ -12,6 +12,7 @@ import {
   DEV_CONTENT_SCRIPT_STATIC_BUNDLES_KEY,
   DEV_CONTENT_SCRIPT_STATIC_RELOAD_KEY,
   DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE,
+  isDevContentScriptStandInAsset,
   planDevContentScripts
 } from '../reload-lib/dev-content-scripts'
 import {SetupDevContentScripts} from '../steps/setup-dev-content-scripts'
@@ -62,12 +63,24 @@ describe('planDevContentScripts', () => {
           allFrames: true,
           world: 'MAIN',
           matchOriginAsFallback: true,
-          stubOnly: false
+          stubOnly: false,
+          sheetProbe: {
+            file: 'content_scripts/dev-sheet-0.css',
+            property: '--extjs-dev-sheet-0'
+          }
         }
       ]
     })
 
-    expect(Object.keys(plan!.stubs)).toEqual(['content_scripts/dev-stub-0.js'])
+    expect(Object.keys(plan!.stubs).sort()).toEqual([
+      'content_scripts/dev-sheet-0.css',
+      'content_scripts/dev-stub-0.js'
+    ])
+
+    expect(plan!.stubs['content_scripts/dev-sheet-0.css']).toBe(
+      ':root{--extjs-dev-sheet-0:1}\n'
+    )
+
     expect(plan!.stubs['content_scripts/dev-stub-0.js']).toBe(
       buildDevContentScriptStubSource('content_scripts/content-0')
     )
@@ -126,6 +139,7 @@ describe('planDevContentScripts', () => {
 
     expect(Object.keys(plan.stubs).sort()).toEqual([
       'content_scripts/dev-css-2.js',
+      'content_scripts/dev-sheet-2.css',
       'content_scripts/dev-stub-2.js'
     ])
 
@@ -137,6 +151,48 @@ describe('planDevContentScripts', () => {
     expect(world[DEV_CONTENT_SCRIPT_MARKER_KEY]).toEqual({
       'content_scripts/content-2': 'content_scripts/dev-css-2.js'
     })
+  })
+
+  // Chromium never registers a globbed entry, and an entry with no sheet has
+  // nothing to ask about, so neither is given a probe to register.
+  it('gives a sheet probe only to an entry the browser registers with a stylesheet', () => {
+    const plan = planDevContentScripts(
+      manifest([
+        {matches: ['https://a.test/*'], js: ['content_scripts/content-0.js']},
+        {
+          matches: ['<all_urls>'],
+          js: ['content_scripts/content-1.js'],
+          css: ['content_scripts/content-1.css'],
+          include_globs: ['*docs*']
+        },
+        {
+          matches: ['https://a.test/*'],
+          js: ['content_scripts/content-2.js'],
+          css: ['content_scripts/content-2.css']
+        }
+      ])
+    )!
+
+    expect(plan.registry.entries.map((entry) => entry.sheetProbe)).toEqual([
+      undefined,
+      undefined,
+      {
+        file: 'content_scripts/dev-sheet-2.css',
+        property: '--extjs-dev-sheet-2'
+      }
+    ])
+
+    expect(
+      Object.keys(plan.stubs).filter((name) => name.endsWith('.css'))
+    ).toEqual(['content_scripts/dev-sheet-2.css'])
+
+    expect(
+      isDevContentScriptStandInAsset('content_scripts/dev-sheet-2.css')
+    ).toBe(true)
+
+    expect(
+      isDevContentScriptStandInAsset('content_scripts/content-2.css')
+    ).toBe(false)
   })
 
   it('keeps a document_start isolated group as emitted and marks it static in the registry', () => {
@@ -490,6 +546,29 @@ const registry = {
       stubOnly: false
     }
   ]
+}
+
+const probed = {
+  version: 1,
+  entries: [
+    {
+      ...registry.entries[0],
+      sheetProbe: {
+        file: 'content_scripts/dev-sheet-0.css',
+        property: '--extjs-dev-sheet-0'
+      }
+    }
+  ]
+}
+
+// The part of a frame the probe reads: the custom properties on its root.
+function styled(properties: Record<string, string>) {
+  return {
+    document: {documentElement: {}},
+    getComputedStyle: () => ({
+      getPropertyValue: (name: string) => properties[name] ?? ''
+    })
+  }
 }
 
 const withStatic = {
@@ -892,6 +971,97 @@ describe('dev content scripts runtime', () => {
     expect(fileInjections(w.calls)).toEqual([])
   })
 
+  // The probe sheet is registered beside the entry's own, so the value it
+  // sets on a frame is the browser's own word on whether it added them there.
+  it('a covered frame that shows the probe sheet gets no second copy, however early it committed', async () => {
+    const worlds: Record<string, any> = {
+      '0': {
+        [DEV_CONTENT_SCRIPT_MARKER_KEY]: {
+          'content_scripts/content-0': 'content_scripts/content-0.NEW.js'
+        },
+        performance: committedAt(Date.now() - 400, 80),
+        ...styled({'--extjs-dev-sheet-0': ' 1'})
+      }
+    }
+    const w = worker({registry: probed, worlds})
+    await w.settle()
+
+    expect(w.registrations[0].css).toEqual([
+      'content_scripts/dev-sheet-0.css',
+      'content_scripts/content-0.NEW.css'
+    ])
+
+    w.stub('content_scripts/content-0', 7, 0)
+    await w.settle()
+    expect(w.calls.insertCSS).toEqual([])
+    expect(fileInjections(w.calls)).toEqual([])
+  })
+
+  it('a covered frame without the probe sheet gets the stylesheet once, however late it committed', async () => {
+    const worlds: Record<string, any> = {
+      '0': {
+        [DEV_CONTENT_SCRIPT_MARKER_KEY]: {
+          'content_scripts/content-0': 'content_scripts/content-0.NEW.js'
+        },
+        performance: committedAt(Date.now() + 60_000),
+        ...styled({})
+      }
+    }
+    const w = worker({registry: probed, worlds})
+    await w.settle()
+
+    w.stub('content_scripts/content-0', 7, 0)
+    await w.settle()
+    w.stub('content_scripts/content-0', 7, 0)
+    await w.settle()
+
+    expect(w.calls.insertCSS).toEqual([
+      {
+        target: {tabId: 7, frameIds: [0]},
+        files: ['content_scripts/content-0.NEW.css']
+      }
+    ])
+
+    expect(fileInjections(w.calls)).toEqual([])
+  })
+
+  it('a frame whose styles cannot be read falls back to when it committed', async () => {
+    const unreadable = {
+      document: {documentElement: {}},
+      getComputedStyle: () => {
+        throw new Error('detached')
+      }
+    }
+    const marker = {
+      'content_scripts/content-0': 'content_scripts/content-0.NEW.js'
+    }
+    const worlds: Record<string, any> = {
+      '0': {
+        [DEV_CONTENT_SCRIPT_MARKER_KEY]: {...marker},
+        performance: committedAt(Date.now() - 400, 80),
+        ...unreadable
+      },
+      '1': {
+        [DEV_CONTENT_SCRIPT_MARKER_KEY]: {...marker},
+        performance: committedAt(Date.now() + 60_000),
+        ...unreadable
+      }
+    }
+    const w = worker({registry: probed, worlds})
+    await w.settle()
+
+    w.stub('content_scripts/content-0', 7, 0)
+    w.stub('content_scripts/content-0', 7, 1)
+    await w.settle()
+
+    expect(w.calls.insertCSS).toEqual([
+      {
+        target: {tabId: 7, frameIds: [0]},
+        files: ['content_scripts/content-0.NEW.css']
+      }
+    ])
+  })
+
   it('a CSS-only entry lands its stylesheet once per frame per load and a heal in the same generation adds nothing', async () => {
     const plan = planDevContentScripts({
       manifest_version: 3,
@@ -915,7 +1085,10 @@ describe('dev content scripts runtime', () => {
       expect.objectContaining({
         id: 'extjs-dev-cs-0',
         js: ['content_scripts/dev-css-0.js'],
-        css: ['content_scripts/content-0.aaaaaaaa.css']
+        css: [
+          'content_scripts/dev-sheet-0.css',
+          'content_scripts/content-0.aaaaaaaa.css'
+        ]
       })
     ])
 

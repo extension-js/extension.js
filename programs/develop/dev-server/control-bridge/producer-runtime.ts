@@ -1108,8 +1108,20 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       return match && kinds.indexOf(match[1]) !== -1 ? match[1] : null;
     }
 
-    // Records the open override tabs for the next generation and answers with
-    // them. The guard keeps a silent tabs.query from blocking the reload.
+    // A reload closes the extension's own tabs on Chromium and leaves them on
+    // the old document on Gecko, so the next generation brings each one back.
+    var PAGE_TABS_KEY = "__extjsDevPageTabs";
+
+    function ownPageUrl(url) {
+      var base = "";
+      try { base = String(g.chrome.runtime.getURL("")); } catch (e) {
+        // Ignore
+      }
+      return !!base && typeof url === "string" && url.indexOf(base) === 0;
+    }
+
+    // Records the override tabs and the extension's own page tabs, and answers
+    // with the former. The guard keeps a silent tabs.query off the reload.
     function rememberOverrideTabs(cb) {
       var chrome = g.chrome;
       var answered = false;
@@ -1125,7 +1137,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
         }
       };
       var kinds = overriddenKinds();
-      if (!kinds.length || !chrome.tabs || !chrome.tabs.query || !chrome.storage || !chrome.storage.local) return answer([]);
+      if (!chrome.tabs || !chrome.tabs.query || !chrome.storage || !chrome.storage.local) return answer([]);
       try { guard = setTimeout(function () { answer([]); }, 1000); } catch (e) {
         // Ignore
       }
@@ -1133,15 +1145,21 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
         chrome.tabs.query({}, function (tabs) {
           noopLastError();
           var list = [];
+          var pages = [];
           for (var i = 0; tabs && i < tabs.length; i++) {
             var t = tabs[i];
-            var kind = t && t.id != null ? overrideKindOf(t.url, kinds) : null;
+            if (!t || t.id == null) continue;
+            var kind = kinds.length ? overrideKindOf(t.url, kinds) : null;
             if (kind) list.push({tabId: t.id, surface: kind, url: t.url});
+            else if (ownPageUrl(t.url)) {
+              pages.push({tabId: t.id, url: t.url, windowId: t.windowId, index: t.index, active: t.active === true, pinned: t.pinned === true});
+            }
           }
-          if (!list.length) return answer(list);
+          if (!list.length && !pages.length) return answer(list);
           try {
             var rec = {};
-            rec[OVERRIDE_TABS_KEY] = {at: Date.now(), tabs: list};
+            if (list.length) rec[OVERRIDE_TABS_KEY] = {at: Date.now(), tabs: list};
+            if (pages.length) rec[PAGE_TABS_KEY] = {at: Date.now(), tabs: pages};
             chrome.storage.local.set(rec, function () { noopLastError(); answer(list); });
           } catch (e) { answer([]); }
         });
@@ -1209,6 +1227,107 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
           }
         }, 250);
       });
+    }
+
+    function reopenPageTab(page) {
+      var chrome = g.chrome;
+      var plain = function () {
+        try { chrome.tabs.create({url: page.url, active: page.active === true}, noopLastError); } catch (e) {
+          // Ignore
+        }
+      };
+      try {
+        chrome.tabs.create(
+          {url: page.url, windowId: page.windowId, index: page.index, active: page.active === true, pinned: page.pinned === true},
+          function () {
+            var failed = false;
+            try { failed = !!chrome.runtime.lastError; } catch (e) {
+              // Ignore
+            }
+            // The window went with its last tab, so any window will do.
+            if (failed) plain();
+          }
+        );
+      } catch (e) { plain(); }
+    }
+
+    // A tab still open is reloaded, one the browser closed is opened again
+    // unless the extension did so itself. Each recorded tab once.
+    function restorePageTabsAtBoot() {
+      var chrome = g.chrome;
+      if (!chrome || !chrome.storage || !chrome.storage.local || !chrome.tabs || !chrome.tabs.query) return;
+      chrome.storage.local.get(PAGE_TABS_KEY, function (res) {
+        noopLastError();
+        var rec = res && res[PAGE_TABS_KEY];
+        if (!rec || typeof rec !== "object" || !Array.isArray(rec.tabs)) return;
+        try { chrome.storage.local.remove(PAGE_TABS_KEY, noopLastError); } catch (e) {
+          // Ignore
+        }
+        if (typeof rec.at !== "number" || Date.now() - rec.at > 30000) return;
+        setTimeout(function () {
+          try {
+            chrome.tabs.query({}, function (tabs) {
+              noopLastError();
+              var open = {};
+              var byId = {};
+              for (var i = 0; tabs && i < tabs.length; i++) {
+                var t = tabs[i];
+                if (!t || t.id == null) continue;
+                byId[t.id] = t;
+                if (typeof t.url === "string") open[t.url] = true;
+              }
+              for (var p = 0; p < rec.tabs.length; p++) {
+                var page = rec.tabs[p];
+                if (!page || typeof page.url !== "string" || !ownPageUrl(page.url)) continue;
+                var kept = byId[page.tabId];
+                // A tab that is still there and shows something else moved on.
+                if (kept) {
+                  if (kept.url === page.url) {
+                    try { chrome.tabs.reload(page.tabId, {bypassCache: true}, noopLastError); } catch (e) {
+                      // Ignore
+                    }
+                  }
+                  continue;
+                }
+                if (open[page.url] || !chrome.tabs.create) continue;
+                open[page.url] = true;
+                reopenPageTab(page);
+              }
+            });
+          } catch (e) {
+            // Ignore
+          }
+        }, 500);
+      });
+    }
+
+    // A page the build ships as written has no dev client to refresh it, so
+    // the open tabs that show it are reloaded from here.
+    function reloadStandalonePages(files) {
+      var chrome = g.chrome;
+      if (!Array.isArray(files) || !files.length || !chrome || !chrome.tabs || !chrome.tabs.query || !chrome.tabs.reload) return;
+      var wanted = {};
+      for (var i = 0; i < files.length; i++) {
+        if (typeof files[i] !== "string") continue;
+        try { wanted[String(chrome.runtime.getURL(scriptFileName(files[i])))] = true; } catch (e) {
+          // Ignore
+        }
+      }
+      try {
+        chrome.tabs.query({}, function (tabs) {
+          noopLastError();
+          for (var t = 0; tabs && t < tabs.length; t++) {
+            var tab = tabs[t];
+            if (!tab || tab.id == null || typeof tab.url !== "string") continue;
+            if (!wanted[tab.url.replace(/[?#].*$/, "")]) continue;
+            try { chrome.tabs.reload(tab.id, {bypassCache: true}, noopLastError); } catch (e) {
+              // Ignore
+            }
+          }
+        });
+      } catch (e) {
+        // Ignore
+      }
     }
 
     // Dev-loop reload without the CDP controller: content-scripts reload the
@@ -1478,8 +1597,11 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
     var SHEET_OVERRIDES_KEY = "__extjsDevSheetOverrides";
     var SHEET_SESSION_KEY = "__extjsDevSheetSession";
     var SHEET_SIGNAL = "__extjsDevSheets";
+    var SHEET_ENTRIES_KEY = "__extjsDevSheetEntries";
+    var SHEET_REGISTRATION_PREFIX = "extjs-dev-cs-sheet-";
     var sheetSessionChecked = false;
     var sheetSessionWaiters = [];
+    var sheetOverrides = null;
 
     function sheetAddress(file, digest) {
       return file + "?v=" + String(digest).slice(0, 16);
@@ -1496,12 +1618,13 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       return scriptFileName(name);
     }
 
+    function declaredEntries() {
+      try { return g.chrome.runtime.getManifest().content_scripts || []; } catch (e) { return []; }
+    }
+
     function declaredEntriesNaming(file) {
       var out = [];
-      var entries = [];
-      try { entries = g.chrome.runtime.getManifest().content_scripts || []; } catch (e) {
-        // Ignore
-      }
+      var entries = declaredEntries();
       var wanted = scriptFileName(file);
       for (var i = 0; i < entries.length; i++) {
         var css = stringList(entries[i] && entries[i].css);
@@ -1512,31 +1635,99 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       return out;
     }
 
-    // Removing a file by its declared address drops the manifest's own copy
-    // from the frame. The same bytes under a new address are read from disk.
+    // A frame names the bundles the browser ran in it, which is the browser's
+    // own answer for matches, excludes, globs, frames and origin fallback.
+    function entryRuns(entry, bundles) {
+      var js = stringList(entry && entry.js);
+      for (var i = 0; i < js.length; i++) {
+        if (bundles.indexOf(declaredFileName(js[i])) !== -1) return true;
+      }
+      return false;
+    }
+
+    // Sent in this order and not awaited, so the new address is in the frame
+    // before the old copies go. An address already there adds no second copy.
     function swapDeclaredSheet(target, file, previousDigest, digest) {
       var chrome = g.chrome;
-      var insert = function () {
-        noopLastError();
-        try { chrome.scripting.insertCSS({target: target, files: [sheetAddress(file, digest)]}, noopLastError); } catch (e) {
+      var stale = [file];
+      if (previousDigest && previousDigest !== digest) stale.push(sheetAddress(file, previousDigest));
+      try { chrome.scripting.insertCSS({target: target, files: [sheetAddress(file, digest)]}, noopLastError); } catch (e) {
+        // Ignore
+      }
+      for (var i = 0; i < stale.length; i++) {
+        try { chrome.scripting.removeCSS({target: target, files: [stale[i]]}, noopLastError); } catch (e) {
           // Ignore
         }
-      };
-      var dropPrevious = function () {
-        noopLastError();
-        if (!previousDigest || previousDigest === digest) return insert();
-        try { chrome.scripting.removeCSS({target: target, files: [sheetAddress(file, previousDigest)]}, insert); } catch (e) { insert(); }
-      };
-      try { chrome.scripting.removeCSS({target: target, files: [file]}, dropPrevious); } catch (e) { dropPrevious(); }
+      }
     }
 
     function canSwapDeclaredSheets() {
       var chrome = g.chrome;
       return !!(
         engineName() === "firefox" && chrome && chrome.scripting && chrome.scripting.insertCSS &&
-        chrome.scripting.removeCSS && chrome.tabs && chrome.tabs.query && chrome.storage &&
-        chrome.storage.local && chrome.storage.session
+        chrome.scripting.removeCSS && chrome.scripting.executeScript && chrome.tabs && chrome.tabs.query &&
+        chrome.storage && chrome.storage.local && chrome.storage.session
       );
+    }
+
+    // A registered sheet at the entry's own run_at lands after the declared
+    // copy, so a later document starts on the new rules with no one awake.
+    function registerSheetOverrides(overrides) {
+      var chrome = g.chrome;
+      if (
+        !chrome.scripting.registerContentScripts || !chrome.scripting.getRegisteredContentScripts ||
+        !chrome.scripting.updateContentScripts || !chrome.scripting.unregisterContentScripts
+      ) return;
+      var entries = declaredEntries();
+      var wanted = [];
+      for (var i = 0; i < entries.length; i++) {
+        var entry = entries[i] || {};
+        var matches = stringList(entry.matches);
+        // A globbed entry has no registered form, its frames ask one by one.
+        if (!matches.length || stringList(entry.include_globs).length || stringList(entry.exclude_globs).length) continue;
+        var css = stringList(entry.css);
+        var files = [];
+        for (var c = 0; c < css.length; c++) {
+          var name = declaredFileName(css[c]);
+          if (typeof overrides[name] === "string") files.push(sheetAddress(name, overrides[name]));
+        }
+        if (!files.length) continue;
+        wanted.push({
+          id: SHEET_REGISTRATION_PREFIX + i,
+          matches: matches,
+          excludeMatches: stringList(entry.exclude_matches),
+          css: files,
+          runAt: mapRunAt(entry.run_at),
+          allFrames: entry.all_frames === true,
+          matchOriginAsFallback: entry.match_origin_as_fallback === true,
+          persistAcrossSessions: false
+        });
+      }
+      try {
+        chrome.scripting.getRegisteredContentScripts(function (existing) {
+          noopLastError();
+          var have = {};
+          for (var k = 0; existing && k < existing.length; k++) {
+            var id = existing[k] && existing[k].id;
+            if (typeof id === "string" && id.indexOf(SHEET_REGISTRATION_PREFIX) === 0) have[id] = true;
+          }
+          var toRegister = [], toUpdate = [], toDrop = [], keep = {};
+          for (var j = 0; j < wanted.length; j++) {
+            keep[wanted[j].id] = true;
+            (have[wanted[j].id] ? toUpdate : toRegister).push(wanted[j]);
+          }
+          for (var old in have) if (!keep[old]) toDrop.push(old);
+          try {
+            if (toDrop.length) chrome.scripting.unregisterContentScripts({ids: toDrop}, noopLastError);
+            if (toUpdate.length) chrome.scripting.updateContentScripts(toUpdate, noopLastError);
+            if (toRegister.length) chrome.scripting.registerContentScripts(toRegister, noopLastError);
+          } catch (e) {
+            // Ignore
+          }
+        });
+      } catch (e) {
+        // Ignore
+      }
     }
 
     // The overrides belong to one load of the extension: a reload reads every
@@ -1561,6 +1752,10 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
           try { chrome.storage.session.set(mark, noopLastError); } catch (e) {
             // Ignore
           }
+          sheetOverrides = {};
+          try { registerSheetOverrides({}); } catch (e) {
+            // Ignore
+          }
           try { chrome.storage.local.remove(SHEET_OVERRIDES_KEY, function () { noopLastError(); done(); }); } catch (e) { done(); }
         });
       } catch (e) { done(); }
@@ -1568,15 +1763,57 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
 
     function withSheetOverrides(cb) {
       var read = function () {
+        if (sheetOverrides) return cb(sheetOverrides);
         try {
           g.chrome.storage.local.get(SHEET_OVERRIDES_KEY, function (res) {
             noopLastError();
             var map = res && res[SHEET_OVERRIDES_KEY];
-            cb(map && typeof map === "object" ? map : {});
+            sheetOverrides = map && typeof map === "object" ? map : {};
+            cb(sheetOverrides);
           });
         } catch (e) { cb({}); }
       };
       if (sheetSessionChecked) read(); else sheetSessionWaiters.push(read);
+    }
+
+    // Asks every frame of a tab which declared bundles run in it.
+    function bundlesByFrame(tabId, cb) {
+      try {
+        g.chrome.scripting.executeScript({
+          target: {tabId: tabId, allFrames: true},
+          args: [SHEET_ENTRIES_KEY],
+          func: function (key) {
+            try { return Object.keys(globalThis[key] || {}); } catch (e) { return []; }
+          }
+        }, function (results) { noopLastError(); cb(Array.isArray(results) ? results : []); });
+      } catch (e) { cb([]); }
+    }
+
+    function swapInOpenFrames(jobs, previous) {
+      var chrome = g.chrome;
+      try {
+        chrome.tabs.query({}, function (tabs) {
+          noopLastError();
+          for (var t = 0; tabs && t < tabs.length; t++) {
+            (function (tab) {
+              if (!tab || tab.id == null || (tab.url && !isInjectableUrl(tab.url))) return;
+              bundlesByFrame(tab.id, function (frames) {
+                for (var f = 0; f < frames.length; f++) {
+                  var frame = frames[f];
+                  if (!frame || !Array.isArray(frame.result) || !frame.result.length) continue;
+                  var target = {tabId: tab.id, frameIds: [typeof frame.frameId === "number" ? frame.frameId : 0]};
+                  for (var j = 0; j < jobs.length; j++) {
+                    if (!entryRuns(jobs[j].entry, frame.result)) continue;
+                    swapDeclaredSheet(target, jobs[j].file, previous[jobs[j].file], jobs[j].digest);
+                  }
+                }
+              });
+            })(tabs[t]);
+          }
+        });
+      } catch (e) {
+        // Ignore
+      }
     }
 
     // Answers false when only a reload delivers the edit: no API for the swap,
@@ -1591,7 +1828,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
         var entries = declaredEntriesNaming(sheet.file);
         for (var e = 0; e < entries.length; e++) {
           if (!stringList(entries[e].js).length) return cb(false);
-          jobs.push({sheet: sheet, entry: entries[e]});
+          jobs.push({file: scriptFileName(sheet.file), digest: sheet.digest, entry: entries[e]});
         }
       }
       if (!jobs.length) return cb(false);
@@ -1601,49 +1838,37 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
         for (var s = 0; s < sheets.length; s++) next[scriptFileName(sheets[s].file)] = sheets[s].digest;
         var rec = {};
         rec[SHEET_OVERRIDES_KEY] = next;
-        try { chrome.storage.local.set(rec, noopLastError); } catch (e) {
-          // Ignore
-        }
-        for (var j = 0; j < jobs.length; j++) {
-          (function (job) {
-            var file = scriptFileName(job.sheet.file);
-            tabIdsForRegistrations(
-              [{matches: stringList(job.entry.matches), excludeMatches: stringList(job.entry.exclude_matches)}],
-              function (tabIds) {
-                for (var t = 0; t < tabIds.length; t++) {
-                  swapDeclaredSheet({tabId: tabIds[t], allFrames: job.entry.all_frames === true}, file, previous[file], job.sheet.digest);
-                }
-              }
-            );
-          })(jobs[j]);
-        }
+        sheetOverrides = next;
+        // Recorded before any frame is asked: one that loads meanwhile either
+        // reads the record and asks, or is already there to be asked.
+        var apply = function () {
+          noopLastError();
+          try { registerSheetOverrides(next); } catch (e) {
+            // Ignore
+          }
+          swapInOpenFrames(jobs, previous);
+        };
+        try { chrome.storage.local.set(rec, apply); } catch (e) { apply(); }
         cb(true);
       });
     }
 
     // A document loaded after a swap starts on the declared copy again, and
-    // its content script says so. Only a frame the entry matches is corrected.
-    function correctSheetsFor(sender) {
+    // each bundle in it says so. Only the frame that asked is corrected.
+    function correctSheetsFor(sender, signal) {
       if (!sender || !sender.tab || sender.tab.id == null || !canSwapDeclaredSheets()) return;
-      var tabId = sender.tab.id;
-      var frameId = typeof sender.frameId === "number" ? sender.frameId : 0;
+      if (!signal || typeof signal.file !== "string") return;
+      var target = {tabId: sender.tab.id, frameIds: [typeof sender.frameId === "number" ? sender.frameId : 0]};
+      var bundles = [scriptFileName(signal.file)];
       withSheetOverrides(function (overrides) {
-        for (var file in overrides) {
-          (function (file, digest) {
-            var entries = declaredEntriesNaming(file);
-            for (var i = 0; i < entries.length; i++) {
-              (function (entry) {
-                if (frameId !== 0 && entry.all_frames !== true) return;
-                tabIdsForRegistrations(
-                  [{matches: stringList(entry.matches), excludeMatches: stringList(entry.exclude_matches)}],
-                  function (tabIds) {
-                    if (tabIds.indexOf(tabId) === -1) return;
-                    swapDeclaredSheet({tabId: tabId, frameIds: [frameId]}, file, null, digest);
-                  }
-                );
-              })(entries[i]);
-            }
-          })(file, overrides[file]);
+        var entries = declaredEntries();
+        for (var i = 0; i < entries.length; i++) {
+          if (!entryRuns(entries[i], bundles)) continue;
+          var css = stringList(entries[i].css);
+          for (var c = 0; c < css.length; c++) {
+            var file = declaredFileName(css[c]);
+            if (typeof overrides[file] === "string") swapDeclaredSheet(target, file, null, overrides[file]);
+          }
         }
       });
     }
@@ -1671,9 +1896,13 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       replayProgrammaticScripts(frame.changedScriptFiles);
 
       refreshRegisteredScripts(frame.changedScriptFiles, function (restarting) {
+        if (restarting) return;
+        // A restart brings every own tab back itself, so only the reloads
+        // that keep the extension running reload a standalone page here.
+        if (kind !== "full" && kind !== "service-worker") reloadStandalonePages(frame.standalonePages);
         // Notify-only: rspack-dev-server's livereload refreshes the open
         // surface; reloading the extension here would race it.
-        if (restarting || kind === "page") return;
+        if (kind === "page") return;
 
         announceReloadInTabs(announced);
         if (!Array.isArray(frame.refreshedStylesheets) || !frame.refreshedStylesheets.length) {
@@ -1909,7 +2138,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
         backoff = 250;
         connectFailures = 0;
         try {
-          socket.send(JSON.stringify({type: "hello", v: 1, role: "producer", instanceId: INSTANCE_ID, acksReloads: true}));
+          socket.send(JSON.stringify({type: "hello", v: 1, role: "producer", instanceId: INSTANCE_ID, acksReloads: true, build: g.__extjsDevBuild}));
         } catch (e) {
           // Ignore
         }
@@ -2176,6 +2405,10 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       // Ignore
     }
 
+    try { restorePageTabsAtBoot(); } catch (e) {
+      // Ignore
+    }
+
     try { reloadRegisteredScriptTabsAtBoot(); } catch (e) {
       // Ignore
     }
@@ -2187,7 +2420,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
     try {
       if (engineName() === "firefox" && g.chrome && g.chrome.runtime && g.chrome.runtime.onMessage) {
         g.chrome.runtime.onMessage.addListener(function (msg, sender) {
-          if (msg && msg[SHEET_SIGNAL]) correctSheetsFor(sender);
+          if (msg && msg[SHEET_SIGNAL]) correctSheetsFor(sender, msg[SHEET_SIGNAL]);
         });
       }
     } catch (e) {
@@ -2236,30 +2469,6 @@ export const BRIDGE_RELAY_SOURCE = `;(function () {
     var canRelay = typeof chrome.runtime.connect === "function";
 
     g.__extjsBridgeRelayInstalled = true;
-
-    // Gecko applies a declared stylesheet from a copy it keeps by address. Once
-    // the dev session swapped one, a new document asks for the same correction.
-    try {
-      if (CONTEXT === "content" && chrome.storage && chrome.storage.local && /^moz-extension:/.test(String(chrome.runtime.getURL("")))) {
-        chrome.storage.local.get("__extjsDevSheetOverrides", function (res) {
-          try {
-            void chrome.runtime.lastError;
-            var overrides = res && res.__extjsDevSheetOverrides;
-            if (!overrides || typeof overrides !== "object") return;
-            for (var file in overrides) {
-              chrome.runtime.sendMessage({__extjsDevSheets: 1}, function () { try { void chrome.runtime.lastError; } catch (e) {
-                // Ignore
-              } });
-              return;
-            }
-          } catch (e) {
-            // Ignore
-          }
-        });
-      }
-    } catch (e) {
-      // Ignore
-    }
 
     var consoleRef = g.console || {};
     var LEVELS = ["log", "info", "warn", "error", "debug", "trace"];
@@ -2517,6 +2726,41 @@ export const BRIDGE_RELAY_SOURCE = `;(function () {
   }
 })();
 `
+
+// Each declared content script bundle names itself to its frame and, once a
+// sheet was swapped, asks the background to correct that frame. Gecko only.
+export function buildDeclaredSheetSignalSource(assetName: string): string {
+  return `;(function () {
+  try {
+    var g = (typeof globalThis === "object" && globalThis) ? globalThis : this;
+    var chrome = g && g.chrome;
+    var FILE = ${JSON.stringify(assetName)};
+    if (!chrome || !chrome.runtime || !/^moz-extension:/.test(String(chrome.runtime.getURL("")))) return;
+    var running = g.__extjsDevSheetEntries = g.__extjsDevSheetEntries || {};
+    if (running[FILE]) return;
+    running[FILE] = true;
+    if (!chrome.storage || !chrome.storage.local) return;
+    chrome.storage.local.get("__extjsDevSheetOverrides", function (res) {
+      try {
+        void chrome.runtime.lastError;
+        var overrides = res && res.__extjsDevSheetOverrides;
+        if (!overrides || typeof overrides !== "object") return;
+        for (var file in overrides) {
+          chrome.runtime.sendMessage({__extjsDevSheets: {file: FILE}}, function () { try { void chrome.runtime.lastError; } catch (e) {
+            // Ignore
+          } });
+          return;
+        }
+      } catch (e) {
+        // Ignore
+      }
+    });
+  } catch (e) {
+    // Ignore
+  }
+})();
+`
+}
 
 export interface BuildRelayOptions {
   context: string

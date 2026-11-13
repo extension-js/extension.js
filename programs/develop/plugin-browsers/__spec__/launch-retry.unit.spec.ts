@@ -10,6 +10,9 @@ vi.mock('../../plugin-reload', () => ({
   readContentScriptCount: vi.fn(() => 0),
   readContentScriptDigests: vi.fn(() => ({})),
   readContentScriptFiles: vi.fn(() => []),
+  readDevBuild: vi.fn(() => ''),
+  readWebAccessibleResources: vi.fn(() => []),
+  reloadForNewWebResources: vi.fn((instruction) => instruction),
   reloadForRenamedContentScripts: vi.fn((instruction) => instruction),
   reloadForRewrittenContentScripts: vi.fn((instruction) => instruction)
 }))

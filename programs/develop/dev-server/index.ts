@@ -55,7 +55,8 @@ import {
   createChangedSourcesTracker,
   createLoadedContentScripts,
   dispatchReload,
-  readContentScriptCount
+  readContentScriptCount,
+  readDevBuild
 } from '../plugin-reload'
 import {resolveCompanionExtensionsConfig} from '../plugin-special-folders/folder-extensions/resolve-config'
 import {rememberExcludedFiles} from '../plugin-special-folders/folders-config'
@@ -1153,7 +1154,8 @@ export async function devServer(
               readContentScriptCount(compilation, outputPath),
             getSourceFeatureIndex: () =>
               buildSourceFeatureIndex(compilation, contextDir),
-            outputPath
+            outputPath,
+            contextDir
           })
           const instruction = loadedContentScripts
             ? loadedContentScripts.resolve(compilation, classified)
@@ -1161,7 +1163,12 @@ export async function devServer(
 
           // Same shared dispatch seam as the launched path, here with the broker
           // (SW producer) as the executor. Honors EXTENSION_NO_RELOAD.
-          await dispatchReload(instruction, {broker: bridgeBroker})
+          const delivered = await dispatchReload(instruction, {
+            broker: bridgeBroker,
+            build: readDevBuild(compilation)
+          })
+
+          loadedContentScripts?.settle(delivered)
         }
       )
     }

@@ -10,7 +10,10 @@ import * as fs from 'node:fs'
 import type {Compiler} from '@rspack/core'
 import {isChromiumBasedBrowser, isEmulatorBrowser} from '../lib/constants'
 import type {DevOptions, PluginInterface} from '../types'
-import {InjectBridgeProducer} from './steps/inject-bridge-producer'
+import {
+  InjectBridgeProducer,
+  readDevBuild
+} from './steps/inject-bridge-producer'
 import {InjectBridgeRelay} from './steps/inject-bridge-relay'
 import {InjectScriptsReplayShim} from './steps/inject-scripts-replay-shim'
 import {PruneStaleHotUpdates} from './steps/prune-stale-hot-updates'
@@ -32,6 +35,8 @@ export {
   readContentScriptCount,
   readContentScriptDigests,
   readContentScriptFiles,
+  readWebAccessibleResources,
+  reloadForNewWebResources,
   reloadForRenamedContentScripts,
   reloadForRewrittenContentScripts,
   type SourceFeatureIndex
@@ -47,6 +52,7 @@ export {
   reloadKindFor,
   type UndeliveredReloadContext
 } from './reload-dispatch'
+export {readDevBuild}
 export {SetupChunkLoadingTarget} from './steps/setup-chunk-loading-target'
 
 /**

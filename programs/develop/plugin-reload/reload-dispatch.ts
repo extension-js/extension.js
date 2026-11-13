@@ -35,7 +35,11 @@ export interface ReloadBroker {
     changedFiles?: string[]
     changedScriptFiles?: string[]
     refreshedStylesheets?: {file: string; digest: string}[]
+    standalonePages?: string[]
+    build?: string
   }): number
+  // True when every connected background already runs this build.
+  runsBuild?(build: string): boolean
   // When a broadcast reached zero producers, an optional operator warning
   // (grace-gated + deduped by the broker), or null; optional for test doubles.
   undeliveredReloadWarning?(context?: UndeliveredReloadContext): string | null
@@ -74,11 +78,35 @@ export interface ReloadExecutor {
   // Safari packages by replacing the appex under a running browser, which takes
   // the extension down. The dispatch that follows must not call that a fault.
   producerRestartExpected?: boolean
+  // The digest of the build being shipped. A worker that names it already
+  // runs what a reload that only restarts the worker would give it.
+  build?: string
+}
+
+// The same value the background bundle of that compilation names itself by.
+export const DEV_BUILD_GLOBAL = '__extjsDevBuild'
+
+// Two quick saves can compile the same bytes twice, and the worker that
+// restarted for the first compile already read them from disk.
+function workerAlreadyRuns(
+  instruction: ReloadInstruction,
+  executor: ReloadExecutor
+): boolean {
+  return (
+    instruction.type === 'service-worker' &&
+    !instruction.changedContentScriptEntries?.length &&
+    !instruction.changedScriptFiles?.length &&
+    !instruction.refreshedStylesheets?.length &&
+    !instruction.standalonePages?.length &&
+    !!executor.build &&
+    executor.broker?.runsBuild?.(executor.build) === true
+  )
 }
 
 function viaBroker(
   broker: ReloadBroker,
-  instruction: ReloadInstruction
+  instruction: ReloadInstruction,
+  build?: string
 ): number {
   return broker.broadcastReload({
     type: instruction.type,
@@ -90,7 +118,11 @@ function viaBroker(
       : {}),
     ...(instruction.refreshedStylesheets?.length
       ? {refreshedStylesheets: instruction.refreshedStylesheets}
-      : {})
+      : {}),
+    ...(instruction.standalonePages?.length
+      ? {standalonePages: instruction.standalonePages}
+      : {}),
+    ...(build ? {build} : {})
   })
 }
 
@@ -136,15 +168,19 @@ export function formatQueuedReloadLine(label: string): string {
 
 // The single place deciding HOW a classified reload executes: the SW producer
 // re-injects via the bridge for launched AND --no-browser. Honors EXTENSION_NO_RELOAD.
+// Resolves true only when a producer took the instruction and did not leave
+// it unconfirmed, so a caller never counts an edit nobody received as shown.
 export async function dispatchReload(
   instruction: ReloadInstruction | undefined,
   executor: ReloadExecutor
-): Promise<void> {
-  if (!instruction) return
-  if (process.env.EXTENSION_NO_RELOAD === 'true') return
+): Promise<boolean> {
+  if (!instruction) return false
+  if (process.env.EXTENSION_NO_RELOAD === 'true') return false
+
+  if (workerAlreadyRuns(instruction, executor)) return true
 
   if (executor.broker) {
-    let notified = viaBroker(executor.broker, instruction)
+    let notified = viaBroker(executor.broker, instruction, executor.build)
 
     // Firefox suspends an idle event page and its producer with it, so an
     // edit after a quiet spell finds nobody until the page is started again.
@@ -161,7 +197,7 @@ export async function dispatchReload(
           console.warn(formatUnappliedReloadLine(instruction.label))
         }
 
-        return
+        return false
       }
 
       executor.broker.noteReloadApplied?.(
@@ -195,7 +231,7 @@ export async function dispatchReload(
         )
       }
 
-      return
+      return true
     }
 
     // Zero producers: the edit compiled but reached no page. Surface the broker's
@@ -209,7 +245,7 @@ export async function dispatchReload(
     if (warning) {
       console.warn(warning)
 
-      return
+      return false
     }
 
     // A restart the caller caused is not a failure, so name what happens to this
@@ -218,6 +254,8 @@ export async function dispatchReload(
       humanLine(formatQueuedReloadLine(instruction.label))
     }
   }
+
+  return false
 }
 
 export interface ChangedSourcesSnapshot {

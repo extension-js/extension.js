@@ -132,6 +132,88 @@ describe('classifyReloadFromSources', () => {
   })
 })
 
+// The html feature rewrites every page it bundles. A page the build only
+// copied carries no dev client, so the producer reloads its tabs by address.
+describe('classifyReloadFromSources: a page the build ships as written', () => {
+  const project = () => {
+    const contextDir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-loose-'))
+    const outputPath = path.join(contextDir, 'dist', 'chrome')
+
+    const write = (root: string, rel: string, text: string) => {
+      const file = path.join(root, ...rel.split('/'))
+      fs.mkdirSync(path.dirname(file), {recursive: true})
+      fs.writeFileSync(file, text)
+    }
+
+    return {
+      contextDir,
+      outputPath,
+      source: (rel: string, text: string) => write(contextDir, rel, text),
+      emitted: (rel: string, text: string) => write(outputPath, rel, text),
+      done: () => fs.rmSync(contextDir, {recursive: true, force: true})
+    }
+  }
+
+  it('names a page whose emitted file is its source byte for byte', () => {
+    const p = project()
+
+    try {
+      p.source('loose/index.html', '<h1>loose</h1>\r\n')
+      p.emitted('loose/index.html', '<h1>loose</h1>\r\n')
+
+      expect(
+        classifyReloadFromSources({
+          changedSources: ['loose/index.html'],
+          getContentScriptCount: count(1),
+          outputPath: p.outputPath,
+          contextDir: p.contextDir
+        })
+      ).toEqual({
+        type: 'page',
+        changedAssets: ['loose/index.html'],
+        standalonePages: ['loose/index.html'],
+        label: 'page (loose/index.html)'
+      })
+    } finally {
+      p.done()
+    }
+  })
+
+  it('names no page the build rewrote, did not emit, or cannot compare', () => {
+    const p = project()
+
+    try {
+      p.source('pages/extra.html', '<script src="./extra.js"></script>')
+      p.emitted('pages/extra.html', '<script src="/pages/extra.js"></script>')
+      p.source('unlisted/index.html', '<h1>unlisted</h1>')
+
+      const classify = (rel: string, contextDir?: string) =>
+        classifyReloadFromSources({
+          changedSources: [rel],
+          getContentScriptCount: count(0),
+          outputPath: p.outputPath,
+          contextDir
+        })
+
+      expect(classify('pages/extra.html', p.contextDir)).toMatchObject({
+        type: 'page'
+      })
+
+      expect(
+        classify('pages/extra.html', p.contextDir)?.standalonePages
+      ).toBeUndefined()
+
+      expect(
+        classify('unlisted/index.html', p.contextDir)?.standalonePages
+      ).toBeUndefined()
+
+      expect(classify('pages/extra.html')?.standalonePages).toBeUndefined()
+    } finally {
+      p.done()
+    }
+  })
+})
+
 describe('classifyReloadFromSources with a chunk-graph source index', () => {
   const index = (
     over: Partial<SourceFeatureIndex> = {}
