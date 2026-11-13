@@ -147,7 +147,9 @@ Applied by `ReloadPlugin` in order:
   is read by Gecko once per address and kept through an update and a tab
   reload. The producer gives each edited `scripts/` file a new address
   (`scripts/hook.js?extjs-dev=<token>`), moves the registrations that name
-  it and reloads the tabs they match, so the extension keeps running. The
+  it and reloads the tabs they match, so the extension keeps running. It
+  reads the registrations with the browser's own call, so a file both
+  worlds run keeps each registration on its own build. The
   tokens live in `storage.session`. The background's own register and update
   calls take the current address and its reads get the plain names back, so
   a background that registers again after it was suspended stays on the

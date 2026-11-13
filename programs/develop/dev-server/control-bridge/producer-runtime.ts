@@ -1442,6 +1442,9 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
     var wrappedRegistries = [];
     var nativeRegistry = null;
     var registryCalls = 0;
+    // An entry no registration has, so the browser refuses a call that
+    // names it and changes nothing.
+    var SHAPE_REFUSED = {id: "_extjs-dev-shape", js: ["extjs-dev-shape.js"], matches: ["*://extjs.invalid/*"]};
     var registryCalledAt = 0;
 
     function plainScriptAddress(value) {
@@ -1538,9 +1541,23 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
             else settle();
             return ret;
           };
-          if (!addresses || scriptVersions) {
+          if (!addresses || scriptVersions || !Array.isArray(args[0])) {
             try { return call(); } catch (e) { settle(); throw e; }
           }
+          // The browser checks the shape of a call as it is made. The same
+          // call with an entry it refuses later throws that check here.
+          try {
+            var refusal = method === "registerContentScripts" ? [SHAPE_REFUSED, SHAPE_REFUSED] : [{id: SHAPE_REFUSED.id}];
+            var probe = [args[0].concat(refusal)];
+            if (done) probe.push(noopLastError);
+            var refused;
+            try { refused = native.apply(null, probe); } catch (e) {
+              if (!done) throw e;
+              probe.pop();
+              refused = native.apply(null, probe);
+            }
+            if (refused && typeof refused.then === "function") refused.then(function () {}, function () {});
+          } catch (e) { settle(); throw e; }
           if (done) {
             withScriptVersions(function () { try { call(); } catch (e) { settle(); } });
             return undefined;
@@ -1616,8 +1633,10 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
     // and register calls, and a read in that gap finds no registration.
     function whenRegistryQuiet(cb) {
       var waited = 0;
+      // A loaded machine answers a call seconds late, and a read made
+      // before that answer finds the gap and reloads no tab.
       var check = function () {
-        if (waited >= 3000 || (registryCalls <= 0 && Date.now() - registryCalledAt >= 300)) return cb();
+        if (waited >= 15000 || (registryCalls <= 0 && Date.now() - registryCalledAt >= 300)) return cb();
         waited += 100;
         try { setTimeout(check, 100); } catch (e) { cb(); }
       };
@@ -1748,8 +1767,13 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
         try { guard = setTimeout(function () { answer(false); }, 1000); } catch (e) {
           // Ignore
         }
+        // The update below is the browser's own call, so the read is too: a
+        // wrapped read answers the names the author wrote, not the files run.
+        var read = addressed && nativeRegistry.getRegisteredContentScripts
+          ? nativeRegistry.getRegisteredContentScripts
+          : function (done) { return chrome.scripting.getRegisteredContentScripts(done); };
         try {
-          chrome.scripting.getRegisteredContentScripts(function (existing) {
+          read(function (existing) {
             noopLastError();
             // The files already have their new address, so a slow answer
             // still moves the registrations and reloads their tabs.
