@@ -57,8 +57,8 @@
   "scripts": {
     "pretest": "node ../../scripts/ensure-workspace-deps.mjs && pnpm run compile",
     "prepublishOnly": "pnpm run compile",
-    "compile": "rslib build",
-    "watch": "rslib build --watch",
+    "compile": "node ../../scripts/run-locked.mjs compile \"rslib build\"",
+    "watch": "node ../../scripts/run-locked.mjs watch \"rslib build --watch\"",
     "test": "vitest run"
   },
   "keywords": [
