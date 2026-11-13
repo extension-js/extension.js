@@ -1303,6 +1303,174 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       }
     }
 
+    // The browser reads a file named in scripting.registerContentScripts when
+    // the script is registered, so an edit reaches no page until it reads again.
+    var REGISTERED_RELOAD_KEY = "__extjsDevRegisteredReload";
+
+    function scriptFileName(value) {
+      return String(value || "").replace(/^[/]+/, "");
+    }
+
+    function registrationsNaming(existing, changedScriptFiles) {
+      var changed = {};
+      for (var c = 0; c < changedScriptFiles.length; c++) changed[scriptFileName(changedScriptFiles[c])] = true;
+      var out = [];
+      for (var i = 0; existing && i < existing.length; i++) {
+        var s = existing[i];
+        if (!s || typeof s.id !== "string" || s.id.indexOf("extjs-dev-cs-") === 0) continue;
+        var files = stringList(s.js).concat(stringList(s.css));
+        for (var f = 0; f < files.length; f++) {
+          if (changed[scriptFileName(files[f])]) { out.push(s); break; }
+        }
+      }
+      return out;
+    }
+
+    // The ids of the open tabs the registrations match, excludeMatches honored.
+    function tabIdsForRegistrations(scripts, cb) {
+      var chrome = g.chrome;
+      var ids = {};
+      var pending = 1;
+      var step = function () {
+        pending--;
+        if (pending > 0) return;
+        var out = [];
+        for (var id in ids) out.push(Number(id));
+        cb(out);
+      };
+      var query = function (patterns, each) {
+        if (!patterns.length || !chrome.tabs || !chrome.tabs.query) return each([]);
+        try {
+          chrome.tabs.query({url: patterns}, function (tabs) { noopLastError(); each(tabs || []); });
+        } catch (e) { each([]); }
+      };
+      for (var i = 0; i < scripts.length; i++) {
+        (function (script) {
+          pending++;
+          query(stringList(script.excludeMatches), function (excludedTabs) {
+            var excluded = {};
+            for (var x = 0; x < excludedTabs.length; x++) {
+              if (excludedTabs[x] && excludedTabs[x].id != null) excluded[excludedTabs[x].id] = true;
+            }
+            query(stringList(script.matches), function (tabs) {
+              for (var t = 0; t < tabs.length; t++) {
+                var tab = tabs[t];
+                if (!tab || tab.id == null || excluded[tab.id] || !isInjectableUrl(tab.url)) continue;
+                ids[tab.id] = true;
+              }
+              step();
+            });
+          });
+        })(scripts[i]);
+      }
+      step();
+    }
+
+    function reloadTabIds(tabIds) {
+      var chrome = g.chrome;
+      if (!chrome.tabs || !chrome.tabs.reload) return;
+      for (var i = 0; i < tabIds.length; i++) {
+        try { chrome.tabs.reload(tabIds[i], {}, noopLastError); } catch (e) {
+          // Ignore
+        }
+      }
+    }
+
+    // Answers true when the extension restarts for the edit. Chromium reads the
+    // files again on an update, Gecko keeps them by address until it reloads.
+    function refreshRegisteredScripts(changedScriptFiles, cb) {
+      var chrome = g.chrome;
+      var answered = false;
+      var guard = null;
+      var answer = function (restarting) {
+        if (answered) return;
+        answered = true;
+        if (guard) { try { clearTimeout(guard); } catch (e) {
+          // Ignore
+        } }
+        try { cb(restarting); } catch (e) {
+          // Ignore
+        }
+      };
+      if (
+        !Array.isArray(changedScriptFiles) || !changedScriptFiles.length ||
+        !chrome || !chrome.scripting || !chrome.scripting.getRegisteredContentScripts
+      ) return answer(false);
+      try { guard = setTimeout(function () { answer(false); }, 1000); } catch (e) {
+        // Ignore
+      }
+      try {
+        chrome.scripting.getRegisteredContentScripts(function (existing) {
+          noopLastError();
+          if (answered) return;
+          var scripts = registrationsNaming(existing, changedScriptFiles);
+          if (!scripts.length) return answer(false);
+          tabIdsForRegistrations(scripts, function (tabIds) {
+            if (answered) return;
+            if (engineName() === "firefox") {
+              var scriptIds = [];
+              for (var i = 0; i < scripts.length; i++) scriptIds.push(scripts[i].id);
+              try {
+                var rec = {};
+                rec[REGISTERED_RELOAD_KEY] = {at: Date.now(), tabs: tabIds, scripts: scriptIds};
+                chrome.storage.local.set(rec, noopLastError);
+              } catch (e) {
+                // Ignore
+              }
+              restartExtension(150);
+              return answer(true);
+            }
+            var updates = [];
+            for (var u = 0; u < scripts.length; u++) {
+              var update = {id: scripts[u].id};
+              if (stringList(scripts[u].js).length) update.js = stringList(scripts[u].js);
+              if (stringList(scripts[u].css).length) update.css = stringList(scripts[u].css);
+              updates.push(update);
+            }
+            var finish = function () { noopLastError(); reloadTabIds(tabIds); answer(false); };
+            if (!chrome.scripting.updateContentScripts) return finish();
+            try { chrome.scripting.updateContentScripts(updates, finish); } catch (e) { finish(); }
+          });
+        });
+      } catch (e) { answer(false); }
+    }
+
+    // The generation after that restart reloads the recorded tabs once two
+    // reads in a row show the scripts registered, or a few seconds passed.
+    function reloadRegisteredScriptTabsAtBoot() {
+      var chrome = g.chrome;
+      if (!chrome || !chrome.storage || !chrome.storage.local) return;
+      chrome.storage.local.get(REGISTERED_RELOAD_KEY, function (res) {
+        noopLastError();
+        var rec = res && res[REGISTERED_RELOAD_KEY];
+        if (!rec || typeof rec !== "object") return;
+        try { chrome.storage.local.remove(REGISTERED_RELOAD_KEY, noopLastError); } catch (e) {
+          // Ignore
+        }
+        if (typeof rec.at !== "number" || Date.now() - rec.at > 30000 || !Array.isArray(rec.tabs)) return;
+        var wanted = stringList(rec.scripts);
+        var attempts = 0;
+        var settled = 0;
+        var check = function () {
+          attempts++;
+          var proceed = function (existing) {
+            var have = {};
+            for (var i = 0; existing && i < existing.length; i++) if (existing[i]) have[existing[i].id] = true;
+            var missing = false;
+            for (var w = 0; w < wanted.length; w++) if (!have[wanted[w]]) missing = true;
+            // A background that unregisters before it registers leaves a gap.
+            settled = missing ? 0 : settled + 1;
+            if (settled < 2 && attempts < 20) return setTimeout(check, 250);
+            reloadTabIds(rec.tabs);
+          };
+          try {
+            chrome.scripting.getRegisteredContentScripts(function (existing) { noopLastError(); proceed(existing); });
+          } catch (e) { reloadTabIds(rec.tabs); }
+        };
+        setTimeout(check, 250);
+      });
+    }
+
     function handleDevReloadFrame(frame) {
       var kind = frame.reloadType || "full";
       var label = typeof frame.label === "string" ? frame.label : "";
@@ -1325,14 +1493,14 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       // on their recorded tabs, before any reload decision below.
       replayProgrammaticScripts(frame.changedScriptFiles);
 
-      if (kind === "page") {
+      refreshRegisteredScripts(frame.changedScriptFiles, function (restarting) {
         // Notify-only: rspack-dev-server's livereload refreshes the open
         // surface; reloading the extension here would race it.
-        return;
-      }
+        if (restarting || kind === "page") return;
 
-      announceReloadInTabs(announced);
-      performDevReload(kind, function () {}, frame);
+        announceReloadInTabs(announced);
+        performDevReload(kind, function () {}, frame);
+      });
     }
 
     function sanitize(args) {
@@ -1822,6 +1990,10 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
     }
 
     try { restoreOverrideTabsAtBoot(); } catch (e) {
+      // Ignore
+    }
+
+    try { reloadRegisteredScriptTabsAtBoot(); } catch (e) {
       // Ignore
     }
 

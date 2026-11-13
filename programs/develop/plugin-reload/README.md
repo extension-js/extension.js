@@ -56,6 +56,15 @@ Applied by `ReloadPlugin` in order:
   name heuristics. Also defines `ReloadType` / `ReloadInstruction`, the
   control-bridge `contracts.ts` mirrors `ReloadType`; update them together.
 
+  The source index reads the `scripts/` and `content_scripts/` bundles of
+  child compilations too (a dev MAIN world script compiles in one) and takes
+  the request out of a typed module identifier, so an imported image or
+  stylesheet belongs to the bundle that carries it.
+  `reloadForRewrittenContentScripts` turns a content script reload into a
+  full one when a stylesheet the loaded manifest names keeps its name and
+  changes its bytes: Gecko keeps a declared sheet by address, so inserting
+  the file again shows the old rules and the manifest's own copy stays.
+
 - `reload-dispatch.ts`
   Routes a `ReloadInstruction` to the control-bridge broker (SW producer).
   Honors `EXTENSION_NO_RELOAD`.
