@@ -177,6 +177,34 @@ function styleElementLines(text: string, styleId: string): string[] {
   ]
 }
 
+// A page script can patch join and replace and read what passes through
+// them, so a Gecko sheet is put together by concatenation alone.
+function concatenatedSheet(css: string): string {
+  const pieces: string[] = []
+
+  const literal = (text: string) => {
+    text.split(EXTENSION_ROOT_PLACEHOLDER).forEach((part, index) => {
+      if (index > 0) pieces.push('__extjsExtensionRoot()')
+      if (part) pieces.push(JSON.stringify(part))
+    })
+  }
+
+  let from = 0
+
+  for (const token of css.matchAll(BUNDLED_FILE_TOKEN)) {
+    literal(css.slice(from, token.index))
+    pieces.push(
+      `__extjsCssFile("", ${JSON.stringify(token[1])}, ${JSON.stringify(token[2])})`
+    )
+
+    from = token.index + token[0].length
+  }
+
+  literal(css.slice(from))
+
+  return pieces.length > 0 ? pieces.join(' + ') : '""'
+}
+
 // bundledRequests[n] is the file token n stands for, as a request the bundler
 // resolves from the sheet's folder.
 export function toRuntimeStylesheetModule(
@@ -187,8 +215,9 @@ export function toRuntimeStylesheetModule(
 ): string {
   const root = JSON.stringify(EXTENSION_ROOT_PLACEHOLDER)
   const rooted = `__extjsCssText.split(${root}).join(__extjsExtensionRoot())`
-  const text =
-    bundledRequests.length === 0
+  const text = gecko
+    ? concatenatedSheet(css)
+    : bundledRequests.length === 0
       ? rooted
       : `${rooted}.replace(${String(BUNDLED_FILE_TOKEN)}, __extjsCssFile)`
 
