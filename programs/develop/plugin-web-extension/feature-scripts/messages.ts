@@ -386,6 +386,30 @@ export function runtimeAssetFolderNotShipped(
   return lines.join('\n')
 }
 
+export function pageRelativeScriptPath(
+  sourcePath: string,
+  literal: string,
+  requestedPath: string,
+  emittedPath: string
+) {
+  const lines: string[] = []
+  lines.push(
+    `${sourcePath} names '${literal}' in a scripting call made from an extension page, and Firefox resolves that path against the page.`
+  )
+
+  lines.push(`${colors.gray('REQUESTED')} ${colors.underline(requestedPath)}`)
+  lines.push(`${colors.gray('EMITTED')} ${colors.underline(emittedPath)}`)
+  lines.push(
+    `Firefox looks for a file the output does not contain and reports no failure: registerContentScripts resolves and executeScript resolves with an error in its result, so the script never runs. Chromium resolves the same path against the extension root, where it works.`
+  )
+
+  lines.push(
+    `Start the path at the extension root: ${colors.blue(`/${emittedPath}`)}.`
+  )
+
+  return lines.join('\n')
+}
+
 export function contentScriptWithoutDefaultExport(file: string) {
   return (
     `${prefix('warn')} ${colors.yellow(file)} has no default export, so each re-inject in this dev session runs it again and the copy before it keeps running.\n` +

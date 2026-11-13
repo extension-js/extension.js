@@ -22,6 +22,7 @@ import {TraceRuntimeLoadedFiles} from './steps/trace-runtime-loaded-files'
 import {ValidateEmittedScriptSyntax} from './steps/validate-emitted-script-syntax'
 import {WarnMissingBuildConstants} from './steps/warn-missing-build-constants'
 import {WarnPageContextWorker} from './steps/warn-page-context-worker'
+import {WarnPageRelativeScriptPath} from './steps/warn-page-relative-script-path'
 import {WarnSplitInitialChunks} from './steps/warn-split-initial-chunks'
 import {WarnUnshippedRuntimeAssets} from './steps/warn-unshipped-runtime-assets'
 
@@ -125,6 +126,15 @@ export class ScriptsPlugin {
     // The worker file ships, but the browser refuses to start it from a
     // script running in the page. Say so instead of leaving it to runtime.
     new WarnPageContextWorker().apply(compiler)
+
+    // Firefox resolves a path without a leading slash against the page that
+    // registers it and stays silent when that file is missing.
+    new WarnPageRelativeScriptPath({
+      manifestPath: this.manifestPath,
+      includeList: this.includeList || {},
+      pageList: this.pageList,
+      browser: this.browser
+    }).apply(compiler)
 
     // A constant the author forgot to define reads as a bare global in the
     // background and kills it at start while the build stays green.
