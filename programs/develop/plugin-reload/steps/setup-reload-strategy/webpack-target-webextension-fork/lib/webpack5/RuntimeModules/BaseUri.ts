@@ -1,7 +1,9 @@
 import type * as webpack from 'webpack'
 import {
+  CHROMIUM_EXTENSION_SCHEME,
   EXTENSION_BASE_ATTRIBUTE,
   extensionBaseFromFile,
+  GECKO_EXTENSION_SCHEME,
   unlessExtensionAddress
 } from '../../../../../../../lib/extension-base-from-stack'
 import {RuntimeGlobal} from './BrowserRuntime'
@@ -9,7 +11,8 @@ import {RuntimeGlobal} from './BrowserRuntime'
 export default function BaseUriRuntimeModule(
   webpack: typeof import('webpack'),
   gecko = false,
-  attribute: string = EXTENSION_BASE_ATTRIBUTE
+  attribute: string = EXTENSION_BASE_ATTRIBUTE,
+  scheme: string = gecko ? GECKO_EXTENSION_SCHEME : CHROMIUM_EXTENSION_SCHEME
 ): webpack.RuntimeModule {
   const {RuntimeGlobals, RuntimeModule, Template} = webpack
 
@@ -36,7 +39,7 @@ export default function BaseUriRuntimeModule(
           `try { __extjsBase = String(document.documentElement.getAttribute(${JSON.stringify(attribute)}) || ""); } catch (_) { __extjsBase = ""; }`
         ]),
         `}`,
-        ...(gecko ? [unlessExtensionAddress('__extjsBase')] : []),
+        unlessExtensionAddress('__extjsBase', scheme),
         `if (__extjsBase) {`,
         Template.indent([`${RuntimeGlobals.baseURI} = __extjsBase;`]),
         `} else if (typeof document !== "undefined" && document.baseURI) {`,

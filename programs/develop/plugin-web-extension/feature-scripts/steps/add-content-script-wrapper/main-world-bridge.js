@@ -16,39 +16,52 @@ const EXTJS_PAGE_BASE_KEY =
   typeof __EXTJS_PAGE_BASE_GLOBAL__ === 'string'
     ? __EXTJS_PAGE_BASE_GLOBAL__
     : ''
-// The document is shared the same way, so the attribute takes that key.
+// The document is shared the same way on every engine, so each build
+// names the attribute of its own extension.
 const EXTJS_PAGE_BASE_ATTR =
   typeof __EXTJS_PAGE_BASE_ATTRIBUTE__ === 'string'
     ? __EXTJS_PAGE_BASE_ATTRIBUTE__
     : EXTJS_BASE_ATTR
+// A build serves its files under the scheme of one engine. A build that
+// names none takes the scheme of any engine it can run on.
+const EXTJS_EXTENSION_SCHEMES =
+  typeof __EXTJS_EXTENSION_SCHEME__ === 'string'
+    ? [__EXTJS_EXTENSION_SCHEME__]
+    : ['chrome-extension', 'moz-extension', 'safari-web-extension']
 
 function safeString(x) {
   return typeof x === 'string' && x.length > 0
 }
 
-function hasForbiddenProtocol(url) {
-  // We only accept:
-  // - extension URLs (chrome-extension://..., moz-extension://...)
-  // - relative paths (no scheme)
+// A runtime that cannot answer gives undefined or an empty string, so only
+// a string in the engine's own scheme counts as an extension address.
+function isExtensionAddress(url) {
   return (
-    /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(url) &&
-    !/^((chrome|moz)-extension):\/\//.test(url)
+    typeof url === 'string' &&
+    EXTJS_EXTENSION_SCHEMES.some((scheme) => url.startsWith(`${scheme}://`))
   )
 }
 
+function hasForbiddenProtocol(url) {
+  // We only accept:
+  // - extension URLs in the scheme this build runs under
+  // - relative paths (no scheme)
+  return /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(url) && !isExtensionAddress(url)
+}
+
+// Safari answers undefined to a getURL taken off its runtime, so callers
+// get the runtime itself and call the method on it.
 function getRuntime() {
   // Prefer browser.* (Firefox), fallback to chrome.* (Chromium).
   // Do not throw if missing.
-  try {
-    if (typeof globalThis.browser === 'object') return globalThis.browser
-  } catch {
-    // Ignore
-  }
+  for (const name of ['browser', 'chrome']) {
+    try {
+      const runtime = globalThis[name]?.runtime
 
-  try {
-    if (typeof globalThis.chrome === 'object') return globalThis.chrome
-  } catch {
-    // Ignore
+      if (typeof runtime?.getURL === 'function') return runtime
+    } catch {
+      // Ignore
+    }
   }
 
   return null
@@ -157,13 +170,13 @@ function publishToInjectedFile(base) {
 
 function setExtensionBaseUrl() {
   try {
-    const rt = getRuntime()
-    const getURL = rt?.runtime?.getURL
-    if (typeof getURL !== 'function') return
+    const runtime = getRuntime()
+    if (!runtime) return
 
-    const base = String(getURL('/'))
+    const base = runtime.getURL('/')
+    if (!isExtensionAddress(base)) return
 
-    if (base && !publishToInjectedFile(base)) publishOnDocument(base)
+    if (!publishToInjectedFile(base)) publishOnDocument(base)
   } catch {
     // ignore
   }
@@ -176,11 +189,10 @@ function resolveExtensionUrl(inputUrl) {
   if (hasForbiddenProtocol(inputUrl)) return null
 
   // Already an extension URL
-  if (/^((chrome|moz)-extension):\/\//.test(inputUrl)) return inputUrl
+  if (isExtensionAddress(inputUrl)) return inputUrl
 
-  const rt = getRuntime()
-  const getURL = rt?.runtime?.getURL
-  if (typeof getURL !== 'function') return null
+  const runtime = getRuntime()
+  if (!runtime) return null
 
   // Normalize to extension-relative path
   let p = inputUrl
@@ -199,7 +211,9 @@ function resolveExtensionUrl(inputUrl) {
   if (!p) return null
   if (!p.startsWith('/')) p = `/${p}`
 
-  return String(getURL(p))
+  const resolved = runtime.getURL(p)
+
+  return isExtensionAddress(resolved) ? resolved : null
 }
 
 function injectScript(src) {
@@ -244,11 +258,10 @@ function postResponse(res) {
 // script element carrying it is one the page can read, so nothing loads.
 function loadsFilesForThePage() {
   try {
-    const getURL = getRuntime()?.runtime?.getURL
+    const runtime = getRuntime()
 
     return !(
-      typeof getURL === 'function' &&
-      String(getURL('/')).startsWith('moz-extension:')
+      runtime && String(runtime.getURL('/')).startsWith('moz-extension:')
     )
   } catch {
     return true
