@@ -18,7 +18,9 @@ import {
   evaluateTabDocument,
   extensionDocumentPagePath,
   inspectSnapshotExpression,
-  isExtensionDocumentContext
+  isExtensionDocumentContext,
+  surfaceNotDeclaredHint,
+  surfaceNotDeclaredOutcome
 } from '../browsers/run-firefox/rdp/evaluate-extension-document'
 import {emulatorSessionRefusal} from '../helpers/emulator-session'
 import {exitAfterDrain, exitWithFailure} from '../helpers/exit-after-drain'
@@ -290,6 +292,13 @@ const GECKO_IDLE_EVENT_PAGE_HINT =
   'page has nothing to evaluate in. Wake the extension first, by opening one ' +
   'of its surfaces or triggering one of its listeners, then evaluate again.'
 
+// The engine names a result it could not copy out of the tab this way. The
+// expression returned, so blaming a throw would send the reader the wrong way.
+const VALUE_NOT_CLONEABLE_HINT =
+  'The expression returned, and the browser could not copy its value out of ' +
+  'the page. Return a value JSON can express, for example a string, a ' +
+  'number, or a plain object of the fields you need.'
+
 // Every other name on a failed eval is the class of what the expression threw.
 const BRIDGE_FAULT_NAMES = new Set(['ExecutorError', 'TabsError'])
 
@@ -405,20 +414,22 @@ export function buildActEnvelope(
           ? TAB_NOT_FOUND_HINT
           : code === CODES.E_CSP_BLOCKS_EVAL
             ? CSP_BLOCKS_EVAL_HINT
-            : code === CODES.E_EVAL
-              ? 'The expression threw inside the page. Check the expression itself.'
-              : code === CODES.E_USER_GESTURE_REQUIRED
-                ? // Chromium gates these surfaces on a real click and there is no way
-                  // around it from here: the call runs in the extension's own service
-                  // worker, and an extension cannot gesture at itself. Say what the
-                  // rule is and what opens the surface, rather than passing the
-                  // engine's sentence through and leaving the reader to guess.
-                  'The browser opens this surface only in response to a click, and ' +
-                  'refuses to open it any other way. Click the extension in the ' +
-                  'browser toolbar to open it.'
-                : refusal === 'surface_not_declared'
-                  ? optionsPageNotDeclaredStep()
-                  : undefined
+            : name === 'DataCloneError'
+              ? VALUE_NOT_CLONEABLE_HINT
+              : code === CODES.E_EVAL
+                ? 'The expression threw inside the page. Check the expression itself.'
+                : code === CODES.E_USER_GESTURE_REQUIRED
+                  ? // Chromium gates these surfaces on a real click and there is no way
+                    // around it from here: the call runs in the extension's own service
+                    // worker, and an extension cannot gesture at itself. Say what the
+                    // rule is and what opens the surface, rather than passing the
+                    // engine's sentence through and leaving the reader to guess.
+                    'The browser opens this surface only in response to a click, and ' +
+                    'refuses to open it any other way. Click the extension in the ' +
+                    'browser toolbar to open it.'
+                  : refusal === 'surface_not_declared'
+                    ? optionsPageNotDeclaredStep()
+                    : undefined
 
   return {
     ...extras,
@@ -771,6 +782,12 @@ function bridgeCouldNotReachSurface(result: ActResultLike): boolean {
   )
 }
 
+function surfaceIsNotDeclared(result: ActResultLike | undefined): boolean {
+  const raw = (result?.error || {}) as {code?: unknown}
+
+  return raw.code === 'surface_not_declared'
+}
+
 async function geckoProtocolEval(
   bridge: AnyDevelopModule,
   projectPath: string,
@@ -789,15 +806,17 @@ async function geckoProtocolEval(
 
   if (!rdpPort || !extensionId) return undefined
 
-  const pagePath =
+  const manifest =
     context === 'background'
       ? undefined
-      : extensionDocumentPagePath(
-          readSessionManifest(bridge, projectPath, browser) ?? {},
-          context
-        )
+      : readSessionManifest(bridge, projectPath, browser)
+  const pagePath = manifest
+    ? extensionDocumentPagePath(manifest, context)
+    : undefined
 
-  if (context !== 'background' && !pagePath) return undefined
+  if (context !== 'background' && !pagePath) {
+    return manifest ? surfaceNotDeclaredOutcome(context) : undefined
+  }
 
   return await evaluateExtensionDocument({
     rdpPort,
@@ -1031,8 +1050,11 @@ async function runCommand(input: RunInput): Promise<void> {
         timeoutMs
       )
 
-      // The bridge's refusal says more than a debugger that found no page.
-      if (overProtocol?.ok) result = overProtocol
+      // The bridge's refusal says more than a debugger that found no page,
+      // unless the manifest declares no such page at all.
+      if (overProtocol?.ok || surfaceIsNotDeclared(overProtocol)) {
+        result = overProtocol as ActResultLike
+      }
     } else if (
       geckoEvalFailed &&
       isExtensionDocumentContext(input.target.context) &&
@@ -1049,7 +1071,7 @@ async function runCommand(input: RunInput): Promise<void> {
 
       if (overProtocol) {
         result = overProtocol
-      } else if (bridgeHadNoExecutor(result)) {
+      } else if (bridgeHadNoExecutor(result) && !surfaceIsNotDeclared(result)) {
         // The protocol route needs rdpPort and extensionId on the contract. With
         // neither, say what an absent executor usually means on this engine.
         const raw = (result?.error || {}) as Record<string, unknown>
@@ -1080,6 +1102,17 @@ async function runCommand(input: RunInput): Promise<void> {
     }
   } finally {
     controller.close()
+  }
+
+  if (
+    (input.op === 'eval' || input.op === 'inspect') &&
+    surfaceIsNotDeclared(result)
+  ) {
+    const raw = (result?.error || {}) as Record<string, unknown>
+
+    if (typeof raw.hint !== 'string') {
+      raw.hint = surfaceNotDeclaredHint(input.target.context, input.command)
+    }
   }
 
   // One code covers three owners of the refusal, so the hint is chosen by the
@@ -1148,7 +1181,7 @@ export function registerActCommands(program: Command): void {
       .description(commandDescriptions.eval)
       .option(
         '--context <background|popup|options|sidebar|devtools|newtab|history|bookmarks|content|page>',
-        'target context (default background). Extension pages (popup/options/sidebar/devtools/newtab/history/bookmarks) must be open. Chromium answers through their own in-page relay, Firefox through the debugger protocol, where the extension CSP cannot block eval. The devtools page is open only while DevTools is open on a tab. The value crosses as JSON, so a function or undefined prints as undefined (null with --output json), and a circular object arrives degraded or is refused'
+        'target context (default background). Extension pages (popup/options/sidebar/devtools/newtab/history/bookmarks) must be open. Chromium answers through their own in-page relay, Firefox through the debugger protocol, where the extension CSP cannot block eval. The devtools page is open only while DevTools is open on a tab. The value crosses as JSON, so a function or undefined prints as undefined (null with --output json), and a circular reference inside the value arrives as null'
       )
       .option(
         '--url <glob|substring>',

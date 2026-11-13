@@ -51,7 +51,10 @@ export interface RdpTabDescriptor {
 
 export type RdpEvalOutcome =
   | {ok: true; value: unknown; truncated?: true}
-  | {ok: false; error: {name: string; message: string; engine: 'firefox'}}
+  | {
+      ok: false
+      error: {name: string; message: string; engine: 'firefox'; code?: string}
+    }
 
 interface EvaluatingClient {
   request: (payload: Record<string, unknown>) => Promise<unknown>
@@ -98,7 +101,8 @@ export function extensionDocumentPagePath(
   if (context === 'popup') {
     candidates.push(
       read('action', 'default_popup'),
-      read('browser_action', 'default_popup')
+      read('browser_action', 'default_popup'),
+      read('page_action', 'default_popup')
     )
   } else if (context === 'options') {
     candidates.push(read('options_ui', 'page'), read('options_page'))
@@ -120,6 +124,44 @@ export function extensionDocumentPagePath(
   const page = candidates.find((value) => typeof value === 'string' && value)
 
   return page ? page.replace(/^\.?\//, '').split(/[?#]/)[0] : undefined
+}
+
+// The manifest keys that declare a surface, as the refusal names them.
+export function surfaceManifestKeys(context: string): string {
+  if (context === 'popup') {
+    return 'action.default_popup, browser_action.default_popup or page_action.default_popup'
+  }
+
+  if (context === 'options') return 'options_ui.page or options_page'
+
+  if (context === 'sidebar') {
+    return 'side_panel.default_path or sidebar_action.default_panel'
+  }
+
+  if (context === 'devtools') return 'devtools_page'
+
+  return `chrome_url_overrides.${context}`
+}
+
+// A surface the manifest never declares has no page to open, so asking
+// the caller to open it first would send them after nothing.
+export function surfaceNotDeclaredOutcome(context: string): RdpEvalOutcome {
+  return {
+    ok: false,
+    error: {
+      name: 'Unsupported',
+      code: 'surface_not_declared',
+      message: `the manifest declares no ${context} page: it has no ${surfaceManifestKeys(context)}`,
+      engine: 'firefox'
+    }
+  }
+}
+
+export function surfaceNotDeclaredHint(
+  context: string,
+  command: string
+): string {
+  return `Add ${surfaceManifestKeys(context)} to manifest.json and point it at the page, then run extension ${command} --context ${context} again.`
 }
 
 // extension open reaches the popup, options and sidebar only. A devtools
@@ -219,8 +261,20 @@ export function startExpression(expression: string): string {
   function settle(next) { if (globalThis.${RESULT_SLOT} === slot) globalThis.${RESULT_SLOT} = next; }
   function encode(value) {
     var json;
+    var stack = [];
     try { json = JSON.stringify(value); }
-    catch (error) { json = JSON.stringify(String(value)); }
+    catch (error) {
+      try {
+        json = JSON.stringify(value, function (_key, val) {
+          while (stack.length && stack[stack.length - 1] !== this) stack.pop();
+          if (val && typeof val === "object") {
+            if (stack.indexOf(val) !== -1) return null;
+            stack.push(val);
+          }
+          return val;
+        });
+      } catch (again) { json = JSON.stringify(String(value)); }
+    }
     if (json === undefined) return {state: "value"};
     if (json.length > ${MAX_RESULT_BYTES}) {
       return {state: "value", truncated: true, json: JSON.stringify({__type: "truncated", preview: json.slice(0, ${TRUNCATED_PREVIEW_CHARS})})};

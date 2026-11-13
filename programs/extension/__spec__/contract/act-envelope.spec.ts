@@ -647,6 +647,25 @@ describe('the act frame as a schema-1 envelope', () => {
     )
   })
 
+  // The expression returned and the engine could not copy the value out,
+  // so the hint may not blame a throw.
+  it('never says the expression threw when the value could not be cloned', () => {
+    const frame = buildActEnvelope('eval', {
+      ok: false,
+      error: {
+        name: 'DataCloneError',
+        message:
+          "Script '<anonymous code>' result is non-structured-clonable data",
+        engine: 'firefox'
+      }
+    })
+    const error = frame.error as {code: string; hint: string}
+
+    expect(error.code).toBe('E_EVAL')
+    expect(error.hint).toContain('The expression returned')
+    expect(error.hint).not.toContain('threw')
+  })
+
   it('reproduces golden.eval.csp-blocks-eval.json from a Gecko CSP refusal', () => {
     const golden = JSON.parse(
       fs.readFileSync(
