@@ -31,7 +31,7 @@ import {
 } from '../lib/constants'
 import {DEV_COMMAND_DEFAULTS, mergeOptionLayers} from '../lib/merge-options'
 import {anotherDevSessionRefused} from '../lib/messages'
-import {CODES, isDebug} from '../lib/messaging'
+import {CODES, debugLine, isDebug} from '../lib/messaging'
 import {applySplitChunksGuard} from '../lib/normalize-split-chunks'
 import {asAbsolute, getDistPath} from '../lib/paths'
 import type {ProjectStructure} from '../lib/project'
@@ -812,6 +812,9 @@ export async function devServer(
       // Ignore
     }
   }
+
+  // Only --port bounds a port, so a debug run names the others it listens on.
+  if (isDebug()) debugLine(messages.debugSessionPorts(port, bridgeControlPort))
 
   // Expose control-channel coordinates to the compiler (same process) so the
   // bridge-producer injector can bake them into the background SW

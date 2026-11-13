@@ -88,14 +88,29 @@ export class ActionsFileWriter implements ActionsSink {
     if (!this.started) this.start()
 
     const line = `${JSON.stringify(record)}\n`
+    let fd: number | undefined
 
     try {
-      fs.appendFileSync(this.opts.filePath, line, 'utf-8')
+      // The descriptor is taken before the second ownership check, so a newer
+      // run that rotates the file in between leaves this row in the old file.
+      fd = fs.openSync(this.opts.filePath, 'a')
+
+      if (this.isSuperseded()) return
+
+      fs.appendFileSync(fd, line, 'utf-8')
       this.bytes += Buffer.byteLength(line)
       this.lines += 1
     } catch {
       // Disk write failed; drop rather than blocking the broker.
       return
+    } finally {
+      if (fd !== undefined) {
+        try {
+          fs.closeSync(fd)
+        } catch {
+          // Ignore
+        }
+      }
     }
 
     if (this.bytes >= this.opts.maxBytes || this.lines >= this.opts.maxLines) {
