@@ -66,4 +66,46 @@ describe('web_accessible_resources: stale on-disk content-script CSS', () => {
     expect(allWarResources).toContain(stale)
     expect(allWarResources).toContain(fresh)
   })
+
+  // The browser applies a dev probe sheet from its registration. No page
+  // fetches it, so neither an emitted one nor one left on disk is listed.
+  it('lists no dev probe sheet, emitted or left on disk', () => {
+    const own = 'content_scripts/content-0.css'
+    const emittedProbe = 'content_scripts/dev-sheet-0.css'
+    const leftProbe = 'content_scripts/dev-sheet-1.css'
+
+    for (const name of [own, emittedProbe, leftProbe]) {
+      fs.writeFileSync(path.join(outputPath, name), '/* css */')
+    }
+
+    const manifest = {
+      manifest_version: 3,
+      content_scripts: [
+        {matches: ['<all_urls>'], js: ['content_scripts/dev-stub-0.js']}
+      ]
+    }
+    const manifestSource = {source: () => JSON.stringify(manifest)}
+    const updateAsset = vi.fn()
+    const compilation: any = {
+      getAsset: vi.fn(() => ({name: 'manifest.json', source: manifestSource})),
+      assets: {
+        'manifest.json': manifestSource,
+        [own]: {source: () => '/* css */'},
+        [emittedProbe]: {source: () => ':root{--extjs-dev-sheet-0:1}'}
+      },
+      updateAsset,
+      emitAsset: vi.fn(),
+      fileDependencies: new Set(),
+      options: {mode: 'development', output: {path: outputPath}}
+    }
+
+    generateManifestPatches(compilation as Compilation, manifestPath, {})
+
+    const patched = JSON.parse(updateAsset.mock.calls[0][1].source().toString())
+    const listed = (patched.web_accessible_resources || []).flatMap(
+      (group: {resources: string[]}) => group.resources
+    )
+
+    expect(listed).toEqual([own])
+  })
 })
