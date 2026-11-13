@@ -139,8 +139,17 @@ describe('dev --no-browser boot transcript', () => {
       // directory, while the run id is this card's join key into ready.json
       // and is asserted by the preview specs too.
       expect(lines[headIndex + 3]).toMatch(/^ {4}Run ID {9}\S/)
-      expect(lines[headIndex + 4]).toBe(' ')
-      expect(lines[headIndex + 5]).toBe(
+
+      // Under the capped card, one line per kind of grant the dev manifest
+      // has and the production build of this fixture lacks.
+      expect(lines.slice(headIndex + 4, headIndex + 7)).toEqual([
+        '    Dev only       permissions scripting, tabs, storage',
+        '    Dev only       host access <all_urls>',
+        '    Dev only       web_accessible_resources hot/*, extension-js-control.json'
+      ])
+
+      expect(lines[headIndex + 7]).toBe(' ')
+      expect(lines[headIndex + 8]).toBe(
         '⏵⏵⏵ Extension ready for development. Watching for file changes.'
       )
     } finally {

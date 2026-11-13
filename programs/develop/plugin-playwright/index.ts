@@ -15,6 +15,11 @@ import {
   isWebkitBasedBrowser
 } from '../lib/constants'
 import {
+  type DevAddition,
+  devAdditionsOf,
+  mergeDevAdditions
+} from '../lib/dev-additions'
+import {
   chromiumExtensionId,
   geckoExtensionId,
   type ManagedExtensionRecord,
@@ -137,6 +142,9 @@ export type ReadyMetadata = {
   // Every extension the engine loads besides the user's (built-in companions
   // plus --extensions dirs), so a target census can subtract them by id.
   managedExtensions?: ManagedExtensionRecord[]
+  // Dev sessions only: every grant and browser flag the session has that the
+  // production build of the same source does not, each with its reason.
+  devAdditions?: DevAddition[]
 }
 
 export type PlaywrightAutomationEvent = {
@@ -622,6 +630,9 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
   let managedExtensionsExplicit = options.managedExtensionDirs !== undefined
   let managedExtensions = toManagedRecords(options.managedExtensionDirs)
 
+  // undefined = no compile of this writer patched a dev manifest yet.
+  let compiledDevAdditions: DevAddition[] | undefined
+
   let openedEpoch: number | null = null
 
   // Seeded from disk on first append: a restart reopens the run's events file,
@@ -765,6 +776,13 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     // cannot tell that apart from a live session, so it dials a dead process.
     // `startedAt` above already draws exactly this line.
     const sameRun = Boolean(prev && prev.runId === base.runId)
+
+    const devAdditions = mergeDevAdditions(
+      compiledDevAdditions,
+      sameRun ? prev?.devAdditions : undefined
+    )
+
+    if (devAdditions) payload.devAdditions = devAdditions
 
     if (prev && sameRun) {
       if (typeof prev.cdpPort === 'number') payload.cdpPort = prev.cdpPort
@@ -1022,6 +1040,9 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       managedExtensionsExplicit = true
       managedExtensions = toManagedRecords(dirs)
     },
+    setDevAdditions(additions: DevAddition[]) {
+      compiledDevAdditions = additions
+    },
     isSuperseded,
     writeStarting() {
       if (foreignLiveDevSession) return
@@ -1262,6 +1283,9 @@ export class PlaywrightPlugin {
         durationMs: Number.isFinite(durationMs) ? durationMs : undefined,
         errorCount: 0
       })
+
+      const devAdditions = devAdditionsOf(stats?.compilation)
+      if (devAdditions) this.writer.setDevAdditions(devAdditions)
 
       if (this.launchFollows) {
         this.writer.writeCompiled(nowISO())

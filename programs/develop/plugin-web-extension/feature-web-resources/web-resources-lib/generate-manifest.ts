@@ -22,6 +22,7 @@ import {
 } from '../../feature-scripts/contracts'
 import {
   collectContentScriptAsyncChunkFiles,
+  collectNamedUnrequestedPages,
   collectPageContextEntryFiles,
   collectReferencedRuntimePayloads,
   isInjectedScriptEntry,
@@ -30,11 +31,15 @@ import {
 import {cleanMatches} from './clean-matches'
 import {
   warInjectedScriptExposed,
+  warPageNamedNotExposed,
   warPatchedSummary,
   warUnreachableResource
 } from './messages'
 import {resolveUserDeclaredWAR} from './resolve-war'
-import {findUnreachableRuntimeResources} from './unreachable-resources'
+import {
+  findUnreachableRuntimeResources,
+  isResourceCovered
+} from './unreachable-resources'
 
 type AssetSource =
   | string
@@ -338,6 +343,49 @@ function warnOnUnreachableResources(
           )
         }
       }
+    }
+  } catch {
+    // Diagnostics only, never fail the compile over the scan
+  }
+}
+
+// A page a script names but never turns into a URL stays private. One note
+// per page says so, since a script that does load it would find it blocked.
+function noteNamedPages(compilation: Compilation, manifest: Manifest) {
+  try {
+    const exposed = declaredWarResources(manifest)
+    const emittedAssetNames = listEmittedAssetNames(compilation)
+    const files = new Set<string>(
+      Object.values(collectPageContextEntryFiles(compilation)).flat()
+    )
+
+    for (const contentScript of manifest.content_scripts || []) {
+      for (const jsFile of contentScript.js || []) files.add(String(jsFile))
+    }
+
+    const namedBy = new Map<string, string>()
+
+    for (const file of [...files].sort()) {
+      for (const page of collectNamedUnrequestedPages(
+        getAssetSource(compilation, file),
+        emittedAssetNames
+      )) {
+        if (namedBy.has(page) || isResourceCovered(exposed, page)) continue
+
+        namedBy.set(page, file)
+      }
+    }
+
+    for (const [page, file] of namedBy) {
+      compilation.warnings = compilation.warnings || []
+      const warning = new WebpackError(
+        warPageNamedNotExposed(file, page)
+      ) as Error & {file?: string}
+      warning.name = 'PageNamedNotExposedWarning'
+      warning.file = file
+      compilation.warnings.push(
+        warning as unknown as (typeof compilation.warnings)[number]
+      )
     }
   } catch {
     // Diagnostics only, never fail the compile over the scan
@@ -815,6 +863,7 @@ export function generateManifestPatches(
   }
 
   warnOnUnreachableResources(compilation, canonicalManifest)
+  noteNamedPages(compilation, canonicalManifest)
 
   const source = JSON.stringify(canonicalManifest, null, 2)
   const rawSource = new sources.RawSource(source)
