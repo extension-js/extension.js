@@ -12,10 +12,10 @@ import {browserConfig} from '../run-chromium/chromium-launch/browser-config'
 import {useTempFolders} from '../../__spec__/helpers/temp-folders'
 
 const makeTempFolder = useTempFolders()
+// A folder of this file's own: other sessions run the same suite at once.
+const projectDir = makeTempFolder('extjs-flags-project-')
 
-function makeCompilation(
-  out = path.join(os.tmpdir(), 'project', 'dist', 'chrome')
-) {
+function makeCompilation(out = path.join(projectDir, 'dist', 'chrome')) {
   return {options: {output: {path: out}}} as any
 }
 
@@ -46,7 +46,7 @@ describe('Chromium profile flags', () => {
     process.env = OLD_ENV
 
     try {
-      const distRoot = path.join(os.tmpdir(), 'project', 'dist')
+      const distRoot = path.join(projectDir, 'dist')
       fs.rmSync(distRoot, {recursive: true, force: true})
     } catch {
       // Ignore
@@ -93,7 +93,7 @@ describe('Chromium profile flags', () => {
   })
 
   it('does not overwrite existing Preferences in persistent profiles', () => {
-    const sharedOut = path.join(os.tmpdir(), 'project', 'dist', 'chrome')
+    const sharedOut = path.join(projectDir, 'dist', 'chrome')
     const initialFlags = browserConfig(makeCompilation(sharedOut), {
       extension: '/ext',
       browser: 'chrome',
@@ -331,7 +331,7 @@ describe('Chromium container sandbox flags', () => {
     Object.defineProperty(process, 'platform', {value: OLD_PLATFORM})
 
     try {
-      const distRoot = path.join(os.tmpdir(), 'project', 'dist')
+      const distRoot = path.join(projectDir, 'dist')
       fs.rmSync(distRoot, {recursive: true, force: true})
     } catch {
       // Ignore
@@ -575,7 +575,7 @@ describe('EXTENSION_BROWSER_FLAGS environment pass-through', () => {
     process.env = OLD_ENV
 
     try {
-      fs.rmSync(path.join(os.tmpdir(), 'project', 'dist'), {
+      fs.rmSync(path.join(projectDir, 'dist'), {
         recursive: true,
         force: true
       })
@@ -653,7 +653,7 @@ describe('EXTENSION_HEADLESS focus-steal guard', () => {
     process.env = OLD_ENV
 
     try {
-      fs.rmSync(path.join(os.tmpdir(), 'project', 'dist'), {
+      fs.rmSync(path.join(projectDir, 'dist'), {
         recursive: true,
         force: true
       })
