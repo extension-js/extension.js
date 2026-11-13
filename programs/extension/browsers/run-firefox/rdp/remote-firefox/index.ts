@@ -34,7 +34,7 @@ import {
 } from './addons-install'
 import {printRunningInDevelopmentSummary} from './firefox-utils'
 import {attachConsoleListeners, subscribeUnifiedLogging} from './logging'
-import {openManagerNewTab} from './manager-tab'
+import {openManagerNewTab, openManagerTabAt} from './manager-tab'
 import {isErrorWithCode, requestErrorToMessage} from './message-utils'
 import {MessagingClient} from './messaging-client'
 import {deriveMozExtensionId} from './moz-id'
@@ -396,13 +396,14 @@ export class RemoteFirefox {
 
     const client = this.client
 
-    return (
-      (await openStartingUrlAfterBackground({
-        client: {request: (payload) => client.request(payload)},
-        extensionId: this.derivedExtensionId,
-        url
-      })) === 'navigated'
-    )
+    const outcome = await openStartingUrlAfterBackground({
+      client: {request: (payload) => client.request(payload)},
+      extensionId: this.derivedExtensionId,
+      url,
+      openInNewTab: (address) => openManagerTabAt(client, address)
+    })
+
+    return outcome !== 'unavailable'
   }
 
   // Unified logging via Firefox RDP (parity with Chromium CDP)

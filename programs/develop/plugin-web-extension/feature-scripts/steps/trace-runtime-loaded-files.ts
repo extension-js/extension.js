@@ -1929,6 +1929,10 @@ function splitTopLevelConditional(expression: string): [string, string] | null {
   return null
 }
 
+// The bundler's own chunk and hot update loader: public path plus a chunk
+// file name. It names no file the author wrote, so it lists nothing.
+const BUNDLER_CHUNK_URL = /^\s*([\w$]+)\.p\s*\+\s*\1\.\w+\(/
+
 // A worker that feeds importScripts a variable usually keeps the paths in a
 // constant or a list, so every script path it spells is a candidate. The
 // caller keeps only candidates that exist as files.
@@ -1943,7 +1947,7 @@ function importScriptsListedPaths(source: string): string[] {
     if (args == null) continue
 
     computed = splitTopLevelArgs(args).some(
-      (arg) => pureStringLiteral(arg) == null
+      (arg) => pureStringLiteral(arg) == null && !BUNDLER_CHUNK_URL.test(arg)
     )
   }
 
