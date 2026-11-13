@@ -134,9 +134,10 @@ export function classifyBinaryProvenance(opts: {
   binaryPath: string
   managedCacheRoot: string
   pinnedByFlag?: boolean
+  pinnedByEnv?: boolean
   usedManagedSnapshot?: boolean
 }): BinaryProvenance {
-  if (opts.pinnedByFlag) return 'pinned'
+  if (opts.pinnedByFlag || opts.pinnedByEnv) return 'pinned'
   if (opts.usedManagedSnapshot) return 'snapshot'
 
   const root = path.resolve(String(opts.managedCacheRoot || '').trim())
@@ -454,7 +455,13 @@ export function removeManagedEphemeralProfile(
     const markerPath = path.join(profilePath, MANAGED_EPHEMERAL_PROFILE_MARKER)
     if (!fs.existsSync(markerPath)) return
 
-    fs.rmSync(profilePath, {recursive: true, force: true})
+    // A browser killed a moment ago can still be writing its last files.
+    fs.rmSync(profilePath, {
+      recursive: true,
+      force: true,
+      maxRetries: 4,
+      retryDelay: 100
+    })
   } catch {
     // best-effort; the 12h sweep on the next launch is the fallback
   }

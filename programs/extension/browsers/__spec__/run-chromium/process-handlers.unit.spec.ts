@@ -79,6 +79,44 @@ describe('Chromium setupProcessSignalHandlers', () => {
     expect(cleanupInstance).toHaveBeenCalledTimes(1)
   })
 
+  // The process ends before the browser's close event runs, so the exit
+  // slice is the only place a throwaway profile can still be reclaimed.
+  it('force kills the browser and runs the exit cleanup when the process ends', async () => {
+    const {setupProcessSignalHandlers} = await import(
+      '../../run-chromium/chromium-launch/process-handlers'
+    )
+
+    const child: any = {killed: false, kill: vi.fn(), pid: 12345}
+    const cleanupInstance = vi.fn()
+    const cleanupOnExit = vi.fn()
+
+    setupProcessSignalHandlers('chrome', child, cleanupInstance, cleanupOnExit)
+
+    for (const h of registeredHandlers.get('SIGINT') || []) h()
+    expect(cleanupOnExit).not.toHaveBeenCalled()
+
+    for (const h of registeredHandlers.get('exit') || []) h()
+
+    expect(child.kill).toHaveBeenCalledWith('SIGKILL')
+    expect(cleanupOnExit).toHaveBeenCalledTimes(1)
+  })
+
+  it('skips the exit cleanup of an instance that was already disposed', async () => {
+    const {setupProcessSignalHandlers} = await import(
+      '../../run-chromium/chromium-launch/process-handlers'
+    )
+
+    const child: any = {killed: false, kill: vi.fn(), pid: 12345}
+    const cleanupOnExit = vi.fn()
+
+    setupProcessSignalHandlers('chrome', child, vi.fn(), cleanupOnExit)()
+
+    for (const h of registeredHandlers.get('exit') || []) h()
+
+    expect(child.kill).not.toHaveBeenCalled()
+    expect(cleanupOnExit).not.toHaveBeenCalled()
+  })
+
   it('ignores ECONNRESET / EPIPE thrown during browser teardown', async () => {
     const {setupProcessSignalHandlers} = await import(
       '../../run-chromium/chromium-launch/process-handlers'

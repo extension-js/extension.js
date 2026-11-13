@@ -134,6 +134,92 @@ export function forceKillChildOnExit(
   }
 }
 
+export interface ProcessMark {
+  pid: number
+  started: string
+}
+
+function listProcesses(args: string[]): string[] {
+  const listed = spawnSync('ps', args, {
+    encoding: 'utf8',
+    timeout: 2000,
+    stdio: ['ignore', 'pipe', 'ignore']
+  })
+
+  return String(listed.stdout || '').split(/\r?\n/)
+}
+
+// A helper is handed to the system the moment its browser dies, so the tree
+// is noted while the browser is still the parent, with each start time.
+export function markDescendants(
+  rootPid: number | undefined,
+  ownerPid: number = process.pid
+): ProcessMark[] {
+  if (process.platform === 'win32' || !rootPid) return []
+
+  try {
+    const rows = listProcesses(['-ax', '-o', 'pid=,ppid=,lstart='])
+      .map((row) => /^\s*(\d+)\s+(\d+)\s+(.+?)\s*$/.exec(row))
+      .filter((row): row is RegExpExecArray => row !== null)
+      .map((row) => ({
+        pid: Number(row[1]),
+        parent: Number(row[2]),
+        started: row[3]
+      }))
+    // Only a tree this process spawned is walked, never a pid that happens
+    // to carry the same number.
+    const root = rows.find((row) => row.pid === rootPid)
+    if (!root || root.parent !== ownerPid) return []
+
+    const kept = new Set<number>([rootPid])
+    const marks: ProcessMark[] = []
+
+    for (let grew = true; grew; ) {
+      grew = false
+
+      for (const row of rows) {
+        if (kept.has(row.pid) || !kept.has(row.parent)) continue
+
+        kept.add(row.pid)
+        marks.push({pid: row.pid, started: row.started})
+        grew = true
+      }
+    }
+
+    return marks
+  } catch {
+    return []
+  }
+}
+
+// Exit-path sweep of what a killed browser leaves behind. A pid is only
+// signaled while it still carries the start time it was noted with.
+export function forceKillMarkedOnExit(marks: ProcessMark[]): number[] {
+  if (process.platform === 'win32' || marks.length === 0) return []
+
+  const killed: number[] = []
+
+  try {
+    const pids = marks.map((mark) => mark.pid).join(',')
+
+    for (const row of listProcesses(['-o', 'pid=,lstart=', '-p', pids])) {
+      const match = /^\s*(\d+)\s+(.+?)\s*$/.exec(row)
+      if (!match) continue
+
+      const pid = Number(match[1])
+      const mark = marks.find((entry) => entry.pid === pid)
+
+      if (mark && mark.started === match[2] && signalPid(pid, 'SIGKILL')) {
+        killed.push(pid)
+      }
+    }
+  } catch {
+    // Ignore
+  }
+
+  return killed
+}
+
 const BENIGN_SOCKET_ERROR_CODES = new Set([
   'ECONNRESET',
   'EPIPE',

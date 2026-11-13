@@ -13,6 +13,7 @@ import {
   stampReadyBrowserLaunchFailed,
   stampReadyBrowserUpNotAttached,
   stampReadyCdpFault,
+  stampReadyExtensionBaseUrl,
   stampReadyExtensionId,
   stampReadyExtensionLoadRefused,
   stampReadyProfileLocked,
@@ -684,5 +685,63 @@ describe('stampReadyBrowserUpNotAttached', () => {
     const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
     expect(ready.profileReused).toBe(true)
     expect(ready.profilePath).toBe('/p')
+  })
+})
+
+describe('stampReadyExtensionBaseUrl', () => {
+  let tmp: string
+  let outputPath: string
+  let readyPath: string
+
+  beforeEach(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ready-stamp-base-'))
+    outputPath = path.join(tmp, 'dist', 'firefox')
+    readyPath = path.join(tmp, 'dist', 'extension-js', 'firefox', 'ready.json')
+    fs.mkdirSync(path.dirname(readyPath), {recursive: true})
+  })
+
+  afterEach(() => {
+    fs.rmSync(tmp, {recursive: true, force: true})
+  })
+
+  it('publishes the moz-extension base beside the fields already there', () => {
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({
+        status: 'ready',
+        browser: 'firefox',
+        runId: 'run-A',
+        extensionId: 'probe@temporary-addon',
+        extensionIdSource: 'browser'
+      })
+    )
+
+    stampReadyExtensionBaseUrl(
+      outputPath,
+      'moz-extension://305a8e3f-2f12-4c62-8198-89ee682bd857/'
+    )
+
+    expect(JSON.parse(fs.readFileSync(readyPath, 'utf-8'))).toEqual({
+      status: 'ready',
+      browser: 'firefox',
+      runId: 'run-A',
+      extensionId: 'probe@temporary-addon',
+      extensionIdSource: 'browser',
+      extensionBaseUrl: 'moz-extension://305a8e3f-2f12-4c62-8198-89ee682bd857/'
+    })
+  })
+
+  it('writes nothing without a base, an output path or a contract', () => {
+    stampReadyExtensionBaseUrl(outputPath, 'moz-extension://host-1234/')
+    expect(fs.existsSync(readyPath)).toBe(false)
+
+    fs.writeFileSync(readyPath, JSON.stringify({status: 'ready'}))
+    stampReadyExtensionBaseUrl(outputPath, undefined)
+    stampReadyExtensionBaseUrl(outputPath, '  ')
+    stampReadyExtensionBaseUrl(undefined, 'moz-extension://host-1234/')
+
+    expect(
+      'extensionBaseUrl' in JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    ).toBe(false)
   })
 })

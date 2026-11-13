@@ -30,6 +30,24 @@ describe('card browser row', () => {
     )
   })
 
+  it('names the Nightly channel for a Firefox alpha version and no other', () => {
+    expect(browserRowValue('firefox', '160.0a1')).toBe(
+      'Firefox Nightly 160.0a1'
+    )
+
+    expect(browserRowValue('firefox', 'Mozilla Firefox 160.0a1')).toBe(
+      'Mozilla Firefox Nightly 160.0a1'
+    )
+
+    expect(browserRowValue('firefox', 'Firefox Nightly 160.0a1')).toBe(
+      'Firefox Nightly 160.0a1'
+    )
+
+    expect(browserRowValue('firefox', '145.0')).toBe('Firefox 145.0')
+    expect(browserRowValue('firefox', '128.5.0esr')).toBe('Firefox 128.5.0esr')
+    expect(browserRowValue('zen', '1.22.3a1')).toBe('Zen 1.22.3a1')
+  })
+
   it('keeps mode suffixes intact', () => {
     expect(browserRowValue('chromium', 'Chromium (no-browser mode)')).toBe(
       'Chromium (no-browser mode)'

@@ -58,6 +58,7 @@ import {
   stampReadyBrowserExited,
   stampReadyBrowserLaunch,
   stampReadyBrowserLaunchFailed,
+  stampReadyExtensionBaseUrl,
   stampReadyExtensionId,
   stampReadyExtensionLoadRefused,
   stampReadyRdpPort,
@@ -77,6 +78,7 @@ import {
   buildBrowserLaunchRequest,
   toExtensionLoadList
 } from '../../browsers-lib/runtime-options'
+import {binaryOverrideNaming} from '../../browsers-lib/binary-env-override'
 import {
   classifyBinaryProvenance,
   deriveDebugPortWithInstance,
@@ -499,7 +501,10 @@ export class FirefoxLaunchPlugin {
         options,
         this.host.geckoBinary
           ? normalizeBinaryPathForWsl(String(this.host.geckoBinary))
-          : 'firefox-mock-binary'
+          : 'firefox-mock-binary',
+        this.host.geckoBinary
+          ? messages.binarySourceLabel('pinned', this.host.browser)
+          : undefined
       )
 
       this.stampNoBrowserLaunched(DRY_RUN_NO_BROWSER)
@@ -671,10 +676,15 @@ export class FirefoxLaunchPlugin {
     // contract the Chromium card keeps. The RDP layer prints the card, so the
     // resolved identity rides the host runtime to it.
     this.host.launchBinaryPath = binaryPath
+    this.host.launchBinaryPinnedBy = this.host.geckoBinary
+      ? '--gecko-binary'
+      : binaryOverrideNaming(String(this.host.browser), binaryPath) || undefined
+
     this.host.launchBinaryProvenance = classifyBinaryProvenance({
       binaryPath,
       managedCacheRoot: String(computeBinariesBaseDir(compilation) || ''),
-      pinnedByFlag: Boolean(this.host.geckoBinary)
+      pinnedByFlag: Boolean(this.host.geckoBinary),
+      pinnedByEnv: Boolean(this.host.launchBinaryPinnedBy)
     })
 
     // Flatpak binaries can't be validated or version-checked directly
@@ -730,7 +740,16 @@ export class FirefoxLaunchPlugin {
     })
 
     if (dryRun) {
-      logFirefoxDryRun(plan.binary, plan.args)
+      logFirefoxDryRun(
+        plan.binary,
+        plan.args,
+        messages.binarySourceLabel(
+          this.host.launchBinaryProvenance,
+          this.host.browser,
+          this.host.launchBinaryPinnedBy
+        )
+      )
+
       this.stampNoBrowserLaunched(DRY_RUN_NO_BROWSER)
 
       return
@@ -768,6 +787,7 @@ export class FirefoxLaunchPlugin {
           browserPid: this.child?.pid,
           binary: this.child?.spawnfile || binary,
           binaryProvenance: this.host.launchBinaryProvenance,
+          binaryPinnedBy: this.host.launchBinaryPinnedBy,
           extensionId: this.extensionOutputPath
             ? expectedGeckoExtensionId(this.extensionOutputPath)
             : undefined
@@ -842,6 +862,11 @@ export class FirefoxLaunchPlugin {
       this.ctx.setController(ctrl)
       stampReadyRdpPort(this.extensionOutputPath, debugPort)
       stampReadyExtensionId(this.extensionOutputPath, ctrl.getExtensionId())
+      stampReadyExtensionBaseUrl(
+        this.extensionOutputPath,
+        ctrl.getExtensionBaseUrl()
+      )
+
       this.scheduleWatchTimeout()
 
       try {
@@ -867,7 +892,8 @@ export class FirefoxLaunchPlugin {
   private async printDryRunPlan(
     compilation: CompilationLike,
     options: LaunchOptions,
-    binaryPath: string
+    binaryPath: string,
+    source?: string
   ) {
     const launchConfig = await resolveFirefoxLaunchConfig(
       compilation,
@@ -892,7 +918,7 @@ export class FirefoxLaunchPlugin {
       binaryArgs: launchConfig.binaryArgs,
       headless: isFirefoxHeadlessRequested()
     })
-    logFirefoxDryRun(plan.binary, plan.args)
+    logFirefoxDryRun(plan.binary, plan.args, source)
   }
 
   private resolveSpawnStdio() {
@@ -1132,6 +1158,10 @@ export class FirefoxLaunchPlugin {
       this.ctx.setController(ctrl)
       this.host.extensionLoadRefused = undefined
       stampReadyExtensionId(this.extensionOutputPath, ctrl.getExtensionId())
+      stampReadyExtensionBaseUrl(
+        this.extensionOutputPath,
+        ctrl.getExtensionBaseUrl()
+      )
 
       return {status: 'loaded'}
     } catch (error) {

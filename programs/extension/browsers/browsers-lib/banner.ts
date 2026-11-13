@@ -253,6 +253,7 @@ export async function printDevBannerOnce(opts: {
   profilePath?: string
   binaryPath?: string
   binaryProvenance?: BinaryProvenance
+  binaryPinnedBy?: string
 }) {
   const k = keyFor(opts.browser, opts.outPath, opts.hostPort)
 
@@ -327,7 +328,8 @@ export async function printDevBannerOnce(opts: {
       {
         profilePath: opts.profilePath,
         binaryPath: opts.binaryPath,
-        binaryProvenance: opts.binaryProvenance
+        binaryProvenance: opts.binaryProvenance,
+        binaryPinnedBy: opts.binaryPinnedBy
       }
     )
   )
@@ -354,6 +356,7 @@ export async function printProdBannerOnce(opts: {
   profilePath?: string
   binaryPath?: string
   binaryProvenance?: BinaryProvenance
+  binaryPinnedBy?: string
 }) {
   const k = keyFor(opts.browser, opts.outPath)
 
@@ -423,7 +426,8 @@ export async function printProdBannerOnce(opts: {
             runLabel,
             profilePath: opts.profilePath,
             binaryPath: opts.binaryPath,
-            binaryProvenance: opts.binaryProvenance
+            binaryProvenance: opts.binaryProvenance,
+            binaryPinnedBy: opts.binaryPinnedBy
           }
         )
       )
@@ -454,7 +458,8 @@ export async function printProdBannerOnce(opts: {
             runLabel,
             profilePath: opts.profilePath,
             binaryPath: opts.binaryPath,
-            binaryProvenance: opts.binaryProvenance
+            binaryProvenance: opts.binaryProvenance,
+            binaryPinnedBy: opts.binaryPinnedBy
           }
         )
       )
@@ -466,7 +471,8 @@ export async function printProdBannerOnce(opts: {
     // don't consume the suffix, leave it for a better-informed later attempt.
     const provenanceNote = messages.binaryProvenanceNote(
       opts.binaryProvenance,
-      opts.browser
+      opts.browser,
+      opts.binaryPinnedBy
     )
     humanLine(messages.emptyLine())
     humanLine(

@@ -66,10 +66,11 @@ describe('card binary provenance', () => {
       binaryPath: '/Applications/Chromium.app/Contents/MacOS/Chromium',
       binaryProvenance: 'system'
     })
-    // A system browser is not annotated at all: every unpinned launch card
-    // reads the same, so the clip of a command looks the same on any machine.
-    expect(card).toContain('Browser        Chromium 139.0.7259.2')
-    expect(card).not.toContain('system, not the managed default')
+    // A managed target that ran from the system says so on its own row.
+    expect(card).toContain(
+      'Browser        Chromium 139.0.7259.2 (system install)'
+    )
+
     expect(card).not.toContain('Binary')
   })
 
@@ -107,13 +108,12 @@ describe('card binary provenance', () => {
     expect(collapseHomeDirInCardValue(`${home}sibling`)).toBe(`${home}sibling`)
   })
 
-  it('annotates only a pinned binary', () => {
+  it('annotates a pinned binary and a system install of a managed target', () => {
     expect(binaryProvenanceNote('pinned')).toBe(
       '(pinned with --chromium-binary)'
     )
 
-    // Only a pinned path is annotated; the rest are machine facts, not run
-    // facts, and classifyBinaryProvenance still reports them to callers.
+    expect(binaryProvenanceNote('system', 'edge')).toBe('(system install)')
     expect(binaryProvenanceNote('system')).toBe('')
     expect(binaryProvenanceNote('snapshot')).toBe('')
     expect(binaryProvenanceNote('managed')).toBe('')
@@ -143,7 +143,7 @@ describe('card binary provenance', () => {
     }
 
     // The flag only matters once a pin exists.
-    expect(binaryProvenanceNote('system', 'firefox')).toBe('')
+    expect(binaryProvenanceNote('system', 'librewolf')).toBe('')
     expect(binaryProvenanceNote('managed', 'safari')).toBe('')
   })
 

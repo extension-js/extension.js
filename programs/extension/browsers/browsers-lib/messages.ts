@@ -10,7 +10,7 @@ import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import locateChrome, {getChromeVersion} from 'chrome-location2'
+import {getChromeVersion} from 'chrome-location2'
 import locateChromium, {getChromiumVersion} from 'chromium-location'
 import locateEdge, {getEdgeVersion} from 'edge-location'
 import locateFirefox, {getFirefoxVersion} from 'firefox-location2'
@@ -25,6 +25,7 @@ import {
 } from '../../helpers/messaging'
 import type {BrowserType} from '../browsers-types'
 import {LIBREWOLF_REMOTE_DEBUGGING_LINES} from '../run-firefox/firefox-launch/librewolf-overrides'
+import {locateChromeIn} from './binary-env-override'
 import {isFirefoxBrowser} from './browser-family'
 import {isRefusedOfficialChrome} from './official-chrome'
 import {
@@ -226,7 +227,7 @@ export function resolveBrowserVersionLine(
         return getChromiumVersion(p) || 'Chromium'
       }
     } else if (browser === 'chrome') {
-      const p = locateChrome(true, {env: sharedManagedCacheEnv('chrome')})
+      const p = locateChromeIn(sharedManagedCacheEnv('chrome'))
 
       if (p && typeof p === 'string' && isRefusedOfficialChrome(p)) return ''
 
@@ -901,6 +902,10 @@ export function chromiumDryRunNotLaunching() {
 
 export function chromiumDryRunBinary(path: string) {
   return `${getLoggingPrefix('info')} ${colors.gray('PATH')} ${colors.underline(path)}`
+}
+
+export function dryRunBinarySource(source: string) {
+  return `${getLoggingPrefix('info')} ${colors.gray('SOURCE')} ${source}`
 }
 
 export function chromiumDryRunFlags(flags: string) {
@@ -1730,23 +1735,46 @@ export function collapseHomeDirInCardValue(value: string): string {
   return raw
 }
 
-// The card names every non-default binary this session runs, so a silently
-// selected snapshot or system fallback is never invisible in dev output.
+// A pin is the user's own choice, and a system install is the one outcome the
+// managed browsers do not share, so those two are the ones the card names.
 export function binaryProvenanceNote(
   provenance?: 'managed' | 'pinned' | 'system' | 'snapshot',
-  browser?: BrowserType | string
+  browser?: BrowserType | string,
+  pinnedBy?: string
 ): string {
-  // Only a pinned path is annotated. Every launch card then reads the same
-  // three rows with the same labels, and the one line that differs is the one
-  // the user caused by typing a pin flag. Whether a browser came from
-  // the managed cache, the system, or a cached snapshot is a fact about the
-  // machine rather than about this run, and printing it made the same command
-  // look different on two computers for reasons the reader cannot act on.
-  // classifyBinaryProvenance still returns all four values for callers that
-  // need them.
-  if (provenance !== 'pinned') return ''
+  if (provenance === 'pinned') {
+    return `(pinned with ${pinnedBy || pinnedBinaryFlag(browser)})`
+  }
 
-  return `(pinned with ${pinnedBinaryFlag(browser)})`
+  // Safari and the forks only ever run from the system, so nothing differs.
+  if (provenance === 'system' && hasManagedInstall(browser)) {
+    return '(system install)'
+  }
+
+  return ''
+}
+
+// The dry run plan says how its binary was chosen, in the card's own words.
+export function binarySourceLabel(
+  provenance?: 'managed' | 'pinned' | 'system' | 'snapshot',
+  browser?: BrowserType | string,
+  pinnedBy?: string
+): string {
+  if (provenance === 'pinned') {
+    return `pinned with ${pinnedBy || pinnedBinaryFlag(browser)}`
+  }
+
+  if (provenance === 'snapshot') return 'managed snapshot'
+  if (provenance === 'system') return 'system install'
+
+  return provenance === 'managed' ? 'managed' : ''
+}
+
+// The targets extension install downloads into the managed cache.
+function hasManagedInstall(browser?: BrowserType | string): boolean {
+  return ['chrome', 'chromium', 'edge', 'firefox'].includes(
+    String(browser || '')
+  )
 }
 
 // Each engine family has its own pin flag, so the note names the one the
@@ -1772,6 +1800,7 @@ export function runningInDevelopment(
     profilePath?: string
     binaryPath?: string
     binaryProvenance?: 'managed' | 'pinned' | 'system' | 'snapshot'
+    binaryPinnedBy?: string
   }
 ) {
   const capitalize = (str: string) => str.charAt(0).toUpperCase() + str.slice(1)
@@ -1841,7 +1870,11 @@ export function runningInDevelopment(
       pinned: opts?.binaryProvenance === 'pinned'
     })
   )
-  const provenanceNote = binaryProvenanceNote(opts?.binaryProvenance, browser)
+  const provenanceNote = binaryProvenanceNote(
+    opts?.binaryProvenance,
+    browser,
+    opts?.binaryPinnedBy
+  )
   const browserLabel = provenanceNote
     ? `${baseBrowserLabel} ${provenanceNote}`
     : baseBrowserLabel
@@ -1925,6 +1958,11 @@ export function devAdditionsNote(
   }
 
   for (const flag of additions.filter((e) => e.kind === 'browser_flag')) {
+    if (flag.value === '--disable-infobars') {
+      lines.push(row('Dev flag', `${flag.value} ${infobarsFlagVerdict(flag)}`))
+      continue
+    }
+
     const verdict =
       flag.cause === 'debugger-permission'
         ? 'left out for the debugger permission, browserFlags restores it'
@@ -1938,6 +1976,17 @@ export function devAdditionsNote(
   }
 
   return lines.join('\n')
+}
+
+// This flag is passed for the bar, not against it, so it reads the other way.
+function infobarsFlagVerdict(flag: {applied?: boolean; cause?: string}) {
+  if (flag.cause === 'debugger-permission') {
+    return 'passed for the debugger permission, clears the testing notice so the debugger bar shows'
+  }
+
+  return flag.applied === false
+    ? 'left out by excludeBrowserFlags, the testing notice can hold the debugger bar back'
+    : 'passed by browserFlags, hides infobars that have no button'
 }
 
 export function emptyLine() {

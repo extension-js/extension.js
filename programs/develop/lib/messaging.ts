@@ -222,11 +222,23 @@ export function browserRowValue(browser: string, versionLine?: string): string {
   const display = browserDisplayName(browser)
   const line = String(versionLine || '').trim()
   if (!line) return display
+
+  // An "a1" version only ever ships on Firefox Nightly, so the row names that
+  // channel and a nightly is never read as the release the install promised.
+  const nightly =
+    display === 'Firefox' &&
+    /(?:^|\s)v?\d+(?:\.\d+)*a\d+$/i.test(line) &&
+    !/nightly/i.test(line)
+
   // A bare version (158.0, 158.0a1, 1.22.3b, 128.5.0esr) carries no browser
   // name, so it needs the prefix. A line with words already names one.
-  if (/^v?\d+(?:\.\d+)*(?:[a-z]+\d*)?$/i.test(line)) return `${display} ${line}`
+  if (/^v?\d+(?:\.\d+)*(?:[a-z]+\d*)?$/i.test(line)) {
+    return `${display}${nightly ? ' Nightly' : ''} ${line}`
+  }
 
-  return line.charAt(0).toUpperCase() + line.slice(1)
+  const named = line.charAt(0).toUpperCase() + line.slice(1)
+
+  return nightly ? named.replace('Firefox', 'Firefox Nightly') : named
 }
 
 // One identity card per (browser, dist) pair per process. The registry rides

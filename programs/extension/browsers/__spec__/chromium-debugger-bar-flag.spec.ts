@@ -6,12 +6,14 @@ import {
   browserConfig,
   DEFAULT_BROWSER_FLAGS,
   declaresDebuggerPermission,
+  disableInfobarsFlagReport,
   SILENT_DEBUGGER_FLAG as EXPORTED_FLAG,
   silentDebuggerFlagReport
 } from '../run-chromium/chromium-launch/browser-config'
 
 // Spelled out, so a spec never passes on a name that resolved to nothing.
 const SILENT_DEBUGGER_FLAG = '--silent-debugger-extension-api'
+const DISABLE_INFOBARS_FLAG = '--disable-infobars'
 
 const roots: string[] = []
 
@@ -181,5 +183,136 @@ describe('silentDebuggerFlagReport', () => {
     expect(
       silentDebuggerFlagReport([SILENT_DEBUGGER_FLAG], [debuggerExtension()])
     ).toMatchObject({applied: true, cause: 'browser-flags'})
+  })
+})
+
+describe('the infobars flag', () => {
+  const OLD_ENV = process.env
+
+  beforeEach(() => {
+    process.env = {...OLD_ENV}
+    delete process.env.EXTENSION_BROWSER_FLAGS
+  })
+
+  afterEach(() => {
+    process.env = OLD_ENV
+  })
+
+  it('is not a default, so a plain extension keeps every notice', () => {
+    const plain = extensionDir({permissions: ['storage']})
+
+    expect(DEFAULT_BROWSER_FLAGS).not.toContain(DISABLE_INFOBARS_FLAG)
+    expect(flagsFor(plain)).not.toContain(DISABLE_INFOBARS_FLAG)
+  })
+
+  for (const browser of ['chrome', 'edge', 'brave', 'chromium-based']) {
+    it(`is passed on ${browser} when the manifest declares debugger`, () => {
+      const debuggerExtension = extensionDir({
+        permissions: ['storage', 'debugger']
+      })
+      const flags = flagsFor(debuggerExtension, {browser})
+
+      expect(flags).toContain(DISABLE_INFOBARS_FLAG)
+      expect(flags).not.toContain(SILENT_DEBUGGER_FLAG)
+    })
+  }
+
+  it('is passed when debugger is only an optional permission', () => {
+    const optional = extensionDir({optional_permissions: ['debugger']})
+
+    expect(flagsFor(optional)).toContain(DISABLE_INFOBARS_FLAG)
+  })
+
+  it('is passed for a manifest saved with CRLF line endings', () => {
+    const crlf = extensionDir({permissions: ['debugger']}, '\r\n')
+
+    expect(flagsFor(crlf)).toContain(DISABLE_INFOBARS_FLAG)
+  })
+
+  it('is passed once however many extensions declare debugger', () => {
+    const first = extensionDir({permissions: ['debugger']})
+    const second = extensionDir({permissions: ['debugger']})
+    const flags = flagsFor([first, second])
+
+    expect(flags.filter((flag) => flag === DISABLE_INFOBARS_FLAG)).toEqual([
+      DISABLE_INFOBARS_FLAG
+    ])
+  })
+
+  it('stays out when no manifest can be read', () => {
+    const missing = path.join(os.tmpdir(), 'extjs-debugger-bar-missing')
+
+    expect(flagsFor(missing)).not.toContain(DISABLE_INFOBARS_FLAG)
+  })
+
+  it('is removed by excludeBrowserFlags for a debugger extension', () => {
+    const debuggerExtension = extensionDir({permissions: ['debugger']})
+    const flags = flagsFor(debuggerExtension, {
+      excludeBrowserFlags: [DISABLE_INFOBARS_FLAG]
+    })
+
+    expect(flags).not.toContain(DISABLE_INFOBARS_FLAG)
+    expect(flags).toContain('--no-first-run')
+  })
+})
+
+describe('disableInfobarsFlagReport', () => {
+  const plain = () => extensionDir({permissions: ['storage']})
+  const debuggerExtension = () => extensionDir({permissions: ['debugger']})
+
+  it('reports nothing for an extension that never attaches a debugger', () => {
+    expect(disableInfobarsFlagReport(['--no-first-run'], [plain()])).toBeNull()
+  })
+
+  it('names the flag, what else it hides and how to drop it', () => {
+    const report = disableInfobarsFlagReport(
+      ['--no-first-run', DISABLE_INFOBARS_FLAG],
+      [debuggerExtension()]
+    )
+
+    expect(report).toMatchObject({
+      kind: 'browser_flag',
+      value: '--disable-infobars',
+      applied: true,
+      cause: 'debugger-permission'
+    })
+
+    expect(report?.reason).toContain('Chrome for Testing')
+    expect(report?.reason).toContain('every infobar that has no button')
+    expect(report?.change).toContain('excludeBrowserFlags')
+  })
+
+  it('says excludeBrowserFlags left it out and what that costs', () => {
+    const report = disableInfobarsFlagReport(
+      ['--no-first-run'],
+      [debuggerExtension()]
+    )
+
+    expect(report).toMatchObject({
+      applied: false,
+      cause: 'exclude-browser-flags'
+    })
+
+    expect(report?.reason).toContain('stays queued')
+  })
+
+  it('says a passed flag came from browserFlags on a plain extension', () => {
+    expect(
+      disableInfobarsFlagReport([DISABLE_INFOBARS_FLAG], [plain()])
+    ).toMatchObject({applied: true, cause: 'browser-flags'})
+  })
+
+  it('tells the silent flag report when the bar is still held back', () => {
+    const held = silentDebuggerFlagReport(
+      ['--no-first-run'],
+      [debuggerExtension()]
+    )
+    const shown = silentDebuggerFlagReport(
+      ['--no-first-run', DISABLE_INFOBARS_FLAG],
+      [debuggerExtension()]
+    )
+
+    expect(held.reason).toContain('keeps it queued')
+    expect(shown.reason).toContain('show as they do for a user')
   })
 })

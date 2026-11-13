@@ -137,6 +137,27 @@ describe('devAdditionsNote', () => {
     )
   })
 
+  it('words the infobars flag as the one that lets the bar show', () => {
+    const line = (entry: {applied: boolean; cause?: string}) =>
+      plain(
+        devAdditionsNote([
+          {kind: 'browser_flag', value: '--disable-infobars', ...entry}
+        ])
+      )
+
+    expect(line({applied: true, cause: 'debugger-permission'})).toBe(
+      '    Dev flag       --disable-infobars passed for the debugger permission, clears the testing notice so the debugger bar shows'
+    )
+
+    expect(line({applied: false, cause: 'exclude-browser-flags'})).toBe(
+      '    Dev flag       --disable-infobars left out by excludeBrowserFlags, the testing notice can hold the debugger bar back'
+    )
+
+    expect(line({applied: true, cause: 'browser-flags'})).toBe(
+      '    Dev flag       --disable-infobars passed by browserFlags, hides infobars that have no button'
+    )
+  })
+
   it('prints nothing for an empty list', () => {
     expect(devAdditionsNote([])).toBe('')
   })

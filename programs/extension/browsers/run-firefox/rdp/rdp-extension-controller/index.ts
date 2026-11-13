@@ -27,6 +27,7 @@ type PluginLike = {
   launchProfilePath?: string
   launchBinaryPath?: string
   launchBinaryProvenance?: 'managed' | 'pinned' | 'system' | 'snapshot'
+  launchBinaryPinnedBy?: string
 }
 
 export class FirefoxRDPController {
@@ -54,6 +55,7 @@ export class FirefoxRDPController {
       launchProfilePath: plugin.launchProfilePath,
       launchBinaryPath: plugin.launchBinaryPath,
       launchBinaryProvenance: plugin.launchBinaryProvenance,
+      launchBinaryPinnedBy: plugin.launchBinaryPinnedBy,
       isBrowserGone: plugin.isBrowserGone
     })
 
@@ -82,6 +84,10 @@ export class FirefoxRDPController {
 
   getExtensionId(): string | undefined {
     return this.remote.getDerivedExtensionId()
+  }
+
+  getExtensionBaseUrl(): string | undefined {
+    return this.remote.getExtensionBaseUrl()
   }
 
   async wakeBackground(timeoutMs: number): Promise<boolean> {

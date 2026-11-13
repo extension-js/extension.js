@@ -9,9 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import locateBrave from 'brave-location'
-import locateChrome, {
-  getInstallGuidance as getChromeInstallGuidance
-} from 'chrome-location2'
+import {getInstallGuidance as getChromeInstallGuidance} from 'chrome-location2'
 import locateChromium, {
   getInstallGuidance as getChromiumInstallGuidance
 } from 'chromium-location'
@@ -40,6 +38,10 @@ import {
   offerManagedInstall
 } from '../../browsers-lib/first-run-install'
 import * as instanceRegistry from '../../browsers-lib/instance-registry'
+import {
+  binaryOverrideNaming,
+  locateChromeIn
+} from '../../browsers-lib/binary-env-override'
 import {locatorEnv} from '../../browsers-lib/locator-env'
 import {
   diagnoseChromiumManifestRefusal,
@@ -102,6 +104,7 @@ import {
 import {
   browserConfig,
   chromiumLaunchPlan,
+  disableInfobarsFlagReport,
   silentDebuggerFlagReport
 } from './browser-config'
 import {logChromiumDryRun} from './dry-run'
@@ -143,6 +146,7 @@ async function maybePrintLaunchBanner(args: {
   browserVersionLine?: string
   binaryPath?: string
   binaryProvenance?: 'managed' | 'pinned' | 'system' | 'snapshot'
+  binaryPinnedBy?: string
   enableCdp: boolean
 }) {
   const mode = (args.compilation?.options?.mode || 'development') as string
@@ -172,7 +176,8 @@ async function maybePrintLaunchBanner(args: {
       browserVersionLine: args.browserVersionLine,
       profilePath,
       binaryPath: args.binaryPath,
-      binaryProvenance: args.binaryProvenance
+      binaryProvenance: args.binaryProvenance,
+      binaryPinnedBy: args.binaryPinnedBy
     })
 
     return
@@ -194,7 +199,8 @@ async function maybePrintLaunchBanner(args: {
     browserVersionLine: args.browserVersionLine,
     profilePath,
     binaryPath: args.binaryPath,
-    binaryProvenance: args.binaryProvenance
+    binaryProvenance: args.binaryProvenance,
+    binaryPinnedBy: args.binaryPinnedBy
   })
 }
 
@@ -494,7 +500,11 @@ export class ChromiumLaunchPlugin {
         compilation,
         this.options?.chromiumBinary
           ? normalizeBinaryPathForWsl(String(this.options.chromiumBinary))
-          : 'chromium-mock-binary'
+          : 'chromium-mock-binary',
+        undefined,
+        this.options?.chromiumBinary
+          ? messages.binarySourceLabel('pinned', this.options.browser)
+          : undefined
       )
 
       return
@@ -714,7 +724,7 @@ export class ChromiumLaunchPlugin {
       try {
         try {
           const env = managedEnvFor('chrome')
-          const located = locateChrome(true, {env}) || null
+          const located = locateChromeIn(env)
           if (!located) throw new Error(getInstallGuidanceText('chrome'))
 
           const normalized = normalizePath(located || null)
@@ -732,7 +742,7 @@ export class ChromiumLaunchPlugin {
           return null
         } catch (err) {
           const env = managedEnvFor('chrome')
-          let candidate: string | null = locateChrome(true, {env}) || null
+          let candidate: string | null = locateChromeIn(env)
           const normalized = normalizePath(candidate || null)
 
           if (normalized) {
@@ -835,17 +845,21 @@ export class ChromiumLaunchPlugin {
         case 'edge': {
           if (isAuthorMode) humanLine(messages.locatingBrowser(browser))
 
+          const override = String(process.env.EDGE_BINARY || '').trim()
+          const overridden = override ? normalizePath(override) : null
+
+          // EDGE_BINARY is a choice, so it outranks the managed copy, and a
+          // managed copy that resolved is never traded for a system scan.
+          if (isUsableBinary(overridden)) {
+            browserBinaryLocation = overridden
+            break
+          }
+
+          if (isUsableBinary(browserBinaryLocation)) break
+
           try {
-            const override = String(process.env.EDGE_BINARY || '').trim()
-
             if (override) {
-              const normalized = normalizePath(override)
-
-              if (normalized && fs.existsSync(normalized)) {
-                browserBinaryLocation = normalized
-              } else {
-                throw new Error('EDGE_BINARY points to a non-existent path')
-              }
+              throw new Error('EDGE_BINARY points to a non-existent path')
             } else {
               const env = managedEnvFor('edge')
               const located = locateEdge({env})
@@ -957,9 +971,7 @@ export class ChromiumLaunchPlugin {
             try {
               const env = managedEnvFor(offerTarget)
               const located =
-                offerTarget === 'edge'
-                  ? locateEdge({env})
-                  : locateChrome(true, {env})
+                offerTarget === 'edge' ? locateEdge({env}) : locateChromeIn(env)
 
               return normalizePath(located || null)
             } catch {
@@ -1014,10 +1026,16 @@ export class ChromiumLaunchPlugin {
 
     // The identity card names the exact binary this session runs, so a
     // silently preferred snapshot or system fallback stays visible there.
+    const binaryPinnedBy = binaryPinnedByFlag
+      ? '--chromium-binary'
+      : binaryOverrideNaming(String(browser), browserBinaryLocation) ||
+        undefined
+
     const binaryProvenance = utils.classifyBinaryProvenance({
       binaryPath: browserBinaryLocation,
       managedCacheRoot: String(managedCacheRoot || ''),
       pinnedByFlag: binaryPinnedByFlag,
+      pinnedByEnv: Boolean(binaryPinnedBy),
       usedManagedSnapshot
     })
 
@@ -1210,6 +1228,7 @@ export class ChromiumLaunchPlugin {
         browserVersionLine,
         binaryPath: browserBinaryLocation,
         binaryProvenance,
+        binaryPinnedBy,
         enableCdp
       })
     } catch {
@@ -1217,7 +1236,12 @@ export class ChromiumLaunchPlugin {
     }
 
     if (dryRun) {
-      this.printDryRunPlan(compilation, browserBinaryLocation, chromiumConfig)
+      this.printDryRunPlan(
+        compilation,
+        browserBinaryLocation,
+        chromiumConfig,
+        messages.binarySourceLabel(binaryProvenance, browser, binaryPinnedBy)
+      )
 
       return
     }
@@ -1262,6 +1286,7 @@ export class ChromiumLaunchPlugin {
         browserPid: child?.pid,
         binary: browserBinaryLocation ?? undefined,
         binaryProvenance,
+        binaryPinnedBy,
         extensionId: launchOutputPath
           ? expectedChromiumExtensionId(launchOutputPath)
           : undefined
@@ -1275,6 +1300,19 @@ export class ChromiumLaunchPlugin {
         silentDebuggerFlagReport(chromiumConfig, extensionsToLoad),
         this.closeHandlerContext?.runId
       )
+
+      const infobarsFlag = disableInfobarsFlagReport(
+        chromiumConfig,
+        extensionsToLoad
+      )
+
+      if (infobarsFlag) {
+        stampReadyDevBrowserFlag(
+          launchOutputPath,
+          infobarsFlag,
+          this.closeHandlerContext?.runId
+        )
+      }
     }
 
     // Extract pipe streams for CDP transport: child.stdio[3] writes commands to
@@ -1344,6 +1382,7 @@ export class ChromiumLaunchPlugin {
         browserVersionLine,
         binaryPath: browserBinaryLocation,
         binaryProvenance,
+        binaryPinnedBy,
         launchRunId: this.closeHandlerContext?.runId
       }
 
@@ -1573,7 +1612,8 @@ export class ChromiumLaunchPlugin {
   private printDryRunPlan(
     compilation: CompilationLike,
     binary: string,
-    chromiumConfig?: string[]
+    chromiumConfig?: string[],
+    source?: string
   ) {
     const flags =
       chromiumConfig ??
@@ -1588,7 +1628,7 @@ export class ChromiumLaunchPlugin {
       this.options?.startingUrl,
       this.options?.noOpen
     )
-    logChromiumDryRun(this.options.browser, plan.binary, plan.args)
+    logChromiumDryRun(this.options.browser, plan.binary, plan.args, source)
   }
 
   private async launchWithDirectSpawn(
@@ -1682,6 +1722,11 @@ export class ChromiumLaunchPlugin {
 
       let disposeSignalHandlers: (() => void) | undefined
 
+      const userDataDir = launchArgs
+        .find((arg) => arg.startsWith('--user-data-dir='))
+        ?.slice('--user-data-dir='.length)
+        .replace(/^"|"$/g, '')
+
       child.on('close', (code: number | null, signal: string | null) => {
         if (isDebug()) {
           this.logger.info(messages.chromeProcessExited(code || 0))
@@ -1723,11 +1768,6 @@ export class ChromiumLaunchPlugin {
         }
 
         disposeSignalHandlers?.()
-
-        const userDataDir = launchArgs
-          .find((arg) => arg.startsWith('--user-data-dir='))
-          ?.slice('--user-data-dir='.length)
-          .replace(/^"|"$/g, '')
         utils.removeManagedEphemeralProfile(userDataDir)
       })
 
@@ -1738,7 +1778,8 @@ export class ChromiumLaunchPlugin {
       disposeSignalHandlers = setupProcessSignalHandlers(
         this.options?.browser,
         child,
-        () => {}
+        () => {},
+        () => utils.removeManagedEphemeralProfile(userDataDir)
       )
 
       return child
