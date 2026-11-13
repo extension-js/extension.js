@@ -134,6 +134,9 @@ export function rewriteInlinedCssUrls(
 }
 
 export const SFC_STYLE_ATTRIBUTE = 'data-extjs-sfc-style'
+// Where a refused element keeps the sheet that stands in for it, so the next
+// run of the same script replaces that sheet's rules and adds no second one.
+export const SFC_SHEET_PROPERTY = '__extjsSfcSheet'
 
 // A single-file component's style block has no importer that reads a URL, so
 // its module puts the sheet in the document itself, once per style id.
@@ -153,6 +156,16 @@ function styleElementLines(text: string, styleId: string): string[] {
     '      (document.head || document.documentElement).appendChild(el);',
     '    }',
     '    if (el.textContent !== __extjsSfcCss) el.textContent = __extjsSfcCss;',
+    // A page's style-src can refuse the element, which leaves it no sheet.
+    // A constructed sheet is not inline style, so the page's policy lets it in.
+    '    if (!__extjsSfcCss || el.sheet || typeof CSSStyleSheet !== "function" || !document.adoptedStyleSheets) return;',
+    `    var sheet = el[${JSON.stringify(SFC_SHEET_PROPERTY)}];`,
+    '    if (!sheet) {',
+    '      sheet = new CSSStyleSheet();',
+    `      el[${JSON.stringify(SFC_SHEET_PROPERTY)}] = sheet;`,
+    '      document.adoptedStyleSheets = document.adoptedStyleSheets.concat([sheet]);',
+    '    }',
+    '    sheet.replaceSync(__extjsSfcCss);',
     '  } catch (error) {}',
     '})();',
     'module.exports = __extjsSfcCss;',

@@ -25,7 +25,12 @@ import {cssInContentScriptLoader} from './css-in-content-script-loader'
 import {cssInHtmlLoader} from './css-in-html-loader'
 import {toPosixPath} from './css-lib/dead-url-refs'
 import * as messages from './css-lib/messages'
-import {SFC_STYLE_BLOCK_QUERY} from './css-lib/sfc-style-block'
+import {
+  SFC_INLINE_STYLE_BLOCK_QUERY,
+  SFC_MODULE_STYLE_BLOCK_QUERY,
+  SFC_STYLE_BLOCK_QUERY,
+  SVELTE_STYLE_BLOCK_TEST
+} from './css-lib/sfc-style-block'
 import {
   minifierDroppedTokens,
   restoreVerbatimCssAssets
@@ -82,6 +87,38 @@ export class CssPlugin {
         issuerLayer: EXTENSIONJS_CONTENT_SCRIPT_LAYER,
         resourceQuery: SFC_STYLE_BLOCK_QUERY,
         sideEffects: true,
+        loader: resolveDevelopDistFile('sfc-style-block-loader'),
+        options: {manifestPath, projectPath}
+      },
+      // Svelte's block has no query: its name is the whole signal.
+      {
+        enforce: 'post',
+        issuerLayer: EXTENSIONJS_CONTENT_SCRIPT_LAYER,
+        test: SVELTE_STYLE_BLOCK_TEST,
+        sideEffects: true,
+        loader: resolveDevelopDistFile('sfc-style-block-loader'),
+        options: {manifestPath, projectPath}
+      },
+      // The request for an inline block answers with a one-line proxy to the
+      // request that compiles it, where the component expects the block's text.
+      {
+        enforce: 'post',
+        issuerLayer: {not: EXTENSIONJS_CONTENT_SCRIPT_LAYER},
+        resourceQuery: SFC_INLINE_STYLE_BLOCK_QUERY,
+        loader: resolveDevelopDistFile('sfc-style-block-loader'),
+        options: {manifestPath, projectPath}
+      },
+      // <style module>: the request the component makes re-exports the class
+      // names of a CSS module, so it runs as JavaScript in every layer.
+      {
+        test: /\.(css|sass|scss|less)$/,
+        resourceQuery: SFC_MODULE_STYLE_BLOCK_QUERY,
+        type: 'javascript/auto'
+      },
+      {
+        enforce: 'post',
+        issuerLayer: {not: EXTENSIONJS_CONTENT_SCRIPT_LAYER},
+        resourceQuery: SFC_MODULE_STYLE_BLOCK_QUERY,
         loader: resolveDevelopDistFile('sfc-style-block-loader'),
         options: {manifestPath, projectPath}
       },

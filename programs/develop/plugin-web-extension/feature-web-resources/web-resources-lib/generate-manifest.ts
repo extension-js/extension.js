@@ -16,6 +16,10 @@ import {
   setCurrentManifestContent
 } from '../../feature-manifest/manifest-lib/manifest'
 import {
+  getCanonicalContentScriptCssAssetName,
+  parseCanonicalContentScriptAsset
+} from '../../feature-scripts/contracts'
+import {
   collectContentScriptAsyncChunkFiles,
   collectPageContextEntryFiles,
   collectReferencedRuntimePayloads,
@@ -237,6 +241,18 @@ function toCanonicalContentScriptCss(jsFile: string) {
   if (!/^content_scripts\/content-\d+\.js$/.test(normalized)) return undefined
 
   return normalized.replace(/\.js$/, '.css')
+}
+
+// Dev hashes a bundle's name and leaves its sheet's name plain. A MAIN world
+// group compiles apart from the build, so only the name pairs the two.
+function toHashedBundleContentScriptCss(jsFile: string, emitted: string[]) {
+  const parsed = parseCanonicalContentScriptAsset(jsFile)
+  if (!parsed || parsed.extension !== 'js') return undefined
+
+  // A sheet left on disk by an earlier compile is not this bundle's.
+  const sheet = getCanonicalContentScriptCssAssetName(parsed.index)
+
+  return emitted.includes(sheet) ? sheet : undefined
 }
 
 // The browser injects a declared sheet itself, so a page must reach it only
@@ -703,7 +719,16 @@ export function generateManifestPatches(
     for (const contentScript of canonicalManifest.content_scripts) {
       const jsFiles = Array.isArray(contentScript.js) ? contentScript.js : []
       const canonicalCss = jsFiles
-        .map(toCanonicalContentScriptCss)
+        .map(
+          (jsFile) =>
+            toCanonicalContentScriptCss(jsFile) ||
+            (isDevModeBuild
+              ? toHashedBundleContentScriptCss(
+                  jsFile,
+                  emittedCssUnderContentScripts
+                )
+              : undefined)
+        )
         .filter((resource): resource is string =>
           Boolean(resource && cssUnderContentScripts.includes(resource))
         )
