@@ -15,14 +15,17 @@ import {
   sources,
   WebpackError
 } from '@rspack/core'
+import {resolveDevelopDistFile} from '../lib/develop-context'
 import {hasDependency} from '../lib/has-dependency'
 import {debugLine, isDebug} from '../lib/messaging'
 import {publicContainmentRoot} from '../plugin-special-folders/resolve-public-folder'
+import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../plugin-web-extension/feature-scripts/contracts'
 import type {DevOptions, PluginInterface} from '../types'
 import {cssInContentScriptLoader} from './css-in-content-script-loader'
 import {cssInHtmlLoader} from './css-in-html-loader'
 import {toPosixPath} from './css-lib/dead-url-refs'
 import * as messages from './css-lib/messages'
+import {SFC_STYLE_BLOCK_QUERY} from './css-lib/sfc-style-block'
 import {
   minifierDroppedTokens,
   restoreVerbatimCssAssets
@@ -72,6 +75,16 @@ export class CssPlugin {
         useSass: usingSass,
         useLess: usingLess
       })),
+      // Post, so it runs after the framework has scoped the block. The block
+      // is imported for its effect alone, which sideEffects: false would drop.
+      {
+        enforce: 'post',
+        issuerLayer: EXTENSIONJS_CONTENT_SCRIPT_LAYER,
+        resourceQuery: SFC_STYLE_BLOCK_QUERY,
+        sideEffects: true,
+        loader: resolveDevelopDistFile('sfc-style-block-loader'),
+        options: {manifestPath, projectPath}
+      },
       // ?inline stylesheet imports (vue-loader emits them for *.ce.vue) must resolve
       // to the CSS string default export; this rule only flips the module type.
       {
