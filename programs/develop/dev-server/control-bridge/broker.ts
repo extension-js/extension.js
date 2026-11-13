@@ -375,6 +375,7 @@ export class BridgeBroker {
   // never reported as unapplied.
   private readonly ackingProducers = new Set<BridgeConnection>()
   // The build each connected producer said its background runs.
+  private readonly sessionBuilds = new Set<string>()
   private readonly producerBuilds = new Map<BridgeConnection, string>()
   private reloadSeq = 0
   private reloadAck: {
@@ -935,6 +936,62 @@ export class BridgeBroker {
     return true
   }
 
+  // Every build this session compiled. A background that names another one
+  // was written by an earlier session and cached by the browser.
+  noteSessionBuild(build: string): void {
+    if (!build) return
+
+    const first = this.sessionBuilds.size === 0
+
+    this.sessionBuilds.add(build)
+
+    if (!first) return
+
+    // A background that was already running reconnected before the first
+    // compile finished, when nothing could be told about its build yet.
+    for (const [conn, role] of [...this.roles]) {
+      if (role !== 'producer') continue
+
+      const running = this.producerBuilds.get(conn)
+
+      if (running && !this.sessionBuilds.has(running)) {
+        this.resyncEarlierSessionProducer(conn, running)
+      }
+    }
+  }
+
+  private runsEarlierSessionBuild(hello: HelloFrame): boolean {
+    return (
+      typeof hello.build === 'string' &&
+      hello.build !== '' &&
+      this.sessionBuilds.size > 0 &&
+      !this.sessionBuilds.has(hello.build)
+    )
+  }
+
+  private resyncEarlierSessionProducer(
+    conn: BridgeConnection,
+    build: string
+  ): void {
+    this.lastStaleHelloAt = this.now()
+
+    if (this.allowStaleProducerResync()) {
+      if (this.authorMode) {
+        debugLine(
+          `[control-bridge] stale producer (build ${build}) → full-reload resync`
+        )
+      }
+
+      conn.send({
+        type: 'reload',
+        reloadType: 'full',
+        label: 'extension (resyncing previous dev session)'
+      })
+    }
+
+    conn.close(CLOSE_BAD_INSTANCE, 'build from an earlier session')
+  }
+
   private onHello(conn: BridgeConnection, hello: HelloFrame): void {
     if (hello.v !== CONTROL_ENVELOPE_VERSION) {
       conn.close(CLOSE_BAD_HELLO, 'unsupported envelope version')
@@ -1008,6 +1065,14 @@ export class BridgeBroker {
       }
 
       conn.close(CLOSE_BAD_INSTANCE, 'instanceId mismatch')
+
+      return
+    }
+
+    // The background reads the instance id from disk, so one a kept profile
+    // cached in an earlier session passes the check above with old code.
+    if (hello.role === 'producer' && this.runsEarlierSessionBuild(hello)) {
+      this.resyncEarlierSessionProducer(conn, String(hello.build))
 
       return
     }

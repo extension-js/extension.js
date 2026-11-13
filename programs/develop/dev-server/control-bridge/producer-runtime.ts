@@ -20,7 +20,11 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
     // connectable host (loopback locally; the public host for remote/devcontainer).
     var HOST = "__EXTJS_CONTROL_HOST__";
     if (!HOST || HOST.indexOf("__EXTJS") === 0) HOST = "127.0.0.1";
-    if (!PORT || PORT < 1) return;
+    // A dev background names no session, so its file is the same bytes in
+    // every session and a kept profile's cached copy of it is not stale.
+    var SESSION_FROM_FILE = "__EXTJS_SESSION_FROM_FILE__" === "1";
+    if (SESSION_FROM_FILE) { PORT = 0; INSTANCE_ID = ""; }
+    else if (!PORT || PORT < 1) return;
 
     var WS = g.WebSocket;
     if (typeof WS !== "function") return;
@@ -2444,7 +2448,9 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
     }
     function replayable(frame) {
       var ev = frame && frame.event;
-      if (!ev || ev.runId !== INSTANCE_ID) return false;
+      if (!ev) return false;
+      // A background that died before it read its session parked no run id.
+      if (ev.runId !== INSTANCE_ID && !(SESSION_FROM_FILE && ev.runId === "")) return false;
       if (parkedHere(ev.id)) return false;
       return typeof ev.timestamp === "number" && Date.now() - ev.timestamp <= PENDING_ERROR_TTL;
     }
@@ -2489,8 +2495,10 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       readParked(area, function (list) {
         if (inheritedParked !== null) return;
         inheritedParked = [];
+        // Before the session is read nothing can be told apart yet, and the
+        // lines are filtered again when they are shipped.
         for (var i = 0; i < list.length; i++) {
-          if (replayable(list[i])) inheritedParked.push(list[i]);
+          if (!INSTANCE_ID || replayable(list[i])) inheritedParked.push(list[i]);
         }
         if (parkedErrors.length && !open) writeParked();
       });
@@ -2548,6 +2556,20 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
     // The baked PORT is a snapshot of an ephemeral port. After a dev-server
     // restart, the port file shipped in the unpacked extension names the
     // live one, and unpacked resources are read from disk on every fetch.
+    // Lines logged before the session was read get its id once it is known.
+    function adoptSession(id) {
+      if (!SESSION_FROM_FILE || typeof id !== "string" || !id || id === INSTANCE_ID) return;
+      INSTANCE_ID = id;
+      var lists = [queue, parkedErrors];
+      for (var l = 0; l < lists.length; l++) {
+        for (var i = 0; i < lists[l].length; i++) {
+          var ev = lists[l][i] && lists[l][i].event;
+          if (ev && ev.runId === "") ev.runId = id;
+        }
+      }
+      if (parkedErrors.length && !open) writeParked();
+    }
+
     function refreshControlPort(done) {
       try {
         var runtime = (g.chrome && g.chrome.runtime) || (g.browser && g.browser.runtime);
@@ -2557,10 +2579,22 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
           .then(function (data) {
             var next = data && parseInt(data.port, 10);
             if (next && next > 0 && next < 65536 && next !== PORT) PORT = next;
+            adoptSession(data && data.instanceId);
             done();
           })
           .catch(function () { done(); });
       } catch (e) { done(); }
+    }
+
+    function sessionKnown() {
+      return !SESSION_FROM_FILE || (!!INSTANCE_ID && PORT > 0);
+    }
+
+    // The session file is there before the browser starts, so a read that
+    // found none is retried like a server that is not listening yet.
+    function dial() {
+      if (sessionKnown()) connect();
+      else schedule();
     }
 
     function schedule() {
@@ -2571,8 +2605,8 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
         setTimeout(function () {
           // Two straight failures make the baked port suspect (a restarted
           // server dials out on a new port): re-resolve before re-dialing.
-          if (connectFailures >= 2) refreshControlPort(connect);
-          else connect();
+          if (connectFailures >= 2 || !sessionKnown()) refreshControlPort(dial);
+          else dial();
         }, delay);
       } catch (e) {
         // Ignore
@@ -2909,7 +2943,8 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
     }
 
     adoptInheritedParked();
-    connect();
+    if (SESSION_FROM_FILE) refreshControlPort(dial);
+    else connect();
   } catch (e) {
     // Ignore
   }
@@ -3237,6 +3272,9 @@ export function buildBridgeRelaySource(opts: BuildRelayOptions): string {
 export interface BuildProducerOptions {
   controlPort: number | null | undefined
   instanceId: string
+  // The producer reads the port and the instance id from the control file
+  // of the dist as it starts, and its source names neither.
+  sessionFromFile?: boolean
   context?: string
   host?: string
 }
@@ -3250,11 +3288,14 @@ export const DEV_BOOT_REGISTERS_GLOBAL = '__extjsDevBootRegisters'
 export function buildBridgeProducerSource(opts: BuildProducerOptions): string {
   if (!opts.controlPort || opts.controlPort < 1) return ''
 
+  const fromFile = opts.sessionFromFile === true
+
   return BRIDGE_PRODUCER_SOURCE.replace(
     /__EXTJS_CONTROL_PORT__/g,
-    String(opts.controlPort)
+    fromFile ? '0' : String(opts.controlPort)
   )
-    .replace(/__EXTJS_INSTANCE_ID__/g, String(opts.instanceId))
+    .replace(/__EXTJS_INSTANCE_ID__/g, fromFile ? '' : String(opts.instanceId))
+    .replace(/__EXTJS_SESSION_FROM_FILE__/g, fromFile ? '1' : '0')
     .replace(/__EXTJS_CONTEXT__/g, String(opts.context || 'background'))
     .replace(/__EXTJS_CONTROL_HOST__/g, String(opts.host || '127.0.0.1'))
 }

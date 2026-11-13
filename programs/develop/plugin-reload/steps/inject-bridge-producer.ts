@@ -83,7 +83,10 @@ function digestBuild(compilation: Compilation): string {
 
   for (const asset of assets) {
     // A hot update is written anew by every compile, under that compile's hash.
+    // The control file names the session, and the build is what the session
+    // runs: the same files give the same build in the next session too.
     if (
+      asset.name === CONTROL_PORT_ASSET_NAME ||
       asset.name.endsWith('.map') ||
       asset.name.startsWith('hot/') ||
       asset.name.includes('.hot-update.')
@@ -122,6 +125,7 @@ export class InjectBridgeProducer {
     const source = buildBridgeProducerSource({
       controlPort: Number.isFinite(controlPort) ? controlPort : null,
       instanceId,
+      sessionFromFile: true,
       context: 'background',
       host
     })

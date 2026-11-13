@@ -1111,6 +1111,18 @@ export async function devServer(
       })
     )
     activeCompiler = compiler
+
+    // The broker tells a background this session built from one a kept
+    // profile still runs from an earlier session, before any hello arrives.
+    if (compiler?.hooks?.done?.tap) {
+      compiler.hooks.done.tap(
+        {name: 'extjs-session-builds', stage: -1000},
+        (stats: Stats) => {
+          bridgeBroker.noteSessionBuild(readDevBuild(stats?.compilation))
+        }
+      )
+    }
+
     const uninstallManifestGuard =
       installManifestDiskWriteGuard(manifestOutputPath)
     const releaseOutputFsGuard = suppressManifestOutputWrites(
