@@ -120,6 +120,10 @@ const nodeEntries = {
     __dirname,
     './plugin-css/dead-css-url-loader.ts'
   ),
+  'sfc-style-block-loader': path.resolve(
+    __dirname,
+    './plugin-css/sfc-style-block-loader.ts'
+  ),
   'late-css-import-loader': path.resolve(
     __dirname,
     './plugin-css/late-css-import-loader.ts'

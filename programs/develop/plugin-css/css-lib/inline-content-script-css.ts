@@ -133,11 +133,39 @@ export function rewriteInlinedCssUrls(
   return {css, targets}
 }
 
+export const SFC_STYLE_ATTRIBUTE = 'data-extjs-sfc-style'
+
+// A single-file component's style block has no importer that reads a URL, so
+// its module puts the sheet in the document itself, once per style id.
+function styleElementLines(text: string, styleId: string): string[] {
+  const id = JSON.stringify(styleId)
+  const selector = JSON.stringify(`style[${SFC_STYLE_ATTRIBUTE}="${styleId}"]`)
+
+  return [
+    `var __extjsSfcCss = ${text};`,
+    '(function () {',
+    '  try {',
+    '    if (typeof document !== "object" || !document || typeof document.createElement !== "function") return;',
+    `    var el = document.querySelector(${selector});`,
+    '    if (!el) {',
+    '      el = document.createElement("style");',
+    `      el.setAttribute(${JSON.stringify(SFC_STYLE_ATTRIBUTE)}, ${id});`,
+    '      (document.head || document.documentElement).appendChild(el);',
+    '    }',
+    '    if (el.textContent !== __extjsSfcCss) el.textContent = __extjsSfcCss;',
+    '  } catch (error) {}',
+    '})();',
+    'module.exports = __extjsSfcCss;',
+    ''
+  ]
+}
+
 // bundledRequests[n] is the file token n stands for, as a request the bundler
 // resolves from the sheet's folder.
 export function toRuntimeStylesheetModule(
   css: string,
-  bundledRequests: string[] = []
+  bundledRequests: string[] = [],
+  styleId?: string
 ): string {
   const root = JSON.stringify(EXTENSION_ROOT_PLACEHOLDER)
   const rooted = `__extjsCssText.split(${root}).join(__extjsExtensionRoot())`
@@ -191,7 +219,11 @@ export function toRuntimeStylesheetModule(
           '  return "about:invalid";',
           '}'
         ]),
-    `module.exports = "data:text/css;charset=utf-8," + encodeURIComponent(${text});`,
-    ''
+    ...(styleId
+      ? styleElementLines(text, styleId)
+      : [
+          `module.exports = "data:text/css;charset=utf-8," + encodeURIComponent(${text});`,
+          ''
+        ])
   ].join('\n')
 }
