@@ -11,6 +11,12 @@ const REQ_TYPE = 'EXTJS_WTW_LOAD'
 const RES_TYPE = 'EXTJS_WTW_LOADED'
 const EXTJS_BASE_KEY = '__EXTJS_EXTENSION_BASE__'
 const EXTJS_BASE_ATTR = 'data-extjs-extension-base'
+// Two extensions can share a page, so a Firefox build names the page global
+// of this one. The name above stays this world's own copy.
+const EXTJS_PAGE_BASE_KEY =
+  typeof __EXTJS_PAGE_BASE_GLOBAL__ === 'string'
+    ? __EXTJS_PAGE_BASE_GLOBAL__
+    : EXTJS_BASE_KEY
 
 function safeString(x) {
   return typeof x === 'string' && x.length > 0
@@ -48,7 +54,7 @@ function getRuntime() {
 // space in it is what no sourceURL comment of a page script can spell.
 const EXTJS_INJECTED_SOURCE = '<anonymous code>'
 // The columns of line one the read that takes the base can sit in.
-const EXTJS_TAKE_COLUMNS = 143
+const EXTJS_TAKE_COLUMNS = 227
 
 function publishOnDocument(base) {
   try {
@@ -109,7 +115,7 @@ function publishToInjectedFile(base) {
       try {
         // A page that swapped the getter for a wrapper of its own is not
         // answered through it.
-        const held = Object.getOwnPropertyDescriptor(page, EXTJS_BASE_KEY)
+        const held = Object.getOwnPropertyDescriptor(page, EXTJS_PAGE_BASE_KEY)
         if (!published || !held || held.get !== published) return ''
 
         const source = takingSource(new Error().stack, base)
@@ -128,13 +134,13 @@ function publishToInjectedFile(base) {
       return ''
     }
 
-    Object.defineProperty(page, EXTJS_BASE_KEY, {
+    Object.defineProperty(page, EXTJS_PAGE_BASE_KEY, {
       get: exportFunction(answer, window),
       configurable: true,
       enumerable: false
     })
 
-    const held = Object.getOwnPropertyDescriptor(page, EXTJS_BASE_KEY)
+    const held = Object.getOwnPropertyDescriptor(page, EXTJS_PAGE_BASE_KEY)
     published = held && typeof held.get === 'function' ? held.get : null
 
     return published !== null

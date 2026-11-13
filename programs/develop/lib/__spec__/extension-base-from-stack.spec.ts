@@ -5,9 +5,13 @@ import {
   EXTENSION_BASE_FROM_STACK,
   EXTENSION_BASE_GLOBAL,
   extensionBaseFromFile,
+  extensionBaseGlobal,
   prependBehindTakeBlock,
+  readTakeBlock,
   TAKE_BLOCK_OPEN,
-  TAKEN_EXTENSION_BASE
+  takeBlockOpen,
+  TAKEN_EXTENSION_BASE,
+  unlessExtensionAddress
 } from '../extension-base-from-stack'
 
 const BASE = 'moz-extension://0f0f0f0f-aaaa-bbbb-cccc-121212121212/'
@@ -46,7 +50,7 @@ function patchedPage(extra: Record<string, unknown> = {}) {
 describe('the statement a Gecko MAIN world file opens on', () => {
   it('reads the published name bare, with no call a page could have patched', () => {
     expect(TAKE_BLOCK_OPEN).toBe(
-      `{let ${TAKEN_EXTENSION_BASE}="";try{${TAKEN_EXTENSION_BASE}=${EXTENSION_BASE_GLOBAL}}catch(error){}if(typeof ${TAKEN_EXTENSION_BASE}!=="string")${TAKEN_EXTENSION_BASE}="";`
+      `{let ${TAKEN_EXTENSION_BASE}="";try{${TAKEN_EXTENSION_BASE}=${EXTENSION_BASE_GLOBAL}}catch(error){}if(typeof ${TAKEN_EXTENSION_BASE}!=="string"||${TAKEN_EXTENSION_BASE}<"moz-extension://"||${TAKEN_EXTENSION_BASE}>="moz-extension:/0")${TAKEN_EXTENSION_BASE}="";`
     )
 
     expect(TAKE_BLOCK_OPEN).not.toContain('\n')
@@ -148,5 +152,104 @@ describe('prependBehindTakeBlock', () => {
     }
 
     expect(file).toBe(`${TAKE_BLOCK_OPEN}three();\ntwo();\none();\nbody()\n}`)
+  })
+})
+
+describe('the global one extension publishes its base under', () => {
+  it('is its own for each extension and the same for every build of one', () => {
+    const first = extensionBaseGlobal('a@example.com\nFirst\n')
+    const second = extensionBaseGlobal('b@example.com\nSecond\n')
+
+    expect(first).toMatch(/^__EXTJS_EXTENSION_BASE_[0-9a-f]{8}__$/)
+    expect(second).toMatch(/^__EXTJS_EXTENSION_BASE_[0-9a-f]{8}__$/)
+    expect(first).not.toBe(second)
+    expect(extensionBaseGlobal('a@example.com\nFirst\n')).toBe(first)
+  })
+
+  it('is read by the block a file of that extension opens on, on one line', () => {
+    const global = extensionBaseGlobal('a@example.com\nFirst\n')
+    const open = takeBlockOpen(global)
+
+    expect(open).toContain(`=${global}}catch`)
+    expect(open).not.toContain('\n')
+    expect(open.split('(')).toHaveLength(3)
+    expect(readTakeBlock(`${open}body()\n}`)).toBe(open)
+    expect(readTakeBlock(`${TAKE_BLOCK_OPEN}body()\n}`)).toBe(TAKE_BLOCK_OPEN)
+    expect(readTakeBlock('body()')).toBeNull()
+    expect(
+      readTakeBlock(open.replace(global, '__EXTJS_EXTENSION_BASE_forged__'))
+    ).toBeNull()
+  })
+
+  it('keeps a later prefix behind the read of either name', () => {
+    const open = takeBlockOpen(extensionBaseGlobal('a@example.com\nFirst\n'))
+
+    expect(prependBehindTakeBlock(`${open}body()\n}`, 'relay();\n')).toBe(
+      `${open}relay();\nbody()\n}`
+    )
+  })
+
+  it('hands each of two files on one page the base of its own extension', () => {
+    const first = extensionBaseGlobal('a@example.com\nFirst\n')
+    const second = extensionBaseGlobal('b@example.com\nSecond\n')
+    const other = 'moz-extension://1a1a1a1a-aaaa-bbbb-cccc-343434343434/'
+    const page = vm.createContext({[first]: BASE, [second]: other})
+    const take = (global: string) =>
+      vm.runInContext(
+        `${takeBlockOpen(global)}${TAKEN_EXTENSION_BASE}\n}`,
+        page
+      )
+
+    expect(take(first)).toBe(BASE)
+    expect(take(second)).toBe(other)
+    expect(take(first)).toBe(BASE)
+  })
+})
+
+describe('a value a page put where the base is read', () => {
+  const taken = (value: unknown) =>
+    vm.runInNewContext(`${TAKE_BLOCK_OPEN}${TAKEN_EXTENSION_BASE}\n}`, {
+      [EXTENSION_BASE_GLOBAL]: value
+    })
+
+  it('is taken only when it is an extension address', () => {
+    expect(taken(BASE)).toBe(BASE)
+
+    for (const forged of [
+      'https://evil.example/',
+      'moz-extension:',
+      'moz-extension:/0',
+      'moz-extensions://x/',
+      'Moz-extension://x/',
+      ' moz-extension://x/',
+      '',
+      42,
+      null,
+      {toString: () => BASE}
+    ]) {
+      expect(taken(forged), String(forged)).toBe('')
+    }
+  })
+
+  it('is dropped by a reader of the document copy the same way', () => {
+    const read = (value: unknown) =>
+      vm.runInNewContext(`${unlessExtensionAddress('base')};base`, {
+        base: value
+      })
+
+    expect(read(BASE)).toBe(BASE)
+    expect(read('https://evil.example/')).toBe('')
+    expect(read('chrome-extension://abc/')).toBe('')
+    expect(read(42)).toBe('')
+  })
+
+  it('is compared, never handed to a method the page could have patched', () => {
+    const page = patchedPage({base: BASE})
+
+    expect(
+      vm.runInContext(`${unlessExtensionAddress('base')};base`, page)
+    ).toBe(BASE)
+
+    expect(page.seen).toEqual([])
   })
 })

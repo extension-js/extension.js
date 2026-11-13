@@ -7,7 +7,7 @@ import {afterAll, describe, expect, it} from 'vitest'
 import {CHROMIUM_EXTENSION_ROOT} from '../scripts-lib/injected-sheet-urls'
 import {
   EXTENSION_BASE_GLOBAL,
-  TAKE_BLOCK_OPEN
+  readTakeBlock
 } from '../../../lib/extension-base-from-stack'
 import {getProjectStructure} from '../../../lib/project'
 import webpackConfig from '../../../rspack-config'
@@ -22,7 +22,17 @@ function asChromiumServes(sheet: string): string {
 
 const BASE_ATTRIBUTE = 'data-extjs-extension-base'
 const FIREFOX_BASE = 'moz-extension://0f0f0f0f-aaaa-bbbb-cccc-121212121212/'
-const BASE_GETTER_REMOVAL = `delete window.${EXTENSION_BASE_GLOBAL}`
+// Every extension names its own global, all of them behind this stem.
+const BASE_GETTER_REMOVAL = `delete window.${EXTENSION_BASE_GLOBAL.slice(0, -1)}`
+
+// The global a bundle's opening read names, the shared one when it has none.
+function takenGlobal(bundle: string): string {
+  const named = /__EXTJS_EXTENSION_BASE_[0-9a-f]{8}__/.exec(
+    readTakeBlock(bundle) || ''
+  )
+
+  return named ? named[0] : EXTENSION_BASE_GLOBAL
+}
 
 function scaffold(name: string, files: Record<string, string | Buffer>) {
   const root = fs.realpathSync(
@@ -296,23 +306,38 @@ function firefoxPage(answer: () => string) {
     return value
   }
 
-  Object.defineProperty(world.context, EXTENSION_BASE_GLOBAL, {
-    get: () => {
-      asked++
+  const published = new Set<string>()
 
-      return answer()
-    },
-    configurable: true,
-    enumerable: false
-  })
+  // The bridge of a bundle's own extension published right before it ran.
+  const publish = (global: string) => {
+    if (published.has(global)) return
+
+    published.add(global)
+    Object.defineProperty(world.context, global, {
+      get: () => {
+        asked++
+
+        return answer()
+      },
+      configurable: true,
+      enumerable: false
+    })
+  }
 
   return {
     ...world,
+    run: (source: string, filename?: string) => {
+      publish(takenGlobal(source))
+
+      return world.run(source, filename)
+    },
     handed,
     asked: () => asked,
     publishes: () =>
-      Object.getOwnPropertyDescriptor(world.context, EXTENSION_BASE_GLOBAL) !==
-      undefined
+      [...published].some(
+        (global) =>
+          Object.getOwnPropertyDescriptor(world.context, global) !== undefined
+      )
   }
 }
 
@@ -759,7 +784,7 @@ describe('the extension base a MAIN-world bundle reads off the page', () => {
 
     const bundle = production.read(String(main?.js[0]))
 
-    expect(bundle.startsWith(TAKE_BLOCK_OPEN)).toBe(false)
+    expect(readTakeBlock(bundle)).toBeNull()
     expect(bundle).not.toContain('__extjsTakenBase')
     expect(bundle).not.toContain(BASE_GETTER_REMOVAL)
   }, 180_000)
@@ -812,8 +837,8 @@ describe('the extension base a MAIN-world bundle reads off the page', () => {
     const asset = production.emitted.find((entry) => entry.endsWith('.bin'))
     const bundle = production.read(String(main?.js[0]))
 
-    expect(bundle.startsWith(TAKE_BLOCK_OPEN)).toBe(true)
-    expect(bundle.split(TAKE_BLOCK_OPEN)).toHaveLength(2)
+    expect(readTakeBlock(bundle)).not.toBeNull()
+    expect(bundle.split(String(readTakeBlock(bundle)))).toHaveLength(2)
 
     const world = firefoxPage(() => FIREFOX_BASE)
     world.run(bundle)
@@ -844,7 +869,11 @@ describe('the extension base a MAIN-world bundle reads off the page', () => {
       () => '',
       () => {
         throw new Error('page getter')
-      }
+      },
+      // A page that held the name first answers whatever it likes.
+      () => 'https://evil.example/',
+      () => 'chrome-extension://abcdefghijklmnop/',
+      () => 42 as unknown as string
     ]) {
       const world = firefoxPage(answer)
       world.html.setAttribute(BASE_ATTRIBUTE, FIREFOX_BASE)
@@ -854,6 +883,86 @@ describe('the extension base a MAIN-world bundle reads off the page', () => {
       expect(world.html.hasAttribute(BASE_ATTRIBUTE)).toBe(false)
       expect(world.publishes()).toBe(false)
     }
+
+    // The shared name of earlier builds is a page's to define as well.
+    const held = firefoxPage(() => '')
+    Object.defineProperty(held.context, EXTENSION_BASE_GLOBAL, {
+      get: () => {
+        throw new Error('page getter')
+      }
+    })
+
+    held.html.setAttribute(BASE_ATTRIBUTE, FIREFOX_BASE)
+    held.run(production.read(String(main?.js[0])))
+
+    expect(held.context.__seenAsset).toBe(`${FIREFOX_BASE}${asset}`)
+
+    // A document copy the page rewrote is no base either.
+    const rewritten = firefoxPage(() => 'https://evil.example/')
+    rewritten.html.setAttribute(BASE_ATTRIBUTE, 'https://evil.example/')
+    rewritten.run(production.read(String(main?.js[0])))
+
+    expect(String(rewritten.context.__seenAsset)).not.toContain('evil.example')
+    expect(String(rewritten.context.__seenAsset)).toContain(String(asset))
+  }, 180_000)
+
+  it('names a global of its own for each of two Firefox extensions, in the bridge and the file', async () => {
+    const built = []
+
+    for (const name of ['exposure-first', 'exposure-second']) {
+      const production = await compile(
+        scaffold(name, {
+          ...quietFiles,
+          'manifest.json': JSON.stringify({
+            ...JSON.parse(files['manifest.json']),
+            name
+          })
+        }),
+        'production',
+        'firefox'
+      )
+      expect(production.errors).toEqual([])
+
+      const scripts = production.manifest().content_scripts
+      const main = scripts.find((script) => script.world === 'MAIN')
+      const bridge = scripts.find((script) => script.world !== 'MAIN')
+      const global = takenGlobal(production.read(String(main?.js[0])))
+
+      expect(global).not.toBe(EXTENSION_BASE_GLOBAL)
+      expect(production.read(String(bridge?.js[0]))).toContain(global)
+      expect(production.read(String(main?.js[0]))).toContain(
+        `delete window.${global}`
+      )
+
+      built.push({global, bundle: production.read(String(main?.js[0]))})
+    }
+
+    const [first, second] = built
+    const other = 'moz-extension://1a1a1a1a-aaaa-bbbb-cccc-343434343434/'
+
+    expect(first.global).not.toBe(second.global)
+
+    // Both bridges ran before either file, the order that collided.
+    const world = page({runtime: false})
+    Object.assign(world.context.location as object, {protocol: 'https:'})
+
+    for (const [global, base] of [
+      [first.global, FIREFOX_BASE],
+      [second.global, other]
+    ]) {
+      Object.defineProperty(world.context, global, {
+        get: () => base,
+        configurable: true
+      })
+    }
+
+    world.run(first.bundle)
+    expect(String(world.context.__seenAsset).startsWith(FIREFOX_BASE)).toBe(
+      true
+    )
+
+    world.run(second.bundle)
+    expect(String(world.context.__seenAsset).startsWith(other)).toBe(true)
   }, 180_000)
 
   it('is cleared from <html> in a Chromium development bundle, whose stack names it again', async () => {
@@ -895,8 +1004,8 @@ describe('the extension base a MAIN-world bundle reads off the page', () => {
     expect(bundles.length, development.emitted.join(', ')).toBeGreaterThan(0)
 
     for (const bundle of bundles) {
-      expect(bundle.startsWith(TAKE_BLOCK_OPEN)).toBe(true)
-      expect(bundle.split(TAKE_BLOCK_OPEN)).toHaveLength(2)
+      expect(readTakeBlock(bundle)).not.toBeNull()
+      expect(bundle.split(String(readTakeBlock(bundle)))).toHaveLength(2)
       expect(bundle).toContain(
         'var __EXTENSIONJS_BRIDGE_BASE = typeof __extjsTakenBase === "string" && __extjsTakenBase || '
       )
@@ -1063,8 +1172,8 @@ describe('the extension base two runtime-registered MAIN world files share', () 
     const first = production.read('scripts/first.js')
     const second = production.read('scripts/second.js')
 
-    expect(first.startsWith(TAKE_BLOCK_OPEN)).toBe(true)
-    expect(second.startsWith(TAKE_BLOCK_OPEN)).toBe(true)
+    expect(readTakeBlock(first)).not.toBeNull()
+    expect(readTakeBlock(second)).toBe(readTakeBlock(first))
 
     const world = firefoxPage(() => FIREFOX_BASE)
     world.run(first)
@@ -1104,7 +1213,7 @@ describe('the extension base two runtime-registered MAIN world files share', () 
     }
 
     expect(
-      bundles.filter((bundle) => bundle.startsWith(TAKE_BLOCK_OPEN))
+      bundles.filter((bundle) => readTakeBlock(bundle) !== null)
     ).toHaveLength(1)
   }, 180_000)
 

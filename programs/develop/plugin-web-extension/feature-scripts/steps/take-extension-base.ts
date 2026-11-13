@@ -7,7 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import * as path from 'node:path'
-import {Compilation, type Compiler} from '@rspack/core'
+import {Compilation, type Compiler, DefinePlugin} from '@rspack/core'
 import {prependToEmittedAsset} from '../../../lib/asset-source-maps'
 import {isGeckoBasedBrowser} from '../../../lib/constants'
 import type {DevOptions, FilepathList, PluginInterface} from '../../../types'
@@ -15,6 +15,7 @@ import {getCanonicalContentScriptEntryName} from '../contracts'
 import {findRuntimeMainWorldEntries} from '../scripts-lib/runtime-main-world-scripts'
 import {
   closeTakeBlock,
+  extensionBaseGlobalFor,
   isEntryFile,
   takesExtensionBase
 } from '../scripts-lib/taken-extension-base'
@@ -72,6 +73,15 @@ export class TakeExtensionBase {
     ]
     if (entries.length === 0) return
 
+    // The bridge publishes under the name its files read, one per extension.
+    const global = extensionBaseGlobalFor(this.manifestPath, this.browser)
+
+    if (compiler.hooks.compilation) {
+      new DefinePlugin({
+        __EXTJS_PAGE_BASE_GLOBAL__: JSON.stringify(global)
+      }).apply(compiler)
+    }
+
     compiler.hooks.thisCompilation.tap(
       TakeExtensionBase.name,
       (compilation) => {
@@ -92,7 +102,7 @@ export class TakeExtensionBase {
               const text = asset.source.source().toString()
               if (takesExtensionBase(text)) continue
 
-              const {open, closed} = closeTakeBlock(text)
+              const {open, closed} = closeTakeBlock(text, global)
               // A module file cannot sit in a block, so it stays as built.
               if (!parsesAsScript(`${open}${closed}`)) continue
 
