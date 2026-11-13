@@ -1,5 +1,6 @@
 import {Compilation, sources} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
+import {getContentScriptCssProbeMarker} from '../contracts'
 import {
   SHEET_BLOCK_CLOSE,
   SHEET_BLOCK_OPEN
@@ -137,9 +138,16 @@ describe('the step that hands a scripts/ file the sheet of its CSS modules', () 
     expect(built.text('content_scripts/content-0.js')).toBe(BODY)
   })
 
-  it('keeps the file when another script of the build names it', () => {
-    const background =
+  it.each([
+    [
+      'insertCSS',
       'chrome.scripting.insertCSS({target: {tabId: 1}, files: ["scripts/hook.css"]})'
+    ],
+    [
+      'a registration css entry',
+      'chrome.scripting.registerContentScripts([{id: "hook", js: ["/scripts/hook.js"], css: ["/scripts/hook.css"]}])'
+    ]
+  ])('keeps the file and places no second copy when the author applies it with %s', (_route, background) => {
     const built = emit({
       'background/service_worker.js': background,
       'scripts/hook.js': BODY,
@@ -147,9 +155,44 @@ describe('the step that hands a scripts/ file the sheet of its CSS modules', () 
     })
 
     expect(built.text('scripts/hook.css')).toBe(SHEET)
+    expect(built.text('scripts/hook.js')).toBe(BODY)
+  })
+
+  it('keeps the file for a script that fetches its own sheet', () => {
+    const body = `fetch(chrome.runtime.getURL("scripts/hook.css"));${BODY}`
+    const built = emit({'scripts/hook.js': body, 'scripts/hook.css': SHEET})
+
+    expect(built.text('scripts/hook.css')).toBe(SHEET)
+    expect(built.text('scripts/hook.js')).toBe(body)
+  })
+
+  it('does not read the marker the build left in the bundle as the author naming the file', () => {
+    const body = `var probe="${getContentScriptCssProbeMarker('scripts/hook')}";${BODY}`
+    const built = emit({'scripts/hook.js': body, 'scripts/hook.css': SHEET})
+
+    expect(built.names()).toEqual(['scripts/hook.js'])
     expect(
       String(built.text('scripts/hook.js')).startsWith(SHEET_BLOCK_OPEN)
     ).toBe(true)
+  })
+
+  it('takes the sheet back out of a file once a later build names it', () => {
+    const built = emit(
+      {'scripts/hook.js': BODY, 'scripts/hook.css': SHEET},
+      {
+        runs: 2,
+        between: (store) => {
+          store.set('scripts/hook.css', new sources.RawSource(SHEET))
+          store.set(
+            'background/service_worker.js',
+            new sources.RawSource('insertCSS({files: ["scripts/hook.css"]})')
+          )
+        }
+      }
+    )
+
+    expect(built.text('scripts/hook.js')).toBe(BODY)
+    expect(built.text('scripts/hook.css')).toBe(SHEET)
   })
 
   it('reads the sheet after the minifier and ahead of every step that lists what the build emitted', () => {

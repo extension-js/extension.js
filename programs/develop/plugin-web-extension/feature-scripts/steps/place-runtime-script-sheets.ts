@@ -11,6 +11,7 @@ import {prependToEmittedAsset} from '../../../lib/asset-source-maps'
 import {isGeckoBasedBrowser} from '../../../lib/constants'
 import type {DevOptions, FilepathList, PluginInterface} from '../../../types'
 import {
+  namesSheet,
   runtimeScriptSheetBlock,
   runtimeScriptSheetName,
   withoutSheetBlock
@@ -74,20 +75,24 @@ export class PlaceRuntimeScriptSheets {
               const css = sheet.source.source().toString()
               const built = withoutSheetBlock(script.source.source().toString())
 
+              // An author who names the file places the sheet, with a call
+              // or a fetch, so the script must not place a second copy.
+              const named =
+                namesSheet(built, sheetName) ||
+                scripts.some(
+                  (asset) =>
+                    asset.name !== script.name &&
+                    asset.source.source().toString().includes(sheetName)
+                )
+
               prependToEmittedAsset(
                 compilation,
                 {name: script.name, source: {source: () => built}},
-                css.trim()
+                css.trim() && !named
                   ? runtimeScriptSheetBlock({css, entryName, devSalt, gecko})
                   : ''
               )
 
-              // A call that names the file itself still finds it there.
-              const named = scripts.some(
-                (asset) =>
-                  asset.name !== script.name &&
-                  asset.source.source().toString().includes(sheetName)
-              )
               if (named) continue
 
               compilation.deleteAsset(sheetName)
