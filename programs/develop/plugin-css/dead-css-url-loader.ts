@@ -23,6 +23,7 @@ import {
   toRuntimeStylesheetModule
 } from './css-lib/inline-content-script-css'
 import * as messages from './css-lib/messages'
+import {isSfcStyleBlockQuery} from './css-lib/sfc-style-block'
 
 interface CompilationLike {
   warnings?: Error[]
@@ -34,8 +35,9 @@ export interface DeadCssUrlLoaderOptions {
   projectPath?: string
 }
 
-interface DeadCssUrlLoaderContext {
+export interface DeadCssUrlLoaderContext {
   resourcePath: string
+  resourceQuery?: string
   getOptions(): DeadCssUrlLoaderOptions
   emitWarning(warning: Error): void
   emitError(error: Error): void
@@ -122,13 +124,15 @@ function resolveTargets(
   return {css, bundledRequests}
 }
 
-export default function deadCssUrlLoader(
-  this: DeadCssUrlLoaderContext,
+// Reports the sheet's dead url() targets and names the live ones the way
+// the runtime stylesheet module reads them back.
+export function inlineStylesheetUrls(
+  loader: DeadCssUrlLoaderContext,
   source: string
-): string {
+): {css: string; bundledRequests: string[]} {
   let css = source
   let bundledRequests: string[] = []
-  const options = this.getOptions() || {}
+  const options = loader.getOptions() || {}
 
   try {
     const {manifestPath, projectPath} = options
@@ -141,9 +145,9 @@ export default function deadCssUrlLoader(
       const publicRoot = canonicalizeDir(
         publicContainmentRoot(manifestPath, projectPath)
       )
-      reportDeadRefs(this, source, manifestDir, publicRoot)
+      reportDeadRefs(loader, source, manifestDir, publicRoot)
       ;({css, bundledRequests} = resolveTargets(
-        this,
+        loader,
         source,
         manifestDir,
         publicRoot,
@@ -153,6 +157,19 @@ export default function deadCssUrlLoader(
   } catch {
     // A reference check must never break a build the browser would accept.
   }
+
+  return {css, bundledRequests}
+}
+
+export default function deadCssUrlLoader(
+  this: DeadCssUrlLoaderContext,
+  source: string
+): string {
+  // A component's style block is still CSS for the loaders after this one.
+  // Its own loader turns it into a module once the framework is done with it.
+  if (isSfcStyleBlockQuery(this.resourceQuery)) return source
+
+  const {css, bundledRequests} = inlineStylesheetUrls(this, source)
 
   return toRuntimeStylesheetModule(css, bundledRequests)
 }

@@ -7,6 +7,7 @@ import {
   bundledFileToken,
   EXTENSION_ROOT_PLACEHOLDER,
   rewriteInlinedCssUrls,
+  SFC_STYLE_ATTRIBUTE,
   toRuntimeStylesheetModule
 } from '../css-lib/inline-content-script-css'
 
@@ -370,5 +371,79 @@ describe('toRuntimeStylesheetModule', () => {
     expect(code).not.toMatch(/(^|[^.\w$])chrome\b/)
     expect(code).toContain('globalThis.browser')
     expect(code).toContain('globalThis.chrome')
+  })
+})
+
+describe('toRuntimeStylesheetModule with a style id', () => {
+  function fakeDocument() {
+    const elements: Array<{
+      attributes: Record<string, string>
+      textContent: string
+      setAttribute(name: string, value: string): void
+    }> = []
+    const head = {
+      appendChild(element: (typeof elements)[number]) {
+        elements.push(element)
+      }
+    }
+
+    return {
+      elements,
+      document: {
+        head,
+        documentElement: head,
+        createElement: () => ({
+          attributes: {} as Record<string, string>,
+          textContent: '',
+          setAttribute(name: string, value: string) {
+            this.attributes[name] = value
+          }
+        }),
+        querySelector: (selector: string) =>
+          elements.find(
+            (element) =>
+              selector ===
+              `style[${SFC_STYLE_ATTRIBUTE}="${element.attributes[SFC_STYLE_ATTRIBUTE]}"]`
+          ) || null
+      }
+    }
+  }
+
+  const css = `.a { background: url("${EXTENSION_ROOT_PLACEHOLDER}img/bg.png"); }`
+  const chrome = {runtime: {getURL: () => 'chrome-extension://abc/'}}
+
+  it('adds one <style> element holding the sheet and exports its text', () => {
+    const {document, elements} = fakeDocument()
+    const exported = evaluateModule(
+      toRuntimeStylesheetModule(css, [], 'block-a'),
+      {document, chrome}
+    )
+
+    const text = '.a { background: url("chrome-extension://abc/img/bg.png"); }'
+    expect(exported).toBe(text)
+    expect(elements).toHaveLength(1)
+    expect(elements[0].attributes[SFC_STYLE_ATTRIBUTE]).toBe('block-a')
+    expect(elements[0].textContent).toBe(text)
+  })
+
+  it('rewrites the element it added before, and keeps another block apart', () => {
+    const {document, elements} = fakeDocument()
+    const run = (sheet: string, id: string) =>
+      evaluateModule(toRuntimeStylesheetModule(sheet, [], id), {document})
+
+    run('.a { color: red; }', 'block-a')
+    run('.b { color: blue; }', 'block-b')
+    run('.a { color: green; }', 'block-a')
+
+    expect(elements.map((element) => element.textContent)).toEqual([
+      '.a { color: green; }',
+      '.b { color: blue; }'
+    ])
+  })
+
+  it('still evaluates where there is no document', () => {
+    expect(
+      evaluateModule(toRuntimeStylesheetModule('.a{}', [], 'block-a'), {})
+    ).toBe('.a{}')
   })
 })
