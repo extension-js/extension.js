@@ -5,7 +5,9 @@ import {
   EXTENSION_ROOT_PLACEHOLDER,
   SFC_STYLE_ATTRIBUTE
 } from '../../../../plugin-css/css-lib/inline-content-script-css'
+import {getContentScriptCssProbeMarker} from '../../contracts'
 import {
+  namesSheet,
   rootedSheet,
   runtimeScriptSheetBlock,
   runtimeScriptSheetName,
@@ -239,5 +241,41 @@ describe('the sheet a scripts/ file carries', () => {
     )
 
     expect(withoutSheetBlock(body)).toBe(body)
+  })
+})
+
+describe('a script that names the sheet beside it', () => {
+  it('counts a call or a fetch the author wrote', () => {
+    expect(
+      namesSheet(
+        'insertCSS({files: ["/scripts/hook.css"]})',
+        'scripts/hook.css'
+      )
+    ).toBe(true)
+
+    expect(
+      namesSheet('fetch(getURL("scripts/hook.css"))', 'scripts/hook.css')
+    ).toBe(true)
+  })
+
+  it('does not count the marker the wrapper bakes into every bundle', () => {
+    const marker = getContentScriptCssProbeMarker('scripts/hook')
+
+    expect(marker).toContain('scripts/hook.css')
+    expect(namesSheet(`var probe="${marker}";`, 'scripts/hook.css')).toBe(false)
+    expect(
+      namesSheet(
+        `var probe="${marker}";fetch("scripts/hook.css")`,
+        'scripts/hook.css'
+      )
+    ).toBe(true)
+  })
+
+  it('does not count another script or a script with no sheet', () => {
+    expect(namesSheet('fetch("scripts/other.css")', 'scripts/hook.css')).toBe(
+      false
+    )
+
+    expect(namesSheet('(()=>{})();', 'scripts/hook.css')).toBe(false)
   })
 })

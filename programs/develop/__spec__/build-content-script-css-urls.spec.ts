@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {CHROMIUM_EXTENSION_ROOT} from '../plugin-web-extension/feature-scripts/scripts-lib/injected-sheet-urls'
 
 // The raw tmpdir on purpose: on macOS it is a symlink, and the content-script
 // issuer index must match the sheet to its script through it.
@@ -350,8 +351,13 @@ describe('build: url() in a content-script stylesheet resolves to the extension 
     expect(fonts).toHaveLength(1)
     expect(chunk.css).not.toContain('__EXTENSIONJS_EXTENSION_ROOT__')
     expect(chunk.css).not.toMatch(/url\(\s*["']?\.{1,2}\//)
-    expect(chunk.css.split(`url(/${fonts[0]})`)).toHaveLength(3)
-    expect(chunk.css).toContain(`url(/${image})`)
+    const targets = chunk.css.replace(/"/g, '')
+
+    expect(
+      targets.split(`url(${CHROMIUM_EXTENSION_ROOT}${fonts[0]})`)
+    ).toHaveLength(3)
+
+    expect(targets).toContain(`url(${CHROMIUM_EXTENSION_ROOT}${image})`)
     expect(chunk.css).toContain('data:image/gif;base64,R0lGOD')
     expect(chunk.css).toContain('https://cdn.example/x.png')
     expect(chunk.css).toContain('url(#gradient)')

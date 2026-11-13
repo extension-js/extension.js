@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {CHROMIUM_EXTENSION_ROOT} from '../plugin-web-extension/feature-scripts/scripts-lib/injected-sheet-urls'
 
 const roots: string[] = []
 
@@ -164,7 +165,10 @@ describe('build: a stylesheet names a public-owned file once, whatever the spell
         )
 
         expect(pageCss).toMatch(rootUrl)
-        expect(declaredCss).toMatch(rootUrl)
+        expect(declaredCss.replace(/["']/g, '')).toContain(
+          `url(${CHROMIUM_EXTENSION_ROOT}images/x.png)`
+        )
+
         expect(contentJs).toContain(
           '__EXTENSIONJS_EXTENSION_ROOT__/images/x.png'
         )

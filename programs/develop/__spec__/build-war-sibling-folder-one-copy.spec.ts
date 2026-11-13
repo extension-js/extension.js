@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {CHROMIUM_EXTENSION_ROOT} from '../plugin-web-extension/feature-scripts/scripts-lib/injected-sheet-urls'
 
 const SUITE_ROOT = fs.mkdtempSync(
   path.join(os.tmpdir(), 'extjs-build-war-sibling-folder-')
@@ -134,7 +135,7 @@ describe('build: a web_accessible_resources file in a folder beside a src manife
     const sheet = fs
       .readFileSync(path.join(distDir, 'content_scripts/content-0.css'), 'utf8')
       .replace(/"/g, '')
-    expect(sheet).toContain(`url(/${images[0]})`)
+    expect(sheet).toContain(`url(${CHROMIUM_EXTENSION_ROOT}${images[0]})`)
 
     expect(declaredPngs(distDir)).toEqual([images[0]])
   }, 120_000)

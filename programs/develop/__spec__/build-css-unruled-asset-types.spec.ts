@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {CHROMIUM_EXTENSION_ROOT} from '../plugin-web-extension/feature-scripts/scripts-lib/injected-sheet-urls'
 
 const SUITE_ROOT = fs.mkdtempSync(
   path.join(os.tmpdir(), 'extjs-build-css-unruled-types-')
@@ -166,11 +167,11 @@ describe('a file type with no asset rule that a stylesheet names', () => {
         fs.readFileSync(path.join(distDir, file), 'utf8').replace(/"/g, '')
 
       expect(read('content_scripts/content-0.css')).toContain(
-        `url(/${cursor[0]})`
+        `url(${CHROMIUM_EXTENSION_ROOT}${cursor[0]})`
       )
 
       expect(read('content_scripts/content-0.css')).toContain(
-        `url(/${clip[0]})`
+        `url(${CHROMIUM_EXTENSION_ROOT}${clip[0]})`
       )
 
       expect(read('action/index.css')).toContain(`url(/${cursor[0]})`)

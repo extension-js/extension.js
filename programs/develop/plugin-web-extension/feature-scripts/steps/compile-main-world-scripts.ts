@@ -120,6 +120,32 @@ function withMainWorldBundle(rules: LooseRules): LooseRules {
   })
 }
 
+// The name the bundler gives a CSS module class in a development build.
+const DEV_CLASS_NAME = '[uniqueName]-[id]-[local]'
+
+type LooseGenerator = Record<string, Record<string, unknown>> | undefined
+
+// A dev class name carries its module's id, and each child numbers its own
+// modules, so two bundles could hand one name to two different classes.
+export function withOwnClassNames(
+  generator: LooseGenerator,
+  entryName: string
+): NonNullable<LooseGenerator> {
+  const own = `[uniqueName]-${entryName.replace(/[^A-Za-z0-9_-]/g, '-')}-[id]-[local]`
+  const named = {...generator}
+
+  for (const type of ['css/auto', 'css/module']) {
+    const configured = named[type]?.localIdentName
+
+    // Any other name is one the author configured, theirs to keep unique.
+    if (configured && configured !== DEV_CLASS_NAME) continue
+
+    named[type] = {...named[type], localIdentName: own}
+  }
+
+  return named
+}
+
 // In dev the bundler's HMR runtime rides every entry chunk, and a MAIN world
 // script runs on the page itself, so the hot update callback landed on the
 // host window. These groups compile in a child compilation instead: same
@@ -224,6 +250,10 @@ async function compileGroup(
   )
 
   child.options.entry = {}
+
+  // A child writes its own files as it compiles, ahead of the steps that
+  // drop some of them. The parent writes every file that is left.
+  child.hooks.shouldEmit.tap(CompileMainWorldScripts.name, () => false)
   child.options.optimization = {
     ...child.options.optimization,
     splitChunks: false,
@@ -232,6 +262,10 @@ async function compileGroup(
 
   child.options.module = {
     ...child.options.module,
+    generator: withOwnClassNames(
+      child.options.module.generator as LooseGenerator,
+      group.entryName
+    ) as typeof child.options.module.generator,
     // The browser loads the bundle as one file into the page, so a relative
     // import() is inlined rather than fetched from a chunk the page cannot see.
     parser: withEagerDynamicImports(
