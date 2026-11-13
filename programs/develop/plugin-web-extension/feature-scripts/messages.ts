@@ -410,6 +410,45 @@ export function pageRelativeScriptPath(
   return lines.join('\n')
 }
 
+// A dev session picks the world of each scripts/ file once, as it starts.
+// registeredBy is the source that now registers it, absent once none does.
+export function mainWorldRegistrationChanged(
+  scriptPath: string,
+  registeredBy?: string
+) {
+  const lines: string[] = []
+
+  if (registeredBy) {
+    lines.push(
+      `${registeredBy} now registers ${scriptPath} into the MAIN world, but this dev session started before that call was there.`
+    )
+  } else {
+    lines.push(
+      `Nothing registers ${scriptPath} into the MAIN world anymore, but this dev session started while a call did.`
+    )
+  }
+
+  lines.push(`${colors.gray('FILE')} ${colors.underline(scriptPath)}`)
+
+  if (registeredBy) {
+    lines.push(
+      `${colors.gray('REGISTERED BY')} ${colors.underline(registeredBy)}`
+    )
+
+    lines.push(
+      `The session keeps building the file as a content script, so the page it runs on receives the dev reload runtime and the content script wrapper.`
+    )
+  } else {
+    lines.push(
+      `The session keeps building the file for the page, without the content script wrapper and its reload on change.`
+    )
+  }
+
+  lines.push(`Restart the dev server to build it for the world it runs in.`)
+
+  return lines.join('\n')
+}
+
 export function contentScriptWithoutDefaultExport(file: string) {
   return (
     `${prefix('warn')} ${colors.yellow(file)} has no default export, so each re-inject in this dev session runs it again and the copy before it keeps running.\n` +

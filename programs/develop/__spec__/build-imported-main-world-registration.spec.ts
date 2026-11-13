@@ -154,6 +154,88 @@ describe('a MAIN world registration the entry does not hold inline', () => {
   }, 180_000)
 })
 
+describe('a MAIN world registration the build resolves its way to', () => {
+  it('chrome: follows a resolve.alias of extension.config.js', async () => {
+    const built = await build(
+      project({
+        'extension.config.mjs':
+          'import path from "node:path"\n' +
+          'import {fileURLToPath} from "node:url"\n' +
+          'const here = path.dirname(fileURLToPath(import.meta.url))\n' +
+          'export default {config: {resolve: {alias: {"@reg": path.join(here, "src/reg")}}}}\n',
+        'background.js': 'import {start} from "@reg/register"\nstart()\n',
+        'src/reg/register.js': `${API}export function start() {\n  return api.scripting.registerContentScripts([${REGISTRATION('scripts/hook.js')}])\n}\n`
+      }),
+      'chrome'
+    )
+
+    expect(built.read('scripts/hook.js')).toContain('__PAGE_HOOK__')
+    expect(built.read('scripts/hook.js')).not.toContain(CLEANUP)
+  }, 180_000)
+
+  it('firefox: follows a workspace package linked under node_modules', async () => {
+    const workspace = project({
+      'package.json': JSON.stringify({private: true, name: 'linked-reg-root'}),
+      'pnpm-workspace.yaml': 'packages:\n  - apps/*\n  - packages/*\n',
+      'packages/shared/package.json': JSON.stringify({
+        name: '@linked/shared',
+        version: '0.0.0',
+        main: 'index.js'
+      }),
+      'packages/shared/index.js': `${API}export function start() {\n  return api.scripting.registerContentScripts([${REGISTRATION('scripts/hook.js')}])\n}\n`
+    })
+    const root = path.join(workspace, 'apps/ext')
+
+    fs.mkdirSync(root, {recursive: true})
+
+    for (const name of ['manifest.json', 'scripts', 'media', 'options']) {
+      fs.renameSync(path.join(workspace, name), path.join(root, name))
+    }
+
+    fs.writeFileSync(
+      path.join(root, 'package.json'),
+      JSON.stringify({
+        private: true,
+        name: 'linked-reg',
+        version: '0.0.0',
+        dependencies: {'@linked/shared': 'workspace:*'}
+      })
+    )
+
+    fs.writeFileSync(
+      path.join(root, 'background.js'),
+      'import {start} from "@linked/shared"\nstart()\n'
+    )
+
+    fs.mkdirSync(path.join(root, 'node_modules/@linked'), {recursive: true})
+    fs.symlinkSync(
+      path.join(workspace, 'packages/shared'),
+      path.join(root, 'node_modules/@linked/shared'),
+      'dir'
+    )
+
+    const built = await build(root, 'firefox')
+
+    expect(built.read('scripts/hook.js')).not.toContain(CLEANUP)
+    expect(built.has(BRIDGE)).toBe(true)
+    expect(built.read('background/scripts.js')).toContain(PAIRING_MARK)
+  }, 180_000)
+
+  it('firefox: reads a registration list another file exports', async () => {
+    const built = await build(
+      project({
+        'background.js': `${API}import {HOOKS} from "./hooks"\napi.scripting.registerContentScripts(HOOKS)\n`,
+        'hooks.js': `export const HOOKS = [${REGISTRATION('scripts/hook.js')}]\n`
+      }),
+      'firefox'
+    )
+
+    expect(built.read('scripts/hook.js')).not.toContain(CLEANUP)
+    expect(built.has(BRIDGE)).toBe(true)
+    expect(built.read('background/scripts.js')).toContain(PAIRING_MARK)
+  }, 180_000)
+})
+
 describe('a scripts/ path a page names without a leading slash', () => {
   const files = {
     'options/options.js': `${API}api.scripting.registerContentScripts([${REGISTRATION('scripts/hook.js')}])\n`
