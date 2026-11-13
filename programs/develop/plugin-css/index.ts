@@ -72,10 +72,16 @@ export class CssPlugin {
     await maybeUseLess(projectPath)
 
     const loaders: RuleSetRule[] = [
-      ...(await cssInContentScriptLoader(projectPath, manifestPath, mode, {
-        useSass: usingSass,
-        useLess: usingLess
-      })),
+      ...(await cssInContentScriptLoader(
+        projectPath,
+        manifestPath,
+        mode,
+        {
+          useSass: usingSass,
+          useLess: usingLess
+        },
+        this.browser
+      )),
       ...(await cssInHtmlLoader(projectPath, mode, manifestPath, {
         useSass: usingSass,
         useLess: usingLess

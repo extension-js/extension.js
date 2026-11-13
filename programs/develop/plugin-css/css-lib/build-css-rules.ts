@@ -53,6 +53,9 @@ interface BuildCssRulesOptions {
   // graph. The sheet then leaves the loader chain as a JavaScript module that
   // resolves its url() targets at runtime, and its rule type follows.
   manifestPath?: string
+  // A Gecko MAIN world file opens on the read that takes the extension base,
+  // and its inlined sheet resolves the extension root from that copy.
+  gecko?: boolean
 }
 
 export async function buildCssRules(
@@ -62,7 +65,7 @@ export async function buildCssRules(
   opts: BuildCssRulesOptions
 ): Promise<RuleSetRule[]> {
   const {useSass = true, useLess = true} = usage
-  const {nonModuleType, issuer, issuerLayer, manifestPath} = opts
+  const {nonModuleType, issuer, issuerLayer, manifestPath, gecko} = opts
 
   const fileTypes: Array<{
     test: RegExp
@@ -200,7 +203,8 @@ export async function buildCssRules(
       if (type === 'asset/inline' && manifestPath) {
         ;(use as Array<Record<string, unknown>>).unshift({
           loader: resolveDevelopDistFile('dead-css-url-loader'),
-          options: {manifestPath, projectPath}
+          // The key is left out elsewhere so those builds keep their bytes.
+          options: {manifestPath, projectPath, ...(gecko ? {gecko} : {})}
         })
 
         ruleType = 'javascript/auto'

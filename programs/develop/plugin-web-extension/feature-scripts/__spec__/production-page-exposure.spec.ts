@@ -4,12 +4,18 @@ import * as path from 'node:path'
 import vm from 'node:vm'
 import {rspack, type Stats} from '@rspack/core'
 import {afterAll, describe, expect, it} from 'vitest'
+import {
+  EXTENSION_BASE_GLOBAL,
+  TAKE_BLOCK_OPEN
+} from '../../../lib/extension-base-from-stack'
 import {getProjectStructure} from '../../../lib/project'
 import webpackConfig from '../../../rspack-config'
 
 const roots: string[] = []
 const EXTENSION_BASE = 'chrome-extension://abcdefghijklmnop/'
 const BASE_ATTRIBUTE = 'data-extjs-extension-base'
+const FIREFOX_BASE = 'moz-extension://0f0f0f0f-aaaa-bbbb-cccc-121212121212/'
+const BASE_GETTER_REMOVAL = `delete window.${EXTENSION_BASE_GLOBAL}`
 
 function scaffold(name: string, files: Record<string, string | Buffer>) {
   const root = fs.realpathSync(
@@ -235,6 +241,71 @@ function page(options: {runtime: boolean; sheet?: string}) {
         await new Promise((resolve) => setImmediate(resolve))
       }
     }
+  }
+}
+
+// A Firefox page whose script patched every builtin a bundle could hand
+// the base to, with the bridge's getter standing on its window.
+function firefoxPage(answer: () => string) {
+  const world = page({runtime: false})
+  const handed: string[] = []
+  let asked = 0
+
+  Object.assign(world.context.location as object, {protocol: 'https:'})
+  world.context.__handed = handed
+  world.run(
+    `(function () {
+      var starts = String.prototype.indexOf
+      var note = function (value) {
+        if (typeof value === "string" && starts.call(value, "moz-extension:") === 0) __handed.push(value)
+      }
+      var wrap = function (owner, name) {
+        var original = owner[name]
+        owner[name] = function () {
+          note(this)
+          for (var i = 0; i < arguments.length; i++) note(arguments[i])
+          return original.apply(this, arguments)
+        }
+      }
+      wrap(String.prototype, "replace")
+      wrap(String.prototype, "charAt")
+      wrap(String.prototype, "match")
+      wrap(String.prototype, "slice")
+      wrap(String.prototype, "indexOf")
+      wrap(RegExp.prototype, "exec")
+      wrap(RegExp.prototype, "test")
+      var NativeString = String
+      String = function (value) { note(value); return NativeString(value) }
+      String.prototype = NativeString.prototype
+    })()`
+  )
+
+  const attribute = world.html.getAttribute
+
+  world.html.getAttribute = (name) => {
+    const value = attribute(name)
+    if (value) handed.push(value)
+
+    return value
+  }
+
+  Object.defineProperty(world.context, EXTENSION_BASE_GLOBAL, {
+    get: () => {
+      asked++
+
+      return answer()
+    },
+    configurable: true,
+    enumerable: false
+  })
+
+  return {
+    ...world,
+    handed,
+    asked: () => asked,
+    publishes: () =>
+      Object.getOwnPropertyDescriptor(world.context, EXTENSION_BASE_GLOBAL) !==
+      undefined
   }
 }
 
@@ -633,6 +704,16 @@ describe('the extension base a MAIN-world bundle reads off the page', () => {
       'export {}\n'
   }
 
+  // A script that hands its URLs to no builtin, so every call seen is ours.
+  const quietFiles = {
+    ...files,
+    'content/main.ts':
+      'import blobUrl from "./blob.bin?url"\n' +
+      'globalThis.__seenAsset = blobUrl\n' +
+      'globalThis.__seenLater = new URL("later.png", import.meta.url).href\n' +
+      'export {}\n'
+  }
+
   it('is taken at boot and cleared from <html> in a production bundle', async () => {
     const production = await compile(scaffold('main', files), 'production')
     expect(production.errors).toEqual([])
@@ -656,6 +737,12 @@ describe('the extension base a MAIN-world bundle reads off the page', () => {
 
     // A Chromium bundle finds the base on its own, so no bridge ships
     expect(scripts, JSON.stringify(scripts)).toHaveLength(1)
+
+    const bundle = production.read(String(main?.js[0]))
+
+    expect(bundle.startsWith(TAKE_BLOCK_OPEN)).toBe(false)
+    expect(bundle).not.toContain('__extjsTakenBase')
+    expect(bundle).not.toContain(BASE_GETTER_REMOVAL)
   }, 180_000)
 
   it('reads the base off its own script URL in a Chromium production bundle, with nothing on <html>', async () => {
@@ -692,6 +779,64 @@ describe('the extension base a MAIN-world bundle reads off the page', () => {
     expect(production.emitted).toContain(String(bridge?.js[0]))
   }, 180_000)
 
+  it('is taken from the getter in a Firefox production bundle, which hands the page nothing and removes it', async () => {
+    const production = await compile(
+      scaffold('main-firefox-getter', quietFiles),
+      'production',
+      'firefox'
+    )
+    expect(production.errors).toEqual([])
+
+    const main = production
+      .manifest()
+      .content_scripts.find((script) => script.world === 'MAIN')
+    const asset = production.emitted.find((entry) => entry.endsWith('.bin'))
+    const bundle = production.read(String(main?.js[0]))
+
+    expect(bundle.startsWith(TAKE_BLOCK_OPEN)).toBe(true)
+    expect(bundle.split(TAKE_BLOCK_OPEN)).toHaveLength(2)
+
+    const world = firefoxPage(() => FIREFOX_BASE)
+    world.run(bundle)
+
+    // The getter is gone before the page gets its next turn.
+    expect(world.publishes()).toBe(false)
+    expect(world.asked()).toBe(1)
+    expect(world.context.__seenAsset).toBe(`${FIREFOX_BASE}${asset}`)
+    expect(world.context.__seenLater).toBe(`${FIREFOX_BASE}later.png`)
+    expect(world.handed).toEqual([])
+    expect(world.html.hasAttribute(BASE_ATTRIBUTE)).toBe(false)
+  }, 180_000)
+
+  it('falls back to <html> in a Firefox production bundle the getter answers nothing, and clears both', async () => {
+    const production = await compile(
+      scaffold('main-firefox-fallback', quietFiles),
+      'production',
+      'firefox'
+    )
+    expect(production.errors).toEqual([])
+
+    const main = production
+      .manifest()
+      .content_scripts.find((script) => script.world === 'MAIN')
+    const asset = production.emitted.find((entry) => entry.endsWith('.bin'))
+
+    for (const answer of [
+      () => '',
+      () => {
+        throw new Error('page getter')
+      }
+    ]) {
+      const world = firefoxPage(answer)
+      world.html.setAttribute(BASE_ATTRIBUTE, FIREFOX_BASE)
+      world.run(production.read(String(main?.js[0])))
+
+      expect(world.context.__seenAsset).toBe(`${FIREFOX_BASE}${asset}`)
+      expect(world.html.hasAttribute(BASE_ATTRIBUTE)).toBe(false)
+      expect(world.publishes()).toBe(false)
+    }
+  }, 180_000)
+
   it('is cleared from <html> in a Chromium development bundle, whose stack names it again', async () => {
     const development = await compile(
       scaffold('main-dev', files),
@@ -710,10 +855,12 @@ describe('the extension base a MAIN-world bundle reads off the page', () => {
     for (const bundle of bundles) {
       expect(bundle).toContain('__EXTENSIONJS_BRIDGE_BASE')
       expect(bundle).toContain(`removeAttribute("${BASE_ATTRIBUTE}")`)
+      expect(bundle).not.toContain('__extjsTakenBase')
+      expect(bundle).not.toContain(BASE_GETTER_REMOVAL)
     }
   }, 180_000)
 
-  it('stays on <html> in a Firefox development bundle, where the reload runtime reads it later', async () => {
+  it('is taken from the getter in a Firefox development bundle, which leaves it for the reload runtime', async () => {
     const development = await compile(
       scaffold('main-dev-firefox', files),
       'development',
@@ -729,15 +876,21 @@ describe('the extension base a MAIN-world bundle reads off the page', () => {
     expect(bundles.length, development.emitted.join(', ')).toBeGreaterThan(0)
 
     for (const bundle of bundles) {
+      expect(bundle.startsWith(TAKE_BLOCK_OPEN)).toBe(true)
+      expect(bundle.split(TAKE_BLOCK_OPEN)).toHaveLength(2)
+      expect(bundle).toContain(
+        'var __EXTENSIONJS_BRIDGE_BASE = typeof __extjsTakenBase === "string" && __extjsTakenBase || '
+      )
+
+      // The attribute is the fallback a dev bundle still reads, never clears.
       expect(bundle).toContain(BASE_ATTRIBUTE)
       expect(bundle).not.toContain('removeAttribute')
-      expect(bundle).not.toContain('__EXTENSIONJS_BRIDGE_BASE')
+      expect(bundle).not.toContain(BASE_GETTER_REMOVAL)
     }
   }, 180_000)
 })
 
 describe('the extension base two runtime-registered MAIN world files share', () => {
-  const FIREFOX_BASE = 'moz-extension://0f0f0f0f-aaaa-bbbb-cccc-121212121212/'
   const files = {
     'manifest.json': JSON.stringify({
       manifest_version: 3,
@@ -812,6 +965,46 @@ describe('the extension base two runtime-registered MAIN world files share', () 
     expect(askedUrls[0].endsWith('.js')).toBe(true)
   }, 180_000)
 
+  it('is taken from the getter by both files in a Firefox production build, and the getter goes once they have run', async () => {
+    const production = await compile(
+      scaffold('runtime-main-getter', {
+        ...files,
+        'scripts/first.js':
+          'import blobUrl from "../media/first.bin?url"\n' +
+          'globalThis.__firstAsset = blobUrl\n',
+        'scripts/second.js':
+          'import blobUrl from "../media/second.bin?url"\n' +
+          'globalThis.__secondAsset = blobUrl\n'
+      }),
+      'production',
+      'firefox'
+    )
+    expect(production.errors).toEqual([])
+
+    const assets = production.emitted.filter((entry) => entry.endsWith('.bin'))
+    const first = production.read('scripts/first.js')
+    const second = production.read('scripts/second.js')
+
+    expect(first.startsWith(TAKE_BLOCK_OPEN)).toBe(true)
+    expect(second.startsWith(TAKE_BLOCK_OPEN)).toBe(true)
+
+    const world = firefoxPage(() => FIREFOX_BASE)
+    world.run(first)
+    world.run(second)
+
+    expect(world.asked()).toBe(2)
+    expect(
+      [world.context.__firstAsset, world.context.__secondAsset].sort()
+    ).toEqual(assets.map((asset) => `${FIREFOX_BASE}${asset}`).sort())
+
+    expect(world.handed).toEqual([])
+
+    await world.settle(1)
+
+    expect(world.publishes()).toBe(false)
+    expect(world.html.hasAttribute(BASE_ATTRIBUTE)).toBe(false)
+  }, 180_000)
+
   it('stays on <html> in a Firefox development build, as it does for a declared group', async () => {
     const development = await compile(
       scaffold('runtime-main-dev', files),
@@ -829,7 +1022,12 @@ describe('the extension base two runtime-registered MAIN world files share', () 
 
     for (const bundle of bundles) {
       expect(bundle).not.toContain('removeAttribute')
+      expect(bundle).not.toContain(BASE_GETTER_REMOVAL)
     }
+
+    expect(
+      bundles.filter((bundle) => bundle.startsWith(TAKE_BLOCK_OPEN))
+    ).toHaveLength(1)
   }, 180_000)
 
   it('leaves a Chromium production bundle without the take or the clear', async () => {
@@ -839,7 +1037,13 @@ describe('the extension base two runtime-registered MAIN world files share', () 
     )
     expect(production.errors).toEqual([])
 
-    expect(production.read('scripts/first.js')).not.toContain('removeAttribute')
+    for (const file of ['scripts/first.js', 'scripts/second.js']) {
+      const shipped = production.read(file)
+
+      expect(shipped, file).not.toContain('removeAttribute')
+      expect(shipped, file).not.toContain('__extjsTakenBase')
+      expect(shipped, file).not.toContain(BASE_GETTER_REMOVAL)
+    }
   }, 180_000)
 })
 

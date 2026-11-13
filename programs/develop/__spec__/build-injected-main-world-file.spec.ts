@@ -3,6 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import * as vm from 'node:vm'
 import {afterAll, describe, expect, it} from 'vitest'
+import {TAKE_BLOCK_OPEN} from '../lib/extension-base-from-stack'
 
 // An injected MAIN world file reads the extension base off the page on
 // Gecko, so the caller's bundle runs the bridge ahead of the injection.
@@ -199,6 +200,9 @@ const VALUE_FILES = {
     'files: ["/scripts/value.js"], world: "MAIN"})\n})\n'
 }
 
+// The two files the background injects into the MAIN world.
+const TAKING = ['scripts/value.js', 'scripts/hook.js']
+
 describe('the value an injected scripts/ file ends on', () => {
   it.each([
     'chrome',
@@ -250,5 +254,41 @@ describe('the value an injected scripts/ file ends on', () => {
 
     expect(background).not.toContain('let __extjsCompletionValue')
     expect(background).toContain('typeof __extjsCompletion')
+  }, 180_000)
+
+  it('firefox: a MAIN world file opens on the read that takes the base and still ends on its value', async () => {
+    const built = await build(project(VALUE_FILES), 'firefox')
+    const names = Object.keys(VALUE_FILES)
+      .filter((name) => name.startsWith('scripts/'))
+      .map((name) => name.replace(/\.ts$/, '.js'))
+    const taking = names.filter((name) =>
+      built.read(name).startsWith(TAKE_BLOCK_OPEN)
+    )
+
+    expect(taking).toEqual(TAKING)
+
+    for (const name of taking) {
+      expect(built.read(name).split(TAKE_BLOCK_OPEN), name).toHaveLength(2)
+    }
+
+    expect(
+      built
+        .read('scripts/value.js')
+        .startsWith(`${TAKE_BLOCK_OPEN}{let __extjsCompletionValue`)
+    ).toBe(true)
+
+    expect(runOnPage(built.read('scripts/value.js')).value).toBe(42)
+  }, 180_000)
+
+  it('chrome: no file opens on that read', async () => {
+    const built = await build(project(VALUE_FILES), 'chrome')
+
+    for (const name of Object.keys(VALUE_FILES)) {
+      if (!name.startsWith('scripts/')) continue
+
+      const text = built.read(name.replace(/\.ts$/, '.js'))
+
+      expect(text, name).not.toContain('__extjsTakenBase')
+    }
   }, 180_000)
 })

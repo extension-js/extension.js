@@ -365,6 +365,68 @@ describe('toRuntimeStylesheetModule', () => {
     })
   })
 
+  describe('in a Gecko build, whose MAIN world file took the base as it opened', () => {
+    const gecko = toRuntimeStylesheetModule(css, [], true)
+    const rooted = 'url("moz-extension://abc/assets/img/bg.png")'
+    // The module inside the block its file opens on.
+    const taken = (base: string) =>
+      `{let __extjsTakenBase=${JSON.stringify(base)};${gecko}\n}`
+
+    it('names the extension root from the copy the file took', () => {
+      for (const base of ['moz-extension://abc/', 'moz-extension://abc']) {
+        const exported = evaluateModule(taken(base), {
+          __EXTJS_EXTENSION_BASE__: 'moz-extension://page-set/',
+          document: {
+            documentElement: {getAttribute: () => 'moz-extension://on-html/'}
+          }
+        })
+
+        expect(decodeURIComponent(String(exported))).toContain(rooted)
+      }
+    })
+
+    it('finds the copy on the require function in a chunk that took nothing', () => {
+      const exported = evaluateModule(gecko, {
+        __webpack_require__: Object.assign(() => {}, {
+          extjsBase: 'moz-extension://abc/'
+        }),
+        document: {
+          documentElement: {getAttribute: () => 'moz-extension://on-html/'}
+        }
+      })
+
+      expect(decodeURIComponent(String(exported))).toContain(rooted)
+    })
+
+    it('falls back to <html> where the file took nothing', () => {
+      const exported = evaluateModule(taken(''), {
+        document: {
+          documentElement: {getAttribute: () => 'moz-extension://abc/'}
+        }
+      })
+
+      expect(decodeURIComponent(String(exported))).toContain(rooted)
+    })
+
+    it('closes the base on its slash by index, not through replace', () => {
+      expect(gecko).toContain(
+        'return (base[base.length - 1] === "/" ? base : base + "/");'
+      )
+
+      expect(gecko).not.toContain('base.replace(')
+    })
+
+    it('leaves the module of every other browser as it was', () => {
+      const plain = toRuntimeStylesheetModule(css)
+
+      expect(toRuntimeStylesheetModule(css, [], false)).toBe(plain)
+      expect(plain).not.toContain('__extjsTakenBase')
+      expect(plain).toContain(
+        'if (base) return base.replace(/\\/+$/, "") + "/";'
+      )
+    })
+  })
+
   it('never names the browser or chrome namespaces as free identifiers', () => {
     const code = toRuntimeStylesheetModule(css)
     expect(code).not.toMatch(/(^|[^.\w$])browser\b/)

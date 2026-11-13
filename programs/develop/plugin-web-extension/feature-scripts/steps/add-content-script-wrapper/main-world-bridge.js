@@ -44,6 +44,106 @@ function getRuntime() {
   return null
 }
 
+// Firefox names every frame of a MAIN world file by this source, and the
+// space in it is what no sourceURL comment of a page script can spell.
+const EXTJS_INJECTED_SOURCE = '<anonymous code>'
+// The columns of line one the read that takes the base can sit in.
+const EXTJS_TAKE_COLUMNS = 143
+
+function publishOnDocument(base) {
+  try {
+    const docEl = document?.documentElement
+
+    if (docEl && typeof docEl.setAttribute === 'function') {
+      docEl.setAttribute(EXTJS_BASE_ATTR, base)
+    }
+  } catch {
+    // ignore
+  }
+}
+
+// The source of the one frame under the getter, when that frame is the
+// opening statement of a file the browser ran, and nothing otherwise.
+function takingSource(stack, base) {
+  const callers = String(stack || '')
+    .split('\n')
+    .filter((frame) => frame && !frame.includes(`@${base}`))
+  if (callers.length !== 1) return ''
+
+  const frame = /^@(.+):(\d+):(\d+)$/.exec(callers[0])
+  if (!frame) return ''
+  if (Number(frame[2]) !== 1) return ''
+  if (Number(frame[3]) > EXTJS_TAKE_COLUMNS) return ''
+
+  return frame[1]
+}
+
+// A page names a script by a URL or by a sourceURL comment that ends at
+// the first space, so a source with a space in it is the browser's own.
+function isBrowserNamed(source) {
+  return (
+    source.includes(' ') &&
+    !/[:/]/.test(source) &&
+    !source.includes(' > ') &&
+    source !== 'debugger eval code'
+  )
+}
+
+// Publishes the base as a getter on the page window that answers the file
+// the browser injects next and reads as an empty string to the page.
+function publishToInjectedFile(base) {
+  try {
+    const page = window.wrappedJSObject
+
+    if (!page || typeof exportFunction !== 'function') return false
+
+    // A stack that stops naming this file in the form the check reads
+    // cannot tell a caller apart, so the document carries the base.
+    const own = String(new Error().stack || '').split('\n')[0]
+    if (!own.includes(`@${base}`) || !/:\d+:\d+$/.test(own)) return false
+
+    let published = null
+    let failedClosed = false
+
+    const answer = () => {
+      try {
+        // A page that swapped the getter for a wrapper of its own is not
+        // answered through it.
+        const held = Object.getOwnPropertyDescriptor(page, EXTJS_BASE_KEY)
+        if (!published || !held || held.get !== published) return ''
+
+        const source = takingSource(new Error().stack, base)
+        if (source === EXTJS_INJECTED_SOURCE) return base
+
+        // The browser renamed its injected files, so the read that takes
+        // the base gets it from the document, as it did before.
+        if (source && !failedClosed && isBrowserNamed(source)) {
+          failedClosed = true
+          publishOnDocument(base)
+        }
+      } catch {
+        // ignore
+      }
+
+      return ''
+    }
+
+    Object.defineProperty(page, EXTJS_BASE_KEY, {
+      get: exportFunction(answer, window),
+      configurable: true,
+      enumerable: false
+    })
+
+    const held = Object.getOwnPropertyDescriptor(page, EXTJS_BASE_KEY)
+    published = held && typeof held.get === 'function' ? held.get : null
+
+    return published !== null
+  } catch {
+    // A page that defined the name first and locked it lands here.
+    return false
+  }
+}
+
 function setExtensionBaseUrl() {
   try {
     const rt = getRuntime()
@@ -55,15 +155,7 @@ function setExtensionBaseUrl() {
     if (base) {
       window[EXTJS_BASE_KEY] = base
 
-      try {
-        const docEl = document?.documentElement
-
-        if (docEl && typeof docEl.setAttribute === 'function') {
-          docEl.setAttribute(EXTJS_BASE_ATTR, base)
-        }
-      } catch {
-        // ignore
-      }
+      if (!publishToInjectedFile(base)) publishOnDocument(base)
     }
   } catch {
     // ignore

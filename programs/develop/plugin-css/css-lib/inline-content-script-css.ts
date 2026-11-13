@@ -8,7 +8,11 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {EXTENSION_BASE_FROM_STACK} from '../../lib/extension-base-from-stack'
+import {
+  closedOnSlash,
+  EXTENSION_BASE_FROM_STACK,
+  extensionBaseFromFile
+} from '../../lib/extension-base-from-stack'
 import {toJsStringLiteral} from '../../plugin-compilation/env'
 import {
   publicOwnedOutputName,
@@ -178,7 +182,8 @@ function styleElementLines(text: string, styleId: string): string[] {
 export function toRuntimeStylesheetModule(
   css: string,
   bundledRequests: string[] = [],
-  styleId?: string
+  styleId?: string,
+  gecko = false
 ): string {
   const root = JSON.stringify(EXTENSION_ROOT_PLACEHOLDER)
   const rooted = `__extjsCssText.split(${root}).join(__extjsExtensionRoot())`
@@ -203,12 +208,24 @@ export function toRuntimeStylesheetModule(
     // A MAIN-world script has no runtime API. The bridge publishes the
     // extension base for it on globalThis and on <html>, as public path reads.
     '  try {',
-    `    var base = ${EXTENSION_BASE_FROM_STACK} || ((typeof globalThis === "object" && globalThis && globalThis.__EXTJS_EXTENSION_BASE__) ? String(globalThis.__EXTJS_EXTENSION_BASE__) : "");`,
-    '    if (!base && typeof document === "object" && document && document.documentElement) base = String(document.documentElement.getAttribute("data-extjs-extension-base") || "");',
-    // A shipped MAIN-world bundle clears that attribute once it has the base,
-    // and keeps it on the require function for a sheet that loads later.
-    '    if (!base && typeof __webpack_require__ === "function" && __webpack_require__.extjsBase) base = String(__webpack_require__.extjsBase);',
-    '    if (base) return base.replace(/\\/+$/, "") + "/";',
+    ...(gecko
+      ? [
+          // A Gecko MAIN world file took the base as it opened, and a sheet
+          // in a later chunk finds that copy on the require function.
+          `    var base = ${extensionBaseFromFile(true)};`,
+          '    if (!base && typeof __webpack_require__ === "function" && typeof __webpack_require__.extjsBase === "string") base = __webpack_require__.extjsBase;',
+          '    if (!base && typeof globalThis === "object" && globalThis && globalThis.__EXTJS_EXTENSION_BASE__) base = String(globalThis.__EXTJS_EXTENSION_BASE__);',
+          '    if (!base && typeof document === "object" && document && document.documentElement) base = String(document.documentElement.getAttribute("data-extjs-extension-base") || "");',
+          `    if (base) return ${closedOnSlash('base')};`
+        ]
+      : [
+          `    var base = ${EXTENSION_BASE_FROM_STACK} || ((typeof globalThis === "object" && globalThis && globalThis.__EXTJS_EXTENSION_BASE__) ? String(globalThis.__EXTJS_EXTENSION_BASE__) : "");`,
+          '    if (!base && typeof document === "object" && document && document.documentElement) base = String(document.documentElement.getAttribute("data-extjs-extension-base") || "");',
+          // A shipped MAIN-world bundle clears that attribute once it has the base,
+          // and keeps it on the require function for a sheet that loads later.
+          '    if (!base && typeof __webpack_require__ === "function" && __webpack_require__.extjsBase) base = String(__webpack_require__.extjsBase);',
+          '    if (base) return base.replace(/\\/+$/, "") + "/";'
+        ]),
     '  } catch (error) {}',
     '  return "/";',
     '}',
