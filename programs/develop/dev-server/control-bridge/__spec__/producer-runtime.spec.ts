@@ -1173,6 +1173,43 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     })
   })
 
+  // extension open has no devtools surface, and with DevTools closed a
+  // bystander page closes the port the way a lost reply does.
+  it('eval devtools names DevTools, not extension open, when its page is closed', async () => {
+    const ws = setup({
+      runtime: {
+        sendMessage: (_msg: any, cb: (r: any) => void) => cb(undefined),
+        lastError: {
+          message: 'The message port closed before a response was received.'
+        },
+        getManifest: () => ({devtools_page: 'devtools/index.html'}),
+        getURL: (p: string) => `chrome-extension://abc/${p}`,
+        getContexts: () =>
+          Promise.resolve([
+            {documentUrl: 'chrome-extension://abc/options/index.html'}
+          ])
+      }
+    })
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'e-devtools',
+      op: 'eval',
+      target: {context: 'devtools'},
+      args: {expression: '1'}
+    })
+
+    await flush()
+    const r = results(ws).find((f) => f.cmdId === 'e-devtools')
+    expect(r).toMatchObject({
+      ok: false,
+      error: {name: 'Unsupported', code: 'surface_not_open'}
+    })
+
+    expect(r.error.message).toContain('Open DevTools on a tab first')
+    expect(r.error.message).toContain('EXTENSION_BROWSER_FLAGS')
+    expect(r.error.message).not.toContain('extension open devtools')
+  })
+
   it('eval in an unknown context is BadRequest, not a tabId demand', async () => {
     const ws = setup({})
     ws.triggerMessage({

@@ -2,6 +2,7 @@ import EventEmitter from 'node:events'
 import net from 'node:net'
 import {describe, expect, it} from 'vitest'
 import {
+  documentNotOpenMessage,
   evaluateExtensionDocument,
   evaluateThroughWatcher,
   extensionDocumentPagePath,
@@ -360,6 +361,16 @@ describe('the Gecko extension-document evaluator', () => {
     expect((outcome as {error: {message: string}}).error.message).toContain(
       'extension open options'
     )
+  })
+
+  it('names DevTools, not extension open, for a closed devtools page', () => {
+    const message = documentNotOpenMessage('devtools')
+
+    expect(message).toContain('Open DevTools on a tab first')
+    expect(message).toContain('--devtools added to EXTENSION_BROWSER_FLAGS')
+    expect(message).not.toContain('extension open devtools')
+    expect(documentNotOpenMessage('newtab')).not.toContain('extension open')
+    expect(documentNotOpenMessage('popup')).toContain('extension open popup')
   })
 
   it('reports a slot that never settles as a timeout', async () => {
