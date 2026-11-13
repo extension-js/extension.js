@@ -943,26 +943,85 @@ describe('the extension base two runtime-registered MAIN world files share', () 
 
     expect(world.html.hasAttribute(BASE_ATTRIBUTE)).toBe(false)
 
-    // A chunk asked for later is still named from the base taken at boot.
-    // No module loader runs here, so the request falls to the bridge.
-    const asked: Array<{url?: string}> = []
+    // No module loads here, so the import of a later chunk fails, and the
+    // failure asks no bridge and appends no element.
+    const asked: unknown[] = []
+    const created: string[] = []
+    const create = (world.context.document as {createElement: typeof element})
+      .createElement
+    Object.assign(world.context.document as object, {
+      createElement: (tagName: string) => {
+        created.push(tagName)
+
+        return create(tagName)
+      }
+    })
+
     Object.assign(world.context, {
       addEventListener() {},
       removeEventListener() {},
-      postMessage: (message: {url?: string}) => asked.push(message)
+      postMessage: (message: unknown) => asked.push(message)
     })
 
-    void (world.context.__secondLater as () => Promise<unknown>)().catch(
-      () => {}
+    const later = (world.context.__secondLater as () => Promise<unknown>)()
+    const failure = later.then(
+      () => null,
+      (error: Error) => error.name
     )
 
     await world.settle(3)
 
-    const askedUrls = asked.map((message) => String(message.url))
+    expect(asked).toEqual([])
+    expect(created).toEqual([])
+    expect(await failure).toBe('ChunkLoadError')
 
-    expect(askedUrls).toHaveLength(1)
-    expect(askedUrls[0].startsWith(FIREFOX_BASE)).toBe(true)
-    expect(askedUrls[0].endsWith('.js')).toBe(true)
+    for (const file of ['scripts/first.js', 'scripts/second.js']) {
+      expect(production.read(file), file).not.toContain('EXTJS_WTW_LOAD')
+    }
+  }, 180_000)
+
+  it('asks no bridge for a chunk when the page kept the base from a Firefox bundle', async () => {
+    const production = await compile(
+      scaffold('runtime-main-denied', files),
+      'production',
+      'firefox'
+    )
+    expect(production.errors).toEqual([])
+
+    const world = firefoxPage(() => '')
+    const asked: unknown[] = []
+    const created: string[] = []
+    const create = (world.context.document as {createElement: typeof element})
+      .createElement
+    Object.assign(world.context.document as object, {
+      createElement: (tagName: string) => {
+        created.push(tagName)
+
+        return create(tagName)
+      }
+    })
+
+    Object.assign(world.context, {
+      addEventListener() {},
+      removeEventListener() {},
+      postMessage: (message: unknown) => asked.push(message)
+    })
+
+    world.run(production.read('scripts/second.js'))
+
+    const failure = (
+      world.context.__secondLater as () => Promise<unknown>
+    )().then(
+      () => null,
+      (error: Error) => error.name
+    )
+
+    await world.settle(3)
+
+    expect(asked).toEqual([])
+    expect(created).toEqual([])
+    expect(world.handed).toEqual([])
+    expect(await failure).toBe('ChunkLoadError')
   }, 180_000)
 
   it('is taken from the getter by both files in a Firefox production build, and the getter goes once they have run', async () => {
@@ -1044,6 +1103,9 @@ describe('the extension base two runtime-registered MAIN world files share', () 
       expect(shipped, file).not.toContain('__extjsTakenBase')
       expect(shipped, file).not.toContain(BASE_GETTER_REMOVAL)
     }
+
+    // A Chromium bundle names itself on its stack and keeps both loaders.
+    expect(production.read('scripts/second.js')).toContain('EXTJS_WTW_LOAD')
   }, 180_000)
 })
 

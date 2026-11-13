@@ -56,7 +56,8 @@ export default class WebExtensionChuckLoaderRuntimePlugin {
               compiler.webpack,
               compilation.outputOptions.environment.dynamicImport !== false,
               options.classicLoader !== false,
-              this.contentScriptsMeta
+              this.contentScriptsMeta,
+              this.gecko
             )
           )
           return true

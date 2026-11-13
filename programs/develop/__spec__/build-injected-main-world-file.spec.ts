@@ -278,6 +278,13 @@ describe('the value an injected scripts/ file ends on', () => {
     ).toBe(true)
 
     expect(runOnPage(built.read('scripts/value.js')).value).toBe(42)
+
+    // A failed import asks no bridge, which would answer the page as well.
+    expect(built.read(BRIDGE)).toContain('moz-extension:')
+
+    for (const name of names) {
+      expect(built.read(name), name).not.toContain('EXTJS_WTW_LOAD')
+    }
   }, 180_000)
 
   it('chrome: no file opens on that read', async () => {

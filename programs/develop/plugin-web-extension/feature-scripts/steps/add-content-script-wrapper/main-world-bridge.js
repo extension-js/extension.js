@@ -233,7 +233,22 @@ function postResponse(res) {
   }
 }
 
-window.addEventListener('message', (event) => {
+// On Firefox the extension URL is what the page must not learn, and a
+// script element carrying it is one the page can read, so nothing loads.
+function loadsFilesForThePage() {
+  try {
+    const getURL = getRuntime()?.runtime?.getURL
+
+    return !(
+      typeof getURL === 'function' &&
+      String(getURL('/')).startsWith('moz-extension:')
+    )
+  } catch {
+    return true
+  }
+}
+
+function answerLoadRequest(event) {
   if (event.source !== window) return
 
   const data = event.data
@@ -274,4 +289,8 @@ window.addEventListener('message', (event) => {
         error: e instanceof Error ? e.message : String(e)
       })
     })
-})
+}
+
+if (loadsFilesForThePage()) {
+  window.addEventListener('message', answerLoadRequest)
+}

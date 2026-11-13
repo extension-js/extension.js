@@ -25,6 +25,8 @@ interface Setup {
   exports?: boolean
   // The stack the bridge reads of itself as it publishes.
   own?: string
+  // The root the runtime names, the Firefox one unless given.
+  root?: string
 }
 
 // The bridge in a stand-in for its isolated world, each stack scripted.
@@ -35,9 +37,11 @@ function bridge(setup: Setup = {}) {
     setup.own ??
       `publishToInjectedFile@${BASE}scripts/extjs-main-world-bridge.js:101:17\n`
   ]
+  const listening: string[] = []
+  const root = setup.root ?? BASE
   const context: Record<string, unknown> = {
     browser: {
-      runtime: {getURL: (relative: string) => BASE + relative.slice(1)}
+      runtime: {getURL: (relative: string) => root + relative.slice(1)}
     },
     document: {
       documentElement: {
@@ -46,7 +50,9 @@ function bridge(setup: Setup = {}) {
         }
       }
     },
-    addEventListener() {},
+    addEventListener: (type: string) => {
+      listening.push(type)
+    },
     postMessage() {},
     Error: function ScriptedError(this: {stack?: string}) {
       const next = stacks.shift()
@@ -67,6 +73,7 @@ function bridge(setup: Setup = {}) {
   vm.runInNewContext(SOURCE, context)
 
   return {
+    listening,
     attributes,
     page: page as Record<string, unknown>,
     // What a read of the name answers under the caller frames given.
@@ -225,5 +232,20 @@ describe('the <html> attribute the bridge falls back to', () => {
 
     expect(world.read('@<injected script>:1:44')).toBe('')
     expect(world.attributes).toEqual({})
+  })
+})
+
+describe('the request to load a file a page can post to the bridge', () => {
+  it('is not listened for on Firefox, where the answer would carry the extension URL', () => {
+    expect(bridge().listening).toEqual([])
+    expect(bridge({page: null}).listening).toEqual([])
+    expect(bridge({exports: false}).listening).toEqual([])
+  })
+
+  it('is still answered where the extension URL is no secret of the install', () => {
+    expect(
+      bridge({page: null, root: 'chrome-extension://abcdefghijklmnop/'})
+        .listening
+    ).toEqual(['message'])
   })
 })
