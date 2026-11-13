@@ -1987,7 +1987,7 @@ function constLiteralText(code: string, name: string): string | null {
   if (!IDENTIFIER.test(name)) return null
 
   const declarationRe = new RegExp(
-    `(?<![\\w$.])const\\s+${name.replace(/\$/g, '\\$')}\\s*(?::[^=;]*)?=\\s*(?=[\\[{])`,
+    `(?<![\\w$.])const\\s+${name.replace(/[\\$]/g, '\\$&')}\\s*(?::[^=;]*)?=\\s*(?=[\\[{])`,
     'g'
   )
   const declarations = [...code.matchAll(declarationRe)]

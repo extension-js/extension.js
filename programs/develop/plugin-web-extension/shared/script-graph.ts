@@ -49,7 +49,7 @@ const RESOLVE_EXTENSION_ALIAS = {
 }
 const SCRIPT_SOURCE = /\.(?:[cm]?[jt]s|[jt]sx|vue|svelte)$/i
 const SINGLE_FILE_COMPONENT = /\.(?:vue|svelte)$/i
-const COMPONENT_SCRIPT_BLOCK = /<script\b[^>]*>([\s\S]*?)<\/script>/gi
+const COMPONENT_SCRIPT_BLOCK = /<script\b[^>]*>([\s\S]*?)<\/script\b[^>]*>/gi
 const NODE_MODULES_SEGMENT = /[\\/]node_modules[\\/]/
 
 export const MAX_LOCAL_IMPORT_DEPTH = 8
