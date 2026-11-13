@@ -128,6 +128,10 @@ const nodeEntries = {
     __dirname,
     './plugin-css/late-css-import-loader.ts'
   ),
+  'unplaced-style-import-loader': path.resolve(
+    __dirname,
+    './plugin-css/unplaced-style-import-loader.ts'
+  ),
   'public-css-url-loader': path.resolve(
     __dirname,
     './plugin-css/public-css-url-loader.ts'

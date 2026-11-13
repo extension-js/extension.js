@@ -18,10 +18,15 @@ import {
 import {isGeckoBasedBrowser} from '../lib/constants'
 import {resolveDevelopDistFile} from '../lib/develop-context'
 import {hasDependency} from '../lib/has-dependency'
+import {filterKeysForThisBrowser} from '../lib/manifest-utils'
 import {debugLine, isDebug} from '../lib/messaging'
+import {stripBom} from '../lib/parse-json-safe'
+import {toResourceKey} from '../lib/resource-path'
+import {NOT_RAW_RESOURCE_QUERY} from '../lib/resource-query'
 import {publicContainmentRoot} from '../plugin-special-folders/resolve-public-folder'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../plugin-web-extension/feature-scripts/contracts'
-import type {DevOptions, PluginInterface} from '../types'
+import {resolveScriptEntryPath} from '../plugin-web-extension/feature-scripts/scripts-lib/utils'
+import type {DevOptions, Manifest, PluginInterface} from '../types'
 import {cssInContentScriptLoader} from './css-in-content-script-loader'
 import {cssInHtmlLoader} from './css-in-html-loader'
 import {toPosixPath} from './css-lib/dead-url-refs'
@@ -135,6 +140,24 @@ export class CssPlugin {
         resourceQuery: SFC_MODULE_STYLE_BLOCK_QUERY,
         loader: resolveDevelopDistFile('sfc-style-block-loader'),
         options: sfcOptions
+      },
+      // Pre, so it reads the script as authored. A sheet imported for its
+      // effect alone becomes an unread value here, which the build says once.
+      {
+        enforce: 'pre',
+        test: /\.(js|cjs|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
+        exclude: [/([\\/])node_modules\1/],
+        issuerLayer: EXTENSIONJS_CONTENT_SCRIPT_LAYER,
+        resourceQuery: NOT_RAW_RESOURCE_QUERY,
+        loader: resolveDevelopDistFile('unplaced-style-import-loader'),
+        options: {
+          projectPath,
+          declaredEntries: findDeclaredContentScriptFiles(
+            manifestPath,
+            this.browser,
+            projectPath
+          )
+        }
       },
       // ?inline stylesheet imports (vue-loader emits them for *.ce.vue) must resolve
       // to the CSS string default export; this rule only flips the module type.
@@ -423,6 +446,33 @@ export class CssPlugin {
     compiler.hooks.beforeRun.tapPromise(CssPlugin.name, () => configuring)
     compiler.hooks.watchRun.tapPromise(CssPlugin.name, () => configuring)
     await configuring
+  }
+}
+
+// The files a manifest content_scripts group names, as the build resolves them.
+export function findDeclaredContentScriptFiles(
+  manifestPath: string,
+  browser: DevOptions['browser'],
+  projectPath: string
+): string[] {
+  try {
+    const manifest = filterKeysForThisBrowser(
+      JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf8'))) as Manifest,
+      browser
+    )
+    const groups = Array.isArray(manifest.content_scripts)
+      ? (manifest.content_scripts as Array<{js?: unknown}>)
+      : []
+    const manifestDir = path.dirname(manifestPath)
+
+    return groups
+      .flatMap((group) => (Array.isArray(group?.js) ? group.js : []))
+      .filter((file): file is string => typeof file === 'string' && !!file)
+      .map((file) =>
+        toResourceKey(resolveScriptEntryPath(file, manifestDir, projectPath))
+      )
+  } catch {
+    return []
   }
 }
 
