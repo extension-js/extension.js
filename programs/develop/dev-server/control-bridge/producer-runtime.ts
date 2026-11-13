@@ -1611,6 +1611,113 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       if (nativeRegistry) withScriptVersions(function () {});
     }
 
+    // The first page of a session waits for the registrations a background
+    // makes as it starts, so every registry call is counted from its first line.
+    var BOOT_REGISTRY_QUIET_MS = 150;
+    var BOOT_REGISTRY_GRACE_MS = 1500;
+    var BOOT_REGISTRY_GIVE_UP_MS = 15000;
+
+    function watchBootRegistrations() {
+      if (g.__extjsDevBootRegisters !== true) return;
+      var bootedAt = Date.now();
+      var lastAt = bootedAt;
+      var inFlight = 0;
+      var calls = 0;
+      var landed = false;
+      var reported = false;
+      var watched = [];
+      var failed = function () {
+        try { return !!(g.chrome && g.chrome.runtime && g.chrome.runtime.lastError); } catch (e) { return false; }
+      };
+      var devId = function (entry) {
+        var id = entry && typeof entry === "object" ? entry.id : entry;
+        return typeof id === "string" && id.indexOf("extjs-dev-cs-") === 0;
+      };
+      // The dev build registers the manifest's own scripts through the same
+      // calls, and those are not the author's registrations.
+      var ownCall = function (first) {
+        var list = Array.isArray(first) ? first : first && Array.isArray(first.ids) ? first.ids : null;
+        if (!list || !list.length) return false;
+        for (var i = 0; i < list.length; i++) if (!devId(list[i])) return false;
+        return true;
+      };
+      var count = function (scripting, method, lands) {
+        if (typeof scripting[method] !== "function") return;
+        var inner = scripting[method];
+        scripting[method] = function () {
+          var args = [].slice.call(arguments);
+          if (ownCall(args[0])) return inner.apply(scripting, args);
+          var last = args.length - 1;
+          var done = last >= 0 && typeof args[last] === "function" ? args[last] : null;
+          var settled = false;
+          var settle = function (ok) {
+            if (settled) return;
+            settled = true;
+            inFlight--;
+            lastAt = Date.now();
+            if (ok && lands) landed = true;
+          };
+          inFlight++;
+          calls++;
+          lastAt = Date.now();
+          if (done) args[last] = function () { settle(!failed()); return done.apply(this, arguments); };
+          var ret;
+          try { ret = inner.apply(scripting, args); } catch (e) { settle(false); throw e; }
+          if (done) return ret;
+          if (ret && typeof ret.then === "function") ret.then(function () { settle(true); }, function () { settle(false); });
+          else settle(true);
+          return ret;
+        };
+      };
+      // A registration a profile kept from an earlier session is already
+      // there for the first page, whatever the background does next.
+      var readKept = function (scripting) {
+        if (typeof scripting.getRegisteredContentScripts !== "function") return;
+        inFlight++;
+        var answered = false;
+        var answer = function (list) {
+          if (answered) return;
+          answered = true;
+          inFlight--;
+          for (var i = 0; list && i < list.length; i++) {
+            if (list[i] && typeof list[i].id === "string" && !devId(list[i])) landed = true;
+          }
+        };
+        try {
+          var ret = scripting.getRegisteredContentScripts(function (list) { noopLastError(); answer(list); });
+          if (ret && typeof ret.then === "function") ret.then(answer, function () { answer(null); });
+        } catch (e) { answer(null); }
+      };
+      var roots = [g.chrome, g.browser];
+      for (var r = 0; r < roots.length; r++) {
+        var scripting = null;
+        try { scripting = roots[r] && roots[r].scripting; } catch (e) {
+          // Ignore
+        }
+        if (!scripting || watched.indexOf(scripting) !== -1) continue;
+        watched.push(scripting);
+        if (watched.length === 1) readKept(scripting);
+        count(scripting, "registerContentScripts", true);
+        count(scripting, "updateContentScripts", true);
+        count(scripting, "unregisterContentScripts", false);
+        count(scripting, "getRegisteredContentScripts", false);
+      }
+      var check = function () {
+        if (reported) return;
+        var now = Date.now();
+        var quiet = inFlight <= 0 && now - lastAt >= (landed ? BOOT_REGISTRY_QUIET_MS : BOOT_REGISTRY_GRACE_MS);
+        if (quiet || now - bootedAt >= BOOT_REGISTRY_GIVE_UP_MS) {
+          reported = true;
+          send({type: "boot-registrations", calls: calls, landed: landed});
+          return;
+        }
+        try { setTimeout(check, 50); } catch (e) {
+          // Ignore
+        }
+      };
+      check();
+    }
+
     // Every changed file gets a new address, registered now or later.
     function moveScriptAddresses(changedScriptFiles, cb) {
       withScriptVersions(function () {
@@ -2661,6 +2768,10 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       // Ignore
     }
 
+    try { watchBootRegistrations(); } catch (e) {
+      // Ignore
+    }
+
     try { restoreOverrideTabsAtBoot(); } catch (e) {
       // Ignore
     }
@@ -3042,6 +3153,10 @@ export interface BuildProducerOptions {
 
 // Bake the control port / instanceId / context / host into the producer source.
 // Returns '' when the control bridge is unavailable (no port).
+// Set by the build on a background whose source names a content script
+// registration, so only that background reports when its calls answered.
+export const DEV_BOOT_REGISTERS_GLOBAL = '__extjsDevBootRegisters'
+
 export function buildBridgeProducerSource(opts: BuildProducerOptions): string {
   if (!opts.controlPort || opts.controlPort < 1) return ''
 

@@ -464,6 +464,60 @@ describe('setupCdpAfterLaunch', () => {
     expect(order).toEqual(['loaded', 'open https://example.com/'])
   })
 
+  // A page that loads before a registration the background made as it
+  // started has answered never runs that script.
+  it('opens the starting url only after the boot registrations settle', async () => {
+    const extDir = makeExtensionDir({manifest_version: 3, name: 'Plain Ext'})
+    const order: string[] = []
+    const awaitBootRegistrations = vi.fn(async (_timeoutMs: number) => {
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      order.push('settled')
+
+      return 'settled' as const
+    })
+
+    openStartingUrlSpy.mockImplementationOnce(async (url: string) => {
+      order.push(`open ${url}`)
+
+      return 'navigated'
+    })
+
+    await setupCdpAfterLaunch(
+      {options: {mode: 'development', output: {path: extDir}}} as any,
+      {
+        browser: 'chromium',
+        port: 9333,
+        instanceId: 'i',
+        startingUrl: 'https://example.com/',
+        awaitBootRegistrations
+      } as any,
+      [`--load-extension=${extDir}`, '--remote-debugging-port=9333']
+    )
+
+    expect(awaitBootRegistrations).toHaveBeenCalledWith(5000)
+    expect(order).toEqual(['settled', 'open https://example.com/'])
+  })
+
+  it('asks for no hold when the session opens no page', async () => {
+    const extDir = makeExtensionDir({manifest_version: 3, name: 'Plain Ext'})
+    const awaitBootRegistrations = vi.fn(async () => 'settled' as const)
+
+    await setupCdpAfterLaunch(
+      {options: {mode: 'development', output: {path: extDir}}} as any,
+      {
+        browser: 'chromium',
+        port: 9333,
+        instanceId: 'i',
+        startingUrl: 'https://example.com/',
+        noOpen: true,
+        awaitBootRegistrations
+      } as any,
+      [`--load-extension=${extDir}`, '--remote-debugging-port=9333']
+    )
+
+    expect(awaitBootRegistrations).not.toHaveBeenCalled()
+  })
+
   it('opens no starting url under --no-open', async () => {
     const extDir = makeExtensionDir({manifest_version: 3, name: 'Plain Ext'})
 

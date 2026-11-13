@@ -26,6 +26,7 @@ import {
   type IncomingLogEvent,
   type ReadyFrame,
   type ReloadAckFrame,
+  type BootRegistrationsOutcome,
   type ReloadAckOutcome,
   type ReloadFrame,
   type ReloadRestartOutcome,
@@ -338,6 +339,9 @@ export class BridgeBroker {
   private readonly onExecutorAttached?: (attached?: ExecutorAttachInfo) => void
   private readonly onExecutorDetached?: () => void
   private readonly wakeExecutor?: () => Promise<boolean>
+  // Set once a background reported its boot registry calls answered.
+  private bootRegistrationsSettled = false
+  private readonly bootRegistrationWaiters = new Set<() => void>()
   // Verbs held while a woken background starts, answered on its hello.
   private readonly executorWaiters = new Set<() => void>()
   private readonly waking = new Set<string>()
@@ -440,6 +444,14 @@ export class BridgeBroker {
         // Only the executor (a producer connection) resolves commands.
         if (this.roles.get(conn) === 'producer') {
           this.onResult(frame)
+        }
+
+        return
+      case 'boot-registrations':
+        if (this.roles.get(conn) === 'producer') {
+          this.bootRegistrationsSettled = true
+
+          for (const release of [...this.bootRegistrationWaiters]) release()
         }
 
         return
@@ -676,6 +688,30 @@ export class BridgeBroker {
         this.armReloadRestart(frame.reloadId)
       }
     }
+  }
+
+  // Resolves once a background says the registry calls it made as it started
+  // have answered, or with 'timeout' when none says so inside the window.
+  awaitBootRegistrations(timeoutMs: number): Promise<BootRegistrationsOutcome> {
+    if (this.bootRegistrationsSettled) return Promise.resolve('settled')
+
+    return new Promise<BootRegistrationsOutcome>((resolve) => {
+      const release = () => {
+        this.clearTimer(timer)
+        this.bootRegistrationWaiters.delete(release)
+        resolve('settled')
+      }
+
+      const timer = this.setTimer(() => {
+        this.bootRegistrationWaiters.delete(release)
+        resolve('timeout')
+      }, timeoutMs)
+
+      // The wait never keeps a finished dev server alive.
+      ;(timer as {unref?: () => void}).unref?.()
+
+      this.bootRegistrationWaiters.add(release)
+    })
   }
 
   // Resolves once a producer says hello after the acked reload restarted the

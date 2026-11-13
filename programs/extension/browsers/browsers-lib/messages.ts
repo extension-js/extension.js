@@ -589,6 +589,17 @@ export function chromiumHeadlessNoPageTarget(browser: Browser) {
   )
 }
 
+// The page was held for the registrations a background makes as it starts,
+// and the wait ran out, so a script registered there may not be on it.
+export function startingUrlOpenedBeforeBootRegistrations(
+  url: string,
+  waitedMs: number
+) {
+  const seconds = String(Math.round(waitedMs / 100) / 10)
+
+  return `${getLoggingPrefix('warn')} Opened ${url} before the background finished registering content scripts (waited ${seconds}s). Reload the page if a registered script did not run on it.`
+}
+
 export function chromiumHeadlessPageTargetRecreated(browser: Browser) {
   return `${getLoggingPrefix('debug')} browser  pageTarget=recreated browser=${browser}`
 }

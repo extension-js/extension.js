@@ -16,6 +16,7 @@ import {
   isCardKeyClaimed,
   isDebug
 } from '../../../helpers/messaging'
+import {holdForBootRegistrations} from '../../browsers-lib/boot-registrations-hold'
 import {
   printDevBannerOnce,
   printProdBannerOnce
@@ -147,6 +148,8 @@ async function openStartingUrlAfterLoad(
 ): Promise<void> {
   const startingUrl = resolveStartingUrl(plugin)
   if (!startingUrl) return
+
+  await holdForBootRegistrations(plugin, startingUrl)
 
   try {
     await controller.openStartingUrl(startingUrl)
