@@ -233,6 +233,8 @@ export interface ReloadFrame {
   changedFiles?: string[]
   /** Emitted scripts/ bundles the SW should replay its executeScript calls for. */
   changedScriptFiles?: string[]
+  /** Declared stylesheets rewritten under the same name, to swap on open tabs. */
+  refreshedStylesheets?: {file: string; digest: string}[]
 }
 
 // Producer-to-server receipt confirmation for a ReloadFrame: a socket write
