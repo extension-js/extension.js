@@ -2,7 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
-import {useTempFolders} from './helpers/temp-folders'
+import {trackTempFolders} from './helpers/temp-folders'
 
 const made: string[] = []
 
@@ -12,9 +12,9 @@ afterAll(() => {
   expect(made.filter((folder) => fs.existsSync(folder))).toEqual([])
 })
 
-const makeTempFolder = useTempFolders()
+const makeTempFolder = trackTempFolders()
 
-describe('useTempFolders', () => {
+describe('trackTempFolders', () => {
   it('makes a folder in the temp directory under the given prefix', () => {
     const folder = makeTempFolder('extjs-temp-folders-')
 

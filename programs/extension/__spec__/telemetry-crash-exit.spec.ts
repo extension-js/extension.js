@@ -4,9 +4,9 @@ import http from 'node:http'
 import type {AddressInfo} from 'node:net'
 import path from 'node:path'
 import {describe, expect, it} from 'vitest'
-import {useTempFolders} from './helpers/temp-folders'
+import {trackTempFolders} from './helpers/temp-folders'
 
-const makeTempFolder = useTempFolders()
+const makeTempFolder = trackTempFolders()
 
 function cliRoot(): string {
   return path.resolve(__dirname, '..')

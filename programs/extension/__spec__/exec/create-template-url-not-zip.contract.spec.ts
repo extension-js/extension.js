@@ -3,9 +3,9 @@ import fs from 'node:fs'
 import http from 'node:http'
 import path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
-import {useTempFolders} from '../helpers/temp-folders'
+import {trackTempFolders} from '../helpers/temp-folders'
 
-const makeTempFolder = useTempFolders()
+const makeTempFolder = trackTempFolders()
 
 const ANSI = /\x1b\[[0-9;]*m/g
 const STACK_FRAME = /^\s+at /m

@@ -3,9 +3,9 @@ import * as path from 'node:path'
 import {describe, expect, it, vi} from 'vitest'
 import {PlaywrightPlugin} from '../plugin-playwright'
 import webpackConfig from '../rspack-config'
-import {useTempFolders} from './helpers/temp-folders'
+import {trackTempFolders} from './helpers/temp-folders'
 
-const makeTempFolder = useTempFolders()
+const makeTempFolder = trackTempFolders()
 
 const resolveTranspilePackageDirsMock = vi.hoisted(() =>
   vi.fn<(..._args: any[]) => string[]>(() => [])

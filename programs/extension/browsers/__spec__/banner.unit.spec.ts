@@ -9,9 +9,9 @@ import {
   printDevBannerOnce,
   printProdBannerOnce
 } from '../browsers-lib/banner'
-import {useTempFolders} from '../../__spec__/helpers/temp-folders'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 
-const makeTempFolder = useTempFolders()
+const makeTempFolder = trackTempFolders()
 
 function makeTempOutPath(manifest: Record<string, unknown>): string {
   const outPath = makeTempFolder('extjs-banner-')

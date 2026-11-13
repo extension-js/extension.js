@@ -13,7 +13,7 @@ const root = path.resolve(
 const CREATES = ['mkdtemp']
 // Any of these in the file is taken as its own removal of what it made.
 const REMOVES = [
-  'useTempFolders',
+  'trackTempFolders',
   'rmSync(',
   '.rm(',
   'rmdirSync(',
@@ -72,6 +72,6 @@ test('every spec that makes a temp folder also removes it', () => {
   assert.deepEqual(
     leaking,
     [],
-    'make the folder with useTempFolders, or remove it in afterAll'
+    'make the folder with trackTempFolders, or remove it in afterAll'
   )
 })

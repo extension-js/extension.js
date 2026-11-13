@@ -5,7 +5,7 @@ import {afterAll} from 'vitest'
 
 // Call once at the top of a spec file. Every folder the returned function
 // makes is removed when the file ends, whether its tests passed or failed.
-export function useTempFolders(): (prefix: string) => string {
+export function trackTempFolders(): (prefix: string) => string {
   const folders: string[] = []
 
   afterAll(() => {

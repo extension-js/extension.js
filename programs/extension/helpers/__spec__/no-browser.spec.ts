@@ -2,9 +2,9 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
 import {resolveNoBrowser} from '../no-browser'
-import {useTempFolders} from '../../__spec__/helpers/temp-folders'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 
-const makeTempFolder = useTempFolders()
+const makeTempFolder = trackTempFolders()
 
 function projectWith(config: string | null): string {
   const dir = makeTempFolder('extjs-nobrowser-')

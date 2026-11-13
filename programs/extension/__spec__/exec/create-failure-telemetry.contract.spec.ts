@@ -7,9 +7,9 @@ import {
   type ExamplesCatalogFixture,
   serveExamplesCatalog
 } from '../../../create/__spec__/examples-catalog-fixture'
-import {useTempFolders} from '../helpers/temp-folders'
+import {trackTempFolders} from '../helpers/temp-folders'
 
-const makeTempFolder = useTempFolders()
+const makeTempFolder = trackTempFolders()
 
 let catalog: ExamplesCatalogFixture | undefined
 

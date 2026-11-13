@@ -4,9 +4,9 @@ import http from 'node:http'
 import {createRequire} from 'node:module'
 import path from 'node:path'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
-import {useTempFolders} from '../helpers/temp-folders'
+import {trackTempFolders} from '../helpers/temp-folders'
 
-const makeTempFolder = useTempFolders()
+const makeTempFolder = trackTempFolders()
 
 const cliBin = path.resolve(__dirname, '../..', 'dist', 'cli.cjs')
 const STACK_FRAME = /^\s+at /m

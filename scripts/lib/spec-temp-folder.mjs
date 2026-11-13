@@ -47,7 +47,7 @@ export function enterRunTempFolder(env = process.env) {
 
 // A spec file that has to work in the machine's own temp directory calls
 // this at its top. It changes the worker it runs in and nothing else.
-export function useRealTempDirectory(env = process.env) {
+export function keepRealTempDirectory(env = process.env) {
   const real = env[REAL_TEMP_ENV]
 
   if (!real) return os.tmpdir()

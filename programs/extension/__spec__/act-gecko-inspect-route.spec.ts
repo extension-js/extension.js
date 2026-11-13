@@ -74,9 +74,9 @@ vi.mock(
 
 import {registerActCommands} from '../commands/act'
 import {makeProgram, runCli, stubProcessExit} from './command-harness'
-import {useTempFolders} from './helpers/temp-folders'
+import {trackTempFolders} from './helpers/temp-folders'
 
-const makeTempFolder = useTempFolders()
+const makeTempFolder = trackTempFolders()
 
 const CSP_REFUSAL = {
   ok: false,

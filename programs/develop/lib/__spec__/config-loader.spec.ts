@@ -7,9 +7,9 @@ import {
   loadProjectConfigDefaults,
   requireCommonJsCopyBesideSource
 } from '../config-loader'
-import {useTempFolders} from '../../__spec__/helpers/temp-folders'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 
-const makeTempFolder = useTempFolders()
+const makeTempFolder = trackTempFolders()
 
 describe('config-loader', () => {
   it('keeps a top-level runtime perf budget from extension.config.js', async () => {

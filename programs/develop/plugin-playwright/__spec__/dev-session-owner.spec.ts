@@ -6,9 +6,9 @@ import {
   createPlaywrightMetadataWriter,
   detectLiveDevSessionOwner
 } from '../index'
-import {useTempFolders} from '../../__spec__/helpers/temp-folders'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 
-const makeTempFolder = useTempFolders()
+const makeTempFolder = trackTempFolders()
 
 function writeReadyFixture(overrides: Record<string, unknown> = {}): string {
   const dir = makeTempFolder('extjs-owner-')

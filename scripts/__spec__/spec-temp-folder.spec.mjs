@@ -8,7 +8,7 @@ import {fileURLToPath} from 'node:url'
 import {
   enterRunTempFolder,
   REAL_TEMP_ENV,
-  useRealTempDirectory
+  keepRealTempDirectory
 } from '../lib/spec-temp-folder.mjs'
 import {listScriptSpecs} from '../run-script-specs.mjs'
 
@@ -79,7 +79,7 @@ test('a spec can go back to the real temp directory by name', () => {
   const run = enterRunTempFolder(env)
 
   try {
-    assert.equal(useRealTempDirectory(env), work)
+    assert.equal(keepRealTempDirectory(env), work)
     assert.equal(env.TMPDIR, work)
     assert.equal(env.TEMP, work)
     assert.equal(env.TMP, work)
@@ -88,7 +88,7 @@ test('a spec can go back to the real temp directory by name', () => {
   }
 
   // Outside a run there is nothing to go back from.
-  assert.equal(useRealTempDirectory({}), os.tmpdir())
+  assert.equal(keepRealTempDirectory({}), os.tmpdir())
 })
 
 test('the runner finds every script spec', () => {

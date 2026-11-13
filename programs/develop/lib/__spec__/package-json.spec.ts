@@ -5,9 +5,9 @@ import {
   findNearestPackageJson,
   findNearestPackageJsonSync
 } from '../package-json'
-import {useTempFolders} from '../../__spec__/helpers/temp-folders'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 
-const makeTempFolder = useTempFolders()
+const makeTempFolder = trackTempFolders()
 
 // A remote URL reaches the walk-up as a relative path whose ancestry ends at
 // "." rather than the filesystem root. 4.1.13 looped there forever.

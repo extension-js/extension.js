@@ -126,6 +126,8 @@ export class WatchRealProjectPathPlugin {
   private readonly realpath: (target: string) => string
 
   constructor(options: WatchRealProjectPathOptions = {}) {
+    // Follows links only. The native call also expands a Windows short name,
+    // which is no link: the bundler keeps it, so nothing is watched twice.
     this.realpath = options.realpath ?? fs.realpathSync
   }
 

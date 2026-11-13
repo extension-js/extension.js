@@ -9,9 +9,9 @@ import {
   resolveExtensionDevelopRoot,
   resolveExtensionDevelopVersion
 } from '../extension-develop-runtime'
-import {useTempFolders} from '../../__spec__/helpers/temp-folders'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 
-const makeTempFolder = useTempFolders()
+const makeTempFolder = trackTempFolders()
 
 function writeJson(filePath: string, value: unknown) {
   fs.mkdirSync(path.dirname(filePath), {recursive: true})

@@ -4,9 +4,9 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {takeCodedWarnings} from '../../lib/coded-warnings'
 import * as messages from '../../plugin-compatibility/compatibility-lib/messages'
 import {PolyfillPlugin} from '../feature-polyfill'
-import {useTempFolders} from '../../__spec__/helpers/temp-folders'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 
-const makeTempFolder = useTempFolders()
+const makeTempFolder = trackTempFolders()
 
 describe('PolyfillPlugin', () => {
   beforeEach(() => {

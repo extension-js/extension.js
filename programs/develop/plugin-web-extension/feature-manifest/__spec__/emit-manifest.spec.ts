@@ -3,9 +3,9 @@ import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {getOriginalManifestContent} from '../manifest-lib/manifest'
 import {EmitManifest} from '../steps/emit-manifest'
-import {useTempFolders} from '../../../__spec__/helpers/temp-folders'
+import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 
-const makeTempFolder = useTempFolders()
+const makeTempFolder = trackTempFolders()
 
 describe('EmitManifest', () => {
   it('stores the sanitized source manifest and emits it unchanged', () => {

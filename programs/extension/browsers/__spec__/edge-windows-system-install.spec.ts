@@ -15,9 +15,9 @@ vi.mock('edge-location', () => ({
 
 import {createChromiumContext} from '../run-chromium/chromium-context'
 import {ChromiumLaunchPlugin} from '../run-chromium/chromium-launch'
-import {useTempFolders} from '../../__spec__/helpers/temp-folders'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 
-const makeTempFolder = useTempFolders()
+const makeTempFolder = trackTempFolders()
 
 const windowsOnlyCasing = (localAppData: string) => ({
   ProgramFiles: 'C:\\Program Files',

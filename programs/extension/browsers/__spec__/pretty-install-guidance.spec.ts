@@ -2,9 +2,9 @@ import fs from 'node:fs'
 import path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
 import {prettyPuppeteerInstallGuidance} from '../browsers-lib/messages'
-import {useTempFolders} from '../../__spec__/helpers/temp-folders'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 
-const makeTempFolder = useTempFolders()
+const makeTempFolder = trackTempFolders()
 
 describe('prettyPuppeteerInstallGuidance', () => {
   const prevCwd = process.cwd()

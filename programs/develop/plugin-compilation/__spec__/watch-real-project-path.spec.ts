@@ -1,6 +1,8 @@
+import * as fs from 'node:fs'
+import * as os from 'node:os'
 import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
-import {describe, expect, it} from 'vitest'
+import {describe, expect, it, vi} from 'vitest'
 import {
   LinkedFolder,
   WatchRealProjectPathPlugin
@@ -203,6 +205,24 @@ describe('WatchRealProjectPathPlugin', () => {
     watch(fake, files)
 
     expect(fake.calls[0][0]).toBe(files)
+  })
+
+  it('takes a short name that stands for a long one for no link', () => {
+    // The native call would expand it and make every Windows temp path linked.
+    const native = vi.spyOn(fs.realpathSync, 'native')
+    const base = fs.realpathSync(os.tmpdir())
+    const fake = createFakeCompiler({context: base})
+
+    new WatchRealProjectPathPlugin().apply(fake.asCompiler)
+    fake.watchRun()
+
+    const files = [path.join(base, 'background.js')]
+
+    watch(fake, files)
+
+    expect(fake.calls[0][0]).toBe(files)
+    expect(native).not.toHaveBeenCalled()
+    native.mockRestore()
   })
 
   it('stays out of the native watcher and of a stand-in compiler', () => {

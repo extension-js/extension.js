@@ -13,9 +13,9 @@ import {
   openDevWatchSession,
   waitUntil
 } from './helpers/dev-watch-session'
-import {useTempFolders} from './helpers/temp-folders'
+import {trackTempFolders} from './helpers/temp-folders'
 
-const makeTempFolder = useTempFolders()
+const makeTempFolder = trackTempFolders()
 const sessions: DevWatchSession[] = []
 
 afterAll(async () => {

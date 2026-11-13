@@ -9,9 +9,9 @@ import {
   parseEnvBrowserFlags
 } from '../browsers-lib/shared-utils'
 import {browserConfig} from '../run-chromium/chromium-launch/browser-config'
-import {useTempFolders} from '../../__spec__/helpers/temp-folders'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 
-const makeTempFolder = useTempFolders()
+const makeTempFolder = trackTempFolders()
 // A folder of this file's own: other sessions run the same suite at once.
 const projectDir = makeTempFolder('extjs-flags-project-')
 

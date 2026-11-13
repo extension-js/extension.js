@@ -3,9 +3,9 @@ import os from 'node:os'
 import path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {isSourceCheckout, Telemetry} from '../telemetry'
-import {useTempFolders} from '../../__spec__/helpers/temp-folders'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 
-const makeTempFolder = useTempFolders()
+const makeTempFolder = trackTempFolders()
 
 const originalEnv = {...process.env}
 

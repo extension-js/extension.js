@@ -3,9 +3,9 @@ import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {takeVerbatimCss} from '../css-lib/verbatim-css'
 import {pitch} from '../css-parse-guard-loader'
-import {useTempFolders} from '../../__spec__/helpers/temp-folders'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 
-const makeTempFolder = useTempFolders()
+const makeTempFolder = trackTempFolders()
 
 const BROKEN_CSS = [
   '.ok { color: red; }',

@@ -4,9 +4,9 @@ import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
 import {readyContractPath} from '../lib/session-paths'
 import {resolveCompanionExtensionsConfig} from '../plugin-special-folders/folder-extensions/resolve-config'
-import {useTempFolders} from './helpers/temp-folders'
+import {trackTempFolders} from './helpers/temp-folders'
 
-const makeTempFolder = useTempFolders()
+const makeTempFolder = trackTempFolders()
 const children: ChildProcess[] = []
 
 afterAll(() => {

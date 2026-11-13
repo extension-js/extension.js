@@ -9,9 +9,9 @@ import {
   unbindDevSessionRestart
 } from '../../../dev-server/session-restart'
 import {PersistManifestToDisk} from '../steps/persist-manifest'
-import {useTempFolders} from '../../../__spec__/helpers/temp-folders'
+import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 
-const makeTempFolder = useTempFolders()
+const makeTempFolder = trackTempFolders()
 
 afterEach(() => {
   unbindDevSessionRestart()
