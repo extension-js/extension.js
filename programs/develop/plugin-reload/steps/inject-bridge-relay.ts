@@ -8,7 +8,10 @@
 
 import {Compilation, type Compiler} from '@rspack/core'
 import type {LogContext} from '../../dev-server/control-bridge/contracts'
-import {buildBridgeRelaySource} from '../../dev-server/control-bridge/producer-runtime'
+import {
+  buildBridgeRelaySource,
+  buildDeclaredSheetSignalSource
+} from '../../dev-server/control-bridge/producer-runtime'
 import {prependToEmittedAsset} from '../../lib/asset-source-maps'
 
 // Map an output asset to its bridge context. The background SW and hot/* are
@@ -64,10 +67,17 @@ export class InjectBridgeRelay {
                 continue
               }
 
+              // A content script bundle also names itself to its frame, so
+              // the background can tell which declared entries run there.
+              const sheetSignal =
+                target.context === 'content'
+                  ? buildDeclaredSheetSignalSource(asset.name)
+                  : ''
+
               prependToEmittedAsset(
                 compilation,
                 asset,
-                `${sourceFor.get(target.context)}\n`
+                `${sheetSignal}${sourceFor.get(target.context)}\n`
               )
             }
           }

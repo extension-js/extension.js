@@ -13,14 +13,17 @@ const EDIT: ReloadInstruction = {
 
 // The compile of a build whose manifest declares the content script itself,
 // as Firefox, MV2 and a build without a worker keep it in development.
-function compile(color: string, js = BUNDLE) {
+function compile(color: string, js = BUNDLE, resources?: string[]) {
   const assets: Record<string, string> = {
     [SHEET]: `.probe { color: ${color}; }\n`,
     'manifest.json': JSON.stringify({
       manifest_version: 3,
       name: 'x',
       version: '0',
-      content_scripts: [{matches: ['<all_urls>'], js: [js], css: [SHEET]}]
+      content_scripts: [{matches: ['<all_urls>'], js: [js], css: [SHEET]}],
+      ...(resources
+        ? {web_accessible_resources: [{resources, matches: ['<all_urls>']}]}
+        : {})
     })
   }
 
@@ -45,6 +48,8 @@ describe('createLoadedContentScripts', () => {
       SHEET
     ])
 
+    loaded.settle(true)
+
     const unrelated = loaded.resolve(compile('blue'), {
       type: 'page',
       label: 'page (options/index.html)'
@@ -53,6 +58,48 @@ describe('createLoadedContentScripts', () => {
       type: 'page',
       label: 'page (options/index.html)'
     })
+  })
+
+  // Nobody received the swap, so the open tabs still hold the old bytes and
+  // the next save has to name the sheet again, whatever that save touched.
+  it('names the sheet again when the swap reached no producer, until one takes it', () => {
+    const loaded = createLoadedContentScripts({refreshInPlace: true})
+    const page: ReloadInstruction = {
+      type: 'page',
+      label: 'page (options/index.html)'
+    }
+    const named = (instruction: ReloadInstruction | undefined) =>
+      instruction?.refreshedStylesheets?.map((sheet) => sheet.file)
+
+    loaded.noteLoaded(compile('red'))
+
+    expect(named(loaded.resolve(compile('blue'), EDIT))).toEqual([SHEET])
+    loaded.settle(false)
+
+    expect(named(loaded.resolve(compile('blue'), page))).toEqual([SHEET])
+
+    expect(named(loaded.resolve(compile('blue'), page))).toEqual([SHEET])
+    loaded.settle(true)
+
+    expect(loaded.resolve(compile('blue'), page)).toBe(page)
+  })
+
+  it('reloads the extension when the manifest lists a web resource the browser never loaded, once', () => {
+    const loaded = createLoadedContentScripts({refreshInPlace: true})
+    loaded.noteLoaded(compile('red', BUNDLE, ['assets/logo.aaaaaaaa.png']))
+
+    const renamed = loaded.resolve(
+      compile('red', BUNDLE, ['assets/logo.bbbbbbbb.png']),
+      EDIT
+    )
+    expect(renamed).toMatchObject({
+      type: 'full',
+      label: 'content_script (content/styles.css)'
+    })
+
+    expect(
+      loaded.resolve(compile('red', BUNDLE, ['assets/logo.bbbbbbbb.png']), EDIT)
+    ).toBe(EDIT)
   })
 
   it('reloads the extension for the same edit on a browser that cannot swap it, then compares with what that reload read', () => {

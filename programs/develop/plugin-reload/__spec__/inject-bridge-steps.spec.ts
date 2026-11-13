@@ -1,6 +1,11 @@
 import {sources} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
-import {InjectBridgeProducer} from '../steps/inject-bridge-producer'
+import {buildDeclaredSheetSignalSource} from '../../dev-server/control-bridge/producer-runtime'
+import {DEV_BUILD_GLOBAL} from '../reload-dispatch'
+import {
+  InjectBridgeProducer,
+  readDevBuild
+} from '../steps/inject-bridge-producer'
 import {InjectBridgeRelay} from '../steps/inject-bridge-relay'
 
 function makeCompiler() {
@@ -40,6 +45,10 @@ function makeCompiler() {
     taps: processAssetsTaps,
     runProcessAssets: () => {
       for (const entry of processAssetsTaps) entry.cb()
+    },
+    compilation: () => compilation,
+    setHash: (hash: string | undefined) => {
+      compilation.hash = hash
     },
     setAsset: (name: string, body: string) => {
       compilation.__assets[name] = {
@@ -165,6 +174,94 @@ describe('InjectBridgeProducer', () => {
       'instanceId',
       'buildType'
     ])
+  })
+
+  const builtWith = (
+    hash: string | undefined,
+    assets: Record<string, string>
+  ) => {
+    process.env.EXTENSION_CONTROL_PORT = '8123'
+    const made = makeCompiler()
+    new InjectBridgeProducer().apply(made.compiler)
+    made.setHash(hash)
+    for (const [name, body] of Object.entries(assets)) made.setAsset(name, body)
+    made.runProcessAssets()
+
+    const out = made.getAssetSource('background/service_worker.js')
+    const world: Record<string, unknown> = {}
+    // eslint-disable-next-line no-new-func
+    new Function('globalThis', out.slice(0, out.indexOf('\n')))(world)
+
+    return {
+      out,
+      named: world[DEV_BUILD_GLOBAL],
+      read: readDevBuild(made.compilation())
+    }
+  }
+
+  // The broker compares this with the build of a reload, so a worker that
+  // already read the newest build from disk is not restarted a second time.
+  it('names the build ahead of the producer, by the value the reload dispatch reads', () => {
+    const built = builtWith('740f373fe7ae6fc4', {
+      'background/service_worker.js': '/* user sw */'
+    })
+
+    expect(built.named).toMatch(/^[0-9a-f]{16}$/)
+    expect(built.read).toBe(built.named)
+    expect(built.out.indexOf(DEV_BUILD_GLOBAL)).toBeLessThan(
+      built.out.indexOf('__extjsBridgeProducerInstalled')
+    )
+  })
+
+  // The compilation hash moves on every compile and is written into each
+  // script, so a compile that changed no byte must still name the same build.
+  it('names the same build for the same bytes under another compilation hash', () => {
+    const sw = (hash: string) => `h = () => ("${hash}"); /* user sw */`
+    const first = builtWith('aaaaaaaaaaaaaaaa', {
+      'background/service_worker.js': sw('aaaaaaaaaaaaaaaa'),
+      'background/service_worker.js.map': '{"first":1}',
+      'hot/169.aaaaaaaaaaaaaaaa.js': '/* one */',
+      'hot/background/service_worker.aaaaaaaaaaaaaaaa.json': '{"c":[169]}',
+      'background.aaaaaaaaaaaaaaaa.hot-update.js': '/* one */'
+    })
+    const second = builtWith('bbbbbbbbbbbbbbbb', {
+      'background/service_worker.js': sw('bbbbbbbbbbbbbbbb'),
+      'background/service_worker.js.map': '{"second":2}',
+      'hot/169.bbbbbbbbbbbbbbbb.js': '/* two */',
+      'hot/background/service_worker.bbbbbbbbbbbbbbbb.json': '{"c":[170]}',
+      'background.bbbbbbbbbbbbbbbb.hot-update.js': '/* two */'
+    })
+
+    expect(second.named).toBe(first.named)
+  })
+
+  it('names another build once any file the extension reads changed', () => {
+    const base = {
+      'background/service_worker.js': '/* user sw */',
+      'background/chunk.js': '/* lazy */',
+      'assets/model.wasm': 'wasm-1'
+    }
+    const first = builtWith('aaaaaaaaaaaaaaaa', base).named
+    const names = [
+      builtWith('aaaaaaaaaaaaaaaa', {
+        ...base,
+        'background/service_worker.js': '/* user sw 2 */'
+      }).named,
+      builtWith('aaaaaaaaaaaaaaaa', {
+        ...base,
+        'background/chunk.js': '/* lazy 2 */'
+      }).named,
+      builtWith('aaaaaaaaaaaaaaaa', {...base, 'assets/model.wasm': 'wasm-2'})
+        .named,
+      builtWith('aaaaaaaaaaaaaaaa', {...base, 'assets/extra.txt': 'x'}).named
+    ]
+
+    expect(new Set([first, ...names]).size).toBe(5)
+  })
+
+  it('reads no build from a compilation it did not name', () => {
+    expect(readDevBuild({})).toBe('')
+    expect(readDevBuild(undefined)).toBe('')
   })
 
   it('covers the Firefox background/scripts.js and MV2 background/script.js forms', () => {
@@ -304,6 +401,31 @@ describe('InjectBridgeRelay', () => {
         out.indexOf(`/* user ${name} */`)
       )
     }
+  })
+
+  // The background asks each frame which declared bundles ran in it, so only
+  // a content script bundle names itself, and by the name the manifest uses.
+  it('makes a content script bundle name itself to its frame, and no other surface', () => {
+    process.env.EXTENSION_CONTROL_PORT = '8123'
+    const {compiler, runProcessAssets, setAsset, getAssetSource} =
+      makeCompiler()
+    new InjectBridgeRelay().apply(compiler)
+    setAsset('content_scripts/content-0.11111111.js', '/* content */')
+    setAsset('options/index.js', '/* options */')
+    runProcessAssets()
+
+    const content = getAssetSource('content_scripts/content-0.11111111.js')
+
+    expect(
+      content.startsWith(
+        buildDeclaredSheetSignalSource('content_scripts/content-0.11111111.js')
+      )
+    ).toBe(true)
+
+    expect(content).toContain('__extjsBridgeRelayInstalled')
+    expect(getAssetSource('options/index.js')).not.toContain(
+      '__extjsDevSheetEntries'
+    )
   })
 
   it('excludes the background SW and HMR chunks from relay injection', () => {

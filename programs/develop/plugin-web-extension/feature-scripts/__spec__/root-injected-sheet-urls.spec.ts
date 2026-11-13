@@ -1,6 +1,9 @@
 import {Compilation, sources} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
-import {CHROMIUM_EXTENSION_ROOT} from '../scripts-lib/injected-sheet-urls'
+import {
+  CHROMIUM_EXTENSION_ROOT,
+  GECKO_EXTENSION_ROOT
+} from '../scripts-lib/injected-sheet-urls'
 import {RootInjectedSheetUrls} from '../steps/root-injected-sheet-urls'
 
 // The step against the assets given, run as many times as asked.
@@ -106,9 +109,29 @@ describe('the step that names an injected sheet url() from the extension', () =>
   it.each([
     'firefox',
     'gecko-based',
-    'safari'
-  ])('taps nothing for %s, whose sheet keeps its bytes', (browser) => {
-    const built = emit({'content_scripts/content-0.css': ROOTED}, {browser})
+    'firefox-based',
+    'zen'
+  ])('names the target from the Firefox address for %s', (browser) => {
+    const built = emit(
+      {
+        'content_scripts/content-0.css': ROOTED,
+        'scripts/hook.css': ROOTED,
+        'action/index.css': ROOTED
+      },
+      {browser}
+    )
+    const fixed = `.a{background-image:url("${GECKO_EXTENSION_ROOT}assets/pic.4003208d.svg")}`
+
+    expect(built.text('content_scripts/content-0.css')).toBe(fixed)
+    expect(built.text('scripts/hook.css')).toBe(fixed)
+    expect(built.text('action/index.css')).toBe(ROOTED)
+  })
+
+  it('taps nothing for safari, whose sheet keeps its bytes', () => {
+    const built = emit(
+      {'content_scripts/content-0.css': ROOTED},
+      {browser: 'safari'}
+    )
 
     expect(built.stages).toEqual([])
     expect(built.text('content_scripts/content-0.css')).toBe(ROOTED)

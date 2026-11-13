@@ -127,6 +127,17 @@ async function compile(
   }
 }
 
+// Chromium development registers a one-rule probe sheet beside each entry's
+// own. The browser applies it itself, so no build exposes it to a page.
+const DEV_PROBE_SHEET = 'content_scripts/dev-sheet-0.css'
+
+function withDevProbe(
+  mode: 'production' | 'development',
+  sheets: string[]
+): string[] {
+  return mode === 'development' ? [...sheets, DEV_PROBE_SHEET].sort() : sheets
+}
+
 function exposedResources(
   build: Awaited<ReturnType<typeof compile>>
 ): string[] {
@@ -479,7 +490,8 @@ describe('the sheet file a content script CSS module lands in', () => {
       const sheets = build.emitted.filter((entry) => entry.endsWith('.css'))
 
       expect(beside, mode).toHaveLength(1)
-      expect(sheets, mode).toEqual([sheetName])
+      expect(sheets, mode).toEqual(withDevProbe(mode, [sheetName]))
+      expect(exposedResources(build), mode).not.toContain(DEV_PROBE_SHEET)
 
       const sheet = build.read(sheetName).replace(/"/g, '')
 
@@ -570,12 +582,16 @@ describe('one image a declared sheet, an imported sheet and a page sheet all nam
 
       expect(images, mode).toHaveLength(1)
       expect(images[0], mode).toMatch(sharedName)
-      expect(sheets, mode).toEqual([
-        'action/index.css',
-        'content_scripts/content-0.css'
-      ])
+      expect(sheets, mode).toEqual(
+        withDevProbe(mode, [
+          'action/index.css',
+          'content_scripts/content-0.css'
+        ])
+      )
 
-      for (const sheet of sheets) {
+      expect(exposedResources(build), mode).not.toContain(DEV_PROBE_SHEET)
+
+      for (const sheet of sheets.filter((each) => each !== DEV_PROBE_SHEET)) {
         expect(
           build.read(sheet).replace(/"/g, ''),
           `${mode} ${sheet}`
