@@ -710,7 +710,9 @@ function mainWorldFilesOf(files: Record<string, string>, entry = 'bg.js') {
     },
     manifestDir: projectDir,
     projectPath: projectDir
-  }).map((found) => `${found.entryName}.js`)
+  })
+    .filter((found) => !found.copyOf)
+    .map((found) => `${found.entryName}.js`)
 
   expect(viaFull).toEqual(viaPlain)
   expect([...viaBuild].sort()).toEqual([...new Set(viaPlain)].sort())

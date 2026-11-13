@@ -50,7 +50,7 @@ export function warFieldError(
 
     lines.push(`These resolve from the built extension root.`)
     lines.push(
-      `Learn more: ${colors.underline('https://extension.js.org/docs/implementation-guide/web-accessible-resources?utm_source=cli')}`
+      `Learn more: ${colors.underline('https://extension.js.org/docs/implementation-guide/web-accessible-resources')}`
     )
 
     lines.push(
@@ -62,7 +62,7 @@ export function warFieldError(
     )
 
     lines.push(
-      `Learn more: ${colors.underline('https://extension.js.org/docs/implementation-guide/web-accessible-resources?utm_source=cli')}`
+      `Learn more: ${colors.underline('https://extension.js.org/docs/implementation-guide/web-accessible-resources')}`
     )
 
     lines.push(`- Import the file from a script so it gets bundled.`)
@@ -75,7 +75,7 @@ export function warFieldError(
     )
 
     lines.push(
-      `Learn more: ${colors.underline('https://extension.js.org/docs/implementation-guide/web-accessible-resources?utm_source=cli')}`
+      `Learn more: ${colors.underline('https://extension.js.org/docs/implementation-guide/web-accessible-resources')}`
     )
 
     lines.push(
@@ -138,7 +138,7 @@ export function warUnreachableResource(resource: string, entryName: string) {
   )
 
   lines.push(
-    `Learn more: ${colors.underline('https://extension.js.org/docs/implementation-guide/web-accessible-resources?utm_source=cli')}`
+    `Learn more: ${colors.underline('https://extension.js.org/docs/implementation-guide/web-accessible-resources')}`
   )
 
   return lines.join('\n')
@@ -176,7 +176,7 @@ export function warInjectedScriptExposed(file: string, resources: string[]) {
   )
 
   lines.push(
-    `Learn more: ${colors.underline('https://extension.js.org/docs/implementation-guide/web-accessible-resources?utm_source=cli')}`
+    `Learn more: ${colors.underline('https://extension.js.org/docs/implementation-guide/web-accessible-resources')}`
   )
 
   return lines.join('\n')

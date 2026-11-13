@@ -1,7 +1,8 @@
 import {describe, expect, it} from 'vitest'
 import {
   buildMainWorldBridgePairingSource,
-  MAIN_WORLD_BRIDGE_PAIR_PREFIX
+  MAIN_WORLD_BRIDGE_PAIR_PREFIX,
+  REFUSED_SCRIPT_ID
 } from '../scripts-lib/main-world-bridge-pairing'
 
 type Script = Record<string, unknown> & {id: string}
@@ -354,6 +355,27 @@ describe('the MAIN world bridge pairing a Gecko background carries', () => {
     expect(raw().map((script) => script.id)).toEqual([pairId('late'), 'late'])
 
     await api.updateContentScripts([{id: 'late', world: 'ISOLATED'}])
+    expect(raw().map((script) => script.id)).toEqual(['late'])
+  })
+
+  // The wrapper above checks the shape of an update it has to wait on with
+  // an id the browser refuses, and a refused update moves no file.
+  it('pairs nothing for a shape check the wrapper above sends', async () => {
+    const {api, raw, calls} = setup()
+    await api.registerContentScripts([
+      {id: 'late', js: ['scripts/a.js'], matches: ['<all_urls>']}
+    ])
+
+    calls.length = 0
+
+    await expect(
+      api.updateContentScripts([
+        {id: 'late', world: 'MAIN'},
+        {id: REFUSED_SCRIPT_ID}
+      ])
+    ).rejects.toThrow('does not exist')
+
+    expect(calls).toEqual([])
     expect(raw().map((script) => script.id)).toEqual(['late'])
   })
 

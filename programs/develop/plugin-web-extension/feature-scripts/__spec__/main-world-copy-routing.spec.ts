@@ -28,10 +28,15 @@ function browserWith(namespaces: Array<'chrome' | 'browser'> = ['chrome']) {
 
   // The browser checks the shape of a call as it is made, and throws there.
   const shaped = (scripts: unknown) => {
-    if (!Array.isArray(scripts) || scripts.some((script) => !script)) {
+    if (
+      !Array.isArray(scripts) ||
+      scripts.some((script) => typeof script?.id !== 'string')
+    ) {
       throw new TypeError('shape')
     }
   }
+
+  const updates: Script[][] = []
 
   const scripting = {
     registerContentScripts(scripts: Script[], done?: unknown) {
@@ -43,6 +48,21 @@ function browserWith(namespaces: Array<'chrome' | 'browser'> = ['chrome']) {
     },
     updateContentScripts(scripts: Script[], done?: unknown) {
       shaped(scripts)
+
+      // An id no registration has refuses the whole call and changes nothing.
+      if (scripts.some((script) => !registered.has(String(script.id)))) {
+        if (typeof done !== 'function') {
+          return Promise.reject(new Error('no such script'))
+        }
+
+        root.runtime.lastError = {message: 'no such script'}
+        done()
+        delete root.runtime.lastError
+
+        return undefined
+      }
+
+      updates.push(scripts)
 
       for (const script of scripts) {
         registered.set(String(script.id), {
@@ -71,7 +91,10 @@ function browserWith(namespaces: Array<'chrome' | 'browser'> = ['chrome']) {
       return answer([{result: null}], done)
     }
   } as Record<string, any>
-  const root = {scripting, runtime: {}}
+  const root: {scripting: typeof scripting; runtime: {lastError?: object}} = {
+    scripting,
+    runtime: {}
+  }
   const context: Record<string, unknown> = {}
 
   for (const name of namespaces) context[name] = root
@@ -79,7 +102,7 @@ function browserWith(namespaces: Array<'chrome' | 'browser'> = ['chrome']) {
   context.globalThis = context
   vm.runInNewContext(SOURCE, context)
 
-  return {scripting, registered, injected}
+  return {scripting, registered, injected, updates}
 }
 
 describe('the routing of a file both worlds run', () => {
@@ -232,6 +255,50 @@ describe('the routing of a file both worlds run', () => {
     expect(() => scripting.registerContentScripts('nothing')).toThrow('shape')
     expect(() => scripting.registerContentScripts([null])).toThrow('shape')
     expect(() => scripting.updateContentScripts([null])).toThrow('shape')
+  })
+
+  // An update that names the files or the world alone waits on a read of the
+  // registry, and a call that waits cannot throw where the author made it.
+  it('throws the shape check of an update it has to wait on', async () => {
+    const {scripting, registered, updates} = browserWith()
+
+    await scripting.registerContentScripts([
+      {id: 'a', js: ['scripts/hook.js'], world: 'MAIN'}
+    ])
+
+    const malformed = [{id: 5, js: ['scripts/hook.js']}]
+    let caught: unknown
+
+    try {
+      scripting.updateContentScripts(malformed)
+    } catch (error) {
+      caught = error
+    }
+
+    expect(caught).toBeInstanceOf(TypeError)
+    expect(() => scripting.updateContentScripts(malformed, () => {})).toThrow(
+      'shape'
+    )
+
+    expect(() =>
+      scripting.updateContentScripts([{id: 5, world: 'MAIN'}])
+    ).toThrow('shape')
+
+    expect(updates).toEqual([])
+
+    await scripting.updateContentScripts([{id: 'a', js: ['scripts/hook.js']}])
+
+    // The check changed nothing, and the update landed once.
+    expect(updates).toEqual([[{id: 'a', js: [COPY]}]])
+    expect([...registered.keys()]).toEqual(['a'])
+  })
+
+  it('still answers an update of an id no registration has as the browser does', async () => {
+    const {scripting} = browserWith()
+
+    await expect(
+      scripting.updateContentScripts([{id: 'gone', js: ['scripts/hook.js']}])
+    ).rejects.toThrow('no such script')
   })
 
   it('runs where no scripting namespace exists', () => {
