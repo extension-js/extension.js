@@ -3,8 +3,14 @@ import os from 'node:os'
 import path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
 import {
+  createLocalImportResolver,
+  readScriptText
+} from '../../shared/script-graph'
+import {findRuntimeMainWorldEntries} from '../scripts-lib/runtime-main-world-scripts'
+import {
   extractInjectedFileLiterals,
   extractMainWorldRegisteredFileLiterals,
+  type ImportedModuleReader,
   planTracedFile,
   TraceRuntimeLoadedFiles
 } from '../steps/trace-runtime-loaded-files'
@@ -84,9 +90,15 @@ async function runTrace(
   projectDir: string,
   assets: Record<string, string>,
   browser?: string,
-  entry?: Record<string, unknown>
+  entry?: Record<string, unknown>,
+  sources: string[] = []
 ) {
   const made = makeCompilation(assets, entry)
+
+  for (const source of sources) {
+    made.compilation.fileDependencies.add(path.join(projectDir, source))
+  }
+
   new TraceRuntimeLoadedFiles({
     manifestPath: path.join(projectDir, 'manifest.json'),
     browser: browser as any
@@ -645,5 +657,583 @@ describe('TraceRuntimeLoadedFiles importScripts choices', () => {
     })
 
     expect(emitted.has('background/shared/projection.js')).toBe(true)
+  })
+})
+
+const MAIN_GROUP = (file: string, id = 'hook') =>
+  `{id: "${id}", js: ["${file}"], world: "MAIN", matches: ["<all_urls>"]}`
+
+// Reads a constant the way each caller does. The plain reader hands back
+// text and resolves from the entry, the full one also names the file.
+function constantReaders(projectDir: string, entry: string) {
+  const resolveImport = createLocalImportResolver(projectDir)
+  const entryFile = path.join(projectDir, entry)
+
+  const plain: ImportedModuleReader = (specifier) => {
+    const resolved = resolveImport(entryFile, specifier)
+
+    return (resolved && readScriptText(resolved)) ?? null
+  }
+
+  const full: ImportedModuleReader = (specifier, fromFile = entryFile) => {
+    const resolved = resolveImport(fromFile, specifier)
+    const source = resolved && readScriptText(resolved)
+
+    return resolved && source != null ? {source, file: resolved} : null
+  }
+
+  return {plain, full}
+}
+
+// The MAIN world files the entry names, read through both kinds of reader
+// and through the scan the build runs, which must all agree.
+function mainWorldFilesOf(files: Record<string, string>, entry = 'bg.js') {
+  const hooks = Object.fromEntries(
+    Object.keys(files)
+      .filter((name) => name.startsWith('scripts/'))
+      .map((name) => [name.replace(/\.js$/, ''), name])
+  )
+  const projectDir = createTempProject(files)
+  const source = fs.readFileSync(path.join(projectDir, entry), 'utf8')
+  const {plain, full} = constantReaders(projectDir, entry)
+  const viaPlain = extractMainWorldRegisteredFileLiterals(source, plain)
+  const viaFull = extractMainWorldRegisteredFileLiterals(source, full)
+  const viaBuild = findRuntimeMainWorldEntries({
+    includeList: {
+      'background/service_worker': path.join(projectDir, entry),
+      ...Object.fromEntries(
+        Object.entries(hooks).map(([name, file]) => [
+          name,
+          path.join(projectDir, file)
+        ])
+      )
+    },
+    manifestDir: projectDir,
+    projectPath: projectDir
+  }).map((found) => `${found.entryName}.js`)
+
+  expect(viaFull).toEqual(viaPlain)
+  expect([...viaBuild].sort()).toEqual([...new Set(viaPlain)].sort())
+
+  return viaPlain
+}
+
+const HOOK_FILES = {
+  'scripts/hook.js': 'window.__HOOK__ = 1\n',
+  'scripts/other.js': 'window.__OTHER__ = 1\n'
+}
+
+describe('a registration named through a let or a name of two scopes', () => {
+  const found = (background: string) =>
+    mainWorldFilesOf({...HOOK_FILES, 'bg.js': background})
+
+  it('reads a let that is assigned once', () => {
+    expect(
+      found(
+        `let hooks = [${MAIN_GROUP('scripts/hook.js')}]\n` +
+          'chrome.scripting.registerContentScripts(hooks)\n'
+      )
+    ).toEqual(['scripts/hook.js'])
+  })
+
+  it('reads a let from source text with CRLF line endings', () => {
+    expect(
+      found(
+        `let hooks = [${MAIN_GROUP('scripts/hook.js')}]\r\n` +
+          'chrome.scripting.registerContentScripts(hooks)\r\n'
+      )
+    ).toEqual(['scripts/hook.js'])
+  })
+
+  it('leaves a let that is assigned again alone', () => {
+    for (const write of [
+      'hooks = []',
+      'hooks += 1',
+      'hooks ||= []',
+      'hooks++',
+      '[hooks] = [[]]'
+    ]) {
+      expect(
+        found(
+          `let hooks = [${MAIN_GROUP('scripts/hook.js')}]\n` +
+            `if (globalThis.reset) { ${write} }\n` +
+            'chrome.scripting.registerContentScripts(hooks)\n'
+        )
+      ).toEqual([])
+    }
+  })
+
+  it('reads the declaration of the scope the call sits in', () => {
+    expect(
+      found(
+        `function a() {\n  const hooks = [${MAIN_GROUP('scripts/other.js')}]\n  return hooks\n}\n` +
+          `function b() {\n  const hooks = [${MAIN_GROUP('scripts/hook.js')}]\n` +
+          '  chrome.scripting.registerContentScripts(hooks)\n}\n'
+      )
+    ).toEqual(['scripts/hook.js'])
+  })
+
+  it('reads an outer declaration past an inner one of another function', () => {
+    expect(
+      found(
+        `const hooks = [${MAIN_GROUP('scripts/hook.js')}]\n` +
+          `function a() {\n  const hooks = [${MAIN_GROUP('scripts/other.js')}]\n  return hooks\n}\n` +
+          'chrome.scripting.registerContentScripts(hooks)\n'
+      )
+    ).toEqual(['scripts/hook.js'])
+  })
+
+  it('leaves a name alone when a parameter or a second declaration hides it', () => {
+    const outer =
+      `let hooks = [${MAIN_GROUP('scripts/hook.js')}]\n` +
+      `function a() {\n  let hooks = [${MAIN_GROUP('scripts/other.js')}]\n  return hooks\n}\n`
+
+    for (const call of [
+      'function b(hooks) {\n  chrome.scripting.registerContentScripts(hooks)\n}\n',
+      'const b = (hooks) => chrome.scripting.registerContentScripts(hooks)\n',
+      'const b = async hooks => chrome.scripting.registerContentScripts(hooks)\n',
+      'function b({hooks}) {\n  chrome.scripting.registerContentScripts(hooks)\n}\n',
+      'function b() {\n  const {hooks} = globalThis\n  chrome.scripting.registerContentScripts(hooks)\n}\n',
+      'function b() {\n  var hooks\n  chrome.scripting.registerContentScripts(hooks)\n}\n',
+      'try { run() } catch (hooks) {\n  chrome.scripting.registerContentScripts(hooks)\n}\n',
+      'for (const hooks of lists) {\n  chrome.scripting.registerContentScripts(hooks)\n}\n'
+    ]) {
+      expect(found(outer + call)).toEqual([])
+    }
+  })
+
+  it('never throws on text that is not balanced', () => {
+    for (const broken of [
+      'let hooks = [{js: ["scripts/hook.js"], world: "MAIN"\nchrome.scripting.registerContentScripts(hooks)\n',
+      'let hooks = "unterminated\nchrome.scripting.registerContentScripts(hooks)\n',
+      'let hooks = [\n}}}])\nchrome.scripting.registerContentScripts(hooks\n',
+      'import {hooks from\nchrome.scripting.registerContentScripts(hooks)\n',
+      'export * from\nexport {hooks as} from "./x.js"\nchrome.scripting.executeScript({files: [hooks, a.b], world: "MAIN"})\n'
+    ]) {
+      expect(() =>
+        extractMainWorldRegisteredFileLiterals(broken, () => broken)
+      ).not.toThrow()
+
+      expect(() =>
+        extractInjectedFileLiterals(broken, () => broken)
+      ).not.toThrow()
+    }
+  })
+})
+
+describe('a registration named through a constant two imports away', () => {
+  const CALL =
+    'import {HOOKS} from "./lib/b.js"\nchrome.scripting.registerContentScripts(HOOKS)\n'
+
+  it('follows a module that imports the constant and exports it again', () => {
+    expect(
+      mainWorldFilesOf({
+        ...HOOK_FILES,
+        'bg.js': CALL,
+        'lib/b.js': 'import {HOOKS} from "./c.js"\nexport {HOOKS}\n',
+        'lib/c.js': `export const HOOKS = [${MAIN_GROUP('scripts/hook.js')}]\n`
+      })
+    ).toEqual(['scripts/hook.js'])
+  })
+
+  it('follows a folder index and a specifier with no extension', () => {
+    expect(
+      mainWorldFilesOf({
+        ...HOOK_FILES,
+        'bg.js':
+          'import {HOOKS} from "./lib"\nchrome.scripting.registerContentScripts(HOOKS)\n',
+        'lib/index.ts': 'export {HOOKS} from "./more/c"\n',
+        'lib/more/c.ts': `export const HOOKS = [${MAIN_GROUP('scripts/hook.js')}]\n`
+      })
+    ).toEqual(['scripts/hook.js'])
+  })
+
+  it('ends on an import cycle and past the hop limit', () => {
+    expect(
+      mainWorldFilesOf({
+        ...HOOK_FILES,
+        'bg.js': CALL,
+        'lib/b.js': 'export {HOOKS} from "./c.js"\n',
+        'lib/c.js': 'export {HOOKS} from "./b.js"\n'
+      })
+    ).toEqual([])
+
+    const chain: Record<string, string> = {}
+
+    for (let hop = 0; hop < 12; hop++) {
+      chain[`lib/m${hop}.js`] = `export {HOOKS} from "./m${hop + 1}.js"\n`
+    }
+
+    expect(
+      mainWorldFilesOf({
+        ...HOOK_FILES,
+        ...chain,
+        'bg.js':
+          'import {HOOKS} from "./lib/m0.js"\nchrome.scripting.registerContentScripts(HOOKS)\n',
+        'lib/m12.js': `export const HOOKS = [${MAIN_GROUP('scripts/hook.js')}]\n`
+      })
+    ).toEqual([])
+  })
+})
+
+describe('a registration named through other ways a module exports', () => {
+  const CALL =
+    'import {HOOKS} from "./hooks.js"\nchrome.scripting.registerContentScripts(HOOKS)\n'
+  const found = (files: Record<string, string>, background = CALL) =>
+    mainWorldFilesOf({...HOOK_FILES, 'bg.js': background, ...files})
+
+  it('reads a constant listed in an export statement', () => {
+    expect(
+      found({
+        'hooks.js': `const HOOKS = [${MAIN_GROUP('scripts/hook.js')}]\nexport {HOOKS}\n`
+      })
+    ).toEqual(['scripts/hook.js'])
+  })
+
+  it('reads a constant exported under another name', () => {
+    expect(
+      found({
+        'hooks.js':
+          `const inner = [${MAIN_GROUP('scripts/hook.js')}]\n` +
+          `const HOOKS = [${MAIN_GROUP('scripts/other.js')}]\n` +
+          'export {inner as HOOKS, HOOKS as unused}\n'
+      })
+    ).toEqual(['scripts/hook.js'])
+  })
+
+  it('reads a constant a module passes on from another', () => {
+    expect(
+      found({
+        'hooks.js': 'export {inner as HOOKS} from "./more.js"\n',
+        'more.js': `export const inner = [${MAIN_GROUP('scripts/hook.js')}]\n`
+      })
+    ).toEqual(['scripts/hook.js'])
+  })
+
+  it('reads a constant behind export star', () => {
+    expect(
+      found({
+        'hooks.js': 'export * from "./empty.js"\nexport * from "./more.js"\n',
+        'empty.js': 'export const unrelated = 1\n',
+        'more.js': `export const HOOKS = [${MAIN_GROUP('scripts/hook.js')}]\n`
+      })
+    ).toEqual(['scripts/hook.js'])
+  })
+
+  it('reads a path through a namespace import', () => {
+    expect(
+      found(
+        {
+          'paths.js':
+            'export const HOOK = "scripts/hook.js"\nexport const LIST = ["scripts/other.js"]\n'
+        },
+        'import * as paths from "./paths.js"\n' +
+          'chrome.scripting.registerContentScripts([{id: "a", js: [paths.HOOK], world: "MAIN", matches: ["<all_urls>"]}])\n' +
+          'chrome.scripting.executeScript({target: {tabId: 1}, files: paths.LIST, world: "MAIN"})\n'
+      )
+    ).toEqual(['scripts/hook.js', 'scripts/other.js'])
+  })
+
+  it('leaves a name two export stars both hold, a type export and a let written twice alone', () => {
+    expect(
+      found({
+        'hooks.js': 'export * from "./one.js"\nexport * from "./two.js"\n',
+        'one.js': `export const HOOKS = [${MAIN_GROUP('scripts/hook.js')}]\n`,
+        'two.js': `export const HOOKS = [${MAIN_GROUP('scripts/other.js')}]\n`
+      })
+    ).toEqual([])
+
+    expect(
+      found({
+        'hooks.ts': 'export type {HOOKS} from "./more.js"\n',
+        'more.js': `export const HOOKS = [${MAIN_GROUP('scripts/hook.js')}]\n`
+      })
+    ).toEqual([])
+
+    expect(
+      found({
+        'hooks.js':
+          `let HOOKS = [${MAIN_GROUP('scripts/hook.js')}]\n` +
+          'if (globalThis.none) HOOKS = []\nexport {HOOKS}\n'
+      })
+    ).toEqual([])
+  })
+
+  it('leaves a namespace the file also declares, and a member of no import, alone', () => {
+    expect(
+      found(
+        {'paths.js': 'export const HOOK = "scripts/hook.js"\n'},
+        'import * as paths from "./paths.js"\n' +
+          'function start(paths) {\n' +
+          '  chrome.scripting.executeScript({target: {tabId: 1}, files: [paths.HOOK, config.HOOK], world: "MAIN"})\n}\n' +
+          'function other() {\n  const paths = {}\n  return paths\n}\n'
+      )
+    ).toEqual([])
+  })
+})
+
+describe('an injection whose files are named by a constant', () => {
+  it('reads a local constant in a files list', () => {
+    expect(
+      extractInjectedFileLiterals(
+        'const HOOK = "inject/hook.js"\nconst SHEETS = ["inject/hook.css"]\n' +
+          'chrome.scripting.executeScript({target: {tabId}, files: [HOOK, "inject/b.js", missing]})\n' +
+          'chrome.scripting.insertCSS({target: {tabId}, files: SHEETS})\n' +
+          'chrome.tabs.executeScript(tabId, {file: HOOK})\n'
+      )
+    ).toEqual([
+      'inject/hook.js',
+      'inject/b.js',
+      'inject/hook.css',
+      'inject/hook.js'
+    ])
+  })
+
+  it('reads the minified shape of a constant', () => {
+    expect(
+      extractInjectedFileLiterals(
+        '(()=>{"use strict";let e="scripts/hook.js",t="inject/extra.js";chrome.action.onClicked.addListener(c=>{chrome.scripting.executeScript({target:{tabId:c.id},files:[e],world:"MAIN"}),chrome.scripting.executeScript({target:{tabId:c.id},files:[t]}),console.log(e,t)})})();'
+      )
+    ).toEqual(['scripts/hook.js', 'inject/extra.js'])
+  })
+
+  it('reads an imported constant, a registration list and a namespace', () => {
+    const projectDir = createTempProject({
+      'bg.js':
+        'import {HOOK, GROUPS} from "./lib/index.js"\nimport * as paths from "./lib/paths.js"\n' +
+        'chrome.scripting.executeScript({target: {tabId: 1}, files: [HOOK]})\n' +
+        'chrome.scripting.registerContentScripts(GROUPS)\n' +
+        'chrome.scripting.insertCSS({target: {tabId: 1}, files: [paths.SHEET]})\n',
+      'lib/index.js':
+        'export * from "./paths.js"\n' +
+        'export const GROUPS = [{id: "g", js: ["inject/group.js"], css: ["inject/group.css"], matches: ["<all_urls>"]}]\n',
+      'lib/paths.js':
+        'export const HOOK = "inject/hook.js"\nexport const SHEET = "inject/sheet.css"\n'
+    })
+    const source = fs.readFileSync(path.join(projectDir, 'bg.js'), 'utf8')
+    const {plain, full} = constantReaders(projectDir, 'bg.js')
+    const expected = [
+      'inject/hook.js',
+      'inject/sheet.css',
+      'inject/group.js',
+      'inject/group.css'
+    ]
+
+    expect(extractInjectedFileLiterals(source, plain)).toEqual(expected)
+    expect(extractInjectedFileLiterals(source, full)).toEqual(expected)
+    // With no reader the import is left alone, as before.
+    expect(extractInjectedFileLiterals(source)).toEqual([])
+  })
+
+  it('ships a file a source names through an imported constant', async () => {
+    const projectDir = createTempProject({
+      'src/background.ts':
+        'import {EXTRA} from "./paths"\n' +
+        'chrome.scripting.executeScript({target: {tabId: 1}, files: [EXTRA]})\n',
+      'src/paths.ts':
+        'export const EXTRA: string = "inject/extra.js"\nexport const GONE = "inject/gone.js"\n',
+      'src/unrelated.ts': 'import {GONE} from "./paths"\nconsole.log(GONE)\n',
+      'inject/extra.js': 'var EXTRA_READY = true\n'
+    })
+    // The dev bundle keeps the import as a member of the module object.
+    const assets = {
+      'background/service_worker.js':
+        'chrome.scripting.executeScript({target: {tabId: 1}, files: [_paths__WEBPACK_IMPORTED_MODULE_0__.EXTRA]});'
+    }
+
+    const before = await runTrace(projectDir, assets)
+    expect(before.emitted.has('inject/extra.js')).toBe(false)
+
+    const {emitted, compilation} = await runTrace(
+      projectDir,
+      assets,
+      undefined,
+      undefined,
+      ['src/background.ts', 'src/paths.ts', 'src/unrelated.ts']
+    )
+
+    expect(emitted.get('inject/extra.js')?.source.source().toString()).toBe(
+      'var EXTRA_READY = true\n'
+    )
+
+    expect(emitted.has('inject/gone.js')).toBe(false)
+    expect(compilation.warnings).toHaveLength(0)
+  })
+
+  it('ships a file the minified bundle names through a constant', async () => {
+    const projectDir = createTempProject({
+      'inject/extra.js': 'var EXTRA_READY = true\n'
+    })
+    const {emitted, compilation} = await runTrace(projectDir, {
+      'background/service_worker.js':
+        '(()=>{"use strict";let e="inject/extra.js",t="inject/other.js";chrome.scripting.executeScript({target:{tabId:1},files:[e]}),console.log(e,t)})();'
+    })
+
+    expect(emitted.has('inject/extra.js')).toBe(true)
+    expect(emitted.has('inject/other.js')).toBe(false)
+    expect(compilation.warnings).toHaveLength(0)
+  })
+})
+
+describe('TraceRuntimeLoadedFiles importScripts through a constant', () => {
+  const classic = (name: string) => `var ${name} = true\n`
+  const worker = (code: string) =>
+    runTrace(
+      createTempProject(
+        {
+          'background.js': '',
+          'shared/wanted.js': classic('WANTED_READY'),
+          'shared/also.js': classic('ALSO_READY'),
+          'shared/unwanted.js': classic('UNWANTED_READY')
+        },
+        {background: {service_worker: 'background.js'}}
+      ),
+      {'background/service_worker.js': code}
+    )
+
+  it('ships the file the constant names and no other listed path', async () => {
+    const {emitted, compilation} = await worker(
+      'const WANTED = "shared/wanted.js"\nconst UNWANTED = "shared/unwanted.js"\n' +
+        'importScripts(WANTED)\nconsole.log(UNWANTED)\n'
+    )
+
+    expect(emitted.has('background/shared/wanted.js')).toBe(true)
+    expect(emitted.has('background/shared/unwanted.js')).toBe(false)
+    expect(compilation.warnings).toHaveLength(0)
+  })
+
+  it('reads the minified shape, a spread list and both branches of a choice', async () => {
+    const minified = await worker(
+      '(()=>{let e="shared/wanted.js",l="shared/unwanted.js";importScripts(e),console.log("ready",e,l)})();'
+    )
+    expect(minified.emitted.has('background/shared/wanted.js')).toBe(true)
+    expect(minified.emitted.has('background/shared/unwanted.js')).toBe(false)
+
+    const spread = await worker(
+      'const LIBS = ["shared/wanted.js", "shared/also.js"]\nconst UNWANTED = "shared/unwanted.js"\n' +
+        'importScripts(...LIBS)\nconsole.log(UNWANTED)\n'
+    )
+    expect(spread.emitted.has('background/shared/wanted.js')).toBe(true)
+    expect(spread.emitted.has('background/shared/also.js')).toBe(true)
+    expect(spread.emitted.has('background/shared/unwanted.js')).toBe(false)
+
+    const choice = await worker(
+      'const A = "shared/wanted.js"\nconst B = "shared/also.js"\nconst UNWANTED = "shared/unwanted.js"\n' +
+        'importScripts(globalThis.flag ? A : B)\nconsole.log(UNWANTED)\n'
+    )
+    expect(choice.emitted.has('background/shared/wanted.js')).toBe(true)
+    expect(choice.emitted.has('background/shared/also.js')).toBe(true)
+    expect(choice.emitted.has('background/shared/unwanted.js')).toBe(false)
+  })
+
+  it('still ships every listed path when the variable cannot be known', async () => {
+    for (const code of [
+      'let path = "shared/wanted.js"\nif (globalThis.flag) path = "shared/also.js"\nconst UNWANTED = "shared/unwanted.js"\nimportScripts(path)\n',
+      'const WANTED = "shared/wanted.js"\nconst UNWANTED = "shared/unwanted.js"\nimportScripts(WANTED)\nimportScripts(pick())\n',
+      'const WANTED = "shared/" + "wanted.js"\nconst UNWANTED = "shared/unwanted.js"\nconst ALSO = "shared/wanted.js"\nimportScripts(WANTED)\n',
+      'function load(path) {\n  importScripts(path)\n}\nconst path = "shared/also.js"\nload("shared/wanted.js")\nload("shared/unwanted.js")\n'
+    ]) {
+      const {emitted} = await worker(code)
+
+      expect(emitted.has('background/shared/wanted.js')).toBe(true)
+      expect(emitted.has('background/shared/unwanted.js')).toBe(true)
+    }
+  })
+})
+
+describe('a path a constant names that is no file', () => {
+  it('warns as the literal does when a bundle injects through a constant', async () => {
+    const projectDir = createTempProject({})
+    const literal = await runTrace(projectDir, {
+      'background/service_worker.js':
+        'chrome.scripting.executeScript({target: {tabId: 1}, files: ["inject/gone.js"]});'
+    })
+    const constant = await runTrace(projectDir, {
+      'background/service_worker.js':
+        '(()=>{let e="inject/gone.js";chrome.scripting.executeScript({target:{tabId:1},files:[e]}),console.log(e)})();'
+    })
+
+    expect(literal.compilation.warnings).toHaveLength(1)
+    expect(constant.compilation.warnings).toHaveLength(1)
+    expect(constant.compilation.warnings[0].name).toBe(
+      literal.compilation.warnings[0].name
+    )
+
+    expect(constant.compilation.warnings[0].name).toBe(
+      'InjectedScriptFilesMissing'
+    )
+
+    expect(String(constant.compilation.warnings[0].message)).toBe(
+      String(literal.compilation.warnings[0].message)
+    )
+  })
+
+  it('warns, naming the source, when an imported constant names no file', async () => {
+    const projectDir = createTempProject({
+      'src/background.ts':
+        'import {GONE, GROUPS} from "./paths"\n' +
+        'chrome.scripting.executeScript({target: {tabId: 1}, files: [GONE]})\n' +
+        'chrome.scripting.registerContentScripts(GROUPS)\n',
+      'src/paths.ts':
+        'export const GONE = "inject/gone.js"\n' +
+        'export const GROUPS = [{id: "g", js: ["inject/lost.js"], matches: ["<all_urls>"]}]\n'
+    })
+    const {compilation, emitted} = await runTrace(
+      projectDir,
+      {
+        'background/service_worker.js':
+          'chrome.scripting.executeScript({target: {tabId: 1}, files: [_paths__WEBPACK_IMPORTED_MODULE_0__.GONE]});'
+      },
+      undefined,
+      undefined,
+      ['src/background.ts', 'src/paths.ts']
+    )
+
+    expect(emitted.has('inject/gone.js')).toBe(false)
+    expect(
+      compilation.warnings.map((warning: any) => [warning.name, warning.file])
+    ).toEqual([
+      ['InjectedScriptFilesMissing', 'src/background.ts'],
+      ['InjectedScriptFilesMissing', 'src/background.ts']
+    ])
+
+    expect(String(compilation.warnings[0].message)).toContain(
+      "src/background.ts injects 'inject/gone.js'"
+    )
+
+    expect(String(compilation.warnings[1].message)).toContain(
+      "injects 'inject/lost.js'"
+    )
+  })
+
+  it('warns as the literal does when importScripts reads a constant', async () => {
+    const run = (code: string) =>
+      runTrace(
+        createTempProject(
+          {'background.js': '', 'shared/other.js': 'var OTHER = 1\n'},
+          {background: {service_worker: 'background.js'}}
+        ),
+        {'background/service_worker.js': code}
+      )
+    const literal = await run('importScripts("shared/gone.js")')
+    const constant = await run(
+      'const GONE = "shared/gone.js"\nconst OTHER = "shared/other.js"\nimportScripts(GONE)\nconsole.log(OTHER)\n'
+    )
+
+    expect(literal.compilation.warnings).toHaveLength(1)
+    expect(constant.compilation.warnings).toHaveLength(1)
+    expect(constant.compilation.warnings[0].name).toBe(
+      'ImportScriptsDependencyMissing'
+    )
+
+    expect(String(constant.compilation.warnings[0].message)).toBe(
+      String(literal.compilation.warnings[0].message)
+    )
+
+    // A path that is only a guess still says nothing when it is no file.
+    const guess = await run(
+      'const GONE = "shared/gone.js"\nimportScripts(pick(GONE))\n'
+    )
+    expect(guess.compilation.warnings).toHaveLength(0)
   })
 })

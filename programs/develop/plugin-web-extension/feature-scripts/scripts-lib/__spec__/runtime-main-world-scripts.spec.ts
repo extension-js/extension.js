@@ -492,20 +492,87 @@ describe('a registration passed through a constant of the same file', () => {
     ).toEqual([])
   })
 
-  it('stops after one hop', () => {
+  it('reads a constant named inside the literal of another', () => {
     expect(
       found(
         'const files = ["scripts/hook.js"]\n' +
           'const hooks = [{id: "hook", js: files, world: "MAIN", matches: ["<all_urls>"]}]\n' +
           'api.scripting.registerContentScripts(hooks)\n'
       )
+    ).toEqual(['scripts/hook'])
+
+    expect(
+      found(
+        'const HOOK = "scripts/hook.js"\nconst files = [HOOK]\n' +
+          'const hook = {id: "hook", js: files, world: "MAIN", matches: ["<all_urls>"]}\n' +
+          'const hooks = [hook]\napi.scripting.registerContentScripts(hooks)\n'
+      )
+    ).toEqual(['scripts/hook'])
+  })
+
+  it('leaves a constant that is only another name, or names a hidden one, alone', () => {
+    expect(
+      found(
+        `const first = [${GROUP}]\nconst hooks = first\n` +
+          'api.scripting.registerContentScripts(hooks)\n'
+      )
+    ).toEqual([])
+
+    expect(
+      found(
+        'function build(files) {\n' +
+          '  const hooks = [{id: "hook", js: files, world: "MAIN", matches: ["<all_urls>"]}]\n' +
+          '  api.scripting.registerContentScripts(hooks)\n}\n' +
+          'const files = ["scripts/hook.js"]\nbuild([])\n'
+      )
     ).toEqual([])
   })
 
-  it('leaves a let, a name declared twice and an import of no file undetected', () => {
+  it('reads a let declared with no value and assigned once before the call', () => {
+    expect(
+      found(
+        `let hooks\nhooks = [${GROUP}]\napi.scripting.registerContentScripts(hooks)\n`
+      )
+    ).toEqual(['scripts/hook'])
+
+    expect(
+      found(
+        'async function start() {\n' +
+          `  let hooks: chrome.scripting.RegisteredContentScript[];\n  hooks = [${GROUP}];\n` +
+          '  await api.scripting.registerContentScripts(hooks)\n}\n'
+      )
+    ).toEqual(['scripts/hook'])
+  })
+
+  it('leaves a let with no value alone when its one value is not certain', () => {
+    for (const body of [
+      // Assigned twice.
+      `let hooks\nhooks = [${GROUP}]\nhooks = []\napi.scripting.registerContentScripts(hooks)\n`,
+      // Assigned under a condition, with and without a block.
+      `let hooks\nif (globalThis.on) {\n  hooks = [${GROUP}]\n}\napi.scripting.registerContentScripts(hooks)\n`,
+      `let hooks\nif (globalThis.on) hooks = [${GROUP}]\napi.scripting.registerContentScripts(hooks)\n`,
+      `let hooks\nif (globalThis.on) x()\nelse hooks = [${GROUP}]\napi.scripting.registerContentScripts(hooks)\n`,
+      // Assigned after the call, and inside a function called who knows when.
+      `let hooks\napi.scripting.registerContentScripts(hooks)\nhooks = [${GROUP}]\n`,
+      `let hooks\nfunction fill() {\n  hooks = [${GROUP}]\n}\napi.scripting.registerContentScripts(hooks)\n`,
+      // Not a plain assignment.
+      `let hooks\nhooks ||= [${GROUP}]\napi.scripting.registerContentScripts(hooks)\n`,
+      `let hooks\nhooks = make([${GROUP}])\napi.scripting.registerContentScripts(hooks)\n`
+    ]) {
+      expect(found(body)).toEqual([])
+    }
+  })
+
+  it('reads a let assigned once, and leaves a name declared twice and an import of no file undetected', () => {
     expect(
       found(
         `let hooks = [${GROUP}]\napi.scripting.registerContentScripts(hooks)\n`
+      )
+    ).toEqual(['scripts/hook'])
+
+    expect(
+      found(
+        `let hooks = [${GROUP}]\nhooks = []\napi.scripting.registerContentScripts(hooks)\n`
       )
     ).toEqual([])
 
@@ -679,6 +746,43 @@ describe('a registration in a linked workspace package', () => {
     ).toEqual([])
   })
 
+  it('follows a file: package the package manager copied into node_modules', () => {
+    const copied = (spec: string) => {
+      const {root, at} = project({
+        'ext/package.json': JSON.stringify({
+          name: 'ext',
+          private: true,
+          dependencies: {'@probe/shared': spec}
+        }),
+        'ext/background.js': 'import {start} from "@probe/shared"\nstart()\n',
+        'ext/scripts/hook.js': HOOK,
+        'shared/package.json': '{"name": "@probe/shared", "main": "index.js"}',
+        'shared/index.js': 'export {start} from "./register.js"\n',
+        'shared/register.js': 'export function start() {}\n',
+        'ext/node_modules/@probe/shared/package.json':
+          '{"name": "@probe/shared", "main": "index.js"}',
+        'ext/node_modules/@probe/shared/index.js':
+          'export {start} from "./register.js"\n',
+        'ext/node_modules/@probe/shared/register.js': `export function start() {\n${register('scripts/hook.js')}}\n`
+      })
+
+      return findRuntimeMainWorldEntries({
+        includeList: {
+          'background/service_worker': at('ext/background.js'),
+          'scripts/hook': at('ext/scripts/hook.js')
+        },
+        manifestDir: path.join(root, 'ext'),
+        projectPath: path.join(root, 'ext')
+      }).map((entry) => entry.entryName)
+    }
+
+    expect(copied('file:../shared')).toEqual(['scripts/hook'])
+    // Any other spec is a real install, which is never read.
+    expect(copied('^1.0.0')).toEqual([])
+    expect(copied('link:../shared')).toEqual([])
+    expect(copied('file:../elsewhere')).toEqual([])
+  })
+
   it('leaves a link into a package store under node_modules alone', () => {
     expect(
       workspace(
@@ -801,7 +905,7 @@ describe('a registration passed through a constant another file exports', () => 
     ).toEqual([])
   })
 
-  it('stops after the one hop across the import', () => {
+  it('follows a nested constant, a name passed on and a default that is a name', () => {
     const call =
       'import {HOOKS} from "./hooks.js"\napi.scripting.registerContentScripts(HOOKS)\n'
 
@@ -812,7 +916,7 @@ describe('a registration passed through a constant another file exports', () => 
           'const files = ["scripts/hook.js"]\n' +
           'export const HOOKS = [{id: "hook", js: files, world: "MAIN", matches: ["<all_urls>"]}]\n'
       }).find()
-    ).toEqual([])
+    ).toEqual(['scripts/hook'])
 
     // A name the module only passes on from a third file.
     expect(
@@ -820,7 +924,7 @@ describe('a registration passed through a constant another file exports', () => 
         'hooks.js': 'export {HOOKS} from "./more.js"\n',
         'more.js': `export const HOOKS = [${GROUP}]\n`
       }).find()
-    ).toEqual([])
+    ).toEqual(['scripts/hook'])
 
     // A default export that names a constant instead of holding the literal.
     expect(
@@ -828,15 +932,77 @@ describe('a registration passed through a constant another file exports', () => 
         'import hooks from "./hooks.js"\napi.scripting.registerContentScripts(hooks)\n',
         {'hooks.js': `const hooks = [${GROUP}]\nexport default hooks\n`}
       ).find()
-    ).toEqual([])
+    ).toEqual(['scripts/hook'])
   })
 
-  it('leaves an exported let, a type import and a package constant alone', () => {
+  it('reads a nested constant the exporting module itself imports', () => {
+    expect(
+      found(
+        'import {HOOKS} from "./hooks.js"\napi.scripting.registerContentScripts(HOOKS)\n',
+        {
+          'hooks.js':
+            'import {FILES} from "./files.js"\n' +
+            'export const HOOKS = [{id: "hook", js: FILES, world: "MAIN", matches: ["<all_urls>"]}]\n',
+          'files.js':
+            'const HOOK = "scripts/hook.js"\nexport const FILES = [HOOK]\n'
+        }
+      ).find()
+    ).toEqual(['scripts/hook'])
+  })
+
+  it('follows an alias and then a relative specifier of the module it leads to', () => {
+    // The folder index is reached by alias, so only its own file says
+    // where "./more/list.js" is.
+    expect(
+      found(
+        'import {HOOKS} from "@lib/hooks"\napi.scripting.registerContentScripts(HOOKS)\n',
+        {
+          'lib/hooks/index.js': 'export {HOOKS} from "./more/list.js"\n',
+          'lib/hooks/more/list.js': `export const HOOKS = [${GROUP}]\n`,
+          'lib/more/list.js': 'export const HOOKS = []\n'
+        }
+      ).find()
+    ).toEqual(['scripts/hook'])
+
+    expect(
+      found(
+        'import * as paths from "@lib/paths"\n' +
+          'api.scripting.executeScript({target: {tabId: 1}, files: [paths.HOOK], world: "MAIN"})\n',
+        {
+          'lib/paths/index.ts': 'export * from "./names"\n',
+          'lib/paths/names.ts': 'export const HOOK = "scripts/hook.js"\n'
+        }
+      ).find()
+    ).toEqual(['scripts/hook'])
+  })
+
+  it('leaves a default that names a function, a class or a call alone', () => {
+    for (const exported of [
+      `const hooks = [${GROUP}]\nexport default function hooks2() { return hooks }\n`,
+      `const hooks = [${GROUP}]\nexport default make(hooks)\n`,
+      `let hooks = [${GROUP}]\nhooks = []\nexport default hooks\n`
+    ]) {
+      expect(
+        found(
+          'import hooks from "./hooks.js"\napi.scripting.registerContentScripts(hooks)\n',
+          {'hooks.js': exported}
+        ).find()
+      ).toEqual([])
+    }
+  })
+
+  it('reads an exported let assigned once, and leaves a type import and a package constant alone', () => {
     const call =
       'import {HOOKS} from "./hooks.js"\napi.scripting.registerContentScripts(HOOKS)\n'
 
     expect(
       found(call, {'hooks.js': `export let HOOKS = [${GROUP}]\n`}).find()
+    ).toEqual(['scripts/hook'])
+
+    expect(
+      found(call, {
+        'hooks.js': `export let HOOKS = [${GROUP}]\nHOOKS = []\n`
+      }).find()
     ).toEqual([])
 
     expect(
