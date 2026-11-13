@@ -245,7 +245,19 @@ export function devServerRestarting(request: {
   pathAfter?: string
   pathBefore?: string
   pathChanged?: string
+  registeredBy?: string
+  alsoChanged?: number
 }) {
+  if (request.reason === 'main-world' && request.pathChanged) {
+    const file = displayPath(request.pathChanged)
+    const others = request.alsoChanged ? ` and ${request.alsoChanged} more` : ''
+    const why = request.registeredBy
+      ? `for the MAIN world, where ${displayPath(request.registeredBy)} now registers it`
+      : `as a content script, now that nothing registers it into the MAIN world`
+
+    return `${getLoggingPrefix('info')} Restarting the dev server to build ${file}${others} ${why}…`
+  }
+
   // Every reason names its own noun. A reason with no branch here would print
   // the script-entry noun, which is the wrong sentence for any other change.
   const what =
