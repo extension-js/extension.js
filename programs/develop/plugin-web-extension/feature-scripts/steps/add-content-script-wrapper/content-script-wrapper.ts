@@ -35,6 +35,7 @@ import {
   getContentScriptCssProbeMarker
 } from '../../contracts'
 import * as messages from '../../messages'
+import {keepCompletionValue} from '../../scripts-lib/completion-value'
 
 interface ContentScriptLoaderContext {
   getOptions(): {
@@ -198,6 +199,34 @@ function hasDefaultExport(
     }
 
     return fallback
+  }
+}
+
+// Whether a file imports another one from scripts/, whose value would
+// otherwise be taken for the value of the file that imported it.
+function importsScriptsFile(
+  source: string,
+  resourceAbsPath: string,
+  scriptsDir: string
+): boolean {
+  try {
+    const [imports] = parseModuleSyntax(source)
+
+    return imports.some(({specifier}) => {
+      if (typeof specifier !== 'string' || !specifier.startsWith('.')) {
+        return false
+      }
+
+      const relative = path.relative(
+        scriptsDir,
+        path.resolve(path.dirname(resourceAbsPath), specifier)
+      )
+
+      return !relative.startsWith('..') && !path.isAbsolute(relative)
+    })
+  } catch {
+    // Source the lexer cannot read: a relative import is taken at its word.
+    return /\bfrom\s*["']\.|\bimport\s*["']\./.test(source)
   }
 }
 
@@ -1160,7 +1189,22 @@ export default function contentScriptWrapper(
         // Ignore
       }\n`
       )
-    const wrapped = `${prefix}${rewrittenSource}\n${suffix}`
+    // executeScript resolves with the value an injected file ends on. Only
+    // a scripts/ file can be injected, and a module it imports is no entry.
+    const endsOnItsValue =
+      Boolean(isScriptsFolderScript) &&
+      !declaredEntry &&
+      (options.mainWorldBundle !== true || isRuntimeMainWorld)
+    const body = endsOnItsValue
+      ? keepCompletionValue(rewrittenSource, this.resourcePath, {
+          importsAnotherScript: importsScriptsFile(
+            rewrittenSource,
+            resourceAbsPath,
+            String(scriptsDir)
+          )
+        })
+      : rewrittenSource
+    const wrapped = `${prefix}${body}\n${suffix}`
 
     return returnWithMap(
       this,
