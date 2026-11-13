@@ -93,8 +93,8 @@ export class ScriptsPlugin {
       browser: this.browser
     }).apply(compiler)
 
-    // Chromium reads a url() in a sheet it injects against the visited page,
-    // so a sheet that ships as a file names its targets from the extension.
+    // A sheet on the visited page reads a url() against that page, so one
+    // that ships as a file names its targets from the extension.
     new RootInjectedSheetUrls({
       includeList: this.includeList || {},
       browser: this.browser

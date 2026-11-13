@@ -2,7 +2,10 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
-import {CHROMIUM_EXTENSION_ROOT} from '../plugin-web-extension/feature-scripts/scripts-lib/injected-sheet-urls'
+import {
+  CHROMIUM_EXTENSION_ROOT,
+  GECKO_EXTENSION_ROOT
+} from '../plugin-web-extension/feature-scripts/scripts-lib/injected-sheet-urls'
 
 // Chromium resolves a url() in a sheet it injects against the visited page,
 // so the sheet a declared content script ships names its file by extension.
@@ -157,17 +160,36 @@ describe('the sheet of a declared content script on Chromium', () => {
   }, 180_000)
 })
 
+// Firefox resolves an injected sheet against the extension, and a sheet a
+// script fetches into a style element against the page, so both get the id.
 describe('the sheet of a declared content script on Firefox', () => {
   it.each(SHEETS)(
-    'keeps the root path Firefox resolves against the extension for %s',
+    'names the file %s reaches for from the extension',
     async (_label, sheet) => {
       const built = await build('firefox')
       const targets = urlTargets(built.read(sheet))
 
       expect(targets).toHaveLength(1)
-      expect(targets[0]).toMatch(/^\/assets\/pic\.[0-9a-f]+\.bin$/)
-      expect(built.has(targets[0].slice(1))).toBe(true)
+      expect(targets[0].startsWith(GECKO_EXTENSION_ROOT)).toBe(true)
+
+      const file = targets[0].slice(GECKO_EXTENSION_ROOT.length)
+
+      expect(file).toMatch(/^assets\/pic\.[0-9a-f]+\.bin$/)
+      expect(built.has(file)).toBe(true)
     },
     180_000
   )
+
+  it('leaves a sheet with no url() and a page sheet as the bundler wrote them', async () => {
+    const built = await build('firefox')
+
+    expect(built.read('content_scripts/content-3.css')).toMatch(
+      /^\.[\w-]+\{color:#070809\}\s*$/
+    )
+
+    const page = urlTargets(built.read('action/index.css'))
+
+    expect(page).toHaveLength(1)
+    expect(page[0]).toMatch(/^\/assets\/pic\.[0-9a-f]+\.bin$/)
+  }, 180_000)
 })
