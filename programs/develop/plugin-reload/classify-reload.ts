@@ -17,6 +17,11 @@ import {DEV_CONTENT_SCRIPT_REGISTRY_ASSET} from './reload-lib/dev-content-script
 
 export type ReloadType = 'full' | 'service-worker' | 'content-scripts'
 
+export interface RefreshedStylesheet {
+  file: string
+  digest: string
+}
+
 export interface ReloadInstruction {
   // 'page' is notify-only: livereload refreshes the surface, but the signal
   // still travels the bridge so every announcing surface reflects it.
@@ -29,6 +34,9 @@ export interface ReloadInstruction {
   // Emitted scripts/ bundles a changed source lands in, so the SW replays
   // the programmatic executeScript calls that named them.
   changedScriptFiles?: string[]
+  // Stylesheets the loaded manifest names that kept their name and changed
+  // their bytes, for a browser that can swap them on open tabs in place.
+  refreshedStylesheets?: RefreshedStylesheet[]
   // Human context label shared VERBATIM by every announcing surface, so they
   // can never disagree. e.g. "content_script (content/scripts.tsx)".
   label?: string
@@ -734,12 +742,13 @@ export function readContentScriptDigests(
   return digests
 }
 
-// The browser keeps a file the loaded manifest names under its address, so new
-// bytes under the same name reach no page until the extension reloads.
+// The browser keeps a file the loaded manifest names under its address. Only
+// a reload reads it again, or with refreshInPlace a swap on the open tabs.
 export function reloadForRewrittenContentScripts(
   instruction: ReloadInstruction | undefined,
   loadedDigests: Record<string, string>,
-  emittedDigests: Record<string, string>
+  emittedDigests: Record<string, string>,
+  options?: {refreshInPlace?: boolean}
 ): ReloadInstruction | undefined {
   if (instruction?.type === 'full' || instruction?.type === 'service-worker') {
     return instruction
@@ -748,13 +757,34 @@ export function reloadForRewrittenContentScripts(
   // The worker reloads the extension and the tabs for a static entry itself.
   if (instruction?.staticContentScriptEntries?.length) return instruction
 
-  const rewritten = Object.keys(emittedDigests).some(
+  const rewrittenFiles = Object.keys(emittedDigests).filter(
     (file) =>
       loadedDigests[file] !== undefined &&
       loadedDigests[file] !== emittedDigests[file]
   )
 
-  if (!rewritten) return instruction
+  if (rewrittenFiles.length === 0) return instruction
+
+  // A changed script renames its bundle, which is a full reload before this
+  // point, so what is left here changed stylesheets and nothing else.
+  if (options?.refreshInPlace) {
+    const sheetAssets = instruction?.changedAssets?.length
+      ? instruction.changedAssets
+      : rewrittenFiles
+
+    return {
+      ...instruction,
+      type: 'content-scripts',
+      changedAssets: sheetAssets,
+      refreshedStylesheets: rewrittenFiles.map((file) => ({
+        file,
+        digest: emittedDigests[file]
+      })),
+      label:
+        instruction?.label ??
+        formatReloadContextLabel('content_script', sheetAssets)
+    }
+  }
 
   const changedAssets = instruction?.changedAssets?.length
     ? instruction.changedAssets
@@ -801,6 +831,45 @@ export function reloadForRenamedContentScripts(
       instruction?.type === 'content-scripts' && instruction.label
         ? instruction.label
         : formatReloadContextLabel('extension', changedAssets)
+  }
+}
+
+// What the browser last read through the manifest's content_scripts, taken
+// to be the first compile and each full reload when nothing launched it.
+export function createLoadedContentScripts(options: {refreshInPlace: boolean}) {
+  let files: string[] = []
+  let digests: Record<string, string> = {}
+
+  return {
+    noteLoaded(compilation: import('@rspack/core').Compilation): void {
+      files = readContentScriptFiles(compilation)
+      digests = readContentScriptDigests(compilation, files)
+    },
+    resolve(
+      compilation: import('@rspack/core').Compilation,
+      classified: ReloadInstruction | undefined
+    ): ReloadInstruction | undefined {
+      const emittedFiles = readContentScriptFiles(compilation)
+      const emittedDigests = readContentScriptDigests(compilation, emittedFiles)
+      const instruction = reloadForRewrittenContentScripts(
+        reloadForRenamedContentScripts(classified, files, emittedFiles),
+        digests,
+        emittedDigests,
+        options
+      )
+
+      if (
+        instruction?.type === 'full' ||
+        instruction?.type === 'service-worker'
+      ) {
+        files = emittedFiles
+        digests = emittedDigests
+      } else if (instruction?.refreshedStylesheets?.length) {
+        digests = emittedDigests
+      }
+
+      return instruction
+    }
   }
 }
 

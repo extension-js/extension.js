@@ -251,6 +251,11 @@ export const DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE = `;(function () {
     // injected it, so every probe also stamps the booting worker's token.
     var GENERATION_KEY = "generation";
     var GENERATION = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    var SHEETS_KEY = "sheets";
+    // Chromium adds a registered stylesheet at document start only, so a frame
+    // that committed before the registration existed runs the script without it.
+    var registeredAt = {};
+    var REGISTRATION_SLACK_MS = 500;
     var registry = null;
     var ready = false;
     var whenReady = [];
@@ -336,8 +341,14 @@ export const DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE = `;(function () {
           var pending = ops.length;
           if (!pending) return call(done);
           var step = function () { pending--; if (pending <= 0) call(done); };
+          var stamp = function () {
+            for (var n = 0; n < toRegister.length; n++) registeredAt[toRegister[n].id] = Date.now();
+          };
           for (var o = 0; o < ops.length; o++) {
-            try { chrome.scripting[ops[o][0]](ops[o][1], function () { noop(); step(); }); } catch (e) { step(); }
+            (function (op) {
+              var landed = function () { noop(); if (op[0] === "registerContentScripts") stamp(); step(); };
+              try { chrome.scripting[op[0]](op[1], landed); } catch (e) { step(); }
+            })(ops[o]);
           }
         });
       } catch (e) { call(done); }
@@ -346,37 +357,62 @@ export const DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE = `;(function () {
     // Inject one entry into the frames of a tab whose world does not already
     // run the current file, or on a heal ran it for a previous extension
     // generation. Chromium's own injection sets the same marker.
+    // True for a frame that may have committed before its entry was registered
+    // in this worker's lifetime. A second copy of a sheet changes no cascade.
+    function missedSheet(e, committedAt) {
+      var at = registeredAt[e.id];
+      if (!at) return false;
+      return !(typeof committedAt === "number" && committedAt > at + REGISTRATION_SLACK_MS);
+    }
+
+    function insertSheets(tabId, frameIds, css) {
+      if (!frameIds.length || !css.length || !chrome.scripting.insertCSS) return;
+      try { chrome.scripting.insertCSS({target: {tabId: tabId, frameIds: frameIds}, files: css}, noop); } catch (x) {
+        // Ignore
+      }
+    }
+
     function inject(e, target, sameGeneration, done) {
       var world = e.world === "MAIN" ? "MAIN" : "ISOLATED";
       var js = (e.js || []).filter(isString), css = (e.css || []).filter(isString);
       var probe = {target: target, world: world, injectImmediately: true,
-        args: [MARKER, GENERATION_KEY, e.entry, js[0] || "", GENERATION, !!sameGeneration],
-        func: function (key, genKey, entry, file, gen, needGen) {
+        args: [MARKER, GENERATION_KEY, SHEETS_KEY, e.entry, js[0] || "", GENERATION, !!sameGeneration],
+        func: function (key, genKey, sheetsKey, entry, file, gen, needGen) {
           try {
             var g = globalThis, m = g[key] = g[key] || {}, gens = m[genKey] = m[genKey] || {};
+            var sheets = m[sheetsKey] = m[sheetsKey] || {};
             var covered = m[entry] === file && (!needGen || gens[entry] === gen);
+            var sheetSeen = sheets[entry] === true;
+            var committedAt = null;
+            try {
+              var p = g.performance, nav = p.getEntriesByType("navigation")[0];
+              committedAt = p.timeOrigin + (nav && nav.responseStart > 0 ? nav.responseStart : 0);
+            } catch (x) {
+              // Ignore
+            }
             gens[entry] = gen;
-            return covered;
-          } catch (x) { return false; }
+            sheets[entry] = true;
+            return {covered: covered, sheetSeen: sheetSeen, committedAt: committedAt};
+          } catch (x) { return null; }
         }};
       try {
         chrome.scripting.executeScript(probe, function (results) {
           noop();
-          var frameIds = [];
+          var frameIds = [], sheetOnly = [];
           if (results) {
             for (var i = 0; i < results.length; i++) {
               var r = results[i];
-              if (!r || r.result === true) continue;
-              frameIds.push(typeof r.frameId === "number" ? r.frameId : 0);
+              if (!r) continue;
+              var frameId = typeof r.frameId === "number" ? r.frameId : 0;
+              var state = r.result;
+              if (!state || state.covered !== true) { frameIds.push(frameId); continue; }
+              if (css.length && !state.sheetSeen && missedSheet(e, state.committedAt)) sheetOnly.push(frameId);
             }
           }
+          insertSheets(target.tabId, sheetOnly, css);
           if (!frameIds.length) return call(done);
           var into = {tabId: target.tabId, frameIds: frameIds};
-          if (css.length && chrome.scripting.insertCSS) {
-            try { chrome.scripting.insertCSS({target: into, files: css}, noop); } catch (x) {
-              // Ignore
-            }
-          }
+          insertSheets(target.tabId, frameIds, css);
           if (!js.length) return call(done);
           try {
             chrome.scripting.executeScript({target: into, files: js, world: world, injectImmediately: true}, function () { noop(); call(done); });
