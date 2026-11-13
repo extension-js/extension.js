@@ -13,7 +13,8 @@ import type {Compiler} from '@rspack/core'
 import {isGeckoBasedBrowser} from '../../../lib/constants'
 import {
   closedOnSlash,
-  extensionBaseFromFile
+  extensionBaseFromFile,
+  unlessExtensionAddress
 } from '../../../lib/extension-base-from-stack'
 import type {DevOptions} from '../../../types'
 
@@ -69,12 +70,17 @@ function PublicPathRuntimeModule(compiler: Compiler, gecko: boolean) {
 
       return Template.asString([
         ...weakRuntimeCheck,
-        `var __extjsBase = ${extensionBaseFromFile(gecko)} || ((typeof globalThis === "object" && globalThis && globalThis.__EXTJS_EXTENSION_BASE__) ? String(globalThis.__EXTJS_EXTENSION_BASE__) : "");`,
+        // On Firefox a page owns every other global of a MAIN world file,
+        // so the file goes from its own copy straight to the document.
+        gecko
+          ? `var __extjsBase = ${extensionBaseFromFile(gecko)};`
+          : `var __extjsBase = ${extensionBaseFromFile(gecko)} || ((typeof globalThis === "object" && globalThis && globalThis.__EXTJS_EXTENSION_BASE__) ? String(globalThis.__EXTJS_EXTENSION_BASE__) : "");`,
         `if (!__extjsBase && typeof document === "object" && document && document.documentElement) {`,
         Template.indent([
           `try { __extjsBase = document.documentElement.getAttribute("data-extjs-extension-base") || ""; } catch(_) { __extjsBase = ""; }`
         ]),
         `}`,
+        ...(gecko ? [unlessExtensionAddress('__extjsBase')] : []),
         `var path = ${JSON.stringify(
           this.compilation?.getPath((publicPath as string) || '', {
             hash: this.compilation.hash || 'XXXX'

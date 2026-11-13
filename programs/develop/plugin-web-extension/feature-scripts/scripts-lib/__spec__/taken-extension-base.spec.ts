@@ -1,10 +1,16 @@
 import * as fs from 'node:fs'
+import * as os from 'node:os'
 import * as path from 'node:path'
 import * as vm from 'node:vm'
 import {describe, expect, it} from 'vitest'
-import {TAKE_BLOCK_OPEN} from '../../../../lib/extension-base-from-stack'
+import {
+  extensionBaseGlobal,
+  TAKE_BLOCK_OPEN,
+  takeBlockOpen
+} from '../../../../lib/extension-base-from-stack'
 import {
   closeTakeBlock,
+  extensionBaseGlobalFor,
   isEntryFile,
   TAKE_BLOCK_COLUMNS,
   takesExtensionBase
@@ -67,7 +73,11 @@ describe('the block a Gecko MAIN world file is closed in', () => {
     )
     const columns = /const EXTJS_TAKE_COLUMNS = (\d+)\r?\n/.exec(bridge)
 
-    expect(TAKE_BLOCK_COLUMNS).toBe(TAKE_BLOCK_OPEN.length)
+    expect(TAKE_BLOCK_COLUMNS).toBe(
+      takeBlockOpen(extensionBaseGlobal('any extension')).length
+    )
+
+    expect(TAKE_BLOCK_COLUMNS).toBeGreaterThan(TAKE_BLOCK_OPEN.length)
     expect(Number(columns?.[1])).toBe(TAKE_BLOCK_COLUMNS)
   })
 })
@@ -103,5 +113,71 @@ describe('isEntryFile', () => {
   it('reads an entry name as text, a dot or a bracket in it included', () => {
     expect(isEntryFile('scripts/a.b[c].js', 'scripts/a.b[c]')).toBe(true)
     expect(isEntryFile('scripts/aXb[c].js', 'scripts/a.b[c]')).toBe(false)
+  })
+})
+
+describe('extensionBaseGlobalFor', () => {
+  const written = (manifest: Record<string, unknown>) => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-base-global-'))
+    const file = path.join(root, 'manifest.json')
+
+    fs.writeFileSync(file, JSON.stringify(manifest))
+
+    return {file, done: () => fs.rmSync(root, {recursive: true, force: true})}
+  }
+
+  it('names a global from the id, name and description of the manifest', () => {
+    const first = written({
+      name: 'First',
+      description: 'One',
+      browser_specific_settings: {gecko: {id: 'first@example.com'}}
+    })
+    const second = written({name: 'Second'})
+    const twin = written({
+      name: 'First',
+      description: 'One',
+      'firefox:browser_specific_settings': {gecko: {id: 'first@example.com'}}
+    })
+
+    try {
+      const global = extensionBaseGlobalFor(first.file, 'firefox')
+
+      expect(global).toBe(extensionBaseGlobal('first@example.com\nFirst\nOne'))
+      expect(extensionBaseGlobalFor(second.file, 'firefox')).toBe(
+        extensionBaseGlobal('\nSecond\n')
+      )
+
+      expect(extensionBaseGlobalFor(second.file, 'firefox')).not.toBe(global)
+      expect(extensionBaseGlobalFor(twin.file, 'firefox')).toBe(global)
+      expect(closeTakeBlock('body()', global).open).toBe(takeBlockOpen(global))
+      expect(takesExtensionBase(`${takeBlockOpen(global)}body()\n}`)).toBe(true)
+    } finally {
+      first.done()
+      second.done()
+      twin.done()
+    }
+  })
+
+  it('keeps one name for a session, whatever the manifest says later', () => {
+    const {file, done} = written({name: 'Before'})
+
+    try {
+      const global = extensionBaseGlobalFor(file, 'firefox')
+
+      fs.writeFileSync(file, JSON.stringify({name: 'After'}))
+
+      expect(extensionBaseGlobalFor(file, 'firefox')).toBe(global)
+    } finally {
+      done()
+    }
+  })
+
+  it('falls to the shared name for a manifest nobody can read', () => {
+    expect(
+      extensionBaseGlobalFor(
+        path.join(os.tmpdir(), 'extjs-no-such-manifest', 'manifest.json'),
+        'firefox'
+      )
+    ).toBe('__EXTJS_EXTENSION_BASE__')
   })
 })

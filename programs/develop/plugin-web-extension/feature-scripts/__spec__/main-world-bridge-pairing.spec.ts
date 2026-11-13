@@ -15,8 +15,23 @@ function fakeScripting(initial: Script[] = []) {
   let registry: Script[] = initial.map((script) => ({...script}))
   const calls: string[] = []
 
+  // The browser takes no id that starts with an underscore. The wrapper
+  // checks a call's shape with such an id, which the log leaves out.
+  const refuse = (ids: unknown[], message: (id: string) => string) => {
+    const refused = ids.find(
+      (id): id is string => typeof id === 'string' && id.startsWith('_')
+    )
+
+    if (refused !== undefined) throw new Error(message(refused))
+  }
+
   const promised = {
     registerContentScripts: async (scripts: Script[]) => {
+      refuse(
+        scripts.map((script) => script.id),
+        () => 'Invalid content script id.'
+      )
+
       calls.push('register')
 
       for (const script of scripts) {
@@ -30,6 +45,11 @@ function fakeScripting(initial: Script[] = []) {
       registry = [...registry, ...scripts.map((script) => ({...script}))]
     },
     updateContentScripts: async (scripts: Script[]) => {
+      refuse(
+        scripts.map((script) => script.id),
+        (id) => `Content script with id "${id}" does not exist.`
+      )
+
       calls.push('update')
 
       for (const script of scripts) {
@@ -47,6 +67,11 @@ function fakeScripting(initial: Script[] = []) {
       }
     },
     unregisterContentScripts: async (filter?: {ids?: string[]}) => {
+      refuse(
+        filter?.ids || [],
+        (id) => `Content script with id "${id}" does not exist.`
+      )
+
       calls.push('unregister')
 
       if (!filter?.ids) {

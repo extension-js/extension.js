@@ -6,6 +6,8 @@
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import {EXTENSION_BASE_GLOBAL} from '../../../lib/extension-base-from-stack'
+
 export const MAIN_WORLD_BRIDGE_ENTRY = 'scripts/extjs-main-world-bridge'
 export const MAIN_WORLD_BRIDGE_PAIR_PREFIX = 'extjs-main-world-bridge:'
 export const MAIN_WORLD_BRIDGE_PAIRING_MARK = '__extjsMainWorldBridgePaired'
@@ -17,7 +19,8 @@ export const MAIN_WORLD_BRIDGE_PAIRING_MARK = '__extjsMainWorldBridgePaired'
 export function buildMainWorldBridgePairingSource(
   bridgeFile: string = `${MAIN_WORLD_BRIDGE_ENTRY}.js`,
   baseReaders: string[] | null = null,
-  injectable: string[] | null = baseReaders
+  injectable: string[] | null = baseReaders,
+  baseGlobal: string = EXTENSION_BASE_GLOBAL
 ): string {
   return `;(function () {
   var FILE = ${JSON.stringify(bridgeFile)};
@@ -26,6 +29,9 @@ export function buildMainWorldBridgePairingSource(
   var PREFIX = ${JSON.stringify(MAIN_WORLD_BRIDGE_PAIR_PREFIX)};
   var MARK = ${JSON.stringify(MAIN_WORLD_BRIDGE_PAIRING_MARK)};
   var COPIED = ["matches", "excludeMatches", "allFrames", "matchOriginAsFallback", "persistAcrossSessions", "runAt"];
+  // The browser takes no id that starts with an underscore, so this entry
+  // has the shape of a registration and can never become one.
+  var REFUSED = {id: "_" + PREFIX, js: [FILE], matches: ["*://extjs.invalid/*"]};
   var pairId = function (id) { return PREFIX + id; };
   var isPair = function (id) { return typeof id === "string" && id.indexOf(PREFIX) === 0; };
   var listOf = function (scripts) { return Array.isArray(scripts) ? scripts : []; };
@@ -42,7 +48,7 @@ export function buildMainWorldBridgePairingSource(
       Array.isArray(injection.files) && injection.files.length > 0 && namesOneOf(INJECTABLE, injection.files);
   };
   var clearBase = function () {
-    try { delete window.wrappedJSObject.__EXTJS_EXTENSION_BASE__; } catch (error) {}
+    try { delete window.wrappedJSObject[${JSON.stringify(baseGlobal)}]; } catch (error) {}
     try { document.documentElement.removeAttribute("data-extjs-extension-base"); } catch (error) {}
   };
   var unread = function (frames) {
@@ -75,6 +81,25 @@ export function buildMainWorldBridgePairingSource(
     var failed = function () {
       try { return !!(root.runtime && root.runtime.lastError); } catch (error) { return false; }
     };
+    var settle = function () {};
+    // The browser checks the shape of a call as it is made. The same call
+    // with an entry it refuses later throws that check and changes nothing.
+    var shaped = function (native, args, refusable) {
+      var probe = Array.prototype.slice.call(args);
+      if (probe.length) probe[0] = refusable;
+      var called = typeof probe[probe.length - 1] === "function";
+      if (called) probe[probe.length - 1] = function () { failed(); };
+      var refused;
+      try {
+        refused = native.apply(null, probe);
+      } catch (error) {
+        if (!called) throw error;
+        // A namespace with no callback form refuses the callback, not the call.
+        probe.pop();
+        refused = native.apply(null, probe);
+      }
+      if (refused && typeof refused.then === "function") refused.then(settle, settle);
+    };
     // A callback is answered from the browser's own callback, the one
     // place where runtime.lastError still names what went wrong.
     var callbackable = function (run) {
@@ -82,11 +107,14 @@ export function buildMainWorldBridgePairingSource(
         var args = Array.prototype.slice.call(arguments);
         var done = typeof args[args.length - 1] === "function" ? args.pop() : null;
         var answered = false;
-        var last = function (native, arg, shape, after) {
+        var last = function (native, arg, shape, after, undo) {
           var promised = function () {
             return native(arg).then(function (value) {
-              var shaped = shape ? shape(value) : value;
-              return after ? after().then(function () { return shaped; }) : shaped;
+              var visible = shape ? shape(value) : value;
+              return after ? after().then(function () { return visible; }) : visible;
+            }, function (error) {
+              if (undo) undo();
+              throw error;
             });
           };
           if (!done) return promised();
@@ -99,7 +127,11 @@ export function buildMainWorldBridgePairingSource(
                 done.apply(null, reply);
                 resolve();
               };
-              if (!after || failed()) return send();
+              if (failed()) {
+                if (undo) undo();
+                return send();
+              }
+              if (!after) return send();
               after().then(send, function (error) { console.error(error); send(); });
             };
             try {
@@ -127,18 +159,19 @@ export function buildMainWorldBridgePairingSource(
         return byId;
       });
     };
-    scripting.registerContentScripts = callbackable(function (scripts, last) {
-      var main = listOf(scripts).filter(function (script) {
-        return script && wantsPair(script) && !isPair(script.id);
-      });
-      if (!main.length) return last(register, scripts);
+    var pairable = function (script) { return !!script && wantsPair(script) && !isPair(script.id); };
+    var registerPaired = callbackable(function (scripts, last) {
+      var main = scripts.filter(pairable);
       return registeredById().then(function (byId) {
         var ordered = [];
         var stale = [];
+        var seen = {};
         // The browser runs same-timing files in registration order, so a
         // pair left without its file is dropped and registered again first.
-        listOf(scripts).forEach(function (script) {
-          if (main.indexOf(script) !== -1) {
+        scripts.forEach(function (script) {
+          // An id named twice gets one pair, so the browser names the id.
+          if (main.indexOf(script) !== -1 && !seen[script.id]) {
+            seen[script.id] = true;
             var known = !!byId[pairId(script.id)];
             if (known && !byId[script.id]) stale.push(pairId(script.id));
             if (!known || !byId[script.id]) ordered.push(pairOf(script));
@@ -150,13 +183,20 @@ export function buildMainWorldBridgePairingSource(
         });
       });
     });
-    scripting.updateContentScripts = callbackable(function (scripts, last) {
+    scripting.registerContentScripts = function (scripts) {
+      if (!Array.isArray(scripts) || !scripts.some(pairable)) return register.apply(null, arguments);
+      shaped(register, arguments, scripts.concat([REFUSED, REFUSED]));
+      return registerPaired.apply(null, arguments);
+    };
+    var updatePaired = callbackable(function (scripts, last) {
       return registeredById().then(function (byId) {
         var add = [];
         var ordered = [];
         var drop = [];
-        listOf(scripts).forEach(function (script) {
-          if (script && byId[script.id] && !isPair(script.id)) {
+        var seen = {};
+        scripts.forEach(function (script) {
+          if (script && byId[script.id] && !isPair(script.id) && !seen[script.id]) {
+            seen[script.id] = true;
             var next = Object.assign({}, byId[script.id], script);
             var paired = !!byId[pairId(script.id)];
             if (wantsPair(next)) {
@@ -169,30 +209,44 @@ export function buildMainWorldBridgePairingSource(
         // An update moves a file to the end of the order, so each pair is
         // updated with its file and lands right before it again.
         return (add.length ? register(add) : Promise.resolve()).then(function () {
-          return last(update, Array.isArray(scripts) ? ordered : scripts, null, drop.length ? function () {
+          // A refused update leaves no pair behind for a file it never moved.
+          return last(update, ordered, null, drop.length ? function () {
             return unregister({ids: drop});
+          } : null, add.length ? function () {
+            unregister({ids: add.map(function (pair) { return pair.id; })}).then(settle, settle);
           } : null);
         });
       });
     });
-    scripting.unregisterContentScripts = callbackable(function (filter, last) {
-      var ids = filter && Array.isArray(filter.ids) ? filter.ids : null;
-      // No ids clears every registration, the pairs included.
-      if (!ids) return last(unregister, filter);
+    scripting.updateContentScripts = function (scripts) {
+      if (!Array.isArray(scripts) || !scripts.length) return update.apply(null, arguments);
+      shaped(update, arguments, scripts.concat([{id: REFUSED.id}]));
+      return updatePaired.apply(null, arguments);
+    };
+    var unregisterPaired = callbackable(function (filter, last) {
       return registeredById().then(function (byId) {
-        var pairs = ids.map(pairId).filter(function (id) { return !!byId[id]; });
-        return last(unregister, {ids: ids.concat(pairs)});
+        var pairs = filter.ids.map(pairId).filter(function (id, at, all) { return !!byId[id] && all.indexOf(id) === at; });
+        return last(unregister, Object.assign({}, filter, {ids: filter.ids.concat(pairs)}));
       });
     });
-    scripting.getRegisteredContentScripts = callbackable(function (filter, last) {
+    // No ids clears every registration, the pairs included.
+    scripting.unregisterContentScripts = function (filter) {
+      if (!filter || !Array.isArray(filter.ids) || !filter.ids.length) return unregister.apply(null, arguments);
+      shaped(unregister, arguments, Object.assign({}, filter, {ids: filter.ids.concat([REFUSED.id])}));
+      return unregisterPaired.apply(null, arguments);
+    };
+    var getVisible = callbackable(function (filter, last) {
       return last(getRegistered, filter, function (all) {
         return all.filter(function (script) { return !isPair(script.id); });
       });
     });
+    scripting.getRegisteredContentScripts = function (filter) {
+      shaped(getRegistered, arguments, filter);
+      return getVisible.apply(null, arguments);
+    };
     if (typeof scripting.executeScript === "function") {
       var execute = scripting.executeScript.bind(scripting);
       var lanes = {};
-      var settle = function () {};
       // A file that never ran left the base unread, so it is taken back.
       var sweep = function (target) {
         try {

@@ -21,6 +21,7 @@ import {
   findBridgePairingPages,
   findRuntimeMainWorldEntries
 } from '../scripts-lib/runtime-main-world-scripts'
+import {extensionBaseGlobalFor} from '../scripts-lib/taken-extension-base'
 import {resolveMainWorldBridgeSourcePath} from './add-content-script-wrapper/get-bridge-scripts'
 import {getBaseReaderRequirements} from './prune-main-world-bridges'
 
@@ -154,7 +155,8 @@ export class PairRuntimeMainWorldBridges {
                 `${buildMainWorldBridgePairingSource(
                   onPage ? `/${bridgeFile}` : bridgeFile,
                   baseReaders,
-                  baseReaders || entryFiles
+                  baseReaders || entryFiles,
+                  extensionBaseGlobalFor(this.manifestPath, this.browser)
                 )}\n`
               )
             }

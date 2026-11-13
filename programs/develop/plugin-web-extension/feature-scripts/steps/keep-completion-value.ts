@@ -10,10 +10,24 @@ import {Compilation, type Compiler} from '@rspack/core'
 import {prependToEmittedAsset} from '../../../lib/asset-source-maps'
 import {
   carriesCompletionValue,
-  closeCompletionValueBlock
+  closeCompletionValueBlock,
+  endsOnCompletionValue
 } from '../scripts-lib/completion-value'
 
 const SCRIPTS_FILE = /^scripts\/.+\.js$/i
+const injectedFiles = new WeakMap<object, Set<string>>()
+
+// A file the build compiled for executeScript from outside scripts/.
+export function keepCompletionValueOf(
+  compilation: object,
+  assetName: string
+): void {
+  const files = injectedFiles.get(compilation) || new Set<string>()
+
+  files.add(assetName)
+  injectedFiles.set(compilation, files)
+}
+
 const HOT_UPDATE = /\.hot-update\./i
 
 function parsesAsScript(text: string): boolean {
@@ -46,11 +60,22 @@ export class KeepCompletionValue {
           },
           () => {
             for (const asset of compilation.getAssets()) {
-              if (!SCRIPTS_FILE.test(asset.name)) continue
+              const injected =
+                injectedFiles.get(compilation)?.has(asset.name) === true
+              if (!injected && !SCRIPTS_FILE.test(asset.name)) continue
               if (HOT_UPDATE.test(asset.name)) continue
 
               const text = asset.source.source().toString()
-              if (!carriesCompletionValue(text)) continue
+
+              // Such a file ends on the names it shares, so it is closed
+              // on its own value even when no statement of it leaves one.
+              if (
+                injected
+                  ? endsOnCompletionValue(text)
+                  : !carriesCompletionValue(text)
+              ) {
+                continue
+              }
 
               const {open, closed} = closeCompletionValueBlock(text)
               // A module file cannot sit in a block, so it stays as built.
