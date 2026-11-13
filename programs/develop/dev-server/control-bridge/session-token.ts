@@ -83,31 +83,23 @@ export function readControlToken(
   return readTokenFile(legacyControlTokenPath(projectPath))
 }
 
-export function clearControlToken(projectPath: string, browser: string): void {
-  const file = controlTokenPath(projectPath, browser)
-  let token: string | null = null
+// A fast restart writes the next session's token before this one exits,
+// so a session removes only the slots that still hold its own token.
+export function clearControlToken(
+  projectPath: string,
+  browser: string,
+  ownToken: string
+): void {
+  const slots = [
+    controlTokenPath(projectPath, browser),
+    legacyControlTokenPath(projectPath)
+  ]
 
-  try {
-    token = fs.readFileSync(file, 'utf-8').trim() || null
-  } catch {
-    // Ignore
-  }
-
-  try {
-    fs.rmSync(file, {force: true})
-  } catch {
-    // Ignore
-  }
-
-  // Clear the legacy mirror only when it still holds THIS session's token,
-  // a concurrent session of another browser may have re-mirrored its own.
-  try {
-    const legacy = legacyControlTokenPath(projectPath)
-
-    if (token && fs.readFileSync(legacy, 'utf-8').trim() === token) {
-      fs.rmSync(legacy, {force: true})
+  for (const slot of slots) {
+    try {
+      if (readTokenFile(slot) === ownToken) fs.rmSync(slot, {force: true})
+    } catch {
+      // Ignore
     }
-  } catch {
-    // Ignore
   }
 }

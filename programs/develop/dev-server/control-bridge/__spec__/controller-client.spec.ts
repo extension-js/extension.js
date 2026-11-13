@@ -74,9 +74,31 @@ describe('session-token', () => {
   })
 
   it('clears the token and reads null afterward', () => {
-    writeControlToken(dir, 'chrome')
-    clearControlToken(dir, 'chrome')
+    const token = writeControlToken(dir, 'chrome')
+    clearControlToken(dir, 'chrome', token)
     expect(readControlToken(dir, 'chrome')).toBeNull()
+  })
+
+  it('leaves the token a restarted session wrote over this one', () => {
+    const ended = writeControlToken(dir, 'chrome')
+    const restarted = writeControlToken(dir, 'chrome')
+    const legacy = path.join(dir, '.extension-js', 'control.token')
+
+    clearControlToken(dir, 'chrome', ended)
+    expect(readControlToken(dir, 'chrome')).toBe(restarted)
+    expect(fs.readFileSync(legacy, 'utf-8').trim()).toBe(restarted)
+
+    clearControlToken(dir, 'chrome', restarted)
+    expect(fs.existsSync(controlTokenPath(dir, 'chrome'))).toBe(false)
+    expect(fs.existsSync(legacy)).toBe(false)
+  })
+
+  it('leaves a token file that holds another token', () => {
+    const token = writeControlToken(dir, 'chrome')
+    fs.writeFileSync(controlTokenPath(dir, 'chrome'), 'someone-else')
+
+    clearControlToken(dir, 'chrome', token)
+    expect(readControlToken(dir, 'chrome')).toBe('someone-else')
   })
 
   it('keeps per-browser tokens independent across sessions', () => {
@@ -85,7 +107,7 @@ describe('session-token', () => {
     expect(readControlToken(dir, 'chrome')).toBe(chrome)
     expect(readControlToken(dir, 'chromium')).toBe(chromium)
 
-    clearControlToken(dir, 'chromium')
+    clearControlToken(dir, 'chromium', chromium)
     expect(readControlToken(dir, 'chromium')).toBeNull()
     expect(readControlToken(dir, 'chrome')).toBe(chrome)
   })
@@ -102,13 +124,13 @@ describe('session-token', () => {
     const firefox = writeControlToken(dir, 'firefox')
     expect(readControlToken(dir, 'chrome')).toBe(chrome)
 
-    clearControlToken(dir, 'chrome')
+    clearControlToken(dir, 'chrome', chrome)
     const legacy = path.join(dir, '.extension-js', 'control.token')
     expect(fs.readFileSync(legacy, 'utf-8').trim()).toBe(firefox)
     expect(readControlToken(dir, 'chrome')).toBeNull()
     expect(readControlToken(dir, 'firefox')).toBe(firefox)
 
-    clearControlToken(dir, 'firefox')
+    clearControlToken(dir, 'firefox', firefox)
     expect(readControlToken(dir, 'firefox')).toBeNull()
     expect(fs.existsSync(legacy)).toBe(false)
   })
@@ -142,13 +164,13 @@ describe('session-token', () => {
   })
 
   it('clear removes the legacy mirror only when it is this session token', () => {
-    writeControlToken(dir, 'chrome')
+    const chrome = writeControlToken(dir, 'chrome')
     const chromium = writeControlToken(dir, 'chromium')
-    clearControlToken(dir, 'chrome')
+    clearControlToken(dir, 'chrome', chrome)
     const legacy = path.join(dir, '.extension-js', 'control.token')
     expect(fs.readFileSync(legacy, 'utf-8').trim()).toBe(chromium)
 
-    clearControlToken(dir, 'chromium')
+    clearControlToken(dir, 'chromium', chromium)
     expect(fs.existsSync(legacy)).toBe(false)
   })
 })
