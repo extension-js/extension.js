@@ -96,6 +96,10 @@ Applied by `ReloadPlugin` in order:
   reload that only restarts the worker is not sent when every connected
   background already names the build being shipped, which two quick saves
   that compile the same bytes would otherwise run twice.
+  `fullReloadsDeliveredTo` counts the full reloads a producer took, and
+  `dispatchRestartReload` is the one reload a restarted dev session owes: it
+  sends nothing when the first build of the new compiler already reloaded
+  the extension for its manifest, so one reload prints one line.
 
 - `steps/setup-reload-strategy/`
   Dev-only background entry setup and the vendored
@@ -138,6 +142,19 @@ Applied by `ReloadPlugin` in order:
   step also names the build in the background bundle, a digest of every
   emitted file without the compilation hash, and `readDevBuild` hands the
   same value to the dispatch.
+
+  A file the background registered with `scripting.registerContentScripts`
+  is read by Gecko once per address and kept through an update and a tab
+  reload. The producer gives each edited `scripts/` file a new address
+  (`scripts/hook.js?extjs-dev=<token>`), moves the registrations that name
+  it and reloads the tabs they match, so the extension keeps running. The
+  tokens live in `storage.session`. The background's own register and update
+  calls take the current address and its reads get the plain names back, so
+  a background that registers again after it was suspended stays on the
+  edited file. An edit that wakes a suspended background waits until its
+  register calls have settled before it reads the registrations. Without
+  session storage, or when the browser refuses the update, the extension
+  restarts and the next generation reloads the tabs.
 
 ## Contracts
 

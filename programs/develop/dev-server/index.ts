@@ -55,6 +55,8 @@ import {
   createChangedSourcesTracker,
   createLoadedContentScripts,
   dispatchReload,
+  dispatchRestartReload,
+  fullReloadsDeliveredTo,
   readContentScriptCount,
   readDevBuild
 } from '../plugin-reload'
@@ -1324,6 +1326,10 @@ export async function devServer(
       await previous.stop()
     }
 
+    // Read once the old compiler is stopped, so only the new one's first
+    // build can add to it before the reload below is decided.
+    const fullReloadsBefore = fullReloadsDeliveredTo(bridgeBroker)
+
     currentServer = nextBundle.server
 
     try {
@@ -1340,10 +1346,7 @@ export async function devServer(
 
     // The fresh compiler's first build carries no changed sources, so the
     // classifier stays silent; the new entry set needs one full reload.
-    await dispatchReload(
-      {type: 'full', label: 'extension'},
-      {broker: bridgeBroker}
-    )
+    await dispatchRestartReload({broker: bridgeBroker}, fullReloadsBefore)
   })
 
   bindDevSessionRestart(sessionRestart)
