@@ -19,6 +19,7 @@ import {CompileMainWorldScripts} from './steps/compile-main-world-scripts'
 import {KeepCompletionValue} from './steps/keep-completion-value'
 import {KeepGetURLImportsNative} from './steps/keep-geturl-imports-native'
 import {PairRuntimeMainWorldBridges} from './steps/pair-runtime-main-world-bridges'
+import {PlaceRuntimeScriptSheets} from './steps/place-runtime-script-sheets'
 import {PruneMainWorldBridges} from './steps/prune-main-world-bridges'
 import {StampWebkitUtf8Bom} from './steps/stamp-webkit-utf8-bom'
 import {TakeExtensionBase} from './steps/take-extension-base'
@@ -83,6 +84,13 @@ export class ScriptsPlugin {
     // A bundle ends on its own wrapping, and executeScript resolves with the
     // value a file ends on, so a scripts/ file is closed on that value.
     new KeepCompletionValue().apply(compiler)
+
+    // The author's own call names the script alone, so the sheet of the CSS
+    // modules a scripts/ file imports is carried by the file itself.
+    new PlaceRuntimeScriptSheets({
+      includeList: this.includeList || {},
+      browser: this.browser
+    }).apply(compiler)
 
     // On Firefox the bridge answers the extension base to the first
     // statement of a MAIN world file, the one read no page script can stage.
