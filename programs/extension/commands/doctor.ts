@@ -52,6 +52,7 @@ type CheckStatus = 'pass' | 'fail' | 'warn' | 'skip'
 function binaryDetailSuffix(ready: {
   binary?: unknown
   binaryProvenance?: unknown
+  binaryPinnedBy?: unknown
 }): string {
   const binary = String(ready?.binary || '').trim()
   if (!binary) return ''
@@ -62,6 +63,11 @@ function binaryDetailSuffix(ready: {
       ? `~${binary.slice(home.length)}`
       : binary
   const provenance = String(ready?.binaryProvenance || '').trim()
+  const pinnedBy = String(ready?.binaryPinnedBy || '').trim()
+
+  if (provenance === 'pinned' && pinnedBy) {
+    return `, ${shown} (pinned with ${pinnedBy})`
+  }
 
   return provenance ? `, ${shown} (${provenance})` : `, ${shown}`
 }
@@ -364,6 +370,7 @@ async function browserCheck(ready: {
   rdpPort?: number
   binary?: unknown
   binaryProvenance?: unknown
+  binaryPinnedBy?: unknown
 }): Promise<DoctorCheckResult> {
   const pid =
     typeof ready.browserPid === 'number' ? ready.browserPid : undefined

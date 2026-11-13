@@ -11,8 +11,11 @@ import {humanError, humanLine, isDebug} from '../../../helpers/messaging'
 import * as messages from '../../browsers-lib/messages'
 import {
   forceKillChildOnExit,
+  forceKillMarkedOnExit,
   gracefulTerminateChild,
-  isBenignSocketTeardown
+  isBenignSocketTeardown,
+  markDescendants,
+  type ProcessMark
 } from '../../browsers-lib/process-teardown'
 import type {BrowserType} from '../../browsers-types'
 
@@ -20,7 +23,9 @@ interface ChromiumInstanceHandlers {
   browser: BrowserType
   child: ChildProcess
   cleanupInstance: () => void
+  cleanupOnExit?: () => void
   isCleaningUp: boolean
+  helpers?: ProcessMark[]
 }
 
 const activeInstances = new Set<ChromiumInstanceHandlers>()
@@ -47,6 +52,7 @@ function cleanupOne(instance: ChromiumInstanceHandlers) {
       humanLine(messages.enhancedProcessManagementCleanup(browser))
     }
 
+    instance.helpers = markDescendants(child.pid)
     gracefulTerminateChild(child, browser)
     cleanupInstance()
   } catch (error) {
@@ -58,9 +64,20 @@ function cleanupAll() {
   for (const instance of activeInstances) cleanupOne(instance)
 }
 
+// The process ends before the browser's close event can run, so the helpers
+// a killed browser orphans and its throwaway profile are dealt with here.
 function forceKillAllOnExit() {
   for (const instance of activeInstances) {
+    const helpers = instance.helpers ?? markDescendants(instance.child.pid)
+
     forceKillChildOnExit(instance.child, instance.browser)
+    forceKillMarkedOnExit(helpers)
+
+    try {
+      instance.cleanupOnExit?.()
+    } catch {
+      // Ignore
+    }
   }
 }
 
@@ -118,12 +135,14 @@ function installGlobalHandlersOnce() {
 export function setupProcessSignalHandlers(
   browser: BrowserType,
   child: ChildProcess,
-  cleanupInstance: () => void
+  cleanupInstance: () => void,
+  cleanupOnExit?: () => void
 ): () => void {
   const instance: ChromiumInstanceHandlers = {
     browser,
     child,
     cleanupInstance,
+    cleanupOnExit,
     isCleaningUp: false
   }
   activeInstances.add(instance)

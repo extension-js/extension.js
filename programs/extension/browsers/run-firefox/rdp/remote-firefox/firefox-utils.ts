@@ -37,6 +37,7 @@ export async function printRunningInDevelopmentSummary(
     profilePath?: string
     binaryPath?: string
     binaryProvenance?: 'managed' | 'pinned' | 'system' | 'snapshot'
+    binaryPinnedBy?: string
   }
 ): Promise<boolean> {
   try {
@@ -95,7 +96,8 @@ export async function printRunningInDevelopmentSummary(
       browserVersionLine,
       profilePath: launchIdentity?.profilePath,
       binaryPath: launchIdentity?.binaryPath,
-      binaryProvenance: launchIdentity?.binaryProvenance
+      binaryProvenance: launchIdentity?.binaryProvenance,
+      binaryPinnedBy: launchIdentity?.binaryPinnedBy
     })
 
     return printed

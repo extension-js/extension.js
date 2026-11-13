@@ -319,6 +319,7 @@ export function stampReadyBrowserLaunch(
     // contract is where that fact lives.
     binary?: string
     binaryProvenance?: 'managed' | 'pinned' | 'system' | 'snapshot'
+    binaryPinnedBy?: string
     // Whether a browser had run with this profile before, the first thing to
     // know when the browser is up and nothing inside it ever connects.
     profileReused?: boolean
@@ -367,6 +368,13 @@ export function stampReadyBrowserLaunch(
 
     const provenance = String(details?.binaryProvenance || '').trim()
     if (provenance) ready.binaryProvenance = provenance
+
+    // Only a pin has a name to give, and a later launch that has none
+    // must not keep the one an earlier launch wrote.
+    const pinnedBy = String(details?.binaryPinnedBy || '').trim()
+
+    if (pinnedBy) ready.binaryPinnedBy = pinnedBy
+    else if (provenance) delete ready.binaryPinnedBy
 
     // A browser that is running now outranks an earlier attempt that never
     // spawned one, so that verdict comes off along with its error status.

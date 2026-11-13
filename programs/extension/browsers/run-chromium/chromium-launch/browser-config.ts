@@ -41,6 +41,10 @@ import {
 
 export const SILENT_DEBUGGER_FLAG = '--silent-debugger-extension-api'
 
+// Chrome for Testing holds the infobar slot with its own buttonless notice,
+// and the debugging bar waits behind it for good unless that notice is off.
+export const DISABLE_INFOBARS_FLAG = '--disable-infobars'
+
 export const DEFAULT_BROWSER_FLAGS: DefaultBrowserFlags[] = [
   '--no-first-run',
   '--disable-client-side-phishing-detection',
@@ -157,8 +161,9 @@ export function silentDebuggerFlagReport(
       ...base,
       applied,
       cause: 'debugger-permission',
-      reason:
-        'the manifest declares "debugger", so the debugging bar and its Cancel button show as they do for a user',
+      reason: chromiumConfig.includes(DISABLE_INFOBARS_FLAG)
+        ? 'the manifest declares "debugger", so the debugging bar and its Cancel button show as they do for a user'
+        : `the manifest declares "debugger", so the debugging bar is asked for, but without ${DISABLE_INFOBARS_FLAG} Chrome for Testing keeps it queued behind its own testing notice`,
       change:
         'list the flag under browserFlags in extension.config.js to hide the bar'
     }
@@ -171,6 +176,53 @@ export function silentDebuggerFlagReport(
     reason: 'excludeBrowserFlags lists it, so the debugging bar shows',
     change:
       'remove the flag from excludeBrowserFlags in extension.config.js to hide the bar'
+  }
+}
+
+// The companion verdict: whether the launch clears the notices that would
+// hold the debugging bar back, and what else that flag hides.
+export function disableInfobarsFlagReport(
+  chromiumConfig: string[],
+  extensionPaths: string[]
+): DevAdditionEntry | null {
+  const base = {kind: 'browser_flag', value: DISABLE_INFOBARS_FLAG}
+  const applied = chromiumConfig.includes(DISABLE_INFOBARS_FLAG)
+  const declared = declaresDebuggerPermission(extensionPaths)
+
+  if (applied && declared) {
+    return {
+      ...base,
+      applied,
+      cause: 'debugger-permission',
+      reason:
+        'the manifest declares "debugger", and Chrome for Testing keeps the debugging bar queued behind its own testing notice. This flag hides every infobar that has no button, that notice and the unsupported command-line flag warning included, so the bar and its Cancel button can show. Other Chromium builds honor it only in headless',
+      change:
+        'list the flag under excludeBrowserFlags in extension.config.js to keep those notices'
+    }
+  }
+
+  if (applied) {
+    return {
+      ...base,
+      applied,
+      cause: 'browser-flags',
+      reason:
+        'browserFlags or EXTENSION_BROWSER_FLAGS passes it, so infobars that have no button stay hidden',
+      change:
+        'remove the flag from browserFlags in extension.config.js, or from EXTENSION_BROWSER_FLAGS, to show them'
+    }
+  }
+
+  if (!declared) return null
+
+  return {
+    ...base,
+    applied,
+    cause: 'exclude-browser-flags',
+    reason:
+      'excludeBrowserFlags lists it, so on Chrome for Testing the debugging bar stays queued behind the testing notice and its Cancel button cannot be reached',
+    change:
+      'remove the flag from excludeBrowserFlags in extension.config.js to show the debugging bar'
   }
 }
 
@@ -478,7 +530,12 @@ export function browserConfig(
   const excludeFlags = configOptions.excludeBrowserFlags || []
 
   const defaultFlags = declaresDebuggerPermission(extensionsToLoad)
-    ? DEFAULT_BROWSER_FLAGS.filter((flag) => flag !== SILENT_DEBUGGER_FLAG)
+    ? [
+        ...DEFAULT_BROWSER_FLAGS.filter(
+          (flag) => flag !== SILENT_DEBUGGER_FLAG
+        ),
+        DISABLE_INFOBARS_FLAG
+      ]
     : DEFAULT_BROWSER_FLAGS
 
   const filteredFlags = filterBrowserFlags(defaultFlags, excludeFlags)

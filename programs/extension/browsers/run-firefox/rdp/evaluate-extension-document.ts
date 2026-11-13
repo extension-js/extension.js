@@ -8,15 +8,16 @@
 
 import {PageThrewError} from './remote-firefox/evaluate'
 import {MessagingClient} from './remote-firefox/messaging-client'
+import {
+  capEvalValue,
+  MAX_RESULT_BYTES,
+  TRUNCATED_PREVIEW_CHARS
+} from '../../browsers-lib/eval-result-cap'
 
 const RESULT_SLOT = '__extjsRdpEval'
 const FRAME_POLL_INTERVAL_MS = 100
 const RESULT_POLL_INTERVAL_MS = 50
 const FRAME_WAIT_MS = 2000
-// The control bridge caps a result at this size and answers the same shape,
-// so one command reads the same whichever route carried it.
-const MAX_RESULT_BYTES = 256 * 1024
-const TRUNCATED_PREVIEW_CHARS = 1024
 
 export const EXTENSION_DOCUMENT_CONTEXTS = [
   'background',
@@ -399,20 +400,7 @@ export async function readWholeString(
 }
 
 function capped(value: unknown): RdpEvalOutcome {
-  const json = JSON.stringify(value)
-
-  if (json !== undefined && json.length > MAX_RESULT_BYTES) {
-    return {
-      ok: true,
-      truncated: true,
-      value: {
-        __type: 'truncated',
-        preview: json.slice(0, TRUNCATED_PREVIEW_CHARS)
-      }
-    }
-  }
-
-  return {ok: true, value}
+  return capEvalValue(value)
 }
 
 // Each grip reads as what JSON.stringify makes of that value inside the

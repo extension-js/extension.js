@@ -53,6 +53,7 @@ export class RemoteFirefox {
     launchProfilePath?: string
     launchBinaryPath?: string
     launchBinaryProvenance?: 'managed' | 'pinned' | 'system' | 'snapshot'
+    launchBinaryPinnedBy?: string
     isBrowserGone?: () => boolean
   }
   private client: MessagingClient | null = null
@@ -108,6 +109,7 @@ export class RemoteFirefox {
       launchProfilePath?: string
       launchBinaryPath?: string
       launchBinaryProvenance?: 'managed' | 'pinned' | 'system' | 'snapshot'
+      launchBinaryPinnedBy?: string
       isBrowserGone?: () => boolean
     }
   ) {
@@ -381,7 +383,8 @@ export class RemoteFirefox {
       {
         profilePath: this.options.launchProfilePath,
         binaryPath: this.options.launchBinaryPath,
-        binaryProvenance: this.options.launchBinaryProvenance
+        binaryProvenance: this.options.launchBinaryProvenance,
+        binaryPinnedBy: this.options.launchBinaryPinnedBy
       }
     )
 

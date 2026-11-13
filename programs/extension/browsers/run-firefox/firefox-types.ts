@@ -48,6 +48,7 @@ export interface FirefoxPluginRuntime extends FirefoxPluginLike {
   launchProfilePath?: string
   launchBinaryPath?: string
   launchBinaryProvenance?: 'managed' | 'pinned' | 'system' | 'snapshot'
+  launchBinaryPinnedBy?: string
   logSink?: BrowserLogSink
   // Set by the launcher, so the debugger dial stops waiting on a browser
   // whose process has already left.

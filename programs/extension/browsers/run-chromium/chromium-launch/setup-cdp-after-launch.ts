@@ -340,7 +340,8 @@ export async function setupCdpAfterLaunch(
         browserVersionLine: plugin.browserVersionLine,
         profilePath: userDataDir || undefined,
         binaryPath: plugin.binaryPath,
-        binaryProvenance: plugin.binaryProvenance
+        binaryProvenance: plugin.binaryProvenance,
+        binaryPinnedBy: plugin.binaryPinnedBy
       })
     }
 
@@ -362,7 +363,8 @@ export async function setupCdpAfterLaunch(
         browserVersionLine: plugin.browserVersionLine,
         profilePath: userDataDir || undefined,
         binaryPath: plugin.binaryPath,
-        binaryProvenance: plugin.binaryProvenance
+        binaryProvenance: plugin.binaryProvenance,
+        binaryPinnedBy: plugin.binaryPinnedBy
       })
     } catch {
       // best-effort only
@@ -379,7 +381,8 @@ export async function setupCdpAfterLaunch(
         browserVersionLine: plugin.browserVersionLine,
         profilePath: userDataDir || undefined,
         binaryPath: plugin.binaryPath,
-        binaryProvenance: plugin.binaryProvenance
+        binaryProvenance: plugin.binaryProvenance,
+        binaryPinnedBy: plugin.binaryPinnedBy
       })
     } catch {
       // best-effort only
@@ -441,7 +444,8 @@ export async function setupCdpAfterLaunch(
           browserVersionLine: plugin.browserVersionLine,
           profilePath: userDataDir || undefined,
           binaryPath: plugin.binaryPath,
-          binaryProvenance: plugin.binaryProvenance
+          binaryProvenance: plugin.binaryProvenance,
+          binaryPinnedBy: plugin.binaryPinnedBy
         })
 
         if (!bannerPrinted) {
@@ -453,7 +457,8 @@ export async function setupCdpAfterLaunch(
             browserVersionLine: plugin.browserVersionLine,
             profilePath: userDataDir || undefined,
             binaryPath: plugin.binaryPath,
-            binaryProvenance: plugin.binaryProvenance
+            binaryProvenance: plugin.binaryProvenance,
+            binaryPinnedBy: plugin.binaryPinnedBy
           })
         }
       }
@@ -472,7 +477,8 @@ export async function setupCdpAfterLaunch(
         runtime,
         profilePath: userDataDir || undefined,
         binaryPath: plugin.binaryPath,
-        binaryProvenance: plugin.binaryProvenance
+        binaryProvenance: plugin.binaryProvenance,
+        binaryPinnedBy: plugin.binaryPinnedBy
       })
     }
   } catch (bannerErr) {
@@ -492,7 +498,8 @@ export async function setupCdpAfterLaunch(
           browserVersionLine: plugin.browserVersionLine,
           profilePath: userDataDir || undefined,
           binaryPath: plugin.binaryPath,
-          binaryProvenance: plugin.binaryProvenance
+          binaryProvenance: plugin.binaryProvenance,
+          binaryPinnedBy: plugin.binaryPinnedBy
         })
       }
     } catch {

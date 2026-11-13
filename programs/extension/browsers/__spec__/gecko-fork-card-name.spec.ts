@@ -77,8 +77,24 @@ describe('the dev card for a gecko fork', () => {
     const output = log.mock.calls
       .map((call) => String(call[0] || ''))
       .join('\n')
-    expect(output).toContain('Firefox 158.0a1')
+    expect(output).toContain('Firefox Nightly 158.0a1')
     expect(output).toContain('Zen 1.22.3b')
+  })
+
+  // The managed folder can hold a nightly that updated in place, and the row
+  // once passed it off as the release channel the install asks for.
+  it('names the Nightly channel for an alpha version and no other', async () => {
+    await printRunningInDevelopmentSummary(
+      [addon('firefox')],
+      'firefox',
+      undefined,
+      'Mozilla Firefox 160.0a1'
+    )
+
+    const output = log.mock.calls
+      .map((call) => String(call[0] || ''))
+      .join('\n')
+    expect(output).toContain('Mozilla Firefox Nightly 160.0a1')
   })
 
   it('spells LibreWolf the way its vendor does', async () => {

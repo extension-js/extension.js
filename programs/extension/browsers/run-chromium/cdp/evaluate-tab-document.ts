@@ -7,6 +7,12 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import WebSocket from 'ws'
+import {
+  capEvalValue,
+  MAX_RESULT_BYTES,
+  TRUNCATED_PREVIEW_CHARS,
+  truncatedEvalValue
+} from '../../browsers-lib/eval-result-cap'
 
 export interface CdpPageTarget {
   type?: unknown
@@ -15,7 +21,7 @@ export interface CdpPageTarget {
 }
 
 export type CdpEvalOutcome =
-  | {ok: true; value: unknown}
+  | {ok: true; value: unknown; truncated?: true}
   | {ok: false; error: {name: string; message: string; engine: 'chromium'}}
 
 export interface CdpSession {
@@ -56,10 +62,10 @@ export function pickPageTarget(
 }
 
 // Runs in the page on the value itself: the same JSON form the bridge
-// answers, with each cycle nulled and a BigInt tagged.
+// answers, cut there so an oversized value never crosses the socket.
 const JSON_FORM_FUNCTION = `function () {
   var stack = [];
-  return JSON.stringify(this, function (_key, val) {
+  var json = JSON.stringify(this, function (_key, val) {
     while (stack.length && stack[stack.length - 1] !== this) stack.pop();
     if (typeof val === "bigint") val = {__type: "bigint", value: String(val)};
     if (val && typeof val === "object") {
@@ -68,6 +74,10 @@ const JSON_FORM_FUNCTION = `function () {
     }
     return val;
   });
+  if (typeof json === "string" && json.length > ${MAX_RESULT_BYTES}) {
+    return {truncated: true, preview: json.slice(0, ${TRUNCATED_PREVIEW_CHARS})};
+  }
+  return json;
 }`
 
 function refuse(name: string, message: string): CdpEvalOutcome {
@@ -124,7 +134,7 @@ export async function evaluateThroughSession(
   const result = (evaluated.result || {}) as RemoteObject
 
   if (!result.objectId || result.type === 'symbol') {
-    return {ok: true, value: primitiveValue(result)}
+    return capEvalValue(primitiveValue(result))
   }
 
   // A function has no JSON form, the same undefined the bridge answers.
@@ -141,6 +151,10 @@ export async function evaluateThroughSession(
   }
 
   const json = ((formed.result || {}) as RemoteObject).value
+
+  if (json && typeof json === 'object') {
+    return truncatedEvalValue(String((json as {preview?: unknown}).preview))
+  }
 
   return {
     ok: true,

@@ -136,6 +136,72 @@ describe('evaluateThroughSession', () => {
     ).toEqual({ok: true, value: undefined})
   })
 
+  // Runs the function the route sends, the way the page would on the value.
+  const pageSession = (value: unknown): CdpSession => ({
+    send: async (method, params) => {
+      if (method === 'Runtime.evaluate') {
+        return {result: {type: 'object', objectId: 'obj-1'}}
+      }
+
+      const form = new Function(
+        `return (${String(params?.functionDeclaration)})`
+      )() as (this: unknown) => unknown
+
+      return {result: {value: form.call(value)}}
+    },
+    close: () => {}
+  })
+
+  it('cuts an object over 256 KB in the page, in the shape every route answers', async () => {
+    const big = {rows: Array.from({length: 40_000}, (_, i) => `row-${i}`)}
+    const json = JSON.stringify(big)
+
+    expect(json.length).toBeGreaterThan(256 * 1024)
+
+    expect(await evaluateThroughSession(pageSession(big), 'big')).toEqual({
+      ok: true,
+      truncated: true,
+      value: {__type: 'truncated', preview: json.slice(0, 1024)}
+    })
+  })
+
+  it('leaves an object under the cap whole', async () => {
+    const small = {rows: ['a', 'b'], n: 1}
+
+    expect(await evaluateThroughSession(pageSession(small), 'small')).toEqual({
+      ok: true,
+      value: small
+    })
+  })
+
+  it('cuts a string the protocol returned whole', async () => {
+    const text = 'x'.repeat(256 * 1024)
+    const outcome = await evaluateThroughSession(
+      fakeSession({
+        'Runtime.evaluate': {result: {type: 'string', value: text}}
+      }),
+      'text'
+    )
+
+    // The quotes of its JSON form count, as they do on the other routes.
+    expect(outcome).toEqual({
+      ok: true,
+      truncated: true,
+      value: {__type: 'truncated', preview: `"${'x'.repeat(1023)}`}
+    })
+
+    expect(
+      await evaluateThroughSession(
+        fakeSession({
+          'Runtime.evaluate': {
+            result: {type: 'string', value: 'x'.repeat(256 * 1024 - 2)}
+          }
+        }),
+        'text'
+      )
+    ).toEqual({ok: true, value: 'x'.repeat(256 * 1024 - 2)})
+  })
+
   it('names what the expression threw', async () => {
     expect(
       await evaluateThroughSession(
