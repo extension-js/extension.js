@@ -447,3 +447,78 @@ describe('toRuntimeStylesheetModule with a style id', () => {
     ).toBe('.a{}')
   })
 })
+
+describe('toRuntimeStylesheetModule on a page that refuses inline style', () => {
+  class FakeSheet {
+    text = ''
+
+    replaceSync(text: string) {
+      this.text = text
+    }
+  }
+
+  // A style-src without 'unsafe-inline' leaves the element with no sheet.
+  function fakeDocument(refuses: boolean) {
+    const elements: Array<Record<string, unknown>> = []
+    const head = {
+      appendChild(element: Record<string, unknown>) {
+        elements.push(element)
+      }
+    }
+
+    return {
+      elements,
+      document: {
+        head,
+        documentElement: head,
+        adoptedStyleSheets: [] as FakeSheet[],
+        createElement: () => ({
+          attributes: {} as Record<string, string>,
+          textContent: '',
+          sheet: refuses ? null : {},
+          setAttribute(name: string, value: string) {
+            this.attributes[name] = value
+          }
+        }),
+        querySelector: () => elements[0] || null
+      }
+    }
+  }
+
+  const run = (document: unknown, sheet: string) =>
+    evaluateModule(toRuntimeStylesheetModule(sheet, [], 'block-a'), {
+      document,
+      CSSStyleSheet: FakeSheet
+    })
+
+  it('adopts a constructed sheet in place of the refused element', () => {
+    const {document} = fakeDocument(true)
+
+    run(document, '.a { color: red; }')
+
+    expect(document.adoptedStyleSheets.map((sheet) => sheet.text)).toEqual([
+      '.a { color: red; }'
+    ])
+  })
+
+  it('replaces the rules of the sheet it adopted before and adds no second one', () => {
+    const {document, elements} = fakeDocument(true)
+
+    run(document, '.a { color: red; }')
+    run(document, '.a { color: green; }')
+
+    expect(elements).toHaveLength(1)
+    expect(document.adoptedStyleSheets.map((sheet) => sheet.text)).toEqual([
+      '.a { color: green; }'
+    ])
+  })
+
+  it('adopts nothing where the element was accepted', () => {
+    const {document, elements} = fakeDocument(false)
+
+    run(document, '.a { color: red; }')
+
+    expect(elements[0].textContent).toBe('.a { color: red; }')
+    expect(document.adoptedStyleSheets).toEqual([])
+  })
+})

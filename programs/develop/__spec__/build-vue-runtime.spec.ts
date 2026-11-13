@@ -241,6 +241,147 @@ function contentScriptProject() {
   return root
 }
 
+// A MAIN world entry's deeper imports ride a layer of their own, and a
+// block's rule has to follow the component down into it.
+function deepImportProject() {
+  const root = project()
+
+  write(
+    root,
+    'manifest.json',
+    JSON.stringify({
+      manifest_version: 3,
+      name: 'Vue deep content styles',
+      version: '1.0.0',
+      content_scripts: [
+        {
+          matches: ['https://example.com/*'],
+          js: ['content/main.js'],
+          world: 'MAIN'
+        }
+      ]
+    })
+  )
+
+  write(root, 'content/main.js', "import {mid} from '../src/mid.js'\nmid()\n")
+  write(
+    root,
+    'src/mid.js',
+    "import {deep} from './deep.js'\nexport function mid() {\n  deep()\n}\n"
+  )
+
+  write(
+    root,
+    'src/deep.js',
+    "import {createApp} from 'vue'\nimport Widget from './Deep.vue'\n" +
+      'export function deep() {\n' +
+      "  createApp(Widget).mount(document.body.appendChild(document.createElement('div')))\n" +
+      '}\n'
+  )
+
+  write(
+    root,
+    'src/Deep.vue',
+    '<template><p class="probe_Deep">styled</p></template>\n' +
+      '<style scoped>\n.probe_Deep { color: rgb(41, 42, 43); }\n</style>\n'
+  )
+
+  return root
+}
+
+// A *.ce.vue component carries each block as text in its `styles` option,
+// which is how its author puts the sheet inside a shadow root.
+function customElementProject() {
+  const root = project()
+
+  write(
+    root,
+    'manifest.json',
+    JSON.stringify({
+      manifest_version: 3,
+      name: 'Vue inline styles',
+      version: '1.0.0',
+      action: {default_popup: 'popup.html'},
+      content_scripts: [
+        {matches: ['https://example.com/*'], js: ['content/isolated.js']}
+      ]
+    })
+  )
+
+  const mount =
+    "import {createApp} from 'vue'\nimport Widget from '$FILE'\n" +
+    "const root = document.body.appendChild(document.createElement('div')).attachShadow({mode: 'open'})\n" +
+    'for (const css of Widget.styles) {\n' +
+    "  root.appendChild(document.createElement('style')).textContent = css\n" +
+    '}\n' +
+    "createApp(Widget).mount(root.appendChild(document.createElement('div')))\n"
+
+  write(root, 'popup.js', mount.replace('$FILE', './src/Page.ce.vue'))
+  write(
+    root,
+    'content/isolated.js',
+    mount.replace('$FILE', '../src/Content.ce.vue')
+  )
+
+  for (const [name, color] of [
+    ['Page', 'rgb(51, 52, 53)'],
+    ['Content', 'rgb(61, 62, 63)']
+  ]) {
+    write(
+      root,
+      `src/${name}.ce.vue`,
+      `<template><p class="probe_${name}">styled</p></template>\n` +
+        `<style scoped>\n.probe_${name} { color: ${color}; }\n</style>\n`
+    )
+  }
+
+  return root
+}
+
+// <style module>: vue-loader refuses the block wherever native CSS is on.
+function styleModuleProject() {
+  const root = project()
+
+  write(
+    root,
+    'manifest.json',
+    JSON.stringify({
+      manifest_version: 3,
+      name: 'Vue style modules',
+      version: '1.0.0',
+      action: {default_popup: 'popup.html'},
+      content_scripts: [
+        {matches: ['https://example.com/*'], js: ['content/isolated.js']}
+      ]
+    })
+  )
+
+  write(
+    root,
+    'content/isolated.js',
+    "import {createApp} from 'vue'\nimport Widget from '../src/Content.vue'\n" +
+      "createApp(Widget).mount(document.body.appendChild(document.createElement('div')))\n"
+  )
+
+  write(
+    root,
+    'App.vue',
+    '<script setup>\nimport {useCssModule} from "vue"\nconst named = useCssModule("named")\n</script>\n' +
+      '<template><p :class="[$style.probe_page, named.probe_named]">styled</p></template>\n' +
+      '<style module>\n.probe_page { letter-spacing: 0.0731em; }\n</style>\n' +
+      '<style module="named">\n.probe_named { word-spacing: 0.0732em; }\n</style>\n'
+  )
+
+  write(
+    root,
+    'src/Content.vue',
+    '<template><p :class="$style.probe_content">styled</p></template>\n' +
+      '<style module>\n.probe_content { letter-spacing: 0.0733em; }\n</style>\n'
+  )
+
+  return root
+}
+
 function emittedScript(root: string, file: string) {
   return fs.readFileSync(path.join(root, 'dist', 'chrome', file), 'utf8')
 }
@@ -304,5 +445,74 @@ describe.skipIf(!hasVue)('Vue production build', () => {
 
     // A content script ships no sheet of its own for a block.
     expect(built.css).not.toContain('probe_')
+  }, 180_000)
+
+  it('adds a block imported three levels below a MAIN world entry', async () => {
+    const root = deepImportProject()
+    await build(root)
+
+    const script = emittedScript(root, 'content_scripts/content-0.js')
+
+    expect(script).toContain('.probe_Deep[data-v-')
+    expect(script).toContain('] { color: rgb(41, 42, 43)')
+    expect(script).toContain('createElement("style")')
+  }, 180_000)
+
+  it('hands a custom element component its blocks as text, on a page and in a content script', async () => {
+    const root = customElementProject()
+    const built = await build(root)
+
+    const lanes = [
+      ['action/index.js', 'Page', 'rgb(51, 52, 53)'],
+      ['content_scripts/content-0.js', 'Content', 'rgb(61, 62, 63)']
+    ]
+
+    for (const [file, name, color] of lanes) {
+      const script = emittedScript(root, file)
+      const styles = /styles",\["((?:[^"\\]|\\.)*)"\]/.exec(script)?.[1] ?? ''
+
+      // The text is the scoped rule itself, never the request that builds it.
+      expect(styles).toContain(`.probe_${name}[data-v-`)
+      expect(styles).toContain(`color: ${color}`)
+      expect(styles).not.toContain('import')
+    }
+
+    // The component places an inline block itself, so nothing else may.
+    expect(built.emitted).not.toContain('stylePostLoader')
+    expect(built.emitted).not.toContain('data-extjs-sfc-style')
+    expect(built.css).not.toContain('probe_')
+  }, 180_000)
+
+  it('builds <style module> blocks as CSS modules, on a page and in a content script', async () => {
+    const root = styleModuleProject()
+    const built = await build(root)
+
+    expect(built.output).not.toContain('is currently not supported')
+
+    // Each rule ships under a generated class the component reads by name.
+    expect(built.css).toMatch(/\.[\w-]+\{letter-spacing:\.0731em\}/)
+    expect(built.css).toMatch(/\.[\w-]+\{word-spacing:\.0732em\}/)
+    expect(built.css).toMatch(/\.[\w-]+\{letter-spacing:\.0733em\}/)
+    expect(built.css).not.toContain('.probe_')
+
+    for (const name of ['probe_page', 'probe_named', 'probe_content']) {
+      expect(built.emitted).toMatch(new RegExp(`${name}:"[\\w-]+"`))
+    }
+
+    // The content script's sheet is the one its manifest entry declares.
+    const manifest = JSON.parse(
+      fs.readFileSync(
+        path.join(root, 'dist', 'chrome', 'manifest.json'),
+        'utf8'
+      )
+    )
+
+    expect(manifest.content_scripts[0].css).toEqual([
+      'content_scripts/content-0.css'
+    ])
+
+    expect(emittedScript(root, 'content_scripts/content-0.css')).toMatch(
+      /letter-spacing:\.0733em/
+    )
   }, 180_000)
 })

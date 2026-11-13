@@ -23,7 +23,7 @@ import {
   toRuntimeStylesheetModule
 } from './css-lib/inline-content-script-css'
 import * as messages from './css-lib/messages'
-import {isSfcStyleBlockQuery} from './css-lib/sfc-style-block'
+import {isSfcStyleBlock} from './css-lib/sfc-style-block'
 
 interface CompilationLike {
   warnings?: Error[]
@@ -167,7 +167,7 @@ export default function deadCssUrlLoader(
 ): string {
   // A component's style block is still CSS for the loaders after this one.
   // Its own loader turns it into a module once the framework is done with it.
-  if (isSfcStyleBlockQuery(this.resourceQuery)) return source
+  if (isSfcStyleBlock(this)) return source
 
   const {css, bundledRequests} = inlineStylesheetUrls(this, source)
 
