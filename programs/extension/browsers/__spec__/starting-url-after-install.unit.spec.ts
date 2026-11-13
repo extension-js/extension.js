@@ -61,6 +61,32 @@ describe('the launch argv', () => {
     expect(args).not.toContain(URL)
     expect(args).toContain('--url about:blank#extension-js-launch')
   })
+
+  // Nothing navigates the marked tab in a session with no page to open, so
+  // the launch names no url at all and Firefox shows what it normally would.
+  it('names no url on Firefox when the session has no starting url', async () => {
+    const out = makeDist({manifest_version: 3})
+    const compilation = {
+      options: {mode: 'production', context: out, output: {path: out}}
+    } as any
+
+    for (const options of [
+      {},
+      {noOpen: true},
+      {noOpen: true, startingUrl: URL},
+      {startingUrl: ''}
+    ]) {
+      const args = await firefoxBrowserConfig(compilation, {
+        extension: out,
+        browser: 'firefox',
+        ...options
+      } as any)
+
+      expect(args).not.toContain('--url')
+      expect(args).not.toContain('extension-js-launch')
+      expect(args).not.toContain(URL)
+    }
+  })
 })
 
 describe('Chromium opens the starting url after install', () => {

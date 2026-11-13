@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import {afterEach, describe, expect, it, vi} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {devServerRestarting} from '../../../dev-server/messages'
 import {
   bindDevSessionRestart,
@@ -9,11 +9,16 @@ import {
   DevSessionRestartScheduler,
   unbindDevSessionRestart
 } from '../../../dev-server/session-restart'
-import {WarnMainWorldRegistrationChanged} from '../steps/warn-main-world-registration-changed'
+import {
+  isAwaitingMainWorldRestart,
+  MAIN_WORLD_SETTLE_MS,
+  WarnMainWorldRegistrationChanged
+} from '../steps/warn-main-world-registration-changed'
 
 const roots: string[] = []
 
 afterEach(() => {
+  vi.useRealTimers()
   unbindDevSessionRestart()
 
   while (roots.length > 0) {
@@ -42,6 +47,23 @@ function session(background: string, mode = 'development', inRoot?: string) {
   fs.writeFileSync(at('background.js'), 'import "./register.js"\n')
 
   let compile: ((compilation: {warnings: Error[]}) => void) | undefined
+  let close: (() => void) | undefined
+
+  const compiler = {
+    options: {mode, context: root},
+    hooks: {
+      thisCompilation: {
+        tap: (_name: string, callback: typeof compile) => {
+          compile = callback
+        }
+      },
+      watchClose: {
+        tap: (_name: string, callback: typeof close) => {
+          close = callback
+        }
+      }
+    }
+  }
 
   new WarnMainWorldRegistrationChanged({
     manifestPath: at('manifest.json'),
@@ -49,19 +71,12 @@ function session(background: string, mode = 'development', inRoot?: string) {
       'background/service_worker': at('background.js'),
       'scripts/hook': at('scripts/hook.js')
     }
-  }).apply({
-    options: {mode, context: root},
-    hooks: {
-      thisCompilation: {
-        tap: (_name: string, callback: typeof compile) => {
-          compile = callback
-        }
-      }
-    }
-  } as any)
+  }).apply(compiler as any)
 
   return {
     root,
+    compiler,
+    close: () => close?.(),
     tapped: () => compile !== undefined,
     write: (contents: string) => fs.writeFileSync(at('register.js'), contents),
     rebuild: () => {
@@ -145,7 +160,14 @@ function restartable() {
   return requests
 }
 
+// Past the window a changed set has to hold for, with every timer run.
+const settle = () => vi.advanceTimersByTimeAsync(MAIN_WORLD_SETTLE_MS + 1)
+
 describe('a MAIN world registration that changes in a session that can restart', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+
   it('restarts once for a new registration, naming the file and its source, without a warning', async () => {
     const requests = restartable()
     const dev = session(IDLE)
@@ -154,8 +176,9 @@ describe('a MAIN world registration that changes in a session that can restart',
 
     expect(dev.rebuild()).toEqual([])
     expect(dev.rebuild()).toEqual([])
-    await vi.waitFor(() => expect(requests).toHaveLength(1))
-    await new Promise((resolve) => setTimeout(resolve, 20))
+    await settle()
+    expect(requests).toHaveLength(1)
+    await settle()
 
     expect(requests).toHaveLength(1)
     expect(requests[0]).toMatchObject({
@@ -172,7 +195,8 @@ describe('a MAIN world registration that changes in a session that can restart',
     dev.write(`${IDLE}// removed\n`)
 
     expect(dev.rebuild()).toEqual([])
-    await vi.waitFor(() => expect(requests).toHaveLength(1))
+    await settle()
+    expect(requests).toHaveLength(1)
 
     expect(requests[0]).toMatchObject({
       reason: 'main-world',
@@ -188,16 +212,18 @@ describe('a MAIN world registration that changes in a session that can restart',
 
     dev.write(`${IDLE}${REGISTRATION}`)
     dev.rebuild()
-    await vi.waitFor(() => expect(requests).toHaveLength(1))
+    await settle()
+    expect(requests).toHaveLength(1)
 
     dev.write(`${IDLE}// taken back\n`)
     expect(dev.rebuild()).toEqual([])
-    await new Promise((resolve) => setTimeout(resolve, 20))
+    await settle()
     expect(requests).toHaveLength(1)
 
     dev.write(`${IDLE}${REGISTRATION}`)
     expect(dev.rebuild()).toEqual([])
-    await vi.waitFor(() => expect(requests).toHaveLength(2))
+    await settle()
+    expect(requests).toHaveLength(2)
   })
 
   it('warns instead of restarting again when the restart did not take the set', async () => {
@@ -206,7 +232,8 @@ describe('a MAIN world registration that changes in a session that can restart',
 
     before.write(`${IDLE}${REGISTRATION}`)
     before.rebuild()
-    await vi.waitFor(() => expect(requests).toHaveLength(1))
+    await settle()
+    expect(requests).toHaveLength(1)
 
     // The next compiler was made without the call and then finds it too.
     const after = session(IDLE, 'development', before.root)
@@ -217,7 +244,7 @@ describe('a MAIN world registration that changes in a session that can restart',
 
     expect(warnings).toHaveLength(1)
     expect(warnings[0].message).toContain('Restart the dev server')
-    await new Promise((resolve) => setTimeout(resolve, 20))
+    await settle()
     expect(requests).toHaveLength(1)
   })
 
@@ -227,7 +254,8 @@ describe('a MAIN world registration that changes in a session that can restart',
 
     before.write(`${IDLE}${REGISTRATION}`)
     before.rebuild()
-    await vi.waitFor(() => expect(requests).toHaveLength(1))
+    await settle()
+    expect(requests).toHaveLength(1)
 
     const after = session(`${IDLE}${REGISTRATION}`, 'development', before.root)
 
@@ -235,13 +263,132 @@ describe('a MAIN world registration that changes in a session that can restart',
 
     after.write(`${IDLE}// removed\n`)
     expect(after.rebuild()).toEqual([])
-    await vi.waitFor(() => expect(requests).toHaveLength(2))
+    await settle()
+    expect(requests).toHaveLength(2)
 
     const last = session(`${IDLE}// removed\n`, 'development', before.root)
 
     last.write(`${IDLE}${REGISTRATION}`)
     expect(last.rebuild()).toEqual([])
-    await vi.waitFor(() => expect(requests).toHaveLength(3))
+    await settle()
+    expect(requests).toHaveLength(3)
+  })
+
+  // The request went out on the first rebuild, and nothing took it back, so
+  // a call written and removed in two quick saves restarted the session.
+  it('does not restart for a call written and taken back before it settled', async () => {
+    const requests = restartable()
+    const dev = session(IDLE)
+
+    dev.write(`${IDLE}${REGISTRATION}`)
+    expect(dev.rebuild()).toEqual([])
+    expect(isAwaitingMainWorldRestart(dev.compiler)).toBe(true)
+
+    await vi.advanceTimersByTimeAsync(MAIN_WORLD_SETTLE_MS - 1)
+    expect(requests).toHaveLength(0)
+
+    dev.write(`${IDLE}// taken back\n`)
+    expect(dev.rebuild()).toEqual([])
+    expect(isAwaitingMainWorldRestart(dev.compiler)).toBe(false)
+
+    await settle()
+    await settle()
+    expect(requests).toHaveLength(0)
+  })
+
+  it('does not restart for a registration removed and put back before it settled', async () => {
+    const requests = restartable()
+    const dev = session(REGISTRATION)
+
+    dev.write(`${IDLE}// removed\n`)
+    expect(dev.rebuild()).toEqual([])
+    dev.write(REGISTRATION)
+    expect(dev.rebuild()).toEqual([])
+
+    await settle()
+    expect(requests).toHaveLength(0)
+    expect(isAwaitingMainWorldRestart(dev.compiler)).toBe(false)
+  })
+
+  it('reads the file again as the window ends, ahead of a rebuild still to come', async () => {
+    const requests = restartable()
+    const dev = session(IDLE)
+
+    dev.write(`${IDLE}${REGISTRATION}`)
+    dev.rebuild()
+    dev.write(`${IDLE}// taken back, not compiled yet\n`)
+
+    await settle()
+    expect(requests).toHaveLength(0)
+    expect(isAwaitingMainWorldRestart(dev.compiler)).toBe(false)
+  })
+
+  it('restarts once for a set that keeps changing, a window after its last change', async () => {
+    const requests = restartable()
+    const dev = session(IDLE)
+
+    dev.write(`${IDLE}${REGISTRATION}`)
+    dev.rebuild()
+    await vi.advanceTimersByTimeAsync(MAIN_WORLD_SETTLE_MS - 1)
+    dev.write(`${IDLE}// taken back\n`)
+    dev.rebuild()
+    dev.write(`${IDLE}${REGISTRATION}`)
+    dev.rebuild()
+
+    await vi.advanceTimersByTimeAsync(MAIN_WORLD_SETTLE_MS - 1)
+    expect(requests).toHaveLength(0)
+
+    await vi.advanceTimersByTimeAsync(2)
+    expect(requests).toHaveLength(1)
+
+    await settle()
+    expect(requests).toHaveLength(1)
+  })
+
+  // Its build is the one the restart replaces, so the reload that follows a
+  // build is held back from the first rebuild until the next compiler.
+  it('marks its compiler as waiting on the restart until the set is taken back', async () => {
+    restartable()
+    const dev = session(IDLE)
+
+    expect(isAwaitingMainWorldRestart(dev.compiler)).toBe(false)
+    expect(isAwaitingMainWorldRestart(undefined)).toBe(false)
+
+    dev.write(`${IDLE}${REGISTRATION}`)
+    dev.rebuild()
+    expect(isAwaitingMainWorldRestart(dev.compiler)).toBe(true)
+
+    await settle()
+    dev.rebuild()
+    expect(isAwaitingMainWorldRestart(dev.compiler)).toBe(true)
+
+    dev.write(`${IDLE}// taken back\n`)
+    dev.rebuild()
+    expect(isAwaitingMainWorldRestart(dev.compiler)).toBe(false)
+  })
+
+  it('leaves a compiler that only warns free to reload', async () => {
+    const dev = session(IDLE)
+
+    dev.write(`${IDLE}${REGISTRATION}`)
+
+    expect(dev.rebuild()).toHaveLength(1)
+    expect(isAwaitingMainWorldRestart(dev.compiler)).toBe(false)
+
+    await settle()
+    expect(dev.rebuild()).toHaveLength(1)
+  })
+
+  it('asks for nothing from a compiler that was closed while the set settled', async () => {
+    const requests = restartable()
+    const dev = session(IDLE)
+
+    dev.write(`${IDLE}${REGISTRATION}`)
+    dev.rebuild()
+    dev.close()
+
+    await settle()
+    expect(requests).toHaveLength(0)
   })
 })
 
