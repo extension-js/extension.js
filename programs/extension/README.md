@@ -77,14 +77,14 @@ Use these flags with `extension dev`, `extension start`, or `extension preview`:
 Every browser picks its binary in the same order: the flag above, then the browser's variable (`CHROME_BINARY`, `CHROMIUM_BINARY`, `EDGE_BINARY` or `FIREFOX_BINARY`), then the copy `extension install` downloaded, then the system install. A flag or variable that names a path that does not exist stops the command and names the path.
 
 ```bash
-# Chrome (system default)
+# Chrome for Testing (the managed copy, offered on the first run)
 npx extension@latest dev --browser=chrome
 
 # Edge
 npx extension@latest dev --browser=edge
 
-# Custom Chrome/Chromium path
-npx extension@latest dev --chromium-binary "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+# Custom Chromium path
+npx extension@latest dev --chromium-binary "/Applications/Chromium.app/Contents/MacOS/Chromium"
 
 # Custom Firefox path
 npx extension@latest dev --gecko-binary "/Applications/Firefox.app/Contents/MacOS/firefox"

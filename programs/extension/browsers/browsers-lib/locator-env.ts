@@ -23,3 +23,15 @@ export function locatorEnv(
 
   return {...env, ...overrides}
 }
+
+// A spec seam and not a feature: a real CLI run on a machine that has
+// browsers can then be shown none, so "found nowhere" never spawns one.
+export function systemScanSkipped(
+  env: Record<string, string | undefined> = process.env
+): boolean {
+  return env.EXTENSION_INTERNAL_SKIP_SYSTEM_BROWSERS === '1'
+}
+
+export function scanSystem<T>(locate: () => T): T | null {
+  return systemScanSkipped() ? null : locate()
+}

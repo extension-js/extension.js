@@ -505,6 +505,48 @@ describe('the order a launch resolves its binary in', () => {
     }
   )
 
+  it.each([
+    'chrome',
+    'chromium',
+    'edge',
+    'firefox'
+  ])('%s: the spec seam hides every system install, so nothing is found', async (browser) => {
+    process.env.EXTENSION_INTERNAL_SKIP_SYSTEM_BROWSERS = '1'
+    located.path = plant('system', 'msedge')
+    system.chrome = plant('system', 'chrome')
+    system.chromium = plant('system', 'chromium')
+    system.firefox = plant('system', 'firefox')
+
+    const found = await refusal(() =>
+      browser === 'firefox' ? planFirefox() : planChromium(browser)
+    )
+
+    expect(found.code).toBe('E_BROWSER_NOT_FOUND')
+    expect(found.message).toContain(
+      `${browser} isn't installed and no binary was found`
+    )
+
+    expect(located.calls).toBe(0)
+    expect(planLine('PATH')).toBe('')
+  })
+
+  it('the spec seam leaves a managed copy and a variable in charge', async () => {
+    process.env.EXTENSION_INTERNAL_SKIP_SYSTEM_BROWSERS = '1'
+    const managed = plantManaged('chrome', 'mac_arm-151.0.7100.2', 'chrome')
+
+    await planChromium('chrome')
+
+    expect(planLine('PATH')).toContain(managed)
+
+    log.mockClear()
+    const fromEnv = plant('from-env', 'firefox')
+    process.env.FIREFOX_BINARY = fromEnv
+
+    await planFirefox()
+
+    expect(planLine('PATH')).toContain(fromEnv)
+  })
+
   it('classes an env override like the flag and names it on the contract', () => {
     const fromEnv = plant('from-env', 'msedge')
     const readyPath = path.join(

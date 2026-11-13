@@ -42,7 +42,7 @@ import {
   binaryOverrideNaming,
   locateChromeIn
 } from '../../browsers-lib/binary-env-override'
-import {locatorEnv} from '../../browsers-lib/locator-env'
+import {locatorEnv, scanSystem} from '../../browsers-lib/locator-env'
 import {
   diagnoseChromiumManifestRefusal,
   findChromiumLoadBlockers,
@@ -558,7 +558,7 @@ export class ChromiumLaunchPlugin {
     }
 
     const resolveWslFallback = (): string | null =>
-      resolveWslWindowsBinary(browser)
+      scanSystem(() => resolveWslWindowsBinary(browser))
 
     const getInstallGuidanceText = (
       target: 'chrome' | 'chromium' | 'edge'
@@ -667,7 +667,9 @@ export class ChromiumLaunchPlugin {
         // answer for itself, and reject cache-like paths in the chooser.
         const env = {...process.env}
         delete env.PUPPETEER_CACHE_DIR
-        systemBinary = normalizePath(locateChromium({env}) || null)
+        systemBinary = normalizePath(
+          scanSystem(() => locateChromium({env})) || null
+        )
       } catch {
         // Ignore
       }
@@ -704,7 +706,7 @@ export class ChromiumLaunchPlugin {
     if (!binaryPinned && !browserBinaryLocation && isWslEnv()) {
       // WSL+GUI: prefer a Linux-native browser so the dev loop stays on the Linux
       // side; fall back to the Windows binary via /mnt/c when none is available.
-      const linuxFallback = resolveWslLinuxBinary(browser)
+      const linuxFallback = scanSystem(() => resolveWslLinuxBinary(browser))
 
       if (linuxFallback) {
         browserBinaryLocation = linuxFallback
@@ -743,7 +745,7 @@ export class ChromiumLaunchPlugin {
       try {
         try {
           const env = managedEnvFor('chrome')
-          const located = locateChromeIn(env)
+          const located = scanSystem(() => locateChromeIn(env))
           if (!located) throw new Error(getInstallGuidanceText('chrome'))
 
           const normalized = normalizePath(located || null)
@@ -761,7 +763,7 @@ export class ChromiumLaunchPlugin {
           return null
         } catch (err) {
           const env = managedEnvFor('chrome')
-          let candidate: string | null = locateChromeIn(env)
+          let candidate: string | null = scanSystem(() => locateChromeIn(env))
           const normalized = normalizePath(candidate || null)
 
           if (normalized) {
@@ -815,7 +817,7 @@ export class ChromiumLaunchPlugin {
                     : browser === 'vivaldi'
                       ? locateVivaldi
                       : locateYandex
-              const located = locate(true, {env: process.env})
+              const located = scanSystem(() => locate(true, {env: process.env}))
               const normalized = normalizePath(located || null)
 
               if (normalized && fs.existsSync(normalized)) {
@@ -841,7 +843,7 @@ export class ChromiumLaunchPlugin {
           if (!browserBinaryLocation && !skipDetection) {
             try {
               const env = managedEnvFor('chromium')
-              const p = locateChromium({env})
+              const p = scanSystem(() => locateChromium({env}))
               const normalized = normalizePath(p || null)
 
               if (normalized && typeof normalized === 'string') {
@@ -869,7 +871,7 @@ export class ChromiumLaunchPlugin {
 
           try {
             const env = managedEnvFor('edge')
-            const located = locateEdge({env})
+            const located = scanSystem(() => locateEdge({env}))
             const normalized = normalizePath(located || null)
             browserBinaryLocation = normalized
 
@@ -877,7 +879,7 @@ export class ChromiumLaunchPlugin {
               !browserBinaryLocation ||
               !fs.existsSync(String(browserBinaryLocation))
             ) {
-              const fallback = resolveWslWindowsBinary(browser)
+              const fallback = resolveWslFallback()
 
               if (fallback) {
                 browserBinaryLocation = fallback

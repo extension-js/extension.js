@@ -33,6 +33,7 @@ import {
 } from '../../../helpers/messaging'
 import {expectedGeckoExtensionId} from '../../browsers-lib/banner'
 import {setInstancePorts} from '../../browsers-lib/instance-registry'
+import {scanSystem} from '../../browsers-lib/locator-env'
 import * as messages from '../../browsers-lib/messages'
 import {
   computeBinariesBaseDir,
@@ -439,7 +440,8 @@ export class FirefoxLaunchPlugin {
       isNamedGeckoFork
         ? null
         : normalizePath(resolveFromBinaries(compilation, 'firefox') || null)
-    const resolveWslFallback = (): string | null => resolveWslWindowsBinary()
+    const resolveWslFallback = (): string | null =>
+      scanSystem(() => resolveWslWindowsBinary())
 
     const getInstallGuidanceText = (): string => {
       try {
@@ -553,7 +555,7 @@ export class FirefoxLaunchPlugin {
     if (!browserBinaryLocation && !engineBased && isWslEnv()) {
       // WSL+GUI: prefer a Linux-native Firefox so the dev loop stays on the Linux
       // side; fall back to the Windows binary via /mnt/c.
-      const linuxFallback = resolveWslLinuxFirefox()
+      const linuxFallback = scanSystem(() => resolveWslLinuxFirefox())
 
       if (linuxFallback) {
         browserBinaryLocation = linuxFallback
@@ -602,28 +604,34 @@ export class FirefoxLaunchPlugin {
           failGeckoBinaryRequirement()
         } else if (this.host.browser === 'waterfox') {
           // Gecko fork located from the user's system, not a managed download.
-          const located = locateWaterfox(true, {env: process.env})
+          const located = scanSystem(() =>
+            locateWaterfox(true, {env: process.env})
+          )
           const normalized = normalizePath(located)
 
           if (normalized) {
             browserBinaryLocation = normalized
           }
         } else if (this.host.browser === 'librewolf') {
-          const located = locateLibreWolf(true, {env: process.env})
+          const located = scanSystem(() =>
+            locateLibreWolf(true, {env: process.env})
+          )
           const normalized = normalizePath(located)
 
           if (normalized) {
             browserBinaryLocation = normalized
           }
         } else if (this.host.browser === 'zen') {
-          const located = locateZen(true, {env: process.env})
+          const located = scanSystem(() => locateZen(true, {env: process.env}))
           const normalized = normalizePath(located)
 
           if (normalized) {
             browserBinaryLocation = normalized
           }
         } else if (this.host.browser === 'floorp') {
-          const located = locateFloorp(true, {env: process.env})
+          const located = scanSystem(() =>
+            locateFloorp(true, {env: process.env})
+          )
           const normalized = normalizePath(located)
 
           if (normalized) {
@@ -635,7 +643,7 @@ export class FirefoxLaunchPlugin {
             ...process.env,
             ...managedBrowserCacheEnv(String(cacheRoot), 'firefox')
           }
-          const located = locateFirefox(true, {env})
+          const located = scanSystem(() => locateFirefox(true, {env}))
           const normalized = normalizePath(located)
 
           if (normalized) {
@@ -663,7 +671,7 @@ export class FirefoxLaunchPlugin {
         if (engineBased || this.host.geckoBinary) {
           failGeckoBinaryRequirement()
         } else {
-          const linuxFallback = resolveWslLinuxFirefox()
+          const linuxFallback = scanSystem(() => resolveWslLinuxFirefox())
 
           if (linuxFallback) {
             browserBinaryLocation = linuxFallback

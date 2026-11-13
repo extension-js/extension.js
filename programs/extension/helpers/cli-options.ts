@@ -14,7 +14,7 @@ import {Option} from 'commander'
 export function geckoBinaryOption(): Option {
   return new Option(
     '--gecko-binary <path-to-binary>',
-    'specify a path to the Gecko binary (alias: --firefox-binary). This option overrides the --browser setting. Defaults to the system default'
+    'specify a path to the Gecko binary (alias: --firefox-binary). This option overrides the --browser setting and the binary variables. Without it the managed install runs, then the system install'
   )
 }
 
