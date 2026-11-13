@@ -20,6 +20,7 @@ import {
   compiledSourceEmittedPath,
   extractInjectedFileLiterals,
   extractMainWorldRegisteredFileLiterals,
+  type ImportedModuleReader,
   resolveExtensionPath
 } from '../steps/trace-runtime-loaded-files'
 import {getScriptEntries, isRemoteUrl, resolveScriptEntryPath} from './utils'
@@ -156,15 +157,18 @@ function readSourceFacts(
 
   const constantSources: SourceFacts['constantSources'] = []
 
-  // A registration may name a constant another local module exports.
-  const readImported = (specifier: string): string | null => {
-    const resolved = resolveImport(file, specifier)
+  // A registration may name a constant another local module exports. The
+  // module is handed back with its file, so its own imports resolve from it.
+  const readImported: ImportedModuleReader = (specifier, fromFile = file) => {
+    const resolved = resolveImport(fromFile, specifier)
     const resolvedStamp = resolved && fileStamp(resolved)
     if (!resolved || !resolvedStamp) return null
 
     constantSources.push({file: resolved, stamp: resolvedStamp})
 
-    return readScriptText(resolved) ?? null
+    const text = readScriptText(resolved)
+
+    return text == null ? null : {source: text, file: resolved}
   }
 
   const names = MAIN_WORLD_CALL.test(source)
@@ -180,7 +184,7 @@ function readSourceFacts(
     injectedFiles: names
       ? [
           ...new Set([
-            ...extractInjectedFileLiterals(source),
+            ...extractInjectedFileLiterals(source, readImported),
             ...mainWorldFiles
           ])
         ]

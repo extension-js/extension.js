@@ -57,6 +57,15 @@ const SINGLE_FILE_COMPONENT = /\.(?:vue|svelte)$/i
 const COMPONENT_SCRIPT_BLOCK = /<script\b[^>]*>([\s\S]*?)<\/script\b[^>]*>/gi
 const NODE_MODULES_SEGMENT = /[\\/]node_modules[\\/]/
 
+// The dependency kinds a script names a module by, in the order tried.
+const DEPENDENCY_KINDS = ['esm', 'commonjs'] as const
+const LINKED_DEPENDENCY = /^(?:file|link|portal):/
+const DEPENDENCY_FIELDS = [
+  'dependencies',
+  'devDependencies',
+  'optionalDependencies'
+] as const
+
 export const MAX_LOCAL_IMPORT_DEPTH = 8
 export const MAX_LOCAL_IMPORT_FILES = 2000
 
@@ -139,6 +148,12 @@ export function collectModuleSpecifiers(source: string): string[] {
   }
 
   return specifiers
+}
+
+// Whether a file is source the author wrote: a script, outside any
+// installed package.
+export function isLocalScriptSource(file: string): boolean {
+  return SCRIPT_SOURCE.test(file) && !NODE_MODULES_SEGMENT.test(file)
 }
 
 // The script a source file holds. A single file component keeps its code
@@ -325,6 +340,98 @@ function buildResolverOptions(
   return options
 }
 
+const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+  !!value && typeof value === 'object' && !Array.isArray(value)
+
+// The resolve block one dependency kind compiles with: what byDependency
+// holds for it laid over the block, '...' standing for the list it extends.
+function resolveForDependency(
+  resolve: BuildResolve | undefined,
+  kind: string
+): BuildResolve | undefined {
+  const byDependency = resolve?.byDependency
+  const override = isPlainObject(byDependency) ? byDependency[kind] : undefined
+  if (!resolve || !isPlainObject(override)) return undefined
+
+  const merged: BuildResolve = {...resolve}
+  delete merged.byDependency
+
+  for (const [key, value] of Object.entries(override)) {
+    const base = resolve[key]
+
+    if (Array.isArray(value)) {
+      merged[key] = value.flatMap((item) =>
+        item === '...' ? (Array.isArray(base) ? base : []) : [item]
+      )
+    } else if (isPlainObject(value) && isPlainObject(base)) {
+      merged[key] = {...base, ...value}
+    } else {
+      merged[key] = value
+    }
+  }
+
+  return merged
+}
+
+interface LinkedDependency {
+  name: string
+  dir: string
+  // A file: dependency, which a package manager may copy instead of link.
+  mayBeCopied: boolean
+}
+
+// The folders a package.json names as a file:, link: or portal: dependency,
+// which hold source the author keeps beside the project.
+function linkedDependencies(packageDir: string): LinkedDependency[] {
+  const linked: LinkedDependency[] = []
+
+  try {
+    const manifest: unknown = JSON.parse(
+      fs.readFileSync(path.join(packageDir, 'package.json'), 'utf-8')
+    )
+    if (!isPlainObject(manifest)) return linked
+
+    for (const field of DEPENDENCY_FIELDS) {
+      const dependencies = manifest[field]
+      if (!isPlainObject(dependencies)) continue
+
+      for (const [name, spec] of Object.entries(dependencies)) {
+        if (!isString(spec) || !LINKED_DEPENDENCY.test(spec)) continue
+
+        const target = path.resolve(
+          packageDir,
+          spec.replace(LINKED_DEPENDENCY, '')
+        )
+        linked.push({
+          name,
+          dir: canonicalizeDir(target),
+          mayBeCopied: spec.startsWith('file:')
+        })
+      }
+    }
+  } catch {
+    // Ignore, a project with no readable package.json links nothing
+  }
+
+  return linked
+}
+
+// The package a path under node_modules belongs to and the file's path
+// inside it, read off the last node_modules segment.
+function installedPackageFile(
+  file: string
+): {name: string; inner: string} | undefined {
+  const parts = file.split(/[\\/]/)
+  const at = parts.lastIndexOf('node_modules')
+  if (at === -1) return undefined
+
+  const scoped = parts[at + 1]?.startsWith('@')
+  const name = parts.slice(at + 1, at + (scoped ? 3 : 2)).join('/')
+  const inner = parts.slice(at + (scoped ? 3 : 2))
+
+  return name && inner.length > 0 ? {name, inner: inner.join('/')} : undefined
+}
+
 function isInsideDir(file: string, dir: string): boolean {
   const relative = path.relative(dir, file)
 
@@ -345,7 +452,9 @@ export function createLocalImportResolver(
   >
   const build = buildResolveByProject.get(projectPath)
   let factory: Factory | null | undefined
+  let dependencyFactories: Factory[] | undefined
   let sourceRoots: string[] | undefined
+  let linked: LinkedDependency[] | undefined
 
   const createFactory = (resolve: BuildResolve | undefined): Factory =>
     new rspack.experiments.resolver.ResolverFactory(
@@ -369,6 +478,39 @@ export function createLocalImportResolver(
     return factory
   }
 
+  // One resolver per dependency kind the build gives a block of its own,
+  // for a specifier the block alone does not resolve.
+  const getDependencyFactories = (): Factory[] => {
+    if (dependencyFactories) return dependencyFactories
+
+    dependencyFactories = []
+
+    for (const kind of DEPENDENCY_KINDS) {
+      const resolve = resolveForDependency(build?.resolve, kind)
+      if (!resolve) continue
+
+      try {
+        dependencyFactories.push(createFactory(resolve))
+      } catch {
+        // Ignore, a block this resolver cannot take resolves nothing more
+      }
+    }
+
+    return dependencyFactories
+  }
+
+  const resolveWith = (
+    resolver: Factory | null,
+    fromFile: string,
+    specifier: string
+  ): string | undefined => {
+    try {
+      return resolver?.sync(path.dirname(fromFile), specifier)?.path
+    } catch {
+      return undefined
+    }
+  }
+
   // The project and the workspace it belongs to, where a linked package's
   // own source lives.
   const getSourceRoots = (): string[] => {
@@ -385,21 +527,55 @@ export function createLocalImportResolver(
     return sourceRoots
   }
 
+  // The folders the project or its workspace root links by path, which
+  // may sit outside both.
+  const getLinked = (): LinkedDependency[] => {
+    linked ??= [...new Set([projectPath, ...getSourceRoots()])].flatMap(
+      linkedDependencies
+    )
+
+    return linked
+  }
+
+  // A file: dependency the package manager copied under node_modules. It
+  // is followed when the same file sits in the folder the project names.
+  const copiedSource = (real: string): string | undefined => {
+    const installed = installedPackageFile(real)
+    if (!installed) return undefined
+
+    return getLinked().some(
+      (dependency) =>
+        dependency.mayBeCopied &&
+        dependency.name === installed.name &&
+        readIfFile(path.join(dependency.dir, installed.inner)) !== undefined
+    )
+      ? real
+      : undefined
+  }
+
   // A workspace package linked under node_modules is the author's own
   // source, a real install is not. The real path tells them apart.
   const linkedSource = (file: string): string | undefined => {
     const real = fs.realpathSync.native(file)
-    if (real === file || NODE_MODULES_SEGMENT.test(real)) return undefined
+    if (NODE_MODULES_SEGMENT.test(real)) return copiedSource(real)
+    if (real === file) return undefined
+    if (getSourceRoots().some((root) => isInsideDir(real, root))) return real
 
-    return getSourceRoots().some((root) => isInsideDir(real, root))
+    // Outside the workspace only a folder a dependency names is followed.
+    return getLinked().some((dependency) => isInsideDir(real, dependency.dir))
       ? real
       : undefined
   }
 
   const resolveImport = (fromFile: string, specifier: string) => {
     try {
-      const resolved = getFactory()?.sync(path.dirname(fromFile), specifier)
-      const file = resolved?.path
+      // The block alone answers first, as it always has. A dependency
+      // kind is asked only for what that leaves unresolved.
+      const file =
+        resolveWith(getFactory(), fromFile, specifier) ??
+        getDependencyFactories()
+          .map((resolver) => resolveWith(resolver, fromFile, specifier))
+          .find(Boolean)
       if (!file || !SCRIPT_SOURCE.test(file)) return undefined
 
       return NODE_MODULES_SEGMENT.test(file) ? linkedSource(file) : file
