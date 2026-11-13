@@ -529,6 +529,8 @@ export interface DevAdditionEntry {
     | 'browser-flags'
     | 'debugger-permission'
     | 'exclude-browser-flags'
+    | 'preferences'
+    | 'unavailable'
   change?: string
 }
 
@@ -562,15 +564,16 @@ export function readReadyDevAdditions(
   }
 }
 
-// Name a launch flag that changes what the developer sees, and how to flip
-// it. The dev server keeps these entries across recompiles.
-export function stampReadyDevBrowserFlag(
+// One entry the launcher owns, replaced by kind and by what it names. The
+// dev server keeps these entries across recompiles.
+function stampReadyLauncherAddition(
   extensionOutputPath: string | undefined,
-  flag: DevAdditionEntry,
+  entry: DevAdditionEntry,
+  named: (value: string) => string,
   runId?: string
 ) {
   try {
-    if (!extensionOutputPath || !flag?.value) return
+    if (!extensionOutputPath || !entry?.value) return
 
     const readyPath = readyPathFor(extensionOutputPath)
     if (!fs.existsSync(readyPath)) return
@@ -580,16 +583,49 @@ export function stampReadyDevBrowserFlag(
 
     ready.devAdditions = [
       ...devAdditionEntries(ready.devAdditions).filter(
-        (entry) =>
-          !(entry.kind === 'browser_flag' && entry.value === flag.value)
+        (earlier) =>
+          !(
+            earlier.kind === entry.kind &&
+            named(earlier.value) === named(entry.value)
+          )
       ),
-      {...flag, kind: 'browser_flag'}
+      entry
     ]
 
     writeJsonAtomic(readyPath, ready)
   } catch {
     // best-effort, never block launch on this
   }
+}
+
+// Name a launch flag that changes what the developer sees, and how to flip
+// it.
+export function stampReadyDevBrowserFlag(
+  extensionOutputPath: string | undefined,
+  flag: DevAdditionEntry,
+  runId?: string
+) {
+  stampReadyLauncherAddition(
+    extensionOutputPath,
+    {...flag, kind: 'browser_flag'},
+    (value) => value,
+    runId
+  )
+}
+
+// Name a preference the session writes into a profile the developer keeps,
+// which stays there after the session, and how to keep the session off it.
+export function stampReadyDevBrowserPreference(
+  extensionOutputPath: string | undefined,
+  preference: DevAdditionEntry,
+  runId?: string
+) {
+  stampReadyLauncherAddition(
+    extensionOutputPath,
+    {...preference, kind: 'browser_preference'},
+    (value) => value.split('=')[0],
+    runId
+  )
 }
 
 // A CDP fault after launch keeps the session alive and ready, so the contract

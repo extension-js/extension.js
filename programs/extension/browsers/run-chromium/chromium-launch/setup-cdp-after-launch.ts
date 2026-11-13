@@ -32,12 +32,12 @@ import {
   describeLaunchFailure,
   stampReadyCdpFault,
   stampReadyCdpPort,
+  stampReadyDevBrowserPreference,
   stampReadyExtensionLoadRefused
 } from '../../browsers-lib/ready-stamp'
 import {resolveStartingUrl} from '../../browsers-lib/runtime-options'
 import {
   deriveDebugPortWithInstance,
-  isManagedEphemeralProfile,
   launchIsHeadless
 } from '../../browsers-lib/shared-utils'
 import type {CompilationLike} from '../../browsers-types'
@@ -50,7 +50,10 @@ import {
   developerModeFlipIsSafe,
   developerModeFromProfile
 } from '../cdp/ensure-developer-mode'
-import {startupSeedWasDropped} from '../cdp/ensure-startup-new-tab'
+import {
+  startupPreferenceIsDue,
+  startupPreferenceUnavailable
+} from '../cdp/ensure-startup-new-tab'
 import type {ChromiumPluginRuntime} from '../chromium-types'
 import {getExtensionOutputPath} from './extension-output-path'
 
@@ -539,13 +542,17 @@ export async function setupCdpAfterLaunch(
   // A profile that outlives the session would reopen this run's pages on its
   // next launch, before the extension is there to run on them.
   try {
-    if (
-      userDataDir &&
-      developerModeFlipIsSafe(chromiumArgs) &&
-      !isManagedEphemeralProfile(userDataDir) &&
-      startupSeedWasDropped(userDataDir)
-    ) {
+    if (startupPreferenceIsDue(chromiumArgs)) {
       const startup = await cdpExtensionController.ensureStartupNewTab()
+
+      // The card said the write was coming, so a refusal corrects the record.
+      if (startup !== 'set') {
+        stampReadyDevBrowserPreference(
+          extensionOutputPath,
+          startupPreferenceUnavailable(),
+          plugin.launchRunId
+        )
+      }
 
       if (isDebug()) {
         humanLine(`[CDP] new tab on startup: ${startup}`)

@@ -338,6 +338,40 @@ describe('setupCdpAfterLaunch', () => {
       )
     })
 
+    // The card already said the write was coming.
+    it('corrects the ready contract when the browser did not take it', async () => {
+      const dir = profile({Preferences: seeded, 'Secure Preferences': {}})
+      const outPath = path.join(
+        fs.mkdtempSync(path.join(os.tmpdir(), 'startup-ready-')),
+        'dist',
+        'chromium'
+      )
+      tempDirs.push(path.dirname(path.dirname(outPath)))
+      fs.mkdirSync(outPath, {recursive: true})
+
+      const readyPath = readyPathFor(outPath)
+      fs.mkdirSync(path.dirname(readyPath), {recursive: true})
+      fs.writeFileSync(readyPath, JSON.stringify({status: 'ready'}))
+      ensureStartupNewTabSpy.mockResolvedValueOnce('unavailable' as never)
+
+      await setupCdpAfterLaunch(
+        {options: {mode: 'development', output: {path: outPath}}} as any,
+        plugin(),
+        ['--remote-debugging-port=9333', `--user-data-dir=${dir}`]
+      )
+
+      expect(
+        JSON.parse(fs.readFileSync(readyPath, 'utf-8')).devAdditions
+      ).toEqual([
+        expect.objectContaining({
+          kind: 'browser_preference',
+          value: 'session.restore_on_startup=5',
+          applied: false,
+          cause: 'unavailable'
+        })
+      ])
+    })
+
     it('is left alone once the browser holds a choice of its own', async () => {
       const dir = profile({
         Preferences: seeded,

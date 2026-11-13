@@ -69,6 +69,7 @@ import {
   stampReadyBrowserExited,
   stampReadyBrowserLaunch,
   stampReadyDevBrowserFlag,
+  stampReadyDevBrowserPreference,
   stampReadyBrowserLaunchFailed,
   stampReadyBrowserUpNotAttached,
   stampReadyCdpFault,
@@ -108,6 +109,7 @@ import {
   disableInfobarsFlagReport,
   silentDebuggerFlagReport
 } from './browser-config'
+import {startupPreferenceReport} from '../cdp/ensure-startup-new-tab'
 import {logChromiumDryRun} from './dry-run'
 import {getExtensionOutputPath} from './extension-output-path'
 import {chromiumForkInstallGuidance} from './fork-install-guidance'
@@ -1319,6 +1321,16 @@ export class ChromiumLaunchPlugin {
         stampReadyDevBrowserFlag(
           launchOutputPath,
           infobarsFlag,
+          this.closeHandlerContext?.runId
+        )
+      }
+
+      const startupPreference = startupPreferenceReport(chromiumConfig)
+
+      if (startupPreference) {
+        stampReadyDevBrowserPreference(
+          launchOutputPath,
+          startupPreference,
           this.closeHandlerContext?.runId
         )
       }

@@ -1986,6 +1986,17 @@ export function devAdditionsNote(
     lines.push(row('Dev flag', `${flag.value} ${verdict}`))
   }
 
+  for (const pref of additions.filter((e) => e.kind === 'browser_preference')) {
+    const verdict =
+      pref.cause === 'preferences'
+        ? 'left to the browser, preferences sets it'
+        : pref.cause === 'unavailable' || pref.applied === false
+          ? 'not written, the browser did not take it'
+          : 'written to this kept profile and stays there, preferences changes it'
+
+    lines.push(row('Dev pref', `${pref.value} ${verdict}`))
+  }
+
   return lines.join('\n')
 }
 

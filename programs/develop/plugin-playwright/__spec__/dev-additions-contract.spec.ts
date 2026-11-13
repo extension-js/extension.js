@@ -91,6 +91,34 @@ describe('devAdditions in the ready contract', () => {
     expect(readContract().devAdditions).toEqual([scripting, flag])
   })
 
+  // The preference the launcher wrote into a kept profile is its entry too.
+  it('keeps the preference the launcher stamped across a recompile', () => {
+    const preference = {
+      kind: 'browser_preference',
+      value: 'session.restore_on_startup=5',
+      applied: true,
+      reason: 'the profile outlives the session'
+    }
+    const writer = makeWriter()
+    writer.writeStarting()
+    writer.setDevAdditions([scripting, tabs])
+    writer.writeReady()
+
+    const stamped = readContract()
+    fs.writeFileSync(
+      readyPath(),
+      JSON.stringify({
+        ...stamped,
+        devAdditions: [...(stamped.devAdditions as unknown[]), flag, preference]
+      })
+    )
+
+    writer.setDevAdditions([scripting])
+    writer.writeReady()
+
+    expect(readContract().devAdditions).toEqual([scripting, flag, preference])
+  })
+
   it("drops a previous run's flag verdict", () => {
     const first = makeWriter()
     first.writeStarting()
