@@ -206,6 +206,75 @@ describe('inspect on a Gecko extension page the bridge cannot reach', () => {
     expect(frame().error.code).toBe('E_TARGET_NOT_FOUND')
   })
 
+  // With no page in the manifest there is nothing to open, so neither route
+  // may answer "not open" and send the caller to open it.
+  it('says the manifest declares no such page instead of asking to open it', async () => {
+    const dist = optionsDist()
+    session.result = {
+      ok: false,
+      error: {name: 'Unavailable', message: 'no executor connected'}
+    }
+
+    for (const command of ['inspect', 'eval']) {
+      logSpy.mockClear()
+
+      expect(
+        await run([
+          command,
+          ...(command === 'eval' ? ['1+1'] : []),
+          dist,
+          '--browser',
+          'firefox',
+          '--context',
+          'sidebar',
+          '--output',
+          'json'
+        ])
+      ).toBe(1)
+
+      expect(protocolCalls, command).toHaveLength(0)
+      expect(frame().error, command).toMatchObject({
+        name: 'Unsupported',
+        code: 'E_TARGET_NOT_FOUND',
+        message:
+          'the manifest declares no sidebar page: it has no side_panel.default_path or sidebar_action.default_panel',
+        hint: `Add side_panel.default_path or sidebar_action.default_panel to manifest.json and point it at the page, then run extension ${command} --context sidebar again.`
+      })
+    }
+  })
+
+  it('keeps the producer refusal for an undeclared page free of the idle hint', async () => {
+    session.readyDocument = {...session.readyDocument, rdpPort: 0}
+    session.result = {
+      ok: false,
+      error: {
+        name: 'Unsupported',
+        message:
+          'the manifest declares no devtools page: it has no devtools_page',
+        engine: 'firefox',
+        code: 'surface_not_declared'
+      }
+    }
+
+    expect(
+      await run([
+        'eval',
+        '1+1',
+        '--browser',
+        'firefox',
+        '--context',
+        'devtools',
+        '--output',
+        'json'
+      ])
+    ).toBe(1)
+
+    expect(frame().error.code).toBe('E_TARGET_NOT_FOUND')
+    expect(frame().error.hint).toBe(
+      'Add devtools_page to manifest.json and point it at the page, then run extension eval --context devtools again.'
+    )
+  })
+
   it('never opens the Gecko debugger for a Chromium session', async () => {
     const dist = optionsDist()
     session.result = NOT_OPEN

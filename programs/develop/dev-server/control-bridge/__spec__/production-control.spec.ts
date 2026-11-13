@@ -160,6 +160,31 @@ describe('startProductionControl', () => {
     expect(readControlToken(projectDir, 'chrome')).toBeNull()
   })
 
+  it('keeps the token of a session that started before the last one closed', async () => {
+    const {projectDir, distPath} = makeProject()
+    const options = {
+      packageJsonDir: projectDir,
+      browser: 'chrome',
+      distPath,
+      allowEval: true
+    }
+
+    const ended = await startProductionControl(options)
+    const endedToken = readControlToken(projectDir, 'chrome')
+
+    session = await startProductionControl(options)
+    const restartedToken = readControlToken(projectDir, 'chrome')
+    expect(restartedToken).toEqual(expect.any(String))
+    expect(restartedToken).not.toBe(endedToken)
+
+    await ended.close()
+    expect(readControlToken(projectDir, 'chrome')).toBe(restartedToken)
+
+    await session.close()
+    session = undefined
+    expect(readControlToken(projectDir, 'chrome')).toBeNull()
+  })
+
   it('rebuilds the copy on every start so a stale producer never survives', async () => {
     const {projectDir, distPath} = makeProject()
 

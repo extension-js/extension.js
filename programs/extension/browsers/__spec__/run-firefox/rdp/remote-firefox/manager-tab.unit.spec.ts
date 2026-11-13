@@ -2,7 +2,8 @@ import {describe, expect, it, vi} from 'vitest'
 import {
   MANAGER_ADDON_ID,
   OPEN_NEW_TAB_EXPRESSION,
-  openManagerNewTab
+  openManagerNewTab,
+  openManagerTabAt
 } from '../../../../run-firefox/rdp/remote-firefox/manager-tab'
 
 type Listener = (message: unknown) => void
@@ -80,6 +81,19 @@ describe('openManagerNewTab', () => {
     expect(OPEN_NEW_TAB_EXPRESSION).toContain('tabs.create({active: true})')
     expect(OPEN_NEW_TAB_EXPRESSION).not.toContain('url')
     expect(client.listeners.size).toBe(0)
+  })
+
+  it('opens an address in a tab of its own, quoted as data', async () => {
+    const client = fakeClient([{id: MANAGER_ADDON_ID, consoleActor: 'c1'}])
+    const url = 'https://example.com/?q="});alert(1)//'
+
+    expect(await openManagerTabAt(client, url)).toBe(true)
+
+    const call: unknown[] = client.evaluate.mock.calls[0]
+    const expression = String(call[1])
+    expect(expression).toContain(
+      `tabs.create({active: true, url: ${JSON.stringify(url)}})`
+    )
   })
 
   it('accepts the older addon shape that carries its console actor', async () => {
