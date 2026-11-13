@@ -60,14 +60,24 @@ Applied by `ReloadPlugin` in order:
   child compilations too (a dev MAIN world script compiles in one) and takes
   the request out of a typed module identifier, so an imported image or
   stylesheet belongs to the bundle that carries it.
-  `reloadForRewrittenContentScripts` turns a content script reload into a
-  full one when a stylesheet the loaded manifest names keeps its name and
-  changes its bytes: Gecko keeps a declared sheet by address, so inserting
-  the file again shows the old rules and the manifest's own copy stays.
+  `reloadForRewrittenContentScripts` answers a stylesheet the loaded manifest
+  names that keeps its name and changes its bytes. Gecko keeps a declared
+  sheet by address, so inserting the file again shows the old rules. With
+  `refreshInPlace` (Gecko) the instruction stays a content script one and
+  carries `refreshedStylesheets`: the producer removes the declared copy
+  from the open tabs, inserts the file under a `?v=<digest>` address, and
+  records the swap so a content script in a later document asks for the same
+  correction. Nothing restarts and the tab keeps its state. Any other
+  browser, an entry with no script, and a changed script still reload the
+  extension. `createLoadedContentScripts` keeps what the browser last read,
+  so `--no-browser` resolves an edit the way a launched browser does.
 
 - `reload-dispatch.ts`
   Routes a `ReloadInstruction` to the control-bridge broker (SW producer).
-  Honors `EXTENSION_NO_RELOAD`.
+  Honors `EXTENSION_NO_RELOAD`. A broadcast that reaches no producer is
+  latched, and where the launcher can start a suspended background (a
+  Firefox event page after about 30 s idle) it is started so its hello takes
+  the edit. The undelivered warning prints only when that brings nobody back.
 
 - `steps/setup-reload-strategy/`
   Dev-only background entry setup and the vendored
@@ -81,7 +91,9 @@ Applied by `ReloadPlugin` in order:
   messages the worker; `content_scripts/dev-registry.json` carries the real
   files, and a runtime prepended to the background bundle registers them
   with `chrome.scripting` at boot (`persistAcrossSessions: false`), injects
-  on a stub's signal, heals open tabs after a worker restart and reloads the
+  on a stub's signal (and inserts the entry's stylesheet into a frame that
+  committed before the registration existed, which Chromium only adds at
+  document start), heals open tabs after a worker restart and reloads the
   tabs an edited entry matches. Every emitted bundle starts with a marker
   that records its file on the world it runs in, and every injection path
   probes that marker first, so a frame never runs two copies. Entries with

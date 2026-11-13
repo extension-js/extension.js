@@ -336,6 +336,8 @@ export class BridgeBroker {
   // Latest reload broadcast not yet provably delivered. Latched until a producer
   // confirms (reload-ack for content scripts) or the next producer hello.
   private pendingReload?: ReloadFrame
+  // The latched frame the last producer hello took with it.
+  private latchedReloadDelivered?: ReloadFrame
   // Producers that negotiated the ack protocol at hello. A worker cached from
   // an older build is absent here and stays ack-exempt, so its reloads are
   // never reported as unapplied.
@@ -504,6 +506,7 @@ export class BridgeBroker {
     label?: string
     changedFiles?: string[]
     changedScriptFiles?: string[]
+    refreshedStylesheets?: {file: string; digest: string}[]
   }): number {
     const receivers: BridgeConnection[] = []
 
@@ -523,6 +526,9 @@ export class BridgeBroker {
       changedFiles: instruction.changedFiles,
       ...(instruction.changedScriptFiles?.length
         ? {changedScriptFiles: instruction.changedScriptFiles}
+        : {}),
+      ...(instruction.refreshedStylesheets?.length
+        ? {refreshedStylesheets: instruction.refreshedStylesheets}
         : {})
     }
 
@@ -672,6 +678,29 @@ export class BridgeBroker {
         resolve(next)
       }
     }
+  }
+
+  // A broadcast that reached nobody stays latched for the next hello. A
+  // background the browser suspended never says it unasked, so it is started.
+  async deliverLatchedReload(): Promise<boolean> {
+    const frame = this.pendingReload
+    if (!frame || !this.canWakeExecutor()) return false
+
+    let woke = false
+
+    try {
+      woke = (await this.wakeExecutor?.()) === true
+    } catch {
+      woke = false
+    }
+
+    if (!woke) return false
+
+    if (this.pendingReload === frame) {
+      await this.waitForExecutor(WAKE_HELLO_WAIT_MS)
+    }
+
+    return this.latchedReloadDelivered === frame
   }
 
   // After a broadcast reached zero producers, decide whether to warn once that
@@ -929,7 +958,7 @@ export class BridgeBroker {
       // started). Deliver the latched instruction so that edit still applies.
       const frame = this.pendingReload
       this.pendingReload = undefined
-      conn.send(frame)
+      if (conn.send(frame)) this.latchedReloadDelivered = frame
     }
 
     if (hello.role === 'consumer') {

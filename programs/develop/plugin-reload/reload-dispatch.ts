@@ -34,10 +34,14 @@ export interface ReloadBroker {
     label?: string
     changedFiles?: string[]
     changedScriptFiles?: string[]
+    refreshedStylesheets?: {file: string; digest: string}[]
   }): number
   // When a broadcast reached zero producers, an optional operator warning
   // (grace-gated + deduped by the broker), or null; optional for test doubles.
   undeliveredReloadWarning?(context?: UndeliveredReloadContext): string | null
+  // Starts a background the browser suspended so its hello takes the latched
+  // broadcast, and resolves true once a producer received it.
+  deliverLatchedReload?(): Promise<boolean>
   // The receipt for the newest broadcast. 'not-expected' covers a producer
   // that cannot ack, so an old cached worker is never called unapplied.
   awaitReloadAck?(): Promise<ReloadAckOutcome>
@@ -83,8 +87,19 @@ function viaBroker(
     changedFiles: instruction.changedAssets,
     ...(instruction.changedScriptFiles?.length
       ? {changedScriptFiles: instruction.changedScriptFiles}
+      : {}),
+    ...(instruction.refreshedStylesheets?.length
+      ? {refreshedStylesheets: instruction.refreshedStylesheets}
       : {})
   })
+}
+
+async function wakeDelivered(broker: ReloadBroker): Promise<boolean> {
+  try {
+    return (await broker.deliverLatchedReload?.()) === true
+  } catch {
+    return false
+  }
 }
 
 // The one stdout announcement per dispatched reload: one server-built string
@@ -129,7 +144,11 @@ export async function dispatchReload(
   if (process.env.EXTENSION_NO_RELOAD === 'true') return
 
   if (executor.broker) {
-    const notified = viaBroker(executor.broker, instruction)
+    let notified = viaBroker(executor.broker, instruction)
+
+    // Firefox suspends an idle event page and its producer with it, so an
+    // edit after a quiet spell finds nobody until the page is started again.
+    if (notified === 0 && (await wakeDelivered(executor.broker))) notified = 1
 
     // Announce only when the extension confirmed it applied the edit. A
     // producer that cannot ack resolves 'not-expected', so those sessions keep

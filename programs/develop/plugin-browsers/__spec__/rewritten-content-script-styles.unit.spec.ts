@@ -1,3 +1,4 @@
+import {createHash} from 'node:crypto'
 import {describe, expect, it, vi} from 'vitest'
 import {
   type ReloadInstruction,
@@ -104,9 +105,9 @@ const sheet = (color: string) => ({
 })
 
 describe('BrowsersPlugin after a compile rewrites a content script stylesheet', () => {
-  // Firefox keeps the declared sheet by address, so inserting the same file
-  // again showed the old color and the manifest's own copy was never removed.
-  it('reloads the extension for a stylesheet-only edit under the same name', async () => {
+  // Firefox keeps the declared sheet by address, so the producer is told which
+  // file to drop from the open tabs and insert again under a fresh address.
+  it('hands Firefox a stylesheet-only edit to swap in place, with no extension reload', async () => {
     const h = createHarness()
 
     await h.compile(sheet('red'))
@@ -114,10 +115,43 @@ describe('BrowsersPlugin after a compile rewrites a content script stylesheet', 
 
     expect(h.reload).toHaveBeenCalledTimes(1)
     expect(h.reload.mock.calls[0][0]).toMatchObject({
-      type: 'full',
+      type: 'content-scripts',
       label: 'content_script (src/widget.module.css)',
-      changedAssets: ['src/widget.module.css']
+      changedAssets: ['src/widget.module.css'],
+      refreshedStylesheets: [
+        {
+          file: SHEET,
+          digest: createHash('sha256')
+            .update('.probe { color: blue; }\n')
+            .digest('hex')
+        }
+      ]
     })
+  })
+
+  // No other engine is known to drop a declared copy, so a manifest that
+  // names the sheet itself still reloads the extension there.
+  it('still reloads the extension for the same edit on a browser that cannot swap it', async () => {
+    const h = createHarness('chrome')
+
+    await h.compile(sheet('red'))
+    await h.compile(sheet('blue'), ['src/widget.module.css'])
+
+    expect(h.reload.mock.calls[0][0]).toMatchObject({type: 'full'})
+    expect(h.reload.mock.calls[0][0].refreshedStylesheets).toBeUndefined()
+  })
+
+  it('reloads the extension when the script changed with the stylesheet', async () => {
+    const h = createHarness()
+
+    await h.compile(sheet('red'))
+    await h.compile(
+      {...sheet('blue'), js: ['content_scripts/content-0.ffffffff.js']},
+      ['src/widget.module.css', 'src/content.ts']
+    )
+
+    expect(h.reload.mock.calls[0][0]).toMatchObject({type: 'full'})
+    expect(h.reload.mock.calls[0][0].refreshedStylesheets).toBeUndefined()
   })
 
   it('keeps an edit that leaves the stylesheet bytes alone a content-scripts reload', async () => {
@@ -129,9 +163,9 @@ describe('BrowsersPlugin after a compile rewrites a content script stylesheet', 
     expect(h.reload.mock.calls[0][0]).toMatchObject({type: 'content-scripts'})
   })
 
-  // The reload made the browser read the new bytes, so the next compile
-  // compares against those.
-  it('compares the next compile with the stylesheet the reload loaded', async () => {
+  // The swap handed the open tabs the new bytes, so the next compile compares
+  // against those and an unrelated edit swaps nothing again.
+  it('compares the next compile with the stylesheet the swap delivered', async () => {
     const h = createHarness()
 
     await h.compile(sheet('red'))
@@ -139,9 +173,11 @@ describe('BrowsersPlugin after a compile rewrites a content script stylesheet', 
     await h.compile(sheet('blue'), ['src/notes.txt'])
 
     expect(h.reload.mock.calls.map((call) => call[0].type)).toEqual([
-      'full',
+      'content-scripts',
       'content-scripts'
     ])
+
+    expect(h.reload.mock.calls[1][0].refreshedStylesheets).toBeUndefined()
   })
 
   // Chromium's dev manifest names only the stubs, the worker registers the
@@ -230,5 +266,45 @@ describe('reloadForRewrittenContentScripts', () => {
         {[SHEET]: 'b'}
       )
     ).toMatchObject({type: 'full', label: 'extension (manifest.json)'})
+  })
+
+  it('names the rewritten sheets instead of a reload for a browser that swaps them in place', () => {
+    expect(
+      reloadForRewrittenContentScripts(
+        content,
+        {[SHEET]: 'a', 'content_scripts/content-1.css': 'same'},
+        {[SHEET]: 'b', 'content_scripts/content-1.css': 'same'},
+        {refreshInPlace: true}
+      )
+    ).toEqual({...content, refreshedStylesheets: [{file: SHEET, digest: 'b'}]})
+  })
+
+  it('turns a page edit that rewrote a declared sheet into a swap, named by the sheet', () => {
+    expect(
+      reloadForRewrittenContentScripts(
+        undefined,
+        {[SHEET]: 'a'},
+        {[SHEET]: 'b'},
+        {refreshInPlace: true}
+      )
+    ).toEqual({
+      type: 'content-scripts',
+      changedAssets: [SHEET],
+      refreshedStylesheets: [{file: SHEET, digest: 'b'}],
+      label: `content_script (${SHEET})`
+    })
+  })
+
+  it('keeps a reload that already restarts the extension or its worker, swap or not', () => {
+    const full: ReloadInstruction = {type: 'full', label: 'extension'}
+
+    expect(
+      reloadForRewrittenContentScripts(
+        full,
+        {[SHEET]: 'a'},
+        {[SHEET]: 'b'},
+        {refreshInPlace: true}
+      )
+    ).toBe(full)
   })
 })

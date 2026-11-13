@@ -53,6 +53,7 @@ import {
   buildSourceFeatureIndex,
   classifyReloadFromSources,
   createChangedSourcesTracker,
+  createLoadedContentScripts,
   dispatchReload,
   readContentScriptCount
 } from '../plugin-reload'
@@ -1113,6 +1114,13 @@ export async function devServer(
     if (!extendedOptions.browsersPlugin && compiler?.hooks?.watchRun) {
       const changedSources = createChangedSourcesTracker(compiler)
       let isFirstBridgeCompile = true
+      // The browser the user runs keeps the manifest it loaded as much as a
+      // launched one does, so a renamed bundle or rewritten sheet counts here.
+      const loadedContentScripts = isEmulatorBrowser(browserName)
+        ? undefined
+        : createLoadedContentScripts({
+            refreshInPlace: isGeckoBasedBrowser(browserName)
+          })
 
       compiler.hooks.done.tapPromise(
         'extjs-no-browser-reload',
@@ -1124,6 +1132,7 @@ export async function devServer(
           // SW producer hasn't connected yet anyway.
           if (isFirstBridgeCompile) {
             isFirstBridgeCompile = false
+            loadedContentScripts?.noteLoaded(compilation)
 
             return
           }
@@ -1132,7 +1141,7 @@ export async function devServer(
           const contextDir = String(compilation.options?.context || '')
           const {forcedFull, changedSources: sources} =
             changedSources.snapshot()
-          const instruction = classifyReloadFromSources({
+          const classified = classifyReloadFromSources({
             changedSources: sources,
             forcedFull,
             getContentScriptCount: () =>
@@ -1141,6 +1150,9 @@ export async function devServer(
               buildSourceFeatureIndex(compilation, contextDir),
             outputPath
           })
+          const instruction = loadedContentScripts
+            ? loadedContentScripts.resolve(compilation, classified)
+            : classified
 
           // Same shared dispatch seam as the launched path, here with the broker
           // (SW producer) as the executor. Honors EXTENSION_NO_RELOAD.

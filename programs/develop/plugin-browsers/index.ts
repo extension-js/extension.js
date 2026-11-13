@@ -9,7 +9,7 @@
 import {EventEmitter} from 'node:events'
 import type {Compiler} from '@rspack/core'
 import {humanLine} from '../dev-server/lifecycle-stream'
-import {isEmulatorBrowser} from '../lib/constants'
+import {isEmulatorBrowser, isGeckoBasedBrowser} from '../lib/constants'
 import * as messages from '../lib/messages'
 import {
   buildSourceFeatureIndex,
@@ -338,7 +338,12 @@ export class BrowsersPlugin implements RunnerPlugin {
                 contentScriptFiles
               ),
               this.loadedContentScriptDigests,
-              contentScriptDigests
+              contentScriptDigests,
+              {
+                refreshInPlace: isGeckoBasedBrowser(
+                  this.options.browserOptions.browser
+                )
+              }
             )
       }
 
@@ -348,6 +353,10 @@ export class BrowsersPlugin implements RunnerPlugin {
         reloadInstruction?.type === 'service-worker'
       ) {
         this.loadedContentScriptFiles = contentScriptFiles
+        this.loadedContentScriptDigests = contentScriptDigests
+      } else if (reloadInstruction?.refreshedStylesheets?.length) {
+        // The open tabs are handed these bytes, so the next compile compares
+        // against them and an unrelated edit swaps no sheet again.
         this.loadedContentScriptDigests = contentScriptDigests
       }
 

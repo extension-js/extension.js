@@ -23,6 +23,7 @@ import {StripContentScriptDevServerRuntime} from './steps/strip-content-script-d
 export {
   buildSourceFeatureIndex,
   classifyReloadFromSources,
+  createLoadedContentScripts,
   formatReloadContextLabel,
   pageContextFromSources,
   publicOutputPath,
