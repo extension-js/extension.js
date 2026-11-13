@@ -142,12 +142,18 @@ export class ScriptsPlugin {
     }).apply(compiler)
 
     if (compiler.options.mode === 'production') {
-      new AddPublicPathRuntimeModule({browser: this.browser}).apply(compiler)
+      new AddPublicPathRuntimeModule({
+        browser: this.browser,
+        manifestPath: this.manifestPath
+      }).apply(compiler)
     }
 
     // Every mode: a worker entry that builds a URL from the base must not
     // read document, and a page keeps the same extension-root base.
-    new AddBaseUriRuntimeModule().apply(compiler)
+    new AddBaseUriRuntimeModule({
+      browser: this.browser,
+      manifestPath: this.manifestPath
+    }).apply(compiler)
 
     new PruneMainWorldBridges({
       manifestPath: this.manifestPath,

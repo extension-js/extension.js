@@ -1,13 +1,17 @@
 import type * as webpack from 'webpack'
 import {
   closedOnSlash,
-  extensionBaseFromFile
+  EXTENSION_BASE_ATTRIBUTE,
+  extensionBaseFromFile,
+  TAKEN_EXTENSION_BASE,
+  unlessExtensionAddress
 } from '../../../../../../../lib/extension-base-from-stack'
 import {RuntimeGlobal} from './BrowserRuntime'
 
 export default function PublicPathRuntimeModule(
   webpack: typeof import('webpack'),
-  gecko = false
+  gecko = false,
+  attribute: string = EXTENSION_BASE_ATTRIBUTE
 ): webpack.RuntimeModule {
   const {RuntimeGlobals, RuntimeModule, Template} = webpack
 
@@ -33,18 +37,24 @@ export default function PublicPathRuntimeModule(
         // When extension runtime exists, use runtime.getURL().
         // In MAIN world content scripts, runtime is missing; fall back to a base URL
         // set by the isolated-world bridge (or empty as last resort).
-        `var __extjsBase = ${extensionBaseFromFile(gecko)} || ((typeof globalThis === "object" && globalThis && globalThis.__EXTJS_EXTENSION_BASE__) ? String(globalThis.__EXTJS_EXTENSION_BASE__) : "");`,
+        // A page owns the globals of its world, so the file goes from what
+        // names it to the attribute its own bridge wrote.
+        `var __extjsBase = ${extensionBaseFromFile(gecko)};`,
         `if (!__extjsBase && typeof document === "object" && document && document.documentElement) {`,
         Template.indent([
-          `try { __extjsBase = document.documentElement.getAttribute("data-extjs-extension-base") || ""; } catch(_) { __extjsBase = ""; }`
+          `try { __extjsBase = document.documentElement.getAttribute(${JSON.stringify(attribute)}) || ""; } catch(_) { __extjsBase = ""; }`
         ]),
         `}`,
+        ...(gecko ? [unlessExtensionAddress('__extjsBase')] : []),
         `var __extjsRuntimePath = "";`,
-        `if (${RuntimeGlobal} && ${RuntimeGlobal}.runtime && typeof ${RuntimeGlobal}.runtime.getURL === "function") {`,
+        // A Gecko file that opened on the taken base runs in the page's
+        // world, where the only runtime to ask is one the page made up.
+        `if (${gecko ? `typeof ${TAKEN_EXTENSION_BASE} !== "string" && ` : ''}${RuntimeGlobal} && ${RuntimeGlobal}.runtime && typeof ${RuntimeGlobal}.runtime.getURL === "function") {`,
         Template.indent([
           `try { __extjsRuntimePath = ${RuntimeGlobal}.runtime.getURL(${path}); } catch (_) { __extjsRuntimePath = ""; }`
         ]),
         `}`,
+        ...(gecko ? [unlessExtensionAddress('__extjsRuntimePath')] : []),
         `if (__extjsRuntimePath) {`,
         Template.indent([`${RuntimeGlobals.publicPath} = __extjsRuntimePath;`]),
         `} else if (__extjsBase) {`,
@@ -62,7 +72,8 @@ export default function PublicPathRuntimeModule(
             `var __extjsUpdateBase = function(){`,
             Template.indent([
               `var base = "";`,
-              `try { base = document.documentElement.getAttribute("data-extjs-extension-base") || ""; } catch(_) { base = ""; }`,
+              `try { base = document.documentElement.getAttribute(${JSON.stringify(attribute)}) || ""; } catch(_) { base = ""; }`,
+              ...(gecko ? [unlessExtensionAddress('base')] : []),
               `if (base) {`,
               Template.indent([
                 `${RuntimeGlobals.publicPath} = base.replace(/\\/+$/, "/") + String(${path}).replace(/^\\/+/, "");`

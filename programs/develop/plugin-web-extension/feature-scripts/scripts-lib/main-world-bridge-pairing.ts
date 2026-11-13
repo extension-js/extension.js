@@ -6,7 +6,10 @@
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import {EXTENSION_BASE_GLOBAL} from '../../../lib/extension-base-from-stack'
+import {
+  EXTENSION_BASE_GLOBAL,
+  extensionBaseAttribute
+} from '../../../lib/extension-base-from-stack'
 
 export const MAIN_WORLD_BRIDGE_ENTRY = 'scripts/extjs-main-world-bridge'
 export const MAIN_WORLD_BRIDGE_PAIR_PREFIX = 'extjs-main-world-bridge:'
@@ -49,7 +52,7 @@ export function buildMainWorldBridgePairingSource(
   };
   var clearBase = function () {
     try { delete window.wrappedJSObject[${JSON.stringify(baseGlobal)}]; } catch (error) {}
-    try { document.documentElement.removeAttribute("data-extjs-extension-base"); } catch (error) {}
+    try { document.documentElement.removeAttribute(${JSON.stringify(extensionBaseAttribute(baseGlobal))}); } catch (error) {}
   };
   var unread = function (frames) {
     return !Array.isArray(frames) || frames.some(function (frame) { return !!(frame && frame.error); });

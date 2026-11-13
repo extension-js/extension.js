@@ -12,6 +12,8 @@ export default class WebExtensionChuckLoaderRuntimePlugin {
   private rspackAutoPublicPath = false
   // A Gecko MAIN world file opens on the read that takes the base.
   private readonly gecko: boolean
+  // The attribute this extension's bridge writes the base under.
+  private readonly baseAttribute: string | undefined
 
   constructor(options: any) {
     // Back-compat:
@@ -21,6 +23,10 @@ export default class WebExtensionChuckLoaderRuntimePlugin {
     this.options = this.pluginOptions.background || this.pluginOptions || {}
     this.contentScriptsMeta = this.pluginOptions.contentScriptsMeta || {}
     this.gecko = this.pluginOptions.gecko === true
+    this.baseAttribute =
+      typeof this.pluginOptions.baseAttribute === 'string'
+        ? this.pluginOptions.baseAttribute
+        : undefined
   }
 
   apply(compiler: any) {
@@ -72,7 +78,11 @@ export default class WebExtensionChuckLoaderRuntimePlugin {
           set.add(RuntimeGlobal)
           compilation.addRuntimeModule(
             chunk,
-            BaseUriRuntimeModule(compiler.webpack, this.gecko)
+            BaseUriRuntimeModule(
+              compiler.webpack,
+              this.gecko,
+              this.baseAttribute
+            )
           )
           return true
         }
@@ -92,7 +102,8 @@ export default class WebExtensionChuckLoaderRuntimePlugin {
           ) {
             const module = AutoPublicPathRuntimeModule(
               compiler.webpack,
-              this.gecko
+              this.gecko,
+              this.baseAttribute
             )
             set.add(RuntimeGlobal)
             if (scriptType !== 'module') set.add(RuntimeGlobals.global)
@@ -101,7 +112,8 @@ export default class WebExtensionChuckLoaderRuntimePlugin {
             set.add(RuntimeGlobal)
             const module: any = PublicPathRuntimeModule(
               compiler.webpack,
-              this.gecko
+              this.gecko,
+              this.baseAttribute
             )
 
             if (

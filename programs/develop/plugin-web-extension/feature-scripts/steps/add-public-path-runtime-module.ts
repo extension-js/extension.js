@@ -14,9 +14,11 @@ import {isGeckoBasedBrowser} from '../../../lib/constants'
 import {
   closedOnSlash,
   extensionBaseFromFile,
+  TAKEN_EXTENSION_BASE,
   unlessExtensionAddress
 } from '../../../lib/extension-base-from-stack'
 import type {DevOptions} from '../../../types'
+import {extensionBaseAttributeFor} from '../scripts-lib/taken-extension-base'
 
 const basic = [
   `var isBrowser = !!(() => { try { return globalThis.browser.runtime.getURL("/") } catch(e) {
@@ -36,19 +38,27 @@ const weakRuntimeCheck = [
 
 export class AddPublicPathRuntimeModule {
   constructor(
-    private readonly options: {browser?: DevOptions['browser']} = {}
+    private readonly options: {
+      browser?: DevOptions['browser']
+      manifestPath?: string
+    } = {}
   ) {}
 
   apply(compiler: Compiler) {
     const {RuntimeGlobals} = compiler.webpack
     // A Gecko MAIN world file opens on the read that takes the base.
     const gecko = isGeckoBasedBrowser(String(this.options.browser || 'chrome'))
+    // The bridge of this extension writes the base under its own name.
+    const attribute = extensionBaseAttributeFor(
+      this.options.manifestPath,
+      this.options.browser || 'chrome'
+    )
 
     compiler.hooks.compilation.tap('PublicPathRuntimeModule', (compilation) => {
       compilation.hooks.runtimeRequirementInTree
         .for(RuntimeGlobals.publicPath)
         .tap(AddPublicPathRuntimeModule.name, (chunk) => {
-          const module = PublicPathRuntimeModule(compiler, gecko)
+          const module = PublicPathRuntimeModule(compiler, gecko, attribute)
 
           compilation.addRuntimeModule(chunk, module)
 
@@ -58,7 +68,11 @@ export class AddPublicPathRuntimeModule {
   }
 }
 
-function PublicPathRuntimeModule(compiler: Compiler, gecko: boolean) {
+function PublicPathRuntimeModule(
+  compiler: Compiler,
+  gecko: boolean,
+  attribute: string
+) {
   const {Template, RuntimeModule, RuntimeGlobals} = compiler.webpack
   class PublicPathRuntimeModule extends RuntimeModule {
     constructor() {
@@ -70,14 +84,12 @@ function PublicPathRuntimeModule(compiler: Compiler, gecko: boolean) {
 
       return Template.asString([
         ...weakRuntimeCheck,
-        // On Firefox a page owns every other global of a MAIN world file,
-        // so the file goes from its own copy straight to the document.
-        gecko
-          ? `var __extjsBase = ${extensionBaseFromFile(gecko)};`
-          : `var __extjsBase = ${extensionBaseFromFile(gecko)} || ((typeof globalThis === "object" && globalThis && globalThis.__EXTJS_EXTENSION_BASE__) ? String(globalThis.__EXTJS_EXTENSION_BASE__) : "");`,
+        // A page owns every other global of a MAIN world file, so the
+        // file goes from what names it straight to the document.
+        `var __extjsBase = ${extensionBaseFromFile(gecko)};`,
         `if (!__extjsBase && typeof document === "object" && document && document.documentElement) {`,
         Template.indent([
-          `try { __extjsBase = document.documentElement.getAttribute("data-extjs-extension-base") || ""; } catch(_) { __extjsBase = ""; }`
+          `try { __extjsBase = document.documentElement.getAttribute(${JSON.stringify(attribute)}) || ""; } catch(_) { __extjsBase = ""; }`
         ]),
         `}`,
         ...(gecko ? [unlessExtensionAddress('__extjsBase')] : []),
@@ -87,11 +99,16 @@ function PublicPathRuntimeModule(compiler: Compiler, gecko: boolean) {
           })
         )}`,
         `var __extjsRuntimePath = "";`,
-        `if (!(typeof importScripts === 'function') && (isBrowser || isChrome)) {`,
+        // A Gecko file that opened on the taken base runs in the page's
+        // world, where the only runtime to ask is one the page made up.
+        gecko
+          ? `if (!(typeof importScripts === 'function') && typeof ${TAKEN_EXTENSION_BASE} !== "string" && (isBrowser || isChrome)) {`
+          : `if (!(typeof importScripts === 'function') && (isBrowser || isChrome)) {`,
         Template.indent([
           `try { __extjsRuntimePath = runtime.runtime.getURL(path); } catch (_) { __extjsRuntimePath = ""; }`
         ]),
         `}`,
+        ...(gecko ? [unlessExtensionAddress('__extjsRuntimePath')] : []),
         // Precedence: worker keeps the configured path, a live runtime wins,
         // then the isolated-world bridge base. The bridge exists FOR the
         // MAIN world, where no runtime is available, so the base must be

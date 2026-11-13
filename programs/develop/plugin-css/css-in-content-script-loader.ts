@@ -9,6 +9,7 @@
 import type {RuleSetRule} from '@rspack/core'
 import {isGeckoBasedBrowser} from '../lib/constants'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../plugin-web-extension/feature-scripts/contracts'
+import {extensionBaseAttributeFor} from '../plugin-web-extension/feature-scripts/scripts-lib/taken-extension-base'
 import type {DevOptions} from '../types'
 import {buildCssRules, type PreprocessorUsage} from './css-lib/build-css-rules'
 
@@ -21,6 +22,7 @@ export async function cssInContentScriptLoader(
 ): Promise<RuleSetRule[]> {
   return buildCssRules(projectPath, mode, usage, {
     gecko: isGeckoBasedBrowser(String(browser)),
+    baseAttribute: extensionBaseAttributeFor(manifestPath, browser),
     nonModuleType: 'asset/inline',
     // The layer follows the whole import graph, so a component's stylesheet
     // is inlined too. A manifest-declared sheet has no issuer and stays a file.

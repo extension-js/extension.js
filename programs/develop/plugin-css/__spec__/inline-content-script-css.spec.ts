@@ -212,10 +212,25 @@ describe('toRuntimeStylesheetModule', () => {
 
   it('reads the bridge base in a MAIN world script, which has no runtime API', () => {
     const exported = evaluateModule(toRuntimeStylesheetModule(css), {
-      __EXTJS_EXTENSION_BASE__: 'chrome-extension://abc'
+      document: {
+        documentElement: {getAttribute: () => 'chrome-extension://abc'}
+      }
     })
     expect(decodeURIComponent(String(exported))).toContain(
       'url("chrome-extension://abc/assets/img/bg.png")'
+    )
+  })
+
+  it('takes no base from a global the page can set', () => {
+    const module = toRuntimeStylesheetModule(css)
+    const exported = evaluateModule(module, {
+      __EXTJS_EXTENSION_BASE__: 'https://evil.example/'
+    })
+
+    expect(module).not.toContain('__EXTJS_EXTENSION_BASE__')
+    expect(decodeURIComponent(String(exported))).not.toContain('evil.example')
+    expect(decodeURIComponent(String(exported))).toContain(
+      'url("/assets/img/bg.png")'
     )
   })
 
@@ -300,7 +315,11 @@ describe('toRuntimeStylesheetModule', () => {
           './fonts/a.woff2': '/assets/a.1234abcd.woff2',
           '../local/b.png': '/assets/b.5678ef01.png'
         },
-        {__EXTJS_EXTENSION_BASE__: 'moz-extension://uuid'}
+        {
+          document: {
+            documentElement: {getAttribute: () => 'moz-extension://uuid'}
+          }
+        }
       )
 
       expect(text).toContain(

@@ -3,7 +3,9 @@ import {describe, expect, it} from 'vitest'
 import {
   closedOnSlash,
   EXTENSION_BASE_FROM_STACK,
+  EXTENSION_BASE_ATTRIBUTE,
   EXTENSION_BASE_GLOBAL,
+  extensionBaseAttribute,
   extensionBaseFromFile,
   extensionBaseGlobal,
   prependBehindTakeBlock,
@@ -164,6 +166,33 @@ describe('the global one extension publishes its base under', () => {
     expect(second).toMatch(/^__EXTJS_EXTENSION_BASE_[0-9a-f]{8}__$/)
     expect(first).not.toBe(second)
     expect(extensionBaseGlobal('a@example.com\nFirst\n')).toBe(first)
+  })
+
+  it('keys the attribute the document carries the base under the same way', () => {
+    const first = extensionBaseGlobal('a@example.com\nFirst\n')
+    const second = extensionBaseGlobal('b@example.com\nSecond\n')
+
+    expect(extensionBaseAttribute(first)).toBe(
+      `${EXTENSION_BASE_ATTRIBUTE}-${first.slice(-10, -2)}`
+    )
+
+    expect(extensionBaseAttribute(first)).toMatch(
+      /^data-extjs-extension-base-[0-9a-f]{8}$/
+    )
+
+    expect(extensionBaseAttribute(first)).not.toBe(
+      extensionBaseAttribute(second)
+    )
+
+    expect(extensionBaseAttribute(EXTENSION_BASE_GLOBAL)).toBe(
+      EXTENSION_BASE_ATTRIBUTE
+    )
+
+    expect(extensionBaseAttribute()).toBe(EXTENSION_BASE_ATTRIBUTE)
+    // A name no build derived keys nothing.
+    expect(extensionBaseAttribute('__EXTJS_EXTENSION_BASE_forged__')).toBe(
+      EXTENSION_BASE_ATTRIBUTE
+    )
   })
 
   it('is read by the block a file of that extension opens on, on one line', () => {

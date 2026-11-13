@@ -1,10 +1,15 @@
 import type * as webpack from 'webpack'
-import {extensionBaseFromFile} from '../../../../../../../lib/extension-base-from-stack'
+import {
+  EXTENSION_BASE_ATTRIBUTE,
+  extensionBaseFromFile,
+  unlessExtensionAddress
+} from '../../../../../../../lib/extension-base-from-stack'
 import {RuntimeGlobal} from './BrowserRuntime'
 
 export default function BaseUriRuntimeModule(
   webpack: typeof import('webpack'),
-  gecko = false
+  gecko = false,
+  attribute: string = EXTENSION_BASE_ATTRIBUTE
 ): webpack.RuntimeModule {
   const {RuntimeGlobals, RuntimeModule, Template} = webpack
 
@@ -26,16 +31,12 @@ export default function BaseUriRuntimeModule(
         ]),
         `} catch (_) {}`,
         `if (!__extjsBase) __extjsBase = ${extensionBaseFromFile(gecko)};`,
-        `if (!__extjsBase && typeof globalThis === "object" && globalThis && globalThis.__EXTJS_EXTENSION_BASE__) {`,
-        Template.indent([
-          `__extjsBase = String(globalThis.__EXTJS_EXTENSION_BASE__ || "");`
-        ]),
-        `}`,
         `if (!__extjsBase && typeof document === "object" && document && document.documentElement) {`,
         Template.indent([
-          `try { __extjsBase = String(document.documentElement.getAttribute("data-extjs-extension-base") || ""); } catch (_) { __extjsBase = ""; }`
+          `try { __extjsBase = String(document.documentElement.getAttribute(${JSON.stringify(attribute)}) || ""); } catch (_) { __extjsBase = ""; }`
         ]),
         `}`,
+        ...(gecko ? [unlessExtensionAddress('__extjsBase')] : []),
         `if (__extjsBase) {`,
         Template.indent([`${RuntimeGlobals.baseURI} = __extjsBase;`]),
         `} else if (typeof document !== "undefined" && document.baseURI) {`,

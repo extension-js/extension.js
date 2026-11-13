@@ -12,6 +12,7 @@ export const EXTENSION_BASE_FROM_STACK =
   '(function(){try{var m=String(new Error().stack||"").match(/[a-z-]+-extension:\\/\\/[^\\/\\s)]+\\//);return m?m[0]:""}catch(_){return ""}})()'
 
 export const EXTENSION_BASE_GLOBAL = '__EXTJS_EXTENSION_BASE__'
+export const EXTENSION_BASE_ATTRIBUTE = 'data-extjs-extension-base'
 export const TAKEN_EXTENSION_BASE = '__extjsTakenBase'
 
 // A Gecko MAIN world file opens on the statement that takes the base, so
@@ -35,6 +36,7 @@ export function unlessExtensionAddress(name: string): string {
 }
 
 const KEYED_GLOBAL = /^__EXTJS_EXTENSION_BASE_(?:[0-9a-f]{8}_)?_/
+const GLOBAL_KEY = /^__EXTJS_EXTENSION_BASE_([0-9a-f]{8})__$/
 const TAKE_BLOCK_READ = `{let ${TAKEN_EXTENSION_BASE}="";try{${TAKEN_EXTENSION_BASE}=`
 // A page can hold the name first, so a value that is no extension address
 // reads as nothing. Comparing strings calls nothing a page could patch.
@@ -46,6 +48,18 @@ export function extensionBaseGlobal(identity: string): string {
   const digest = createHash('sha256').update(identity).digest('hex')
 
   return `${EXTENSION_BASE_GLOBAL.slice(0, -1)}${digest.slice(0, 8)}__`
+}
+
+// The document carries the base when a page holds the global, and two
+// extensions share one document, so the attribute takes the global's key.
+export function extensionBaseAttribute(
+  global: string = EXTENSION_BASE_GLOBAL
+): string {
+  const key = GLOBAL_KEY.exec(global)
+
+  return key
+    ? `${EXTENSION_BASE_ATTRIBUTE}-${key[1]}`
+    : EXTENSION_BASE_ATTRIBUTE
 }
 
 // The bridge answers the base to one place only, the first statement of an

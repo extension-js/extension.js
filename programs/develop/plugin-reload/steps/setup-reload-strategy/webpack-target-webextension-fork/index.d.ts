@@ -57,6 +57,11 @@ export interface WebExtensionPluginOptions {
    */
   gecko?: boolean
   /**
+   * Extension.js internal: the attribute this extension's bridge writes the
+   * extension base under, keyed per extension on a Gecko build.
+   */
+  baseAttribute?: string
+  /**
    * Extension.js internal: metadata about emitted content script bundles.
    * Used to make chunk loading runtime world-aware (MAIN world vs isolated world)
    * and to route MAIN world async chunk loading through an isolated-world bridge.
