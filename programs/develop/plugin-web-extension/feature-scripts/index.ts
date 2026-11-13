@@ -7,8 +7,10 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import * as fs from 'node:fs'
+import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
 import type {DevOptions, FilepathList, PluginInterface} from '../../types'
+import {rememberBuildResolve} from '../shared/script-graph'
 import {AddBaseUriRuntimeModule} from './steps/add-base-uri-runtime-module'
 import {AddContentScriptWrapper} from './steps/add-content-script-wrapper'
 import {AddPublicPathRuntimeModule} from './steps/add-public-path-runtime-module'
@@ -20,6 +22,7 @@ import {PruneMainWorldBridges} from './steps/prune-main-world-bridges'
 import {StampWebkitUtf8Bom} from './steps/stamp-webkit-utf8-bom'
 import {TraceRuntimeLoadedFiles} from './steps/trace-runtime-loaded-files'
 import {ValidateEmittedScriptSyntax} from './steps/validate-emitted-script-syntax'
+import {WarnMainWorldRegistrationChanged} from './steps/warn-main-world-registration-changed'
 import {WarnMissingBuildConstants} from './steps/warn-missing-build-constants'
 import {WarnPageContextWorker} from './steps/warn-page-context-worker'
 import {WarnPageRelativeScriptPath} from './steps/warn-page-relative-script-path'
@@ -52,6 +55,13 @@ export class ScriptsPlugin {
     if (!hasValidManifest) {
       return
     }
+
+    // The import walk below resolves with the block this build compiles
+    // with, which already holds what extension.config.js merged in.
+    rememberBuildResolve(
+      (compiler.options.context as string) || path.dirname(this.manifestPath),
+      compiler.options.resolve
+    )
 
     new AddScripts({
       manifestPath: this.manifestPath,
@@ -134,6 +144,14 @@ export class ScriptsPlugin {
       includeList: this.includeList || {},
       pageList: this.pageList,
       browser: this.browser
+    }).apply(compiler)
+
+    // A dev session picks each scripts/ file's world as it starts, so a
+    // MAIN world registration written later is named with what to do.
+    new WarnMainWorldRegistrationChanged({
+      manifestPath: this.manifestPath,
+      includeList: this.includeList || {},
+      pageList: this.pageList
     }).apply(compiler)
 
     // A constant the author forgot to define reads as a bare global in the

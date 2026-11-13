@@ -27,6 +27,8 @@ import {getScriptEntries, isRemoteUrl, resolveScriptEntryPath} from './utils'
 export interface RuntimeMainWorldEntry {
   entryName: string
   files: string[]
+  // The source that holds the registration or injection.
+  registeredBy: string
 }
 
 export interface RuntimeMainWorldOptions {
@@ -102,6 +104,10 @@ function collectPageScripts(
 interface SourceFacts {
   file: string
   stamp: string
+  // The resolver options the imports below were resolved with.
+  scope: string
+  // The modules a constant was read from, which the stamp above cannot see.
+  constantSources: Array<{file: string; stamp: string}>
   mainWorldFiles: string[]
   // Every path a registration or injection names, whatever the world.
   injectedFiles: string[]
@@ -111,23 +117,34 @@ interface SourceFacts {
 
 const factsCache = new Map<string, SourceFacts>()
 
+function fileStamp(file: string): string | undefined {
+  try {
+    const stat = fs.statSync(file)
+
+    return stat.isFile() ? `${stat.mtimeMs}:${stat.size}` : undefined
+  } catch {
+    return undefined
+  }
+}
+
 function readSourceFacts(
   file: string,
   resolveImport: LocalImportResolver
 ): SourceFacts | undefined {
-  let stamp: string
-
-  try {
-    const stat = fs.statSync(file)
-    if (!stat.isFile()) return undefined
-
-    stamp = `${stat.mtimeMs}:${stat.size}`
-  } catch {
-    return undefined
-  }
+  const stamp = fileStamp(file)
+  if (stamp === undefined) return undefined
 
   const cached = factsCache.get(file)
-  if (cached?.stamp === stamp) return cached
+
+  if (
+    cached?.stamp === stamp &&
+    cached.scope === resolveImport.scope &&
+    cached.constantSources.every(
+      (source) => fileStamp(source.file) === source.stamp
+    )
+  ) {
+    return cached
+  }
 
   const source = readScriptText(file) || ''
   const imports = new Set<string>()
@@ -137,13 +154,28 @@ function readSourceFacts(
     if (resolved) imports.add(resolved)
   }
 
+  const constantSources: SourceFacts['constantSources'] = []
+
+  // A registration may name a constant another local module exports.
+  const readImported = (specifier: string): string | null => {
+    const resolved = resolveImport(file, specifier)
+    const resolvedStamp = resolved && fileStamp(resolved)
+    if (!resolved || !resolvedStamp) return null
+
+    constantSources.push({file: resolved, stamp: resolvedStamp})
+
+    return readScriptText(resolved) ?? null
+  }
+
   const names = MAIN_WORLD_CALL.test(source)
   const mainWorldFiles = names
-    ? extractMainWorldRegisteredFileLiterals(source)
+    ? extractMainWorldRegisteredFileLiterals(source, readImported)
     : []
   const facts: SourceFacts = {
     file,
     stamp,
+    scope: resolveImport.scope,
+    constantSources,
     mainWorldFiles,
     injectedFiles: names
       ? [
@@ -195,17 +227,17 @@ function registeredEntryName(literal: string): string | null {
 }
 
 // Every entry name a runtime registration or injection puts in the MAIN
-// world, read from the sources this build already compiles.
+// world and the first source that names it, read from what this build compiles.
 function readRegisteredMainWorldEntryNames(
   files: string[],
   projectPath: string
-): Set<string> {
-  const names = new Set<string>()
+): Map<string, string> {
+  const names = new Map<string, string>()
 
   for (const facts of readReachableFacts(files, projectPath)) {
     for (const literal of facts.mainWorldFiles) {
       const name = registeredEntryName(literal)
-      if (name) names.add(name)
+      if (name && !names.has(name)) names.set(name, facts.file)
     }
   }
 
@@ -238,7 +270,11 @@ export function findRuntimeMainWorldEntries(
 
   return candidates
     .filter(([entryName]) => registered.has(entryName))
-    .map(([entryName, files]) => ({entryName, files}))
+    .map(([entryName, files]) => ({
+      entryName,
+      files,
+      registeredBy: registered.get(entryName) as string
+    }))
 }
 
 export interface PageRelativeScriptPath {
