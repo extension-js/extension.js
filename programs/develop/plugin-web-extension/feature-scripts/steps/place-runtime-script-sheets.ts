@@ -6,6 +6,8 @@
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import {Compilation, type Compiler} from '@rspack/core'
 import {prependToEmittedAsset} from '../../../lib/asset-source-maps'
 import {isGeckoBasedBrowser} from '../../../lib/constants'
@@ -105,5 +107,35 @@ export class PlaceRuntimeScriptSheets {
         )
       }
     )
+
+    if (compiler.options.mode !== 'development') return
+    if (!compiler.hooks.done?.tap) return
+
+    // Dev never cleans its output, so a sheet kept on disk for a call that
+    // named it stays there once the call is gone and the script carries it.
+    compiler.hooks.done.tap(PlaceRuntimeScriptSheets.name, (stats) => {
+      try {
+        const outputPath = compiler.options.output?.path
+        if (!outputPath || stats.compilation.errors.length > 0) return
+
+        const emitted = new Set(
+          stats.compilation
+            .getAssets()
+            .map((asset) => String(asset.name || '').replace(/\\/g, '/'))
+        )
+
+        for (const entryName of entries) {
+          const sheetName = runtimeScriptSheetName(entryName)
+
+          for (const name of [sheetName, `${sheetName}.map`]) {
+            if (emitted.has(name)) continue
+
+            fs.rmSync(path.join(outputPath, name), {force: true})
+          }
+        }
+      } catch {
+        // pruning must never fail a compile
+      }
+    })
   }
 }

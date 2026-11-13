@@ -1,6 +1,8 @@
 import {describe, expect, it} from 'vitest'
 import {
   CHROMIUM_EXTENSION_ROOT,
+  GECKO_EXTENSION_ROOT,
+  injectedSheetRoot,
   isInjectedSheet,
   rootedAtExtension
 } from '../injected-sheet-urls'
@@ -53,6 +55,55 @@ describe('the url() targets of a sheet Chromium injects', () => {
     const once = rootedAtExtension('.a{background:url(/assets/a.png)}')
 
     expect(rootedAtExtension(once)).toBe(once)
+  })
+})
+
+describe('the address each engine fills the extension id into', () => {
+  it.each([
+    'chrome',
+    'edge',
+    'chromium',
+    'chromium-based'
+  ])('is the Chromium one for %s', (browser) => {
+    expect(injectedSheetRoot(browser)).toBe(
+      'chrome-extension://__MSG_@@extension_id__/'
+    )
+  })
+
+  it.each([
+    'firefox',
+    'gecko-based',
+    'firefox-based',
+    'librewolf'
+  ])('is the Firefox one for %s', (browser) => {
+    expect(injectedSheetRoot(browser)).toBe(
+      'moz-extension://__MSG_@@extension_id__/'
+    )
+  })
+
+  it('is none for safari, which no measurement covers', () => {
+    expect(injectedSheetRoot('safari')).toBeUndefined()
+  })
+
+  it('names a Firefox target the three ways a sheet spells a url()', () => {
+    const css = [
+      '.a { background: url("/assets/a.png"); }',
+      ".b { background: url('/assets/b.png?v=1#frag'); }",
+      '.c { background: url( /assets/c.png ); }',
+      '.d { background: url(//cdn.example.com/d.png); }'
+    ].join('\r\n')
+    const once = rootedAtExtension(css, GECKO_EXTENSION_ROOT)
+
+    expect(once).toBe(
+      [
+        `.a { background: url("${GECKO_EXTENSION_ROOT}assets/a.png"); }`,
+        `.b { background: url("${GECKO_EXTENSION_ROOT}assets/b.png?v=1#frag"); }`,
+        `.c { background: url("${GECKO_EXTENSION_ROOT}assets/c.png"); }`,
+        '.d { background: url(//cdn.example.com/d.png); }'
+      ].join('\r\n')
+    )
+
+    expect(rootedAtExtension(once, GECKO_EXTENSION_ROOT)).toBe(once)
   })
 })
 
