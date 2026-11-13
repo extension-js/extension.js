@@ -20,6 +20,7 @@ import type {
 } from '../../../types'
 import {
   EXTENSIONJS_CONTENT_SCRIPT_LAYER,
+  EXTENSIONJS_MAIN_WORLD_IMPORT_LAYER,
   getCanonicalContentScriptEntryName
 } from '../contracts'
 import {findRuntimeMainWorldEntries} from '../scripts-lib/runtime-main-world-scripts'
@@ -167,21 +168,36 @@ export class CompileMainWorldScripts {
   }
 
   public apply(compiler: Compiler): void {
-    if (compiler.options.mode !== 'development') return
-
     const manifestDir = path.dirname(this.manifestPath)
+    const runtime = findRuntimeMainWorldEntries({
+      includeList: this.includeList,
+      pageList: this.pageList,
+      manifestDir,
+      projectPath: (compiler.options.context as string) || manifestDir
+    })
+    const entries = compiler.options.entry as Record<string, unknown>
+
+    if (compiler.options.mode !== 'development') {
+      // The copy shares its file with the isolated build of the same
+      // compilation, and the layer is what makes it a module of its own.
+      for (const {entryName, copyOf} of runtime) {
+        const entry = entries?.[entryName]
+        if (!copyOf || !entry || typeof entry !== 'object') continue
+
+        entries[entryName] = {
+          ...entry,
+          layer: EXTENSIONJS_MAIN_WORLD_IMPORT_LAYER
+        }
+      }
+
+      return
+    }
+
     const groups: MainWorldEntry[] = [
       ...findMainWorldGroups(this.manifestPath, this.browser),
-      ...findRuntimeMainWorldEntries({
-        includeList: this.includeList,
-        pageList: this.pageList,
-        manifestDir,
-        projectPath: (compiler.options.context as string) || manifestDir
-      })
+      ...runtime
     ]
     if (groups.length === 0) return
-
-    const entries = compiler.options.entry as Record<string, unknown>
 
     for (const group of groups) {
       delete entries[group.entryName]

@@ -11,6 +11,14 @@ export const EXTENSIONJS_CONTENT_SCRIPT_LAYER = 'extensionjs-content-script'
 // above because a rule matches a layer by prefix, so every rule still applies.
 export const EXTENSIONJS_MAIN_WORLD_IMPORT_LAYER = `${EXTENSIONJS_CONTENT_SCRIPT_LAYER}-main-world-import`
 
+// A browser runs one file once in a frame whatever worlds name it, and each
+// world needs its own build, so the MAIN world copy ships beside the file.
+export const MAIN_WORLD_COPY_SUFFIX = '.extjs-main-world'
+
+export function mainWorldCopyEntryName(entryName: string): string {
+  return `${entryName}${MAIN_WORLD_COPY_SUFFIX}`
+}
+
 export const CANONICAL_CONTENT_SCRIPT_ENTRY_PREFIX = 'content_scripts/content-'
 
 export function getCanonicalContentScriptEntryName(index: number): string {

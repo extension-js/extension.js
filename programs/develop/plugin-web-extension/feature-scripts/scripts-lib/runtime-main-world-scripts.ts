@@ -19,10 +19,11 @@ import {
 import {
   compiledSourceEmittedPath,
   extractInjectedFileLiterals,
-  extractMainWorldRegisteredFileLiterals,
   type ImportedModuleReader,
   resolveExtensionPath
 } from '../steps/trace-runtime-loaded-files'
+import {mainWorldCopyEntryName} from '../contracts'
+import {extractRegisteredFileSightings} from './registration-worlds'
 import {getScriptEntries, isRemoteUrl, resolveScriptEntryPath} from './utils'
 
 export interface RuntimeMainWorldEntry {
@@ -30,6 +31,9 @@ export interface RuntimeMainWorldEntry {
   files: string[]
   // The source that holds the registration or injection.
   registeredBy: string
+  // The scripts/ entry this one is the MAIN world copy of, when the same
+  // file also runs in the isolated world and keeps its own name there.
+  copyOf?: string
 }
 
 export interface RuntimeMainWorldOptions {
@@ -110,6 +114,10 @@ interface SourceFacts {
   // The modules a constant was read from, which the stamp above cannot see.
   constantSources: Array<{file: string; stamp: string}>
   mainWorldFiles: string[]
+  // The paths a call runs in the isolated world, or in one it cannot name.
+  isolatedFiles: string[]
+  // The calls that name a file and leave its world to the running code.
+  unknownWorlds: Array<{literal: string; line: number}>
   // Every path a registration or injection names, whatever the world.
   injectedFiles: string[]
   callsRegistry: boolean
@@ -172,15 +180,35 @@ function readSourceFacts(
   }
 
   const names = MAIN_WORLD_CALL.test(source)
-  const mainWorldFiles = names
-    ? extractMainWorldRegisteredFileLiterals(source, readImported)
+  const sightings = names
+    ? extractRegisteredFileSightings(source, readImported)
     : []
+  const filesIn = (...worlds: string[]) => [
+    ...new Set(
+      sightings
+        .filter((sighting) => worlds.includes(sighting.world))
+        .map((sighting) => sighting.file)
+    )
+  ]
+  const mainWorldFiles = filesIn('MAIN')
+  const unknownWorlds = new Map<string, {literal: string; line: number}>()
+
+  for (const {file: literal, world, index} of sightings) {
+    if (world !== 'UNKNOWN') continue
+
+    // Counted on line feeds alone, so a CRLF file numbers its lines alike.
+    const line = source.slice(0, index).split('\n').length
+    unknownWorlds.set(`${line}:${literal}`, {literal, line})
+  }
+
   const facts: SourceFacts = {
     file,
     stamp,
     scope: resolveImport.scope,
     constantSources,
     mainWorldFiles,
+    isolatedFiles: filesIn('ISOLATED', 'UNKNOWN'),
+    unknownWorlds: [...unknownWorlds.values()],
     injectedFiles: names
       ? [
           ...new Set([
@@ -230,28 +258,45 @@ function registeredEntryName(literal: string): string | null {
   return emitted.replace(/\.js$/i, '')
 }
 
-// Every entry name a runtime registration or injection puts in the MAIN
-// world and the first source that names it, read from what this build compiles.
-function readRegisteredMainWorldEntryNames(
+interface RegisteredWorlds {
+  // Each entry name put in the MAIN world and the first source that names it.
+  main: Map<string, string>
+  isolated: Set<string>
+}
+
+// The worlds every runtime registration or injection gives each entry
+// name, read from what this build compiles.
+function readRegisteredWorlds(
   files: string[],
   projectPath: string
-): Map<string, string> {
-  const names = new Map<string, string>()
+): RegisteredWorlds {
+  const main = new Map<string, string>()
+  const isolated = new Set<string>()
 
   for (const facts of readReachableFacts(files, projectPath)) {
     for (const literal of facts.mainWorldFiles) {
       const name = registeredEntryName(literal)
-      if (name && !names.has(name)) names.set(name, facts.file)
+      if (name && !main.has(name)) main.set(name, facts.file)
+    }
+
+    for (const literal of facts.isolatedFiles) {
+      const name = registeredEntryName(literal)
+      if (name) isolated.add(name)
     }
   }
 
-  return names
+  return {main, isolated}
 }
+
+const sameFiles = (left: string[], right: string[]) =>
+  left.length === right.length &&
+  left.every((file, index) => file === right[index])
 
 // The scripts/ entries a registerContentScripts or executeScript call runs in
 // the page's own world, which the manifest never names. Declared
 // content_scripts groups are left to the manifest lane: one also registered
-// at runtime still has its declared injection to serve.
+// at runtime still has its declared injection to serve. A file the isolated
+// world runs too is answered as its MAIN world copy, under the copy's name.
 export function findRuntimeMainWorldEntries(
   options: RuntimeMainWorldOptions
 ): RuntimeMainWorldEntry[] {
@@ -264,21 +309,87 @@ export function findRuntimeMainWorldEntries(
 
   // An extension page registers through the same API as the background,
   // and either one may keep the call in a module it imports.
-  const registered = readRegisteredMainWorldEntryNames(
+  const registered = readRegisteredWorlds(
     [
       ...[...entries.values()].flat(),
       ...[...collectPageScripts(options.pageList).values()].flat()
     ],
     options.projectPath
   )
+  const found: RuntimeMainWorldEntry[] = []
 
-  return candidates
-    .filter(([entryName]) => registered.has(entryName))
-    .map(([entryName, files]) => ({
-      entryName,
-      files,
-      registeredBy: registered.get(entryName) as string
-    }))
+  for (const [entryName, files] of candidates) {
+    const registeredBy = registered.main.get(entryName)
+    if (!registeredBy) continue
+
+    const copyName = mainWorldCopyEntryName(entryName)
+    const taken = entries.get(copyName)
+    // A file of the author's own under the copy's name keeps that name.
+    const copied =
+      registered.isolated.has(entryName) && (!taken || sameFiles(taken, files))
+
+    found.push(
+      copied
+        ? {entryName: copyName, files, registeredBy, copyOf: entryName}
+        : {entryName, files, registeredBy}
+    )
+  }
+
+  return found
+}
+
+// The list with an entry of its own for each MAIN world copy, so the steps
+// that read the list build and name the copy like any other scripts/ file.
+export function withMainWorldCopyEntries(
+  options: RuntimeMainWorldOptions
+): FilepathList {
+  const copies = findRuntimeMainWorldEntries(options).filter(
+    (entry) => entry.copyOf
+  )
+  if (copies.length === 0) return options.includeList
+
+  const list: FilepathList = {...options.includeList}
+
+  for (const {entryName, copyOf} of copies) {
+    list[entryName] = options.includeList[copyOf as string]
+  }
+
+  return list
+}
+
+export interface UnknownWorldRegistration {
+  // The source that holds the call, and the line the call starts on.
+  file: string
+  line: number
+  literal: string
+  emitted: string
+}
+
+// The calls that name a scripts/ file and leave its world to running code,
+// which no build can read. Such a file is built for the isolated world.
+export function findUnknownWorldRegistrations(
+  options: RuntimeMainWorldOptions
+): UnknownWorldRegistration[] {
+  const entries = collectScriptEntries(options)
+  const scripts = new Set([...entries.keys()].filter(isScriptsFolderFeature))
+  if (scripts.size === 0) return []
+
+  const found: UnknownWorldRegistration[] = []
+  const sources = [
+    ...[...entries.values()].flat(),
+    ...[...collectPageScripts(options.pageList).values()].flat()
+  ]
+
+  for (const facts of readReachableFacts(sources, options.projectPath)) {
+    for (const {literal, line} of facts.unknownWorlds) {
+      const entryName = registeredEntryName(literal)
+      if (!entryName || !scripts.has(entryName)) continue
+
+      found.push({file: facts.file, line, literal, emitted: `${entryName}.js`})
+    }
+  }
+
+  return found
 }
 
 export interface PageRelativeScriptPath {

@@ -11,6 +11,7 @@ import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
 import type {DevOptions, FilepathList, PluginInterface} from '../../types'
 import {rememberBuildResolve} from '../shared/script-graph'
+import {withMainWorldCopyEntries} from './scripts-lib/runtime-main-world-scripts'
 import {AddBaseUriRuntimeModule} from './steps/add-base-uri-runtime-module'
 import {AddContentScriptWrapper} from './steps/add-content-script-wrapper'
 import {AddPublicPathRuntimeModule} from './steps/add-public-path-runtime-module'
@@ -22,6 +23,7 @@ import {PairRuntimeMainWorldBridges} from './steps/pair-runtime-main-world-bridg
 import {PlaceRuntimeScriptSheets} from './steps/place-runtime-script-sheets'
 import {PruneMainWorldBridges} from './steps/prune-main-world-bridges'
 import {RootInjectedSheetUrls} from './steps/root-injected-sheet-urls'
+import {RouteMainWorldCopies} from './steps/route-main-world-copies'
 import {StampWebkitUtf8Bom} from './steps/stamp-webkit-utf8-bom'
 import {TakeExtensionBase} from './steps/take-extension-base'
 import {TraceRuntimeLoadedFiles} from './steps/trace-runtime-loaded-files'
@@ -31,6 +33,7 @@ import {WarnMissingBuildConstants} from './steps/warn-missing-build-constants'
 import {WarnPageContextWorker} from './steps/warn-page-context-worker'
 import {WarnPageRelativeScriptPath} from './steps/warn-page-relative-script-path'
 import {WarnSplitInitialChunks} from './steps/warn-split-initial-chunks'
+import {WarnUnknownRegistrationWorld} from './steps/warn-unknown-registration-world'
 import {WarnUnshippedRuntimeAssets} from './steps/warn-unshipped-runtime-assets'
 
 export class ScriptsPlugin {
@@ -67,9 +70,19 @@ export class ScriptsPlugin {
       compiler.options.resolve
     )
 
+    // A file both worlds run gets an entry of its own for the MAIN world
+    // copy, so every step below builds and names it like any scripts/ file.
+    const includeList = withMainWorldCopyEntries({
+      includeList: this.includeList || {},
+      pageList: this.pageList,
+      manifestDir: path.dirname(this.manifestPath),
+      projectPath:
+        (compiler.options.context as string) || path.dirname(this.manifestPath)
+    })
+
     new AddScripts({
       manifestPath: this.manifestPath,
-      includeList: this.includeList || {},
+      includeList,
       browser: this.browser
     }).apply(compiler)
 
@@ -77,7 +90,7 @@ export class ScriptsPlugin {
     // would otherwise land on the host page. Takes its entry back out.
     new CompileMainWorldScripts({
       manifestPath: this.manifestPath,
-      includeList: this.includeList || {},
+      includeList,
       pageList: this.pageList,
       browser: this.browser
     }).apply(compiler)
@@ -89,14 +102,14 @@ export class ScriptsPlugin {
     // The author's own call names the script alone, so the sheet of the CSS
     // modules a scripts/ file imports is carried by the file itself.
     new PlaceRuntimeScriptSheets({
-      includeList: this.includeList || {},
+      includeList,
       browser: this.browser
     }).apply(compiler)
 
     // A sheet on the visited page reads a url() against that page, so one
     // that ships as a file names its targets from the extension.
     new RootInjectedSheetUrls({
-      includeList: this.includeList || {},
+      includeList,
       browser: this.browser
     }).apply(compiler)
 
@@ -104,7 +117,7 @@ export class ScriptsPlugin {
     // statement of a MAIN world file, the one read no page script can stage.
     new TakeExtensionBase({
       manifestPath: this.manifestPath,
-      includeList: this.includeList || {},
+      includeList,
       pageList: this.pageList,
       browser: this.browser
     }).apply(compiler)
@@ -113,9 +126,17 @@ export class ScriptsPlugin {
     // registered there at runtime is paired with the bridge that publishes it.
     new PairRuntimeMainWorldBridges({
       manifestPath: this.manifestPath,
-      includeList: this.includeList || {},
+      includeList,
       pageList: this.pageList,
       browser: this.browser
+    }).apply(compiler)
+
+    // The author names such a file once, so each call is routed to the
+    // build of the world it runs in. Its text sits inside the pairing's.
+    new RouteMainWorldCopies({
+      manifestPath: this.manifestPath,
+      includeList,
+      pageList: this.pageList
     }).apply(compiler)
 
     // Runtime-loaded files the module graph cannot see (importScripts, executeScript
@@ -135,7 +156,7 @@ export class ScriptsPlugin {
     // call; without it rspack tree-shakes the entire entry body in production.
     new AddContentScriptWrapper({
       manifestPath: this.manifestPath,
-      includeList: this.includeList || {},
+      includeList,
       pageList: this.pageList,
       browser: this.browser,
       devSession: this.devSession
@@ -178,16 +199,24 @@ export class ScriptsPlugin {
     // registers it and stays silent when that file is missing.
     new WarnPageRelativeScriptPath({
       manifestPath: this.manifestPath,
-      includeList: this.includeList || {},
+      includeList,
       pageList: this.pageList,
       browser: this.browser
+    }).apply(compiler)
+
+    // A world the call computes cannot be read, so the file is built for
+    // the isolated world and the build names the call that left it open.
+    new WarnUnknownRegistrationWorld({
+      manifestPath: this.manifestPath,
+      includeList,
+      pageList: this.pageList
     }).apply(compiler)
 
     // A dev session picks each scripts/ file's world as it starts, so a
     // MAIN world registration written later is named with what to do.
     new WarnMainWorldRegistrationChanged({
       manifestPath: this.manifestPath,
-      includeList: this.includeList || {},
+      includeList,
       pageList: this.pageList
     }).apply(compiler)
 
