@@ -1,9 +1,13 @@
 import type * as webpack from 'webpack'
-import {EXTENSION_BASE_FROM_STACK} from '../../../../../../../lib/extension-base-from-stack'
+import {
+  closedOnSlash,
+  extensionBaseFromFile
+} from '../../../../../../../lib/extension-base-from-stack'
 import {RuntimeGlobal} from './BrowserRuntime'
 
 export default function PublicPathRuntimeModule(
-  webpack: typeof import('webpack')
+  webpack: typeof import('webpack'),
+  gecko = false
 ): webpack.RuntimeModule {
   const {RuntimeGlobals, RuntimeModule, Template} = webpack
 
@@ -29,7 +33,7 @@ export default function PublicPathRuntimeModule(
         // When extension runtime exists, use runtime.getURL().
         // In MAIN world content scripts, runtime is missing; fall back to a base URL
         // set by the isolated-world bridge (or empty as last resort).
-        `var __extjsBase = ${EXTENSION_BASE_FROM_STACK} || ((typeof globalThis === "object" && globalThis && globalThis.__EXTJS_EXTENSION_BASE__) ? String(globalThis.__EXTJS_EXTENSION_BASE__) : "");`,
+        `var __extjsBase = ${extensionBaseFromFile(gecko)} || ((typeof globalThis === "object" && globalThis && globalThis.__EXTJS_EXTENSION_BASE__) ? String(globalThis.__EXTJS_EXTENSION_BASE__) : "");`,
         `if (!__extjsBase && typeof document === "object" && document && document.documentElement) {`,
         Template.indent([
           `try { __extjsBase = document.documentElement.getAttribute("data-extjs-extension-base") || ""; } catch(_) { __extjsBase = ""; }`
@@ -45,7 +49,7 @@ export default function PublicPathRuntimeModule(
         Template.indent([`${RuntimeGlobals.publicPath} = __extjsRuntimePath;`]),
         `} else if (__extjsBase) {`,
         Template.indent([
-          `${RuntimeGlobals.publicPath} = __extjsBase.replace(/\\/+$/, "/") + String(${path}).replace(/^\\/+/, "");`
+          `${RuntimeGlobals.publicPath} = ${gecko ? closedOnSlash('__extjsBase') : '__extjsBase.replace(/\\/+$/, "/")'} + String(${path}).replace(/^\\/+/, "");`
         ]),
         `} else {`,
         Template.indent([`${RuntimeGlobals.publicPath} = "";`]),

@@ -1,6 +1,7 @@
 import {createRequire} from 'node:module'
 import * as vm from 'node:vm'
 import {describe, expect, it} from 'vitest'
+import {TAKE_BLOCK_OPEN} from '../../../../lib/extension-base-from-stack'
 import {
   carriesCompletionValue,
   closeCompletionValueBlock,
@@ -172,6 +173,12 @@ describe('the value a scripts/ file ends on', () => {
     expect(carriesCompletionValue(text)).toBe(true)
     expect(carriesCompletionValue(emitted)).toBe(false)
     expect(carriesCompletionValue('window.x = 1')).toBe(false)
+    // A file the dev session already closed twice is closed no further.
+    expect(carriesCompletionValue(`${TAKE_BLOCK_OPEN}${emitted}\n}`)).toBe(
+      false
+    )
+
+    expect(vm.runInNewContext(`${TAKE_BLOCK_OPEN}${emitted}\n}`, {})).toBe(1)
     expect(emitted.endsWith('\n//# sourceMappingURL=hook.js.map')).toBe(true)
     expect(vm.runInNewContext(emitted, {})).toBe(1)
   })

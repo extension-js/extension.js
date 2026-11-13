@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
+import {isGeckoBasedBrowser} from '../../lib/constants'
 import {stripBom} from '../../lib/parse-json-safe'
 import {filterKeysForThisBrowser} from '../../plugin-web-extension/feature-manifest/manifest-lib/manifest'
 import {findRuntimeMainWorldEntries} from '../../plugin-web-extension/feature-scripts/scripts-lib/runtime-main-world-scripts'
@@ -136,7 +137,8 @@ export class SetupChunkLoadingTarget {
           this.manifestPath,
           patchedManifest
         )
-      }
+      },
+      gecko: isGeckoBasedBrowser(String(this.browser))
     }).apply(
       compiler as Parameters<InstanceType<typeof WebExtension>['apply']>[0]
     )

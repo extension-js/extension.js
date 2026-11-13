@@ -10,7 +10,12 @@
 // Released under the MIT License.
 
 import type {Compiler} from '@rspack/core'
-import {EXTENSION_BASE_FROM_STACK} from '../../../lib/extension-base-from-stack'
+import {isGeckoBasedBrowser} from '../../../lib/constants'
+import {
+  closedOnSlash,
+  extensionBaseFromFile
+} from '../../../lib/extension-base-from-stack'
+import type {DevOptions} from '../../../types'
 
 const basic = [
   `var isBrowser = !!(() => { try { return globalThis.browser.runtime.getURL("/") } catch(e) {
@@ -29,14 +34,20 @@ const weakRuntimeCheck = [
 ]
 
 export class AddPublicPathRuntimeModule {
+  constructor(
+    private readonly options: {browser?: DevOptions['browser']} = {}
+  ) {}
+
   apply(compiler: Compiler) {
     const {RuntimeGlobals} = compiler.webpack
+    // A Gecko MAIN world file opens on the read that takes the base.
+    const gecko = isGeckoBasedBrowser(String(this.options.browser || 'chrome'))
 
     compiler.hooks.compilation.tap('PublicPathRuntimeModule', (compilation) => {
       compilation.hooks.runtimeRequirementInTree
         .for(RuntimeGlobals.publicPath)
         .tap(AddPublicPathRuntimeModule.name, (chunk) => {
-          const module = PublicPathRuntimeModule(compiler)
+          const module = PublicPathRuntimeModule(compiler, gecko)
 
           compilation.addRuntimeModule(chunk, module)
 
@@ -46,7 +57,7 @@ export class AddPublicPathRuntimeModule {
   }
 }
 
-function PublicPathRuntimeModule(compiler: Compiler) {
+function PublicPathRuntimeModule(compiler: Compiler, gecko: boolean) {
   const {Template, RuntimeModule, RuntimeGlobals} = compiler.webpack
   class PublicPathRuntimeModule extends RuntimeModule {
     constructor() {
@@ -58,7 +69,7 @@ function PublicPathRuntimeModule(compiler: Compiler) {
 
       return Template.asString([
         ...weakRuntimeCheck,
-        `var __extjsBase = ${EXTENSION_BASE_FROM_STACK} || ((typeof globalThis === "object" && globalThis && globalThis.__EXTJS_EXTENSION_BASE__) ? String(globalThis.__EXTJS_EXTENSION_BASE__) : "");`,
+        `var __extjsBase = ${extensionBaseFromFile(gecko)} || ((typeof globalThis === "object" && globalThis && globalThis.__EXTJS_EXTENSION_BASE__) ? String(globalThis.__EXTJS_EXTENSION_BASE__) : "");`,
         `if (!__extjsBase && typeof document === "object" && document && document.documentElement) {`,
         Template.indent([
           `try { __extjsBase = document.documentElement.getAttribute("data-extjs-extension-base") || ""; } catch(_) { __extjsBase = ""; }`
@@ -79,7 +90,7 @@ function PublicPathRuntimeModule(compiler: Compiler) {
         // then the isolated-world bridge base. The bridge exists FOR the
         // MAIN world, where no runtime is available, so the base must be
         // consulted exactly when the runtime path comes back empty.
-        `${RuntimeGlobals.publicPath} = typeof importScripts === 'function' ? path : (__extjsRuntimePath || (__extjsBase ? __extjsBase.replace(/\\/+$/, "/") + String(path).replace(/^\\/+/, "") : path));`
+        `${RuntimeGlobals.publicPath} = typeof importScripts === 'function' ? path : (__extjsRuntimePath || (__extjsBase ? ${gecko ? closedOnSlash('__extjsBase') : '__extjsBase.replace(/\\/+$/, "/")'} + String(path).replace(/^\\/+/, "") : path));`
       ])
     }
   }

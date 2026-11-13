@@ -14,7 +14,12 @@ import {
   isChromiumBasedBrowser,
   isGeckoBasedBrowser
 } from '../../../../lib/constants'
-import {EXTENSION_BASE_FROM_STACK} from '../../../../lib/extension-base-from-stack'
+import {
+  closedOnSlash,
+  EXTENSION_BASE_FROM_STACK,
+  EXTENSION_BASE_GLOBAL,
+  extensionBaseFromFile
+} from '../../../../lib/extension-base-from-stack'
 import {
   adjustLoaderSourceMap,
   inputOrIdentityMap,
@@ -435,7 +440,16 @@ export default function contentScriptWrapper(
     sharesBridgeBase ||
     (declaredEntry?.world === 'MAIN' &&
       (isShippedBundle || isChromiumBasedBrowser(browser)))
-  const takenBridgeBase = takesBridgeBase ? '__EXTENSIONJS_BRIDGE_BASE || ' : ''
+  // On Firefox the file itself opens on the read that takes the base from
+  // the bridge, so a dev bundle keeps that copy too and asks nothing twice.
+  const takesFromFile = isMainWorld && isGeckoBasedBrowser(browser)
+  const holdsBridgeBase = takesBridgeBase || takesFromFile
+  const takenBridgeBase = holdsBridgeBase ? '__EXTENSIONJS_BRIDGE_BASE || ' : ''
+  // The page window carries the getter until the file that took the base
+  // removes it, the way it removes the attribute.
+  const dropsBaseGetter = takesFromFile
+    ? `try { delete window.${EXTENSION_BASE_GLOBAL}; } catch (error) {} `
+    : ''
   const bundleKey = declaredEntry
     ? getCanonicalContentScriptEntryName(declaredEntry.index)
     : `scripts/${String(relToScripts || '').replace(/\\/g, '/')}`
@@ -466,7 +480,9 @@ export default function contentScriptWrapper(
     `    var base = ${takenBridgeBase}((typeof globalThis === "object" && globalThis && globalThis.__EXTJS_EXTENSION_BASE__) ? String(globalThis.__EXTJS_EXTENSION_BASE__) : "");\n` +
     '    if (!base && typeof document === "object" && document && document.documentElement) base = String(document.documentElement.getAttribute("data-extjs-extension-base") || "");\n' +
     '    if (!base) return "";\n' +
-    '    return base.replace(/\\/+$/, "/") + String(path || "").replace(/^\\/+/, "");\n' +
+    (takesFromFile
+      ? `    return ${closedOnSlash('base')} + String(path || "").replace(/^\\/+/, "");\n`
+      : '    return base.replace(/\\/+$/, "/") + String(path || "").replace(/^\\/+/, "");\n') +
     '  } catch (error) {}\n' +
     '  return "";\n' +
     '}\n' +
@@ -900,15 +916,17 @@ export default function contentScriptWrapper(
     // Later readers, a lazy chunk included, find the base on the require
     // function, which no page script can reach. The bundle's own stack names
     // it first, and the bridge attribute is only the fallback.
-    (takesBridgeBase
-      ? `var __EXTENSIONJS_BRIDGE_BASE = ${EXTENSION_BASE_FROM_STACK};\n` +
+    (holdsBridgeBase
+      ? `var __EXTENSIONJS_BRIDGE_BASE = ${extensionBaseFromFile(takesFromFile)};\n` +
         'try {\n' +
         '  var __EXTENSIONJS_html = document.documentElement;\n' +
         '  if (!__EXTENSIONJS_BRIDGE_BASE) __EXTENSIONJS_BRIDGE_BASE = String(__EXTENSIONJS_html.getAttribute("data-extjs-extension-base") || "");\n' +
-        (sharesBridgeBase
-          ? '  var __EXTENSIONJS_clearBase = function(){ try { if (__EXTENSIONJS_html.hasAttribute("data-extjs-extension-base")) __EXTENSIONJS_html.removeAttribute("data-extjs-extension-base"); } catch (error) {} };\n' +
-            '  try { Promise.resolve().then(__EXTENSIONJS_clearBase); } catch (error) { __EXTENSIONJS_clearBase(); }\n'
-          : '  if (__EXTENSIONJS_html.hasAttribute("data-extjs-extension-base")) __EXTENSIONJS_html.removeAttribute("data-extjs-extension-base");\n') +
+        (!takesBridgeBase
+          ? ''
+          : sharesBridgeBase
+            ? `  var __EXTENSIONJS_clearBase = function(){ ${dropsBaseGetter}try { if (__EXTENSIONJS_html.hasAttribute("data-extjs-extension-base")) __EXTENSIONJS_html.removeAttribute("data-extjs-extension-base"); } catch (error) {} };\n` +
+              '  try { Promise.resolve().then(__EXTENSIONJS_clearBase); } catch (error) { __EXTENSIONJS_clearBase(); }\n'
+            : `  ${dropsBaseGetter}if (__EXTENSIONJS_html.hasAttribute("data-extjs-extension-base")) __EXTENSIONJS_html.removeAttribute("data-extjs-extension-base");\n`) +
         '  if (__EXTENSIONJS_BRIDGE_BASE && typeof __webpack_require__ === "function") __webpack_require__.extjsBase = __EXTENSIONJS_BRIDGE_BASE;\n' +
         '} catch (error) {}\n'
       : '') +
@@ -1059,7 +1077,7 @@ export default function contentScriptWrapper(
         '      if (typeof globalThis === "object" && globalThis && globalThis.browser && globalThis.browser.runtime && typeof globalThis.browser.runtime.getURL === "function") base = String(globalThis.browser.runtime.getURL("/"));\n' +
         '      else if (typeof globalThis === "object" && globalThis && globalThis.chrome && globalThis.chrome.runtime && typeof globalThis.chrome.runtime.getURL === "function") base = String(globalThis.chrome.runtime.getURL("/"));\n' +
         '    } catch (error) {}\n' +
-        (takesBridgeBase
+        (holdsBridgeBase
           ? '    if (!base) base = __EXTENSIONJS_BRIDGE_BASE;\n'
           : '') +
         '    if (!base) {\n' +
@@ -1068,7 +1086,9 @@ export default function contentScriptWrapper(
         '      } catch (error) {}\n' +
         '    }\n' +
         '    if (!base) return false;\n' +
-        '    if (base.charAt(base.length - 1) !== "/") base += "/";\n' +
+        (takesFromFile
+          ? '    if (base[base.length - 1] !== "/") base += "/";\n'
+          : '    if (base.charAt(base.length - 1) !== "/") base += "/";\n') +
         '    if (typeof __webpack_require__ === "function" || typeof __webpack_require__ === "object") {\n' +
         '      try { __webpack_require__.p = base; } catch (error) {}\n' +
         '      try { __webpack_require__.b = base; } catch (error) {}\n' +

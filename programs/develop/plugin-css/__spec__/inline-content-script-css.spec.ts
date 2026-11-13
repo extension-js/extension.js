@@ -365,6 +365,147 @@ describe('toRuntimeStylesheetModule', () => {
     })
   })
 
+  describe('in a Gecko build, whose MAIN world file took the base as it opened', () => {
+    const gecko = toRuntimeStylesheetModule(css, [], undefined, true)
+    const rooted = 'url("moz-extension://abc/assets/img/bg.png")'
+    // The module inside the block its file opens on.
+    const taken = (base: string) =>
+      `{let __extjsTakenBase=${JSON.stringify(base)};${gecko}\n}`
+
+    it('names the extension root from the copy the file took', () => {
+      for (const base of ['moz-extension://abc/', 'moz-extension://abc']) {
+        const exported = evaluateModule(taken(base), {
+          __EXTJS_EXTENSION_BASE__: 'moz-extension://page-set/',
+          document: {
+            documentElement: {getAttribute: () => 'moz-extension://on-html/'}
+          }
+        })
+
+        expect(decodeURIComponent(String(exported))).toContain(rooted)
+      }
+    })
+
+    it('finds the copy on the require function in a chunk that took nothing', () => {
+      const exported = evaluateModule(gecko, {
+        __webpack_require__: Object.assign(() => {}, {
+          extjsBase: 'moz-extension://abc/'
+        }),
+        document: {
+          documentElement: {getAttribute: () => 'moz-extension://on-html/'}
+        }
+      })
+
+      expect(decodeURIComponent(String(exported))).toContain(rooted)
+    })
+
+    it('falls back to <html> where the file took nothing', () => {
+      const exported = evaluateModule(taken(''), {
+        document: {
+          documentElement: {getAttribute: () => 'moz-extension://abc/'}
+        }
+      })
+
+      expect(decodeURIComponent(String(exported))).toContain(rooted)
+    })
+
+    it('closes the base on its slash by index, not through replace', () => {
+      expect(gecko).toContain(
+        'return (base[base.length - 1] === "/" ? base : base + "/");'
+      )
+
+      expect(gecko).not.toContain('base.replace(')
+    })
+
+    it('puts the sheet together through no method a page script can patch', () => {
+      const sheet =
+        `.a{background:url("${EXTENSION_ROOT_PLACEHOLDER}img/a.png")}` +
+        `.b{background:url("${bundledFileToken(0)}?v=1")}` +
+        `.c{background:url("${EXTENSION_ROOT_PLACEHOLDER}img/c.png")}`
+      const code = toRuntimeStylesheetModule(
+        sheet,
+        ['./fonts/a.woff2'],
+        'style-1',
+        true
+      )
+      const seen: string[] = []
+      const module = {exports: ''}
+      const context = vm.createContext({
+        module,
+        seen,
+        URL: class {
+          protocol = 'moz-extension:'
+          pathname = '/assets/a.woff2'
+        }
+      })
+
+      vm.runInContext(
+        `(function () {
+          var starts = String.prototype.indexOf
+          var wrap = function (owner, name) {
+            var original = owner[name]
+            owner[name] = function () {
+              var all = [this].concat(Array.prototype.slice.call(arguments))
+              for (var i = 0; i < all.length; i++) {
+                if (typeof all[i] === "string" && starts.call(all[i], "moz-extension:") !== -1) seen.push(name)
+              }
+              return original.apply(this, arguments)
+            }
+          }
+          wrap(String.prototype, "replace")
+          wrap(String.prototype, "split")
+          wrap(String.prototype, "charAt")
+          wrap(Array.prototype, "join")
+        })()`,
+        context
+      )
+
+      vm.runInContext(
+        `{let __extjsTakenBase="moz-extension://abc/";${code.replace('import.meta.url', '"moz-extension://abc/"')}\n}`,
+        context
+      )
+
+      expect(module.exports).toBe(
+        '.a{background:url("moz-extension://abc/img/a.png")}' +
+          '.b{background:url("moz-extension://abc/assets/a.woff2?v=1")}' +
+          '.c{background:url("moz-extension://abc/img/c.png")}'
+      )
+
+      expect(seen).toEqual([])
+      expect(code).not.toContain('.join(')
+      expect(code).not.toContain('__extjsCssText.split(')
+    })
+
+    it('never asks for the base in a sheet that names no extension file', () => {
+      const code = toRuntimeStylesheetModule(
+        '.a{color:red}',
+        [],
+        'style-2',
+        true
+      )
+
+      expect(code).toContain('var __extjsSfcCss = ".a{color:red}";')
+      expect(code.split('__extjsExtensionRoot()')).toHaveLength(2)
+    })
+
+    it('leaves the module of every other browser as it was', () => {
+      expect(toRuntimeStylesheetModule(css, [], 'style-3')).toBe(
+        toRuntimeStylesheetModule(css, [], 'style-3', false)
+      )
+
+      expect(toRuntimeStylesheetModule(css, [], 'style-3')).toContain(
+        '__extjsCssText.split('
+      )
+
+      const plain = toRuntimeStylesheetModule(css)
+
+      expect(toRuntimeStylesheetModule(css, [], undefined, false)).toBe(plain)
+      expect(plain).not.toContain('__extjsTakenBase')
+      expect(plain).toContain(
+        'if (base) return base.replace(/\\/+$/, "") + "/";'
+      )
+    })
+  })
+
   it('never names the browser or chrome namespaces as free identifiers', () => {
     const code = toRuntimeStylesheetModule(css)
     expect(code).not.toMatch(/(^|[^.\w$])browser\b/)

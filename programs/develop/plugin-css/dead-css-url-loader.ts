@@ -33,6 +33,7 @@ interface CompilationLike {
 export interface DeadCssUrlLoaderOptions {
   manifestPath?: string
   projectPath?: string
+  gecko?: boolean
 }
 
 export interface DeadCssUrlLoaderContext {
@@ -171,5 +172,12 @@ export default function deadCssUrlLoader(
 
   const {css, bundledRequests} = inlineStylesheetUrls(this, source)
 
-  return toRuntimeStylesheetModule(css, bundledRequests)
+  const options = this.getOptions() || {}
+
+  return toRuntimeStylesheetModule(
+    css,
+    bundledRequests,
+    undefined,
+    options.gecko === true
+  )
 }

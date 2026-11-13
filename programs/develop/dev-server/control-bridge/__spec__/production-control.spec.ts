@@ -3,6 +3,7 @@ import * as net from 'node:net'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
+import {TAKE_BLOCK_OPEN} from '../../../lib/extension-base-from-stack'
 import {buildBridgeProducerSource} from '../producer-runtime'
 import {
   controlledBuildDir,
@@ -541,5 +542,41 @@ describe("the controlled copy's page relays", () => {
       'utf-8'
     )
     expect(background).not.toContain('__extjsBridgeRelayInstalled')
+  })
+
+  it('puts the relay behind the read a MAIN world file opens on', async () => {
+    const {projectDir, distPath} = makeFirefoxProject({
+      manifest_version: 3,
+      content_scripts: [
+        {
+          matches: ['<all_urls>'],
+          js: ['content_scripts/content-0.js'],
+          world: 'MAIN'
+        }
+      ]
+    })
+    const BODY = 'window.ran = __extjsTakenBase\n}'
+    const rel = 'content_scripts/content-0.js'
+
+    fs.mkdirSync(path.dirname(path.join(distPath, rel)), {recursive: true})
+    fs.writeFileSync(path.join(distPath, rel), `${TAKE_BLOCK_OPEN}${BODY}`)
+
+    session = await startProductionControl({
+      packageJsonDir: projectDir,
+      browser: 'firefox',
+      distPath,
+      allowControl: true
+    })
+
+    const controlled = fs.readFileSync(
+      path.join(session.controlledPath, rel),
+      'utf-8'
+    )
+
+    expect(controlled.startsWith(TAKE_BLOCK_OPEN)).toBe(true)
+    expect(controlled.split(TAKE_BLOCK_OPEN)).toHaveLength(2)
+    expect(controlled).toContain('__extjsBridgeRelayInstalled')
+    expect(controlled.endsWith(BODY)).toBe(true)
+    expect(() => new Function(controlled)).not.toThrow()
   })
 })

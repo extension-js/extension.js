@@ -1,15 +1,17 @@
-import LoadScriptRuntimeModule from './RuntimeModules/LoadScript'
-import PublicPathRuntimeModule from './RuntimeModules/PublicPath'
 import AutoPublicPathRuntimeModule from './RuntimeModules/AutoPublicPath'
 import BaseUriRuntimeModule from './RuntimeModules/BaseUri'
-import ChunkLoaderFallbackRuntimeModule from './RuntimeModules/ChunkLoaderFallback'
 import {RuntimeGlobal} from './RuntimeModules/BrowserRuntime'
+import ChunkLoaderFallbackRuntimeModule from './RuntimeModules/ChunkLoaderFallback'
+import LoadScriptRuntimeModule from './RuntimeModules/LoadScript'
+import PublicPathRuntimeModule from './RuntimeModules/PublicPath'
 
 export default class WebExtensionChuckLoaderRuntimePlugin {
   private readonly pluginOptions: any
   private readonly options: any
   private readonly contentScriptsMeta: Record<string, any>
   private rspackAutoPublicPath = false
+  // A Gecko MAIN world file opens on the read that takes the base.
+  private readonly gecko: boolean
 
   constructor(options: any) {
     // Back-compat:
@@ -18,6 +20,7 @@ export default class WebExtensionChuckLoaderRuntimePlugin {
     this.pluginOptions = options || {}
     this.options = this.pluginOptions.background || this.pluginOptions || {}
     this.contentScriptsMeta = this.pluginOptions.contentScriptsMeta || {}
+    this.gecko = this.pluginOptions.gecko === true
   }
 
   apply(compiler: any) {
@@ -53,7 +56,8 @@ export default class WebExtensionChuckLoaderRuntimePlugin {
               compiler.webpack,
               compilation.outputOptions.environment.dynamicImport !== false,
               options.classicLoader !== false,
-              this.contentScriptsMeta
+              this.contentScriptsMeta,
+              this.gecko
             )
           )
           return true
@@ -68,7 +72,7 @@ export default class WebExtensionChuckLoaderRuntimePlugin {
           set.add(RuntimeGlobal)
           compilation.addRuntimeModule(
             chunk,
-            BaseUriRuntimeModule(compiler.webpack)
+            BaseUriRuntimeModule(compiler.webpack, this.gecko)
           )
           return true
         }
@@ -86,13 +90,19 @@ export default class WebExtensionChuckLoaderRuntimePlugin {
             publicPath === 'auto' ||
             (publicPath === '' && this.rspackAutoPublicPath)
           ) {
-            const module = AutoPublicPathRuntimeModule(compiler.webpack)
+            const module = AutoPublicPathRuntimeModule(
+              compiler.webpack,
+              this.gecko
+            )
             set.add(RuntimeGlobal)
             if (scriptType !== 'module') set.add(RuntimeGlobals.global)
             compilation.addRuntimeModule(chunk, module)
           } else {
             set.add(RuntimeGlobal)
-            const module: any = PublicPathRuntimeModule(compiler.webpack)
+            const module: any = PublicPathRuntimeModule(
+              compiler.webpack,
+              this.gecko
+            )
 
             if (
               typeof publicPath !== 'string' ||
