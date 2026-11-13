@@ -1,10 +1,16 @@
 import type * as webpack from 'webpack'
-import {extensionBaseFromFile} from '../../../../../../../lib/extension-base-from-stack'
+import {
+  EXTENSION_BASE_ATTRIBUTE,
+  extensionBaseFromFile,
+  TAKEN_EXTENSION_BASE,
+  unlessExtensionAddress
+} from '../../../../../../../lib/extension-base-from-stack'
 import {RuntimeGlobal} from './BrowserRuntime'
 
 export default function AutoPublicPathRuntimeModule(
   webpack: typeof import('webpack'),
-  gecko = false
+  gecko = false,
+  attribute: string = EXTENSION_BASE_ATTRIBUTE
 ): webpack.RuntimeModule {
   const {
     RuntimeModule,
@@ -83,12 +89,15 @@ export default function AutoPublicPathRuntimeModule(
             ]),
         '// When supporting browsers where an automatic publicPath is not supported you must specify an output.publicPath manually via configuration',
         '// or pass an empty string ("") and set the __webpack_public_path__ variable from your code to use your own logic.',
-        `var __extjsBase = ${extensionBaseFromFile(gecko)} || ((typeof globalThis === "object" && globalThis && globalThis.__EXTJS_EXTENSION_BASE__) ? String(globalThis.__EXTJS_EXTENSION_BASE__) : "");`,
+        // A page owns the globals of its world, so the file goes from what
+        // names it to the attribute its own bridge wrote.
+        `var __extjsBase = ${extensionBaseFromFile(gecko)};`,
         `if (!__extjsBase && typeof document === "object" && document && document.documentElement) {`,
         Template.indent([
-          `try { __extjsBase = document.documentElement.getAttribute("data-extjs-extension-base") || ""; } catch(_) { __extjsBase = ""; }`
+          `try { __extjsBase = document.documentElement.getAttribute(${JSON.stringify(attribute)}) || ""; } catch(_) { __extjsBase = ""; }`
         ]),
         `}`,
+        ...(gecko ? [unlessExtensionAddress('__extjsBase')] : []),
         // MAIN world: ignore page-origin scriptUrl when extension base is known.
         `if (__extjsBase && scriptUrl && !/^((chrome|moz)-extension):///.test(scriptUrl)) {`,
         Template.indent([`scriptUrl = __extjsBase;`]),
@@ -96,10 +105,15 @@ export default function AutoPublicPathRuntimeModule(
         'if (!scriptUrl) {',
         Template.indent([
           `var __extjsRuntimeRoot = "";`,
-          `if (${RuntimeGlobal} && ${RuntimeGlobal}.runtime && typeof ${RuntimeGlobal}.runtime.getURL === "function") {`,
+          // A Gecko file that opened on the taken base runs in the page's
+          // world, where the only runtime to ask is one the page made up.
+          `if (${gecko ? `typeof ${TAKEN_EXTENSION_BASE} !== "string" && ` : ''}${RuntimeGlobal} && ${RuntimeGlobal}.runtime && typeof ${RuntimeGlobal}.runtime.getURL === "function") {`,
           Template.indent(
             `try { __extjsRuntimeRoot = ${RuntimeGlobal}.runtime.getURL("/"); } catch (_) { __extjsRuntimeRoot = ""; }`
           ),
+          ...(gecko
+            ? [Template.indent(unlessExtensionAddress('__extjsRuntimeRoot'))]
+            : []),
           Template.indent(`scriptUrl = __extjsRuntimeRoot || scriptUrl;`),
           `} else {`,
           // MAIN world: extension runtime missing; keep publicPath empty and let bridge resolve chunks.
@@ -123,7 +137,8 @@ export default function AutoPublicPathRuntimeModule(
             `var __extjsUpdateBase = function(){`,
             Template.indent([
               `var base = "";`,
-              `try { base = document.documentElement.getAttribute("data-extjs-extension-base") || ""; } catch(_) { base = ""; }`,
+              `try { base = document.documentElement.getAttribute(${JSON.stringify(attribute)}) || ""; } catch(_) { base = ""; }`,
+              ...(gecko ? [unlessExtensionAddress('base')] : []),
               `if (base) {`,
               Template.indent([
                 `var normalized = base.replace(/\\/+$/, "/");`,

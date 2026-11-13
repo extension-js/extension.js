@@ -9,14 +9,18 @@
 const EXTJS_MARK = '__extjs__'
 const REQ_TYPE = 'EXTJS_WTW_LOAD'
 const RES_TYPE = 'EXTJS_WTW_LOADED'
-const EXTJS_BASE_KEY = '__EXTJS_EXTENSION_BASE__'
 const EXTJS_BASE_ATTR = 'data-extjs-extension-base'
 // Two extensions can share a page, so a Firefox build names the page global
-// of this one. The name above stays this world's own copy.
+// of this one. A build that names none publishes on the document only.
 const EXTJS_PAGE_BASE_KEY =
   typeof __EXTJS_PAGE_BASE_GLOBAL__ === 'string'
     ? __EXTJS_PAGE_BASE_GLOBAL__
-    : EXTJS_BASE_KEY
+    : ''
+// The document is shared the same way, so the attribute takes that key.
+const EXTJS_PAGE_BASE_ATTR =
+  typeof __EXTJS_PAGE_BASE_ATTRIBUTE__ === 'string'
+    ? __EXTJS_PAGE_BASE_ATTRIBUTE__
+    : EXTJS_BASE_ATTR
 
 function safeString(x) {
   return typeof x === 'string' && x.length > 0
@@ -61,7 +65,7 @@ function publishOnDocument(base) {
     const docEl = document?.documentElement
 
     if (docEl && typeof docEl.setAttribute === 'function') {
-      docEl.setAttribute(EXTJS_BASE_ATTR, base)
+      docEl.setAttribute(EXTJS_PAGE_BASE_ATTR, base)
     }
   } catch {
     // ignore
@@ -101,6 +105,7 @@ function publishToInjectedFile(base) {
   try {
     const page = window.wrappedJSObject
 
+    if (!EXTJS_PAGE_BASE_KEY) return false
     if (!page || typeof exportFunction !== 'function') return false
 
     // A stack that stops naming this file in the form the check reads
@@ -158,11 +163,7 @@ function setExtensionBaseUrl() {
 
     const base = String(getURL('/'))
 
-    if (base) {
-      window[EXTJS_BASE_KEY] = base
-
-      if (!publishToInjectedFile(base)) publishOnDocument(base)
-    }
+    if (base && !publishToInjectedFile(base)) publishOnDocument(base)
   } catch {
     // ignore
   }

@@ -22,6 +22,8 @@ function asChromiumServes(sheet: string): string {
 
 const BASE_ATTRIBUTE = 'data-extjs-extension-base'
 const FIREFOX_BASE = 'moz-extension://0f0f0f0f-aaaa-bbbb-cccc-121212121212/'
+const OTHER_FIREFOX_BASE =
+  'moz-extension://1a1a1a1a-aaaa-bbbb-cccc-343434343434/'
 // Every extension names its own global, all of them behind this stem.
 const BASE_GETTER_REMOVAL = `delete window.${EXTENSION_BASE_GLOBAL.slice(0, -1)}`
 
@@ -32,6 +34,15 @@ function takenGlobal(bundle: string): string {
   )
 
   return named ? named[0] : EXTENSION_BASE_GLOBAL
+}
+
+// The attribute a bundle's own bridge writes, keyed the way its global is.
+function takenAttribute(bundle: string): string {
+  const key = /^__EXTJS_EXTENSION_BASE_([0-9a-f]{8})__$/.exec(
+    takenGlobal(bundle)
+  )
+
+  return key ? `${BASE_ATTRIBUTE}-${key[1]}` : BASE_ATTRIBUTE
 }
 
 function scaffold(name: string, files: Record<string, string | Buffer>) {
@@ -864,6 +875,10 @@ describe('the extension base a MAIN-world bundle reads off the page', () => {
       .manifest()
       .content_scripts.find((script) => script.world === 'MAIN')
     const asset = production.emitted.find((entry) => entry.endsWith('.bin'))
+    const keyed = takenAttribute(production.read(String(main?.js[0])))
+
+    expect(keyed).not.toBe(BASE_ATTRIBUTE)
+    expect(keyed.startsWith(`${BASE_ATTRIBUTE}-`)).toBe(true)
 
     for (const answer of [
       () => '',
@@ -876,13 +891,30 @@ describe('the extension base a MAIN-world bundle reads off the page', () => {
       () => 42 as unknown as string
     ]) {
       const world = firefoxPage(answer)
-      world.html.setAttribute(BASE_ATTRIBUTE, FIREFOX_BASE)
+      world.html.setAttribute(keyed, FIREFOX_BASE)
       world.run(production.read(String(main?.js[0])))
 
       expect(world.context.__seenAsset).toBe(`${FIREFOX_BASE}${asset}`)
-      expect(world.html.hasAttribute(BASE_ATTRIBUTE)).toBe(false)
+      expect(world.html.hasAttribute(keyed)).toBe(false)
       expect(world.publishes()).toBe(false)
     }
+
+    // The name every extension shared carries another extension's base.
+    const shared = firefoxPage(() => '')
+    shared.html.setAttribute(BASE_ATTRIBUTE, OTHER_FIREFOX_BASE)
+    shared.html.setAttribute(keyed, FIREFOX_BASE)
+    shared.run(production.read(String(main?.js[0])))
+
+    expect(shared.context.__seenAsset).toBe(`${FIREFOX_BASE}${asset}`)
+    expect(shared.html.getAttribute(BASE_ATTRIBUTE)).toBe(OTHER_FIREFOX_BASE)
+
+    const foreign = firefoxPage(() => '')
+    foreign.html.setAttribute(BASE_ATTRIBUTE, OTHER_FIREFOX_BASE)
+    foreign.run(production.read(String(main?.js[0])))
+
+    expect(String(foreign.context.__seenAsset)).not.toContain(
+      OTHER_FIREFOX_BASE
+    )
 
     // The shared name of earlier builds is a page's to define as well.
     const held = firefoxPage(() => '')
@@ -892,18 +924,244 @@ describe('the extension base a MAIN-world bundle reads off the page', () => {
       }
     })
 
-    held.html.setAttribute(BASE_ATTRIBUTE, FIREFOX_BASE)
+    held.html.setAttribute(keyed, FIREFOX_BASE)
     held.run(production.read(String(main?.js[0])))
 
     expect(held.context.__seenAsset).toBe(`${FIREFOX_BASE}${asset}`)
 
     // A document copy the page rewrote is no base either.
     const rewritten = firefoxPage(() => 'https://evil.example/')
-    rewritten.html.setAttribute(BASE_ATTRIBUTE, 'https://evil.example/')
+    rewritten.html.setAttribute(keyed, 'https://evil.example/')
     rewritten.run(production.read(String(main?.js[0])))
 
     expect(String(rewritten.context.__seenAsset)).not.toContain('evil.example')
     expect(String(rewritten.context.__seenAsset)).toContain(String(asset))
+  }, 180_000)
+
+  it('asks no runtime the page made up for a URL in a Firefox production bundle', async () => {
+    const production = await compile(
+      scaffold('main-firefox-forged-runtime', quietFiles),
+      'production',
+      'firefox'
+    )
+    expect(production.errors).toEqual([])
+
+    const main = production
+      .manifest()
+      .content_scripts.find((script) => script.world === 'MAIN')
+    const asset = production.emitted.find((entry) => entry.endsWith('.bin'))
+    const bundle = production.read(String(main?.js[0]))
+
+    for (const forged of ['https://evil.example/', OTHER_FIREFOX_BASE]) {
+      for (const name of ['browser', 'chrome']) {
+        const world = firefoxPage(() => FIREFOX_BASE)
+
+        world.context[name] = {
+          runtime: {
+            id: 'forged',
+            getURL: (relative: string) =>
+              forged + String(relative).replace(/^\//, '')
+          }
+        }
+
+        world.run(bundle)
+
+        expect(world.context.__seenAsset, `${name} answering ${forged}`).toBe(
+          `${FIREFOX_BASE}${asset}`
+        )
+
+        expect(world.context.__seenLater).toBe(`${FIREFOX_BASE}later.png`)
+      }
+    }
+  }, 180_000)
+
+  it('gives each of two Firefox extensions its own base when the page holds both names', async () => {
+    const built = []
+
+    for (const name of ['locked-first', 'locked-second']) {
+      const production = await compile(
+        scaffold(name, {
+          ...quietFiles,
+          'manifest.json': JSON.stringify({
+            ...JSON.parse(files['manifest.json']),
+            name
+          })
+        }),
+        'production',
+        'firefox'
+      )
+      expect(production.errors).toEqual([])
+
+      const scripts = production.manifest().content_scripts
+      const main = scripts.find((script) => script.world === 'MAIN')
+      const bridge = scripts.find((script) => script.world !== 'MAIN')
+      const bundle = production.read(String(main?.js[0]))
+      const attribute = takenAttribute(bundle)
+
+      // The bridge writes the name its files read, and no shared one.
+      expect(production.read(String(bridge?.js[0]))).toContain(
+        JSON.stringify(attribute)
+      )
+
+      expect(production.read(String(bridge?.js[0]))).not.toContain(
+        JSON.stringify(BASE_ATTRIBUTE)
+      )
+
+      built.push({
+        attribute,
+        bundle,
+        global: takenGlobal(bundle),
+        asset: production.emitted.find((entry) => entry.endsWith('.bin'))
+      })
+    }
+
+    const [first, second] = built
+
+    expect(first.attribute).not.toBe(second.attribute)
+
+    for (const order of [
+      [first, second],
+      [second, first]
+    ]) {
+      // The page locked both names, so both bridges wrote on the document
+      // before either file ran, in the order the extensions loaded.
+      const world = page({runtime: false})
+      Object.assign(world.context.location as object, {protocol: 'https:'})
+
+      for (const {global} of built) {
+        Object.defineProperty(world.context, global, {
+          value: 'https://evil.example/',
+          configurable: false
+        })
+      }
+
+      const bases = new Map([
+        [first, FIREFOX_BASE],
+        [second, OTHER_FIREFOX_BASE]
+      ])
+
+      for (const extension of order) {
+        world.html.setAttribute(
+          extension.attribute,
+          String(bases.get(extension))
+        )
+      }
+
+      for (const extension of order) {
+        world.run(extension.bundle)
+
+        expect(world.context.__seenAsset).toBe(
+          `${bases.get(extension)}${extension.asset}`
+        )
+
+        expect(world.html.hasAttribute(extension.attribute)).toBe(false)
+      }
+    }
+  }, 180_000)
+
+  it('leaves no Firefox file reading the shared global or the shared attribute', async () => {
+    for (const mode of ['production', 'development'] as const) {
+      const built = await compile(
+        scaffold(`main-firefox-readers-${mode}`, {
+          ...quietFiles,
+          'content/main.ts':
+            'import "./main.css"\n' +
+            'import blobUrl from "./blob.bin?url"\n' +
+            'globalThis.__seenAsset = blobUrl\n' +
+            'export {}\n',
+          'content/main.css': '.exposed { background: url("./blob.bin"); }\n'
+        }),
+        mode,
+        'firefox'
+      )
+      expect(built.errors).toEqual([])
+
+      const scripts = built.emitted.filter((entry) => entry.endsWith('.js'))
+      expect(scripts.length).toBeGreaterThan(1)
+
+      for (const file of scripts) {
+        const text = built.read(file)
+
+        expect(text, file).not.toContain(`globalThis.${EXTENSION_BASE_GLOBAL}`)
+        // A development file carries its modules as text, quotes escaped.
+        expect(text, file).not.toContain(`Attribute("${BASE_ATTRIBUTE}")`)
+        expect(text, file).not.toContain(`Attribute(\\"${BASE_ATTRIBUTE}\\")`)
+      }
+    }
+  }, 180_000)
+
+  it('keeps the shared attribute and no keyed one in a Chromium bundle', async () => {
+    const production = await compile(
+      scaffold('main-chromium-readers', quietFiles),
+      'production',
+      'chrome'
+    )
+    expect(production.errors).toEqual([])
+
+    const main = production
+      .manifest()
+      .content_scripts.find((script) => script.world === 'MAIN')
+    const bundle = production.read(String(main?.js[0]))
+
+    expect(bundle).toContain(`"${BASE_ATTRIBUTE}"`)
+    expect(bundle).not.toContain(`${BASE_ATTRIBUTE}-`)
+  }, 180_000)
+
+  it('leaves no file of any browser or mode reading the shared global', async () => {
+    for (const browser of ['chrome', 'firefox'] as const) {
+      for (const mode of ['production', 'development'] as const) {
+        const built = await compile(
+          scaffold(`main-${browser}-no-global-${mode}`, {
+            ...quietFiles,
+            'content/main.ts':
+              'import "./main.css"\n' +
+              'import blobUrl from "./blob.bin?url"\n' +
+              'globalThis.__seenAsset = blobUrl\n' +
+              'export {}\n',
+            'content/main.css': '.exposed { background: url("./blob.bin"); }\n'
+          }),
+          mode,
+          browser
+        )
+        expect(built.errors).toEqual([])
+
+        for (const file of built.emitted.filter((entry) =>
+          entry.endsWith('.js')
+        )) {
+          expect(built.read(file), `${browser} ${mode} ${file}`).not.toContain(
+            EXTENSION_BASE_GLOBAL
+          )
+        }
+      }
+    }
+  }, 180_000)
+
+  it('loads its own asset in Chromium when the page set the shared global', async () => {
+    const production = await compile(
+      scaffold('main-chromium-evil-global', quietFiles),
+      'production',
+      'chrome'
+    )
+    expect(production.errors).toEqual([])
+
+    const main = production
+      .manifest()
+      .content_scripts.find((script) => script.world === 'MAIN')
+    const asset = production.emitted.find((entry) => entry.endsWith('.bin'))
+    const file = `${EXTENSION_BASE}${main?.js[0]}`
+
+    // No stack names the file here, the one case the global used to answer.
+    const unnamed = page({runtime: false})
+    unnamed.context[EXTENSION_BASE_GLOBAL] = 'https://evil.example/'
+    unnamed.run(production.read(String(main?.js[0])))
+
+    expect(String(unnamed.context.__seenAsset)).not.toContain('evil.example')
+
+    const named = page({runtime: false})
+    named.context[EXTENSION_BASE_GLOBAL] = 'https://evil.example/'
+    named.run(production.read(String(main?.js[0])), file)
+
+    expect(named.context.__seenAsset).toBe(`${EXTENSION_BASE}${asset}`)
   }, 180_000)
 
   it('names a global of its own for each of two Firefox extensions, in the bridge and the file', async () => {
@@ -1057,7 +1315,12 @@ describe('the extension base two runtime-registered MAIN world files share', () 
 
     const world = page({runtime: false})
     Object.assign(world.context.location as object, {protocol: 'https:'})
-    world.html.setAttribute(BASE_ATTRIBUTE, FIREFOX_BASE)
+    const keyed = takenAttribute(production.read('scripts/first.js'))
+
+    expect(keyed).not.toBe(BASE_ATTRIBUTE)
+    expect(takenAttribute(production.read('scripts/second.js'))).toBe(keyed)
+
+    world.html.setAttribute(keyed, FIREFOX_BASE)
     // One registration runs its files back to back, with no turn between.
     world.run(production.read('scripts/first.js'))
     world.run(production.read('scripts/second.js'))
@@ -1069,7 +1332,7 @@ describe('the extension base two runtime-registered MAIN world files share', () 
 
     await world.settle(1)
 
-    expect(world.html.hasAttribute(BASE_ATTRIBUTE)).toBe(false)
+    expect(world.html.hasAttribute(keyed)).toBe(false)
 
     // No module loads here, so the import of a later chunk fails, and the
     // failure asks no bridge and appends no element.

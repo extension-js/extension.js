@@ -40,7 +40,10 @@ import {
 } from '../../contracts'
 import * as messages from '../../messages'
 import {keepCompletionValue} from '../../scripts-lib/completion-value'
-import {extensionBaseGlobalFor} from '../../scripts-lib/taken-extension-base'
+import {
+  extensionBaseAttributeFor,
+  extensionBaseGlobalFor
+} from '../../scripts-lib/taken-extension-base'
 
 interface ContentScriptLoaderContext {
   getOptions(): {
@@ -444,6 +447,15 @@ export default function contentScriptWrapper(
   // the bridge, so a dev bundle keeps that copy too and asks nothing twice.
   const takesFromFile = isMainWorld && isGeckoBasedBrowser(browser)
   const holdsBridgeBase = takesBridgeBase || takesFromFile
+  const geckoBundle = isGeckoBasedBrowser(browser)
+  // Two extensions share one document, so a Firefox file reads the base
+  // from the attribute its own bridge wrote and trusts no other value.
+  const baseAttribute = JSON.stringify(
+    extensionBaseAttributeFor(manifestPath, browser)
+  )
+  // The page's world has no runtime on Firefox, so one found there is the
+  // page's own and a file that took its base never asks it for a URL.
+  const asksRuntime = (lines: string) => (takesFromFile ? '' : lines)
   const takenBridgeBase = holdsBridgeBase ? '__EXTENSIONJS_BRIDGE_BASE || ' : ''
   // The page window carries the getter until the file that took the base
   // removes it, the way it removes the attribute.
@@ -472,18 +484,20 @@ export default function contentScriptWrapper(
 
   const bundleCssHydrationBody =
     'function __EXTENSIONJS_runtimeGetURL(path){\n' +
-    '  try {\n' +
-    '    if (typeof globalThis === "object" && globalThis && globalThis.browser && globalThis.browser.runtime && typeof globalThis.browser.runtime.getURL === "function") return globalThis.browser.runtime.getURL(path);\n' +
-    '    if (typeof globalThis === "object" && globalThis && globalThis.chrome && globalThis.chrome.runtime && typeof globalThis.chrome.runtime.getURL === "function") return globalThis.chrome.runtime.getURL(path);\n' +
-    '  } catch (error) {}\n' +
+    asksRuntime(
+      '  try {\n' +
+        '    if (typeof globalThis === "object" && globalThis && globalThis.browser && globalThis.browser.runtime && typeof globalThis.browser.runtime.getURL === "function") return globalThis.browser.runtime.getURL(path);\n' +
+        '    if (typeof globalThis === "object" && globalThis && globalThis.chrome && globalThis.chrome.runtime && typeof globalThis.chrome.runtime.getURL === "function") return globalThis.chrome.runtime.getURL(path);\n' +
+        '  } catch (error) {}\n'
+    ) +
     '  try {\n' +
     // On Firefox a page owns every other global of its world, so the file
     // asks none of them and goes from its own copy to the document.
     (takesFromFile
       ? '    var base = __EXTENSIONJS_BRIDGE_BASE;\n'
-      : `    var base = ${takenBridgeBase}((typeof globalThis === "object" && globalThis && globalThis.__EXTJS_EXTENSION_BASE__) ? String(globalThis.__EXTJS_EXTENSION_BASE__) : "");\n`) +
-    '    if (!base && typeof document === "object" && document && document.documentElement) base = String(document.documentElement.getAttribute("data-extjs-extension-base") || "");\n' +
-    (takesFromFile ? `    ${unlessExtensionAddress('base')}\n` : '') +
+      : `    var base = ${takenBridgeBase}"";\n`) +
+    `    if (!base && typeof document === "object" && document && document.documentElement) base = String(document.documentElement.getAttribute(${baseAttribute}) || "");\n` +
+    (geckoBundle ? `    ${unlessExtensionAddress('base')}\n` : '') +
     '    if (!base) return "";\n' +
     (takesFromFile
       ? `    return ${closedOnSlash('base')} + String(path || "").replace(/^\\/+/, "");\n`
@@ -925,16 +939,16 @@ export default function contentScriptWrapper(
       ? `var __EXTENSIONJS_BRIDGE_BASE = ${extensionBaseFromFile(takesFromFile)};\n` +
         'try {\n' +
         '  var __EXTENSIONJS_html = document.documentElement;\n' +
-        '  if (!__EXTENSIONJS_BRIDGE_BASE) __EXTENSIONJS_BRIDGE_BASE = String(__EXTENSIONJS_html.getAttribute("data-extjs-extension-base") || "");\n' +
+        `  if (!__EXTENSIONJS_BRIDGE_BASE) __EXTENSIONJS_BRIDGE_BASE = String(__EXTENSIONJS_html.getAttribute(${baseAttribute}) || "");\n` +
         (takesFromFile
           ? `  ${unlessExtensionAddress('__EXTENSIONJS_BRIDGE_BASE')}\n`
           : '') +
         (!takesBridgeBase
           ? ''
           : sharesBridgeBase
-            ? `  var __EXTENSIONJS_clearBase = function(){ ${dropsBaseGetter}try { if (__EXTENSIONJS_html.hasAttribute("data-extjs-extension-base")) __EXTENSIONJS_html.removeAttribute("data-extjs-extension-base"); } catch (error) {} };\n` +
+            ? `  var __EXTENSIONJS_clearBase = function(){ ${dropsBaseGetter}try { if (__EXTENSIONJS_html.hasAttribute(${baseAttribute})) __EXTENSIONJS_html.removeAttribute(${baseAttribute}); } catch (error) {} };\n` +
               '  try { Promise.resolve().then(__EXTENSIONJS_clearBase); } catch (error) { __EXTENSIONJS_clearBase(); }\n'
-            : `  ${dropsBaseGetter}if (__EXTENSIONJS_html.hasAttribute("data-extjs-extension-base")) __EXTENSIONJS_html.removeAttribute("data-extjs-extension-base");\n`) +
+            : `  ${dropsBaseGetter}if (__EXTENSIONJS_html.hasAttribute(${baseAttribute})) __EXTENSIONJS_html.removeAttribute(${baseAttribute});\n`) +
         '  if (__EXTENSIONJS_BRIDGE_BASE && typeof __webpack_require__ === "function") __webpack_require__.extjsBase = __EXTENSIONJS_BRIDGE_BASE;\n' +
         '} catch (error) {}\n'
       : '') +
@@ -1081,19 +1095,21 @@ export default function contentScriptWrapper(
       ? 'function __EXTENSIONJS_syncAssetBase(){\n' +
         '  try {\n' +
         '    var base = "";\n' +
-        '    try {\n' +
-        '      if (typeof globalThis === "object" && globalThis && globalThis.browser && globalThis.browser.runtime && typeof globalThis.browser.runtime.getURL === "function") base = String(globalThis.browser.runtime.getURL("/"));\n' +
-        '      else if (typeof globalThis === "object" && globalThis && globalThis.chrome && globalThis.chrome.runtime && typeof globalThis.chrome.runtime.getURL === "function") base = String(globalThis.chrome.runtime.getURL("/"));\n' +
-        '    } catch (error) {}\n' +
+        asksRuntime(
+          '    try {\n' +
+            '      if (typeof globalThis === "object" && globalThis && globalThis.browser && globalThis.browser.runtime && typeof globalThis.browser.runtime.getURL === "function") base = String(globalThis.browser.runtime.getURL("/"));\n' +
+            '      else if (typeof globalThis === "object" && globalThis && globalThis.chrome && globalThis.chrome.runtime && typeof globalThis.chrome.runtime.getURL === "function") base = String(globalThis.chrome.runtime.getURL("/"));\n' +
+            '    } catch (error) {}\n'
+        ) +
         (holdsBridgeBase
           ? '    if (!base) base = __EXTENSIONJS_BRIDGE_BASE;\n'
           : '') +
         '    if (!base) {\n' +
         '      try {\n' +
-        '        if (typeof document === "object" && document && document.documentElement) base = String(document.documentElement.getAttribute("data-extjs-extension-base") || "");\n' +
+        `        if (typeof document === "object" && document && document.documentElement) base = String(document.documentElement.getAttribute(${baseAttribute}) || "");\n` +
         '      } catch (error) {}\n' +
         '    }\n' +
-        (takesFromFile ? `    ${unlessExtensionAddress('base')}\n` : '') +
+        (geckoBundle ? `    ${unlessExtensionAddress('base')}\n` : '') +
         '    if (!base) return false;\n' +
         (takesFromFile
           ? '    if (base[base.length - 1] !== "/") base += "/";\n'

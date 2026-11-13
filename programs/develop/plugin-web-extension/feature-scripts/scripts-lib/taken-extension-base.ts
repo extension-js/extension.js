@@ -7,8 +7,11 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import * as fs from 'node:fs'
+import {isGeckoBasedBrowser} from '../../../lib/constants'
 import {
+  EXTENSION_BASE_ATTRIBUTE,
   EXTENSION_BASE_GLOBAL,
+  extensionBaseAttribute,
   extensionBaseGlobal,
   readTakeBlock,
   takeBlockOpen
@@ -63,6 +66,19 @@ export function extensionBaseGlobalFor(
   globals.set(key, global)
 
   return global
+}
+
+// The attribute one extension's bridge writes and its files read. Only a
+// Gecko build keys it, so every other build keeps the bytes it had.
+export function extensionBaseAttributeFor(
+  manifestPath: string | undefined,
+  browser: DevOptions['browser'] = 'firefox'
+): string {
+  if (!manifestPath || !isGeckoBasedBrowser(String(browser))) {
+    return EXTENSION_BASE_ATTRIBUTE
+  }
+
+  return extensionBaseAttribute(extensionBaseGlobalFor(manifestPath, browser))
 }
 
 export function takesExtensionBase(text: string): boolean {

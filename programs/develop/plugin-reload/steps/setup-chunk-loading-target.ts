@@ -13,6 +13,7 @@ import {isGeckoBasedBrowser} from '../../lib/constants'
 import {stripBom} from '../../lib/parse-json-safe'
 import {filterKeysForThisBrowser} from '../../plugin-web-extension/feature-manifest/manifest-lib/manifest'
 import {findRuntimeMainWorldEntries} from '../../plugin-web-extension/feature-scripts/scripts-lib/runtime-main-world-scripts'
+import {extensionBaseAttributeFor} from '../../plugin-web-extension/feature-scripts/scripts-lib/taken-extension-base'
 import {classicConcatFiles} from '../../plugin-web-extension/shared/classic-concat'
 import type {
   DevOptions,
@@ -138,7 +139,8 @@ export class SetupChunkLoadingTarget {
           patchedManifest
         )
       },
-      gecko: isGeckoBasedBrowser(String(this.browser))
+      gecko: isGeckoBasedBrowser(String(this.browser)),
+      baseAttribute: extensionBaseAttributeFor(this.manifestPath, this.browser)
     }).apply(
       compiler as Parameters<InstanceType<typeof WebExtension>['apply']>[0]
     )

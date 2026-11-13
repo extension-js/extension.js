@@ -118,7 +118,9 @@ export class IncludeFiles {
           toType: copy.isDir ? ('dir' as const) : ('file' as const),
           // A source that vanishes mid-session is reported below, once per
           // compile, in words that name the config key.
-          noErrorOnMissing: true
+          noErrorOnMissing: true,
+          // A declared file lands as authored, so no minifier rewrites it.
+          info: {minimized: true}
         }))
       }).apply(compiler)
     }

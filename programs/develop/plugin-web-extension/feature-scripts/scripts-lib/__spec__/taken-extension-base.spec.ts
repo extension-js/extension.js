@@ -4,12 +4,15 @@ import * as path from 'node:path'
 import * as vm from 'node:vm'
 import {describe, expect, it} from 'vitest'
 import {
+  EXTENSION_BASE_ATTRIBUTE,
+  extensionBaseAttribute,
   extensionBaseGlobal,
   TAKE_BLOCK_OPEN,
   takeBlockOpen
 } from '../../../../lib/extension-base-from-stack'
 import {
   closeTakeBlock,
+  extensionBaseAttributeFor,
   extensionBaseGlobalFor,
   isEntryFile,
   TAKE_BLOCK_COLUMNS,
@@ -169,6 +172,37 @@ describe('extensionBaseGlobalFor', () => {
       expect(extensionBaseGlobalFor(file, 'firefox')).toBe(global)
     } finally {
       done()
+    }
+  })
+
+  it('keys the attribute of a Gecko build and of no other', () => {
+    const first = written({name: 'Keyed first'})
+    const second = written({name: 'Keyed second'})
+
+    try {
+      const attribute = extensionBaseAttributeFor(first.file, 'firefox')
+
+      expect(attribute).toBe(
+        extensionBaseAttribute(extensionBaseGlobalFor(first.file, 'firefox'))
+      )
+
+      expect(attribute).toMatch(/^data-extjs-extension-base-[0-9a-f]{8}$/)
+      expect(extensionBaseAttributeFor(second.file, 'firefox')).not.toBe(
+        attribute
+      )
+
+      for (const browser of ['chrome', 'edge', 'chromium', 'safari'] as const) {
+        expect(extensionBaseAttributeFor(first.file, browser)).toBe(
+          EXTENSION_BASE_ATTRIBUTE
+        )
+      }
+
+      expect(extensionBaseAttributeFor(undefined, 'firefox')).toBe(
+        EXTENSION_BASE_ATTRIBUTE
+      )
+    } finally {
+      first.done()
+      second.done()
     }
   })
 

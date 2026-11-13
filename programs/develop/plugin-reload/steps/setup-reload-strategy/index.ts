@@ -13,6 +13,7 @@ import {isGeckoBasedBrowser} from '../../../lib/constants'
 import {stripBom} from '../../../lib/parse-json-safe'
 import {filterKeysForThisBrowser} from '../../../plugin-web-extension/feature-manifest/manifest-lib/manifest'
 import {getCanonicalContentScriptJsAssetName} from '../../../plugin-web-extension/feature-scripts/contracts'
+import {extensionBaseAttributeFor} from '../../../plugin-web-extension/feature-scripts/scripts-lib/taken-extension-base'
 import {getBackgroundWorkerEntryName} from '../../../plugin-web-extension/feature-scripts/scripts-lib/utils'
 import type {DevOptions, Manifest, PluginInterface} from '../../../types'
 import {SetupBackgroundEntry} from './setup-background-entry'
@@ -183,7 +184,8 @@ export class SetupReloadStrategy {
       hmrConfig: false,
       weakRuntimeCheck: true,
       contentScriptsMeta,
-      gecko: isGeckoBasedBrowser(String(this.browser))
+      gecko: isGeckoBasedBrowser(String(this.browser)),
+      baseAttribute: extensionBaseAttributeFor(this.manifestPath, this.browser)
     }).apply(
       compiler as Parameters<InstanceType<typeof WebExtension>['apply']>[0]
     )

@@ -56,6 +56,8 @@ interface BuildCssRulesOptions {
   // A Gecko MAIN world file opens on the read that takes the extension base,
   // and its inlined sheet resolves the extension root from that copy.
   gecko?: boolean
+  // The attribute this extension's bridge writes the base under on Gecko.
+  baseAttribute?: string
 }
 
 export async function buildCssRules(
@@ -66,6 +68,7 @@ export async function buildCssRules(
 ): Promise<RuleSetRule[]> {
   const {useSass = true, useLess = true} = usage
   const {nonModuleType, issuer, issuerLayer, manifestPath, gecko} = opts
+  const {baseAttribute} = opts
 
   const fileTypes: Array<{
     test: RegExp
@@ -204,7 +207,11 @@ export async function buildCssRules(
         ;(use as Array<Record<string, unknown>>).unshift({
           loader: resolveDevelopDistFile('dead-css-url-loader'),
           // The key is left out elsewhere so those builds keep their bytes.
-          options: {manifestPath, projectPath, ...(gecko ? {gecko} : {})}
+          options: {
+            manifestPath,
+            projectPath,
+            ...(gecko ? {gecko, baseAttribute} : {})
+          }
         })
 
         ruleType = 'javascript/auto'

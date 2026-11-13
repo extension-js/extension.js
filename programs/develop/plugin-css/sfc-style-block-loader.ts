@@ -90,7 +90,7 @@ export default function sfcStyleBlockLoader(
     this,
     this.mode === 'production' ? dropSourceMapComment(source) : source
   )
-  const {projectPath, gecko} = this.getOptions() || {}
+  const {projectPath, gecko, baseAttribute} = this.getOptions() || {}
   const resourcePath = canonicalizeResourcePath(this.resourcePath)
   const relativePath = projectPath
     ? toPosixPath(path.relative(canonicalizeDir(projectPath), resourcePath))
@@ -104,7 +104,8 @@ export default function sfcStyleBlockLoader(
       String(this.resourceQuery || ''),
       this.mode === 'development' && projectPath ? projectPath : ''
     ),
-    gecko === true
+    gecko === true,
+    baseAttribute
   )
 }
 

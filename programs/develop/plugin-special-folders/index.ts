@@ -258,6 +258,9 @@ export class SpecialFoldersPlugin {
               from: publicDir,
               to: '.',
               noErrorOnMissing: true,
+              // A copied file ships as authored. A minifier drops the value
+              // a script ends on and the comment that names its source map.
+              info: {minimized: true},
               globOptions: {
                 ignore: copyIgnore
               }

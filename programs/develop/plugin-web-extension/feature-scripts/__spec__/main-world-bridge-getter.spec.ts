@@ -27,13 +27,17 @@ interface Setup {
   own?: string
   // The root the runtime names, the Firefox one unless given.
   root?: string
-  // The page global the build named for this extension.
-  global?: string
+  // The page global the build named for this extension, null for none.
+  global?: string | null
+  // The attribute the build named for this extension.
+  attribute?: string
+  // The document the bridge writes on, one of its own unless given.
+  attributes?: Record<string, string>
 }
 
 // The bridge in a stand-in for its isolated world, each stack scripted.
 function bridge(setup: Setup = {}) {
-  const attributes: Record<string, string> = {}
+  const attributes: Record<string, string> = setup.attributes ?? {}
   const page = setup.page === undefined ? {} : setup.page
   const stacks: Array<string | Error> = [
     setup.own ??
@@ -65,7 +69,15 @@ function bridge(setup: Setup = {}) {
   }
 
   if (page) context.wrappedJSObject = page
-  if (setup.global) context.__EXTJS_PAGE_BASE_GLOBAL__ = setup.global
+
+  // A Firefox build always names one, the shared name at the very least.
+  if (setup.global !== null) {
+    context.__EXTJS_PAGE_BASE_GLOBAL__ = setup.global ?? KEY
+  }
+
+  if (setup.attribute) {
+    context.__EXTJS_PAGE_BASE_ATTRIBUTE__ = setup.attribute
+  }
 
   if (setup.exports !== false) {
     context.exportFunction = (callable: unknown) => callable
@@ -76,6 +88,7 @@ function bridge(setup: Setup = {}) {
   vm.runInNewContext(SOURCE, context)
 
   return {
+    context,
     listening,
     attributes,
     page: page as Record<string, unknown>,
@@ -284,10 +297,21 @@ describe('the getters two extensions publish on one page', () => {
     }
   })
 
-  it('keeps the shared name where the build named none', () => {
-    const world = bridge()
+  it('writes the base under no global of its own world', () => {
+    const page: Record<string, unknown> = {}
+    const context = bridge({page, global: FIRST}).context
 
-    expect(Object.getOwnPropertyNames(world.page)).toEqual([KEY])
+    expect(Object.keys(context)).not.toContain(KEY)
+    expect(context[KEY]).toBeUndefined()
+    expect(SOURCE).not.toContain('window[EXTJS_BASE_KEY]')
+  })
+
+  it('publishes on the document alone where the build named no global', () => {
+    const world = bridge({global: null})
+
+    expect(Object.getOwnPropertyNames(world.page)).toEqual([])
+    expect(world.attributes).toEqual({[ATTRIBUTE]: BASE})
+    expect(SOURCE).not.toContain(KEY)
   })
 
   it('writes <html> for a page that locked the name of this extension', () => {
@@ -302,5 +326,44 @@ describe('the getters two extensions publish on one page', () => {
 
     expect(page[FIRST]).toBe('https://evil.example/')
     expect(world.attributes).toEqual({[ATTRIBUTE]: BASE})
+  })
+
+  it('writes each base under its own attribute for a page that locked both names', () => {
+    const attributeOf = (global: string) =>
+      `${ATTRIBUTE}-${global.slice(-10, -2)}`
+
+    for (const order of [
+      [FIRST, SECOND],
+      [SECOND, FIRST]
+    ]) {
+      const page: Record<string, unknown> = {}
+      const attributes: Record<string, string> = {}
+
+      for (const global of order) {
+        Object.defineProperty(page, global, {
+          value: 'https://evil.example/',
+          configurable: false
+        })
+      }
+
+      for (const global of order) {
+        const base = global === FIRST ? BASE : OTHER
+
+        bridge({
+          page,
+          global,
+          attribute: attributeOf(global),
+          attributes,
+          root: base,
+          own: stack(base)
+        })
+      }
+
+      // One document, two bridges: neither base stands where the other was.
+      expect(attributes).toEqual({
+        [attributeOf(FIRST)]: BASE,
+        [attributeOf(SECOND)]: OTHER
+      })
+    }
   })
 })

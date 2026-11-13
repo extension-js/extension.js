@@ -25,6 +25,7 @@ import {toResourceKey} from '../lib/resource-path'
 import {NOT_RAW_RESOURCE_QUERY} from '../lib/resource-query'
 import {publicContainmentRoot} from '../plugin-special-folders/resolve-public-folder'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../plugin-web-extension/feature-scripts/contracts'
+import {extensionBaseAttributeFor} from '../plugin-web-extension/feature-scripts/scripts-lib/taken-extension-base'
 import {resolveScriptEntryPath} from '../plugin-web-extension/feature-scripts/scripts-lib/utils'
 import type {DevOptions, Manifest, PluginInterface} from '../types'
 import {cssInContentScriptLoader} from './css-in-content-script-loader'
@@ -81,7 +82,12 @@ export class CssPlugin {
     const sfcOptions = {
       manifestPath,
       projectPath,
-      ...(isGeckoBasedBrowser(String(this.browser)) ? {gecko: true} : {})
+      ...(isGeckoBasedBrowser(String(this.browser))
+        ? {
+            gecko: true,
+            baseAttribute: extensionBaseAttributeFor(manifestPath, this.browser)
+          }
+        : {})
     }
 
     const loaders: RuleSetRule[] = [
