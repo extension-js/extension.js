@@ -10,6 +10,10 @@ import type {Compilation} from '@rspack/core'
 import {classifyEntrySurface} from '../../lib/split-chunks'
 import type {FilepathList} from '../../types'
 import {unixify} from '../shared/paths'
+import {
+  type PageRequestScan,
+  scanPageRequests
+} from './web-resources-lib/page-requests'
 
 // A scripting API file under scripts/ or a user_scripts api_script. The
 // browser injects it into a page, so what it fetches is fetched by the page.
@@ -52,6 +56,28 @@ function isExcludedFromWar(fileName: string) {
   return false
 }
 
+function isPageAsset(fileName: string) {
+  return /\.html?$/i.test(fileName)
+}
+
+// The emitted pages a bundle names without ever building their URL. They
+// stay unexposed, and the build says so once instead of guessing.
+export function collectNamedUnrequestedPages(
+  source: string,
+  emittedAssetNames: string[]
+): string[] {
+  if (!source) return []
+
+  const pages = emittedAssetNames
+    .map((name) => unixify(name))
+    .filter((name) => isPageAsset(name) && source.includes(name))
+  if (pages.length === 0) return []
+
+  const scan = scanPageRequests(source)
+
+  return pages.filter((page) => scan.names(page) && !scan.requests(page)).sort()
+}
+
 export function listEmittedAssetNames(compilation: Compilation): string[] {
   if (typeof compilation.getAssets === 'function') {
     try {
@@ -88,10 +114,19 @@ export function collectReferencedRuntimePayloads(
     .filter((name) => !isExcludedFromWar(name))
     .sort((a, b) => b.length - a.length)
 
+  // An extension page a site can frame is an attack surface, so naming one
+  // is not enough: only a script that builds its URL exposes it.
+  let scan: PageRequestScan | undefined
+
   for (const asset of eligible) {
-    if (source.includes(asset)) {
-      found.add(asset)
+    if (!source.includes(asset)) continue
+
+    if (isPageAsset(asset)) {
+      scan ??= scanPageRequests(source)
+      if (!scan.requests(asset)) continue
     }
+
+    found.add(asset)
   }
 
   return Array.from(found)

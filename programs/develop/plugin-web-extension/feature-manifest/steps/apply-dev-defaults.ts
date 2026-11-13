@@ -8,6 +8,7 @@
 
 import * as path from 'node:path'
 import {Compilation, type Compiler, sources} from '@rspack/core'
+import {recordDevAdditions} from '../../../lib/dev-additions'
 import {isStaticThemeSource} from '../../../lib/manifest-utils'
 import type {DevOptions, PluginInterface} from '../../../types'
 import {isWebkitUnsupportedPermission} from '../manifest-lib/filter-keys-safari'
@@ -15,6 +16,7 @@ import {
   getManifestContent,
   setCurrentManifestContent
 } from '../manifest-lib/manifest'
+import {listDevManifestAdditions} from './apply-dev-defaults-lib/dev-additions'
 import {
   declaredHostPatterns,
   devInjectedHostPatterns,
@@ -333,6 +335,13 @@ export class ApplyDevDefaults {
               ...patchExternallyConnectable(canonicalManifest),
               ...patchWebResources(canonicalManifest)
             }
+
+            // The session reports every grant the production build lacks, so
+            // the list is taken from the patched manifest and not restated.
+            recordDevAdditions(
+              compilation,
+              listDevManifestAdditions(canonicalManifest, patchedManifest)
+            )
 
             // Warn when the user's own source leans on a permission only the dev
             // instrumentation injected: it works in dev and fails in production.

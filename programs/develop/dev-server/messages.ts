@@ -10,6 +10,7 @@ import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import * as path from 'node:path'
 import colors from 'pintor'
+import type {DevAddition} from '../lib/dev-additions'
 import {resolveLocalizedManifestName} from '../lib/localized-manifest-name'
 import {
   artifactNoun,
@@ -125,6 +126,33 @@ export function browserRunnerDisabled(args: {
       }
     ]
   })
+}
+
+// What the dev manifest grants that the production build lacks, one line per
+// kind under the card. The reasons stay in the ready contract, under devAdditions.
+export function devAdditionsNote(additions: readonly DevAddition[]): string {
+  const row = (label: string, value: string) =>
+    `    ${label.padEnd(15)}${colors.gray(value)}`
+  const valuesOf = (kind: DevAddition['kind']) => [
+    ...new Set(
+      additions.filter((entry) => entry.kind === kind).map((e) => e.value)
+    )
+  ]
+  const lines: string[] = []
+  const kinds: Array<[DevAddition['kind'], string]> = [
+    ['permission', 'permissions'],
+    ['host_permission', 'host access'],
+    ['web_accessible_resource', 'web_accessible_resources']
+  ]
+
+  for (const [kind, noun] of kinds) {
+    const values = valuesOf(kind)
+    if (!values.length) continue
+
+    lines.push(row('Dev only', `${noun} ${values.join(', ')}`))
+  }
+
+  return lines.join('\n')
 }
 
 // Port 0 asks the OS for any free port, so a differing answer is the

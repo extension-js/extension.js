@@ -11,6 +11,7 @@ import * as path from 'node:path'
 import {CODES, humanLine, isDebug} from '../../../helpers/messaging'
 import {stageCompanionForSession} from '../../browsers-lib/companion-session'
 import * as messages from '../../browsers-lib/messages'
+import type {DevAdditionEntry} from '../../browsers-lib/ready-stamp'
 import {resolveProfileConfig} from '../../browsers-lib/resolve-profile'
 import {
   LAUNCH_TAB_URL,
@@ -37,6 +38,8 @@ import {
   edgeMasterPreferences,
   getForkPreferences
 } from './master-preferences'
+
+export const SILENT_DEBUGGER_FLAG = '--silent-debugger-extension-api'
 
 export const DEFAULT_BROWSER_FLAGS: DefaultBrowserFlags[] = [
   '--no-first-run',
@@ -89,8 +92,87 @@ export const DEFAULT_BROWSER_FLAGS: DefaultBrowserFlags[] = [
   '--enable-unsafe-extension-debugging',
   // Suppress the "X is debugging this browser" infobar so real logins
   // (claude.ai, Google, etc.) aren't pushed behind a persistent banner.
-  '--silent-debugger-extension-api'
+  SILENT_DEBUGGER_FLAG
 ]
+
+function manifestDeclaresDebugger(extensionPath: string): boolean {
+  try {
+    const manifest: unknown = JSON.parse(
+      fs.readFileSync(path.join(extensionPath, 'manifest.json'), 'utf8')
+    )
+    if (!isPlainObject(manifest)) return false
+
+    return [manifest.permissions, manifest.optional_permissions].some(
+      (list) => Array.isArray(list) && list.includes('debugger')
+    )
+  } catch {
+    return false
+  }
+}
+
+// An extension that attaches chrome.debugger has to handle the Cancel button
+// on Chrome's debugging bar, so a session loading one must show that bar.
+export function declaresDebuggerPermission(extensionPaths: string[]): boolean {
+  return extensionPaths.some((extensionPath) =>
+    manifestDeclaresDebugger(String(extensionPath))
+  )
+}
+
+// The verdict a session reports about the flag: whether this launch passes
+// it, what decided that, and the one change that flips it.
+export function silentDebuggerFlagReport(
+  chromiumConfig: string[],
+  extensionPaths: string[]
+): DevAdditionEntry {
+  const base = {kind: 'browser_flag', value: SILENT_DEBUGGER_FLAG}
+  const applied = chromiumConfig.includes(SILENT_DEBUGGER_FLAG)
+  const declared = declaresDebuggerPermission(extensionPaths)
+
+  if (applied && declared) {
+    return {
+      ...base,
+      applied,
+      cause: 'browser-flags',
+      reason:
+        'browserFlags or EXTENSION_BROWSER_FLAGS passes it, so the debugging bar stays hidden although the manifest declares "debugger"',
+      change:
+        'remove the flag from browserFlags in extension.config.js, or from EXTENSION_BROWSER_FLAGS, to show the bar'
+    }
+  }
+
+  if (applied) {
+    return {
+      ...base,
+      applied,
+      cause: 'default',
+      reason:
+        'hides the bar Chrome shows while an extension is attached through chrome.debugger, so that bar and its Cancel button never show in this browser',
+      change:
+        'declare "debugger" under permissions or optional_permissions in manifest.json, or list the flag under excludeBrowserFlags in extension.config.js'
+    }
+  }
+
+  if (declared) {
+    return {
+      ...base,
+      applied,
+      cause: 'debugger-permission',
+      reason:
+        'the manifest declares "debugger", so the debugging bar and its Cancel button show as they do for a user',
+      change:
+        'list the flag under browserFlags in extension.config.js to hide the bar'
+    }
+  }
+
+  return {
+    ...base,
+    applied,
+    cause: 'exclude-browser-flags',
+    reason: 'excludeBrowserFlags lists it, so the debugging bar shows',
+    change:
+      'remove the flag from excludeBrowserFlags in extension.config.js to hide the bar'
+  }
+}
 
 // A window a person watches must play sound, so only an unattended launch
 // is muted.
@@ -395,7 +477,11 @@ export function browserConfig(
 
   const excludeFlags = configOptions.excludeBrowserFlags || []
 
-  const filteredFlags = filterBrowserFlags(DEFAULT_BROWSER_FLAGS, excludeFlags)
+  const defaultFlags = declaresDebuggerPermission(extensionsToLoad)
+    ? DEFAULT_BROWSER_FLAGS.filter((flag) => flag !== SILENT_DEBUGGER_FLAG)
+    : DEFAULT_BROWSER_FLAGS
+
+  const filteredFlags = filterBrowserFlags(defaultFlags, excludeFlags)
 
   const cdpPort = deriveDebugPortWithInstance(
     configOptions.port,

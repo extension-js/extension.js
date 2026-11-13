@@ -56,7 +56,7 @@ export const GET_URL_LITERAL_PATTERN =
 
 // A bundle past this size is a payload, not hand-written glue, and scanning
 // it on every watch rebuild would cost more than the diagnostic is worth.
-const MAX_SCANNED_SOURCE_BYTES = 4 * 1024 * 1024
+export const MAX_SCANNED_SOURCE_BYTES = 4 * 1024 * 1024
 
 export function collectGetUrlLiterals(source: string): string[] {
   if (!source || source.length > MAX_SCANNED_SOURCE_BYTES) return []
