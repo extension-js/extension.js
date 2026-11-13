@@ -15,6 +15,7 @@ import {
   sources,
   WebpackError
 } from '@rspack/core'
+import {isGeckoBasedBrowser} from '../lib/constants'
 import {resolveDevelopDistFile} from '../lib/develop-context'
 import {hasDependency} from '../lib/has-dependency'
 import {filterKeysForThisBrowser} from '../lib/manifest-utils'
@@ -76,11 +77,24 @@ export class CssPlugin {
     await maybeUseSass(projectPath)
     await maybeUseLess(projectPath)
 
+    // The key is left out elsewhere so those builds keep their bytes.
+    const sfcOptions = {
+      manifestPath,
+      projectPath,
+      ...(isGeckoBasedBrowser(String(this.browser)) ? {gecko: true} : {})
+    }
+
     const loaders: RuleSetRule[] = [
-      ...(await cssInContentScriptLoader(projectPath, manifestPath, mode, {
-        useSass: usingSass,
-        useLess: usingLess
-      })),
+      ...(await cssInContentScriptLoader(
+        projectPath,
+        manifestPath,
+        mode,
+        {
+          useSass: usingSass,
+          useLess: usingLess
+        },
+        this.browser
+      )),
       ...(await cssInHtmlLoader(projectPath, mode, manifestPath, {
         useSass: usingSass,
         useLess: usingLess
@@ -93,7 +107,7 @@ export class CssPlugin {
         resourceQuery: SFC_STYLE_BLOCK_QUERY,
         sideEffects: true,
         loader: resolveDevelopDistFile('sfc-style-block-loader'),
-        options: {manifestPath, projectPath}
+        options: sfcOptions
       },
       // Svelte's block has no query: its name is the whole signal.
       {
@@ -102,7 +116,7 @@ export class CssPlugin {
         test: SVELTE_STYLE_BLOCK_TEST,
         sideEffects: true,
         loader: resolveDevelopDistFile('sfc-style-block-loader'),
-        options: {manifestPath, projectPath}
+        options: sfcOptions
       },
       // The request for an inline block answers with a one-line proxy to the
       // request that compiles it, where the component expects the block's text.
@@ -111,7 +125,7 @@ export class CssPlugin {
         issuerLayer: {not: EXTENSIONJS_CONTENT_SCRIPT_LAYER},
         resourceQuery: SFC_INLINE_STYLE_BLOCK_QUERY,
         loader: resolveDevelopDistFile('sfc-style-block-loader'),
-        options: {manifestPath, projectPath}
+        options: sfcOptions
       },
       // <style module>: the request the component makes re-exports the class
       // names of a CSS module, so it runs as JavaScript in every layer.
@@ -125,7 +139,7 @@ export class CssPlugin {
         issuerLayer: {not: EXTENSIONJS_CONTENT_SCRIPT_LAYER},
         resourceQuery: SFC_MODULE_STYLE_BLOCK_QUERY,
         loader: resolveDevelopDistFile('sfc-style-block-loader'),
-        options: {manifestPath, projectPath}
+        options: sfcOptions
       },
       // Pre, so it reads the script as authored. A sheet imported for its
       // effect alone becomes an unread value here, which the build says once.

@@ -254,7 +254,7 @@ const BARE_URL = /url\(\s*(?:\\?["'])?(?:\.{1,2}\/|\/(?!\/))/
 
 function expectResolvedTargets(
   built: ReturnType<typeof readBuilt>,
-  opts: {matches?: string[]}
+  opts: {matches?: string[]; gecko?: boolean}
 ) {
   const {distDir, manifest, source} = built
   const fonts = fs
@@ -283,10 +283,22 @@ function expectResolvedTargets(
   }
 
   expect(source).not.toMatch(BARE_URL)
-  expect(source).toContain('__EXTENSIONJS_CSS_FILE_0__')
-  expect(source).toContain('__EXTENSIONJS_CSS_FILE_0__?v=2#frag')
-  expect(source).not.toContain('__EXTENSIONJS_CSS_FILE_1__')
-  expect(source).toContain(`__EXTENSIONJS_EXTENSION_ROOT__/${image}`)
+
+  if (opts.gecko) {
+    // A Gecko sheet is concatenated at build time, so no token is left in
+    // it for a method a page script can patch to fill in.
+    expect(source).not.toContain('__EXTENSIONJS_CSS_FILE_')
+    expect(source).not.toContain('__EXTENSIONJS_EXTENSION_ROOT__')
+    expect(source).toMatch(/\("",\s*"0",\s*"\?v=2#frag"\)/)
+    expect(source).not.toMatch(/\("",\s*"1",/)
+    expect(source).toContain(image)
+  } else {
+    expect(source).toContain('__EXTENSIONJS_CSS_FILE_0__')
+    expect(source).toContain('__EXTENSIONJS_CSS_FILE_0__?v=2#frag')
+    expect(source).not.toContain('__EXTENSIONJS_CSS_FILE_1__')
+    expect(source).toContain(`__EXTENSIONJS_EXTENSION_ROOT__/${image}`)
+  }
+
   expect(source).toContain('runtime.getURL')
 
   expect(source).toContain('data:image/gif;base64,R0lGOD')
@@ -318,7 +330,7 @@ describe('build: url() in a content-script stylesheet resolves to the extension 
     const summary = await buildFixture(root, 'firefox', 'production')
     expect(summary.errors_count).toBe(0)
 
-    expectResolvedTargets(readBuilt(root, 'firefox'), {})
+    expectResolvedTargets(readBuilt(root, 'firefox'), {gecko: true})
   }, 120_000)
 
   it('production chrome MV3, CSS module: the scoped sheet names its targets from the extension root, the class map still reaches JavaScript', async () => {

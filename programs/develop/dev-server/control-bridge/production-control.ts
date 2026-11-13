@@ -12,6 +12,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import parse from 'content-security-policy-parser'
 import {isGeckoBasedBrowser, isWebkitBasedBrowser} from '../../lib/constants'
+import {prependBehindTakeBlock} from '../../lib/extension-base-from-stack'
 import {
   actionsPath,
   browserArtifactsDir,
@@ -231,7 +232,10 @@ export function prepareControlledBuild(input: {
       if (!original.includes('__extjsBridgeRelayInstalled')) {
         fs.writeFileSync(
           file,
-          `${buildBridgeRelaySource({context: relay.context})}\n${original}`
+          prependBehindTakeBlock(
+            original,
+            `${buildBridgeRelaySource({context: relay.context})}\n`
+          )
         )
       }
 

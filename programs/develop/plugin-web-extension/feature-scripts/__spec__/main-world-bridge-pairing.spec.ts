@@ -886,6 +886,64 @@ describe('the bridge a Gecko caller runs ahead of a MAIN world injection', () =>
     expect(String(seen[2].func)).toContain('data-extjs-extension-base')
   })
 
+  it('takes the getter off the page window with the attribute', async () => {
+    const failing: Frames = [{frameId: 0, error: new Error('no such file')}]
+    const {run, seen} = setupInjecting((injection) =>
+      isBridge(injection) || injection.func ? [{frameId: 0}] : failing
+    )
+
+    await run(INJECTED)
+
+    const removed: string[] = []
+    const page = {__EXTJS_EXTENSION_BASE__: 'getter', other: 'kept'}
+    const sweep = seen[2].func as unknown as () => void
+    const globals = globalThis as Record<string, unknown>
+    const before = {window: globals.window, document: globals.document}
+
+    globals.window = {wrappedJSObject: page}
+    globals.document = {
+      documentElement: {removeAttribute: (name: string) => removed.push(name)}
+    }
+
+    try {
+      sweep()
+    } finally {
+      globals.window = before.window
+      globals.document = before.document
+    }
+
+    expect(page).toEqual({other: 'kept'})
+    expect(removed).toEqual(['data-extjs-extension-base'])
+  })
+
+  it('still clears the attribute where the page window is out of reach', async () => {
+    const failing: Frames = [{frameId: 0, error: new Error('no such file')}]
+    const {run, seen} = setupInjecting((injection) =>
+      isBridge(injection) || injection.func ? [{frameId: 0}] : failing
+    )
+
+    await run(INJECTED)
+
+    const removed: string[] = []
+    const sweep = seen[2].func as unknown as () => void
+    const globals = globalThis as Record<string, unknown>
+    const before = {window: globals.window, document: globals.document}
+
+    globals.window = {}
+    globals.document = {
+      documentElement: {removeAttribute: (name: string) => removed.push(name)}
+    }
+
+    try {
+      sweep()
+    } finally {
+      globals.window = before.window
+      globals.document = before.document
+    }
+
+    expect(removed).toEqual(['data-extjs-extension-base'])
+  })
+
   it('gives two injections into one tab their turns', async () => {
     const {run, byTab} = setupInjecting()
 

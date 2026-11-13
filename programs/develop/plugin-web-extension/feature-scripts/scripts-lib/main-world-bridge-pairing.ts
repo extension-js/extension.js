@@ -42,6 +42,7 @@ export function buildMainWorldBridgePairingSource(
       Array.isArray(injection.files) && injection.files.length > 0 && namesOneOf(INJECTABLE, injection.files);
   };
   var clearBase = function () {
+    try { delete window.wrappedJSObject.__EXTJS_EXTENSION_BASE__; } catch (error) {}
     try { document.documentElement.removeAttribute("data-extjs-extension-base"); } catch (error) {}
   };
   var unread = function (frames) {

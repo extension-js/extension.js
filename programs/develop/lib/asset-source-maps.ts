@@ -8,6 +8,7 @@
 
 import type {Compilation} from '@rspack/core'
 import {sources} from '@rspack/core'
+import {prependBehindTakeBlock} from './extension-base-from-stack'
 
 // The devtool wrote <asset>.map before the report stage. A step that then
 // prepends runtime text to the asset must pad that map by the same number
@@ -22,7 +23,7 @@ export function prependToEmittedAsset(
   const original = asset.source.source().toString()
   compilation.updateAsset(
     assetName,
-    new sources.RawSource(`${prefix}${original}`)
+    new sources.RawSource(prependBehindTakeBlock(original, prefix))
   )
 
   const mapAsset =
