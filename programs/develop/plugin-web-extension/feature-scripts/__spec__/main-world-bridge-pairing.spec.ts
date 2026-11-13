@@ -588,9 +588,12 @@ const INJECTED: Injection = {
 // Mirrors the browser: each call is answered a turn later, a failure
 // rejects the promise or sets runtime.lastError while the callback runs.
 function fakeInjecting(
-  answer: (injection: Injection) => Frames = () => [{frameId: 0, result: 1}]
+  answer: (injection: Injection) => Frames = () => [{frameId: 0, result: 1}],
+  shape: (args: unknown[]) => void = () => {}
 ) {
   const seen: Injection[] = []
+  // The calls made on a tab that cannot exist, which reach no page.
+  const probes: unknown[][] = []
   const log: string[] = []
   // The same lines, each led by the tab it ran in.
   const byTab: string[] = []
@@ -600,12 +603,28 @@ function fakeInjecting(
       ? 'func'
       : (injection.files as string[]).join('+')
 
-  const executeScript = (injection: Injection, callback?: unknown) => {
-    seen.push(injection)
-    log.push(`start ${nameOf(injection)}`)
-    byTab.push(`${injection.target.tabId} start ${nameOf(injection)}`)
+  const executeScript = (...args: unknown[]) => {
+    // The browser checks the shape of a call before it does anything else.
+    shape(args)
+
+    const injection = args[0] as Injection
+    const callback = args[args.length - 1]
+    const unknownTab = injection.target.tabId === -1
+
+    if (unknownTab) probes.push(args)
+    else {
+      seen.push(injection)
+      log.push(`start ${nameOf(injection)}`)
+      byTab.push(`${injection.target.tabId} start ${nameOf(injection)}`)
+    }
 
     const result = new Promise<Frames>((resolve, reject) => {
+      if (unknownTab) {
+        reject(new Error('Invalid tab ID: -1'))
+
+        return
+      }
+
       setTimeout(() => {
         log.push(`end ${nameOf(injection)}`)
         byTab.push(`${injection.target.tabId} end ${nameOf(injection)}`)
@@ -635,15 +654,61 @@ function fakeInjecting(
     executeScript
   }
 
-  return {scripting, runtime, seen, log, byTab, native: executeScript}
+  return {scripting, runtime, seen, probes, log, byTab, native: executeScript}
+}
+
+// Mirrors the Web Locks API: one queue per name, shared by every realm.
+function fakeLocks() {
+  const tails = new Map<string, Promise<unknown>>()
+  const names: string[] = []
+
+  const request = (name: string, held: () => unknown) => {
+    names.push(name)
+
+    const turn = (tails.get(name) || Promise.resolve()).then(() => held())
+    tails.set(
+      name,
+      turn.then(
+        () => {},
+        () => {}
+      )
+    )
+
+    return turn
+  }
+
+  return {names, navigator: {locks: {request}}}
+}
+
+type Run = (...args: unknown[]) => Promise<Frames> | undefined
+
+// Two realms of one extension: each wraps its own API object, and both
+// reach the one browser behind them.
+function setupInjectingRealms(navigator?: unknown) {
+  const fake = fakeInjecting()
+
+  const realm = (bridgeFile: string) => {
+    const browser = {scripting: {...fake.scripting}, runtime: fake.runtime}
+
+    new Function('globalThis', buildMainWorldBridgePairingSource(bridgeFile))({
+      browser,
+      navigator
+    })
+
+    return browser.scripting.executeScript as Run
+  }
+
+  return {...fake, background: realm(BRIDGE), page: realm(PAGE_BRIDGE)}
 }
 
 function setupInjecting(
   answer?: (injection: Injection) => Frames,
   lists: {readers?: string[] | null; injectable?: string[] | null} = {},
-  bridgeFile = BRIDGE
+  bridgeFile = BRIDGE,
+  shape?: (args: unknown[]) => void,
+  navigator?: unknown
 ) {
-  const fake = fakeInjecting(answer)
+  const fake = fakeInjecting(answer, shape)
   const browser = {scripting: fake.scripting, runtime: fake.runtime}
   const readers = lists.readers === undefined ? null : lists.readers
 
@@ -654,11 +719,9 @@ function setupInjecting(
       readers,
       lists.injectable === undefined ? readers : lists.injectable
     )
-  )({browser})
+  )({browser, navigator})
 
-  const run = browser.scripting.executeScript as (
-    ...args: unknown[]
-  ) => Promise<Frames> | undefined
+  const run = browser.scripting.executeScript as Run
 
   return {...fake, run}
 }
@@ -724,7 +787,9 @@ describe('the bridge a Gecko caller runs ahead of a MAIN world injection', () =>
       {target: {tabId: 7}, files: ['/scripts/hook.js'], world: 'ISOLATED'},
       {target: {tabId: 7}, files: ['/scripts/hook.js']},
       {target: {tabId: 7}, files: ['/scripts/plain.js'], world: 'MAIN'},
-      {target: {tabId: 7}, files: [], world: 'MAIN'}
+      {target: {tabId: 7}, files: [], world: 'MAIN'},
+      {target: {tabId: '7'}, files: ['/scripts/hook.js'], world: 'MAIN'},
+      {target: {}, files: ['/scripts/hook.js'], world: 'MAIN'}
     ]
 
     for (const injection of passes) {
@@ -845,6 +910,174 @@ describe('the bridge a Gecko caller runs ahead of a MAIN world injection', () =>
     expect(byTab.indexOf('8 start /scripts/far.js')).toBeLessThan(
       byTab.indexOf('7 end /scripts/hook.js')
     )
+  })
+
+  it('throws at once what the browser throws for a malformed call', async () => {
+    const refusal =
+      'Type error for parameter injection (Unexpected property "bogus") for scripting.executeScript.'
+    const {run, seen, probes} = setupInjecting(
+      undefined,
+      {},
+      BRIDGE,
+      (args) => {
+        if (
+          args.length > 2 ||
+          (args.length === 2 && typeof args[1] !== 'function')
+        ) {
+          throw new Error(
+            'Incorrect argument types for scripting.executeScript.'
+          )
+        }
+
+        if ('bogus' in (args[0] as Injection)) throw new Error(refusal)
+      }
+    )
+
+    expect(() => run({...INJECTED, bogus: 1})).toThrow(refusal)
+    expect(() => run({...INJECTED, bogus: 1}, () => {})).toThrow(refusal)
+    expect(() => run(INJECTED, 5)).toThrow('Incorrect argument types')
+    expect(() => run(INJECTED, 5, () => {})).toThrow('Incorrect argument types')
+
+    // Nothing ran: no bridge, no file, and no check got past the browser.
+    expect(seen).toEqual([])
+    expect(probes).toEqual([])
+  })
+
+  it('checks the shape on a tab that cannot exist, every argument kept', async () => {
+    const {run, seen, probes, runtime} = setupInjecting()
+    const injection = {
+      ...INJECTED,
+      target: {tabId: 7, frameIds: [0]},
+      injectImmediately: true
+    }
+    const before = JSON.stringify(injection)
+
+    await run(injection)
+
+    expect(probes).toEqual([
+      [{...injection, target: {tabId: -1, frameIds: [0]}}]
+    ])
+
+    expect(JSON.stringify(injection)).toBe(before)
+    expect(seen.map(isBridge)).toEqual([true, false])
+
+    // A callback form is checked as one, and the check answers nobody.
+    const answered = await new Promise<unknown[]>((resolve) => {
+      run(injection, (...values: unknown[]) => resolve(values))
+    })
+
+    expect(answered).toHaveLength(1)
+    expect(probes[1]).toHaveLength(2)
+    expect(typeof probes[1][1]).toBe('function')
+    expect(runtime.lastError).toBeUndefined()
+  })
+
+  it('keeps the turns of two realms under one Web Lock', async () => {
+    const locks = fakeLocks()
+    const {background, page, byTab} = setupInjectingRealms(locks.navigator)
+
+    await Promise.all([
+      background(INJECTED),
+      page({...INJECTED, files: ['/scripts/other.js']}),
+      page({...INJECTED, target: {tabId: 8}, files: ['/scripts/far.js']})
+    ])
+
+    expect(byTab.filter((line) => line.startsWith('7 '))).toEqual([
+      `7 start ${BRIDGE}`,
+      `7 end ${BRIDGE}`,
+      '7 start /scripts/hook.js',
+      '7 end /scripts/hook.js',
+      `7 start ${PAGE_BRIDGE}`,
+      `7 end ${PAGE_BRIDGE}`,
+      '7 start /scripts/other.js',
+      '7 end /scripts/other.js'
+    ])
+
+    expect(locks.names).toEqual([
+      `${MAIN_WORLD_BRIDGE_PAIR_PREFIX}tab:7`,
+      `${MAIN_WORLD_BRIDGE_PAIR_PREFIX}tab:7`,
+      `${MAIN_WORLD_BRIDGE_PAIR_PREFIX}tab:8`
+    ])
+
+    // Another tab never waits for this one.
+    expect(byTab.indexOf('8 start /scripts/far.js')).toBeLessThan(
+      byTab.indexOf('7 end /scripts/hook.js')
+    )
+  })
+
+  // The ordering the lock exists for: a realm alone only knows its own
+  // turns, so the second bridge runs before the first file cleared the base.
+  it('lets two realms run into each other where there is no Web Lock', async () => {
+    const {background, page, byTab} = setupInjectingRealms()
+
+    await Promise.all([
+      background(INJECTED),
+      page({...INJECTED, files: ['/scripts/other.js']})
+    ])
+
+    expect(byTab.slice(0, 2)).toEqual([
+      `7 start ${BRIDGE}`,
+      `7 start ${PAGE_BRIDGE}`
+    ])
+
+    expect(byTab.indexOf('7 start /scripts/other.js')).toBeLessThan(
+      byTab.indexOf('7 end /scripts/hook.js')
+    )
+  })
+
+  it('keeps its own turns when the lock is refused', async () => {
+    const frames: Frames = [{frameId: 0, result: 'ran'}]
+    const refusals = [
+      () => {
+        throw new Error('The operation is insecure.')
+      },
+      () => Promise.reject(new Error('The operation is insecure.'))
+    ]
+
+    for (const request of refusals) {
+      const {run, byTab} = setupInjecting(
+        (injection) => (isBridge(injection) ? [{frameId: 0}] : frames),
+        {},
+        BRIDGE,
+        undefined,
+        {locks: {request}}
+      )
+
+      const results = await Promise.all([
+        run(INJECTED),
+        run({...INJECTED, files: ['/scripts/other.js']})
+      ])
+
+      expect(results).toEqual([frames, frames])
+      expect(byTab).toEqual([
+        `7 start ${BRIDGE}`,
+        `7 end ${BRIDGE}`,
+        '7 start /scripts/hook.js',
+        '7 end /scripts/hook.js',
+        `7 start ${BRIDGE}`,
+        `7 end ${BRIDGE}`,
+        '7 start /scripts/other.js',
+        '7 end /scripts/other.js'
+      ])
+    }
+  })
+
+  it("rejects with the call's own error under a lock as well", async () => {
+    const {run, seen} = setupInjecting(
+      (injection) => {
+        if (isBridge(injection) || injection.func) return [{frameId: 0}]
+
+        throw new Error('Invalid tab ID: 7')
+      },
+      {},
+      BRIDGE,
+      undefined,
+      fakeLocks().navigator
+    )
+
+    await expect(run(INJECTED)).rejects.toThrow('Invalid tab ID: 7')
+    // One bridge, one call, one sweep: a failure is never run again.
+    expect(seen).toHaveLength(3)
   })
 
   it('answers a trailing callback from the call itself and returns nothing', async () => {

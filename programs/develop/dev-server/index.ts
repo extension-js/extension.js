@@ -855,7 +855,7 @@ export async function devServer(
 
     // Never leave a usable eval token behind after the session ends.
     if (bridgeControlToken) {
-      clearControlToken(packageJsonDir, browserName)
+      clearControlToken(packageJsonDir, browserName, bridgeControlToken)
     }
 
     unbindDevSessionRestart()

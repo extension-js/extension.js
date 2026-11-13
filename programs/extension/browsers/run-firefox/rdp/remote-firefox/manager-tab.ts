@@ -21,6 +21,17 @@ export const OPEN_NEW_TAB_EXPRESSION =
   ' return true;' +
   '})()'
 
+// The same create call with an address, for a page that needs its own tab.
+export function openTabAtExpression(url: string): string {
+  return (
+    '(function () {' +
+    ' var api = globalThis.browser || globalThis.chrome;' +
+    ` api.tabs.create({active: true, url: ${JSON.stringify(url)}});` +
+    ' return true;' +
+    '})()'
+  )
+}
+
 const TARGET_WAIT_MS = 2000
 
 function reportStep(step: string, detail?: unknown): void {
@@ -175,6 +186,21 @@ async function resolveConsoleActor(
 export async function openManagerNewTab(
   client: ManagerTabClient
 ): Promise<boolean> {
+  return await createManagerTab(client, OPEN_NEW_TAB_EXPRESSION)
+}
+
+// Asks the manager add-on to open this address in a tab of its own.
+export async function openManagerTabAt(
+  client: ManagerTabClient,
+  url: string
+): Promise<boolean> {
+  return await createManagerTab(client, openTabAtExpression(url))
+}
+
+async function createManagerTab(
+  client: ManagerTabClient,
+  expression: string
+): Promise<boolean> {
   try {
     const addon = await findManagerAddon(client)
 
@@ -196,7 +222,7 @@ export async function openManagerNewTab(
     let result: unknown
 
     try {
-      result = await client.evaluate(consoleActor, OPEN_NEW_TAB_EXPRESSION)
+      result = await client.evaluate(consoleActor, expression)
     } finally {
       release()
     }

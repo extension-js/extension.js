@@ -80,11 +80,15 @@ MAIN-world content scripts get wrapper-side bridge script generation in `add-con
 
 The main bundle and bridge bundle are both registered under canonical content asset names so browser-side reinjection and source tracking stay deterministic.
 
-A file the background registers into the MAIN world at runtime has no manifest group to pair a bridge with. On Gecko targets `pair-runtime-main-world-bridges` emits the bridge as `scripts/extjs-main-world-bridge.js` and prepends a wrapper to the background bundle that registers it beside each `world: 'MAIN'` registration, under the id `extjs-main-world-bridge:<id>`. The wrapper follows updates and unregistrations and hides the pairs from `getRegisteredContentScripts`. Chromium targets and projects with no such registration are left alone.
+A `scripts/` file the background or an extension page (options, popup) puts into the MAIN world at runtime, with `scripting.registerContentScripts` or `executeScript({files, world: 'MAIN'})`, has no manifest group to pair a bridge with. On Gecko targets `pair-runtime-main-world-bridges` emits the bridge as `scripts/extjs-main-world-bridge.js` and prepends a wrapper to the background bundle, and to the bundle of each page that registers or injects, that registers it beside each `world: 'MAIN'` registration, under the id `extjs-main-world-bridge:<id>`. The wrapper follows updates and unregistrations and hides the pairs from `getRegisteredContentScripts`. Chromium targets and projects with no such registration are left alone.
 
 Each pair is registered right before its own file and at that file's `runAt`. A production bundle takes the base at boot and clears the attribute in a microtask, so every file of one registration reads it first, and a later `import()` uses the base taken at boot. A development bundle keeps the attribute, as a declared group does. A production file that resolves nothing against the base is left unpaired, and a build where no file does ships neither the wrapper nor the bridge. A callback passed to a wrapped method is answered from the browser's own callback, so `runtime.lastError` names a failure there.
 
-A registration made from an extension page (options, popup) is not seen by the build, so its files get neither the MAIN world treatment nor the pair.
+The build finds these calls by reading source (`scripts-lib/runtime-main-world-scripts.ts`). It reads the background, the scripts of every extension page, and the local modules they import, up to eight imports deep, resolved through the build's own resolve block, so aliases, tsconfig paths and linked workspace packages are followed. The path may be a literal in the call, a `const` of the same file, or an exported `const` one import away.
+
+It does not see a call inside an installed package under `node_modules`, a link that leads out of the workspace, a `let`, a name declared twice, a constant behind a second hop, or a path built at runtime. Such a file gets neither the MAIN world treatment nor the pair. A declared `content_scripts` group stays with the manifest lane.
+
+The steps take this list once, as the compiler is made. When a later edit changes it, `warn-main-world-registration-changed` restarts the dev session, and warns instead where no session can restart.
 
 ## Testing
 

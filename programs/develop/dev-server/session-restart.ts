@@ -13,6 +13,7 @@ export type DevSessionRestartReason =
   | 'json'
   | 'env'
   | 'public'
+  | 'main-world'
 
 export interface DevSessionRestartRequest {
   reason: DevSessionRestartReason
@@ -21,6 +22,10 @@ export interface DevSessionRestartRequest {
   // A file whose contents changed, as opposed to an entry that moved.
   pathChanged?: string
   manifestField?: string
+  // The source that now registers pathChanged into the MAIN world.
+  registeredBy?: string
+  // How many more files changed for the same reason.
+  alsoChanged?: number
 }
 
 export const DEV_SESSION_RESTART_DEBOUNCE_MS = 300
