@@ -14,6 +14,8 @@ const CLASSIC_LOADER = 'classicLoader'
 const MAIN_CLASSIC_LOADER = 'classicLoaderMainWorld'
 // MAIN world loader that needs no bridge
 const MAIN_DIRECT_LOADER = 'directLoaderMainWorld'
+// MAIN world loader for Gecko, where no fallback may name the extension
+const MAIN_UNAIDED_LOADER = 'unaidedLoaderMainWorld'
 // fallback choice when DYNAMIC_IMPORT_LOADER fails
 const FALLBACK_LOADER = 'fallbackLoader'
 
@@ -24,7 +26,8 @@ export default function LoadScriptRuntimeModule(
   contentScriptsMeta?: Record<
     string,
     {world?: 'main' | 'extension'; bridgeBundleId?: string}
-  >
+  >,
+  gecko = false
 ): import('webpack').RuntimeModule {
   const {Template, RuntimeGlobals, RuntimeModule} = webpack as any
 
@@ -207,65 +210,76 @@ export default function LoadScriptRuntimeModule(
           ]),
           `} else {`,
           Template.indent(
-            isMainWorld
+            isMainWorld && gecko
               ? Template.asString([
-                  `${_const} __extjsMark = "__extjs__";`,
-                  `${_const} __extjsReqType = "EXTJS_WTW_LOAD";`,
-                  `${_const} __extjsResType = "EXTJS_WTW_LOADED";`,
-                  `${_const} ${MAIN_CLASSIC_LOADER} = ` +
+                  // A page can ask a bridge to load a file and read the
+                  // extension URL off the element, so a failed import ends here.
+                  `${_const} ${MAIN_UNAIDED_LOADER} = ` +
                     f('url, done', [
-                      `${_const} requestId = String(Date.now()) + "-" + Math.random().toString(16).slice(2);`,
-                      `${_const} onMessage = ${f('event', [
+                      'done(Object.assign(new Error("Failed to import a chunk in the MAIN world"), { type: "missing" }));'
+                    ]) +
+                    ';',
+                  `if (!isWorker) ${RuntimeGlobals.loadScript} = ${MAIN_UNAIDED_LOADER};`
+                ])
+              : isMainWorld
+                ? Template.asString([
+                    `${_const} __extjsMark = "__extjs__";`,
+                    `${_const} __extjsReqType = "EXTJS_WTW_LOAD";`,
+                    `${_const} __extjsResType = "EXTJS_WTW_LOADED";`,
+                    `${_const} ${MAIN_CLASSIC_LOADER} = ` +
+                      f('url, done', [
+                        `${_const} requestId = String(Date.now()) + "-" + Math.random().toString(16).slice(2);`,
+                        `${_const} onMessage = ${f('event', [
+                          'try {',
+                          Template.indent([
+                            'if (!event || event.source !== window) return;',
+                            `${_const} data = event.data || null;`,
+                            `if (!data || data[__extjsMark] !== true) return;`,
+                            `if (data.type !== __extjsResType || data.requestId !== requestId) return;`,
+                            'window.removeEventListener("message", onMessage);',
+                            'if (data.ok) done();',
+                            'else done(Object.assign(new Error(data.error || "Bridge failed"), { type: "missing" }));'
+                          ]),
+                          '} catch (e) {',
+                          Template.indent([
+                            'window.removeEventListener("message", onMessage);',
+                            'done(Object.assign(e, { type: "missing" }));'
+                          ]),
+                          '}'
+                        ])};`,
+                        'window.addEventListener("message", onMessage);',
                         'try {',
                         Template.indent([
-                          'if (!event || event.source !== window) return;',
-                          `${_const} data = event.data || null;`,
-                          `if (!data || data[__extjsMark] !== true) return;`,
-                          `if (data.type !== __extjsResType || data.requestId !== requestId) return;`,
-                          'window.removeEventListener("message", onMessage);',
-                          'if (data.ok) done();',
-                          'else done(Object.assign(new Error(data.error || "Bridge failed"), { type: "missing" }));'
+                          'window.postMessage({ [__extjsMark]: true, type: __extjsReqType, requestId: requestId, url: url }, "*");'
                         ]),
                         '} catch (e) {',
                         Template.indent([
                           'window.removeEventListener("message", onMessage);',
                           'done(Object.assign(e, { type: "missing" }));'
                         ]),
-                        '}'
-                      ])};`,
-                      'window.addEventListener("message", onMessage);',
-                      'try {',
-                      Template.indent([
-                        'window.postMessage({ [__extjsMark]: true, type: __extjsReqType, requestId: requestId, url: url }, "*");'
-                      ]),
-                      '} catch (e) {',
-                      Template.indent([
-                        'window.removeEventListener("message", onMessage);',
-                        'done(Object.assign(e, { type: "missing" }));'
-                      ]),
-                      '}',
-                      'setTimeout(function(){ try { window.removeEventListener("message", onMessage); } catch(_){} done(Object.assign(new Error("Bridge timeout"), { type: "missing" })); }, 5000);'
-                    ]) +
-                    ';',
-                  // A base the bundle read off its own stack means no bridge
-                  // shipped, so the chunk is appended here, as the bridge would.
-                  `${_const} __extjsStackBase = ${EXTENSION_BASE_FROM_STACK};`,
-                  `${_const} ${MAIN_DIRECT_LOADER} = ` +
-                    f('url, done', [
-                      `${_const} script = document.createElement("script");`,
-                      'script.src = url;',
-                      'script.async = false;',
-                      `script.onload = ${f('', ['try { script.remove(); } catch (_) {}', 'done();'])};`,
-                      `script.onerror = ${f('', ['try { script.remove(); } catch (_) {}', 'done(Object.assign(new Error("Failed to load script: " + url), { type: "missing" }));'])};`,
-                      '(document.head || document.documentElement).appendChild(script);'
-                    ]) +
-                    ';',
-                  `if (!isWorker) ${RuntimeGlobals.loadScript} = __extjsStackBase ? ${MAIN_DIRECT_LOADER} : ${MAIN_CLASSIC_LOADER};`
-                ])
-              : Template.asString([
-                  `if (!isWorker && hasExtensionRuntime) ${RuntimeGlobals.loadScript} = ${CLASSIC_LOADER};`,
-                  `else if (!isWorker) ${RuntimeGlobals.loadScript} = ${DOM_LOADER};`
-                ])
+                        '}',
+                        'setTimeout(function(){ try { window.removeEventListener("message", onMessage); } catch(_){} done(Object.assign(new Error("Bridge timeout"), { type: "missing" })); }, 5000);'
+                      ]) +
+                      ';',
+                    // A base the bundle read off its own stack means no bridge
+                    // shipped, so the chunk is appended here, as the bridge would.
+                    `${_const} __extjsStackBase = ${EXTENSION_BASE_FROM_STACK};`,
+                    `${_const} ${MAIN_DIRECT_LOADER} = ` +
+                      f('url, done', [
+                        `${_const} script = document.createElement("script");`,
+                        'script.src = url;',
+                        'script.async = false;',
+                        `script.onload = ${f('', ['try { script.remove(); } catch (_) {}', 'done();'])};`,
+                        `script.onerror = ${f('', ['try { script.remove(); } catch (_) {}', 'done(Object.assign(new Error("Failed to load script: " + url), { type: "missing" }));'])};`,
+                        '(document.head || document.documentElement).appendChild(script);'
+                      ]) +
+                      ';',
+                    `if (!isWorker) ${RuntimeGlobals.loadScript} = __extjsStackBase ? ${MAIN_DIRECT_LOADER} : ${MAIN_CLASSIC_LOADER};`
+                  ])
+                : Template.asString([
+                    `if (!isWorker && hasExtensionRuntime) ${RuntimeGlobals.loadScript} = ${CLASSIC_LOADER};`,
+                    `else if (!isWorker) ${RuntimeGlobals.loadScript} = ${DOM_LOADER};`
+                  ])
           ),
           `}`,
 

@@ -644,7 +644,8 @@ export async function devServer(
   const authorMode = Boolean(extendedOptions.authorMode) || isDebug()
   const bridgeActionsFile = allowControl
     ? new ActionsFileWriter({
-        filePath: sessionActionsPath(packageJsonDir, browserName)
+        filePath: sessionActionsPath(packageJsonDir, browserName),
+        owner: {runId: sessionRunId, logsFilePath: bridgeLogsAbsPath}
       })
     : undefined
 

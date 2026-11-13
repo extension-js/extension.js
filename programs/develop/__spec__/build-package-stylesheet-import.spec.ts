@@ -120,7 +120,14 @@ describe('build: a content script imports a stylesheet from a package', () => {
       expect(naming('packaged-sheet')).toEqual([])
       expect(naming('"hosted-only.png" was not found on disk')).toHaveLength(1)
       expect(naming('./gone-beside-own.png')).toHaveLength(1)
-      expect(warnings).toHaveLength(2)
+      // Both sheets are imported for their effect alone, which the build says.
+      expect(
+        ((summary.warnings || []) as string[]).filter((text) =>
+          text.includes('imported only for its side effect')
+        )
+      ).toHaveLength(1)
+
+      expect(warnings).toHaveLength(3)
 
       const bundle = contentBundle(root)
 

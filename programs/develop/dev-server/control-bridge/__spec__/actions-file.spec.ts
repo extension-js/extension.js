@@ -3,6 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {type ActionRecord, ActionsFileWriter, fnv1aHex} from '../actions-file'
+import {LogsFileWriter} from '../logs-file'
 
 let dir: string
 let file: string
@@ -69,6 +70,86 @@ describe('ActionsFileWriter', () => {
     expect(fs.existsSync(file.replace(/\.ndjson$/, '.1.ndjson'))).toBe(true)
     const current = fs.readFileSync(file, 'utf-8').split('\n').filter(Boolean)
     expect(current.map((l) => JSON.parse(l).cmdId)).toEqual(['3'])
+  })
+})
+
+describe('ActionsFileWriter run ownership', () => {
+  function cmdIds(target: string): string[] {
+    if (!fs.existsSync(target)) return []
+
+    return fs
+      .readFileSync(target, 'utf-8')
+      .split(/\r?\n/)
+      .filter(Boolean)
+      .map((l) => JSON.parse(l).cmdId)
+  }
+
+  it('a late write never lands in the file a newer run took', () => {
+    const logsFilePath = path.join(dir, 'logs.ndjson')
+
+    const oldLogs = new LogsFileWriter({filePath: logsFilePath, runId: 'run-A'})
+    const oldActions = new ActionsFileWriter({
+      filePath: file,
+      owner: {runId: 'run-A', logsFilePath}
+    })
+    oldLogs.start()
+    oldActions.start()
+    oldActions.write(rec('old-in-time'))
+
+    const nextLogs = new LogsFileWriter({
+      filePath: logsFilePath,
+      runId: 'run-B'
+    })
+    const nextActions = new ActionsFileWriter({
+      filePath: file,
+      owner: {runId: 'run-B', logsFilePath}
+    })
+    nextLogs.start()
+    nextActions.start()
+
+    oldActions.write(rec('old-late'))
+    nextActions.write(rec('new'))
+    oldActions.close()
+    // A closed writer restarts on write, which would rotate the newer file.
+    oldActions.write(rec('old-after-close'))
+
+    oldLogs.close()
+    nextLogs.close()
+
+    expect(cmdIds(file)).toEqual(['new'])
+    expect(cmdIds(file.replace(/\.ndjson$/, '.1.ndjson'))).toEqual([
+      'old-in-time'
+    ])
+
+    expect(fs.existsSync(file.replace(/\.ndjson$/, '.2.ndjson'))).toBe(false)
+  })
+
+  it('keeps writing while its own run owns the session', () => {
+    const logsFilePath = path.join(dir, 'logs.ndjson')
+    const logs = new LogsFileWriter({filePath: logsFilePath, runId: 'run-A'})
+    const actions = new ActionsFileWriter({
+      filePath: file,
+      owner: {runId: 'run-A', logsFilePath}
+    })
+
+    logs.start()
+    actions.start()
+    actions.write(rec('a'))
+    logs.close()
+    actions.write(rec('b'))
+
+    expect(cmdIds(file)).toEqual(['a', 'b'])
+  })
+
+  it('writes when the session log is missing', () => {
+    const actions = new ActionsFileWriter({
+      filePath: file,
+      owner: {runId: 'run-A', logsFilePath: path.join(dir, 'logs.ndjson')}
+    })
+
+    actions.write(rec('a'))
+
+    expect(cmdIds(file)).toEqual(['a'])
   })
 })
 

@@ -52,6 +52,11 @@ export interface WebExtensionPluginOptions {
   /** Background page/service worker options. */
   background?: BackgroundOptions
   /**
+   * Extension.js internal: the build targets a Gecko browser, where a MAIN
+   * world file opens on the read that takes the extension base.
+   */
+  gecko?: boolean
+  /**
    * Extension.js internal: metadata about emitted content script bundles.
    * Used to make chunk loading runtime world-aware (MAIN world vs isolated world)
    * and to route MAIN world async chunk loading through an isolated-world bridge.

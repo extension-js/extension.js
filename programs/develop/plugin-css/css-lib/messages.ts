@@ -122,6 +122,35 @@ export function lateCssImportIgnored(issuerPath: string, line?: number) {
   ].join('\n')
 }
 
+// The remedies differ by how the script reaches the page: only a declared
+// script has a manifest entry to list a sheet in, or a sheet shipped beside it.
+export function unplacedStyleImport(
+  issuerPath: string,
+  imports: Array<{request: string; line: number}>,
+  declared: boolean
+) {
+  const first = imports[0]
+  const where = first?.line ? `${issuerPath}:${first.line}` : issuerPath
+  const request = first?.request || './styles.css'
+
+  return [
+    `${prefix('warn')} A stylesheet imported only for its side effect styles nothing in a content script.`,
+    `${colors.gray('PATH')} ${colors.underline(where)}`,
+    ...imports.map(
+      (entry) =>
+        `${colors.gray('IMPORT')} ${colors.blue(`import '${entry.request}'`)}`
+    ),
+    `There the import evaluates to the sheet as a ${colors.blue('data:')} URL, and no code reads it.`,
+    `Read the value and place it: ${colors.blue(`import href from '${request}'`)}, then set it on a ${colors.blue('<link rel="stylesheet">')}.`,
+    ...(declared
+      ? [
+          `Or list the sheet under ${colors.blue('content_scripts[].css')} in manifest.json, or use a CSS module (${colors.blue('.module.css')}).`,
+          `Extension.js places it for you only in the shadow root of a host marked ${colors.blue('data-extension-root')}.`
+        ]
+      : [])
+  ].join('\n')
+}
+
 // A config file that is there but cannot be read must not look like no
 // config at all: the two cases need different fixes.
 export function postCssConfigUnreadable(configPath: string, error: unknown) {
