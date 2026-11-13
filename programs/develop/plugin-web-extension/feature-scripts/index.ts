@@ -21,6 +21,7 @@ import {KeepGetURLImportsNative} from './steps/keep-geturl-imports-native'
 import {PairRuntimeMainWorldBridges} from './steps/pair-runtime-main-world-bridges'
 import {PlaceRuntimeScriptSheets} from './steps/place-runtime-script-sheets'
 import {PruneMainWorldBridges} from './steps/prune-main-world-bridges'
+import {RootInjectedSheetUrls} from './steps/root-injected-sheet-urls'
 import {StampWebkitUtf8Bom} from './steps/stamp-webkit-utf8-bom'
 import {TakeExtensionBase} from './steps/take-extension-base'
 import {TraceRuntimeLoadedFiles} from './steps/trace-runtime-loaded-files'
@@ -88,6 +89,13 @@ export class ScriptsPlugin {
     // The author's own call names the script alone, so the sheet of the CSS
     // modules a scripts/ file imports is carried by the file itself.
     new PlaceRuntimeScriptSheets({
+      includeList: this.includeList || {},
+      browser: this.browser
+    }).apply(compiler)
+
+    // Chromium reads a url() in a sheet it injects against the visited page,
+    // so a sheet that ships as a file names its targets from the extension.
+    new RootInjectedSheetUrls({
       includeList: this.includeList || {},
       browser: this.browser
     }).apply(compiler)

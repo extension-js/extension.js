@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {CHROMIUM_EXTENSION_ROOT} from '../plugin-web-extension/feature-scripts/scripts-lib/injected-sheet-urls'
 
 const SUITE_ROOT = fs.mkdtempSync(
   path.join(os.tmpdir(), 'extjs-build-css-public-ref-map-')
@@ -139,8 +140,14 @@ describe('the development source map of a sheet that names a public file', () =>
         authored.trimEnd().split('\n').length
       )
 
+      // Chromium reads the injected sheet's url() against the visited page.
       const sheet = fs.readFileSync(mapPath.replace(/\.map$/, ''), 'utf8')
-      expect(sheet, file).toContain('url("/img/bg.png")')
+      expect(sheet, file).toContain(
+        file.startsWith('content_scripts/')
+          ? `url("${CHROMIUM_EXTENSION_ROOT}img/bg.png")`
+          : 'url("/img/bg.png")'
+      )
+
       expect(sheet, file).not.toContain('extensionjs-public.invalid')
     }
   }, 180_000)

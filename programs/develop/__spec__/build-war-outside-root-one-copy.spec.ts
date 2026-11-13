@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {CHROMIUM_EXTENSION_ROOT} from '../plugin-web-extension/feature-scripts/scripts-lib/injected-sheet-urls'
 
 const SUITE_ROOT = fs.mkdtempSync(
   path.join(os.tmpdir(), 'extjs-build-war-outside-root-')
@@ -121,7 +122,7 @@ describe('build: a web_accessible_resources file outside the project root shares
     const sheet = fs
       .readFileSync(path.join(distDir, 'content_scripts/content-0.css'), 'utf8')
       .replace(/"/g, '')
-    expect(sheet).toContain(`url(/${images[0]})`)
+    expect(sheet).toContain(`url(${CHROMIUM_EXTENSION_ROOT}${images[0]})`)
 
     const manifest = JSON.parse(
       fs.readFileSync(path.join(distDir, 'manifest.json'), 'utf8')
