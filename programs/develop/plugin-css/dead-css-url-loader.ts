@@ -35,6 +35,7 @@ export interface DeadCssUrlLoaderOptions {
   projectPath?: string
   gecko?: boolean
   baseAttribute?: string
+  baseScheme?: string
 }
 
 export interface DeadCssUrlLoaderContext {
@@ -180,6 +181,7 @@ export default function deadCssUrlLoader(
     bundledRequests,
     undefined,
     options.gecko === true,
-    options.baseAttribute
+    options.baseAttribute,
+    options.baseScheme
   )
 }

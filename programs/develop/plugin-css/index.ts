@@ -25,6 +25,7 @@ import {toResourceKey} from '../lib/resource-path'
 import {NOT_RAW_RESOURCE_QUERY} from '../lib/resource-query'
 import {publicContainmentRoot} from '../plugin-special-folders/resolve-public-folder'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../plugin-web-extension/feature-scripts/contracts'
+import {extensionSchemeFor} from '../lib/extension-base-from-stack'
 import {extensionBaseAttributeFor} from '../plugin-web-extension/feature-scripts/scripts-lib/taken-extension-base'
 import {resolveScriptEntryPath} from '../plugin-web-extension/feature-scripts/scripts-lib/utils'
 import type {DevOptions, Manifest, PluginInterface} from '../types'
@@ -78,16 +79,12 @@ export class CssPlugin {
     await maybeUseSass(projectPath)
     await maybeUseLess(projectPath)
 
-    // The key is left out elsewhere so those builds keep their bytes.
     const sfcOptions = {
       manifestPath,
       projectPath,
-      ...(isGeckoBasedBrowser(String(this.browser))
-        ? {
-            gecko: true,
-            baseAttribute: extensionBaseAttributeFor(manifestPath, this.browser)
-          }
-        : {})
+      ...(isGeckoBasedBrowser(String(this.browser)) ? {gecko: true} : {}),
+      baseAttribute: extensionBaseAttributeFor(manifestPath, this.browser),
+      baseScheme: extensionSchemeFor(String(this.browser))
     }
 
     const loaders: RuleSetRule[] = [

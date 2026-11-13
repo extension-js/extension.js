@@ -17,6 +17,7 @@ import {
 import {
   closedOnSlash,
   extensionBaseFromFile,
+  extensionSchemeFor,
   unlessExtensionAddress
 } from '../../../../lib/extension-base-from-stack'
 import {
@@ -457,12 +458,12 @@ export default function contentScriptWrapper(
   // the bridge, so a dev bundle keeps that copy too and asks nothing twice.
   const takesFromFile = isMainWorld && isGeckoBasedBrowser(browser)
   const holdsBridgeBase = takesBridgeBase || takesFromFile
-  const geckoBundle = isGeckoBasedBrowser(browser)
-  // Two extensions share one document, so a Firefox file reads the base
-  // from the attribute its own bridge wrote and trusts no other value.
+  // Two extensions share one document, so a file reads the base from the
+  // attribute its own bridge wrote and trusts no other engine's scheme.
   const baseAttribute = JSON.stringify(
     extensionBaseAttributeFor(manifestPath, browser)
   )
+  const baseScheme = extensionSchemeFor(String(browser))
   // The page's world has no runtime on Firefox, so one found there is the
   // page's own and a file that took its base never asks it for a URL.
   const asksRuntime = (lines: string) => (takesFromFile ? '' : lines)
@@ -510,7 +511,7 @@ export default function contentScriptWrapper(
       ? '    var base = __EXTENSIONJS_BRIDGE_BASE;\n'
       : `    var base = ${takenBridgeBase}"";\n`) +
     `    if (!base && typeof document === "object" && document && document.documentElement) base = String(document.documentElement.getAttribute(${baseAttribute}) || "");\n` +
-    (geckoBundle ? `    ${unlessExtensionAddress('base')}\n` : '') +
+    `    ${unlessExtensionAddress('base', baseScheme)}\n` +
     '    if (!base) return "";\n' +
     (takesFromFile
       ? `    return ${closedOnSlash('base')} + String(path || "").replace(/^\\/+/, "");\n`
@@ -953,9 +954,7 @@ export default function contentScriptWrapper(
         'try {\n' +
         '  var __EXTENSIONJS_html = document.documentElement;\n' +
         `  if (!__EXTENSIONJS_BRIDGE_BASE) __EXTENSIONJS_BRIDGE_BASE = String(__EXTENSIONJS_html.getAttribute(${baseAttribute}) || "");\n` +
-        (takesFromFile
-          ? `  ${unlessExtensionAddress('__EXTENSIONJS_BRIDGE_BASE')}\n`
-          : '') +
+        `  ${unlessExtensionAddress('__EXTENSIONJS_BRIDGE_BASE', baseScheme)}\n` +
         (!takesBridgeBase
           ? ''
           : sharesBridgeBase
@@ -1122,7 +1121,7 @@ export default function contentScriptWrapper(
         `        if (typeof document === "object" && document && document.documentElement) base = String(document.documentElement.getAttribute(${baseAttribute}) || "");\n` +
         '      } catch (error) {}\n' +
         '    }\n' +
-        (geckoBundle ? `    ${unlessExtensionAddress('base')}\n` : '') +
+        `    ${unlessExtensionAddress('base', baseScheme)}\n` +
         '    if (!base) return false;\n' +
         (takesFromFile
           ? '    if (base[base.length - 1] !== "/") base += "/";\n'

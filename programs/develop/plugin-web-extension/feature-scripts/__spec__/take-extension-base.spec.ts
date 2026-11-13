@@ -11,6 +11,15 @@ import {getCanonicalContentScriptEntryName} from '../contracts'
 import {TakeExtensionBase} from '../steps/take-extension-base'
 
 const roots: string[] = []
+const MANIFEST = {
+  manifest_version: 3,
+  name: 'take-base',
+  version: '1.0.0',
+  content_scripts: [
+    {matches: ['<all_urls>'], js: ['content/isolated.js']},
+    {matches: ['<all_urls>'], js: ['content/main.js'], world: 'MAIN'}
+  ]
+}
 
 afterAll(() => {
   for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
@@ -22,18 +31,7 @@ function project() {
   )
   roots.push(root)
 
-  fs.writeFileSync(
-    path.join(root, 'manifest.json'),
-    JSON.stringify({
-      manifest_version: 3,
-      name: 'take-base',
-      version: '1.0.0',
-      content_scripts: [
-        {matches: ['<all_urls>'], js: ['content/isolated.js']},
-        {matches: ['<all_urls>'], js: ['content/main.js'], world: 'MAIN'}
-      ]
-    })
-  )
+  fs.writeFileSync(path.join(root, 'manifest.json'), JSON.stringify(MANIFEST))
 
   return root
 }
@@ -94,8 +92,10 @@ const ISOLATED = `${getCanonicalContentScriptEntryName(0)}.js`
 const MAIN = `${getCanonicalContentScriptEntryName(1)}.js`
 const MAIN_DEV = `${getCanonicalContentScriptEntryName(1)}.1a2b3c4d.js`
 const BODY = '(()=>{window.ran = 1})();'
-// The fixture names no Gecko id and no description, only itself.
-const TAKE_BLOCK_OPEN = takeBlockOpen(extensionBaseGlobal('\ntake-base\n'))
+// The fixture names no Gecko id, so its whole manifest names it.
+const TAKE_BLOCK_OPEN = takeBlockOpen(
+  extensionBaseGlobal(`\ntake-base\n\n${JSON.stringify(MANIFEST)}`)
+)
 
 describe('the step that opens a Gecko MAIN world file on the read of the base', () => {
   it('closes the MAIN world entry in the block, as shipped and as a dev session names it', () => {

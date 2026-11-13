@@ -1,8 +1,10 @@
 import type * as webpack from 'webpack'
 import {
+  CHROMIUM_EXTENSION_SCHEME,
   closedOnSlash,
   EXTENSION_BASE_ATTRIBUTE,
   extensionBaseFromFile,
+  GECKO_EXTENSION_SCHEME,
   TAKEN_EXTENSION_BASE,
   unlessExtensionAddress
 } from '../../../../../../../lib/extension-base-from-stack'
@@ -11,7 +13,8 @@ import {RuntimeGlobal} from './BrowserRuntime'
 export default function PublicPathRuntimeModule(
   webpack: typeof import('webpack'),
   gecko = false,
-  attribute: string = EXTENSION_BASE_ATTRIBUTE
+  attribute: string = EXTENSION_BASE_ATTRIBUTE,
+  scheme: string = gecko ? GECKO_EXTENSION_SCHEME : CHROMIUM_EXTENSION_SCHEME
 ): webpack.RuntimeModule {
   const {RuntimeGlobals, RuntimeModule, Template} = webpack
 
@@ -45,7 +48,7 @@ export default function PublicPathRuntimeModule(
           `try { __extjsBase = document.documentElement.getAttribute(${JSON.stringify(attribute)}) || ""; } catch(_) { __extjsBase = ""; }`
         ]),
         `}`,
-        ...(gecko ? [unlessExtensionAddress('__extjsBase')] : []),
+        unlessExtensionAddress('__extjsBase', scheme),
         `var __extjsRuntimePath = "";`,
         // A Gecko file that opened on the taken base runs in the page's
         // world, where the only runtime to ask is one the page made up.
@@ -73,7 +76,7 @@ export default function PublicPathRuntimeModule(
             Template.indent([
               `var base = "";`,
               `try { base = document.documentElement.getAttribute(${JSON.stringify(attribute)}) || ""; } catch(_) { base = ""; }`,
-              ...(gecko ? [unlessExtensionAddress('base')] : []),
+              unlessExtensionAddress('base', scheme),
               `if (base) {`,
               Template.indent([
                 `${RuntimeGlobals.publicPath} = base.replace(/\\/+$/, "/") + String(${path}).replace(/^\\/+/, "");`

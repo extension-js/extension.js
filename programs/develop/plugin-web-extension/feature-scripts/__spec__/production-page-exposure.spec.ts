@@ -11,6 +11,7 @@ import {
 } from '../../../lib/extension-base-from-stack'
 import {getProjectStructure} from '../../../lib/project'
 import webpackConfig from '../../../rspack-config'
+import {extensionBaseAttributeFor} from '../scripts-lib/taken-extension-base'
 
 const roots: string[] = []
 const EXTENSION_BASE = 'chrome-extension://abcdefghijklmnop/'
@@ -112,6 +113,11 @@ async function compile(
 
   return {
     emitted,
+    // The attribute this build's bridge writes and its files read.
+    attribute: extensionBaseAttributeFor(
+      path.join(root, 'manifest.json'),
+      browser
+    ),
     errors: (stats.toJson({errors: true}).errors || []).map(
       (error) => error.message || String(error)
     ),
@@ -731,7 +737,7 @@ describe('one image a declared sheet, an imported sheet and a page sheet all nam
     const host = element('div')
     host.setAttribute('data-extension-root', 'true')
     host.shadowRoot = shadow
-    world.html.setAttribute(BASE_ATTRIBUTE, EXTENSION_BASE)
+    world.html.setAttribute(production.attribute, EXTENSION_BASE)
     world.run(production.read(String(main?.js[0])))
     await world.settle(30, (round) => {
       if (round === 3) world.hosts.push(host)
@@ -771,7 +777,7 @@ describe('the extension base a MAIN-world bundle reads off the page', () => {
     'content/main.ts':
       'import blobUrl from "./blob.bin?url"\n' +
       'globalThis.__seenAsset = String(blobUrl)\n' +
-      'globalThis.__seenAttribute = document.documentElement.getAttribute("data-extjs-extension-base")\n' +
+      'globalThis.__seenAttribute = document.documentElement.getAttribute(globalThis.__baseAttribute)\n' +
       'export {}\n'
   }
 
@@ -797,11 +803,16 @@ describe('the extension base a MAIN-world bundle reads off the page', () => {
     expect(asset, production.emitted.join(', ')).toBeDefined()
 
     const world = page({runtime: false})
-    world.html.setAttribute(BASE_ATTRIBUTE, EXTENSION_BASE)
+    world.context.__baseAttribute = production.attribute
+    world.html.setAttribute(production.attribute, EXTENSION_BASE)
     world.run(production.read(String(main?.js[0])))
     await world.settle(5)
 
-    expect(world.html.hasAttribute(BASE_ATTRIBUTE)).toBe(false)
+    expect(production.attribute).toMatch(
+      /^data-extjs-extension-base-[0-9a-f]{8}$/
+    )
+
+    expect(world.html.hasAttribute(production.attribute)).toBe(false)
     expect(world.context.__seenAttribute).toBeNull()
     expect(world.context.__seenAsset).toBe(`${EXTENSION_BASE}${asset}`)
     expect(world.context).not.toHaveProperty('__EXTJS_EXTENSION_BASE__')
@@ -1106,7 +1117,7 @@ describe('the extension base a MAIN-world bundle reads off the page', () => {
     }
   }, 180_000)
 
-  it('keeps the shared attribute and no keyed one in a Chromium bundle', async () => {
+  it('reads the attribute of its own extension in a Chromium bundle, and no shared one', async () => {
     const production = await compile(
       scaffold('main-chromium-readers', quietFiles),
       'production',
@@ -1119,8 +1130,14 @@ describe('the extension base a MAIN-world bundle reads off the page', () => {
       .content_scripts.find((script) => script.world === 'MAIN')
     const bundle = production.read(String(main?.js[0]))
 
-    expect(bundle).toContain(`"${BASE_ATTRIBUTE}"`)
-    expect(bundle).not.toContain(`${BASE_ATTRIBUTE}-`)
+    expect(production.attribute).toMatch(
+      /^data-extjs-extension-base-[0-9a-f]{8}$/
+    )
+
+    expect(bundle).toContain(`"${production.attribute}"`)
+    expect(bundle).not.toContain(`"${BASE_ATTRIBUTE}"`)
+    expect(bundle).toContain('"chrome-extension://"')
+    expect(bundle).not.toContain('moz-extension:')
   }, 180_000)
 
   it('leaves no file of any browser or mode reading the shared global', async () => {
@@ -1256,7 +1273,8 @@ describe('the extension base a MAIN-world bundle reads off the page', () => {
 
     for (const bundle of bundles) {
       expect(bundle).toContain('__EXTENSIONJS_BRIDGE_BASE')
-      expect(bundle).toContain(`removeAttribute("${BASE_ATTRIBUTE}")`)
+      expect(bundle).toContain(`removeAttribute("${development.attribute}")`)
+      expect(bundle).not.toContain(`"${BASE_ATTRIBUTE}"`)
       expect(bundle).not.toContain('__extjsTakenBase')
       expect(bundle).not.toContain(BASE_GETTER_REMOVAL)
     }
@@ -1581,5 +1599,27 @@ describe('a MAIN-world script that never resolves a URL against the extension', 
     )
     expect(development.errors).toEqual([])
     expect(development.manifest().content_scripts).toHaveLength(2)
+  }, 180_000)
+
+  it('builds that bridge to write under its own extension and take one scheme', async () => {
+    const development = await compile(
+      scaffold('main-plain-dev-bridge', files),
+      'development'
+    )
+    expect(development.errors).toEqual([])
+
+    const bridges = development.emitted
+      .filter((entry) => entry.endsWith('.js'))
+      .map((entry) => development.read(entry))
+      .filter((source) => source.includes('publishOnDocument'))
+
+    expect(bridges.length, development.emitted.join(', ')).toBeGreaterThan(0)
+
+    for (const bridge of bridges) {
+      expect(bridge).toContain(`"${development.attribute}"`)
+      expect(bridge).toContain('"chrome-extension"')
+      expect(bridge).not.toContain('__EXTJS_PAGE_BASE_ATTRIBUTE__')
+      expect(bridge).not.toContain('__EXTJS_EXTENSION_SCHEME__')
+    }
   }, 180_000)
 })
