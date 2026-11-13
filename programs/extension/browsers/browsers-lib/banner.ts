@@ -20,6 +20,7 @@ import {
 import type {BrowserType} from '../browsers-types'
 import {isChromiumBrowser, isFirefoxBrowser} from './browser-family'
 import * as messages from './messages'
+import {readReadyDevAdditions} from './ready-stamp'
 
 type Info = {extensionId?: string; name?: string; version?: string} | null
 type HostPort = {host?: string; port?: number | string}
@@ -330,6 +331,11 @@ export async function printDevBannerOnce(opts: {
       }
     )
   )
+
+  const devAdditions = messages.devAdditionsNote(
+    readReadyDevAdditions(opts.outPath)
+  )
+  if (devAdditions) humanLine(devAdditions)
 
   humanLine(messages.emptyLine())
   markCardPrinted(k, opts.browser, opts.outPath)

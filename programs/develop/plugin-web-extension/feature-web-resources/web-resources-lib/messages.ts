@@ -144,6 +144,23 @@ export function warUnreachableResource(resource: string, entryName: string) {
   return lines.join('\n')
 }
 
+export function warPageNamedNotExposed(file: string, page: string) {
+  const lines: string[] = []
+  lines.push(
+    `${colors.underline(file)} names ${colors.blue(page)} without building its URL, so the page stays out of ${colors.blue('web_accessible_resources')} and no web page can frame or fetch it.`
+  )
+
+  lines.push(
+    `Nothing to do when the script only passes the path along, for the background to open in a tab for example.`
+  )
+
+  lines.push(
+    `If the script loads the page itself, pass the path to ${colors.blue('chrome.runtime.getURL')} or list it under ${colors.blue('web_accessible_resources')} in ${colors.blue('manifest.json')}, scoped to the matches that need it.`
+  )
+
+  return lines.join('\n')
+}
+
 export function warInjectedScriptExposed(file: string, resources: string[]) {
   const lines: string[] = []
   lines.push(

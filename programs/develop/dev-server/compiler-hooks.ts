@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compiler, Stats} from '@rspack/core'
+import {devAdditionsOf} from '../lib/dev-additions'
 import {renderStatsBlocks} from '../lib/stats-handler'
 import {humanLine} from './lifecycle-stream'
 import * as messages from './messages'
@@ -53,6 +54,11 @@ export function setupNoBrowserBannerOnFirstDone(opts: {
           distPath: opts.distPath
         })
       )
+
+      const devAdditions = messages.devAdditionsNote(
+        devAdditionsOf(stats?.compilation) || []
+      )
+      if (devAdditions) humanLine(devAdditions)
 
       humanLine(messages.spacerLine())
       humanLine(messages.ready('development', opts.browser))

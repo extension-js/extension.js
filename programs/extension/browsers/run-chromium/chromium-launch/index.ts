@@ -65,6 +65,7 @@ import {
   readReadyRunId,
   stampReadyBrowserExited,
   stampReadyBrowserLaunch,
+  stampReadyDevBrowserFlag,
   stampReadyBrowserLaunchFailed,
   stampReadyBrowserUpNotAttached,
   stampReadyCdpFault,
@@ -98,7 +99,11 @@ import {
   findMissingManifestFiles,
   waitForStableManifest
 } from '../manifest-readiness'
-import {browserConfig, chromiumLaunchPlan} from './browser-config'
+import {
+  browserConfig,
+  chromiumLaunchPlan,
+  silentDebuggerFlagReport
+} from './browser-config'
 import {logChromiumDryRun} from './dry-run'
 import {getExtensionOutputPath} from './extension-output-path'
 import {chromiumForkInstallGuidance} from './fork-install-guidance'
@@ -1263,6 +1268,14 @@ export class ChromiumLaunchPlugin {
       },
       this.closeHandlerContext?.runId
     )
+
+    if (compilation.options.mode === 'development') {
+      stampReadyDevBrowserFlag(
+        launchOutputPath,
+        silentDebuggerFlagReport(chromiumConfig, extensionsToLoad),
+        this.closeHandlerContext?.runId
+      )
+    }
 
     // Extract pipe streams for CDP transport: child.stdio[3] writes commands to
     // Chrome, child.stdio[4] reads responses.

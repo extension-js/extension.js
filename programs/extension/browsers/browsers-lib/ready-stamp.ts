@@ -507,6 +507,83 @@ export function launchFailureCode(error: unknown): string | undefined {
   return typeof code === 'string' && code.startsWith('E_') ? code : undefined
 }
 
+// One thing a dev session has that the production build of the same source
+// does not, in the shape the dev server writes under devAdditions.
+export interface DevAdditionEntry {
+  kind: string
+  value: string
+  reason?: string
+  matches?: string[]
+  applied?: boolean
+  // A browser flag only: what decided applied, so a reader need not parse reason.
+  cause?:
+    | 'default'
+    | 'browser-flags'
+    | 'debugger-permission'
+    | 'exclude-browser-flags'
+  change?: string
+}
+
+function devAdditionEntries(value: unknown): DevAdditionEntry[] {
+  if (!Array.isArray(value)) return []
+
+  return value.filter(
+    (entry): entry is DevAdditionEntry =>
+      Boolean(entry) &&
+      typeof (entry as DevAdditionEntry).kind === 'string' &&
+      typeof (entry as DevAdditionEntry).value === 'string'
+  )
+}
+
+// What the card prints under itself: the grants the dev server recorded and
+// the flag verdict the launcher stamped beside them.
+export function readReadyDevAdditions(
+  extensionOutputPath: string | undefined
+): DevAdditionEntry[] {
+  try {
+    if (!extensionOutputPath) return []
+
+    const readyPath = readyPathFor(extensionOutputPath)
+    if (!fs.existsSync(readyPath)) return []
+
+    return devAdditionEntries(
+      JSON.parse(fs.readFileSync(readyPath, 'utf-8'))?.devAdditions
+    )
+  } catch {
+    return []
+  }
+}
+
+// Name a launch flag that changes what the developer sees, and how to flip
+// it. The dev server keeps these entries across recompiles.
+export function stampReadyDevBrowserFlag(
+  extensionOutputPath: string | undefined,
+  flag: DevAdditionEntry,
+  runId?: string
+) {
+  try {
+    if (!extensionOutputPath || !flag?.value) return
+
+    const readyPath = readyPathFor(extensionOutputPath)
+    if (!fs.existsSync(readyPath)) return
+
+    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    if (isForeignRun(ready, runId)) return
+
+    ready.devAdditions = [
+      ...devAdditionEntries(ready.devAdditions).filter(
+        (entry) =>
+          !(entry.kind === 'browser_flag' && entry.value === flag.value)
+      ),
+      {...flag, kind: 'browser_flag'}
+    ]
+
+    writeJsonAtomic(readyPath, ready)
+  } catch {
+    // best-effort, never block launch on this
+  }
+}
+
 // A CDP fault after launch keeps the session alive and ready, so the contract
 // names it beside the status instead of flipping to an error over it.
 export function stampReadyCdpFault(

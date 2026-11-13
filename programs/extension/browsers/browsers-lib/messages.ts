@@ -1893,6 +1893,53 @@ export function runningInDevelopment(
   })
 }
 
+// What the session has that the production build lacks, one line per kind
+// under the card. The reasons stay in the ready contract, under devAdditions.
+export function devAdditionsNote(
+  additions: ReadonlyArray<{
+    kind: string
+    value: string
+    applied?: boolean
+    cause?: string
+  }>
+): string {
+  const row = (label: string, value: string) =>
+    `    ${label.padEnd(15)}${colors.gray(value)}`
+  const valuesOf = (kind: string) => [
+    ...new Set(
+      additions.filter((entry) => entry.kind === kind).map((e) => e.value)
+    )
+  ]
+  const lines: string[] = []
+  const kinds = [
+    ['permission', 'permissions'],
+    ['host_permission', 'host access'],
+    ['web_accessible_resource', 'web_accessible_resources']
+  ]
+
+  for (const [kind, noun] of kinds) {
+    const values = valuesOf(kind)
+    if (!values.length) continue
+
+    lines.push(row('Dev only', `${noun} ${values.join(', ')}`))
+  }
+
+  for (const flag of additions.filter((e) => e.kind === 'browser_flag')) {
+    const verdict =
+      flag.cause === 'debugger-permission'
+        ? 'left out for the debugger permission, browserFlags restores it'
+        : flag.cause === 'exclude-browser-flags' || flag.applied === false
+          ? 'left out by excludeBrowserFlags, the debugger bar shows'
+          : flag.cause === 'browser-flags'
+            ? 'hides the debugger bar, passed by browserFlags'
+            : 'hides the debugger bar, excludeBrowserFlags shows it'
+
+    lines.push(row('Dev flag', `${flag.value} ${verdict}`))
+  }
+
+  return lines.join('\n')
+}
+
 export function emptyLine() {
   // Turbo-prefixed logs can collapse truly empty lines; keep one space.
   return ' '
