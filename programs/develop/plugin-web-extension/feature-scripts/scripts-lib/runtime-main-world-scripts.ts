@@ -114,6 +114,8 @@ interface SourceFacts {
   // The modules a constant was read from, which the stamp above cannot see.
   constantSources: Array<{file: string; stamp: string}>
   mainWorldFiles: string[]
+  // The MAIN world paths a registration names, which the browser keeps.
+  keptMainWorldFiles: string[]
   // The paths a call runs in the isolated world, or in one it cannot name.
   isolatedFiles: string[]
   // The calls that name a file and leave its world to the running code.
@@ -207,6 +209,13 @@ function readSourceFacts(
     scope: resolveImport.scope,
     constantSources,
     mainWorldFiles,
+    keptMainWorldFiles: [
+      ...new Set(
+        sightings
+          .filter((sighting) => sighting.world === 'MAIN' && sighting.kept)
+          .map((sighting) => sighting.file)
+      )
+    ],
     isolatedFiles: filesIn('ISOLATED', 'UNKNOWN'),
     unknownWorlds: [...unknownWorlds.values()],
     injectedFiles: names
@@ -261,6 +270,8 @@ function registeredEntryName(literal: string): string | null {
 interface RegisteredWorlds {
   // Each entry name put in the MAIN world and the first source that names it.
   main: Map<string, string>
+  // The entry names a registration puts in the MAIN world.
+  kept: Set<string>
   isolated: Set<string>
 }
 
@@ -272,8 +283,14 @@ function readRegisteredWorlds(
 ): RegisteredWorlds {
   const main = new Map<string, string>()
   const isolated = new Set<string>()
+  const kept = new Set<string>()
 
   for (const facts of readReachableFacts(files, projectPath)) {
+    for (const literal of facts.keptMainWorldFiles) {
+      const name = registeredEntryName(literal)
+      if (name) kept.add(name)
+    }
+
     for (const literal of facts.mainWorldFiles) {
       const name = registeredEntryName(literal)
       if (name && !main.has(name)) main.set(name, facts.file)
@@ -285,7 +302,7 @@ function readRegisteredWorlds(
     }
   }
 
-  return {main, isolated}
+  return {main, kept, isolated}
 }
 
 const sameFiles = (left: string[], right: string[]) =>
@@ -325,14 +342,18 @@ export function findRuntimeMainWorldEntries(
     const copyName = mainWorldCopyEntryName(entryName)
     const taken = entries.get(copyName)
     // A file of the author's own under the copy's name keeps that name.
-    const copied =
-      registered.isolated.has(entryName) && (!taken || sameFiles(taken, files))
+    const free = !taken || sameFiles(taken, files)
+    const copy = {entryName: copyName, files, registeredBy, copyOf: entryName}
 
-    found.push(
-      copied
-        ? {entryName: copyName, files, registeredBy, copyOf: entryName}
-        : {entryName, files, registeredBy}
-    )
+    if (registered.isolated.has(entryName) && free) {
+      found.push(copy)
+      continue
+    }
+
+    found.push({entryName, files, registeredBy})
+    // The browser keeps the path a file was registered under, and the copy
+    // is the one path that stays a MAIN world build when the worlds change.
+    if (registered.kept.has(entryName) && free) found.push(copy)
   }
 
   return found

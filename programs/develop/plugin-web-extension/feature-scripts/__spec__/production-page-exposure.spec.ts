@@ -4,6 +4,7 @@ import * as path from 'node:path'
 import vm from 'node:vm'
 import {rspack, type Stats} from '@rspack/core'
 import {afterAll, describe, expect, it} from 'vitest'
+import {MAIN_WORLD_COPY_SUFFIX} from '../contracts'
 import {CHROMIUM_EXTENSION_ROOT} from '../scripts-lib/injected-sheet-urls'
 import {
   EXTENSION_BASE_GLOBAL,
@@ -1499,6 +1500,8 @@ describe('the extension base two runtime-registered MAIN world files share', () 
 
     const bundles = development.emitted
       .filter((entry) => entry.endsWith('.js'))
+      // A registered file ships a copy a stored registration stays on.
+      .filter((entry) => !entry.includes(MAIN_WORLD_COPY_SUFFIX))
       .map((entry) => development.read(entry))
       .filter((source) => source.includes('__firstAsset'))
 

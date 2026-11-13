@@ -161,12 +161,20 @@ export class WarnMainWorldRegistrationChanged {
 
         const changed: Array<{files: string[]; registeredBy?: string}> = []
 
+        // A file and its MAIN world copy are two entries of one script,
+        // which the author is told about once.
+        const note = (entry: {files: string[]; registeredBy?: string}) => {
+          if (changed.some(({files}) => files[0] === entry.files[0])) return
+
+          changed.push(entry)
+        }
+
         for (const [entryName, entry] of now) {
-          if (!atStart.has(entryName)) changed.push(entry)
+          if (!atStart.has(entryName)) note(entry)
         }
 
         for (const [entryName, files] of atStart) {
-          if (!now.has(entryName)) changed.push({files})
+          if (!now.has(entryName)) note({files})
         }
 
         // A live session rebuilds itself with the new list. Without one, or
