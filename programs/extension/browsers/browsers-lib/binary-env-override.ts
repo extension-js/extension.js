@@ -17,13 +17,35 @@ const CHROME_OVERRIDES = [
   'CHROME_BINARY'
 ]
 
-// The variables each locator accepts as "run this binary", in its own order.
+// The variables that mean "run this binary" for each browser, in the order
+// they are read. Chromium answers to its own name only.
 export function binaryOverrideNames(browser: string): string[] {
   if (browser === 'edge') return ['EDGE_BINARY']
   if (browser === 'firefox') return ['FIREFOX_BINARY']
-  if (browser === 'chrome' || browser === 'chromium') return CHROME_OVERRIDES
+  if (browser === 'chrome') return CHROME_OVERRIDES
+  if (browser === 'chromium') return ['CHROMIUM_BINARY']
 
   return []
+}
+
+export interface BinaryEnvOverride {
+  name: string
+  path: string
+}
+
+// The first variable the person set for this browser, whether or not the
+// path exists, so a typo is caught instead of skipped.
+export function binaryEnvOverride(
+  browser: string,
+  env: Env = process.env
+): BinaryEnvOverride | null {
+  for (const name of binaryOverrideNames(browser)) {
+    const value = String(env[name] || '').trim()
+
+    if (value) return {name, path: value}
+  }
+
+  return null
 }
 
 function pathKey(value: string): string {

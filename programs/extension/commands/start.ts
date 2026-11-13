@@ -138,7 +138,7 @@ export function registerStartCommand(program: Command) {
     )
     .option(
       '--chromium-binary <path-to-binary>',
-      'specify a path to the Chromium binary. This option overrides the --browser setting. Defaults to the system default'
+      'specify a path to the Chromium binary. This option overrides the --browser setting and the binary variables. Without it the managed install runs, then the system install'
     )
     .addOption(geckoBinaryOption())
     .addOption(firefoxBinaryAliasOption())
