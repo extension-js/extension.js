@@ -14,6 +14,8 @@ export default class WebExtensionChuckLoaderRuntimePlugin {
   private readonly gecko: boolean
   // The attribute this extension's bridge writes the base under.
   private readonly baseAttribute: string | undefined
+  // The one scheme the build's engine serves an extension under.
+  private readonly baseScheme: string | undefined
 
   constructor(options: any) {
     // Back-compat:
@@ -26,6 +28,10 @@ export default class WebExtensionChuckLoaderRuntimePlugin {
     this.baseAttribute =
       typeof this.pluginOptions.baseAttribute === 'string'
         ? this.pluginOptions.baseAttribute
+        : undefined
+    this.baseScheme =
+      typeof this.pluginOptions.baseScheme === 'string'
+        ? this.pluginOptions.baseScheme
         : undefined
   }
 
@@ -81,7 +87,8 @@ export default class WebExtensionChuckLoaderRuntimePlugin {
             BaseUriRuntimeModule(
               compiler.webpack,
               this.gecko,
-              this.baseAttribute
+              this.baseAttribute,
+              this.baseScheme
             )
           )
           return true
@@ -103,7 +110,8 @@ export default class WebExtensionChuckLoaderRuntimePlugin {
             const module = AutoPublicPathRuntimeModule(
               compiler.webpack,
               this.gecko,
-              this.baseAttribute
+              this.baseAttribute,
+              this.baseScheme
             )
             set.add(RuntimeGlobal)
             if (scriptType !== 'module') set.add(RuntimeGlobals.global)
@@ -113,7 +121,8 @@ export default class WebExtensionChuckLoaderRuntimePlugin {
             const module: any = PublicPathRuntimeModule(
               compiler.webpack,
               this.gecko,
-              this.baseAttribute
+              this.baseAttribute,
+              this.baseScheme
             )
 
             if (

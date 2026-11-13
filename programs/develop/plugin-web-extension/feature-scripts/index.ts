@@ -102,6 +102,7 @@ export class ScriptsPlugin {
     // The author's own call names the script alone, so the sheet of the CSS
     // modules a scripts/ file imports is carried by the file itself.
     new PlaceRuntimeScriptSheets({
+      manifestPath: this.manifestPath,
       includeList,
       browser: this.browser
     }).apply(compiler)

@@ -14,6 +14,7 @@ import {isGeckoBasedBrowser} from '../../../lib/constants'
 import {
   closedOnSlash,
   extensionBaseFromFile,
+  extensionSchemeFor,
   TAKEN_EXTENSION_BASE,
   unlessExtensionAddress
 } from '../../../lib/extension-base-from-stack'
@@ -54,11 +55,18 @@ export class AddPublicPathRuntimeModule {
       this.options.browser || 'chrome'
     )
 
+    const scheme = extensionSchemeFor(String(this.options.browser || 'chrome'))
+
     compiler.hooks.compilation.tap('PublicPathRuntimeModule', (compilation) => {
       compilation.hooks.runtimeRequirementInTree
         .for(RuntimeGlobals.publicPath)
         .tap(AddPublicPathRuntimeModule.name, (chunk) => {
-          const module = PublicPathRuntimeModule(compiler, gecko, attribute)
+          const module = PublicPathRuntimeModule(
+            compiler,
+            gecko,
+            attribute,
+            scheme
+          )
 
           compilation.addRuntimeModule(chunk, module)
 
@@ -71,7 +79,8 @@ export class AddPublicPathRuntimeModule {
 function PublicPathRuntimeModule(
   compiler: Compiler,
   gecko: boolean,
-  attribute: string
+  attribute: string,
+  scheme: string
 ) {
   const {Template, RuntimeModule, RuntimeGlobals} = compiler.webpack
   class PublicPathRuntimeModule extends RuntimeModule {
@@ -92,7 +101,7 @@ function PublicPathRuntimeModule(
           `try { __extjsBase = document.documentElement.getAttribute(${JSON.stringify(attribute)}) || ""; } catch(_) { __extjsBase = ""; }`
         ]),
         `}`,
-        ...(gecko ? [unlessExtensionAddress('__extjsBase')] : []),
+        unlessExtensionAddress('__extjsBase', scheme),
         `var path = ${JSON.stringify(
           this.compilation?.getPath((publicPath as string) || '', {
             hash: this.compilation.hash || 'XXXX'

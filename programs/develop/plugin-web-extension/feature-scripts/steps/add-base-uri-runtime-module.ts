@@ -9,8 +9,11 @@
 import type {Compiler} from '@rspack/core'
 import {isGeckoBasedBrowser} from '../../../lib/constants'
 import {
+  CHROMIUM_EXTENSION_SCHEME,
   EXTENSION_BASE_ATTRIBUTE,
   extensionBaseFromFile,
+  extensionSchemeFor,
+  GECKO_EXTENSION_SCHEME,
   unlessExtensionAddress
 } from '../../../lib/extension-base-from-stack'
 import type {DevOptions} from '../../../types'
@@ -40,6 +43,8 @@ export class AddBaseUriRuntimeModule {
       browser
     )
 
+    const scheme = extensionSchemeFor(String(browser))
+
     compiler.hooks.compilation.tap('BaseUriRuntimeModule', (compilation) => {
       compilation.hooks.additionalTreeRuntimeRequirements.tap(
         AddBaseUriRuntimeModule.name,
@@ -50,7 +55,7 @@ export class AddBaseUriRuntimeModule {
 
           compilation.addRuntimeModule(
             chunk,
-            BaseUriRuntimeModule(compiler, gecko, attribute)
+            BaseUriRuntimeModule(compiler, gecko, attribute, scheme)
           )
         }
       )
@@ -77,7 +82,8 @@ function isWorkerEntry(compiler: Compiler, name: string | null | undefined) {
 export function baseUriRuntimeSource(
   baseUriGlobal: string,
   gecko = false,
-  attribute: string = EXTENSION_BASE_ATTRIBUTE
+  attribute: string = EXTENSION_BASE_ATTRIBUTE,
+  scheme: string = gecko ? GECKO_EXTENSION_SCHEME : CHROMIUM_EXTENSION_SCHEME
 ): string[] {
   return [
     `var __extjsBase = "";`,
@@ -91,7 +97,7 @@ export function baseUriRuntimeSource(
     `if (!__extjsBase && typeof document === "object" && document && document.documentElement) {`,
     `  try { __extjsBase = String(document.documentElement.getAttribute(${JSON.stringify(attribute)}) || ""); } catch (_) { __extjsBase = ""; }`,
     `}`,
-    ...(gecko ? [unlessExtensionAddress('__extjsBase')] : []),
+    unlessExtensionAddress('__extjsBase', scheme),
     `if (__extjsBase) {`,
     `  ${baseUriGlobal} = __extjsBase;`,
     `} else if (typeof document === "object" && document && document.baseURI) {`,
@@ -105,7 +111,8 @@ export function baseUriRuntimeSource(
 function BaseUriRuntimeModule(
   compiler: Compiler,
   gecko: boolean,
-  attribute: string
+  attribute: string,
+  scheme: string
 ) {
   const {Template, RuntimeModule, RuntimeGlobals} = compiler.webpack
 
@@ -116,7 +123,7 @@ function BaseUriRuntimeModule(
 
     generate() {
       return Template.asString(
-        baseUriRuntimeSource(RuntimeGlobals.baseURI, gecko, attribute)
+        baseUriRuntimeSource(RuntimeGlobals.baseURI, gecko, attribute, scheme)
       )
     }
   }

@@ -7,7 +7,6 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import * as fs from 'node:fs'
-import {isGeckoBasedBrowser} from '../../../lib/constants'
 import {
   EXTENSION_BASE_ATTRIBUTE,
   EXTENSION_BASE_GLOBAL,
@@ -38,7 +37,8 @@ export function extensionBaseGlobalFor(
   const known = globals.get(key)
   if (known) return known
 
-  let global = EXTENSION_BASE_GLOBAL
+  // A manifest nobody can read still names one extension by where it is.
+  let global = extensionBaseGlobal(manifestPath)
 
   try {
     const manifest = filterKeysForThisBrowser(
@@ -50,14 +50,17 @@ export function extensionBaseGlobalFor(
       browser_specific_settings?: {gecko?: {id?: unknown}}
     }
 
+    const id = manifest.browser_specific_settings?.gecko?.id
+    const named = [id, manifest.name, manifest.description]
+      .map((part) => (typeof part === 'string' ? part : ''))
+      .join('\n')
+
+    // Two extensions can share a localized name token and carry no id, so
+    // without one the whole manifest tells them apart.
     global = extensionBaseGlobal(
-      [
-        manifest.browser_specific_settings?.gecko?.id,
-        manifest.name,
-        manifest.description
-      ]
-        .map((part) => (typeof part === 'string' ? part : ''))
-        .join('\n')
+      typeof id === 'string' && id
+        ? named
+        : `${named}\n${JSON.stringify(manifest)}`
     )
   } catch {
     // A manifest nobody can read is the build's own error to report.
@@ -68,15 +71,13 @@ export function extensionBaseGlobalFor(
   return global
 }
 
-// The attribute one extension's bridge writes and its files read. Only a
-// Gecko build keys it, so every other build keeps the bytes it had.
+// The attribute one extension's bridge writes and its files read. Every
+// engine keys it, so two extensions on one document never share a name.
 export function extensionBaseAttributeFor(
   manifestPath: string | undefined,
   browser: DevOptions['browser'] = 'firefox'
 ): string {
-  if (!manifestPath || !isGeckoBasedBrowser(String(browser))) {
-    return EXTENSION_BASE_ATTRIBUTE
-  }
+  if (!manifestPath) return EXTENSION_BASE_ATTRIBUTE
 
   return extensionBaseAttribute(extensionBaseGlobalFor(manifestPath, browser))
 }

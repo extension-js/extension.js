@@ -62,6 +62,11 @@ export interface WebExtensionPluginOptions {
    */
   baseAttribute?: string
   /**
+   * Extension.js internal: the one scheme the build's engine serves an
+   * extension under, the only one a base read off the document may have.
+   */
+  baseScheme?: string
+  /**
    * Extension.js internal: metadata about emitted content script bundles.
    * Used to make chunk loading runtime world-aware (MAIN world vs isolated world)
    * and to route MAIN world async chunk loading through an isolated-world bridge.

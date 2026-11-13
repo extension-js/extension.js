@@ -42,13 +42,17 @@ export function runtimeScriptSheetBlock(input: {
   entryName: string
   devSalt: string
   gecko: boolean
+  baseAttribute?: string
+  baseScheme?: string
 }): string {
   const {css, entryName, devSalt, gecko} = input
   const body = toRuntimeStylesheetModule(
     rootedSheet(css),
     [],
     sfcStyleBlockId(runtimeScriptSheetName(entryName), '', devSalt),
-    gecko
+    gecko,
+    input.baseAttribute,
+    input.baseScheme
   )
     .split('\n')
     .map((line) => line.trim())

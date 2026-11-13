@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {createHash} from 'node:crypto'
+import {isGeckoBasedBrowser, isWebkitBasedBrowser} from './constants'
 
 export const EXTENSION_BASE_FROM_STACK =
   '(function(){try{var m=String(new Error().stack||"").match(/[a-z-]+-extension:\\/\\/[^\\/\\s)]+\\//);return m?m[0]:""}catch(_){return ""}})()'
@@ -29,10 +30,29 @@ export function closedOnSlash(name: string): string {
   return `(${name}[${name}.length - 1] === "/" ? ${name} : ${name} + "/")`
 }
 
-// A page can write the document's copy of the base, so a Gecko reader
-// drops a value that is no extension address before it builds a URL on it.
-export function unlessExtensionAddress(name: string): string {
-  return `if (typeof ${name} !== "string" || ${name} < "moz-extension://" || ${name} >= "moz-extension:/0") ${name} = "";`
+export const GECKO_EXTENSION_SCHEME = 'moz-extension'
+export const CHROMIUM_EXTENSION_SCHEME = 'chrome-extension'
+export const WEBKIT_EXTENSION_SCHEME = 'safari-web-extension'
+
+// Each engine serves an extension under one scheme, so a build accepts a
+// base in that scheme and in no other.
+export function extensionSchemeFor(browser: string): string {
+  if (isGeckoBasedBrowser(browser)) return GECKO_EXTENSION_SCHEME
+  if (isWebkitBasedBrowser(browser)) return WEBKIT_EXTENSION_SCHEME
+
+  return CHROMIUM_EXTENSION_SCHEME
+}
+
+// A page can write the document's copy of the base, so a reader drops a
+// value that is no extension address before it builds a URL on it.
+export function unlessExtensionAddress(
+  name: string,
+  scheme: string = GECKO_EXTENSION_SCHEME
+): string {
+  const from = JSON.stringify(`${scheme}://`)
+  const to = JSON.stringify(`${scheme}:/0`)
+
+  return `if (typeof ${name} !== "string" || ${name} < ${from} || ${name} >= ${to}) ${name} = "";`
 }
 
 const KEYED_GLOBAL = /^__EXTJS_EXTENSION_BASE_(?:[0-9a-f]{8}_)?_/

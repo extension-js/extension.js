@@ -146,8 +146,9 @@ describe('extensionBaseGlobalFor', () => {
       const global = extensionBaseGlobalFor(first.file, 'firefox')
 
       expect(global).toBe(extensionBaseGlobal('first@example.com\nFirst\nOne'))
+      // No id names this one, so its whole manifest does.
       expect(extensionBaseGlobalFor(second.file, 'firefox')).toBe(
-        extensionBaseGlobal('\nSecond\n')
+        extensionBaseGlobal('\nSecond\n\n{"name":"Second"}')
       )
 
       expect(extensionBaseGlobalFor(second.file, 'firefox')).not.toBe(global)
@@ -175,7 +176,7 @@ describe('extensionBaseGlobalFor', () => {
     }
   })
 
-  it('keys the attribute of a Gecko build and of no other', () => {
+  it('keys the attribute on every engine, one name per manifest', () => {
     const first = written({name: 'Keyed first'})
     const second = written({name: 'Keyed second'})
 
@@ -192,9 +193,14 @@ describe('extensionBaseGlobalFor', () => {
       )
 
       for (const browser of ['chrome', 'edge', 'chromium', 'safari'] as const) {
-        expect(extensionBaseAttributeFor(first.file, browser)).toBe(
-          EXTENSION_BASE_ATTRIBUTE
+        const keyed = extensionBaseAttributeFor(first.file, browser)
+
+        expect(keyed).toMatch(/^data-extjs-extension-base-[0-9a-f]{8}$/)
+        expect(extensionBaseAttributeFor(second.file, browser)).toMatch(
+          /^data-extjs-extension-base-[0-9a-f]{8}$/
         )
+
+        expect(extensionBaseAttributeFor(second.file, browser)).not.toBe(keyed)
       }
 
       expect(extensionBaseAttributeFor(undefined, 'firefox')).toBe(
@@ -206,12 +212,38 @@ describe('extensionBaseGlobalFor', () => {
     }
   })
 
-  it('falls to the shared name for a manifest nobody can read', () => {
-    expect(
-      extensionBaseGlobalFor(
-        path.join(os.tmpdir(), 'extjs-no-such-manifest', 'manifest.json'),
-        'firefox'
-      )
-    ).toBe('__EXTJS_EXTENSION_BASE__')
+  it('tells two extensions apart when a localized name is all they carry', () => {
+    const shared = {name: '__MSG_extName__', description: '__MSG_extDesc__'}
+    const first = written({...shared, version: '1.0.0'})
+    const second = written({...shared, version: '2.0.0'})
+
+    try {
+      for (const browser of ['chrome', 'firefox', 'safari'] as const) {
+        expect(extensionBaseAttributeFor(first.file, browser)).not.toBe(
+          extensionBaseAttributeFor(second.file, browser)
+        )
+      }
+    } finally {
+      first.done()
+      second.done()
+    }
+  })
+
+  it('keys a manifest nobody can read by where it is, never the shared name', () => {
+    const missing = (name: string) =>
+      path.join(os.tmpdir(), name, 'manifest.json')
+
+    for (const browser of ['chrome', 'firefox', 'safari'] as const) {
+      const global = extensionBaseGlobalFor(missing('extjs-no-such-a'), browser)
+
+      expect(global).toMatch(/^__EXTJS_EXTENSION_BASE_[0-9a-f]{8}__$/)
+      expect(
+        extensionBaseGlobalFor(missing('extjs-no-such-b'), browser)
+      ).not.toBe(global)
+
+      expect(
+        extensionBaseAttributeFor(missing('extjs-no-such-a'), browser)
+      ).toMatch(/^data-extjs-extension-base-[0-9a-f]{8}$/)
+    }
   })
 })

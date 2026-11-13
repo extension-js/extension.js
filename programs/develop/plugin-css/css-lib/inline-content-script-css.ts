@@ -9,10 +9,12 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {
+  CHROMIUM_EXTENSION_SCHEME,
   closedOnSlash,
   EXTENSION_BASE_ATTRIBUTE,
   EXTENSION_BASE_FROM_STACK,
   extensionBaseFromFile,
+  GECKO_EXTENSION_SCHEME,
   unlessExtensionAddress
 } from '../../lib/extension-base-from-stack'
 import {toJsStringLiteral} from '../../plugin-compilation/env'
@@ -214,7 +216,10 @@ export function toRuntimeStylesheetModule(
   bundledRequests: string[] = [],
   styleId?: string,
   gecko = false,
-  baseAttribute: string = EXTENSION_BASE_ATTRIBUTE
+  baseAttribute: string = EXTENSION_BASE_ATTRIBUTE,
+  baseScheme: string = gecko
+    ? GECKO_EXTENSION_SCHEME
+    : CHROMIUM_EXTENSION_SCHEME
 ): string {
   const root = JSON.stringify(EXTENSION_ROOT_PLACEHOLDER)
   const rooted = `__extjsCssText.split(${root}).join(__extjsExtensionRoot())`
@@ -252,10 +257,11 @@ export function toRuntimeStylesheetModule(
         ]
       : [
           `    var base = ${EXTENSION_BASE_FROM_STACK};`,
-          '    if (!base && typeof document === "object" && document && document.documentElement) base = String(document.documentElement.getAttribute("data-extjs-extension-base") || "");',
+          `    if (!base && typeof document === "object" && document && document.documentElement) base = String(document.documentElement.getAttribute(${JSON.stringify(baseAttribute)}) || "");`,
           // A shipped MAIN-world bundle clears that attribute once it has the base,
           // and keeps it on the require function for a sheet that loads later.
           '    if (!base && typeof __webpack_require__ === "function" && __webpack_require__.extjsBase) base = String(__webpack_require__.extjsBase);',
+          `    ${unlessExtensionAddress('base', baseScheme)}`,
           '    if (base) return base.replace(/\\/+$/, "") + "/";'
         ]),
     '  } catch (error) {}',

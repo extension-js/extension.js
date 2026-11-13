@@ -11,6 +11,7 @@ import * as path from 'node:path'
 import {Compilation, type Compiler} from '@rspack/core'
 import {prependToEmittedAsset} from '../../../lib/asset-source-maps'
 import {isGeckoBasedBrowser} from '../../../lib/constants'
+import {extensionSchemeFor} from '../../../lib/extension-base-from-stack'
 import type {DevOptions, FilepathList, PluginInterface} from '../../../types'
 import {
   namesSheet,
@@ -18,7 +19,10 @@ import {
   runtimeScriptSheetName,
   withoutSheetBlock
 } from '../scripts-lib/runtime-script-sheet'
-import {isEntryFile} from '../scripts-lib/taken-extension-base'
+import {
+  extensionBaseAttributeFor,
+  isEntryFile
+} from '../scripts-lib/taken-extension-base'
 
 // A scripts/ file is injected by a call the author wrote, which names only
 // the script. So the sheet of its CSS modules rides in the script itself.
@@ -27,8 +31,14 @@ export class PlaceRuntimeScriptSheets {
 
   private readonly browser: DevOptions['browser']
   private readonly includeList: FilepathList
+  private readonly manifestPath?: string
 
-  constructor(options: Pick<PluginInterface, 'browser' | 'includeList'>) {
+  constructor(
+    options: Pick<PluginInterface, 'browser' | 'includeList'> & {
+      manifestPath?: string
+    }
+  ) {
+    this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
     this.includeList = options.includeList || {}
   }
@@ -42,6 +52,12 @@ export class PlaceRuntimeScriptSheets {
     if (entries.length === 0) return
 
     const gecko = isGeckoBasedBrowser(String(this.browser))
+    // The sheet reads the base its own extension's bridge wrote.
+    const baseAttribute = extensionBaseAttributeFor(
+      this.manifestPath,
+      this.browser
+    )
+    const baseScheme = extensionSchemeFor(String(this.browser))
     // A dev build adds its project folder, so two projects open at once
     // never share a sheet on the same page.
     const devSalt =
@@ -91,7 +107,14 @@ export class PlaceRuntimeScriptSheets {
                 compilation,
                 {name: script.name, source: {source: () => built}},
                 css.trim() && !named
-                  ? runtimeScriptSheetBlock({css, entryName, devSalt, gecko})
+                  ? runtimeScriptSheetBlock({
+                      css,
+                      entryName,
+                      devSalt,
+                      gecko,
+                      baseAttribute,
+                      baseScheme
+                    })
                   : ''
               )
 

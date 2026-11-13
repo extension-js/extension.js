@@ -317,17 +317,17 @@ describe('toRuntimeStylesheetModule', () => {
         },
         {
           document: {
-            documentElement: {getAttribute: () => 'moz-extension://uuid'}
+            documentElement: {getAttribute: () => 'chrome-extension://uuid'}
           }
         }
       )
 
       expect(text).toContain(
-        'url("moz-extension://uuid/assets/a.1234abcd.woff2")'
+        'url("chrome-extension://uuid/assets/a.1234abcd.woff2")'
       )
 
       expect(text).toContain(
-        'url("moz-extension://uuid/assets/b.5678ef01.png?v=2#x")'
+        'url("chrome-extension://uuid/assets/b.5678ef01.png?v=2#x")'
       )
 
       expect(text).not.toContain('page.example')
@@ -526,7 +526,10 @@ describe('toRuntimeStylesheetModule', () => {
   })
 
   it('never names the browser or chrome namespaces as free identifiers', () => {
+    // The scheme a base is checked against is text, never an identifier.
     const code = toRuntimeStylesheetModule(css)
+      .split('"chrome-extension:/')
+      .join('"')
     expect(code).not.toMatch(/(^|[^.\w$])browser\b/)
     expect(code).not.toMatch(/(^|[^.\w$])chrome\b/)
     expect(code).toContain('globalThis.browser')

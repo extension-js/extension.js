@@ -1,7 +1,9 @@
 import type * as webpack from 'webpack'
 import {
+  CHROMIUM_EXTENSION_SCHEME,
   EXTENSION_BASE_ATTRIBUTE,
   extensionBaseFromFile,
+  GECKO_EXTENSION_SCHEME,
   TAKEN_EXTENSION_BASE,
   unlessExtensionAddress
 } from '../../../../../../../lib/extension-base-from-stack'
@@ -10,7 +12,8 @@ import {RuntimeGlobal} from './BrowserRuntime'
 export default function AutoPublicPathRuntimeModule(
   webpack: typeof import('webpack'),
   gecko = false,
-  attribute: string = EXTENSION_BASE_ATTRIBUTE
+  attribute: string = EXTENSION_BASE_ATTRIBUTE,
+  scheme: string = gecko ? GECKO_EXTENSION_SCHEME : CHROMIUM_EXTENSION_SCHEME
 ): webpack.RuntimeModule {
   const {
     RuntimeModule,
@@ -97,9 +100,9 @@ export default function AutoPublicPathRuntimeModule(
           `try { __extjsBase = document.documentElement.getAttribute(${JSON.stringify(attribute)}) || ""; } catch(_) { __extjsBase = ""; }`
         ]),
         `}`,
-        ...(gecko ? [unlessExtensionAddress('__extjsBase')] : []),
+        unlessExtensionAddress('__extjsBase', scheme),
         // MAIN world: ignore page-origin scriptUrl when extension base is known.
-        `if (__extjsBase && scriptUrl && !/^((chrome|moz)-extension):///.test(scriptUrl)) {`,
+        `if (__extjsBase && scriptUrl && String(scriptUrl).indexOf(${JSON.stringify(`${scheme}://`)}) !== 0) {`,
         Template.indent([`scriptUrl = __extjsBase;`]),
         `}`,
         'if (!scriptUrl) {',
@@ -138,7 +141,7 @@ export default function AutoPublicPathRuntimeModule(
             Template.indent([
               `var base = "";`,
               `try { base = document.documentElement.getAttribute(${JSON.stringify(attribute)}) || ""; } catch(_) { base = ""; }`,
-              ...(gecko ? [unlessExtensionAddress('base')] : []),
+              unlessExtensionAddress('base', scheme),
               `if (base) {`,
               Template.indent([
                 `var normalized = base.replace(/\\/+$/, "/");`,

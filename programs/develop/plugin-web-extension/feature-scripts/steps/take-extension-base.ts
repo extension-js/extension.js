@@ -10,12 +10,13 @@ import * as path from 'node:path'
 import {Compilation, type Compiler, DefinePlugin} from '@rspack/core'
 import {prependToEmittedAsset} from '../../../lib/asset-source-maps'
 import {isGeckoBasedBrowser} from '../../../lib/constants'
-import {extensionBaseAttribute} from '../../../lib/extension-base-from-stack'
+import {extensionSchemeFor} from '../../../lib/extension-base-from-stack'
 import type {DevOptions, FilepathList, PluginInterface} from '../../../types'
 import {getCanonicalContentScriptEntryName} from '../contracts'
 import {findRuntimeMainWorldEntries} from '../scripts-lib/runtime-main-world-scripts'
 import {
   closeTakeBlock,
+  extensionBaseAttributeFor,
   extensionBaseGlobalFor,
   isEntryFile,
   takesExtensionBase
@@ -53,9 +54,24 @@ export class TakeExtensionBase {
   }
 
   public apply(compiler: Compiler): void {
+    const gecko = isGeckoBasedBrowser(String(this.browser))
+
+    // Two extensions share one document on every engine, so each bridge
+    // writes the base under its own name and takes its own scheme only.
+    if (compiler?.hooks?.compilation) {
+      new DefinePlugin({
+        __EXTJS_PAGE_BASE_ATTRIBUTE__: JSON.stringify(
+          extensionBaseAttributeFor(this.manifestPath, this.browser)
+        ),
+        __EXTJS_EXTENSION_SCHEME__: JSON.stringify(
+          extensionSchemeFor(String(this.browser))
+        )
+      }).apply(compiler)
+    }
+
     // Chromium names the extension on a MAIN world stack and Safari has no
     // page window to publish on, so their files ship as they were built.
-    if (!isGeckoBasedBrowser(String(this.browser))) return
+    if (!gecko) return
     if (!compiler?.hooks?.thisCompilation?.tap) return
 
     const manifestDir = path.dirname(this.manifestPath)
@@ -79,10 +95,7 @@ export class TakeExtensionBase {
 
     if (compiler.hooks.compilation) {
       new DefinePlugin({
-        __EXTJS_PAGE_BASE_GLOBAL__: JSON.stringify(global),
-        __EXTJS_PAGE_BASE_ATTRIBUTE__: JSON.stringify(
-          extensionBaseAttribute(global)
-        )
+        __EXTJS_PAGE_BASE_GLOBAL__: JSON.stringify(global)
       }).apply(compiler)
     }
 
