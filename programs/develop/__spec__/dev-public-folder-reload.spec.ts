@@ -6,7 +6,8 @@ import {
   classifyFromSession,
   type DevWatchSession,
   errorsOf,
-  openDevWatchSession
+  openDevWatchSession,
+  waitUntil
 } from './helpers/dev-watch-session'
 
 // An edit under public/ ships at the dist root, so the watch session must
@@ -14,6 +15,17 @@ import {
 // public/ layouts the project uses. Real watch-mode compiles, no browser.
 const roots: string[] = []
 const sessions: DevWatchSession[] = []
+
+// A loaded machine can take most of a minute for one watch compile.
+const COMPILE_DEADLINE_MS = 120000
+
+function readOrNull(file: string): string | null {
+  try {
+    return fs.readFileSync(file, 'utf8')
+  } catch {
+    return null
+  }
+}
 
 afterAll(async () => {
   for (const session of sessions) await session.close()
@@ -88,7 +100,7 @@ async function editAndClassify(
 ) {
   const seen = await session.settle()
   fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace(from, to))
-  const stats = await session.doneAfter(seen)
+  const stats = await session.doneAfter(seen, COMPILE_DEADLINE_MS)
   expect(errorsOf(stats)).toEqual([])
 
   return classifyFromSession(session, stats)
@@ -105,17 +117,19 @@ describe.each<Layout>([
     const source = path.join(files.publicDir, 'data.json')
     const rel = path.relative(files.root, source).replace(/\\/g, '/')
 
-    const first = await session.doneAfter(0)
+    const first = await session.doneAfter(0, COMPILE_DEADLINE_MS)
     expect(errorsOf(first)).toEqual([])
     const shipped = path.join(session.distPath, 'data.json')
-    expect(fs.readFileSync(shipped, 'utf8')).toBe('{"value":"v1"}')
+    await waitUntil(() => readOrNull(shipped) === '{"value":"v1"}')
+    expect(readOrNull(shipped)).toBe('{"value":"v1"}')
 
     const instruction = await editAndClassify(session, source, 'v1', 'v2')
     expect(instruction?.type).toBe('full')
     expect(instruction?.changedAssets).toEqual([rel])
     expect(instruction?.label).toBe(`extension (${rel})`)
-    expect(fs.readFileSync(shipped, 'utf8')).toBe('{"value":"v2"}')
-  }, 90000)
+    await waitUntil(() => readOrNull(shipped) === '{"value":"v2"}')
+    expect(readOrNull(shipped)).toBe('{"value":"v2"}')
+  }, 300000)
 
   it('a file deleted or renamed mid-session leaves no copy of its old path in dist', async () => {
     const files = project(layout)
@@ -130,8 +144,14 @@ describe.each<Layout>([
     const inDist = (...segments: string[]) =>
       path.join(session.distPath, ...segments)
 
-    const first = await session.doneAfter(0)
+    const first = await session.doneAfter(0, COMPILE_DEADLINE_MS)
     expect(errorsOf(first)).toEqual([])
+    await waitUntil(
+      () =>
+        fs.existsSync(inDist('deleted-mid-session.bin')) &&
+        fs.existsSync(inDist('fonts', 'renamed-before.bin'))
+    )
+
     expect(fs.existsSync(inDist('deleted-mid-session.bin'))).toBe(true)
     expect(fs.existsSync(inDist('fonts', 'renamed-before.bin'))).toBe(true)
     fs.writeFileSync(inDist('not-from-public.bin'), 'stale-public-token:other')
@@ -139,19 +159,28 @@ describe.each<Layout>([
     const seen = await session.settle()
     fs.rmSync(deleted)
     fs.renameSync(before, after)
-    const stats = await session.doneAfter(seen)
+    const stats = await session.doneAfter(seen, COMPILE_DEADLINE_MS)
     expect(errorsOf(stats)).toEqual([])
-    await session.settle()
+
+    // The delete and the rename can arrive as two rebuilds, and the first can
+    // report done while the second still runs, so dist is read until it settles.
+    await waitUntil(
+      () =>
+        !fs.existsSync(inDist('deleted-mid-session.bin')) &&
+        !fs.existsSync(inDist('fonts', 'renamed-before.bin')) &&
+        readOrNull(inDist('fonts', 'renamed-after.bin')) ===
+          'stale-public-token:renamed'
+    )
 
     expect(fs.existsSync(inDist('deleted-mid-session.bin'))).toBe(false)
     expect(fs.existsSync(inDist('fonts', 'renamed-before.bin'))).toBe(false)
-    expect(fs.readFileSync(inDist('fonts', 'renamed-after.bin'), 'utf8')).toBe(
+    expect(readOrNull(inDist('fonts', 'renamed-after.bin'))).toBe(
       'stale-public-token:renamed'
     )
 
-    expect(fs.readFileSync(inDist('data.json'), 'utf8')).toBe('{"value":"v1"}')
+    expect(readOrNull(inDist('data.json'))).toBe('{"value":"v1"}')
     expect(fs.existsSync(inDist('not-from-public.bin'))).toBe(true)
-  }, 90000)
+  }, 300000)
 })
 
 describe('public/ edits under extension dev (manifest-named ruleset)', () => {
@@ -161,10 +190,11 @@ describe('public/ edits under extension dev (manifest-named ruleset)', () => {
     sessions.push(session)
     const source = path.join(files.publicDir, 'rules.json')
 
-    const first = await session.doneAfter(0)
+    const first = await session.doneAfter(0, COMPILE_DEADLINE_MS)
     expect(errorsOf(first)).toEqual([])
     const shipped = path.join(session.distPath, 'rules.json')
-    expect(fs.readFileSync(shipped, 'utf8')).toContain('v1.example')
+    await waitUntil(() => Boolean(readOrNull(shipped)?.includes('v1.example')))
+    expect(readOrNull(shipped)).toContain('v1.example')
 
     const instruction = await editAndClassify(
       session,
@@ -174,6 +204,7 @@ describe('public/ edits under extension dev (manifest-named ruleset)', () => {
     )
     expect(instruction?.type).toBe('full')
     expect(instruction?.changedAssets).toEqual(['public/rules.json'])
-    expect(fs.readFileSync(shipped, 'utf8')).toContain('v2.example')
-  }, 90000)
+    await waitUntil(() => Boolean(readOrNull(shipped)?.includes('v2.example')))
+    expect(readOrNull(shipped)).toContain('v2.example')
+  }, 300000)
 })

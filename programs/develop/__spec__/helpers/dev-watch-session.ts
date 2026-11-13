@@ -110,6 +110,19 @@ export async function openDevWatchSession(
   }
 }
 
+// One edit can reach the watcher as several rebuilds, so a spec reads the
+// output until it shows the state it expects and asserts after the deadline.
+export async function waitUntil(
+  check: () => boolean,
+  deadlineMs = 60000
+): Promise<void> {
+  const giveUpAt = Date.now() + deadlineMs
+
+  while (!check() && Date.now() < giveUpAt) {
+    await new Promise<void>((resolve) => setTimeout(resolve, 50))
+  }
+}
+
 // The same classification the launched and --no-browser paths perform.
 export function classifyFromSession(session: DevWatchSession, stats: Stats) {
   const compilation = stats.compilation
