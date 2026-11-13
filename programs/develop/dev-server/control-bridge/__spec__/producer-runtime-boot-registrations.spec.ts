@@ -36,18 +36,34 @@ const HOOK: Registration = {
   matches: ['http://probe.test/*']
 }
 
-// A background whose registry answers after a set time, by callback when it
-// is given one and by promise otherwise, the way the browser does.
-function boot(options: {
-  engine?: 'chromium' | 'firefox'
-  registers?: boolean
-  kept?: Registration[]
-  answersAfter?: number
-  refuses?: boolean
-}) {
+// A background whose calls answer after a set time, by callback when one is
+// given and by promise otherwise, the way the browser does.
+function boot(
+  options: {
+    engine?: 'chromium' | 'firefox'
+    registers?: boolean
+    kept?: Registration[]
+    answersAfter?: number
+    refuses?: boolean
+    // A service worker that is installing, or one the browser only woke.
+    worker?: 'installing' | 'woken'
+    // A background page, which loads before its install event.
+    page?: boolean
+  } = {}
+) {
   const registered: Registration[] = [...(options.kept ?? [])]
-  const runtime: {lastError: {message: string} | undefined} = {
-    lastError: undefined
+  const runtime: {
+    lastError: {message: string} | undefined
+    onInstalled?: {addListener: (fn: () => void) => void}
+  } = {lastError: undefined}
+  const listeners: Record<string, Array<() => void>> = {}
+
+  const on = (name: string, fn: () => void) => {
+    ;(listeners[name] ??= []).push(fn)
+  }
+
+  const fire = (name: string) => {
+    for (const fn of listeners[name] ?? []) fn()
   }
 
   const answer = (done: Callback | undefined, value: unknown, fails = false) =>
@@ -102,12 +118,16 @@ function boot(options: {
     }
   }
   const natives = {...scripting}
+  // The bridge reads storage with a callback. An author awaits the promise.
   const area = () => ({
-    get: (_key: string, done: (res: Record<string, unknown>) => void) =>
-      done({}),
+    get: (_key: string, done?: (res: Record<string, unknown>) => void) =>
+      done ? done({}) : answer(undefined, {}),
     set: (_items: Record<string, unknown>, done?: () => void) => done?.(),
     remove: () => undefined
   })
+  const storage = {local: area(), session: area()}
+  const nativeGet = storage.local.get
+  const nativeFetch = () => answer(undefined, {ok: true})
   const fakeGlobal: Record<string, unknown> = {
     WebSocket: FakeWebSocket,
     console: {
@@ -118,12 +138,23 @@ function boot(options: {
       debug() {},
       trace() {}
     },
-    chrome: {
-      runtime,
-      scripting,
-      storage: {local: area(), session: area()}
-    },
+    chrome: {runtime, scripting, storage},
+    fetch: nativeFetch,
     navigator: {userAgent: 'x'}
+  }
+
+  if (options.worker) {
+    fakeGlobal.serviceWorker = {
+      state: options.worker === 'woken' ? 'activated' : 'parsed'
+    }
+
+    fakeGlobal.addEventListener = on
+  }
+
+  if (options.page) {
+    runtime.onInstalled = {addListener: (fn) => on('installed', fn)}
+    fakeGlobal.document = {readyState: 'loading'}
+    fakeGlobal.addEventListener = on
   }
 
   if (options.registers !== false) fakeGlobal[DEV_BOOT_REGISTERS_GLOBAL] = true
@@ -152,8 +183,23 @@ function boot(options: {
       .map((text) => JSON.parse(text) as {type: string; [k: string]: unknown})
       .filter((frame) => frame.type === 'boot-registrations')
 
-  return {ws, scripting, natives, registered, reports}
+  return {
+    ws,
+    scripting,
+    natives,
+    storage,
+    nativeGet,
+    nativeFetch,
+    registered,
+    reports,
+    fire,
+    fetch: () => (fakeGlobal.fetch as () => Promise<unknown>)(),
+    global: fakeGlobal
+  }
 }
+
+const SETTLED = {type: 'boot-registrations', calls: 1, landed: true}
+const NOTHING = {type: 'boot-registrations', calls: 0, landed: false}
 
 describe('bridge producer runtime, the registrations a background makes as it starts', () => {
   beforeEach(() => {
@@ -172,50 +218,143 @@ describe('bridge producer runtime, the registrations a background makes as it st
       const h = boot({engine, answersAfter: 2000})
 
       void h.scripting.registerContentScripts([HOOK])
-      await vi.advanceTimersByTimeAsync(1900)
+      await vi.advanceTimersByTimeAsync(1950)
 
       expect(h.reports()).toEqual([])
 
-      await vi.advanceTimersByTimeAsync(400)
+      await vi.advanceTimersByTimeAsync(150)
 
-      expect(h.reports()).toEqual([
-        {type: 'boot-registrations', calls: 1, landed: true}
-      ])
+      expect(h.reports()).toEqual([SETTLED])
     })
   }
 
-  // A background that reads storage or waits on a timer first registers a
-  // moment after its first line ran.
-  it('waits for a registration made a second after the background started', async () => {
-    const h = boot({})
+  // The cost a background pays for naming a registration it makes only on a
+  // later event: the browser's install events, then two looks at nothing.
+  it('reports a background that calls nothing as soon as its install events are over', async () => {
+    const h = boot({worker: 'installing'})
 
-    await vi.advanceTimersByTimeAsync(1200)
+    await vi.advanceTimersByTimeAsync(5)
+    h.fire('activate')
+    await vi.advanceTimersByTimeAsync(20)
 
     expect(h.reports()).toEqual([])
 
-    await h.scripting.registerContentScripts([HOOK])
-    await vi.advanceTimersByTimeAsync(100)
+    await vi.advanceTimersByTimeAsync(60)
+
+    expect(h.reports()).toEqual([NOTHING])
+  })
+
+  it('does not wait on install events for a worker the browser only woke', async () => {
+    const h = boot({worker: 'woken'})
+
+    await vi.advanceTimersByTimeAsync(80)
+
+    expect(h.reports()).toEqual([NOTHING])
+  })
+
+  it('stops waiting on a worker that never says it activated', async () => {
+    const h = boot({worker: 'installing'})
+
+    await vi.advanceTimersByTimeAsync(950)
 
     expect(h.reports()).toEqual([])
 
     await vi.advanceTimersByTimeAsync(150)
 
-    expect(h.reports()).toHaveLength(1)
-    expect(h.reports()[0].landed).toBe(true)
+    expect(h.reports()).toEqual([NOTHING])
+  })
+
+  it('holds for a registration made in the install listener of a worker', async () => {
+    const h = boot({worker: 'installing', answersAfter: 400})
+
+    await vi.advanceTimersByTimeAsync(3)
+    void h.scripting.registerContentScripts([HOOK])
+    h.fire('activate')
+    await vi.advanceTimersByTimeAsync(380)
+
+    expect(h.reports()).toEqual([])
+
+    await vi.advanceTimersByTimeAsync(100)
+
+    expect(h.reports()).toEqual([SETTLED])
+  })
+
+  // A background page gets its install event a moment after it loaded.
+  it('holds for a registration made in the install listener of a page', async () => {
+    const h = boot({page: true, engine: 'firefox', answersAfter: 400})
+
+    await vi.advanceTimersByTimeAsync(120)
+    h.fire('load')
+    await vi.advanceTimersByTimeAsync(3)
+    h.fire('installed')
+    void h.scripting.registerContentScripts([HOOK])
+    await vi.advanceTimersByTimeAsync(380)
+
+    expect(h.reports()).toEqual([])
+
+    await vi.advanceTimersByTimeAsync(100)
+
+    expect(h.reports()).toEqual([SETTLED])
+  })
+
+  it('gives a page that gets no install event a moment after it loaded', async () => {
+    const h = boot({page: true, engine: 'firefox'})
+
+    await vi.advanceTimersByTimeAsync(100)
+    h.fire('load')
+    await vi.advanceTimersByTimeAsync(240)
+
+    expect(h.reports()).toEqual([])
+
+    await vi.advanceTimersByTimeAsync(80)
+
+    expect(h.reports()).toEqual([NOTHING])
+  })
+
+  // The registration follows a read the background awaits, and nothing is
+  // in the registry while the browser still holds that read.
+  it('holds through a storage read the registration comes after', async () => {
+    const h = boot({worker: 'woken', answersAfter: 700})
+
+    void (h.storage.local.get('settings') as Promise<unknown>).then(() =>
+      h.scripting.registerContentScripts([HOOK])
+    )
+
+    await vi.advanceTimersByTimeAsync(1350)
+
+    expect(h.reports()).toEqual([])
+
+    await vi.advanceTimersByTimeAsync(150)
+
+    expect(h.reports()).toEqual([SETTLED])
+  })
+
+  it('holds through a fetch the registration comes after', async () => {
+    const h = boot({worker: 'woken', answersAfter: 700})
+
+    void h.fetch().then(() => h.scripting.registerContentScripts([HOOK]))
+
+    await vi.advanceTimersByTimeAsync(1350)
+
+    expect(h.reports()).toEqual([])
+
+    await vi.advanceTimersByTimeAsync(150)
+
+    expect(h.reports()).toEqual([SETTLED])
   })
 
   it('holds through an unregister that is followed by a register', async () => {
-    const h = boot({answersAfter: 300})
+    const h = boot({worker: 'woken', answersAfter: 300})
 
     void (h.scripting.unregisterContentScripts() as Promise<unknown>).then(() =>
       h.scripting.registerContentScripts([HOOK])
     )
 
-    await vi.advanceTimersByTimeAsync(500)
+    await vi.advanceTimersByTimeAsync(580)
 
     expect(h.reports()).toEqual([])
 
-    await vi.advanceTimersByTimeAsync(300)
+    await vi.advanceTimersByTimeAsync(100)
 
     expect(h.reports()).toEqual([
       {type: 'boot-registrations', calls: 2, landed: true}
@@ -223,118 +362,118 @@ describe('bridge producer runtime, the registrations a background makes as it st
   })
 
   it('counts a call answered through a callback', async () => {
-    const h = boot({answersAfter: 500})
+    const h = boot({worker: 'woken', answersAfter: 500})
     const done = vi.fn()
 
     h.scripting.registerContentScripts([HOOK], done)
-    await vi.advanceTimersByTimeAsync(450)
+    await vi.advanceTimersByTimeAsync(480)
 
     expect(h.reports()).toEqual([])
 
-    await vi.advanceTimersByTimeAsync(250)
+    await vi.advanceTimersByTimeAsync(100)
 
     expect(done).toHaveBeenCalledTimes(1)
-    expect(h.reports()).toHaveLength(1)
+    expect(h.reports()).toEqual([SETTLED])
   })
 
   // A registration a profile kept is on the first page whatever comes next.
-  it('reports at once when the profile already holds a registration', async () => {
-    const h = boot({kept: [HOOK]})
+  it('says a registration the profile already holds has landed', async () => {
+    const h = boot({worker: 'woken', kept: [HOOK]})
 
-    await vi.advanceTimersByTimeAsync(250)
+    await vi.advanceTimersByTimeAsync(80)
 
     expect(h.reports()).toEqual([
       {type: 'boot-registrations', calls: 0, landed: true}
     ])
   })
 
-  it('does not take a dev registration of the build for one the author kept', async () => {
-    const h = boot({kept: [{...HOOK, id: 'extjs-dev-cs-0'}]})
-
-    await vi.advanceTimersByTimeAsync(1000)
-
-    expect(h.reports()).toEqual([])
-  })
-
   // The dev build puts the manifest's own scripts in the same registry.
-  it('does not take a registration the dev build makes for the one awaited', async () => {
-    const h = boot({})
+  it('does not take a registration of the dev build for one the author made', async () => {
     const own = [{...HOOK, id: 'extjs-dev-cs-0'}]
+    const h = boot({worker: 'woken', kept: own, answersAfter: 300})
 
-    await h.scripting.registerContentScripts(own)
-    await h.scripting.updateContentScripts(own)
-    await vi.advanceTimersByTimeAsync(1000)
+    void h.scripting.registerContentScripts(own)
+    void h.scripting.updateContentScripts(own)
+    await vi.advanceTimersByTimeAsync(400)
 
-    expect(h.reports()).toEqual([])
-
-    await vi.advanceTimersByTimeAsync(600)
-
-    expect(h.reports()).toEqual([
-      {type: 'boot-registrations', calls: 0, landed: false}
-    ])
-  })
-
-  // A background that registers only on a later event still gets a page.
-  it('reports that nothing was registered once the background has been quiet', async () => {
-    const h = boot({})
-
-    await vi.advanceTimersByTimeAsync(1400)
-
-    expect(h.reports()).toEqual([])
-
-    await vi.advanceTimersByTimeAsync(200)
-
-    expect(h.reports()).toEqual([
-      {type: 'boot-registrations', calls: 0, landed: false}
-    ])
+    expect(h.reports()).toEqual([NOTHING])
   })
 
   it('does not count a registration the browser refused as landed', async () => {
-    const h = boot({refuses: true})
+    const h = boot({worker: 'woken', refuses: true})
 
-    await (
-      h.scripting.registerContentScripts([HOOK]) as Promise<unknown>
-    ).catch(() => undefined)
+    await expect(h.scripting.registerContentScripts([HOOK])).rejects.toThrow(
+      'refused'
+    )
 
-    await vi.advanceTimersByTimeAsync(400)
+    await vi.advanceTimersByTimeAsync(80)
 
-    expect(h.reports()).toEqual([])
+    expect(h.reports()).toEqual([
+      {type: 'boot-registrations', calls: 1, landed: false}
+    ])
+  })
+
+  // A timer is not a call the browser answers, so the registration behind
+  // one is seen only when it is made, and the author is told it came late.
+  it('says once that a registration landed after it reported none', async () => {
+    const h = boot({worker: 'woken'})
 
     await vi.advanceTimersByTimeAsync(1200)
 
+    expect(h.reports()).toEqual([NOTHING])
+
+    await h.scripting.registerContentScripts([HOOK])
+    await h.scripting.registerContentScripts([{...HOOK, id: 'second'}])
+    await vi.advanceTimersByTimeAsync(1000)
+
     expect(h.reports()).toEqual([
-      {type: 'boot-registrations', calls: 1, landed: false}
+      NOTHING,
+      {type: 'boot-registrations', late: true, afterMs: 1200}
     ])
   })
 
-  it('reports once, however long the background lives', async () => {
-    const h = boot({})
+  // By then the registration answers something the author did, not a start.
+  it('says nothing about a registration made long after the start', async () => {
+    const h = boot({worker: 'woken'})
 
+    await vi.advanceTimersByTimeAsync(15_100)
     await h.scripting.registerContentScripts([HOOK])
-    await vi.advanceTimersByTimeAsync(5000)
-    await h.scripting.registerContentScripts([{...HOOK, id: 'later'}])
-    await vi.advanceTimersByTimeAsync(5000)
+    await vi.advanceTimersByTimeAsync(1000)
 
-    expect(h.reports()).toHaveLength(1)
+    expect(h.reports()).toEqual([NOTHING])
   })
 
-  it('gives up on a call the browser never answers', async () => {
-    const h = boot({answersAfter: 60_000})
+  it('gives up on a call the browser never answers, and says so', async () => {
+    const h = boot({worker: 'woken', answersAfter: 60_000})
 
     void h.scripting.registerContentScripts([HOOK])
-    await vi.advanceTimersByTimeAsync(14_000)
+    await vi.advanceTimersByTimeAsync(3950)
 
     expect(h.reports()).toEqual([])
 
-    await vi.advanceTimersByTimeAsync(1500)
+    await vi.advanceTimersByTimeAsync(100)
 
     expect(h.reports()).toEqual([
-      {type: 'boot-registrations', calls: 1, landed: false}
+      {type: 'boot-registrations', calls: 1, landed: false, pending: true}
     ])
   })
 
+  // The background runs on the browser's own functions once it reported.
+  it('hands back every call it counted except the registry', async () => {
+    const h = boot({worker: 'woken'})
+
+    expect(h.storage.local.get).not.toBe(h.nativeGet)
+    expect(h.global.fetch).not.toBe(h.nativeFetch)
+
+    await vi.advanceTimersByTimeAsync(80)
+
+    expect(h.reports()).toEqual([NOTHING])
+    expect(h.storage.local.get).toBe(h.nativeGet)
+    expect(h.global.fetch).toBe(h.nativeFetch)
+  })
+
   it('throws a malformed call where the author made it', () => {
-    const h = boot({})
+    const h = boot()
 
     expect(() =>
       h.scripting.registerContentScripts('nope' as unknown as Registration[])
@@ -342,9 +481,9 @@ describe('bridge producer runtime, the registrations a background makes as it st
   })
 
   // A project whose background names no registration is left exactly as it
-  // was: no wrapper on its registry and nothing said to the dev server.
-  it('leaves the registry alone when the build named no registration', async () => {
-    const h = boot({registers: false, engine: 'chromium'})
+  // was: no wrapper on its calls and nothing said to the dev server.
+  it('leaves every call alone when the build named no registration', async () => {
+    const h = boot({registers: false, engine: 'chromium', worker: 'installing'})
 
     await vi.advanceTimersByTimeAsync(20_000)
 
@@ -356,6 +495,8 @@ describe('bridge producer runtime, the registrations a background makes as it st
       h.natives.getRegisteredContentScripts
     )
 
+    expect(h.storage.local.get).toBe(h.nativeGet)
+    expect(h.global.fetch).toBe(h.nativeFetch)
     expect(h.reports()).toEqual([])
   })
 })

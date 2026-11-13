@@ -26,6 +26,7 @@ import {
   type IncomingLogEvent,
   type ReadyFrame,
   type ReloadAckFrame,
+  type BootRegistrationsFrame,
   type BootRegistrationsOutcome,
   type ReloadAckOutcome,
   type ReloadFrame,
@@ -79,6 +80,8 @@ export interface BridgeBrokerOptions {
   wakeExecutor?: () => Promise<boolean>
   // A reload dev applied after a compile, for the session to stamp.
   onReloadApplied?: (kind: string, label?: string) => void
+  // A registration landed after the first page was let go without one.
+  onLateBootRegistration?: (afterMs?: number) => void
 }
 
 // Defined with the wire constants in ./contracts, re-exported here because
@@ -339,9 +342,16 @@ export class BridgeBroker {
   private readonly onExecutorAttached?: (attached?: ExecutorAttachInfo) => void
   private readonly onExecutorDetached?: () => void
   private readonly wakeExecutor?: () => Promise<boolean>
-  // Set once a background reported its boot registry calls answered.
-  private bootRegistrationsSettled = false
-  private readonly bootRegistrationWaiters = new Set<() => void>()
+  // The first background to report on its boot, and what it said.
+  private bootRegistrations:
+    | {conn: BridgeConnection; outcome: BootRegistrationsOutcome}
+    | undefined
+  private bootRegistrationsAwaited = false
+  private lateBootRegistrationSaid = false
+  private readonly bootRegistrationWaiters = new Set<
+    (outcome: BootRegistrationsOutcome) => void
+  >()
+  private readonly onLateBootRegistration?: (afterMs?: number) => void
   // Verbs held while a woken background starts, answered on its hello.
   private readonly executorWaiters = new Set<() => void>()
   private readonly waking = new Set<string>()
@@ -396,6 +406,7 @@ export class BridgeBroker {
     this.onExecutorDetached = options.onExecutorDetached
     this.wakeExecutor = options.wakeExecutor
     this.onReloadApplied = options.onReloadApplied
+    this.onLateBootRegistration = options.onLateBootRegistration
     this.now = options.now ?? (() => Date.now())
     this.setTimer = options.setTimer ?? ((fn, ms) => setTimeout(fn, ms))
     this.clearTimer = options.clearTimer ?? ((h) => clearTimeout(h))
@@ -449,9 +460,7 @@ export class BridgeBroker {
         return
       case 'boot-registrations':
         if (this.roles.get(conn) === 'producer') {
-          this.bootRegistrationsSettled = true
-
-          for (const release of [...this.bootRegistrationWaiters]) release()
+          this.onBootRegistrations(conn, frame)
         }
 
         return
@@ -693,13 +702,17 @@ export class BridgeBroker {
   // Resolves once a background says the registry calls it made as it started
   // have answered, or with 'timeout' when none says so inside the window.
   awaitBootRegistrations(timeoutMs: number): Promise<BootRegistrationsOutcome> {
-    if (this.bootRegistrationsSettled) return Promise.resolve('settled')
+    this.bootRegistrationsAwaited = true
+
+    if (this.bootRegistrations) {
+      return Promise.resolve(this.bootRegistrations.outcome)
+    }
 
     return new Promise<BootRegistrationsOutcome>((resolve) => {
-      const release = () => {
+      const release = (outcome: BootRegistrationsOutcome) => {
         this.clearTimer(timer)
         this.bootRegistrationWaiters.delete(release)
-        resolve('settled')
+        resolve(outcome)
       }
 
       const timer = this.setTimer(() => {
@@ -712,6 +725,44 @@ export class BridgeBroker {
 
       this.bootRegistrationWaiters.add(release)
     })
+  }
+
+  private onBootRegistrations(
+    conn: BridgeConnection,
+    frame: BootRegistrationsFrame
+  ): void {
+    if (frame.late) {
+      // Only the background a page was held for, and only once: a later
+      // start of the background has no first page behind it.
+      if (
+        this.bootRegistrations?.conn !== conn ||
+        this.bootRegistrations.outcome !== 'settled' ||
+        !this.bootRegistrationsAwaited ||
+        this.lateBootRegistrationSaid
+      ) {
+        return
+      }
+
+      this.lateBootRegistrationSaid = true
+
+      try {
+        this.onLateBootRegistration?.(
+          typeof frame.afterMs === 'number' ? frame.afterMs : undefined
+        )
+      } catch {
+        // A line that failed to print never disturbs the bridge.
+      }
+
+      return
+    }
+
+    if (this.bootRegistrations) return
+
+    const outcome = frame.pending ? 'timeout' : 'settled'
+
+    this.bootRegistrations = {conn, outcome}
+
+    for (const release of [...this.bootRegistrationWaiters]) release(outcome)
   }
 
   // Resolves once a producer says hello after the acked reload restarted the

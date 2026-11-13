@@ -23,6 +23,10 @@ import {
   ensureDeveloperMode
 } from '../ensure-developer-mode'
 import {
+  ensureStartupNewTab,
+  type StartupNewTabOutcome
+} from '../ensure-startup-new-tab'
+import {
   type ExtensionTargetAttacher,
   registerExtensionTargetAttach
 } from './attach'
@@ -141,6 +145,14 @@ export class CDPExtensionController {
     if (!this.cdp) return 'unavailable'
 
     return ensureDeveloperMode({transport: this.cdp})
+  }
+
+  // The startup choice sits behind the same MAC as the developer-mode toggle,
+  // so a kept profile gets it through the settings WebUI once.
+  async ensureStartupNewTab(): Promise<StartupNewTabOutcome> {
+    if (!this.cdp) return 'unavailable'
+
+    return ensureStartupNewTab({transport: this.cdp})
   }
 
   // Open a fresh tab after registration so chrome_url_overrides.newtab takes

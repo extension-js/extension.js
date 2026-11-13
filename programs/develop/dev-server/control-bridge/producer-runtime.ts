@@ -1612,20 +1612,21 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
     }
 
     // The first page of a session waits for the registrations a background
-    // makes as it starts, so every registry call is counted from its first line.
-    var BOOT_REGISTRY_QUIET_MS = 150;
-    var BOOT_REGISTRY_GRACE_MS = 1500;
-    var BOOT_REGISTRY_GIVE_UP_MS = 15000;
+    // makes as it starts, so its boot is watched from the first line.
+    var BOOT_IDLE_CHECK_MS = 25;
+    var BOOT_EVENTS_GRACE_MS = 250;
+    var BOOT_GIVE_UP_MS = 4000;
+    var BOOT_LATE_WINDOW_MS = 15000;
 
     function watchBootRegistrations() {
       if (g.__extjsDevBootRegisters !== true) return;
       var bootedAt = Date.now();
-      var lastAt = bootedAt;
       var inFlight = 0;
       var calls = 0;
       var landed = false;
       var reported = false;
-      var watched = [];
+      var lateSaid = false;
+      var counted = [];
       var failed = function () {
         try { return !!(g.chrome && g.chrome.runtime && g.chrome.runtime.lastError); } catch (e) { return false; }
       };
@@ -1641,12 +1642,23 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
         for (var i = 0; i < list.length; i++) if (!devId(list[i])) return false;
         return true;
       };
-      var count = function (scripting, method, lands) {
-        if (typeof scripting[method] !== "function") return;
-        var inner = scripting[method];
-        scripting[method] = function () {
+      // A registration that answers after the page was let go is on no open
+      // page, which the author is told once.
+      var land = function () {
+        landed = true;
+        if (!reported || lateSaid || Date.now() - bootedAt > BOOT_LATE_WINDOW_MS) return;
+        lateSaid = true;
+        send({type: "boot-registrations", late: true, afterMs: Date.now() - bootedAt});
+      };
+      // Any call the boot code is waiting on can be the one a registration
+      // follows, so each is counted until the browser answers it.
+      var count = function (owner, key, registry, method) {
+        var inner = owner[key];
+        if (typeof inner !== "function" || inner.__extjsBootCounted) return;
+        var wrapper = function () {
           var args = [].slice.call(arguments);
-          if (ownCall(args[0])) return inner.apply(scripting, args);
+          var self = method ? this : owner;
+          if (registry && ownCall(args[0])) return inner.apply(self, args);
           var last = args.length - 1;
           var done = last >= 0 && typeof args[last] === "function" ? args[last] : null;
           var settled = false;
@@ -1654,20 +1666,42 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
             if (settled) return;
             settled = true;
             inFlight--;
-            lastAt = Date.now();
-            if (ok && lands) landed = true;
+            if (ok && registry === "write") land();
           };
           inFlight++;
-          calls++;
-          lastAt = Date.now();
+          if (registry) calls++;
           if (done) args[last] = function () { settle(!failed()); return done.apply(this, arguments); };
           var ret;
-          try { ret = inner.apply(scripting, args); } catch (e) { settle(false); throw e; }
+          try { ret = inner.apply(self, args); } catch (e) { settle(false); throw e; }
           if (done) return ret;
-          if (ret && typeof ret.then === "function") ret.then(function () { settle(true); }, function () { settle(false); });
-          else settle(true);
-          return ret;
+          if (!ret || typeof ret.then !== "function") { settle(true); return ret; }
+          // The caller gets the same outcome, so a rejection it ignores is
+          // still reported as unhandled.
+          return ret.then(function (value) { settle(true); return value; }, function (error) { settle(false); throw error; });
         };
+        wrapper.__extjsBootCounted = true;
+        try {
+          owner[key] = wrapper;
+          if (owner[key] === wrapper) counted.push({owner: owner, key: key, inner: inner, wrapper: wrapper, kept: !!registry});
+        } catch (e) {
+          // Ignore
+        }
+      };
+      var walk = function (owner, depth, seen) {
+        var keys = [];
+        try { keys = Object.keys(owner); } catch (e) {
+          // Ignore
+        }
+        for (var i = 0; i < keys.length; i++) {
+          var value;
+          try { value = owner[keys[i]]; } catch (e) { continue; }
+          if (typeof value === "function") { count(owner, keys[i], null); continue; }
+          if (!value || typeof value !== "object" || depth >= 3 || seen.indexOf(value) !== -1) continue;
+          // An event has listeners, not answers.
+          if (typeof value.addListener === "function") continue;
+          seen.push(value);
+          walk(value, depth + 1, seen);
+        }
       };
       // A registration a profile kept from an earlier session is already
       // there for the first page, whatever the background does next.
@@ -1689,33 +1723,89 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
         } catch (e) { answer(null); }
       };
       var roots = [g.chrome, g.browser];
+      var seen = [];
+      var read = false;
       for (var r = 0; r < roots.length; r++) {
+        var root = roots[r];
+        if (!root || seen.indexOf(root) !== -1) continue;
+        seen.push(root);
         var scripting = null;
-        try { scripting = roots[r] && roots[r].scripting; } catch (e) {
+        try { scripting = root.scripting; } catch (e) {
           // Ignore
         }
-        if (!scripting || watched.indexOf(scripting) !== -1) continue;
-        watched.push(scripting);
-        if (watched.length === 1) readKept(scripting);
-        count(scripting, "registerContentScripts", true);
-        count(scripting, "updateContentScripts", true);
-        count(scripting, "unregisterContentScripts", false);
-        count(scripting, "getRegisteredContentScripts", false);
+        if (scripting && seen.indexOf(scripting) === -1) {
+          if (!read) { read = true; readKept(scripting); }
+          count(scripting, "registerContentScripts", "write");
+          count(scripting, "updateContentScripts", "write");
+          count(scripting, "unregisterContentScripts", "call");
+          count(scripting, "getRegisteredContentScripts", "call");
+        }
+        walk(root, 1, seen);
       }
+      if (typeof g.fetch === "function") count(g, "fetch", null);
+      // A response is read after it arrived, and the read is waited on too.
+      var body = g.Response && g.Response.prototype;
+      var reads = ["json", "text", "arrayBuffer", "blob", "formData"];
+      for (var b = 0; body && b < reads.length; b++) count(body, reads[b], null, true);
+
+      // Once it has reported, the background runs on the browser's own calls
+      // again. The registry stays counted for a late registration.
+      var release = function () {
+        for (var i = 0; i < counted.length; i++) {
+          var c = counted[i];
+          if (c.kept) continue;
+          try { if (c.owner[c.key] === c.wrapper) c.owner[c.key] = c.inner; } catch (e) {
+            // Ignore
+          }
+        }
+      };
+
+      // The browser hands a starting background its install events right
+      // after its top level ran, and their listeners are boot code too.
+      var eventsDone = false;
+      var eventsDue = function () { eventsDone = true; };
+      var worker = null;
+      try { worker = g.serviceWorker && typeof g.serviceWorker.state === "string" ? g.serviceWorker : null; } catch (e) {
+        // Ignore
+      }
+      var doc = null;
+      try { doc = g.document && typeof g.document.readyState === "string" ? g.document : null; } catch (e) {
+        // Ignore
+      }
+      if (worker && worker.state !== "activated" && typeof g.addEventListener === "function") {
+        // An installing worker gets onInstalled before it activates.
+        g.addEventListener("activate", function () { setTimeout(eventsDue, 0); });
+        setTimeout(eventsDue, 1000);
+      } else if (!worker && doc && g.chrome && g.chrome.runtime && g.chrome.runtime.onInstalled) {
+        // Gecko fires onInstalled a moment after the page loaded, and not at
+        // all for a background it only woke.
+        var afterLoad = function () { setTimeout(eventsDue, BOOT_EVENTS_GRACE_MS); };
+        g.chrome.runtime.onInstalled.addListener(function () { setTimeout(eventsDue, 0); });
+        if (doc.readyState === "complete" || typeof g.addEventListener !== "function") afterLoad();
+        else g.addEventListener("load", afterLoad);
+      } else {
+        setTimeout(eventsDue, worker ? 0 : BOOT_EVENTS_GRACE_MS);
+      }
+
+      var idleOnce = false;
       var check = function () {
         if (reported) return;
-        var now = Date.now();
-        var quiet = inFlight <= 0 && now - lastAt >= (landed ? BOOT_REGISTRY_QUIET_MS : BOOT_REGISTRY_GRACE_MS);
-        if (quiet || now - bootedAt >= BOOT_REGISTRY_GIVE_UP_MS) {
+        var gaveUp = Date.now() - bootedAt >= BOOT_GIVE_UP_MS;
+        var idle = eventsDone && inFlight <= 0;
+        if ((idle && idleOnce) || gaveUp) {
           reported = true;
-          send({type: "boot-registrations", calls: calls, landed: landed});
+          release();
+          var frame = {type: "boot-registrations", calls: calls, landed: landed};
+          if (!(idle && idleOnce)) { frame.pending = true; lateSaid = true; }
+          send(frame);
           return;
         }
-        try { setTimeout(check, 50); } catch (e) {
+        idleOnce = idle;
+        try { setTimeout(check, BOOT_IDLE_CHECK_MS); } catch (e) {
           // Ignore
         }
       };
-      check();
+      setTimeout(check, 0);
     }
 
     // Every changed file gets a new address, registered now or later.

@@ -105,7 +105,30 @@ describe('the hold on the starting url for boot registrations', () => {
 
     expect(done).toHaveBeenCalledWith('timeout')
     expect(warn).toHaveBeenCalledTimes(1)
-    expect(String(warn.mock.calls[0][0])).toContain('waited 1s')
+    expect(String(warn.mock.calls[0][0])).toContain('waited 1.3s')
+  })
+
+  // The background gave up on a call of its own before this side's bound.
+  it('says how long it really waited when the answer is an early timeout', async () => {
+    const warn = vi.fn()
+    const done = vi.fn()
+
+    void holdForBootRegistrations(
+      {
+        awaitBootRegistrations: () =>
+          new Promise<'timeout'>((resolve) =>
+            setTimeout(() => resolve('timeout'), 4000)
+          )
+      },
+      URL,
+      {warn}
+    ).then(done)
+
+    await vi.advanceTimersByTimeAsync(4000)
+
+    expect(done).toHaveBeenCalledWith('timeout')
+    expect(String(warn.mock.calls[0][0])).toContain('waited 4s')
+    expect(vi.getTimerCount()).toBe(0)
   })
 
   it('opens the page when the wait throws', async () => {

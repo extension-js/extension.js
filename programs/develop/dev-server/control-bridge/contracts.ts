@@ -262,6 +262,12 @@ export interface BootRegistrationsFrame {
   calls?: number
   // Whether a registration was there when it reported.
   landed?: boolean
+  // The background gave up on a call that never answered.
+  pending?: boolean
+  // A registration answered after the report said there was none.
+  late?: boolean
+  // How long after the background's first line that registration answered.
+  afterMs?: number
 }
 
 export type BootRegistrationsOutcome = 'settled' | 'timeout'

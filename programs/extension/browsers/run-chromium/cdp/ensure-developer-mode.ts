@@ -61,7 +61,7 @@ export function developerModeFlipIsSafe(browserArgs: string[]): boolean {
 
 // Silent is a page that never answered at all, which is not the same as a
 // page that answered before its WebUI bindings landed.
-async function evaluateBoolean(
+export async function evaluateBoolean(
   transport: DeveloperModeTransport,
   sessionId: string,
   expression: string,

@@ -696,7 +696,9 @@ export async function devServer(
             (await extendedOptions.browsersPlugin?.wakeBackground?.()) === true
         }
       : {}),
-    onReloadApplied: (kind, label) => stampReload?.(kind, label)
+    onReloadApplied: (kind, label) => stampReload?.(kind, label),
+    onLateBootRegistration: (afterMs) =>
+      humanLine(messages.lateBootRegistration(afterMs))
   })
 
   // Hand the broker to a launched runner plugin so Chromium and Safari reload

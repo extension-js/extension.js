@@ -101,4 +101,105 @@ describe('the wait for the registrations a background makes as it starts', () =>
 
     expect(settled).toHaveBeenCalledWith('timeout')
   })
+
+  // The background gave up on a call of its own, and the session says the
+  // page opened first instead of waiting out its own timer.
+  it('answers timeout when the background reports a call still unanswered', async () => {
+    const b = new BridgeBroker(opts)
+    const worker = new FakeConn('worker')
+    const waiting = b.awaitBootRegistrations(5000)
+
+    hello(b, worker, 'producer')
+    b.onFrame(worker, {
+      type: 'boot-registrations',
+      calls: 1,
+      landed: false,
+      pending: true
+    })
+
+    await expect(waiting).resolves.toBe('timeout')
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  describe('a registration that lands after the page was let go', () => {
+    function held(late: (afterMs?: number) => void) {
+      const b = new BridgeBroker({...opts, onLateBootRegistration: late})
+      const worker = new FakeConn('worker')
+
+      hello(b, worker, 'producer')
+
+      return {b, worker}
+    }
+
+    it('is said once, with how long after the start it landed', async () => {
+      const late = vi.fn()
+      const {b, worker} = held(late)
+      const waiting = b.awaitBootRegistrations(5000)
+
+      b.onFrame(worker, {type: 'boot-registrations', calls: 0, landed: false})
+      await waiting
+      b.onFrame(worker, {type: 'boot-registrations', late: true, afterMs: 1240})
+      b.onFrame(worker, {type: 'boot-registrations', late: true, afterMs: 2000})
+
+      expect(late.mock.calls).toEqual([[1240]])
+    })
+
+    // No page waited, so no page opened without the script.
+    it('is not said when no page was held for the background', () => {
+      const late = vi.fn()
+      const {b, worker} = held(late)
+
+      b.onFrame(worker, {type: 'boot-registrations', calls: 0, landed: false})
+      b.onFrame(worker, {type: 'boot-registrations', late: true, afterMs: 900})
+
+      expect(late).not.toHaveBeenCalled()
+    })
+
+    // The session already said the page opened before the registrations.
+    it('is not said after a wait that ended on a call still unanswered', async () => {
+      const late = vi.fn()
+      const {b, worker} = held(late)
+      const waiting = b.awaitBootRegistrations(5000)
+
+      b.onFrame(worker, {type: 'boot-registrations', pending: true})
+      await waiting
+      b.onFrame(worker, {type: 'boot-registrations', late: true, afterMs: 4400})
+
+      expect(late).not.toHaveBeenCalled()
+    })
+
+    // A background that started again later has no first page behind it.
+    it('is not taken from a background the page was not held for', async () => {
+      const late = vi.fn()
+      const {b, worker} = held(late)
+      const restarted = new FakeConn('restarted')
+      const waiting = b.awaitBootRegistrations(5000)
+
+      b.onFrame(worker, {type: 'boot-registrations', calls: 0, landed: false})
+      await waiting
+      hello(b, restarted, 'producer')
+      b.onFrame(restarted, {type: 'boot-registrations', calls: 1, landed: true})
+      b.onFrame(restarted, {
+        type: 'boot-registrations',
+        late: true,
+        afterMs: 300
+      })
+
+      expect(late).not.toHaveBeenCalled()
+    })
+
+    it('never lets a line that failed to print disturb the bridge', async () => {
+      const {b, worker} = held(() => {
+        throw new Error('closed stream')
+      })
+      const waiting = b.awaitBootRegistrations(5000)
+
+      b.onFrame(worker, {type: 'boot-registrations', calls: 0, landed: false})
+      await waiting
+
+      expect(() =>
+        b.onFrame(worker, {type: 'boot-registrations', late: true})
+      ).not.toThrow()
+    })
+  })
 })

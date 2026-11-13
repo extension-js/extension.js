@@ -14,6 +14,7 @@ const getInfoBestEffortSpy = vi.fn(async () => ({
 }))
 const openTabSpy = vi.fn(async () => {})
 const ensureDeveloperModeSpy = vi.fn(async () => 'enabled' as const)
+const ensureStartupNewTabSpy = vi.fn(async () => 'set' as const)
 const loadCompanionsSpy = vi.fn(async (_paths: string[]) => [])
 const ensurePageTargetSpy = vi.fn(async (_url: string) => 'created' as string)
 const openStartingUrlSpy = vi.fn(async (_url: string) => 'navigated')
@@ -32,6 +33,7 @@ vi.mock('../../run-chromium/cdp/cdp-extension-controller', async () => {
     getInfoBestEffort = getInfoBestEffortSpy
     openTab = openTabSpy
     ensureDeveloperMode = ensureDeveloperModeSpy
+    ensureStartupNewTab = ensureStartupNewTabSpy
     loadCompanions = loadCompanionsSpy
     ensurePageTarget = ensurePageTargetSpy
     openStartingUrl = openStartingUrlSpy
@@ -112,6 +114,7 @@ describe('setupCdpAfterLaunch', () => {
     getInfoBestEffortSpy.mockClear()
     openTabSpy.mockClear()
     ensureDeveloperModeSpy.mockClear()
+    ensureStartupNewTabSpy.mockClear()
     loadCompanionsSpy.mockClear()
     ensurePageTargetSpy.mockClear()
     openStartingUrlSpy.mockClear()
@@ -292,6 +295,97 @@ describe('setupCdpAfterLaunch', () => {
     ])
 
     expect(ensureDeveloperModeSpy).not.toHaveBeenCalled()
+  })
+
+  describe('the startup choice of a profile that outlives the session', () => {
+    const compilation: any = {
+      options: {mode: 'development', output: {path: '/workspace/dist/chromium'}}
+    }
+    const plugin = () =>
+      ({browser: 'chromium', port: 9333, instanceId: 'startup'}) as any
+
+    function profile(files: Record<string, unknown>) {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'startup-choice-'))
+      tempDirs.push(dir)
+      fs.mkdirSync(path.join(dir, 'Default'), {recursive: true})
+
+      for (const [name, value] of Object.entries(files)) {
+        const file = name.startsWith('.')
+          ? path.join(dir, name)
+          : path.join(dir, 'Default', name)
+
+        fs.writeFileSync(file, JSON.stringify(value))
+      }
+
+      return dir
+    }
+
+    const seeded = {session: {restore_on_startup: 5}}
+
+    // The browser dropped the seeded choice, so its next launch would reopen
+    // this run's pages before the extension is there to run on them.
+    it('is made through the browser when the seeded one was dropped', async () => {
+      const dir = profile({Preferences: seeded, 'Secure Preferences': {}})
+
+      await setupCdpAfterLaunch(compilation, plugin(), [
+        '--remote-debugging-port=9333',
+        `--user-data-dir=${dir}`
+      ])
+
+      expect(ensureStartupNewTabSpy).toHaveBeenCalledTimes(1)
+      expect(openStartingUrlSpy.mock.invocationCallOrder[0] ?? 0).toBeLessThan(
+        ensureStartupNewTabSpy.mock.invocationCallOrder[0]
+      )
+    })
+
+    it('is left alone once the browser holds a choice of its own', async () => {
+      const dir = profile({
+        Preferences: seeded,
+        'Secure Preferences': {session: {restore_on_startup: 5}}
+      })
+
+      await setupCdpAfterLaunch(compilation, plugin(), [
+        '--remote-debugging-port=9333',
+        `--user-data-dir=${dir}`
+      ])
+
+      expect(ensureStartupNewTabSpy).not.toHaveBeenCalled()
+    })
+
+    it('is left alone on a profile the session deletes on exit', async () => {
+      const dir = profile({
+        Preferences: seeded,
+        '.extension-js-managed-profile': {}
+      })
+
+      await setupCdpAfterLaunch(compilation, plugin(), [
+        '--remote-debugging-port=9333',
+        `--user-data-dir=${dir}`
+      ])
+
+      expect(ensureStartupNewTabSpy).not.toHaveBeenCalled()
+    })
+
+    it('is never touched on a profile this session did not seed', async () => {
+      const dir = profile({Preferences: {}, 'Secure Preferences': {}})
+
+      await setupCdpAfterLaunch(compilation, plugin(), [
+        '--remote-debugging-port=9333',
+        `--user-data-dir=${dir}`
+      ])
+
+      await setupCdpAfterLaunch(compilation, plugin(), [
+        '--remote-debugging-port=9333'
+      ])
+
+      await setupCdpAfterLaunch(compilation, plugin(), [
+        '--remote-debugging-port=9333',
+        `--user-data-dir=${profile({Preferences: seeded})}`,
+        '--no-startup-window'
+      ])
+
+      expect(ensureStartupNewTabSpy).not.toHaveBeenCalled()
+    })
   })
 
   it('passes only selected user extension path to controller from --load-extension', async () => {
@@ -579,6 +673,8 @@ describe('setupCdpAfterLaunch', () => {
 
     expect(typeof real?.prototype?.ensurePageTarget).toBe('function')
     expect(typeof mocked.ensurePageTarget).toBe('function')
+    expect(typeof real?.prototype?.ensureStartupNewTab).toBe('function')
+    expect(typeof mocked.ensureStartupNewTab).toBe('function')
   })
 
   it('gives a headless session a page target, on the companion welcome page', async () => {

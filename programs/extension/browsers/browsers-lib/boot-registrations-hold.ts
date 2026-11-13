@@ -15,8 +15,8 @@ import * as messages from './messages'
 
 export const BOOT_REGISTRATIONS_WAIT_MS = 5000
 
-// The dev server's own timer answers first. This one covers a wait that
-// never answers at all, so the session opens its page either way.
+// The dev server answers first, with its own timer or with a background that
+// gave up on a call. This one covers a wait that never answers at all.
 const OWN_TIMER_SLACK_MS = 250
 
 export type BootRegistrationsHold = 'none' | 'settled' | 'timeout'
@@ -32,6 +32,7 @@ export async function holdForBootRegistrations(
   if (!wait) return 'none'
 
   const timeoutMs = options.timeoutMs ?? BOOT_REGISTRATIONS_WAIT_MS
+  const startedAt = Date.now()
   let ownTimer: ReturnType<typeof setTimeout> | undefined
   let outcome: 'settled' | 'timeout' = 'timeout'
 
@@ -54,7 +55,10 @@ export async function holdForBootRegistrations(
   if (outcome !== 'settled') {
     outcome = 'timeout'
     ;(options.warn ?? humanWarn)(
-      messages.startingUrlOpenedBeforeBootRegistrations(url, timeoutMs)
+      messages.startingUrlOpenedBeforeBootRegistrations(
+        url,
+        Date.now() - startedAt
+      )
     )
   }
 

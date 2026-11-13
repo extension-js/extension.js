@@ -37,6 +37,7 @@ import {
 import {resolveStartingUrl} from '../../browsers-lib/runtime-options'
 import {
   deriveDebugPortWithInstance,
+  isManagedEphemeralProfile,
   launchIsHeadless
 } from '../../browsers-lib/shared-utils'
 import type {CompilationLike} from '../../browsers-types'
@@ -49,6 +50,7 @@ import {
   developerModeFlipIsSafe,
   developerModeFromProfile
 } from '../cdp/ensure-developer-mode'
+import {startupSeedWasDropped} from '../cdp/ensure-startup-new-tab'
 import type {ChromiumPluginRuntime} from '../chromium-types'
 import {getExtensionOutputPath} from './extension-output-path'
 
@@ -533,6 +535,25 @@ export async function setupCdpAfterLaunch(
   }
 
   await openStartingUrlAfterLoad(plugin, cdpExtensionController)
+
+  // A profile that outlives the session would reopen this run's pages on its
+  // next launch, before the extension is there to run on them.
+  try {
+    if (
+      userDataDir &&
+      developerModeFlipIsSafe(chromiumArgs) &&
+      !isManagedEphemeralProfile(userDataDir) &&
+      startupSeedWasDropped(userDataDir)
+    ) {
+      const startup = await cdpExtensionController.ensureStartupNewTab()
+
+      if (isDebug()) {
+        humanLine(`[CDP] new tab on startup: ${startup}`)
+      }
+    }
+  } catch {
+    // best-effort only, the session itself is unaffected
+  }
 
   // The launch tab predates extension registration, so it shows the default new
   // tab; open a fresh tab onto the newtab override. Skipped for startingUrl/--no-open.
