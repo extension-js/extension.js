@@ -16,6 +16,7 @@ import {AddContentScriptWrapper} from './steps/add-content-script-wrapper'
 import {AddPublicPathRuntimeModule} from './steps/add-public-path-runtime-module'
 import {AddScripts} from './steps/add-scripts'
 import {CompileMainWorldScripts} from './steps/compile-main-world-scripts'
+import {KeepCompletionValue} from './steps/keep-completion-value'
 import {KeepGetURLImportsNative} from './steps/keep-geturl-imports-native'
 import {PairRuntimeMainWorldBridges} from './steps/pair-runtime-main-world-bridges'
 import {PruneMainWorldBridges} from './steps/prune-main-world-bridges'
@@ -77,6 +78,10 @@ export class ScriptsPlugin {
       pageList: this.pageList,
       browser: this.browser
     }).apply(compiler)
+
+    // A bundle ends on its own wrapping, and executeScript resolves with the
+    // value a file ends on, so a scripts/ file is closed on that value.
+    new KeepCompletionValue().apply(compiler)
 
     // Firefox cannot name the extension from a MAIN world stack, so a file
     // registered there at runtime is paired with the bridge that publishes it.
