@@ -31,7 +31,29 @@ import {webkitDroppedSurfacePages} from '../../feature-manifest/manifest-lib/web
 import {declaredResourceSource} from '../../feature-web-resources/web-resources-lib/resolve-war'
 import {isClassicScript} from '../../shared/classic-concat'
 import {getResolvedManifestFieldsData} from '../../shared/manifest-fields'
+import {
+  createLocalImportResolver,
+  isLocalScriptSource,
+  type LocalImportResolver,
+  readScriptText
+} from '../../shared/script-graph'
 import * as messages from '../messages'
+import {
+  blankComments,
+  escapeRegExp,
+  type ImportedModuleReader,
+  isConstantReference,
+  type LiteralLookup,
+  literalLookup,
+  pureStringLiteral,
+  readBalancedArgs,
+  type ResolvedLiteral,
+  skipString,
+  splitTopLevelArgs,
+  unescapeStringBody
+} from './source-literals'
+
+export type {ImportedModule, ImportedModuleReader} from './source-literals'
 
 // Structural view of the manifest fields the tracer reads; values stay
 // unknown and are validated at each use site.
@@ -367,7 +389,10 @@ export class TraceRuntimeLoadedFiles {
       const next: string[] = []
 
       for (const content of pending) {
-        const listed = importScriptsListedPaths(content).filter((literal) => {
+        // A path a constant names is held to what a literal is. A path
+        // only listed is a guess, kept when it is a file.
+        const {named, candidates} = importScriptsVariablePaths(content)
+        const listed = candidates.filter((literal) => {
           const rel = resolveExtensionPath(literal, sourceWorkerPath)
 
           return Boolean(rel) && isFile(path.join(run.manifestDir, String(rel)))
@@ -375,6 +400,7 @@ export class TraceRuntimeLoadedFiles {
 
         for (const literal of [
           ...extractImportScriptsLiterals(content),
+          ...named,
           ...listed
         ]) {
           const sourceRel = resolveExtensionPath(literal, sourceWorkerPath)
@@ -940,6 +966,45 @@ export class TraceRuntimeLoadedFiles {
         })
       }
     }
+
+    // A bundle keeps an imported constant as a member of its module, so
+    // those paths are read from the sources, once per build.
+    if (only) return
+
+    for (const {literal, sourceName} of run.constantInjectedFiles()) {
+      const distRel = resolveExtensionPath(literal, '')
+      if (!distRel || seen.has(distRel)) continue
+
+      seen.add(distRel)
+
+      const plan = planTracedFile({
+        manifestDir: run.manifestDir,
+        sourceRel: distRel,
+        distRel,
+        loadsAs: 'classic',
+        hasAsset: run.hasAsset
+      })
+      // Held to what a literal is, the warning naming the source file.
+      run.apply(plan, {
+        context: 'injected',
+        onMissing: () =>
+          run.warn(
+            'InjectedScriptFilesMissing',
+            sourceName,
+            messages.injectedFileDependencyMissing(sourceName, literal, distRel)
+          ),
+        onSourceSpelling: (emitPath) =>
+          run.warn(
+            'InjectedScriptCompiledSource',
+            sourceName,
+            messages.injectedCompiledSourceLiteral(
+              sourceName,
+              literal,
+              emitPath
+            )
+          )
+      })
+    }
   }
 }
 
@@ -972,6 +1037,37 @@ class TraceRun {
     this.excluded = excludedFiles(
       (compiler.options.context as string | undefined) || manifestDir
     )
+  }
+
+  // The paths injection calls name through a constant, read from every
+  // local source this compilation was built from.
+  constantInjectedFiles(): Array<{literal: string; sourceName: string}> {
+    const found: Array<{literal: string; sourceName: string}> = []
+    const projectPath =
+      (this.compiler.options?.context as string | undefined) || this.manifestDir
+    let resolver: LocalImportResolver | undefined
+
+    const resolveImport = () => {
+      resolver ??= createLocalImportResolver(projectPath)
+
+      return resolver
+    }
+
+    try {
+      for (const file of this.compilation.fileDependencies ?? []) {
+        if (typeof file !== 'string' || !isLocalScriptSource(file)) continue
+
+        const sourceName = unixify(path.relative(projectPath, file))
+
+        for (const literal of constantInjectedFiles(file, resolveImport)) {
+          found.push({literal, sourceName})
+        }
+      }
+    } catch {
+      // Ignore, a source that cannot be read names nothing
+    }
+
+    return found
   }
 
   jsAssets(only?: Set<string>) {
@@ -1933,42 +2029,154 @@ function splitTopLevelConditional(expression: string): [string, string] | null {
 // file name. It names no file the author wrote, so it lists nothing.
 const BUNDLER_CHUNK_URL = /^\s*([\w$]+)\.p\s*\+\s*\1\.\w+\(/
 
-// A worker that feeds importScripts a variable usually keeps the paths in a
-// constant or a list, so every script path it spells is a candidate. The
-// caller keeps only candidates that exist as files.
-function importScriptsListedPaths(source: string): string[] {
+// The strings of an array literal, a name among them read where the
+// literal lives. Strict: one element that is no string leaves no answer.
+function stringElements(
+  found: ResolvedLiteral,
+  strict: boolean
+): string[] | null {
+  if (!found.text.startsWith('[') || !found.text.endsWith(']')) return null
+
+  const values: string[] = []
+
+  for (const element of splitTopLevelArgs(found.text.slice(1, -1))) {
+    const named = isConstantReference(element.trim())
+      ? found.lookup(element, found.index)?.text
+      : undefined
+    const value = pureStringLiteral(named ?? element)
+
+    if (value != null) values.push(value)
+    else if (strict) return null
+  }
+
+  return values
+}
+
+// The strings a constant stands for where a path is expected: one string,
+// or behind a spread a list of them. Null when that cannot be known.
+function constantStrings(
+  lookup: LiteralLookup,
+  expression: string,
+  useIndex: number
+): string[] | null {
+  const trimmed = expression.trim()
+  const spread = trimmed.startsWith('...')
+  const reference = spread ? trimmed.slice(3).trim() : trimmed
+  if (!isConstantReference(reference)) return null
+
+  const found = lookup(reference, useIndex)
+  if (!found) return null
+  if (spread) return stringElements(found, true)
+
+  const value = pureStringLiteral(found.text)
+
+  return value == null ? null : [value]
+}
+
+// Every path an importScripts argument can be, both branches of a choice
+// included, or null when one of them cannot be known.
+function knownImportScriptsPaths(
+  lookup: LiteralLookup,
+  expression: string,
+  useIndex: number,
+  depth = 0
+): string[] | null {
+  const literal = pureStringLiteral(expression)
+  if (literal != null) return [literal]
+  if (depth > 8) return null
+
+  const trimmed = expression.trim()
+  const unwrapped =
+    trimmed.startsWith('(') &&
+    readBalancedArgs(trimmed, 0) === trimmed.slice(1, -1)
+      ? trimmed.slice(1, -1)
+      : trimmed
+  const branches = splitTopLevelConditional(unwrapped)
+  if (!branches) return constantStrings(lookup, unwrapped, useIndex)
+
+  const whenTrue = knownImportScriptsPaths(
+    lookup,
+    branches[0],
+    useIndex,
+    depth + 1
+  )
+  const whenFalse = knownImportScriptsPaths(
+    lookup,
+    branches[1],
+    useIndex,
+    depth + 1
+  )
+
+  return whenTrue && whenFalse ? [...whenTrue, ...whenFalse] : null
+}
+
+interface ImportScriptsVariablePaths {
+  // Paths every variable argument is known to hold, named like a literal.
+  named: string[]
+  // Every script path the worker spells, when a variable cannot be known.
+  candidates: string[]
+}
+
+// A variable fed to importScripts names its file when it is a constant.
+// When it cannot be known, every script path the worker spells is listed.
+function importScriptsVariablePaths(
+  source: string
+): ImportScriptsVariablePaths {
   const code = blankComments(source)
+  const lookup = literalLookup(code)
   const callRe = /\bimportScripts\s*\(/g
-  let computed = false
+  const named: string[] = []
+  let unknown = false
   let call: RegExpExecArray | null
 
-  while (!computed && (call = callRe.exec(code))) {
+  while (!unknown && (call = callRe.exec(code))) {
     const args = readBalancedArgs(code, call.index + call[0].length - 1)
     if (args == null) continue
 
-    computed = splitTopLevelArgs(args).some(
-      (arg) => pureStringLiteral(arg) == null && !BUNDLER_CHUNK_URL.test(arg)
-    )
+    for (const arg of splitTopLevelArgs(args)) {
+      if (pureStringLiteral(arg) != null || BUNDLER_CHUNK_URL.test(arg)) {
+        continue
+      }
+
+      const paths = knownImportScriptsPaths(lookup, arg, call.index)
+
+      if (paths) named.push(...paths)
+      else unknown = true
+    }
   }
 
-  if (!computed) return []
+  if (!unknown) return {named, candidates: []}
 
-  const paths: string[] = []
+  const candidates: string[] = []
   const scriptString = /(['"])((?:\\.|(?!\1)[^\\\n])*?\.m?js)\1/g
   let match: RegExpExecArray | null
 
   while ((match = scriptString.exec(code))) {
     const value = unescapeStringBody(match[2])
-    if (!/^[a-z][\w+.-]*:/i.test(value)) paths.push(value)
+    if (!/^[a-z][\w+.-]*:/i.test(value)) candidates.push(value)
   }
 
-  return paths
+  return {named: [], candidates}
 }
 
-function arrayPropStringLiterals(args: string, prop: string): string[] {
-  const literals: string[] = []
+interface PathEntry {
+  value: string
+  // Whether the path was read through a constant instead of written inline.
+  viaConstant: boolean
+}
+
+type ElementResolver = (element: string) => string[] | null
+
+// The paths of every `prop: [...]` list in the text. An element that is
+// not a string is handed to the resolver, when one is given.
+function arrayPropEntries(
+  args: string,
+  prop: string,
+  resolve?: ElementResolver
+): PathEntry[] {
+  const entries: PathEntry[] = []
   const arrayRe = new RegExp(
-    `(?<![\\w$.])["']?${prop}["']?\\s*:\\s*\\[([^\\]]*)\\]`,
+    `(?<![\\w$.])["']?${escapeRegExp(prop)}["']?\\s*:\\s*\\[([^\\]]*)\\]`,
     'g'
   )
   let arrayMatch: RegExpExecArray | null
@@ -1976,179 +2184,54 @@ function arrayPropStringLiterals(args: string, prop: string): string[] {
   while ((arrayMatch = arrayRe.exec(args))) {
     for (const element of splitTopLevelArgs(arrayMatch[1])) {
       const literal = pureStringLiteral(element)
-      if (literal != null) literals.push(literal)
-    }
-  }
 
-  return literals
-}
+      if (literal != null) {
+        entries.push({value: literal, viaConstant: false})
+        continue
+      }
 
-const IDENTIFIER = /^[A-Za-z_$][\w$]*$/
-
-// The array or object literal a const of this file holds. A name declared
-// more than once is left alone, since no scope is read here.
-function constLiteralText(code: string, name: string): string | null {
-  if (!IDENTIFIER.test(name)) return null
-
-  const declarationRe = new RegExp(
-    `(?<![\\w$.])const\\s+${name.replace(/[\\$]/g, '\\$&')}\\s*(?::[^=;]*)?=\\s*(?=[\\[{])`,
-    'g'
-  )
-  const declarations = [...code.matchAll(declarationRe)]
-  if (declarations.length !== 1) return null
-
-  const [declaration] = declarations
-
-  return readBalancedLiteral(
-    code,
-    (declaration.index || 0) + declaration[0].length
-  )
-}
-
-// Return the bracketed literal that opens at openIndex, brackets included
-// (string-aware), or null when it never closes.
-function readBalancedLiteral(code: string, openIndex: number): string | null {
-  let depth = 0
-
-  for (let i = openIndex; i < code.length; i++) {
-    const char = code[i]
-
-    if (char === '"' || char === "'" || char === '`') {
-      i = skipString(code, i, code.length)
-      continue
-    }
-
-    if (char === '(' || char === '[' || char === '{') depth++
-
-    if (char === ')' || char === ']' || char === '}') {
-      depth--
-      if (depth === 0) return code.slice(openIndex, i + 1)
-    }
-  }
-
-  return null
-}
-
-// Hands back the source of the module a specifier names, or null when it
-// is not a local file this build compiles.
-export type ImportedModuleReader = (specifier: string) => string | null
-
-type LiteralLookup = (name: string) => string | null
-
-const IMPORT_CLAUSE =
-  /(?<![\w$.])import\s+(?!type\b)([^'"`;()]*?)\s*from\s*(['"])([^'"\n]+)\2/g
-const LOCAL_DECLARATION =
-  /(?<![\w$.])(?:const|let|var|function|class)\s+([A-Za-z_$][\w$]*)/g
-const EXPORTED_CONST =
-  /(?<![\w$.])export\s+const\s+([A-Za-z_$][\w$]*)\s*(?::[^=;]*)?=\s*(?=[[{])/g
-const EXPORTED_DEFAULT = /(?<![\w$.])export\s+default\s*(?=[[{])/g
-
-// Where a name of this file is imported from and what it is called there.
-// A name this file also declares is left alone, since no scope is read here.
-function importedBinding(
-  code: string,
-  name: string
-): {specifier: string; exportName: string} | null {
-  for (const declaration of code.matchAll(LOCAL_DECLARATION)) {
-    if (declaration[1] === name) return null
-  }
-
-  const found: Array<{specifier: string; exportName: string}> = []
-
-  for (const [, clause, , specifier] of code.matchAll(IMPORT_CLAUSE)) {
-    const open = clause.indexOf('{')
-    const close = clause.lastIndexOf('}')
-    const named = open !== -1 && close > open
-    const defaultName = (named ? clause.slice(0, open) : clause)
-      .replace(/,\s*$/, '')
-      .trim()
-
-    if (defaultName === name) found.push({specifier, exportName: 'default'})
-    if (!named) continue
-
-    for (const part of clause.slice(open + 1, close).split(',')) {
-      const [exportName, localName = exportName] = part.trim().split(/\s+as\s+/)
-
-      if (localName === name && IDENTIFIER.test(exportName)) {
-        found.push({specifier, exportName})
+      for (const value of resolve?.(element) ?? []) {
+        entries.push({value, viaConstant: true})
       }
     }
   }
 
-  return found.length === 1 ? found[0] : null
-}
-
-// The array or object literal a module exports under a name: an exported
-// const, or the default export when that is itself a literal.
-function exportedLiteralText(
-  source: string,
-  exportName: string
-): string | null {
-  const code = blankComments(source)
-  const declarations =
-    exportName === 'default'
-      ? [...code.matchAll(EXPORTED_DEFAULT)]
-      : [...code.matchAll(EXPORTED_CONST)].filter(
-          (declaration) => declaration[1] === exportName
-        )
-  if (declarations.length !== 1) return null
-
-  const [declaration] = declarations
-
-  return readBalancedLiteral(
-    code,
-    (declaration.index || 0) + declaration[0].length
-  )
-}
-
-// A constant is read where it is declared: in this file, or one import
-// away in the module that exports it. Nothing is followed past that.
-function literalLookup(
-  code: string,
-  readImported?: ImportedModuleReader
-): LiteralLookup {
-  return (name) => {
-    const local = constLiteralText(code, name)
-    if (local != null || !readImported || !IDENTIFIER.test(name)) return local
-
-    const binding = importedBinding(code, name)
-    if (!binding) return null
-
-    const source = readImported(binding.specifier)
-
-    return source == null
-      ? null
-      : exportedLiteralText(source, binding.exportName)
-  }
+  return entries
 }
 
 interface RegisteredScriptGroup {
   text: string
-  // Whether the text was read through a constant, which is the one hop.
+  // Whether the text was read through a constant.
   viaConstant: boolean
+  // What reads a name written in the text, and from where.
+  lookup: LiteralLookup
+  at: number
 }
 
 // The object literals a scripting call passes first, so a property is read
 // per registration or injection instead of across the whole argument blob.
 function splitRegisteredScriptGroups(
   lookup: LiteralLookup,
-  args: string
+  args: string,
+  useIndex: number
 ): RegisteredScriptGroup[] {
   const [first] = splitTopLevelArgs(args)
   if (first == null) return []
 
   let trimmed = first.trim()
+  let home = {lookup, at: useIndex}
   let viaConstant = false
 
-  if (IDENTIFIER.test(trimmed)) {
-    const literal = lookup(trimmed)
-    if (literal == null) return []
+  if (isConstantReference(trimmed)) {
+    const found = lookup(trimmed, useIndex)
+    if (!found) return []
 
-    trimmed = literal
+    trimmed = found.text
+    home = {lookup: found.lookup, at: found.index}
     viaConstant = true
   }
 
-  if (!trimmed.startsWith('[')) return [{text: trimmed, viaConstant}]
+  if (!trimmed.startsWith('[')) return [{text: trimmed, viaConstant, ...home}]
 
   const close = trimmed.lastIndexOf(']')
   if (close < 1) return []
@@ -2158,46 +2241,72 @@ function splitRegisteredScriptGroups(
   for (const element of splitTopLevelArgs(trimmed.slice(1, close))) {
     const text = element.trim()
 
-    if (viaConstant || !IDENTIFIER.test(text)) {
-      groups.push({text, viaConstant})
+    if (!isConstantReference(text)) {
+      groups.push({text, viaConstant, ...home})
       continue
     }
 
-    const literal = lookup(text)
-    if (literal != null) groups.push({text: literal, viaConstant: true})
+    const found = home.lookup(text, home.at)
+
+    if (found) {
+      groups.push({
+        text: found.text,
+        viaConstant: true,
+        lookup: found.lookup,
+        at: found.index
+      })
+    }
   }
 
   return groups
 }
 
+const CONSTANT_REFERENCE = '[A-Za-z_$][\\w$]*(?:\\s*\\.\\s*[A-Za-z_$][\\w$]*)?'
+
 // The string literals of a const array a group names for a property, as
-// `js: hookFiles` or the shorthand `files`.
+// `js: hookFiles`, `js: paths.HOOKS` or the shorthand `files`.
 function constArrayPropStringLiterals(
   lookup: LiteralLookup,
   group: string,
-  prop: string
+  prop: string,
+  useIndex: number
 ): string[] {
   const literals: string[] = []
+  const name = escapeRegExp(prop)
   const namedRe = new RegExp(
-    `(?<![\\w$.])["']?${prop}["']?\\s*:\\s*([A-Za-z_$][\\w$]*)\\s*(?=[,}])`,
+    `(?<![\\w$.])["']?${name}["']?\\s*:\\s*(${CONSTANT_REFERENCE})\\s*(?=[,}])`,
     'g'
   )
-  const shorthandRe = new RegExp(`[{,]\\s*(${prop})\\s*(?=[,}])`, 'g')
+  const shorthandRe = new RegExp(`[{,]\\s*(${name})\\s*(?=[,}])`, 'g')
 
   for (const match of [
     ...group.matchAll(namedRe),
     ...group.matchAll(shorthandRe)
   ]) {
-    const literal = lookup(match[1])
-    if (!literal?.startsWith('[')) continue
-
-    for (const element of splitTopLevelArgs(literal.slice(1, -1))) {
-      const value = pureStringLiteral(element)
-      if (value != null) literals.push(value)
-    }
+    const found = lookup(match[1], useIndex)
+    if (found) literals.push(...(stringElements(found, false) ?? []))
   }
 
   return literals
+}
+
+// The paths one group names under a property, inline or through a
+// constant, each name read where the group itself is written.
+function groupPropEntries(
+  group: RegisteredScriptGroup,
+  prop: string
+): PathEntry[] {
+  return [
+    ...arrayPropEntries(group.text, prop, (element) =>
+      constantStrings(group.lookup, element, group.at)
+    ),
+    ...constArrayPropStringLiterals(
+      group.lookup,
+      group.text,
+      prop,
+      group.at
+    ).map((value) => ({value, viaConstant: true}))
+  ]
 }
 
 // Extract the js files a runtime registration or injection asks the browser to
@@ -2221,20 +2330,16 @@ export function extractMainWorldRegisteredFileLiterals(
     let match: RegExpExecArray | null
 
     while ((match = callRe.exec(code))) {
-      const args = readBalancedArgs(code, match.index + match[0].length - 1)
+      const at = match.index
+      const args = readBalancedArgs(code, at + match[0].length - 1)
       if (args == null) continue
 
-      for (const group of splitRegisteredScriptGroups(lookup, args)) {
+      for (const group of splitRegisteredScriptGroups(lookup, args, at)) {
         if (!/["']?world["']?\s*:\s*(['"])MAIN\1/.test(group.text)) continue
 
-        literals.push(...arrayPropStringLiterals(group.text, arrayProp))
-
-        // A list held in a constant is read when the group itself was not.
-        if (!group.viaConstant) {
-          literals.push(
-            ...constArrayPropStringLiterals(lookup, group.text, arrayProp)
-          )
-        }
+        literals.push(
+          ...groupPropEntries(group, arrayProp).map((entry) => entry.value)
+        )
       }
     }
   }
@@ -2242,11 +2347,20 @@ export function extractMainWorldRegisteredFileLiterals(
   return literals
 }
 
-// Extract the file paths a runtime injection call ships to the browser. JS and
-// CSS come back alike, the planner decides what compiles and what copies.
-export function extractInjectedFileLiterals(source: string): string[] {
+const SINGULAR_FILE = /["']?file["']?\s*:\s*(['"])((?:\\.|(?!\1)[^\\])*)\1/g
+const SINGULAR_FILE_CONSTANT = new RegExp(
+  `(?<![\\w$.])["']?file["']?\\s*:\\s*(${CONSTANT_REFERENCE})\\s*(?=[,}])`,
+  'g'
+)
+
+// Every path an injection call names, each marked with how it was read.
+function collectInjectedFiles(
+  source: string,
+  readImported?: ImportedModuleReader
+): PathEntry[] {
   const code = blankComments(source)
-  const literals: string[] = []
+  const lookup = literalLookup(code, readImported)
+  const entries: PathEntry[] = []
   const calls = [
     {
       callRe: /\b(?:executeScript|insertCSS|removeCSS)\s*\(/g,
@@ -2257,31 +2371,103 @@ export function extractInjectedFileLiterals(source: string): string[] {
       arrayProps: ['js', 'css']
     }
   ]
+  const constant = (value: string): PathEntry => ({value, viaConstant: true})
+
+  // The paths a text names: `files`, `js` and `css` lists on the scripting
+  // calls, and the singular `file` of MV2 tabs.executeScript and insertCSS.
+  const read = (
+    text: string,
+    arrayProps: string[],
+    from: {lookup: LiteralLookup; at: number},
+    inline: boolean
+  ) => {
+    const found: PathEntry[] = []
+
+    for (const prop of arrayProps) {
+      found.push(
+        ...arrayPropEntries(text, prop, (element) =>
+          constantStrings(from.lookup, element, from.at)
+        )
+      )
+    }
+
+    for (const fileMatch of text.matchAll(SINGULAR_FILE)) {
+      found.push({value: unescapeStringBody(fileMatch[2]), viaConstant: false})
+    }
+
+    for (const prop of arrayProps) {
+      found.push(
+        ...constArrayPropStringLiterals(from.lookup, text, prop, from.at).map(
+          constant
+        )
+      )
+    }
+
+    for (const fileMatch of text.matchAll(SINGULAR_FILE_CONSTANT)) {
+      found.push(
+        ...(constantStrings(from.lookup, fileMatch[1], from.at) ?? []).map(
+          constant
+        )
+      )
+    }
+
+    entries.push(
+      ...(inline ? found : found.map((entry) => constant(entry.value)))
+    )
+  }
 
   for (const {callRe, arrayProps} of calls) {
     let match: RegExpExecArray | null
 
     while ((match = callRe.exec(code))) {
-      const args = readBalancedArgs(code, match.index + match[0].length - 1)
+      const at = match.index
+      const args = readBalancedArgs(code, at + match[0].length - 1)
       if (args == null) continue
 
-      // `files: [...]` on chrome.scripting.*, `js: [...]` and `css: [...]` on
-      // registered content scripts, arrays of literals.
-      for (const prop of arrayProps) {
-        literals.push(...arrayPropStringLiterals(args, prop))
-      }
+      read(args, arrayProps, {lookup, at}, true)
 
-      // MV2 tabs.executeScript / tabs.insertCSS, `file: "..."` singular.
-      const fileRe = /["']?file["']?\s*:\s*(['"])((?:\\.|(?!\1)[^\\])*)\1/g
-      let fileMatch: RegExpExecArray | null
-
-      while ((fileMatch = fileRe.exec(args))) {
-        literals.push(unescapeStringBody(fileMatch[2]))
+      // A registration or an injection held whole in a constant.
+      for (const group of splitRegisteredScriptGroups(lookup, args, at)) {
+        if (group.viaConstant) read(group.text, arrayProps, group, false)
       }
     }
   }
 
-  return literals
+  return entries
+}
+
+// Extract the file paths a runtime injection call ships to the browser. JS and
+// CSS come back alike, the planner decides what compiles and what copies.
+export function extractInjectedFileLiterals(
+  source: string,
+  readImported?: ImportedModuleReader
+): string[] {
+  return collectInjectedFiles(source, readImported).map((entry) => entry.value)
+}
+
+// Cheap gate, so a source with no injection call is never tokenized.
+const INJECTION_CALL =
+  /\b(?:executeScript|insertCSS|removeCSS|registerContentScripts|updateContentScripts)\b/
+
+// The paths the injection calls of one source file name through a
+// constant, the imports of that file followed to where they lead.
+function constantInjectedFiles(
+  file: string,
+  resolveImport: () => LocalImportResolver
+): string[] {
+  const source = readScriptText(file)
+  if (!source || !INJECTION_CALL.test(source)) return []
+
+  const readImported: ImportedModuleReader = (specifier, fromFile = file) => {
+    const resolved = resolveImport()(fromFile, specifier)
+    const text = resolved ? readScriptText(resolved) : undefined
+
+    return resolved && text != null ? {source: text, file: resolved} : null
+  }
+
+  return collectInjectedFiles(source, readImported)
+    .filter((entry) => entry.viaConstant)
+    .map((entry) => entry.value)
 }
 
 // Extract string-literal URLs loaded via same-origin request APIs: fetch(),
@@ -2363,179 +2549,4 @@ function fetchLiteralToFsPath(literal: string): string | null {
   const noQuery = trimmed.split(/[?#]/)[0]
 
   return noQuery ? unixify(noQuery) : null
-}
-
-// Blank out line and block comments (string-aware) so commented-out calls do
-// not produce copies or warnings; contents become spaces to keep offsets.
-function blankComments(source: string): string {
-  let out = ''
-  let i = 0
-  const n = source.length
-
-  while (i < n) {
-    const char = source[i]
-    const next = source[i + 1]
-
-    if (char === '/' && next === '/') {
-      while (i < n && source[i] !== '\n') {
-        out += ' '
-        i++
-      }
-
-      continue
-    }
-
-    if (char === '/' && next === '*') {
-      out += '  '
-      i += 2
-
-      while (i < n && !(source[i] === '*' && source[i + 1] === '/')) {
-        out += source[i] === '\n' ? '\n' : ' '
-        i++
-      }
-
-      if (i < n) {
-        out += '  '
-        i += 2
-      }
-
-      continue
-    }
-
-    if (char === '"' || char === "'" || char === '`') {
-      // Copy the whole string token verbatim, template interpolations
-      // included, so nested backticks cannot desync the comment scan.
-      const end = skipString(source, i, n)
-      out += source.slice(i, Math.min(end + 1, n))
-      i = end + 1
-      continue
-    }
-
-    out += char
-    i++
-  }
-
-  return out
-}
-
-// Return the argument text up to the matching close paren (string-aware), or
-// null when unbalanced. No size cap: minified args can span many kilobytes.
-function readBalancedArgs(code: string, openIndex: number): string | null {
-  if (code[openIndex] !== '(') return null
-
-  const cap = code.length
-  let depth = 0
-
-  for (let i = openIndex; i < cap; i++) {
-    const char = code[i]
-
-    if (char === '"' || char === "'" || char === '`') {
-      i = skipString(code, i, cap)
-      continue
-    }
-
-    if (char === '(') depth++
-
-    if (char === ')') {
-      depth--
-      if (depth === 0) return code.slice(openIndex + 1, i)
-    }
-  }
-
-  return null
-}
-
-// Return the index of the closing quote, skipping template `${...}` blocks;
-// without this a nested backtick desyncs every scanner downstream.
-function skipString(code: string, start: number, cap: number): number {
-  const quote = code[start]
-
-  for (let i = start + 1; i < cap; i++) {
-    if (code[i] === '\\') {
-      i++
-      continue
-    }
-
-    if (code[i] === quote) return i
-
-    if (quote === '`' && code[i] === '$' && code[i + 1] === '{') {
-      i = skipTemplateExpression(code, i + 2, cap)
-    }
-  }
-
-  return cap
-}
-
-// Given the index just past `${`, return the index of the matching `}` (or
-// cap), skipping nested strings, templates, and object literals.
-function skipTemplateExpression(
-  code: string,
-  start: number,
-  cap: number
-): number {
-  let depth = 1
-
-  for (let i = start; i < cap; i++) {
-    const char = code[i]
-
-    if (char === '"' || char === "'" || char === '`') {
-      i = skipString(code, i, cap)
-      continue
-    }
-
-    if (char === '{') depth++
-
-    if (char === '}') {
-      depth--
-      if (depth === 0) return i
-    }
-  }
-
-  return cap
-}
-
-function splitTopLevelArgs(args: string): string[] {
-  const parts: string[] = []
-  let depth = 0
-  let current = ''
-
-  for (let i = 0; i < args.length; i++) {
-    const char = args[i]
-
-    if (char === '"' || char === "'" || char === '`') {
-      const end = skipString(args, i, args.length)
-      current += args.slice(i, end + 1)
-      i = end
-      continue
-    }
-
-    if (char === '(' || char === '[' || char === '{') depth++
-    if (char === ')' || char === ']' || char === '}') depth--
-
-    if (char === ',' && depth === 0) {
-      parts.push(current)
-      current = ''
-      continue
-    }
-
-    current += char
-  }
-
-  if (current.trim()) parts.push(current)
-
-  return parts
-}
-
-// Return the string value when the whole argument is a single static string
-// literal; null for identifiers, concatenations, and template interpolation.
-function pureStringLiteral(arg: string): string | null {
-  const match = /^\s*(['"`])((?:\\.|(?!\1)[^\\])*)\1\s*$/.exec(arg)
-  if (!match) return null
-  if (match[1] === '`' && match[2].includes('${')) return null
-
-  return unescapeStringBody(match[2])
-}
-
-function unescapeStringBody(body: string): string {
-  return body.replace(/\\(.)/g, '$1')
 }
