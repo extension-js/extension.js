@@ -231,6 +231,11 @@ jobs:
       - name: Run packed-tarball smoke
         run: pnpm smoke:npx
 
+      # The typecheck reads workspace packages from source, so only this reads
+      # the declarations the smoke above just compiled for all four packages.
+      - name: Check the emitted declarations
+        run: node scripts/check-emitted-types.mjs
+
   bundled-extensions:
     name: Bundled extensions build (chromium)
     runs-on: ubuntu-latest

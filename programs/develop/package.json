@@ -65,9 +65,9 @@
     "registry": "https://registry.npmjs.org"
   },
   "scripts": {
-    "prepublishOnly": "rslib build && node scripts/write-dist-js-aliases.mjs && node ../../scripts/build-extensions.cjs",
+    "prepublishOnly": "pnpm run compile && node ../../scripts/build-extensions.cjs",
     "compile": "node ../../scripts/run-locked.mjs compile \"rslib build && node scripts/write-dist-js-aliases.mjs\"",
-    "watch": "rslib build --watch",
+    "watch": "node ../../scripts/run-locked.mjs watch \"rslib build --watch\"",
     "pretest": "pnpm run compile",
     "test": "vitest run"
   },
