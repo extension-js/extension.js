@@ -24,6 +24,7 @@ import {
   reloadForRenamedContentScripts,
   reloadForRewrittenContentScripts
 } from '../plugin-reload'
+import {isAwaitingMainWorldRestart} from '../plugin-web-extension/feature-scripts/steps/warn-main-world-registration-changed'
 import type {DevOptions} from '../types'
 
 export interface CompiledEvent {
@@ -416,6 +417,10 @@ export class BrowsersPlugin implements RunnerPlugin {
         this.loadedContentScriptFiles = contentScriptFiles
         this.loadedContentScriptDigests = contentScriptDigests
         this.announceReady()
+      } else if (isAwaitingMainWorldRestart(compiler, compilation)) {
+        // The restart this build asked for reloads the extension once with
+        // the build that replaces it. Reloading here too starts it twice.
+        reloadInstruction = undefined
       } else if (this.reloadBroker) {
         // Launched-browser reload routes to the SW producer over the control
         // bridge, the same executor as `--no-browser`. Honors EXTENSION_NO_RELOAD.

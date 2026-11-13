@@ -257,6 +257,29 @@ describe('a statement list on a document that forbids eval', () => {
     expect(Number(read?.end)).toBe(256 * 1024 + 1)
   })
 
+  // The statement route read a BigInt as the string "10" and the expression
+  // route as "[object Object]" once it sat inside an object or an array.
+  it('answers a BigInt the same from a statement list and an expression', async () => {
+    const big = {__type: 'bigint', value: '10'}
+
+    expect(await run(new FakeConsole(), 'const v = 10n; v')).toEqual({
+      ok: true,
+      value: big
+    })
+
+    expect(await run(new FakeConsole(), '10n')).toEqual({ok: true, value: big})
+
+    expect(await run(new FakeConsole(), 'const o = {a: 10n}; o')).toEqual({
+      ok: true,
+      value: {a: big}
+    })
+
+    expect(await run(new FakeConsole(), 'const l = [10n]; l')).toEqual({
+      ok: true,
+      value: [big]
+    })
+  })
+
   it('answers undefined when the last statement has no value', async () => {
     expect(await run(new FakeConsole(), 'var t = 1;')).toEqual({
       ok: true,
@@ -309,7 +332,7 @@ describe('a statement list on a document that forbids eval', () => {
 
     expect(readCompletionValue({type: 'BigInt', text: '10'})).toEqual({
       ok: true,
-      value: '10'
+      value: {__type: 'bigint', value: '10'}
     })
 
     expect(readCompletionValue({type: 'object', actor: 'obj-3'})).toEqual({

@@ -64,6 +64,7 @@ import {
   rememberSpecialFoldersConfig
 } from '../plugin-special-folders/get-data'
 import {publicFolderOrDefault} from '../plugin-special-folders/resolve-public-folder'
+import {isAwaitingMainWorldRestart} from '../plugin-web-extension/feature-scripts/steps/warn-main-world-registration-changed'
 import webpackConfig from '../rspack-config'
 import type {
   CommonWebpackOptions,
@@ -1136,6 +1137,10 @@ export async function devServer(
 
             return
           }
+
+          // The restart this build asked for reloads the extension once with
+          // the build that replaces it. Reloading here too starts it twice.
+          if (isAwaitingMainWorldRestart(compiler, compilation)) return
 
           const outputPath = String(compilation.options?.output?.path || '')
           const contextDir = String(compilation.options?.context || '')
