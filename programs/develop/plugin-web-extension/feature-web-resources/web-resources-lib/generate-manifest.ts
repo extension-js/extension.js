@@ -10,6 +10,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, sources, WebpackError} from '@rspack/core'
 import {debugLine, isDebug} from '../../../lib/messaging'
+import {isDevContentScriptStandInAsset} from '../../../plugin-reload/reload-lib/dev-content-scripts'
 import type {Manifest} from '../../../types'
 import {
   getManifestContent,
@@ -711,9 +712,13 @@ export function generateManifestPatches(
     }
   }
 
+  // The browser applies a dev probe sheet from its registration and no page
+  // ever fetches one, so it stays out of what a page can reach.
   const cssUnderContentScripts = Array.from(
     new Set([...emittedCssUnderContentScripts, ...onDiskCssUnderContentScripts])
-  ).sort()
+  )
+    .filter((resource) => !isDevContentScriptStandInAsset(resource))
+    .sort()
 
   if (Array.isArray(canonicalManifest.content_scripts)) {
     for (const contentScript of canonicalManifest.content_scripts) {

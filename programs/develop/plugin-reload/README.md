@@ -64,13 +64,27 @@ Applied by `ReloadPlugin` in order:
   names that keeps its name and changes its bytes. Gecko keeps a declared
   sheet by address, so inserting the file again shows the old rules. With
   `refreshInPlace` (Gecko) the instruction stays a content script one and
-  carries `refreshedStylesheets`: the producer removes the declared copy
-  from the open tabs, inserts the file under a `?v=<digest>` address, and
-  records the swap so a content script in a later document asks for the same
-  correction. Nothing restarts and the tab keeps its state. Any other
+  carries `refreshedStylesheets`: in every frame that runs the entry the
+  producer inserts the file under a `?v=<digest>` address and then removes
+  the declared copy, registers that address at the entry's own `run_at` so
+  a later document gets the new rules last in the cascade, and records the
+  swap so a content script in a later document asks for the declared copy
+  to be dropped there too. Each content script bundle names itself to its
+  frame, so the frames are the ones the browser ran the entry in, whatever
+  the tab shows. Nothing restarts and the tab keeps its state. Any other
   browser, an entry with no script, and a changed script still reload the
   extension. `createLoadedContentScripts` keeps what the browser last read,
-  so `--no-browser` resolves an edit the way a launched browser does.
+  so `--no-browser` resolves an edit the way a launched browser does, and
+  it takes a swapped sheet as read only once `settle(true)` says a producer
+  received it.
+  `reloadForNewWebResources` reloads the extension when the emitted manifest
+  lists a web accessible resource the loaded one did not, as an imported
+  image does under its hashed name after an edit.
+  An HTML page the build emits byte for byte carries no dev client. The
+  instruction names it in `standalonePages` and the producer reloads the
+  tabs that show it. A reload that restarts the extension records the
+  extension's own page tabs first, and the next generation reloads the ones
+  the browser kept and opens again the ones it closed.
 
 - `reload-dispatch.ts`
   Routes a `ReloadInstruction` to the control-bridge broker (SW producer).
@@ -78,6 +92,10 @@ Applied by `ReloadPlugin` in order:
   latched, and where the launcher can start a suspended background (a
   Firefox event page after about 30 s idle) it is started so its hello takes
   the edit. The undelivered warning prints only when that brings nobody back.
+  `dispatchReload` resolves `true` only when a producer took the edit. A
+  reload that only restarts the worker is not sent when every connected
+  background already names the build being shipped, which two quick saves
+  that compile the same bytes would otherwise run twice.
 
 - `steps/setup-reload-strategy/`
   Dev-only background entry setup and the vendored
@@ -92,8 +110,10 @@ Applied by `ReloadPlugin` in order:
   files, and a runtime prepended to the background bundle registers them
   with `chrome.scripting` at boot (`persistAcrossSessions: false`), injects
   on a stub's signal (and inserts the entry's stylesheet into a frame that
-  committed before the registration existed, which Chromium only adds at
-  document start), heals open tabs after a worker restart and reloads the
+  Chromium did not add it to, which it only does at document start for a
+  registration that already exists: a one-rule `dev-sheet-<n>.css`
+  registered beside the entry's sheets tells such a frame from one that has
+  them), heals open tabs after a worker restart and reloads the
   tabs an edited entry matches. Every emitted bundle starts with a marker
   that records its file on the world it runs in, and every injection path
   probes that marker first, so a frame never runs two copies. Entries with
@@ -114,7 +134,10 @@ Applied by `ReloadPlugin` in order:
 - `steps/inject-bridge-producer.ts` / `steps/inject-bridge-relay.ts`
   Control-bridge instrumentation: forward background-SW and content-script
   console output to the dev-server control WS. Not reload in the strict
-  sense, they ride the same bridge and the same dev-only gate.
+  sense, they ride the same bridge and the same dev-only gate. The producer
+  step also names the build in the background bundle, a digest of every
+  emitted file without the compilation hash, and `readDevBuild` hands the
+  same value to the dispatch.
 
 ## Contracts
 
@@ -127,6 +150,7 @@ that contract; it does not define it.
 - `__spec__/reload-plugin-gating.spec.ts`, dev-only gating
 - `__spec__/classify-reload.unit.spec.ts`, classifier decisions
 - `__spec__/reload-dispatch.unit.spec.ts`, dispatch seam
+- `__spec__/loaded-content-scripts.spec.ts`, `__spec__/web-resources.unit.spec.ts`, what the browser last read
 - `__spec__/setup-background-entry.spec.ts`, `__spec__/inject-scripts-replay-shim.spec.ts`, `__spec__/strip-content-script-dev-server-runtime.spec.ts`, step behavior
 
 `BrowsersPlugin`-level classification integration is covered from

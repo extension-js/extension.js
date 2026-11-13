@@ -37,6 +37,9 @@ export interface ReloadInstruction {
   // Stylesheets the loaded manifest names that kept their name and changed
   // their bytes, for a browser that can swap them on open tabs in place.
   refreshedStylesheets?: RefreshedStylesheet[]
+  // Changed pages the build ships as written. They carry no dev client, so
+  // the producer reloads the open tabs that show them.
+  standalonePages?: string[]
   // Human context label shared VERBATIM by every announcing surface, so they
   // can never disagree. e.g. "content_script (content/scripts.tsx)".
   label?: string
@@ -435,6 +438,24 @@ function isHtmlSource(rel: string): boolean {
   return /\.html?$/i.test(rel)
 }
 
+// True when the emitted file is the source byte for byte. The html feature
+// rewrites every page it bundles, so such a page was only copied.
+function isShippedAsWritten(
+  rel: string,
+  contextDir: string | undefined,
+  outputPath: string | undefined
+): boolean {
+  if (!contextDir || !outputPath) return false
+
+  try {
+    return fs
+      .readFileSync(path.join(outputPath, rel))
+      .equals(fs.readFileSync(path.join(contextDir, rel)))
+  } catch {
+    return false
+  }
+}
+
 function changedScriptFilesFor(
   changedSources: string[],
   index: SourceFeatureIndex | null
@@ -459,13 +480,16 @@ export function classifyReloadFromSources(opts: {
   getContentScriptCount: () => number
   getSourceFeatureIndex?: () => SourceFeatureIndex | null
   outputPath?: string
+  // The project root, to tell a page the build copied from one it bundled.
+  contextDir?: string
 }): ReloadInstruction | undefined {
   const {
     changedSources,
     forcedFull,
     getContentScriptCount,
     getSourceFeatureIndex,
-    outputPath
+    outputPath,
+    contextDir
   } = opts
   if (changedSources.length === 0) return undefined
 
@@ -488,10 +512,12 @@ export function classifyReloadFromSources(opts: {
   // A scripts/ bundle edit rides along whichever reload wins, so the SW can
   // replay the injections that named it.
   const scriptFiles = changedScriptFilesFor(changedSources, index)
-  const withScripts = (instruction: ReloadInstruction): ReloadInstruction =>
-    scriptFiles.length > 0
-      ? {...instruction, changedScriptFiles: scriptFiles}
-      : instruction
+  const standalonePages: string[] = []
+  const withScripts = (instruction: ReloadInstruction): ReloadInstruction => ({
+    ...instruction,
+    ...(scriptFiles.length > 0 ? {changedScriptFiles: scriptFiles} : {}),
+    ...(standalonePages.length > 0 ? {standalonePages} : {})
+  })
 
   const swChanged: string[] = []
   const contentEntries = new Set<string>()
@@ -529,6 +555,10 @@ export function classifyReloadFromSources(opts: {
     if (!known && isHtmlSource(rel)) {
       pageChanged.push(rel)
       known = true
+
+      if (isShippedAsWritten(rel, contextDir, outputPath)) {
+        standalonePages.push(rel)
+      }
     }
 
     if (!known) {
@@ -834,16 +864,85 @@ export function reloadForRenamedContentScripts(
   }
 }
 
+// Every file the emitted manifest lets a web page load, patterns included.
+// MV3 groups them by the pages allowed to ask, MV2 lists them flat.
+export function readWebAccessibleResources(
+  compilation: import('@rspack/core').Compilation
+): string[] {
+  try {
+    const asset = compilation.getAsset?.('manifest.json')
+    if (!asset?.source) return []
+
+    const manifest = JSON.parse(String(asset.source.source()))
+    const groups = manifest?.web_accessible_resources
+    if (!Array.isArray(groups)) return []
+
+    const out = new Set<string>()
+
+    for (const group of groups) {
+      const resources =
+        typeof group === 'string'
+          ? [group]
+          : Array.isArray(group?.resources)
+            ? group.resources
+            : []
+
+      for (const resource of resources) {
+        if (typeof resource === 'string') out.add(resource)
+      }
+    }
+
+    return [...out].sort()
+  } catch {
+    return []
+  }
+}
+
+// An imported asset is listed under a name that holds its content hash. The
+// browser keeps the list it loaded, so a page is refused the renamed file.
+export function reloadForNewWebResources(
+  instruction: ReloadInstruction | undefined,
+  loadedResources: string[],
+  emittedResources: string[]
+): ReloadInstruction | undefined {
+  if (instruction?.type === 'full' || instruction?.type === 'service-worker') {
+    return instruction
+  }
+
+  const loaded = new Set(loadedResources)
+
+  if (emittedResources.every((resource) => loaded.has(resource))) {
+    return instruction
+  }
+
+  const changedAssets = instruction?.changedAssets?.length
+    ? instruction.changedAssets
+    : ['manifest.json']
+
+  return {
+    ...instruction,
+    type: 'full',
+    changedAssets,
+    label:
+      instruction?.type === 'content-scripts' && instruction.label
+        ? instruction.label
+        : formatReloadContextLabel('extension', changedAssets)
+  }
+}
+
 // What the browser last read through the manifest's content_scripts, taken
 // to be the first compile and each full reload when nothing launched it.
 export function createLoadedContentScripts(options: {refreshInPlace: boolean}) {
   let files: string[] = []
   let digests: Record<string, string> = {}
+  let resources: string[] = []
+  let handedOver: Record<string, string> | undefined
 
   return {
     noteLoaded(compilation: import('@rspack/core').Compilation): void {
       files = readContentScriptFiles(compilation)
       digests = readContentScriptDigests(compilation, files)
+      resources = readWebAccessibleResources(compilation)
     },
     resolve(
       compilation: import('@rspack/core').Compilation,
@@ -851,8 +950,13 @@ export function createLoadedContentScripts(options: {refreshInPlace: boolean}) {
     ): ReloadInstruction | undefined {
       const emittedFiles = readContentScriptFiles(compilation)
       const emittedDigests = readContentScriptDigests(compilation, emittedFiles)
+      const emittedResources = readWebAccessibleResources(compilation)
       const instruction = reloadForRewrittenContentScripts(
-        reloadForRenamedContentScripts(classified, files, emittedFiles),
+        reloadForNewWebResources(
+          reloadForRenamedContentScripts(classified, files, emittedFiles),
+          resources,
+          emittedResources
+        ),
         digests,
         emittedDigests,
         options
@@ -864,11 +968,22 @@ export function createLoadedContentScripts(options: {refreshInPlace: boolean}) {
       ) {
         files = emittedFiles
         digests = emittedDigests
-      } else if (instruction?.refreshedStylesheets?.length) {
-        digests = emittedDigests
+        resources = emittedResources
+        handedOver = undefined
+      } else {
+        handedOver = instruction?.refreshedStylesheets?.length
+          ? emittedDigests
+          : undefined
       }
 
       return instruction
+    },
+    // The open tabs hold a swapped sheet only once a producer took it. An
+    // edit nobody received is compared again, and named again, next compile.
+    settle(delivered: boolean): void {
+      if (delivered && handedOver) digests = handedOver
+
+      handedOver = undefined
     }
   }
 }

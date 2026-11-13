@@ -1,5 +1,5 @@
 import {createHash} from 'node:crypto'
-import {describe, expect, it, vi} from 'vitest'
+import {afterEach, describe, expect, it, vi} from 'vitest'
 import {
   type ReloadInstruction,
   readContentScriptDigests,
@@ -15,12 +15,16 @@ const SHEET = 'content_scripts/content-0.css'
 interface Emitted {
   js?: string[]
   css?: string[]
+  resources?: string[]
   assets?: Record<string, string>
 }
 
 // Gecko registers the manifest it loaded, and a content script stylesheet
 // keeps one name across compiles while a bundle is renamed by its hash.
-function createHarness(browser = 'firefox') {
+function createHarness(
+  browser = 'firefox',
+  broker?: {broadcastReload: (frame: unknown) => number}
+) {
   const reload = vi.fn()
   const controller: BrowserController = {
     enableUnifiedLogging: vi.fn().mockResolvedValue(undefined)
@@ -30,6 +34,8 @@ function createHarness(browser = 'firefox') {
     browserOptions: {browser} as never
   })
   plugin.extensionsToLoad = [OUTPUT]
+  if (broker) plugin.setReloadBroker(broker as never)
+
   plugin.emitter.on(
     'compiled',
     (ev: {reloadInstruction?: ReloadInstruction}) => {
@@ -81,7 +87,14 @@ function createHarness(browser = 'firefox') {
               js: emitted.js ?? [BUNDLE],
               ...(emitted.css ? {css: emitted.css} : {})
             }
-          ]
+          ],
+          ...(emitted.resources
+            ? {
+                web_accessible_resources: [
+                  {resources: emitted.resources, matches: ['<all_urls>']}
+                ]
+              }
+            : {})
         })
       }
       const stats = {
@@ -105,6 +118,10 @@ const sheet = (color: string) => ({
 })
 
 describe('BrowsersPlugin after a compile rewrites a content script stylesheet', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   // Firefox keeps the declared sheet by address, so the producer is told which
   // file to drop from the open tabs and insert again under a fresh address.
   it('hands Firefox a stylesheet-only edit to swap in place, with no extension reload', async () => {
@@ -166,7 +183,10 @@ describe('BrowsersPlugin after a compile rewrites a content script stylesheet', 
   // The swap handed the open tabs the new bytes, so the next compile compares
   // against those and an unrelated edit swaps nothing again.
   it('compares the next compile with the stylesheet the swap delivered', async () => {
-    const h = createHarness()
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    const h = createHarness('firefox', {
+      broadcastReload: vi.fn().mockReturnValue(1)
+    })
 
     await h.compile(sheet('red'))
     await h.compile(sheet('blue'), ['src/widget.module.css'])
@@ -178,6 +198,60 @@ describe('BrowsersPlugin after a compile rewrites a content script stylesheet', 
     ])
 
     expect(h.reload.mock.calls[1][0].refreshedStylesheets).toBeUndefined()
+  })
+
+  // An idle event page that could not be started took nothing, and the open
+  // tabs still hold the old bytes, so the next save has to name the sheet.
+  it('names the stylesheet again after a swap no producer took', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const broadcastReload = vi.fn().mockReturnValue(0)
+    const h = createHarness('firefox', {
+      broadcastReload,
+      deliverLatchedReload: vi.fn().mockResolvedValue(false)
+    } as never)
+    const named = () =>
+      h.reload.mock.calls.map((call) =>
+        (call[0].refreshedStylesheets ?? []).map(
+          (each: {file: string}) => each.file
+        )
+      )
+
+    await h.compile(sheet('red'))
+    await h.compile(sheet('blue'), ['src/widget.module.css'])
+    await h.compile(sheet('blue'), ['src/notes.txt'])
+
+    expect(named()).toEqual([[SHEET], [SHEET]])
+
+    broadcastReload.mockReturnValue(1)
+    await h.compile(sheet('blue'), ['src/notes.txt'])
+    await h.compile(sheet('blue'), ['src/notes.txt'])
+
+    expect(named()).toEqual([[SHEET], [SHEET], [SHEET], []])
+  })
+
+  // A page is refused a file the loaded manifest did not list, and an
+  // imported asset is listed under a name that holds its content hash.
+  it('reloads the extension when the manifest lists a web resource the browser never loaded', async () => {
+    const h = createHarness('chrome')
+    const stub = (logo: string) => ({
+      js: ['content_scripts/dev-stub-0.js'],
+      assets: {'content_scripts/dev-stub-0.js': ';(function(){})();\n'},
+      resources: [`assets/logo.${logo}.png`]
+    })
+
+    await h.compile(stub('aaaaaaaa'))
+    await h.compile(stub('bbbbbbbb'), ['src/logo.png'])
+    await h.compile(stub('bbbbbbbb'), ['src/notes.txt'])
+
+    expect(h.reload.mock.calls.map((call) => call[0].type)).toEqual([
+      'full',
+      'content-scripts'
+    ])
+
+    expect(h.reload.mock.calls[0][0].label).toBe(
+      'content_script (src/logo.png)'
+    )
   })
 
   // Chromium's dev manifest names only the stubs, the worker registers the

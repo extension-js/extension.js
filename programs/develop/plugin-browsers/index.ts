@@ -21,6 +21,9 @@ import {
   readContentScriptCount,
   readContentScriptDigests,
   readContentScriptFiles,
+  readDevBuild,
+  readWebAccessibleResources,
+  reloadForNewWebResources,
   reloadForRenamedContentScripts,
   reloadForRewrittenContentScripts
 } from '../plugin-reload'
@@ -185,6 +188,8 @@ export class BrowsersPlugin implements RunnerPlugin {
   private loadedContentScriptFiles: string[] = []
   // The bytes of those files as the browser last read them, by digest.
   private loadedContentScriptDigests: Record<string, string> = {}
+  // The files that manifest let a web page load, hashed asset names included.
+  private loadedWebResources: string[] = []
 
   constructor(private readonly options: BrowsersPluginOptions) {}
 
@@ -313,6 +318,7 @@ export class BrowsersPlugin implements RunnerPlugin {
         compilation,
         contentScriptFiles
       )
+      const webResources = readWebAccessibleResources(compilation)
 
       if (!this.isFirstCompile) {
         const {forcedFull, changedSources: sources} = changedSources.snapshot()
@@ -323,7 +329,8 @@ export class BrowsersPlugin implements RunnerPlugin {
             readContentScriptCount(compilation, outputPath),
           getSourceFeatureIndex: () =>
             buildSourceFeatureIndex(compilation, contextDir),
-          outputPath
+          outputPath,
+          contextDir
         })
         // Emulated Chromium reads the new file index on every reload and
         // swaps a renamed static content script itself, so only a browser
@@ -333,10 +340,14 @@ export class BrowsersPlugin implements RunnerPlugin {
         )
           ? classified
           : reloadForRewrittenContentScripts(
-              reloadForRenamedContentScripts(
-                classified,
-                this.loadedContentScriptFiles,
-                contentScriptFiles
+              reloadForNewWebResources(
+                reloadForRenamedContentScripts(
+                  classified,
+                  this.loadedContentScriptFiles,
+                  contentScriptFiles
+                ),
+                this.loadedWebResources,
+                webResources
               ),
               this.loadedContentScriptDigests,
               contentScriptDigests,
@@ -355,10 +366,7 @@ export class BrowsersPlugin implements RunnerPlugin {
       ) {
         this.loadedContentScriptFiles = contentScriptFiles
         this.loadedContentScriptDigests = contentScriptDigests
-      } else if (reloadInstruction?.refreshedStylesheets?.length) {
-        // The open tabs are handed these bytes, so the next compile compares
-        // against them and an unrelated edit swaps no sheet again.
-        this.loadedContentScriptDigests = contentScriptDigests
+        this.loadedWebResources = webResources
       }
 
       const wasFirstCompile = this.isFirstCompile
@@ -416,6 +424,7 @@ export class BrowsersPlugin implements RunnerPlugin {
         // reload: it just started from the dist that was written.
         this.loadedContentScriptFiles = contentScriptFiles
         this.loadedContentScriptDigests = contentScriptDigests
+        this.loadedWebResources = webResources
         this.announceReady()
       } else if (isAwaitingMainWorldRestart(compiler, compilation)) {
         // The restart this build asked for reloads the extension once with
@@ -424,9 +433,16 @@ export class BrowsersPlugin implements RunnerPlugin {
       } else if (this.reloadBroker) {
         // Launched-browser reload routes to the SW producer over the control
         // bridge, the same executor as `--no-browser`. Honors EXTENSION_NO_RELOAD.
-        await dispatchReload(reloadInstruction, {
-          broker: this.reloadBroker
+        const delivered = await dispatchReload(reloadInstruction, {
+          broker: this.reloadBroker,
+          build: readDevBuild(compilation)
         })
+
+        // The open tabs hold these bytes only once a producer took the swap.
+        // An edit nobody received is compared, and named, again next compile.
+        if (delivered && reloadInstruction?.refreshedStylesheets?.length) {
+          this.loadedContentScriptDigests = contentScriptDigests
+        }
       }
 
       this.emitter.emit('compiled', {

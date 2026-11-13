@@ -241,7 +241,135 @@ describe('dispatchReload', () => {
   })
 
   it('is a no-op when no broker is present', async () => {
-    await expect(dispatchReload(CS, {})).resolves.toBeUndefined()
+    await expect(dispatchReload(CS, {})).resolves.toBe(false)
+  })
+
+  // The caller advances what it believes the browser holds on this answer,
+  // so an edit that reached nobody must not read as one that was applied.
+  it('answers whether a producer took the edit', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const taken = {broadcastReload: vi.fn().mockReturnValue(1)}
+    const woken = {
+      broadcastReload: vi.fn().mockReturnValue(0),
+      deliverLatchedReload: vi.fn().mockResolvedValue(true)
+    }
+    const asleep = {
+      broadcastReload: vi.fn().mockReturnValue(0),
+      deliverLatchedReload: vi.fn().mockResolvedValue(false)
+    }
+    const failing = {
+      broadcastReload: vi.fn().mockReturnValue(0),
+      deliverLatchedReload: vi.fn().mockRejectedValue(new Error('no browser'))
+    }
+    const unacked = {
+      broadcastReload: vi.fn().mockReturnValue(1),
+      awaitReloadAck: vi.fn().mockResolvedValue('unacked')
+    }
+
+    await expect(dispatchReload(CS, {broker: taken})).resolves.toBe(true)
+    await expect(dispatchReload(CS, {broker: woken})).resolves.toBe(true)
+    await expect(dispatchReload(CS, {broker: asleep})).resolves.toBe(false)
+    await expect(dispatchReload(CS, {broker: failing})).resolves.toBe(false)
+    await expect(dispatchReload(CS, {broker: unacked})).resolves.toBe(false)
+    await expect(dispatchReload(undefined, {broker: taken})).resolves.toBe(
+      false
+    )
+
+    process.env.EXTENSION_NO_RELOAD = 'true'
+    await expect(dispatchReload(CS, {broker: taken})).resolves.toBe(false)
+  })
+
+  // The background bundle of the same compile names itself by this value, so
+  // a producer that already runs it can tell a held reload is behind it.
+  it('names the build on the frame when the caller knows it, and leaves it out otherwise', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    const broker = {broadcastReload: vi.fn().mockReturnValue(1)}
+
+    await dispatchReload(CS, {broker, build: 'abc123'})
+    await dispatchReload(CS, {broker, build: ''})
+    await dispatchReload(CS, {broker})
+
+    expect(
+      broker.broadcastReload.mock.calls.map((call) => call[0].build)
+    ).toEqual(['abc123', undefined, undefined])
+
+    expect('build' in broker.broadcastReload.mock.calls[2][0]).toBe(false)
+  })
+
+  // Two quick saves can compile the same bytes twice. The worker that
+  // restarted for the first compile already runs them, so nothing is sent.
+  it('sends no worker reload for a build every connected background already runs', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const broker = {
+      broadcastReload: vi.fn().mockReturnValue(1),
+      runsBuild: vi.fn((build: string) => build === 'same')
+    }
+    const worker: ReloadInstruction = {
+      type: 'service-worker',
+      changedAssets: ['background.js'],
+      label: 'service_worker (background.js)'
+    }
+
+    await expect(dispatchReload(worker, {broker, build: 'same'})).resolves.toBe(
+      true
+    )
+
+    expect(broker.broadcastReload).not.toHaveBeenCalled()
+    expect(log).not.toHaveBeenCalled()
+
+    await dispatchReload(worker, {broker, build: 'other'})
+    await dispatchReload(worker, {broker})
+    await dispatchReload({...worker, type: 'full'}, {broker, build: 'same'})
+    await dispatchReload(CS, {broker, build: 'same'})
+    await dispatchReload(
+      {...worker, changedContentScriptEntries: ['content_scripts/content-0']},
+      {broker, build: 'same'}
+    )
+
+    await dispatchReload(
+      {...worker, changedScriptFiles: ['scripts/widget.js']},
+      {broker, build: 'same'}
+    )
+
+    await dispatchReload(
+      {...worker, standalonePages: ['loose/index.html']},
+      {broker, build: 'same'}
+    )
+
+    expect(broker.broadcastReload).toHaveBeenCalledTimes(7)
+  })
+
+  it('sends the worker reload to a broker that cannot tell which build runs', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    const broker = {broadcastReload: vi.fn().mockReturnValue(1)}
+
+    await dispatchReload(
+      {type: 'service-worker', label: 'service_worker (background.js)'},
+      {broker, build: 'same'}
+    )
+
+    expect(broker.broadcastReload).toHaveBeenCalledTimes(1)
+  })
+
+  it('forwards the pages the build ships as written', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    const broker = {broadcastReload: vi.fn().mockReturnValue(1)}
+
+    await dispatchReload(
+      {
+        type: 'page',
+        changedAssets: ['loose/page.js'],
+        standalonePages: ['loose/index.html'],
+        label: 'page (loose/page.js)'
+      },
+      {broker}
+    )
+
+    expect(broker.broadcastReload.mock.calls[0][0]).toMatchObject({
+      type: 'page',
+      standalonePages: ['loose/index.html']
+    })
   })
 
   // The Safari packager trims its own instruction before dispatching, so the
