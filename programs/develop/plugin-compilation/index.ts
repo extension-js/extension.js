@@ -16,6 +16,7 @@ import {BoringPlugin} from './boring'
 import {CleanDistFolderPlugin} from './clean-dist'
 import * as messages from './compilation-lib/messages'
 import {EnvPlugin} from './env'
+import {WarmAncestorWatchersPlugin} from './warm-ancestor-watchers'
 import {WatchProjectConfigPlugin} from './watch-project-config'
 import {ZipPlugin} from './zip'
 
@@ -109,6 +110,8 @@ export class CompilationPlugin {
       new WatchProjectConfigPlugin(
         (compiler.options.context as string) || path.dirname(this.manifestPath)
       ).apply(compiler)
+
+      new WarmAncestorWatchersPlugin().apply(compiler)
     }
 
     // CleanDistFolderPlugin removes dist before compilation, a problem for preview
