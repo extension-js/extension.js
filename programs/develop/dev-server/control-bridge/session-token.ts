@@ -20,15 +20,14 @@ import {
 // a single per-project slot broke concurrent chrome+chromium sessions.
 export {controlTokenPath, legacyControlTokenPath}
 
-export function writeControlToken(
-  projectPath: string,
-  browser: string
-): string {
-  const token = crypto.randomBytes(32).toString('hex')
-  const file = controlTokenPath(projectPath, browser)
+export interface ControlTokenIo {
+  rename?: (from: string, to: string) => void
+}
 
-  fs.mkdirSync(path.dirname(file), {recursive: true})
+// Windows refuses a rename onto a file a reader holds open.
+const RENAME_BLOCKED_CODES = new Set(['EPERM', 'EBUSY'])
 
+function writeTokenDirect(file: string, token: string): void {
   // Write then chmod: writeFileSync mode is pre-umask, so set it explicitly.
   fs.writeFileSync(file, token, {encoding: 'utf-8', mode: 0o600})
 
@@ -37,13 +36,53 @@ export function writeControlToken(
   } catch {
     // best-effort on platforms without POSIX modes
   }
+}
+
+// The temp name is dotted so no reader scanning for the token prefix sees it.
+function tempTokenPath(file: string): string {
+  const unique = `${process.pid}-${crypto.randomBytes(6).toString('hex')}`
+
+  return path.join(path.dirname(file), `.${path.basename(file)}.${unique}.tmp`)
+}
+
+// A plain overwrite truncates first, so a reader in that instant sees an
+// empty token. A rename swaps the whole file in one step.
+function writeTokenWhole(
+  file: string,
+  token: string,
+  io: ControlTokenIo
+): void {
+  const rename = io.rename ?? fs.renameSync
+  const temp = tempTokenPath(file)
+
+  try {
+    writeTokenDirect(temp, token)
+    rename(temp, file)
+  } catch (error) {
+    fs.rmSync(temp, {force: true})
+
+    const code = (error as NodeJS.ErrnoException | undefined)?.code
+    if (!code || !RENAME_BLOCKED_CODES.has(code)) throw error
+
+    writeTokenDirect(file, token)
+  }
+}
+
+export function writeControlToken(
+  projectPath: string,
+  browser: string,
+  io: ControlTokenIo = {}
+): string {
+  const token = crypto.randomBytes(32).toString('hex')
+  const file = controlTokenPath(projectPath, browser)
+
+  fs.mkdirSync(path.dirname(file), {recursive: true})
+  writeTokenWhole(file, token, io)
 
   // Mirror to the legacy slot so an older CLI reading control.token keeps
   // working; last writer wins, no worse than the pre-fix behavior.
   try {
-    const legacy = legacyControlTokenPath(projectPath)
-    fs.writeFileSync(legacy, token, {encoding: 'utf-8', mode: 0o600})
-    fs.chmodSync(legacy, 0o600)
+    writeTokenWhole(legacyControlTokenPath(projectPath), token, io)
   } catch {
     // Ignore
   }

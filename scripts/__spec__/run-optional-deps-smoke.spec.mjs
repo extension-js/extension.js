@@ -8,9 +8,11 @@ import {
   fileSpecifier,
   getLocalWorkspacePackagePaths,
   getPackedDependencyNames,
+  isTransientRegistryFailure,
   removeDirectoryWithRetries,
   resolveSmokeTempRootParent,
   rewriteConsumerPackageJson,
+  runWithRegistryRetries,
   shouldPinPackedResolutions,
   shouldRetryCleanupError,
   shouldUsePackedExtensionForSmoke
@@ -271,4 +273,110 @@ test('resolveSmokeTempRootParent keeps Windows smoke workspace on repo drive', a
     path.win32.parse(tempParent).root.toLowerCase(),
     path.win32.parse(process.cwd()).root.toLowerCase()
   )
+})
+
+test('rewriteConsumerPackageJson pins the yarn version so corepack asks for no latest', async () => {
+  const packed = Object.fromEntries(
+    getPackedDependencyNames().map((name) => [
+      name,
+      `file:./.smoke-tarballs/${name}-9.9.9.tgz`
+    ])
+  )
+
+  for (const pm of ['yarn', 'bun', 'npm', 'pnpm', 'deno']) {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), `smoke-pin-${pm}-`))
+
+    try {
+      const read = await writeSmokeConsumerFixture(dir)
+      await rewriteConsumerPackageJson(dir, pm, packed)
+      const result = await read()
+
+      if (pm === 'yarn') {
+        assert.match(result.packageManager, /^yarn@1\.\d+\.\d+\+sha512\./)
+      } else {
+        assert.equal(result.packageManager, undefined)
+      }
+    } finally {
+      await removeDirectoryWithRetries(dir)
+    }
+  }
+})
+
+test('isTransientRegistryFailure matches a throttle or a reset only', () => {
+  for (const output of [
+    'Server answered with HTTP 429 when performing the request to https://registry.npmjs.org/yarn/latest',
+    'npm error code E429\r\nnpm error 429 Too Many Requests - GET https://registry.npmjs.org/react',
+    'error: GET https://registry.npmjs.org/react - 429 Too Many Requests',
+    'ERR_PNPM_FETCH_429  GET https://registry.npmjs.org/react: Too Many Requests - status code 429',
+    'npm error code ECONNRESET',
+    'request to https://registry.npmjs.org/react failed, reason: socket hang up',
+    'error: Connection reset by peer'
+  ]) {
+    assert.equal(isTransientRegistryFailure(output), true, output)
+  }
+
+  for (const output of [
+    '',
+    undefined,
+    'npm error code ERESOLVE\nnpm error ERESOLVE unable to resolve dependency tree',
+    'error Your lockfile needs to be updated, but yarn was run with `--frozen-lockfile`.',
+    'npm error 404 Not Found - GET https://registry.npmjs.org/no-such-package-4290',
+    'ERR_PNPM_OUTDATED_LOCKFILE  Cannot install with "frozen-lockfile"'
+  ]) {
+    assert.equal(isTransientRegistryFailure(output), false, String(output))
+  }
+})
+
+test('runWithRegistryRetries retries a throttled install up to three times', () => {
+  const sleeps = []
+  let calls = 0
+
+  const recovered = runWithRegistryRetries(
+    () => {
+      calls += 1
+
+      return calls < 3
+        ? {status: 1, output: 'Server answered with HTTP 429'}
+        : {status: 0, output: 'Done'}
+    },
+    {delays: [1, 2, 3], sleep: (ms) => sleeps.push(ms), log: () => {}}
+  )
+
+  assert.equal(recovered.status, 0)
+  assert.equal(calls, 3)
+  assert.deepEqual(sleeps, [1, 2])
+
+  calls = 0
+
+  const exhausted = runWithRegistryRetries(
+    () => {
+      calls += 1
+
+      return {status: 1, output: 'npm error code ECONNRESET'}
+    },
+    {delays: [1, 2, 3], sleep: () => {}, log: () => {}}
+  )
+
+  assert.equal(exhausted.status, 1)
+  assert.equal(calls, 4)
+})
+
+test('runWithRegistryRetries never retries a real install error', () => {
+  let calls = 0
+
+  const result = runWithRegistryRetries(
+    () => {
+      calls += 1
+
+      return {status: 1, output: 'npm error code ERESOLVE'}
+    },
+    {
+      delays: [1, 2, 3],
+      sleep: () => assert.fail('a real install error must not back off'),
+      log: () => {}
+    }
+  )
+
+  assert.equal(result.status, 1)
+  assert.equal(calls, 1)
 })
