@@ -258,20 +258,67 @@ describe.skipIf(process.platform === 'win32')(
       })
     }, 120_000)
 
-    it('a browser found nowhere ends in E_BROWSER_NOT_FOUND as failed', async () => {
+    // The variable is a choice like the flag, so a path that names nothing
+    // is a bad value and never reads as a browser that is not installed.
+    it('a binary variable that names nothing ends in E_BROWSER_BINARY_INVALID as usage', async () => {
+      const {work, projectDir} = makeWorkspace()
+      const emptyCache = join(work, 'browsers')
+      mkdirSync(emptyCache, {recursive: true})
+      const missing = join(work, 'nowhere', 'edge')
+      const env = {
+        EXT_BROWSERS_CACHE_DIR: emptyCache,
+        EDGE_BINARY: missing
+      }
+
+      session = startDev(projectDir, 'edge', [], env)
+      await expectLaunchRefusal(session, 'E_BROWSER_BINARY_INVALID', 'usage')
+      expect(session.stderr()).toMatch(/EDGE_BINARY/)
+      expect(session.stderr()).toContain(missing)
+      expect(session.stderr()).not.toMatch(/isn't installed/)
+
+      const waiter = runWaiter(projectDir, 'edge', env)
+      expect(waiter.status).toBe(1)
+      expect(waiter.lineCount).toBe(1)
+      expect(waiter.frame).toMatchObject({
+        ok: false,
+        command: 'dev',
+        status: 'usage',
+        error: {code: 'E_BROWSER_BINARY_INVALID'}
+      })
+    }, 120_000)
+
+    // No browser can start here: the cache is an empty folder and the seam
+    // keeps the launcher from looking at what this machine has installed.
+    it.each([
+      'chrome',
+      'firefox'
+    ])('%s found nowhere ends in E_BROWSER_NOT_FOUND as failed', async (browser) => {
       const {work, projectDir} = makeWorkspace()
       const emptyCache = join(work, 'browsers')
       mkdirSync(emptyCache, {recursive: true})
       const env = {
         EXT_BROWSERS_CACHE_DIR: emptyCache,
-        EDGE_BINARY: join(work, 'nowhere', 'edge')
+        EXTENSION_INTERNAL_SKIP_SYSTEM_BROWSERS: '1',
+        CHROME_FOR_TESTING_PATH: '',
+        CHROMIUM_BINARY: '',
+        CHROME_BINARY: '',
+        FIREFOX_BINARY: ''
       }
+      const reason = `${browser} isn't installed and no binary was found`
 
-      session = startDev(projectDir, 'edge', [], env)
+      session = startDev(projectDir, browser, [], env)
+      const frame = await waitForFailureFrame(session)
       await expectLaunchRefusal(session, 'E_BROWSER_NOT_FOUND', 'failed')
-      expect(session.stderr()).toMatch(/isn't installed and no binary/)
+      expect(frame.error?.message).toContain(reason)
+      expect(session.stderr()).toMatch(
+        /isn't available in the managed browser cache/
+      )
 
-      const waiter = runWaiter(projectDir, 'edge', env)
+      expect(session.stderr()).toContain(`extension install ${browser}`)
+      expect(session.stderr()).toContain(reason)
+      expect(session.ready()?.browserPid).toBeUndefined()
+
+      const waiter = runWaiter(projectDir, browser, env)
       expect(waiter.status).toBe(1)
       expect(waiter.lineCount).toBe(1)
       expect(waiter.frame).toMatchObject({
@@ -280,6 +327,8 @@ describe.skipIf(process.platform === 'win32')(
         status: 'failed',
         error: {code: 'E_BROWSER_NOT_FOUND'}
       })
+
+      expect(waiter.frame.error?.message).toContain(reason)
     }, 120_000)
 
     it.each([

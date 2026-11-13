@@ -216,6 +216,18 @@ export function resolveManagedBinaryIn(
   // readdir order is not version order, so pick the newest build explicitly.
   versionDirs.sort(compareManagedBuildDirsNewestFirst)
 
+  // A leftover nightly always carries the higher number, so the channel the
+  // installer pins goes first and another channel runs only in its absence.
+  if (browser === 'firefox') {
+    const pinned = versionDirs.filter(
+      (dir) =>
+        managedBuildChannel(path.basename(dir)) === MANAGED_FIREFOX_CHANNEL
+    )
+    const others = versionDirs.filter((dir) => !pinned.includes(dir))
+
+    versionDirs.splice(0, versionDirs.length, ...pinned, ...others)
+  }
+
   const names = executableNamesFor(browser)
 
   for (const dir of versionDirs) {
@@ -237,6 +249,25 @@ export function resolveManagedBinaryIn(
 
 const MANAGED_BUILD_DIR_PREFIX =
   /^(?:mac_arm|mac-arm|mac|win64|win32|linux64|linux)[-_]/i
+
+// The channel extension install asks for when it downloads Firefox.
+export const MANAGED_FIREFOX_CHANNEL = 'stable'
+
+const MANAGED_CHANNEL_LABEL = /^(stable|nightly|beta|devedition|esr)_/i
+
+// Reads the channel off a managed folder name. Older installs carry no
+// label, so the version shape answers: "a1" is a nightly, "b3" a beta.
+export function managedBuildChannel(dirName: string): string {
+  const buildId = String(dirName || '').replace(MANAGED_BUILD_DIR_PREFIX, '')
+  const labeled = MANAGED_CHANNEL_LABEL.exec(buildId)
+
+  if (labeled) return labeled[1].toLowerCase()
+  if (/\da\d/i.test(buildId)) return 'nightly'
+  if (/\db\d/i.test(buildId)) return 'beta'
+  if (/esr/i.test(buildId)) return 'esr'
+
+  return 'stable'
+}
 
 export function parseManagedBuildId(dirName: string): number[] {
   const name = String(dirName || '')

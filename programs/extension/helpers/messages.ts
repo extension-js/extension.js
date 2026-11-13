@@ -452,6 +452,8 @@ ${'Browser-specific options'}
 - ${code('--chromium-binary')} ${arg('<path>')}        Custom Chromium binary path
 - ${code('--gecko-binary')}/${code('--firefox-binary')} ${arg('<path>')}           Custom Firefox/Gecko binary path
   Use ${code('flatpak:org.mozilla.firefox')} as the path to launch a Flatpak-installed Firefox
+- Binary order on every browser: the flag, then ${code('CHROME_FOR_TESTING_PATH')}, ${code('CHROME_BINARY')}, ${code('CHROMIUM_BINARY')}, ${code('EDGE_BINARY')} or ${code('FIREFOX_BINARY')}, then the managed install, then the system install
+  A flag or variable that names a missing path fails with ${code('E_BROWSER_BINARY_INVALID')}
 
 ${'Build options'}
 - ${code('--zip')} ${arg('[boolean]')}                 Create ZIP archive of built extension

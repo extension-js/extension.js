@@ -42,7 +42,7 @@ import {
   binaryOverrideNaming,
   locateChromeIn
 } from '../../browsers-lib/binary-env-override'
-import {locatorEnv} from '../../browsers-lib/locator-env'
+import {locatorEnv, scanSystem} from '../../browsers-lib/locator-env'
 import {
   diagnoseChromiumManifestRefusal,
   findChromiumLoadBlockers,
@@ -55,6 +55,7 @@ import * as messages from '../../browsers-lib/messages'
 import {isRefusedOfficialChrome} from '../../browsers-lib/official-chrome'
 import * as binariesResolver from '../../browsers-lib/output-binaries-resolver'
 import {
+  envPinnedBinary,
   type PinnedBinaryProblem,
   pinnedBinaryProblem
 } from '../../browsers-lib/pinned-binary'
@@ -517,6 +518,7 @@ export class ChromiumLaunchPlugin {
     let browserBinaryLocation: string | null = null
     let printedGuidance = false
     let binaryPinnedByFlag = false
+    let binaryPinnedByEnv: string | undefined
     let usedManagedSnapshot = false
 
     const normalizePath = (p: string | null): string | null => {
@@ -556,7 +558,7 @@ export class ChromiumLaunchPlugin {
     }
 
     const resolveWslFallback = (): string | null =>
-      resolveWslWindowsBinary(browser)
+      scanSystem(() => resolveWslWindowsBinary(browser))
 
     const getInstallGuidanceText = (
       target: 'chrome' | 'chromium' | 'edge'
@@ -631,16 +633,33 @@ export class ChromiumLaunchPlugin {
       browserBinaryLocation = normalized
       binaryPinnedByFlag = true
     } else {
-      browserBinaryLocation = resolveManagedBinary()
+      // One order on every target: the flag, the variable the person set,
+      // the managed copy, then the system. A bad variable throws here.
+      const fromEnv = envPinnedBinary(
+        String(browser),
+        process.env,
+        normalizeBinaryPathForWsl
+      )
+
+      // The branded Chrome stays refused by the locator path below, so a
+      // variable naming it is never taken as the binary to run.
+      const refusedBranded =
+        (browser === 'chrome' || browser === 'chromium') &&
+        Boolean(fromEnv && isRefusedOfficialChrome(fromEnv.path))
+
+      if (fromEnv && !refusedBranded) {
+        browserBinaryLocation = fromEnv.path
+        binaryPinnedByEnv = fromEnv.name
+      } else {
+        browserBinaryLocation = resolveManagedBinary()
+      }
     }
+
+    const binaryPinned = binaryPinnedByFlag || Boolean(binaryPinnedByEnv)
 
     // Managed chromium installs are tip-of-tree snapshots (dev channel); swap to
     // the system stable binary when present unless the user opts into the snapshot.
-    if (
-      browser === 'chromium' &&
-      browserBinaryLocation &&
-      !binaryPinnedByFlag
-    ) {
+    if (browser === 'chromium' && browserBinaryLocation && !binaryPinned) {
       let systemBinary: string | null = null
 
       try {
@@ -648,7 +667,9 @@ export class ChromiumLaunchPlugin {
         // answer for itself, and reject cache-like paths in the chooser.
         const env = {...process.env}
         delete env.PUPPETEER_CACHE_DIR
-        systemBinary = normalizePath(locateChromium({env}) || null)
+        systemBinary = normalizePath(
+          scanSystem(() => locateChromium({env})) || null
+        )
       } catch {
         // Ignore
       }
@@ -682,10 +703,10 @@ export class ChromiumLaunchPlugin {
 
     let skipDetection = Boolean(browserBinaryLocation)
 
-    if (!binaryPinnedByFlag && !browserBinaryLocation && isWslEnv()) {
+    if (!binaryPinned && !browserBinaryLocation && isWslEnv()) {
       // WSL+GUI: prefer a Linux-native browser so the dev loop stays on the Linux
       // side; fall back to the Windows binary via /mnt/c when none is available.
-      const linuxFallback = resolveWslLinuxBinary(browser)
+      const linuxFallback = scanSystem(() => resolveWslLinuxBinary(browser))
 
       if (linuxFallback) {
         browserBinaryLocation = linuxFallback
@@ -703,7 +724,7 @@ export class ChromiumLaunchPlugin {
     // Swap any Chrome wrapper script for the real binary under WSL+GUI,
     // because the wrapper closes extra FDs on exec, breaking CDP pipe.
     // A user pin is the binary they asked to run; do not rewrite it.
-    if (!binaryPinnedByFlag) {
+    if (!binaryPinned) {
       browserBinaryLocation = preferRealChromeBinary(browserBinaryLocation)
     }
 
@@ -724,7 +745,7 @@ export class ChromiumLaunchPlugin {
       try {
         try {
           const env = managedEnvFor('chrome')
-          const located = locateChromeIn(env)
+          const located = scanSystem(() => locateChromeIn(env))
           if (!located) throw new Error(getInstallGuidanceText('chrome'))
 
           const normalized = normalizePath(located || null)
@@ -742,7 +763,7 @@ export class ChromiumLaunchPlugin {
           return null
         } catch (err) {
           const env = managedEnvFor('chrome')
-          let candidate: string | null = locateChromeIn(env)
+          let candidate: string | null = scanSystem(() => locateChromeIn(env))
           const normalized = normalizePath(candidate || null)
 
           if (normalized) {
@@ -765,7 +786,7 @@ export class ChromiumLaunchPlugin {
       }
     }
 
-    if (!binaryPinnedByFlag) {
+    if (!binaryPinned) {
       switch (browser) {
         case 'chrome': {
           if (isAuthorMode) humanLine(messages.locatingBrowser(browser))
@@ -796,7 +817,7 @@ export class ChromiumLaunchPlugin {
                     : browser === 'vivaldi'
                       ? locateVivaldi
                       : locateYandex
-              const located = locate(true, {env: process.env})
+              const located = scanSystem(() => locate(true, {env: process.env}))
               const normalized = normalizePath(located || null)
 
               if (normalized && fs.existsSync(normalized)) {
@@ -822,7 +843,7 @@ export class ChromiumLaunchPlugin {
           if (!browserBinaryLocation && !skipDetection) {
             try {
               const env = managedEnvFor('chromium')
-              const p = locateChromium({env})
+              const p = scanSystem(() => locateChromium({env}))
               const normalized = normalizePath(p || null)
 
               if (normalized && typeof normalized === 'string') {
@@ -845,45 +866,32 @@ export class ChromiumLaunchPlugin {
         case 'edge': {
           if (isAuthorMode) humanLine(messages.locatingBrowser(browser))
 
-          const override = String(process.env.EDGE_BINARY || '').trim()
-          const overridden = override ? normalizePath(override) : null
-
-          // EDGE_BINARY is a choice, so it outranks the managed copy, and a
-          // managed copy that resolved is never traded for a system scan.
-          if (isUsableBinary(overridden)) {
-            browserBinaryLocation = overridden
-            break
-          }
-
+          // A managed copy that resolved is never traded for a system scan.
           if (isUsableBinary(browserBinaryLocation)) break
 
           try {
-            if (override) {
-              throw new Error('EDGE_BINARY points to a non-existent path')
-            } else {
-              const env = managedEnvFor('edge')
-              const located = locateEdge({env})
-              const normalized = normalizePath(located || null)
-              browserBinaryLocation = normalized
+            const env = managedEnvFor('edge')
+            const located = scanSystem(() => locateEdge({env}))
+            const normalized = normalizePath(located || null)
+            browserBinaryLocation = normalized
 
-              if (
-                !browserBinaryLocation ||
-                !fs.existsSync(String(browserBinaryLocation))
-              ) {
-                const fallback = resolveWslWindowsBinary(browser)
+            if (
+              !browserBinaryLocation ||
+              !fs.existsSync(String(browserBinaryLocation))
+            ) {
+              const fallback = resolveWslFallback()
 
-                if (fallback) {
-                  browserBinaryLocation = fallback
-                  break
-                }
-
-                const guidance = getInstallGuidanceText('edge')
-
-                printInstallGuidance(guidance, 'edge')
-                browserBinaryLocation = null
-
-                throw browserNotFoundError(notInstalledReason)
+              if (fallback) {
+                browserBinaryLocation = fallback
+                break
               }
+
+              const guidance = getInstallGuidanceText('edge')
+
+              printInstallGuidance(guidance, 'edge')
+              browserBinaryLocation = null
+
+              throw browserNotFoundError(notInstalledReason)
             }
           } catch (error) {
             if (launchFailureCode(error)) throw error
@@ -1028,7 +1036,8 @@ export class ChromiumLaunchPlugin {
     // silently preferred snapshot or system fallback stays visible there.
     const binaryPinnedBy = binaryPinnedByFlag
       ? '--chromium-binary'
-      : binaryOverrideNaming(String(browser), browserBinaryLocation) ||
+      : binaryPinnedByEnv ||
+        binaryOverrideNaming(String(browser), browserBinaryLocation) ||
         undefined
 
     const binaryProvenance = utils.classifyBinaryProvenance({
