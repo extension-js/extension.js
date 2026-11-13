@@ -328,7 +328,7 @@ export async function startProductionControl(
       // Ignore
     }
 
-    if (controlToken) clearControlToken(packageJsonDir, browser)
+    if (controlToken) clearControlToken(packageJsonDir, browser, controlToken)
   }
 
   process.once('exit', release)
