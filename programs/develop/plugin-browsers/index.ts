@@ -19,8 +19,10 @@ import {
   type ReloadBroker,
   type ReloadInstruction,
   readContentScriptCount,
+  readContentScriptDigests,
   readContentScriptFiles,
-  reloadForRenamedContentScripts
+  reloadForRenamedContentScripts,
+  reloadForRewrittenContentScripts
 } from '../plugin-reload'
 import type {DevOptions} from '../types'
 
@@ -180,6 +182,8 @@ export class BrowsersPlugin implements RunnerPlugin {
   // The content script files the manifest named when the browser last read
   // it: at launch, or at the last reload of the whole extension.
   private loadedContentScriptFiles: string[] = []
+  // The bytes of those files as the browser last read them, by digest.
+  private loadedContentScriptDigests: Record<string, string> = {}
 
   constructor(private readonly options: BrowsersPluginOptions) {}
 
@@ -304,6 +308,10 @@ export class BrowsersPlugin implements RunnerPlugin {
       // emits all assets). Page-only edits stay undefined: livereload covers them.
       let reloadInstruction: ReloadInstruction | undefined
       const contentScriptFiles = readContentScriptFiles(compilation)
+      const contentScriptDigests = readContentScriptDigests(
+        compilation,
+        contentScriptFiles
+      )
 
       if (!this.isFirstCompile) {
         const {forcedFull, changedSources: sources} = changedSources.snapshot()
@@ -323,10 +331,14 @@ export class BrowsersPlugin implements RunnerPlugin {
           this.options.browserOptions.browser
         )
           ? classified
-          : reloadForRenamedContentScripts(
-              classified,
-              this.loadedContentScriptFiles,
-              contentScriptFiles
+          : reloadForRewrittenContentScripts(
+              reloadForRenamedContentScripts(
+                classified,
+                this.loadedContentScriptFiles,
+                contentScriptFiles
+              ),
+              this.loadedContentScriptDigests,
+              contentScriptDigests
             )
       }
 
@@ -336,6 +348,7 @@ export class BrowsersPlugin implements RunnerPlugin {
         reloadInstruction?.type === 'service-worker'
       ) {
         this.loadedContentScriptFiles = contentScriptFiles
+        this.loadedContentScriptDigests = contentScriptDigests
       }
 
       const wasFirstCompile = this.isFirstCompile
@@ -392,6 +405,7 @@ export class BrowsersPlugin implements RunnerPlugin {
         // The guest was absent until this compile, so there is nothing to
         // reload: it just started from the dist that was written.
         this.loadedContentScriptFiles = contentScriptFiles
+        this.loadedContentScriptDigests = contentScriptDigests
         this.announceReady()
       } else if (this.reloadBroker) {
         // Launched-browser reload routes to the SW producer over the control
