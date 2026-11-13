@@ -151,7 +151,10 @@ describe('a MAIN world script an extension page registers', () => {
     expect(options).toContain(PAIRING_MARK)
     // Firefox resolves a relative js path against the page that registers.
     expect(options).toContain(`var FILE = "/${BRIDGE}";`)
-    expect(options).toContain('var READERS = ["scripts/hook.js"];')
+    expect(options).toContain(
+      'var READERS = ["scripts/hook.js","scripts/hook.extjs-main-world.js"];'
+    )
+
     expect(options.indexOf(PAIRING_MARK)).toBeLessThan(
       options.indexOf('page-hook')
     )

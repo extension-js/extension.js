@@ -27,6 +27,8 @@ const BOTH =
   '])\n'
 const MAIN_ONLY =
   "chrome.scripting.registerContentScripts([{id: 'main', js: ['scripts/hook.js'], matches: ['<all_urls>'], world: 'MAIN'}])\n"
+const INJECTED_MAIN =
+  "chrome.scripting.executeScript({target: {tabId: 1}, files: ['scripts/hook.js'], world: 'MAIN'})\n"
 const COMPUTED =
   "const worlds = ['ISOLATED', 'MAIN']\n" +
   "chrome.scripting.registerContentScripts(worlds.map(world => ({id: 'h-' + world, js: ['scripts/hook.js'], matches: ['<all_urls>'], world})))\n"
@@ -144,8 +146,44 @@ describe('a scripts/ file registered in both worlds', () => {
 })
 
 describe('a scripts/ file registered in one world', () => {
-  it('keeps its name and its list when only the MAIN world runs it', () => {
+  // The browser keeps the path a file was registered under. The copy is a
+  // MAIN world build whatever worlds run the file later, so it is that path.
+  it('keeps its name and gets the copy a stored registration stays on when only the MAIN world registers it', () => {
     const {at, options} = project(MAIN_ONLY)
+    const hook = {
+      files: [at('scripts', 'hook.js')],
+      registeredBy: at('background.js')
+    }
+
+    expect(findRuntimeMainWorldEntries(options)).toEqual([
+      {entryName: 'scripts/hook', ...hook},
+      {
+        entryName: 'scripts/hook.extjs-main-world',
+        ...hook,
+        copyOf: 'scripts/hook'
+      }
+    ])
+
+    const list = withMainWorldCopyEntries(options)
+
+    expect(list['scripts/hook.extjs-main-world']).toBe(at('scripts', 'hook.js'))
+    expect(
+      findRuntimeMainWorldEntries({...options, includeList: list})
+    ).toEqual(findRuntimeMainWorldEntries(options))
+  })
+
+  it('names the same copy before and after the isolated world stops running the file', () => {
+    const copyOf = (background: string) =>
+      findRuntimeMainWorldEntries(project(background).options)
+        .filter((entry) => entry.copyOf)
+        .map((entry) => entry.entryName)
+
+    expect(copyOf(MAIN_ONLY)).toEqual(copyOf(BOTH))
+    expect(copyOf(MAIN_ONLY)).toEqual(['scripts/hook.extjs-main-world'])
+  })
+
+  it('keeps its name and its list when the MAIN world runs it by injection alone', () => {
+    const {at, options} = project(INJECTED_MAIN)
 
     expect(findRuntimeMainWorldEntries(options)).toEqual([
       {
@@ -156,6 +194,22 @@ describe('a scripts/ file registered in one world', () => {
     ])
 
     expect(withMainWorldCopyEntries(options)).toBe(options.includeList)
+  })
+
+  it('leaves a file of the author under the name of the copy alone', () => {
+    const {at, options} = project(MAIN_ONLY)
+    fs.writeFileSync(at('scripts', 'own.js'), 'window.__OWN__ = 1\n')
+
+    const includeList = {
+      ...options.includeList,
+      'scripts/hook.extjs-main-world': at('scripts', 'own.js')
+    }
+
+    expect(
+      findRuntimeMainWorldEntries({...options, includeList}).map(
+        (entry) => entry.entryName
+      )
+    ).toEqual(['scripts/hook'])
   })
 
   it('is no MAIN world entry when only the isolated world runs it', () => {
@@ -320,8 +374,14 @@ describe('the routing a build prepends', () => {
     expect(assets['scripts/hook.js']).toBe('console.log("hook")\n')
   })
 
-  it('adds nothing to a build with one world for each file', () => {
-    const assets = routed(MAIN_ONLY)
+  it('routes a registration of a file the MAIN world alone runs to its copy', () => {
+    expect(routed(MAIN_ONLY)['background/service_worker.js']).toContain(
+      '{"scripts/hook.js":"scripts/hook.extjs-main-world.js"}'
+    )
+  })
+
+  it('adds nothing to a build that registers no file in the MAIN world', () => {
+    const assets = routed(INJECTED_MAIN)
 
     expect(assets['background/service_worker.js']).toBe(
       'console.log("background")\n'

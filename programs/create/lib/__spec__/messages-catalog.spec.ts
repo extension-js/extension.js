@@ -6,6 +6,12 @@ const modules = import.meta.glob(
   {eager: true}
 ) as Record<string, Record<string, unknown>>
 
+// The same files as text, so a link is read as the terminal prints it.
+const sources = import.meta.glob(
+  ['../**/messages.ts', '!../**/node_modules/**', '!../**/dist/**'],
+  {eager: true, query: '?raw', import: 'default'}
+) as Record<string, string>
+
 function describeExport(value: unknown): string {
   if (typeof value === 'function') return `function(${value.length})`
   if (Array.isArray(value)) return 'array'
@@ -36,5 +42,15 @@ describe('create message catalogs', () => {
 
   it('matches the exported message surface', () => {
     expect(buildCatalog(modules)).toMatchSnapshot()
+  })
+
+  // A link a user copies from the terminal is the plain address.
+  it('prints no link with a tracking parameter', () => {
+    const tracked = Object.keys(sources).filter((file) =>
+      sources[file].includes('utm_')
+    )
+
+    expect(Object.keys(sources).sort()).toEqual(Object.keys(modules).sort())
+    expect(tracked).toEqual([])
   })
 })

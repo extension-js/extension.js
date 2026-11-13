@@ -281,9 +281,13 @@ describe.each([
     const built = await compileDev(runtimeProject(), browser)
     const emitted = listed(path.join(built.distPath, 'scripts'))
 
-    const classOf = (stem: string) => {
+    // A registered file ships a copy a stored registration stays on.
+    const classOf = (stem: string, copy = false) => {
       const file = emitted.find(
-        (name) => name.startsWith(`${stem}.`) && name.endsWith('.js')
+        (name) =>
+          name.startsWith(`${stem}.`) &&
+          name.endsWith('.js') &&
+          name.includes('.extjs-main-world.') === copy
       )
       const text = built.read(path.join('scripts', String(file)))
 
@@ -292,6 +296,10 @@ describe.each([
 
     // The bundle compiled apart numbers its own modules, so its name says so.
     expect(classOf('page')).toMatch(/^main-runtime-scripts-page-\w+-probe$/)
+    expect(classOf('page', true)).toMatch(
+      /^main-runtime-scripts-page-extjs-main-world-\w+-probe$/
+    )
+
     expect(classOf('near')).toMatch(/^main-runtime-\w+-probe$/)
     expect(classOf('near')).not.toContain('scripts-near')
   }, 120_000)

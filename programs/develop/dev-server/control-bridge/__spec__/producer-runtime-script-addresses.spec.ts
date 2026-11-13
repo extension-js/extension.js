@@ -43,6 +43,8 @@ function boot(options: {
   refuseUpdate?: boolean
   withoutSession?: boolean
   tabsAnswerAfter?: number
+  sessionAnswersAfter?: number
+  unregisterAnswersAfter?: number
 }) {
   const calls: string[] = []
   const reloadedTabs: number[] = []
@@ -71,9 +73,40 @@ function boot(options: {
     return Promise.resolve(value)
   }
 
-  const area = (data: Record<string, unknown>) => ({
-    get: (key: string, done: (res: Record<string, unknown>) => void) =>
-      done(key in data ? {[key]: data[key]} : {}),
+  // The browser checks the shape of a call as it is made, and throws there.
+  const shaped = (list: unknown) => {
+    if (
+      !Array.isArray(list) ||
+      list.some((script) => typeof script?.id !== 'string')
+    ) {
+      throw new TypeError('shape')
+    }
+  }
+
+  // A call the browser refuses changes nothing and names why afterwards.
+  const refuse = (done: Callback | undefined) => {
+    calls.pop()
+
+    if (!done) return Promise.reject(new Error('refused'))
+
+    runtime.lastError = {message: 'refused'}
+    done()
+    runtime.lastError = undefined
+
+    return undefined
+  }
+
+  const reserved = (list: Registration[]) =>
+    list.some((script) => script.id.startsWith('_'))
+
+  const area = (data: Record<string, unknown>, answersAfter = 0) => ({
+    get: (key: string, done: (res: Record<string, unknown>) => void) => {
+      const answer = () => done(key in data ? {[key]: data[key]} : {})
+
+      if (!answersAfter) return answer()
+
+      setTimeout(answer, answersAfter)
+    },
     set: (items: Record<string, unknown>, done?: () => void) => {
       Object.assign(data, JSON.parse(JSON.stringify(items)))
       done?.()
@@ -84,13 +117,18 @@ function boot(options: {
   })
   const scripting = {
     registerContentScripts: (list: Registration[], done?: Callback) => {
+      shaped(list)
       calls.push('registerContentScripts')
+      if (reserved(list)) return refuse(done)
+
       registered.push(...list.map(copyOf))
 
       return answer(done)
     },
     updateContentScripts: (list: Registration[], done?: Callback) => {
+      shaped(list)
       calls.push('updateContentScripts')
+      if (reserved(list)) return refuse(done)
 
       if (options.refuseUpdate) {
         runtime.lastError = {message: 'refused'}
@@ -118,7 +156,17 @@ function boot(options: {
         if (!ids || ids.includes(registered[i].id)) registered.splice(i, 1)
       }
 
-      return answer(typeof filter === 'function' ? filter : done)
+      const callback = typeof filter === 'function' ? filter : done
+
+      if (!options.unregisterAnswersAfter) return answer(callback)
+
+      // A loaded browser drops the registrations and answers much later.
+      return new Promise<void>((resolve) =>
+        setTimeout(() => {
+          callback?.()
+          resolve()
+        }, options.unregisterAnswersAfter)
+      )
     },
     getRegisteredContentScripts: (
       filter?: {ids?: string[]} | Callback,
@@ -150,7 +198,9 @@ function boot(options: {
     },
     storage: {
       local: area(local),
-      ...(options.withoutSession ? {} : {session: area(session)})
+      ...(options.withoutSession
+        ? {}
+        : {session: area(session, options.sessionAnswersAfter)})
     }
   }
   const fakeGlobal: Record<string, unknown> = {
@@ -240,6 +290,67 @@ describe('bridge producer runtime, the address of a registered script on Gecko',
     expect(h.local.__extjsDevRegisteredReload).toBeUndefined()
   })
 
+  // A later wrapper answers a read with the names the author wrote, and a
+  // file both worlds run has two builds under that one name.
+  it('moves each registration of a file both worlds run to its own build', async () => {
+    const h = boot({
+      registered: [
+        {...HOOK, id: 'iso', world: 'ISOLATED'},
+        {...HOOK, id: 'main', js: ['scripts/hook.extjs-main-world.js']}
+      ]
+    })
+    const read = h.scripting.getRegisteredContentScripts
+    const asWritten = (list: unknown) =>
+      (list as Registration[]).map((script) => ({
+        ...script,
+        js: ['scripts/hook.js']
+      }))
+
+    h.scripting.getRegisteredContentScripts = ((done?: Callback) =>
+      typeof done === 'function'
+        ? read((list) => done(asWritten(list)))
+        : (read() as Promise<unknown>).then(asWritten)) as typeof read
+
+    h.ws.triggerMessage(
+      pageFrame(['scripts/hook.extjs-main-world.js', 'scripts/hook.js'])
+    )
+
+    await vi.advanceTimersByTimeAsync(2000)
+
+    expect(addressOf(h.registered[0])).toContain(`scripts/hook.js${ADDRESS}`)
+    expect(addressOf(h.registered[1])).toContain(
+      `scripts/hook.extjs-main-world.js${ADDRESS}`
+    )
+
+    expect(h.reloadedTabs).toEqual([7])
+  })
+
+  // A background calls the registry at its top level, which can be before
+  // the addresses were read, and a deferred call cannot throw where it is made.
+  it('throws the shape check of a call made before the addresses are read', async () => {
+    const h = boot({registered: [HOOK], sessionAnswersAfter: 50})
+    const malformed = [{id: 5, js: ['scripts/hook.js']}] as never
+
+    expect(() => h.scripting.updateContentScripts(malformed)).toThrow('shape')
+    expect(() => h.scripting.registerContentScripts(malformed)).toThrow('shape')
+    expect(() => h.scripting.updateContentScripts(malformed, () => {})).toThrow(
+      'shape'
+    )
+
+    const updated = h.scripting.updateContentScripts([
+      {id: 'hook', js: ['scripts/hook.js'], matches: ['http://other.test/*']}
+    ])
+    const added = h.scripting.registerContentScripts([{...HOOK, id: 'second'}])
+
+    await vi.advanceTimersByTimeAsync(100)
+    await Promise.all([updated, added])
+
+    // The checks left nothing behind, and each call landed once.
+    expect(h.registered.map((script) => script.id)).toEqual(['hook', 'second'])
+    expect(h.registered[0].matches).toEqual(['http://other.test/*'])
+    expect(h.calls).toEqual(['updateContentScripts', 'registerContentScripts'])
+  })
+
   it('gives each edit its own address', async () => {
     const h = boot({registered: [HOOK]})
 
@@ -272,6 +383,26 @@ describe('bridge producer runtime, the address of a registered script on Gecko',
     expect(h.registered).toEqual([])
 
     h.ws.triggerMessage(pageFrame(['scripts/hook.js']))
+    await vi.advanceTimersByTimeAsync(3000)
+    await background
+
+    expect(addressOf(h.registered[0])).toContain(`scripts/hook.js${ADDRESS}`)
+    expect(h.reloadedTabs).toEqual([7])
+    expect(h.calls).not.toContain('runtime.reload')
+  })
+
+  it('waits for a registry call a loaded browser answers seconds late', async () => {
+    const h = boot({registered: [HOOK], unregisterAnswersAfter: 4000})
+
+    const background = (async () => {
+      await h.scripting.unregisterContentScripts({ids: ['hook']})
+      await h.scripting.registerContentScripts([HOOK])
+    })()
+
+    h.ws.triggerMessage(pageFrame(['scripts/hook.js']))
+    await vi.advanceTimersByTimeAsync(3500)
+    expect(h.reloadedTabs).toEqual([])
+
     await vi.advanceTimersByTimeAsync(3000)
     await background
 
