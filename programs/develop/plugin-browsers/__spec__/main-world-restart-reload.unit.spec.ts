@@ -51,6 +51,7 @@ function launchedSession() {
   fs.writeFileSync(at('background.js'), IDLE)
 
   const taps: Record<string, Array<(...args: any[]) => unknown>> = {}
+
   const hook = (name: string) => {
     const tap = (_name: string, callback: (...args: any[]) => unknown) => {
       taps[name] = [...(taps[name] || []), callback]
@@ -58,6 +59,7 @@ function launchedSession() {
 
     return {tap, tapPromise: tap}
   }
+
   const compiler = {
     options: {mode: 'development', context: root},
     modifiedFiles: new Set<string>(),
@@ -89,6 +91,7 @@ function launchedSession() {
     isFirstCompile: false,
     controller: {getExtensionLoadRefusal: () => null}
   })
+
   plugin.apply(compiler as any)
 
   return {

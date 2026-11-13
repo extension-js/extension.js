@@ -354,6 +354,7 @@ describe('the Gecko extension-document evaluator', () => {
       ),
       context
     )
+
     await new Promise((resolve) => setTimeout(resolve, 0))
 
     expect(readSettledSlot(vm.runInContext(POLL_EXPRESSION, context))).toEqual({
