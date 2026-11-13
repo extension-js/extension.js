@@ -8,8 +8,10 @@ vi.mock('../../plugin-reload', () => ({
   })),
   dispatchReload: vi.fn(),
   readContentScriptCount: vi.fn(() => 0),
+  readContentScriptDigests: vi.fn(() => ({})),
   readContentScriptFiles: vi.fn(() => []),
-  reloadForRenamedContentScripts: vi.fn((instruction) => instruction)
+  reloadForRenamedContentScripts: vi.fn((instruction) => instruction),
+  reloadForRewrittenContentScripts: vi.fn((instruction) => instruction)
 }))
 
 import {BrowsersPlugin} from '../index'
