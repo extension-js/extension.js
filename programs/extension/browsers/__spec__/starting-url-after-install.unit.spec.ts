@@ -51,7 +51,7 @@ describe('the launch argv', () => {
     expect(plan.args).toEqual(['--flag', URL])
   })
 
-  it('opens about:blank on Firefox', async () => {
+  it('opens a blank tab that carries the launch mark on Firefox', async () => {
     const out = makeDist({manifest_version: 3})
     const args = await firefoxBrowserConfig(
       {options: {mode: 'production', context: out, output: {path: out}}} as any,
@@ -59,7 +59,7 @@ describe('the launch argv', () => {
     )
 
     expect(args).not.toContain(URL)
-    expect(args).toContain('--url about:blank')
+    expect(args).toContain('--url about:blank#extension-js-launch')
   })
 })
 
@@ -137,7 +137,12 @@ describe('Chromium opens the starting url after install', () => {
 })
 
 describe('Firefox opens the starting url after install', () => {
-  function fakeClient(statuses: Array<string | undefined>) {
+  const LAUNCH_TAB = {actor: 'tab1', url: 'about:blank#extension-js-launch'}
+
+  function fakeClient(
+    statuses: Array<string | undefined>,
+    tabs: Array<Record<string, unknown>> = [LAUNCH_TAB]
+  ) {
     const requests: Array<Record<string, unknown>> = []
     let listing = 0
 
@@ -160,11 +165,11 @@ describe('Firefox opens the starting url after install', () => {
           }
 
           if (payload.type === 'listTabs') {
-            return {tabs: [{actor: 'tab1', url: 'about:blank'}]}
+            return {tabs}
           }
 
           if (payload.type === 'getTarget') {
-            return {frame: {actor: 'frame1', url: 'about:blank'}}
+            return {frame: {actor: `frame-of-${payload.to}`}}
           }
 
           return {}
@@ -192,7 +197,7 @@ describe('Firefox opens the starting url after install', () => {
     )
 
     expect(fake.requests.at(-1)).toEqual({
-      to: 'frame1',
+      to: 'frame-of-tab1',
       type: 'navigateTo',
       url: URL
     })
@@ -211,5 +216,67 @@ describe('Firefox opens the starting url after install', () => {
     ).resolves.toBe('navigated')
 
     expect(fake.requests.filter((r) => r.type === 'listAddons')).toHaveLength(1)
+  })
+
+  // A tab the add-on opened reads about:blank and selected while it loads.
+  // Navigating it replaced the add-on's own page with the starting URL.
+  it('leaves a loading tab the add-on opened and navigates the launch tab', async () => {
+    const fake = fakeClient(
+      ['RUNNING'],
+      [LAUNCH_TAB, {actor: 'tab2', url: 'about:blank', selected: true}]
+    )
+
+    await expect(
+      openStartingUrlAfterBackground({
+        client: fake.client,
+        extensionId: 'x@example.com',
+        url: URL,
+        intervalMs: 0
+      })
+    ).resolves.toBe('navigated')
+
+    expect(fake.requests.at(-1)).toEqual({
+      to: 'frame-of-tab1',
+      type: 'navigateTo',
+      url: URL
+    })
+  })
+
+  it('opens a tab of its own when the launch tab is gone', async () => {
+    const fake = fakeClient(
+      ['RUNNING'],
+      [
+        {actor: 'tab1', url: 'moz-extension://x/options/index.html'},
+        {actor: 'tab2', url: 'about:blank', selected: true}
+      ]
+    )
+    const openInNewTab = vi.fn(async () => true)
+
+    await expect(
+      openStartingUrlAfterBackground({
+        client: fake.client,
+        extensionId: 'x@example.com',
+        url: URL,
+        openInNewTab,
+        intervalMs: 0
+      })
+    ).resolves.toBe('opened')
+
+    expect(openInNewTab).toHaveBeenCalledWith(URL)
+    expect(fake.requests.some((r) => r.type === 'navigateTo')).toBe(false)
+  })
+
+  it('reports the page unopened when no tab can be made for it', async () => {
+    const fake = fakeClient(['RUNNING'], [])
+
+    await expect(
+      openStartingUrlAfterBackground({
+        client: fake.client,
+        extensionId: 'x@example.com',
+        url: URL,
+        openInNewTab: async () => false,
+        intervalMs: 0
+      })
+    ).resolves.toBe('unavailable')
   })
 })

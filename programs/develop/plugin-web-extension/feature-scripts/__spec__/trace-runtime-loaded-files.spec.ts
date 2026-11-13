@@ -601,6 +601,34 @@ describe('TraceRuntimeLoadedFiles importScripts choices', () => {
     expect(compilation.warnings).toHaveLength(0)
   })
 
+  // The dev worker carries the hot update loader, and a worker with an async
+  // chunk carries the chunk loader. Neither imports a file the author wrote.
+  it.each([
+    [
+      'dev hot update',
+      '__webpack_require__.p + __webpack_require__.hu(chunkId)'
+    ],
+    ['minified chunk', 'r.p+r.u(e)']
+  ])('copies no registered script beside the worker for the %s loader', async (_name, chunkUrl) => {
+    const projectDir = createTempProject(
+      {
+        'background.js': '',
+        'scripts/hook.js': classic('HOOK_READY')
+      },
+      {background: {service_worker: 'background.js'}}
+    )
+    const {emitted, compilation} = await runTrace(projectDir, {
+      'scripts/hook.js': classic('HOOK_READY'),
+      'background/service_worker.js':
+        'chrome.scripting.registerContentScripts([{id: "hook", js: ["scripts/hook.js"], world: "MAIN", matches: ["<all_urls>"]}]);\n' +
+        `importScripts(${chunkUrl});`
+    })
+
+    expect(emitted.has('background/scripts/hook.js')).toBe(false)
+    expect(emitted.has('scripts/hook.js')).toBe(true)
+    expect(compilation.warnings).toHaveLength(0)
+  })
+
   it('ships a path held in a constant that importScripts reads', async () => {
     const projectDir = createTempProject(
       {
