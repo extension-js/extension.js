@@ -65,7 +65,7 @@ describe('the block a Gecko MAIN world file is closed in', () => {
       ),
       'utf-8'
     )
-    const columns = /const EXTJS_TAKE_COLUMNS = (\d+)\n/.exec(bridge)
+    const columns = /const EXTJS_TAKE_COLUMNS = (\d+)\r?\n/.exec(bridge)
 
     expect(TAKE_BLOCK_COLUMNS).toBe(TAKE_BLOCK_OPEN.length)
     expect(Number(columns?.[1])).toBe(TAKE_BLOCK_COLUMNS)
