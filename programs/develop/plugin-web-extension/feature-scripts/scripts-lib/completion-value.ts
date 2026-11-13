@@ -12,6 +12,8 @@ import * as path from 'node:path'
 const requireModule = createRequire(import.meta.url)
 
 export const COMPLETION_VALUE_SETTER = '__extjsCompletion'
+// Marks the entry of a file executeScript injects from outside scripts/.
+export const INJECTED_CLASSIC_QUERY = '__extensionjs_injected__'
 export const COMPLETION_VALUE_HOLDER = '__extjsCompletionValue'
 const KEEP = '__extjsKeep'
 
@@ -28,6 +30,9 @@ const CLONABLE =
 const BLOCK_CLOSE = `\n;(${CLONABLE})(${COMPLETION_VALUE_HOLDER})}`
 // A module that lands in a file with no such block keeps running as it did.
 const KEEP_DECLARATION = `var ${KEEP} = typeof ${COMPLETION_VALUE_SETTER} === "function" ? ${COMPLETION_VALUE_SETTER} : function () {};`
+// A file with no function around it would leave that name on the global,
+// so it reads the setter where it calls it. The keyword keeps a line apart.
+const KEEP_IN_PLACE = `void (typeof ${COMPLETION_VALUE_SETTER} === "function" ? ${COMPLETION_VALUE_SETTER} : function () {})`
 
 interface Statement {
   type: string
@@ -103,7 +108,11 @@ function listOf(statements: unknown): Statement[] {
   return Array.isArray(statements) ? (statements as Statement[]) : []
 }
 
-function collectEdits(source: string, program: Statement[]): Edit[] {
+function collectEdits(
+  source: string,
+  program: Statement[],
+  setter: string
+): Edit[] {
   const edits: Edit[] = []
 
   const keep = (statement: Statement) => {
@@ -112,7 +121,7 @@ function collectEdits(source: string, program: Statement[]): Edit[] {
     edits.push({
       start: statement.start,
       end: statement.end,
-      text: `${KEEP}((${text}));`
+      text: `${setter}((${text}));`
     })
   }
 
@@ -121,7 +130,7 @@ function collectEdits(source: string, program: Statement[]): Edit[] {
     edits.push({
       start: statement.start,
       end: statement.start,
-      text: listed ? `${KEEP}();` : `{${KEEP}();`
+      text: listed ? `${setter}();` : `{${setter}();`
     })
 
     if (!listed) {
@@ -133,7 +142,7 @@ function collectEdits(source: string, program: Statement[]): Edit[] {
   const caught = (handler: NonNullable<Statement['handler']>) => {
     const at = handler.body.start + 1
 
-    edits.push({start: at, end: at, text: `${KEEP}();`})
+    edits.push({start: at, end: at, text: `${setter}();`})
   }
 
   const isValue = (statement: Statement) =>
@@ -255,18 +264,20 @@ function collectEdits(source: string, program: Statement[]): Edit[] {
 export function keepCompletionValue(
   source: string,
   resourcePath: string,
-  options: {importsAnotherScript?: boolean} = {}
+  options: {importsAnotherScript?: boolean; declaresNothing?: boolean} = {}
 ): string {
   const program = parseStatements(source, resourcePath)
   if (!program) return source
 
-  const edits = collectEdits(source, program)
+  const keep = options.declaresNothing ? KEEP_IN_PLACE : KEEP
+  const declaration = options.declaresNothing ? '' : KEEP_DECLARATION
+  const edits = collectEdits(source, program, keep)
 
   if (edits.length === 0) {
     // An imported scripts/ file ran first and its value is not this file's.
     if (!options.importsAnotherScript) return source
 
-    return `${KEEP_DECLARATION}${source}\n;${KEEP}();`
+    return `${declaration}${source}\n;${keep}();`
   }
 
   let rewritten = source
@@ -276,11 +287,15 @@ export function keepCompletionValue(
       rewritten.slice(0, edit.start) + edit.text + rewritten.slice(edit.end)
   }
 
-  return `${KEEP_DECLARATION}${rewritten}`
+  return `${declaration}${rewritten}`
 }
 
 export function carriesCompletionValue(text: string): boolean {
-  return text.includes(COMPLETION_VALUE_SETTER) && !text.includes(BLOCK_OPEN)
+  return text.includes(COMPLETION_VALUE_SETTER) && !endsOnCompletionValue(text)
+}
+
+export function endsOnCompletionValue(text: string): boolean {
+  return text.includes(BLOCK_OPEN)
 }
 
 // The emitted file ends on the value, with its source map comment kept last.
@@ -289,10 +304,13 @@ export function closeCompletionValueBlock(text: string): {
   closed: string
 } {
   const trailer = /\n\/\/# sourceMappingURL=[^\n]*\s*$/.exec(text)
-  const body = trailer ? text.slice(0, trailer.index) : text
+  const whole = trailer ? text.slice(0, trailer.index) : text
+  // A directive only counts ahead of every statement, the block included.
+  const directive = /^(?:"use strict"|'use strict');?/.exec(whole)?.[0] || ''
+  const body = whole.slice(directive.length)
 
   return {
-    open: BLOCK_OPEN,
+    open: `${directive}${BLOCK_OPEN}`,
     closed: `${body}${BLOCK_CLOSE}${trailer ? trailer[0] : ''}`
   }
 }

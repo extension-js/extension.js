@@ -38,6 +38,8 @@ import {
   readScriptText
 } from '../../shared/script-graph'
 import * as messages from '../messages'
+import {INJECTED_CLASSIC_QUERY} from '../scripts-lib/completion-value'
+import {keepCompletionValueOf} from './keep-completion-value'
 import {
   blankComments,
   escapeRegExp,
@@ -1323,6 +1325,13 @@ async function compileTracedFile(
 ): Promise<void> {
   const {compilation, compiler} = host
   const isModule = request.format === 'module'
+  // executeScript resolves with the value a classic file ends on.
+  const keepsValue =
+    !isModule &&
+    request.context === 'injected' &&
+    /\.js$/i.test(request.emitPath)
+  if (keepsValue) keepCompletionValueOf(compilation, request.emitPath)
+
   const chunkLoading = isModule
     ? 'import'
     : request.context === 'importScripts'
@@ -1339,7 +1348,7 @@ async function compileTracedFile(
     compiler.context,
     isModule
       ? request.sourcePath
-      : `${request.sourcePath}${CLASSIC_GLOBALS_QUERY}`,
+      : `${request.sourcePath}${CLASSIC_GLOBALS_QUERY}${keepsValue ? `&${INJECTED_CLASSIC_QUERY}` : ''}`,
     {
       name: request.emitPath.replace(/\.[^./]+$/, ''),
       filename: stylesheetScript || request.emitPath,

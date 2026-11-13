@@ -241,3 +241,70 @@ describe('a value the browser cannot clone', () => {
     ])
   })
 })
+
+describe('a file with no function around it', () => {
+  const kept = (source: string) =>
+    keepCompletionValue(source, 'injected/tool.js', {
+      importsAnotherScript: true,
+      declaresNothing: true
+    })
+
+  const ended = (text: string, context: Record<string, unknown> = {}) => {
+    const {open, closed} = closeCompletionValueBlock(text)
+
+    return vm.runInNewContext(`${open}${closed}`, context)
+  }
+
+  it('reads the setter where it calls it and declares no name of its own', () => {
+    const text = kept('const a = 20\na + 22')
+
+    expect(text).not.toContain('__extjsKeep')
+    expect(text).not.toMatch(/\b(?:var|let|const) __extjs/)
+    expect(carriesCompletionValue(text)).toBe(true)
+    expect(ended(text)).toBe(42)
+  })
+
+  it('keeps a line with no semicolon apart from the call that follows it', () => {
+    expect(ended(kept('const a = 20\na + 22'))).toBe(42)
+    expect(ended(kept('var f = function () { return 1 }\nf() + 41'))).toBe(42)
+  })
+
+  it('runs as it did where no block closed the file', () => {
+    const context: Record<string, unknown> = {}
+
+    expect(() =>
+      vm.runInNewContext(kept('var ran = 1\nran + 41'), context)
+    ).not.toThrow()
+
+    expect(context.ran).toBe(1)
+    expect(Object.keys(context)).toEqual(['ran'])
+  })
+
+  it('ends on nothing when no statement leaves a value', () => {
+    const text = `${kept('function helper() { return 1 }')}\ntry { globalThis.helper = helper } catch (error) {}`
+    const context: Record<string, unknown> = {}
+    context.globalThis = context
+
+    expect(carriesCompletionValue(text)).toBe(true)
+    expect(ended(text, context)).toBeUndefined()
+    expect(typeof context.helper).toBe('function')
+  })
+
+  it('keeps a directive ahead of the block, so the file stays strict', () => {
+    const {open, closed} = closeCompletionValueBlock(
+      '"use strict";__extjsCompletion(function () { return this }())'
+    )
+
+    expect(open.startsWith('"use strict";{let ')).toBe(true)
+    expect(closed.startsWith('__extjsCompletion(')).toBe(true)
+    expect(vm.runInNewContext(`${open}${closed}`, {})).toBeUndefined()
+
+    const loose = closeCompletionValueBlock(
+      '__extjsCompletion(typeof function () { return this }())'
+    )
+
+    expect(vm.runInNewContext(`${loose.open}${loose.closed}`, {})).toBe(
+      'object'
+    )
+  })
+})

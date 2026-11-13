@@ -141,3 +141,59 @@ describe('a runtime-registered MAIN world script and its bridge', () => {
     expect(built.hasBridge).toBe(false)
   }, 180_000)
 })
+
+// A declared content script is a second bridge user of the same extension.
+function withDeclared(root: string, world?: 'MAIN') {
+  const manifestPath = path.join(root, 'manifest.json')
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
+
+  fs.writeFileSync(
+    path.join(root, 'content.js'),
+    'import blobUrl from "./media/blob.bin?url"\n' +
+      'document.documentElement.dataset.declared = String(blobUrl)\n'
+  )
+
+  manifest.content_scripts = [
+    {matches: ['<all_urls>'], js: ['content.js'], ...(world ? {world} : {})}
+  ]
+
+  fs.writeFileSync(manifestPath, JSON.stringify(manifest))
+
+  return root
+}
+
+describe('a runtime-registered MAIN world script next to a declared one', () => {
+  it('firefox: the registered file, its bridge and its pairing are the same with or without one', async () => {
+    const read = (root: string, file: string) =>
+      fs.readFileSync(path.join(root, 'dist', 'firefox', file), 'utf8')
+    const alone = project('MAIN')
+    const isolated = withDeclared(project('MAIN'))
+    const main = withDeclared(project('MAIN'), 'MAIN')
+    const built = {
+      alone: await build(alone, 'firefox'),
+      isolated: await build(isolated, 'firefox'),
+      main: await build(main, 'firefox')
+    }
+
+    for (const [name, root] of [
+      ['isolated', isolated],
+      ['main', main]
+    ] as const) {
+      expect(built[name].hasBridge, name).toBe(true)
+      expect(built[name].background, name).toContain(
+        'var READERS = ["scripts/hook.js"];'
+      )
+
+      for (const file of [
+        path.join('scripts', 'hook.js'),
+        path.join('scripts', 'extjs-main-world-bridge.js')
+      ]) {
+        expect(read(root, file), `${name} ${file}`).toBe(read(alone, file))
+      }
+    }
+
+    // The declared MAIN world group keeps a bridge of its own in the manifest.
+    expect(built.main.manifest.content_scripts).toHaveLength(2)
+    expect(built.isolated.manifest.content_scripts).toHaveLength(1)
+  }, 240_000)
+})

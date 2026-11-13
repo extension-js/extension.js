@@ -27,6 +27,8 @@ interface Setup {
   own?: string
   // The root the runtime names, the Firefox one unless given.
   root?: string
+  // The page global the build named for this extension.
+  global?: string
 }
 
 // The bridge in a stand-in for its isolated world, each stack scripted.
@@ -63,6 +65,7 @@ function bridge(setup: Setup = {}) {
   }
 
   if (page) context.wrappedJSObject = page
+  if (setup.global) context.__EXTJS_PAGE_BASE_GLOBAL__ = setup.global
 
   if (setup.exports !== false) {
     context.exportFunction = (callable: unknown) => callable
@@ -102,7 +105,7 @@ describe('the getter the bridge publishes on a Firefox page window', () => {
     expect(Object.keys(world.page)).toEqual([])
 
     expect(world.read(TAKE)).toBe(BASE)
-    expect(world.read('@<anonymous code>:1:143')).toBe(BASE)
+    expect(world.read('@<anonymous code>:1:227')).toBe(BASE)
     expect(world.attributes).toEqual({})
   })
 
@@ -112,7 +115,7 @@ describe('the getter the bridge publishes on a Firefox page window', () => {
     for (const callers of [
       [],
       ['@<anonymous code>:2:5'],
-      ['@<anonymous code>:1:144'],
+      ['@<anonymous code>:1:228'],
       ['@<anonymous code>:31:9'],
       ['@<anonymous code>:1:44', '@<anonymous code>:38:3'],
       ['@<anonymous code>:1:44', '@http://127.0.0.1/adv.js:9:1'],
@@ -211,7 +214,7 @@ describe('the <html> attribute the bridge falls back to', () => {
 
     for (const callers of [
       ['@<injected script>:2:44'],
-      ['@<injected script>:1:144'],
+      ['@<injected script>:1:228'],
       ['@<injected script>:1:44', '@http://127.0.0.1/adv.js:9:1']
     ]) {
       expect(world.read(...callers), callers.join(' | ')).toBe('')
@@ -247,5 +250,57 @@ describe('the request to load a file a page can post to the bridge', () => {
       bridge({page: null, root: 'chrome-extension://abcdefghijklmnop/'})
         .listening
     ).toEqual(['message'])
+  })
+})
+
+describe('the getters two extensions publish on one page', () => {
+  const FIRST = '__EXTJS_EXTENSION_BASE_1a2b3c4d__'
+  const SECOND = '__EXTJS_EXTENSION_BASE_5e6f7a8b__'
+  const OTHER = 'moz-extension://1a1a1a1a-aaaa-bbbb-cccc-343434343434/'
+  const stack = (base: string) =>
+    `publishToInjectedFile@${base}scripts/extjs-main-world-bridge.js:101:17\n`
+
+  it('stand under the name each build gave, neither over the other', () => {
+    for (const order of [
+      [FIRST, SECOND],
+      [SECOND, FIRST]
+    ]) {
+      const page: Record<string, unknown> = {}
+
+      for (const global of order) {
+        const base = global === FIRST ? BASE : OTHER
+
+        bridge({page, global, root: base, own: stack(base)})
+      }
+
+      const names = Object.getOwnPropertyNames(page).sort()
+
+      expect(names).toEqual([FIRST, SECOND].sort())
+      expect(Object.getOwnPropertyDescriptor(page, FIRST)?.get).not.toBe(
+        Object.getOwnPropertyDescriptor(page, SECOND)?.get
+      )
+
+      expect(page).not.toHaveProperty(KEY)
+    }
+  })
+
+  it('keeps the shared name where the build named none', () => {
+    const world = bridge()
+
+    expect(Object.getOwnPropertyNames(world.page)).toEqual([KEY])
+  })
+
+  it('writes <html> for a page that locked the name of this extension', () => {
+    const page: Record<string, unknown> = {}
+
+    Object.defineProperty(page, FIRST, {
+      value: 'https://evil.example/',
+      configurable: false
+    })
+
+    const world = bridge({page, global: FIRST})
+
+    expect(page[FIRST]).toBe('https://evil.example/')
+    expect(world.attributes).toEqual({[ATTRIBUTE]: BASE})
   })
 })

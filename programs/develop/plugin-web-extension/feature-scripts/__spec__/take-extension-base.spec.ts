@@ -3,7 +3,10 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {Compilation, sources} from '@rspack/core'
 import {afterAll, describe, expect, it} from 'vitest'
-import {TAKE_BLOCK_OPEN} from '../../../lib/extension-base-from-stack'
+import {
+  extensionBaseGlobal,
+  takeBlockOpen
+} from '../../../lib/extension-base-from-stack'
 import {getCanonicalContentScriptEntryName} from '../contracts'
 import {TakeExtensionBase} from '../steps/take-extension-base'
 
@@ -91,6 +94,8 @@ const ISOLATED = `${getCanonicalContentScriptEntryName(0)}.js`
 const MAIN = `${getCanonicalContentScriptEntryName(1)}.js`
 const MAIN_DEV = `${getCanonicalContentScriptEntryName(1)}.1a2b3c4d.js`
 const BODY = '(()=>{window.ran = 1})();'
+// The fixture names no Gecko id and no description, only itself.
+const TAKE_BLOCK_OPEN = takeBlockOpen(extensionBaseGlobal('\ntake-base\n'))
 
 describe('the step that opens a Gecko MAIN world file on the read of the base', () => {
   it('closes the MAIN world entry in the block, as shipped and as a dev session names it', () => {

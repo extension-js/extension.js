@@ -3,7 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import * as vm from 'node:vm'
 import {afterAll, describe, expect, it} from 'vitest'
-import {TAKE_BLOCK_OPEN} from '../lib/extension-base-from-stack'
+import {readTakeBlock} from '../lib/extension-base-from-stack'
 
 // An injected MAIN world file reads the extension base off the page on
 // Gecko, so the caller's bundle runs the bridge ahead of the injection.
@@ -167,7 +167,11 @@ function runOnPage(code: string) {
   }
   const page: Record<string, unknown> = {
     // A stand-in for a DOM node: an object the structured clone refuses.
-    document: {documentElement: html, body: {appendChild() {}}},
+    document: {
+      documentElement: html,
+      body: {appendChild() {}},
+      readyState: 'complete'
+    },
     setTimeout,
     Promise,
     structuredClone
@@ -261,20 +265,23 @@ describe('the value an injected scripts/ file ends on', () => {
     const names = Object.keys(VALUE_FILES)
       .filter((name) => name.startsWith('scripts/'))
       .map((name) => name.replace(/\.ts$/, '.js'))
-    const taking = names.filter((name) =>
-      built.read(name).startsWith(TAKE_BLOCK_OPEN)
-    )
+    const taking = names.filter((name) => readTakeBlock(built.read(name)))
 
     expect(taking).toEqual(TAKING)
 
     for (const name of taking) {
-      expect(built.read(name).split(TAKE_BLOCK_OPEN), name).toHaveLength(2)
+      expect(
+        built.read(name).split(String(readTakeBlock(built.read(name)))),
+        name
+      ).toHaveLength(2)
     }
 
     expect(
       built
         .read('scripts/value.js')
-        .startsWith(`${TAKE_BLOCK_OPEN}{let __extjsCompletionValue`)
+        .startsWith(
+          `${readTakeBlock(built.read('scripts/value.js'))}{let __extjsCompletionValue`
+        )
     ).toBe(true)
 
     expect(runOnPage(built.read('scripts/value.js')).value).toBe(42)
@@ -297,5 +304,92 @@ describe('the value an injected scripts/ file ends on', () => {
 
       expect(text, name).not.toContain('__extjsTakenBase')
     }
+  }, 180_000)
+})
+
+const tabCall = (file: string) =>
+  'api.tabs.onUpdated.addListener(function (tabId) {\n' +
+  `  api.scripting.executeScript({target: {tabId: tabId}, files: ["${file}"]})\n})\n`
+
+const MOUNTED_FILES = {
+  'scripts/mounted.js':
+    'const count = 20\n' +
+    'export default function start() {\n' +
+    '  document.documentElement.dataset.mounted = String(count)\n' +
+    '  return "returned-by-default"\n}\n' +
+    'count + 22\n',
+  'scripts/mounted-value.js': 'const count = 20\nexport default count + 22\n',
+  'scripts/mounted-later.js':
+    'export default async function start() {\n' +
+    '  document.documentElement.dataset.later = "1"\n' +
+    '  return "returned-by-async-default"\n}\n',
+  'injected/typed.ts': 'const typedCount: number = 20\ntypedCount + 22\n',
+  'injected/quiet.ts':
+    'const quietCount: number = 20\n' +
+    'function quietHelper(): number { return quietCount }\n',
+  'injected/plain.js': 'const plainCount = 20\nplainCount + 22\n',
+  'background.js':
+    API +
+    tabCall('/scripts/mounted.js') +
+    tabCall('/scripts/mounted-value.js') +
+    tabCall('/scripts/mounted-later.js') +
+    tabCall('/injected/typed.js') +
+    tabCall('/injected/quiet.js') +
+    tabCall('/injected/plain.js')
+}
+
+describe('the value an injected file with a default export ends on', () => {
+  it.each([
+    'chrome',
+    'firefox'
+  ] as const)('%s: the file is an entry the wrapper mounts, so it ends on nothing', async (browser) => {
+    const built = await build(project(MOUNTED_FILES), browser)
+    const mounted = runOnPage(built.read('scripts/mounted.js'))
+    const html = (mounted.page.document as any).documentElement
+
+    // The default export ran, and neither its return value nor the last
+    // statement nor an object of the wrapper comes back as the result.
+    expect(html.dataset.mounted).toBe('20')
+    expect(mounted.value).toBeUndefined()
+    expect(runOnPage(built.read('scripts/mounted-value.js')).value).toBe(
+      undefined
+    )
+
+    const later = runOnPage(built.read('scripts/mounted-later.js'))
+
+    expect((later.page.document as any).documentElement.dataset.later).toBe('1')
+    expect(later.value).toBeUndefined()
+
+    for (const name of Object.keys(MOUNTED_FILES)) {
+      if (!name.startsWith('scripts/')) continue
+
+      expect(built.read(name), name).not.toContain('__extjsCompletion')
+    }
+  }, 180_000)
+})
+
+describe('the value a file injected from outside scripts/ ends on', () => {
+  it.each([
+    'chrome',
+    'firefox'
+  ] as const)('%s: a compiled file ends on its last statement, a copied one is left as written', async (browser) => {
+    const built = await build(project(MOUNTED_FILES), browser)
+    const typed = runOnPage(built.read('injected/typed.js'))
+
+    expect(typed.value).toBe(42)
+    expect(typed.page.typedCount).toBe(20)
+
+    const quiet = runOnPage(built.read('injected/quiet.js'))
+
+    // Its last shared name is a function, a value no browser can clone.
+    expect(quiet.value).toBeUndefined()
+    expect(typeof quiet.page.quietHelper).toBe('function')
+    expect(quiet.page.quietCount).toBe(20)
+
+    expect(built.read('injected/plain.js').replace(/\r\n/g, '\n')).toBe(
+      MOUNTED_FILES['injected/plain.js']
+    )
+
+    expect(runOnPage(built.read('injected/plain.js')).value).toBe(42)
   }, 180_000)
 })

@@ -11,6 +11,10 @@ import {
   inputOrIdentityMap,
   returnWithMap
 } from '../../../lib/loader-source-maps'
+import {
+  INJECTED_CLASSIC_QUERY,
+  keepCompletionValue
+} from '../scripts-lib/completion-value'
 
 const requireModule = createRequire(import.meta.url)
 
@@ -182,6 +186,7 @@ function bridgeSource(names: string[]): string {
 
 interface LoaderContext {
   resourcePath: string
+  resourceQuery?: string
   callback(err: Error | null, content?: string, sourceMap?: unknown): void
 }
 
@@ -199,7 +204,15 @@ export default function classicTracedGlobalsLoader(
   }
 
   const suffix = bridgeSource(names)
-  const output = suffix ? source + suffix : source
+  // The lines below end the file on the last name they set, so an injected
+  // file carries its own value out, or nothing when it leaves none.
+  const body = String(this.resourceQuery || '').includes(INJECTED_CLASSIC_QUERY)
+    ? keepCompletionValue(source, this.resourcePath, {
+        importsAnotherScript: true,
+        declaresNothing: true
+      })
+    : source
+  const output = suffix ? body + suffix : body
 
   return returnWithMap(
     this,

@@ -16,9 +16,8 @@ import {
 } from '../../../../lib/constants'
 import {
   closedOnSlash,
-  EXTENSION_BASE_FROM_STACK,
-  EXTENSION_BASE_GLOBAL,
-  extensionBaseFromFile
+  extensionBaseFromFile,
+  unlessExtensionAddress
 } from '../../../../lib/extension-base-from-stack'
 import {
   adjustLoaderSourceMap,
@@ -41,6 +40,7 @@ import {
 } from '../../contracts'
 import * as messages from '../../messages'
 import {keepCompletionValue} from '../../scripts-lib/completion-value'
+import {extensionBaseGlobalFor} from '../../scripts-lib/taken-extension-base'
 
 interface ContentScriptLoaderContext {
   getOptions(): {
@@ -448,7 +448,7 @@ export default function contentScriptWrapper(
   // The page window carries the getter until the file that took the base
   // removes it, the way it removes the attribute.
   const dropsBaseGetter = takesFromFile
-    ? `try { delete window.${EXTENSION_BASE_GLOBAL}; } catch (error) {} `
+    ? `try { delete window.${extensionBaseGlobalFor(manifestPath, browser)}; } catch (error) {} `
     : ''
   const bundleKey = declaredEntry
     ? getCanonicalContentScriptEntryName(declaredEntry.index)
@@ -477,8 +477,13 @@ export default function contentScriptWrapper(
     '    if (typeof globalThis === "object" && globalThis && globalThis.chrome && globalThis.chrome.runtime && typeof globalThis.chrome.runtime.getURL === "function") return globalThis.chrome.runtime.getURL(path);\n' +
     '  } catch (error) {}\n' +
     '  try {\n' +
-    `    var base = ${takenBridgeBase}((typeof globalThis === "object" && globalThis && globalThis.__EXTJS_EXTENSION_BASE__) ? String(globalThis.__EXTJS_EXTENSION_BASE__) : "");\n` +
+    // On Firefox a page owns every other global of its world, so the file
+    // asks none of them and goes from its own copy to the document.
+    (takesFromFile
+      ? '    var base = __EXTENSIONJS_BRIDGE_BASE;\n'
+      : `    var base = ${takenBridgeBase}((typeof globalThis === "object" && globalThis && globalThis.__EXTJS_EXTENSION_BASE__) ? String(globalThis.__EXTJS_EXTENSION_BASE__) : "");\n`) +
     '    if (!base && typeof document === "object" && document && document.documentElement) base = String(document.documentElement.getAttribute("data-extjs-extension-base") || "");\n' +
+    (takesFromFile ? `    ${unlessExtensionAddress('base')}\n` : '') +
     '    if (!base) return "";\n' +
     (takesFromFile
       ? `    return ${closedOnSlash('base')} + String(path || "").replace(/^\\/+/, "");\n`
@@ -921,6 +926,9 @@ export default function contentScriptWrapper(
         'try {\n' +
         '  var __EXTENSIONJS_html = document.documentElement;\n' +
         '  if (!__EXTENSIONJS_BRIDGE_BASE) __EXTENSIONJS_BRIDGE_BASE = String(__EXTENSIONJS_html.getAttribute("data-extjs-extension-base") || "");\n' +
+        (takesFromFile
+          ? `  ${unlessExtensionAddress('__EXTENSIONJS_BRIDGE_BASE')}\n`
+          : '') +
         (!takesBridgeBase
           ? ''
           : sharesBridgeBase
@@ -1085,6 +1093,7 @@ export default function contentScriptWrapper(
         '        if (typeof document === "object" && document && document.documentElement) base = String(document.documentElement.getAttribute("data-extjs-extension-base") || "");\n' +
         '      } catch (error) {}\n' +
         '    }\n' +
+        (takesFromFile ? `    ${unlessExtensionAddress('base')}\n` : '') +
         '    if (!base) return false;\n' +
         (takesFromFile
           ? '    if (base[base.length - 1] !== "/") base += "/";\n'
