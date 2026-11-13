@@ -1187,6 +1187,80 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     }
   })
 
+  // Chromium answered null for a BigInt returned from a tab and Firefox an
+  // unserializable placeholder. Both now carry the digits in a tagged object.
+  it('eval page answers a BigInt as a tagged object that keeps every digit', async () => {
+    const ws = setup({
+      scripting: {
+        executeScript: (opts: {
+          func: (...a: unknown[]) => unknown
+          args?: unknown[]
+        }) =>
+          Promise.resolve(opts.func(...(opts.args || []))).then((result) => {
+            return [{result: structuredClone(result)}]
+          })
+      }
+    })
+    const big = (digits: string) => ({__type: 'bigint', value: digits})
+    const cases: Record<string, [string, unknown]> = {
+      bare: ['10n', big('10')],
+      keyed: ['({a: 10n})', {a: big('10')}],
+      listed: ['[1n]', [big('1')]],
+      wide: ['2n ** 70n', big('1180591620717411303424')],
+      cycle: [
+        '(() => { const o = {a: 1n, list: [2n]}; o.self = o; return o })()',
+        {a: big('1'), list: [big('2')], self: null}
+      ]
+    }
+
+    for (const [name, [expression]] of Object.entries(cases)) {
+      ws.triggerMessage({
+        type: 'command',
+        cmdId: `big-${name}`,
+        op: 'eval',
+        target: {context: 'page', tabId: 3},
+        args: {expression}
+      })
+    }
+
+    await flush()
+
+    for (const [name, [, value]] of Object.entries(cases)) {
+      const r = results(ws).find((f) => f.cmdId === `big-${name}`)
+
+      expect(r, name).toMatchObject({ok: true})
+      expect(r.value, name).toEqual(value)
+    }
+  })
+
+  it('eval background answers a BigInt as the same tagged object', async () => {
+    const ws = setup({})
+    const cases: Record<string, [string, unknown]> = {
+      bare: ['10n', {__type: 'bigint', value: '10'}],
+      keyed: ['({a: 10n})', {a: {__type: 'bigint', value: '10'}}],
+      listed: ['[1n]', [{__type: 'bigint', value: '1'}]]
+    }
+
+    for (const [name, [expression]] of Object.entries(cases)) {
+      ws.triggerMessage({
+        type: 'command',
+        cmdId: `bg-big-${name}`,
+        op: 'eval',
+        target: {context: 'background'},
+        args: {expression}
+      })
+    }
+
+    await flush()
+
+    for (const [name, [, value]] of Object.entries(cases)) {
+      const r = results(ws).find((f) => f.cmdId === `bg-big-${name}`)
+
+      expect(r, name).toMatchObject({ok: true})
+      expect(r.value, name).toEqual(value)
+    }
+  })
+
   it('eval background answers a circular value with the cycle nulled', async () => {
     const ws = setup({})
     ws.triggerMessage({
@@ -3070,6 +3144,53 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     }
 
     expect(responded).toEqual({ok: true, value: {a: 1, self: null}})
+  })
+
+  it('the relay answers a BigInt as a tagged object that keeps every digit', () => {
+    const listeners: Array<(m: any, s: any, r: any) => unknown> = []
+    const fakeGlobal: Record<string, unknown> = {
+      console: {log: () => {}},
+      location: {href: 'chrome-extension://abc/popup.html'},
+      chrome: {
+        runtime: {
+          sendMessage: () => {},
+          lastError: undefined,
+          onMessage: {addListener: (fn: any) => listeners.push(fn)}
+        }
+      }
+    }
+    run(buildBridgeRelaySource({context: 'popup'}), fakeGlobal)
+
+    const answer = (expression: string) => {
+      let responded: any = 'NONE'
+
+      for (const fn of listeners) {
+        fn(
+          {
+            __extjsEvalRequest: true,
+            target: {context: 'popup'},
+            args: {expression}
+          },
+          {},
+          (r: any) => (responded = r)
+        )
+      }
+
+      return responded
+    }
+
+    expect(answer('10n')).toEqual({
+      ok: true,
+      value: {__type: 'bigint', value: '10'}
+    })
+
+    expect(answer('({a: 10n, list: [1n]})')).toEqual({
+      ok: true,
+      value: {
+        a: {__type: 'bigint', value: '10'},
+        list: [{__type: 'bigint', value: '1'}]
+      }
+    })
   })
 
   it('the relay settles a promise-valued expression before replying', async () => {

@@ -251,6 +251,14 @@ export function inspectSnapshotExpression(
 })()`
 }
 
+// JSON has no BigInt and a bare string would read as text, so the digits
+// cross inside a tagged object, the shape a truncated value already takes.
+export const BIGINT_TYPE = 'bigint'
+
+export function bigintForm(digits: string): {__type: string; value: string} {
+  return {__type: BIGINT_TYPE, value: digits}
+}
+
 // The value is JSON-encoded inside the document and read back as a string:
 // a console actor answers an object with an actor grip, not a cloneable value,
 // and never awaits a promise the expression returns.
@@ -267,6 +275,7 @@ export function startExpression(expression: string): string {
       try {
         json = JSON.stringify(value, function (_key, val) {
           while (stack.length && stack[stack.length - 1] !== this) stack.pop();
+          if (typeof val === "bigint") val = {__type: ${JSON.stringify(BIGINT_TYPE)}, value: String(val)};
           if (val && typeof val === "object") {
             if (stack.indexOf(val) !== -1) return null;
             stack.push(val);
@@ -427,7 +436,7 @@ export function readCompletionValue(
     return {ok: true, value: undefined}
   }
 
-  if (type === 'BigInt') return {ok: true, value: String(text)}
+  if (type === 'BigInt') return {ok: true, value: bigintForm(String(text))}
   if (type === '-0') return {ok: true, value: 0}
 
   if (

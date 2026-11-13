@@ -125,6 +125,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       var stack = [];
       return JSON.stringify(v, function (_key, val) {
         while (stack.length && stack[stack.length - 1] !== this) stack.pop();
+        if (typeof val === "bigint") val = {__type: "bigint", value: String(val)};
         if (val && typeof val === "object") {
           if (stack.indexOf(val) !== -1) return null;
           stack.push(val);
@@ -485,6 +486,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
                   try {
                     var json = JSON.stringify(v, function (_key, val) {
                       while (stack.length && stack[stack.length - 1] !== this) stack.pop();
+                      if (typeof val === "bigint") val = {__type: "bigint", value: String(val)};
                       if (val && typeof val === "object") {
                         if (stack.indexOf(val) !== -1) return null;
                         stack.push(val);
@@ -2203,6 +2205,7 @@ export const BRIDGE_RELAY_SOURCE = `;(function () {
             try {
               var json = JSON.stringify(v, function (_key, val) {
                 while (stack.length && stack[stack.length - 1] !== this) stack.pop();
+                if (typeof val === "bigint") val = {__type: "bigint", value: String(val)};
                 if (val && typeof val === "object") {
                   if (stack.indexOf(val) !== -1) return null;
                   stack.push(val);

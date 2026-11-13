@@ -3,6 +3,7 @@ import net from 'node:net'
 import vm from 'node:vm'
 import {describe, expect, it} from 'vitest'
 import {
+  bigintForm,
   documentNotOpenMessage,
   evaluateExtensionDocument,
   evaluateThroughWatcher,
@@ -300,10 +301,68 @@ describe('the Gecko extension-document evaluator', () => {
         '(() => { const s = {x: 1}; const o = {p: s, q: s, list: []}; o.list.push(o); return o })()'
       )
     ).toEqual({ok: true, value: {p: {x: 1}, q: {x: 1}, list: [null]}})
+  })
 
-    expect(await settle('({n: 10n})')).toEqual({
+  // JSON.stringify throws on a BigInt too, and that fallback answered "10"
+  // for 10n, "1" for [1n] and "[object Object]" for {a: 10n}.
+  it('encodes a BigInt as a tagged object that keeps every digit', async () => {
+    const context = vm.createContext({})
+
+    const settle = async (expression: string) => {
+      vm.runInContext(startExpression(expression), context)
+      await new Promise((resolve) => setTimeout(resolve, 0))
+
+      return readSettledSlot(vm.runInContext(POLL_EXPRESSION, context))
+    }
+
+    expect(await settle('10n')).toEqual({
       ok: true,
-      value: '[object Object]'
+      value: {__type: 'bigint', value: '10'}
+    })
+
+    expect(await settle('({a: 10n})')).toEqual({
+      ok: true,
+      value: {a: {__type: 'bigint', value: '10'}}
+    })
+
+    expect(await settle('[1n]')).toEqual({
+      ok: true,
+      value: [{__type: 'bigint', value: '1'}]
+    })
+
+    expect(await settle('2n ** 70n')).toEqual({
+      ok: true,
+      value: {__type: 'bigint', value: '1180591620717411303424'}
+    })
+
+    expect(await settle('-5n')).toEqual({
+      ok: true,
+      value: {__type: 'bigint', value: '-5'}
+    })
+
+    expect(bigintForm('10')).toEqual({__type: 'bigint', value: '10'})
+  })
+
+  // The cycle walk tracks ancestors by the object each key sits on, and the
+  // tagged object is one more of those, so a cycle after it is still nulled.
+  it('nulls a cycle that follows a BigInt in the same value', async () => {
+    const context = vm.createContext({})
+
+    vm.runInContext(
+      startExpression(
+        '(() => { const o = {a: 1n, list: [2n, "x"], u: undefined}; o.self = o; o.list.push(o); return o })()'
+      ),
+      context
+    )
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(readSettledSlot(vm.runInContext(POLL_EXPRESSION, context))).toEqual({
+      ok: true,
+      value: {
+        a: {__type: 'bigint', value: '1'},
+        list: [{__type: 'bigint', value: '2'}, 'x', null],
+        self: null
+      }
     })
   })
 
