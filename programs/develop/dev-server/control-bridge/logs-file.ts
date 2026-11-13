@@ -31,13 +31,20 @@ const DEFAULTS = {
 
 const HEADER_PROBE_BYTES = 1024
 
-// The run id in the header a session wrote when it took the file.
-export function readLogFileRunId(filePath: string): string | undefined {
-  let fd: number | undefined
+function closeQuietly(fd: number | undefined): void {
+  if (fd === undefined) return
 
   try {
-    fd = fs.openSync(filePath, 'r')
+    fs.closeSync(fd)
+  } catch {
+    // Ignore
+  }
+}
 
+// Reads the header through an open descriptor, so the answer is about the
+// file that descriptor holds and not about whatever the path names by now.
+export function readLogDescriptorRunId(fd: number): string | undefined {
+  try {
     const buffer = Buffer.alloc(HEADER_PROBE_BYTES)
     const read = fs.readSync(fd, buffer, 0, HEADER_PROBE_BYTES, 0)
     const firstLine = buffer.toString('utf-8', 0, read).split(/\r?\n/)[0]
@@ -48,15 +55,26 @@ export function readLogFileRunId(filePath: string): string | undefined {
       : undefined
   } catch {
     return undefined
-  } finally {
-    if (fd !== undefined) {
-      try {
-        fs.closeSync(fd)
-      } catch {
-        // Ignore
-      }
-    }
   }
+}
+
+// The run id in the header a session wrote when it took the file.
+export function readLogFileRunId(filePath: string): string | undefined {
+  let fd: number | undefined
+
+  try {
+    fd = fs.openSync(filePath, 'r')
+
+    return readLogDescriptorRunId(fd)
+  } catch {
+    return undefined
+  } finally {
+    closeQuietly(fd)
+  }
+}
+
+function isForeignRunId(owner: string | undefined, runId: string): boolean {
+  return owner !== undefined && owner !== '' && owner !== runId
 }
 
 // A session that exits late must not append to the file a newer run took,
@@ -65,9 +83,48 @@ export function isLogFileOwnedByAnotherRun(
   filePath: string,
   runId: string
 ): boolean {
-  const owner = readLogFileRunId(filePath)
+  return isForeignRunId(readLogFileRunId(filePath), runId)
+}
 
-  return owner !== undefined && owner !== '' && owner !== runId
+export type OwnedAppendResult = 'written' | 'foreign' | 'failed'
+
+// One descriptor carries the ownership check and the append. A newer run that
+// renames the file away in between leaves these rows in the renamed file.
+export function appendToOwnedLogFile(
+  filePath: string,
+  runId: string,
+  payload: string
+): OwnedAppendResult {
+  let fd: number | undefined
+
+  try {
+    fd = fs.openSync(filePath, 'a+')
+
+    if (isForeignRunId(readLogDescriptorRunId(fd), runId)) return 'foreign'
+
+    fs.appendFileSync(fd, payload, 'utf-8')
+
+    return 'written'
+  } catch {
+    return 'failed'
+  } finally {
+    closeQuietly(fd)
+  }
+}
+
+// A new file takes the path by rename, so a descriptor an older run still
+// holds keeps naming the old file. Truncating in place would hand it this one.
+export function replaceLogFile(filePath: string, content: string): void {
+  const tempPath = `${filePath}.${process.pid}.tmp`
+
+  try {
+    fs.writeFileSync(tempPath, content, 'utf-8')
+    renameSyncWithRetry(tempPath, filePath)
+  } catch {
+    // Windows can refuse a rename onto a file a reader holds open.
+    fs.rmSync(tempPath, {force: true})
+    fs.writeFileSync(filePath, content, 'utf-8')
+  }
 }
 
 export class LogsFileWriter {
@@ -125,20 +182,24 @@ export class LogsFileWriter {
     const batch = this.queue
     this.queue = []
 
+    const payload = `${batch.join('\n')}\n`
+    const result = appendToOwnedLogFile(
+      this.opts.filePath,
+      this.opts.runId,
+      payload
+    )
+
     // Another run owns the file now, so these rows have no place in it.
-    if (isLogFileOwnedByAnotherRun(this.opts.filePath, this.opts.runId)) {
+    if (result === 'foreign') {
       this.droppedToDisk = 0
 
       return
     }
 
-    const payload = `${batch.join('\n')}\n`
-
-    try {
-      fs.appendFileSync(this.opts.filePath, payload, 'utf-8')
+    if (result === 'written') {
       this.bytes += Buffer.byteLength(payload)
       this.lines += batch.length
-    } catch {
+    } else {
       // Disk write failed; treat the batch as dropped rather than blocking.
       this.droppedToDisk += batch.length
     }
@@ -167,23 +228,22 @@ export class LogsFileWriter {
     const dropped = this.droppedToDisk
     this.droppedToDisk = 0
 
-    if (isLogFileOwnedByAnotherRun(this.opts.filePath, this.opts.runId)) return
+    const sentinel = `${JSON.stringify({
+      v: LOG_EVENT_VERSION,
+      type: 'gap',
+      reason: 'disk_slow',
+      dropped
+    })}\n`
+    const result = appendToOwnedLogFile(
+      this.opts.filePath,
+      this.opts.runId,
+      sentinel
+    )
 
-    try {
-      const sentinel = `${JSON.stringify({
-        v: LOG_EVENT_VERSION,
-        type: 'gap',
-        reason: 'disk_slow',
-        dropped
-      })}\n`
+    if (result !== 'written') return
 
-      fs.appendFileSync(this.opts.filePath, sentinel, 'utf-8')
-
-      this.bytes += Buffer.byteLength(sentinel)
-      this.lines += 1
-    } catch {
-      // Ignore
-    }
+    this.bytes += Buffer.byteLength(sentinel)
+    this.lines += 1
   }
 
   private writeHeader(rotatedFrom: string | null): void {
@@ -196,7 +256,7 @@ export class LogsFileWriter {
     })}\n`
 
     try {
-      fs.writeFileSync(this.opts.filePath, header, 'utf-8')
+      replaceLogFile(this.opts.filePath, header)
       this.bytes = Buffer.byteLength(header)
       this.lines = 1
     } catch {

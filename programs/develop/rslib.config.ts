@@ -202,7 +202,8 @@ export default defineConfig({
     {
       format: 'esm',
       syntax: 'es2022',
-      dts: shouldGenerateDts,
+      // No dts here: the node lib's pass already emits every declaration, and
+      // a second pass would rewrite the same files while the first still runs.
       source: {
         entry: {contracts: path.resolve(__dirname, './contracts-entry.ts')}
       },
