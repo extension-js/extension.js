@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
+import {rememberBuildResolve} from '../../../shared/script-graph'
 import {
   findBridgePairingPages,
   findPageRelativeScriptPaths,
@@ -501,7 +502,7 @@ describe('a registration passed through a constant of the same file', () => {
     ).toEqual([])
   })
 
-  it('leaves a let, a name declared twice and an imported name undetected', () => {
+  it('leaves a let, a name declared twice and an import of no file undetected', () => {
     expect(
       found(
         `let hooks = [${GROUP}]\napi.scripting.registerContentScripts(hooks)\n`
@@ -519,6 +520,351 @@ describe('a registration passed through a constant of the same file', () => {
       found(
         'import {hooks} from "./hooks.js"\napi.scripting.registerContentScripts(hooks)\n'
       )
+    ).toEqual([])
+  })
+})
+
+describe('a registration behind an alias of the build resolve block', () => {
+  const files = {
+    'background.js': 'import {start} from "@reg/register"\nstart()\n',
+    'src/reg/register.js': `export function start() {\n${register('scripts/hook.js')}}\n`,
+    'scripts/hook.js': HOOK
+  }
+  const include = (at: (name: string) => string) => ({
+    'background/service_worker': at('background.js'),
+    'scripts/hook': at('scripts/hook.js')
+  })
+
+  it('resolves an alias the build was given', () => {
+    const {root, at, find} = project(files)
+
+    rememberBuildResolve(root, {alias: {'@reg': at('src/reg')}})
+
+    expect(find(include(at))).toEqual(['scripts/hook'])
+  })
+
+  it('resolves an alias listed as name and alias pairs', () => {
+    const {root, at, find} = project(files)
+
+    rememberBuildResolve(root, {
+      extensions: ['.js', '...'],
+      alias: [{name: '@reg', alias: at('src/reg')}]
+    })
+
+    expect(find(include(at))).toEqual(['scripts/hook'])
+  })
+
+  it('keeps tsconfig paths beside the alias map', () => {
+    const {root, at, find} = project({
+      'tsconfig.json': JSON.stringify({
+        compilerOptions: {baseUrl: '.', paths: {'@/*': ['./src/*']}}
+      }),
+      'background.ts': 'import {start} from "@/boot"\nstart()\n',
+      'src/boot.ts': 'export {start} from "@reg/register"\n',
+      'src/reg/register.js': files['src/reg/register.js'],
+      'scripts/hook.js': HOOK
+    })
+
+    rememberBuildResolve(root, {alias: {'@reg': at('src/reg')}})
+
+    expect(
+      find({
+        'background/service_worker': at('background.ts'),
+        'scripts/hook': at('scripts/hook.js')
+      })
+    ).toEqual(['scripts/hook'])
+  })
+
+  it('reads a file again once the build resolves with another map', () => {
+    const {root, at, find} = project(files)
+
+    expect(find(include(at))).toEqual([])
+
+    rememberBuildResolve(root, {alias: {'@reg': at('src/reg')}})
+
+    expect(find(include(at))).toEqual(['scripts/hook'])
+
+    rememberBuildResolve(root, {alias: {'@reg': at('src/elsewhere')}})
+
+    expect(find(include(at))).toEqual([])
+  })
+
+  it('still resolves when the block holds what the resolver cannot take', () => {
+    const {root, at, find} = project({
+      ...files,
+      'background.js': 'import "./src/reg/boot.js"\n',
+      'src/reg/boot.js': register('scripts/hook.js')
+    })
+
+    rememberBuildResolve(root, {alias: {'@reg': 7}, modules: 7, roots: {}})
+
+    expect(find(include(at))).toEqual(['scripts/hook'])
+  })
+})
+
+describe('a registration in a linked workspace package', () => {
+  // A workspace with the extension in apps/ext and the package it links.
+  const workspace = (
+    marker: Record<string, string>,
+    linkTarget: (root: string) => string = (root) =>
+      path.join(root, 'packages/shared')
+  ) => {
+    const {root, at} = project({
+      ...marker,
+      'apps/ext/package.json': JSON.stringify({
+        name: 'ext',
+        private: true,
+        dependencies: {'@probe/shared': 'workspace:*'}
+      }),
+      'apps/ext/background.js':
+        'import {start} from "@probe/shared"\nstart()\n',
+      'apps/ext/scripts/hook.js': HOOK,
+      'packages/shared/package.json':
+        '{"name": "@probe/shared", "main": "index.js"}',
+      'packages/shared/index.js': 'export {start} from "./register.js"\n',
+      'packages/shared/register.js': `export function start() {\n${register('scripts/hook.js')}}\n`
+    })
+    const link = at('apps/ext/node_modules/@probe/shared')
+
+    fs.mkdirSync(path.dirname(link), {recursive: true})
+    fs.symlinkSync(linkTarget(root), link, 'dir')
+
+    return findRuntimeMainWorldEntries({
+      includeList: {
+        'background/service_worker': at('apps/ext/background.js'),
+        'scripts/hook': at('apps/ext/scripts/hook.js')
+      },
+      manifestDir: at('apps/ext'),
+      projectPath: at('apps/ext')
+    }).map((entry) => entry.entryName)
+  }
+
+  it('follows a package linked from a pnpm workspace', () => {
+    expect(
+      workspace({
+        'pnpm-workspace.yaml': 'packages:\n  - apps/*\n  - packages/*\n'
+      })
+    ).toEqual(['scripts/hook'])
+  })
+
+  it('follows a package linked from a package.json workspace', () => {
+    expect(
+      workspace({
+        'package.json': JSON.stringify({
+          private: true,
+          workspaces: ['apps/*', 'packages/*']
+        })
+      })
+    ).toEqual(['scripts/hook'])
+  })
+
+  it('leaves a link that leads out of the workspace alone', () => {
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-rt-outside-'))
+    roots.push(outside)
+    fs.writeFileSync(
+      path.join(outside, 'package.json'),
+      '{"name": "@probe/shared", "main": "index.js"}'
+    )
+
+    fs.writeFileSync(
+      path.join(outside, 'index.js'),
+      `export function start() {\n${register('scripts/hook.js')}}\n`
+    )
+
+    expect(
+      workspace(
+        {'pnpm-workspace.yaml': 'packages:\n  - apps/*\n'},
+        () => outside
+      )
+    ).toEqual([])
+  })
+
+  it('leaves a link into a package store under node_modules alone', () => {
+    expect(
+      workspace(
+        {
+          'pnpm-workspace.yaml': 'packages:\n  - apps/*\n',
+          'node_modules/.pnpm/shared@1.0.0/node_modules/@probe/shared/package.json':
+            '{"name": "@probe/shared", "main": "index.js"}',
+          'node_modules/.pnpm/shared@1.0.0/node_modules/@probe/shared/index.js': `export function start() {\n${register('scripts/hook.js')}}\n`
+        },
+        (root) =>
+          path.join(
+            root,
+            'node_modules/.pnpm/shared@1.0.0/node_modules/@probe/shared'
+          )
+      )
+    ).toEqual([])
+  })
+})
+
+describe('a registration passed through a constant another file exports', () => {
+  const GROUP =
+    '{id: "hook", js: ["scripts/hook.js"], world: "MAIN", matches: ["<all_urls>"]}'
+
+  const found = (background: string, files: Record<string, string>) => {
+    const {root, at, find} = project({
+      'background.js': `const api = chrome\n${background}`,
+      'scripts/hook.js': HOOK,
+      ...files
+    })
+
+    rememberBuildResolve(root, {alias: {'@lib': at('lib')}})
+
+    return {
+      at,
+      find: () =>
+        find({
+          'background/service_worker': at('background.js'),
+          'scripts/hook': at('scripts/hook.js')
+        })
+    }
+  }
+
+  it('reads a list of registrations a module exports by name', () => {
+    expect(
+      found(
+        'import {HOOKS} from "./hooks"\napi.scripting.registerContentScripts(HOOKS)\n',
+        {
+          'hooks.ts': `export const HOOKS: chrome.scripting.RegisteredContentScript[] = [${GROUP}]\n`
+        }
+      ).find()
+    ).toEqual(['scripts/hook'])
+  })
+
+  it('reads a files list a module exports, beside other names', () => {
+    expect(
+      found(
+        'import {OTHER, FILES} from "./files.js"\n' +
+          'api.scripting.executeScript({target: {tabId: 1}, files: FILES, world: "MAIN"})\n',
+        {
+          'files.js':
+            'export const OTHER = ["scripts/other.js"]\n' +
+            'export const FILES = ["scripts/hook.js"]\n'
+        }
+      ).find()
+    ).toEqual(['scripts/hook'])
+  })
+
+  it('reads a shorthand files list imported under another name', () => {
+    expect(
+      found(
+        'import {HOOK_FILES as files} from "./files.js"\n' +
+          'api.scripting.executeScript({target: {tabId: 1}, files, world: "MAIN"})\n',
+        {'files.js': 'export const HOOK_FILES = ["scripts/hook.js"] as const\n'}
+      ).find()
+    ).toEqual(['scripts/hook'])
+  })
+
+  it('reads a default export that is the literal itself', () => {
+    expect(
+      found(
+        'import hook, {unused} from "./hook-registration.js"\n' +
+          'api.scripting.registerContentScripts([hook])\n',
+        {
+          'hook-registration.js': `export const unused = 1\nexport default ${GROUP}\n`
+        }
+      ).find()
+    ).toEqual(['scripts/hook'])
+  })
+
+  it('reads a constant imported through an alias', () => {
+    expect(
+      found(
+        'import {HOOKS} from "@lib/hooks"\napi.scripting.registerContentScripts(HOOKS)\n',
+        {'lib/hooks.js': `export const HOOKS = [${GROUP}]\n`}
+      ).find()
+    ).toEqual(['scripts/hook'])
+  })
+
+  it('sees the exporting module again once it is rewritten', () => {
+    const {at, find} = found(
+      'import {HOOKS} from "./hooks.js"\napi.scripting.registerContentScripts(HOOKS)\n',
+      {'hooks.js': 'export const HOOKS = []\n'}
+    )
+
+    expect(find()).toEqual([])
+
+    fs.writeFileSync(at('hooks.js'), `export const HOOKS = [${GROUP}]\n`)
+
+    expect(find()).toEqual(['scripts/hook'])
+  })
+
+  it('leaves a constant outside the MAIN world alone', () => {
+    expect(
+      found(
+        'import {HOOKS} from "./hooks.js"\napi.scripting.registerContentScripts(HOOKS)\n',
+        {
+          'hooks.js': `export const HOOKS = [${GROUP.replace('MAIN', 'ISOLATED')}]\n`
+        }
+      ).find()
+    ).toEqual([])
+  })
+
+  it('stops after the one hop across the import', () => {
+    const call =
+      'import {HOOKS} from "./hooks.js"\napi.scripting.registerContentScripts(HOOKS)\n'
+
+    // A list inside the imported literal, held in a constant of its own.
+    expect(
+      found(call, {
+        'hooks.js':
+          'const files = ["scripts/hook.js"]\n' +
+          'export const HOOKS = [{id: "hook", js: files, world: "MAIN", matches: ["<all_urls>"]}]\n'
+      }).find()
+    ).toEqual([])
+
+    // A name the module only passes on from a third file.
+    expect(
+      found(call, {
+        'hooks.js': 'export {HOOKS} from "./more.js"\n',
+        'more.js': `export const HOOKS = [${GROUP}]\n`
+      }).find()
+    ).toEqual([])
+
+    // A default export that names a constant instead of holding the literal.
+    expect(
+      found(
+        'import hooks from "./hooks.js"\napi.scripting.registerContentScripts(hooks)\n',
+        {'hooks.js': `const hooks = [${GROUP}]\nexport default hooks\n`}
+      ).find()
+    ).toEqual([])
+  })
+
+  it('leaves an exported let, a type import and a package constant alone', () => {
+    const call =
+      'import {HOOKS} from "./hooks.js"\napi.scripting.registerContentScripts(HOOKS)\n'
+
+    expect(
+      found(call, {'hooks.js': `export let HOOKS = [${GROUP}]\n`}).find()
+    ).toEqual([])
+
+    expect(
+      found(
+        'import type {HOOKS} from "./hooks.js"\napi.scripting.registerContentScripts(HOOKS)\n',
+        {'hooks.js': `export const HOOKS = [${GROUP}]\n`}
+      ).find()
+    ).toEqual([])
+
+    expect(
+      found(
+        'import {HOOKS} from "hooks-pkg"\napi.scripting.registerContentScripts(HOOKS)\n',
+        {
+          'node_modules/hooks-pkg/package.json':
+            '{"name": "hooks-pkg", "main": "index.js"}',
+          'node_modules/hooks-pkg/index.js': `export const HOOKS = [${GROUP}]\n`
+        }
+      ).find()
+    ).toEqual([])
+  })
+
+  it('leaves a name the file both imports and declares alone', () => {
+    expect(
+      found(
+        'import {HOOKS} from "./hooks.js"\n' +
+          'function start() {\n  let HOOKS = []\n  api.scripting.registerContentScripts(HOOKS)\n}\n',
+        {'hooks.js': `export const HOOKS = [${GROUP}]\n`}
+      ).find()
     ).toEqual([])
   })
 })

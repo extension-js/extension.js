@@ -122,6 +122,28 @@ export function extensionDocumentPagePath(
   return page ? page.replace(/^\.?\//, '').split(/[?#]/)[0] : undefined
 }
 
+// extension open reaches the popup, options and sidebar only. A devtools
+// page runs while DevTools is open on a tab, an override page in its tab.
+export function documentNotOpenMessage(context: string): string {
+  if (context === 'background') {
+    return "the add-on's background document is not running, so there is nothing to evaluate in"
+  }
+
+  if (context === 'devtools') {
+    return 'the devtools document is not open (the devtools page runs only while DevTools is open on a tab, and extension open cannot open DevTools. Open DevTools on a tab first, or start the session with --devtools added to EXTENSION_BROWSER_FLAGS)'
+  }
+
+  if (
+    context === 'newtab' ||
+    context === 'history' ||
+    context === 'bookmarks'
+  ) {
+    return `the ${context} document is not open (open that page in a tab first)`
+  }
+
+  return `the ${context} document is not open (open it first: extension open ${context})`
+}
+
 // Firefox names the background document of an MV3 add-on
 // _generated_background_page.html, and an MV2 one by its own background.html.
 const BACKGROUND_DOCUMENT = /\/(?:_generated_background_page|background)\.html$/
@@ -535,12 +557,7 @@ export async function evaluateThroughWatcher(options: {
     }
 
     if (!consoleActor) {
-      return refuse(
-        'TargetNotFound',
-        context === 'background'
-          ? "the add-on's background document is not running, so there is nothing to evaluate in"
-          : `the ${context} document is not open (open it first: extension open ${context})`
-      )
+      return refuse('TargetNotFound', documentNotOpenMessage(context))
     }
 
     return await evaluateInConsole({

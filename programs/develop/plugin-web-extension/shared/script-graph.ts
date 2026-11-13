@@ -10,6 +10,11 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {rspack} from '@rspack/core'
 import {
+  findPackageJsonWorkspaceRoot,
+  findPnpmWorkspaceRoot
+} from '../../lib/package-manager'
+import {canonicalizeDir} from '../../lib/resource-path'
+import {
   getUserJsConfigFile,
   getUserTypeScriptConfigFile
 } from '../../plugin-js-frameworks/js-tools/typescript'
@@ -147,55 +152,263 @@ export function readScriptText(file: string): string | undefined {
     .join('\n')
 }
 
-export type LocalImportResolver = (
+export type LocalImportResolver = ((
   fromFile: string,
   specifier: string
-) => string | undefined
+) => string | undefined) & {
+  // Names the options this resolver reads, so an answer cached under one
+  // alias map is never served to a build that resolves with another.
+  scope: string
+}
+
+type ResolverOptions = NonNullable<
+  ConstructorParameters<typeof rspack.experiments.resolver.ResolverFactory>[0]
+>
+
+// The resolve block of the bundler config, as loosely as a user config
+// may shape it.
+export type BuildResolve = Record<string, unknown>
+
+const buildResolveByProject = new Map<
+  string,
+  {resolve: BuildResolve; scope: string}
+>()
+let buildResolveCount = 0
+
+// Keeps the resolve block the build compiles with, user config merged in,
+// so the import walk lands on the files the bundler does.
+export function rememberBuildResolve(
+  projectPath: string,
+  resolve: unknown
+): void {
+  if (!resolve || typeof resolve !== 'object') {
+    buildResolveByProject.delete(projectPath)
+
+    return
+  }
+
+  if (buildResolveByProject.get(projectPath)?.resolve === resolve) return
+
+  buildResolveByProject.set(projectPath, {
+    resolve: resolve as BuildResolve,
+    scope: `${projectPath}#${++buildResolveCount}`
+  })
+}
+
+const isString = (value: unknown): value is string => typeof value === 'string'
+
+// A list the config may spell with '...', which only the bundler expands.
+function stringList(value: unknown): string[] | undefined {
+  const list = (Array.isArray(value) ? value : [value]).filter(
+    (item): item is string => isString(item) && item !== '...'
+  )
+
+  return list.length > 0 ? list : undefined
+}
+
+function aliasTargets(value: unknown): string | false | string[] | undefined {
+  if (value === false || isString(value)) return value
+  if (Array.isArray(value)) return value.filter(isString)
+
+  return undefined
+}
+
+// The alias map in the one shape the resolver takes. A config may also
+// list it as {name, alias} pairs.
+function aliasMap(
+  value: unknown
+): Record<string, string | false | string[]> | undefined {
+  if (!value || typeof value !== 'object') return undefined
+
+  const pairs: Array<[string, unknown]> = Array.isArray(value)
+    ? value
+        .filter((item) => item && typeof item === 'object')
+        .map((item) => [
+          `${item.name}${item.onlyModule ? '$' : ''}`,
+          item.alias
+        ])
+    : Object.entries(value)
+  const map: Record<string, string | false | string[]> = {}
+
+  for (const [name, raw] of pairs) {
+    const targets = aliasTargets(raw)
+    if (targets !== undefined) map[name] = targets
+  }
+
+  return Object.keys(map).length > 0 ? map : undefined
+}
+
+function fieldList(value: unknown): Array<string | string[]> | undefined {
+  if (!Array.isArray(value)) return undefined
+
+  const list = value
+    .map((item) => (Array.isArray(item) ? item.filter(isString) : item))
+    .filter(
+      (item): item is string | string[] =>
+        Array.isArray(item) || (isString(item) && item !== '...')
+    )
+
+  return list.length > 0 ? list : undefined
+}
+
+function tsconfigFile(value: unknown): string | undefined {
+  if (isString(value)) return value
+
+  const configFile = (value as {configFile?: unknown} | undefined)?.configFile
+
+  return isString(configFile) ? configFile : undefined
+}
+
+// What the build's resolve block says, for the fields that decide which
+// file a specifier names. A linked package keeps its node_modules path.
+function buildResolverOptions(
+  projectPath: string,
+  resolve: BuildResolve | undefined
+): ResolverOptions {
+  const configFile =
+    tsconfigFile(resolve?.tsConfig) ??
+    getUserTypeScriptConfigFile(projectPath) ??
+    getUserJsConfigFile(projectPath)
+  const options: ResolverOptions = {
+    extensions: stringList(resolve?.extensions) ?? RESOLVE_EXTENSIONS,
+    extensionAlias: RESOLVE_EXTENSION_ALIAS,
+    symlinks: false,
+    ...(configFile ? {tsconfig: {configFile, references: 'auto'}} : {})
+  }
+  if (!resolve) return options
+
+  const alias = aliasMap(resolve.alias)
+  if (alias) options.alias = alias
+
+  const fallback = aliasMap(resolve.fallback)
+
+  if (fallback) {
+    options.fallback = Object.fromEntries(
+      Object.entries(fallback)
+        .filter(([, targets]) => targets !== false)
+        .map(([name, targets]) => [name, [targets as string | string[]].flat()])
+    )
+  }
+
+  const extensionAlias = resolve.extensionAlias
+
+  if (extensionAlias && typeof extensionAlias === 'object') {
+    options.extensionAlias = Object.fromEntries(
+      Object.entries(extensionAlias).map(([extension, targets]) => [
+        extension,
+        stringList(targets) ?? []
+      ])
+    )
+  }
+
+  for (const key of ['modules', 'mainFields', 'mainFiles', 'roots'] as const) {
+    const list = stringList(resolve[key])
+    if (list) options[key] = list
+  }
+
+  const conditionNames = stringList(resolve.conditionNames)
+  if (conditionNames) options.conditionNames = conditionNames
+
+  for (const key of [
+    'aliasFields',
+    'exportsFields',
+    'importsFields'
+  ] as const) {
+    const list = fieldList(resolve[key])
+    if (list) options[key] = list
+  }
+
+  for (const key of ['preferRelative', 'preferAbsolute'] as const) {
+    if (typeof resolve[key] === 'boolean') options[key] = resolve[key]
+  }
+
+  return options
+}
+
+function isInsideDir(file: string, dir: string): boolean {
+  const relative = path.relative(dir, file)
+
+  return (
+    relative.length > 0 &&
+    !relative.startsWith('..') &&
+    !path.isAbsolute(relative)
+  )
+}
 
 // Resolves a specifier the way the build does, through the bundler's own
-// resolver: extensions, index files and tsconfig or jsconfig paths.
+// resolver and the resolve block the build was given.
 export function createLocalImportResolver(
   projectPath: string
 ): LocalImportResolver {
   type Factory = InstanceType<
     typeof rspack.experiments.resolver.ResolverFactory
   >
+  const build = buildResolveByProject.get(projectPath)
   let factory: Factory | null | undefined
+  let sourceRoots: string[] | undefined
+
+  const createFactory = (resolve: BuildResolve | undefined): Factory =>
+    new rspack.experiments.resolver.ResolverFactory(
+      buildResolverOptions(projectPath, resolve)
+    )
 
   const getFactory = (): Factory | null => {
     if (factory !== undefined) return factory
 
     try {
-      const configFile =
-        getUserTypeScriptConfigFile(projectPath) ??
-        getUserJsConfigFile(projectPath)
-
-      factory = new rspack.experiments.resolver.ResolverFactory({
-        extensions: RESOLVE_EXTENSIONS,
-        extensionAlias: RESOLVE_EXTENSION_ALIAS,
-        // A linked package keeps its node_modules path and is not followed.
-        symlinks: false,
-        ...(configFile ? {tsconfig: {configFile, references: 'auto'}} : {})
-      })
+      factory = createFactory(build?.resolve)
     } catch {
-      factory = null
+      // A resolve block this resolver cannot take still leaves tsconfig paths.
+      try {
+        factory = createFactory(undefined)
+      } catch {
+        factory = null
+      }
     }
 
     return factory
   }
 
-  return (fromFile, specifier) => {
+  // The project and the workspace it belongs to, where a linked package's
+  // own source lives.
+  const getSourceRoots = (): string[] => {
+    if (sourceRoots) return sourceRoots
+
+    const workspaceRoot =
+      findPnpmWorkspaceRoot(projectPath) ??
+      findPackageJsonWorkspaceRoot(projectPath)
+
+    sourceRoots = [projectPath, ...(workspaceRoot ? [workspaceRoot] : [])].map(
+      canonicalizeDir
+    )
+
+    return sourceRoots
+  }
+
+  // A workspace package linked under node_modules is the author's own
+  // source, a real install is not. The real path tells them apart.
+  const linkedSource = (file: string): string | undefined => {
+    const real = fs.realpathSync.native(file)
+    if (real === file || NODE_MODULES_SEGMENT.test(real)) return undefined
+
+    return getSourceRoots().some((root) => isInsideDir(real, root))
+      ? real
+      : undefined
+  }
+
+  const resolveImport = (fromFile: string, specifier: string) => {
     try {
       const resolved = getFactory()?.sync(path.dirname(fromFile), specifier)
       const file = resolved?.path
       if (!file || !SCRIPT_SOURCE.test(file)) return undefined
-      if (NODE_MODULES_SEGMENT.test(file)) return undefined
 
-      return file
+      return NODE_MODULES_SEGMENT.test(file) ? linkedSource(file) : file
     } catch {
       return undefined
     }
   }
+
+  return Object.assign(resolveImport, {scope: build?.scope ?? projectPath})
 }
 
 // Every local file the entries reach through imports, entries included,

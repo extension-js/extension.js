@@ -190,6 +190,20 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       replyErr(cmdId, fallbackName, msg);
     }
 
+    // extension open reaches the popup, options and sidebar only. A devtools
+    // page runs while DevTools is open on a tab, an override page in its tab.
+    function surfaceNotOpen(ctx) {
+      var how = "open it first: extension open " + ctx;
+      if (ctx === "devtools") {
+        var engine = engineName();
+        var flag = engine === "firefox" ? "--devtools" : engine === "chromium" ? "--auto-open-devtools-for-tabs" : "";
+        how = "the devtools page runs only while DevTools is open on a tab, and extension open cannot open DevTools. Open DevTools on a tab first" + (flag ? ", or start the session with " + flag + " added to EXTENSION_BROWSER_FLAGS" : "");
+      } else if (ctx === "newtab" || ctx === "history" || ctx === "bookmarks") {
+        how = "open that page in a tab first";
+      }
+      return {code: "surface_not_open", message: "surface '" + ctx + "' is not open (" + how + ")"};
+    }
+
     // A surface relay that answered nothing is closed only when the engine
     // says no receiver exists. Any other lastError (a reply the engine could
     // not clone, a channel that closed) means the surface WAS open and ran the
@@ -202,7 +216,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       if (!le && resp) return null;
       var lem = le ? String((le && le.message) || le) : "";
       if (!lem || /receiving end does not exist|could not establish connection/i.test(lem)) {
-        return {code: "surface_not_open", message: "surface '" + ctx + "' is not open (open it first: extension open " + ctx + ")"};
+        return surfaceNotOpen(ctx);
       }
       return {code: "surface_reply_failed", message: "surface '" + ctx + "' answered but the reply did not arrive: " + lem};
     }
@@ -235,6 +249,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       if (ctx === "popup") p = (m.action && m.action.default_popup) || (m.browser_action && m.browser_action.default_popup) || (m.page_action && m.page_action.default_popup);
       else if (ctx === "options") p = (m.options_ui && m.options_ui.page) || m.options_page;
       else if (ctx === "sidebar") p = (m.side_panel && m.side_panel.default_path) || (m.sidebar_action && m.sidebar_action.default_panel);
+      else if (ctx === "devtools") p = m.devtools_page;
       else if (ctx === "newtab" || ctx === "history" || ctx === "bookmarks") p = m.chrome_url_overrides && m.chrome_url_overrides[ctx];
       // Character classes on purpose: this source is a template literal, and
       // a backslash escape in a regex would be eaten before it ever ran.
@@ -255,7 +270,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       if (!page || !rt || typeof rt.getContexts !== "function") { cb(relayErr); return; }
       var wanted = "";
       try { wanted = String(rt.getURL(page)).split(/[?#]/)[0]; } catch (e) { cb(relayErr); return; }
-      var notOpen = {code: "surface_not_open", message: "surface '" + ctx + "' is not open (open it first: extension open " + ctx + ")"};
+      var notOpen = surfaceNotOpen(ctx);
       try {
         Promise.resolve(rt.getContexts({})).then(function (list) {
           var open = false;
