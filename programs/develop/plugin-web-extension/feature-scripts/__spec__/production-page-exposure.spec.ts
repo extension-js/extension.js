@@ -4,6 +4,7 @@ import * as path from 'node:path'
 import vm from 'node:vm'
 import {rspack, type Stats} from '@rspack/core'
 import {afterAll, describe, expect, it} from 'vitest'
+import {CHROMIUM_EXTENSION_ROOT} from '../scripts-lib/injected-sheet-urls'
 import {
   EXTENSION_BASE_GLOBAL,
   readTakeBlock
@@ -13,6 +14,12 @@ import webpackConfig from '../../../rspack-config'
 
 const roots: string[] = []
 const EXTENSION_BASE = 'chrome-extension://abcdefghijklmnop/'
+
+// Chromium fills the extension id in as it hands a sheet over, a fetch too.
+function asChromiumServes(sheet: string): string {
+  return sheet.split(CHROMIUM_EXTENSION_ROOT).join(EXTENSION_BASE)
+}
+
 const BASE_ATTRIBUTE = 'data-extjs-extension-base'
 const FIREFOX_BASE = 'moz-extension://0f0f0f0f-aaaa-bbbb-cccc-121212121212/'
 // Every extension names its own global, all of them behind this stem.
@@ -466,8 +473,13 @@ describe('the sheet file a content script CSS module lands in', () => {
       const sheet = build.read(sheetName).replace(/"/g, '')
 
       expect(sheet, mode).not.toContain('__EXTENSIONJS_EXTENSION_ROOT__')
-      expect(sheet, mode).toContain('url(/images/root-owned.png)')
-      expect(sheet, mode).toContain(`url(/${beside[0]})`)
+      expect(sheet, mode).toContain(
+        `url(${CHROMIUM_EXTENSION_ROOT}images/root-owned.png)`
+      )
+
+      expect(sheet, mode).toContain(
+        `url(${CHROMIUM_EXTENSION_ROOT}${beside[0]})`
+      )
 
       expect(exposedResources(build), mode).toEqual(
         expect.arrayContaining(['images/root-owned.png', beside[0]])
@@ -489,7 +501,7 @@ describe('the sheet file a content script CSS module lands in', () => {
     expect(production.errors).toEqual([])
 
     const beside = production.emitted.find((entry) => besideName.test(entry))
-    const sheet = production.read(sheetName)
+    const sheet = asChromiumServes(production.read(sheetName))
     const mounted = page({runtime: true, sheet})
     const shadow = element('#shadow-root')
     const host = element('div')
@@ -503,7 +515,7 @@ describe('the sheet file a content script CSS module lands in', () => {
     expect(mounted.fetched).toEqual([`${EXTENSION_BASE}${sheetName}`])
     expect(shadow.children).toHaveLength(1)
 
-    const hydrated = shadow.children[0].textContent
+    const hydrated = shadow.children[0].textContent.replace(/"/g, '')
 
     expect(hydrated).toContain(`url(${EXTENSION_BASE}images/root-owned.png)`)
     expect(hydrated).toContain(`url(${EXTENSION_BASE}${beside})`)
@@ -556,7 +568,11 @@ describe('one image a declared sheet, an imported sheet and a page sheet all nam
         expect(
           build.read(sheet).replace(/"/g, ''),
           `${mode} ${sheet}`
-        ).toContain(`url(/${images[0]})`)
+        ).toContain(
+          sheet.startsWith('content_scripts/')
+            ? `url(${CHROMIUM_EXTENSION_ROOT}${images[0]})`
+            : `url(/${images[0]})`
+        )
       }
 
       const bundles = build.emitted
@@ -590,7 +606,10 @@ describe('one image a declared sheet, an imported sheet and a page sheet all nam
 
     const image = production.emitted.find((entry) => sharedName.test(entry))
     const sheetName = 'content_scripts/content-0.css'
-    const mounted = page({runtime: true, sheet: production.read(sheetName)})
+    const mounted = page({
+      runtime: true,
+      sheet: asChromiumServes(production.read(sheetName))
+    })
     const shadow = element('#shadow-root')
     const host = element('div')
     host.setAttribute('data-extension-root', 'true')

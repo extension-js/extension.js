@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {CHROMIUM_EXTENSION_ROOT} from '../plugin-web-extension/feature-scripts/scripts-lib/injected-sheet-urls'
 
 const SUITE_ROOT = fs.mkdtempSync(
   path.join(os.tmpdir(), 'extjs-build-one-copy-per-asset-')
@@ -171,7 +172,7 @@ describe('one image a page, a page sheet, a content sheet and an import all name
       expect(read('action/index.html')).toContain(`<img src=/${images[0]}>`)
       expect(read('action/index.css')).toContain(`url(/${images[0]})`)
       expect(read('content_scripts/content-0.css')).toContain(
-        `url(/${images[0]})`
+        `url(${CHROMIUM_EXTENSION_ROOT}${images[0]})`
       )
 
       const bundle = files
