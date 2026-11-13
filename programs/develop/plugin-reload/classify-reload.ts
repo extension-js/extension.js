@@ -6,6 +6,7 @@
 // ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import {createHash} from 'node:crypto'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {stripBom} from '../lib/parse-json-safe'
@@ -141,8 +142,12 @@ function moduleResourcesFromIdentifier(
   contextDir: string
 ): string[] {
   const afterLoaders = identifier.slice(identifier.lastIndexOf('!') + 1)
-  // strip a trailing `|<layer>` marker (rspack appends the module layer)
-  const noLayer = afterLoaders.split('|')[0]
+  // rspack writes `<type>|<request>|<layer>` for an asset or a stylesheet and
+  // the bare request for JavaScript, so the request is the segment with a path.
+  const segments = afterLoaders.split('|')
+  const noLayer =
+    segments.find((segment) => path.isAbsolute(segment.split('?')[0])) ??
+    segments[0]
   const queryIndex = noLayer.indexOf('?')
   const resourcePath =
     queryIndex === -1 ? noLayer : noLayer.slice(0, queryIndex)
@@ -188,9 +193,15 @@ function chunkModuleResources(
 ): string[] {
   const out: string[] = []
 
-  for (const module of compilation.chunkGraph.getChunkModulesIterable(
-    chunk as never
-  )) {
+  let modules: Iterable<{identifier(): string}> = []
+
+  try {
+    modules = compilation.chunkGraph.getChunkModulesIterable(chunk as never)
+  } catch {
+    // A chunk whose compilation is gone names no source
+  }
+
+  for (const module of modules) {
     try {
       out.push(
         ...moduleResourcesFromIdentifier(
@@ -244,6 +255,43 @@ function ownersOfNamelessChunk(
   return owners
 }
 
+// A dev MAIN world script compiles in a child compilation, so its sources
+// are in that one's chunk graph and in none of the parent's chunks. A traced
+// copy a child emits under another folder keeps the name heuristics.
+const CHILD_BUNDLE_CHUNK = /^(?:scripts|content_scripts)\//
+
+function chunksByCompilation(
+  compilation: import('@rspack/core').Compilation
+): Map<IndexChunk, import('@rspack/core').Compilation> {
+  const out = new Map<IndexChunk, import('@rspack/core').Compilation>()
+  const seen = new Set<unknown>()
+
+  const walk = (each: import('@rspack/core').Compilation) => {
+    if (!each || seen.has(each)) return
+
+    seen.add(each)
+
+    for (const chunk of each.chunks || []) {
+      const isBundle = CHILD_BUNDLE_CHUNK.test(String(chunk?.name || ''))
+      if (each === compilation || isBundle) out.set(chunk as IndexChunk, each)
+    }
+
+    let children: import('@rspack/core').Compilation[] = []
+
+    try {
+      children = [...(each.children || [])]
+    } catch {
+      // A compilation that cannot list its children has none to walk
+    }
+
+    for (const child of children) walk(child)
+  }
+
+  walk(compilation)
+
+  return out
+}
+
 // Walk the finished compilation and record, for every bundled source file,
 // which reload feature its chunks belong to, nameless chunks by their owners.
 export function buildSourceFeatureIndex(
@@ -258,7 +306,8 @@ export function buildSourceFeatureIndex(
     scriptFilesBySource,
     publicRoots: relativePublicRoots(compilation, contextDir)
   }
-  const chunks = [...(compilation.chunks || [])] as IndexChunk[]
+  const compilationOf = chunksByCompilation(compilation)
+  const chunks = [...compilationOf.keys()]
   const entryNames = new Set(
     chunks.map((chunk) => String(chunk?.name || '')).filter(Boolean)
   )
@@ -284,7 +333,11 @@ export function buildSourceFeatureIndex(
   for (const chunk of chunks) {
     sourcesByChunk.set(
       chunk,
-      chunkModuleResources(compilation, chunk, contextDir)
+      chunkModuleResources(
+        compilationOf.get(chunk) ?? compilation,
+        chunk,
+        contextDir
+      )
     )
 
     const name = String(chunk?.name || '')
@@ -654,6 +707,67 @@ export function readContentScriptFiles(
       .filter((file: unknown): file is string => typeof file === 'string')
   } catch {
     return []
+  }
+}
+
+// A digest of each stylesheet the manifest's content_scripts name, as this
+// compile emits it: a bundle is renamed by its hash, a stylesheet is not.
+export function readContentScriptDigests(
+  compilation: import('@rspack/core').Compilation,
+  files: string[]
+): Record<string, string> {
+  const digests: Record<string, string> = {}
+
+  for (const file of files) {
+    if (!/\.css$/i.test(file)) continue
+
+    try {
+      const source = compilation.getAsset?.(file)?.source?.source()
+      if (source === undefined || source === null) continue
+
+      digests[file] = createHash('sha256').update(source).digest('hex')
+    } catch {
+      // A file that cannot be read is not compared
+    }
+  }
+
+  return digests
+}
+
+// The browser keeps a file the loaded manifest names under its address, so new
+// bytes under the same name reach no page until the extension reloads.
+export function reloadForRewrittenContentScripts(
+  instruction: ReloadInstruction | undefined,
+  loadedDigests: Record<string, string>,
+  emittedDigests: Record<string, string>
+): ReloadInstruction | undefined {
+  if (instruction?.type === 'full' || instruction?.type === 'service-worker') {
+    return instruction
+  }
+
+  // The worker reloads the extension and the tabs for a static entry itself.
+  if (instruction?.staticContentScriptEntries?.length) return instruction
+
+  const rewritten = Object.keys(emittedDigests).some(
+    (file) =>
+      loadedDigests[file] !== undefined &&
+      loadedDigests[file] !== emittedDigests[file]
+  )
+
+  if (!rewritten) return instruction
+
+  const changedAssets = instruction?.changedAssets?.length
+    ? instruction.changedAssets
+    : ['manifest.json']
+
+  return {
+    ...instruction,
+    type: 'full',
+    changedAssets,
+    label:
+      instruction?.type === 'content-scripts' && instruction.label
+        ? instruction.label
+        : formatReloadContextLabel('extension', changedAssets)
   }
 }
 
