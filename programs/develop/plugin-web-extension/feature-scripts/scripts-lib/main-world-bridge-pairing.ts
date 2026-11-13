@@ -16,24 +16,45 @@ export const MAIN_WORLD_BRIDGE_PAIRING_MARK = '__extjsMainWorldBridgePaired'
 // way a declared group that reads no base ships without its bridge.
 export function buildMainWorldBridgePairingSource(
   bridgeFile: string = `${MAIN_WORLD_BRIDGE_ENTRY}.js`,
-  baseReaders: string[] | null = null
+  baseReaders: string[] | null = null,
+  injectable: string[] | null = baseReaders
 ): string {
   return `;(function () {
   var FILE = ${JSON.stringify(bridgeFile)};
   var READERS = ${JSON.stringify(baseReaders)};
+  var INJECTABLE = ${JSON.stringify(injectable)};
   var PREFIX = ${JSON.stringify(MAIN_WORLD_BRIDGE_PAIR_PREFIX)};
   var MARK = ${JSON.stringify(MAIN_WORLD_BRIDGE_PAIRING_MARK)};
   var COPIED = ["matches", "excludeMatches", "allFrames", "matchOriginAsFallback", "persistAcrossSessions", "runAt"];
   var pairId = function (id) { return PREFIX + id; };
   var isPair = function (id) { return typeof id === "string" && id.indexOf(PREFIX) === 0; };
   var listOf = function (scripts) { return Array.isArray(scripts) ? scripts : []; };
-  var readsBase = function (script) {
-    if (!READERS) return true;
-    return listOf(script.js).some(function (file) {
-      return READERS.indexOf(String(file).replace(/^(\\.?\\/)+/, "")) !== -1;
+  var namesOneOf = function (known, files) {
+    if (!known) return true;
+    return listOf(files).some(function (file) {
+      return known.indexOf(String(file).replace(/^(\\.?\\/)+/, "")) !== -1;
     });
   };
-  var wantsPair = function (script) { return script.world === "MAIN" && readsBase(script); };
+  var wantsPair = function (script) { return script.world === "MAIN" && namesOneOf(READERS, script.js); };
+  var TARGETED = ["tabId", "frameIds", "allFrames", "documentIds"];
+  var wantsBridge = function (injection) {
+    return !!injection && injection.world === "MAIN" && !!injection.target &&
+      Array.isArray(injection.files) && injection.files.length > 0 && namesOneOf(INJECTABLE, injection.files);
+  };
+  var clearBase = function () {
+    try { document.documentElement.removeAttribute("data-extjs-extension-base"); } catch (error) {}
+  };
+  var unread = function (frames) {
+    return !Array.isArray(frames) || frames.some(function (frame) { return !!(frame && frame.error); });
+  };
+  // The bridge runs in the frames the file is about to run in, no others.
+  var bridgeFor = function (injection) {
+    var target = {};
+    for (var i = 0; i < TARGETED.length; i++) {
+      if (injection.target[TARGETED[i]] !== undefined) target[TARGETED[i]] = injection.target[TARGETED[i]];
+    }
+    return {target: target, files: [FILE], world: "ISOLATED"};
+  };
   // The file clears the base once it has run, so each pair runs at its
   // file's own timing and right before it, never once for the whole page.
   var pairOf = function (script) {
@@ -167,6 +188,64 @@ export function buildMainWorldBridgePairingSource(
         return all.filter(function (script) { return !isPair(script.id); });
       });
     });
+    if (typeof scripting.executeScript === "function") {
+      var execute = scripting.executeScript.bind(scripting);
+      var lanes = {};
+      var settle = function () {};
+      // A file that never ran left the base unread, so it is taken back.
+      var sweep = function (target) {
+        try {
+          return Promise.resolve(execute({target: target, func: clearBase, world: "ISOLATED"})).then(settle, settle);
+        } catch (error) {
+          return Promise.resolve();
+        }
+      };
+      scripting.executeScript = function (injection) {
+        var args = arguments;
+        if (!wantsBridge(injection)) return execute.apply(null, args);
+        var done = typeof args[args.length - 1] === "function" ? args[args.length - 1] : null;
+        var bridge = bridgeFor(injection);
+        var run = function () {
+          var bridged = false;
+          var ahead;
+          try {
+            ahead = Promise.resolve(execute(bridge)).then(function () { bridged = true; }, settle);
+          } catch (error) {
+            ahead = Promise.resolve();
+          }
+          return ahead.then(function () {
+            if (!done) {
+              return execute.apply(null, args).then(function (frames) {
+                return bridged && unread(frames) ? sweep(bridge.target).then(function () { return frames; }) : frames;
+              }, function (error) {
+                return (bridged ? sweep(bridge.target) : Promise.resolve()).then(function () { throw error; });
+              });
+            }
+            return new Promise(function (resolve, reject) {
+              var answer = function (frames) {
+                var swept = bridged && (failed() || unread(frames)) ? sweep(bridge.target) : null;
+                try { done.apply(null, arguments); } finally { swept ? swept.then(resolve) : resolve(); }
+              };
+              try {
+                execute(injection, answer);
+              } catch (error) {
+                // No callback form on this namespace, so the promise answers.
+                execute(injection).then(function (frames) { done(frames); resolve(); }, reject);
+              }
+            });
+          });
+        };
+        // A file clears the base it read, so two injections into one tab
+        // take turns and the second bridge never runs ahead of the first file.
+        var key = String(injection.target.tabId);
+        var turn = (lanes[key] || Promise.resolve()).then(run);
+        var tail = turn.then(settle, settle);
+        lanes[key] = tail;
+        tail.then(function () { if (lanes[key] === tail) delete lanes[key]; });
+        if (!done) return turn;
+        turn.then(null, function (error) { console.error(error); done(); });
+      };
+    }
     scripting[MARK] = true;
   };
   try {

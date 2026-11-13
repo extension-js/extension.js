@@ -287,9 +287,9 @@ export function findPageRelativeScriptPaths(
   return found
 }
 
-// The pages whose scripts reach the content script registry. Each runs in
-// its own realm, so each needs the pairing the background carries.
-export function findRegistryCallingPages(
+// The pages whose scripts reach the content script registry or inject a
+// MAIN world file. Each runs in its own realm, so each carries the pairing.
+export function findBridgePairingPages(
   pageList: FilepathList | undefined,
   projectPath: string
 ): string[] {
@@ -297,7 +297,14 @@ export function findRegistryCallingPages(
 
   for (const [feature, files] of collectPageScripts(pageList)) {
     const reached = readReachableFacts(files, projectPath)
-    if (reached.some((facts) => facts.callsRegistry)) found.push(feature)
+
+    if (
+      reached.some(
+        (facts) => facts.callsRegistry || facts.mainWorldFiles.length > 0
+      )
+    ) {
+      found.push(feature)
+    }
   }
 
   return found

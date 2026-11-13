@@ -18,7 +18,7 @@ import {
   MAIN_WORLD_BRIDGE_PAIRING_MARK
 } from '../scripts-lib/main-world-bridge-pairing'
 import {
-  findRegistryCallingPages,
+  findBridgePairingPages,
   findRuntimeMainWorldEntries
 } from '../scripts-lib/runtime-main-world-scripts'
 import {resolveMainWorldBridgeSourcePath} from './add-content-script-wrapper/get-bridge-scripts'
@@ -89,8 +89,10 @@ export class PairRuntimeMainWorldBridges {
     const readers = getBaseReaderRequirements(compiler)
     const bridgeFile = `${MAIN_WORLD_BRIDGE_ENTRY}.js`
     // The registry is one per extension and the wrapper one per realm, so
-    // a page that reaches the registry carries the wrapper as well.
-    const pages = findRegistryCallingPages(this.pageList, projectPath)
+    // a page that registers or injects carries the wrapper as well.
+    const pages = findBridgePairingPages(this.pageList, projectPath)
+    // Development bridges an injection of any compiled entry, no other file.
+    const entryFiles = registered.map(({entryName}) => `${entryName}.js`)
 
     compiler.hooks.thisCompilation.tap(
       PairRuntimeMainWorldBridges.name,
@@ -151,7 +153,8 @@ export class PairRuntimeMainWorldBridges {
                 asset,
                 `${buildMainWorldBridgePairingSource(
                   onPage ? `/${bridgeFile}` : bridgeFile,
-                  baseReaders
+                  baseReaders,
+                  baseReaders || entryFiles
                 )}\n`
               )
             }

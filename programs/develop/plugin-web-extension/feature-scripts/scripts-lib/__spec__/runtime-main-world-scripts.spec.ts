@@ -3,8 +3,8 @@ import os from 'node:os'
 import path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
 import {
+  findBridgePairingPages,
   findPageRelativeScriptPaths,
-  findRegistryCallingPages,
   findRuntimeMainWorldEntries
 } from '../runtime-main-world-scripts'
 
@@ -165,7 +165,7 @@ describe('findRuntimeMainWorldEntries', () => {
   })
 })
 
-describe('findRegistryCallingPages', () => {
+describe('findBridgePairingPages', () => {
   it('names each page whose scripts reach the content script registry', () => {
     const {at, root} = project({
       'options/index.html': page('./options.js'),
@@ -180,7 +180,7 @@ describe('findRegistryCallingPages', () => {
     })
 
     expect(
-      findRegistryCallingPages(
+      findBridgePairingPages(
         {
           'options_ui/page': at('options/index.html'),
           'side_panel/default_path': at('panel/index.html'),
@@ -204,7 +204,7 @@ describe('findRegistryCallingPages', () => {
     })
 
     expect(
-      findRegistryCallingPages(
+      findBridgePairingPages(
         {
           'options_ui/page': at('options/index.html'),
           'action/index': at('popup/index.html')
@@ -214,8 +214,35 @@ describe('findRegistryCallingPages', () => {
     ).toEqual(['options_ui/page'])
   })
 
+  it('names a page that injects a MAIN world file, inline or imported', () => {
+    const inject = (world: string) =>
+      'const api = globalThis.browser || globalThis.chrome\n' +
+      'api.scripting.executeScript({target: {tabId: 1}, ' +
+      `files: ["/scripts/hook.js"], world: "${world}"})\n`
+    const {at, root} = project({
+      'options/index.html': page('./options.js'),
+      'options/options.js': inject('MAIN'),
+      'panel/index.html': page('./panel.js'),
+      'panel/panel.js': 'import "./inject.js"\n',
+      'panel/inject.js': inject('MAIN'),
+      'popup/index.html': page('./popup.js'),
+      'popup/popup.js': inject('ISOLATED')
+    })
+
+    expect(
+      findBridgePairingPages(
+        {
+          'options_ui/page': at('options/index.html'),
+          'side_panel/default_path': at('panel/index.html'),
+          'action/index': at('popup/index.html')
+        },
+        root
+      )
+    ).toEqual(['options_ui/page', 'side_panel/default_path'])
+  })
+
   it('names no page when none is given', () => {
-    expect(findRegistryCallingPages(undefined, os.tmpdir())).toEqual([])
+    expect(findBridgePairingPages(undefined, os.tmpdir())).toEqual([])
   })
 })
 
