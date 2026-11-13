@@ -10,6 +10,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {renameSyncWithRetry} from '../../lib/rename-with-retry'
 import type {BridgeTarget, CommandOp} from './contracts'
+import {isLogFileOwnedByAnotherRun} from './logs-file'
 
 export const ACTION_RECORD_VERSION = 1 as const
 
@@ -31,8 +32,16 @@ export interface ActionsSink {
   write(record: ActionRecord): void
 }
 
+// Action rows carry no header, so the session's logs.ndjson header names
+// the run that owns both files.
+export interface ActionsFileOwner {
+  runId: string
+  logsFilePath: string
+}
+
 export interface ActionsFileOptions {
   filePath: string
+  owner?: ActionsFileOwner
   maxBytes?: number
   maxLines?: number
   generations?: number
@@ -45,13 +54,17 @@ const DEFAULTS = {
 }
 
 export class ActionsFileWriter implements ActionsSink {
-  private readonly opts: Required<ActionsFileOptions>
+  private readonly opts: Required<Omit<ActionsFileOptions, 'owner'>>
+  private readonly owner?: ActionsFileOwner
   private bytes = 0
   private lines = 0
   private started = false
 
   constructor(options: ActionsFileOptions) {
-    this.opts = {...DEFAULTS, ...options}
+    const {owner, ...rest} = options
+
+    this.opts = {...DEFAULTS, ...rest}
+    this.owner = owner
   }
 
   start(): void {
@@ -71,6 +84,7 @@ export class ActionsFileWriter implements ActionsSink {
   }
 
   write(record: ActionRecord): void {
+    if (this.isSuperseded()) return
     if (!this.started) this.start()
 
     const line = `${JSON.stringify(record)}\n`
@@ -93,6 +107,14 @@ export class ActionsFileWriter implements ActionsSink {
 
   close(): void {
     this.started = false
+  }
+
+  // A late write from an exiting session must not land in a newer run's file.
+  private isSuperseded(): boolean {
+    return Boolean(
+      this.owner &&
+        isLogFileOwnedByAnotherRun(this.owner.logsFilePath, this.owner.runId)
+    )
   }
 
   private rotatedName(n: number): string {
