@@ -258,7 +258,7 @@ describe('the restart notice for a MAIN world registration change', () => {
 
     expect(line).not.toContain('\n')
     expect(line).toContain(
-      'Restarting the dev server to build scripts/hook.js for the MAIN world, where background.js now registers it…'
+      `Restarting the dev server to build ${path.join('scripts', 'hook.js')} for the MAIN world, where background.js now registers it…`
     )
   })
 
@@ -271,7 +271,7 @@ describe('the restart notice for a MAIN world registration change', () => {
 
     expect(line).not.toContain('\n')
     expect(line).toContain(
-      'Restarting the dev server to build scripts/hook.js and 2 more as a content script, now that nothing registers it into the MAIN world…'
+      `Restarting the dev server to build ${path.join('scripts', 'hook.js')} and 2 more as a content script, now that nothing registers it into the MAIN world…`
     )
   })
 })
