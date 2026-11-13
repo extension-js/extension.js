@@ -92,7 +92,10 @@ describe('dev reload for an image a script imports', () => {
 
     expect(instruction).toMatchObject({
       type: 'page',
-      changedScriptFiles: ['scripts/hook.js'],
+      changedScriptFiles: [
+        'scripts/hook.extjs-main-world.js',
+        'scripts/hook.js'
+      ],
       changedAssets: ['scripts/logo.png']
     })
   }, 60000)
@@ -111,7 +114,10 @@ describe('dev reload for an image a script imports', () => {
     expect(errorsOf(stats)).toEqual([])
     expect(classifyFromSession(session, stats)).toMatchObject({
       type: 'page',
-      changedScriptFiles: ['scripts/hook.js'],
+      changedScriptFiles: [
+        'scripts/hook.extjs-main-world.js',
+        'scripts/hook.js'
+      ],
       label: 'page (scripts/hook.js)'
     })
   }, 60000)

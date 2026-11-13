@@ -35,6 +35,9 @@ export interface RegisteredFileSighting {
   world: RegisteredWorld
   // Where the call starts in the source it was read from.
   index: number
+  // True for a registration, which the browser keeps under the path it was
+  // given. An injection runs once and leaves no path behind.
+  kept: boolean
 }
 
 interface Home {
@@ -461,7 +464,9 @@ export function extractRegisteredFileSightings(
         for (const group of groups) {
           for (const {files, worlds} of readGroup(group, arrayProp)) {
             for (const file of files) {
-              for (const world of worlds) sightings.push({file, world, index})
+              for (const world of worlds) {
+                sightings.push({file, world, index, kept: arrayProp === 'js'})
+              }
             }
           }
         }

@@ -37,7 +37,9 @@ function project(files: Record<string, string>) {
       pageList,
       manifestDir: root,
       projectPath: root
-    }).map((entry) => entry.entryName)
+    })
+      .filter((entry) => !entry.copyOf)
+      .map((entry) => entry.entryName)
 
   return {root, at, find}
 }
@@ -703,7 +705,9 @@ describe('a registration in a linked workspace package', () => {
       },
       manifestDir: at('apps/ext'),
       projectPath: at('apps/ext')
-    }).map((entry) => entry.entryName)
+    })
+      .filter((entry) => !entry.copyOf)
+      .map((entry) => entry.entryName)
   }
 
   it('follows a package linked from a pnpm workspace', () => {
@@ -773,7 +777,9 @@ describe('a registration in a linked workspace package', () => {
         },
         manifestDir: path.join(root, 'ext'),
         projectPath: path.join(root, 'ext')
-      }).map((entry) => entry.entryName)
+      })
+        .filter((entry) => !entry.copyOf)
+        .map((entry) => entry.entryName)
     }
 
     expect(copied('file:../shared')).toEqual(['scripts/hook'])

@@ -117,7 +117,9 @@ describe('a runtime-registered MAIN world script and its bridge', () => {
   it('firefox: the wrapper names the files that read the base', async () => {
     const built = await build(project('MAIN'), 'firefox')
 
-    expect(built.background).toContain('var READERS = ["scripts/hook.js"];')
+    expect(built.background).toContain(
+      'var READERS = ["scripts/hook.js","scripts/hook.extjs-main-world.js"];'
+    )
   }, 180_000)
 
   it('firefox: a MAIN world file that never reads the base goes unpaired', async () => {
@@ -181,7 +183,7 @@ describe('a runtime-registered MAIN world script next to a declared one', () => 
     ] as const) {
       expect(built[name].hasBridge, name).toBe(true)
       expect(built[name].background, name).toContain(
-        'var READERS = ["scripts/hook.js"];'
+        'var READERS = ["scripts/hook.js","scripts/hook.extjs-main-world.js"];'
       )
 
       for (const file of [

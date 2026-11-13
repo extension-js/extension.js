@@ -14,6 +14,9 @@ import {
 export const MAIN_WORLD_BRIDGE_ENTRY = 'scripts/extjs-main-world-bridge'
 export const MAIN_WORLD_BRIDGE_PAIR_PREFIX = 'extjs-main-world-bridge:'
 export const MAIN_WORLD_BRIDGE_PAIRING_MARK = '__extjsMainWorldBridgePaired'
+// An id no registration has, so a call that names it is refused whole
+// once the browser has checked the shape of every entry beside it.
+export const REFUSED_SCRIPT_ID = `_${MAIN_WORLD_BRIDGE_PAIR_PREFIX}`
 
 // Firefox names no extension file on a MAIN world stack, so a file the
 // background or a page registers there needs the bridge a declared group gets.
@@ -34,7 +37,10 @@ export function buildMainWorldBridgePairingSource(
   var COPIED = ["matches", "excludeMatches", "allFrames", "matchOriginAsFallback", "persistAcrossSessions", "runAt"];
   // The browser takes no id that starts with an underscore, so this entry
   // has the shape of a registration and can never become one.
-  var REFUSED = {id: "_" + PREFIX, js: [FILE], matches: ["*://extjs.invalid/*"]};
+  var REFUSED = {id: ${JSON.stringify(REFUSED_SCRIPT_ID)}, js: [FILE], matches: ["*://extjs.invalid/*"]};
+  var isShapeCheck = function (scripts) {
+    return scripts.some(function (script) { return !!script && script.id === REFUSED.id; });
+  };
   var pairId = function (id) { return PREFIX + id; };
   var isPair = function (id) { return typeof id === "string" && id.indexOf(PREFIX) === 0; };
   var listOf = function (scripts) { return Array.isArray(scripts) ? scripts : []; };
@@ -222,7 +228,8 @@ export function buildMainWorldBridgePairingSource(
       });
     });
     scripting.updateContentScripts = function (scripts) {
-      if (!Array.isArray(scripts) || !scripts.length) return update.apply(null, arguments);
+      // A shape check from the wrapper above is refused, so it pairs nothing.
+      if (!Array.isArray(scripts) || !scripts.length || isShapeCheck(scripts)) return update.apply(null, arguments);
       shaped(update, arguments, scripts.concat([{id: REFUSED.id}]));
       return updatePaired.apply(null, arguments);
     };

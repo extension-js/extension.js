@@ -37,6 +37,18 @@ const COMPUTED =
   "chrome.scripting.registerContentScripts(worlds.map(world => ({id: 'h-' + world, js: ['scripts/hook.js'], matches: ['<all_urls>'], world})))\n"
 const MAIN_ONLY =
   "chrome.scripting.registerContentScripts([{id: 'main', js: ['scripts/hook.js'], matches: ['<all_urls>'], world: 'MAIN'}])\n"
+const INJECTED_MAIN =
+  "chrome.scripting.executeScript({target: {tabId: 1}, files: ['scripts/hook.js'], world: 'MAIN'})\n"
+// A partial update is one the build has to route, with a shape the browser
+// refuses as the call is made.
+const MALFORMED_UPDATE =
+  BOTH +
+  'try {\n' +
+  "  chrome.scripting.updateContentScripts([{id: 5, js: ['scripts/hook.js']}])\n" +
+  "  globalThis.__UPDATE__ = 'returned'\n" +
+  '} catch (error) {\n' +
+  "  globalThis.__UPDATE__ = 'threw ' + error.message\n" +
+  '}\n'
 const UNKNOWN =
   'chrome.storage.local.get("world").then(({world}) => {\n' +
   "  chrome.scripting.registerContentScripts([{id: 'main', js: ['scripts/hook.js'], matches: ['<all_urls>'], world}])\n" +
@@ -146,6 +158,39 @@ function registeredBy(background: string) {
   return registered
 }
 
+// What the author's own try and catch sees, in a browser that throws on a
+// malformed update as the call is made and answers every other call later.
+function updateOutcome(background: string) {
+  const later = () => Promise.resolve([])
+  const scripting = {
+    registerContentScripts: later,
+    updateContentScripts: (scripts: Array<{id: unknown}>) => {
+      if (scripts.some((script) => typeof script.id !== 'string')) {
+        throw new TypeError('Error in invocation of updateContentScripts')
+      }
+
+      return Promise.reject(new Error('no such script'))
+    },
+    unregisterContentScripts: later,
+    getRegisteredContentScripts: later,
+    executeScript: later
+  }
+  const chrome = {
+    scripting,
+    runtime: {
+      id: 'both',
+      getURL: (file: string) => `chrome-extension://x/${file}`
+    }
+  }
+  const context: Record<string, unknown> = {chrome, console, setTimeout}
+
+  context.globalThis = context
+  context.self = context
+  vm.runInNewContext(background, context)
+
+  return context.__UPDATE__
+}
+
 const BACKGROUND = {
   chrome: 'background/service_worker.js',
   firefox: 'background/scripts.js'
@@ -206,18 +251,61 @@ describe('a scripts/ file the background registers in both worlds', () => {
   }, 180_000)
 })
 
+describe('a malformed update of a file both worlds run', () => {
+  it('chrome: throws where the author made the call, in a production build', async () => {
+    const built = await build(project(MALFORMED_UPDATE), 'chrome')
+
+    expect(updateOutcome(built.read(BACKGROUND.chrome))).toBe(
+      'threw Error in invocation of updateContentScripts'
+    )
+  }, 180_000)
+})
+
 describe('a scripts/ file one world runs', () => {
+  // The browser keeps the path a file was registered under, so that path
+  // is the copy's, which is a MAIN world build whatever worlds run the file.
   for (const browser of ['chrome', 'firefox'] as const) {
-    it(`${browser}: keeps its one build and a background with no routing`, async () => {
+    it(`${browser}: a file the MAIN world alone registers keeps its build and ships the copy`, async () => {
       const built = await build(project(MAIN_ONLY), browser)
 
-      expect(built.has(COPY)).toBe(false)
       expect(built.read('scripts/hook.js')).not.toContain(ISOLATED_BUILD_MARK)
-      expect(built.read(BACKGROUND[browser])).not.toContain(
+      expect(built.read(COPY)).not.toContain(ISOLATED_BUILD_MARK)
+      expect(built.read(COPY)).toContain('__BOTH_WORLDS_HOOK__')
+      expect(built.read(BACKGROUND[browser])).toContain(
         MAIN_WORLD_COPY_ROUTING_MARK
       )
     }, 180_000)
   }
+
+  it('chrome: a stored MAIN registration names a MAIN world build before and after the isolated use is dropped', async () => {
+    const stored = async (background: string) => {
+      const built = await build(project(background), 'chrome')
+      const main = registeredBy(built.read(BACKGROUND.chrome)).find(
+        (script) => script.id === 'main'
+      )
+      const file = main?.js[0] ?? ''
+
+      return {file, isolated: built.read(file).includes(ISOLATED_BUILD_MARK)}
+    }
+
+    const both = await stored(BOTH)
+    const mainOnly = await stored(MAIN_ONLY)
+    const back = await stored(BOTH)
+
+    expect(both).toEqual({file: COPY, isolated: false})
+    expect(mainOnly).toEqual(both)
+    expect(back).toEqual(both)
+  }, 180_000)
+
+  it('chrome: a file the MAIN world runs by injection alone keeps its one build and a background with no routing', async () => {
+    const built = await build(project(INJECTED_MAIN), 'chrome')
+
+    expect(built.has(COPY)).toBe(false)
+    expect(built.read('scripts/hook.js')).not.toContain(ISOLATED_BUILD_MARK)
+    expect(built.read(BACKGROUND.chrome)).not.toContain(
+      MAIN_WORLD_COPY_ROUTING_MARK
+    )
+  }, 180_000)
 
   it('chrome: builds a world it cannot read for the isolated world and says so once', async () => {
     const built = await build(project(UNKNOWN), 'chrome')
