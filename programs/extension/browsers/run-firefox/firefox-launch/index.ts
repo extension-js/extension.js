@@ -58,6 +58,7 @@ import {
   stampReadyBrowserExited,
   stampReadyBrowserLaunch,
   stampReadyBrowserLaunchFailed,
+  stampReadyExtensionBaseUrl,
   stampReadyExtensionId,
   stampReadyExtensionLoadRefused,
   stampReadyRdpPort,
@@ -842,6 +843,11 @@ export class FirefoxLaunchPlugin {
       this.ctx.setController(ctrl)
       stampReadyRdpPort(this.extensionOutputPath, debugPort)
       stampReadyExtensionId(this.extensionOutputPath, ctrl.getExtensionId())
+      stampReadyExtensionBaseUrl(
+        this.extensionOutputPath,
+        ctrl.getExtensionBaseUrl()
+      )
+
       this.scheduleWatchTimeout()
 
       try {
@@ -1132,6 +1138,10 @@ export class FirefoxLaunchPlugin {
       this.ctx.setController(ctrl)
       this.host.extensionLoadRefused = undefined
       stampReadyExtensionId(this.extensionOutputPath, ctrl.getExtensionId())
+      stampReadyExtensionBaseUrl(
+        this.extensionOutputPath,
+        ctrl.getExtensionBaseUrl()
+      )
 
       return {status: 'loaded'}
     } catch (error) {

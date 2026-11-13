@@ -84,6 +84,10 @@ export class FirefoxRDPController {
     return this.remote.getDerivedExtensionId()
   }
 
+  getExtensionBaseUrl(): string | undefined {
+    return this.remote.getExtensionBaseUrl()
+  }
+
   async wakeBackground(timeoutMs: number): Promise<boolean> {
     const extensionId = this.getExtensionId()
     if (!extensionId || !this.debugPort) return false

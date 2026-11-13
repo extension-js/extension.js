@@ -1730,23 +1730,29 @@ export function collapseHomeDirInCardValue(value: string): string {
   return raw
 }
 
-// The card names every non-default binary this session runs, so a silently
-// selected snapshot or system fallback is never invisible in dev output.
+// A pin is the user's own choice, and a system install is the one outcome the
+// managed browsers do not share, so those two are the ones the card names.
 export function binaryProvenanceNote(
   provenance?: 'managed' | 'pinned' | 'system' | 'snapshot',
   browser?: BrowserType | string
 ): string {
-  // Only a pinned path is annotated. Every launch card then reads the same
-  // three rows with the same labels, and the one line that differs is the one
-  // the user caused by typing a pin flag. Whether a browser came from
-  // the managed cache, the system, or a cached snapshot is a fact about the
-  // machine rather than about this run, and printing it made the same command
-  // look different on two computers for reasons the reader cannot act on.
-  // classifyBinaryProvenance still returns all four values for callers that
-  // need them.
-  if (provenance !== 'pinned') return ''
+  if (provenance === 'pinned') {
+    return `(pinned with ${pinnedBinaryFlag(browser)})`
+  }
 
-  return `(pinned with ${pinnedBinaryFlag(browser)})`
+  // Safari and the forks only ever run from the system, so nothing differs.
+  if (provenance === 'system' && hasManagedInstall(browser)) {
+    return '(system install)'
+  }
+
+  return ''
+}
+
+// The targets extension install downloads into the managed cache.
+function hasManagedInstall(browser?: BrowserType | string): boolean {
+  return ['chrome', 'chromium', 'edge', 'firefox'].includes(
+    String(browser || '')
+  )
 }
 
 // Each engine family has its own pin flag, so the note names the one the

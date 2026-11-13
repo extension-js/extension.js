@@ -13,6 +13,7 @@ import {
   isChromiumBrowser,
   isFirefoxBrowser
 } from '../browsers/browsers-lib/browser-family'
+import {evaluateChromiumTabDocument} from '../browsers/run-chromium/cdp/evaluate-tab-document'
 import {
   evaluateExtensionDocument,
   evaluateTabDocument,
@@ -900,6 +901,113 @@ async function geckoProtocolPageEval(
   return await evaluateTabDocument({rdpPort, url, expression, timeoutMs})
 }
 
+// The browser refuses a script injected into an extension page, the session's
+// own included, with the tab right there.
+function bridgeRefusedInjection(result: ActResultLike): boolean {
+  const raw = (result?.error || {}) as {code?: unknown; name?: unknown}
+
+  return raw.code === 'injection_refused' || raw.name === 'InjectionRefused'
+}
+
+const EXTENSION_PAGE_URL = /^(?:chrome|moz)-extension:\/\//
+
+// Where the browser serves this session's extension from, read off the
+// contract: Chromium by the extension id, Firefox by the stamped base url.
+export function ownExtensionPageBase(
+  ready: {extensionId?: unknown; extensionBaseUrl?: unknown} | null | undefined,
+  browser: string
+): string | undefined {
+  if (isFirefoxBrowser(browser)) {
+    const base = String(ready?.extensionBaseUrl || '')
+
+    return base.startsWith('moz-extension://') ? base : undefined
+  }
+
+  const id = String(ready?.extensionId || '')
+
+  return isChromiumBrowser(browser) && /^[a-p]{32}$/.test(id)
+    ? `chrome-extension://${id}/`
+    : undefined
+}
+
+const EXTENSION_PAGE_NO_CONTENT_WORLD_HINT =
+  'This tab shows an extension page, which has no content-script world to ' +
+  'inject into. Read it with extension inspect --context page --tab <id>.'
+const OTHER_EXTENSION_PAGE_HINT =
+  'This tab shows a page of another extension, and a browser lets no ' +
+  'extension script that. Target a tab on a web page, or one of this ' +
+  "extension's own pages."
+const EXTENSION_PAGE_UNREACHED_HINT =
+  'This tab shows an extension page, which a browser will not inject a ' +
+  "script into. The extension's own pages are read over the browser's " +
+  'debugger port instead, and that needs the port and the extension address ' +
+  'on the session contract and exactly one open tab on that url. A declared ' +
+  'surface also answers by name, for example extension inspect --context ' +
+  'options.'
+
+// The tab is an extension document, so it is read where the popup and the
+// options page are on Firefox, over the debugger, and not by injection.
+async function extensionPageTabEval(
+  bridge: AnyDevelopModule,
+  projectPath: string,
+  browser: string,
+  listTabs: () => Promise<ActResultLike>,
+  target: {context: ActContext; tabId?: number; url?: string},
+  expression: string,
+  timeoutMs: number
+): Promise<{outcome?: ActResultLike; hint?: string}> {
+  let tabs: ActResultLike
+
+  try {
+    tabs = await listTabs()
+  } catch {
+    return {}
+  }
+
+  const url = pickTargetTabUrl(
+    tabs?.ok && Array.isArray(tabs.value) ? tabs.value : [],
+    target
+  )
+
+  if (!url || !EXTENSION_PAGE_URL.test(url)) return {}
+
+  if (target.context === 'content') {
+    return {hint: EXTENSION_PAGE_NO_CONTENT_WORLD_HINT}
+  }
+
+  const ready = bridge.readReadyContractDocument(projectPath, browser) as
+    | {
+        rdpPort?: unknown
+        cdpPort?: unknown
+        extensionId?: unknown
+        extensionBaseUrl?: unknown
+      }
+    | null
+    | undefined
+  const base = ownExtensionPageBase(ready, browser)
+
+  if (!base) return {hint: EXTENSION_PAGE_UNREACHED_HINT}
+  if (!url.startsWith(base)) return {hint: OTHER_EXTENSION_PAGE_HINT}
+
+  const rdpPort = typeof ready?.rdpPort === 'number' ? ready.rdpPort : 0
+  const cdpPort = typeof ready?.cdpPort === 'number' ? ready.cdpPort : 0
+
+  const outcome = isFirefoxBrowser(browser)
+    ? rdpPort
+      ? await evaluateTabDocument({rdpPort, url, expression, timeoutMs})
+      : undefined
+    : cdpPort
+      ? await evaluateChromiumTabDocument({
+          cdpPort,
+          url,
+          expression,
+          timeoutMs
+        })
+      : undefined
+
+  return outcome ? {outcome} : {hint: EXTENSION_PAGE_UNREACHED_HINT}
+}
+
 async function runCommand(input: RunInput): Promise<void> {
   const bridge = await loadExtensionDevelopBridgeModule()
   const projectPath = resolveSessionProjectPath(bridge, input.projectPathArg)
@@ -1099,6 +1207,41 @@ async function runCommand(input: RunInput): Promise<void> {
       )
 
       if (overProtocol) result = overProtocol
+    } else if (
+      (input.op === 'eval' || input.op === 'inspect') &&
+      result?.ok !== true &&
+      (input.target.context === 'page' || input.target.context === 'content') &&
+      bridgeRefusedInjection(result)
+    ) {
+      const overProtocol = await extensionPageTabEval(
+        bridge,
+        projectPath,
+        browser,
+        () =>
+          controller.command({
+            op: 'tabs.query',
+            target: {context: 'background'},
+            args: {},
+            timeoutMs
+          }),
+        input.target,
+        input.op === 'inspect'
+          ? inspectSnapshotExpression(
+              Array.isArray(input.args?.include)
+                ? (input.args.include as string[])
+                : ['summary'],
+              Number(input.args?.maxBytes)
+            )
+          : String(input.args?.expression ?? ''),
+        timeoutMs
+      )
+
+      if (overProtocol.outcome) {
+        result = overProtocol.outcome
+      } else if (overProtocol.hint) {
+        const raw = (result?.error || {}) as Record<string, unknown>
+        if (typeof raw.hint !== 'string') raw.hint = overProtocol.hint
+      }
     }
   } finally {
     controller.close()

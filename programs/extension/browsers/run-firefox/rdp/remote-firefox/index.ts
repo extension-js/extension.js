@@ -37,7 +37,7 @@ import {attachConsoleListeners, subscribeUnifiedLogging} from './logging'
 import {openManagerNewTab, openManagerTabAt} from './manager-tab'
 import {isErrorWithCode, requestErrorToMessage} from './message-utils'
 import {MessagingClient} from './messaging-client'
-import {deriveMozExtensionId} from './moz-id'
+import {deriveMozExtensionId, readExtensionBaseUrl} from './moz-id'
 import {openStartingUrlAfterBackground} from './starting-url'
 
 const MAX_RETRIES = RDP_MAX_RETRIES
@@ -60,6 +60,7 @@ export class RemoteFirefox {
   private cachedAddonsActor: string | undefined
   private lastInstalledAddonPath: string | undefined
   private derivedExtensionId: string | undefined
+  private extensionBaseUrl: string | undefined
   private addonInstallRefusalReason: string | undefined
 
   // Gecko's own words for why it threw the add-on out, or null when the
@@ -72,6 +73,12 @@ export class RemoteFirefox {
   // boot card prints. Read by the launcher to stamp the ready contract.
   public getDerivedExtensionId(): string | undefined {
     return this.derivedExtensionId
+  }
+
+  // The moz-extension:// address Firefox serves the installed add-on from,
+  // which the launcher stamps on the ready contract beside the id.
+  public getExtensionBaseUrl(): string | undefined {
+    return this.extensionBaseUrl
   }
 
   private selectPrimaryAddonPath(
@@ -358,6 +365,11 @@ export class RemoteFirefox {
     } catch {
       // Ignore
     }
+
+    this.extensionBaseUrl = await readExtensionBaseUrl(
+      client,
+      this.derivedExtensionId
+    )
 
     this.lastInstalledAddonPath = primaryAddonPath
 

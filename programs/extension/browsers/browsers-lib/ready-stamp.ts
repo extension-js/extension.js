@@ -638,6 +638,29 @@ export function stampReadyExtensionId(
   }
 }
 
+// Publish the address the browser serves the extension from. Firefox picks a
+// per-profile UUID host no id reveals, so only the browser can name it.
+export function stampReadyExtensionBaseUrl(
+  extensionOutputPath: string | undefined,
+  extensionBaseUrl: string | undefined
+) {
+  try {
+    const base = String(extensionBaseUrl || '').trim()
+    if (!extensionOutputPath || !base) return
+
+    const readyPath = readyPathFor(extensionOutputPath)
+    if (!fs.existsSync(readyPath)) return
+
+    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    if (ready.extensionBaseUrl === base) return
+
+    ready.extensionBaseUrl = base
+    writeJsonAtomic(readyPath, ready)
+  } catch {
+    // best-effort, never block launch on this
+  }
+}
+
 // Stamp a browser-side load refusal into ready.json. Unlike a browser exit this
 // always flips to error: the session is running but the guest is not in it, and
 // every other surface (stdout, logs) looks identical to a healthy run.
