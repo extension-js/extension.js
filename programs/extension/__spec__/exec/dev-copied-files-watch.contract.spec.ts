@@ -90,13 +90,34 @@ function cliEnv(): NodeJS.ProcessEnv {
   return env
 }
 
+// Under load the first rebuild after ready took 8 to 35 seconds here, so the
+// waits are bounded by what a stuck session looks like, not by a usual run.
+const READY_DEADLINE_MS = 180_000
+const RECOPY_DEADLINE_MS = 120_000
+const EXIT_DEADLINE_MS = 60_000
+
 function sleep(ms: number) {
   return new Promise((resolvePromise) => setTimeout(resolvePromise, ms))
 }
 
+// Resolves true as soon as the condition holds, false once the deadline passes.
+async function waitUntil(check: () => boolean, deadlineMs: number) {
+  const giveUpAt = Date.now() + deadlineMs
+
+  while (!check()) {
+    if (Date.now() >= giveUpAt) return false
+
+    await sleep(100)
+  }
+
+  return true
+}
+
+// The pipe can deliver half a frame, so only lines that have ended are parsed.
 function parseFrames(stdout: string): Frame[] {
   return stdout
-    .split('\n')
+    .slice(0, stdout.lastIndexOf('\n') + 1)
+    .split(/\r?\n/)
     .filter((line) => line.trim())
     .map((line) => JSON.parse(line) as Frame)
 }
@@ -220,14 +241,10 @@ describe.skipIf(process.platform === 'win32')(
         parseFrames(stdout).filter((frame) => frame.status === 'recompiled')
           .length
 
-      const deadline = Date.now() + 60_000
-
-      while (
-        Date.now() < deadline &&
-        !parseFrames(stdout).some((frame) => frame.status === 'ready')
-      ) {
-        await sleep(250)
-      }
+      await waitUntil(
+        () => parseFrames(stdout).some((frame) => frame.status === 'ready'),
+        READY_DEADLINE_MS
+      )
 
       expect(
         parseFrames(stdout).map((frame) => frame.status),
@@ -239,25 +256,28 @@ describe.skipIf(process.platform === 'win32')(
       for (const file of COPIED) {
         const seen = recompiles()
         writeFileSync(join(projectDir, file.source), file.next)
-        const editDeadline = Date.now() + 15_000
 
-        while (
-          Date.now() < editDeadline &&
-          !(recompiles() > seen && emittedCarries(distDir, file))
-        ) {
-          await sleep(250)
-        }
+        const recopiedInTime = await waitUntil(
+          () => recompiles() > seen && emittedCarries(distDir, file),
+          RECOPY_DEADLINE_MS
+        )
 
-        if (emittedCarries(distDir, file)) recopied.push(file.source)
+        // One file past the deadline is the failure, so the rest are not tried.
+        if (!recopiedInTime) break
+
+        recopied.push(file.source)
       }
 
+      let exited = false
+      void closed.then(() => (exited = true))
       child.kill('SIGINT')
-      await Promise.race([
-        closed,
-        sleep(15_000).then(() => child.kill('SIGKILL'))
-      ])
+
+      if (!(await waitUntil(() => exited, EXIT_DEADLINE_MS))) {
+        child.kill('SIGKILL')
+        await closed
+      }
 
       expect(recopied, stderr).toEqual(COPIED.map((file) => file.source))
-    }, 150_000)
+    }, 480_000)
   }
 )

@@ -198,6 +198,11 @@ export function devServerHostRefused(host: string) {
 
 // Reload has no other transport, so a session that comes up without the
 // control bridge must say so instead of looking healthy until the first save.
+// The keys are the ready.json field names, so the line pairs with the contract.
+export function debugSessionPorts(port: number, controlPort: number | null) {
+  return `${getLoggingPrefix('debug')} ports    port=${port} controlPort=${controlPort ?? 'none'}`
+}
+
 export function controlBridgeUnavailable(reason: string) {
   return (
     `${getLoggingPrefix('error')} Extension.js couldn't open the control port.\n` +

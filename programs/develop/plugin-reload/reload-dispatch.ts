@@ -166,6 +166,27 @@ export function formatQueuedReloadLine(label: string): string {
   return `${prefix('info')} Queued ${label} for the extension to apply when it reconnects.`
 }
 
+// The reloads that restarted the whole extension, counted per broker, so a
+// caller can tell whether a build in between already did what it plans to.
+const fullReloadsDelivered = new WeakMap<object, number>()
+
+export function fullReloadsDeliveredTo(
+  broker: ReloadBroker | undefined
+): number {
+  return (broker && fullReloadsDelivered.get(broker)) || 0
+}
+
+// A restarted session reloads the extension once for its new entry set. The
+// first build of the new compiler may have reloaded it for its manifest.
+export async function dispatchRestartReload(
+  executor: ReloadExecutor,
+  fullReloadsBefore: number
+): Promise<boolean> {
+  if (fullReloadsDeliveredTo(executor.broker) > fullReloadsBefore) return false
+
+  return dispatchReload({type: 'full', label: 'extension'}, executor)
+}
+
 // The single place deciding HOW a classified reload executes: the SW producer
 // re-injects via the bridge for launched AND --no-browser. Honors EXTENSION_NO_RELOAD.
 // Resolves true only when a producer took the instruction and did not leave
@@ -204,6 +225,13 @@ export async function dispatchReload(
         reloadKindFor(instruction.type),
         instruction.label
       )
+
+      if (instruction.type === 'full') {
+        fullReloadsDelivered.set(
+          executor.broker,
+          fullReloadsDeliveredTo(executor.broker) + 1
+        )
+      }
 
       if (instruction.label) {
         humanLine(

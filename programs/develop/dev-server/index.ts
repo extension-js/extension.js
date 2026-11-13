@@ -31,7 +31,7 @@ import {
 } from '../lib/constants'
 import {DEV_COMMAND_DEFAULTS, mergeOptionLayers} from '../lib/merge-options'
 import {anotherDevSessionRefused} from '../lib/messages'
-import {CODES, isDebug} from '../lib/messaging'
+import {CODES, debugLine, isDebug} from '../lib/messaging'
 import {applySplitChunksGuard} from '../lib/normalize-split-chunks'
 import {asAbsolute, getDistPath} from '../lib/paths'
 import type {ProjectStructure} from '../lib/project'
@@ -55,6 +55,8 @@ import {
   createChangedSourcesTracker,
   createLoadedContentScripts,
   dispatchReload,
+  dispatchRestartReload,
+  fullReloadsDeliveredTo,
   readContentScriptCount,
   readDevBuild
 } from '../plugin-reload'
@@ -814,6 +816,9 @@ export async function devServer(
     }
   }
 
+  // Only --port bounds a port, so a debug run names the others it listens on.
+  if (isDebug()) debugLine(messages.debugSessionPorts(port, bridgeControlPort))
+
   // Expose control-channel coordinates to the compiler (same process) so the
   // bridge-producer injector can bake them into the background SW
   process.env.EXTENSION_INSTANCE_ID = currentInstance.instanceId
@@ -1321,6 +1326,10 @@ export async function devServer(
       await previous.stop()
     }
 
+    // Read once the old compiler is stopped, so only the new one's first
+    // build can add to it before the reload below is decided.
+    const fullReloadsBefore = fullReloadsDeliveredTo(bridgeBroker)
+
     currentServer = nextBundle.server
 
     try {
@@ -1337,10 +1346,7 @@ export async function devServer(
 
     // The fresh compiler's first build carries no changed sources, so the
     // classifier stays silent; the new entry set needs one full reload.
-    await dispatchReload(
-      {type: 'full', label: 'extension'},
-      {broker: bridgeBroker}
-    )
+    await dispatchRestartReload({broker: bridgeBroker}, fullReloadsBefore)
   })
 
   bindDevSessionRestart(sessionRestart)
