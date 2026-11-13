@@ -1,5 +1,4 @@
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
@@ -75,6 +74,9 @@ vi.mock(
 
 import {registerActCommands} from '../commands/act'
 import {makeProgram, runCli, stubProcessExit} from './command-harness'
+import {useTempFolders} from './helpers/temp-folders'
+
+const makeTempFolder = useTempFolders()
 
 const CSP_REFUSAL = {
   ok: false,
@@ -138,7 +140,7 @@ const SNAPSHOT = {
 }
 
 function optionsDist() {
-  const dist = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-gecko-inspect-'))
+  const dist = makeTempFolder('extjs-gecko-inspect-')
   fs.writeFileSync(
     path.join(dist, 'manifest.json'),
     JSON.stringify({options_ui: {page: 'options/index.html'}})

@@ -1,9 +1,11 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {takeVerbatimCss} from '../css-lib/verbatim-css'
 import {pitch} from '../css-parse-guard-loader'
+import {useTempFolders} from '../../__spec__/helpers/temp-folders'
+
+const makeTempFolder = useTempFolders()
 
 const BROKEN_CSS = [
   '.ok { color: red; }',
@@ -31,7 +33,7 @@ function runPitch(resourcePath: string, module?: {type: string}) {
 }
 
 function writeTemp(name: string, content: string) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'css-guard-'))
+  const dir = makeTempFolder('css-guard-')
   const file = path.join(dir, name)
   fs.writeFileSync(file, content)
 

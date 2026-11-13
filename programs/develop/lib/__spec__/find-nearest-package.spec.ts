@@ -1,13 +1,13 @@
 import * as fs from 'node:fs'
-import os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
 import {findNearestPackageJson, validatePackageJson} from '../package-json'
+import {useTempFolders} from '../../__spec__/helpers/temp-folders'
+
+const makeTempFolder = useTempFolders()
 
 function makeTempDir(prefix: string) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix))
-
-  return dir
+  return makeTempFolder(prefix)
 }
 
 afterEach(() => {})

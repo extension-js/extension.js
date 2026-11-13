@@ -4,6 +4,9 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {takeCodedWarnings} from '../../lib/coded-warnings'
 import * as messages from '../../plugin-compatibility/compatibility-lib/messages'
 import {PolyfillPlugin} from '../feature-polyfill'
+import {useTempFolders} from '../../__spec__/helpers/temp-folders'
+
+const makeTempFolder = useTempFolders()
 
 describe('PolyfillPlugin', () => {
   beforeEach(() => {
@@ -15,9 +18,7 @@ describe('PolyfillPlugin', () => {
   })
 
   it('provides the browser global when polyfill can be resolved', async () => {
-    const tmp = await fs.promises.mkdtemp(
-      path.join(require('node:os').tmpdir(), 'polyfill-')
-    )
+    const tmp = makeTempFolder('polyfill-')
     const nodeModules = path.join(
       tmp,
       'node_modules',

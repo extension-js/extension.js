@@ -6,9 +6,12 @@ import {
   createPlaywrightMetadataWriter,
   detectLiveDevSessionOwner
 } from '../index'
+import {useTempFolders} from '../../__spec__/helpers/temp-folders'
+
+const makeTempFolder = useTempFolders()
 
 function writeReadyFixture(overrides: Record<string, unknown> = {}): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-owner-'))
+  const dir = makeTempFolder('extjs-owner-')
   const readyPath = path.join(dir, 'ready.json')
   fs.writeFileSync(
     readyPath,
@@ -89,7 +92,7 @@ describe('the notice about another dev session on the same target', () => {
   afterEach(() => vi.restoreAllMocks())
 
   it('prints once although the dev server and its plugin each open a writer', () => {
-    const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-owner-'))
+    const projectDir = makeTempFolder('extjs-owner-')
     const readyPath = path.join(
       projectDir,
       'dist',
@@ -132,7 +135,7 @@ describe('the notice about another dev session on the same target', () => {
   })
 
   it('prints although both sessions asked for distinct instance ids', () => {
-    const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-owner-'))
+    const projectDir = makeTempFolder('extjs-owner-')
     const readyPath = path.join(
       projectDir,
       'dist',
@@ -179,7 +182,7 @@ describe("the notice about a live dev session owning another command's target", 
   afterEach(() => vi.restoreAllMocks())
 
   function liveDevProject(browser: string) {
-    const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-owner-'))
+    const projectDir = makeTempFolder('extjs-owner-')
     const readyPath = path.join(
       projectDir,
       'dist',

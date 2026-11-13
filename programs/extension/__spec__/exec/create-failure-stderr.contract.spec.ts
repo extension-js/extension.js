@@ -1,7 +1,6 @@
 import {spawn} from 'node:child_process'
 import fs from 'node:fs'
 import http from 'node:http'
-import os from 'node:os'
 import path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
 import {
@@ -14,6 +13,9 @@ import {
   serveOfflineRegistry,
   withoutInheritedRegistry
 } from '../../../create/__spec__/offline-registry-fixture'
+import {useTempFolders} from '../helpers/temp-folders'
+
+const makeTempFolder = useTempFolders()
 
 const ANSI = /\x1b\[[0-9;]*m/g
 const STACK_FRAME = /^\s+at /m
@@ -62,10 +64,10 @@ function runCreate(
   env: Record<string, string>,
   prepare?: (work: string) => void
 ): Promise<{status: number | null; stderr: string}> {
-  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-create-stderr-'))
+  const work = makeTempFolder('extjs-create-stderr-')
   prepare?.(work)
-  const configHome = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-config-'))
-  const cacheHome = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-cache-'))
+  const configHome = makeTempFolder('extjs-config-')
+  const cacheHome = makeTempFolder('extjs-cache-')
 
   return new Promise((resolve) => {
     let stderr = ''

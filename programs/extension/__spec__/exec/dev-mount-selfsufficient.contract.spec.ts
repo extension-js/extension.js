@@ -2,16 +2,17 @@ import {spawnSync} from 'node:child_process'
 import {
   existsSync,
   mkdirSync,
-  mkdtempSync,
   readdirSync,
   readFileSync,
   realpathSync,
   symlinkSync,
   writeFileSync
 } from 'node:fs'
-import {tmpdir} from 'node:os'
 import path from 'node:path'
 import {describe, expect, it} from 'vitest'
+import {useTempFolders} from '../helpers/temp-folders'
+
+const makeTempFolder = useTempFolders()
 
 function cliRoot(): string {
   return path.resolve(__dirname, '../..')
@@ -25,9 +26,7 @@ function cliBin(): string {
 }
 
 function createFixture(): string {
-  const projectDir = realpathSync(
-    mkdtempSync(path.join(tmpdir(), 'extjs-mount-guard-'))
-  )
+  const projectDir = realpathSync(makeTempFolder('extjs-mount-guard-'))
   const contentDir = path.join(projectDir, 'content')
   mkdirSync(contentDir, {recursive: true})
 
@@ -105,9 +104,7 @@ describe('content-script self-mount build contract', () => {
 
   it('self-mounts even when the project root is a symlinked path (macOS $TMPDIR / CI temp dirs)', () => {
     const realProject = createFixture()
-    const linkRoot = realpathSync(
-      mkdtempSync(path.join(tmpdir(), 'extjs-link-'))
-    )
+    const linkRoot = realpathSync(makeTempFolder('extjs-link-'))
     const symlinkedProject = path.join(linkRoot, 'project-link')
     symlinkSync(realProject, symlinkedProject, 'dir')
 

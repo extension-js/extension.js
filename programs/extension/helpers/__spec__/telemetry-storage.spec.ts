@@ -1,8 +1,10 @@
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 import {afterEach, expect, it} from 'vitest'
 import {Telemetry} from '../telemetry'
+import {useTempFolders} from '../../__spec__/helpers/temp-folders'
+
+const makeTempFolder = useTempFolders()
 
 const originalEnv = {...process.env}
 const originalCwd = process.cwd()
@@ -38,9 +40,9 @@ afterEach(() => {
 })
 
 it('writes audit to cache when config path is unwritable', () => {
-  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-telemetry-'))
-  const configHome = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-config-'))
-  const cacheHome = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-cache-'))
+  const work = makeTempFolder('extjs-telemetry-')
+  const configHome = makeTempFolder('extjs-config-')
+  const cacheHome = makeTempFolder('extjs-cache-')
 
   try {
     fs.chmodSync(configHome, 0o500)

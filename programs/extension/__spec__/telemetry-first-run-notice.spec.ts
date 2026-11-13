@@ -1,8 +1,10 @@
 import {spawnSync} from 'node:child_process'
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 import {describe, expect, it} from 'vitest'
+import {useTempFolders} from './helpers/temp-folders'
+
+const makeTempFolder = useTempFolders()
 
 function cliRoot(): string {
   return path.resolve(__dirname, '..')
@@ -54,7 +56,7 @@ function telemetryStatus(home: string): {stdout: string; stderr: string} {
 }
 
 function makeHome(insideWorkTree: boolean): string {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-notice-'))
+  const home = makeTempFolder('extjs-notice-')
   if (insideWorkTree) fs.mkdirSync(path.join(home, '.git'), {recursive: true})
 
   return home

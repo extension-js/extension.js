@@ -1,5 +1,4 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
 
@@ -10,6 +9,9 @@ import {
   unbindDevSessionRestart
 } from '../../../dev-server/session-restart'
 import {PersistManifestToDisk} from '../steps/persist-manifest'
+import {useTempFolders} from '../../../__spec__/helpers/temp-folders'
+
+const makeTempFolder = useTempFolders()
 
 afterEach(() => {
   unbindDevSessionRestart()
@@ -65,9 +67,7 @@ function makeCompiler(
 
 describe('PersistManifestToDisk', () => {
   it('writes the final manifest asset to disk atomically in afterEmit', () => {
-    const outputDir = fs.mkdtempSync(
-      path.join(os.tmpdir(), 'persist-manifest-')
-    )
+    const outputDir = makeTempFolder('persist-manifest-')
 
     const {compiler, runProcessAssets, runAfterEmit} = makeCompiler(
       outputDir,
@@ -100,9 +100,7 @@ describe('PersistManifestToDisk', () => {
   })
 
   it('keeps the last working manifest through an errored compile and drops that cycle', () => {
-    const outputDir = fs.mkdtempSync(
-      path.join(os.tmpdir(), 'persist-manifest-errored-')
-    )
+    const outputDir = makeTempFolder('persist-manifest-errored-')
     const manifestOnDisk = () =>
       fs.readFileSync(path.join(outputDir, 'manifest.json'), 'utf-8')
     const lastGood = '{\n  "name": "last-good"\n}'
@@ -144,9 +142,7 @@ describe('PersistManifestToDisk', () => {
   })
 
   it('refuses to write a manifest whose chunks are missing from disk', () => {
-    const outputDir = fs.mkdtempSync(
-      path.join(os.tmpdir(), 'persist-manifest-missing-')
-    )
+    const outputDir = makeTempFolder('persist-manifest-missing-')
     const manifestSource = JSON.stringify(
       {
         manifest_version: 3,
@@ -191,9 +187,7 @@ describe('PersistManifestToDisk', () => {
   })
 
   it('writes the manifest when every referenced chunk is on disk', () => {
-    const outputDir = fs.mkdtempSync(
-      path.join(os.tmpdir(), 'persist-manifest-ok-')
-    )
+    const outputDir = makeTempFolder('persist-manifest-ok-')
     const manifestSource = JSON.stringify(
       {
         manifest_version: 3,
@@ -244,9 +238,7 @@ describe('PersistManifestToDisk', () => {
   })
 
   it('stays quiet about missing chunks when a restart will emit them', () => {
-    const outputDir = fs.mkdtempSync(
-      path.join(os.tmpdir(), 'persist-manifest-restarting-')
-    )
+    const outputDir = makeTempFolder('persist-manifest-restarting-')
     const manifestSource = JSON.stringify({
       manifest_version: 3,
       content_scripts: [{js: ['content_scripts/content-1.aaaaaaaa.js']}]

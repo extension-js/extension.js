@@ -1,9 +1,11 @@
 import * as fs from 'node:fs'
-import os from 'node:os'
 import * as path from 'node:path'
 import {describe, expect, it, vi} from 'vitest'
 import {PlaywrightPlugin} from '../plugin-playwright'
 import webpackConfig from '../rspack-config'
+import {useTempFolders} from './helpers/temp-folders'
+
+const makeTempFolder = useTempFolders()
 
 const resolveTranspilePackageDirsMock = vi.hoisted(() =>
   vi.fn<(..._args: any[]) => string[]>(() => [])
@@ -35,7 +37,7 @@ vi.mock('../lib/extensions-to-load', async () => {
 })
 
 function createProjectStructure() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-webpack-config-'))
+  const root = makeTempFolder('extjs-webpack-config-')
   const packageJsonPath = path.join(root, 'package.json')
   const manifestPath = path.join(root, 'manifest.json')
 
@@ -414,7 +416,7 @@ describe('webpack-config transpile packages watch behavior', () => {
   })
 
   it('passes a missing relative CSS url() asset through verbatim, but bundles an existing one', () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-css-asset-'))
+    const dir = makeTempFolder('extjs-css-asset-')
     fs.writeFileSync(path.join(dir, 'present.png'), 'x')
 
     const projectStructure = createProjectStructure()
@@ -565,7 +567,7 @@ describe('webpack-config transpile packages watch behavior', () => {
 describe('webpack-config MV2 on chromium warning', () => {
   const buildConfig = (manifest: Record<string, unknown>) => {
     resolveTranspilePackageDirsMock.mockReturnValue([])
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-webpack-config-'))
+    const root = makeTempFolder('extjs-webpack-config-')
     const packageJsonPath = path.join(root, 'package.json')
     const manifestPath = path.join(root, 'manifest.json')
     fs.writeFileSync(packageJsonPath, JSON.stringify({name: 'demo'}), 'utf-8')

@@ -1,5 +1,4 @@
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
 import {internalErrorEnvelope} from '../cli-failure'
@@ -10,6 +9,9 @@ import {
   resolveExtensionDevelopRoot,
   resolveExtensionDevelopVersion
 } from '../extension-develop-runtime'
+import {useTempFolders} from '../../__spec__/helpers/temp-folders'
+
+const makeTempFolder = useTempFolders()
 
 function writeJson(filePath: string, value: unknown) {
   fs.mkdirSync(path.dirname(filePath), {recursive: true})
@@ -35,9 +37,7 @@ describe('extension-develop runtime resolution', () => {
   })
 
   it('prefers the workspace extension-develop root over an env override', async () => {
-    const root = fs.mkdtempSync(
-      path.join(os.tmpdir(), 'extjs-develop-runtime-')
-    )
+    const root = makeTempFolder('extjs-develop-runtime-')
     const workspaceDevelopRoot = path.join(root, 'programs', 'develop')
     const envDevelopRoot = path.join(root, 'vendor', 'extension-develop')
 
@@ -77,9 +77,7 @@ describe('extension-develop runtime resolution', () => {
   })
 
   it('does not escape node_modules to claim an outer workspace runtime', async () => {
-    const root = fs.mkdtempSync(
-      path.join(os.tmpdir(), 'extjs-develop-runtime-installed-')
-    )
+    const root = makeTempFolder('extjs-develop-runtime-installed-')
     const outerWorkspaceDevelopRoot = path.join(root, 'programs', 'develop')
     const envDevelopRoot = path.join(
       root,
@@ -123,9 +121,7 @@ describe('extension-develop runtime resolution', () => {
   })
 
   it('fails loudly when the workspace runtime exists but is not built', async () => {
-    const root = fs.mkdtempSync(
-      path.join(os.tmpdir(), 'extjs-develop-runtime-missing-')
-    )
+    const root = makeTempFolder('extjs-develop-runtime-missing-')
     const workspaceDevelopRoot = path.join(root, 'programs', 'develop')
     const startDir = path.join(root, 'programs', 'cli', 'dist')
 
@@ -146,9 +142,7 @@ describe('extension-develop runtime resolution', () => {
     ['the preview entry', loadExtensionDevelopPreviewModule],
     ['the bridge entry', loadExtensionDevelopBridgeModule]
   ])('codes an unbuilt workspace runtime as E_RUNTIME_NOT_FOUND for %s', async (_entry, load) => {
-    const root = fs.mkdtempSync(
-      path.join(os.tmpdir(), 'extjs-develop-runtime-coded-')
-    )
+    const root = makeTempFolder('extjs-develop-runtime-coded-')
     const startDir = path.join(root, 'programs', 'cli', 'dist')
 
     writeJson(path.join(root, 'programs', 'develop', 'package.json'), {

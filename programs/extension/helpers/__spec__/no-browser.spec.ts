@@ -1,11 +1,13 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
 import {resolveNoBrowser} from '../no-browser'
+import {useTempFolders} from '../../__spec__/helpers/temp-folders'
+
+const makeTempFolder = useTempFolders()
 
 function projectWith(config: string | null): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-nobrowser-'))
+  const dir = makeTempFolder('extjs-nobrowser-')
   fs.writeFileSync(
     path.join(dir, 'package.json'),
     '{"name":"probe","type":"module"}'

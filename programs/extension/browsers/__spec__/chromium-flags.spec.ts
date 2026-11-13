@@ -9,6 +9,9 @@ import {
   parseEnvBrowserFlags
 } from '../browsers-lib/shared-utils'
 import {browserConfig} from '../run-chromium/chromium-launch/browser-config'
+import {useTempFolders} from '../../__spec__/helpers/temp-folders'
+
+const makeTempFolder = useTempFolders()
 
 function makeCompilation(
   out = path.join(os.tmpdir(), 'project', 'dist', 'chrome')
@@ -116,9 +119,7 @@ describe('Chromium profile flags', () => {
   })
 
   it('removes stale Chromium singleton artifacts for explicit profiles', () => {
-    const explicitProfile = fs.mkdtempSync(
-      path.join(os.tmpdir(), 'extjs-explicit-profile-')
-    )
+    const explicitProfile = makeTempFolder('extjs-explicit-profile-')
     const host = os.hostname()
     fs.writeFileSync(
       path.join(explicitProfile, 'SingletonLock'),
@@ -159,12 +160,8 @@ describe('Chromium profile flags', () => {
   })
 
   it('resolves relative explicit profile paths against the compilation context, not process.cwd()', () => {
-    const projectA = fs.mkdtempSync(
-      path.join(os.tmpdir(), 'extjs-profile-ctx-a-')
-    )
-    const projectB = fs.mkdtempSync(
-      path.join(os.tmpdir(), 'extjs-profile-ctx-b-')
-    )
+    const projectA = makeTempFolder('extjs-profile-ctx-a-')
+    const projectB = makeTempFolder('extjs-profile-ctx-b-')
     const oldCwd = process.cwd()
 
     try {
@@ -219,10 +216,8 @@ describe('Chromium profile flags', () => {
   })
 
   it('keeps absolute explicit profile paths as-is regardless of context', () => {
-    const explicitProfile = fs.mkdtempSync(
-      path.join(os.tmpdir(), 'extjs-explicit-abs-')
-    )
-    const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-project-'))
+    const explicitProfile = makeTempFolder('extjs-explicit-abs-')
+    const projectDir = makeTempFolder('extjs-project-')
 
     try {
       const compilation = {
@@ -252,9 +247,7 @@ describe('Chromium profile flags', () => {
   it.skipIf(process.platform === 'win32')(
     'throws when a live browser holds the explicit profile',
     () => {
-      const explicitProfile = fs.mkdtempSync(
-        path.join(os.tmpdir(), 'extjs-explicit-profile-live-')
-      )
+      const explicitProfile = makeTempFolder('extjs-explicit-profile-live-')
       const holder = spawn(
         process.execPath,
         [
@@ -286,9 +279,7 @@ describe('Chromium profile flags', () => {
   )
 
   it('cleans old managed ephemeral profiles regardless of naming', () => {
-    const baseDir = fs.mkdtempSync(
-      path.join(os.tmpdir(), 'extjs-managed-profiles-')
-    )
+    const baseDir = makeTempFolder('extjs-managed-profiles-')
     const staleDir = path.join(baseDir, 'amber-fox-badger')
     const keepDir = path.join(baseDir, 'violet-otter-finch')
     const devDir = path.join(baseDir, 'dev')
@@ -312,9 +303,7 @@ describe('Chromium profile flags', () => {
   })
 
   it('does not remove unmarked directories under the managed profile base', () => {
-    const baseDir = fs.mkdtempSync(
-      path.join(os.tmpdir(), 'extjs-managed-profiles-unmarked-')
-    )
+    const baseDir = makeTempFolder('extjs-managed-profiles-unmarked-')
     const customDir = path.join(baseDir, 'custom-profile')
 
     fs.mkdirSync(customDir, {recursive: true})
