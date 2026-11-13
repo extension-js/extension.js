@@ -41,6 +41,7 @@ import {
   resolveFromBinaries
 } from '../../browsers-lib/output-binaries-resolver'
 import {
+  envPinnedBinary,
   type PinnedBinaryProblem,
   pinnedBinaryProblem
 } from '../../browsers-lib/pinned-binary'
@@ -531,7 +532,19 @@ export class FirefoxLaunchPlugin {
       }
     }
 
-    let browserBinaryLocation: string | null = resolveManagedBinary()
+    // One order on every target: the flag, the variable the person set, the
+    // managed copy, then the system. A bad variable throws here.
+    const fromEnv = this.host.geckoBinary
+      ? null
+      : envPinnedBinary(
+          String(this.host.browser),
+          process.env,
+          normalizeBinaryPathForWsl
+        )
+
+    let browserBinaryLocation: string | null = fromEnv
+      ? fromEnv.path
+      : resolveManagedBinary()
     let skipDetection = Boolean(browserBinaryLocation)
     const engineBased =
       this.host.browser === 'gecko-based' ||
@@ -678,7 +691,9 @@ export class FirefoxLaunchPlugin {
     this.host.launchBinaryPath = binaryPath
     this.host.launchBinaryPinnedBy = this.host.geckoBinary
       ? '--gecko-binary'
-      : binaryOverrideNaming(String(this.host.browser), binaryPath) || undefined
+      : fromEnv?.name ||
+        binaryOverrideNaming(String(this.host.browser), binaryPath) ||
+        undefined
 
     this.host.launchBinaryProvenance = classifyBinaryProvenance({
       binaryPath,

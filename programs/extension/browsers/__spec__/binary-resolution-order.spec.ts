@@ -12,6 +12,27 @@ import {
 } from 'vitest'
 
 const located = {path: null as string | null, calls: 0}
+const system = {
+  chrome: null as string | null,
+  chromium: null as string | null,
+  firefox: null as string | null
+}
+
+// The system scan is stubbed so no spec ever finds a browser on this machine.
+vi.mock('chrome-location2', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  default: () => system.chrome
+}))
+
+vi.mock('chromium-location', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  default: () => system.chromium
+}))
+
+vi.mock('firefox-location2', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  default: () => system.firefox
+}))
 
 vi.mock('edge-location', () => ({
   default: () => {
@@ -73,10 +94,13 @@ describe('the order a launch resolves its binary in', () => {
       .split(/\r?\n/)
       .find((line) => line.includes(` ${label} `)) || ''
 
-  async function planEdge(options: Record<string, unknown> = {}) {
+  async function planChromium(
+    browser: string,
+    options: Record<string, unknown> = {}
+  ) {
     const plugin = new ChromiumLaunchPlugin(
       {
-        browser: 'edge',
+        browser,
         extension: [outputPath],
         dryRun: true,
         ...options
@@ -90,6 +114,69 @@ describe('the order a launch resolves its binary in', () => {
     })
   }
 
+  const planEdge = (options: Record<string, unknown> = {}) =>
+    planChromium('edge', options)
+
+  const exe = (name: string) =>
+    process.platform === 'win32' ? `${name}.exe` : name
+
+  const plantManaged = (browser: string, label: string, name: string) =>
+    plant('cache', 'browsers', browser, label, exe(name))
+
+  async function planFirefox(options: Record<string, unknown> = {}) {
+    const firefoxOut = path.join(root, 'dist', 'firefox')
+    fs.mkdirSync(firefoxOut, {recursive: true})
+    fs.copyFileSync(
+      path.join(outputPath, 'manifest.json'),
+      path.join(firefoxOut, 'manifest.json')
+    )
+
+    const plugin = new FirefoxLaunchPlugin(
+      {
+        browser: 'firefox',
+        extension: [firefoxOut],
+        dryRun: true,
+        ...options
+      } as any,
+      createFirefoxContext() as any
+    )
+
+    await plugin.runOnce(
+      {
+        options: {
+          mode: 'production',
+          context: root,
+          output: {path: firefoxOut}
+        },
+        errors: [],
+        hooks: {done: {tap: () => {}}}
+      } as any,
+      {mode: 'production'} as any
+    )
+  }
+
+  // A file that exists and is not a program, where the platform can tell.
+  function plantNotExecutable(...segments: string[]) {
+    const file = path.join(root, ...segments)
+    fs.mkdirSync(path.dirname(file), {recursive: true})
+    fs.writeFileSync(file, 'not a program')
+    fs.chmodSync(file, 0o644)
+
+    return file
+  }
+
+  async function refusal(run: () => Promise<void>) {
+    const thrown = (await run().then(
+      () => null,
+      (error: unknown) => error
+    )) as (Error & {code?: string}) | null
+
+    return {
+      code: thrown?.code,
+      message: stripAnsi(String(thrown?.message || ''))
+    }
+  }
+
   beforeEach(() => {
     root = fs.realpathSync(
       fs.mkdtempSync(path.join(os.tmpdir(), 'ext-binary-order-'))
@@ -99,6 +186,9 @@ describe('the order a launch resolves its binary in', () => {
     fs.mkdirSync(cacheRoot, {recursive: true})
     located.path = null
     located.calls = 0
+    system.chrome = null
+    system.chromium = null
+    system.firefox = null
 
     outputPath = path.join(root, 'dist', 'edge')
     fs.mkdirSync(outputPath, {recursive: true})
@@ -189,57 +279,231 @@ describe('the order a launch resolves its binary in', () => {
     expect(printed()).not.toContain("isn't installed")
   })
 
-  it('edge: a managed copy launches when EDGE_BINARY names nothing', async () => {
-    const managed = plantManagedEdge()
-    process.env.EDGE_BINARY = path.join(root, 'nowhere', 'msedge')
+  it('edge: EDGE_BINARY that names nothing is refused by name, managed copy or not', async () => {
+    const missing = path.join(root, 'nowhere', 'msedge')
+    process.env.EDGE_BINARY = missing
     located.path = plant('system', 'msedge')
 
-    await planEdge()
+    const bare = await refusal(() => planEdge())
+
+    expect(bare.code).toBe('E_BROWSER_BINARY_INVALID')
+    expect(bare.message).toContain('EDGE_BINARY')
+    expect(bare.message).toContain(missing)
+    expect(bare.message).not.toContain("isn't installed")
+
+    plantManagedEdge()
+
+    const withManaged = await refusal(() => planEdge())
+
+    expect(withManaged.code).toBe('E_BROWSER_BINARY_INVALID')
+    expect(withManaged.message).toContain(missing)
+    expect(located.calls).toBe(0)
+    expect(planLine('PATH')).toBe('')
+  })
+
+  it('edge: nothing set and nothing found ends in not installed', async () => {
+    const found = await refusal(() => planEdge())
+
+    expect(found.code).toBe('E_BROWSER_NOT_FOUND')
+    expect(found.message).toContain("isn't installed")
+  })
+
+  it('chrome: the flag wins over CHROME_BINARY, a managed copy and the system', async () => {
+    const pin = plant('pinned', 'chrome')
+    process.env.CHROME_BINARY = plant('from-env', 'chrome')
+    plantManaged('chrome', 'mac_arm-151.0.7100.2', 'chrome')
+    system.chrome = plant('system', 'chrome')
+
+    await planChromium('chrome', {chromiumBinary: pin})
+
+    expect(planLine('PATH')).toContain(pin)
+    expect(planLine('SOURCE')).toContain('pinned with --chromium-binary')
+  })
+
+  it.each([
+    'CHROME_FOR_TESTING_PATH',
+    'CHROMIUM_BINARY',
+    'CHROME_BINARY'
+  ])('chrome: %s wins over a managed copy and the system', async (name) => {
+    const fromEnv = plant('from-env', 'chrome')
+    process.env[name] = fromEnv
+    plantManaged('chrome', 'mac_arm-151.0.7100.2', 'chrome')
+    system.chrome = plant('system', 'chrome')
+
+    await planChromium('chrome')
+
+    expect(planLine('PATH')).toContain(fromEnv)
+    expect(planLine('SOURCE')).toContain(`pinned with ${name}`)
+  })
+
+  it('chrome: a managed copy wins over the system install', async () => {
+    const managed = plantManaged('chrome', 'mac_arm-151.0.7100.2', 'chrome')
+    system.chrome = plant('system', 'chrome')
+
+    await planChromium('chrome')
 
     expect(planLine('PATH')).toContain(managed)
     expect(planLine('SOURCE')).toMatch(/SOURCE managed$/)
   })
 
-  it('edge: EDGE_BINARY that names nothing never falls to a system scan', async () => {
-    process.env.EDGE_BINARY = path.join(root, 'nowhere', 'msedge')
-    located.path = plant('system', 'msedge')
+  it('chrome: the system install runs when nothing else resolves', async () => {
+    const found = plant('system', 'chrome')
+    system.chrome = found
 
-    await expect(planEdge()).rejects.toThrow(/isn't installed/)
-    expect(located.calls).toBe(0)
+    await planChromium('chrome')
+
+    expect(planLine('PATH')).toContain(found)
+    expect(planLine('SOURCE')).toContain('system install')
   })
 
-  it('firefox: FIREFOX_BINARY is named as the source of the plan', async () => {
+  it('chrome: CHROME_BINARY that names nothing is refused by name', async () => {
+    const missing = path.join(root, 'nowhere', 'chrome')
+    process.env.CHROME_BINARY = missing
+    plantManaged('chrome', 'mac_arm-151.0.7100.2', 'chrome')
+    system.chrome = plant('system', 'chrome')
+
+    const found = await refusal(() => planChromium('chrome'))
+
+    expect(found.code).toBe('E_BROWSER_BINARY_INVALID')
+    expect(found.message).toContain('CHROME_BINARY')
+    expect(found.message).toContain(missing)
+    expect(planLine('PATH')).toBe('')
+  })
+
+  it.skipIf(process.platform === 'win32')(
+    'chrome: the branded Chrome named in CHROME_BINARY is still never run',
+    async () => {
+      const branded = plant('opt', 'bin', 'google-chrome')
+      process.env.CHROME_BINARY = branded
+      system.chrome = branded
+
+      const alone = await refusal(() => planChromium('chrome'))
+
+      expect(alone.code).toBe('E_BROWSER_NOT_FOUND')
+      expect(planLine('PATH')).toBe('')
+
+      const managed = plantManaged('chrome', 'mac_arm-151.0.7100.2', 'chrome')
+
+      await planChromium('chrome')
+
+      expect(planLine('PATH')).toContain(managed)
+      expect(planLine('SOURCE')).toMatch(/SOURCE managed$/)
+    }
+  )
+
+  it('chromium: CHROMIUM_BINARY wins over a managed copy and the system', async () => {
+    const fromEnv = plant('from-env', 'chromium')
+    process.env.CHROMIUM_BINARY = fromEnv
+    plantManaged('chromium', 'mac_arm-1500000', 'chromium')
+    system.chromium = plant('system', 'chromium')
+
+    await planChromium('chromium')
+
+    expect(planLine('PATH')).toContain(fromEnv)
+    expect(planLine('SOURCE')).toContain('pinned with CHROMIUM_BINARY')
+  })
+
+  it('chromium: a variable named for Chrome does not choose its binary', async () => {
+    process.env.CHROME_BINARY = plant('from-env', 'chrome')
+    const found = plant('system', 'chromium')
+    system.chromium = found
+
+    await planChromium('chromium')
+
+    expect(planLine('PATH')).toContain(found)
+    expect(planLine('SOURCE')).toContain('system install')
+  })
+
+  it('chromium: CHROMIUM_BINARY that names nothing is refused by name', async () => {
+    const missing = path.join(root, 'nowhere', 'chromium')
+    process.env.CHROMIUM_BINARY = missing
+    system.chromium = plant('system', 'chromium')
+
+    const found = await refusal(() => planChromium('chromium'))
+
+    expect(found.code).toBe('E_BROWSER_BINARY_INVALID')
+    expect(found.message).toContain('CHROMIUM_BINARY')
+    expect(found.message).toContain(missing)
+  })
+
+  it('firefox: the flag wins over FIREFOX_BINARY, a managed copy and the system', async () => {
+    const pin = plant('pinned', 'firefox')
+    process.env.FIREFOX_BINARY = plant('from-env', 'firefox')
+    plantManaged('firefox', 'mac_arm-stable_150.0', 'firefox')
+    system.firefox = plant('system', 'firefox')
+
+    await planFirefox({geckoBinary: pin})
+
+    expect(planLine('PATH')).toContain(pin)
+    expect(planLine('SOURCE')).toContain('pinned with --gecko-binary')
+  })
+
+  it('firefox: FIREFOX_BINARY wins over a managed copy and the system', async () => {
     const fromEnv = plant('from-env', 'firefox')
     process.env.FIREFOX_BINARY = fromEnv
+    plantManaged('firefox', 'mac_arm-stable_150.0', 'firefox')
+    system.firefox = plant('system', 'firefox')
 
-    const firefoxOut = path.join(root, 'dist', 'firefox')
-    fs.mkdirSync(firefoxOut, {recursive: true})
-    fs.copyFileSync(
-      path.join(outputPath, 'manifest.json'),
-      path.join(firefoxOut, 'manifest.json')
-    )
-
-    const plugin = new FirefoxLaunchPlugin(
-      {browser: 'firefox', extension: [firefoxOut], dryRun: true} as any,
-      createFirefoxContext() as any
-    )
-
-    await plugin.runOnce(
-      {
-        options: {
-          mode: 'production',
-          context: root,
-          output: {path: firefoxOut}
-        },
-        errors: [],
-        hooks: {done: {tap: () => {}}}
-      } as any,
-      {mode: 'production'} as any
-    )
+    await planFirefox()
 
     expect(planLine('PATH')).toContain(fromEnv)
     expect(planLine('SOURCE')).toContain('pinned with FIREFOX_BINARY')
   })
+
+  it('firefox: a managed copy wins over the system install', async () => {
+    const managed = plantManaged('firefox', 'mac_arm-stable_150.0', 'firefox')
+    system.firefox = plant('system', 'firefox')
+
+    await planFirefox()
+
+    expect(planLine('PATH')).toContain(managed)
+    expect(planLine('SOURCE')).toMatch(/SOURCE managed$/)
+  })
+
+  it('firefox: the system install runs when nothing else resolves', async () => {
+    const found = plant('system', 'firefox')
+    system.firefox = found
+
+    await planFirefox()
+
+    expect(planLine('PATH')).toContain(found)
+    expect(planLine('SOURCE')).toContain('system install')
+  })
+
+  it('firefox: FIREFOX_BINARY that names nothing is refused by name', async () => {
+    const missing = path.join(root, 'nowhere', 'firefox')
+    process.env.FIREFOX_BINARY = missing
+    plantManaged('firefox', 'mac_arm-stable_150.0', 'firefox')
+    system.firefox = plant('system', 'firefox')
+
+    const found = await refusal(() => planFirefox())
+
+    expect(found.code).toBe('E_BROWSER_BINARY_INVALID')
+    expect(found.message).toContain('FIREFOX_BINARY')
+    expect(found.message).toContain(missing)
+    expect(planLine('PATH')).toBe('')
+  })
+
+  it.skipIf(process.platform === 'win32').each([
+    ['edge', 'EDGE_BINARY'],
+    ['chrome', 'CHROME_BINARY'],
+    ['firefox', 'FIREFOX_BINARY']
+  ])(
+    '%s: %s that names a file that cannot run is refused by name',
+    async (browser, name) => {
+      const file = plantNotExecutable('from-env', 'not-a-browser')
+      process.env[name] = file
+
+      const found = await refusal(() =>
+        browser === 'firefox' ? planFirefox() : planChromium(browser)
+      )
+
+      expect(found.code).toBe('E_BROWSER_BINARY_INVALID')
+      expect(found.message).toContain('NOT EXECUTABLE')
+      expect(found.message).toContain(name)
+      expect(found.message).toContain(file)
+    }
+  )
 
   it('classes an env override like the flag and names it on the contract', () => {
     const fromEnv = plant('from-env', 'msedge')
@@ -361,11 +625,17 @@ describe('binary env overrides', () => {
     expect(process.env.CHROME_BINARY).toBe(ambient)
   })
 
-  it('resolves the given override through the real chrome locator', () => {
+  it('resolves the given override through the real chrome locator', async () => {
+    const real =
+      await vi.importActual<typeof import('chrome-location2')>(
+        'chrome-location2'
+      )
     const given = plant('given-chrome')
     process.env.CHROME_BINARY = plant('ambient-chrome')
 
-    expect(locateChromeIn({...process.env, CHROME_BINARY: given})).toBe(given)
+    expect(
+      locateChromeIn({...process.env, CHROME_BINARY: given}, real.default)
+    ).toBe(given)
   })
 
   it('hides an ambient override the given env does not carry, and restores on a throw', () => {

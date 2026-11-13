@@ -2064,14 +2064,28 @@ export function invalidGeckoBinaryPath(p: string) {
   return browserRunnerError(body)
 }
 
-export function binaryNotExecutable(
-  p: string,
-  flag: '--chromium-binary' | '--gecko-binary'
-) {
+// The flag or the environment variable that named the binary, so the last
+// line tells the person which of the two to correct.
+function correctBinarySourceLine(source: string, noun: string): string {
+  return source.startsWith('--')
+    ? `Pass ${colors.blue(source)} ${colors.gray('<abs-path>')} with a working ${noun}.`
+    : `Set ${colors.blue(source)} to a working ${noun}, or unset it to run the managed or system browser.`
+}
+
+export function binaryNotExecutable(p: string, source: string) {
   const body =
     `The browser binary at the given path can't be run, it is not an executable file.\n` +
     `${colors.gray('NOT EXECUTABLE')} ${colors.underline(p)}\n` +
-    `Pass ${colors.blue(flag)} ${colors.gray('<abs-path>')} with a working binary.`
+    correctBinarySourceLine(source, 'binary')
+
+  return browserRunnerError(body)
+}
+
+export function binaryOverrideNotFound(name: string, p: string) {
+  const body =
+    `Can't find a browser binary at the path ${name} names.\n` +
+    `${colors.gray('NOT FOUND')} ${colors.underline(p)}\n` +
+    correctBinarySourceLine(name, 'path')
 
   return browserRunnerError(body)
 }

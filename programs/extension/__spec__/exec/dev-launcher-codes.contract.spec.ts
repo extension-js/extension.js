@@ -258,18 +258,23 @@ describe.skipIf(process.platform === 'win32')(
       })
     }, 120_000)
 
-    it('a browser found nowhere ends in E_BROWSER_NOT_FOUND as failed', async () => {
+    // The variable is a choice like the flag, so a path that names nothing
+    // is a bad value and never reads as a browser that is not installed.
+    it('a binary variable that names nothing ends in E_BROWSER_BINARY_INVALID as usage', async () => {
       const {work, projectDir} = makeWorkspace()
       const emptyCache = join(work, 'browsers')
       mkdirSync(emptyCache, {recursive: true})
+      const missing = join(work, 'nowhere', 'edge')
       const env = {
         EXT_BROWSERS_CACHE_DIR: emptyCache,
-        EDGE_BINARY: join(work, 'nowhere', 'edge')
+        EDGE_BINARY: missing
       }
 
       session = startDev(projectDir, 'edge', [], env)
-      await expectLaunchRefusal(session, 'E_BROWSER_NOT_FOUND', 'failed')
-      expect(session.stderr()).toMatch(/isn't installed and no binary/)
+      await expectLaunchRefusal(session, 'E_BROWSER_BINARY_INVALID', 'usage')
+      expect(session.stderr()).toMatch(/EDGE_BINARY/)
+      expect(session.stderr()).toContain(missing)
+      expect(session.stderr()).not.toMatch(/isn't installed/)
 
       const waiter = runWaiter(projectDir, 'edge', env)
       expect(waiter.status).toBe(1)
@@ -277,8 +282,8 @@ describe.skipIf(process.platform === 'win32')(
       expect(waiter.frame).toMatchObject({
         ok: false,
         command: 'dev',
-        status: 'failed',
-        error: {code: 'E_BROWSER_NOT_FOUND'}
+        status: 'usage',
+        error: {code: 'E_BROWSER_BINARY_INVALID'}
       })
     }, 120_000)
 
