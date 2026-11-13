@@ -1,7 +1,12 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
-import {afterAll, describe, expect, it} from 'vitest'
+import {afterAll, afterEach, describe, expect, it, vi} from 'vitest'
+import {
+  bindDevSessionRestart,
+  DevSessionRestartScheduler,
+  unbindDevSessionRestart
+} from '../dev-server/session-restart'
 import {
   type DevWatchSession,
   errorsOf,
@@ -15,6 +20,10 @@ const sessions: DevWatchSession[] = []
 
 afterAll(async () => {
   for (const session of sessions.splice(0)) await session.close()
+})
+
+afterEach(() => {
+  unbindDevSessionRestart()
 })
 
 interface WatchCall {
@@ -210,4 +219,38 @@ describe.skipIf(!canLink())('dev: a project behind a linked path', () => {
     expect(modified.flat()).toContain(manifestPath)
     expect(modified.flat()).not.toContain(path.join(real, 'manifest.json'))
   }, 120000)
+
+  it('restarts the session for a public folder made through either spelling', async () => {
+    for (const makeThroughLink of [true, false]) {
+      const {real, linked} = linkedProject()
+      const session = await openDevWatchSession(linked)
+
+      sessions.push(session)
+      await session.doneAfter(0)
+
+      const seen = await session.settle()
+      const handler = vi.fn()
+      const scheduler = new DevSessionRestartScheduler(0)
+
+      scheduler.setHandler(handler)
+      bindDevSessionRestart(scheduler)
+
+      const made = path.join(makeThroughLink ? linked : real, 'public')
+
+      fs.mkdirSync(made)
+      fs.writeFileSync(path.join(made, 'data.json'), '{"value":"v1"}')
+
+      expect(errorsOf(await session.doneAfter(seen))).toEqual([])
+      await waitUntil(() => handler.mock.calls.length > 0)
+
+      expect(handler).toHaveBeenCalledWith(
+        expect.objectContaining({
+          reason: 'public',
+          pathAfter: path.join(linked, 'public')
+        })
+      )
+
+      unbindDevSessionRestart()
+    }
+  }, 180000)
 })

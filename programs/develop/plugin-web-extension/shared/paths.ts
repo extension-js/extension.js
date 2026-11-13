@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {FilepathList} from '../../types'
+import {isOsPathUnder} from '../../lib/real-path'
 
 export function isFromFilepathList(
   filePath: string,
@@ -62,7 +63,7 @@ export function resolveRootAbsoluteRef(
 ): string | undefined {
   if (!ref || !ref.startsWith('/')) return undefined
   // On POSIX a real filesystem path is also "/"-prefixed; those are not refs.
-  if (projectRoot && ref.startsWith(projectRoot)) return undefined
+  if (projectRoot && isOsPathUnder(projectRoot, ref)) return undefined
   if (ref.startsWith('//')) return undefined // protocol-relative URL
 
   const trimmed = ref.replace(/^\/+/, '')

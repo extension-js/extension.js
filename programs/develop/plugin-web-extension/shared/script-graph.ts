@@ -18,6 +18,7 @@ import {
   getUserJsConfigFile,
   getUserTypeScriptConfigFile
 } from '../../plugin-js-frameworks/js-tools/typescript'
+import {isInsidePath} from '../../lib/real-path'
 
 const SCRIPT_SRC_PATTERN = /<script[^>]*\ssrc\s*=\s*["']([^"']+)["']/gi
 
@@ -433,13 +434,7 @@ function installedPackageFile(
 }
 
 function isInsideDir(file: string, dir: string): boolean {
-  const relative = path.relative(dir, file)
-
-  return (
-    relative.length > 0 &&
-    !relative.startsWith('..') &&
-    !path.isAbsolute(relative)
-  )
+  return isInsidePath(dir, file)
 }
 
 // Resolves a specifier the way the build does, through the bundler's own

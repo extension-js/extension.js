@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {inspectPublicFolders} from '../../plugin-special-folders/resolve-public-folder'
+import {isInsidePath, isOsPathUnder} from '../../lib/real-path'
 
 export interface ResolvedJsonResource {
   abs: string
@@ -19,9 +20,7 @@ export interface ResolvedJsonResource {
 }
 
 function isInsideDir(abs: string, dir: string): boolean {
-  const rel = path.relative(dir, abs)
-
-  return Boolean(rel && !rel.startsWith('..') && !path.isAbsolute(rel))
+  return isInsidePath(dir, abs)
 }
 
 function firstExisting(candidates: string[]): string | undefined {
@@ -56,7 +55,7 @@ export function resolveJsonResource(
   const looksLikeRootRef =
     rawRef.startsWith('/') &&
     !rawRef.startsWith('//') &&
-    !(projectPath && rawRef.startsWith(projectPath))
+    !(projectPath && isOsPathUnder(projectPath, rawRef))
   // `/rules.json` is the public-root spelling. `/abs/path/file.json` is an
   // already-resolved OS path and must not pick up the public/ hint.
   const isPublicRoot =

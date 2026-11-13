@@ -23,6 +23,7 @@ import {
   rememberSpecialFoldersConfig
 } from './folders-config'
 import * as messages from './messages'
+import {isInsidePath} from '../lib/real-path'
 
 export {rememberSpecialFoldersConfig}
 
@@ -411,9 +412,8 @@ function isUnderPublicDir(
   const candidate = path.isAbsolute(normalizedEntry)
     ? normalizedEntry
     : path.join(projectRoot, normalizedEntry)
-  const rel = path.relative(publicDir, candidate)
 
-  return Boolean(rel && !rel.startsWith('..') && !path.isAbsolute(rel))
+  return isInsidePath(publicDir, candidate)
 }
 
 function filterPublicEntrypoints(
