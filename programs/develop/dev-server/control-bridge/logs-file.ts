@@ -29,6 +29,47 @@ const DEFAULTS = {
   maxQueue: 20_000
 }
 
+const HEADER_PROBE_BYTES = 1024
+
+// The run id in the header a session wrote when it took the file.
+export function readLogFileRunId(filePath: string): string | undefined {
+  let fd: number | undefined
+
+  try {
+    fd = fs.openSync(filePath, 'r')
+
+    const buffer = Buffer.alloc(HEADER_PROBE_BYTES)
+    const read = fs.readSync(fd, buffer, 0, HEADER_PROBE_BYTES, 0)
+    const firstLine = buffer.toString('utf-8', 0, read).split(/\r?\n/)[0]
+    const header = JSON.parse(firstLine)
+
+    return header?.type === 'header' && typeof header.runId === 'string'
+      ? header.runId
+      : undefined
+  } catch {
+    return undefined
+  } finally {
+    if (fd !== undefined) {
+      try {
+        fs.closeSync(fd)
+      } catch {
+        // Ignore
+      }
+    }
+  }
+}
+
+// A session that exits late must not append to the file a newer run took,
+// the same rule ready.json writes follow.
+export function isLogFileOwnedByAnotherRun(
+  filePath: string,
+  runId: string
+): boolean {
+  const owner = readLogFileRunId(filePath)
+
+  return owner !== undefined && owner !== '' && owner !== runId
+}
+
 export class LogsFileWriter {
   private readonly opts: Required<LogsFileOptions>
   private queue: string[] = []
@@ -83,6 +124,14 @@ export class LogsFileWriter {
 
     const batch = this.queue
     this.queue = []
+
+    // Another run owns the file now, so these rows have no place in it.
+    if (isLogFileOwnedByAnotherRun(this.opts.filePath, this.opts.runId)) {
+      this.droppedToDisk = 0
+
+      return
+    }
+
     const payload = `${batch.join('\n')}\n`
 
     try {
@@ -117,6 +166,8 @@ export class LogsFileWriter {
 
     const dropped = this.droppedToDisk
     this.droppedToDisk = 0
+
+    if (isLogFileOwnedByAnotherRun(this.opts.filePath, this.opts.runId)) return
 
     try {
       const sentinel = `${JSON.stringify({

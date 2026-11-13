@@ -1,0 +1,110 @@
+// ███████╗ ██████╗██████╗ ██╗██████╗ ████████╗███████╗
+// ██╔════╝██╔════╝██╔══██╗██║██╔══██╗╚══██╔══╝██╔════╝
+// ███████╗██║     ██████╔╝██║██████╔╝   ██║   ███████╗
+// ╚════██║██║     ██╔══██╗██║██╔═══╝    ██║   ╚════██║
+// ███████║╚██████╗██║  ██║██║██║        ██║   ███████║
+// ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
+
+import * as path from 'node:path'
+import {Compilation, type Compiler} from '@rspack/core'
+import {prependToEmittedAsset} from '../../../lib/asset-source-maps'
+import {isGeckoBasedBrowser} from '../../../lib/constants'
+import type {DevOptions, FilepathList, PluginInterface} from '../../../types'
+import {getCanonicalContentScriptEntryName} from '../contracts'
+import {findRuntimeMainWorldEntries} from '../scripts-lib/runtime-main-world-scripts'
+import {
+  closeTakeBlock,
+  isEntryFile,
+  takesExtensionBase
+} from '../scripts-lib/taken-extension-base'
+import {getMainWorldBridgePairs} from './add-content-script-wrapper/get-bridge-scripts'
+
+const HOT_UPDATE = /\.hot-update\./i
+
+function parsesAsScript(text: string): boolean {
+  try {
+    // eslint-disable-next-line no-new-func
+    new Function(text)
+
+    return true
+  } catch {
+    return false
+  }
+}
+
+// On Firefox the bridge answers the extension base to the first statement
+// of a MAIN world file, so each such file opens on the read that takes it.
+export class TakeExtensionBase {
+  public static readonly name: string = 'scripts:take-extension-base'
+
+  private readonly manifestPath: string
+  private readonly browser: DevOptions['browser']
+  private readonly includeList: FilepathList
+  private readonly pageList?: FilepathList
+
+  constructor(options: PluginInterface) {
+    this.manifestPath = options.manifestPath
+    this.browser = options.browser || 'chrome'
+    this.includeList = options.includeList || {}
+    this.pageList = options.pageList
+  }
+
+  public apply(compiler: Compiler): void {
+    // Chromium names the extension on a MAIN world stack and Safari has no
+    // page window to publish on, so their files ship as they were built.
+    if (!isGeckoBasedBrowser(String(this.browser))) return
+    if (!compiler?.hooks?.thisCompilation?.tap) return
+
+    const manifestDir = path.dirname(this.manifestPath)
+    const projectPath = (compiler.options.context as string) || manifestDir
+    // A session picks each file's world as it starts, as its wrapper does.
+    const entries = [
+      ...getMainWorldBridgePairs(this.manifestPath, this.browser).map(
+        ({mainIndex}) => getCanonicalContentScriptEntryName(mainIndex)
+      ),
+      ...findRuntimeMainWorldEntries({
+        includeList: this.includeList,
+        pageList: this.pageList,
+        manifestDir,
+        projectPath
+      }).map(({entryName}) => entryName)
+    ]
+    if (entries.length === 0) return
+
+    compiler.hooks.thisCompilation.tap(
+      TakeExtensionBase.name,
+      (compilation) => {
+        compilation.hooks.processAssets.tap(
+          {
+            name: TakeExtensionBase.name,
+            // After the completion value block, so the read stays first.
+            stage: Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE + 200
+          },
+          () => {
+            for (const asset of compilation.getAssets()) {
+              if (HOT_UPDATE.test(asset.name)) continue
+
+              if (!entries.some((entry) => isEntryFile(asset.name, entry))) {
+                continue
+              }
+
+              const text = asset.source.source().toString()
+              if (takesExtensionBase(text)) continue
+
+              const {open, closed} = closeTakeBlock(text)
+              // A module file cannot sit in a block, so it stays as built.
+              if (!parsesAsScript(`${open}${closed}`)) continue
+
+              prependToEmittedAsset(
+                compilation,
+                {name: asset.name, source: {source: () => closed}},
+                open
+              )
+            }
+          }
+        )
+      }
+    )
+  }
+}

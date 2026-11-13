@@ -177,4 +177,30 @@ describe('dead url() in a content-script stylesheet', () => {
       [...inlined, ...emitted].every((rule) => rule.parser === undefined)
     ).toBe(true)
   })
+
+  it('writes the module a Gecko MAIN world file reads the taken base in, only when told to', () => {
+    const projectPath = createProject()
+    const resourcePath = path.join(projectPath, 'content', 'styles.css')
+    const run = (gecko?: boolean) =>
+      String(
+        deadCssUrlLoader.call(
+          {
+            resourcePath,
+            getOptions: () => ({
+              manifestPath: path.join(projectPath, 'manifest.json'),
+              projectPath,
+              ...(gecko === undefined ? {} : {gecko})
+            }),
+            emitWarning() {},
+            emitError() {},
+            _compilation: {warnings: [], errors: []}
+          } as never,
+          '.a{color:red}'
+        )
+      )
+
+    expect(run(true)).toContain('__extjsTakenBase')
+    expect(run(false)).not.toContain('__extjsTakenBase')
+    expect(run()).toBe(run(false))
+  })
 })

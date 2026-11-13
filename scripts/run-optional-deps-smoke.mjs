@@ -245,6 +245,89 @@ function run(command, args, cwd, env = baseEnv) {
   }
 }
 
+// A registry throttle or a dropped connection, never a resolution error.
+const TRANSIENT_REGISTRY_PATTERNS = [
+  /\bHTTP 429\b/i,
+  /\b429 Too Many Requests\b/i,
+  /\bE429\b/,
+  /\bstatus(?: code)?[ :=]+429\b/i,
+  /\bECONNRESET\b/,
+  /\bsocket hang up\b/i,
+  /\bconnection reset\b/i
+]
+
+const INSTALL_RETRY_DELAYS_MS = [2000, 5000, 10000]
+
+function isTransientRegistryFailure(output) {
+  const text = String(output || '')
+
+  return TRANSIENT_REGISTRY_PATTERNS.some((pattern) => pattern.test(text))
+}
+
+function sleepSync(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
+}
+
+// runOnce returns {status, output}. Only a failure whose output names a
+// throttle or a reset runs again, so a real install error fails at once.
+function runWithRegistryRetries(
+  runOnce,
+  {delays = INSTALL_RETRY_DELAYS_MS, sleep = sleepSync, log = console.warn} = {}
+) {
+  for (let attempt = 0; ; attempt += 1) {
+    const result = runOnce()
+    const delay = delays[attempt]
+
+    if (
+      result.status === 0 ||
+      delay === undefined ||
+      !isTransientRegistryFailure(result.output)
+    ) {
+      return result
+    }
+
+    log(
+      `\nRegistry throttle or network reset during install, retry ${attempt + 1} of ${delays.length} in ${delay}ms.`
+    )
+
+    sleep(delay)
+  }
+}
+
+// Install output is captured so a retry can read it, then echoed in full.
+function runInstall(command, args, cwd, env = baseEnv) {
+  const resolvedCommand = commandFor(command)
+  const rendered = [resolvedCommand, ...args].join(' ')
+  console.log(`\n$ (${cwd}) ${rendered}`)
+
+  const result = runWithRegistryRetries(() => {
+    const child = spawnSync(resolvedCommand, args, {
+      cwd,
+      env,
+      stdio: ['inherit', 'pipe', 'pipe'],
+      encoding: 'utf8',
+      maxBuffer: 256 * 1024 * 1024,
+      shell: process.platform === 'win32'
+    })
+
+    if (child.error) throw child.error
+
+    const stdout = String(child.stdout || '')
+    const stderr = String(child.stderr || '')
+
+    process.stdout.write(stdout)
+    process.stderr.write(stderr)
+
+    return {status: child.status, output: `${stdout}\n${stderr}`}
+  })
+
+  if (result.status !== 0) {
+    throw new Error(
+      `Command failed with exit code ${result.status}: ${rendered}`
+    )
+  }
+}
+
 function runLong(command, args, cwd, env = baseEnv, opts = {}) {
   const resolvedCommand = commandFor(command)
 
@@ -763,9 +846,19 @@ async function resolveConsumerSourceDir(tempRoot) {
   return {sourceDir: fallbackFixture, sourceName: 'generated fallback fixture'}
 }
 
+// Corepack serves yarn, and with no packageManager field it asks the registry
+// for the latest version on a cold runner. The hash is corepack's own.
+const SMOKE_PACKAGE_MANAGER_PINS = {
+  yarn: 'yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e'
+}
+
 async function rewriteConsumerPackageJson(workdir, pm, packedTarballs = null) {
   const packageJsonPath = path.join(workdir, 'package.json')
   const packageJson = JSON.parse(await fs.readFile(packageJsonPath, 'utf8'))
+
+  if (SMOKE_PACKAGE_MANAGER_PINS[pm]) {
+    packageJson.packageManager = SMOKE_PACKAGE_MANAGER_PINS[pm]
+  }
 
   const {
     extension: extensionPath,
@@ -862,7 +955,7 @@ function installAndBuild(workdir, pm) {
 
   if (pm === 'pnpm') {
     const lockfilePath = path.join(workdir, 'pnpm-lock.yaml')
-    run(
+    runInstall(
       'pnpm',
       [
         'install',
@@ -874,7 +967,7 @@ function installAndBuild(workdir, pm) {
       smokeEnv
     )
 
-    run(
+    runInstall(
       'pnpm',
       ['install', '--frozen-lockfile', '--ignore-workspace'],
       workdir,
@@ -889,7 +982,7 @@ function installAndBuild(workdir, pm) {
       throw new Error('pnpm build mutated pnpm-lock.yaml after initial install')
     }
 
-    run(
+    runInstall(
       'pnpm',
       ['install', '--frozen-lockfile', '--ignore-workspace'],
       workdir,
@@ -911,7 +1004,7 @@ function installAndBuild(workdir, pm) {
   }
 
   if (pm === 'npm') {
-    run('npm', ['install', '--no-audit', '--no-fund'], workdir, smokeEnv)
+    runInstall('npm', ['install', '--no-audit', '--no-fund'], workdir, smokeEnv)
 
     if (shouldUseDirectLocalCli(pm)) {
       runExtensionCli(['build'], workdir, smokeEnv, pm, 'npm build')
@@ -924,9 +1017,9 @@ function installAndBuild(workdir, pm) {
 
   if (pm === 'yarn') {
     try {
-      run('yarn', ['install', '--immutable'], workdir, smokeEnv)
+      runInstall('yarn', ['install', '--immutable'], workdir, smokeEnv)
     } catch {
-      run('yarn', ['install'], workdir, smokeEnv)
+      runInstall('yarn', ['install'], workdir, smokeEnv)
     }
 
     run('yarn', ['build:production'], workdir, smokeEnv)
@@ -936,9 +1029,9 @@ function installAndBuild(workdir, pm) {
 
   if (pm === 'bun') {
     try {
-      run('bun', ['install', '--frozen-lockfile'], workdir, smokeEnv)
+      runInstall('bun', ['install', '--frozen-lockfile'], workdir, smokeEnv)
     } catch {
-      run('bun', ['install'], workdir, smokeEnv)
+      runInstall('bun', ['install'], workdir, smokeEnv)
     }
 
     run('bun', ['run', 'build:production'], workdir, smokeEnv)
@@ -981,7 +1074,7 @@ function installAndBuild(workdir, pm) {
       `${JSON.stringify(denoManifest, null, 2)}\n`
     )
 
-    run('deno', ['install'], workdir, smokeEnv)
+    runInstall('deno', ['install'], workdir, smokeEnv)
     run('deno', ['task', 'build:production'], workdir, smokeEnv)
   }
 }
@@ -1246,7 +1339,7 @@ async function main() {
       // npm is the package manager used inside the fixture (it ships an
       // npm-style lockfile); the outer matrix's `packageManager` is independent.
       await rewriteConsumerPackageJson(reactDevDir, 'npm')
-      run('npm', ['install', '--no-audit', '--no-fund'], reactDevDir, {
+      runInstall('npm', ['install', '--no-audit', '--no-fund'], reactDevDir, {
         ...buildSmokeEnv('npm'),
         EXTENSION_JS_CACHE_DIR: path.join(reactDevDir, '.extensionjs-cache')
       })
@@ -1297,9 +1390,11 @@ export {
   fileSpecifier,
   getLocalWorkspacePackagePaths,
   getPackedDependencyNames,
+  isTransientRegistryFailure,
   removeDirectoryWithRetries,
   resolveSmokeTempRootParent,
   rewriteConsumerPackageJson,
+  runWithRegistryRetries,
   shouldPinPackedResolutions,
   shouldUsePackedExtensionForSmoke,
   shouldRetryCleanupError,

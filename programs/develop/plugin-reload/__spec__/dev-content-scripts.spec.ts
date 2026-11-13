@@ -276,6 +276,15 @@ describe('planDevContentScripts', () => {
 
 type Registration = Record<string, unknown> & {id: string}
 
+// What a frame's own clock says about when its document was committed.
+function committedAt(epochMs: number, responseStart = 0) {
+  return {
+    timeOrigin: epochMs - responseStart,
+    getEntriesByType: (type: string) =>
+      type === 'navigation' ? [{responseStart}] : []
+  }
+}
+
 function worker(opts: {
   registry?: unknown
   registered?: Registration[]
@@ -301,8 +310,12 @@ function worker(opts: {
   }))
   const worlds: Record<string, any> = opts.worlds || {}
 
+  // A frame Chromium injected by itself committed after the registration.
   for (const [frameId, marker] of Object.entries(opts.markers || {})) {
-    worlds[frameId] = {[DEV_CONTENT_SCRIPT_MARKER_KEY]: {...marker}}
+    worlds[frameId] = {
+      [DEV_CONTENT_SCRIPT_MARKER_KEY]: {...marker},
+      performance: committedAt(Date.now() + 60_000)
+    }
   }
 
   const worldOf = (frameId: number) => {
@@ -804,6 +817,79 @@ describe('dev content scripts runtime', () => {
     await w.settle()
     expect(fileInjections(w.calls)).toEqual([])
     expect(w.calls.insertCSS).toEqual([])
+  })
+
+  it('a frame that committed before the registration and ran the registered script still gets its stylesheet, once', async () => {
+    const bundle = 'content_scripts/content-0.NEW.js'
+    const worlds: Record<string, any> = {
+      '0': {
+        [DEV_CONTENT_SCRIPT_MARKER_KEY]: {'content_scripts/content-0': bundle},
+        performance: committedAt(Date.now() - 400, 80)
+      }
+    }
+    const w = worker({registry, worlds})
+    await w.settle()
+
+    w.stub('content_scripts/content-0', 7, 0)
+    await w.settle()
+    expect(w.calls.insertCSS).toEqual([
+      {
+        target: {tabId: 7, frameIds: [0]},
+        files: ['content_scripts/content-0.NEW.css']
+      }
+    ])
+
+    expect(fileInjections(w.calls)).toEqual([])
+
+    w.stub('content_scripts/content-0', 7, 0)
+    await w.settle()
+    expect(w.calls.insertCSS).toHaveLength(1)
+  })
+
+  it('a covered frame whose commit time cannot be read gets the stylesheet rather than none', async () => {
+    const worlds: Record<string, any> = {
+      '0': {
+        [DEV_CONTENT_SCRIPT_MARKER_KEY]: {
+          'content_scripts/content-0': 'content_scripts/content-0.NEW.js'
+        }
+      }
+    }
+    const w = worker({registry, worlds})
+    await w.settle()
+
+    w.stub('content_scripts/content-0', 7, 0)
+    await w.settle()
+    expect(w.calls.insertCSS).toHaveLength(1)
+    expect(fileInjections(w.calls)).toEqual([])
+  })
+
+  it('a covered frame is given no second stylesheet by a worker that found the entry already registered', async () => {
+    const worlds: Record<string, any> = {
+      '0': {
+        [DEV_CONTENT_SCRIPT_MARKER_KEY]: {
+          'content_scripts/content-0': 'content_scripts/content-0.NEW.js'
+        },
+        performance: committedAt(Date.now() - 400)
+      }
+    }
+    const w = worker({
+      registry,
+      worlds,
+      registered: [
+        {
+          id: 'extjs-dev-cs-0',
+          matches: ['https://a.test/*'],
+          js: ['content_scripts/content-0.NEW.js'],
+          css: ['content_scripts/content-0.NEW.css']
+        } as Registration
+      ]
+    })
+    await w.settle()
+
+    w.stub('content_scripts/content-0', 7, 0)
+    await w.settle()
+    expect(w.calls.insertCSS).toEqual([])
+    expect(fileInjections(w.calls)).toEqual([])
   })
 
   it('a CSS-only entry lands its stylesheet once per frame per load and a heal in the same generation adds nothing', async () => {

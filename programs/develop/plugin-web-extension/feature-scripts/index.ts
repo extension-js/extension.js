@@ -19,8 +19,10 @@ import {CompileMainWorldScripts} from './steps/compile-main-world-scripts'
 import {KeepCompletionValue} from './steps/keep-completion-value'
 import {KeepGetURLImportsNative} from './steps/keep-geturl-imports-native'
 import {PairRuntimeMainWorldBridges} from './steps/pair-runtime-main-world-bridges'
+import {PlaceRuntimeScriptSheets} from './steps/place-runtime-script-sheets'
 import {PruneMainWorldBridges} from './steps/prune-main-world-bridges'
 import {StampWebkitUtf8Bom} from './steps/stamp-webkit-utf8-bom'
+import {TakeExtensionBase} from './steps/take-extension-base'
 import {TraceRuntimeLoadedFiles} from './steps/trace-runtime-loaded-files'
 import {ValidateEmittedScriptSyntax} from './steps/validate-emitted-script-syntax'
 import {WarnMainWorldRegistrationChanged} from './steps/warn-main-world-registration-changed'
@@ -83,6 +85,22 @@ export class ScriptsPlugin {
     // value a file ends on, so a scripts/ file is closed on that value.
     new KeepCompletionValue().apply(compiler)
 
+    // The author's own call names the script alone, so the sheet of the CSS
+    // modules a scripts/ file imports is carried by the file itself.
+    new PlaceRuntimeScriptSheets({
+      includeList: this.includeList || {},
+      browser: this.browser
+    }).apply(compiler)
+
+    // On Firefox the bridge answers the extension base to the first
+    // statement of a MAIN world file, the one read no page script can stage.
+    new TakeExtensionBase({
+      manifestPath: this.manifestPath,
+      includeList: this.includeList || {},
+      pageList: this.pageList,
+      browser: this.browser
+    }).apply(compiler)
+
     // Firefox cannot name the extension from a MAIN world stack, so a file
     // registered there at runtime is paired with the bridge that publishes it.
     new PairRuntimeMainWorldBridges({
@@ -116,7 +134,7 @@ export class ScriptsPlugin {
     }).apply(compiler)
 
     if (compiler.options.mode === 'production') {
-      new AddPublicPathRuntimeModule().apply(compiler)
+      new AddPublicPathRuntimeModule({browser: this.browser}).apply(compiler)
     }
 
     // Every mode: a worker entry that builds a URL from the base must not

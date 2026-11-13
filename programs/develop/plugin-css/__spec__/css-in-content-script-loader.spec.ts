@@ -50,6 +50,34 @@ describe('cssInContentScriptLoader', () => {
     }
   })
 
+  it('tells the inlining loader of a Gecko build, and of no other', async () => {
+    const options = async (browser?: 'chrome' | 'firefox' | 'safari') =>
+      (
+        await cssInContentScriptLoader(
+          '/project',
+          '/project/manifest.json',
+          'production',
+          {},
+          browser
+        )
+      )
+        .flatMap((rule: any) => rule.use as any[])
+        .filter((use: any) => String(use.loader).includes('dead-css-url'))
+        .map((use: any) => use.options)
+
+    const gecko = await options('firefox')
+
+    expect(gecko.length).toBeGreaterThan(0)
+    expect(gecko.every((option) => option.gecko === true)).toBe(true)
+
+    for (const browser of [undefined, 'chrome', 'safari'] as const) {
+      const other = await options(browser)
+
+      expect(other).toHaveLength(gecko.length)
+      expect(other.every((option) => !('gecko' in option))).toBe(true)
+    }
+  })
+
   it('still routes .scss/.less as CSS when the preprocessor is not installed (G23)', async () => {
     const rules = await cssInContentScriptLoader(
       '/project',

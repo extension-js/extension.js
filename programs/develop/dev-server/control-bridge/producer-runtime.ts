@@ -1473,6 +1473,181 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       });
     }
 
+    // Gecko keeps a declared content script stylesheet by its address, for
+    // open tabs and for later navigations, until the extension reloads.
+    var SHEET_OVERRIDES_KEY = "__extjsDevSheetOverrides";
+    var SHEET_SESSION_KEY = "__extjsDevSheetSession";
+    var SHEET_SIGNAL = "__extjsDevSheets";
+    var sheetSessionChecked = false;
+    var sheetSessionWaiters = [];
+
+    function sheetAddress(file, digest) {
+      return file + "?v=" + String(digest).slice(0, 16);
+    }
+
+    // Gecko's getManifest names each content script file by its full address.
+    function declaredFileName(value) {
+      var name = String(value || "");
+      var base = "";
+      try { base = String(g.chrome.runtime.getURL("")); } catch (e) {
+        // Ignore
+      }
+      if (base && name.indexOf(base) === 0) name = name.slice(base.length);
+      return scriptFileName(name);
+    }
+
+    function declaredEntriesNaming(file) {
+      var out = [];
+      var entries = [];
+      try { entries = g.chrome.runtime.getManifest().content_scripts || []; } catch (e) {
+        // Ignore
+      }
+      var wanted = scriptFileName(file);
+      for (var i = 0; i < entries.length; i++) {
+        var css = stringList(entries[i] && entries[i].css);
+        for (var c = 0; c < css.length; c++) {
+          if (declaredFileName(css[c]) === wanted) { out.push(entries[i]); break; }
+        }
+      }
+      return out;
+    }
+
+    // Removing a file by its declared address drops the manifest's own copy
+    // from the frame. The same bytes under a new address are read from disk.
+    function swapDeclaredSheet(target, file, previousDigest, digest) {
+      var chrome = g.chrome;
+      var insert = function () {
+        noopLastError();
+        try { chrome.scripting.insertCSS({target: target, files: [sheetAddress(file, digest)]}, noopLastError); } catch (e) {
+          // Ignore
+        }
+      };
+      var dropPrevious = function () {
+        noopLastError();
+        if (!previousDigest || previousDigest === digest) return insert();
+        try { chrome.scripting.removeCSS({target: target, files: [sheetAddress(file, previousDigest)]}, insert); } catch (e) { insert(); }
+      };
+      try { chrome.scripting.removeCSS({target: target, files: [file]}, dropPrevious); } catch (e) { dropPrevious(); }
+    }
+
+    function canSwapDeclaredSheets() {
+      var chrome = g.chrome;
+      return !!(
+        engineName() === "firefox" && chrome && chrome.scripting && chrome.scripting.insertCSS &&
+        chrome.scripting.removeCSS && chrome.tabs && chrome.tabs.query && chrome.storage &&
+        chrome.storage.local && chrome.storage.session
+      );
+    }
+
+    // The overrides belong to one load of the extension: a reload reads every
+    // declared file again, and session storage is what a reload empties.
+    function checkSheetSession() {
+      var chrome = g.chrome;
+      var done = function () {
+        sheetSessionChecked = true;
+        var fns = sheetSessionWaiters;
+        sheetSessionWaiters = [];
+        for (var i = 0; i < fns.length; i++) { try { fns[i](); } catch (e) {
+          // Ignore
+        } }
+      };
+      if (!canSwapDeclaredSheets()) return done();
+      try {
+        chrome.storage.session.get(SHEET_SESSION_KEY, function (res) {
+          noopLastError();
+          if (res && res[SHEET_SESSION_KEY]) return done();
+          var mark = {};
+          mark[SHEET_SESSION_KEY] = Date.now();
+          try { chrome.storage.session.set(mark, noopLastError); } catch (e) {
+            // Ignore
+          }
+          try { chrome.storage.local.remove(SHEET_OVERRIDES_KEY, function () { noopLastError(); done(); }); } catch (e) { done(); }
+        });
+      } catch (e) { done(); }
+    }
+
+    function withSheetOverrides(cb) {
+      var read = function () {
+        try {
+          g.chrome.storage.local.get(SHEET_OVERRIDES_KEY, function (res) {
+            noopLastError();
+            var map = res && res[SHEET_OVERRIDES_KEY];
+            cb(map && typeof map === "object" ? map : {});
+          });
+        } catch (e) { cb({}); }
+      };
+      if (sheetSessionChecked) read(); else sheetSessionWaiters.push(read);
+    }
+
+    // Answers false when only a reload delivers the edit: no API for the swap,
+    // or an entry with no script to ask for it again on a later navigation.
+    function refreshDeclaredSheets(sheets, cb) {
+      var chrome = g.chrome;
+      if (!Array.isArray(sheets) || !sheets.length || !canSwapDeclaredSheets()) return cb(false);
+      var jobs = [];
+      for (var i = 0; i < sheets.length; i++) {
+        var sheet = sheets[i];
+        if (!sheet || typeof sheet.file !== "string" || typeof sheet.digest !== "string") return cb(false);
+        var entries = declaredEntriesNaming(sheet.file);
+        for (var e = 0; e < entries.length; e++) {
+          if (!stringList(entries[e].js).length) return cb(false);
+          jobs.push({sheet: sheet, entry: entries[e]});
+        }
+      }
+      if (!jobs.length) return cb(false);
+      withSheetOverrides(function (previous) {
+        var next = {};
+        for (var key in previous) next[key] = previous[key];
+        for (var s = 0; s < sheets.length; s++) next[scriptFileName(sheets[s].file)] = sheets[s].digest;
+        var rec = {};
+        rec[SHEET_OVERRIDES_KEY] = next;
+        try { chrome.storage.local.set(rec, noopLastError); } catch (e) {
+          // Ignore
+        }
+        for (var j = 0; j < jobs.length; j++) {
+          (function (job) {
+            var file = scriptFileName(job.sheet.file);
+            tabIdsForRegistrations(
+              [{matches: stringList(job.entry.matches), excludeMatches: stringList(job.entry.exclude_matches)}],
+              function (tabIds) {
+                for (var t = 0; t < tabIds.length; t++) {
+                  swapDeclaredSheet({tabId: tabIds[t], allFrames: job.entry.all_frames === true}, file, previous[file], job.sheet.digest);
+                }
+              }
+            );
+          })(jobs[j]);
+        }
+        cb(true);
+      });
+    }
+
+    // A document loaded after a swap starts on the declared copy again, and
+    // its content script says so. Only a frame the entry matches is corrected.
+    function correctSheetsFor(sender) {
+      if (!sender || !sender.tab || sender.tab.id == null || !canSwapDeclaredSheets()) return;
+      var tabId = sender.tab.id;
+      var frameId = typeof sender.frameId === "number" ? sender.frameId : 0;
+      withSheetOverrides(function (overrides) {
+        for (var file in overrides) {
+          (function (file, digest) {
+            var entries = declaredEntriesNaming(file);
+            for (var i = 0; i < entries.length; i++) {
+              (function (entry) {
+                if (frameId !== 0 && entry.all_frames !== true) return;
+                tabIdsForRegistrations(
+                  [{matches: stringList(entry.matches), excludeMatches: stringList(entry.exclude_matches)}],
+                  function (tabIds) {
+                    if (tabIds.indexOf(tabId) === -1) return;
+                    swapDeclaredSheet({tabId: tabId, frameIds: [frameId]}, file, null, digest);
+                  }
+                );
+              })(entries[i]);
+            }
+          })(file, overrides[file]);
+        }
+      });
+    }
+
     function handleDevReloadFrame(frame) {
       var kind = frame.reloadType || "full";
       var label = typeof frame.label === "string" ? frame.label : "";
@@ -1501,7 +1676,13 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
         if (restarting || kind === "page") return;
 
         announceReloadInTabs(announced);
-        performDevReload(kind, function () {}, frame);
+        if (!Array.isArray(frame.refreshedStylesheets) || !frame.refreshedStylesheets.length) {
+          return performDevReload(kind, function () {}, frame);
+        }
+        // A sheet-only edit: swap it where the browser can, reload otherwise.
+        refreshDeclaredSheets(frame.refreshedStylesheets, function (swapped) {
+          if (!swapped) restartExtension(150);
+        });
       });
     }
 
@@ -1999,6 +2180,20 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       // Ignore
     }
 
+    try { checkSheetSession(); } catch (e) {
+      sheetSessionChecked = true;
+    }
+
+    try {
+      if (engineName() === "firefox" && g.chrome && g.chrome.runtime && g.chrome.runtime.onMessage) {
+        g.chrome.runtime.onMessage.addListener(function (msg, sender) {
+          if (msg && msg[SHEET_SIGNAL]) correctSheetsFor(sender);
+        });
+      }
+    } catch (e) {
+      // Ignore
+    }
+
     // Chromium 146 fires no onInstalled on runtime.reload() while 151 reports
     // an "update": the pre-reload storage flag (fresh only) covers the former.
     try {
@@ -2041,6 +2236,31 @@ export const BRIDGE_RELAY_SOURCE = `;(function () {
     var canRelay = typeof chrome.runtime.connect === "function";
 
     g.__extjsBridgeRelayInstalled = true;
+
+    // Gecko applies a declared stylesheet from a copy it keeps by address. Once
+    // the dev session swapped one, a new document asks for the same correction.
+    try {
+      if (CONTEXT === "content" && chrome.storage && chrome.storage.local && /^moz-extension:/.test(String(chrome.runtime.getURL("")))) {
+        chrome.storage.local.get("__extjsDevSheetOverrides", function (res) {
+          try {
+            void chrome.runtime.lastError;
+            var overrides = res && res.__extjsDevSheetOverrides;
+            if (!overrides || typeof overrides !== "object") return;
+            for (var file in overrides) {
+              chrome.runtime.sendMessage({__extjsDevSheets: 1}, function () { try { void chrome.runtime.lastError; } catch (e) {
+                // Ignore
+              } });
+              return;
+            }
+          } catch (e) {
+            // Ignore
+          }
+        });
+      }
+    } catch (e) {
+      // Ignore
+    }
+
     var consoleRef = g.console || {};
     var LEVELS = ["log", "info", "warn", "error", "debug", "trace"];
     // Same filter as the producer: HMR chatter is not the page's output.
