@@ -1148,7 +1148,7 @@ export function registerActCommands(program: Command): void {
       .description(commandDescriptions.eval)
       .option(
         '--context <background|popup|options|sidebar|devtools|newtab|history|bookmarks|content|page>',
-        'target context (default background). Extension pages (popup/options/sidebar/devtools/newtab/history/bookmarks) must be open. Chromium answers through their own in-page relay, Firefox through the debugger protocol, where the extension CSP cannot block eval'
+        'target context (default background). Extension pages (popup/options/sidebar/devtools/newtab/history/bookmarks) must be open. Chromium answers through their own in-page relay, Firefox through the debugger protocol, where the extension CSP cannot block eval. The devtools page is open only while DevTools is open on a tab. The value crosses as JSON, so a function or undefined prints as undefined (null with --output json), and a circular object arrives degraded or is refused'
       )
       .option(
         '--url <glob|substring>',
