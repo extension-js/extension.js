@@ -2,8 +2,12 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {toResourceKey} from '../../lib/resource-path'
 import {findDeclaredContentScriptFiles} from '../index'
-import unplacedStyleImportLoader from '../unplaced-style-import-loader'
+import unplacedStyleImportLoader, {
+  comparablePathKey,
+  isDeclaredEntry
+} from '../unplaced-style-import-loader'
 
 // eslint-disable-next-line no-control-regex
 const ANSI = /\u001b\[[0-9;]*m/g
@@ -183,6 +187,78 @@ describe('unplaced-style-import-loader', () => {
   })
 })
 
+describe('isDeclaredEntry', () => {
+  const declared = ['C:\\proj\\src\\content\\scripts.js']
+
+  it('matches one Windows file through every spelling of its path', () => {
+    for (const spelling of [
+      'C:\\proj\\src\\content\\scripts.js',
+      'c:\\proj\\src\\content\\scripts.js',
+      'C:/proj/src/content/scripts.js',
+      'c:/proj/src/content/scripts.js',
+      'C:\\proj\\src\\content\\..\\content\\scripts.js'
+    ]) {
+      expect(isDeclaredEntry(spelling, declared, 'win32'), spelling).toBe(true)
+    }
+
+    expect(
+      isDeclaredEntry('c:/proj/src/content/scripts.js', declared, 'win32')
+    ).toBe(true)
+
+    expect(
+      isDeclaredEntry(
+        'C:\\proj\\src\\content\\scripts.js',
+        ['c:/proj/src/content/scripts.js'],
+        'win32'
+      )
+    ).toBe(true)
+  })
+
+  it('keeps two Windows files apart', () => {
+    expect(
+      isDeclaredEntry('C:\\proj\\src\\content\\other.js', declared, 'win32')
+    ).toBe(false)
+
+    expect(
+      isDeclaredEntry('D:\\proj\\src\\content\\scripts.js', declared, 'win32')
+    ).toBe(false)
+  })
+
+  it('compares a path as written on other platforms', () => {
+    expect(isDeclaredEntry('/proj/a.js', ['/proj/a.js'], 'linux')).toBe(true)
+    expect(isDeclaredEntry('/proj/A.js', ['/proj/a.js'], 'linux')).toBe(false)
+    expect(comparablePathKey('/proj/a\\b.js', 'darwin')).toBe('/proj/a\\b.js')
+    expect(comparablePathKey('c:/proj/a.js', 'win32')).toBe('C:\\proj\\a.js')
+  })
+
+  it('recognizes a declared entry handed over in another spelling of this platform', () => {
+    const root = project({
+      'content/scripts.js': "import './styles.css'\n",
+      'content/styles.css': '.a { color: red }\n'
+    })
+    const warnings: Error[] = []
+
+    unplacedStyleImportLoader.call(
+      {
+        resourcePath: path.join(root, 'content', 'scripts.js'),
+        rootContext: root,
+        getOptions: () => ({
+          projectPath: root,
+          // A dot segment stands in for a spelling the loader path never has.
+          declaredEntries: [
+            [root, 'content', '..', 'content', 'scripts.js'].join(path.sep)
+          ]
+        }),
+        emitWarning: (warning: Error) => warnings.push(warning)
+      },
+      "import './styles.css'\n"
+    )
+
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0].message).toContain('content_scripts[].css')
+  })
+})
+
 describe('findDeclaredContentScriptFiles', () => {
   it('resolves every declared file for the target browser', () => {
     const root = project({
@@ -207,11 +283,11 @@ describe('findDeclaredContentScriptFiles', () => {
         'chrome',
         root
       )
-    ).toEqual([
-      path.join(root, 'src', 'content', 'a.js'),
-      path.join(root, 'src', 'content', 'b.ts'),
-      path.join(root, 'src', 'content', 'main.js')
-    ])
+    ).toEqual(
+      ['a.js', 'b.ts', 'main.js'].map((name) =>
+        toResourceKey(path.join(root, 'src', 'content', name))
+      )
+    )
   })
 
   it('answers with nothing for a manifest it cannot read', () => {

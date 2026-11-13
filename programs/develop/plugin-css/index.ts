@@ -20,7 +20,7 @@ import {hasDependency} from '../lib/has-dependency'
 import {filterKeysForThisBrowser} from '../lib/manifest-utils'
 import {debugLine, isDebug} from '../lib/messaging'
 import {stripBom} from '../lib/parse-json-safe'
-import {canonicalizeResourcePath} from '../lib/resource-path'
+import {toResourceKey} from '../lib/resource-path'
 import {NOT_RAW_RESOURCE_QUERY} from '../lib/resource-query'
 import {publicContainmentRoot} from '../plugin-special-folders/resolve-public-folder'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../plugin-web-extension/feature-scripts/contracts'
@@ -455,9 +455,7 @@ export function findDeclaredContentScriptFiles(
       .flatMap((group) => (Array.isArray(group?.js) ? group.js : []))
       .filter((file): file is string => typeof file === 'string' && !!file)
       .map((file) =>
-        canonicalizeResourcePath(
-          resolveScriptEntryPath(file, manifestDir, projectPath)
-        )
+        toResourceKey(resolveScriptEntryPath(file, manifestDir, projectPath))
       )
   } catch {
     return []

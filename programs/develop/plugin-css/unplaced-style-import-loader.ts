@@ -8,7 +8,7 @@
 
 import * as path from 'node:path'
 import {WebpackError} from '@rspack/core'
-import {canonicalizeDir, canonicalizeResourcePath} from '../lib/resource-path'
+import {canonicalizeDir, toResourceKey} from '../lib/resource-path'
 import {
   collectModuleSpecifiers,
   createLocalImportResolver,
@@ -55,6 +55,31 @@ function reachesShadowHost(entry: string, projectPath: string): boolean {
   return found
 }
 
+// One spelling per file on Windows, where a loader path and a manifest path
+// can differ in separators and drive letter case. Other platforms compare as is.
+export function comparablePathKey(
+  file: string,
+  platform: string = process.platform
+): string {
+  if (platform !== 'win32' || typeof file !== 'string') return file
+
+  const key = path.win32.normalize(file)
+
+  return /^[a-z]:/.test(key) ? key[0].toUpperCase() + key.slice(1) : key
+}
+
+export function isDeclaredEntry(
+  resource: string,
+  declaredEntries: string[],
+  platform: string = process.platform
+): boolean {
+  const key = comparablePathKey(resource, platform)
+
+  return declaredEntries.some(
+    (entry) => comparablePathKey(entry, platform) === key
+  )
+}
+
 export default function unplacedStyleImportLoader(
   this: UnplacedStyleImportLoaderContext,
   source: string
@@ -64,8 +89,13 @@ export default function unplacedStyleImportLoader(
 
   const options = this.getOptions?.() || {}
   const projectPath = options.projectPath || this.rootContext || ''
-  const resource = canonicalizeResourcePath(this.resourcePath)
-  const declared = (options.declaredEntries || []).includes(resource)
+  // Both sides take the same key: a short 8.3 temp path and its long form
+  // are one file, and only the file system can tell.
+  const resource = toResourceKey(this.resourcePath)
+  const declared = isDeclaredEntry(
+    resource,
+    (options.declaredEntries || []).map(toResourceKey)
+  )
 
   if (
     declared &&
