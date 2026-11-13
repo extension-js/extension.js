@@ -575,3 +575,321 @@ describe('the pairing a Gecko background and a page both carry', () => {
     ])
   })
 })
+
+type Injection = Record<string, unknown> & {target: Record<string, unknown>}
+type Frames = Array<{frameId: number; result?: unknown; error?: unknown}>
+
+const INJECTED: Injection = {
+  target: {tabId: 7},
+  files: ['/scripts/hook.js'],
+  world: 'MAIN'
+}
+
+// Mirrors the browser: each call is answered a turn later, a failure
+// rejects the promise or sets runtime.lastError while the callback runs.
+function fakeInjecting(
+  answer: (injection: Injection) => Frames = () => [{frameId: 0, result: 1}]
+) {
+  const seen: Injection[] = []
+  const log: string[] = []
+  // The same lines, each led by the tab it ran in.
+  const byTab: string[] = []
+  const runtime: {lastError?: {message: string}} = {}
+  const nameOf = (injection: Injection) =>
+    typeof injection.func === 'function'
+      ? 'func'
+      : (injection.files as string[]).join('+')
+
+  const executeScript = (injection: Injection, callback?: unknown) => {
+    seen.push(injection)
+    log.push(`start ${nameOf(injection)}`)
+    byTab.push(`${injection.target.tabId} start ${nameOf(injection)}`)
+
+    const result = new Promise<Frames>((resolve, reject) => {
+      setTimeout(() => {
+        log.push(`end ${nameOf(injection)}`)
+        byTab.push(`${injection.target.tabId} end ${nameOf(injection)}`)
+
+        try {
+          resolve(answer(injection))
+        } catch (error) {
+          reject(error)
+        }
+      }, 0)
+    })
+
+    if (typeof callback !== 'function') return result
+
+    result.then(
+      (frames) => callback(frames),
+      (error: Error) => {
+        runtime.lastError = {message: error.message}
+        callback()
+        delete runtime.lastError
+      }
+    )
+  }
+
+  const scripting: Record<string, unknown> = {
+    ...fakeScripting().scripting,
+    executeScript
+  }
+
+  return {scripting, runtime, seen, log, byTab, native: executeScript}
+}
+
+function setupInjecting(
+  answer?: (injection: Injection) => Frames,
+  lists: {readers?: string[] | null; injectable?: string[] | null} = {},
+  bridgeFile = BRIDGE
+) {
+  const fake = fakeInjecting(answer)
+  const browser = {scripting: fake.scripting, runtime: fake.runtime}
+  const readers = lists.readers === undefined ? null : lists.readers
+
+  new Function(
+    'globalThis',
+    buildMainWorldBridgePairingSource(
+      bridgeFile,
+      readers,
+      lists.injectable === undefined ? readers : lists.injectable
+    )
+  )({browser})
+
+  const run = browser.scripting.executeScript as (
+    ...args: unknown[]
+  ) => Promise<Frames> | undefined
+
+  return {...fake, run}
+}
+
+const isBridge = (injection: Injection) =>
+  Array.isArray(injection.files) && String(injection.files[0]).endsWith(BRIDGE)
+
+describe('the bridge a Gecko caller runs ahead of a MAIN world injection', () => {
+  it('runs the bridge in the isolated world, waits, then makes the call', async () => {
+    const frames: Frames = [{frameId: 0, result: {probe: 'value'}}]
+    const {run, seen, log} = setupInjecting((injection) =>
+      isBridge(injection) ? [{frameId: 0}] : frames
+    )
+
+    const result = await run(INJECTED)
+
+    expect(log).toEqual([
+      `start ${BRIDGE}`,
+      `end ${BRIDGE}`,
+      'start /scripts/hook.js',
+      'end /scripts/hook.js'
+    ])
+
+    expect(seen[0]).toEqual({
+      target: {tabId: 7},
+      files: [BRIDGE],
+      world: 'ISOLATED'
+    })
+
+    expect(seen[1]).toBe(INJECTED)
+    expect(result).toBe(frames)
+  })
+
+  it('copies the target, frames and documents included, and nothing else', async () => {
+    const {run, seen} = setupInjecting()
+    const target = {
+      tabId: 7,
+      frameIds: [0, 4],
+      allFrames: false,
+      documentIds: ['A1']
+    }
+
+    await run({...INJECTED, target, injectImmediately: true})
+
+    expect(seen[0]).toEqual({target, files: [BRIDGE], world: 'ISOLATED'})
+    expect(seen[0].target).not.toBe(target)
+    expect(seen[1].target).toBe(target)
+    expect(seen[1].injectImmediately).toBe(true)
+  })
+
+  it('names the bridge from the root for a page', async () => {
+    const {run, seen} = setupInjecting(undefined, {}, PAGE_BRIDGE)
+
+    await run(INJECTED)
+
+    expect(seen[0].files).toEqual([PAGE_BRIDGE])
+  })
+
+  it('passes a func, another world and an unlisted file straight through', async () => {
+    const lists = {readers: ['scripts/hook.js']}
+    const passes: Injection[] = [
+      {target: {tabId: 7}, func: () => 1, world: 'MAIN'},
+      {target: {tabId: 7}, files: ['/scripts/hook.js'], world: 'ISOLATED'},
+      {target: {tabId: 7}, files: ['/scripts/hook.js']},
+      {target: {tabId: 7}, files: ['/scripts/plain.js'], world: 'MAIN'},
+      {target: {tabId: 7}, files: [], world: 'MAIN'}
+    ]
+
+    for (const injection of passes) {
+      const {run, seen} = setupInjecting(undefined, lists)
+      const extra = {extra: true}
+
+      await run(injection, extra)
+
+      expect(seen).toEqual([injection])
+      expect(seen[0]).toBe(injection)
+    }
+
+    const {run, seen} = setupInjecting(undefined, lists)
+    await run({...INJECTED, files: ['./scripts/hook.js']})
+
+    expect(seen.map(isBridge)).toEqual([true, false])
+  })
+
+  it('bridges every compiled entry in development and no other file', async () => {
+    const lists = {readers: null, injectable: ['scripts/hook.js']}
+    const listed = setupInjecting(undefined, lists)
+    const unlisted = setupInjecting(undefined, lists)
+
+    await listed.run(INJECTED)
+    await unlisted.run({...INJECTED, files: ['/vendor/lib.js']})
+
+    expect(listed.seen.map(isBridge)).toEqual([true, false])
+    expect(unlisted.seen.map(isBridge)).toEqual([false])
+  })
+
+  it('still makes the call when the bridge fails, and answers with its result', async () => {
+    const frames: Frames = [{frameId: 0, result: 'ran'}]
+    const rejected = setupInjecting((injection) => {
+      if (isBridge(injection)) throw new Error('bridge refused')
+
+      return frames
+    })
+
+    expect(await rejected.run(INJECTED)).toBe(frames)
+    expect(rejected.seen).toHaveLength(2)
+
+    const thrown = fakeInjecting(() => frames)
+    const native = thrown.native
+
+    thrown.scripting.executeScript = (injection: Injection) => {
+      if (isBridge(injection)) throw new Error('bridge threw')
+
+      return native(injection)
+    }
+
+    const browser = {scripting: thrown.scripting}
+    install({browser})
+
+    expect(
+      await (
+        browser.scripting.executeScript as (
+          injection: Injection
+        ) => Promise<Frames>
+      )(INJECTED)
+    ).toBe(frames)
+  })
+
+  it("rejects with the call's own error, never the bridge's", async () => {
+    const own = setupInjecting((injection) => {
+      if (isBridge(injection)) return [{frameId: 0}]
+      if (injection.func) return [{frameId: 0}]
+
+      throw new Error('Invalid tab ID: 7')
+    })
+
+    await expect(own.run(INJECTED)).rejects.toThrow('Invalid tab ID: 7')
+
+    const both = setupInjecting(() => {
+      throw new Error(`failed ${both.seen.length}`)
+    })
+
+    await expect(both.run(INJECTED)).rejects.toThrow('failed 2')
+    expect(both.seen).toHaveLength(2)
+  })
+
+  it('takes the base back when the file never ran', async () => {
+    const failing: Frames = [{frameId: 0, error: new Error('no such file')}]
+    const {run, seen} = setupInjecting((injection) =>
+      isBridge(injection) || injection.func ? [{frameId: 0}] : failing
+    )
+
+    expect(await run({...INJECTED, target: {tabId: 7, allFrames: true}})).toBe(
+      failing
+    )
+
+    expect(seen).toHaveLength(3)
+    expect(seen[2].target).toEqual({tabId: 7, allFrames: true})
+    expect(seen[2].world).toBe('ISOLATED')
+    expect(String(seen[2].func)).toContain('data-extjs-extension-base')
+  })
+
+  it('gives two injections into one tab their turns', async () => {
+    const {run, byTab} = setupInjecting()
+
+    await Promise.all([
+      run(INJECTED),
+      run({...INJECTED, files: ['/scripts/other.js']}),
+      run({...INJECTED, target: {tabId: 8}, files: ['/scripts/far.js']})
+    ])
+
+    expect(byTab.filter((line) => line.startsWith('7 '))).toEqual([
+      `7 start ${BRIDGE}`,
+      `7 end ${BRIDGE}`,
+      '7 start /scripts/hook.js',
+      '7 end /scripts/hook.js',
+      `7 start ${BRIDGE}`,
+      `7 end ${BRIDGE}`,
+      '7 start /scripts/other.js',
+      '7 end /scripts/other.js'
+    ])
+
+    // Another tab never waits for this one.
+    expect(byTab.indexOf('8 start /scripts/far.js')).toBeLessThan(
+      byTab.indexOf('7 end /scripts/hook.js')
+    )
+  })
+
+  it('answers a trailing callback from the call itself and returns nothing', async () => {
+    const frames: Frames = [{frameId: 0, result: 'ran'}]
+    const {run, log, runtime} = setupInjecting((injection) => {
+      if (isBridge(injection) || injection.func) return [{frameId: 0}]
+
+      if ((injection.target as {tabId: number}).tabId === 9) {
+        throw new Error('Invalid tab ID: 9')
+      }
+
+      return frames
+    })
+
+    let returned: unknown = 'unset'
+    const answered = await new Promise<unknown[]>((resolve) => {
+      returned = run(INJECTED, (...values: unknown[]) =>
+        resolve([...values, [...log]])
+      )
+    })
+
+    expect(returned).toBeUndefined()
+    expect(answered[0]).toBe(frames)
+    expect(answered[1]).toEqual([
+      `start ${BRIDGE}`,
+      `end ${BRIDGE}`,
+      'start /scripts/hook.js',
+      'end /scripts/hook.js'
+    ])
+
+    const failure = await new Promise<unknown[]>((resolve) => {
+      run({...INJECTED, target: {tabId: 9}}, (...values: unknown[]) =>
+        resolve([values.length, runtime.lastError?.message])
+      )
+    })
+
+    expect(failure).toEqual([0, 'Invalid tab ID: 9'])
+  })
+
+  it('leaves executeScript alone where there is none to wrap', () => {
+    const fake = fakeScripting()
+    const browser = {scripting: fake.scripting as Record<string, unknown>}
+
+    install({browser})
+
+    expect(browser.scripting.executeScript).toBeUndefined()
+  })
+})
