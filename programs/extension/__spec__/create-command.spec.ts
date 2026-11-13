@@ -19,9 +19,16 @@ import {extensionCreate} from 'extension-create'
 import * as createMessages from '../../create/lib/messages'
 import {CREATE_ERROR_NEEDLES, registerCreateCommand} from '../commands/create'
 import {resolveExtensionDevelopRoot} from '../helpers/extension-develop-runtime'
-import {makeProgram, runCli, stubProcessExit} from './command-harness'
+import {
+  keepTheScaffolderMocked,
+  makeProgram,
+  runCli,
+  stubProcessExit
+} from './command-harness'
 
 const savedRoot = process.env.EXTENSION_CREATE_DEVELOP_ROOT
+
+keepTheScaffolderMocked(registerCreateCommand, extensionCreate)
 
 beforeEach(() => {
   stubProcessExit()
