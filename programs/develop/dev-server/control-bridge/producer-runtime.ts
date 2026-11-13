@@ -119,9 +119,24 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       } catch (e) { return "chromium"; }
     }
 
+    // A cycle cannot cross as JSON. Each repeat of an ancestor becomes null,
+    // which is what Chromium answers for a value returned from a tab.
+    function cycleSafeJson(v) {
+      var stack = [];
+      return JSON.stringify(v, function (_key, val) {
+        while (stack.length && stack[stack.length - 1] !== this) stack.pop();
+        if (val && typeof val === "object") {
+          if (stack.indexOf(val) !== -1) return null;
+          stack.push(val);
+        }
+        return val;
+      });
+    }
+
     function safeValue(v) {
       try {
-        var s = JSON.stringify(v);
+        var s;
+        try { s = JSON.stringify(v); } catch (eCycle) { s = cycleSafeJson(v); }
         if (s === undefined) return {value: undefined, truncated: false};
         if (s.length > MAX_RESULT_BYTES) {
           return {value: {__type: "truncated", preview: s.slice(0, 1024)}, truncated: true};
@@ -254,6 +269,23 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       // Character classes on purpose: this source is a template literal, and
       // a backslash escape in a regex would be eaten before it ever ran.
       return typeof p === "string" && p ? p.replace(/^[.]?[/]/, "") : null;
+    }
+
+    function surfaceManifestKeys(ctx) {
+      if (ctx === "popup") return "action.default_popup, browser_action.default_popup or page_action.default_popup";
+      if (ctx === "options") return "options_ui.page or options_page";
+      if (ctx === "sidebar") return "side_panel.default_path or sidebar_action.default_panel";
+      if (ctx === "devtools") return "devtools_page";
+      return "chrome_url_overrides." + ctx;
+    }
+
+    // A surface the manifest never declares has no page to open, so asking
+    // the caller to open it first would send them after nothing.
+    function surfaceNotDeclared(ctx) {
+      var m = null;
+      try { m = g.chrome.runtime.getManifest(); } catch (e) { return null; }
+      if (!m || surfacePagePath(ctx)) return null;
+      return {code: "surface_not_declared", message: "the manifest declares no " + ctx + " page: it has no " + surfaceManifestKeys(ctx)};
     }
 
     // Chrome says "message port closed" both when the surface died mid-op and
@@ -446,7 +478,23 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
               target: {tabId: target.tabId},
               world: ctx === "page" ? "MAIN" : "ISOLATED",
               func: async function (src) {
-                try { return {__extjsEval: 1, ok: true, value: await eval(src)}; }
+                // Firefox refuses to clone a cycle or a DOM node out of a tab and
+                // Chromium nulls them, so the value takes its JSON form in the tab.
+                function __extjsJsonForm(v) {
+                  var stack = [];
+                  try {
+                    var json = JSON.stringify(v, function (_key, val) {
+                      while (stack.length && stack[stack.length - 1] !== this) stack.pop();
+                      if (val && typeof val === "object") {
+                        if (stack.indexOf(val) !== -1) return null;
+                        stack.push(val);
+                      }
+                      return val;
+                    });
+                    return json === undefined ? undefined : JSON.parse(json);
+                  } catch (e) { return v; }
+                }
+                try { return {__extjsEval: 1, ok: true, value: __extjsJsonForm(await eval(src))}; }
                 catch (e) { return {__extjsEval: 1, ok: false, name: (e && e.name) || "EvalError", message: (e && e.message) || String(e)}; }
               },
               args: [String(args.expression)]
@@ -465,6 +513,8 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
               replyErr(cmdId, frame.name || "EvalError", frame.message);
             });
           } else if (ctx === "popup" || ctx === "options" || ctx === "sidebar" || ctx === "devtools" || ctx === "newtab" || ctx === "history" || ctx === "bookmarks") {
+            var evalUndeclared = surfaceNotDeclared(ctx);
+            if (evalUndeclared) { replyErr(cmdId, "Unsupported", evalUndeclared.message, evalUndeclared.code); return; }
             // The SW can't eval in another extension page; ask the surface's
             // own in-bundle relay (only the open, matching-context page responds).
             chrome.runtime.sendMessage(
@@ -771,6 +821,8 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
               replyOk(cmdId, fitSnapshot(snap));
             });
           } else if (ctx === "popup" || ctx === "options" || ctx === "sidebar" || ctx === "devtools" || ctx === "newtab" || ctx === "history" || ctx === "bookmarks") {
+            var inspectUndeclared = surfaceNotDeclared(ctx);
+            if (inspectUndeclared) { replyErr(cmdId, "Unsupported", inspectUndeclared.message, inspectUndeclared.code); return; }
             // The SW can't read a surface page's DOM; ask the surface's own
             // in-bundle relay (only the open, matching-context page responds).
             chrome.runtime.sendMessage(
@@ -1972,8 +2024,24 @@ export const BRIDGE_RELAY_SOURCE = `;(function () {
         chrome.runtime.onMessage.addListener(function (msg, _sender, sendResponse) {
           if (!msg || !msg.__extjsEvalRequest) return;
           if (!msg.target || msg.target.context !== CONTEXT) return; // not for me
+          // The reply crosses as JSON on Chromium and as a clone on Firefox.
+          // Its JSON form, with each cycle nulled, reads the same on both.
+          var jsonForm = function (v) {
+            var stack = [];
+            try {
+              var json = JSON.stringify(v, function (_key, val) {
+                while (stack.length && stack[stack.length - 1] !== this) stack.pop();
+                if (val && typeof val === "object") {
+                  if (stack.indexOf(val) !== -1) return null;
+                  stack.push(val);
+                }
+                return val;
+              });
+              return json === undefined ? undefined : JSON.parse(json);
+            } catch (e) { return v; }
+          };
           var respondValue = function (value) {
-            try { sendResponse({ok: true, value: value}); }
+            try { sendResponse({ok: true, value: jsonForm(value)}); }
             catch (eSend) { sendResponse({ok: true, value: String(value)}); }
           };
           var respondError = function (e) {

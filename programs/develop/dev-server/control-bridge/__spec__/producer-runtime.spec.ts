@@ -1064,6 +1064,148 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
   // Firefox drops a reply it cannot clone and hands the background a
   // lastError, which used to read as "surface is not open" while the page had
   // run the expression to the end. Only a missing receiver means closed.
+  // A surface the manifest never declares has no page to open, so "open it
+  // first" would send the caller after nothing.
+  it('eval and inspect name the manifest key for a surface it never declares', async () => {
+    const sent: unknown[] = []
+    const ws = setup({
+      runtime: {
+        sendMessage: (msg: unknown, cb: (r: unknown) => void) => {
+          sent.push(msg)
+          cb(undefined)
+        },
+        lastError: undefined,
+        getManifest: () => ({
+          action: {default_popup: 'action/index.html'},
+          chrome_url_overrides: {newtab: 'newtab.html'}
+        })
+      }
+    })
+    const keys: Record<string, string> = {
+      sidebar: 'side_panel.default_path or sidebar_action.default_panel',
+      options: 'options_ui.page or options_page',
+      devtools: 'devtools_page',
+      history: 'chrome_url_overrides.history',
+      bookmarks: 'chrome_url_overrides.bookmarks'
+    }
+
+    for (const op of ['eval', 'inspect']) {
+      for (const context of Object.keys(keys)) {
+        ws.triggerMessage({
+          type: 'command',
+          cmdId: `${op}-${context}`,
+          op,
+          target: {context},
+          args: {expression: '1'}
+        })
+      }
+    }
+
+    await flush()
+
+    for (const op of ['eval', 'inspect']) {
+      for (const [context, key] of Object.entries(keys)) {
+        const r = results(ws).find((f) => f.cmdId === `${op}-${context}`)
+
+        expect(r, `${op} ${context}`).toMatchObject({
+          ok: false,
+          error: {name: 'Unsupported', code: 'surface_not_declared'}
+        })
+
+        expect(r.error.message).toBe(
+          `the manifest declares no ${context} page: it has no ${key}`
+        )
+      }
+    }
+
+    expect(sent).toHaveLength(0)
+
+    // A declared surface that is closed keeps the open-it-first refusal.
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'e-declared',
+      op: 'eval',
+      target: {context: 'newtab'},
+      args: {expression: '1'}
+    })
+
+    await flush()
+    expect(results(ws).find((f) => f.cmdId === 'e-declared')).toMatchObject({
+      ok: false,
+      error: {code: 'surface_not_open'}
+    })
+  })
+
+  // Firefox refuses to clone a cycle out of a tab, which read as a throw.
+  // The value takes its JSON form in the tab, a cycle nulled as on Chromium.
+  it('eval page answers a circular value with the cycle nulled', async () => {
+    const ws = setup({
+      scripting: {
+        executeScript: (opts: {
+          func: (...a: unknown[]) => unknown
+          args?: unknown[]
+        }) =>
+          Promise.resolve(opts.func(...(opts.args || []))).then((result) => {
+            // The engine clones the result out of the tab.
+            return [{result: structuredClone(result)}]
+          })
+      }
+    })
+    const cases: Record<string, [string, unknown]> = {
+      cycle: [
+        '(() => { const o = {a: 1}; o.self = o; return o })()',
+        {a: 1, self: null}
+      ],
+      deep: [
+        '(() => { const o = {list: [{}]}; o.list[0].up = o; o.list.push(o.list); return o })()',
+        {list: [{up: null}, null]}
+      ],
+      shared: [
+        '(() => { const s = {x: 1}; return {p: s, q: s} })()',
+        {p: {x: 1}, q: {x: 1}}
+      ],
+      date: ['({d: new Date(0), f() {}})', {d: '1970-01-01T00:00:00.000Z'}]
+    }
+
+    for (const [name, [expression]] of Object.entries(cases)) {
+      ws.triggerMessage({
+        type: 'command',
+        cmdId: `p-${name}`,
+        op: 'eval',
+        target: {context: 'page', tabId: 3},
+        args: {expression}
+      })
+    }
+
+    await flush()
+
+    for (const [name, [, value]] of Object.entries(cases)) {
+      const r = results(ws).find((f) => f.cmdId === `p-${name}`)
+
+      expect(r, name).toMatchObject({ok: true})
+      expect(r.value, name).toEqual(value)
+    }
+  })
+
+  it('eval background answers a circular value with the cycle nulled', async () => {
+    const ws = setup({})
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'bg-cycle',
+      op: 'eval',
+      target: {context: 'background'},
+      args: {
+        expression: '(() => { const o = {a: 1}; o.self = o; return o })()'
+      }
+    })
+
+    await flush()
+    const r = results(ws).find((f) => f.cmdId === 'bg-cycle')
+
+    expect(r).toMatchObject({ok: true})
+    expect(r.value).toEqual({a: 1, self: null})
+  })
+
   it('eval popup quotes a delivery failure instead of claiming the surface is closed', async () => {
     const ws = setup({
       runtime: {
@@ -2896,6 +3038,40 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
 
   // A promise is not structured-cloneable, so the relay settles it before
   // replying; the reply then carries the value, or the rejection as an error.
+  it('the relay answers a circular value with the cycle nulled', () => {
+    const listeners: Array<(m: any, s: any, r: any) => unknown> = []
+    const fakeGlobal: Record<string, unknown> = {
+      console: {log: () => {}},
+      location: {href: 'chrome-extension://abc/popup.html'},
+      chrome: {
+        runtime: {
+          sendMessage: () => {},
+          lastError: undefined,
+          onMessage: {addListener: (fn: any) => listeners.push(fn)}
+        }
+      }
+    }
+    run(buildBridgeRelaySource({context: 'popup'}), fakeGlobal)
+
+    let responded: any = 'NONE'
+
+    for (const fn of listeners) {
+      fn(
+        {
+          __extjsEvalRequest: true,
+          target: {context: 'popup'},
+          args: {
+            expression: '(() => { const o = {a: 1}; o.self = o; return o })()'
+          }
+        },
+        {},
+        (r: any) => (responded = r)
+      )
+    }
+
+    expect(responded).toEqual({ok: true, value: {a: 1, self: null}})
+  })
+
   it('the relay settles a promise-valued expression before replying', async () => {
     const listeners: Array<(m: any, s: any, r: any) => unknown> = []
     const fakeGlobal: Record<string, unknown> = {

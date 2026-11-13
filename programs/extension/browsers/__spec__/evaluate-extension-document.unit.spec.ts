@@ -1,5 +1,6 @@
 import EventEmitter from 'node:events'
 import net from 'node:net'
+import vm from 'node:vm'
 import {describe, expect, it} from 'vitest'
 import {
   documentNotOpenMessage,
@@ -10,7 +11,10 @@ import {
   POLL_EXPRESSION,
   pickDocumentFrame,
   readSettledSlot,
-  startExpression
+  startExpression,
+  surfaceManifestKeys,
+  surfaceNotDeclaredHint,
+  surfaceNotDeclaredOutcome
 } from '../run-firefox/rdp/evaluate-extension-document'
 import {MessagingClient} from '../run-firefox/rdp/remote-firefox/messaging-client'
 
@@ -273,6 +277,65 @@ describe('the Gecko extension-document evaluator', () => {
     expect(source).toContain('JSON.stringify(value)')
     expect(POLL_EXPRESSION).toContain('JSON.stringify(slot)')
     expect(POLL_EXPRESSION).toContain('delete globalThis.__extjsRdpEval')
+  })
+
+  // JSON.stringify throws on a cycle, and the fallback answered the string
+  // "[object Object]" with exit 0. Each repeat of an ancestor is null instead.
+  it('encodes a circular value with the cycle nulled, never as a string', async () => {
+    const context = vm.createContext({})
+
+    const settle = async (expression: string) => {
+      vm.runInContext(startExpression(expression), context)
+      await new Promise((resolve) => setTimeout(resolve, 0))
+
+      return readSettledSlot(vm.runInContext(POLL_EXPRESSION, context))
+    }
+
+    expect(
+      await settle('(() => { const o = {a: 1}; o.self = o; return o })()')
+    ).toEqual({ok: true, value: {a: 1, self: null}})
+
+    expect(
+      await settle(
+        '(() => { const s = {x: 1}; const o = {p: s, q: s, list: []}; o.list.push(o); return o })()'
+      )
+    ).toEqual({ok: true, value: {p: {x: 1}, q: {x: 1}, list: [null]}})
+
+    expect(await settle('({n: 10n})')).toEqual({
+      ok: true,
+      value: '[object Object]'
+    })
+  })
+
+  it('names the manifest key of a surface the manifest never declares', () => {
+    expect(surfaceNotDeclaredOutcome('sidebar')).toEqual({
+      ok: false,
+      error: {
+        name: 'Unsupported',
+        code: 'surface_not_declared',
+        message:
+          'the manifest declares no sidebar page: it has no side_panel.default_path or sidebar_action.default_panel',
+        engine: 'firefox'
+      }
+    })
+
+    expect(surfaceManifestKeys('popup')).toContain('action.default_popup')
+    expect(surfaceManifestKeys('options')).toBe(
+      'options_ui.page or options_page'
+    )
+
+    expect(surfaceManifestKeys('devtools')).toBe('devtools_page')
+    expect(surfaceManifestKeys('newtab')).toBe('chrome_url_overrides.newtab')
+    expect(surfaceNotDeclaredHint('newtab', 'inspect')).toBe(
+      'Add chrome_url_overrides.newtab to manifest.json and point it at the page, then run extension inspect --context newtab again.'
+    )
+
+    expect(
+      extensionDocumentPagePath(
+        {page_action: {default_popup: 'popup.html'}},
+        'popup'
+      )
+    ).toBe('popup.html')
   })
 
   it('evaluates in the background document through the watcher', async () => {
