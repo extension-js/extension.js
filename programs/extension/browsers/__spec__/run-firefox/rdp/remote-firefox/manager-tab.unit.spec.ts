@@ -89,7 +89,8 @@ describe('openManagerNewTab', () => {
 
     expect(await openManagerTabAt(client, url)).toBe(true)
 
-    const expression = String(client.evaluate.mock.calls[0][1])
+    const call: unknown[] = client.evaluate.mock.calls[0]
+    const expression = String(call[1])
     expect(expression).toContain(
       `tabs.create({active: true, url: ${JSON.stringify(url)}})`
     )
