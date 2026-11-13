@@ -28,6 +28,7 @@ import {WarnUnshippedRuntimeAssets} from './steps/warn-unshipped-runtime-assets'
 export class ScriptsPlugin {
   public readonly manifestPath: string
   public readonly includeList?: FilepathList
+  public readonly pageList?: FilepathList
   public readonly browser?: DevOptions['browser']
   public readonly devSession?: boolean
   public readonly define?: Record<string, unknown>
@@ -35,6 +36,7 @@ export class ScriptsPlugin {
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.includeList = options.includeList
+    this.pageList = options.pageList
     this.browser = options.browser || 'chrome'
     this.devSession = options.devSession
     this.define = options.define
@@ -61,6 +63,7 @@ export class ScriptsPlugin {
     new CompileMainWorldScripts({
       manifestPath: this.manifestPath,
       includeList: this.includeList || {},
+      pageList: this.pageList,
       browser: this.browser
     }).apply(compiler)
 
@@ -69,6 +72,7 @@ export class ScriptsPlugin {
     new PairRuntimeMainWorldBridges({
       manifestPath: this.manifestPath,
       includeList: this.includeList || {},
+      pageList: this.pageList,
       browser: this.browser
     }).apply(compiler)
 
@@ -90,6 +94,7 @@ export class ScriptsPlugin {
     new AddContentScriptWrapper({
       manifestPath: this.manifestPath,
       includeList: this.includeList || {},
+      pageList: this.pageList,
       browser: this.browser,
       devSession: this.devSession
     }).apply(compiler)

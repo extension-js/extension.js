@@ -131,11 +131,13 @@ export class CompileMainWorldScripts {
   private readonly manifestPath: string
   private readonly browser: DevOptions['browser']
   private readonly includeList: FilepathList
+  private readonly pageList?: FilepathList
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
     this.includeList = options.includeList || {}
+    this.pageList = options.pageList
   }
 
   public apply(compiler: Compiler): void {
@@ -146,6 +148,7 @@ export class CompileMainWorldScripts {
       ...findMainWorldGroups(this.manifestPath, this.browser),
       ...findRuntimeMainWorldEntries({
         includeList: this.includeList,
+        pageList: this.pageList,
         manifestDir,
         projectPath: (compiler.options.context as string) || manifestDir
       })

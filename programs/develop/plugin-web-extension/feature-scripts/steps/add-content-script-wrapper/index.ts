@@ -98,12 +98,14 @@ export class AddContentScriptWrapper {
   private readonly manifestPath: string
   private readonly browser: DevOptions['browser']
   private readonly includeList: FilepathList
+  private readonly pageList?: FilepathList
   private readonly devSession?: boolean
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.browser = (options.browser as DevOptions['browser']) || 'chrome'
     this.includeList = options.includeList || {}
+    this.pageList = options.pageList
     this.devSession = options.devSession
   }
 
@@ -133,6 +135,7 @@ export class AddContentScriptWrapper {
     // group, and the manifest never names it.
     const mainWorldScripts = findRuntimeMainWorldEntries({
       includeList: this.includeList,
+      pageList: this.pageList,
       manifestDir,
       projectPath: (compiler.options.context as string) || manifestDir
     }).flatMap((entry) => entry.files.map(canonicalizeResourcePath))

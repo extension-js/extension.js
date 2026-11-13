@@ -72,31 +72,36 @@ function fakeScripting(initial: Script[] = []) {
   // A trailing callback is answered the way the browser does it: with no
   // argument on a failure, and runtime.lastError set only while it runs.
   const runtime: {lastError?: {message: string}} = {}
-  const scripting = Object.fromEntries(
-    Object.entries(promised).map(([name, method]) => [
-      name,
-      (...args: unknown[]) => {
-        const callback =
-          typeof args[args.length - 1] === 'function'
-            ? (args.pop() as (...values: unknown[]) => void)
-            : null
-        const result = (method as (arg?: unknown) => Promise<unknown>)(args[0])
+  // One registry per extension, one API object per realm that reads it.
+  const surface = () =>
+    Object.fromEntries(
+      Object.entries(promised).map(([name, method]) => [
+        name,
+        (...args: unknown[]) => {
+          const callback =
+            typeof args[args.length - 1] === 'function'
+              ? (args.pop() as (...values: unknown[]) => void)
+              : null
+          const result = (method as (arg?: unknown) => Promise<unknown>)(
+            args[0]
+          )
 
-        if (!callback) return result
+          if (!callback) return result
 
-        result.then(
-          (value) => callback(value),
-          (error: Error) => {
-            runtime.lastError = {message: error.message}
-            callback()
-            delete runtime.lastError
-          }
-        )
-      }
-    ])
-  ) as typeof promised
+          result.then(
+            (value) => callback(value),
+            (error: Error) => {
+              runtime.lastError = {message: error.message}
+              callback()
+              delete runtime.lastError
+            }
+          )
+        }
+      ])
+    ) as typeof promised
+  const scripting = surface()
 
-  return {scripting, runtime, calls, raw: () => registry}
+  return {scripting, surface, runtime, calls, raw: () => registry}
 }
 
 function install(
@@ -115,6 +120,22 @@ function setup(initial: Script[] = [], baseReaders: string[] | null = null) {
   install({browser}, baseReaders)
 
   return {...fake, api: browser.scripting}
+}
+
+const PAGE_BRIDGE = `/${BRIDGE}`
+
+// The background and a page each run the wrapper over their own API object.
+function setupTwoRealms() {
+  const fake = fakeScripting()
+  const background = {scripting: fake.scripting, runtime: fake.runtime}
+  const page = {scripting: fake.surface(), runtime: fake.runtime}
+  install({browser: background})
+  new Function(
+    'globalThis',
+    buildMainWorldBridgePairingSource(PAGE_BRIDGE, null)
+  )({browser: page})
+
+  return {...fake, background: background.scripting, page: page.scripting}
 }
 
 const hook: Script = {
@@ -474,5 +495,83 @@ describe('the MAIN world bridge pairing a Gecko background carries', () => {
   it('does nothing where the scripting API is absent', () => {
     expect(() => install({})).not.toThrow()
     expect(() => install({browser: {}, chrome: {runtime: {}}})).not.toThrow()
+  })
+})
+
+describe('the pairing a Gecko background and a page both carry', () => {
+  const other: Script = {...hook, id: 'other-hook', js: ['scripts/other.js']}
+
+  it('pairs a page registration with the bridge named from the root', async () => {
+    const {page, raw} = setupTwoRealms()
+    await page.registerContentScripts([hook])
+
+    expect(raw().map((script) => script.id)).toEqual([
+      pairId('page-hook'),
+      'page-hook'
+    ])
+
+    expect(raw()[0].js).toEqual([PAGE_BRIDGE])
+  })
+
+  it('keeps one pair per file when both contexts register', async () => {
+    const {background, page, raw} = setupTwoRealms()
+    await background.registerContentScripts([hook])
+    await page.registerContentScripts([other])
+
+    expect(raw().map((script) => script.id)).toEqual([
+      pairId('page-hook'),
+      'page-hook',
+      pairId('other-hook'),
+      'other-hook'
+    ])
+
+    // The same id from the other context fails the way the browser fails it.
+    await expect(page.registerContentScripts([hook])).rejects.toThrow(
+      'already registered'
+    )
+
+    expect(raw()).toHaveLength(4)
+  })
+
+  it('hides the pairs of either context from both', async () => {
+    const {background, page} = setupTwoRealms()
+    await background.registerContentScripts([hook])
+    await page.registerContentScripts([other])
+
+    for (const api of [background, page]) {
+      const seen = await api.getRegisteredContentScripts()
+      expect(seen.map((script) => script.id)).toEqual([
+        'page-hook',
+        'other-hook'
+      ])
+    }
+  })
+
+  it('drops a pair from the context that did not register it', async () => {
+    const {background, page, raw} = setupTwoRealms()
+    await background.registerContentScripts([hook])
+    await page.registerContentScripts([other])
+
+    await page.unregisterContentScripts({ids: ['page-hook']})
+    expect(raw().map((script) => script.id)).toEqual([
+      pairId('other-hook'),
+      'other-hook'
+    ])
+
+    await background.unregisterContentScripts({ids: ['other-hook']})
+    expect(raw()).toEqual([])
+  })
+
+  it('carries an update from the other context to the pair', async () => {
+    const {background, page, raw} = setupTwoRealms()
+    await background.registerContentScripts([hook])
+    await page.updateContentScripts([
+      {id: 'page-hook', runAt: 'document_start'}
+    ])
+
+    expect(raw().map((script) => [script.id, script.runAt])).toEqual([
+      [pairId('page-hook'), 'document_start'],
+      ['page-hook', 'document_start']
+    ])
   })
 })

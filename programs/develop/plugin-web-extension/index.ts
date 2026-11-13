@@ -110,21 +110,23 @@ export class WebExtensionPlugin {
       }
     }).apply(compiler)
 
+    const pageEntries = forThisBuild(
+      htmlPageEntries({
+        manifestPath,
+        browser: this.browser,
+        projectPath,
+        mode: compiler.options.mode,
+        manifestHtml: manifestFieldsData.html,
+        manifestScripts: manifestFieldsData.scripts,
+        specialFolderPages: specialFoldersData.pages
+      })
+    )
+
     new HtmlPlugin({
       devSession: this.devSession,
       manifestPath,
       browser: this.browser,
-      includeList: forThisBuild(
-        htmlPageEntries({
-          manifestPath,
-          browser: this.browser,
-          projectPath,
-          mode: compiler.options.mode,
-          manifestHtml: manifestFieldsData.html,
-          manifestScripts: manifestFieldsData.scripts,
-          specialFolderPages: specialFoldersData.pages
-        })
-      )
+      includeList: pageEntries
     }).apply(compiler)
 
     new ScriptsPlugin({
@@ -140,7 +142,9 @@ export class WebExtensionPlugin {
           this.browser,
           projectPath
         )
-      })
+      }),
+      // A page registers MAIN world files through the same scripting API.
+      pageList: pageEntries
     }).apply(compiler)
 
     new LocalesPlugin({
