@@ -210,8 +210,8 @@ describe('bridge producer runtime, scripts the background registered itself', ()
   })
 
   // Gecko keeps a registered file by address through an update and a tab
-  // reload, and only a new extension generation reads it again.
-  it('restarts the extension on Gecko and records the tabs for the next generation', async () => {
+  // reload. With no session storage to hold a new address, it restarts.
+  it('restarts the extension on Gecko without session storage and records the tabs for the next generation', async () => {
     const h = boot({engine: 'firefox', registered: [HOOK]})
 
     h.ws.triggerMessage(pageFrame(['scripts/hook.js']))

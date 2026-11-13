@@ -1432,6 +1432,198 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       return String(value || "").replace(/^[/]+/, "");
     }
 
+    // Gecko reads a registered file once per address and keeps that copy
+    // through an update and a tab reload. A new address is read from disk.
+    var SCRIPT_ADDRESS_QUERY = "?extjs-dev=";
+    var SCRIPT_VERSIONS_KEY = "__extjsDevScriptVersions";
+    var scriptVersions = null;
+    var scriptVersionWaiters = [];
+    var scriptVersionCount = 0;
+    var wrappedRegistries = [];
+    var nativeRegistry = null;
+    var registryCalls = 0;
+    var registryCalledAt = 0;
+
+    function plainScriptAddress(value) {
+      var name = String(value || "");
+      var at = name.indexOf(SCRIPT_ADDRESS_QUERY);
+      return at === -1 ? name : name.slice(0, at);
+    }
+
+    // A name that carries its own query or fragment is the author's address.
+    function scriptAddress(value) {
+      var plain = plainScriptAddress(value);
+      if (plain.indexOf("?") !== -1 || plain.indexOf("#") !== -1) return plain;
+      var version = scriptVersions ? scriptVersions[scriptFileName(plain)] : null;
+      return typeof version === "string" ? plain + SCRIPT_ADDRESS_QUERY + version : plain;
+    }
+
+    function withFileNames(scripts, rename) {
+      if (!Array.isArray(scripts)) return scripts;
+      var renamed = function (files) {
+        var out = [];
+        for (var f = 0; f < files.length; f++) out.push(typeof files[f] === "string" ? rename(files[f]) : files[f]);
+        return out;
+      };
+      var list = [];
+      for (var i = 0; i < scripts.length; i++) {
+        var script = scripts[i];
+        if (!script || typeof script !== "object") { list.push(script); continue; }
+        var copy = {};
+        for (var key in script) {
+          if (Object.prototype.hasOwnProperty.call(script, key)) copy[key] = script[key];
+        }
+        if (Array.isArray(script.js)) copy.js = renamed(script.js);
+        if (Array.isArray(script.css)) copy.css = renamed(script.css);
+        list.push(copy);
+      }
+      return list;
+    }
+
+    // Session storage outlives a suspended background and is emptied by an
+    // extension reload, which is when every address is read again anyway.
+    function withScriptVersions(cb) {
+      if (scriptVersions) return cb();
+      scriptVersionWaiters.push(cb);
+      if (scriptVersionWaiters.length > 1) return;
+      var done = function (map) {
+        if (!scriptVersions) scriptVersions = map && typeof map === "object" ? map : {};
+        var fns = scriptVersionWaiters;
+        scriptVersionWaiters = [];
+        for (var i = 0; i < fns.length; i++) { try { fns[i](); } catch (e) {
+          // Ignore
+        } }
+      };
+      try { setTimeout(function () { done(null); }, 1000); } catch (e) {
+        // Ignore
+      }
+      try {
+        g.chrome.storage.session.get(SCRIPT_VERSIONS_KEY, function (res) {
+          noopLastError();
+          done(res && res[SCRIPT_VERSIONS_KEY]);
+        });
+      } catch (e) { done(null); }
+    }
+
+    // The author's calls keep the names they wrote: a write takes the current
+    // address of each file, and a read gives the plain names back.
+    function wrapScriptRegistry(scripting) {
+      if (!scripting || wrappedRegistries.indexOf(scripting) !== -1) return;
+      if (typeof scripting.registerContentScripts !== "function" || typeof scripting.updateContentScripts !== "function") return;
+      wrappedRegistries.push(scripting);
+      var natives = {};
+      var wrapWrite = function (method, addresses) {
+        if (typeof scripting[method] !== "function") return;
+        var native = scripting[method].bind(scripting);
+        natives[method] = native;
+        scripting[method] = function () {
+          var args = [].slice.call(arguments);
+          var last = args.length - 1;
+          var done = last >= 0 && typeof args[last] === "function" ? args[last] : null;
+          registryCalls++;
+          registryCalledAt = Date.now();
+          var settled = false;
+          var settle = function () {
+            if (settled) return;
+            settled = true;
+            registryCalls--;
+            registryCalledAt = Date.now();
+          };
+          var call = function () {
+            if (addresses) args[0] = withFileNames(args[0], scriptAddress);
+            if (done) args[last] = function () { settle(); return done.apply(this, arguments); };
+            var ret = native.apply(null, args);
+            if (done) return ret;
+            if (ret && typeof ret.then === "function") ret.then(settle, settle);
+            else settle();
+            return ret;
+          };
+          if (!addresses || scriptVersions) {
+            try { return call(); } catch (e) { settle(); throw e; }
+          }
+          if (done) {
+            withScriptVersions(function () { try { call(); } catch (e) { settle(); } });
+            return undefined;
+          }
+          return new Promise(function (resolve, reject) {
+            withScriptVersions(function () { try { resolve(call()); } catch (e) { settle(); reject(e); } });
+          });
+        };
+      };
+      wrapWrite("registerContentScripts", true);
+      wrapWrite("updateContentScripts", true);
+      wrapWrite("unregisterContentScripts", false);
+      if (typeof scripting.getRegisteredContentScripts === "function") {
+        var nativeRead = scripting.getRegisteredContentScripts.bind(scripting);
+        natives.getRegisteredContentScripts = nativeRead;
+        var plain = function (list) { return withFileNames(list, plainScriptAddress); };
+        scripting.getRegisteredContentScripts = function () {
+          var args = [].slice.call(arguments);
+          var last = args.length - 1;
+          if (last >= 0 && typeof args[last] === "function") {
+            var done = args[last];
+            args[last] = function (list) { return done.call(this, plain(list)); };
+            return nativeRead.apply(null, args);
+          }
+          var ret = nativeRead.apply(null, args);
+          return ret && typeof ret.then === "function" ? ret.then(plain) : ret;
+        };
+      }
+      if (!nativeRegistry) nativeRegistry = natives;
+    }
+
+    function canAddressRegisteredScripts() {
+      var chrome = g.chrome;
+      return !!(
+        engineName() === "firefox" && nativeRegistry && nativeRegistry.updateContentScripts &&
+        chrome && chrome.storage && chrome.storage.session && chrome.storage.session.get && chrome.storage.session.set
+      );
+    }
+
+    // Installed before the background's own code runs, so its first call
+    // already goes through here.
+    function installScriptAddresses() {
+      var chrome = g.chrome;
+      if (engineName() !== "firefox" || !chrome || !chrome.storage || !chrome.storage.session || !chrome.storage.session.get) return;
+      var roots = [g.chrome, g.browser];
+      for (var i = 0; i < roots.length; i++) {
+        try { wrapScriptRegistry(roots[i] && roots[i].scripting); } catch (e) {
+          // Ignore
+        }
+      }
+      if (nativeRegistry) withScriptVersions(function () {});
+    }
+
+    // Every changed file gets a new address, registered now or later.
+    function moveScriptAddresses(changedScriptFiles, cb) {
+      withScriptVersions(function () {
+        var version = Date.now().toString(36) + "-" + (scriptVersionCount++).toString(36);
+        for (var i = 0; i < changedScriptFiles.length; i++) {
+          var name = typeof changedScriptFiles[i] === "string" ? scriptFileName(changedScriptFiles[i]) : "";
+          // A hot update file has a new name on every edit and is never registered.
+          if (name && name.indexOf("hot/") !== 0) scriptVersions[name] = version;
+        }
+        var rec = {};
+        rec[SCRIPT_VERSIONS_KEY] = scriptVersions;
+        try { g.chrome.storage.session.set(rec, noopLastError); } catch (e) {
+          // Ignore
+        }
+        cb();
+      });
+    }
+
+    // A background started for this edit may be between its own unregister
+    // and register calls, and a read in that gap finds no registration.
+    function whenRegistryQuiet(cb) {
+      var waited = 0;
+      var check = function () {
+        if (waited >= 3000 || (registryCalls <= 0 && Date.now() - registryCalledAt >= 300)) return cb();
+        waited += 100;
+        try { setTimeout(check, 100); } catch (e) { cb(); }
+      };
+      check();
+    }
+
     function registrationsNaming(existing, changedScriptFiles) {
       var changed = {};
       for (var c = 0; c < changedScriptFiles.length; c++) changed[scriptFileName(changedScriptFiles[c])] = true;
@@ -1441,7 +1633,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
         if (!s || typeof s.id !== "string" || s.id.indexOf("extjs-dev-cs-") === 0) continue;
         var files = stringList(s.js).concat(stringList(s.css));
         for (var f = 0; f < files.length; f++) {
-          if (changed[scriptFileName(files[f])]) { out.push(s); break; }
+          if (changed[scriptFileName(plainScriptAddress(files[f]))]) { out.push(s); break; }
         }
       }
       return out;
@@ -1497,8 +1689,42 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       }
     }
 
+    // The update names each file at its current address, in the browser's
+    // own call so nothing between here and it reads the names another way.
+    function moveRegisteredScripts(scripts, cb) {
+      var updates = [];
+      for (var i = 0; i < scripts.length; i++) {
+        var update = {id: scripts[i].id};
+        if (stringList(scripts[i].js).length) update.js = stringList(scripts[i].js);
+        if (stringList(scripts[i].css).length) update.css = stringList(scripts[i].css);
+        updates.push(update);
+      }
+      try {
+        nativeRegistry.updateContentScripts(withFileNames(updates, scriptAddress), function () {
+          var failed = false;
+          try { failed = !!g.chrome.runtime.lastError; } catch (e) {
+            // Ignore
+          }
+          cb(!failed);
+        });
+      } catch (e) { cb(false); }
+    }
+
+    function restartForRegisteredScripts(scripts, tabIds) {
+      var scriptIds = [];
+      for (var i = 0; i < scripts.length; i++) scriptIds.push(scripts[i].id);
+      try {
+        var rec = {};
+        rec[REGISTERED_RELOAD_KEY] = {at: Date.now(), tabs: tabIds, scripts: scriptIds};
+        g.chrome.storage.local.set(rec, noopLastError);
+      } catch (e) {
+        // Ignore
+      }
+      restartExtension(150);
+    }
+
     // Answers true when the extension restarts for the edit. Chromium reads the
-    // files again on an update, Gecko keeps them by address until it reloads.
+    // files again on an update, Gecko reads them again at a new address.
     function refreshRegisteredScripts(changedScriptFiles, cb) {
       var chrome = g.chrome;
       var answered = false;
@@ -1517,43 +1743,49 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
         !Array.isArray(changedScriptFiles) || !changedScriptFiles.length ||
         !chrome || !chrome.scripting || !chrome.scripting.getRegisteredContentScripts
       ) return answer(false);
-      try { guard = setTimeout(function () { answer(false); }, 1000); } catch (e) {
-        // Ignore
-      }
-      try {
-        chrome.scripting.getRegisteredContentScripts(function (existing) {
-          noopLastError();
-          if (answered) return;
-          var scripts = registrationsNaming(existing, changedScriptFiles);
-          if (!scripts.length) return answer(false);
-          tabIdsForRegistrations(scripts, function (tabIds) {
-            if (answered) return;
-            if (engineName() === "firefox") {
-              var scriptIds = [];
-              for (var i = 0; i < scripts.length; i++) scriptIds.push(scripts[i].id);
-              try {
-                var rec = {};
-                rec[REGISTERED_RELOAD_KEY] = {at: Date.now(), tabs: tabIds, scripts: scriptIds};
-                chrome.storage.local.set(rec, noopLastError);
-              } catch (e) {
-                // Ignore
+      var addressed = canAddressRegisteredScripts();
+      var refresh = function () {
+        try { guard = setTimeout(function () { answer(false); }, 1000); } catch (e) {
+          // Ignore
+        }
+        try {
+          chrome.scripting.getRegisteredContentScripts(function (existing) {
+            noopLastError();
+            // The files already have their new address, so a slow answer
+            // still moves the registrations and reloads their tabs.
+            if (answered && !addressed) return;
+            var scripts = registrationsNaming(existing, changedScriptFiles);
+            if (!scripts.length) return answer(false);
+            tabIdsForRegistrations(scripts, function (tabIds) {
+              if (addressed) {
+                return moveRegisteredScripts(scripts, function (moved) {
+                  if (moved) { reloadTabIds(tabIds); return answer(false); }
+                  if (answered) return;
+                  restartForRegisteredScripts(scripts, tabIds);
+                  answer(true);
+                });
               }
-              restartExtension(150);
-              return answer(true);
-            }
-            var updates = [];
-            for (var u = 0; u < scripts.length; u++) {
-              var update = {id: scripts[u].id};
-              if (stringList(scripts[u].js).length) update.js = stringList(scripts[u].js);
-              if (stringList(scripts[u].css).length) update.css = stringList(scripts[u].css);
-              updates.push(update);
-            }
-            var finish = function () { noopLastError(); reloadTabIds(tabIds); answer(false); };
-            if (!chrome.scripting.updateContentScripts) return finish();
-            try { chrome.scripting.updateContentScripts(updates, finish); } catch (e) { finish(); }
+              if (answered) return;
+              if (engineName() === "firefox") {
+                restartForRegisteredScripts(scripts, tabIds);
+                return answer(true);
+              }
+              var updates = [];
+              for (var u = 0; u < scripts.length; u++) {
+                var update = {id: scripts[u].id};
+                if (stringList(scripts[u].js).length) update.js = stringList(scripts[u].js);
+                if (stringList(scripts[u].css).length) update.css = stringList(scripts[u].css);
+                updates.push(update);
+              }
+              var finish = function () { noopLastError(); reloadTabIds(tabIds); answer(false); };
+              if (!chrome.scripting.updateContentScripts) return finish();
+              try { chrome.scripting.updateContentScripts(updates, finish); } catch (e) { finish(); }
+            });
           });
-        });
-      } catch (e) { answer(false); }
+        } catch (e) { answer(false); }
+      };
+      if (!addressed) return refresh();
+      moveScriptAddresses(changedScriptFiles, function () { whenRegistryQuiet(refresh); });
     }
 
     // The generation after that restart reloads the recorded tabs once two
@@ -2398,6 +2630,10 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
         });
       }
     } catch (e) {
+      // Ignore
+    }
+
+    try { installScriptAddresses(); } catch (e) {
       // Ignore
     }
 

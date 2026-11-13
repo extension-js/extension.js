@@ -46,6 +46,8 @@ export {
   type ChangedSourcesTracker,
   createChangedSourcesTracker,
   dispatchReload,
+  dispatchRestartReload,
+  fullReloadsDeliveredTo,
   type ReloadBroker,
   type ReloadExecutor,
   type ReloadKind,
