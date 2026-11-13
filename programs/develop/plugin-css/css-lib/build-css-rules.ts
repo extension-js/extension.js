@@ -206,10 +206,15 @@ export async function buildCssRules(
         ruleType = 'javascript/auto'
       }
 
+      // A sheet is imported for its effect alone, and a package.json that
+      // says sideEffects: false would otherwise drop it from the build.
+      const emitsSheet = ruleType === 'css' || ruleType === 'css/module'
+
       return {
         test,
         exclude,
         type: ruleType,
+        ...(emitsSheet ? {sideEffects: true} : {}),
         ...(issuer ? {issuer} : {}),
         ...(issuerLayer ? {issuerLayer} : {}),
         resourceQuery: NOT_RAW_RESOURCE_QUERY,
