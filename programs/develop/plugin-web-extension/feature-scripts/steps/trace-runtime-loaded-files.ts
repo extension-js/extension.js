@@ -2025,6 +2025,99 @@ function readBalancedLiteral(code: string, openIndex: number): string | null {
   return null
 }
 
+// Hands back the source of the module a specifier names, or null when it
+// is not a local file this build compiles.
+export type ImportedModuleReader = (specifier: string) => string | null
+
+type LiteralLookup = (name: string) => string | null
+
+const IMPORT_CLAUSE =
+  /(?<![\w$.])import\s+(?!type\b)([^'"`;()]*?)\s*from\s*(['"])([^'"\n]+)\2/g
+const LOCAL_DECLARATION =
+  /(?<![\w$.])(?:const|let|var|function|class)\s+([A-Za-z_$][\w$]*)/g
+const EXPORTED_CONST =
+  /(?<![\w$.])export\s+const\s+([A-Za-z_$][\w$]*)\s*(?::[^=;]*)?=\s*(?=[[{])/g
+const EXPORTED_DEFAULT = /(?<![\w$.])export\s+default\s*(?=[[{])/g
+
+// Where a name of this file is imported from and what it is called there.
+// A name this file also declares is left alone, since no scope is read here.
+function importedBinding(
+  code: string,
+  name: string
+): {specifier: string; exportName: string} | null {
+  for (const declaration of code.matchAll(LOCAL_DECLARATION)) {
+    if (declaration[1] === name) return null
+  }
+
+  const found: Array<{specifier: string; exportName: string}> = []
+
+  for (const [, clause, , specifier] of code.matchAll(IMPORT_CLAUSE)) {
+    const open = clause.indexOf('{')
+    const close = clause.lastIndexOf('}')
+    const named = open !== -1 && close > open
+    const defaultName = (named ? clause.slice(0, open) : clause)
+      .replace(/,\s*$/, '')
+      .trim()
+
+    if (defaultName === name) found.push({specifier, exportName: 'default'})
+    if (!named) continue
+
+    for (const part of clause.slice(open + 1, close).split(',')) {
+      const [exportName, localName = exportName] = part.trim().split(/\s+as\s+/)
+
+      if (localName === name && IDENTIFIER.test(exportName)) {
+        found.push({specifier, exportName})
+      }
+    }
+  }
+
+  return found.length === 1 ? found[0] : null
+}
+
+// The array or object literal a module exports under a name: an exported
+// const, or the default export when that is itself a literal.
+function exportedLiteralText(
+  source: string,
+  exportName: string
+): string | null {
+  const code = blankComments(source)
+  const declarations =
+    exportName === 'default'
+      ? [...code.matchAll(EXPORTED_DEFAULT)]
+      : [...code.matchAll(EXPORTED_CONST)].filter(
+          (declaration) => declaration[1] === exportName
+        )
+  if (declarations.length !== 1) return null
+
+  const [declaration] = declarations
+
+  return readBalancedLiteral(
+    code,
+    (declaration.index || 0) + declaration[0].length
+  )
+}
+
+// A constant is read where it is declared: in this file, or one import
+// away in the module that exports it. Nothing is followed past that.
+function literalLookup(
+  code: string,
+  readImported?: ImportedModuleReader
+): LiteralLookup {
+  return (name) => {
+    const local = constLiteralText(code, name)
+    if (local != null || !readImported || !IDENTIFIER.test(name)) return local
+
+    const binding = importedBinding(code, name)
+    if (!binding) return null
+
+    const source = readImported(binding.specifier)
+
+    return source == null
+      ? null
+      : exportedLiteralText(source, binding.exportName)
+  }
+}
+
 interface RegisteredScriptGroup {
   text: string
   // Whether the text was read through a constant, which is the one hop.
@@ -2034,7 +2127,7 @@ interface RegisteredScriptGroup {
 // The object literals a scripting call passes first, so a property is read
 // per registration or injection instead of across the whole argument blob.
 function splitRegisteredScriptGroups(
-  code: string,
+  lookup: LiteralLookup,
   args: string
 ): RegisteredScriptGroup[] {
   const [first] = splitTopLevelArgs(args)
@@ -2044,7 +2137,7 @@ function splitRegisteredScriptGroups(
   let viaConstant = false
 
   if (IDENTIFIER.test(trimmed)) {
-    const literal = constLiteralText(code, trimmed)
+    const literal = lookup(trimmed)
     if (literal == null) return []
 
     trimmed = literal
@@ -2066,7 +2159,7 @@ function splitRegisteredScriptGroups(
       continue
     }
 
-    const literal = constLiteralText(code, text)
+    const literal = lookup(text)
     if (literal != null) groups.push({text: literal, viaConstant: true})
   }
 
@@ -2076,7 +2169,7 @@ function splitRegisteredScriptGroups(
 // The string literals of a const array a group names for a property, as
 // `js: hookFiles` or the shorthand `files`.
 function constArrayPropStringLiterals(
-  code: string,
+  lookup: LiteralLookup,
   group: string,
   prop: string
 ): string[] {
@@ -2091,7 +2184,7 @@ function constArrayPropStringLiterals(
     ...group.matchAll(namedRe),
     ...group.matchAll(shorthandRe)
   ]) {
-    const literal = constLiteralText(code, match[1])
+    const literal = lookup(match[1])
     if (!literal?.startsWith('[')) continue
 
     for (const element of splitTopLevelArgs(literal.slice(1, -1))) {
@@ -2106,9 +2199,11 @@ function constArrayPropStringLiterals(
 // Extract the js files a runtime registration or injection asks the browser to
 // run in the page's own world. The world rides the same object as the files.
 export function extractMainWorldRegisteredFileLiterals(
-  source: string
+  source: string,
+  readImported?: ImportedModuleReader
 ): string[] {
   const code = blankComments(source)
+  const lookup = literalLookup(code, readImported)
   const literals: string[] = []
   const calls = [
     {
@@ -2125,7 +2220,7 @@ export function extractMainWorldRegisteredFileLiterals(
       const args = readBalancedArgs(code, match.index + match[0].length - 1)
       if (args == null) continue
 
-      for (const group of splitRegisteredScriptGroups(code, args)) {
+      for (const group of splitRegisteredScriptGroups(lookup, args)) {
         if (!/["']?world["']?\s*:\s*(['"])MAIN\1/.test(group.text)) continue
 
         literals.push(...arrayPropStringLiterals(group.text, arrayProp))
@@ -2133,7 +2228,7 @@ export function extractMainWorldRegisteredFileLiterals(
         // A list held in a constant is read when the group itself was not.
         if (!group.viaConstant) {
           literals.push(
-            ...constArrayPropStringLiterals(code, group.text, arrayProp)
+            ...constArrayPropStringLiterals(lookup, group.text, arrayProp)
           )
         }
       }
