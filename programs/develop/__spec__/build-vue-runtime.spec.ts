@@ -182,6 +182,69 @@ function styledProject() {
   return root
 }
 
+// A content script's stylesheet is a JavaScript module. A component's style
+// block reached that rule as one @import line and failed the JavaScript parse.
+function contentScriptProject() {
+  const root = project()
+  const packageJson = path.join(root, 'package.json')
+
+  // The block is imported for its effect alone, which this flag would drop.
+  fs.writeFileSync(
+    packageJson,
+    JSON.stringify({
+      ...JSON.parse(fs.readFileSync(packageJson, 'utf8')),
+      sideEffects: false
+    })
+  )
+
+  write(
+    root,
+    'manifest.json',
+    JSON.stringify({
+      manifest_version: 3,
+      name: 'Vue content styles',
+      version: '1.0.0',
+      content_scripts: [
+        {matches: ['https://example.com/*'], js: ['content/isolated.js']},
+        {
+          matches: ['https://example.com/*'],
+          js: ['content/main.js'],
+          world: 'MAIN'
+        }
+      ]
+    })
+  )
+
+  const lanes = [
+    ['content/isolated.js', 'Isolated', 'rgb(11, 12, 13)'],
+    ['content/main.js', 'Main', 'rgb(21, 22, 23)'],
+    ['scripts/injected.js', 'Injected', 'rgb(31, 32, 33)']
+  ]
+
+  for (const [entry, name, color] of lanes) {
+    write(
+      root,
+      entry,
+      `import {createApp} from 'vue'\nimport Widget from '../src/${name}.vue'\n` +
+        "createApp(Widget).mount(document.body.appendChild(document.createElement('div')))\n"
+    )
+
+    write(
+      root,
+      `src/${name}.vue`,
+      `<template><p class="probe_${name}">styled</p></template>\n` +
+        `<style scoped>\n.probe_${name} { color: ${color}; }\n</style>\n` +
+        `<style>\n.plain_${name} { outline-color: ${color}; }\n</style>\n`
+    )
+  }
+
+  return root
+}
+
+function emittedScript(root: string, file: string) {
+  return fs.readFileSync(path.join(root, 'dist', 'chrome', file), 'utf8')
+}
+
 describe.skipIf(!hasVue)('Vue production build', () => {
   it('bundles the runtime-only entry, keeps the Options API and no global shim', async () => {
     const built = await build(project())
@@ -212,5 +275,34 @@ describe.skipIf(!hasVue)('Vue production build', () => {
 
     expect(built.css).toContain('.probe_theme{outline:3px dashed')
     expect(built.output).not.toContain('exists nowhere')
+  }, 180_000)
+
+  it("adds a content script component's style blocks to the document", async () => {
+    const root = contentScriptProject()
+    const built = await build(root)
+
+    expect(built.output).not.toContain('Module parse failed')
+
+    const lanes = [
+      ['content_scripts/content-0.js', 'Isolated', 'rgb(11, 12, 13)'],
+      ['content_scripts/content-1.js', 'Main', 'rgb(21, 22, 23)'],
+      ['scripts/injected.js', 'Injected', 'rgb(31, 32, 33)']
+    ]
+
+    for (const [file, name, color] of lanes) {
+      const script = emittedScript(root, file)
+
+      // The scoped rule carries the component's id and the plain one does not.
+      expect(script).toContain(`.probe_${name}[data-v-`)
+      expect(script).toContain(`] { color: ${color}`)
+      expect(script).toContain(`.plain_${name} { outline-color: ${color}`)
+
+      // One <style> element per block, which is what applies it on the page.
+      expect(script.match(/data-extjs-sfc-style/g)?.length).toBeGreaterThan(1)
+      expect(script).toContain('createElement("style")')
+    }
+
+    // A content script ships no sheet of its own for a block.
+    expect(built.css).not.toContain('probe_')
   }, 180_000)
 })
