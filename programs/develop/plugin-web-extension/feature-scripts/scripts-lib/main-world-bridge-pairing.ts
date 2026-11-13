@@ -38,7 +38,7 @@ export function buildMainWorldBridgePairingSource(
   var wantsPair = function (script) { return script.world === "MAIN" && namesOneOf(READERS, script.js); };
   var TARGETED = ["tabId", "frameIds", "allFrames", "documentIds"];
   var wantsBridge = function (injection) {
-    return !!injection && injection.world === "MAIN" && !!injection.target &&
+    return !!injection && injection.world === "MAIN" && !!injection.target && typeof injection.target.tabId === "number" &&
       Array.isArray(injection.files) && injection.files.length > 0 && namesOneOf(INJECTABLE, injection.files);
   };
   var clearBase = function () {
@@ -200,9 +200,43 @@ export function buildMainWorldBridgePairingSource(
           return Promise.resolve();
         }
       };
+      // The browser checks the shape of a call as it is made. The same call
+      // on a tab that cannot exist throws what the author's own would have.
+      var checked = function (args) {
+        var probe = Array.prototype.slice.call(args);
+        probe[0] = Object.assign({}, args[0], {target: Object.assign({}, args[0].target, {tabId: -1})});
+        if (typeof probe[probe.length - 1] === "function") probe[probe.length - 1] = function () { failed(); };
+        var refused = execute.apply(null, probe);
+        if (refused && typeof refused.then === "function") refused.then(settle, settle);
+      };
+      var inLane = function (key, run) {
+        var turn = (lanes[key] || Promise.resolve()).then(run);
+        var tail = turn.then(settle, settle);
+        lanes[key] = tail;
+        tail.then(function () { if (lanes[key] === tail) delete lanes[key]; });
+        return turn;
+      };
+      // A file clears the base it read, so two injections into one tab take
+      // turns. A Web Lock keeps them across every realm of the extension.
+      var inTurn = function (key, run) {
+        var started = false;
+        try {
+          var locks = globalThis.navigator && globalThis.navigator.locks;
+          if (locks && typeof locks.request === "function") {
+            return Promise.resolve(locks.request(PREFIX + key, function () { started = true; return run(); })).then(null, function (error) {
+              if (started) throw error;
+              return inLane(key, run);
+            });
+          }
+        } catch (error) {
+          if (started) return Promise.reject(error);
+        }
+        return inLane(key, run);
+      };
       scripting.executeScript = function (injection) {
         var args = arguments;
         if (!wantsBridge(injection)) return execute.apply(null, args);
+        checked(args);
         var done = typeof args[args.length - 1] === "function" ? args[args.length - 1] : null;
         var bridge = bridgeFor(injection);
         var run = function () {
@@ -221,27 +255,16 @@ export function buildMainWorldBridgePairingSource(
                 return (bridged ? sweep(bridge.target) : Promise.resolve()).then(function () { throw error; });
               });
             }
-            return new Promise(function (resolve, reject) {
+            return new Promise(function (resolve) {
               var answer = function (frames) {
                 var swept = bridged && (failed() || unread(frames)) ? sweep(bridge.target) : null;
                 try { done.apply(null, arguments); } finally { swept ? swept.then(resolve) : resolve(); }
               };
-              try {
-                execute(injection, answer);
-              } catch (error) {
-                // No callback form on this namespace, so the promise answers.
-                execute(injection).then(function (frames) { done(frames); resolve(); }, reject);
-              }
+              execute(injection, answer);
             });
           });
         };
-        // A file clears the base it read, so two injections into one tab
-        // take turns and the second bridge never runs ahead of the first file.
-        var key = String(injection.target.tabId);
-        var turn = (lanes[key] || Promise.resolve()).then(run);
-        var tail = turn.then(settle, settle);
-        lanes[key] = tail;
-        tail.then(function () { if (lanes[key] === tail) delete lanes[key]; });
+        var turn = inTurn("tab:" + injection.target.tabId, run);
         if (!done) return turn;
         turn.then(null, function (error) { console.error(error); done(); });
       };

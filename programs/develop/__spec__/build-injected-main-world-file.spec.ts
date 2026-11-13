@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import * as vm from 'node:vm'
 import {afterAll, describe, expect, it} from 'vitest'
 
 // An injected MAIN world file reads the extension base off the page on
@@ -150,5 +151,104 @@ describe('a MAIN world file the extension injects with executeScript', () => {
     )
 
     expect(built.read('options/index.js')).not.toContain(EXECUTE_WRAP)
+  }, 180_000)
+})
+
+// The page an injected file meets, as far as these files look at it.
+function runOnPage(code: string) {
+  const attributes: Record<string, string> = {}
+  const html = {
+    dataset: {} as Record<string, string>,
+    childElementCount: 2,
+    getAttribute: (name: string) => attributes[name] ?? null,
+    hasAttribute: (name: string) => name in attributes,
+    removeAttribute: (name: string) => delete attributes[name]
+  }
+  const page: Record<string, unknown> = {
+    // A stand-in for a DOM node: an object the structured clone refuses.
+    document: {documentElement: html, body: {appendChild() {}}},
+    setTimeout,
+    Promise,
+    structuredClone
+  }
+  page.window = page
+  page.globalThis = page
+
+  return {value: vm.runInNewContext(code, page), page}
+}
+
+const VALUE_FILES = {
+  'scripts/value.js': 'window.__VALUE__ = 1\n42\n',
+  'scripts/typed.ts':
+    'const count: number = Number(document.documentElement.childElementCount)\n' +
+    'if (count > 0) {\n  "from-if"\n} else {\n  "from-else"\n}\n',
+  'scripts/node.js': 'document.body\n',
+  'scripts/later.js': 'Promise.resolve(document.body)\n',
+  'scripts/named.js': ';(function named() {})\n',
+  'scripts/map.js': 'new Map([[1, {a: 1}]])\n',
+  'scripts/quiet.js': 'var quiet = 1\nfunction unused() { return quiet }\n',
+  'scripts/hook.js':
+    'import blobUrl from "../media/blob.bin?url"\n' +
+    'window.__PAGE_HOOK__ = String(blobUrl)\n' +
+    ';({hook: String(blobUrl)})\n',
+  'background.js':
+    'import "./scripts/value.js"\n' +
+    inject('MAIN') +
+    'api.tabs.onUpdated.addListener(function (tabId) {\n' +
+    '  api.scripting.executeScript({target: {tabId: tabId}, ' +
+    'files: ["/scripts/value.js"], world: "MAIN"})\n})\n'
+}
+
+describe('the value an injected scripts/ file ends on', () => {
+  it.each([
+    'chrome',
+    'firefox'
+  ] as const)('%s: the emitted file ends on it, for either world', async (browser) => {
+    const built = await build(project(VALUE_FILES), browser)
+
+    expect(runOnPage(built.read('scripts/value.js')).value).toBe(42)
+    expect(runOnPage(built.read('scripts/typed.js')).value).toBe('from-if')
+
+    const hook = runOnPage(built.read('scripts/hook.js'))
+
+    expect(hook.value).toEqual({hook: hook.page.__PAGE_HOOK__})
+    expect(String(hook.page.__PAGE_HOOK__)).toContain('assets/blob.')
+
+    // Nothing but what the file itself set is left on the page.
+    expect(
+      Object.keys(runOnPage(built.read('scripts/value.js')).page).sort()
+    ).toEqual([
+      'Promise',
+      '__VALUE__',
+      'document',
+      'globalThis',
+      'setTimeout',
+      'structuredClone',
+      'window'
+    ])
+
+    // A value the browser cannot clone ends the file on nothing, so no
+    // call that resolved before this value was kept starts to reject.
+    expect(runOnPage(built.read('scripts/node.js')).value).toBeUndefined()
+    expect(runOnPage(built.read('scripts/named.js')).value).toBeUndefined()
+    expect(
+      await runOnPage(built.read('scripts/later.js')).value
+    ).toBeUndefined()
+
+    expect(runOnPage(built.read('scripts/map.js')).value.get(1)).toEqual({a: 1})
+
+    // A file that ends on no value ships the bytes it always did.
+    expect(runOnPage(built.read('scripts/quiet.js')).value).toBeUndefined()
+    expect(built.read('scripts/quiet.js')).not.toContain('__extjsCompletion')
+
+    // A bundle that only imports the file is no injected file itself.
+    const background = built.read(
+      browser === 'chrome'
+        ? 'background/service_worker.js'
+        : 'background/scripts.js'
+    )
+
+    expect(background).not.toContain('let __extjsCompletionValue')
+    expect(background).toContain('typeof __extjsCompletion')
   }, 180_000)
 })

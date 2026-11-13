@@ -53,6 +53,10 @@ export function pickSharedBrowserRuntimeOptions(
 // loaded before the install never gets its document_start content scripts.
 export const LAUNCH_TAB_URL = 'about:blank'
 
+// Firefox reads a tab an add-on just opened as about:blank until it loads,
+// so the launch tab carries a fragment that no other tab has.
+export const FIREFOX_LAUNCH_TAB_URL = `${LAUNCH_TAB_URL}#extension-js-launch`
+
 // --no-open means open nothing at all, so it suppresses the starting URL the
 // same way it suppresses the courtesy new-tab. Every family reads the launch
 // URL through here so the two readings can never drift apart again.
