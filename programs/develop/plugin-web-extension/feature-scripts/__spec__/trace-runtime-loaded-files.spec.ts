@@ -111,6 +111,68 @@ async function runTrace(
   return made
 }
 
+describe('TraceRuntimeLoadedFiles asset reads', () => {
+  it('copies the text of an emitted script out of the bundler once per run', async () => {
+    const files = {
+      'data/config.json': '{}',
+      'lib/helper.js': 'self.helper = 1',
+      'inject/payload.js': 'self.payload = 1',
+      'img/icon.png': 'png'
+    }
+    const text: Record<string, string> = {
+      'background/service_worker.js': [
+        'importScripts("lib/helper.js");',
+        'fetch("/data/config.json");',
+        'chrome.scripting.executeScript({target: {tabId: 1}, files: ["inject/payload.js"]});',
+        'chrome.runtime.getURL("img/icon.png");'
+      ].join('\n'),
+      'action/index.js': 'fetch("/data/config.json")'
+    }
+    const reads: Record<string, number> = {}
+    const made = makeCompilation({})
+
+    for (const [name, src] of Object.entries(text)) {
+      reads[name] = 0
+      made.emitted.set(name, {
+        name,
+        source: {
+          source: () => {
+            reads[name]++
+
+            return src
+          }
+        }
+      })
+    }
+
+    new TraceRuntimeLoadedFiles({
+      manifestPath: path.join(
+        createTempProject(files, {
+          background: {service_worker: 'background.js'}
+        }),
+        'manifest.json'
+      )
+    }).apply(made.compiler)
+
+    await Promise.resolve()
+
+    // Every trace still found its file, each from the one shared read.
+    expect([...made.emitted.keys()].sort()).toEqual([
+      'action/index.js',
+      'background/lib/helper.js',
+      'background/service_worker.js',
+      'data/config.json',
+      'img/icon.png',
+      'inject/payload.js'
+    ])
+
+    expect(reads).toEqual({
+      'background/service_worker.js': 1,
+      'action/index.js': 1
+    })
+  })
+})
+
 describe('TraceRuntimeLoadedFiles manifest surfaces', () => {
   it('reads a popup declared under a browser prefix as a compiled surface', async () => {
     // The page pipeline relocates the popup, so a getURL to it must not copy

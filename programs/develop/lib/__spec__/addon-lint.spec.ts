@@ -739,6 +739,65 @@ describe('dependency attribution', () => {
     expect(finding).toContain('return early when it reads "firefox"')
   })
 
+  it('names the file, the limit and the way out for a single-file surface over the limit', () => {
+    const output: AddonLintOutput = {
+      errors: [
+        {
+          code: 'FILE_TOO_LARGE',
+          message: 'File is too large to parse.',
+          description:
+            'This file is not binary and is too large to parse. Files larger than 5MB will not be parsed.',
+          file: 'background/service_worker.js'
+        }
+      ]
+    }
+    const {lines} = formatAddonLintFindings(
+      output,
+      'dist/firefox',
+      ADDON_LINT_MAX_PRINTED,
+      new Map([
+        [
+          'background/service_worker.js',
+          {packages: ['openai'], onlyDependencies: false}
+        ]
+      ])
+    )
+    const finding = stripAnsi(lines[1])
+    expect(finding).toContain(
+      'AMO error FILE_TOO_LARGE: File is too large to parse. (background/service_worker.js)'
+    )
+
+    expect(finding).toContain('does not parse a file of 5 MB or more')
+    expect(finding).toContain('Firefox loads a background script as one file')
+    expect(finding).toContain('dynamic import()')
+    expect(finding).not.toContain('may be theirs')
+
+    for (const [file, surface] of [
+      ['content_scripts/content-0.js', 'content script'],
+      ['scripts/inject.js', 'injected script'],
+      ['user_scripts/api_script.js', 'injected script']
+    ]) {
+      expect(
+        stripAnsi(attributionFor(file, undefined, 'FILE_TOO_LARGE'))
+      ).toContain(`Firefox loads a ${surface} as one file`)
+    }
+  })
+
+  it('does not call a page part, a shared chunk or a data file a single-file surface', () => {
+    for (const file of [
+      'action/index-2.js',
+      'background/index.js',
+      'shared/commons-0.js',
+      'data/words.json',
+      'scripts/table.json'
+    ]) {
+      const line = stripAnsi(attributionFor(file, undefined, 'FILE_TOO_LARGE'))
+      expect(line).toContain('does not parse a file of 5 MB or more')
+      expect(line).toContain('into parts under the limit')
+      expect(line).not.toContain('as one file')
+    }
+  })
+
   it('keeps the hedge for an eval finding in a file that bundles dependencies', () => {
     const line = stripAnsi(
       attributionFor(

@@ -50,6 +50,28 @@ export function siblingScriptsFor(
     .map((file) => getFilePath(file, '', true))
 }
 
+// The file the entry chunk was really emitted as, root-absolute. A size cap
+// can number every part of a page, leaving no file under the entry's name.
+export function entryScriptFor(
+  compilation: Compilation,
+  feature: string
+): string | undefined {
+  const entrypoints = compilation.entrypoints as
+    | ReadonlyMap<string, EntrypointLike>
+    | undefined
+  const entrypoint =
+    typeof entrypoints?.get === 'function' ? entrypoints.get(feature) : null
+  if (!entrypoint || typeof entrypoint.getFiles !== 'function') return undefined
+
+  const ownFile = entryOwnJsFile(
+    feature,
+    entrypoint,
+    initialJsFiles(entrypoint)
+  )
+
+  return ownFile ? getFilePath(ownFile, '', true) : undefined
+}
+
 // The current markup of an emitted page, from either shape the compilation
 // hands back: an Asset record wrapping a Source, or the Source itself.
 function readAssetSource(asset: unknown): string | undefined {
@@ -143,6 +165,10 @@ export class UpdateHtmlFile {
                 optionsDialogFloor: needsOptionsDialogFloor(
                   manifest,
                   this.browser,
+                  feature
+                ),
+                entryScript: entryScriptFor(
+                  compilation as unknown as Compilation,
                   feature
                 )
               }
