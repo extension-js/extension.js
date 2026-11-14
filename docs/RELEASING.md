@@ -37,6 +37,14 @@ Use the `Release – Publish` workflow at `.github/workflows/publish-release.yml
   (groups and the AI-help snapshot) before a release, and the tests fail the cut
   with that reason. `EXTENSION_SKIP_TEMPLATE_REPIN=1` keeps the committed pin for an
   urgent release.
+- A `stable` release is gated on the public corpus. Before anything is tagged, the
+  workflow finds the canary on npm that was built from the same commit and builds
+  every sample of `cezaraugusto/browser-extension-test-data` with it, on Chrome,
+  Firefox and Edge. A failing sample stops the release. So cut a canary from the
+  commit first, then the stable from that same commit. With no canary of the commit
+  the run fails and says so. A canary run also reports its own corpus reading after
+  it publishes, which blocks nothing. `skip_corpus_gate` publishes without the gate
+  and is for a broken corpus only, never for a regression.
 - CI validates inputs, builds, and runs tests.
 - Release notes are generated from git history using `scripts/generate-release-notes.mjs`.
   Stable and next releases use grouped, user-facing bullets with commit refs, while
