@@ -12,6 +12,7 @@ import {isChromiumBasedBrowser, isEmulatorBrowser} from '../lib/constants'
 import type {DevOptions, PluginInterface} from '../types'
 import {
   InjectBridgeProducer,
+  readBootRegistrations,
   readDevBuild
 } from './steps/inject-bridge-producer'
 import {InjectBridgeRelay} from './steps/inject-bridge-relay'
@@ -54,7 +55,7 @@ export {
   reloadKindFor,
   type UndeliveredReloadContext
 } from './reload-dispatch'
-export {readDevBuild}
+export {readBootRegistrations, readDevBuild}
 export {SetupChunkLoadingTarget} from './steps/setup-chunk-loading-target'
 
 /**

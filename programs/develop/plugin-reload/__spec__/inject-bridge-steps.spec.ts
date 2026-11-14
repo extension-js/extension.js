@@ -94,11 +94,59 @@ describe('InjectBridgeProducer', () => {
     runProcessAssets()
     const out = getAssetSource('background/service_worker.js')
     expect(out).toContain('__extjsBridgeProducerInstalled')
-    expect(out).toContain('8123')
-    expect(out).toContain('abc123')
     expect(out.indexOf('__extjsBridgeProducerInstalled')).toBeLessThan(
       out.indexOf('/* user sw */')
     )
+  })
+
+  // A browser keeps the worker file of a profile that outlives the session,
+  // and runs that copy first when the file on disk has other bytes.
+  it('writes the same background bytes in every session of unchanged code', () => {
+    const built = (port: string, instance: string) => {
+      process.env.EXTENSION_CONTROL_PORT = port
+      process.env.EXTENSION_INSTANCE_ID = instance
+      const {compiler, runProcessAssets, setAsset, getAssetSource} =
+        makeCompiler()
+      new InjectBridgeProducer().apply(compiler)
+      setAsset('background/service_worker.js', '/* user sw */ console.log(1);')
+      setAsset('content_scripts/content-0.js', '/* content */')
+      runProcessAssets()
+
+      return {
+        worker: getAssetSource('background/service_worker.js'),
+        control: JSON.parse(getAssetSource('extension-js-control.json'))
+      }
+    }
+
+    const first = built('8123', 'session-one')
+    const second = built('9456', 'session-two')
+
+    expect(second.worker).toBe(first.worker)
+    expect(first.worker).not.toContain('session-one')
+    expect(first.worker).not.toContain('8123')
+    expect(first.worker).toContain('__extjsDevBuild')
+    expect(first.control).toMatchObject({port: 8123, instanceId: 'session-one'})
+    expect(second.control).toMatchObject({
+      port: 9456,
+      instanceId: 'session-two'
+    })
+  })
+
+  it('names another build once a file of the extension changed', () => {
+    const built = (content: string) => {
+      process.env.EXTENSION_CONTROL_PORT = '8123'
+      process.env.EXTENSION_INSTANCE_ID = 'session-one'
+      const {compiler, runProcessAssets, setAsset, getAssetSource} =
+        makeCompiler()
+      new InjectBridgeProducer().apply(compiler)
+      setAsset('background/service_worker.js', '/* user sw */ console.log(1);')
+      setAsset('content_scripts/content-0.js', content)
+      runProcessAssets()
+
+      return getAssetSource('background/service_worker.js')
+    }
+
+    expect(built('/* one */')).not.toBe(built('/* two */'))
   })
 
   // A stale control file is fatal and silent: the producer fetches it at runtime

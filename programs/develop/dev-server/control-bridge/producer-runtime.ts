@@ -20,7 +20,11 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
     // connectable host (loopback locally; the public host for remote/devcontainer).
     var HOST = "__EXTJS_CONTROL_HOST__";
     if (!HOST || HOST.indexOf("__EXTJS") === 0) HOST = "127.0.0.1";
-    if (!PORT || PORT < 1) return;
+    // A dev background names no session, so its file is the same bytes in
+    // every session and a kept profile's cached copy of it is not stale.
+    var SESSION_FROM_FILE = "__EXTJS_SESSION_FROM_FILE__" === "1";
+    if (SESSION_FROM_FILE) { PORT = 0; INSTANCE_ID = ""; }
+    else if (!PORT || PORT < 1) return;
 
     var WS = g.WebSocket;
     if (typeof WS !== "function") return;
@@ -1611,6 +1615,203 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       if (nativeRegistry) withScriptVersions(function () {});
     }
 
+    // The first page of a session waits for the registrations a background
+    // makes as it starts, so its boot is watched from the first line.
+    var BOOT_IDLE_CHECK_MS = 25;
+    var BOOT_EVENTS_GRACE_MS = 250;
+    var BOOT_GIVE_UP_MS = 4000;
+    var BOOT_LATE_WINDOW_MS = 15000;
+
+    function watchBootRegistrations() {
+      if (g.__extjsDevBootRegisters !== true) return;
+      var bootedAt = Date.now();
+      var inFlight = 0;
+      var calls = 0;
+      var landed = false;
+      var reported = false;
+      var lateSaid = false;
+      var counted = [];
+      var failed = function () {
+        try { return !!(g.chrome && g.chrome.runtime && g.chrome.runtime.lastError); } catch (e) { return false; }
+      };
+      var devId = function (entry) {
+        var id = entry && typeof entry === "object" ? entry.id : entry;
+        return typeof id === "string" && id.indexOf("extjs-dev-cs-") === 0;
+      };
+      // The dev build registers the manifest's own scripts through the same
+      // calls, and those are not the author's registrations.
+      var ownCall = function (first) {
+        var list = Array.isArray(first) ? first : first && Array.isArray(first.ids) ? first.ids : null;
+        if (!list || !list.length) return false;
+        for (var i = 0; i < list.length; i++) if (!devId(list[i])) return false;
+        return true;
+      };
+      // A registration that answers after the page was let go is on no open
+      // page, which the author is told once.
+      var land = function () {
+        landed = true;
+        if (!reported || lateSaid || Date.now() - bootedAt > BOOT_LATE_WINDOW_MS) return;
+        lateSaid = true;
+        send({type: "boot-registrations", late: true, afterMs: Date.now() - bootedAt});
+      };
+      // Any call the boot code is waiting on can be the one a registration
+      // follows, so each is counted until the browser answers it.
+      var count = function (owner, key, registry, method) {
+        var inner = owner[key];
+        if (typeof inner !== "function" || inner.__extjsBootCounted) return;
+        var wrapper = function () {
+          var args = [].slice.call(arguments);
+          var self = method ? this : owner;
+          if (registry && ownCall(args[0])) return inner.apply(self, args);
+          var last = args.length - 1;
+          var done = last >= 0 && typeof args[last] === "function" ? args[last] : null;
+          var settled = false;
+          var settle = function (ok) {
+            if (settled) return;
+            settled = true;
+            inFlight--;
+            if (ok && registry === "write") land();
+          };
+          inFlight++;
+          if (registry) calls++;
+          if (done) args[last] = function () { settle(!failed()); return done.apply(this, arguments); };
+          var ret;
+          try { ret = inner.apply(self, args); } catch (e) { settle(false); throw e; }
+          if (done) return ret;
+          if (!ret || typeof ret.then !== "function") { settle(true); return ret; }
+          // The caller gets the same outcome, so a rejection it ignores is
+          // still reported as unhandled.
+          return ret.then(function (value) { settle(true); return value; }, function (error) { settle(false); throw error; });
+        };
+        wrapper.__extjsBootCounted = true;
+        try {
+          owner[key] = wrapper;
+          if (owner[key] === wrapper) counted.push({owner: owner, key: key, inner: inner, wrapper: wrapper, kept: !!registry});
+        } catch (e) {
+          // Ignore
+        }
+      };
+      var walk = function (owner, depth, seen) {
+        var keys = [];
+        try { keys = Object.keys(owner); } catch (e) {
+          // Ignore
+        }
+        for (var i = 0; i < keys.length; i++) {
+          var value;
+          try { value = owner[keys[i]]; } catch (e) { continue; }
+          if (typeof value === "function") { count(owner, keys[i], null); continue; }
+          if (!value || typeof value !== "object" || depth >= 3 || seen.indexOf(value) !== -1) continue;
+          // An event has listeners, not answers.
+          if (typeof value.addListener === "function") continue;
+          seen.push(value);
+          walk(value, depth + 1, seen);
+        }
+      };
+      // A registration a profile kept from an earlier session is already
+      // there for the first page, whatever the background does next.
+      var readKept = function (scripting) {
+        if (typeof scripting.getRegisteredContentScripts !== "function") return;
+        inFlight++;
+        var answered = false;
+        var answer = function (list) {
+          if (answered) return;
+          answered = true;
+          inFlight--;
+          for (var i = 0; list && i < list.length; i++) {
+            if (list[i] && typeof list[i].id === "string" && !devId(list[i])) landed = true;
+          }
+        };
+        try {
+          var ret = scripting.getRegisteredContentScripts(function (list) { noopLastError(); answer(list); });
+          if (ret && typeof ret.then === "function") ret.then(answer, function () { answer(null); });
+        } catch (e) { answer(null); }
+      };
+      var roots = [g.chrome, g.browser];
+      var seen = [];
+      var read = false;
+      for (var r = 0; r < roots.length; r++) {
+        var root = roots[r];
+        if (!root || seen.indexOf(root) !== -1) continue;
+        seen.push(root);
+        var scripting = null;
+        try { scripting = root.scripting; } catch (e) {
+          // Ignore
+        }
+        if (scripting && seen.indexOf(scripting) === -1) {
+          if (!read) { read = true; readKept(scripting); }
+          count(scripting, "registerContentScripts", "write");
+          count(scripting, "updateContentScripts", "write");
+          count(scripting, "unregisterContentScripts", "call");
+          count(scripting, "getRegisteredContentScripts", "call");
+        }
+        walk(root, 1, seen);
+      }
+      if (typeof g.fetch === "function") count(g, "fetch", null);
+      // A response is read after it arrived, and the read is waited on too.
+      var body = g.Response && g.Response.prototype;
+      var reads = ["json", "text", "arrayBuffer", "blob", "formData"];
+      for (var b = 0; body && b < reads.length; b++) count(body, reads[b], null, true);
+
+      // Once it has reported, the background runs on the browser's own calls
+      // again. The registry stays counted for a late registration.
+      var release = function () {
+        for (var i = 0; i < counted.length; i++) {
+          var c = counted[i];
+          if (c.kept) continue;
+          try { if (c.owner[c.key] === c.wrapper) c.owner[c.key] = c.inner; } catch (e) {
+            // Ignore
+          }
+        }
+      };
+
+      // The browser hands a starting background its install events right
+      // after its top level ran, and their listeners are boot code too.
+      var eventsDone = false;
+      var eventsDue = function () { eventsDone = true; };
+      var worker = null;
+      try { worker = g.serviceWorker && typeof g.serviceWorker.state === "string" ? g.serviceWorker : null; } catch (e) {
+        // Ignore
+      }
+      var doc = null;
+      try { doc = g.document && typeof g.document.readyState === "string" ? g.document : null; } catch (e) {
+        // Ignore
+      }
+      if (worker && worker.state !== "activated" && typeof g.addEventListener === "function") {
+        // An installing worker gets onInstalled before it activates.
+        g.addEventListener("activate", function () { setTimeout(eventsDue, 0); });
+        setTimeout(eventsDue, 1000);
+      } else if (!worker && doc && g.chrome && g.chrome.runtime && g.chrome.runtime.onInstalled) {
+        // Gecko fires onInstalled a moment after the page loaded, and not at
+        // all for a background it only woke.
+        var afterLoad = function () { setTimeout(eventsDue, BOOT_EVENTS_GRACE_MS); };
+        g.chrome.runtime.onInstalled.addListener(function () { setTimeout(eventsDue, 0); });
+        if (doc.readyState === "complete" || typeof g.addEventListener !== "function") afterLoad();
+        else g.addEventListener("load", afterLoad);
+      } else {
+        setTimeout(eventsDue, worker ? 0 : BOOT_EVENTS_GRACE_MS);
+      }
+
+      var idleOnce = false;
+      var check = function () {
+        if (reported) return;
+        var gaveUp = Date.now() - bootedAt >= BOOT_GIVE_UP_MS;
+        var idle = eventsDone && inFlight <= 0;
+        if ((idle && idleOnce) || gaveUp) {
+          reported = true;
+          release();
+          var frame = {type: "boot-registrations", calls: calls, landed: landed};
+          if (!(idle && idleOnce)) { frame.pending = true; lateSaid = true; }
+          send(frame);
+          return;
+        }
+        idleOnce = idle;
+        try { setTimeout(check, BOOT_IDLE_CHECK_MS); } catch (e) {
+          // Ignore
+        }
+      };
+      setTimeout(check, 0);
+    }
+
     // Every changed file gets a new address, registered now or later.
     function moveScriptAddresses(changedScriptFiles, cb) {
       withScriptVersions(function () {
@@ -2247,7 +2448,9 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
     }
     function replayable(frame) {
       var ev = frame && frame.event;
-      if (!ev || ev.runId !== INSTANCE_ID) return false;
+      if (!ev) return false;
+      // A background that died before it read its session parked no run id.
+      if (ev.runId !== INSTANCE_ID && !(SESSION_FROM_FILE && ev.runId === "")) return false;
       if (parkedHere(ev.id)) return false;
       return typeof ev.timestamp === "number" && Date.now() - ev.timestamp <= PENDING_ERROR_TTL;
     }
@@ -2292,8 +2495,10 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       readParked(area, function (list) {
         if (inheritedParked !== null) return;
         inheritedParked = [];
+        // Before the session is read nothing can be told apart yet, and the
+        // lines are filtered again when they are shipped.
         for (var i = 0; i < list.length; i++) {
-          if (replayable(list[i])) inheritedParked.push(list[i]);
+          if (!INSTANCE_ID || replayable(list[i])) inheritedParked.push(list[i]);
         }
         if (parkedErrors.length && !open) writeParked();
       });
@@ -2351,6 +2556,20 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
     // The baked PORT is a snapshot of an ephemeral port. After a dev-server
     // restart, the port file shipped in the unpacked extension names the
     // live one, and unpacked resources are read from disk on every fetch.
+    // Lines logged before the session was read get its id once it is known.
+    function adoptSession(id) {
+      if (!SESSION_FROM_FILE || typeof id !== "string" || !id || id === INSTANCE_ID) return;
+      INSTANCE_ID = id;
+      var lists = [queue, parkedErrors];
+      for (var l = 0; l < lists.length; l++) {
+        for (var i = 0; i < lists[l].length; i++) {
+          var ev = lists[l][i] && lists[l][i].event;
+          if (ev && ev.runId === "") ev.runId = id;
+        }
+      }
+      if (parkedErrors.length && !open) writeParked();
+    }
+
     function refreshControlPort(done) {
       try {
         var runtime = (g.chrome && g.chrome.runtime) || (g.browser && g.browser.runtime);
@@ -2360,10 +2579,22 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
           .then(function (data) {
             var next = data && parseInt(data.port, 10);
             if (next && next > 0 && next < 65536 && next !== PORT) PORT = next;
+            adoptSession(data && data.instanceId);
             done();
           })
           .catch(function () { done(); });
       } catch (e) { done(); }
+    }
+
+    function sessionKnown() {
+      return !SESSION_FROM_FILE || (!!INSTANCE_ID && PORT > 0);
+    }
+
+    // The session file is there before the browser starts, so a read that
+    // found none is retried like a server that is not listening yet.
+    function dial() {
+      if (sessionKnown()) connect();
+      else schedule();
     }
 
     function schedule() {
@@ -2374,8 +2605,8 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
         setTimeout(function () {
           // Two straight failures make the baked port suspect (a restarted
           // server dials out on a new port): re-resolve before re-dialing.
-          if (connectFailures >= 2) refreshControlPort(connect);
-          else connect();
+          if (connectFailures >= 2 || !sessionKnown()) refreshControlPort(dial);
+          else dial();
         }, delay);
       } catch (e) {
         // Ignore
@@ -2661,6 +2892,10 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       // Ignore
     }
 
+    try { watchBootRegistrations(); } catch (e) {
+      // Ignore
+    }
+
     try { restoreOverrideTabsAtBoot(); } catch (e) {
       // Ignore
     }
@@ -2708,7 +2943,8 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
     }
 
     adoptInheritedParked();
-    connect();
+    if (SESSION_FROM_FILE) refreshControlPort(dial);
+    else connect();
   } catch (e) {
     // Ignore
   }
@@ -3036,20 +3272,30 @@ export function buildBridgeRelaySource(opts: BuildRelayOptions): string {
 export interface BuildProducerOptions {
   controlPort: number | null | undefined
   instanceId: string
+  // The producer reads the port and the instance id from the control file
+  // of the dist as it starts, and its source names neither.
+  sessionFromFile?: boolean
   context?: string
   host?: string
 }
 
 // Bake the control port / instanceId / context / host into the producer source.
 // Returns '' when the control bridge is unavailable (no port).
+// Set by the build on a background whose source names a content script
+// registration, so only that background reports when its calls answered.
+export const DEV_BOOT_REGISTERS_GLOBAL = '__extjsDevBootRegisters'
+
 export function buildBridgeProducerSource(opts: BuildProducerOptions): string {
   if (!opts.controlPort || opts.controlPort < 1) return ''
 
+  const fromFile = opts.sessionFromFile === true
+
   return BRIDGE_PRODUCER_SOURCE.replace(
     /__EXTJS_CONTROL_PORT__/g,
-    String(opts.controlPort)
+    fromFile ? '0' : String(opts.controlPort)
   )
-    .replace(/__EXTJS_INSTANCE_ID__/g, String(opts.instanceId))
+    .replace(/__EXTJS_INSTANCE_ID__/g, fromFile ? '' : String(opts.instanceId))
+    .replace(/__EXTJS_SESSION_FROM_FILE__/g, fromFile ? '1' : '0')
     .replace(/__EXTJS_CONTEXT__/g, String(opts.context || 'background'))
     .replace(/__EXTJS_CONTROL_HOST__/g, String(opts.host || '127.0.0.1'))
 }

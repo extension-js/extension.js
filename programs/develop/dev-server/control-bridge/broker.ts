@@ -26,6 +26,8 @@ import {
   type IncomingLogEvent,
   type ReadyFrame,
   type ReloadAckFrame,
+  type BootRegistrationsFrame,
+  type BootRegistrationsOutcome,
   type ReloadAckOutcome,
   type ReloadFrame,
   type ReloadRestartOutcome,
@@ -78,6 +80,8 @@ export interface BridgeBrokerOptions {
   wakeExecutor?: () => Promise<boolean>
   // A reload dev applied after a compile, for the session to stamp.
   onReloadApplied?: (kind: string, label?: string) => void
+  // A registration landed after the first page was let go without one.
+  onLateBootRegistration?: (afterMs?: number) => void
 }
 
 // Defined with the wire constants in ./contracts, re-exported here because
@@ -338,6 +342,16 @@ export class BridgeBroker {
   private readonly onExecutorAttached?: (attached?: ExecutorAttachInfo) => void
   private readonly onExecutorDetached?: () => void
   private readonly wakeExecutor?: () => Promise<boolean>
+  // The first background to report on its boot, and what it said.
+  private bootRegistrations:
+    | {conn: BridgeConnection; outcome: BootRegistrationsOutcome}
+    | undefined
+  private bootRegistrationsAwaited = false
+  private lateBootRegistrationSaid = false
+  private readonly bootRegistrationWaiters = new Set<
+    (outcome: BootRegistrationsOutcome) => void
+  >()
+  private readonly onLateBootRegistration?: (afterMs?: number) => void
   // Verbs held while a woken background starts, answered on its hello.
   private readonly executorWaiters = new Set<() => void>()
   private readonly waking = new Set<string>()
@@ -361,6 +375,7 @@ export class BridgeBroker {
   // never reported as unapplied.
   private readonly ackingProducers = new Set<BridgeConnection>()
   // The build each connected producer said its background runs.
+  private readonly sessionBuilds = new Set<string>()
   private readonly producerBuilds = new Map<BridgeConnection, string>()
   private reloadSeq = 0
   private reloadAck: {
@@ -392,6 +407,7 @@ export class BridgeBroker {
     this.onExecutorDetached = options.onExecutorDetached
     this.wakeExecutor = options.wakeExecutor
     this.onReloadApplied = options.onReloadApplied
+    this.onLateBootRegistration = options.onLateBootRegistration
     this.now = options.now ?? (() => Date.now())
     this.setTimer = options.setTimer ?? ((fn, ms) => setTimeout(fn, ms))
     this.clearTimer = options.clearTimer ?? ((h) => clearTimeout(h))
@@ -440,6 +456,12 @@ export class BridgeBroker {
         // Only the executor (a producer connection) resolves commands.
         if (this.roles.get(conn) === 'producer') {
           this.onResult(frame)
+        }
+
+        return
+      case 'boot-registrations':
+        if (this.roles.get(conn) === 'producer') {
+          this.onBootRegistrations(conn, frame)
         }
 
         return
@@ -678,6 +700,72 @@ export class BridgeBroker {
     }
   }
 
+  // Resolves once a background says the registry calls it made as it started
+  // have answered, or with 'timeout' when none says so inside the window.
+  awaitBootRegistrations(timeoutMs: number): Promise<BootRegistrationsOutcome> {
+    this.bootRegistrationsAwaited = true
+
+    if (this.bootRegistrations) {
+      return Promise.resolve(this.bootRegistrations.outcome)
+    }
+
+    return new Promise<BootRegistrationsOutcome>((resolve) => {
+      const release = (outcome: BootRegistrationsOutcome) => {
+        this.clearTimer(timer)
+        this.bootRegistrationWaiters.delete(release)
+        resolve(outcome)
+      }
+
+      const timer = this.setTimer(() => {
+        this.bootRegistrationWaiters.delete(release)
+        resolve('timeout')
+      }, timeoutMs)
+
+      // The wait never keeps a finished dev server alive.
+      ;(timer as {unref?: () => void}).unref?.()
+
+      this.bootRegistrationWaiters.add(release)
+    })
+  }
+
+  private onBootRegistrations(
+    conn: BridgeConnection,
+    frame: BootRegistrationsFrame
+  ): void {
+    if (frame.late) {
+      // Only the background a page was held for, and only once: a later
+      // start of the background has no first page behind it.
+      if (
+        this.bootRegistrations?.conn !== conn ||
+        this.bootRegistrations.outcome !== 'settled' ||
+        !this.bootRegistrationsAwaited ||
+        this.lateBootRegistrationSaid
+      ) {
+        return
+      }
+
+      this.lateBootRegistrationSaid = true
+
+      try {
+        this.onLateBootRegistration?.(
+          typeof frame.afterMs === 'number' ? frame.afterMs : undefined
+        )
+      } catch {
+        // A line that failed to print never disturbs the bridge.
+      }
+
+      return
+    }
+
+    if (this.bootRegistrations) return
+
+    const outcome = frame.pending ? 'timeout' : 'settled'
+
+    this.bootRegistrations = {conn, outcome}
+
+    for (const release of [...this.bootRegistrationWaiters]) release(outcome)
+  }
+
   // Resolves once a producer says hello after the acked reload restarted the
   // extension, or once the window closes with none.
   awaitReloadRestart(): Promise<ReloadRestartOutcome> {
@@ -848,6 +936,62 @@ export class BridgeBroker {
     return true
   }
 
+  // Every build this session compiled. A background that names another one
+  // was written by an earlier session and cached by the browser.
+  noteSessionBuild(build: string): void {
+    if (!build) return
+
+    const first = this.sessionBuilds.size === 0
+
+    this.sessionBuilds.add(build)
+
+    if (!first) return
+
+    // A background that was already running reconnected before the first
+    // compile finished, when nothing could be told about its build yet.
+    for (const [conn, role] of [...this.roles]) {
+      if (role !== 'producer') continue
+
+      const running = this.producerBuilds.get(conn)
+
+      if (running && !this.sessionBuilds.has(running)) {
+        this.resyncEarlierSessionProducer(conn, running)
+      }
+    }
+  }
+
+  private runsEarlierSessionBuild(hello: HelloFrame): boolean {
+    return (
+      typeof hello.build === 'string' &&
+      hello.build !== '' &&
+      this.sessionBuilds.size > 0 &&
+      !this.sessionBuilds.has(hello.build)
+    )
+  }
+
+  private resyncEarlierSessionProducer(
+    conn: BridgeConnection,
+    build: string
+  ): void {
+    this.lastStaleHelloAt = this.now()
+
+    if (this.allowStaleProducerResync()) {
+      if (this.authorMode) {
+        debugLine(
+          `[control-bridge] stale producer (build ${build}) → full-reload resync`
+        )
+      }
+
+      conn.send({
+        type: 'reload',
+        reloadType: 'full',
+        label: 'extension (resyncing previous dev session)'
+      })
+    }
+
+    conn.close(CLOSE_BAD_INSTANCE, 'build from an earlier session')
+  }
+
   private onHello(conn: BridgeConnection, hello: HelloFrame): void {
     if (hello.v !== CONTROL_ENVELOPE_VERSION) {
       conn.close(CLOSE_BAD_HELLO, 'unsupported envelope version')
@@ -921,6 +1065,14 @@ export class BridgeBroker {
       }
 
       conn.close(CLOSE_BAD_INSTANCE, 'instanceId mismatch')
+
+      return
+    }
+
+    // The background reads the instance id from disk, so one a kept profile
+    // cached in an earlier session passes the check above with old code.
+    if (hello.role === 'producer' && this.runsEarlierSessionBuild(hello)) {
+      this.resyncEarlierSessionProducer(conn, String(hello.build))
 
       return
     }

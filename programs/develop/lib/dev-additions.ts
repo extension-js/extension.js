@@ -12,11 +12,13 @@ export interface DevAddition {
     | 'host_permission'
     | 'web_accessible_resource'
     | 'browser_flag'
+    | 'browser_preference'
   value: string
   reason: string
   // The origins a web accessible resource is exposed to. Manifest V2 has none.
   matches?: string[]
-  // A browser flag only: whether this session passes it, and how to flip it.
+  // A browser flag or preference only: whether this session applies it, and
+  // how to flip it.
   applied?: boolean
   cause?: string
   change?: string
@@ -39,7 +41,7 @@ export function devAdditionsOf(
   return compilation ? additionsByCompilation.get(compilation) : undefined
 }
 
-// The launcher owns the browser flag entries, so a recompile carries them
+// The launcher owns the browser flag and preference entries, so a recompile carries them
 // over while the manifest entries are replaced by what this compile patched.
 export function mergeDevAdditions(
   compiled: DevAddition[] | undefined,
@@ -55,6 +57,9 @@ export function mergeDevAdditions(
 
   return [
     ...compiled,
-    ...earlier.filter((entry) => entry.kind === 'browser_flag')
+    ...earlier.filter(
+      (entry) =>
+        entry.kind === 'browser_flag' || entry.kind === 'browser_preference'
+    )
   ]
 }

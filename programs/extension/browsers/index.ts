@@ -14,6 +14,7 @@ import {
 import {computeBinariesBaseDir} from './browsers-lib/output-binaries-resolver'
 import {buildBrowserLaunchRequest} from './browsers-lib/runtime-options'
 import type {
+  BootRegistrationsWait,
   BrowserLogSink,
   BrowserType,
   CompilationLike,
@@ -71,6 +72,9 @@ export interface BrowserLaunchOptions {
   logUrl?: string
   logTab?: number | string
   logSink?: BrowserLogSink
+  // Set by the dev server for a background that registers content scripts
+  // as it starts. The starting URL is held on it, bounded by the wait given.
+  awaitBootRegistrations?: BootRegistrationsWait
   emulatorViewerUrl?: string
 }
 
@@ -156,7 +160,8 @@ async function launchChromium(
     logColor: opts.logColor,
     logUrl: opts.logUrl,
     logTab: opts.logTab,
-    logSink: opts.logSink
+    logSink: opts.logSink,
+    awaitBootRegistrations: opts.awaitBootRegistrations
   }
 
   const ctx = createChromiumContext()
@@ -234,7 +239,8 @@ async function launchFirefox(
     logColor: opts.logColor,
     logUrl: opts.logUrl,
     logTab: opts.logTab,
-    logSink: opts.logSink
+    logSink: opts.logSink,
+    awaitBootRegistrations: opts.awaitBootRegistrations
   }
 
   const pluginOptions = {

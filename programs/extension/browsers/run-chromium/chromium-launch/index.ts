@@ -69,6 +69,7 @@ import {
   stampReadyBrowserExited,
   stampReadyBrowserLaunch,
   stampReadyDevBrowserFlag,
+  stampReadyDevBrowserPreference,
   stampReadyBrowserLaunchFailed,
   stampReadyBrowserUpNotAttached,
   stampReadyCdpFault,
@@ -108,6 +109,7 @@ import {
   disableInfobarsFlagReport,
   silentDebuggerFlagReport
 } from './browser-config'
+import {startupPreferenceReport} from '../cdp/ensure-startup-new-tab'
 import {logChromiumDryRun} from './dry-run'
 import {getExtensionOutputPath} from './extension-output-path'
 import {chromiumForkInstallGuidance} from './fork-install-guidance'
@@ -1322,6 +1324,16 @@ export class ChromiumLaunchPlugin {
           this.closeHandlerContext?.runId
         )
       }
+
+      const startupPreference = startupPreferenceReport(chromiumConfig)
+
+      if (startupPreference) {
+        stampReadyDevBrowserPreference(
+          launchOutputPath,
+          startupPreference,
+          this.closeHandlerContext?.runId
+        )
+      }
     }
 
     // Extract pipe streams for CDP transport: child.stdio[3] writes commands to
@@ -1386,6 +1398,7 @@ export class ChromiumLaunchPlugin {
         }),
         chromiumBinary: this.options.chromiumBinary,
         logSink: this.options.logSink,
+        awaitBootRegistrations: this.options.awaitBootRegistrations,
         bannerPrintedOnce: false,
         cdpController: undefined,
         browserVersionLine,

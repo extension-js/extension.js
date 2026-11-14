@@ -201,6 +201,12 @@ export interface BrowserLogSinkEvent {
 
 export type BrowserLogSink = (event: BrowserLogSinkEvent) => void
 
+// Resolves 'settled' once the background's boot registry calls answered,
+// or 'timeout' when the dev server heard nothing inside the wait.
+export type BootRegistrationsWait = (
+  timeoutMs: number
+) => Promise<'settled' | 'timeout'>
+
 // What the browser answered when the dist was re-offered after a refusal.
 // 'unknown' means the question could not be asked - never a verdict.
 export interface ExtensionLoadRetryResult {

@@ -254,6 +254,24 @@ export interface ReloadAckFrame {
   label?: string
 }
 
+// A background says the registry calls it made as it started have answered,
+// so the first page of the session can open and find them.
+export interface BootRegistrationsFrame {
+  type: 'boot-registrations'
+  // How many registry calls the author's code had made by then.
+  calls?: number
+  // Whether a registration was there when it reported.
+  landed?: boolean
+  // The background gave up on a call that never answered.
+  pending?: boolean
+  // A registration answered after the report said there was none.
+  late?: boolean
+  // How long after the background's first line that registration answered.
+  afterMs?: number
+}
+
+export type BootRegistrationsOutcome = 'settled' | 'timeout'
+
 // What became of the receipt for the newest reload broadcast: the worker
 // confirmed it, the ack window closed unanswered, or no connected producer
 // acks at all and delivery is the only claim the dev server can make.
@@ -280,7 +298,12 @@ export interface PingFrame {
   type: 'ping'
 }
 
-export type ClientFrame = HelloFrame | LogFrame | CommandFrame | ReloadAckFrame
+export type ClientFrame =
+  | HelloFrame
+  | LogFrame
+  | CommandFrame
+  | ReloadAckFrame
+  | BootRegistrationsFrame
 export type ServerFrame =
   | ReadyFrame
   | LogFrame

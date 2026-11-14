@@ -105,6 +105,48 @@ describe('firefox new-tab courtesy after launch', () => {
     ])
   })
 
+  // Firefox reads the background as running before its registry calls
+  // answered, so the page waits for the dev server to say they have.
+  it('opens the starting url only after the boot registrations settle', async () => {
+    writeManifest({manifest_version: 3, name: 'plain'})
+    const awaitBootRegistrations = vi.fn(async (_timeoutMs: number) => {
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      calls.push('settled')
+
+      return 'settled' as const
+    })
+
+    await setupRdpAfterLaunch(
+      {
+        browser: 'firefox',
+        startingUrl: 'https://example.com/',
+        awaitBootRegistrations
+      } as any,
+      compilation(),
+      9222
+    )
+
+    expect(awaitBootRegistrations).toHaveBeenCalledWith(5000)
+    expect(calls).toEqual([
+      'ensureLoaded',
+      'settled',
+      'openStartingUrl https://example.com/'
+    ])
+  })
+
+  it('asks for no hold when the session opens no page', async () => {
+    writeManifest({manifest_version: 3, name: 'plain'})
+    const awaitBootRegistrations = vi.fn(async () => 'settled' as const)
+
+    await setupRdpAfterLaunch(
+      {browser: 'firefox', awaitBootRegistrations} as any,
+      compilation(),
+      9222
+    )
+
+    expect(awaitBootRegistrations).not.toHaveBeenCalled()
+  })
+
   it('opens no starting url under --no-open', async () => {
     writeManifest({manifest_version: 3, name: 'plain'})
 
