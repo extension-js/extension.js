@@ -410,6 +410,33 @@ export function pageRelativeScriptPath(
   return lines.join('\n')
 }
 
+// The build ships a declared page in a folder named after its surface, so a
+// relative path a script of that page sets resolves in the new folder.
+export function movedPageRelativeUrl(
+  sourcePath: string,
+  literal: string,
+  page: string,
+  requestedPath: string,
+  emittedPath: string
+) {
+  const lines: string[] = []
+  lines.push(
+    `${sourcePath} sets a src or href to '${literal}', and the build ships the page that runs it as ${colors.underline(page)}.`
+  )
+
+  lines.push(`${colors.gray('REQUESTED')} ${colors.underline(requestedPath)}`)
+  lines.push(`${colors.gray('EMITTED')} ${colors.underline(emittedPath)}`)
+  lines.push(
+    `A path without a leading slash resolves against the page, so the request fails at runtime with a 404.`
+  )
+
+  lines.push(
+    `Start the path at the extension root: ${colors.blue(`/${emittedPath}`)}.`
+  )
+
+  return lines.join('\n')
+}
+
 // A dev session picks the world of each scripts/ file once, as it starts.
 // registeredBy is the source that now registers it, absent once none does.
 export function mainWorldRegistrationChanged(

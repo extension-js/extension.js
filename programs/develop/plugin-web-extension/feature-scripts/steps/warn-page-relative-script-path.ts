@@ -39,27 +39,37 @@ export class WarnPageRelativeScriptPath {
     compiler.hooks.thisCompilation.tap(
       'scripts:warn-page-relative-script-path',
       (compilation) => {
-        // Read on every compilation, so a corrected path stops warning.
-        const paths = findPageRelativeScriptPaths({
-          includeList: this.includeList,
-          pageList: this.pageList,
-          manifestDir,
-          projectPath
-        })
-
-        for (const {file, literal, requested, emitted} of paths) {
-          const sourcePath = unixify(path.relative(projectPath, file))
-          const warning = new WebpackError(
-            messages.pageRelativeScriptPath(
-              sourcePath,
-              literal,
-              requested,
-              emitted
+        // Read once every asset is in, so a file that include or public/
+        // copies counts, and on every compilation, so a fixed path is quiet.
+        compilation.hooks.afterProcessAssets.tap(
+          'scripts:warn-page-relative-script-path',
+          () => {
+            const shipped = new Set(
+              compilation.getAssets().map((asset) => unixify(asset.name))
             )
-          ) as Error & {file?: string}
-          warning.file = sourcePath
-          compilation.warnings.push(warning)
-        }
+            const paths = findPageRelativeScriptPaths({
+              includeList: this.includeList,
+              pageList: this.pageList,
+              manifestDir,
+              projectPath,
+              outputHolds: (distRel) => shipped.has(distRel)
+            })
+
+            for (const {file, literal, requested, emitted} of paths) {
+              const sourcePath = unixify(path.relative(projectPath, file))
+              const warning = new WebpackError(
+                messages.pageRelativeScriptPath(
+                  sourcePath,
+                  literal,
+                  requested,
+                  emitted
+                )
+              ) as Error & {file?: string}
+              warning.file = sourcePath
+              compilation.warnings.push(warning)
+            }
+          }
+        )
       }
     )
   }

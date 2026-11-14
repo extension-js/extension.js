@@ -30,6 +30,7 @@ import {TraceRuntimeLoadedFiles} from './steps/trace-runtime-loaded-files'
 import {ValidateEmittedScriptSyntax} from './steps/validate-emitted-script-syntax'
 import {WarnMainWorldRegistrationChanged} from './steps/warn-main-world-registration-changed'
 import {WarnMissingBuildConstants} from './steps/warn-missing-build-constants'
+import {WarnMovedPageRelativeUrls} from './steps/warn-moved-page-relative-urls'
 import {WarnPageContextWorker} from './steps/warn-page-context-worker'
 import {WarnPageRelativeScriptPath} from './steps/warn-page-relative-script-path'
 import {WarnSplitInitialChunks} from './steps/warn-split-initial-chunks'
@@ -203,6 +204,13 @@ export class ScriptsPlugin {
       includeList,
       pageList: this.pageList,
       browser: this.browser
+    }).apply(compiler)
+
+    // A page shipped in another folder keeps the relative src and href its
+    // scripts set, which then name a file beside the page that is not there.
+    new WarnMovedPageRelativeUrls({
+      manifestPath: this.manifestPath,
+      pageList: this.pageList
     }).apply(compiler)
 
     // A world the call computes cannot be read, so the file is built for

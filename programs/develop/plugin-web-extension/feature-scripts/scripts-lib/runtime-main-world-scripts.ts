@@ -16,13 +16,13 @@ import {
   readScriptText,
   walkLocalImportGraph
 } from '../../shared/script-graph'
+import {mainWorldCopyEntryName} from '../contracts'
 import {
   compiledSourceEmittedPath,
   extractInjectedFileLiterals,
   type ImportedModuleReader,
   resolveExtensionPath
 } from '../steps/trace-runtime-loaded-files'
-import {mainWorldCopyEntryName} from '../contracts'
 import {extractRegisteredFileSightings} from './registration-worlds'
 import {getScriptEntries, isRemoteUrl, resolveScriptEntryPath} from './utils'
 
@@ -423,15 +423,19 @@ export interface PageRelativeScriptPath {
   emitted: string
 }
 
-// A scripts/ file a page names without a leading slash. Gecko resolves that
-// path against the page, so it points at a file the build never emits.
+// A file a page names without a leading slash. Gecko resolves that path
+// against the page, so it points at a file the build never emits there.
 export function findPageRelativeScriptPaths(
-  options: RuntimeMainWorldOptions
+  options: RuntimeMainWorldOptions & {
+    // Whether the output holds a root path, whatever step emitted the file.
+    outputHolds?: (distRel: string) => boolean
+  }
 ): PageRelativeScriptPath[] {
+  const {outputHolds} = options
   const scripts = new Set(
     [...collectScriptEntries(options).keys()].filter(isScriptsFolderFeature)
   )
-  if (scripts.size === 0) return []
+  if (scripts.size === 0 && !outputHolds) return []
 
   const found: PageRelativeScriptPath[] = []
 
@@ -443,14 +447,18 @@ export function findPageRelativeScriptPaths(
         if (!fromRoot || !fromPage || fromRoot === fromPage) continue
 
         const entryName = registeredEntryName(literal)
-        if (!entryName || !scripts.has(entryName)) continue
+        const compiled = !!entryName && scripts.has(entryName)
+        // A copied file fails the same way as one the scripts folder builds.
+        const copied =
+          !compiled && !!outputHolds?.(fromRoot) && !outputHolds(fromPage)
+        if (!compiled && !copied) continue
 
         found.push({
           page,
           file: facts.file,
           literal,
           requested: fromPage,
-          emitted: `${entryName}.js`
+          emitted: compiled ? `${entryName}.js` : fromRoot
         })
       }
     }

@@ -24,6 +24,10 @@ import {dropMv2ObjectPolicy} from '../manifest-overrides/mv2/content_security_po
 import {dropMv2HostKeys} from '../manifest-overrides/mv2/host_permissions'
 import {reportEdgeEmbeddedOptions} from './edge-options-notice'
 import {
+  dropGeckoUnsupportedKeys,
+  reportGeckoUnsupportedKeys
+} from './filter-keys-gecko'
+import {
   dropWebkitUnsupportedKeys,
   reportWebkitDroppedKeys
 } from './filter-keys-safari'
@@ -222,5 +226,9 @@ export function buildCanonicalManifestWithOverrides(
   reportWebkitDroppedKeys(webkit.dropped, browser)
   reportEdgeEmbeddedOptions(webkit.manifest, browser)
 
-  return {manifest: webkit.manifest, overrides}
+  // Firefox ignores the same kind of string, and its build says so too.
+  const gecko = dropGeckoUnsupportedKeys(webkit.manifest, browser)
+  reportGeckoUnsupportedKeys(gecko, browser)
+
+  return {manifest: gecko.manifest, overrides}
 }

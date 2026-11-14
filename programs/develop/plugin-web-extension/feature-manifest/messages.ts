@@ -312,10 +312,15 @@ export function geckoSidePanelUnsupported(file: string) {
   )
 
   lines.push(
-    `Move the call behind a build-time branch on ${colors.blue('import.meta.env.EXTENSION_PUBLIC_BROWSER')} so the Firefox bundle drops it.`
+    `${runtimeGuardAdvice('sidePanel')} Only the build-time branch drops the call from the Firefox bundle, which is what clears the linter.`
   )
 
   return lines.join('\n')
+}
+
+// The guards the scan accepts, spelled the same for every engine it reads.
+function runtimeGuardAdvice(api: string) {
+  return `Move the call behind a build-time branch on ${colors.blue('import.meta.env.EXTENSION_PUBLIC_BROWSER')}, guard it with ${colors.yellow(`chrome.${api}?.`)}, or keep it inside an ${colors.yellow(`if (chrome.${api})`)} branch.`
 }
 
 // Safari ships no counterpart for these namespaces, so the member read itself
@@ -327,9 +332,7 @@ function safariUnsupportedApi(file: string, api: string, detail: string) {
   )
 
   lines.push(detail)
-  lines.push(
-    `Move the call behind a build-time branch on ${colors.blue('import.meta.env.EXTENSION_PUBLIC_BROWSER')}, guard it with ${colors.yellow(`chrome.${api}?.`)}, or keep it inside an ${colors.yellow(`if (chrome.${api})`)} branch.`
-  )
+  lines.push(runtimeGuardAdvice(api))
 
   return lines.join('\n')
 }
@@ -544,22 +547,48 @@ export function webkitUnsupportedKeysDropped(
   browser: string,
   dropped: Array<{path: string; reason: string}>
 ) {
+  return unsupportedKeysDropped('Safari', 'app', 'safari:', browser, dropped)
+}
+
+// Firefox ignores a permission string it does not know, and the only other
+// voice for it is addons-linter, which a slow run never gets to raise.
+export function geckoUnsupportedKeysDropped(
+  browser: string,
+  dropped: Array<{path: string; reason: string}>
+) {
+  return unsupportedKeysDropped(
+    'Firefox',
+    'extension',
+    'firefox:',
+    browser,
+    dropped
+  )
+}
+
+// One rule for every engine: a key the browser ignores is dropped and named.
+function unsupportedKeysDropped(
+  engine: string,
+  product: string,
+  vendorPrefix: string,
+  browser: string,
+  dropped: Array<{path: string; reason: string}>
+) {
   const count = dropped.length
   const target = colors.blue(browser)
-  const replacement = `Declare a Safari-only replacement with the ${colors.yellow('safari:')} prefix if you have one.`
+  const replacement = `Declare a ${engine}-only replacement with the ${colors.yellow(vendorPrefix)} prefix if you have one.`
 
   if (count === 1) {
     const [entry] = dropped
 
     return (
-      `${prefix('warn')} Safari has no support for ${colors.yellow(entry.path)} (${entry.reason}), ` +
-      `so the ${target} build dropped it, and nothing the app could have run was lost. ${replacement}`
+      `${prefix('warn')} ${engine} has no support for ${colors.yellow(entry.path)} (${entry.reason}), ` +
+      `so the ${target} build dropped it, and nothing the ${product} could have run was lost. ${replacement}`
     )
   }
 
   const bar = `${colors.gray('│')}  `
   const lines: string[] = [
-    `${prefix('warn')} Safari has no support for ${String(count)} manifest keys this project declares, so the ${target} build dropped them:`
+    `${prefix('warn')} ${engine} has no support for ${String(count)} manifest keys this project declares, so the ${target} build dropped them:`
   ]
 
   for (const entry of dropped) {
@@ -569,10 +598,19 @@ export function webkitUnsupportedKeysDropped(
   }
 
   lines.push(
-    `${bar}These ${String(count)} keys are inert on Safari, so the built app lost nothing it could have run. ${replacement}`
+    `${bar}These ${String(count)} keys are inert on ${engine}, so the built ${product} lost nothing it could have run. ${replacement}`
   )
 
   return lines.join('\n')
+}
+
+// The value is kept because Firefox acts on it: dropping the key would turn
+// a build that stays out of private windows into one that runs in them.
+export function geckoIncognitoSplitNotAllowed(browser: string) {
+  return (
+    `${prefix('warn')} Firefox has no split mode, so it reads ${colors.yellow('incognito: "split"')} as ${colors.yellow('"not_allowed"')} and the ${colors.blue(browser)} build never runs in private windows. ` +
+    `The build kept the value as declared. Set ${colors.yellow('firefox:incognito')} to ${colors.yellow('"spanning"')} or ${colors.yellow('"not_allowed"')} to choose.`
+  )
 }
 
 // A description that passes a Chrome build is exactly the one Apple refuses,
