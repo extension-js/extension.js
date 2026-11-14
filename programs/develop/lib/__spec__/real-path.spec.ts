@@ -136,7 +136,8 @@ describe('path comparisons across a short name', () => {
   })
 
   it('spells a path out only to compare it', () => {
-    expect(realPath(short)).toBe(long)
+    // The helper answers a whole path, so on Windows it gains the drive.
+    expect(realPath(short)).toBe(path.resolve(long))
     expect(isInsidePath(short, path.join(short, 'src', 'a.js'))).toBe(true)
   })
 })
