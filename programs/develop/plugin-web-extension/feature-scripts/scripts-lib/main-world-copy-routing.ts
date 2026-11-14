@@ -54,11 +54,14 @@ export function buildMainWorldCopyRoutingSource(
     var getRegistered = scripting.getRegisteredContentScripts.bind(scripting);
     // The browser checks the shape of a call as it is made. The same call
     // with an id it refuses later throws that check here and changes nothing.
-    var shaped = function (given, scripts) {
+    var readError = function () { try { void (root.runtime && root.runtime.lastError); } catch (error) {} };
+    var shaped = function (given, scripts, unanswered) {
       var probe = Array.prototype.slice.call(given);
       probe[0] = scripts.concat([{id: REFUSED}]);
       var called = typeof probe[probe.length - 1] === "function";
-      if (called) probe[probe.length - 1] = function () { try { void (root.runtime && root.runtime.lastError); } catch (error) {} };
+      if (called) probe[probe.length - 1] = readError;
+      // With nothing handed back, an unread refusal lands on the console.
+      else if (unanswered) probe.push(readError);
       var refused;
       try {
         refused = update.apply(null, probe);
@@ -107,18 +110,27 @@ export function buildMainWorldCopyRoutingSource(
         args[0] = routed([]);
         return update.apply(null, args);
       }
-      shaped(given, scripts);
       var ids = scripts.filter(isObject).map(function (script) { return script.id; }).filter(function (id) { return typeof id === "string"; });
       var done = typeof args[args.length - 1] === "function";
-      var settle = function (registered) {
+      // One namespace of an engine answers a callback and hands nothing
+      // back, so the read is made first and asked again where it did so.
+      var read = done ? null : getRegistered({ids: ids});
+      var promised = !!read && typeof read.then === "function";
+      try {
+        shaped(given, scripts, !done && !promised);
+      } catch (error) {
+        if (promised) read.then(settle, settle);
+        throw error;
+      }
+      var send = function (registered) {
         args[0] = routed(registered);
         return update.apply(null, args);
       };
-      if (!done) return getRegistered({ids: ids}).then(settle, function () { return settle([]); });
+      if (promised) return read.then(send, function () { return send([]); });
       try {
         getRegistered({ids: ids}, function (registered) {
-          try { void (root.runtime && root.runtime.lastError); } catch (error) {}
-          settle(registered);
+          readError();
+          send(registered);
         });
       } catch (error) {
         // No callback form here, so the browser refuses the author's own call.

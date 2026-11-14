@@ -252,6 +252,9 @@ export interface ReloadAckFrame {
   // confirm a newer reload the producer never saw.
   reloadId?: string
   label?: string
+  // The open tabs an edited file was run in again, named only by a reload
+  // that reloads nothing itself, so the terminal can say what was done.
+  replayedTabs?: number
 }
 
 // A background says the registry calls it made as it started have answered,

@@ -368,6 +368,7 @@ export class BridgeBroker {
   // Latest reload broadcast not yet provably delivered. Latched until a producer
   // confirms (reload-ack for content scripts) or the next producer hello.
   private pendingReload?: ReloadFrame
+  private replayedTabs = 0
   // The latched frame the last producer hello took with it.
   private latchedReloadDelivered?: ReloadFrame
   // Producers that negotiated the ack protocol at hello. A worker cached from
@@ -640,11 +641,17 @@ export class BridgeBroker {
     return this.reloadAck?.outcome ?? Promise.resolve('not-expected')
   }
 
+  // The open tabs the newest acked reload ran its edited files in again.
+  reloadReplayedTabs(): number {
+    return this.replayedTabs
+  }
+
   private armReloadAck(frame?: ReloadFrame): void {
     // A newer broadcast supersedes the receipt the last one was waiting for:
     // its caller must not warn about an edit this one already replaced.
     this.reloadAck?.settle('not-expected')
     this.reloadAck = null
+    this.replayedTabs = 0
     this.reloadRestart?.settle('not-expected')
     this.reloadRestart = null
 
@@ -689,6 +696,9 @@ export class BridgeBroker {
     // The id is required to settle the receipt: an id-less ack comes from a
     // producer the broadcast never expected one from.
     if (frame.reloadId && this.reloadAck?.reloadId === frame.reloadId) {
+      const tabs = Number(frame.replayedTabs)
+
+      this.replayedTabs = Number.isInteger(tabs) && tabs > 0 ? tabs : 0
       this.reloadAck.settle('acked')
 
       if (

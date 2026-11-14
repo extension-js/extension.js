@@ -50,6 +50,8 @@ export interface ReloadBroker {
   // The receipt for the newest broadcast. 'not-expected' covers a producer
   // that cannot ack, so an old cached worker is never called unapplied.
   awaitReloadAck?(): Promise<ReloadAckOutcome>
+  // The open tabs the acked reload ran its edited files in again.
+  reloadReplayedTabs?(): number
   // Whether the extension came back after an acked reload that restarts it.
   awaitReloadRestart?(): Promise<ReloadRestartOutcome>
   // Resolves once a background says its boot registry calls answered, or
@@ -142,6 +144,33 @@ async function wakeDelivered(broker: ReloadBroker): Promise<boolean> {
 // echoed by producer console and devtools pill, zero drift.
 export function formatReloadingLine(label: string): string {
   return `${prefix('info')} Reloading ${label}…`
+}
+
+// A page reload that only ran injected files again reloaded no page, so the
+// line names the files and the tabs. Every other reload keeps its own line.
+export function appliedReloadLine(
+  instruction: ReloadInstruction,
+  broker: ReloadBroker
+): string {
+  const label = instruction.label ?? ''
+
+  if (instruction.staticContentScriptEntries?.length) {
+    return reloadMessages.reloadingExtensionForStaticContentScript(label)
+  }
+
+  const tabs =
+    instruction.type === 'page' && instruction.changedScriptFiles?.length
+      ? (broker.reloadReplayedTabs?.() ?? 0)
+      : 0
+  const files = instruction.changedAssets?.length
+    ? instruction.changedAssets
+    : instruction.changedScriptFiles
+
+  if (tabs > 0 && files?.length) {
+    return reloadMessages.ranInjectedFilesAgain(files, tabs)
+  }
+
+  return formatReloadingLine(label)
 }
 
 // The ack window closed with no receipt: the frame reached an open socket and
@@ -238,13 +267,7 @@ export async function dispatchReload(
       }
 
       if (instruction.label) {
-        humanLine(
-          instruction.staticContentScriptEntries?.length
-            ? reloadMessages.reloadingExtensionForStaticContentScript(
-                instruction.label
-              )
-            : formatReloadingLine(instruction.label)
-        )
+        humanLine(appliedReloadLine(instruction, executor.broker))
       }
 
       // The restart outlives this dispatch, so its verdict is reported when it
