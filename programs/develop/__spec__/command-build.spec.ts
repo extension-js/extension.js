@@ -185,7 +185,8 @@ describe('webpack/command-build', () => {
     expect(configLoaderMod.loadCustomConfig).toHaveBeenCalledWith('/proj', {
       browser: 'chrome',
       mode: 'production',
-      command: 'build'
+      command: 'build',
+      rspack: expect.anything()
     })
   })
 

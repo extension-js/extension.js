@@ -797,6 +797,11 @@ export interface ConfigHookContext {
   browser: BrowserType
   mode: 'development' | 'production' | 'none'
   command: 'dev' | 'build' | 'start' | 'preview'
+  /**
+   * The bundler this run compiles with, so a hook reaches `ProvidePlugin`
+   * or `NormalModuleReplacementPlugin` with no bundler of the project's own.
+   */
+  rspack: typeof import('@rspack/core').rspack
 }
 
 export interface SpecialFoldersConfig {

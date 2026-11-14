@@ -5,7 +5,9 @@ import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {
   checkIgnoreSource,
+  controlPortFilePath,
   ensureSessionArtifactsIgnoreFile,
+  ensureSessionStateIgnoreFile,
   ensureSessionStateInProjectGitignore
 } from '../session-paths'
 
@@ -261,6 +263,56 @@ describe('ensureSessionArtifactsIgnoreFile', () => {
     expect(fs.readFileSync(path.join(sessionRoot, '.gitignore'), 'utf8')).toBe(
       '*\n'
     )
+  })
+})
+
+describe('ensureSessionStateIgnoreFile', () => {
+  // An adopted repository with no .gitignore of its own gets no appended
+  // line, so the folder has to keep its own files out of `git status`.
+  it('keeps the control port file out of git status in a repository with no ignore file', () => {
+    const root = makeTempDir()
+    const git = (...args: string[]) =>
+      spawnSync('git', args, {cwd: root, encoding: 'utf8', stdio: 'pipe'})
+
+    git('init', '-q')
+    fs.writeFileSync(path.join(root, 'package.json'), '{}')
+
+    const write = () => {
+      for (const browser of ['chrome', 'firefox']) {
+        const file = controlPortFilePath(root, browser)
+        fs.mkdirSync(path.dirname(file), {recursive: true})
+        fs.writeFileSync(file, '9333\n')
+      }
+    }
+
+    write()
+    expect(git('status', '--porcelain', '-uall').stdout).toContain(
+      '.extension-js/control-port-chrome'
+    )
+
+    ensureSessionStateIgnoreFile(root)
+    ensureSessionStateIgnoreFile(root)
+
+    expect(
+      fs.readFileSync(path.join(root, '.extension-js', '.gitignore'), 'utf8')
+    ).toMatch(/^\*$/m)
+
+    expect(git('status', '--porcelain', '-uall').stdout).not.toContain(
+      '.extension-js'
+    )
+
+    expect(fs.existsSync(path.join(root, '.gitignore'))).toBe(false)
+  })
+
+  it('leaves an ignore file the project already wrote alone', () => {
+    const root = makeTempDir()
+    const ignoreFile = path.join(root, '.extension-js', '.gitignore')
+    fs.mkdirSync(path.dirname(ignoreFile), {recursive: true})
+    fs.writeFileSync(ignoreFile, 'control-token-*\n')
+
+    ensureSessionStateIgnoreFile(root)
+
+    expect(fs.readFileSync(ignoreFile, 'utf8')).toBe('control-token-*\n')
   })
 })
 
