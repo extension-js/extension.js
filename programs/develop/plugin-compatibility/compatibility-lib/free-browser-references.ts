@@ -12,7 +12,8 @@ const requireModule = createRequire(import.meta.url)
 
 const GLOBAL_NAME = 'browser'
 const GLOBAL_OBJECTS = new Set(['globalThis', 'self', 'window'])
-const QUICK_RE = /(?<![\w$.])browser\b/
+// A dot before the name is a property read, unless it ends a spread.
+const QUICK_RE = /(?:(?<![\w$.])|(?<=(?<!\.)\.\.\.))browser\b/
 const NON_CHILD_KEYS = new Set(['type', 'start', 'end', 'loc', 'range'])
 
 export interface AstNode {

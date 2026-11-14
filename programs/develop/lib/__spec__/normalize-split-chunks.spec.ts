@@ -120,6 +120,23 @@ describe('defaultSplitChunks', () => {
       // A page's own chunk is capped too: the page markup lists each part.
       expect(config.maxSize).toBe(GECKO_MAX_CHUNK_BYTES)
       expect(config.chunks).toBe(pageInitialChunks)
+      // A lazily loaded chunk past the cap is split on every surface, since
+      // the runtime fetches each part. A minimum size as large as the cap
+      // would stop the split, so the group sets none.
+      expect(config.cacheGroups.lazy).toMatchObject({
+        chunks: 'async',
+        maxSize: GECKO_MAX_CHUNK_BYTES,
+        reuseExistingChunk: true
+      })
+
+      expect(config.cacheGroups.lazy.minSize).toBeUndefined()
+
+      // The shared groups keep reading the top-level page selector.
+      expect(config.cacheGroups.commons.chunks).toBeUndefined()
+      expect(config.cacheGroups.framework.chunks).toBeUndefined()
+      expect(config.cacheGroups.lazy.priority).toBeLessThan(
+        config.cacheGroups.commons.priority
+      )
     }
 
     // The store check stops at 5 MB, and the cap has to sit under it.
@@ -130,6 +147,10 @@ describe('defaultSplitChunks', () => {
       expect((defaultSplitChunks(browser) as any).maxSize).toBeUndefined()
       expect(
         (defaultSplitChunks(browser) as any).cacheGroups.commons.maxSize
+      ).toBeUndefined()
+
+      expect(
+        (defaultSplitChunks(browser) as any).cacheGroups.lazy
       ).toBeUndefined()
     }
   })

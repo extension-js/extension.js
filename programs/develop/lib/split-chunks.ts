@@ -118,7 +118,20 @@ export function defaultSplitChunks(browser?: string): SplitChunksConfig {
         minSize: 0,
         priority: 20,
         reuseExistingChunk: true
-      }
+      },
+      // A chunk behind import() is fetched by the runtime on every surface,
+      // so one past the cap can ship as parts where an entry file cannot.
+      ...(capped
+        ? {
+            lazy: {
+              chunks: 'async' as const,
+              type: SCRIPT_MODULE_TYPE,
+              maxSize: GECKO_MAX_CHUNK_BYTES,
+              priority: 10,
+              reuseExistingChunk: true
+            }
+          }
+        : {})
     }
   }
 }

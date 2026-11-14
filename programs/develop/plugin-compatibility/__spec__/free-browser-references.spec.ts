@@ -1,5 +1,8 @@
 import {describe, expect, it} from 'vitest'
-import {referencesBrowserGlobal} from '../compatibility-lib/free-browser-references'
+import {
+  mentionsBrowserName,
+  referencesBrowserGlobal
+} from '../compatibility-lib/free-browser-references'
 
 describe('referencesBrowserGlobal', () => {
   it('finds a bare browser.* call', () => {
@@ -18,6 +21,21 @@ describe('referencesBrowserGlobal', () => {
 
   it('finds a shorthand property read', () => {
     expect(referencesBrowserGlobal('const api = {browser}')).toBe(true)
+  })
+
+  it('finds a spread that is the only mention of the name', () => {
+    expect(referencesBrowserGlobal('f(...browser)')).toBe(true)
+    expect(referencesBrowserGlobal('const all = [...browser]')).toBe(true)
+    expect(referencesBrowserGlobal('const copy = {...browser}')).toBe(true)
+    expect(referencesBrowserGlobal('f(... browser)')).toBe(true)
+    expect(mentionsBrowserName('f(...browser)')).toBe(true)
+  })
+
+  it('still skips the parse when the name is only a property', () => {
+    expect(mentionsBrowserName('x.browser')).toBe(false)
+    expect(mentionsBrowserName('x?.browser.tabs')).toBe(false)
+    expect(mentionsBrowserName('[...x.browser]')).toBe(false)
+    expect(referencesBrowserGlobal('f(...x.browser)')).toBe(false)
   })
 
   it('ignores a property named browser', () => {

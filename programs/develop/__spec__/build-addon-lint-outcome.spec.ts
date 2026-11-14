@@ -1,3 +1,4 @@
+import * as crypto from 'node:crypto'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
@@ -235,6 +236,59 @@ describe('the store check outcome after a production firefox build', () => {
       reason: 'disabled'
     })
   }, 180_000)
+
+  // The store check is the one that names an oversize script. With no
+  // linter the build has to, and with one it must not say it twice.
+  it('names a background script over the store limit when no linter answers', async () => {
+    const root = project()
+    fs.writeFileSync(
+      path.join(root, 'background.js'),
+      `globalThis.big = "${crypto.randomBytes(2610 * 1024).toString('hex')}"\n`
+    )
+
+    const line =
+      'Firefox build: background/scripts.js is 5.1 MB - addons.mozilla.org does not parse a file of 5 MB or more, ' +
+      'and Firefox loads a background script as one file'
+
+    injected.override = {loadLinter: absent}
+    const missing = await build(root)
+    expect(missing.summary.errors_count).toBe(0)
+    expect(missing.output).toContain(line)
+    expect(missing.receipt.addon_lint).toEqual({status: 'missing'})
+    expect(
+      (missing.receipt.warnings || []).filter((text) => text.includes(line))
+    ).toHaveLength(1)
+
+    expect(missing.receipt.warnings_count).toBe(missing.summary.warnings_count)
+
+    injected.override = {loadLinter: crashing}
+    const crashed = await build(root)
+    expect(crashed.output).toContain('did not finish')
+    expect(crashed.output).toContain(line)
+
+    injected.override = {
+      loadLinter: linterReturning({
+        errors: [
+          {
+            code: 'FILE_TOO_LARGE',
+            message: 'File is too large to parse.',
+            file: 'background/scripts.js'
+          }
+        ]
+      })
+    }
+
+    const linted = await build(root)
+    expect(linted.output).toContain(
+      'AMO error FILE_TOO_LARGE: File is too large to parse. (background/scripts.js)'
+    )
+
+    expect(linted.output).not.toContain('Firefox build:')
+
+    injected.override = {loadLinter: absent}
+    const off = await build(root, {addonLint: false})
+    expect(off.output).not.toContain('Firefox build:')
+  }, 240_000)
 
   it('a missing linter retires the note of the last lint and names the config key', async () => {
     const root = project()
