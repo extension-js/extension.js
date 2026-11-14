@@ -6,9 +6,36 @@
 //  ╚═════╝╚══════╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import {defineConfig} from 'vitest/config'
+import {readFileSync} from 'node:fs'
+import {defineConfig, type Plugin} from 'vitest/config'
+
+// Vitest caches each transform with its imports already resolved, keyed on the
+// importer alone. A linked package's manifest picks those paths, so key on it.
+function keyModuleCacheOnLinkedManifests(): Plugin {
+  const read = (file: string) =>
+    readFileSync(new URL(file, import.meta.url), 'utf8')
+  const own = JSON.parse(read('./package.json')) as {
+    dependencies?: Record<string, string>
+    devDependencies?: Record<string, string>
+  }
+  const linked = Object.entries({...own.devDependencies, ...own.dependencies})
+    .filter(([, range]) => range.startsWith('workspace:'))
+    .map(([name]) => name)
+    .sort()
+  const manifests = linked
+    .map((name) => read(`./node_modules/${name}/package.json`))
+    .join('\n')
+
+  return {
+    name: 'extension:key-module-cache-on-linked-manifests',
+    configureVitest({defineCacheKeyGenerator}) {
+      defineCacheKeyGenerator(() => manifests)
+    }
+  }
+}
 
 export default defineConfig({
+  plugins: [keyModuleCacheOnLinkedManifests()],
   resolve: {
     conditions: ['development', 'node', 'import', 'default']
   },
