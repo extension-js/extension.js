@@ -32,7 +32,9 @@ export interface WebkitMissingApis {
   members: ReadonlySet<string>
 }
 
-const MAX_PARSE_BYTES = 4 * 1024 * 1024
+// A bundled background passes 4 MB with one UI library in it, and a text
+// past the cap loses every guard it holds, so the cap sits well above that.
+const MAX_PARSE_BYTES = 16 * 1024 * 1024
 const GLOBAL_OBJECTS = new Set(['globalThis', 'self', 'window'])
 const EXTENSION_ROOTS = new Set(['chrome', 'browser'])
 
