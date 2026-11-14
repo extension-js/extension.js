@@ -445,6 +445,17 @@ export function markManagedEphemeralProfile(profilePath: string) {
   }
 }
 
+// A profile this session deletes on exit has no next launch to restore into.
+export function isManagedEphemeralProfile(profilePath: string): boolean {
+  try {
+    return fs.existsSync(
+      path.join(profilePath, MANAGED_EPHEMERAL_PROFILE_MARKER)
+    )
+  } catch {
+    return false
+  }
+}
+
 export function removeManagedEphemeralProfile(
   profilePath: string | undefined | null
 ) {

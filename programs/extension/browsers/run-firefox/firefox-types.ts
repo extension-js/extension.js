@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import type {
+  BootRegistrationsWait,
   BrowserLogSink,
   ExtensionLoadRetryResult,
   PluginInterface
@@ -50,6 +51,8 @@ export interface FirefoxPluginRuntime extends FirefoxPluginLike {
   launchBinaryProvenance?: 'managed' | 'pinned' | 'system' | 'snapshot'
   launchBinaryPinnedBy?: string
   logSink?: BrowserLogSink
+  // The dev server's word that the background's boot registrations answered.
+  awaitBootRegistrations?: BootRegistrationsWait
   // Set by the launcher, so the debugger dial stops waiting on a browser
   // whose process has already left.
   isBrowserGone?: () => boolean

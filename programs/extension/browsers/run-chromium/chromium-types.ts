@@ -8,6 +8,7 @@
 
 import type {
   BrowserLogger,
+  BootRegistrationsWait,
   BrowserLogSink,
   Controller,
   LogLevel,
@@ -87,6 +88,8 @@ export interface ChromiumLaunchOptions
   // Host log pipeline for browser-generated CDP Log.entryAdded entries. Wired by
   // the dev server through the launcher; absent in preview/run-only flows.
   logSink?: BrowserLogSink
+  // The dev server's word that the background's boot registrations answered.
+  awaitBootRegistrations?: BootRegistrationsWait
 }
 
 // Runtime state in Chromium flow, kept Chromium-specific to avoid polluting

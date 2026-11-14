@@ -203,6 +203,17 @@ export function debugSessionPorts(port: number, controlPort: number | null) {
   return `${getLoggingPrefix('debug')} ports    port=${port} controlPort=${controlPort ?? 'none'}`
 }
 
+// The first page was let go because the background had gone quiet, and a
+// registration followed. A registered script reaches no page already open.
+export function lateBootRegistration(afterMs?: number) {
+  const when =
+    typeof afterMs === 'number'
+      ? `${String(Math.round(afterMs / 100) / 10)}s after it started`
+      : 'after it started'
+
+  return `${getLoggingPrefix('warn')} The background registered a content script ${when}, when the first page was already open. Reload that page to run the script on it.`
+}
+
 export function controlBridgeUnavailable(reason: string) {
   return (
     `${getLoggingPrefix('error')} Extension.js couldn't open the control port.\n` +

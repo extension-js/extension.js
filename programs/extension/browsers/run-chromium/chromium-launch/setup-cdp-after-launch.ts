@@ -16,6 +16,7 @@ import {
   isCardKeyClaimed,
   isDebug
 } from '../../../helpers/messaging'
+import {holdForBootRegistrations} from '../../browsers-lib/boot-registrations-hold'
 import {
   printDevBannerOnce,
   printProdBannerOnce
@@ -31,6 +32,7 @@ import {
   describeLaunchFailure,
   stampReadyCdpFault,
   stampReadyCdpPort,
+  stampReadyDevBrowserPreference,
   stampReadyExtensionLoadRefused
 } from '../../browsers-lib/ready-stamp'
 import {resolveStartingUrl} from '../../browsers-lib/runtime-options'
@@ -48,6 +50,10 @@ import {
   developerModeFlipIsSafe,
   developerModeFromProfile
 } from '../cdp/ensure-developer-mode'
+import {
+  startupPreferenceIsDue,
+  startupPreferenceUnavailable
+} from '../cdp/ensure-startup-new-tab'
 import type {ChromiumPluginRuntime} from '../chromium-types'
 import {getExtensionOutputPath} from './extension-output-path'
 
@@ -147,6 +153,8 @@ async function openStartingUrlAfterLoad(
 ): Promise<void> {
   const startingUrl = resolveStartingUrl(plugin)
   if (!startingUrl) return
+
+  await holdForBootRegistrations(plugin, startingUrl)
 
   try {
     await controller.openStartingUrl(startingUrl)
@@ -530,6 +538,29 @@ export async function setupCdpAfterLaunch(
   }
 
   await openStartingUrlAfterLoad(plugin, cdpExtensionController)
+
+  // A profile that outlives the session would reopen this run's pages on its
+  // next launch, before the extension is there to run on them.
+  try {
+    if (startupPreferenceIsDue(chromiumArgs)) {
+      const startup = await cdpExtensionController.ensureStartupNewTab()
+
+      // The card said the write was coming, so a refusal corrects the record.
+      if (startup !== 'set') {
+        stampReadyDevBrowserPreference(
+          extensionOutputPath,
+          startupPreferenceUnavailable(),
+          plugin.launchRunId
+        )
+      }
+
+      if (isDebug()) {
+        humanLine(`[CDP] new tab on startup: ${startup}`)
+      }
+    }
+  } catch {
+    // best-effort only, the session itself is unaffected
+  }
 
   // The launch tab predates extension registration, so it shows the default new
   // tab; open a fresh tab onto the newtab override. Skipped for startingUrl/--no-open.

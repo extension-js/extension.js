@@ -10,6 +10,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
 import type {
+  BootRegistrationsOutcome,
   ReloadAckOutcome,
   ReloadRestartOutcome
 } from '../dev-server/control-bridge/contracts'
@@ -51,6 +52,9 @@ export interface ReloadBroker {
   awaitReloadAck?(): Promise<ReloadAckOutcome>
   // Whether the extension came back after an acked reload that restarts it.
   awaitReloadRestart?(): Promise<ReloadRestartOutcome>
+  // Resolves once a background says its boot registry calls answered, or
+  // with 'timeout' when none says so inside the window.
+  awaitBootRegistrations?(timeoutMs: number): Promise<BootRegistrationsOutcome>
   // Stamps the applied reload into ready.json, so a tool waiting for the
   // rebuild to be live reads it instead of guessing from a reconnect.
   noteReloadApplied?(kind: ReloadKind, label?: string): void

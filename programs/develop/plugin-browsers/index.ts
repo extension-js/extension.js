@@ -20,6 +20,7 @@ import {
   type ReloadInstruction,
   readContentScriptCount,
   readContentScriptDigests,
+  readBootRegistrations,
   readContentScriptFiles,
   readDevBuild,
   readWebAccessibleResources,
@@ -91,6 +92,9 @@ export interface BrowserLaunchOptions {
   // Browser-generated CDP Log.entryAdded entries never pass through the
   // extension's console hook; the launcher forwards them here. Chromium-only.
   logSink?: BrowserLogSink
+  // Present only when the background names a content script registration:
+  // the launcher holds the starting URL on it, bounded by the wait it passes.
+  awaitBootRegistrations?: (timeoutMs: number) => Promise<'settled' | 'timeout'>
 }
 
 /** Browser-generated log entry normalized by the launcher's CDP controller. */
@@ -206,6 +210,26 @@ export class BrowsersPlugin implements RunnerPlugin {
   // entries into the control-bridge log pipeline. Called once, before first compile.
   setLogSink(sink: BrowserLogSink): void {
     this.logSink = sink
+  }
+
+  // A project that registers nothing gets no hold, so its first page opens
+  // exactly when it did before.
+  private bootRegistrationsHold(
+    compilation: object
+  ): Pick<BrowserLaunchOptions, 'awaitBootRegistrations'> {
+    const broker = this.reloadBroker
+
+    if (
+      !broker?.awaitBootRegistrations ||
+      !readBootRegistrations(compilation)
+    ) {
+      return {}
+    }
+
+    return {
+      awaitBootRegistrations: (timeoutMs) =>
+        broker.awaitBootRegistrations?.(timeoutMs) ?? Promise.resolve('settled')
+    }
   }
 
   setEmulatorViewerUrl(url: string): void {
@@ -380,6 +404,7 @@ export class BrowsersPlugin implements RunnerPlugin {
             contextDir,
             extensionsToLoad: this.extensionsToLoad,
             logSink: this.logSink,
+            ...this.bootRegistrationsHold(compilation),
             ...(this.options.browserOptions.instanceId || !this.instanceId
               ? {}
               : {instanceId: this.instanceId}),
