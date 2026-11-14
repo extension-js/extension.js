@@ -143,11 +143,60 @@ export function children(value: AstNode): AstNode[] {
   return out
 }
 
-function hoistedDeclares(statements: AstNode[]): boolean {
+type MayName = (value: AstNode) => boolean
+
+const anyNode: MayName = () => true
+
+// An identifier may spell one of its letters as a unicode escape, and a
+// search of the text for the name does not see that spelling.
+const ESCAPED_LETTER_RE = /\\u(?:00[67][0-9a-f]|\{0*[67][0-9a-f]\})/i
+
+// Answers whether a node's text spells the name at all. A large script
+// spells it in a handful of places, so nearly every subtree is skipped.
+function nameSpans(source: string): MayName {
+  if (ESCAPED_LETTER_RE.test(source)) return anyNode
+
+  const at: number[] = []
+
+  // Every place the letters stand, a longer word included: more places only
+  // means fewer subtrees skipped, never a read missed.
+  for (
+    let index = source.indexOf(GLOBAL_NAME);
+    index !== -1;
+    index = source.indexOf(GLOBAL_NAME, index + 1)
+  ) {
+    at.push(index)
+  }
+
+  return (value) => {
+    const {start, end} = value
+
+    if (typeof start !== 'number' || typeof end !== 'number') return true
+
+    let low = 0
+    let high = at.length
+
+    while (low < high) {
+      const middle = (low + high) >> 1
+
+      if (at[middle] < start) low = middle + 1
+      else high = middle
+    }
+
+    return low < at.length && at[low] < end
+  }
+}
+
+function hoistedDeclares(
+  statements: AstNode[],
+  mayName: MayName = anyNode
+): boolean {
   const stack = [...statements]
 
   while (stack.length) {
     const current = stack.pop() as AstNode
+
+    if (!mayName(current)) continue
 
     if (current.type === 'FunctionDeclaration') {
       if (isName(current.id)) return true
@@ -177,18 +226,21 @@ function lexicalDeclares(statements: AstNode[]): boolean {
   )
 }
 
-function blockDeclares(body: Child): boolean {
+function blockDeclares(body: Child, mayName?: MayName): boolean {
   const block = node(body)
   if (!block || block.type !== 'BlockStatement') return false
 
-  return hoistedDeclares(list(block.body)) || lexicalDeclares(list(block.body))
+  return (
+    hoistedDeclares(list(block.body), mayName) ||
+    lexicalDeclares(list(block.body))
+  )
 }
 
-function functionDeclares(fn: AstNode): boolean {
+function functionDeclares(fn: AstNode, mayName?: MayName): boolean {
   if (fn.type === 'FunctionExpression' && isName(fn.id)) return true
   if (list(fn.params).some((param) => patternDeclares(param))) return true
 
-  return blockDeclares(fn.body as Child)
+  return blockDeclares(fn.body as Child, mayName)
 }
 
 function loopDeclares(loop: AstNode): boolean {
@@ -390,9 +442,12 @@ class FreeReferenceScan {
   public found = false
   private constants: ReadonlyMap<string, boolean> = new Map()
 
-  constructor(program: AstNode) {
+  private readonly mayName: MayName
+
+  constructor(program: AstNode, mayName: MayName = anyNode) {
+    this.mayName = mayName
     const body = list(program.body)
-    this.visit(program, hoistedDeclares(body) || lexicalDeclares(body))
+    this.visit(program, hoistedDeclares(body, mayName) || lexicalDeclares(body))
   }
 
   private visitAll(values: unknown, shadowed: boolean): void {
@@ -443,6 +498,8 @@ class FreeReferenceScan {
 
   private visit(current: Child, shadowed: boolean): void {
     if (this.found || !isNode(current)) return
+    // A subtree that never spells the name holds no read of it.
+    if (!this.mayName(current)) return
 
     switch (current.type) {
       case 'Identifier':
@@ -456,7 +513,10 @@ class FreeReferenceScan {
       case 'FunctionDeclaration':
       case 'FunctionExpression':
       case 'ArrowFunctionExpression':
-        this.visit(current.body as Child, shadowed || functionDeclares(current))
+        this.visit(
+          current.body as Child,
+          shadowed || functionDeclares(current, this.mayName)
+        )
 
         return
       case 'ClassDeclaration':
@@ -605,9 +665,12 @@ export function referencesBrowserGlobal(source: string): boolean {
   if (!program) return false
 
   try {
-    if (definesName(program)) return false
-
-    return new FreeReferenceScan(program).found
+    // The search for a shim walks the whole tree, and its answer only
+    // matters for a script that reads the name, so the read is looked for first.
+    return (
+      new FreeReferenceScan(program, nameSpans(source)).found &&
+      !definesName(program)
+    )
   } catch {
     return false
   }

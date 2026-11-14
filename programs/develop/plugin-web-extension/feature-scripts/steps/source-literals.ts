@@ -8,11 +8,44 @@
 
 import * as path from 'node:path'
 
+// One emitted script is read by several scans in a row, and blanking it is a
+// walk over every character, so the answer for a large text is kept.
+const BLANKED_MEMO_MIN_LENGTH = 64 * 1024
+const BLANKED_MEMO_MAX_ENTRIES = 32
+const blankedSources = new Map<string, string>()
+
+// Called when a build's scans are over, so no emitted text outlives them.
+export function forgetBlankedSources(): void {
+  blankedSources.clear()
+}
+
+export function keptBlankedSources(): number {
+  return blankedSources.size
+}
+
 // Blank out line and block comments (string-aware) so commented-out calls do
 // not produce copies or warnings; contents become spaces to keep offsets.
 export function blankComments(source: string): string {
+  if (source.length < BLANKED_MEMO_MIN_LENGTH) return blankCommentsOf(source)
+
+  const known = blankedSources.get(source)
+  if (known !== undefined) return known
+
+  const blanked = blankCommentsOf(source)
+
+  if (blankedSources.size >= BLANKED_MEMO_MAX_ENTRIES) blankedSources.clear()
+
+  blankedSources.set(source, blanked)
+
+  return blanked
+}
+
+function blankCommentsOf(source: string): string {
   let out = ''
   let i = 0
+  // Where the run of text copied as written starts. It is appended whole,
+  // since one append per character is what made this slow on a large script.
+  let kept = 0
   const n = source.length
 
   while (i < n) {
@@ -20,16 +53,18 @@ export function blankComments(source: string): string {
     const next = source[i + 1]
 
     if (char === '/' && next === '/') {
-      while (i < n && source[i] !== '\n') {
-        out += ' '
-        i++
-      }
+      const start = i
+
+      while (i < n && source[i] !== '\n') i++
+
+      out += source.slice(kept, start) + ' '.repeat(i - start)
+      kept = i
 
       continue
     }
 
     if (char === '/' && next === '*') {
-      out += '  '
+      out += `${source.slice(kept, i)}  `
       i += 2
 
       while (i < n && !(source[i] === '*' && source[i + 1] === '/')) {
@@ -42,23 +77,22 @@ export function blankComments(source: string): string {
         i += 2
       }
 
+      kept = i
+
       continue
     }
 
     if (char === '"' || char === "'" || char === '`') {
-      // Copy the whole string token verbatim, template interpolations
-      // included, so nested backticks cannot desync the comment scan.
-      const end = skipString(source, i, n)
-      out += source.slice(i, Math.min(end + 1, n))
-      i = end + 1
+      // The whole string token stays in the copied run, template
+      // interpolations included, so nested backticks cannot desync the scan.
+      i = skipString(source, i, n) + 1
       continue
     }
 
-    out += char
     i++
   }
 
-  return out
+  return kept === 0 ? source : out + source.slice(kept)
 }
 
 // Return the argument text up to the matching close paren (string-aware), or

@@ -464,6 +464,20 @@ export function addonLintUnsupportedApiFix(browser: string) {
   )
 }
 
+// A size finding is fixed by the shape of the bundle, not by whose code it
+// is, and only a page can be handed more than one file.
+export function addonLintFileTooLargeFix(
+  limitMb: number,
+  singleFileSurface: string | null
+) {
+  const limit = `addons.mozilla.org does not parse a file of ${limitMb} MB or more`
+
+  return singleFileSurface
+    ? `- ${limit}, and Firefox loads a ${singleFileSurface} as one file, so the build cannot split it: ` +
+        `load a large dependency with a dynamic import() so it ships as its own file under the limit, or remove it`
+    : `- ${limit}: split the largest module or data in this file into parts under the limit`
+}
+
 export function addonLintReviewerNote(noteDisplay: string) {
   return (
     `${getLoggingPrefix('info')} Notes to reviewer for addons.mozilla.org are at ${colors.underline(noteDisplay)} ` +

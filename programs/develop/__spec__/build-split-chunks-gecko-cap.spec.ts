@@ -22,7 +22,9 @@ function bigModule(name: string) {
   return `export const ${name} = "${crypto.randomBytes(300 * 1024).toString('hex')}"\n`
 }
 
-function project(options: {moduleCount?: number} = {}) {
+function project(
+  options: {moduleCount?: number; pages?: string[]; config?: string} = {}
+) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-gecko-cap-'))
   roots.push(root)
   fs.writeFileSync(
@@ -30,7 +32,11 @@ function project(options: {moduleCount?: number} = {}) {
     JSON.stringify({private: true, name: 'gecko-cap', version: '0.0.0'})
   )
 
-  const pages = ['popup', 'options']
+  const pages = options.pages ?? ['popup', 'options']
+
+  if (options.config) {
+    fs.writeFileSync(path.join(root, 'extension.config.js'), options.config)
+  }
 
   fs.writeFileSync(
     path.join(root, 'manifest.json'),
@@ -39,7 +45,7 @@ function project(options: {moduleCount?: number} = {}) {
       name: 'gecko-cap',
       version: '1.0.0',
       action: {default_popup: 'popup.html'},
-      options_ui: {page: 'options.html'}
+      ...(pages.includes('options') ? {options_ui: {page: 'options.html'}} : {})
     })
   )
 
@@ -179,5 +185,61 @@ describe('Firefox shared chunk size cap', () => {
       '/shared/commons.js',
       '/action/index.js'
     ])
+  }, 180_000)
+
+  // Nothing is shared when there is one page, so the page's own chunk is
+  // the file that has to be split, and no part keeps the entry's name.
+  it('splits the own chunk of a single page and lists every part', async () => {
+    const root = project({pages: ['popup']})
+    const summary = await build(root, 'firefox')
+    expect(summary.errors_count).toBe(0)
+
+    const distDir = path.join(root, 'dist', 'firefox')
+    const scripts = scriptFiles(distDir)
+    const parts = scripts.filter((file) => file.startsWith('action/'))
+    expect(parts.length).toBeGreaterThan(1)
+
+    for (const file of scripts) {
+      expect(size(distDir, file), file).toBeLessThan(STORE_PARSE_LIMIT)
+    }
+
+    const total = parts.reduce((sum, file) => sum + size(distDir, file), 0)
+    expect(total).toBeGreaterThan(STORE_PARSE_LIMIT)
+
+    const srcs = scriptSrcs(distDir, 'action/index.html')
+    expect([...srcs].sort()).toEqual(parts.map((file) => `/${file}`).sort())
+    expect(new Set(srcs).size).toBe(srcs.length)
+
+    // The entry chunk carries the runtime that boots the page, and it is
+    // the last tag so every part before it has registered its modules.
+    const entry = srcs[srcs.length - 1].slice(1)
+    expect(fs.readFileSync(path.join(distDir, entry), 'utf8')).toContain(
+      'document.title'
+    )
+  }, 180_000)
+
+  it('lists every part of a page a project config splits on Chrome', async () => {
+    const root = project({
+      pages: ['popup'],
+      moduleCount: 4,
+      config: `module.exports = {
+        config: (config) => {
+          config.optimization.splitChunks.maxSize = 1024 * 1024
+          return config
+        }
+      }\n`
+    })
+    const summary = await build(root, 'chrome')
+    expect(summary.errors_count).toBe(0)
+
+    const distDir = path.join(root, 'dist', 'chrome')
+    const parts = scriptFiles(distDir).filter((file) =>
+      file.startsWith('action/')
+    )
+    expect(parts.length).toBeGreaterThan(1)
+
+    const srcs = scriptSrcs(distDir, 'action/index.html')
+    expect([...srcs].sort()).toEqual(parts.map((file) => `/${file}`).sort())
+    expect(new Set(srcs).size).toBe(srcs.length)
   }, 180_000)
 })
