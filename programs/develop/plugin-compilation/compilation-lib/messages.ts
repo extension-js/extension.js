@@ -176,11 +176,14 @@ export function nodeBuiltinHasNoStandIn(
     return (
       `${head}\nIt has no bare name, so ` +
       `${colors.yellow('resolve.fallback')} cannot reach it. In ` +
-      `${colors.yellow('extension.config.js')}, add a ` +
-      `${colors.yellow('NormalModuleReplacementPlugin')} for ` +
-      `${colors.yellow(`/^${builtin}$/`)} from the ` +
-      `${colors.yellow('config')} hook and point it at a module of yours. ` +
-      `The hook's second argument carries the bundler that has the class.`
+      `${colors.yellow('extension.config.js')}, push ` +
+      `${colors.yellow(
+        `new rspack.NormalModuleReplacementPlugin(/^${builtin}$/, yourModulePath)`
+      )} onto ${colors.yellow('config.plugins')} from the ` +
+      `${colors.yellow('config')} hook, where ` +
+      `${colors.yellow('yourModulePath')} is the absolute path of a module ` +
+      `of yours. The hook's second argument carries the class: ` +
+      `${colors.yellow('config: (config, {rspack}) => { ... }')}.`
     )
   }
 

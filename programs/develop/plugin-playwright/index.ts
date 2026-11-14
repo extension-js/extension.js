@@ -193,6 +193,9 @@ type WriterOptions = {
   // A Gecko dev session with a launch ahead: ready waits for the launcher to
   // stamp the RDP port, or the reason Firefox has none.
   readyAwaitsRdpPort?: boolean
+  // A dev session that takes act verbs, with a launch ahead: ready waits a
+  // bounded time for the background's first hello.
+  readyAwaitsExecutor?: boolean
 }
 
 type PluginOptions = {
@@ -213,7 +216,12 @@ type PluginOptions = {
   managedExtensionDirs?: string[]
   launchFollows?: boolean
   readyAwaitsRdpPort?: boolean
+  readyAwaitsExecutor?: boolean
 }
+
+// How long a held ready waits for the first hello. An extension that never
+// connects still gets its ready, with no attach stamp on it.
+export const READY_EXECUTOR_WAIT_MS = 10000
 
 function nowISO() {
   return new Date().toISOString()
@@ -700,6 +708,51 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
   const ownsDocument = (prev: Record<string, unknown>) =>
     !isSuperseded() && prev.runId === base.runId
 
+  const awaitsExecutor =
+    options.readyAwaitsExecutor === true &&
+    options.command === 'dev' &&
+    !isWebkitBasedBrowser(options.browser) &&
+    !isEmulatorBrowser(options.browser)
+
+  let executorWaitOver = false
+  let executorWaitTimer: ReturnType<typeof setTimeout> | undefined
+
+  const awaitsRdpPort =
+    options.readyAwaitsRdpPort === true &&
+    options.command === 'dev' &&
+    isGeckoBasedBrowser(options.browser)
+
+  // A Gecko compile is also held for the debugger port, and the end of one
+  // wait must not let ready out ahead of the other.
+  const isHeldReady = (prev: Record<string, unknown>) =>
+    prev.status === 'starting' &&
+    typeof prev.compiledAt === 'string' &&
+    !prev.code &&
+    (!awaitsRdpPort ||
+      typeof prev.rdpPort === 'number' ||
+      typeof prev.rdpPortError === 'string')
+
+  // The wait ran out with nothing connected, so the compile goes ready the
+  // way it did before and a reader finds no attach stamp beside it.
+  function releaseHeldReady() {
+    executorWaitOver = true
+
+    const prev = readContract()
+    if (!prev || !ownsDocument(prev)) return
+    if (typeof prev.awaitingExecutorSince !== 'string') return
+
+    delete prev.awaitingExecutorSince
+    if (isHeldReady(prev)) prev.status = 'ready'
+
+    prev.ts = nowISO()
+
+    try {
+      writeJsonAtomic(readyPath, prev)
+    } catch {
+      // Ignore
+    }
+  }
+
   function writeReady(
     status: ReadyStatus,
     extra?: {
@@ -988,15 +1041,33 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       (typeof prev?.rdpPort === 'number' ||
         typeof prev?.rdpPortError === 'string')
 
+    const heldForRdpPort =
+      payload.status === 'ready' && awaitsRdpPort && !rdpPortSettled
+
+    // The browser opens after the compile and its background dials in after
+    // that, so a reader who acts on ready would find nothing to act through.
+    const executorSettled =
+      sameRun && typeof prev?.executorAttachedAt === 'string'
+
     if (
       payload.status === 'ready' &&
-      options.readyAwaitsRdpPort &&
-      options.command === 'dev' &&
-      isGeckoBasedBrowser(options.browser) &&
-      !rdpPortSettled
+      awaitsExecutor &&
+      !executorWaitOver &&
+      !executorSettled
     ) {
       payload.status = 'starting'
+      ;(payload as Record<string, unknown>).awaitingExecutorSince =
+        typeof prev?.awaitingExecutorSince === 'string' && sameRun
+          ? prev.awaitingExecutorSince
+          : nowISO()
+
+      if (!executorWaitTimer) {
+        executorWaitTimer = setTimeout(releaseHeldReady, READY_EXECUTOR_WAIT_MS)
+        executorWaitTimer.unref?.()
+      }
     }
+
+    if (heldForRdpPort) payload.status = 'starting'
 
     writeJsonAtomic(readyPath, payload)
   }
@@ -1165,6 +1236,12 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
 
         prev.executorAttachedAt = nowISO()
 
+        // The hello is what a held compile was waiting for.
+        if (typeof prev.awaitingExecutorSince === 'string') {
+          delete prev.awaitingExecutorSince
+          if (isHeldReady(prev)) prev.status = 'ready'
+        }
+
         // The launcher's "browser is up, nothing attached" note describes the
         // wait that just ended, so the attach takes it off the contract.
         delete prev.browserUpNotAttachedAt
@@ -1224,7 +1301,8 @@ export class PlaywrightPlugin {
       controlPath: options.controlPath,
       logsPath: options.logsPath,
       managedExtensionDirs: options.managedExtensionDirs,
-      readyAwaitsRdpPort: options.readyAwaitsRdpPort === true
+      readyAwaitsRdpPort: options.readyAwaitsRdpPort === true,
+      readyAwaitsExecutor: options.readyAwaitsExecutor === true
     })
   }
 
