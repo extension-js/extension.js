@@ -31,6 +31,7 @@ import {
   loadExtensionDevelopBridgeModule
 } from '../helpers/extension-develop-runtime'
 import {
+  alreadyNamesEngine,
   commandDescriptions,
   controlDisabledInSession,
   controlDisabledInSessionPlain,
@@ -752,17 +753,10 @@ function printResult(
   }
 }
 
-// Some refusals already end by naming the engine, so the suffix would say
-// it a second time on the same line.
 function engineSuffix(err: {message?: unknown; engine?: unknown}): string {
   if (!err.engine) return ''
 
-  const named = `engine: ${err.engine}`.toLowerCase()
-  const message = String(err.message || '')
-    .toLowerCase()
-    .trimEnd()
-
-  return message.endsWith(named) || message.endsWith(`(${named})`)
+  return alreadyNamesEngine(String(err.message || ''), String(err.engine))
     ? ''
     : ` (engine: ${err.engine})`
 }

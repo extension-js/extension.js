@@ -110,6 +110,86 @@ function projectWithManifest(manifest: Record<string, unknown>): string {
   return dir
 }
 
+describe('a refusal names the engine once', () => {
+  const mentions = (text: string) => text.match(/firefox/gi)?.length ?? 0
+
+  it('open sidebar on Firefox does not repeat an engine the message ends with', async () => {
+    bridge.result = {
+      ok: false,
+      error: {
+        name: 'Unsupported',
+        message: 'sidePanel not available (engine: firefox)',
+        engine: 'firefox',
+        code: 'api_unavailable'
+      }
+    }
+
+    expect(await run(['open', 'sidebar', '--browser', 'firefox'])).toBe(1)
+    const reason = stderr()
+      .split('\n')
+      .find((line) => line.includes('REASON'))
+    expect(mentions(String(reason))).toBe(1)
+  })
+
+  it('open sidebar on Firefox prints the bridge hint under the reason', async () => {
+    bridge.result = {
+      ok: false,
+      error: {
+        name: 'Unsupported',
+        message:
+          'the sidebar comes from sidebar_action here and opens only on a user action, so the CLI cannot open it',
+        engine: 'firefox',
+        code: 'api_unavailable',
+        hint: 'Open it from the Firefox sidebar button, or View > Sidebar.'
+      }
+    }
+
+    expect(await run(['open', 'sidebar', '--browser', 'firefox'])).toBe(1)
+    const lines = stderr().split('\n')
+    const reason = String(lines.find((line) => line.includes('REASON')))
+    expect(reason).toContain('sidebar_action')
+    expect(reason).toContain('(engine firefox)')
+    expect(mentions(reason)).toBe(1)
+    expect(lines[lines.length - 1]).toContain('Firefox sidebar button')
+  })
+
+  it('navigate does not append the engine to a reason that opens with it', async () => {
+    bridge.result = {
+      ok: false,
+      error: {
+        name: 'BadRequest',
+        message:
+          "firefox refuses to open about:newtab from the extension's tabs API (Illegal URL: about:newtab)",
+        engine: 'firefox',
+        code: 'url_refused'
+      }
+    }
+
+    expect(
+      await run(['navigate', 'about:newtab', '--browser', 'firefox'])
+    ).toBe(1)
+
+    const reason = stderr()
+      .split('\n')
+      .find((line) => line.includes('REASON'))
+    expect(mentions(String(reason))).toBe(1)
+  })
+
+  it('still appends the engine to a reason that never names it', async () => {
+    bridge.result = {
+      ok: false,
+      error: {
+        name: 'Unsupported',
+        message: 'no chrome.commands.onCommand listener registered',
+        engine: 'firefox'
+      }
+    }
+
+    expect(await run(['open', 'command', '--browser', 'firefox'])).toBe(1)
+    expect(stderr()).toContain('listener registered (engine firefox)')
+  })
+})
+
 describe('open refuses gesture-gated surfaces before connecting', () => {
   it('sidebar on Chromium is refused with the rule and the manual step', async () => {
     expect(await run(['open', 'sidebar'])).toBe(1)

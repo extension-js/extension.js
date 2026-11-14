@@ -95,6 +95,9 @@ export interface DoctorCheckResult {
   status: CheckStatus
   detail: string
   remediation?: string
+  // Set to false on a skip that is no gap: the check has no meaning for the
+  // kind of session diagnosed, so it leaves the pass count.
+  applicable?: false
 }
 
 // The session actually diagnosed, so the header, the rows and the json frame
@@ -194,10 +197,41 @@ function readReadyDocument(readyPath: string): Record<string, unknown> | null {
   }
 }
 
-// ready.json doubles as the receipt of a one-shot build, start or preview run,
-// and a receipt names no server to dial: only a dev contract is a session.
-function isDevSessionDocument(document: Record<string, unknown>): boolean {
-  return document.command === 'dev'
+type SessionCommand = 'dev' | 'start' | 'preview'
+
+function productionCommand(
+  document: Record<string, unknown> | null
+): 'start' | 'preview' | undefined {
+  return document?.command === 'start' || document?.command === 'preview'
+    ? document.command
+    : undefined
+}
+
+// ready.json doubles as the receipt of a one-shot build, start or preview run.
+// A start or preview that opened a control channel is a session the act verbs
+// dial, so doctor reads it as one. Every other receipt names nothing to dial.
+function isSessionDocument(document: Record<string, unknown>): boolean {
+  if (document.command === 'dev') return true
+
+  return (
+    productionCommand(document) !== undefined &&
+    typeof document.controlPort === 'number' &&
+    Boolean(document.instanceId)
+  )
+}
+
+// A start or preview run that holds its browser open but has no control port:
+// alive, and nothing doctor or an act verb can reach.
+function liveUncontrolledRun(
+  document: Record<string, unknown> | null
+): {command: 'start' | 'preview'; pid: number} | undefined {
+  const command = productionCommand(document)
+  const pid = document?.pid
+
+  if (!command || typeof pid !== 'number') return undefined
+  if (document?.status !== 'ready' || !isPidAlive(pid)) return undefined
+
+  return {command, pid}
 }
 
 function scanReadyContracts(projectPath: string): {
@@ -222,7 +256,7 @@ function scanReadyContracts(projectPath: string): {
 
       if (!document) continue
 
-      if (isDevSessionDocument(document)) {
+      if (isSessionDocument(document)) {
         sessions.push(browser)
       } else {
         receipts.push(browser)
@@ -242,7 +276,7 @@ function pickBrowser(candidates: string[]): string | undefined {
 }
 
 /* @invariant A bare `doctor` diagnoses the session that exists, not a
-   hardcoded default: the dev contracts under dist/extension-js/ name the
+   hardcoded default: the session contracts under dist/extension-js/ name the
    live browsers, a single contract wins outright, a build receipt never
    counts as a session, and chromium is only the fallback when nothing (or
    an ambiguous set) is found. */
@@ -364,14 +398,17 @@ function probeDebuggerPort(port: number): Promise<boolean> {
 
 // The browser leg's verdict: a live pid or an answering debugger port, never
 // the mere presence of a stamped port.
-async function browserCheck(ready: {
-  browserPid?: number
-  cdpPort?: number
-  rdpPort?: number
-  binary?: unknown
-  binaryProvenance?: unknown
-  binaryPinnedBy?: unknown
-}): Promise<DoctorCheckResult> {
+async function browserCheck(
+  ready: {
+    browserPid?: number
+    cdpPort?: number
+    rdpPort?: number
+    binary?: unknown
+    binaryProvenance?: unknown
+    binaryPinnedBy?: unknown
+  },
+  sessionNoun: string
+): Promise<DoctorCheckResult> {
   const pid =
     typeof ready.browserPid === 'number' ? ready.browserPid : undefined
   const port = debuggerPort(ready)
@@ -401,7 +438,7 @@ async function browserCheck(ready: {
         `no live browser: ${pid != null ? `pid ${pid} is gone` : 'no browserPid stamped'}` +
         `${port ? ` and nothing answers ${label}` : ' and no debugger port stamped'}` +
         binaryDetailSuffix(ready),
-      remediation: 'Restart the dev session to relaunch the browser'
+      remediation: `Restart the ${sessionNoun} to relaunch the browser`
     }
   }
 
@@ -411,8 +448,7 @@ async function browserCheck(ready: {
     check: 'browser',
     status: 'skip',
     detail: `browser liveness unknown (no browserPid or debugger port stamped yet and no exit recorded)${binaryDetailSuffix(ready)}`,
-    remediation:
-      'If the browser should be up, wait for launch to finish or restart the dev session'
+    remediation: `If the browser should be up, wait for launch to finish or restart the ${sessionNoun}`
   }
 }
 
@@ -473,21 +509,37 @@ export async function runDoctor(
 
   const readyPath = sessionReadyPath(bridge, projectPath, browser)
   const document = readReadyDocument(readyPath)
-  const receipt = document && !isDevSessionDocument(document)
+  const receipt = document && !isSessionDocument(document)
   const ready = receipt ? null : readReadyContract(projectPath, browser)
 
   if (!ready) {
-    results.push({
-      check: 'ready-contract',
-      status: 'fail',
-      detail: receipt
-        ? `no dev session for ${browser}: ${readyPath} is the receipt of an ` +
-          `extension ${String(document?.command ?? 'build')} run, not a session contract`
-        : `no ready contract at ${readyPath}`,
-      remediation:
-        `Start a dev session first: extension dev --browser=${browser} ` +
-        `--allow-control (add --allow-eval for the eval verb)`
-    })
+    const uncontrolled = receipt ? liveUncontrolledRun(document) : undefined
+
+    if (uncontrolled) {
+      results.push({
+        check: 'ready-contract',
+        status: 'fail',
+        detail:
+          `extension ${uncontrolled.command} is running for ${browser} ` +
+          `(pid ${uncontrolled.pid}) with no control channel, so there is ` +
+          `nothing to diagnose or act on`,
+        remediation:
+          `Restart it with a control channel: extension ${uncontrolled.command} ` +
+          `--browser=${browser} --allow-control (add --allow-eval for the eval verb)`
+      })
+    } else {
+      results.push({
+        check: 'ready-contract',
+        status: 'fail',
+        detail: receipt
+          ? `no dev session for ${browser}: ${readyPath} is the receipt of an ` +
+            `extension ${String(document?.command ?? 'build')} run, not a session contract`
+          : `no ready contract at ${readyPath}`,
+        remediation:
+          `Start a dev session first: extension dev --browser=${browser} ` +
+          `--allow-control (add --allow-eval for the eval verb)`
+      })
+    }
 
     for (const check of [
       'server-process',
@@ -502,6 +554,16 @@ export async function runDoctor(
 
     return {browser, checks: results}
   }
+
+  // A start or preview session serves a built folder: no dev server and no
+  // compile, so the rows name the command that owns the process.
+  const sessionCommand: SessionCommand = productionCommand(document) ?? 'dev'
+  const production = sessionCommand !== 'dev'
+  const sessionNoun = production
+    ? `extension ${sessionCommand} session`
+    : 'dev session'
+  const processNoun = production ? `${sessionCommand} process` : 'dev-server'
+  const restartCommand = `extension ${sessionCommand} --browser=${browser} --allow-control`
 
   // The reader keeps only the fields it types; why a session failed (`code`,
   // `message`, `errors`) is on the document itself.
@@ -524,14 +586,28 @@ export async function runDoctor(
         'Fix the compile error and save; the session rebuilds on its own. ' +
         'ready.json `errors` carries the full text'
     })
+  } else if (ready.status === 'stopped') {
+    // A stopped contract is a session that ended. Waiting on it never helps.
+    results.push({
+      check: 'ready-contract',
+      status: 'fail',
+      detail: `contract status is 'stopped', the ${sessionNoun} ended`,
+      remediation: `Start it again: ${restartCommand}`
+    })
   } else {
+    // preview has no --wait flag, so its advice names the report instead.
+    const waitHint =
+      sessionCommand === 'preview'
+        ? 'run doctor again shortly'
+        : `extension ${sessionCommand} --wait`
+
     results.push({
       check: 'ready-contract',
       status: 'fail',
       detail: `contract status is '${ready.status ?? 'unknown'}', not 'ready'`,
       remediation:
         'The session is still starting or errored, wait for it ' +
-        '(extension dev --wait) or check the dev-server output'
+        `(${waitHint}) or check the ${processNoun} output`
     })
   }
 
@@ -568,23 +644,32 @@ export async function runDoctor(
       results.push({
         check: 'server-process',
         status: 'fail',
-        detail: `dev-server pid ${ready.pid} is stale (${stale}), ready.json no longer names a live session`,
-        remediation:
-          'A previous dev session died uncleanly; restart it: ' +
-          `extension dev --browser=${browser} --allow-control`
+        detail: `${processNoun} pid ${ready.pid} is stale (${stale}), ready.json no longer names a live session`,
+        remediation: `A previous ${sessionNoun} died uncleanly; restart it: ${restartCommand}`
       })
     } else {
       results.push({
         check: 'server-process',
         status: 'pass',
-        detail: `dev-server pid ${ready.pid} is alive`
+        detail: `${processNoun} pid ${ready.pid} is alive`
       })
     }
   }
 
   // 3. port-agreement, still meaningful when the server is dead: a mismatch
   // predicts the next restart's stale-SW strand (#484 precondition).
-  if (
+  if (production) {
+    // Only the dev server persists its control port. A file left by an earlier
+    // dev run says nothing about this session's port.
+    results.push({
+      check: 'port-agreement',
+      status: 'skip',
+      applicable: false,
+      detail:
+        `not applicable: an ${sessionNoun} runs no dev server, so it ` +
+        'persists no control port to compare'
+    })
+  } else if (
     typeof readPersistedControlPort !== 'function' ||
     typeof controlPortFilePath !== 'function'
   ) {
@@ -619,7 +704,7 @@ export async function runDoctor(
         detail: `persisted port ${persisted} != contract port ${ready.controlPort}`,
         remediation:
           "A profile's cached service worker may dial the old port and never " +
-          'connect; restart the dev session (it prefers the persisted port)'
+          `connect; restart the ${sessionNoun} (it prefers the persisted port)`
       })
     }
   }
@@ -653,7 +738,7 @@ export async function runDoctor(
       let detail = message
       let remediation =
         'The control server did not answer on the contract port, the ' +
-        'session may have died or the port was taken; restart the dev session'
+        `session may have died or the port was taken; restart the ${sessionNoun}`
 
       if (code === '4001') {
         detail =
@@ -661,12 +746,12 @@ export async function runDoctor(
 
         remediation =
           'A newer session overwrote the contract, or this dist belongs to ' +
-          'another session, re-read ready.json or restart the dev session'
+          `another session, re-read ready.json or restart the ${sessionNoun}`
       } else if (code === '4003') {
         // The instanceId matched, so this is the session itself with control
         // off, not a stale server answering the port.
         detail = 'refused: control is off in the session that answered'
-        remediation = `Restart with control enabled: extension dev --browser=${browser} --allow-control`
+        remediation = `Restart with control enabled: ${restartCommand}`
       }
 
       results.push({
@@ -695,7 +780,7 @@ export async function runDoctor(
             detail:
               'eval is enabled but no session token could be read under .extension-js/',
             remediation:
-              'Run from the same project root the dev session was started ' +
+              `Run from the same project root the ${sessionNoun} was started ` +
               'in, or restart the session with --allow-eval to rewrite the token'
           })
         }
@@ -738,8 +823,7 @@ export async function runDoctor(
               'executor did not answer a storage probe within ' +
               `${PROBE_TIMEOUT_MS / 1000}s; the service worker is connected ` +
               'but not responding',
-            remediation:
-              'Reload the extension, or restart the dev session if it stays silent'
+            remediation: `Reload the extension, or restart the ${sessionNoun} if it stays silent`
           })
         } else if (isCompileFailure(failure)) {
           results.push(compileFailureResult())
@@ -762,7 +846,7 @@ export async function runDoctor(
             detail: probe.error?.message ?? 'no executor connected',
             remediation:
               'The message above names the likely cause; retry shortly, ' +
-              'then reload the extension or restart the dev session'
+              `then reload the extension or restart the ${sessionNoun}`
           })
         }
       } catch (err) {
@@ -784,8 +868,7 @@ export async function runDoctor(
             check: 'executor',
             status: 'fail',
             detail: `probe did not complete: ${String((err as Error | undefined)?.message || err)}`,
-            remediation:
-              'Retry shortly; if it persists reload the extension or restart the dev session'
+            remediation: `Retry shortly; if it persists reload the extension or restart the ${sessionNoun}`
           })
         }
       }
@@ -799,11 +882,11 @@ export async function runDoctor(
     results.push({
       check: 'browser',
       status: 'fail',
-      detail: `browser exited at ${ready.browserExitedAt}${ready.browserExitCode != null ? ` (code ${ready.browserExitCode})` : ''} while the dev server kept running${binaryDetailSuffix(ready)}`,
-      remediation: 'Restart the dev session to relaunch the browser'
+      detail: `browser exited at ${ready.browserExitedAt}${ready.browserExitCode != null ? ` (code ${ready.browserExitCode})` : ''} while the ${production ? processNoun : 'dev server'} kept running${binaryDetailSuffix(ready)}`,
+      remediation: `Restart the ${sessionNoun} to relaunch the browser`
     })
   } else {
-    results.push(await browserCheck(ready))
+    results.push(await browserCheck(ready, sessionNoun))
   }
 
   return {browser, checks: results}
@@ -821,8 +904,12 @@ function checkGlyph(status: CheckStatus): string {
 // browser rather than resolving the raw argument a second time.
 function printPretty({browser, checks: results}: DoctorReport): void {
   const passes = results.filter((r) => r.status === 'pass').length
+  const notApplicable = results.filter((r) => r.applicable === false).length
   // eslint-disable-next-line no-console
-  console.log(doctorHeader(browser, passes, results.length))
+  console.log(
+    doctorHeader(browser, passes, results.length - notApplicable, notApplicable)
+  )
+
   const width = Math.max(...results.map((r) => r.check.length))
 
   for (const r of results) {

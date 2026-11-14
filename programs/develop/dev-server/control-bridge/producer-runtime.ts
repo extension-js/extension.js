@@ -185,9 +185,10 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       }
     }
 
-    function replyErr(cmdId, name, message, code) {
+    function replyErr(cmdId, name, message, code, hint) {
       var frame = {type: "result", cmdId: cmdId, ok: false, error: {name: name, message: String(message), engine: engineName()}};
       if (code) frame.error.code = code;
+      if (hint) frame.error.hint = hint;
       try { socket && socket.send(JSON.stringify(frame)); } catch (e) {
         // Ignore
       }
@@ -694,7 +695,11 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
                   } else replyOk(cmdId, {opened: "sidebar"});
                 });
               });
-            } else { replyErr(cmdId, "Unsupported", "sidePanel not available (engine: " + engineName() + ")", "api_unavailable"); }
+            } else if (engineName() === "firefox") {
+              // Firefox has no side panel API, and its sidebar opens only inside
+              // a user action handler, which a bridge command is not.
+              replyErr(cmdId, "Unsupported", "the sidebar comes from sidebar_action here and opens only on a user action, so the CLI cannot open it", "api_unavailable", "Open it from the Firefox sidebar button, or View > Sidebar. Once it is open, extension eval --context sidebar and extension inspect --context sidebar reach it.");
+            } else { replyErr(cmdId, "Unsupported", "sidePanel is not available", "api_unavailable"); }
           } else if (surface === "action") {
             // With a popup the click opens it; without one, replay the
             // onClicked listeners captured at install time. The answer names
@@ -728,7 +733,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
                   }
                 });
               });
-            } else { replyErr(cmdId, "Unsupported", "the manifest declares no action, browser_action or page_action (engine: " + engineName() + ")", "surface_not_declared"); }
+            } else { replyErr(cmdId, "Unsupported", "the manifest declares no action, browser_action or page_action", "surface_not_declared"); }
           } else if (surface === "command") {
             var commandName = (args && args.name) || undefined;
             if (!commandListeners.length) {

@@ -269,7 +269,7 @@ const COMMAND_TABLE = [
     name: 'doctor',
     positionals: [{name: 'project-path', required: false}],
     description:
-      'Diagnose a dev session: ready contract, control channel, token, executor, browser',
+      'Diagnose a dev, start or preview session: ready contract, control channel, token, executor, browser',
     supportsSourceInspection: false
   },
   {
@@ -1120,13 +1120,35 @@ export function openSurfaceWarning(warning: string) {
   return `${getLoggingPrefix('warn')} ${asSentence(warning)}`
 }
 
+// Some refusals already name the engine, as their subject or as a closing
+// note, so a note after them would say it a second time on the same line.
+export function alreadyNamesEngine(reason: string, engine: string): boolean {
+  const text = reason.toLowerCase().trim().replace(/\.$/, '')
+  const name = engine.toLowerCase()
+
+  if (text.startsWith(`${name} `)) return true
+
+  return [
+    `engine: ${name}`,
+    `(engine: ${name})`,
+    `engine ${name}`,
+    `(engine ${name})`
+  ].some((mention) => text.endsWith(mention))
+}
+
+function engineNoteFor(reason: string, engine?: string): string {
+  if (!engine || alreadyNamesEngine(reason, engine)) return ''
+
+  return arg(` (engine ${engine})`)
+}
+
 export function openSurfaceFailed(
   surface: string,
   reason: string,
   engine?: string,
   remedy?: string
 ) {
-  const engineNote = engine ? arg(` (engine ${engine})`) : ''
+  const engineNote = engineNoteFor(reason, engine)
 
   return [
     `${getLoggingPrefix('error')} Can't ${openSurfaceAction(surface)}.`,
@@ -1143,7 +1165,7 @@ export function navigateFailed(
   engine?: string,
   remedy?: string
 ) {
-  const engineNote = engine ? arg(` (engine ${engine})`) : ''
+  const engineNote = engineNoteFor(reason, engine)
 
   return [
     `${getLoggingPrefix('error')} Can't navigate a tab to ${fmt.val(url)}`,
@@ -1200,9 +1222,12 @@ export function openSurfaceNeedsGesture(surface: string) {
 export function doctorHeader(
   browser: string,
   passes: number,
-  total: number
+  total: number,
+  notApplicable = 0
 ): string {
-  return `doctor (${browser}), ${passes}/${total} checks passed`
+  const aside = notApplicable ? `, ${notApplicable} not applicable` : ''
+
+  return `doctor (${browser}), ${passes}/${total} checks passed${aside}`
 }
 
 export function doctorRemedy(check: string, remediation: string): string {

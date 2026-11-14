@@ -207,6 +207,8 @@ export interface ResultFrame {
     stack?: string
     engine?: string
     code?: BridgeRefusalCode
+    // What the caller can do next, when the guest knows it.
+    hint?: string
   }
 }
 

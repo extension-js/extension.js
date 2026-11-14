@@ -2938,6 +2938,61 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     })
   })
 
+  it('open sidebar on Firefox names sidebar_action and a next step, not sidePanel', async () => {
+    vi.stubGlobal('location', {protocol: 'moz-extension:'})
+    const ws = setup({})
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'op-side-gecko',
+      op: 'open',
+      target: {context: 'sidebar'},
+      args: {surface: 'sidebar'}
+    })
+
+    await flush()
+    vi.unstubAllGlobals()
+    const r = results(ws).find((f) => f.cmdId === 'op-side-gecko')
+    expect(r).toMatchObject({
+      ok: false,
+      error: {name: 'Unsupported', code: 'api_unavailable', engine: 'firefox'}
+    })
+
+    expect(r.error.message).toContain('sidebar_action')
+    expect(r.error.message).not.toContain('sidePanel')
+    // error.engine already names the engine, so the sentence does not.
+    expect(r.error.message).not.toMatch(/engine|firefox/i)
+    expect(r.error.hint).toContain('extension eval --context sidebar')
+    expect(r.error.hint).toContain('extension inspect --context sidebar')
+  })
+
+  it('open refusals leave the engine to error.engine', async () => {
+    const ws = setup({})
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'op-side-plain',
+      op: 'open',
+      target: {context: 'sidebar'},
+      args: {surface: 'sidebar'}
+    })
+
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'op-action-plain',
+      op: 'open',
+      target: {context: 'background'},
+      args: {surface: 'action'}
+    })
+
+    await flush()
+
+    for (const cmdId of ['op-side-plain', 'op-action-plain']) {
+      const r = results(ws).find((f) => f.cmdId === cmdId)
+      expect(r.ok).toBe(false)
+      expect(typeof r.error.engine).toBe('string')
+      expect(r.error.message).not.toContain('(engine')
+    }
+  })
+
   it('open options: a lastError on the callback is a refusal, not an ok', async () => {
     const runtime: Record<string, unknown> = {
       lastError: undefined,
