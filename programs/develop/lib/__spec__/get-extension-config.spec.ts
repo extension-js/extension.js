@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import os from 'node:os'
 import * as path from 'node:path'
+import {rspack} from '@rspack/core'
 import {afterEach, describe, expect, it} from 'vitest'
 import {
   isUsingExperimentalConfig,
@@ -36,7 +37,8 @@ describe('get-extension-config defaults', () => {
     const identity = await loadCustomConfig(tmp, {
       browser: 'chrome',
       mode: 'production',
-      command: 'build'
+      command: 'build',
+      rspack
     })
     const obj = {a: 1}
     expect(identity(obj as any)).toEqual(obj)

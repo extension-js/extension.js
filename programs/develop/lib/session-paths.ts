@@ -43,6 +43,26 @@ export function legacyControlTokenPath(projectPath: string): string {
   return path.join(sessionStateDir(projectPath), 'control.token')
 }
 
+// A project the CLI did not create has no rule for this folder, and the root
+// .gitignore is only appended to when one exists: the folder ignores itself.
+export const SESSION_STATE_IGNORE_CONTENT =
+  '# Extension.js local session state: the control port and the live control\n' +
+  '# token of a running session. Never commit or ship this directory.\n' +
+  '*\n'
+
+export function ensureSessionStateIgnoreFile(projectPath: string): void {
+  try {
+    const ignoreFile = path.join(sessionStateDir(projectPath), '.gitignore')
+    fs.mkdirSync(path.dirname(ignoreFile), {recursive: true})
+
+    if (!fs.existsSync(ignoreFile)) {
+      fs.writeFileSync(ignoreFile, SESSION_STATE_IGNORE_CONTENT)
+    }
+  } catch {
+    // A hygiene guard must never break a dev session or build.
+  }
+}
+
 export function sessionArtifactsRootDir(projectPath: string): string {
   return path.resolve(projectPath, 'dist', 'extension-js')
 }

@@ -34,6 +34,11 @@ import {StableLoaderPathsPlugin} from './lib/stable-loader-paths'
 import {resolveTranspilePackageDirs} from './lib/transpile-packages'
 import {CompatibilityPlugin} from './plugin-compatibility'
 import {CompilationPlugin} from './plugin-compilation'
+import * as compilationMessages from './plugin-compilation/compilation-lib/messages'
+import {
+  NodeBuiltinsPlugin,
+  nodeBuiltinName
+} from './plugin-compilation/node-builtins'
 import {CssPlugin} from './plugin-css'
 import {JsFrameworksPlugin} from './plugin-js-frameworks'
 import {PerfBudgetsPlugin} from './plugin-perf-budgets'
@@ -271,6 +276,7 @@ export default function webpackConfig(
         )
       }
     } satisfies RspackPluginInstance,
+    new NodeBuiltinsPlugin(),
     // Warn (don't fail) for bare require() calls that resolve nowhere. The
     // require stays verbatim in the bundle, matching how Chrome loads the script.
     {
@@ -283,12 +289,17 @@ export default function webpackConfig(
             const ErrorCtor = compiler.rspack?.WebpackError || Error
 
             for (const [request, issuer] of unresolvedBareRequires) {
+              const builtin = nodeBuiltinName(request)
               const warning = new ErrorCtor(
                 `require('${request}')${issuer ? ` in ${issuer}` : ''} does not ` +
                   `resolve to any module; the call is left verbatim in the output. ` +
                   `Chrome loads the script anyway. It only throws if that code path ` +
                   `runs (vendored pre-bundled libraries often carry dead require() ` +
-                  `branches). Install the package if it's a real dependency, or set ` +
+                  `branches). ` +
+                  (builtin
+                    ? `It names a Node.js built-in. ` +
+                      `${compilationMessages.nodeBuiltinStandInHint(builtin)} Or set `
+                    : `Install the package if it's a real dependency, or set `) +
                   `EXTENSION_STRICT_REFS=true to make this fail the build.`
               )
               warning.name = 'UnresolvedBareRequireWarning'
@@ -494,19 +505,23 @@ export default function webpackConfig(
 
         // Bare require() that resolves nowhere: externalize as 'commonjs' so the
         // bundle keeps it verbatim like Chrome; EXTENSION_STRICT_REFS restores the error.
+        // require('node:os') is require('os'): one lookup and one outcome.
+        const bareRequest =
+          (request.startsWith('node:') && nodeBuiltinName(request)) || request
+
         if (
           dependencyType === 'commonjs' &&
           context &&
           typeof getResolve === 'function' &&
           process.env.EXTENSION_STRICT_REFS !== 'true' &&
-          !(request in nodeFallbacks) && // resolve.fallback owns these
-          !/^[a-z][\w+.-]*:/i.test(request) && // no scheme (node:, data:, …)
-          !request.startsWith('.') &&
-          !request.startsWith('/') &&
-          !path.isAbsolute(request)
+          !(bareRequest in nodeFallbacks) && // resolve.fallback owns these
+          !/^[a-z][\w+.-]*:/i.test(bareRequest) && // no scheme (data:, …)
+          !bareRequest.startsWith('.') &&
+          !bareRequest.startsWith('/') &&
+          !path.isAbsolute(bareRequest)
         ) {
           const resolve = getResolve()
-          resolve(context, request, (err, result) => {
+          resolve(context, bareRequest, (err, result) => {
             // An alias to `false` resolves to rspack's empty module: leaving
             // it to the bundler is what keeps the require() out of the output.
             if (err || (!result && result !== false)) {
