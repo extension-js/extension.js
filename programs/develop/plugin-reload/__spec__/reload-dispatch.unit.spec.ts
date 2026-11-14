@@ -288,6 +288,70 @@ describe('dispatchReload', () => {
     expect(String(warn.mock.calls[0][0])).toContain('has not come back')
   })
 
+  it('takes the warning back when the extension says hello after the window', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    let hello: (late: {afterMs: number; runsBuild: boolean}) => void = () => {}
+
+    await dispatchReload(CS, {
+      broker: {
+        broadcastReload: vi.fn().mockReturnValue(1),
+        awaitReloadAck: vi.fn().mockResolvedValue('acked'),
+        awaitReloadRestart: vi.fn().mockResolvedValue('not-restarted'),
+        awaitLateReloadRestart: () =>
+          new Promise((resolve) => {
+            hello = resolve
+          })
+      }
+    })
+
+    await Promise.resolve()
+
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(String(warn.mock.calls[0][0])).toContain('has not come back')
+
+    const before = log.mock.calls.length
+
+    hello({afterMs: 41000, runsBuild: true})
+    await Promise.resolve()
+    await Promise.resolve()
+
+    const lines = log.mock.calls.slice(before).map((call) => String(call[0]))
+
+    expect(lines).toHaveLength(1)
+    expect(lines[0]).toContain(
+      'content_script (src/content/scripts.js) is back after 41s, so this edit is live'
+    )
+
+    expect(warn).toHaveBeenCalledTimes(1)
+  })
+
+  it('warns again when the late extension runs a build from before the edit', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    await dispatchReload(CS, {
+      broker: {
+        broadcastReload: vi.fn().mockReturnValue(1),
+        awaitReloadAck: vi.fn().mockResolvedValue('acked'),
+        awaitReloadRestart: vi.fn().mockResolvedValue('not-restarted'),
+        awaitLateReloadRestart: vi
+          .fn()
+          .mockResolvedValue({afterMs: 20000, runsBuild: false})
+      }
+    })
+
+    await Promise.resolve()
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(warn).toHaveBeenCalledTimes(2)
+    expect(String(warn.mock.calls[1][0])).toContain(
+      'is back after 20s on an earlier build, so this edit is not live'
+    )
+  })
+
   it('stays quiet when the extension came back or no restart was due', async () => {
     vi.spyOn(console, 'log').mockImplementation(() => {})
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})

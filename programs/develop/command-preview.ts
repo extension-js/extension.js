@@ -169,6 +169,21 @@ export function previewArchiveTarget(
   return {cacheRoot: remoteArchiveCacheRoot()}
 }
 
+// How long a control session holds ready for the extension's first hello. A
+// build that never connects still gets its ready, with no attach stamp on it.
+export const EXECUTOR_ATTACH_WAIT_MS = 10000
+
+function firstOf(settled: Promise<void>, ms: number): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const timer = setTimeout(resolve, ms)
+
+    void settled.then(() => {
+      clearTimeout(timer)
+      resolve()
+    })
+  })
+}
+
 export async function extensionPreview(
   pathOrRemoteUrl: string | undefined,
   previewOptions: PreviewOptions,
@@ -331,8 +346,15 @@ export async function extensionPreview(
 
   let launchPath = outputPath
   let launched: PreviewBrowserSession | undefined
+  let executorAttached: Promise<void> | undefined
 
   if (previewOptions.allowControl || previewOptions.allowEval) {
+    let noteAttached: () => void = () => undefined
+
+    executorAttached = new Promise<void>((resolve) => {
+      noteAttached = resolve
+    })
+
     let stampAttached: (() => void) | undefined
     let stampDetached: (() => void) | undefined
     const control = await startProductionControl({
@@ -343,7 +365,10 @@ export async function extensionPreview(
       allowEval: previewOptions.allowEval,
       host: previewOptions.host,
       runId: getSessionRunId(packageJsonDir, String(browser)),
-      onExecutorAttached: () => stampAttached?.(),
+      onExecutorAttached: () => {
+        stampAttached?.()
+        noteAttached()
+      },
       onExecutorDetached: () => stampDetached?.(),
       wakeExecutor: async () => {
         try {
@@ -353,6 +378,9 @@ export async function extensionPreview(
         }
       }
     })
+
+    // A build with no background carries no producer, so nothing dials in.
+    if (control.backgroundAssets.length === 0) executorAttached = undefined
 
     launchPath = control.controlledPath
     // Same ready.json, now naming the folder loaded and the control port the
@@ -533,6 +561,12 @@ export async function extensionPreview(
   }
 
   launched = (await browserLauncher(resolvedOpts)) || undefined
+
+  // The browser is up before the extension's background has dialed in, and
+  // a caller that reads ready on a control session acts on the next line.
+  if (executorAttached && !merged.dryRun) {
+    await firstOf(executorAttached, EXECUTOR_ATTACH_WAIT_MS)
+  }
 
   metadata.writeReady()
 
