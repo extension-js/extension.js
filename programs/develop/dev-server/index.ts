@@ -918,6 +918,11 @@ export async function devServer(
     config: mergedExtensionsConfig
   })
 
+  // An act verb reaches the browser through the extension's background, so a
+  // session that takes them and opens a browser holds ready for its hello.
+  const readyAwaitsExecutor =
+    allowControl && Boolean(extendedOptions.browsersPlugin)
+
   const webpackConfigOptions = {
     // The dev server is the one dev session: instrumentation keys on this.
     metadataCommand: 'dev' as const,
@@ -931,6 +936,7 @@ export async function devServer(
     controlPortUnavailableReason,
     controlPath: CONTROL_WS_PATH,
     logsPath: bridgeLogsRelPath,
+    readyAwaitsExecutor,
     port: portAllocation.port,
     output: {
       clean: false,
@@ -953,7 +959,9 @@ export async function devServer(
     controlPort: bridgeControlPort,
     controlPortUnavailableReason,
     controlPath: CONTROL_WS_PATH,
-    logsPath: bridgeLogsRelPath
+    logsPath: bridgeLogsRelPath,
+    readyAwaitsRdpPort: Boolean(extendedOptions.browsersPlugin),
+    readyAwaitsExecutor
   })
   stampExecutorAttached = (attached) => metadata.stampExecutorAttached(attached)
   stampExecutorDetached = () => metadata.stampExecutorDetached()

@@ -569,6 +569,11 @@ export interface CommonWebpackOptions {
   controlPortUnavailableReason?: string | null
   controlPath?: string
   logsPath?: string
+  /**
+   * Set by dev-server when act verbs are allowed and a browser launch
+   * follows, so ready.json waits for the background to connect.
+   */
+  readyAwaitsExecutor?: boolean
 }
 
 /**

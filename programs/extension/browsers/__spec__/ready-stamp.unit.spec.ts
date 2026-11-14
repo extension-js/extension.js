@@ -51,6 +51,32 @@ describe('stampReadyRdpPort', () => {
     expect(ready.runId).toBe('run-A')
   })
 
+  it('turns a held dev compile ready, unless it still waits for the hello', () => {
+    const held = {
+      command: 'dev',
+      status: 'starting',
+      compiledAt: '2026-11-01T00:00:00.000Z'
+    }
+
+    fs.writeFileSync(readyPath, JSON.stringify(held))
+    stampReadyRdpPort(outputPath, 6006)
+    expect(JSON.parse(fs.readFileSync(readyPath, 'utf-8')).status).toBe('ready')
+
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({
+        ...held,
+        awaitingExecutorSince: '2026-11-01T00:00:00.000Z'
+      })
+    )
+
+    stampReadyRdpPort(outputPath, 6006)
+
+    const waiting = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    expect(waiting.status).toBe('starting')
+    expect(waiting.rdpPort).toBe(6006)
+  })
+
   it('is a no-op when the contract file does not exist yet', () => {
     expect(() => stampReadyRdpPort(outputPath, 6006)).not.toThrow()
     expect(fs.existsSync(readyPath)).toBe(false)

@@ -179,7 +179,11 @@ describe('Node built-ins in extension code', () => {
     expect(built.errors).not.toBe(0)
     expect(built.text).toContain('The Node.js built-in node:test does not')
     expect(built.text).toContain('background.js imports it.')
-    expect(built.text).toContain('NormalModuleReplacementPlugin')
+    expect(built.text).toContain(
+      'new rspack.NormalModuleReplacementPlugin(/^node:test$/, yourModulePath)'
+    )
+
+    expect(built.text).toContain('config: (config, {rspack}) => config')
     expect(built.text).not.toContain('Unhandled scheme')
   }, 180_000)
 
