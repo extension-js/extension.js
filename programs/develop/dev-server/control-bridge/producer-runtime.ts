@@ -1519,6 +1519,18 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       if (typeof scripting.registerContentScripts !== "function" || typeof scripting.updateContentScripts !== "function") return;
       wrappedRegistries.push(scripting);
       var natives = {};
+      // One namespace of an engine can answer a callback and hand nothing
+      // back, so a single read tells which of the two forms this one has.
+      var style = null;
+      var answersCallback = function () {
+        if (style === null) {
+          var read;
+          try { read = natives.getRegisteredContentScripts(); } catch (e) { style = false; return style; }
+          style = !(read && typeof read.then === "function");
+          if (!style) read.then(function () {}, function () {});
+        }
+        return style;
+      };
       var wrapWrite = function (method, addresses) {
         if (typeof scripting[method] !== "function") return;
         var native = scripting[method].bind(scripting);
@@ -1539,10 +1551,12 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
           var call = function () {
             if (addresses) args[0] = withFileNames(args[0], scriptAddress);
             if (done) args[last] = function () { settle(); return done.apply(this, arguments); };
+            // The error is left unread, so the browser still names it.
+            else if (answersCallback()) args.push(function () { settle(); });
             var ret = native.apply(null, args);
             if (done) return ret;
             if (ret && typeof ret.then === "function") ret.then(settle, settle);
-            else settle();
+            else if (!answersCallback()) settle();
             return ret;
           };
           if (!addresses || scriptVersions || !Array.isArray(args[0])) {
@@ -1553,7 +1567,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
           try {
             var refusal = method === "registerContentScripts" ? [SHAPE_REFUSED, SHAPE_REFUSED] : [{id: SHAPE_REFUSED.id}];
             var probe = [args[0].concat(refusal)];
-            if (done) probe.push(noopLastError);
+            if (done || answersCallback()) probe.push(noopLastError);
             var refused;
             try { refused = native.apply(null, probe); } catch (e) {
               if (!done) throw e;
@@ -1562,7 +1576,8 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
             }
             if (refused && typeof refused.then === "function") refused.then(function () {}, function () {});
           } catch (e) { settle(); throw e; }
-          if (done) {
+          // A call that hands nothing back is answered the same way here.
+          if (done || answersCallback()) {
             withScriptVersions(function () { try { call(); } catch (e) { settle(); } });
             return undefined;
           }
@@ -1571,12 +1586,13 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
           });
         };
       };
+      if (typeof scripting.getRegisteredContentScripts !== "function") style = false;
+      else natives.getRegisteredContentScripts = scripting.getRegisteredContentScripts.bind(scripting);
       wrapWrite("registerContentScripts", true);
       wrapWrite("updateContentScripts", true);
       wrapWrite("unregisterContentScripts", false);
       if (typeof scripting.getRegisteredContentScripts === "function") {
-        var nativeRead = scripting.getRegisteredContentScripts.bind(scripting);
-        natives.getRegisteredContentScripts = nativeRead;
+        var nativeRead = natives.getRegisteredContentScripts;
         var plain = function (list) { return withFileNames(list, plainScriptAddress); };
         scripting.getRegisteredContentScripts = function () {
           var args = [].slice.call(arguments);

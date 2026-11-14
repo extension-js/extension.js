@@ -45,6 +45,7 @@ function boot(options: {
   tabsAnswerAfter?: number
   sessionAnswersAfter?: number
   unregisterAnswersAfter?: number
+  callbackOnly?: boolean
 }) {
   const calls: string[] = []
   const reloadedTabs: number[] = []
@@ -70,6 +71,9 @@ function boot(options: {
       return undefined
     }
 
+    // The chrome namespace of a Manifest V2 Firefox hands nothing back.
+    if (options.callbackOnly) return undefined
+
     return Promise.resolve(value)
   }
 
@@ -87,6 +91,7 @@ function boot(options: {
   const refuse = (done: Callback | undefined) => {
     calls.pop()
 
+    if (!done && options.callbackOnly) return undefined
     if (!done) return Promise.reject(new Error('refused'))
 
     runtime.lastError = {message: 'refused'}
@@ -159,6 +164,12 @@ function boot(options: {
       const callback = typeof filter === 'function' ? filter : done
 
       if (!options.unregisterAnswersAfter) return answer(callback)
+
+      if (options.callbackOnly) {
+        setTimeout(() => callback?.(), options.unregisterAnswersAfter)
+
+        return undefined
+      }
 
       // A loaded browser drops the registrations and answers much later.
       return new Promise<void>((resolve) =>
@@ -405,6 +416,111 @@ describe('bridge producer runtime, the address of a registered script on Gecko',
 
     await vi.advanceTimersByTimeAsync(3000)
     await background
+
+    expect(addressOf(h.registered[0])).toContain(`scripts/hook.js${ADDRESS}`)
+    expect(h.reloadedTabs).toEqual([7])
+    expect(h.calls).not.toContain('runtime.reload')
+  })
+
+  // The chrome namespace of a Manifest V2 Firefox answers a callback and
+  // hands nothing back, so the wrapped call hands nothing back either.
+  it('keeps the form of a namespace that answers a callback only', async () => {
+    const h = boot({registered: [HOOK], callbackOnly: true})
+
+    h.ws.triggerMessage(pageFrame(['scripts/hook.js']))
+    await vi.advanceTimersByTimeAsync(2000)
+    const moved = addressOf(h.registered[0])
+    const answered: string[] = []
+
+    expect(
+      h.scripting.unregisterContentScripts({ids: ['hook']})
+    ).toBeUndefined()
+
+    expect(h.scripting.registerContentScripts([HOOK])).toBeUndefined()
+    expect(
+      h.scripting.updateContentScripts([
+        {...HOOK, matches: ['http://other.test/*']}
+      ])
+    ).toBeUndefined()
+
+    expect(
+      h.scripting.registerContentScripts([{...HOOK, id: 'second'}], () =>
+        answered.push('register')
+      )
+    ).toBeUndefined()
+
+    expect(
+      h.scripting.updateContentScripts([{...HOOK, id: 'second'}], () =>
+        answered.push('update')
+      )
+    ).toBeUndefined()
+
+    expect(h.scripting.getRegisteredContentScripts()).toBeUndefined()
+
+    let read: Registration[] | undefined
+
+    h.scripting.getRegisteredContentScripts((list) => {
+      read = list as Registration[]
+    })
+
+    h.scripting.unregisterContentScripts({ids: ['second']}, () =>
+      answered.push('unregister')
+    )
+
+    expect(moved).toContain(ADDRESS)
+    expect(answered).toEqual(['register', 'update', 'unregister'])
+    expect(read?.map((script) => script.js?.[0])).toEqual([
+      'scripts/hook.js',
+      'scripts/hook.js'
+    ])
+
+    expect(h.registered.map(addressOf)).toEqual([moved])
+    expect(h.registered[0].matches).toEqual(['http://other.test/*'])
+  })
+
+  it('hands nothing back from a call that namespace gets before the addresses are read', async () => {
+    const h = boot({
+      registered: [HOOK],
+      sessionAnswersAfter: 50,
+      callbackOnly: true
+    })
+    const malformed = [{id: 5, js: ['scripts/hook.js']}] as never
+
+    expect(() => h.scripting.updateContentScripts(malformed)).toThrow('shape')
+    expect(
+      h.scripting.updateContentScripts([
+        {...HOOK, matches: ['http://other.test/*']}
+      ])
+    ).toBeUndefined()
+
+    expect(
+      h.scripting.registerContentScripts([{...HOOK, id: 'second'}])
+    ).toBeUndefined()
+
+    await vi.advanceTimersByTimeAsync(100)
+
+    expect(h.registered.map((script) => script.id)).toEqual(['hook', 'second'])
+    expect(h.registered[0].matches).toEqual(['http://other.test/*'])
+    expect(h.calls).toEqual(['updateContentScripts', 'registerContentScripts'])
+  })
+
+  // With nothing handed back, the call was counted as answered when it was
+  // made, and the registry was read between the two calls.
+  it('waits for a call that namespace has not answered yet', async () => {
+    const h = boot({
+      registered: [HOOK],
+      unregisterAnswersAfter: 4000,
+      callbackOnly: true
+    })
+
+    h.scripting.unregisterContentScripts({ids: ['hook']})
+    setTimeout(() => h.scripting.registerContentScripts([HOOK]), 4000)
+
+    h.ws.triggerMessage(pageFrame(['scripts/hook.js']))
+    await vi.advanceTimersByTimeAsync(3500)
+    expect(h.reloadedTabs).toEqual([])
+
+    await vi.advanceTimersByTimeAsync(3000)
 
     expect(addressOf(h.registered[0])).toContain(`scripts/hook.js${ADDRESS}`)
     expect(h.reloadedTabs).toEqual([7])
