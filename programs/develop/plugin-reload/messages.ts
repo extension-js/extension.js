@@ -19,6 +19,18 @@ export function reloadingExtensionForStaticContentScript(label: string) {
   )
 }
 
+// Printed in place of the plain reloading line when the edit only ran
+// files the background had injected again, since no page reloads for it.
+export function ranInjectedFilesAgain(files: string[], tabs: number) {
+  const shown = files.slice(0, 2).join(', ')
+  const extra = files.length > 2 ? ` +${files.length - 2} more` : ''
+
+  return (
+    `${prefix('info')} Ran ${shown}${extra} again in ${tabs} open ` +
+    `${tabs === 1 ? 'tab' : 'tabs'}, with no page reload.`
+  )
+}
+
 export function backgroundIsRequiredMessageOnly(backgroundChunkName: string) {
   return (
     `Check the ${colors.blue(backgroundChunkName.replace('/', '.'))} ` +

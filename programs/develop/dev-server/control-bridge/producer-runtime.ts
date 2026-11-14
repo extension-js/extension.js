@@ -1414,19 +1414,34 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
 
     // The scripts-replay shim (plugin-reload) keeps the SW's own
     // executeScript registry; the replay is fire-and-forget by design.
-    function replayProgrammaticScripts(changedScriptFiles) {
-      if (!Array.isArray(changedScriptFiles) || changedScriptFiles.length === 0) return;
+    // The answer is the number of open tabs a changed file ran in again.
+    function replayProgrammaticScripts(changedScriptFiles, done) {
+      var answer = function (outcomes) {
+        var tabs = {};
+        var count = 0;
+        for (var i = 0; Array.isArray(outcomes) && i < outcomes.length; i++) {
+          var one = outcomes[i];
+          if (!one || !one.ok || tabs[one.tabId]) continue;
+          tabs[one.tabId] = true;
+          count++;
+        }
+        if (done) done(count);
+      };
+      if (!Array.isArray(changedScriptFiles) || changedScriptFiles.length === 0) return answer();
       var replay = g.__extjsScriptsReplay;
-      if (typeof replay !== "function") return;
+      if (typeof replay !== "function") return answer();
       try {
         var outcome = replay(changedScriptFiles);
         if (outcome && typeof outcome.then === "function") {
-          outcome.then(null, function () {});
-        }
-      } catch (e) {
-        // Ignore
-      }
+          outcome.then(answer, function () { answer(); });
+        } else answer();
+      } catch (e) { answer(); }
     }
+
+    // The receipt of a reload that reloads nothing itself waits a moment
+    // for its replay, so it can say how many tabs ran the file again.
+    var REPLAY_RECEIPT_WAIT_MS = 500;
+    var sendHeldReloadAck = null;
 
     // The browser reads a file named in scripting.registerContentScripts when
     // the script is registered, so an edit reaches no page until it reads again.
@@ -2012,6 +2027,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       } catch (e) {
         // Ignore
       }
+      if (sendHeldReloadAck) sendHeldReloadAck();
       restartExtension(150);
     }
 
@@ -2419,21 +2435,35 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       // the correlation id is echoed so it confirms only this broadcast.
       var ack = {type: "reload-ack", reloadType: kind, label: label};
       if (frame.reloadId) ack.reloadId = frame.reloadId;
-      send(ack);
-
       var changedScripts = frame.changedScriptFiles;
+      var acked = false;
+      var sendAck = function (replayedTabs) {
+        if (acked) return;
+        acked = true;
+        sendHeldReloadAck = null;
+        if (typeof replayedTabs === "number" && replayedTabs > 0) ack.replayedTabs = replayedTabs;
+        send(ack);
+      };
+      var replays = kind === "page" && Array.isArray(changedScripts) && changedScripts.length > 0 &&
+        typeof g.__extjsScriptsReplay === "function";
+      if (replays) {
+        if (sendHeldReloadAck) sendHeldReloadAck();
+        sendHeldReloadAck = sendAck;
+        try { setTimeout(function () { sendAck(); }, REPLAY_RECEIPT_WAIT_MS); } catch (e) { sendAck(); }
+      } else sendAck();
+
       // The replay names each file at its address, so on Gecko the edited
       // files get their new one before it runs.
       if (Array.isArray(changedScripts) && changedScripts.length && canAddressRegisteredScripts()) {
-        return moveScriptAddresses(changedScripts, function () { replayThenRefresh(frame, kind, announced, true); });
+        return moveScriptAddresses(changedScripts, function () { replayThenRefresh(frame, kind, announced, true, sendAck); });
       }
-      replayThenRefresh(frame, kind, announced, false);
+      replayThenRefresh(frame, kind, announced, false, sendAck);
     }
 
-    function replayThenRefresh(frame, kind, announced, moved) {
+    function replayThenRefresh(frame, kind, announced, moved, replayed) {
       // A scripts/ bundle edit: re-run the executeScript calls that named it
       // on their recorded tabs, before any reload decision below.
-      replayProgrammaticScripts(frame.changedScriptFiles);
+      replayProgrammaticScripts(frame.changedScriptFiles, replayed);
 
       refreshRegisteredScripts(frame.changedScriptFiles, function (restarting) {
         if (restarting) return;

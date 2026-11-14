@@ -808,6 +808,61 @@ describe('bridge producer runtime, the address of a registered script on Gecko',
     expect(h.calls).not.toContain('runtime.reload')
   })
 
+  // The receipt of a reload that reloads no page waits for the replay, so
+  // the terminal can say the file ran again and in how many tabs.
+  it.each([
+    'firefox',
+    'chromium'
+  ] as const)('names the tabs a file ran in again on the receipt, on %s', async (engine) => {
+    const h = boot({engine, withReplay: true})
+    const acks = () =>
+      h.ws.sent
+        .map((frame) => JSON.parse(frame))
+        .filter((frame) => frame.type === 'reload-ack')
+
+    for (const tabId of [7, 7, 9]) {
+      await h.scripting.executeScript({
+        target: {tabId},
+        files: ['scripts/hook.js']
+      })
+    }
+
+    h.ws.triggerMessage({...pageFrame(['scripts/hook.js']), reloadId: 'r1'})
+    await vi.advanceTimersByTimeAsync(50)
+
+    expect(acks()).toEqual([
+      {
+        type: 'reload-ack',
+        reloadType: 'page',
+        label: 'page (scripts/hook.js)',
+        reloadId: 'r1',
+        replayedTabs: 2
+      }
+    ])
+
+    // No injection named this file, so nothing ran again.
+    h.ws.triggerMessage({...pageFrame(['scripts/other.js']), reloadId: 'r2'})
+    await vi.advanceTimersByTimeAsync(50)
+
+    expect(acks()).toHaveLength(2)
+    expect(acks()[1]).not.toHaveProperty('replayedTabs')
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(acks()).toHaveLength(2)
+  })
+
+  it('sends the receipt at once when no replay is there to wait for', async () => {
+    const h = boot({})
+
+    h.ws.triggerMessage({...pageFrame(['scripts/hook.js']), reloadId: 'r1'})
+
+    const acks = h.ws.sent
+      .map((frame) => JSON.parse(frame))
+      .filter((frame) => frame.type === 'reload-ack')
+
+    expect(acks).toHaveLength(1)
+    expect(acks[0]).not.toHaveProperty('replayedTabs')
+  })
+
   it('replays a Chromium injection under the name the author wrote', async () => {
     const h = boot({engine: 'chromium', withReplay: true})
 

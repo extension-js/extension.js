@@ -628,6 +628,50 @@ describe('BridgeBroker reload receipts', () => {
     await expect(b.awaitReloadAck()).resolves.toBe('acked')
   })
 
+  // A page reload that only ran injected files again says in how many tabs.
+  it('keeps the tabs an acked reload ran its files in again, for that reload only', async () => {
+    const {b} = brokerWithTimers()
+    const prod = new FakeConn('p')
+    helloProducer(b, prod, true)
+
+    expect(b.reloadReplayedTabs()).toBe(0)
+
+    b.broadcastReload({type: 'page', label: 'page (scripts/hook.js)'})
+    const first = reloadIdOf(prod)
+
+    b.onFrame(prod, {
+      type: 'reload-ack',
+      reloadType: 'page',
+      reloadId: first,
+      replayedTabs: 2
+    })
+
+    await expect(b.awaitReloadAck()).resolves.toBe('acked')
+    expect(b.reloadReplayedTabs()).toBe(2)
+
+    b.broadcastReload({type: 'page', label: 'page (scripts/hook.js)'})
+    expect(b.reloadReplayedTabs()).toBe(0)
+
+    // A late receipt of the first reload says nothing about the second.
+    b.onFrame(prod, {
+      type: 'reload-ack',
+      reloadType: 'page',
+      reloadId: first,
+      replayedTabs: 2
+    })
+
+    expect(b.reloadReplayedTabs()).toBe(0)
+
+    b.onFrame(prod, {
+      type: 'reload-ack',
+      reloadType: 'page',
+      reloadId: reloadIdOf(prod),
+      replayedTabs: 'many' as never
+    })
+
+    expect(b.reloadReplayedTabs()).toBe(0)
+  })
+
   it('reports a full reload unacked once the ack window closes', async () => {
     const {b, closeAckWindow} = brokerWithTimers()
     const wedged = new FakeConn('wedged')
