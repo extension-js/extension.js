@@ -211,6 +211,22 @@ describe('extension eval', () => {
     )
   })
 
+  it('names the engine once when the refusal already ends with it', async () => {
+    for (const message of [
+      'eval is blocked in the extension background. Engine: chromium',
+      'sidePanel not available (engine: chromium)'
+    ]) {
+      errorSpy.mockClear()
+      bridge.result = {
+        ok: false,
+        error: {name: 'Unsupported', message, engine: 'chromium'}
+      }
+
+      expect(await run(['eval', '1+1'])).toBe(1)
+      expect(String(errorSpy.mock.calls[0][0])).toBe(`Unsupported: ${message}`)
+    }
+  })
+
   it('notes byte-cap truncation on stderr', async () => {
     bridge.result = {ok: true, value: 'partial', truncated: true}
     expect(await run(['eval', 'document.body.outerHTML'])).toBe(0)

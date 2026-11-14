@@ -472,10 +472,20 @@ export function addonLintFileTooLargeFix(
 ) {
   const limit = `addons.mozilla.org does not parse a file of ${limitMb} MB or more`
 
+  const article = /^[aeiou]/i.test(singleFileSurface || '') ? 'an' : 'a'
+
   return singleFileSurface
-    ? `- ${limit}, and Firefox loads a ${singleFileSurface} as one file, so the build cannot split it: ` +
+    ? `- ${limit}, and Firefox loads ${article} ${singleFileSurface} as one file, so the build cannot split it: ` +
         `load a large dependency with a dynamic import() so it ships as its own file under the limit, or remove it`
     : `- ${limit}: split the largest module or data in this file into parts under the limit`
+}
+
+// The limit is the store's, but this line is the build's own: it is printed
+// when no linter answered, so it does not carry the AMO finding label.
+export function fileTooLargeForStore(file: string, bytes: number, fix: string) {
+  const size = `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+
+  return `${getLoggingPrefix('warn')} Firefox build: ${colors.underline(file)} is ${size} ${colors.gray(fix)}`
 }
 
 export function addonLintReviewerNote(noteDisplay: string) {

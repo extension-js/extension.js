@@ -5,12 +5,14 @@ import {afterAll, describe, expect, it, vi} from 'vitest'
 import {
   ADDON_LINT_DEFAULT,
   ADDON_LINT_MAX_PRINTED,
+  ADDON_LINT_PARSE_LIMIT_MB,
   ADDON_LINT_TIMEOUT_MS,
   type AddonLintOutput,
   attributionFor,
   collectAddonLintLines,
   formatAddonLintFindings,
   type LoadAddonLinter,
+  oversizeSingleFileLines,
   runAddonLint,
   shouldRunAddonLint,
   summarizeAddonLint
@@ -435,6 +437,56 @@ describe('addon lint gating', () => {
   })
 })
 
+describe('oversizeSingleFileLines', () => {
+  it('names each single-file script at or past the limit and nothing else', () => {
+    const root = project()
+    const dist = path.join(root, 'dist', 'firefox')
+    const limit = ADDON_LINT_PARSE_LIMIT_MB * 1024 * 1024
+    const files: Array<[string, number]> = [
+      ['background/scripts.js', limit],
+      ['background/service_worker.js', limit - 1],
+      ['content_scripts/content-0.js', limit + 300 * 1024],
+      ['scripts/inject.js', limit + 1],
+      // A page part, a shared chunk, a lazy chunk and data are not named:
+      // the build caps the first three, and the last is not a script.
+      ['action/index.js', limit + 1],
+      ['shared/commons.js', limit + 1],
+      ['367.js', limit + 1],
+      ['content_scripts/data.json', limit + 1]
+    ]
+
+    for (const [file, bytes] of files) {
+      fs.mkdirSync(path.dirname(path.join(dist, file)), {recursive: true})
+      fs.writeFileSync(path.join(dist, file), Buffer.alloc(bytes, 0x61))
+    }
+
+    const lines = oversizeSingleFileLines(dist).map(stripAnsi)
+    expect(lines).toHaveLength(3)
+    expect(lines[0]).toContain(
+      'Firefox build: background/scripts.js is 5.0 MB - addons.mozilla.org does not parse a file of 5 MB or more, ' +
+        'and Firefox loads a background script as one file, so the build cannot split it: ' +
+        'load a large dependency with a dynamic import()'
+    )
+
+    expect(lines[1]).toContain(
+      'content_scripts/content-0.js is 5.3 MB - addons.mozilla.org'
+    )
+
+    expect(lines[1]).toContain('Firefox loads a content script as one file')
+    expect(lines[2]).toContain('scripts/inject.js is 5.0 MB')
+    expect(lines[2]).toContain('Firefox loads an injected script as one file')
+
+    // The text after the file and its size is the store check's own.
+    expect(lines[0]).toContain(
+      stripAnsi(
+        attributionFor('background/scripts.js', undefined, 'FILE_TOO_LARGE')
+      )
+    )
+
+    expect(oversizeSingleFileLines(path.join(root, 'nowhere'))).toEqual([])
+  })
+})
+
 describe('addon lint when the linter is not installed', () => {
   it('prints one package-manager-aware hint per project and continues', async () => {
     const root = project()
@@ -773,13 +825,13 @@ describe('dependency attribution', () => {
     expect(finding).not.toContain('may be theirs')
 
     for (const [file, surface] of [
-      ['content_scripts/content-0.js', 'content script'],
-      ['scripts/inject.js', 'injected script'],
-      ['user_scripts/api_script.js', 'injected script']
+      ['content_scripts/content-0.js', 'a content script'],
+      ['scripts/inject.js', 'an injected script'],
+      ['user_scripts/api_script.js', 'an injected script']
     ]) {
       expect(
         stripAnsi(attributionFor(file, undefined, 'FILE_TOO_LARGE'))
-      ).toContain(`Firefox loads a ${surface} as one file`)
+      ).toContain(`Firefox loads ${surface} as one file`)
     }
   })
 

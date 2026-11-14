@@ -242,4 +242,80 @@ describe('Firefox shared chunk size cap', () => {
     expect([...srcs].sort()).toEqual(parts.map((file) => `/${file}`).sort())
     expect(new Set(srcs).size).toBe(srcs.length)
   }, 180_000)
+
+  // A chunk behind import() is fetched by the runtime, so it can ship as
+  // parts on every surface while each entry stays the one file it must be.
+  it('splits a lazily loaded chunk on a page, a background and a content script', async () => {
+    const root = project({pages: ['popup'], moduleCount: 0})
+    const names = Array.from({length: 9}, (_, index) => `big${index}`)
+
+    for (const name of names) {
+      fs.writeFileSync(path.join(root, `${name}.js`), bigModule(name))
+    }
+
+    fs.writeFileSync(
+      path.join(root, 'all.js'),
+      `${names.map((name) => `import {${name}} from './${name}.js'`).join('\n')}\n` +
+        `export const total = [${names.join(', ')}].reduce((sum, text) => sum + text.length, 0)\n`
+    )
+
+    const lazy = (mark: string) =>
+      `import('./all.js').then((mod) => { globalThis.${mark} = mod.total })\n`
+
+    fs.writeFileSync(path.join(root, 'popup.js'), lazy('popupTotal'))
+    fs.writeFileSync(path.join(root, 'background.js'), lazy('backgroundTotal'))
+    fs.writeFileSync(path.join(root, 'content.js'), lazy('contentTotal'))
+    fs.writeFileSync(
+      path.join(root, 'manifest.json'),
+      JSON.stringify({
+        manifest_version: 3,
+        name: 'gecko-cap',
+        version: '1.0.0',
+        action: {default_popup: 'popup.html'},
+        background: {scripts: ['background.js']},
+        content_scripts: [
+          {matches: ['https://example.com/*'], js: ['content.js']}
+        ]
+      })
+    )
+
+    const summary = await build(root, 'firefox')
+    expect(summary.errors_count).toBe(0)
+
+    const distDir = path.join(root, 'dist', 'firefox')
+    const scripts = scriptFiles(distDir)
+
+    for (const file of scripts) {
+      expect(size(distDir, file), file).toBeLessThan(STORE_PARSE_LIMIT)
+    }
+
+    // The entries stay one file each, and the lazy parts sit beside them.
+    const entries = [
+      'action/index.js',
+      'background/scripts.js',
+      'content_scripts/content-0.js'
+    ]
+    expect(scripts).toEqual(expect.arrayContaining(entries))
+    expect(scripts.filter((file) => file.startsWith('shared/'))).toEqual([])
+
+    const parts = scripts.filter((file) => !entries.includes(file))
+    expect(parts.length).toBeGreaterThan(1)
+
+    const total = parts.reduce((sum, file) => sum + size(distDir, file), 0)
+    expect(total).toBeGreaterThan(STORE_PARSE_LIMIT)
+    expect(scriptSrcs(distDir, 'action/index.html')).toEqual([
+      '/action/index.js'
+    ])
+
+    // Each entry asks the runtime for more than one part, and each part
+    // it asks for was emitted.
+    for (const entry of entries) {
+      const source = fs.readFileSync(path.join(distDir, entry), 'utf8')
+      const asked = [...source.matchAll(/\.e\((\d+)\)/g)].map(
+        (match) => `${match[1]}.js`
+      )
+      expect(asked.length, entry).toBeGreaterThan(1)
+      expect(parts, entry).toEqual(expect.arrayContaining(asked))
+    }
+  }, 180_000)
 })

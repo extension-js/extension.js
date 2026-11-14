@@ -732,14 +732,27 @@ function printResult(
   const err = result.error || {name: 'Error', message: 'command failed'}
   const {error} = buildActEnvelope(command, result) as {error?: EnvelopeError}
   // eslint-disable-next-line no-console
-  console.error(
-    `${err.name}: ${err.message}${err.engine ? ` (engine: ${err.engine})` : ''}`
-  )
+  console.error(`${err.name}: ${err.message}${engineSuffix(err)}`)
 
   if (error?.hint) {
     // eslint-disable-next-line no-console
     console.error(error.hint)
   }
+}
+
+// Some refusals already end by naming the engine, so the suffix would say
+// it a second time on the same line.
+function engineSuffix(err: {message?: unknown; engine?: unknown}): string {
+  if (!err.engine) return ''
+
+  const named = `engine: ${err.engine}`.toLowerCase()
+  const message = String(err.message || '')
+    .toLowerCase()
+    .trimEnd()
+
+  return message.endsWith(named) || message.endsWith(`(${named})`)
+    ? ''
+    : ` (engine: ${err.engine})`
 }
 
 function bridgeErrorCode(result: ActResultLike): ErrorCode {
