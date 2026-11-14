@@ -309,7 +309,7 @@ describe('the store check outcome after a production firefox build', () => {
       expect(chrome.output).not.toContain('Firefox build:')
       expect(
         (chrome.receipt.warnings || []).filter((text) =>
-          text.includes('addons.mozilla.org')
+          text.includes('does not parse a file of 5 MB')
         )
       ).toHaveLength(0)
     }
