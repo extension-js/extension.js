@@ -187,9 +187,7 @@ describe('a Chromium-first side panel project built for each engine', () => {
       expect(built.has(`${page}/logo.png`), browser).toBe(false)
       expect(found, browser).toHaveLength(1)
       expect(found[0]).toContain('panel.js sets a src or href')
-      expect(found[0]).toContain(
-        `ships the page that runs it as ${page}/index.html`
-      )
+      expect(found[0]).toContain(`PAGE ${page}/index.html`)
 
       expect(found[0]).toContain(`REQUESTED ${page}/logo.png`)
       expect(found[0]).toContain('EMITTED logo.png')

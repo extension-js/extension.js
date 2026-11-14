@@ -421,8 +421,10 @@ export function movedPageRelativeUrl(
 ) {
   const lines: string[] = []
   lines.push(
-    `${sourcePath} sets a src or href to '${literal}', and the build ships the page that runs it as ${colors.underline(page)}.`
+    `${sourcePath} sets a src or href to '${literal}', and the build moves the page that runs it.`
   )
+
+  lines.push(`${colors.gray('PAGE')} ${colors.underline(page)}`)
 
   lines.push(`${colors.gray('REQUESTED')} ${colors.underline(requestedPath)}`)
   lines.push(`${colors.gray('EMITTED')} ${colors.underline(emittedPath)}`)
