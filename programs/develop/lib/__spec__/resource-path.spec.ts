@@ -1,10 +1,11 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import {afterEach, describe, expect, it} from 'vitest'
+import {afterEach, describe, expect, it, vi} from 'vitest'
 import {
   canonicalizeDir,
   canonicalizeResourcePath,
+  forgetResolvedModuleFolders,
   isResourceUnderDirs,
   toResourceKey
 } from '../resource-path'
@@ -110,5 +111,66 @@ describe('lib/resource-path', () => {
   it('toResourceKey passes through empty/non-string input', () => {
     expect(toResourceKey('')).toBe('')
     expect(toResourceKey(undefined as any)).toBe(undefined)
+  })
+
+  it('reads a module folder from disk once for all the files in it', () => {
+    const {realSrc, contentDir, linkedResource} = makeProjectWithSymlinkedView()
+    const includeDirs = [canonicalizeDir(realSrc)]
+    const files = Array.from({length: 500}, (_, index) =>
+      path.join(path.dirname(linkedResource), `module-${index}.ts`)
+    )
+
+    forgetResolvedModuleFolders()
+    const realpath = vi.spyOn(fs.realpathSync, 'native')
+
+    try {
+      // Three rules ask about every module, the way a build does.
+      for (let rule = 0; rule < 3; rule++) {
+        for (const file of files) {
+          expect(isResourceUnderDirs(file, includeDirs)).toBe(true)
+          expect(toResourceKey(file).startsWith(contentDir)).toBe(true)
+        }
+      }
+
+      expect(realpath).toHaveBeenCalledTimes(1)
+    } finally {
+      realpath.mockRestore()
+    }
+  })
+
+  it('reads a folder again after the next build starts', () => {
+    const {root, realSrc} = makeProjectWithSymlinkedView()
+    const otherSrc = path.join(root, 'other-src')
+    fs.mkdirSync(path.join(otherSrc, 'content'), {recursive: true})
+    const moving = path.join(root, 'moving-src')
+    const resource = path.join(moving, 'content', 'scripts.ts')
+
+    fs.symlinkSync(realSrc, moving, 'junction')
+    forgetResolvedModuleFolders()
+    expect(canonicalizeResourcePath(resource)).toBe(
+      path.join(realSrc, 'content', 'scripts.ts')
+    )
+
+    fs.rmSync(moving, {recursive: true, force: true})
+    fs.symlinkSync(otherSrc, moving, 'junction')
+    forgetResolvedModuleFolders()
+    expect(canonicalizeResourcePath(resource)).toBe(
+      path.join(otherSrc, 'content', 'scripts.ts')
+    )
+  })
+
+  it('does not remember a folder that is missing', () => {
+    const {root} = makeProjectWithSymlinkedView()
+    const later = path.join(root, 'later')
+    const target = path.join(root, 'real-src', 'content')
+    const resource = path.join(later, 'scripts.ts')
+
+    forgetResolvedModuleFolders()
+    expect(canonicalizeResourcePath(resource)).toBe(resource)
+
+    fs.symlinkSync(target, later, 'junction')
+    expect(canonicalizeResourcePath(resource)).toBe(
+      path.join(target, 'scripts.ts')
+    )
   })
 })
