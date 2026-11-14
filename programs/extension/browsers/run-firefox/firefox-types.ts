@@ -53,6 +53,9 @@ export interface FirefoxPluginRuntime extends FirefoxPluginLike {
   logSink?: BrowserLogSink
   // The dev server's word that the background's boot registrations answered.
   awaitBootRegistrations?: BootRegistrationsWait
+  // A production run whose built background names a registration: no dev
+  // server answers for it, so the launcher asks the background itself.
+  bootRegistrationsFromBackground?: boolean
   // Set by the launcher, so the debugger dial stops waiting on a browser
   // whose process has already left.
   isBrowserGone?: () => boolean

@@ -7,7 +7,10 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import {humanWarn, isDebug} from '../../../helpers/messaging'
-import {holdForBootRegistrations} from '../../browsers-lib/boot-registrations-hold'
+import {
+  type BackgroundSession,
+  holdFirstPage
+} from '../../browsers-lib/built-boot-registrations'
 import {manifestDeclaresNewtabOverride} from '../../browsers-lib/newtab-override'
 import {resolveStartingUrl} from '../../browsers-lib/runtime-options'
 import type {CompilationLike} from '../../browsers-types'
@@ -94,12 +97,29 @@ export async function setupRdpAfterLaunch(
     const startingUrl = resolveStartingUrl(plugin)
 
     if (startingUrl) {
-      await holdForBootRegistrations(plugin, startingUrl)
-
       const live = (plugin.rdpController || controller) as {
-        openStartingUrl?: (url: string) => Promise<boolean>
+        openStartingUrl?: (
+          url: string,
+          beforeNavigate?: () => void
+        ) => Promise<boolean>
+        openBackgroundSession?: () => Promise<BackgroundSession | undefined>
       }
-      const opened = await live.openStartingUrl?.(startingUrl)
+
+      const hold = await holdFirstPage(
+        plugin,
+        startingUrl,
+        live.openBackgroundSession
+          ? () => live.openBackgroundSession?.() ?? Promise.resolve(undefined)
+          : undefined
+      )
+
+      const opened = await live.openStartingUrl?.(
+        startingUrl,
+        hold.beforeNavigate
+      )
+
+      // Not awaited: the launch is done, and the watch ends by itself.
+      void hold.pageOpened().catch(() => {})
 
       if (opened === false && isDebug()) {
         humanWarn(`[browser] Firefox: could not open ${startingUrl}.`)

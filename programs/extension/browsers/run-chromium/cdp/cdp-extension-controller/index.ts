@@ -11,6 +11,7 @@ import * as path from 'node:path'
 import type {Readable, Writable} from 'node:stream'
 import {CODES, humanWarn, isDebug} from '../../../../helpers/messaging'
 import {expectedChromiumExtensionId} from '../../../browsers-lib/banner'
+import type {BackgroundSession} from '../../../browsers-lib/built-boot-registrations'
 import {loadsExtensionsOverCdpOnly} from '../../../browsers-lib/browser-family'
 import {stampReadyExtensionId} from '../../../browsers-lib/ready-stamp'
 import {LAUNCH_TAB_URL} from '../../../browsers-lib/runtime-options'
@@ -60,6 +61,13 @@ const FORK_FIRST_RUN_PAGES: Record<string, RegExp> = {
   vivaldi:
     /^chrome-extension:\/\/mpognobbkildjkofajifpdfhcoklimli\/components\/welcome\//
 }
+
+// An expression that bounds itself answers at its bound, so the command
+// waits a little longer than that for the answer to cross.
+const EVALUATE_ANSWER_SLACK_MS = 200
+
+// Where an extension's background runs: a worker, or a page before those.
+const BACKGROUND_TARGET_TYPES = new Set(['service_worker', 'background_page'])
 
 const __fileReadCache = new Map<string, {key: string; text: string}>()
 
@@ -169,7 +177,11 @@ export class CDPExtensionController {
   // tab gets a new one. A background that never shows still gets the page.
   async openStartingUrl(
     url: string,
-    options: {attempts?: number; intervalMs?: number} = {}
+    options: {
+      attempts?: number
+      intervalMs?: number
+      beforeNavigate?: () => void
+    } = {}
   ): Promise<'navigated' | 'opened' | 'unavailable'> {
     if (!this.cdp) return 'unavailable'
 
@@ -196,15 +208,80 @@ export class CDPExtensionController {
       })) as {sessionId?: string} | undefined
 
       if (attached?.sessionId) {
+        options.beforeNavigate?.()
         await this.cdp.sendCommand('Page.navigate', {url}, attached.sessionId)
 
         return 'navigated'
       }
     }
 
+    options.beforeNavigate?.()
     await this.cdp.sendCommand('Target.createTarget', {url})
 
     return 'opened'
+  }
+
+  // A session on the extension's background that is this caller's alone,
+  // kept for every read until it is released. Undefined with no background.
+  async openBackgroundSession(
+    options: {attempts?: number; intervalMs?: number} = {}
+  ): Promise<BackgroundSession | undefined> {
+    const cdp = this.cdp
+    if (!cdp) return undefined
+
+    const extensionId =
+      this.extensionId || expectedChromiumExtensionId(this.outPath)
+    if (!extensionId) return undefined
+
+    const prefix = `chrome-extension://${extensionId}/`
+    const attempts = options.attempts ?? 40
+    const intervalMs = options.intervalMs ?? 100
+    let targetId = ''
+
+    for (let attempt = 0; attempt < attempts && !targetId; attempt++) {
+      if (attempt > 0) {
+        await new Promise((resolve) => setTimeout(resolve, intervalMs))
+      }
+
+      const targets = await cdp.getTargets()
+      const background = targets.find(
+        (target) =>
+          BACKGROUND_TARGET_TYPES.has(String(target?.type || '')) &&
+          String(target?.url || '').startsWith(prefix)
+      )
+
+      targetId = String(background?.targetId || '')
+    }
+
+    if (!targetId) return undefined
+
+    const sessionId = await cdp.attachToTarget(targetId)
+    if (!sessionId) return undefined
+
+    let released = false
+
+    return {
+      evaluate: async (expression, timeoutMs) => {
+        if (released) return undefined
+
+        const response = (await cdp.sendCommand(
+          'Runtime.evaluate',
+          {expression, returnByValue: true, awaitPromise: true},
+          sessionId,
+          timeoutMs + EVALUATE_ANSWER_SLACK_MS
+        )) as {result?: {value?: unknown}; exceptionDetails?: unknown}
+
+        return response?.exceptionDetails ? undefined : response?.result?.value
+      },
+      release: () => {
+        if (released) return
+
+        released = true
+        void cdp
+          .sendCommand('Target.detachFromTarget', {sessionId})
+          .catch(() => {})
+      }
+    }
   }
 
   // Yandex under --headless=new tears down its own last page target once the

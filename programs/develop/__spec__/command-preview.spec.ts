@@ -216,6 +216,9 @@ describe('webpack/command-preview (run-only)', () => {
 
     const call = runOnlyPreviewBrowser.mock.calls[0]?.[0] as any
     expect(call.outPath).toBe('/proj/dist/extension-js/chrome/controlled')
+    // The copy carries the control runtime, so the launcher is told where
+    // the author's own files are.
+    expect(call.shippedPath).toBe(path.join('/proj', 'dist', 'chrome'))
 
     const writerOpts = createAutomationMetadataWriter.mock.calls.at(
       -1
@@ -269,6 +272,7 @@ describe('webpack/command-preview (run-only)', () => {
     expect(startProductionControl).not.toHaveBeenCalled()
     const call = runOnlyPreviewBrowser.mock.calls[0]?.[0] as any
     expect(call.outPath).toBe(path.join('/proj', 'dist', 'chrome'))
+    expect('shippedPath' in call).toBe(false)
   })
 
   it('falls back to manifest directory when dist/<browser> lacks manifest.json', async () => {

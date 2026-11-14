@@ -16,7 +16,7 @@ import {
   isCardKeyClaimed,
   isDebug
 } from '../../../helpers/messaging'
-import {holdForBootRegistrations} from '../../browsers-lib/boot-registrations-hold'
+import {holdFirstPage} from '../../browsers-lib/built-boot-registrations'
 import {
   printDevBannerOnce,
   printProdBannerOnce
@@ -154,13 +154,20 @@ async function openStartingUrlAfterLoad(
   const startingUrl = resolveStartingUrl(plugin)
   if (!startingUrl) return
 
-  await holdForBootRegistrations(plugin, startingUrl)
+  const hold = await holdFirstPage(plugin, startingUrl, () =>
+    controller.openBackgroundSession()
+  )
 
   try {
-    await controller.openStartingUrl(startingUrl)
+    await controller.openStartingUrl(startingUrl, {
+      beforeNavigate: hold.beforeNavigate
+    })
   } catch {
     // best-effort only, never block launch on the starting page
   }
+
+  // Not awaited: the launch is done, and the watch ends by itself.
+  void hold.pageOpened().catch(() => {})
 }
 
 export async function verifyGuestLoadAfterLaunch(

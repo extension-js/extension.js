@@ -90,6 +90,9 @@ export interface ChromiumLaunchOptions
   logSink?: BrowserLogSink
   // The dev server's word that the background's boot registrations answered.
   awaitBootRegistrations?: BootRegistrationsWait
+  // A production run whose built background names a registration: no dev
+  // server answers for it, so the launcher asks the background itself.
+  bootRegistrationsFromBackground?: boolean
 }
 
 // Runtime state in Chromium flow, kept Chromium-specific to avoid polluting

@@ -59,6 +59,9 @@ import type {BrowserConfig, PreviewOptions, SpecialFoldersConfig} from './types'
 export interface ResolvedPreviewOptions {
   browser: string
   outPath: string
+  // Set when outPath is a copy that carries the control channel: the folder
+  // the copy was made from, which holds the author's code alone.
+  shippedPath?: string
   contextDir: string
   readyPath: string
   extensionsToLoad: string[]
@@ -493,6 +496,7 @@ export async function extensionPreview(
   const resolvedOpts: ResolvedPreviewOptions = {
     browser,
     outPath: launchPath,
+    ...(launchPath === outputPath ? {} : {shippedPath: outputPath}),
     contextDir: packageJsonDir,
     readyPath: metadata.readyPath,
     extensionsToLoad: unpackedExtensionDirsToLoad,

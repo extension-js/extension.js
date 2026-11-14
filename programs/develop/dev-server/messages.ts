@@ -211,7 +211,7 @@ export function lateBootRegistration(afterMs?: number) {
       ? `${String(Math.round(afterMs / 100) / 10)}s after it started`
       : 'after it started'
 
-  return `${getLoggingPrefix('warn')} The background registered a content script ${when}, when the first page was already open. Reload that page to run the script on it.`
+  return `${getLoggingPrefix('warn')} The background registered a content script ${when}, when the first page was already open. If the script did not run on that page, reload it.`
 }
 
 export function controlBridgeUnavailable(reason: string) {

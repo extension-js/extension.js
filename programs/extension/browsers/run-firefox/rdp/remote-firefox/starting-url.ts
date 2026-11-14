@@ -56,7 +56,8 @@ function pickLaunchTab(tabs: TabDescriptor[]): TabDescriptor | undefined {
 
 async function navigateLaunchTab(
   client: StartingUrlClient,
-  url: string
+  url: string,
+  beforeNavigate?: () => void
 ): Promise<boolean> {
   const listed = (await client.request({to: 'root', type: 'listTabs'})) as {
     tabs?: TabDescriptor[]
@@ -72,6 +73,7 @@ async function navigateLaunchTab(
 
   if (typeof frameActor !== 'string' || !frameActor) return false
 
+  beforeNavigate?.()
   await client.request({to: frameActor, type: 'navigateTo', url})
 
   return true
@@ -82,6 +84,8 @@ export async function openStartingUrlAfterBackground(options: {
   extensionId?: string
   url: string
   openInNewTab?: (url: string) => Promise<boolean>
+  // Called as the navigation is sent, on whichever route sends it.
+  beforeNavigate?: () => void
   timeoutMs?: number
   intervalMs?: number
 }): Promise<'navigated' | 'opened' | 'unavailable'> {
@@ -94,10 +98,21 @@ export async function openStartingUrlAfterBackground(options: {
     options.intervalMs ?? POLL_INTERVAL_MS
   )
 
-  if (await navigateLaunchTab(client, url)) return 'navigated'
+  let told = false
+
+  const beforeNavigate = () => {
+    if (told) return
+
+    told = true
+    options.beforeNavigate?.()
+  }
+
+  if (await navigateLaunchTab(client, url, beforeNavigate)) return 'navigated'
 
   // The launch tab is gone or taken, so the page gets a tab of its own
   // instead of replacing whatever the add-on or the user put in one.
+  beforeNavigate()
+
   if (await options.openInNewTab?.(url)) return 'opened'
 
   return 'unavailable'

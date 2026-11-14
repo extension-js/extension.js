@@ -1399,6 +1399,8 @@ export class ChromiumLaunchPlugin {
         chromiumBinary: this.options.chromiumBinary,
         logSink: this.options.logSink,
         awaitBootRegistrations: this.options.awaitBootRegistrations,
+        bootRegistrationsFromBackground:
+          this.options.bootRegistrationsFromBackground,
         bannerPrintedOnce: false,
         cdpController: undefined,
         browserVersionLine,

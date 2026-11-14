@@ -25,6 +25,11 @@ import {toExtensionLoadList} from '../../../browsers-lib/runtime-options'
 import {deriveDebugPortWithInstance} from '../../../browsers-lib/shared-utils'
 import type {CompilationLike, PluginInterface} from '../../../browsers-types'
 import {waitForStableExtensionOutput} from '../../../run-chromium/manifest-readiness'
+import type {BackgroundSession} from '../../../browsers-lib/built-boot-registrations'
+import {
+  evaluateInConsole,
+  watchExtensionDocument
+} from '../evaluate-extension-document'
 import {
   classifyAddonInstallFailure,
   computeCandidateAddonPaths,
@@ -43,6 +48,10 @@ import {openStartingUrlAfterBackground} from './starting-url'
 const MAX_RETRIES = RDP_MAX_RETRIES
 const RETRY_INTERVAL = RDP_RETRY_INTERVAL_MS
 const RETRY_LOG_EVERY_N_ATTEMPTS = 10
+
+// A first page waits on these, so they are shorter than an eval command's.
+const BACKGROUND_DOCUMENT_WAIT_MS = 2000
+const BACKGROUND_RESULT_POLL_MS = 10
 
 export class RemoteFirefox {
   private readonly options: PluginInterface & {
@@ -406,7 +415,10 @@ export class RemoteFirefox {
     return await openManagerNewTab(this.client)
   }
 
-  public async openStartingUrl(url: string): Promise<boolean> {
+  public async openStartingUrl(
+    url: string,
+    beforeNavigate?: () => void
+  ): Promise<boolean> {
     if (!this.client) return false
 
     const client = this.client
@@ -415,10 +427,49 @@ export class RemoteFirefox {
       client: {request: (payload) => client.request(payload)},
       extensionId: this.derivedExtensionId,
       url,
+      beforeNavigate,
       openInNewTab: (address) => openManagerTabAt(client, address)
     })
 
     return outcome !== 'unavailable'
+  }
+
+  // The add-on's background document, found once over the live connection
+  // and kept for every read until it is released. Undefined when not found.
+  public async openBackgroundSession(): Promise<BackgroundSession | undefined> {
+    const client = this.client
+    if (!client || !this.derivedExtensionId) return undefined
+
+    const evaluating = client as unknown as Parameters<
+      typeof watchExtensionDocument
+    >[0]['client']
+    const watched = await watchExtensionDocument({
+      client: evaluating,
+      extensionId: this.derivedExtensionId,
+      context: 'background',
+      timeoutMs: BACKGROUND_DOCUMENT_WAIT_MS
+    })
+
+    if (!('consoleActor' in watched)) return undefined
+
+    return {
+      evaluate: async (expression, timeoutMs) => {
+        // A session the launcher replaced owns actors that are gone.
+        if (this.client !== client) return undefined
+
+        const outcome = await evaluateInConsole({
+          client: evaluating,
+          consoleActor: watched.consoleActor,
+          expression,
+          timeoutMs,
+          where: 'the background document',
+          pollIntervalMs: BACKGROUND_RESULT_POLL_MS
+        })
+
+        return outcome.ok ? outcome.value : undefined
+      },
+      release: watched.release
+    }
   }
 
   // Unified logging via Firefox RDP (parity with Chromium CDP)

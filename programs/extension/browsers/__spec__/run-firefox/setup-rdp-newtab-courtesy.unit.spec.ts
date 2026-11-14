@@ -19,12 +19,30 @@ const openStartingUrl = vi.fn(async (url: string) => {
   return 'navigated'
 })
 
+const evaluateInBackground = vi.fn(
+  async (_expression: string, _timeoutMs: number): Promise<unknown> => {
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    calls.push('asked')
+
+    return {outcome: 'settled', count: 2, looks: 3, waitedMs: 50}
+  }
+)
+
+const releaseSession = vi.fn(() => {
+  calls.push('released')
+})
+const openBackgroundSession = vi.fn(async () => ({
+  evaluate: evaluateInBackground,
+  release: releaseSession
+}))
+
 vi.mock('../../run-firefox/rdp/rdp-extension-controller', () => ({
   FirefoxRDPController: class {
     ensureLoaded = ensureLoaded
     openNewTab = openNewTab
     getAddonInstallRefusalReason = getAddonInstallRefusalReason
     openStartingUrl = openStartingUrl
+    openBackgroundSession = openBackgroundSession
   }
 }))
 
@@ -46,6 +64,9 @@ beforeEach(() => {
   ensureLoaded.mockClear()
   openNewTab.mockClear()
   openStartingUrl.mockClear()
+  evaluateInBackground.mockClear()
+  releaseSession.mockClear()
+  openBackgroundSession.mockClear()
 })
 
 afterEach(() => {
@@ -132,6 +153,112 @@ describe('firefox new-tab courtesy after launch', () => {
       'settled',
       'openStartingUrl https://example.com/'
     ])
+  })
+
+  // A production build has no dev server to ask, so the background is.
+  it('asks the background for its boot registrations before the starting url', async () => {
+    writeManifest({manifest_version: 3, name: 'plain'})
+
+    await setupRdpAfterLaunch(
+      {
+        browser: 'firefox',
+        startingUrl: 'https://example.com/',
+        bootRegistrationsFromBackground: true
+      } as any,
+      compilation(),
+      9222
+    )
+
+    expect(evaluateInBackground).toHaveBeenCalledTimes(1)
+    expect(evaluateInBackground.mock.calls[0][0]).toContain(
+      'getRegisteredContentScripts'
+    )
+
+    expect(evaluateInBackground.mock.calls[0][1]).toBe(5000)
+    expect(openBackgroundSession).toHaveBeenCalledTimes(1)
+    expect(calls).toEqual([
+      'ensureLoaded',
+      'asked',
+      'released',
+      'openStartingUrl https://example.com/'
+    ])
+  })
+
+  // The page opened on an empty registry, so the same session keeps reading
+  // and says so when a registration follows.
+  it('says so in one line when a registration lands after the starting url', async () => {
+    writeManifest({manifest_version: 3, name: 'plain'})
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    evaluateInBackground
+      .mockResolvedValueOnce({outcome: 'none', count: 0, looks: 2, ageMs: 160})
+      .mockResolvedValueOnce({count: 0, ageMs: 200})
+      .mockResolvedValueOnce({count: 2, ageMs: 430})
+
+    await setupRdpAfterLaunch(
+      {
+        browser: 'firefox',
+        startingUrl: 'https://example.com/',
+        bootRegistrationsFromBackground: true
+      } as any,
+      compilation(),
+      9222
+    )
+
+    await vi.waitFor(() => expect(releaseSession).toHaveBeenCalledTimes(1))
+
+    const printed = [...warnSpy.mock.calls, ...logSpy.mock.calls]
+      .map((call) => String(call[0]))
+      .filter((line) => line.includes('registered a content script'))
+
+    warnSpy.mockRestore()
+    logSpy.mockRestore()
+
+    expect(printed).toHaveLength(1)
+    expect(printed[0]).toContain('0.4s after it started')
+    expect(openBackgroundSession).toHaveBeenCalledTimes(1)
+    expect(calls).toEqual([
+      'ensureLoaded',
+      'openStartingUrl https://example.com/',
+      'released'
+    ])
+  })
+
+  it('asks the background nothing when its files name no registration', async () => {
+    writeManifest({manifest_version: 3, name: 'plain'})
+
+    await setupRdpAfterLaunch(
+      {browser: 'firefox', startingUrl: 'https://example.com/'} as any,
+      compilation(),
+      9222
+    )
+
+    expect(openBackgroundSession).not.toHaveBeenCalled()
+    expect(evaluateInBackground).not.toHaveBeenCalled()
+    expect(calls).toEqual([
+      'ensureLoaded',
+      'openStartingUrl https://example.com/'
+    ])
+  })
+
+  it('lets the dev server answer when it hands a wait over', async () => {
+    writeManifest({manifest_version: 3, name: 'plain'})
+    const awaitBootRegistrations = vi.fn(async () => 'settled' as const)
+
+    await setupRdpAfterLaunch(
+      {
+        browser: 'firefox',
+        startingUrl: 'https://example.com/',
+        awaitBootRegistrations,
+        bootRegistrationsFromBackground: true
+      } as any,
+      compilation(),
+      9222
+    )
+
+    expect(awaitBootRegistrations).toHaveBeenCalledTimes(1)
+    expect(openBackgroundSession).not.toHaveBeenCalled()
+    expect(evaluateInBackground).not.toHaveBeenCalled()
   })
 
   it('asks for no hold when the session opens no page', async () => {
