@@ -74,7 +74,7 @@ Use these flags with `extension dev`, `extension start`, or `extension preview`:
 - Custom Chromium binary: `--chromium-binary <path-to-binary>`
 - Custom Gecko (Firefox) binary: `--gecko-binary <path-to-binary>`
 
-Every browser picks its binary in the same order: the flag above, then the browser's variable (`CHROME_FOR_TESTING_PATH`, `CHROME_BINARY`, `CHROMIUM_BINARY`, `EDGE_BINARY` or `FIREFOX_BINARY`), then the copy `extension install` downloaded, then the system install. A flag or variable that names a path that does not exist stops the command and names the path.
+Every browser picks its binary in the same order: the flag above, then the browser's variable (`CHROME_FOR_TESTING_PATH`, `CHROMIUM_BINARY`, `CHROME_BINARY`, `EDGE_BINARY` or `FIREFOX_BINARY`), then the copy `extension install` downloaded, then the system install. A flag or variable that names a path that does not exist stops the command and names the path.
 
 ```bash
 # Chrome for Testing (the managed copy, offered on the first run)
