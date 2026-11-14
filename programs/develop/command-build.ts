@@ -78,6 +78,7 @@ import {
   relativeToDir
 } from './lib/paths'
 import {getProjectStructure} from './lib/project'
+import {isSamePath} from './lib/real-path'
 import {resolveSafariIdentity} from './lib/safari-identity'
 import {
   browserDistDir,
@@ -109,7 +110,6 @@ import type {
   CommonWebpackOptions,
   ConfigHookContext
 } from './types'
-import {isSamePath} from './lib/real-path'
 
 const reportedBuildFailures = new WeakSet<object>()
 
@@ -428,7 +428,8 @@ export async function extensionBuild(
     const hookContext: ConfigHookContext = {
       browser,
       mode: resolvedMode,
-      command: buildOptions?.metadataCommand || 'build'
+      command: buildOptions?.metadataCommand || 'build',
+      rspack
     }
     const userExtensionConfig = await loadCustomConfig(
       packageJsonDir,

@@ -12,6 +12,7 @@ import * as path from 'node:path'
 import {
   CONTROL_TOKEN_FILE_PREFIX,
   controlTokenPath,
+  ensureSessionStateIgnoreFile,
   legacyControlTokenPath,
   sessionStateDir
 } from '../../lib/session-paths'
@@ -77,6 +78,7 @@ export function writeControlToken(
   const file = controlTokenPath(projectPath, browser)
 
   fs.mkdirSync(path.dirname(file), {recursive: true})
+  ensureSessionStateIgnoreFile(projectPath)
   writeTokenWhole(file, token, io)
 
   // Mirror to the legacy slot so an older CLI reading control.token keeps
