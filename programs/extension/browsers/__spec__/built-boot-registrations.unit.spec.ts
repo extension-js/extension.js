@@ -563,7 +563,7 @@ describe('the hold a launch puts on its first page', () => {
 
     expect(say).toHaveBeenCalledTimes(1)
     expect(String(say.mock.calls[0][0])).toContain(
-      'The background registered a content script 1.2s after it started, when the first page was already open. Reload that page to run the script on it.'
+      'The background registered a content script 1.2s after it started, when the first page was already open. If the script did not run on that page, reload it.'
     )
 
     expect(String(say.mock.calls[0][0])).not.toContain('\n')

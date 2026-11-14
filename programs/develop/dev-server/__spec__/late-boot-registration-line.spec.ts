@@ -8,7 +8,7 @@ describe('the line for a registration that landed after the first page', () => {
     const line = lateBootRegistration(1240).replace(ANSI, '')
 
     expect(line).toContain('1.2s after it started')
-    expect(line).toContain('Reload that page')
+    expect(line).toContain('reload it')
     expect(line).not.toContain('\n')
   })
 
