@@ -1,5 +1,4 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import type {Compilation} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
@@ -9,6 +8,9 @@ import {
   publicOutputPath,
   type SourceFeatureIndex
 } from '../index'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
+
+const makeTempFolder = trackTempFolders()
 
 const count = (n: number) => () => n
 
@@ -136,7 +138,7 @@ describe('classifyReloadFromSources', () => {
 // copied carries no dev client, so the producer reloads its tabs by address.
 describe('classifyReloadFromSources: a page the build ships as written', () => {
   const project = () => {
-    const contextDir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-loose-'))
+    const contextDir = makeTempFolder('extjs-loose-')
     const outputPath = path.join(contextDir, 'dist', 'chrome')
 
     const write = (root: string, rel: string, text: string) => {
@@ -253,7 +255,7 @@ describe('classifyReloadFromSources with a chunk-graph source index', () => {
   })
 
   it('names the changed entries the emitted registry keeps static, and only those', () => {
-    const outputPath = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-classify-'))
+    const outputPath = makeTempFolder('extjs-classify-')
     fs.mkdirSync(path.join(outputPath, 'content_scripts'), {recursive: true})
     fs.writeFileSync(
       path.join(outputPath, 'content_scripts/dev-registry.json'),
@@ -306,7 +308,7 @@ describe('classifyReloadFromSources with a chunk-graph source index', () => {
   })
 
   it('a changed emitted static asset (icon) → full reload, not a content reinject storm (Sappgulf regression)', () => {
-    const outputPath = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-classify-'))
+    const outputPath = makeTempFolder('extjs-classify-')
     fs.mkdirSync(path.join(outputPath, 'assets'), {recursive: true})
     fs.writeFileSync(path.join(outputPath, 'assets/icon16.png'), 'png')
 
@@ -590,7 +592,7 @@ describe('classifyReloadFromSources: public/ roots', () => {
   })
 
   it('a manifest-named file under public/ is a full reload, not a notify-only page', () => {
-    const outputPath = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-public-'))
+    const outputPath = makeTempFolder('extjs-public-')
     fs.writeFileSync(path.join(outputPath, 'rules.json'), '[]')
     expect(
       classifyReloadFromSources({
@@ -630,7 +632,7 @@ describe('classifyReloadFromSources: public/ roots', () => {
 
 describe('the background label follows the emitted manifest', () => {
   function distWith(background: Record<string, unknown>) {
-    const outputPath = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-bg-label-'))
+    const outputPath = makeTempFolder('extjs-bg-label-')
     fs.writeFileSync(
       path.join(outputPath, 'manifest.json'),
       JSON.stringify({manifest_version: 2, name: 'x', version: '1', background})

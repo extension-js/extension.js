@@ -8,6 +8,7 @@
 
 import * as path from 'node:path'
 import type {Compiler, Stats} from '@rspack/core'
+import {isInsidePath} from '../lib/real-path'
 
 interface RefreshServer<Client> {
   webSocketServer?: {clients: Client[]} | null
@@ -15,9 +16,7 @@ interface RefreshServer<Client> {
 }
 
 function isUnder(file: string, dir: string): boolean {
-  const rel = path.relative(dir, file)
-
-  return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel)
+  return isInsidePath(dir, file)
 }
 
 // The page markup the build read in this compile and the author just saved.

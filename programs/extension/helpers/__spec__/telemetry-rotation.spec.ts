@@ -1,8 +1,10 @@
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 import {afterEach, beforeEach, expect, it} from 'vitest'
 import {Telemetry} from '../telemetry'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
+
+const makeTempFolder = trackTempFolders()
 
 const originalEnv = {...process.env}
 
@@ -39,11 +41,9 @@ function trackOne(telemetry: Telemetry, n: number) {
 let configHome: string
 
 beforeEach(() => {
-  configHome = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-rotation-'))
+  configHome = makeTempFolder('extjs-rotation-')
   process.env.XDG_CONFIG_HOME = configHome
-  process.env.XDG_CACHE_HOME = fs.mkdtempSync(
-    path.join(os.tmpdir(), 'extjs-rotation-cache-')
-  )
+  process.env.XDG_CACHE_HOME = makeTempFolder('extjs-rotation-cache-')
 })
 
 afterEach(() => {

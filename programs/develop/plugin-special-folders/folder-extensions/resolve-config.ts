@@ -19,6 +19,7 @@ import {
   normalizeCompanionConfig,
   toAbs
 } from './utils'
+import {isSameOrInsidePath} from '../../lib/real-path'
 
 type StoreBrowser = 'chrome' | 'edge' | 'firefox'
 
@@ -27,12 +28,6 @@ function isPathLike(value: string): boolean {
   if (value.startsWith('./') || value.startsWith('../')) return true
 
   return value.includes('/') || value.includes('\\')
-}
-
-function isSubpathOf(parent: string, child: string): boolean {
-  const rel = path.relative(parent, child)
-
-  return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel)
 }
 
 function getBrowserFolder(browser: string | undefined): StoreBrowser {
@@ -131,11 +126,7 @@ function ensurePathsUnderExtensions(
   return paths.map((p) => {
     const abs = toAbs(projectRoot, p)
 
-    if (
-      abs !== extensionsRoot &&
-      !isSubpathOf(extensionsRoot, abs) &&
-      path.resolve(abs) !== extensionsRoot
-    ) {
+    if (!isSameOrInsidePath(extensionsRoot, abs)) {
       throw new Error(
         `Companion extensions must be inside ${extensionsRoot}.\n` +
           `Invalid path: ${abs}`
@@ -318,7 +309,7 @@ export async function resolveCompanionExtensionsConfig(opts: {
     const absDir = toAbs(projectRoot, normalized.dir)
     const extensionsRoot = path.resolve(projectRoot, 'extensions')
 
-    if (absDir !== extensionsRoot && !isSubpathOf(extensionsRoot, absDir)) {
+    if (!isSameOrInsidePath(extensionsRoot, absDir)) {
       throw new Error(
         `extensions.dir must be inside ${extensionsRoot}.\n` +
           `Invalid dir: ${absDir}`

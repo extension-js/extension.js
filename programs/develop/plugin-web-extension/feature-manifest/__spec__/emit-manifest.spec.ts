@@ -1,13 +1,15 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {getOriginalManifestContent} from '../manifest-lib/manifest'
 import {EmitManifest} from '../steps/emit-manifest'
+import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
+
+const makeTempFolder = trackTempFolders()
 
 describe('EmitManifest', () => {
   it('stores the sanitized source manifest and emits it unchanged', () => {
-    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'emit-manifest-'))
+    const tempDir = makeTempFolder('emit-manifest-')
     const manifestPath = path.join(tempDir, 'manifest.json')
     fs.writeFileSync(
       manifestPath,

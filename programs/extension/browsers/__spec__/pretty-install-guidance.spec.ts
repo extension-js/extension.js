@@ -1,8 +1,10 @@
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
 import {prettyPuppeteerInstallGuidance} from '../browsers-lib/messages'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
+
+const makeTempFolder = trackTempFolders()
 
 describe('prettyPuppeteerInstallGuidance', () => {
   const prevCwd = process.cwd()
@@ -14,7 +16,7 @@ describe('prettyPuppeteerInstallGuidance', () => {
   })
 
   it('prefers the active package manager command and preserves colored output', () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-guidance-'))
+    const root = makeTempFolder('ext-guidance-')
     fs.writeFileSync(
       path.join(root, 'package.json'),
       JSON.stringify(
@@ -52,7 +54,7 @@ describe('prettyPuppeteerInstallGuidance', () => {
   })
 
   it('recommends Chrome for Testing as the stable alternative for chromium', () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-guidance-'))
+    const root = makeTempFolder('ext-guidance-')
     fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({}))
 
     process.chdir(root)
@@ -73,7 +75,7 @@ describe('prettyPuppeteerInstallGuidance', () => {
   })
 
   it('names the system Edge locations and the overrides on Windows', () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-guidance-'))
+    const root = makeTempFolder('ext-guidance-')
     fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({}))
 
     process.chdir(root)
@@ -103,7 +105,7 @@ describe('prettyPuppeteerInstallGuidance', () => {
   })
 
   it('keeps the Windows Edge note off other platforms', () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-guidance-'))
+    const root = makeTempFolder('ext-guidance-')
     fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({}))
 
     process.chdir(root)
@@ -120,7 +122,7 @@ describe('prettyPuppeteerInstallGuidance', () => {
   })
 
   it('does not add the Chrome alternative for non-chromium targets', () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-guidance-'))
+    const root = makeTempFolder('ext-guidance-')
     fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({}))
 
     process.chdir(root)

@@ -30,6 +30,7 @@ import {
 import {LogRingBuffer} from './ring-buffer'
 import {clearControlToken, writeControlToken} from './session-token'
 import {startControlServer} from './ws-control-server'
+import {isSameOrInsidePath} from '../../lib/real-path'
 
 // Same background entries the dev-build injector prepends to: Chromium emits
 // background/service_worker.js, Firefox background/scripts.js, and a declared
@@ -66,11 +67,7 @@ export interface ProductionControlSession {
 }
 
 function isSameOrInside(parent: string, child: string): boolean {
-  const rel = path.relative(path.resolve(parent), path.resolve(child))
-
-  return (
-    rel === '' || (!path.isAbsolute(rel) && rel.split(path.sep)[0] !== '..')
-  )
+  return isSameOrInsidePath(parent, child)
 }
 
 // Outside dist/ on purpose: dist/<browser> is what gets zipped and shipped,

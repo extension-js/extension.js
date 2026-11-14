@@ -10,6 +10,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compiler, RuleSetRule} from '@rspack/core'
 import {resolveDevelopInstallRoot} from './develop-context'
+import {isInsidePath} from './real-path'
 
 // Production module ids are a hash of each module's full identifier, which
 // names every loader by its resolved path relative to the project root. A
@@ -31,11 +32,7 @@ function toPosix(value: string): string {
 }
 
 function isInside(dir: string, file: string): boolean {
-  const relative = path.relative(dir, file)
-
-  return (
-    relative !== '' && !relative.startsWith('..') && !path.isAbsolute(relative)
-  )
+  return isInsidePath(dir, file)
 }
 
 function sameFile(a: string, b: string): boolean {

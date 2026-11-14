@@ -66,3 +66,21 @@ test('the committed npm copy matches README.md', () => {
 
   assert.equal(stale, false, 'run node scripts/sync-npm-readme.mjs')
 })
+
+test('the extension build prints nothing for an unchanged README', () => {
+  const config = fs.readFileSync(
+    path.join(path.dirname(NPM_README), 'rslib.config.ts'),
+    'utf8'
+  )
+  const plugin = config.slice(
+    config.indexOf('function copyReadmePlugin'),
+    config.indexOf('export default')
+  )
+
+  // One line is printed, and only after the early return for a fresh copy.
+  assert.equal(plugin.split('console.log').length - 1, 1)
+  assert.ok(plugin.indexOf('if (!stale) return') !== -1)
+  assert.ok(
+    plugin.indexOf('if (!stale) return') < plugin.indexOf('console.log')
+  )
+})

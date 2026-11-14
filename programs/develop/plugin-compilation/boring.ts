@@ -14,6 +14,7 @@ import {resolveLocalizedManifestName} from '../lib/localized-manifest-name'
 import {parseJsonSafe} from '../lib/parse-json-safe'
 import type {PluginInterface} from '../types'
 import * as messages from './compilation-lib/messages'
+import {isInsidePath, isSameOrInsidePath} from '../lib/real-path'
 
 export class BoringPlugin {
   public static readonly name: string = 'plugin-boring'
@@ -100,9 +101,9 @@ export class BoringPlugin {
           ).replace(/\\/g, '/')
           const distRoot = context ? `${context}/dist` : ''
           const isUnderRoot = (file: string, root: string) =>
-            root !== '' && (file === root || file.startsWith(`${root}/`))
+            root !== '' && isSameOrInsidePath(root, file)
           const hasUserFileChange = modifiedFiles.some((file) => {
-            const inProject = !context || file.startsWith(`${context}/`)
+            const inProject = !context || isInsidePath(context, file)
             const isGenerated =
               isUnderRoot(file, outputPath) ||
               isUnderRoot(file, distRoot) ||

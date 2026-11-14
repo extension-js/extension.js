@@ -1,13 +1,15 @@
 import {spawn} from 'node:child_process'
 import fs from 'node:fs'
 import http from 'node:http'
-import os from 'node:os'
 import path from 'node:path'
 import {afterAll, afterEach, beforeAll, describe, expect, it} from 'vitest'
 import {
   type ExamplesCatalogFixture,
   serveExamplesCatalog
 } from '../../../create/__spec__/examples-catalog-fixture'
+import {trackTempFolders} from '../helpers/temp-folders'
+
+const makeTempFolder = trackTempFolders()
 
 let catalog: ExamplesCatalogFixture | undefined
 
@@ -71,10 +73,10 @@ function runCreate(
   port: number,
   seed?: (work: string) => void
 ): Promise<{status: number | null}> {
-  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-create-fail-'))
+  const work = makeTempFolder('extjs-create-fail-')
   seed?.(work)
-  const configHome = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-config-'))
-  const cacheHome = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-cache-'))
+  const configHome = makeTempFolder('extjs-config-')
+  const cacheHome = makeTempFolder('extjs-cache-')
 
   return new Promise((resolve) => {
     const child = spawn(process.execPath, [cliBin(), ...args], {

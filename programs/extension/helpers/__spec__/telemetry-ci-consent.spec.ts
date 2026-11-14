@@ -1,8 +1,10 @@
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {resolveTelemetryConsent} from '../telemetry'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
+
+const makeTempFolder = trackTempFolders()
 
 const originalEnv = {...process.env}
 
@@ -35,7 +37,7 @@ function restoreEnv() {
 beforeEach(() => {
   for (const key of [...CI_VARS, ...TELEMETRY_VARS]) delete process.env[key]
   // An isolated, empty config home so no developer's real consent file leaks in.
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-ci-consent-'))
+  const home = makeTempFolder('extjs-ci-consent-')
   process.env.XDG_CONFIG_HOME = home
   process.env.XDG_CACHE_HOME = home
 })

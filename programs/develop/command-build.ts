@@ -109,6 +109,7 @@ import type {
   CommonWebpackOptions,
   ConfigHookContext
 } from './types'
+import {isSamePath} from './lib/real-path'
 
 const reportedBuildFailures = new WeakSet<object>()
 
@@ -303,9 +304,10 @@ export async function extensionBuild(
 
     if (
       liveDevSession &&
-      nodePath.resolve(
-        liveDevSession.distPath || browserDistDir(packageJsonDir, browser)
-      ) === nodePath.resolve(distPath)
+      isSamePath(
+        liveDevSession.distPath || browserDistDir(packageJsonDir, browser),
+        distPath
+      )
     ) {
       throw codedError(
         CODES.E_DEV_SESSION_DIST_SHARED,

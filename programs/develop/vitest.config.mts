@@ -31,6 +31,8 @@ export default defineConfig({
       'plugin-*/**/__spec__/**/*.spec.js',
       'plugin-*/**/__spec__/**/*.spec.jsx'
     ],
+    // One temp folder for the whole run, removed when the run ends.
+    globalSetup: ['../../scripts/lib/spec-temp-folder.mjs'],
     setupFiles: ['__spec__/setup/cleanup.ts'],
     // coverage disabled
     exclude: [

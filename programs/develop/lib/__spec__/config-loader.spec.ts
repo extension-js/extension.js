@@ -1,5 +1,4 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {
@@ -8,10 +7,13 @@ import {
   loadProjectConfigDefaults,
   requireCommonJsCopyBesideSource
 } from '../config-loader'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
+
+const makeTempFolder = trackTempFolders()
 
 describe('config-loader', () => {
   it('keeps a top-level runtime perf budget from extension.config.js', async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tmp-extjs-budget-'))
+    const dir = makeTempFolder('tmp-extjs-budget-')
     fs.writeFileSync(
       path.join(dir, 'extension.config.js'),
       "module.exports = {perfBudgets: {runtime: 25 * 1024 * 1024, 'service-worker': 10}}\n",
@@ -36,7 +38,7 @@ describe('config-loader', () => {
   it('loadCommandConfig on a relative project path resolves like the absolute one', async () => {
     // A monorepo root runs `extension dev packages/extension`; the walk-up
     // from that relative start looped forever on 4.1.13 the same way.
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-relative-'))
+    const root = makeTempFolder('extjs-relative-')
     const pkg = path.join(root, 'packages', 'extension')
     fs.mkdirSync(path.join(pkg, 'src'), {recursive: true})
     fs.writeFileSync(path.join(pkg, 'package.json'), '{"name":"probe"}')
@@ -59,13 +61,13 @@ describe('config-loader', () => {
   })
 
   it('loadBrowserConfig returns defaults when no config present', async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tmp-extjs-'))
+    const dir = makeTempFolder('tmp-extjs-')
     const cfg = await loadBrowserConfig(dir, 'chrome')
     expect(cfg.browser).toBe('chrome')
   })
 
   it('loads CommonJS extension.config.js with stable __dirname when project is ESM (type: module)', async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tmp-extjs-'))
+    const dir = makeTempFolder('tmp-extjs-')
 
     fs.writeFileSync(
       path.join(dir, 'package.json'),
@@ -93,7 +95,7 @@ module.exports = {
   })
 
   it('falls back to workspace-root env files when project has none', async () => {
-    const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'tmp-extjs-ws-'))
+    const workspace = makeTempFolder('tmp-extjs-ws-')
     const appDir = path.join(workspace, 'apps', 'demo-extension')
     fs.mkdirSync(appDir, {recursive: true})
     fs.writeFileSync(
@@ -135,7 +137,7 @@ export default {
   })
 
   it('finds a config kept beside the manifest when the package root has none', async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'tmp-extjs-beside-'))
+    const root = makeTempFolder('tmp-extjs-beside-')
     fs.mkdirSync(path.join(root, 'src'), {recursive: true})
     fs.writeFileSync(path.join(root, 'package.json'), '{"name":"demo"}')
     fs.writeFileSync(
@@ -153,7 +155,7 @@ export default {
   })
 
   it('keeps the package-root config ahead of one beside the manifest', async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'tmp-extjs-both-'))
+    const root = makeTempFolder('tmp-extjs-both-')
     fs.mkdirSync(path.join(root, 'src'), {recursive: true})
     fs.writeFileSync(path.join(root, 'package.json'), '{"name":"demo"}')
     fs.writeFileSync(
@@ -178,9 +180,7 @@ export default {
 
 describe('requireCommonJsCopyBesideSource', () => {
   it('keeps relative requires and __dirname on the project and leaves no copy', () => {
-    const dir = fs.realpathSync(
-      fs.mkdtempSync(path.join(os.tmpdir(), 'tmp-extjs-hashbang-'))
-    )
+    const dir = fs.realpathSync(makeTempFolder('tmp-extjs-hashbang-'))
     fs.writeFileSync(
       path.join(dir, 'profile-name.cjs'),
       "module.exports = 'hashbang-profile'\n"
@@ -211,9 +211,7 @@ module.exports = {profile: path.join(__dirname, 'dist', name)}
   })
 
   it('removes the copy when the config throws', () => {
-    const dir = fs.realpathSync(
-      fs.mkdtempSync(path.join(os.tmpdir(), 'tmp-extjs-throws-'))
-    )
+    const dir = fs.realpathSync(makeTempFolder('tmp-extjs-throws-'))
     const configPath = path.join(dir, 'extension.config.js')
     fs.writeFileSync(configPath, "throw new Error('broken config')\n")
 

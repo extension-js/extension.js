@@ -1,9 +1,11 @@
 import {spawn} from 'node:child_process'
 import fs from 'node:fs'
 import http from 'node:http'
-import os from 'node:os'
 import path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
+import {trackTempFolders} from '../helpers/temp-folders'
+
+const makeTempFolder = trackTempFolders()
 
 const ANSI = /\x1b\[[0-9;]*m/g
 const STACK_FRAME = /^\s+at /m
@@ -61,9 +63,9 @@ function runCreate(
   stderr: string
   leftBehind: string[]
 }> {
-  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-create-notzip-'))
-  const configHome = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-config-'))
-  const cacheHome = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-cache-'))
+  const work = makeTempFolder('extjs-create-notzip-')
+  const configHome = makeTempFolder('extjs-config-')
+  const cacheHome = makeTempFolder('extjs-cache-')
 
   return new Promise((resolve) => {
     let stdout = ''

@@ -23,6 +23,8 @@ export default defineConfig({
       'node_modules/**',
       ...(runsRemote ? [] : ['**/*.remote.spec.ts'])
     ],
+    // One temp folder for the whole run, removed when the run ends.
+    globalSetup: ['../../scripts/lib/spec-temp-folder.mjs'],
     setupFiles: ['./__spec__/forbid-network.ts'],
     coverage: {
       provider: 'v8',

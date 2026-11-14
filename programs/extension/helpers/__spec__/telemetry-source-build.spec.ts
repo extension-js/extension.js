@@ -3,6 +3,9 @@ import os from 'node:os'
 import path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {isSourceCheckout, Telemetry} from '../telemetry'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
+
+const makeTempFolder = trackTempFolders()
 
 const originalEnv = {...process.env}
 
@@ -19,7 +22,7 @@ function restoreEnv() {
 let home = ''
 
 beforeEach(() => {
-  home = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-source-build-'))
+  home = makeTempFolder('extjs-source-build-')
   process.env.XDG_CONFIG_HOME = home
   process.env.XDG_CACHE_HOME = home
 })

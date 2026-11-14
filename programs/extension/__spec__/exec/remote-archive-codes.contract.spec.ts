@@ -2,9 +2,11 @@ import {spawn} from 'node:child_process'
 import fs from 'node:fs'
 import http from 'node:http'
 import {createRequire} from 'node:module'
-import os from 'node:os'
 import path from 'node:path'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
+import {trackTempFolders} from '../helpers/temp-folders'
+
+const makeTempFolder = trackTempFolders()
 
 const cliBin = path.resolve(__dirname, '../..', 'dist', 'cli.cjs')
 const STACK_FRAME = /^\s+at /m
@@ -126,9 +128,7 @@ describe('a remote archive, read by create and by develop', () => {
     refused = `http://127.0.0.1:${typeof probeAddress === 'object' && probeAddress ? probeAddress.port : 0}`
     await new Promise<void>((resolve) => probe.close(() => resolve()))
 
-    work = fs.realpathSync(
-      fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-remote-codes-'))
-    )
+    work = fs.realpathSync(makeTempFolder('extjs-remote-codes-'))
   })
 
   afterAll(async () => {
@@ -144,8 +144,8 @@ describe('a remote archive, read by create and by develop', () => {
     args: string[],
     options: {env?: Record<string, string>; stopOnFrame?: string} = {}
   ): Promise<Run> {
-    const configHome = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-config-'))
-    const cacheHome = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-cache-'))
+    const configHome = makeTempFolder('extjs-config-')
+    const cacheHome = makeTempFolder('extjs-cache-')
     homes.push(configHome, cacheHome)
 
     const env: NodeJS.ProcessEnv = {
@@ -477,7 +477,7 @@ describe('a remote archive, read by create and by develop', () => {
   }, 120_000)
 
   it('preview unpacks a remote archive into the cache, not the current directory', async () => {
-    const cacheHome = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-cache-'))
+    const cacheHome = makeTempFolder('extjs-cache-')
     homes.push(cacheHome)
     const before = new Set(fs.readdirSync(work))
     const url = `${origin}/token/cached/chrome.zip?t=good-token`

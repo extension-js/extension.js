@@ -6,7 +6,7 @@
 // ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import * as path from 'node:path'
+import {isInsidePath} from '../../browsers-lib/real-path'
 
 // One appex macOS knows about, from `pluginkit -m -v`. The mark is pluginkit's
 // election column: + elected, - disabled, ! unapproved, blank unspecified.
@@ -48,13 +48,11 @@ export function earlierAppexRows(
   projectLocation: string,
   currentAppexId: string
 ): PluginkitRow[] {
-  const root = path.resolve(projectLocation) + path.sep
-
   return rows.filter(
     (row) =>
       row.id !== currentAppexId &&
       typeof row.path === 'string' &&
-      path.resolve(row.path).startsWith(root)
+      isInsidePath(projectLocation, row.path)
   )
 }
 

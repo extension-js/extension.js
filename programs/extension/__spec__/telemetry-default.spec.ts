@@ -1,8 +1,10 @@
 import {spawnSync} from 'node:child_process'
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 import {expect, it} from 'vitest'
+import {trackTempFolders} from './helpers/temp-folders'
+
+const makeTempFolder = trackTempFolders()
 
 function cliRoot(): string {
   return path.resolve(__dirname, '..')
@@ -29,7 +31,7 @@ function canWrite(dir: string): boolean {
 }
 
 it('runs successfully even without PostHog keys (local audit allowed)', () => {
-  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-cli-'))
+  const work = makeTempFolder('extjs-cli-')
 
   const r = spawnSync(process.execPath, [cliBin(), '--version'], {
     cwd: work,
@@ -42,9 +44,9 @@ it('runs successfully even without PostHog keys (local audit allowed)', () => {
 }, 120000)
 
 it('falls back to cache when config path is unwritable', () => {
-  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-cli-'))
-  const configHome = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-config-'))
-  const cacheHome = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-cache-'))
+  const work = makeTempFolder('extjs-cli-')
+  const configHome = makeTempFolder('extjs-config-')
+  const cacheHome = makeTempFolder('extjs-cache-')
 
   try {
     fs.chmodSync(configHome, 0o500)

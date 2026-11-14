@@ -17,6 +17,7 @@ import {
   normalizeCompanionConfig,
   toAbs
 } from './utils'
+import {isInsidePath} from '../../lib/real-path'
 
 // Resolve companion extension directories that should be loaded by the browser runner.
 // We assume each directory is already an unpacked extension root
@@ -121,7 +122,5 @@ function withoutNestedRoots(found: string[]): string[] {
 }
 
 function isInside(dir: string, parent: string): boolean {
-  const rel = path.relative(path.resolve(parent), path.resolve(dir))
-
-  return Boolean(rel) && !rel.startsWith('..') && !path.isAbsolute(rel)
+  return isInsidePath(parent, dir)
 }
