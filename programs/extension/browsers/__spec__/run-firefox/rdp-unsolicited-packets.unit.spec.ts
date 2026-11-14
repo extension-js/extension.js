@@ -209,6 +209,15 @@ describe('unsolicited RDP packets', () => {
       'frameUpdate',
       {from: 'server1.conn0.tab1', type: 'frameUpdate', frames: []}
     ],
+    // Sent by the root after a watcher stops watching, with no request for it.
+    [
+      'forwardingCancelled',
+      {
+        from: 'root',
+        type: 'forwardingCancelled',
+        prefix: 'server1.conn0.watcher1.process2/'
+      }
+    ],
     ['the root greeting', GREETING]
   ]
 

@@ -18,6 +18,10 @@ import {
 } from '../../../helpers/messaging'
 import {holdForBootRegistrations} from '../../browsers-lib/boot-registrations-hold'
 import {
+  debugBootRegistrationsAnswer,
+  resolveBootRegistrationsWait
+} from '../../browsers-lib/built-boot-registrations'
+import {
   printDevBannerOnce,
   printProdBannerOnce
 } from '../../browsers-lib/banner'
@@ -154,7 +158,17 @@ async function openStartingUrlAfterLoad(
   const startingUrl = resolveStartingUrl(plugin)
   if (!startingUrl) return
 
-  await holdForBootRegistrations(plugin, startingUrl)
+  await holdForBootRegistrations(
+    {
+      awaitBootRegistrations: resolveBootRegistrationsWait(
+        plugin,
+        (expression, timeoutMs) =>
+          controller.evaluateInBackground(expression, timeoutMs),
+        debugBootRegistrationsAnswer
+      )
+    },
+    startingUrl
+  )
 
   try {
     await controller.openStartingUrl(startingUrl)

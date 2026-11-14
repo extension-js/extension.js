@@ -48,6 +48,8 @@ const UNSOLICITED_PACKET_TYPES = new Set([
   'frameUpdate',
   'target-available-form',
   'target-destroyed-form',
+  // The root says so when a watcher lets a process go, asked or not.
+  'forwardingCancelled',
   'newSource',
   'documentLoad'
 ])

@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import {CODES, hasChannelPrefix} from '../helpers/messaging'
 import {printProdBannerOnce} from './browsers-lib/banner'
+import {builtBackgroundNamesRegistration} from './browsers-lib/built-boot-registrations'
 import {
   isChromiumBrowser,
   isFirefoxBrowser
@@ -22,7 +23,10 @@ import {
   readReadyRunId,
   stampReadyBrowserLaunchFailed
 } from './browsers-lib/ready-stamp'
-import {buildBrowserLaunchRequest} from './browsers-lib/runtime-options'
+import {
+  buildBrowserLaunchRequest,
+  resolveStartingUrl
+} from './browsers-lib/runtime-options'
 import {
   isVersionProbeTimeout,
   probeChromiumBinaryVersion,
@@ -70,6 +74,16 @@ type PreviewRunOptions = {
   logTab?: number | string
   // `start` runs the same launch, and its own name belongs on its lines.
   command?: 'preview' | 'start'
+  // The build as it ships, when the browser is handed a copy of it that
+  // carries the control channel. Read to learn what the author's code names.
+  shippedPath?: string
+}
+
+// Asked only when a page will open: nothing else is held on the answer.
+function holdsOnBuiltRegistrations(opts: PreviewRunOptions): boolean {
+  if (!resolveStartingUrl(opts)) return false
+
+  return builtBackgroundNamesRegistration(opts.shippedPath || opts.outPath)
 }
 
 function createPreviewCompilationLike(
@@ -159,7 +173,8 @@ function buildPreviewChromiumOptions(
     logTimestamps: pluginOptions.logTimestamps,
     logColor: pluginOptions.logColor,
     logUrl: pluginOptions.logUrl,
-    logTab: pluginOptions.logTab
+    logTab: pluginOptions.logTab,
+    bootRegistrationsFromBackground: holdsOnBuiltRegistrations(opts)
   }
 }
 
@@ -187,7 +202,8 @@ function buildPreviewFirefoxOptions(
     logTimestamps: pluginOptions.logTimestamps,
     logColor: pluginOptions.logColor,
     logUrl: pluginOptions.logUrl,
-    logTab: pluginOptions.logTab
+    logTab: pluginOptions.logTab,
+    bootRegistrationsFromBackground: holdsOnBuiltRegistrations(opts)
   }
 }
 

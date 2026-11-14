@@ -15,6 +15,9 @@ const verifyGuestLoadedSpy = vi.fn()
 const ensureLoadedSpy = vi.fn()
 const connectSpy = vi.fn(async () => {})
 const openStartingUrlSpy = vi.fn(async (_url: string) => 'navigated')
+const evaluateInBackgroundSpy = vi.fn(
+  async (_expression: string, _timeoutMs: number): Promise<unknown> => undefined
+)
 
 vi.mock('../../run-chromium/cdp/cdp-extension-controller', () => {
   class CDPExtensionController {
@@ -24,6 +27,7 @@ vi.mock('../../run-chromium/cdp/cdp-extension-controller', () => {
     getInfoBestEffort = vi.fn(async () => null)
     openTab = vi.fn(async () => {})
     openStartingUrl = openStartingUrlSpy
+    evaluateInBackground = evaluateInBackgroundSpy
   }
 
   return {CDPExtensionController}
@@ -144,6 +148,7 @@ describe('verifyGuestLoadAfterLaunch (run-only load evidence)', () => {
     ensureLoadedSpy.mockReset()
     connectSpy.mockClear()
     openStartingUrlSpy.mockClear()
+    evaluateInBackgroundSpy.mockReset()
     ;(banner.printDevBannerOnce as any).mockClear()
     ;(banner.printProdBannerOnce as any).mockClear()
     errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -223,6 +228,105 @@ describe('verifyGuestLoadAfterLaunch (run-only load evidence)', () => {
     expect(verifyGuestLoadedSpy.mock.invocationCallOrder[0]).toBeLessThan(
       openStartingUrlSpy.mock.invocationCallOrder[0]
     )
+  })
+
+  // A production build has no dev server to say the registrations landed,
+  // so the background is asked before the page is.
+  it('asks the background for its boot registrations before the starting url', async () => {
+    const {outPath} = makeStartSession()
+    verifyGuestLoadedSpy.mockResolvedValue({
+      status: 'loaded',
+      extensionId: 'abcdefghijklmnopabcdefghijklmnop'
+    })
+
+    evaluateInBackgroundSpy.mockImplementation(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20))
+
+      return {outcome: 'settled', count: 2, looks: 3, waitedMs: 50}
+    })
+
+    await runCheck(outPath, {
+      browser: 'chrome',
+      startingUrl: 'https://example.com/',
+      bootRegistrationsFromBackground: true
+    })
+
+    expect(evaluateInBackgroundSpy).toHaveBeenCalledTimes(1)
+    expect(evaluateInBackgroundSpy.mock.calls[0][0]).toContain(
+      'getRegisteredContentScripts'
+    )
+
+    expect(evaluateInBackgroundSpy.mock.calls[0][1]).toBe(5000)
+    expect(evaluateInBackgroundSpy.mock.invocationCallOrder[0]).toBeLessThan(
+      openStartingUrlSpy.mock.invocationCallOrder[0]
+    )
+
+    expect(openStartingUrlSpy).toHaveBeenCalledWith('https://example.com/')
+  })
+
+  it('asks the background nothing when its files name no registration', async () => {
+    const {outPath} = makeStartSession()
+    verifyGuestLoadedSpy.mockResolvedValue({
+      status: 'loaded',
+      extensionId: 'abcdefghijklmnopabcdefghijklmnop'
+    })
+
+    await runCheck(outPath, {
+      browser: 'chrome',
+      startingUrl: 'https://example.com/'
+    })
+
+    expect(evaluateInBackgroundSpy).not.toHaveBeenCalled()
+    expect(openStartingUrlSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('asks the background nothing when no page will open', async () => {
+    const {outPath} = makeStartSession()
+    verifyGuestLoadedSpy.mockResolvedValue({
+      status: 'loaded',
+      extensionId: 'abcdefghijklmnopabcdefghijklmnop'
+    })
+
+    await runCheck(outPath, {
+      browser: 'chrome',
+      bootRegistrationsFromBackground: true
+    })
+
+    expect(evaluateInBackgroundSpy).not.toHaveBeenCalled()
+  })
+
+  it('still opens the starting url when the background cannot be asked', async () => {
+    const {outPath} = makeStartSession()
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    verifyGuestLoadedSpy.mockResolvedValue({
+      status: 'loaded',
+      extensionId: 'abcdefghijklmnopabcdefghijklmnop'
+    })
+
+    evaluateInBackgroundSpy.mockRejectedValue(new Error('target closed'))
+
+    await runCheck(outPath, {
+      browser: 'chrome',
+      startingUrl: 'https://example.com/',
+      bootRegistrationsFromBackground: true
+    })
+
+    const printed = [
+      ...warnSpy.mock.calls,
+      ...logSpy.mock.calls,
+      ...errorSpy.mock.calls
+    ]
+      .map((call) => String(call[0]))
+      .filter((line) =>
+        line.includes('before the background finished registering')
+      )
+
+    warnSpy.mockRestore()
+    logSpy.mockRestore()
+
+    expect(printed).toHaveLength(1)
+    expect(openStartingUrlSpy).toHaveBeenCalledWith('https://example.com/')
   })
 
   it('opens no starting url for a refused guest', async () => {

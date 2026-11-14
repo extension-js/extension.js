@@ -78,6 +78,13 @@ export class FirefoxRDPController {
     return await this.remote.openStartingUrl(url)
   }
 
+  async evaluateInBackground(
+    expression: string,
+    timeoutMs: number
+  ): Promise<unknown> {
+    return await this.remote.evaluateInBackground(expression, timeoutMs)
+  }
+
   disconnect(): void {
     this.remote.disconnect()
   }

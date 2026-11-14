@@ -25,6 +25,7 @@ import {toExtensionLoadList} from '../../../browsers-lib/runtime-options'
 import {deriveDebugPortWithInstance} from '../../../browsers-lib/shared-utils'
 import type {CompilationLike, PluginInterface} from '../../../browsers-types'
 import {waitForStableExtensionOutput} from '../../../run-chromium/manifest-readiness'
+import {evaluateThroughWatcher} from '../evaluate-extension-document'
 import {
   classifyAddonInstallFailure,
   computeCandidateAddonPaths,
@@ -419,6 +420,27 @@ export class RemoteFirefox {
     })
 
     return outcome !== 'unavailable'
+  }
+
+  // Evaluate in the add-on's background document over the live connection.
+  // Undefined when there is no session, no add-on id or no answer.
+  public async evaluateInBackground(
+    expression: string,
+    timeoutMs: number
+  ): Promise<unknown> {
+    if (!this.client || !this.derivedExtensionId) return undefined
+
+    const outcome = await evaluateThroughWatcher({
+      client: this.client as unknown as Parameters<
+        typeof evaluateThroughWatcher
+      >[0]['client'],
+      extensionId: this.derivedExtensionId,
+      context: 'background',
+      expression,
+      timeoutMs
+    })
+
+    return outcome.ok ? outcome.value : undefined
   }
 
   // Unified logging via Firefox RDP (parity with Chromium CDP)

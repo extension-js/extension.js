@@ -8,6 +8,11 @@
 
 import {humanWarn, isDebug} from '../../../helpers/messaging'
 import {holdForBootRegistrations} from '../../browsers-lib/boot-registrations-hold'
+import {
+  type BackgroundEvaluator,
+  debugBootRegistrationsAnswer,
+  resolveBootRegistrationsWait
+} from '../../browsers-lib/built-boot-registrations'
 import {manifestDeclaresNewtabOverride} from '../../browsers-lib/newtab-override'
 import {resolveStartingUrl} from '../../browsers-lib/runtime-options'
 import type {CompilationLike} from '../../browsers-types'
@@ -94,11 +99,26 @@ export async function setupRdpAfterLaunch(
     const startingUrl = resolveStartingUrl(plugin)
 
     if (startingUrl) {
-      await holdForBootRegistrations(plugin, startingUrl)
-
       const live = (plugin.rdpController || controller) as {
         openStartingUrl?: (url: string) => Promise<boolean>
+        evaluateInBackground?: BackgroundEvaluator
       }
+
+      await holdForBootRegistrations(
+        {
+          awaitBootRegistrations: resolveBootRegistrationsWait(
+            plugin,
+            live.evaluateInBackground
+              ? (expression, timeoutMs) =>
+                  live.evaluateInBackground?.(expression, timeoutMs) ??
+                  Promise.resolve(undefined)
+              : undefined,
+            debugBootRegistrationsAnswer
+          )
+        },
+        startingUrl
+      )
+
       const opened = await live.openStartingUrl?.(startingUrl)
 
       if (opened === false && isDebug()) {
