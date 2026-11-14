@@ -1116,6 +1116,55 @@ describe('findPageRelativeScriptPaths', () => {
     ).toEqual([])
   })
 
+  const copiedPaths = (literal: string, held: string[]) => {
+    const {at, root} = project({
+      'options/index.html': page('./options.js'),
+      'options/options.js': `chrome.scripting.executeScript({target: {tabId: 1}, files: ["${literal}"]})\n`
+    })
+
+    return findPageRelativeScriptPaths({
+      includeList: {},
+      pageList: {'options/index': at('options/index.html')},
+      manifestDir: root,
+      projectPath: root,
+      outputHolds: (distRel) => held.includes(distRel)
+    }).map(({literal: named, requested, emitted}) => ({
+      literal: named,
+      requested,
+      emitted
+    }))
+  }
+
+  it('names a file the include config or public/ copies to the root', () => {
+    // Neither file is a scripts/ entry: one is copied by include, one by public/.
+    expect(
+      copiedPaths('scripts/recorder-iife.js', ['scripts/recorder-iife.js'])
+    ).toEqual([
+      {
+        literal: 'scripts/recorder-iife.js',
+        requested: 'options/scripts/recorder-iife.js',
+        emitted: 'scripts/recorder-iife.js'
+      }
+    ])
+
+    expect(copiedPaths('vendor/lib.js', ['vendor/lib.js'])).toEqual([
+      {
+        literal: 'vendor/lib.js',
+        requested: 'options/vendor/lib.js',
+        emitted: 'vendor/lib.js'
+      }
+    ])
+  })
+
+  it('leaves alone a copied file the output also holds beside the page', () => {
+    expect(
+      copiedPaths('vendor/lib.js', ['vendor/lib.js', 'options/vendor/lib.js'])
+    ).toEqual([])
+
+    expect(copiedPaths('vendor/lib.js', [])).toEqual([])
+    expect(copiedPaths('/vendor/lib.js', ['vendor/lib.js'])).toEqual([])
+  })
+
   it('leaves alone a path that names no scripts/ entry of the build', () => {
     expect(
       relative(

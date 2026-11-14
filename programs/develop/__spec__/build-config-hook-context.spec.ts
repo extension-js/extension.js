@@ -147,6 +147,45 @@ describe('config hooks receive the target browser', () => {
     ).toContain('Hook context de')
   }, 180_000)
 
+  // The config file never requires the bundler itself, so the handle is
+  // its only way to the plugin class.
+  it('hands the hook the bundler, so a ProvidePlugin needs no bundler of the project', async () => {
+    const root = project(
+      [
+        "const path = require('node:path')",
+        'module.exports = {',
+        '  config: (config, {rspack}) => {',
+        '    config.plugins.push(',
+        '      new rspack.ProvidePlugin({',
+        "        providedGreeting: [path.join(__dirname, 'greeting.js'), 'greeting']",
+        '      })',
+        '    )',
+        '    return config',
+        '  }',
+        '}',
+        ''
+      ].join('\n')
+    )
+
+    fs.writeFileSync(
+      path.join(root, 'greeting.js'),
+      "export const greeting = 'provided-by-the-hook'\n"
+    )
+
+    fs.writeFileSync(
+      path.join(root, 'background.js'),
+      'console.log(providedGreeting)\n'
+    )
+
+    expect((await build(root, 'chrome')).errors_count).toBe(0)
+    expect(
+      fs.readFileSync(
+        path.join(root, 'dist', 'chrome', 'background', 'service_worker.js'),
+        'utf8'
+      )
+    ).toContain('provided-by-the-hook')
+  }, 180_000)
+
   it('fails the build and names the locale when the filter drops the default one', async () => {
     const root = project(keepLocalesConfig({edge: ['de']}))
     const printed: string[] = []

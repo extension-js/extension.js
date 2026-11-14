@@ -13,6 +13,7 @@ import {
   isChromiumBrowser,
   isFirefoxBrowser
 } from '../browsers/browsers-lib/browser-family'
+import {MAX_RESULT_BYTES} from '../browsers/browsers-lib/eval-result-cap'
 import {evaluateChromiumTabDocument} from '../browsers/run-chromium/cdp/evaluate-tab-document'
 import {
   evaluateExtensionDocument,
@@ -153,6 +154,7 @@ interface ActResultLike {
   ok?: boolean
   value?: unknown
   truncated?: boolean
+  warnings?: string[]
   error?: {name?: unknown; message?: unknown; engine?: unknown; code?: unknown}
 }
 
@@ -379,7 +381,7 @@ export function buildActEnvelope(
   result: ActResultLike
 ): Record<string, unknown> {
   // type and cmdId belong to the bridge's own result frame, not to the caller.
-  const {ok, value, truncated, error, type, cmdId, ...extras} =
+  const {ok, value, truncated, warnings, error, type, cmdId, ...extras} =
     result as ActResultLike & Record<string, unknown>
   const wasTruncated = truncated === true
 
@@ -388,7 +390,10 @@ export function buildActEnvelope(
   if (ok) {
     return {
       ...extras,
-      ...ENVELOPE.ok(command, 'ok', value ?? null, {truncated: wasTruncated})
+      ...ENVELOPE.ok(command, 'ok', value ?? null, {
+        truncated: wasTruncated,
+        ...(Array.isArray(warnings) && warnings.length ? {warnings} : {})
+      })
     }
   }
 
@@ -713,7 +718,14 @@ function printResult(
       }
     }
 
-    if (result.truncated) {
+    const warnings = Array.isArray(result.warnings) ? result.warnings : []
+
+    for (const warning of warnings) {
+      // eslint-disable-next-line no-console
+      console.error(`… ${warning}`)
+    }
+
+    if (result.truncated && warnings.length === 0) {
       // eslint-disable-next-line no-console
       console.error('… result truncated (byte cap)')
     }
@@ -1301,6 +1313,48 @@ async function runCommand(input: RunInput): Promise<void> {
   await exitAfterDrain(result.ok ? 0 : 1)
 }
 
+// What an inspect says about html it did not return in full: a request no
+// result can carry, and where the cut fell so the rest can be read by offset.
+export function inspectHtmlWarnings(
+  value: unknown,
+  requestedMaxBytes: number | undefined
+): string[] {
+  const warnings: string[] = []
+
+  if (requestedMaxBytes !== undefined && requestedMaxBytes > MAX_RESULT_BYTES) {
+    warnings.push(
+      `--max-bytes ${requestedMaxBytes} is above the ${MAX_RESULT_BYTES} bytes one result can carry, so ${MAX_RESULT_BYTES} was used`
+    )
+  }
+
+  const snapshot = (value || {}) as {
+    html?: unknown
+    htmlTruncated?: unknown
+    summary?: {htmlLength?: unknown}
+  }
+
+  if (snapshot.htmlTruncated !== true || typeof snapshot.html !== 'string') {
+    return warnings
+  }
+
+  const kept = snapshot.html.length
+  const total = Number(snapshot.summary?.htmlLength)
+  const ofTotal = Number.isFinite(total) && total > kept ? ` of ${total}` : ''
+  const cutByFlag =
+    requestedMaxBytes !== undefined &&
+    requestedMaxBytes <= MAX_RESULT_BYTES &&
+    kept >= requestedMaxBytes
+
+  warnings.push(
+    cutByFlag
+      ? `html cut to ${kept}${ofTotal} characters by --max-bytes`
+      : `html cut to ${kept}${ofTotal} characters to fit the ${MAX_RESULT_BYTES}-byte result cap. ` +
+          `Read on with eval: document.documentElement.outerHTML.slice(${kept}, ${kept + 200000})`
+  )
+
+  return warnings
+}
+
 function targetFrom(
   opts: CommonActOptions,
   command: string,
@@ -1502,7 +1556,10 @@ export function registerActCommands(program: Command): void {
         '--include <list>',
         'comma-separated: html,summary (default summary)'
       )
-      .option('--max-bytes <n>', 'cap on returned HTML bytes (default 262144)')
+      .option(
+        '--max-bytes <n>',
+        `cap on returned HTML characters (default and most: what fits one ${MAX_RESULT_BYTES}-byte result)`
+      )
       .option(
         '--with-console [n]',
         'also include the last n console lines for the target (default 20)'
@@ -1539,10 +1596,14 @@ export function registerActCommands(program: Command): void {
             .filter(Boolean)
         : ['summary']
       const target = targetFrom(opts, 'inspect', 'content')
-      const maxBytes = positiveIntFlag('--max-bytes', opts.maxBytes, {
+      const requestedMaxBytes = positiveIntFlag('--max-bytes', opts.maxBytes, {
         command: 'inspect',
         output: opts.output
       })
+      const maxBytes =
+        requestedMaxBytes === undefined
+          ? undefined
+          : Math.min(requestedMaxBytes, MAX_RESULT_BYTES)
 
       await runCommand({
         projectPathArg,
@@ -1551,23 +1612,32 @@ export function registerActCommands(program: Command): void {
         target,
         args: {include, maxBytes},
         opts,
-        augment: opts.withConsole
-          ? (projectPath, browser) => {
-              const n =
-                typeof opts.withConsole === 'string' && opts.withConsole !== ''
-                  ? Number(opts.withConsole)
-                  : 20
+        augment: (projectPath, browser, result) => {
+          const warnings = inspectHtmlWarnings(result.value, requestedMaxBytes)
+          const cut =
+            (result.value as {htmlTruncated?: unknown} | null)
+              ?.htmlTruncated === true
+          const extras: Record<string, unknown> = {
+            ...(warnings.length ? {warnings} : {}),
+            ...(cut ? {truncated: true} : {})
+          }
 
-              return {
-                console: readRecentConsole(
-                  projectPath,
-                  browser,
-                  target,
-                  Number.isFinite(n) && n > 0 ? n : 20
-                )
-              }
-            }
-          : undefined
+          if (opts.withConsole) {
+            const n =
+              typeof opts.withConsole === 'string' && opts.withConsole !== ''
+                ? Number(opts.withConsole)
+                : 20
+
+            extras.console = readRecentConsole(
+              projectPath,
+              browser,
+              target,
+              Number.isFinite(n) && n > 0 ? n : 20
+            )
+          }
+
+          return extras
+        }
       })
     }
   )

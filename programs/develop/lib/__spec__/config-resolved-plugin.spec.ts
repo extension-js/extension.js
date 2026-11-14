@@ -1,10 +1,12 @@
+import {rspack} from '@rspack/core'
 import {describe, expect, it, vi} from 'vitest'
 import {ConfigResolvedPlugin} from '../config-resolved-plugin'
 
 const context = {
   browser: 'chrome',
   mode: 'production',
-  command: 'build'
+  command: 'build',
+  rspack
 } as const
 
 function stubCompiler() {
@@ -92,7 +94,8 @@ describe('ConfigResolvedPlugin', () => {
     expect(hook.mock.calls[0][1]).toEqual({
       browser: 'chrome',
       mode: 'production',
-      command: 'build'
+      command: 'build',
+      rspack
     })
 
     expect(compiler.options.module.rules).toHaveLength(2)

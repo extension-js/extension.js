@@ -199,3 +199,24 @@ export function includeOutputPathInvalid(outputPath: string, reason: string) {
     `such as ${colors.blue('models/x.onnx')}.`
   )
 }
+
+// One line on purpose: a build has a single place to say it, and the fix is
+// one config key whichever of the listed files the project meant to inject.
+export function scriptsEntriesOnlyImported(
+  relativePaths: string[],
+  folder: string
+) {
+  const one = relativePaths.length === 1
+  const list = relativePaths.map((entry) => colors.yellow(entry)).join(', ')
+  const value = relativePaths.map((entry) => `'${entry}'`).join(', ')
+
+  return (
+    `${list} ${one ? 'is' : 'are'} built as ${one ? 'an entry' : 'entries'} ` +
+    `of ${one ? 'its' : 'their'} own because every file in ` +
+    `${colors.yellow(folder)} is, yet other files import ` +
+    `${one ? 'it' : 'them'} and nothing names ${one ? 'its' : 'their'} output ` +
+    `path. For a helper module, add ${colors.blue('exclude')}: ` +
+    `${colors.yellow(`[${value}]`)} to extension.config.js. For a script the ` +
+    `extension injects, keep it.`
+  )
+}

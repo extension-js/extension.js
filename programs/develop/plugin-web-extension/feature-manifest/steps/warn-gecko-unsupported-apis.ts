@@ -119,8 +119,8 @@ export const webkitMissingApis: WebkitMissingApis = {
   members: new Set(webkitMemberByKey.keys())
 }
 
-// gecko follows addons-linter, which flags any static read. webkit follows
-// the Safari runtime, where only an unguarded call on a missing namespace throws.
+// Both engines ask the runtime question: only an unguarded read through a
+// missing namespace throws, so the author's own feature check keeps it quiet.
 export type UnsupportedApiEngine = 'gecko' | 'webkit'
 
 export interface GeckoUnsupportedApiUse {
@@ -155,20 +155,16 @@ export function geckoUnsupportedApis(
 // The framework's own code is therefore not in the asset yet. Move either stage
 // and every Safari dev session warns about the bridge, not about user code.
 //
-// A static member read on the namespace is what addons-linter matches, so a
-// runtime guard around the same call still trips it and must still warn.
-// Safari only throws when the call reads through the missing namespace, so
-// optional chaining on it is safe there, and so is a call inside a span the
+// The browser only throws when the call reads through the missing namespace,
+// so optional chaining on it is safe, and so is a call inside a span the
 // author's own feature check keeps closed, which the ranges carry.
 export function usesGeckoUnsupportedApi(
   source: string,
   api: GeckoUnsupportedApi,
-  engine: UnsupportedApiEngine = 'gecko',
   guarded?: Range[]
 ): boolean {
-  const chain = engine === 'webkit' ? '' : '\\??'
   const memberRe = new RegExp(
-    `\\b(?:chrome|browser)\\s*\\.\\s*${api}\\s*${chain}\\.\\s*[A-Za-z_$]`
+    `\\b(?:chrome|browser)\\s*\\.\\s*${api}\\s*\\.\\s*[A-Za-z_$]`
   )
 
   return guarded?.length
@@ -203,14 +199,16 @@ export function usesWebkitUnsupportedMember(
 
 // Parsing is paid once per text and only when a pattern already matched it,
 // so a project that never names a missing API never parses anything.
-export function webkitGuardedRangesOf(): (text: string) => Range[] {
+export function guardedRangesOf(
+  missing: WebkitMissingApis = webkitMissingApis
+): (text: string) => Range[] {
   const known = new Map<string, Range[]>()
 
   return (text: string) => {
     let ranges = known.get(text)
 
     if (!ranges) {
-      ranges = webkitGuardedRanges(text, webkitMissingApis)
+      ranges = webkitGuardedRanges(text, missing)
       known.set(text, ranges)
     }
 
@@ -232,16 +230,19 @@ function scanTargets(
   manifestVersion: unknown,
   engine: UnsupportedApiEngine
 ): ScanTarget[] {
-  const rangesOf = engine === 'webkit' ? webkitGuardedRangesOf() : () => []
-  const targets: ScanTarget[] = geckoUnsupportedApis(
-    manifestVersion,
-    engine
-  ).map((api) => ({
+  const apis = geckoUnsupportedApis(manifestVersion, engine)
+  // A check on action closes a branch only where action is really missing.
+  const rangesOf = guardedRangesOf(
+    engine === 'webkit'
+      ? webkitMissingApis
+      : {namespaces: new Set(apis), members: new Set()}
+  )
+  const targets: ScanTarget[] = apis.map((api) => ({
     key: api,
     api,
     test: (text: string) =>
-      usesGeckoUnsupportedApi(text, api, engine) &&
-      usesGeckoUnsupportedApi(text, api, engine, rangesOf(text))
+      usesGeckoUnsupportedApi(text, api) &&
+      usesGeckoUnsupportedApi(text, api, rangesOf(text))
   }))
   if (engine !== 'webkit') return targets
 

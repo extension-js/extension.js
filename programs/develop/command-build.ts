@@ -429,7 +429,8 @@ export async function extensionBuild(
     const hookContext: ConfigHookContext = {
       browser,
       mode: resolvedMode,
-      command: buildOptions?.metadataCommand || 'build'
+      command: buildOptions?.metadataCommand || 'build',
+      rspack
     }
     const userExtensionConfig = await loadCustomConfig(
       packageJsonDir,

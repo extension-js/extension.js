@@ -410,6 +410,63 @@ describe('extension inspect', () => {
     })
   })
 
+  it('clamps a --max-bytes no result can carry and says so', async () => {
+    bridge.result = {ok: true, value: {summary: {htmlLength: 10}, html: 'x'}}
+    expect(
+      await run(['inspect', '--include', 'html', '--max-bytes', '2000000'])
+    ).toBe(0)
+
+    expect(bridge.commands[0].args.maxBytes).toBe(262144)
+    expect(errorSpy).toHaveBeenCalledWith(
+      '… --max-bytes 2000000 is above the 262144 bytes one result can carry, so 262144 was used'
+    )
+  })
+
+  it('marks html cut at the result cap as truncated and says where', async () => {
+    bridge.result = {
+      ok: true,
+      value: {
+        summary: {htmlLength: 350000},
+        html: 'x'.repeat(250000),
+        htmlTruncated: true
+      }
+    }
+
+    expect(
+      await run(['inspect', '--include', 'html', '--output', 'json'])
+    ).toBe(0)
+
+    const frame = JSON.parse(String(logSpy.mock.calls[0][0]))
+
+    expect(frame.truncated).toBe(true)
+    expect(frame.value.html).toHaveLength(250000)
+    expect(frame.warnings).toEqual([
+      'html cut to 250000 of 350000 characters to fit the 262144-byte result cap. ' +
+        'Read on with eval: document.documentElement.outerHTML.slice(250000, 450000)'
+    ])
+  })
+
+  it('names --max-bytes when the flag made the cut', async () => {
+    bridge.result = {
+      ok: true,
+      value: {
+        summary: {htmlLength: 350000},
+        html: 'x'.repeat(1024),
+        htmlTruncated: true
+      }
+    }
+
+    expect(
+      await run(['inspect', '--include', 'html', '--max-bytes', '1024'])
+    ).toBe(0)
+
+    expect(errorSpy).toHaveBeenCalledWith(
+      '… html cut to 1024 of 350000 characters by --max-bytes'
+    )
+
+    expect(errorSpy).not.toHaveBeenCalledWith('… result truncated (byte cap)')
+  })
+
   it('lists tabs via tabs.query with --list-tabs', async () => {
     bridge.result = {ok: true, value: [{tabId: 1, url: 'a', title: 't'}]}
     expect(await run(['inspect', '--list-tabs'])).toBe(0)

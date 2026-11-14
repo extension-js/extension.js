@@ -19,7 +19,9 @@ afterEach(() => {
 })
 
 function makeProjectWithSymlinkedView() {
-  const root = fs.realpathSync(
+  // The native form also expands a Windows short name such as RUNNER~1,
+  // which is the form the code under test answers with.
+  const root = fs.realpathSync.native(
     fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-rp-'))
   )
   tempDirs.push(root)

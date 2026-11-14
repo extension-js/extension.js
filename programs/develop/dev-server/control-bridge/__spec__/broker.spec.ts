@@ -745,6 +745,106 @@ describe('BridgeBroker reload receipts', () => {
     expect(prod.sent.filter((f) => f.type === 'reload')).toHaveLength(1)
   })
 
+  it('takes the verdict back when the producer says hello after the window', async () => {
+    let clock = 1000
+    const timers: Array<{fn: () => void; ms: number}> = []
+    const b = new BridgeBroker({
+      ...opts,
+      now: () => clock,
+      setTimer: (fn, ms) => {
+        timers.push({fn, ms})
+
+        return timers.length as unknown as ReturnType<typeof setTimeout>
+      },
+      clearTimer: () => undefined
+    })
+    const prod = new FakeConn('p')
+    helloProducer(b, prod, true)
+
+    b.broadcastReload({type: 'service-worker', label: 'service_worker'})
+    b.onFrame(prod, {
+      type: 'reload-ack',
+      reloadType: 'service-worker',
+      reloadId: reloadIdOf(prod)
+    })
+
+    const late = b.awaitLateReloadRestart()
+
+    clock += RELOAD_RESTART_TIMEOUT_MS
+    timers.find((t) => t.ms === RELOAD_RESTART_TIMEOUT_MS)?.fn()
+    await expect(b.awaitReloadRestart()).resolves.toBe('not-restarted')
+
+    clock += 26000
+    helloProducer(b, new FakeConn('slow-generation'), true)
+
+    await expect(late).resolves.toEqual({afterMs: 41000, runsBuild: true})
+  })
+
+  it('says a late producer on a build from before the reload does not run it', async () => {
+    const {b, closeRestartWindow} = brokerWithTimers()
+    const prod = new FakeConn('p')
+    helloProducer(b, prod, true)
+    b.noteSessionBuild('build-1')
+    b.noteSessionBuild('build-2')
+
+    b.broadcastReload({
+      type: 'service-worker',
+      label: 'service_worker',
+      build: 'build-2'
+    })
+
+    b.onFrame(prod, {
+      type: 'reload-ack',
+      reloadType: 'service-worker',
+      reloadId: reloadIdOf(prod)
+    })
+
+    const late = b.awaitLateReloadRestart()
+
+    closeRestartWindow()
+    b.onFrame(new FakeConn('woken-old-worker'), {
+      type: 'hello',
+      v: 1,
+      role: 'producer',
+      instanceId: 'inst-1',
+      build: 'build-1'
+    })
+
+    await expect(late).resolves.toMatchObject({runsBuild: false})
+  })
+
+  it('has no late return for a restart in time or a reload a newer one replaced', async () => {
+    const {b, closeRestartWindow} = brokerWithTimers()
+    const prod = new FakeConn('p')
+    helloProducer(b, prod, true)
+
+    await expect(b.awaitLateReloadRestart()).resolves.toBeNull()
+
+    b.broadcastReload({type: 'full', label: 'extension'})
+    b.onFrame(prod, {
+      type: 'reload-ack',
+      reloadType: 'full',
+      reloadId: reloadIdOf(prod)
+    })
+
+    const inTime = b.awaitLateReloadRestart()
+    const next = new FakeConn('next-generation')
+    helloProducer(b, next, true)
+    await expect(inTime).resolves.toBeNull()
+
+    b.broadcastReload({type: 'full', label: 'extension'})
+    b.onFrame(next, {
+      type: 'reload-ack',
+      reloadType: 'full',
+      reloadId: reloadIdOf(next)
+    })
+
+    const replaced = b.awaitLateReloadRestart()
+    closeRestartWindow()
+    b.broadcastReload({type: 'full', label: 'extension'})
+    await expect(replaced).resolves.toBeNull()
+  })
+
   it('leaves a browser that exited to the line that already reports it', async () => {
     const {b, closeRestartWindow} = brokerWithTimers()
     const prod = new FakeConn('p')

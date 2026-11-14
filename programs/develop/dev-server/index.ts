@@ -38,6 +38,7 @@ import type {ProjectStructure} from '../lib/project'
 import {sanitize} from '../lib/sanitize'
 import {
   ensureSessionArtifactsIgnoreFile,
+  ensureSessionStateIgnoreFile,
   ensureSessionStateInProjectGitignore,
   readyContractPath,
   actionsPath as sessionActionsPath,
@@ -801,6 +802,7 @@ export async function devServer(
     }
 
     bridgeControlPort = controlServer.port
+    ensureSessionStateIgnoreFile(packageJsonDir)
     writePersistedControlPort(controlPortFile, controlServer.port)
   } catch (error) {
     // No control port means no reload transport at all, so say it here rather
@@ -1083,7 +1085,8 @@ export async function devServer(
     const hookContext: ConfigHookContext = {
       browser: webpackConfigOptions.browser,
       mode: webpackConfigOptions.mode,
-      command: webpackConfigOptions.metadataCommand
+      command: webpackConfigOptions.metadataCommand,
+      rspack
     }
     const customWebpackConfig = await loadCustomConfig(
       packageJsonDir,

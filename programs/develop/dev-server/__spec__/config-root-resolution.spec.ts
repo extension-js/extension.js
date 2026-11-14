@@ -116,7 +116,8 @@ describe('dev-server config root resolution', () => {
     expect(loadCustomConfig).toHaveBeenCalledWith('/proj', {
       browser: 'chrome',
       mode: 'development',
-      command: 'dev'
+      command: 'dev',
+      rspack: expect.anything()
     })
   })
 
