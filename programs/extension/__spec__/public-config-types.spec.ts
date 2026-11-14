@@ -90,7 +90,8 @@ describe('public config types (extension package)', () => {
         seen.push({
           browser: context.browser,
           mode: context.mode,
-          command: context.command
+          command: context.command,
+          rspack: context.rspack
         })
 
         return bundler
@@ -103,7 +104,8 @@ describe('public config types (extension package)', () => {
     const context: ConfigHookContext = {
       browser: 'edge',
       mode: 'production',
-      command: 'build'
+      command: 'build',
+      rspack: {ProvidePlugin: class {}}
     }
 
     config.config?.({}, context)
@@ -123,6 +125,8 @@ describe('public config types (extension package)', () => {
     expect(dts).toMatch(
       /configResolved\?: \(config: any, context: ConfigHookContext\) => any;/
     )
+
+    expect(dts).toMatch(/^ {4}rspack: any;$/m)
 
     const rootDts = fs.readFileSync(path.join(pkgRoot, pkg.types), 'utf8')
     expect(rootDts).toContain('ConfigHookContext')

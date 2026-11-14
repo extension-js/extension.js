@@ -7,7 +7,6 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import * as parse5utilities from 'parse5-utilities'
-import {getFilePath} from './utils'
 
 const PROPAGATED_SCRIPT_ATTRS = new Set(['type', 'defer', 'async'])
 
@@ -45,7 +44,7 @@ export function createScriptTag(
 // modules the siblings registered, the same order a web app's HTML uses.
 export function injectJsScript(
   bodyNode: Parameters<typeof parse5utilities.append>[0],
-  feature: string,
+  entryScript: string,
   firstScriptAttrs?: Array<{name: string; value: string}>,
   siblingScripts: string[] = []
 ) {
@@ -55,6 +54,6 @@ export function injectJsScript(
 
   parse5utilities.append(
     bodyNode,
-    createScriptTag(getFilePath(feature, '.js', true), firstScriptAttrs)
+    createScriptTag(entryScript, firstScriptAttrs)
   )
 }

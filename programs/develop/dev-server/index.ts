@@ -38,6 +38,7 @@ import type {ProjectStructure} from '../lib/project'
 import {sanitize} from '../lib/sanitize'
 import {
   ensureSessionArtifactsIgnoreFile,
+  ensureSessionStateIgnoreFile,
   ensureSessionStateInProjectGitignore,
   readyContractPath,
   actionsPath as sessionActionsPath,
@@ -801,6 +802,7 @@ export async function devServer(
     }
 
     bridgeControlPort = controlServer.port
+    ensureSessionStateIgnoreFile(packageJsonDir)
     writePersistedControlPort(controlPortFile, controlServer.port)
   } catch (error) {
     // No control port means no reload transport at all, so say it here rather
@@ -916,6 +918,11 @@ export async function devServer(
     config: mergedExtensionsConfig
   })
 
+  // An act verb reaches the browser through the extension's background, so a
+  // session that takes them and opens a browser holds ready for its hello.
+  const readyAwaitsExecutor =
+    allowControl && Boolean(extendedOptions.browsersPlugin)
+
   const webpackConfigOptions = {
     // The dev server is the one dev session: instrumentation keys on this.
     metadataCommand: 'dev' as const,
@@ -929,6 +936,7 @@ export async function devServer(
     controlPortUnavailableReason,
     controlPath: CONTROL_WS_PATH,
     logsPath: bridgeLogsRelPath,
+    readyAwaitsExecutor,
     port: portAllocation.port,
     output: {
       clean: false,
@@ -951,7 +959,9 @@ export async function devServer(
     controlPort: bridgeControlPort,
     controlPortUnavailableReason,
     controlPath: CONTROL_WS_PATH,
-    logsPath: bridgeLogsRelPath
+    logsPath: bridgeLogsRelPath,
+    readyAwaitsRdpPort: Boolean(extendedOptions.browsersPlugin),
+    readyAwaitsExecutor
   })
   stampExecutorAttached = (attached) => metadata.stampExecutorAttached(attached)
   stampExecutorDetached = () => metadata.stampExecutorDetached()
@@ -1083,7 +1093,8 @@ export async function devServer(
     const hookContext: ConfigHookContext = {
       browser: webpackConfigOptions.browser,
       mode: webpackConfigOptions.mode,
-      command: webpackConfigOptions.metadataCommand
+      command: webpackConfigOptions.metadataCommand,
+      rspack
     }
     const customWebpackConfig = await loadCustomConfig(
       packageJsonDir,

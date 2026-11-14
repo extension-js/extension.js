@@ -20,7 +20,7 @@ const SIDE_PANEL =
 const ACTION = 'chrome.action.onClicked.addListener(() => {})\n'
 
 describe('usesGeckoUnsupportedApi', () => {
-  it('matches a member read on chrome or browser, with spacing and optional chaining', () => {
+  it('matches a member read on chrome or browser, with spacing', () => {
     expect(
       usesGeckoUnsupportedApi('chrome.sidePanel.open({})', 'sidePanel')
     ).toBe(true)
@@ -33,11 +33,13 @@ describe('usesGeckoUnsupportedApi', () => {
       usesGeckoUnsupportedApi('chrome . sidePanel\n  .open({})', 'sidePanel')
     ).toBe(true)
 
+    expect(usesGeckoUnsupportedApi(ACTION, 'action')).toBe(true)
+  })
+
+  it('lets optional chaining on the namespace through', () => {
     expect(
       usesGeckoUnsupportedApi('chrome.sidePanel?.open({})', 'sidePanel')
-    ).toBe(true)
-
-    expect(usesGeckoUnsupportedApi(ACTION, 'action')).toBe(true)
+    ).toBe(false)
   })
 
   it('ignores a bare feature check and the look-alike namespaces', () => {
@@ -63,53 +65,38 @@ describe('usesGeckoUnsupportedApi', () => {
   })
 })
 
-describe('usesGeckoUnsupportedApi on webkit', () => {
+describe('usesGeckoUnsupportedApi on a namespace only Safari lacks', () => {
   it('matches an unguarded call and lets optional chaining through', () => {
-    expect(usesGeckoUnsupportedApi(SIDE_PANEL, 'sidePanel', 'webkit')).toBe(
-      true
-    )
+    expect(usesGeckoUnsupportedApi(SIDE_PANEL, 'sidePanel')).toBe(true)
 
     expect(
       usesGeckoUnsupportedApi(
         'chrome.sidePanel?.setPanelBehavior({})',
-        'sidePanel',
-        'webkit'
+        'sidePanel'
       )
     ).toBe(false)
 
     expect(
-      usesGeckoUnsupportedApi('if (chrome.sidePanel) {}', 'sidePanel', 'webkit')
+      usesGeckoUnsupportedApi('if (chrome.sidePanel) {}', 'sidePanel')
     ).toBe(false)
   })
 
   it('reads the namespace, not a name that starts with it', () => {
     expect(
-      usesGeckoUnsupportedApi(
-        'chrome.management.getSelf()',
-        'management',
-        'webkit'
-      )
+      usesGeckoUnsupportedApi('chrome.management.getSelf()', 'management')
     ).toBe(true)
 
     expect(
-      usesGeckoUnsupportedApi(
-        'chrome.managementPanel.getSelf()',
-        'management',
-        'webkit'
-      )
+      usesGeckoUnsupportedApi('chrome.managementPanel.getSelf()', 'management')
     ).toBe(false)
 
-    expect(
-      usesGeckoUnsupportedApi('browser.idle.queryState(15)', 'idle', 'webkit')
-    ).toBe(true)
+    expect(usesGeckoUnsupportedApi('browser.idle.queryState(15)', 'idle')).toBe(
+      true
+    )
 
     // The web platform has its own history, and only the extension one throws
     expect(
-      usesGeckoUnsupportedApi(
-        'window.history.pushState({})',
-        'history',
-        'webkit'
-      )
+      usesGeckoUnsupportedApi('window.history.pushState({})', 'history')
     ).toBe(false)
   })
 })
@@ -1014,6 +1001,78 @@ describe('UpdateManifest Gecko unsupported API warning', () => {
     ''
   ].join('\n')
 
+  const PANEL_IF_ELSE = [
+    'if (chrome.sidePanel) {',
+    '  chrome.sidePanel',
+    '    .setPanelBehavior({openPanelOnActionClick: true})',
+    '    .catch((error) => console.error(error))',
+    '} else {',
+    '  chrome.action.onClicked.addListener(() => {})',
+    '}',
+    ''
+  ].join('\n')
+  const PANEL_GUARDS = [
+    PANEL_IF_ELSE,
+    'chrome.sidePanel?.setPanelBehavior({openPanelOnActionClick: true})\n',
+    'if (typeof chrome.sidePanel !== "undefined") chrome.sidePanel.open({})\n',
+    'chrome.sidePanel ? chrome.sidePanel.open({}) : chrome.action.setTitle({title: "x"})\n'
+  ]
+
+  it('stays quiet on firefox and safari for a sidePanel call behind a presence check', () => {
+    for (const guarded of PANEL_GUARDS) {
+      for (const browser of ['firefox', 'safari']) {
+        expect(
+          run('production', browser, mv3, guarded, {chunkGraph: true}),
+          `${browser}: ${guarded}`
+        ).toEqual([])
+      }
+    }
+  })
+
+  it('reads a check on action as a guard only where action is missing', () => {
+    const guarded =
+      'if (chrome.action) chrome.action.onClicked.addListener(() => {})\n'
+    const early = `if (!chrome.action) throw new Error("no action")\n${SIDE_PANEL}`
+
+    expect(run('production', 'firefox', mv2, guarded)).toEqual([])
+    // Manifest V3 has action, so the exit never runs and the call below does.
+    expect(run('production', 'firefox', mv3, early)).toHaveLength(1)
+  })
+
+  it('keeps a guard that sits in a script past 4 MB', () => {
+    const padding = `const pad = "${'x'.repeat(5 * 1024 * 1024)}"\n`
+
+    for (const browser of ['firefox', 'safari']) {
+      expect(
+        run('production', browser, mv3, padding + PANEL_IF_ELSE, {
+          chunkGraph: true
+        }),
+        browser
+      ).toEqual([])
+
+      expect(
+        run('production', browser, mv3, padding + SIDE_PANEL, {
+          chunkGraph: true
+        }),
+        browser
+      ).toHaveLength(1)
+    }
+  })
+
+  it('lists the same guards in the firefox and the safari advice', () => {
+    const advice = (browser: string) =>
+      run('production', browser, mv3, SIDE_PANEL)[0].message
+
+    for (const browser of ['firefox', 'safari']) {
+      expect(advice(browser)).toContain(
+        'import.meta.env.EXTENSION_PUBLIC_BROWSER'
+      )
+
+      expect(advice(browser)).toContain('chrome.sidePanel?.')
+      expect(advice(browser)).toContain('if (chrome.sidePanel)')
+    }
+  })
+
   it('stays quiet for a namespace and a member reached only behind a feature check', () => {
     expect(run('production', 'safari', mv3, OFFSCREEN_GUARDED)).toEqual([])
     expect(
@@ -1089,7 +1148,6 @@ describe('webkitGuardedRanges', () => {
     usesGeckoUnsupportedApi(
       source,
       'offscreen',
-      'webkit',
       webkitGuardedRanges(source, webkitMissingApis)
     )
 

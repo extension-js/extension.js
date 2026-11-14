@@ -7,6 +7,7 @@ import {
 } from '../normalize-split-chunks'
 import {
   defaultSplitChunks,
+  GECKO_MAX_CHUNK_BYTES,
   isPageChunkName,
   pageInitialChunks
 } from '../split-chunks'
@@ -104,6 +105,53 @@ describe('defaultSplitChunks', () => {
       '/p/src/react/index.js'
     ]) {
       expect(config.cacheGroups.framework.test.test(file)).toBe(false)
+    }
+  })
+
+  it('caps page chunks for a Gecko target only', () => {
+    for (const browser of ['firefox', 'gecko-based', 'firefox-based']) {
+      const config = defaultSplitChunks(browser) as any
+      expect(config.cacheGroups.commons.maxSize).toBe(GECKO_MAX_CHUNK_BYTES)
+      // A fixed file name would make every numbered part overwrite the last.
+      expect(config.cacheGroups.commons.filename).toBe('[name].js')
+      expect(config.cacheGroups.commons.name).toBe('shared/commons')
+      expect(config.cacheGroups.framework.filename).toBe('[name].js')
+      expect(config.cacheGroups.framework.name).toBe('shared/framework')
+      // A page's own chunk is capped too: the page markup lists each part.
+      expect(config.maxSize).toBe(GECKO_MAX_CHUNK_BYTES)
+      expect(config.chunks).toBe(pageInitialChunks)
+      // A lazily loaded chunk past the cap is split on every surface, since
+      // the runtime fetches each part. A minimum size as large as the cap
+      // would stop the split, so the group sets none.
+      expect(config.cacheGroups.lazy).toMatchObject({
+        chunks: 'async',
+        maxSize: GECKO_MAX_CHUNK_BYTES,
+        reuseExistingChunk: true
+      })
+
+      expect(config.cacheGroups.lazy.minSize).toBeUndefined()
+
+      // The shared groups keep reading the top-level page selector.
+      expect(config.cacheGroups.commons.chunks).toBeUndefined()
+      expect(config.cacheGroups.framework.chunks).toBeUndefined()
+      expect(config.cacheGroups.lazy.priority).toBeLessThan(
+        config.cacheGroups.commons.priority
+      )
+    }
+
+    // The store check stops at 5 MB, and the cap has to sit under it.
+    expect(GECKO_MAX_CHUNK_BYTES).toBeLessThan(5 * 1024 * 1024)
+
+    for (const browser of ['chrome', 'edge', 'chromium-based', 'safari']) {
+      expect(defaultSplitChunks(browser)).toEqual(defaultSplitChunks())
+      expect((defaultSplitChunks(browser) as any).maxSize).toBeUndefined()
+      expect(
+        (defaultSplitChunks(browser) as any).cacheGroups.commons.maxSize
+      ).toBeUndefined()
+
+      expect(
+        (defaultSplitChunks(browser) as any).cacheGroups.lazy
+      ).toBeUndefined()
     }
   })
 })

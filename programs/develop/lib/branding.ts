@@ -8,6 +8,8 @@
 
 import {humanLine} from './messaging'
 
+const BUNDLER_NAME = /rspack|webpack/i
+
 export function scrubBrand(txt: string, brand = 'Extension.js'): string {
   if (!txt) return txt
 
@@ -25,6 +27,14 @@ export function scrubBrand(txt: string, brand = 'Extension.js'): string {
     // Keep upstream optimization warnings pointing to the actual bundler/docs.
     .replace(/\bRspack\b(?=\s+performance recommendations:)/gi, preserve)
     .replace(/https?:\/\/rspack\.(?:rs|dev)\/[^\s)]+/gi, preserve)
+    // A name the reader types into a config file stays as written: a code
+    // span, the quoted or destructured key, and a member such as rspack.X.
+    .replace(/`[^`\n]*`/g, (span) =>
+      BUNDLER_NAME.test(span) ? preserve(span) : span
+    )
+    .replace(/(['"])rspack\1/g, preserve)
+    .replace(/\{\s*rspack\s*\}/g, preserve)
+    .replace(/\brspack(?=\.(?!config\b)[A-Za-z_$])/g, preserve)
     .replace(/(?<!@)\bRspack\b/gi, safeBrand)
     .replace(/(?<!@)\bWebpack\b/gi, safeBrand)
     .replace(/(?<!@)\bwebpack-dev-server\b/gi, `${safeBrand} dev server`)
@@ -36,7 +46,7 @@ export function scrubBrand(txt: string, brand = 'Extension.js'): string {
     .replace(/\n{2}(?=WARNING in )/g, '\n')
 
   preserved.forEach((value, index) => {
-    output = output.replace(`__EXT_BRAND_PRESERVE_${index}__`, value)
+    output = output.replace(`__EXT_BRAND_PRESERVE_${index}__`, () => value)
   })
 
   return output

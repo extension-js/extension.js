@@ -12,6 +12,7 @@ import type {Configuration} from '@rspack/core'
 import {humanLine, stripAnsi} from './dev-server/lifecycle-stream'
 import {
   failedAddonLint,
+  oversizeSingleFileLines,
   runAddonLint,
   summarizeAddonLint
 } from './lib/addon-lint'
@@ -78,6 +79,7 @@ import {
   relativeToDir
 } from './lib/paths'
 import {getProjectStructure} from './lib/project'
+import {isSamePath} from './lib/real-path'
 import {resolveSafariIdentity} from './lib/safari-identity'
 import {
   browserDistDir,
@@ -109,7 +111,6 @@ import type {
   CommonWebpackOptions,
   ConfigHookContext
 } from './types'
-import {isSamePath} from './lib/real-path'
 
 const reportedBuildFailures = new WeakSet<object>()
 
@@ -428,7 +429,8 @@ export async function extensionBuild(
     const hookContext: ConfigHookContext = {
       browser,
       mode: resolvedMode,
-      command: buildOptions?.metadataCommand || 'build'
+      command: buildOptions?.metadataCommand || 'build',
+      rspack
     }
     const userExtensionConfig = await loadCustomConfig(
       packageJsonDir,
@@ -634,6 +636,7 @@ export async function extensionBuild(
           // errors. A missing linter is one hint, a broken one says so, and
           // the summary records the outcome either way.
           const lintLines: string[] = []
+          let linterAnswered = true
 
           try {
             const lint = await runAddonLint({
@@ -650,9 +653,11 @@ export async function extensionBuild(
 
             summary = {...summary, addon_lint: summarizeAddonLint(lint)}
 
-            if (lint.status === 'missing' && lint.hint) {
-              lintLines.push(lint.hint)
+            if (lint.status === 'missing') {
+              linterAnswered = false
+              if (lint.hint) lintLines.push(lint.hint)
             } else if (lint.status === 'failed') {
+              linterAnswered = false
               lintLines.push(lint.line)
               if (isDebug()) lintLines.push(lint.debugLine)
             } else if (lint.status === 'linted' && lint.findings > 0) {
@@ -674,6 +679,25 @@ export async function extensionBuild(
             const lint = failedAddonLint(lintError, distDisplay)
             summary = {...summary, addon_lint: summarizeAddonLint(lint)}
             lintLines.push(lint.line)
+            linterAnswered = false
+          }
+
+          // A script over the store's parse limit is named by the store
+          // check. With no linter answer the build names it on its own.
+          if (!linterAnswered) {
+            const sizeLines = oversizeSingleFileLines(displayDistPath)
+
+            if (sizeLines.length > 0) {
+              lintLines.push(...sizeLines)
+              summary = {
+                ...summary,
+                warnings_count: summary.warnings_count + sizeLines.length,
+                warnings: [
+                  ...(summary.warnings || []),
+                  ...sizeLines.map((line) => stripAnsi(line))
+                ]
+              }
+            }
           }
 
           // The docs tell a reader to take the archive path from the build

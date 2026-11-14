@@ -11,6 +11,7 @@ import * as path from 'node:path'
 import {type Compilation, type Compiler, rspack} from '@rspack/core'
 import {requestDevSessionRestart} from '../dev-server/session-restart'
 import {debugLine, isDebug} from '../lib/messaging'
+import {isInsidePath} from '../lib/real-path'
 import {localeDirsWithoutMessages} from '../plugin-web-extension/feature-locales/get-locales'
 import type {
   DevOptions,
@@ -27,6 +28,7 @@ import {
   rememberExcludedFiles,
   rememberSpecialFoldersConfig
 } from './folders-config'
+import {HintImportOnlyScripts} from './hint-import-only-scripts'
 import {IncludeFiles} from './include-files'
 import * as messages from './messages'
 import {PruneRemovedPublicFiles} from './prune-removed-public-files'
@@ -35,7 +37,6 @@ import {
   rememberPublicRoots
 } from './resolve-public-folder'
 import {WarnUponFolderChanges} from './warn-upon-folder-changes'
-import {isInsidePath} from '../lib/real-path'
 
 interface SpecialFoldersPluginOptions {
   manifestPath: string
@@ -63,6 +64,8 @@ export class SpecialFoldersPlugin {
     // Declared files ride the same copier as public/, so they land in the
     // output and reload on edit without a plugin of the project's own.
     new IncludeFiles({include, projectRoot: context}).apply(compiler)
+
+    new HintImportOnlyScripts().apply(compiler)
 
     const excluded = excludedFiles(context)
 

@@ -139,3 +139,59 @@ export function envNoMatchingFile(
     )} and ${colors.yellow('edge')} targets.`
   )
 }
+
+// Shared by the build error and the require() warning, so both name one fix.
+export function nodeBuiltinStandInHint(builtin: string) {
+  const root = builtin.split('/')[0]
+
+  return (
+    `In ${colors.yellow('extension.config.js')}, set ` +
+    `${colors.yellow('resolve.fallback')} from the ` +
+    `${colors.yellow('config')} hook: ` +
+    `${colors.yellow(`{'${root}': false}`)} for an empty module, or the path ` +
+    `of a browser polyfill you installed, such as ` +
+    `${colors.yellow(`require.resolve('${root}/')`)}. ` +
+    `${colors.yellow(`node:${root}`)} and ${colors.yellow(root)} read the ` +
+    `same key.`
+  )
+}
+
+// The upstream text stops at "Can't resolve 'util'", which reads as a missing
+// dependency. It is a Node module, and the answer is a key in the config file.
+export function nodeBuiltinHasNoStandIn(
+  builtin: string,
+  issuer: string,
+  stubbed: readonly string[],
+  upstream: string
+) {
+  const from = issuer
+    ? ` ${colors.yellow(displayPath(issuer))} imports it.`
+    : ''
+  const head =
+    `The Node.js built-in ${colors.yellow(builtin)} does not exist in a ` +
+    `browser, and this build has no stand-in for it.${from}`
+
+  // A name Node answers only with its prefix has no bare key to fall back on.
+  if (builtin.startsWith('node:')) {
+    return (
+      `${head}\nIt has no bare name, so ` +
+      `${colors.yellow('resolve.fallback')} cannot reach it. In ` +
+      `${colors.yellow('extension.config.js')}, push ` +
+      `${colors.yellow(
+        `new rspack.NormalModuleReplacementPlugin(/^${builtin}$/, yourModulePath)`
+      )} onto ${colors.yellow('config.plugins')} from the ` +
+      `${colors.yellow('config')} hook, where ` +
+      `${colors.yellow('yourModulePath')} is the absolute path of a module ` +
+      `of yours. The hook's second argument carries the class: ` +
+      `${colors.yellow('config: (config, {rspack}) => config')}.`
+    )
+  }
+
+  const stubs =
+    stubbed.length > 0
+      ? `Only ${stubbed.map((name) => colors.yellow(name)).join(', ')} ` +
+        `${stubbed.length === 1 ? 'is' : 'are'} replaced with an empty module. `
+      : ''
+
+  return `${head}\n${stubs}${nodeBuiltinStandInHint(builtin)}\n${upstream}`
+}

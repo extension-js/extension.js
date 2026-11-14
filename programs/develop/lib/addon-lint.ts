@@ -6,6 +6,7 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {
   ADDON_REVIEWER_NOTE_FILE,
@@ -23,6 +24,7 @@ import {
   ensureOptionalModuleLoaded,
   formatInstallHint
 } from './optional-deps-resolver'
+import {classifyEntrySurface} from './split-chunks'
 
 // The one place the default lives. Flip it here and the CLI flag, the config
 // key and the merge defaults follow.
@@ -231,6 +233,68 @@ export function collectAddonLintLines(
     })
 }
 
+// The size at which addons-linter stops parsing a file and fails it.
+export const ADDON_LINT_PARSE_LIMIT_MB = 5
+
+const SINGLE_FILE_SURFACES = {
+  background: 'background script',
+  content_script: 'content script',
+  script: 'injected script'
+} as const
+
+// The surface that loads an emitted script as its only file, read from the
+// chunk name. A page, a shared chunk and a data file all answer null.
+function singleFileSurfaceOf(location: string): string | null {
+  const file = chunkFileOf(location)
+  if (!/\.m?js$/i.test(file)) return null
+
+  const surface = classifyEntrySurface(file.replace(/\.m?js$/i, ''))
+
+  return surface === 'page' ? null : SINGLE_FILE_SURFACES[surface]
+}
+
+function emittedFiles(dir: string, base = dir): string[] {
+  return fs.readdirSync(dir, {withFileTypes: true}).flatMap((entry) => {
+    const full = path.join(dir, entry.name)
+
+    if (entry.isDirectory()) return emittedFiles(full, base)
+
+    return [path.relative(base, full).split(path.sep).join('/')]
+  })
+}
+
+// What the build can say when no linter answered: each single-file script
+// in dist the store would refuse to parse, in the store check's own words.
+export function oversizeSingleFileLines(distPath: string): string[] {
+  const limitBytes = ADDON_LINT_PARSE_LIMIT_MB * 1024 * 1024
+
+  try {
+    return emittedFiles(distPath)
+      .sort()
+      .flatMap((file) => {
+        const surface = singleFileSurfaceOf(file)
+        if (!surface) return []
+
+        const bytes = fs.statSync(path.join(distPath, file)).size
+        if (bytes < limitBytes) return []
+
+        return [
+          messages.fileTooLargeForStore(
+            file,
+            bytes,
+            messages.addonLintFileTooLargeFix(
+              ADDON_LINT_PARSE_LIMIT_MB,
+              surface
+            )
+          )
+        ]
+      })
+  } catch {
+    // A size hint can never fail a green build.
+    return []
+  }
+}
+
 // The linter locates a finding by its path inside dist, which is the emitted
 // chunk name the provenance map is keyed by.
 export function attributionFor(
@@ -241,6 +305,13 @@ export function attributionFor(
 ): string {
   if (AUTHOR_ONLY_CODES.has(code)) {
     return messages.addonLintUnsupportedApiFix(browser)
+  }
+
+  if (code === 'FILE_TOO_LARGE') {
+    return messages.addonLintFileTooLargeFix(
+      ADDON_LINT_PARSE_LIMIT_MB,
+      singleFileSurfaceOf(location)
+    )
   }
 
   if (!chunkProvenance || chunkProvenance.size === 0) return ''

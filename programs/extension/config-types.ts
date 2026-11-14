@@ -416,4 +416,12 @@ export interface ConfigHookContext {
   mode: 'development' | 'production' | 'none'
   /** The command that started the run. */
   command: 'dev' | 'build' | 'start' | 'preview'
+  /**
+   * The bundler this run compiles with, the same object `@rspack/core`
+   * exports as `rspack`. Read plugin classes from it, for example
+   * `new rspack.ProvidePlugin({...})`, instead of importing a bundler the
+   * project may not have or may have in another version.
+   */
+  // biome-ignore lint/suspicious/noExplicitAny: public config API stays loose so user projects need no bundler types
+  rspack: any
 }

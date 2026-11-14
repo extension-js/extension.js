@@ -569,6 +569,11 @@ export interface CommonWebpackOptions {
   controlPortUnavailableReason?: string | null
   controlPath?: string
   logsPath?: string
+  /**
+   * Set by dev-server when act verbs are allowed and a browser launch
+   * follows, so ready.json waits for the background to connect.
+   */
+  readyAwaitsExecutor?: boolean
 }
 
 /**
@@ -797,6 +802,11 @@ export interface ConfigHookContext {
   browser: BrowserType
   mode: 'development' | 'production' | 'none'
   command: 'dev' | 'build' | 'start' | 'preview'
+  /**
+   * The bundler this run compiles with, so a hook reaches `ProvidePlugin`
+   * or `NormalModuleReplacementPlugin` with no bundler of the project's own.
+   */
+  rspack: typeof import('@rspack/core').rspack
 }
 
 export interface SpecialFoldersConfig {

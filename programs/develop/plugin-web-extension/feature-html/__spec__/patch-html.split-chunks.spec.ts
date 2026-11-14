@@ -3,7 +3,7 @@ import * as path from 'node:path'
 import type {Compilation} from '@rspack/core'
 import {afterAll, describe, expect, it} from 'vitest'
 import {patchHtml, patchHtmlNested} from '../html-lib/patch-html'
-import {siblingScriptsFor} from '../steps/update-html-file'
+import {entryScriptFor, siblingScriptsFor} from '../steps/update-html-file'
 
 // A page whose entry was split into several initial files must load every
 // sibling chunk before its own bundle, with the author's tag attributes.
@@ -133,6 +133,36 @@ describe('patchHtml with sibling chunks', () => {
     expect(tags[0]).toMatch(/\sasync(=""|\s|>)/)
   })
 
+  it('names the file the entry chunk was emitted as, in place and appended', () => {
+    const tmp = makeTmp('numbered')
+    fs.writeFileSync(path.join(tmp, 'popup.js'), 'console.log(1)')
+    const htmlPath = path.join(tmp, 'popup.html')
+    const parts = ['/action/index-0.js', '/action/index-1.js']
+
+    for (const [mode, markup] of [
+      ['production', '<script src="./popup.js"></script>'],
+      ['development', '']
+    ] as const) {
+      fs.writeFileSync(htmlPath, `<html><body>${markup}</body></html>`)
+
+      const updated = patchHtml(
+        makeCompilation(mode),
+        'action/index',
+        htmlPath,
+        {'action/index': htmlPath},
+        tmp,
+        parts,
+        undefined,
+        {entryScript: '/action/index-2.js'}
+      )
+
+      expect(scriptTags(updated).map(srcOf)).toEqual([
+        ...parts,
+        '/action/index-2.js'
+      ])
+    }
+  })
+
   it('leaves a nested page alone: its own tags stay, no sibling is added', () => {
     const tmp = makeTmp('nested')
     const htmlPath = path.join(tmp, 'nested', 'index.html')
@@ -206,5 +236,55 @@ describe('siblingScriptsFor', () => {
     ).toEqual([])
 
     expect(siblingScriptsFor({} as Compilation, 'action/index')).toEqual([])
+  })
+})
+
+describe('entryScriptFor', () => {
+  function compilationWithEntry(files: string[], entryFile?: string) {
+    return {
+      entrypoints: new Map([
+        [
+          'action/index',
+          {
+            getFiles: () => files,
+            getEntrypointChunk: () =>
+              entryFile ? {files: new Set([entryFile])} : null
+          }
+        ]
+      ])
+    } as unknown as Compilation
+  }
+
+  it('reads the entry chunk file when a size cap numbered every part', () => {
+    const files = [
+      'action/index-0.js',
+      'action/index-1.js',
+      'action/index-2.js'
+    ]
+    const compilation = compilationWithEntry(files, 'action/index-2.js')
+
+    expect(entryScriptFor(compilation, 'action/index')).toBe(
+      '/action/index-2.js'
+    )
+
+    expect(siblingScriptsFor(compilation, 'action/index')).toEqual([
+      '/action/index-0.js',
+      '/action/index-1.js'
+    ])
+  })
+
+  it('reads the named file, and nothing for an unknown entry or no graph', () => {
+    expect(
+      entryScriptFor(
+        compilationWithEntry(['shared/commons.js', 'action/index.js']),
+        'action/index'
+      )
+    ).toBe('/action/index.js')
+
+    expect(
+      entryScriptFor(compilationWithEntry(['a.js']), 'options/index')
+    ).toBeUndefined()
+
+    expect(entryScriptFor({} as Compilation, 'action/index')).toBeUndefined()
   })
 })

@@ -67,12 +67,14 @@ function isForeignRun(ready: unknown, runId: string | undefined): boolean {
 
 // A dev session's compile leaves a Gecko contract at starting until the
 // launcher knows the debugger port, so a reader never takes ready without it.
-// The port, or the reason there is none, is what turns it ready.
+// The port, or the reason there is none, is what turns it ready, unless the
+// dev server is still holding it for the background's first hello.
 function promoteHeldDevReady(ready: Record<string, unknown>) {
   if (
     ready.command === 'dev' &&
     ready.status === 'starting' &&
     typeof ready.compiledAt === 'string' &&
+    typeof ready.awaitingExecutorSince !== 'string' &&
     !ready.code
   ) {
     ready.status = 'ready'

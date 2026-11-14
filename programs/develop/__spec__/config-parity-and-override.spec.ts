@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import os from 'node:os'
 import * as path from 'node:path'
+import {rspack} from '@rspack/core'
 import {afterEach, describe, expect, it} from 'vitest'
 import {
   loadBrowserConfig,
@@ -40,7 +41,8 @@ describe('extension.config object-merge and command/browser defaults', () => {
     const hook = await loadCustomConfig(dir, {
       browser: 'chrome',
       mode: 'production',
-      command: 'build'
+      command: 'build',
+      rspack
     })
     const base = {resolve: {alias: {baz: 'qux'}}}
     const merged = hook(base as any) as any

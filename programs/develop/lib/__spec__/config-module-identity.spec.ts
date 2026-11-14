@@ -3,6 +3,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {pathToFileURL} from 'node:url'
+import {rspack} from '@rspack/core'
 import {afterAll, afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {loadCommandConfig, loadCustomConfig} from '../config-loader'
 import {configLoadingError} from '../messages'
@@ -12,7 +13,8 @@ const roots: string[] = []
 const context = {
   browser: 'chrome',
   mode: 'production',
-  command: 'build'
+  command: 'build',
+  rspack
 } as const
 const saved: Record<string, string | undefined> = {}
 

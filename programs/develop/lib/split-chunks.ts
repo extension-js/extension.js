@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {Configuration} from '@rspack/core'
+import {isGeckoBasedBrowser} from './constants'
 
 export type EntrySurface = 'page' | 'background' | 'content_script' | 'script'
 
@@ -78,18 +79,29 @@ export type SplitChunksConfig = NonNullable<
 // The output folder every chunk two or more pages share is emitted under.
 export const SHARED_CHUNK_DIR = 'shared'
 
+// The Firefox store check stops parsing a script past 5 MB and fails on it.
+// The cap counts source bytes, so 4 MB leaves room for the module wrappers.
+export const GECKO_MAX_CHUNK_BYTES = 4 * 1024 * 1024
+
 // HTML pages share code the way a web app does: the framework runtime in one
 // file, everything two or more pages import in another. Stable names, no
 // hash, so a manifest or a public asset can keep pointing at them.
-export function defaultSplitChunks(): SplitChunksConfig {
+export function defaultSplitChunks(browser?: string): SplitChunksConfig {
+  const capped = typeof browser === 'string' && isGeckoBasedBrowser(browser)
+
   return {
     chunks: pageInitialChunks,
+    // At the top level the cap also reaches a page's own chunk, which no
+    // cache group holds when nothing is shared with another page.
+    ...(capped ? {maxSize: GECKO_MAX_CHUNK_BYTES} : {}),
     cacheGroups: {
       default: false,
       defaultVendors: false,
       framework: {
         name: `${SHARED_CHUNK_DIR}/framework`,
-        filename: `${SHARED_CHUNK_DIR}/framework.js`,
+        // A capped chunk can come out as numbered parts, and one fixed file
+        // name would make every part overwrite the one before it.
+        filename: capped ? '[name].js' : `${SHARED_CHUNK_DIR}/framework.js`,
         test: FRAMEWORK_PACKAGE_PATTERN,
         type: SCRIPT_MODULE_TYPE,
         priority: 40,
@@ -98,13 +110,28 @@ export function defaultSplitChunks(): SplitChunksConfig {
       },
       commons: {
         name: `${SHARED_CHUNK_DIR}/commons`,
-        filename: `${SHARED_CHUNK_DIR}/commons.js`,
+        ...(capped
+          ? {filename: '[name].js', maxSize: GECKO_MAX_CHUNK_BYTES}
+          : {filename: `${SHARED_CHUNK_DIR}/commons.js`}),
         type: SCRIPT_MODULE_TYPE,
         minChunks: 2,
         minSize: 0,
         priority: 20,
         reuseExistingChunk: true
-      }
+      },
+      // A chunk behind import() is fetched by the runtime on every surface,
+      // so one past the cap can ship as parts where an entry file cannot.
+      ...(capped
+        ? {
+            lazy: {
+              chunks: 'async' as const,
+              type: SCRIPT_MODULE_TYPE,
+              maxSize: GECKO_MAX_CHUNK_BYTES,
+              priority: 10,
+              reuseExistingChunk: true
+            }
+          }
+        : {})
     }
   }
 }
