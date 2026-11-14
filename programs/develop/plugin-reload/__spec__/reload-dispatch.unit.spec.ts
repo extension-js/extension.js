@@ -91,6 +91,113 @@ describe('dispatchReload', () => {
     )
   })
 
+  // An edit to a file the background injected reloads no page: the file is
+  // run again in the tabs it was injected into, and the line says that.
+  describe('the line of an applied reload', () => {
+    const INJECTED: ReloadInstruction = {
+      type: 'page',
+      changedAssets: ['scripts/widget.ts'],
+      changedScriptFiles: ['scripts/widget.js'],
+      label: 'page (scripts/widget.ts)'
+    }
+
+    const printed = async (
+      instruction: ReloadInstruction,
+      replayedTabs?: number
+    ) => {
+      const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+      await dispatchReload(instruction, {
+        broker: {
+          broadcastReload: vi.fn().mockReturnValue(1),
+          awaitReloadAck: vi.fn().mockResolvedValue('acked'),
+          ...(replayedTabs === undefined
+            ? {}
+            : {reloadReplayedTabs: () => replayedTabs})
+        }
+      })
+
+      const lines = log.mock.calls.map((call) => String(call[0]))
+
+      log.mockRestore()
+
+      return lines
+    }
+
+    it('says the file ran again, in how many tabs, when no page reloaded', async () => {
+      const [one, ...rest] = await printed(INJECTED, 1)
+      const [three] = await printed(
+        {
+          ...INJECTED,
+          changedAssets: ['scripts/a.ts', 'scripts/b.ts', 'scripts/c.ts']
+        },
+        3
+      )
+
+      expect(rest).toEqual([])
+      expect(one).toContain(
+        'Ran scripts/widget.ts again in 1 open tab, with no page reload.'
+      )
+
+      expect(one).not.toContain('Reloading')
+      expect(three).toContain(
+        'Ran scripts/a.ts, scripts/b.ts +1 more again in 3 open tabs, with no page reload.'
+      )
+    })
+
+    it('keeps the reloading line when the file ran again in no tab', async () => {
+      for (const tabs of [0, undefined]) {
+        const lines = await printed(INJECTED, tabs)
+
+        expect(lines).toHaveLength(1)
+        expect(lines[0]).toContain('Reloading page (scripts/widget.ts)…')
+      }
+    })
+
+    it('keeps the reloading line for a page edit that names no injected file', async () => {
+      const lines = await printed(
+        {
+          type: 'page',
+          changedAssets: ['pages/popup.html'],
+          label: 'popup (pages/popup.html)'
+        },
+        2
+      )
+
+      expect(lines).toHaveLength(1)
+      expect(lines[0]).toContain('Reloading popup (pages/popup.html)…')
+    })
+
+    it('keeps the line of every reload that is not a page one', async () => {
+      const content = await printed(
+        {...CS, changedScriptFiles: ['scripts/widget.js']},
+        2
+      )
+      const full = await printed(
+        {
+          type: 'full',
+          changedScriptFiles: ['scripts/widget.js'],
+          label: 'extension'
+        },
+        2
+      )
+      const fixed = await printed(
+        {
+          ...INJECTED,
+          staticContentScriptEntries: ['content_scripts/content-0']
+        },
+        2
+      )
+
+      expect(content[0]).toContain(
+        'Reloading content_script (src/content/scripts.js)…'
+      )
+
+      expect(full[0]).toContain('Reloading extension…')
+      expect(fixed[0]).toContain('Reloading the extension for page')
+    })
+  })
+
   it('says the extension reloads, and why, when the edited entry is a static one', async () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
 

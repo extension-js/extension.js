@@ -16,6 +16,7 @@ import {findNearestPackageJsonSync, validatePackageJson} from './package-json'
 import {type ParsedJson, parseJsonSafe} from './parse-json-safe'
 import {findNearestDenoConfigSync, validateDenoConfig} from './project-manifest'
 import {remoteArchiveCacheKey, repairPastedUrl} from './remote-archive'
+import {isInsidePath} from './real-path'
 
 // Any of these in a project manifest means that project is an Extension.js
 // project, so it owns a manifest one directory below it.
@@ -658,11 +659,8 @@ export function resolveProjectStructureSync(
     if (!options.quiet) humanLine(line)
   }
 
-  const isUnderDir = (baseDir: string, candidatePath: string): boolean => {
-    const rel = path.relative(baseDir, candidatePath)
-
-    return Boolean(rel && !rel.startsWith('..') && !path.isAbsolute(rel))
-  }
+  const isUnderDir = (baseDir: string, candidatePath: string): boolean =>
+    isInsidePath(baseDir, candidatePath)
 
   const packageJsonPathFromProject = findNearestPackageJsonSync(
     path.join(projectPath, 'manifest.json')

@@ -25,7 +25,8 @@ export interface DevWatchSession {
 // can write files and observe which of them the dev session rebuilds for.
 export async function openDevWatchSession(
   root: string,
-  browser = 'chrome'
+  browser = 'chrome',
+  onCompiler?: (compiler: Compiler) => void
 ): Promise<DevWatchSession> {
   const projectStructure = await getProjectStructure(root)
   const distPath = path.join(root, 'dist', browser)
@@ -90,6 +91,8 @@ export async function openDevWatchSession(
     new Promise<number>((resolve) => {
       setTimeout(() => resolve(dones.length), ms)
     })
+
+  onCompiler?.(compiler)
 
   const watching = compiler.watch(
     devWatchOptions(compiler, {aggregateTimeout: 50}),

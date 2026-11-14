@@ -35,6 +35,7 @@ import {
   rememberPublicRoots
 } from './resolve-public-folder'
 import {WarnUponFolderChanges} from './warn-upon-folder-changes'
+import {isInsidePath} from '../lib/real-path'
 
 interface SpecialFoldersPluginOptions {
   manifestPath: string
@@ -291,9 +292,7 @@ export class SpecialFoldersPlugin {
 }
 
 function isUnderDir(file: string, dir: string): boolean {
-  const rel = path.relative(dir, file)
-
-  return Boolean(rel) && !rel.startsWith('..') && !path.isAbsolute(rel)
+  return isInsidePath(dir, file)
 }
 
 function pushLayoutWarning(

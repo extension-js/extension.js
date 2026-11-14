@@ -18,6 +18,7 @@ import {
   type SpecialFoldersRoots
 } from './folders-config'
 import * as messages from './messages'
+import {isInsidePath} from '../lib/real-path'
 
 type SpecialFolder = SpecialFolderName
 type ChangeType = 'add' | 'remove'
@@ -171,7 +172,7 @@ export class WarnUponFolderChanges {
     const roots = foldersRoots(projectPath)
     this.snapshotFolderFiles(roots)
     const isUnder = (root: string | undefined, filePath: string) =>
-      Boolean(root) && filePath.startsWith(root + path.sep)
+      Boolean(root) && isInsidePath(root as string, filePath)
     const isPage = (filePath: string) =>
       isUnder(roots.pages, filePath) && filePath.endsWith('.html')
     const isScript = (filePath: string) =>

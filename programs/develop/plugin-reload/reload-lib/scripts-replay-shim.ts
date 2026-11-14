@@ -9,21 +9,22 @@
 export const SCRIPTS_REPLAY_SHIM_SOURCE = `;(function () {
   try {
     if (typeof globalThis !== "object" || !globalThis) return;
-    var chromeRef =
-      (globalThis.chrome && globalThis.chrome.scripting && typeof globalThis.chrome.scripting.executeScript === "function")
-        ? globalThis.chrome
-        : (globalThis.browser && globalThis.browser.scripting && typeof globalThis.browser.scripting.executeScript === "function")
-          ? globalThis.browser
-          : null;
+    var injects = function (root) {
+      return !!root && !!root.scripting && typeof root.scripting.executeScript === "function";
+    };
+    var chromeRef = injects(globalThis.chrome) ? globalThis.chrome : injects(globalThis.browser) ? globalThis.browser : null;
     if (!chromeRef) return;
+    // The author may inject through either namespace, and one of them can
+    // answer a callback only. The replay asks the one that hands a promise back.
+    var replayRef = injects(globalThis.browser) ? globalThis.browser : chromeRef;
     if (globalThis.__extjsScriptsReplayInstalled) return;
     globalThis.__extjsScriptsReplayInstalled = true;
 
     var MAX_TABS = 50;
     var MAX_ENTRIES_PER_TAB = 50;
     var registry = new Map();
-    var originalExecuteScript = chromeRef.scripting.executeScript.bind(chromeRef.scripting);
-    var tabsApi = chromeRef.tabs && typeof chromeRef.tabs.get === "function" ? chromeRef.tabs : null;
+    var originalExecuteScript = replayRef.scripting.executeScript.bind(replayRef.scripting);
+    var tabsApi = replayRef.tabs && typeof replayRef.tabs.get === "function" ? replayRef.tabs : null;
 
     var serialize = function (entry) {
       try {
@@ -90,10 +91,19 @@ export const SCRIPTS_REPLAY_SHIM_SOURCE = `;(function () {
       }
     };
 
-    chromeRef.scripting.executeScript = function (injection, callback) {
-      track(injection);
-      return originalExecuteScript(injection, callback);
+    var tracked = [];
+    var trackCalls = function (root) {
+      if (!injects(root) || tracked.indexOf(root.scripting) !== -1) return;
+      var scripting = root.scripting;
+      var native = scripting.executeScript.bind(scripting);
+      scripting.executeScript = function (injection) {
+        track(injection);
+        return native.apply(null, arguments);
+      };
+      tracked.push(scripting);
     };
+    trackCalls(globalThis.chrome);
+    trackCalls(globalThis.browser);
 
     try {
       if (chromeRef.tabs && chromeRef.tabs.onRemoved && typeof chromeRef.tabs.onRemoved.addListener === "function") {

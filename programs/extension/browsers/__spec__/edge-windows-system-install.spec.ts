@@ -1,5 +1,4 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
@@ -16,6 +15,9 @@ vi.mock('edge-location', () => ({
 
 import {createChromiumContext} from '../run-chromium/chromium-context'
 import {ChromiumLaunchPlugin} from '../run-chromium/chromium-launch'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
+
+const makeTempFolder = trackTempFolders()
 
 const windowsOnlyCasing = (localAppData: string) => ({
   ProgramFiles: 'C:\\Program Files',
@@ -37,7 +39,7 @@ describe('--browser=edge on Windows with only the system Edge installed', () => 
   let localAppData = ''
 
   beforeEach(() => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-edge-win-'))
+    const root = makeTempFolder('ext-edge-win-')
     localAppData = path.join(root, 'AppData', 'Local')
     fs.mkdirSync(localAppData, {recursive: true})
     fs.writeFileSync(path.join(root, 'package.json'), '{}')

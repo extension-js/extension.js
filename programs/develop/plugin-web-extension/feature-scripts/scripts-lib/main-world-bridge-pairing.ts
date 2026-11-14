@@ -91,6 +91,32 @@ export function buildMainWorldBridgePairingSource(
       try { return !!(root.runtime && root.runtime.lastError); } catch (error) { return false; }
     };
     var settle = function () {};
+    var report = function (error) { console.error(error); };
+    // One namespace of an engine can answer a callback and hand nothing
+    // back, so a single read tells which of the two forms this one has.
+    var style = null;
+    var answersCallback = function () {
+      if (style === null) {
+        var read;
+        try { read = getRegistered(); } catch (error) { style = false; return style; }
+        style = !(read && typeof read.then === "function");
+        if (!style) read.then(settle, settle);
+      }
+      return style;
+    };
+    // A promise from either form, so the steps between the author's call
+    // and its answer are written once.
+    var ask = function (native, arg) {
+      if (!answersCallback()) return native(arg);
+      return new Promise(function (resolve, reject) {
+        var answer = function (value) {
+          var message = null;
+          try { message = root.runtime && root.runtime.lastError ? String(root.runtime.lastError.message) : null; } catch (error) {}
+          if (message === null) resolve(value); else reject(new Error(message));
+        };
+        if (arg === undefined) native(answer); else native(arg, answer);
+      });
+    };
     // The browser checks the shape of a call as it is made. The same call
     // with an entry it refuses later throws that check and changes nothing.
     var shaped = function (native, args, refusable) {
@@ -98,6 +124,8 @@ export function buildMainWorldBridgePairingSource(
       if (probe.length) probe[0] = refusable;
       var called = typeof probe[probe.length - 1] === "function";
       if (called) probe[probe.length - 1] = function () { failed(); };
+      // With nothing handed back, an unread refusal lands on the console.
+      else if (answersCallback()) probe.push(function () { failed(); });
       var refused;
       try {
         refused = native.apply(null, probe);
@@ -118,7 +146,7 @@ export function buildMainWorldBridgePairingSource(
         var answered = false;
         var last = function (native, arg, shape, after, undo) {
           var promised = function () {
-            return native(arg).then(function (value) {
+            return ask(native, arg).then(function (value) {
               var visible = shape ? shape(value) : value;
               return after ? after().then(function () { return visible; }) : visible;
             }, function (error) {
@@ -151,7 +179,12 @@ export function buildMainWorldBridgePairingSource(
             }
           });
         };
-        if (!done) return run(args[0], last);
+        if (!done) {
+          if (!answersCallback()) return run(args[0], last);
+          // The author's own call hands nothing back on this namespace.
+          try { run(args[0], last).then(null, report); } catch (error) { report(error); }
+          return;
+        }
         var result;
         try { result = Promise.resolve(run(args[0], last)); } catch (error) { result = Promise.reject(error); }
         result.then(null, function (error) {
@@ -162,7 +195,7 @@ export function buildMainWorldBridgePairingSource(
       };
     };
     var registeredById = function () {
-      return getRegistered().then(function (all) {
+      return ask(getRegistered).then(function (all) {
         var byId = {};
         for (var i = 0; i < all.length; i++) byId[all[i].id] = all[i];
         return byId;
@@ -187,7 +220,7 @@ export function buildMainWorldBridgePairingSource(
           }
           ordered.push(script);
         });
-        return (stale.length ? unregister({ids: stale}) : Promise.resolve()).then(function () {
+        return (stale.length ? ask(unregister, {ids: stale}) : Promise.resolve()).then(function () {
           return last(register, ordered);
         });
       });
@@ -217,12 +250,12 @@ export function buildMainWorldBridgePairingSource(
         });
         // An update moves a file to the end of the order, so each pair is
         // updated with its file and lands right before it again.
-        return (add.length ? register(add) : Promise.resolve()).then(function () {
+        return (add.length ? ask(register, add) : Promise.resolve()).then(function () {
           // A refused update leaves no pair behind for a file it never moved.
           return last(update, ordered, null, drop.length ? function () {
-            return unregister({ids: drop});
+            return ask(unregister, {ids: drop});
           } : null, add.length ? function () {
-            unregister({ids: add.map(function (pair) { return pair.id; })}).then(settle, settle);
+            ask(unregister, {ids: add.map(function (pair) { return pair.id; })}).then(settle, settle);
           } : null);
         });
       });
@@ -260,7 +293,7 @@ export function buildMainWorldBridgePairingSource(
       // A file that never ran left the base unread, so it is taken back.
       var sweep = function (target) {
         try {
-          return Promise.resolve(execute({target: target, func: clearBase, world: "ISOLATED"})).then(settle, settle);
+          return Promise.resolve(ask(execute, {target: target, func: clearBase, world: "ISOLATED"})).then(settle, settle);
         } catch (error) {
           return Promise.resolve();
         }
@@ -271,6 +304,7 @@ export function buildMainWorldBridgePairingSource(
         var probe = Array.prototype.slice.call(args);
         probe[0] = Object.assign({}, args[0], {target: Object.assign({}, args[0].target, {tabId: -1})});
         if (typeof probe[probe.length - 1] === "function") probe[probe.length - 1] = function () { failed(); };
+        else if (answersCallback()) probe.push(function () { failed(); });
         var refused = execute.apply(null, probe);
         if (refused && typeof refused.then === "function") refused.then(settle, settle);
       };
@@ -308,13 +342,13 @@ export function buildMainWorldBridgePairingSource(
           var bridged = false;
           var ahead;
           try {
-            ahead = Promise.resolve(execute(bridge)).then(function () { bridged = true; }, settle);
+            ahead = Promise.resolve(ask(execute, bridge)).then(function () { bridged = true; }, settle);
           } catch (error) {
             ahead = Promise.resolve();
           }
           return ahead.then(function () {
             if (!done) {
-              return execute.apply(null, args).then(function (frames) {
+              return (answersCallback() ? ask(execute, injection) : execute.apply(null, args)).then(function (frames) {
                 return bridged && unread(frames) ? sweep(bridge.target).then(function () { return frames; }) : frames;
               }, function (error) {
                 return (bridged ? sweep(bridge.target) : Promise.resolve()).then(function () { throw error; });
@@ -330,7 +364,11 @@ export function buildMainWorldBridgePairingSource(
           });
         };
         var turn = inTurn("tab:" + injection.target.tabId, run);
-        if (!done) return turn;
+        if (!done) {
+          if (!answersCallback()) return turn;
+          turn.then(null, report);
+          return;
+        }
         turn.then(null, function (error) { console.error(error); done(); });
       };
     }

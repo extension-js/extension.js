@@ -37,8 +37,12 @@ function copyReadmePlugin() {
     setup(api: {onAfterBuild: (cb: () => void) => void}) {
       api.onAfterBuild(() => {
         const {stale, target} = syncNpmReadme()
+
+        // An unchanged README is the usual case and says nothing.
+        if (!stale) return
+
         console.log(
-          `${colors.gray('⏵⏵⏵ system')} [Extension.js setup] ${stale ? `File README.md copied to ${target}` : "File README.md haven't changed. Skipping copy..."}`
+          `${colors.gray('⏵⏵⏵ system')} [Extension.js setup] File README.md copied to ${target}`
         )
       })
     }

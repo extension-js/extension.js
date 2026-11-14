@@ -1,6 +1,5 @@
 import {spawn} from 'node:child_process'
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 import {
@@ -13,6 +12,9 @@ import {
   serveOfflineRegistry,
   withoutInheritedRegistry
 } from '../../../create/__spec__/offline-registry-fixture'
+import {trackTempFolders} from '../helpers/temp-folders'
+
+const makeTempFolder = trackTempFolders()
 
 const ANSI = /\x1b\[[0-9;]*m/g
 
@@ -35,8 +37,8 @@ function runCreateIn(
   args: string[],
   env: Record<string, string>
 ): Promise<{status: number | null; stderr: string; handed: string[]}> {
-  const configHome = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-config-'))
-  const cacheHome = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-cache-'))
+  const configHome = makeTempFolder('extjs-config-')
+  const cacheHome = makeTempFolder('extjs-cache-')
   const childEnv: NodeJS.ProcessEnv = {
     ...withoutInheritedRegistry(process.env),
     ...env,
@@ -97,9 +99,7 @@ describe('an install pinned to a loopback registry stays off the network', () =>
         )}\n`
       }
     })
-    const work = fs.mkdtempSync(
-      path.join(os.tmpdir(), 'extjs-offline-install-')
-    )
+    const work = makeTempFolder('extjs-offline-install-')
 
     cleanup = async () => {
       await catalog.close()

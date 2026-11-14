@@ -9,10 +9,13 @@ import {
   parseEnvBrowserFlags
 } from '../browsers-lib/shared-utils'
 import {browserConfig} from '../run-chromium/chromium-launch/browser-config'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 
-function makeCompilation(
-  out = path.join(os.tmpdir(), 'project', 'dist', 'chrome')
-) {
+const makeTempFolder = trackTempFolders()
+// A folder of this file's own: other sessions run the same suite at once.
+const projectDir = makeTempFolder('extjs-flags-project-')
+
+function makeCompilation(out = path.join(projectDir, 'dist', 'chrome')) {
   return {options: {output: {path: out}}} as any
 }
 
@@ -43,7 +46,7 @@ describe('Chromium profile flags', () => {
     process.env = OLD_ENV
 
     try {
-      const distRoot = path.join(os.tmpdir(), 'project', 'dist')
+      const distRoot = path.join(projectDir, 'dist')
       fs.rmSync(distRoot, {recursive: true, force: true})
     } catch {
       // Ignore
@@ -90,7 +93,7 @@ describe('Chromium profile flags', () => {
   })
 
   it('does not overwrite existing Preferences in persistent profiles', () => {
-    const sharedOut = path.join(os.tmpdir(), 'project', 'dist', 'chrome')
+    const sharedOut = path.join(projectDir, 'dist', 'chrome')
     const initialFlags = browserConfig(makeCompilation(sharedOut), {
       extension: '/ext',
       browser: 'chrome',
@@ -116,9 +119,7 @@ describe('Chromium profile flags', () => {
   })
 
   it('removes stale Chromium singleton artifacts for explicit profiles', () => {
-    const explicitProfile = fs.mkdtempSync(
-      path.join(os.tmpdir(), 'extjs-explicit-profile-')
-    )
+    const explicitProfile = makeTempFolder('extjs-explicit-profile-')
     const host = os.hostname()
     fs.writeFileSync(
       path.join(explicitProfile, 'SingletonLock'),
@@ -159,12 +160,8 @@ describe('Chromium profile flags', () => {
   })
 
   it('resolves relative explicit profile paths against the compilation context, not process.cwd()', () => {
-    const projectA = fs.mkdtempSync(
-      path.join(os.tmpdir(), 'extjs-profile-ctx-a-')
-    )
-    const projectB = fs.mkdtempSync(
-      path.join(os.tmpdir(), 'extjs-profile-ctx-b-')
-    )
+    const projectA = makeTempFolder('extjs-profile-ctx-a-')
+    const projectB = makeTempFolder('extjs-profile-ctx-b-')
     const oldCwd = process.cwd()
 
     try {
@@ -219,10 +216,8 @@ describe('Chromium profile flags', () => {
   })
 
   it('keeps absolute explicit profile paths as-is regardless of context', () => {
-    const explicitProfile = fs.mkdtempSync(
-      path.join(os.tmpdir(), 'extjs-explicit-abs-')
-    )
-    const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-project-'))
+    const explicitProfile = makeTempFolder('extjs-explicit-abs-')
+    const projectDir = makeTempFolder('extjs-project-')
 
     try {
       const compilation = {
@@ -252,9 +247,7 @@ describe('Chromium profile flags', () => {
   it.skipIf(process.platform === 'win32')(
     'throws when a live browser holds the explicit profile',
     () => {
-      const explicitProfile = fs.mkdtempSync(
-        path.join(os.tmpdir(), 'extjs-explicit-profile-live-')
-      )
+      const explicitProfile = makeTempFolder('extjs-explicit-profile-live-')
       const holder = spawn(
         process.execPath,
         [
@@ -286,9 +279,7 @@ describe('Chromium profile flags', () => {
   )
 
   it('cleans old managed ephemeral profiles regardless of naming', () => {
-    const baseDir = fs.mkdtempSync(
-      path.join(os.tmpdir(), 'extjs-managed-profiles-')
-    )
+    const baseDir = makeTempFolder('extjs-managed-profiles-')
     const staleDir = path.join(baseDir, 'amber-fox-badger')
     const keepDir = path.join(baseDir, 'violet-otter-finch')
     const devDir = path.join(baseDir, 'dev')
@@ -312,9 +303,7 @@ describe('Chromium profile flags', () => {
   })
 
   it('does not remove unmarked directories under the managed profile base', () => {
-    const baseDir = fs.mkdtempSync(
-      path.join(os.tmpdir(), 'extjs-managed-profiles-unmarked-')
-    )
+    const baseDir = makeTempFolder('extjs-managed-profiles-unmarked-')
     const customDir = path.join(baseDir, 'custom-profile')
 
     fs.mkdirSync(customDir, {recursive: true})
@@ -342,7 +331,7 @@ describe('Chromium container sandbox flags', () => {
     Object.defineProperty(process, 'platform', {value: OLD_PLATFORM})
 
     try {
-      const distRoot = path.join(os.tmpdir(), 'project', 'dist')
+      const distRoot = path.join(projectDir, 'dist')
       fs.rmSync(distRoot, {recursive: true, force: true})
     } catch {
       // Ignore
@@ -586,7 +575,7 @@ describe('EXTENSION_BROWSER_FLAGS environment pass-through', () => {
     process.env = OLD_ENV
 
     try {
-      fs.rmSync(path.join(os.tmpdir(), 'project', 'dist'), {
+      fs.rmSync(path.join(projectDir, 'dist'), {
         recursive: true,
         force: true
       })
@@ -664,7 +653,7 @@ describe('EXTENSION_HEADLESS focus-steal guard', () => {
     process.env = OLD_ENV
 
     try {
-      fs.rmSync(path.join(os.tmpdir(), 'project', 'dist'), {
+      fs.rmSync(path.join(projectDir, 'dist'), {
         recursive: true,
         force: true
       })

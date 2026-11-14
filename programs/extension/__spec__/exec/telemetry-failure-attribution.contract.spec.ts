@@ -1,9 +1,11 @@
 import {spawn} from 'node:child_process'
 import fs from 'node:fs'
 import http from 'node:http'
-import os from 'node:os'
 import path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
+import {trackTempFolders} from '../helpers/temp-folders'
+
+const makeTempFolder = trackTempFolders()
 
 function cliBin(): string {
   const root = path.resolve(__dirname, '../..')
@@ -55,9 +57,9 @@ function startCaptureServer(): Promise<{
 }
 
 function run(args: string[], port: number): Promise<number | null> {
-  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-tele-attr-'))
-  const configHome = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-config-'))
-  const cacheHome = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-cache-'))
+  const work = makeTempFolder('extjs-tele-attr-')
+  const configHome = makeTempFolder('extjs-config-')
+  const cacheHome = makeTempFolder('extjs-cache-')
 
   return new Promise((resolve) => {
     const child = spawn(process.execPath, [cliBin(), ...args], {

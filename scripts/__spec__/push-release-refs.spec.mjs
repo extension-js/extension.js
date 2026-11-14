@@ -3,7 +3,7 @@ import {spawnSync} from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import {test} from 'node:test'
+import {after, test} from 'node:test'
 import {fileURLToPath} from 'node:url'
 
 const script = path.resolve(
@@ -35,8 +35,17 @@ const FAKE_GIT = [
   ''
 ].join('\n')
 
+const tempFolders = []
+
+after(() => {
+  for (const folder of tempFolders.splice(0)) {
+    fs.rmSync(folder, {recursive: true, force: true})
+  }
+})
+
 function run(env) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'release-push-'))
+  tempFolders.push(dir)
   fs.writeFileSync(path.join(dir, 'git'), FAKE_GIT, {mode: 0o755})
   const log = path.join(dir, 'git.log')
   const result = spawnSync(

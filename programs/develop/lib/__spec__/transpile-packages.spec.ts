@@ -1,14 +1,14 @@
 import * as fs from 'node:fs'
-import os from 'node:os'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {isSubPath, resolveTranspilePackageDirs} from '../transpile-packages'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
+
+const makeTempFolder = trackTempFolders()
 
 describe('transpile-packages', () => {
   it('resolves package directories from project node_modules', () => {
-    const projectRoot = fs.mkdtempSync(
-      path.join(os.tmpdir(), 'extjs-transpile-')
-    )
+    const projectRoot = makeTempFolder('extjs-transpile-')
     fs.writeFileSync(
       path.join(projectRoot, 'package.json'),
       JSON.stringify({name: 'app'}),
@@ -35,9 +35,7 @@ describe('transpile-packages', () => {
   })
 
   it('returns empty array for missing packages', () => {
-    const projectRoot = fs.mkdtempSync(
-      path.join(os.tmpdir(), 'extjs-transpile-')
-    )
+    const projectRoot = makeTempFolder('extjs-transpile-')
     fs.writeFileSync(
       path.join(projectRoot, 'package.json'),
       JSON.stringify({name: 'app'}),
@@ -51,9 +49,7 @@ describe('transpile-packages', () => {
   })
 
   it('auto-includes workspace dependencies from package.json', () => {
-    const projectRoot = fs.mkdtempSync(
-      path.join(os.tmpdir(), 'extjs-transpile-')
-    )
+    const projectRoot = makeTempFolder('extjs-transpile-')
     fs.writeFileSync(
       path.join(projectRoot, 'package.json'),
       JSON.stringify({
@@ -99,9 +95,7 @@ describe('transpile-packages', () => {
   })
 
   it('matches a resource reachable through a symlinked package dir', () => {
-    const root = fs.realpathSync(
-      fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-subpath-'))
-    )
+    const root = fs.realpathSync(makeTempFolder('extjs-subpath-'))
     const realPkg = path.join(root, 'real-pkg', 'src')
     fs.mkdirSync(realPkg, {recursive: true})
     const resource = path.join(realPkg, 'index.ts')
@@ -116,9 +110,7 @@ describe('transpile-packages', () => {
   })
 
   it('resolves package root when package.json is not exported', () => {
-    const projectRoot = fs.mkdtempSync(
-      path.join(os.tmpdir(), 'extjs-transpile-')
-    )
+    const projectRoot = makeTempFolder('extjs-transpile-')
     fs.writeFileSync(
       path.join(projectRoot, 'package.json'),
       JSON.stringify({
