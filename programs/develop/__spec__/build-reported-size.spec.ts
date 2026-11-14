@@ -138,22 +138,33 @@ async function builtAndWalked(mode: Mode) {
 function expectReportMatchesFolder(
   built: Awaited<ReturnType<typeof builtAndWalked>>
 ) {
-  const {summary, output, files} = built
+  const {summary, output, files, maps} = built
+  // What ships and the maps beside it account for every byte in the folder.
+  const shipped = files.filter((file) => !file.name.endsWith('.map'))
 
-  expect(files.length).toBeGreaterThan(0)
-  expect(summary.total_bytes).toBe(sum(files))
-  expect(summary.total_assets).toBe(files.length)
+  expect(shipped.length).toBeGreaterThan(0)
+  expect(summary.total_bytes).toBe(sum(shipped))
+  expect(summary.total_assets).toBe(shipped.length)
   expect(summary.largest_asset_bytes).toBe(
-    Math.max(...files.map((file) => file.size))
+    Math.max(...shipped.map((file) => file.size))
   )
 
+  expect(summary.total_bytes + (summary.source_map_bytes || 0)).toBe(sum(files))
+  expect(summary.source_map_assets).toBe(maps.length || undefined)
+
+  const mapsNote = maps.length
+    ? `, plus ${humanSize(sum(maps))} of source maps left out of the zip`
+    : ''
+
   expect(output).toMatch(
-    new RegExp(`dist[\\\\/]chrome \\(${humanSize(sum(files))}\\)\\.`)
+    new RegExp(
+      `dist[\\\\/]chrome \\(${humanSize(sum(shipped))}${mapsNote}\\)\\.`
+    )
   )
 }
 
 describe('the size a build reports', () => {
-  it('counts the source maps of a development build', async () => {
+  it('counts the source maps of a development build apart from what ships', async () => {
     const built = await builtAndWalked('development')
 
     expect(built.maps.length).toBeGreaterThan(0)
@@ -166,7 +177,7 @@ describe('the size a build reports', () => {
     expect(built.output).not.toMatch(/\.map \(/)
   }, 180_000)
 
-  it('counts the source maps of a build with no mode', async () => {
+  it('counts the source maps of a build with no mode apart from what ships', async () => {
     const built = await builtAndWalked('none')
 
     expect(built.maps.length).toBeGreaterThan(0)

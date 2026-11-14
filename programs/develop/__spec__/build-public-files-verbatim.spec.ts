@@ -4,8 +4,8 @@ import * as path from 'node:path'
 import * as vm from 'node:vm'
 import {afterAll, describe, expect, it} from 'vitest'
 
-// A file under public/ and a file `include` declares ship as authored, so a
-// production build writes the same bytes a development build does.
+// A file under public/ ships as authored. A script `include` declares is
+// minified in production, in a way that keeps the value the file ends on.
 const roots: string[] = []
 
 afterAll(() => {
@@ -33,7 +33,11 @@ const COPIED: Record<string, string> = {
   'data.json': '{\n  "spaced":   true,\n  "list": [1, 2, 3]\n}\n'
 }
 
-const DECLARED = 'var declared = 40\ndeclared + 2\n'
+const DECLARED =
+  '/*! declared banner */\n// a comment the build drops\n' +
+  '(function () {\n  var aLongLocalName = 1\n' +
+  '  globalThis.declaredRan = aLongLocalName\n})()\n' +
+  'var declared = 40\ndeclared + 2\n'
 
 function project() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-public-verbatim-'))
@@ -48,7 +52,13 @@ function project() {
     'background.js': 'console.log("PUBLIC_VERBATIM_BACKGROUND")\n',
     'vendor/declared.js': DECLARED,
     'extension.config.mjs':
-      'export default {include: {"declared/run.js": "vendor/declared.js"}}\n',
+      'export default {include: {\n' +
+      '  "declared/run.js": "vendor/declared.js",\n' +
+      '  "declared/kept.js": {from: "vendor/declared.js", minify: false},\n' +
+      '  "declared/data.json": "vendor/declared.json",\n' +
+      '  "declared/vendor.min.js": "public/vendor.min.js"\n' +
+      '}}\n',
+    'vendor/declared.json': '{\n  "spaced":   true\n}\n',
     'manifest.json': JSON.stringify({
       manifest_version: 3,
       name: 'public-verbatim',
@@ -74,7 +84,10 @@ function project() {
   return root
 }
 
-async function build(browser: 'chrome' | 'firefox') {
+async function build(
+  browser: 'chrome' | 'firefox',
+  options: Record<string, unknown> = {}
+) {
   const root = project()
   const {extensionBuild} = await import('../command-build')
   const previous = process.env.VITEST
@@ -86,7 +99,8 @@ async function build(browser: 'chrome' | 'firefox') {
       silent: true,
       install: false,
       mode: 'production',
-      exitOnError: false
+      exitOnError: false,
+      ...options
     } as any)
     expect(summary.errors_count).toBe(0)
   } finally {
@@ -104,7 +118,7 @@ async function build(browser: 'chrome' | 'firefox') {
 
 // What executeScript resolves with: the value the file's last statement left.
 const completionValue = (text: string) =>
-  vm.runInNewContext(text, {document: {title: 'probe'}})
+  vm.runInNewContext(text, {document: {title: 'probe'}, globalThis: {}})
 
 describe.each([
   'chrome',
@@ -119,6 +133,35 @@ describe.each([
         `${name} ships as authored`
       ).toBe(true)
     }
+
+    expect(built.bytes('declared/kept.js').equals(Buffer.from(DECLARED))).toBe(
+      true
+    )
+
+    expect(
+      built
+        .bytes('declared/vendor.min.js')
+        .equals(Buffer.from(COPIED['vendor.min.js']))
+    ).toBe(true)
+
+    expect(built.bytes('declared/data.json').toString('utf8')).toBe(
+      '{\n  "spaced":   true\n}\n'
+    )
+  }, 120_000)
+
+  it('minifies a script include declares and keeps its banner', async () => {
+    const built = await build(browser)
+    const shipped = built.bytes('declared/run.js').toString('utf8')
+
+    expect(shipped.length).toBeLessThan(DECLARED.length)
+    expect(shipped).not.toContain('a comment the build drops')
+    expect(shipped).not.toContain('aLongLocalName')
+    expect(shipped).toContain('/*! declared banner */')
+    expect(built.has('declared/run.js.LICENSE.txt')).toBe(false)
+  }, 120_000)
+
+  it('leaves a declared script as authored when the build does not minify', async () => {
+    const built = await build(browser, {minify: false})
 
     expect(built.bytes('declared/run.js').equals(Buffer.from(DECLARED))).toBe(
       true
@@ -135,6 +178,7 @@ describe.each([
     expect(run('vendor.min.js')).toBe(42)
     expect(run('crlf.js')).toBe(42)
     expect(run('declared/run.js')).toBe(42)
+    expect(run('declared/kept.js')).toBe(42)
   }, 120_000)
 
   it('keeps the source map comment and extracts no license file', async () => {

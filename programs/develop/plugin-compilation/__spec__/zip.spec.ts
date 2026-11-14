@@ -322,6 +322,41 @@ describe('ZipPlugin', () => {
     ).toBe(true)
   })
 
+  it('writes both archives to zipDir, creating it, and keeps them out of the source zip', async () => {
+    const root = makeTempDir('zip-spec-')
+    scaffoldSecretProject(root)
+    const outPath = path.join(root, 'dist', 'chrome')
+    write(
+      path.join(outPath, 'manifest.json'),
+      JSON.stringify({name: 'My App', version: '1.2.3'})
+    )
+
+    const zipDir = path.join(root, 'release', 'store')
+    write(path.join(zipDir, 'older-run-firefox.zip'), 'OLD')
+
+    const {compiler, emitDone} = makeCompiler(root, outPath)
+    new ZipPlugin({
+      browser: 'chrome',
+      zipData: {zip: true, zipSource: true, zipFilename: 'named', zipDir},
+      manifestPath: path.join(root, 'manifest.json')
+    }).apply(compiler)
+
+    await emitDone()
+
+    expect(fs.existsSync(path.join(zipDir, 'named-chrome.zip'))).toBe(true)
+    expect(fs.existsSync(path.join(root, 'dist', 'named-chrome.zip'))).toBe(
+      false
+    )
+
+    const entries = Object.keys(
+      unzipSync(
+        new Uint8Array(fs.readFileSync(path.join(zipDir, 'named-source.zip')))
+      )
+    ).map(toPosix)
+    expect(entries).toContain('src/a.ts')
+    expect(entries.filter((name) => name.endsWith('.zip'))).toEqual([])
+  })
+
   it('keeps the dashes and extension of an explicit zipFilename', async () => {
     const root = makeTempDir('zip-spec-')
     const outPath = path.join(root, 'dist', 'chrome')

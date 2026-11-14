@@ -188,6 +188,44 @@ function resolveOutDir(
   return raw.trim()
 }
 
+// A relative folder stays inside the project, and an absolute one is taken
+// as meant. The browser folder ships whole, so no archive may sit in it.
+function resolveZipDir(
+  raw: unknown,
+  packageJsonDir: string,
+  distPath: string
+): string | undefined {
+  if (raw === undefined || raw === null) return undefined
+
+  if (typeof raw !== 'string' || !raw.trim()) {
+    throw new Error(messages.buildZipDirInvalid(String(raw), 'empty'))
+  }
+
+  const value = raw.trim()
+  const resolved = nodePath.resolve(packageJsonDir, value)
+  const fromProject = nodePath.relative(packageJsonDir, resolved)
+
+  if (
+    !nodePath.isAbsolute(value) &&
+    (fromProject === '..' ||
+      fromProject.startsWith(`..${nodePath.sep}`) ||
+      nodePath.isAbsolute(fromProject))
+  ) {
+    throw new Error(messages.buildZipDirInvalid(value, 'outside', resolved))
+  }
+
+  const fromDist = nodePath.relative(distPath, resolved)
+
+  if (
+    fromDist === '' ||
+    (!fromDist.startsWith('..') && !nodePath.isAbsolute(fromDist))
+  ) {
+    throw new Error(messages.buildZipDirInvalid(value, 'inside-build'))
+  }
+
+  return resolved
+}
+
 // Reads the promoted manifest, so the warning names exactly what ships.
 function warnProductionLoopbackOrigins(distPath: string): void {
   let manifest: unknown
@@ -403,8 +441,15 @@ export async function extensionBuild(
     const buildType: BuildSummary['buildType'] =
       resolvedMode === 'development' ? 'development' : 'production'
 
+    const zipDir = resolveZipDir(
+      mergedBuildOptions.zipDir,
+      packageJsonDir,
+      distPath
+    )
+
     const baseConfig: Configuration = webpackConfig(projectStructure, {
       ...mergedBuildOptions,
+      zipDir,
       extensions: resolvedExtensionsConfig,
       browser,
       mode: resolvedMode,
@@ -759,7 +804,8 @@ export async function extensionBuild(
               browser,
               distDisplay,
               summary.total_bytes,
-              resolvedMode
+              resolvedMode,
+              summary.source_map_bytes
             )
           )
 

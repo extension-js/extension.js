@@ -134,6 +134,8 @@ Options accepted by each command. Values shown are typical types or enumerations
 | zip         | boolean       | Package `dist/<browser>` as an artifact (e.g., `.zip`, `.xpi`) |
 | zipSource   | boolean       | Package source files (respects `.gitignore`)                   |
 | zipFilename | string        | Custom base name for artifacts                                 |
+| zipDir      | string        | Folder for the artifacts, relative to the project or absolute  |
+| sourceMaps  | boolean       | Write source maps beside a production build, never zipped      |
 | polyfill    | boolean       | Include `webextension-polyfill` when possible                  |
 | silent      | boolean       | Suppress non-error logs                                        |
 
@@ -276,6 +278,7 @@ export default {
 
 - Distribution artifacts live under `dist/<browser>/` and source artifacts under `dist/`.
 - File names default to a sanitized form of `manifest.name` plus `manifest.version` (override with `zipFilename`).
+- `zipDir` moves both archives to another folder. A relative path has to stay inside the project, an absolute path is taken as written, and a folder inside `dist/<browser>` is refused.
 - Source packaging respects `.gitignore`.
 
 Example layout when both `zip` and `zipSource` are enabled:

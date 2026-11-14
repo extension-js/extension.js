@@ -187,6 +187,7 @@ export default function webpackConfig(
       zip: devOptions.zip === true,
       zipSource: devOptions.zipSource === true,
       zipFilename: devOptions.zipFilename,
+      zipDir: devOptions.zipDir,
       port:
         typeof devOptions.port === 'string'
           ? parseInt(devOptions.port, 10)
@@ -562,7 +563,9 @@ export default function webpackConfig(
     // author's own CSP.
     devtool:
       (devOptions.mode || 'development') === 'production'
-        ? false
+        ? devOptions.sourceMaps === true
+          ? 'source-map'
+          : false
         : 'cheap-module-source-map',
     output: {
       clean: devOptions.output.clean,

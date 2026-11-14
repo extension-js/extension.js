@@ -47,6 +47,7 @@ export default {
 
 - This plugin takes no glob lists. It always emits from `public/` and watches `pages/` and `scripts` (dev-only) based on the `manifestPath` project root. It also exposes a default `extensions/` scan when no CLI/config `extensions` are provided.
 - `include` (from `extension.config.js`, layered top-level, per browser and per command) names extra files by output path. A missing source or an output path outside the extension root fails the compilation with a message naming the key.
+- A `.js`, `.mjs` or `.cjs` file `include` copies is minified in a production build (a `.min.js` is left alone): names are shortened and comments dropped, no statement is rewritten, so the value `executeScript` reads off the file stays and a `/*!` banner stays in the file. `{from: 'vendor/lib.js', minify: false}` in place of the path ships that file as authored, and so does `--no-minify` for every file. Files under `public/` always ship as authored.
 - For handling specific assets referenced in `manifest.json`, use the respective plugins (HTML, Icons, Scripts) with their `includeList` options.
 
 ## Path resolution convention (consistent across @plugin-extension)
@@ -68,7 +69,7 @@ This plugin mirrors that convention by emitting `public/` into the output root s
 export interface SpecialFoldersPluginOptions {
   manifestPath: string
   folders?: SpecialFoldersConfig
-  include?: Record<string, string>
+  include?: Record<string, string | {from: string; minify?: boolean}>
 }
 
 export class SpecialFoldersPlugin {

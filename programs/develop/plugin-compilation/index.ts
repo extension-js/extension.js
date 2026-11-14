@@ -31,6 +31,7 @@ export class CompilationPlugin {
   public readonly zip?: boolean
   public readonly zipSource?: boolean
   public readonly zipFilename?: string
+  public readonly zipDir?: string
   public readonly port?: number
   public readonly command?: 'dev' | 'start' | 'preview' | 'build'
   public readonly define?: Record<string, unknown>
@@ -40,6 +41,7 @@ export class CompilationPlugin {
       zip?: boolean
       zipSource?: boolean
       zipFilename?: string
+      zipDir?: string
       port?: number
       command?: 'dev' | 'start' | 'preview' | 'build'
       define?: Record<string, unknown>
@@ -52,6 +54,7 @@ export class CompilationPlugin {
     this.zip = options.zip
     this.zipSource = options.zipSource
     this.zipFilename = options.zipFilename
+    this.zipDir = options.zipDir
     this.port = options.port
     this.command = options.command
   }
@@ -155,7 +158,8 @@ export class CompilationPlugin {
         zipData: {
           zip: this.zip,
           zipSource: this.zipSource,
-          zipFilename: this.zipFilename
+          zipFilename: this.zipFilename,
+          zipDir: this.zipDir
         }
       }).apply(compiler)
     } else {

@@ -272,6 +272,25 @@ export function buildOutDirInvalid(value: string) {
   )
 }
 
+export function buildZipDirInvalid(
+  value: string,
+  reason: 'empty' | 'outside' | 'inside-build',
+  resolved?: string
+) {
+  const why =
+    reason === 'empty'
+      ? `needs a folder path, got ${fmt.code(value || '(empty)')}`
+      : reason === 'outside'
+        ? `got ${fmt.code(value)}, a relative path that leaves the project`
+        : `got ${fmt.code(value)}, a folder inside the build output, which ships whole`
+  const fix =
+    reason === 'outside'
+      ? `Pass a folder inside the project such as ${fmt.code('--zip-dir release')}, or the absolute path ${fmt.code(String(resolved))} to write there on purpose.`
+      : `Pass a folder such as ${fmt.code('--zip-dir release')}, and the archive is written as ${fmt.code('release/<name>-<browser>.zip')}.`
+
+  return `${getLoggingPrefix('error')} ${fmt.code('--zip-dir')} ${why}.\n${fix}`
+}
+
 // One line per loopback origin, with where it sits, then the per-mode recipe.
 export function productionLoopbackOrigins(
   origins: Array<{pattern: string; where: string}>
@@ -359,7 +378,8 @@ export function buildComplete(
   browser: DevOptions['browser'],
   distDisplayPath: string,
   totalBytes?: number,
-  mode?: 'development' | 'production' | 'none'
+  mode?: 'development' | 'production' | 'none',
+  sourceMapBytes?: number
 ) {
   const noun = artifactNoun(String(browser))
   // The closer said production whatever the build ran as, so a build passed
@@ -370,9 +390,14 @@ export function buildComplete(
       : mode === 'none'
         ? 'built in'
         : 'built for production in'
+  // The size is what ships. Maps sit beside it and no zip carries them.
+  const maps =
+    typeof sourceMapBytes === 'number' && sourceMapBytes > 0
+      ? `, plus ${getHumanSize(sourceMapBytes)} of source maps left out of the zip`
+      : ''
   const size =
     typeof totalBytes === 'number' && totalBytes > 0
-      ? ` (${getHumanSize(totalBytes)})`
+      ? ` (${getHumanSize(totalBytes)}${maps})`
       : ''
 
   return (
