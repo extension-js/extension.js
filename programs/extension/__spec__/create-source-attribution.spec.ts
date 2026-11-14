@@ -17,12 +17,20 @@ vi.mock('../helpers/cli-package-json', () => ({
 }))
 
 import type {Command} from 'commander'
+import {extensionCreate} from 'extension-create'
 import {registerCreateCommand} from '../commands/create'
 import {resetDependencyInstall} from '../helpers/dependency-install-outcome'
 import {telemetryCommandContext} from '../helpers/telemetry-cli'
-import {makeProgram, runCli, stubProcessExit} from './command-harness'
+import {
+  keepTheScaffolderMocked,
+  makeProgram,
+  runCli,
+  stubProcessExit
+} from './command-harness'
 
 const savedRoot = process.env.EXTENSION_CREATE_DEVELOP_ROOT
+
+keepTheScaffolderMocked(registerCreateCommand, extensionCreate)
 
 beforeEach(() => {
   stubProcessExit()
