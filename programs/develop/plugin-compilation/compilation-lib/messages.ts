@@ -183,7 +183,7 @@ export function nodeBuiltinHasNoStandIn(
       `${colors.yellow('config')} hook, where ` +
       `${colors.yellow('yourModulePath')} is the absolute path of a module ` +
       `of yours. The hook's second argument carries the class: ` +
-      `${colors.yellow('config: (config, {rspack}) => { ... }')}.`
+      `${colors.yellow('config: (config, {rspack}) => config')}.`
     )
   }
 

@@ -183,7 +183,7 @@ describe('Node built-ins in extension code', () => {
       'new rspack.NormalModuleReplacementPlugin(/^node:test$/, yourModulePath)'
     )
 
-    expect(built.text).toContain('config: (config, {rspack}) => { ... }')
+    expect(built.text).toContain('config: (config, {rspack}) => config')
     expect(built.text).not.toContain('Unhandled scheme')
   }, 180_000)
 
