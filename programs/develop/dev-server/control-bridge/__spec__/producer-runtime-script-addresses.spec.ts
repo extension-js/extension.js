@@ -1,4 +1,5 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {SCRIPTS_REPLAY_SHIM_SOURCE} from '../../../plugin-reload/reload-lib/scripts-replay-shim'
 import {buildBridgeProducerSource} from '../producer-runtime'
 
 class FakeWebSocket {
@@ -32,6 +33,12 @@ interface Registration {
 
 type Callback = (value?: unknown) => void
 
+interface Injection {
+  target: {tabId: number}
+  files?: string[]
+  world?: string
+}
+
 const ADDRESS = '?extjs-dev='
 
 // A Gecko background with session storage, whose scripting calls answer a
@@ -46,8 +53,10 @@ function boot(options: {
   sessionAnswersAfter?: number
   unregisterAnswersAfter?: number
   callbackOnly?: boolean
+  withReplay?: boolean
 }) {
   const calls: string[] = []
+  const injections: Injection[] = []
   const reloadedTabs: number[] = []
   const copyOf = (script: Registration): Registration =>
     JSON.parse(JSON.stringify(script))
@@ -186,7 +195,23 @@ function boot(options: {
       answer(
         typeof filter === 'function' ? filter : done,
         registered.map(copyOf)
-      )
+      ),
+    executeScript: (injection: Injection, done?: Callback) => {
+      if (typeof injection?.target?.tabId !== 'number') {
+        throw new TypeError('shape')
+      }
+
+      // A tab that cannot exist is refused after the shape was checked.
+      if (injection.target.tabId < 0) {
+        calls.push('executeScript')
+
+        return refuse(done)
+      }
+
+      injections.push(JSON.parse(JSON.stringify(injection)))
+
+      return answer(done, [{frameId: 0, result: null}])
+    }
   }
   const chrome = {
     runtime,
@@ -246,12 +271,19 @@ function boot(options: {
     })
   )(fakeGlobal)
 
+  // The build puts the replay over the producer's own wrapping.
+  if (options.withReplay) {
+    // eslint-disable-next-line no-new-func
+    new Function('globalThis', SCRIPTS_REPLAY_SHIM_SOURCE)(fakeGlobal)
+  }
+
   const ws = FakeWebSocket.instances[0]
   ws.onopen?.()
 
   return {
     ws,
     calls,
+    injections,
     reloadedTabs,
     registered,
     session,
@@ -636,6 +668,163 @@ describe('bridge producer runtime, the address of a registered script on Gecko',
   })
 
   // Chromium reads a registered file again on an update at the same name.
+  // Gecko runs the copy of an injected file it read first at an address,
+  // through an edit, while a read of the same file gives the new bytes.
+  it('injects an edited file at its current address, by promise and by callback', async () => {
+    const h = boot({})
+    const into = (tabId: number): Injection => ({
+      target: {tabId},
+      files: ['scripts/hook.js', 'scripts/other.js'],
+      world: 'MAIN'
+    })
+
+    await h.scripting.executeScript(into(1))
+    h.ws.triggerMessage(pageFrame(['scripts/hook.js']))
+    await vi.advanceTimersByTimeAsync(2000)
+
+    const frames = await h.scripting.executeScript(into(2))
+    let called: unknown
+
+    expect(
+      h.scripting.executeScript(into(3), (list) => {
+        called = list
+      })
+    ).toBeUndefined()
+
+    expect(frames).toEqual([{frameId: 0, result: null}])
+    expect(called).toEqual(frames)
+    expect(h.injections[0].files).toEqual([
+      'scripts/hook.js',
+      'scripts/other.js'
+    ])
+
+    for (const injection of h.injections.slice(1)) {
+      expect(injection.files?.[0]).toContain(`scripts/hook.js${ADDRESS}`)
+      expect(injection.files?.[1]).toBe('scripts/other.js')
+      expect(injection.world).toBe('MAIN')
+    }
+
+    expect(h.injections.map((injection) => injection.target.tabId)).toEqual([
+      1, 2, 3
+    ])
+  })
+
+  it('injects at that address on a namespace that answers a callback only', async () => {
+    const h = boot({callbackOnly: true})
+    const injection = {target: {tabId: 2}, files: ['scripts/hook.js']}
+    let called: unknown
+
+    h.ws.triggerMessage(pageFrame(['scripts/hook.js']))
+    await vi.advanceTimersByTimeAsync(2000)
+
+    expect(h.scripting.executeScript(injection)).toBeUndefined()
+    expect(
+      h.scripting.executeScript(injection, (list) => {
+        called = list
+      })
+    ).toBeUndefined()
+
+    expect(called).toEqual([{frameId: 0, result: null}])
+    expect(h.injections).toHaveLength(2)
+    expect(h.injections[1].files?.[0]).toContain(`scripts/hook.js${ADDRESS}`)
+  })
+
+  // A background the browser woke injects at its top level, which can be
+  // before the addresses were read from session storage.
+  it.each([
+    false,
+    true
+  ])('injects at the kept address when called before the addresses are read, callback only: %s', async (callbackOnly) => {
+    const first = boot({})
+
+    first.ws.triggerMessage(pageFrame(['scripts/hook.js']))
+    await vi.advanceTimersByTimeAsync(2000)
+
+    const h = boot({
+      session: first.session,
+      sessionAnswersAfter: 50,
+      callbackOnly
+    })
+    const injection = {target: {tabId: 2}, files: ['scripts/hook.js']}
+
+    expect(() =>
+      h.scripting.executeScript({target: {}, files: []} as never)
+    ).toThrow('shape')
+
+    expect(() => h.scripting.executeScript({target: 5} as never)).toThrow(
+      'shape'
+    )
+
+    const returned = h.scripting.executeScript(injection)
+    let called: unknown
+
+    h.scripting.executeScript(injection, (list) => {
+      called = list
+    })
+
+    expect(h.injections).toEqual([])
+    await vi.advanceTimersByTimeAsync(100)
+
+    if (callbackOnly) expect(returned).toBeUndefined()
+    else expect(await returned).toEqual([{frameId: 0, result: null}])
+
+    expect(called).toEqual([{frameId: 0, result: null}])
+    expect(h.injections).toHaveLength(2)
+    expect(h.calls).toEqual([])
+
+    for (const made of h.injections) {
+      expect(made.files?.[0]).toContain(`scripts/hook.js${ADDRESS}`)
+    }
+  })
+
+  it('replays an injected file at a new address after each edit', async () => {
+    const h = boot({withReplay: true})
+
+    await h.scripting.executeScript({
+      target: {tabId: 7},
+      files: ['scripts/hook.js'],
+      world: 'MAIN'
+    })
+
+    h.ws.triggerMessage(pageFrame(['scripts/hook.js']))
+    await vi.advanceTimersByTimeAsync(2000)
+    h.ws.triggerMessage(pageFrame(['scripts/hook.js']))
+    await vi.advanceTimersByTimeAsync(2000)
+
+    const [first, second, third] = h.injections.map(
+      (injection) => injection.files?.[0] ?? ''
+    )
+
+    expect(h.injections).toHaveLength(3)
+    expect(first).toBe('scripts/hook.js')
+    expect(second).toContain(`scripts/hook.js${ADDRESS}`)
+    expect(third).toContain(`scripts/hook.js${ADDRESS}`)
+    expect(third).not.toBe(second)
+    expect(h.injections.every((injection) => injection.world === 'MAIN')).toBe(
+      true
+    )
+
+    expect(h.reloadedTabs).toEqual([])
+    expect(h.calls).not.toContain('runtime.reload')
+  })
+
+  it('replays a Chromium injection under the name the author wrote', async () => {
+    const h = boot({engine: 'chromium', withReplay: true})
+
+    await h.scripting.executeScript({
+      target: {tabId: 7},
+      files: ['scripts/hook.js']
+    })
+
+    h.ws.triggerMessage(pageFrame(['scripts/hook.js']))
+    await vi.advanceTimersByTimeAsync(2000)
+
+    expect(h.injections.map((injection) => injection.files)).toEqual([
+      ['scripts/hook.js'],
+      ['scripts/hook.js']
+    ])
+  })
+
   it('leaves the scripting calls of a Chromium background as the browser made them', async () => {
     const h = boot({engine: 'chromium', registered: [HOOK]})
 

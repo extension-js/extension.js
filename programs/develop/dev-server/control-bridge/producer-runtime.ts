@@ -1606,7 +1606,63 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
           return ret && typeof ret.then === "function" ? ret.then(plain) : ret;
         };
       }
+      wrapInjection(scripting, answersCallback);
       if (!nativeRegistry) nativeRegistry = natives;
+    }
+
+    // Gecko runs the copy of an injected file it read first at an address,
+    // so a file edited since is named at its current one, as a registration is.
+    function wrapInjection(scripting, answersCallback) {
+      if (typeof scripting.executeScript !== "function") return;
+      var native = scripting.executeScript.bind(scripting);
+      scripting.executeScript = function (injection) {
+        var args = [].slice.call(arguments);
+        var last = args.length - 1;
+        var done = last > 0 && typeof args[last] === "function";
+        var target = injection && typeof injection === "object" ? injection.target : null;
+        if (!target || typeof target !== "object" || !Array.isArray(injection.files)) return native.apply(null, args);
+        var call = function () {
+          var copy = {};
+          for (var key in injection) {
+            if (Object.prototype.hasOwnProperty.call(injection, key)) copy[key] = injection[key];
+          }
+          copy.files = [];
+          for (var f = 0; f < injection.files.length; f++) {
+            copy.files.push(typeof injection.files[f] === "string" ? scriptAddress(injection.files[f]) : injection.files[f]);
+          }
+          args[0] = copy;
+          return native.apply(null, args);
+        };
+        if (scriptVersions) return call();
+        if (typeof target.tabId !== "number") return native.apply(null, args);
+        // The browser checks the shape of a call as it is made. The same
+        // call on a tab that cannot exist throws that check here.
+        var probe = args.slice();
+        var nowhere = {};
+        for (var name in target) {
+          if (Object.prototype.hasOwnProperty.call(target, name)) nowhere[name] = target[name];
+        }
+        nowhere.tabId = -1;
+        probe[0] = {};
+        for (var field in injection) {
+          if (Object.prototype.hasOwnProperty.call(injection, field)) probe[0][field] = injection[field];
+        }
+        probe[0].target = nowhere;
+        var unanswered = !done && answersCallback();
+        if (done) probe[last] = noopLastError;
+        else if (unanswered) probe.push(noopLastError);
+        var refused = native.apply(null, probe);
+        if (refused && typeof refused.then === "function") refused.then(function () {}, function () {});
+        if (done || unanswered) {
+          withScriptVersions(function () { try { call(); } catch (e) {
+            // Ignore
+          } });
+          return undefined;
+        }
+        return new Promise(function (resolve, reject) {
+          withScriptVersions(function () { try { resolve(call()); } catch (e) { reject(e); } });
+        });
+      };
     }
 
     function canAddressRegisteredScripts() {
@@ -1961,7 +2017,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
 
     // Answers true when the extension restarts for the edit. Chromium reads the
     // files again on an update, Gecko reads them again at a new address.
-    function refreshRegisteredScripts(changedScriptFiles, cb) {
+    function refreshRegisteredScripts(changedScriptFiles, cb, moved) {
       var chrome = g.chrome;
       var answered = false;
       var guard = null;
@@ -2026,6 +2082,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
         } catch (e) { answer(false); }
       };
       if (!addressed) return refresh();
+      if (moved) return whenRegistryQuiet(refresh);
       moveScriptAddresses(changedScriptFiles, function () { whenRegistryQuiet(refresh); });
     }
 
@@ -2364,6 +2421,16 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       if (frame.reloadId) ack.reloadId = frame.reloadId;
       send(ack);
 
+      var changedScripts = frame.changedScriptFiles;
+      // The replay names each file at its address, so on Gecko the edited
+      // files get their new one before it runs.
+      if (Array.isArray(changedScripts) && changedScripts.length && canAddressRegisteredScripts()) {
+        return moveScriptAddresses(changedScripts, function () { replayThenRefresh(frame, kind, announced, true); });
+      }
+      replayThenRefresh(frame, kind, announced, false);
+    }
+
+    function replayThenRefresh(frame, kind, announced, moved) {
       // A scripts/ bundle edit: re-run the executeScript calls that named it
       // on their recorded tabs, before any reload decision below.
       replayProgrammaticScripts(frame.changedScriptFiles);
@@ -2385,7 +2452,7 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
         refreshDeclaredSheets(frame.refreshedStylesheets, function (swapped) {
           if (!swapped) restartExtension(150);
         });
-      });
+      }, moved);
     }
 
     function sanitize(args) {
