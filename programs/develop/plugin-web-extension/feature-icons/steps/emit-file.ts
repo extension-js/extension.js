@@ -24,6 +24,7 @@ import {reportToCompilation} from '../../shared/compilation-issues'
 import {isFolder} from '../../shared/paths'
 import * as messages from '../messages'
 import {iconValuesToStrings} from '../normalize-keys'
+import {isOsPathUnder} from '../../../lib/real-path'
 
 // statSync is absent under the fs mocks some specs install, so treat an
 // unreadable stat as "not empty" and let the emit proceed.
@@ -88,7 +89,10 @@ export class EmitFile {
                 let resolved = entry
 
                 if (!fs.existsSync(resolved)) {
-                  if (path.isAbsolute(entry) && entry.startsWith(projectPath)) {
+                  if (
+                    path.isAbsolute(entry) &&
+                    isOsPathUnder(projectPath, entry)
+                  ) {
                     // OS-absolute path under the project root, the fields package's
                     // spelling of a manifest-relative icon: the same path inside public/
                     // (either root) wins, then public/<basename>, then the path itself.

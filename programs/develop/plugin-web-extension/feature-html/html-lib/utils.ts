@@ -16,6 +16,7 @@ import {
 import type {FilepathList} from '../../../types'
 import {externalAssetOutputPath} from '../../feature-manifest/normalize-manifest-path'
 import {type HtmlStaticAttribute, parseHtml} from './parse-html'
+import {isOsPathUnder} from '../../../lib/real-path'
 
 export interface ParsedHtmlAsset {
   css?: string[]
@@ -412,9 +413,9 @@ export function resolveAbsoluteFsPath(params: {
   const looksLikeRootUrl =
     asset.startsWith('/') &&
     !(
-      asset.startsWith(projectRoot) ||
-      asset.startsWith(publicRootForResource) ||
-      asset.startsWith(outputRoot)
+      isOsPathUnder(projectRoot, asset) ||
+      isOsPathUnder(publicRootForResource, asset) ||
+      isOsPathUnder(outputRoot, asset)
     )
 
   // A page ref that climbs out of the project root arrives as an absolute

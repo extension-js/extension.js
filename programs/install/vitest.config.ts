@@ -13,6 +13,8 @@ export default defineConfig({
     pool: 'forks',
     globals: true,
     environment: 'node',
-    include: ['**/*.spec.ts']
+    include: ['**/*.spec.ts'],
+    // One temp folder for the whole run, removed when the run ends.
+    globalSetup: ['../../scripts/lib/spec-temp-folder.mjs']
   }
 })

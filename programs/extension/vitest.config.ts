@@ -60,6 +60,8 @@ export default defineConfig({
       'browsers/__spec__/**/*.spec.ts',
       'commands/__spec__/**/*.spec.ts'
     ],
+    // One temp folder for the whole run, removed when the run ends.
+    globalSetup: ['../../scripts/lib/spec-temp-folder.mjs'],
     setupFiles: ['__spec__/setup/env.ts'],
     sequence: {concurrent: false},
     allowOnly: !process.env.CI

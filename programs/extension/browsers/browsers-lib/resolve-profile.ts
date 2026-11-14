@@ -16,6 +16,7 @@ import {
 } from 'unique-names-generator'
 import {humanLine, humanWarn} from '../../helpers/messaging'
 import * as messages from './messages'
+import {isInsidePath, realPath} from './real-path'
 import {markManagedEphemeralProfile} from './shared-utils'
 
 export type ProfileKind = 'system' | 'explicit' | 'managed'
@@ -161,11 +162,9 @@ function isProfileFolderOfProject(
   profilePath: string,
   projectDir: string
 ): boolean {
-  const relative = path.relative(path.resolve(projectDir), profilePath)
+  if (!isInsidePath(projectDir, profilePath)) return false
 
-  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
-    return false
-  }
+  const relative = path.relative(realPath(projectDir), realPath(profilePath))
 
   if (relative.split(path.sep).includes('node_modules')) return false
 

@@ -1,5 +1,4 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {claimCardKey} from '../../helpers/messaging'
@@ -10,9 +9,12 @@ import {
   printDevBannerOnce,
   printProdBannerOnce
 } from '../browsers-lib/banner'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
+
+const makeTempFolder = trackTempFolders()
 
 function makeTempOutPath(manifest: Record<string, unknown>): string {
-  const outPath = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-banner-'))
+  const outPath = makeTempFolder('extjs-banner-')
   fs.writeFileSync(
     path.join(outPath, 'manifest.json'),
     JSON.stringify(manifest),
@@ -136,9 +138,7 @@ describe('expectedChromiumExtensionId', () => {
         name: 'Test Extension',
         version: '1.0.0'
       })
-      const linkRoot = fs.mkdtempSync(
-        path.join(os.tmpdir(), 'extjs-banner-link-')
-      )
+      const linkRoot = makeTempFolder('extjs-banner-link-')
       const link = path.join(linkRoot, 'dist')
 
       try {

@@ -16,8 +16,10 @@ import {BoringPlugin} from './boring'
 import {CleanDistFolderPlugin} from './clean-dist'
 import * as messages from './compilation-lib/messages'
 import {EnvPlugin} from './env'
+import {FileRequestsPlugin} from './resolve-file-requests'
 import {WarmAncestorWatchersPlugin} from './warm-ancestor-watchers'
 import {WatchProjectConfigPlugin} from './watch-project-config'
+import {WatchRealProjectPathPlugin} from './watch-real-project-path'
 import {ZipPlugin} from './zip'
 
 export class CompilationPlugin {
@@ -104,6 +106,8 @@ export class CompilationPlugin {
       define: this.define
     }).apply(compiler)
 
+    new FileRequestsPlugin().apply(compiler)
+
     // The config file is read before the compiler exists and its values are a
     // session-scoped snapshot, so a watch run can only report the edit.
     if (compiler.options.watchOptions) {
@@ -111,6 +115,7 @@ export class CompilationPlugin {
         (compiler.options.context as string) || path.dirname(this.manifestPath)
       ).apply(compiler)
 
+      new WatchRealProjectPathPlugin().apply(compiler)
       new WarmAncestorWatchersPlugin().apply(compiler)
     }
 

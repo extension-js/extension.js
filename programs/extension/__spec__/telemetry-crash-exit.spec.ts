@@ -2,9 +2,11 @@ import {spawn} from 'node:child_process'
 import fs from 'node:fs'
 import http from 'node:http'
 import type {AddressInfo} from 'node:net'
-import os from 'node:os'
 import path from 'node:path'
 import {describe, expect, it} from 'vitest'
+import {trackTempFolders} from './helpers/temp-folders'
+
+const makeTempFolder = trackTempFolders()
 
 function cliRoot(): string {
   return path.resolve(__dirname, '..')
@@ -31,9 +33,9 @@ function runWithInjectedCrash(
   telemetry: '0' | '1',
   sink = 'http://127.0.0.1:1'
 ): Promise<CrashRun> {
-  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-crash-'))
-  const configHome = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-config-'))
-  const cacheHome = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-cache-'))
+  const work = makeTempFolder('extjs-crash-')
+  const configHome = makeTempFolder('extjs-config-')
+  const cacheHome = makeTempFolder('extjs-cache-')
   const preload = path.join(work, 'crash.cjs')
   fs.writeFileSync(preload, CRASH_PRELOAD, 'utf8')
 

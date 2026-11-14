@@ -18,6 +18,7 @@ import {
 } from '../plugin-web-extension/feature-scripts/steps/trace-runtime-loaded-files'
 import {collectRootAbsoluteRefs} from '../plugin-web-extension/shared/paths'
 import * as folderMessages from './messages'
+import {isOsPathUnder} from '../lib/real-path'
 
 // The asset a ref was read from, which names the surface in a warning.
 interface RefOrigin {
@@ -39,7 +40,7 @@ export function planRootAbsoluteRef(
   // A protocol-relative URL is an address, not a file.
   if (ref.startsWith('//')) return null
   // On POSIX a real filesystem path is also "/"-prefixed, so it is not a ref.
-  if (context && ref.startsWith(context)) return null
+  if (context && isOsPathUnder(context, ref)) return null
 
   const outputName = ref.replace(/^\/+/, '')
   if (!outputName) return null

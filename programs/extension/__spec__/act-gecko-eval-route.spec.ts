@@ -1,5 +1,4 @@
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
@@ -75,6 +74,9 @@ vi.mock(
 
 import {registerActCommands} from '../commands/act'
 import {makeProgram, runCli, stubProcessExit} from './command-harness'
+import {trackTempFolders} from './helpers/temp-folders'
+
+const makeTempFolder = trackTempFolders()
 
 const CSP_REFUSAL = {
   ok: false,
@@ -313,7 +315,7 @@ describe('eval on a Gecko extension document the CSP locks down', () => {
   })
 
   it('resolves a surface context to the page path the session emitted', async () => {
-    const dist = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-gecko-eval-'))
+    const dist = makeTempFolder('extjs-gecko-eval-')
     fs.writeFileSync(
       path.join(dist, 'manifest.json'),
       JSON.stringify({action: {default_popup: 'action/index.html'}})
@@ -342,7 +344,7 @@ describe('eval on a Gecko extension document the CSP locks down', () => {
   })
 
   it('needs a page path for a surface context and keeps the refusal without one', async () => {
-    const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-gecko-eval-'))
+    const empty = makeTempFolder('extjs-gecko-eval-')
     session.readyDocument = {...session.readyDocument, distPath: empty}
 
     expect(

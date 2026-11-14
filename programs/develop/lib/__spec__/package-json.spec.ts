@@ -1,11 +1,13 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {
   findNearestPackageJson,
   findNearestPackageJsonSync
 } from '../package-json'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
+
+const makeTempFolder = trackTempFolders()
 
 // A remote URL reaches the walk-up as a relative path whose ancestry ends at
 // "." rather than the filesystem root. 4.1.13 looped there forever.
@@ -24,7 +26,7 @@ describe('findNearestPackageJson', () => {
   })
 
   it('still finds the package.json above a nested manifest', () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-pkgjson-'))
+    const dir = makeTempFolder('extjs-pkgjson-')
     fs.writeFileSync(path.join(dir, 'package.json'), '{"name":"probe"}')
     fs.mkdirSync(path.join(dir, 'src'))
     expect(
