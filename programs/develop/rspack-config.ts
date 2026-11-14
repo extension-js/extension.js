@@ -28,6 +28,7 @@ import {CODES, debugLine, isDebug} from './lib/messaging'
 import {stripBom} from './lib/parse-json-safe'
 import {asAbsolute, getDirs, toPosixPath} from './lib/paths'
 import type {ProjectStructure} from './lib/project'
+import {forgetResolvedModuleFolders} from './lib/resource-path'
 import {sessionStateDir} from './lib/session-paths'
 import {defaultSplitChunks} from './lib/split-chunks'
 import {StableLoaderPathsPlugin} from './lib/stable-loader-paths'
@@ -308,6 +309,16 @@ export default function webpackConfig(
 
             unresolvedBareRequires.clear()
           }
+        )
+      }
+    } satisfies RspackPluginInstance,
+    // A module folder's real path is kept for one build, so a link that moved
+    // between two rebuilds of a dev session is read again.
+    {
+      apply(compiler: Compiler) {
+        compiler.hooks.compile.tap(
+          'forget-resolved-module-folders',
+          forgetResolvedModuleFolders
         )
       }
     } satisfies RspackPluginInstance,
@@ -785,7 +796,7 @@ export default function webpackConfig(
       concatenateModules: devOptions.mode === 'production',
       // HTML pages share the framework runtime and their common modules
       // through stable sibling files. Every other surface keeps one file.
-      splitChunks: defaultSplitChunks(),
+      splitChunks: defaultSplitChunks(devOptions.browser),
       // The runtime stays inside each entry: a page loads its siblings from
       // the HTML, a background or content script loads nothing else.
       runtimeChunk: false,

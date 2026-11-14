@@ -2,12 +2,14 @@ import EventEmitter from 'node:events'
 import net from 'node:net'
 import vm from 'node:vm'
 import {describe, expect, it} from 'vitest'
+import {MAX_RESULT_BYTES} from '../browsers-lib/eval-result-cap'
 import {
   bigintForm,
   documentNotOpenMessage,
   evaluateExtensionDocument,
   evaluateThroughWatcher,
   extensionDocumentPagePath,
+  inspectSnapshotExpression,
   isExtensionDocumentContext,
   POLL_EXPRESSION,
   pickDocumentFrame,
@@ -556,4 +558,59 @@ describe('the Gecko extension-document evaluator', () => {
       }
     })
   }
+})
+
+describe('the inspect snapshot built in the document', () => {
+  function snapshotOf(markup: string, include: string[], maxBytes: number) {
+    const none = {length: 0}
+    const document = {
+      title: 'big',
+      documentElement: {outerHTML: markup},
+      body: {children: none},
+      querySelectorAll: () => none
+    }
+
+    return vm.runInNewContext(inspectSnapshotExpression(include, maxBytes), {
+      document,
+      location: {href: 'chrome-extension://id/sidebar/index.html'}
+    }) as {
+      html?: string
+      htmlTruncated?: boolean
+      summary: {htmlLength: number}
+    }
+  }
+
+  // Quotes and newlines double under JSON escaping, like a page of style tags.
+  const MARKUP = '<style>a{content:"x"}\n</style>'.repeat(12000)
+
+  it('cuts html past the result cap to fit instead of losing all of it', () => {
+    const snap = snapshotOf(MARKUP, ['html'], Number.NaN)
+
+    expect(MARKUP.length).toBeGreaterThan(MAX_RESULT_BYTES)
+    expect(JSON.stringify(snap).length).toBeLessThanOrEqual(MAX_RESULT_BYTES)
+    expect(snap.htmlTruncated).toBe(true)
+    expect(snap.html?.length).toBeGreaterThan(MAX_RESULT_BYTES / 2)
+    expect(MARKUP.startsWith(String(snap.html))).toBe(true)
+    expect(snap.summary.htmlLength).toBe(MARKUP.length)
+  })
+
+  it('fits the same way under a cap the transport cannot carry', () => {
+    const snap = snapshotOf(MARKUP, ['html'], 2000000)
+
+    expect(JSON.stringify(snap).length).toBeLessThanOrEqual(MAX_RESULT_BYTES)
+    expect(snap.html?.length).toBeGreaterThan(MAX_RESULT_BYTES / 2)
+  })
+
+  it('leaves a small page and a smaller cap alone', () => {
+    expect(snapshotOf('<html></html>', ['html'], Number.NaN)).toMatchObject({
+      html: '<html></html>'
+    })
+
+    expect(
+      snapshotOf('<html></html>', ['html'], Number.NaN).htmlTruncated
+    ).toBeUndefined()
+
+    expect(snapshotOf(MARKUP, ['html'], 1000).html).toHaveLength(1000)
+    expect(snapshotOf(MARKUP, ['summary'], Number.NaN).html).toBeUndefined()
+  })
 })

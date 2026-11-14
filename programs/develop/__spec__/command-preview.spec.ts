@@ -80,16 +80,24 @@ vi.mock('../plugin-playwright', () => ({
 
 const runOnlyPreviewBrowser = vi.fn(async (..._args: any[]) => {})
 
+const controlSession = vi.hoisted(() => ({attachAfterMs: 0}))
 const startProductionControl = vi.hoisted(() =>
-  vi.fn(async (_options: any) => ({
-    controlPort: 5555,
-    instanceId: 'inst-1',
-    controlledPath: '/proj/dist/extension-js/chrome/controlled',
-    logsPath: 'dist/extension-js/chrome/logs.ndjson',
-    backgroundAssets: ['background/service_worker.js'],
-    broker: {},
-    close: vi.fn(async () => {})
-  }))
+  vi.fn(async (options: any) => {
+    setTimeout(
+      () => options.onExecutorAttached?.(),
+      controlSession.attachAfterMs
+    )
+
+    return {
+      controlPort: 5555,
+      instanceId: 'inst-1',
+      controlledPath: '/proj/dist/extension-js/chrome/controlled',
+      logsPath: 'dist/extension-js/chrome/logs.ndjson',
+      backgroundAssets: ['background/service_worker.js'],
+      broker: {},
+      close: vi.fn(async () => {})
+    }
+  })
 )
 vi.mock('../dev-server/control-bridge/production-control', () => ({
   startProductionControl
@@ -117,7 +125,7 @@ function printedLines() {
   return printed.join('\n')
 }
 
-import {extensionPreview} from '../command-preview'
+import {EXECUTOR_ATTACH_WAIT_MS, extensionPreview} from '../command-preview'
 import * as configLoaderMod from '../lib/config-loader'
 import {withDarkMode} from '../lib/dark-mode'
 import * as extensionsToLoadMod from '../lib/extensions-to-load'
@@ -233,6 +241,76 @@ describe('webpack/command-preview (run-only)', () => {
 
     expect(metadataWriter.writeReady).toHaveBeenCalled()
     expect(printedLines()).toContain('Control channel open')
+  })
+
+  it('holds ready on a control session until the extension dials in', async () => {
+    startProductionControl.mockClear()
+    metadataWriter.writeReady.mockClear()
+    metadataWriter.stampExecutorAttached.mockClear()
+    controlSession.attachAfterMs = 150
+    ;(fs.existsSync as any).mockImplementation(
+      (p: string) => p === path.join('/proj', 'dist', 'chrome', 'manifest.json')
+    )
+
+    let launchedAt = 0
+    const launcher = vi.fn(async (..._args: any[]) => {
+      launchedAt = Date.now()
+    })
+    const order: string[] = []
+
+    metadataWriter.stampExecutorAttached.mockImplementation(() => {
+      order.push('attached')
+    })
+
+    metadataWriter.writeReady.mockImplementation(() => {
+      order.push('ready')
+    })
+
+    try {
+      await extensionPreview(
+        '/proj',
+        {browser: 'chrome', allowControl: true} as any,
+        launcher
+      )
+    } finally {
+      controlSession.attachAfterMs = 0
+    }
+
+    expect(launchedAt).toBeGreaterThan(0)
+    expect(order).toEqual(['attached', 'ready'])
+  })
+
+  it('writes ready after a bounded wait when no extension ever dials in', async () => {
+    startProductionControl.mockClear()
+    metadataWriter.writeReady.mockClear()
+    metadataWriter.stampExecutorAttached.mockClear()
+    controlSession.attachAfterMs = 10 * 60 * 1000
+    ;(fs.existsSync as any).mockImplementation(
+      (p: string) => p === path.join('/proj', 'dist', 'chrome', 'manifest.json')
+    )
+
+    vi.useFakeTimers()
+
+    try {
+      const running = extensionPreview(
+        '/proj',
+        {browser: 'chrome', allowControl: true} as any,
+        runOnlyPreviewBrowser
+      )
+
+      await vi.advanceTimersByTimeAsync(EXECUTOR_ATTACH_WAIT_MS - 1)
+      expect(metadataWriter.writeReady).not.toHaveBeenCalled()
+
+      await vi.advanceTimersByTimeAsync(1)
+      await running
+
+      expect(metadataWriter.writeReady).toHaveBeenCalledTimes(1)
+      expect(metadataWriter.stampExecutorAttached).not.toHaveBeenCalled()
+    } finally {
+      vi.clearAllTimers()
+      vi.useRealTimers()
+      controlSession.attachAfterMs = 0
+    }
   })
 
   it("hands the launched browser's background wake to the control broker", async () => {

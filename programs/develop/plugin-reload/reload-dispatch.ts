@@ -11,6 +11,7 @@ import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
 import type {
   BootRegistrationsOutcome,
+  LateReloadRestart,
   ReloadAckOutcome,
   ReloadRestartOutcome
 } from '../dev-server/control-bridge/contracts'
@@ -54,6 +55,8 @@ export interface ReloadBroker {
   reloadReplayedTabs?(): number
   // Whether the extension came back after an acked reload that restarts it.
   awaitReloadRestart?(): Promise<ReloadRestartOutcome>
+  // The hello that arrived after that restart was already called missing.
+  awaitLateReloadRestart?(): Promise<LateReloadRestart | null>
   // Resolves once a background says its boot registry calls answered, or
   // with 'timeout' when none says so inside the window.
   awaitBootRegistrations?(timeoutMs: number): Promise<BootRegistrationsOutcome>
@@ -193,6 +196,20 @@ export function formatNotRestartedLine(label: string): string {
   )
 }
 
+// The extension said hello after the line above was printed, so the verdict
+// is taken back: a slow restart is not a lost one.
+export function formatLateRestartLine(
+  label: string,
+  late: LateReloadRestart
+): string {
+  const seconds = Math.max(1, Math.round(late.afterMs / 1000))
+
+  return late.runsBuild
+    ? `${prefix('info')} ${label} is back after ${seconds}s, so this edit is live. Nothing to reload.`
+    : `${prefix('warn')} ${label} is back after ${seconds}s on an earlier build, ` +
+        'so this edit is not live. Reload the extension from the browser.'
+}
+
 // The zero-producer line for a caller that restarted the extension itself. The
 // broker latched the instruction, so the reconnecting producer still applies it.
 export function formatQueuedReloadLine(label: string): string {
@@ -274,13 +291,27 @@ export async function dispatchReload(
       // arrives and never holds the next compile.
       const label = instruction.label
       const restart = executor.broker.awaitReloadRestart?.()
+      const lateRestart = executor.broker.awaitLateReloadRestart?.()
 
       if (restart && label) {
         void restart.then(
           (outcome) => {
-            if (outcome === 'not-restarted') {
-              console.warn(formatNotRestartedLine(label))
-            }
+            if (outcome !== 'not-restarted') return
+
+            console.warn(formatNotRestartedLine(label))
+
+            void lateRestart?.then(
+              (late) => {
+                if (!late) return
+
+                if (late.runsBuild) {
+                  humanLine(formatLateRestartLine(label, late))
+                } else {
+                  console.warn(formatLateRestartLine(label, late))
+                }
+              },
+              () => undefined
+            )
           },
           () => undefined
         )
