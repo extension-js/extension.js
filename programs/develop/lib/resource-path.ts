@@ -44,6 +44,33 @@ export function canonicalizeDir(dir: string): string {
   }
 }
 
+// A rule condition runs once per module and realpath is a system call, so a
+// module folder that resolved keeps its answer until the next build starts.
+const resolvedModuleFolders = new Map<string, string>()
+
+export function forgetResolvedModuleFolders(): void {
+  resolvedModuleFolders.clear()
+}
+
+function canonicalizeModuleFolder(dir: string): string {
+  const known = resolvedModuleFolders.get(dir)
+
+  if (known !== undefined) return known
+
+  let resolved: string
+
+  try {
+    resolved = fs.realpathSync.native(dir)
+  } catch {
+    // A folder that is missing now can appear later, so it is not remembered.
+    return canonicalizeDir(dir)
+  }
+
+  resolvedModuleFolders.set(dir, resolved)
+
+  return resolved
+}
+
 // Canonicalize the file's DIRECTORY (exists during a build even when the
 // resource is virtual) and re-append the basename.
 export function canonicalizeResourcePath(resourcePath: string): string {
@@ -54,7 +81,7 @@ export function canonicalizeResourcePath(resourcePath: string): string {
   try {
     return path.normalize(
       path.join(
-        canonicalizeDir(path.dirname(resourcePath)),
+        canonicalizeModuleFolder(path.dirname(resourcePath)),
         path.basename(resourcePath)
       )
     )
