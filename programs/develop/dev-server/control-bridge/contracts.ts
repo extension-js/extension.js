@@ -288,6 +288,13 @@ export type ReloadRestartOutcome =
   | 'not-restarted'
   | 'not-expected'
 
+// A producer that said hello after the restart window had closed: how long
+// the restart took, and whether it named the build the reload carried.
+export interface LateReloadRestart {
+  afterMs: number
+  runsBuild: boolean
+}
+
 /**
  * Server → producer keepalive. An MV3 service worker idles out after ~30s
  * without events, and a stopped SW holds no control socket, reload
