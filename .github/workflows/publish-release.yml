@@ -17,6 +17,11 @@ on:
         type: boolean
         required: false
         default: false
+      skip_corpus_gate:
+        description: "Stable only: publish without the corpus gate. Use when the corpus itself is broken, never to pass a regression."
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -29,10 +34,73 @@ env:
   NPM_CONFIG_PROVENANCE: "true"
 
 jobs:
+  # A stable release ships only what a canary of the same commit already
+  # proved on the public corpus, so the gate first finds that canary on npm.
+  corpus-target:
+    if: ${{ inputs.channel == 'stable' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      canary: ${{ steps.find.outputs.canary }}
+      resume: ${{ steps.find.outputs.resume }}
+    steps:
+      - name: Find the canary built from this commit
+        id: find
+        env:
+          VERSION: ${{ inputs.version }}
+          SKIP: ${{ inputs.skip_corpus_gate }}
+        run: |
+          set -euo pipefail
+          VERSION=$(echo "$VERSION" | xargs)
+          # A resumed release already passed the gate before its tag was cut.
+          if git ls-remote --tags "https://github.com/${GITHUB_REPOSITORY}" "refs/tags/v${VERSION}" | grep -q .; then
+            echo "resume=true" >> "$GITHUB_OUTPUT"
+            echo "Tag v${VERSION} exists, so this run resumes a gated release."
+            exit 0
+          fi
+          if [ "$SKIP" = "true" ]; then
+            echo "resume=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::The corpus gate was skipped by input for v${VERSION}."
+            exit 0
+          fi
+          SHA=$(echo "${GITHUB_SHA}" | cut -c1-7)
+          CANARY=$(npm view extension versions --json | SHA="$SHA" node -e "
+            const versions = JSON.parse(require('fs').readFileSync(0, 'utf8'))
+            const built = versions.filter((v) => new RegExp('-canary\\.[0-9]+\\.' + process.env.SHA + '[0-9a-f]*$').test(v))
+            process.stdout.write(built.at(-1) || '')
+          ")
+          if [ -z "$CANARY" ]; then
+            echo "No canary of commit ${SHA} is on npm. Run this workflow with channel=canary on this commit first, then cut the stable." >&2
+            exit 1
+          fi
+          echo "canary=$CANARY" >> "$GITHUB_OUTPUT"
+          echo "The corpus gate runs against extension@${CANARY}."
+
+  corpus-gate:
+    needs: corpus-target
+    if: ${{ needs.corpus-target.outputs.canary != '' }}
+    permissions:
+      contents: read
+    uses: cezaraugusto/browser-extension-test-data/.github/workflows/corpus-gate.yml@f85f3a7d6a9d106b5466790ead5aebf204019fd6 # main, 2026-11-14
+    with:
+      cli-version: ${{ needs.corpus-target.outputs.canary }}
+      ref: f85f3a7d6a9d106b5466790ead5aebf204019fd6
+
   publish:
+    needs: [corpus-target, corpus-gate]
+    # Canary and next publish with no gate. Stable needs a green gate, or a
+    # run that resumes a release the gate already let through.
+    if: >-
+      ${{ always() && (inputs.channel != 'stable' ||
+      (needs.corpus-target.result == 'success' &&
+      (needs.corpus-gate.result == 'success' || needs.corpus-target.outputs.resume == 'true'))) }}
     runs-on: ubuntu-latest
     timeout-minutes: 75
     environment: ${{ inputs.channel }}
+    outputs:
+      version: ${{ steps.validate.outputs.version }}
     permissions:
       # Version bump commit, tag push and the GitHub Release
       contents: write
@@ -689,3 +757,14 @@ jobs:
               auto_inactive: true
             });
 
+  # The canary's own reading on the corpus, so the verdict is known before
+  # anyone dispatches the stable. It runs after the publish and blocks nothing.
+  corpus-canary:
+    needs: publish
+    if: ${{ inputs.channel == 'canary' }}
+    permissions:
+      contents: read
+    uses: cezaraugusto/browser-extension-test-data/.github/workflows/corpus-gate.yml@f85f3a7d6a9d106b5466790ead5aebf204019fd6 # main, 2026-11-14
+    with:
+      cli-version: ${{ needs.publish.outputs.version }}
+      ref: f85f3a7d6a9d106b5466790ead5aebf204019fd6
