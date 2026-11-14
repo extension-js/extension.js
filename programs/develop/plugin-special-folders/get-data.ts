@@ -11,6 +11,7 @@ import path from 'node:path'
 import type {Compiler} from '@rspack/core'
 import {getSpecialFoldersData} from 'browser-extension-manifest-fields'
 import {debugLine, isDebug} from '../lib/messaging'
+import {isInsidePath} from '../lib/real-path'
 import type {FilepathList, SpecialFoldersConfig} from '../types'
 import type {CompanionExtensionsConfig} from './folder-extensions/types'
 import {
@@ -23,7 +24,6 @@ import {
   rememberSpecialFoldersConfig
 } from './folders-config'
 import * as messages from './messages'
-import {isInsidePath} from '../lib/real-path'
 
 export {rememberSpecialFoldersConfig}
 
@@ -239,7 +239,7 @@ const REFERENCE_SKIP_DIRS = new Set([
 const REFERENCE_MAX_FILES = 4000
 const REFERENCE_MAX_BYTES = 12 * 1024 * 1024
 
-function collectReferenceCorpus(projectRoot: string): string {
+export function collectReferenceCorpus(projectRoot: string): string {
   const parts: string[] = []
   let files = 0
   let bytes = 0
@@ -303,7 +303,7 @@ const COMPILED_TO_JS_EXTS = new Set([
   '.cjs'
 ])
 
-function referenceSpellings(relativePath: string): string[] {
+export function referenceSpellings(relativePath: string): string[] {
   const ext = path.extname(relativePath).toLowerCase()
   if (!COMPILED_TO_JS_EXTS.has(ext)) return [relativePath]
 

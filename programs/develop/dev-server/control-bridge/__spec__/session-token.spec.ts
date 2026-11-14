@@ -103,10 +103,19 @@ describe('writeControlToken', () => {
 
     expect(fs.readdirSync(stateDir()).sort()).toEqual(
       [
+        '.gitignore',
         path.basename(controlTokenPath(project, 'chrome')),
         path.basename(legacyControlTokenPath(project))
       ].sort()
     )
+  })
+
+  it('writes the token into a folder that ignores itself', () => {
+    writeControlToken(project, 'chrome')
+
+    expect(
+      fs.readFileSync(path.join(stateDir(), '.gitignore'), 'utf8').split('\n')
+    ).toContain('*')
   })
 
   it('renames a whole temp file from the same directory onto each slot', () => {
@@ -168,7 +177,7 @@ describe('writeControlToken', () => {
       })
     ).toThrow(/EIO/)
 
-    expect(fs.readdirSync(stateDir())).toEqual([])
+    expect(fs.readdirSync(stateDir())).toEqual(['.gitignore'])
   })
 
   it('a stray temp file never counts as a per-browser token', () => {
