@@ -172,12 +172,34 @@ export function resolveTranspilePackageDirs(
 export function createNodeModulesExclude(
   transpilePackageDirs: string[]
 ): (resourcePath: string) => boolean {
+  const isInNodeModules = (resourcePath: string) =>
+    /[\\/]node_modules[\\/]/.test(resourcePath)
+
+  if (transpilePackageDirs.length === 0) {
+    return isInNodeModules
+  }
+
+  // The bundler asks once per module and per rule, and realpath is a system
+  // call: resolve each package dir once here and each module folder once below.
+  const packageDirs = Array.from(
+    new Set(transpilePackageDirs.map(canonicalizeDir))
+  )
+  const transpiledByFolder = new Map<string, boolean>()
+
   return (resourcePath: string) => {
-    if (!/[\\/]node_modules[\\/]/.test(resourcePath)) {
+    if (!isInNodeModules(resourcePath)) {
       return false
     }
 
-    return !transpilePackageDirs.some((dir) => isSubPath(resourcePath, dir))
+    const folder = path.dirname(resourcePath)
+    let transpiled = transpiledByFolder.get(folder)
+
+    if (transpiled === undefined) {
+      transpiled = isResourceUnderDirs(resourcePath, packageDirs)
+      transpiledByFolder.set(folder, transpiled)
+    }
+
+    return !transpiled
   }
 }
 

@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {Configuration} from '@rspack/core'
+import {isGeckoBasedBrowser} from './constants'
 
 export type EntrySurface = 'page' | 'background' | 'content_script' | 'script'
 
@@ -78,10 +79,16 @@ export type SplitChunksConfig = NonNullable<
 // The output folder every chunk two or more pages share is emitted under.
 export const SHARED_CHUNK_DIR = 'shared'
 
+// The Firefox store check stops parsing a script past 5 MB and fails on it.
+// The cap counts source bytes, so 4 MB leaves room for the module wrappers.
+export const GECKO_MAX_CHUNK_BYTES = 4 * 1024 * 1024
+
 // HTML pages share code the way a web app does: the framework runtime in one
 // file, everything two or more pages import in another. Stable names, no
 // hash, so a manifest or a public asset can keep pointing at them.
-export function defaultSplitChunks(): SplitChunksConfig {
+export function defaultSplitChunks(browser?: string): SplitChunksConfig {
+  const capped = typeof browser === 'string' && isGeckoBasedBrowser(browser)
+
   return {
     chunks: pageInitialChunks,
     cacheGroups: {
@@ -98,7 +105,11 @@ export function defaultSplitChunks(): SplitChunksConfig {
       },
       commons: {
         name: `${SHARED_CHUNK_DIR}/commons`,
-        filename: `${SHARED_CHUNK_DIR}/commons.js`,
+        // Shared code past the cap is emitted as numbered parts, and one fixed
+        // file name would make every part overwrite the one before it.
+        ...(capped
+          ? {filename: '[name].js', maxSize: GECKO_MAX_CHUNK_BYTES}
+          : {filename: `${SHARED_CHUNK_DIR}/commons.js`}),
         type: SCRIPT_MODULE_TYPE,
         minChunks: 2,
         minSize: 0,
