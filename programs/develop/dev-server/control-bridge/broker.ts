@@ -11,6 +11,8 @@ import {isSameWebOrigin, normalizeWebOrigin} from '../emulator-lane'
 import {type ActionRecord, type ActionsSink, fnv1aHex} from './actions-file'
 import {
   type AnyFrame,
+  type BootRegistrationsFrame,
+  type BootRegistrationsOutcome,
   type BridgeEngine,
   type BridgeRole,
   type BridgeTarget,
@@ -24,10 +26,9 @@ import {
   type DevReloadKind,
   type HelloFrame,
   type IncomingLogEvent,
+  type LateReloadRestart,
   type ReadyFrame,
   type ReloadAckFrame,
-  type BootRegistrationsFrame,
-  type BootRegistrationsOutcome,
   type ReloadAckOutcome,
   type ReloadFrame,
   type ReloadRestartOutcome,
@@ -381,13 +382,15 @@ export class BridgeBroker {
   private reloadSeq = 0
   private reloadAck: {
     reloadId: string
+    build?: string
     outcome: Promise<ReloadAckOutcome>
     settle: (outcome: ReloadAckOutcome) => void
   } | null = null
   private reloadRestart: {
     reloadId: string
     outcome: Promise<ReloadRestartOutcome>
-    settle: (outcome: ReloadRestartOutcome) => void
+    late: Promise<LateReloadRestart | null>
+    settle: (outcome: ReloadRestartOutcome, helloBuild?: string) => void
   } | null = null
 
   constructor(options: BridgeBrokerOptions) {
@@ -672,6 +675,7 @@ export class BridgeBroker {
 
     this.reloadAck = {
       reloadId,
+      ...(frame?.build ? {build: frame.build} : {}),
       outcome,
       settle: (next) => {
         if (settled) return
@@ -705,7 +709,7 @@ export class BridgeBroker {
         frame.reloadType === 'full' ||
         frame.reloadType === 'service-worker'
       ) {
-        this.armReloadRestart(frame.reloadId)
+        this.armReloadRestart(frame.reloadId, this.reloadAck.build)
       }
     }
   }
@@ -782,11 +786,23 @@ export class BridgeBroker {
     return this.reloadRestart?.outcome ?? Promise.resolve('not-expected')
   }
 
-  private armReloadRestart(reloadId: string): void {
+  // Resolves when a producer says hello after the window closed on the newest
+  // acked reload, and with null when that reload was in time or superseded.
+  awaitLateReloadRestart(): Promise<LateReloadRestart | null> {
+    return this.reloadRestart?.late ?? Promise.resolve(null)
+  }
+
+  private armReloadRestart(reloadId: string, build?: string): void {
+    const armedAt = this.now()
     let settled = false
+    let overdue = false
     let resolve: (outcome: ReloadRestartOutcome) => void = () => undefined
+    let resolveLate: (late: LateReloadRestart | null) => void = () => undefined
     const outcome = new Promise<ReloadRestartOutcome>((r) => {
       resolve = r
+    })
+    const late = new Promise<LateReloadRestart | null>((r) => {
+      resolveLate = r
     })
     const timer = this.setTimer(() => {
       if (settled) return
@@ -796,6 +812,7 @@ export class BridgeBroker {
       // A browser that exited is already reported, and has nothing to wake.
       if (this.browserExitedAt !== null) {
         resolve('not-expected')
+        resolveLate(null)
 
         return
       }
@@ -803,6 +820,7 @@ export class BridgeBroker {
       // A background the browser suspended can still be woken. The reload is
       // never replayed, since a wedged worker would restart in a loop.
       void this.wakeExecutor?.().catch(() => false)
+      overdue = true
       resolve('not-restarted')
     }, RELOAD_RESTART_TIMEOUT_MS)
 
@@ -812,12 +830,30 @@ export class BridgeBroker {
     this.reloadRestart = {
       reloadId,
       outcome,
-      settle: (next) => {
-        if (settled) return
+      late,
+      settle: (next, helloBuild) => {
+        if (!settled) {
+          settled = true
+          this.clearTimer(timer)
+          resolve(next)
+          resolveLate(null)
 
-        settled = true
-        this.clearTimer(timer)
-        resolve(next)
+          return
+        }
+
+        if (!overdue) return
+
+        // The verdict was already printed, so a late hello takes it back and
+        // a newer reload drops the wait.
+        overdue = false
+        resolveLate(
+          next === 'restarted'
+            ? {
+                afterMs: this.now() - armedAt,
+                runsBuild: !this.compiledBefore(helloBuild, build)
+              }
+            : null
+        )
       }
     }
   }
@@ -968,6 +1004,17 @@ export class BridgeBroker {
         this.resyncEarlierSessionProducer(conn, running)
       }
     }
+  }
+
+  // True only when both builds are known to this session and the first was
+  // compiled ahead of the second.
+  private compiledBefore(build?: string, than?: string): boolean {
+    if (!build || !than) return false
+
+    const order = [...this.sessionBuilds]
+    const at = order.indexOf(build)
+
+    return at !== -1 && at < order.indexOf(than)
   }
 
   private runsEarlierSessionBuild(hello: HelloFrame): boolean {
@@ -1141,7 +1188,10 @@ export class BridgeBroker {
       }
 
       // The extension is back after the reload that restarted it.
-      this.reloadRestart?.settle('restarted')
+      this.reloadRestart?.settle(
+        'restarted',
+        typeof hello.build === 'string' ? hello.build : undefined
+      )
 
       // A producer is back: clear the undelivered-reload dedup so a later detach
       // can warn again (the attach state genuinely transitioned).

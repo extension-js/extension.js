@@ -6,13 +6,13 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝      ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import {PageThrewError} from './remote-firefox/evaluate'
-import {MessagingClient} from './remote-firefox/messaging-client'
 import {
   capEvalValue,
   MAX_RESULT_BYTES,
   TRUNCATED_PREVIEW_CHARS
 } from '../../browsers-lib/eval-result-cap'
+import {PageThrewError} from './remote-firefox/evaluate'
+import {MessagingClient} from './remote-firefox/messaging-client'
 
 const RESULT_SLOT = '__extjsRdpEval'
 const FRAME_POLL_INTERVAL_MS = 100
@@ -216,7 +216,8 @@ export function pickDocumentFrame(
 }
 
 // The snapshot the bridge's in-page inspect answers, built in the document
-// over the debugger for a page the bridge cannot reach.
+// over the debugger for a page the bridge cannot reach. The result cap counts
+// the escaped JSON, so the html shrinks here until the whole snapshot fits.
 export function inspectSnapshotExpression(
   include: readonly string[],
   maxBytes: number
@@ -247,6 +248,15 @@ export function inspectSnapshotExpression(
     var html = doc.documentElement.outerHTML;
     if (html.length > ${cap}) { out.html = html.slice(0, ${cap}); out.htmlTruncated = true; }
     else { out.html = html; }
+    var size = JSON.stringify(out).length;
+    var cut = out.html.length;
+    for (var attempt = 0; attempt < 40 && cut > 0 && size > ${MAX_RESULT_BYTES}; attempt++) {
+      cut = Math.floor(cut * (${MAX_RESULT_BYTES} / size) * 0.98);
+      out.html = html.slice(0, cut);
+      out.htmlTruncated = true;
+      size = JSON.stringify(out).length;
+    }
+    if (size > ${MAX_RESULT_BYTES}) { out.html = ""; out.htmlTruncated = true; }
   }
   return out;
 })()`
