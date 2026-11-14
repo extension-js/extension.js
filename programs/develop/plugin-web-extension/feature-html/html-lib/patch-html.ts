@@ -88,6 +88,8 @@ function insertBefore(
 // anchors relative refs. Without it the source file is read from disk.
 // optionsDialogFloor asks for the min-height style Chrome's embedded options
 // dialog needs, decided by the caller from the manifest and browser.
+// entryScript is the emitted file of the entry chunk when the caller read it
+// from the chunk graph. Without it the file is named after the entry.
 export function patchHtml(
   compilation: Compilation,
   feature: string,
@@ -96,7 +98,7 @@ export function patchHtml(
   manifestDir?: string,
   siblingScripts: string[] = [],
   html?: string,
-  options: {optionsDialogFloor?: boolean} = {}
+  options: {optionsDialogFloor?: boolean; entryScript?: string} = {}
 ): string {
   const htmlFile =
     typeof html === 'string'
@@ -108,6 +110,8 @@ export function patchHtml(
   const cssAsset = resolveCssAsset(compilation, feature)
   let hasCssEntry = cssAsset.found
   const cssHrefOverride = cssAsset.href
+
+  const entryScript = options.entryScript || getFilePath(feature, '.js', true)
 
   let hasJsEntry = false
   let firstScriptAttrs: Array<{name: string; value: string}> | undefined
@@ -274,12 +278,9 @@ export function patchHtml(
           insertBefore(lastScriptNode, createScriptTag(src, firstScriptAttrs))
         }
 
-        lastScriptNode.attrs = scriptTagAttrs(
-          getFilePath(feature, '.js', true),
-          firstScriptAttrs
-        )
+        lastScriptNode.attrs = scriptTagAttrs(entryScript, firstScriptAttrs)
       } else if (bodyNode) {
-        injectJsScript(bodyNode, feature, firstScriptAttrs, siblingScripts)
+        injectJsScript(bodyNode, entryScript, firstScriptAttrs, siblingScripts)
       }
     }
 

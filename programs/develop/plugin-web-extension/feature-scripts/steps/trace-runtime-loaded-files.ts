@@ -43,13 +43,14 @@ import {keepCompletionValueOf} from './keep-completion-value'
 import {
   blankComments,
   escapeRegExp,
+  forgetBlankedSources,
   type ImportedModuleReader,
   isConstantReference,
   type LiteralLookup,
   literalLookup,
   pureStringLiteral,
-  readBalancedArgs,
   type ResolvedLiteral,
+  readBalancedArgs,
   skipString,
   splitTopLevelArgs,
   unescapeStringBody
@@ -297,18 +298,22 @@ export class TraceRuntimeLoadedFiles {
             // file can itself load further files at runtime.
             let only: Set<string> | undefined
 
-            for (let round = 0; round <= MAX_TRACE_DEPTH; round++) {
-              if (!only) this.traceManifestNamedFiles(run)
+            try {
+              for (let round = 0; round <= MAX_TRACE_DEPTH; round++) {
+                if (!only) this.traceManifestNamedFiles(run)
 
-              this.traceWorkerImportScripts(run, only)
-              this.traceInjectedFilePayloads(run, only)
-              this.traceFetchedFiles(run, only)
-              this.traceGetURLFiles(run, only)
-              this.traceWebpackChunkSiblings(run, only)
-              const emitted = await run.flushCompiles()
-              if (emitted.length === 0) break
+                this.traceWorkerImportScripts(run, only)
+                this.traceInjectedFilePayloads(run, only)
+                this.traceFetchedFiles(run, only)
+                this.traceGetURLFiles(run, only)
+                this.traceWebpackChunkSiblings(run, only)
+                const emitted = await run.flushCompiles()
+                if (emitted.length === 0) break
 
-              only = new Set(emitted)
+                only = new Set(emitted)
+              }
+            } finally {
+              forgetBlankedSources()
             }
           }
         )
@@ -382,7 +387,7 @@ export class TraceRuntimeLoadedFiles {
 
     for (const name of roots) {
       const asset = run.compilation.getAsset(name)
-      if (asset) pending.push(asset.source.source().toString())
+      if (asset) pending.push(run.textOf(asset))
     }
 
     const seen = run.seen.importScripts
@@ -490,7 +495,7 @@ export class TraceRuntimeLoadedFiles {
       )
 
     for (const asset of jsAssets) {
-      const content = asset.source.source().toString()
+      const content = run.textOf(asset)
 
       for (const literal of extractFetchedFileLiterals(content)) {
         // Runtime resolution base is the asset's own URL directory: page
@@ -657,7 +662,7 @@ export class TraceRuntimeLoadedFiles {
 
     let pending: PendingScan[] = run.jsAssets(only).map((asset) => ({
       kind: 'js' as const,
-      content: asset.source.source().toString(),
+      content: run.textOf(asset),
       assetName: asset.name
     }))
 
@@ -873,6 +878,8 @@ export class TraceRuntimeLoadedFiles {
         ref.literal,
         `/${target}`
       )
+
+      run.forgetText(ref.assetName)
     }
   }
 
@@ -882,7 +889,7 @@ export class TraceRuntimeLoadedFiles {
     const {compilation, manifestDir, entrySourceDirs} = run
 
     for (const asset of run.jsAssets(only)) {
-      const content = asset.source.source().toString()
+      const content = run.textOf(asset)
       if (!hasWebpackChunkLoadingRuntime(content)) continue
 
       // Prebuilt webpack bundles address lazy chunks by NUMERIC id via
@@ -926,7 +933,7 @@ export class TraceRuntimeLoadedFiles {
     const seen = run.seen.injected
 
     for (const asset of run.jsAssets(only)) {
-      const content = asset.source.source().toString()
+      const content = run.textOf(asset)
 
       for (const literal of extractInjectedFileLiterals(content)) {
         const distRel = resolveExtensionPath(literal, '')
@@ -1025,6 +1032,7 @@ class TraceRun {
   readonly entrySourceDirs: Map<string, string>
   readonly hasAsset: (name: string) => boolean
   private readonly queue = new Map<string, CompileRequest>()
+  private readonly texts = new Map<string, string>()
   // Files the `exclude` config leaves out of this build. A literal that names
   // one is dead code on this browser, so the trace ships nothing for it.
   private readonly excluded: ReadonlySet<string>
@@ -1070,6 +1078,24 @@ class TraceRun {
     }
 
     return found
+  }
+
+  // Every trace reads the same emitted scripts, and each read of an asset
+  // copies its text out of the bundler, so a run holds one copy per asset.
+  textOf(asset: {name: string; source: {source(): string | Buffer}}): string {
+    let text = this.texts.get(asset.name)
+
+    if (text === undefined) {
+      text = asset.source.source().toString()
+      this.texts.set(asset.name, text)
+    }
+
+    return text
+  }
+
+  // An asset this run rewrote is read again the next time it is scanned.
+  forgetText(assetName: string) {
+    this.texts.delete(assetName)
   }
 
   jsAssets(only?: Set<string>) {
@@ -2326,11 +2352,18 @@ const SINGULAR_FILE_CONSTANT = new RegExp(
   'g'
 )
 
+// Cheap gate, so a source with no injection call is never tokenized.
+const INJECTION_CALL =
+  /\b(?:executeScript|insertCSS|removeCSS|registerContentScripts|updateContentScripts)\b/
+
 // Every path an injection call names, each marked with how it was read.
 function collectInjectedFiles(
   source: string,
   readImported?: ImportedModuleReader
 ): PathEntry[] {
+  // No injection call, no path to read, and nothing to tokenize for it.
+  if (!INJECTION_CALL.test(source)) return []
+
   const code = blankComments(source)
   const lookup = literalLookup(code, readImported)
   const entries: PathEntry[] = []
@@ -2417,10 +2450,6 @@ export function extractInjectedFileLiterals(
 ): string[] {
   return collectInjectedFiles(source, readImported).map((entry) => entry.value)
 }
-
-// Cheap gate, so a source with no injection call is never tokenized.
-const INJECTION_CALL =
-  /\b(?:executeScript|insertCSS|removeCSS|registerContentScripts|updateContentScripts)\b/
 
 // The paths the injection calls of one source file name through a
 // constant, the imports of that file followed to where they lead.

@@ -91,12 +91,17 @@ export function defaultSplitChunks(browser?: string): SplitChunksConfig {
 
   return {
     chunks: pageInitialChunks,
+    // At the top level the cap also reaches a page's own chunk, which no
+    // cache group holds when nothing is shared with another page.
+    ...(capped ? {maxSize: GECKO_MAX_CHUNK_BYTES} : {}),
     cacheGroups: {
       default: false,
       defaultVendors: false,
       framework: {
         name: `${SHARED_CHUNK_DIR}/framework`,
-        filename: `${SHARED_CHUNK_DIR}/framework.js`,
+        // A capped chunk can come out as numbered parts, and one fixed file
+        // name would make every part overwrite the one before it.
+        filename: capped ? '[name].js' : `${SHARED_CHUNK_DIR}/framework.js`,
         test: FRAMEWORK_PACKAGE_PATTERN,
         type: SCRIPT_MODULE_TYPE,
         priority: 40,
@@ -105,8 +110,6 @@ export function defaultSplitChunks(browser?: string): SplitChunksConfig {
       },
       commons: {
         name: `${SHARED_CHUNK_DIR}/commons`,
-        // Shared code past the cap is emitted as numbered parts, and one fixed
-        // file name would make every part overwrite the one before it.
         ...(capped
           ? {filename: '[name].js', maxSize: GECKO_MAX_CHUNK_BYTES}
           : {filename: `${SHARED_CHUNK_DIR}/commons.js`}),

@@ -108,16 +108,17 @@ describe('defaultSplitChunks', () => {
     }
   })
 
-  it('caps the shared chunk for a Gecko target only', () => {
+  it('caps page chunks for a Gecko target only', () => {
     for (const browser of ['firefox', 'gecko-based', 'firefox-based']) {
       const config = defaultSplitChunks(browser) as any
       expect(config.cacheGroups.commons.maxSize).toBe(GECKO_MAX_CHUNK_BYTES)
       // A fixed file name would make every numbered part overwrite the last.
       expect(config.cacheGroups.commons.filename).toBe('[name].js')
       expect(config.cacheGroups.commons.name).toBe('shared/commons')
-      expect(config.cacheGroups.framework.filename).toBe('shared/framework.js')
-      // A page entry keeps its one file: the page markup names it by entry.
-      expect(config.maxSize).toBeUndefined()
+      expect(config.cacheGroups.framework.filename).toBe('[name].js')
+      expect(config.cacheGroups.framework.name).toBe('shared/framework')
+      // A page's own chunk is capped too: the page markup lists each part.
+      expect(config.maxSize).toBe(GECKO_MAX_CHUNK_BYTES)
       expect(config.chunks).toBe(pageInitialChunks)
     }
 
@@ -126,6 +127,7 @@ describe('defaultSplitChunks', () => {
 
     for (const browser of ['chrome', 'edge', 'chromium-based', 'safari']) {
       expect(defaultSplitChunks(browser)).toEqual(defaultSplitChunks())
+      expect((defaultSplitChunks(browser) as any).maxSize).toBeUndefined()
       expect(
         (defaultSplitChunks(browser) as any).cacheGroups.commons.maxSize
       ).toBeUndefined()

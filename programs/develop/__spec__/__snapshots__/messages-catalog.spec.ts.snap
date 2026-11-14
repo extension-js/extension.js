@@ -32,6 +32,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "addonLintDependencyAttribution: function(2)",
     "addonLintFailed: function(2)",
     "addonLintFailedDebug: function(1)",
+    "addonLintFileTooLargeFix: function(2)",
     "addonLintFinding: function(5)",
     "addonLintMore: function(2)",
     "addonLintNotInstalled: function(1)",

@@ -265,4 +265,83 @@ describe('referencesBrowserGlobal', () => {
       )
     ).toBe(true)
   })
+
+  // A unicode escape of one of the letters turns the skipping off, so the
+  // same script with such a string appended gives the unskipped answer.
+  describe('skipping subtrees that never spell the name', () => {
+    const unskipped = (source: string) =>
+      referencesBrowserGlobal(`${source}\n;"\\u0062"`)
+
+    const padding = Array.from(
+      {length: 40},
+      (_, index) =>
+        `function pad${index}(a){var chrome=a;try{return a.browser?.x+pad${index}.name}catch(e){return {browser:1}}}`
+    ).join('\n')
+
+    const samples: Array<[string, boolean]> = [
+      ['browser.runtime.id', true],
+      ['const o = {browser: 1}; f(...browser)', true],
+      ['({browser: 1}); const all = [...browser]', true],
+      ['({browser: 1}); const o2 = {...browser}', true],
+      ['const api = {browser}', true],
+      ['x = a ? browser : b', true],
+      ['switch (x) { case 1, browser: break }', true],
+      ['(function(){ return function(){ return browser.tabs } })()', true],
+      ['class A extends browser.B {}', true],
+      ['label: for (;;) { browser.x; break label }', true],
+      ['var o = {[browser]: 1}', true],
+      ['`${browser.runtime.id}`', true],
+      ['function f(){ if (x) { var browser = 1 } return browser }', false],
+      ['function f(browser){ return browser.x }', false],
+      ['function f({a: [browser = 1]}){ return browser.x }', false],
+      ['(browser) => browser.x', false],
+      ['try {} catch (browser) { browser.x }', false],
+      ['for (const browser of list) browser.x', false],
+      ['{ let browser = chrome; browser.x }', false],
+      ['const f = function browser(){ return browser.name }', false],
+      ['const C = class browser { m(){ return browser } }', false],
+      ['import browser from "x"; browser.x', false],
+      ['typeof browser !== "undefined" && browser.x', false],
+      ['if ("browser" in globalThis) browser.x', false],
+      ['const api = typeof chrome !== "undefined" ? chrome : browser', false],
+      ['try { browser.x } catch { chrome.x }', false],
+      ['const o = {browser: 1}; o.browser; o?.browser', false],
+      ['if ("chrome" === "firefox") { browser.x }', false],
+      [
+        'const isFirefox = "chrome" === "firefox"; isFirefox && browser.x',
+        false
+      ],
+      ['self.browser = self.chrome; browser.x', false],
+      ['"browser"; /browser/.test(x); // browser\n/* browser */', false],
+      ['function f(){ { function browser(){} } return 1 } browser.x', true],
+      ['function f(){ var browser } f(); browser.x', true],
+      ['const g = () => { const browser = 1; return browser }; browser.x', true]
+    ]
+
+    it('answers as the unskipped scan does on every shape', () => {
+      for (const [source, expected] of samples) {
+        expect(referencesBrowserGlobal(source), source).toBe(expected)
+        expect(unskipped(source), source).toBe(expected)
+
+        // Buried among functions that only name it as a property or a key.
+        const buried = `${padding}\n(function(){${source.startsWith('import') ? '' : source}\n})()\n${padding}`
+
+        expect(referencesBrowserGlobal(buried), buried.slice(-200)).toBe(
+          unskipped(buried)
+        )
+      }
+    })
+
+    it('reads an identifier that spells a letter as an escape', () => {
+      expect(
+        referencesBrowserGlobal('const o = {browser: 1}; \\u0062rowser.tabs')
+      ).toBe(true)
+
+      expect(
+        referencesBrowserGlobal(
+          'const o = {browser: 1}; \\u{62}rowser.tabs.query({})'
+        )
+      ).toBe(true)
+    })
+  })
 })

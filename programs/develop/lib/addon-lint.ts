@@ -23,6 +23,7 @@ import {
   ensureOptionalModuleLoaded,
   formatInstallHint
 } from './optional-deps-resolver'
+import {classifyEntrySurface} from './split-chunks'
 
 // The one place the default lives. Flip it here and the CLI flag, the config
 // key and the merge defaults follow.
@@ -231,6 +232,26 @@ export function collectAddonLintLines(
     })
 }
 
+// The size at which addons-linter stops parsing a file and fails it.
+export const ADDON_LINT_PARSE_LIMIT_MB = 5
+
+const SINGLE_FILE_SURFACES = {
+  background: 'background script',
+  content_script: 'content script',
+  script: 'injected script'
+} as const
+
+// The surface that loads an emitted script as its only file, read from the
+// chunk name. A page, a shared chunk and a data file all answer null.
+function singleFileSurfaceOf(location: string): string | null {
+  const file = chunkFileOf(location)
+  if (!/\.m?js$/i.test(file)) return null
+
+  const surface = classifyEntrySurface(file.replace(/\.m?js$/i, ''))
+
+  return surface === 'page' ? null : SINGLE_FILE_SURFACES[surface]
+}
+
 // The linter locates a finding by its path inside dist, which is the emitted
 // chunk name the provenance map is keyed by.
 export function attributionFor(
@@ -241,6 +262,13 @@ export function attributionFor(
 ): string {
   if (AUTHOR_ONLY_CODES.has(code)) {
     return messages.addonLintUnsupportedApiFix(browser)
+  }
+
+  if (code === 'FILE_TOO_LARGE') {
+    return messages.addonLintFileTooLargeFix(
+      ADDON_LINT_PARSE_LIMIT_MB,
+      singleFileSurfaceOf(location)
+    )
   }
 
   if (!chunkProvenance || chunkProvenance.size === 0) return ''
