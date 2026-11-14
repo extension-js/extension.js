@@ -39,8 +39,11 @@ const worker: Target = {
   targetId: 'worker'
 }
 
-describe('evaluating in the background of a loaded extension', () => {
-  it('evaluates in the worker of this extension and lets the session go', async () => {
+const detached = (sendCommand: ReturnType<typeof vi.fn>) =>
+  sendCommand.mock.calls.filter((call) => call[0] === 'Target.detachFromTarget')
+
+describe('a session on the background of a loaded extension', () => {
+  it('attaches once to the worker of this extension and reads many times', async () => {
     const {controller, sendCommand} = makeController([
       [
         {type: 'page', url: 'about:blank', targetId: 'tab'},
@@ -58,11 +61,14 @@ describe('evaluating in the background of a loaded extension', () => {
       ]
     ])
 
-    await expect(controller.evaluateInBackground('1 + 6', 5000)).resolves.toBe(
-      7
-    )
+    const session = await controller.openBackgroundSession()
 
+    await expect(session.evaluate('1 + 6', 5000)).resolves.toBe(7)
+    await expect(session.evaluate('1 + 6', 2000)).resolves.toBe(7)
+
+    expect(controller.cdp.attachToTarget).toHaveBeenCalledTimes(1)
     expect(controller.cdp.attachToTarget).toHaveBeenCalledWith('worker')
+    expect(controller.cdp.getTargets).toHaveBeenCalledTimes(1)
     expect(sendCommand).toHaveBeenCalledWith(
       'Runtime.evaluate',
       {expression: '1 + 6', returnByValue: true, awaitPromise: true},
@@ -70,26 +76,41 @@ describe('evaluating in the background of a loaded extension', () => {
       5200
     )
 
-    expect(sendCommand).toHaveBeenCalledWith('Target.detachFromTarget', {
-      sessionId: 'session-worker'
-    })
+    expect(detached(sendCommand)).toHaveLength(0)
+  })
+
+  it('detaches once on release and reads nothing afterwards', async () => {
+    const {controller, sendCommand} = makeController([[worker]])
+    const session = await controller.openBackgroundSession()
+
+    session.release()
+    session.release()
+
+    expect(detached(sendCommand)).toEqual([
+      ['Target.detachFromTarget', {sessionId: 'session-worker'}]
+    ])
+
+    await expect(session.evaluate('1', 1000)).resolves.toBeUndefined()
+
+    expect(
+      sendCommand.mock.calls.filter((call) => call[0] === 'Runtime.evaluate')
+    ).toHaveLength(0)
   })
 
   it('waits for a background that has not shown yet', async () => {
     const {controller} = makeController([[], [], [worker]])
+    const session = await controller.openBackgroundSession({intervalMs: 1})
 
-    await expect(
-      controller.evaluateInBackground('1', 1000, {intervalMs: 1})
-    ).resolves.toBe(7)
+    await expect(session.evaluate('1', 1000)).resolves.toBe(7)
 
     expect(controller.cdp.getTargets).toHaveBeenCalledTimes(3)
   })
 
-  it('answers undefined, attached to nothing, when no background shows', async () => {
+  it('opens nothing, attached to nothing, when no background shows', async () => {
     const {controller, sendCommand} = makeController([[]])
 
     await expect(
-      controller.evaluateInBackground('1', 1000, {attempts: 3, intervalMs: 1})
+      controller.openBackgroundSession({attempts: 3, intervalMs: 1})
     ).resolves.toBeUndefined()
 
     expect(controller.cdp.attachToTarget).not.toHaveBeenCalled()
@@ -97,43 +118,33 @@ describe('evaluating in the background of a loaded extension', () => {
   })
 
   it('answers undefined for an expression that threw', async () => {
-    const {controller, sendCommand} = makeController([[worker]], async () => ({
+    const {controller} = makeController([[worker]], async () => ({
       result: {type: 'object', subtype: 'error'},
       exceptionDetails: {text: 'Uncaught'}
     }))
+    const session = await controller.openBackgroundSession()
 
-    await expect(
-      controller.evaluateInBackground('nope()', 1000)
-    ).resolves.toBeUndefined()
-
-    expect(sendCommand).toHaveBeenCalledWith('Target.detachFromTarget', {
-      sessionId: 'session-worker'
-    })
+    await expect(session.evaluate('nope()', 1000)).resolves.toBeUndefined()
   })
 
-  it('lets the session go when the command fails, and passes the failure on', async () => {
+  it('passes a failed command on, and stays open for the caller to release', async () => {
     const {controller, sendCommand} = makeController([[worker]], async () => {
       throw new Error('CDP command timed out')
     })
+    const session = await controller.openBackgroundSession()
 
-    await expect(controller.evaluateInBackground('1', 1000)).rejects.toThrow(
-      'timed out'
-    )
+    await expect(session.evaluate('1', 1000)).rejects.toThrow('timed out')
 
-    expect(sendCommand).toHaveBeenCalledWith('Target.detachFromTarget', {
-      sessionId: 'session-worker'
-    })
+    expect(detached(sendCommand)).toHaveLength(0)
   })
 
-  it('answers undefined before the controller is connected', async () => {
+  it('opens nothing before the controller is connected', async () => {
     const controller = new CDPExtensionController({
       outPath: '/nowhere/dist/chrome',
       browser: 'chrome',
       cdpPort: 9222
     })
 
-    await expect(
-      controller.evaluateInBackground('1', 1000)
-    ).resolves.toBeUndefined()
+    await expect(controller.openBackgroundSession()).resolves.toBeUndefined()
   })
 })

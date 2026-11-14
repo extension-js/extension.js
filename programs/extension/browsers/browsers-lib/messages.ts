@@ -600,6 +600,17 @@ export function startingUrlOpenedBeforeBootRegistrations(
   return `${getLoggingPrefix('warn')} Opened ${url} before the background finished registering content scripts (waited ${seconds}s). Reload the page if a registered script did not run on it.`
 }
 
+// The words a dev session prints for the same thing: the first page went
+// ahead on an empty registry, and a registration followed it.
+export function lateBootRegistration(afterMs?: number) {
+  const when =
+    typeof afterMs === 'number'
+      ? `${String(Math.round(afterMs / 100) / 10)}s after it started`
+      : 'after it started'
+
+  return `${getLoggingPrefix('warn')} The background registered a content script ${when}, when the first page was already open. Reload that page to run the script on it.`
+}
+
 export function chromiumHeadlessPageTargetRecreated(browser: Browser) {
   return `${getLoggingPrefix('debug')} browser  pageTarget=recreated browser=${browser}`
 }

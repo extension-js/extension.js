@@ -511,8 +511,10 @@ export async function evaluateInConsole(options: {
   expression: string
   timeoutMs: number
   where: string
+  pollIntervalMs?: number
 }): Promise<RdpEvalOutcome> {
   const {client, consoleActor, expression, timeoutMs, where} = options
+  const pollIntervalMs = options.pollIntervalMs ?? RESULT_POLL_INTERVAL_MS
 
   try {
     await client.evaluate(consoleActor, startExpression(expression))
@@ -559,20 +561,25 @@ export async function evaluateInConsole(options: {
       )
     }
 
-    await sleep(RESULT_POLL_INTERVAL_MS)
+    await sleep(pollIntervalMs)
   }
 }
 
-export async function evaluateThroughWatcher(options: {
+export interface WatchedDocument {
+  consoleActor: string
+  release: () => void
+}
+
+// Finds one extension document through the add-on's watcher and keeps it,
+// so several evaluations pay for the lookup once. Release it when done.
+export async function watchExtensionDocument(options: {
   client: EvaluatingClient
   extensionId: string
   context: string
   pagePath?: string
-  expression: string
   timeoutMs: number
-}): Promise<RdpEvalOutcome> {
-  const {client, extensionId, context, pagePath, expression, timeoutMs} =
-    options
+}): Promise<WatchedDocument | RdpEvalOutcome> {
+  const {client, extensionId, context, pagePath, timeoutMs} = options
   const located = await locateAddonWatcher(client, extensionId)
   if (!('watcherActor' in located)) return located
 
@@ -587,9 +594,27 @@ export async function evaluateThroughWatcher(options: {
 
   client.on('message', onMessage)
 
-  const stopListening = () => {
+  let released = false
+
+  const release = () => {
+    if (released) return
+
+    released = true
+
     if (typeof client.off === 'function') client.off('message', onMessage)
     else client.removeListener?.('message', onMessage)
+
+    // Firefox sends no reply to unwatchTargets, so awaiting it burns the
+    // transport's whole request timeout before the answer can be printed.
+    void Promise.resolve()
+      .then(() =>
+        client.request({
+          to: watcherActor,
+          type: 'unwatchTargets',
+          targetType: 'frame'
+        })
+      )
+      .catch(() => {})
   }
 
   try {
@@ -608,27 +633,41 @@ export async function evaluateThroughWatcher(options: {
     }
 
     if (!consoleActor) {
+      release()
+
       return refuse('TargetNotFound', documentNotOpenMessage(context))
     }
 
+    return {consoleActor, release}
+  } catch (error) {
+    release()
+
+    throw error
+  }
+}
+
+export async function evaluateThroughWatcher(options: {
+  client: EvaluatingClient
+  extensionId: string
+  context: string
+  pagePath?: string
+  expression: string
+  timeoutMs: number
+}): Promise<RdpEvalOutcome> {
+  const {client, context, expression, timeoutMs} = options
+  const watched = await watchExtensionDocument(options)
+  if (!('consoleActor' in watched)) return watched
+
+  try {
     return await evaluateInConsole({
       client,
-      consoleActor,
+      consoleActor: watched.consoleActor,
       expression,
       timeoutMs,
       where: `the ${context} document`
     })
   } finally {
-    stopListening()
-    // Firefox sends no reply to unwatchTargets, so awaiting it burns the
-    // transport's whole request timeout before the answer can be printed.
-    void Promise.resolve(
-      client.request({
-        to: watcherActor,
-        type: 'unwatchTargets',
-        targetType: 'frame'
-      })
-    ).catch(() => {})
+    watched.release()
   }
 }
 

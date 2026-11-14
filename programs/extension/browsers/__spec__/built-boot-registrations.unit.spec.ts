@@ -3,19 +3,20 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import * as vm from 'node:vm'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
-import {
-  BOOT_REGISTRATIONS_WAIT_MS,
-  holdForBootRegistrations
-} from '../browsers-lib/boot-registrations-hold'
+import {BOOT_REGISTRATIONS_WAIT_MS} from '../browsers-lib/boot-registrations-hold'
 import {
   BOOT_REGISTRATIONS_LOOK_MS,
   BOOT_REGISTRATIONS_QUIET_MS,
   type BootRegistrationsAnswer,
-  backgroundBootRegistrationsWait,
   bootRegistrationsProbe,
   builtBackgroundNamesRegistration,
-  resolveBootRegistrationsWait
+  holdFirstPage,
+  LATE_REGISTRATION_LOOK_MS,
+  LATE_REGISTRATION_READ,
+  LATE_REGISTRATION_WINDOW_MS,
+  watchForLateRegistration
 } from '../browsers-lib/built-boot-registrations'
+import * as messages from '../browsers-lib/messages'
 
 const URL = 'http://127.0.0.1:8080/page.html'
 const REGISTERS =
@@ -439,120 +440,220 @@ describe('the probe a production background is asked to run', () => {
   })
 })
 
-describe('the wait a production launch builds', () => {
-  const answer = (outcome: BootRegistrationsAnswer['outcome']) => ({
-    outcome,
-    count: outcome === 'settled' ? 2 : 0,
-    looks: 2,
-    waitedMs: 25,
-    bootedAfterMs: 0
-  })
+function fakeSession(reads: unknown[]) {
+  const queue = [...reads]
+  const session = {
+    evaluate: vi.fn(async (_expression: string, _timeoutMs: number) => {
+      const next = queue.length > 1 ? queue.shift() : queue[0]
 
-  it('hands the dev server wait back untouched', () => {
+      if (next instanceof Error) throw next
+
+      return next
+    }),
+    release: vi.fn()
+  }
+
+  return session
+}
+
+const answer = (outcome: BootRegistrationsAnswer['outcome'], ageMs = 160) => ({
+  outcome,
+  count: outcome === 'settled' ? 2 : 0,
+  looks: 2,
+  waitedMs: 25,
+  bootedAfterMs: 0,
+  ageMs
+})
+
+describe('the hold a launch puts on its first page', () => {
+  it('leaves a dev session to the dev server and opens no session', async () => {
     const awaitBootRegistrations = vi.fn(async () => 'settled' as const)
-    const evaluate = vi.fn()
+    const openSession = vi.fn()
 
-    expect(
-      resolveBootRegistrationsWait(
-        {awaitBootRegistrations, bootRegistrationsFromBackground: true},
-        evaluate
-      )
-    ).toBe(awaitBootRegistrations)
+    const hold = await holdFirstPage(
+      {awaitBootRegistrations, bootRegistrationsFromBackground: true},
+      URL,
+      openSession
+    )
 
-    expect(evaluate).not.toHaveBeenCalled()
+    expect(hold.outcome).toBe('settled')
+    expect(awaitBootRegistrations).toHaveBeenCalledWith(
+      BOOT_REGISTRATIONS_WAIT_MS
+    )
+
+    expect(openSession).not.toHaveBeenCalled()
+    await expect(hold.pageOpened()).resolves.toBeUndefined()
   })
 
-  // The fast path: no wait, no evaluation, no timer, no line.
-  it('builds no wait for a background that names no registration', async () => {
-    const evaluate = vi.fn()
+  // The fast path: no session, no evaluation, no timer, no line.
+  it('holds nothing for a background that names no registration', async () => {
+    const openSession = vi.fn()
     const warn = vi.fn()
-    const wait = resolveBootRegistrationsWait({}, evaluate)
-
-    expect(wait).toBeUndefined()
+    const say = vi.fn()
 
     vi.useFakeTimers()
 
-    await expect(
-      holdForBootRegistrations({awaitBootRegistrations: wait}, URL, {warn})
-    ).resolves.toBe('none')
+    const hold = await holdFirstPage({}, URL, openSession, {warn, say})
 
+    expect(hold.outcome).toBe('none')
+    await expect(hold.pageOpened()).resolves.toBeUndefined()
     expect(vi.getTimerCount()).toBe(0)
+
     vi.useRealTimers()
 
-    expect(evaluate).not.toHaveBeenCalled()
+    expect(openSession).not.toHaveBeenCalled()
     expect(warn).not.toHaveBeenCalled()
+    expect(say).not.toHaveBeenCalled()
   })
 
-  it('builds no wait when there is no background to ask', () => {
-    expect(
-      resolveBootRegistrationsWait(
-        {bootRegistrationsFromBackground: true},
-        undefined
-      )
-    ).toBeUndefined()
-  })
-
-  it('asks the background once, with the bound, and settles on its answer', async () => {
-    const evaluate = vi.fn(async () => answer('settled'))
-    const onAnswer = vi.fn()
+  it('asks the background once, with the bound, and lets it go when it registered', async () => {
+    const session = fakeSession([answer('settled')])
     const warn = vi.fn()
-    const wait = resolveBootRegistrationsWait(
+    const say = vi.fn()
+
+    const hold = await holdFirstPage(
       {bootRegistrationsFromBackground: true},
-      evaluate,
-      onAnswer
+      URL,
+      async () => session,
+      {warn, say}
     )
 
-    await expect(
-      holdForBootRegistrations({awaitBootRegistrations: wait}, URL, {warn})
-    ).resolves.toBe('settled')
-
-    expect(evaluate).toHaveBeenCalledTimes(1)
-    expect(evaluate).toHaveBeenCalledWith(
+    expect(hold.outcome).toBe('settled')
+    expect(session.evaluate).toHaveBeenCalledTimes(1)
+    expect(session.evaluate).toHaveBeenCalledWith(
       bootRegistrationsProbe(BOOT_REGISTRATIONS_WAIT_MS),
       BOOT_REGISTRATIONS_WAIT_MS
     )
 
-    expect(onAnswer).toHaveBeenCalledTimes(1)
-    expect(onAnswer.mock.calls[0][0]).toMatchObject(answer('settled'))
-    expect(typeof onAnswer.mock.calls[0][0].askedForMs).toBe('number')
+    expect(session.release).toHaveBeenCalledTimes(1)
+
+    await expect(hold.pageOpened()).resolves.toBeUndefined()
+
+    expect(session.evaluate).toHaveBeenCalledTimes(1)
     expect(warn).not.toHaveBeenCalled()
+    expect(say).not.toHaveBeenCalled()
   })
 
-  it('settles without a line when the background registered nothing', async () => {
+  it('keeps the session of an empty registry until the page is open', async () => {
+    const session = fakeSession([
+      answer('none'),
+      {count: 0, ageMs: 400},
+      {count: 2, ageMs: 1240}
+    ])
     const warn = vi.fn()
-    const wait = backgroundBootRegistrationsWait(async () => answer('none'))
+    const say = vi.fn()
 
-    await expect(
-      holdForBootRegistrations({awaitBootRegistrations: wait}, URL, {warn})
-    ).resolves.toBe('settled')
+    const hold = await holdFirstPage(
+      {bootRegistrationsFromBackground: true},
+      URL,
+      async () => session,
+      {warn, say, lookMs: 1}
+    )
 
+    expect(hold.outcome).toBe('settled')
+    expect(session.release).not.toHaveBeenCalled()
+    expect(session.evaluate).toHaveBeenCalledTimes(1)
+
+    await expect(hold.pageOpened()).resolves.toBe('registered')
+
+    expect(session.evaluate).toHaveBeenLastCalledWith(
+      LATE_REGISTRATION_READ,
+      expect.any(Number)
+    )
+
+    expect(say).toHaveBeenCalledTimes(1)
+    expect(String(say.mock.calls[0][0])).toContain(
+      'The background registered a content script 1.2s after it started, when the first page was already open. Reload that page to run the script on it.'
+    )
+
+    expect(String(say.mock.calls[0][0])).not.toContain('\n')
     expect(warn).not.toHaveBeenCalled()
+    expect(session.release).toHaveBeenCalledTimes(1)
+  })
+
+  it('sends one read as the navigation goes out and uses it when the page is open', async () => {
+    const session = fakeSession([
+      answer('none'),
+      {count: 2, ageMs: 210},
+      {count: 2, ageMs: 900}
+    ])
+    const say = vi.fn()
+
+    const hold = await holdFirstPage(
+      {bootRegistrationsFromBackground: true},
+      URL,
+      async () => session,
+      {say, lookMs: 1}
+    )
+
+    hold.beforeNavigate()
+    hold.beforeNavigate()
+
+    expect(session.evaluate).toHaveBeenCalledTimes(2)
+    expect(session.evaluate).toHaveBeenLastCalledWith(
+      LATE_REGISTRATION_READ,
+      expect.any(Number)
+    )
+
+    await expect(hold.pageOpened()).resolves.toBe('in-time')
+
+    expect(session.evaluate).toHaveBeenCalledTimes(2)
+    expect(say).not.toHaveBeenCalled()
+    expect(session.release).toHaveBeenCalledTimes(1)
   })
 
   it.each([
-    ['the probe ran out of time', async () => answer('timeout')],
-    ['the background could not be asked', async () => undefined],
-    ['the answer is not one the probe gives', async () => ({outcome: 'yes'})],
-    [
-      'the debugger refused',
-      async () => {
-        throw new Error('CDP command timed out')
-      }
-    ]
-  ])('opens the page with the one line when %s', async (_name, evaluate) => {
+    ['the probe ran out of time', [answer('timeout')]],
+    ['the answer is not one the probe gives', [{outcome: 'yes'}]],
+    ['the debugger refused', [new Error('CDP command timed out')]]
+  ])('opens the page with the one line and watches nothing when %s', async (_name, reads) => {
+    const session = fakeSession(reads)
     const warn = vi.fn()
-    const wait = backgroundBootRegistrationsWait(evaluate)
+    const say = vi.fn()
 
-    await expect(
-      holdForBootRegistrations({awaitBootRegistrations: wait}, URL, {warn})
-    ).resolves.toBe('timeout')
+    const hold = await holdFirstPage(
+      {bootRegistrationsFromBackground: true},
+      URL,
+      async () => session,
+      {warn, say}
+    )
 
+    expect(hold.outcome).toBe('timeout')
     expect(warn).toHaveBeenCalledTimes(1)
     expect(String(warn.mock.calls[0][0])).toContain(
       'before the background finished registering content scripts'
     )
 
     expect(String(warn.mock.calls[0][0])).not.toContain('\n')
+    expect(session.release).toHaveBeenCalledTimes(1)
+
+    await expect(hold.pageOpened()).resolves.toBeUndefined()
+
+    expect(session.evaluate).toHaveBeenCalledTimes(1)
+    expect(say).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['there is no background to ask', async () => undefined],
+    [
+      'the background cannot be reached',
+      async () => {
+        throw new Error('target closed')
+      }
+    ]
+  ])('opens the page with the one line when %s', async (_name, openSession) => {
+    const warn = vi.fn()
+
+    const hold = await holdFirstPage(
+      {bootRegistrationsFromBackground: true},
+      URL,
+      openSession,
+      {warn}
+    )
+
+    expect(hold.outcome).toBe('timeout')
+    expect(warn).toHaveBeenCalledTimes(1)
+    await expect(hold.pageOpened()).resolves.toBeUndefined()
   })
 
   // A background that blocks never answers the debugger, so the bound is
@@ -562,13 +663,17 @@ describe('the wait a production launch builds', () => {
 
     const warn = vi.fn()
     const done = vi.fn()
-    const wait = backgroundBootRegistrationsWait(
-      () => new Promise(() => undefined)
-    )
+    const session = {
+      evaluate: vi.fn(() => new Promise(() => undefined)),
+      release: vi.fn()
+    }
 
-    void holdForBootRegistrations({awaitBootRegistrations: wait}, URL, {
-      warn
-    }).then(done)
+    void holdFirstPage(
+      {bootRegistrationsFromBackground: true},
+      URL,
+      async () => session,
+      {warn}
+    ).then(done)
 
     await vi.advanceTimersByTimeAsync(BOOT_REGISTRATIONS_WAIT_MS)
 
@@ -576,10 +681,228 @@ describe('the wait a production launch builds', () => {
 
     await vi.advanceTimersByTimeAsync(250)
 
-    expect(done).toHaveBeenCalledWith('timeout')
+    expect(done).toHaveBeenCalledTimes(1)
+    expect(done.mock.calls[0][0].outcome).toBe('timeout')
     expect(warn).toHaveBeenCalledTimes(1)
     expect(String(warn.mock.calls[0][0])).toContain('waited 5.3s')
+    expect(session.release).toHaveBeenCalledTimes(1)
 
     vi.useRealTimers()
+  })
+})
+
+describe('the watch for a registration that lands after the first page', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('says nothing and lets go when the window ends with nothing registered', async () => {
+    let ageMs = 200
+    const session = {
+      evaluate: vi.fn(async () => ({count: 0, ageMs})),
+      release: vi.fn()
+    }
+    const say = vi.fn()
+    const done = vi.fn()
+
+    void watchForLateRegistration(session, {ageAtOpenMs: 200, say}).then(done)
+
+    for (let i = 0; i < 147; i++) {
+      ageMs += LATE_REGISTRATION_LOOK_MS
+      await vi.advanceTimersByTimeAsync(LATE_REGISTRATION_LOOK_MS)
+    }
+
+    expect(done).not.toHaveBeenCalled()
+    expect(session.release).not.toHaveBeenCalled()
+
+    ageMs = LATE_REGISTRATION_WINDOW_MS
+    await vi.advanceTimersByTimeAsync(LATE_REGISTRATION_LOOK_MS)
+
+    expect(done).toHaveBeenCalledWith('none')
+    expect(say).not.toHaveBeenCalled()
+    expect(session.release).toHaveBeenCalledTimes(1)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('says the line once, with the age the registration was seen at', async () => {
+    const session = fakeSession([
+      {count: 0, ageMs: 210},
+      {count: 0, ageMs: 300},
+      {count: 0, ageMs: 400},
+      {count: 1, ageMs: 512},
+      {count: 2, ageMs: 600}
+    ])
+    const say = vi.fn()
+    const done = vi.fn()
+
+    void watchForLateRegistration(session, {ageAtOpenMs: 200, say}).then(done)
+
+    await vi.advanceTimersByTimeAsync(10 * LATE_REGISTRATION_LOOK_MS)
+
+    expect(done).toHaveBeenCalledWith('registered')
+    expect(say).toHaveBeenCalledTimes(1)
+    expect(String(say.mock.calls[0][0])).toContain('0.5s after it started')
+    expect(session.evaluate).toHaveBeenCalledTimes(4)
+    expect(session.release).toHaveBeenCalledTimes(1)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  // The registry was read as the navigation was sent, and it was filled by
+  // then: the page has the script, so there is nothing to say.
+  it('says nothing for a registration that was in before the navigation', async () => {
+    const session = fakeSession([{count: 2, ageMs: 900}])
+    const say = vi.fn()
+
+    await expect(
+      watchForLateRegistration(session, {
+        ageAtOpenMs: 200,
+        atOpen: Promise.resolve({count: 2, ageMs: 260}),
+        say
+      })
+    ).resolves.toBe('in-time')
+
+    expect(say).not.toHaveBeenCalled()
+    expect(session.evaluate).not.toHaveBeenCalled()
+    expect(session.release).toHaveBeenCalledTimes(1)
+  })
+
+  it('makes the read at open itself when no navigation handed one over', async () => {
+    const session = fakeSession([{count: 1, ageMs: 240}])
+    const say = vi.fn()
+
+    await expect(
+      watchForLateRegistration(session, {ageAtOpenMs: 200, say})
+    ).resolves.toBe('in-time')
+
+    expect(session.evaluate).toHaveBeenCalledTimes(1)
+    expect(say).not.toHaveBeenCalled()
+  })
+
+  it('keeps watching after an empty or unanswered read at open', async () => {
+    const session = fakeSession([{count: 2, ageMs: 700}])
+    const say = vi.fn()
+    const done = vi.fn()
+
+    void watchForLateRegistration(session, {
+      ageAtOpenMs: 200,
+      atOpen: Promise.reject(new Error('gone')),
+      say
+    }).then(done)
+
+    await vi.advanceTimersByTimeAsync(LATE_REGISTRATION_LOOK_MS)
+
+    expect(done).toHaveBeenCalledWith('registered')
+    expect(String(say.mock.calls[0][0])).toContain('0.7s after it started')
+  })
+
+  it('lets go without a line when the session stops answering', async () => {
+    const session = fakeSession([
+      {count: 0, ageMs: 300},
+      new Error('CDP transport is not open')
+    ])
+    const say = vi.fn()
+    const done = vi.fn()
+
+    void watchForLateRegistration(session, {ageAtOpenMs: 200, say}).then(done)
+
+    await vi.advanceTimersByTimeAsync(LATE_REGISTRATION_LOOK_MS)
+
+    expect(done).not.toHaveBeenCalled()
+
+    await vi.advanceTimersByTimeAsync(2 * LATE_REGISTRATION_LOOK_MS)
+
+    expect(done).toHaveBeenCalledWith('gone')
+    expect(say).not.toHaveBeenCalled()
+    expect(session.release).toHaveBeenCalledTimes(1)
+  })
+
+  it('takes one unanswered read as nothing and keeps watching', async () => {
+    const session = fakeSession([
+      {count: 0, ageMs: 210},
+      undefined,
+      {count: 2, ageMs: 900}
+    ])
+    const say = vi.fn()
+    const done = vi.fn()
+
+    void watchForLateRegistration(session, {ageAtOpenMs: 200, say}).then(done)
+
+    await vi.advanceTimersByTimeAsync(LATE_REGISTRATION_LOOK_MS)
+
+    expect(done).toHaveBeenCalledWith('registered')
+    expect(say).toHaveBeenCalledTimes(1)
+  })
+
+  // A background that started over has no first page behind it.
+  it('says nothing for a background younger than the page', async () => {
+    const session = fakeSession([
+      {count: 0, ageMs: 210},
+      {count: 2, ageMs: 40}
+    ])
+    const say = vi.fn()
+
+    await expect(
+      watchForLateRegistration(session, {ageAtOpenMs: 200, say})
+    ).resolves.toBe('gone')
+
+    expect(say).not.toHaveBeenCalled()
+    expect(session.release).toHaveBeenCalledTimes(1)
+  })
+
+  it('ends on its own clock when the background cannot tell its age', async () => {
+    const session = {
+      evaluate: vi.fn(async () => ({count: 0, ageMs: null})),
+      release: vi.fn()
+    }
+    const done = vi.fn()
+
+    void watchForLateRegistration(session, {
+      ageAtOpenMs: 14_000,
+      say: vi.fn()
+    }).then(done)
+
+    await vi.advanceTimersByTimeAsync(900)
+
+    expect(done).not.toHaveBeenCalled()
+
+    await vi.advanceTimersByTimeAsync(200)
+
+    expect(done).toHaveBeenCalledWith('none')
+    expect(session.release).toHaveBeenCalledTimes(1)
+  })
+
+  it('runs the read as text and leaves no name behind', async () => {
+    vi.useRealTimers()
+
+    const scripting = fakeRegistry(['iso', 'main'])
+    const context = vm.createContext({
+      performance: {now: () => 1234.6},
+      chrome: {scripting, runtime: {}}
+    })
+    const before = Object.keys(context).sort()
+
+    await expect(
+      vm.runInContext(LATE_REGISTRATION_READ, context)
+    ).resolves.toEqual({count: 2, ageMs: 1235})
+
+    expect(Object.keys(context).sort()).toEqual(before)
+  })
+})
+
+// A dev session prints this line from its own catalog, so the two are read
+// side by side: a production run must not word the same thing differently.
+describe('the late registration line', () => {
+  it('is the dev line, word for word', async () => {
+    const dev = await import('../../../develop/dev-server/messages')
+
+    expect(messages.lateBootRegistration(1240)).toBe(
+      dev.lateBootRegistration(1240)
+    )
+
+    expect(messages.lateBootRegistration()).toBe(dev.lateBootRegistration())
   })
 })

@@ -7,11 +7,9 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import {humanWarn, isDebug} from '../../../helpers/messaging'
-import {holdForBootRegistrations} from '../../browsers-lib/boot-registrations-hold'
 import {
-  type BackgroundEvaluator,
-  debugBootRegistrationsAnswer,
-  resolveBootRegistrationsWait
+  type BackgroundSession,
+  holdFirstPage
 } from '../../browsers-lib/built-boot-registrations'
 import {manifestDeclaresNewtabOverride} from '../../browsers-lib/newtab-override'
 import {resolveStartingUrl} from '../../browsers-lib/runtime-options'
@@ -100,26 +98,28 @@ export async function setupRdpAfterLaunch(
 
     if (startingUrl) {
       const live = (plugin.rdpController || controller) as {
-        openStartingUrl?: (url: string) => Promise<boolean>
-        evaluateInBackground?: BackgroundEvaluator
+        openStartingUrl?: (
+          url: string,
+          beforeNavigate?: () => void
+        ) => Promise<boolean>
+        openBackgroundSession?: () => Promise<BackgroundSession | undefined>
       }
 
-      await holdForBootRegistrations(
-        {
-          awaitBootRegistrations: resolveBootRegistrationsWait(
-            plugin,
-            live.evaluateInBackground
-              ? (expression, timeoutMs) =>
-                  live.evaluateInBackground?.(expression, timeoutMs) ??
-                  Promise.resolve(undefined)
-              : undefined,
-            debugBootRegistrationsAnswer
-          )
-        },
-        startingUrl
+      const hold = await holdFirstPage(
+        plugin,
+        startingUrl,
+        live.openBackgroundSession
+          ? () => live.openBackgroundSession?.() ?? Promise.resolve(undefined)
+          : undefined
       )
 
-      const opened = await live.openStartingUrl?.(startingUrl)
+      const opened = await live.openStartingUrl?.(
+        startingUrl,
+        hold.beforeNavigate
+      )
+
+      // Not awaited: the launch is done, and the watch ends by itself.
+      void hold.pageOpened().catch(() => {})
 
       if (opened === false && isDebug()) {
         humanWarn(`[browser] Firefox: could not open ${startingUrl}.`)

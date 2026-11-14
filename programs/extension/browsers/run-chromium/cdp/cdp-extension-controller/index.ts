@@ -11,6 +11,7 @@ import * as path from 'node:path'
 import type {Readable, Writable} from 'node:stream'
 import {CODES, humanWarn, isDebug} from '../../../../helpers/messaging'
 import {expectedChromiumExtensionId} from '../../../browsers-lib/banner'
+import type {BackgroundSession} from '../../../browsers-lib/built-boot-registrations'
 import {loadsExtensionsOverCdpOnly} from '../../../browsers-lib/browser-family'
 import {stampReadyExtensionId} from '../../../browsers-lib/ready-stamp'
 import {LAUNCH_TAB_URL} from '../../../browsers-lib/runtime-options'
@@ -176,7 +177,11 @@ export class CDPExtensionController {
   // tab gets a new one. A background that never shows still gets the page.
   async openStartingUrl(
     url: string,
-    options: {attempts?: number; intervalMs?: number} = {}
+    options: {
+      attempts?: number
+      intervalMs?: number
+      beforeNavigate?: () => void
+    } = {}
   ): Promise<'navigated' | 'opened' | 'unavailable'> {
     if (!this.cdp) return 'unavailable'
 
@@ -203,25 +208,26 @@ export class CDPExtensionController {
       })) as {sessionId?: string} | undefined
 
       if (attached?.sessionId) {
+        options.beforeNavigate?.()
         await this.cdp.sendCommand('Page.navigate', {url}, attached.sessionId)
 
         return 'navigated'
       }
     }
 
+    options.beforeNavigate?.()
     await this.cdp.sendCommand('Target.createTarget', {url})
 
     return 'opened'
   }
 
-  // Evaluate in the extension's background, on a session of its own that is
-  // let go afterwards. Undefined when there is no background to ask.
-  async evaluateInBackground(
-    expression: string,
-    timeoutMs: number,
+  // A session on the extension's background that is this caller's alone,
+  // kept for every read until it is released. Undefined with no background.
+  async openBackgroundSession(
     options: {attempts?: number; intervalMs?: number} = {}
-  ): Promise<unknown> {
-    if (!this.cdp) return undefined
+  ): Promise<BackgroundSession | undefined> {
+    const cdp = this.cdp
+    if (!cdp) return undefined
 
     const extensionId =
       this.extensionId || expectedChromiumExtensionId(this.outPath)
@@ -237,7 +243,7 @@ export class CDPExtensionController {
         await new Promise((resolve) => setTimeout(resolve, intervalMs))
       }
 
-      const targets = await this.cdp.getTargets()
+      const targets = await cdp.getTargets()
       const background = targets.find(
         (target) =>
           BACKGROUND_TARGET_TYPES.has(String(target?.type || '')) &&
@@ -249,22 +255,32 @@ export class CDPExtensionController {
 
     if (!targetId) return undefined
 
-    const sessionId = await this.cdp.attachToTarget(targetId)
+    const sessionId = await cdp.attachToTarget(targetId)
     if (!sessionId) return undefined
 
-    try {
-      const response = (await this.cdp.sendCommand(
-        'Runtime.evaluate',
-        {expression, returnByValue: true, awaitPromise: true},
-        sessionId,
-        timeoutMs + EVALUATE_ANSWER_SLACK_MS
-      )) as {result?: {value?: unknown}; exceptionDetails?: unknown}
+    let released = false
 
-      return response?.exceptionDetails ? undefined : response?.result?.value
-    } finally {
-      void this.cdp
-        .sendCommand('Target.detachFromTarget', {sessionId})
-        .catch(() => {})
+    return {
+      evaluate: async (expression, timeoutMs) => {
+        if (released) return undefined
+
+        const response = (await cdp.sendCommand(
+          'Runtime.evaluate',
+          {expression, returnByValue: true, awaitPromise: true},
+          sessionId,
+          timeoutMs + EVALUATE_ANSWER_SLACK_MS
+        )) as {result?: {value?: unknown}; exceptionDetails?: unknown}
+
+        return response?.exceptionDetails ? undefined : response?.result?.value
+      },
+      release: () => {
+        if (released) return
+
+        released = true
+        void cdp
+          .sendCommand('Target.detachFromTarget', {sessionId})
+          .catch(() => {})
+      }
     }
   }
 

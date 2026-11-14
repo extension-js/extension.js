@@ -148,6 +148,28 @@ describe('Chromium opens the starting url after install', () => {
     ])
   })
 
+  // A caller that reads something just ahead of the page hears once, right
+  // before the command that starts the navigation.
+  it('tells the caller once, just before it navigates or opens the tab', async () => {
+    const outPath = makeDist({manifest_version: 3})
+    const blank = {type: 'page', targetId: 'p1', url: 'about:blank'}
+
+    for (const targets of [[blank], []]) {
+      const {controller, commands} = makeController(outPath, [targets])
+      const seen: number[] = []
+
+      await controller.openStartingUrl(URL, {
+        intervalMs: 0,
+        beforeNavigate: () => seen.push(commands.length)
+      })
+
+      expect(seen).toEqual([commands.length - 1])
+      expect(['Page.navigate', 'Target.createTarget']).toContain(
+        commands.at(-1)?.[0]
+      )
+    }
+  })
+
   it('opens a tab when the launch left no blank page', async () => {
     const outPath = makeDist({manifest_version: 3})
     const {controller, commands} = makeController(outPath, [
@@ -266,6 +288,42 @@ describe('Firefox opens the starting url after install', () => {
       type: 'navigateTo',
       url: URL
     })
+  })
+
+  it('tells the caller once, just before the navigation is sent', async () => {
+    const fake = fakeClient(['RUNNING'])
+    const seen: number[] = []
+
+    await openStartingUrlAfterBackground({
+      client: fake.client,
+      extensionId: 'x@example.com',
+      url: URL,
+      beforeNavigate: () => seen.push(fake.requests.length),
+      intervalMs: 0
+    })
+
+    expect(seen).toEqual([fake.requests.length - 1])
+    expect(fake.requests.at(-1)?.type).toBe('navigateTo')
+  })
+
+  it('tells the caller once before a tab of its own is opened', async () => {
+    const fake = fakeClient(['RUNNING'], [])
+    const order: string[] = []
+
+    await openStartingUrlAfterBackground({
+      client: fake.client,
+      extensionId: 'x@example.com',
+      url: URL,
+      beforeNavigate: () => order.push('told'),
+      openInNewTab: async () => {
+        order.push('opened')
+
+        return true
+      },
+      intervalMs: 0
+    })
+
+    expect(order).toEqual(['told', 'opened'])
   })
 
   it('opens a tab of its own when the launch tab is gone', async () => {

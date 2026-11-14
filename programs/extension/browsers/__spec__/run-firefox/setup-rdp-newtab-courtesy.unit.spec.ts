@@ -28,13 +28,21 @@ const evaluateInBackground = vi.fn(
   }
 )
 
+const releaseSession = vi.fn(() => {
+  calls.push('released')
+})
+const openBackgroundSession = vi.fn(async () => ({
+  evaluate: evaluateInBackground,
+  release: releaseSession
+}))
+
 vi.mock('../../run-firefox/rdp/rdp-extension-controller', () => ({
   FirefoxRDPController: class {
     ensureLoaded = ensureLoaded
     openNewTab = openNewTab
     getAddonInstallRefusalReason = getAddonInstallRefusalReason
     openStartingUrl = openStartingUrl
-    evaluateInBackground = evaluateInBackground
+    openBackgroundSession = openBackgroundSession
   }
 }))
 
@@ -57,6 +65,8 @@ beforeEach(() => {
   openNewTab.mockClear()
   openStartingUrl.mockClear()
   evaluateInBackground.mockClear()
+  releaseSession.mockClear()
+  openBackgroundSession.mockClear()
 })
 
 afterEach(() => {
@@ -165,10 +175,52 @@ describe('firefox new-tab courtesy after launch', () => {
     )
 
     expect(evaluateInBackground.mock.calls[0][1]).toBe(5000)
+    expect(openBackgroundSession).toHaveBeenCalledTimes(1)
     expect(calls).toEqual([
       'ensureLoaded',
       'asked',
+      'released',
       'openStartingUrl https://example.com/'
+    ])
+  })
+
+  // The page opened on an empty registry, so the same session keeps reading
+  // and says so when a registration follows.
+  it('says so in one line when a registration lands after the starting url', async () => {
+    writeManifest({manifest_version: 3, name: 'plain'})
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    evaluateInBackground
+      .mockResolvedValueOnce({outcome: 'none', count: 0, looks: 2, ageMs: 160})
+      .mockResolvedValueOnce({count: 0, ageMs: 200})
+      .mockResolvedValueOnce({count: 2, ageMs: 430})
+
+    await setupRdpAfterLaunch(
+      {
+        browser: 'firefox',
+        startingUrl: 'https://example.com/',
+        bootRegistrationsFromBackground: true
+      } as any,
+      compilation(),
+      9222
+    )
+
+    await vi.waitFor(() => expect(releaseSession).toHaveBeenCalledTimes(1))
+
+    const printed = [...warnSpy.mock.calls, ...logSpy.mock.calls]
+      .map((call) => String(call[0]))
+      .filter((line) => line.includes('registered a content script'))
+
+    warnSpy.mockRestore()
+    logSpy.mockRestore()
+
+    expect(printed).toHaveLength(1)
+    expect(printed[0]).toContain('0.4s after it started')
+    expect(openBackgroundSession).toHaveBeenCalledTimes(1)
+    expect(calls).toEqual([
+      'ensureLoaded',
+      'openStartingUrl https://example.com/',
+      'released'
     ])
   })
 
@@ -181,6 +233,7 @@ describe('firefox new-tab courtesy after launch', () => {
       9222
     )
 
+    expect(openBackgroundSession).not.toHaveBeenCalled()
     expect(evaluateInBackground).not.toHaveBeenCalled()
     expect(calls).toEqual([
       'ensureLoaded',
@@ -204,6 +257,7 @@ describe('firefox new-tab courtesy after launch', () => {
     )
 
     expect(awaitBootRegistrations).toHaveBeenCalledTimes(1)
+    expect(openBackgroundSession).not.toHaveBeenCalled()
     expect(evaluateInBackground).not.toHaveBeenCalled()
   })
 

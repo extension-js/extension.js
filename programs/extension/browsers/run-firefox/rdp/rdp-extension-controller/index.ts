@@ -6,6 +6,7 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝      ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import type {BackgroundSession} from '../../../browsers-lib/built-boot-registrations'
 import type {BrowserType, CompilationLike} from '../../../browsers-types'
 import {wakeExtensionBackground} from '../evaluate-extension-document'
 import {RemoteFirefox} from '../remote-firefox'
@@ -74,15 +75,15 @@ export class FirefoxRDPController {
     return await this.remote.openNewTab()
   }
 
-  async openStartingUrl(url: string): Promise<boolean> {
-    return await this.remote.openStartingUrl(url)
+  async openStartingUrl(
+    url: string,
+    beforeNavigate?: () => void
+  ): Promise<boolean> {
+    return await this.remote.openStartingUrl(url, beforeNavigate)
   }
 
-  async evaluateInBackground(
-    expression: string,
-    timeoutMs: number
-  ): Promise<unknown> {
-    return await this.remote.evaluateInBackground(expression, timeoutMs)
+  async openBackgroundSession(): Promise<BackgroundSession | undefined> {
+    return await this.remote.openBackgroundSession()
   }
 
   disconnect(): void {

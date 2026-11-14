@@ -10,8 +10,8 @@ const BACKGROUND_FRAME = {
   isFallbackExtensionDocument: false
 }
 
-// The live session's client, as far as an evaluation in the background
-// document drives it.
+// The live session's client, as far as a read in the background document
+// drives it.
 class FakeSessionClient extends EventEmitter {
   requests: Array<Record<string, unknown>> = []
   evaluated: Array<{consoleActor: string; expression: string}> = []
@@ -58,45 +58,80 @@ function makeRemote(client: FakeSessionClient | null, extensionId?: string) {
   return remote as RemoteFirefox
 }
 
-describe('evaluating in the background of an installed add-on', () => {
-  it('evaluates in the background document over the session it holds', async () => {
-    const client = new FakeSessionClient([BACKGROUND_FRAME])
-    const remote = makeRemote(client, ADDON_ID)
+const types = (client: FakeSessionClient) =>
+  client.requests.map((request) => request.type)
 
-    await expect(remote.evaluateInBackground('probe()', 1000)).resolves.toEqual(
-      {outcome: 'settled'}
-    )
+describe('a session on the background of an installed add-on', () => {
+  it('finds the background document once and reads in it many times', async () => {
+    const client = new FakeSessionClient([BACKGROUND_FRAME])
+    const session = await makeRemote(client, ADDON_ID).openBackgroundSession()
+
+    await expect(session?.evaluate('probe()', 1000)).resolves.toEqual({
+      outcome: 'settled'
+    })
+
+    await expect(session?.evaluate('again()', 1000)).resolves.toEqual({
+      outcome: 'settled'
+    })
 
     expect(client.evaluated[0].consoleActor).toBe('console-background')
     expect(client.evaluated[0].expression).toContain('probe()')
-    expect(client.requests.map((request) => request.type)).toEqual([
+    expect(client.evaluated[2].expression).toContain('again()')
+    expect(types(client)).toEqual(['listAddons', 'getWatcher', 'watchTargets'])
+  })
+
+  it('stops watching once on release', async () => {
+    const client = new FakeSessionClient([BACKGROUND_FRAME])
+    const session = await makeRemote(client, ADDON_ID).openBackgroundSession()
+
+    session?.release()
+    session?.release()
+    await Promise.resolve()
+
+    expect(types(client)).toEqual([
       'listAddons',
       'getWatcher',
       'watchTargets',
       'unwatchTargets'
     ])
+
+    expect(client.listenerCount('message')).toBe(0)
   })
 
-  it('answers undefined when the add-on has no background document', async () => {
-    const client = new FakeSessionClient([])
+  it('reads nothing on a connection the launcher has replaced', async () => {
+    const client = new FakeSessionClient([BACKGROUND_FRAME])
     const remote = makeRemote(client, ADDON_ID)
+    const session = await remote.openBackgroundSession()
 
-    await expect(
-      remote.evaluateInBackground('probe()', 150)
-    ).resolves.toBeUndefined()
+    ;(remote as any).client = new FakeSessionClient([BACKGROUND_FRAME])
+
+    await expect(session?.evaluate('probe()', 1000)).resolves.toBeUndefined()
 
     expect(client.evaluated).toEqual([])
   })
 
-  it('answers undefined with no session or no add-on id, and asks nothing', async () => {
+  it('opens nothing, and stops watching, when there is no background document', async () => {
+    const client = new FakeSessionClient([])
+
+    await expect(
+      makeRemote(client, ADDON_ID).openBackgroundSession()
+    ).resolves.toBeUndefined()
+
+    await Promise.resolve()
+
+    expect(client.evaluated).toEqual([])
+    expect(types(client).at(-1)).toBe('unwatchTargets')
+  }, 10_000)
+
+  it('opens nothing with no connection or no add-on id, and asks nothing', async () => {
     const client = new FakeSessionClient([BACKGROUND_FRAME])
 
     await expect(
-      makeRemote(null, ADDON_ID).evaluateInBackground('probe()', 1000)
+      makeRemote(null, ADDON_ID).openBackgroundSession()
     ).resolves.toBeUndefined()
 
     await expect(
-      makeRemote(client, undefined).evaluateInBackground('probe()', 1000)
+      makeRemote(client, undefined).openBackgroundSession()
     ).resolves.toBeUndefined()
 
     expect(client.requests).toEqual([])
