@@ -16,16 +16,17 @@ import {
   isCardKeyClaimed,
   isDebug
 } from '../../../helpers/messaging'
-import {holdFirstPage} from '../../browsers-lib/built-boot-registrations'
 import {
   printDevBannerOnce,
   printProdBannerOnce
 } from '../../browsers-lib/banner'
 import {loadsExtensionsOverCdpOnly} from '../../browsers-lib/browser-family'
+import {holdFirstPage} from '../../browsers-lib/built-boot-registrations'
 import {
   companionPathsForCdpLoad,
   isDevtoolsCompanionPath
 } from '../../browsers-lib/companion-session'
+import {repeatsManifestV2Refusal} from '../../browsers-lib/manifest-refusal'
 import * as messages from '../../browsers-lib/messages'
 import {manifestDeclaresNewtabOverride} from '../../browsers-lib/newtab-override'
 import {
@@ -122,9 +123,11 @@ function reportGuestLoadRefused(
   reason: string,
   runOnly = false
 ) {
-  humanError(
-    messages.chromiumExtensionLoadRefused(refusedPath, reason, {runOnly})
-  )
+  if (!repeatsManifestV2Refusal(plugin.manifestV2RefusalSaid, reason)) {
+    humanError(
+      messages.chromiumExtensionLoadRefused(refusedPath, reason, {runOnly})
+    )
+  }
 
   plugin.logSink?.({
     level: 'error',

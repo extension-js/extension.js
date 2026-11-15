@@ -85,6 +85,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "managedDependencyCopyWarning: function(2)",
     "manifestInvalidJson: function(2)",
     "manifestNotFoundError: function(1)",
+    "manifestV2OnChromium: function(2)",
     "noCompanionExtensionsResolved: function(0)",
     "notAZipArchive: function(2)",
     "notAnExtensionManifestError: function(1)",

@@ -3,17 +3,30 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {
+  chromiumStillRunsManifestV2,
   diagnoseChromiumManifestRefusal,
   findChromiumLoadBlockers,
   findInvalidMatchPatterns,
   findLocaleLoadBlockers,
   findMissingManagedSchema,
-  findUnloadableIconFiles
+  findUnloadableIconFiles,
+  planManifestV2Launch,
+  repeatsManifestV2Refusal
 } from '../browsers-lib/manifest-refusal'
+import {manifestV2OnChromiumBrowser} from '../browsers-lib/messages'
 
 describe('diagnoseChromiumManifestRefusal', () => {
   it('flags MV2', () => {
     expect(diagnoseChromiumManifestRefusal({manifest_version: 2})).toBe('mv2')
+  })
+
+  it('does not flag a Manifest V2 theme, which Chrome 151 still installs', () => {
+    expect(
+      diagnoseChromiumManifestRefusal({
+        manifest_version: 2,
+        theme: {colors: {frame: [20, 40, 80]}}
+      })
+    ).toBe(null)
   })
 
   it('flags missing, MV1, and above-3 manifest_version as unsupported (wild: Custom-salesforce-inspector)', () => {
@@ -573,5 +586,72 @@ describe('findUnloadableIconFiles', () => {
     ).toEqual([])
 
     expect(findUnloadableIconFiles({icons: {'16': ''}}, dir)).toEqual([])
+  })
+})
+
+describe('a Manifest V2 guest at launch', () => {
+  it('is a refusal on Chrome and its forks, and still runs on Edge', () => {
+    expect(chromiumStillRunsManifestV2('edge')).toBe(true)
+
+    for (const browser of ['chrome', 'chromium', 'brave', 'chromium-based']) {
+      expect(chromiumStillRunsManifestV2(browser)).toBe(false)
+    }
+  })
+
+  it('stays quiet when the build of this session already said it', () => {
+    expect(
+      planManifestV2Launch({browser: 'chrome', builtByThisSession: true})
+    ).toEqual({say: false, refused: true})
+
+    expect(
+      planManifestV2Launch({browser: 'edge', builtByThisSession: true})
+    ).toEqual({say: false, refused: false})
+  })
+
+  it('says it once when nothing built in this session', () => {
+    expect(
+      planManifestV2Launch({browser: 'chrome', builtByThisSession: false})
+    ).toEqual({say: true, refused: true})
+
+    expect(
+      planManifestV2Launch({browser: 'edge', builtByThisSession: false})
+    ).toEqual({say: true, refused: false})
+  })
+
+  it('treats only the manifest version answer as a repeat', () => {
+    const reason =
+      'Cannot install extension because it uses an unsupported manifest version.'
+
+    expect(repeatsManifestV2Refusal(true, reason)).toBe(true)
+    expect(repeatsManifestV2Refusal(false, reason)).toBe(false)
+    expect(repeatsManifestV2Refusal(undefined, reason)).toBe(false)
+    expect(repeatsManifestV2Refusal(true, 'Could not load icon')).toBe(false)
+  })
+
+  it('names the Chrome versions for Chrome', () => {
+    const text = manifestV2OnChromiumBrowser('chrome', '/dist/chrome')
+
+    expect(text).toContain('Chrome no longer runs it')
+    expect(text).toContain('Chrome 138 was the last version')
+    expect(text).toContain('Chrome 151 removed the flag')
+    expect(text).not.toContain('modern Chromium')
+    expect(text).not.toContain('native dialog')
+  })
+
+  it('names the Chromium version for a fork', () => {
+    const text = manifestV2OnChromiumBrowser('brave', '/dist/brave')
+
+    expect(text).toContain('Chromium no longer runs it')
+    expect(text).toContain('Chromium 151 removed the last flag')
+  })
+
+  it('tells Edge it is deprecated and still runs', () => {
+    const text = manifestV2OnChromiumBrowser('edge', '/dist/edge')
+
+    expect(text).toContain('Microsoft Edge has deprecated and still runs')
+    expect(text).toContain('Edge 157 loads and runs one unpacked')
+    expect(text).toContain('names no final version yet')
+    expect(text).not.toContain('no longer runs it')
+    expect(text).not.toContain('refuses')
   })
 })

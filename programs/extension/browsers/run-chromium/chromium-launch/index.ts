@@ -32,16 +32,16 @@ import {
   printDevBannerOnce,
   printProdBannerOnce
 } from '../../browsers-lib/banner'
+import {
+  binaryOverrideNaming,
+  locateChromeIn
+} from '../../browsers-lib/binary-env-override'
 import {isSystemLocatedChromiumFork} from '../../browsers-lib/browser-family'
 import {
   type InstallableTarget,
   offerManagedInstall
 } from '../../browsers-lib/first-run-install'
 import * as instanceRegistry from '../../browsers-lib/instance-registry'
-import {
-  binaryOverrideNaming,
-  locateChromeIn
-} from '../../browsers-lib/binary-env-override'
 import {locatorEnv, scanSystem} from '../../browsers-lib/locator-env'
 import {
   diagnoseChromiumManifestRefusal,
@@ -49,7 +49,8 @@ import {
   findInvalidMatchPatterns,
   findLocaleLoadBlockers,
   findMissingManagedSchema,
-  findUnloadableIconFiles
+  findUnloadableIconFiles,
+  planManifestV2Launch
 } from '../../browsers-lib/manifest-refusal'
 import * as messages from '../../browsers-lib/messages'
 import {isRefusedOfficialChrome} from '../../browsers-lib/official-chrome'
@@ -68,11 +69,11 @@ import {
   readReadyRunId,
   stampReadyBrowserExited,
   stampReadyBrowserLaunch,
-  stampReadyDevBrowserFlag,
-  stampReadyDevBrowserPreference,
   stampReadyBrowserLaunchFailed,
   stampReadyBrowserUpNotAttached,
   stampReadyCdpFault,
+  stampReadyDevBrowserFlag,
+  stampReadyDevBrowserPreference,
   stampReadyExtensionLoadRefused,
   stampReadyProfileLocked
 } from '../../browsers-lib/ready-stamp'
@@ -93,6 +94,7 @@ import type {
 import type {CDPExtensionController} from '../cdp/cdp-extension-controller'
 import {codedError, declaredCode} from '../cdp/coded-error'
 import {checkChromeRemoteDebugging} from '../cdp/discovery'
+import {startupPreferenceReport} from '../cdp/ensure-startup-new-tab'
 import {guardCdpPipe} from '../cdp/pipe-guard'
 import type {ChromiumContext} from '../chromium-context'
 import type {
@@ -109,7 +111,6 @@ import {
   disableInfobarsFlagReport,
   silentDebuggerFlagReport
 } from './browser-config'
-import {startupPreferenceReport} from '../cdp/ensure-startup-new-tab'
 import {logChromiumDryRun} from './dry-run'
 import {getExtensionOutputPath} from './extension-output-path'
 import {chromiumForkInstallGuidance} from './fork-install-guidance'
@@ -1061,6 +1062,12 @@ export class ChromiumLaunchPlugin {
     // Manifest shapes modern Chromium refuses outright surface only as a native
     // modal (or nothing) and wedge the session; say why up front, before the spawn.
     const refusedExtensionPaths: string[] = []
+    // A dev session and a start session build before they launch, and that
+    // build warns about Manifest V2 for the output it wrote. Preview builds nothing.
+    const sessionBuilds =
+      opts?.enableCdpPostLaunch !== false || opts?.sessionCommand === 'start'
+    const sessionOutputPath = getExtensionOutputPath(compilation, undefined)
+    let manifestV2RefusalSaid = false
 
     for (const extPath of extensionsToLoad) {
       try {
@@ -1069,8 +1076,27 @@ export class ChromiumLaunchPlugin {
         )
         const refusal = diagnoseChromiumManifestRefusal(m)
 
+        let refused = Boolean(refusal)
+
         if (refusal === 'mv2') {
-          humanWarn(messages.mv2NotSupportedByChromium(String(extPath)))
+          const plan = planManifestV2Launch({
+            browser: String(browser),
+            builtByThisSession:
+              sessionBuilds &&
+              path.resolve(String(extPath)) === path.resolve(sessionOutputPath)
+          })
+
+          if (plan.say) {
+            humanWarn(
+              messages.manifestV2OnChromiumBrowser(
+                String(browser),
+                String(extPath)
+              )
+            )
+          }
+
+          refused = plan.refused
+          if (refused) manifestV2RefusalSaid = true
         } else if (refusal === 'mv3-background-scripts') {
           humanWarn(
             messages.mv3BackgroundScriptsNotSupportedByChromium(String(extPath))
@@ -1084,7 +1110,7 @@ export class ChromiumLaunchPlugin {
           )
         }
 
-        if (refusal) refusedExtensionPaths.push(String(extPath))
+        if (refused) refusedExtensionPaths.push(String(extPath))
 
         const invalidPatterns = findInvalidMatchPatterns(m)
 
@@ -1407,7 +1433,8 @@ export class ChromiumLaunchPlugin {
         binaryPath: browserBinaryLocation,
         binaryProvenance,
         binaryPinnedBy,
-        launchRunId: this.closeHandlerContext?.runId
+        launchRunId: this.closeHandlerContext?.runId,
+        manifestV2RefusalSaid
       }
 
       // Full CDP wiring (dev + inspection). Run-only keeps to the load check
