@@ -27,7 +27,8 @@ Use the `Release – Publish` workflow at `.github/workflows/publish-release.yml
   - `channel`: `next`, `stable`, or `canary`
   - `version`: explicit semver (e.g. `3.0.0-next.17` or `3.0.0`).
     - For `canary`, this can be left empty to auto-generate:
-      `<base>-canary.<run_number>.<short_sha>`
+      `<next patch>-canary.<run_number>.<short_sha>`, named for the patch after
+      the last release so it sorts above the published stable
 - For `stable` and `next`, CI first moves the `extension create` template pin to the
   head of `extension-js/templates` (`node scripts/generate-template-corpus.mjs --ref main`)
   and carries the two generated files in the release commit, so a fresh scaffold
