@@ -22,7 +22,7 @@ export function corpusReleaseLine(env) {
   ) {
     const run = env.RUN_URL ? ` ([run](${env.RUN_URL}))` : ''
 
-    return `Validated before publishing: \`extension@${canary}\`, cut from the same commit, built every buildable sample of [extension-js/corpus](https://github.com/extension-js/corpus) on Chrome, Firefox and Edge, and passed the [extension-js/templates](https://github.com/extension-js/templates) suite${run}.`
+    return `Validated before publishing: \`extension@${canary}\`, cut from the same commit, built every buildable sample of [extension-js/corpus](https://github.com/extension-js/corpus) on Chrome, Firefox, Edge and Safari, and passed the [extension-js/templates](https://github.com/extension-js/templates) suite${run}.`
   }
 
   if (env.CORPUS_SKIPPED === 'true') {

@@ -276,3 +276,12 @@ test('a pin behind by artifact commits alone is not behind', () => {
 
   assert.equal(onlyBotCommits([]), false)
 })
+
+test('both corpus readings include the Safari lane', () => {
+  for (const job of ['corpus-gate', 'corpus-published']) {
+    const text = workflow.slice(workflow.indexOf(`\n  ${job}:`))
+    const end = text.indexOf('\n\n', 1)
+
+    assert.match(end === -1 ? text : text.slice(0, end), /\n {6}safari: true/)
+  }
+})

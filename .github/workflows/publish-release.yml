@@ -120,10 +120,11 @@ jobs:
     if: ${{ needs.corpus-target.outputs.canary != '' }}
     permissions:
       contents: read
-    uses: extension-js/corpus/.github/workflows/corpus-gate.yml@5decb2d854fc614aec0b80b6cceca52f1513f5c7 # main, 2026-11-15
+    uses: extension-js/corpus/.github/workflows/corpus-gate.yml@8c25fe4ec6dafb0880cc345351d16af9d6449d90 # main, 2026-11-15
     with:
       cli-version: ${{ needs.corpus-target.outputs.canary }}
-      ref: 5decb2d854fc614aec0b80b6cceca52f1513f5c7
+      ref: 8c25fe4ec6dafb0880cc345351d16af9d6449d90
+      safari: true
 
   # The templates suite, every example built and driven in real browsers, run
   # with the same canary the corpus gate reads.
@@ -132,10 +133,10 @@ jobs:
     if: ${{ needs.corpus-target.outputs.canary != '' }}
     permissions:
       contents: read
-    uses: extension-js/templates/.github/workflows/ci.yml@046ca64e1f290d8cce13ade21a310640d7d414e0 # main, 2026-11-15
+    uses: extension-js/templates/.github/workflows/ci.yml@fa59d16e9734108c6a78d86189ea15316172511f # main, 2026-11-15
     with:
       cli-version: ${{ needs.corpus-target.outputs.canary }}
-      ref: 046ca64e1f290d8cce13ade21a310640d7d414e0
+      ref: fa59d16e9734108c6a78d86189ea15316172511f
 
   publish:
     needs: [corpus-target, corpus-gate, templates-gate]
@@ -829,10 +830,11 @@ jobs:
     if: ${{ !cancelled() && needs.publish.result == 'success' }}
     permissions:
       contents: read
-    uses: extension-js/corpus/.github/workflows/corpus-gate.yml@5decb2d854fc614aec0b80b6cceca52f1513f5c7 # main, 2026-11-15
+    uses: extension-js/corpus/.github/workflows/corpus-gate.yml@8c25fe4ec6dafb0880cc345351d16af9d6449d90 # main, 2026-11-15
     with:
       cli-version: ${{ needs.publish.outputs.version }}
-      ref: 5decb2d854fc614aec0b80b6cceca52f1513f5c7
+      ref: 8c25fe4ec6dafb0880cc345351d16af9d6449d90
+      safari: true
 
   # The templates suite with the exact version that reached npm, for the same
   # reason and under the same rule as the corpus reading above.
@@ -841,7 +843,7 @@ jobs:
     if: ${{ !cancelled() && needs.publish.result == 'success' }}
     permissions:
       contents: read
-    uses: extension-js/templates/.github/workflows/ci.yml@046ca64e1f290d8cce13ade21a310640d7d414e0 # main, 2026-11-15
+    uses: extension-js/templates/.github/workflows/ci.yml@fa59d16e9734108c6a78d86189ea15316172511f # main, 2026-11-15
     with:
       cli-version: ${{ needs.publish.outputs.version }}
-      ref: 046ca64e1f290d8cce13ade21a310640d7d414e0
+      ref: fa59d16e9734108c6a78d86189ea15316172511f

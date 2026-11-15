@@ -43,9 +43,13 @@ Use the `Release – Publish` workflow at `.github/workflows/publish-release.yml
   is none it dispatches the canary run itself and waits for the version. Then two
   gates run with that canary, side by side:
   - `corpus-gate` builds every buildable sample of `extension-js/corpus` on
-    Chrome, Firefox and Edge.
+    Chrome, Firefox and Edge, and for Safari on a macOS runner.
   - `templates-gate` runs the whole `extension-js/templates` suite: every example
-    built, installed with each package manager and driven in real browsers.
+    built, installed with each package manager and driven in real browsers, and
+    every example built for Safari on a macOS runner.
+
+  The Safari lanes run the converter and `xcodebuild` and open no browser, so they
+  prove the Safari build, not the run.
 
   A failure in either stops the release with nothing tagged and nothing published.
   If main moved after the dispatch, the run stops and says so. `skip_corpus_gate`
