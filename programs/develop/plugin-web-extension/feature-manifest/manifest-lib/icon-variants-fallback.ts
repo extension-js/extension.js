@@ -9,12 +9,13 @@
 import {humanLine} from '../../../dev-server/lifecycle-stream'
 import {
   isChromiumBasedBrowser,
-  isGeckoBasedBrowser
+  isGeckoBasedBrowser,
+  isWebkitBasedBrowser
 } from '../../../lib/constants'
 import type {DevOptions, Manifest} from '../../../types'
 import * as messages from '../messages'
 
-export type IconVariantsReader = 'gecko' | 'chromium'
+export type IconVariantsReader = 'gecko' | 'chromium' | 'webkit'
 export type IconVariantsOutcome = 'kept' | 'added' | 'missing'
 
 export interface IconVariantsVerdict {
@@ -23,8 +24,8 @@ export interface IconVariantsVerdict {
   outcome: IconVariantsOutcome
 }
 
-// Firefox has no schema for the key, and Chromium parses it only with the
-// ExtensionIconVariants feature on. Safari reads it, so it needs no fallback.
+// Gecko has no schema for the key, Chromium gates it, and Apple's converter
+// reads icons only. A target leaves this list when its release reads the key.
 export function ignoresIconVariants(
   browser: DevOptions['browser']
 ): IconVariantsReader | undefined {
@@ -32,6 +33,7 @@ export function ignoresIconVariants(
 
   if (isGeckoBasedBrowser(name)) return 'gecko'
   if (isChromiumBasedBrowser(name)) return 'chromium'
+  if (isWebkitBasedBrowser(name)) return 'webkit'
 
   return undefined
 }
@@ -79,7 +81,19 @@ export function iconsFromVariants(
   variants: unknown,
   reader: IconVariantsReader
 ): Record<string, string> | undefined {
-  const allowSvg = reader === 'gecko'
+  // Apple's converter draws the app icon from an SVG too, but PNG sizes are
+  // what every Safari is known to take, so they win when both exist.
+  if (reader === 'webkit') {
+    return pickIcons(variants, false) ?? pickIcons(variants, true)
+  }
+
+  return pickIcons(variants, reader === 'gecko')
+}
+
+function pickIcons(
+  variants: unknown,
+  allowSvg: boolean
+): Record<string, string> | undefined {
   const groups = readGroups(variants, allowSvg)
   const ordered = [
     ...groups.filter((group) => !group.schemes),
@@ -90,7 +104,7 @@ export function iconsFromVariants(
   const sized = ordered.find((group) => Object.keys(group.sized).length > 0)
   if (sized) return sized.sized
 
-  // Firefox scales one SVG to every size it asks for.
+  // Firefox and Apple's converter scale one SVG to every size they ask for.
   const vector = allowSvg ? ordered.find((group) => group.any) : undefined
   if (vector?.any) return {48: vector.any, 96: vector.any}
 

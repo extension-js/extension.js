@@ -1507,6 +1507,24 @@ describe('safari pipeline through the injected tool host', () => {
     expect(tools.calls.xcodebuild).toHaveLength(1)
   })
 
+  it('converter warnings: marks icon_variants as kept on purpose', async () => {
+    const tools = fakeSafariTools({
+      converter: {
+        output: [
+          'Warning: The following keys in your manifest.json are not supported:',
+          '\ticon_variants'
+        ].join('\n')
+      }
+    })
+    const {logs} = await runPipeline(manifest, {tools})
+
+    const warning = logs.find((line) =>
+      /safari-web-extension-converter reported/.test(line)
+    )
+    expect(warning).toMatch(/kept one of these keys on purpose/)
+    expect(warning).toMatch(/the build fills icons beside it/)
+  })
+
   it('prints no converter warning when the converter was quiet', async () => {
     const {logs} = await runPipeline(manifest)
 
@@ -1691,5 +1709,68 @@ describe('converterWarnings', () => {
       'Warning: second thing',
       'keyB'
     ])
+  })
+
+  // Captured from Xcode 26.6 on a manifest with icon_variants and no icons.
+  const missingIcons = [
+    'Xcode Project Location: /tmp/probe-xcode',
+    'App Name: probe',
+    'App Bundle Identifier: dev.extensionjs.probe',
+    'Platform: macOS',
+    'Language: Swift',
+    'Warning: The following keys in your manifest.json are not supported by your current version of Safari. If these are critical to your extension, you should review your code to see if you need to make changes to support Safari:',
+    '\ticon_variants',
+    'Warning: Unable to add icons to created project:',
+    'Error Domain=SafariWebExtensionConverterErrorDomain Code=-1 "manifest.json is missing icons" UserInfo={NSLocalizedDescription=manifest.json is missing icons}'
+  ].join('\n')
+
+  it('keeps the reason Apple prints flush left under a warning', () => {
+    expect(converterWarnings(missingIcons)).toEqual([
+      'Warning: The following keys in your manifest.json are not supported by your current version of Safari. If these are critical to your extension, you should review your code to see if you need to make changes to support Safari:',
+      'icon_variants',
+      'Warning: Unable to add icons to created project: manifest.json is missing icons'
+    ])
+  })
+
+  it('relays the reason without the Error Domain wrapper', () => {
+    const relayed = messages.safariConverterWarnings(
+      converterWarnings(missingIcons)
+    )
+    expect(relayed).toContain('manifest.json is missing icons')
+    expect(relayed).not.toMatch(/Error Domain|NSLocalizedDescription/)
+  })
+
+  it('reads the description when the error has no quoted text', () => {
+    expect(
+      converterWarnings(
+        [
+          'Warning: Unable to add icons to created project:',
+          'Error Domain=SafariWebExtensionConverterErrorDomain Code=-1 UserInfo={NSLocalizedDescription=manifest.json is missing icons}'
+        ].join('\n')
+      )
+    ).toEqual([
+      'Warning: Unable to add icons to created project: manifest.json is missing icons'
+    ])
+  })
+
+  it('takes an error line only right under a warning ending in a colon', () => {
+    const stray = 'Error Domain=NSCocoaErrorDomain Code=4 "No such file"'
+    expect(
+      converterWarnings(
+        ['Warning: no colon at the end', stray, 'Finished.', stray].join('\n')
+      )
+    ).toEqual(['Warning: no colon at the end'])
+
+    expect(
+      converterWarnings(
+        ['Warning: keys not supported:', '\tworld', stray].join('\n')
+      )
+    ).toEqual(['Warning: keys not supported:', 'world'])
+
+    expect(
+      converterWarnings(
+        ['Warning: something failed:', 'Finished converting.', stray].join('\n')
+      )
+    ).toEqual(['Warning: something failed:'])
   })
 })
