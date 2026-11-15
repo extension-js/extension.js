@@ -360,6 +360,7 @@ export async function extensionPreview(
     const control = await startProductionControl({
       packageJsonDir,
       browser: String(browser),
+      command: metadataCommand,
       distPath: outputPath,
       allowControl: previewOptions.allowControl,
       allowEval: previewOptions.allowEval,
@@ -406,7 +407,8 @@ export async function extensionPreview(
         browser,
         launchPath,
         outputPath,
-        Boolean(previewOptions.allowEval)
+        Boolean(previewOptions.allowEval),
+        control.backgroundAssets.length > 0
       )
     )
   }

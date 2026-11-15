@@ -1360,8 +1360,18 @@ export function productionControlOpen(
   browser: DevOptions['browser'],
   controlledPath: string,
   distPath: string,
-  allowEval: boolean
+  allowEval: boolean,
+  hasBackground = true
 ) {
+  // With no background there is nothing to carry the producer, so the open
+  // port answers every verb with a refusal. Saying so here saves the round trip.
+  if (!hasBackground) {
+    return (
+      `${getLoggingPrefix('warn')} Control channel open for the ${String(browser)} production build, but this build has no background, so nothing in it can connect and every act verb will be refused.\n` +
+      `Add a background script or service worker to the manifest and build again. The browser loads ${controlledPath}, a copy of ${distPath}. ${distPath} is unchanged.`
+    )
+  }
+
   return (
     `${getLoggingPrefix('info')} Control channel open for the ${String(browser)} production build (${allowEval ? 'eval, ' : ''}storage, reload, open).\n` +
     `The browser loads ${controlledPath}, a copy of ${distPath} with the control producer prepended to the background. ${distPath} is unchanged.`

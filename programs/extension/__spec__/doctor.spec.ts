@@ -928,6 +928,81 @@ describe('extension doctor (browser resolution)', () => {
     }
   })
 
+  it('diagnoses the session that still runs, not the one stopped beside it', async () => {
+    const root = makeProject(['firefox'])
+
+    writeContract(root, 'chrome', {
+      status: 'stopped',
+      command: 'dev',
+      port: 8080,
+      controlPort: 4002,
+      instanceId: 'inst-0',
+      pid: 999999
+    })
+
+    writeContract(root, 'chromium', {
+      status: 'ready',
+      command: 'dev',
+      port: 8080,
+      controlPort: 4003,
+      instanceId: 'inst-9',
+      pid: 999999
+    })
+
+    try {
+      expect(resolveDoctorBrowser(root, undefined)).toEqual({
+        browser: 'firefox',
+        sessionBrowsers: ['firefox']
+      })
+
+      const report = await runDoctor(root, {})
+
+      expect(report.browser).toBe('firefox')
+      expect(byCheck(report)['session-resolution']).toBeUndefined()
+    } finally {
+      fs.rmSync(root, {recursive: true, force: true})
+    }
+  })
+
+  it('never calls ended sessions live when several are left behind', async () => {
+    const root = makeProject([])
+
+    for (const browser of ['chrome', 'firefox']) {
+      writeContract(root, browser, {
+        status: 'stopped',
+        command: 'dev',
+        port: 8080,
+        controlPort: 4001,
+        instanceId: 'inst-1',
+        pid: 999999
+      })
+    }
+
+    state.mod = healthyModule({
+      readReadyContract: () => ({
+        controlPort: 4001,
+        instanceId: 'inst-1',
+        runId: 'run-A',
+        status: 'stopped',
+        pid: 999999
+      })
+    })
+
+    try {
+      const r = byCheck(await runDoctor(root, {}))
+
+      expect(r['session-resolution'].detail).toBe(
+        'multiple ended sessions found (chrome, firefox), diagnosing chrome'
+      )
+
+      expect(r['port-agreement'].detail).toBe(
+        'persisted port 4001 matches the contract of the session that ended'
+      )
+    } finally {
+      fs.rmSync(root, {recursive: true, force: true})
+    }
+  })
+
   it('keeps chromium when no session contract exists', () => {
     const root = makeProject([])
 

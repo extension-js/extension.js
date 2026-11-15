@@ -231,6 +231,83 @@ describe('startProductionControl', () => {
 // package.json above it, resolves to its own project root. The copy must
 // still land outside the folder it copies, or cpSync refuses to copy a
 // directory into itself.
+describe('the answers of a start or preview session', () => {
+  // What an act verb is told when it reaches the session's broker.
+  function refusal(control: ProductionControlSession): string {
+    const sent: unknown[] = []
+    const controller = {
+      id: 'ctl',
+      send: (frame: unknown) => {
+        sent.push(frame)
+
+        return true
+      },
+      close: () => {}
+    }
+
+    control.broker.onFrame(controller, {
+      type: 'hello',
+      v: 1,
+      role: 'controller',
+      instanceId: control.instanceId
+    })
+
+    control.broker.onFrame(controller, {
+      type: 'command',
+      cmdId: 'c1',
+      op: 'reload',
+      target: {context: 'background'}
+    })
+
+    const result = sent[sent.length - 1] as {error: {message: string}}
+
+    return result.error.message
+  }
+
+  it.each([
+    'start',
+    'preview'
+  ] as const)('names extension %s, never a dev session', async (command) => {
+    const {projectDir, distPath} = makeProject()
+
+    session = await startProductionControl({
+      packageJsonDir: projectDir,
+      browser: 'chrome',
+      command,
+      distPath,
+      allowControl: true
+    })
+
+    const message = refusal(session)
+
+    expect(message).toContain(`since this extension ${command} session started`)
+
+    expect(message).not.toMatch(/dev session|extension dev/)
+  })
+
+  it('tells a build with no background that nothing in it can connect', async () => {
+    const {projectDir, distPath} = makeProject()
+
+    fs.rmSync(path.join(distPath, 'background'), {recursive: true})
+
+    session = await startProductionControl({
+      packageJsonDir: projectDir,
+      browser: 'chrome',
+      command: 'start',
+      distPath,
+      allowControl: true
+    })
+
+    expect(session.backgroundAssets).toEqual([])
+
+    const message = refusal(session)
+
+    expect(message).toContain('has no background')
+    expect(message).toContain('restart extension start')
+    expect(message).not.toContain('may still be launching')
+  })
+})
+
 describe('a build folder that is its own project root', () => {
   function makeBareBuild(): string {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-bare-build-'))

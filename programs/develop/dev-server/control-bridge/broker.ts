@@ -83,6 +83,16 @@ export interface BridgeBrokerOptions {
   onReloadApplied?: (kind: string, label?: string) => void
   // A registration landed after the first page was let go without one.
   onLateBootRegistration?: (afterMs?: number) => void
+  // The command that owns this session, so an answer that says to restart
+  // names it. A start or preview session is not a dev session.
+  sessionCommand?: BridgeSessionCommand
+}
+
+export type BridgeSessionCommand = 'dev' | 'start' | 'preview'
+
+// How an answer names the session it came from and the command to run again.
+function sessionNoun(command: BridgeSessionCommand): string {
+  return command === 'dev' ? 'dev session' : `extension ${command} session`
 }
 
 // Defined with the wire constants in ./contracts, re-exported here because
@@ -127,16 +137,19 @@ const CONTROL_OPS: ReadonlySet<CommandOp> = new Set([
 // each denial names its specific cause instead of a catch-all.
 type EvalGate = 'ok' | 'eval-disabled' | 'no-token' | 'token-mismatch'
 
-const EVAL_DENIED: Record<Exclude<EvalGate, 'ok'>, string> = {
-  'eval-disabled':
-    'eval is disabled for this session: restart the dev session with --allow-eval',
-  'no-token':
+const EVAL_DENIED: Record<
+  Exclude<EvalGate, 'ok'>,
+  (command: BridgeSessionCommand) => string
+> = {
+  'eval-disabled': (command) =>
+    `eval is disabled for this session: restart the ${sessionNoun(command)} with --allow-eval`,
+  'no-token': (command) =>
     'eval session token missing from the hello: the controller could not ' +
     'read the session token under .extension-js/, run the command against ' +
-    'the same project root the dev session was started in',
-  'token-mismatch':
+    `the same project root the ${sessionNoun(command)} was started in`,
+  'token-mismatch': (command) =>
     'eval session token mismatch: the token on disk belongs to another ' +
-    'session, reconnect the controller, or restart the dev session'
+    `session, reconnect the controller, or restart the ${sessionNoun(command)}`
 }
 
 // The gate survives to the wire as the error name, so the CLI maps it to a
@@ -156,6 +169,7 @@ type ExecutorAbsence =
   | 'recently-disconnected'
   | 'suspended-event-page'
   | 'browser-exited'
+  | 'no-background'
 
 // What runs the executor, as the engine names it. Firefox has no extension
 // service worker: its background is a page.
@@ -165,51 +179,67 @@ function backgroundNoun(engine?: BridgeEngine): string {
 
 const EXECUTOR_ABSENT: Record<
   ExecutorAbsence,
-  (secs?: number, engine?: BridgeEngine) => string
+  (
+    secs?: number,
+    engine?: BridgeEngine,
+    command?: BridgeSessionCommand
+  ) => string
 > = {
   // Nothing can connect without a port to dial, so neither the worker nor the
   // page is at fault and no retry helps.
-  'no-control-port': () =>
-    'no executor connected: this dev session has no control port, so the ' +
+  'no-control-port': (_secs, _engine, command = 'dev') =>
+    `no executor connected: this ${sessionNoun(command)} has no control port, so the ` +
     'extension was built with no port to dial and nothing can connect. ' +
-    'Restart extension dev',
-  'stale-resync-pending': (secs, engine) =>
-    `no executor connected: a ${backgroundNoun(engine)} from a previous dev session ` +
+    `Restart extension ${command}`,
+  // The loaded build has no background, so it carries no producer at all:
+  // waiting for a browser that is already up would never end.
+  'no-background': (_secs, _engine, command = 'dev') =>
+    'no executor connected: the build this session loaded has no ' +
+    'background, so nothing in it dials the control channel and no retry ' +
+    'changes that. Add a background script or service worker to the ' +
+    `manifest, build again and restart extension ${command}`,
+  'stale-resync-pending': (secs, engine, command = 'dev') =>
+    `no executor connected: a ${backgroundNoun(engine)} from a previous ${sessionNoun(command)} ` +
     `dialed in ${secs}s ago and was told to full-reload; the resynced ` +
     `${engine === 'firefox' ? 'page' : 'worker'} should connect shortly, retry in a few seconds`,
-  'never-connected': (_secs, engine) =>
+  'never-connected': (_secs, engine, command = 'dev') =>
     `no executor connected: no extension ${backgroundNoun(engine)} has connected since ` +
-    'this dev session started. The browser may still be launching, the ' +
+    `this ${sessionNoun(command)} started. The browser may still be launching, the ` +
     `profile's cached ${backgroundNoun(engine)} may predate this session, or the ` +
     'session runs with --no-browser; check ready.json status and retry',
-  'suspended-event-page': (secs) =>
+  'suspended-event-page': (secs, _engine, command = 'dev') =>
     "no executor connected: Firefox suspended the extension's idle " +
     `background event page${secs != null ? ` ${secs}s ago` : ''}, and a ` +
     'suspended page does not reconnect on its own: only an extension event ' +
     'wakes it, and waking it over the debugger brought nothing back. Click ' +
     "the extension's toolbar button or open one of its pages in the browser, " +
-    'then retry; if it stays down, restart extension dev',
-  'recently-disconnected': (secs) =>
+    `then retry; if it stays down, restart extension ${command}`,
+  'recently-disconnected': (secs, _engine, command = 'dev') =>
     "no executor connected: the extension's service worker disconnected" +
     `${secs != null ? ` ${secs}s ago` : ''}, MV3 workers idle out and ` +
     'reconnect on their own, or the browser may have exited (see ' +
     'browserExitedAt in dist/extension-js/<browser>/ready.json); retry, and ' +
-    'if it persists reload the extension or restart the dev session',
+    `if it persists reload the extension or restart the ${sessionNoun(command)}`,
   // The launcher stamped an exit nobody asked for. No worker reconnects until
-  // a new dev session relaunches the browser, so the idle-worker story and
+  // a new session relaunches the browser, so the idle-worker story and
   // its "retry" would send the caller in circles.
-  'browser-exited': () =>
+  'browser-exited': (_secs, _engine, command = 'dev') =>
     'no executor connected: the browser exited and nothing reconnects on ' +
-    'its own. Restart extension dev to relaunch it'
+    `its own. Restart extension ${command} to relaunch it`
 }
 
-function executorAbsentNoControlPort(reason: string): string {
-  if (!reason) return EXECUTOR_ABSENT['no-control-port']()
+function executorAbsentNoControlPort(
+  reason: string,
+  command: BridgeSessionCommand
+): string {
+  if (!reason) {
+    return EXECUTOR_ABSENT['no-control-port'](undefined, undefined, command)
+  }
 
   return (
-    'no executor connected: this dev session has no control port, the ' +
+    `no executor connected: this ${sessionNoun(command)} has no control port, the ` +
     `control bridge could not bind (${reason}), so the extension was built ` +
-    'with no port to dial and nothing can connect. Restart extension dev'
+    `with no port to dial and nothing can connect. Restart extension ${command}`
   )
 }
 
@@ -226,11 +256,15 @@ function undeliveredReloadWarnNoControlPort(reason: string): string {
   )
 }
 
-function executorAbsentBrowserExited(at: string, how: string | null): string {
+function executorAbsentBrowserExited(
+  at: string,
+  how: string | null,
+  command: BridgeSessionCommand
+): string {
   return (
     `no executor connected: the browser exited at ${at}` +
     `${how ? ` (${how})` : ''} and nothing reconnects on its own. ` +
-    'Restart extension dev to relaunch it'
+    `Restart extension ${command} to relaunch it`
   )
 }
 
@@ -366,6 +400,9 @@ export class BridgeBroker {
   private readonly executorWaiters = new Set<() => void>()
   private readonly waking = new Set<string>()
   private readonly onReloadApplied?: (kind: string, label?: string) => void
+  private readonly sessionCommand: BridgeSessionCommand
+  // Set once the session learns the build it loaded carries no producer.
+  private producerless = false
   private lastProducerDisconnectedAt: number | null = null
   // The launcher's exit stamp, once the dev server has read it off ready.json.
   // Cleared by a producer hello, since a worker that talks means a browser
@@ -421,6 +458,7 @@ export class BridgeBroker {
     this.wakeExecutor = options.wakeExecutor
     this.onReloadApplied = options.onReloadApplied
     this.onLateBootRegistration = options.onLateBootRegistration
+    this.sessionCommand = options.sessionCommand ?? 'dev'
     this.now = options.now ?? (() => Date.now())
     this.setTimer = options.setTimer ?? ((fn, ms) => setTimeout(fn, ms))
     this.clearTimer = options.clearTimer ?? ((h) => clearTimeout(h))
@@ -1257,6 +1295,11 @@ export class BridgeBroker {
 
   // The control bridge never bound, so from here on every absence names the
   // bind failure instead of a worker that was never given a port to dial.
+  // A production build with no background has nothing that could dial in.
+  noteNoBackground(): void {
+    this.producerless = true
+  }
+
   noteControlPortUnavailable(reason?: string | null): void {
     this.controlPortUnavailable = String(reason ?? '')
   }
@@ -1275,13 +1318,25 @@ export class BridgeBroker {
     const now = this.now()
 
     if (this.controlPortUnavailable != null) {
-      return executorAbsentNoControlPort(this.controlPortUnavailable)
+      return executorAbsentNoControlPort(
+        this.controlPortUnavailable,
+        this.sessionCommand
+      )
     }
 
     if (this.browserExitedAt) {
       return executorAbsentBrowserExited(
         this.browserExitedAt,
-        this.browserExitHow
+        this.browserExitHow,
+        this.sessionCommand
+      )
+    }
+
+    if (this.producerless && !this.producerEverConnected) {
+      return EXECUTOR_ABSENT['no-background'](
+        undefined,
+        this.engine,
+        this.sessionCommand
       )
     }
 
@@ -1291,26 +1346,35 @@ export class BridgeBroker {
     ) {
       return EXECUTOR_ABSENT['stale-resync-pending'](
         Math.round((now - this.lastStaleHelloAt) / 1000),
-        this.engine
+        this.engine,
+        this.sessionCommand
       )
     }
 
     if (!this.producerEverConnected) {
-      return EXECUTOR_ABSENT['never-connected'](undefined, this.engine)
+      return EXECUTOR_ABSENT['never-connected'](
+        undefined,
+        this.engine,
+        this.sessionCommand
+      )
     }
 
     if (this.engine === 'firefox') {
       return EXECUTOR_ABSENT['suspended-event-page'](
         this.lastProducerDisconnectedAt != null
           ? Math.round((now - this.lastProducerDisconnectedAt) / 1000)
-          : undefined
+          : undefined,
+        this.engine,
+        this.sessionCommand
       )
     }
 
     return EXECUTOR_ABSENT['recently-disconnected'](
       this.lastProducerDisconnectedAt != null
         ? Math.round((now - this.lastProducerDisconnectedAt) / 1000)
-        : undefined
+        : undefined,
+      this.engine,
+      this.sessionCommand
     )
   }
 
@@ -1401,7 +1465,10 @@ export class BridgeBroker {
     const evalGate = this.evalGate.get(controller) ?? 'eval-disabled'
 
     if (isEval && evalGate !== 'ok') {
-      deny(EVAL_DENIED_NAME[evalGate], EVAL_DENIED[evalGate])
+      deny(
+        EVAL_DENIED_NAME[evalGate],
+        EVAL_DENIED[evalGate](this.sessionCommand)
+      )
 
       return
     }

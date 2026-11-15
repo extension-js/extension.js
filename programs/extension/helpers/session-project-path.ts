@@ -118,3 +118,15 @@ export function otherSessionsNote(browsers: string[]): string {
 
   return ` Sessions are running for ${browsers.join(', ')}: pass --browser with one of them.`
 }
+
+// A log file outlives its session, so finding one says there is something to
+// read for that browser, not that a session is up.
+export function otherLogsNote(browsers: string[]): string {
+  if (browsers.length === 0) return ''
+
+  if (browsers.length === 1) {
+    return ` Logs exist for ${browsers[0]}: pass --browser ${browsers[0]} to read them.`
+  }
+
+  return ` Logs exist for ${browsers.join(', ')}: pass --browser with one of them.`
+}

@@ -17,6 +17,12 @@ import {commandDescriptions} from '../helpers/messages'
 import {CODES, ENVELOPE} from '../helpers/messaging'
 import {parsePositiveInt} from '../helpers/normalize-options'
 import {
+  endedSessionReason,
+  runningSessionBrowsers,
+  sessionEndedMessage
+} from '../helpers/session-liveness'
+import {
+  otherLogsNote,
   otherSessionBrowsers,
   otherSessionsNote,
   resolveSessionProjectPath,
@@ -465,7 +471,7 @@ export function registerLogsCommand(program: Command) {
         const message =
           `No logs found at ${file}. Start a dev session (extension dev) first, ` +
           `or pass --browser to match it.` +
-          otherSessionsNote(others)
+          otherLogsNote(others)
         // eslint-disable-next-line no-console
         console.error(message)
 
@@ -539,12 +545,25 @@ async function followLogs(
   const {BridgeConsumer, readReadyContract} = bridge
 
   const ready = readReadyContract(projectPath, browser)
+  const readyPath = sessionReadyPath(bridge, projectPath, browser)
+  // A contract outlives its session, and a follow that dials a stopped one
+  // would end at once looking like a session that just closed.
+  const endedBecause = ready ? await endedSessionReason(ready, readyPath) : null
 
-  if (!ready) {
+  if (!ready || endedBecause) {
+    const others = await runningSessionBrowsers(
+      bridge,
+      projectPath,
+      browser,
+      readReadyContract
+    )
     const message =
-      `No active dev session control channel found for ${browser}. ` +
-      `Looked at ${sessionReadyPath(bridge, projectPath, browser)}. ` +
-      `Run \`extension dev --browser=${browser}\` first.`
+      (ready && endedBecause
+        ? sessionEndedMessage({ready, browser, reason: endedBecause})
+        : `No active dev session control channel found for ${browser}. ` +
+          `Looked at ${readyPath}. ` +
+          `Run \`extension dev --browser=${browser}\` first.`) +
+      otherSessionsNote(others)
     // eslint-disable-next-line no-console
     console.error(message)
 

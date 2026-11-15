@@ -60,7 +60,11 @@ import {
 import {parsePositiveInt} from '../helpers/normalize-options'
 import {normalizeOutputFormat} from '../helpers/output-flag'
 import {
-  otherSessionBrowsers,
+  endedSessionReason,
+  runningSessionBrowsers,
+  sessionEndedMessage
+} from '../helpers/session-liveness'
+import {
   otherSessionsNote,
   resolveSessionProjectPath,
   sessionReadyPath
@@ -1091,23 +1095,46 @@ async function runCommand(input: RunInput): Promise<void> {
   }
 
   const ready = readReadyContract(projectPath, browser)
+  const readyPath = sessionReadyPath(bridge, projectPath, browser)
 
   if (!ready) {
-    const others = otherSessionBrowsers(
+    const others = await runningSessionBrowsers(
       bridge,
       projectPath,
       browser,
-      (candidate) => Boolean(readReadyContract(projectPath, candidate))
+      readReadyContract
     )
 
     fail(
       `No active control channel found for ${browser}. ` +
-        `Looked at ${sessionReadyPath(bridge, projectPath, browser)}. ` +
+        `Looked at ${readyPath}. ` +
         `Run \`extension dev --browser=${browser} ${unlockFlag}\` first.` +
         otherSessionsNote(others),
       {...outputFrame, code: CODES.E_SESSION_NOT_FOUND}
     )
   }
+
+  // A contract outlives its session, so one that names a stopped or dead
+  // session is answered here instead of dialing a port nobody holds.
+  const failIfSessionEnded = async (dialFailed: boolean) => {
+    const reason = await endedSessionReason(ready, readyPath, {dialFailed})
+    if (!reason) return
+
+    const others = await runningSessionBrowsers(
+      bridge,
+      projectPath,
+      browser,
+      readReadyContract
+    )
+
+    fail(
+      sessionEndedMessage({ready, browser, reason, flag: unlockFlag}) +
+        otherSessionsNote(others),
+      {...outputFrame, code: CODES.E_SESSION_NOT_FOUND}
+    )
+  }
+
+  await failIfSessionEnded(false)
 
   const token = input.needsToken
     ? readControlToken(projectPath, browser)
@@ -1145,6 +1172,8 @@ async function runCommand(input: RunInput): Promise<void> {
 
     // A 40xx close is the broker turning the controller away; anything else
     // (handshake timeout, 1006) means the channel never came up at all.
+    if (!/code 40\d\d/.test(message)) await failIfSessionEnded(true)
+
     fail(message, {
       ...outputFrame,
       code: /code 40\d\d/.test(message)

@@ -7,16 +7,12 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'node:fs'
-import * as net from 'node:net'
 import * as os from 'node:os'
 import path from 'node:path'
 import type {Command} from 'commander'
 import colors from 'pintor'
 import {isFirefoxBrowser} from '../browsers/browsers-lib/browser-family'
-import {
-  isPidAlive,
-  pidStartedAtMs
-} from '../browsers/browsers-lib/resolve-live-pid'
+import {isPidAlive} from '../browsers/browsers-lib/resolve-live-pid'
 import {declaredErrorCode} from '../helpers/cli-failure'
 import {emulatorSessionRefusal} from '../helpers/emulator-session'
 import {exitAfterDrain} from '../helpers/exit-after-drain'
@@ -35,6 +31,7 @@ import {
   remedyRspackPeerConflicts,
   scanRspackPeers
 } from '../helpers/rspack-peer-check'
+import {portAnswers, reusedPidEvidence} from '../helpers/session-liveness'
 import {
   resolveSessionProjectPath,
   sessionReadyPath
@@ -116,9 +113,6 @@ interface DoctorOptions {
 const CONNECT_TIMEOUT_MS = 5000
 const PROBE_TIMEOUT_MS = 3000
 const BROWSER_PROBE_TIMEOUT_MS = 1000
-// A pid is not an identity: the number is recycled, so a contract that outlived
-// its session names a pid some unrelated process holds by now.
-const SERVER_IDENTITY_SKEW_MS = 60_000
 // Right after a clean compile the SW has not connected yet; report warn during
 // the grace window and only fail once it elapses with no attachment.
 const EXECUTOR_ATTACH_GRACE_MS = 10_000
@@ -235,12 +229,22 @@ function liveUncontrolledRun(
   return {command, pid}
 }
 
+// A contract outlives its session: Ctrl+C leaves it reading `stopped`, and a
+// killed process leaves a pid nothing holds.
+function namesEndedSession(document: Record<string, unknown>): boolean {
+  if (document.status === 'stopped') return true
+
+  return typeof document.pid === 'number' && !isPidAlive(document.pid)
+}
+
 function scanReadyContracts(projectPath: string): {
   sessions: string[]
+  running: string[]
   receipts: string[]
 } {
   const sessionsRoot = path.join(projectPath, 'dist', 'extension-js')
   const sessions: string[] = []
+  const running: string[] = []
   const receipts: string[] = []
 
   try {
@@ -259,6 +263,7 @@ function scanReadyContracts(projectPath: string): {
 
       if (isSessionDocument(document)) {
         sessions.push(browser)
+        if (!namesEndedSession(document)) running.push(browser)
       } else {
         receipts.push(browser)
       }
@@ -267,7 +272,7 @@ function scanReadyContracts(projectPath: string): {
     // Ignore
   }
 
-  return {sessions, receipts}
+  return {sessions, running, receipts}
 }
 
 function pickBrowser(candidates: string[]): string | undefined {
@@ -280,16 +285,27 @@ function pickBrowser(candidates: string[]): string | undefined {
    hardcoded default: the session contracts under dist/extension-js/ name the
    live browsers, a single contract wins outright, a build receipt never
    counts as a session, and chromium is only the fallback when nothing (or
-   an ambiguous set) is found. */
+   an ambiguous set) is found. A session that still runs wins over one that
+   ended, and contracts are called live only while one of them runs. */
 export function resolveDoctorBrowser(
   projectPath: string | undefined,
   optsBrowser: string | undefined
-): {browser: string; sessionBrowsers: string[]} {
+): {browser: string; sessionBrowsers: string[]; sessionsEnded?: true} {
   if (optsBrowser) return {browser: optsBrowser, sessionBrowsers: []}
 
-  const {sessions, receipts} = scanReadyContracts(
+  const {sessions, running, receipts} = scanReadyContracts(
     path.resolve(projectPath || process.cwd())
   )
+
+  if (running.length > 0) {
+    return {
+      browser:
+        running.length === 1
+          ? running[0]
+          : (pickBrowser(running) ?? running[0]),
+      sessionBrowsers: running
+    }
+  }
 
   if (sessions.length === 1) {
     return {browser: sessions[0], sessionBrowsers: sessions}
@@ -297,7 +313,8 @@ export function resolveDoctorBrowser(
 
   return {
     browser: pickBrowser(sessions) ?? pickBrowser(receipts) ?? 'chromium',
-    sessionBrowsers: sessions
+    sessionBrowsers: sessions,
+    ...(sessions.length > 1 ? {sessionsEnded: true as const} : {})
   }
 }
 
@@ -346,22 +363,6 @@ function peerRspackCheck(projectPath: string): DoctorCheckResult {
   }
 }
 
-// Why the live pid cannot be this session's dev server, or null when it can.
-function reusedPidEvidence(ready: {
-  pid?: number
-  startedAt?: string
-}): string | null {
-  const writtenAt = Date.parse(String(ready.startedAt ?? ''))
-  if (Number.isNaN(writtenAt)) return null
-
-  const startedAt = pidStartedAtMs(ready.pid)
-  if (startedAt == null) return null
-
-  return startedAt - writtenAt > SERVER_IDENTITY_SKEW_MS
-    ? `it started ${new Date(startedAt).toISOString()}, after the contract's ${ready.startedAt}`
-    : null
-}
-
 // Chromium stamps cdpPort, Gecko stamps rdpPort. A leg that reads only the
 // first calls every Firefox session's browser unknown.
 function debuggerPort(ready: {
@@ -382,19 +383,7 @@ function debuggerPort(ready: {
 // Only a connection proves a debugger port is still served: the stamped number
 // outlives the browser that opened it, including one the OS killed outright.
 function probeDebuggerPort(port: number): Promise<boolean> {
-  return new Promise((resolve) => {
-    const socket = net.connect({host: '127.0.0.1', port})
-
-    const answer = (answered: boolean) => {
-      socket.destroy()
-      resolve(answered)
-    }
-
-    socket.setTimeout(BROWSER_PROBE_TIMEOUT_MS)
-    socket.once('connect', () => answer(true))
-    socket.once('timeout', () => answer(false))
-    socket.once('error', () => answer(false))
-  })
+  return portAnswers(port, BROWSER_PROBE_TIMEOUT_MS)
 }
 
 // The browser leg's verdict: a live pid or an answering debugger port, never
@@ -459,7 +448,7 @@ export async function runDoctor(
 ): Promise<DoctorReport> {
   const bridge = await loadExtensionDevelopBridgeModule()
   const projectPath = resolveSessionProjectPath(bridge, projectPathArg)
-  const {browser, sessionBrowsers} = resolveDoctorBrowser(
+  const {browser, sessionBrowsers, sessionsEnded} = resolveDoctorBrowser(
     projectPath,
     opts.browser
   )
@@ -469,7 +458,7 @@ export async function runDoctor(
     results.push({
       check: 'session-resolution',
       status: 'warn',
-      detail: `multiple live sessions found (${sessionBrowsers.join(', ')}), diagnosing ${browser}`,
+      detail: `multiple ${sessionsEnded ? 'ended' : 'live'} sessions found (${sessionBrowsers.join(', ')}), diagnosing ${browser}`,
       remediation: 'Pass --browser=<name> to diagnose a specific session'
     })
   }
@@ -700,7 +689,7 @@ export async function runDoctor(
       results.push({
         check: 'port-agreement',
         status: 'pass',
-        detail: `persisted port ${persisted} matches the live contract`
+        detail: `persisted port ${persisted} matches the ${serverAlive && ready.status !== 'stopped' ? 'live contract' : 'contract of the session that ended'}`
       })
     } else {
       results.push({

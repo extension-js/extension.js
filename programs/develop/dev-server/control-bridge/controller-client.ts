@@ -152,10 +152,10 @@ export class BridgeController {
                 '`extension doctor`.'
               : code === CLOSE_BAD_INSTANCE
                 ? 'the session that wrote ready.json has been replaced. ' +
-                  'Re-read ready.json or restart the dev session.'
+                  'Re-read ready.json or restart the session.'
                 : code === CLOSE_BAD_HELLO
                   ? 'the session did not understand the hello. Update the CLI ' +
-                    'and the dev session to the same Extension.js version.'
+                    'and the session to the same Extension.js version.'
                   : 'the session closed the socket during the handshake.'
 
           reject(
