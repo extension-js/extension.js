@@ -262,7 +262,9 @@ jobs:
           fi
 
           if [ "$CHANNEL" = "canary" ] && [ -z "$VERSION" ]; then
-            BASE=$(node -p "require('./programs/extension/package.json').version.split('-')[0]")
+            # package.json holds the last release, so the canary is named
+            # for the patch after it and sorts above the published stable.
+            BASE=$(node -p "const [a, b, c] = require('./programs/extension/package.json').version.split('-')[0].split('.'); [a, b, Number(c) + 1].join('.')")
             SHA=$(echo "${GITHUB_SHA}" | cut -c1-7)
             VERSION="${BASE}-canary.${GITHUB_RUN_NUMBER}.${SHA}"
           fi
@@ -761,7 +763,9 @@ jobs:
   # anyone dispatches the stable. It runs after the publish and blocks nothing.
   corpus-canary:
     needs: publish
-    if: ${{ inputs.channel == 'canary' }}
+    # The gate jobs above publish are skipped on a canary, and a skipped job
+    # up the chain skips this one unless the condition reads the run status.
+    if: ${{ !cancelled() && needs.publish.result == 'success' && inputs.channel == 'canary' }}
     permissions:
       contents: read
     uses: cezaraugusto/browser-extension-test-data/.github/workflows/corpus-gate.yml@f85f3a7d6a9d106b5466790ead5aebf204019fd6 # main, 2026-11-14

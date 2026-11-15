@@ -243,3 +243,34 @@ test('resumes before anything is installed or built, and the later steps read it
 
   assert.match(step('Validate inputs'), /echo "resume=\$RESUME"/)
 })
+
+test('runs the canary corpus reading though the gate jobs above it were skipped', () => {
+  const job = workflow.slice(workflow.indexOf('\n  corpus-canary:'))
+
+  assert.match(job, /needs: publish\n/)
+  assert.match(
+    job,
+    /if: \$\{\{ !cancelled\(\) && needs\.publish\.result == 'success' && inputs\.channel == 'canary' \}\}/
+  )
+})
+
+test('names an auto canary for the patch after the last release', () => {
+  const line = step('Validate inputs')
+    .split('\n')
+    .find((text) => text.includes('BASE=$(node -p'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'canary-base-'))
+
+  fs.mkdirSync(path.join(dir, 'programs', 'extension'), {recursive: true})
+  fs.writeFileSync(
+    path.join(dir, 'programs', 'extension', 'package.json'),
+    JSON.stringify({version: '4.1.39'})
+  )
+
+  const result = spawnSync('bash', ['-c', `${line.trim()}; echo "$BASE"`], {
+    cwd: dir,
+    encoding: 'utf8'
+  })
+
+  fs.rmSync(dir, {recursive: true, force: true})
+  assert.equal(result.stdout.trim(), '4.1.40')
+})
