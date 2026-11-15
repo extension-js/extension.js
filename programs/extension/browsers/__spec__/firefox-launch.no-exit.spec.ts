@@ -209,4 +209,38 @@ describe('a Firefox that hands the session to a relaunched process', () => {
     expect(gone).toHaveBeenCalledTimes(1)
     expect((plugin as any).liveExitWatcher).toBeUndefined()
   })
+
+  it('stamps when the adopted process started, and no time for a launcher the table lost', () => {
+    const plugin = makePlugin()
+    ;(plugin as any).ctx.logger = logger()
+    ;(plugin as any).onBrowserGone = vi.fn()
+    const readyDir = join(tmp, 'dist', 'extension-js', 'firefox')
+    mkdirSync(readyDir, {recursive: true})
+    writeFileSync(
+      join(readyDir, 'ready.json'),
+      JSON.stringify({command: 'dev', status: 'ready', runId: 'run-1'})
+    )
+    ;(plugin as any).extensionOutputPath = join(tmp, 'dist', 'firefox')
+    ;(plugin as any).launchRunId = 'run-1'
+    // The spawned launcher has exited by the time the handoff is noticed, so
+    // its pid is dated by nothing. 2 ** 30 is such a pid.
+    ;(plugin as any).child = {pid: 2 ** 30}
+    ;(plugin as any).adoptLivePid(process.pid)
+
+    try {
+      const ready = JSON.parse(
+        readFileSync(join(readyDir, 'ready.json'), 'utf-8')
+      )
+      expect(ready.browserPid).toBe(process.pid)
+      expect(ready.browserStartedAt).toMatch(
+        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
+      )
+
+      expect(Date.parse(ready.browserStartedAt)).toBeLessThanOrEqual(Date.now())
+      expect(ready.launcherPid).toBe(2 ** 30)
+      expect('launcherStartedAt' in ready).toBe(false)
+    } finally {
+      clearInterval((plugin as any).liveExitWatcher)
+    }
+  })
 })
