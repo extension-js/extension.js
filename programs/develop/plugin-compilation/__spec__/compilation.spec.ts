@@ -68,6 +68,7 @@ vi.mock('../compilation-lib/messages', () => ({
 }))
 
 vi.mock('pintor', () => ({
+  supportsColor: () => false,
   default: {
     brightYellow: (s: string) => s,
     gray: (s: string) => s,

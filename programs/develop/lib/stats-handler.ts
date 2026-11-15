@@ -6,11 +6,18 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import {supportsColor} from 'pintor'
 import {scrubBrand} from './branding'
 import {isDebug, prefix} from './messaging'
 
 // eslint-disable-next-line no-control-regex
 const ANSI_PATTERN = /\u001b\[[0-9;]*m/g
+
+// Diagnostics leave through console.error, so stderr decides their color by
+// the rule the CLI's own lines follow: FORCE_COLOR, NO_COLOR, then the TTY.
+export function diagnosticsHaveColor(): boolean {
+  return supportsColor(process.stderr)
+}
 
 export interface StatsToStringLike {
   toString: (options?: {
@@ -201,8 +208,9 @@ export function renderStatsBlocks(
   stats: StatsToStringLike,
   opts: {errors: boolean; warnings: boolean}
 ): string {
+  const colored = diagnosticsHaveColor()
   const raw = stats.toString({
-    colors: true,
+    colors: colored,
     all: false,
     errors: opts.errors,
     warnings: opts.warnings
@@ -214,7 +222,13 @@ export function renderStatsBlocks(
     : raw
   if (!filtered.trim()) return ''
 
-  return wrapStatsBlocks(scrubBrand(humanizeCaseMismatchBlocks(filtered)))
+  const blocks = wrapStatsBlocks(
+    scrubBrand(humanizeCaseMismatchBlocks(filtered))
+  )
+
+  // The bundler styles words inside a message whatever it was asked, and
+  // the header glyph follows stdout, so a plain stream is stripped here.
+  return colored ? blocks : blocks.replace(ANSI_PATTERN, '')
 }
 
 export function handleStatsErrors(stats: import('@rspack/core').Stats): void {

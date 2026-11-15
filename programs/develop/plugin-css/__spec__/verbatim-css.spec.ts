@@ -5,7 +5,8 @@ import {
   minifierDroppedTokens,
   registerVerbatimCss,
   restoreVerbatimCssAssets,
-  verbatimCssPlaceholder
+  verbatimCssPlaceholder,
+  withoutEmptyCssRules
 } from '../css-lib/verbatim-css'
 
 // After the minimizer, an emitted .css asset that is only the placeholder
@@ -68,5 +69,32 @@ describe('minifier parity', () => {
         '.b{color:blue}.a{color:red}'
       )
     ).toEqual([])
+  })
+
+  it('does not count a rule that was empty in the source as lost', () => {
+    const before =
+      '.keep { color: red; }\n.a, .b { /* purposely ignored */ }\n.c { margin: 0 0 0 0; }\n'
+    expect(
+      minifierDroppedTokens(before, '.keep{color:red}.c{margin:0}')
+    ).toEqual([])
+
+    // An at-rule that held only empty rules is as empty as they are.
+    expect(
+      minifierDroppedTokens(
+        '.keep{color:red}@media print{.gone{}#also-gone{;}}',
+        '.keep{color:red}'
+      )
+    ).toEqual([])
+
+    expect(withoutEmptyCssRules('.x { content: "{}" }')).toContain('.x')
+  })
+
+  it('still names a rule with declarations that the minified copy lost', () => {
+    expect(
+      minifierDroppedTokens(
+        '.keep{color:red}.empty{}.lost{color:blue}',
+        '.keep{color:red}'
+      )
+    ).toEqual(['.lost'])
   })
 })

@@ -18,7 +18,13 @@ export interface IncludeFilesOptions {
 }
 
 type Verdict =
-  | {kind: 'ok'; output: string; source: string; isDir: boolean}
+  | {
+      kind: 'ok'
+      output: string
+      source: string
+      isDir: boolean
+      minify: boolean
+    }
   | {kind: 'invalid'; output: string; reason: string}
   | {kind: 'missing'; output: string; source: string}
 
@@ -43,13 +49,71 @@ function judgeOutputPath(output: string): string | undefined {
   return undefined
 }
 
+// A .min.js is minified already, and a second pass only costs it the
+// comment that names its source map.
+const SCRIPT_FILE = /(?<!\.min)\.(?:js|mjs|cjs)$/i
+
+// An entry is a source path, or {from, minify} to keep a script as authored.
+function readIncludeEntry(
+  entry: unknown
+): {from: string; minify: boolean} | string {
+  if (typeof entry === 'string') {
+    return entry.trim() === ''
+      ? 'the source path has to be a non-empty string'
+      : {from: entry, minify: true}
+  }
+
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+    return 'the source has to be a path, or an object such as {from: "vendor/lib.js", minify: false}'
+  }
+
+  const {from, minify, ...rest} = entry as Record<string, unknown>
+
+  if (typeof from !== 'string' || from.trim() === '') {
+    return 'from has to be a non-empty source path'
+  }
+
+  if (minify !== undefined && typeof minify !== 'boolean') {
+    return 'minify has to be true or false'
+  }
+
+  const unknown = Object.keys(rest)
+
+  if (unknown.length > 0) {
+    return `${unknown.join(', ')} is not a key an entry reads, which are from and minify`
+  }
+
+  return {from, minify: minify !== false}
+}
+
+// Names are shortened and comments dropped, and no statement is rewritten,
+// so the value executeScript reads off the last one stays. Banners stay too.
+export async function minifyIncludedScript(
+  input: Buffer,
+  absoluteFilename: string
+): Promise<Buffer> {
+  try {
+    const {code} = await rspack.experiments.swc.minify(input.toString('utf8'), {
+      compress: false,
+      mangle: true,
+      format: {comments: 'some'},
+      ...(/\.mjs$/i.test(absoluteFilename) ? {module: true} : {})
+    })
+
+    return Buffer.from(code)
+  } catch {
+    // A file the minifier cannot parse ships as authored.
+    return input
+  }
+}
+
 export function judgeIncludeFiles(
   include: IncludeFilesConfig | undefined,
   projectRoot: string
 ): Verdict[] {
   const verdicts: Verdict[] = []
 
-  for (const [output, source] of Object.entries(include || {})) {
+  for (const [output, entry] of Object.entries(include || {})) {
     const reason = judgeOutputPath(output)
 
     if (reason) {
@@ -57,17 +121,14 @@ export function judgeIncludeFiles(
       continue
     }
 
-    if (typeof source !== 'string' || source.trim() === '') {
-      verdicts.push({
-        kind: 'invalid',
-        output,
-        reason: 'the source path has to be a non-empty string'
-      })
+    const read = readIncludeEntry(entry)
 
+    if (typeof read === 'string') {
+      verdicts.push({kind: 'invalid', output, reason: read})
       continue
     }
 
-    const abs = path.resolve(projectRoot, source)
+    const abs = path.resolve(projectRoot, read.from)
     let isDir = false
 
     try {
@@ -84,7 +145,8 @@ export function judgeIncludeFiles(
         .split(/[\\/]+/)
         .join('/'),
       source: abs,
-      isDir
+      isDir,
+      minify: read.minify
     })
   }
 
@@ -119,8 +181,18 @@ export class IncludeFiles {
           // A source that vanishes mid-session is reported below, once per
           // compile, in words that name the config key.
           noErrorOnMissing: true,
-          // A declared file lands as authored, so no minifier rewrites it.
-          info: {minimized: true}
+          // The build's own minimizers leave a declared file alone. A script
+          // gets the pass below, which keeps the value it ends on.
+          info: {minimized: true},
+          ...(copy.minify
+            ? {
+                transform: (input: Buffer, absoluteFilename: string) =>
+                  SCRIPT_FILE.test(absoluteFilename) &&
+                  compiler.options.optimization?.minimize === true
+                    ? minifyIncludedScript(input, absoluteFilename)
+                    : input
+              }
+            : {})
         }))
       }).apply(compiler)
     }

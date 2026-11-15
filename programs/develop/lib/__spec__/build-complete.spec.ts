@@ -38,4 +38,19 @@ describe('buildComplete', () => {
       '('
     )
   })
+
+  it('names the source map size apart from the shipped size', () => {
+    // eslint-disable-next-line no-control-regex
+    const plain = (text: string) => text.replace(/\u001b\[[0-9;]*m/g, '')
+
+    expect(
+      plain(buildComplete('chrome', 'dist/chrome', 2048, 'production', 4096))
+    ).toContain(
+      'dist/chrome (2.0 KB, plus 4.0 KB of source maps left out of the zip).'
+    )
+
+    expect(
+      plain(buildComplete('chrome', 'dist/chrome', 2048, 'production', 0))
+    ).toContain('dist/chrome (2.0 KB).')
+  })
 })

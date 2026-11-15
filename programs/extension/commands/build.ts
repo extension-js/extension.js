@@ -46,6 +46,8 @@ type BuildOptions = {
   zip?: boolean
   zipSource?: boolean
   zipFilename?: string
+  zipDir?: string
+  sourceMaps?: boolean
   outDir?: string
   silent?: boolean
   addonLint?: boolean
@@ -110,6 +112,15 @@ export function registerBuildCommand(program: Command) {
     .option(
       '--zip-filename <string>',
       'specify the name of the ZIP file, the browser name is appended. Defaults to the extension name and version'
+    )
+    .option(
+      '--zip-dir <path>',
+      'write the ZIP files to this folder, relative to the project root or absolute. Defaults to the folder that holds the browser output, `dist`'
+    )
+    .option(
+      '--source-maps [boolean]',
+      'write a source map beside each script and stylesheet of a production build. The maps stay out of the ZIP file. Defaults to `false`',
+      parseOptionalBoolean
     )
     .option(
       '--out-dir <path>',
@@ -379,6 +390,8 @@ export function registerBuildCommand(program: Command) {
               zip: buildOptions.zip,
               zipSource: buildOptions.zipSource,
               zipFilename: buildOptions.zipFilename,
+              zipDir: buildOptions.zipDir,
+              sourceMaps: buildOptions.sourceMaps,
               outDir: buildOptions.outDir,
               silent: buildOptions.silent,
               addonLint: buildOptions.addonLint,

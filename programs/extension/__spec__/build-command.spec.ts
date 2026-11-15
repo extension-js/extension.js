@@ -92,6 +92,30 @@ describe('extension build', () => {
     expect(opts.outDir).toBe('build')
   })
 
+  it('passes --zip-dir and --source-maps through to the build', async () => {
+    expect(
+      await run([
+        'build',
+        '.',
+        '--zip',
+        '--zip-dir',
+        'release',
+        '--source-maps'
+      ])
+    ).toBe(0)
+
+    const [, opts] = extensionBuild.mock.calls[0] as any[]
+    expect(opts.zipDir).toBe('release')
+    expect(opts.sourceMaps).toBe(true)
+  })
+
+  it('leaves zipDir and sourceMaps unset without their flags, so the config decides', async () => {
+    expect(await run(['build', '.'])).toBe(0)
+    const [, opts] = extensionBuild.mock.calls[0] as any[]
+    expect(opts.zipDir).toBeUndefined()
+    expect(opts.sourceMaps).toBeUndefined()
+  })
+
   it('enables author diagnostics with --author', async () => {
     Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')
     delete process.env.EXTENSION_VERBOSE
