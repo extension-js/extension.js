@@ -1220,7 +1220,8 @@ export default function contentScriptWrapper(
           path
             .relative(packageJsonDir, resourceAbsPath)
             .split(path.sep)
-            .join('/') || resourceAbsPath
+            .join('/') || resourceAbsPath,
+          isChromiumBasedBrowser(browser)
         )
       )
     }

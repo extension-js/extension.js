@@ -512,10 +512,19 @@ export function unknownRegistrationWorld(
   return lines.join('\n')
 }
 
-export function contentScriptWithoutDefaultExport(file: string) {
+export function contentScriptWithoutDefaultExport(
+  file: string,
+  oldCopyOutlivesReload: boolean
+) {
+  // Chromium leaves the copy from before a whole-extension reload alive in
+  // the tab with a dead runtime. Firefox drops that copy's world.
+  const afterWholeReload = oldCopyOutlivesReload
+    ? 'On Chromium a whole-extension reload leaves the old copy running in the open tab beside the new one, timers and listeners included, and no cleanup runs for it. Reload the tab to end it, or have long-lived work stop once chrome.runtime.id is gone. What it added to the page stays too, so mount that under an element with data-extension-root and the next copy removes it.'
+    : "A whole-extension reload discards the old copy's code, so no cleanup runs for it and what it added to the page stays. Mount that under an element with data-extension-root and the next copy removes it."
+
   return (
     `${prefix('warn')} ${colors.yellow(file)} has no default export, so each re-inject in this dev session runs it again and the copy before it keeps running.\n` +
     `Export a default function that mounts the script and returns a cleanup, and Extension.js calls that cleanup before the next copy starts.\n` +
-    "A whole-extension reload discards the old copy's code, so no cleanup runs for it and what it added to the page stays. Mount that under an element with data-extension-root and the next copy removes it."
+    afterWholeReload
   )
 }
