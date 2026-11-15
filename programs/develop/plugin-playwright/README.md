@@ -65,6 +65,17 @@
   reload and HMR cannot attach until the fault is fixed. The `ready` frame under
   `--output json` carries the same fault on `warnings` as `E_CDP_...: message`.
   Both are preserved across recompiles of the same run
+- `pidStartedAt`, and optional `browserStartedAt` and `launcherStartedAt`: when
+  the process behind `pid`, `browserPid` and `launcherPid` started (ISO 8601
+  UTC). A pid is reused once its owner exits, so a reader that finds a pid
+  alive compares this with the process table's current answer, with a couple
+  of seconds of tolerance, before treating the process as the session's. Each
+  is read once per pid and kept across recompiles of the same run.
+  `pidStartedAt` is always present: the dev server reads it from `ps -o lstart`,
+  and from its own clock on Windows or where `ps` is missing, which is the same
+  instant within milliseconds. The browser and launcher times come from the
+  process table (`ps -o lstart`, or the .NET `Process.StartTime` on Windows,
+  bounded at 5 seconds) and are absent when it could not date the process
 
 `events.ndjson` events (the file is reset at every run start and holds the
 current run only, join on `runId` to correlate across runs):

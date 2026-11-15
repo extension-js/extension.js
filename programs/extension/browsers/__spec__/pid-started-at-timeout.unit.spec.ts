@@ -21,6 +21,7 @@ vi.mock('node:child_process', async () => {
 
 import {
   PID_START_PROBE_TIMEOUT_MS,
+  pidStartedAtIso,
   pidStartedAtMs
 } from '../browsers-lib/resolve-live-pid'
 
@@ -59,5 +60,25 @@ describe('pidStartedAtMs', () => {
     expect(pidStartedAtMs(1234, 'win32')).toBe(
       Date.parse('2026-10-09T23:37:03.000Z')
     )
+  })
+
+  it('asks ps in the C locale, the one spelling Date.parse reads', () => {
+    pidStartedAtMs(1234, 'darwin')
+
+    expect(calls[0].opts.env.LC_ALL).toBe('C')
+  })
+})
+
+describe('pidStartedAtIso', () => {
+  it('answers the start as an ISO UTC string, and nothing for a pid it cannot date', () => {
+    reply.value = {status: 0, stdout: 'Thu Nov 12 13:36:58 2026    \n'}
+
+    expect(pidStartedAtIso(1234, 'darwin')).toBe(
+      new Date(Date.parse('Thu Nov 12 13:36:58 2026')).toISOString()
+    )
+
+    reply.value = {status: 1, stdout: ''}
+
+    expect(pidStartedAtIso(1234, 'darwin')).toBeUndefined()
   })
 })
