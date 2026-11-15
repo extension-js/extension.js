@@ -5,6 +5,7 @@ import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import {fileURLToPath} from 'node:url'
+import {corpusReleaseLine} from '../corpus-release-line.mjs'
 
 const root = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -244,13 +245,53 @@ test('resumes before anything is installed or built, and the later steps read it
   assert.match(step('Validate inputs'), /echo "resume=\$RESUME"/)
 })
 
-test('runs the canary corpus reading though the gate jobs above it were skipped', () => {
-  const job = workflow.slice(workflow.indexOf('\n  corpus-canary:'))
+test('reads the corpus with the published version on every channel, skipped gate jobs or not', () => {
+  const job = workflow.slice(workflow.indexOf('\n  corpus-published:'))
 
   assert.match(job, /needs: publish\n/)
   assert.match(
     job,
-    /if: \$\{\{ !cancelled\(\) && needs\.publish\.result == 'success' && inputs\.channel == 'canary' \}\}/
+    /if: \$\{\{ !cancelled\(\) && needs\.publish\.result == 'success' \}\}/
+  )
+
+  assert.match(job, /cli-version: \$\{\{ needs\.publish\.outputs\.version \}\}/)
+})
+
+test('writes the corpus line into the notes of a gated stable release only', () => {
+  const stable = {
+    CHANNEL: 'stable',
+    CORPUS_CANARY: '4.1.40-canary.458.001a6a0',
+    CORPUS_RESULT: 'success',
+    TEMPLATES_RESULT: 'success',
+    RUN_URL: 'https://github.com/o/r/actions/runs/1'
+  }
+
+  assert.match(
+    corpusReleaseLine(stable),
+    /^Validated before publishing: `extension@4\.1\.40-canary\.458\.001a6a0`.*extension-js\/corpus.*extension-js\/templates.*\(\[run\]\(https:\/\/github\.com\/o\/r\/actions\/runs\/1\)\)\.$/
+  )
+
+  assert.equal(
+    corpusReleaseLine({
+      CHANNEL: 'stable',
+      CORPUS_RESULT: 'skipped',
+      CORPUS_SKIPPED: 'true'
+    }),
+    'The corpus and templates gates were skipped for this release.'
+  )
+
+  assert.equal(
+    corpusReleaseLine({CHANNEL: 'stable', CORPUS_RESULT: 'skipped'}),
+    ''
+  )
+
+  assert.equal(corpusReleaseLine({...stable, CHANNEL: 'next'}), '')
+  assert.equal(corpusReleaseLine({...stable, CORPUS_RESULT: 'failure'}), '')
+  assert.equal(corpusReleaseLine({...stable, TEMPLATES_RESULT: 'failure'}), '')
+
+  assert.match(
+    step('Generate release notes'),
+    /corpus=\$\(node scripts\/corpus-release-line\.mjs\)/
   )
 })
 
