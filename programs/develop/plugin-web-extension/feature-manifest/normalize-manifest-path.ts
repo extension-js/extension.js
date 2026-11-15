@@ -139,6 +139,34 @@ export function iconOutputPath(raw: string) {
   return externalAssetOutputPath(normalized, 'icons')
 }
 
+// The manifest types predate icon_variants, so the read goes through here.
+export function iconVariantsOf(holder: unknown): unknown {
+  return holder && typeof holder === 'object'
+    ? (holder as {icon_variants?: unknown}).icon_variants
+    : undefined
+}
+
+// Every path in an icon_variants list follows the icons rule, so the built
+// manifest names the files the icons emitter writes. Keep the two agreed.
+export function iconVariantsOutput(variants: unknown): unknown {
+  if (!Array.isArray(variants)) return variants
+
+  return variants.map((group) => {
+    if (!group || typeof group !== 'object' || Array.isArray(group)) {
+      return group
+    }
+
+    return Object.fromEntries(
+      Object.entries(group as Record<string, unknown>).map(([key, value]) => [
+        key,
+        typeof value === 'string' && value && key !== 'color_schemes'
+          ? iconOutputPath(value).replace(/\\/g, '/')
+          : value
+      ])
+    )
+  })
+}
+
 // Output path for action / browser_action theme_icons (light and dark).
 // In-project paths keep their manifest-relative location under the folder,
 // so a light/dark pair that shares a basename in two folders stays two

@@ -508,4 +508,65 @@ describe('EmitFile step', () => {
     )
     expect(calls).toEqual(['action/icons/light.png'])
   })
+
+  it('emits icon_variants files where the manifest names them', async () => {
+    const {EmitFile} = await import('../steps/emit-file')
+    const {compiler, compilation} = makeCompiler()
+
+    const existing = new Set([
+      '/abs/project/icons/dark-16.png',
+      '/abs/project/icons/any.svg',
+      '/abs/project/toolbar/light-16.png',
+      '/abs/shared/outside.png'
+    ])
+    FS.existsSync.mockImplementation((p: string) => existing.has(toPosix(p)))
+
+    const step = new EmitFile({
+      manifestPath: '/abs/project/manifest.json',
+      includeList: {
+        icon_variants: [
+          '/abs/project/icons/dark-16.png',
+          '/abs/project/icons/any.svg',
+          '/abs/shared/outside.png'
+        ],
+        'action/icon_variants': ['/abs/project/toolbar/light-16.png']
+      }
+    } as any)
+
+    step.apply(compiler as any)
+
+    const calls = (compilation.emitAsset as any).mock.calls.map(
+      (c: any[]) => c[0]
+    )
+    expect(compilation.errors.length).toBe(0)
+    expect(calls).toEqual([
+      'icons/dark-16.png',
+      'icons/any.svg',
+      'icons/_/shared/outside.png',
+      'toolbar/light-16.png'
+    ])
+  })
+
+  it('stops the build when an icon_variants file is missing', async () => {
+    const {EmitFile} = await import('../steps/emit-file')
+    const {compiler, compilation} = makeCompiler()
+
+    FS.existsSync.mockReturnValue(false)
+
+    const step = new EmitFile({
+      manifestPath: '/abs/project/manifest.json',
+      includeList: {
+        icon_variants: ['/abs/project/icons/dark-16.png'],
+        'action/icon_variants': ['/abs/project/icons/act-dark-16.png']
+      }
+    } as any)
+
+    step.apply(compiler as any)
+
+    expect(compilation.emitAsset).not.toHaveBeenCalled()
+    expect(compilation.errors.length).toBe(2)
+    expect(String(compilation.errors[0])).toMatch(/listed in icon_variants/)
+    expect(String(compilation.errors[0])).toMatch(/NOT FOUND.*dark-16\.png/)
+    expect(String(compilation.errors[1])).toMatch(/action\/icon_variants/)
+  })
 })
