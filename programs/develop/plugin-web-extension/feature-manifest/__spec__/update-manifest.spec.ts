@@ -346,6 +346,134 @@ describe('UpdateManifest', () => {
     expect(compilation.errors).toHaveLength(0)
   })
 
+  it('passes trial_tokens and background.async_listener_registration through every target', () => {
+    const tokens = ['AbCdEf+/0123456789==', 'second/token+value=']
+
+    for (const browser of ['chrome', 'edge', 'firefox', 'safari']) {
+      const {compiler, updated, compilation} = make(
+        'production',
+        JSON.stringify({
+          name: 'x',
+          version: '1.0',
+          manifest_version: 3,
+          trial_tokens: tokens,
+          background: {
+            service_worker: 'background/service_worker.js',
+            async_listener_registration: true
+          }
+        })
+      )
+      new UpdateManifest({manifestPath: '/m', browser} as any).apply(compiler)
+
+      const text = updated['manifest.json']
+      const out = JSON.parse(text)
+
+      expect(out.trial_tokens).toEqual(tokens)
+      expect(out.background.async_listener_registration).toBe(true)
+
+      // The token bytes reach the file as written, slashes and padding kept.
+      for (const token of tokens) expect(text).toContain(`"${token}"`)
+
+      expect(compilation.errors).toHaveLength(0)
+      expect(
+        compilation.warnings.filter((warning: any) =>
+          /trial_tokens|async_listener_registration/.test(
+            String(warning.message)
+          )
+        )
+      ).toHaveLength(0)
+    }
+  })
+
+  it('drops an empty background.scripts from a firefox build and warns by name', () => {
+    const source = JSON.stringify({
+      name: 'x',
+      version: '1.0',
+      manifest_version: 3,
+      background: {scripts: []}
+    })
+    const firefox = make('production', source)
+    new UpdateManifest({manifestPath: '/m', browser: 'firefox'} as any).apply(
+      firefox.compiler
+    )
+
+    expect('background' in JSON.parse(firefox.updated['manifest.json'])).toBe(
+      false
+    )
+
+    const said = firefox.compilation.warnings.filter((warning: any) =>
+      String(warning.message).includes('is an empty list')
+    )
+
+    expect(said).toHaveLength(1)
+    expect(String(said[0].message)).toContain('runs with no background')
+
+    // A service worker beside the list is still the background of the build.
+    const beside = make(
+      'production',
+      JSON.stringify({
+        name: 'x',
+        version: '1.0',
+        manifest_version: 3,
+        background: {scripts: [], service_worker: 'background/sw.js'}
+      })
+    )
+    new UpdateManifest({manifestPath: '/m', browser: 'firefox'} as any).apply(
+      beside.compiler
+    )
+
+    const kept = beside.compilation.warnings.filter((warning: any) =>
+      String(warning.message).includes('is an empty list')
+    )
+
+    expect(JSON.parse(beside.updated['manifest.json']).background).toEqual({
+      scripts: ['background/sw.js']
+    })
+
+    expect(kept).toHaveLength(1)
+    expect(String(kept[0].message)).toContain('kept the background')
+    expect(String(kept[0].message)).not.toContain('runs with no background')
+
+    const chrome = make('production', source)
+    new UpdateManifest({manifestPath: '/m', browser: 'chrome'} as any).apply(
+      chrome.compiler
+    )
+
+    expect(
+      chrome.compilation.warnings.filter((warning: any) =>
+        String(warning.message).includes('is an empty list')
+      )
+    ).toHaveLength(0)
+  })
+
+  it('names Firefox, not Chrome, when Firefox is the engine that refuses', () => {
+    const {compiler, updated, compilation} = make(
+      'production',
+      JSON.stringify({
+        name: 'x',
+        version: '1.0',
+        manifest_version: 3,
+        options_ui: {page: 'options.html', chrome_style: false},
+        action: {default_icon: {'016': 'a.png', '32': 'b.png'}}
+      })
+    )
+    new UpdateManifest({manifestPath: '/m', browser: 'firefox'} as any).apply(
+      compiler
+    )
+
+    const out = JSON.parse(updated['manifest.json'])
+    const repairs = compilation.warnings.filter(
+      (warning: any) => warning.name === 'ManifestFatalShapeWarning'
+    )
+
+    expect(out.action.default_icon).toEqual({'32': 'b.png'})
+    expect(out.options_ui.chrome_style).toBe(false)
+    expect(repairs).toHaveLength(1)
+    expect(String(repairs[0].message)).toContain(
+      'which Firefox refuses to load the extension over'
+    )
+  })
+
   it('computes the override tree once per compile', () => {
     const {compiler} = make('development', JSON.stringify({name: 'x'}))
     new UpdateManifest({manifestPath: '/m'} as any).apply(compiler)
