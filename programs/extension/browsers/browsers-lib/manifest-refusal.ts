@@ -27,7 +27,12 @@ export function diagnoseChromiumManifestRefusal(
   manifest: unknown
 ): ChromiumManifestRefusal {
   const m = manifest as Record<string, LooseManifest> | null | undefined
-  if (Number(m?.manifest_version) === 2) return 'mv2'
+
+  // Chromium reads any manifest with a theme key as a theme, and it still
+  // installs a Manifest V2 theme, so only an extension manifest is flagged.
+  if (Number(m?.manifest_version) === 2) {
+    return m?.theme && typeof m.theme === 'object' ? null : 'mv2'
+  }
 
   // Firefox-style MV3 (background.scripts, no service_worker): Chromium refuses
   // the whole extension; this manifest is written for Firefox.
@@ -52,6 +57,33 @@ export function diagnoseChromiumManifestRefusal(
   }
 
   return null
+}
+
+// Microsoft deprecated Manifest V2 and Edge still loads and runs one unpacked,
+// so on Edge the manifest is a deprecation and not a refusal.
+export function chromiumStillRunsManifestV2(browser: string): boolean {
+  return browser === 'edge'
+}
+
+// What the launcher owes a Manifest V2 guest. The build of a dev or start
+// session already printed the verdict for its own output, so it is not said twice.
+export function planManifestV2Launch(input: {
+  browser: string
+  builtByThisSession: boolean
+}): {say: boolean; refused: boolean} {
+  return {
+    say: !input.builtByThisSession,
+    refused: !chromiumStillRunsManifestV2(input.browser)
+  }
+}
+
+// The browser's answer repeats a verdict the session already printed only when
+// it is the manifest version refusal. Any other reason is new and gets its block.
+export function repeatsManifestV2Refusal(
+  alreadySaid: boolean | undefined,
+  reason: string
+): boolean {
+  return Boolean(alreadySaid) && /unsupported manifest version/i.test(reason)
 }
 
 // ONE invalid pattern makes Chrome refuse the WHOLE extension; the only shape
