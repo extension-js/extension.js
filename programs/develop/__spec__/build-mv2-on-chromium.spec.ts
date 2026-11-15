@@ -81,7 +81,9 @@ describe('a Manifest V2 build for a Chromium target', () => {
 
     expect(warnings).toHaveLength(1)
     expect(warnings[0]).toContain('Microsoft Edge has deprecated')
+    expect(warnings[0]).toContain('Edge 157 still loads and runs one unpacked')
     expect(warnings[0]).toContain('names no final version yet')
+    expect(warnings[0]).not.toContain('with a warning to its users')
     expect(warnings[0]).not.toContain('will not install')
     expect(warnings[0]).not.toContain('no longer runs it')
   })

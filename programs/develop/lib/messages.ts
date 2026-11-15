@@ -1570,6 +1570,8 @@ export function managedDependencyCopyWarning(
 // and Chromium 151 dropped the flag that still loaded one unpacked.
 const CHROME_LAST_MANIFEST_V2_VERSION = 138
 const CHROMIUM_MANIFEST_V2_FLAG_REMOVED_VERSION = 151
+// The Edge version measured loading and running an unpacked Manifest V2 one.
+const EDGE_VERSION_MEASURED_RUNNING_MANIFEST_V2 = 157
 
 function manifestV2OnChromiumVerdict(target: string): string[] {
   const last = CHROME_LAST_MANIFEST_V2_VERSION
@@ -1588,7 +1590,7 @@ function manifestV2OnChromiumVerdict(target: string): string[] {
   if (target === 'edge') {
     return [
       `This extension declares Manifest V2, which Microsoft Edge has deprecated.`,
-      `Microsoft's timeline keeps it loading for now, with a warning to its users, and names no final version yet.`,
+      `Edge ${EDGE_VERSION_MEASURED_RUNNING_MANIFEST_V2} still loads and runs one unpacked with no warning, and Microsoft names no final version yet.`,
       `Chrome ${last} was the last Chrome version to support it. Options:`
     ]
   }

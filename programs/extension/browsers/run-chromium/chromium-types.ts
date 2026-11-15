@@ -7,8 +7,8 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import type {
-  BrowserLogger,
   BootRegistrationsWait,
+  BrowserLogger,
   BrowserLogSink,
   Controller,
   LogLevel,
@@ -109,6 +109,9 @@ export interface ChromiumPluginRuntime extends ChromiumLaunchOptions {
   // Set by the post-launch CDP flow when the browser answered that it refused
   // the guest, so the launch path can withhold the "ready" claim.
   extensionLoadRefused?: string
+  // Set when the session already said this browser refuses Manifest V2, so
+  // the browser's matching answer is recorded and not printed a second time.
+  manifestV2RefusalSaid?: boolean
   // The run the launch belongs to, carried so a post-launch stamp cannot land
   // on a contract a restart has since taken over.
   launchRunId?: string
