@@ -329,6 +329,23 @@ describe('BridgeBroker (Slice 2: act)', () => {
       expect(b.producerCount).toBe(1)
     })
 
+    it('speaks of a background page, not a service worker, on Firefox', () => {
+      let t = 0
+      const b = new BridgeBroker(base({engine: 'firefox', now: () => t}))
+      const ctl = new FakeConn('ctl')
+      helloController(b, ctl)
+      const never = denyMessage(b, ctl)
+      expect(never).toContain('no extension background page has connected')
+      expect(never).not.toContain('service worker')
+
+      staleProducerHello(b, new FakeConn('stale'))
+      t += 4000
+      const stale = denyMessage(b, ctl)
+      expect(stale).toContain('told to full-reload')
+      expect(stale).toContain('a background page from a previous dev session')
+      expect(stale).not.toMatch(/service worker|worker should/)
+    })
+
     it('names stale-resync-pending after a stale producer hello', () => {
       let t = 0
       const b = new BridgeBroker(base({now: () => t}))

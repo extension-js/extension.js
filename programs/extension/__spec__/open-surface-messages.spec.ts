@@ -190,6 +190,71 @@ describe('a refusal names the engine once', () => {
   })
 })
 
+describe('open names the surface and its state as the browser does', () => {
+  const stdoutLines = () =>
+    logSpy.mock.calls.map((call) => String(call[0])).join('\n')
+
+  it('a refused sidebar is a sidebar on Firefox and a side panel on Chromium', async () => {
+    bridge.result = {
+      ok: false,
+      error: {
+        name: 'Unsupported',
+        message: 'the sidebar comes from sidebar_action here',
+        engine: 'firefox',
+        code: 'api_unavailable'
+      }
+    }
+
+    expect(await run(['open', 'sidebar', '--browser', 'firefox'])).toBe(1)
+    expect(stderr()).toContain("Can't open the sidebar.")
+    expect(stderr()).not.toContain('side panel')
+
+    errorSpy.mockClear()
+    expect(await run(['open', 'sidebar', '--browser', 'chrome'])).toBe(1)
+    expect(stderr()).toContain('opens the side panel only')
+  })
+
+  it('a popup that was already open is a success that says so', async () => {
+    bridge.result = {ok: true, value: {opened: 'popup', alreadyOpen: true}}
+
+    expect(await run(['open', 'popup', '--browser', 'firefox'])).toBe(0)
+    expect(stdoutLines()).toContain('The popup is already open.')
+    expect(stdoutLines()).not.toContain('Opened')
+  })
+
+  it('an action popup that was already open is a success that says so', async () => {
+    bridge.result = {
+      ok: true,
+      value: {triggered: 'popup', manifestKey: 'action', alreadyOpen: true}
+    }
+
+    expect(await run(['open', 'action', '--browser', 'firefox'])).toBe(0)
+    expect(stdoutLines()).toContain('The action popup is already open.')
+  })
+
+  it('another panel in the way is a named refusal, not "not implemented"', async () => {
+    bridge.result = {
+      ok: false,
+      error: {
+        name: 'Unsupported',
+        message:
+          'another panel is open in the browser window, and one panel shows at a time (openPopup() cannot be called while another panel is open)',
+        engine: 'firefox',
+        code: 'panel_already_open',
+        hint: 'Close the open panel, then run extension open popup again.'
+      }
+    }
+
+    expect(
+      await run(['open', 'popup', '--browser', 'firefox', '--output', 'json'])
+    ).toBe(1)
+
+    const envelope = JSON.parse(String(logSpy.mock.calls[0][0]))
+    expect(envelope.error.code).toBe('E_COMMAND_UNSUPPORTED_FOR_TARGET')
+    expect(envelope.error.hint).toContain('extension open popup')
+  })
+})
+
 describe('open refuses gesture-gated surfaces before connecting', () => {
   it('sidebar on Chromium is refused with the rule and the manual step', async () => {
     expect(await run(['open', 'sidebar'])).toBe(1)

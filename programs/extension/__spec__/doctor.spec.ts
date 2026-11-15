@@ -243,6 +243,14 @@ describe('extension doctor', () => {
     expect(r['port-agreement'].remediation).toContain('cached service worker')
   })
 
+  it('speaks of a background page, not a service worker, on Firefox', async () => {
+    state.mod = healthyModule({readPersistedControlPort: () => 9999})
+    const r = byCheck(await runDoctor('/proj', {browser: 'firefox'}))
+    expect(r['port-agreement'].status).toBe('fail')
+    expect(r['port-agreement'].remediation).toContain('cached background page')
+    expect(r['port-agreement'].remediation).not.toContain('service worker')
+  })
+
   it('skips port-agreement when the installed engine lacks the export', async () => {
     const mod = healthyModule()
     delete (mod as any).readPersistedControlPort

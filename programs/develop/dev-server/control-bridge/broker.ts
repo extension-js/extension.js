@@ -157,21 +157,30 @@ type ExecutorAbsence =
   | 'suspended-event-page'
   | 'browser-exited'
 
-const EXECUTOR_ABSENT: Record<ExecutorAbsence, (secs?: number) => string> = {
+// What runs the executor, as the engine names it. Firefox has no extension
+// service worker: its background is a page.
+function backgroundNoun(engine?: BridgeEngine): string {
+  return engine === 'firefox' ? 'background page' : 'service worker'
+}
+
+const EXECUTOR_ABSENT: Record<
+  ExecutorAbsence,
+  (secs?: number, engine?: BridgeEngine) => string
+> = {
   // Nothing can connect without a port to dial, so neither the worker nor the
   // page is at fault and no retry helps.
   'no-control-port': () =>
     'no executor connected: this dev session has no control port, so the ' +
     'extension was built with no port to dial and nothing can connect. ' +
     'Restart extension dev',
-  'stale-resync-pending': (secs) =>
-    'no executor connected: a service worker from a previous dev session ' +
+  'stale-resync-pending': (secs, engine) =>
+    `no executor connected: a ${backgroundNoun(engine)} from a previous dev session ` +
     `dialed in ${secs}s ago and was told to full-reload; the resynced ` +
-    'worker should connect shortly, retry in a few seconds',
-  'never-connected': () =>
-    'no executor connected: no extension service worker has connected since ' +
+    `${engine === 'firefox' ? 'page' : 'worker'} should connect shortly, retry in a few seconds`,
+  'never-connected': (_secs, engine) =>
+    `no executor connected: no extension ${backgroundNoun(engine)} has connected since ` +
     'this dev session started. The browser may still be launching, the ' +
-    "profile's cached service worker may predate this session, or the " +
+    `profile's cached ${backgroundNoun(engine)} may predate this session, or the ` +
     'session runs with --no-browser; check ready.json status and retry',
   'suspended-event-page': (secs) =>
     "no executor connected: Firefox suspended the extension's idle " +
@@ -1281,12 +1290,13 @@ export class BridgeBroker {
       now - this.lastStaleHelloAt < STALE_RESYNC_HINT_MS
     ) {
       return EXECUTOR_ABSENT['stale-resync-pending'](
-        Math.round((now - this.lastStaleHelloAt) / 1000)
+        Math.round((now - this.lastStaleHelloAt) / 1000),
+        this.engine
       )
     }
 
     if (!this.producerEverConnected) {
-      return EXECUTOR_ABSENT['never-connected']()
+      return EXECUTOR_ABSENT['never-connected'](undefined, this.engine)
     }
 
     if (this.engine === 'firefox') {

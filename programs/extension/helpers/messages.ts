@@ -1075,14 +1075,17 @@ const OPEN_SURFACE_NOUN: Record<string, string> = {
   action: 'action popup'
 }
 
-function openSurfaceNoun(surface: string): string {
+// Firefox has no side panel: the same surface is its sidebar.
+function openSurfaceNoun(surface: string, engine?: string): string {
+  if (surface === 'sidebar' && engine === 'firefox') return 'sidebar'
+
   return OPEN_SURFACE_NOUN[surface] || surface
 }
 
-function openSurfaceAction(surface: string): string {
+function openSurfaceAction(surface: string, engine?: string): string {
   return surface === 'command'
     ? 'trigger the command'
-    : `open the ${openSurfaceNoun(surface)}`
+    : `open the ${openSurfaceNoun(surface, engine)}`
 }
 
 function asSentence(text: string): string {
@@ -1098,6 +1101,10 @@ function listenerCount(count: number, event: string): string {
 
 export function openedSurface(surface: string) {
   return `${getLoggingPrefix('success')} Opened the ${openSurfaceNoun(surface)}.`
+}
+
+export function surfaceAlreadyOpen(surface: string) {
+  return `${getLoggingPrefix('success')} The ${openSurfaceNoun(surface)} is already open.`
 }
 
 export function openedActionPopup(manifestKey: string) {
@@ -1151,7 +1158,7 @@ export function openSurfaceFailed(
   const engineNote = engineNoteFor(reason, engine)
 
   return [
-    `${getLoggingPrefix('error')} Can't ${openSurfaceAction(surface)}.`,
+    `${getLoggingPrefix('error')} Can't ${openSurfaceAction(surface, engine)}.`,
     `${fmt.label('REASON')} ${fmt.val(reason)}${engineNote}`,
     remedy
   ]

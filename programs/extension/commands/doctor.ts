@@ -12,6 +12,7 @@ import * as os from 'node:os'
 import path from 'node:path'
 import type {Command} from 'commander'
 import colors from 'pintor'
+import {isFirefoxBrowser} from '../browsers/browsers-lib/browser-family'
 import {
   isPidAlive,
   pidStartedAtMs
@@ -563,6 +564,10 @@ export async function runDoctor(
     ? `extension ${sessionCommand} session`
     : 'dev session'
   const processNoun = production ? `${sessionCommand} process` : 'dev-server'
+  // Firefox has no extension service worker: its background is a page.
+  const backgroundNoun = isFirefoxBrowser(browser)
+    ? 'background page'
+    : 'service worker'
   const restartCommand = `extension ${sessionCommand} --browser=${browser} --allow-control`
 
   // The reader keeps only the fields it types; why a session failed (`code`,
@@ -703,7 +708,7 @@ export async function runDoctor(
         status: 'fail',
         detail: `persisted port ${persisted} != contract port ${ready.controlPort}`,
         remediation:
-          "A profile's cached service worker may dial the old port and never " +
+          `A profile's cached ${backgroundNoun} may dial the old port and never ` +
           `connect; restart the ${sessionNoun} (it prefers the persisted port)`
       })
     }
@@ -821,7 +826,7 @@ export async function runDoctor(
             status: 'fail',
             detail:
               'executor did not answer a storage probe within ' +
-              `${PROBE_TIMEOUT_MS / 1000}s; the service worker is connected ` +
+              `${PROBE_TIMEOUT_MS / 1000}s; the ${backgroundNoun} is connected ` +
               'but not responding',
             remediation: `Reload the extension, or restart the ${sessionNoun} if it stays silent`
           })
@@ -834,7 +839,7 @@ export async function runDoctor(
             detail:
               'no executor connected yet. The browser is still launching ' +
               `(within ${EXECUTOR_ATTACH_GRACE_MS / 1000}s of compile); the ` +
-              'service worker has not attached',
+              `${backgroundNoun} has not attached`,
             remediation:
               'Give it a moment: wait for ready.json to gain ' +
               '`runtime: "attached"` before acting, or re-run doctor shortly'

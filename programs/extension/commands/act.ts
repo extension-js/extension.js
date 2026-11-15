@@ -48,7 +48,8 @@ import {
   optionsPageNotDeclaredPlain,
   optionsPageNotDeclaredStep,
   replayedActionClick,
-  replayedCommand
+  replayedCommand,
+  surfaceAlreadyOpen
 } from '../helpers/messages'
 import {
   CODES,
@@ -213,6 +214,8 @@ const REFUSAL_TO_CODE: Record<string, ErrorCode> = {
   // missing target, a transport failure the message quotes from the engine.
   surface_reply_failed: CODES.E_INTERNAL,
   api_unavailable: CODES.E_NOT_IMPLEMENTED,
+  // Another panel holds the window, so the surface exists and cannot show.
+  panel_already_open: CODES.E_COMMAND_UNSUPPORTED_FOR_TARGET,
   // The engine refused the url the caller passed: a usage error, not ours.
   url_refused: CODES.E_ARGS,
   // No tab carries the id or matches the filter the caller gave.
@@ -641,11 +644,20 @@ function openResultLines(value: unknown): string[] | undefined {
     command?: unknown
     warning?: unknown
     manifestKey?: unknown
+    alreadyOpen?: unknown
   }
   const manifestKey =
     typeof reply.manifestKey === 'string' && reply.manifestKey
       ? reply.manifestKey
       : undefined
+
+  if (reply.alreadyOpen === true) {
+    return [
+      surfaceAlreadyOpen(
+        typeof reply.opened === 'string' ? reply.opened : 'action'
+      )
+    ]
+  }
 
   if (typeof reply.opened === 'string') return [openedSurface(reply.opened)]
 
@@ -783,6 +795,14 @@ export function bridgeHadNoExecutor(result: ActResultLike): boolean {
 
   return (
     code === CODES.E_CONTROL_UNAVAILABLE || code === CODES.E_TARGET_NOT_FOUND
+  )
+}
+
+// A background that never connected, a browser that exited and a session with
+// no control port are not an idle event page, so waking one is no advice.
+function absenceHasItsOwnCause(raw: Record<string, unknown>): boolean {
+  return /has connected since|browser exited|no control port/i.test(
+    String(raw.message ?? '')
   )
 }
 
@@ -1202,7 +1222,10 @@ async function runCommand(input: RunInput): Promise<void> {
         // The protocol route needs rdpPort and extensionId on the contract. With
         // neither, say what an absent executor usually means on this engine.
         const raw = (result?.error || {}) as Record<string, unknown>
-        if (typeof raw.hint !== 'string') raw.hint = GECKO_IDLE_EVENT_PAGE_HINT
+
+        if (typeof raw.hint !== 'string' && !absenceHasItsOwnCause(raw)) {
+          raw.hint = GECKO_IDLE_EVENT_PAGE_HINT
+        }
       }
     } else if (
       geckoEvalFailed &&

@@ -213,10 +213,16 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
 
     // extension open reaches the popup, options and sidebar only. A devtools
     // page runs while DevTools is open on a tab, an override page in its tab.
+    // The advice names extension open only where that engine lets it work.
     function surfaceNotOpen(ctx) {
+      var engine = engineName();
       var how = "open it first: extension open " + ctx;
+      if (engine === "chromium" && (ctx === "popup" || ctx === "sidebar")) {
+        how = "open it first: click the extension's toolbar entry, or its row in the extensions menu";
+      } else if (engine === "firefox" && ctx === "sidebar") {
+        how = "open it first: the sidebar button in the toolbar, or View > Sidebar";
+      }
       if (ctx === "devtools") {
-        var engine = engineName();
         var flag = engine === "firefox" ? "--devtools" : engine === "chromium" ? "--auto-open-devtools-for-tabs" : "";
         how = "the devtools page runs only while DevTools is open on a tab, and extension open cannot open DevTools. Open DevTools on a tab first" + (flag ? ", or start the session with " + flag + " added to EXTENSION_BROWSER_FLAGS" : "");
       } else if (ctx === "newtab" || ctx === "history" || ctx === "bookmarks") {
@@ -252,12 +258,54 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
       if (mv >= 3) {
         var perms = stringList(m.permissions);
         if (perms.indexOf("scripting") === -1) {
-          return "cannot inject into tab " + tabId + ": this MV3 build's manifest has no \\"scripting\\" permission, so chrome.scripting is missing (Firefox exposes it only with that permission). Add \\"scripting\\" to permissions, or use a dev session (extension dev), which adds it; --context background still works";
+          var gate = engineName() === "firefox" ? " (Firefox exposes it only with that permission)" : "";
+          return "cannot inject into tab " + tabId + ": this MV3 build's manifest has no \\"scripting\\" permission, so chrome.scripting is missing" + gate + ". Add \\"scripting\\" to permissions, or use a dev session (extension dev), which adds it; --context background still works";
         }
         return "cannot inject into tab " + tabId + ": chrome.scripting is missing on this engine even though the manifest declares \\"scripting\\"; use --context background";
       }
       if (mv === 2) return "chrome.scripting is not available on this engine (MV2 has no scripting API); use --context background";
       return "cannot inject into tab " + tabId + ": chrome.scripting is not available on this engine; use --context background";
+    }
+
+    // A tab id nobody has is a missing target on any build, so the engine is
+    // asked for the tab before the missing permission gets the blame.
+    function replyScriptingMissing(cmdId, tabId) {
+      nsCall("tabs", "get", [tabId], function (err) {
+        var msg = String((err && err.message) || err || "");
+        if (err && /no tab with id|invalid tab id/i.test(msg)) {
+          replyErr(cmdId, "TargetNotFound", msg, "tab_not_found");
+          return;
+        }
+        replyErr(cmdId, "Unsupported", scriptingMissingReason(tabId), "scripting_unavailable");
+      });
+    }
+
+    function ownPopupIsOpen(cb) {
+      try {
+        var ext = (g.browser && g.browser.extension) || (g.chrome && g.chrome.extension);
+        if (ext && typeof ext.getViews === "function") { cb(ext.getViews({type: "popup"}).length > 0); return; }
+      } catch (e) {
+        // Ignore
+      }
+      var rt = g.chrome && g.chrome.runtime;
+      if (!rt || typeof rt.getContexts !== "function") { cb(false); return; }
+      try {
+        Promise.resolve(rt.getContexts({contextTypes: ["POPUP"]})).then(function (list) { cb(!!(list && list.length)); }, function () { cb(false); });
+      } catch (e2) { cb(false); }
+    }
+
+    // Firefox refuses openPopup while any panel shows. When that panel is this
+    // extension's own popup, the caller already has what it asked for.
+    function replyOpenPopupFailure(cmdId, err, surface, okValue) {
+      var msg = String((err && err.message) || err);
+      if (!/another panel is open/i.test(msg)) {
+        replyErr(cmdId, "Unsupported", "openPopup: " + msg, openRefusalCode(msg));
+        return;
+      }
+      ownPopupIsOpen(function (open) {
+        if (open) { okValue.alreadyOpen = true; replyOk(cmdId, okValue); return; }
+        replyErr(cmdId, "Unsupported", "another panel is open in the browser window, and one panel shows at a time (" + msg + ")", "panel_already_open", "Close the open panel, then run extension open " + surface + " again.");
+      });
     }
 
     // The page a surface lives in, as the manifest names it, so the background
@@ -428,7 +476,8 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
 
     function replyInjectionErr(cmdId, err) {
       var msg = (err && err.message) || err;
-      replyErr(cmdId, injectionErrorName(err), msg, injectionRefused(msg) ? "injection_refused" : undefined);
+      var name = injectionErrorName(err);
+      replyErr(cmdId, name, msg, injectionRefused(msg) ? "injection_refused" : name === "TargetNotFound" ? "tab_not_found" : undefined);
     }
 
     function executeCommand(cmd) {
@@ -539,9 +588,8 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
               }
             );
           } else if (ctx === "content" || ctx === "page") {
-            replyErr(cmdId, "Unsupported", target.tabId
-              ? scriptingMissingReason(target.tabId)
-              : "eval in context " + ctx + " requires a tabId", target.tabId ? "scripting_unavailable" : undefined);
+            if (target.tabId) replyScriptingMissing(cmdId, target.tabId);
+            else replyErr(cmdId, "Unsupported", "eval in context " + ctx + " requires a tabId");
           } else {
             replyErr(cmdId, "BadRequest", "unknown eval context: " + ctx);
           }
@@ -662,10 +710,8 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
             var popupNS = popupKey && ACTION_NAMESPACES[popupKey];
             if (popupNS && chrome[popupNS] && chrome[popupNS].openPopup) {
               nsCall(popupNS, "openPopup", [], function (err) {
-                if (err) {
-                  var openMsg = (err && err.message) || err;
-                  replyErr(cmdId, "Unsupported", "openPopup: " + openMsg, openRefusalCode(openMsg));
-                } else replyOk(cmdId, {opened: "popup"});
+                if (err) replyOpenPopupFailure(cmdId, err, "popup", {opened: "popup"});
+                else replyOk(cmdId, {opened: "popup"});
               });
             } else { replyErr(cmdId, "Unsupported", (popupNS || "action") + ".openPopup not available", "api_unavailable"); }
           } else if (surface === "options") {
@@ -712,10 +758,8 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
                 getActionPopup(actionKey, tab, function (popup) {
                   if (popup) {
                     nsCall(actionNS, "openPopup", [], function (err) {
-                      if (err) {
-                        var actMsg = (err && err.message) || err;
-                        replyErr(cmdId, "Unsupported", "openPopup: " + actMsg, openRefusalCode(actMsg));
-                      } else replyOk(cmdId, {triggered: "popup", manifestKey: actionKey});
+                      if (err) replyOpenPopupFailure(cmdId, err, "action", {triggered: "popup", manifestKey: actionKey});
+                      else replyOk(cmdId, {triggered: "popup", manifestKey: actionKey});
                     });
                   } else if (clicked.length) {
                     var fired = 0;
@@ -851,9 +895,9 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
               }
             );
           } else if ((ctx === "content" || ctx === "page") && target.tabId) {
-            replyErr(cmdId, "Unsupported", scriptingMissingReason(target.tabId), "scripting_unavailable");
+            replyScriptingMissing(cmdId, target.tabId);
           } else if (ctx === "background") {
-            replyErr(cmdId, "Unsupported", "the service worker has no DOM; inspect a content/page (with --tab) or an open surface");
+            replyErr(cmdId, "Unsupported", (engineName() === "chromium" ? "the service worker has no DOM" : "the background has no page to read") + "; inspect a content/page (with --tab) or an open surface");
           } else {
             replyErr(cmdId, "Unsupported", "inspect of " + ctx + " requires a tabId (content/page) or an open surface");
           }

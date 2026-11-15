@@ -184,6 +184,11 @@ export function documentNotOpenMessage(context: string): string {
     return `the ${context} document is not open (open that page in a tab first)`
   }
 
+  // Firefox opens a sidebar only on a user action, so the command is no help.
+  if (context === 'sidebar') {
+    return 'the sidebar document is not open (open it first: the sidebar button in the toolbar, or View > Sidebar)'
+  }
+
   return `the ${context} document is not open (open it first: extension open ${context})`
 }
 
