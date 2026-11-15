@@ -1565,3 +1565,58 @@ export function managedDependencyCopyWarning(
     `The build goes on. If it misbehaves, install the version shown or drop the import.`
   )
 }
+
+// Chrome's support timeline names 138 as the last version to run Manifest V2,
+// and Chromium 151 dropped the flag that still loaded one unpacked.
+const CHROME_LAST_MANIFEST_V2_VERSION = 138
+const CHROMIUM_MANIFEST_V2_FLAG_REMOVED_VERSION = 151
+
+function manifestV2OnChromiumVerdict(target: string): string[] {
+  const last = CHROME_LAST_MANIFEST_V2_VERSION
+  const removed = CHROMIUM_MANIFEST_V2_FLAG_REMOVED_VERSION
+
+  if (target === 'chrome') {
+    return [
+      `This extension declares Manifest V2, and Chrome no longer runs it.`,
+      `Chrome ${last} was the last version to support Manifest V2, and Chrome ${removed} removed the flag that still loaded one unpacked.`,
+      `The chrome build will not install. Options:`
+    ]
+  }
+
+  // Microsoft deprecated it and has named no version that stops loading it,
+  // so an Edge build is told what is coming, not that it fails today.
+  if (target === 'edge') {
+    return [
+      `This extension declares Manifest V2, which Microsoft Edge has deprecated.`,
+      `Microsoft's timeline keeps it loading for now, with a warning to its users, and names no final version yet.`,
+      `Chrome ${last} was the last Chrome version to support it. Options:`
+    ]
+  }
+
+  return [
+    `This extension declares Manifest V2, and Chromium no longer runs it.`,
+    `Chromium ${removed} removed the last flag that loaded a Manifest V2 extension, and Chrome ${last} was the last Chrome version to support it.`,
+    `The ${target} build installs only where the browser keeps its own Manifest V2 support. Options:`
+  ]
+}
+
+export function manifestV2OnChromium(
+  target: string,
+  usesBlockingWebRequest: boolean
+) {
+  return [
+    ...manifestV2OnChromiumVerdict(target),
+    ``,
+    `  • Build for Firefox (still supports MV2):  extension build --browser firefox`,
+    `  • Migrate the manifest to MV3 (action, background.service_worker, host_permissions)`,
+    `  • Or ship both from one source with browser-prefixed keys`,
+    `    (chromium:manifest_version: 3, firefox:manifest_version: 2, …)`,
+    ...(usesBlockingWebRequest
+      ? [
+          ``,
+          `  Note: this extension uses webRequestBlocking, which MV3 replaces with`,
+          `  declarativeNetRequest, a code change, not just a manifest edit.`
+        ]
+      : [])
+  ].join('\n')
+}
