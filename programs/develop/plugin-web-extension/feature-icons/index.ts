@@ -15,6 +15,7 @@ import type {
   ThemeIcon
 } from '../../types'
 import {extractActionThemeIcons} from './extract-action-theme-icons'
+import {extractIconVariants} from './extract-icon-variants'
 import * as messages from './messages'
 import {normalizeIconIncludeKeys} from './normalize-keys'
 import {AddToFileDependencies} from './steps/add-to-file-dependencies'
@@ -40,6 +41,11 @@ export class IconsPlugin {
         this.includeList as Record<string, unknown> | undefined
       ),
       ...extractActionThemeIcons(
+        this.manifestPath,
+        this.browser,
+        compiler.options?.context as string | undefined
+      ),
+      ...extractIconVariants(
         this.manifestPath,
         this.browser,
         compiler.options?.context as string | undefined

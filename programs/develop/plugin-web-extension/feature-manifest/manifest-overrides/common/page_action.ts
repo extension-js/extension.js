@@ -11,6 +11,8 @@ import {pageActionOutputTarget} from '../../../shared/html-surfaces'
 import {getFilename} from '../../../shared/paths'
 import {
   iconOutputPath,
+  iconVariantsOf,
+  iconVariantsOutput,
   manifestPageOutputTarget
 } from '../../normalize-manifest-path'
 
@@ -32,6 +34,11 @@ export function pageAction(
               projectPath
             ),
             String(manifest.page_action.default_popup)
+          )
+        }),
+        ...(Boolean(iconVariantsOf(manifest.page_action)) && {
+          icon_variants: iconVariantsOutput(
+            iconVariantsOf(manifest.page_action)
           )
         }),
         ...(manifest.page_action.default_icon && {

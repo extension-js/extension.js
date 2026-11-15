@@ -8,11 +8,19 @@
 
 import type {Manifest} from '../../../../types'
 import {getFilename} from '../../../shared/paths'
-import {iconOutputPath} from '../../normalize-manifest-path'
+import {
+  iconOutputPath,
+  iconVariantsOf,
+  iconVariantsOutput
+} from '../../normalize-manifest-path'
 
 export function icons(manifest: Manifest) {
-  return (
-    manifest.icons && {
+  const variants = iconVariantsOf(manifest)
+
+  if (!manifest.icons && !variants) return manifest.icons
+
+  return {
+    ...(manifest.icons && {
       icons: Object.fromEntries(
         Object.entries(manifest.icons).map(([size, icon]) => {
           const raw = String(icon)
@@ -20,6 +28,7 @@ export function icons(manifest: Manifest) {
           return [size, getFilename(iconOutputPath(raw), raw)]
         })
       )
-    }
-  )
+    }),
+    ...(Boolean(variants) && {icon_variants: iconVariantsOutput(variants)})
+  }
 }

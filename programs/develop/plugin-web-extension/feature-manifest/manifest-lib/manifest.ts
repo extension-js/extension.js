@@ -31,6 +31,10 @@ import {
   dropWebkitUnsupportedKeys,
   reportWebkitDroppedKeys
 } from './filter-keys-safari'
+import {
+  applyIconVariantsFallback,
+  reportIconVariantsFallback
+} from './icon-variants-fallback'
 
 const cjsRequire = createRequire(import.meta.url)
 
@@ -230,5 +234,9 @@ export function buildCanonicalManifestWithOverrides(
   const gecko = dropGeckoUnsupportedKeys(webkit.manifest, browser)
   reportGeckoUnsupportedKeys(gecko, browser)
 
-  return {manifest: gecko.manifest, overrides}
+  // A browser that skips icon_variants draws from icons, so it needs them.
+  const icons = applyIconVariantsFallback(gecko.manifest, browser)
+  reportIconVariantsFallback(icons.verdicts, browser)
+
+  return {manifest: icons.manifest, overrides}
 }

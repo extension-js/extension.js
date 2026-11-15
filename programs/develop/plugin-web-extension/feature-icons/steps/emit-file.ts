@@ -10,6 +10,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {Compilation, type Compiler, sources} from '@rspack/core'
 import {debugLine, isDebug} from '../../../lib/messaging'
+import {isOsPathUnder} from '../../../lib/real-path'
 import {
   findPublicFile,
   inspectPublicFolders
@@ -24,7 +25,6 @@ import {reportToCompilation} from '../../shared/compilation-issues'
 import {isFolder} from '../../shared/paths'
 import * as messages from '../messages'
 import {iconValuesToStrings} from '../normalize-keys'
-import {isOsPathUnder} from '../../../lib/real-path'
 
 // statSync is absent under the fs mocks some specs install, so treat an
 // unreadable stat as "not empty" and let the emit proceed.
@@ -293,7 +293,12 @@ export class EmitFile {
 
                 let outputDir = group
 
-                if (isDefaultIconFamily) {
+                // icon_variants entries are icons by another name, so they
+                // keep their place in the output exactly as icons do.
+                const isIconVariants =
+                  group === 'icon_variants' || sub === 'icon_variants'
+
+                if (isDefaultIconFamily || isIconVariants) {
                   outputDir = 'icons'
                 } else if (isThemeIcons) {
                   // MV2 browser_action and Firefox MV3 action theme_icons both
