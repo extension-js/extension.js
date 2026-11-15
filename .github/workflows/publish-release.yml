@@ -120,10 +120,10 @@ jobs:
     if: ${{ needs.corpus-target.outputs.canary != '' }}
     permissions:
       contents: read
-    uses: extension-js/corpus/.github/workflows/corpus-gate.yml@5b731d4bb6a92c295c7cbb5860b4cc7da82b4ccc # main, 2026-11-15
+    uses: extension-js/corpus/.github/workflows/corpus-gate.yml@114e1928f81b5126e1abef7a8fe2de39d67e62e0 # main, 2026-11-15
     with:
       cli-version: ${{ needs.corpus-target.outputs.canary }}
-      ref: 5b731d4bb6a92c295c7cbb5860b4cc7da82b4ccc
+      ref: 114e1928f81b5126e1abef7a8fe2de39d67e62e0
       safari: true
 
   # The templates suite, every example built and driven in real browsers, run
@@ -133,10 +133,10 @@ jobs:
     if: ${{ needs.corpus-target.outputs.canary != '' }}
     permissions:
       contents: read
-    uses: extension-js/templates/.github/workflows/ci.yml@fa59d16e9734108c6a78d86189ea15316172511f # main, 2026-11-15
+    uses: extension-js/templates/.github/workflows/ci.yml@6718c4e6679d006a3ec1c2ad64f59abe2a9db177 # main, 2026-11-15
     with:
       cli-version: ${{ needs.corpus-target.outputs.canary }}
-      ref: fa59d16e9734108c6a78d86189ea15316172511f
+      ref: 6718c4e6679d006a3ec1c2ad64f59abe2a9db177
 
   publish:
     needs: [corpus-target, corpus-gate, templates-gate]
@@ -830,10 +830,10 @@ jobs:
     if: ${{ !cancelled() && needs.publish.result == 'success' }}
     permissions:
       contents: read
-    uses: extension-js/corpus/.github/workflows/corpus-gate.yml@5b731d4bb6a92c295c7cbb5860b4cc7da82b4ccc # main, 2026-11-15
+    uses: extension-js/corpus/.github/workflows/corpus-gate.yml@114e1928f81b5126e1abef7a8fe2de39d67e62e0 # main, 2026-11-15
     with:
       cli-version: ${{ needs.publish.outputs.version }}
-      ref: 5b731d4bb6a92c295c7cbb5860b4cc7da82b4ccc
+      ref: 114e1928f81b5126e1abef7a8fe2de39d67e62e0
       safari: true
 
   # The templates suite with the exact version that reached npm, for the same
@@ -843,7 +843,7 @@ jobs:
     if: ${{ !cancelled() && needs.publish.result == 'success' }}
     permissions:
       contents: read
-    uses: extension-js/templates/.github/workflows/ci.yml@fa59d16e9734108c6a78d86189ea15316172511f # main, 2026-11-15
+    uses: extension-js/templates/.github/workflows/ci.yml@6718c4e6679d006a3ec1c2ad64f59abe2a9db177 # main, 2026-11-15
     with:
       cli-version: ${{ needs.publish.outputs.version }}
-      ref: fa59d16e9734108c6a78d86189ea15316172511f
+      ref: 6718c4e6679d006a3ec1c2ad64f59abe2a9db177
