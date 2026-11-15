@@ -123,6 +123,24 @@ export function warInvalidMatchPattern(pattern: string) {
   return lines.join('\n')
 }
 
+export function warPatternLeavesRoot(pattern: string) {
+  const fromRoot = pattern.replace(/\\/g, '/').replace(/^(?:\.\.?\/)+/, '')
+  const lines: string[] = []
+  lines.push(
+    `${colors.blue('web_accessible_resources')} lists ${colors.yellow(pattern)}, a pattern that leaves the extension root through a parent segment.`
+  )
+
+  lines.push(
+    'The build writes nothing above the root, and Chrome and Firefox expose no file for a pattern written this way.'
+  )
+
+  lines.push(
+    `Write it from the extension root in ${colors.blue('manifest.json')}, like ${colors.yellow(fromRoot)}, so every browser reads the same path.`
+  )
+
+  return lines.join('\n')
+}
+
 export function warUnreachableResource(resource: string, entryName: string) {
   const lines: string[] = []
   lines.push(

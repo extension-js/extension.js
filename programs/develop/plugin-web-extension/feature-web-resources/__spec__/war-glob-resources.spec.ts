@@ -28,7 +28,13 @@ function project(files: Record<string, string>) {
   return root
 }
 
-function resolveWith(root: string, resources: string[]) {
+let lastWarnings: Array<{message: string; name?: string}> = []
+
+function resolveWith(
+  root: string,
+  resources: string[],
+  manifestRel = 'manifest.json'
+) {
   const emitted = new Map<string, string>()
   const compilation = {
     options: {
@@ -54,13 +60,16 @@ function resolveWith(root: string, resources: string[]) {
 
   resolveUserDeclaredWAR(
     compilation,
-    path.join(root, 'manifest.json'),
+    path.join(root, manifestRel),
     {
       manifest_version: 3,
       web_accessible_resources: [{matches: ['<all_urls>'], resources}]
     } as never,
     'chrome'
   )
+
+  lastWarnings = (compilation as unknown as {warnings: typeof lastWarnings})
+    .warnings
 
   return emitted
 }
@@ -111,5 +120,34 @@ describe('web_accessible_resources globs', () => {
     const root = project({'manifest.json': '{}', 'notes.txt': 'n'})
 
     expect(resolveWith(root, ['*']).size).toBe(0)
+  })
+
+  it('copies nothing for a pattern with a parent segment and warns by name', () => {
+    const root = project({
+      'src/manifest.json': '{}',
+      'assets/icon.png': 'i',
+      'src/data/a.txt': 'a'
+    })
+
+    const emitted = resolveWith(
+      root,
+      ['../assets/*', 'data/*'],
+      'src/manifest.json'
+    )
+
+    // Nothing lands above the output root. The sibling pattern still ships.
+    expect([...emitted.keys()]).toEqual(['data/a.txt'])
+    expect(lastWarnings).toHaveLength(1)
+    expect(lastWarnings[0].name).toBe('WARPatternLeavesRoot')
+    expect(lastWarnings[0].message).toContain('../assets/*')
+    expect(lastWarnings[0].message).toContain('leaves the extension root')
+    expect(lastWarnings[0].message).toContain('assets/*')
+  })
+
+  it('raises no parent-segment warning for a pattern inside the root', () => {
+    const root = project({'manifest.json': '{}', 'data/a..b.txt': 'a'})
+
+    expect([...resolveWith(root, ['data/*']).keys()]).toEqual(['data/a..b.txt'])
+    expect(lastWarnings).toEqual([])
   })
 })

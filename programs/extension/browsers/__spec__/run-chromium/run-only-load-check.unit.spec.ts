@@ -219,6 +219,55 @@ describe('verifyGuestLoadAfterLaunch (run-only load evidence)', () => {
     ).toBe(true)
   })
 
+  it('records a Manifest V2 refusal the session already said without printing it again', async () => {
+    const {outPath, readyPath} = makeStartSession()
+    const reason =
+      'Cannot install extension because it uses an unsupported manifest version.'
+    verifyGuestLoadedSpy.mockResolvedValue({status: 'refused', reason})
+
+    const logSink = vi.fn()
+    const plugin: Record<string, unknown> = {
+      browser: 'chrome',
+      logSink,
+      launchRunId: 'run-start',
+      manifestV2RefusalSaid: true
+    }
+
+    await runCheck(outPath, plugin)
+
+    expect(errorSpy.mock.calls.map((c) => String(c[0])).join('\n')).not.toMatch(
+      /refused to load this extension/i
+    )
+
+    const ready = readReady(readyPath)
+    expect(ready.code).toBe('extension_load_refused')
+    expect(ready.extensionLoadRefusedReason).toBe(reason)
+    expect(plugin.extensionLoadRefused).toBe(reason)
+    expect(
+      logSink.mock.calls.some((c) =>
+        String(c[0]?.text || '').startsWith('extension_load_refused:')
+      )
+    ).toBe(true)
+  })
+
+  it('still prints a refusal for any other reason after the Manifest V2 verdict', async () => {
+    const {outPath} = makeStartSession()
+    verifyGuestLoadedSpy.mockResolvedValue({
+      status: 'refused',
+      reason: 'Manifest file is missing or unreadable'
+    })
+
+    await runCheck(outPath, {
+      browser: 'chrome',
+      launchRunId: 'run-start',
+      manifestV2RefusalSaid: true
+    })
+
+    expect(errorSpy.mock.calls.map((c) => String(c[0])).join('\n')).toMatch(
+      /refused to load this extension/i
+    )
+  })
+
   // A start session opens about:blank, so the starting page loads once the
   // guest is in the browser and its document_start CSS can reach it.
   it('opens the starting url once the guest has loaded', async () => {

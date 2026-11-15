@@ -218,7 +218,13 @@ export default function webpackConfig(
       manifestPath,
       browser: devOptions.browser,
       polyfill: devOptions.polyfill,
-      devSession
+      devSession,
+      command:
+        devOptions.metadataCommand === 'dev' ||
+        devOptions.metadataCommand === 'start' ||
+        devOptions.metadataCommand === 'build'
+          ? devOptions.metadataCommand
+          : undefined
     }),
     new WebExtensionPlugin({
       manifestPath,
@@ -327,11 +333,11 @@ export default function webpackConfig(
       }
     } satisfies RspackPluginInstance,
     // Warn (don't fail) when an MV2 source is built for a Chromium target:
-    // Chrome and Edge no longer load MV2, so the bundle would fail to install.
+    // Chrome no longer loads MV2 and Edge has deprecated it.
     {
       apply(compiler: Compiler) {
         const target = String(devOptions.browser)
-        // Family classification: brave/opera/vivaldi/yandex drop MV2 too.
+        // Family classification: brave/opera/vivaldi/yandex inherit Chromium's removal.
         const isChromiumTarget = isChromiumBasedBrowser(target)
         // Chrome classifies any manifest carrying a theme key as a theme and
         // still installs MV2 themes, so only extension manifests get the warning.
@@ -347,28 +353,25 @@ export default function webpackConfig(
           return
         }
 
+        // A dev session recompiles on every save, and the verdict does not
+        // change between saves, so it is said once per session.
+        let reported = false
+
         compiler.hooks.thisCompilation.tap(
           'warn-mv2-on-chromium',
           (compilation: Compilation) => {
+            if (compiler.options.mode === 'development') {
+              if (reported) return
+
+              reported = true
+            }
+
             const ErrorCtor = compiler.rspack?.WebpackError || Error
             const usesBlockingWebRequest =
               Array.isArray(manifest.permissions) &&
               (manifest.permissions as unknown[]).includes('webRequestBlocking')
             const warning = new ErrorCtor(
-              [
-                `This extension declares Manifest V2, which Chrome and Edge no longer load, `,
-                `the ${target} build will not install. Options:`,
-                ``,
-                `  • Build for Firefox (still supports MV2):  extension build --browser firefox`,
-                `  • Migrate the manifest to MV3 (action, background.service_worker, host_permissions)`,
-                `  • Or ship both from one source with browser-prefixed keys`,
-                `    (chromium:manifest_version: 3, firefox:manifest_version: 2, …)`,
-                usesBlockingWebRequest
-                  ? `\n  Note: this extension uses webRequestBlocking, which MV3 replaces with\n  declarativeNetRequest, a code change, not just a manifest edit.`
-                  : ''
-              ]
-                .filter((line) => line !== '')
-                .join('\n')
+              messages.manifestV2OnChromium(target, usesBlockingWebRequest)
             )
             warning.name = 'ManifestV2OnChromiumWarning'
             compilation.warnings.push(warning)

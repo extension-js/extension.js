@@ -435,7 +435,7 @@ ${availableCommandsBlock()}
 ${'Common options'}
 - ${code('--browser')} ${arg('<chrome|edge|firefox|chromium|chromium-based|gecko-based|firefox-based>')} Target browser/engine (default: chromium)
 - ${code('--profile')} ${arg('<path|boolean>')}        Browser profile configuration
-- ${code('--polyfill')} ${arg('[boolean]')}            Enable/disable cross-browser polyfill
+- ${code('--polyfill')} ${arg('[boolean]')}            Bundle the cross-browser polyfill (default: off)
 - ${code('--no-telemetry')}                            Disable anonymous telemetry for this run (persistent toggle: ${code('extension telemetry disable')}, or ${code('EXTENSION_TELEMETRY=0')})
 - ${code('--ai-help')}                                 Show AI-assistant oriented help and tips
 - ${code('--output')} ${arg('<pretty|json>')}          Result format for ${code('--ai-help')} and machine-readable command results (default: pretty)
@@ -811,7 +811,8 @@ ${'Flatpak Firefox'}
 - Extension.js rewrites the binary path to ${code('flatpak run')} with the correct filesystem grants automatically.
 
 ${'Cross-browser compatibility'}
-- Use ${code('--polyfill')} flag to enable webextension-polyfill
+- Chromium 148 and later, Firefox and Safari have ${code('browser.*')} natively, so the polyfill is off by default
+- Use ${code('--polyfill')} to bundle webextension-polyfill for an older Chromium, or for a Chromium below 152 when the manifest declares a ${code('devtools_page')}
 - Automatically handles browser API differences
 - Supports Chrome, Edge, Firefox with single codebase`
 }

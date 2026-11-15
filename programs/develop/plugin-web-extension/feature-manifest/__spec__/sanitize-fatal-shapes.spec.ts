@@ -9,6 +9,140 @@ import {
 } from '../manifest-lib/sanitize-fatal-shapes'
 
 describe('sanitizeFatalManifestShapes', () => {
+  it('drops options_ui.chrome_style from a Manifest V3 Chromium build, even when false', () => {
+    const source = () =>
+      ({
+        manifest_version: 3,
+        name: 'x',
+        version: '1.0',
+        options_ui: {page: 'options/index.html', chrome_style: false}
+      }) as unknown as Manifest
+
+    for (const browser of [undefined, 'chrome', 'edge', 'chromium-based']) {
+      const {manifest, fixes} = sanitizeFatalManifestShapes(
+        source(),
+        undefined,
+        browser
+      )
+
+      expect(manifest.options_ui).toEqual({page: 'options/index.html'})
+      expect(fixes.map((fix) => fix.field)).toEqual(['options_ui.chrome_style'])
+      expect(fixes[0].detail).toContain('removed chrome_style: false')
+      expect(fixes[0].detail).toContain('Manifest V3')
+    }
+  })
+
+  it('keeps options_ui.chrome_style where the load does not fail over it', () => {
+    const mv3 = () =>
+      ({
+        manifest_version: 3,
+        name: 'x',
+        version: '1.0',
+        options_ui: {page: 'options/index.html', chrome_style: true}
+      }) as unknown as Manifest
+
+    for (const browser of ['firefox', 'gecko-based', 'safari']) {
+      const {manifest, fixes} = sanitizeFatalManifestShapes(
+        mv3(),
+        undefined,
+        browser
+      )
+
+      expect((manifest.options_ui as any).chrome_style).toBe(true)
+      expect(fixes).toEqual([])
+    }
+
+    const mv2 = sanitizeFatalManifestShapes(
+      {...mv3(), manifest_version: 2} as unknown as Manifest,
+      undefined,
+      'chrome'
+    )
+
+    expect((mv2.manifest.options_ui as any).chrome_style).toBe(true)
+    expect(mv2.fixes).toEqual([])
+  })
+
+  it('drops icon sizes that are not whole pixel numbers and names each one', () => {
+    const source = () =>
+      ({
+        manifest_version: 3,
+        name: 'x',
+        version: '1.0',
+        icons: {
+          '16': 'icons/a.png',
+          '48.5': 'icons/b.png',
+          big: 'icons/c.png',
+          '0': 'icons/d.png',
+          '016': 'icons/e.png'
+        },
+        action: {default_icon: {big: 'icons/c.png'}}
+      }) as unknown as Manifest
+
+    const chrome = sanitizeFatalManifestShapes(source(), undefined, 'chrome')
+
+    // Chrome 151 loads "016" and refuses the other three.
+    expect(chrome.manifest.icons).toEqual({
+      '16': 'icons/a.png',
+      '016': 'icons/e.png'
+    })
+
+    expect(chrome.manifest.action).toEqual({})
+    expect(chrome.fixes.map((fix) => fix.field).sort()).toEqual([
+      'action.default_icon.big',
+      'icons.0',
+      'icons.48.5',
+      'icons.big'
+    ])
+
+    expect(chrome.fixes.every((fix) => fix.refusedBy === 'Chrome')).toBe(true)
+
+    const firefox = sanitizeFatalManifestShapes(source(), undefined, 'firefox')
+
+    // Firefox 160 refuses the leading zero as well.
+    expect(firefox.manifest.icons).toEqual({'16': 'icons/a.png'})
+    expect(firefox.fixes.map((fix) => fix.field)).toContain('icons.016')
+    expect(firefox.fixes.every((fix) => fix.refusedBy === 'Firefox')).toBe(true)
+
+    const detail = firefox.fixes.find((fix) => fix.field === 'icons.48.5')
+    expect(detail?.detail).toContain('removed "48.5": "icons/b.png"')
+    expect(detail?.detail).toContain('whole pixel size such as "48"')
+  })
+
+  it('removes the icons key when no valid size is left, and leaves a Safari build alone', () => {
+    const source = () =>
+      ({
+        manifest_version: 3,
+        name: 'x',
+        version: '1.0',
+        icons: {big: 'icons/c.png'}
+      }) as unknown as Manifest
+
+    const chrome = sanitizeFatalManifestShapes(source(), undefined, 'chrome')
+    expect('icons' in chrome.manifest).toBe(false)
+
+    const safari = sanitizeFatalManifestShapes(source(), undefined, 'safari')
+    expect(safari.manifest.icons).toEqual({big: 'icons/c.png'})
+    expect(safari.fixes).toEqual([])
+  })
+
+  it('leaves whole-number icon sizes untouched', () => {
+    const {manifest, fixes} = sanitizeFatalManifestShapes(
+      {
+        manifest_version: 3,
+        name: 'x',
+        version: '1.0',
+        icons: {'16': 'a.png', '128': 'b.png'},
+        action: {default_icon: 'a.png'}
+      } as unknown as Manifest,
+      undefined,
+      'firefox'
+    )
+
+    expect(manifest.icons).toEqual({'16': 'a.png', '128': 'b.png'})
+    expect(manifest.action).toEqual({default_icon: 'a.png'})
+    expect(fixes).toEqual([])
+  })
+
   it('coerces a numeric version to a string', () => {
     const {manifest, fixes} = sanitizeFatalManifestShapes({
       manifest_version: 3,

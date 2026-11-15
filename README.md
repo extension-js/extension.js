@@ -33,10 +33,10 @@ Browser extensions ship with the worst dev experience in modern web. Manifest V3
 
 - **Hot Module Replacement** for popup, options, devtools and other extension pages, including React, Vue, Svelte, and Preact components, with targeted reloads for content scripts and the service worker so one save never reloads the whole extension
 - **Manifest V3 by default**, with automatic adapters for Chrome, Edge, Firefox, and Safari targets
-- **One CLI** for Chrome, Edge, Firefox, and any Chromium or Gecko binary
+- **One CLI** for Chrome, Edge, Firefox, Safari, and any Chromium or Gecko binary
 - **Zero config**, no webpack, no rollup, no plugins to maintain
 - **First-class** TypeScript, React, Vue, Svelte, and Preact support
-- **Production builds** with `extension build --zip`, ready for the Chrome Web Store and Firefox Add-ons
+- **Production builds** with `extension build --zip`, ready for the Chrome Web Store, Edge Add-ons and Firefox Add-ons, and a Safari app built through Xcode on macOS
 - **Drop-in** for existing extensions with one `devDependency`
 
 ## Watch it work
@@ -83,6 +83,9 @@ npx extension@latest dev --browser=chrome
 # Edge
 npx extension@latest dev --browser=edge
 
+# Safari, on macOS with Xcode
+npx extension@latest dev --browser=safari
+
 # Custom Chromium path
 npx extension@latest dev --chromium-binary "/Applications/Chromium.app/Contents/MacOS/Chromium"
 
@@ -100,7 +103,7 @@ npx extension@latest dev --gecko-binary "/Applications/Firefox.app/Contents/MacO
 
 ## Ship to the store
 
-Build a production-ready bundle and zip it for submission to the Chrome Web Store, Edge Add-ons, or Firefox AMO:
+Build a production-ready bundle and zip it for submission to the Chrome Web Store, Edge Add-ons, or Firefox AMO. A Safari build produces a macOS app through Xcode instead of a ZIP file:
 
 ```bash
 # Production build
@@ -111,6 +114,9 @@ npx extension@latest build --zip
 
 # Per-browser builds
 npx extension@latest build --browser=firefox --zip
+
+# Safari app, on macOS with Xcode
+npx extension@latest build --browser=safari
 ```
 
 Useful flags:
@@ -121,7 +127,7 @@ Useful flags:
 - `--zip-dir <path>` writes the ZIP files to that folder instead of `dist`, relative to the project root or absolute
 - `--source-maps` writes a source map beside each script and stylesheet of a production build. The maps stay out of the ZIP file, and the build total counts them apart
 - `--out-dir <path>` writes the build to `<path>/<browser>` instead of `dist/<browser>`. A build into the folder a live dev session serves is refused, so this is how a build runs beside a dev session
-- `--polyfill` enables the cross-browser webextension polyfill
+- `--polyfill` bundles the cross-browser webextension polyfill, off by default in every command. It is for a Chromium older than 148, or older than 152 when the manifest declares a `devtools_page`
 
 ## Manage browser binaries
 

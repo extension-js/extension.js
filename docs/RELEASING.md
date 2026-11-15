@@ -38,14 +38,37 @@ Use the `Release – Publish` workflow at `.github/workflows/publish-release.yml
   (groups and the AI-help snapshot) before a release, and the tests fail the cut
   with that reason. `EXTENSION_SKIP_TEMPLATE_REPIN=1` keeps the committed pin for an
   urgent release.
-- A `stable` release is gated on the public corpus. Before anything is tagged, the
-  workflow finds the canary on npm that was built from the same commit and builds
-  every sample of `cezaraugusto/browser-extension-test-data` with it, on Chrome,
-  Firefox and Edge. A failing sample stops the release. So cut a canary from the
-  commit first, then the stable from that same commit. With no canary of the commit
-  the run fails and says so. A canary run also reports its own corpus reading after
-  it publishes, which blocks nothing. `skip_corpus_gate` publishes without the gate
-  and is for a broken corpus only, never for a regression.
+- A `stable` release is one dispatch, gated twice. Before anything is tagged, the
+  workflow needs the canary on npm that was built from the same commit. When there
+  is none it dispatches the canary run itself and waits for the version. Then two
+  gates run with that canary, side by side:
+  - `corpus-gate` builds every buildable sample of `extension-js/corpus` on
+    Chrome, Firefox and Edge, and for Safari on a macOS runner.
+  - `templates-gate` runs the whole `extension-js/templates` suite: every example
+    built, installed with each package manager and driven in real browsers, and
+    every example built for Safari on a macOS runner.
+
+  The Safari lanes run the converter and `xcodebuild` and open no browser, so they
+  prove the Safari build, not the run.
+
+  A failure in either stops the release with nothing tagged and nothing published.
+  If main moved after the dispatch, the run stops and says so. `skip_corpus_gate`
+  publishes without both gates and is for a broken gate only, never for a
+  regression.
+- Every run, on every channel, repeats both readings with the exact version it
+  published (jobs `corpus-published` and `templates-published`). On a canary that
+  is the verdict to read before a stable. On a stable it proves the shipped
+  version. They run after the publish, so a failure turns the run red and
+  unpublishes nothing.
+- The notes of a stable release end with a line that names the canary the gates
+  read and links the run, or says the gates were skipped.
+- Both repositories are pinned by commit in `publish-release.yml`, in each `uses:`
+  line and in the `ref:` input beside it. `node scripts/bump-release-gates.mjs`
+  moves every pin to the head of its repository, and a spec fails when the pins of
+  one repository differ. The `Release gates freshness` workflow checks weekly,
+  builds a new corpus head with the latest stable, and opens an issue when a pin
+  is behind. It cannot push the change, because the Actions token may not edit
+  workflow files.
 - CI validates inputs, builds, and runs tests.
 - Release notes are generated from git history using `scripts/generate-release-notes.mjs`.
   Stable and next releases use grouped, user-facing bullets with commit refs, while

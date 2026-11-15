@@ -580,7 +580,7 @@ describe('webpack/command-build', () => {
       expect(webpackOpts()).toMatchObject({polyfill: false})
     })
 
-    it('defaults the start-phase build to polyfill on and silent', async () => {
+    it('defaults the start-phase build to polyfill off and silent', async () => {
       ;(configLoaderMod.loadCommandConfig as any).mockResolvedValueOnce({})
 
       await extensionBuild('/proj', {
@@ -589,9 +589,22 @@ describe('webpack/command-build', () => {
       })
 
       expect(webpackOpts()).toMatchObject({
-        polyfill: true,
+        polyfill: false,
         silent: true
       })
+    })
+
+    it('turns the start-phase polyfill on from commands.start', async () => {
+      ;(configLoaderMod.loadCommandConfig as any).mockResolvedValueOnce({
+        polyfill: true
+      })
+
+      await extensionBuild('/proj', {
+        browser: 'chrome',
+        metadataCommand: 'start'
+      })
+
+      expect(webpackOpts()).toMatchObject({polyfill: true})
     })
   })
 

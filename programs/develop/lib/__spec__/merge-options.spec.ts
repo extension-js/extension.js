@@ -12,7 +12,7 @@ describe('mergeOptionLayers', () => {
     expect(
       mergeOptionLayers<Record<string, any>>(DEV_COMMAND_DEFAULTS)
     ).toMatchObject({
-      polyfill: true,
+      polyfill: false,
       logFormat: 'pretty',
       logTimestamps: true,
       logColor: true,
@@ -40,7 +40,7 @@ describe('mergeOptionLayers', () => {
     expect(
       mergeOptionLayers<Record<string, any>>(START_BUILD_DEFAULTS)
     ).toMatchObject({
-      polyfill: true,
+      polyfill: false,
       silent: true
     })
   })

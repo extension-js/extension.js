@@ -64,7 +64,7 @@ run()
 ## Features
 
 - Live reload/HMR development server with per-instance browser runners
-- Cross-browser support: Chrome, Edge, Firefox, Chromium-based, Gecko-based
+- Cross-browser support: Chrome, Edge, Firefox, Safari, Chromium-based, Gecko-based
 - Rspack-based build with opinionated plugin stack
 - Clean production output in `dist/<browser>`
 - Zipping: distribution and/or source packages (respects `.gitignore`)
@@ -91,7 +91,7 @@ Options accepted by each command. Values shown are typical types or enumerations
 
 | Option         | Type / Values                                      | Description                                                     |
 | -------------- | -------------------------------------------------- | --------------------------------------------------------------- |
-| browser        | chrome, edge, firefox, chromium-based, gecko-based | Target browser/runtime                                          |
+| browser        | chrome, edge, firefox, safari, chromium-based, gecko-based | Target browser/runtime                                  |
 | profile        | string or false                                    | Profile path or disable profile persistence                     |
 | startingUrl    | string                                             | Initial URL to open                                             |
 | open           | boolean                                            | Focus/open the browser window (CLI: use `--no-open` to disable) |
@@ -104,7 +104,7 @@ Options accepted by each command. Values shown are typical types or enumerations
 | Option              | Type / Values                       | Description                                                                       |
 | ------------------- | ----------------------------------- | --------------------------------------------------------------------------------- |
 | mode                | development, production, none       | Build mode                                                                        |
-| polyfill            | boolean                             | Include `webextension-polyfill` when possible                                     |
+| polyfill            | boolean                             | Bundle `webextension-polyfill` on a Chromium target, off by default               |
 | port                | number or string                    | Dev server port                                                                   |
 | source              | string                              | Inspect a source directory                                                        |
 | watchSource         | boolean                             | Watch the source directory                                                        |
@@ -136,7 +136,7 @@ Options accepted by each command. Values shown are typical types or enumerations
 | zipFilename | string        | Custom base name for artifacts                                 |
 | zipDir      | string        | Folder for the artifacts, relative to the project or absolute  |
 | sourceMaps  | boolean       | Write source maps beside a production build, never zipped      |
-| polyfill    | boolean       | Include `webextension-polyfill` when possible                  |
+| polyfill    | boolean       | Bundle `webextension-polyfill` on Chromium, off by default     |
 | silent      | boolean       | Suppress non-error logs                                        |
 
 ### start
@@ -144,7 +144,7 @@ Options accepted by each command. Values shown are typical types or enumerations
 | Option   | Type / Values | Description                                   |
 | -------- | ------------- | --------------------------------------------- |
 | mode     | `production`  | Build mode                                    |
-| polyfill | boolean       | Include `webextension-polyfill` when possible |
+| polyfill | boolean       | Bundle `webextension-polyfill`, default off   |
 
 ### preview
 
@@ -179,7 +179,7 @@ Options accepted by each command. Values shown are typical types or enumerations
     - Example: { dir: "./extensions" } loads every "./extensions/\*" folder that contains a manifest.json.
 - Precedence when composing options (one contract for every command): stock defaults → browser._ → commands._ → CLI flags.
   - Scalars: an unset flag never clobbers config, and an explicit flag (including `false`) always wins.
-    - Example: `commands.dev.polyfill: false` turns the polyfill off for the team, and `--polyfill` turns it back on for one run.
+    - Example: `commands.dev.polyfill: true` turns the polyfill on for the team, and `--no-polyfill` turns it back off for one run.
   - Lists (`browserFlags`, `excludeBrowserFlags`): concatenate across layers in order (browser, then command, then CLI) and dedupe.
   - Objects (`preferences`): deep-merge, later layers win on key conflict.
 - Browser key aliases when resolving `browser.*` from `extension.config.*` (engine families adopt product blocks; named products do not adopt engine-based blocks):

@@ -226,7 +226,7 @@ describe('webpack/command-dev', () => {
       })
 
       // Bundler-facing options ride the same merge into devServer.
-      expect(devServerOptions().polyfill).toBe(true)
+      expect(devServerOptions().polyfill).toBe(false)
     })
 
     it('lets commands.dev beat browser config and stock defaults (config-only)', async () => {
@@ -239,7 +239,7 @@ describe('webpack/command-dev', () => {
         startingUrl: 'https://from-commands-dev.example',
         noOpen: true,
         logFormat: 'json',
-        polyfill: false
+        polyfill: true
       })
 
       await extensionDev('/proj', {
@@ -254,7 +254,7 @@ describe('webpack/command-dev', () => {
         logFormat: 'json'
       })
 
-      expect(devServerOptions().polyfill).toBe(false)
+      expect(devServerOptions().polyfill).toBe(true)
     })
 
     it('honors commands.dev.browser when no CLI browser is given', async () => {
@@ -325,7 +325,7 @@ describe('webpack/command-dev', () => {
       await extensionDev('/proj', {
         browser: 'chrome',
         port: 0,
-        polyfill: false,
+        polyfill: true,
         logFormat: 'ndjson',
         launcher: vi.fn()
       } as any)
@@ -335,7 +335,7 @@ describe('webpack/command-dev', () => {
         logTimestamps: true
       })
 
-      expect(devServerOptions().polyfill).toBe(false)
+      expect(devServerOptions().polyfill).toBe(true)
     })
 
     it('concatenates browserFlags and deep-merges preferences across layers', async () => {
