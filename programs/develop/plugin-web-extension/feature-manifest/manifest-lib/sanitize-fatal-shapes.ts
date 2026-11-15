@@ -8,11 +8,14 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {isGeckoBasedBrowser, isWebkitBasedBrowser} from '../../../lib/constants'
 import type {Manifest} from '../../../types'
 
 export interface FatalShapeFix {
   field: string
   detail: string
+  // The engine that refuses the load, when it is not Chrome
+  refusedBy?: string
 }
 
 export interface MistypedManifestField {
@@ -134,15 +137,89 @@ export function findMistypedManifestFields(
   return mistyped
 }
 
+// Firefox takes a positive integer with no leading zero as an icon size, and
+// Chrome any positive integer. Safari was not measured, so its build is kept.
+function isRefusedIconSize(size: string, browser?: string): boolean {
+  if (isWebkitBasedBrowser(String(browser))) return false
+  if (isGeckoBasedBrowser(String(browser))) return !/^[1-9]\d*$/.test(size)
+
+  return !/^\d+$/.test(size) || Number(size) === 0
+}
+
+function dropRefusedIconSizes(
+  owner: Record<string, unknown>,
+  key: string,
+  field: string,
+  browser: string | undefined,
+  fixes: FatalShapeFix[]
+): void {
+  const map = owner[key]
+
+  if (!isPlainObject(map)) return
+
+  const engine = isGeckoBasedBrowser(String(browser)) ? 'Firefox' : 'Chrome'
+  let dropped = false
+
+  for (const [size, ref] of Object.entries(map)) {
+    if (!isRefusedIconSize(size, browser)) continue
+
+    delete map[size]
+    dropped = true
+    fixes.push({
+      field: `${field}.${size}`,
+      detail: `removed ${JSON.stringify(size)}: ${JSON.stringify(ref)}, ${engine} takes only a whole pixel size such as "48" as the key and refuses the whole extension over any other`,
+      refusedBy: engine
+    })
+  }
+
+  if (dropped && Object.keys(map).length === 0) delete owner[key]
+}
+
 export function sanitizeFatalManifestShapes(
   manifest: Manifest,
-  manifestDir?: string
+  manifestDir?: string,
+  browser?: string
 ): {
   manifest: Manifest
   fixes: FatalShapeFix[]
 } {
   const out = manifest as Record<string, unknown>
   const fixes: FatalShapeFix[] = []
+  const isChromiumTarget =
+    !isGeckoBasedBrowser(String(browser)) &&
+    !isWebkitBasedBrowser(String(browser))
+
+  // Chrome fails the load over this key under Manifest V3, even when false.
+  // Firefox loads the same manifest, so only a Chromium build loses the key.
+  if (
+    isChromiumTarget &&
+    Number(out.manifest_version) === 3 &&
+    isPlainObject(out.options_ui) &&
+    'chrome_style' in out.options_ui
+  ) {
+    const from = out.options_ui.chrome_style
+    delete out.options_ui.chrome_style
+    fixes.push({
+      field: 'options_ui.chrome_style',
+      detail: `removed chrome_style: ${JSON.stringify(from)}, Chrome refuses the whole extension over this key under Manifest V3, whatever its value`
+    })
+  }
+
+  dropRefusedIconSizes(out, 'icons', 'icons', browser, fixes)
+
+  for (const actionKey of ['action', 'browser_action', 'page_action']) {
+    const action = out[actionKey]
+
+    if (!isPlainObject(action)) continue
+
+    dropRefusedIconSizes(
+      action,
+      'default_icon',
+      `${actionKey}.default_icon`,
+      browser,
+      fixes
+    )
+  }
 
   if (typeof out.name !== 'string' || out.name === '') {
     const from = out.name
