@@ -189,6 +189,43 @@ describe('ready.json writer preservation', () => {
     expect(after.browserPid).toBe(4242)
   })
 
+  it('stamps when its own process started beside pid', () => {
+    const writer = makeWriter()
+    writer.writeReady()
+
+    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    expect(ready.pid).toBe(process.pid)
+    expect(ready.pidStartedAt).toMatch(
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
+    )
+
+    expect(
+      Math.abs(
+        Date.parse(ready.pidStartedAt) - (Date.now() - process.uptime() * 1000)
+      )
+    ).toBeLessThan(5000)
+  })
+
+  it('preserves the launcher-stamped process start times across recompiles', () => {
+    const writer = makeWriter()
+    writer.writeReady()
+
+    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    ready.browserPid = 4242
+    ready.browserStartedAt = '2026-07-12T00:00:01.000Z'
+    ready.launcherPid = 4241
+    ready.launcherStartedAt = '2026-07-12T00:00:00.000Z'
+    fs.writeFileSync(writer.readyPath, JSON.stringify(ready))
+
+    writer.writeReady()
+
+    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    expect(after.browserPid).toBe(4242)
+    expect(after.browserStartedAt).toBe('2026-07-12T00:00:01.000Z')
+    expect(after.launcherPid).toBe(4241)
+    expect(after.launcherStartedAt).toBe('2026-07-12T00:00:00.000Z')
+  })
+
   it('ready.json runId equals getSessionRunId for the same session', () => {
     const writer = makeWriter()
     writer.writeReady()
@@ -209,6 +246,7 @@ describe('ready.json writer preservation', () => {
     expect('browserExitCode' in after).toBe(false)
     expect('profilePath' in after).toBe(false)
     expect('browserPid' in after).toBe(false)
+    expect('browserStartedAt' in after).toBe(false)
     expect('extensionId' in after).toBe(false)
   })
 

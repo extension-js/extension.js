@@ -32,6 +32,7 @@ import {forgetResolvedModuleFolders} from './lib/resource-path'
 import {sessionStateDir} from './lib/session-paths'
 import {defaultSplitChunks} from './lib/split-chunks'
 import {StableLoaderPathsPlugin} from './lib/stable-loader-paths'
+import {diagnosticsHaveColor} from './lib/stats-handler'
 import {resolveTranspilePackageDirs} from './lib/transpile-packages'
 import {CompatibilityPlugin} from './plugin-compatibility'
 import {CompilationPlugin} from './plugin-compilation'
@@ -40,6 +41,7 @@ import {
   NodeBuiltinsPlugin,
   nodeBuiltinName
 } from './plugin-compilation/node-builtins'
+import {OneDiagnosticPerLocationPlugin} from './plugin-compilation/one-diagnostic-per-location'
 import {CssPlugin} from './plugin-css'
 import {JsFrameworksPlugin} from './plugin-js-frameworks'
 import {PerfBudgetsPlugin} from './plugin-perf-budgets'
@@ -279,6 +281,7 @@ export default function webpackConfig(
       }
     } satisfies RspackPluginInstance,
     new NodeBuiltinsPlugin(),
+    new OneDiagnosticPerLocationPlugin(),
     // Warn (don't fail) for bare require() calls that resolve nowhere. The
     // require stays verbatim in the bundle, matching how Chrome loads the script.
     {
@@ -749,7 +752,7 @@ export default function webpackConfig(
       all: false,
       errors: true,
       warnings: true,
-      colors: true,
+      colors: diagnosticsHaveColor(),
       errorDetails: false,
       moduleTrace: false,
       logging: 'none'

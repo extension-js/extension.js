@@ -29,6 +29,7 @@ import * as messages from '../lib/messages'
 import {humanWarn} from '../lib/messaging'
 import {parseJsonSafe} from '../lib/parse-json-safe'
 import {type AbsolutePath, asAbsolute} from '../lib/paths'
+import {ownProcessStartedAt} from '../lib/process-started-at'
 import {renameSyncWithRetry} from '../lib/rename-with-retry'
 import {
   browserArtifactsDir,
@@ -57,6 +58,10 @@ export type ReadyMetadata = {
   port: number | null
   host?: string
   pid: number
+  // When the process behind `pid` started (ISO 8601 UTC). A pid is reused
+  // once its owner exits, so a reader that finds `pid` alive checks this
+  // against the process table before trusting it.
+  pidStartedAt: string
   ts: string
   compiledAt: string | null
   errors: string[]
@@ -107,10 +112,14 @@ export type ReadyMetadata = {
   // ephemeral profile's leaf name is generated) and the browser process pid.
   profilePath?: string
   browserPid?: number | null
+  // When the browser process started, read off the process table beside its
+  // pid the way `pidStartedAt` is; the launcher pid below gets the same.
+  browserStartedAt?: string
   engine?: 'emulator'
   // The pid the launcher spawned, kept once the browser handed the session to
   // another process; browserPid then names that live process.
   launcherPid?: number
+  launcherStartedAt?: string
   // Provenance: which toolchain produced this tree, for which extension;
   // ready.json doubles as a build receipt for one-shot builds.
   toolchainVersion: string
@@ -781,6 +790,7 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       ...base,
       status,
       pid: process.pid,
+      pidStartedAt: ownProcessStartedAt(),
       ts: nowISO(),
       compiledAt,
       errors: Array.isArray(extra?.errors) ? extra.errors : []
@@ -891,10 +901,18 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
 
       if (typeof prev.browserPid === 'number') {
         payload.browserPid = prev.browserPid
+
+        if (typeof prev.browserStartedAt === 'string') {
+          payload.browserStartedAt = prev.browserStartedAt
+        }
       }
 
       if (typeof prev.launcherPid === 'number') {
         payload.launcherPid = prev.launcherPid
+
+        if (typeof prev.launcherStartedAt === 'string') {
+          payload.launcherStartedAt = prev.launcherStartedAt
+        }
       }
 
       // Which binary actually launched, and how it was chosen. Stamped once at

@@ -456,4 +456,98 @@ describe('generate-extension-types', () => {
     expect(coded[0]).toContain(`E_TYPES_EMIT: Writing ${target} failed: `)
     expect(coded[0]).toContain('EISDIR')
   })
+
+  function typeScriptProject(tsconfig: string) {
+    const root = makeTempDir('extjs-gen-tsconfig-')
+    fs.writeFileSync(path.join(root, 'package.json'), '{"name":"x"}')
+    fs.mkdirSync(path.join(root, 'src'))
+    fs.writeFileSync(
+      path.join(root, 'src', 'manifest.json'),
+      JSON.stringify({name: 'x'})
+    )
+
+    fs.writeFileSync(path.join(root, 'tsconfig.json'), tsconfig)
+
+    return root
+  }
+
+  it('does not create the file where the tsconfig cannot include it', async () => {
+    // Comments and a trailing comma: a tsconfig is read the way tsc reads it.
+    const root = typeScriptProject(
+      '{\n  // sources only\n  "include": ["src", "tests"],\n}\n'
+    )
+    const target = path.join(root, 'extension-env.d.ts')
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    try {
+      await generateExtensionTypes(path.join(root, 'src'), root)
+      expect(fs.existsSync(target)).toBe(false)
+      expect(logSpy).not.toHaveBeenCalled()
+
+      // A copy the project keeps anyway is still brought up to date.
+      fs.writeFileSync(target, '// stale\n')
+      await generateExtensionTypes(path.join(root, 'src'), root)
+      expect(fs.readFileSync(target, 'utf8')).not.toContain('stale')
+    } finally {
+      logSpy.mockRestore()
+    }
+  })
+
+  it('creates the file where the tsconfig includes the project root', async () => {
+    for (const tsconfig of [
+      '{"compilerOptions": {"strict": true}}',
+      '{"include": ["./", "extension-env.d.ts"]}',
+      '{"include": ["**/*.ts", "**/*.tsx"]}',
+      '{"files": ["extension-env.d.ts"], "include": ["src"]}'
+    ]) {
+      const root = typeScriptProject(tsconfig)
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+      try {
+        await generateExtensionTypes(path.join(root, 'src'), root)
+      } finally {
+        logSpy.mockRestore()
+      }
+
+      expect(
+        fs.existsSync(path.join(root, 'extension-env.d.ts')),
+        tsconfig
+      ).toBe(true)
+    }
+  })
+
+  it('leaves a copy alone that only a formatter changed', async () => {
+    const root = makeTempDir('extjs-gen-formatted-')
+    fs.writeFileSync(
+      path.join(root, 'manifest.json'),
+      JSON.stringify({name: 'x'})
+    )
+
+    const target = path.join(root, 'extension-env.d.ts')
+    const printed: string[] = []
+    const logSpy = vi
+      .spyOn(console, 'log')
+      .mockImplementation((...args: unknown[]) => {
+        printed.push(args.map(String).join(' '))
+      })
+
+    try {
+      await generateExtensionTypes(root, root)
+
+      const formatted = fs
+        .readFileSync(target, 'utf8')
+        .replace(/'/g, '"')
+        .replace(/^( {2}(?:const|export) .*)$/gm, '$1;')
+        .replace(/^ {2}/gm, '\t')
+      expect(formatted).toContain('export default content;')
+      fs.writeFileSync(target, formatted)
+      printed.length = 0
+
+      await generateExtensionTypes(root, root)
+      expect(fs.readFileSync(target, 'utf8')).toBe(formatted)
+      expect(printed).toEqual([])
+    } finally {
+      logSpy.mockRestore()
+    }
+  })
 })

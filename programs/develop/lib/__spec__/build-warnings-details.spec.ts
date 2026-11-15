@@ -112,4 +112,45 @@ describe('buildWarningsDetails', () => {
       '│  Source: bundler'
     ])
   })
+
+  // The bundler colors its code frame when FORCE_COLOR is merely present,
+  // and its marker then sits between two codes.
+  it('prints the bundler frame plain when the stream takes no color', () => {
+    const esc = String.fromCharCode(27)
+    const colored =
+      `  ${esc}[33m⚠${esc}[0m Critical dependency: the request is an expression\n` +
+      `  ${esc}[2m1${esc}[0m │ return import(name);\n`
+    const saved = {
+      NO_COLOR: process.env.NO_COLOR,
+      FORCE_COLOR: process.env.FORCE_COLOR
+    }
+
+    try {
+      delete process.env.NO_COLOR
+      process.env.FORCE_COLOR = '0'
+      const out = buildWarningsDetails([
+        {message: colored, moduleName: './shared.js'}
+      ])
+
+      expect(out).toBe(plain(out))
+      expect(out.split('\n')[0]).toBe(
+        `${GLYPH} Warning: Critical dependency: the request is an expression (./shared.js)`
+      )
+
+      process.env.FORCE_COLOR = '1'
+      const kept = buildWarningsDetails([
+        {message: colored, moduleName: './shared.js'}
+      ])
+
+      expect(kept).toContain(`${esc}[2m1${esc}[0m`)
+      expect(plain(kept).split('\n')[0]).toBe(
+        `${GLYPH} Warning: Critical dependency: the request is an expression (./shared.js)`
+      )
+    } finally {
+      for (const [key, value] of Object.entries(saved)) {
+        if (value === undefined) delete process.env[key]
+        else process.env[key] = value
+      }
+    }
+  })
 })
