@@ -1,6 +1,9 @@
 import {describe, expect, it} from 'vitest'
 import type {Manifest} from '../../../types'
-import {patchGeckoBackground} from '../steps/patch-gecko-background'
+import {
+  hasEmptyGeckoBackgroundScripts,
+  patchGeckoBackground
+} from '../steps/patch-gecko-background'
 
 const sw = (extra: Record<string, unknown> = {}): Manifest =>
   ({
@@ -11,6 +14,61 @@ const sw = (extra: Record<string, unknown> = {}): Manifest =>
   }) as unknown as Manifest
 
 describe('patchGeckoBackground', () => {
+  it('drops an empty background.scripts for Firefox, and the key with it', () => {
+    const m = {
+      manifest_version: 3,
+      name: 'x',
+      version: '1',
+      background: {scripts: [], persistent: false}
+    } as unknown as Manifest
+
+    expect(hasEmptyGeckoBackgroundScripts(m, 'firefox')).toBe(true)
+
+    const out = patchGeckoBackground(m, 'firefox')
+
+    expect('background' in out).toBe(false)
+    expect(out.name).toBe('x')
+  })
+
+  it('keeps a background page declared beside an empty scripts list', () => {
+    const m = {
+      manifest_version: 2,
+      name: 'x',
+      version: '1',
+      background: {scripts: [], page: 'background/index.html'}
+    } as unknown as Manifest
+
+    expect(patchGeckoBackground(m, 'firefox').background).toEqual({
+      page: 'background/index.html'
+    })
+  })
+
+  it('still translates a service worker declared beside an empty scripts list', () => {
+    const out = patchGeckoBackground(sw({scripts: []}), 'firefox')
+
+    expect(out.background).toEqual({scripts: ['background/service_worker.js']})
+  })
+
+  it('reads an empty scripts list as a Firefox case only', () => {
+    const m = {
+      manifest_version: 3,
+      name: 'x',
+      version: '1',
+      background: {scripts: []}
+    } as unknown as Manifest
+
+    expect(hasEmptyGeckoBackgroundScripts(m, 'chrome')).toBe(false)
+    expect(hasEmptyGeckoBackgroundScripts(m, 'safari')).toBe(false)
+    expect(patchGeckoBackground(m, 'chrome')).toBe(m)
+    expect(hasEmptyGeckoBackgroundScripts(sw(), 'firefox')).toBe(false)
+    expect(
+      hasEmptyGeckoBackgroundScripts(
+        sw({scripts: ['background/scripts.js']}),
+        'firefox'
+      )
+    ).toBe(false)
+  })
+
   it('translates service_worker → scripts for Firefox', () => {
     const out = patchGeckoBackground(sw(), 'firefox')
     expect(out.background).toEqual({scripts: ['background/service_worker.js']})
