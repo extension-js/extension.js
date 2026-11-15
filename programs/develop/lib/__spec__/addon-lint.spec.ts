@@ -9,6 +9,7 @@ import {
   ADDON_LINT_TIMEOUT_MS,
   type AddonLintOutput,
   attributionFor,
+  buildNamesOversizeFiles,
   collectAddonLintLines,
   formatAddonLintFindings,
   type LoadAddonLinter,
@@ -394,6 +395,46 @@ describe('addon lint gating', () => {
     expect(shouldRunAddonLint({browser: 'firefox', mode: 'production'})).toBe(
       null
     )
+  })
+
+  // The linter names an oversize file itself, so the build only does it
+  // when no linter line can exist, and only where the store check applies.
+  it('has the build name oversize scripts when no linter line can exist', () => {
+    const firefox = {browser: 'firefox', mode: 'production'} as const
+    const off = {status: 'skipped', reason: 'disabled'} as const
+
+    expect(buildNamesOversizeFiles(off, firefox)).toBe(true)
+    expect(
+      buildNamesOversizeFiles({status: 'missing', hint: null}, firefox)
+    ).toBe(true)
+
+    expect(
+      buildNamesOversizeFiles(
+        {status: 'failed', reason: 'boom', line: '', debugLine: ''},
+        firefox
+      )
+    ).toBe(true)
+
+    expect(
+      buildNamesOversizeFiles(
+        {status: 'linted', findings: 0, lines: [], reviewerNote: null},
+        firefox
+      )
+    ).toBe(false)
+
+    for (const browser of ['chrome', 'edge', 'safari', 'chromium']) {
+      expect(buildNamesOversizeFiles(off, {browser, mode: 'production'})).toBe(
+        false
+      )
+    }
+
+    expect(
+      buildNamesOversizeFiles(off, {browser: 'firefox', mode: 'development'})
+    ).toBe(false)
+
+    expect(
+      buildNamesOversizeFiles({status: 'skipped', reason: 'browser'}, firefox)
+    ).toBe(false)
   })
 
   it('skips development builds and chromium targets without loading the linter', async () => {

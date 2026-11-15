@@ -155,6 +155,18 @@ export function shouldRunAddonLint(input: {
   return null
 }
 
+// Whether the build names an oversize script on its own: a target the store
+// check covers, and no linter answer that would name the same file.
+export function buildNamesOversizeFiles(
+  result: AddonLintResult,
+  input: {browser: string; mode: RunAddonLintInput['mode']}
+): boolean {
+  if (result.status === 'missing' || result.status === 'failed') return true
+  if (result.status !== 'skipped' || result.reason !== 'disabled') return false
+
+  return shouldRunAddonLint({...input, enabled: true}) === null
+}
+
 function locationOf(finding: AddonLintFinding): string {
   const file = String(finding.file || '').trim()
   if (!file) return ''
@@ -263,8 +275,8 @@ function emittedFiles(dir: string, base = dir): string[] {
   })
 }
 
-// What the build can say when no linter answered: each single-file script
-// in dist the store would refuse to parse, in the store check's own words.
+// What the build can say when no linter answered or the check is off: each
+// single-file script in dist the store would refuse to parse.
 export function oversizeSingleFileLines(distPath: string): string[] {
   const limitBytes = ADDON_LINT_PARSE_LIMIT_MB * 1024 * 1024
 
