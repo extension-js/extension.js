@@ -43,9 +43,17 @@ Use the `Release – Publish` workflow at `.github/workflows/publish-release.yml
   every sample of `extension-js/corpus` with it, on Chrome,
   Firefox and Edge. A failing sample stops the release. So cut a canary from the
   commit first, then the stable from that same commit. With no canary of the commit
-  the run fails and says so. A canary run also reports its own corpus reading after
-  it publishes, which blocks nothing. `skip_corpus_gate` publishes without the gate
-  and is for a broken corpus only, never for a regression.
+  the run fails and says so. `skip_corpus_gate` publishes without the gate and is
+  for a broken corpus only, never for a regression.
+- Every run, on every channel, builds the corpus once more with the exact version
+  it published (job `corpus-published`). On a canary that is the verdict to read
+  before cutting the stable. On a stable it proves the shipped version. It runs
+  after the publish, so a failure turns the run red and unpublishes nothing.
+- The notes of a stable release end with a line that names the canary the gate
+  read and links the run, or says the gate was skipped.
+- The corpus is pinned by commit in `publish-release.yml`, four times: the two
+  `uses:` lines and the two `ref:` inputs. Move all four together. A spec fails
+  when they differ.
 - CI validates inputs, builds, and runs tests.
 - Release notes are generated from git history using `scripts/generate-release-notes.mjs`.
   Stable and next releases use grouped, user-facing bullets with commit refs, while
