@@ -141,6 +141,53 @@ describe('stampReadyBrowserLaunch', () => {
     expect(ready.browserPid).toBe(4242)
   })
 
+  it('publishes when the browser and launcher processes started beside their pids', () => {
+    fs.writeFileSync(readyPath, JSON.stringify({status: 'ready'}))
+
+    // This process is in the table. 2 ** 30 is larger than any pid the OS
+    // hands out, so the table has no row for it and no start time to give.
+    stampReadyBrowserLaunch(outputPath, {
+      browserPid: process.pid,
+      launcherPid: 2 ** 30
+    })
+
+    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    expect(ready.browserPid).toBe(process.pid)
+    expect(ready.browserStartedAt).toMatch(
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
+    )
+
+    expect(
+      Math.abs(
+        Date.parse(ready.browserStartedAt) -
+          (Date.now() - process.uptime() * 1000)
+      )
+    ).toBeLessThan(5000)
+
+    expect(ready.launcherPid).toBe(2 ** 30)
+    expect('launcherStartedAt' in ready).toBe(false)
+  })
+
+  it('reads a start time once per pid and drops it with the pid it dated', () => {
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({
+        status: 'ready',
+        browserPid: process.pid,
+        browserStartedAt: '2026-01-01T00:00:00.000Z'
+      })
+    )
+
+    stampReadyBrowserLaunch(outputPath, {browserPid: process.pid})
+    const same = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    expect(same.browserStartedAt).toBe('2026-01-01T00:00:00.000Z')
+
+    stampReadyBrowserLaunch(outputPath, {browserPid: 2 ** 30})
+    const next = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    expect(next.browserPid).toBe(2 ** 30)
+    expect('browserStartedAt' in next).toBe(false)
+  })
+
   it('is a no-op when the contract file does not exist yet', () => {
     expect(() =>
       stampReadyBrowserLaunch(outputPath, {profilePath: '/x', browserPid: 1})

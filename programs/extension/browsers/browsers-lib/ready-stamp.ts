@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {stripChannelPrefix} from '../../helpers/messaging'
+import {pidStartedAtIso} from './resolve-live-pid'
 import {writeJsonAtomic} from './write-json-atomic'
 
 // A run-only session loading a source folder keeps its contract under the
@@ -302,6 +303,26 @@ export function stampReadyStartingUrl(
   }
 }
 
+// A pid alone cannot prove the process behind it is still this session's: the
+// number is reused once its owner exits, so each pid is stamped with when the
+// process table says it started. The table is asked once per pid, a later
+// stamp naming the same pid keeps the answer, and a pid the table cannot date
+// (gone already, or a probe past its bound) carries no time rather than a guess.
+function stampPidWithStart(
+  ready: Record<string, unknown>,
+  pidKey: 'browserPid' | 'launcherPid',
+  startKey: 'browserStartedAt' | 'launcherStartedAt',
+  pid: number
+) {
+  if (ready[pidKey] === pid) return
+
+  ready[pidKey] = pid
+
+  const startedAt = pidStartedAtIso(pid)
+  if (startedAt) ready[startKey] = startedAt
+  else delete ready[startKey]
+}
+
 // Publish which profile directory and browser process this session launched.
 // An ephemeral profile's leaf name is generated, so no path helper can rebuild
 // it, and the pid is the only supported handle for reaping the browser.
@@ -348,14 +369,24 @@ export function stampReadyBrowserLaunch(
       typeof details?.browserPid === 'number' &&
       Number.isFinite(details.browserPid)
     ) {
-      ready.browserPid = details.browserPid
+      stampPidWithStart(
+        ready,
+        'browserPid',
+        'browserStartedAt',
+        details.browserPid
+      )
     }
 
     if (
       typeof details?.launcherPid === 'number' &&
       Number.isFinite(details.launcherPid)
     ) {
-      ready.launcherPid = details.launcherPid
+      stampPidWithStart(
+        ready,
+        'launcherPid',
+        'launcherStartedAt',
+        details.launcherPid
+      )
     }
 
     const extensionId = String(details?.extensionId || '').trim()
