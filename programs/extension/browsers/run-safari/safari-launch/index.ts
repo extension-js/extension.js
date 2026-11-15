@@ -53,6 +53,7 @@ import {
   isBuildCurrent,
   isProjectStale,
   macOsSchemeName,
+  manifestHasIcons,
   PRESERVED_SETTINGS,
   pbxprojPath,
   resolveSafariBuildConfig,
@@ -119,6 +120,19 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+// Apple prints an NSError flush left under a warning that ends in a colon.
+// Only its quoted description is worth a line in the terminal.
+function converterErrorReason(line: string): string | undefined {
+  if (!/^Error Domain=\S+ Code=-?\d+/.test(line)) return undefined
+
+  const quoted = /^Error Domain=\S+ Code=-?\d+ "(.+?)"(?: UserInfo=|\s*$)/.exec(
+    line
+  )
+  const described = /NSLocalizedDescription=([^,}]+)/.exec(line)
+
+  return (quoted?.[1] || described?.[1] || '').trim() || undefined
+}
+
 export function converterWarnings(output: string): string[] {
   // safari-web-extension-converter prints per-key compatibility warnings
   // ("Warning: ...") on success, the closest thing to a Safari manifest lint.
@@ -128,12 +142,24 @@ export function converterWarnings(output: string): string[] {
   const lines = output.split(/\r?\n/)
   const collected: string[] = []
   let inWarning = false
+  let wantsReason = false
 
   for (const line of lines) {
     const trimmed = line.trim()
+    const reason = wantsReason ? converterErrorReason(line) : undefined
+
+    wantsReason = false
+
+    // The reason joins its heading, so the count stays one per warning.
+    if (reason) {
+      collected[collected.length - 1] += ` ${reason}`
+      inWarning = false
+      continue
+    }
 
     if (/warning/i.test(line)) {
       inWarning = true
+      wantsReason = trimmed.endsWith(':')
       if (trimmed.length > 0) collected.push(trimmed)
 
       continue
@@ -857,7 +883,11 @@ async function runSafariPipeline(
         )
       }
     } else {
-      logger.info?.(messages.safariAppIconFromManifest())
+      logger.info?.(
+        manifestHasIcons(config)
+          ? messages.safariAppIconFromManifest()
+          : messages.safariAppIconMissing()
+      )
     }
 
     const preservedKeys = Object.keys(saved)

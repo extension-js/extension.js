@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import {type Compilation, WebpackError} from '@rspack/core'
+import {isChromiumBasedBrowser} from '../../lib/constants'
 import {stripBom} from '../../lib/parse-json-safe'
 import * as messages from './messages'
 
@@ -76,11 +77,114 @@ function getDnrRuleSoftIssue(
   return undefined
 }
 
+// RE2 has no lookaround and no backreference. A parenthesis or a digit
+// inside a character class, or behind a backslash, is a literal and passes.
+export function re2UnsupportedConstruct(filter: string): string | undefined {
+  let inClass = false
+
+  for (let index = 0; index < filter.length; index++) {
+    const char = filter[index]
+
+    if (char === '\\') {
+      if (!inClass && /[1-9]/.test(filter[index + 1] || '')) {
+        return 'a backreference'
+      }
+
+      index++
+      continue
+    }
+
+    if (inClass) {
+      if (char === ']') inClass = false
+
+      continue
+    }
+
+    if (char === '[') {
+      inClass = true
+      continue
+    }
+
+    if (char !== '(' || filter[index + 1] !== '?') continue
+
+    const next = filter.slice(index + 2, index + 4)
+    if (next[0] === '=' || next[0] === '!') return 'a lookahead'
+    if (next === '<=' || next === '<!') return 'a lookbehind'
+  }
+
+  return undefined
+}
+
+function pushRulesetWarning(
+  compilation: Compilation,
+  filePath: string,
+  name: string,
+  message: string
+) {
+  const warn = new WebpackError(message)
+  ;(warn as Error & {file?: string}).file = filePath
+  warn.name = name
+
+  compilation.warnings.push(warn)
+}
+
+// Chrome refuses the whole extension over either of these and Firefox loads
+// it, so only a Chromium build hears about them, and only as a warning.
+function warnChromiumOnlyRefusals(
+  compilation: Compilation,
+  feature: string,
+  filePath: string,
+  rules: Array<Record<string, unknown>>
+) {
+  const seen = new Set<number>()
+  const repeated = new Set<number>()
+  const uncompilable = new Map<string, number[]>()
+
+  for (const rule of rules) {
+    const id = rule.id as number
+    if (seen.has(id)) repeated.add(id)
+
+    seen.add(id)
+
+    const filter = (rule.condition as Record<string, unknown>).regexFilter
+    const construct =
+      typeof filter === 'string' ? re2UnsupportedConstruct(filter) : undefined
+
+    if (construct) {
+      uncompilable.set(construct, [...(uncompilable.get(construct) || []), id])
+    }
+  }
+
+  if (repeated.size) {
+    pushRulesetWarning(
+      compilation,
+      filePath,
+      'DNRDuplicateRuleId',
+      messages.rulesetDuplicateRuleIds(feature, filePath, [...repeated])
+    )
+  }
+
+  for (const [construct, ids] of uncompilable) {
+    pushRulesetWarning(
+      compilation,
+      filePath,
+      'DNRRegexChromeCannotCompile',
+      messages.rulesetRegexChromeCannotCompile(
+        feature,
+        filePath,
+        ids,
+        construct
+      )
+    )
+  }
+}
+
 export function validateJsonAsset(
   compilation: Compilation,
   feature: string,
   filePath: string,
-  buf: Buffer
+  buf: Buffer,
+  browser?: string
 ): boolean {
   let parsed: unknown
 
@@ -142,6 +246,15 @@ export function validateJsonAsset(
 
         compilation.warnings.push(warn)
       }
+    }
+
+    if (browser && isChromiumBasedBrowser(browser)) {
+      warnChromiumOnlyRefusals(
+        compilation,
+        feature,
+        filePath,
+        parsed as Array<Record<string, unknown>>
+      )
     }
   } else if (isManagedSchemaFeature(feature)) {
     if (

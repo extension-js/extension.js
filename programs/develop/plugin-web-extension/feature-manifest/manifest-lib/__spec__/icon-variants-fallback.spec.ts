@@ -33,7 +33,7 @@ describe('icon_variants fallback', () => {
     expect(ignoresIconVariants('firefox')).toBe('gecko')
     expect(ignoresIconVariants('chrome')).toBe('chromium')
     expect(ignoresIconVariants('edge')).toBe('chromium')
-    expect(ignoresIconVariants('safari')).toBeUndefined()
+    expect(ignoresIconVariants('safari')).toBe('webkit')
   })
 
   it('picks the all-scheme group, then light, and a vector only for Firefox', () => {
@@ -52,6 +52,22 @@ describe('icon_variants fallback', () => {
 
     expect(iconsFromVariants([{any: 'a.svg'}], 'chromium')).toBeUndefined()
     expect(iconsFromVariants([{16: 'a.svg'}], 'chromium')).toBeUndefined()
+  })
+
+  it('gives Safari PNG sizes first and a vector only when no PNG exists', () => {
+    expect(iconsFromVariants(variants, 'webkit')).toEqual({
+      16: 'icons/light-16.png'
+    })
+
+    expect(
+      iconsFromVariants([{16: 'all.svg'}, {16: 'dark.png'}], 'webkit')
+    ).toEqual({16: 'dark.png'})
+
+    expect(iconsFromVariants([{16: 'a.svg'}], 'webkit')).toEqual({16: 'a.svg'})
+    expect(iconsFromVariants([{any: 'a.svg'}], 'webkit')).toEqual({
+      48: 'a.svg',
+      96: 'a.svg'
+    })
   })
 
   it('keeps icons the manifest already has', () => {
@@ -80,13 +96,29 @@ describe('icon_variants fallback', () => {
     ])
   })
 
-  it('leaves Safari and a manifest without the key untouched', () => {
-    const manifest = {icon_variants: variants}
+  it('fills icons and the action default_icon on Safari and keeps the key', () => {
+    const out = applyIconVariantsFallback(
+      {icon_variants: variants, action: {icon_variants: variants}} as any,
+      'safari'
+    )
 
-    expect(applyIconVariantsFallback(manifest as any, 'safari')).toEqual({
-      manifest,
-      verdicts: []
+    expect((out.manifest as any).icons).toEqual({16: 'icons/light-16.png'})
+    expect((out.manifest as any).action.default_icon).toEqual({
+      16: 'icons/light-16.png'
     })
+
+    expect((out.manifest as any).icon_variants).toEqual(variants)
+    expect((out.manifest as any).action.icon_variants).toEqual(variants)
+    expect(out.verdicts).toEqual([
+      {key: 'icons', outcome: 'added'},
+      {key: 'action.default_icon', outcome: 'added'}
+    ])
+  })
+
+  it('leaves a manifest without the key untouched', () => {
+    expect(
+      applyIconVariantsFallback({icons: {16: 'a.png'}} as any, 'safari')
+    ).toEqual({manifest: {icons: {16: 'a.png'}}, verdicts: []})
 
     expect(
       applyIconVariantsFallback({icons: {16: 'a.png'}} as any, 'chrome')
@@ -101,7 +133,12 @@ describe('icon_variants fallback', () => {
     reportIconVariantsFallback([{key: 'icons', outcome: 'kept'}], 'firefox')
     reportIconVariantsFallback([{key: 'icons', outcome: 'added'}], 'chrome')
     reportIconVariantsFallback([{key: 'icons', outcome: 'missing'}], 'chrome')
-    reportIconVariantsFallback([{key: 'icons', outcome: 'kept'}], 'safari')
+    reportIconVariantsFallback([{key: 'icons', outcome: 'added'}], 'safari')
+    reportIconVariantsFallback([{key: 'icons', outcome: 'added'}], 'safari')
+
+    expect(
+      text().match(/Safari's app converter does not read icon_variants yet/g)
+    ).toHaveLength(1)
 
     expect(
       text().match(/Firefox does not read icon_variants yet/g)
@@ -146,8 +183,35 @@ describe('icon_variants fallback', () => {
     expect((firefox as any).icon_variants).toEqual([{16: 'icons/f-16.png'}])
     expect((safari as any).icon_variants).toEqual([{16: 'icons/c-16.png'}])
     expect((chrome as any).icons).toEqual({48: 'icons/base-48.png'})
+    expect((safari as any).icons).toEqual({48: 'icons/base-48.png'})
     expect(JSON.stringify(chrome)).not.toContain('chromium:')
     expect(text()).toContain('Chromium reads icon_variants only with')
     expect(text()).toContain('Firefox does not read icon_variants yet')
+    expect(text()).toContain('Safari shows icons from your manifest instead')
+  })
+
+  it('hands Safari a manifest with icons when the source has only variants', () => {
+    const text = capture()
+    const safari = buildCanonicalManifest(
+      '/p/manifest.json',
+      {
+        manifest_version: 3,
+        name: 'x',
+        version: '1',
+        icon_variants: variants,
+        action: {icon_variants: variants}
+      } as any,
+      'safari'
+    )
+
+    expect((safari as any).icons).toEqual({16: 'icons/light-16.png'})
+    expect((safari as any).action.default_icon).toEqual({
+      16: 'icons/light-16.png'
+    })
+
+    expect((safari as any).icon_variants).toHaveLength(3)
+    expect(text()).toContain(
+      'The manifest had no icons and action.default_icon, so the build filled it'
+    )
   })
 })

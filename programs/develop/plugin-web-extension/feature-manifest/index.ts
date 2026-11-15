@@ -18,6 +18,7 @@ import {PatchWAR} from './steps/patch-war'
 import {PersistManifestToDisk} from './steps/persist-manifest'
 import {UpdateManifest} from './steps/update-manifest'
 import {ValidateThemeValues} from './steps/validate-theme-values'
+import {WarnContentScriptHostAccess} from './steps/warn-content-script-host-access'
 import {WarnDescriptionLength} from './steps/warn-description-length'
 import {WarnUndeclaredPermissions} from './steps/warn-undeclared-permissions'
 
@@ -83,6 +84,8 @@ export class ManifestPlugin {
     new PersistManifestToDisk({manifestPath: this.manifestPath}).apply(compiler)
 
     new WarnDescriptionLength({browser: this.browser}).apply(compiler)
+
+    new WarnContentScriptHostAccess({browser: this.browser}).apply(compiler)
 
     new AddDependencies([this.manifestPath]).apply(compiler)
 

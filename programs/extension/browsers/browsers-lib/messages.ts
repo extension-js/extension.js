@@ -1194,6 +1194,13 @@ export function safariAppIconFromManifest() {
   )
 }
 
+export function safariAppIconMissing() {
+  return (
+    `${getLoggingPrefix('info')} The Safari app has no icon, since the manifest has no ${colors.blue('icons')}.\n` +
+    `To give it one, add ${colors.blue('icons')} to the manifest, or set ${colors.blue('browser.safari.appIcon')} in extension.config.js (or pass ${colors.blue('--app-icon')}) to a square 1024 px PNG.`
+  )
+}
+
 export function safariAppIconSmall(
   source: string,
   pixels: number,
@@ -1352,7 +1359,9 @@ export interface SafariSigningNote {
 // Apple's converter table is years out of date, so it also flags keys the
 // build keeps on purpose. Named here, a kept key reads as a decision.
 const SAFARI_KEPT_ON_PURPOSE: Record<string, string> = {
-  world: 'Safari has honored the MAIN world since Safari 18, so the key stays'
+  world: 'Safari has honored the MAIN world since Safari 18, so the key stays',
+  icon_variants:
+    'WebKit has code for the key and the build fills icons beside it, so the key stays'
 }
 
 export function safariConverterWarnings(warnings: string[]) {
