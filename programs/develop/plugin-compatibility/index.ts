@@ -33,12 +33,19 @@ export class CompatibilityPlugin {
   public readonly browser: DevOptions['browser']
   public readonly polyfill: DevOptions['polyfill']
   public readonly devSession?: boolean
+  public readonly command?: 'dev' | 'start' | 'build'
 
-  constructor(options: PluginInterface & {polyfill: DevOptions['polyfill']}) {
+  constructor(
+    options: PluginInterface & {
+      polyfill: DevOptions['polyfill']
+      command?: 'dev' | 'start' | 'build'
+    }
+  ) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
     this.polyfill = options.polyfill || false
     this.devSession = options.devSession
+    this.command = options.command
   }
 
   public apply(compiler: Compiler) {
@@ -75,7 +82,8 @@ export class CompatibilityPlugin {
         new WarnBrowserGlobalWithoutPolyfill({
           manifestPath: this.manifestPath,
           browser: this.browser,
-          devSession: this.devSession
+          devSession: this.devSession,
+          command: this.command
         }).apply(compiler)
       }
     }

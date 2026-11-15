@@ -218,7 +218,13 @@ export default function webpackConfig(
       manifestPath,
       browser: devOptions.browser,
       polyfill: devOptions.polyfill,
-      devSession
+      devSession,
+      command:
+        devOptions.metadataCommand === 'dev' ||
+        devOptions.metadataCommand === 'start' ||
+        devOptions.metadataCommand === 'build'
+          ? devOptions.metadataCommand
+          : undefined
     }),
     new WebExtensionPlugin({
       manifestPath,

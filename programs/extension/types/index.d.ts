@@ -5,8 +5,8 @@
 /// <reference path="./assets.d.ts" />
 
 declare global {
-  // Firefox, Safari and Chromium 148 onward ship the browser global natively,
-  // and webextension-polyfill provides it on an older Chromium.
+  // Firefox, Safari and Chromium 148 onward ship the browser global natively.
+  // The opt-in webextension-polyfill provides it on an older Chromium.
   const browser: typeof import('webextension-polyfill')
 
   // Every target the CLI accepts for --browser, so a branch on
