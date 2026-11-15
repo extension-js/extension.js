@@ -39,7 +39,11 @@ function project() {
 
 async function build(
   root: string,
-  options: {browser: 'chrome' | 'firefox'; polyfill?: boolean}
+  options: {
+    browser: 'chrome' | 'firefox'
+    polyfill?: boolean
+    metadataCommand?: 'start'
+  }
 ) {
   const {extensionBuild} = await import('../command-build')
   const previous = process.env.VITEST
@@ -79,9 +83,29 @@ describe('a build of browser.* code on a Chromium target', () => {
     const warnings = polyfillWarnings(summary)
     expect(warnings).toHaveLength(1)
     expect(warnings[0]).toContain('background.js:1 uses browser.*')
-    expect(warnings[0]).toContain('extension dev and extension start')
-    expect(warnings[0]).toContain('extension build leaves it off')
+    expect(warnings[0]).toContain(
+      'The cross-browser polyfill is off, the default for every command'
+    )
+
+    expect(warnings[0]).toContain('run extension build with --polyfill')
+    expect(warnings[0]).toContain('set commands.build.polyfill to true')
+    expect(warnings[0]).not.toContain('extension dev and extension start')
     expect(serviceWorker(root, 'chrome')).toContain('browser.storage.local')
+    expect(serviceWorker(root, 'chrome')).not.toContain('webextension-polyfill')
+  }, 120_000)
+
+  it('leaves the polyfill out of extension start too, and names its own key', async () => {
+    const root = project()
+    const summary = await build(root, {
+      browser: 'chrome',
+      metadataCommand: 'start'
+    })
+
+    expect(summary.errors_count).toBe(0)
+    const warnings = polyfillWarnings(summary)
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0]).toContain('run extension start with --polyfill')
+    expect(warnings[0]).toContain('set commands.start.polyfill to true')
     expect(serviceWorker(root, 'chrome')).not.toContain('webextension-polyfill')
   }, 120_000)
 
