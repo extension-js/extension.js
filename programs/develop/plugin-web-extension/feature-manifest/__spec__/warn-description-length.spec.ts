@@ -3,6 +3,7 @@ import {afterEach, describe, expect, it, vi} from 'vitest'
 import {setOriginalManifestContent} from '../manifest-lib/manifest'
 import * as messages from '../messages'
 import {
+  AMO_DESCRIPTION_LIMIT,
   APP_STORE_DESCRIPTION_LIMIT,
   CHROME_DESCRIPTION_LIMIT,
   findDescriptionLimitHit,
@@ -86,11 +87,41 @@ describe('findDescriptionLimitHit', () => {
     expect(findDescriptionLimitHit({name: 'x'}, 'chrome')).toBeNull()
   })
 
-  it('stays quiet for gecko, for a localized key and at the limit', () => {
+  it('holds a firefox build to the 250 addons.mozilla.org takes', () => {
+    expect(AMO_DESCRIPTION_LIMIT).toBe(250)
+
+    expect(
+      findDescriptionLimitHit({description: over(250)}, 'firefox')
+    ).toEqual({
+      kind: 'over',
+      length: 251,
+      rule: {limit: 250, store: 'addons.mozilla.org', required: false}
+    })
+
+    expect(
+      findDescriptionLimitHit({description: over(250)}, 'gecko-based')
+    ).toMatchObject({kind: 'over', length: 251})
+
+    expect(
+      findDescriptionLimitHit({description: 'x'.repeat(250)}, 'firefox')
+    ).toBeNull()
+
+    // Past the Chrome cap and under the Firefox one
     expect(
       findDescriptionLimitHit({description: over(200)}, 'firefox')
     ).toBeNull()
 
+    expect(findDescriptionLimitHit({name: 'x'}, 'firefox')).toBeNull()
+
+    expect(
+      findDescriptionLimitHit(
+        {description: '__MSG_extDescription__'},
+        'firefox'
+      )
+    ).toBeNull()
+  })
+
+  it('stays quiet for a localized key and at the limit', () => {
     expect(
       findDescriptionLimitHit({description: '__MSG_extDescription__'}, 'safari')
     ).toBeNull()
@@ -128,6 +159,35 @@ describe('WarnDescriptionLength', () => {
     expect(expected).toContain('113')
     expect(expected).toContain('Apple error 90849')
     expect(getTapStage()).toBe(Compilation.PROCESS_ASSETS_STAGE_REPORT)
+  })
+
+  it('warns a firefox build once with the length, the limit and the store', () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const {runCompilation} = makeCompiler('firefox')
+
+    const warnings = runCompilation({name: 'x', description: over(250)})
+
+    const expected = messages.manifestDescriptionOverStoreLimit(
+      'firefox',
+      251,
+      250,
+      'addons.mozilla.org'
+    )
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0].message).toBe(expected)
+    expect(warnings[0].name).toBe('ManifestDescriptionWarning')
+    expect(logSpy.mock.calls.map((call) => call[0])).toEqual([expected])
+    expect(expected).toContain('251')
+    expect(expected).toContain('250')
+    expect(expected).toContain('addons.mozilla.org')
+    expect(expected).not.toContain('Apple')
+
+    expect(
+      makeCompiler('firefox').runCompilation({
+        name: 'x',
+        description: 'x'.repeat(250)
+      })
+    ).toHaveLength(0)
   })
 
   it('tells a safari build without a description what Apple refuses', () => {

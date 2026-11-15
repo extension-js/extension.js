@@ -17,7 +17,10 @@ export declare function renderDefineDeclarations(
 
 export interface RenderExtensionEnvTypesOptions {
   readonly inlineAssetTypes?: boolean
+  readonly ownChromeTypes?: boolean
 }
+
+export declare function projectBringsOwnChromeTypes(projectDir: string): boolean
 
 export declare function renderExtensionEnvTypes(
   typePath?: string,

@@ -15,6 +15,7 @@ import {recordCodedWarning} from './coded-warnings'
 import {loadDefineTypes} from './config-loader'
 import {
   EXTENSION_ENV_TYPES_PACKAGE,
+  projectBringsOwnChromeTypes,
   renderExtensionEnvTypes
 } from './extension-env-template'
 import * as messages from './messages'
@@ -69,7 +70,10 @@ export async function generateExtensionTypes(
   const fileContent = renderExtensionEnvTypes(
     undefined,
     await loadDefineTypes(packageJsonDir),
-    {inlineAssetTypes: !resolvesExtensionPackage(packageJsonDir)}
+    {
+      inlineAssetTypes: !resolvesExtensionPackage(packageJsonDir),
+      ownChromeTypes: projectBringsOwnChromeTypes(packageJsonDir)
+    }
   )
 
   if (

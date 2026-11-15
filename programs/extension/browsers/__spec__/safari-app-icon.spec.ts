@@ -47,7 +47,11 @@ beforeEach(() => {
   fs.mkdirSync(distDir, {recursive: true})
   fs.writeFileSync(
     path.join(distDir, 'manifest.json'),
-    JSON.stringify({name: 'Rebeccat', version: '0.3.0'})
+    JSON.stringify({
+      name: 'Rebeccat',
+      version: '0.3.0',
+      icons: {128: 'icons/128.png'}
+    })
   )
 
   fs.writeFileSync(
@@ -158,9 +162,40 @@ describe('the Safari app icon', () => {
 
     expect(tools.calls.resizePng).toEqual([])
     expect(lines).toContain(messages.safariAppIconFromManifest())
+    expect(lines).not.toContain(messages.safariAppIconMissing())
     expect(messages.safariAppIconFromManifest()).toContain(
       'browser.safari.appIcon'
     )
+  })
+
+  it('says the app has no icon when the manifest has none, and how to give it one', async () => {
+    for (const manifest of [
+      {name: 'Rebeccat', version: '0.3.0'},
+      {name: 'Rebeccat', version: '0.3.0', icons: {}}
+    ]) {
+      fs.rmSync(`${distDir}-xcode`, {recursive: true, force: true})
+      fs.writeFileSync(
+        path.join(distDir, 'manifest.json'),
+        JSON.stringify(manifest)
+      )
+
+      const lines = await run(fakeSafariTools())
+      const pngs = fs
+        .readdirSync(iconSet())
+        .filter((file) => file.endsWith('.png'))
+
+      expect(pngs).toEqual([])
+      expect(lines).toContain(messages.safariAppIconMissing())
+      expect(lines).not.toContain(messages.safariAppIconFromManifest())
+    }
+
+    const said = messages.safariAppIconMissing()
+
+    expect(said).toContain('has no icon')
+    expect(said).toContain('icons')
+    expect(said).toContain('browser.safari.appIcon')
+    expect(said).toContain('--app-icon')
+    expect(said).not.toContain('white macOS plate')
   })
 
   it('refuses an icon that is not square before xcodebuild runs', async () => {
