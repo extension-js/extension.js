@@ -140,6 +140,35 @@ function permissionMinVersionProject() {
   return root
 }
 
+function longDescriptionProject(length: number) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-addon-lint-desc-'))
+  roots.push(root)
+  fs.writeFileSync(
+    path.join(root, 'package.json'),
+    JSON.stringify({private: true, name: 'descme', version: '0.0.0'})
+  )
+
+  fs.writeFileSync(path.join(root, 'background.js'), 'console.log("bg")\n')
+  fs.writeFileSync(
+    path.join(root, 'manifest.json'),
+    JSON.stringify({
+      name: 'descme',
+      version: '1.0.0',
+      manifest_version: 3,
+      description: 'x'.repeat(length),
+      background: {scripts: ['background.js']},
+      browser_specific_settings: {
+        gecko: {
+          id: 'descme@example.com',
+          data_collection_permissions: {required: ['none']}
+        }
+      }
+    })
+  )
+
+  return root
+}
+
 const LOPSIDED_PNG =
   'iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAAAAADRSSBWAAAAC0lEQVR4nGNgYAAAAAMAAbitOmMAAAAASUVORK5CYII='
 const TINY_PNG =
@@ -477,6 +506,30 @@ describe('addon lint after a production firefox build', () => {
 
     expect(output).toContain('FOLDER _locales/zz')
     expect(output).not.toContain('NO_MESSAGES_FILE_IN_LOCALES')
+  }, 180_000)
+
+  it('names the 250 character description cap before the linter line does', async () => {
+    const {summary, output} = await build(longDescriptionProject(251), {
+      browser: 'firefox',
+      mode: 'production'
+    })
+
+    expect(summary.errors_count).toBe(0)
+    const own = output.indexOf(
+      'manifest.json description runs 251 characters, and addons.mozilla.org refuses a firefox build whose description is over 250.'
+    )
+    const linter = output.indexOf(
+      'AMO error JSON_INVALID: "/description" must NOT have more than 250 characters'
+    )
+    expect(own).toBeGreaterThan(-1)
+    expect(linter).toBeGreaterThan(own)
+
+    const atLimit = await build(longDescriptionProject(250), {
+      browser: 'firefox',
+      mode: 'production'
+    })
+    expect(atLimit.output).not.toContain('description runs')
+    expect(atLimit.output).not.toContain('"/description"')
   }, 180_000)
 
   it('stays quiet when addonLint is off, in development mode, and for chromium', async () => {

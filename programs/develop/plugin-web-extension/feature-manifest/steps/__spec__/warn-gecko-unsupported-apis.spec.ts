@@ -6,9 +6,12 @@ import {safariMissingMemberDetails} from '../../messages'
 import {webkitGuardedRanges} from '../apply-dev-defaults-lib/webkit-guarded-ranges'
 import {UpdateManifest} from '../update-manifest'
 import {
+  callArgumentsAt,
   findGeckoUnsupportedApiUses,
+  geckoPromiseOnlyMethods,
   geckoUnsupportedApis,
   type ScannableCompilation,
+  usesGeckoCallbackForm,
   usesGeckoUnsupportedApi,
   usesWebkitUnsupportedMember,
   webkitMissingApis,
@@ -61,6 +64,169 @@ describe('usesGeckoUnsupportedApi', () => {
 
     expect(
       usesGeckoUnsupportedApi('const sidePanel = x.sidePanel.y', 'sidePanel')
+    ).toBe(false)
+  })
+})
+
+describe('callArgumentsAt', () => {
+  const argsOf = (text: string) => callArgumentsAt(text, text.indexOf('('))
+
+  it('splits on top-level commas only', () => {
+    expect(argsOf('f(a, {b: 1, c: [2, 3]}, (d, e) => g(d, e))')).toEqual([
+      'a',
+      '{b: 1, c: [2, 3]}',
+      '(d, e) => g(d, e)'
+    ])
+
+    expect(argsOf('f()')).toEqual([])
+    expect(argsOf('f(a,)')).toEqual(['a'])
+  })
+
+  it('reads past a comma or a parenthesis inside a string or a comment', () => {
+    expect(argsOf('f("a, b)", `c, ${d}`)')).toEqual(['"a, b)"', '`c, ${d}`'])
+    expect(argsOf('f(a /* , b) */)')).toEqual(['a /* , b) */'])
+    expect(argsOf('f(a // , b)\n)')).toEqual(['a // , b)'])
+  })
+
+  it('gives up on a call the text cuts off or closes wrongly', () => {
+    expect(argsOf('f(a, b')).toBeUndefined()
+    expect(argsOf('f(a, [b)')).toBeUndefined()
+    expect(argsOf('f(a]')).toBeUndefined()
+  })
+})
+
+describe('usesGeckoCallbackForm', () => {
+  const entry = (key: string) => {
+    const found = geckoPromiseOnlyMethods.find(
+      (method) => `${method.api}.${method.member}` === key
+    )
+    if (!found) throw new Error(`no entry for ${key}`)
+
+    return found
+  }
+
+  it('lists the six methods measured on Firefox that Chrome has too', () => {
+    expect(
+      geckoPromiseOnlyMethods.map((method) => `${method.api}.${method.member}`)
+    ).toEqual([
+      'action.setBadgeTextColor',
+      'action.getBadgeTextColor',
+      'action.isEnabled',
+      'action.openPopup',
+      'tabs.discard',
+      'tabs.ungroup'
+    ])
+  })
+
+  it('matches an argument past the promise form, on chrome or browser', () => {
+    const discard = entry('tabs.discard')
+
+    expect(
+      usesGeckoCallbackForm('chrome.tabs.discard(id, () => {})', discard)
+    ).toBe(true)
+
+    expect(
+      usesGeckoCallbackForm('browser.tabs.discard(id, function () {})', discard)
+    ).toBe(true)
+
+    expect(usesGeckoCallbackForm('chrome.tabs.discard(id,done)', discard)).toBe(
+      true
+    )
+
+    expect(
+      usesGeckoCallbackForm(
+        'chrome . action\n  .setBadgeTextColor({color: "#fff"}, () => {})',
+        entry('action.setBadgeTextColor')
+      )
+    ).toBe(true)
+  })
+
+  it('stays quiet for the promise form', () => {
+    expect(
+      usesGeckoCallbackForm(
+        'await chrome.tabs.discard(id)',
+        entry('tabs.discard')
+      )
+    ).toBe(false)
+
+    expect(
+      usesGeckoCallbackForm(
+        'chrome.tabs.discard(ids.map((id) => id)).then(() => {})',
+        entry('tabs.discard')
+      )
+    ).toBe(false)
+
+    expect(
+      usesGeckoCallbackForm(
+        'chrome.action.setBadgeTextColor({color: [0, 0, 0, 255], tabId})',
+        entry('action.setBadgeTextColor')
+      )
+    ).toBe(false)
+
+    expect(
+      usesGeckoCallbackForm(
+        'chrome.action.openPopup()',
+        entry('action.openPopup')
+      )
+    ).toBe(false)
+
+    expect(
+      usesGeckoCallbackForm(
+        'chrome.action.openPopup({windowId})',
+        entry('action.openPopup')
+      )
+    ).toBe(false)
+  })
+
+  it('reads a lone function as the callback where every argument is optional', () => {
+    for (const key of ['action.openPopup', 'action.isEnabled']) {
+      const [api, member] = key.split('.')
+
+      for (const callback of [
+        '() => {}',
+        'function () {}',
+        'async (x) => x',
+        'x => x'
+      ]) {
+        expect(
+          usesGeckoCallbackForm(
+            `chrome.${api}.${member}(${callback})`,
+            entry(key)
+          )
+        ).toBe(true)
+      }
+    }
+
+    // One required argument, so a lone function is that argument's problem
+    expect(
+      usesGeckoCallbackForm(
+        'chrome.tabs.discard(() => {})',
+        entry('tabs.discard')
+      )
+    ).toBe(false)
+  })
+
+  it('leaves a spread, a cut-off call and a look-alike name alone', () => {
+    const discard = entry('tabs.discard')
+
+    expect(usesGeckoCallbackForm('chrome.tabs.discard(...args)', discard)).toBe(
+      false
+    )
+
+    expect(
+      usesGeckoCallbackForm('chrome.tabs.discard(id, () => {', discard)
+    ).toBe(false)
+
+    expect(
+      usesGeckoCallbackForm('chrome.tabs.discardAll(id, () => {})', discard)
+    ).toBe(false)
+
+    expect(
+      usesGeckoCallbackForm('my.tabs.discard(id, () => {})', discard)
+    ).toBe(false)
+
+    expect(
+      usesGeckoCallbackForm('chrome.tabs.query({}, () => {})', discard)
     ).toBe(false)
   })
 })
@@ -553,6 +719,7 @@ describe('UpdateManifest Gecko unsupported API warning', () => {
     ).filter(
       (w) =>
         w.name === 'GeckoUnsupportedApiWarning' ||
+        w.name === 'GeckoCallbackFormWarning' ||
         w.name === 'SafariUnsupportedApiWarning'
     )
   }
@@ -977,6 +1144,62 @@ describe('UpdateManifest Gecko unsupported API warning', () => {
     expect(run('production', 'chrome', mv3, MANAGED_READ + BADGE_CALL)).toEqual(
       []
     )
+  })
+
+  const DISCARD_CALLBACK = 'chrome.tabs.discard(tabId, () => {})\n'
+  const DISCARD_PROMISE = 'chrome.tabs.discard(tabId).then(() => {})\n'
+  const BADGE_CALLBACK =
+    'chrome.action.setBadgeTextColor({color: "#fff"}, () => {})\n'
+
+  it('warns a production firefox build that passes a callback Firefox refuses', () => {
+    const warnings = run('production', 'firefox', mv3, DISCARD_CALLBACK)
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0].name).toBe('GeckoCallbackFormWarning')
+    expect(warnings[0].file).toBe('background.js')
+    expect(warnings[0].message).toContain(
+      'background.js passes a callback to chrome.tabs.discard'
+    )
+
+    expect(warnings[0].message).toContain(
+      'Incorrect argument types for tabs.discard'
+    )
+
+    expect(warnings[0].message).toContain('browser.tabs.discard')
+  })
+
+  it('names each callback-form method once', () => {
+    const warnings = run(
+      'production',
+      'gecko-based',
+      mv3,
+      DISCARD_CALLBACK + DISCARD_CALLBACK + BADGE_CALLBACK
+    )
+    expect(warnings.map((w) => w.name)).toEqual([
+      'GeckoCallbackFormWarning',
+      'GeckoCallbackFormWarning'
+    ])
+
+    expect(warnings[0].message).toContain('chrome.action.setBadgeTextColor')
+    expect(warnings[1].message).toContain('chrome.tabs.discard')
+  })
+
+  it('stays quiet for the promise form, and for every target but gecko', () => {
+    expect(run('production', 'firefox', mv3, DISCARD_PROMISE)).toEqual([])
+    expect(run('production', 'firefox', mv3, BADGE_CALL)).toEqual([])
+    expect(run('production', 'chrome', mv3, DISCARD_CALLBACK)).toEqual([])
+    expect(run('production', 'edge', mv3, DISCARD_CALLBACK)).toEqual([])
+    expect(run('production', 'safari', mv3, DISCARD_CALLBACK)).toEqual([])
+    expect(run('development', 'firefox', mv3, DISCARD_CALLBACK)).toEqual([])
+  })
+
+  it('lets the Manifest V2 action warning speak alone for an action callback', () => {
+    const warnings = run('production', 'firefox', mv2, BADGE_CALLBACK)
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0].name).toBe('GeckoUnsupportedApiWarning')
+
+    const tabs = run('production', 'firefox', mv2, DISCARD_CALLBACK)
+    expect(tabs).toHaveLength(1)
+    expect(tabs[0].name).toBe('GeckoCallbackFormWarning')
   })
 
   it('repeats the warning on every production build', () => {

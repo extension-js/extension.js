@@ -492,6 +492,29 @@ export function safariMemberUnsupported(
   return lines.join('\n')
 }
 
+// Firefox declares these methods promise only in its own schemas, so the
+// extra argument fails its argument check before the call does anything.
+export function geckoCallbackFormUnsupported(
+  file: string,
+  api: string,
+  member: string
+) {
+  const lines: string[] = []
+  lines.push(
+    `${prefix('warn')} ${colors.underline(file)} passes a callback to chrome.${api}.${member}, which Firefox takes in promise form only.`
+  )
+
+  lines.push(
+    `Firefox throws "Incorrect argument types for ${api}.${member}" on that call, where Chrome runs the callback.`
+  )
+
+  lines.push(
+    `Drop the callback and await ${colors.yellow(`browser.${api}.${member}`)}, which returns a promise on Firefox.`
+  )
+
+  return lines.join('\n')
+}
+
 export function geckoActionUnsupportedOnMv2(file: string) {
   const lines: string[] = []
   lines.push(
@@ -671,6 +694,34 @@ export function manifestDescriptionOverStoreLimit(
     `${prefix('warn')} manifest.json ${colors.blue('description')} runs ${length} characters, and ${store} refuses a ${browser} build whose description is over ${limit}${apple}.`,
     `${colors.gray('LIMIT')} ${limit} characters, ${colors.gray('GOT')} ${length}`,
     `Shorten it to ${limit} characters or fewer, the store reads this field from the manifest.`
+  ].join('\n')
+}
+
+const hostGatedOutcomeOnChromium: Record<string, string> = {
+  scripting: 'scripting.executeScript rejects',
+  cookies: 'cookies.getAll comes back empty',
+  webRequest: 'webRequest events never fire'
+}
+
+// Chromium keeps a content script match apart from host access, so a build
+// that works on Firefox finds no host for these permissions on Chrome.
+export function contentScriptMatchesGrantNoHostOnChromium(
+  permissions: readonly string[],
+  matches: readonly string[]
+) {
+  const names = permissions
+    .map((permission) => colors.yellow(`"${permission}"`))
+    .join(', ')
+  const outcomes = permissions
+    .map((permission) => hostGatedOutcomeOnChromium[permission])
+    .filter(Boolean)
+    .join(', ')
+
+  return [
+    `${prefix('warn')} manifest.json declares ${names} and no host permission, and Chromium takes none from ${colors.blue('content_scripts')} matches.`,
+    `${colors.gray('MATCHES')} ${matches.join(', ')}`,
+    `The content script still runs on those pages, but on Chrome the permission reaches none of them: ${outcomes}. Firefox reads the same matches as host access, so this works on Firefox and not on Chrome.`,
+    `Add the hosts to ${colors.blue('host_permissions')}, or to ${colors.yellow('chromium:host_permissions')} to keep them out of the other builds.`
   ].join('\n')
 }
 

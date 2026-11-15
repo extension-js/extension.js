@@ -136,6 +136,40 @@ export function rulesetRuleShapeIssue(
   ].join('\n')
 }
 
+function ruleIdList(ids: readonly number[]) {
+  const shown = ids.slice(0, 5).join(', ')
+
+  return ids.length > 5 ? `${shown} and ${ids.length - 5} more` : shown
+}
+
+export function rulesetDuplicateRuleIds(
+  manifestField: string,
+  file: string,
+  ids: readonly number[]
+) {
+  return [
+    `The Declarative Net Request ruleset listed in ${colors.blue(manifestField)} uses a rule id more than once, and Chrome refuses to load an extension whose ruleset does.`,
+    `${colors.gray('PATH')} ${colors.underline(file)}`,
+    `${colors.gray('RULE')} ${colors.underline(`id ${ruleIdList(ids)}`)}`,
+    `Firefox loads the same ruleset and leaves a rule out. Give every rule in the file its own id.\nThe build continues.`
+  ].join('\n')
+}
+
+export function rulesetRegexChromeCannotCompile(
+  manifestField: string,
+  file: string,
+  ids: readonly number[],
+  construct: string
+) {
+  return [
+    `A rule in the Declarative Net Request ruleset listed in ${colors.blue(manifestField)} has a ${colors.yellow('regexFilter')} Chrome cannot compile, and Chrome refuses to load an extension whose ruleset has one.`,
+    `${colors.gray('PATH')} ${colors.underline(file)}`,
+    `${colors.gray('RULE')} ${colors.underline(`id ${ruleIdList(ids)}`)}`,
+    `${colors.gray('REASON')} ${colors.underline(`the filter uses ${construct}`)}`,
+    `Chrome reads the filter as RE2, which has no lookahead, lookbehind or backreference, and Firefox accepts the rule. Rewrite the filter without it.\nThe build continues.`
+  ].join('\n')
+}
+
 export function invalidManagedSchemaStructure(
   manifestField: string,
   file: string

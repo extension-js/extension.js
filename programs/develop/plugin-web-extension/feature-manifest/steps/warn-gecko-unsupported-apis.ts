@@ -119,6 +119,133 @@ export const webkitMissingApis: WebkitMissingApis = {
   members: new Set(webkitMemberByKey.keys())
 }
 
+export interface GeckoPromiseOnlyMethod {
+  api: 'action' | 'tabs'
+  member: string
+  // How many arguments the promise form takes, so one more is a callback
+  max: number
+  // A lone function argument is a callback too, where the rest are optional
+  soleCallback?: boolean
+}
+
+// Methods Firefox's own schemas mark "async": true, which takes no callback,
+// kept to the ones Chrome has too, since those are what a Chrome project calls.
+export const geckoPromiseOnlyMethods = [
+  {api: 'action', member: 'setBadgeTextColor', max: 1},
+  {api: 'action', member: 'getBadgeTextColor', max: 1},
+  {api: 'action', member: 'isEnabled', max: 1, soleCallback: true},
+  {api: 'action', member: 'openPopup', max: 1, soleCallback: true},
+  {api: 'tabs', member: 'discard', max: 1},
+  {api: 'tabs', member: 'ungroup', max: 1}
+] as const satisfies readonly GeckoPromiseOnlyMethod[]
+
+const CALL_SCAN_LIMIT = 20000
+const CLOSERS: Record<string, string> = {'(': ')', '[': ']', '{': '}'}
+
+// The top-level arguments of the call whose parenthesis opens at `open`, or
+// undefined when the text runs out first, which keeps a cut-off call quiet.
+export function callArgumentsAt(
+  text: string,
+  open: number
+): string[] | undefined {
+  const args: string[] = []
+  const stack: string[] = []
+  const end = Math.min(text.length, open + CALL_SCAN_LIMIT)
+  let start = open + 1
+
+  for (let index = open + 1; index < end; index++) {
+    const char = text[index]
+
+    if (char === '"' || char === "'" || char === '`') {
+      index++
+
+      while (index < end && text[index] !== char) {
+        if (text[index] === '\\') index++
+
+        index++
+      }
+
+      continue
+    }
+
+    if (char === '/' && text[index + 1] === '/') {
+      const newline = text.indexOf('\n', index)
+      if (newline === -1) return undefined
+
+      index = newline
+      continue
+    }
+
+    if (char === '/' && text[index + 1] === '*') {
+      const close = text.indexOf('*/', index + 2)
+      if (close === -1) return undefined
+
+      index = close + 1
+      continue
+    }
+
+    if (CLOSERS[char]) {
+      stack.push(CLOSERS[char])
+      continue
+    }
+
+    if (char === ',' && !stack.length) {
+      args.push(text.slice(start, index).trim())
+      start = index + 1
+      continue
+    }
+
+    if (char !== ')' && char !== ']' && char !== '}') continue
+
+    if (stack.length) {
+      if (stack.pop() !== char) return undefined
+
+      continue
+    }
+
+    if (char !== ')') return undefined
+
+    args.push(text.slice(start, index).trim())
+
+    return args.filter(Boolean)
+  }
+
+  return undefined
+}
+
+const FUNCTION_LITERAL_RE =
+  /^(?:async\s+)?(?:function\b|\([^()]*\)\s*=>|[A-Za-z_$][\w$]*\s*=>)/
+
+// Firefox checks the argument list against the schema before it runs anything,
+// so an argument past the promise form throws whatever its value is.
+export function usesGeckoCallbackForm(
+  source: string,
+  entry: GeckoPromiseOnlyMethod
+): boolean {
+  const callRe = new RegExp(
+    `\\b(?:chrome|browser)\\s*\\.\\s*${entry.api}\\s*\\.\\s*${entry.member}\\s*\\(`,
+    'g'
+  )
+
+  for (const match of source.matchAll(callRe)) {
+    const args = callArgumentsAt(source, match.index + match[0].length - 1)
+    // A spread hides the count, so that call is left alone.
+    if (!args || args.some((arg) => arg.startsWith('...'))) continue
+
+    if (args.length > entry.max) return true
+
+    if (
+      entry.soleCallback &&
+      args.length === 1 &&
+      FUNCTION_LITERAL_RE.test(args[0])
+    ) {
+      return true
+    }
+  }
+
+  return false
+}
+
 // Both engines ask the runtime question: only an unguarded read through a
 // missing namespace throws, so the author's own feature check keeps it quiet.
 export type UnsupportedApiEngine = 'gecko' | 'webkit'
@@ -224,8 +351,8 @@ interface ScanTarget {
   test(text: string): boolean
 }
 
-// Namespaces first so a gecko report keeps its existing order, members after,
-// and members only on webkit since gecko's warning stays namespace shaped.
+// Namespaces first so a gecko report keeps its existing order, members after:
+// the callback-form methods on gecko, the missing members on webkit.
 function scanTargets(
   manifestVersion: unknown,
   engine: UnsupportedApiEngine
@@ -244,7 +371,22 @@ function scanTargets(
       usesGeckoUnsupportedApi(text, api) &&
       usesGeckoUnsupportedApi(text, api, rangesOf(text))
   }))
-  if (engine !== 'webkit') return targets
+
+  if (engine !== 'webkit') {
+    for (const entry of geckoPromiseOnlyMethods) {
+      // Manifest V2 has no action on Firefox, and that warning says it all.
+      if (apis.includes(entry.api as GeckoUnsupportedApi)) continue
+
+      targets.push({
+        key: `${entry.api}.${entry.member}`,
+        api: entry.api,
+        member: entry.member,
+        test: (text: string) => usesGeckoCallbackForm(text, entry)
+      })
+    }
+
+    return targets
+  }
 
   for (const entry of webkitMemberEntries) {
     targets.push({
@@ -436,27 +578,35 @@ export function reportGeckoUnsupportedApis(
 
       // A member hit names a namespace Safari has, so it never reaches the
       // namespace table below and the two can't both speak for one line.
-      const memberEntry = use.member
-        ? webkitMemberByKey.get(`${use.api}.${use.member}`)
-        : undefined
+      const callbackForm = engine === 'gecko' && Boolean(use.member)
+      const memberEntry =
+        use.member && !callbackForm
+          ? webkitMemberByKey.get(`${use.api}.${use.member}`)
+          : undefined
       // The webkit table is also the webkit API list, so the lookup hits
       // whenever the engine is webkit and the gecko branch stays for gecko.
       const webkitMessage =
         engine === 'webkit' && !memberEntry
           ? webkitUnsupportedApis[use.api as WebkitUnsupportedApi]
           : undefined
-      const text = memberEntry
-        ? messages.safariMemberUnsupported(
+      const text = callbackForm
+        ? messages.geckoCallbackFormUnsupported(
             label,
-            memberEntry.api,
-            memberEntry.member,
-            memberEntry.kind
+            use.api,
+            String(use.member)
           )
-        : webkitMessage
-          ? webkitMessage(label)
-          : use.api === 'sidePanel'
-            ? messages.geckoSidePanelUnsupported(label)
-            : messages.geckoActionUnsupportedOnMv2(label)
+        : memberEntry
+          ? messages.safariMemberUnsupported(
+              label,
+              memberEntry.api,
+              memberEntry.member,
+              memberEntry.kind
+            )
+          : webkitMessage
+            ? webkitMessage(label)
+            : use.api === 'sidePanel'
+              ? messages.geckoSidePanelUnsupported(label)
+              : messages.geckoActionUnsupportedOnMv2(label)
       const warn = new WebpackError(text) as Error & {
         file?: string
         name?: string
@@ -464,7 +614,9 @@ export function reportGeckoUnsupportedApis(
       warn.name =
         engine === 'webkit'
           ? 'SafariUnsupportedApiWarning'
-          : 'GeckoUnsupportedApiWarning'
+          : callbackForm
+            ? 'GeckoCallbackFormWarning'
+            : 'GeckoUnsupportedApiWarning'
 
       warn.file = label
       compilation.warnings.push(warn)
