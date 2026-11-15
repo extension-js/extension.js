@@ -1158,6 +1158,13 @@ export function safariAppIconFromManifest() {
   )
 }
 
+export function safariAppIconMissing() {
+  return (
+    `${getLoggingPrefix('info')} The Safari app has no icon, since the manifest has no ${colors.blue('icons')}.\n` +
+    `To give it one, add ${colors.blue('icons')} to the manifest, or set ${colors.blue('browser.safari.appIcon')} in extension.config.js (or pass ${colors.blue('--app-icon')}) to a square 1024 px PNG.`
+  )
+}
+
 export function safariAppIconSmall(
   source: string,
   pixels: number,

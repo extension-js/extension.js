@@ -243,6 +243,12 @@ function iconsFingerprint(extensionDir: string): string {
   }
 }
 
+// With no manifest icons the converter leaves the app icon set empty, so
+// the build must not say the app icon came from them.
+export function manifestHasIcons(config: SafariBuildConfig): boolean {
+  return iconsFingerprint(config.extensionDir) !== ''
+}
+
 // A supplied app icon replaces the converter's icon set after each conversion,
 // so its bytes are a project input: a new file regenerates the project, and
 // dropping the option regenerates it back to the converter's own set. The key

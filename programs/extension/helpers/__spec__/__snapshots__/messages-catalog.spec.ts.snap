@@ -122,6 +122,7 @@ exports[`extension message catalogs > matches the exported message surface 1`] =
     "safariAccessibilityDenied: function(1)",
     "safariAppIconApplied: function(2)",
     "safariAppIconFromManifest: function(0)",
+    "safariAppIconMissing: function(0)",
     "safariAppIconNoSet: function(1)",
     "safariAppIconSmall: function(3)",
     "safariAppIdentity: function(1)",

@@ -53,6 +53,7 @@ import {
   isBuildCurrent,
   isProjectStale,
   macOsSchemeName,
+  manifestHasIcons,
   PRESERVED_SETTINGS,
   pbxprojPath,
   resolveSafariBuildConfig,
@@ -882,7 +883,11 @@ async function runSafariPipeline(
         )
       }
     } else {
-      logger.info?.(messages.safariAppIconFromManifest())
+      logger.info?.(
+        manifestHasIcons(config)
+          ? messages.safariAppIconFromManifest()
+          : messages.safariAppIconMissing()
+      )
     }
 
     const preservedKeys = Object.keys(saved)
