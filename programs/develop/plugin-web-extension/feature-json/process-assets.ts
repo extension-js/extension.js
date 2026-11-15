@@ -29,7 +29,8 @@ function getProjectPathFromCompilation(
 export function processJsonAssets(
   compilation: Compilation,
   manifestPath: string,
-  includeList: Record<string, string | string[] | undefined>
+  includeList: Record<string, string | string[] | undefined>,
+  browser?: string
 ): void {
   // A compile that already failed still names the JSON files the manifest
   // cannot find, so one run reports every fix needed.
@@ -130,7 +131,8 @@ export function processJsonAssets(
               compilation,
               feature,
               abs,
-              fs.readFileSync(abs)
+              fs.readFileSync(abs),
+              browser
             )
             if (ok) validatedOk++
             else invalid++
@@ -144,7 +146,13 @@ export function processJsonAssets(
         const source = fs.readFileSync(abs)
 
         if (isCriticalJsonFeature(feature)) {
-          const ok = validateJsonAsset(compilation, feature, abs, source)
+          const ok = validateJsonAsset(
+            compilation,
+            feature,
+            abs,
+            source,
+            browser
+          )
           if (ok) validatedOk++
           else invalid++
           if (!ok) continue
