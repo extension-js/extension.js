@@ -120,10 +120,10 @@ jobs:
     if: ${{ needs.corpus-target.outputs.canary != '' }}
     permissions:
       contents: read
-    uses: extension-js/corpus/.github/workflows/corpus-gate.yml@8c25fe4ec6dafb0880cc345351d16af9d6449d90 # main, 2026-11-15
+    uses: extension-js/corpus/.github/workflows/corpus-gate.yml@5b731d4bb6a92c295c7cbb5860b4cc7da82b4ccc # main, 2026-11-15
     with:
       cli-version: ${{ needs.corpus-target.outputs.canary }}
-      ref: 8c25fe4ec6dafb0880cc345351d16af9d6449d90
+      ref: 5b731d4bb6a92c295c7cbb5860b4cc7da82b4ccc
       safari: true
 
   # The templates suite, every example built and driven in real browsers, run
@@ -830,10 +830,10 @@ jobs:
     if: ${{ !cancelled() && needs.publish.result == 'success' }}
     permissions:
       contents: read
-    uses: extension-js/corpus/.github/workflows/corpus-gate.yml@8c25fe4ec6dafb0880cc345351d16af9d6449d90 # main, 2026-11-15
+    uses: extension-js/corpus/.github/workflows/corpus-gate.yml@5b731d4bb6a92c295c7cbb5860b4cc7da82b4ccc # main, 2026-11-15
     with:
       cli-version: ${{ needs.publish.outputs.version }}
-      ref: 8c25fe4ec6dafb0880cc345351d16af9d6449d90
+      ref: 5b731d4bb6a92c295c7cbb5860b4cc7da82b4ccc
       safari: true
 
   # The templates suite with the exact version that reached npm, for the same
