@@ -1,0 +1,78 @@
+name: Release gates freshness
+
+# The release workflow pins the corpus and the templates by commit. This
+# checks weekly whether either moved, builds the new corpus head with the
+# latest stable, and opens an issue that carries the command to move the pins.
+# It cannot push the change itself: the Actions token may not edit workflows.
+on:
+  schedule:
+    - cron: "0 9 * * 2" # Tuesdays 09:00 UTC, after the corpus Weekly QA
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-gates-freshness
+  cancel-in-progress: true
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      behind: ${{ steps.read.outputs.behind }}
+      summary: ${{ steps.read.outputs.summary }}
+      corpus: ${{ steps.read.outputs.corpus }}
+      corpus_behind: ${{ steps.read.outputs.corpus_behind }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Compare the pins with the heads
+        id: read
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/bump-release-gates.mjs --check
+
+  # The new corpus head must be clean on the stable that is out before a
+  # release is gated on it. The templates require green CI on their own main.
+  corpus:
+    needs: resolve
+    if: ${{ needs.resolve.outputs.corpus_behind == 'true' }}
+    permissions:
+      contents: read
+    uses: extension-js/corpus/.github/workflows/corpus-gate.yml@5decb2d854fc614aec0b80b6cceca52f1513f5c7 # main, 2026-11-15
+    with:
+      cli-version: latest
+      ref: ${{ needs.resolve.outputs.corpus }}
+
+  report:
+    needs: [resolve, corpus]
+    if: ${{ !cancelled() && needs.resolve.outputs.behind == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Open or update the issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SUMMARY: ${{ needs.resolve.outputs.summary }}
+          CORPUS_RESULT: ${{ needs.corpus.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          TITLE="Release gates are behind their repositories"
+          BODY=$(printf '%s\n\n%s\n\n%s\n\n    %s\n\n%s\n' \
+            "The release workflow pins the corpus and the templates by commit, and a pin is behind: ${SUMMARY}." \
+            "Corpus gate on the new head with the latest stable: ${CORPUS_RESULT} ([run](${RUN_URL}))." \
+            "To move the pins, run this from a clean branch and open a pull request:" \
+            "node scripts/bump-release-gates.mjs" \
+            "Do not move the corpus pin while its reading above is not a success.")
+          NUMBER=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "\"${TITLE}\" in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$NUMBER" ]; then
+            gh issue edit "$NUMBER" --repo "$GITHUB_REPOSITORY" --body "$BODY"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body "$BODY"
+          fi

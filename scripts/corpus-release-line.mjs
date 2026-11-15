@@ -15,14 +15,18 @@ export function corpusReleaseLine(env) {
 
   const canary = (env.CORPUS_CANARY || '').trim()
 
-  if (env.CORPUS_RESULT === 'success' && canary) {
+  if (
+    env.CORPUS_RESULT === 'success' &&
+    env.TEMPLATES_RESULT === 'success' &&
+    canary
+  ) {
     const run = env.RUN_URL ? ` ([run](${env.RUN_URL}))` : ''
 
-    return `Validated before publishing: \`extension@${canary}\`, cut from the same commit, built every buildable sample of [extension-js/corpus](https://github.com/extension-js/corpus) on Chrome, Firefox and Edge${run}.`
+    return `Validated before publishing: \`extension@${canary}\`, cut from the same commit, built every buildable sample of [extension-js/corpus](https://github.com/extension-js/corpus) on Chrome, Firefox and Edge, and passed the [extension-js/templates](https://github.com/extension-js/templates) suite${run}.`
   }
 
   if (env.CORPUS_SKIPPED === 'true') {
-    return 'The corpus gate was skipped for this release.'
+    return 'The corpus and templates gates were skipped for this release.'
   }
 
   return ''
