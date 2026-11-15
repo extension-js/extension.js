@@ -498,6 +498,14 @@ describe('the Gecko extension-document evaluator', () => {
     expect(documentNotOpenMessage('popup')).toContain('extension open popup')
   })
 
+  it('names the sidebar button, not extension open, for a closed sidebar', () => {
+    const message = documentNotOpenMessage('sidebar')
+
+    expect(message).toContain('the sidebar document is not open')
+    expect(message).toContain('View > Sidebar')
+    expect(message).not.toContain('extension open')
+  })
+
   it('reports a slot that never settles as a timeout', async () => {
     const client = new FakeRdpClient({
       frames: [BACKGROUND_FRAME],

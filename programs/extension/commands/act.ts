@@ -31,6 +31,7 @@ import {
   loadExtensionDevelopBridgeModule
 } from '../helpers/extension-develop-runtime'
 import {
+  alreadyNamesEngine,
   commandDescriptions,
   controlDisabledInSession,
   controlDisabledInSessionPlain,
@@ -47,7 +48,8 @@ import {
   optionsPageNotDeclaredPlain,
   optionsPageNotDeclaredStep,
   replayedActionClick,
-  replayedCommand
+  replayedCommand,
+  surfaceAlreadyOpen
 } from '../helpers/messages'
 import {
   CODES,
@@ -58,7 +60,11 @@ import {
 import {parsePositiveInt} from '../helpers/normalize-options'
 import {normalizeOutputFormat} from '../helpers/output-flag'
 import {
-  otherSessionBrowsers,
+  endedSessionReason,
+  runningSessionBrowsers,
+  sessionEndedMessage
+} from '../helpers/session-liveness'
+import {
   otherSessionsNote,
   resolveSessionProjectPath,
   sessionReadyPath
@@ -212,6 +218,8 @@ const REFUSAL_TO_CODE: Record<string, ErrorCode> = {
   // missing target, a transport failure the message quotes from the engine.
   surface_reply_failed: CODES.E_INTERNAL,
   api_unavailable: CODES.E_NOT_IMPLEMENTED,
+  // Another panel holds the window, so the surface exists and cannot show.
+  panel_already_open: CODES.E_COMMAND_UNSUPPORTED_FOR_TARGET,
   // The engine refused the url the caller passed: a usage error, not ours.
   url_refused: CODES.E_ARGS,
   // No tab carries the id or matches the filter the caller gave.
@@ -640,11 +648,20 @@ function openResultLines(value: unknown): string[] | undefined {
     command?: unknown
     warning?: unknown
     manifestKey?: unknown
+    alreadyOpen?: unknown
   }
   const manifestKey =
     typeof reply.manifestKey === 'string' && reply.manifestKey
       ? reply.manifestKey
       : undefined
+
+  if (reply.alreadyOpen === true) {
+    return [
+      surfaceAlreadyOpen(
+        typeof reply.opened === 'string' ? reply.opened : 'action'
+      )
+    ]
+  }
 
   if (typeof reply.opened === 'string') return [openedSurface(reply.opened)]
 
@@ -752,17 +769,10 @@ function printResult(
   }
 }
 
-// Some refusals already end by naming the engine, so the suffix would say
-// it a second time on the same line.
 function engineSuffix(err: {message?: unknown; engine?: unknown}): string {
   if (!err.engine) return ''
 
-  const named = `engine: ${err.engine}`.toLowerCase()
-  const message = String(err.message || '')
-    .toLowerCase()
-    .trimEnd()
-
-  return message.endsWith(named) || message.endsWith(`(${named})`)
+  return alreadyNamesEngine(String(err.message || ''), String(err.engine))
     ? ''
     : ` (engine: ${err.engine})`
 }
@@ -789,6 +799,14 @@ export function bridgeHadNoExecutor(result: ActResultLike): boolean {
 
   return (
     code === CODES.E_CONTROL_UNAVAILABLE || code === CODES.E_TARGET_NOT_FOUND
+  )
+}
+
+// A background that never connected, a browser that exited and a session with
+// no control port are not an idle event page, so waking one is no advice.
+function absenceHasItsOwnCause(raw: Record<string, unknown>): boolean {
+  return /has connected since|browser exited|no control port/i.test(
+    String(raw.message ?? '')
   )
 }
 
@@ -1077,23 +1095,46 @@ async function runCommand(input: RunInput): Promise<void> {
   }
 
   const ready = readReadyContract(projectPath, browser)
+  const readyPath = sessionReadyPath(bridge, projectPath, browser)
 
   if (!ready) {
-    const others = otherSessionBrowsers(
+    const others = await runningSessionBrowsers(
       bridge,
       projectPath,
       browser,
-      (candidate) => Boolean(readReadyContract(projectPath, candidate))
+      readReadyContract
     )
 
     fail(
       `No active control channel found for ${browser}. ` +
-        `Looked at ${sessionReadyPath(bridge, projectPath, browser)}. ` +
+        `Looked at ${readyPath}. ` +
         `Run \`extension dev --browser=${browser} ${unlockFlag}\` first.` +
         otherSessionsNote(others),
       {...outputFrame, code: CODES.E_SESSION_NOT_FOUND}
     )
   }
+
+  // A contract outlives its session, so one that names a stopped or dead
+  // session is answered here instead of dialing a port nobody holds.
+  const failIfSessionEnded = async (dialFailed: boolean) => {
+    const reason = await endedSessionReason(ready, readyPath, {dialFailed})
+    if (!reason) return
+
+    const others = await runningSessionBrowsers(
+      bridge,
+      projectPath,
+      browser,
+      readReadyContract
+    )
+
+    fail(
+      sessionEndedMessage({ready, browser, reason, flag: unlockFlag}) +
+        otherSessionsNote(others),
+      {...outputFrame, code: CODES.E_SESSION_NOT_FOUND}
+    )
+  }
+
+  await failIfSessionEnded(false)
 
   const token = input.needsToken
     ? readControlToken(projectPath, browser)
@@ -1131,6 +1172,8 @@ async function runCommand(input: RunInput): Promise<void> {
 
     // A 40xx close is the broker turning the controller away; anything else
     // (handshake timeout, 1006) means the channel never came up at all.
+    if (!/code 40\d\d/.test(message)) await failIfSessionEnded(true)
+
     fail(message, {
       ...outputFrame,
       code: /code 40\d\d/.test(message)
@@ -1208,7 +1251,10 @@ async function runCommand(input: RunInput): Promise<void> {
         // The protocol route needs rdpPort and extensionId on the contract. With
         // neither, say what an absent executor usually means on this engine.
         const raw = (result?.error || {}) as Record<string, unknown>
-        if (typeof raw.hint !== 'string') raw.hint = GECKO_IDLE_EVENT_PAGE_HINT
+
+        if (typeof raw.hint !== 'string' && !absenceHasItsOwnCause(raw)) {
+          raw.hint = GECKO_IDLE_EVENT_PAGE_HINT
+        }
       }
     } else if (
       geckoEvalFailed &&

@@ -1,4 +1,6 @@
+import {spawnSync} from 'node:child_process'
 import fs from 'node:fs'
+import * as net from 'node:net'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {
@@ -88,6 +90,31 @@ function run(argv: string[]) {
   return runCli(makeProgram(registerActCommands), argv)
 }
 
+// A port something answers on, the only proof a hint has that a session runs.
+function listenOnLoopback(): Promise<{port: number; close(): Promise<void>}> {
+  return new Promise((resolve) => {
+    const server = net.createServer((socket) => socket.destroy())
+
+    server.listen(0, '127.0.0.1', () =>
+      resolve({
+        port: (server.address() as net.AddressInfo).port,
+        close: () => new Promise<void>((done) => server.close(() => done()))
+      })
+    )
+  })
+}
+
+async function silentLoopbackPort(): Promise<number> {
+  const server = await listenOnLoopback()
+  await server.close()
+
+  return server.port
+}
+
+function deadPid(): number {
+  return spawnSync(process.execPath, ['-e', '']).pid
+}
+
 describe('extension eval', () => {
   it('sends the expression with a session token and prints the value', async () => {
     bridge.result = {ok: true, value: '42'}
@@ -159,8 +186,12 @@ describe('extension eval', () => {
       recursive: true
     })
 
+    const live = await listenOnLoopback()
+
     bridge.ready = (browser: string) =>
-      browser === 'chrome' ? {controlPort: 9123, instanceId: 'inst-1'} : null
+      browser === 'chrome'
+        ? {controlPort: live.port, instanceId: 'inst-1', status: 'ready'}
+        : null
 
     try {
       expect(await run(['storage', 'get', project])).toBe(1)
@@ -168,6 +199,149 @@ describe('extension eval', () => {
         'A session is running for chrome: pass --browser chrome'
       )
     } finally {
+      await live.close()
+      fs.rmSync(project, {recursive: true, force: true})
+    }
+  })
+
+  it.each([
+    ['stopped with Ctrl+C', 'stopped', process.pid],
+    ['killed, its pid gone', 'ready', 0]
+  ])('never offers a session that was %s as running', async (_how, status, pid) => {
+    const project = fs.mkdtempSync(path.join(os.tmpdir(), 'act-ended-session-'))
+    fs.mkdirSync(path.join(project, 'dist', 'extension-js', 'chrome'), {
+      recursive: true
+    })
+
+    const silentPort = await silentLoopbackPort()
+
+    bridge.ready = (browser: string) =>
+      browser === 'chrome'
+        ? {
+            controlPort: silentPort,
+            instanceId: 'inst-1',
+            status,
+            pid: pid || deadPid()
+          }
+        : null
+
+    try {
+      expect(await run(['eval', '1+1', project, '--browser', 'firefox'])).toBe(
+        1
+      )
+
+      const printed = String(errorSpy.mock.calls[0][0])
+
+      expect(printed).toContain('No active control channel found for firefox')
+      expect(printed).not.toContain('is running')
+      expect(printed).not.toContain('--browser chrome')
+    } finally {
+      fs.rmSync(project, {recursive: true, force: true})
+    }
+  })
+
+  it.each([
+    ['dev', 'The dev session for chrome ended'],
+    ['start', 'The extension start session for chrome ended'],
+    ['preview', 'The extension preview session for chrome ended']
+  ])('answers a stopped %s session with E_SESSION_NOT_FOUND and its own command, without dialing', async (command, opening) => {
+    bridge.ready = {
+      controlPort: await silentLoopbackPort(),
+      instanceId: 'inst-1',
+      status: 'stopped',
+      command,
+      pid: deadPid()
+    }
+
+    const stdout = vi.spyOn(fs, 'writeSync').mockImplementation(() => 0)
+
+    expect(
+      await run(['eval', '1+1', '--browser', 'chrome', '--output', 'json'])
+    ).toBe(1)
+
+    const frame = JSON.parse(String(stdout.mock.calls[0][1]))
+
+    expect(frame.error.code).toBe('E_SESSION_NOT_FOUND')
+    expect(frame.error.message).toContain(opening)
+    expect(frame.error.message).toContain("reads status 'stopped'")
+    expect(frame.error.message).toContain(
+      `Run \`extension ${command} --browser=chrome --allow-eval\` to start one.`
+    )
+
+    expect(bridge.controllers).toHaveLength(0)
+  })
+
+  it('answers a killed session, whose contract still reads ready, the same way', async () => {
+    const pid = deadPid()
+
+    bridge.ready = {
+      controlPort: await silentLoopbackPort(),
+      instanceId: 'inst-1',
+      status: 'ready',
+      command: 'dev',
+      pid
+    }
+
+    const stdout = vi.spyOn(fs, 'writeSync').mockImplementation(() => 0)
+
+    expect(
+      await run(['storage', 'get', '--browser', 'chrome', '--output', 'json'])
+    ).toBe(1)
+
+    const frame = JSON.parse(String(stdout.mock.calls[0][1]))
+
+    expect(frame.error.code).toBe('E_SESSION_NOT_FOUND')
+    expect(frame.error.message).toContain(`its process (pid ${pid}) is gone`)
+    expect(frame.error.message).toContain(
+      'Run `extension dev --browser=chrome --allow-control` to start one.'
+    )
+
+    expect(frame.error.message).not.toContain('code 1006')
+    expect(bridge.controllers).toHaveLength(0)
+  })
+
+  it('points a verb aimed at a stopped browser to the one that still runs', async () => {
+    const project = fs.mkdtempSync(path.join(os.tmpdir(), 'act-two-sessions-'))
+
+    for (const browser of ['chrome', 'firefox']) {
+      fs.mkdirSync(path.join(project, 'dist', 'extension-js', browser), {
+        recursive: true
+      })
+    }
+
+    const live = await listenOnLoopback()
+    const silentPort = await silentLoopbackPort()
+
+    bridge.ready = (browser: string) =>
+      browser === 'chrome'
+        ? {
+            controlPort: silentPort,
+            instanceId: 'inst-1',
+            status: 'stopped',
+            command: 'dev',
+            pid: deadPid()
+          }
+        : browser === 'firefox'
+          ? {
+              controlPort: live.port,
+              instanceId: 'inst-2',
+              status: 'ready',
+              command: 'dev',
+              pid: process.pid
+            }
+          : null
+
+    try {
+      expect(await run(['reload', project, '--browser', 'chrome'])).toBe(1)
+
+      const printed = String(errorSpy.mock.calls[0][0])
+
+      expect(printed).toContain('The dev session for chrome ended')
+      expect(printed).toContain(
+        'A session is running for firefox: pass --browser firefox to use it.'
+      )
+    } finally {
+      await live.close()
       fs.rmSync(project, {recursive: true, force: true})
     }
   })

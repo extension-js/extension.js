@@ -29,6 +29,8 @@ export interface ReadyContractInfo {
   schema?: number
   logsPath?: string
   status?: string
+  /** The command that wrote the contract: `dev`, `start` or `preview`. */
+  command?: string
   engine?: string
   /** Dev-server pid; absent in pre-4.1 contracts. */
   pid?: number
@@ -104,6 +106,7 @@ export function readReadyContract(
       schema: typeof c.schema === 'number' ? c.schema : undefined,
       logsPath: c.logsPath,
       status: c.status,
+      command: typeof c.command === 'string' ? c.command : undefined,
       engine: typeof c.engine === 'string' ? c.engine : undefined,
       pid: typeof c.pid === 'number' ? c.pid : undefined,
       pidStartedAt:

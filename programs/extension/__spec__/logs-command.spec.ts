@@ -560,10 +560,13 @@ describe('extension logs (one-shot)', () => {
     ).toBe(1)
 
     expect(String(errorSpy.mock.calls[0][0])).toContain('No logs found')
-    // The fixture's chromium session has logs, so the refusal points there.
+    // The fixture's chromium folder has logs, so the refusal points there. A
+    // log file outlives its session, so it is never called a running one.
     expect(String(errorSpy.mock.calls[0][0])).toContain(
-      'A session is running for chromium: pass --browser chromium'
+      'Logs exist for chromium: pass --browser chromium to read them.'
     )
+
+    expect(String(errorSpy.mock.calls[0][0])).not.toContain('is running')
   })
 })
 
@@ -573,5 +576,43 @@ describe('extension logs --follow', () => {
     expect(String(errorSpy.mock.calls[0][0])).toContain(
       'No active dev session control channel'
     )
+  })
+
+  it.each([
+    'dev',
+    'preview'
+  ])('refuses to follow a stopped %s session instead of dialing its port', async (command) => {
+    readReadyContract.mockReturnValue({
+      controlPort: 1,
+      instanceId: 'inst-1',
+      status: 'stopped',
+      command
+    })
+
+    try {
+      expect(
+        await run([
+          'logs',
+          dir,
+          '--follow',
+          '--output',
+          'ndjson',
+          '--browser',
+          'chrome'
+        ])
+      ).toBe(1)
+
+      const printed = String(errorSpy.mock.calls[0][0])
+
+      expect(printed).toContain(' for chrome ended')
+      expect(printed).toContain("reads status 'stopped'")
+      expect(printed).toContain(
+        `Run \`extension ${command} --browser=chrome\` to start one.`
+      )
+
+      expect(printed).not.toContain('the control channel closed')
+    } finally {
+      readReadyContract.mockReturnValue(null)
+    }
   })
 })

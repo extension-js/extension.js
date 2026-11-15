@@ -13,6 +13,7 @@ import * as path from 'node:path'
 import parse from 'content-security-policy-parser'
 import {isGeckoBasedBrowser, isWebkitBasedBrowser} from '../../lib/constants'
 import {prependBehindTakeBlock} from '../../lib/extension-base-from-stack'
+import {isSameOrInsidePath} from '../../lib/real-path'
 import {
   actionsPath,
   browserArtifactsDir,
@@ -30,7 +31,6 @@ import {
 import {LogRingBuffer} from './ring-buffer'
 import {clearControlToken, writeControlToken} from './session-token'
 import {startControlServer} from './ws-control-server'
-import {isSameOrInsidePath} from '../../lib/real-path'
 
 // Same background entries the dev-build injector prepends to: Chromium emits
 // background/service_worker.js, Firefox background/scripts.js, and a declared
@@ -43,6 +43,8 @@ export interface ProductionControlOptions {
   browser: string
   // The production build the run would load: copied, never written to.
   distPath: string
+  // Which command owns the session, so the broker's answers name it.
+  command?: 'start' | 'preview'
   allowControl?: boolean
   allowEval?: boolean
   host?: string
@@ -287,6 +289,7 @@ export async function startProductionControl(
     allowEval,
     controlToken,
     actions,
+    sessionCommand: options.command ?? 'preview',
     onExecutorAttached: options.onExecutorAttached,
     onExecutorDetached: options.onExecutorDetached,
     // Only Gecko suspends the background with no way back short of an event.
@@ -314,6 +317,8 @@ export async function startProductionControl(
     instanceId,
     host: options.host
   })
+
+  if (backgroundAssets.length === 0) broker.noteNoBackground()
 
   let closed = false
 

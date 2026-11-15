@@ -177,7 +177,7 @@ exports[`programAIHelp > matches the published AI-help JSON contract shape 1`] =
     },
     {
       "name": "doctor",
-      "summary": "Diagnose a dev session: ready contract, control channel, token, executor, browser",
+      "summary": "Diagnose a dev, start or preview session: ready contract, control channel, token, executor, browser",
       "supportsSourceInspection": false,
     },
     {

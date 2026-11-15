@@ -291,6 +291,35 @@ describe('eval on a Gecko extension document the CSP locks down', () => {
     expect(String(frame().error.hint)).toMatch(/idle|suspend/i)
   })
 
+  it('gives no idle event page advice when nothing ever connected', async () => {
+    session.result = {
+      ok: false,
+      error: {
+        name: 'Unavailable',
+        message:
+          'no executor connected: no extension background page has connected since this dev session started. The session runs with --no-browser'
+      }
+    }
+
+    session.readyDocument = {...session.readyDocument, rdpPort: 0}
+
+    expect(
+      await run([
+        'eval',
+        '1+1',
+        '--browser',
+        'firefox',
+        '--context',
+        'background',
+        '--output',
+        'json'
+      ])
+    ).toBe(1)
+
+    expect(frame().error.code).toBe('E_CONTROL_UNAVAILABLE')
+    expect(frame().error.hint).toBeUndefined()
+  })
+
   it('leaves a refusal the protocol cannot help with alone', async () => {
     session.result = {
       ok: false,

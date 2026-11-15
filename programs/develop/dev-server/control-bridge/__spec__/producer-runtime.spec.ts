@@ -1389,6 +1389,233 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     })
   })
 
+  describe('advice a refusal gives is one the engine lets the author follow', () => {
+    afterEach(() => {
+      vi.unstubAllGlobals()
+    })
+
+    const closedSurface = async (context: string, op = 'eval') => {
+      const ws = setup({
+        runtime: {
+          sendMessage: (_msg: any, cb: (r: any) => void) => cb(undefined),
+          lastError: {
+            message:
+              'Could not establish connection. Receiving end does not exist.'
+          }
+        }
+      })
+      ws.triggerMessage({
+        type: 'command',
+        cmdId: `closed-${op}-${context}`,
+        op,
+        target: {context},
+        args: op === 'eval' ? {expression: '1'} : {}
+      })
+
+      await flush()
+      const frame = results(ws).find(
+        (f) => f.cmdId === `closed-${op}-${context}`
+      )
+      expect(frame).toMatchObject({
+        ok: false,
+        error: {name: 'Unsupported', code: 'surface_not_open'}
+      })
+
+      return String(frame.error.message)
+    }
+
+    for (const op of ['eval', 'inspect']) {
+      for (const context of ['popup', 'sidebar']) {
+        it(`${op} of a closed ${context} on Chromium names the click, not extension open`, async () => {
+          const message = await closedSurface(context, op)
+
+          expect(message).toContain(`surface '${context}' is not open`)
+          expect(message).toContain("click the extension's toolbar entry")
+          expect(message).not.toContain('extension open')
+          expect(message).not.toMatch(/chromium|engine/i)
+        })
+      }
+    }
+
+    it('a closed options page on Chromium keeps extension open options', async () => {
+      expect(await closedSurface('options')).toContain(
+        'open it first: extension open options'
+      )
+    })
+
+    it('a closed sidebar on Firefox names the sidebar button, not extension open', async () => {
+      vi.stubGlobal('location', {protocol: 'moz-extension:'})
+      const message = await closedSurface('sidebar')
+
+      expect(message).toContain('View > Sidebar')
+      expect(message).not.toContain('extension open')
+    })
+
+    it('a closed popup on Firefox keeps extension open popup', async () => {
+      vi.stubGlobal('location', {protocol: 'moz-extension:'})
+
+      expect(await closedSurface('popup')).toContain(
+        'open it first: extension open popup'
+      )
+    })
+
+    const mv3CopyWithoutScripting = (tabsGet?: (id: number) => unknown) => ({
+      runtime: {
+        getManifest: () => ({manifest_version: 3, permissions: ['storage']})
+      },
+      tabs: {
+        query: () => Promise.resolve([]),
+        ...(tabsGet ? {get: tabsGet} : {})
+      }
+    })
+
+    const inject = async (
+      chromeApi: Record<string, unknown>,
+      op: string,
+      tabId: number
+    ) => {
+      const ws = setup(chromeApi)
+      ws.triggerMessage({
+        type: 'command',
+        cmdId: `inject-${op}`,
+        op,
+        target: {context: 'page', tabId},
+        args: op === 'eval' ? {expression: '1'} : {}
+      })
+
+      await flush()
+
+      return results(ws).find((f) => f.cmdId === `inject-${op}`)
+    }
+
+    for (const op of ['eval', 'inspect']) {
+      it(`${op} with no scripting permission names Firefox only on Firefox`, async () => {
+        const onChromium = await inject(
+          mv3CopyWithoutScripting(() => Promise.resolve({id: 7})),
+          op,
+          7
+        )
+        expect(onChromium.error.code).toBe('scripting_unavailable')
+        expect(onChromium.error.message).toContain(
+          'has no "scripting" permission, so chrome.scripting is missing. Add'
+        )
+
+        expect(onChromium.error.message).not.toMatch(/firefox/i)
+
+        vi.stubGlobal('location', {protocol: 'moz-extension:'})
+        const onFirefox = await inject(
+          mv3CopyWithoutScripting(() => Promise.resolve({id: 7})),
+          op,
+          7
+        )
+        expect(onFirefox.error.code).toBe('scripting_unavailable')
+        expect(onFirefox.error.message).toContain(
+          '(Firefox exposes it only with that permission)'
+        )
+      })
+
+      for (const sentence of [
+        'No tab with id: 999999.',
+        'Invalid tab ID: 999999'
+      ]) {
+        it(`${op} with no scripting permission answers not found for a tab nobody has (${sentence})`, async () => {
+          const frame = await inject(
+            mv3CopyWithoutScripting(() => Promise.reject(new Error(sentence))),
+            op,
+            999999
+          )
+
+          expect(frame).toMatchObject({
+            ok: false,
+            error: {
+              name: 'TargetNotFound',
+              code: 'tab_not_found',
+              message: sentence
+            }
+          })
+        })
+      }
+    }
+
+    it('inspect of the background speaks of a service worker only on Chromium', async () => {
+      const ask = async () => {
+        const ws = setup({})
+        ws.triggerMessage({
+          type: 'command',
+          cmdId: 'inspect-bg',
+          op: 'inspect',
+          target: {context: 'background'},
+          args: {}
+        })
+
+        await flush()
+
+        return String(
+          results(ws).find((f) => f.cmdId === 'inspect-bg').error.message
+        )
+      }
+
+      expect(await ask()).toContain('the service worker has no DOM')
+      vi.stubGlobal('location', {protocol: 'moz-extension:'})
+      expect(await ask()).not.toContain('service worker')
+    })
+
+    const panelOpen = 'openPopup() cannot be called while another panel is open'
+    const firefoxWithPanelOpen = (views: unknown[]) => ({
+      action: {
+        getPopup: (_d: unknown, cb: (p: string) => void) => cb('popup.html'),
+        openPopup: () => Promise.reject(new Error(panelOpen)),
+        onClicked: {addListener() {}}
+      },
+      extension: {getViews: () => views}
+    })
+
+    const open = async (
+      chromeApi: Record<string, unknown>,
+      surface: string
+    ) => {
+      vi.stubGlobal('location', {protocol: 'moz-extension:'})
+      const ws = setup(chromeApi)
+      ws.triggerMessage({
+        type: 'command',
+        cmdId: `open-${surface}`,
+        op: 'open',
+        target: {context: surface === 'popup' ? 'popup' : 'background'},
+        args: {surface}
+      })
+
+      await flush()
+
+      return results(ws).find((f) => f.cmdId === `open-${surface}`)
+    }
+
+    it('open popup on a popup that is already open is an ok answer that says so', async () => {
+      expect(await open(firefoxWithPanelOpen([{}]), 'popup')).toMatchObject({
+        ok: true,
+        value: {opened: 'popup', alreadyOpen: true}
+      })
+    })
+
+    it('open action on a popup that is already open is an ok answer that says so', async () => {
+      expect(await open(firefoxWithPanelOpen([{}]), 'action')).toMatchObject({
+        ok: true,
+        value: {triggered: 'popup', manifestKey: 'action', alreadyOpen: true}
+      })
+    })
+
+    it('open popup while some other panel is open is a named refusal with a next step', async () => {
+      const frame = await open(firefoxWithPanelOpen([]), 'popup')
+
+      expect(frame).toMatchObject({
+        ok: false,
+        error: {name: 'Unsupported', code: 'panel_already_open'}
+      })
+
+      expect(frame.error.message).toContain(panelOpen)
+      expect(frame.error.hint).toContain('extension open popup')
+    })
+  })
+
   // extension open has no devtools surface, and with DevTools closed a
   // bystander page closes the port the way a lost reply does.
   it('eval devtools names DevTools, not extension open, when its page is closed', async () => {
@@ -2936,6 +3163,61 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
       ok: false,
       error: {name: 'Unsupported', code: 'api_unavailable'}
     })
+  })
+
+  it('open sidebar on Firefox names sidebar_action and a next step, not sidePanel', async () => {
+    vi.stubGlobal('location', {protocol: 'moz-extension:'})
+    const ws = setup({})
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'op-side-gecko',
+      op: 'open',
+      target: {context: 'sidebar'},
+      args: {surface: 'sidebar'}
+    })
+
+    await flush()
+    vi.unstubAllGlobals()
+    const r = results(ws).find((f) => f.cmdId === 'op-side-gecko')
+    expect(r).toMatchObject({
+      ok: false,
+      error: {name: 'Unsupported', code: 'api_unavailable', engine: 'firefox'}
+    })
+
+    expect(r.error.message).toContain('sidebar_action')
+    expect(r.error.message).not.toContain('sidePanel')
+    // error.engine already names the engine, so the sentence does not.
+    expect(r.error.message).not.toMatch(/engine|firefox/i)
+    expect(r.error.hint).toContain('extension eval --context sidebar')
+    expect(r.error.hint).toContain('extension inspect --context sidebar')
+  })
+
+  it('open refusals leave the engine to error.engine', async () => {
+    const ws = setup({})
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'op-side-plain',
+      op: 'open',
+      target: {context: 'sidebar'},
+      args: {surface: 'sidebar'}
+    })
+
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'op-action-plain',
+      op: 'open',
+      target: {context: 'background'},
+      args: {surface: 'action'}
+    })
+
+    await flush()
+
+    for (const cmdId of ['op-side-plain', 'op-action-plain']) {
+      const r = results(ws).find((f) => f.cmdId === cmdId)
+      expect(r.ok).toBe(false)
+      expect(typeof r.error.engine).toBe('string')
+      expect(r.error.message).not.toContain('(engine')
+    }
   })
 
   it('open options: a lastError on the callback is a refusal, not an ok', async () => {

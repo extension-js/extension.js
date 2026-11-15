@@ -269,7 +269,7 @@ const COMMAND_TABLE = [
     name: 'doctor',
     positionals: [{name: 'project-path', required: false}],
     description:
-      'Diagnose a dev session: ready contract, control channel, token, executor, browser',
+      'Diagnose a dev, start or preview session: ready contract, control channel, token, executor, browser',
     supportsSourceInspection: false
   },
   {
@@ -1077,14 +1077,17 @@ const OPEN_SURFACE_NOUN: Record<string, string> = {
   action: 'action popup'
 }
 
-function openSurfaceNoun(surface: string): string {
+// Firefox has no side panel: the same surface is its sidebar.
+function openSurfaceNoun(surface: string, engine?: string): string {
+  if (surface === 'sidebar' && engine === 'firefox') return 'sidebar'
+
   return OPEN_SURFACE_NOUN[surface] || surface
 }
 
-function openSurfaceAction(surface: string): string {
+function openSurfaceAction(surface: string, engine?: string): string {
   return surface === 'command'
     ? 'trigger the command'
-    : `open the ${openSurfaceNoun(surface)}`
+    : `open the ${openSurfaceNoun(surface, engine)}`
 }
 
 function asSentence(text: string): string {
@@ -1100,6 +1103,10 @@ function listenerCount(count: number, event: string): string {
 
 export function openedSurface(surface: string) {
   return `${getLoggingPrefix('success')} Opened the ${openSurfaceNoun(surface)}.`
+}
+
+export function surfaceAlreadyOpen(surface: string) {
+  return `${getLoggingPrefix('success')} The ${openSurfaceNoun(surface)} is already open.`
 }
 
 export function openedActionPopup(manifestKey: string) {
@@ -1122,16 +1129,38 @@ export function openSurfaceWarning(warning: string) {
   return `${getLoggingPrefix('warn')} ${asSentence(warning)}`
 }
 
+// Some refusals already name the engine, as their subject or as a closing
+// note, so a note after them would say it a second time on the same line.
+export function alreadyNamesEngine(reason: string, engine: string): boolean {
+  const text = reason.toLowerCase().trim().replace(/\.$/, '')
+  const name = engine.toLowerCase()
+
+  if (text.startsWith(`${name} `)) return true
+
+  return [
+    `engine: ${name}`,
+    `(engine: ${name})`,
+    `engine ${name}`,
+    `(engine ${name})`
+  ].some((mention) => text.endsWith(mention))
+}
+
+function engineNoteFor(reason: string, engine?: string): string {
+  if (!engine || alreadyNamesEngine(reason, engine)) return ''
+
+  return arg(` (engine ${engine})`)
+}
+
 export function openSurfaceFailed(
   surface: string,
   reason: string,
   engine?: string,
   remedy?: string
 ) {
-  const engineNote = engine ? arg(` (engine ${engine})`) : ''
+  const engineNote = engineNoteFor(reason, engine)
 
   return [
-    `${getLoggingPrefix('error')} Can't ${openSurfaceAction(surface)}.`,
+    `${getLoggingPrefix('error')} Can't ${openSurfaceAction(surface, engine)}.`,
     `${fmt.label('REASON')} ${fmt.val(reason)}${engineNote}`,
     remedy
   ]
@@ -1145,7 +1174,7 @@ export function navigateFailed(
   engine?: string,
   remedy?: string
 ) {
-  const engineNote = engine ? arg(` (engine ${engine})`) : ''
+  const engineNote = engineNoteFor(reason, engine)
 
   return [
     `${getLoggingPrefix('error')} Can't navigate a tab to ${fmt.val(url)}`,
@@ -1202,9 +1231,12 @@ export function openSurfaceNeedsGesture(surface: string) {
 export function doctorHeader(
   browser: string,
   passes: number,
-  total: number
+  total: number,
+  notApplicable = 0
 ): string {
-  return `doctor (${browser}), ${passes}/${total} checks passed`
+  const aside = notApplicable ? `, ${notApplicable} not applicable` : ''
+
+  return `doctor (${browser}), ${passes}/${total} checks passed${aside}`
 }
 
 export function doctorRemedy(check: string, remediation: string): string {

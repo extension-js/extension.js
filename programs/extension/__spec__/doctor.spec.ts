@@ -243,6 +243,14 @@ describe('extension doctor', () => {
     expect(r['port-agreement'].remediation).toContain('cached service worker')
   })
 
+  it('speaks of a background page, not a service worker, on Firefox', async () => {
+    state.mod = healthyModule({readPersistedControlPort: () => 9999})
+    const r = byCheck(await runDoctor('/proj', {browser: 'firefox'}))
+    expect(r['port-agreement'].status).toBe('fail')
+    expect(r['port-agreement'].remediation).toContain('cached background page')
+    expect(r['port-agreement'].remediation).not.toContain('service worker')
+  })
+
   it('skips port-agreement when the installed engine lacks the export', async () => {
     const mod = healthyModule()
     delete (mod as any).readPersistedControlPort
@@ -737,6 +745,149 @@ describe('extension doctor (browser resolution)', () => {
     }
   })
 
+  const productionContract = (command: string) => ({
+    status: 'ready',
+    command,
+    port: null,
+    controlPort: 4001,
+    instanceId: 'inst-1',
+    pid: process.pid
+  })
+
+  it('reads a start or preview run that holds a control port as a session', () => {
+    for (const command of ['preview', 'start']) {
+      const root = makeProject([], ['chromium'])
+
+      try {
+        writeContract(root, 'firefox', productionContract(command))
+        expect(resolveDoctorBrowser(root, undefined)).toEqual({
+          browser: 'firefox',
+          sessionBrowsers: ['firefox']
+        })
+      } finally {
+        fs.rmSync(root, {recursive: true, force: true})
+      }
+    }
+  })
+
+  it('diagnoses a controlled preview and reports the dev server check as not applicable', async () => {
+    const root = makeProject([])
+    writeContract(root, 'chrome', productionContract('preview'))
+    // An earlier dev run left another port on disk. A preview never wrote it.
+    state.mod = healthyModule({readPersistedControlPort: () => 5999})
+
+    try {
+      const report = await runDoctor(root, {})
+      const r = byCheck(report)
+      expect(report.browser).toBe('chrome')
+      expect(report.checks.map((c) => c.check)).toEqual(ALL_CHECKS)
+      expect(report.checks.filter((c) => c.status === 'fail')).toEqual([])
+      expect(r['ready-contract'].status).toBe('pass')
+      expect(r['server-process'].detail).toBe(
+        `preview process pid ${process.pid} is alive`
+      )
+
+      expect(r['port-agreement']).toMatchObject({
+        status: 'skip',
+        applicable: false
+      })
+
+      expect(r['port-agreement'].detail).toContain(
+        'not applicable: an extension preview session runs no dev server'
+      )
+
+      for (const check of ['control-channel', 'eval-token', 'executor']) {
+        expect(r[check].status).toBe('pass')
+      }
+    } finally {
+      fs.rmSync(root, {recursive: true, force: true})
+    }
+  })
+
+  it('names the session command, never extension dev, in a start session remedy', async () => {
+    const root = makeProject([])
+    writeContract(root, 'chrome', productionContract('start'))
+    state.mod = healthyModule({
+      readReadyContract: () => ({
+        controlPort: 4001,
+        instanceId: 'inst-1',
+        status: 'ready',
+        pid: 999999
+      })
+    })
+
+    try {
+      const r = byCheck(await runDoctor(root, {}))
+      expect(r['server-process'].status).toBe('fail')
+      expect(r['server-process'].detail).toContain('start process pid 999999')
+      expect(r['server-process'].remediation).toContain(
+        'extension start --browser=chrome --allow-control'
+      )
+
+      expect(r['server-process'].remediation).not.toContain('extension dev')
+    } finally {
+      fs.rmSync(root, {recursive: true, force: true})
+    }
+  })
+
+  it('says a stopped session ended instead of asking the reader to wait', async () => {
+    const root = makeProject([])
+    writeContract(root, 'chrome', productionContract('preview'))
+    state.mod = healthyModule({
+      readReadyContract: () => ({
+        controlPort: 4001,
+        instanceId: 'inst-1',
+        status: 'stopped',
+        pid: 999999
+      })
+    })
+
+    try {
+      const r = byCheck(await runDoctor(root, {}))
+      expect(r['ready-contract'].detail).toContain('session ended')
+      expect(r['ready-contract'].remediation).toBe(
+        'Start it again: extension preview --browser=chrome --allow-control'
+      )
+    } finally {
+      fs.rmSync(root, {recursive: true, force: true})
+    }
+  })
+
+  it('names a live preview with no control channel and how to get one', async () => {
+    const root = makeProject([])
+    writeContract(root, 'chrome', {
+      ...productionContract('preview'),
+      controlPort: null,
+      instanceId: undefined
+    })
+
+    let dialed = 0
+    state.mod = healthyModule({
+      readReadyContract: () => {
+        dialed += 1
+
+        return null
+      }
+    })
+
+    try {
+      const r = byCheck(await runDoctor(root, {}))
+      expect(dialed).toBe(0)
+      expect(r['ready-contract'].status).toBe('fail')
+      expect(r['ready-contract'].detail).toContain(
+        `extension preview is running for chrome (pid ${process.pid}) with no control channel`
+      )
+
+      expect(r['ready-contract'].remediation).toContain(
+        'extension preview --browser=chrome --allow-control'
+      )
+
+      expect(r['port-agreement'].applicable).toBeUndefined()
+    } finally {
+      fs.rmSync(root, {recursive: true, force: true})
+    }
+  })
+
   it('diagnoses the one live session next to build receipts without a warn', async () => {
     const root = makeProject(['firefox'], ['chrome', 'edge'])
     let asked: string | undefined
@@ -772,6 +923,81 @@ describe('extension doctor (browser resolution)', () => {
 
     try {
       expect(resolveDoctorBrowser(root, undefined).browser).toBe('chrome')
+    } finally {
+      fs.rmSync(root, {recursive: true, force: true})
+    }
+  })
+
+  it('diagnoses the session that still runs, not the one stopped beside it', async () => {
+    const root = makeProject(['firefox'])
+
+    writeContract(root, 'chrome', {
+      status: 'stopped',
+      command: 'dev',
+      port: 8080,
+      controlPort: 4002,
+      instanceId: 'inst-0',
+      pid: 999999
+    })
+
+    writeContract(root, 'chromium', {
+      status: 'ready',
+      command: 'dev',
+      port: 8080,
+      controlPort: 4003,
+      instanceId: 'inst-9',
+      pid: 999999
+    })
+
+    try {
+      expect(resolveDoctorBrowser(root, undefined)).toEqual({
+        browser: 'firefox',
+        sessionBrowsers: ['firefox']
+      })
+
+      const report = await runDoctor(root, {})
+
+      expect(report.browser).toBe('firefox')
+      expect(byCheck(report)['session-resolution']).toBeUndefined()
+    } finally {
+      fs.rmSync(root, {recursive: true, force: true})
+    }
+  })
+
+  it('never calls ended sessions live when several are left behind', async () => {
+    const root = makeProject([])
+
+    for (const browser of ['chrome', 'firefox']) {
+      writeContract(root, browser, {
+        status: 'stopped',
+        command: 'dev',
+        port: 8080,
+        controlPort: 4001,
+        instanceId: 'inst-1',
+        pid: 999999
+      })
+    }
+
+    state.mod = healthyModule({
+      readReadyContract: () => ({
+        controlPort: 4001,
+        instanceId: 'inst-1',
+        runId: 'run-A',
+        status: 'stopped',
+        pid: 999999
+      })
+    })
+
+    try {
+      const r = byCheck(await runDoctor(root, {}))
+
+      expect(r['session-resolution'].detail).toBe(
+        'multiple ended sessions found (chrome, firefox), diagnosing chrome'
+      )
+
+      expect(r['port-agreement'].detail).toBe(
+        'persisted port 4001 matches the contract of the session that ended'
+      )
     } finally {
       fs.rmSync(root, {recursive: true, force: true})
     }
@@ -1074,6 +1300,48 @@ describe('extension doctor (command surface)', () => {
       expect(lines[lines.length - 1]).toContain('ready-contract:')
     } finally {
       vi.restoreAllMocks()
+    }
+  })
+
+  it('leaves a not applicable check out of the pass count in the header', async () => {
+    const {makeProgram, runCli, stubProcessExit} = await import(
+      './command-harness'
+    )
+    const {registerDoctorCommand} = await import('../commands/doctor')
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-doctor-'))
+    const dir = path.join(root, 'dist', 'extension-js', 'chrome')
+    fs.mkdirSync(dir, {recursive: true})
+    fs.writeFileSync(
+      path.join(dir, 'ready.json'),
+      JSON.stringify({
+        status: 'ready',
+        command: 'preview',
+        controlPort: 4001,
+        instanceId: 'inst-1',
+        pid: process.pid
+      })
+    )
+
+    stubProcessExit()
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    try {
+      const code = await runCli(makeProgram(registerDoctorCommand), [
+        'doctor',
+        root
+      ])
+      expect(code).toBe(0)
+      const lines = logSpy.mock.calls.map((c) => stripAnsi(String(c[0])))
+      expect(lines[0]).toBe(
+        'doctor (chrome), 7/7 checks passed, 1 not applicable'
+      )
+
+      expect(
+        lines.some((l) => /– port-agreement\s+not applicable/.test(l))
+      ).toBe(true)
+    } finally {
+      vi.restoreAllMocks()
+      fs.rmSync(root, {recursive: true, force: true})
     }
   })
 

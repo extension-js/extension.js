@@ -329,6 +329,23 @@ describe('BridgeBroker (Slice 2: act)', () => {
       expect(b.producerCount).toBe(1)
     })
 
+    it('speaks of a background page, not a service worker, on Firefox', () => {
+      let t = 0
+      const b = new BridgeBroker(base({engine: 'firefox', now: () => t}))
+      const ctl = new FakeConn('ctl')
+      helloController(b, ctl)
+      const never = denyMessage(b, ctl)
+      expect(never).toContain('no extension background page has connected')
+      expect(never).not.toContain('service worker')
+
+      staleProducerHello(b, new FakeConn('stale'))
+      t += 4000
+      const stale = denyMessage(b, ctl)
+      expect(stale).toContain('told to full-reload')
+      expect(stale).toContain('a background page from a previous dev session')
+      expect(stale).not.toMatch(/service worker|worker should/)
+    })
+
     it('names stale-resync-pending after a stale producer hello', () => {
       let t = 0
       const b = new BridgeBroker(base({now: () => t}))
@@ -711,6 +728,107 @@ describe('BridgeBroker (Slice 2: act)', () => {
       ['storage.get', false, 'BadRequest'],
       ['tabs.query', true, undefined]
     ])
+  })
+
+  describe('a start or preview session names its own command', () => {
+    const answer = (
+      extra: Record<string, unknown>,
+      op: 'reload' | 'eval' = 'reload',
+      prepare?: (b: BridgeBroker) => void
+    ): string => {
+      const b = new BridgeBroker(base(extra))
+      const ctl = new FakeConn('ctl')
+
+      prepare?.(b)
+      helloController(b, ctl)
+      ctl.sent = []
+      b.onFrame(ctl, {
+        type: 'command',
+        cmdId: 'c1',
+        op,
+        target: {context: 'background'},
+        ...(op === 'eval' ? {args: {expression: '1'}} : {})
+      })
+
+      return String((ctl.sent[0] as any).error.message)
+    }
+
+    it.each([
+      'start',
+      'preview'
+    ] as const)('never-connected on extension %s says nothing about a dev session', (sessionCommand) => {
+      const message = answer({sessionCommand})
+
+      expect(message).toContain(
+        `since this extension ${sessionCommand} session started`
+      )
+
+      expect(message).not.toMatch(/dev session|extension dev/)
+    })
+
+    it.each([
+      'start',
+      'preview'
+    ] as const)('a browser that exited under extension %s is restarted with that command', (sessionCommand) => {
+      const message = answer({sessionCommand}, 'reload', (b) =>
+        b.noteBrowserExited('2026-11-15T00:00:00.000Z')
+      )
+
+      expect(message).toContain(
+        `Restart extension ${sessionCommand} to relaunch it`
+      )
+
+      expect(message).not.toMatch(/dev session|extension dev/)
+    })
+
+    it('a Firefox event page suspended under preview is restarted with preview', () => {
+      const b = new BridgeBroker(
+        base({engine: 'firefox', sessionCommand: 'preview'})
+      )
+      const exec = new FakeConn('exec')
+      const ctl = new FakeConn('ctl')
+
+      helloProducer(b, exec)
+      b.onClose(exec)
+      helloController(b, ctl)
+      ctl.sent = []
+      b.onFrame(ctl, {
+        type: 'command',
+        cmdId: 'c1',
+        op: 'reload',
+        target: {context: 'background'}
+      })
+
+      const message = String((ctl.sent[0] as any).error.message)
+
+      expect(message).toContain('restart extension preview')
+      expect(message).not.toMatch(/dev session|extension dev/)
+    })
+
+    it('the eval refusal names the session that has eval off', () => {
+      expect(answer({sessionCommand: 'preview'}, 'eval')).toBe(
+        'eval is disabled for this session: restart the extension preview session with --allow-eval'
+      )
+
+      expect(answer({}, 'eval')).toBe(
+        'eval is disabled for this session: restart the dev session with --allow-eval'
+      )
+    })
+
+    it('a dev session keeps its own words', () => {
+      expect(answer({})).toContain('since this dev session started')
+    })
+
+    it('a build with no background is not told the browser may still be launching', () => {
+      const message = answer({sessionCommand: 'start'}, 'reload', (b) =>
+        b.noteNoBackground()
+      )
+
+      expect(message).toContain('no executor connected')
+      expect(message).toContain('has no background')
+      expect(message).toContain('restart extension start')
+      expect(message).not.toContain('may still be launching')
+    })
   })
 
   it('ignores result frames from non-executor connections', () => {
