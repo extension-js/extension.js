@@ -58,11 +58,10 @@ export type ReadyMetadata = {
   port: number | null
   host?: string
   pid: number
-  // When the process behind `pid` started, as the process table reports it
-  // (ISO 8601 UTC). A pid is reused once its owner exits, so a reader that
-  // finds `pid` alive checks this against the table before trusting it.
-  // Absent when the table could not date the process.
-  pidStartedAt?: string
+  // When the process behind `pid` started (ISO 8601 UTC). A pid is reused
+  // once its owner exits, so a reader that finds `pid` alive checks this
+  // against the process table before trusting it.
+  pidStartedAt: string
   ts: string
   compiledAt: string | null
   errors: string[]
@@ -791,13 +790,11 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       ...base,
       status,
       pid: process.pid,
+      pidStartedAt: ownProcessStartedAt(),
       ts: nowISO(),
       compiledAt,
       errors: Array.isArray(extra?.errors) ? extra.errors : []
     }
-
-    const pidStartedAt = ownProcessStartedAt()
-    if (pidStartedAt) payload.pidStartedAt = pidStartedAt
 
     // A later writer in the same run (start's preview after the build, the
     // compiler a restart opens) keeps the run's original clock, not its own.

@@ -8,71 +8,56 @@
 
 import {spawnSync} from 'node:child_process'
 
-// A cold PowerShell CIM query can take a minute on a loaded Windows machine,
-// so the answer is bounded and a slow one reads as unknown, like a failed one.
-export const PROCESS_START_PROBE_TIMEOUT_MS = 5000
+const PROCESS_START_PROBE_TIMEOUT_MS = 5000
 
-function runQuiet(
-  bin: string,
-  args: string[],
-  env?: NodeJS.ProcessEnv
-): string | null {
+// When this process started, as ps reports it. ps prints the day and month in
+// the shell's language, so it is asked in C, the one spelling Date.parse
+// reads. A machine without ps, or a probe past its bound, answers undefined.
+function startedAtFromProcessTable(): string | undefined {
   try {
-    const result = spawnSync(bin, args, {
-      encoding: 'utf-8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-      windowsHide: true,
-      timeout: PROCESS_START_PROBE_TIMEOUT_MS,
-      ...(env ? {env} : {})
-    })
+    const result = spawnSync(
+      'ps',
+      ['-o', 'lstart=', '-p', String(process.pid)],
+      {
+        encoding: 'utf-8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+        timeout: PROCESS_START_PROBE_TIMEOUT_MS,
+        env: {...process.env, LC_ALL: 'C'}
+      }
+    )
 
-    if (result.error || result.status !== 0) return null
+    if (result.error || result.status !== 0) return undefined
 
-    return String(result.stdout || '')
+    const started = Date.parse(String(result.stdout || '').trim())
+
+    return Number.isNaN(started) ? undefined : new Date(started).toISOString()
   } catch {
-    return null
+    return undefined
   }
 }
 
-// When a pid started, as the process table reports it, ISO 8601 UTC. A pid is
-// reused once its owner exits, so a contract that names one pairs it with
-// this. ps prints the day and month in the shell's language, so it is asked
-// in C, the one spelling Date.parse reads; PowerShell is asked for UTC. A pid
-// the table cannot date, or a probe past its bound, answers undefined.
-export function processStartedAt(
-  pid: number | null | undefined,
-  platform = process.platform
-): string | undefined {
-  if (!pid || !Number.isInteger(pid) || pid <= 0) return undefined
-
-  const output =
-    platform === 'win32'
-      ? runQuiet('powershell.exe', [
-          '-NoProfile',
-          '-NonInteractive',
-          '-Command',
-          `(Get-CimInstance Win32_Process -Filter "ProcessId=${pid}")` +
-            '.CreationDate.ToUniversalTime().ToString("o")'
-        ])
-      : runQuiet('ps', ['-o', 'lstart=', '-p', String(pid)], {
-          ...process.env,
-          LC_ALL: 'C'
-        })
-
-  const started = Date.parse(String(output || '').trim())
-
-  return Number.isNaN(started) ? undefined : new Date(started).toISOString()
+// The same instant off this process's own clock, a few milliseconds after the
+// one the process table holds.
+function startedAtFromOwnClock(): string {
+  return new Date(Date.now() - process.uptime() * 1000).toISOString()
 }
 
 let ownStartedAt: string | undefined
-let ownStartedAtRead = false
 
-// The writer's own start, read once: its pid never changes while it runs, and
-// the contract is rewritten on every compile.
-export function ownProcessStartedAt(): string | undefined {
-  if (!ownStartedAtRead) {
-    ownStartedAtRead = true
-    ownStartedAt = processStartedAt(process.pid)
+// When the writer's own process started, ISO 8601 UTC, read once: its pid
+// never changes while it runs, and the contract is rewritten on every compile.
+// A pid is reused once its owner exits, so a contract that names one pairs it
+// with this. ps answers in milliseconds and is what a reader will ask, so it
+// goes first. Windows has no ps, and dating a pid there costs a PowerShell
+// start that runs past the bound on a loaded machine and would hold the first
+// compile meanwhile, so a process on Windows reads its own clock, as does one
+// whose ps is missing.
+export function ownProcessStartedAt(): string {
+  if (!ownStartedAt) {
+    ownStartedAt =
+      (process.platform === 'win32'
+        ? undefined
+        : startedAtFromProcessTable()) || startedAtFromOwnClock()
   }
 
   return ownStartedAt

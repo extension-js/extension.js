@@ -213,8 +213,11 @@ export function isPidAlive(pid: number | null | undefined): boolean {
 // When a pid started, as the OS reports it. A pid that started after the file
 // naming it was written is another process wearing a recycled number, which a
 // signal-0 probe cannot tell apart from the one that is gone.
-// A cold PowerShell CIM query can take a minute on a loaded Windows machine,
-// so the answer is bounded and a slow one reads as unknown, like a failed one.
+// Windows is asked through .NET, which reads the kernel's creation time for
+// the one pid; a CIM query for the same value also has to reach the WMI
+// service and ran past the bound on a loaded machine. A cold PowerShell start
+// can still take seconds, so the answer is bounded and a slow one reads as
+// unknown, like a failed one.
 // ps prints the day and month in the shell's language, so it is asked in C,
 // the one spelling Date.parse reads.
 export const PID_START_PROBE_TIMEOUT_MS = 5000
@@ -233,8 +236,8 @@ export function pidStartedAtMs(
             '-NoProfile',
             '-NonInteractive',
             '-Command',
-            `(Get-CimInstance Win32_Process -Filter "ProcessId=${pid}")` +
-              '.CreationDate.ToUniversalTime().ToString("o")'
+            `[System.Diagnostics.Process]::GetProcessById(${pid})` +
+              ".StartTime.ToUniversalTime().ToString('o')"
           ],
           PID_START_PROBE_TIMEOUT_MS
         )
