@@ -261,8 +261,8 @@ export async function extensionBuild(
   const shouldExitOnError = (buildOptions?.exitOnError ?? false) && !isVitest
   const {manifestDir, packageJsonDir} = getDirs(projectStructure)
 
-  // `extension start` builds with commands.start values, polyfill on by
-  // default and a silent build. Plain `extension build` uses commands.build.
+  // `extension start` builds with commands.start values and a silent build.
+  // Plain `extension build` uses commands.build.
   const commandKey =
     buildOptions?.metadataCommand === 'start' ? 'start' : 'build'
 

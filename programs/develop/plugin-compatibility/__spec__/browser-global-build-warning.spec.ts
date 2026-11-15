@@ -177,7 +177,7 @@ describe('the Compatibility warning on a production chrome build', () => {
     expect(warning).toBeDefined()
     expect(warning).toContain('background.js:2 uses browser.*')
     expect(warning).toContain(
-      'may throw "browser is not defined" if this code runs on chrome'
+      'manifest.json sets no minimum_chrome_version, so a chrome older than 148 can install this extension, where this code may throw "browser is not defined".'
     )
 
     expect(warning).toContain('has natively only from Chromium 148.')
@@ -203,6 +203,9 @@ describe('the Compatibility warning on a production chrome build', () => {
     )
 
     expect(below).toContain('has natively only from Chromium 148.')
+    expect(below).toContain(
+      'manifest.json sets minimum_chrome_version to "147", so chrome 147 can install this extension'
+    )
 
     const devtools = compatibilityWarning(
       await buildChrome(
@@ -214,7 +217,11 @@ describe('the Compatibility warning on a production chrome build', () => {
     )
 
     expect(devtools).toContain(
-      'has natively only from Chromium 152 for an extension with a devtools_page.'
+      'has natively only from Chromium 152 in an extension that declares a devtools_page. A Chromium below 152 leaves browser out of every script of such an extension, the background, the pages and the content scripts as well as the DevTools page.'
+    )
+
+    expect(devtools).toContain(
+      'manifest.json sets minimum_chrome_version to "148", so chrome 148 to 151 can install this extension'
     )
 
     expect(devtools).toContain('Set minimum_chrome_version to "152"')

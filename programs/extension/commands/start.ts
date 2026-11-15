@@ -127,7 +127,7 @@ export function registerStartCommand(program: Command) {
     )
     .option(
       '--polyfill [boolean]',
-      'whether or not to apply the cross-browser polyfill. Defaults to `true` (`build` defaults to `false`)',
+      'bundle the cross-browser polyfill, for a Chromium older than 148 (152 with a devtools_page). Defaults to `false`',
       parseOptionalBoolean
     )
     .option('--no-polyfill', 'disable the cross-browser polyfill')
@@ -432,7 +432,7 @@ export function registerStartCommand(program: Command) {
               // ready, so the build leaves that stamp to the launch phase.
               launchFollows: !noBrowser,
               // Pass polyfill only when typed so commands.start.polyfill can
-              // apply. The start build phase still defaults it on downstream.
+              // apply. The start build phase defaults it off downstream.
               polyfill: explicitCliValue(
                 command,
                 'polyfill',
