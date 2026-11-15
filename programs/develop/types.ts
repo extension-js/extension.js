@@ -11,6 +11,7 @@ import type {
   RspackPluginInstance
 } from '@rspack/core'
 import type {LogContext} from './dev-server/control-bridge/contracts'
+import type {ManifestV2, ManifestV3} from './lib/manifest-types'
 
 /**
  * Firefox-only `theme_experiment` manifest key.
@@ -31,10 +32,8 @@ type WithoutManifestVersion<T> = {
   [K in keyof T as Exclude<K, 'manifest_version'>]: T[K]
 }
 
-export type ChromeManifest = WithoutManifestVersion<
-  Partial<chrome.runtime.ManifestV2>
-> &
-  WithoutManifestVersion<Partial<chrome.runtime.ManifestV3>> & {
+export type ChromeManifest = WithoutManifestVersion<Partial<ManifestV2>> &
+  WithoutManifestVersion<Partial<ManifestV3>> & {
     // Intersecting the two Partials collapses manifest_version to never, so
     // it is declared once here with the two values the engine accepts.
     manifest_version?: 2 | 3
@@ -43,7 +42,7 @@ export type ChromeManifest = WithoutManifestVersion<
     }
     // Firefox supports theme_icons on the MV3 action (light/dark toolbar
     // icons), which @types/chrome does not model.
-    action?: chrome.runtime.ManifestV3['action'] & {
+    action?: ManifestV3['action'] & {
       theme_icons?: ThemeIcon[]
     }
     // Extension.js augments the standard omnibox shape with a `default_icon`

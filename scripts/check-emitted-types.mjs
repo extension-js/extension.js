@@ -67,9 +67,42 @@ export function consumerSource(specifiers) {
   return `${specifiers.map((specifier) => `import '${specifier}'`).join('\n')}\n\nexport {}\n`
 }
 
+// Entries that declare the same global in two ways. The generated
+// extension-env.d.ts names one of them, so no project loads both.
+export const exclusiveEntries = [['extension/types', 'extension/types/legacy']]
+
+// Each entry alone shows what it borrows from a sibling. The joint programs
+// show two entries that clash, with one member of an exclusive group each.
+export function consumerPrograms(specifiers, exclusive = exclusiveEntries) {
+  const programs = specifiers.map((specifier) => [specifier])
+  const groups = exclusive
+    .map((group) => group.filter((member) => specifiers.includes(member)))
+    .filter((group) => group.length > 1)
+
+  let choices = [[]]
+
+  for (const group of groups) {
+    choices = choices.flatMap((chosen) =>
+      group.map((member) => [...chosen, member])
+    )
+  }
+
+  const grouped = new Set(groups.flat())
+
+  for (const chosen of choices) {
+    const joint = specifiers.filter(
+      (specifier) => !grouped.has(specifier) || chosen.includes(specifier)
+    )
+
+    if (joint.length > 1) programs.push(joint)
+  }
+
+  return programs
+}
+
 // No development condition here, so each import resolves the way an installed
 // copy does: through the types target of the export.
-export function consumerTsconfig() {
+export function consumerTsconfig(file = 'consumer.ts') {
   return {
     compilerOptions: {
       target: 'ES2022',
@@ -82,7 +115,7 @@ export function consumerTsconfig() {
       noUncheckedSideEffectImports: true,
       types: ['node']
     },
-    files: ['consumer.ts']
+    files: [file]
   }
 }
 
@@ -199,54 +232,71 @@ export function checkEmittedTypes(options = {}) {
       linkPackage(workDir, manifest.name, dir)
     }
 
-    fs.writeFileSync(
-      path.join(workDir, 'consumer.ts'),
-      consumerSource(specifiers)
-    )
-
-    fs.writeFileSync(
-      path.join(workDir, 'tsconfig.json'),
-      `${JSON.stringify(consumerTsconfig(), null, 2)}\n`
-    )
-
-    const run = spawnSync(
-      process.execPath,
-      [
-        options.tsc ?? resolveTsc(root),
-        '-p',
-        path.join(workDir, 'tsconfig.json'),
-        '--pretty',
-        'false'
-      ],
-      {cwd: workDir, encoding: 'utf8'}
-    )
-
-    if (run.error) throw run.error
-
-    const output = `${run.stdout ?? ''}\n${run.stderr ?? ''}`
-    const diagnostics = parseDiagnostics(output, workDir)
     const packageDirs = packages.map(({dir}) => fs.realpathSync(dir))
-    const owned = ownedDiagnostics(diagnostics, packageDirs, workDir)
+    const programs = consumerPrograms(specifiers, options.exclusive)
+    const seen = new Set(problems)
+    const foreign = new Set()
+    const tsc = options.tsc ?? resolveTsc(root)
 
-    for (const diagnostic of owned) {
-      const where =
-        diagnostic.file === null
-          ? 'tsc'
-          : `${toPosix(path.relative(root, diagnostic.file))}:${diagnostic.line}`
+    for (const [index, program] of programs.entries()) {
+      const consumer = `consumer-${index}.ts`
+      const tsconfig = path.join(workDir, `tsconfig-${index}.json`)
 
-      problems.push(`${where}: ${diagnostic.code} ${diagnostic.message}`)
-    }
+      fs.writeFileSync(path.join(workDir, consumer), consumerSource(program))
 
-    // A failed run that names no file of ours still has to be read by someone.
-    if (run.status !== 0 && diagnostics.length === 0) {
-      problems.push(`tsc exited ${run.status}: ${output.trim()}`)
+      fs.writeFileSync(
+        tsconfig,
+        `${JSON.stringify(consumerTsconfig(consumer), null, 2)}\n`
+      )
+
+      const run = spawnSync(
+        process.execPath,
+        [tsc, '-p', tsconfig, '--pretty', 'false'],
+        {cwd: workDir, encoding: 'utf8'}
+      )
+
+      if (run.error) throw run.error
+
+      const output = `${run.stdout ?? ''}\n${run.stderr ?? ''}`
+      const diagnostics = parseDiagnostics(output, workDir)
+      const owned = ownedDiagnostics(diagnostics, packageDirs, workDir)
+
+      for (const diagnostic of diagnostics) {
+        if (owned.includes(diagnostic)) continue
+
+        foreign.add(
+          `${diagnostic.file}:${diagnostic.line}: ${diagnostic.code} ${diagnostic.message}`
+        )
+      }
+
+      for (const diagnostic of owned) {
+        // An error in the consumer file belongs to the entries it imports.
+        const where =
+          diagnostic.file === null
+            ? 'tsc'
+            : path.basename(diagnostic.file) === consumer
+              ? `consumer of ${program.join(', ')}`
+              : `${toPosix(path.relative(root, diagnostic.file))}:${diagnostic.line}`
+        const problem = `${where}: ${diagnostic.code} ${diagnostic.message}`
+
+        if (seen.has(problem)) continue
+
+        seen.add(problem)
+        problems.push(problem)
+      }
+
+      // A failed run that names no file of ours still has to be read by someone.
+      if (run.status !== 0 && diagnostics.length === 0) {
+        problems.push(`tsc exited ${run.status}: ${output.trim()}`)
+      }
     }
 
     return {
       ok: problems.length === 0,
       problems,
       specifiers,
-      foreign: diagnostics.length - owned.length
+      programs,
+      foreign: foreign.size
     }
   } finally {
     fs.rmSync(workDir, {recursive: true, force: true})
@@ -269,7 +319,7 @@ if (invokedDirectly) {
   }
 
   console.log(
-    `Emitted declarations are sound for ${result.specifiers.length} typed entries: ${result.specifiers.join(', ')}.`
+    `Emitted declarations are sound for ${result.specifiers.length} typed entries, each alone and together in ${result.programs.length} programs: ${result.specifiers.join(', ')}.`
   )
 
   if (result.foreign > 0) {
