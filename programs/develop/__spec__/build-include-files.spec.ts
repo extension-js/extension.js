@@ -183,3 +183,56 @@ describe('the include config', () => {
     expect(fs.existsSync(path.join(root, 'dist', 'chrome'))).toBe(false)
   }, 120_000)
 })
+
+describe('an include entry in its long form', () => {
+  it('reads from and minify, and refuses any other shape', async () => {
+    const {judgeIncludeFiles} = await import(
+      '../plugin-special-folders/include-files'
+    )
+    const {root} = workspace({'project/vendor/lib.js': '1\n'}, '')
+
+    const verdicts = judgeIncludeFiles(
+      {
+        'a.js': 'vendor/lib.js',
+        'b.js': {from: 'vendor/lib.js', minify: false},
+        'c.js': {from: 'vendor/lib.js'},
+        'd.js': {from: ''},
+        'e.js': {from: 'vendor/lib.js', minify: 'no'},
+        'f.js': {from: 'vendor/lib.js', minfy: false},
+        'g.js': ['vendor/lib.js']
+      } as any,
+      root
+    )
+
+    expect(verdicts.map((verdict) => verdict.kind)).toEqual([
+      'ok',
+      'ok',
+      'ok',
+      'invalid',
+      'invalid',
+      'invalid',
+      'invalid'
+    ])
+
+    expect(
+      verdicts.map((verdict) => verdict.kind === 'ok' && verdict.minify)
+    ).toEqual([true, false, true, false, false, false, false])
+
+    expect(JSON.stringify(verdicts[5])).toContain('minfy is not a key')
+  })
+
+  it('keeps the value a script ends on and falls back on a file it cannot parse', async () => {
+    const {minifyIncludedScript} = await import(
+      '../plugin-special-folders/include-files'
+    )
+    const minified = await minifyIncludedScript(
+      Buffer.from('// note\nvar total = 40\ntotal + 2\n'),
+      '/x/lib.js'
+    )
+
+    expect(minified.toString()).toBe('var total=40;total+2;')
+
+    const broken = Buffer.from('function (')
+    expect(await minifyIncludedScript(broken, '/x/broken.js')).toBe(broken)
+  })
+})

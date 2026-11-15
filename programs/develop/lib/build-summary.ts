@@ -40,9 +40,14 @@ export type BuildSummary = {
   /** Absolute dist directory the build emitted into. Hosts that shell out
    * would otherwise have to re-derive `<project>/dist/<browser>` themselves. */
   output_path?: string
+  /** The files the extension ships. Source maps are counted apart. */
   total_assets: number
   total_bytes: number
   largest_asset_bytes: number
+  /** The `.map` files in the output folder, which no zip carries. Absent
+   * when the build wrote none. */
+  source_map_assets?: number
+  source_map_bytes?: number
   warnings_count: number
   errors_count: number
   /** Plain-text warning messages (ANSI-stripped, capped) so programmatic
@@ -77,14 +82,19 @@ export function getBuildSummary(
     errors?: unknown[]
   } | null,
   outputPath?: string,
-  outputFiles?: Array<{size: number}>,
+  outputFiles?: Array<{size: number; name?: string}>,
   codes?: ReadonlyMap<string, string>
 ): Omit<BuildSummary, 'buildType'> {
   // The stats list leaves out source maps, so the files found in the output
   // folder are what the totals count whenever the folder could be read.
-  const assets: Array<{size?: number}> = outputFiles?.length
+  const emitted: Array<{size?: number; name?: string}> = outputFiles?.length
     ? outputFiles
     : info?.assets || []
+  // A map is a debugging aid beside the extension, not a file it ships.
+  const isSourceMap = (asset: {name?: string}) =>
+    typeof asset.name === 'string' && /\.map$/i.test(asset.name)
+  const assets = emitted.filter((asset) => !isSourceMap(asset))
+  const sourceMaps = emitted.filter(isSourceMap)
   const warnings = (info?.warnings || [])
     .slice(0, MAX_SUMMARY_WARNINGS)
     .map((warning) => {
@@ -107,6 +117,12 @@ export function getBuildSummary(
     total_assets: assets.length,
     total_bytes: assets.reduce((n, a) => n + (a.size || 0), 0),
     largest_asset_bytes: assets.reduce((m, a) => Math.max(m, a.size || 0), 0),
+    ...(sourceMaps.length
+      ? {
+          source_map_assets: sourceMaps.length,
+          source_map_bytes: sourceMaps.reduce((n, a) => n + (a.size || 0), 0)
+        }
+      : {}),
     warnings_count: (info?.warnings || []).length,
     errors_count: (info?.errors || []).length,
     ...(warnings.length ? {warnings} : {})

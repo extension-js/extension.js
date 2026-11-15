@@ -118,6 +118,8 @@ Useful flags:
 - `--zip` packages the build into a ZIP ready for store upload
 - `--zip-source` includes source files for store source-code review
 - `--zip-filename <name>` controls the output filename, written as `dist/<name>-<browser>.zip`
+- `--zip-dir <path>` writes the ZIP files to that folder instead of `dist`, relative to the project root or absolute
+- `--source-maps` writes a source map beside each script and stylesheet of a production build. The maps stay out of the ZIP file, and the build total counts them apart
 - `--out-dir <path>` writes the build to `<path>/<browser>` instead of `dist/<browser>`. A build into the folder a live dev session serves is refused, so this is how a build runs beside a dev session
 - `--polyfill` enables the cross-browser webextension polyfill
 
