@@ -57,6 +57,12 @@ updates:
       codeql-action:
         patterns:
           - "github/codeql-action*"
+    # The release gates pin these two by commit, in the uses line and in a
+    # ref input that a bump here would leave behind. They move together with
+    # scripts/bump-release-gates.mjs.
+    ignore:
+      - dependency-name: "extension-js/corpus*"
+      - dependency-name: "extension-js/templates*"
     open-pull-requests-limit: 10
     rebase-strategy: "auto"
     labels:

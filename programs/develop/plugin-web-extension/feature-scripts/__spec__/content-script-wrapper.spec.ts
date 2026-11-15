@@ -730,6 +730,50 @@ describe('a declared content script with no default export', () => {
     expect(hints[0]).not.toContain('DOM event')
   })
 
+  // Chromium keeps the old copy alive in the tab after a whole-extension
+  // reload, and Firefox drops its world, so each engine gets its own line.
+  it('says what a whole-extension reload does to the old copy per engine', () => {
+    const hintOn = (browser: string) => {
+      const entry = writeDeclaredEntry()
+      const hints = hintsFor(() => {
+        contentScriptWrapper.call(
+          createLoaderContext(
+            entry.resourcePath,
+            entry.manifestPath,
+            browser
+          ) as any,
+          selfStarting
+        )
+      })
+
+      expect(hints).toHaveLength(1)
+
+      return hints[0]
+    }
+
+    for (const browser of ['chrome', 'edge', 'chromium']) {
+      const hint = hintOn(browser)
+
+      expect(hint).not.toContain("discards the old copy's code")
+      expect(hint).toContain(
+        'a whole-extension reload leaves the old copy running in the open tab beside the new one'
+      )
+
+      expect(hint).toContain('Reload the tab to end it')
+      expect(hint).toContain('chrome.runtime.id')
+      expect(hint).toContain('data-extension-root')
+    }
+
+    const firefox = hintOn('firefox')
+
+    expect(firefox).toContain(
+      "A whole-extension reload discards the old copy's code"
+    )
+
+    expect(firefox).not.toContain('beside the new one')
+    expect(firefox).toContain('data-extension-root')
+  })
+
   it('says nothing for a script with a default export, or in a production build', () => {
     const withDefault = writeDeclaredEntry()
     const shipped = writeDeclaredEntry()

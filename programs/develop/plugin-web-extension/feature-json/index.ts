@@ -35,7 +35,8 @@ export class JsonPlugin {
           processJsonAssets(
             compilation,
             this.manifestPath,
-            this.includeList || {}
+            this.includeList || {},
+            this.browser ? String(this.browser) : undefined
           )
 
           // Register the JSON file and its assets as file dependencies so watch mode

@@ -469,12 +469,48 @@ export function chromiumRefusesTheExtension(
   )
 }
 
-export function mv2NotSupportedByChromium(extensionPath: string) {
+// Chrome's timeline names 138 as the last version to run Manifest V2, Chromium
+// 151 dropped the flag that loaded one unpacked, and Edge 157 still runs one.
+const CHROME_LAST_MANIFEST_V2_VERSION = 138
+const CHROMIUM_MANIFEST_V2_FLAG_REMOVED_VERSION = 151
+const EDGE_VERSION_MEASURED_RUNNING_MANIFEST_V2 = 157
+
+// Said before the launch when no build in this session said it first.
+export function manifestV2OnChromiumBrowser(
+  browser: string,
+  extensionPath: string
+) {
+  const last = CHROME_LAST_MANIFEST_V2_VERSION
+  const removed = CHROMIUM_MANIFEST_V2_FLAG_REMOVED_VERSION
+  const pathLine = `${colors.gray('PATH')} ${colors.underline(extensionPath)}\n`
+
+  if (browser === 'edge') {
+    return (
+      `${getLoggingPrefix('warn')} ${colors.brightYellow('This extension declares Manifest V2, which Microsoft Edge has deprecated and still runs.')}\n` +
+      pathLine +
+      `Edge ${EDGE_VERSION_MEASURED_RUNNING_MANIFEST_V2} loads and runs one unpacked with no warning, and Microsoft names no final version yet.\n` +
+      `Chrome ${last} was the last Chrome version to support it, so plan the move to Manifest V3.`
+    )
+  }
+
+  const verdict =
+    browser === 'chrome'
+      ? {
+          title:
+            'This extension declares Manifest V2, and Chrome no longer runs it.',
+          versions: `Chrome ${last} was the last version to support Manifest V2, and Chrome ${removed} removed the flag that still loaded one unpacked.`
+        }
+      : {
+          title:
+            'This extension declares Manifest V2, and Chromium no longer runs it.',
+          versions: `Chromium ${removed} removed the last flag that loaded a Manifest V2 extension, and Chrome ${last} was the last Chrome version to support it.`
+        }
+
   return (
-    `${getLoggingPrefix('warn')} ${colors.brightYellow('This extension declares Manifest V2, which modern Chromium refuses to load.')}\n` +
-    `${colors.gray('PATH')} ${colors.underline(extensionPath)}\n` +
-    `The browser will reject it at launch (a native dialog, not a console error), so the dev session can't attach.\n` +
-    `Run it on an MV2-capable browser (${colors.blue('--browser firefox')}) or migrate the manifest to MV3.`
+    `${getLoggingPrefix('warn')} ${colors.brightYellow(verdict.title)}\n` +
+    pathLine +
+    `${verdict.versions}\n` +
+    `Run it on a browser that keeps Manifest V2 (${colors.blue('--browser firefox')}) or migrate the manifest to Manifest V3.`
   )
 }
 

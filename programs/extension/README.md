@@ -127,7 +127,7 @@ Useful flags:
 - `--zip-dir <path>` writes the ZIP files to that folder instead of `dist`, relative to the project root or absolute
 - `--source-maps` writes a source map beside each script and stylesheet of a production build. The maps stay out of the ZIP file, and the build total counts them apart
 - `--out-dir <path>` writes the build to `<path>/<browser>` instead of `dist/<browser>`. A build into the folder a live dev session serves is refused, so this is how a build runs beside a dev session
-- `--polyfill` enables the cross-browser webextension polyfill
+- `--polyfill` bundles the cross-browser webextension polyfill, off by default in every command. It is for a Chromium older than 148, or older than 152 when the manifest declares a `devtools_page`
 
 ## Manage browser binaries
 

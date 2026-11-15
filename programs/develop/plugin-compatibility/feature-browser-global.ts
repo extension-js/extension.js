@@ -23,7 +23,14 @@ import {
   referencesBrowserGlobal
 } from './compatibility-lib/free-browser-references'
 import * as messages from './compatibility-lib/messages'
-import {nativeBrowserNamespaceFloor} from './compatibility-lib/native-browser-namespace'
+import {
+  NATIVE_BROWSER_NAMESPACE_CHROMIUM_DEVTOOLS,
+  nativeBrowserNamespaceFloor
+} from './compatibility-lib/native-browser-namespace'
+
+type BrowserGlobalWarningCommand = NonNullable<
+  messages.BrowserGlobalWarningContext['command']
+>
 
 const HOT_UPDATE_RE = /\.hot-update\.js$/
 
@@ -103,26 +110,36 @@ export function declaresNativeBrowserNamespace(manifest: {
   return major >= nativeBrowserNamespaceFloor(manifest)
 }
 
-// Dev and start provide `browser` through the polyfill by default and build
-// does not, so a project written against it runs all through development and
-// ships a bundle that throws on first use. This names that before it ships.
+function declaredMinimumOf(manifest: {
+  minimum_chrome_version?: unknown
+}): number | undefined {
+  const major = Number.parseInt(String(manifest.minimum_chrome_version), 10)
+
+  return Number.isFinite(major) ? major : undefined
+}
+
+// No command bundles the polyfill by default, so code written against
+// `browser` throws on a Chromium too old to have it. This names that.
 export class WarnBrowserGlobalWithoutPolyfill {
   public readonly manifestPath: string
   public readonly browser: DevOptions['browser']
   public readonly devSession?: boolean
+  public readonly command?: BrowserGlobalWarningCommand
 
-  constructor(options: PluginInterface) {
+  constructor(
+    options: PluginInterface & {command?: BrowserGlobalWarningCommand}
+  ) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
     this.devSession = options.devSession
+    this.command = options.command
   }
 
   apply(compiler: Compiler) {
     if (!compiler?.hooks?.thisCompilation) return
 
-    if (compiler.options.mode === 'development' && this.devSession !== false) {
-      return
-    }
+    const inDevSession =
+      compiler.options.mode === 'development' && this.devSession !== false
 
     compiler.hooks.thisCompilation.tap(
       'compatibility:warn-browser-global',
@@ -144,6 +161,17 @@ export class WarnBrowserGlobalWithoutPolyfill {
               ) as {minimum_chrome_version?: unknown; devtools_page?: unknown}
               if (declaresNativeBrowserNamespace(manifest)) return
 
+              const floor = nativeBrowserNamespaceFloor(manifest)
+
+              // A dev session runs a current browser, which has the plain
+              // namespace. Only the devtools_page floor is still ahead of it.
+              if (
+                inDevSession &&
+                floor !== NATIVE_BROWSER_NAMESPACE_CHROMIUM_DEVTOOLS
+              ) {
+                return
+              }
+
               const scan = compilation as unknown as ScanCompilation
               const scripts = offendingScripts(scan)
               if (!scripts.length) return
@@ -156,7 +184,11 @@ export class WarnBrowserGlobalWithoutPolyfill {
               const text = messages.browserGlobalWithoutPolyfill(
                 this.browser,
                 sources.length ? sources : scripts,
-                nativeBrowserNamespaceFloor(manifest)
+                floor,
+                {
+                  command: this.command || (inDevSession ? 'dev' : 'build'),
+                  declaredMinimum: declaredMinimumOf(manifest)
+                }
               )
 
               const WebpackErrorCtor = compiler.rspack?.WebpackError

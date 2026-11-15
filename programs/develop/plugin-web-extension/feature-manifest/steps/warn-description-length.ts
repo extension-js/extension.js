@@ -10,6 +10,7 @@ import {Compilation, type Compiler, WebpackError} from '@rspack/core'
 import {humanLine} from '../../../dev-server/lifecycle-stream'
 import {
   isChromiumBasedBrowser,
+  isGeckoBasedBrowser,
   isWebkitBasedBrowser
 } from '../../../lib/constants'
 import {parseJsonSafe} from '../../../lib/parse-json-safe'
@@ -21,6 +22,9 @@ import * as messages from '../messages'
 // 112 characters (Apple error 90849), Chrome caps the same field at 132.
 export const APP_STORE_DESCRIPTION_LIMIT = 112
 export const CHROME_DESCRIPTION_LIMIT = 132
+// addons.mozilla.org fills its 250 character summary from this field, and
+// addons-linter 10.14.0 and later fail a longer one as JSON_INVALID.
+export const AMO_DESCRIPTION_LIMIT = 250
 
 export interface DescriptionRule {
   limit: number
@@ -47,6 +51,14 @@ export function descriptionRuleFor(browser: string): DescriptionRule | null {
     return {
       limit: CHROME_DESCRIPTION_LIMIT,
       store: 'the Chrome Web Store',
+      required: false
+    }
+  }
+
+  if (isGeckoBasedBrowser(browser)) {
+    return {
+      limit: AMO_DESCRIPTION_LIMIT,
+      store: 'addons.mozilla.org',
       required: false
     }
   }

@@ -10,7 +10,9 @@ import {ADDON_LINT_DEFAULT} from './addon-lint'
 import {sanitize} from './sanitize'
 
 export const DEV_COMMAND_DEFAULTS = {
-  polyfill: true,
+  // Chromium 148 has browser.* natively, so no command bundles the polyfill
+  // unless the project asks for it.
+  polyfill: false,
   logFormat: 'pretty' as const,
   logTimestamps: true,
   logColor: true,
@@ -35,7 +37,7 @@ export const SERVE_COMMAND_DEFAULTS = {
 }
 
 export const START_BUILD_DEFAULTS = {
-  polyfill: true,
+  polyfill: false,
   silent: true,
   // start previews the build in a browser, it does not ship it, so the
   // store check stays out of that loop unless the config asks for it.

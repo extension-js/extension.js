@@ -178,7 +178,7 @@ export function registerDevCommand(program: Command) {
     )
     .option(
       '--polyfill [boolean]',
-      'whether or not to apply the cross-browser polyfill. Defaults to `true` (`build` defaults to `false`)',
+      'bundle the cross-browser polyfill, for a Chromium older than 148 (152 with a devtools_page). Defaults to `false`',
       parseOptionalBoolean
     )
     .option('--no-polyfill', 'disable the cross-browser polyfill')
