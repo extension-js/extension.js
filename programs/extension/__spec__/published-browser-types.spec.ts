@@ -18,7 +18,7 @@ function unionMembers(file: string, name: string): string[] {
 describe('the published ExtensionBrowser type', () => {
   it('lists every target the CLI accepts for --browser, in the same order', () => {
     const published = unionMembers(
-      path.join(packageRoot, 'types', 'index.d.ts'),
+      path.join(packageRoot, 'types', 'env.d.ts'),
       'ExtensionBrowser'
     )
     const launcher = unionMembers(

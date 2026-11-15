@@ -4,6 +4,7 @@
   "compilerOptions": {
     // "types": ["chrome", "firefox-webext-browser", "node"],
     // "jsx": "react-jsx",
+    "types": ["node", "chrome"],
     "target": "ES2021",
     "lib": ["ES2021"],
     "module": "ESNext",
@@ -24,6 +25,10 @@
     "**/__spec__/**",
     "**/*.spec.ts",
     "./examples/**",
-    "./templates/**"
+    "./templates/**",
+    // These load chrome-types, which cannot share a program with the
+    // @types/chrome this source is written against. A generator spec checks them.
+    "./programs/extension/types/index.d.ts",
+    "./programs/extension/types/firefox.d.ts"
   ]
 }

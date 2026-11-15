@@ -11,5 +11,12 @@
     "types": ["node", "chrome", "webextension-polyfill"]
   },
   "include": ["./programs/**/*.ts"],
-  "exclude": ["node_modules", "**/dist", "./examples/**", "./templates/**"]
+  "exclude": [
+    "node_modules",
+    "**/dist",
+    "./examples/**",
+    "./templates/**",
+    "./programs/extension/types/index.d.ts",
+    "./programs/extension/types/firefox.d.ts"
+  ]
 }

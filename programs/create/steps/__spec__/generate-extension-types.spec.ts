@@ -41,4 +41,31 @@ describe('create generate-extension-types', () => {
 
     expect(content).not.toContain('declare module')
   })
+
+  it('keeps @types/chrome for a scaffold whose package.json lists it', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-create-types-'))
+    created.push(root)
+    const projectPath = path.join(root, 'my-extension')
+    fs.mkdirSync(projectPath, {recursive: true})
+    fs.writeFileSync(
+      path.join(projectPath, 'package.json'),
+      JSON.stringify({devDependencies: {'@types/chrome': '^0.0.287'}})
+    )
+
+    await generateExtensionTypes(projectPath, 'my-extension', silentLogger)
+
+    const content = fs.readFileSync(
+      path.join(projectPath, 'extension-env.d.ts'),
+      'utf8'
+    )
+    expect(content).toBe(
+      renderExtensionEnvTypes(undefined, {}, {ownChromeTypes: true})
+    )
+
+    expect(content).toContain(
+      '/// <reference types="extension/types/legacy" />'
+    )
+
+    expect(content).toContain('/// <reference types="chrome" />')
+  })
 })
