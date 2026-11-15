@@ -6,7 +6,46 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import {existsSync, readFileSync} from 'node:fs'
+import * as path from 'node:path'
+
 export const EXTENSION_ENV_TYPES_PACKAGE = 'extension'
+
+const OWN_CHROME_TYPES = '@types/chrome'
+
+function listsOwnChromeTypes(projectDir) {
+  try {
+    const pkg = JSON.parse(
+      readFileSync(path.join(projectDir, 'package.json'), 'utf8')
+    )
+
+    return Boolean(
+      pkg.dependencies?.[OWN_CHROME_TYPES] ||
+        pkg.devDependencies?.[OWN_CHROME_TYPES]
+    )
+  } catch {
+    return false
+  }
+}
+
+// @types/chrome and chrome-types both declare the chrome global, so only one
+// may load. A project that lists or can resolve its own copy keeps it.
+export function projectBringsOwnChromeTypes(projectDir) {
+  if (listsOwnChromeTypes(projectDir)) return true
+
+  let dir = path.resolve(projectDir)
+
+  while (true) {
+    if (existsSync(path.join(dir, 'node_modules', OWN_CHROME_TYPES))) {
+      return true
+    }
+
+    const parent = path.dirname(dir)
+    if (parent === dir) return false
+
+    dir = parent
+  }
+}
 
 const STYLE_TYPE = 'Readonly<Record<string, string>>'
 
@@ -61,7 +100,7 @@ export function renderDefineDeclarations(defineTypes = {}) {
 export function renderExtensionEnvTypes(
   typePath = EXTENSION_ENV_TYPES_PACKAGE,
   defineTypes = {},
-  {inlineAssetTypes = false} = {}
+  {inlineAssetTypes = false, ownChromeTypes = false} = {}
 ) {
   const defineDeclarations = renderDefineDeclarations(defineTypes)
   const assetDeclarations = inlineAssetTypes
@@ -76,7 +115,15 @@ ${renderWildcardModuleDeclarations()}`
 // If you need additional types, consider creating a new *.d.ts file and
 // referencing it in the "include" array of your tsconfig.json file.
 // See https://www.typescriptlang.org/tsconfig#include for more information.
-/// <reference types="${typePath}/types" />
+${
+  ownChromeTypes
+    ? `/// <reference types="${typePath}/types/legacy" />
+
+// This project installs @types/chrome, so it types the extension APIs.
+// Remove that package to get chrome-types and the native browser namespace.
+/// <reference types="chrome" />`
+    : `/// <reference types="${typePath}/types" />`
+}
 
 // Polyfill types for browser.* APIs
 /// <reference types="${typePath}/types/polyfill" />

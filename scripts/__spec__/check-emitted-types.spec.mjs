@@ -13,8 +13,10 @@ import {after, test} from 'node:test'
 import {fileURLToPath} from 'node:url'
 import {
   checkEmittedTypes,
+  consumerPrograms,
   consumerSource,
   consumerTsconfig,
+  exclusiveEntries,
   listPublishedPackages,
   ownedDiagnostics,
   parseDiagnostics,
@@ -244,4 +246,117 @@ test('the work folder is removed after a run', () => {
     fs.readdirSync(path.join(fixtureRoot, 'node_modules', '.cache')),
     []
   )
+})
+
+test('each entry is checked alone, then together with one member of an exclusive group', () => {
+  assert.deepEqual(consumerPrograms(['a', 'a/b', 'c'], []), [
+    ['a'],
+    ['a/b'],
+    ['c'],
+    ['a', 'a/b', 'c']
+  ])
+
+  assert.deepEqual(
+    consumerPrograms(['a', 'a/one', 'a/two', 'c'], [['a/one', 'a/two']]),
+    [
+      ['a'],
+      ['a/one'],
+      ['a/two'],
+      ['c'],
+      ['a', 'a/one', 'c'],
+      ['a', 'a/two', 'c']
+    ]
+  )
+
+  assert.deepEqual(consumerPrograms(['a'], [['a', 'gone']]), [['a']])
+})
+
+test('the exclusive entries are typed entries the extension package exports', () => {
+  const extension = listPublishedPackages(root).find(
+    ({manifest}) => manifest.name === 'extension'
+  )
+  const specifiers = typedEntries(extension.manifest).map(
+    (entry) => entry.specifier
+  )
+
+  assert.deepEqual(exclusiveEntries, [
+    ['extension/types', 'extension/types/legacy']
+  ])
+
+  for (const member of exclusiveEntries.flat()) {
+    assert.ok(specifiers.includes(member), member)
+  }
+})
+
+const GLOBAL_ENTRY =
+  'declare global {\n  namespace shared {\n    interface Shape {\n      name: string\n    }\n  }\n}\nexport {}\n'
+
+test('an entry that borrows a global from a sibling entry fails on its own', () => {
+  const fixtureRoot = makeFixtureRoot()
+  const borrowing = writePackage(
+    fixtureRoot,
+    'borrowing',
+    {
+      'dist/index.d.ts': 'export declare const value: shared.Shape\n',
+      'dist/globals.d.ts': GLOBAL_ENTRY
+    },
+    {
+      exports: {
+        '.': {types: './dist/index.d.ts'},
+        './globals': {types: './dist/globals.d.ts'}
+      }
+    }
+  )
+  const result = checkEmittedTypes({
+    root: fixtureRoot,
+    packages: [borrowing],
+    tsc
+  })
+
+  assert.equal(result.ok, false)
+  assert.deepEqual(result.problems, [
+    "programs/borrowing/dist/index.d.ts:1: TS2503 Cannot find namespace 'shared'."
+  ])
+})
+
+test('two entries that declare one global fail together unless they are exclusive', () => {
+  const fixtureRoot = makeFixtureRoot()
+  const clashing = writePackage(
+    fixtureRoot,
+    'clashing',
+    {
+      'dist/one.d.ts':
+        'declare global {\n  const shared: string\n}\nexport {}\n',
+      'dist/two.d.ts':
+        'declare global {\n  const shared: number\n}\nexport {}\n'
+    },
+    {
+      exports: {
+        './one': {types: './dist/one.d.ts'},
+        './two': {types: './dist/two.d.ts'}
+      }
+    }
+  )
+  const together = checkEmittedTypes({
+    root: fixtureRoot,
+    packages: [clashing],
+    tsc,
+    exclusive: []
+  })
+
+  assert.equal(together.ok, false)
+  assert.ok(together.problems.join('\n').includes('TS2451'))
+
+  const apart = checkEmittedTypes({
+    root: fixtureRoot,
+    packages: [clashing],
+    tsc,
+    exclusive: [['fixture-clashing/one', 'fixture-clashing/two']]
+  })
+
+  assert.deepEqual(apart.problems, [])
+  assert.deepEqual(apart.programs, [
+    ['fixture-clashing/one'],
+    ['fixture-clashing/two']
+  ])
 })

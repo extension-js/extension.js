@@ -1,77 +1,9 @@
 // Required Extension.js types for TypeScript projects.
 // This file is published by the extension package.
 /// <reference types="node" />
-/// <reference types="chrome" />
+/// <reference types="chrome-types" />
 /// <reference path="./assets.d.ts" />
-
-declare global {
-  // Firefox, Safari and Chromium 148 onward ship the browser global natively.
-  // The opt-in webextension-polyfill provides it on an older Chromium.
-  const browser: typeof import('webextension-polyfill')
-
-  // Every target the CLI accepts for --browser, so a branch on
-  // process.env.EXTENSION_PUBLIC_BROWSER typechecks for each of them.
-  type ExtensionBrowser =
-    | 'chrome'
-    | 'edge'
-    | 'firefox'
-    | 'chromium'
-    | 'brave'
-    | 'opera'
-    | 'vivaldi'
-    | 'yandex'
-    | 'waterfox'
-    | 'librewolf'
-    | 'zen'
-    | 'floorp'
-    | 'chromium-based'
-    | 'gecko-based'
-    | 'firefox-based'
-    | 'safari'
-    | 'webkit-based'
-    | 'chromium-emulator'
-
-  type ExtensionMode = 'development' | 'production'
-
-  interface ExtensionEnv {
-    EXTENSION_BROWSER: ExtensionBrowser
-    EXTENSION_MODE: ExtensionMode
-    EXTENSION_PUBLIC_BROWSER: ExtensionBrowser
-    EXTENSION_PUBLIC_MODE: ExtensionMode
-    EXTENSION_PUBLIC_DESCRIPTION_TEXT: string
-    EXTENSION_DEBUG: string
-    EXTENSION_AUTHOR_MODE: string
-    EXTENSION_PUBLIC_AUTHOR_MODE: string
-  }
-
-  namespace NodeJS {
-    interface ProcessEnv extends ExtensionEnv {
-      [key: string]: string | undefined
-    }
-  }
-
-  interface ImportMetaEnv extends ExtensionEnv {
-    [key: string]: string | undefined
-  }
-
-  interface ImportMeta {
-    readonly env: ImportMetaEnv
-    readonly webpackHot?: {
-      accept: (module?: string | string[], callback?: () => void) => void
-      dispose: (callback: () => void) => void
-    }
-    url: string
-  }
-
-  interface Window {
-    /**
-     * @deprecated
-     * @description
-     * This is how Extension.js used to inject the shadow root into the window object.
-     * Use the shadowRoot reference from the content script instead.
-     */
-    __EXTENSION_SHADOW_ROOT__: ShadowRoot
-  }
-}
+/// <reference path="./env.d.ts" />
+/// <reference path="./firefox.d.ts" />
 
 export {}

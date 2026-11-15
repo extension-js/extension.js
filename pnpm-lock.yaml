@@ -366,9 +366,6 @@ importers:
 
   programs/extension:
     dependencies:
-      '@types/chrome':
-        specifier: '*'
-        version: 0.1.37
       '@types/node':
         specifier: '*'
         version: 26.0.1
@@ -381,6 +378,9 @@ importers:
       chrome-location2:
         specifier: 4.1.1
         version: 4.1.1
+      chrome-types:
+        specifier: '>=0.1.460'
+        version: 0.1.463
       chromium-location:
         specifier: 2.1.2
         version: 2.1.2
@@ -3160,6 +3160,9 @@ packages:
   chrome-trace-event@1.0.4:
     resolution: {integrity: sha512-rNjApaLzuwaOTjCiT8lSDdGN1APCiqkChLMJxJPWLunPAt5fy8xgU9/jNOchV84wfIxrA0lRQB7oCT8jrn/wrQ==}
     engines: {node: '>=6.0'}
+
+  chrome-types@0.1.463:
+    resolution: {integrity: sha512-Whhl9dsjYjL+qgsD3IpqpcRPZQ08PuWKBy8RmEAePCB8zvc8gxuOuNt9lWF0N0SQz4ePsAZgu055pc6bCaDesg==}
 
   chromium-location@2.1.2:
     resolution: {integrity: sha512-VE+2TFWsP+SikfogHj516ptohdB2+ZDU3eXlmq93PLGpaV4admAwUvN3221Ezxn3Ew2VRmtiLkJT0pxAe476KA==}
@@ -7754,6 +7757,8 @@ snapshots:
       which: 4.0.0
 
   chrome-trace-event@1.0.4: {}
+
+  chrome-types@0.1.463: {}
 
   chromium-location@2.1.2:
     dependencies:

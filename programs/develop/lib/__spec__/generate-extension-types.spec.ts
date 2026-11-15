@@ -7,6 +7,7 @@ import {afterEach, describe, expect, it, vi} from 'vitest'
 import {takeCodedWarnings} from '../coded-warnings'
 import {
   EXTENSION_ENV_WILDCARD_MODULES,
+  projectBringsOwnChromeTypes,
   renderExtensionEnvTypes
 } from '../extension-env-template'
 import {
@@ -78,9 +79,24 @@ function linkDir(target: string, link: string) {
   fs.symlinkSync(target, link, 'junction')
 }
 
+// Calls that only one of the two packages used to type: the Firefox sidebar
+// and Manifest V2 button, next to APIs every target has.
+const extensionApiSource = `\
+export async function openSidebar() {
+  await browser.sidebarAction.open()
+  const title: string = await browser.sidebarAction.getTitle({})
+  return title
+}
+
+browser.browserAction.onClicked.addListener(() => {})
+
+export const pageUrl: string = chrome.runtime.getURL('page.html')
+export const tabs = browser.tabs.query({active: true})
+`
+
 function writeTypescriptProject(
   root: string,
-  {withExtensionPackage = true} = {}
+  {withExtensionPackage = true, ownChromeTypes = false} = {}
 ) {
   const srcDir = path.join(root, 'src')
   fs.mkdirSync(srcDir, {recursive: true})
@@ -113,12 +129,27 @@ function writeTypescriptProject(
     })
   )
 
-  if (withExtensionPackage) writeExtensionPackage(root)
+  if (withExtensionPackage) {
+    writeExtensionPackage(root)
+    fs.writeFileSync(path.join(srcDir, 'apis.ts'), extensionApiSource)
+  }
 
-  for (const types of ['node', 'chrome', 'webextension-polyfill']) {
+  for (const types of ['node', 'webextension-polyfill']) {
     linkDir(
       packageDir(`@types/${types}`),
       path.join(root, 'node_modules', '@types', types)
+    )
+  }
+
+  if (ownChromeTypes) {
+    linkDir(
+      packageDir('@types/chrome'),
+      path.join(root, 'node_modules', '@types', 'chrome')
+    )
+  } else {
+    linkDir(
+      packageDir('chrome-types'),
+      path.join(root, 'node_modules', 'chrome-types')
     )
   }
 }
@@ -137,6 +168,7 @@ function writeExtensionPackage(root: string) {
       version: '0.0.0',
       exports: {
         './types': {types: './types/index.d.ts'},
+        './types/legacy': {types: './types/legacy.d.ts'},
         './types/polyfill': {types: './types/polyfill.d.ts'}
       }
     })
@@ -379,6 +411,127 @@ describe('generate-extension-types', () => {
 
     expect(result.stdout + result.stderr).toBe('')
     expect(result.status).toBe(0)
+  })
+
+  it('types browser from chrome-types and the Firefox declaration by default', async () => {
+    const root = makeTempDir('extjs-gen-tsc-default-')
+    fs.writeFileSync(
+      path.join(root, 'manifest.json'),
+      JSON.stringify({name: 'x'})
+    )
+
+    writeTypescriptProject(root)
+    expect(projectBringsOwnChromeTypes(root)).toBe(false)
+
+    await generateExtensionTypes(root, root)
+    const content = fs.readFileSync(
+      path.join(root, 'extension-env.d.ts'),
+      'utf8'
+    )
+
+    expect(content).toContain('/// <reference types="extension/types" />')
+    expect(content).not.toContain('extension/types/legacy')
+    expect(content).not.toContain('<reference types="chrome" />')
+
+    const listed = spawnSync(
+      process.execPath,
+      [
+        path.join(packageDir('typescript'), 'bin', 'tsc'),
+        '-p',
+        root,
+        '--listFiles'
+      ],
+      {cwd: root, encoding: 'utf8'}
+    )
+    const files = listed.stdout.split('\n').map((file) => file.trim())
+
+    expect(listed.status).toBe(0)
+    expect(
+      files.some((file) => /chrome-types[\\/]index\.d\.ts$/.test(file))
+    ).toBe(true)
+
+    expect(files.some((file) => /types[\\/]firefox\.d\.ts$/.test(file))).toBe(
+      true
+    )
+
+    expect(files.some((file) => /@types[\\/]chrome[\\/]/.test(file))).toBe(
+      false
+    )
+  })
+
+  // Both packages declare the chrome global, so a project with its own
+  // @types/chrome keeps it and chrome-types never loads beside it.
+  it('keeps @types/chrome and the polyfill browser for a project that installs it', async () => {
+    const root = makeTempDir('extjs-gen-tsc-own-')
+    fs.writeFileSync(
+      path.join(root, 'manifest.json'),
+      JSON.stringify({name: 'x'})
+    )
+
+    writeTypescriptProject(root, {ownChromeTypes: true})
+    expect(projectBringsOwnChromeTypes(root)).toBe(true)
+
+    await generateExtensionTypes(root, root)
+    const content = fs.readFileSync(
+      path.join(root, 'extension-env.d.ts'),
+      'utf8'
+    )
+
+    expect(content).toBe(
+      renderExtensionEnvTypes(undefined, {}, {ownChromeTypes: true})
+    )
+
+    expect(content).toContain(
+      '/// <reference types="extension/types/legacy" />'
+    )
+
+    expect(content).toContain('/// <reference types="chrome" />')
+    expect(content).not.toContain('/// <reference types="extension/types" />')
+
+    const listed = spawnSync(
+      process.execPath,
+      [
+        path.join(packageDir('typescript'), 'bin', 'tsc'),
+        '-p',
+        root,
+        '--listFiles'
+      ],
+      {cwd: root, encoding: 'utf8'}
+    )
+    const files = listed.stdout.split('\n').map((file) => file.trim())
+
+    expect(listed.stdout + listed.stderr).not.toContain('error TS')
+    expect(listed.status).toBe(0)
+    expect(files.some((file) => /@types[\\/]chrome[\\/]/.test(file))).toBe(true)
+    expect(files.some((file) => /chrome-types[\\/]/.test(file))).toBe(false)
+    expect(files.some((file) => /types[\\/]firefox\.d\.ts$/.test(file))).toBe(
+      false
+    )
+  })
+
+  it('reads a listed or a hoisted @types/chrome as the project bringing its own', () => {
+    const root = makeTempDir('extjs-gen-own-chrome-')
+    const nested = path.join(root, 'packages', 'my-extension')
+    fs.mkdirSync(nested, {recursive: true})
+    expect(projectBringsOwnChromeTypes(nested)).toBe(false)
+
+    // Listed and not installed yet, as at create time.
+    fs.writeFileSync(
+      path.join(nested, 'package.json'),
+      JSON.stringify({devDependencies: {'@types/chrome': '^0.0.287'}})
+    )
+
+    expect(projectBringsOwnChromeTypes(nested)).toBe(true)
+
+    fs.writeFileSync(path.join(nested, 'package.json'), '{}')
+    expect(projectBringsOwnChromeTypes(nested)).toBe(false)
+
+    // Installed above the project, where TypeScript finds it on its own.
+    fs.mkdirSync(path.join(root, 'node_modules', '@types', 'chrome'), {
+      recursive: true
+    })
+
+    expect(projectBringsOwnChromeTypes(nested)).toBe(true)
   })
 
   it('types every bundler import shape with no extension installed', async () => {

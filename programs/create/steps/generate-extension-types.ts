@@ -8,7 +8,10 @@
 
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
-import {renderExtensionEnvTypes} from '../../develop/lib/extension-env-template'
+import {
+  projectBringsOwnChromeTypes,
+  renderExtensionEnvTypes
+} from '../../develop/lib/extension-env-template'
 import * as messages from '../lib/messages'
 import {isDebug} from '../lib/messaging'
 
@@ -18,7 +21,11 @@ export async function generateExtensionTypes(
   logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
 ) {
   const extensionEnvFile = path.join(projectPath, 'extension-env.d.ts')
-  const fileContent = renderExtensionEnvTypes()
+  const fileContent = renderExtensionEnvTypes(
+    undefined,
+    {},
+    {ownChromeTypes: projectBringsOwnChromeTypes(projectPath)}
+  )
 
   try {
     await fs.mkdir(projectPath, {recursive: true})
