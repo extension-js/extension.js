@@ -1507,6 +1507,24 @@ describe('safari pipeline through the injected tool host', () => {
     expect(tools.calls.xcodebuild).toHaveLength(1)
   })
 
+  it('converter warnings: marks icon_variants as kept on purpose', async () => {
+    const tools = fakeSafariTools({
+      converter: {
+        output: [
+          'Warning: The following keys in your manifest.json are not supported:',
+          '\ticon_variants'
+        ].join('\n')
+      }
+    })
+    const {logs} = await runPipeline(manifest, {tools})
+
+    const warning = logs.find((line) =>
+      /safari-web-extension-converter reported/.test(line)
+    )
+    expect(warning).toMatch(/kept one of these keys on purpose/)
+    expect(warning).toMatch(/the build fills icons beside it/)
+  })
+
   it('prints no converter warning when the converter was quiet', async () => {
     const {logs} = await runPipeline(manifest)
 

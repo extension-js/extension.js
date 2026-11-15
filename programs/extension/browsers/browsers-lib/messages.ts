@@ -1316,7 +1316,9 @@ export interface SafariSigningNote {
 // Apple's converter table is years out of date, so it also flags keys the
 // build keeps on purpose. Named here, a kept key reads as a decision.
 const SAFARI_KEPT_ON_PURPOSE: Record<string, string> = {
-  world: 'Safari has honored the MAIN world since Safari 18, so the key stays'
+  world: 'Safari has honored the MAIN world since Safari 18, so the key stays',
+  icon_variants:
+    'WebKit has code for the key and the build fills icons beside it, so the key stays'
 }
 
 export function safariConverterWarnings(warnings: string[]) {

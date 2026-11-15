@@ -540,15 +540,18 @@ export function edgeEmbeddedOptionsDialog() {
 // A browser that skips icon_variants shows other icons, and the author
 // should learn which ones from the build, not from a dark toolbar.
 export function iconVariantsFallback(
-  reader: 'gecko' | 'chromium',
+  reader: 'gecko' | 'chromium' | 'webkit',
   verdicts: Array<{key: string; outcome: 'kept' | 'added' | 'missing'}>
 ) {
   const key = colors.yellow('icon_variants')
-  const why =
-    reader === 'gecko'
-      ? `Firefox does not read ${key} yet`
-      : `Chromium reads ${key} only with its ${colors.yellow('ExtensionIconVariants')} flag on`
-  const browser = reader === 'gecko' ? 'Firefox' : 'Chromium'
+  const reasons = {
+    gecko: `Firefox does not read ${key} yet`,
+    chromium: `Chromium reads ${key} only with its ${colors.yellow('ExtensionIconVariants')} flag on`,
+    webkit: `Safari's app converter does not read ${key} yet`
+  }
+  const browsers = {gecko: 'Firefox', chromium: 'Chromium', webkit: 'Safari'}
+  const why = reasons[reader]
+  const browser = browsers[reader]
   const named = (outcome: string) =>
     verdicts
       .filter((verdict) => verdict.outcome === outcome)
