@@ -83,10 +83,10 @@ jobs:
     if: ${{ needs.corpus-target.outputs.canary != '' }}
     permissions:
       contents: read
-    uses: cezaraugusto/browser-extension-test-data/.github/workflows/corpus-gate.yml@f85f3a7d6a9d106b5466790ead5aebf204019fd6 # main, 2026-11-14
+    uses: extension-js/corpus/.github/workflows/corpus-gate.yml@5decb2d854fc614aec0b80b6cceca52f1513f5c7 # main, 2026-11-15
     with:
       cli-version: ${{ needs.corpus-target.outputs.canary }}
-      ref: f85f3a7d6a9d106b5466790ead5aebf204019fd6
+      ref: 5decb2d854fc614aec0b80b6cceca52f1513f5c7
 
   publish:
     needs: [corpus-target, corpus-gate]
@@ -768,7 +768,7 @@ jobs:
     if: ${{ !cancelled() && needs.publish.result == 'success' && inputs.channel == 'canary' }}
     permissions:
       contents: read
-    uses: cezaraugusto/browser-extension-test-data/.github/workflows/corpus-gate.yml@f85f3a7d6a9d106b5466790ead5aebf204019fd6 # main, 2026-11-14
+    uses: extension-js/corpus/.github/workflows/corpus-gate.yml@5decb2d854fc614aec0b80b6cceca52f1513f5c7 # main, 2026-11-15
     with:
       cli-version: ${{ needs.publish.outputs.version }}
-      ref: f85f3a7d6a9d106b5466790ead5aebf204019fd6
+      ref: 5decb2d854fc614aec0b80b6cceca52f1513f5c7

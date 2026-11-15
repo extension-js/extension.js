@@ -40,7 +40,7 @@ Use the `Release – Publish` workflow at `.github/workflows/publish-release.yml
   urgent release.
 - A `stable` release is gated on the public corpus. Before anything is tagged, the
   workflow finds the canary on npm that was built from the same commit and builds
-  every sample of `cezaraugusto/browser-extension-test-data` with it, on Chrome,
+  every sample of `extension-js/corpus` with it, on Chrome,
   Firefox and Edge. A failing sample stops the release. So cut a canary from the
   commit first, then the stable from that same commit. With no canary of the commit
   the run fails and says so. A canary run also reports its own corpus reading after
