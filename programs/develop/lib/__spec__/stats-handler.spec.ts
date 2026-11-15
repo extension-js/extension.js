@@ -2,7 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {type Compiler, rspack, type Stats} from '@rspack/core'
-import {afterAll, describe, expect, it, vi} from 'vitest'
+import {afterAll, afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {
   humanizeCaseMismatchBlocks,
   isEmitTimeWarning,
@@ -180,13 +180,32 @@ describe('renderStatsBlocks on what the bundler prints', () => {
 })
 
 describe('renderStatsBlocks', () => {
+  const colorKeys = ['NO_COLOR', 'FORCE_COLOR'] as const
+  const saved: Record<string, string | undefined> = {}
+
+  beforeEach(() => {
+    for (const key of colorKeys) {
+      saved[key] = process.env[key]
+      delete process.env[key]
+    }
+  })
+
+  afterEach(() => {
+    for (const key of colorKeys) {
+      if (saved[key] === undefined) delete process.env[key]
+      else process.env[key] = saved[key]
+    }
+  })
+
+  // The bundler styles words inside a message even when asked for none.
+  const styled = 'ERROR in ./src/x.ts\n  × Module \u001b[31mnot found\u001b[39m'
+
   it('asks the stats object for errors-only output by default shape', () => {
-    const statsToString = vi.fn(() => 'ERROR in ./src/x.ts\n  × broken')
-    const rendered = plain(
-      renderStatsBlocks(
-        {toString: statsToString},
-        {errors: true, warnings: false}
-      )
+    process.env.FORCE_COLOR = '1'
+    const statsToString = vi.fn(() => styled)
+    const rendered = renderStatsBlocks(
+      {toString: statsToString},
+      {errors: true, warnings: false}
     )
 
     expect(statsToString).toHaveBeenCalledWith({
@@ -196,7 +215,45 @@ describe('renderStatsBlocks', () => {
       warnings: false
     })
 
-    expect(rendered).toContain('⏵⏵⏵ Build error in ./src/x.ts.')
+    expect(plain(rendered)).toContain('⏵⏵⏵ Build error in ./src/x.ts.')
+    expect(rendered).toContain('\u001b[31mnot found\u001b[39m')
+  })
+
+  it('asks for no color and prints none when stderr is not a terminal', () => {
+    const statsToString = vi.fn(() => styled)
+    const rendered = renderStatsBlocks(
+      {toString: statsToString},
+      {errors: true, warnings: false}
+    )
+
+    expect(process.stderr.isTTY).toBeFalsy()
+    expect(statsToString).toHaveBeenCalledWith(
+      expect.objectContaining({colors: false})
+    )
+
+    expect(rendered).toBe(plain(rendered))
+    expect(rendered).toContain('× Module not found')
+  })
+
+  it('prints no color under NO_COLOR, and FORCE_COLOR=0 turns it off too', () => {
+    for (const [key, value] of [
+      ['NO_COLOR', '1'],
+      ['FORCE_COLOR', '0']
+    ]) {
+      process.env[key] = value
+      const statsToString = vi.fn(() => styled)
+      const rendered = renderStatsBlocks(
+        {toString: statsToString},
+        {errors: true, warnings: false}
+      )
+
+      expect(statsToString).toHaveBeenCalledWith(
+        expect.objectContaining({colors: false})
+      )
+
+      expect(rendered).toBe(plain(rendered))
+      delete process.env[key]
+    }
   })
 
   it('returns an empty string when the stats output is empty', () => {
