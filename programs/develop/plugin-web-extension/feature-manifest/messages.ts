@@ -305,10 +305,18 @@ export function mv3BackgroundPageUnsupported(browser: string) {
   )
 }
 
-export function geckoEmptyBackgroundScriptsDropped(browser: string) {
+export function geckoEmptyBackgroundScriptsDropped(
+  browser: string,
+  keepsBackground = false
+) {
+  // A service worker or page beside the list still gives the build a background.
+  const outcome = keepsBackground
+    ? `The ${colors.blue(browser)} build dropped the empty list and kept the background the manifest declares beside it. `
+    : `The ${colors.blue(browser)} build dropped the key, so the add-on runs with no background there too. `
+
   return (
     `${prefix('warn')} ${colors.yellow('background.scripts')} is an empty list, and Firefox still starts an empty background page for it where Chrome and Safari start none.\n` +
-    `The ${colors.blue(browser)} build dropped the key, so the add-on runs with no background there too. ` +
+    outcome +
     `Remove ${colors.yellow('background.scripts')} from ${colors.blue('manifest.json')}, or list a script in it.`
   )
 }

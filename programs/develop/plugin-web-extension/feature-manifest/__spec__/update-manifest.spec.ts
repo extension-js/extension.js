@@ -401,11 +401,38 @@ describe('UpdateManifest', () => {
       false
     )
 
-    expect(
-      firefox.compilation.warnings.filter((warning: any) =>
-        String(warning.message).includes('is an empty list')
-      )
-    ).toHaveLength(1)
+    const said = firefox.compilation.warnings.filter((warning: any) =>
+      String(warning.message).includes('is an empty list')
+    )
+
+    expect(said).toHaveLength(1)
+    expect(String(said[0].message)).toContain('runs with no background')
+
+    // A service worker beside the list is still the background of the build.
+    const beside = make(
+      'production',
+      JSON.stringify({
+        name: 'x',
+        version: '1.0',
+        manifest_version: 3,
+        background: {scripts: [], service_worker: 'background/sw.js'}
+      })
+    )
+    new UpdateManifest({manifestPath: '/m', browser: 'firefox'} as any).apply(
+      beside.compiler
+    )
+
+    const kept = beside.compilation.warnings.filter((warning: any) =>
+      String(warning.message).includes('is an empty list')
+    )
+
+    expect(JSON.parse(beside.updated['manifest.json']).background).toEqual({
+      scripts: ['background/sw.js']
+    })
+
+    expect(kept).toHaveLength(1)
+    expect(String(kept[0].message)).toContain('kept the background')
+    expect(String(kept[0].message)).not.toContain('runs with no background')
 
     const chrome = make('production', source)
     new UpdateManifest({manifestPath: '/m', browser: 'chrome'} as any).apply(

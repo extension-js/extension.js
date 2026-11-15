@@ -231,7 +231,11 @@ export class UpdateManifest {
                 compilation,
                 compiler,
                 messages.geckoEmptyBackgroundScriptsDropped(
-                  String(this.browser)
+                  String(this.browser),
+                  Boolean(
+                    forBrowser.background?.service_worker ||
+                      forBrowser.background?.page
+                  )
                 ),
                 'warning',
                 'manifest.json'
