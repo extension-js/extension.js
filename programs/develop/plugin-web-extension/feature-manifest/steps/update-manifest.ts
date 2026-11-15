@@ -54,7 +54,10 @@ import {
 } from './patch-chromium-background'
 import {patchChromiumThemeColors} from './patch-chromium-theme-colors'
 import {patchDevContentScriptManifestPaths} from './patch-dev-content-script-manifest-paths'
-import {patchGeckoBackground} from './patch-gecko-background'
+import {
+  hasEmptyGeckoBackgroundScripts,
+  patchGeckoBackground
+} from './patch-gecko-background'
 import {patchWebkitBackground} from './patch-webkit-background'
 import {reportGeckoUnsupportedApis} from './warn-gecko-unsupported-apis'
 
@@ -223,6 +226,22 @@ export class UpdateManifest {
               )
             }
 
+            if (hasEmptyGeckoBackgroundScripts(forBrowser, this.browser)) {
+              reportToCompilation(
+                compilation,
+                compiler,
+                messages.geckoEmptyBackgroundScriptsDropped(
+                  String(this.browser),
+                  Boolean(
+                    forBrowser.background?.service_worker ||
+                      forBrowser.background?.page
+                  )
+                ),
+                'warning',
+                'manifest.json'
+              )
+            }
+
             // A key another vendor used to reach through the family rule
             // is silent to drop, so the build says it moved.
             for (const dropped of findDroppedVendorKeys(
@@ -384,7 +403,8 @@ export class UpdateManifest {
             // icons): --load-extension surfaces refusal only as a native modal. Warn too.
             const sanitized = sanitizeFatalManifestShapes(
               patchedManifest,
-              path.dirname(this.manifestPath)
+              path.dirname(this.manifestPath),
+              String(this.browser)
             )
             patchedManifest = sanitized.manifest
             const isDev = compiler.options.mode === 'development'
@@ -400,7 +420,8 @@ export class UpdateManifest {
 
               const message = messages.fatalManifestShapeFixed(
                 fix.field,
-                fix.detail
+                fix.detail,
+                fix.refusedBy
               )
               // The human line prints here, when the repair happens; the pushed
               // warning is the stats/json record and the stats render skips it.
