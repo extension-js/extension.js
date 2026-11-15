@@ -60,10 +60,14 @@ export function legacyManifestPathWarning(
   return lines.join('\n')
 }
 
-export function fatalManifestShapeFixed(field: string, detail: string) {
+export function fatalManifestShapeFixed(
+  field: string,
+  detail: string,
+  refusedBy = 'Chrome'
+) {
   const lines: string[] = []
   lines.push(
-    `${prefix('warn')} Repaired the ${colors.blue(field)} field, which Chrome refuses to load the extension over.`
+    `${prefix('warn')} Repaired the ${colors.blue(field)} field, which ${refusedBy} refuses to load the extension over.`
   )
 
   lines.push(`${colors.gray('REASON')} ${colors.underline(detail)}`)
@@ -298,6 +302,14 @@ export function mv3BackgroundPageUnsupported(browser: string) {
     'Nothing reports that at load time: the background code, the reload bridge and the control channel all go missing silently. ' +
     'The build kept the page as written, so the rest of the extension still loads. ' +
     `Declare ${colors.yellow('background.service_worker')} instead, or scope the page with the firefox: prefix for a Manifest V2 build.`
+  )
+}
+
+export function geckoEmptyBackgroundScriptsDropped(browser: string) {
+  return (
+    `${prefix('warn')} ${colors.yellow('background.scripts')} is an empty list, and Firefox still starts an empty background page for it where Chrome and Safari start none.\n` +
+    `The ${colors.blue(browser)} build dropped the key, so the add-on runs with no background there too. ` +
+    `Remove ${colors.yellow('background.scripts')} from ${colors.blue('manifest.json')}, or list a script in it.`
   )
 }
 

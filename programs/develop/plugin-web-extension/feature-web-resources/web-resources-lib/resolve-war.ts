@@ -498,7 +498,19 @@ export function resolveUserDeclaredWAR(
         )
 
     if (/[*?[\]{}]/.test(res)) {
-      emitGlobMatches(compilation, manifestDir, projectPath, res)
+      // A pattern with a parent segment names nothing inside the build, and
+      // copying its matches would write outside the output folder.
+      if (unixify(res).split('/').includes('..')) {
+        const warn = new WebpackError(
+          warMessages.warPatternLeavesRoot(res)
+        ) as Error & {file?: string; name?: string}
+        warn.file = 'manifest.json'
+        warn.name = 'WARPatternLeavesRoot'
+        compilation.warnings!.push(warn)
+      } else {
+        emitGlobMatches(compilation, manifestDir, projectPath, res)
+      }
+
       pushResource(matches, res, extra)
 
       return
