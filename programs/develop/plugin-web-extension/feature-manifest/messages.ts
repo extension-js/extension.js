@@ -537,6 +537,50 @@ export function edgeEmbeddedOptionsDialog() {
   )
 }
 
+// A browser that skips icon_variants shows other icons, and the author
+// should learn which ones from the build, not from a dark toolbar.
+export function iconVariantsFallback(
+  reader: 'gecko' | 'chromium',
+  verdicts: Array<{key: string; outcome: 'kept' | 'added' | 'missing'}>
+) {
+  const key = colors.yellow('icon_variants')
+  const why =
+    reader === 'gecko'
+      ? `Firefox does not read ${key} yet`
+      : `Chromium reads ${key} only with its ${colors.yellow('ExtensionIconVariants')} flag on`
+  const browser = reader === 'gecko' ? 'Firefox' : 'Chromium'
+  const named = (outcome: string) =>
+    verdicts
+      .filter((verdict) => verdict.outcome === outcome)
+      .map((verdict) => colors.yellow(verdict.key))
+      .join(' and ')
+
+  const kept = named('kept')
+  const added = named('added')
+  const missing = named('missing')
+  const lines: string[] = []
+
+  if (kept) {
+    lines.push(`${browser} shows ${kept} from your manifest instead.`)
+  }
+
+  if (added) {
+    lines.push(
+      `The manifest had no ${added}, so the build filled it from the variant that fits every color scheme, or the light one.`
+    )
+  }
+
+  if (missing) {
+    lines.push(
+      `No variant can stand in for ${missing}, so ${browser} shows its default icon. Add ${missing} with PNG files to the manifest.`
+    )
+  }
+
+  const level = added || missing ? 'warn' : 'info'
+
+  return `${prefix(level)} ${why}.\n${lines.join('\n')}`
+}
+
 // Safari inherits chromium: keys by design, so a dropped key would otherwise
 // vanish with no trace and the user would debug a feature that never loaded.
 // One key is one sentence that names it. More keys are one block whose

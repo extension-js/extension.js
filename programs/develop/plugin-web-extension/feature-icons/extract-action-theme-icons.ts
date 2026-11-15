@@ -18,7 +18,7 @@ import type {DevOptions, FilepathList, Manifest} from '../../types'
 
 // Beside the manifest first; a file only public/ has (project root first,
 // then next to the manifest) resolves there, where the emitter reads it.
-function resolveManifestIconPath(
+export function resolveManifestIconPath(
   context: string,
   relativePath: string,
   projectPath?: string
