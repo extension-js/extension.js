@@ -216,8 +216,26 @@ export function cssSelectorTokens(text: string): Set<string> {
   return tokens
 }
 
+// A rule with no declarations styles nothing, so a minimizer that deletes
+// it lost nothing. An at-rule left holding only such rules goes the same way.
+export function withoutEmptyCssRules(text: string): string {
+  let current = text
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/url\([^)]*\)/g, ' ')
+    .replace(/"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g, ' ')
+
+  for (;;) {
+    const next = current.replace(/[^{};]*\{[\s;]*\}/g, ' ')
+    if (next === current) return current
+
+    current = next
+  }
+}
+
 export function minifierDroppedTokens(before: string, after: string): string[] {
   const kept = cssSelectorTokens(after)
 
-  return [...cssSelectorTokens(before)].filter((token) => !kept.has(token))
+  return [...cssSelectorTokens(withoutEmptyCssRules(before))].filter(
+    (token) => !kept.has(token)
+  )
 }

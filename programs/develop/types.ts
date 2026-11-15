@@ -274,6 +274,8 @@ export interface DevOptions extends BrowserOptionsBase {
   zip?: boolean
   zipSource?: boolean
   zipFilename?: string
+  zipDir?: string
+  sourceMaps?: boolean
   logLevel?: 'off' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'all'
   logContexts?: LogContext[]
   logFormat?: 'pretty' | 'json' | 'ndjson'
@@ -322,8 +324,19 @@ export interface BuildOptions {
    */
   extensions?: CompanionExtensionsConfig
   zipFilename?: string
+  /**
+   * Folder the archives are written to, relative to the project root or
+   * absolute. Defaults to the folder that holds the browser output, `dist`.
+   * The file name and its browser suffix stay as `zipFilename` sets them.
+   */
+  zipDir?: string
   zip?: boolean
   zipSource?: boolean
+  /**
+   * Write a `.map` file beside each script and stylesheet of a production
+   * build. The maps stay out of the zip. Defaults to `false`.
+   */
+  sourceMaps?: boolean
   polyfill?: boolean
   silent?: boolean
   /**
@@ -709,8 +722,10 @@ export interface FileConfig {
       BuildOptions,
       | 'outDir'
       | 'zipFilename'
+      | 'zipDir'
       | 'zip'
       | 'zipSource'
+      | 'sourceMaps'
       | 'polyfill'
       | 'silent'
       | 'addonLint'
@@ -816,11 +831,27 @@ export interface SpecialFoldersConfig {
 }
 
 /**
+ * One `include` source in its long form. `minify: false` ships a script as
+ * authored where a production build would minify it.
+ */
+export interface IncludeFileEntry {
+  /** The source path, relative to the project root. */
+  from: string
+  /**
+   * Minify a `.js`, `.mjs` or `.cjs` source in a production build. Names
+   * are shortened and comments dropped, and no statement is rewritten.
+   * Defaults to `true`.
+   */
+  minify?: boolean
+}
+
+/**
  * Extra files for the build output. Each key is the output path, relative
  * to the extension root, and each value the source path, relative to the
- * project root. A folder source copies its tree under the output path.
+ * project root, or `{from, minify}`. A folder source copies its tree under
+ * the output path. A production build minifies the scripts among them.
  */
-export type IncludeFilesConfig = Record<string, string>
+export type IncludeFilesConfig = Record<string, string | IncludeFileEntry>
 
 /**
  * Files the build leaves out, each relative to the project root. A page or

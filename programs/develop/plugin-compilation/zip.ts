@@ -28,6 +28,8 @@ export interface ZipPluginOptions {
     zip?: boolean
     zipSource?: boolean
     zipFilename?: string
+    // Absolute folder for the archives, the build output's parent when unset.
+    zipDir?: string
   }
 }
 
@@ -112,6 +114,7 @@ function writeZipFile(
     zippable[toPosix(entry.name)] = file
   }
 
+  fs.mkdirSync(path.dirname(zipPath), {recursive: true})
   fs.writeFileSync(zipPath, zipSync(zippable))
 }
 
@@ -226,6 +229,8 @@ function relativeWithin(
 export interface BuildOutput {
   outPath: string
   archives: string[]
+  // Where a project sends its archives, when not beside the build output.
+  archiveDir?: string
 }
 
 // A user config may point the output anywhere in the project. The previous
@@ -239,14 +244,14 @@ export function isBuildOutput(
 
   if (isUnder(posix, relativeWithin(projectDir, output.outPath))) return true
 
-  const artifactDir = relativeWithin(projectDir, path.dirname(output.outPath))
   const fileDir = posix.includes('/')
     ? posix.slice(0, posix.lastIndexOf('/'))
     : ''
+  const artifactDirs = [path.dirname(output.outPath), output.archiveDir]
+    .filter((dir): dir is string => typeof dir === 'string')
+    .map((dir) => relativeWithin(projectDir, dir))
 
-  if (artifactDir !== undefined && fileDir === artifactDir) {
-    if (/\.zip$/i.test(posix)) return true
-  }
+  if (/\.zip$/i.test(posix) && artifactDirs.includes(fileDir)) return true
 
   return output.archives.some(
     (archive) => relativeWithin(projectDir, archive) === posix
@@ -355,6 +360,7 @@ export class ZipPlugin {
     zip?: boolean
     zipSource?: boolean
     zipFilename?: string
+    zipDir?: string
   }
 
   constructor(private readonly options: ZipPluginOptions) {
@@ -415,11 +421,12 @@ export class ZipPlugin {
         const sourceName = explicitName
           ? explicitName.replace(/\.zip$/i, '-source.zip')
           : `${name}-source.zip`
-        const sourcePath = path.join(path.dirname(outPath), sourceName)
         // Beside the browser folder, never inside it: dist/<browser> is
         // what a store upload or a load-unpacked takes whole, and a zip
         // left inside it ships in the next package of itself.
-        const distPath = path.join(path.dirname(outPath), zipName)
+        const archiveDir = this.zipData.zipDir || path.dirname(outPath)
+        const sourcePath = path.join(archiveDir, sourceName)
+        const distPath = path.join(archiveDir, zipName)
 
         // One archive's failure is not the other's: the source zip used to
         // take the dist zip down with it, and neither was reported as missing.
@@ -427,7 +434,8 @@ export class ZipPlugin {
           try {
             const {files, skippedLinks} = await getFilesToZip(packageJsonDir, {
               outPath,
-              archives: [sourcePath, distPath]
+              archives: [sourcePath, distPath],
+              archiveDir: this.zipData.zipDir
             })
 
             if (skippedLinks.length) {

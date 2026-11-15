@@ -200,3 +200,27 @@ describe('a page sheet whose only fault is a misplaced @import', () => {
     }, 180_000)
   }
 })
+
+// A rule with no declarations styles nothing, so the minimizer deleting it
+// is no loss and the sheet around it still ships minified.
+describe('a sheet that holds an empty rule', () => {
+  it('ships minified with no warning in production', async () => {
+    const css =
+      '.keep-a { color: red; }\n.keep-b, .keep-c { /* purposely ignored */ }\n.spaced { margin: 0 0 0 0; }\n'
+    const root = project(css, {surface: 'page'})
+    const built = await build(root, 'production')
+    const sheet = built.files.find((file) => file.endsWith('.css'))
+    expect(sheet, built.files.join(',')).toBeDefined()
+
+    const shipped = fs.readFileSync(
+      path.join(root, 'dist', 'chrome', String(sheet)),
+      'utf8'
+    )
+
+    expect(built.summary.warnings || []).toEqual([])
+    expect(shipped).not.toContain('purposely ignored')
+    expect(shipped).not.toContain('0 0 0 0')
+    expect(shipped).toContain('.keep-a')
+    expect(shipped.length).toBeLessThan(css.length)
+  }, 180_000)
+})
