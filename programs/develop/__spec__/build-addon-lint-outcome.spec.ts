@@ -91,8 +91,9 @@ const absent: LoadAddonLinter = async () => {
 
 async function build(
   root: string,
-  options: {addonLint?: boolean; debug?: boolean} = {}
+  options: {addonLint?: boolean; debug?: boolean; browser?: string} = {}
 ) {
+  const browser = options.browser || 'firefox'
   const {extensionBuild} = await import('../command-build')
   const env = {
     VITEST: process.env.VITEST,
@@ -115,7 +116,7 @@ async function build(
 
   try {
     summary = await extensionBuild(root, {
-      browser: 'firefox',
+      browser,
       silent: false,
       install: false,
       mode: 'production',
@@ -134,7 +135,7 @@ async function build(
   }
 
   const receipt = JSON.parse(
-    fs.readFileSync(buildSummaryPath(root, 'firefox'), 'utf8')
+    fs.readFileSync(buildSummaryPath(root, browser), 'utf8')
   ) as BuildSummary
 
   return {summary, receipt, output: stripAnsi(lines.join('\n'))}
@@ -238,8 +239,8 @@ describe('the store check outcome after a production firefox build', () => {
   }, 180_000)
 
   // The store check is the one that names an oversize script. With no
-  // linter the build has to, and with one it must not say it twice.
-  it('names a background script over the store limit when no linter answers', async () => {
+  // linter line the build has to, and with one it must not say it twice.
+  it('names a background script over the store limit when no linter line can', async () => {
     const root = project()
     fs.writeFileSync(
       path.join(root, 'background.js'),
@@ -285,10 +286,34 @@ describe('the store check outcome after a production firefox build', () => {
 
     expect(linted.output).not.toContain('Firefox build:')
 
-    injected.override = {loadLinter: absent}
+    // Turning the check off silences the linter, not the size the store
+    // refuses, so the line prints once and counts as a warning.
     const off = await build(root, {addonLint: false})
-    expect(off.output).not.toContain('Firefox build:')
-  }, 240_000)
+    expect(off.output).not.toContain('Store check')
+    expect(off.output).not.toContain('FILE_TOO_LARGE')
+    expect(off.output.split(line)).toHaveLength(2)
+    expect(off.receipt.addon_lint).toEqual({
+      status: 'skipped',
+      reason: 'disabled'
+    })
+
+    expect(
+      (off.receipt.warnings || []).filter((text) => text.includes(line))
+    ).toHaveLength(1)
+
+    expect(off.receipt.warnings_count).toBe(off.summary.warnings_count)
+
+    // Off or on, a Chromium build has no such limit and says nothing.
+    for (const addonLint of [false, undefined]) {
+      const chrome = await build(root, {addonLint, browser: 'chrome'})
+      expect(chrome.output).not.toContain('Firefox build:')
+      expect(
+        (chrome.receipt.warnings || []).filter((text) =>
+          text.includes('does not parse a file of 5 MB')
+        )
+      ).toHaveLength(0)
+    }
+  }, 360_000)
 
   it('a missing linter retires the note of the last lint and names the config key', async () => {
     const root = project()

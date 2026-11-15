@@ -11,6 +11,7 @@ import * as nodePath from 'node:path'
 import type {Configuration} from '@rspack/core'
 import {humanLine, stripAnsi} from './dev-server/lifecycle-stream'
 import {
+  buildNamesOversizeFiles,
   failedAddonLint,
   oversizeSingleFileLines,
   runAddonLint,
@@ -636,7 +637,7 @@ export async function extensionBuild(
           // errors. A missing linter is one hint, a broken one says so, and
           // the summary records the outcome either way.
           const lintLines: string[] = []
-          let linterAnswered = true
+          let namesOversizeFiles = false
 
           try {
             const lint = await runAddonLint({
@@ -652,12 +653,14 @@ export async function extensionBuild(
             })
 
             summary = {...summary, addon_lint: summarizeAddonLint(lint)}
+            namesOversizeFiles = buildNamesOversizeFiles(lint, {
+              browser,
+              mode: resolvedMode
+            })
 
             if (lint.status === 'missing') {
-              linterAnswered = false
               if (lint.hint) lintLines.push(lint.hint)
             } else if (lint.status === 'failed') {
-              linterAnswered = false
               lintLines.push(lint.line)
               if (isDebug()) lintLines.push(lint.debugLine)
             } else if (lint.status === 'linted' && lint.findings > 0) {
@@ -679,12 +682,12 @@ export async function extensionBuild(
             const lint = failedAddonLint(lintError, distDisplay)
             summary = {...summary, addon_lint: summarizeAddonLint(lint)}
             lintLines.push(lint.line)
-            linterAnswered = false
+            namesOversizeFiles = true
           }
 
           // A script over the store's parse limit is named by the store
-          // check. With no linter answer the build names it on its own.
-          if (!linterAnswered) {
+          // check. With no answer, or the check off, the build names it.
+          if (namesOversizeFiles) {
             const sizeLines = oversizeSingleFileLines(displayDistPath)
 
             if (sizeLines.length > 0) {
