@@ -11,6 +11,8 @@ import {browserActionOutputTarget} from '../../../shared/html-surfaces'
 import {getFilename} from '../../../shared/paths'
 import {
   iconOutputPath,
+  iconVariantsOf,
+  iconVariantsOutput,
   manifestPageOutputTarget,
   themeIconOutputPath
 } from '../../normalize-manifest-path'
@@ -33,6 +35,11 @@ export function browserAction(
               projectPath
             ),
             String(manifest.browser_action.default_popup)
+          )
+        }),
+        ...(Boolean(iconVariantsOf(manifest.browser_action)) && {
+          icon_variants: iconVariantsOutput(
+            iconVariantsOf(manifest.browser_action)
           )
         }),
         ...(manifest.browser_action.default_icon && {
