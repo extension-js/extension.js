@@ -66,4 +66,26 @@ describe('icons manifest override, output path matches the icon emitter', () => 
     } as any) as any
     expect(str.action.default_icon).toBe('icons-dev/a.png')
   })
+
+  it('rewrites icon_variants paths by the icons rule and leaves color_schemes alone', () => {
+    const variants = [
+      {16: '/images/d16.png', 32: 'public/d32.png', color_schemes: ['dark']},
+      {any: '../shared/any.svg'}
+    ]
+    const expected = [
+      {16: 'images/d16.png', 32: 'd32.png', color_schemes: ['dark']},
+      {any: 'icons/_/shared/any.svg'}
+    ]
+
+    expect(
+      (icons({icon_variants: variants} as any) as any).icon_variants
+    ).toEqual(expected)
+
+    expect(
+      (action({action: {icon_variants: variants}} as any) as any).action
+        .icon_variants
+    ).toEqual(expected)
+
+    expect(icons({} as any)).toBeFalsy()
+  })
 })
