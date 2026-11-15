@@ -64,7 +64,7 @@ run()
 ## Features
 
 - Live reload/HMR development server with per-instance browser runners
-- Cross-browser support: Chrome, Edge, Firefox, Chromium-based, Gecko-based
+- Cross-browser support: Chrome, Edge, Firefox, Safari, Chromium-based, Gecko-based
 - Rspack-based build with opinionated plugin stack
 - Clean production output in `dist/<browser>`
 - Zipping: distribution and/or source packages (respects `.gitignore`)
@@ -91,7 +91,7 @@ Options accepted by each command. Values shown are typical types or enumerations
 
 | Option         | Type / Values                                      | Description                                                     |
 | -------------- | -------------------------------------------------- | --------------------------------------------------------------- |
-| browser        | chrome, edge, firefox, chromium-based, gecko-based | Target browser/runtime                                          |
+| browser        | chrome, edge, firefox, safari, chromium-based, gecko-based | Target browser/runtime                                  |
 | profile        | string or false                                    | Profile path or disable profile persistence                     |
 | startingUrl    | string                                             | Initial URL to open                                             |
 | open           | boolean                                            | Focus/open the browser window (CLI: use `--no-open` to disable) |
