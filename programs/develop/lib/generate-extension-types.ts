@@ -10,6 +10,7 @@ import {existsSync} from 'node:fs'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import {humanLine} from '../dev-server/lifecycle-stream'
+import {getUserTypeScriptConfigFile} from '../plugin-js-frameworks/js-tools/typescript'
 import {recordCodedWarning} from './coded-warnings'
 import {loadDefineTypes} from './config-loader'
 import {
@@ -19,6 +20,7 @@ import {
 import * as messages from './messages'
 import {CODES} from './messaging'
 import {parseJsonSafe} from './parse-json-safe'
+import {tsconfigCanIncludeFile} from './tsconfig-includes-file'
 
 // The same node_modules walk TypeScript takes for the reference the file
 // emits: a project run through npx has no extension of its own to find.
@@ -42,6 +44,23 @@ export function resolvesExtensionPackage(packageJsonDir: string): boolean {
   }
 }
 
+// A formatter may own the file (semicolons, quote style, spacing), and a
+// copy that differs only that way declares the same types.
+function declaresTheSame(existing: string, expected: string): boolean {
+  const shape = (text: string) =>
+    text.replace(/["'`]/g, "'").replace(/[;\s]+/g, '')
+
+  return shape(existing) === shape(expected)
+}
+
+// A file the project's TypeScript program would never read types nothing,
+// so one that is not there is only created where a tsconfig can pick it up.
+function projectReadsTypesFile(manifestDir: string, file: string): boolean {
+  const tsconfig = getUserTypeScriptConfigFile(manifestDir)
+
+  return !tsconfig || tsconfigCanIncludeFile(tsconfig, file)
+}
+
 export async function generateExtensionTypes(
   manifestDir: string,
   packageJsonDir: string
@@ -53,11 +72,18 @@ export async function generateExtensionTypes(
     {inlineAssetTypes: !resolvesExtensionPackage(packageJsonDir)}
   )
 
+  if (
+    !existsSync(extensionEnvFile) &&
+    !projectReadsTypesFile(manifestDir, extensionEnvFile)
+  ) {
+    return
+  }
+
   try {
     await fs.access(extensionEnvFile)
 
     const existingContent = await fs.readFile(extensionEnvFile, 'utf8')
-    if (existingContent === fileContent) return
+    if (declaresTheSame(existingContent, fileContent)) return
 
     // The file is the project's own, often committed, so a rewrite that
     // changes it is said out loud the way the first write is.

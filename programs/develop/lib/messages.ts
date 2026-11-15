@@ -8,7 +8,7 @@
 
 import * as path from 'node:path'
 import type {Stats, StatsAsset} from '@rspack/core'
-import colors from 'pintor'
+import colors, {supportsColor} from 'pintor'
 import type {DevOptions, Manifest} from '../types'
 import type {BuildToolchain} from './build-toolchain'
 import {
@@ -569,15 +569,29 @@ function stripModuleWarningWrapper(message: string): string {
   return message.replace(/^Module (?:Warning|Error) \(from [^)]*\):\s*/, '')
 }
 
+// eslint-disable-next-line no-control-regex
+const ANSI_CODES = /\u001b\[[0-9;]*m/g
+const WARNING_HEAD_MARKER =
+  // eslint-disable-next-line no-control-regex
+  /^\s*(?:\u001b\[[0-9;]*m)*⚠\s*(?:\u001b\[[0-9;]*m)*\s?/
+
 // The bundler renders every warning it reports with a warning-sign head
 // marker and a bar gutter on each following line. That is its frame, not
 // the warning's text, so both are read off before the text is framed here.
 function stripBundlerDecoration(message: string): string {
-  return message
+  // The bundler colors its frame by its own reading of the environment,
+  // so the text is made plain when the stream it goes to takes no color.
+  const text = supportsColor(process.stdout)
+    ? message
+    : message.replace(ANSI_CODES, '')
+
+  return text
     .replace(/\r/g, '')
     .split('\n')
     .map((line, index) =>
-      index === 0 ? line.replace(/^\s*⚠ ?/, '') : line.replace(/^\s*│ ?/, '')
+      index === 0
+        ? line.replace(WARNING_HEAD_MARKER, '')
+        : line.replace(/^\s*│ ?/, '')
     )
     .join('\n')
     .trim()
