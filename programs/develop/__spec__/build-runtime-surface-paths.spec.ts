@@ -9,7 +9,11 @@ afterAll(() => {
   for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
 })
 
-function project(files: Record<string, string>, background: unknown) {
+function project(
+  files: Record<string, string>,
+  background: unknown,
+  manifest: Record<string, unknown> = {}
+) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-surface-paths-'))
   roots.push(root)
 
@@ -21,7 +25,8 @@ function project(files: Record<string, string>, background: unknown) {
       version: '1.0.0',
       action: {default_popup: 'popup.html'},
       permissions: ['notifications'],
-      background
+      background,
+      ...manifest
     })
   )
 
@@ -167,5 +172,107 @@ describe('a path a moved script hands to a runtime surface call', () => {
       'utf8'
     )
     expect(background).toContain('"welcome.html"')
+  }, 120_000)
+})
+
+// A chunk import() made sits at the output root, and the browser asks for
+// an icon beside the worker or the page that runs it.
+describe('an icon a lazily imported module sets', () => {
+  const LAZY = {
+    'background.js':
+      'globalThis.early = import("./lazy-bg.js").then((m) => m.set())\n',
+    'lazy-bg.js':
+      'export const set = () => chrome.action.setIcon({path: "on.png"})\n',
+    'popup.html': '<html><body><script src="popup.js"></script></body></html>',
+    'popup.js':
+      'window.lazy = () => import("./lazy-pop.js").then((m) => m.set())\n',
+    'lazy-pop.js':
+      'export const set = () => chrome.action.setIcon({path: "pop.png"})\n',
+    'on.png': 'png',
+    'pop.png': 'png'
+  }
+  const icons = (root: string, browser: string) =>
+    outputFiles(root, browser).filter((file) => file.endsWith('.png'))
+
+  it('ships beside the worker and the popup that load the chunk, on chrome', async () => {
+    const root = project(LAZY, {service_worker: 'background.js'})
+
+    const summary = await build(root, 'chrome')
+    expect(summary.errors_count).toBe(0)
+    expect(summary.warnings || []).toEqual([])
+
+    // The calls are in chunks of their own, which no page names.
+    const chunks = outputFiles(root, 'chrome').filter((file) =>
+      /^[^/]+\.js$/.test(file)
+    )
+    const text = chunks
+      .map((file) => fs.readFileSync(path.join(root, 'dist/chrome', file)))
+      .join('\n')
+
+    expect(chunks).toHaveLength(2)
+    expect(text).toContain('"on.png"')
+    expect(text).toContain('"pop.png"')
+    expect(icons(root, 'chrome')).toEqual([
+      'action/pop.png',
+      'background/on.png'
+    ])
+  }, 120_000)
+
+  it('ships both places a firefox page may read, and the root for background scripts', async () => {
+    const root = project(LAZY, {scripts: ['background.js']})
+
+    const summary = await build(root, 'firefox')
+    expect(summary.errors_count).toBe(0)
+    expect(icons(root, 'firefox')).toEqual([
+      'action/pop.png',
+      'on.png',
+      'pop.png'
+    ])
+  }, 120_000)
+})
+
+// Chrome shows a DevTools panel page from the extension root, whatever the
+// folder of the DevTools page and however the path is spelled.
+describe('a page a moved DevTools page shows as a panel', () => {
+  const PANELS = {
+    'background.js': '',
+    'popup.html': '<html><body></body></html>',
+    'dev/devtools.html':
+      '<html><body><script src="devtools.js"></script></body></html>',
+    'dev/devtools.js': [
+      'chrome.devtools.panels.create("One", "icon.png", "./panel.html")',
+      'chrome.devtools.panels.create("Two", "icon.png", "./only.html")',
+      ''
+    ].join('\n'),
+    'panel.html': '<p>root panel</p>',
+    'dev/panel.html': '<p>beside panel</p>',
+    'dev/only.html': '<p>beside only</p>',
+    'icon.png': 'png'
+  }
+
+  it('keeps the path of a file the root has and roots one only the folder has, on chrome', async () => {
+    const root = project(
+      PANELS,
+      {service_worker: 'background.js'},
+      {devtools_page: 'dev/devtools.html'}
+    )
+
+    const summary = await build(root, 'chrome')
+    expect(summary.errors_count).toBe(0)
+
+    const script = fs.readFileSync(
+      path.join(root, 'dist/chrome/devtools/index.js'),
+      'utf8'
+    )
+
+    expect(script).toContain('"./panel.html"')
+    expect(script).toContain('"/dev/only.html"')
+    expect(
+      fs.readFileSync(path.join(root, 'dist/chrome/panel.html'), 'utf8')
+    ).toContain('root panel')
+
+    expect(
+      fs.readFileSync(path.join(root, 'dist/chrome/dev/only.html'), 'utf8')
+    ).toContain('beside only')
   }, 120_000)
 })

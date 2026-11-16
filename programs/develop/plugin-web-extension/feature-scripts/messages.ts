@@ -582,3 +582,32 @@ export function publicInjectedSheetImportIgnored(
 
   return lines.join('\n')
 }
+
+// A public/ sheet keeps the targets its author wrote, which Chromium reads
+// against the visited page when the sheet is injected by file.
+export function publicInjectedSheetPageRelativeTarget(
+  sheet: string,
+  line: number,
+  request: string,
+  named: string
+) {
+  const lines: string[] = []
+  lines.push(
+    `${sheet} is injected by file and names ${colors.blue(`url(${request})`)}, which Chrome reads against the visited page.`
+  )
+
+  lines.push(`${colors.gray('PATH')} ${colors.underline(`${sheet}:${line}`)}`)
+  lines.push(
+    `A file in ${colors.blue('public/')} ships byte for byte, so the target stays as written. Firefox reads it beside the sheet.`
+  )
+
+  lines.push(
+    `- Move the sheet out of ${colors.blue('public/')} and the build names each target from the extension and lets a page fetch it.`
+  )
+
+  lines.push(
+    `- Or, in a sheet for Chrome alone, spell it ${colors.blue(`url("${named}")`)} and list the file in ${colors.blue('web_accessible_resources')}.`
+  )
+
+  return lines.join('\n')
+}

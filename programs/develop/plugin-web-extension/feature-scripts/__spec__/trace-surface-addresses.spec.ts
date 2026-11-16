@@ -41,7 +41,9 @@ async function runTrace(
   projectDir: string,
   assets: Record<string, string>,
   entry: Record<string, unknown> = {},
-  browser: 'chrome' | 'firefox' = 'chrome'
+  browser: 'chrome' | 'firefox' = 'chrome',
+  // Entry scripts by the on-demand chunk files each one reaches.
+  lazy: Array<{entry: string[]; chunks: string[]}> = []
 ) {
   const emitted = new Map(
     Object.entries(assets).map(([name, src]) => [
@@ -54,6 +56,17 @@ async function runTrace(
     errors: [],
     fileDependencies: new Set<string>(),
     modules: [],
+    entrypoints: new Map(
+      lazy.map(({entry: files, chunks}, index) => [
+        `entry-${index}`,
+        {
+          getFiles: () => files,
+          childrenIterable: [
+            {chunks: [{files: new Set(chunks)}], childrenIterable: []}
+          ]
+        }
+      ])
+    ),
     getAsset: (name: string) => emitted.get(name),
     getAssets: () => Array.from(emitted.values()),
     emitAsset: (name: string, source: any) => {
@@ -121,7 +134,7 @@ describe('what a runtime surface call reads', () => {
       'image bell.png',
       'image on.png',
       'panel panel.png',
-      'panel panel.html'
+      'panelPage panel.html'
     ])
   })
 })
@@ -234,6 +247,67 @@ describe('an icon a moved script sets, on chrome', () => {
 
     // Who loads the chunk is not known, so the file stays where it was.
     expect(copies(emitted, '.png')).toEqual(['icons/on.png'])
+  })
+
+  it('ships it beside the worker and the page that load a lazy chunk', async () => {
+    const dir = createTempProject(
+      {
+        'background.js': '',
+        'popup.html': '<script src="popup.js"></script>',
+        'on.png': 'png',
+        'shared.png': 'png'
+      },
+      {...manifest, action: {default_popup: 'popup.html'}}
+    )
+    const {emitted, compilation} = await runTrace(
+      dir,
+      {
+        ...POPUP,
+        [WORKER]: '',
+        'action/index.js': '',
+        '186.js': 'chrome.action.setIcon({path:"on.png"})',
+        '319.js': 'chrome.action.setIcon({path:"shared.png"})'
+      },
+      worker(dir),
+      'chrome',
+      [
+        {entry: [WORKER], chunks: ['186.js', '319.js']},
+        {entry: ['action/index.js', 'action/index.css'], chunks: ['319.js']}
+      ]
+    )
+
+    // Chrome asks beside the worker or the page that runs the chunk, never
+    // beside the chunk, which the build keeps at the root.
+    expect(copies(emitted, '.png')).toEqual([
+      'action/shared.png',
+      'background/on.png',
+      'background/shared.png'
+    ])
+
+    expect(compilation.warnings).toHaveLength(0)
+  })
+
+  it('keeps the root copy when one loader of a lazy chunk is unknown', async () => {
+    const dir = createTempProject(
+      {'background.js': '', 'on.png': 'png'},
+      manifest
+    )
+    const {emitted} = await runTrace(
+      dir,
+      {
+        [WORKER]: '',
+        'content_scripts/content-0.js': '',
+        '186.js': 'chrome.action.setIcon({path:"on.png"})'
+      },
+      worker(dir),
+      'chrome',
+      [
+        {entry: [WORKER], chunks: ['186.js']},
+        {entry: ['content_scripts/content-0.js'], chunks: ['186.js']}
+      ]
+    )
+
+    expect(copies(emitted, '.png')).toEqual(['on.png'])
   })
 
   it('warns with the place the author would keep an absent file', async () => {
@@ -371,5 +445,75 @@ describe('a page a moved script opens', () => {
     expect(copies(emitted, '.png')).toEqual(['action/icons/on.png'])
     expect(textOf('action/index.js')).toContain('"./icons/on.png"')
     expect(compilation.warnings).toHaveLength(0)
+  })
+})
+
+describe('a page a DevTools page shows as a panel', () => {
+  const DEVTOOLS = {
+    'devtools/index.html':
+      '<html><head><script src="/devtools/index.js"></script></head></html>'
+  }
+  const manifest = {devtools_page: 'dev/devtools.html'}
+  const entry = (dir: string) => ({
+    'devtools/index': {import: [path.join(dir, 'dev/devtools.js')]}
+  })
+  const CALL =
+    'chrome.devtools.panels.create("One","icon.png","./panel.html");chrome.devtools.panels.create("Two","icon.png","./only.html")'
+
+  it('stays as written on chrome when the root has the file, and is rooted when only the folder does', async () => {
+    const dir = createTempProject(
+      {
+        'dev/devtools.html': '<script src="devtools.js"></script>',
+        'dev/devtools.js': '',
+        'panel.html': '<p>root</p>',
+        'dev/panel.html': '<p>beside</p>',
+        'dev/only.html': '<p>beside</p>',
+        'icon.png': 'png'
+      },
+      manifest
+    )
+    const {emitted, textOf} = await runTrace(
+      dir,
+      {...DEVTOOLS, 'devtools/index.js': CALL},
+      entry(dir)
+    )
+
+    // Chrome shows a panel page from the root for every spelling, so the
+    // root file is the one the author's path already names.
+    expect(copies(emitted, '.html')).toEqual([
+      'dev/only.html',
+      'devtools/index.html',
+      'panel.html'
+    ])
+
+    expect(String(emitted.get('panel.html')?.source.source())).toBe(
+      '<p>root</p>'
+    )
+
+    expect(textOf('devtools/index.js')).toContain('"./panel.html"')
+    expect(textOf('devtools/index.js')).toContain('"/dev/only.html"')
+  })
+
+  it('keeps the earlier handling on firefox, which no run measured', async () => {
+    const dir = createTempProject(
+      {
+        'dev/devtools.html': '<script src="devtools.js"></script>',
+        'dev/devtools.js': '',
+        'panel.html': '<p>root</p>',
+        'dev/panel.html': '<p>beside</p>',
+        'dev/only.html': '<p>beside</p>',
+        'icon.png': 'png'
+      },
+      manifest
+    )
+    const {textOf} = await runTrace(
+      dir,
+      {...DEVTOOLS, 'devtools/index.js': CALL},
+      entry(dir),
+      'firefox'
+    )
+
+    expect(textOf('devtools/index.js')).toContain('"/dev/panel.html"')
+    expect(textOf('devtools/index.js')).toContain('"/dev/only.html"')
   })
 })

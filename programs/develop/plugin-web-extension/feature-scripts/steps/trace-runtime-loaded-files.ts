@@ -811,7 +811,7 @@ export class TraceRuntimeLoadedFiles {
         ? 'unknown'
         : surfaceAddress(reads, String(this.browser))
 
-      if (reads === 'page' && address === 'root') {
+      if (reads !== 'image' && address === 'root') {
         // A file kept beside the page still ships when the root has none.
         const rootRel = resolveExtensionPath(literal, '')
         const atRootExists =
@@ -1354,6 +1354,8 @@ class TraceRun {
   private readonly excluded: ReadonlySet<string>
   private namedModules?: Set<string>
   private injectedSheets: Array<{content: string; baseRel: string}> = []
+  private chunkEntries?: Map<string, Set<string>>
+  private readonly builtSheets = new Set<string>()
   private readonly licensedDirs = new Set<string>()
 
   constructor(
@@ -1439,6 +1441,9 @@ class TraceRun {
       notePublicInjectedSheet(this.compilation, distRel)
     } else if (plan.kind !== 'missing') {
       noteNamedInjectedSheet(this.compilation, plan.emitPath)
+
+      // A sheet the bundler writes is read once it exists.
+      if (plan.kind !== 'copy') this.builtSheets.add(plan.emitPath)
     }
 
     if (copied == null) return
@@ -1499,9 +1504,25 @@ class TraceRun {
 
     const pages = loaders.get(assetName)
 
-    if (!pages || pages.some((page) => this.hasBaseElement(page))) {
-      return undefined
+    if (!pages) {
+      // A chunk import() made runs in the worker or page of each entry
+      // that loads it, and the browser asks beside that, not the chunk.
+      const callers = this.entriesLoading(assetName).map((entry) =>
+        this.callerAddresses(entry, loaders, pageSources, workerRef)
+      )
+
+      if (!callers.length || callers.some((found) => !found)) return undefined
+
+      return [
+        ...new Map(
+          callers.flatMap((found) =>
+            (found ?? []).map((caller) => [caller.dist, caller] as const)
+          )
+        ).values()
+      ]
     }
+
+    if (pages.some((page) => this.hasBaseElement(page))) return undefined
 
     return pages.map((page) => {
       const entryDir = this.entrySourceDirs.get(page.replace(/\.html?$/i, ''))
@@ -1515,6 +1536,54 @@ class TraceRun {
 
       return {dist: page, source: written.startsWith('..') ? page : written}
     })
+  }
+
+  // The entry scripts that reach each on-demand chunk, by emitted name.
+  private entriesLoading(assetName: string): string[] {
+    if (!this.chunkEntries) {
+      const entries = new Map<string, Set<string>>()
+      this.chunkEntries = entries
+
+      type Group = {
+        chunks?: Iterable<{files?: Iterable<string>}>
+        childrenIterable?: Iterable<Group>
+        getChildren?: () => Iterable<Group>
+        getFiles?: () => Iterable<string>
+      }
+      const childrenOf = (group: Group) =>
+        group.childrenIterable ?? group.getChildren?.() ?? []
+
+      this.compilation.entrypoints?.forEach?.((entry: Group) => {
+        const scripts = [...(entry.getFiles?.() ?? [])].filter((file) =>
+          /\.js$/i.test(file)
+        )
+        const seen = new Set<Group>()
+
+        const visit = (group: Group) => {
+          if (seen.has(group)) return
+
+          seen.add(group)
+
+          for (const chunk of group.chunks ?? []) {
+            for (const file of chunk.files ?? []) {
+              if (scripts.includes(file)) continue
+
+              const loading = entries.get(file) ?? new Set<string>()
+
+              for (const script of scripts) loading.add(script)
+
+              entries.set(file, loading)
+            }
+          }
+
+          for (const child of childrenOf(group)) visit(child)
+        }
+
+        for (const child of childrenOf(entry)) visit(child)
+      })
+    }
+
+    return [...(this.chunkEntries.get(assetName) ?? [])]
   }
 
   hasBaseElement(page: string): boolean {
@@ -1697,6 +1766,25 @@ class TraceRun {
       this.compiler,
       requests
     )
+
+    // The visited page fetches the assets a compiled injected sheet names,
+    // as it does for a copied one, so the manifest step hears of them too.
+    for (const sheet of this.builtSheets) {
+      const asset = this.compilation.getAsset(sheet)
+      if (!asset) continue
+
+      for (const literal of extractCssSubresourceLiterals(
+        asset.source.source().toString()
+      )) {
+        const target = resolveExtensionPath(literal, sheet)
+
+        if (target && !/\.css$/i.test(target) && this.hasAsset(target)) {
+          noteInjectedSheetTarget(this.compilation, sheet, target)
+        }
+      }
+    }
+
+    this.builtSheets.clear()
 
     return emitted.filter((name) => /\.js$/i.test(name))
   }
@@ -2369,6 +2457,13 @@ function surfaceAddress(
   browser: string
 ): ReferenceForm | 'unknown' {
   if (reads === 'panel') return 'unknown'
+
+  // Chrome shows a panel page from the root for every form, measured from
+  // a DevTools page the build moved. No Firefox run covers it.
+  if (reads === 'panelPage') {
+    return isChromiumBasedBrowser(browser) ? 'root' : 'unknown'
+  }
+
   if (isGeckoBasedBrowser(browser)) return reads === 'page' ? 'own' : 'unknown'
   if (isChromiumBasedBrowser(browser)) return reads === 'page' ? 'root' : 'own'
 
@@ -2408,8 +2503,9 @@ export function extractRuntimeSurfaceLiterals(source: string): string[] {
 }
 
 // What the browser does with the path: opens it as a page, loads it as an
-// image, or hands it to DevTools, where no run measured the address.
-export type SurfaceRead = 'page' | 'image' | 'panel'
+// image, shows it as a DevTools panel, or takes it as that panel's icon,
+// which Chrome never fetches, so no run measured its address.
+export type SurfaceRead = 'page' | 'image' | 'panel' | 'panelPage'
 
 export interface SurfaceReference {
   literal: string
@@ -2463,6 +2559,7 @@ export function extractRuntimeSurfaceReferences(
       // panels.create(title, iconPath, pagePath): the two paths are positional.
       callRe: /\bpanels\s*\.\s*create\s*\(/g,
       positional: [1, 2],
+      pageAt: 2,
       reads: 'panel'
     }
   ] as Array<{
@@ -2470,10 +2567,11 @@ export function extractRuntimeSurfaceReferences(
     prop?: string
     images?: boolean
     positional?: number[]
+    pageAt?: number
     reads: SurfaceRead
   }>
 
-  for (const {callRe, prop, images, positional, reads} of calls) {
+  for (const {callRe, prop, images, positional, pageAt, reads} of calls) {
     let match: RegExpExecArray | null
 
     while ((match = callRe.exec(code))) {
@@ -2497,7 +2595,13 @@ export function extractRuntimeSurfaceReferences(
         for (const index of positional) {
           const part = parts[index]
           const literal = part == null ? null : pureStringLiteral(part)
-          if (literal?.trim()) literals.push({literal, reads})
+
+          if (literal?.trim()) {
+            literals.push({
+              literal,
+              reads: index === pageAt ? 'panelPage' : reads
+            })
+          }
         }
 
         continue

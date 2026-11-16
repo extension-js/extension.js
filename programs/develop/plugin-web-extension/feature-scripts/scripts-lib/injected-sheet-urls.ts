@@ -73,6 +73,36 @@ export function namedInjectedSheets(compilation: object): ReadonlySet<string> {
   return namedSheets.get(compilation) ?? new Set<string>()
 }
 
+// The address of one url() target of a sheet at the given output name,
+// undefined for a target that reads the same from any page.
+function namedFromExtension(
+  request: string,
+  sheetName: string,
+  root: string
+): string | undefined {
+  const target = request.trim()
+
+  if (
+    !target ||
+    target.startsWith('#') ||
+    target.startsWith('//') ||
+    /^[a-z][\w+.-]*:/i.test(target)
+  ) {
+    return undefined
+  }
+
+  try {
+    const resolved = new URL(
+      target,
+      `chrome-extension://extension-js/${sheetName.replace(/\\/g, '/')}`
+    )
+
+    return `${root}${resolved.pathname.slice(1)}${resolved.search}${resolved.hash}`
+  } catch {
+    return undefined
+  }
+}
+
 // A sheet shipped as written spells its targets from its own folder, which
 // Chromium reads against the visited page, so each one is named in full.
 export function rootedAtExtensionFrom(
@@ -80,31 +110,48 @@ export function rootedAtExtensionFrom(
   sheetName: string,
   root: string = CHROMIUM_EXTENSION_ROOT
 ): string {
-  return replaceCssUrlRefs(css, (request, ref) => {
-    const target = request.trim()
+  // Chromium drops an @import in a sheet it injects, however it is spelled.
+  return replaceCssUrlRefs(css, (request, ref) =>
+    ref.isImport ? undefined : namedFromExtension(request, sheetName, root)
+  )
+}
 
-    // Chromium drops an @import in a sheet it injects, however it is spelled.
-    if (
-      ref.isImport ||
-      !target ||
-      target.startsWith('#') ||
-      target.startsWith('//') ||
-      /^[a-z][\w+.-]*:/i.test(target)
-    ) {
-      return undefined
+export interface PageRelativeTarget {
+  request: string
+  line: number
+  named: string
+}
+
+// The first url() of a sheet Chromium would read against the visited page,
+// with the spelling that names the same file from the extension.
+export function firstPageRelativeTarget(
+  css: string,
+  sheetName: string,
+  root: string = CHROMIUM_EXTENSION_ROOT
+): PageRelativeTarget | undefined {
+  let first: PageRelativeTarget | undefined
+  let seen = 0
+
+  replaceCssUrlRefs(css, (request, ref) => {
+    const at = css.indexOf(request, seen)
+    seen = at === -1 ? seen : at + request.length
+
+    const named = ref.isImport
+      ? undefined
+      : namedFromExtension(request, sheetName, root)
+
+    if (!first && named) {
+      first = {
+        request: request.trim(),
+        line: css.slice(0, Math.max(0, at)).split('\n').length,
+        named
+      }
     }
 
-    try {
-      const resolved = new URL(
-        target,
-        `chrome-extension://extension-js/${sheetName.replace(/\\/g, '/')}`
-      )
-
-      return `${root}${resolved.pathname.slice(1)}${resolved.search}${resolved.hash}`
-    } catch {
-      return undefined
-    }
+    return undefined
   })
+
+  return first
 }
 
 // The files such a sheet loads from the page it lands on, by sheet, for

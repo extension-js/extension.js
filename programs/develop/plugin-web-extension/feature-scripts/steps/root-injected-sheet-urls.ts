@@ -11,6 +11,7 @@ import {isChromiumBasedBrowser} from '../../../lib/constants'
 import type {DevOptions, FilepathList, PluginInterface} from '../../../types'
 import * as messages from '../messages'
 import {
+  firstPageRelativeTarget,
   injectedSheetRoot,
   inlinedInjectedSheet,
   isInjectedSheet,
@@ -138,18 +139,35 @@ export class RootInjectedSheetUrls {
             // A public/ sheet ships byte for byte, so what Chromium drops
             // from it is said once and the file stays as written.
             for (const name of publicInjectedSheets(compilation)) {
-              const first = leadingSheetImports(read(name) ?? '')[0]
-              if (!first) continue
+              const text = read(name) ?? ''
+              const first = leadingSheetImports(text)[0]
 
-              warn(
-                'PublicInjectedSheetImportIgnored',
-                `public/${name}`,
-                messages.publicInjectedSheetImportIgnored(
+              if (first) {
+                warn(
+                  'PublicInjectedSheetImportIgnored',
                   `public/${name}`,
-                  first.line,
-                  first.request
+                  messages.publicInjectedSheetImportIgnored(
+                    `public/${name}`,
+                    first.line,
+                    first.request
+                  )
                 )
-              )
+              }
+
+              const target = firstPageRelativeTarget(text, name, root)
+
+              if (target) {
+                warn(
+                  'PublicInjectedSheetPageRelativeTarget',
+                  `public/${name}`,
+                  messages.publicInjectedSheetPageRelativeTarget(
+                    `public/${name}`,
+                    target.line,
+                    target.request,
+                    target.named
+                  )
+                )
+              }
             }
           }
         )

@@ -427,6 +427,48 @@ describe('a stylesheet a script injects by file', () => {
     expect(said).toHaveLength(1)
     expect(said[0]).toContain("imports 'base.css'")
     expect(said[0]).toContain('public/styles/inject.css:2')
+
+    // Chrome reads the image against the visited page, said once with the
+    // first target and the spelling that names it from the extension.
+    const targets = (summary.warnings || []).filter((text: string) =>
+      text.includes('against the visited page')
+    )
+
+    expect(targets).toHaveLength(1)
+    expect(targets[0]).toContain('url(img/own.png)')
+    expect(targets[0]).toContain('public/styles/inject.css:4')
+    expect(targets[0]).toContain(
+      'url("chrome-extension://__MSG_@@extension_id__/styles/img/own.png")'
+    )
+
+    expect(summary.warnings_count).toBe(2)
+  }, 120_000)
+
+  it('says nothing of a public/ sheet on firefox, which reads beside the sheet', async () => {
+    const sheet =
+      '@import "base.css";\n.own { background: url("img/own.png"); }\n'
+    const root = project(
+      {
+        'background/index.js': INJECT,
+        'public/styles/inject.css': sheet,
+        'public/styles/base.css': '.base { color: blue; }\n',
+        'public/styles/img/own.png': 'png'
+      },
+      {background: {scripts: ['background/index.js']}}
+    )
+
+    const summary = await build(root, 'firefox')
+
+    expect(summary.errors_count).toBe(0)
+    expect(
+      (summary.warnings || []).filter((text: string) =>
+        text.includes('styles/inject.css')
+      )
+    ).toEqual([])
+
+    expect(
+      fs.readFileSync(path.join(root, 'dist/firefox/styles/inject.css'), 'utf8')
+    ).toBe(sheet)
   }, 120_000)
 
   it('ships them for the tabs.insertCSS file form, on firefox', async () => {

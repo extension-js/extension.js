@@ -83,6 +83,7 @@ function emit(
 }
 
 const ROOTED = '.a{background-image:url(/assets/pic.4003208d.svg)}'
+const NAMED = `.a{background:url(${CHROMIUM_EXTENSION_ROOT}img/a.png)}`
 const FIXED = `.a{background-image:url("${CHROMIUM_EXTENSION_ROOT}assets/pic.4003208d.svg")}`
 
 describe('the step that names an injected sheet url() from the extension', () => {
@@ -256,9 +257,31 @@ describe('the step that names an injected sheet url() from the extension', () =>
     expect(built.warnings[0].message).toContain("imports 'base.css'")
   })
 
+  it('names the first target of a public/ sheet Chrome reads against the page', () => {
+    const sheet =
+      '.a{background:url(https://example.com/a.png)}\n.b{background:url(data:image/png;base64,AAAA)}\n.c{src:url("../fonts/c.woff2")}\n.d{background:url(img/d.png)}'
+    const built = emit(
+      {'styles/inject.css': sheet, 'styles/named.css': NAMED},
+      {inPublic: ['styles/inject.css', 'styles/named.css']}
+    )
+
+    expect(built.updated).toEqual([])
+    expect(built.text('styles/inject.css')).toBe(sheet)
+    expect(built.warnings).toHaveLength(1)
+    expect(built.warnings[0].name).toBe('PublicInjectedSheetPageRelativeTarget')
+    expect(built.warnings[0].file).toBe('public/styles/inject.css')
+    expect(built.warnings[0].message).toContain('public/styles/inject.css:3')
+    expect(built.warnings[0].message).toContain('url(../fonts/c.woff2)')
+    expect(built.warnings[0].message).toContain(
+      `url("${CHROMIUM_EXTENSION_ROOT}fonts/c.woff2")`
+    )
+
+    expect(built.warnings[0].message).toContain('web_accessible_resources')
+  })
+
   it('says nothing of a public/ sheet on firefox, which loads the import', () => {
     const built = emit(
-      {'styles/inject.css': '@import "base.css";'},
+      {'styles/inject.css': '@import "base.css";.a{background:url(a.png)}'},
       {inPublic: ['styles/inject.css'], browser: 'firefox'}
     )
 

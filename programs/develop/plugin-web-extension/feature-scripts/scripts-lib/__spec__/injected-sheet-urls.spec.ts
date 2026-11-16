@@ -1,6 +1,7 @@
 import {describe, expect, it} from 'vitest'
 import {
   CHROMIUM_EXTENSION_ROOT,
+  firstPageRelativeTarget,
   GECKO_EXTENSION_ROOT,
   injectedSheetRoot,
   inlinedInjectedSheet,
@@ -374,5 +375,37 @@ describe('a sheet injected by file with its imports written in', () => {
 
     expect([...publicInjectedSheets(first)]).toEqual(['styles/inject.css'])
     expect([...publicInjectedSheets({})]).toEqual([])
+  })
+})
+
+describe('the first target of a sheet Chromium reads against the visited page', () => {
+  const first = (css: string) => firstPageRelativeTarget(css, 'styles/pub.css')
+
+  it('finds a relative or root target with its line and its full name', () => {
+    expect(
+      first(
+        '@import url(base.css);\n.a{background:url(//cdn.example.com/a.png)}\n.b{background:url("img/b.png?v=2")}\n.c{background:url(/c.png)}'
+      )
+    ).toEqual({
+      request: 'img/b.png?v=2',
+      line: 3,
+      named: `${CHROMIUM_EXTENSION_ROOT}styles/img/b.png?v=2`
+    })
+
+    expect(first('.c{background:url(/c.png)}')).toEqual({
+      request: '/c.png',
+      line: 1,
+      named: `${CHROMIUM_EXTENSION_ROOT}c.png`
+    })
+  })
+
+  it('finds none in a sheet whose targets read the same from any page', () => {
+    expect(
+      first(
+        `.a{background:url(https://example.com/a.png)}.b{background:url(data:image/png;base64,AAAA)}.c{background:url(#g)}.d{background:url(${CHROMIUM_EXTENSION_ROOT}img/d.png)}`
+      )
+    ).toBeUndefined()
+
+    expect(first('.a{color:red}')).toBeUndefined()
   })
 })
