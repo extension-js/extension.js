@@ -56,6 +56,10 @@ import {
   splitTopLevelArgs,
   unescapeStringBody
 } from './source-literals'
+import {
+  extractPathLiterals,
+  toRuntimePathReference
+} from './warn-unshipped-runtime-assets'
 
 export type {ImportedModule, ImportedModuleReader} from './source-literals'
 
@@ -181,6 +185,7 @@ const STANDARD_BACKGROUND_KEYS = new Set([
 // importScripts chains resolve against the worker URL, so depth only grows
 // through files importing further files, 8 hops is far beyond real usage.
 const MAX_TRACE_DEPTH = 8
+const SCRIPT_SRC = /<script\b[^>]*?\bsrc\s*=\s*(["'])([^"']+)\1/gi
 const SOURCE_SIBLING_EXTENSIONS = ['.ts', '.mts', '.tsx', '.jsx', '.mjs']
 const STYLESHEET_SIBLING_EXTENSIONS = ['.scss', '.sass', '.less']
 // Sources the compiler rewrites to .js: a runtime literal naming one asks the
@@ -307,6 +312,7 @@ export class TraceRuntimeLoadedFiles {
                 this.traceInjectedFilePayloads(run, only)
                 this.traceFetchedFiles(run, only)
                 this.traceGetURLFiles(run, only)
+                this.traceNamedFiles(run, only)
                 this.traceWebpackChunkSiblings(run, only)
                 const emitted = await run.flushCompiles()
                 if (emitted.length === 0) break
@@ -662,6 +668,7 @@ export class TraceRuntimeLoadedFiles {
     type PendingScan =
       | {kind: 'js'; content: string; assetName: string; copied?: boolean}
       | {kind: 'html'; content: string; baseRel: string}
+      | {kind: 'css'; content: string; baseRel: string}
 
     let pending: PendingScan[] = run.jsAssets(only).map((asset) => ({
       kind: 'js' as const,
@@ -717,10 +724,10 @@ export class TraceRuntimeLoadedFiles {
                     )
                   : [])
               ]
-            : extractHtmlSubresourceLiterals(item.content).map((literal) => ({
-                literal,
-                baseRel: item.baseRel
-              }))
+            : (item.kind === 'html'
+                ? extractHtmlSubresourceLiterals(item.content)
+                : extractCssSubresourceLiterals(item.content)
+              ).map((literal) => ({literal, baseRel: item.baseRel}))
 
         const assetName = item.kind === 'js' ? item.assetName : item.baseRel
 
@@ -789,7 +796,7 @@ export class TraceRuntimeLoadedFiles {
             hasAsset: run.hasAsset
           })
           const copied = run.apply(plan, {
-            context: item.kind === 'html' ? 'html' : 'getURL',
+            context: item.kind === 'js' ? 'getURL' : 'html',
             onMissing: () => {
               shippedByWar ??= this.webAccessibleOutputs(run)
               if (shippedByWar.has(distRel)) return
@@ -861,6 +868,9 @@ export class TraceRuntimeLoadedFiles {
             })
           } else if (/\.html?$/i.test(distRel)) {
             next.push({kind: 'html', content: copied, baseRel: distRel})
+          } else if (/\.css$/i.test(distRel)) {
+            // A sheet copied as written still asks for its fonts and images.
+            next.push({kind: 'css', content: copied, baseRel: distRel})
           }
         }
       }
@@ -883,6 +893,72 @@ export class TraceRuntimeLoadedFiles {
       )
 
       run.forgetText(ref.assetName)
+    }
+  }
+
+  // A path kept as a plain string and handed on to fetch or setIcon proves
+  // no call, yet it names a file the extension reads, so the file ships.
+  private traceNamedFiles(run: TraceRun, only?: Set<string>) {
+    const {manifestDir} = run
+    const seen = run.seen.named
+    const pages = run.pagesLoadingScripts()
+
+    for (const asset of run.jsAssets(only)) {
+      // A script in a web page resolves a relative path against the site,
+      // so only the root of the extension is a place it can mean.
+      const inWebPage =
+        asset.name.startsWith('content_scripts/') ||
+        asset.name.startsWith('scripts/')
+      const bases = inWebPage ? [] : (pages.get(asset.name) ?? [asset.name])
+
+      for (const literal of extractPathLiterals(
+        blankComments(run.textOf(asset))
+      )) {
+        const file = toRuntimePathReference(literal)?.file
+        if (!file?.includes('/')) continue
+
+        const targets = [
+          {distRel: file, sources: [path.join(manifestDir, file)]}
+        ]
+
+        for (const base of bases) {
+          const distRel = resolveExtensionPath(literal, base)
+          if (!distRel) continue
+
+          // A page the build moved asks from its new folder for a file the
+          // author placed next to the old one.
+          const entryDir = run.entrySourceDirs.get(
+            base.replace(/\.(?:js|html)$/i, '')
+          )
+
+          targets.push({
+            distRel,
+            sources: [
+              path.join(manifestDir, distRel),
+              ...(entryDir && !literal.startsWith('/')
+                ? [path.resolve(entryDir, literal)]
+                : [])
+            ]
+          })
+        }
+
+        for (const {distRel, sources: candidates} of targets) {
+          if (seen.has(distRel)) continue
+          if (run.hasAsset(distRel)) continue
+          if (isFile(path.join(manifestDir, 'public', distRel))) continue
+
+          const abs = candidates.find(
+            (candidate) =>
+              !path.relative(manifestDir, candidate).startsWith('..') &&
+              isFile(candidate) &&
+              !run.isNamedModule(candidate)
+          )
+          if (!abs) continue
+
+          seen.add(distRel)
+          run.emitCopy(abs, distRel)
+        }
+      }
     }
   }
 
@@ -1027,7 +1103,8 @@ class TraceRun {
     importScripts: new Set<string>(),
     injected: new Set<string>(),
     fetched: new Set<string>(),
-    getURL: new Set<string>()
+    getURL: new Set<string>(),
+    named: new Set<string>()
   }
   // Assets that execute in the worker's scope, so importScripts literals in
   // them resolve against the worker URL.
@@ -1039,6 +1116,7 @@ class TraceRun {
   // Files the `exclude` config leaves out of this build. A literal that names
   // one is dead code on this browser, so the trace ships nothing for it.
   private readonly excluded: ReadonlySet<string>
+  private namedModules?: Set<string>
 
   constructor(
     readonly compilation: Compilation,
@@ -1081,6 +1159,49 @@ class TraceRun {
     }
 
     return found
+  }
+
+  // The pages each emitted script is loaded by, since a relative path in a
+  // script resolves against the page and not against the script.
+  pagesLoadingScripts(): Map<string, string[]> {
+    const pages = new Map<string, string[]>()
+
+    for (const asset of this.compilation.getAssets()) {
+      if (!/\.html?$/i.test(asset.name)) continue
+
+      const page = unixify(asset.name)
+      const markup = asset.source.source().toString()
+
+      for (const match of markup.matchAll(SCRIPT_SRC)) {
+        const script = resolveExtensionPath(match[2], page)
+        if (!script) continue
+
+        const loaders = pages.get(script) ?? []
+
+        if (!loaders.includes(page)) loaders.push(page)
+
+        pages.set(script, loaders)
+      }
+    }
+
+    return pages
+  }
+
+  // A development bundle names each module by its path, so there a string
+  // that names an imported file is the bundler's own and ships nothing.
+  isNamedModule(abs: string): boolean {
+    if (this.compiler.options?.mode !== 'development') return false
+
+    if (!this.namedModules) {
+      this.namedModules = new Set()
+
+      for (const module of this.compilation.modules ?? []) {
+        const resource = (module as {resource?: string}).resource
+        if (resource) this.namedModules.add(resource.split('?')[0])
+      }
+    }
+
+    return this.namedModules.has(abs)
   }
 
   // Every trace reads the same emitted scripts, and each read of an asset
@@ -1935,6 +2056,23 @@ export function extractRuntimeSurfaceLiterals(source: string): string[] {
   return literals
 }
 
+// Extract url() and @import targets from a stylesheet copied through by
+// getURL tracing, so the fonts and images it asks for ship with it.
+export function extractCssSubresourceLiterals(css: string): string[] {
+  const literals: string[] = []
+  const code = css.replace(/\/\*[\s\S]*?\*\//g, '')
+  const refRe =
+    /url\(\s*(?:(["'])([^"'\n]*)\1|([^"'()\s]+))\s*\)|@import\s+(["'])([^"'\n]+)\4/gi
+
+  for (const match of code.matchAll(refRe)) {
+    const literal = (match[2] ?? match[3] ?? match[5] ?? '').trim()
+
+    if (literal && !literal.startsWith('#')) literals.push(literal)
+  }
+
+  return literals
+}
+
 // Extract src/href attribute values from an HTML file copied through by
 // getURL tracing, so the page's subresource closure ships with it.
 function extractHtmlSubresourceLiterals(html: string): string[] {
@@ -2357,7 +2495,7 @@ const SINGULAR_FILE_CONSTANT = new RegExp(
 
 // Cheap gate, so a source with no injection call is never tokenized.
 const INJECTION_CALL =
-  /\b(?:executeScript|insertCSS|removeCSS|registerContentScripts|updateContentScripts)\b/
+  /\b(?:executeScript|insertCSS|removeCSS|registerContentScripts|updateContentScripts|contentScripts|userScripts|messageDisplayScripts|composeScripts)\b/
 
 // Every path an injection call names, each marked with how it was read.
 function collectInjectedFiles(
@@ -2378,6 +2516,12 @@ function collectInjectedFiles(
     {
       callRe: /\b(?:registerContentScripts|updateContentScripts)\s*\(/g,
       arrayProps: ['js', 'css']
+    },
+    {
+      // These name each script as {file: "..."}, read like the singular one.
+      callRe:
+        /\b(?:contentScripts|userScripts|messageDisplayScripts|composeScripts)\s*\.\s*register\s*\(/g,
+      arrayProps: []
     }
   ]
   const constant = (value: string): PathEntry => ({value, viaConstant: true})

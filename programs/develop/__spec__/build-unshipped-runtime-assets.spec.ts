@@ -81,7 +81,7 @@ function unshipped(summary: {warnings?: string[]}) {
 }
 
 describe('runtime paths whose files are not in the build', () => {
-  it('names a folder held as string constants', async () => {
+  it('ships the files held as string constants', async () => {
     const root = project(
       [
         'const providers = [',
@@ -101,12 +101,36 @@ describe('runtime paths whose files are not in the build', () => {
     )
 
     const summary = await build(root)
-    const warnings = unshipped(summary)
+
+    // Each constant names one file, so there is nothing left to warn about.
+    expect(unshipped(summary)).toEqual([])
+
+    for (const name of ['chatgpt.png', 'claude.png']) {
+      expect(
+        fs.existsSync(
+          path.join(root, 'dist', 'chrome', 'icons', 'providers', name)
+        ),
+        name
+      ).toBe(true)
+    }
+  }, 120_000)
+
+  it('names a root file held as a string constant', async () => {
+    const root = project(
+      [
+        "const table = {remote: 'https://example.com/logo.png', local: 'logo.png'}",
+        "const img = document.createElement('img')",
+        'img.src = table[location.hash.slice(1)] || table.local',
+        'document.body.append(img)'
+      ].join('\n'),
+      {'logo.png': PNG}
+    )
+
+    const warnings = unshipped(await build(root))
 
     expect(warnings).toHaveLength(1)
-    expect(warnings[0]).toContain('icons/providers/')
-    expect(warnings[0]).toContain('public/icons/providers/')
-    expect(warnings[0]).toMatch(/2 files/)
+    expect(warnings[0]).toContain('logo.png')
+    expect(warnings[0]).toContain('public/')
   }, 120_000)
 
   it('names a folder used as a prefix in a built path', async () => {
