@@ -767,6 +767,12 @@ export function stampReadyExtensionLoadRefused(
     ready.extensionLoadRefusedAt = new Date().toISOString()
     if (reason) ready.extensionLoadRefusedReason = reason
 
+    // A refused extension holds no id. The derived one was only a forecast.
+    if (ready.extensionIdSource !== 'browser') {
+      delete ready.extensionId
+      delete ready.extensionIdSource
+    }
+
     writeJsonAtomic(readyPath, ready)
   } catch {
     // best-effort; never block launch on this

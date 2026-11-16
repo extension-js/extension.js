@@ -63,7 +63,9 @@ import {normalizeOutputFormat} from '../helpers/output-flag'
 import {
   endedSessionReason,
   runningSessionBrowsers,
-  sessionEndedMessage
+  sessionCommandOf,
+  sessionEndedMessage,
+  sessionNounOf
 } from '../helpers/session-liveness'
 import {
   otherSessionsNote,
@@ -1078,6 +1080,29 @@ export function refusedRunMessage(
   )
 }
 
+// A session that ended refused keeps the refusal on its contract. Starting
+// it again unchanged is refused again, so the answer names the reason.
+export function refusedSessionEndedMessage(
+  contract: Record<string, unknown> | null | undefined,
+  browser: string,
+  flag: string
+): string | undefined {
+  if (typeof contract?.extensionLoadRefusedAt !== 'string') return undefined
+
+  const command = sessionCommandOf(contract)
+  const reason =
+    typeof contract.extensionLoadRefusedReason === 'string'
+      ? contract.extensionLoadRefusedReason.trim().replace(/[.\s]+$/, '')
+      : ''
+
+  return (
+    `The ${sessionNounOf(command)} for ${browser} ended after the browser ` +
+    `refused to load the extension${reason ? `: ${reason}` : ''}. ` +
+    'Fix what the browser names, then run ' +
+    `\`extension ${command} --browser=${browser} ${flag}\` to start one.`
+  )
+}
+
 async function runCommand(input: RunInput): Promise<void> {
   const bridge = await loadExtensionDevelopBridgeModule()
   const projectPath = resolveSessionProjectPath(bridge, input.projectPathArg)
@@ -1159,6 +1184,16 @@ async function runCommand(input: RunInput): Promise<void> {
   const failIfSessionEnded = async (dialFailed: boolean) => {
     const reason = await endedSessionReason(ready, readyPath, {dialFailed})
     if (!reason) return
+
+    const refused = refusedSessionEndedMessage(
+      bridge.readReadyContractDocument?.(projectPath, browser),
+      browser,
+      unlockFlag
+    )
+
+    if (refused) {
+      fail(refused, {...outputFrame, code: CODES.E_EXTENSION_LOAD_REFUSED})
+    }
 
     const others = await runningSessionBrowsers(
       bridge,

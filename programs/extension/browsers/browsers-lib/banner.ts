@@ -173,14 +173,27 @@ function deriveChromiumExtensionIdFromPath(extensionPath: string): string {
   }
 }
 
+// The two shapes Firefox takes for gecko.id. It refuses any other value, so
+// one that matches neither is an id no add-on ever gets.
+const GECKO_ID_SHAPES = [
+  /^\{[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\}$/i,
+  /^[a-z0-9-._]*@[a-z0-9-._]+$/i
+]
+
+function toGeckoId(value: unknown): string {
+  const id = toNormalizedId(value)
+
+  return GECKO_ID_SHAPES.some((shape) => shape.test(id)) ? id : ''
+}
+
 function deriveFirefoxExtensionIdFromManifest(manifest: unknown): string {
-  const fromBrowserSpecificSettings = toNormalizedId(
+  const fromBrowserSpecificSettings = toGeckoId(
     (manifest as {browser_specific_settings?: {gecko?: {id?: unknown}}})
       ?.browser_specific_settings?.gecko?.id
   )
   if (fromBrowserSpecificSettings) return fromBrowserSpecificSettings
 
-  return toNormalizedId(
+  return toGeckoId(
     (manifest as {applications?: {gecko?: {id?: unknown}}})?.applications?.gecko
       ?.id
   )

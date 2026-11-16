@@ -1042,6 +1042,12 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
           target.extensionLoadRefusedReason = prev.extensionLoadRefusedReason
         }
 
+        // The refused extension holds no id, so the forecast stays out.
+        if (payload.extensionIdSource === 'derived') {
+          delete payload.extensionId
+          delete payload.extensionIdSource
+        }
+
         if (status === 'ready') {
           payload.status = 'error' as ReadyStatus
           payload.code = 'extension_load_refused'

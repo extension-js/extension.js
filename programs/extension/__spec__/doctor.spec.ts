@@ -1012,6 +1012,57 @@ describe('extension doctor (browser resolution)', () => {
     }
   })
 
+  // Ctrl+C on a session the browser had refused must not bury the refusal:
+  // a bare restart of the same manifest is refused again.
+  it('names the refusal a stopped session ended on, with its code', async () => {
+    const root = makeProject([])
+    writeContract(root, 'firefox', {
+      command: 'dev',
+      browser: 'firefox',
+      status: 'stopped',
+      code: 'shutdown',
+      message: 'the dev session ended (watch closed)',
+      controlPort: 4001,
+      instanceId: 'inst-1',
+      pid: 999999,
+      extensionLoadRefusedAt: '2026-11-16T22:32:40.228Z',
+      extensionLoadRefusedReason:
+        'Could not install add-on: Error: Extension is invalid Reading manifest: Error processing browser_specific_settings.gecko.id.'
+    })
+
+    state.mod = healthyModule({
+      readReadyContract: () => ({
+        controlPort: 4001,
+        instanceId: 'inst-1',
+        status: 'stopped',
+        command: 'dev',
+        pid: 999999
+      })
+    })
+
+    try {
+      const r = byCheck(await runDoctor(root, {browser: 'firefox'}))
+
+      expect(r['ready-contract'].detail).toBe(
+        "contract status is 'stopped', the dev session ended after the " +
+          'browser refused to load the extension: Could not install add-on: ' +
+          'Error: Extension is invalid Reading manifest: Error processing ' +
+          'browser_specific_settings.gecko.id'
+      )
+
+      expect(r['ready-contract'].remediation).toBe(
+        'Fix what the browser names, then start it again: ' +
+          'extension dev --browser=firefox --allow-control'
+      )
+
+      expect(doctorFailureCode(r['ready-contract'])).toBe(
+        'E_EXTENSION_LOAD_REFUSED'
+      )
+    } finally {
+      fs.rmSync(root, {recursive: true, force: true})
+    }
+  })
+
   it('names a live preview with no control channel and how to get one', async () => {
     const root = makeProject([])
     writeContract(root, 'chrome', {

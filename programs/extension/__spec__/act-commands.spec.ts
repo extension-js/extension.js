@@ -329,6 +329,47 @@ describe('extension eval', () => {
     expect(bridge.controllers).toHaveLength(0)
   })
 
+  it.each([
+    ['stopped', 'shutdown'],
+    ['error', 'extension_load_refused']
+  ])('names the refusal a session with status %s ended on, with the refusal code', async (status, code) => {
+    bridge.ready = {
+      controlPort: await silentLoopbackPort(),
+      instanceId: 'inst-1',
+      status,
+      command: 'dev',
+      pid: deadPid()
+    }
+
+    bridge.readyDoc = {
+      command: 'dev',
+      status,
+      code,
+      extensionLoadRefusedAt: '2026-11-16T22:32:42.533Z',
+      extensionLoadRefusedReason:
+        'This extension requires Google Chrome for Testing version 999 or greater.'
+    }
+
+    const stdout = vi.spyOn(fs, 'writeSync').mockImplementation(() => 0)
+
+    expect(
+      await run(['eval', '1+1', '--browser', 'chrome', '--output', 'json'])
+    ).toBe(1)
+
+    const frame = JSON.parse(String(stdout.mock.calls[0][1]))
+
+    expect(frame.status).toBe('load-refused')
+    expect(frame.error.code).toBe('E_EXTENSION_LOAD_REFUSED')
+    expect(frame.error.message).toBe(
+      'The dev session for chrome ended after the browser refused to load ' +
+        'the extension: This extension requires Google Chrome for Testing ' +
+        'version 999 or greater. Fix what the browser names, then run ' +
+        '`extension dev --browser=chrome --allow-eval` to start one.'
+    )
+
+    expect(bridge.controllers).toHaveLength(0)
+  })
+
   it('answers a killed session, whose contract still reads ready, the same way', async () => {
     const pid = deadPid()
 

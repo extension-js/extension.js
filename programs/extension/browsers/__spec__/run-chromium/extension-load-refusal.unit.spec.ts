@@ -193,6 +193,31 @@ describe('stampReadyExtensionLoadRefused', () => {
     expect(ready.runId).toBe('run-A')
   })
 
+  it('drops the id forecast, and keeps an id the browser itself gave', () => {
+    for (const [source, kept] of [
+      ['derived', undefined],
+      ['browser', 'abcdefghijklmnopabcdefghijklmnop']
+    ] as const) {
+      fs.writeFileSync(
+        readyPath,
+        JSON.stringify({
+          status: 'ready',
+          command: 'dev',
+          browser: 'chrome',
+          extensionId: 'abcdefghijklmnopabcdefghijklmnop',
+          extensionIdSource: source
+        })
+      )
+
+      stampReadyExtensionLoadRefused(outputPath, 'refused')
+
+      const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+
+      expect(ready.extensionId).toBe(kept)
+      expect(ready.extensionIdSource).toBe(kept ? 'browser' : undefined)
+    }
+  })
+
   it('never creates a contract where the session wrote none', () => {
     expect(() =>
       stampReadyExtensionLoadRefused(path.join(tmp, 'missing'), 'reason')

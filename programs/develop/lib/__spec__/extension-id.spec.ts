@@ -124,6 +124,17 @@ describe('gecko extension id derivation', () => {
     expect(geckoExtensionId(tmp)).toBe('legacy@extension.js')
   })
 
+  it('returns undefined for an id in a shape Firefox refuses', () => {
+    fs.writeFileSync(
+      path.join(tmp, 'manifest.json'),
+      JSON.stringify({
+        browser_specific_settings: {gecko: {id: 'not a valid id'}}
+      })
+    )
+
+    expect(geckoExtensionId(tmp)).toBeUndefined()
+  })
+
   it('returns undefined without a pinned id', () => {
     fs.writeFileSync(path.join(tmp, 'manifest.json'), JSON.stringify({}))
     expect(geckoExtensionId(tmp)).toBeUndefined()

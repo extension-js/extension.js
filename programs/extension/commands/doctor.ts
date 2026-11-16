@@ -657,11 +657,22 @@ export async function runDoctor(
     })
   } else if (ready.status === 'stopped') {
     // A stopped contract is a session that ended. Waiting on it never helps.
+    // One the browser had refused would be refused again by a bare restart.
+    const refused = typeof failure.extensionLoadRefusedAt === 'string'
+    const reason = loadRefusalReason(failure)
+
     results.push({
       check: 'ready-contract',
       status: 'fail',
-      detail: `contract status is 'stopped', the ${sessionNoun} ended`,
-      remediation: `Start it again: ${restartCommand}`
+      detail:
+        `contract status is 'stopped', the ${sessionNoun} ended` +
+        (refused
+          ? ` after the browser refused to load the extension${reason ? `: ${reason}` : ''}`
+          : ''),
+      remediation: refused
+        ? `Fix what the browser names, then start it again: ${restartCommand}`
+        : `Start it again: ${restartCommand}`,
+      ...(refused ? {code: CODES.E_EXTENSION_LOAD_REFUSED} : {})
     })
   } else {
     // preview has no --wait flag, so its advice names the report instead.

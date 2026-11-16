@@ -748,6 +748,35 @@ describe('ready.json writer preservation', () => {
     expect(after.message).toContain('refused to load')
   })
 
+  // The id read off the dist is a forecast of what the browser would assign.
+  it('publishes no derived id for an extension the browser refused', () => {
+    const distPath = path.join(tmp, 'dist', 'chromium')
+    fs.mkdirSync(distPath, {recursive: true})
+    fs.writeFileSync(
+      path.join(distPath, 'manifest.json'),
+      JSON.stringify({manifest_version: 3, name: 'x', version: '1'})
+    )
+
+    const writer = makeWriter()
+    writer.writeReady()
+
+    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    expect(ready.extensionIdSource).toBe('derived')
+
+    ready.status = 'error'
+    ready.code = 'extension_load_refused'
+    ready.extensionLoadRefusedAt = '2026-07-24T00:00:00.000Z'
+    delete ready.extensionId
+    delete ready.extensionIdSource
+    fs.writeFileSync(writer.readyPath, JSON.stringify(ready))
+
+    writer.writeReady()
+
+    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    expect(after.extensionId).toBeUndefined()
+    expect(after.extensionIdSource).toBeUndefined()
+  })
+
   it('preserves compiledAt when a later writer in the same run omits it', () => {
     const writer = makeWriter()
     writer.writeReady('2026-08-15T12:00:00.000Z')
