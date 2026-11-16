@@ -84,9 +84,28 @@ export function isMachineOutput(): boolean {
   )
 }
 
+let silentBuilds = 0
+
+// A build asked to be silent answers through what it returns, so its human
+// lines stop until the caller releases them. Warnings and errors keep stderr.
+export function holdHumanLines(): () => void {
+  let held = true
+
+  silentBuilds += 1
+
+  return () => {
+    if (!held) return
+
+    held = false
+    silentBuilds -= 1
+  }
+}
+
 // Human copy shares stdout with the frames, so it moves to stderr while a
 // machine owns stdout. The pretty path stays byte-identical to console.log.
 export function humanLine(...parts: unknown[]): void {
+  if (silentBuilds > 0) return
+
   if (isMachineOutput()) {
     process.stderr.write(`${format(...parts)}\n`)
 

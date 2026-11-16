@@ -128,7 +128,7 @@ export function registerBuildCommand(program: Command) {
     )
     .option(
       '--silent [boolean]',
-      'suppress the build summary output. Defaults to `false`',
+      'print nothing on a build that succeeds. Warnings stay in `build-summary.json`, errors still print. Defaults to `false`',
       parseOptionalBoolean
     )
     .option(

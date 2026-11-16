@@ -43,7 +43,7 @@ async function build(root: string, browser: 'chrome' | 'firefox') {
   try {
     await extensionBuild(root, {
       browser,
-      silent: true,
+      silent: false,
       install: false,
       mode: 'production',
       exitOnError: false
