@@ -459,7 +459,7 @@ export function extensionOutputIsIncomplete(
 }
 
 // The reason is the browser's own sentence, when a launch could ask for it.
-export function chromiumRefusesTheExtension(
+export function browserRefusesTheExtension(
   browser: string,
   extensionPath: string,
   reason?: string
@@ -582,28 +582,24 @@ export function chromiumManifestLoadBlockers(
   )
 }
 
+// Only a dev session prints this block. A run-only launch ends on a refusal.
+const LOAD_REFUSAL_RECOVERY =
+  `Fix the reason above and save.\n` +
+  `If the browser doesn't pick it up, restart the dev session.`
+
 // The browser accepted the launch but rejected the guest. Reported from the
 // browser's own answer, so it reads the same headed (modal) and headless (silent).
 export function chromiumExtensionLoadRefused(
   extensionPath: string,
-  reason: string,
-  options: {runOnly?: boolean} = {}
+  reason: string
 ) {
   return (
     `${getLoggingPrefix('error')} ${colors.red("The browser refused to load this extension, so it isn't running.")}\n` +
     `${colors.gray('PATH')} ${colors.underline(extensionPath)}\n` +
     (reason ? `${colors.gray('REASON')} ${colors.red(reason)}\n` : '') +
     `No service worker, content script, or page from this extension will run, and no Extension ID was assigned.\n` +
-    loadRefusalRecovery(options.runOnly)
+    LOAD_REFUSAL_RECOVERY
   )
-}
-
-// A run-only session has no watcher, so saving the file changes nothing.
-function loadRefusalRecovery(runOnly?: boolean) {
-  return runOnly
-    ? `Fix the reason above, rebuild, and run the command again.`
-    : `Fix the reason above and save.\n` +
-        `If the browser doesn't pick it up, restart the dev session.`
 }
 
 // Chrome 150 drops --load-extension unless the switch policy is disabled, and
@@ -658,17 +654,13 @@ export function chromiumHeadlessPageTargetRecreated(browser: Browser) {
 
 // The Gecko twin of chromiumExtensionLoadRefused. Firefox volunteers its
 // reason at install time, so the shape is the same and only the nouns differ.
-export function geckoAddonLoadRefused(
-  addonPath: string,
-  reason: string,
-  options: {runOnly?: boolean} = {}
-) {
+export function geckoAddonLoadRefused(addonPath: string, reason: string) {
   return (
     `${getLoggingPrefix('error')} ${colors.red("The browser refused to load this add-on, so it isn't running.")}\n` +
     `${colors.gray('PATH')} ${colors.underline(addonPath)}\n` +
     (reason ? `${colors.gray('REASON')} ${colors.red(reason)}\n` : '') +
     `No background script, content script, or page from this add-on will run, and no Extension ID was assigned.\n` +
-    loadRefusalRecovery(options.runOnly)
+    LOAD_REFUSAL_RECOVERY
   )
 }
 

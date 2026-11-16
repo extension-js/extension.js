@@ -5,7 +5,7 @@ import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {
   chromiumStillRunsManifestV2,
   diagnoseChromiumManifestRefusal,
-  endsPredictedRefusal,
+  endsRunOnlyLaunch,
   findChromiumLoadBlockers,
   findInvalidMatchPatterns,
   findLocaleLoadBlockers,
@@ -15,7 +15,7 @@ import {
   repeatsManifestV2Refusal
 } from '../browsers-lib/manifest-refusal'
 import {
-  chromiumRefusesTheExtension,
+  browserRefusesTheExtension,
   manifestV2OnChromiumBrowser
 } from '../browsers-lib/messages'
 
@@ -633,15 +633,22 @@ describe('a Manifest V2 guest at launch', () => {
   })
 
   it('ends a predicted refusal unless the browser took the guest', () => {
-    expect(endsPredictedRefusal('refused')).toBe(true)
-    expect(endsPredictedRefusal('unknown')).toBe(true)
-    expect(endsPredictedRefusal('loaded')).toBe(false)
+    expect(endsRunOnlyLaunch(true, 'refused')).toBe(true)
+    expect(endsRunOnlyLaunch(true, 'unknown')).toBe(true)
+    expect(endsRunOnlyLaunch(true, 'loaded')).toBe(false)
+  })
+
+  // A minimum_chrome_version above the browser is one the preflight lets by.
+  it('ends a run the browser refused though nothing predicted it', () => {
+    expect(endsRunOnlyLaunch(false, 'refused')).toBe(true)
+    expect(endsRunOnlyLaunch(false, 'unknown')).toBe(false)
+    expect(endsRunOnlyLaunch(false, 'loaded')).toBe(false)
   })
 
   it('carries the sentence of the browser on the frame that ends the run', () => {
     const sentence =
       'Cannot install extension because it uses an unsupported manifest version.'
-    const framed = chromiumRefusesTheExtension(
+    const framed = browserRefusesTheExtension(
       'chrome',
       '/dist/chrome',
       sentence
@@ -656,7 +663,7 @@ describe('a Manifest V2 guest at launch', () => {
 
     expect(framed).not.toContain('Read the reason above')
 
-    const unasked = chromiumRefusesTheExtension('chrome', '/dist/chrome')
+    const unasked = browserRefusesTheExtension('chrome', '/dist/chrome')
 
     expect(unasked).not.toContain('REASON')
     expect(unasked).toContain(

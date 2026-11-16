@@ -207,10 +207,9 @@ describe('verifyGuestLoadAfterLaunch (run-only load evidence)', () => {
     // The pipe is the browser's lifeline, so the controller stays held.
     expect(plugin.cdpController).toBeDefined()
 
+    // The run ends on this refusal and its last frame carries the reason.
     const printed = errorSpy.mock.calls.map((c) => String(c[0])).join('\n')
-    expect(printed).toMatch(/refused to load this extension/i)
-    expect(printed).toContain('rebuild, and run the command again')
-    expect(printed).not.toContain('restart the dev session')
+    expect(printed).not.toMatch(/refused to load this extension/i)
 
     expect(
       logSink.mock.calls.some((c) =>
@@ -250,22 +249,26 @@ describe('verifyGuestLoadAfterLaunch (run-only load evidence)', () => {
     ).toBe(true)
   })
 
-  it('still prints a refusal for any other reason after the Manifest V2 verdict', async () => {
-    const {outPath} = makeStartSession()
-    verifyGuestLoadedSpy.mockResolvedValue({
-      status: 'refused',
-      reason: 'Manifest file is missing or unreadable'
-    })
+  it('prints no block for a refusal the preflight did not predict', async () => {
+    const {outPath, readyPath} = makeStartSession()
+    const reason =
+      'This extension requires Google Chrome for Testing version 999 or greater.'
+    verifyGuestLoadedSpy.mockResolvedValue({status: 'refused', reason})
 
-    await runCheck(outPath, {
+    const plugin: Record<string, unknown> = {
       browser: 'chrome',
       launchRunId: 'run-start',
       manifestV2RefusalSaid: true
-    })
+    }
 
-    expect(errorSpy.mock.calls.map((c) => String(c[0])).join('\n')).toMatch(
+    expect(await runCheck(outPath, plugin)).toBe('refused')
+
+    expect(errorSpy.mock.calls.map((c) => String(c[0])).join('\n')).not.toMatch(
       /refused to load this extension/i
     )
+
+    expect(readReady(readyPath).extensionLoadRefusedReason).toBe(reason)
+    expect(plugin.extensionLoadRefused).toBe(reason)
   })
 
   // The launch was made only to hear the browser, and its last frame carries
@@ -598,20 +601,10 @@ describe('verifyGuestLoadAfterLaunch (run-only load evidence)', () => {
 })
 
 describe('load refusal recovery line', () => {
-  // A run-only session has no watcher, so "save" would promise a reload
-  // that never comes, on either engine.
-  it('tells a run-only session to rebuild and run again', async () => {
+  // Only a dev session prints this block: a run-only launch ends on the
+  // refusal, and its last frame says to run the command again.
+  it('tells a dev session to save, on either engine', async () => {
     const messages = await import('../../browsers-lib/messages')
-
-    for (const text of [
-      messages.chromiumExtensionLoadRefused('/dist/chrome', 'no', {
-        runOnly: true
-      }),
-      messages.geckoAddonLoadRefused('/dist/firefox', 'no', {runOnly: true})
-    ]) {
-      expect(text).toContain('rebuild, and run the command again')
-      expect(text).not.toContain('restart the dev session')
-    }
 
     for (const text of [
       messages.chromiumExtensionLoadRefused('/dist/chrome', 'no'),
@@ -619,6 +612,26 @@ describe('load refusal recovery line', () => {
     ]) {
       expect(text).toContain('Fix the reason above and save.')
       expect(text).toContain('restart the dev session')
+    }
+  })
+
+  it('ends a run-only launch with one frame for either engine', async () => {
+    const messages = await import('../../browsers-lib/messages')
+
+    for (const browser of ['chrome', 'firefox']) {
+      const text = messages.browserRefusesTheExtension(
+        browser,
+        `/dist/${browser}`,
+        'no'
+      )
+
+      expect(text).toContain('refuses to load this extension')
+      expect(text).toContain('REASON no')
+      expect(text).toContain(
+        'Fix what the browser names, then run the command again.'
+      )
+
+      expect(text).not.toContain('save')
     }
   })
 })

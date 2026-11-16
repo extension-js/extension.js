@@ -7,6 +7,10 @@ import {
   internalErrorEnvelope,
   isCommanderError,
   isErrorFramed,
+  isLoadRefused,
+  LOAD_REFUSED_HINT,
+  LOAD_REFUSED_STATUS,
+  loadRefusedEnvelope,
   markErrorFramed,
   wantsJsonOutput
 } from '../cli-failure'
@@ -245,6 +249,68 @@ describe('internalErrorEnvelope', () => {
   it('frames a non-error throw too', () => {
     const frame = internalErrorEnvelope('wat', 'dev')
     expect(frame.error?.message).toBe('wat')
+  })
+})
+
+// start has no catch of its own around the launch, so this is the frame it
+// prints, and preview builds its frame with the same helper.
+describe('a load the browser refused', () => {
+  const refused = Object.assign(
+    new Error(
+      'Chrome refuses to load this extension, so there is nothing to preview.\n' +
+        'PATH /proj/dist/chrome\n' +
+        'REASON Cannot install extension because it uses an unsupported manifest version.\n' +
+        'Fix what the browser names, then run the command again.'
+    ),
+    {code: 'E_EXTENSION_LOAD_REFUSED'}
+  )
+
+  it('frames as load-refused with its own code on any command', () => {
+    for (const command of ['start', 'preview', 'dev']) {
+      const frame = internalErrorEnvelope(refused, command)
+
+      expect(frame).toMatchObject({
+        ok: false,
+        command,
+        status: LOAD_REFUSED_STATUS,
+        value: null,
+        hint: LOAD_REFUSED_HINT
+      })
+
+      expect(frame.error).toEqual({
+        code: 'E_EXTENSION_LOAD_REFUSED',
+        message: refused.message
+      })
+    }
+  })
+
+  it('reads the same from start as from preview, command aside', () => {
+    const {command: _start, ...start} = internalErrorEnvelope(refused, 'start')
+    const {command: _preview, ...preview} = loadRefusedEnvelope(
+      refused,
+      'preview'
+    )
+
+    expect(start).toEqual(preview)
+  })
+
+  it('keeps the remedy a producer names over the general one', () => {
+    const incomplete = Object.assign(new Error('missing files'), {
+      code: 'E_EXTENSION_LOAD_REFUSED',
+      hint: 'Run `extension build` again, then run the command.'
+    })
+
+    expect(loadRefusedEnvelope(incomplete, 'preview').hint).toBe(
+      'Run `extension build` again, then run the command.'
+    )
+  })
+
+  it('tells a refused load from every other coded failure', () => {
+    expect(isLoadRefused(refused)).toBe(true)
+    expect(isLoadRefused(new Error('launcher exploded'))).toBe(false)
+    expect(
+      isLoadRefused(Object.assign(new Error('x'), {code: 'E_BROWSER_LAUNCH'}))
+    ).toBe(false)
   })
 })
 

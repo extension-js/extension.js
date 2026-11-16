@@ -24,6 +24,7 @@ import {
   surfaceNotDeclaredHint,
   surfaceNotDeclaredOutcome
 } from '../browsers/run-firefox/rdp/evaluate-extension-document'
+import {LOAD_REFUSED_STATUS} from '../helpers/cli-failure'
 import {emulatorSessionRefusal} from '../helpers/emulator-session'
 import {exitAfterDrain, exitWithFailure} from '../helpers/exit-after-drain'
 import {
@@ -366,6 +367,7 @@ function codeForBridgeError(
 
 function statusForCode(code: ErrorCode): string {
   if (code === CODES.E_TIMEOUT) return 'timeout'
+  if (code === CODES.E_EXTENSION_LOAD_REFUSED) return LOAD_REFUSED_STATUS
 
   if (code === CODES.E_SESSION_NOT_FOUND || code === CODES.E_TARGET_NOT_FOUND) {
     return 'not-found'

@@ -119,6 +119,9 @@ export interface DoctorCheckResult {
   status: CheckStatus
   detail: string
   remediation?: string
+  // A row whose cause has a code of its own names it, so the frame reports
+  // that cause and not the family code of the check that met it.
+  code?: ErrorCode
   // Set to false on a skip that is no gap: the check has no meaning for the
   // kind of session diagnosed, so it leaves the pass count.
   applicable?: false
@@ -569,7 +572,8 @@ export async function runDoctor(
         remediation:
           'Fix what the browser names, then run the same command again: ' +
           `extension ${refusedRun} --browser=${browser} --allow-control ` +
-          '(add --allow-eval for the eval verb)'
+          '(add --allow-eval for the eval verb)',
+        code: CODES.E_EXTENSION_LOAD_REFUSED
       })
     } else {
       results.push({
@@ -648,7 +652,8 @@ export async function runDoctor(
         ? `Fix what the browser names, build again and restart: ${restartCommand}`
         : 'Fix what the browser names and save, the dev session tries the ' +
           'load again on the next build. If it stays refused, restart it: ' +
-          restartCommand
+          restartCommand,
+      code: CODES.E_EXTENSION_LOAD_REFUSED
     })
   } else if (ready.status === 'stopped') {
     // A stopped contract is a session that ended. Waiting on it never helps.
@@ -1009,6 +1014,13 @@ export const DOCTOR_CHECK_CODES: Record<DoctorCheck, ErrorCode> = {
   browser: CODES.E_BROWSER_LAUNCH
 }
 
+// The first failing row decides the frame's code, its own when it names one.
+export function doctorFailureCode(row: DoctorCheckResult): ErrorCode {
+  return (
+    row.code || DOCTOR_CHECK_CODES[row.check] || CODES.E_DOCTOR_CHECKS_FAILED
+  )
+}
+
 export function registerDoctorCommand(program: Command): void {
   program
     .command('doctor')
@@ -1065,9 +1077,7 @@ export function registerDoctorCommand(program: Command): void {
               'doctor',
               'unhealthy',
               {
-                code:
-                  DOCTOR_CHECK_CODES[failed[0].check] ||
-                  CODES.E_DOCTOR_CHECKS_FAILED,
+                code: doctorFailureCode(failed[0]),
                 message: `${failed.length} of ${report.checks.length} doctor checks failed.`
               },
               {

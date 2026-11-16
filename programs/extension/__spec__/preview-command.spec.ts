@@ -244,6 +244,36 @@ describe('extension preview', () => {
     expect(frame.error.code).toBe('E_PREVIEW_NO_DIST')
   })
 
+  // The launcher codes the refusal it throws, so no message text is matched.
+  it('emits load-refused and its code for a load the browser refused', async () => {
+    extensionPreview.mockRejectedValueOnce(
+      Object.assign(
+        new Error(
+          'Chrome refuses to load this extension, so there is nothing to preview.'
+        ),
+        {code: 'E_EXTENSION_LOAD_REFUSED'}
+      )
+    )
+
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    expect(await run(['preview', '.', '--output', 'json'])).toBe(1)
+    expect(logSpy).toHaveBeenCalledTimes(1)
+    expect(JSON.parse(String(logSpy.mock.calls[0][0]))).toEqual({
+      schema: 1,
+      ok: false,
+      command: 'preview',
+      status: 'load-refused',
+      value: null,
+      error: {
+        code: 'E_EXTENSION_LOAD_REFUSED',
+        message:
+          'Chrome refuses to load this extension, so there is nothing to preview.'
+      },
+      warnings: [],
+      hint: 'Fix what the browser names, then run the command again.'
+    })
+  })
+
   it('emits E_INTERNAL for any other preview failure', async () => {
     extensionPreview.mockRejectedValueOnce(new Error('launcher exploded'))
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})

@@ -7,7 +7,11 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'node:fs'
-import {markErrorFramed} from '../helpers/cli-failure'
+import {
+  LOAD_REFUSED_HINT,
+  LOAD_REFUSED_STATUS,
+  markErrorFramed
+} from '../helpers/cli-failure'
 import {loadExtensionDevelopBridgeModule} from '../helpers/extension-develop-runtime'
 import * as messages from '../helpers/messages'
 import {CODES, type ErrorCode} from '../helpers/messaging'
@@ -178,6 +182,16 @@ export function describeWaitError(error: unknown): WaitFailure {
       status: 'usage',
       message,
       hint: 'Let Extension.js manage the profile, or pass --profile=<path>.'
+    }
+  }
+
+  // The session wrote down that the browser turned the extension away.
+  if (code === CODES.E_EXTENSION_LOAD_REFUSED) {
+    return {
+      code,
+      status: LOAD_REFUSED_STATUS,
+      message,
+      hint: LOAD_REFUSED_HINT
     }
   }
 

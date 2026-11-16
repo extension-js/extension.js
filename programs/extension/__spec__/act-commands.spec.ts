@@ -210,6 +210,7 @@ describe('extension eval', () => {
 
     const frame = JSON.parse(String(stdout.mock.calls[0][1]))
 
+    expect(frame.status).toBe('load-refused')
     expect(frame.error.code).toBe('E_EXTENSION_LOAD_REFUSED')
     expect(frame.error.message).toBe(
       `The last extension ${command} run for chrome ended because the ` +

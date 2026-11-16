@@ -32,6 +32,7 @@ import {
   isDebug
 } from '../../../helpers/messaging'
 import {expectedGeckoExtensionId} from '../../browsers-lib/banner'
+import {binaryOverrideNaming} from '../../browsers-lib/binary-env-override'
 import {setInstancePorts} from '../../browsers-lib/instance-registry'
 import {scanSystem} from '../../browsers-lib/locator-env'
 import * as messages from '../../browsers-lib/messages'
@@ -80,7 +81,6 @@ import {
   buildBrowserLaunchRequest,
   toExtensionLoadList
 } from '../../browsers-lib/runtime-options'
-import {binaryOverrideNaming} from '../../browsers-lib/binary-env-override'
 import {
   classifyBinaryProvenance,
   deriveDebugPortWithInstance,
@@ -253,6 +253,25 @@ export class FirefoxLaunchPlugin {
       this.stampLaunchFailed(error)
 
       throw error
+    }
+
+    // Nothing rebuilds a run-only session, so an add-on the browser refused
+    // never loads later and the run ends here with the browser's reason.
+    if (options?.mode !== 'development' && this.host.extensionLoadRefused) {
+      const reason = this.host.extensionLoadRefused
+
+      await this.cleanupInstance()
+
+      throw Object.assign(
+        new Error(
+          messages.browserRefusesTheExtension(
+            String(this.host.browser),
+            this.extensionOutputPath || '',
+            reason
+          )
+        ),
+        {code: CODES.E_EXTENSION_LOAD_REFUSED}
+      )
     }
 
     // A claim about the browser waits for the browser: printing this before
@@ -1199,7 +1218,12 @@ export class FirefoxLaunchPlugin {
   // stdout, logs.ndjson, and a non-ready contract. The session stays alive.
   private reportAddonLoadRefused(reason: string, runOnly = false) {
     const refusedPath = this.extensionOutputPath || ''
-    humanError(messages.geckoAddonLoadRefused(refusedPath, reason, {runOnly}))
+
+    // A run-only launch ends on the refusal and prints its own block.
+    if (!runOnly) {
+      humanError(messages.geckoAddonLoadRefused(refusedPath, reason))
+    }
+
     this.host.logSink?.({
       level: 'error',
       text: `extension_load_refused: ${refusedPath}${

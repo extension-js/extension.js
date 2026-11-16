@@ -6,6 +6,7 @@ import {beforeEach, describe, expect, it, vi} from 'vitest'
 import {
   DOCTOR_CHECKS,
   type DoctorReport,
+  doctorFailureCode,
   resolveDoctorBrowser,
   runDoctor
 } from '../commands/doctor'
@@ -528,6 +529,10 @@ describe('extension doctor', () => {
       expect(r['ready-contract'].remediation).not.toMatch(/wait for it/)
       expect(r.executor.status).toBe('fail')
       expect(r.executor.detail).toContain('refused to load this extension')
+      // The frame names the refusal the act verbs name, not a missing session.
+      expect(doctorFailureCode(r['ready-contract'])).toBe(
+        'E_EXTENSION_LOAD_REFUSED'
+      )
     } finally {
       fs.rmSync(root, {recursive: true, force: true})
     }
@@ -821,6 +826,10 @@ describe('extension doctor (browser resolution)', () => {
 
         expect(dialed).toBe(0)
         expect(r['ready-contract'].status).toBe('fail')
+        expect(doctorFailureCode(r['ready-contract'])).toBe(
+          'E_EXTENSION_LOAD_REFUSED'
+        )
+
         expect(r['ready-contract'].detail).toBe(
           `the last extension ${command} run for chrome ended because the ` +
             'browser refused to load the extension: Cannot install extension ' +
@@ -887,6 +896,9 @@ describe('extension doctor (browser resolution)', () => {
       expect(r['ready-contract'].remediation).toContain(
         'extension dev --browser=chrome'
       )
+
+      // A row with no cause of its own keeps the code of its check.
+      expect(doctorFailureCode(r['ready-contract'])).toBe('E_SESSION_NOT_FOUND')
     } finally {
       fs.rmSync(root, {recursive: true, force: true})
     }

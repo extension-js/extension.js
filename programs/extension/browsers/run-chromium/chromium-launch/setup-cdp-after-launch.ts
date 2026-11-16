@@ -115,7 +115,7 @@ function readLaunchTargets(
 }
 
 // Report a guest the browser threw away on every surface: stdout, logs and a
-// non-ready contract. The session stays up, the browser is still running.
+// non-ready contract. A run-only launch ends on it and prints its own block.
 function reportGuestLoadRefused(
   plugin: ChromiumPluginRuntime,
   extensionOutputPath: string,
@@ -124,12 +124,10 @@ function reportGuestLoadRefused(
   runOnly = false
 ) {
   if (
-    !plugin.loadRefusalEndsRun &&
+    !runOnly &&
     !repeatsManifestV2Refusal(plugin.manifestV2RefusalSaid, reason)
   ) {
-    humanError(
-      messages.chromiumExtensionLoadRefused(refusedPath, reason, {runOnly})
-    )
+    humanError(messages.chromiumExtensionLoadRefused(refusedPath, reason))
   }
 
   plugin.logSink?.({

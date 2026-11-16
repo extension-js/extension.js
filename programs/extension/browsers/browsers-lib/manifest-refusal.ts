@@ -90,12 +90,13 @@ export function repeatsManifestV2Refusal(
 export const GENERAL_REFUSAL_REASON =
   'the manifest declares a shape this browser refuses'
 
-// A run-only launch starts the browser to ask why it refuses. A guest it took
-// after all keeps its session, any other answer ends the run.
-export function endsPredictedRefusal(
+// Nothing rebuilds a run-only session, so a refused guest ends the run. A
+// predicted refusal also ends it when the browser gave no answer at all.
+export function endsRunOnlyLaunch(
+  predictedRefusal: boolean,
   status: 'loaded' | 'refused' | 'unknown'
 ): boolean {
-  return status !== 'loaded'
+  return predictedRefusal ? status !== 'loaded' : status === 'refused'
 }
 
 // ONE invalid pattern makes Chrome refuse the WHOLE extension; the only shape

@@ -343,6 +343,7 @@ describe('eval on a Gecko extension document the CSP locks down', () => {
     ).toBe(1)
 
     expect(protocolCalls).toHaveLength(0)
+    expect(frame().status).toBe('load-refused')
     expect(frame().error.code).toBe('E_EXTENSION_LOAD_REFUSED')
     expect(frame().error.message).toBe(message)
     expect(frame().error.hint).toBeUndefined()

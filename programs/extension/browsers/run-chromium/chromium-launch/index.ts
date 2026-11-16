@@ -45,7 +45,7 @@ import * as instanceRegistry from '../../browsers-lib/instance-registry'
 import {locatorEnv, scanSystem} from '../../browsers-lib/locator-env'
 import {
   diagnoseChromiumManifestRefusal,
-  endsPredictedRefusal,
+  endsRunOnlyLaunch,
   findChromiumLoadBlockers,
   findInvalidMatchPatterns,
   findLocaleLoadBlockers,
@@ -1168,19 +1168,23 @@ export class ChromiumLaunchPlugin {
           readReadyRunId(refusedOutputPath)
         )
 
-        throw new Error(
-          messages.extensionOutputIsIncomplete(
-            String(this.options.browser),
-            incomplete.extPath,
-            incomplete.missing
-          )
+        throw Object.assign(
+          codedError(
+            CODES.E_EXTENSION_LOAD_REFUSED,
+            messages.extensionOutputIsIncomplete(
+              String(this.options.browser),
+              incomplete.extPath,
+              incomplete.missing
+            )
+          ),
+          {hint: 'Run `extension build` again, then run the command.'}
         )
       }
     }
 
     // A dry run launches nothing, so no browser can say why it refuses.
     if (predictedRefusal && dryRun) {
-      this.endPredictedRefusal(compilation, predictedRefusal.extensionPath)
+      this.endRefusedRun(compilation, predictedRefusal.extensionPath)
     }
 
     let chromiumConfig: string[]
@@ -1286,7 +1290,7 @@ export class ChromiumLaunchPlugin {
 
     // With the debugging flags stripped the browser cannot be asked either.
     if (predictedRefusal && !verifyLoadOnly) {
-      this.endPredictedRefusal(compilation, predictedRefusal.extensionPath)
+      this.endRefusedRun(compilation, predictedRefusal.extensionPath)
     }
 
     const usePipe = chromiumConfig.includes('--remote-debugging-pipe')
@@ -1535,7 +1539,7 @@ export class ChromiumLaunchPlugin {
       // The run ends on the predicted refusal below, whatever broke the wire.
       if (predictedRefusal) {
         gracefulTerminateChild(child, this.options.browser)
-        this.endPredictedRefusal(compilation, predictedRefusal.extensionPath)
+        this.endRefusedRun(compilation, predictedRefusal.extensionPath)
       }
 
       // A dead CDP wire means no reload delivery for the whole session,
@@ -1571,17 +1575,23 @@ export class ChromiumLaunchPlugin {
       })
     }
 
-    // The browser was started only to say why. A guest it took after all
-    // keeps its session, any other answer ends the run as predicted.
-    if (predictedRefusal && endsPredictedRefusal(guestLoadStatus)) {
+    // A guest the browser refused never loads later in a run-only session,
+    // so the run ends there, predicted by the preflight or not.
+    if (
+      verifyLoadOnly &&
+      endsRunOnlyLaunch(Boolean(predictedRefusal), guestLoadStatus)
+    ) {
       gracefulTerminateChild(child, this.options.browser)
-      this.endPredictedRefusal(compilation, predictedRefusal.extensionPath)
+      this.endRefusedRun(
+        compilation,
+        predictedRefusal?.extensionPath ?? sessionOutputPath
+      )
     }
   }
 
-  // Ends a run-only launch whose manifest the browser refuses. The contract
+  // Ends a run-only launch whose guest the browser refuses. The contract
   // keeps the browser's sentence when it gave one, else a general reason.
-  private endPredictedRefusal(
+  private endRefusedRun(
     compilation: CompilationLike,
     extensionPath: string
   ): never {
@@ -1597,8 +1607,9 @@ export class ChromiumLaunchPlugin {
       )
     }
 
-    throw new Error(
-      messages.chromiumRefusesTheExtension(
+    throw codedError(
+      CODES.E_EXTENSION_LOAD_REFUSED,
+      messages.browserRefusesTheExtension(
         String(this.options.browser),
         extensionPath,
         browserReason
