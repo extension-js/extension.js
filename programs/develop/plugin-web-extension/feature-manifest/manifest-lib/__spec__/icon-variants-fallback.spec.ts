@@ -63,7 +63,10 @@ describe('icon_variants fallback', () => {
       iconsFromVariants([{16: 'all.svg'}, {16: 'dark.png'}], 'webkit')
     ).toEqual({16: 'dark.png'})
 
-    expect(iconsFromVariants([{16: 'a.svg'}], 'webkit')).toEqual({16: 'a.svg'})
+    expect(iconsFromVariants([{16: 'a.svg'}], 'webkit')).toEqual({
+      16: 'a.svg'
+    })
+
     expect(iconsFromVariants([{any: 'a.svg'}], 'webkit')).toEqual({
       48: 'a.svg',
       96: 'a.svg'
@@ -137,7 +140,9 @@ describe('icon_variants fallback', () => {
     reportIconVariantsFallback([{key: 'icons', outcome: 'added'}], 'safari')
 
     expect(
-      text().match(/Safari's app converter does not read icon_variants yet/g)
+      text().match(
+        /Safari draws the light group of icon_variants on its toolbar/g
+      )
     ).toHaveLength(1)
 
     expect(
@@ -187,7 +192,13 @@ describe('icon_variants fallback', () => {
     expect(JSON.stringify(chrome)).not.toContain('chromium:')
     expect(text()).toContain('Chromium reads icon_variants only with')
     expect(text()).toContain('Firefox does not read icon_variants yet')
-    expect(text()).toContain('Safari shows icons from your manifest instead')
+    expect(text()).toContain('does not switch to the dark group')
+
+    expect(text()).toContain(
+      "Apple's app converter does not read the key, so it takes icons from your manifest."
+    )
+
+    expect(text()).not.toContain('Safari shows icons')
   })
 
   it('hands Safari a manifest with icons when the source has only variants', () => {
