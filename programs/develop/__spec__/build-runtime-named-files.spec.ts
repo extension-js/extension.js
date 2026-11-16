@@ -9,7 +9,10 @@ afterAll(() => {
   for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
 })
 
-function project(files: Record<string, string>) {
+function project(
+  files: Record<string, string>,
+  manifest: Record<string, unknown> = {}
+) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-named-files-'))
   roots.push(root)
 
@@ -21,7 +24,8 @@ function project(files: Record<string, string>) {
       version: '1.0.0',
       action: {},
       permissions: ['scripting'],
-      background: {service_worker: 'background/index.js'}
+      background: {service_worker: 'background/index.js'},
+      ...manifest
     })
   )
 
@@ -171,5 +175,97 @@ describe('a worker built by another bundler', () => {
     ]) {
       expect(fs.existsSync(path.join(root, 'dist/chrome', rel)), rel).toBe(true)
     }
+  }, 120_000)
+})
+
+function outputFiles(root: string, browser: string): string[] {
+  const out = path.join(root, 'dist', browser)
+  const walk = (dir: string): string[] =>
+    fs
+      .readdirSync(dir, {withFileTypes: true})
+      .flatMap((entry) =>
+        entry.isDirectory()
+          ? walk(path.join(dir, entry.name))
+          : [path.relative(out, path.join(dir, entry.name))]
+      )
+
+  return walk(out)
+    .map((file) => file.split(path.sep).join('/'))
+    .sort()
+}
+
+describe('a stylesheet a script injects by file', () => {
+  const SHEETS = {
+    'styles/inject.css': [
+      '@import "base.css";',
+      '@font-face { font-family: "Injected"; src: url("../fonts/a.ttf"); }',
+      'body { background-image: url(img/bg.png); }',
+      ''
+    ].join('\n'),
+    'styles/base.css': '.base { background: url("img/base.png"); }\n',
+    'styles/registered.css': 'p { background: url(img/registered.png); }\n',
+    'styles/img/bg.png': 'png',
+    'styles/img/base.png': 'png',
+    'styles/img/registered.png': 'png',
+    'fonts/a.ttf': 'font'
+  }
+  const LOADED = [
+    'fonts/a.ttf',
+    'styles/base.css',
+    'styles/img/base.png',
+    'styles/img/bg.png',
+    'styles/inject.css'
+  ]
+
+  it('ships the fonts and images the sheet loads, on chrome', async () => {
+    const root = project({
+      ...SHEETS,
+      'background/index.js': [
+        'chrome.action.onClicked.addListener((tab) =>',
+        '  chrome.scripting.insertCSS({target: {tabId: tab.id}, files: ["styles/inject.css"]}))',
+        'chrome.runtime.onInstalled.addListener(() =>',
+        '  chrome.scripting.registerContentScripts([',
+        '    {id: "sheet", matches: ["https://example.com/*"], css: ["styles/registered.css"]}',
+        '  ]))',
+        ''
+      ].join('\n')
+    })
+
+    const summary = await build(root)
+    expect(summary.errors_count).toBe(0)
+    expect(summary.warnings || []).toEqual([])
+    expect(outputFiles(root, 'chrome')).toEqual(
+      expect.arrayContaining([
+        ...LOADED,
+        'styles/registered.css',
+        'styles/img/registered.png'
+      ])
+    )
+
+    // The sheet ships as written, so its paths still read from where it sits.
+    expect(
+      fs.readFileSync(path.join(root, 'dist/chrome/styles/inject.css'), 'utf8')
+    ).toBe(SHEETS['styles/inject.css'])
+  }, 120_000)
+
+  it('ships them for the tabs.insertCSS file form, on firefox', async () => {
+    const root = project(
+      {
+        ...SHEETS,
+        'background.js':
+          'browser.browserAction.onClicked.addListener((tab) => browser.tabs.insertCSS(tab.id, {file: "/styles/inject.css"}))\n'
+      },
+      {
+        manifest_version: 2,
+        action: undefined,
+        browser_action: {},
+        permissions: ['activeTab'],
+        background: {scripts: ['background.js']}
+      }
+    )
+
+    const summary = await build(root, 'firefox')
+    expect(summary.errors_count).toBe(0)
+    expect(outputFiles(root, 'firefox')).toEqual(expect.arrayContaining(LOADED))
   }, 120_000)
 })
