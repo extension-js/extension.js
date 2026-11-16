@@ -9,7 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {filterKeysForThisBrowser} from '../../lib/manifest-utils'
-import {stripBom} from '../../lib/parse-json-safe'
+import {parseAuthoredJson} from '../../lib/parse-json-safe'
 import {
   findPublicFile,
   publicRelativePath
@@ -59,7 +59,7 @@ export function extractActionThemeIcons(
     // An action written under a browser prefix is invisible to a raw read,
     // and the built manifest then names theme icons nothing emits.
     manifest = filterKeysForThisBrowser(
-      JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf8'))) as Manifest,
+      parseAuthoredJson(fs.readFileSync(manifestPath, 'utf8')) as Manifest,
       browser
     ) as typeof manifest
   } catch {

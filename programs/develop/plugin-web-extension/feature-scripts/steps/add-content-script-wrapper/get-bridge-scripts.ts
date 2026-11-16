@@ -9,7 +9,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import {filterKeysForThisBrowser} from '../../../../lib/manifest-utils'
-import {stripBom} from '../../../../lib/parse-json-safe'
+import {parseAuthoredJson} from '../../../../lib/parse-json-safe'
 import {PROJECT_MANIFEST_FILENAMES} from '../../../../lib/project-manifest'
 import type {DevOptions, FilepathList} from '../../../../types'
 import {getCanonicalContentScriptEntryName} from '../../contracts'
@@ -87,7 +87,7 @@ export function getMainWorldBridgePairs(
   const pairs: Array<{mainIndex: number; bridgeIndex: number}> = []
 
   try {
-    const raw = JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf-8')))
+    const raw = parseAuthoredJson(fs.readFileSync(manifestPath, 'utf-8'))
     // Resolve browser-prefixed keys before scanning: entries compiled here
     // must key off the same FILTERED shape the emitted manifest uses.
     const resolved = filterKeysForThisBrowser(raw, browser)
