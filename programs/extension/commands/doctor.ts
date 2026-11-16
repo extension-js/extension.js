@@ -47,7 +47,28 @@ type CheckStatus = 'pass' | 'fail' | 'warn' | 'skip'
 // reasons the reader cannot act on), so the contract is the source and doctor
 // is where a human reads it back. Sessions started before these fields existed
 // simply have nothing to append.
-function binaryDetailSuffix(ready: {
+// A Firefox install updates itself in place and keeps the folder name it was
+// downloaded as, so the path alone can name a version the binary left behind.
+function declaredGeckoVersion(binary: string): string | undefined {
+  const dir = path.dirname(binary)
+  const candidates = [
+    path.join(dir, 'application.ini'),
+    path.join(dir, '..', 'Resources', 'application.ini')
+  ]
+
+  for (const candidate of candidates) {
+    try {
+      const match = /^Version=(.+)$/m.exec(fs.readFileSync(candidate, 'utf8'))
+      const version = match?.[1].trim()
+
+      if (version) return version
+    } catch {}
+  }
+
+  return undefined
+}
+
+export function binaryDetailSuffix(ready: {
   binary?: unknown
   binaryProvenance?: unknown
   binaryPinnedBy?: unknown
@@ -56,10 +77,15 @@ function binaryDetailSuffix(ready: {
   if (!binary) return ''
 
   const home = os.homedir()
-  const shown =
+  const tilde =
     home && binary.startsWith(home + path.sep)
       ? `~${binary.slice(home.length)}`
       : binary
+  const version = declaredGeckoVersion(binary)
+  const shown =
+    version && !binary.includes(version)
+      ? `${tilde}, which reports version ${version}`
+      : tilde
   const provenance = String(ready?.binaryProvenance || '').trim()
   const pinnedBy = String(ready?.binaryPinnedBy || '').trim()
 
