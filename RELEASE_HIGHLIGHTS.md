@@ -20,3 +20,5 @@
 -->
 
 ## Highlights
+
+- **The default types accept the calls the browser accepts**, a callback right after your arguments, as in `chrome.tabs.sendMessage(tabId, message, callback)`, and enum objects such as `chrome.runtime.OnInstalledReason.INSTALL` now type-check without `@types/chrome`. [Docs](https://extension.js.org/docs/languages-and-frameworks/typescript#extension-api-types)
