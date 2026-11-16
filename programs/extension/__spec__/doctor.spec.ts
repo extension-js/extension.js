@@ -390,6 +390,45 @@ describe('extension doctor', () => {
     ).toBe(false)
   })
 
+  // The broker already knows nothing will dial in, so doctor answers what
+  // eval answers and does not ask the reader to wait.
+  it('fails the executor inside the grace window when the build has no background', async () => {
+    state.mod = healthyModule({
+      readReadyContract: () => ({
+        controlPort: 4001,
+        instanceId: 'inst-1',
+        runId: 'run-A',
+        status: 'ready',
+        command: 'preview',
+        pid: process.pid,
+        compiledAt: new Date().toISOString()
+      })
+    })
+
+    const message =
+      'no executor connected: the build this session loaded has no ' +
+      'background this browser runs, so nothing in it dials the control ' +
+      'channel and no retry changes that.'
+
+    StubController.probeResult = {
+      ok: false,
+      error: {name: 'Unavailable', message, code: 'no_background'}
+    }
+
+    const report = await runDoctor('/proj', {})
+    const r = byCheck(report)
+
+    expect(r.executor.status).toBe('fail')
+    expect(r.executor.detail).toBe(message)
+    expect(r.executor.detail).not.toMatch(/still launching/)
+    expect(r.executor.remediation).toBe(
+      'No retry helps: declare a background this browser runs, build again ' +
+        'and restart the dev session'
+    )
+
+    expect(report.checks.some((c) => c.status === 'fail')).toBe(true)
+  })
+
   it('fails the executor once the grace window has elapsed with no attach', async () => {
     state.mod = healthyModule({
       readReadyContract: () => ({

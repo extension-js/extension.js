@@ -907,7 +907,11 @@ export async function runDoctor(
           })
         } else if (isCompileFailure(failure)) {
           results.push(compileFailureResult())
-        } else if (isExecutorAttachGrace(ready)) {
+        } else if (
+          // A build with no background never attaches, however long the wait.
+          probe.error?.code !== 'no_background' &&
+          isExecutorAttachGrace(ready)
+        ) {
           results.push({
             check: 'executor',
             status: 'warn',
@@ -925,8 +929,11 @@ export async function runDoctor(
             status: 'fail',
             detail: probe.error?.message ?? 'no executor connected',
             remediation:
-              'The message above names the likely cause; retry shortly, ' +
-              `then reload the extension or restart the ${sessionNoun}`
+              probe.error?.code === 'no_background'
+                ? 'No retry helps: declare a background this browser runs, ' +
+                  `build again and restart the ${sessionNoun}`
+                : 'The message above names the likely cause; retry shortly, ' +
+                  `then reload the extension or restart the ${sessionNoun}`
           })
         }
       } catch (err) {

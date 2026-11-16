@@ -29,6 +29,7 @@ import {
   type IncomingLogEvent,
   type LateReloadRestart,
   REFUSAL_EXTENSION_LOAD_REFUSED,
+  REFUSAL_NO_BACKGROUND,
   type ReadyFrame,
   type ReloadAckFrame,
   type ReloadAckOutcome,
@@ -1369,7 +1370,21 @@ export class BridgeBroker {
       }
     }
 
-    return {name: 'Unavailable', message: this.diagnoseExecutorAbsence()}
+    const message = this.diagnoseExecutorAbsence()
+
+    // Named so a reader can tell an absence no wait ends from a slow launch.
+    return this.absentForNoBackground()
+      ? {name: 'Unavailable', message, code: REFUSAL_NO_BACKGROUND}
+      : {name: 'Unavailable', message}
+  }
+
+  private absentForNoBackground(): boolean {
+    return (
+      this.controlPortUnavailable == null &&
+      !this.browserExitedAt &&
+      this.producerless &&
+      !this.producerEverConnected
+    )
   }
 
   // Name WHY no producer is connected: no control port > the browser exited >
@@ -1393,7 +1408,7 @@ export class BridgeBroker {
       )
     }
 
-    if (this.producerless && !this.producerEverConnected) {
+    if (this.absentForNoBackground()) {
       return EXECUTOR_ABSENT['no-background'](
         undefined,
         this.engine,
