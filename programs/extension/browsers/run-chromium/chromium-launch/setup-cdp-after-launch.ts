@@ -218,6 +218,10 @@ export async function verifyGuestLoadAfterLaunch(
     ({status: 'unknown'} as const)
   const guestPath = extensionOutputPath || selectedExtensionPaths[0] || ''
 
+  if (loadOutcome.status === 'loaded') {
+    plugin.heldRefusalPredictions?.browserLoaded()
+  }
+
   if (loadOutcome.status === 'unknown' && loadOutcome.unsupported) {
     humanWarn(messages.chromiumExtensionLoadUnconfirmed(guestPath))
   }
@@ -326,6 +330,10 @@ export async function setupCdpAfterLaunch(
   const loadOutcome =
     (await cdpExtensionController.verifyGuestLoaded?.()) ??
     ({status: 'unknown'} as const)
+
+  if (loadOutcome.status === 'loaded') {
+    plugin.heldRefusalPredictions?.browserLoaded()
+  }
 
   if (loadOutcome.status === 'unknown' && loadOutcome.unsupported) {
     const unconfirmedPath =

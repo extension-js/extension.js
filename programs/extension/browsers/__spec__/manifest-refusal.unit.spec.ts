@@ -20,6 +20,7 @@ import {
 import {
   backgroundScriptsNotRunByChromium,
   browserRefusesTheExtension,
+  chromiumLoadedPredictedRefusal,
   geckoAddonLoadRefused,
   manifestV2OnChromiumBrowser,
   manifestVersionAboveThreeOnChromium,
@@ -28,12 +29,19 @@ import {
 
 // One refusal gets one block: the browser's own when it answered.
 describe('holdRefusalPredictions', () => {
-  it('prints a held prediction when the browser named no refusal', () => {
+  const start = () => {
     const printed: string[] = []
     const held = holdRefusalPredictions((message) => printed.push(message))
 
-    held.hold('predicted A')
-    held.hold('predicted B')
+    held.hold('predicted A', 'loaded although A')
+    held.hold('predicted B', 'loaded although B')
+
+    return {printed, held}
+  }
+
+  it('prints a held prediction when the browser gave no answer', () => {
+    const {printed, held} = start()
+
     expect(printed).toEqual([])
 
     held.flush()
@@ -42,14 +50,36 @@ describe('holdRefusalPredictions', () => {
   })
 
   it("drops the prediction once the browser's own refusal is reported", () => {
-    const printed: string[] = []
-    const held = holdRefusalPredictions((message) => printed.push(message))
+    const {printed, held} = start()
 
-    held.hold('predicted A')
     held.browserRefused()
     held.flush()
 
     expect(printed).toEqual([])
+  })
+
+  // Chrome 151 loads an invalid host wildcard in host_permissions, so a
+  // prediction can be wrong and must not be printed as a refusal then.
+  it('says the browser loaded it, and never that it refuses, once it loaded', () => {
+    const {printed, held} = start()
+
+    held.browserLoaded()
+    held.flush()
+
+    expect(printed).toEqual(['loaded although A', 'loaded although B'])
+  })
+
+  it('words the loaded case as a warning about the shape', () => {
+    const text = chromiumLoadedPredictedRefusal('/dist/chrome', [
+      'match pattern https://foo.*.com/*'
+    ])
+
+    expect(text).toContain(
+      'Chrome loaded this extension, although its manifest has a shape expected to be refused.'
+    )
+
+    expect(text).toContain('SHAPE match pattern https://foo.*.com/*')
+    expect(text).not.toMatch(/refuses|won't load/)
   })
 })
 

@@ -127,8 +127,8 @@ export function endsRunOnlyLaunch(
   return predictedRefusal ? status !== 'loaded' : status === 'refused'
 }
 
-// ONE invalid pattern makes Chrome refuse the WHOLE extension; the only shape
-// verified to refuse is an invalid host wildcard. Ports/query/fragments load fine.
+// An invalid host wildcard in a content script or a web accessible resource
+// refuses the whole extension. Chrome 151 loads one in host permissions.
 export function findInvalidMatchPatterns(manifest: unknown): string[] {
   const m = manifest as Record<string, LooseManifest> | null | undefined
   const patterns: string[] = []
@@ -541,25 +541,31 @@ function isValidBase64(value: string): boolean {
 // A predicted refusal waits for the browser's own answer. The browser's
 // sentence replaces it, and it prints only when the browser gave none.
 export interface HeldRefusalPredictions {
-  hold(message: string): void
+  hold(prediction: string, ifLoaded: string): void
   browserRefused(): void
+  browserLoaded(): void
   flush(): void
 }
 
 export function holdRefusalPredictions(
   print: (message: string) => void
 ): HeldRefusalPredictions {
-  const held: string[] = []
+  const held: Array<{prediction: string; ifLoaded: string}> = []
 
   return {
-    hold: (message) => {
-      held.push(message)
+    hold: (prediction, ifLoaded) => {
+      held.push({prediction, ifLoaded})
     },
     browserRefused: () => {
       held.length = 0
     },
+    // The browser took what was predicted refused, so the prediction was
+    // wrong. What stays true is that the manifest has the shape.
+    browserLoaded: () => {
+      for (const {ifLoaded} of held.splice(0)) print(ifLoaded)
+    },
     flush: () => {
-      for (const message of held.splice(0)) print(message)
+      for (const {prediction} of held.splice(0)) print(prediction)
     }
   }
 }

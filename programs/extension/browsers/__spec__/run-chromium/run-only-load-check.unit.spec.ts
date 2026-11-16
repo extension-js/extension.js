@@ -274,17 +274,17 @@ describe('verifyGuestLoadAfterLaunch (run-only load evidence)', () => {
 
   // The preflight held its block for this answer: the browser's sentence is
   // the one reported, and a guest it took leaves the prediction to print.
-  it('drops a held prediction on a refusal and keeps it for any other answer', async () => {
+  it('drops a held prediction on a refusal and rewords it for a guest the browser took', async () => {
     for (const [outcome, kept] of [
       [{status: 'refused', reason: 'requires version 999'}, []],
-      [{status: 'loaded', extensionId: 'a'.repeat(32)}, ['predicted block']],
+      [{status: 'loaded', extensionId: 'a'.repeat(32)}, ['loaded although']],
       [{status: 'unknown'}, ['predicted block']]
     ] as const) {
       const {outPath} = makeStartSession()
       const printed: string[] = []
       const held = holdRefusalPredictions((message) => printed.push(message))
 
-      held.hold('predicted block')
+      held.hold('predicted block', 'loaded although')
       verifyGuestLoadedSpy.mockResolvedValue(outcome)
 
       await runCheck(outPath, {

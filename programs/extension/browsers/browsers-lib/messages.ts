@@ -585,6 +585,19 @@ export function chromiumInvalidMatchPatterns(
   )
 }
 
+// Printed in place of a predicted refusal the browser did not make.
+export function chromiumLoadedPredictedRefusal(
+  extensionPath: string,
+  shapes: string[]
+) {
+  return (
+    `${getLoggingPrefix('warn')} ${colors.brightYellow('Chrome loaded this extension, although its manifest has a shape expected to be refused.')}\n` +
+    `${colors.gray('PATH')} ${colors.underline(extensionPath)}\n` +
+    shapes.map((shape) => `${colors.gray('SHAPE')} ${shape}\n`).join('') +
+    `The browser reported no error for it. Check that the named part does what you expect.`
+  )
+}
+
 export function chromiumManifestLoadBlockers(
   extensionPath: string,
   blockers: string[]

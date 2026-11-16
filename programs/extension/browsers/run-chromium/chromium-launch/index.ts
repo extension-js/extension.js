@@ -1112,7 +1112,10 @@ export class ChromiumLaunchPlugin {
             messages.unsupportedManifestVersionOnChromium(
               String(extPath),
               m?.manifest_version
-            )
+            ),
+            messages.chromiumLoadedPredictedRefusal(String(extPath), [
+              `manifest_version ${JSON.stringify(m?.manifest_version)}`
+            ])
           )
         }
 
@@ -1137,6 +1140,10 @@ export class ChromiumLaunchPlugin {
             messages.chromiumInvalidMatchPatterns(
               String(extPath),
               invalidPatterns
+            ),
+            messages.chromiumLoadedPredictedRefusal(
+              String(extPath),
+              invalidPatterns.map((pattern) => `match pattern ${pattern}`)
             )
           )
         }
@@ -1150,7 +1157,15 @@ export class ChromiumLaunchPlugin {
 
         if (loadBlockers.length) {
           heldPredictions.hold(
-            messages.chromiumManifestLoadBlockers(String(extPath), loadBlockers)
+            messages.chromiumManifestLoadBlockers(
+              String(extPath),
+              loadBlockers
+            ),
+            messages.chromiumLoadedPredictedRefusal(
+              String(extPath),
+              // Each blocker opens with the manifest field it is about.
+              loadBlockers.map((blocker) => blocker.split(':')[0])
+            )
           )
         }
       } catch {
