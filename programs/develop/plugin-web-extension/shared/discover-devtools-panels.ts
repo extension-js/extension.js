@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {filterKeysForThisBrowser} from '../../lib/manifest-utils'
+import {parseAuthoredJson} from '../../lib/parse-json-safe'
 import type {DevOptions, FilepathList} from '../../types'
 import {rootRelativePages, scanPageScripts} from './script-graph'
 
@@ -42,7 +43,7 @@ export function discoverDevtoolsPanelPages(
     // The fields package resolves firefox:devtools_page and emits the page, so
     // a raw read here would drop the panels of a page the build already ships.
     const manifest = filterKeysForThisBrowser(
-      JSON.parse(fs.readFileSync(manifestPath, 'utf-8')),
+      parseAuthoredJson(fs.readFileSync(manifestPath, 'utf-8')),
       browser
     )
 

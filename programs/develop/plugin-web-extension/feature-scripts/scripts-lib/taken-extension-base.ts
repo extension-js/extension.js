@@ -16,7 +16,7 @@ import {
   takeBlockOpen
 } from '../../../lib/extension-base-from-stack'
 import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
-import {stripBom} from '../../../lib/parse-json-safe'
+import {parseAuthoredJson} from '../../../lib/parse-json-safe'
 import type {DevOptions, Manifest} from '../../../types'
 
 const TAKE_BLOCK_CLOSE = '\n}'
@@ -42,7 +42,7 @@ export function extensionBaseGlobalFor(
 
   try {
     const manifest = filterKeysForThisBrowser(
-      JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf8'))) as Manifest,
+      parseAuthoredJson(fs.readFileSync(manifestPath, 'utf8')) as Manifest,
       browser
     ) as {
       name?: unknown

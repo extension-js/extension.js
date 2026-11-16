@@ -17,15 +17,15 @@ import {
 } from '@rspack/core'
 import {isGeckoBasedBrowser} from '../lib/constants'
 import {resolveDevelopDistFile} from '../lib/develop-context'
+import {extensionSchemeFor} from '../lib/extension-base-from-stack'
 import {hasDependency} from '../lib/has-dependency'
 import {filterKeysForThisBrowser} from '../lib/manifest-utils'
 import {debugLine, isDebug} from '../lib/messaging'
-import {stripBom} from '../lib/parse-json-safe'
+import {parseAuthoredJson} from '../lib/parse-json-safe'
 import {toResourceKey} from '../lib/resource-path'
 import {NOT_RAW_RESOURCE_QUERY} from '../lib/resource-query'
 import {publicContainmentRoot} from '../plugin-special-folders/resolve-public-folder'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../plugin-web-extension/feature-scripts/contracts'
-import {extensionSchemeFor} from '../lib/extension-base-from-stack'
 import {extensionBaseAttributeFor} from '../plugin-web-extension/feature-scripts/scripts-lib/taken-extension-base'
 import {resolveScriptEntryPath} from '../plugin-web-extension/feature-scripts/scripts-lib/utils'
 import type {DevOptions, Manifest, PluginInterface} from '../types'
@@ -460,7 +460,7 @@ export function findDeclaredContentScriptFiles(
 ): string[] {
   try {
     const manifest = filterKeysForThisBrowser(
-      JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf8'))) as Manifest,
+      parseAuthoredJson(fs.readFileSync(manifestPath, 'utf8')) as Manifest,
       browser
     )
     const groups = Array.isArray(manifest.content_scripts)

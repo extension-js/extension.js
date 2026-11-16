@@ -10,7 +10,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {Compilation, type Compiler, sources} from '@rspack/core'
 import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
-import {stripBom} from '../../../lib/parse-json-safe'
+import {parseAuthoredJson} from '../../../lib/parse-json-safe'
 import {findPublicFile} from '../../../plugin-special-folders/resolve-public-folder'
 import type {FilepathList, Manifest, PluginInterface} from '../../../types'
 import {reportToCompilation} from '../../shared/compilation-issues'
@@ -139,7 +139,7 @@ export function manifestFieldForHtmlFeature(
 
   try {
     manifest = filterKeysForThisBrowser(
-      JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf-8'))) as Manifest,
+      parseAuthoredJson(fs.readFileSync(manifestPath, 'utf-8')) as Manifest,
       browser || 'chrome'
     ) as Record<string, unknown>
   } catch {

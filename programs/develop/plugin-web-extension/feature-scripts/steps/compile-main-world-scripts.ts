@@ -11,7 +11,7 @@ import * as path from 'node:path'
 import {Compilation, type Compiler, EntryPlugin} from '@rspack/core'
 import {resolveDevelopDistFile} from '../../../lib/develop-context'
 import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
-import {stripBom} from '../../../lib/parse-json-safe'
+import {parseAuthoredJson} from '../../../lib/parse-json-safe'
 import type {
   DevOptions,
   FilepathList,
@@ -53,7 +53,7 @@ export function findMainWorldGroups(
 
   try {
     manifest = filterKeysForThisBrowser(
-      JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf8'))) as Manifest,
+      parseAuthoredJson(fs.readFileSync(manifestPath, 'utf8')) as Manifest,
       browser
     )
   } catch {

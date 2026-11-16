@@ -36,7 +36,7 @@ The feature is wired from `index.ts`, in every mode:
   Adds the loader/wrapper layer for content scripts and emits MAIN-world bridge scripts when needed. The wrapper is load-bearing in every mode: it converts `export default fn` into the `__EXTENSIONJS_mount(...)` call that invokes the user's default export, without it, production tree-shakes the entire content-script body.
 
 - `steps/trace-runtime-loaded-files.ts`
-  Copies through runtime-loaded files the module graph cannot see (classic worker `importScripts(...)`, `executeScript`/`insertCSS` `files` payloads).
+  Copies through runtime-loaded files the module graph cannot see (classic worker `importScripts(...)`, `executeScript`/`insertCSS` `files` payloads, `{file}` entries of `contentScripts.register` and `userScripts.register`). A data or media file that a script names as a plain string inside a folder also ships, at the path the page or worker asks for, and a copied stylesheet brings its `url()` targets.
 
 - `steps/keep-geturl-imports-native.ts`
   Keeps `import(chrome.runtime.getURL(...))` a native `import()` in the emitted bundle.
