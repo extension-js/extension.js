@@ -519,17 +519,33 @@ export function manifestV2OnChromiumBrowser(
   )
 }
 
-export function mv3BackgroundScriptsNotSupportedByChromium(
-  extensionPath: string
-) {
+// Measured on Chrome 151: the extension loads, gets an id and shows no error
+// or warning on chrome://extensions, and no script in background.scripts runs.
+export function backgroundScriptsNotRunByChromium(extensionPath: string) {
   return (
-    `${getLoggingPrefix('warn')} ${colors.brightYellow('This MV3 extension declares Firefox-style background.scripts with no service_worker, Chromium refuses to load it.')}\n` +
+    `${getLoggingPrefix('warn')} ${colors.brightYellow('This extension declares background.scripts with no background.service_worker, so Chromium loads it and runs no background.')}\n` +
     `${colors.gray('PATH')} ${colors.underline(extensionPath)}\n` +
-    `The browser rejects it at launch with no console error, so the dev session can't attach.\n` +
+    `The browser assigns an Extension ID and reports no error, and the scripts in background.scripts never start.\n` +
     `Run it on the browser it targets (${colors.blue('--browser firefox')}) or declare ${colors.blue('background.service_worker')} for Chromium.`
   )
 }
 
+// Measured on Chrome 151: any integer above 3 loads and runs as Manifest V3,
+// with no warning. Firefox refuses the same manifest.
+export function manifestVersionAboveThreeOnChromium(
+  extensionPath: string,
+  declared: unknown
+) {
+  return (
+    `${getLoggingPrefix('warn')} ${colors.brightYellow(`This extension declares manifest_version ${JSON.stringify(declared)}, which Chromium loads and runs as Manifest V3.`)}\n` +
+    `${colors.gray('PATH')} ${colors.underline(extensionPath)}\n` +
+    `The browser reports no error or warning for it, and Firefox refuses the same manifest.\n` +
+    `Declare ${colors.blue('"manifest_version": 3')} in the source manifest.`
+  )
+}
+
+// A missing key, a string, a fraction or a value below 2. Chrome's own words
+// for it: "Must be an integer either 2 or 3."
 export function unsupportedManifestVersionOnChromium(
   extensionPath: string,
   declared: unknown
@@ -540,9 +556,9 @@ export function unsupportedManifestVersionOnChromium(
       : `manifest_version ${JSON.stringify(declared)}`
 
   return (
-    `${getLoggingPrefix('warn')} ${colors.brightYellow(`This extension declares ${value}, which Chromium refuses as an unsupported manifest version.`)}\n` +
+    `${getLoggingPrefix('warn')} ${colors.brightYellow(`This extension declares ${value}, which Chromium refuses to load.`)}\n` +
     `${colors.gray('PATH')} ${colors.underline(extensionPath)}\n` +
-    `The browser rejects it at launch (a native dialog, not a console error), so the dev session can't attach.\n` +
+    `The browser takes the integer 2 or 3 only, so a string such as "3" is refused too, and no part of the extension runs.\n` +
     `Declare ${colors.blue('"manifest_version": 3')} in the source manifest.`
   )
 }

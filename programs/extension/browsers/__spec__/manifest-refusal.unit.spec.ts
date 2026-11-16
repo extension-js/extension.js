@@ -7,6 +7,7 @@ import {
   diagnoseChromiumManifestRefusal,
   endsRunOnlyLaunch,
   findChromiumLoadBlockers,
+  findChromiumManifestCaveats,
   findInvalidMatchPatterns,
   findLocaleLoadBlockers,
   findMissingManagedSchema,
@@ -15,9 +16,82 @@ import {
   repeatsManifestV2Refusal
 } from '../browsers-lib/manifest-refusal'
 import {
+  backgroundScriptsNotRunByChromium,
   browserRefusesTheExtension,
-  manifestV2OnChromiumBrowser
+  manifestV2OnChromiumBrowser,
+  manifestVersionAboveThreeOnChromium,
+  unsupportedManifestVersionOnChromium
 } from '../browsers-lib/messages'
+
+describe('findChromiumManifestCaveats', () => {
+  it('names background.scripts with no service worker from Manifest V3 on', () => {
+    expect(
+      findChromiumManifestCaveats({
+        manifest_version: 3,
+        background: {scripts: ['background.js']}
+      })
+    ).toEqual(['background-scripts-not-run'])
+  })
+
+  it('names a manifest version above 3, which Chrome runs as Manifest V3', () => {
+    expect(
+      findChromiumManifestCaveats({
+        manifest_version: 4,
+        background: {service_worker: 'sw.js'}
+      })
+    ).toEqual(['manifest-version-above-3'])
+
+    expect(
+      findChromiumManifestCaveats({
+        manifest_version: 4,
+        background: {scripts: ['background.js']}
+      })
+    ).toEqual(['manifest-version-above-3', 'background-scripts-not-run'])
+  })
+
+  it('names nothing for a manifest Chrome runs in full, or refuses', () => {
+    for (const manifest of [
+      {manifest_version: 3, background: {service_worker: 'sw.js'}},
+      {
+        manifest_version: 3,
+        background: {service_worker: 'sw.js', scripts: ['background.js']}
+      },
+      {manifest_version: 3, background: {scripts: []}},
+      {manifest_version: 2, background: {scripts: ['background.js']}},
+      {manifest_version: '3', background: {scripts: ['background.js']}},
+      {name: 'x'}
+    ]) {
+      expect(findChromiumManifestCaveats(manifest)).toEqual([])
+    }
+  })
+
+  it('says what the browser does, and never that it refuses', () => {
+    const scripts = backgroundScriptsNotRunByChromium('/dist/chrome')
+
+    expect(scripts).toContain('Chromium loads it and runs no background')
+    expect(scripts).toContain('assigns an Extension ID')
+    expect(scripts).not.toMatch(/refuses|rejects/)
+
+    const above = manifestVersionAboveThreeOnChromium('/dist/chrome', 4)
+
+    expect(above).toContain(
+      'declares manifest_version 4, which Chromium loads and runs as Manifest V3'
+    )
+
+    expect(above).not.toMatch(/Chromium refuses|rejects/)
+
+    const refused = unsupportedManifestVersionOnChromium('/dist/chrome', '3')
+
+    expect(refused).toContain(
+      'declares manifest_version "3", which Chromium refuses to load'
+    )
+
+    expect(refused).toContain('the integer 2 or 3 only')
+    expect(unsupportedManifestVersionOnChromium('/d', undefined)).toContain(
+      'declares no manifest_version, which Chromium refuses to load'
+    )
+  })
+})
 
 describe('diagnoseChromiumManifestRefusal', () => {
   it('flags MV2', () => {
@@ -33,27 +107,39 @@ describe('diagnoseChromiumManifestRefusal', () => {
     ).toBe(null)
   })
 
-  it('flags missing, MV1, and above-3 manifest_version as unsupported (wild: Custom-salesforce-inspector)', () => {
-    expect(diagnoseChromiumManifestRefusal({name: 'x'})).toBe(
-      'unsupported-manifest-version'
-    )
-
-    expect(diagnoseChromiumManifestRefusal({manifest_version: 1})).toBe(
-      'unsupported-manifest-version'
-    )
-
-    expect(diagnoseChromiumManifestRefusal({manifest_version: 4})).toBe(
+  // Chrome 151 answers each of these "Must be an integer either 2 or 3", or
+  // "Missing 'manifest_version' key" (wild: Custom-salesforce-inspector).
+  it.each([
+    ['a missing key', {name: 'x'}],
+    ['1', {manifest_version: 1}],
+    ['0', {manifest_version: 0}],
+    ['a negative value', {manifest_version: -1}],
+    ['a fraction', {manifest_version: 3.5}],
+    ['the string "3"', {manifest_version: '3'}],
+    ['the string "2"', {manifest_version: '2'}]
+  ])('flags %s as a manifest version Chrome refuses', (_label, manifest) => {
+    expect(diagnoseChromiumManifestRefusal(manifest)).toBe(
       'unsupported-manifest-version'
     )
   })
 
-  it('flags MV3 with Firefox-style background.scripts and no service_worker', () => {
-    expect(
-      diagnoseChromiumManifestRefusal({
-        manifest_version: 3,
-        background: {scripts: ['background.js']}
-      })
-    ).toBe('mv3-background-scripts')
+  // Measured on Chrome 151: both load, get an id and show no warning.
+  it('predicts no refusal for the shapes Chrome loads', () => {
+    for (const manifest of [
+      {manifest_version: 3, background: {scripts: ['background.js']}},
+      {manifest_version: 4, background: {service_worker: 'sw.js'}},
+      {manifest_version: 4, background: {scripts: ['background.js']}},
+      {manifest_version: 99, background: {service_worker: 'sw.js'}}
+    ]) {
+      expect(diagnoseChromiumManifestRefusal(manifest)).toBeNull()
+    }
+  })
+
+  it('diagnoses nothing that is not a manifest object', () => {
+    for (const value of [null, undefined, 'x', 3, []]) {
+      expect(diagnoseChromiumManifestRefusal(value)).toBeNull()
+      expect(findChromiumManifestCaveats(value)).toEqual([])
+    }
   })
 
   it('accepts MV3 with a service_worker (even alongside scripts)', () => {

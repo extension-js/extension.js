@@ -14,49 +14,77 @@ import {findUndefinedMsgReferences} from '../../helpers/msg-placeholders'
 // dialog, never a console error; diagnose before spawn and say why.
 export type ChromiumManifestRefusal =
   | 'mv2'
-  | 'mv3-background-scripts'
   | 'unsupported-manifest-version'
   | null
+
+// Shapes Chrome 151 was measured to load, with an id and no warning, while
+// doing less than the manifest asks for.
+export type ChromiumManifestCaveat =
+  | 'background-scripts-not-run'
+  | 'manifest-version-above-3'
 
 // Manifests under diagnosis are arbitrary user JSON; every access is
 // runtime-guarded.
 // biome-ignore lint/suspicious/noExplicitAny: dynamic manifest JSON diagnostics boundary
 type LooseManifest = any
 
+function isManifestObject(manifest: unknown): manifest is LooseManifest {
+  return (
+    Boolean(manifest) &&
+    typeof manifest === 'object' &&
+    !Array.isArray(manifest)
+  )
+}
+
+// Chrome 151 takes the integer 2 and any integer from 3 up. A missing key, a
+// string such as "3", a fraction and anything below 2 are refused.
 export function diagnoseChromiumManifestRefusal(
   manifest: unknown
 ): ChromiumManifestRefusal {
-  const m = manifest as Record<string, LooseManifest> | null | undefined
+  if (!isManifestObject(manifest)) return null
 
-  // Chromium reads any manifest with a theme key as a theme, and it still
-  // installs a Manifest V2 theme, so only an extension manifest is flagged.
-  if (Number(m?.manifest_version) === 2) {
-    return m?.theme && typeof m.theme === 'object' ? null : 'mv2'
-  }
+  const version = manifest.manifest_version
 
-  // Firefox-style MV3 (background.scripts, no service_worker): Chromium refuses
-  // the whole extension; this manifest is written for Firefox.
-  if (
-    Number(m?.manifest_version) === 3 &&
-    Array.isArray(m?.background?.scripts) &&
-    m.background.scripts.length > 0 &&
-    !m?.background?.service_worker
-  ) {
-    return 'mv3-background-scripts'
-  }
-
-  // Any other declared value (missing, 1, >3) is refused as an unsupported
-  // manifest version; only diagnose real manifest objects.
-  if (
-    m &&
-    typeof m === 'object' &&
-    !Array.isArray(m) &&
-    Number(m.manifest_version) !== 3
-  ) {
+  if (typeof version !== 'number' || !Number.isInteger(version)) {
     return 'unsupported-manifest-version'
   }
 
-  return null
+  // Chromium reads any manifest with a theme key as a theme, and it still
+  // installs a Manifest V2 theme, so only an extension manifest is flagged.
+  if (version === 2) {
+    return manifest.theme && typeof manifest.theme === 'object' ? null : 'mv2'
+  }
+
+  return version < 2 ? 'unsupported-manifest-version' : null
+}
+
+// What a manifest Chromium loads still gets wrong. Never a refusal: the
+// browser assigns an id, and the launch goes on.
+export function findChromiumManifestCaveats(
+  manifest: unknown
+): ChromiumManifestCaveat[] {
+  if (!isManifestObject(manifest)) return []
+
+  const version = manifest.manifest_version
+
+  if (typeof version !== 'number' || !Number.isInteger(version)) return []
+  if (version < 3) return []
+
+  const caveats: ChromiumManifestCaveat[] = []
+
+  if (version > 3) caveats.push('manifest-version-above-3')
+
+  // Firefox-style background: from Manifest V3 on Chromium runs a service
+  // worker only, so these scripts load with the extension and never start.
+  if (
+    Array.isArray(manifest.background?.scripts) &&
+    manifest.background.scripts.length > 0 &&
+    !manifest.background?.service_worker
+  ) {
+    caveats.push('background-scripts-not-run')
+  }
+
+  return caveats
 }
 
 // Microsoft deprecated Manifest V2 and Edge still loads and runs one unpacked,

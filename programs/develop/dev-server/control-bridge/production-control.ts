@@ -183,12 +183,53 @@ export function patchControlledManifest(
   }
 }
 
+function manifestFilePath(value: unknown): string | undefined {
+  if (typeof value !== 'string' || !value.trim()) return undefined
+
+  return path.posix
+    .normalize(value.trim().replace(/\\/g, '/'))
+    .replace(/^(\.?\/)+/, '')
+}
+
+// The background the browser runs, read off the manifest. A build made by
+// another tool names its own files, which the canonical paths never match.
+export function declaredBackgroundFiles(
+  manifest: Record<string, unknown>,
+  browser?: string
+): {files: string[]; runsNone: boolean} {
+  const background = (manifest.background || {}) as {
+    service_worker?: unknown
+    scripts?: unknown
+  }
+  const worker = manifestFilePath(background.service_worker)
+  const scripts = Array.isArray(background.scripts) ? background.scripts : []
+  // Scripts share one page, so the first one carries the producer for all.
+  const firstScript = manifestFilePath(scripts[0])
+  const version = manifest.manifest_version
+  const workerOnly =
+    !isGeckoBasedBrowser(String(browser || '')) &&
+    typeof version === 'number' &&
+    version >= 3
+
+  if (!workerOnly) {
+    return {files: firstScript ? [firstScript] : [], runsNone: false}
+  }
+
+  // Measured on Chrome 151: from Manifest V3 on it runs a service worker
+  // only, and background.scripts load with the extension and never start.
+  return {
+    files: worker ? [worker] : [],
+    runsNone: !worker && Boolean(firstScript)
+  }
+}
+
 export function prepareControlledBuild(input: {
   distPath: string
   controlledPath: string
   controlPort: number
   instanceId: string
   host?: string
+  browser?: string
 }): string[] {
   fs.rmSync(input.controlledPath, {recursive: true, force: true})
   fs.mkdirSync(path.dirname(input.controlledPath), {recursive: true})
@@ -202,10 +243,16 @@ export function prepareControlledBuild(input: {
   })
 
   const manifestPath = path.join(input.controlledPath, 'manifest.json')
+  let declared: ReturnType<typeof declaredBackgroundFiles> = {
+    files: [],
+    runsNone: false
+  }
 
   if (fs.existsSync(manifestPath)) {
     const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
     const controlSource = `ws://${input.host || '127.0.0.1'}:${input.controlPort}`
+
+    declared = declaredBackgroundFiles(manifest, input.browser)
 
     fs.writeFileSync(
       manifestPath,
@@ -242,7 +289,10 @@ export function prepareControlledBuild(input: {
       continue
     }
 
-    if (!BACKGROUND_ASSET.test(rel)) continue
+    // A background the browser never starts would carry a producer nobody
+    // runs, and the session would wait for a connection that cannot come.
+    if (declared.runsNone) continue
+    if (!BACKGROUND_ASSET.test(rel) && !declared.files.includes(rel)) continue
 
     const file = path.join(input.controlledPath, rel)
     const original = fs.readFileSync(file, 'utf-8')
@@ -318,7 +368,8 @@ export async function startProductionControl(
     controlledPath,
     controlPort: server.port,
     instanceId,
-    host: options.host
+    host: options.host,
+    browser
   })
 
   if (backgroundAssets.length === 0) broker.noteNoBackground()

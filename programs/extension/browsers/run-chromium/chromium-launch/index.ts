@@ -47,6 +47,7 @@ import {
   diagnoseChromiumManifestRefusal,
   endsRunOnlyLaunch,
   findChromiumLoadBlockers,
+  findChromiumManifestCaveats,
   findInvalidMatchPatterns,
   findLocaleLoadBlockers,
   findMissingManagedSchema,
@@ -1102,10 +1103,6 @@ export class ChromiumLaunchPlugin {
 
           refused = plan.refused
           if (refused) manifestV2RefusalSaid = true
-        } else if (refusal === 'mv3-background-scripts') {
-          humanWarn(
-            messages.mv3BackgroundScriptsNotSupportedByChromium(String(extPath))
-          )
         } else if (refusal === 'unsupported-manifest-version') {
           humanWarn(
             messages.unsupportedManifestVersionOnChromium(
@@ -1116,6 +1113,18 @@ export class ChromiumLaunchPlugin {
         }
 
         if (refused) refusedExtensionPaths.push(String(extPath))
+
+        // The browser loads these, so they are said and the launch goes on.
+        for (const caveat of findChromiumManifestCaveats(m)) {
+          humanWarn(
+            caveat === 'background-scripts-not-run'
+              ? messages.backgroundScriptsNotRunByChromium(String(extPath))
+              : messages.manifestVersionAboveThreeOnChromium(
+                  String(extPath),
+                  m?.manifest_version
+                )
+          )
+        }
 
         const invalidPatterns = findInvalidMatchPatterns(m)
 
