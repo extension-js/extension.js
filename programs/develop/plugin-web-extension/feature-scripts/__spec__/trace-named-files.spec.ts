@@ -5,6 +5,8 @@ import {afterEach, describe, expect, it} from 'vitest'
 import {
   extractCssSubresourceLiterals,
   extractInjectedFileLiterals,
+  extractOwnAddressLiterals,
+  provenReferenceForms,
   TraceRuntimeLoadedFiles
 } from '../steps/trace-runtime-loaded-files'
 
@@ -342,5 +344,148 @@ describe('a stylesheet an injection call ships', () => {
 
     expect([...emitted.keys()].sort()).toEqual([WORKER, 'styles/inject.css'])
     expect(compilation.warnings).toHaveLength(0)
+  })
+})
+
+describe('where a named file ships when the build moved its script', () => {
+  const DATA = {'data/read.json': '{}', 'background.js': ''}
+  // The worker the author wrote at the root, which the build moved.
+  const movedWorker = (dir: string) => ({
+    'background/service_worker': {import: [path.join(dir, 'background.js')]}
+  })
+  const shipped = (emitted: Map<string, unknown>) =>
+    [...emitted.keys()].filter((name) => name.endsWith('read.json')).sort()
+
+  it('reads the forms that prove an address', () => {
+    expect(
+      extractOwnAddressLiterals(
+        'fetch("data/a.json");self.fetch("data/b.json");new URL("data/c.json",location);new URL("data/d.json",import.meta.url);client.fetch("data/e.json");fetch(path);new URL("data/f.json",base)'
+      )
+    ).toEqual(['data/a.json', 'data/b.json', 'data/c.json', 'data/d.json'])
+
+    // A fetch the script declares itself proves nothing.
+    expect(
+      extractOwnAddressLiterals(
+        'const fetch=(p)=>load(chrome.runtime.getURL(p));fetch("data/a.json")'
+      )
+    ).toEqual([])
+  })
+
+  it('names a form only when every mention agrees', () => {
+    const source =
+      'fetch("data/own.json");chrome.runtime.getURL("data/root.json");const T=["data/table.json","data/mixed.json"];fetch("data/mixed.json");fetch("data/both.json");chrome.runtime.getURL("data/both.json")'
+    const forms = provenReferenceForms(source, [
+      'data/own.json',
+      'data/root.json',
+      'data/table.json',
+      'data/mixed.json',
+      'data/mixed.json',
+      'data/both.json',
+      'data/both.json'
+    ])
+
+    expect([...forms]).toEqual([
+      ['data/own.json', 'own'],
+      ['data/root.json', 'root']
+    ])
+  })
+
+  it('ships one copy beside the worker for a path handed straight to fetch', async () => {
+    const dir = createTempProject(DATA)
+    const {emitted} = await runTrace(
+      dir,
+      {[WORKER]: 'fetch("data/read.json").then((r)=>r.json())'},
+      movedWorker(dir)
+    )
+
+    expect(shipped(emitted)).toEqual(['background/data/read.json'])
+  })
+
+  it('ships one copy at the root for a path handed straight to getURL', async () => {
+    const dir = createTempProject(DATA)
+    const {emitted} = await runTrace(
+      dir,
+      {[WORKER]: 'fetch(chrome.runtime.getURL("data/read.json"))'},
+      movedWorker(dir)
+    )
+
+    expect(shipped(emitted)).toEqual(['data/read.json'])
+  })
+
+  it('ships one copy at the root for a path that starts at the root', async () => {
+    const dir = createTempProject(DATA)
+    const {emitted} = await runTrace(
+      dir,
+      {[WORKER]: 'const p="/data/read.json";load(p)'},
+      movedWorker(dir)
+    )
+
+    expect(shipped(emitted)).toEqual(['data/read.json'])
+  })
+
+  it.each([
+    ['held in a table', 'const T={a:"data/read.json",b:"x"};load(T.a)'],
+    [
+      'fetched and also held in a table',
+      'fetch("data/read.json");const T={a:"data/read.json",b:"x"};load(T.a)'
+    ],
+    [
+      'fetched and also handed to getURL',
+      'fetch("data/read.json");chrome.runtime.getURL("data/read.json")'
+    ],
+    [
+      'handed to a fetch the script declares',
+      'function fetch(p){return load(chrome.runtime.getURL(p))}fetch("data/read.json")'
+    ],
+    ['handed to a method named fetch', 'client.fetch("data/read.json")']
+  ])('keeps both copies for a path %s', async (_case, worker) => {
+    const dir = createTempProject(DATA)
+    const {emitted} = await runTrace(dir, {[WORKER]: worker}, movedWorker(dir))
+
+    expect(shipped(emitted)).toEqual([
+      'background/data/read.json',
+      'data/read.json'
+    ])
+  })
+
+  it('keeps both copies for a script no page names', async () => {
+    const dir = createTempProject(DATA)
+    const {emitted} = await runTrace(dir, {
+      'chunks/lazy.js': 'fetch("data/read.json")'
+    })
+
+    expect(shipped(emitted)).toEqual([
+      'chunks/data/read.json',
+      'data/read.json'
+    ])
+  })
+
+  it('reads background scripts from the root, where their page sits', async () => {
+    const dir = createTempProject(DATA)
+
+    for (const script of [
+      'fetch("data/read.json")',
+      'const T={a:"data/read.json",b:"x"};load(T.a)'
+    ]) {
+      const {emitted} = await runTrace(dir, {'background/scripts.js': script})
+
+      expect(shipped(emitted)).toEqual(['data/read.json'])
+    }
+  })
+
+  it('ships one copy beside a moved page, and both under a base element', async () => {
+    const dir = createTempProject(DATA)
+    const page = (head: string) => ({
+      'action/index.html': `<html><head>${head}<script src="/action/index.js"></script></head></html>`,
+      'action/index.js': 'fetch("data/read.json")'
+    })
+
+    expect(shipped((await runTrace(dir, page(''))).emitted)).toEqual([
+      'action/data/read.json'
+    ])
+
+    expect(
+      shipped((await runTrace(dir, page('<base href="/">'))).emitted)
+    ).toEqual(['action/data/read.json', 'data/read.json'])
   })
 })

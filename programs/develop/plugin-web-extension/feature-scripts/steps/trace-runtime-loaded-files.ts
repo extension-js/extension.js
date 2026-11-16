@@ -86,6 +86,7 @@ interface TracedManifest {
 }
 
 const EMITTED_WORKER_PATH = 'background/service_worker.js'
+const EMITTED_BACKGROUND_SCRIPTS_PATH = 'background/scripts.js'
 // Keys the browsers define. Strings under any other key ship verbatim in the
 // output manifest, and extensions read them back with runtime.getManifest().
 const STANDARD_MANIFEST_KEYS = new Set([
@@ -509,7 +510,7 @@ export class TraceRuntimeLoadedFiles {
       for (const literal of extractFetchedFileLiterals(content)) {
         // Runtime resolution base is the asset's own URL directory: page
         // scripts sit beside their page in dist, workers fetch off the worker URL.
-        const distRel = resolveExtensionPath(literal, asset.name)
+        const distRel = resolveExtensionPath(literal, ownAddressOf(asset.name))
         if (!distRel || seen.has(distRel)) continue
 
         seen.add(distRel)
@@ -917,19 +918,28 @@ export class TraceRuntimeLoadedFiles {
       const inWebPage =
         asset.name.startsWith('content_scripts/') ||
         asset.name.startsWith('scripts/')
-      const bases = inWebPage ? [] : (pages.get(asset.name) ?? [asset.name])
+      const loaders = pages.get(asset.name)
+      const bases = inWebPage ? [] : (loaders ?? [ownAddressOf(asset.name)])
+      const literals = extractPathLiterals(blankComments(run.textOf(asset)))
+      const forms = provenReferenceForms(run.textOf(asset), literals)
+      // Where a script reads from is known for the background and for a
+      // script its pages name, unless a base element moves what a path means.
+      const ownAddressKnown = loaders
+        ? !loaders.some((page) => run.hasBaseElement(page))
+        : asset.name === EMITTED_WORKER_PATH ||
+          asset.name === EMITTED_BACKGROUND_SCRIPTS_PATH
 
-      for (const literal of extractPathLiterals(
-        blankComments(run.textOf(asset))
-      )) {
+      for (const literal of literals) {
         const file = toRuntimePathReference(literal)?.file
         if (!file?.includes('/')) continue
 
-        const targets = [
-          {distRel: file, sources: [path.join(manifestDir, file)]}
-        ]
+        const form = inWebPage ? undefined : forms.get(literal)
+        const targets =
+          form === 'own' && ownAddressKnown
+            ? []
+            : [{distRel: file, sources: [path.join(manifestDir, file)]}]
 
-        for (const base of bases) {
+        for (const base of form === 'root' ? [] : bases) {
           const distRel = resolveExtensionPath(literal, base)
           if (!distRel) continue
 
@@ -1213,6 +1223,12 @@ class TraceRun {
     }
 
     return pages
+  }
+
+  hasBaseElement(page: string): boolean {
+    const asset = this.compilation.getAsset(page)
+
+    return asset ? /<base\b/i.test(this.textOf(asset)) : false
   }
 
   // A development bundle names each module by its path, so there a string
@@ -2654,6 +2670,17 @@ function constantInjectedFiles(
     .map((entry) => entry.value)
 }
 
+// The bases that all resolve to the asset's own URL at run time.
+function isOwnLocationBase(expression: string): boolean {
+  const base = expression.trim()
+
+  return (
+    /^(?:self\.|window\.|globalThis\.)?location(?:\.href)?$/.test(base) ||
+    base === 'document.baseURI' ||
+    base === 'import.meta.url'
+  )
+}
+
 // Extract string-literal URLs loaded via same-origin request APIs: fetch(),
 // xhr.open(method, url), new URL(url, own-location base). Computed args skip.
 function extractFetchedFileLiterals(source: string): string[] {
@@ -2708,18 +2735,92 @@ function extractFetchedFileLiterals(source: string): string[] {
     const parts = splitTopLevelArgs(args)
     if (parts.length !== 2) continue
 
-    const base = parts[1].trim()
-    const ownLocationBase =
-      /^(?:self\.|window\.|globalThis\.)?location(?:\.href)?$/.test(base) ||
-      base === 'document.baseURI' ||
-      base === 'import.meta.url'
-    if (!ownLocationBase) continue
+    if (!isOwnLocationBase(parts[1])) continue
 
     const literal = pureStringLiteral(parts[0])
     if (literal != null) literals.push(literal)
   }
 
   return literals
+}
+
+// The scripts of background.scripts run in a page the browser generates at
+// the root, so a relative path in them is read from there, not background/.
+function ownAddressOf(assetName: string): string {
+  return assetName === EMITTED_BACKGROUND_SCRIPTS_PATH ? '' : assetName
+}
+
+const OWN_FETCH_CALL =
+  /(?<![\w$.])(?:(?:self|window|globalThis)\s*\.\s*)?fetch\s*\(/g
+// A script that declares a fetch of its own may read a path any way it likes.
+const DECLARES_FETCH =
+  /\b(?:function|const|let|var|class)\s+fetch\b|(?<![\w$.])fetch\s*=(?!=)/
+
+// Paths handed straight to the browser's own fetch or to a URL built on the
+// script's address, both read against where the script or its page sits.
+export function extractOwnAddressLiterals(source: string): string[] {
+  const code = blankComments(source)
+  const literals: string[] = []
+  let match: RegExpExecArray | null
+
+  if (!DECLARES_FETCH.test(code)) {
+    OWN_FETCH_CALL.lastIndex = 0
+
+    while ((match = OWN_FETCH_CALL.exec(code))) {
+      const args = readBalancedArgs(code, match.index + match[0].length - 1)
+      if (args == null) continue
+
+      const [first] = splitTopLevelArgs(args)
+      const literal = first == null ? null : pureStringLiteral(first)
+      if (literal != null) literals.push(literal)
+    }
+  }
+
+  const urlRe = /\bnew\s+URL\s*\(/g
+
+  while ((match = urlRe.exec(code))) {
+    const args = readBalancedArgs(code, match.index + match[0].length - 1)
+    if (args == null) continue
+
+    const parts = splitTopLevelArgs(args)
+    if (parts.length !== 2 || !isOwnLocationBase(parts[1])) continue
+
+    const literal = pureStringLiteral(parts[0])
+    if (literal != null) literals.push(literal)
+  }
+
+  return literals
+}
+
+export type ReferenceForm = 'own' | 'root'
+
+// What every mention of a path in one script proves: read against the
+// script's address, or handed to getURL. A table or a variable proves neither.
+export function provenReferenceForms(
+  source: string,
+  literals: string[]
+): Map<string, ReferenceForm> {
+  const tally = (values: string[]) => {
+    const counts = new Map<string, number>()
+
+    for (const value of values) counts.set(value, (counts.get(value) ?? 0) + 1)
+
+    return counts
+  }
+
+  const own = tally(extractOwnAddressLiterals(source))
+  const root = tally(extractGetURLLiterals(source))
+  const forms = new Map<string, ReferenceForm>()
+
+  for (const [literal, total] of tally(literals)) {
+    const asOwn = own.get(literal) ?? 0
+    const asRoot = root.get(literal) ?? 0
+
+    if (asOwn === total && asRoot === 0) forms.set(literal, 'own')
+    else if (asRoot === total && asOwn === 0) forms.set(literal, 'root')
+  }
+
+  return forms
 }
 
 // Reduce a same-origin URL literal to a filesystem-joinable path (query and

@@ -269,3 +269,72 @@ describe('a stylesheet a script injects by file', () => {
     expect(outputFiles(root, 'firefox')).toEqual(expect.arrayContaining(LOADED))
   }, 120_000)
 })
+
+describe('a file a moved script names', () => {
+  const FILES = {
+    'data/fetched.json': '{}',
+    'data/dotted.json': '{}',
+    'data/rooted.json': '{}',
+    'data/addressed.json': '{}',
+    'data/listed.json': '{}',
+    'data/absolute.json': '{}'
+  }
+  // The second property keeps the minifier from writing the listed path
+  // into the call, the way a real table of paths survives a build.
+  const SCRIPT = [
+    'const api = globalThis.browser || globalThis.chrome',
+    'const TABLE = {listed: "data/listed.json", other: "data/absolute.json"}',
+    'const read = (name) => fetch(TABLE[name])',
+    'api.runtime.onInstalled.addListener(async () => {',
+    '  await fetch("data/fetched.json")',
+    '  await fetch("./data/dotted.json")',
+    '  await fetch("/data/rooted.json")',
+    '  await fetch(api.runtime.getURL("data/addressed.json"))',
+    '  await read(Date.now() % 2 ? "listed" : "other")',
+    '})',
+    ''
+  ].join('\n')
+  const data = (root: string, browser: string) =>
+    outputFiles(root, browser).filter(
+      (file) => file.endsWith('.json') && file !== 'manifest.json'
+    )
+
+  it('ships one copy per provable form beside a moved worker, on chrome', async () => {
+    const root = project(
+      {...FILES, 'background.js': SCRIPT},
+      {background: {service_worker: 'background.js'}}
+    )
+
+    const summary = await build(root)
+    expect(summary.errors_count).toBe(0)
+    expect(data(root, 'chrome')).toEqual([
+      // A table proves no call, so its paths ship where both forms read.
+      'background/data/absolute.json',
+      'background/data/dotted.json',
+      'background/data/fetched.json',
+      'background/data/listed.json',
+      'data/absolute.json',
+      'data/addressed.json',
+      'data/listed.json',
+      'data/rooted.json'
+    ])
+  }, 120_000)
+
+  it('ships every file once at the root for background scripts, on firefox', async () => {
+    const root = project(
+      {...FILES, 'background.js': SCRIPT},
+      {background: {scripts: ['background.js']}}
+    )
+
+    const summary = await build(root, 'firefox')
+    expect(summary.errors_count).toBe(0)
+    expect(data(root, 'firefox')).toEqual([
+      'data/absolute.json',
+      'data/addressed.json',
+      'data/dotted.json',
+      'data/fetched.json',
+      'data/listed.json',
+      'data/rooted.json'
+    ])
+  }, 120_000)
+})
