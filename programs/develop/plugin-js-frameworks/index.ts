@@ -203,7 +203,10 @@ export class JsFrameworksPlugin {
 
     // Detection (isUsingTypeScript) is now pure, so the one-time tsconfig
     // setup/throw must be triggered explicitly at this build chokepoint
-    ensureTypeScriptConfig(projectPath)
+    ensureTypeScriptConfig(projectPath, {
+      manifestPath: this.manifestPath,
+      browser: this.browser
+    })
 
     // Computed before the framework integrations run: every compiling rule they
     // return needs the same carve-out, not just the swc rule below.
