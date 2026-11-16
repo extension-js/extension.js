@@ -89,10 +89,103 @@ function blankCommentsOf(source: string): string {
       continue
     }
 
+    if (char === '/' && regexMayStartAt(source, i)) {
+      const end = regexLiteralEnd(source, i, n)
+
+      if (end !== -1) {
+        // A pattern can hold `//`, a quote or a lone bracket, and each would
+        // send this scan or the next one astray, so those are blanked.
+        const body = source.slice(i + 1, end)
+
+        if (REGEX_BODY_NOISE.test(body)) {
+          out +=
+            source.slice(kept, i + 1) + body.replace(REGEX_BODY_NOISE_ALL, ' ')
+
+          kept = end
+        }
+
+        i = end + 1
+        continue
+      }
+    }
+
     i++
   }
 
   return kept === 0 ? source : out + source.slice(kept)
+}
+
+const REGEX_BODY_NOISE = /['"`()[\]{}]/
+const REGEX_BODY_NOISE_ALL = /['"`()[\]{}]/g
+// Words a regular expression may follow, where a name would mean division.
+const WORDS_BEFORE_REGEX = new Set([
+  'return',
+  'typeof',
+  'instanceof',
+  'in',
+  'of',
+  'new',
+  'delete',
+  'void',
+  'throw',
+  'case',
+  'do',
+  'else',
+  'yield',
+  'await'
+])
+
+// Whether the slash at this index can open a regular expression: it follows
+// an operator, an opening bracket or one of the words above, never a value.
+function regexMayStartAt(source: string, index: number): boolean {
+  let j = index - 1
+
+  while (j >= 0 && /\s/.test(source[j])) j--
+
+  if (j < 0) return true
+
+  const before = source[j]
+
+  if (/[\w$]/.test(before)) {
+    let start = j
+
+    while (start > 0 && /[\w$]/.test(source[start - 1])) start--
+
+    return WORDS_BEFORE_REGEX.has(source.slice(start, j + 1))
+  }
+
+  // A closing bracket or quote ends a value, `<` opens a markup tag and a
+  // doubled sign is an increment, so a slash after any of them divides.
+  if (')]}\'"`<.'.includes(before)) return false
+
+  if ((before === '+' || before === '-') && source[j - 1] === before) {
+    return false
+  }
+
+  return true
+}
+
+// The index of the slash that closes the pattern opened at this index, or
+// -1 when the line ends first, which no regular expression does.
+function regexLiteralEnd(source: string, open: number, cap: number): number {
+  let inClass = false
+
+  for (let i = open + 1; i < cap; i++) {
+    const char = source[i]
+
+    if (char === '\n' || char === '\r') return -1
+
+    if (char === '\\') {
+      i++
+      continue
+    }
+
+    if (char === '[') inClass = true
+    else if (char === ']') inClass = false
+    else if (char === '/' && !inClass) return i
+  }
+
+  return -1
 }
 
 // Return the argument text up to the matching close paren (string-aware), or
@@ -175,7 +268,7 @@ export function skipString(code: string, start: number, cap: number): number {
 
 // Given the index just past `${`, return the index of the matching `}` (or
 // cap), skipping nested strings, templates, and object literals.
-function skipTemplateExpression(
+export function skipTemplateExpression(
   code: string,
   start: number,
   cap: number
@@ -188,6 +281,16 @@ function skipTemplateExpression(
     if (char === '"' || char === "'" || char === '`') {
       i = skipString(code, i, cap)
       continue
+    }
+
+    // A pattern such as /"/g inside an interpolation opens no string.
+    if (char === '/' && regexMayStartAt(code, i)) {
+      const end = regexLiteralEnd(code, i, cap)
+
+      if (end !== -1) {
+        i = end
+        continue
+      }
     }
 
     if (char === '{') depth++
