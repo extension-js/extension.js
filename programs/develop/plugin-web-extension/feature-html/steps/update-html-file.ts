@@ -10,7 +10,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {Compilation, type Compiler, sources} from '@rspack/core'
 import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
-import {stripBom} from '../../../lib/parse-json-safe'
+import {parseAuthoredJson} from '../../../lib/parse-json-safe'
 import type {
   DevOptions,
   FilepathList,
@@ -103,8 +103,8 @@ export class UpdateHtmlFile {
   private readManifestForBrowser(): Manifest | undefined {
     try {
       return filterKeysForThisBrowser(
-        JSON.parse(
-          stripBom(fs.readFileSync(this.manifestPath, 'utf-8'))
+        parseAuthoredJson(
+          fs.readFileSync(this.manifestPath, 'utf-8')
         ) as Manifest,
         (this.browser || 'chrome') as DevOptions['browser']
       ) as Manifest

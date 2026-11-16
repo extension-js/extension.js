@@ -12,7 +12,7 @@ import type {Compiler} from '@rspack/core'
 import {isGeckoBasedBrowser} from '../../../lib/constants'
 import {resolveDevelopDistFile} from '../../../lib/develop-context'
 import {isStaticTheme} from '../../../lib/manifest-utils'
-import {stripBom} from '../../../lib/parse-json-safe'
+import {parseAuthoredJson} from '../../../lib/parse-json-safe'
 import {filterKeysForThisBrowser} from '../../../plugin-web-extension/feature-manifest/manifest-lib/manifest'
 import {reportToCompilation} from '../../../plugin-web-extension/shared/compilation-issues'
 import type {DevOptions, Manifest} from '../../../types'
@@ -32,8 +32,8 @@ export class SetupBackgroundEntry {
 
   private getMissingBackgroundError(bgFile: string) {
     if (!fs.existsSync(bgFile) && this.manifestPath) {
-      const manifest = JSON.parse(
-        stripBom(fs.readFileSync(this.manifestPath, 'utf8'))
+      const manifest = parseAuthoredJson(
+        fs.readFileSync(this.manifestPath, 'utf8')
       )
       const patched = filterKeysForThisBrowser(manifest, this.browser)
       const fieldKey =
@@ -60,8 +60,8 @@ export class SetupBackgroundEntry {
 
   apply(compiler: Compiler) {
     // Guards are handled at the root plugin level
-    const manifest = JSON.parse(
-      stripBom(fs.readFileSync(this.manifestPath, 'utf-8'))
+    const manifest = parseAuthoredJson(
+      fs.readFileSync(this.manifestPath, 'utf-8')
     )
     const browser = this.browser
     // Gecko family (firefox + forks) gets the gecko reload helper; everything else

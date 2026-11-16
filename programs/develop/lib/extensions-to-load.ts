@@ -8,7 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {stripBom} from './parse-json-safe'
+import {parseAuthoredJson} from './parse-json-safe'
 import {devtoolsEngineFor} from './paths'
 
 function hasNewTabOverride(extensionDir: string): boolean {
@@ -17,7 +17,7 @@ function hasNewTabOverride(extensionDir: string): boolean {
 
   try {
     const raw = fs.readFileSync(manifestPath, 'utf-8')
-    const manifest = JSON.parse(stripBom(raw))
+    const manifest = parseAuthoredJson(raw)
     const newtab = manifest?.chrome_url_overrides?.newtab
 
     return typeof newtab === 'string' && newtab.trim().length > 0

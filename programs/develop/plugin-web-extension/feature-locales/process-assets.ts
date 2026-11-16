@@ -10,6 +10,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, type Compiler, sources} from '@rspack/core'
 import {debugLine, isDebug} from '../../lib/messaging'
+import {hasJsonComments, parseAuthoredJson} from '../../lib/parse-json-safe'
 import {
   getLocales,
   localeFoldersWithoutMessages,
@@ -43,6 +44,19 @@ function warnLocaleFoldersWithoutMessages(
     }
 
     compilation.warnings.push(warning)
+  }
+}
+
+// Both engine families read // comments in a messages.json file and the
+// stores refuse them, so a commented catalog ships as plain JSON.
+function commentFreeLocaleSource(file: string, source: Buffer): Buffer {
+  if (path.basename(file) !== 'messages.json') return source
+  if (!hasJsonComments(source)) return source
+
+  try {
+    return Buffer.from(JSON.stringify(parseAuthoredJson(source), null, 2))
+  } catch {
+    return source
   }
 }
 
@@ -111,7 +125,10 @@ export function processLocaleAssets(
         continue
       }
 
-      const source = fs.readFileSync(thisResource)
+      const source = commentFreeLocaleSource(
+        thisResource,
+        fs.readFileSync(thisResource)
+      )
       const rawSource = new sources.RawSource(source)
       // Always emit locales at the bundle root (`_locales/...`) regardless of
       // where the source `_locales/` lives (project root or next to manifest).

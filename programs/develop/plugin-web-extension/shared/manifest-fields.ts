@@ -6,11 +6,12 @@
 // ╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as fs from 'node:fs'
+import mutableFs, * as fs from 'node:fs'
+import {syncBuiltinESMExports} from 'node:module'
 import * as path from 'node:path'
 import {getManifestFieldsData} from 'browser-extension-manifest-fields'
 import {filterKeysForThisBrowser} from '../../lib/manifest-utils'
-import {parseJsonSafe} from '../../lib/parse-json-safe'
+import {blankJsonComments, parseJsonSafe} from '../../lib/parse-json-safe'
 import type {DevOptions, Manifest} from '../../types'
 import {
   dropWebkitUnsupportedKeys,
@@ -32,6 +33,39 @@ function readManifestForBrowser(options: {
     ) as Manifest
   } catch {
     return undefined
+  }
+}
+
+// The fields package parses the file itself and knows no comments, so it
+// is served the comment-free text for the length of this synchronous call.
+function readingCommentFreeManifest<T>(manifestPath: string, run: () => T): T {
+  let scan: ReturnType<typeof blankJsonComments>
+
+  try {
+    scan = blankJsonComments(fs.readFileSync(manifestPath, 'utf-8'))
+  } catch {
+    return run()
+  }
+
+  if (!scan.hasComments) return run()
+
+  const original = mutableFs.readFileSync
+  const served = ((file: unknown, ...rest: unknown[]) =>
+    file === manifestPath
+      ? scan.text
+      : (original as (...args: unknown[]) => unknown)(
+          file,
+          ...rest
+        )) as typeof original
+
+  mutableFs.readFileSync = served
+  syncBuiltinESMExports()
+
+  try {
+    return run()
+  } finally {
+    mutableFs.readFileSync = original
+    syncBuiltinESMExports()
   }
 }
 
@@ -61,10 +95,12 @@ export function getResolvedManifestFieldsData(options: {
   const data =
     manifest && findMistypedManifestFields(manifest).length > 0
       ? emptyManifestFieldsView()
-      : getManifestFieldsData({
-          manifestPath: options.manifestPath,
-          browser: options.browser
-        })
+      : readingCommentFreeManifest(options.manifestPath, () =>
+          getManifestFieldsData({
+            manifestPath: options.manifestPath,
+            browser: options.browser
+          })
+        )
 
   // An unreadable manifest keeps the fields package view.
   if (!manifest) return data

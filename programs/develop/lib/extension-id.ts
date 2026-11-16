@@ -10,7 +10,7 @@ import {createHash} from 'node:crypto'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {isGeckoBasedBrowser, isWebkitBasedBrowser} from './constants'
-import {stripBom} from './parse-json-safe'
+import {parseAuthoredJson} from './parse-json-safe'
 
 export interface ManagedExtensionRecord {
   path: string
@@ -90,7 +90,7 @@ function readManifest(extensionDir: string): Record<string, unknown> | null {
       path.join(extensionDir, 'manifest.json'),
       'utf-8'
     )
-    const parsed = JSON.parse(stripBom(raw))
+    const parsed = parseAuthoredJson(raw)
 
     return parsed && typeof parsed === 'object' ? parsed : null
   } catch {

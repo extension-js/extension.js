@@ -10,10 +10,10 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
 import {isGeckoBasedBrowser} from '../../lib/constants'
-import {stripBom} from '../../lib/parse-json-safe'
+import {extensionSchemeFor} from '../../lib/extension-base-from-stack'
+import {parseAuthoredJson} from '../../lib/parse-json-safe'
 import {filterKeysForThisBrowser} from '../../plugin-web-extension/feature-manifest/manifest-lib/manifest'
 import {findRuntimeMainWorldEntries} from '../../plugin-web-extension/feature-scripts/scripts-lib/runtime-main-world-scripts'
-import {extensionSchemeFor} from '../../lib/extension-base-from-stack'
 import {extensionBaseAttributeFor} from '../../plugin-web-extension/feature-scripts/scripts-lib/taken-extension-base'
 import {classicConcatFiles} from '../../plugin-web-extension/shared/classic-concat'
 import type {
@@ -104,8 +104,8 @@ export class SetupChunkLoadingTarget {
     let patchedManifest: Manifest
 
     try {
-      const manifest: Manifest = JSON.parse(
-        stripBom(fs.readFileSync(this.manifestPath, 'utf-8'))
+      const manifest: Manifest = parseAuthoredJson(
+        fs.readFileSync(this.manifestPath, 'utf-8')
       )
       patchedManifest = filterKeysForThisBrowser(manifest, this.browser)
     } catch {
