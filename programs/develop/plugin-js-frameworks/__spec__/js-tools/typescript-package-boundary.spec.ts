@@ -44,7 +44,8 @@ describe('ensureTypeScriptConfig package boundaries', () => {
   it('still scaffolds for TypeScript in a plain subfolder', () => {
     const projectDir = createProject({
       'package.json': '{"name": "extension"}',
-      'manifest.json': '{"manifest_version": 3}',
+      'manifest.json':
+        '{"manifest_version": 3, "background": {"service_worker": "src/background.ts"}}',
       'src/background.ts': 'export const ready: boolean = true\n'
     })
 

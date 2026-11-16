@@ -30,9 +30,21 @@ function projectInstallStdio(): StdioOptions {
   return isMachineOutput() ? ['inherit', 2, 2] : 'inherit'
 }
 
+// CI and prebuild scripts set this once the dependencies are in place, which
+// answers the same as passing --install false.
+export function isProjectInstallSkippedByEnv(): boolean {
+  const raw = String(process.env.EXTENSION_SKIP_INSTALL ?? '')
+    .trim()
+    .toLowerCase()
+
+  return raw === '1' || raw === 'true'
+}
+
 export async function ensureUserProjectDependencies(
   packageJsonDir: AbsolutePath
 ) {
+  if (isProjectInstallSkippedByEnv()) return
+
   const member = findWorkspaceMember(packageJsonDir)
   if (!needsInstall(packageJsonDir, member?.root)) return
 

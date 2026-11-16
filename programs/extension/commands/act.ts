@@ -853,10 +853,7 @@ async function geckoProtocolEval(
 
   if (!rdpPort || !extensionId) return undefined
 
-  const manifest =
-    context === 'background'
-      ? undefined
-      : readSessionManifest(bridge, projectPath, browser)
+  const manifest = readSessionManifest(bridge, projectPath, browser)
   const pagePath = manifest
     ? extensionDocumentPagePath(manifest, context)
     : undefined

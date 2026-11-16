@@ -152,6 +152,15 @@ export function manifestInvalidError(error: NodeJS.ErrnoException) {
   return lines.join('\n')
 }
 
+// Both engine families read // comments in an unpacked manifest, and the
+// stores refuse them, so the built file never carries one.
+export function manifestCommentsRemoved() {
+  return (
+    `${prefix('info')} Removed the comments from the built ${colors.blue('manifest.json')}, because the stores refuse a manifest that has them.\n` +
+    `Your source file keeps them.`
+  )
+}
+
 export function manifestIncludeSummary(browser: string, manifestPath: string) {
   return (
     `${prefix('debug')} manifest include browser=${browser} ` +

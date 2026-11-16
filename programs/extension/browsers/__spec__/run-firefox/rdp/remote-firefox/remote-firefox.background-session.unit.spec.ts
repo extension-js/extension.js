@@ -1,4 +1,7 @@
 import EventEmitter from 'node:events'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {POLL_EXPRESSION} from '../../../../run-firefox/rdp/evaluate-extension-document'
 import {RemoteFirefox} from '../../../../run-firefox/rdp/remote-firefox'
@@ -78,6 +81,38 @@ describe('a session on the background of an installed add-on', () => {
     expect(client.evaluated[0].expression).toContain('probe()')
     expect(client.evaluated[2].expression).toContain('again()')
     expect(types(client)).toEqual(['listAddons', 'getWatcher', 'watchTargets'])
+  })
+
+  it('finds a background page by the manifest of the folder it installed', async () => {
+    const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-bg-session-'))
+
+    fs.writeFileSync(
+      path.join(folder, 'manifest.json'),
+      JSON.stringify({background: {page: 'background/index.html'}})
+    )
+
+    try {
+      const client = new FakeSessionClient([
+        {
+          url: 'moz-extension://6ce00885-f57b-408f-9c84-c69710a93bc1/background/index.html',
+          consoleActor: 'console-background-page',
+          isFallbackExtensionDocument: false
+        }
+      ])
+      const remote = makeRemote(client, ADDON_ID)
+
+      ;(remote as any).lastInstalledAddonPath = folder
+
+      const session = await remote.openBackgroundSession()
+
+      await expect(session?.evaluate('probe()', 1000)).resolves.toEqual({
+        outcome: 'settled'
+      })
+
+      expect(client.evaluated[0].consoleActor).toBe('console-background-page')
+    } finally {
+      fs.rmSync(folder, {recursive: true, force: true})
+    }
   })
 
   it('stops watching once on release', async () => {

@@ -400,6 +400,37 @@ describe('eval on a Gecko extension document the CSP locks down', () => {
     })
   })
 
+  it('names the background page the session emitted', async () => {
+    const dist = makeTempFolder('extjs-gecko-eval-')
+    fs.writeFileSync(
+      path.join(dist, 'manifest.json'),
+      JSON.stringify({background: {page: 'background/index.html'}})
+    )
+
+    session.readyDocument = {...session.readyDocument, distPath: dist}
+
+    expect(
+      await run([
+        'eval',
+        '1+1',
+        dist,
+        '--browser',
+        'firefox',
+        '--context',
+        'background',
+        '--output',
+        'json'
+      ])
+    ).toBe(0)
+
+    expect(protocolCalls[0]).toMatchObject({
+      context: 'background',
+      pagePath: 'background/index.html'
+    })
+
+    expect(frame()).toMatchObject({ok: true, value: 2})
+  })
+
   it('needs a page path for a surface context and keeps the refusal without one', async () => {
     const empty = makeTempFolder('extjs-gecko-eval-')
     session.readyDocument = {...session.readyDocument, distPath: empty}

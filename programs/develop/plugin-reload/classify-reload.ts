@@ -9,7 +9,7 @@
 import {createHash} from 'node:crypto'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {stripBom} from '../lib/parse-json-safe'
+import {parseAuthoredJson} from '../lib/parse-json-safe'
 import {publicRootsFor} from '../plugin-special-folders/resolve-public-folder'
 import {getCanonicalContentScriptEntryName} from '../plugin-web-extension/feature-scripts/contracts'
 import {projectRelative} from './project-relative'
@@ -64,8 +64,8 @@ export function backgroundContextFromOutput(outputPath?: string): string {
   if (!outputPath) return 'service_worker'
 
   try {
-    const manifest = JSON.parse(
-      stripBom(fs.readFileSync(path.join(outputPath, 'manifest.json'), 'utf8'))
+    const manifest = parseAuthoredJson(
+      fs.readFileSync(path.join(outputPath, 'manifest.json'), 'utf8')
     ) as {
       background?: {service_worker?: unknown; scripts?: unknown; page?: unknown}
     }
@@ -690,12 +690,10 @@ export function readStaticContentScriptEntries(outputPath?: string): string[] {
   if (!outputPath) return []
 
   try {
-    const registry = JSON.parse(
-      stripBom(
-        fs.readFileSync(
-          path.join(outputPath, DEV_CONTENT_SCRIPT_REGISTRY_ASSET),
-          'utf8'
-        )
+    const registry = parseAuthoredJson(
+      fs.readFileSync(
+        path.join(outputPath, DEV_CONTENT_SCRIPT_REGISTRY_ASSET),
+        'utf8'
       )
     ) as {entries?: Array<{entry?: unknown; static?: unknown}>}
 
@@ -1008,9 +1006,7 @@ export function readContentScriptCount(
     const manifestPath = path.join(outputPath, 'manifest.json')
 
     if (fs.existsSync(manifestPath)) {
-      const manifest = JSON.parse(
-        stripBom(fs.readFileSync(manifestPath, 'utf8'))
-      )
+      const manifest = parseAuthoredJson(fs.readFileSync(manifestPath, 'utf8'))
       const list = manifest?.content_scripts
       if (Array.isArray(list)) return list.length
     }
