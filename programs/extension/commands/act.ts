@@ -231,7 +231,10 @@ const REFUSAL_TO_CODE: Record<string, ErrorCode> = {
   csp_blocks_eval: CODES.E_CSP_BLOCKS_EVAL,
   // The tab exists and the engine refused to script it (Firefox on a
   // moz-extension:// page): the target is real, this route cannot reach it.
-  injection_refused: CODES.E_COMMAND_UNSUPPORTED_FOR_TARGET
+  injection_refused: CODES.E_COMMAND_UNSUPPORTED_FOR_TARGET,
+  // The browser turned the extension away, so no executor will ever answer
+  // and no debugger route has a document to find.
+  extension_load_refused: CODES.E_EXTENSION_LOAD_REFUSED
 }
 
 // Gecko ("call to eval() blocked by CSP") and Chromium ("Refused to evaluate
@@ -1051,6 +1054,31 @@ async function extensionPageTabEval(
   return outcome ? {outcome} : {hint: EXTENSION_PAGE_UNREACHED_HINT}
 }
 
+// A start or preview run the browser refused exits with no control port, so
+// its contract is a receipt. It still says why, which a wait hint would not.
+export function refusedRunMessage(
+  receipt: Record<string, unknown> | null | undefined,
+  browser: string,
+  flag: string
+): string | undefined {
+  const command = receipt?.command
+
+  if (command !== 'start' && command !== 'preview') return undefined
+  if (receipt?.code !== 'extension_load_refused') return undefined
+
+  const reason =
+    typeof receipt.extensionLoadRefusedReason === 'string'
+      ? receipt.extensionLoadRefusedReason.trim().replace(/[.\s]+$/, '')
+      : ''
+
+  return (
+    `The last extension ${command} run for ${browser} ended because the ` +
+    `browser refused to load the extension${reason ? `: ${reason}` : ''}. ` +
+    'Fix what the browser names, then run ' +
+    `\`extension ${command} --browser=${browser} ${flag}\` again.`
+  )
+}
+
 async function runCommand(input: RunInput): Promise<void> {
   const bridge = await loadExtensionDevelopBridgeModule()
   const projectPath = resolveSessionProjectPath(bridge, input.projectPathArg)
@@ -1098,6 +1126,19 @@ async function runCommand(input: RunInput): Promise<void> {
   const readyPath = sessionReadyPath(bridge, projectPath, browser)
 
   if (!ready) {
+    const refusedRun = refusedRunMessage(
+      bridge.readReadyContractDocument?.(projectPath, browser),
+      browser,
+      unlockFlag
+    )
+
+    if (refusedRun) {
+      fail(refusedRun, {
+        ...outputFrame,
+        code: CODES.E_EXTENSION_LOAD_REFUSED
+      })
+    }
+
     const others = await runningSessionBrowsers(
       bridge,
       projectPath,

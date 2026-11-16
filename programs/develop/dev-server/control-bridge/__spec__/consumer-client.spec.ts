@@ -6,6 +6,7 @@ import {BridgeBroker} from '../broker'
 import {
   BridgeConsumer,
   type ConsumerCloseInfo,
+  readExtensionLoadRefusal,
   readReadyContract,
   readReadyContractDocument
 } from '../consumer-client'
@@ -134,6 +135,60 @@ describe('readReadyContractDocument', () => {
     const d = path.join(dir, 'dist', 'extension-js', 'chrome')
     fs.writeFileSync(path.join(d, 'ready.json'), '{broken')
     expect(readReadyContractDocument(dir, 'chrome')).toBeNull()
+  })
+})
+
+describe('readExtensionLoadRefusal', () => {
+  let dir: string
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-ready-refusal-'))
+  })
+
+  afterEach(() => fs.rmSync(dir, {recursive: true, force: true}))
+
+  function writeReady(obj: unknown) {
+    const d = path.join(dir, 'dist', 'extension-js', 'chrome')
+    fs.mkdirSync(d, {recursive: true})
+    fs.writeFileSync(path.join(d, 'ready.json'), JSON.stringify(obj))
+  }
+
+  it('returns the reason the launcher stamped', () => {
+    writeReady({
+      runId: 'run-A',
+      status: 'error',
+      code: 'extension_load_refused',
+      extensionLoadRefusedAt: '2026-11-16T20:27:28.524Z',
+      extensionLoadRefusedReason: 'unsupported manifest version'
+    })
+
+    expect(readExtensionLoadRefusal(dir, 'chrome', 'run-A')).toBe(
+      'unsupported manifest version'
+    )
+
+    expect(readExtensionLoadRefusal(dir, 'chrome')).toBe(
+      'unsupported manifest version'
+    )
+  })
+
+  it('returns an empty reason for a refusal stamped without one', () => {
+    writeReady({extensionLoadRefusedAt: '2026-11-16T20:27:28.524Z'})
+
+    expect(readExtensionLoadRefusal(dir, 'chrome')).toBe('')
+  })
+
+  it('returns null with no contract, no stamp, or a stamp of another run', () => {
+    expect(readExtensionLoadRefusal(dir, 'chrome')).toBeNull()
+
+    writeReady({runId: 'run-A', status: 'ready'})
+    expect(readExtensionLoadRefusal(dir, 'chrome', 'run-A')).toBeNull()
+
+    writeReady({
+      runId: 'run-A',
+      extensionLoadRefusedAt: '2026-11-16T20:27:28.524Z',
+      extensionLoadRefusedReason: 'refused'
+    })
+
+    expect(readExtensionLoadRefusal(dir, 'chrome', 'run-B')).toBeNull()
   })
 })
 
