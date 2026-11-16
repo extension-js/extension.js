@@ -71,6 +71,7 @@ import {applySplitChunksGuard} from './lib/normalize-split-chunks'
 import {listOutputFiles} from './lib/output-files'
 import {parseJsonSafe} from './lib/parse-json-safe'
 import {
+  asAskedPath,
   collapseHomeDir,
   configBrowserOrThrow,
   displayPath,
@@ -536,7 +537,7 @@ export async function extensionBuild(
     let summary: BuildSummary = {
       browser,
       buildType,
-      output_path: distPath,
+      output_path: asAskedPath(distPath),
       total_assets: 0,
       total_bytes: 0,
       largest_asset_bytes: 0,
@@ -640,7 +641,7 @@ export async function extensionBuild(
             ...getBuildSummary(
               browser,
               info,
-              displayDistPath,
+              asAskedPath(displayDistPath),
               outputFiles,
               warningCodes(stats.compilation)
             ),
@@ -756,10 +757,11 @@ export async function extensionBuild(
           const zipArtifacts = getZipArtifacts(stats.compilation).map(
             (artifact) => ({
               kind: artifact.kind,
-              path:
+              path: asAskedPath(
                 useStagingSwap && artifact.path.startsWith(stagingDistPath)
                   ? distPath + artifact.path.slice(stagingDistPath.length)
-                  : artifact.path,
+                  : artifact.path
+              ),
               size: artifact.size
             })
           )

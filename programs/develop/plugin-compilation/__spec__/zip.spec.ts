@@ -3,7 +3,12 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {unzipSync} from 'fflate'
 import {afterEach, describe, expect, it} from 'vitest'
-import {getFilesToZip, isDeniedFromSourceZip, ZipPlugin} from '../zip'
+import {
+  getFilesToZip,
+  inArchiveOrder,
+  isDeniedFromSourceZip,
+  ZipPlugin
+} from '../zip'
 import {getZipArtifacts, getZipFailures} from '../zip-artifacts'
 
 const toPosix = (value: string) => value.replace(/\\/g, '/')
@@ -252,6 +257,40 @@ function makeCompiler(ctx: string, outPath: string) {
     }
   }
 }
+
+describe('inArchiveOrder', () => {
+  const stored = [
+    'a-b.js',
+    'a.js',
+    'a/b.js',
+    'a/b/c.js',
+    'a/x.js',
+    'a0.js',
+    'aB.js',
+    'manifest.json'
+  ]
+
+  it('orders files listed with a backslash as it orders the same files with a slash', () => {
+    const windows = [...stored]
+      .reverse()
+      .map((file) => file.replace(/\//g, '\\'))
+    const posix = [...stored].reverse()
+
+    // A plain sort of the Windows names puts the folder last.
+    expect(
+      [...windows].sort().map((file) => file.replace(/\\/g, '/'))
+    ).not.toEqual(stored)
+
+    expect(inArchiveOrder(posix)).toEqual(stored)
+    expect(
+      inArchiveOrder(windows).map((file) => file.replace(/\\/g, '/'))
+    ).toEqual(stored)
+  })
+
+  it('hands back the names as they were listed', () => {
+    expect(inArchiveOrder(['b\\c.js', 'a.js'])).toEqual(['a.js', 'b\\c.js'])
+  })
+})
 
 describe('ZipPlugin', () => {
   it('writes a source zip whose entry list carries no secret', async () => {

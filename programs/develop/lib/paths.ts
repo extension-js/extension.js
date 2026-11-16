@@ -66,10 +66,41 @@ export function toPosixPath(p: string): string {
   return p.split(path.sep).join('/')
 }
 
+const MAX_ASKED_PATHS = 64
+
+// Real project folder to the spelling a command was given for it.
+const askedPaths = new Map<string, string>()
+
+// A project named through a link is built by its real path, so the bytes
+// are the same either way. What is printed or returned keeps the asked one.
+export function rememberAskedPath(asked: string, real: string): void {
+  askedPaths.delete(real)
+
+  if (asked === real) return
+  if (askedPaths.size >= MAX_ASKED_PATHS) askedPaths.clear()
+
+  askedPaths.set(real, asked)
+}
+
+// The path as the command was given it, for a path at or below a project
+// that was named through a link. Any other path comes back as it is.
+export function asAskedPath(target: string): string {
+  const raw = String(target || '')
+  let found = ''
+
+  for (const real of askedPaths.keys()) {
+    if (real.length <= found.length) continue
+
+    if (raw === real || raw.startsWith(real + path.sep)) found = real
+  }
+
+  return found ? askedPaths.get(found) + raw.slice(found.length) : raw
+}
+
 // Printed paths collapse the home dir for scanability. Evidence and debug
 // lines never do, so a pasted path stays valid.
 export function collapseHomeDir(value: string): string {
-  const raw = String(value || '')
+  const raw = asAskedPath(String(value || ''))
   const home = os.homedir()
   if (!home || !raw.startsWith(home)) return raw
 
@@ -95,7 +126,13 @@ export function relativeToDir(target: string, base: string): string | null {
 // The one shortening rule every human line shares with the session card:
 // relative inside the project, the `~/` form under the home dir, else as is.
 export function displayPath(target: string, base = process.cwd()): string {
-  return relativeToDir(target, base) || collapseHomeDir(target)
+  const asked = asAskedPath(target)
+
+  return (
+    relativeToDir(asked, base) ||
+    relativeToDir(target, base) ||
+    collapseHomeDir(asked)
+  )
 }
 
 export function getDirs(struct: ProjectStructure): {

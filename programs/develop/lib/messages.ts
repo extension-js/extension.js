@@ -20,6 +20,7 @@ import {
   stripChannelPrefix
 } from './messaging'
 import {foldOutputFiles, type OutputFile} from './output-files'
+import {asAskedPath} from './paths'
 
 // Imported for local use and re-exported: consumers and snapshots read fmt
 // from this module, and the definition now lives in messaging.ts.
@@ -96,7 +97,7 @@ export function notAnExtensionManifestError(manifestPath: string) {
 export function previewHasNothingToRun(manifestAtOutput: string) {
   return (
     `${getLoggingPrefix('error')} Preview is run-only and does not compile.\n` +
-    `${colors.gray('NOT FOUND')} ${colors.underline(manifestAtOutput)}\n` +
+    `${colors.gray('NOT FOUND')} ${colors.underline(asAskedPath(manifestAtOutput))}\n` +
     `Run ${colors.blue('extension build')} first, or pass ${colors.blue('--output-path')} an unpacked extension directory.`
   )
 }
@@ -170,7 +171,7 @@ export function previewingSourceFallback(
   distDir: string
 ) {
   return (
-    `${getLoggingPrefix('warn')} No production build found at ${distDir}, previewing the source manifest directory instead.\n` +
+    `${getLoggingPrefix('warn')} No production build found at ${asAskedPath(distDir)}, previewing the source manifest directory instead.\n` +
     `Run \`extension build --browser ${String(browser)}\` first to preview the built output.`
   )
 }
@@ -1390,8 +1391,8 @@ export function previewingCustomOutput(
   distPath: string
 ) {
   return (
-    `${getLoggingPrefix('info')} Previewing ${String(browser)} from ${outputPath}.\n` +
-    `This is not the build folder ${distPath}. The run record describes the folder loaded.`
+    `${getLoggingPrefix('info')} Previewing ${String(browser)} from ${asAskedPath(outputPath)}.\n` +
+    `This is not the build folder ${asAskedPath(distPath)}. The run record describes the folder loaded.`
   )
 }
 
@@ -1402,18 +1403,21 @@ export function productionControlOpen(
   allowEval: boolean,
   hasBackground = true
 ) {
+  const controlled = asAskedPath(controlledPath)
+  const dist = asAskedPath(distPath)
+
   // With no background there is nothing to carry the producer, so the open
   // port answers every verb with a refusal. Saying so here saves the round trip.
   if (!hasBackground) {
     return (
       `${getLoggingPrefix('warn')} Control channel open for the ${String(browser)} production build, but this build has no background, so nothing in it can connect and every act verb will be refused.\n` +
-      `Add a background script or service worker to the manifest and build again. The browser loads ${controlledPath}, a copy of ${distPath}. ${distPath} is unchanged.`
+      `Add a background script or service worker to the manifest and build again. The browser loads ${controlled}, a copy of ${dist}. ${dist} is unchanged.`
     )
   }
 
   return (
     `${getLoggingPrefix('info')} Control channel open for the ${String(browser)} production build (${allowEval ? 'eval, ' : ''}storage, reload, open).\n` +
-    `The browser loads ${controlledPath}, a copy of ${distPath} with the control producer prepended to the background. ${distPath} is unchanged.`
+    `The browser loads ${controlled}, a copy of ${dist} with the control producer prepended to the background. ${dist} is unchanged.`
   )
 }
 

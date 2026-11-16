@@ -219,7 +219,7 @@ describe('get-project-path', () => {
     )
 
     const s = await getProjectStructure(root)
-    expect(path.dirname(s.manifestPath)).toBe(srcDir)
+    expect(path.dirname(s.manifestPath)).toBe(fs.realpathSync(srcDir))
   })
 
   it('prefers src/manifest.json over root manifest.json', async () => {
@@ -234,7 +234,7 @@ describe('get-project-path', () => {
     )
 
     const s = await getProjectStructure(root)
-    expect(path.dirname(s.manifestPath)).toBe(srcDir)
+    expect(path.dirname(s.manifestPath)).toBe(fs.realpathSync(srcDir))
   })
 
   it('rejects manifest.json resolved under <packageRoot>/public', async () => {
@@ -267,7 +267,7 @@ describe('get-project-path', () => {
 
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     const s = await getProjectStructure(root)
-    expect(path.dirname(s.manifestPath)).toBe(nested)
+    expect(path.dirname(s.manifestPath)).toBe(fs.realpathSync(nested))
     const printed = logSpy.mock.calls
       .map((call) => String(call[0] || ''))
       .join('\n')
@@ -315,7 +315,7 @@ describe('get-project-path', () => {
 
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     const s = await getProjectStructure(root)
-    expect(path.dirname(s.manifestPath)).toBe(extDir)
+    expect(path.dirname(s.manifestPath)).toBe(fs.realpathSync(extDir))
     logSpy.mockRestore()
   })
 

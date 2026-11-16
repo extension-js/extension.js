@@ -29,6 +29,18 @@ function placeOf(parent: string, child: string): Place {
     : 'inside'
 }
 
+// The bundler names every module by its real path. A project root kept as
+// typed made class names and map sources follow the link it was named by.
+export function linkFreePath(target: string): string {
+  try {
+    // Links only: the native call also expands a Windows short name, which
+    // the bundler keeps.
+    return fs.realpathSync(target)
+  } catch {
+    return target
+  }
+}
+
 // These answers only compare. A path that names a module or lands in the
 // output keeps the spelling it was given, so no build byte depends on them.
 export function createPathComparisons(
