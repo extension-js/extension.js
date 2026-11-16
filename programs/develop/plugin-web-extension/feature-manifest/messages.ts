@@ -590,7 +590,7 @@ export function iconVariantsFallback(
   const reasons = {
     gecko: `Firefox does not read ${key} yet`,
     chromium: `Chromium reads ${key} only with its ${colors.yellow('ExtensionIconVariants')} flag on`,
-    webkit: `Safari's app converter does not read ${key} yet`
+    webkit: `Safari draws the light group of ${key} on its toolbar and does not switch to the dark group`
   }
   const browsers = {gecko: 'Firefox', chromium: 'Chromium', webkit: 'Safari'}
   const why = reasons[reader]
@@ -606,7 +606,13 @@ export function iconVariantsFallback(
   const missing = named('missing')
   const lines: string[] = []
 
-  if (kept) {
+  if (kept && reader === 'webkit') {
+    // Measured on Safari 27: the toolbar reads the key and the converter
+    // does not, so the app icon is the part that comes from icons.
+    lines.push(
+      `Apple's app converter does not read the key, so it takes ${kept} from your manifest.`
+    )
+  } else if (kept) {
     lines.push(`${browser} shows ${kept} from your manifest instead.`)
   }
 
