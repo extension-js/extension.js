@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import colors from 'pintor'
+import {isGeckoBasedBrowser} from '../../lib/constants'
 import {prefix} from '../../lib/messaging'
 
 export function serverRestartRequiredFromManifestError(
@@ -247,11 +248,22 @@ export function manifestVersionLostForBrowser(
       ? scoped.length
         ? `${scoped.join(', ')}, so the ${target} build has no ${field}.`
         : `The ${target} build has no ${field}.`
-      : `The ${target} build resolved ${field} to ${colors.yellow(JSON.stringify(resolved))}, and browsers load only 2 or 3.`
+      : `The ${target} build resolved ${field} to ${colors.yellow(JSON.stringify(resolved))}, and the build takes only the integer 2 or 3.`
+  // Measured: Chromium runs an integer above 3 as Manifest V3 and says
+  // nothing, Firefox refuses it. Every other value both of them refuse.
+  const aboveThree = Number.isInteger(resolved) && Number(resolved) > 3
+  const why =
+    resolved === undefined
+      ? 'No browser loads a manifest without it, so the build was refused.'
+      : !aboveThree
+        ? 'No browser loads that value, so the build was refused.'
+        : isGeckoBasedBrowser(browser)
+          ? 'Firefox does not load a manifest_version above 3, so the build was refused.'
+          : 'Chromium loads a version above 3 as Manifest V3 with no warning and Firefox does not load it at all, so the build was refused.'
 
   return (
     `${prefix('error')} ${lead}\n` +
-    `No browser loads a manifest without it, so the build was refused. ` +
+    `${why} ` +
     `Add a plain ${field}, or scope one to this browser: ${colors.yellow('chromium:manifest_version')} for every Chromium-based browser, ${colors.yellow('firefox:manifest_version')} for Firefox.`
   )
 }
