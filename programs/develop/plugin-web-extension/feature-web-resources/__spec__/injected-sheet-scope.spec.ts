@@ -26,7 +26,8 @@ describe('files a sheet injected by file loads', () => {
   // that is not in the output.
   function run(
     manifest: Record<string, unknown>,
-    mode: 'development' | 'production' = 'production'
+    mode: 'development' | 'production' = 'production',
+    browser?: string
   ) {
     const manifestSource = {
       source: () => JSON.stringify(manifest)
@@ -61,13 +62,17 @@ describe('files a sheet injected by file loads', () => {
     generateManifestPatches(
       compilation as unknown as Compilation,
       manifestPath,
-      {}
+      {},
+      browser
     )
 
     const written = JSON.parse(updateAsset.mock.calls[0][1].source().toString())
 
     return {
-      resources: written.web_accessible_resources as Group[] | string[],
+      resources: written.web_accessible_resources as
+        | Group[]
+        | string[]
+        | undefined,
       warnings: compilation.warnings.filter(
         (warning) => warning.name === 'InjectedScriptResourceExposedWarning'
       )
@@ -117,5 +122,50 @@ describe('files a sheet injected by file loads', () => {
 
   it('stays quiet in development, where a blanket group covers every file', () => {
     expect(run({manifest_version: 3}, 'development').warnings).toEqual([])
+  })
+
+  it.each([
+    'chrome',
+    'edge',
+    'chromium-based'
+  ])('lists them for %s', (browser) => {
+    const {resources, warnings} = run(
+      {manifest_version: 3},
+      'production',
+      browser
+    )
+
+    expect(resources).toHaveLength(1)
+    expect(warnings).toHaveLength(1)
+  })
+
+  it.each([
+    'firefox',
+    'gecko-based'
+  ])('lists only the font for %s, which loads an image unlisted', (browser) => {
+    const {resources, warnings} = run(
+      {manifest_version: 3},
+      'production',
+      browser
+    )
+
+    expect(resources).toEqual([
+      {resources: ['fonts/a.woff2'], matches: ['<all_urls>']}
+    ])
+
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0].message).toContain('fonts/a.woff2')
+    expect(warnings[0].message).not.toContain('styles/img/bg.png')
+  })
+
+  it('lists only the font on a Manifest V2 firefox build', () => {
+    const {resources, warnings} = run(
+      {manifest_version: 2},
+      'production',
+      'firefox'
+    )
+
+    expect(resources).toEqual(['fonts/a.woff2'])
+    expect(warnings).toEqual([])
   })
 })

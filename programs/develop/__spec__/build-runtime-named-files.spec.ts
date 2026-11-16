@@ -311,11 +311,14 @@ describe('a stylesheet a script injects by file', () => {
     expect(summary.errors_count).toBe(0)
     expect(outputFiles(root, 'firefox')).toEqual(expect.arrayContaining(LOADED))
 
-    expect(
+    // Firefox loads an image an injected sheet names without an entry, and
+    // refuses its font without one, so only the font is listed.
+    const listed: string[] =
       JSON.parse(
         fs.readFileSync(path.join(root, 'dist/firefox/manifest.json'), 'utf8')
-      ).web_accessible_resources
-    ).toEqual(expect.arrayContaining(['fonts/a.ttf', 'styles/img/bg.png']))
+      ).web_accessible_resources || []
+
+    expect(listed).toEqual(['fonts/a.ttf'])
 
     // Firefox reads the paths from where the sheet sits, so it ships as written.
     expect(
