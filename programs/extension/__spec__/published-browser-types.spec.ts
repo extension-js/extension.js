@@ -483,9 +483,9 @@ describe('the default extension API types', () => {
     const result = typeCheck(
       writeProject((index) =>
         index
-          .replace('/// <reference path="./chrome.d.ts" />\n', '')
-          .replace('/// <reference path="./callbacks.d.ts" />\n', '')
-          .replace('/// <reference path="./enums.d.ts" />\n', '')
+          .replace(/\/\/\/ <reference path="\.\/chrome\.d\.ts" \/>\r?\n/, '')
+          .replace(/\/\/\/ <reference path="\.\/callbacks\.d\.ts" \/>\r?\n/, '')
+          .replace(/\/\/\/ <reference path="\.\/enums\.d\.ts" \/>\r?\n/, '')
       )
     )
 

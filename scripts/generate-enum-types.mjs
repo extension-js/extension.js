@@ -50,7 +50,7 @@ export function parseStringUnions(source) {
   const unions = new Map()
   const stack = []
   const pattern =
-    /(?:declare\s+|export\s+)?namespace\s+([\w$.]+)\s*\{|export\s+type\s+([\w$]+)\s*=\s*\|?\s*((?:"[^"]*"\s*\|?\s*)+);|\{|\}/g
+    /(?:declare\s+|export\s+)?namespace\s+([\w$.]+)\s*\{|export\s+type\s+([\w$]+)\s*=\s*(?:\|\s*)?("[^"]*"(?:\s*\|\s*"[^"]*")*)\s*;|\{|\}/g
   let match = pattern.exec(text)
 
   while (match) {
