@@ -171,10 +171,18 @@ describe('published types dependencies (extension package)', () => {
   // The generated extension-env.d.ts names one of the two entries, and each
   // one types the browser global its own way, so they never share a program.
   it('declares the browser global once in each of the two alternative entries', () => {
-    const fromDefault = Array.from(referencedFiles('index.d.ts'))
+    const defaultFiles = referencedFiles('index.d.ts')
+    const fromDefault = Array.from(defaultFiles)
     const fromLegacy = Array.from(referencedFiles('legacy.d.ts'))
 
-    expect(fromDefault.filter(declaresBrowser)).toEqual(['firefox.d.ts'])
+    // These files only add to the namespace chrome-types declares.
+    expect(fromDefault.filter(declaresBrowser).sort()).toEqual([
+      'callbacks.d.ts',
+      'chrome.d.ts',
+      'enums.d.ts',
+      'firefox.d.ts'
+    ])
+
     expect(fromLegacy.filter(declaresBrowser)).toEqual(['legacy.d.ts'])
     expect(fromDefault).not.toContain('legacy.d.ts')
     expect(fromLegacy).not.toContain('index.d.ts')
@@ -182,7 +190,7 @@ describe('published types dependencies (extension package)', () => {
     const others = fs
       .readdirSync(typesDir)
       .filter((file) => file.endsWith('.d.ts'))
-      .filter((file) => !['firefox.d.ts', 'legacy.d.ts'].includes(file))
+      .filter((file) => !defaultFiles.has(file) && file !== 'legacy.d.ts')
 
     expect(others.filter(declaresBrowser)).toEqual([])
   })
