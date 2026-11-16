@@ -118,8 +118,11 @@ describe('UpdateHtmlFile', () => {
     fs.writeFileSync(options, '<html></html>')
     fs.writeFileSync(popup, '<html></html>')
 
+    let emitted: Record<string, string> = {}
+
     const run = (browser: string) => {
       vi.mocked(patchHtml).mockClear()
+      emitted = {}
       const assets: Record<string, any> = {
         'options/index.html': {source: () => '<html></html>'},
         'action/index.html': {source: () => '<html></html>'}
@@ -128,6 +131,9 @@ describe('UpdateHtmlFile', () => {
         hooks: {processAssets: {tap: (_: any, cb: any) => cb()}},
         assets,
         updateAsset: vi.fn(),
+        emitAsset: (name: string, source: {source: () => string}) => {
+          emitted[name] = String(source.source())
+        },
         errors: [] as any[]
       }
       const c: any = {
@@ -157,9 +163,16 @@ describe('UpdateHtmlFile', () => {
       'action/index': false
     })
 
+    // The page links the floor, so the stylesheet ships beside it.
+    expect(emitted).toEqual({
+      'options/dialog-floor.css': 'html{min-height:32px}'
+    })
+
     expect(run('firefox')).toEqual({
       'options/index': false,
       'action/index': false
     })
+
+    expect(emitted).toEqual({})
   })
 })
