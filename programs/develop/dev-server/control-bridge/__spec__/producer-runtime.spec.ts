@@ -2107,6 +2107,108 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     })
   })
 
+  it('finds the extension own page by its context when tab urls are hidden', async () => {
+    const injected: number[] = []
+    const ws = setup({
+      runtime: {
+        getManifest: () => ({manifest_version: 3, permissions: ['scripting']}),
+        getContexts: (filter: {contextTypes: string[]}) =>
+          Promise.resolve(
+            filter.contextTypes[0] === 'TAB'
+              ? [
+                  {tabId: -1, documentUrl: 'chrome-extension://abc/bg.html'},
+                  {
+                    tabId: 77,
+                    documentUrl: 'chrome-extension://abc/pages/plain.html'
+                  }
+                ]
+              : []
+          )
+      },
+      tabs: {
+        // The shape Chromium answers with when the tabs permission is absent.
+        query: (q: {url?: string}, cb?: (t: unknown[]) => void) => {
+          cb?.(q.url ? [] : [{id: 77}, {id: 78}])
+
+          return undefined
+        }
+      },
+      scripting: {
+        executeScript: (details: {target: {tabId: number}}) => {
+          injected.push(details.target.tabId)
+
+          return Promise.resolve([
+            {result: {__extjsEval: 1, ok: true, value: 'PLAIN PAGE'}}
+          ])
+        }
+      }
+    })
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 'e-own',
+      op: 'eval',
+      target: {context: 'page', url: 'pages/plain.html'},
+      args: {expression: 'document.title'}
+    })
+
+    await flush()
+    expect(injected).toEqual([77])
+    expect(results(ws).find((f) => f.cmdId === 'e-own')).toMatchObject({
+      ok: true,
+      value: 'PLAIN PAGE'
+    })
+  })
+
+  it('says tab urls are hidden when no tab matches and tabs is not granted', async () => {
+    const tabs = {
+      query: (q: {url?: string}, cb?: (t: unknown[]) => void) => {
+        cb?.(q.url ? [] : [{id: 5}])
+
+        return undefined
+      }
+    }
+
+    const ask = (permissions: string[]) => {
+      const ws = setup({
+        runtime: {
+          getManifest: () => ({manifest_version: 3, permissions}),
+          getContexts: () => Promise.resolve([])
+        },
+        tabs
+      })
+      ws.triggerMessage({
+        type: 'command',
+        cmdId: 'e-hidden',
+        op: 'eval',
+        target: {context: 'page', url: 'example.com'},
+        args: {expression: '1'}
+      })
+
+      return ws
+    }
+
+    const without = ask(['storage'])
+
+    await flush()
+
+    const withTabs = ask(['tabs'])
+
+    await flush()
+
+    expect(
+      results(without).find((f) => f.cmdId === 'e-hidden').error
+    ).toMatchObject({
+      name: 'TargetNotFound',
+      code: 'tab_not_found',
+      message:
+        'no open tab matches url: example.com. This build\'s manifest has no "tabs" permission, so the browser hides the url of a tab the extension has no host access to; pass --tab <id>, or use a dev session (extension dev), which adds the permission'
+    })
+
+    expect(
+      results(withTabs).find((f) => f.cmdId === 'e-hidden').error.message
+    ).toBe('no open tab matches url: example.com')
+  })
+
   it('reload content resolves --url and the active tab the way eval does', async () => {
     const reloaded: number[] = []
     const ws = setup({
