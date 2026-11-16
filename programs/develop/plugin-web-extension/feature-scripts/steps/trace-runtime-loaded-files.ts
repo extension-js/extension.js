@@ -18,7 +18,11 @@ import {
   sources,
   WebpackError
 } from '@rspack/core'
-import {isWebkitBasedBrowser} from '../../../lib/constants'
+import {
+  isChromiumBasedBrowser,
+  isGeckoBasedBrowser,
+  isWebkitBasedBrowser
+} from '../../../lib/constants'
 import {resolveDevelopDistFile} from '../../../lib/develop-context'
 import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
 import {parseAuthoredJson} from '../../../lib/parse-json-safe'
@@ -771,6 +775,76 @@ export class TraceRuntimeLoadedFiles {
       distRel: string
     }> = []
 
+    type Ref = {
+      literal: string
+      baseRel: string
+      isStaticImport?: boolean
+      isRuntimeSurface?: boolean
+      // Set when the browser asks beside the caller: where the file must
+      // sit, the places its author may have kept it, and a silent miss.
+      distRel?: string | null
+      sourceRels?: Array<string | null>
+      quiet?: boolean
+    }
+    let loaders: Map<string, string[]> | undefined
+
+    const surfaceRefs = (
+      {literal, reads}: SurfaceReference,
+      item: {assetName: string; copied?: boolean}
+    ): Ref[] => {
+      const atRoot: Ref = {literal, baseRel: '', isRuntimeSurface: true}
+      const moved = (bare?: boolean): Ref => ({
+        ...atRoot,
+        baseRel: item.copied
+          ? ''
+          : movedPageSourceBase(run, pageSources, item.assetName, literal, bare)
+      })
+      const address = item.copied
+        ? 'unknown'
+        : surfaceAddress(reads, String(this.browser))
+
+      if (reads === 'page' && address === 'root') {
+        // A file kept beside the page still ships when the root has none.
+        const rootRel = resolveExtensionPath(literal, '')
+        const atRootExists =
+          rootRel != null &&
+          (declaredSurfaces.has(rootRel) ||
+            run.hasAsset(rootRel) ||
+            isFile(path.join(run.manifestDir, rootRel)) ||
+            isFile(path.join(run.manifestDir, 'public', rootRel)))
+
+        return [atRootExists ? atRoot : moved()]
+      }
+
+      if (reads === 'page') return [moved(address === 'own')]
+
+      if (address === 'root' || literal.trim().startsWith('/')) return [moved()]
+
+      loaders ??= run.pagesLoadingScripts()
+      const callers = run.callerAddresses(
+        item.assetName,
+        loaders,
+        pageSources,
+        manifest?.background?.service_worker
+      )
+      if (reads !== 'image' || !callers) return [moved()]
+
+      const rootRel = resolveExtensionPath(literal, '')
+      const beside = callers.map((caller, index) => ({
+        ...atRoot,
+        distRel: resolveExtensionPath(literal, caller.dist),
+        sourceRels: [
+          resolveExtensionPath(literal, caller.source),
+          rootRel,
+          rootRel && `public/${rootRel}`
+        ],
+        // One absent file is one warning, however many pages ask for it.
+        quiet: index > 0
+      }))
+
+      return address === 'own' ? beside : [...beside, {...atRoot, quiet: true}]
+    }
+
     // getURL literals resolve against the extension ROOT regardless of context,
     // so, unlike relative fetch(), content scripts are traceable here.
     type PendingScan =
@@ -799,12 +873,6 @@ export class TraceRuntimeLoadedFiles {
       const next: PendingScan[] = []
 
       for (const item of pending) {
-        type Ref = {
-          literal: string
-          baseRel: string
-          isStaticImport?: boolean
-          isRuntimeSurface?: boolean
-        }
         const refs: Ref[] =
           item.kind === 'js'
             ? [
@@ -812,21 +880,10 @@ export class TraceRuntimeLoadedFiles {
                   literal,
                   baseRel: ''
                 })),
-                // Runtime-set HTML surfaces (setPopup/setOptions) resolve like
-                // getURL but are not manifest refs; the page pipeline misses them.
-                ...extractRuntimeSurfaceLiterals(item.content).map(
-                  (literal) => ({
-                    literal,
-                    baseRel: item.copied
-                      ? ''
-                      : movedPageSourceBase(
-                          run,
-                          pageSources,
-                          item.assetName,
-                          literal
-                        ),
-                    isRuntimeSurface: true
-                  })
+                // Runtime-set surfaces (setPopup, setIcon) are not manifest
+                // refs, and each browser reads their path from its own place.
+                ...extractRuntimeSurfaceReferences(item.content).flatMap(
+                  (ref) => surfaceRefs(ref, item)
                 ),
                 // Only files WE copied verbatim: emitted bundles had their
                 // imports resolved by the bundler already.
@@ -851,10 +908,23 @@ export class TraceRuntimeLoadedFiles {
           literal,
           baseRel,
           isStaticImport,
-          isRuntimeSurface
+          isRuntimeSurface,
+          distRel: besideCaller,
+          sourceRels,
+          quiet
         } of refs) {
-          const distRel = resolveExtensionPath(literal, baseRel)
+          const distRel =
+            besideCaller === undefined
+              ? resolveExtensionPath(literal, baseRel)
+              : besideCaller
           if (!distRel) continue
+
+          const sourceRel =
+            sourceRels?.find(
+              (rel) => rel && isFile(path.join(run.manifestDir, rel))
+            ) ||
+            sourceRels?.[0] ||
+            distRel
 
           if (isRuntimeSurface && baseRel && item.kind === 'js') {
             relocatedSurfaceRefs.push({
@@ -906,7 +976,7 @@ export class TraceRuntimeLoadedFiles {
           // getURL paths are root-anchored, so source and dist paths match.
           const plan = planTracedFile({
             manifestDir: run.manifestDir,
-            sourceRel: distRel,
+            sourceRel,
             distRel,
             loadsAs: 'by-shape',
             hasAsset: run.hasAsset
@@ -914,6 +984,8 @@ export class TraceRuntimeLoadedFiles {
           const copied = run.apply(plan, {
             context: item.kind === 'js' ? 'getURL' : 'html',
             onMissing: () => {
+              if (quiet) return
+
               shippedByWar ??= this.webAccessibleOutputs(run)
               if (shippedByWar.has(distRel)) return
 
@@ -926,7 +998,7 @@ export class TraceRuntimeLoadedFiles {
 
               const {expectedPath, foundOutside} = this.missingFileHint(
                 run,
-                distRel
+                sourceRel
               )
 
               run.warn(
@@ -1001,11 +1073,12 @@ export class TraceRuntimeLoadedFiles {
 
       if (!run.hasAsset(target)) continue
 
+      // The page moved, the query and fragment it was opened with did not.
       rewriteStringLiteral(
         run.compilation,
         ref.assetName,
         ref.literal,
-        `/${target}`
+        `/${target}${ref.literal.match(/[?#].*$/)?.[0] ?? ''}`
       )
 
       run.forgetText(ref.assetName)
@@ -1028,7 +1101,14 @@ export class TraceRuntimeLoadedFiles {
       const loaders = pages.get(asset.name)
       const bases = inWebPage ? [] : (loaders ?? [ownAddressOf(asset.name)])
       const literals = extractPathLiterals(blankComments(run.textOf(asset)))
-      const forms = provenReferenceForms(run.textOf(asset), literals)
+      const forms = provenReferenceForms(
+        run.textOf(asset),
+        literals,
+        extractRuntimeSurfaceReferences(run.textOf(asset)).map((ref) => ({
+          literal: ref.literal,
+          form: surfaceAddress(ref.reads, String(this.browser))
+        }))
+      )
       // Where a script reads from is known for the background and for a
       // script its pages name, unless a base element moves what a path means.
       const ownAddressKnown = loaders
@@ -1357,6 +1437,44 @@ class TraceRun {
     }
 
     return pages
+  }
+
+  // Where a script runs in the output and where its author wrote it: the
+  // worker, the root page of background scripts, or the pages that name it.
+  callerAddresses(
+    assetName: string,
+    loaders: Map<string, string[]>,
+    pageSources: Map<string, string>,
+    workerRef: unknown
+  ): Array<{dist: string; source: string}> | undefined {
+    if (assetName === EMITTED_BACKGROUND_SCRIPTS_PATH) {
+      return [{dist: '', source: ''}]
+    }
+
+    if (assetName === EMITTED_WORKER_PATH) {
+      return typeof workerRef === 'string'
+        ? [{dist: assetName, source: unixify(workerRef).replace(/^\/+/, '')}]
+        : undefined
+    }
+
+    const pages = loaders.get(assetName)
+
+    if (!pages || pages.some((page) => this.hasBaseElement(page))) {
+      return undefined
+    }
+
+    return pages.map((page) => {
+      const entryDir = this.entrySourceDirs.get(page.replace(/\.html?$/i, ''))
+      const written =
+        pageSources.get(page) ??
+        (entryDir
+          ? unixify(
+              path.join(path.relative(this.manifestDir, entryDir), 'index.html')
+            )
+          : page)
+
+      return {dist: page, source: written.startsWith('..') ? page : written}
+    })
   }
 
   hasBaseElement(page: string): boolean {
@@ -1977,9 +2095,14 @@ function movedPageSourceBase(
   run: TraceRun,
   pageSources: Map<string, string>,
   assetName: string,
-  literal: string
+  literal: string,
+  bare?: boolean
 ): string {
-  if (!/^\.\.?\//.test(literal.trim())) return ''
+  const written = literal.trim()
+
+  if (bare ? written.startsWith('/') : !/^\.\.?\//.test(written)) return ''
+  // Background scripts run in a page the browser makes at the root.
+  if (assetName === EMITTED_BACKGROUND_SCRIPTS_PATH) return ''
 
   const entryName = assetName.replace(/\.js$/i, '')
   const pageSource = pageSources.get(`${entryName}.html`)
@@ -2154,6 +2277,19 @@ function customManifestFileReferences(
   return refs
 }
 
+// Measured: Chromium opens a page path from the root and loads an image
+// beside the caller. Firefox opens a page beside the caller.
+function surfaceAddress(
+  reads: SurfaceRead,
+  browser: string
+): ReferenceForm | 'unknown' {
+  if (reads === 'panel') return 'unknown'
+  if (isGeckoBasedBrowser(browser)) return reads === 'page' ? 'own' : 'unknown'
+  if (isChromiumBasedBrowser(browser)) return reads === 'page' ? 'root' : 'own'
+
+  return 'unknown'
+}
+
 // Extract string-literal getURL arguments. Matching on `runtime.getURL(`
 // keeps user-defined getURL functions out while surviving minification.
 export function extractGetURLLiterals(source: string): string[] {
@@ -2183,36 +2319,76 @@ const IMAGE_LITERAL_RE =
 // notifications.create) and devtools panels. Untraced they vanish from dist
 // while the build stays green.
 export function extractRuntimeSurfaceLiterals(source: string): string[] {
+  return extractRuntimeSurfaceReferences(source).map((ref) => ref.literal)
+}
+
+// What the browser does with the path: opens it as a page, loads it as an
+// image, or hands it to DevTools, where no run measured the address.
+export type SurfaceRead = 'page' | 'image' | 'panel'
+
+export interface SurfaceReference {
+  literal: string
+  reads: SurfaceRead
+}
+
+export function extractRuntimeSurfaceReferences(
+  source: string
+): SurfaceReference[] {
   const code = blankComments(source)
-  const literals: string[] = []
+  const literals: SurfaceReference[] = []
   const calls = [
     {
       callRe: /\b(?:action|browserAction|pageAction)\s*\.\s*setPopup\s*\(/g,
-      prop: 'popup'
+      prop: 'popup',
+      reads: 'page'
     },
-    {callRe: /\bsidePanel\s*\.\s*setOptions\s*\(/g, prop: 'path'},
-    {callRe: /\boffscreen\s*\.\s*createDocument\s*\(/g, prop: 'url'},
-    {callRe: /\b(?:tabs|windows)\s*\.\s*create\s*\(/g, prop: 'url'},
-    {callRe: /\bnotifications\s*\.\s*create\s*\(/g, prop: 'iconUrl'},
+    {
+      callRe: /\bsidePanel\s*\.\s*setOptions\s*\(/g,
+      prop: 'path',
+      reads: 'page'
+    },
+    {
+      callRe: /\bsidebarAction\s*\.\s*setPanel\s*\(/g,
+      prop: 'panel',
+      reads: 'page'
+    },
+    {
+      callRe: /\boffscreen\s*\.\s*createDocument\s*\(/g,
+      prop: 'url',
+      reads: 'page'
+    },
+    {
+      callRe: /\b(?:tabs|windows)\s*\.\s*create\s*\(/g,
+      prop: 'url',
+      reads: 'page'
+    },
+    {
+      callRe: /\bnotifications\s*\.\s*create\s*\(/g,
+      prop: 'iconUrl',
+      reads: 'image'
+    },
     {
       // The path value is a string or a size map, so every image literal
       // inside the call counts.
       callRe: /\b(?:action|browserAction|pageAction)\s*\.\s*setIcon\s*\(/g,
-      images: true
+      images: true,
+      reads: 'image'
     },
     {
       // panels.create(title, iconPath, pagePath): the two paths are positional.
       callRe: /\bpanels\s*\.\s*create\s*\(/g,
-      positional: [1, 2]
+      positional: [1, 2],
+      reads: 'panel'
     }
   ] as Array<{
     callRe: RegExp
     prop?: string
     images?: boolean
     positional?: number[]
+    reads: SurfaceRead
   }>
 
-  for (const {callRe, prop, images, positional} of calls) {
+  for (const {callRe, prop, images, positional, reads} of calls) {
     let match: RegExpExecArray | null
 
     while ((match = callRe.exec(code))) {
@@ -2224,7 +2400,7 @@ export function extractRuntimeSurfaceLiterals(source: string): string[] {
         let imageMatch: RegExpExecArray | null
 
         while ((imageMatch = IMAGE_LITERAL_RE.exec(args))) {
-          literals.push(unescapeStringBody(imageMatch[2]))
+          literals.push({literal: unescapeStringBody(imageMatch[2]), reads})
         }
 
         continue
@@ -2236,7 +2412,7 @@ export function extractRuntimeSurfaceLiterals(source: string): string[] {
         for (const index of positional) {
           const part = parts[index]
           const literal = part == null ? null : pureStringLiteral(part)
-          if (literal?.trim()) literals.push(literal)
+          if (literal?.trim()) literals.push({literal, reads})
         }
 
         continue
@@ -2251,7 +2427,7 @@ export function extractRuntimeSurfaceLiterals(source: string): string[] {
       while ((propMatch = propRe.exec(args))) {
         // An empty string is Chrome's "remove the popup" idiom, not a file.
         const literal = unescapeStringBody(propMatch[2])
-        if (literal.trim()) literals.push(literal)
+        if (literal.trim()) literals.push({literal, reads})
       }
     }
   }
@@ -2957,7 +3133,8 @@ export type ReferenceForm = 'own' | 'root'
 // script's address, or handed to getURL. A table or a variable proves neither.
 export function provenReferenceForms(
   source: string,
-  literals: string[]
+  literals: string[],
+  surfaces: Array<{literal: string; form: ReferenceForm | 'unknown'}> = []
 ): Map<string, ReferenceForm> {
   const tally = (values: string[]) => {
     const counts = new Map<string, number>()
@@ -2967,8 +3144,10 @@ export function provenReferenceForms(
     return counts
   }
 
-  const own = tally(extractOwnAddressLiterals(source))
-  const root = tally(extractGetURLLiterals(source))
+  const handedTo = (form: ReferenceForm) =>
+    surfaces.filter((ref) => ref.form === form).map((ref) => ref.literal)
+  const own = tally([...extractOwnAddressLiterals(source), ...handedTo('own')])
+  const root = tally([...extractGetURLLiterals(source), ...handedTo('root')])
   const forms = new Map<string, ReferenceForm>()
 
   for (const [literal, total] of tally(literals)) {
