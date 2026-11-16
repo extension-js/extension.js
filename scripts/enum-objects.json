@@ -1,0 +1,892 @@
+{
+  "browser": "Chrome 151",
+  "objects": {
+    "bookmarks.BookmarkTreeNodeUnmodifiable": {
+      "MANAGED": "managed"
+    },
+    "bookmarks.FolderType": {
+      "BOOKMARKS_BAR": "bookmarks-bar",
+      "MANAGED": "managed",
+      "MOBILE": "mobile",
+      "OTHER": "other"
+    },
+    "clipboard.DataItemType": {
+      "TEXT_HTML": "textHtml",
+      "TEXT_PLAIN": "textPlain"
+    },
+    "clipboard.ImageType": {
+      "JPEG": "jpeg",
+      "PNG": "png"
+    },
+    "contentSettings.AutoVerifyContentSetting": {
+      "ALLOW": "allow",
+      "BLOCK": "block"
+    },
+    "contentSettings.CameraContentSetting": {
+      "ALLOW": "allow",
+      "ASK": "ask",
+      "BLOCK": "block"
+    },
+    "contentSettings.ClipboardContentSetting": {
+      "ALLOW": "allow",
+      "ASK": "ask",
+      "BLOCK": "block"
+    },
+    "contentSettings.CookiesContentSetting": {
+      "ALLOW": "allow",
+      "BLOCK": "block",
+      "SESSION_ONLY": "session_only"
+    },
+    "contentSettings.FullscreenContentSetting": {
+      "ALLOW": "allow"
+    },
+    "contentSettings.ImagesContentSetting": {
+      "ALLOW": "allow",
+      "BLOCK": "block"
+    },
+    "contentSettings.JavascriptContentSetting": {
+      "ALLOW": "allow",
+      "BLOCK": "block"
+    },
+    "contentSettings.LocationContentSetting": {
+      "ALLOW": "allow",
+      "ASK": "ask",
+      "BLOCK": "block"
+    },
+    "contentSettings.MicrophoneContentSetting": {
+      "ALLOW": "allow",
+      "ASK": "ask",
+      "BLOCK": "block"
+    },
+    "contentSettings.MouselockContentSetting": {
+      "ALLOW": "allow"
+    },
+    "contentSettings.MultipleAutomaticDownloadsContentSetting": {
+      "ALLOW": "allow",
+      "ASK": "ask",
+      "BLOCK": "block"
+    },
+    "contentSettings.NotificationsContentSetting": {
+      "ALLOW": "allow",
+      "ASK": "ask",
+      "BLOCK": "block"
+    },
+    "contentSettings.PluginsContentSetting": {
+      "BLOCK": "block"
+    },
+    "contentSettings.PopupsContentSetting": {
+      "ALLOW": "allow",
+      "BLOCK": "block"
+    },
+    "contentSettings.PpapiBrokerContentSetting": {
+      "BLOCK": "block"
+    },
+    "contentSettings.Scope": {
+      "INCOGNITO_SESSION_ONLY": "incognito_session_only",
+      "REGULAR": "regular"
+    },
+    "contentSettings.SoundContentSetting": {
+      "ALLOW": "allow",
+      "BLOCK": "block"
+    },
+    "contextMenus.ContextType": {
+      "ACTION": "action",
+      "ALL": "all",
+      "AUDIO": "audio",
+      "BROWSER_ACTION": "browser_action",
+      "EDITABLE": "editable",
+      "FRAME": "frame",
+      "IMAGE": "image",
+      "LAUNCHER": "launcher",
+      "LINK": "link",
+      "PAGE": "page",
+      "PAGE_ACTION": "page_action",
+      "SELECTION": "selection",
+      "TAB": "tab",
+      "VIDEO": "video"
+    },
+    "contextMenus.ItemType": {
+      "CHECKBOX": "checkbox",
+      "NORMAL": "normal",
+      "RADIO": "radio",
+      "SEPARATOR": "separator"
+    },
+    "cookies.OnChangedCause": {
+      "EVICTED": "evicted",
+      "EXPIRED": "expired",
+      "EXPIRED_OVERWRITE": "expired_overwrite",
+      "EXPLICIT": "explicit",
+      "OVERWRITE": "overwrite"
+    },
+    "cookies.SameSiteStatus": {
+      "LAX": "lax",
+      "NO_RESTRICTION": "no_restriction",
+      "STRICT": "strict",
+      "UNSPECIFIED": "unspecified"
+    },
+    "debugger.DetachReason": {
+      "CANCELED_BY_USER": "canceled_by_user",
+      "TARGET_CLOSED": "target_closed"
+    },
+    "debugger.TargetInfoType": {
+      "BACKGROUND_PAGE": "background_page",
+      "OTHER": "other",
+      "PAGE": "page",
+      "WORKER": "worker"
+    },
+    "declarativeContent.PageStateMatcherInstanceType": {
+      "DECLARATIVE_CONTENT.PAGE_STATE_MATCHER": "declarativeContent.PageStateMatcher"
+    },
+    "declarativeContent.RequestContentScriptInstanceType": {
+      "DECLARATIVE_CONTENT.REQUEST_CONTENT_SCRIPT": "declarativeContent.RequestContentScript"
+    },
+    "declarativeContent.SetIconInstanceType": {
+      "DECLARATIVE_CONTENT.SET_ICON": "declarativeContent.SetIcon"
+    },
+    "declarativeContent.ShowActionInstanceType": {
+      "DECLARATIVE_CONTENT.SHOW_ACTION": "declarativeContent.ShowAction"
+    },
+    "declarativeContent.ShowPageActionInstanceType": {
+      "DECLARATIVE_CONTENT.SHOW_PAGE_ACTION": "declarativeContent.ShowPageAction"
+    },
+    "declarativeNetRequest.DomainType": {
+      "FIRST_PARTY": "firstParty",
+      "THIRD_PARTY": "thirdParty"
+    },
+    "declarativeNetRequest.HeaderOperation": {
+      "APPEND": "append",
+      "REMOVE": "remove",
+      "SET": "set"
+    },
+    "declarativeNetRequest.RequestMethod": {
+      "CONNECT": "connect",
+      "DELETE": "delete",
+      "GET": "get",
+      "HEAD": "head",
+      "OPTIONS": "options",
+      "OTHER": "other",
+      "PATCH": "patch",
+      "POST": "post",
+      "PUT": "put"
+    },
+    "declarativeNetRequest.ResourceType": {
+      "CSP_REPORT": "csp_report",
+      "FONT": "font",
+      "IMAGE": "image",
+      "MAIN_FRAME": "main_frame",
+      "MEDIA": "media",
+      "OBJECT": "object",
+      "OTHER": "other",
+      "PING": "ping",
+      "SCRIPT": "script",
+      "STYLESHEET": "stylesheet",
+      "SUB_FRAME": "sub_frame",
+      "WEBBUNDLE": "webbundle",
+      "WEBSOCKET": "websocket",
+      "WEBTRANSPORT": "webtransport",
+      "XMLHTTPREQUEST": "xmlhttprequest"
+    },
+    "declarativeNetRequest.RuleActionType": {
+      "ALLOW": "allow",
+      "ALLOW_ALL_REQUESTS": "allowAllRequests",
+      "BLOCK": "block",
+      "MODIFY_HEADERS": "modifyHeaders",
+      "REDIRECT": "redirect",
+      "UPGRADE_SCHEME": "upgradeScheme"
+    },
+    "declarativeNetRequest.RuleConditionKeys": {
+      "DOMAINS": "domains",
+      "DOMAIN_TYPE": "domainType",
+      "EXCLUDED_DOMAINS": "excludedDomains",
+      "EXCLUDED_INITIATOR_DOMAINS": "excludedInitiatorDomains",
+      "EXCLUDED_REQUEST_DOMAINS": "excludedRequestDomains",
+      "EXCLUDED_REQUEST_METHODS": "excludedRequestMethods",
+      "EXCLUDED_RESOURCE_TYPES": "excludedResourceTypes",
+      "EXCLUDED_RESPONSE_HEADERS": "excludedResponseHeaders",
+      "EXCLUDED_TAB_IDS": "excludedTabIds",
+      "EXCLUDED_TOP_DOMAINS": "excludedTopDomains",
+      "INITIATOR_DOMAINS": "initiatorDomains",
+      "IS_URL_FILTER_CASE_SENSITIVE": "isUrlFilterCaseSensitive",
+      "REGEX_FILTER": "regexFilter",
+      "REQUEST_DOMAINS": "requestDomains",
+      "REQUEST_METHODS": "requestMethods",
+      "RESOURCE_TYPES": "resourceTypes",
+      "RESPONSE_HEADERS": "responseHeaders",
+      "TAB_IDS": "tabIds",
+      "TOP_DOMAINS": "topDomains",
+      "URL_FILTER": "urlFilter"
+    },
+    "declarativeNetRequest.UnsupportedRegexReason": {
+      "MEMORY_LIMIT_EXCEEDED": "memoryLimitExceeded",
+      "SYNTAX_ERROR": "syntaxError"
+    },
+    "desktopCapture.DesktopCaptureSourceType": {
+      "AUDIO": "audio",
+      "SCREEN": "screen",
+      "TAB": "tab",
+      "WINDOW": "window"
+    },
+    "desktopCapture.SelfCapturePreferenceEnum": {
+      "EXCLUDE": "exclude",
+      "INCLUDE": "include"
+    },
+    "desktopCapture.SystemAudioPreferenceEnum": {
+      "EXCLUDE": "exclude",
+      "INCLUDE": "include"
+    },
+    "desktopCapture.WindowAudioPreferenceEnum": {
+      "EXCLUDE": "exclude",
+      "SYSTEM": "system",
+      "WINDOW": "window"
+    },
+    "downloads.DangerType": {
+      "ACCEPTED": "accepted",
+      "ACCOUNT_COMPROMISE": "accountCompromise",
+      "ALLOWLISTED_BY_POLICY": "allowlistedByPolicy",
+      "ASYNC_LOCAL_PASSWORD_SCANNING": "asyncLocalPasswordScanning",
+      "ASYNC_SCANNING": "asyncScanning",
+      "BLOCKED_SCAN_FAILED": "blockedScanFailed",
+      "BLOCKED_TOO_LARGE": "blockedTooLarge",
+      "CONTENT": "content",
+      "DEEP_SCANNED_FAILED": "deepScannedFailed",
+      "DEEP_SCANNED_OPENED_DANGEROUS": "deepScannedOpenedDangerous",
+      "DEEP_SCANNED_SAFE": "deepScannedSafe",
+      "FILE": "file",
+      "FORCE_SAVE_TO_GDRIVE": "forceSaveToGdrive",
+      "FORCE_SAVE_TO_ONEDRIVE": "forceSaveToOnedrive",
+      "HOST": "host",
+      "PASSWORD_PROTECTED": "passwordProtected",
+      "PROMPT_FOR_LOCAL_PASSWORD_SCANNING": "promptForLocalPasswordScanning",
+      "PROMPT_FOR_SCANNING": "promptForScanning",
+      "SAFE": "safe",
+      "SENSITIVE_CONTENT_BLOCK": "sensitiveContentBlock",
+      "SENSITIVE_CONTENT_WARNING": "sensitiveContentWarning",
+      "UNCOMMON": "uncommon",
+      "UNWANTED": "unwanted",
+      "URL": "url"
+    },
+    "downloads.FilenameConflictAction": {
+      "OVERWRITE": "overwrite",
+      "PROMPT": "prompt",
+      "UNIQUIFY": "uniquify"
+    },
+    "downloads.HttpMethod": {
+      "GET": "GET",
+      "POST": "POST"
+    },
+    "downloads.InterruptReason": {
+      "CRASH": "CRASH",
+      "FILE_ACCESS_DENIED": "FILE_ACCESS_DENIED",
+      "FILE_BLOCKED": "FILE_BLOCKED",
+      "FILE_FAILED": "FILE_FAILED",
+      "FILE_HASH_MISMATCH": "FILE_HASH_MISMATCH",
+      "FILE_NAME_TOO_LONG": "FILE_NAME_TOO_LONG",
+      "FILE_NO_SPACE": "FILE_NO_SPACE",
+      "FILE_SAME_AS_SOURCE": "FILE_SAME_AS_SOURCE",
+      "FILE_SECURITY_CHECK_FAILED": "FILE_SECURITY_CHECK_FAILED",
+      "FILE_TOO_LARGE": "FILE_TOO_LARGE",
+      "FILE_TOO_SHORT": "FILE_TOO_SHORT",
+      "FILE_TRANSIENT_ERROR": "FILE_TRANSIENT_ERROR",
+      "FILE_VIRUS_INFECTED": "FILE_VIRUS_INFECTED",
+      "NETWORK_DISCONNECTED": "NETWORK_DISCONNECTED",
+      "NETWORK_FAILED": "NETWORK_FAILED",
+      "NETWORK_INVALID_REQUEST": "NETWORK_INVALID_REQUEST",
+      "NETWORK_SERVER_DOWN": "NETWORK_SERVER_DOWN",
+      "NETWORK_TIMEOUT": "NETWORK_TIMEOUT",
+      "SERVER_BAD_CONTENT": "SERVER_BAD_CONTENT",
+      "SERVER_CERT_PROBLEM": "SERVER_CERT_PROBLEM",
+      "SERVER_CONTENT_LENGTH_MISMATCH": "SERVER_CONTENT_LENGTH_MISMATCH",
+      "SERVER_CROSS_ORIGIN_REDIRECT": "SERVER_CROSS_ORIGIN_REDIRECT",
+      "SERVER_FAILED": "SERVER_FAILED",
+      "SERVER_FORBIDDEN": "SERVER_FORBIDDEN",
+      "SERVER_NO_RANGE": "SERVER_NO_RANGE",
+      "SERVER_UNAUTHORIZED": "SERVER_UNAUTHORIZED",
+      "SERVER_UNREACHABLE": "SERVER_UNREACHABLE",
+      "USER_CANCELED": "USER_CANCELED",
+      "USER_SHUTDOWN": "USER_SHUTDOWN"
+    },
+    "downloads.State": {
+      "COMPLETE": "complete",
+      "INTERRUPTED": "interrupted",
+      "IN_PROGRESS": "in_progress"
+    },
+    "extension.ViewType": {
+      "POPUP": "popup",
+      "TAB": "tab"
+    },
+    "fontSettings.GenericFamily": {
+      "CURSIVE": "cursive",
+      "FANTASY": "fantasy",
+      "FIXED": "fixed",
+      "MATH": "math",
+      "SANSSERIF": "sansserif",
+      "SERIF": "serif",
+      "STANDARD": "standard"
+    },
+    "fontSettings.LevelOfControl": {
+      "CONTROLLABLE_BY_THIS_EXTENSION": "controllable_by_this_extension",
+      "CONTROLLED_BY_OTHER_EXTENSIONS": "controlled_by_other_extensions",
+      "CONTROLLED_BY_THIS_EXTENSION": "controlled_by_this_extension",
+      "NOT_CONTROLLABLE": "not_controllable"
+    },
+    "fontSettings.ScriptCode": {
+      "AFAK": "Afak",
+      "ARAB": "Arab",
+      "ARMI": "Armi",
+      "ARMN": "Armn",
+      "AVST": "Avst",
+      "BALI": "Bali",
+      "BAMU": "Bamu",
+      "BASS": "Bass",
+      "BATK": "Batk",
+      "BENG": "Beng",
+      "BLIS": "Blis",
+      "BOPO": "Bopo",
+      "BRAH": "Brah",
+      "BRAI": "Brai",
+      "BUGI": "Bugi",
+      "BUHD": "Buhd",
+      "CAKM": "Cakm",
+      "CANS": "Cans",
+      "CARI": "Cari",
+      "CHAM": "Cham",
+      "CHER": "Cher",
+      "CIRT": "Cirt",
+      "COPT": "Copt",
+      "CPRT": "Cprt",
+      "CYRL": "Cyrl",
+      "CYRS": "Cyrs",
+      "DEVA": "Deva",
+      "DSRT": "Dsrt",
+      "DUPL": "Dupl",
+      "EGYD": "Egyd",
+      "EGYH": "Egyh",
+      "EGYP": "Egyp",
+      "ELBA": "Elba",
+      "ETHI": "Ethi",
+      "GEOK": "Geok",
+      "GEOR": "Geor",
+      "GLAG": "Glag",
+      "GOTH": "Goth",
+      "GRAN": "Gran",
+      "GREK": "Grek",
+      "GUJR": "Gujr",
+      "GURU": "Guru",
+      "HANG": "Hang",
+      "HANI": "Hani",
+      "HANO": "Hano",
+      "HANS": "Hans",
+      "HANT": "Hant",
+      "HEBR": "Hebr",
+      "HLUW": "Hluw",
+      "HMNG": "Hmng",
+      "HUNG": "Hung",
+      "INDS": "Inds",
+      "ITAL": "Ital",
+      "JAVA": "Java",
+      "JPAN": "Jpan",
+      "JURC": "Jurc",
+      "KALI": "Kali",
+      "KHAR": "Khar",
+      "KHMR": "Khmr",
+      "KHOJ": "Khoj",
+      "KNDA": "Knda",
+      "KPEL": "Kpel",
+      "KTHI": "Kthi",
+      "LANA": "Lana",
+      "LAOO": "Laoo",
+      "LATF": "Latf",
+      "LATG": "Latg",
+      "LATN": "Latn",
+      "LEPC": "Lepc",
+      "LIMB": "Limb",
+      "LINA": "Lina",
+      "LINB": "Linb",
+      "LISU": "Lisu",
+      "LOMA": "Loma",
+      "LYCI": "Lyci",
+      "LYDI": "Lydi",
+      "MAND": "Mand",
+      "MANI": "Mani",
+      "MAYA": "Maya",
+      "MEND": "Mend",
+      "MERC": "Merc",
+      "MERO": "Mero",
+      "MLYM": "Mlym",
+      "MONG": "Mong",
+      "MOON": "Moon",
+      "MROO": "Mroo",
+      "MTEI": "Mtei",
+      "MYMR": "Mymr",
+      "NARB": "Narb",
+      "NBAT": "Nbat",
+      "NKGB": "Nkgb",
+      "NKOO": "Nkoo",
+      "NSHU": "Nshu",
+      "OGAM": "Ogam",
+      "OLCK": "Olck",
+      "ORKH": "Orkh",
+      "ORYA": "Orya",
+      "OSMA": "Osma",
+      "PALM": "Palm",
+      "PERM": "Perm",
+      "PHAG": "Phag",
+      "PHLI": "Phli",
+      "PHLP": "Phlp",
+      "PHLV": "Phlv",
+      "PHNX": "Phnx",
+      "PLRD": "Plrd",
+      "PRTI": "Prti",
+      "RJNG": "Rjng",
+      "RORO": "Roro",
+      "RUNR": "Runr",
+      "SAMR": "Samr",
+      "SARA": "Sara",
+      "SARB": "Sarb",
+      "SAUR": "Saur",
+      "SGNW": "Sgnw",
+      "SHAW": "Shaw",
+      "SHRD": "Shrd",
+      "SIND": "Sind",
+      "SINH": "Sinh",
+      "SORA": "Sora",
+      "SUND": "Sund",
+      "SYLO": "Sylo",
+      "SYRC": "Syrc",
+      "SYRE": "Syre",
+      "SYRJ": "Syrj",
+      "SYRN": "Syrn",
+      "TAGB": "Tagb",
+      "TAKR": "Takr",
+      "TALE": "Tale",
+      "TALU": "Talu",
+      "TAML": "Taml",
+      "TANG": "Tang",
+      "TAVT": "Tavt",
+      "TELU": "Telu",
+      "TENG": "Teng",
+      "TFNG": "Tfng",
+      "TGLG": "Tglg",
+      "THAA": "Thaa",
+      "THAI": "Thai",
+      "TIBT": "Tibt",
+      "TIRH": "Tirh",
+      "UGAR": "Ugar",
+      "VAII": "Vaii",
+      "VISP": "Visp",
+      "WARA": "Wara",
+      "WOLE": "Wole",
+      "XPEO": "Xpeo",
+      "XSUX": "Xsux",
+      "YIII": "Yiii",
+      "ZMTH": "Zmth",
+      "ZSYM": "Zsym",
+      "ZYYY": "Zyyy"
+    },
+    "history.TransitionType": {
+      "AUTO_BOOKMARK": "auto_bookmark",
+      "AUTO_SUBFRAME": "auto_subframe",
+      "AUTO_TOPLEVEL": "auto_toplevel",
+      "FORM_SUBMIT": "form_submit",
+      "GENERATED": "generated",
+      "KEYWORD": "keyword",
+      "KEYWORD_GENERATED": "keyword_generated",
+      "LINK": "link",
+      "MANUAL_SUBFRAME": "manual_subframe",
+      "RELOAD": "reload",
+      "TYPED": "typed"
+    },
+    "identity.AccountStatus": {
+      "ANY": "ANY",
+      "SYNC": "SYNC"
+    },
+    "idle.IdleState": {
+      "ACTIVE": "active",
+      "IDLE": "idle",
+      "LOCKED": "locked"
+    },
+    "management.ExtensionDisabledReason": {
+      "PERMISSIONS_INCREASE": "permissions_increase",
+      "UNKNOWN": "unknown"
+    },
+    "management.ExtensionInstallType": {
+      "ADMIN": "admin",
+      "DEVELOPMENT": "development",
+      "NORMAL": "normal",
+      "OTHER": "other",
+      "SIDELOAD": "sideload"
+    },
+    "management.ExtensionType": {
+      "EXTENSION": "extension",
+      "HOSTED_APP": "hosted_app",
+      "LEGACY_PACKAGED_APP": "legacy_packaged_app",
+      "LOGIN_SCREEN_EXTENSION": "login_screen_extension",
+      "PACKAGED_APP": "packaged_app",
+      "THEME": "theme"
+    },
+    "management.LaunchType": {
+      "OPEN_AS_PINNED_TAB": "OPEN_AS_PINNED_TAB",
+      "OPEN_AS_REGULAR_TAB": "OPEN_AS_REGULAR_TAB",
+      "OPEN_AS_WINDOW": "OPEN_AS_WINDOW",
+      "OPEN_FULL_SCREEN": "OPEN_FULL_SCREEN"
+    },
+    "notifications.PermissionLevel": {
+      "DENIED": "denied",
+      "GRANTED": "granted"
+    },
+    "notifications.TemplateType": {
+      "BASIC": "basic",
+      "IMAGE": "image",
+      "LIST": "list",
+      "PROGRESS": "progress"
+    },
+    "offscreen.Reason": {
+      "AUDIO_PLAYBACK": "AUDIO_PLAYBACK",
+      "BATTERY_STATUS": "BATTERY_STATUS",
+      "BLOBS": "BLOBS",
+      "CLIPBOARD": "CLIPBOARD",
+      "DISPLAY_MEDIA": "DISPLAY_MEDIA",
+      "DOM_PARSER": "DOM_PARSER",
+      "DOM_SCRAPING": "DOM_SCRAPING",
+      "GEOLOCATION": "GEOLOCATION",
+      "IFRAME_SCRIPTING": "IFRAME_SCRIPTING",
+      "LOCAL_STORAGE": "LOCAL_STORAGE",
+      "MATCH_MEDIA": "MATCH_MEDIA",
+      "TESTING": "TESTING",
+      "USER_MEDIA": "USER_MEDIA",
+      "WEB_RTC": "WEB_RTC",
+      "WORKERS": "WORKERS"
+    },
+    "omnibox.DescriptionStyleType": {
+      "DIM": "dim",
+      "MATCH": "match",
+      "URL": "url"
+    },
+    "omnibox.OnInputEnteredDisposition": {
+      "CURRENT_TAB": "currentTab",
+      "NEW_BACKGROUND_TAB": "newBackgroundTab",
+      "NEW_FOREGROUND_TAB": "newForegroundTab"
+    },
+    "power.Level": {
+      "DISPLAY": "display",
+      "SYSTEM": "system"
+    },
+    "printerProvider.PrintError": {
+      "FAILED": "FAILED",
+      "INVALID_DATA": "INVALID_DATA",
+      "INVALID_TICKET": "INVALID_TICKET",
+      "OK": "OK"
+    },
+    "privacy.AutofillBlockedType": {
+      "CONTACT_INFO": "contact_info",
+      "IDENTITY_DOCS": "identity_docs",
+      "PAYMENTS": "payments",
+      "TRAVEL": "travel"
+    },
+    "privacy.IPHandlingPolicy": {
+      "DEFAULT": "default",
+      "DEFAULT_PUBLIC_AND_PRIVATE_INTERFACES": "default_public_and_private_interfaces",
+      "DEFAULT_PUBLIC_INTERFACE_ONLY": "default_public_interface_only",
+      "DISABLE_NON_PROXIED_UDP": "disable_non_proxied_udp"
+    },
+    "processes.ProcessType": {
+      "BROWSER": "browser",
+      "EXTENSION": "extension",
+      "GPU": "gpu",
+      "NACL": "nacl",
+      "NOTIFICATION": "notification",
+      "OTHER": "other",
+      "PLUGIN": "plugin",
+      "RENDERER": "renderer",
+      "SERVICE_WORKER": "service_worker",
+      "UTILITY": "utility",
+      "WORKER": "worker"
+    },
+    "proxy.Mode": {
+      "AUTO_DETECT": "auto_detect",
+      "DIRECT": "direct",
+      "FIXED_SERVERS": "fixed_servers",
+      "PAC_SCRIPT": "pac_script",
+      "SYSTEM": "system"
+    },
+    "proxy.Scheme": {
+      "HTTP": "http",
+      "HTTPS": "https",
+      "QUIC": "quic",
+      "SOCKS4": "socks4",
+      "SOCKS5": "socks5"
+    },
+    "runtime.ContextType": {
+      "BACKGROUND": "BACKGROUND",
+      "DEVELOPER_TOOLS": "DEVELOPER_TOOLS",
+      "OFFSCREEN_DOCUMENT": "OFFSCREEN_DOCUMENT",
+      "POPUP": "POPUP",
+      "SIDE_PANEL": "SIDE_PANEL",
+      "TAB": "TAB"
+    },
+    "runtime.OnInstalledReason": {
+      "CHROME_UPDATE": "chrome_update",
+      "INSTALL": "install",
+      "SHARED_MODULE_UPDATE": "shared_module_update",
+      "UPDATE": "update"
+    },
+    "runtime.OnRestartRequiredReason": {
+      "APP_UPDATE": "app_update",
+      "OS_UPDATE": "os_update",
+      "PERIODIC": "periodic"
+    },
+    "runtime.PlatformArch": {
+      "ARM": "arm",
+      "ARM64": "arm64",
+      "MIPS": "mips",
+      "MIPS64": "mips64",
+      "RISCV64": "riscv64",
+      "X86_32": "x86-32",
+      "X86_64": "x86-64"
+    },
+    "runtime.PlatformNaclArch": {
+      "ARM": "arm",
+      "MIPS": "mips",
+      "MIPS64": "mips64",
+      "X86_32": "x86-32",
+      "X86_64": "x86-64"
+    },
+    "runtime.PlatformOs": {
+      "ANDROID": "android",
+      "CROS": "cros",
+      "LINUX": "linux",
+      "MAC": "mac",
+      "OPENBSD": "openbsd",
+      "WIN": "win"
+    },
+    "runtime.RequestUpdateCheckStatus": {
+      "NO_UPDATE": "no_update",
+      "THROTTLED": "throttled",
+      "UPDATE_AVAILABLE": "update_available"
+    },
+    "scripting.ExecutionWorld": {
+      "ISOLATED": "ISOLATED",
+      "MAIN": "MAIN"
+    },
+    "scripting.StyleOrigin": {
+      "AUTHOR": "AUTHOR",
+      "USER": "USER"
+    },
+    "search.Disposition": {
+      "CURRENT_TAB": "CURRENT_TAB",
+      "NEW_TAB": "NEW_TAB",
+      "NEW_WINDOW": "NEW_WINDOW"
+    },
+    "sidePanel.Side": {
+      "LEFT": "left",
+      "RIGHT": "right"
+    },
+    "storage.AccessLevel": {
+      "TRUSTED_AND_UNTRUSTED_CONTEXTS": "TRUSTED_AND_UNTRUSTED_CONTEXTS",
+      "TRUSTED_CONTEXTS": "TRUSTED_CONTEXTS"
+    },
+    "system.display.ActiveState": {
+      "ACTIVE": "active",
+      "INACTIVE": "inactive"
+    },
+    "system.display.LayoutPosition": {
+      "BOTTOM": "bottom",
+      "LEFT": "left",
+      "RIGHT": "right",
+      "TOP": "top"
+    },
+    "system.display.MirrorMode": {
+      "MIXED": "mixed",
+      "NORMAL": "normal",
+      "OFF": "off"
+    },
+    "system.storage.EjectDeviceResultCode": {
+      "FAILURE": "failure",
+      "IN_USE": "in_use",
+      "NO_SUCH_DEVICE": "no_such_device",
+      "SUCCESS": "success"
+    },
+    "system.storage.StorageUnitType": {
+      "FIXED": "fixed",
+      "REMOVABLE": "removable",
+      "UNKNOWN": "unknown"
+    },
+    "tabCapture.TabCaptureState": {
+      "ACTIVE": "active",
+      "ERROR": "error",
+      "PENDING": "pending",
+      "STOPPED": "stopped"
+    },
+    "tabGroups.Color": {
+      "BLUE": "blue",
+      "CYAN": "cyan",
+      "GREEN": "green",
+      "GREY": "grey",
+      "ORANGE": "orange",
+      "PINK": "pink",
+      "PURPLE": "purple",
+      "RED": "red",
+      "YELLOW": "yellow"
+    },
+    "tabs.MutedInfoReason": {
+      "CAPTURE": "capture",
+      "EXTENSION": "extension",
+      "USER": "user"
+    },
+    "tabs.TabStatus": {
+      "COMPLETE": "complete",
+      "LOADING": "loading",
+      "UNLOADED": "unloaded"
+    },
+    "tabs.WindowType": {
+      "APP": "app",
+      "CUSTOM_TAB": "custom-tab",
+      "DEVTOOLS": "devtools",
+      "NORMAL": "normal",
+      "PANEL": "panel",
+      "POPUP": "popup"
+    },
+    "tabs.ZoomSettingsMode": {
+      "AUTOMATIC": "automatic",
+      "DISABLED": "disabled",
+      "MANUAL": "manual"
+    },
+    "tabs.ZoomSettingsScope": {
+      "PER_ORIGIN": "per-origin",
+      "PER_TAB": "per-tab"
+    },
+    "tts.EventType": {
+      "CANCELLED": "cancelled",
+      "END": "end",
+      "ERROR": "error",
+      "INTERRUPTED": "interrupted",
+      "MARKER": "marker",
+      "PAUSE": "pause",
+      "RESUME": "resume",
+      "SENTENCE": "sentence",
+      "START": "start",
+      "WORD": "word"
+    },
+    "tts.VoiceGender": {
+      "FEMALE": "female",
+      "MALE": "male"
+    },
+    "ttsEngine.LanguageInstallStatus": {
+      "FAILED": "failed",
+      "INSTALLED": "installed",
+      "INSTALLING": "installing",
+      "NOT_INSTALLED": "notInstalled"
+    },
+    "ttsEngine.TtsClientSource": {
+      "CHROMEFEATURE": "chromefeature",
+      "EXTENSION": "extension"
+    },
+    "ttsEngine.VoiceGender": {
+      "FEMALE": "female",
+      "MALE": "male"
+    },
+    "webNavigation.TransitionQualifier": {
+      "CLIENT_REDIRECT": "client_redirect",
+      "FORWARD_BACK": "forward_back",
+      "FROM_ADDRESS_BAR": "from_address_bar",
+      "SERVER_REDIRECT": "server_redirect"
+    },
+    "webNavigation.TransitionType": {
+      "AUTO_BOOKMARK": "auto_bookmark",
+      "AUTO_SUBFRAME": "auto_subframe",
+      "FORM_SUBMIT": "form_submit",
+      "GENERATED": "generated",
+      "KEYWORD": "keyword",
+      "KEYWORD_GENERATED": "keyword_generated",
+      "LINK": "link",
+      "MANUAL_SUBFRAME": "manual_subframe",
+      "RELOAD": "reload",
+      "START_PAGE": "start_page",
+      "TYPED": "typed"
+    },
+    "webRequest.IgnoredActionType": {
+      "AUTH_CREDENTIALS": "auth_credentials",
+      "REDIRECT": "redirect",
+      "REQUEST_HEADERS": "request_headers",
+      "RESPONSE_HEADERS": "response_headers"
+    },
+    "webRequest.OnAuthRequiredOptions": {
+      "ASYNC_BLOCKING": "asyncBlocking",
+      "BLOCKING": "blocking",
+      "EXTRA_HEADERS": "extraHeaders",
+      "RESPONSE_HEADERS": "responseHeaders"
+    },
+    "webRequest.OnBeforeRedirectOptions": {
+      "EXTRA_HEADERS": "extraHeaders",
+      "RESPONSE_HEADERS": "responseHeaders"
+    },
+    "webRequest.OnBeforeRequestOptions": {
+      "BLOCKING": "blocking",
+      "EXTRA_HEADERS": "extraHeaders",
+      "REQUEST_BODY": "requestBody"
+    },
+    "webRequest.OnBeforeSendHeadersOptions": {
+      "BLOCKING": "blocking",
+      "EXTRA_HEADERS": "extraHeaders",
+      "REQUEST_HEADERS": "requestHeaders"
+    },
+    "webRequest.OnCompletedOptions": {
+      "EXTRA_HEADERS": "extraHeaders",
+      "RESPONSE_HEADERS": "responseHeaders"
+    },
+    "webRequest.OnErrorOccurredOptions": {
+      "EXTRA_HEADERS": "extraHeaders"
+    },
+    "webRequest.OnHeadersReceivedOptions": {
+      "BLOCKING": "blocking",
+      "EXTRA_HEADERS": "extraHeaders",
+      "RESPONSE_HEADERS": "responseHeaders",
+      "SECURITY_INFO": "securityInfo",
+      "SECURITY_INFO_RAW_DER": "securityInfoRawDer"
+    },
+    "webRequest.OnResponseStartedOptions": {
+      "EXTRA_HEADERS": "extraHeaders",
+      "RESPONSE_HEADERS": "responseHeaders"
+    },
+    "webRequest.OnSendHeadersOptions": {
+      "EXTRA_HEADERS": "extraHeaders",
+      "REQUEST_HEADERS": "requestHeaders"
+    },
+    "webRequest.ResourceType": {
+      "CSP_REPORT": "csp_report",
+      "FONT": "font",
+      "IMAGE": "image",
+      "MAIN_FRAME": "main_frame",
+      "MEDIA": "media",
+      "OBJECT": "object",
+      "OTHER": "other",
+      "PING": "ping",
+      "SCRIPT": "script",
+      "STYLESHEET": "stylesheet",
+      "SUB_FRAME": "sub_frame",
+      "WEBBUNDLE": "webbundle",
+      "WEBSOCKET": "websocket",
+      "XMLHTTPREQUEST": "xmlhttprequest"
+    },
+    "windows.CreateType": {
+      "NORMAL": "normal",
+      "PANEL": "panel",
+      "POPUP": "popup"
+    },
+    "windows.WindowState": {
+      "FULLSCREEN": "fullscreen",
+      "LOCKED_FULLSCREEN": "locked-fullscreen",
+      "MAXIMIZED": "maximized",
+      "MINIMIZED": "minimized",
+      "NORMAL": "normal"
+    },
+    "windows.WindowType": {
+      "APP": "app",
+      "CUSTOM_TAB": "custom-tab",
+      "DEVTOOLS": "devtools",
+      "NORMAL": "normal",
+      "PANEL": "panel",
+      "POPUP": "popup"
+    }
+  }
+}
