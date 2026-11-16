@@ -296,7 +296,10 @@ export async function extensionBuild(
       await ensureUserProjectDependencies(packageJsonDir)
     }
 
-    ensureTypeScriptConfig(manifestDir)
+    ensureTypeScriptConfig(manifestDir, {
+      manifestPath: projectStructure.manifestPath,
+      browser
+    })
 
     if (isUsingTypeScript(manifestDir)) {
       await generateExtensionTypes(manifestDir, packageJsonDir)
