@@ -8,6 +8,7 @@ import {
   endsRunOnlyLaunch,
   findChromiumLoadBlockers,
   findChromiumManifestCaveats,
+  findGeckoRefusalCause,
   findInvalidMatchPatterns,
   findLocaleLoadBlockers,
   findMissingManagedSchema,
@@ -19,6 +20,7 @@ import {
 import {
   backgroundScriptsNotRunByChromium,
   browserRefusesTheExtension,
+  geckoAddonLoadRefused,
   manifestV2OnChromiumBrowser,
   manifestVersionAboveThreeOnChromium,
   unsupportedManifestVersionOnChromium
@@ -48,6 +50,63 @@ describe('holdRefusalPredictions', () => {
     held.flush()
 
     expect(printed).toEqual([])
+  })
+})
+
+// Firefox answers these with an internal TypeError or a bare value, so the
+// cause is read off the manifest and printed beside the browser's words.
+describe('findGeckoRefusalCause', () => {
+  it.each([
+    4, 99
+  ])('names manifest_version %i as above what Firefox loads', (version) => {
+    expect(findGeckoRefusalCause({manifest_version: version})).toBe(
+      'Firefox does not load a manifest_version above 3.'
+    )
+  })
+
+  it.each([
+    ['missing', {}],
+    ['the string "3"', {manifest_version: '3'}],
+    ['1', {manifest_version: 1}],
+    ['0', {manifest_version: 0}],
+    ['-1', {manifest_version: -1}],
+    ['3.5', {manifest_version: 3.5}]
+  ])('names a manifest_version that is %s', (_label, manifest) => {
+    expect(findGeckoRefusalCause(manifest)).toBe(
+      'Firefox loads only the integer 2 or 3 as manifest_version.'
+    )
+  })
+
+  it('names no cause where the manifest shows none, whatever the browser said', () => {
+    for (const manifest of [
+      {manifest_version: 3, background: {service_worker: 'sw.js'}},
+      {manifest_version: 2},
+      {
+        manifest_version: 3,
+        browser_specific_settings: {gecko: {id: 'not a valid id'}}
+      },
+      null,
+      []
+    ]) {
+      expect(findGeckoRefusalCause(manifest)).toBeUndefined()
+    }
+  })
+
+  it("puts the cause beside the browser's words, which stay", () => {
+    const reason =
+      'Could not install add-on: TypeError: can\'t access property "length", manifest.name is undefined'
+    const cause = 'Firefox does not load a manifest_version above 3.'
+
+    for (const text of [
+      browserRefusesTheExtension('firefox', '/dist/firefox', reason, cause),
+      geckoAddonLoadRefused('/dist/firefox', reason, cause)
+    ]) {
+      expect(text).toContain(`REASON ${reason}\nCAUSE ${cause}\n`)
+    }
+
+    expect(
+      browserRefusesTheExtension('firefox', '/dist/firefox', reason)
+    ).not.toContain('CAUSE')
   })
 })
 

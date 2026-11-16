@@ -35,6 +35,7 @@ import {expectedGeckoExtensionId} from '../../browsers-lib/banner'
 import {binaryOverrideNaming} from '../../browsers-lib/binary-env-override'
 import {setInstancePorts} from '../../browsers-lib/instance-registry'
 import {scanSystem} from '../../browsers-lib/locator-env'
+import {readGeckoRefusalCause} from '../../browsers-lib/manifest-refusal'
 import * as messages from '../../browsers-lib/messages'
 import {
   computeBinariesBaseDir,
@@ -267,7 +268,8 @@ export class FirefoxLaunchPlugin {
           messages.browserRefusesTheExtension(
             String(this.host.browser),
             this.extensionOutputPath || '',
-            reason
+            reason,
+            readGeckoRefusalCause(this.extensionOutputPath)
           )
         ),
         {code: CODES.E_EXTENSION_LOAD_REFUSED}
@@ -1221,7 +1223,13 @@ export class FirefoxLaunchPlugin {
 
     // A run-only launch ends on the refusal and prints its own block.
     if (!runOnly) {
-      humanError(messages.geckoAddonLoadRefused(refusedPath, reason))
+      humanError(
+        messages.geckoAddonLoadRefused(
+          refusedPath,
+          reason,
+          readGeckoRefusalCause(refusedPath)
+        )
+      )
     }
 
     this.host.logSink?.({

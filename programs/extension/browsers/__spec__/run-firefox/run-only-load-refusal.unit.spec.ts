@@ -1,3 +1,6 @@
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {FirefoxLaunchPlugin} from '../../run-firefox/firefox-launch'
 
@@ -6,10 +9,13 @@ const REASON =
 
 // The launch itself is stubbed: what is under test is what a run does once
 // Firefox has answered that it refuses the add-on.
-function launcherThatMeetsARefusal(mode: 'production' | 'development') {
+function launcherThatMeetsARefusal(
+  mode: 'production' | 'development',
+  outPath = '/proj/dist/firefox'
+) {
   const host: Record<string, unknown> = {
     browser: 'firefox',
-    extension: ['/proj/dist/firefox']
+    extension: [outPath]
   }
   const launcher = new FirefoxLaunchPlugin(
     host as never,
@@ -25,7 +31,7 @@ function launcherThatMeetsARefusal(mode: 'production' | 'development') {
 
   vi.spyOn(inner, 'reportReady').mockImplementation(() => {})
   vi.spyOn(inner, 'launch').mockImplementation(async () => {
-    inner.extensionOutputPath = '/proj/dist/firefox'
+    inner.extensionOutputPath = outPath
     host.extensionLoadRefused = REASON
   })
 
@@ -58,6 +64,28 @@ describe('a run-only Firefox launch the browser refuses', () => {
 
     // The browser this run started holds nothing, so it goes with the run.
     expect(cleanup).toHaveBeenCalledTimes(1)
+  })
+
+  // Firefox answers a version above 3 with an internal TypeError, so the
+  // frame adds the cause the manifest shows and keeps the browser's words.
+  it('names the cause the manifest shows beside the reason', async () => {
+    const outPath = fs.mkdtempSync(path.join(os.tmpdir(), 'ff-cause-'))
+
+    try {
+      fs.writeFileSync(
+        path.join(outPath, 'manifest.json'),
+        JSON.stringify({manifest_version: 4, name: 'x', version: '1'})
+      )
+
+      const error = await launcherThatMeetsARefusal('production', outPath).run()
+
+      expect(error?.message).toContain(`REASON ${REASON}`)
+      expect(error?.message).toContain(
+        'CAUSE Firefox does not load a manifest_version above 3.'
+      )
+    } finally {
+      fs.rmSync(outPath, {recursive: true, force: true})
+    }
   })
 
   it('keeps a dev session up, since a save can be loaded again', async () => {

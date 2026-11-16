@@ -563,3 +563,47 @@ export function holdRefusalPredictions(
     }
   }
 }
+
+// Why Firefox refuses, where its own words do not say. Keyed on what the
+// manifest shows, and each row was measured on Firefox Nightly 160.
+const GECKO_REFUSAL_CAUSES: Array<{
+  shows: (manifest: Record<string, unknown>) => boolean
+  cause: string
+}> = [
+  {
+    shows: ({manifest_version: version}) =>
+      Number.isInteger(version) && Number(version) > 3,
+    cause: 'Firefox does not load a manifest_version above 3.'
+  },
+  {
+    shows: ({manifest_version: version}) => version !== 2 && version !== 3,
+    cause: 'Firefox loads only the integer 2 or 3 as manifest_version.'
+  }
+]
+
+export function findGeckoRefusalCause(manifest: unknown): string | undefined {
+  if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) {
+    return undefined
+  }
+
+  return GECKO_REFUSAL_CAUSES.find((known) =>
+    known.shows(manifest as Record<string, unknown>)
+  )?.cause
+}
+
+export function readGeckoRefusalCause(
+  extensionPath: string | undefined
+): string | undefined {
+  try {
+    return findGeckoRefusalCause(
+      JSON.parse(
+        fs.readFileSync(
+          path.join(String(extensionPath), 'manifest.json'),
+          'utf8'
+        )
+      )
+    )
+  } catch {
+    return undefined
+  }
+}

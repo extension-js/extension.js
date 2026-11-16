@@ -462,13 +462,15 @@ export function extensionOutputIsIncomplete(
 export function browserRefusesTheExtension(
   browser: string,
   extensionPath: string,
-  reason?: string
+  reason?: string,
+  cause?: string
 ) {
   return (
     `${getLoggingPrefix('error')} ${colors.red(`${browserDisplayName(browser)} refuses to load this extension, so nothing in it runs.`)}\n` +
     `${colors.gray('PATH')} ${colors.underline(extensionPath)}\n` +
     (reason
       ? `${colors.gray('REASON')} ${colors.red(reason)}\n` +
+        (cause ? `${colors.gray('CAUSE')} ${cause}\n` : '') +
         `Fix what the browser names, then run the command again.`
       : `Read the reason above, fix the manifest, then run the command again.`)
   )
@@ -670,11 +672,16 @@ export function chromiumHeadlessPageTargetRecreated(browser: Browser) {
 
 // The Gecko twin of chromiumExtensionLoadRefused. Firefox volunteers its
 // reason at install time, so the shape is the same and only the nouns differ.
-export function geckoAddonLoadRefused(addonPath: string, reason: string) {
+export function geckoAddonLoadRefused(
+  addonPath: string,
+  reason: string,
+  cause?: string
+) {
   return (
     `${getLoggingPrefix('error')} ${colors.red("The browser refused to load this add-on, so it isn't running.")}\n` +
     `${colors.gray('PATH')} ${colors.underline(addonPath)}\n` +
     (reason ? `${colors.gray('REASON')} ${colors.red(reason)}\n` : '') +
+    (cause ? `${colors.gray('CAUSE')} ${cause}\n` : '') +
     `No background script, content script, or page from this add-on will run, and no Extension ID was assigned.\n` +
     LOAD_REFUSAL_RECOVERY
   )
