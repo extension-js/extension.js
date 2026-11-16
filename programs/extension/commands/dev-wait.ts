@@ -19,6 +19,7 @@ import {CODES, type ErrorCode} from '../helpers/messaging'
 import {normalizeOutputFormat} from '../helpers/output-flag'
 import {
   readyContractErrorCode,
+  recordedLoadRefusal,
   stampedLaunchFailureCode
 } from '../helpers/ready-contract-codes'
 import {
@@ -48,6 +49,7 @@ export type ReadyContractPayload = {
   compiledAt?: string | null
   extensionLoadRefusedAt?: string
   extensionLoadRefusedReason?: string
+  extensionLoadRefusedCause?: string
 }
 
 export type RunWaitModeOptions = {
@@ -284,12 +286,23 @@ export function standingLoadRefusal(
   }
 
   if (payload.code === 'extension_load_refused' && payload.message) {
-    return String(payload.message)
+    return withRefusalCause(String(payload.message), payload)
   }
 
-  const reason = String(payload.extensionLoadRefusedReason ?? '').trim()
+  const reason = recordedLoadRefusal(payload)
 
-  return `The browser refused to load the extension${reason ? `: ${reason}` : ''}`
+  return `The browser refused to load the extension${reason ? `: ${reason}.` : ''}`
+}
+
+// The contract's message carries the browser's words. The cause the launcher
+// read off the manifest sits in its own field, so it is added here.
+function withRefusalCause(
+  message: string,
+  payload: ReadyContractPayload
+): string {
+  const cause = String(payload.extensionLoadRefusedCause ?? '').trim()
+
+  return cause ? `${message.replace(/[.\s]+$/, '')}. ${cause}` : message
 }
 
 async function waitForReadyContract(options: {
@@ -362,7 +375,7 @@ async function waitForReadyContract(options: {
 
           // A launch the launcher coded keeps the code it was refused with.
           throw new WaitModeError(
-            String(detail),
+            withRefusalCause(String(detail), payload),
             stampedLaunchFailureCode(payload) ??
               readyContractErrorCode(payload.code) ??
               CODES.E_READY_ERROR_STATUS

@@ -218,6 +218,25 @@ describe('stampReadyExtensionLoadRefused', () => {
     }
   })
 
+  it('records the cause beside the reason and drops one from an older refusal', () => {
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({status: 'ready', command: 'preview', browser: 'firefox'})
+    )
+
+    stampReadyExtensionLoadRefused(outputPath, 'TypeError', undefined, 'why.')
+
+    let ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    expect(ready.extensionLoadRefusedReason).toBe('TypeError')
+    expect(ready.extensionLoadRefusedCause).toBe('why.')
+    expect(ready.message).not.toContain('why.')
+
+    stampReadyExtensionLoadRefused(outputPath, 'another reason')
+
+    ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    expect(ready.extensionLoadRefusedCause).toBeUndefined()
+  })
+
   it('never creates a contract where the session wrote none', () => {
     expect(() =>
       stampReadyExtensionLoadRefused(path.join(tmp, 'missing'), 'reason')

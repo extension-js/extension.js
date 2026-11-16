@@ -222,6 +222,37 @@ describe('extension eval', () => {
     expect(bridge.controllers).toHaveLength(0)
   })
 
+  it('prints the cause a refused receipt recorded beside its reason', async () => {
+    bridge.ready = null
+    bridge.readyDoc = {
+      command: 'preview',
+      controlPort: null,
+      status: 'error',
+      code: 'extension_load_refused',
+      extensionLoadRefusedAt: '2026-11-16T20:32:53.167Z',
+      extensionLoadRefusedReason: 'Could not install add-on: TypeError',
+      extensionLoadRefusedCause:
+        'Firefox does not load a manifest_version above 3.'
+    }
+
+    const stdout = vi.spyOn(fs, 'writeSync').mockImplementation(() => 0)
+
+    expect(
+      await run(['eval', '1+1', '--browser', 'firefox', '--output', 'json'])
+    ).toBe(1)
+
+    const frame = JSON.parse(String(stdout.mock.calls[0][1]))
+
+    expect(frame.error.code).toBe('E_EXTENSION_LOAD_REFUSED')
+    expect(frame.error.message).toBe(
+      'The last extension preview run for firefox ended because the browser ' +
+        'refused to load the extension: Could not install add-on: TypeError. ' +
+        'Firefox does not load a manifest_version above 3. Fix what the ' +
+        'browser names, then run `extension preview --browser=firefox ' +
+        '--allow-eval` again.'
+    )
+  })
+
   it('keeps the no-session answer for a dev contract and for a receipt with no refusal', async () => {
     for (const readyDoc of [
       {command: 'dev', code: 'extension_load_refused'},

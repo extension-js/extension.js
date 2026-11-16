@@ -1243,7 +1243,8 @@ export class FirefoxLaunchPlugin {
     stampReadyExtensionLoadRefused(
       this.extensionOutputPath,
       reason,
-      this.launchRunId
+      this.launchRunId,
+      readGeckoRefusalCause(refusedPath)
     )
 
     this.host.extensionLoadRefused = reason

@@ -734,6 +734,7 @@ describe('ready.json writer preservation', () => {
     ready.message = 'Chrome refused to load the extension at /dist/chrome'
     ready.extensionLoadRefusedAt = '2026-07-24T00:00:00.000Z'
     ready.extensionLoadRefusedReason = 'Variable $2$ used but not defined.'
+    ready.extensionLoadRefusedCause = 'the cause the manifest shows'
     fs.writeFileSync(writer.readyPath, JSON.stringify(ready))
 
     writer.writeReady()
@@ -745,6 +746,7 @@ describe('ready.json writer preservation', () => {
       'Variable $2$ used but not defined.'
     )
 
+    expect(after.extensionLoadRefusedCause).toBe('the cause the manifest shows')
     expect(after.message).toContain('refused to load')
   })
 
@@ -775,6 +777,24 @@ describe('ready.json writer preservation', () => {
     const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
     expect(after.extensionId).toBeUndefined()
     expect(after.extensionIdSource).toBeUndefined()
+  })
+
+  it('keeps the refusal, its reason and its cause on a stopped contract', () => {
+    const writer = makeWriter()
+    writer.writeReady()
+
+    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    ready.extensionLoadRefusedAt = '2026-07-24T00:00:00.000Z'
+    ready.extensionLoadRefusedReason = 'TypeError'
+    ready.extensionLoadRefusedCause = 'the cause the manifest shows'
+    fs.writeFileSync(writer.readyPath, JSON.stringify(ready))
+
+    writer.writeShutdown()
+
+    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    expect(after.status).toBe('stopped')
+    expect(after.extensionLoadRefusedReason).toBe('TypeError')
+    expect(after.extensionLoadRefusedCause).toBe('the cause the manifest shows')
   })
 
   it('preserves compiledAt when a later writer in the same run omits it', () => {

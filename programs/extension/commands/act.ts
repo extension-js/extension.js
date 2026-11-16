@@ -60,6 +60,7 @@ import {
 } from '../helpers/messaging'
 import {parsePositiveInt} from '../helpers/normalize-options'
 import {normalizeOutputFormat} from '../helpers/output-flag'
+import {recordedLoadRefusal} from '../helpers/ready-contract-codes'
 import {
   endedSessionReason,
   runningSessionBrowsers,
@@ -1067,10 +1068,7 @@ export function refusedRunMessage(
   if (command !== 'start' && command !== 'preview') return undefined
   if (receipt?.code !== 'extension_load_refused') return undefined
 
-  const reason =
-    typeof receipt.extensionLoadRefusedReason === 'string'
-      ? receipt.extensionLoadRefusedReason.trim().replace(/[.\s]+$/, '')
-      : ''
+  const reason = recordedLoadRefusal(receipt)
 
   return (
     `The last extension ${command} run for ${browser} ended because the ` +
@@ -1090,10 +1088,7 @@ export function refusedSessionEndedMessage(
   if (typeof contract?.extensionLoadRefusedAt !== 'string') return undefined
 
   const command = sessionCommandOf(contract)
-  const reason =
-    typeof contract.extensionLoadRefusedReason === 'string'
-      ? contract.extensionLoadRefusedReason.trim().replace(/[.\s]+$/, '')
-      : ''
+  const reason = recordedLoadRefusal(contract)
 
   return (
     `The ${sessionNounOf(command)} for ${browser} ended after the browser ` +

@@ -744,7 +744,8 @@ export function stampReadyExtensionBaseUrl(
 export function stampReadyExtensionLoadRefused(
   extensionOutputPath: string | undefined,
   reason: string,
-  runId?: string
+  runId?: string,
+  cause?: string
 ) {
   try {
     if (!extensionOutputPath) return
@@ -766,6 +767,10 @@ export function stampReadyExtensionLoadRefused(
 
     ready.extensionLoadRefusedAt = new Date().toISOString()
     if (reason) ready.extensionLoadRefusedReason = reason
+
+    // The cause belongs to this refusal only, so an older one never lingers.
+    if (cause) ready.extensionLoadRefusedCause = cause
+    else delete ready.extensionLoadRefusedCause
 
     // A refused extension holds no id. The derived one was only a forecast.
     if (ready.extensionIdSource !== 'browser') {

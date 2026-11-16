@@ -24,6 +24,7 @@ import {
 } from '../helpers/messages'
 import {CODES, ENVELOPE, type ErrorCode} from '../helpers/messaging'
 import {isJsonOutput} from '../helpers/output-flag'
+import {recordedLoadRefusal} from '../helpers/ready-contract-codes'
 import {
   describeRspackPeerConflicts,
   describeUnreadableDependencies,
@@ -248,9 +249,7 @@ function isSessionDocument(document: Record<string, unknown>): boolean {
 function loadRefusalReason(
   document: Record<string, unknown> | null | undefined
 ): string {
-  return typeof document?.extensionLoadRefusedReason === 'string'
-    ? document.extensionLoadRefusedReason.trim().replace(/[.\s]+$/, '')
-    : ''
+  return recordedLoadRefusal(document)
 }
 
 // A start or preview run that holds its browser open but has no control port:

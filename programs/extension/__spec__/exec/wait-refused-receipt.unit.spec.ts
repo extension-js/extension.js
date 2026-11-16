@@ -141,6 +141,27 @@ describe('--wait against a run the browser refused', () => {
     expect(failure.code).toBe('E_READY_TIMEOUT')
   })
 
+  it.each([
+    ['a refused start receipt', 'start', {}],
+    [
+      'a stopped dev contract',
+      'dev',
+      {status: 'stopped', code: 'shutdown', message: 'the dev session ended'}
+    ]
+  ] as const)('adds the recorded cause to the answer for %s', async (_label, command, contract) => {
+    const cause = 'Firefox does not load a manifest_version above 3.'
+    const {projectDir} = refusedProject(command, {
+      ...contract,
+      extensionLoadRefusedCause: cause
+    })
+    const {failure} = await wait(command, projectDir)
+
+    expect(failure.code).toBe('E_EXTENSION_LOAD_REFUSED')
+    expect(failure.message.endsWith(`${SENTENCE.slice(0, -1)}. ${cause}`)).toBe(
+      true
+    )
+  })
+
   it('keeps waiting on a dead run that recorded no refusal', async () => {
     const {projectDir} = refusedProject('start', {
       code: 'browser_launch_failed',
