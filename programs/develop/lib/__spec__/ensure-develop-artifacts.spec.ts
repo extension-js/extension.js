@@ -51,6 +51,38 @@ describe('ensureUserProjectDependencies', () => {
     ])
   })
 
+  for (const value of ['1', 'true', ' TRUE ']) {
+    it(`installs nothing and prints nothing when EXTENSION_SKIP_INSTALL is ${JSON.stringify(value)}`, async () => {
+      resolvePackageManager.mockReturnValue({name: 'npm'})
+      vi.stubEnv('EXTENSION_SKIP_INSTALL', value)
+
+      try {
+        await ensureUserProjectDependencies('/project' as any)
+      } finally {
+        vi.unstubAllEnvs()
+      }
+
+      expect(execInstallCommand).not.toHaveBeenCalled()
+      expect(console.warn).not.toHaveBeenCalled()
+    })
+  }
+
+  for (const value of ['', '0', 'false']) {
+    it(`still installs when EXTENSION_SKIP_INSTALL is ${JSON.stringify(value)}`, async () => {
+      resolvePackageManager.mockReturnValue({name: 'npm'})
+      execInstallCommand.mockResolvedValueOnce(undefined)
+      vi.stubEnv('EXTENSION_SKIP_INSTALL', value)
+
+      try {
+        await ensureUserProjectDependencies('/project' as any)
+      } finally {
+        vi.unstubAllEnvs()
+      }
+
+      expect(execInstallCommand).toHaveBeenCalledTimes(1)
+    })
+  }
+
   it('does not retry when npm itself was the resolved manager', async () => {
     resolvePackageManager.mockReturnValue({name: 'npm'})
     execInstallCommand.mockRejectedValueOnce(
