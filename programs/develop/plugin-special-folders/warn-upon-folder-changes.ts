@@ -11,6 +11,7 @@ import * as path from 'node:path'
 import {type Compilation, type Compiler, WebpackError} from '@rspack/core'
 import {requestDevSessionRestart} from '../dev-server/session-restart'
 import {debugLine, isDebug} from '../lib/messaging'
+import {isInsidePath} from '../lib/real-path'
 import {
   foldersRoots,
   isScriptsFolderEntry,
@@ -18,7 +19,6 @@ import {
   type SpecialFoldersRoots
 } from './folders-config'
 import * as messages from './messages'
-import {isInsidePath} from '../lib/real-path'
 
 type SpecialFolder = SpecialFolderName
 type ChangeType = 'add' | 'remove'
@@ -35,10 +35,25 @@ export class WarnUponFolderChanges {
   private knownFolderFiles = new Set<string>()
   private hasSnapshot = false
 
+  // Files whose removal a restart already answers. What this build says
+  // about them being missing is noise the next compiler does not repeat.
+  private goneFiles: Array<{folder: SpecialFolder; filePath: string}> = []
+  private removedInPass: string[] = []
+
+  // The files the folders held the last time they were read from disk.
+  private filesOnDisk = new Set<string>()
+
   private snapshotFolderFiles(roots: SpecialFoldersRoots) {
     if (this.hasSnapshot) return
 
     this.hasSnapshot = true
+    this.filesOnDisk = this.readFolderFiles(roots)
+
+    for (const file of this.filesOnDisk) this.knownFolderFiles.add(file)
+  }
+
+  private readFolderFiles(roots: SpecialFoldersRoots): Set<string> {
+    const found = new Set<string>()
     const SKIP_DIRS = new Set([
       'node_modules',
       'dist',
@@ -63,7 +78,7 @@ export class WarnUponFolderChanges {
         if (SKIP_DIRS.has(entry.name)) continue
 
         const full = path.join(dir, entry.name)
-        if (entry.isFile()) this.knownFolderFiles.add(full)
+        if (entry.isFile()) found.add(full)
         else if (entry.isDirectory()) walk(full)
       }
     }
@@ -71,6 +86,8 @@ export class WarnUponFolderChanges {
     for (const folderPath of Object.values(roots)) {
       if (fs.existsSync(folderPath)) walk(folderPath)
     }
+
+    return found
   }
 
   // A folder that exists is watched whole. One that does not is watched by
@@ -110,8 +127,7 @@ export class WarnUponFolderChanges {
     // Adding a page or script doesn't make it loaded but at least don't break anything,
     // so we add a warning instead of an error and user can keep working.
     if (isAddition) {
-      // A live session picks the new entry up by restarting itself; only a
-      // removal, which breaks the current build, keeps refusing below.
+      // A live session picks the new entry up by restarting itself.
       if (
         requestDevSessionRestart(compilation.compiler, {
           reason: folder === 'pages' ? 'html' : 'scripts',
@@ -134,8 +150,19 @@ export class WarnUponFolderChanges {
       return
     }
 
-    // Removing a page or script breaks the program, so we add an error and
-    // user need to restart to see changes.
+    // A live session drops the entry by restarting itself, which also clears
+    // its outputs. With no session to restart, the removal stays an error.
+    if (
+      requestDevSessionRestart(compilation.compiler, {
+        reason: folder === 'pages' ? 'html' : 'scripts',
+        pathBefore: filePath
+      })
+    ) {
+      this.goneFiles.push({folder, filePath})
+
+      return
+    }
+
     const err = new WebpackError(errorMessage) as Error & {
       name?: string
       file?: string
@@ -170,6 +197,7 @@ export class WarnUponFolderChanges {
     const projectPath: string =
       (compiler.options.context as string) || process.cwd()
     const roots = foldersRoots(projectPath)
+    const firstRead = !this.hasSnapshot
     this.snapshotFolderFiles(roots)
     const isUnder = (root: string | undefined, filePath: string) =>
       Boolean(root) && isInsidePath(root as string, filePath)
@@ -202,6 +230,8 @@ export class WarnUponFolderChanges {
       }
     }
 
+    this.removedInPass = Array.from(removedFiles)
+
     for (const filePath of removedFiles) {
       // Drop from the snapshot so a future re-add of the same name is
       // detected as a genuine addition rather than a modification.
@@ -215,9 +245,89 @@ export class WarnUponFolderChanges {
         this.trackChange(projectPath, 'scripts', 'remove', filePath)
       }
     }
+
+    if (!firstRead) this.collectChangesOnDisk(projectPath, roots)
+  }
+
+  // The watcher reports a folder for a file that is new in it, and names no
+  // file the build never read. Reading the folders again finds both.
+  private collectChangesOnDisk(
+    projectPath: string,
+    roots: SpecialFoldersRoots
+  ) {
+    const before = this.filesOnDisk
+    const now = this.readFolderFiles(roots)
+
+    const folderOf = (filePath: string): SpecialFolder | undefined => {
+      if (roots.pages && isInsidePath(roots.pages, filePath)) {
+        return filePath.endsWith('.html') ? 'pages' : undefined
+      }
+
+      if (roots.scripts && isInsidePath(roots.scripts, filePath)) {
+        return isScriptsFolderEntry(filePath) ? 'scripts' : undefined
+      }
+
+      return undefined
+    }
+
+    const tracked = (type: ChangeType, filePath: string) =>
+      this.pendingChanges.some(
+        (change) => change.type === type && change.filePath === filePath
+      )
+
+    this.filesOnDisk = now
+
+    for (const filePath of now) {
+      if (before.has(filePath)) continue
+
+      const folder = folderOf(filePath)
+
+      this.knownFolderFiles.add(filePath)
+
+      if (folder && !tracked('add', filePath)) {
+        this.trackChange(projectPath, folder, 'add', filePath)
+      }
+    }
+
+    for (const filePath of before) {
+      if (now.has(filePath)) continue
+
+      const folder = folderOf(filePath)
+
+      this.knownFolderFiles.delete(filePath)
+
+      if (folder && !tracked('remove', filePath)) {
+        this.trackChange(projectPath, folder, 'remove', filePath)
+      }
+    }
   }
 
   private applyPendingChanges(compilation: Compilation) {
+    // A rename arrives as one removal and one addition in the same folder,
+    // and the session names both in the one restart it asks for.
+    for (const folder of ['pages', 'scripts'] as const) {
+      const inFolder = this.pendingChanges.filter(
+        (change) => change.folder === folder
+      )
+      const added = inFolder.filter((change) => change.type === 'add')
+      const removed = inFolder.filter((change) => change.type === 'remove')
+
+      if (added.length !== 1 || removed.length !== 1) continue
+
+      const renamed = requestDevSessionRestart(compilation.compiler, {
+        reason: folder === 'pages' ? 'html' : 'scripts',
+        pathBefore: removed[0].filePath,
+        pathAfter: added[0].filePath
+      })
+
+      if (renamed) {
+        this.goneFiles.push({folder, filePath: removed[0].filePath})
+        this.pendingChanges = this.pendingChanges.filter(
+          (change) => change.folder !== folder
+        )
+      }
+    }
+
     for (const change of this.pendingChanges) {
       this.throwCompilationError(
         compilation,
@@ -230,7 +340,66 @@ export class WarnUponFolderChanges {
     this.pendingChanges = []
   }
 
+  private dropNoiseAboutGoneFiles(
+    compiler: Compiler,
+    compilation: Compilation
+  ) {
+    const goneFiles = this.goneFiles
+    const removedInPass = this.removedInPass
+
+    this.goneFiles = []
+    this.removedInPass = []
+    if (goneFiles.length === 0) return
+
+    const roots = foldersRoots(
+      (compiler.options.context as string) || process.cwd()
+    )
+    const toPosix = (file: string) => file.replace(/\\/g, '/')
+    // A file that left with the entry, a page's own script for one, and the
+    // manifest field the entry was listed under.
+    const needles = [
+      ...removedInPass,
+      ...goneFiles.map((gone) => gone.filePath)
+    ].flatMap((file) => [file, toPosix(file)])
+
+    for (const {folder, filePath} of goneFiles) {
+      const root = roots[folder]
+
+      if (!root) continue
+
+      const name = toPosix(path.relative(root, filePath)).replace(
+        /\.[^./]+$/,
+        ''
+      )
+
+      needles.push(`${folder}.${name} field`, `${folder}/${name} field`)
+    }
+
+    const isNoise = (issue: unknown) => {
+      const {message, details} = (issue || {}) as {
+        message?: unknown
+        details?: unknown
+      }
+      const text = `${String(message ?? issue)}\n${String(details ?? '')}`
+
+      return needles.some((needle) => text.includes(needle))
+    }
+
+    compilation.errors = compilation.errors.filter((issue) => !isNoise(issue))
+    compilation.warnings = compilation.warnings.filter(
+      (issue) => !isNoise(issue)
+    )
+  }
+
   public apply(compiler: Compiler): void {
+    // Ahead of every reporter, so none of them prints or records the noise.
+    compiler.hooks.done.tap(
+      {name: 'special-folders:warn-upon-folder-changes', stage: -1000},
+      (stats) => {
+        this.dropNoiseAboutGoneFiles(compiler, stats.compilation)
+      }
+    )
+
     compiler.hooks.watchRun.tap(
       'special-folders:warn-upon-folder-changes',
       () => {

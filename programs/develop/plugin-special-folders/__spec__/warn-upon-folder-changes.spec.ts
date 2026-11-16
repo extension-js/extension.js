@@ -26,6 +26,7 @@ const createFakeCompiler = () => {
     path.join(os.tmpdir(), 'extensionjs-special-folders-')
   )
   const watchRunCallbacks: Array<() => void> = []
+  const doneCallbacks: Array<(stats: any) => void> = []
   const thisCompilationCallbacks: Array<(c: any) => void> = []
   const hooks: any = {
     watchRun: {
@@ -34,6 +35,14 @@ const createFakeCompiler = () => {
       },
       __invokeAll: () => {
         for (const cb of watchRunCallbacks) cb()
+      }
+    },
+    done: {
+      tap: (_name: unknown, callback: (stats: any) => void) => {
+        doneCallbacks.push(callback)
+      },
+      __invokeAll: (compilationInstance: any) => {
+        for (const cb of doneCallbacks) cb({compilation: compilationInstance})
       }
     },
     thisCompilation: {
@@ -257,7 +266,7 @@ describe('WarnUponFolderChanges', () => {
     ])
   })
 
-  it('restarts a live session on an addition but still refuses a removal', async () => {
+  it('restarts a live session on an addition and on a removal', async () => {
     const handler = vi.fn()
     const scheduler = new DevSessionRestartScheduler(0)
     scheduler.setHandler(handler)
@@ -283,6 +292,98 @@ describe('WarnUponFolderChanges', () => {
         pathAfter: path.join(projectRoot, 'scripts', 'extra.js')
       })
     )
+
+    compiler.modifiedFiles = new Set()
+    compiler.removedFiles = new Set([
+      path.join(projectRoot, 'scripts', 'extra.js')
+    ])
+
+    runCycle(compiler, compilation)
+    await new Promise((r) => setTimeout(r, 0))
+    expect(compilation.errors.length).toBe(0)
+    expect(handler).toHaveBeenLastCalledWith({
+      reason: 'scripts',
+      pathBefore: path.join(projectRoot, 'scripts', 'extra.js')
+    })
+  })
+
+  it('restarts a live session once for a rename and names both paths', async () => {
+    const handler = vi.fn()
+    const scheduler = new DevSessionRestartScheduler(0)
+    scheduler.setHandler(handler)
+    bindDevSessionRestart(scheduler)
+
+    const {compiler, projectRoot} = createFakeCompiler()
+    tempDirs.add(projectRoot)
+    fs.mkdirSync(path.join(projectRoot, 'pages'), {recursive: true})
+    fs.writeFileSync(path.join(projectRoot, 'pages', 'old.html'), '<html>')
+    new WarnUponFolderChanges().apply(compiler as any)
+
+    compiler.modifiedFiles = new Set()
+    compiler.removedFiles = new Set()
+    runCycle(compiler, compilation)
+
+    compiler.modifiedFiles = new Set([
+      path.join(projectRoot, 'pages', 'new.html')
+    ])
+
+    compiler.removedFiles = new Set([
+      path.join(projectRoot, 'pages', 'old.html')
+    ])
+
+    runCycle(compiler, compilation)
+    await new Promise((r) => setTimeout(r, 0))
+
+    expect(compilation.errors.length).toBe(0)
+    expect(compilation.warnings.length).toBe(0)
+    expect(handler).toHaveBeenCalledTimes(1)
+    expect(handler).toHaveBeenCalledWith({
+      reason: 'html',
+      pathBefore: path.join(projectRoot, 'pages', 'old.html'),
+      pathAfter: path.join(projectRoot, 'pages', 'new.html')
+    })
+  })
+
+  it('drops what the superseded build says about a file a restart removes', async () => {
+    const handler = vi.fn()
+    const scheduler = new DevSessionRestartScheduler(0)
+    scheduler.setHandler(handler)
+    bindDevSessionRestart(scheduler)
+
+    const {compiler, projectRoot} = createFakeCompiler()
+    tempDirs.add(projectRoot)
+    fs.mkdirSync(path.join(projectRoot, 'pages'), {recursive: true})
+    new WarnUponFolderChanges().apply(compiler as any)
+
+    const page = path.join(projectRoot, 'pages', 'extra.html')
+    const pageScript = path.join(projectRoot, 'pages', 'extra.js')
+
+    compiler.modifiedFiles = new Set()
+    compiler.removedFiles = new Set([page, pageScript])
+    runCycle(compiler, compilation)
+
+    const unrelated = new Error("Module not found: Can't resolve './other.js'")
+
+    compilation.errors.push(
+      new Error(`Module not found: Can't resolve '${pageScript}'`),
+      unrelated
+    )
+
+    compilation.warnings.push(
+      new Error('Check the pages.extra field in your manifest.json file.')
+    )
+
+    compiler.hooks.done.__invokeAll(compilation)
+
+    expect(compilation.errors).toEqual([unrelated])
+    expect(compilation.warnings).toEqual([])
+  })
+
+  it('still refuses a removal as an error when no session can restart', () => {
+    const {compiler, projectRoot} = createFakeCompiler()
+    tempDirs.add(projectRoot)
+    fs.mkdirSync(path.join(projectRoot, 'scripts'), {recursive: true})
+    new WarnUponFolderChanges().apply(compiler as any)
 
     compiler.modifiedFiles = new Set()
     compiler.removedFiles = new Set([
