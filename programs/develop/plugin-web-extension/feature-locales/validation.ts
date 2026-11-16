@@ -12,7 +12,7 @@ import type {Compilation, Compiler} from '@rspack/core'
 import {filterKeysForThisBrowser} from '../../lib/manifest-utils'
 import {debugLine, isDebug} from '../../lib/messaging'
 import {findUndefinedMsgReferences} from '../../lib/msg-placeholders'
-import {stripBom} from '../../lib/parse-json-safe'
+import {parseAuthoredJson} from '../../lib/parse-json-safe'
 import type {DevOptions, Manifest} from '../../types'
 import {pushCompilationError} from './compilation-error'
 import {resolveLocalesFolder} from './get-locales'
@@ -24,7 +24,7 @@ function readDefaultLocale(
 ): string | undefined {
   try {
     const manifest = filterKeysForThisBrowser(
-      JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf8'))) as Manifest,
+      parseAuthoredJson(fs.readFileSync(manifestPath, 'utf8')) as Manifest,
       browser || 'chrome'
     ) as Record<string, unknown>
     const defaultLocale = manifest?.default_locale
@@ -82,7 +82,7 @@ export function validateLocales(
   try {
     const manifestRaw = fs.readFileSync(manifestPath, 'utf8')
     const manifest = filterKeysForThisBrowser(
-      JSON.parse(stripBom(manifestRaw)) as Manifest,
+      parseAuthoredJson(manifestRaw) as Manifest,
       browser || 'chrome'
     ) as Record<string, unknown>
     const defaultLocale = manifest?.default_locale
@@ -208,7 +208,7 @@ export function validateLocales(
 
       try {
         const content = fs.readFileSync(messagesJsonPath, 'utf8')
-        defaultLocaleMessages = JSON.parse(stripBom(content))
+        defaultLocaleMessages = parseAuthoredJson(content, {browser})
       } catch {
         if (isDebug()) {
           debugLine(
@@ -315,7 +315,7 @@ export function validateLocales(
         if (fs.existsSync(msgPath)) {
           try {
             const s = fs.readFileSync(msgPath, 'utf8')
-            JSON.parse(stripBom(s))
+            parseAuthoredJson(s, {browser})
           } catch {
             if (isDebug()) {
               debugLine(

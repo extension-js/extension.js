@@ -1,9 +1,9 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {describe, expect, it} from 'vitest'
+import {describe, expect, it, vi} from 'vitest'
+import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 import {getOriginalManifestContent} from '../manifest-lib/manifest'
 import {EmitManifest} from '../steps/emit-manifest'
-import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 
 const makeTempFolder = trackTempFolders()
 
@@ -67,5 +67,51 @@ describe('EmitManifest', () => {
     } as any).apply(compiler)
 
     expect(errors.length).toBeGreaterThan(0)
+  })
+
+  it('emits a commented manifest as plain JSON and says so once across rebuilds', () => {
+    const tempDir = makeTempFolder('emit-manifest-comments-')
+    const manifestPath = path.join(tempDir, 'manifest.json')
+    fs.writeFileSync(
+      manifestPath,
+      '{\n  // kept in the source\n  "name": "x", // and here\n  "version": "1.0.0"\n}\n'
+    )
+
+    const emitted: string[] = []
+    const errors: any[] = []
+    const compilation = (): any => ({
+      errors,
+      hooks: {processAssets: {tap: (_opts: any, fn: any) => fn()}},
+      emitAsset: (_name: string, source: any) => {
+        emitted.push(source.source().toString())
+      }
+    })
+    const rebuilds: Array<(compilation: any) => void> = []
+    const compiler: any = {
+      hooks: {
+        thisCompilation: {tap: (_name: string, fn: any) => rebuilds.push(fn)}
+      }
+    }
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    try {
+      new EmitManifest({manifestPath, browser: 'firefox'} as any).apply(
+        compiler
+      )
+
+      rebuilds[0](compilation())
+      rebuilds[0](compilation())
+
+      const said = logSpy.mock.calls
+        .map((call) => call.join(' '))
+        .filter((line) => line.includes('Removed the comments'))
+
+      expect(errors).toEqual([])
+      expect(emitted).toHaveLength(2)
+      expect(emitted[1]).toBe('{\n  "name": "x",\n  "version": "1.0.0"\n}')
+      expect(said).toHaveLength(1)
+    } finally {
+      logSpy.mockRestore()
+    }
   })
 })

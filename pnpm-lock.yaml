@@ -216,8 +216,8 @@ importers:
         specifier: 1.9.15
         version: 1.9.15(@babel/core@7.29.7)
       browser-extension-manifest-fields:
-        specifier: ^3.0.2
-        version: 3.0.2
+        specifier: ^3.0.3
+        version: 3.0.3
       case-sensitive-paths-webpack-plugin:
         specifier: ^2.4.0
         version: 2.4.0
@@ -3079,8 +3079,8 @@ packages:
     engines: {node: '>=16'}
     hasBin: true
 
-  browser-extension-manifest-fields@3.0.2:
-    resolution: {integrity: sha512-oPF3ph5oRKehC55Sady0A3Oe6LJJTll4LtSwUQDkiIYM1Y0sCA1hudDsYTuqxXI1i4K1V7MqFuj3K2xq2ZwGHw==}
+  browser-extension-manifest-fields@3.0.3:
+    resolution: {integrity: sha512-005Xp37fAaxHL77BP9a4ZXQ6YqKFSmKZxR6PEkB9kUY6abmAa/iKCPHL5Zlf0PSQu41NXubrMdl9r+7tP5MjEg==}
     engines: {node: '>=18'}
 
   browserslist@4.28.8:
@@ -7668,7 +7668,7 @@ snapshots:
     dependencies:
       which: 4.0.0
 
-  browser-extension-manifest-fields@3.0.2: {}
+  browser-extension-manifest-fields@3.0.3: {}
 
   browserslist@4.28.8:
     dependencies:
