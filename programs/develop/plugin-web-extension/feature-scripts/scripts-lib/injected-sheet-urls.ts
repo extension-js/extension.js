@@ -106,3 +106,26 @@ export function rootedAtExtensionFrom(
     }
   })
 }
+
+// The files such a sheet loads from the page it lands on, by sheet, for
+// the step that decides which files a page may fetch.
+const sheetTargets = new WeakMap<object, Map<string, Set<string>>>()
+
+export function noteInjectedSheetTarget(
+  compilation: object,
+  sheetName: string,
+  target: string
+) {
+  const bySheet = sheetTargets.get(compilation) ?? new Map()
+  const targets: Set<string> = bySheet.get(sheetName) ?? new Set()
+
+  targets.add(target)
+  bySheet.set(sheetName, targets)
+  sheetTargets.set(compilation, bySheet)
+}
+
+export function injectedSheetTargets(
+  compilation: object
+): ReadonlyMap<string, ReadonlySet<string>> {
+  return sheetTargets.get(compilation) ?? new Map()
+}

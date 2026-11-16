@@ -190,7 +190,7 @@ export function warInjectedScriptExposed(file: string, resources: string[]) {
   )
 
   lines.push(
-    `To narrow it, list it in ${colors.blue('web_accessible_resources')} in ${colors.blue('manifest.json')} with the matches the script runs on.`
+    `To narrow it, list it in ${colors.blue('web_accessible_resources')} in ${colors.blue('manifest.json')} with the matches the ${file.endsWith('.css') ? 'sheet is injected' : 'script runs'} on.`
   )
 
   lines.push(

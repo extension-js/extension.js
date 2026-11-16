@@ -20,6 +20,7 @@ import {
   getCanonicalContentScriptCssAssetName,
   parseCanonicalContentScriptAsset
 } from '../../feature-scripts/contracts'
+import {injectedSheetTargets} from '../../feature-scripts/scripts-lib/injected-sheet-urls'
 import {
   collectContentScriptAsyncChunkFiles,
   collectNamedUnrequestedPages,
@@ -625,6 +626,15 @@ export function generateManifestPatches(
     }
   }
 
+  // A sheet injected by file lands on whichever page the extension picks,
+  // as a scripts/ file does, so the files it loads get the same group.
+  for (const [sheet, targets] of injectedSheetTargets(compilation)) {
+    addInjectedScriptResources(
+      sheet,
+      [...targets].filter((target) => compilation.assets?.[target])
+    )
+  }
+
   // The widening is silent in dev, where a blanket group covers every file.
   if (
     canonicalManifest.manifest_version === 3 &&
@@ -633,7 +643,10 @@ export function generateManifestPatches(
     for (const [entryName, widened] of widenedByEntry) {
       compilation.warnings = compilation.warnings || []
       const warning = new WebpackError(
-        warInjectedScriptExposed(`${entryName}.js`, Array.from(widened).sort())
+        warInjectedScriptExposed(
+          entryName.endsWith('.css') ? entryName : `${entryName}.js`,
+          Array.from(widened).sort()
+        )
       ) as Error & {file?: string}
       warning.name = 'InjectedScriptResourceExposedWarning'
       warning.file = 'manifest.json'

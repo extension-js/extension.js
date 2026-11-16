@@ -49,7 +49,10 @@ import {
 } from '../../shared/script-graph'
 import * as messages from '../messages'
 import {INJECTED_CLASSIC_QUERY} from '../scripts-lib/completion-value'
-import {noteNamedInjectedSheet} from '../scripts-lib/injected-sheet-urls'
+import {
+  noteInjectedSheetTarget,
+  noteNamedInjectedSheet
+} from '../scripts-lib/injected-sheet-urls'
 import {keepCompletionValueOf} from './keep-completion-value'
 import {
   blankComments,
@@ -851,7 +854,7 @@ export class TraceRuntimeLoadedFiles {
     type PendingScan =
       | {kind: 'js'; content: string; assetName: string; copied?: boolean}
       | {kind: 'html'; content: string; baseRel: string}
-      | {kind: 'css'; content: string; baseRel: string}
+      | {kind: 'css'; content: string; baseRel: string; injected?: boolean}
 
     let pending: PendingScan[] = [
       ...run.jsAssets(only).map((asset) => ({
@@ -863,6 +866,7 @@ export class TraceRuntimeLoadedFiles {
       // reads them from where the sheet sits, so they are followed from there.
       ...run.takeInjectedSheets().map((sheet) => ({
         kind: 'css' as const,
+        injected: true,
         ...sheet
       }))
     ]
@@ -919,6 +923,16 @@ export class TraceRuntimeLoadedFiles {
               ? resolveExtensionPath(literal, baseRel)
               : besideCaller
           if (!distRel) continue
+
+          // The visited page fetches what an injected sheet names, so the
+          // manifest step hears of each file. An @import is not fetched.
+          if (
+            item.kind === 'css' &&
+            item.injected &&
+            !/\.css$/i.test(distRel)
+          ) {
+            noteInjectedSheetTarget(run.compilation, item.baseRel, distRel)
+          }
 
           const sourceRel =
             sourceRels?.find(

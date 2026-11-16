@@ -233,7 +233,6 @@ describe('a stylesheet a script injects by file', () => {
 
     const summary = await build(root)
     expect(summary.errors_count).toBe(0)
-    expect(summary.warnings || []).toEqual([])
     expect(outputFiles(root, 'chrome')).toEqual(
       expect.arrayContaining([
         ...LOADED,
@@ -241,6 +240,25 @@ describe('a stylesheet a script injects by file', () => {
         'styles/img/registered.png'
       ])
     )
+
+    // The visited page fetches the font and the images, so it may: the
+    // group a scripts/ file gets, with the same notice.
+    const manifest = JSON.parse(
+      fs.readFileSync(path.join(root, 'dist/chrome/manifest.json'), 'utf8')
+    )
+
+    expect(manifest.web_accessible_resources).toEqual([
+      {
+        resources: [
+          'fonts/a.ttf',
+          'styles/img/bg.png',
+          'styles/img/registered.png'
+        ],
+        matches: ['<all_urls>']
+      }
+    ])
+
+    expect(summary.warnings_count).toBe(2)
 
     // Chromium reads an injected sheet's paths against the visited page, so
     // each one names the extension. It drops the @import, kept as written.
@@ -289,6 +307,12 @@ describe('a stylesheet a script injects by file', () => {
     const summary = await build(root, 'firefox')
     expect(summary.errors_count).toBe(0)
     expect(outputFiles(root, 'firefox')).toEqual(expect.arrayContaining(LOADED))
+
+    expect(
+      JSON.parse(
+        fs.readFileSync(path.join(root, 'dist/firefox/manifest.json'), 'utf8')
+      ).web_accessible_resources
+    ).toEqual(expect.arrayContaining(['fonts/a.ttf', 'styles/img/bg.png']))
 
     // Firefox reads the paths from where the sheet sits, so it ships as written.
     expect(
