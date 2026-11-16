@@ -9,7 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, sources, WebpackError} from '@rspack/core'
-import {isChromiumBasedBrowser} from '../../../lib/constants'
+import {isGeckoBasedBrowser} from '../../../lib/constants'
 import {debugLine, isDebug} from '../../../lib/messaging'
 import {isDevContentScriptStandInAsset} from '../../../plugin-reload/reload-lib/dev-content-scripts'
 import type {Manifest} from '../../../types'
@@ -627,9 +627,9 @@ export function generateManifestPatches(
     }
   }
 
-  // A sheet injected by file lands on whichever page the extension picks.
-  // Chromium needs every file it loads listed, Firefox only its fonts.
-  const listsEveryTarget = isChromiumBasedBrowser(String(browser || 'chrome'))
+  // A sheet injected by file lands on any page. Firefox is measured to need
+  // only its fonts listed, so every other target gets each file it loads.
+  const listsEveryTarget = !isGeckoBasedBrowser(String(browser || 'chrome'))
 
   for (const [sheet, targets] of injectedSheetTargets(compilation)) {
     addInjectedScriptResources(

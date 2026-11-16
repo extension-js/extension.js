@@ -127,7 +127,9 @@ describe('files a sheet injected by file loads', () => {
   it.each([
     'chrome',
     'edge',
-    'chromium-based'
+    'chromium-based',
+    'safari',
+    'webkit-based'
   ])('lists them for %s', (browser) => {
     const {resources, warnings} = run(
       {manifest_version: 3},
@@ -135,7 +137,13 @@ describe('files a sheet injected by file loads', () => {
       browser
     )
 
-    expect(resources).toHaveLength(1)
+    expect(resources).toEqual([
+      {
+        resources: ['fonts/a.woff2', 'styles/img/bg.png'],
+        matches: ['<all_urls>']
+      }
+    ])
+
     expect(warnings).toHaveLength(1)
   })
 
