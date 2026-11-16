@@ -8,8 +8,8 @@
 
 import * as fs from 'node:fs'
 import rspack, {Compilation, type Compiler, sources} from '@rspack/core'
-import {debugLine, isDebug} from '../../../lib/messaging'
-import {stripBom} from '../../../lib/parse-json-safe'
+import {debugLine, humanLine, isDebug} from '../../../lib/messaging'
+import {hasJsonComments, parseAuthoredJson} from '../../../lib/parse-json-safe'
 import type {PluginInterface} from '../../../types'
 import {
   setCurrentManifestContent,
@@ -19,9 +19,12 @@ import * as messages from '../messages'
 
 export class EmitManifest {
   public readonly manifestPath: string
+  private readonly browser?: string
+  private reportedComments = false
 
-  constructor(options: PluginInterface) {
+  constructor(options: PluginInterface & {browser?: string}) {
     this.manifestPath = options.manifestPath
+    this.browser = options.browser ? String(options.browser) : undefined
   }
 
   apply(compiler: Compiler): void {
@@ -35,10 +38,12 @@ export class EmitManifest {
           },
           () => {
             let jsonContent: Record<string, unknown>
+            let hadComments = false
 
             try {
               const content = fs.readFileSync(this.manifestPath, 'utf-8')
-              jsonContent = JSON.parse(stripBom(content))
+              jsonContent = parseAuthoredJson(content, {browser: this.browser})
+              hadComments = hasJsonComments(content)
 
               if ('$schema' in jsonContent) {
                 delete jsonContent.$schema
@@ -63,6 +68,12 @@ export class EmitManifest {
               'manifest.json',
               new sources.RawSource(jsonString)
             )
+
+            // Said once per session: a dev rebuild would repeat it on every save.
+            if (hadComments && !this.reportedComments) {
+              this.reportedComments = true
+              humanLine(messages.manifestCommentsRemoved())
+            }
 
             if (isDebug()) {
               debugLine(messages.manifestEmitSuccess())

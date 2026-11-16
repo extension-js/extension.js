@@ -9,7 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {filterKeysForThisBrowser} from '../../lib/manifest-utils'
-import {stripBom} from '../../lib/parse-json-safe'
+import {parseAuthoredJson} from '../../lib/parse-json-safe'
 import type {DevOptions, FilepathList, Manifest} from '../../types'
 import {resolveManifestIconPath} from './extract-action-theme-icons'
 
@@ -46,7 +46,7 @@ export function extractIconVariants(
     // Filtered first so a list under chromium: or firefox: ships on that
     // target and stays out of the others.
     manifest = filterKeysForThisBrowser(
-      JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf8'))) as Manifest,
+      parseAuthoredJson(fs.readFileSync(manifestPath, 'utf8')) as Manifest,
       browser
     ) as Record<string, unknown>
   } catch {

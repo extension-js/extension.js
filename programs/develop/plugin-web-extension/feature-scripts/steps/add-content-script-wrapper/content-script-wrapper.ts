@@ -27,7 +27,7 @@ import {
 } from '../../../../lib/loader-source-maps'
 import {filterKeysForThisBrowser} from '../../../../lib/manifest-utils'
 import {humanLine} from '../../../../lib/messaging'
-import {stripBom} from '../../../../lib/parse-json-safe'
+import {parseAuthoredJson} from '../../../../lib/parse-json-safe'
 import {findNearestProjectManifestSync} from '../../../../lib/project-manifest'
 import {
   canonicalizeDir,
@@ -273,7 +273,7 @@ function readManifestCached(
     if (cached && cached.key === key) return cached.manifest
 
     const manifest = resolve(
-      JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf-8')))
+      parseAuthoredJson(fs.readFileSync(manifestPath, 'utf-8'))
     )
     __EXTENSIONJS_manifestParseCache.set(cacheKey, {key, manifest})
 
@@ -281,7 +281,7 @@ function readManifestCached(
   } catch {
     // stat/read/parse failures fall back to a direct read so callers keep
     // their existing error behavior.
-    return resolve(JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf-8'))))
+    return resolve(parseAuthoredJson(fs.readFileSync(manifestPath, 'utf-8')))
   }
 }
 

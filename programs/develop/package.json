@@ -109,7 +109,7 @@
     "acorn": "^8.16.0",
     "babel-loader": "10.1.1",
     "babel-preset-solid": "1.9.15",
-    "browser-extension-manifest-fields": "^3.0.2",
+    "browser-extension-manifest-fields": "^3.0.3",
     "case-sensitive-paths-webpack-plugin": "^2.4.0",
     "content-security-policy-parser": "^0.6.0",
     "cross-spawn": "^7.0.6",

@@ -11,7 +11,7 @@ import * as path from 'node:path'
 import {Compilation, type Compiler, sources} from '@rspack/core'
 import {resolveDevelopDistFile} from '../../../../lib/develop-context'
 import {filterKeysForThisBrowser} from '../../../../lib/manifest-utils'
-import {stripBom} from '../../../../lib/parse-json-safe'
+import {parseAuthoredJson} from '../../../../lib/parse-json-safe'
 import {findNearestProjectManifestSync} from '../../../../lib/project-manifest'
 import {
   canonicalizeDir,
@@ -69,7 +69,7 @@ export function findDeclaredMainWorldFiles(
 ): string[] {
   try {
     const manifest = filterKeysForThisBrowser(
-      JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf8'))) as Manifest,
+      parseAuthoredJson(fs.readFileSync(manifestPath, 'utf8')) as Manifest,
       browser
     )
     const groups = Array.isArray(manifest.content_scripts)

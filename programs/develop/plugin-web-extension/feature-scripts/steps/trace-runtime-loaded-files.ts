@@ -21,6 +21,7 @@ import {
 import {isWebkitBasedBrowser} from '../../../lib/constants'
 import {resolveDevelopDistFile} from '../../../lib/develop-context'
 import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
+import {parseAuthoredJson} from '../../../lib/parse-json-safe'
 import {importMetaUrlForEmitPath} from '../../../plugin-compilation/env'
 import {
   excludedFiles,
@@ -332,7 +333,9 @@ export class TraceRuntimeLoadedFiles {
       // A popup or worker declared under a browser prefix is invisible to a
       // raw read: the popup then ships twice and the worker's imports go untraced.
       return filterKeysForThisBrowser(
-        JSON.parse(fs.readFileSync(this.manifestPath, 'utf-8')) as Manifest,
+        parseAuthoredJson(
+          fs.readFileSync(this.manifestPath, 'utf-8')
+        ) as Manifest,
         this.browser
       ) as TracedManifest
     } catch {
