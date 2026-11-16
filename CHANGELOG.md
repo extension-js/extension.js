@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## 4.1.41 (November 16, 2026)
+
+- **The default types accept the calls the browser accepts**, a callback right after your arguments, as in `chrome.tabs.sendMessage(tabId, message, callback)`, and enum objects such as `chrome.runtime.OnInstalledReason.INSTALL` now type-check without `@types/chrome`. [Docs](https://extension.js.org/docs/languages-and-frameworks/typescript#extension-api-types)
+
+<details>
+<summary>Other changes (2)</summary>
+
+- Write the 4.1.41 highlights (#1093) ([05c2a3232](https://github.com/extension-js/extension.js/commit/05c2a3232e1526560ebdd6e3b48adfe565f8eaed))
+- Type the callback forms and enum objects Chrome has by default (#1092) ([866d7b2d7](https://github.com/extension-js/extension.js/commit/866d7b2d75434103c31b945ec50205191f3178c5))
+</details>
+
+Validated before publishing: `extension@4.1.41-canary.463.05c2a32`, cut from the same commit, built every buildable sample of [extension-js/corpus](https://github.com/extension-js/corpus) on Chrome, Firefox, Edge and Safari, and passed the [extension-js/templates](https://github.com/extension-js/templates) suite ([run](https://github.com/extension-js/extension.js/actions/runs/43867125609)).
+
 ## 4.1.40 (November 16, 2026)
 
 - **Firefox builds fit the store's script size limit**, a build for Firefox splits large files so addons.mozilla.org can parse every script, and names any file it cannot split. [Docs](https://extension.js.org/docs/commands/build#firefox-builds-split-large-files)
