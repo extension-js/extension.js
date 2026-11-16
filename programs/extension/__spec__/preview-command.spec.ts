@@ -249,7 +249,7 @@ describe('extension preview', () => {
     extensionPreview.mockRejectedValueOnce(
       Object.assign(
         new Error(
-          'Chrome refuses to load this extension, so there is nothing to preview.'
+          'Chrome refuses to load this extension, so nothing in it runs.'
         ),
         {code: 'E_EXTENSION_LOAD_REFUSED'}
       )
@@ -266,8 +266,7 @@ describe('extension preview', () => {
       value: null,
       error: {
         code: 'E_EXTENSION_LOAD_REFUSED',
-        message:
-          'Chrome refuses to load this extension, so there is nothing to preview.'
+        message: 'Chrome refuses to load this extension, so nothing in it runs.'
       },
       warnings: [],
       hint: 'Fix what the browser names, then run the command again.'

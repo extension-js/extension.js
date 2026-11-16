@@ -465,7 +465,7 @@ export function browserRefusesTheExtension(
   reason?: string
 ) {
   return (
-    `${getLoggingPrefix('error')} ${colors.red(`${browserDisplayName(browser)} refuses to load this extension, so there is nothing to preview.`)}\n` +
+    `${getLoggingPrefix('error')} ${colors.red(`${browserDisplayName(browser)} refuses to load this extension, so nothing in it runs.`)}\n` +
     `${colors.gray('PATH')} ${colors.underline(extensionPath)}\n` +
     (reason
       ? `${colors.gray('REASON')} ${colors.red(reason)}\n` +

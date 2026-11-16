@@ -652,7 +652,12 @@ describe('load refusal recovery line', () => {
         'no'
       )
 
-      expect(text).toContain('refuses to load this extension')
+      // start and preview share the frame, so it names neither command.
+      expect(text).toContain(
+        'refuses to load this extension, so nothing in it runs.'
+      )
+
+      expect(text).not.toMatch(/preview/)
       expect(text).toContain('REASON no')
       expect(text).toContain(
         'Fix what the browser names, then run the command again.'

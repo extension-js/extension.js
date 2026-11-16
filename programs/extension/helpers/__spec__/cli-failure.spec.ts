@@ -257,7 +257,7 @@ describe('internalErrorEnvelope', () => {
 describe('a load the browser refused', () => {
   const refused = Object.assign(
     new Error(
-      'Chrome refuses to load this extension, so there is nothing to preview.\n' +
+      'Chrome refuses to load this extension, so nothing in it runs.\n' +
         'PATH /proj/dist/chrome\n' +
         'REASON Cannot install extension because it uses an unsupported manifest version.\n' +
         'Fix what the browser names, then run the command again.'
