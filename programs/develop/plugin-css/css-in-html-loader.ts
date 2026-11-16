@@ -9,7 +9,11 @@
 import type {RuleSetRule} from '@rspack/core'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../plugin-web-extension/feature-scripts/contracts'
 import type {DevOptions} from '../types'
-import {buildCssRules, type PreprocessorUsage} from './css-lib/build-css-rules'
+import {
+  buildCssRules,
+  CSS_IMPORT_DEPENDENCY,
+  type PreprocessorUsage
+} from './css-lib/build-css-rules'
 
 export async function cssInHtmlLoader(
   projectPath: string,
@@ -29,6 +33,15 @@ export async function cssInHtmlLoader(
       nonModuleType: 'css',
       issuerLayer: EXTENSIONJS_CONTENT_SCRIPT_LAYER,
       issuer: {not: /./},
+      manifestPath
+    })),
+    // A sheet such a file brings in with @import is part of that file, and
+    // an inlined one would leave the declared sheet without its rules.
+    ...(await buildCssRules(projectPath, mode, usage, {
+      nonModuleType: 'css',
+      issuerLayer: EXTENSIONJS_CONTENT_SCRIPT_LAYER,
+      issuer: /./,
+      dependency: CSS_IMPORT_DEPENDENCY,
       manifestPath
     }))
   ]

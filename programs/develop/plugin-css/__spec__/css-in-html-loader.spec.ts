@@ -47,7 +47,16 @@ describe('cssInHtmlLoader', () => {
       const declaredContentRule =
         rule.issuerLayer === 'extensionjs-content-script' &&
         String(rule.issuer?.not) === String(/./)
-      expect(pageRule || declaredContentRule).toBe(true)
+      // A sheet a declared one imports is compiled into that file.
+      const importedByDeclaredRule =
+        rule.issuerLayer === 'extensionjs-content-script' &&
+        String(rule.issuer) === String(/./) &&
+        rule.dependency === 'css-import'
+      expect(pageRule || declaredContentRule || importedByDeclaredRule).toBe(
+        true
+      )
+
+      expect(Boolean(rule.dependency)).toBe(importedByDeclaredRule)
       expect((rule.use as any[])?.length).toBeGreaterThan(0)
     }
   })
