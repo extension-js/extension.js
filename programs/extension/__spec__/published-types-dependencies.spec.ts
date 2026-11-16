@@ -175,10 +175,11 @@ describe('published types dependencies (extension package)', () => {
     const fromDefault = Array.from(defaultFiles)
     const fromLegacy = Array.from(referencedFiles('legacy.d.ts'))
 
-    // The three files only add to the namespace chrome-types declares.
+    // These files only add to the namespace chrome-types declares.
     expect(fromDefault.filter(declaresBrowser).sort()).toEqual([
       'callbacks.d.ts',
       'chrome.d.ts',
+      'enums.d.ts',
       'firefox.d.ts'
     ])
 

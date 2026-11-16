@@ -20,6 +20,7 @@ const BASE_EXCLUDES = [
   './examples/**',
   './programs/extension/types/callbacks.d.ts',
   './programs/extension/types/chrome.d.ts',
+  './programs/extension/types/enums.d.ts',
   './programs/extension/types/firefox.d.ts',
   './programs/extension/types/index.d.ts',
   './templates/**',

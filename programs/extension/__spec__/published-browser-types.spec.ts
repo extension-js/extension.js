@@ -254,6 +254,70 @@ chrome.runtime.onMessageExternal.addListener(logRequest)
 export {}
 `
 
+// The lines of the Google samples that read an enum object, as they are
+// written there: alarms, userScripts, web-accessible-resources, identity
+// and the three offscreen cookbook samples.
+const enumObjects = `\
+declare function showReadme(): void
+declare function displayOutput(text: string): void
+declare const path: string
+declare const OFFSCREEN_DOCUMENT_PATH: string
+
+chrome.runtime.onInstalled.addListener(({ reason }) => {
+  if (reason !== chrome.runtime.OnInstalledReason.INSTALL) {
+    return;
+  }
+});
+
+chrome.runtime.onInstalled.addListener(({ reason }) => {
+  if (reason == chrome.runtime.OnInstalledReason.INSTALL) {
+    chrome.runtime.openOptionsPage();
+  }
+});
+
+chrome.runtime.onInstalled.addListener(({ reason }) => {
+  if (reason === chrome.runtime.OnInstalledReason.INSTALL) {
+    showReadme();
+  }
+});
+
+function getEmail() {
+  chrome.identity
+    .getProfileUserInfo({ accountStatus: chrome.identity.AccountStatus.ANY })
+    .then((profile_user_info) => {
+      displayOutput(
+        'chrome.identity.getProfileUserInfo() returned: ' +
+          JSON.stringify(profile_user_info)
+      );
+    });
+}
+
+async function addDocuments() {
+  await chrome.offscreen.createDocument({
+    url: path,
+    reasons: [
+      chrome.offscreen.Reason.GEOLOCATION ||
+        chrome.offscreen.Reason.DOM_SCRAPING
+    ],
+    justification: 'add justification for geolocation use here'
+  });
+
+  await chrome.offscreen.createDocument({
+    url: 'offscreen.html',
+    reasons: [chrome.offscreen.Reason.CLIPBOARD],
+    justification: 'Write text to the clipboard.'
+  });
+
+  await chrome.offscreen.createDocument({
+    url: OFFSCREEN_DOCUMENT_PATH,
+    reasons: [chrome.offscreen.Reason.DOM_PARSER],
+    justification: 'Parse DOM'
+  });
+}
+
+export {getEmail, addDocuments}
+`
+
 // What the added declarations must leave as it was.
 const keptForms = `\
 declare const untyped: any
@@ -282,6 +346,24 @@ chrome.tabs.onUpdated.addListener((tabId: string) => tabId)
 const change: chrome.tabs.OnUpdatedInfo = {status: 'complete'}
 // @ts-expect-error not a field of the change
 change.missing
+
+// The enum name is still the type, and the object holds its values alone.
+const reason: chrome.runtime.OnInstalledReason =
+  chrome.runtime.OnInstalledReason.UPDATE
+const sameReason: 'update' = browser.runtime.OnInstalledReason.UPDATE
+const scope: 'per-origin' = chrome.tabs.ZoomSettingsScope.PER_ORIGIN
+const danger: 'allowlistedByPolicy' =
+  chrome.downloads.DangerType.ALLOWLISTED_BY_POLICY
+// @ts-expect-error not a value of the enum
+chrome.runtime.OnInstalledReason.MISSING
+
+// A class of chrome-types cannot be given a second constructor from here,
+// so the no-argument form the browser accepts stays an error and {} is typed.
+// @ts-expect-error chrome-types declares one required argument
+new chrome.declarativeContent.ShowAction()
+const action = new chrome.declarativeContent.ShowAction({})
+
+export {reason, sameReason, scope, danger, action}
 `
 
 const sources: Record<string, string> = {
@@ -289,6 +371,7 @@ const sources: Record<string, string> = {
   'src/content/scripts.ts': contentScript,
   'src/panel/scripts.ts': devtoolsPanel,
   'src/corpus.ts': corpusCalls,
+  'src/enums.ts': enumObjects,
   'src/kept.ts': keptForms
 }
 
@@ -402,6 +485,7 @@ describe('the default extension API types', () => {
         index
           .replace('/// <reference path="./chrome.d.ts" />\n', '')
           .replace('/// <reference path="./callbacks.d.ts" />\n', '')
+          .replace('/// <reference path="./enums.d.ts" />\n', '')
       )
     )
 
@@ -427,9 +511,14 @@ describe('the default extension API types', () => {
     ).toHaveLength(8)
 
     expect(errorsIn(result.output, 'src/corpus.ts')).toContain('TS2345')
+
+    // One for each of the 8 sample lines that read an enum object.
+    expect(errorsIn(result.output, 'src/enums.ts')).toEqual(
+      Array.from({length: 8}, () => 'TS2339')
+    )
   }, 60_000)
 
-  it('loads both declaration files from the default entry only', () => {
+  it('loads the added declaration files from the default entry only', () => {
     const read = (file: string) =>
       fs.readFileSync(path.join(typesDir, file), 'utf8')
 
@@ -438,6 +527,10 @@ describe('the default extension API types', () => {
       '<reference path="./callbacks.d.ts" />'
     )
 
-    expect(read('legacy.d.ts')).not.toMatch(/chrome\.d\.ts|callbacks\.d\.ts/)
+    expect(read('index.d.ts')).toContain('<reference path="./enums.d.ts" />')
+
+    expect(read('legacy.d.ts')).not.toMatch(
+      /chrome\.d\.ts|callbacks\.d\.ts|enums\.d\.ts/
+    )
   })
 })
