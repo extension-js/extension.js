@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'node:fs'
+import * as path from 'node:path'
 import {
   LOAD_REFUSED_HINT,
   LOAD_REFUSED_STATUS,
@@ -45,6 +46,8 @@ export type ReadyContractPayload = {
   pid?: number
   ts?: string
   compiledAt?: string | null
+  extensionLoadRefusedAt?: string
+  extensionLoadRefusedReason?: string
 }
 
 export type RunWaitModeOptions = {
@@ -256,6 +259,39 @@ export function isFreshContractPayload(payload: ReadyContractPayload): boolean {
   return false
 }
 
+// A run that ended on a refusal keeps saying so however old it is: the same
+// manifest is refused again. An edit since then means a new run is due.
+export function standingLoadRefusal(
+  payload: ReadyContractPayload
+): string | undefined {
+  const refusedAt = Date.parse(String(payload.extensionLoadRefusedAt ?? ''))
+
+  if (!Number.isFinite(refusedAt)) return undefined
+
+  const manifests = [
+    payload.manifestPath,
+    payload.distPath ? path.join(payload.distPath, 'manifest.json') : undefined
+  ]
+
+  for (const manifest of manifests) {
+    try {
+      if (!manifest || fs.statSync(manifest).mtimeMs > refusedAt) {
+        return undefined
+      }
+    } catch {
+      return undefined
+    }
+  }
+
+  if (payload.code === 'extension_load_refused' && payload.message) {
+    return String(payload.message)
+  }
+
+  const reason = String(payload.extensionLoadRefusedReason ?? '').trim()
+
+  return `The browser refused to load the extension${reason ? `: ${reason}` : ''}`
+}
+
 async function waitForReadyContract(options: {
   command: WaitCommand
   projectPath: string
@@ -295,6 +331,13 @@ async function waitForReadyContract(options: {
         if (payload.command !== options.command) {
           await new Promise((resolve) => setTimeout(resolve, 250))
           continue
+        }
+
+        // Waiting on a run the browser refused would only spend the timeout.
+        const refusal = isLive ? undefined : standingLoadRefusal(payload)
+
+        if (refusal) {
+          throw new WaitModeError(refusal, CODES.E_EXTENSION_LOAD_REFUSED)
         }
 
         if (!isLive) {
