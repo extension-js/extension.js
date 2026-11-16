@@ -123,7 +123,10 @@ function reportGuestLoadRefused(
   reason: string,
   runOnly = false
 ) {
-  if (!repeatsManifestV2Refusal(plugin.manifestV2RefusalSaid, reason)) {
+  if (
+    !plugin.loadRefusalEndsRun &&
+    !repeatsManifestV2Refusal(plugin.manifestV2RefusalSaid, reason)
+  ) {
     humanError(
       messages.chromiumExtensionLoadRefused(refusedPath, reason, {runOnly})
     )
@@ -178,7 +181,7 @@ export async function verifyGuestLoadAfterLaunch(
   plugin: ChromiumPluginRuntime,
   chromiumArgs: string[],
   pipeStreams?: {input: Readable; output: Writable}
-): Promise<void> {
+): Promise<'loaded' | 'refused' | 'unknown'> {
   const {
     extensionOutputPath,
     selectedExtensionPaths,
@@ -228,10 +231,17 @@ export async function verifyGuestLoadAfterLaunch(
       true
     )
 
-    return
+    return 'refused'
+  }
+
+  // The caller ends this run unless the guest loaded, so no page is opened.
+  if (plugin.loadRefusalEndsRun && loadOutcome.status !== 'loaded') {
+    return loadOutcome.status
   }
 
   await openStartingUrlAfterLoad(plugin, cdpExtensionController)
+
+  return loadOutcome.status
 }
 
 export async function setupCdpAfterLaunch(

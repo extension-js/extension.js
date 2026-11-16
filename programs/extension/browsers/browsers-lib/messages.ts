@@ -458,14 +458,19 @@ export function extensionOutputIsIncomplete(
   )
 }
 
+// The reason is the browser's own sentence, when a launch could ask for it.
 export function chromiumRefusesTheExtension(
   browser: string,
-  extensionPath: string
+  extensionPath: string,
+  reason?: string
 ) {
   return (
     `${getLoggingPrefix('error')} ${colors.red(`${browserDisplayName(browser)} refuses to load this extension, so there is nothing to preview.`)}\n` +
     `${colors.gray('PATH')} ${colors.underline(extensionPath)}\n` +
-    `Read the reason above, fix the manifest, then run the command again.`
+    (reason
+      ? `${colors.gray('REASON')} ${colors.red(reason)}\n` +
+        `Fix what the browser names, then run the command again.`
+      : `Read the reason above, fix the manifest, then run the command again.`)
   )
 }
 

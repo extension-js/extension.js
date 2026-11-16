@@ -112,6 +112,9 @@ export interface ChromiumPluginRuntime extends ChromiumLaunchOptions {
   // Set when the session already said this browser refuses Manifest V2, so
   // the browser's matching answer is recorded and not printed a second time.
   manifestV2RefusalSaid?: boolean
+  // Set when a refusal ends the run, whose last frame carries the browser's
+  // reason, so the refusal block is recorded and not printed beside it.
+  loadRefusalEndsRun?: boolean
   // The run the launch belongs to, carried so a post-launch stamp cannot land
   // on a contract a restart has since taken over.
   launchRunId?: string

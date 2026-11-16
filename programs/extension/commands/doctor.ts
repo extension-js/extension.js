@@ -241,6 +241,15 @@ function isSessionDocument(document: Record<string, unknown>): boolean {
   )
 }
 
+// The reason a refused load recorded, without the period a sentence adds.
+function loadRefusalReason(
+  document: Record<string, unknown> | null | undefined
+): string {
+  return typeof document?.extensionLoadRefusedReason === 'string'
+    ? document.extensionLoadRefusedReason.trim().replace(/[.\s]+$/, '')
+    : ''
+}
+
 // A start or preview run that holds its browser open but has no control port:
 // alive, and nothing doctor or an act verb can reach.
 function liveUncontrolledRun(
@@ -530,6 +539,11 @@ export async function runDoctor(
 
   if (!ready) {
     const uncontrolled = receipt ? liveUncontrolledRun(document) : undefined
+    // A refused start or preview run exits and leaves a receipt that says why.
+    const refusedRun =
+      receipt && document.code === 'extension_load_refused'
+        ? productionCommand(document)
+        : undefined
 
     if (uncontrolled) {
       results.push({
@@ -542,6 +556,20 @@ export async function runDoctor(
         remediation:
           `Restart it with a control channel: extension ${uncontrolled.command} ` +
           `--browser=${browser} --allow-control (add --allow-eval for the eval verb)`
+      })
+    } else if (refusedRun) {
+      const reason = loadRefusalReason(document)
+
+      results.push({
+        check: 'ready-contract',
+        status: 'fail',
+        detail:
+          `the last extension ${refusedRun} run for ${browser} ended because ` +
+          `the browser refused to load the extension${reason ? `: ${reason}` : ''}`,
+        remediation:
+          'Fix what the browser names, then run the same command again: ' +
+          `extension ${refusedRun} --browser=${browser} --allow-control ` +
+          '(add --allow-eval for the eval verb)'
       })
     } else {
       results.push({
@@ -608,10 +636,7 @@ export async function runDoctor(
     })
   } else if (failure.code === 'extension_load_refused') {
     // The browser turned the extension away, which no wait ever changes.
-    const reason =
-      typeof failure.extensionLoadRefusedReason === 'string'
-        ? failure.extensionLoadRefusedReason.trim().replace(/[.\s]+$/, '')
-        : ''
+    const reason = loadRefusalReason(failure)
 
     results.push({
       check: 'ready-contract',

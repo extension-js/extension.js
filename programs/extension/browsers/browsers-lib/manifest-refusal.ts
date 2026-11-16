@@ -86,6 +86,18 @@ export function repeatsManifestV2Refusal(
   return Boolean(alreadySaid) && /unsupported manifest version/i.test(reason)
 }
 
+// Recorded when a refused run could not ask the browser for its own words.
+export const GENERAL_REFUSAL_REASON =
+  'the manifest declares a shape this browser refuses'
+
+// A run-only launch starts the browser to ask why it refuses. A guest it took
+// after all keeps its session, any other answer ends the run.
+export function endsPredictedRefusal(
+  status: 'loaded' | 'refused' | 'unknown'
+): boolean {
+  return status !== 'loaded'
+}
+
 // ONE invalid pattern makes Chrome refuse the WHOLE extension; the only shape
 // verified to refuse is an invalid host wildcard. Ports/query/fragments load fine.
 export function findInvalidMatchPatterns(manifest: unknown): string[] {

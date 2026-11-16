@@ -268,6 +268,80 @@ describe('verifyGuestLoadAfterLaunch (run-only load evidence)', () => {
     )
   })
 
+  // The launch was made only to hear the browser, and its last frame carries
+  // the reason, so the refusal is recorded and its block is not printed.
+  it('records the sentence of the browser for a run the refusal ends', async () => {
+    const {outPath, readyPath} = makeStartSession()
+    const reason =
+      'Cannot install extension because it uses an unsupported manifest version.'
+    verifyGuestLoadedSpy.mockResolvedValue({status: 'refused', reason})
+
+    const logSink = vi.fn()
+    const plugin: Record<string, unknown> = {
+      browser: 'chrome',
+      logSink,
+      launchRunId: 'run-start',
+      loadRefusalEndsRun: true,
+      startingUrl: 'https://example.com/'
+    }
+
+    expect(await runCheck(outPath, plugin)).toBe('refused')
+
+    const ready = readReady(readyPath)
+    expect(ready.status).toBe('error')
+    expect(ready.code).toBe('extension_load_refused')
+    expect(ready.extensionLoadRefusedReason).toBe(reason)
+    expect(ready.message).toContain(reason)
+    expect(plugin.extensionLoadRefused).toBe(reason)
+    expect(errorSpy.mock.calls.map((c) => String(c[0])).join('\n')).not.toMatch(
+      /refused to load this extension/i
+    )
+
+    expect(openStartingUrlSpy).not.toHaveBeenCalled()
+    expect(
+      logSink.mock.calls.some((c) =>
+        String(c[0]?.text || '').startsWith('extension_load_refused:')
+      )
+    ).toBe(true)
+  })
+
+  it('opens no page when a run that ends on refusal gets no answer', async () => {
+    const {outPath, readyPath} = makeStartSession()
+    verifyGuestLoadedSpy.mockResolvedValue({status: 'unknown'})
+
+    expect(
+      await runCheck(outPath, {
+        browser: 'chrome',
+        launchRunId: 'run-start',
+        loadRefusalEndsRun: true,
+        startingUrl: 'https://example.com/'
+      })
+    ).toBe('unknown')
+
+    expect(openStartingUrlSpy).not.toHaveBeenCalled()
+    expect(readReady(readyPath).extensionLoadRefusedReason).toBeUndefined()
+  })
+
+  it('keeps the session when the browser takes a guest called refused', async () => {
+    const {outPath, readyPath} = makeStartSession()
+    verifyGuestLoadedSpy.mockResolvedValue({
+      status: 'loaded',
+      extensionId: 'abcdefghijklmnopabcdefghijklmnop'
+    })
+
+    expect(
+      await runCheck(outPath, {
+        browser: 'chrome',
+        launchRunId: 'run-start',
+        loadRefusalEndsRun: true,
+        startingUrl: 'https://example.com/'
+      })
+    ).toBe('loaded')
+
+    expect(openStartingUrlSpy.mock.calls[0][0]).toBe('https://example.com/')
+    expect(readReady(readyPath).status).toBe('ready')
+  })
+
   // A start session opens about:blank, so the starting page loads once the
   // guest is in the browser and its document_start CSS can reach it.
   it('opens the starting url once the guest has loaded', async () => {

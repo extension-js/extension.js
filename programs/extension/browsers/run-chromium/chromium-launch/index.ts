@@ -45,11 +45,13 @@ import * as instanceRegistry from '../../browsers-lib/instance-registry'
 import {locatorEnv, scanSystem} from '../../browsers-lib/locator-env'
 import {
   diagnoseChromiumManifestRefusal,
+  endsPredictedRefusal,
   findChromiumLoadBlockers,
   findInvalidMatchPatterns,
   findLocaleLoadBlockers,
   findMissingManagedSchema,
   findUnloadableIconFiles,
+  GENERAL_REFUSAL_REASON,
   planManifestV2Launch
 } from '../../browsers-lib/manifest-refusal'
 import * as messages from '../../browsers-lib/messages'
@@ -60,7 +62,10 @@ import {
   type PinnedBinaryProblem,
   pinnedBinaryProblem
 } from '../../browsers-lib/pinned-binary'
-import {wasTerminatedByUs} from '../../browsers-lib/process-teardown'
+import {
+  gracefulTerminateChild,
+  wasTerminatedByUs
+} from '../../browsers-lib/process-teardown'
 import {ready as devServerReady} from '../../browsers-lib/ready-message'
 import {
   describeLaunchFailure,
@@ -1142,6 +1147,8 @@ export class ChromiumLaunchPlugin {
 
     // A run-only launch has no post-launch CDP pass, so nothing else can tell
     // the contract that the browser comes up without the extension in it.
+    let predictedRefusal: {extensionPath: string} | undefined
+
     if (opts?.enableCdpPostLaunch === false) {
       const incomplete = extensionsToLoad
         .map((extPath) => ({
@@ -1150,36 +1157,30 @@ export class ChromiumLaunchPlugin {
         }))
         .find((entry) => entry.missing.length > 0)
 
-      const refusal = refusedExtensionPaths.length
-        ? {
-            frame: messages.chromiumRefusesTheExtension(
-              String(this.options.browser),
-              refusedExtensionPaths[0]
-            ),
-            reason: 'the manifest declares a shape this browser refuses'
-          }
-        : incomplete
-          ? {
-              frame: messages.extensionOutputIsIncomplete(
-                String(this.options.browser),
-                incomplete.extPath,
-                incomplete.missing
-              ),
-              reason: `the build is missing ${incomplete.missing.join(', ')}`
-            }
-          : undefined
-
-      if (refusal) {
+      if (refusedExtensionPaths.length) {
+        predictedRefusal = {extensionPath: refusedExtensionPaths[0]}
+      } else if (incomplete) {
         const refusedOutputPath = getExtensionOutputPath(compilation, undefined)
 
         stampReadyExtensionLoadRefused(
           refusedOutputPath,
-          refusal.reason,
+          `the build is missing ${incomplete.missing.join(', ')}`,
           readReadyRunId(refusedOutputPath)
         )
 
-        throw new Error(refusal.frame)
+        throw new Error(
+          messages.extensionOutputIsIncomplete(
+            String(this.options.browser),
+            incomplete.extPath,
+            incomplete.missing
+          )
+        )
       }
+    }
+
+    // A dry run launches nothing, so no browser can say why it refuses.
+    if (predictedRefusal && dryRun) {
+      this.endPredictedRefusal(compilation, predictedRefusal.extensionPath)
     }
 
     let chromiumConfig: string[]
@@ -1281,6 +1282,11 @@ export class ChromiumLaunchPlugin {
       )
 
       return
+    }
+
+    // With the debugging flags stripped the browser cannot be asked either.
+    if (predictedRefusal && !verifyLoadOnly) {
+      this.endPredictedRefusal(compilation, predictedRefusal.extensionPath)
     }
 
     const usePipe = chromiumConfig.includes('--remote-debugging-pipe')
@@ -1416,6 +1422,8 @@ export class ChromiumLaunchPlugin {
     // Nothing downstream will verify the load, so there is nothing to wait for.
     if (!enableCdp) reportReady()
 
+    let guestLoadStatus: 'loaded' | 'refused' | 'unknown' = 'unknown'
+
     try {
       const cdpConfig: ChromiumPluginRuntime = {
         ...pickSharedBrowserRuntimeOptions({
@@ -1434,7 +1442,8 @@ export class ChromiumLaunchPlugin {
         binaryProvenance,
         binaryPinnedBy,
         launchRunId: this.closeHandlerContext?.runId,
-        manifestV2RefusalSaid
+        manifestV2RefusalSaid,
+        loadRefusalEndsRun: Boolean(predictedRefusal)
       }
 
       // Full CDP wiring (dev + inspection). Run-only keeps to the load check
@@ -1481,14 +1490,14 @@ export class ChromiumLaunchPlugin {
         const mod = await import('./setup-cdp-after-launch')
         // Same watchdog as above: a refusal modal can stall the handshake.
         const LOAD_CHECK_TIMEOUT_MS = 45_000
-        await Promise.race([
+        guestLoadStatus = await Promise.race([
           mod.verifyGuestLoadAfterLaunch(
             compilation,
             cdpConfig,
             chromiumConfig,
             pipeStreams
           ),
-          new Promise((_, reject) =>
+          new Promise<never>((_, reject) =>
             setTimeout(
               () =>
                 reject(
@@ -1523,6 +1532,12 @@ export class ChromiumLaunchPlugin {
         profilePath: launchProfilePath
       })
     } catch (error) {
+      // The run ends on the predicted refusal below, whatever broke the wire.
+      if (predictedRefusal) {
+        gracefulTerminateChild(child, this.options.browser)
+        this.endPredictedRefusal(compilation, predictedRefusal.extensionPath)
+      }
+
       // A dead CDP wire means no reload delivery for the whole session,
       // always tell the user (previously author-mode-only, i.e. silent).
       const message = String(error && (error as Error).message)
@@ -1555,6 +1570,40 @@ export class ChromiumLaunchPlugin {
         profilePath: launchProfilePath
       })
     }
+
+    // The browser was started only to say why. A guest it took after all
+    // keeps its session, any other answer ends the run as predicted.
+    if (predictedRefusal && endsPredictedRefusal(guestLoadStatus)) {
+      gracefulTerminateChild(child, this.options.browser)
+      this.endPredictedRefusal(compilation, predictedRefusal.extensionPath)
+    }
+  }
+
+  // Ends a run-only launch whose manifest the browser refuses. The contract
+  // keeps the browser's sentence when it gave one, else a general reason.
+  private endPredictedRefusal(
+    compilation: CompilationLike,
+    extensionPath: string
+  ): never {
+    const browserReason = this.extensionLoadRefused
+
+    if (!browserReason) {
+      const refusedOutputPath = getExtensionOutputPath(compilation, undefined)
+
+      stampReadyExtensionLoadRefused(
+        refusedOutputPath,
+        GENERAL_REFUSAL_REASON,
+        readReadyRunId(refusedOutputPath)
+      )
+    }
+
+    throw new Error(
+      messages.chromiumRefusesTheExtension(
+        String(this.options.browser),
+        extensionPath,
+        browserReason
+      )
+    )
   }
 
   // "ready" names an extension the browser is running, and the one proof of

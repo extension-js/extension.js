@@ -5,6 +5,7 @@ import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {
   chromiumStillRunsManifestV2,
   diagnoseChromiumManifestRefusal,
+  endsPredictedRefusal,
   findChromiumLoadBlockers,
   findInvalidMatchPatterns,
   findLocaleLoadBlockers,
@@ -13,7 +14,10 @@ import {
   planManifestV2Launch,
   repeatsManifestV2Refusal
 } from '../browsers-lib/manifest-refusal'
-import {manifestV2OnChromiumBrowser} from '../browsers-lib/messages'
+import {
+  chromiumRefusesTheExtension,
+  manifestV2OnChromiumBrowser
+} from '../browsers-lib/messages'
 
 describe('diagnoseChromiumManifestRefusal', () => {
   it('flags MV2', () => {
@@ -626,6 +630,38 @@ describe('a Manifest V2 guest at launch', () => {
     expect(repeatsManifestV2Refusal(false, reason)).toBe(false)
     expect(repeatsManifestV2Refusal(undefined, reason)).toBe(false)
     expect(repeatsManifestV2Refusal(true, 'Could not load icon')).toBe(false)
+  })
+
+  it('ends a predicted refusal unless the browser took the guest', () => {
+    expect(endsPredictedRefusal('refused')).toBe(true)
+    expect(endsPredictedRefusal('unknown')).toBe(true)
+    expect(endsPredictedRefusal('loaded')).toBe(false)
+  })
+
+  it('carries the sentence of the browser on the frame that ends the run', () => {
+    const sentence =
+      'Cannot install extension because it uses an unsupported manifest version.'
+    const framed = chromiumRefusesTheExtension(
+      'chrome',
+      '/dist/chrome',
+      sentence
+    )
+
+    expect(framed).toContain('Chrome refuses to load this extension')
+    expect(framed).toContain(sentence)
+    expect(framed.split(sentence)).toHaveLength(2)
+    expect(framed).toContain(
+      'Fix what the browser names, then run the command again.'
+    )
+
+    expect(framed).not.toContain('Read the reason above')
+
+    const unasked = chromiumRefusesTheExtension('chrome', '/dist/chrome')
+
+    expect(unasked).not.toContain('REASON')
+    expect(unasked).toContain(
+      'Read the reason above, fix the manifest, then run the command again.'
+    )
   })
 
   it('names the Chrome versions for Chrome', () => {
