@@ -670,11 +670,19 @@ export class TraceRuntimeLoadedFiles {
       | {kind: 'html'; content: string; baseRel: string}
       | {kind: 'css'; content: string; baseRel: string}
 
-    let pending: PendingScan[] = run.jsAssets(only).map((asset) => ({
-      kind: 'js' as const,
-      content: run.textOf(asset),
-      assetName: asset.name
-    }))
+    let pending: PendingScan[] = [
+      ...run.jsAssets(only).map((asset) => ({
+        kind: 'js' as const,
+        content: run.textOf(asset),
+        assetName: asset.name
+      })),
+      // A sheet an injection call ships names fonts and images too. Firefox
+      // reads them from where the sheet sits, so they are followed from there.
+      ...run.takeInjectedSheets().map((sheet) => ({
+        kind: 'css' as const,
+        ...sheet
+      }))
+    ]
 
     // Copied files chain: a getURL'd classic script can call getURL again or
     // import() a module, and a copied HTML page has subresources. Compiled
@@ -1027,7 +1035,7 @@ export class TraceRuntimeLoadedFiles {
           loadsAs: 'classic',
           hasAsset: run.hasAsset
         })
-        run.apply(plan, {
+        const copied = run.apply(plan, {
           context: 'injected',
           onMissing: () =>
             run.warn(
@@ -1052,6 +1060,8 @@ export class TraceRuntimeLoadedFiles {
               )
             )
         })
+
+        run.noteInjectedSheet(distRel, copied)
       }
     }
 
@@ -1073,7 +1083,7 @@ export class TraceRuntimeLoadedFiles {
         hasAsset: run.hasAsset
       })
       // Held to what a literal is, the warning naming the source file.
-      run.apply(plan, {
+      const copied = run.apply(plan, {
         context: 'injected',
         onMissing: () =>
           run.warn(
@@ -1092,6 +1102,8 @@ export class TraceRuntimeLoadedFiles {
             )
           )
       })
+
+      run.noteInjectedSheet(distRel, copied)
     }
   }
 }
@@ -1117,6 +1129,7 @@ class TraceRun {
   // one is dead code on this browser, so the trace ships nothing for it.
   private readonly excluded: ReadonlySet<string>
   private namedModules?: Set<string>
+  private injectedSheets: Array<{content: string; baseRel: string}> = []
 
   constructor(
     readonly compilation: Compilation,
@@ -1159,6 +1172,21 @@ class TraceRun {
     }
 
     return found
+  }
+
+  // A stylesheet an injection call copied as written, kept for the scan
+  // that follows the files a copied sheet names.
+  noteInjectedSheet(distRel: string, copied: string | null) {
+    if (copied == null || !/\.css$/i.test(distRel)) return
+
+    this.injectedSheets.push({content: copied, baseRel: distRel})
+  }
+
+  takeInjectedSheets(): Array<{content: string; baseRel: string}> {
+    const sheets = this.injectedSheets
+    this.injectedSheets = []
+
+    return sheets
   }
 
   // The pages each emitted script is loaded by, since a relative path in a
@@ -2056,8 +2084,13 @@ export function extractRuntimeSurfaceLiterals(source: string): string[] {
   return literals
 }
 
-// Extract url() and @import targets from a stylesheet copied through by
-// getURL tracing, so the fonts and images it asks for ship with it.
+// The address a sheet spells with the id the browser fills in, which is the
+// one spelling Chromium reads from the extension in a sheet it injects.
+const EXTENSION_ID_ADDRESS =
+  /^(?:chrome|moz)-extension:\/\/__MSG_@@extension_id__\//i
+
+// Extract url() and @import targets from a stylesheet the build copied as
+// written, so the fonts and images it asks for ship with it.
 export function extractCssSubresourceLiterals(css: string): string[] {
   const literals: string[] = []
   const code = css.replace(/\/\*[\s\S]*?\*\//g, '')
@@ -2065,7 +2098,9 @@ export function extractCssSubresourceLiterals(css: string): string[] {
     /url\(\s*(?:(["'])([^"'\n]*)\1|([^"'()\s]+))\s*\)|@import\s+(["'])([^"'\n]+)\4/gi
 
   for (const match of code.matchAll(refRe)) {
-    const literal = (match[2] ?? match[3] ?? match[5] ?? '').trim()
+    const literal = (match[2] ?? match[3] ?? match[5] ?? '')
+      .trim()
+      .replace(EXTENSION_ID_ADDRESS, '/')
 
     if (literal && !literal.startsWith('#')) literals.push(literal)
   }

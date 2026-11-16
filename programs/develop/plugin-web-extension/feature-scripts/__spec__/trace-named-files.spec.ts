@@ -233,7 +233,9 @@ describe('a stylesheet copied with its page', () => {
           '/* url(gone.png) */',
           '@font-face{src:url("../assets/fonts/a.ttf")}',
           ".a{background:url('img/a.png')}.b{background:url(img/b.svg#mark)}",
-          '.c{background:url(data:image/png;base64,AAAA)}.d{fill:url(#grad)}'
+          '.c{background:url(data:image/png;base64,AAAA)}.d{fill:url(#grad)}',
+          '.e{background:url("chrome-extension://__MSG_@@extension_id__/img/e.png")}',
+          '.f{background:url(moz-extension://__MSG_@@extension_id__/img/f.png)}'
         ].join('\n')
       )
     ).toEqual([
@@ -241,7 +243,9 @@ describe('a stylesheet copied with its page', () => {
       '../assets/fonts/a.ttf',
       'img/a.png',
       'img/b.svg#mark',
-      'data:image/png;base64,AAAA'
+      'data:image/png;base64,AAAA',
+      '/img/e.png',
+      '/img/f.png'
     ])
   })
 
@@ -260,5 +264,83 @@ describe('a stylesheet copied with its page', () => {
 
     expect(emitted.has('ui/options/style.css')).toBe(true)
     expect(emitted.has('ui/assets/fonts/a.ttf')).toBe(true)
+  })
+})
+
+describe('a stylesheet an injection call ships', () => {
+  const SHEET_FILES = {
+    'styles/inject.css':
+      '@import "base.css";@font-face{font-family:A;src:url("../fonts/a.ttf")}body{background:url(img/bg.png)}',
+    'styles/base.css': '.base{background:url("img/base.png")}',
+    'styles/img/bg.png': 'png',
+    'styles/img/base.png': 'png',
+    'fonts/a.ttf': 'font'
+  }
+
+  it.each([
+    [
+      'scripting.insertCSS',
+      'chrome.scripting.insertCSS({target:{tabId:1},files:["styles/inject.css"]})'
+    ],
+    ['tabs.insertCSS', 'browser.tabs.insertCSS(1,{file:"/styles/inject.css"})'],
+    [
+      'scripting.registerContentScripts',
+      'chrome.scripting.registerContentScripts([{id:"a",matches:["<all_urls>"],css:["styles/inject.css"]}])'
+    ]
+  ])('ships what the sheet of %s loads, read from the sheet', async (_call, worker) => {
+    const dir = createTempProject(SHEET_FILES)
+    const {emitted, compilation} = await runTrace(dir, {[WORKER]: worker})
+
+    expect([...emitted.keys()].sort()).toEqual([
+      WORKER,
+      'fonts/a.ttf',
+      'styles/base.css',
+      'styles/img/base.png',
+      'styles/img/bg.png',
+      'styles/inject.css'
+    ])
+
+    expect(compilation.warnings).toHaveLength(0)
+  })
+
+  it('ships a target spelled with the id the browser fills in', async () => {
+    const dir = createTempProject({
+      'styles/inject.css':
+        '.a{background:url("chrome-extension://__MSG_@@extension_id__/images/a.png")}@font-face{font-family:B;src:url(moz-extension://__MSG_@@extension_id__/fonts/b.ttf)}',
+      'images/a.png': 'png',
+      'fonts/b.ttf': 'font'
+    })
+    const {emitted} = await runTrace(dir, {
+      [WORKER]:
+        'chrome.scripting.insertCSS({target:{tabId:1},files:["styles/inject.css"]})'
+    })
+
+    expect(emitted.has('images/a.png')).toBe(true)
+    expect(emitted.has('fonts/b.ttf')).toBe(true)
+  })
+
+  it('ships them for a sheet a constant names', async () => {
+    const dir = createTempProject(SHEET_FILES)
+    const {emitted} = await runTrace(dir, {
+      [WORKER]:
+        'const SHEETS=["styles/inject.css"];chrome.scripting.insertCSS({target:{tabId:1},files:SHEETS})'
+    })
+
+    expect(emitted.has('styles/img/bg.png')).toBe(true)
+    expect(emitted.has('fonts/a.ttf')).toBe(true)
+  })
+
+  it('stays quiet about a target that is remote, inline or absent', async () => {
+    const dir = createTempProject({
+      'styles/inject.css':
+        '.a{background:url(https://example.com/a.png)}.b{background:url(data:image/png;base64,AAAA)}.c{background:url(img/gone.png)}'
+    })
+    const {emitted, compilation} = await runTrace(dir, {
+      [WORKER]:
+        'chrome.scripting.insertCSS({target:{tabId:1},files:["styles/inject.css"]})'
+    })
+
+    expect([...emitted.keys()].sort()).toEqual([WORKER, 'styles/inject.css'])
+    expect(compilation.warnings).toHaveLength(0)
   })
 })
