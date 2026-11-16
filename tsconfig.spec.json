@@ -17,6 +17,8 @@
     "./examples/**",
     "./templates/**",
     "./programs/extension/types/index.d.ts",
-    "./programs/extension/types/firefox.d.ts"
+    "./programs/extension/types/firefox.d.ts",
+    "./programs/extension/types/chrome.d.ts",
+    "./programs/extension/types/callbacks.d.ts"
   ]
 }

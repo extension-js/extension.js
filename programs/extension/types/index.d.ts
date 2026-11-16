@@ -5,5 +5,7 @@
 /// <reference path="./assets.d.ts" />
 /// <reference path="./env.d.ts" />
 /// <reference path="./firefox.d.ts" />
+/// <reference path="./chrome.d.ts" />
+/// <reference path="./callbacks.d.ts" />
 
 export {}

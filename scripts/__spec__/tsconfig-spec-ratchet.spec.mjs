@@ -13,11 +13,13 @@ const root = path.resolve(
 // tsconfig.spec.json started life with 98 spec files excluded as "not passing
 // yet" and nothing stopped that list from growing. This pins it. A spec that
 // fails the typecheck gets its types fixed, it does not get a line here.
-// The two published type files load chrome-types, which cannot share a
-// program with the @types/chrome the sources and specs are written against.
+// The published type files that load chrome-types cannot share a program
+// with the @types/chrome the sources and specs are written against.
 const BASE_EXCLUDES = [
   '**/dist',
   './examples/**',
+  './programs/extension/types/callbacks.d.ts',
+  './programs/extension/types/chrome.d.ts',
   './programs/extension/types/firefox.d.ts',
   './programs/extension/types/index.d.ts',
   './templates/**',

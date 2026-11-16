@@ -29,6 +29,8 @@
     // These load chrome-types, which cannot share a program with the
     // @types/chrome this source is written against. A generator spec checks them.
     "./programs/extension/types/index.d.ts",
-    "./programs/extension/types/firefox.d.ts"
+    "./programs/extension/types/firefox.d.ts",
+    "./programs/extension/types/chrome.d.ts",
+    "./programs/extension/types/callbacks.d.ts"
   ]
 }
