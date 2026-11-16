@@ -131,6 +131,9 @@ describe('runtime paths whose files are not in the build', () => {
     expect(warnings).toHaveLength(1)
     expect(warnings[0]).toContain('logo.png')
     expect(warnings[0]).toContain('public/')
+    // A name at the root is a file, so the advice does not call it a folder.
+    expect(warnings[0]).toContain('Move the file to')
+    expect(warnings[0]).not.toContain('Move the folder')
   }, 120_000)
 
   it('names a folder used as a prefix in a built path', async () => {

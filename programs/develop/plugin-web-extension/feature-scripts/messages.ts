@@ -379,8 +379,11 @@ export function runtimeAssetFolderNotShipped(
     `Paths built from strings at runtime are not traced, so these files fail to load.`
   )
 
+  // With no folder the names are files at the root, one or several.
+  const moved = folder ? 'folder' : missing.length === 1 ? 'file' : 'files'
+
   lines.push(
-    `Move the folder to ${colors.blue(publicPath)} at the project root so it ships at the same path.`
+    `Move the ${moved} to ${colors.blue(publicPath)} at the project root so ${moved === 'files' ? 'they ship' : 'it ships'} at the same path.`
   )
 
   return lines.join('\n')

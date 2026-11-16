@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
+import {runtimeAssetFolderNotShipped} from '../messages'
 import {
   extractPathLiterals,
   findUnshippedFolders,
@@ -158,5 +159,31 @@ describe('folders reported for one build', () => {
     } finally {
       fs.rmSync(root, {recursive: true, force: true})
     }
+  })
+})
+
+describe('what the warning says to move', () => {
+  const lastLine = (folder: string, missing: string[]) =>
+    runtimeAssetFolderNotShipped('popup.js', 'x', folder, missing)
+      .replace(/\u001b\[[0-9;]*m/g, '')
+      .split('\n')
+      .pop()
+
+  it('says folder for a folder', () => {
+    expect(lastLine('icons/providers', ['icons/providers/a.png'])).toBe(
+      'Move the folder to public/icons/providers/ at the project root so it ships at the same path.'
+    )
+  })
+
+  it('says file for one file at the root', () => {
+    expect(lastLine('', ['logo.png'])).toBe(
+      'Move the file to public/ at the project root so it ships at the same path.'
+    )
+  })
+
+  it('says files for several files at the root', () => {
+    expect(lastLine('', ['logo.png', 'mark.png'])).toBe(
+      'Move the files to public/ at the project root so they ship at the same path.'
+    )
   })
 })
