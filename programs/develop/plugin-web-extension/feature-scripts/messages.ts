@@ -531,3 +531,54 @@ export function contentScriptWithoutDefaultExport(
     afterWholeReload
   )
 }
+
+// Chromium drops an @import in a sheet it injects, so one the build could
+// not write into the sheet is a rule that styles nothing there.
+export function injectedSheetImportKept(
+  sheet: string,
+  line: number,
+  request: string,
+  reason: 'remote' | 'missing'
+) {
+  const lines: string[] = []
+  lines.push(
+    `${sheet} is injected by file and imports '${request}', which Chrome drops in a sheet it injects.`
+  )
+
+  lines.push(`${colors.gray('PATH')} ${colors.underline(`${sheet}:${line}`)}`)
+  lines.push(
+    reason === 'remote'
+      ? `The build writes an imported sheet into the injected one, and it cannot read a sheet another origin serves.`
+      : `The build writes an imported sheet into the injected one, and this file isn't in the output.`
+  )
+
+  lines.push(
+    reason === 'remote'
+      ? `Keep a copy of that sheet in the project and import the copy.`
+      : `Fix the path, or remove the import.`
+  )
+
+  return lines.join('\n')
+}
+
+export function publicInjectedSheetImportIgnored(
+  sheet: string,
+  line: number,
+  request: string
+) {
+  const lines: string[] = []
+  lines.push(
+    `${sheet} is injected by file and imports '${request}', which Chrome drops in a sheet it injects.`
+  )
+
+  lines.push(`${colors.gray('PATH')} ${colors.underline(`${sheet}:${line}`)}`)
+  lines.push(
+    `A file in ${colors.blue('public/')} ships byte for byte, so the import stays as written. Firefox loads it, Chrome does not.`
+  )
+
+  lines.push(
+    `Move the sheet out of ${colors.blue('public/')} and the build writes the imported rules into it.`
+  )
+
+  return lines.join('\n')
+}

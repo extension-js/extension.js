@@ -51,7 +51,8 @@ import * as messages from '../messages'
 import {INJECTED_CLASSIC_QUERY} from '../scripts-lib/completion-value'
 import {
   noteInjectedSheetTarget,
-  noteNamedInjectedSheet
+  noteNamedInjectedSheet,
+  notePublicInjectedSheet
 } from '../scripts-lib/injected-sheet-urls'
 import {keepCompletionValueOf} from './keep-completion-value'
 import {
@@ -857,7 +858,7 @@ export class TraceRuntimeLoadedFiles {
     type PendingScan =
       | {kind: 'js'; content: string; assetName: string; copied?: boolean}
       | {kind: 'html'; content: string; baseRel: string}
-      | {kind: 'css'; content: string; baseRel: string; injected?: boolean}
+      | {kind: 'css'; content: string; baseRel: string; injected?: string}
 
     let pending: PendingScan[] = [
       ...run.jsAssets(only).map((asset) => ({
@@ -869,7 +870,7 @@ export class TraceRuntimeLoadedFiles {
       // reads them from where the sheet sits, so they are followed from there.
       ...run.takeInjectedSheets().map((sheet) => ({
         kind: 'css' as const,
-        injected: true,
+        injected: sheet.baseRel,
         ...sheet
       }))
     ]
@@ -934,7 +935,7 @@ export class TraceRuntimeLoadedFiles {
             item.injected &&
             !/\.css$/i.test(distRel)
           ) {
-            noteInjectedSheetTarget(run.compilation, item.baseRel, distRel)
+            noteInjectedSheetTarget(run.compilation, item.injected, distRel)
           }
 
           const sourceRel =
@@ -1075,8 +1076,14 @@ export class TraceRuntimeLoadedFiles {
           } else if (/\.html?$/i.test(distRel)) {
             next.push({kind: 'html', content: copied, baseRel: distRel})
           } else if (/\.css$/i.test(distRel)) {
-            // A sheet copied as written still asks for its fonts and images.
-            next.push({kind: 'css', content: copied, baseRel: distRel})
+            // A sheet copied as written still asks for its fonts and images,
+            // and one an injected sheet imports lands on the same page.
+            next.push({
+              kind: 'css',
+              content: copied,
+              baseRel: distRel,
+              injected: item.kind === 'css' ? item.injected : undefined
+            })
           }
         }
       }
@@ -1426,12 +1433,11 @@ class TraceRun {
   ) {
     if (!/\.css$/i.test(distRel)) return
 
-    // A public/ file ships byte for byte, so only a sheet this build
-    // writes is handed to the step that roots its targets on Chromium.
-    if (
-      plan.kind !== 'missing' &&
-      !(plan.kind === 'skip' && plan.reason === 'public')
-    ) {
+    // A public/ file ships byte for byte, and the copier has it in the
+    // output before this trace runs, so the folder says whose file it is.
+    if (isFile(path.join(this.manifestDir, 'public', distRel))) {
+      notePublicInjectedSheet(this.compilation, distRel)
+    } else if (plan.kind !== 'missing') {
       noteNamedInjectedSheet(this.compilation, plan.emitPath)
     }
 

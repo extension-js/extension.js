@@ -254,6 +254,7 @@ describe('a stylesheet a script injects by file', () => {
       {
         resources: [
           'fonts/a.ttf',
+          'styles/img/base.png',
           'styles/img/bg.png',
           'styles/img/registered.png'
         ],
@@ -264,14 +265,15 @@ describe('a stylesheet a script injects by file', () => {
     expect(summary.warnings_count).toBe(2)
 
     // Chromium reads an injected sheet's paths against the visited page, so
-    // each one names the extension. It drops the @import, kept as written.
+    // each one names the extension. It drops an @import, so the imported
+    // rules are written in its place.
     const address = 'chrome-extension://__MSG_@@extension_id__/'
 
     expect(
       fs.readFileSync(path.join(root, 'dist/chrome/styles/inject.css'), 'utf8')
     ).toBe(
       [
-        '@import "base.css";',
+        `.base { background: url("${address}styles/img/base.png"); }`,
         `@font-face { font-family: "Injected"; src: url("${address}fonts/a.ttf"); }`,
         `body { background-image: url("${address}styles/img/bg.png"); }`,
         ''
@@ -285,10 +287,146 @@ describe('a stylesheet a script injects by file', () => {
       )
     ).toBe(`p { background: url("${address}styles/img/registered.png"); }\n`)
 
-    // A sheet only another sheet imports is fetched from its own address.
+    // The imported file itself still ships as written.
     expect(
       fs.readFileSync(path.join(root, 'dist/chrome/styles/base.css'), 'utf8')
     ).toBe(SHEETS['styles/base.css'])
+  }, 120_000)
+
+  const INJECT = [
+    'chrome.action.onClicked.addListener((tab) =>',
+    '  chrome.scripting.insertCSS({target: {tabId: tab.id}, files: ["styles/inject.css"]}))',
+    ''
+  ].join('\n')
+
+  it('writes each import under its condition, from its own folder, on chrome', async () => {
+    const root = project({
+      'background/index.js': INJECT,
+      'styles/inject.css': [
+        '@charset "utf-8";',
+        '@import "base.css";',
+        '@import url("print.css") print;',
+        '@import "low.css" layer(low) supports(display: grid) screen;',
+        '@import "https://fonts.example/far.css";',
+        '@import "gone.css";',
+        '.own { color: red; }',
+        ''
+      ].join('\n'),
+      'styles/base.css':
+        '@import "deep/deep.css";\n@import "inject.css";\n.base { color: blue; }\n',
+      'styles/deep/deep.css': '.deep { background: url("img/deep.png"); }\n',
+      'styles/deep/img/deep.png': 'png',
+      'styles/print.css': '.print { color: black; }\n',
+      'styles/low.css': '.low { color: gray; }\n'
+    })
+
+    const summary = await build(root)
+    const address = 'chrome-extension://__MSG_@@extension_id__/'
+
+    expect(summary.errors_count).toBe(0)
+    expect(
+      fs.readFileSync(path.join(root, 'dist/chrome/styles/inject.css'), 'utf8')
+    ).toBe(
+      [
+        '@charset "utf-8";',
+        `.deep { background: url("${address}styles/deep/img/deep.png"); }`,
+        '',
+        '.base { color: blue; }',
+        '@media print {',
+        '.print { color: black; }',
+        '}',
+        '@supports (display: grid) {',
+        '@media screen {',
+        '@layer low {',
+        '.low { color: gray; }',
+        '}',
+        '}',
+        '}',
+        '@import "https://fonts.example/far.css";',
+        '@import "gone.css";',
+        '.own { color: red; }',
+        ''
+      ].join('\n')
+    )
+
+    // The page fetches the image the deepest sheet names, so it may.
+    expect(
+      JSON.parse(
+        fs.readFileSync(path.join(root, 'dist/chrome/manifest.json'), 'utf8')
+      ).web_accessible_resources
+    ).toEqual([
+      {resources: ['styles/deep/img/deep.png'], matches: ['<all_urls>']}
+    ])
+
+    // One line for the exposed image, one per import that stays a rule
+    // Chrome drops, each with its file and line.
+    const kept = (summary.warnings || []).filter((text: string) =>
+      text.includes('Chrome drops')
+    )
+
+    expect(kept).toHaveLength(2)
+    expect(kept[0]).toContain("imports 'https://fonts.example/far.css'")
+    expect(kept[0]).toContain('styles/inject.css:5')
+    expect(kept[1]).toContain("imports 'gone.css'")
+    expect(kept[1]).toContain('styles/inject.css:6')
+    expect(summary.warnings_count).toBe(3)
+  }, 120_000)
+
+  it('keeps the imports of the sheet as written, on firefox', async () => {
+    const sheet = '@import "base.css";\n.own { color: red; }\n'
+    const root = project(
+      {
+        'background/index.js': INJECT,
+        'styles/inject.css': sheet,
+        'styles/base.css': '.base { color: blue; }\n'
+      },
+      {background: {scripts: ['background/index.js']}}
+    )
+
+    const summary = await build(root, 'firefox')
+
+    expect(summary.errors_count).toBe(0)
+    expect(
+      (summary.warnings || []).filter((text: string) =>
+        text.includes('styles/inject.css')
+      )
+    ).toEqual([])
+
+    expect(
+      fs.readFileSync(path.join(root, 'dist/firefox/styles/inject.css'), 'utf8')
+    ).toBe(sheet)
+  }, 120_000)
+
+  it('leaves a public/ sheet byte for byte and names its first import, on chrome', async () => {
+    const sheet = [
+      '/* shipped as written */',
+      '@import "base.css";',
+      '@import "more.css";',
+      '.own { background: url("img/own.png"); }',
+      ''
+    ].join('\n')
+    const root = project({
+      'background/index.js': INJECT,
+      'public/styles/inject.css': sheet,
+      'public/styles/base.css': '.base { color: blue; }\n',
+      'public/styles/more.css': '.more { color: blue; }\n',
+      'public/styles/img/own.png': 'png'
+    })
+
+    const summary = await build(root)
+
+    expect(summary.errors_count).toBe(0)
+    expect(
+      fs.readFileSync(path.join(root, 'dist/chrome/styles/inject.css'), 'utf8')
+    ).toBe(sheet)
+
+    const said = (summary.warnings || []).filter((text: string) =>
+      text.includes('Chrome drops')
+    )
+
+    expect(said).toHaveLength(1)
+    expect(said[0]).toContain("imports 'base.css'")
+    expect(said[0]).toContain('public/styles/inject.css:2')
   }, 120_000)
 
   it('ships them for the tabs.insertCSS file form, on firefox', async () => {
