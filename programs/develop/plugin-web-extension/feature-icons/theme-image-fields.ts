@@ -9,7 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {filterKeysForThisBrowser} from '../../lib/manifest-utils'
-import {stripBom} from '../../lib/parse-json-safe'
+import {parseAuthoredJson} from '../../lib/parse-json-safe'
 import type {DevOptions, FilepathList, Manifest} from '../../types'
 
 // The manifest-fields package keys theme images by basename, so two images
@@ -25,7 +25,7 @@ export function themeImageFields(
     // A theme written as firefox:theme is invisible to a raw read, and the
     // basename collapse this function exists to undo comes back with it.
     manifest = filterKeysForThisBrowser(
-      JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf8'))) as Manifest,
+      parseAuthoredJson(fs.readFileSync(manifestPath, 'utf8')) as Manifest,
       browser
     ) as {theme?: {images?: unknown}}
   } catch {

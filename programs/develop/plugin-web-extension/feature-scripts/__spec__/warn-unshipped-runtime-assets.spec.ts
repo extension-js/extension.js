@@ -17,6 +17,32 @@ describe('path literals in emitted code', () => {
     ).toEqual(['icons/providers/', 'assets/x.svg', 'assets/images/'])
   })
 
+  it('reads the string written after a template with an interpolation', () => {
+    // The backtick that closes one template once opened the next, and the
+    // quoted path between the two was read as template text.
+    expect(
+      extractPathLiterals(
+        // biome-ignore lint/suspicious/noTemplateCurlyInString: fixture source text
+        'const U={a:{remote:`${B}/a.config`,local:"../config/a.config"},b:{remote:`${B}/b.config`,local:"../config/b.config"}}'
+      )
+    ).toEqual(['../config/a.config', '../config/b.config'])
+  })
+
+  it('reads a string inside an interpolation and past an escaped quote', () => {
+    expect(
+      extractPathLiterals(
+        // biome-ignore lint/suspicious/noTemplateCurlyInString: fixture source text
+        'a=`${dark?"icons/dark.png":"icons/light.png"}`;b="say \\"hi\\"";c="img/a.png"'
+      )
+    ).toEqual(['icons/dark.png', 'icons/light.png', 'img/a.png'])
+  })
+
+  it('does not let an apostrophe in markup text swallow an attribute', () => {
+    expect(
+      extractPathLiterals("<p>Don't</p>\n<img src='img/a.png'>\n<p>it's</p>")
+    ).toEqual(['img/a.png'])
+  })
+
   it('reads attribute values in markup', () => {
     expect(
       extractPathLiterals(
@@ -48,6 +74,21 @@ describe('runtime path references', () => {
     expect(toRuntimePathReference('../../assets/images/dark.svg')?.file).toBe(
       'assets/images/dark.svg'
     )
+  })
+
+  it('takes any data file inside a folder, and no code or root name', () => {
+    expect(toRuntimePathReference('../config/sites.config')?.file).toBe(
+      'config/sites.config'
+    )
+
+    expect(toRuntimePathReference('config/colors.drconf')?.file).toBe(
+      'config/colors.drconf'
+    )
+
+    expect(toRuntimePathReference('lib/helper.js')?.file).toBeUndefined()
+    expect(toRuntimePathReference('pages/about.html')?.file).toBeUndefined()
+    expect(toRuntimePathReference('sites.config')).toBeUndefined()
+    expect(toRuntimePathReference('logo.png')?.file).toBe('logo.png')
   })
 
   it('leaves urls, prose and package folders alone', () => {

@@ -808,7 +808,11 @@ describe('webpack/command-build', () => {
 
     await extensionBuild('/proj', {browser: 'chrome', silent: true})
 
-    expect(tsToolsMod.ensureTypeScriptConfig).toHaveBeenCalledWith('/proj/src')
+    expect(tsToolsMod.ensureTypeScriptConfig).toHaveBeenCalledWith(
+      '/proj/src',
+      expect.objectContaining({browser: 'chrome'})
+    )
+
     expect(genTypesMod.generateExtensionTypes).toHaveBeenCalledWith(
       '/proj/src',
       '/proj'
@@ -827,7 +831,11 @@ describe('webpack/command-build', () => {
 
     await extensionBuild('/proj', {browser: 'chrome', silent: true})
 
-    expect(tsToolsMod.ensureTypeScriptConfig).toHaveBeenCalledWith('/proj/src')
+    expect(tsToolsMod.ensureTypeScriptConfig).toHaveBeenCalledWith(
+      '/proj/src',
+      expect.objectContaining({browser: 'chrome'})
+    )
+
     expect(genTypesMod.generateExtensionTypes).not.toHaveBeenCalled()
   })
 

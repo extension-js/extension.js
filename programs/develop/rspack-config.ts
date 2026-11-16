@@ -25,7 +25,7 @@ import {computeExtensionsToLoad} from './lib/extensions-to-load'
 import {filterKeysForThisBrowser} from './lib/manifest-utils'
 import * as messages from './lib/messages'
 import {CODES, debugLine, isDebug} from './lib/messaging'
-import {stripBom} from './lib/parse-json-safe'
+import {parseAuthoredJson} from './lib/parse-json-safe'
 import {asAbsolute, getDirs, toPosixPath} from './lib/paths'
 import type {ProjectStructure} from './lib/project'
 import {forgetResolvedModuleFolders} from './lib/resource-path'
@@ -75,7 +75,9 @@ export default function webpackConfig(
   let rawManifest: unknown
 
   try {
-    rawManifest = JSON.parse(stripBom(fs.readFileSync(manifestPath, 'utf-8')))
+    rawManifest = parseAuthoredJson(fs.readFileSync(manifestPath, 'utf-8'), {
+      browser: devOptions.browser
+    })
   } catch (error) {
     throw codedError(
       CODES.E_MANIFEST_INVALID,

@@ -8,7 +8,7 @@
 
 import * as fs from 'node:fs'
 import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
-import {stripBom} from '../../../lib/parse-json-safe'
+import {parseAuthoredJson} from '../../../lib/parse-json-safe'
 import type {DevOptions, FilepathList, Manifest} from '../../../types'
 import {declaredResourceSource} from './resolve-war'
 
@@ -25,9 +25,7 @@ export function discoverWebAccessiblePages(
   try {
     declared = (
       filterKeysForThisBrowser(
-        JSON.parse(
-          stripBom(fs.readFileSync(manifestPath, 'utf-8'))
-        ) as Manifest,
+        parseAuthoredJson(fs.readFileSync(manifestPath, 'utf-8')) as Manifest,
         browser
       ) as {web_accessible_resources?: unknown}
     ).web_accessible_resources
