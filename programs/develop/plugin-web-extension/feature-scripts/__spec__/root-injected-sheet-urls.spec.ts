@@ -2,14 +2,15 @@ import {Compilation, sources} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
 import {
   CHROMIUM_EXTENSION_ROOT,
-  GECKO_EXTENSION_ROOT
+  GECKO_EXTENSION_ROOT,
+  noteNamedInjectedSheet
 } from '../scripts-lib/injected-sheet-urls'
 import {RootInjectedSheetUrls} from '../steps/root-injected-sheet-urls'
 
 // The step against the assets given, run as many times as asked.
 function emit(
   assets: Record<string, string>,
-  options: {browser?: string; runs?: number} = {}
+  options: {browser?: string; runs?: number; named?: string[]} = {}
 ) {
   const store = new Map(
     Object.entries(assets).map(([name, text]) => [
@@ -35,6 +36,11 @@ function emit(
       updated.push(name)
       store.set(name, source)
     }
+  }
+
+  // The sheets an injection call names by file, as the trace reports them.
+  for (const name of options.named || []) {
+    noteNamedInjectedSheet(compilation, name)
   }
 
   new RootInjectedSheetUrls({
@@ -151,5 +157,33 @@ describe('the step that names an injected sheet url() from the extension', () =>
 
     expect(built.text('content_scripts/content-0.css')).toBe(FIXED)
     expect(built.updated).toEqual(['content_scripts/content-0.css'])
+  })
+
+  const WRITTEN =
+    '@import "base.css";.a{src:url("../fonts/a.ttf");background:url(img/bg.png)}.b{background:url(/img/root.png)}'
+
+  it('names every target of a sheet injected by file, from where it sits', () => {
+    const built = emit(
+      {'styles/inject.css': WRITTEN, 'styles/base.css': WRITTEN},
+      {named: ['styles/inject.css']}
+    )
+
+    expect(built.text('styles/inject.css')).toBe(
+      `@import "base.css";.a{src:url("${CHROMIUM_EXTENSION_ROOT}fonts/a.ttf");background:url("${CHROMIUM_EXTENSION_ROOT}styles/img/bg.png")}.b{background:url("${CHROMIUM_EXTENSION_ROOT}img/root.png")}`
+    )
+
+    // A sheet reached only through an @import is read from its own address.
+    expect(built.text('styles/base.css')).toBe(WRITTEN)
+    expect(built.updated).toEqual(['styles/inject.css'])
+  })
+
+  it('leaves that sheet as written on firefox, which reads from the file', () => {
+    const built = emit(
+      {'styles/inject.css': WRITTEN},
+      {named: ['styles/inject.css'], browser: 'firefox'}
+    )
+
+    expect(built.text('styles/inject.css')).toBe(WRITTEN)
+    expect(built.updated).toEqual([])
   })
 })

@@ -4,7 +4,10 @@ import {
   GECKO_EXTENSION_ROOT,
   injectedSheetRoot,
   isInjectedSheet,
-  rootedAtExtension
+  namedInjectedSheets,
+  noteNamedInjectedSheet,
+  rootedAtExtension,
+  rootedAtExtensionFrom
 } from '../injected-sheet-urls'
 
 describe('the url() targets of a sheet Chromium injects', () => {
@@ -125,5 +128,61 @@ describe('the sheets the browser puts on the visited page itself', () => {
     expect(isInjectedSheet('content_scripts/content-0.js', [])).toBe(false)
     expect(isInjectedSheet('scripts/other.css', runtimeEntries)).toBe(false)
     expect(isInjectedSheet('scripts/hook.css.map', runtimeEntries)).toBe(false)
+  })
+})
+
+describe('the targets of a sheet shipped as written and injected by file', () => {
+  const from = (css: string) => rootedAtExtensionFrom(css, 'styles/inject.css')
+
+  it('names a relative and a root target from the extension', () => {
+    expect(
+      from(
+        [
+          '.a{background:url(img/a.png)}',
+          '.b{background:url("./img/b.png?v=1#frag")}',
+          ".c{src:url('../fonts/c.woff2')}",
+          '.d{background:url(/img/d.png)}',
+          '.e{background:url(../../above/e.png)}'
+        ].join('\n')
+      )
+    ).toBe(
+      [
+        `.a{background:url("${CHROMIUM_EXTENSION_ROOT}styles/img/a.png")}`,
+        `.b{background:url("${CHROMIUM_EXTENSION_ROOT}styles/img/b.png?v=1#frag")}`,
+        `.c{src:url("${CHROMIUM_EXTENSION_ROOT}fonts/c.woff2")}`,
+        `.d{background:url("${CHROMIUM_EXTENSION_ROOT}img/d.png")}`,
+        `.e{background:url("${CHROMIUM_EXTENSION_ROOT}above/e.png")}`
+      ].join('\n')
+    )
+  })
+
+  it('leaves a remote, inline, fragment and already named target, and an @import', () => {
+    const css = [
+      '@import "base.css";',
+      '@import url(theme.css);',
+      '.a{background:url(//cdn.example.com/a.png)}',
+      '.b{background:url(https://example.com/b.png)}',
+      '.c{background:url(data:image/png;base64,AAAA)}',
+      '.d{background:url(#gradient)}',
+      `.e{background:url(${CHROMIUM_EXTENSION_ROOT}img/e.png)}`
+    ].join('\n')
+
+    expect(from(css)).toBe(css)
+  })
+
+  it('changes nothing on a second pass', () => {
+    const once = from('.a{background:url(img/a.png)}')
+
+    expect(from(once)).toBe(once)
+  })
+
+  it('keeps the sheets named in one compilation apart from the next', () => {
+    const first = {}
+    const second = {}
+
+    noteNamedInjectedSheet(first, 'styles/inject.css')
+
+    expect([...namedInjectedSheets(first)]).toEqual(['styles/inject.css'])
+    expect([...namedInjectedSheets(second)]).toEqual([])
   })
 })

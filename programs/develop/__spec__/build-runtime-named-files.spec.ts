@@ -242,10 +242,32 @@ describe('a stylesheet a script injects by file', () => {
       ])
     )
 
-    // The sheet ships as written, so its paths still read from where it sits.
+    // Chromium reads an injected sheet's paths against the visited page, so
+    // each one names the extension. It drops the @import, kept as written.
+    const address = 'chrome-extension://__MSG_@@extension_id__/'
+
     expect(
       fs.readFileSync(path.join(root, 'dist/chrome/styles/inject.css'), 'utf8')
-    ).toBe(SHEETS['styles/inject.css'])
+    ).toBe(
+      [
+        '@import "base.css";',
+        `@font-face { font-family: "Injected"; src: url("${address}fonts/a.ttf"); }`,
+        `body { background-image: url("${address}styles/img/bg.png"); }`,
+        ''
+      ].join('\n')
+    )
+
+    expect(
+      fs.readFileSync(
+        path.join(root, 'dist/chrome/styles/registered.css'),
+        'utf8'
+      )
+    ).toBe(`p { background: url("${address}styles/img/registered.png"); }\n`)
+
+    // A sheet only another sheet imports is fetched from its own address.
+    expect(
+      fs.readFileSync(path.join(root, 'dist/chrome/styles/base.css'), 'utf8')
+    ).toBe(SHEETS['styles/base.css'])
   }, 120_000)
 
   it('ships them for the tabs.insertCSS file form, on firefox', async () => {
@@ -267,6 +289,11 @@ describe('a stylesheet a script injects by file', () => {
     const summary = await build(root, 'firefox')
     expect(summary.errors_count).toBe(0)
     expect(outputFiles(root, 'firefox')).toEqual(expect.arrayContaining(LOADED))
+
+    // Firefox reads the paths from where the sheet sits, so it ships as written.
+    expect(
+      fs.readFileSync(path.join(root, 'dist/firefox/styles/inject.css'), 'utf8')
+    ).toBe(SHEETS['styles/inject.css'])
   }, 120_000)
 })
 

@@ -7,11 +7,14 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import {Compilation, type Compiler, sources} from '@rspack/core'
+import {isChromiumBasedBrowser} from '../../../lib/constants'
 import type {DevOptions, FilepathList, PluginInterface} from '../../../types'
 import {
   injectedSheetRoot,
   isInjectedSheet,
-  rootedAtExtension
+  namedInjectedSheets,
+  rootedAtExtension,
+  rootedAtExtensionFrom
 } from '../scripts-lib/injected-sheet-urls'
 
 // Chromium resolves a url() in a sheet it injects against the visited page.
@@ -48,11 +51,23 @@ export class RootInjectedSheetUrls {
             stage: Compilation.PROCESS_ASSETS_STAGE_REPORT + 500
           },
           () => {
+            // A sheet named by file keeps its own relative targets, which
+            // only Chromium reads against the page. Firefox reads the file's.
+            const named = isChromiumBasedBrowser(String(this.browser))
+              ? namedInjectedSheets(compilation)
+              : new Set<string>()
+
             for (const asset of compilation.getAssets()) {
-              if (!isInjectedSheet(asset.name, runtimeEntries)) continue
+              const byFile = named.has(asset.name)
+
+              if (!byFile && !isInjectedSheet(asset.name, runtimeEntries)) {
+                continue
+              }
 
               const before = asset.source.source().toString()
-              const after = rootedAtExtension(before, root)
+              const after = byFile
+                ? rootedAtExtensionFrom(before, asset.name, root)
+                : rootedAtExtension(before, root)
               if (after === before) continue
 
               compilation.updateAsset(asset.name, new sources.RawSource(after))

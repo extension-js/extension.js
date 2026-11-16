@@ -49,6 +49,7 @@ import {
 } from '../../shared/script-graph'
 import * as messages from '../messages'
 import {INJECTED_CLASSIC_QUERY} from '../scripts-lib/completion-value'
+import {noteNamedInjectedSheet} from '../scripts-lib/injected-sheet-urls'
 import {keepCompletionValueOf} from './keep-completion-value'
 import {
   blankComments,
@@ -1258,7 +1259,7 @@ export class TraceRuntimeLoadedFiles {
             )
         })
 
-        run.noteInjectedSheet(distRel, copied)
+        run.noteInjectedSheet(distRel, copied, plan)
       }
     }
 
@@ -1300,7 +1301,7 @@ export class TraceRuntimeLoadedFiles {
           )
       })
 
-      run.noteInjectedSheet(distRel, copied)
+      run.noteInjectedSheet(distRel, copied, plan)
     }
   }
 }
@@ -1400,8 +1401,23 @@ class TraceRun {
 
   // A stylesheet an injection call copied as written, kept for the scan
   // that follows the files a copied sheet names.
-  noteInjectedSheet(distRel: string, copied: string | null) {
-    if (copied == null || !/\.css$/i.test(distRel)) return
+  noteInjectedSheet(
+    distRel: string,
+    copied: string | null,
+    plan: TracedFilePlan
+  ) {
+    if (!/\.css$/i.test(distRel)) return
+
+    // A public/ file ships byte for byte, so only a sheet this build
+    // writes is handed to the step that roots its targets on Chromium.
+    if (
+      plan.kind !== 'missing' &&
+      !(plan.kind === 'skip' && plan.reason === 'public')
+    ) {
+      noteNamedInjectedSheet(this.compilation, plan.emitPath)
+    }
+
+    if (copied == null) return
 
     this.injectedSheets.push({content: copied, baseRel: distRel})
   }

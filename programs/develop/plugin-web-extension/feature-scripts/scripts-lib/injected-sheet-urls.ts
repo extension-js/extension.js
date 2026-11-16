@@ -57,3 +57,52 @@ export function rootedAtExtension(
       : undefined
   )
 }
+
+// The sheets an injection call names by file, kept for one compilation so
+// the step that roots their targets knows them from a sheet a page links.
+const namedSheets = new WeakMap<object, Set<string>>()
+
+export function noteNamedInjectedSheet(compilation: object, assetName: string) {
+  const names = namedSheets.get(compilation) ?? new Set<string>()
+
+  names.add(assetName)
+  namedSheets.set(compilation, names)
+}
+
+export function namedInjectedSheets(compilation: object): ReadonlySet<string> {
+  return namedSheets.get(compilation) ?? new Set<string>()
+}
+
+// A sheet shipped as written spells its targets from its own folder, which
+// Chromium reads against the visited page, so each one is named in full.
+export function rootedAtExtensionFrom(
+  css: string,
+  sheetName: string,
+  root: string = CHROMIUM_EXTENSION_ROOT
+): string {
+  return replaceCssUrlRefs(css, (request, ref) => {
+    const target = request.trim()
+
+    // Chromium drops an @import in a sheet it injects, however it is spelled.
+    if (
+      ref.isImport ||
+      !target ||
+      target.startsWith('#') ||
+      target.startsWith('//') ||
+      /^[a-z][\w+.-]*:/i.test(target)
+    ) {
+      return undefined
+    }
+
+    try {
+      const resolved = new URL(
+        target,
+        `chrome-extension://extension-js/${sheetName.replace(/\\/g, '/')}`
+      )
+
+      return `${root}${resolved.pathname.slice(1)}${resolved.search}${resolved.hash}`
+    } catch {
+      return undefined
+    }
+  })
+}
