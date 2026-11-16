@@ -31,6 +31,10 @@ import {
   excludedFiles,
   isExcludedEntry
 } from '../../../plugin-special-folders/folders-config'
+import {
+  type CompileMode,
+  getSpecialFoldersDataForProjectRoot
+} from '../../../plugin-special-folders/get-data'
 import type {DevOptions, Manifest} from '../../../types'
 import {webkitDroppedSurfacePages} from '../../feature-manifest/manifest-lib/webkit-unsupported-keys'
 import {declaredResourceSource} from '../../feature-web-resources/web-resources-lib/resolve-war'
@@ -655,6 +659,36 @@ export class TraceRuntimeLoadedFiles {
     return relocated
   }
 
+  // Every page the pages/ folder compiles under a name other than the path
+  // its author wrote, such as pages/x/index.html built as pages/x.html.
+  private folderPageOutputs(run: TraceRun): Map<string, string> {
+    const outputs = new Map<string, string>()
+
+    try {
+      const pages =
+        getSpecialFoldersDataForProjectRoot(
+          (run.compiler.options?.context as string | undefined) ||
+            run.manifestDir,
+          undefined,
+          run.compiler.options?.mode as CompileMode | undefined
+        ).pages ?? {}
+
+      for (const [feature, source] of Object.entries(pages)) {
+        if (typeof source !== 'string') continue
+
+        const authored = unixify(path.relative(run.manifestDir, source))
+        const output = `${feature}.html`
+        if (authored.startsWith('..') || authored === output) continue
+
+        outputs.set(authored, output)
+      }
+    } catch {
+      // A folder that cannot be read has no page to serve.
+    }
+
+    return outputs
+  }
+
   // A script that holds the path a page was written at compares it with
   // sender.url or location, so the page has to open at that same path.
   private keepAuthoredPagePaths(run: TraceRun, only?: Set<string>) {
@@ -772,6 +806,7 @@ export class TraceRuntimeLoadedFiles {
     )
     const surfacePages = this.surfacePageOutputs(run.manifestDir)
     const relocatedPages = this.relocatedPageOutputs(run.manifestDir)
+    const folderPages = this.folderPageOutputs(run)
     let shippedByWar: Set<string> | undefined
     const seen = run.seen.getURL
     const pageSources = new Map(
@@ -988,6 +1023,16 @@ export class TraceRuntimeLoadedFiles {
               distRel,
               relocatedPages.get(distRel) ?? (output ? [output] : [])
             )
+
+            continue
+          }
+
+          // A pages/ folder page is compiled too. Its source copied as
+          // written would ship a second page that loads uncompiled scripts.
+          const folderPage = folderPages.get(distRel)
+
+          if (folderPage && run.hasAsset(folderPage)) {
+            servePageAtAuthoredPath(run, distRel, [folderPage])
 
             continue
           }
