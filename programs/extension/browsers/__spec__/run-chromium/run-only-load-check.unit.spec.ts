@@ -54,6 +54,7 @@ vi.mock('../../../helpers/extension-develop-runtime', () => ({
 
 import {runWaitMode} from '../../../commands/dev-wait'
 import * as banner from '../../browsers-lib/banner'
+import {holdRefusalPredictions} from '../../browsers-lib/manifest-refusal'
 import {browserConfig} from '../../run-chromium/chromium-launch/browser-config'
 import {verifyGuestLoadAfterLaunch} from '../../run-chromium/chromium-launch/setup-cdp-after-launch'
 
@@ -269,6 +270,32 @@ describe('verifyGuestLoadAfterLaunch (run-only load evidence)', () => {
 
     expect(readReady(readyPath).extensionLoadRefusedReason).toBe(reason)
     expect(plugin.extensionLoadRefused).toBe(reason)
+  })
+
+  // The preflight held its block for this answer: the browser's sentence is
+  // the one reported, and a guest it took leaves the prediction to print.
+  it('drops a held prediction on a refusal and keeps it for any other answer', async () => {
+    for (const [outcome, kept] of [
+      [{status: 'refused', reason: 'requires version 999'}, []],
+      [{status: 'loaded', extensionId: 'a'.repeat(32)}, ['predicted block']],
+      [{status: 'unknown'}, ['predicted block']]
+    ] as const) {
+      const {outPath} = makeStartSession()
+      const printed: string[] = []
+      const held = holdRefusalPredictions((message) => printed.push(message))
+
+      held.hold('predicted block')
+      verifyGuestLoadedSpy.mockResolvedValue(outcome)
+
+      await runCheck(outPath, {
+        browser: 'chrome',
+        launchRunId: 'run-start',
+        heldRefusalPredictions: held
+      })
+
+      held.flush()
+      expect(printed).toEqual(kept)
+    }
   })
 
   // The launch was made only to hear the browser, and its last frame carries

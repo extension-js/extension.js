@@ -130,6 +130,8 @@ function reportGuestLoadRefused(
     humanError(messages.chromiumExtensionLoadRefused(refusedPath, reason))
   }
 
+  plugin.heldRefusalPredictions?.browserRefused()
+
   plugin.logSink?.({
     level: 'error',
     text: `extension_load_refused: ${refusedPath}${

@@ -537,3 +537,29 @@ function isValidBase64(value: string): boolean {
     return false
   }
 }
+
+// A predicted refusal waits for the browser's own answer. The browser's
+// sentence replaces it, and it prints only when the browser gave none.
+export interface HeldRefusalPredictions {
+  hold(message: string): void
+  browserRefused(): void
+  flush(): void
+}
+
+export function holdRefusalPredictions(
+  print: (message: string) => void
+): HeldRefusalPredictions {
+  const held: string[] = []
+
+  return {
+    hold: (message) => {
+      held.push(message)
+    },
+    browserRefused: () => {
+      held.length = 0
+    },
+    flush: () => {
+      for (const message of held.splice(0)) print(message)
+    }
+  }
+}

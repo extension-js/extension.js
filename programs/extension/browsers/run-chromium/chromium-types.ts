@@ -6,6 +6,7 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝       ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝ ╚═════╝ ╚═╝     ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import type {HeldRefusalPredictions} from '../browsers-lib/manifest-refusal'
 import type {
   BootRegistrationsWait,
   BrowserLogger,
@@ -112,6 +113,8 @@ export interface ChromiumPluginRuntime extends ChromiumLaunchOptions {
   // Set when the session already said this browser refuses Manifest V2, so
   // the browser's matching answer is recorded and not printed a second time.
   manifestV2RefusalSaid?: boolean
+  // Predicted refusals not printed yet. The browser's own refusal drops them.
+  heldRefusalPredictions?: HeldRefusalPredictions
   // Set when the preflight predicted a refusal, so only a guest the browser
   // took keeps the run and no page is opened for any other answer.
   loadRefusalEndsRun?: boolean

@@ -12,6 +12,7 @@ import {
   findLocaleLoadBlockers,
   findMissingManagedSchema,
   findUnloadableIconFiles,
+  holdRefusalPredictions,
   planManifestV2Launch,
   repeatsManifestV2Refusal
 } from '../browsers-lib/manifest-refusal'
@@ -22,6 +23,33 @@ import {
   manifestVersionAboveThreeOnChromium,
   unsupportedManifestVersionOnChromium
 } from '../browsers-lib/messages'
+
+// One refusal gets one block: the browser's own when it answered.
+describe('holdRefusalPredictions', () => {
+  it('prints a held prediction when the browser named no refusal', () => {
+    const printed: string[] = []
+    const held = holdRefusalPredictions((message) => printed.push(message))
+
+    held.hold('predicted A')
+    held.hold('predicted B')
+    expect(printed).toEqual([])
+
+    held.flush()
+    held.flush()
+    expect(printed).toEqual(['predicted A', 'predicted B'])
+  })
+
+  it("drops the prediction once the browser's own refusal is reported", () => {
+    const printed: string[] = []
+    const held = holdRefusalPredictions((message) => printed.push(message))
+
+    held.hold('predicted A')
+    held.browserRefused()
+    held.flush()
+
+    expect(printed).toEqual([])
+  })
+})
 
 describe('findChromiumManifestCaveats', () => {
   it('names background.scripts with no service worker from Manifest V3 on', () => {

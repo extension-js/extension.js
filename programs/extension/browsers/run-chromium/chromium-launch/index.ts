@@ -53,6 +53,7 @@ import {
   findMissingManagedSchema,
   findUnloadableIconFiles,
   GENERAL_REFUSAL_REASON,
+  holdRefusalPredictions,
   planManifestV2Launch
 } from '../../browsers-lib/manifest-refusal'
 import * as messages from '../../browsers-lib/messages'
@@ -1074,6 +1075,9 @@ export class ChromiumLaunchPlugin {
       opts?.enableCdpPostLaunch !== false || opts?.sessionCommand === 'start'
     const sessionOutputPath = getExtensionOutputPath(compilation, undefined)
     let manifestV2RefusalSaid = false
+    const heldPredictions = holdRefusalPredictions((message) =>
+      humanWarn(message)
+    )
 
     for (const extPath of extensionsToLoad) {
       try {
@@ -1104,7 +1108,7 @@ export class ChromiumLaunchPlugin {
           refused = plan.refused
           if (refused) manifestV2RefusalSaid = true
         } else if (refusal === 'unsupported-manifest-version') {
-          humanWarn(
+          heldPredictions.hold(
             messages.unsupportedManifestVersionOnChromium(
               String(extPath),
               m?.manifest_version
@@ -1129,7 +1133,7 @@ export class ChromiumLaunchPlugin {
         const invalidPatterns = findInvalidMatchPatterns(m)
 
         if (invalidPatterns.length) {
-          humanWarn(
+          heldPredictions.hold(
             messages.chromiumInvalidMatchPatterns(
               String(extPath),
               invalidPatterns
@@ -1145,7 +1149,7 @@ export class ChromiumLaunchPlugin {
         ]
 
         if (loadBlockers.length) {
-          humanWarn(
+          heldPredictions.hold(
             messages.chromiumManifestLoadBlockers(String(extPath), loadBlockers)
           )
         }
@@ -1192,6 +1196,8 @@ export class ChromiumLaunchPlugin {
     }
 
     // A dry run launches nothing, so no browser can say why it refuses.
+    if (dryRun) heldPredictions.flush()
+
     if (predictedRefusal && dryRun) {
       this.endRefusedRun(compilation, predictedRefusal.extensionPath)
     }
@@ -1298,6 +1304,8 @@ export class ChromiumLaunchPlugin {
     }
 
     // With the debugging flags stripped the browser cannot be asked either.
+    if (!enableCdp && !verifyLoadOnly) heldPredictions.flush()
+
     if (predictedRefusal && !verifyLoadOnly) {
       this.endRefusedRun(compilation, predictedRefusal.extensionPath)
     }
@@ -1456,6 +1464,7 @@ export class ChromiumLaunchPlugin {
         binaryPinnedBy,
         launchRunId: this.closeHandlerContext?.runId,
         manifestV2RefusalSaid,
+        heldRefusalPredictions: heldPredictions,
         loadRefusalEndsRun: Boolean(predictedRefusal)
       }
 
@@ -1545,6 +1554,9 @@ export class ChromiumLaunchPlugin {
         profilePath: launchProfilePath
       })
     } catch (error) {
+      // No answer came from the browser, so the prediction is what is known.
+      heldPredictions.flush()
+
       // The run ends on the predicted refusal below, whatever broke the wire.
       if (predictedRefusal) {
         gracefulTerminateChild(child, this.options.browser)
@@ -1583,6 +1595,9 @@ export class ChromiumLaunchPlugin {
         profilePath: launchProfilePath
       })
     }
+
+    // Still held means the browser named no refusal of its own.
+    heldPredictions.flush()
 
     // A guest the browser refused never loads later in a run-only session,
     // so the run ends there, predicted by the preflight or not.
