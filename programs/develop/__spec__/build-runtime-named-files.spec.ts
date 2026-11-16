@@ -207,9 +207,12 @@ describe('a stylesheet a script injects by file', () => {
     'styles/img/bg.png': 'png',
     'styles/img/base.png': 'png',
     'styles/img/registered.png': 'png',
-    'fonts/a.ttf': 'font'
+    'fonts/a.ttf': 'font',
+    'fonts/OFL.txt': 'license'
   }
+  // The license is named by nothing and ships because the font does.
   const LOADED = [
+    'fonts/OFL.txt',
     'fonts/a.ttf',
     'styles/base.css',
     'styles/img/base.png',

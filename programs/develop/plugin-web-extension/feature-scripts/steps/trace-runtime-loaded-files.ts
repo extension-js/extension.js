@@ -199,6 +199,9 @@ const STANDARD_BACKGROUND_KEYS = new Set([
 // importScripts chains resolve against the worker URL, so depth only grows
 // through files importing further files, 8 hops is far beyond real usage.
 const MAX_TRACE_DEPTH = 8
+const FONT_FILE = /\.(?:woff2?|ttf|otf|eot)$/i
+// The names a font license ships under, with any ending.
+const LICENSE_FILE = /^(?:licen[sc]e|copying|notice)|^ofl\.txt$/i
 const SCRIPT_SRC = /<script\b[^>]*?\bsrc\s*=\s*(["'])([^"']+)\1/gi
 const SOURCE_SIBLING_EXTENSIONS = ['.ts', '.mts', '.tsx', '.jsx', '.mjs']
 const STYLESHEET_SIBLING_EXTENSIONS = ['.scss', '.sass', '.less']
@@ -1344,6 +1347,7 @@ class TraceRun {
   private readonly excluded: ReadonlySet<string>
   private namedModules?: Set<string>
   private injectedSheets: Array<{content: string; baseRel: string}> = []
+  private readonly licensedDirs = new Set<string>()
 
   constructor(
     readonly compilation: Compilation,
@@ -1610,7 +1614,52 @@ class TraceRun {
     this.compilation.emitAsset(distRel, new sources.RawSource(buffer))
     this.watch(abs)
 
+    if (FONT_FILE.test(distRel)) this.emitLicensesBeside(abs, distRel)
+
     return buffer.toString()
+  }
+
+  // A font's license ties redistribution to its notice, and no code names
+  // that file, so it ships with a font copied from the folder that holds it.
+  private emitLicensesBeside(fontAbs: string, fontDistRel: string) {
+    const sourceDir = path.dirname(fontAbs)
+    const distDir = path.posix.dirname(unixify(fontDistRel))
+
+    // The notice at the root of the project is the extension's own.
+    if (distDir === '.' || path.relative(this.manifestDir, sourceDir) === '') {
+      return
+    }
+
+    const key = `${sourceDir}\n${distDir}`
+    if (this.licensedDirs.has(key)) return
+
+    this.licensedDirs.add(key)
+
+    let entries: fs.Dirent[]
+
+    try {
+      entries = fs.readdirSync(sourceDir, {withFileTypes: true})
+    } catch {
+      return
+    }
+
+    for (const entry of entries) {
+      if (!entry.isFile() || !LICENSE_FILE.test(entry.name)) continue
+
+      const abs = path.join(sourceDir, entry.name)
+      const distRel = `${distDir}/${entry.name}`
+
+      if (this.hasAsset(distRel) || isExcludedEntry(abs, this.excluded)) {
+        continue
+      }
+
+      this.compilation.emitAsset(
+        distRel,
+        new sources.RawSource(fs.readFileSync(abs))
+      )
+
+      this.watch(abs)
+    }
   }
 
   warn(name: string, file: string, message: string) {

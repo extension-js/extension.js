@@ -489,3 +489,77 @@ describe('where a named file ships when the build moved its script', () => {
     ).toEqual(['action/data/read.json', 'data/read.json'])
   })
 })
+
+describe('the license of a font the trace copies', () => {
+  const FONTS = {
+    'ui/fonts/a.woff2': 'font',
+    'ui/fonts/LICENSE.txt': 'SIL Open Font License',
+    'ui/fonts/OFL.txt': 'OFL',
+    'ui/fonts/Notice': 'notice',
+    'ui/fonts/copying.md': 'copying',
+    'ui/fonts/licence-b.txt': 'licence',
+    'ui/fonts/readme.md': 'not a license',
+    'ui/fonts/LICENSES/nested.txt': 'a folder is not a file'
+  }
+  const licenses = (emitted: Map<string, unknown>) =>
+    [...emitted.keys()]
+      .filter((name) => !/\.(?:js|css|html|woff2|ttf)$/.test(name))
+      .sort()
+
+  it('ships every license-named file of the folder beside the font', async () => {
+    const dir = createTempProject({
+      ...FONTS,
+      'styles/inject.css': '@font-face{src:url("../ui/fonts/a.woff2")}'
+    })
+    const {emitted} = await runTrace(dir, {
+      [WORKER]:
+        'chrome.scripting.insertCSS({target:{tabId:1},files:["styles/inject.css"]})'
+    })
+
+    expect(emitted.has('ui/fonts/a.woff2')).toBe(true)
+    expect(licenses(emitted)).toEqual([
+      'ui/fonts/LICENSE.txt',
+      'ui/fonts/Notice',
+      'ui/fonts/OFL.txt',
+      'ui/fonts/copying.md',
+      'ui/fonts/licence-b.txt'
+    ])
+  })
+
+  it('ships it where the font ships, for a font read beside a moved worker', async () => {
+    const dir = createTempProject({
+      'background.js': '',
+      'fonts/a.ttf': 'font',
+      'fonts/LICENSE': 'license'
+    })
+    const {emitted} = await runTrace(
+      dir,
+      {[WORKER]: 'fetch("fonts/a.ttf")'},
+      {
+        'background/service_worker': {
+          import: [path.join(dir, 'background.js')]
+        }
+      }
+    )
+
+    expect(emitted.has('background/fonts/a.ttf')).toBe(true)
+    expect(licenses(emitted)).toEqual(['background/fonts/LICENSE'])
+  })
+
+  it('leaves a license alone when no font ships from its folder', async () => {
+    const dir = createTempProject({
+      ...FONTS,
+      'ui/fonts/data.json': '{}',
+      LICENSE: 'the project itself',
+      'root.woff2': 'font'
+    })
+    const {emitted} = await runTrace(dir, {
+      [WORKER]:
+        'fetch(chrome.runtime.getURL("ui/fonts/data.json"));fetch(chrome.runtime.getURL("root.woff2"))'
+    })
+
+    // The notice beside a font at the root is the project's own.
+    expect(emitted.has('root.woff2')).toBe(true)
+    expect(licenses(emitted)).toEqual(['ui/fonts/data.json'])
+  })
+})
