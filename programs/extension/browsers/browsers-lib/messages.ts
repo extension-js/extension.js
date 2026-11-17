@@ -2163,6 +2163,21 @@ export function devChromiumDebugPort(finalPort: number, requestedPort: number) {
   return `${getLoggingPrefix('debug')} browser  cdpPort=${finalPort} requested=${requestedPort}`
 }
 
+export function chromiumDebugPortNotOurs(
+  port: number,
+  owner: 'another-browser' | 'closed'
+) {
+  const found =
+    owner === 'closed'
+      ? `This browser did not open its debugging port ${port}.`
+      : `Debugging port ${port} is answered by another browser, not the one this session launched.`
+
+  return (
+    `${getLoggingPrefix('warn')} ${found}\n` +
+    `The run record names no cdpPort, so no client attaches to the wrong browser. The session itself goes on over its own pipe. Close what holds the port or pass another ${colors.blue('--port')}, then start again.`
+  )
+}
+
 export function devFirefoxDebugPort(finalPort: number, requestedPort: number) {
   return `${getLoggingPrefix('debug')} browser  rdpPort=${finalPort} requested=${requestedPort}`
 }

@@ -120,6 +120,7 @@ import {
 import * as messages from './messages'
 import {PortManager} from './port-manager'
 import {reservedHttpServer} from './reserved-listen'
+import {withGoneEntryOutputsPruned} from './session-gone-outputs'
 import {
   bindDevSessionRestart,
   DevSessionRestartScheduler,
@@ -1088,6 +1089,10 @@ export async function devServer(
     10
   )
 
+  // What the compilers of this session wrote, so a restart can tell the
+  // outputs of an entry that is gone from a file it never wrote.
+  const sessionOutputs = new Set<string>()
+
   // One compiler and server per include list. A restart builds the next pair
   // from the same session (ports, instance, broker, launched browser) and only
   // the bundler is torn down.
@@ -1118,11 +1123,18 @@ export async function devServer(
     // Decided before the compiler exists: its metadata writer takes over
     // ready.json, after which the earlier session's claim can not be read.
     const compiler = rspack(
-      withSessionStartPrune(compilerConfig, {
-        isRestart: opts.isRestart,
-        distPath: primaryDistPath,
-        readyPath: metadata.readyPath
-      })
+      withGoneEntryOutputsPruned(
+        withSessionStartPrune(compilerConfig, {
+          isRestart: opts.isRestart,
+          distPath: primaryDistPath,
+          readyPath: metadata.readyPath
+        }),
+        {
+          isRestart: opts.isRestart,
+          distPath: primaryDistPath,
+          written: sessionOutputs
+        }
+      )
     )
     activeCompiler = compiler
 

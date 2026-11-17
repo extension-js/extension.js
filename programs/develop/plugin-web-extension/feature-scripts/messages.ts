@@ -379,8 +379,11 @@ export function runtimeAssetFolderNotShipped(
     `Paths built from strings at runtime are not traced, so these files fail to load.`
   )
 
+  // With no folder the names are files at the root, one or several.
+  const moved = folder ? 'folder' : missing.length === 1 ? 'file' : 'files'
+
   lines.push(
-    `Move the folder to ${colors.blue(publicPath)} at the project root so it ships at the same path.`
+    `Move the ${moved} to ${colors.blue(publicPath)} at the project root so ${moved === 'files' ? 'they ship' : 'it ships'} at the same path.`
   )
 
   return lines.join('\n')
@@ -527,4 +530,84 @@ export function contentScriptWithoutDefaultExport(
     `Export a default function that mounts the script and returns a cleanup, and Extension.js calls that cleanup before the next copy starts.\n` +
     afterWholeReload
   )
+}
+
+// Chromium drops an @import in a sheet it injects, so one the build could
+// not write into the sheet is a rule that styles nothing there.
+export function injectedSheetImportKept(
+  sheet: string,
+  line: number,
+  request: string,
+  reason: 'remote' | 'missing'
+) {
+  const lines: string[] = []
+  lines.push(
+    `${sheet} is injected by file and imports '${request}', which Chrome drops in a sheet it injects.`
+  )
+
+  lines.push(`${colors.gray('PATH')} ${colors.underline(`${sheet}:${line}`)}`)
+  lines.push(
+    reason === 'remote'
+      ? `The build writes an imported sheet into the injected one, and it cannot read a sheet another origin serves.`
+      : `The build writes an imported sheet into the injected one, and this file isn't in the output.`
+  )
+
+  lines.push(
+    reason === 'remote'
+      ? `Keep a copy of that sheet in the project and import the copy.`
+      : `Fix the path, or remove the import.`
+  )
+
+  return lines.join('\n')
+}
+
+export function publicInjectedSheetImportIgnored(
+  sheet: string,
+  line: number,
+  request: string
+) {
+  const lines: string[] = []
+  lines.push(
+    `${sheet} is injected by file and imports '${request}', which Chrome drops in a sheet it injects.`
+  )
+
+  lines.push(`${colors.gray('PATH')} ${colors.underline(`${sheet}:${line}`)}`)
+  lines.push(
+    `A file in ${colors.blue('public/')} ships byte for byte, so the import stays as written. Firefox loads it, Chrome does not.`
+  )
+
+  lines.push(
+    `Move the sheet out of ${colors.blue('public/')} and the build writes the imported rules into it.`
+  )
+
+  return lines.join('\n')
+}
+
+// A public/ sheet keeps the targets its author wrote, which Chromium reads
+// against the visited page when the sheet is injected by file.
+export function publicInjectedSheetPageRelativeTarget(
+  sheet: string,
+  line: number,
+  request: string,
+  named: string
+) {
+  const lines: string[] = []
+  lines.push(
+    `${sheet} is injected by file and names ${colors.blue(`url(${request})`)}, which Chrome reads against the visited page.`
+  )
+
+  lines.push(`${colors.gray('PATH')} ${colors.underline(`${sheet}:${line}`)}`)
+  lines.push(
+    `A file in ${colors.blue('public/')} ships byte for byte, so the target stays as written. Firefox reads it beside the sheet.`
+  )
+
+  lines.push(
+    `- Move the sheet out of ${colors.blue('public/')} and the build names each target from the extension and lets a page fetch it.`
+  )
+
+  lines.push(
+    `- Or, in a sheet for Chrome alone, spell it ${colors.blue(`url("${named}")`)} and list the file in ${colors.blue('web_accessible_resources')}.`
+  )
+
+  return lines.join('\n')
 }

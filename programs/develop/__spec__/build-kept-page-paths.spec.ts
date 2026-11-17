@@ -305,3 +305,79 @@ describe('a page whose authored path a script holds as a string', () => {
     expect(text).toContain('background/index.js:2 holds that path as a string')
   }, 180_000)
 })
+
+describe('a pages/ folder page a script names through getURL', () => {
+  const page = (script: string) =>
+    '<!doctype html><html><head><meta charset="utf-8"></head>' +
+    `<body><p>FOLDER_PAGE</p><script src="./${script}"></script></body></html>\n`
+
+  const FILES = {
+    'manifest.json': JSON.stringify({
+      manifest_version: 3,
+      name: 'folder-page',
+      version: '1.0.0',
+      background: {service_worker: 'background.js'}
+    }),
+    'background.js':
+      'console.log(\n' +
+      '  chrome.runtime.getURL("pages/welcome/index.html"),\n' +
+      '  chrome.runtime.getURL("pages/typed/index.html"),\n' +
+      '  chrome.runtime.getURL("pages/deep/er/index.html"),\n' +
+      '  chrome.runtime.getURL("pages/plain.html")\n' +
+      ')\n',
+    'pages/welcome/index.html': page('index.js'),
+    'pages/welcome/index.js':
+      "import {mark} from './mark.js'\ndocument.title = 'RAN_WELCOME ' + mark\n",
+    'pages/welcome/mark.js': "export const mark = 'IMPORTED_MARK'\n",
+    'pages/typed/index.html': page('index.ts'),
+    'pages/typed/index.ts':
+      "interface Mark {\n  value: string\n}\nconst mark: Mark = {value: 'RAN_TYPED'}\ndocument.title = mark.value\n",
+    'pages/deep/er/index.html': page('index.js'),
+    'pages/deep/er/index.js': "document.title = 'RAN_DEEP'\n",
+    'pages/plain.html': page('plain.js'),
+    'pages/plain.js': "document.title = 'RAN_PLAIN'\n"
+  }
+
+  for (const browser of ['chrome', 'firefox'] as const) {
+    for (const mode of ['production', 'development'] as const) {
+      it(`${browser} ${mode}: the authored path serves the compiled page and no raw copy ships`, async () => {
+        const root = project(FILES)
+        await build(root, mode, browser)
+
+        const pairs = [
+          ['pages/welcome/index.html', 'pages/welcome'],
+          ['pages/typed/index.html', 'pages/typed'],
+          ['pages/deep/er/index.html', 'pages/deep/er']
+        ]
+
+        for (const [authored, compiled] of pairs) {
+          const served = read(root, authored, browser)
+
+          expect(served, authored).toBe(read(root, `${compiled}.html`, browser))
+          expect(served, authored).toContain(`src="/${compiled}.js"`)
+          expect(served, authored).not.toContain('./index.')
+        }
+
+        // No source ships beside a served page, compiled or as written.
+        for (const raw of [
+          'pages/welcome/index.js',
+          'pages/welcome/mark.js',
+          'pages/typed/index.ts',
+          'pages/typed/index.js',
+          'pages/deep/er/index.js'
+        ]) {
+          expect(fs.existsSync(dist(root, raw, browser)), raw).toBe(false)
+        }
+
+        expect(read(root, 'pages/welcome.js', browser)).toContain(
+          'IMPORTED_MARK'
+        )
+
+        expect(read(root, 'pages/typed.js', browser)).not.toContain('interface')
+        expect(read(root, 'pages/plain.html', browser)).toContain(
+          'src="/pages/plain.js"'
+        )
+      }, 180_000)
+    }
+  }
+})

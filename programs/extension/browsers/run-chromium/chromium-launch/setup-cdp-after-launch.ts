@@ -30,6 +30,7 @@ import {repeatsManifestV2Refusal} from '../../browsers-lib/manifest-refusal'
 import * as messages from '../../browsers-lib/messages'
 import {manifestDeclaresNewtabOverride} from '../../browsers-lib/newtab-override'
 import {
+  clearReadyCdpPort,
   describeLaunchFailure,
   stampReadyCdpFault,
   stampReadyCdpPort,
@@ -105,6 +106,7 @@ function readLaunchTargets(
     : ''
 
   return {
+    debugPortRequested: Boolean(remoteDebugPortFlag),
     extensionOutputPath,
     extensionPaths,
     selectedExtensionPaths,
@@ -176,6 +178,29 @@ async function openStartingUrlAfterLoad(
   void hold.pageOpened().catch(() => {})
 }
 
+// The record names the port only once the browser on the pipe is seen
+// answering on it, so a port another browser took is never handed out.
+async function publishDebugPort(
+  plugin: ChromiumPluginRuntime,
+  controller: CDPExtensionController,
+  extensionOutputPath: string,
+  port: number,
+  requested: boolean
+): Promise<void> {
+  const owner = requested
+    ? ((await controller.debugPortOwner?.()) ?? 'unknown')
+    : 'unknown'
+
+  if (owner === 'another-browser' || owner === 'closed') {
+    clearReadyCdpPort(extensionOutputPath, plugin.launchRunId)
+    humanWarn(messages.chromiumDebugPortNotOurs(port, owner))
+
+    return
+  }
+
+  stampReadyCdpPort(extensionOutputPath, port, plugin.launchRunId)
+}
+
 export async function verifyGuestLoadAfterLaunch(
   compilation: CompilationLike | undefined,
   plugin: ChromiumPluginRuntime,
@@ -187,6 +212,7 @@ export async function verifyGuestLoadAfterLaunch(
     selectedExtensionPaths,
     companionPath,
     chromeRemoteDebugPort,
+    debugPortRequested,
     userDataDir
   } = readLaunchTargets(compilation, plugin, chromiumArgs)
 
@@ -207,10 +233,12 @@ export async function verifyGuestLoadAfterLaunch(
   // Held for the life of the session: closing the pipe tells Chromium to quit.
   plugin.cdpController = cdpExtensionController
 
-  stampReadyCdpPort(
+  await publishDebugPort(
+    plugin,
+    cdpExtensionController,
     extensionOutputPath,
     chromeRemoteDebugPort,
-    plugin.launchRunId
+    debugPortRequested
   )
 
   const loadOutcome =
@@ -260,6 +288,7 @@ export async function setupCdpAfterLaunch(
     selectedExtensionPaths,
     companionPath,
     chromeRemoteDebugPort,
+    debugPortRequested,
     userDataDir
   } = readLaunchTargets(compilation, plugin, chromiumArgs)
 
@@ -318,10 +347,12 @@ export async function setupCdpAfterLaunch(
     }
   }
 
-  stampReadyCdpPort(
+  await publishDebugPort(
+    plugin,
+    cdpExtensionController,
     extensionOutputPath,
     chromeRemoteDebugPort,
-    plugin.launchRunId
+    debugPortRequested
   )
 
   // Ask the browser whether the guest actually loaded BEFORE any banner: the

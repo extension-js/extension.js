@@ -145,4 +145,46 @@ describe('a stylesheet injected by its css name', () => {
     },
     120_000
   )
+
+  // A page fetches what an injected sheet loads, so a file the compiler
+  // emits for the sheet is listed the way a copied sheet's files are.
+  it.skipIf(!sassDir)(
+    'lets a page fetch the asset its scss source names',
+    async () => {
+      const root = project({
+        'inject/run.ts': 'document.title = "run"\n',
+        'inject/look.scss':
+          '$size: 16px;\n.injected-look-7d3a { width: $size; background: url("img/large.png"); }\n',
+        // Past the size the bundler would inline as a data: URL.
+        'inject/img/large.png': 'p'.repeat(40_000)
+      })
+      const summary = await build(root, 'production')
+
+      expect(summary.errors_count).toBe(0)
+
+      const emitted = listDist(root).filter((file) =>
+        /^assets\/large\.[0-9a-f]+\.png$/.test(file)
+      )
+      const manifest = JSON.parse(
+        fs.readFileSync(path.join(root, 'dist/chrome/manifest.json'), 'utf8')
+      )
+
+      expect(emitted).toHaveLength(1)
+      expect(
+        fs.readFileSync(path.join(root, 'dist/chrome/inject/look.css'), 'utf8')
+      ).toContain(
+        `url("chrome-extension://__MSG_@@extension_id__/${emitted[0]}")`
+      )
+
+      expect(manifest.web_accessible_resources).toEqual([
+        {resources: emitted, matches: ['<all_urls>']}
+      ])
+
+      // The one line that says the file is now open to every page.
+      expect(summary.warnings_count).toBe(1)
+      expect((summary.warnings || [])[0]).toContain('inject/look.css')
+      expect((summary.warnings || [])[0]).toContain(emitted[0])
+    },
+    120_000
+  )
 })

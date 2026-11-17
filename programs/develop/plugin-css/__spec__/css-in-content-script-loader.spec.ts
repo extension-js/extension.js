@@ -46,6 +46,8 @@ describe('cssInContentScriptLoader', () => {
       expect(rule.resourceQuery.not[0].test('?raw')).toBe(true)
       expect(rule.issuerLayer).toBe('extensionjs-content-script')
       expect(String(rule.issuer)).toBe(String(/./))
+      // An @import inside a declared sheet is part of that file.
+      expect(rule.dependency).toEqual({not: 'css-import'})
       expect((rule.use as any[])?.length).toBeGreaterThan(0)
     }
   })

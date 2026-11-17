@@ -8,7 +8,6 @@
 
 import {execFileSync} from 'node:child_process'
 import * as fs from 'node:fs'
-import * as net from 'node:net'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {DEFAULT_DEBUG_PORT, PORT_OFFSET} from './constants'
@@ -217,39 +216,6 @@ export function mergeChromiumFeatureSwitches(flags: string[]): string[] {
   }
 
   return merged
-}
-
-export async function findAvailablePortNear(
-  startPort: number,
-  maxAttempts: number = 20,
-  host: string = '127.0.0.1'
-) {
-  function tryPort(port: number): Promise<boolean> {
-    return new Promise((resolve) => {
-      const server = net.createServer()
-      server.once('error', () => {
-        resolve(false)
-      })
-
-      server.once('listening', () => {
-        server.close(() => resolve(true))
-      })
-
-      server.listen(port, host)
-    })
-  }
-
-  let candidate = startPort
-
-  for (let i = 0; i < maxAttempts; i++) {
-    // eslint-disable-next-line no-await-in-loop
-    const ok = await tryPort(candidate)
-    if (ok) return candidate
-
-    candidate += 1
-  }
-
-  return startPort
 }
 
 function isProcessLikelyAlive(pid: number): boolean {
