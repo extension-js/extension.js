@@ -32,8 +32,10 @@ import {
   isDebug
 } from '../../../helpers/messaging'
 import {expectedGeckoExtensionId} from '../../browsers-lib/banner'
+import {binaryOverrideNaming} from '../../browsers-lib/binary-env-override'
 import {setInstancePorts} from '../../browsers-lib/instance-registry'
 import {scanSystem} from '../../browsers-lib/locator-env'
+import {readGeckoRefusalCause} from '../../browsers-lib/manifest-refusal'
 import * as messages from '../../browsers-lib/messages'
 import {
   computeBinariesBaseDir,
@@ -80,7 +82,6 @@ import {
   buildBrowserLaunchRequest,
   toExtensionLoadList
 } from '../../browsers-lib/runtime-options'
-import {binaryOverrideNaming} from '../../browsers-lib/binary-env-override'
 import {
   classifyBinaryProvenance,
   deriveDebugPortWithInstance,
@@ -253,6 +254,26 @@ export class FirefoxLaunchPlugin {
       this.stampLaunchFailed(error)
 
       throw error
+    }
+
+    // Nothing rebuilds a run-only session, so an add-on the browser refused
+    // never loads later and the run ends here with the browser's reason.
+    if (options?.mode !== 'development' && this.host.extensionLoadRefused) {
+      const reason = this.host.extensionLoadRefused
+
+      await this.cleanupInstance()
+
+      throw Object.assign(
+        new Error(
+          messages.browserRefusesTheExtension(
+            String(this.host.browser),
+            this.extensionOutputPath || '',
+            reason,
+            readGeckoRefusalCause(this.extensionOutputPath)
+          )
+        ),
+        {code: CODES.E_EXTENSION_LOAD_REFUSED}
+      )
     }
 
     // A claim about the browser waits for the browser: printing this before
@@ -1002,7 +1023,10 @@ export class FirefoxLaunchPlugin {
       this.host.browser as FirefoxBrowserKind,
       () => this.child,
       () => this.cleanupInstance(),
-      () => this.livePid
+      () => this.livePid,
+      // A session that exits on a signal is gone before the browser's close
+      // event runs, so the fresh profile is reclaimed as the process ends.
+      () => removeManagedEphemeralProfile(this.host.launchProfilePath)
     )
   }
 
@@ -1199,7 +1223,18 @@ export class FirefoxLaunchPlugin {
   // stdout, logs.ndjson, and a non-ready contract. The session stays alive.
   private reportAddonLoadRefused(reason: string, runOnly = false) {
     const refusedPath = this.extensionOutputPath || ''
-    humanError(messages.geckoAddonLoadRefused(refusedPath, reason, {runOnly}))
+
+    // A run-only launch ends on the refusal and prints its own block.
+    if (!runOnly) {
+      humanError(
+        messages.geckoAddonLoadRefused(
+          refusedPath,
+          reason,
+          readGeckoRefusalCause(refusedPath)
+        )
+      )
+    }
+
     this.host.logSink?.({
       level: 'error',
       text: `extension_load_refused: ${refusedPath}${
@@ -1211,7 +1246,8 @@ export class FirefoxLaunchPlugin {
     stampReadyExtensionLoadRefused(
       this.extensionOutputPath,
       reason,
-      this.launchRunId
+      this.launchRunId,
+      readGeckoRefusalCause(refusedPath)
     )
 
     this.host.extensionLoadRefused = reason

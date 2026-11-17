@@ -1,6 +1,9 @@
 import {describe, expect, it} from 'vitest'
 
-import {classifyAddonInstallFailure} from '../../run-firefox/rdp/remote-firefox/addons-install'
+import {
+  addonRefusalOnOneLine,
+  classifyAddonInstallFailure
+} from '../../run-firefox/rdp/remote-firefox/addons-install'
 
 // Firefox answers a rejected install with an RDP reply object carrying its own
 // text; transport trouble arrives as an Error. Only the former is a verdict.
@@ -14,10 +17,26 @@ describe('classifyAddonInstallFailure', () => {
         'Reading manifest: Error processing browser_specific_settings.gecko.id'
     }
 
+    // Gecko's words on one line, without the folder every surface already
+    // prints beside the reason.
     expect(classifyAddonInstallFailure(reply)).toEqual({
       status: 'refused',
-      reason: reply.message
+      reason:
+        'Could not install add-on: Error: Extension is invalid ' +
+        'Reading manifest: Error processing browser_specific_settings.gecko.id'
     })
+  })
+
+  it('leaves a reason that names no folder as the browser wrote it', () => {
+    expect(addonRefusalOnOneLine("  It's   refused:\n\tbad 'value'  ")).toBe(
+      "It's refused: bad 'value'"
+    )
+
+    expect(
+      addonRefusalOnOneLine(
+        "Could not install add-on at '/it's here/dist': Error: x 'y': z"
+      )
+    ).toBe("Could not install add-on: Error: x 'y': z")
   })
 
   // 'unknown' is not a yes and it is not a no: a dead socket says nothing

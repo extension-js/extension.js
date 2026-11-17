@@ -354,6 +354,35 @@ describe('runDevWaitMode', () => {
     ).rejects.toThrow('requires a local project path')
   })
 
+  it('reports a contract the browser refused as load-refused', async () => {
+    const projectDir = createProject()
+    const readyDir = join(projectDir, 'dist', 'extension-js', 'chromium')
+    mkdirSync(readyDir, {recursive: true})
+    writeFileSync(
+      join(readyDir, 'ready.json'),
+      JSON.stringify({
+        command: 'dev',
+        status: 'error',
+        code: 'extension_load_refused',
+        message: 'Chrome refused to load the extension at /proj/dist/chrome',
+        pid: process.pid
+      })
+    )
+
+    const error = await runDevWaitMode({
+      pathOrRemoteUrl: projectDir,
+      browsers: ['chromium'],
+      waitTimeout: 2000
+    }).catch((caught: unknown) => caught)
+
+    expect(describeWaitError(error)).toEqual({
+      code: 'E_EXTENSION_LOAD_REFUSED',
+      status: 'load-refused',
+      message: 'Chrome refused to load the extension at /proj/dist/chrome',
+      hint: 'Fix what the browser names, then run the command again.'
+    })
+  })
+
   it('codes the remote URL refusal as E_REMOTE_URL_UNSUPPORTED', async () => {
     const error = await runDevWaitMode({
       pathOrRemoteUrl: 'https://example.com/ext.zip',

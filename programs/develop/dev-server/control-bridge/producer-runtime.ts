@@ -396,9 +396,28 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
             chrome.tabs.query({}, function (all) {
               var hit = (all || []).filter(function (t) { return t.url && String(t.url).indexOf(url) !== -1; })[0];
               if (hit && typeof hit.id === "number") { cb(hit.id, null); return; }
-              cb(null, "no open tab matches url: " + url);
+              ownPageMatch();
             });
           } catch (e2) { cb(null, "tab query failed"); }
+        };
+        // Without the tabs permission Chromium hides every tab's url, the
+        // extension's own pages included, so those are found by their context.
+        var noMatch = function () {
+          var perms = null;
+          try { perms = stringList(chrome.runtime.getManifest().permissions); } catch (e4) { perms = null; }
+          var hidden = !!perms && perms.indexOf("tabs") === -1;
+          cb(null, "no open tab matches url: " + url + (hidden ? ". This build's manifest has no \\"tabs\\" permission, so the browser hides the url of a tab the extension has no host access to; pass --tab <id>, or use a dev session (extension dev), which adds the permission" : ""));
+        };
+        var ownPageMatch = function () {
+          var rt = chrome.runtime;
+          if (!rt || typeof rt.getContexts !== "function") { noMatch(); return; }
+          try {
+            Promise.resolve(rt.getContexts({contextTypes: ["TAB"]})).then(function (list) {
+              var own = (list || []).filter(function (c) { return typeof c.tabId === "number" && c.tabId >= 0 && c.documentUrl && String(c.documentUrl).indexOf(url) !== -1; })[0];
+              if (own) { cb(own.tabId, null); return; }
+              noMatch();
+            }, noMatch);
+          } catch (e5) { noMatch(); }
         };
         try {
           // chrome.tabs.query accepts URL match patterns; a bare url/glob may
@@ -799,7 +818,20 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
         if (op === "tabs.query") {
           nsCall("tabs", "query", [args || {}], function (err, tabs) {
             if (err) { replyErr(cmdId, "TabsError", (err && err.message) || err); return; }
-            replyOk(cmdId, (tabs || []).map(function (t) { return {id: t.id, url: t.url, title: t.title, active: t.active, windowId: t.windowId}; }));
+            var rows = (tabs || []).map(function (t) { return {id: t.id, url: t.url, title: t.title, active: t.active, windowId: t.windowId}; });
+            var rt = chrome.runtime;
+            var hiddenUrl = rows.some(function (row) { return !row.url; });
+            if (!hiddenUrl || !rt || typeof rt.getContexts !== "function") { replyOk(cmdId, rows); return; }
+            // Chromium hides a tab's url without the tabs permission. The
+            // extension's own pages still name theirs through their context.
+            try {
+              Promise.resolve(rt.getContexts({contextTypes: ["TAB"]})).then(function (list) {
+                var own = {};
+                (list || []).forEach(function (c) { if (typeof c.tabId === "number" && c.tabId >= 0 && c.documentUrl) own[c.tabId] = String(c.documentUrl); });
+                rows.forEach(function (row) { if (!row.url && own[row.id]) row.url = own[row.id]; });
+                replyOk(cmdId, rows);
+              }, function () { replyOk(cmdId, rows); });
+            } catch (eCtx) { replyOk(cmdId, rows); }
           });
           return;
         }

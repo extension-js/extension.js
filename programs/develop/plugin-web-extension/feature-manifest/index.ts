@@ -20,6 +20,7 @@ import {UpdateManifest} from './steps/update-manifest'
 import {ValidateThemeValues} from './steps/validate-theme-values'
 import {WarnContentScriptHostAccess} from './steps/warn-content-script-host-access'
 import {WarnDescriptionLength} from './steps/warn-description-length'
+import {WarnIgnoredHostPermissions} from './steps/warn-ignored-host-permissions'
 import {WarnUndeclaredPermissions} from './steps/warn-undeclared-permissions'
 
 export class ManifestPlugin {
@@ -84,6 +85,8 @@ export class ManifestPlugin {
     new PersistManifestToDisk({manifestPath: this.manifestPath}).apply(compiler)
 
     new WarnDescriptionLength({browser: this.browser}).apply(compiler)
+
+    new WarnIgnoredHostPermissions().apply(compiler)
 
     new WarnContentScriptHostAccess({browser: this.browser}).apply(compiler)
 

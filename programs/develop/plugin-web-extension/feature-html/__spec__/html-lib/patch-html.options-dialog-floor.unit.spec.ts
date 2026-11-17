@@ -4,7 +4,8 @@ import type {Compilation} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
 import {
   needsOptionsDialogFloor,
-  OPTIONS_DIALOG_FLOOR_CSS
+  OPTIONS_DIALOG_FLOOR_CSS,
+  OPTIONS_DIALOG_FLOOR_FILE
 } from '../../html-lib/options-dialog-floor'
 import {patchHtml} from '../../html-lib/patch-html'
 
@@ -26,7 +27,7 @@ function makeCompilation(): Compilation {
   } as unknown as Compilation
 }
 
-const FLOOR_TAG = `<style data-extension-js="options-dialog-floor">${OPTIONS_DIALOG_FLOOR_CSS}</style>`
+const FLOOR_TAG = `<link rel="stylesheet" href="/${OPTIONS_DIALOG_FLOOR_FILE}" data-extension-js="options-dialog-floor">`
 
 describe('needsOptionsDialogFloor', () => {
   const embedded = {options_ui: {page: 'options.html'}}
@@ -91,6 +92,31 @@ describe('needsOptionsDialogFloor', () => {
 })
 
 describe('patchHtml options dialog floor', () => {
+  it('links the floor as a file, since a strict policy blocks an inline style', () => {
+    const tmp = makeTmp('options-floor-file')
+    const htmlPath = path.join(tmp, 'index.html')
+    fs.writeFileSync(
+      htmlPath,
+      `<html><head></head><body><script src="a.js"></script></body></html>`
+    )
+
+    const updated = patchHtml(
+      makeCompilation(),
+      'options/index',
+      htmlPath,
+      {'options/index': htmlPath},
+      tmp,
+      [],
+      undefined,
+      {optionsDialogFloor: true}
+    )
+
+    expect(OPTIONS_DIALOG_FLOOR_FILE).toBe('options/dialog-floor.css')
+    expect(OPTIONS_DIALOG_FLOOR_CSS).toBe('html{min-height:32px}')
+    expect(updated).not.toContain('<style')
+    expect(updated).not.toContain(OPTIONS_DIALOG_FLOOR_CSS)
+  })
+
   it('puts the floor style first in head so author styles win', () => {
     const tmp = makeTmp('options-floor')
     const htmlPath = path.join(tmp, 'index.html')

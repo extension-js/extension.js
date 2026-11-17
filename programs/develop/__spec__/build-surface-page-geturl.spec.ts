@@ -87,7 +87,9 @@ describe('a manifest surface page a runtime.getURL literal also names', () => {
         side_panel: {default_path: string}
       }
 
-      expect(manifest.side_panel.default_path).toBe('sidebar/index.html')
+      // The script holds the authored path, so the panel opens there too
+      // and the literal and the manifest name one address for the page.
+      expect(manifest.side_panel.default_path).toBe('sidebar.html')
       expect(fs.existsSync(dist(root, 'sidebar.html'))).toBe(true)
 
       const surface = read(root, 'sidebar/index.html')

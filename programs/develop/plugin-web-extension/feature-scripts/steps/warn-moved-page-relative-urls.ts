@@ -11,6 +11,7 @@ import * as path from 'node:path'
 import {type Compilation, type Compiler, WebpackError} from '@rspack/core'
 import type {FilepathList} from '../../../types'
 import {scannableSourcePath} from '../../feature-manifest/steps/apply-dev-defaults-lib/dev-injected-hosts'
+import {keptPagePaths} from '../../shared/kept-page-paths'
 import {unixify} from '../../shared/paths'
 import * as messages from '../messages'
 import {blankComments} from './source-literals'
@@ -183,6 +184,7 @@ export class WarnMovedPageRelativeUrls {
   private movedPages(compilation: Compilation): MovedPage[] {
     const manifestDir = path.dirname(this.manifestPath)
     const pages: MovedPage[] = []
+    const kept = keptPagePaths(compilation)
 
     for (const [feature, value] of Object.entries(this.pageList)) {
       if (typeof value !== 'string' || !value) continue
@@ -191,6 +193,8 @@ export class WarnMovedPageRelativeUrls {
       const output = `${feature}.html`
       if (source.startsWith('..')) continue
       if (path.posix.dirname(source) === path.posix.dirname(output)) continue
+      // A page kept at its authored path asks from the folder it was written in.
+      if (kept.has(output)) continue
 
       const files = compilation.entrypoints?.get?.(feature)?.getFiles?.() || []
       const scripts = files

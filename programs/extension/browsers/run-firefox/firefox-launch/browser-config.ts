@@ -12,6 +12,10 @@ import {humanLine, isDebug} from '../../../helpers/messaging'
 import {stageCompanionForSession} from '../../browsers-lib/companion-session'
 import * as messages from '../../browsers-lib/messages'
 import {
+  earlierManagedProfileBaseDir,
+  managedProfileBaseDir
+} from '../../browsers-lib/ready-stamp'
+import {
   resolveProfileConfig,
   systemProfileEnvName
 } from '../../browsers-lib/resolve-profile'
@@ -122,7 +126,6 @@ export async function resolveFirefoxLaunchConfig(
   const outPath =
     compilation.options.output?.path ||
     path.resolve(process.cwd(), 'dist/firefox')
-  const distRoot = path.dirname(outPath)
   const useSystemProfile = Boolean(systemProfileEnvName())
 
   const contextDir = compilation?.options?.context || process.cwd()
@@ -137,18 +140,17 @@ export async function resolveFirefoxLaunchConfig(
     }
   }
 
-  const managedBaseDir = path.resolve(
-    distRoot,
-    'extension-js',
-    'profiles',
-    `${browser}-profile`
-  )
+  const managedBaseDir = managedProfileBaseDir(outPath, String(browser))
 
   // One shared decision about what profile this run gets; the launcher only
   // expresses the result as a Firefox --profile.
   const resolved = resolveProfileConfig({
     rawProfile: profile,
     managedBaseDir,
+    earlierManagedBaseDir: earlierManagedProfileBaseDir(
+      outPath,
+      String(browser)
+    ),
     useSystemProfile,
     persistProfile: (configOptions as {persistProfile?: boolean})
       .persistProfile,

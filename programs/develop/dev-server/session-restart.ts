@@ -22,6 +22,8 @@ export interface DevSessionRestartRequest {
   // A file whose contents changed, as opposed to an entry that moved.
   pathChanged?: string
   manifestField?: string
+  // The field pathChanged sat under, when only its manifest key changed.
+  manifestFieldBefore?: string
   // The source that now registers pathChanged into the MAIN world.
   registeredBy?: string
   // How many more files changed for the same reason.

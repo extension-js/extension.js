@@ -14,49 +14,77 @@ import {findUndefinedMsgReferences} from '../../helpers/msg-placeholders'
 // dialog, never a console error; diagnose before spawn and say why.
 export type ChromiumManifestRefusal =
   | 'mv2'
-  | 'mv3-background-scripts'
   | 'unsupported-manifest-version'
   | null
+
+// Shapes Chrome 151 was measured to load, with an id and no warning, while
+// doing less than the manifest asks for.
+export type ChromiumManifestCaveat =
+  | 'background-scripts-not-run'
+  | 'manifest-version-above-3'
 
 // Manifests under diagnosis are arbitrary user JSON; every access is
 // runtime-guarded.
 // biome-ignore lint/suspicious/noExplicitAny: dynamic manifest JSON diagnostics boundary
 type LooseManifest = any
 
+function isManifestObject(manifest: unknown): manifest is LooseManifest {
+  return (
+    Boolean(manifest) &&
+    typeof manifest === 'object' &&
+    !Array.isArray(manifest)
+  )
+}
+
+// Chrome 151 takes the integer 2 and any integer from 3 up. A missing key, a
+// string such as "3", a fraction and anything below 2 are refused.
 export function diagnoseChromiumManifestRefusal(
   manifest: unknown
 ): ChromiumManifestRefusal {
-  const m = manifest as Record<string, LooseManifest> | null | undefined
+  if (!isManifestObject(manifest)) return null
 
-  // Chromium reads any manifest with a theme key as a theme, and it still
-  // installs a Manifest V2 theme, so only an extension manifest is flagged.
-  if (Number(m?.manifest_version) === 2) {
-    return m?.theme && typeof m.theme === 'object' ? null : 'mv2'
-  }
+  const version = manifest.manifest_version
 
-  // Firefox-style MV3 (background.scripts, no service_worker): Chromium refuses
-  // the whole extension; this manifest is written for Firefox.
-  if (
-    Number(m?.manifest_version) === 3 &&
-    Array.isArray(m?.background?.scripts) &&
-    m.background.scripts.length > 0 &&
-    !m?.background?.service_worker
-  ) {
-    return 'mv3-background-scripts'
-  }
-
-  // Any other declared value (missing, 1, >3) is refused as an unsupported
-  // manifest version; only diagnose real manifest objects.
-  if (
-    m &&
-    typeof m === 'object' &&
-    !Array.isArray(m) &&
-    Number(m.manifest_version) !== 3
-  ) {
+  if (typeof version !== 'number' || !Number.isInteger(version)) {
     return 'unsupported-manifest-version'
   }
 
-  return null
+  // Chromium reads any manifest with a theme key as a theme, and it still
+  // installs a Manifest V2 theme, so only an extension manifest is flagged.
+  if (version === 2) {
+    return manifest.theme && typeof manifest.theme === 'object' ? null : 'mv2'
+  }
+
+  return version < 2 ? 'unsupported-manifest-version' : null
+}
+
+// What a manifest Chromium loads still gets wrong. Never a refusal: the
+// browser assigns an id, and the launch goes on.
+export function findChromiumManifestCaveats(
+  manifest: unknown
+): ChromiumManifestCaveat[] {
+  if (!isManifestObject(manifest)) return []
+
+  const version = manifest.manifest_version
+
+  if (typeof version !== 'number' || !Number.isInteger(version)) return []
+  if (version < 3) return []
+
+  const caveats: ChromiumManifestCaveat[] = []
+
+  if (version > 3) caveats.push('manifest-version-above-3')
+
+  // Firefox-style background: from Manifest V3 on Chromium runs a service
+  // worker only, so these scripts load with the extension and never start.
+  if (
+    Array.isArray(manifest.background?.scripts) &&
+    manifest.background.scripts.length > 0 &&
+    !manifest.background?.service_worker
+  ) {
+    caveats.push('background-scripts-not-run')
+  }
+
+  return caveats
 }
 
 // Microsoft deprecated Manifest V2 and Edge still loads and runs one unpacked,
@@ -86,15 +114,45 @@ export function repeatsManifestV2Refusal(
   return Boolean(alreadySaid) && /unsupported manifest version/i.test(reason)
 }
 
-// ONE invalid pattern makes Chrome refuse the WHOLE extension; the only shape
-// verified to refuse is an invalid host wildcard. Ports/query/fragments load fine.
-export function findInvalidMatchPatterns(manifest: unknown): string[] {
+// Recorded when a refused run could not ask the browser for its own words.
+export const GENERAL_REFUSAL_REASON =
+  'the manifest declares a shape this browser refuses'
+
+// Nothing rebuilds a run-only session, so a refused guest ends the run. A
+// predicted refusal also ends it when the browser gave no answer at all.
+export function endsRunOnlyLaunch(
+  predictedRefusal: boolean,
+  status: 'loaded' | 'refused' | 'unknown'
+): boolean {
+  return predictedRefusal ? status !== 'loaded' : status === 'refused'
+}
+
+// Measured on Chrome 151 and Firefox Nightly 160: an invalid host wildcard
+// in the host permission lists loads and grants no host access.
+export function findIgnoredHostPermissionPatterns(manifest: unknown): string[] {
   const m = manifest as Record<string, LooseManifest> | null | undefined
-  const patterns: string[] = []
+  const patterns: unknown[] = []
 
   for (const list of [m?.host_permissions, m?.optional_host_permissions]) {
     if (Array.isArray(list)) patterns.push(...list)
   }
+
+  return [...new Set(patterns.filter(isInvalidHostPattern))]
+}
+
+function isInvalidHostPattern(pattern: unknown): pattern is string {
+  return (
+    typeof pattern === 'string' &&
+    pattern !== '<all_urls>' &&
+    hasInvalidHostWildcard(pattern)
+  )
+}
+
+// An invalid host wildcard in a content script or a web accessible resource
+// refuses the whole extension. The host permission lists are read above.
+export function findInvalidMatchPatterns(manifest: unknown): string[] {
+  const m = manifest as Record<string, LooseManifest> | null | undefined
+  const patterns: string[] = []
 
   for (const contentScript of Array.isArray(m?.content_scripts)
     ? m.content_scripts
@@ -113,14 +171,7 @@ export function findInvalidMatchPatterns(manifest: unknown): string[] {
     if (Array.isArray(resource?.matches)) patterns.push(...resource.matches)
   }
 
-  const invalid = patterns.filter(
-    (pattern): pattern is string =>
-      typeof pattern === 'string' &&
-      pattern !== '<all_urls>' &&
-      hasInvalidHostWildcard(pattern)
-  )
-
-  return [...new Set(invalid)]
+  return [...new Set(patterns.filter(isInvalidHostPattern))]
 }
 
 // Chrome's host grammar allows *, *.domain.tld, or a literal host. The PORT is
@@ -494,5 +545,81 @@ function isValidBase64(value: string): boolean {
     return Buffer.from(value, 'base64').toString('base64') === value
   } catch {
     return false
+  }
+}
+
+// A predicted refusal waits for the browser's own answer. The browser's
+// sentence replaces it, and it prints only when the browser gave none.
+export interface HeldRefusalPredictions {
+  hold(prediction: string, ifLoaded: string): void
+  browserRefused(): void
+  browserLoaded(): void
+  flush(): void
+}
+
+export function holdRefusalPredictions(
+  print: (message: string) => void
+): HeldRefusalPredictions {
+  const held: Array<{prediction: string; ifLoaded: string}> = []
+
+  return {
+    hold: (prediction, ifLoaded) => {
+      held.push({prediction, ifLoaded})
+    },
+    browserRefused: () => {
+      held.length = 0
+    },
+    // The browser took what was predicted refused, so the prediction was
+    // wrong. What stays true is that the manifest has the shape.
+    browserLoaded: () => {
+      for (const {ifLoaded} of held.splice(0)) print(ifLoaded)
+    },
+    flush: () => {
+      for (const {prediction} of held.splice(0)) print(prediction)
+    }
+  }
+}
+
+// Why Firefox refuses, where its own words do not say. Keyed on what the
+// manifest shows, and each row was measured on Firefox Nightly 160.
+const GECKO_REFUSAL_CAUSES: Array<{
+  shows: (manifest: Record<string, unknown>) => boolean
+  cause: string
+}> = [
+  {
+    shows: ({manifest_version: version}) =>
+      Number.isInteger(version) && Number(version) > 3,
+    cause: 'Firefox does not load a manifest_version above 3.'
+  },
+  {
+    shows: ({manifest_version: version}) => version !== 2 && version !== 3,
+    cause: 'Firefox loads only the integer 2 or 3 as manifest_version.'
+  }
+]
+
+export function findGeckoRefusalCause(manifest: unknown): string | undefined {
+  if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) {
+    return undefined
+  }
+
+  return GECKO_REFUSAL_CAUSES.find((known) =>
+    known.shows(manifest as Record<string, unknown>)
+  )?.cause
+}
+
+export function readGeckoRefusalCause(
+  extensionPath: string | undefined
+): string | undefined {
+  try {
+    return findGeckoRefusalCause(
+      JSON.parse(
+        fs.readFileSync(
+          path.join(String(extensionPath), 'manifest.json'),
+          'utf8'
+        )
+      )
+    )
+  } catch {
+    return undefined
   }
 }

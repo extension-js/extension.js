@@ -55,6 +55,12 @@ vi.mock('../steps/warn-description-length', () => ({
   }
 }))
 
+vi.mock('../steps/warn-ignored-host-permissions', () => ({
+  WarnIgnoredHostPermissions: class {
+    apply = applySpy
+  }
+}))
+
 vi.mock('../steps/warn-content-script-host-access', () => ({
   WarnContentScriptHostAccess: class {
     apply = applySpy
@@ -80,6 +86,6 @@ describe('ManifestPlugin', () => {
     plugin.apply(compiler as any)
 
     expect(applySpy).toHaveBeenCalled()
-    expect(applySpy.mock.calls.length).toBe(9)
+    expect(applySpy.mock.calls.length).toBe(10)
   })
 })

@@ -347,8 +347,8 @@ describe('lifecycle stream transitions', () => {
       readyPath,
       JSON.stringify({
         status: 'error',
-        code: 'extension_load_refused',
-        message: 'the browser refused to load the extension'
+        code: 'compile_error',
+        message: 'the compile failed'
       })
     )
 
@@ -360,6 +360,39 @@ describe('lifecycle stream transitions', () => {
     expect(frame.status).toBe('failed')
     expect(frame.ok).toBe(false)
     expect(frame.error?.code).toBe('E_READY_ERROR_STATUS')
+    expect(frame.value?.readyCode).toBe('compile_error')
+    fs.rmSync(dir, {recursive: true, force: true})
+  })
+
+  // start, preview, doctor and the act verbs name a refused load this way.
+  it('reports a load the browser refused with its own status and code', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-ndjson-'))
+    const readyPath = path.join(dir, 'ready.json')
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({
+        status: 'error',
+        code: 'extension_load_refused',
+        message: 'Chrome refused to load the extension at /proj/dist/chrome'
+      })
+    )
+
+    const {stream, lines} = makeStream({readyPath})
+    stream.ready()
+    stream.ready()
+    expect(lines).toHaveLength(1)
+    const [frame] = parseFrames(lines)
+    expect(frame.status).toBe('load-refused')
+    expect(frame.ok).toBe(false)
+    expect(frame.error?.code).toBe('E_EXTENSION_LOAD_REFUSED')
+    expect(frame.error?.message).toBe(
+      'Chrome refused to load the extension at /proj/dist/chrome'
+    )
+
+    expect((frame as {hint?: string}).hint).toBe(
+      'Fix what the browser names, then run the command again.'
+    )
+
     expect(frame.value?.readyCode).toBe('extension_load_refused')
     fs.rmSync(dir, {recursive: true, force: true})
   })

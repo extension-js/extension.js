@@ -141,11 +141,29 @@ describe('the extension-develop/bridge entry', () => {
       )
     ]
 
+    // Both launchers ask one helper, which builds the layout above for a
+    // loaded dist/<browser> folder.
     for (const configPath of launcherConfigs) {
       const flat = fs.readFileSync(configPath, 'utf8').replace(/\s+/g, ' ')
-      expect(flat, configPath).toContain("'extension-js', 'profiles'")
-      expect(flat, configPath).toContain('-profile')
+      expect(flat, configPath).toContain('managedProfileBaseDir(')
     }
+
+    const helper = fs
+      .readFileSync(
+        path.join(
+          developRoot,
+          '..',
+          'extension',
+          'browsers',
+          'browsers-lib',
+          'ready-stamp.ts'
+        ),
+        'utf8'
+      )
+      .replace(/\s+/g, ' ')
+
+    expect(helper).toContain("'extension-js'")
+    expect(helper).toContain("'profiles', `${browser}-profile`")
   })
 
   it('publishes the whole-document ready reader beside the narrow one', () => {

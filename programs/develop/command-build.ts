@@ -295,15 +295,6 @@ export async function extensionBuild(
       await ensureUserProjectDependencies(packageJsonDir)
     }
 
-    ensureTypeScriptConfig(manifestDir, {
-      manifestPath: projectStructure.manifestPath,
-      browser
-    })
-
-    if (isUsingTypeScript(manifestDir)) {
-      await generateExtensionTypes(manifestDir, packageJsonDir)
-    }
-
     // Heavy deps are intentionally imported lazily so `preview` can run with a minimal install.
     const [
       {rspack},
@@ -365,6 +356,7 @@ export async function extensionBuild(
     const foldersConfig =
       commandConfig.folders ?? browserConfig.folders ?? projectConfig.folders
     rememberSpecialFoldersConfig(packageJsonDir, foldersConfig)
+
     const specialFoldersData = getSpecialFoldersDataForProjectRoot(
       packageJsonDir,
       foldersConfig
@@ -387,6 +379,17 @@ export async function extensionBuild(
       packageJsonDir,
       (mergedBuildOptions as Partial<CommonWebpackOptions>).exclude
     )
+
+    // After the folders and exclude config, so this check reads the entries
+    // the compiler will and tsconfig.json never lands without its type file.
+    ensureTypeScriptConfig(manifestDir, {
+      manifestPath: projectStructure.manifestPath,
+      browser
+    })
+
+    if (isUsingTypeScript(manifestDir)) {
+      await generateExtensionTypes(manifestDir, packageJsonDir)
+    }
 
     const silent = Boolean(mergedBuildOptions.silent)
 
