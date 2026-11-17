@@ -1,5 +1,6 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {pathToFileURL} from 'node:url'
 import {type Compiler, EntryPlugin, type Stats} from '@rspack/core'
 import {afterAll, afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {getPreloadedEnvKeys} from '../../lib/config-loader'
@@ -315,7 +316,7 @@ describe('EnvPlugin values in JavaScript', () => {
 
     // The parent define stays on the parent: the child keeps rspack's own value.
     expect(result.asset('child.js')).toContain(
-      `'file://${path.join(root, 'child.js')}'`
+      `'${pathToFileURL(path.join(root, 'child.js')).href}'`
     )
 
     expect(result.asset('background.js')).not.toContain('file:')
