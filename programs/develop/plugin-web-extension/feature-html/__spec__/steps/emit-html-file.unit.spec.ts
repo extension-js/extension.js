@@ -90,6 +90,45 @@ describe('EmitHtmlFile', () => {
     expect(warning.message).not.toContain('field')
   })
 
+  it('names the file of a missing page that only a script opens', () => {
+    const tmp = makeTmp('emit3')
+    const manifestPath = path.join(tmp, 'manifest.json')
+    fs.writeFileSync(
+      manifestPath,
+      '{"name":"X","devtools_page":"devtools.html"}',
+      'utf8'
+    )
+
+    const errors: Array<{name: string; message: string; file?: string}> = []
+    const compilation = {
+      errors,
+      warnings: [],
+      hooks: {processAssets: {tap: (_: unknown, run: () => void) => run()}}
+    }
+
+    new EmitHtmlFile({
+      manifestPath,
+      includeList: {'panel/index': path.join(tmp, 'panel', 'index.html')}
+    } as any).apply({
+      options: {mode: 'development'},
+      hooks: {
+        thisCompilation: {
+          tap: (_: string, fn: (c: unknown) => void) => fn(compilation)
+        }
+      }
+    } as any)
+
+    expect(errors.map((error) => error.name)).toEqual(['ManifestPageMissing'])
+    expect(errors[0].message).toContain('panel/index')
+    expect(errors[0].message).toContain(
+      `NOT FOUND ${path.join(tmp, 'panel', 'index.html')}`
+    )
+
+    expect(errors[0].message).not.toContain('panel.index')
+    expect(errors[0].message).not.toContain('manifest.json')
+    expect(errors[0].file).toBeUndefined()
+  })
+
   it('taps the asset stage under its own name', () => {
     const names: string[] = []
     const compilation = {
@@ -155,6 +194,41 @@ describe('manifestFieldForHtmlFeature', () => {
     expect(
       manifestFieldForHtmlFeature('action/index', manifestPath, 'firefox')
     ).toBe('browser_action.default_popup')
+
+    fs.rmSync(tmp, {recursive: true, force: true})
+  })
+
+  it('names a real manifest field, or none for a page only a script names', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-emit-label-'))
+    const manifestPath = path.join(tmp, 'manifest.json')
+    fs.writeFileSync(
+      manifestPath,
+      JSON.stringify({
+        name: 'X',
+        devtools_page: 'devtools.html',
+        web_accessible_resources: [
+          {resources: ['shared/frame.html'], matches: ['<all_urls>']}
+        ],
+        chrome_settings_overrides: {startup_pages: ['start/index.html']}
+      })
+    )
+
+    // A devtools panel is named by panels.create in a script, not by a field.
+    expect(
+      manifestFieldForHtmlFeature('panel/index', manifestPath, 'chrome')
+    ).toBeUndefined()
+
+    expect(
+      manifestFieldForHtmlFeature('shared/frame', manifestPath, 'chrome')
+    ).toBe('web_accessible_resources')
+
+    expect(
+      manifestFieldForHtmlFeature(
+        'chrome_settings_overrides/startup-0',
+        manifestPath,
+        'chrome'
+      )
+    ).toBe('chrome_settings_overrides.startup_pages')
 
     fs.rmSync(tmp, {recursive: true, force: true})
   })

@@ -84,19 +84,20 @@ export class EmitHtmlFile {
                   !featureName.startsWith('sandbox/') &&
                   featureName !== 'sidebar/index' &&
                   featureName !== 'sidebar_action/index'
+                const manifestField = manifestFieldForHtmlFeature(
+                  featureName,
+                  this.manifestPath,
+                  this.browser
+                )
+
                 reportToCompilation(
                   compilation,
                   compiler,
-                  messages.manifestPageMissing(
-                    manifestFieldForHtmlFeature(
-                      featureName,
-                      this.manifestPath,
-                      this.browser
-                    ),
-                    resolved
-                  ),
+                  manifestField
+                    ? messages.manifestPageMissing(manifestField, resolved)
+                    : messages.pageFileMissing(featureName, resolved),
                   isLoadChecked ? 'error' : 'warning',
-                  'manifest.json',
+                  manifestField ? 'manifest.json' : undefined,
                   'ManifestPageMissing'
                 )
 
@@ -130,15 +131,38 @@ export class EmitHtmlFile {
   }
 }
 
+// Whether web_accessible_resources names this page by its literal path.
+function isWebAccessiblePage(
+  manifest: Record<string, unknown>,
+  featureName: string
+): boolean {
+  const declared = manifest.web_accessible_resources
+  if (!Array.isArray(declared)) return false
+
+  return declared
+    .flatMap((entry) =>
+      typeof entry === 'string'
+        ? [entry]
+        : Array.isArray(entry?.resources)
+          ? entry.resources
+          : []
+    )
+    .some(
+      (resource) =>
+        typeof resource === 'string' &&
+        resource.replace(/^\.?\/+/, '').replace(/\.html$/i, '') === featureName
+    )
+}
+
 // Map an HTML includeList feature key back to the manifest field the user
 // wrote. The manifest is filtered for the target browser first, the same
 // view the include list was built from, so a firefox: key never labels a
-// chrome build.
+// chrome build. A page only a script names has no field and maps to none.
 export function manifestFieldForHtmlFeature(
   featureName: string,
   manifestPath: string,
   browser?: PluginInterface['browser']
-): string {
+): string | undefined {
   let manifest: Record<string, unknown> = {}
 
   try {
@@ -192,6 +216,12 @@ export function manifestFieldForHtmlFeature(
     case 'sidebar_action/index':
       return 'sidebar_action.default_panel'
     default:
-      return featureName.replace('/', '.')
+      if (/^chrome_settings_overrides\/startup-\d+$/.test(featureName)) {
+        return 'chrome_settings_overrides.startup_pages'
+      }
+
+      return isWebAccessiblePage(manifest, featureName)
+        ? 'web_accessible_resources'
+        : undefined
   }
 }
