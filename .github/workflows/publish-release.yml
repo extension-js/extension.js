@@ -22,6 +22,11 @@ on:
         type: boolean
         required: false
         default: false
+      readings:
+        description: "Canary only: read the corpus and the templates after the publish. A stable run cuts its canary with this off, since its own gates read that canary."
+        type: boolean
+        required: false
+        default: true
 
 permissions:
   contents: read
@@ -81,7 +86,7 @@ jobs:
           if [ -z "$CANARY" ]; then
             echo "No canary of commit ${SHA} is on npm, so this run cuts one and waits for it."
             STARTED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-            gh workflow run publish-release.yml --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF_NAME" -f channel=canary
+            gh workflow run publish-release.yml --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF_NAME" -f channel=canary -f readings=false
             RUN_ID=""
             for attempt in $(seq 1 "${POLL_LIMIT:-80}"); do
               sleep "${POLL_SECONDS:-60}"
@@ -823,11 +828,13 @@ jobs:
   # verdict is known before anyone dispatches the stable, and on a stable it
   # proves the shipped bits, not only the canary the gate read. It runs after
   # the publish, so a failure turns the run red and unpublishes nothing.
+  # A canary cut by a stable run skips it: that stable's gates read the same
+  # version at the same pins.
   corpus-published:
     needs: publish
     # The gate jobs above publish are skipped on a canary, and a skipped job
     # up the chain skips this one unless the condition reads the run status.
-    if: ${{ !cancelled() && needs.publish.result == 'success' }}
+    if: ${{ !cancelled() && needs.publish.result == 'success' && (inputs.channel != 'canary' || inputs.readings) }}
     permissions:
       contents: read
     uses: extension-js/corpus/.github/workflows/corpus-gate.yml@8723961e3833f3c42c9635a70d992eaa55e515ed # main, 2026-11-17
@@ -840,7 +847,7 @@ jobs:
   # reason and under the same rule as the corpus reading above.
   templates-published:
     needs: publish
-    if: ${{ !cancelled() && needs.publish.result == 'success' }}
+    if: ${{ !cancelled() && needs.publish.result == 'success' && (inputs.channel != 'canary' || inputs.readings) }}
     permissions:
       contents: read
     uses: extension-js/templates/.github/workflows/ci.yml@6bf4322a021df5d0204bf970ed797e72f3412923 # main, 2026-11-16

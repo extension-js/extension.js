@@ -8,7 +8,6 @@
 
 import {createRequire} from 'node:module'
 import * as path from 'node:path'
-import colors from 'pintor'
 import {debugLine, prefix} from '../../lib/messaging'
 
 const cjsRequire = createRequire(import.meta.url)

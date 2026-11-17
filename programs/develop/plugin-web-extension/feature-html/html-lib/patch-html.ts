@@ -132,7 +132,6 @@ export function patchHtml(
         parseHtml(
           htmlChildNode,
           ({filePath, childNode, assetType, attributeName}) => {
-            const htmlDir = path.dirname(htmlEntry)
             const {cleanPath, hash, search} = cleanAssetUrl(filePath)
             const absolutePath = resolveHtmlRefPath(
               htmlEntry,
@@ -140,9 +139,6 @@ export function patchHtml(
               cleanPath
             )
             const extname = getExtname(absolutePath)
-
-            const excludedFilePath =
-              path.posix.join('/', cleanPath) + (search || '') + (hash || '')
 
             let thisChildNode: parse5utilities.ParsedNode = childNode
 
@@ -216,7 +212,6 @@ export function patchHtml(
                 thisChildNode = handleStaticAsset(
                   compilation,
                   htmlEntry,
-                  htmlDir,
                   absolutePath,
                   assetType,
                   cleanPath,

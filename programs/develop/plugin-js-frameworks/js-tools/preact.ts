@@ -8,7 +8,6 @@
 
 import {createRequire} from 'node:module'
 import * as path from 'node:path'
-import colors from 'pintor'
 import {debugLine, isDebug, prefix} from '../../lib/messaging'
 import type {JsFramework} from '../../types'
 import {hasDependency} from '../frameworks-lib/integrations'

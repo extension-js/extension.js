@@ -17,7 +17,6 @@ import {
   alignBundleIdentifiers,
   alignProjectVersion,
   applyXcodeUserSettings,
-  backupAndRestoreXcodeSettings,
   builtAppPath,
   composeConverterArgs,
   composeXcodebuildArgs,

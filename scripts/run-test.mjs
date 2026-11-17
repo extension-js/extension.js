@@ -106,6 +106,9 @@ const runFallbackTests = async (target) => {
 const run = async () => {
   const target = process.argv[2] ?? 'all'
   const turboFilters = getTurboFilters(target)
+  // The suites rewrite and read each other's dist, so the full run is serial.
+  // A filtered lane holds no upstream suite and keeps turbo's default.
+  const turboConcurrency = target === 'all' ? ['--concurrency=1'] : []
 
   // Only a runner that never started earns the fallback: a turbo run that
   // reported failing tests used to re-run the whole suite and print it twice.
@@ -117,7 +120,8 @@ const run = async () => {
       'turbo',
       'run',
       'test',
-      ...turboFilters
+      ...turboFilters,
+      ...turboConcurrency
     ])
   } catch {
     return runFallbackTests(target)

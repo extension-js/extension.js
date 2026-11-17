@@ -9,19 +9,6 @@
 import type * as parse5utilities from 'parse5-utilities'
 import {cleanAssetUrl} from './utils'
 
-interface HtmlAttribute {
-  name: string
-  value: string
-}
-
-interface HtmlNode {
-  nodeName: string
-  attrs: HtmlAttribute[]
-  childNodes: HtmlNode[]
-  value?: string
-  data?: string
-}
-
 function isUrl(src: string) {
   try {
     // eslint-disable-next-line no-new

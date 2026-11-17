@@ -82,8 +82,8 @@ Every fact has exactly one home per tier:
 
 Consequences:
 
-- Flow lines never restate a fact the card already shows. The binary path lives in the card,
-  never in a pre-card flow line.
+- Flow lines never restate a fact the card already shows. How the binary was chosen lives on
+  the card's Browser row, never in a pre-card flow line.
 - The ready line names no browser. The card's Browser row already did.
 - Paths appear in card rows and error evidence only. Card rows collapse the home directory
   to `~` for scanability. Evidence and debug rows never collapse, because they must paste
@@ -112,20 +112,17 @@ The contract for `extension dev` with the default managed browser:
  🧩 Extension.js 4.0.20
     Browser        Chrome for Testing 138.0.7204.49
     Extension      My Extension 1.0.0
-    Extension ID   pjkghmlbdmhkfellgkkcolmnlhwmubhe
-    Profile        ~/.extension-js/profiles/chrome
-    Run ID         f3a9 · PID 41250
+    Profile        ~/my-extension/dist/extension-js/profiles/chrome-profile/calm-teal-otter
 
 ⏵⏵⏵ Extension ready for development. Watching for file changes.
 ```
 
-A non-default binary (pinned, system fallback, or cached snapshot) grows the card by one
-row. No flow line is added:
+A pinned binary or a system install is named on the Browser row, as `(pinned with
+--chromium-binary)` or `(system install)`. The card gains no row and no flow line is added:
 
 ```
  🧩 Extension.js 4.0.20
-    Browser        Chromium 139.0.7259.2 (system, not the managed default)
-    Binary         /Applications/Chromium.app/Contents/MacOS/Chromium
+    Browser        Chromium 139.0.7259.2 (system install)
     ...
 ```
 
@@ -138,9 +135,10 @@ The encoded rules:
   (browser, dist) pair.
 - The ready line is green, uses `artifactNoun()`, names no browser, and states the watch
   state.
-- The provenance parenthetical on the Browser row appears only on deviation.
+- The provenance parenthetical on the Browser row appears only for a pinned binary or a
+  system install.
 - Rebuilds reprint only the compile line.
-- `build` swaps the Profile and Run ID rows for an Output row and closes with
+- `build` swaps the Profile row for an Output row and closes with
   "Extension built for production in dist/chrome." A failed build closes with
   "Build failed with N errors."
 - Timestamps appear only on recurring lines, which is the compile family.
@@ -157,7 +155,6 @@ implements the full NO_COLOR, FORCE_COLOR, and TTY matrix).
 | green | success and ready |
 | gray | de-emphasis: timestamps, card values, evidence labels |
 | blue | typeable input: commands, flags, env vars |
-| brightBlue | the brand word in the card head, nothing else |
 | underline | a location: path or URL |
 | dim | the debug channel |
 
@@ -232,14 +229,15 @@ A top-level command prints one card, in the boot order above:
  🧩 Extension.js 4.0.16
     Browser        Chromium 141
     Extension      out-probe 1.0.0
-    Extension ID   aicjcgkbnbnjnnckchpjcjjcdnpjjhga
-    Profile        ~/.extension-js/profiles/chromium
-    Run ID         ms250dnw-hkhe4xpd · PID 46476
+    Profile        ~/out-probe/dist/extension-js/profiles/chromium-profile/calm-teal-otter
 ```
 
-Rows are omitted when the value is unknown. There is no `n/a`. Row presence follows fact
-availability, not call site: `build` and the `--no-browser` modes show an Output row, a
-launch shows Profile and Run ID, a non-default binary adds a Binary row. A launch that
+Rows are omitted when the value is unknown. There is no `n/a`. The card holds at most three
+rows, and a launch offers them in priority order: Browser, Extension, Profile, Run ID,
+Extension ID. The head carries no color. Row presence follows fact availability, not call
+site: `build` shows an Output row, a launch shows Profile, and the Extension ID takes the
+third row when a run has no profile to report. Run ID appears only when a caller asks for
+it, as the `--no-browser` card does in place of Output. There is no Binary row. A launch that
 cannot show the card, such as the deduped preview leg of `start`, keeps the standalone debug
 profile line instead.
 
@@ -385,7 +383,7 @@ webpack tap names and resource queries, and stays outside the brand rule. The li
 
 ```sh
 pnpm check:messaging   # prefixes, brand, ellipsis, voice, forbidden words,
-                       # emoji, semicolons, brightBlue, glued periods
+                       # emoji, semicolons, glued periods
 pnpm check:messaging --list   # the derived surface it reads
 pnpm check:prose       # no em dashes anywhere
 pnpm test:cli          # the command table, the help screen, and the JSON contract

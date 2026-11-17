@@ -181,7 +181,7 @@ describe('EnvPlugin', () => {
   }
 
   it('applies DefinePlugin with filtered env vars and defaults', async () => {
-    const {compiler, triggerCompilation} = createCompiler('development')
+    const {compiler} = createCompiler('development')
     const plugin = new EnvPlugin({
       manifestPath: '/proj/manifest.json',
       browser: 'chrome'
