@@ -14,7 +14,7 @@ import {
 import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import * as path from 'node:path'
-import {spawn, sync as spawnSync} from 'cross-spawn'
+import {spawn} from 'cross-spawn'
 import {buildExecEnv, detectPackageManagerFromLockfile} from 'prefers-yarn'
 
 // buildExecEnv and lockfile sniffing come from prefers-yarn; the resolver
@@ -72,14 +72,28 @@ function inferPackageManagerFromPath(
 ): PackageManagerName | undefined {
   if (!value) return undefined
 
-  const lower = value.toLowerCase()
+  const segments = value
+    .toLowerCase()
+    .split(/[\\/]+/)
+    .filter(Boolean)
+  const file = (segments[segments.length - 1] || '').replace(
+    /\.(?:cjs|mjs|js|cmd|bat|exe|ps1)$/,
+    ''
+  )
+  // npm ships npm-cli.js and Yarn Berry ships yarn-<version>.cjs.
+  const named = /^(pnpm|yarn|bun|npm)(?:-cli|-\d[\w.-]*)?$/.exec(file)
 
-  if (lower.includes('pnpm')) return 'pnpm'
-  if (lower.includes('yarn')) return 'yarn'
-  if (lower.includes('bun')) return 'bun'
-  if (lower.includes('npm')) return 'npm'
+  if (named) return named[1] as PackageManagerName
 
-  return undefined
+  // A generic file name is read from its package folder: <name>/bin/<file>.
+  const packageDir =
+    segments[segments.length - 2] === 'bin'
+      ? segments[segments.length - 3]
+      : undefined
+
+  return /^(?:pnpm|yarn|bun|npm)$/.test(packageDir || '')
+    ? (packageDir as PackageManagerName)
+    : undefined
 }
 
 function getPackageManagerOverride(): PackageManagerResolution | undefined {
@@ -97,22 +111,26 @@ function getPackageManagerOverride(): PackageManagerResolution | undefined {
 }
 
 function detectPackageManagerFromEnv(): PackageManagerResolution | undefined {
-  const userAgent = process.env.npm_config_user_agent || ''
+  // A user agent leads with the invoking manager, as in "pnpm/10.2.0 npm/? node/v22".
+  // Later tokens name the platform, so only the first one is read.
+  const userAgent = (process.env.npm_config_user_agent || '')
+    .trim()
+    .split('/')[0]
   const execPath = process.env.npm_execpath || process.env.NPM_EXEC_PATH || ''
 
-  if (userAgent.includes('pnpm')) {
+  if (userAgent === 'pnpm') {
     return {name: 'pnpm', execPath: execPath || undefined}
   }
 
-  if (userAgent.includes('yarn')) {
+  if (userAgent === 'yarn') {
     return {name: 'yarn', execPath: execPath || undefined}
   }
 
-  if (userAgent.includes('bun')) {
+  if (userAgent === 'bun') {
     return {name: 'bun', execPath: execPath || undefined}
   }
 
-  if (userAgent.includes('npm')) {
+  if (userAgent === 'npm') {
     return {name: 'npm', execPath: execPath || undefined}
   }
 
@@ -222,21 +240,6 @@ function resolveCommandOnPath(command: string) {
   )
 }
 
-function canRunCorepack(): boolean {
-  try {
-    // corepack is a .cmd shim on Windows. cross-spawn resolves the shim
-    // itself, so no shell string is built for the probe.
-    const result = spawnSync('corepack', ['--version'], {
-      stdio: 'ignore',
-      windowsHide: true
-    })
-
-    return result?.status === 0
-  } catch {
-    return false
-  }
-}
-
 function hydrateResolvedPackageManager(
   name: PackageManagerName
 ): PackageManagerResolution | undefined {
@@ -279,24 +282,42 @@ function detectDenoProject(cwd?: string): PackageManagerResolution | undefined {
     return undefined
   }
 
-  const execPath = resolveCommandOnPath('deno')
-  if (execPath) return {name: 'deno', execPath}
-
-  // Deno-created projects may run dev/build through a node CLI later; only
-  // claim deno when the binary is actually available.
-  return undefined
+  // Claimed even with no deno on PATH, so the install says deno is missing
+  // and no other manager installs the project in its place.
+  return hydrateResolvedPackageManager('deno') || {name: 'deno'}
 }
 
+// The `packageManager` field names the manager when no lockfile does yet.
+function detectPinnedPackageManager(
+  cwd?: string
+): PackageManagerName | undefined {
+  if (!cwd) return undefined
+
+  try {
+    const pkg = JSON.parse(
+      fs.readFileSync(path.join(cwd, 'package.json'), 'utf8')
+    )
+    const pinned = /^(npm|pnpm|yarn|bun)@/.exec(
+      String(pkg?.packageManager || '').trim()
+    )
+
+    return pinned ? (pinned[1] as PackageManagerName) : undefined
+  } catch {
+    return undefined
+  }
+}
+
+// The project decides first (lockfile, then pin), then the manager that ran
+// the command, then npm. PATH is never probed, so machines agree.
 export function resolvePackageManager(opts?: {
   cwd?: string
 }): PackageManagerResolution {
-  const lockPm = detectPackageManagerFromLockfile(opts?.cwd)
+  const projectPm =
+    detectPackageManagerFromLockfile(opts?.cwd) ||
+    detectPinnedPackageManager(opts?.cwd)
 
-  if (lockPm) {
-    const hydrated = hydrateResolvedPackageManager(lockPm)
-    if (hydrated) return hydrated
-
-    return {name: lockPm}
+  if (projectPm) {
+    return hydrateResolvedPackageManager(projectPm) || {name: projectPm}
   }
 
   const override = getPackageManagerOverride()
@@ -308,38 +329,7 @@ export function resolvePackageManager(opts?: {
   const envPm = detectPackageManagerFromEnv()
   if (envPm) return envPm
 
-  const candidates: PackageManagerName[] = ['pnpm', 'yarn', 'bun']
-
-  for (const candidate of candidates) {
-    const resolved = resolveCommandOnPath(candidate)
-
-    if (resolved) {
-      return {name: candidate, execPath: resolved}
-    }
-  }
-
-  const corepackPath = resolveCommandOnPath('corepack')
-
-  if (corepackPath || canRunCorepack()) {
-    return {
-      name: 'pnpm',
-      runnerCommand: corepackPath || 'corepack',
-      runnerArgs: ['pnpm']
-    }
-  }
-
-  const bundledNpmCli = resolveBundledNpmCliPath()
-
-  if (bundledNpmCli) {
-    return {
-      name: 'npm',
-      execPath: bundledNpmCli,
-      runnerCommand: process.execPath,
-      runnerArgs: [bundledNpmCli]
-    }
-  }
-
-  return {name: 'npm'}
+  return hydrateResolvedPackageManager('npm') || {name: 'npm'}
 }
 
 // Confine a project install to the project dir: pnpm walks up and would
@@ -692,12 +682,6 @@ export function installScriptSuppression(pm: PackageManagerResolution): {
   }
 
   return {args: ['--ignore-scripts'], env: {}}
-}
-
-// A hydrated npm resolution for fallback installs: PATH npm first, then the
-// npm bundled with the running Node.
-export function resolveNpmPackageManager(): PackageManagerResolution {
-  return hydrateResolvedPackageManager('npm') || {name: 'npm'}
 }
 
 export function buildInstallCommand(

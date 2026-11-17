@@ -23,6 +23,10 @@ function cliBin(): string {
 // awaited command promise, which is the path a telemetry listener swallowed.
 const CRASH_PRELOAD = 'Promise.reject(new Error("injected async crash"))\n'
 
+// The update check reads its registry through rc, which takes npm_registry
+// and ignores npm_config_registry. A refused loopback port keeps it local.
+const LOOPBACK_REGISTRY = 'http://127.0.0.1:9/'
+
 interface CrashRun {
   status: number | null
   stderr: string
@@ -31,7 +35,7 @@ interface CrashRun {
 
 function runWithInjectedCrash(
   telemetry: '0' | '1',
-  sink = 'http://127.0.0.1:1'
+  sink: string
 ): Promise<CrashRun> {
   const work = makeTempFolder('extjs-crash-')
   const configHome = makeTempFolder('extjs-config-')
@@ -56,10 +60,14 @@ function runWithInjectedCrash(
         stdio: ['ignore', 'ignore', 'pipe'],
         env: {
           ...process.env,
+          // An opt-out in the shell that runs the suite would silence both.
+          EXTENSION_TELEMETRY_DISABLED: undefined,
+          DO_NOT_TRACK: undefined,
           EXTENSION_TELEMETRY: telemetry,
           // Nothing may leave the machine for a spec: the sink is a refused
           // loopback port or the local fake server below.
           POSTHOG_HOST: sink,
+          npm_registry: LOOPBACK_REGISTRY,
           XDG_CONFIG_HOME: configHome,
           XDG_CACHE_HOME: cacheHome
         }
@@ -156,22 +164,6 @@ function realpath(dir: string): string {
   }
 }
 
-describe('telemetry never changes what a crashing command does', () => {
-  it('dies the same way with telemetry on as with telemetry off', async () => {
-    const [on, off] = await Promise.all([
-      runWithInjectedCrash('1'),
-      runWithInjectedCrash('0')
-    ])
-
-    // The opted-out run is the reference: Node prints the stack and exits 1.
-    expect(off.status).toBe(1)
-    expect(off.stderr).toContain('injected async crash')
-
-    expect(on.status).toBe(off.status)
-    expect(on.stderr).toBe(off.stderr)
-  }, 120000)
-})
-
 describe('a crash still reports itself, without touching the exit', () => {
   it('delivers command_failed to the sink before the default death', async () => {
     const sink = await startFakeSink('ack')
@@ -182,7 +174,9 @@ describe('a crash still reports itself, without touching the exit', () => {
         runWithInjectedCrash('0', sink.url)
       ])
 
+      // The opted-out run is the reference: Node prints the stack and exits 1.
       expect(off.status).toBe(1)
+      expect(off.stderr).toContain('injected async crash')
       expect(on.status).toBe(1)
       expect(on.stderr).toBe(off.stderr)
       expect(sink.received).toEqual([

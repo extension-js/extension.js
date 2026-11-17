@@ -154,7 +154,7 @@ describe('extension capabilities', () => {
     ])
     expect(code).toBe(0)
     const out = String(logSpy.mock.calls[0][0])
-    expect(() => JSON.parse(out)).toThrow()
+    expect(() => JSON.parse(out)).toThrow(SyntaxError)
     expect(out).toContain('envelope schema: 1')
     expect(out).toContain('--output json')
   })

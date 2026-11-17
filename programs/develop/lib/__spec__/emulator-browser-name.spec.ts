@@ -43,7 +43,10 @@ describe('chromium-emulator as a browser name', () => {
   it('still refuses a name nobody spells', () => {
     expect(isKnownBrowserName('chromium-emulatr')).toBe(false)
     expect(() => configBrowserOrThrow('chromium-emulatr', 'dev')).toThrow(
-      /Unsupported browser/
+      expect.objectContaining({
+        code: 'E_UNSUPPORTED_BROWSER',
+        message: expect.stringMatching(/Unsupported browser/)
+      })
     )
   })
 
