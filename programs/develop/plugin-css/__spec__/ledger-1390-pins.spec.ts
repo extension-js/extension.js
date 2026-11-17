@@ -61,7 +61,7 @@ describe('a content-script sheet that imports another', () => {
 describe('a url() inside a CSS comment', () => {
   const source = '/* .x{background:url(./gone.png)} */\n.a{color:red}\n'
 
-  it('is reported as dead, and fails a strict build', () => {
+  it('is not reported, and leaves a strict build alone', () => {
     const root = makeProject({})
     const sheet = path.join(root, 'content', 'styles.css')
 
@@ -69,9 +69,8 @@ describe('a url() inside a CSS comment', () => {
     vi.stubEnv('EXTENSION_STRICT_REFS', 'true')
     const strict = runInlineLoader(root, sheet, source)
 
-    // Pins today's behavior. Ledger 1390 D7.
-    expect(loose.warnings.map((w) => w.name)).toEqual(['CssDeadRef'])
-    expect(strict.errors.map((e) => e.name)).toEqual(['CssDeadRef'])
+    expect(loose.warnings).toEqual([])
+    expect(strict.errors).toEqual([])
   })
 })
 

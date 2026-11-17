@@ -97,14 +97,55 @@ export function replaceCssUrlRefs(
   })
 }
 
+// Where each comment of a sheet starts and ends. Strings, escapes and an
+// unquoted url() body are read the way CSS reads them, so a /* there opens none.
+function commentRanges(source: string): Array<[number, number]> {
+  const ranges: Array<[number, number]> = []
+  let at = 0
+
+  while (at < source.length) {
+    const char = source[at]
+
+    if (char === '\\') {
+      at += 2
+    } else if (char === '"' || char === "'") {
+      at++
+
+      while (at < source.length && source[at] !== char && source[at] !== '\n') {
+        at += source[at] === '\\' ? 2 : 1
+      }
+
+      at++
+    } else if (char === '/' && source[at + 1] === '*') {
+      const end = source.indexOf('*/', at + 2)
+      const close = end === -1 ? source.length : end + 2
+
+      ranges.push([at, close])
+      at = close
+    } else if (/^url\(\s*[^\s'"]/i.test(source.slice(at, at + 64))) {
+      const close = source.indexOf(')', at)
+
+      at = close === -1 ? source.length : close + 1
+    } else {
+      at++
+    }
+  }
+
+  return ranges
+}
+
 export function extractCssUrlRefs(source: string): string[] {
   const found: string[] = []
   const seen = new Set<string>()
+  const comments = commentRanges(source)
 
   URL_REF.lastIndex = 0
   let match: RegExpExecArray | null
 
   while ((match = URL_REF.exec(source)) !== null) {
+    const at = match.index
+    if (comments.some(([start, end]) => at >= start && at < end)) continue
+
     const request = match[1] ?? match[2] ?? match[3] ?? ''
     if (!request || seen.has(request)) continue
 

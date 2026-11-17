@@ -18,6 +18,41 @@ afterEach(() => {
   tempDirs.length = 0
 })
 
+// A commented-out url() is not a reference a browser requests.
+describe('css url() refs inside comments', () => {
+  it.each([
+    ['a whole comment', '/* .x{background:url(./a.png)} */', []],
+    [
+      'a comment after a live reference',
+      '.a{background:url(./b.png)} /* url(./c.png) */',
+      ['./b.png']
+    ],
+    ['a comment left open', '.a{} /* url(./f.png)', []],
+    [
+      'comment markers inside strings',
+      '.a{content:"/*"} .b{background:url(./d.png)} .c{content:\'*/\'}',
+      ['./d.png']
+    ],
+    [
+      'an escaped slash before a star',
+      '.a\\/*b{background:url(./e.png)}',
+      ['./e.png']
+    ],
+    [
+      'a star slash inside a quoted url()',
+      '.a{background:url("./g/*.png")} .b{background:url(./h.png)}',
+      ['./g/*.png', './h.png']
+    ],
+    [
+      'a slash star inside an unquoted url()',
+      '.a{background:url(./i/*.png)} .b{background:url(./j.png)}',
+      ['./i/*.png', './j.png']
+    ]
+  ])('reads %s', (_label, source, expected) => {
+    expect(extractCssUrlRefs(source)).toEqual(expected)
+  })
+})
+
 describe('css url() refs are read case-insensitively, the way CSS is', () => {
   for (const casing of CASINGS) {
     it(`extracts every reference written ${casing}()`, () => {
