@@ -187,6 +187,9 @@ that contract; it does not define it.
 - `setup-reload-strategy.spec.ts`, `get-background-entry-name.spec.ts`,
   `setup-background-entry.spec.ts`, `setup-chunk-loading-target.spec.ts`,
   background entries and the chunk-loading target in dev and production
+- `chunk-loading-runtime.spec.ts`, which code sets the public path, the base
+  URI and the chunk loader in each world, read off builds made with the whole
+  plugin list. It reads loaders from `programs/develop/dist` too.
 - `dev-content-scripts.spec.ts`, the Chromium stub and registry runtime
 - `inject-bridge-steps.spec.ts`, `inject-bridge-boot-registrations.spec.ts`,
   the control-bridge producer and relay
