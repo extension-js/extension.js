@@ -1,0 +1,90 @@
+import * as fs from 'node:fs'
+import * as path from 'node:path'
+import {type Compiler, type RspackOptions, rspack} from '@rspack/core'
+
+// Writes each file under the project root, a manifest object as JSON.
+export function writeProject(
+  root: string,
+  files: Record<string, string | object>
+): string {
+  for (const [relative, contents] of Object.entries(files)) {
+    const file = path.join(root, relative)
+    fs.mkdirSync(path.dirname(file), {recursive: true})
+    fs.writeFileSync(
+      file,
+      typeof contents === 'string' ? contents : JSON.stringify(contents)
+    )
+  }
+
+  return root
+}
+
+// A real compiler that is created and never run, so a spec reads what a
+// plugin registered on it rather than what a stand-in recorded.
+export function idleCompiler(
+  root: string,
+  mode: 'development' | 'production',
+  entry: RspackOptions['entry'] = {}
+): Compiler {
+  return rspack({
+    mode,
+    context: root,
+    entry,
+    output: {path: path.join(root, 'dist')}
+  })
+}
+
+function tapNames(compiler: Compiler): Map<string, string[]> {
+  return new Map(
+    Object.entries(compiler.hooks).map(([hook, value]) => [
+      hook,
+      ((value as {taps?: Array<{name: string}>}).taps ?? []).map(
+        (tap) => tap.name
+      )
+    ])
+  )
+}
+
+// Every tap a call added, by compiler hook, in the order they were added.
+export function tapsAddedBy(
+  compiler: Compiler,
+  act: () => void
+): Record<string, string[]> {
+  const before = tapNames(compiler)
+  act()
+  const added: Record<string, string[]> = {}
+
+  for (const [hook, names] of tapNames(compiler)) {
+    const extra = names.slice(before.get(hook)?.length ?? 0)
+    if (extra.length > 0) added[hook] = extra
+  }
+
+  return added
+}
+
+// The fork's service worker plugin names its entry only inside the tap it
+// adds to entryOption, so the entry is read by handing that tap a set.
+export function workerEntryFromFork(compiler: Compiler): string | undefined {
+  const taps = (
+    compiler.hooks.entryOption as unknown as {
+      taps: Array<{
+        name: string
+        fn: (context: string, entries: object) => void
+      }>
+    }
+  ).taps.filter((tap) => tap.name === 'WebExtensionServiceWorkerEntryPlugin')
+
+  if (taps.length === 0) return undefined
+  if (taps.length > 1) throw new Error('the fork tapped entryOption twice')
+
+  const entries = new Proxy<Record<string, {chunkLoading?: string}>>(
+    {},
+    {get: (seen, name: string) => (seen[name] ??= {})}
+  )
+  taps[0].fn(String(compiler.options.context), entries)
+  const named = Object.entries(entries).find(
+    ([, entry]) => entry.chunkLoading === 'import-scripts'
+  )
+
+  return named?.[0]
+}
