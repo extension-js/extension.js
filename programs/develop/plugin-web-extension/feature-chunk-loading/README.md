@@ -22,10 +22,13 @@ Who applies the target depends on the build:
 | Build | Applied by | Message fallback |
 | --- | --- | --- |
 | Production | `SetupChunkLoadingTarget` | off |
+| Development build with no session (`extension build --mode development`) | `SetupChunkLoadingTarget` | off |
+| Dev session with reload turned off (`EXTENSION_NO_RELOAD=true`) | `SetupChunkLoadingTarget` | off |
 | Dev session | `SetupReloadStrategy` in `plugin-reload` | on |
-| Development build with no session | nobody, the bundler's loader stays | none |
 
-`SetupChunkLoadingTarget` returns unless the mode is `production`, so the target is never installed twice.
+Every build gets the target once. `isReloadSession` in `lib/reload-session.ts` is the one answer both sides read: `ReloadPlugin` returns when it is false and `SetupChunkLoadingTarget` returns when it is true. `rspack-config.ts` hands both the same `devSession`.
+
+A development build compiles a MAIN world content script apart with its imports inlined, so that file has no chunk to load and carries no loader in either kind of development build.
 
 ## Important files
 
@@ -68,7 +71,7 @@ Who applies the target depends on the build:
 | --- | --- |
 | `background.pageEntry` | The entry of the background page. |
 | `background.serviceWorkerEntry` | The entry of the service worker. It must differ from `pageEntry`. |
-| `background.classicLoader` | Adds the message fallback. On unless set to `false`. Only a dev session leaves it on, because a production background can have no bundler runtime to hold the listener. |
+| `background.classicLoader` | Adds the message fallback. On unless set to `false`. Only a reload session leaves it on, because a production background can have no bundler runtime to hold the listener. |
 | `weakRuntimeCheck` | Accepts a runtime with no extension API, for code a build step evaluates outside a browser. |
 | `contentScriptsMeta` | The world of each content script bundle, by output file name. |
 | `gecko` | The build targets a Gecko browser. |
@@ -79,18 +82,20 @@ Who applies the target depends on the build:
 
 Two modules can set the public path, and the mode decides which one answers:
 
-- In production, `feature-scripts/steps/add-public-path-runtime-module.ts` is registered first and answers the request.
-- In a dev session that step is not applied, so `runtime-modules/public-path.ts` answers.
+- In every build `SetupChunkLoadingTarget` applies the target to, `feature-scripts/steps/add-public-path-runtime-module.ts` is registered first and answers the request.
+- In a reload session that step is not applied, so `runtime-modules/public-path.ts` answers.
+
+`feature-scripts` reads the same `isReloadSession`, so the module that sets the public path always matches who applied the target.
 
 Both are kept as they are. The test below pins which one writes the value in each world.
 
 ## Tests
 
-- `__spec__/setup-chunk-loading-target.spec.ts`, the production gate and what a production compile emits per world
+- `__spec__/setup-chunk-loading-target.spec.ts`, which builds the target is installed for and what a production compile emits per world
 - `__spec__/get-background-entry-name.spec.ts`, the entry name per manifest shape
 - `__spec__/content-scripts-meta.spec.ts`, the world and bridge of each content script
 - `__spec__/no-danger-name.spec.ts`, the output name check in a real compile
-- `plugin-reload/__spec__/chunk-loading-runtime.spec.ts`, which code sets the public path, the base URI and the chunk loader in each world, read off builds made with the whole plugin list
+- `plugin-reload/__spec__/chunk-loading-runtime.spec.ts`, which code sets the public path, the base URI and the chunk loader in each world, and that each kind of build installs the target once, read off builds made with the whole plugin list
 
 ## Attribution
 

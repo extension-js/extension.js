@@ -253,7 +253,8 @@ export default function webpackConfig(
     // the host page, which never reaches a content script's isolated world.
     new SetupChunkLoadingTarget({
       manifestPath,
-      browser: devOptions.browser
+      browser: devOptions.browser,
+      devSession
     }),
     new SpecialFoldersPlugin({
       manifestPath,

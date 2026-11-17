@@ -126,6 +126,19 @@ interface Built {
   names: string[]
   entry: Record<string, {chunkLoading?: unknown}>
   hotUpdateChunkFilename: unknown
+  targetInstalls: number
+}
+
+const count = (text: string, line: string) => text.split(line).length - 1
+
+// The target taps the compiler once per install, and a bundle that loads
+// chunks is given the loader once.
+function expectOneChunkLoadingTarget(built: Built) {
+  expect(built.targetInstalls).toBe(1)
+
+  for (const world of [ISOLATED, PAGE]) {
+    expect(count(built.file(world), LOAD_SCRIPT.chunkLoader)).toBe(1)
+  }
 }
 
 // The whole plugin list a command gets, with readable output and no
@@ -135,10 +148,16 @@ async function build(options: {
   mode: 'development' | 'production'
   command: 'build' | 'dev'
   moduleWorker?: boolean
+  reloadOff?: boolean
 }): Promise<Built> {
   const root = scaffold(options.moduleWorker === true)
   const distPath = path.join(root, 'dist', options.browser)
-  const config = webpackConfig(await getProjectStructure(root), {
+  const structure = await getProjectStructure(root)
+
+  // The plugins read the variable as they are applied, which is here.
+  vi.stubEnv('EXTENSION_NO_RELOAD', options.reloadOff ? 'true' : undefined)
+
+  const config = webpackConfig(structure, {
     browser: options.browser,
     mode: options.mode,
     metadataCommand: options.command,
@@ -156,6 +175,8 @@ async function build(options: {
   config.optimization = {...config.optimization, minimize: false}
 
   const compiler = rspack(config)
+  vi.stubEnv('EXTENSION_NO_RELOAD', undefined)
+
   const stats = await new Promise<Stats>((resolve, reject) => {
     compiler.run((error, result) =>
       error || !result ? reject(error) : resolve(result)
@@ -179,6 +200,9 @@ async function build(options: {
     names,
     entry: compiler.options.entry as Built['entry'],
     hotUpdateChunkFilename: compiler.options.output.hotUpdateChunkFilename,
+    targetInstalls: compiler.hooks.compilation.taps.filter(
+      (tap) => tap.name === 'ChunkLoadingTarget'
+    ).length,
     file: (name) => {
       const matches = names.filter((candidate) => name.test(candidate))
 
@@ -214,6 +238,10 @@ describe('chunk loading runtime of a production build for Chromium', () => {
       mode: 'production',
       command: 'build'
     })
+  })
+
+  it('installs the chunk loading target once', () => {
+    expectOneChunkLoadingTarget(built)
   })
 
   it('sets the public path of a content script from the scripts feature', () => {
@@ -301,6 +329,10 @@ describe('chunk loading runtime of a production build for Firefox', () => {
     })
   })
 
+  it('installs the chunk loading target once', () => {
+    expectOneChunkLoadingTarget(built)
+  })
+
   it('treats the background scripts bundle as an extension page', () => {
     const text = built.file(BACKGROUND_SCRIPTS)
 
@@ -330,6 +362,10 @@ describe('chunk loading runtime of a dev session for Chromium', () => {
       mode: 'development',
       command: 'dev'
     })
+  })
+
+  it('installs the chunk loading target once', () => {
+    expectOneChunkLoadingTarget(built)
   })
 
   it('sets the public path of a content script from the chunk loader', () => {
@@ -382,24 +418,94 @@ describe('chunk loading runtime of a dev session for Chromium', () => {
   })
 })
 
-describe('chunk loading runtime of a development build with no session', () => {
-  it('keeps the loader of the bundler in every world', async () => {
-    const built = await build({
-      browser: 'chrome',
-      mode: 'development',
-      command: 'build'
-    })
+// A development build has no dev server and no reload client, so it loads
+// chunks the way a production build does.
+describe.each([
+  'chrome',
+  'firefox'
+] as const)('chunk loading runtime of a development build with no session for %s', (browser) => {
+  let built: Built
 
-    for (const world of [ISOLATED, PAGE]) {
-      const text = built.file(world)
+  beforeAll(async () => {
+    built = await build({browser, mode: 'development', command: 'build'})
+  })
 
-      expect(writers(text, PUBLIC_PATH)).toEqual(['bundler'])
-      expect(writers(text, BASE_URI)).toEqual(['bundlerDocument'])
-      expect(writers(text, LOAD_SCRIPT)).toEqual(['bundler'])
-    }
+  it('installs the chunk loading target once', () => {
+    expectOneChunkLoadingTarget(built)
+  })
 
+  it('loads an isolated world chunk through a native import', () => {
+    const text = built.file(ISOLATED)
+
+    expect(writers(text, PUBLIC_PATH)).toEqual(['bundler', 'scriptsFeature'])
+    expect(writers(text, BASE_URI)).toEqual(['bundlerDocument'])
+    expect(writers(text, LOAD_SCRIPT)).toEqual(['bundler', 'chunkLoader'])
+    expect(text).toContain(EXTENSION_WORLD_IMPORT)
+    expect(text).toContain(CLASSIC_REFUSAL)
+    expect(text).not.toContain(CLASSIC_REQUEST)
+  })
+
+  it('gives an extension page the same public path and chunk loader', () => {
+    const text = built.file(PAGE)
+
+    expect(writers(text, PUBLIC_PATH)).toEqual(['bundler', 'scriptsFeature'])
+    expect(writers(text, BASE_URI)).toEqual(['bundlerDocument'])
+    expect(writers(text, LOAD_SCRIPT)).toEqual(['bundler', 'chunkLoader'])
+    expect(text).toContain(EXTENSION_WORLD_IMPORT)
+    expect(text).toContain(API_STAND_IN)
+    expect(text).not.toContain(CLASSIC_REQUEST)
+  })
+
+  // Development compiles a MAIN world script apart with its imports
+  // inlined, so the file has no chunk to load in either kind of build.
+  it('ships a MAIN world script whole, with no chunk loader', () => {
+    const text = built.file(MAIN)
+
+    expect(writers(text, LOAD_SCRIPT)).toEqual([])
+    expect(writers(text, PUBLIC_PATH)).toEqual([])
+    expect(text).toContain('const a = "main"')
+  })
+
+  it('adds no message fallback to the background', () => {
+    const text = built.file(browser === 'firefox' ? BACKGROUND_SCRIPTS : WORKER)
+
+    expect(text).not.toContain(CLASSIC_LISTENER)
+    expect(text).not.toContain(CLASSIC_REQUEST)
+  })
+
+  it('keeps the hot update names of the bundler', () => {
     expect(built.hotUpdateChunkFilename).toBe(
       'hot/[id].[fullhash].hot-update.js'
     )
+  })
+})
+
+describe('chunk loading runtime of a dev session with reload turned off', () => {
+  let built: Built
+
+  beforeAll(async () => {
+    built = await build({
+      browser: 'chrome',
+      mode: 'development',
+      command: 'dev',
+      reloadOff: true
+    })
+  })
+
+  it('installs the chunk loading target once', () => {
+    expectOneChunkLoadingTarget(built)
+  })
+
+  it('loads chunks the way a build with no session does', () => {
+    for (const world of [ISOLATED, PAGE]) {
+      const text = built.file(world)
+
+      expect(writers(text, PUBLIC_PATH)).toEqual(['bundler', 'scriptsFeature'])
+      expect(writers(text, LOAD_SCRIPT)).toEqual(['bundler', 'chunkLoader'])
+      expect(text).toContain(EXTENSION_WORLD_IMPORT)
+      expect(text).not.toContain(CLASSIC_REQUEST)
+    }
+
+    expect(built.file(WORKER)).not.toContain(CLASSIC_LISTENER)
   })
 })

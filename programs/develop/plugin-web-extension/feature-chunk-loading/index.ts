@@ -12,6 +12,7 @@ import type {Compiler} from '@rspack/core'
 import {isGeckoBasedBrowser} from '../../lib/constants'
 import {extensionSchemeFor} from '../../lib/extension-base-from-stack'
 import {parseAuthoredJson} from '../../lib/parse-json-safe'
+import {isReloadSession} from '../../lib/reload-session'
 import type {
   DevOptions,
   FilepathList,
@@ -82,16 +83,18 @@ function buildRuntimeMainWorldMeta(
 export class SetupChunkLoadingTarget {
   private readonly manifestPath: string
   private readonly browser: DevOptions['browser']
+  private readonly devSession?: boolean
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
+    this.devSession = options.devSession
   }
 
   public apply(compiler: Compiler): void {
-    // Dev registers the same target through SetupReloadStrategy, which also
-    // owns the reload-only steps. Applying both would install it twice.
-    if (compiler.options.mode !== 'production') return
+    // A reload session installs the same target beside its reload-only
+    // steps, and applying both would install it twice.
+    if (isReloadSession(compiler.options.mode, this.devSession)) return
 
     const hasValidManifest =
       !!this.manifestPath &&
@@ -125,7 +128,8 @@ export class SetupChunkLoadingTarget {
         // runtime at all, and the module then lands bare at the top of the
         // file, where __webpack_require__ does not exist and the worker dies
         // on load. The isolated world reaches its chunks through the native
-        // dynamic import loader, so production does not need this fallback.
+        // dynamic import loader, so a build with no session does not need
+        // this fallback, in either mode.
         // The reader is `background.classicLoader`, not the top-level key.
         classicLoader: false
       },

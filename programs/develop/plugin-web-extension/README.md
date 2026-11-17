@@ -26,7 +26,7 @@ Builds your extension into a shippable bundle. Pages get one script and optional
 
 Feature-local architecture notes live next to each feature. For the scripts pipeline, see `feature-scripts/README.md`.
 
-Chunk loading is the one feature `WebExtensionPlugin` does not apply itself. `feature-chunk-loading` exports `SetupChunkLoadingTarget`, which `rspack-config.ts` registers after this plugin for a production build, and `plugin-reload` applies the same target in a dev session. See `feature-chunk-loading/README.md`, which also carries the notice for the code derived from `webpack-target-webextension`.
+Chunk loading is the one feature `WebExtensionPlugin` does not apply itself. `feature-chunk-loading` exports `SetupChunkLoadingTarget`, which `rspack-config.ts` registers after this plugin. It applies the target to every build that is not a reload session, and `plugin-reload` applies the same target in a reload session, so each build gets it once. See `feature-chunk-loading/README.md`, which also carries the notice for the code derived from `webpack-target-webextension`.
 
 ### Usage
 

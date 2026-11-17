@@ -33,7 +33,9 @@ It is responsible for:
   background/content entries that `feature-scripts`' `AddScripts` declares.
   The whole pipeline no-ops in production, for a build whose `devSession`
   is `false`, under `EXTENSION_NO_RELOAD=true` (`--no-reload`), and when
-  the manifest path is not a file.
+  the manifest path is not a file. The first three are `isReloadSession`
+  in `lib/reload-session.ts`, which `plugin-web-extension` reads too, so a
+  build this plugin skips still gets the chunk loading target, once.
 - the classifier/dispatch API (`classifyReloadFromSources`,
   `buildSourceFeatureIndex`, `createLoadedContentScripts`, `dispatchReload`,
   `createChangedSourcesTracker`, `readDevBuild`, …) consumed by
@@ -125,8 +127,9 @@ Applied by `ReloadPlugin` in order:
 - `steps/setup-reload-strategy/`
   Dev-only background entry setup. It then applies `ChunkLoadingTarget` from
   `plugin-web-extension/feature-chunk-loading`, which owns chunk loading in
-  every mode, and renames hot update files. The production build gets the
-  same target from that feature's `SetupChunkLoadingTarget`, not from here.
+  every mode, and renames hot update files. Every build that is not a
+  reload session gets the same target from that feature's
+  `SetupChunkLoadingTarget`, not from here.
 
 - `reload-lib/dev-content-scripts.ts` / `steps/setup-dev-content-scripts.ts`
   Chromium loads a static content script's bytes once, at extension load,
