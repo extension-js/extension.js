@@ -191,14 +191,16 @@ describe('a Chromium dev contract holds ready until the launch is stamped', () =
     expect(contract(browser).status).toBe('ready')
   })
 
-  it('turns a start receipt held for its launch ready when the launch settles', () => {
+  it('leaves a start receipt held for its launch to the launch phase', () => {
     const writer = makeWriter({command: 'start', browser: 'chrome'})
     writer.writeStarting()
     writer.writeCompiled('2026-11-01T00:00:00.000Z')
     expect(contract('chrome').status).toBe('starting')
 
     writer.settleBrowserLaunch()
+    expect(contract('chrome').status).toBe('starting')
 
+    writer.writeReady()
     expect(contract('chrome').status).toBe('ready')
   })
 

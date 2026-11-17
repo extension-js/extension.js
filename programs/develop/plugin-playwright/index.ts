@@ -34,9 +34,12 @@ import {ownProcessStartedAt} from '../lib/process-started-at'
 import {renameSyncWithRetry} from '../lib/rename-with-retry'
 import {
   browserArtifactsDir,
+  type OwedDebuggerPorts,
+  owedPortsSettled,
   readyContractPath,
-  eventsPath as sessionEventsPath
-} from '../lib/session-paths'
+  releaseHeldReady as releaseHeld
+} from '../lib/session-contract'
+import {eventsPath as sessionEventsPath} from '../lib/session-paths'
 import packageJson from '../package.json'
 
 export type PlaywrightAutomationCommand = 'dev' | 'start' | 'preview' | 'build'
@@ -748,23 +751,13 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
 
   const launchKey = `${readyPath}\n${base.runId}`
 
-  // The port the launcher stamps after the browser process, the fault that
-  // stands in for it, or the launcher's word that nothing more is coming.
-  const cdpPortSettled = (prev: Record<string, unknown> | undefined) =>
-    settledLaunches.has(launchKey) ||
-    typeof prev?.cdpPort === 'number' ||
-    typeof prev?.cdpFaultCode === 'string'
-
-  // A compile is also held for the debugger port, and the end of one wait
-  // must not let ready out ahead of the other.
-  const isHeldReady = (prev: Record<string, unknown>) =>
-    prev.status === 'starting' &&
-    typeof prev.compiledAt === 'string' &&
-    !prev.code &&
-    (!awaitsRdpPort ||
-      typeof prev.rdpPort === 'number' ||
-      typeof prev.rdpPortError === 'string') &&
-    (!awaitsCdpPort || cdpPortSettled(prev))
+  // What the launcher still owes this session, with its own word that
+  // nothing more is coming standing in for a CDP port.
+  const owedPorts = (): OwedDebuggerPorts => ({
+    rdpPort: awaitsRdpPort,
+    cdpPort: awaitsCdpPort,
+    launchSettled: settledLaunches.has(launchKey)
+  })
 
   // The wait ran out with nothing connected, so the compile goes ready the
   // way it did before and a reader finds no attach stamp beside it.
@@ -776,7 +769,7 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     if (typeof prev.awaitingExecutorSince !== 'string') return
 
     delete prev.awaitingExecutorSince
-    if (isHeldReady(prev)) prev.status = 'ready'
+    releaseHeld(prev, owedPorts())
 
     prev.ts = nowISO()
 
@@ -1083,16 +1076,6 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       }
     }
 
-    // A compile is not the session being ready while the launcher still owes
-    // the debugger port: readers pair RDP clients off this contract alone.
-    const rdpPortSettled =
-      sameRun &&
-      (typeof prev?.rdpPort === 'number' ||
-        typeof prev?.rdpPortError === 'string')
-
-    const heldForRdpPort =
-      payload.status === 'ready' && awaitsRdpPort && !rdpPortSettled
-
     // The browser opens after the compile and its background dials in after
     // that, so a reader who acts on ready would find nothing to act through.
     const executorSettled =
@@ -1116,14 +1099,14 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       }
     }
 
-    // A Chromium dev compile ends before the launcher has a browser, so a
-    // reader who took ready here would find no pid, binary or port to use.
-    const heldForCdpPort =
+    // A dev compile ends before the launcher has a browser, so a reader who
+    // took ready here would find no pid, binary or debugger port to use.
+    if (
       payload.status === 'ready' &&
-      awaitsCdpPort &&
-      !cdpPortSettled(sameRun ? prev : undefined)
-
-    if (heldForRdpPort || heldForCdpPort) payload.status = 'starting'
+      !owedPortsSettled(sameRun ? prev : undefined, owedPorts())
+    ) {
+      payload.status = 'starting'
+    }
 
     writeJsonAtomic(readyPath, payload)
   }
@@ -1266,9 +1249,8 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       const prev = readContract()
       if (!prev || prev.runId !== base.runId) return
       if (typeof prev.awaitingExecutorSince === 'string') return
-      if (!isHeldReady(prev)) return
+      if (!releaseHeld(prev, owedPorts())) return
 
-      prev.status = 'ready'
       prev.ts = nowISO()
 
       writeJsonAtomic(readyPath, prev)
@@ -1298,7 +1280,7 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
         // The hello is what a held compile was waiting for.
         if (typeof prev.awaitingExecutorSince === 'string') {
           delete prev.awaitingExecutorSince
-          if (isHeldReady(prev)) prev.status = 'ready'
+          releaseHeld(prev, owedPorts())
         }
 
         // The launcher's "browser is up, nothing attached" note describes the
