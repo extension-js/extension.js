@@ -10,7 +10,6 @@ import {
 } from '../../../lib/extension-base-from-stack'
 import {toRuntimeStylesheetModule} from '../../../plugin-css/css-lib/inline-content-script-css'
 import AutoPublicPathRuntimeModule from '../../feature-chunk-loading/runtime-modules/auto-public-path'
-import BaseUriRuntimeModule from '../../feature-chunk-loading/runtime-modules/base-uri'
 import PublicPathRuntimeModule from '../../feature-chunk-loading/runtime-modules/public-path'
 import {buildMainWorldBridgePairingSource} from '../scripts-lib/main-world-bridge-pairing'
 import {baseUriRuntimeSource} from '../steps/add-base-uri-runtime-module'
@@ -169,15 +168,12 @@ describe('the reload runtime modules of a Gecko build', () => {
   const webpack = rspack as unknown as typeof import('webpack')
 
   it('read the attribute of their own extension and no shared name', () => {
-    for (const source of [
-      generated(BaseUriRuntimeModule(webpack, true, KEYED)),
-      generated(PublicPathRuntimeModule(webpack, true, KEYED))
-    ]) {
-      expect(source).toContain(`getAttribute(${quoted(KEYED)})`)
-      expect(source).not.toContain(quoted(EXTENSION_BASE_ATTRIBUTE))
-      expect(source).not.toContain(EXTENSION_BASE_GLOBAL)
-      expect(source).toContain('__extjsBase < "moz-extension://"')
-    }
+    const source = generated(PublicPathRuntimeModule(webpack, true, KEYED))
+
+    expect(source).toContain(`getAttribute(${quoted(KEYED)})`)
+    expect(source).not.toContain(quoted(EXTENSION_BASE_ATTRIBUTE))
+    expect(source).not.toContain(EXTENSION_BASE_GLOBAL)
+    expect(source).toContain('__extjsBase < "moz-extension://"')
   })
 
   it('ask no runtime for the public path in a file that took its base', () => {
@@ -189,7 +185,6 @@ describe('the reload runtime modules of a Gecko build', () => {
 
   it('keep every other browser off the global and off the Gecko scheme', () => {
     for (const build of [
-      BaseUriRuntimeModule,
       PublicPathRuntimeModule,
       AutoPublicPathRuntimeModule
     ]) {
@@ -287,7 +282,6 @@ describe('the base a file of any engine reads off the document', () => {
       expect(sheet, scheme).toContain(`getAttribute(${quoted(KEYED)})`)
 
       for (const build of [
-        BaseUriRuntimeModule,
         PublicPathRuntimeModule,
         AutoPublicPathRuntimeModule
       ]) {

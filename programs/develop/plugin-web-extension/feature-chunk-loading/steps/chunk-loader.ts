@@ -1,5 +1,4 @@
 import AutoPublicPathRuntimeModule from '../runtime-modules/auto-public-path'
-import BaseUriRuntimeModule from '../runtime-modules/base-uri'
 import {RuntimeGlobal} from '../runtime-modules/browser-runtime'
 import ChunkLoaderFallbackRuntimeModule from '../runtime-modules/chunk-loader-fallback'
 import LoadScriptRuntimeModule from '../runtime-modules/load-script'
@@ -70,25 +69,6 @@ export default class WebExtensionChuckLoaderRuntimePlugin {
               options.classicLoader !== false,
               this.contentScriptsMeta,
               this.gecko
-            )
-          )
-          return true
-        }
-      )
-
-    compilation.hooks.runtimeRequirementInTree
-      .for(RuntimeGlobals.baseURI)
-      .tap(
-        WebExtensionChuckLoaderRuntimePlugin.name,
-        (chunk: any, set: any) => {
-          set.add(RuntimeGlobal)
-          compilation.addRuntimeModule(
-            chunk,
-            BaseUriRuntimeModule(
-              compiler.webpack,
-              this.gecko,
-              this.baseAttribute,
-              this.baseScheme
             )
           )
           return true
