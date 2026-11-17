@@ -1,51 +1,25 @@
-import {spawn} from 'node:child_process'
 import {mkdirSync, mkdtempSync, rmSync, writeFileSync} from 'node:fs'
 import {createServer, type Server} from 'node:http'
 import {tmpdir} from 'node:os'
-import {dirname, join, resolve} from 'node:path'
-import {fileURLToPath} from 'node:url'
+import {join} from 'node:path'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 import {WebSocketServer} from 'ws'
-
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = dirname(__filename)
-const cliRoot = resolve(__dirname, '../..')
-const cliBin = resolve(cliRoot, 'dist', 'cli.cjs')
+import {runCli as spawnCli} from '../helpers/run-cli'
 
 // Big enough that the frame cannot fit in one pipe buffer (64KB on macOS
 // sockets): a pre-drain exit truncates it, the drained exit must not (#79).
 const VALUE_BYTES = 256 * 1024
 
 interface CliRun {
-  code: number
+  code: number | null
   stdout: string
   stderr: string
 }
 
-function runCli(args: string[]): Promise<CliRun> {
-  return new Promise<CliRun>((resolvePromise, reject) => {
-    const child = spawn(process.execPath, [cliBin, ...args], {
-      cwd: cliRoot,
-      stdio: 'pipe'
-    })
-    let stdout = ''
-    let stderr = ''
-    child.stdout.on('data', (chunk) => (stdout += chunk.toString()))
-    child.stderr.on('data', (chunk) => (stderr += chunk.toString()))
-    const timer = setTimeout(() => {
-      child.kill('SIGKILL')
-      reject(new Error('CLI timed out'))
-    }, 30000)
-    child.on('close', (code) => {
-      clearTimeout(timer)
-      resolvePromise({code: code ?? 1, stdout, stderr})
-    })
+async function runCli(args: string[]): Promise<CliRun> {
+  const run = await spawnCli(args, {timeoutMs: 30_000})
 
-    child.on('error', (error) => {
-      clearTimeout(timer)
-      reject(error)
-    })
-  })
+  return {code: run.status, stdout: run.stdout, stderr: run.stderr}
 }
 
 let server: Server
@@ -118,31 +92,7 @@ afterAll(async () => {
 
 describe('act --output json stdout drain contract (#79)', () => {
   it('delivers a frame larger than one pipe buffer intact before exiting', async () => {
-    const result = await new Promise<{code: number; stdout: string}>(
-      (resolvePromise, reject) => {
-        const child = spawn(
-          process.execPath,
-          [cliBin, 'reload', projectDir, '--output', 'json'],
-          {cwd: cliRoot, stdio: 'pipe'}
-        )
-        let stdout = ''
-        child.stdout.on('data', (chunk) => (stdout += chunk.toString()))
-        child.stderr.on('data', () => {})
-        const timer = setTimeout(() => {
-          child.kill('SIGKILL')
-          reject(new Error('CLI timed out'))
-        }, 30000)
-        child.on('close', (code) => {
-          clearTimeout(timer)
-          resolvePromise({code: code ?? 1, stdout})
-        })
-
-        child.on('error', (error) => {
-          clearTimeout(timer)
-          reject(error)
-        })
-      }
-    )
+    const result = await runCli(['reload', projectDir, '--output', 'json'])
 
     expect(result.code).toBe(0)
     expect(result.stdout.length).toBeGreaterThan(VALUE_BYTES)
@@ -179,8 +129,9 @@ describe('act --output json stdout drain contract (#79)', () => {
       })
 
       expect(frame.error.code).toBe('E_SESSION_NOT_FOUND')
-      // The human copy stays on stderr, and the MCP still matches it.
-      expect(result.stderr).toContain('No active control channel')
+      // The frame is the whole answer: the reason is in it and stderr is empty.
+      expect(frame.error.message).toContain('No active control channel')
+      expect(result.stderr).toBe('')
     } finally {
       rmSync(empty, {recursive: true, force: true})
     }

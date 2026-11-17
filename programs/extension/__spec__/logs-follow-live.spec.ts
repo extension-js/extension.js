@@ -24,17 +24,13 @@ import {
 } from '../../develop/dev-server/control-bridge/ws-control-server'
 import {readyContractPath} from '../../develop/lib/session-paths'
 
+import {registerLogsCommand} from '../commands/logs'
+import {makeProgram, runCli, stubProcessExit} from './command-harness'
+
 // `--follow` over the live channel with no browser: the real bridge module,
 // a real control server and broker on an ephemeral port, a producer socket
 // on the wire, and a ready.json on disk where the engine writes it.
-vi.mock('../helpers/extension-develop-runtime', async () => ({
-  loadExtensionDevelopBridgeModule: vi.fn(
-    () => import('../../develop/bridge-entry')
-  )
-}))
-
-import {registerLogsCommand} from '../commands/logs'
-import {makeProgram, runCli, stubProcessExit} from './command-harness'
+const loadBridge = () => import('../../develop/bridge-entry')
 
 const INSTANCE_ID = 'inst-live'
 const RUN_ID = 'run-live'
@@ -82,7 +78,10 @@ afterEach(async () => {
 })
 
 function run(argv: string[]) {
-  return runCli(makeProgram(registerLogsCommand), argv)
+  return runCli(
+    makeProgram((program) => registerLogsCommand(program, {loadBridge})),
+    argv
+  )
 }
 
 function printed(): Array<Record<string, unknown>> {
@@ -129,6 +128,12 @@ function incoming(
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+// Timers that hold the process open, a reconnect backoff among them.
+function pendingTimers(): number {
+  return process.getActiveResourcesInfo().filter((kind) => kind === 'Timeout')
+    .length
 }
 
 // A CI runner that is starved by a sibling suite can take well over three
@@ -234,6 +239,8 @@ describe('extension logs --follow over the live control channel', () => {
 
     // The engine ends a session by stamping the contract before the channel
     // goes away. The follower must notice and hand back the terminal.
+    const timersWhileFollowing = pendingTimers()
+
     writeReady({controlPort: server.port, status: 'stopped'})
     await server.close()
     server = null
@@ -244,7 +251,8 @@ describe('extension logs --follow over the live control channel', () => {
       ok: true,
       command: 'logs',
       status: 'closed',
-      value: {follow: true, closeCode: expect.any(Number)},
+      // 1006: the server went away without a closing handshake.
+      value: {follow: true, closeCode: 1006, reason: ''},
       warnings: ['E_LOGS_STREAM_GAP: 1 event(s) are missing from this follow']
     })
 
@@ -252,13 +260,9 @@ describe('extension logs --follow over the live control channel', () => {
       errorLines().some((line) => line.includes('the control channel closed'))
     ).toBe(true)
 
-    // Past the first two reconnect backoffs nothing else may print: the
-    // consumer is closed and no retry timer is pending.
-    const logCalls = logSpy.mock.calls.length
-    const errorCalls = errorSpy.mock.calls.length
-    await sleep(800)
-    expect(logSpy.mock.calls.length).toBe(logCalls)
-    expect(errorSpy.mock.calls.length).toBe(errorCalls)
+    // Nothing else may print: the consumer is closed, so no reconnect backoff
+    // is left pending to dial the port again.
+    expect(pendingTimers()).toBe(timersWhileFollowing)
   })
 
   it('rides out a server restart and ends on a refused hello', async () => {

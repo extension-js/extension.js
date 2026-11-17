@@ -117,10 +117,10 @@ describe('the declared --source reaches the telemetry payload', () => {
     ).toEqual({template: 'content', source: 'templates'})
   })
 
-  it('falls back to cli when no surface claims the create', () => {
+  it('falls back to cli and the default starter when neither was typed', () => {
     expect(
       telemetryCommandContext('create', argv('create', 'my-extension'))
-    ).toEqual({template: undefined, source: 'cli'})
+    ).toEqual({template: 'typescript', source: 'cli'})
   })
 
   it('attributes nothing on a command that has no front door', () => {

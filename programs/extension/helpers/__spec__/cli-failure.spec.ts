@@ -250,6 +250,28 @@ describe('internalErrorEnvelope', () => {
     const frame = internalErrorEnvelope('wat', 'dev')
     expect(frame.error?.message).toBe('wat')
   })
+
+  // start has no catch around its launch, so this is the frame it prints.
+  it('names both ways out of a locked profile, as preview does', () => {
+    const locked = Object.assign(new Error('The profile is in use.'), {
+      code: 'E_PROFILE_LOCKED'
+    })
+
+    expect(internalErrorEnvelope(locked, 'start')).toEqual({
+      schema: 1,
+      ok: false,
+      command: 'start',
+      status: 'failed',
+      value: null,
+      error: {
+        code: 'E_PROFILE_LOCKED',
+        message: 'The profile is in use.',
+        name: 'Error'
+      },
+      warnings: [],
+      hint: 'Close the browser that has this profile open, or pass --profile <path> to use another one.'
+    })
+  })
 })
 
 // start has no catch of its own around the launch, so this is the frame it

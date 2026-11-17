@@ -10,9 +10,14 @@ import readline from 'node:readline'
 
 export const DEFAULT_PROJECT_NAME = 'my-extension'
 
-function isCI(): boolean {
-  const v = process.env
+// Where the prompt reads and writes, the process streams when left out.
+interface PromptIo {
+  input?: NodeJS.ReadableStream & {isTTY?: boolean}
+  output?: NodeJS.WritableStream & {isTTY?: boolean}
+  env?: NodeJS.ProcessEnv
+}
 
+function isCI(v: NodeJS.ProcessEnv): boolean {
   return Boolean(
     v.CI ||
       v.GITHUB_ACTIONS ||
@@ -23,21 +28,25 @@ function isCI(): boolean {
   )
 }
 
-export function canPromptForProjectName(): boolean {
-  if (process.env.VITEST || process.env.VITEST_WORKER_ID) return false
-  if (isCI()) return false
+export function canPromptForProjectName({
+  input = process.stdin,
+  output = process.stdout,
+  env = process.env
+}: PromptIo = {}): boolean {
+  if (env.VITEST || env.VITEST_WORKER_ID) return false
+  if (isCI(env)) return false
 
-  return Boolean(process.stdin.isTTY && process.stdout.isTTY)
+  return Boolean(input.isTTY && output.isTTY)
 }
 
 // An empty line takes the default. Ctrl-C answers null, so the caller can
 // stop without creating anything.
-export function askProjectName(question: string): Promise<string | null> {
+export function askProjectName(
+  question: string,
+  {input = process.stdin, output = process.stdout}: PromptIo = {}
+): Promise<string | null> {
   return new Promise((resolve) => {
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout
-    })
+    const rl = readline.createInterface({input, output})
     let settled = false
 
     const finish = (answer: string | null) => {

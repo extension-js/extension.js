@@ -174,7 +174,7 @@ describe('MessagingClient reconnect', () => {
 
   it('reconnects after the peer resets the socket', async () => {
     const client = new MessagingClient()
-    await client.connect(mock.port)
+    await client.connect(mock.port, 20)
     const reconnected = new Promise<void>((resolve) =>
       client.on('reconnected', resolve)
     )
@@ -190,12 +190,100 @@ describe('MessagingClient reconnect', () => {
 
   it('does not reconnect after a user-initiated disconnect', async () => {
     const client = new MessagingClient()
-    await client.connect(mock.port)
+    await client.connect(mock.port, 20)
     await lastSocket(mock)
 
     client.disconnect()
-    await sleep(1300)
+    await sleep(150)
 
     expect(mock.connections).toHaveLength(1)
+  })
+
+  it('codes a request payload that is neither a string nor an object as E_RDP_PROTOCOL', async () => {
+    const client = new MessagingClient()
+
+    await expect(client.request(42)).rejects.toMatchObject({
+      code: 'E_RDP_PROTOCOL',
+      message: expect.stringContaining(
+        'Received an unreadable Firefox remote debugging message.'
+      )
+    })
+  })
+
+  it('gives up after five failed reconnects with one event and one line', async () => {
+    let greets = true
+    const accepted: net.Socket[] = []
+    const server = net.createServer((socket) => {
+      accepted.push(socket)
+      socket.on('error', () => {
+        // Ignore
+      })
+
+      if (!greets) {
+        socket.destroy()
+
+        return
+      }
+
+      socket.write(
+        buildRdpFrame({from: 'root', applicationType: 'browser', traits: {}})
+      )
+    })
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+    const {port} = server.address() as net.AddressInfo
+    const printed = [
+      vi.spyOn(console, 'error').mockImplementation(() => {}),
+      vi.spyOn(console, 'warn').mockImplementation(() => {}),
+      vi.spyOn(console, 'log').mockImplementation(() => {})
+    ]
+    const client = new MessagingClient()
+    const events: string[] = []
+    const failures: Array<Error & {code?: string}> = []
+    const emit = client.emit.bind(client)
+
+    client.emit = (name: string | symbol, ...args: unknown[]) => {
+      events.push(String(name))
+      if (name === 'reconnectFailed') failures.push(args[0] as Error)
+
+      return emit(name, ...args)
+    }
+
+    try {
+      await client.connect(port, 10)
+      greets = false
+      accepted[0].destroy()
+
+      // The session's own socket, then one per attempt.
+      await vi.waitFor(() => expect(accepted).toHaveLength(6))
+      await vi.waitFor(() =>
+        expect(Reflect.get(client, 'reconnecting')).toBe(false)
+      )
+
+      // Room for a sixth attempt, which never comes.
+      await sleep(100)
+
+      expect(accepted).toHaveLength(6)
+      const line =
+        `⏵⏵⏵ Lost the debugging connection to Firefox on port ${port} and 5 reconnects failed, so reload and HMR have stopped. ` +
+        `Restart the session.`
+
+      expect(events).toEqual(['end', 'reconnectFailed'])
+      expect(failures.map((error) => [error.code, error.message])).toEqual([
+        ['E_BROWSER_CONNECTION_CLOSED', line]
+      ])
+
+      expect(printed[0].mock.calls).toEqual([[line]])
+      expect(printed[1]).not.toHaveBeenCalled()
+      expect(printed[2]).not.toHaveBeenCalled()
+
+      await expect(client.request('getRoot')).rejects.toMatchObject({
+        code: 'E_BROWSER_CONNECTION_CLOSED'
+      })
+    } finally {
+      client.disconnect()
+      for (const stream of printed) stream.mockRestore()
+      for (const socket of accepted) socket.destroy()
+      await new Promise<void>((resolve) => server.close(() => resolve()))
+    }
   })
 })

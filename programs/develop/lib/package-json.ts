@@ -84,9 +84,9 @@ export async function findNearestPackageJson(
     })
 
     return packageJsonPath || null
-  } catch (error) {
-    console.warn('Failed to find package.json:', error)
-
+  } catch {
+    // Only a path that is not a string throws here, and the answer for it
+    // is the same as for a folder with no package.json above it.
     return null
   }
 }
@@ -101,9 +101,9 @@ export function findNearestPackageJsonSync(
     })
 
     return packageJsonPath || null
-  } catch (error) {
-    console.warn('Failed to find package.json:', error)
-
+  } catch {
+    // Only a path that is not a string throws here, and the answer for it
+    // is the same as for a folder with no package.json above it.
     return null
   }
 }

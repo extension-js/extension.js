@@ -1,20 +1,9 @@
-import {spawn} from 'node:child_process'
 import fs from 'node:fs'
 import http from 'node:http'
 import os from 'node:os'
 import path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
-
-function cliRoot(): string {
-  return path.resolve(__dirname, '../..')
-}
-
-function cliBin(): string {
-  const cjs = path.join(cliRoot(), 'dist', 'cli.cjs')
-  if (fs.existsSync(cjs)) return cjs
-
-  return path.join(cliRoot(), 'dist', 'cli.js')
-}
+import {freshCliHome, runCli} from '../helpers/run-cli'
 
 interface CaptureEvent {
   event: string
@@ -86,36 +75,18 @@ function startCaptureServer(): Promise<{
   })
 }
 
-function runBuild(
-  projectDir: string,
-  port: number
-): Promise<{status: number | null}> {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-no-location-home-'))
-
-  return new Promise((resolve) => {
-    const child = spawn(
-      process.execPath,
-      [cliBin(), 'build', projectDir, '--browser=chromium'],
-      {
-        cwd: cliRoot(),
-        stdio: 'ignore',
-        env: {
-          ...process.env,
-          NO_COLOR: '1',
-          POSTHOG_HOST: `http://127.0.0.1:${port}`,
-          POSTHOG_KEY: 'phc_no_location',
-          EXTENSION_TELEMETRY: '1',
-          EXTENSION_TELEMETRY_SAMPLE_RATE: '1',
-          EXTENSION_TELEMETRY_TIMEOUT_MS: '5000',
-          XDG_CONFIG_HOME: home,
-          XDG_CACHE_HOME: home
-        }
-      }
-    )
-    child.on('close', (status) => {
-      fs.rmSync(home, {recursive: true, force: true})
-      resolve({status})
-    })
+// A home per run: the anonymous id and the audit log land in it.
+function runBuild(projectDir: string, port: number) {
+  return runCli(['build', projectDir, '--browser=chromium'], {
+    telemetry: true,
+    home: freshCliHome(),
+    env: {
+      POSTHOG_HOST: `http://127.0.0.1:${port}`,
+      POSTHOG_KEY: 'phc_no_location',
+      EXTENSION_TELEMETRY: '1',
+      EXTENSION_TELEMETRY_SAMPLE_RATE: '1',
+      EXTENSION_TELEMETRY_TIMEOUT_MS: '5000'
+    }
   })
 }
 
@@ -135,11 +106,10 @@ describe('a build run asks the collector for no location', () => {
 
     const result = await runBuild(projectDir, server.port)
 
-    expect(result.status).toBe(0)
-    expect(server.events.length).toBeGreaterThan(0)
-    expect(server.events.map((event) => event.event)).toContain(
+    expect(result.status, result.output).toBe(0)
+    expect(server.events.map((event) => event.event)).toEqual([
       'command_executed'
-    )
+    ])
 
     for (const event of server.events) {
       expect(event.properties.command).toBe('build')
@@ -159,11 +129,13 @@ describe('a build run asks the collector for no location', () => {
 
     const result = await runBuild(projectDir, server.port)
 
-    expect(result.status).not.toBe(0)
+    expect(result.status, result.output).toBe(1)
     const failed = server.events.filter(
       (event) => event.event === 'command_failed'
     )
     expect(failed).toHaveLength(1)
+    expect(failed[0].properties.code).toBe('E_MANIFEST_NOT_FOUND')
+    expect(server.events).toHaveLength(1)
 
     for (const event of server.events) {
       expect(event.properties.$ip).toBeNull()

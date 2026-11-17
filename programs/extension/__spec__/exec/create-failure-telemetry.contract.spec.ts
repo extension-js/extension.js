@@ -1,4 +1,3 @@
-import {spawn} from 'node:child_process'
 import fs from 'node:fs'
 import http from 'node:http'
 import path from 'node:path'
@@ -7,22 +6,12 @@ import {
   type ExamplesCatalogFixture,
   serveExamplesCatalog
 } from '../../../create/__spec__/examples-catalog-fixture'
+import {freshCliHome, runCli} from '../helpers/run-cli'
 import {trackTempFolders} from '../helpers/temp-folders'
 
 const makeTempFolder = trackTempFolders()
 
 let catalog: ExamplesCatalogFixture | undefined
-
-function cliRoot(): string {
-  return path.resolve(__dirname, '../..')
-}
-
-function cliBin(): string {
-  const cjs = path.join(cliRoot(), 'dist', 'cli.cjs')
-  if (fs.existsSync(cjs)) return cjs
-
-  return path.join(cliRoot(), 'dist', 'cli.js')
-}
 
 interface CaptureBatch {
   api_key: string
@@ -72,28 +61,21 @@ function runCreate(
   args: string[],
   port: number,
   seed?: (work: string) => void
-): Promise<{status: number | null}> {
+) {
   const work = makeTempFolder('extjs-create-fail-')
   seed?.(work)
-  const configHome = makeTempFolder('extjs-config-')
-  const cacheHome = makeTempFolder('extjs-cache-')
 
-  return new Promise((resolve) => {
-    const child = spawn(process.execPath, [cliBin(), ...args], {
-      cwd: work,
-      stdio: 'ignore',
-      env: {
-        ...process.env,
-        POSTHOG_HOST: `http://127.0.0.1:${port}`,
-        EXTENSION_TELEMETRY: '1',
-        EXTENSION_TELEMETRY_TIMEOUT_MS: '5000',
-        EXTENSION_CREATE_TEMPLATE_URL: catalog?.url,
-        EXTENSION_ALLOW_HTTP_TEMPLATE: 'true',
-        XDG_CONFIG_HOME: configHome,
-        XDG_CACHE_HOME: cacheHome
-      }
-    })
-    child.on('close', (status) => resolve({status}))
+  return runCli(args, {
+    cwd: work,
+    telemetry: true,
+    home: freshCliHome(),
+    env: {
+      POSTHOG_HOST: `http://127.0.0.1:${port}`,
+      EXTENSION_TELEMETRY: '1',
+      EXTENSION_TELEMETRY_TIMEOUT_MS: '5000',
+      EXTENSION_CREATE_TEMPLATE_URL: catalog?.url,
+      EXTENSION_ALLOW_HTTP_TEMPLATE: 'true'
+    }
   })
 }
 

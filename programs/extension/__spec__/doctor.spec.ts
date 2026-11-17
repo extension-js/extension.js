@@ -2,52 +2,46 @@ import * as fs from 'node:fs'
 import * as net from 'node:net'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import type {Command} from 'commander'
 import {beforeEach, describe, expect, it, vi} from 'vitest'
 import {
   DOCTOR_CHECKS,
+  type DoctorDeps,
   type DoctorReport,
   doctorFailureCode,
+  registerDoctorCommand as registerDoctorCommandWith,
   resolveDoctorBrowser,
-  runDoctor
+  runDoctor as runDoctorWith
 } from '../commands/doctor'
 
-const state = vi.hoisted(() => ({mod: {} as any}))
-
-vi.mock('../helpers/extension-develop-runtime', () => ({
-  loadExtensionDevelopBridgeModule: async () => state.mod
-}))
+const state = {mod: {} as any}
 
 // The pid start-time probe shells out (PowerShell on Windows, where one cold
-// call can take a minute), so the spec answers it; only the recycled pid case
-// needs a start time at all.
-const pidStart = vi.hoisted(() => ({value: null as number | null}))
+// call can take a minute), so the spec answers it.
+const pidStart = {value: null as number | null}
 
-vi.mock('../browsers/browsers-lib/resolve-live-pid', async () => {
-  const actual = await vi.importActual<any>(
-    '../browsers/browsers-lib/resolve-live-pid'
-  )
-
-  return {...actual, pidStartedAtMs: () => pidStart.value}
-})
-
-const peer = vi.hoisted(() => ({
+const peer = {
   engine: '2.2.3' as string | undefined,
   conflicts: [] as Array<{name: string; version: string; range: string}>,
   unreadable: [] as string[]
-}))
+}
 
-vi.mock('../helpers/rspack-peer-check', async () => {
-  const actual = await vi.importActual<any>('../helpers/rspack-peer-check')
+// The session module and the peer scan answer from this file's state.
+const doctorDeps: DoctorDeps = {
+  loadBridge: async () => state.mod,
+  engineVersion: () => peer.engine,
+  scanPeers: () =>
+    ({conflicts: peer.conflicts, unreadable: peer.unreadable}) as never,
+  pidStartedAt: () => pidStart.value
+}
 
-  return {
-    ...actual,
-    engineRspackVersion: () => peer.engine,
-    scanRspackPeers: () => ({
-      conflicts: peer.conflicts,
-      unreadable: peer.unreadable
-    })
-  }
-})
+const runDoctor = (
+  projectPath: string | undefined,
+  opts: Parameters<typeof runDoctorWith>[1]
+) => runDoctorWith(projectPath, opts, doctorDeps)
+
+const registerDoctorCommand = (program: Command) =>
+  registerDoctorCommandWith(program, doctorDeps)
 
 const ALL_CHECKS = [
   'peer-rspack',
@@ -1360,7 +1354,6 @@ describe('extension doctor (command surface)', () => {
     const {makeProgram, runCli, stubProcessExit} = await import(
       './command-harness'
     )
-    const {registerDoctorCommand} = await import('../commands/doctor')
     stubProcessExit()
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
@@ -1393,7 +1386,6 @@ describe('extension doctor (command surface)', () => {
     const {makeProgram, runCli, stubProcessExit} = await import(
       './command-harness'
     )
-    const {registerDoctorCommand} = await import('../commands/doctor')
     state.mod = healthyModule({readReadyContract: () => null})
     stubProcessExit()
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
@@ -1424,7 +1416,6 @@ describe('extension doctor (command surface)', () => {
     const {makeProgram, runCli, stubProcessExit} = await import(
       './command-harness'
     )
-    const {registerDoctorCommand} = await import('../commands/doctor')
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-doctor-'))
     const dir = path.join(root, 'dist', 'extension-js', 'chrome')
     fs.mkdirSync(dir, {recursive: true})
@@ -1467,7 +1458,6 @@ describe('extension doctor (command surface)', () => {
     const {makeProgram, runCli, stubProcessExit} = await import(
       './command-harness'
     )
-    const {registerDoctorCommand} = await import('../commands/doctor')
     // eval-token is the first failure here, so it, not ready-contract, names
     // the frame.
     StubController.readyFrame = {capabilities: {eval: true, storage: true}}
@@ -1495,7 +1485,6 @@ describe('extension doctor (command surface)', () => {
     const {makeProgram, runCli, stubProcessExit} = await import(
       './command-harness'
     )
-    const {registerDoctorCommand} = await import('../commands/doctor')
     state.mod = healthyModule({
       readReadyContract: () => {
         throw Object.assign(new Error('runtime is not built'), {
@@ -1532,7 +1521,6 @@ describe('extension doctor (command surface)', () => {
     const {makeProgram, runCli, stubProcessExit} = await import(
       './command-harness'
     )
-    const {registerDoctorCommand} = await import('../commands/doctor')
     state.mod = healthyModule({
       readReadyContract: () => {
         throw new Error('contract unreadable')
@@ -1571,7 +1559,6 @@ describe('extension doctor (command surface)', () => {
     const {makeProgram, runCli, stubProcessExit} = await import(
       './command-harness'
     )
-    const {registerDoctorCommand} = await import('../commands/doctor')
     state.mod = healthyModule({readReadyContract: () => null})
     stubProcessExit()
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
@@ -1595,7 +1582,6 @@ describe('extension doctor (command surface)', () => {
     const {makeProgram, runCli, stubProcessExit} = await import(
       './command-harness'
     )
-    const {registerDoctorCommand} = await import('../commands/doctor')
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-doctor-'))
     const dir = path.join(root, 'dist', 'extension-js', 'chrome')
     fs.mkdirSync(dir, {recursive: true})
@@ -1637,7 +1623,6 @@ describe('extension doctor (command surface)', () => {
     const {makeProgram, runCli, stubProcessExit} = await import(
       './command-harness'
     )
-    const {registerDoctorCommand} = await import('../commands/doctor')
     state.mod = healthyModule({
       readReadyContract: () => ({
         controlPort: 4001,
@@ -1692,7 +1677,6 @@ describe('extension doctor (command surface)', () => {
     const {makeProgram, runCli, stubProcessExit} = await import(
       './command-harness'
     )
-    const {registerDoctorCommand} = await import('../commands/doctor')
     state.mod = healthyModule({
       readReadyContract: () => {
         throw new Error('contract unreadable')
@@ -1748,7 +1732,6 @@ describe('extension doctor (session identity in the report)', () => {
     const {makeProgram, runCli, stubProcessExit} = await import(
       './command-harness'
     )
-    const {registerDoctorCommand} = await import('../commands/doctor')
     const root = makeSrcLayoutProject('firefox')
     state.mod = healthyModule({resolveSessionProjectRoot: () => root})
     stubProcessExit()
@@ -1775,7 +1758,6 @@ describe('extension doctor (session identity in the report)', () => {
     const {makeProgram, runCli, stubProcessExit} = await import(
       './command-harness'
     )
-    const {registerDoctorCommand} = await import('../commands/doctor')
     const root = makeSrcLayoutProject('firefox')
     state.mod = healthyModule({resolveSessionProjectRoot: () => root})
     stubProcessExit()
@@ -1816,7 +1798,6 @@ describe('the golden doctor envelopes document the real frames', () => {
     const {makeProgram, runCli, stubProcessExit} = await import(
       './command-harness'
     )
-    const {registerDoctorCommand} = await import('../commands/doctor')
     stubProcessExit()
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 

@@ -1,0 +1,511 @@
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
+import {afterAll, afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+
+const {chromiumOptions, chromiumRunOnce, firefoxRunOnce, printProdBannerOnce} =
+  vi.hoisted(() => ({
+    chromiumOptions: vi.fn((_options: Record<string, unknown>) => {}),
+    chromiumRunOnce: vi.fn(async () => {}),
+    firefoxRunOnce: vi.fn(async () => {}),
+    printProdBannerOnce: vi.fn(async () => true)
+  }))
+
+vi.mock('../../run-chromium/chromium-context', () => ({
+  createChromiumContext: vi.fn(() => ({}))
+}))
+
+const {createFirefoxContext} = vi.hoisted(() => ({
+  createFirefoxContext: vi.fn((): Record<string, unknown> => ({}))
+}))
+
+vi.mock('../../run-firefox/firefox-context', () => ({createFirefoxContext}))
+
+vi.mock('../../run-chromium/chromium-launch', () => ({
+  ChromiumLaunchPlugin: class {
+    runOnce = chromiumRunOnce
+
+    constructor(options: Record<string, unknown>) {
+      chromiumOptions(options)
+    }
+  }
+}))
+
+vi.mock('../../run-firefox/firefox-launch', () => ({
+  FirefoxLaunchPlugin: class {
+    runOnce = firefoxRunOnce
+  }
+}))
+
+vi.mock('../../browsers-lib/banner', () => ({
+  printProdBannerOnce
+}))
+
+import {
+  runOnlyPreviewBrowser,
+  warnIgnoredHostPermissionPatterns
+} from '../../run-only'
+
+// The spec's own folder: a fixed /tmp/ext can exist on a shared machine.
+const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-run-only-'))
+const EXT = path.join(scratch, 'ext')
+const EXT_FIREFOX = path.join(scratch, 'ext-firefox')
+
+afterAll(() => {
+  fs.rmSync(scratch, {recursive: true, force: true})
+})
+
+describe('runOnlyPreviewBrowser', () => {
+  beforeEach(() => {
+    chromiumRunOnce.mockClear()
+    firefoxRunOnce.mockClear()
+    printProdBannerOnce.mockClear()
+  })
+
+  it('prints production banner for chromium preview', async () => {
+    await runOnlyPreviewBrowser({
+      browser: 'chromium',
+      outPath: EXT,
+      contextDir: scratch,
+      extensionsToLoad: [EXT]
+    })
+
+    expect(chromiumRunOnce).toHaveBeenCalledTimes(1)
+    expect(chromiumRunOnce).toHaveBeenCalledWith(
+      expect.objectContaining({
+        options: expect.objectContaining({
+          mode: 'production',
+          context: scratch,
+          output: {path: EXT}
+        }),
+        errors: []
+      }),
+      expect.objectContaining({enableCdpPostLaunch: false})
+    )
+
+    expect(printProdBannerOnce).toHaveBeenCalledWith({
+      browser: 'chromium',
+      outPath: EXT,
+      includeExtensionId: true,
+      includeRunId: false,
+      readyPath: undefined,
+      browserVersionLine: undefined
+    })
+  })
+
+  // browser.<name>.persistProfile is one switch, so a preview on Chromium
+  // keeps the profile the way a preview on Firefox does.
+  it('hands the kept-profile switch to the chromium launcher', async () => {
+    chromiumOptions.mockClear()
+
+    await runOnlyPreviewBrowser({
+      browser: 'chrome',
+      outPath: EXT,
+      contextDir: scratch,
+      extensionsToLoad: [EXT],
+      persistProfile: true
+    })
+
+    expect(chromiumOptions).toHaveBeenCalledWith(
+      expect.objectContaining({persistProfile: true})
+    )
+  })
+
+  it('names the debugging port on the run record before the card prints, and hands the same port to the launch', async () => {
+    const fs = await import('node:fs')
+    const os = await import('node:os')
+    const path = await import('node:path')
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-run-only-port-'))
+    const outPath = path.join(dir, 'dist', 'chrome')
+    const readyPath = path.join(
+      dir,
+      'dist',
+      'extension-js',
+      'chrome',
+      'ready.json'
+    )
+    fs.mkdirSync(outPath, {recursive: true})
+    fs.mkdirSync(path.dirname(readyPath), {recursive: true})
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({runId: 'run-1', command: 'preview', status: 'starting'})
+    )
+
+    let portAtCard: unknown
+    printProdBannerOnce.mockImplementationOnce(async () => {
+      portAtCard = JSON.parse(fs.readFileSync(readyPath, 'utf8')).cdpPort
+
+      return true
+    })
+
+    try {
+      await runOnlyPreviewBrowser({
+        browser: 'chrome',
+        outPath,
+        readyPath,
+        contextDir: dir,
+        extensionsToLoad: [outPath]
+      })
+
+      const launch = chromiumRunOnce.mock.calls[0] as unknown as [
+        unknown,
+        {debugPortClaim: {port: number; release(): void}}
+      ]
+
+      expect(typeof portAtCard).toBe('number')
+      expect(launch[1].debugPortClaim.port).toBe(portAtCard)
+
+      launch[1].debugPortClaim.release()
+    } finally {
+      fs.rmSync(dir, {recursive: true, force: true})
+    }
+  })
+
+  // Shell-script fixture: not executable on Windows, posix-only case.
+  it.skipIf(process.platform === 'win32')(
+    'describes a chrome-target pin on the card, not the system chrome',
+    async () => {
+      const {chmodSync, mkdtempSync, rmSync, writeFileSync} = await import(
+        'node:fs'
+      )
+      const {tmpdir} = await import('node:os')
+      const {join} = await import('node:path')
+      const dir = mkdtempSync(join(tmpdir(), 'extjs-run-only-pin-'))
+      const pin = join(dir, 'canary')
+      writeFileSync(pin, '#!/bin/sh\necho "Canary 999.0.1234.5"\n')
+      chmodSync(pin, 0o755)
+
+      try {
+        await runOnlyPreviewBrowser({
+          browser: 'chrome',
+          outPath: EXT,
+          contextDir: scratch,
+          extensionsToLoad: [EXT],
+          chromiumBinary: pin
+        })
+
+        expect(printProdBannerOnce).toHaveBeenCalledWith(
+          expect.objectContaining({
+            browser: 'chrome',
+            binaryPath: pin,
+            binaryProvenance: 'pinned',
+            browserVersionLine: '999.0.1234.5'
+          })
+        )
+      } finally {
+        rmSync(dir, {recursive: true, force: true})
+      }
+    }
+  )
+
+  // A bare script has no app bundle metadata, so only asking the binary
+  // itself names its version. Without that the card named another install.
+  for (const browser of ['firefox', 'waterfox'] as const) {
+    it.skipIf(process.platform === 'win32')(
+      `describes a ${browser} --gecko-binary pin on the card`,
+      async () => {
+        const {chmodSync, mkdtempSync, rmSync, writeFileSync} = await import(
+          'node:fs'
+        )
+        const {tmpdir} = await import('node:os')
+        const {join} = await import('node:path')
+        const dir = mkdtempSync(join(tmpdir(), 'extjs-run-only-gecko-pin-'))
+        const pin = join(dir, 'firefox')
+        writeFileSync(pin, '#!/bin/sh\necho "Mozilla Firefox 140.0"\n')
+        chmodSync(pin, 0o755)
+
+        try {
+          await runOnlyPreviewBrowser({
+            browser,
+            outPath: EXT_FIREFOX,
+            contextDir: scratch,
+            extensionsToLoad: [EXT_FIREFOX],
+            geckoBinary: pin
+          })
+
+          expect(printProdBannerOnce).toHaveBeenCalledWith(
+            expect.objectContaining({
+              browser,
+              binaryPath: pin,
+              binaryProvenance: 'pinned',
+              browserVersionLine: '140.0'
+            })
+          )
+        } finally {
+          rmSync(dir, {recursive: true, force: true})
+        }
+      }
+    )
+  }
+
+  it.skipIf(process.platform === 'win32')(
+    'keeps a silent --gecko-binary pin marked pinned so no other install is named',
+    async () => {
+      const {chmodSync, mkdtempSync, rmSync, writeFileSync} = await import(
+        'node:fs'
+      )
+      const {tmpdir} = await import('node:os')
+      const {join} = await import('node:path')
+      const dir = mkdtempSync(join(tmpdir(), 'extjs-run-only-gecko-quiet-'))
+      const pin = join(dir, 'firefox')
+      writeFileSync(pin, '#!/bin/sh\nexit 0\n')
+      chmodSync(pin, 0o755)
+
+      try {
+        await runOnlyPreviewBrowser({
+          browser: 'firefox',
+          outPath: EXT_FIREFOX,
+          contextDir: scratch,
+          extensionsToLoad: [EXT_FIREFOX],
+          geckoBinary: pin
+        })
+
+        expect(printProdBannerOnce).toHaveBeenCalledWith(
+          expect.objectContaining({
+            binaryPath: pin,
+            binaryProvenance: 'pinned',
+            browserVersionLine: undefined
+          })
+        )
+      } finally {
+        rmSync(dir, {recursive: true, force: true})
+      }
+    }
+  )
+
+  it('prints the card before it launches chromium', async () => {
+    await runOnlyPreviewBrowser({
+      browser: 'chromium',
+      outPath: EXT,
+      contextDir: scratch,
+      extensionsToLoad: [EXT]
+    })
+
+    expect(printProdBannerOnce.mock.invocationCallOrder[0]).toBeLessThan(
+      chromiumRunOnce.mock.invocationCallOrder[0]
+    )
+  })
+
+  // The gecko install verifies through the banner's nameability verdict, so
+  // printing the card first no longer reports a healthy install as failed.
+  it('prints the card before it launches firefox', async () => {
+    await runOnlyPreviewBrowser({
+      browser: 'firefox',
+      outPath: EXT_FIREFOX,
+      contextDir: scratch,
+      extensionsToLoad: [EXT_FIREFOX]
+    })
+
+    expect(printProdBannerOnce.mock.invocationCallOrder[0]).toBeLessThan(
+      firefoxRunOnce.mock.invocationCallOrder[0]
+    )
+  })
+
+  it('prints production banner for firefox preview', async () => {
+    await runOnlyPreviewBrowser({
+      browser: 'firefox',
+      outPath: EXT_FIREFOX,
+      contextDir: scratch,
+      extensionsToLoad: [EXT_FIREFOX]
+    })
+
+    expect(firefoxRunOnce).toHaveBeenCalledTimes(1)
+    expect(firefoxRunOnce).toHaveBeenCalledWith(
+      expect.objectContaining({
+        options: expect.objectContaining({
+          mode: 'production',
+          context: scratch,
+          output: {path: EXT_FIREFOX}
+        }),
+        errors: []
+      }),
+      expect.objectContaining({
+        browser: 'firefox',
+        mode: 'production',
+        profile: undefined,
+        persistProfile: undefined,
+        geckoBinary: undefined
+      })
+    )
+
+    expect(printProdBannerOnce).toHaveBeenCalledWith({
+      browser: 'firefox',
+      outPath: EXT_FIREFOX,
+      includeExtensionId: true,
+      includeRunId: false,
+      readyPath: undefined,
+      browserVersionLine: undefined
+    })
+  })
+
+  // A start session's broker wakes a suspended event page the way dev's does,
+  // through the debugger connection this launch opened.
+  it('hands back a wake for the Firefox background it launched', async () => {
+    const wakeBackground = vi.fn(async (_timeoutMs: number) => true)
+    createFirefoxContext.mockReturnValueOnce({
+      getController: () => ({wakeBackground})
+    })
+
+    const session = await runOnlyPreviewBrowser({
+      browser: 'firefox',
+      outPath: EXT_FIREFOX,
+      contextDir: scratch,
+      extensionsToLoad: [EXT_FIREFOX]
+    })
+
+    await expect(session?.wakeBackground?.()).resolves.toBe(true)
+    expect(wakeBackground).toHaveBeenCalledTimes(1)
+  })
+
+  it('answers false for a wake before the debugger is up', async () => {
+    createFirefoxContext.mockReturnValueOnce({getController: () => undefined})
+
+    const session = await runOnlyPreviewBrowser({
+      browser: 'firefox',
+      outPath: EXT_FIREFOX,
+      contextDir: scratch,
+      extensionsToLoad: [EXT_FIREFOX]
+    })
+
+    await expect(session?.wakeBackground?.()).resolves.toBe(false)
+  })
+
+  for (const browser of ['brave', 'opera', 'vivaldi', 'yandex'] as const) {
+    it(`routes the chromium fork ${browser} to the chromium launcher`, async () => {
+      await runOnlyPreviewBrowser({
+        browser,
+        outPath: EXT,
+        contextDir: scratch,
+        extensionsToLoad: [EXT]
+      })
+
+      expect(chromiumRunOnce).toHaveBeenCalledTimes(1)
+      expect(firefoxRunOnce).not.toHaveBeenCalled()
+    })
+  }
+
+  for (const browser of ['waterfox', 'librewolf', 'zen', 'floorp'] as const) {
+    it(`routes the gecko fork ${browser} to the firefox launcher`, async () => {
+      await runOnlyPreviewBrowser({
+        browser,
+        outPath: EXT,
+        contextDir: scratch,
+        extensionsToLoad: [EXT]
+      })
+
+      expect(firefoxRunOnce).toHaveBeenCalledTimes(1)
+      expect(chromiumRunOnce).not.toHaveBeenCalled()
+    })
+  }
+})
+
+describe('the signal listeners of a run-only session', () => {
+  const SIGNALS = ['SIGINT', 'SIGTERM', 'SIGHUP'] as const
+  let listenersBefore: Map<string, unknown[]>
+
+  const counts = () => SIGNALS.map((name) => process.listenerCount(name))
+
+  beforeEach(() => {
+    chromiumRunOnce.mockClear()
+    firefoxRunOnce.mockClear()
+    listenersBefore = new Map(
+      SIGNALS.map((name) => [name, process.listeners(name)])
+    )
+  })
+
+  afterEach(() => {
+    for (const name of SIGNALS) {
+      for (const listener of process.listeners(name)) {
+        if (!listenersBefore.get(name)?.includes(listener)) {
+          process.removeListener(name, listener)
+        }
+      }
+    }
+  })
+
+  it.each([
+    ['chromium', chromiumRunOnce, EXT],
+    ['firefox', firefoxRunOnce, EXT_FIREFOX]
+  ] as const)('are removed when the %s launch throws', async (browser, runOnce, outPath) => {
+    const before = counts()
+    runOnce.mockRejectedValueOnce(new Error('the launch failed'))
+
+    const error = await runOnlyPreviewBrowser({
+      browser,
+      outPath,
+      contextDir: scratch,
+      extensionsToLoad: [outPath]
+    }).then(
+      () => null,
+      (reason: Error & {code?: string}) => reason
+    )
+
+    expect(runOnce).toHaveBeenCalledTimes(1)
+    expect(error?.code).toBe('E_BROWSER_LAUNCH')
+    expect(counts()).toEqual(before)
+  })
+
+  it('stay for the session once the launch returns, one of each', async () => {
+    const before = counts()
+
+    await runOnlyPreviewBrowser({
+      browser: 'chromium',
+      outPath: EXT,
+      contextDir: scratch,
+      extensionsToLoad: [EXT]
+    })
+
+    expect(chromiumRunOnce).toHaveBeenCalledTimes(1)
+    expect(counts()).toEqual(before.map((count) => count + 1))
+  })
+})
+
+describe('warnIgnoredHostPermissionPatterns', () => {
+  const writeManifest = (hostPermissions: string[]) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'run-only-hosts-'))
+
+    fs.writeFileSync(
+      path.join(dir, 'manifest.json'),
+      JSON.stringify({manifest_version: 3, host_permissions: hostPermissions})
+    )
+
+    return dir
+  }
+
+  const printed = (opts: {outPath: string; command?: 'preview' | 'start'}) => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    warnIgnoredHostPermissionPatterns(opts)
+
+    const text = [spy, warn, log]
+      .flatMap((each) => each.mock.calls.map((call) => call.join(' ')))
+      .join('\n')
+
+    spy.mockRestore()
+    warn.mockRestore()
+    log.mockRestore()
+
+    return text
+  }
+
+  it('warns before a preview launch and does not call it a refusal', () => {
+    const text = printed({outPath: writeManifest(['https://foo.*.com/*'])})
+
+    expect(text).toContain('host permission patterns the browser drops')
+    expect(text).toContain('https://foo.*.com/*')
+    expect(text).not.toMatch(/refuses|won't load/)
+  })
+
+  it('stays quiet for valid patterns, a missing manifest, and start', () => {
+    expect(printed({outPath: writeManifest(['https://*.foo.com/*'])})).toBe('')
+    expect(printed({outPath: '/nonexistent/run-only-hosts'})).toBe('')
+    expect(
+      printed({
+        outPath: writeManifest(['https://foo.*.com/*']),
+        command: 'start'
+      })
+    ).toBe('')
+  })
+})
