@@ -30,8 +30,26 @@ interface Row {
 
 const DEFAULT: TelemetryConsent = {enabled: true, source: 'default'}
 const BY_CI: TelemetryConsent = {enabled: false, source: 'ci'}
-const ON_BY_ENV: TelemetryConsent = {enabled: true, source: 'env'}
-const OFF_BY_ENV: TelemetryConsent = {enabled: false, source: 'env'}
+const ON_BY_ENV: TelemetryConsent = {
+  enabled: true,
+  source: 'env',
+  variable: 'EXTENSION_TELEMETRY'
+}
+const OFF_BY_SWITCH: TelemetryConsent = {
+  enabled: false,
+  source: 'env',
+  variable: 'EXTENSION_TELEMETRY_DISABLED'
+}
+const OFF_BY_OLD_SWITCH: TelemetryConsent = {
+  enabled: false,
+  source: 'env',
+  variable: 'EXTENSION_TELEMETRY'
+}
+const OFF_BY_DO_NOT_TRACK: TelemetryConsent = {
+  enabled: false,
+  source: 'env',
+  variable: 'DO_NOT_TRACK'
+}
 const OFF_BY_FLAG: TelemetryConsent = {enabled: false, source: 'flag'}
 const ON_BY_FILE: TelemetryConsent = {enabled: true, source: 'config'}
 const OFF_BY_FILE: TelemetryConsent = {enabled: false, source: 'config'}
@@ -59,13 +77,40 @@ const ROWS: Row[] = [
   ...['0', 'false', 'off', 'no', ' Off '].map((value) => ({
     name: `EXTENSION_TELEMETRY=${JSON.stringify(value)} opts out`,
     env: {EXTENSION_TELEMETRY: value},
-    expected: OFF_BY_ENV
+    expected: OFF_BY_OLD_SWITCH
   })),
   ...['1', 'true', 'on', 'yes'].map((value) => ({
     name: `EXTENSION_TELEMETRY_DISABLED=${value} opts out`,
     env: {EXTENSION_TELEMETRY_DISABLED: value},
-    expected: OFF_BY_ENV
+    expected: OFF_BY_SWITCH
   })),
+  // The consoledonottrack.com convention: set to anything but 0 or false.
+  ...['1', 'true', 'yes', ' TRUE ', '2', 'anything'].map((value) => ({
+    name: `DO_NOT_TRACK=${JSON.stringify(value)} opts out`,
+    env: {DO_NOT_TRACK: value},
+    expected: OFF_BY_DO_NOT_TRACK
+  })),
+  ...['', ' ', '0', 'false', ' False '].map((value) => ({
+    name: `DO_NOT_TRACK=${JSON.stringify(value)} is no answer at all`,
+    env: {DO_NOT_TRACK: value},
+    expected: DEFAULT
+  })),
+  {
+    name: 'DO_NOT_TRACK wins over an explicit enable',
+    env: {CI: '1', EXTENSION_TELEMETRY: '1', DO_NOT_TRACK: '1'},
+    expected: OFF_BY_DO_NOT_TRACK
+  },
+  {
+    name: 'DO_NOT_TRACK beats a stored enabled',
+    env: {DO_NOT_TRACK: '1'},
+    stored: 'enabled',
+    expected: OFF_BY_DO_NOT_TRACK
+  },
+  {
+    name: 'the CLI switch is the one named when DO_NOT_TRACK is set too',
+    env: {EXTENSION_TELEMETRY_DISABLED: '1', DO_NOT_TRACK: '1'},
+    expected: OFF_BY_SWITCH
+  },
   {
     name: 'an unrecognized EXTENSION_TELEMETRY is no answer at all',
     env: {EXTENSION_TELEMETRY: 'maybe'},
@@ -79,7 +124,7 @@ const ROWS: Row[] = [
   {
     name: 'an explicit disable wins over an explicit enable',
     env: {CI: '1', EXTENSION_TELEMETRY: '1', EXTENSION_TELEMETRY_DISABLED: '1'},
-    expected: OFF_BY_ENV
+    expected: OFF_BY_SWITCH
   },
   {
     name: '--no-telemetry wins over an explicit enable',
@@ -123,7 +168,7 @@ const ROWS: Row[] = [
     name: 'an explicit disable beats a stored enabled',
     env: {EXTENSION_TELEMETRY_DISABLED: '1'},
     stored: 'enabled',
-    expected: OFF_BY_ENV
+    expected: OFF_BY_SWITCH
   },
   {
     name: 'the flag beats a stored enabled',
