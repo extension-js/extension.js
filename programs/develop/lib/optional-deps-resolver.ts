@@ -757,16 +757,21 @@ export async function ensureOptionalModuleLoaded<T = AnyModule>(
           : String(lastLoadError)
     }
 
-    throw codedError(
-      CODES.E_OPTIONAL_DEP_LOAD,
-      formatResolverError({
-        integration: input.integration,
-        dependencyId: input.dependencyId,
-        headline: `${input.dependencyId} could not be loaded after it resolved.`,
-        installSpecs: input.installDependencies || [input.dependencyId],
-        projectPath: input.projectPath,
-        diagnostics
-      })
+    // The reason travels with the error, so a caller can say why the package
+    // is unusable. The readable line only carries it in verbose mode.
+    throw Object.assign(
+      codedError(
+        CODES.E_OPTIONAL_DEP_LOAD,
+        formatResolverError({
+          integration: input.integration,
+          dependencyId: input.dependencyId,
+          headline: `${input.dependencyId} could not be loaded after it resolved.`,
+          installSpecs: input.installDependencies || [input.dependencyId],
+          projectPath: input.projectPath,
+          diagnostics
+        })
+      ),
+      {cause: lastLoadError}
     )
   }
 

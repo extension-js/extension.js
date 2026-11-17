@@ -306,7 +306,7 @@ export function findNearestProjectManifestSync(
 }
 
 // Walks up from the extension manifest to the nearest deno.json(c),
-// mirroring findNearestPackageJson's contract.
+// mirroring findNearestPackageJsonSync's contract.
 export function findNearestDenoConfigSync(manifestPath: string): string | null {
   // A remote URL joined with a file name is a relative path with no
   // manifest anywhere above it (path.join writes backslashes on Windows).

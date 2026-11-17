@@ -195,7 +195,8 @@ describe('optional-deps-resolver', () => {
       })
     ).rejects.toMatchObject({
       code: 'E_OPTIONAL_DEP_LOAD',
-      message: expect.stringContaining('could not be loaded')
+      message: expect.stringContaining('could not be loaded'),
+      cause: expect.objectContaining({message: 'lane-broken-on-load'})
     })
 
     expect(() =>

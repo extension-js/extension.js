@@ -17,8 +17,10 @@ import {
 import type {AddonLintSummary} from './build-summary'
 import type {BuildToolchain} from './build-toolchain'
 import {type ChunkProvenance, chunkFileOf} from './chunk-dependency-provenance'
+import {codedError} from './coded-error'
 import {isGeckoBasedBrowser} from './constants'
 import * as messages from './messages'
+import {CODES} from './messaging'
 import {
   type AnyModule,
   ensureOptionalModuleLoaded,
@@ -119,7 +121,10 @@ function toModule(loaded: AnyModule): LinterModule {
   const candidate = loaded?.createInstance ? loaded : loaded?.default
 
   if (typeof candidate?.createInstance !== 'function') {
-    throw new Error(`${ADDON_LINT_PACKAGE} exports no createInstance`)
+    throw codedError(
+      CODES.E_OPTIONAL_DEP_LOAD,
+      `${ADDON_LINT_PACKAGE} exports no createInstance`
+    )
   }
 
   return candidate as LinterModule
@@ -437,9 +442,16 @@ export async function runAddonLint(
 
   try {
     linter = await (input.loadLinter || defaultLoadLinter)(input.projectPath)
-  } catch {
+  } catch (error) {
     // No lint ran, so a note an earlier lint wrote describes another dist.
     const staleNote = retireAddonReviewerNote(input.distPath)
+
+    // The package is there and cannot be used, so installing it is no answer.
+    if (
+      (error as {code?: unknown} | null)?.code === CODES.E_OPTIONAL_DEP_LOAD
+    ) {
+      return unusableAddonLint(error, input.distDisplay)
+    }
 
     if (hintedProjects.has(input.projectPath)) {
       return {status: 'missing', hint: null}
@@ -508,6 +520,22 @@ export function failedAddonLint(
     error instanceof AddonLintTimeout
       ? `${ADDON_LINT_PACKAGE} ${message}`
       : `${ADDON_LINT_PACKAGE} crashed: ${message}`
+
+  return {
+    status: 'failed',
+    reason,
+    line: messages.addonLintFailed(reason, distDisplay),
+    debugLine: messages.addonLintFailedDebug(reason)
+  }
+}
+
+function unusableAddonLint(
+  error: unknown,
+  distDisplay: string
+): Extract<AddonLintResult, {status: 'failed'}> {
+  const {cause, message} = error as {cause?: unknown; message?: unknown}
+  const why = String((cause as Error | undefined)?.message || cause || message)
+  const reason = `${ADDON_LINT_PACKAGE} is installed but cannot be used: ${why.split('\n')[0]}`
 
   return {
     status: 'failed',
