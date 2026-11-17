@@ -76,17 +76,12 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
-      # Release-notes generator is pure Node + git; no build needed.
-      - name: Test release-notes generator
+      # Every spec under scripts/__spec__, pure Node and git with no build.
+      - name: Run the script specs
         run: pnpm test:scripts
 
-      # The bundled javascript template is synced from extension-js/templates,
-      # and publish-release.yml gates every release on it being in sync. That
-      # gate lived ONLY at release time and nightly, so a push to the examples
-      # repo could redden a release hours later with no warning, which is what
-      # killed the 4.0.24 attempt on 2026-07-30 twenty one seconds in. Running
-      # it here surfaces the drift on the push that causes it instead of at the
-      # moment somebody is trying to ship. The release gate stays as a backstop.
+      # The bundled template must match the templates repo at the pinned commit,
+      # so a pin move or a bundled edit that drifts fails here, not at release.
       - name: Check bundled create template drift
         run: bash scripts/check-bundled-template-drift.sh
 
@@ -380,8 +375,6 @@ jobs:
     name: Run test suite (Windows)
     runs-on: windows-latest
     timeout-minutes: 40
-    # Only run Windows tests on PRs and main, skip on workflow_dispatch unless explicitly needed
-    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
