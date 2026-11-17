@@ -101,7 +101,10 @@ describe('a MAIN world group whose child compilation fails', () => {
 
     expect(child.errors).toHaveLength(1)
     expect(child.errors[0].module).toBe('')
-    expect(child.errors[0].message).toContain('Module parse failed')
+    expect(child.errors[0].message).toMatch(
+      /^ {2}\u00d7 Module parse failed:\n/
+    )
+
     expect(child.errors[0].message).toContain('Unexpected token `=`')
     expect(child.errors[0].message).not.toContain('content/main.js')
     expect(child.errors[0].message).not.toContain('MAIN world')
@@ -119,8 +122,8 @@ describe('a MAIN world group whose child compilation fails', () => {
 
     expect(child.errors).toHaveLength(1)
     expect(child.errors[0].module).toBe('')
-    expect(child.errors[0].message).toContain(
-      "Module not found: Can't resolve './missing.js' in '"
+    expect(child.errors[0].message).toMatch(
+      /^ {2}\u00d7 Module not found: Can't resolve '\.\/missing\.js' in '/
     )
 
     expect(child.errors[0].message).not.toContain('main.js')
