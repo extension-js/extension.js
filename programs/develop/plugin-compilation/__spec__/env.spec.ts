@@ -1,91 +1,7 @@
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
-
-const defineApply = vi.fn()
-// Every DefinePlugin the plugin constructs, and their definitions merged
-// into one view, since the import.meta.url define is a separate instance.
-let defineInstances: any[] = []
-let lastDefineArgs: any = null
-const provideApply = vi.fn()
-let lastProvideArgs: any = null
-vi.mock('@rspack/core', () => {
-  class DefinePluginMock {
-    public args: any
-    public affectedHooks?: string
-    constructor(args: any) {
-      this.args = args
-      defineInstances.push(this)
-      lastDefineArgs = {...(lastDefineArgs || {}), ...args}
-    }
-    apply = defineApply
-  }
-  class ProvidePluginMock {
-    public args: any
-    constructor(args: any) {
-      this.args = args
-      lastProvideArgs = args
-    }
-    apply = provideApply
-  }
-  class RawSourceMock {
-    private content: string
-    constructor(content: string) {
-      this.content = content
-    }
-    source() {
-      return this.content
-    }
-    size() {
-      return this.content.length
-    }
-  }
-
-  class WebpackErrorMock extends Error {}
-
-  return {
-    DefinePlugin: DefinePluginMock,
-    ProvidePlugin: ProvidePluginMock,
-    Compilation: {PROCESS_ASSETS_STAGE_SUMMARIZE: 1000},
-    WebpackError: WebpackErrorMock,
-    sources: {RawSource: RawSourceMock}
-  }
-})
-
-vi.mock('fs', async () => {
-  const actual: any = await vi.importActual('fs')
-
-  return {
-    ...actual,
-    existsSync: vi.fn(),
-    readFileSync: vi.fn((p: any, ...rest: any[]) => {
-      if (/\.env[^/\\]*$/.test(String(p))) return String(p)
-
-      return actual.readFileSync(p, ...rest)
-    })
-  }
-})
-
 import * as fs from 'node:fs'
-
-vi.mock('dotenv', () => ({
-  parse: vi.fn((content: any) => {
-    const envPath = toPosix(String(content))
-
-    if (envPath.endsWith('/repo/.env')) {
-      return {
-        EXTENSION_PUBLIC_ROOT_ONLY: 'rootOnly',
-        EXTENSION_PUBLIC_FOO: 'rootFoo',
-        EXTENSION_BAR: 'rootBar'
-      }
-    }
-
-    if (envPath.endsWith('.env.defaults')) {
-      return {EXTENSION_PUBLIC_FOO: 'defFoo', EXTENSION_BAZ: 'defBaz'}
-    }
-
-    return {EXTENSION_PUBLIC_FOO: 'envFoo', EXTENSION_BAR: 'envBar'}
-  })
-}))
-
+import * as path from 'node:path'
+import {type Compiler, EntryPlugin, type Stats} from '@rspack/core'
+import {afterAll, afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {getPreloadedEnvKeys} from '../../lib/config-loader'
 import {getCurrentManifestContent} from '../../plugin-web-extension/feature-manifest/manifest-lib/manifest'
 import {
@@ -94,119 +10,517 @@ import {
   importMetaUrlForEmitPath,
   toJsStringLiteral
 } from '../env'
+import {
+  compile,
+  makeTempRoot,
+  removeTempRoots,
+  runScript,
+  writeFiles
+} from './helpers/real-compile'
 
-const toPosix = (value: string) => value.replace(/\\/g, '/')
+const LOG_PUBLIC = 'console.log(process.env.EXTENSION_PUBLIC_FOO)\n'
 
-describe('EnvPlugin', () => {
-  beforeEach(() => {
-    vi.restoreAllMocks()
-    defineApply.mockReset()
-    defineInstances = []
-    lastDefineArgs = null
-    provideApply.mockReset()
-    lastProvideArgs = null
-    ;(fs.existsSync as unknown as (p: any) => boolean) = vi.fn((p: any) => {
-      const path = toPosix(String(p))
+interface BuildOptions {
+  context?: string
+  browser?: 'chrome' | 'firefox' | 'edge'
+  mode?: 'development' | 'production'
+  copy?: string[]
+  processShimPath?: string
+  extraPlugins?: Array<{apply: (compiler: Compiler) => void}>
+}
 
-      return (
-        path.endsWith('/.env.chrome.development') ||
-        path.endsWith('/.env.defaults') ||
-        path.endsWith('/.env') ||
-        path.endsWith('/.env.local')
-      )
-    })
-
-    process.env.EXTENSION_PUBLIC_FOO = 'sysFoo'
-    process.env.EXTENSION_QUX = 'sysQux'
+async function build(root: string, options: BuildOptions = {}) {
+  const context = options.context || root
+  const outputPath = path.join(root, 'out')
+  const stats: Stats = await compile({
+    context,
+    outputPath,
+    mode: options.mode || 'development',
+    entry: {background: './background.js'},
+    copy: options.copy,
+    plugins: [
+      new EnvPlugin({
+        manifestPath: path.join(context, 'manifest.json'),
+        browser: options.browser || 'chrome',
+        processShimPath: options.processShimPath
+      }),
+      ...(options.extraPlugins || [])
+    ]
   })
 
-  afterEach(() => {
-    delete process.env.EXTENSION_PUBLIC_FOO
-    delete process.env.EXTENSION_QUX
-    Reflect.deleteProperty(process.env, 'EXTENSION_BROWSER')
-    Reflect.deleteProperty(process.env, 'EXTENSION_PUBLIC_BROWSER')
-    delete process.env.EXTENSION_PUBLIC_API_V2
-    vi.restoreAllMocks()
-  })
-
-  function createCompiler(mode: 'development' | 'production' = 'development') {
-    let thisCompilationCb: any
-    const compiler: any = {
-      options: {mode},
-      hooks: {
-        thisCompilation: {
-          tap: (_name: string, cb: any) => {
-            thisCompilationCb = cb
-          }
-        }
-      }
-    }
-    const triggerCompilation = (compilation: any) =>
-      thisCompilationCb(compilation)
-
-    return {compiler, triggerCompilation}
+  return {
+    stats,
+    errors: Array.from(stats.compilation.errors, (error) => ({
+      name: error.name,
+      file: (error as {file?: string}).file,
+      message: error.message
+    })),
+    // Read from the compilation, so an asset held back by an error is visible.
+    asset: (name: string) =>
+      String(stats.compilation.getAsset(name)?.source.source() ?? ''),
+    logs: (globals?: Record<string, unknown>) =>
+      runScript(path.join(outputPath, 'background.js'), globals)
   }
+}
 
-  function createCompilationWithAssets(files: Record<string, string>) {
-    let processAssetsCb: any
-    const updated: Record<string, string> = {}
-    const compilation: any = {
-      errors: [],
-      assets: Object.fromEntries(
-        Object.entries(files).map(([k, v]) => [
-          k,
-          {
-            source: () => v,
-            size: () => v.length
-          }
-        ])
-      ),
-      hooks: {
-        processAssets: {
-          tap: (_opts: any, cb: any) => {
-            processAssetsCb = cb
-          }
-        }
+function project(files: Record<string, string>, entry = LOG_PUBLIC) {
+  const root = makeTempRoot('env')
+  writeFiles(root, {
+    'manifest.json': '{"name":"env"}',
+    'background.js': entry,
+    ...files
+  })
+
+  return root
+}
+
+beforeEach(() => {
+  // The shell running the suite must not leak a value into what is asserted.
+  for (const key of Object.keys(process.env)) {
+    if (key.startsWith('EXTENSION_')) vi.stubEnv(key, undefined)
+  }
+})
+
+afterEach(() => {
+  vi.unstubAllEnvs()
+})
+
+afterAll(() => {
+  removeTempRoots()
+})
+
+describe('EnvPlugin env file selection', () => {
+  it('picks the first env file that exists, in the family order', async () => {
+    const order = [
+      '.env.chrome.development',
+      '.env.chrome',
+      '.env.chromium.development',
+      '.env.chromium',
+      '.env.edge.development',
+      '.env.edge',
+      '.env.chromium-based.development',
+      '.env.chromium-based',
+      '.env.development',
+      '.env.local',
+      '.env'
+    ]
+    const root = project(
+      {
+        '.env.defaults':
+          'EXTENSION_PUBLIC_FOO=.env.defaults\nEXTENSION_PUBLIC_BASE=base\n',
+        '.env.firefox': 'EXTENSION_PUBLIC_FOO=.env.firefox\n',
+        '.env.production': 'EXTENSION_PUBLIC_FOO=.env.production\n',
+        '.env.example': 'EXTENSION_PUBLIC_FOO=.env.example\n',
+        ...Object.fromEntries(
+          order.map((file) => [file, `EXTENSION_PUBLIC_FOO=${file}\n`])
+        )
       },
-      updateAsset: (name: string, raw: any) => {
-        updated[name] = raw.source()
-      }
-    }
-
-    return {
-      compilation,
-      runProcessAssets: () => processAssetsCb({}) as void,
-      updated
-    }
-  }
-
-  it('applies DefinePlugin with filtered env vars and defaults', async () => {
-    const {compiler} = createCompiler('development')
-    const plugin = new EnvPlugin({
-      manifestPath: '/proj/manifest.json',
-      browser: 'chrome'
-    })
-    plugin.apply(compiler as any)
-
-    expect(defineApply).toHaveBeenCalled()
-    expect(lastDefineArgs).toBeTruthy()
-    expect(lastDefineArgs.process).toBeTruthy()
-    expect(lastDefineArgs['process.env']).toBeTruthy()
-    expect(lastDefineArgs['import.meta.dirname']).toBe('undefined')
-    expect(lastDefineArgs['import.meta.filename']).toBe('undefined')
-    expect(lastDefineArgs['import.meta.url']).toBe(IMPORT_META_URL_RUNTIME)
-    expect(lastDefineArgs['import.meta.url']).not.toContain('file:')
-    expect(provideApply).not.toHaveBeenCalled()
-
-    // The import.meta.url define stays out of child compilers, which give a
-    // runtime-loaded file its own emit path instead.
-    const importMetaUrl = defineInstances.find(
-      (instance) => 'import.meta.url' in instance.args
+      'console.log(process.env.EXTENSION_PUBLIC_FOO, import.meta.env.EXTENSION_PUBLIC_BASE)\n'
     )
-    expect(importMetaUrl?.affectedHooks).toBe('thisCompilation')
-    expect(Object.keys(importMetaUrl.args)).toEqual(['import.meta.url'])
+    const picked: string[] = []
+
+    for (const file of order) {
+      picked.push((await build(root)).logs()[0])
+      fs.rmSync(path.join(root, file))
+    }
+
+    expect(picked).toEqual(order.map((file) => `${file} base`))
+    // No candidate left: the defaults layer alone, never .env.example.
+    expect((await build(root)).logs()).toEqual(['.env.defaults base'])
   })
 
+  it('reads the production candidates for a production build', async () => {
+    const root = project({
+      '.env.chrome.development': 'EXTENSION_PUBLIC_FOO=dev\n',
+      '.env.production': 'EXTENSION_PUBLIC_FOO=prod\n',
+      '.env.local': 'EXTENSION_PUBLIC_FOO=local\n'
+    })
+
+    expect((await build(root, {mode: 'production'})).logs()).toEqual(['prod'])
+  })
+
+  it('lets a genuine shell value outrank the selected env file and defaults', async () => {
+    const root = project(
+      {
+        '.env.defaults':
+          'EXTENSION_PUBLIC_A=defaults\nEXTENSION_PUBLIC_B=defaults\n',
+        '.env': 'EXTENSION_PUBLIC_B=file\nEXTENSION_PUBLIC_C=file\n',
+        'manifest.json':
+          '{"a":"$EXTENSION_PUBLIC_A","b":"$EXTENSION_PUBLIC_B","c":"$EXTENSION_PUBLIC_C"}'
+      },
+      'console.log(process.env.EXTENSION_PUBLIC_A, process.env.EXTENSION_PUBLIC_B, process.env.EXTENSION_PUBLIC_C)\n'
+    )
+    vi.stubEnv('EXTENSION_PUBLIC_C', 'shell')
+    const result = await build(root, {copy: ['manifest.json']})
+
+    expect(result.logs()).toEqual(['defaults file shell'])
+    expect(result.asset('manifest.json')).toBe(
+      '{"a":"defaults","b":"file","c":"shell"}'
+    )
+  })
+
+  // dotenv.config in the config loader mutates process.env, and the merge
+  // treats process.env as the shell layer, so a preloaded key steps back.
+  it('keeps a preloaded .env.defaults key from outranking the selected env file', async () => {
+    const root = project({
+      '.env.defaults': 'EXTENSION_PUBLIC_FOO=defFoo\n',
+      '.env.chrome.development': 'EXTENSION_PUBLIC_FOO=envFoo\n'
+    })
+    vi.stubEnv('EXTENSION_PUBLIC_FOO', 'defFoo')
+    const preloaded = getPreloadedEnvKeys() as Set<string>
+    preloaded.add('EXTENSION_PUBLIC_FOO')
+
+    try {
+      expect((await build(root)).logs()).toEqual(['envFoo'])
+    } finally {
+      preloaded.delete('EXTENSION_PUBLIC_FOO')
+    }
+  })
+
+  it('falls back to the nearest workspace root env file', async () => {
+    const root = makeTempRoot('env-workspace')
+    writeFiles(root, {
+      'pnpm-workspace.yaml': "packages: ['packages/*']\n",
+      '.env':
+        'EXTENSION_PUBLIC_ROOT_ONLY=rootOnly\nEXTENSION_BAR=rootBar\nEXTENSION_PUBLIC_FOO=rootFoo\n',
+      'packages/ext/manifest.json':
+        '{"name":"$EXTENSION_PUBLIC_ROOT_ONLY","desc":"$EXTENSION_BAR"}',
+      'packages/ext/background.js':
+        'console.log(process.env.EXTENSION_PUBLIC_ROOT_ONLY, import.meta.env.EXTENSION_PUBLIC_ROOT_ONLY)\n'
+    })
+
+    const result = await build(root, {
+      context: path.join(root, 'packages', 'ext'),
+      copy: ['manifest.json']
+    })
+
+    expect(result.logs()).toEqual(['rootOnly rootOnly'])
+    expect(result.asset('manifest.json')).toBe(
+      '{"name":"rootOnly","desc":"rootBar"}'
+    )
+  })
+
+  it('still reaches the workspace root when the package has only .env.defaults', async () => {
+    const root = makeTempRoot('env-workspace-defaults')
+    writeFiles(root, {
+      'pnpm-workspace.yaml': "packages: ['packages/*']\n",
+      '.env': 'EXTENSION_PUBLIC_ROOT_ONLY=rootOnly\n',
+      '.env.defaults':
+        'EXTENSION_PUBLIC_D1=rootDefault\nEXTENSION_PUBLIC_D2=rootDefault\n',
+      'packages/ext/.env.defaults': 'EXTENSION_PUBLIC_D1=localDefault\n',
+      'packages/ext/manifest.json': '{}',
+      'packages/ext/background.js':
+        'console.log(process.env.EXTENSION_PUBLIC_ROOT_ONLY, process.env.EXTENSION_PUBLIC_D1, process.env.EXTENSION_PUBLIC_D2)\n'
+    })
+
+    const result = await build(root, {
+      context: path.join(root, 'packages', 'ext')
+    })
+
+    expect(result.logs()).toEqual(['rootOnly localDefault rootDefault'])
+  })
+})
+
+describe('EnvPlugin values in JavaScript', () => {
+  it('gives JavaScript only EXTENSION_PUBLIC_* values and the build target', async () => {
+    const root = project(
+      {
+        '.env':
+          'EXTENSION_PUBLIC_OK=ok\nEXTENSION_SECRET_TOKEN=secret\nPLAIN=plain\n'
+      },
+      [
+        'console.log(process.env.EXTENSION_PUBLIC_OK, import.meta.env.EXTENSION_PUBLIC_OK)',
+        'console.log(process.env.EXTENSION_SECRET_TOKEN, import.meta.env.EXTENSION_SECRET_TOKEN, process.env.PLAIN)',
+        'console.log(JSON.stringify(import.meta.env))',
+        ''
+      ].join('\n')
+    )
+    const result = await build(root, {browser: 'edge'})
+
+    expect(result.logs()).toEqual([
+      'ok ok',
+      'undefined undefined undefined',
+      JSON.stringify({
+        EXTENSION_PUBLIC_OK: 'ok',
+        EXTENSION_PUBLIC_BROWSER: 'edge',
+        EXTENSION_PUBLIC_MODE: 'development',
+        EXTENSION_BROWSER: 'edge',
+        EXTENSION_MODE: 'development',
+        BROWSER: 'edge',
+        MODE: 'development'
+      })
+    ])
+
+    expect(
+      fs.readFileSync(path.join(root, 'out/background.js'), 'utf8')
+    ).not.toContain('secret')
+  })
+
+  it('bundles the shipped process shim for free process reads', async () => {
+    const root = project(
+      {},
+      'console.log(process.arch, process.platform, typeof process.nextTick)\n'
+    )
+
+    expect((await build(root)).logs()).toEqual(['browser browser function'])
+  })
+
+  it('falls back to an inline process stub when the shim file is missing', async () => {
+    const root = project(
+      {},
+      'console.log(process.arch, process.platform, typeof process.nextTick, JSON.stringify(process.env))\n'
+    )
+    const result = await build(root, {
+      processShimPath: path.join(root, 'no-such-shim.cjs')
+    })
+
+    expect(result.logs()).toEqual(['undefined browser function {}'])
+  })
+
+  it('neutralizes Node-only import.meta fields and keeps file: URLs out', async () => {
+    const root = project(
+      {},
+      'console.log(import.meta.dirname, import.meta.filename, import.meta.url)\n'
+    )
+    const result = await build(root)
+    const bundle = fs.readFileSync(path.join(root, 'out/background.js'), 'utf8')
+
+    expect(bundle).not.toContain('file:')
+    expect(
+      result.logs({
+        self: {location: {href: 'chrome-extension://abc/background.js'}},
+        chrome: {runtime: {getURL: (p: string) => `chrome-extension://abc${p}`}}
+      })
+    ).toEqual(['undefined undefined chrome-extension://abc/background.js'])
+  })
+
+  it('leaves import.meta.url in a child compiler to that compiler', async () => {
+    const root = project({'child.js': 'console.log(import.meta.url)\n'})
+    const childPlugin = {
+      apply(compiler: Compiler) {
+        compiler.hooks.make.tapPromise('child', async (compilation) => {
+          const child = compilation.createChildCompiler(
+            'child',
+            {filename: '[name].js'} as never,
+            [new EntryPlugin(root, './child.js', {name: 'child'})]
+          )
+          await new Promise<void>((resolve, reject) =>
+            child.runAsChild((error) => (error ? reject(error) : resolve()))
+          )
+        })
+      }
+    }
+    const result = await build(root, {extraPlugins: [childPlugin]})
+
+    // The parent define stays on the parent: the child keeps rspack's own value.
+    expect(result.asset('child.js')).toContain(
+      `'file://${path.join(root, 'child.js')}'`
+    )
+
+    expect(result.asset('background.js')).not.toContain('file:')
+  })
+})
+
+describe('EnvPlugin placeholders in emitted .json and .html', () => {
+  it('replaces $EXTENSION_* names and leaves other files and unknown names', async () => {
+    const root = project({
+      '.env': 'EXTENSION_PUBLIC_FOO=envFoo\nEXTENSION_BAR=envBar\n',
+      'index.html':
+        '<meta content="$EXTENSION_PUBLIC_FOO"><p>$EXTENSION_BAR $EXTENSION_MISS</p>',
+      'manifest.json':
+        '{"name":"$EXTENSION_PUBLIC_FOO","desc":"$EXTENSION_BAR"}',
+      'notes.txt': '$EXTENSION_PUBLIC_FOO'
+    })
+    const result = await build(root, {
+      copy: ['index.html', 'manifest.json', 'notes.txt']
+    })
+
+    expect(result.asset('index.html')).toBe(
+      '<meta content="envFoo"><p>envBar $EXTENSION_MISS</p>'
+    )
+
+    expect(result.asset('manifest.json')).toBe(
+      '{"name":"envFoo","desc":"envBar"}'
+    )
+
+    expect(result.asset('notes.txt')).toBe('$EXTENSION_PUBLIC_FOO')
+    // Later manifest steps read the substituted text, not the authored one.
+    expect(getCurrentManifestContent(result.stats.compilation)).toBe(
+      '{"name":"envFoo","desc":"envBar"}'
+    )
+  })
+
+  it('escapes a quote, a backslash and a < for the json and html sinks', async () => {
+    const hostile = 'A "great" C:\\path <b> & it\'s'
+    vi.stubEnv('EXTENSION_PUBLIC_HOSTILE', hostile)
+    const root = project({
+      'manifest.json': '{"description":"$EXTENSION_PUBLIC_HOSTILE"}',
+      '_locales/en/messages.json':
+        '{"name":{"message":"Name $EXTENSION_PUBLIC_HOSTILE"}}',
+      'index.html': [
+        '<head><title>$EXTENSION_PUBLIC_HOSTILE</title>',
+        '<script src="$EXTENSION_PUBLIC_HOSTILE"></script>',
+        '<script>window.X="$EXTENSION_PUBLIC_HOSTILE";window.Y=\'$EXTENSION_PUBLIC_HOSTILE\'</script></head>',
+        '<div id="root" title="$EXTENSION_PUBLIC_HOSTILE">$EXTENSION_PUBLIC_HOSTILE</div>'
+      ].join('')
+    })
+    const result = await build(root, {
+      copy: ['manifest.json', '_locales/en/messages.json', 'index.html']
+    })
+
+    expect(result.errors).toEqual([])
+    expect(JSON.parse(result.asset('manifest.json')).description).toBe(hostile)
+    expect(
+      JSON.parse(result.asset('_locales/en/messages.json')).name.message
+    ).toBe(`Name ${hostile}`)
+
+    const entity = 'A &quot;great&quot; C:\\path &lt;b&gt; &amp; it&#39;s'
+    const html = result.asset('index.html')
+    expect(html).toContain(`<title>${entity}</title>`)
+    expect(html).toContain(`<script src="${entity}"></script>`)
+    expect(html).toContain(`<div id="root" title="${entity}">${entity}</div>`)
+
+    const open = html.indexOf('<script>') + '<script>'.length
+    const inline = html.slice(open, html.indexOf('</script>', open))
+    expect(inline).not.toContain('<')
+    const scope: {X?: string; Y?: string} = {}
+    new Function('window', inline)(scope)
+    expect(scope).toEqual({X: hostile, Y: hostile})
+  })
+
+  it('does not re-substitute a value that itself names a placeholder', async () => {
+    vi.stubEnv('EXTENSION_PUBLIC_HOSTILE', 'keep $EXTENSION_PUBLIC_FOO')
+    vi.stubEnv('EXTENSION_PUBLIC_FOO', 'foo')
+    const root = project({
+      'manifest.json': '{"name":"$EXTENSION_PUBLIC_HOSTILE"}'
+    })
+    const result = await build(root, {copy: ['manifest.json']})
+
+    expect(result.asset('manifest.json')).toBe(
+      '{"name":"keep $EXTENSION_PUBLIC_FOO"}'
+    )
+  })
+
+  it('names the var and the asset when a value lands outside a JSON string', async () => {
+    vi.stubEnv('EXTENSION_PUBLIC_FOO', 'sysFoo')
+    const root = project({
+      'manifest.json':
+        '{"count":$EXTENSION_PUBLIC_FOO,"mode":"$EXTENSION_MODE"}',
+      'ok.json': '{"count":"$EXTENSION_PUBLIC_FOO"}'
+    })
+    const result = await build(root, {copy: ['manifest.json', 'ok.json']})
+
+    expect(result.asset('manifest.json')).toBe(
+      '{"count":sysFoo,"mode":"development"}'
+    )
+
+    expect(result.asset('ok.json')).toBe('{"count":"sysFoo"}')
+    expect(result.errors).toEqual([
+      {
+        name: 'EnvValueBreaksJsonAsset',
+        file: 'manifest.json',
+        message:
+          '  × manifest.json is not valid JSON after substituting $EXTENSION_PUBLIC_FOO, $EXTENSION_MODE.\n' +
+          '  │ Quote the placeholder to get a JSON string: "$EXTENSION_PUBLIC_FOO". ' +
+          'An unquoted placeholder takes the value as written, so the value must be JSON itself.\n'
+      }
+    ])
+  })
+
+  it('does not blame the value for a file that was never strict JSON', async () => {
+    vi.stubEnv('EXTENSION_PUBLIC_FOO', 'sysFoo')
+    const root = project({
+      'config.json':
+        '{\n  // a comment the "loader" strips\n  "api": "$EXTENSION_PUBLIC_FOO"\n}'
+    })
+    const result = await build(root, {copy: ['config.json']})
+
+    expect(result.errors).toEqual([])
+    expect(result.asset('config.json')).toBe(
+      '{\n  // a comment the "loader" strips\n  "api": "sysFoo"\n}'
+    )
+  })
+
+  it('inserts an unquoted JSON value as written', async () => {
+    vi.stubEnv('EXTENSION_PUBLIC_HOSTILE', '{"a":"</script>"}')
+    const root = project({
+      'config.json':
+        '{"cfg": $EXTENSION_PUBLIC_HOSTILE, "text": "$EXTENSION_PUBLIC_HOSTILE"}',
+      'sandbox.html':
+        '<script>/* it\'s */ window.CFG = $EXTENSION_PUBLIC_HOSTILE; window.S = `${"$EXTENSION_PUBLIC_HOSTILE"}`</script><p>after</p>'
+    })
+    const result = await build(root, {copy: ['config.json', 'sandbox.html']})
+
+    expect(result.errors).toEqual([])
+    expect(JSON.parse(result.asset('config.json'))).toEqual({
+      cfg: {a: '</script>'},
+      text: '{"a":"</script>"}'
+    })
+
+    const html = result.asset('sandbox.html')
+    const open = '<script>'.length
+    const close = html.indexOf('</script>')
+    expect(html.slice(close)).toBe('</script><p>after</p>')
+
+    const scope: {CFG?: unknown; S?: string} = {}
+    new Function('window', html.slice(open, close))(scope)
+    expect(scope).toEqual({CFG: {a: '</script>'}, S: '{"a":"</script>"}'})
+  })
+
+  it('substitutes build-target synthetics so manifest and html match runtime', async () => {
+    // The build target wins over a shell value, in assets and in code.
+    vi.stubEnv('EXTENSION_BROWSER', 'chrome')
+    vi.stubEnv('EXTENSION_PUBLIC_BROWSER', 'chrome')
+    const root = project(
+      {
+        'manifest.json':
+          '{"name":"My Ext ($EXTENSION_BROWSER)","browser":"$EXTENSION_PUBLIC_BROWSER","mode":"$EXTENSION_MODE"}',
+        'index.html':
+          '<title>$EXTENSION_PUBLIC_BROWSER</title><p>$EXTENSION_PUBLIC_MODE</p>'
+      },
+      'console.log(process.env.EXTENSION_BROWSER, import.meta.env.EXTENSION_PUBLIC_BROWSER, process.env.EXTENSION_MODE)\n'
+    )
+    const result = await build(root, {
+      browser: 'firefox',
+      mode: 'production',
+      copy: ['manifest.json', 'index.html']
+    })
+
+    expect(result.asset('manifest.json')).toBe(
+      '{"name":"My Ext (firefox)","browser":"firefox","mode":"production"}'
+    )
+
+    expect(result.asset('index.html')).toBe(
+      '<title>firefox</title><p>production</p>'
+    )
+
+    expect(result.logs()).toEqual(['firefox firefox production'])
+  })
+
+  it('substitutes env names that contain digits', async () => {
+    vi.stubEnv('EXTENSION_PUBLIC_API_V2', 'https://api.example/v2')
+    const root = project(
+      {
+        'index.html': '<script>window.API="$EXTENSION_PUBLIC_API_V2"</script>',
+        'manifest.json': '{"homepage_url":"$EXTENSION_PUBLIC_API_V2"}'
+      },
+      'console.log(process.env.EXTENSION_PUBLIC_API_V2)\n'
+    )
+    const result = await build(root, {copy: ['index.html', 'manifest.json']})
+
+    expect(result.asset('index.html')).toBe(
+      '<script>window.API="https://api.example/v2"</script>'
+    )
+
+    expect(result.asset('manifest.json')).toBe(
+      '{"homepage_url":"https://api.example/v2"}'
+    )
+
+    expect(result.logs()).toEqual(['https://api.example/v2'])
+  })
+})
+
+describe('import.meta.url for runtime-loaded files', () => {
   it('gives a runtime-loaded file its emit path as import.meta.url', () => {
     const define = importMetaUrlForEmitPath('lib\\engine.js')
     expect(define).toContain('getURL("lib/engine.js")')
@@ -230,453 +544,5 @@ describe('EnvPlugin', () => {
     )
 
     expect(define).not.toContain('</script>')
-  })
-
-  it('uses ProvidePlugin for the bundled process shim when available', async () => {
-    ;(fs.existsSync as unknown as (p: any) => boolean) = vi.fn((p: any) =>
-      toPosix(String(p)).endsWith('/runtime/process-shim.cjs')
-    )
-
-    const {compiler} = createCompiler('development')
-    const plugin = new EnvPlugin({
-      manifestPath: '/proj/manifest.json',
-      browser: 'chrome'
-    })
-    plugin.apply(compiler as any)
-
-    expect(provideApply).toHaveBeenCalled()
-    expect(toPosix(String(lastProvideArgs.process))).toContain(
-      '/runtime/process-shim.cjs'
-    )
-
-    expect(lastDefineArgs.process).toBeUndefined()
-    expect(lastDefineArgs['process.env']).toBeUndefined()
-  })
-
-  it('replaces $EXTENSION_* and $EXTENSION_PUBLIC_* in json/html assets', async () => {
-    const {compiler, triggerCompilation} = createCompiler('development')
-    const plugin = new EnvPlugin({
-      manifestPath: '/proj/manifest.json',
-      browser: 'chrome'
-    })
-    plugin.apply(compiler as any)
-
-    const {compilation, runProcessAssets, updated} =
-      createCompilationWithAssets({
-        'index.html':
-          '<meta content="$EXTENSION_PUBLIC_FOO"><p>$EXTENSION_BAR $EXTENSION_MISS</p>',
-        'manifest.json':
-          '{"name":"$EXTENSION_PUBLIC_FOO","desc":"$EXTENSION_BAR"}',
-        'ignore.txt': '$EXTENSION_PUBLIC_FOO'
-      })
-
-    triggerCompilation(compilation)
-    runProcessAssets()
-
-    expect(Object.keys(updated)).toEqual(['index.html', 'manifest.json'])
-    expect(updated['index.html']).toContain('sysFoo')
-    expect(updated['index.html']).toContain('envBar')
-    expect(updated['index.html']).toContain('$EXTENSION_MISS')
-    expect(updated['manifest.json']).toContain('sysFoo')
-    expect(updated['manifest.json']).toContain('envBar')
-    expect(getCurrentManifestContent(compilation as any)).toBe(
-      updated['manifest.json']
-    )
-  })
-
-  // Regression: dotenv.config in the config loader mutates process.env, and the
-  // merge treats process.env as the shell layer. Without the preloaded-key
-  // filter a .env.defaults value outranked the .env.<browser> that overrides it.
-  it('keeps a preloaded .env.defaults key from outranking the selected env file', async () => {
-    // Stand in for the config loader having preloaded .env.defaults.
-    process.env.EXTENSION_PUBLIC_FOO = 'defFoo'
-    ;(getPreloadedEnvKeys() as Set<string>).add('EXTENSION_PUBLIC_FOO')
-
-    try {
-      const {compiler, triggerCompilation} = createCompiler('development')
-      const plugin = new EnvPlugin({
-        manifestPath: '/proj/manifest.json',
-        browser: 'chrome'
-      })
-      plugin.apply(compiler as any)
-
-      const {compilation, runProcessAssets, updated} =
-        createCompilationWithAssets({
-          'manifest.json': '{"name":"$EXTENSION_PUBLIC_FOO"}'
-        })
-
-      triggerCompilation(compilation)
-      runProcessAssets()
-
-      // envFoo comes from the selected env file, defFoo from .env.defaults.
-      expect(updated['manifest.json']).toBe('{"name":"envFoo"}')
-    } finally {
-      ;(getPreloadedEnvKeys() as Set<string>).delete('EXTENSION_PUBLIC_FOO')
-      delete process.env.EXTENSION_PUBLIC_FOO
-    }
-  })
-
-  // A real shell or CI value must still win over every dotenv layer.
-  it('lets a genuine shell value outrank the selected env file', async () => {
-    process.env.EXTENSION_PUBLIC_FOO = 'shellFoo'
-
-    try {
-      const {compiler, triggerCompilation} = createCompiler('development')
-      const plugin = new EnvPlugin({
-        manifestPath: '/proj/manifest.json',
-        browser: 'chrome'
-      })
-      plugin.apply(compiler as any)
-
-      const {compilation, runProcessAssets, updated} =
-        createCompilationWithAssets({
-          'manifest.json': '{"name":"$EXTENSION_PUBLIC_FOO"}'
-        })
-
-      triggerCompilation(compilation)
-      runProcessAssets()
-
-      expect(updated['manifest.json']).toBe('{"name":"shellFoo"}')
-    } finally {
-      delete process.env.EXTENSION_PUBLIC_FOO
-    }
-  })
-
-  it('escapes a quote, a backslash and a < for the json and html sinks', () => {
-    const hostile = 'A "great" C:\\path <b> & it\'s'
-    process.env.EXTENSION_PUBLIC_HOSTILE = hostile
-
-    try {
-      const {compiler, triggerCompilation} = createCompiler('development')
-      const plugin = new EnvPlugin({
-        manifestPath: '/proj/manifest.json',
-        browser: 'chrome'
-      })
-      plugin.apply(compiler as any)
-
-      const {compilation, runProcessAssets, updated} =
-        createCompilationWithAssets({
-          'manifest.json': '{"description":"$EXTENSION_PUBLIC_HOSTILE"}',
-          '_locales/en/messages.json':
-            '{"name":{"message":"Name $EXTENSION_PUBLIC_HOSTILE"}}',
-          'index.html': [
-            '<head><title>$EXTENSION_PUBLIC_HOSTILE</title>',
-            '<script src="$EXTENSION_PUBLIC_HOSTILE"></script>',
-            '<script>window.X="$EXTENSION_PUBLIC_HOSTILE";window.Y=\'$EXTENSION_PUBLIC_HOSTILE\'</script></head>',
-            '<div id="root" title="$EXTENSION_PUBLIC_HOSTILE">$EXTENSION_PUBLIC_HOSTILE</div>'
-          ].join('')
-        })
-
-      triggerCompilation(compilation)
-      runProcessAssets()
-
-      expect(compilation.errors).toEqual([])
-      expect(JSON.parse(updated['manifest.json']).description).toBe(hostile)
-      expect(
-        JSON.parse(updated['_locales/en/messages.json']).name.message
-      ).toBe(`Name ${hostile}`)
-
-      const entity = 'A &quot;great&quot; C:\\path &lt;b&gt; &amp; it&#39;s'
-      const html = updated['index.html']
-      expect(html).toContain(`<title>${entity}</title>`)
-      expect(html).toContain(`<script src="${entity}"></script>`)
-      expect(html).toContain(`<div id="root" title="${entity}">${entity}</div>`)
-
-      const open = html.indexOf('<script>') + '<script>'.length
-      const inline = html.slice(open, html.indexOf('</script>', open))
-      expect(inline).not.toContain('<')
-      const scope: any = {}
-      new Function('window', inline)(scope)
-      expect(scope.X).toBe(hostile)
-      expect(scope.Y).toBe(hostile)
-    } finally {
-      delete process.env.EXTENSION_PUBLIC_HOSTILE
-    }
-  })
-
-  it('does not re-substitute a value that itself names a placeholder', () => {
-    process.env.EXTENSION_PUBLIC_HOSTILE = 'keep $EXTENSION_PUBLIC_FOO'
-
-    try {
-      const {compiler, triggerCompilation} = createCompiler('development')
-      const plugin = new EnvPlugin({
-        manifestPath: '/proj/manifest.json',
-        browser: 'chrome'
-      })
-      plugin.apply(compiler as any)
-
-      const {compilation, runProcessAssets, updated} =
-        createCompilationWithAssets({
-          'manifest.json': '{"name":"$EXTENSION_PUBLIC_HOSTILE"}'
-        })
-
-      triggerCompilation(compilation)
-      runProcessAssets()
-
-      expect(updated['manifest.json']).toBe(
-        '{"name":"keep $EXTENSION_PUBLIC_FOO"}'
-      )
-    } finally {
-      delete process.env.EXTENSION_PUBLIC_HOSTILE
-    }
-  })
-
-  it('names the var and the asset when a value lands outside a JSON string', () => {
-    const {compiler, triggerCompilation} = createCompiler('development')
-    const plugin = new EnvPlugin({
-      manifestPath: '/proj/manifest.json',
-      browser: 'chrome'
-    })
-    plugin.apply(compiler as any)
-
-    const {compilation, runProcessAssets, updated} =
-      createCompilationWithAssets({
-        'manifest.json':
-          '{"count":$EXTENSION_PUBLIC_FOO,"mode":"$EXTENSION_MODE"}',
-        'ok.json': '{"count":"$EXTENSION_PUBLIC_FOO"}'
-      })
-
-    triggerCompilation(compilation)
-    expect(() => runProcessAssets()).not.toThrow()
-
-    expect(updated['manifest.json']).toBe(
-      '{"count":sysFoo,"mode":"development"}'
-    )
-
-    expect(compilation.errors).toHaveLength(1)
-    expect(compilation.errors[0].file).toBe('manifest.json')
-    expect(compilation.errors[0].message).toContain('manifest.json')
-    expect(compilation.errors[0].message).toContain('$EXTENSION_PUBLIC_FOO')
-    expect(compilation.errors[0].message).toContain('$EXTENSION_MODE')
-    expect(compilation.errors[0].message).not.toContain('JSON at position')
-  })
-
-  it('does not blame the value for a file that was never strict JSON', () => {
-    const {compiler, triggerCompilation} = createCompiler('development')
-    new EnvPlugin({
-      manifestPath: '/proj/manifest.json',
-      browser: 'chrome'
-    }).apply(compiler as any)
-
-    const {compilation, runProcessAssets, updated} =
-      createCompilationWithAssets({
-        'config.json':
-          '{\n  // a comment the "loader" strips\n  "api": "$EXTENSION_PUBLIC_FOO"\n}'
-      })
-
-    triggerCompilation(compilation)
-    runProcessAssets()
-
-    expect(compilation.errors).toEqual([])
-    expect(updated['config.json']).toContain('"api": "sysFoo"')
-  })
-
-  it('inserts an unquoted JSON value as written', () => {
-    process.env.EXTENSION_PUBLIC_HOSTILE = '{"a":"</script>"}'
-
-    try {
-      const {compiler, triggerCompilation} = createCompiler('development')
-      new EnvPlugin({
-        manifestPath: '/proj/manifest.json',
-        browser: 'chrome'
-      }).apply(compiler as any)
-
-      const {compilation, runProcessAssets, updated} =
-        createCompilationWithAssets({
-          'config.json':
-            '{"cfg": $EXTENSION_PUBLIC_HOSTILE, "text": "$EXTENSION_PUBLIC_HOSTILE"}',
-          'sandbox.html':
-            '<script>/* it\'s */ window.CFG = $EXTENSION_PUBLIC_HOSTILE; window.S = `${"$EXTENSION_PUBLIC_HOSTILE"}`</script><p>after</p>'
-        })
-
-      triggerCompilation(compilation)
-      runProcessAssets()
-
-      expect(compilation.errors).toEqual([])
-      expect(JSON.parse(updated['config.json'])).toEqual({
-        cfg: {a: '</script>'},
-        text: '{"a":"</script>"}'
-      })
-
-      const html = updated['sandbox.html']
-      const open = '<script>'.length
-      const close = html.indexOf('</script>')
-      expect(html.slice(close)).toBe('</script><p>after</p>')
-
-      const scope: any = {}
-      new Function('window', html.slice(open, close))(scope)
-      expect(scope.CFG).toEqual({a: '</script>'})
-      expect(scope.S).toBe('{"a":"</script>"}')
-    } finally {
-      delete process.env.EXTENSION_PUBLIC_HOSTILE
-    }
-  })
-
-  it('substitutes build-target synthetics so manifest/html match runtime', async () => {
-    const {compiler, triggerCompilation} = createCompiler('production')
-    const plugin = new EnvPlugin({
-      manifestPath: '/proj/manifest.json',
-      browser: 'firefox'
-    })
-    plugin.apply(compiler as any)
-
-    // Runtime always sees the build target, even if .env or the shell set something else.
-    process.env.EXTENSION_BROWSER = 'chrome'
-    process.env.EXTENSION_PUBLIC_BROWSER = 'chrome'
-
-    const {compilation, runProcessAssets, updated} =
-      createCompilationWithAssets({
-        'manifest.json':
-          '{"name":"My Ext ($EXTENSION_BROWSER)","browser":"$EXTENSION_PUBLIC_BROWSER","mode":"$EXTENSION_MODE"}',
-        'index.html':
-          '<title>$EXTENSION_PUBLIC_BROWSER</title><p>$EXTENSION_PUBLIC_MODE</p>'
-      })
-
-    triggerCompilation(compilation)
-    runProcessAssets()
-
-    expect(updated['manifest.json']).toBe(
-      '{"name":"My Ext (firefox)","browser":"firefox","mode":"production"}'
-    )
-
-    expect(updated['index.html']).toBe(
-      '<title>firefox</title><p>production</p>'
-    )
-
-    // Same values DefinePlugin injects into background/content code.
-    expect(lastDefineArgs['process.env.EXTENSION_BROWSER']).toBe(
-      JSON.stringify('firefox')
-    )
-
-    expect(lastDefineArgs['import.meta.env.EXTENSION_PUBLIC_BROWSER']).toBe(
-      JSON.stringify('firefox')
-    )
-
-    Reflect.deleteProperty(process.env, 'EXTENSION_BROWSER')
-    Reflect.deleteProperty(process.env, 'EXTENSION_PUBLIC_BROWSER')
-  })
-
-  it('substitutes env names that contain digits (e.g. API_V2)', async () => {
-    process.env.EXTENSION_PUBLIC_API_V2 = 'https://api.example/v2'
-
-    const {compiler, triggerCompilation} = createCompiler('development')
-    const plugin = new EnvPlugin({
-      manifestPath: '/proj/manifest.json',
-      browser: 'chrome'
-    })
-    plugin.apply(compiler as any)
-
-    const {compilation, runProcessAssets, updated} =
-      createCompilationWithAssets({
-        'index.html': '<script>window.API="$EXTENSION_PUBLIC_API_V2"</script>',
-        'manifest.json': '{"homepage_url":"$EXTENSION_PUBLIC_API_V2"}'
-      })
-
-    triggerCompilation(compilation)
-    runProcessAssets()
-
-    expect(updated['index.html']).toBe(
-      '<script>window.API="https://api.example/v2"</script>'
-    )
-
-    expect(updated['manifest.json']).toBe(
-      '{"homepage_url":"https://api.example/v2"}'
-    )
-
-    expect(lastDefineArgs['process.env.EXTENSION_PUBLIC_API_V2']).toBe(
-      JSON.stringify('https://api.example/v2')
-    )
-
-    delete process.env.EXTENSION_PUBLIC_API_V2
-  })
-
-  it('falls back to the nearest workspace root env file', async () => {
-    ;(fs.existsSync as unknown as (p: any) => boolean) = vi.fn((p: any) => {
-      const filePath = toPosix(String(p))
-
-      return (
-        filePath === '/repo/pnpm-workspace.yaml' || filePath === '/repo/.env'
-      )
-    })
-
-    const {compiler, triggerCompilation} = createCompiler('development')
-    compiler.options.context = '/repo/packages/extension'
-
-    const plugin = new EnvPlugin({
-      manifestPath: '/repo/packages/extension/src/manifest.json',
-      browser: 'chrome'
-    })
-    plugin.apply(compiler as any)
-
-    expect(lastDefineArgs['process.env.EXTENSION_PUBLIC_ROOT_ONLY']).toBe(
-      JSON.stringify('rootOnly')
-    )
-
-    expect(lastDefineArgs['import.meta.env.EXTENSION_PUBLIC_ROOT_ONLY']).toBe(
-      JSON.stringify('rootOnly')
-    )
-
-    const {compilation, runProcessAssets, updated} =
-      createCompilationWithAssets({
-        'manifest.json':
-          '{"name":"$EXTENSION_PUBLIC_ROOT_ONLY","desc":"$EXTENSION_BAR"}'
-      })
-
-    triggerCompilation(compilation)
-    runProcessAssets()
-
-    expect(updated['manifest.json']).toContain('rootOnly')
-    expect(updated['manifest.json']).toContain('rootBar')
-  })
-
-  it('still reaches the workspace root when the package has only .env.defaults', () => {
-    ;(fs.existsSync as unknown as (p: any) => boolean) = vi.fn((p: any) => {
-      const filePath = toPosix(String(p))
-
-      return (
-        filePath === '/repo/pnpm-workspace.yaml' ||
-        filePath === '/repo/.env' ||
-        filePath === '/repo/packages/extension/.env.defaults'
-      )
-    })
-
-    const {compiler} = createCompiler('development')
-    compiler.options.context = '/repo/packages/extension'
-
-    const plugin = new EnvPlugin({
-      manifestPath: '/repo/packages/extension/src/manifest.json',
-      browser: 'chrome'
-    })
-    plugin.apply(compiler as any)
-
-    expect(lastDefineArgs['process.env.EXTENSION_PUBLIC_ROOT_ONLY']).toBe(
-      JSON.stringify('rootOnly')
-    )
-
-    expect(lastDefineArgs['import.meta.env.EXTENSION_PUBLIC_ROOT_ONLY']).toBe(
-      JSON.stringify('rootOnly')
-    )
-  })
-
-  it('keeps the current manifest state in sync for later manifest steps', () => {
-    const {compiler, triggerCompilation} = createCompiler('development')
-    const plugin = new EnvPlugin({
-      manifestPath: '/proj/manifest.json',
-      browser: 'chrome'
-    })
-    plugin.apply(compiler as any)
-
-    const {compilation, runProcessAssets, updated} =
-      createCompilationWithAssets({
-        'manifest.json': '{"key":"$EXTENSION_PUBLIC_FOO"}'
-      })
-
-    triggerCompilation(compilation)
-    runProcessAssets()
-
-    expect(updated['manifest.json']).toContain('sysFoo')
-    expect(getCurrentManifestContent(compilation as any)).toBe(
-      updated['manifest.json']
-    )
   })
 })

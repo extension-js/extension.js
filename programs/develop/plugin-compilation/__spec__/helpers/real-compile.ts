@@ -61,7 +61,7 @@ export function createCompiler(options: CompileOptions): Compiler {
       ...(options.copy?.length
         ? [
             new rspack.CopyRspackPlugin({
-              patterns: options.copy.map((from) => ({from}))
+              patterns: options.copy.map((from) => ({from, to: from}))
             })
           ]
         : []),
@@ -100,9 +100,13 @@ export function messagesOf(stats: Stats, kind: 'errors' | 'warnings') {
 }
 
 // Runs an emitted script and returns what it logged, one line per call.
-export function runScript(file: string): string[] {
+export function runScript(
+  file: string,
+  globals: Record<string, unknown> = {}
+): string[] {
   const logs: string[] = []
   const context = vm.createContext({
+    ...globals,
     console: {
       log: (...args: unknown[]) => logs.push(args.map(String).join(' '))
     }
