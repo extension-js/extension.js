@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest'
-import NoDangerNamePlugin from '../NoDangerNamePlugin'
+import NoDangerNamePlugin from '../steps/no-danger-name'
 
 // Minimal webpack stand-in: capture the processAssets tap the plugin registers
 // and drive it with a fake asset map, so we can assert exactly which output
@@ -45,6 +45,7 @@ function runPluginOn(assetNames: string[]): string[] {
   const assets: Record<string, unknown> = {}
   for (const name of assetNames) assets[name] = {}
   processAssetsCb?.(assets)
+
   return errors.map((e) => e.message)
 }
 

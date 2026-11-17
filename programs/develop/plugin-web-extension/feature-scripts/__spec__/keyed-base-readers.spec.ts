@@ -9,9 +9,9 @@ import {
   extensionSchemeFor
 } from '../../../lib/extension-base-from-stack'
 import {toRuntimeStylesheetModule} from '../../../plugin-css/css-lib/inline-content-script-css'
-import AutoPublicPathRuntimeModule from '../../../plugin-reload/steps/setup-reload-strategy/webpack-target-webextension-fork/lib/webpack5/RuntimeModules/AutoPublicPath'
-import BaseUriRuntimeModule from '../../../plugin-reload/steps/setup-reload-strategy/webpack-target-webextension-fork/lib/webpack5/RuntimeModules/BaseUri'
-import PublicPathRuntimeModule from '../../../plugin-reload/steps/setup-reload-strategy/webpack-target-webextension-fork/lib/webpack5/RuntimeModules/PublicPath'
+import AutoPublicPathRuntimeModule from '../../feature-chunk-loading/runtime-modules/auto-public-path'
+import BaseUriRuntimeModule from '../../feature-chunk-loading/runtime-modules/base-uri'
+import PublicPathRuntimeModule from '../../feature-chunk-loading/runtime-modules/public-path'
 import {buildMainWorldBridgePairingSource} from '../scripts-lib/main-world-bridge-pairing'
 import {baseUriRuntimeSource} from '../steps/add-base-uri-runtime-module'
 

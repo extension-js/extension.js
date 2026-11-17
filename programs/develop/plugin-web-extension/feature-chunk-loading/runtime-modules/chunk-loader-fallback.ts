@@ -1,5 +1,5 @@
-import {TemplateFn} from '../helper'
-import {RuntimeGlobal, RuntimeGlobalIsBrowser} from './BrowserRuntime'
+import {RuntimeGlobal, RuntimeGlobalIsBrowser} from './browser-runtime'
+import {TemplateFn} from './template-fn'
 
 export default function ChunkLoaderFallbackRuntimeModule(
   webpack: typeof import('webpack')

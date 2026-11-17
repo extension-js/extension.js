@@ -1,11 +1,11 @@
-import ChunkLoaderRuntimePlugin from './ChunkLoader'
-import NoDangerNamePlugin from './NoDangerNamePlugin'
-import ServiceWorkerEntryPlugin from './ServiceWorkerPlugin'
-import InitialChunkFilePlugin from './InitialChunkFile'
-import HMRDevServerPlugin from './HMRDevServer'
 import BrowserRuntimeModule, {
   RuntimeGlobal
-} from './RuntimeModules/BrowserRuntime'
+} from './runtime-modules/browser-runtime'
+import ChunkLoaderRuntimePlugin from './steps/chunk-loader'
+import HMRDevServerPlugin from './steps/hmr-dev-server'
+import InitialChunkFilePlugin from './steps/initial-chunk-file'
+import NoDangerNamePlugin from './steps/no-danger-name'
+import ServiceWorkerEntryPlugin from './steps/service-worker-entry'
 
 export default class WebExtensionPlugin {
   private readonly options: any

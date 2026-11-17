@@ -1,9 +1,9 @@
-import AutoPublicPathRuntimeModule from './RuntimeModules/AutoPublicPath'
-import BaseUriRuntimeModule from './RuntimeModules/BaseUri'
-import {RuntimeGlobal} from './RuntimeModules/BrowserRuntime'
-import ChunkLoaderFallbackRuntimeModule from './RuntimeModules/ChunkLoaderFallback'
-import LoadScriptRuntimeModule from './RuntimeModules/LoadScript'
-import PublicPathRuntimeModule from './RuntimeModules/PublicPath'
+import AutoPublicPathRuntimeModule from '../runtime-modules/auto-public-path'
+import BaseUriRuntimeModule from '../runtime-modules/base-uri'
+import {RuntimeGlobal} from '../runtime-modules/browser-runtime'
+import ChunkLoaderFallbackRuntimeModule from '../runtime-modules/chunk-loader-fallback'
+import LoadScriptRuntimeModule from '../runtime-modules/load-script'
+import PublicPathRuntimeModule from '../runtime-modules/public-path'
 
 export default class WebExtensionChuckLoaderRuntimePlugin {
   private readonly pluginOptions: any

@@ -1,4 +1,4 @@
-import createEagerlyLoadChunksRuntimeModule from './RuntimeModules/EagerlyLoadChunks'
+import createEagerlyLoadChunksRuntimeModule from '../runtime-modules/eagerly-load-chunks'
 
 export default class WebExtensionServiceWorkerEntryPlugin {
   private readonly options: any

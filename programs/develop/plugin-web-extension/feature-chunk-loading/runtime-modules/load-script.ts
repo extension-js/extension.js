@@ -1,6 +1,6 @@
-import {EXTENSION_BASE_FROM_STACK} from '../../../../../../../lib/extension-base-from-stack'
-import {TemplateFn} from '../helper'
-import {RuntimeGlobal, RuntimeGlobalIsBrowser} from './BrowserRuntime'
+import {EXTENSION_BASE_FROM_STACK} from '../../../lib/extension-base-from-stack'
+import {RuntimeGlobal, RuntimeGlobalIsBrowser} from './browser-runtime'
+import {TemplateFn} from './template-fn'
 
 // import()
 const DYNAMIC_IMPORT_LOADER = 'dynamicImportLoader'

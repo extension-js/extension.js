@@ -1,14 +1,14 @@
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
-import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
-import {SetupChunkLoadingTarget} from '../steps/setup-chunk-loading-target'
 import {
   compileFiles,
   idleCompiler,
   tapsAddedBy,
   workerEntryFromFork,
   writeProject
-} from './helpers/real-compiler'
+} from '../../../__spec__/helpers/real-compiler'
+import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
+import {SetupChunkLoadingTarget} from '../index'
 
 const makeTempFolder = trackTempFolders()
 

@@ -1,9 +1,13 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {
+  idleCompiler,
+  tapsAddedBy,
+  writeProject
+} from '../../__spec__/helpers/real-compiler'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {ReloadPlugin} from '../index'
-import {idleCompiler, tapsAddedBy, writeProject} from './helpers/real-compiler'
 
 const makeTempFolder = trackTempFolders()
 

@@ -11,6 +11,7 @@ const EXTENSIONS = /\.(ts|tsx|js|jsx|mjs|cjs|md|mdx|json|yml|yaml)$/
 const EXCLUDED_PATHS = [
   // Vendored third-party fork; not ours to restyle.
   'webpack-target-webextension-fork',
+  'feature-chunk-loading/steps/no-danger-name.ts',
   // This checker necessarily contains the character it searches for.
   'scripts/check-prose.mjs'
 ]

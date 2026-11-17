@@ -5,8 +5,8 @@ import {
   extensionBaseFromFile,
   GECKO_EXTENSION_SCHEME,
   unlessExtensionAddress
-} from '../../../../../../../lib/extension-base-from-stack'
-import {RuntimeGlobal} from './BrowserRuntime'
+} from '../../../lib/extension-base-from-stack'
+import {RuntimeGlobal} from './browser-runtime'
 
 export default function BaseUriRuntimeModule(
   webpack: typeof import('webpack'),

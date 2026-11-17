@@ -6,8 +6,8 @@ import {
   GECKO_EXTENSION_SCHEME,
   TAKEN_EXTENSION_BASE,
   unlessExtensionAddress
-} from '../../../../../../../lib/extension-base-from-stack'
-import {RuntimeGlobal} from './BrowserRuntime'
+} from '../../../lib/extension-base-from-stack'
+import {RuntimeGlobal} from './browser-runtime'
 
 export default function AutoPublicPathRuntimeModule(
   webpack: typeof import('webpack'),

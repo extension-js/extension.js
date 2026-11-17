@@ -48,7 +48,6 @@ export {
   type ReloadBroker
 } from './reload-dispatch'
 export {readBootRegistrations, readDevBuild}
-export {SetupChunkLoadingTarget} from './steps/setup-chunk-loading-target'
 
 /**
  * ReloadPlugin owns the dev-only reload/HMR strategy end to end:

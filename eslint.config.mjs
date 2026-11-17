@@ -66,7 +66,10 @@ export default [
       '**/tailwind.config.js',
       '**/*.generated.*',
       'programs/create/templates/',
-      'programs/develop/plugin-reload/steps/setup-reload-strategy/webpack-target-webextension-fork/'
+      'programs/develop/plugin-reload/steps/setup-reload-strategy/webpack-target-webextension-fork/',
+      'programs/develop/plugin-web-extension/feature-chunk-loading/chunk-loading-target.ts',
+      'programs/develop/plugin-web-extension/feature-chunk-loading/steps/',
+      'programs/develop/plugin-web-extension/feature-chunk-loading/runtime-modules/'
     ]
   },
   {

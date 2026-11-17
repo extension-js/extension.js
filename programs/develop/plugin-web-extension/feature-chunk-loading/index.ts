@@ -12,21 +12,19 @@ import type {Compiler} from '@rspack/core'
 import {isGeckoBasedBrowser} from '../../lib/constants'
 import {extensionSchemeFor} from '../../lib/extension-base-from-stack'
 import {parseAuthoredJson} from '../../lib/parse-json-safe'
-import {filterKeysForThisBrowser} from '../../plugin-web-extension/feature-manifest/manifest-lib/manifest'
-import {findRuntimeMainWorldEntries} from '../../plugin-web-extension/feature-scripts/scripts-lib/runtime-main-world-scripts'
-import {extensionBaseAttributeFor} from '../../plugin-web-extension/feature-scripts/scripts-lib/taken-extension-base'
-import {classicConcatFiles} from '../../plugin-web-extension/shared/classic-concat'
 import type {
   DevOptions,
   FilepathList,
   Manifest,
   PluginInterface
 } from '../../types'
-import {
-  buildContentScriptsMeta,
-  getBackgroundEntryName
-} from './setup-reload-strategy'
-import WebExtension from './setup-reload-strategy/webpack-target-webextension-fork'
+import {filterKeysForThisBrowser} from '../feature-manifest/manifest-lib/manifest'
+import {findRuntimeMainWorldEntries} from '../feature-scripts/scripts-lib/runtime-main-world-scripts'
+import {extensionBaseAttributeFor} from '../feature-scripts/scripts-lib/taken-extension-base'
+import {classicConcatFiles} from '../shared/classic-concat'
+import {getBackgroundEntryName} from './background-entry-name'
+import WebExtension from './chunk-loading-target'
+import {buildContentScriptsMeta} from './content-scripts-meta'
 
 // A file the background or a page registers into the MAIN world is in no
 // manifest group, so its world is read off the entries already created.
