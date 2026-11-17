@@ -2,295 +2,193 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
+import {rememberSpecialFoldersConfig} from '../folders-config'
 import {
   getSpecialFoldersDataForCompiler,
   getSpecialFoldersDataForProjectRoot,
   type ScanSpecialFolders
 } from '../get-data'
 
-const getSpecialFoldersDataMock = vi.fn()
 const tempDirs: string[] = []
 
 afterEach(() => {
   vi.unstubAllEnvs()
+  vi.restoreAllMocks()
 
   for (const dir of tempDirs.splice(0)) {
+    rememberSpecialFoldersConfig(dir, undefined)
     fs.rmSync(dir, {recursive: true, force: true})
   }
 })
 
-vi.mock('browser-extension-manifest-fields', () => ({
-  getSpecialFoldersData: (...args: any[]) => getSpecialFoldersDataMock(...args)
-}))
+// A project on disk, read by the real scanner.
+function project(files: Record<string, string>): string {
+  const root = fs.realpathSync(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-get-data-'))
+  )
+  tempDirs.push(root)
 
-describe('getSpecialFoldersDataForCompiler', () => {
-  it('filters out public/ entries from pages and scripts', () => {
-    getSpecialFoldersDataMock.mockReturnValue({
-      pages: {
-        'page-a': '/project/pages/a.html',
-        'page-b': '/project/public/sample/pages/b.html',
-        'page-c': 'public/sample/pages/c.html',
-        'page-d': 'pages/d.html'
-      },
-      scripts: {
-        'scripts/a': [
-          '/project/scripts/a.js',
-          '/project/public/sample/scripts/b.js',
-          'public/sample/scripts/c.js'
-        ]
-      },
-      public: {foo: 'bar'}
+  for (const [relative, contents] of Object.entries(files)) {
+    const target = path.join(root, relative)
+    fs.mkdirSync(path.dirname(target), {recursive: true})
+    fs.writeFileSync(target, contents, 'utf8')
+  }
+
+  return root
+}
+
+const scanOf = (root: string) =>
+  getSpecialFoldersDataForCompiler({options: {context: root}} as never)
+
+const at = (root: string, relative: string) =>
+  path.join(root, ...relative.split('/'))
+
+describe('getSpecialFoldersDataForCompiler on a real project', () => {
+  it('returns the pages, the scripts and the companion folder default', () => {
+    const root = project({
+      'pages/index.html': '<html></html>',
+      'pages/nested/index.html': '<html></html>',
+      'pages/readme.md': 'not a page',
+      'scripts/content.ts': 'export {}',
+      'scripts/data.json': '{}'
     })
 
-    const compiler = {options: {context: '/project'}} as any
-    const data = getSpecialFoldersDataForCompiler(compiler)
+    const data = scanOf(root)
 
-    expect(Object.values(data.pages || {})).toEqual([
-      '/project/pages/a.html',
-      'pages/d.html'
-    ])
+    expect(data.pages).toEqual({
+      'pages/index': at(root, 'pages/index.html'),
+      'pages/nested': at(root, 'pages/nested/index.html')
+    })
 
-    expect(data.scripts?.['scripts/a']).toEqual(['/project/scripts/a.js'])
-    expect((data as any).public).toEqual({foo: 'bar'})
+    expect(data.scripts).toEqual({
+      'scripts/content': at(root, 'scripts/content.ts')
+    })
+
+    expect(data.extensions).toEqual({dir: './extensions'})
   })
 
-  it('drops Node build/dev tooling from scripts/ but keeps real content scripts (G13)', () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-g13-'))
-    tempDirs.push(dir)
-    const scriptsDir = path.join(dir, 'scripts')
-    fs.mkdirSync(scriptsDir, {recursive: true})
-
-    const shebang = path.join(scriptsDir, 'build-flow-scanner.js')
-    const requiresTool = path.join(scriptsDir, 'release-build.js')
-    const importsBuiltin = path.join(scriptsDir, 'sync.mjs')
-    const contentScript = path.join(scriptsDir, 'content.js')
-    const browserImport = path.join(scriptsDir, 'widget.js')
-
-    fs.writeFileSync(shebang, '#!/usr/bin/env node\nconsole.log(1)\n', 'utf8')
-    fs.writeFileSync(
-      requiresTool,
-      "const fx = require('fs-extra'); const z = require('zip-dir');\n",
-      'utf8'
-    )
-
-    fs.writeFileSync(
-      importsBuiltin,
-      "import {readFile} from 'node:fs/promises'\n",
-      'utf8'
-    )
-
-    fs.writeFileSync(contentScript, "document.body.dataset.ok = '1'\n", 'utf8')
-    fs.writeFileSync(
-      browserImport,
-      "import merge from 'lodash/merge'\n",
-      'utf8'
-    )
-
-    getSpecialFoldersDataMock.mockReturnValue({
-      pages: {},
-      scripts: {
-        'scripts/build-flow-scanner': [shebang],
-        'scripts/release-build': [requiresTool],
-        'scripts/sync': [importsBuiltin],
-        'scripts/content': [contentScript],
-        'scripts/widget': [browserImport]
-      },
-      public: {}
+  it('keeps a configured public folder inside pages/ and scripts/ out of the entries', () => {
+    const root = project({
+      'pages/a.html': '<html></html>',
+      'pages/static/b.html': '<html></html>',
+      'scripts/a.js': 'document.title = "a"',
+      'scripts/static/vendor.js': 'document.title = "v"'
     })
 
-    const compiler = {options: {context: dir}} as any
-    const data = getSpecialFoldersDataForCompiler(compiler)
+    rememberSpecialFoldersConfig(root, {public: 'pages/static'})
+    expect(Object.keys(scanOf(root).pages || {})).toEqual(['pages/a'])
 
-    expect(data.scripts?.['scripts/build-flow-scanner']).toBeUndefined()
-    expect(data.scripts?.['scripts/release-build']).toBeUndefined()
-    expect(data.scripts?.['scripts/sync']).toBeUndefined()
-    expect(data.scripts?.['scripts/content']).toEqual([contentScript])
-    expect(data.scripts?.['scripts/widget']).toEqual([browserImport])
+    rememberSpecialFoldersConfig(root, {public: 'scripts/static'})
+    expect(Object.keys(scanOf(root).scripts || {})).toEqual(['scripts/a'])
+  })
+
+  it.each([
+    ['a node shebang', 'build-flow-scanner.js', '#!/usr/bin/env node\n'],
+    [
+      'a Node build tool',
+      'release-build.js',
+      "const fx = require('fs-extra'); const z = require('zip-dir');\n"
+    ],
+    [
+      'a node: builtin',
+      'sync.mjs',
+      "import {readFile} from 'node:fs/promises'\n"
+    ],
+    ['a bare builtin subpath', 'paths.js', "import {join} from 'fs/promises'\n"]
+  ])('drops a scripts/ file that imports %s', (_label, name, source) => {
+    const root = project({
+      [`scripts/${name}`]: source,
+      'scripts/content.js': "document.body.dataset.ok = '1'\n",
+      'scripts/widget.js': "import merge from 'lodash/merge'\n"
+    })
+
+    expect(Object.keys(scanOf(root).scripts || {}).sort()).toEqual([
+      'scripts/content',
+      'scripts/widget'
+    ])
   })
 
   it('drops a scripts/ file that reaches a Node builtin through a sibling', () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-sibling-'))
-    tempDirs.push(dir)
-    const scriptsDir = path.join(dir, 'scripts')
-    fs.mkdirSync(path.join(scriptsDir, 'lib'), {recursive: true})
-
-    const helper = path.join(scriptsDir, 'lib', 'helper.js')
-    const tooling = path.join(scriptsDir, 'tooling.js')
-    const loop = path.join(scriptsDir, 'loop.js')
-    const widget = path.join(scriptsDir, 'widget.js')
-
-    fs.writeFileSync(
-      helper,
-      "export {default as proc} from 'node:process'\n",
-      'utf8'
-    )
-
-    fs.writeFileSync(
-      tooling,
-      "import {proc} from './lib/helper'\nconsole.log(proc.cwd())\n",
-      'utf8'
-    )
-
-    fs.writeFileSync(loop, "import './loop.js'\nimport './widget.js'\n", 'utf8')
-    fs.writeFileSync(
-      widget,
-      "import './loop.js'\ndocument.title = 'w'\n",
-      'utf8'
-    )
-
-    getSpecialFoldersDataMock.mockReturnValue({
-      pages: {},
-      scripts: {
-        'scripts/lib/helper': [helper],
-        'scripts/tooling': [tooling],
-        'scripts/loop': [loop],
-        'scripts/widget': [widget]
-      },
-      public: {}
+    const root = project({
+      'scripts/lib/helper.js': "export {default as proc} from 'node:process'\n",
+      'scripts/tooling.js':
+        "import {proc} from './lib/helper'\nconsole.log(proc.cwd())\n",
+      'scripts/loop.js': "import './loop.js'\nimport './widget.js'\n",
+      'scripts/widget.js': "import './loop.js'\ndocument.title = 'w'\n"
     })
 
-    const compiler = {options: {context: dir}} as any
-    const data = getSpecialFoldersDataForCompiler(compiler)
-
-    expect(data.scripts?.['scripts/lib/helper']).toBeUndefined()
-    expect(data.scripts?.['scripts/tooling']).toBeUndefined()
-    expect(data.scripts?.['scripts/loop']).toEqual([loop])
-    expect(data.scripts?.['scripts/widget']).toEqual([widget])
+    expect(scanOf(root).scripts).toEqual({
+      'scripts/loop': at(root, 'scripts/loop.js'),
+      'scripts/widget': at(root, 'scripts/widget.js')
+    })
   })
 
   it('keeps a scripts/ file nothing references next to the referenced ones', () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-g13gap-'))
-    tempDirs.push(dir)
-    const scriptsDir = path.join(dir, 'scripts')
-    fs.mkdirSync(scriptsDir, {recursive: true})
-
-    const contentScript = path.join(scriptsDir, 'content.js')
-    const injectedScript = path.join(scriptsDir, 'injected.js')
-    const orphanData = path.join(scriptsDir, 'cell.js')
-
-    fs.writeFileSync(contentScript, "document.title = 'ok'\n", 'utf8')
-    fs.writeFileSync(injectedScript, "console.log('injected')\n", 'utf8')
-    fs.writeFileSync(
-      orphanData,
-      'data = {cell: 1}\nawait Promise.resolve()\n',
-      'utf8'
-    )
-
-    fs.writeFileSync(
-      path.join(dir, 'manifest.json'),
-      JSON.stringify({
+    const root = project({
+      'scripts/content.js': "document.title = 'ok'\n",
+      'scripts/injected.js': "console.log('injected')\n",
+      'scripts/cell.js': 'data = {cell: 1}\nawait Promise.resolve()\n',
+      'manifest.json': JSON.stringify({
         manifest_version: 3,
         content_scripts: [{matches: ['<all_urls>'], js: ['scripts/content.js']}]
       }),
-      'utf8'
-    )
-
-    fs.writeFileSync(
-      path.join(dir, 'background.js'),
-      "chrome.scripting.executeScript({files: ['/scripts/injected.js']})\n",
-      'utf8'
-    )
-
-    getSpecialFoldersDataMock.mockReturnValue({
-      pages: {},
-      scripts: {
-        'scripts/content': [contentScript],
-        'scripts/injected': [injectedScript],
-        'scripts/cell': [orphanData]
-      },
-      public: {}
+      'background.js':
+        "chrome.scripting.executeScript({files: ['/scripts/injected.js']})\n"
     })
 
-    const compiler = {options: {context: dir}} as any
-    const data = getSpecialFoldersDataForCompiler(compiler)
-
-    expect(data.scripts?.['scripts/content']).toEqual([contentScript])
-    expect(data.scripts?.['scripts/injected']).toEqual([injectedScript])
-    expect(data.scripts?.['scripts/cell']).toEqual([orphanData])
+    expect(Object.keys(scanOf(root).scripts || {}).sort()).toEqual([
+      'scripts/cell',
+      'scripts/content',
+      'scripts/injected'
+    ])
   })
 
   it('keeps a scripts/ file nothing names and prints nothing about it', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-dropwarn-'))
-    tempDirs.push(dir)
-    const scriptsDir = path.join(dir, 'scripts')
-    fs.mkdirSync(scriptsDir, {recursive: true})
-
-    const orphan = path.join(scriptsDir, 'never-mentioned.js')
-    fs.writeFileSync(orphan, "console.log('orphan')\n", 'utf8')
-    fs.writeFileSync(
-      path.join(dir, 'manifest.json'),
-      JSON.stringify({manifest_version: 3}),
-      'utf8'
-    )
-
-    getSpecialFoldersDataMock.mockReturnValue({
-      pages: {},
-      scripts: {'scripts/never-mentioned': [orphan]},
-      public: {}
+    const root = project({
+      'scripts/never-mentioned.js': "console.log('orphan')\n",
+      'manifest.json': JSON.stringify({manifest_version: 3})
     })
 
-    const compiler = {options: {context: dir}} as any
-    const data = getSpecialFoldersDataForCompiler(compiler)
+    expect(scanOf(root).scripts).toEqual({
+      'scripts/never-mentioned': at(root, 'scripts/never-mentioned.js')
+    })
 
-    expect(data.scripts?.['scripts/never-mentioned']).toEqual([orphan])
-    const printed = [...warn.mock.calls, ...log.mock.calls]
-      .map((call) => String(call[0]))
-      .join('\n')
-    expect(printed).not.toContain('never-mentioned')
-    expect(printed).not.toContain('scripts/')
-    warn.mockRestore()
-    log.mockRestore()
+    expect(warn).not.toHaveBeenCalled()
+    expect(log).not.toHaveBeenCalled()
   })
 
-  // Regression: a TS entry is injected by its emitted `.js` name, never by the
-  // `.ts` source path, so matching the source spelling alone dropped every
-  // compiled scripts/ entry the project referenced correctly.
-  it('keeps a compiled scripts/ entry referenced by its emitted .js path', () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-emitref-'))
-    tempDirs.push(dir)
-    const scriptsDir = path.join(dir, 'scripts')
-    fs.mkdirSync(scriptsDir, {recursive: true})
-
-    const source = path.join(scriptsDir, 'logger-client.ts')
-    fs.writeFileSync(source, 'export const client = 1\n', 'utf8')
-    fs.writeFileSync(
-      path.join(dir, 'manifest.json'),
-      JSON.stringify({
+  // A TS entry is injected by its emitted `.js` name, never by the `.ts`
+  // source path, so the source spelling alone would drop it.
+  it('keeps a compiled scripts/ entry a package.json script runs, referenced by its .js name', () => {
+    const root = project({
+      'scripts/logger-client.ts': 'export const client = 1\n',
+      'package.json': JSON.stringify({
+        scripts: {watch: 'tsx scripts/logger-client.ts'}
+      }),
+      'manifest.json': JSON.stringify({
         manifest_version: 3,
         web_accessible_resources: [
           {resources: ['scripts/logger-client.js'], matches: ['<all_urls>']}
         ]
-      }),
-      'utf8'
-    )
-
-    getSpecialFoldersDataMock.mockReturnValue({
-      pages: {},
-      scripts: {'scripts/logger-client': [source]},
-      public: {}
+      })
     })
 
-    const compiler = {options: {context: dir}} as any
-    const data = getSpecialFoldersDataForCompiler(compiler)
-
-    expect(data.scripts?.['scripts/logger-client']).toEqual([source])
+    expect(scanOf(root).scripts).toEqual({
+      'scripts/logger-client': at(root, 'scripts/logger-client.ts')
+    })
   })
 
-  it('keeps all scripts/ entries when no reference assets are readable (fail open)', () => {
-    getSpecialFoldersDataMock.mockReturnValue({
-      pages: {},
-      scripts: {'scripts/a': ['/does-not-exist/scripts/a.js']},
-      public: {}
+  it('keeps every scripts/ entry when no reference file is readable (fail open)', () => {
+    const root = project({
+      'scripts/a.js': "console.log('a')\n",
+      'package.json': JSON.stringify({scripts: {a: 'node scripts/a.js'}})
     })
 
-    const compiler = {options: {context: '/does-not-exist'}} as any
-    const data = getSpecialFoldersDataForCompiler(compiler)
-
-    expect(data.scripts?.['scripts/a']).toEqual([
-      '/does-not-exist/scripts/a.js'
-    ])
+    expect(scanOf(root).scripts).toEqual({
+      'scripts/a': at(root, 'scripts/a.js')
+    })
   })
 })
 
@@ -299,110 +197,83 @@ describe('scripts/ entries the package.json scripts run', () => {
     manifest: Record<string, unknown> = {manifest_version: 3},
     helperName = 'replace_browser'
   ) {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-tooling-'))
-    tempDirs.push(dir)
-    const scriptsDir = path.join(dir, 'scripts')
-    fs.mkdirSync(scriptsDir, {recursive: true})
-
-    const helper = path.join(scriptsDir, `${helperName}.js`)
-    const orphan = path.join(scriptsDir, 'forgotten.js')
-    fs.writeFileSync(helper, "console.log('helper')\n", 'utf8')
-    fs.writeFileSync(orphan, "console.log('orphan')\n", 'utf8')
-    fs.writeFileSync(
-      path.join(dir, 'package.json'),
-      JSON.stringify({
+    const root = project({
+      [`scripts/${helperName}.js`]: "console.log('helper')\n",
+      'scripts/forgotten.js': "console.log('orphan')\n",
+      'package.json': JSON.stringify({
         name: 'tooling',
         scripts: {'build:firefox': `node scripts/${helperName}.js firefox`}
       }),
-      'utf8'
-    )
-
-    fs.writeFileSync(
-      path.join(dir, 'manifest.json'),
-      JSON.stringify(manifest),
-      'utf8'
-    )
-
-    getSpecialFoldersDataMock.mockReturnValue({
-      pages: {},
-      scripts: {
-        [`scripts/${helperName}`]: [helper],
-        'scripts/forgotten': [orphan]
-      },
-      public: {}
+      'manifest.json': JSON.stringify(manifest)
     })
 
-    return {dir, helper, orphan}
+    return {
+      root,
+      helper: at(root, `scripts/${helperName}.js`),
+      orphan: at(root, 'scripts/forgotten.js')
+    }
   }
 
   it('drops a build helper quietly and keeps a file nothing names', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
-    const {dir, orphan} = tooling()
+    const {root, orphan} = tooling()
 
-    const compiler = {options: {context: dir}} as any
-    const data = getSpecialFoldersDataForCompiler(compiler)
-
-    expect(data.scripts?.['scripts/replace_browser']).toBeUndefined()
-    expect(data.scripts?.['scripts/forgotten']).toEqual([orphan])
+    expect(scanOf(root).scripts).toEqual({'scripts/forgotten': orphan})
     expect(warn).not.toHaveBeenCalled()
     expect(log).not.toHaveBeenCalled()
-    warn.mockRestore()
-    log.mockRestore()
   })
 
   it('names the dropped helper on one debug line', () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
     vi.stubEnv('EXTENSION_DEBUG', 'true')
-    const {dir} = tooling()
+    const {root} = tooling()
 
-    const compiler = {options: {context: dir}} as any
-    getSpecialFoldersDataForCompiler(compiler)
+    scanOf(root)
 
     const printed = log.mock.calls.map((call) => String(call[0])).join('\n')
     expect(log).toHaveBeenCalledTimes(1)
     expect(printed).toContain('scripts/replace_browser.js')
     expect(printed).toContain('package.json script')
     expect(printed).not.toContain('scripts/forgotten.js')
-    log.mockRestore()
   })
 
   it('prints the debug line once however many times a build scans the folder', () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
     vi.stubEnv('EXTENSION_DEBUG', 'true')
-    const {dir} = tooling({manifest_version: 3}, 'bump_version')
+    const {root} = tooling({manifest_version: 3}, 'bump_version')
 
-    const compiler = {options: {context: dir}} as any
-    getSpecialFoldersDataForCompiler(compiler)
-    getSpecialFoldersDataForCompiler(compiler)
-    getSpecialFoldersDataForCompiler(compiler)
+    scanOf(root)
+    scanOf(root)
+    scanOf(root)
 
     const mentions = log.mock.calls.filter((call) =>
       String(call[0]).includes('scripts/bump_version.js')
     )
     expect(mentions).toHaveLength(1)
-    log.mockRestore()
   })
 
   it('keeps a build helper the extension references', () => {
-    const {dir, helper} = tooling({
+    const {root, helper} = tooling({
       manifest_version: 3,
       content_scripts: [
         {matches: ['<all_urls>'], js: ['scripts/replace_browser.js']}
       ]
     })
 
-    const compiler = {options: {context: dir}} as any
-    const data = getSpecialFoldersDataForCompiler(compiler)
-
-    expect(data.scripts?.['scripts/replace_browser']).toEqual([helper])
+    expect(scanOf(root).scripts?.['scripts/replace_browser']).toBe(helper)
   })
 })
 
 describe('the scan seam', () => {
+  const empty = (): ReturnType<ScanSpecialFolders> => ({
+    public: {},
+    pages: {},
+    scripts: {}
+  })
+
   it('reads the folders through the injected scan, once per folder parent', () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-scan-seam-'))
-    tempDirs.push(root)
+    const root = project({})
     const calls: string[] = []
     const page = path.join(root, 'src', 'pages', 'a.html')
 
@@ -415,8 +286,8 @@ describe('the scan seam', () => {
           calls.push(manifestPath)
 
           return manifestPath === path.join(root, 'src', 'package.json')
-            ? {public: {}, pages: {'pages/a': page}, scripts: {}}
-            : {public: {}, pages: {}, scripts: {}}
+            ? {...empty(), pages: {'pages/a': page}}
+            : empty()
         }
       }
     )
@@ -427,6 +298,44 @@ describe('the scan seam', () => {
     ])
 
     expect(data.pages).toEqual({'pages/a': page})
-    expect(getSpecialFoldersDataMock).not.toHaveBeenCalled()
+  })
+
+  // The real scanner returns absolute strings only. These shapes, a relative
+  // path and a list per key, reach the filters through other callers.
+  it('drops public entries spelled relative or listed per key', () => {
+    const root = project({
+      'scripts/a.js': 'document.title = "a"',
+      'scripts/b.js': 'document.title = "b"'
+    })
+
+    const data = getSpecialFoldersDataForProjectRoot(root, {}, undefined, {
+      scan: () => ({
+        public: {},
+        pages: {
+          'page-a': path.join(root, 'pages', 'a.html'),
+          'page-b': path.join(root, 'public', 'sample', 'b.html'),
+          'page-c': 'public/sample/c.html',
+          'page-d': 'pages/d.html'
+        },
+        scripts: {
+          'scripts/a': [
+            path.join(root, 'scripts', 'a.js'),
+            path.join(root, 'public', 'sample', 'b.js'),
+            'public/sample/c.js'
+          ],
+          'scripts/b': [path.join(root, 'scripts', 'b.js')]
+        } as unknown as Record<string, string>
+      })
+    })
+
+    expect(data.pages).toEqual({
+      'page-a': path.join(root, 'pages', 'a.html'),
+      'page-d': 'pages/d.html'
+    })
+
+    expect(data.scripts).toEqual({
+      'scripts/a': [path.join(root, 'scripts', 'a.js')],
+      'scripts/b': [path.join(root, 'scripts', 'b.js')]
+    })
   })
 })
