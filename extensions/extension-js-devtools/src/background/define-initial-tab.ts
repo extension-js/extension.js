@@ -43,6 +43,7 @@ export async function getDevExtensions() {
 
 export async function getDevExtension() {
   const devExtensions = await getDevExtensions()
+
   // Prefer the last registered dev extension (user extension appended last)
   return devExtensions[devExtensions.length - 1]
 }
@@ -83,6 +84,7 @@ export function createExtensionsPageTab(initialTab: chrome.tabs.Tab) {
 
 function repointTab(tabId: number, url: string, browser?: string) {
   let attempts = 0
+
   const onUpdated = (
     id: number,
     change: chrome.tabs.OnUpdatedInfo,
@@ -99,8 +101,10 @@ function repointTab(tabId: number, url: string, browser?: string) {
     })
 
     if (decision === 'wait') return
+
     if (decision === 'stop') {
       chrome.tabs.onUpdated.removeListener(onUpdated)
+
       return
     }
 
@@ -140,6 +144,7 @@ export async function handleFirstRun(
 
   chrome.storage.local.get(storageKey, async (result) => {
     const stored = result?.[storageKey] as {didRun?: boolean} | undefined
+
     if (stored?.didRun) {
       return
     }
@@ -156,11 +161,15 @@ export async function handleFirstRun(
                 'Error creating tab:',
                 chrome.runtime.lastError.message
               )
+
               resolve(undefined)
+
               return
             }
+
             resolve(tab)
           }) as unknown as Promise<chrome.tabs.Tab> | undefined
+
           if (ret && typeof ret.then === 'function') {
             ret.then(resolve, () => resolve(undefined))
           }
@@ -171,6 +180,7 @@ export async function handleFirstRun(
       })
 
     let opened: chrome.tabs.Tab | undefined
+
     try {
       const welcomeUrl = chrome.runtime.getURL('pages/welcome.html')
 

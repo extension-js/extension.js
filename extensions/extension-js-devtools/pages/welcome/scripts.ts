@@ -37,6 +37,7 @@ function el<K extends keyof HTMLElementTagNameMap>(
   const node = document.createElement(tag)
   if (className) node.className = className
   if (text !== undefined) node.textContent = text
+
   return node
 }
 
@@ -45,6 +46,7 @@ function externalLink(className: string): HTMLAnchorElement {
   link.href = SITE_URL
   link.target = '_blank'
   link.rel = 'noopener noreferrer'
+
   return link
 }
 
@@ -67,6 +69,7 @@ async function findExtension(): Promise<ExtensionInfo> {
 
 function largestIconUrl(extension: ExtensionInfo): string | undefined {
   if (!extension.icons || !extension.icons.length) return undefined
+
   return [...extension.icons].sort((a, b) => (b.size || 0) - (a.size || 0))[0]
     ?.url
 }
@@ -116,6 +119,7 @@ function renderFooter(): HTMLElement {
   row.append(logoLink, learnMore)
   pill.append(row)
   footer.append(pill)
+
   return footer
 }
 
@@ -132,9 +136,11 @@ function renderWelcome(root: HTMLElement) {
   let iconFailed = false
   icon.addEventListener('error', () => {
     if (iconFailed) return
+
     iconFailed = true
     icon.src = logo
   })
+
   header.append(icon)
 
   const title = el(
@@ -164,6 +170,7 @@ function renderWelcome(root: HTMLElement) {
         `• ID: ${extension.id}`,
         `• Version: ${extension.version}`
       ].join('\n')
+
       description.textContent = extension.description || DEFAULT_DESCRIPTION
       icon.alt = `${extension.name || 'User extension'} icon`
 
@@ -173,6 +180,7 @@ function renderWelcome(root: HTMLElement) {
       if (isFirefox && !userIconUrl.startsWith('data:')) {
         const dataUrl = await resolveIconInBackground(userIconUrl)
         if (dataUrl && !iconFailed) icon.src = dataUrl
+
         return
       }
 

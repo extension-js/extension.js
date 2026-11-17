@@ -26,6 +26,7 @@ export function sessionBrowser(): string | undefined {
 export function parseSessionFlags(raw: unknown): SessionFlags {
   const record =
     raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}
+
   return {
     noOpen: record.noOpen === true,
     startingUrl: record.startingUrl === true
@@ -38,6 +39,7 @@ export async function readSessionFlags(): Promise<SessionFlags> {
     // service worker and a background page.
     const response = await fetch(`/${SESSION_FLAGS_FILE}`)
     if (!response.ok) return parseSessionFlags(undefined)
+
     return parseSessionFlags(await response.json())
   } catch {
     // No file, or a runtime without fetch for extension URLs: open as before.
