@@ -15,6 +15,7 @@ import {parseAuthoredJson} from '../../../lib/parse-json-safe'
 import type {DevOptions, FilepathList, PluginInterface} from '../../../types'
 import {classicConcatEntry, isClassicScript} from '../../shared/classic-concat'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../contracts'
+import * as messages from '../messages'
 import {
   getCssEntries,
   getScriptEntries,
@@ -83,10 +84,11 @@ export class AddScripts {
     compiler.hooks.thisCompilation.tap(
       'scripts:validate-include-list',
       (compilation) => {
+        const ErrorCtor = compiler.rspack?.WebpackError || Error
+
         try {
           const manifestDir = path.dirname(this.manifestPath)
           const outputRoot = compilation.options?.output?.path || ''
-          const ErrorCtor = compiler.rspack?.WebpackError || Error
 
           for (const [feature, raw] of Object.entries(scriptFields)) {
             const rawEntries: string[] = Array.isArray(raw)
@@ -138,8 +140,18 @@ export class AddScripts {
               ;(compilation.errors ||= []).push(err)
             }
           }
-        } catch {
-          // ignore guard errors
+        } catch (error) {
+          // A check that stops half way reports nothing for the files it
+          // never reached, so the build says so instead of passing quietly.
+          const failure = new ErrorCtor(
+            messages.scriptPathsCheckFailed(
+              String((error as Error)?.message || error)
+            )
+          ) as Error & {file?: string; cause?: unknown}
+          failure.file = 'manifest.json'
+          failure.name = 'ScriptsPathCheckFailed'
+          failure.cause = error
+          ;(compilation.errors ||= []).push(failure)
         }
       }
     )

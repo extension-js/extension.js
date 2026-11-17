@@ -532,6 +532,23 @@ export function contentScriptWithoutDefaultExport(
   )
 }
 
+export function scriptPathsCheckFailed(reason: string) {
+  const lines: string[] = []
+  lines.push(
+    `Extension.js could not finish checking the script paths in manifest.json: ${reason}`
+  )
+
+  lines.push(
+    `The check that every script and stylesheet the manifest names exists stopped early, so a missing file may go unreported in this build.`
+  )
+
+  lines.push(
+    `This is a fault in Extension.js, not in your project. Run the build again, and report it if it repeats.`
+  )
+
+  return lines.join('\n')
+}
+
 export function topLevelMountCallRemoved(file: string, name: string) {
   const lines: string[] = []
   lines.push(
