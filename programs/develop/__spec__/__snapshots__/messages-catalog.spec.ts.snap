@@ -101,7 +101,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "productionLoopbackOriginsText: function(1)",
     "projectInstallFailed: function(3)",
     "projectInstallInWorkspaceRoot: function(1)",
-    "projectInstallManagerNotDownloaded: function(2)",
+    "projectInstallManagerNotDownloaded: function(3)",
     "projectInstallManagerNotFound: function(1)",
     "projectInstallRegistryNotReady: function(4)",
     "projectInstallReleaseTooYoung: function(2)",

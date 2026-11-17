@@ -84,6 +84,112 @@ describe('package-manager resolution', () => {
   })
 })
 
+describe('package-manager resolution order', () => {
+  let dir: string
+
+  beforeEach(() => {
+    vi.resetModules()
+    vi.clearAllMocks()
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-pm-order-'))
+
+    for (const name of [
+      'npm_config_user_agent',
+      'npm_execpath',
+      'NPM_EXEC_PATH',
+      'EXTENSION_JS_PACKAGE_MANAGER',
+      'EXTENSION_JS_PM_EXEC_PATH'
+    ]) {
+      vi.stubEnv(name, '')
+    }
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    fs.rmSync(dir, {recursive: true, force: true})
+  })
+
+  // Every manager answers `which`, or none does.
+  async function resolveWith(onPath: boolean) {
+    const {execFileSync} = (await import('node:child_process')) as any
+
+    execFileSync.mockImplementation((_command: string, args: string[]) => {
+      if (!onPath) throw new Error('not found')
+
+      return `/fake/bin/${args[0]}\n`
+    })
+
+    const {resolvePackageManager} = await import('../package-manager')
+
+    return resolvePackageManager({cwd: dir})
+  }
+
+  function writePackageJson(extra: Record<string, unknown> = {}) {
+    fs.writeFileSync(
+      path.join(dir, 'package.json'),
+      JSON.stringify({name: 'ext', ...extra})
+    )
+  }
+
+  it('reads the lockfile before the packageManager field', async () => {
+    writePackageJson({packageManager: 'pnpm@10.28.0'})
+    fs.writeFileSync(path.join(dir, 'yarn.lock'), '')
+
+    expect(await resolveWith(true)).toEqual({
+      name: 'yarn',
+      execPath: '/fake/bin/yarn'
+    })
+  })
+
+  it.each([
+    'pnpm',
+    'yarn',
+    'bun',
+    'npm'
+  ])('reads the packageManager field before the manager that ran the command (%s)', async (manager) => {
+    writePackageJson({packageManager: `${manager}@1.2.3`})
+    vi.stubEnv(
+      'npm_config_user_agent',
+      manager === 'npm' ? 'pnpm/10.28.0 npm/? node/v24' : 'npm/11.0.0 node/v24'
+    )
+
+    expect(await resolveWith(true)).toEqual({
+      name: manager,
+      execPath: `/fake/bin/${manager}`
+    })
+  })
+
+  it('keeps the pinned manager by name when it is not on PATH', async () => {
+    writePackageJson({packageManager: 'pnpm@10.28.0'})
+
+    expect((await resolveWith(false)).name).toBe('pnpm')
+  })
+
+  it('uses the manager that ran the command when the project names none', async () => {
+    writePackageJson()
+    vi.stubEnv('npm_config_user_agent', 'yarn/1.22.22 npm/? node/v24')
+
+    expect(await resolveWith(true)).toEqual({name: 'yarn', execPath: undefined})
+  })
+
+  it('answers npm when nothing names a manager, whatever is on PATH', async () => {
+    writePackageJson()
+
+    expect(await resolveWith(true)).toEqual({
+      name: 'npm',
+      execPath: '/fake/bin/npm'
+    })
+  })
+
+  it('answers npm, never pnpm through Corepack, when nothing is on PATH', async () => {
+    writePackageJson()
+
+    const resolved = await resolveWith(false)
+
+    expect(resolved.name).toBe('npm')
+    expect(String(resolved.runnerCommand || '')).not.toContain('corepack')
+  })
+})
+
 describe('package-manager buildInstallCommand', () => {
   it('executes native package manager binaries directly', () => {
     const execPath =

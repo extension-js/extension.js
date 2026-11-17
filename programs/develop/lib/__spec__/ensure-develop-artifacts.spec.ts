@@ -2,7 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {stripVTControlCharacters} from 'node:util'
-import {beforeEach, describe, expect, it, vi} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 const execInstallCommand = vi.fn()
 const resolvePackageManager = vi.fn()
@@ -79,11 +79,8 @@ describe('ensureUserProjectDependencies', () => {
       'yarn',
       'Install it with npm install -g yarn, then run the command again.'
     ],
-    ['bun', 'Install it with npm install -g bun, then run the command again.'],
-    [
-      'deno',
-      'Install it with npm install -g deno, then run the command again.'
-    ],
+    ['bun', 'Install bun, then run the command again.'],
+    ['deno', 'Install deno, then run the command again.'],
     [
       'npm',
       'It ships with Node.js, so reinstall Node.js, then run the command again.'
@@ -150,6 +147,8 @@ describe('ensureUserProjectDependencies', () => {
       'Corepack could not download yarn from http://registry.test (HTTP 404), so yarn never started.'
     ]
   ])('says Corepack could not download %s and from where (%s)', async (manager, capture, cause) => {
+    vi.stubEnv('npm_config_registry', '')
+    vi.stubEnv('COREPACK_NPM_REGISTRY', '')
     resolvePackageManager.mockReturnValue({name: manager})
     execInstallCommand.mockRejectedValue(
       installFailure(CAPTURED_INSTALL_FAILURES[capture])
@@ -169,6 +168,87 @@ describe('ensureUserProjectDependencies', () => {
         'The Corepack error is printed above.'
       ].join('\n')
     )
+  })
+
+  describe('a registry Extension.js handed to Corepack', () => {
+    let project: string
+
+    beforeEach(() => {
+      project = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-eda-corepack-'))
+      vi.stubEnv('npm_config_registry', '')
+      vi.stubEnv('COREPACK_NPM_REGISTRY', '')
+      resolvePackageManager.mockReturnValue({name: 'pnpm'})
+      execInstallCommand.mockRejectedValue(
+        installFailure(CAPTURED_INSTALL_FAILURES['corepack-pnpm-404'])
+      )
+    })
+
+    afterEach(() => {
+      vi.unstubAllEnvs()
+      fs.rmSync(project, {recursive: true, force: true})
+    })
+
+    async function framed(): Promise<string[]> {
+      const error: any = await ensureUserProjectDependencies(
+        project as any
+      ).catch((caught) => caught)
+
+      expect(error.code).toBe('E_DEPENDENCY_INSTALL')
+
+      return stripVTControlCharacters(error.message).split('\n')
+    }
+
+    const head = [
+      "⏵⏵⏵ Couldn't install the project dependencies with pnpm.",
+      'Corepack could not download pnpm from http://registry.test (HTTP 404), so pnpm never started.'
+    ]
+    const tail = [
+      'Check that the registry serves pnpm and can be reached, or set COREPACK_NPM_REGISTRY to one that does.',
+      'The Corepack error is printed above.'
+    ]
+
+    it('says the registry came from the project .npmrc', async () => {
+      fs.writeFileSync(
+        path.join(project, '.npmrc'),
+        'registry=http://registry.test/\n'
+      )
+
+      expect(await framed()).toEqual([
+        ...head,
+        "Extension.js pointed Corepack at that registry because the project's .npmrc names it.",
+        ...tail
+      ])
+    })
+
+    it('says the registry came from npm_config_registry', async () => {
+      vi.stubEnv('npm_config_registry', 'http://registry.test/')
+
+      expect(await framed()).toEqual([
+        ...head,
+        'Extension.js pointed Corepack at that registry because npm_config_registry names it.',
+        ...tail
+      ])
+    })
+
+    it('claims nothing when the user set COREPACK_NPM_REGISTRY', async () => {
+      fs.writeFileSync(
+        path.join(project, '.npmrc'),
+        'registry=http://registry.test/\n'
+      )
+
+      vi.stubEnv('COREPACK_NPM_REGISTRY', 'http://registry.test')
+
+      expect(await framed()).toEqual([...head, ...tail])
+    })
+
+    it('claims nothing when the project .npmrc names another registry', async () => {
+      fs.writeFileSync(
+        path.join(project, '.npmrc'),
+        'registry=http://other.test/\n'
+      )
+
+      expect(await framed()).toEqual([...head, ...tail])
+    })
   })
 
   for (const value of ['1', 'true', ' TRUE ']) {

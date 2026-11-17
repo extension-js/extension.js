@@ -9,11 +9,13 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {codedError} from './coded-error'
+import {corepackRegistryOrigin} from './corepack-registry'
 import {findExtensionDevelopRoot} from './develop-context'
 import {classifyInstallFailure} from './install-registry-failure'
 import * as messages from './messages'
 import {CODES, isDebug, isMachineOutput} from './messaging'
 import {
+  buildExecEnv,
   buildInstallCommand,
   execInstallCommand,
   findWorkspaceMember,
@@ -92,9 +94,20 @@ async function installWithRegistryRetry(
       }
 
       if (failure.kind === 'manager-not-downloaded') {
+        // Mirrors the spawn: the same environment and the same folder.
+        const origin = corepackRegistryOrigin(
+          buildExecEnv() || process.env,
+          spawnOptions.cwd
+        )
+        const ours = origin && origin.registry === failure.registry
+
         throw codedError(
           CODES.E_DEPENDENCY_INSTALL,
-          messages.projectInstallManagerNotDownloaded(failure, pmName)
+          messages.projectInstallManagerNotDownloaded(
+            failure,
+            pmName,
+            ours ? origin.from : undefined
+          )
         )
       }
 

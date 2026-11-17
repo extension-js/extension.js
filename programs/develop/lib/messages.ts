@@ -314,19 +314,19 @@ export function projectInstallReleaseTooYoung(
   )
 }
 
-// The install commands are the ones each manager's own install page gives.
+// Only managers whose npm package was seen to ship the binary get a command.
 const MANAGER_INSTALL_STEP: Record<string, string> = {
   pnpm: 'npm install -g pnpm',
-  yarn: 'npm install -g yarn',
-  bun: 'npm install -g bun',
-  deno: 'npm install -g deno'
+  yarn: 'npm install -g yarn'
 }
 
 export function projectInstallManagerNotFound(pmName: string) {
   const command = MANAGER_INSTALL_STEP[pmName]
   const step = command
     ? `Install it with ${fmt.code(command)}, then run the command again.`
-    : 'It ships with Node.js, so reinstall Node.js, then run the command again.'
+    : pmName === 'npm'
+      ? 'It ships with Node.js, so reinstall Node.js, then run the command again.'
+      : `Install ${pmName}, then run the command again.`
 
   return (
     `${getLoggingPrefix('error')} Couldn't install the project dependencies with ${pmName}.\n` +
@@ -337,14 +337,23 @@ export function projectInstallManagerNotFound(pmName: string) {
 
 export function projectInstallManagerNotDownloaded(
   failure: Extract<InstallFailure, {kind: 'manager-not-downloaded'}>,
-  pmName: string
+  pmName: string,
+  // Set only when Extension.js chose the registry Corepack asked.
+  registryReadFrom?: 'npm_config_registry' | '.npmrc'
 ) {
   const from = failure.registry ? ` from ${fmt.code(failure.registry)}` : ''
   const detail = failure.detail ? ` (${failure.detail})` : ''
+  const origin =
+    registryReadFrom === '.npmrc'
+      ? "Extension.js pointed Corepack at that registry because the project's .npmrc names it.\n"
+      : registryReadFrom === 'npm_config_registry'
+        ? `Extension.js pointed Corepack at that registry because ${fmt.code('npm_config_registry')} names it.\n`
+        : ''
 
   return (
     `${getLoggingPrefix('error')} Couldn't install the project dependencies with ${pmName}.\n` +
     `Corepack could not download ${pmName}${from}${detail}, so ${pmName} never started.\n` +
+    origin +
     `Check that the registry serves ${pmName} and can be reached, or set ${fmt.code('COREPACK_NPM_REGISTRY')} to one that does.\n` +
     `The Corepack error is printed above.`
   )

@@ -14,7 +14,7 @@ import {
 import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import * as path from 'node:path'
-import {spawn, sync as spawnSync} from 'cross-spawn'
+import {spawn} from 'cross-spawn'
 import {buildExecEnv, detectPackageManagerFromLockfile} from 'prefers-yarn'
 
 // buildExecEnv and lockfile sniffing come from prefers-yarn; the resolver
@@ -222,21 +222,6 @@ function resolveCommandOnPath(command: string) {
   )
 }
 
-function canRunCorepack(): boolean {
-  try {
-    // corepack is a .cmd shim on Windows. cross-spawn resolves the shim
-    // itself, so no shell string is built for the probe.
-    const result = spawnSync('corepack', ['--version'], {
-      stdio: 'ignore',
-      windowsHide: true
-    })
-
-    return result?.status === 0
-  } catch {
-    return false
-  }
-}
-
 function hydrateResolvedPackageManager(
   name: PackageManagerName
 ): PackageManagerResolution | undefined {
@@ -287,16 +272,37 @@ function detectDenoProject(cwd?: string): PackageManagerResolution | undefined {
   return undefined
 }
 
+// The `packageManager` field names the manager when no lockfile does yet.
+function detectPinnedPackageManager(
+  cwd?: string
+): PackageManagerName | undefined {
+  if (!cwd) return undefined
+
+  try {
+    const pkg = JSON.parse(
+      fs.readFileSync(path.join(cwd, 'package.json'), 'utf8')
+    )
+    const pinned = /^(npm|pnpm|yarn|bun)@/.exec(
+      String(pkg?.packageManager || '').trim()
+    )
+
+    return pinned ? (pinned[1] as PackageManagerName) : undefined
+  } catch {
+    return undefined
+  }
+}
+
+// The project decides first (lockfile, then pin), then the manager that ran
+// the command, then npm. PATH is never probed, so machines agree.
 export function resolvePackageManager(opts?: {
   cwd?: string
 }): PackageManagerResolution {
-  const lockPm = detectPackageManagerFromLockfile(opts?.cwd)
+  const projectPm =
+    detectPackageManagerFromLockfile(opts?.cwd) ||
+    detectPinnedPackageManager(opts?.cwd)
 
-  if (lockPm) {
-    const hydrated = hydrateResolvedPackageManager(lockPm)
-    if (hydrated) return hydrated
-
-    return {name: lockPm}
+  if (projectPm) {
+    return hydrateResolvedPackageManager(projectPm) || {name: projectPm}
   }
 
   const override = getPackageManagerOverride()
@@ -308,38 +314,7 @@ export function resolvePackageManager(opts?: {
   const envPm = detectPackageManagerFromEnv()
   if (envPm) return envPm
 
-  const candidates: PackageManagerName[] = ['pnpm', 'yarn', 'bun']
-
-  for (const candidate of candidates) {
-    const resolved = resolveCommandOnPath(candidate)
-
-    if (resolved) {
-      return {name: candidate, execPath: resolved}
-    }
-  }
-
-  const corepackPath = resolveCommandOnPath('corepack')
-
-  if (corepackPath || canRunCorepack()) {
-    return {
-      name: 'pnpm',
-      runnerCommand: corepackPath || 'corepack',
-      runnerArgs: ['pnpm']
-    }
-  }
-
-  const bundledNpmCli = resolveBundledNpmCliPath()
-
-  if (bundledNpmCli) {
-    return {
-      name: 'npm',
-      execPath: bundledNpmCli,
-      runnerCommand: process.execPath,
-      runnerArgs: [bundledNpmCli]
-    }
-  }
-
-  return {name: 'npm'}
+  return hydrateResolvedPackageManager('npm') || {name: 'npm'}
 }
 
 // Confine a project install to the project dir: pnpm walks up and would
