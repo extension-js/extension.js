@@ -85,29 +85,39 @@ function withBrowserSuffix(zipName: string, browser: string): string {
 
 const toPosix = (p: string): string => p.replace(/\\/g, '/')
 
-// One zip entry per real file, unix mode and mtime carried over so store
-// uploads and reproducible diffs see the same bits adm-zip used to record.
-function zipEntryFor(absPath: string): Zippable[string] {
+// The first instant a zip can record, in local fields as the format stores
+// them, so the bytes are the same in every time zone.
+const REBUILT_ENTRY_TIME = new Date(1980, 0, 1, 0, 0, 0)
+
+// One zip entry per real file. A source file keeps its own mode and mtime.
+// A built file would record the build's clock and umask, so it gets neither.
+function zipEntryFor(absPath: string, rebuilt: boolean): Zippable[string] {
   const stat = fs.statSync(absPath)
+  const mode = rebuilt
+    ? stat.mode & 0o111
+      ? 0o755
+      : 0o644
+    : stat.mode & 0o7777
 
   return [
     new Uint8Array(fs.readFileSync(absPath)),
     {
-      mtime: stat.mtime,
+      mtime: rebuilt ? REBUILT_ENTRY_TIME : stat.mtime,
       os: 3,
-      attrs: (((stat.mode & 0o7777) | 0o100000) << 16) >>> 0
+      attrs: ((mode | 0o100000) << 16) >>> 0
     }
   ]
 }
 
 function writeZipFile(
   zipPath: string,
-  entries: Array<{name: string; absPath: string; content?: Uint8Array}>
+  entries: Array<{name: string; absPath: string; content?: Uint8Array}>,
+  rebuilt = false
 ): void {
   const zippable: Zippable = {}
 
   for (const entry of entries) {
-    const file = zipEntryFor(entry.absPath)
+    const file = zipEntryFor(entry.absPath, rebuilt)
 
     if (entry.content) file[0] = entry.content
 
@@ -491,7 +501,8 @@ export class ZipPlugin {
                           `${JSON.stringify(edgeKey.manifest, null, 2)}\n`
                         )
                       : undefined
-                }))
+                })),
+              true
             )
 
             if (edgeKey.dropped) {

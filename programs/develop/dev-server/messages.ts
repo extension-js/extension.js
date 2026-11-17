@@ -291,6 +291,8 @@ export function devServerRestarting(request: {
   pathChanged?: string
   registeredBy?: string
   alsoChanged?: number
+  manifestField?: string
+  manifestFieldBefore?: string
 }) {
   if (request.reason === 'main-world' && request.pathChanged) {
     const file = displayPath(request.pathChanged)
@@ -323,6 +325,14 @@ export function devServerRestarting(request: {
   if (request.pathChanged) {
     lines.push(
       `${colors.gray('CHANGED')} ${colors.underline(displayPath(request.pathChanged))}`
+    )
+  }
+
+  // A file that kept its path and moved to another manifest key.
+  if (request.manifestFieldBefore && request.manifestField) {
+    lines.push(
+      `${colors.gray('BEFORE')} ${colors.yellow(request.manifestFieldBefore)}`,
+      `${colors.gray('AFTER')} ${colors.yellow(request.manifestField)}`
     )
   }
 

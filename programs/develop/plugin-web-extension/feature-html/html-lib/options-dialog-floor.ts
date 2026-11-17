@@ -40,15 +40,20 @@ export function needsOptionsDialogFloor(
   return optionsUi?.open_in_tab !== true
 }
 
+// A file and not a style tag: a policy of style-src 'self' blocks an inline
+// style, and the dialog of such an extension would then never open.
+export const OPTIONS_DIALOG_FLOOR_FILE = 'options/dialog-floor.css'
+
 // First in <head>, so every author stylesheet comes later and wins.
 export function injectOptionsDialogFloor(
   headNode: Parameters<typeof parse5utilities.prepend>[0]
 ): void {
-  const styleTag = parse5utilities.createNode('style')
-  styleTag.attrs = [
+  const linkTag = parse5utilities.createNode('link')
+  linkTag.attrs = [
+    {name: 'rel', value: 'stylesheet'},
+    {name: 'href', value: `/${OPTIONS_DIALOG_FLOOR_FILE}`},
     {name: 'data-extension-js', value: OPTIONS_DIALOG_FLOOR_MARK}
   ]
 
-  parse5utilities.setText(styleTag, OPTIONS_DIALOG_FLOOR_CSS)
-  parse5utilities.prepend(headNode, styleTag)
+  parse5utilities.prepend(headNode, linkTag)
 }
