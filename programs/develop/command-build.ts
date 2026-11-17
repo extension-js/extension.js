@@ -30,6 +30,7 @@ import {getBuildToolchain} from './lib/build-toolchain'
 import {collectChunkDependencyProvenance} from './lib/chunk-dependency-provenance'
 import {codedError} from './lib/coded-error'
 import {
+  keepCodedWarningsOf,
   recordCodedWarning,
   takeCodedWarnings,
   withCodedWarnings
@@ -97,6 +98,7 @@ import {
   ensureSessionArtifactsIgnoreFile,
   ensureSessionStateInProjectGitignore
 } from './lib/session-paths'
+import {thrownFrom} from './lib/thrown-location'
 import {assertNoManagedDependencyConflicts} from './lib/validate-user-dependencies'
 import {
   getZipArtifacts,
@@ -124,6 +126,13 @@ import type {
 } from './types'
 
 const reportedBuildFailures = new WeakSet<object>()
+
+// Failures whose own lines are on stderr already, the closing count aside.
+const printedBuildFailures = new WeakSet<object>()
+
+// The tap that prints the compile line, named by the compilation plugin.
+const COMPILE_LINE_TAP = 'develop:brand'
+const LAST_TAP_STAGE = 2147483647
 
 // Projects whose toolchain sentence this process already printed.
 const toolchainLinePrinted = new Set<string>()
@@ -359,10 +368,13 @@ async function runBuild(
   // Finding the project and its browser comes before any build work, and a
   // refusal there is the whole answer: under machine output the frame has it.
   let findingProject = true
+  let projectRoot = ''
 
   try {
     const projectStructure = await getProjectStructure(pathOrRemoteUrl)
     const {manifestDir, packageJsonDir} = getDirs(projectStructure)
+
+    projectRoot = packageJsonDir
 
     // A browser passed in wins; with none, commands.<cmd>.browser from the
     // project config decides the target before the stock default does.
@@ -656,8 +668,18 @@ async function runBuild(
       compilerConfig.output = {...compilerConfig.output, clean: true}
     }
 
-    const compiler = rspack(compilerConfig)
+    // The bundler applies every plugin as it is made, before any compile, so
+    // a throw here is a plugin's or the bundler's own and never the project's.
+    const compiler = (() => {
+      try {
+        return rspack(compilerConfig)
+      } catch (thrown) {
+        throw fatalFailure(thrown, packageJsonDir)
+      }
+    })()
     compilerToClose = compiler
+    keepCodedWarningsOf(compiler)
+    printCompileLineLast(compiler.hooks.done)
 
     let summary: BuildSummary = {
       browser,
@@ -677,16 +699,7 @@ async function runBuild(
         err: Error | null,
         stats: Parameters<Parameters<typeof compiler.run>[0]>[1]
       ) => {
-        if (err) {
-          return reject(
-            hasDeclaredCode(err)
-              ? err
-              : Object.assign(
-                  codedError(CODES.E_COMPILE_FATAL, err.message || String(err)),
-                  {cause: err}
-                )
-          )
-        }
+        if (err) return reject(fatalFailure(err, packageJsonDir))
 
         // Guard against silent-success scenarios where the bundler callback
         // does not provide stats, which means we cannot trust emission output.
@@ -1090,7 +1103,17 @@ async function runBuild(
         displayDistPath,
         'full',
         safariIdentity
-      )
+      ).catch((packagerError: unknown) => {
+        // The packager prints a failed tool itself, with that tool's output.
+        if (
+          packagerError instanceof Error &&
+          (packagerError as {code?: unknown}).code === CODES.E_SAFARI_TOOLCHAIN
+        ) {
+          printedBuildFailures.add(packagerError)
+        }
+
+        throw packagerError
+      })
 
       // The app identity (and whether the bundle id was generated rather than
       // user-owned) was a human log line only. Fold it into the summary so a
@@ -1125,15 +1148,13 @@ async function runBuild(
 
     // The line below and every caller read the message of the failure, so a
     // thrown value with none is wrapped before it is printed and passed on.
-    const error = readableFailure(thrown)
+    const error = readableFailure(thrown, projectRoot)
 
     const frameCarriesIt = findingProject && isMachineOutput()
 
     if (!frameCarriesIt && !reportedBuildFailures.has(error)) {
-      if (isDebug()) {
-        console.error(error)
-      } else {
-        console.error(messages.buildCommandFailed(error))
+      if (!printedBuildFailures.has(error)) {
+        console.error(isDebug() ? error : messages.buildCommandFailed(error))
       }
 
       console.error(messages.buildFailed(failureCount))
@@ -1152,10 +1173,20 @@ async function runBuild(
   }
 }
 
-function readableFailure(thrown: unknown): Error {
+function readableFailure(thrown: unknown, projectRoot: string): Error {
   try {
     if (thrown instanceof Error && typeof thrown.message === 'string') {
-      return thrown
+      if (thrown.message.trim()) return thrown
+
+      // An empty message prints as the bare word Error, so the place it was
+      // thrown from stands in for it and the declared code is kept.
+      return Object.assign(
+        new Error(
+          messages.errorWithoutMessageText(thrownFrom(thrown, projectRoot))
+        ),
+        {cause: thrown},
+        hasDeclaredCode(thrown) ? {code: (thrown as {code?: unknown}).code} : {}
+      )
     }
   } catch {
     // Ignore
@@ -1164,6 +1195,35 @@ function readableFailure(thrown: unknown): Error {
   return Object.assign(new Error(messages.thrownValueText(thrown)), {
     cause: thrown
   })
+}
+
+// A throw from a plugin or from the bundler itself, with no compile error
+// behind it. A code the thrower declared is the answer it meant.
+function fatalFailure(thrown: unknown, projectRoot: string): Error {
+  const failure = readableFailure(thrown, projectRoot)
+
+  if (hasDeclaredCode(failure)) return failure
+
+  return Object.assign(codedError(CODES.E_COMPILE_FATAL, failure.message), {
+    cause: thrown
+  })
+}
+
+// The compile line is the receipt of a compile that went through, so it runs
+// after every other tap that can still fail the build.
+function printCompileLineLast(done: {
+  taps?: Array<{name?: string; stage?: number}>
+}): void {
+  const taps = done.taps
+  if (!Array.isArray(taps)) return
+
+  const at = taps.findIndex((tap) => tap?.name === COMPILE_LINE_TAP)
+  if (at === -1) return
+
+  const [tap] = taps.splice(at, 1)
+
+  tap.stage = LAST_TAP_STAGE
+  taps.push(tap)
 }
 
 function hasDeclaredCode(error: unknown): boolean {

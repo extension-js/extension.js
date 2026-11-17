@@ -25,6 +25,7 @@ import * as messages from './messages'
 import {CODES, debugLine, isDebug} from './messaging'
 import type {ParsedJson} from './parse-json-safe'
 import {resolveProjectStructureSync} from './project'
+import {thrownFrom} from './thrown-location'
 
 type EnvPreloadResult = {
   loadedAny: boolean
@@ -312,15 +313,40 @@ class ConfigShapeError extends Error {
   public readonly code = CODES.E_CONFIG_LOAD
 }
 
+// The hook is synchronous, so a promise is as much a missing config as
+// undefined, and the bundler would read keys off either.
+function isBundlerConfig(value: unknown): value is Configuration {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    !Array.isArray(value) &&
+    typeof (value as {then?: unknown}).then !== 'function'
+  )
+}
+
 // A config that throws is the author's to fix: one finished block naming the
 // file and the reason, coded so a JSON reader gets the documented class.
 function configLoadError(configPath: string, cause: unknown): CodedError {
   return Object.assign(
     codedError(
       CODES.E_CONFIG_LOAD,
-      messages.configLoadingError(configPath, cause)
+      messages.configLoadingError(configPath, reasonOf(configPath, cause))
     ),
     {cause}
+  )
+}
+
+// An error with an empty message reads as the bare word Error, so the place
+// it was thrown from is the reason given.
+function reasonOf(configPath: string, cause: unknown): unknown {
+  try {
+    if (!(cause instanceof Error) || String(cause.message).trim()) return cause
+  } catch {
+    return cause
+  }
+
+  return messages.errorWithoutMessageText(
+    thrownFrom(cause, path.dirname(configPath))
   )
 }
 
@@ -497,11 +523,21 @@ export async function loadCustomConfig(
           // A hook that throws is the author's to fix, like a config that
           // does not load, and reports under the same code.
           return (config: Configuration) => {
+            let changed: unknown
+
             try {
-              return hook(config, context)
+              changed = hook(config, context)
             } catch (cause) {
               throw configLoadError(configPath, cause)
             }
+
+            if (!isBundlerConfig(changed)) {
+              throw new ConfigShapeError(
+                messages.configHookReturnedNoConfig(configPath, changed)
+              )
+            }
+
+            return changed
           }
         }
 

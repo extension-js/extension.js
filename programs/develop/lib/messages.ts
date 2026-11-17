@@ -1670,6 +1670,22 @@ export function configWrongShape(configPath: string, value: unknown) {
   )
 }
 
+// A hook that hands back nothing leaves the build with no config at all.
+export function configHookReturnedNoConfig(configPath: string, value: unknown) {
+  const found =
+    value === undefined
+      ? 'undefined'
+      : typeof (value as {then?: unknown} | null)?.then === 'function'
+        ? 'a promise'
+        : shapeOf(value)
+
+  return (
+    `${getLoggingPrefix('error')} The ${colors.blue('config')} hook in ${colors.blue('extension.config.js')} must return the config, found ${found}.\n` +
+    `${fmt.label('PATH')} ${fmt.val(configPath)}\n` +
+    `End the hook with ${colors.blue('return config')}, then run the command again.`
+  )
+}
+
 export function configUnknownKeys(
   configPath: string,
   keys: string[],
@@ -1700,6 +1716,13 @@ export function thrownValueText(thrown: unknown): string {
   } catch {
     return 'A value that cannot be read was thrown.'
   }
+}
+
+// What a build says for an Error thrown with an empty message.
+export function errorWithoutMessageText(thrownAt?: string): string {
+  return thrownAt
+    ? `An error with no message was thrown at ${thrownAt}.`
+    : 'An error with no message was thrown, and its stack names no file.'
 }
 
 export function buildCommandFailed(error: unknown) {
