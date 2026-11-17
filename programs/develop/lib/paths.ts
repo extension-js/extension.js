@@ -9,6 +9,8 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import {codedError} from './coded-error'
+import {CODES} from './messaging'
 import type {ProjectStructure} from './project'
 import {
   PROJECT_MANIFEST_FILENAMES,
@@ -259,12 +261,30 @@ export function configBrowserOrThrow(
   if (configBrowser === undefined || configBrowser === null) return undefined
 
   if (!isKnownBrowserName(configBrowser)) {
-    throw new Error(
+    throw codedError(
+      CODES.E_UNSUPPORTED_BROWSER,
       `Unsupported browser in extension.config commands.${command}.browser: ${String(configBrowser)}`
     )
   }
 
   return configBrowser as BrowserInput
+}
+
+// A name passed by a library caller is checked like a typed one, instead of
+// silently building for the default browser.
+export function browserOptionOrThrow(browser: unknown): BrowserInput {
+  if (browser === undefined || browser === null || browser === '') {
+    return undefined
+  }
+
+  if (!isKnownBrowserName(browser)) {
+    throw codedError(
+      CODES.E_UNSUPPORTED_BROWSER,
+      `Unsupported browser: ${String(browser)}. Choose one of: ${[...KNOWN_BROWSER_NAMES].join(', ')}.`
+    )
+  }
+
+  return browser as BrowserInput
 }
 
 export function normalizeBrowser(

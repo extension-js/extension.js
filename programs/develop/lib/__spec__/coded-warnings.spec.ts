@@ -1,5 +1,9 @@
 import {describe, expect, it} from 'vitest'
-import {recordCodedWarning, takeCodedWarnings} from '../coded-warnings'
+import {
+  recordCodedWarning,
+  takeCodedWarnings,
+  withCodedWarnings
+} from '../coded-warnings'
 import {CODES} from '../messaging'
 
 describe('coded warnings', () => {
@@ -15,6 +19,52 @@ describe('coded warnings', () => {
       'E_POLYFILL_NOT_FOUND: the second thing'
     ])
 
+    expect(takeCodedWarnings()).toEqual([])
+  })
+
+  it('keeps two builds running at once from clearing each other', async () => {
+    recordCodedWarning(CODES.E_TYPES_EMIT, 'left by an earlier run')
+
+    let releaseFirst = () => {}
+
+    const firstMayFinish = new Promise<void>((resolve) => {
+      releaseFirst = resolve
+    })
+
+    const first = withCodedWarnings(async () => {
+      recordCodedWarning(CODES.E_TYPES_EMIT, 'from the first build')
+      await firstMayFinish
+
+      return takeCodedWarnings()
+    })
+
+    // What a plugin hook of the first build records, outside its scope.
+    recordCodedWarning(CODES.E_POLYFILL_NOT_FOUND, 'from a hook of the first')
+
+    let releaseSecond = () => {}
+
+    const secondMayFinish = new Promise<void>((resolve) => {
+      releaseSecond = resolve
+    })
+
+    // The second build starts while the first still runs.
+    const second = withCodedWarnings(async () => {
+      recordCodedWarning(CODES.E_PERF_BUDGET, 'from the second build')
+      await secondMayFinish
+
+      return takeCodedWarnings()
+    })
+
+    releaseFirst()
+
+    expect(await first).toEqual([
+      'E_TYPES_EMIT: from the first build',
+      'E_POLYFILL_NOT_FOUND: from a hook of the first'
+    ])
+
+    releaseSecond()
+
+    expect(await second).toEqual(['E_PERF_BUDGET: from the second build'])
     expect(takeCodedWarnings()).toEqual([])
   })
 })
