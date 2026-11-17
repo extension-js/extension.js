@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, sources, WebpackError} from '@rspack/core'
+import {isGeckoBasedBrowser} from '../../../lib/constants'
 import {debugLine, isDebug} from '../../../lib/messaging'
 import {isDevContentScriptStandInAsset} from '../../../plugin-reload/reload-lib/dev-content-scripts'
 import type {Manifest} from '../../../types'
@@ -20,6 +21,7 @@ import {
   getCanonicalContentScriptCssAssetName,
   parseCanonicalContentScriptAsset
 } from '../../feature-scripts/contracts'
+import {injectedSheetTargets} from '../../feature-scripts/scripts-lib/injected-sheet-urls'
 import {
   collectContentScriptAsyncChunkFiles,
   collectNamedUnrequestedPages,
@@ -625,6 +627,21 @@ export function generateManifestPatches(
     }
   }
 
+  // A sheet injected by file lands on any page. Firefox is measured to need
+  // only its fonts listed, so every other target gets each file it loads.
+  const listsEveryTarget = !isGeckoBasedBrowser(String(browser || 'chrome'))
+
+  for (const [sheet, targets] of injectedSheetTargets(compilation)) {
+    addInjectedScriptResources(
+      sheet,
+      [...targets].filter(
+        (target) =>
+          compilation.assets?.[target] &&
+          (listsEveryTarget || /\.(woff2?|eot|ttf|otf)$/i.test(target))
+      )
+    )
+  }
+
   // The widening is silent in dev, where a blanket group covers every file.
   if (
     canonicalManifest.manifest_version === 3 &&
@@ -633,7 +650,10 @@ export function generateManifestPatches(
     for (const [entryName, widened] of widenedByEntry) {
       compilation.warnings = compilation.warnings || []
       const warning = new WebpackError(
-        warInjectedScriptExposed(`${entryName}.js`, Array.from(widened).sort())
+        warInjectedScriptExposed(
+          entryName.endsWith('.css') ? entryName : `${entryName}.js`,
+          Array.from(widened).sort()
+        )
       ) as Error & {file?: string}
       warning.name = 'InjectedScriptResourceExposedWarning'
       warning.file = 'manifest.json'

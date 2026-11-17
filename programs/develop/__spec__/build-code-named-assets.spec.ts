@@ -86,14 +86,19 @@ describe('files named only in code', () => {
 
     const distDir = path.join(root, 'dist', 'chrome')
 
+    // Chrome loads an icon beside the worker, which the build moved into
+    // background/, and opens a page path from the root.
     for (const rel of [
-      'img/logo/16x16.png',
-      'img/logo/38x38.png',
-      'img/bell.png',
+      'background/img/logo/16x16.png',
+      'background/img/logo/38x38.png',
+      'background/img/bell.png',
       'changelog.html'
     ]) {
       expect(fs.existsSync(path.join(distDir, rel)), rel).toBe(true)
     }
+
+    // One copy: nothing reads the root one.
+    expect(fs.existsSync(path.join(distDir, 'img'))).toBe(false)
   }, 120_000)
 
   it('warns about an icon the code names and the build never produced', async () => {

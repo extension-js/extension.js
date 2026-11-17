@@ -18,7 +18,11 @@ import {
   sources,
   WebpackError
 } from '@rspack/core'
-import {isWebkitBasedBrowser} from '../../../lib/constants'
+import {
+  isChromiumBasedBrowser,
+  isGeckoBasedBrowser,
+  isWebkitBasedBrowser
+} from '../../../lib/constants'
 import {resolveDevelopDistFile} from '../../../lib/develop-context'
 import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
 import {parseAuthoredJson} from '../../../lib/parse-json-safe'
@@ -27,6 +31,10 @@ import {
   excludedFiles,
   isExcludedEntry
 } from '../../../plugin-special-folders/folders-config'
+import {
+  type CompileMode,
+  getSpecialFoldersDataForProjectRoot
+} from '../../../plugin-special-folders/get-data'
 import type {DevOptions, Manifest} from '../../../types'
 import {webkitDroppedSurfacePages} from '../../feature-manifest/manifest-lib/webkit-unsupported-keys'
 import {declaredResourceSource} from '../../feature-web-resources/web-resources-lib/resolve-war'
@@ -45,6 +53,11 @@ import {
 } from '../../shared/script-graph'
 import * as messages from '../messages'
 import {INJECTED_CLASSIC_QUERY} from '../scripts-lib/completion-value'
+import {
+  noteInjectedSheetTarget,
+  noteNamedInjectedSheet,
+  notePublicInjectedSheet
+} from '../scripts-lib/injected-sheet-urls'
 import {keepCompletionValueOf} from './keep-completion-value'
 import {
   blankComments,
@@ -91,6 +104,7 @@ interface TracedManifest {
 }
 
 const EMITTED_WORKER_PATH = 'background/service_worker.js'
+const EMITTED_BACKGROUND_SCRIPTS_PATH = 'background/scripts.js'
 // Keys the browsers define. Strings under any other key ship verbatim in the
 // output manifest, and extensions read them back with runtime.getManifest().
 const STANDARD_MANIFEST_KEYS = new Set([
@@ -190,6 +204,9 @@ const STANDARD_BACKGROUND_KEYS = new Set([
 // importScripts chains resolve against the worker URL, so depth only grows
 // through files importing further files, 8 hops is far beyond real usage.
 const MAX_TRACE_DEPTH = 8
+const FONT_FILE = /\.(?:woff2?|ttf|otf|eot)$/i
+// The names a font license ships under, with any ending.
+const LICENSE_FILE = /^(?:licen[sc]e|copying|notice)|^ofl\.txt$/i
 const SCRIPT_SRC = /<script\b[^>]*?\bsrc\s*=\s*(["'])([^"']+)\1/gi
 const SOURCE_SIBLING_EXTENSIONS = ['.ts', '.mts', '.tsx', '.jsx', '.mjs']
 const STYLESHEET_SIBLING_EXTENSIONS = ['.scss', '.sass', '.less']
@@ -517,7 +534,7 @@ export class TraceRuntimeLoadedFiles {
       for (const literal of extractFetchedFileLiterals(content)) {
         // Runtime resolution base is the asset's own URL directory: page
         // scripts sit beside their page in dist, workers fetch off the worker URL.
-        const distRel = resolveExtensionPath(literal, asset.name)
+        const distRel = resolveExtensionPath(literal, ownAddressOf(asset.name))
         if (!distRel || seen.has(distRel)) continue
 
         seen.add(distRel)
@@ -642,6 +659,36 @@ export class TraceRuntimeLoadedFiles {
     return relocated
   }
 
+  // Every page the pages/ folder compiles under a name other than the path
+  // its author wrote, such as pages/x/index.html built as pages/x.html.
+  private folderPageOutputs(run: TraceRun): Map<string, string> {
+    const outputs = new Map<string, string>()
+
+    try {
+      const pages =
+        getSpecialFoldersDataForProjectRoot(
+          (run.compiler.options?.context as string | undefined) ||
+            run.manifestDir,
+          undefined,
+          run.compiler.options?.mode as CompileMode | undefined
+        ).pages ?? {}
+
+      for (const [feature, source] of Object.entries(pages)) {
+        if (typeof source !== 'string') continue
+
+        const authored = unixify(path.relative(run.manifestDir, source))
+        const output = `${feature}.html`
+        if (authored.startsWith('..') || authored === output) continue
+
+        outputs.set(authored, output)
+      }
+    } catch {
+      // A folder that cannot be read has no page to serve.
+    }
+
+    return outputs
+  }
+
   // A script that holds the path a page was written at compares it with
   // sender.url or location, so the page has to open at that same path.
   private keepAuthoredPagePaths(run: TraceRun, only?: Set<string>) {
@@ -759,6 +806,7 @@ export class TraceRuntimeLoadedFiles {
     )
     const surfacePages = this.surfacePageOutputs(run.manifestDir)
     const relocatedPages = this.relocatedPageOutputs(run.manifestDir)
+    const folderPages = this.folderPageOutputs(run)
     let shippedByWar: Set<string> | undefined
     const seen = run.seen.getURL
     const pageSources = new Map(
@@ -770,18 +818,97 @@ export class TraceRuntimeLoadedFiles {
       distRel: string
     }> = []
 
+    type Ref = {
+      literal: string
+      baseRel: string
+      isStaticImport?: boolean
+      isRuntimeSurface?: boolean
+      // Set when the browser asks beside the caller: where the file must
+      // sit, the places its author may have kept it, and a silent miss.
+      distRel?: string | null
+      sourceRels?: Array<string | null>
+      quiet?: boolean
+    }
+    let loaders: Map<string, string[]> | undefined
+
+    const surfaceRefs = (
+      {literal, reads}: SurfaceReference,
+      item: {assetName: string; copied?: boolean}
+    ): Ref[] => {
+      const atRoot: Ref = {literal, baseRel: '', isRuntimeSurface: true}
+      const moved = (bare?: boolean): Ref => ({
+        ...atRoot,
+        baseRel: item.copied
+          ? ''
+          : movedPageSourceBase(run, pageSources, item.assetName, literal, bare)
+      })
+      const address = item.copied
+        ? 'unknown'
+        : surfaceAddress(reads, String(this.browser))
+
+      if (reads !== 'image' && address === 'root') {
+        // A file kept beside the page still ships when the root has none.
+        const rootRel = resolveExtensionPath(literal, '')
+        const atRootExists =
+          rootRel != null &&
+          (declaredSurfaces.has(rootRel) ||
+            run.hasAsset(rootRel) ||
+            isFile(path.join(run.manifestDir, rootRel)) ||
+            isFile(path.join(run.manifestDir, 'public', rootRel)))
+
+        return [atRootExists ? atRoot : moved()]
+      }
+
+      if (reads === 'page') return [moved(address === 'own')]
+
+      if (address === 'root' || literal.trim().startsWith('/')) return [moved()]
+
+      loaders ??= run.pagesLoadingScripts()
+      const callers = run.callerAddresses(
+        item.assetName,
+        loaders,
+        pageSources,
+        manifest?.background?.service_worker
+      )
+      if (reads !== 'image' || !callers) return [moved()]
+
+      const rootRel = resolveExtensionPath(literal, '')
+      const beside = callers.map((caller, index) => ({
+        ...atRoot,
+        distRel: resolveExtensionPath(literal, caller.dist),
+        sourceRels: [
+          resolveExtensionPath(literal, caller.source),
+          rootRel,
+          rootRel && `public/${rootRel}`
+        ],
+        // One absent file is one warning, however many pages ask for it.
+        quiet: index > 0
+      }))
+
+      return address === 'own' ? beside : [...beside, {...atRoot, quiet: true}]
+    }
+
     // getURL literals resolve against the extension ROOT regardless of context,
     // so, unlike relative fetch(), content scripts are traceable here.
     type PendingScan =
       | {kind: 'js'; content: string; assetName: string; copied?: boolean}
       | {kind: 'html'; content: string; baseRel: string}
-      | {kind: 'css'; content: string; baseRel: string}
+      | {kind: 'css'; content: string; baseRel: string; injected?: string}
 
-    let pending: PendingScan[] = run.jsAssets(only).map((asset) => ({
-      kind: 'js' as const,
-      content: run.textOf(asset),
-      assetName: asset.name
-    }))
+    let pending: PendingScan[] = [
+      ...run.jsAssets(only).map((asset) => ({
+        kind: 'js' as const,
+        content: run.textOf(asset),
+        assetName: asset.name
+      })),
+      // A sheet an injection call ships names fonts and images too. Firefox
+      // reads them from where the sheet sits, so they are followed from there.
+      ...run.takeInjectedSheets().map((sheet) => ({
+        kind: 'css' as const,
+        injected: sheet.baseRel,
+        ...sheet
+      }))
+    ]
 
     // Copied files chain: a getURL'd classic script can call getURL again or
     // import() a module, and a copied HTML page has subresources. Compiled
@@ -790,12 +917,6 @@ export class TraceRuntimeLoadedFiles {
       const next: PendingScan[] = []
 
       for (const item of pending) {
-        type Ref = {
-          literal: string
-          baseRel: string
-          isStaticImport?: boolean
-          isRuntimeSurface?: boolean
-        }
         const refs: Ref[] =
           item.kind === 'js'
             ? [
@@ -803,21 +924,10 @@ export class TraceRuntimeLoadedFiles {
                   literal,
                   baseRel: ''
                 })),
-                // Runtime-set HTML surfaces (setPopup/setOptions) resolve like
-                // getURL but are not manifest refs; the page pipeline misses them.
-                ...extractRuntimeSurfaceLiterals(item.content).map(
-                  (literal) => ({
-                    literal,
-                    baseRel: item.copied
-                      ? ''
-                      : movedPageSourceBase(
-                          run,
-                          pageSources,
-                          item.assetName,
-                          literal
-                        ),
-                    isRuntimeSurface: true
-                  })
+                // Runtime-set surfaces (setPopup, setIcon) are not manifest
+                // refs, and each browser reads their path from its own place.
+                ...extractRuntimeSurfaceReferences(item.content).flatMap(
+                  (ref) => surfaceRefs(ref, item)
                 ),
                 // Only files WE copied verbatim: emitted bundles had their
                 // imports resolved by the bundler already.
@@ -842,10 +952,33 @@ export class TraceRuntimeLoadedFiles {
           literal,
           baseRel,
           isStaticImport,
-          isRuntimeSurface
+          isRuntimeSurface,
+          distRel: besideCaller,
+          sourceRels,
+          quiet
         } of refs) {
-          const distRel = resolveExtensionPath(literal, baseRel)
+          const distRel =
+            besideCaller === undefined
+              ? resolveExtensionPath(literal, baseRel)
+              : besideCaller
           if (!distRel) continue
+
+          // The visited page fetches what an injected sheet names, so the
+          // manifest step hears of each file. An @import is not fetched.
+          if (
+            item.kind === 'css' &&
+            item.injected &&
+            !/\.css$/i.test(distRel)
+          ) {
+            noteInjectedSheetTarget(run.compilation, item.injected, distRel)
+          }
+
+          const sourceRel =
+            sourceRels?.find(
+              (rel) => rel && isFile(path.join(run.manifestDir, rel))
+            ) ||
+            sourceRels?.[0] ||
+            distRel
 
           if (isRuntimeSurface && baseRel && item.kind === 'js') {
             relocatedSurfaceRefs.push({
@@ -894,10 +1027,20 @@ export class TraceRuntimeLoadedFiles {
             continue
           }
 
+          // A pages/ folder page is compiled too. Its source copied as
+          // written would ship a second page that loads uncompiled scripts.
+          const folderPage = folderPages.get(distRel)
+
+          if (folderPage && run.hasAsset(folderPage)) {
+            servePageAtAuthoredPath(run, distRel, [folderPage])
+
+            continue
+          }
+
           // getURL paths are root-anchored, so source and dist paths match.
           const plan = planTracedFile({
             manifestDir: run.manifestDir,
-            sourceRel: distRel,
+            sourceRel,
             distRel,
             loadsAs: 'by-shape',
             hasAsset: run.hasAsset
@@ -905,6 +1048,8 @@ export class TraceRuntimeLoadedFiles {
           const copied = run.apply(plan, {
             context: item.kind === 'js' ? 'getURL' : 'html',
             onMissing: () => {
+              if (quiet) return
+
               shippedByWar ??= this.webAccessibleOutputs(run)
               if (shippedByWar.has(distRel)) return
 
@@ -917,7 +1062,7 @@ export class TraceRuntimeLoadedFiles {
 
               const {expectedPath, foundOutside} = this.missingFileHint(
                 run,
-                distRel
+                sourceRel
               )
 
               run.warn(
@@ -976,8 +1121,14 @@ export class TraceRuntimeLoadedFiles {
           } else if (/\.html?$/i.test(distRel)) {
             next.push({kind: 'html', content: copied, baseRel: distRel})
           } else if (/\.css$/i.test(distRel)) {
-            // A sheet copied as written still asks for its fonts and images.
-            next.push({kind: 'css', content: copied, baseRel: distRel})
+            // A sheet copied as written still asks for its fonts and images,
+            // and one an injected sheet imports lands on the same page.
+            next.push({
+              kind: 'css',
+              content: copied,
+              baseRel: distRel,
+              injected: item.kind === 'css' ? item.injected : undefined
+            })
           }
         }
       }
@@ -992,11 +1143,12 @@ export class TraceRuntimeLoadedFiles {
 
       if (!run.hasAsset(target)) continue
 
+      // The page moved, the query and fragment it was opened with did not.
       rewriteStringLiteral(
         run.compilation,
         ref.assetName,
         ref.literal,
-        `/${target}`
+        `/${target}${ref.literal.match(/[?#].*$/)?.[0] ?? ''}`
       )
 
       run.forgetText(ref.assetName)
@@ -1016,19 +1168,35 @@ export class TraceRuntimeLoadedFiles {
       const inWebPage =
         asset.name.startsWith('content_scripts/') ||
         asset.name.startsWith('scripts/')
-      const bases = inWebPage ? [] : (pages.get(asset.name) ?? [asset.name])
+      const loaders = pages.get(asset.name)
+      const bases = inWebPage ? [] : (loaders ?? [ownAddressOf(asset.name)])
+      const literals = extractPathLiterals(blankComments(run.textOf(asset)))
+      const forms = provenReferenceForms(
+        run.textOf(asset),
+        literals,
+        extractRuntimeSurfaceReferences(run.textOf(asset)).map((ref) => ({
+          literal: ref.literal,
+          form: surfaceAddress(ref.reads, String(this.browser))
+        }))
+      )
+      // Where a script reads from is known for the background and for a
+      // script its pages name, unless a base element moves what a path means.
+      const ownAddressKnown = loaders
+        ? !loaders.some((page) => run.hasBaseElement(page))
+        : asset.name === EMITTED_WORKER_PATH ||
+          asset.name === EMITTED_BACKGROUND_SCRIPTS_PATH
 
-      for (const literal of extractPathLiterals(
-        blankComments(run.textOf(asset))
-      )) {
+      for (const literal of literals) {
         const file = toRuntimePathReference(literal)?.file
         if (!file?.includes('/')) continue
 
-        const targets = [
-          {distRel: file, sources: [path.join(manifestDir, file)]}
-        ]
+        const form = inWebPage ? undefined : forms.get(literal)
+        const targets =
+          form === 'own' && ownAddressKnown
+            ? []
+            : [{distRel: file, sources: [path.join(manifestDir, file)]}]
 
-        for (const base of bases) {
+        for (const base of form === 'root' ? [] : bases) {
           const distRel = resolveExtensionPath(literal, base)
           if (!distRel) continue
 
@@ -1134,7 +1302,7 @@ export class TraceRuntimeLoadedFiles {
           loadsAs: 'classic',
           hasAsset: run.hasAsset
         })
-        run.apply(plan, {
+        const copied = run.apply(plan, {
           context: 'injected',
           onMissing: () =>
             run.warn(
@@ -1159,6 +1327,8 @@ export class TraceRuntimeLoadedFiles {
               )
             )
         })
+
+        run.noteInjectedSheet(distRel, copied, plan)
       }
     }
 
@@ -1180,7 +1350,7 @@ export class TraceRuntimeLoadedFiles {
         hasAsset: run.hasAsset
       })
       // Held to what a literal is, the warning naming the source file.
-      run.apply(plan, {
+      const copied = run.apply(plan, {
         context: 'injected',
         onMissing: () =>
           run.warn(
@@ -1199,6 +1369,8 @@ export class TraceRuntimeLoadedFiles {
             )
           )
       })
+
+      run.noteInjectedSheet(distRel, copied, plan)
     }
   }
 }
@@ -1226,6 +1398,10 @@ class TraceRun {
   // one is dead code on this browser, so the trace ships nothing for it.
   private readonly excluded: ReadonlySet<string>
   private namedModules?: Set<string>
+  private injectedSheets: Array<{content: string; baseRel: string}> = []
+  private chunkEntries?: Map<string, Set<string>>
+  private readonly builtSheets = new Set<string>()
+  private readonly licensedDirs = new Set<string>()
 
   constructor(
     readonly compilation: Compilation,
@@ -1295,6 +1471,38 @@ class TraceRun {
     return undefined
   }
 
+  // A stylesheet an injection call copied as written, kept for the scan
+  // that follows the files a copied sheet names.
+  noteInjectedSheet(
+    distRel: string,
+    copied: string | null,
+    plan: TracedFilePlan
+  ) {
+    if (!/\.css$/i.test(distRel)) return
+
+    // A public/ file ships byte for byte, and the copier has it in the
+    // output before this trace runs, so the folder says whose file it is.
+    if (isFile(path.join(this.manifestDir, 'public', distRel))) {
+      notePublicInjectedSheet(this.compilation, distRel)
+    } else if (plan.kind !== 'missing') {
+      noteNamedInjectedSheet(this.compilation, plan.emitPath)
+
+      // A sheet the bundler writes is read once it exists.
+      if (plan.kind !== 'copy') this.builtSheets.add(plan.emitPath)
+    }
+
+    if (copied == null) return
+
+    this.injectedSheets.push({content: copied, baseRel: distRel})
+  }
+
+  takeInjectedSheets(): Array<{content: string; baseRel: string}> {
+    const sheets = this.injectedSheets
+    this.injectedSheets = []
+
+    return sheets
+  }
+
   // The pages each emitted script is loaded by, since a relative path in a
   // script resolves against the page and not against the script.
   pagesLoadingScripts(): Map<string, string[]> {
@@ -1319,6 +1527,114 @@ class TraceRun {
     }
 
     return pages
+  }
+
+  // Where a script runs in the output and where its author wrote it: the
+  // worker, the root page of background scripts, or the pages that name it.
+  callerAddresses(
+    assetName: string,
+    loaders: Map<string, string[]>,
+    pageSources: Map<string, string>,
+    workerRef: unknown
+  ): Array<{dist: string; source: string}> | undefined {
+    if (assetName === EMITTED_BACKGROUND_SCRIPTS_PATH) {
+      return [{dist: '', source: ''}]
+    }
+
+    if (assetName === EMITTED_WORKER_PATH) {
+      return typeof workerRef === 'string'
+        ? [{dist: assetName, source: unixify(workerRef).replace(/^\/+/, '')}]
+        : undefined
+    }
+
+    const pages = loaders.get(assetName)
+
+    if (!pages) {
+      // A chunk import() made runs in the worker or page of each entry
+      // that loads it, and the browser asks beside that, not the chunk.
+      const callers = this.entriesLoading(assetName).map((entry) =>
+        this.callerAddresses(entry, loaders, pageSources, workerRef)
+      )
+
+      if (!callers.length || callers.some((found) => !found)) return undefined
+
+      return [
+        ...new Map(
+          callers.flatMap((found) =>
+            (found ?? []).map((caller) => [caller.dist, caller] as const)
+          )
+        ).values()
+      ]
+    }
+
+    if (pages.some((page) => this.hasBaseElement(page))) return undefined
+
+    return pages.map((page) => {
+      const entryDir = this.entrySourceDirs.get(page.replace(/\.html?$/i, ''))
+      const written =
+        pageSources.get(page) ??
+        (entryDir
+          ? unixify(
+              path.join(path.relative(this.manifestDir, entryDir), 'index.html')
+            )
+          : page)
+
+      return {dist: page, source: written.startsWith('..') ? page : written}
+    })
+  }
+
+  // The entry scripts that reach each on-demand chunk, by emitted name.
+  private entriesLoading(assetName: string): string[] {
+    if (!this.chunkEntries) {
+      const entries = new Map<string, Set<string>>()
+      this.chunkEntries = entries
+
+      type Group = {
+        chunks?: Iterable<{files?: Iterable<string>}>
+        childrenIterable?: Iterable<Group>
+        getChildren?: () => Iterable<Group>
+        getFiles?: () => Iterable<string>
+      }
+      const childrenOf = (group: Group) =>
+        group.childrenIterable ?? group.getChildren?.() ?? []
+
+      this.compilation.entrypoints?.forEach?.((entry: Group) => {
+        const scripts = [...(entry.getFiles?.() ?? [])].filter((file) =>
+          /\.js$/i.test(file)
+        )
+        const seen = new Set<Group>()
+
+        const visit = (group: Group) => {
+          if (seen.has(group)) return
+
+          seen.add(group)
+
+          for (const chunk of group.chunks ?? []) {
+            for (const file of chunk.files ?? []) {
+              if (scripts.includes(file)) continue
+
+              const loading = entries.get(file) ?? new Set<string>()
+
+              for (const script of scripts) loading.add(script)
+
+              entries.set(file, loading)
+            }
+          }
+
+          for (const child of childrenOf(group)) visit(child)
+        }
+
+        for (const child of childrenOf(entry)) visit(child)
+      })
+    }
+
+    return [...(this.chunkEntries.get(assetName) ?? [])]
+  }
+
+  hasBaseElement(page: string): boolean {
+    const asset = this.compilation.getAsset(page)
+
+    return asset ? /<base\b/i.test(this.textOf(asset)) : false
   }
 
   // A development bundle names each module by its path, so there a string
@@ -1418,7 +1734,52 @@ class TraceRun {
     this.compilation.emitAsset(distRel, new sources.RawSource(buffer))
     this.watch(abs)
 
+    if (FONT_FILE.test(distRel)) this.emitLicensesBeside(abs, distRel)
+
     return buffer.toString()
+  }
+
+  // A font's license ties redistribution to its notice, and no code names
+  // that file, so it ships with a font copied from the folder that holds it.
+  private emitLicensesBeside(fontAbs: string, fontDistRel: string) {
+    const sourceDir = path.dirname(fontAbs)
+    const distDir = path.posix.dirname(unixify(fontDistRel))
+
+    // The notice at the root of the project is the extension's own.
+    if (distDir === '.' || path.relative(this.manifestDir, sourceDir) === '') {
+      return
+    }
+
+    const key = `${sourceDir}\n${distDir}`
+    if (this.licensedDirs.has(key)) return
+
+    this.licensedDirs.add(key)
+
+    let entries: fs.Dirent[]
+
+    try {
+      entries = fs.readdirSync(sourceDir, {withFileTypes: true})
+    } catch {
+      return
+    }
+
+    for (const entry of entries) {
+      if (!entry.isFile() || !LICENSE_FILE.test(entry.name)) continue
+
+      const abs = path.join(sourceDir, entry.name)
+      const distRel = `${distDir}/${entry.name}`
+
+      if (this.hasAsset(distRel) || isExcludedEntry(abs, this.excluded)) {
+        continue
+      }
+
+      this.compilation.emitAsset(
+        distRel,
+        new sources.RawSource(fs.readFileSync(abs))
+      )
+
+      this.watch(abs)
+    }
   }
 
   warn(name: string, file: string, message: string) {
@@ -1450,6 +1811,25 @@ class TraceRun {
       this.compiler,
       requests
     )
+
+    // The visited page fetches the assets a compiled injected sheet names,
+    // as it does for a copied one, so the manifest step hears of them too.
+    for (const sheet of this.builtSheets) {
+      const asset = this.compilation.getAsset(sheet)
+      if (!asset) continue
+
+      for (const literal of extractCssSubresourceLiterals(
+        asset.source.source().toString()
+      )) {
+        const target = resolveExtensionPath(literal, sheet)
+
+        if (target && !/\.css$/i.test(target) && this.hasAsset(target)) {
+          noteInjectedSheetTarget(this.compilation, sheet, target)
+        }
+      }
+    }
+
+    this.builtSheets.clear()
 
     return emitted.filter((name) => /\.js$/i.test(name))
   }
@@ -1933,9 +2313,14 @@ function movedPageSourceBase(
   run: TraceRun,
   pageSources: Map<string, string>,
   assetName: string,
-  literal: string
+  literal: string,
+  bare?: boolean
 ): string {
-  if (!/^\.\.?\//.test(literal.trim())) return ''
+  const written = literal.trim()
+
+  if (bare ? written.startsWith('/') : !/^\.\.?\//.test(written)) return ''
+  // Background scripts run in a page the browser makes at the root.
+  if (assetName === EMITTED_BACKGROUND_SCRIPTS_PATH) return ''
 
   const entryName = assetName.replace(/\.js$/i, '')
   const pageSource = pageSources.get(`${entryName}.html`)
@@ -2110,6 +2495,26 @@ function customManifestFileReferences(
   return refs
 }
 
+// Measured: Chromium opens a page path from the root and loads an image
+// beside the caller. Firefox opens a page beside the caller.
+function surfaceAddress(
+  reads: SurfaceRead,
+  browser: string
+): ReferenceForm | 'unknown' {
+  if (reads === 'panel') return 'unknown'
+
+  // Chrome shows a panel page from the root for every form, measured from
+  // a DevTools page the build moved. No Firefox run covers it.
+  if (reads === 'panelPage') {
+    return isChromiumBasedBrowser(browser) ? 'root' : 'unknown'
+  }
+
+  if (isGeckoBasedBrowser(browser)) return reads === 'page' ? 'own' : 'unknown'
+  if (isChromiumBasedBrowser(browser)) return reads === 'page' ? 'root' : 'own'
+
+  return 'unknown'
+}
+
 // Extract string-literal getURL arguments. Matching on `runtime.getURL(`
 // keeps user-defined getURL functions out while surviving minification.
 export function extractGetURLLiterals(source: string): string[] {
@@ -2139,36 +2544,79 @@ const IMAGE_LITERAL_RE =
 // notifications.create) and devtools panels. Untraced they vanish from dist
 // while the build stays green.
 export function extractRuntimeSurfaceLiterals(source: string): string[] {
+  return extractRuntimeSurfaceReferences(source).map((ref) => ref.literal)
+}
+
+// What the browser does with the path: opens it as a page, loads it as an
+// image, shows it as a DevTools panel, or takes it as that panel's icon,
+// which Chrome never fetches, so no run measured its address.
+export type SurfaceRead = 'page' | 'image' | 'panel' | 'panelPage'
+
+export interface SurfaceReference {
+  literal: string
+  reads: SurfaceRead
+}
+
+export function extractRuntimeSurfaceReferences(
+  source: string
+): SurfaceReference[] {
   const code = blankComments(source)
-  const literals: string[] = []
+  const literals: SurfaceReference[] = []
   const calls = [
     {
       callRe: /\b(?:action|browserAction|pageAction)\s*\.\s*setPopup\s*\(/g,
-      prop: 'popup'
+      prop: 'popup',
+      reads: 'page'
     },
-    {callRe: /\bsidePanel\s*\.\s*setOptions\s*\(/g, prop: 'path'},
-    {callRe: /\boffscreen\s*\.\s*createDocument\s*\(/g, prop: 'url'},
-    {callRe: /\b(?:tabs|windows)\s*\.\s*create\s*\(/g, prop: 'url'},
-    {callRe: /\bnotifications\s*\.\s*create\s*\(/g, prop: 'iconUrl'},
+    {
+      callRe: /\bsidePanel\s*\.\s*setOptions\s*\(/g,
+      prop: 'path',
+      reads: 'page'
+    },
+    {
+      callRe: /\bsidebarAction\s*\.\s*setPanel\s*\(/g,
+      prop: 'panel',
+      reads: 'page'
+    },
+    {
+      callRe: /\boffscreen\s*\.\s*createDocument\s*\(/g,
+      prop: 'url',
+      reads: 'page'
+    },
+    {
+      callRe: /\b(?:tabs|windows)\s*\.\s*create\s*\(/g,
+      prop: 'url',
+      reads: 'page'
+    },
+    {
+      callRe: /\bnotifications\s*\.\s*create\s*\(/g,
+      prop: 'iconUrl',
+      reads: 'image'
+    },
     {
       // The path value is a string or a size map, so every image literal
       // inside the call counts.
       callRe: /\b(?:action|browserAction|pageAction)\s*\.\s*setIcon\s*\(/g,
-      images: true
+      images: true,
+      reads: 'image'
     },
     {
       // panels.create(title, iconPath, pagePath): the two paths are positional.
       callRe: /\bpanels\s*\.\s*create\s*\(/g,
-      positional: [1, 2]
+      positional: [1, 2],
+      pageAt: 2,
+      reads: 'panel'
     }
   ] as Array<{
     callRe: RegExp
     prop?: string
     images?: boolean
     positional?: number[]
+    pageAt?: number
+    reads: SurfaceRead
   }>
 
-  for (const {callRe, prop, images, positional} of calls) {
+  for (const {callRe, prop, images, positional, pageAt, reads} of calls) {
     let match: RegExpExecArray | null
 
     while ((match = callRe.exec(code))) {
@@ -2180,7 +2628,7 @@ export function extractRuntimeSurfaceLiterals(source: string): string[] {
         let imageMatch: RegExpExecArray | null
 
         while ((imageMatch = IMAGE_LITERAL_RE.exec(args))) {
-          literals.push(unescapeStringBody(imageMatch[2]))
+          literals.push({literal: unescapeStringBody(imageMatch[2]), reads})
         }
 
         continue
@@ -2192,7 +2640,13 @@ export function extractRuntimeSurfaceLiterals(source: string): string[] {
         for (const index of positional) {
           const part = parts[index]
           const literal = part == null ? null : pureStringLiteral(part)
-          if (literal?.trim()) literals.push(literal)
+
+          if (literal?.trim()) {
+            literals.push({
+              literal,
+              reads: index === pageAt ? 'panelPage' : reads
+            })
+          }
         }
 
         continue
@@ -2207,7 +2661,7 @@ export function extractRuntimeSurfaceLiterals(source: string): string[] {
       while ((propMatch = propRe.exec(args))) {
         // An empty string is Chrome's "remove the popup" idiom, not a file.
         const literal = unescapeStringBody(propMatch[2])
-        if (literal.trim()) literals.push(literal)
+        if (literal.trim()) literals.push({literal, reads})
       }
     }
   }
@@ -2215,8 +2669,13 @@ export function extractRuntimeSurfaceLiterals(source: string): string[] {
   return literals
 }
 
-// Extract url() and @import targets from a stylesheet copied through by
-// getURL tracing, so the fonts and images it asks for ship with it.
+// The address a sheet spells with the id the browser fills in, which is the
+// one spelling Chromium reads from the extension in a sheet it injects.
+const EXTENSION_ID_ADDRESS =
+  /^(?:chrome|moz)-extension:\/\/__MSG_@@extension_id__\//i
+
+// Extract url() and @import targets from a stylesheet the build copied as
+// written, so the fonts and images it asks for ship with it.
 export function extractCssSubresourceLiterals(css: string): string[] {
   const literals: string[] = []
   const code = css.replace(/\/\*[\s\S]*?\*\//g, '')
@@ -2224,7 +2683,9 @@ export function extractCssSubresourceLiterals(css: string): string[] {
     /url\(\s*(?:(["'])([^"'\n]*)\1|([^"'()\s]+))\s*\)|@import\s+(["'])([^"'\n]+)\4/gi
 
   for (const match of code.matchAll(refRe)) {
-    const literal = (match[2] ?? match[3] ?? match[5] ?? '').trim()
+    const literal = (match[2] ?? match[3] ?? match[5] ?? '')
+      .trim()
+      .replace(EXTENSION_ID_ADDRESS, '/')
 
     if (literal && !literal.startsWith('#')) literals.push(literal)
   }
@@ -2778,6 +3239,17 @@ function constantInjectedFiles(
     .map((entry) => entry.value)
 }
 
+// The bases that all resolve to the asset's own URL at run time.
+function isOwnLocationBase(expression: string): boolean {
+  const base = expression.trim()
+
+  return (
+    /^(?:self\.|window\.|globalThis\.)?location(?:\.href)?$/.test(base) ||
+    base === 'document.baseURI' ||
+    base === 'import.meta.url'
+  )
+}
+
 // Extract string-literal URLs loaded via same-origin request APIs: fetch(),
 // xhr.open(method, url), new URL(url, own-location base). Computed args skip.
 function extractFetchedFileLiterals(source: string): string[] {
@@ -2832,18 +3304,95 @@ function extractFetchedFileLiterals(source: string): string[] {
     const parts = splitTopLevelArgs(args)
     if (parts.length !== 2) continue
 
-    const base = parts[1].trim()
-    const ownLocationBase =
-      /^(?:self\.|window\.|globalThis\.)?location(?:\.href)?$/.test(base) ||
-      base === 'document.baseURI' ||
-      base === 'import.meta.url'
-    if (!ownLocationBase) continue
+    if (!isOwnLocationBase(parts[1])) continue
 
     const literal = pureStringLiteral(parts[0])
     if (literal != null) literals.push(literal)
   }
 
   return literals
+}
+
+// The scripts of background.scripts run in a page the browser generates at
+// the root, so a relative path in them is read from there, not background/.
+function ownAddressOf(assetName: string): string {
+  return assetName === EMITTED_BACKGROUND_SCRIPTS_PATH ? '' : assetName
+}
+
+const OWN_FETCH_CALL =
+  /(?<![\w$.])(?:(?:self|window|globalThis)\s*\.\s*)?fetch\s*\(/g
+// A script that declares a fetch of its own may read a path any way it likes.
+const DECLARES_FETCH =
+  /\b(?:function|const|let|var|class)\s+fetch\b|(?<![\w$.])fetch\s*=(?!=)/
+
+// Paths handed straight to the browser's own fetch or to a URL built on the
+// script's address, both read against where the script or its page sits.
+export function extractOwnAddressLiterals(source: string): string[] {
+  const code = blankComments(source)
+  const literals: string[] = []
+  let match: RegExpExecArray | null
+
+  if (!DECLARES_FETCH.test(code)) {
+    OWN_FETCH_CALL.lastIndex = 0
+
+    while ((match = OWN_FETCH_CALL.exec(code))) {
+      const args = readBalancedArgs(code, match.index + match[0].length - 1)
+      if (args == null) continue
+
+      const [first] = splitTopLevelArgs(args)
+      const literal = first == null ? null : pureStringLiteral(first)
+      if (literal != null) literals.push(literal)
+    }
+  }
+
+  const urlRe = /\bnew\s+URL\s*\(/g
+
+  while ((match = urlRe.exec(code))) {
+    const args = readBalancedArgs(code, match.index + match[0].length - 1)
+    if (args == null) continue
+
+    const parts = splitTopLevelArgs(args)
+    if (parts.length !== 2 || !isOwnLocationBase(parts[1])) continue
+
+    const literal = pureStringLiteral(parts[0])
+    if (literal != null) literals.push(literal)
+  }
+
+  return literals
+}
+
+export type ReferenceForm = 'own' | 'root'
+
+// What every mention of a path in one script proves: read against the
+// script's address, or handed to getURL. A table or a variable proves neither.
+export function provenReferenceForms(
+  source: string,
+  literals: string[],
+  surfaces: Array<{literal: string; form: ReferenceForm | 'unknown'}> = []
+): Map<string, ReferenceForm> {
+  const tally = (values: string[]) => {
+    const counts = new Map<string, number>()
+
+    for (const value of values) counts.set(value, (counts.get(value) ?? 0) + 1)
+
+    return counts
+  }
+
+  const handedTo = (form: ReferenceForm) =>
+    surfaces.filter((ref) => ref.form === form).map((ref) => ref.literal)
+  const own = tally([...extractOwnAddressLiterals(source), ...handedTo('own')])
+  const root = tally([...extractGetURLLiterals(source), ...handedTo('root')])
+  const forms = new Map<string, ReferenceForm>()
+
+  for (const [literal, total] of tally(literals)) {
+    const asOwn = own.get(literal) ?? 0
+    const asRoot = root.get(literal) ?? 0
+
+    if (asOwn === total && asRoot === 0) forms.set(literal, 'own')
+    else if (asRoot === total && asOwn === 0) forms.set(literal, 'root')
+  }
+
+  return forms
 }
 
 // Reduce a same-origin URL literal to a filesystem-joinable path (query and

@@ -14,6 +14,9 @@ import type {DevOptions} from '../../types'
 import {commonStyleLoaders} from '../common-style-loaders'
 import {createSassLoaderOptions} from '../css-tools/sass'
 
+// The request the bundler makes for an @import in a sheet it parses.
+export const CSS_IMPORT_DEPENDENCY = 'css-import'
+
 export interface PreprocessorUsage {
   useSass?: boolean
   useLess?: boolean
@@ -49,6 +52,8 @@ interface BuildCssRulesOptions {
   nonModuleType: 'asset/inline' | 'css'
   issuer?: RuleSetRule['issuer']
   issuerLayer?: RuleSetRule['issuerLayer']
+  // The kind of request that reached the sheet, an @import among them.
+  dependency?: RuleSetRule['dependency']
   // Set for inlined stylesheets, whose url() children never reach the module
   // graph. The sheet then leaves the loader chain as a JavaScript module that
   // resolves its url() targets at runtime, and its rule type follows.
@@ -70,6 +75,7 @@ export async function buildCssRules(
 ): Promise<RuleSetRule[]> {
   const {useSass = true, useLess = true} = usage
   const {nonModuleType, issuer, issuerLayer, manifestPath, gecko} = opts
+  const {dependency} = opts
   const {baseAttribute, baseScheme} = opts
 
   const fileTypes: Array<{
@@ -231,6 +237,7 @@ export async function buildCssRules(
         ...(emitsSheet ? {sideEffects: true} : {}),
         ...(issuer ? {issuer} : {}),
         ...(issuerLayer ? {issuerLayer} : {}),
+        ...(dependency ? {dependency} : {}),
         resourceQuery: NOT_RAW_RESOURCE_QUERY,
         use
       } as RuleSetRule
