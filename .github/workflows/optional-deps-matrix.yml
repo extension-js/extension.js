@@ -53,10 +53,6 @@ jobs:
             pm: bun
           - os: ubuntu-latest
             pm: deno
-          - os: macos-latest
-            pm: pnpm
-          - os: macos-latest
-            pm: deno
           - os: windows-latest
             pm: pnpm
           - os: windows-latest
@@ -123,3 +119,44 @@ jobs:
       - name: Verify first dev content-react contract (Windows npm)
         if: matrix.os == 'windows-latest' && matrix.pm == 'npm'
         run: node scripts/verify-content-template-first-dev.mjs --templates content-react --use-default-cache --use-workspace-package
+
+  # macOS runners cost the most, so these legs have their own job that a pull
+  # request skips. They run nightly, on every push to main and on dispatch.
+  optional-deps-smoke-macos:
+    name: smoke (macos-latest / ${{ matrix.pm }})
+    if: github.event_name != 'pull_request'
+    runs-on: macos-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        pm: [pnpm, deno]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          version: 10.28.0
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Setup Deno
+        if: matrix.pm == 'deno'
+        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with:
+          deno-version: v2.x
+
+      - name: Run optional deps smoke
+        env:
+          SMOKE_PM: ${{ matrix.pm }}
+        run: node scripts/run-optional-deps-smoke.mjs --pm "$SMOKE_PM"

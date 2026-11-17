@@ -118,6 +118,30 @@ test('windows runs the suites as two parallel jobs, each with its own timeout', 
   )
 })
 
+test('the optional deps smoke keeps macOS off pull requests and names every leg apart', () => {
+  const lane = workflow('optional-deps-matrix.yml')
+  const main = jobSection(lane, 'optional-deps-smoke')
+  const macos = jobSection(lane, 'optional-deps-smoke-macos')
+
+  assert.match(lane, /^ {2}pull_request:$/m)
+  assert.doesNotMatch(main, /macos/)
+  assert.doesNotMatch(main, /^ {4}if: /m)
+  assert.match(macos, /^ {4}runs-on: macos-latest$/m)
+  assert.match(macos, /^ {4}if: github\.event_name != 'pull_request'$/m)
+  assert.match(macos, /^ {8}pm: \[pnpm, deno\]$/m)
+  assert.match(macos, /run-optional-deps-smoke\.mjs --pm "\$SMOKE_PM"/)
+
+  // The helper spec runs once in the CI quality job, not on every leg.
+  assert.ok(!lane.includes('__spec__'))
+
+  // The fork legs share os and pm with the plain pnpm leg, so the browser
+  // has to be part of the job name or three rows read the same.
+  assert.match(
+    main,
+    /name: smoke \(\$\{\{ matrix\.os \}\} \/ \$\{\{ matrix\.pm \}\}\$\{\{ matrix\.browser && format\(' \/ \{0\}', matrix\.browser\) \|\| '' \}\}\)/
+  )
+})
+
 test('no ci:test script is an alias of another', () => {
   const bodies = Object.entries(scripts)
     .filter(([name]) => name.startsWith('ci:test:'))
