@@ -2,7 +2,11 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
-import {getSpecialFoldersDataForCompiler} from '../get-data'
+import {
+  getSpecialFoldersDataForCompiler,
+  getSpecialFoldersDataForProjectRoot,
+  type ScanSpecialFolders
+} from '../get-data'
 
 const getSpecialFoldersDataMock = vi.fn()
 const tempDirs: string[] = []
@@ -392,5 +396,37 @@ describe('scripts/ entries the package.json scripts run', () => {
     const data = getSpecialFoldersDataForCompiler(compiler)
 
     expect(data.scripts?.['scripts/replace_browser']).toEqual([helper])
+  })
+})
+
+describe('the scan seam', () => {
+  it('reads the folders through the injected scan, once per folder parent', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-scan-seam-'))
+    tempDirs.push(root)
+    const calls: string[] = []
+    const page = path.join(root, 'src', 'pages', 'a.html')
+
+    const data = getSpecialFoldersDataForProjectRoot(
+      root,
+      {pages: 'src/pages'},
+      'development',
+      {
+        scan: ({manifestPath}): ReturnType<ScanSpecialFolders> => {
+          calls.push(manifestPath)
+
+          return manifestPath === path.join(root, 'src', 'package.json')
+            ? {public: {}, pages: {'pages/a': page}, scripts: {}}
+            : {public: {}, pages: {}, scripts: {}}
+        }
+      }
+    )
+
+    expect(calls).toEqual([
+      path.join(root, 'package.json'),
+      path.join(root, 'src', 'package.json')
+    ])
+
+    expect(data.pages).toEqual({'pages/a': page})
+    expect(getSpecialFoldersDataMock).not.toHaveBeenCalled()
   })
 })

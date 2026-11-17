@@ -592,4 +592,93 @@ describe('WarnUponFolderChanges', () => {
     expect(handler).toHaveBeenCalledTimes(3)
     expect(compilation.warnings.length).toBe(0)
   })
+
+  it('asks the injected requester and stays quiet when a session takes the change', () => {
+    const requests: unknown[] = []
+    const {compiler, projectRoot} = createFakeCompiler()
+    tempDirs.add(projectRoot)
+    fs.mkdirSync(path.join(projectRoot, 'pages'), {recursive: true})
+    const withCompiler = {...compilation, compiler}
+    new WarnUponFolderChanges({
+      requestRestart: (target, request) => {
+        requests.push({target, request})
+
+        return true
+      }
+    }).apply(compiler as any)
+
+    const page = path.join(projectRoot, 'pages', 'added.html')
+    compiler.modifiedFiles = new Set([page])
+    runCycle(compiler, withCompiler)
+    compiler.modifiedFiles = new Set()
+    compiler.removedFiles = new Set([page])
+    runCycle(compiler, withCompiler)
+
+    expect(requests).toEqual([
+      {target: compiler, request: {reason: 'html', pathAfter: page}},
+      {target: compiler, request: {reason: 'html', pathBefore: page}}
+    ])
+
+    expect(withCompiler.warnings).toEqual([])
+    expect(withCompiler.errors).toEqual([])
+  })
+
+  it('falls back to the diagnostics when the injected requester has no session', () => {
+    const {compiler, projectRoot} = createFakeCompiler()
+    tempDirs.add(projectRoot)
+    fs.mkdirSync(path.join(projectRoot, 'scripts'), {recursive: true})
+    new WarnUponFolderChanges({requestRestart: () => false}).apply(
+      compiler as any
+    )
+
+    const script = path.join(projectRoot, 'scripts', 'late.ts')
+    compiler.modifiedFiles = new Set([script])
+    runCycle(compiler, compilation)
+
+    expect(compilation.warnings).toHaveLength(1)
+    expectRestartNotice(
+      compilation.warnings[0],
+      'Adding',
+      'script files',
+      'scripts',
+      script
+    )
+  })
+
+  it('finds a file the watcher never named by reading the folders again', () => {
+    const requests: unknown[] = []
+    const {compiler, projectRoot} = createFakeCompiler()
+    tempDirs.add(projectRoot)
+    const page = path.join(projectRoot, 'pages', 'unnamed.html')
+    const listings = [new Set<string>(), new Set([page])]
+    const reads: unknown[] = []
+    new WarnUponFolderChanges({
+      readFolderFiles: (roots) => {
+        reads.push(roots)
+
+        return listings.shift() || new Set()
+      },
+      requestRestart: (_target, request) => {
+        requests.push(request)
+
+        return true
+      }
+    }).apply(compiler as any)
+
+    runCycle(compiler, compilation)
+    runCycle(compiler, compilation)
+
+    expect(reads).toEqual([
+      {
+        pages: path.join(projectRoot, 'pages'),
+        scripts: path.join(projectRoot, 'scripts')
+      },
+      {
+        pages: path.join(projectRoot, 'pages'),
+        scripts: path.join(projectRoot, 'scripts')
+      }
+    ])
+
+    expect(requests).toEqual([{reason: 'html', pathAfter: page}])
+  })
 })
