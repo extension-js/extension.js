@@ -1,10 +1,15 @@
-import {afterEach, describe, expect, it, vi} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import type {ReloadBroker} from '../../plugin-reload'
 import {
   reloadSurvivingPackage,
   SafariDevPlugin,
   type SafariPackagerFn
 } from '../safari-dev-plugin'
+import {fakeCompilation, fakeCompiler} from './fake-compiler'
+
+beforeEach(() => {
+  expect.hasAssertions()
+})
 
 const flush = async () => {
   for (let i = 0; i < 8; i++) await Promise.resolve()
@@ -30,63 +35,38 @@ function makeDeferredPackager() {
   return {fn, calls, callFor, modes}
 }
 
-function makeCompiler() {
-  let cb: (stats: unknown) => Promise<void>
-  let watchRunCb: (() => void) | undefined
-  let doneTapCb: ((stats: unknown) => void) | undefined
-  // A watching compiler, so the changed-sources tracker the plugin builds has
-  // the hooks it taps. Without changedFiles a trigger behaves as it always did.
-  const compiler: {
-    hooks: Record<string, unknown>
-    options: {context: string}
-    modifiedFiles?: Set<string>
-  } = {
-    hooks: {
-      done: {
-        tapPromise: (_n: string, f: typeof cb) => (cb = f),
-        tap: (_n: string, f: (stats: unknown) => void) => (doneTapCb = f)
-      },
-      watchRun: {tap: (_n: string, f: () => void) => (watchRunCb = f)}
-    },
-    options: {context: 'ctx'}
-  }
+function makeCompiler(context = 'ctx') {
+  const fake = fakeCompiler({owner: SafariDevPlugin.name, context})
 
   const trigger = (
     outputPath: string,
     opts?: {
       errors?: unknown[]
+      // Project-relative saves that started this rebuild.
       changedFiles?: string[]
       // The classifier reads the emitted manifest to count content scripts, so
       // a content edit only classifies as one when the build declares them.
       contentScripts?: number
     }
   ) => {
-    if (opts?.changedFiles) {
-      compiler.modifiedFiles = new Set(opts.changedFiles)
-      watchRunCb?.()
-    }
+    if (opts?.changedFiles) fake.watchRun(opts.changedFiles)
 
-    const manifest = JSON.stringify({
-      content_scripts: Array.from({length: opts?.contentScripts || 0}, () => ({
-        js: ['content.js']
-      }))
-    })
-    const stats = {
-      compilation: {
-        errors: opts?.errors || [],
-        options: {output: {path: outputPath}, context: 'ctx'},
-        getAsset: (name: string) =>
-          name === 'manifest.json'
-            ? {source: {source: () => manifest}}
-            : undefined
-      }
-    }
-    doneTapCb?.(stats)
-
-    return cb(stats)
+    return fake.done(
+      fakeCompilation({
+        context,
+        output: outputPath,
+        errors: opts?.errors,
+        manifest: {
+          content_scripts: Array.from(
+            {length: opts?.contentScripts || 0},
+            () => ({js: ['content.js']})
+          )
+        }
+      })
+    )
   }
 
-  return {compiler: compiler as never, trigger}
+  return {compiler: fake.compiler, trigger}
 }
 
 function makeBroker() {
@@ -110,12 +90,12 @@ function makeBroker() {
   return {broker, sent}
 }
 
-function harness(broker?: ReloadBroker) {
+function harness(broker?: ReloadBroker, context?: string) {
   const pkg = makeDeferredPackager()
   const plugin = new SafariDevPlugin(pkg.fn)
   if (broker) plugin.setReloadBroker(broker)
 
-  const {compiler, trigger} = makeCompiler()
+  const {compiler, trigger} = makeCompiler(context)
   plugin.apply(compiler)
   const compiled: Array<{isFirstCompile: boolean; outputPath: string}> = []
   const errors: Array<{errors: string[]}> = []
@@ -283,14 +263,14 @@ describe('SafariDevPlugin watch-loop coalescing', () => {
 
 // A manifest edit is the one change that always classifies as a full reload,
 // so these cover the seam itself rather than the classifier.
-const MANIFEST_EDIT = {changedFiles: ['ctx/manifest.json']}
+const MANIFEST_EDIT = {changedFiles: ['manifest.json']}
 // A content edit is the one kind that survives the package, since a restart
 // does not re-inject content scripts into tabs that are already open.
 const CONTENT_EDIT = {
-  changedFiles: ['ctx/src/content/scripts.js'],
+  changedFiles: ['src/content/scripts.js'],
   contentScripts: 1
 }
-const BACKGROUND_EDIT = {changedFiles: ['ctx/src/background.js']}
+const BACKGROUND_EDIT = {changedFiles: ['src/background.js']}
 
 describe('SafariDevPlugin reload seam', () => {
   it('reloads only after the package that replaced the appex', async () => {
