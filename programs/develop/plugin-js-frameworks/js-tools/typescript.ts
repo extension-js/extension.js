@@ -135,7 +135,7 @@ export function ensureTypeScriptConfig(
   }
 }
 
-export function defaultTypeScriptConfig(projectPath: string, _opts?: unknown) {
+export function defaultTypeScriptConfig(projectPath: string) {
   const usesJsFramework = isUsingJSFramework(projectPath)
   // react-jsx alone makes tsc look for react/jsx-runtime and fail with TS2875
   // on a Solid, Preact or Vue project. Name the same runtime the bundler
@@ -210,10 +210,6 @@ function writeTsConfig(projectPath: string) {
   const targetDir = findNearestPackageJsonDirectory(projectPath) || projectPath
   fs.writeFileSync(
     path.join(targetDir, 'tsconfig.json'),
-    JSON.stringify(
-      defaultTypeScriptConfig(projectPath, {mode: 'development'}),
-      null,
-      2
-    )
+    JSON.stringify(defaultTypeScriptConfig(projectPath), null, 2)
   )
 }
