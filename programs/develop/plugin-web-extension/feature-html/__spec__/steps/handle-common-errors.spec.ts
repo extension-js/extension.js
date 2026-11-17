@@ -68,30 +68,67 @@ function run(compiler: Compiler) {
   })
 }
 
-const errorsOf = (stats: Stats) =>
-  (stats.toJson({all: false, errors: true}).errors || []).map((error) => ({
-    code: error.code,
-    file: error.file,
-    message: String(error.message)
-  }))
+const findingsOf = (stats: Stats) => {
+  const json = stats.toJson({all: false, errors: true, warnings: true})
+  const read = (list: typeof json.errors) =>
+    (list || []).map((finding) => ({
+      code: finding.code,
+      file: finding.file,
+      message: String(finding.message)
+    }))
+
+  return {errors: read(json.errors), warnings: read(json.warnings)}
+}
+
+async function withStrictRefs<T>(body: () => Promise<T>): Promise<T> {
+  const previous = process.env.EXTENSION_STRICT_REFS
+  process.env.EXTENSION_STRICT_REFS = 'true'
+
+  try {
+    return await body()
+  } finally {
+    if (previous === undefined) delete process.env.EXTENSION_STRICT_REFS
+    else process.env.EXTENSION_STRICT_REFS = previous
+  }
+}
 
 describe('HandleCommonErrors', () => {
-  it('names the page and the missing script once when a page entry is gone', async () => {
+  it('warns once, naming the page and the script, when a page entry is gone', async () => {
     const root = writeProject()
     const compiler = makeCompiler(root, {
       'action/index': path.join(root, 'popup', 'index.html')
     })
     fs.rmSync(path.join(root, 'popup', 'main.js'))
 
-    const errors = errorsOf(await run(compiler))
+    const {errors, warnings} = findingsOf(await run(compiler))
 
-    expect(errors).toHaveLength(1)
-    expect(errors[0].code).toBe('HtmlEntrypointMissing')
-    expect(errors[0].file).toBe(path.join('popup', 'index.html'))
-    expect(errors[0].message).toContain(
+    expect(errors).toEqual([])
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0].code).toBe('HtmlEntrypointMissing')
+    expect(warnings[0].file).toBe(path.join('popup', 'index.html'))
+    expect(warnings[0].message).toContain(
       "The page references a script file that doesn't exist."
     )
 
+    expect(warnings[0].message).toContain(
+      `NOT FOUND ${path.join(root, 'popup', 'main.js')}`
+    )
+  }, 60000)
+
+  it('fails the build over the same file under EXTENSION_STRICT_REFS', async () => {
+    const root = writeProject()
+    const {errors, warnings} = await withStrictRefs(async () => {
+      const compiler = makeCompiler(root, {
+        'action/index': path.join(root, 'popup', 'index.html')
+      })
+      fs.rmSync(path.join(root, 'popup', 'main.js'))
+
+      return findingsOf(await run(compiler))
+    })
+
+    expect(warnings).toEqual([])
+    expect(errors.map((error) => error.code)).toEqual(['HtmlEntrypointMissing'])
+    expect(errors[0].file).toBe(path.join('popup', 'index.html'))
     expect(errors[0].message).toContain(
       `NOT FOUND ${path.join(root, 'popup', 'main.js')}`
     )
@@ -105,10 +142,14 @@ describe('HandleCommonErrors', () => {
     })
     fs.rmSync(path.join(root, 'popup', 'main.js'))
 
-    const errors = errorsOf(await run(compiler))
+    const {errors, warnings} = findingsOf(await run(compiler))
+    const missingScript = warnings.filter(
+      (warning) => warning.code === 'HtmlEntrypointMissing'
+    )
 
-    expect(errors.map((error) => error.code)).toEqual(['HtmlEntrypointMissing'])
-    expect(errors[0].file).toBe(path.join('popup', 'index.html'))
+    expect(errors).toEqual([])
+    expect(missingScript).toHaveLength(1)
+    expect(missingScript[0].file).toBe(path.join('popup', 'index.html'))
   }, 60000)
 
   it('rewrites in the top compilation only, never again in a child compiler', () => {
