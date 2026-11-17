@@ -39,7 +39,7 @@ A development build compiles a MAIN world content script apart with its imports 
   The options of the target and the shape of the content script metadata.
 
 - `background-entry-name.ts`
-  `getBackgroundEntryName` names the entry the background runs from, matched against the entries `feature-scripts` creates. The message fallback is added to that entry.
+  `getBackgroundEntryName` names the entry the authored background runs from, matched against the entries `feature-scripts` creates: `background/service_worker`, `background/scripts` (a page on Gecko and MV2, a worker for MV3 on Chromium) or `background/index` for a background page. It names none when the manifest declares no background that becomes one of those. The message fallback is added to the named entry, and a reload session names the background it generates itself.
 
 - `content-scripts-meta.ts`
   `buildContentScriptsMeta` maps each content script bundle to its world, and pairs a MAIN world bundle with its bridge.

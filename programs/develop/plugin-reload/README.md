@@ -125,7 +125,12 @@ Applied by `ReloadPlugin` in order:
   sends, unioning content entries and injected script files.
 
 - `steps/setup-reload-strategy/`
-  Dev-only background entry setup. It then applies `ChunkLoadingTarget` from
+  Dev-only background entry setup. `SetupBackgroundEntry` generates
+  `background/service_worker` (Chromium MV3) or `background/script` (Gecko
+  and MV2) for a manifest that declares no background the browser can run,
+  and records it as `generated`. The message fallback is answered from the
+  authored background when `getBackgroundEntryName` names one, and from the
+  generated one otherwise. It then applies `ChunkLoadingTarget` from
   `plugin-web-extension/feature-chunk-loading`, which owns chunk loading in
   every mode, and renames hot update files. Every build that is not a
   reload session gets the same target from that feature's

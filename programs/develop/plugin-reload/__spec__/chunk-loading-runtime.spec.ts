@@ -418,6 +418,40 @@ describe('chunk loading runtime of a dev session for Chromium', () => {
   })
 })
 
+describe('chunk loading runtime of a dev session for Firefox', () => {
+  let built: Built
+
+  beforeAll(async () => {
+    built = await build({
+      browser: 'firefox',
+      mode: 'development',
+      command: 'dev'
+    })
+  })
+
+  it('installs the chunk loading target once', () => {
+    expectOneChunkLoadingTarget(built)
+  })
+
+  it('keeps the message fallback for an isolated world chunk', () => {
+    const text = built.file(ISOLATED)
+
+    expect(writers(text, LOAD_SCRIPT)).toEqual(['bundler', 'chunkLoader'])
+    expect(text).toContain(CLASSIC_REQUEST)
+    expect(text).not.toContain(CLASSIC_REFUSAL)
+  })
+
+  // The authored background.scripts files are bundled as background/scripts,
+  // the page Firefox runs, so the request above is answered from there.
+  it('answers the message fallback from the authored background scripts', () => {
+    const text = built.file(BACKGROUND_SCRIPTS)
+
+    expect(count(text, CLASSIC_LISTENER)).toBe(1)
+    expect(writers(text, PUBLIC_PATH)).toEqual(['bundler', 'chunkLoader'])
+    expect(writers(text, LOAD_SCRIPT)).toEqual(['bundler', 'chunkLoader'])
+  })
+})
+
 // A development build has no dev server and no reload client, so it loads
 // chunks the way a production build does.
 describe.each([

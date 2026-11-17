@@ -48,7 +48,8 @@ function run(
 // read off a real dev compile of the entries the scripts feature creates.
 async function fallbackListeners(
   manifest: object,
-  entry: Record<string, string>
+  entry: Record<string, string>,
+  browser = 'chrome'
 ): Promise<string[]> {
   const root = writeProject(makeTempFolder('extjs-reload-strategy-'), {
     'manifest.json': manifest,
@@ -59,7 +60,7 @@ async function fallbackListeners(
     entry,
     new SetupReloadStrategy({
       manifestPath: path.join(root, 'manifest.json'),
-      browser: 'chrome'
+      browser
     } as ConstructorParameters<typeof SetupReloadStrategy>[0]),
     'development'
   )
@@ -95,6 +96,55 @@ describe('SetupReloadStrategy background entry', () => {
         {'background/scripts': 'b.js'}
       )
     ).toEqual(['background/scripts.js'])
+  })
+
+  // The session also generates a worker for this manifest, and Chromium
+  // runs the authored bundle, so the generated one gets no listener.
+  it('answers from the authored bundle beside a worker the session generated', async () => {
+    const manifest = {manifest_version: 3, background: {scripts: ['b.js']}}
+
+    expect(Object.keys(run(manifest, {files: ['b.js']}).entries)).toEqual([
+      'background/service_worker'
+    ])
+
+    expect(
+      await fallbackListeners(manifest, {'background/scripts': 'b.js'})
+    ).toEqual(['background/scripts.js'])
+  })
+
+  // The scripts feature bundles background.scripts under background/scripts
+  // on every browser, so that is the entry a page background answers from.
+  it('answers from background/scripts for an authored Firefox background', async () => {
+    expect(
+      await fallbackListeners(
+        {manifest_version: 3, background: {scripts: ['b.js']}},
+        {'background/scripts': 'b.js'},
+        'firefox'
+      )
+    ).toEqual(['background/scripts.js'])
+  })
+
+  it('answers from background/scripts for an authored MV2 background', async () => {
+    expect(
+      await fallbackListeners(
+        {manifest_version: 2, background: {scripts: ['b.js']}},
+        {'background/scripts': 'b.js'}
+      )
+    ).toEqual(['background/scripts.js'])
+  })
+
+  it('answers from the background the session generated when none is authored', async () => {
+    expect(await fallbackListeners({manifest_version: 3}, {})).toEqual([
+      'background/service_worker.js'
+    ])
+
+    expect(
+      await fallbackListeners({manifest_version: 3}, {}, 'firefox')
+    ).toEqual(['background/script.js'])
+
+    expect(await fallbackListeners({manifest_version: 2}, {})).toEqual([
+      'background/script.js'
+    ])
   })
 
   // A missing file produces no entry at all, and the missing-file error is
