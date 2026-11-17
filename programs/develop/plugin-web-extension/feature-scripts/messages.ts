@@ -532,6 +532,32 @@ export function contentScriptWithoutDefaultExport(
   )
 }
 
+// One detail per file, opening with the file: two missing files of one
+// field would otherwise read as the same error twice.
+export function scriptsMissingFile(
+  file: string,
+  field: string,
+  notFound: string,
+  fromOutputRoot: boolean
+) {
+  const lines: string[] = []
+  lines.push(
+    `${file} does not exist. Check the ${field} field in your manifest.json file.`
+  )
+
+  lines.push(`The path must point to an existing file that will be bundled.`)
+
+  if (fromOutputRoot) {
+    lines.push(
+      `Paths starting with '/' are resolved from the extension output root (served from public/), not your source directory.`
+    )
+  }
+
+  lines.push(`${colors.gray('NOT FOUND')} ${colors.underline(notFound)}`)
+
+  return lines.join('\n')
+}
+
 export function scriptPathsCheckFailed(reason: string) {
   const lines: string[] = []
   lines.push(

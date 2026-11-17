@@ -14,7 +14,10 @@ import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
 import {parseAuthoredJson} from '../../../lib/parse-json-safe'
 import type {DevOptions, FilepathList, PluginInterface} from '../../../types'
 import {classicConcatEntry, isClassicScript} from '../../shared/classic-concat'
-import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../contracts'
+import {
+  EXTENSIONJS_CONTENT_SCRIPT_LAYER,
+  parseCanonicalContentScriptEntryIndex
+} from '../contracts'
 import * as messages from '../messages'
 import {
   getCssEntries,
@@ -30,6 +33,18 @@ const isScriptsFolderFeature = (feature: string) =>
   feature.startsWith('scripts/')
 const isBackgroundScriptsFeature = (feature: string) =>
   feature === 'background/scripts'
+
+// The field as the manifest writes it: a content script group lists its
+// scripts and its stylesheets apart, under the index of the group.
+function manifestFieldOf(feature: string, entry: string): string {
+  const group = parseCanonicalContentScriptEntryIndex(feature)
+
+  if (group === undefined) return feature.replace('/', '.')
+
+  const list = /\.(?:css|scss|sass|less)$/i.test(entry) ? 'css' : 'js'
+
+  return `content_scripts[${group}].${list}`
+}
 
 export function createSequentialEntryModule(
   feature: string,
@@ -123,17 +138,17 @@ export class AddScripts {
                 : resolved
 
               const err = new ErrorCtor(
-                [
-                  `Check the ${feature.replace('/', '.')} field in your manifest.json file.`,
-                  `The script path must point to an existing file that will be bundled.`,
+                messages.scriptsMissingFile(
                   isPublicRoot
-                    ? `Paths starting with '/' are resolved from the extension output root (served from public/), not your source directory.`
-                    : '',
-                  '',
-                  `NOT FOUND ${displayPath}`
-                ]
-                  .filter(Boolean)
-                  .join('\n')
+                    ? entry
+                    : path
+                        .relative(manifestDir, resolved)
+                        .split(path.sep)
+                        .join('/'),
+                  manifestFieldOf(feature, entry),
+                  displayPath,
+                  isPublicRoot
+                )
               ) as Error & {file?: string; name?: string}
               err.file = 'manifest.json'
               err.name = 'ScriptsMissingFile'

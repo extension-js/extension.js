@@ -3,6 +3,8 @@ import os from 'node:os'
 import path from 'node:path'
 import {rspack} from '@rspack/core'
 import {afterAll, describe, expect, it} from 'vitest'
+import {getProjectStructure} from '../../../lib/project'
+import webpackConfig from '../../../rspack-config'
 import {AddScripts} from '../steps/add-scripts'
 
 const roots: string[] = []
@@ -75,6 +77,122 @@ async function compile(
     })
   })
 }
+
+// The whole production configuration on a project written to a temp folder,
+// without the plugins that start a browser.
+async function buildProject(manifest: Record<string, unknown>) {
+  const root = fs.realpathSync(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-script-paths-project-'))
+  )
+  roots.push(root)
+
+  fs.writeFileSync(
+    path.join(root, 'package.json'),
+    JSON.stringify({private: true, name: 'paths', version: '0.0.0'})
+  )
+
+  fs.writeFileSync(
+    path.join(root, 'manifest.json'),
+    JSON.stringify({
+      manifest_version: 3,
+      name: 'paths',
+      version: '1.0.0',
+      ...manifest
+    })
+  )
+
+  const config = webpackConfig(await getProjectStructure(root), {
+    browser: 'chrome',
+    mode: 'production',
+    metadataCommand: 'build',
+    silent: true,
+    output: {clean: true, path: path.join(root, 'dist', 'chrome')}
+  } as any)
+  config.plugins = (config.plugins || []).filter(
+    (plugin) =>
+      plugin?.constructor.name !== 'plugin-browsers' &&
+      plugin?.constructor.name !== 'plugin-playwright'
+  )
+
+  config.stats = false
+
+  return new Promise<Array<{code: string; file: string; lines: string[]}>>(
+    (resolve, reject) => {
+      rspack(config).run((error, stats) => {
+        if (error || !stats) return reject(error)
+
+        resolve(
+          (stats.toJson({all: false, errors: true}).errors || []).map(
+            (issue) => ({
+              code: String(issue.code || ''),
+              file: String(issue.file || ''),
+              lines: issue.message
+                .replaceAll(root, '<root>')
+                .split('\n')
+                .map((line) => line.replace(/^ {2}[\u00d7\u2502] ?/, ''))
+                .filter(Boolean)
+            })
+          )
+        )
+      })
+    }
+  )
+}
+
+const MUST_EXIST =
+  'The path must point to an existing file that will be bundled.'
+
+describe('a manifest that names files that do not exist', () => {
+  it('reports a missing script and a missing stylesheet of one group apart, each under its own file', async () => {
+    const errors = await buildProject({
+      content_scripts: [
+        {
+          matches: ['<all_urls>'],
+          js: ['content/missing.js'],
+          css: ['content/missing.css']
+        }
+      ]
+    })
+
+    expect(errors).toEqual([
+      {
+        code: 'ScriptsMissingFile',
+        file: 'manifest.json',
+        lines: [
+          'content/missing.js does not exist. Check the content_scripts[0].js field in your manifest.json file.',
+          MUST_EXIST,
+          'NOT FOUND <root>/content/missing.js'
+        ]
+      },
+      {
+        code: 'ScriptsMissingFile',
+        file: 'manifest.json',
+        lines: [
+          'content/missing.css does not exist. Check the content_scripts[0].css field in your manifest.json file.',
+          MUST_EXIST,
+          'NOT FOUND <root>/content/missing.css'
+        ]
+      }
+    ])
+  })
+
+  it('opens each detail with its own file when one field names two missing scripts', async () => {
+    const errors = await buildProject({
+      background: {service_worker: 'worker.js'},
+      content_scripts: [
+        {matches: ['<all_urls>'], js: ['first.js']},
+        {matches: ['<all_urls>'], js: ['one.js', 'two.js']}
+      ]
+    })
+
+    expect(errors.map(({lines}) => lines[0])).toEqual([
+      'worker.js does not exist. Check the background.service_worker field in your manifest.json file.',
+      'first.js does not exist. Check the content_scripts[0].js field in your manifest.json file.',
+      'one.js does not exist. Check the content_scripts[1].js field in your manifest.json file.',
+      'two.js does not exist. Check the content_scripts[1].js field in your manifest.json file.'
+    ])
+  })
+})
 
 describe('the script path check of a real compilation', () => {
   it('reports a check that throws, where it used to pass with nothing said', async () => {
