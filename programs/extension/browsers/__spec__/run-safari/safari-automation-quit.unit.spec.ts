@@ -2,11 +2,18 @@ import {type ChildProcess, spawn} from 'node:child_process'
 import {once} from 'node:events'
 import * as http from 'node:http'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
-import {openSafariWebDriverSession} from '../../run-safari/safari-launch/webdriver'
+import {
+  openSafariWebDriverSession,
+  type SafariQuitDependencies
+} from '../../run-safari/safari-launch/webdriver'
 import {type FakeSafariTools, fakeSafariTools} from '../safari-fake-tools'
 
 const SIGNALS = ['SIGINT', 'SIGTERM', 'SIGHUP', 'exit'] as const
 const REFUSAL = 'Could not create a session: refused by the test'
+
+// No process can carry this pid, so nothing dates or signals a real one.
+const DRIVER_PID = 2 ** 30
+const DRIVER_STARTED = Date.parse('2026-11-17T10:00:05.000Z')
 
 // A safaridriver that is up and refuses the session, served in this process.
 function refusingDriver(port: number): Promise<http.Server> {
@@ -29,21 +36,26 @@ function refusingDriver(port: number): Promise<http.Server> {
   })
 }
 
-// The process list is scripted and the signal is a fake: a real automation
-// Safari may be running on this machine and is never read or reached.
+// The process list, the start times, the probe and the signal are scripted: a
+// real automation Safari may run on this machine and is never read or reached.
 describe('the automation Safari a session quits on its way out', () => {
   let bystander: ChildProcess
   let servers: http.Server[]
   let listenersBefore: Map<string, unknown[]>
   let tools: FakeSafariTools
+  let events: string[]
+  let printed: string[]
+  let safari: number
 
   beforeEach(async () => {
     servers = []
+    events = []
+    printed = []
     listenersBefore = new Map(
       SIGNALS.map((name) => [name, process.listeners(name as 'exit')])
     )
 
-    // Its pid stands in for the foreign Safari, so nothing else can be hit.
+    // Its pid stands in for the automation Safari, so nothing else can be hit.
     bystander = spawn(
       process.execPath,
       ['-e', 'setInterval(() => {}, 1000)', 'extjs-spec-bystander'],
@@ -51,24 +63,17 @@ describe('the automation Safari a session quits on its way out', () => {
     )
 
     await once(bystander, 'spawn')
+    safari = bystander.pid as number
 
     let listings = 0
     tools = fakeSafariTools()
     // Absent when the session takes its snapshot, there when it stops.
-    tools.listAutomationPids = async () =>
-      listings++ === 0 ? [] : [bystander.pid as number]
-
-    tools.startWebDriver = async (port) => {
-      const server = await refusingDriver(port)
-      servers.push(server)
-
-      return {ok: true, output: '', stop: () => server.closeAllConnections()}
-    }
+    tools.listAutomationPids = async () => (listings++ === 0 ? [] : [safari])
+    useDriver(DRIVER_PID)
   })
 
   afterEach(async () => {
     vi.useRealTimers()
-    vi.restoreAllMocks()
 
     for (const name of SIGNALS) {
       for (const listener of process.listeners(name as 'exit')) {
@@ -84,55 +89,201 @@ describe('the automation Safari a session quits on its way out', () => {
     }
 
     const exited = once(bystander, 'exit')
-    process.kill(bystander.pid as number, 'SIGKILL')
+    process.kill(safari, 'SIGKILL')
     await exited
   })
 
-  function fakeKill(probeCode: 'ESRCH' | 'EPERM') {
-    return vi.spyOn(process, 'kill').mockImplementation((_pid, signal) => {
-      if (signal === 'SIGTERM') return true
+  function useDriver(pid: number | undefined) {
+    tools.startWebDriver = async (port) => {
+      const server = await refusingDriver(port)
+      servers.push(server)
 
-      throw Object.assign(new Error(`kill ${probeCode}`), {code: probeCode})
-    })
+      return {
+        ok: true,
+        pid,
+        output: '',
+        stop: () => {
+          events.push('driver stopped')
+          server.closeAllConnections()
+        }
+      }
+    }
   }
 
-  // Pins today's behavior. Ledger 1374 D15.
-  it('signals an automation Safari that appeared since its snapshot, whoever raised it', async () => {
-    const kill = fakeKill('ESRCH')
+  // Each pid answers its reads in order, and its last answer from then on.
+  function scripted(
+    starts: {driver: Array<number | null>; safari: Array<number | null>},
+    alive = false
+  ): SafariQuitDependencies {
+    const answers = new Map([
+      [DRIVER_PID, [...starts.driver]],
+      [safari, [...starts.safari]]
+    ])
 
-    const outcome = await openSafariWebDriverSession(tools, {attempts: 1})
+    return {
+      platform: 'darwin',
+      isAlive: (pid) => {
+        events.push(`probed ${pid === safari ? 'safari' : pid}`)
+
+        return alive
+      },
+      startedAt: (pid) => {
+        const left = answers.get(pid) as Array<number | null>
+        events.push(`dated ${pid === safari ? 'safari' : 'driver'}`)
+
+        return left.length > 1 ? (left.shift() as number | null) : left[0]
+      },
+      kill: (pid, signal) => {
+        events.push(`sent ${signal} to ${pid === safari ? 'safari' : pid}`)
+
+        return true
+      },
+      print: (line) => printed.push(line)
+    }
+  }
+
+  function leftRunningLine() {
+    return (
+      `⏵⏵⏵ Safari (pid ${safari}) did not stop and could not be confirmed as the browser this run started, so it was left running. ` +
+      `To stop it, run kill -9 ${safari}.`
+    )
+  }
+
+  async function refusedSession(teardown: SafariQuitDependencies) {
+    const outcome = await openSafariWebDriverSession(tools, {
+      attempts: 1,
+      teardown
+    })
 
     expect(outcome).toEqual({reason: REFUSAL})
     expect(servers).toHaveLength(1)
-    expect(kill.mock.calls).toEqual([
-      [bystander.pid, 'SIGTERM'],
-      [bystander.pid, 0]
-    ])
-
     expect(bystander.exitCode).toBeNull()
     expect(bystander.signalCode).toBeNull()
+  }
+
+  it('quits the Safari that appeared since its snapshot and started after its own driver', async () => {
+    await refusedSession(
+      scripted({driver: [DRIVER_STARTED], safari: [DRIVER_STARTED + 2000]})
+    )
+
+    // The driver is dated again while it still runs, then stopped.
+    expect(events).toEqual([
+      'dated driver',
+      'dated driver',
+      'driver stopped',
+      'dated safari',
+      'sent SIGTERM to safari',
+      'probed safari'
+    ])
+
+    expect(printed).toEqual([])
   })
 
-  it('reads EPERM on its probe as alive and keeps waiting its three seconds', async () => {
-    const kill = fakeKill('EPERM')
+  it('counts a Safari dated in the same second as its driver as started after it', async () => {
+    await refusedSession(
+      scripted({driver: [DRIVER_STARTED], safari: [DRIVER_STARTED]})
+    )
+
+    expect(events).toContain('sent SIGTERM to safari')
+    expect(printed).toEqual([])
+  })
+
+  it('leaves a Safari that started before its driver and says so once', async () => {
+    await refusedSession(
+      scripted({driver: [DRIVER_STARTED], safari: [DRIVER_STARTED - 1000]})
+    )
+
+    expect(events).toEqual([
+      'dated driver',
+      'dated driver',
+      'driver stopped',
+      'dated safari'
+    ])
+
+    expect(printed).toEqual([leftRunningLine()])
+  })
+
+  it('leaves the Safari when the driver pid no longer carries its spawn time', async () => {
+    await refusedSession(
+      scripted({
+        driver: [DRIVER_STARTED, DRIVER_STARTED + 1000],
+        safari: [DRIVER_STARTED + 2000]
+      })
+    )
+
+    // Nothing is sent and the Safari is not even dated.
+    expect(events).toEqual(['dated driver', 'dated driver', 'driver stopped'])
+    expect(printed).toEqual([leftRunningLine()])
+  })
+
+  it.each([
+    {
+      unreadable: 'the driver at spawn',
+      driver: [null],
+      safari: [DRIVER_STARTED + 2000],
+      dated: ['dated driver', 'driver stopped']
+    },
+    {
+      unreadable: 'the driver as it is stopped',
+      driver: [DRIVER_STARTED, null],
+      safari: [DRIVER_STARTED + 2000],
+      dated: ['dated driver', 'dated driver', 'driver stopped']
+    },
+    {
+      unreadable: 'the Safari',
+      driver: [DRIVER_STARTED],
+      safari: [null],
+      dated: ['dated driver', 'dated driver', 'driver stopped', 'dated safari']
+    }
+  ])('leaves the Safari when no start time can be read for $unreadable', async ({
+    driver,
+    safari: safariStarts,
+    dated
+  }) => {
+    await refusedSession(scripted({driver, safari: safariStarts}))
+
+    expect(events).toEqual(dated)
+    expect(printed).toEqual([leftRunningLine()])
+  })
+
+  it('leaves the Safari when the driver reported no pid to prove', async () => {
+    useDriver(undefined)
+
+    await refusedSession(
+      scripted({driver: [DRIVER_STARTED], safari: [DRIVER_STARTED + 2000]})
+    )
+
+    expect(events).toEqual(['driver stopped'])
+    expect(printed).toEqual([leftRunningLine()])
+  })
+
+  it('keeps probing a Safari that stays up for its three seconds', async () => {
+    const teardown = scripted(
+      {driver: [DRIVER_STARTED], safari: [DRIVER_STARTED + 2000]},
+      true
+    )
     // The driver answers over a real socket, only the quit wait is on the clock.
     vi.useFakeTimers({toFake: ['setTimeout', 'clearTimeout', 'Date']})
 
     let outcome: unknown
-    void openSafariWebDriverSession(tools, {attempts: 1}).then((value) => {
-      outcome = value
-    })
+    void openSafariWebDriverSession(tools, {attempts: 1, teardown}).then(
+      (value) => {
+        outcome = value
+      }
+    )
 
     while (!outcome) {
       await vi.advanceTimersByTimeAsync(100)
       await new Promise((resolve) => setImmediate(resolve))
     }
 
-    // Probed every 100 ms until the three seconds are up.
+    // One signal, then a probe every 100 ms until the three seconds are up.
     expect(outcome).toEqual({reason: REFUSAL})
-    expect(kill.mock.calls).toEqual([
-      [bystander.pid, 'SIGTERM'],
-      ...Array.from({length: 30}, () => [bystander.pid, 0])
+    expect(events.slice(4)).toEqual([
+      'sent SIGTERM to safari',
+      ...Array.from({length: 30}, () => 'probed safari')
     ])
+
+    expect(printed).toEqual([])
   })
 })
