@@ -160,4 +160,24 @@ describe('starting the bundler', () => {
     expect(readStartTimeoutMs({})).toBe(30000)
     expect(readStartTimeoutMs({EXTENSION_START_TIMEOUT_MS: '5000'})).toBe(5000)
   })
+
+  // Pins today's behavior. Ledger 1391 D8.
+  it('warns at once when EXTENSION_START_TIMEOUT_MS is not a number', async () => {
+    vi.useFakeTimers()
+    const timeoutMs = readStartTimeoutMs({EXTENSION_START_TIMEOUT_MS: 'soon'})
+    const onSlowStart = vi.fn()
+
+    let finish: () => void = () => {}
+
+    const started = startBundler(
+      {start: () => new Promise<void>((resolve) => (finish = resolve))},
+      {timeoutMs, onSlowStart, onFailure: () => {}}
+    )
+
+    expect(timeoutMs).toBeNaN()
+    await vi.advanceTimersByTimeAsync(1)
+    expect(onSlowStart).toHaveBeenCalledTimes(1)
+    finish()
+    await started
+  })
 })

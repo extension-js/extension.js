@@ -5,6 +5,7 @@ import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {controlPortFilePath} from '../../lib/session-paths'
 import type {BridgeBroker} from '../control-bridge/broker'
+import {CONTROL_WS_PATH} from '../control-bridge/contracts'
 import type {ControlServer} from '../control-bridge/ws-control-server'
 import {openControlBridge} from '../control-bridge-start'
 import {stripAnsi} from '../lifecycle-stream'
@@ -186,5 +187,47 @@ describe('opening the control bridge', () => {
 
     expect(broker.noteControlPortUnavailable).not.toHaveBeenCalled()
     expect(logFile.close).not.toHaveBeenCalled()
+  })
+
+  // Pins today's behavior. Ledger 1391 D8.
+  it('takes a 16 MiB frame on the control socket', async () => {
+    const frames: unknown[] = []
+    const broker = {
+      pingProducers: () => {},
+      onFrame: (_conn: unknown, frame: unknown) => frames.push(frame),
+      onClose: () => {}
+    }
+    const {startControlServer} = await import(
+      '../control-bridge/ws-control-server'
+    )
+    const {WebSocket} = await import('ws')
+    const server = await startControlServer({
+      broker: broker as unknown as BridgeBroker,
+      host: '127.0.0.1',
+      port: 0
+    })
+    closers.push(() => server.close())
+    const socket = new WebSocket(
+      `ws://127.0.0.1:${server.port}${CONTROL_WS_PATH}`
+    )
+    closers.push(
+      () =>
+        new Promise<void>((resolve) => {
+          socket.once('close', () => resolve())
+          socket.terminate()
+        })
+    )
+
+    await new Promise<void>((resolve, reject) => {
+      socket.once('open', () => resolve())
+      socket.once('error', reject)
+    })
+
+    const payload = 'x'.repeat(16 * 1024 * 1024)
+    socket.send(JSON.stringify({type: 'pin', payload}))
+
+    await vi.waitFor(() => expect(frames).toHaveLength(1), {timeout: 10000})
+    expect((frames[0] as {payload: string}).payload.length).toBe(payload.length)
+    expect(socket.readyState).toBe(WebSocket.OPEN)
   })
 })

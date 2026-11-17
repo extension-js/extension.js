@@ -96,4 +96,47 @@ describe('a dev session restart', () => {
 
     expect(s.calls).toEqual(['holdPort', 'start next', 'endPortHold'])
   })
+
+  // Pins today's behavior. Ledger 1391 D2.
+  it('prints only the restart line when the next config fails to load', async () => {
+    const consoleCalls = [
+      vi.spyOn(console, 'log').mockImplementation(() => {}),
+      vi.spyOn(console, 'error').mockImplementation(() => {}),
+      vi.spyOn(console, 'warn').mockImplementation(() => {})
+    ]
+    const s = session({
+      createBundle: async () => {
+        throw new Error('extension.config.js: Unexpected token')
+      }
+    })
+    await s.restart()
+
+    expect(s.printed).toEqual([
+      stripAnsi(
+        messages.devServerRestarting({
+          reason: 'scripts',
+          pathAfter: 'scripts/new.js'
+        })
+      )
+    ])
+
+    expect(s.printed[0]).toContain('Restarting the dev server')
+    for (const spy of consoleCalls) expect(spy).not.toHaveBeenCalled()
+    expect(s.first.stop).not.toHaveBeenCalled()
+    expect(s.current()).toBe(s.first)
+    expect(s.calls).toEqual([])
+  })
+
+  // Pins today's behavior. Ledger 1391 D2.
+  it('leaves no current server and the port held when the old stop rejects', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const s = session()
+    s.first.stop.mockRejectedValueOnce(new Error('close EBUSY'))
+    await s.restart()
+
+    expect(s.current()).toBeNull()
+    expect(s.next.stop).not.toHaveBeenCalled()
+    expect(s.calls).toEqual(['createBundle', 'holdPort'])
+    expect(consoleError).not.toHaveBeenCalled()
+  })
 })
