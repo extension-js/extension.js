@@ -20,7 +20,7 @@ export class WasmPlugin {
   // Walk ancestors so hoisted workspace deps resolve the same way rspack's
   // `resolve.modules: ['node_modules']` does. Checking only the package dir
   // and cwd misses packages pnpm/yarn/npm hoist to the workspace root.
-  private collectSearchRoots(projectRoot: string) {
+  private collectSearchRoots(projectRoot: string, cwd: string) {
     const roots: string[] = []
     const seen = new Set<string>()
 
@@ -41,13 +41,17 @@ export class WasmPlugin {
     }
 
     addAncestors(projectRoot)
-    addAncestors(process.cwd())
+    addAncestors(cwd)
 
     return roots
   }
 
-  private resolveAssetPath(projectRoot: string, relativePath: string) {
-    for (const root of this.collectSearchRoots(projectRoot)) {
+  private resolveAssetPath(
+    projectRoot: string,
+    cwd: string,
+    relativePath: string
+  ) {
+    for (const root of this.collectSearchRoots(projectRoot, cwd)) {
       const candidate = path.join(root, 'node_modules', relativePath)
 
       if (fs.existsSync(candidate)) {
@@ -58,11 +62,11 @@ export class WasmPlugin {
     return null
   }
 
-  private buildAssetAliases(projectRoot: string) {
+  private buildAssetAliases(projectRoot: string, cwd: string) {
     const aliases: Record<string, string> = {}
 
     const addAlias = (request: string) => {
-      const resolved = this.resolveAssetPath(projectRoot, request)
+      const resolved = this.resolveAssetPath(projectRoot, cwd, request)
 
       if (resolved) {
         aliases[request] = resolved
@@ -81,7 +85,11 @@ export class WasmPlugin {
     return aliases
   }
 
-  private ensureWasmResolution(compiler: Compiler, projectRoot: string) {
+  private ensureWasmResolution(
+    compiler: Compiler,
+    projectRoot: string,
+    cwd: string
+  ) {
     compiler.options.resolve = compiler.options.resolve || {}
     const extensions = compiler.options.resolve.extensions || []
 
@@ -89,7 +97,7 @@ export class WasmPlugin {
       compiler.options.resolve.extensions = [...extensions, '.wasm']
     }
 
-    const assetAliases = this.buildAssetAliases(projectRoot)
+    const assetAliases = this.buildAssetAliases(projectRoot, cwd)
     compiler.options.resolve.alias = {
       ...assetAliases,
       ...(compiler.options.resolve.alias as Record<
@@ -99,8 +107,9 @@ export class WasmPlugin {
     }
   }
 
-  public apply(compiler: Compiler): void {
-    const projectRoot = String(compiler.options.context || process.cwd())
-    this.ensureWasmResolution(compiler, projectRoot)
+  // rspack calls apply(compiler), so `cwd` is the process folder outside specs.
+  public apply(compiler: Compiler, cwd: string = process.cwd()): void {
+    const projectRoot = String(compiler.options.context || cwd)
+    this.ensureWasmResolution(compiler, projectRoot, cwd)
   }
 }
