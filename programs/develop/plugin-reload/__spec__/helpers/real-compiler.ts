@@ -34,6 +34,48 @@ export function idleCompiler(
   })
 }
 
+// Runs a production compile with readable output and returns every emitted
+// JavaScript file by name, after checking the compile reported no error.
+export async function compileProduction(
+  root: string,
+  entry: Record<string, string>,
+  plugin: {apply(compiler: Compiler): void}
+): Promise<{errors: string[]; files: Record<string, string>}> {
+  const compiler = rspack({
+    mode: 'production',
+    context: root,
+    devtool: false,
+    optimization: {minimize: false},
+    entry: Object.fromEntries(
+      Object.entries(entry).map(([name, file]) => [
+        name,
+        {import: [file.startsWith('data:') ? file : path.join(root, file)]}
+      ])
+    ),
+    output: {path: path.join(root, 'dist')},
+    plugins: [plugin]
+  })
+  const stats = await new Promise<import('@rspack/core').Stats>(
+    (resolve, reject) =>
+      compiler.run((error, result) =>
+        error || !result ? reject(error) : resolve(result)
+      )
+  )
+  await new Promise((resolve) => compiler.close(resolve))
+  const errors = stats.compilation.errors.map((error) => error.message)
+  const files: Record<string, string> = {}
+
+  if (!stats.hasErrors()) {
+    for (const asset of stats.compilation.getAssets()) {
+      if (asset.name.endsWith('.js')) {
+        files[asset.name] = String(asset.source.source())
+      }
+    }
+  }
+
+  return {errors, files}
+}
+
 function tapNames(compiler: Compiler): Map<string, string[]> {
   return new Map(
     Object.entries(compiler.hooks).map(([hook, value]) => [
