@@ -249,6 +249,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "jsonDepsTracked: function(1)",
     "jsonEmitSummary: function(2)",
     "jsonIncludeSummary: function(2)",
+    "jsonIncludeValueNotOneString: function(2)",
     "jsonMissingFile: function(3)",
     "jsonPathIsFolder: function(3)",
     "rulesetDuplicateRuleIds: function(3)",
