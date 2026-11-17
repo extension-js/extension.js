@@ -10,6 +10,7 @@ import * as path from 'node:path'
 import {type Command, Option} from 'commander'
 import {normalizeProfileOption} from '../browsers/browsers-lib/resolve-profile'
 import {runOnlyPreviewBrowser} from '../browsers/run-only'
+import {refuseUnlistedChoices} from '../helpers/choice-flags'
 import {
   explicitCliValue,
   explicitOptionalBoolean
@@ -24,6 +25,7 @@ import {getCliPackageJson} from '../helpers/cli-package-json'
 import {resolveConfigBrowser} from '../helpers/config-browser'
 import {exitWithFailure} from '../helpers/exit-after-drain'
 import {
+  type AnyDevelopModule,
   loadExtensionDevelopModule,
   loadExtensionDevelopPreviewModule
 } from '../helpers/extension-develop-runtime'
@@ -37,23 +39,35 @@ import {
   resolveNoBrowser
 } from '../helpers/no-browser'
 import {
+  firstInvalidWholeNumberFlag,
   parseExtensionsList,
   parseLogContexts
 } from '../helpers/normalize-options'
-import {resolveOutputFormat} from '../helpers/output-flag'
+import {
+  refuseUnreadableOutput,
+  resolveOutputFormat
+} from '../helpers/output-flag'
 import {checkProjectCliVersion} from '../helpers/project-cli-version'
-import {markCommandSessionStart} from '../helpers/telemetry-cli'
+import {
+  missingProjectFolder,
+  missingProjectRefusal
+} from '../helpers/project-folder'
+import {
+  markCommandSessionStart,
+  reportCommandFailureNow
+} from '../helpers/telemetry-cli'
 import {
   type Browser,
   isSafariVendor,
   NO_SAFARI_BROWSER_TARGETS_HELP,
   parseOptionalBoolean,
+  unsupportedBrowserMessage,
   validateVendors,
   vendors
 } from '../helpers/vendors'
 import {describeWaitError, framedWaitFailure, runWaitMode} from './dev-wait'
 
-type StartOptions = {
+export type StartOptions = {
   browser?: Browser | 'all'
   profile?: string | boolean
   chromiumBinary?: string
@@ -67,9 +81,9 @@ type StartOptions = {
   open?: boolean
   install?: boolean
   debug?: boolean
-  author?: boolean
   authorMode?: boolean
-  logLevel?: string
+  logs?: string
+  logContext?: string
   logFormat?: 'pretty' | 'json' | 'ndjson'
   logTimestamps?: boolean
   logColor?: boolean
@@ -91,7 +105,8 @@ function printFrame(frame: unknown): void {
 
 // Under --output json a bare exit leaves stdout empty, so a machine consumer
 // reads exit 1 and has nothing to explain it. Print the frame before exiting.
-function failAndExit(
+function failAndExitWith(
+  reportFailure: typeof reportCommandFailureNow,
   asJson: boolean,
   status: string,
   error: {code: ErrorCode; message: string},
@@ -101,10 +116,35 @@ function failAndExit(
     printFrame(ENVELOPE.fail('start', status, error, hint ? {hint} : {}))
   }
 
-  exitWithFailure(error.code)
+  exitWithFailure(error.code, 1, reportFailure)
 }
 
-export function registerStartCommand(program: Command) {
+// What the action reaches outside this file. Production takes every default.
+interface StartCommandDeps {
+  loadDevelop?: () => Promise<AnyDevelopModule>
+  loadPreview?: () => Promise<AnyDevelopModule>
+  runBrowser?: typeof runOnlyPreviewBrowser
+  waitForReady?: typeof runWaitMode
+  reportFailure?: typeof reportCommandFailureNow
+}
+
+export function registerStartCommand(
+  program: Command,
+  {
+    loadDevelop = loadExtensionDevelopModule,
+    loadPreview = loadExtensionDevelopPreviewModule,
+    runBrowser = runOnlyPreviewBrowser,
+    waitForReady = runWaitMode,
+    reportFailure = reportCommandFailureNow
+  }: StartCommandDeps = {}
+) {
+  const failAndExit: (
+    asJson: boolean,
+    status: string,
+    error: {code: ErrorCode; message: string},
+    hint?: string
+  ) => never = (...args) => failAndExitWith(reportFailure, ...args)
+
   program
     .command('start')
     .arguments('[project-path|remote-url]')
@@ -132,10 +172,6 @@ export function registerStartCommand(program: Command) {
     )
     .option('--no-polyfill', 'disable the cross-browser polyfill')
     .option('--no-open', NO_OPEN_FLAG_DESCRIPTION)
-    .option(
-      '--enable-extension',
-      'turn the extension on in Safari Settings through macOS Accessibility (safari targets only, and start has no Safari path yet)'
-    )
     .option(
       '--chromium-binary <path-to-binary>',
       'specify a path to the Chromium binary. This option overrides the --browser setting and the binary variables. Without it the managed install runs, then the system install'
@@ -226,6 +262,8 @@ export function registerStartCommand(program: Command) {
         'deprecated alias for --debug'
       ).hideHelp()
     )
+    .hook('preAction', refuseUnreadableOutput({reportFailure}))
+    .hook('preAction', refuseUnlistedChoices({reportFailure}))
     .action(
       async (
         pathOrRemoteUrl: string,
@@ -239,15 +277,12 @@ export function registerStartCommand(program: Command) {
           cliBrowser ??
           ((await resolveConfigBrowser(
             pathOrRemoteUrl || process.cwd(),
-            'start'
+            'start',
+            loadDevelop
           )) as StartOptions['browser']) ??
           'chromium'
 
-        if (
-          startOptions.debug ||
-          startOptions.author ||
-          startOptions.authorMode
-        ) {
+        if (startOptions.debug || startOptions.authorMode) {
           process.env.EXTENSION_DEBUG = '1'
           // Alias kept for one minor: extension-develop still reads the old name.
           process.env.EXTENSION_AUTHOR_MODE = 'true'
@@ -276,43 +311,61 @@ export function registerStartCommand(program: Command) {
           )
         }
 
+        const invalidNumber = firstInvalidWholeNumberFlag([
+          ['--port', startOptions.port],
+          ['--wait-timeout', startOptions.waitTimeout]
+        ])
+
+        if (invalidNumber) {
+          const message = messages.invalidWholeNumberFlag(...invalidNumber)
+
+          if (!asJson) {
+            // eslint-disable-next-line no-console
+            console.error(messages.usageRefusal(message))
+          }
+
+          failAndExit(asJson, 'usage', {code: CODES.E_INVALID_OPTION, message})
+        }
+
+        if (startOptions.waitTimeout !== undefined && !startOptions.wait) {
+          const message = messages.waitTimeoutWithoutWait()
+
+          if (!asJson) {
+            // eslint-disable-next-line no-console
+            console.error(messages.usageRefusal(message))
+          }
+
+          failAndExit(asJson, 'usage', {code: CODES.E_INVALID_OPTION, message})
+        }
+
         // Tells develop to route human lines to stderr, so stdout carries
         // only the envelope and stays parseable as one JSON document.
         if (asJson) process.env.EXTENSION_OUTPUT = 'json'
 
         const list = vendors(browser)
         let unsupportedBrowser = ''
+        let supportedBrowsers: string[] = []
 
         const vendorsAreSupported = validateVendors(
           list,
           (invalid, supported) => {
             unsupportedBrowser = invalid
+            supportedBrowsers = supported
             if (asJson) return
 
             // eslint-disable-next-line no-console
             console.error(messages.unsupportedBrowserFlag(invalid, supported))
           },
-          {allowEmulator: false}
+          {allowEmulator: false, listSafari: false}
         )
 
         if (!vendorsAreSupported) {
           failAndExit(asJson, 'usage', {
             code: CODES.E_UNSUPPORTED_BROWSER,
-            message: `Unsupported browser: ${unsupportedBrowser}`
-          })
-        }
-
-        if (
-          (startOptions as {enableExtension?: boolean}).enableExtension &&
-          !list.some(isSafariVendor)
-        ) {
-          if (!asJson) {
-            console.error(messages.safariOnlyOption(['--enable-extension']))
-          }
-
-          failAndExit(asJson, 'usage', {
-            code: CODES.E_INVALID_OPTION,
-            message: '--enable-extension applies to safari targets only.'
+            message: unsupportedBrowserMessage(
+              unsupportedBrowser,
+              supportedBrowsers
+            )
           })
         }
 
@@ -327,6 +380,22 @@ export function registerStartCommand(program: Command) {
             code: CODES.E_COMMAND_UNSUPPORTED_FOR_TARGET,
             message: 'Safari is not supported by start.'
           })
+        }
+
+        const missingFolder = missingProjectFolder(pathOrRemoteUrl)
+
+        if (missingFolder) {
+          const refusal = missingProjectRefusal('start', missingFolder)
+
+          // eslint-disable-next-line no-console
+          if (!asJson) console.error(refusal.stderr)
+
+          failAndExit(
+            asJson,
+            'usage',
+            {code: CODES.E_PROJECT_NOT_FOUND, message: refusal.message},
+            refusal.hint
+          )
         }
 
         if (startOptions.wait) {
@@ -355,7 +424,7 @@ export function registerStartCommand(program: Command) {
           let waitResult: Awaited<ReturnType<typeof runWaitMode>>
 
           try {
-            waitResult = await runWaitMode({
+            waitResult = await waitForReady({
               command: 'start',
               pathOrRemoteUrl,
               browsers: list,
@@ -401,31 +470,25 @@ export function registerStartCommand(program: Command) {
         // running behind the launched browser until a signal ends it.
         markCommandSessionStart('start')
 
-        const {extensionBuild} = await loadExtensionDevelopModule()
+        const {extensionBuild} = await loadDevelop()
         const noBrowser = await resolveNoBrowser(
           pathOrRemoteUrl || process.cwd(),
-          'start'
+          'start',
+          loadDevelop
         )
 
         for (const vendor of list) {
-          const logsOption = (startOptions as unknown as {logs?: string}).logs
-          const logContextOption = (
-            startOptions as unknown as {logContext?: string}
-          ).logContext
+          const logsOption = startOptions.logs
+          const logContextOption = startOptions.logContext
 
           const logContexts = parseLogContexts(logContextOption)
           // Unset stays undefined so commands.start.* and stock defaults
           // apply inside develop instead of a forced value here.
-          const logLevel = logsOption || startOptions.logLevel || undefined
+          const logLevel = logsOption || undefined
 
           try {
             await extensionBuild(pathOrRemoteUrl, {
               browser: vendor as StartOptions['browser'],
-              // CLI surface: a failed build ends this process with the clean
-              // error line. Library imports of extensionBuild reject instead.
-              // Under --output json we catch instead, so the failure can be
-              // reported as one envelope rather than a bare exit code.
-              exitOnError: !asJson,
               // The build-phase receipt should name the command the user ran.
               metadataCommand: 'start',
               // With a launch ahead the receipt is not the session being
@@ -443,22 +506,26 @@ export function registerStartCommand(program: Command) {
               silent: true
             })
           } catch (error) {
-            if (!asJson) throw error
+            const code = declaredErrorCode(error) ?? CODES.E_COMPILE
 
-            printFrame(
-              ENVELOPE.fail(
-                'start',
-                'build-failed',
-                {
-                  code: declaredErrorCode(error) ?? CODES.E_COMPILE,
-                  message:
-                    error instanceof Error ? error.message : String(error)
-                },
-                {hint: 'Fix the error above and run start again.'}
+            // The engine printed the failure before it rejected, so pretty
+            // mode adds no line and only the frame is left to write.
+            if (asJson) {
+              printFrame(
+                ENVELOPE.fail(
+                  'start',
+                  'build-failed',
+                  {
+                    code,
+                    message:
+                      error instanceof Error ? error.message : String(error)
+                  },
+                  {hint: 'Fix the error above and run start again.'}
+                )
               )
-            )
+            }
 
-            exitWithFailure(declaredErrorCode(error) ?? CODES.E_COMPILE)
+            exitWithFailure(code, 1, reportFailure)
           }
 
           if (noBrowser) {
@@ -467,7 +534,7 @@ export function registerStartCommand(program: Command) {
 
           // Launch the browser through the preview module, which resolves the
           // project structure and extensions-to-load.
-          const {extensionPreview} = await loadExtensionDevelopPreviewModule()
+          const {extensionPreview} = await loadPreview()
 
           await extensionPreview(
             pathOrRemoteUrl,
@@ -513,7 +580,7 @@ export function registerStartCommand(program: Command) {
               logTab: startOptions.logTab
             },
             (opts: Parameters<typeof runOnlyPreviewBrowser>[0]) =>
-              runOnlyPreviewBrowser({...opts, command: 'start'})
+              runBrowser({...opts, command: 'start'})
           )
         }
 

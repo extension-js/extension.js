@@ -462,12 +462,14 @@ export async function setupCdpAfterLaunch(
     version?: string
   } | null = null
 
+  let ensureLoadedTimer: ReturnType<typeof setTimeout> | undefined
+
   try {
     const ensureLoadedTimeoutMs = 10000
     extensionControllerInfo = await Promise.race([
       cdpExtensionController.ensureLoaded(),
       new Promise<never>((_, reject) => {
-        setTimeout(
+        ensureLoadedTimer = setTimeout(
           () =>
             reject(
               codedError(
@@ -478,7 +480,10 @@ export async function setupCdpAfterLaunch(
           ensureLoadedTimeoutMs
         )
       })
-    ])
+    ]).finally(() => {
+      // A load that answered leaves no timer to hold the process ten seconds.
+      clearTimeout(ensureLoadedTimer)
+    })
   } catch (error) {
     const code = declaredCode(error)
 

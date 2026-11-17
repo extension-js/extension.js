@@ -1,3 +1,4 @@
+import {AsyncLocalStorage} from 'node:async_hooks'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
@@ -22,11 +23,9 @@ vi.mock('../lib/project', () => ({
 const SOME_OTHER_PLUGIN = {constructor: {name: 'OtherPlugin'}}
 
 vi.mock('../rspack-config', async () => {
-  const pluginBrowsersLike = {constructor: {name: 'plugin-browsers'}}
-
   return {
     default: vi.fn(() => ({
-      plugins: [pluginBrowsersLike, SOME_OTHER_PLUGIN],
+      plugins: [SOME_OTHER_PLUGIN],
       output: {}
     }))
   }
@@ -145,7 +144,7 @@ describe('webpack/command-build', () => {
     vi.restoreAllMocks()
   })
 
-  it('builds successfully, filters browser plugins, merges user config, and returns summary', async () => {
+  it('builds successfully, passes the plugins on, merges user config, and returns summary', async () => {
     ;(fs.existsSync as any).mockImplementation((p: fs.PathLike) => {
       return String(p).endsWith('node_modules')
     })
@@ -1338,6 +1337,32 @@ describe('webpack/command-build', () => {
       vi.unstubAllEnvs()
     })
 
+    it('starts the bundler outside any async scope and settles inside it', async () => {
+      const callerScope = new AsyncLocalStorage<string>()
+      const seen: Record<string, string | undefined> = {}
+      const stats = {
+        hasErrors: () => false,
+        toJson: () => {
+          seen.settle = callerScope.getStore()
+
+          return {assets: [], warnings: [], errors: [], time: 1}
+        }
+      }
+      rspackMock.mockReturnValue({
+        run: (cb: any) => {
+          seen.run = callerScope.getStore()
+          cb(null, stats)
+        },
+        close: (cb: any) => cb?.()
+      })
+
+      await callerScope.run('caller', () =>
+        extensionBuild('/proj', {browser: 'chrome', silent: true})
+      )
+
+      expect(seen).toEqual({run: undefined, settle: 'caller'})
+    })
+
     it('rejects and removes the staging folder when reading the result throws', async () => {
       const {tmp, realFs} = await tmpProject('build-throw-after-run-')
       const stats = {
@@ -1433,6 +1458,41 @@ describe('webpack/command-build', () => {
 
       expect(exitSpy).not.toHaveBeenCalled()
     }, 5000)
+
+    it('fails the same way with exitOnError on, off and absent', async () => {
+      const localErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {})
+      const outcomes: unknown[] = []
+
+      for (const exitOnError of [true, false, undefined]) {
+        localErrorSpy.mockClear()
+        rspackMock.mockReturnValue(
+          makeCompiler(undefined, new Error('bundler exploded'))
+        )
+
+        const failure = await extensionBuild('/proj', {
+          browser: 'chrome',
+          silent: true,
+          ...(exitOnError === undefined ? {} : {exitOnError})
+        }).catch((error: Error & {code?: string}) => error)
+
+        outcomes.push({
+          code: (failure as {code?: string}).code,
+          message: (failure as Error).message,
+          printed: printedErrors(localErrorSpy)
+        })
+      }
+
+      expect(outcomes[0]).toEqual({
+        code: 'E_COMPILE_FATAL',
+        message: 'bundler exploded',
+        printed: expect.stringContaining('Build failed with 1 error.')
+      })
+
+      expect(outcomes[1]).toEqual(outcomes[0])
+      expect(outcomes[2]).toEqual(outcomes[0])
+    })
 
     it('fails on a missing archive before the summary or the closer call it built', async () => {
       const {tmp, realFs} = await tmpProject('build-zip-failure-')
@@ -1697,6 +1757,38 @@ describe('webpack/command-build', () => {
       const errors = printedErrors(localErrorSpy)
       expect(errors).toContain('no manifest here')
       expect(errors).toContain('Build failed with 1 error.')
+    })
+
+    it('leaves a project it cannot find to the frame under machine output', async () => {
+      const localErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {})
+      const projectMod = await import('../lib/project')
+
+      vi.stubEnv('EXTENSION_OUTPUT', 'json')
+      ;(projectMod.getProjectStructure as any).mockRejectedValueOnce(
+        new Error('no manifest here')
+      )
+
+      await expect(
+        extensionBuild('/nowhere', {browser: 'chrome', silent: true})
+      ).rejects.toThrow('no manifest here')
+
+      expect(printedErrors(localErrorSpy)).toBe('')
+
+      // Past the project lookup a failure keeps its lines on stderr.
+      ;(ensureArtifactsMod.ensureDevelopArtifacts as any).mockRejectedValueOnce(
+        new Error('boom')
+      )
+
+      await expect(
+        extensionBuild('/proj', {browser: 'chrome', silent: true})
+      ).rejects.toThrow('boom')
+
+      expect(printedErrors(localErrorSpy)).toContain('boom')
+      expect(printedErrors(localErrorSpy)).toContain(
+        'Build failed with 1 error.'
+      )
     })
   })
 })

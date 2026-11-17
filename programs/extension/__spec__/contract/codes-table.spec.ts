@@ -457,15 +457,19 @@ describe('the golden envelope fixtures', () => {
 
   it.each(
     fixtures
-  )('%s carries a code from the table when it fails', (name) => {
+  )('%s carries a code from the table when it fails, and no error when it succeeds', (name) => {
     const frame = JSON.parse(fs.readFileSync(path.join(here, name), 'utf8'))
 
-    if (frame.error) {
-      expect(
-        table.codes,
-        `${name} uses a code missing from codes.json`
-      ).toHaveProperty(frame.error.code)
+    if (frame.ok) {
+      expect(frame.error, `${name} is ok and carries an error`).toBeNull()
+
+      return
     }
+
+    expect(
+      table.codes,
+      `${name} uses a code missing from codes.json`
+    ).toHaveProperty(frame.error.code)
   })
 
   it.each(fixtures)('%s is named for its own contents', (name) => {

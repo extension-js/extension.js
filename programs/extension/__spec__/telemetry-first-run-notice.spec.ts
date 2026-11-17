@@ -19,10 +19,15 @@ function cliBin(): string {
 
 const NOTICE = 'collects anonymous, opt-out telemetry'
 
+// The update check reads its registry through rc, which takes npm_registry
+// and ignores npm_config_registry. A refused loopback port keeps it local.
+const LOOPBACK_REGISTRY = 'http://127.0.0.1:9/'
+
 function telemetryStatus(home: string): {stdout: string; stderr: string} {
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     POSTHOG_HOST: 'http://127.0.0.1:1',
+    npm_registry: LOOPBACK_REGISTRY,
     XDG_CONFIG_HOME: home,
     XDG_CACHE_HOME: home
   }

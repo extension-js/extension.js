@@ -1,4 +1,3 @@
-import {spawn} from 'node:child_process'
 import {
   chmodSync,
   existsSync,
@@ -9,30 +8,11 @@ import {
   writeFileSync
 } from 'node:fs'
 import {tmpdir} from 'node:os'
-import {dirname, join, resolve} from 'node:path'
-import {fileURLToPath} from 'node:url'
+import {join} from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
+import {everyLineAsFrame, runCli as spawnCli} from '../helpers/run-cli'
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = dirname(__filename)
-const cliRoot = resolve(__dirname, '../..')
-const cliBin = resolve(cliRoot, 'dist', 'cli.cjs')
-const ANSI = /\x1b\[[0-9;]*m/g
 const STACK_FRAME = /^\s+at /m
-
-function stripVitestEnv(): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = {
-    ...process.env,
-    NO_COLOR: '1',
-    FORCE_COLOR: '0',
-    EXTENSION_ENV: 'test',
-    EXTENSION_TELEMETRY: '0'
-  }
-  delete env.VITEST
-  delete env.VITEST_WORKER_ID
-
-  return env
-}
 
 // An executable file whose interpreter does not exist: it passes the pin
 // check, then spawn refuses it with ENOENT and no browser ever starts.
@@ -110,43 +90,14 @@ async function exitedWithin(pid: number, ms: number): Promise<boolean> {
   return true
 }
 
+// Every run pins a stand-in from a temp folder, so no browser is looked
+// for. A launch that fails ends the command, and one that hangs did not.
 function runCli(
   args: string[],
   timeoutMs = 60_000,
   extraEnv: Record<string, string> = {}
 ) {
-  return new Promise<{status: number; stdout: string; stderr: string}>(
-    (resolvePromise, reject) => {
-      const child = spawn(process.execPath, [cliBin, ...args], {
-        cwd: cliRoot,
-        stdio: 'pipe',
-        env: {...stripVitestEnv(), ...extraEnv}
-      })
-      let stdout = ''
-      let stderr = ''
-      child.stdout.on('data', (chunk) => (stdout += chunk.toString()))
-      child.stderr.on('data', (chunk) => (stderr += chunk.toString()))
-
-      // A launch that fails ends the command. One that hangs here did not.
-      const timer = setTimeout(() => {
-        child.kill('SIGKILL')
-        reject(
-          new Error(
-            `CLI did not exit: ${args.join(' ')}\nstdout:\n${stdout}\nstderr:\n${stderr}`
-          )
-        )
-      }, timeoutMs)
-
-      child.on('close', (code) => {
-        clearTimeout(timer)
-        resolvePromise({
-          status: code ?? 1,
-          stdout: stdout.replace(ANSI, ''),
-          stderr: stderr.replace(ANSI, '')
-        })
-      })
-    }
-  )
+  return spawnCli(args, {timeoutMs, env: extraEnv})
 }
 
 function frames(stdout: string): Array<{
@@ -155,10 +106,7 @@ function frames(stdout: string): Array<{
   status: string
   error: {code: string; message: string} | null
 }> {
-  return stdout
-    .split('\n')
-    .filter((line) => line.trim())
-    .map((line) => JSON.parse(line))
+  return everyLineAsFrame(stdout)
 }
 
 // The contract of the session that ran in projectDir. A project with no
@@ -172,6 +120,8 @@ function readContract(
   message?: string
   browserPid?: number
   browserExitedAt?: string
+  browserExitCode?: number | null
+  browserExitSignal?: string | null
 } {
   return JSON.parse(
     readFileSync(
@@ -512,8 +462,25 @@ describe.skipIf(process.platform === 'win32')(
       const contract = readContract(projectDir, 'chrome')
       expect(typeof contract.browserPid).toBe('number')
       expect(typeof contract.browserExitedAt).toBe('string')
-      expect(contract.status).not.toBe('starting')
-      expect(contract.status).not.toBe('ready')
+      // One named outcome: "not starting and not ready" also passed on error.
+      expect(result.status, result.stderr).toBe(0)
+      expect({
+        status: contract.status,
+        code: contract.code,
+        message: contract.message,
+        browserExitCode: contract.browserExitCode,
+        browserExitSignal: contract.browserExitSignal
+      }).toEqual({
+        status: 'stopped',
+        code: 'shutdown',
+        message: 'the preview session ended',
+        browserExitCode: 0,
+        browserExitSignal: null
+      })
+
+      expect(result.stderr).toContain(
+        '[browser] chrome closed cleanly (exit code 0) without this preview asking for it'
+      )
     }, 90_000)
 
     // The debugger dial used to go on for minutes after the process had

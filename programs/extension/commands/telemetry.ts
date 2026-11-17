@@ -11,7 +11,7 @@ import colors from 'pintor'
 import {exitAfterDrain} from '../helpers/exit-after-drain'
 import {commandDescriptions} from '../helpers/messages'
 import {CODES, ENVELOPE} from '../helpers/messaging'
-import {isJsonOutput} from '../helpers/output-flag'
+import {isJsonOutput, refuseUnreadableOutput} from '../helpers/output-flag'
 import {
   getTelemetryConsent,
   setTelemetryConsent
@@ -23,7 +23,19 @@ type TelemetryOptions = {
   output?: 'pretty' | 'json'
 }
 
-export function registerTelemetryCommand(program: Command) {
+// The consent pair is what the action reaches outside this file.
+interface TelemetryCommandDeps {
+  getConsent?: typeof getTelemetryConsent
+  setConsent?: typeof setTelemetryConsent
+}
+
+export function registerTelemetryCommand(
+  program: Command,
+  {
+    getConsent = getTelemetryConsent,
+    setConsent = setTelemetryConsent
+  }: TelemetryCommandDeps = {}
+) {
   program
     .command('telemetry')
     .argument('[action]', 'enable | disable | status (default: status)')
@@ -32,6 +44,7 @@ export function registerTelemetryCommand(program: Command) {
       '--output <pretty|json>',
       'result format. Use json for a schema-1 envelope on stdout'
     )
+    .hook('preAction', refuseUnreadableOutput())
     .action(async (action: string | undefined, opts: TelemetryOptions = {}) => {
       const normalized = String(action || 'status')
         .trim()
@@ -45,9 +58,7 @@ export function registerTelemetryCommand(program: Command) {
 
       if (normalized === 'enable' || normalized === 'disable') {
         const enabling = normalized === 'enable'
-        const {ok, path} = setTelemetryConsent(
-          enabling ? 'enabled' : 'disabled'
-        )
+        const {ok, path} = setConsent(enabling ? 'enabled' : 'disabled')
 
         if (ok) {
           if (asJson) {
@@ -95,7 +106,7 @@ export function registerTelemetryCommand(program: Command) {
       }
 
       if (normalized === 'status') {
-        const {enabled, source} = getTelemetryConsent()
+        const {enabled, source} = getConsent()
 
         if (asJson) {
           emit(ENVELOPE.ok('telemetry', 'status', {enabled, source}))

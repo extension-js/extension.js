@@ -128,6 +128,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "safariInvalidBundleId: function(1)",
     "sessionStateIgnoreAdded: function(1)",
     "starting: function(2)",
+    "thrownValueText: function(1)",
     "treeWithDistFilesBrowser: function(4)",
     "treeWithSourceAndDistFiles: function(4)",
     "treeWithSourceFiles: function(4)",

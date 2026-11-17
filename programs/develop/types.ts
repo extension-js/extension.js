@@ -357,8 +357,9 @@ export interface BuildOptions {
    * @deprecated Nothing reads it. A build never fails on a warning.
    */
   failOnWarning?: boolean
-  // Ignored by a build. A failed build is a rejected promise and the
-  // caller owns the exit.
+  /**
+   * @deprecated A build ignores it. A failed build rejects and the caller owns the exit.
+   */
   exitOnError?: boolean
   /**
    * Internal: the command stamped into ready.json/events.ndjson. Defaults to
