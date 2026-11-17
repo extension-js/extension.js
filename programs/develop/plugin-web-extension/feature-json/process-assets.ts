@@ -29,7 +29,7 @@ function getProjectPathFromCompilation(
 export function processJsonAssets(
   compilation: Compilation,
   manifestPath: string,
-  includeList: Record<string, string | string[] | undefined>,
+  includeList: Record<string, string | undefined>,
   browser?: string
 ): void {
   // A compile that already failed still names the JSON files the manifest
@@ -59,11 +59,9 @@ export function processJsonAssets(
     let validatedOk = 0
     let invalid = 0
 
-    const resourceArr: Array<string | undefined> = Array.isArray(resource)
-      ? resource
-      : [resource]
-
-    for (const thisResource of resourceArr) {
+    // One file per key. Kept as a loop so every early exit below still
+    // reaches the summary line at the end of this key.
+    for (const thisResource of [resource]) {
       // Resources from the manifest lib can come as undefined.
       if (thisResource) {
         const {abs, isUnderPublic, isPublicRoot} = resolveJsonResource(
@@ -162,7 +160,7 @@ export function processJsonAssets(
         const rawSource = new sources.RawSource(source)
         const assetName = `${feature}.json`
 
-        // If asset already exists (e.g., when handling arrays), update it instead of emitting again
+        // Another plugin may have emitted this name: replace, never emit twice.
         if (
           typeof compilation.getAsset === 'function' &&
           compilation.getAsset(assetName)
@@ -177,11 +175,7 @@ export function processJsonAssets(
     }
 
     if (isDebug()) {
-      const entries = Array.isArray(resource)
-        ? resource.length
-        : resource
-          ? 1
-          : 0
+      const entries = resource ? 1 : 0
 
       debugLine(
         messages.jsonEmitSummary(feature, {
