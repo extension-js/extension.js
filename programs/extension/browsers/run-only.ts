@@ -163,6 +163,7 @@ function buildPreviewChromiumOptions(
     browser: pluginOptions.browser,
     noOpen: pluginOptions.noOpen,
     profile: pluginOptions.profile,
+    persistProfile: pluginOptions.persistProfile,
     preferences: pluginOptions.preferences,
     browserFlags: pluginOptions.browserFlags,
     excludeBrowserFlags: pluginOptions.excludeBrowserFlags,

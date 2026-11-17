@@ -537,6 +537,58 @@ describe('a build folder that is its own project root', () => {
       force: true
     })
   })
+
+  // A folder written by hand: a manifest and the background it names, with
+  // no package.json and no canonical background path.
+  it.each([
+    {browser: 'chrome', background: {service_worker: 'sw.js'}, file: 'sw.js'},
+    {browser: 'firefox', background: {scripts: ['bg.js']}, file: 'bg.js'}
+  ])('carries the producer on $file of a hand-written $browser folder', async ({
+    browser,
+    background,
+    file
+  }) => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-raw-folder-'))
+    const root = tmpDir
+
+    fs.writeFileSync(
+      path.join(root, 'manifest.json'),
+      JSON.stringify({
+        manifest_version: 3,
+        name: 'x',
+        version: '1.0.0',
+        background
+      })
+    )
+
+    fs.writeFileSync(path.join(root, file), WORKER)
+
+    session = await startProductionControl({
+      packageJsonDir: root,
+      browser,
+      command: 'preview',
+      distPath: root,
+      allowControl: true,
+      allowEval: true
+    })
+
+    expect(session.backgroundAssets).toEqual([file])
+
+    const controlled = fs.readFileSync(
+      path.join(session.controlledPath, file),
+      'utf-8'
+    )
+
+    expect(controlled).toContain('__extjsBridgeProducerInstalled')
+    expect(controlled.endsWith(WORKER)).toBe(true)
+    expect(refusal(session)).not.toContain('has no background')
+    expect(fs.readFileSync(path.join(root, file), 'utf-8')).toBe(WORKER)
+
+    fs.rmSync(path.dirname(path.dirname(session.controlledPath)), {
+      recursive: true,
+      force: true
+    })
+  })
 })
 
 function makeFirefoxProject(manifest: Record<string, unknown>): {

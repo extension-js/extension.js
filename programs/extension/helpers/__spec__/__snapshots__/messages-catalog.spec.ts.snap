@@ -105,6 +105,7 @@ exports[`extension message catalogs > matches the exported message surface 1`] =
     "hostPermissionPatternsIgnored: function(2)",
     "invalidChromiumBinaryPath: function(1)",
     "invalidGeckoBinaryPath: function(1)",
+    "keptProfileAtEarlierPath: function(3)",
     "lateBootRegistration: function(1)",
     "librewolfRemoteDebuggingLocked: function(1)",
     "locatingBrowser: function(1)",

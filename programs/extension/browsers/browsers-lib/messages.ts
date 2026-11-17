@@ -273,6 +273,17 @@ export function explicitProfileUnderProject(
   )
 }
 
+export function keptProfileAtEarlierPath(
+  browser: string,
+  earlierPath: string,
+  currentPath: string
+) {
+  return (
+    `${getLoggingPrefix('info')} Using the kept ${capitalizedBrowserName(browser as Browser)} profile at ${colors.underline(earlierPath)}, where an earlier version put it. ` +
+    `Its place is now ${colors.underline(currentPath)}, so move the folder there to keep its cookies and logins, or delete it to start fresh.`
+  )
+}
+
 export function copyFromProfileSourceMissing(source: string) {
   return (
     `${getLoggingPrefix('warn')} The profile to copy from doesn't exist, so this run starts from an empty profile.\n` +

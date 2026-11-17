@@ -3,13 +3,13 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {beforeEach, describe, expect, it, vi} from 'vitest'
 
-const {chromiumRunOnce, firefoxRunOnce, printProdBannerOnce} = vi.hoisted(
-  () => ({
+const {chromiumOptions, chromiumRunOnce, firefoxRunOnce, printProdBannerOnce} =
+  vi.hoisted(() => ({
+    chromiumOptions: vi.fn((_options: Record<string, unknown>) => {}),
     chromiumRunOnce: vi.fn(async () => {}),
     firefoxRunOnce: vi.fn(async () => {}),
     printProdBannerOnce: vi.fn(async () => true)
-  })
-)
+  }))
 
 vi.mock('../run-chromium/chromium-context', () => ({
   createChromiumContext: vi.fn(() => ({}))
@@ -24,6 +24,10 @@ vi.mock('../run-firefox/firefox-context', () => ({createFirefoxContext}))
 vi.mock('../run-chromium/chromium-launch', () => ({
   ChromiumLaunchPlugin: class {
     runOnce = chromiumRunOnce
+
+    constructor(options: Record<string, unknown>) {
+      chromiumOptions(options)
+    }
   }
 }))
 
@@ -78,6 +82,24 @@ describe('runOnlyPreviewBrowser', () => {
       readyPath: undefined,
       browserVersionLine: undefined
     })
+  })
+
+  // browser.<name>.persistProfile is one switch, so a preview on Chromium
+  // keeps the profile the way a preview on Firefox does.
+  it('hands the kept-profile switch to the chromium launcher', async () => {
+    chromiumOptions.mockClear()
+
+    await runOnlyPreviewBrowser({
+      browser: 'chrome',
+      outPath: '/tmp/ext',
+      contextDir: '/tmp',
+      extensionsToLoad: ['/tmp/ext'],
+      persistProfile: true
+    })
+
+    expect(chromiumOptions).toHaveBeenCalledWith(
+      expect.objectContaining({persistProfile: true})
+    )
   })
 
   // Shell-script fixture: not executable on Windows, posix-only case.
