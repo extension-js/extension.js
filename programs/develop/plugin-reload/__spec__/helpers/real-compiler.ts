@@ -76,6 +76,52 @@ export async function compileProduction(
   return {errors, files}
 }
 
+export interface CompileIssue {
+  name: string
+  file?: string
+  message: string
+}
+
+// Runs a compile and returns what it reported, with the bundler's own
+// severity mark and padding taken off each message.
+export async function compileIssues(
+  root: string,
+  mode: 'development' | 'production',
+  entry: Record<string, string>,
+  plugins: Array<{apply(compiler: Compiler): void}>
+): Promise<{errors: CompileIssue[]; warnings: CompileIssue[]}> {
+  const compiler = rspack({
+    mode,
+    context: root,
+    devtool: false,
+    entry: Object.fromEntries(
+      Object.entries(entry).map(([name, file]) => [
+        name,
+        {import: [path.join(root, file)]}
+      ])
+    ),
+    output: {path: path.join(root, 'dist')},
+    plugins
+  })
+  const stats = await new Promise<import('@rspack/core').Stats>(
+    (resolve, reject) =>
+      compiler.run((error, result) =>
+        error || !result ? reject(error) : resolve(result)
+      )
+  )
+  await new Promise((resolve) => compiler.close(resolve))
+  const plain = (issue: Error & {file?: string}): CompileIssue => ({
+    name: issue.name,
+    ...(issue.file ? {file: issue.file} : {}),
+    message: issue.message.replace(/^\s*[×⚠]\s*/, '').trimEnd()
+  })
+
+  return {
+    errors: stats.compilation.errors.map(plain),
+    warnings: stats.compilation.warnings.map(plain)
+  }
+}
+
 function tapNames(compiler: Compiler): Map<string, string[]> {
   return new Map(
     Object.entries(compiler.hooks).map(([hook, value]) => [
