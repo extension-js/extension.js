@@ -1,7 +1,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compilation} from '@rspack/core'
-import {describe, expect, it} from 'vitest'
+import {afterEach, describe, expect, it, vi} from 'vitest'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {
   buildSourceFeatureIndex,
@@ -691,5 +691,54 @@ describe('the background label follows the emitted manifest', () => {
         getContentScriptCount: count(0)
       })?.label
     ).toBe('service_worker (src/background.js)')
+  })
+})
+
+describe('classifyReloadFromSources with a source index that throws', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.restoreAllMocks()
+  })
+
+  const classify = (changed: string, getSourceFeatureIndex: () => null) =>
+    classifyReloadFromSources({
+      changedSources: [changed],
+      getContentScriptCount: count(2),
+      getSourceFeatureIndex
+    })
+
+  const throwing = () => {
+    throw new Error('chunk graph unreadable')
+  }
+
+  // Pins today's behavior. Ledger 1385 D9.
+  it('falls back to the name heuristics and prints nothing, debug on', () => {
+    vi.stubEnv('EXTENSION_DEBUG', '1')
+    const printed = [
+      vi.spyOn(console, 'log').mockImplementation(() => {}),
+      vi.spyOn(console, 'warn').mockImplementation(() => {}),
+      vi.spyOn(console, 'error').mockImplementation(() => {}),
+      vi.spyOn(console, 'debug').mockImplementation(() => {})
+    ]
+
+    expect(classify('src/background/worker.ts', throwing)).toEqual({
+      type: 'service-worker',
+      changedAssets: ['src/background/worker.ts'],
+      label: 'service_worker (src/background/worker.ts)'
+    })
+
+    expect(classify('src/lib/util.ts', throwing)).toEqual(
+      classify('src/lib/util.ts', () => null)
+    )
+
+    expect(classify('src/lib/util.ts', throwing)).toMatchObject({
+      type: 'content-scripts',
+      changedContentScriptEntries: [
+        'content_scripts/content-0',
+        'content_scripts/content-1'
+      ]
+    })
+
+    expect(printed.map((spy) => spy.mock.calls)).toEqual([[], [], [], []])
   })
 })
