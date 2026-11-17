@@ -42,7 +42,8 @@ function telemetryStatus(home: string): {stdout: string; stderr: string} {
     'CIRCLECI',
     'TRAVIS',
     'EXTENSION_TELEMETRY',
-    'EXTENSION_TELEMETRY_DISABLED'
+    'EXTENSION_TELEMETRY_DISABLED',
+    'DO_NOT_TRACK'
   ]) {
     delete env[key]
   }

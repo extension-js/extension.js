@@ -8,6 +8,7 @@
 
 import colors from 'pintor'
 import {type Channel, fmt, hasChannelPrefix, prefix} from './messaging'
+import {TELEMETRY_DOCS_URL} from './telemetry'
 import {
   BUNDLED_TEMPLATES,
   DEFAULT_TEMPLATE,
@@ -258,11 +259,11 @@ const COMMAND_TABLE = [
       {
         name: 'action',
         required: false,
-        values: ['enable', 'disable', 'status']
+        values: ['enable', 'disable', 'status', 'reset']
       }
     ],
     description:
-      'Manage anonymous telemetry consent (enable, disable, or show status)',
+      'Manage anonymous telemetry (enable, disable, show status, or reset)',
     supportsSourceInspection: false
   },
   {
@@ -424,7 +425,7 @@ ${'Usage:'} extension [command] [options]
 
 ${'Notes'}
 - All high-level commands offer their own \`--help\` with usage and flag lists.
-- Telemetry is anonymous and privacy-safe by default, see ${code('docs/TELEMETRY.md')} for the full contract.
+- Telemetry is anonymous and privacy-safe by default, see ${code(TELEMETRY_DOCS_URL)} for the full contract.
 
 ${'Example'}
 - ${code('extension create --help')} outputs information about the "create" command.
@@ -436,7 +437,7 @@ ${'Common options'}
 - ${code('--browser')} ${arg('<chrome|edge|firefox|chromium|chromium-based|gecko-based|firefox-based>')} Target browser/engine (default: chromium)
 - ${code('--profile')} ${arg('<path|boolean>')}        Browser profile configuration
 - ${code('--polyfill')} ${arg('[boolean]')}            Bundle the cross-browser polyfill (default: off)
-- ${code('--no-telemetry')}                            Disable anonymous telemetry for this run (persistent toggle: ${code('extension telemetry disable')}, or ${code('EXTENSION_TELEMETRY=0')})
+- ${code('--no-telemetry')}                            Disable anonymous telemetry for this run (persistent toggle: ${code('extension telemetry disable')}, or ${code('EXTENSION_TELEMETRY_DISABLED=1')})
 - ${code('--ai-help')}                                 Show AI-assistant oriented help and tips
 - ${code('--output')} ${arg('<pretty|json>')}          Result format for ${code('--ai-help')} and machine-readable command results (default: pretty)
   ${code('--format')} and ${code('--wait-format')} still work as deprecated aliases of ${code('--output')}
@@ -956,7 +957,7 @@ export function programAIHelpJSON(version: string): ProgramAIHelpJSON {
       {
         name: '--no-telemetry',
         description:
-          'Disable anonymous telemetry for this run. Persistent toggle: `extension telemetry disable`. Hard override: `EXTENSION_TELEMETRY=0`.'
+          'Disable anonymous telemetry for this run. Persistent toggle: `extension telemetry disable`. Hard override: `EXTENSION_TELEMETRY_DISABLED=1`.'
       },
       {
         name: '--browser',

@@ -92,7 +92,6 @@ export function useTelemetrySandbox() {
       platform: 'linux',
       homedir: () => places.home,
       tmpdir: () => places.tmp,
-      cwd: () => places.project,
       now: () => clock.now,
       random: () => 0,
       stdoutIsTTY: () => false,
