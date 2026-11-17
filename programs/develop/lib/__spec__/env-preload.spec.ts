@@ -5,6 +5,7 @@ import {afterAll, afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {getEnvFileCandidates} from '../../plugin-compilation/env'
 import {
   envFileCandidates,
+  getPreloadedEnvKeys,
   loadCommandConfig,
   loadProjectConfigDefaults
 } from '../config-loader'
@@ -18,7 +19,9 @@ const KEYS = [
   'EXTENSION_PUBLIC_D',
   'EXTENSION_PUBLIC_E',
   'EXTENSION_PUBLIC_STAGE',
-  'EXTENSION_PUBLIC_SHELL'
+  'EXTENSION_PUBLIC_SHELL',
+  'EXTENSION_PUBLIC_ONLY_FIRST',
+  'EXTENSION_PUBLIC_BOTH'
 ]
 const roots: string[] = []
 const saved: Record<string, string | undefined> = {}
@@ -277,5 +280,131 @@ describe('env preload follows the running mode', () => {
     expect(fs.readFileSync(path.join(root, 'seen.txt'), 'utf-8')).toBe(
       'from-production'
     )
+  }, 120_000)
+})
+
+// One process can load two projects (a host looping over them). Each config
+// sees its own env files plus what the shell really set, and nothing else.
+const SEEN_CONFIG = `module.exports = {
+  perfBudgets: {
+    seen: [
+      process.env.EXTENSION_PUBLIC_ONLY_FIRST,
+      process.env.EXTENSION_PUBLIC_BOTH,
+      process.env.EXTENSION_PUBLIC_SHELL
+    ].map(String).join('|')
+  }
+}
+`
+const FIRST_FILES = {
+  '.env':
+    'EXTENSION_PUBLIC_ONLY_FIRST=first-only\nEXTENSION_PUBLIC_BOTH=first-both\nEXTENSION_PUBLIC_SHELL=first-SHELL\n',
+  'extension.config.js': SEEN_CONFIG
+}
+const SECOND_FILES = {
+  '.env':
+    'EXTENSION_PUBLIC_BOTH=second-both\nEXTENSION_PUBLIC_SHELL=second-SHELL\n',
+  'extension.config.js': SEEN_CONFIG
+}
+
+async function seenBy(root: string) {
+  const config = (await loadProjectConfigDefaults(root)) as {
+    perfBudgets?: {seen?: string}
+  }
+
+  return config.perfBudgets?.seen
+}
+
+describe('env preload keeps two projects apart', () => {
+  it('hides the first project file values from the second config', async () => {
+    process.env.EXTENSION_PUBLIC_SHELL = 'from-shell'
+    const first = project(FIRST_FILES)
+    const second = project(SECOND_FILES)
+
+    expect(await seenBy(first)).toBe('first-only|first-both|from-shell')
+    expect(await seenBy(second)).toBe('undefined|second-both|from-shell')
+
+    expect(process.env.EXTENSION_PUBLIC_ONLY_FIRST).toBeUndefined()
+    expect(process.env.EXTENSION_PUBLIC_SHELL).toBe('from-shell')
+    expect([...getPreloadedEnvKeys()]).toEqual(['EXTENSION_PUBLIC_BOTH'])
+  })
+
+  it('hands a loaded project its own values back when it is asked again', async () => {
+    process.env.EXTENSION_PUBLIC_SHELL = 'from-shell'
+    const first = project(FIRST_FILES)
+    const second = project(SECOND_FILES)
+
+    await seenBy(first)
+    await seenBy(second)
+    expect(await seenBy(first)).toBe('first-only|first-both|from-shell')
+
+    expect(process.env.EXTENSION_PUBLIC_ONLY_FIRST).toBe('first-only')
+    expect(process.env.EXTENSION_PUBLIC_BOTH).toBe('first-both')
+    expect(process.env.EXTENSION_PUBLIC_SHELL).toBe('from-shell')
+    expect([...getPreloadedEnvKeys()].sort()).toEqual([
+      'EXTENSION_PUBLIC_BOTH',
+      'EXTENSION_PUBLIC_ONLY_FIRST'
+    ])
+  })
+
+  it('leaves a value written over a file value since the last load alone', async () => {
+    const first = project(FIRST_FILES)
+    const second = project(SECOND_FILES)
+
+    await seenBy(first)
+    process.env.EXTENSION_PUBLIC_ONLY_FIRST = 'set-by-the-host'
+
+    expect(await seenBy(second)).toBe(
+      'set-by-the-host|second-both|second-SHELL'
+    )
+  })
+
+  it('keeps each config its own values when two projects load at once', async () => {
+    const first = project(FIRST_FILES)
+    const second = project(SECOND_FILES)
+
+    expect(await Promise.all([seenBy(first), seenBy(second)])).toEqual([
+      'first-only|first-both|first-SHELL',
+      'undefined|second-both|second-SHELL'
+    ])
+  })
+
+  it('leaves what the bundle inlines to the env plugin, shell value first', async () => {
+    process.env.EXTENSION_PUBLIC_SHELL = 'from-shell'
+    const first = project(FIRST_FILES)
+    const second = project(SECOND_FILES)
+    fs.writeFileSync(
+      path.join(second, 'background.js'),
+      'console.log("env", process.env.EXTENSION_PUBLIC_ONLY_FIRST, process.env.EXTENSION_PUBLIC_BOTH, process.env.EXTENSION_PUBLIC_SHELL)\n'
+    )
+
+    await seenBy(first)
+
+    const {extensionBuild} = await import('../../command-build')
+    const previous = process.env.VITEST
+    process.env.VITEST = 'true'
+
+    try {
+      const summary = await extensionBuild(second, {
+        browser: 'chrome',
+        silent: true,
+        install: false,
+        exitOnError: false
+      } as any)
+      expect(summary.errors_count).toBe(0)
+    } finally {
+      if (previous === undefined) delete process.env.VITEST
+      else process.env.VITEST = previous
+    }
+
+    const bundle = fs.readFileSync(
+      path.join(second, 'dist', 'chrome', 'background', 'service_worker.js'),
+      'utf-8'
+    )
+
+    expect(bundle).toContain('second-both')
+    expect(bundle).toContain('from-shell')
+    expect(bundle).not.toContain('first-only')
+    expect(bundle).not.toContain('first-both')
+    expect(bundle).not.toContain('second-SHELL')
   }, 120_000)
 })

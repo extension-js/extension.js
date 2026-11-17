@@ -88,6 +88,28 @@ function envPreloadOrder(mode: string, browser?: string): string[] {
   return ['.env.defaults', ...envFileCandidates(mode, browser).reverse()]
 }
 
+// The config whose env files are on process.env now, and the file order each
+// loaded config was read with, so a cached config gets its own keys back.
+let envOwnerConfigPath: string | undefined
+const envOrderByConfigPath = new Map<string, string[]>()
+
+// What each preloaded key was set to, so a value something else wrote over
+// it since is recognized as not a file value and left where it is.
+const preloadedEnvValues = new Map<string, string>()
+
+// One process can load two projects, and the first one's file values are not
+// the second one's. What is left afterwards is what the shell really set.
+function forgetPreloadedEnv(): void {
+  for (const key of preloadedEnvKeys) {
+    if (process.env[key] === preloadedEnvValues.get(key)) {
+      delete process.env[key]
+    }
+  }
+
+  preloadedEnvKeys.clear()
+  preloadedEnvValues.clear()
+}
+
 function applyEnvFile(filePath: string, shellOwned: ReadonlySet<string>) {
   const parsed = dotenv.parse(fs.readFileSync(filePath))
 
@@ -96,6 +118,7 @@ function applyEnvFile(filePath: string, shellOwned: ReadonlySet<string>) {
 
     process.env[key] = value
     preloadedEnvKeys.add(key)
+    preloadedEnvValues.set(key, value)
   }
 }
 
@@ -109,33 +132,40 @@ function unwrapDefaultExport(loaded: unknown): unknown {
   return loaded
 }
 
-function loadCommonJsConfigWithStableDirname(absolutePath: string) {
+// Compiling and running are two steps on purpose: a file that does not parse
+// as CommonJS never started, and only then may another route read it.
+function compileCommonJsConfig(absolutePath: string): () => unknown {
   const code = fs.readFileSync(absolutePath, 'utf-8')
   const dirname = path.dirname(absolutePath)
   const requireFn = createRequire(absolutePath)
 
   // Emulate Node's CJS wrapper so __filename/__dirname match the real file,
   // avoiding the temp-.cjs copy that broke __dirname-relative configs.
-  const module = {exports: {} as ParsedJson}
-  const exports = module.exports
-
   const wrapped = `(function (exports, require, module, __filename, __dirname) {\n${code}\n})`
   const fn = new vm.Script(wrapped, {
     filename: absolutePath
   }).runInThisContext()
 
-  fn(exports, requireFn, module, absolutePath, dirname)
+  return () => {
+    const module = {exports: {} as ParsedJson}
 
-  return unwrapDefaultExport(module.exports)
+    fn(module.exports, requireFn, module, absolutePath, dirname)
+
+    return module.exports
+  }
 }
 
 // Node's CJS loader covers what the vm wrapper cannot (a hashbang line). A
 // sibling copy keeps relative requires and __dirname pointing at the project.
+function copyBesideSourcePrefix(absolutePath: string): string {
+  return `.${path.basename(absolutePath, path.extname(absolutePath))}.${process.pid}-`
+}
+
 export function requireCommonJsCopyBesideSource(absolutePath: string) {
   const requireFn = createRequire(absolutePath)
   const siblingCjsPath = path.join(
     path.dirname(absolutePath),
-    `.${path.basename(absolutePath, path.extname(absolutePath))}.${process.pid}-${Date.now()}.cjs`
+    `${copyBesideSourcePrefix(absolutePath)}${Date.now()}.cjs`
   )
 
   try {
@@ -153,12 +183,26 @@ export function requireCommonJsCopyBesideSource(absolutePath: string) {
   }
 }
 
-function looksLikeCommonJsInEsModuleScope(importError: unknown): boolean {
+// Node's own words for a CommonJS global (require, module, exports,
+// __dirname) read in a file it ran as an ES module: the file is the other kind.
+function isCommonJsInEsModuleScope(importError: unknown): boolean {
   const message = String((importError as Error | undefined)?.message || '')
 
+  return message.includes('is not defined in ES module scope')
+}
+
+// A parse failure is raised by Node's module loader with no frame inside the
+// file. A SyntaxError the author's own code threw has one, and it did run.
+function failedToParse(error: unknown, fileMarker: string): boolean {
+  const {name, stack} = (error || {}) as Partial<Error>
+  if (name !== 'SyntaxError' || typeof stack !== 'string') return false
+
+  const frames = stack.split('\n').filter((line) => /^\s+at /.test(line))
+
   return (
-    message.includes('require is not defined in ES module scope') ||
-    message.includes('Cannot use import statement outside a module')
+    frames.length > 0 &&
+    frames[0].includes('node:internal/modules/') &&
+    !frames.some((frame) => frame.includes(fileMarker))
   )
 }
 
@@ -196,26 +240,41 @@ function claimRejectionOf(caught: unknown): void {
   })
 }
 
+type CommonJsRetry = {loaded: unknown} | {reason: unknown}
+
 // The retry runs the file as CommonJS text and never hands it to require(),
 // so a throwing ES module is not loaded a second time through that path.
+// Whatever the file throws once it runs is the reason, and nothing runs after.
 function loadCommonJsConfigAfterFailedImport(
   absolutePath: string,
   importError: unknown
-) {
-  try {
-    return loadCommonJsConfigWithStableDirname(absolutePath)
-  } catch (wrapperError) {
-    claimRejectionOf(wrapperError)
+): CommonJsRetry {
+  let run: () => unknown
 
-    if (!looksLikeCommonJsInEsModuleScope(importError)) throw wrapperError
+  try {
+    run = compileCommonJsConfig(absolutePath)
+  } catch {
+    if (!isCommonJsInEsModuleScope(importError)) return {reason: importError}
 
     try {
-      return requireCommonJsCopyBesideSource(absolutePath)
+      return {loaded: requireCommonJsCopyBesideSource(absolutePath)}
     } catch (copyError) {
       claimRejectionOf(copyError)
 
-      throw copyError
+      return {
+        reason: failedToParse(copyError, copyBesideSourcePrefix(absolutePath))
+          ? importError
+          : copyError
+      }
     }
+  }
+
+  try {
+    return {loaded: run()}
+  } catch (wrapperError) {
+    claimRejectionOf(wrapperError)
+
+    return {reason: wrapperError}
   }
 }
 
@@ -325,6 +384,8 @@ export function projectConfigCandidatePaths(projectPath: string): string[] {
 }
 
 function preloadEnvFiles(projectDir: string, order: string[]) {
+  forgetPreloadedEnv()
+
   const local = preloadEnvFilesFromDir(projectDir, order)
   if (local.loadedAny) return local
 
@@ -491,6 +552,10 @@ function assertConfigShape(configPath: string, value: unknown): void {
   }
 }
 
+// One config loads at a time: the env files of the one being evaluated are
+// on process.env, and a second project preloading in between would swap them.
+let configLoadQueue: Promise<unknown> = Promise.resolve()
+
 async function loadConfigFile(
   configPath: string,
   envOrder: string[] = envPreloadOrder(envModeFor())
@@ -498,16 +563,32 @@ async function loadConfigFile(
   const absolutePath = path.resolve(configPath)
 
   const cached = loadedConfigCache.get(absolutePath)
-  if (cached) return cached
 
-  const loading = loadConfigFileUncached(absolutePath, envOrder).then(
-    (value) => {
+  if (cached) {
+    const config = await cached
+
+    // Another project loaded since: hand this one its own file values back.
+    if (envOwnerConfigPath !== absolutePath) {
+      preloadEnvFiles(
+        path.dirname(absolutePath),
+        envOrderByConfigPath.get(absolutePath) || envOrder
+      )
+
+      envOwnerConfigPath = absolutePath
+    }
+
+    return config
+  }
+
+  const loading = configLoadQueue
+    .then(() => loadConfigFileUncached(absolutePath, envOrder))
+    .then((value) => {
       assertConfigShape(absolutePath, value)
 
       return value
-    }
-  )
+    })
   loadedConfigCache.set(absolutePath, loading)
+  configLoadQueue = loading.catch(() => undefined)
 
   try {
     return await loading
@@ -519,6 +600,18 @@ async function loadConfigFile(
   }
 }
 
+// A config file with side effects runs once per load. Another route may read
+// it only when the first failure proves the file never ran as that kind.
+function canRetryAsCommonJs(absolutePath: string, importError: unknown) {
+  // An .mjs file is an ES module by name, and require() already read a .cjs.
+  if (/\.[cm]js$/.test(absolutePath)) return false
+
+  return (
+    isCommonJsInEsModuleScope(importError) ||
+    failedToParse(importError, `${path.basename(absolutePath)}:`)
+  )
+}
+
 async function loadConfigFileUncached(
   absolutePath: string,
   envOrder: string[]
@@ -526,6 +619,8 @@ async function loadConfigFileUncached(
   const projectDir = path.dirname(absolutePath)
 
   preloadEnvFiles(projectDir, envOrder)
+  envOwnerConfigPath = absolutePath
+  envOrderByConfigPath.set(absolutePath, envOrder)
 
   try {
     if (absolutePath.endsWith('.cjs')) {
@@ -543,19 +638,18 @@ async function loadConfigFileUncached(
 
     return unwrapDefaultExport(module) as FileConfig
   } catch (err: unknown) {
-    const error = err as Error
+    let reason = err
 
-    claimRejectionOf(error)
+    claimRejectionOf(err)
 
-    // An .mjs file is an ES module by name, so it has no CommonJS reading.
-    if (!absolutePath.endsWith('.mjs')) {
-      try {
-        return unwrapDefaultExport(
-          loadCommonJsConfigAfterFailedImport(absolutePath, error)
-        ) as FileConfig
-      } catch {
-        // Ignore
+    if (canRetryAsCommonJs(absolutePath, err)) {
+      const retry = loadCommonJsConfigAfterFailedImport(absolutePath, err)
+
+      if ('loaded' in retry) {
+        return unwrapDefaultExport(retry.loaded) as FileConfig
       }
+
+      reason = retry.reason
     }
 
     try {
@@ -563,7 +657,7 @@ async function loadConfigFileUncached(
 
       return JSON.parse(content)
     } catch {
-      throw configLoadError(absolutePath, error)
+      throw configLoadError(absolutePath, reason)
     }
   }
 }
