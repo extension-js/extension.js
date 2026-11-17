@@ -7,10 +7,18 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import * as fs from 'node:fs'
+import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
 import {Compilation} from '@rspack/core'
+import {publicContainmentRoot} from '../../../plugin-special-folders/resolve-public-folder'
 import type {FilepathList, PluginInterface} from '../../../types'
-import {getAssetsFromHtml} from '../html-lib/utils'
+import {isFolder} from '../../shared/paths'
+import {
+  getAssetsFromHtml,
+  isHttpLike,
+  isSpecialScheme,
+  resolveAbsoluteFsPath
+} from '../html-lib/utils'
 
 export class AddToFileDependencies {
   public readonly manifestPath: string
@@ -33,33 +41,91 @@ export class AddToFileDependencies {
             stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
           },
           () => {
-            if (compilation.errors?.length) return
+            // Tracked even when this build errored: the page and the files it
+            // names are exactly what a fix edits, and that save must rebuild.
+            const manifestDir = path.dirname(this.manifestPath)
+            const projectRoot =
+              (compiler.options.context as string) || path.dirname(manifestDir)
+            const publicRootForResource = publicContainmentRoot(
+              this.manifestPath,
+              projectRoot
+            )
+            const outputRoot = compilation.options?.output?.path || ''
 
-            const allEntries = this.includeList || {}
+            // A file that is not there yet is watched as missing, so creating
+            // it rebuilds. A folder is never a file dependency.
+            const track = (file: string) => {
+              if (!file || !path.isAbsolute(file)) return
 
-            for (const field of Object.entries(allEntries)) {
-              const [, resource] = field
+              if (!fs.existsSync(file)) {
+                compilation.missingDependencies?.add(file)
 
-              if (resource) {
-                const fileDependencies = new Set(compilation.fileDependencies)
+                return
+              }
 
-                // Parse only files that exist: getAssetsFromHtml throws on a
-                // deleted HTML entry instead of reporting an empty page.
-                if (fs.existsSync(resource as string)) {
-                  const resourceData = getAssetsFromHtml(resource as string)
-                  const fileResources = [
-                    resource as string,
-                    ...(resourceData?.static || [])
-                  ]
+              if (isFolder(file)) return
 
-                  for (const thisResource of fileResources) {
-                    if (!fileDependencies.has(thisResource)) {
-                      fileDependencies.add(thisResource)
+              if (!compilation.fileDependencies.has(file)) {
+                compilation.fileDependencies.add(file)
+              }
+            }
 
-                      if (thisResource === resource) {
-                        compilation.fileDependencies.add(thisResource)
-                      }
-                    }
+            // The files a page names, resolved the way the emit step resolves
+            // them, so a root URL watches the public or manifest-relative file.
+            const staticFilesOf = (htmlFile: string): string[] => {
+              const refs = getAssetsFromHtml(htmlFile)?.static || []
+
+              return [...new Set(refs)]
+                .filter(
+                  (ref) =>
+                    !isHttpLike(ref) &&
+                    !isSpecialScheme(ref) &&
+                    !path.basename(ref).startsWith('#')
+                )
+                .map(
+                  (ref) =>
+                    resolveAbsoluteFsPath({
+                      asset: ref,
+                      projectRoot,
+                      publicRootForResource,
+                      outputRoot,
+                      manifestRoot: manifestDir
+                    }).absoluteFsPath
+                )
+            }
+
+            const pages = new Set(
+              Object.values(this.includeList || {}).filter(
+                (resource): resource is string => typeof resource === 'string'
+              )
+            )
+
+            for (const page of pages) {
+              track(page)
+
+              // Parse only files that exist: getAssetsFromHtml throws on a
+              // deleted HTML entry instead of reporting an empty page.
+              if (!fs.existsSync(page)) continue
+
+              for (const file of staticFilesOf(page)) {
+                track(file)
+
+                // A nested page is copied with the files it names, so those
+                // are watched too. A page of the include list has its own turn.
+                if (
+                  /\.html?$/i.test(file) &&
+                  !pages.has(file) &&
+                  fs.existsSync(file) &&
+                  !isFolder(file)
+                ) {
+                  const nested = getAssetsFromHtml(file)
+
+                  for (const nestedFile of [
+                    ...(nested?.js || []),
+                    ...(nested?.css || []),
+                    ...(nested?.static || [])
+                  ]) {
+                    if (fs.existsSync(nestedFile)) track(nestedFile)
                   }
                 }
               }
