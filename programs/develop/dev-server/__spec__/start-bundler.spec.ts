@@ -136,6 +136,26 @@ describe('starting the bundler', () => {
     expect(() => fail(new Error('boom'))).toThrow(new Error('exit 1'))
   })
 
+  // Pins today's behavior: nothing here asks whether the caller wants an exit.
+  it('ends the process on a start failure for every caller', () => {
+    const exit = vi.spyOn(process, 'exit').mockImplementation((() => {
+      throw new Error('process.exit')
+    }) as never)
+
+    try {
+      const fail = createStartFailure({
+        metadata: {writeError: () => {}},
+        lifecycle: {failed: () => {}},
+        print: () => {}
+      })
+
+      expect(() => fail(new Error('boom'))).toThrow(new Error('process.exit'))
+      expect(exit.mock.calls).toEqual([[1]])
+    } finally {
+      exit.mockRestore()
+    }
+  })
+
   it('warns once when the start outlives the timeout and clears it after', async () => {
     vi.useFakeTimers()
     const onSlowStart = vi.fn()
