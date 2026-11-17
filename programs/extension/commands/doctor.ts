@@ -606,6 +606,25 @@ export async function runDoctor(
         'Fix the compile error and save; the session rebuilds on its own. ' +
         'ready.json `errors` carries the full text'
     })
+  } else if (failure.code === 'extension_load_refused') {
+    // The browser turned the extension away, which no wait ever changes.
+    const reason =
+      typeof failure.extensionLoadRefusedReason === 'string'
+        ? failure.extensionLoadRefusedReason.trim().replace(/[.\s]+$/, '')
+        : ''
+
+    results.push({
+      check: 'ready-contract',
+      status: 'fail',
+      detail:
+        `contract status is 'error', the browser refused to load the ` +
+        `extension${reason ? `: ${reason}` : ''}`,
+      remediation: production
+        ? `Fix what the browser names, build again and restart: ${restartCommand}`
+        : 'Fix what the browser names and save, the dev session tries the ' +
+          'load again on the next build. If it stays refused, restart it: ' +
+          restartCommand
+    })
   } else if (ready.status === 'stopped') {
     // A stopped contract is a session that ended. Waiting on it never helps.
     results.push({

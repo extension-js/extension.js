@@ -83,6 +83,7 @@ import {
 import {resolveConnectableHost} from './connectable-host'
 import {ActionsFileWriter} from './control-bridge/actions-file'
 import {BridgeBroker} from './control-bridge/broker'
+import {readExtensionLoadRefusal} from './control-bridge/consumer-client'
 import {CONTROL_WS_PATH, LOG_EVENT_VERSION} from './control-bridge/contracts'
 import {
   controlPortFilePath,
@@ -699,7 +700,9 @@ export async function devServer(
       : {}),
     onReloadApplied: (kind, label) => stampReload?.(kind, label),
     onLateBootRegistration: (afterMs) =>
-      humanLine(messages.lateBootRegistration(afterMs))
+      humanLine(messages.lateBootRegistration(afterMs)),
+    readLoadRefusal: () =>
+      readExtensionLoadRefusal(packageJsonDir, browserName, sessionRunId)
   })
 
   // Hand the broker to a launched runner plugin so Chromium and Safari reload

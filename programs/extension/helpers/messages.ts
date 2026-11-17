@@ -706,6 +706,7 @@ ${'Predictable output paths'}
   - ${code('options_ui.page')} and ${code('options_page')} → ${code('options/index.html')}
   - ${code('background.page')} → ${code('background/index.html')}
   - ${code('action.default_popup')}, ${code('browser_action.default_popup')}, ${code('page_action.default_popup')} → ${code('action/index.html')}
+  - A page whose authored path your code holds as a string (a ${code('sender.url')} or ${code('location')} check) also ships at that path, and the built manifest opens it there.
 - Other predictable outputs:
   - ${code('chrome_url_overrides.*')} → ${code('chrome_url_overrides/<key>.html')}
   - ${code('content_scripts[n].js/css')} → ${code('content_scripts/content-<n>.{js,css}')}

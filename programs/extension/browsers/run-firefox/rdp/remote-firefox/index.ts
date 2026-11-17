@@ -14,6 +14,7 @@ import {
   humanWarn,
   isDebug
 } from '../../../../helpers/messaging'
+import type {BackgroundSession} from '../../../browsers-lib/built-boot-registrations'
 import {
   RDP_MAX_RETRIES,
   RDP_RETRY_INTERVAL_MS
@@ -25,9 +26,9 @@ import {toExtensionLoadList} from '../../../browsers-lib/runtime-options'
 import {deriveDebugPortWithInstance} from '../../../browsers-lib/shared-utils'
 import type {CompilationLike, PluginInterface} from '../../../browsers-types'
 import {waitForStableExtensionOutput} from '../../../run-chromium/manifest-readiness'
-import type {BackgroundSession} from '../../../browsers-lib/built-boot-registrations'
 import {
   evaluateInConsole,
+  installedBackgroundPagePath,
   watchExtensionDocument
 } from '../evaluate-extension-document'
 import {
@@ -447,6 +448,7 @@ export class RemoteFirefox {
       client: evaluating,
       extensionId: this.derivedExtensionId,
       context: 'background',
+      pagePath: installedBackgroundPagePath(this.lastInstalledAddonPath),
       timeoutMs: BACKGROUND_DOCUMENT_WAIT_MS
     })
 

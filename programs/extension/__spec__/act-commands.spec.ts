@@ -180,6 +180,63 @@ describe('extension eval', () => {
     )
   })
 
+  it.each([
+    ['start', 'eval', '--allow-eval'],
+    ['preview', 'reload', '--allow-control']
+  ])('answers the receipt of a refused %s run with the reason it recorded', async (command, verb, flag) => {
+    bridge.ready = null
+    bridge.readyDoc = {
+      command,
+      controlPort: null,
+      status: 'error',
+      code: 'extension_load_refused',
+      extensionLoadRefusedAt: '2026-11-16T20:32:53.167Z',
+      extensionLoadRefusedReason:
+        'the manifest declares a shape this browser refuses'
+    }
+
+    const stdout = vi.spyOn(fs, 'writeSync').mockImplementation(() => 0)
+
+    expect(
+      await run([
+        verb,
+        ...(verb === 'eval' ? ['1+1'] : []),
+        '--browser',
+        'chrome',
+        '--output',
+        'json'
+      ])
+    ).toBe(1)
+
+    const frame = JSON.parse(String(stdout.mock.calls[0][1]))
+
+    expect(frame.error.code).toBe('E_EXTENSION_LOAD_REFUSED')
+    expect(frame.error.message).toBe(
+      `The last extension ${command} run for chrome ended because the ` +
+        'browser refused to load the extension: the manifest declares a ' +
+        'shape this browser refuses. Fix what the browser names, then run ' +
+        `\`extension ${command} --browser=chrome ${flag}\` again.`
+    )
+
+    expect(bridge.controllers).toHaveLength(0)
+  })
+
+  it('keeps the no-session answer for a dev contract and for a receipt with no refusal', async () => {
+    for (const readyDoc of [
+      {command: 'dev', code: 'extension_load_refused'},
+      {command: 'start', status: 'error', code: 'browser_launch_failed'}
+    ]) {
+      bridge.ready = null
+      bridge.readyDoc = readyDoc
+      errorSpy.mockClear()
+
+      expect(await run(['eval', '1+1'])).toBe(1)
+      expect(String(errorSpy.mock.calls[0][0])).toContain(
+        'No active control channel'
+      )
+    }
+  })
+
   it('names the browser a live session runs for when the default has none', async () => {
     const project = fs.mkdtempSync(path.join(os.tmpdir(), 'act-other-session-'))
     fs.mkdirSync(path.join(project, 'dist', 'extension-js', 'chrome'), {

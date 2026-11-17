@@ -23,8 +23,14 @@ has_required_templates() {
 
   [[ -f "$TEMPLATES_DIR/extension-fixtures.ts" ]] || return 1
   [[ -f "$TEMPLATES_DIR/dirname.ts" ]] || return 1
-  [[ -f "$SCRIPTS_DIR/build-with-manifest.mjs" ]] || return 1
 }
+
+# The template specs build through this file, which is this repo's own: it
+# spawns the CLI this checkout compiled. It is tracked here and never fetched.
+if [[ ! -f "$SCRIPTS_DIR/build-with-manifest.mjs" ]]; then
+  echo "error: scripts/build-with-manifest.mjs is missing. The template specs build through it and it is tracked in this repo, so restore it with: git checkout -- scripts/build-with-manifest.mjs" >&2
+  exit 1
+fi
 
 if has_required_templates; then
   echo "Templates already hydrated. Skipping fetch."
@@ -48,9 +54,8 @@ else
   git -C "$TMP_DIR/examples" checkout "$EXAMPLES_REF"
 fi
 
-mkdir -p "$TEMPLATES_DIR" "$SCRIPTS_DIR"
+mkdir -p "$TEMPLATES_DIR"
 cp -R "$TMP_DIR/examples/examples/." "$TEMPLATES_DIR/"
-cp "$TMP_DIR/examples/ci-scripts/build-with-manifest.mjs" "$SCRIPTS_DIR/build-with-manifest.mjs" 2>/dev/null || true
 
 # Record the resolved examples commit so CI can stamp the readiness document.
 git -C "$TMP_DIR/examples" rev-parse HEAD > "$TEMPLATES_DIR/.examples-commit"
