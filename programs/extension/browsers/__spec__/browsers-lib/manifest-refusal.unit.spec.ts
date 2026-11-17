@@ -1,0 +1,962 @@
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
+import {afterEach, beforeEach, describe, expect, it} from 'vitest'
+import {
+  chromiumStillRunsManifestV2,
+  diagnoseChromiumManifestRefusal,
+  endsRunOnlyLaunch,
+  findChromiumLoadBlockers,
+  findChromiumManifestCaveats,
+  findGeckoRefusalCause,
+  findIgnoredHostPermissionPatterns,
+  findInvalidMatchPatterns,
+  findLocaleLoadBlockers,
+  findMissingManagedSchema,
+  findUnloadableIconFiles,
+  holdRefusalPredictions,
+  planManifestV2Launch,
+  repeatsManifestV2Refusal
+} from '../../browsers-lib/manifest-refusal'
+import {
+  backgroundScriptsNotRunByChromium,
+  browserRefusesTheExtension,
+  chromiumLoadedPredictedRefusal,
+  geckoAddonLoadRefused,
+  hostPermissionPatternsIgnored,
+  manifestV2OnChromiumBrowser,
+  manifestVersionAboveThreeOnChromium,
+  unsupportedManifestVersionOnChromium
+} from '../../browsers-lib/messages'
+
+const NAME_BLOCKER =
+  'name: missing, empty, or not a string, Chrome requires a non-empty string name and refuses the extension.'
+const VERSION_BLOCKER =
+  'version: missing or invalid, Chrome requires 1-4 dot-separated integers (0-65535) and refuses the extension.'
+
+// One refusal gets one block: the browser's own when it answered.
+describe('holdRefusalPredictions', () => {
+  const start = () => {
+    const printed: string[] = []
+    const held = holdRefusalPredictions((message) => printed.push(message))
+
+    held.hold('predicted A', 'loaded although A')
+    held.hold('predicted B', 'loaded although B')
+
+    return {printed, held}
+  }
+
+  it('prints a held prediction when the browser gave no answer', () => {
+    const {printed, held} = start()
+
+    expect(printed).toEqual([])
+
+    held.flush()
+    held.flush()
+    expect(printed).toEqual(['predicted A', 'predicted B'])
+  })
+
+  it("drops the prediction once the browser's own refusal is reported", () => {
+    const {printed, held} = start()
+
+    held.browserRefused()
+    held.flush()
+
+    expect(printed).toEqual([])
+  })
+
+  // Chrome 151 loads an invalid host wildcard in host_permissions, so a
+  // prediction can be wrong and must not be printed as a refusal then.
+  it('says the browser loaded it, and never that it refuses, once it loaded', () => {
+    const {printed, held} = start()
+
+    held.browserLoaded()
+    held.flush()
+
+    expect(printed).toEqual(['loaded although A', 'loaded although B'])
+  })
+
+  it('words the loaded case as a warning about the shape', () => {
+    const text = chromiumLoadedPredictedRefusal('/dist/chrome', [
+      'match pattern https://foo.*.com/*'
+    ])
+
+    expect(text).toContain(
+      'Chrome loaded this extension, although its manifest has a shape expected to be refused.'
+    )
+
+    expect(text).toContain('SHAPE match pattern https://foo.*.com/*')
+    expect(text).not.toMatch(/refuses|won't load/)
+  })
+})
+
+// Firefox answers these with an internal TypeError or a bare value, so the
+// cause is read off the manifest and printed beside the browser's words.
+describe('findGeckoRefusalCause', () => {
+  it.each([
+    4, 99
+  ])('names manifest_version %i as above what Firefox loads', (version) => {
+    expect(findGeckoRefusalCause({manifest_version: version})).toBe(
+      'Firefox does not load a manifest_version above 3.'
+    )
+  })
+
+  it.each([
+    ['missing', {}],
+    ['the string "3"', {manifest_version: '3'}],
+    ['1', {manifest_version: 1}],
+    ['0', {manifest_version: 0}],
+    ['-1', {manifest_version: -1}],
+    ['3.5', {manifest_version: 3.5}]
+  ])('names a manifest_version that is %s', (_label, manifest) => {
+    expect(findGeckoRefusalCause(manifest)).toBe(
+      'Firefox loads only the integer 2 or 3 as manifest_version.'
+    )
+  })
+
+  it('names no cause where the manifest shows none, whatever the browser said', () => {
+    for (const manifest of [
+      {manifest_version: 3, background: {service_worker: 'sw.js'}},
+      {manifest_version: 2},
+      {
+        manifest_version: 3,
+        browser_specific_settings: {gecko: {id: 'not a valid id'}}
+      },
+      null,
+      []
+    ]) {
+      expect(findGeckoRefusalCause(manifest)).toBeUndefined()
+    }
+  })
+
+  it("puts the cause beside the browser's words, which stay", () => {
+    const reason =
+      'Could not install add-on: TypeError: can\'t access property "length", manifest.name is undefined'
+    const cause = 'Firefox does not load a manifest_version above 3.'
+
+    for (const text of [
+      browserRefusesTheExtension('firefox', '/dist/firefox', reason, cause),
+      geckoAddonLoadRefused('/dist/firefox', reason, cause)
+    ]) {
+      expect(text).toContain(`REASON ${reason}\nCAUSE ${cause}\n`)
+    }
+
+    expect(
+      browserRefusesTheExtension('firefox', '/dist/firefox', reason)
+    ).not.toContain('CAUSE')
+  })
+})
+
+describe('findChromiumManifestCaveats', () => {
+  it('names background.scripts with no service worker from Manifest V3 on', () => {
+    expect(
+      findChromiumManifestCaveats({
+        manifest_version: 3,
+        background: {scripts: ['background.js']}
+      })
+    ).toEqual(['background-scripts-not-run'])
+  })
+
+  it('names a manifest version above 3, which Chrome runs as Manifest V3', () => {
+    expect(
+      findChromiumManifestCaveats({
+        manifest_version: 4,
+        background: {service_worker: 'sw.js'}
+      })
+    ).toEqual(['manifest-version-above-3'])
+
+    expect(
+      findChromiumManifestCaveats({
+        manifest_version: 4,
+        background: {scripts: ['background.js']}
+      })
+    ).toEqual(['manifest-version-above-3', 'background-scripts-not-run'])
+  })
+
+  it('names nothing for a manifest Chrome runs in full, or refuses', () => {
+    for (const manifest of [
+      {manifest_version: 3, background: {service_worker: 'sw.js'}},
+      {
+        manifest_version: 3,
+        background: {service_worker: 'sw.js', scripts: ['background.js']}
+      },
+      {manifest_version: 3, background: {scripts: []}},
+      {manifest_version: 2, background: {scripts: ['background.js']}},
+      {manifest_version: '3', background: {scripts: ['background.js']}},
+      {name: 'x'}
+    ]) {
+      expect(findChromiumManifestCaveats(manifest)).toEqual([])
+    }
+  })
+
+  it('says what the browser does, and never that it refuses', () => {
+    const scripts = backgroundScriptsNotRunByChromium('/dist/chrome')
+
+    expect(scripts).toContain('Chromium loads it and runs no background')
+    expect(scripts).toContain('assigns an Extension ID')
+    expect(scripts).not.toMatch(/refuses|rejects/)
+
+    const above = manifestVersionAboveThreeOnChromium('/dist/chrome', 4)
+
+    expect(above).toContain(
+      'declares manifest_version 4, which Chromium loads and runs as Manifest V3'
+    )
+
+    expect(above).not.toMatch(/Chromium refuses|rejects/)
+
+    const refused = unsupportedManifestVersionOnChromium('/dist/chrome', '3')
+
+    expect(refused).toContain(
+      'declares manifest_version "3", which Chromium refuses to load'
+    )
+
+    expect(refused).toContain('the integer 2 or 3 only')
+    expect(unsupportedManifestVersionOnChromium('/d', undefined)).toContain(
+      'declares no manifest_version, which Chromium refuses to load'
+    )
+  })
+})
+
+describe('diagnoseChromiumManifestRefusal', () => {
+  it('flags MV2', () => {
+    expect(diagnoseChromiumManifestRefusal({manifest_version: 2})).toBe('mv2')
+  })
+
+  it('does not flag a Manifest V2 theme, which Chrome 151 still installs', () => {
+    expect(
+      diagnoseChromiumManifestRefusal({
+        manifest_version: 2,
+        theme: {colors: {frame: [20, 40, 80]}}
+      })
+    ).toBe(null)
+  })
+
+  // Chrome 151 answers each of these "Must be an integer either 2 or 3", or
+  // "Missing 'manifest_version' key" (wild: Custom-salesforce-inspector).
+  it.each([
+    ['a missing key', {name: 'x'}],
+    ['1', {manifest_version: 1}],
+    ['0', {manifest_version: 0}],
+    ['a negative value', {manifest_version: -1}],
+    ['a fraction', {manifest_version: 3.5}],
+    ['the string "3"', {manifest_version: '3'}],
+    ['the string "2"', {manifest_version: '2'}]
+  ])('flags %s as a manifest version Chrome refuses', (_label, manifest) => {
+    expect(diagnoseChromiumManifestRefusal(manifest)).toBe(
+      'unsupported-manifest-version'
+    )
+  })
+
+  // Measured on Chrome 151: both load, get an id and show no warning.
+  it('predicts no refusal for the shapes Chrome loads', () => {
+    for (const manifest of [
+      {manifest_version: 3, background: {scripts: ['background.js']}},
+      {manifest_version: 4, background: {service_worker: 'sw.js'}},
+      {manifest_version: 4, background: {scripts: ['background.js']}},
+      {manifest_version: 99, background: {service_worker: 'sw.js'}}
+    ]) {
+      expect(diagnoseChromiumManifestRefusal(manifest)).toBeNull()
+    }
+  })
+
+  it('diagnoses nothing that is not a manifest object', () => {
+    for (const value of [null, undefined, 'x', 3, []]) {
+      expect(diagnoseChromiumManifestRefusal(value)).toBeNull()
+      expect(findChromiumManifestCaveats(value)).toEqual([])
+    }
+  })
+
+  it('accepts MV3 with a service_worker (even alongside scripts)', () => {
+    expect(
+      diagnoseChromiumManifestRefusal({
+        manifest_version: 3,
+        background: {service_worker: 'sw.js'}
+      })
+    ).toBeNull()
+
+    expect(
+      diagnoseChromiumManifestRefusal({
+        manifest_version: 3,
+        background: {service_worker: 'sw.js', scripts: ['background.js']}
+      })
+    ).toBeNull()
+  })
+
+  it('does NOT flag query strings or fragments (verified live: Chrome 150 installs them ENABLED)', () => {
+    const invalid = findInvalidMatchPatterns({
+      manifest_version: 3,
+      host_permissions: ['*://steamcommunity.com/*'],
+      content_scripts: [
+        {
+          matches: [
+            '*://steamcommunity.com/id/*/gcpd/730?tab=majors',
+            'https://example.com/page#section'
+          ],
+          exclude_matches: ['*://*/*?XML*'],
+          js: ['content.js']
+        }
+      ],
+      web_accessible_resources: [
+        {resources: ['a.js'], matches: ['https://ok.example/*']}
+      ]
+    })
+    expect(invalid).toEqual([])
+  })
+
+  it('accepts valid patterns, <all_urls>, IPs, and explicit ports (wild: memux loads fine with localhost:3000)', () => {
+    expect(
+      findInvalidMatchPatterns({
+        host_permissions: [
+          '<all_urls>',
+          '*://steamcommunity.com/id/*/gcpd/730*tab=majors',
+          'http://10.210.57.10/*',
+          'file:///*'
+        ],
+        content_scripts: [
+          {
+            matches: [
+              'https://*.example.com/deep/path*',
+              'http://localhost:3000/*',
+              'https://example.com:8888/*'
+            ]
+          }
+        ]
+      })
+    ).toEqual([])
+
+    expect(findInvalidMatchPatterns(undefined)).toEqual([])
+  })
+
+  it('does NOT flag WILDCARD ports (verified live: chat-relay installs ENABLED with ws://localhost:*/)', () => {
+    expect(
+      findInvalidMatchPatterns({
+        host_permissions: [
+          'ws://localhost:*/',
+          'wss://127.0.0.1:*/*',
+          'http://example.com:*/*'
+        ]
+      })
+    ).toEqual([])
+
+    expect(
+      findInvalidMatchPatterns({
+        content_scripts: [{matches: ['*://*carbonwise*:*/*']}]
+      })
+    ).toEqual(['*://*carbonwise*:*/*'])
+  })
+
+  // Measured on Chrome 151: content script and web accessible resource
+  // patterns refuse the extension, host permission patterns do not.
+  it('predicts a refusal only for the keys Chrome refuses over', () => {
+    const bad = 'https://foo.*.com/*'
+
+    expect(
+      findInvalidMatchPatterns({
+        host_permissions: [bad],
+        optional_host_permissions: [bad]
+      })
+    ).toEqual([])
+
+    for (const manifest of [
+      {content_scripts: [{matches: [bad]}]},
+      {
+        content_scripts: [
+          {matches: ['https://ok.example/*'], exclude_matches: [bad]}
+        ]
+      },
+      {web_accessible_resources: [{resources: ['a.js'], matches: [bad]}]}
+    ]) {
+      expect(findInvalidMatchPatterns(manifest)).toEqual([bad])
+      expect(findIgnoredHostPermissionPatterns(manifest)).toEqual([])
+    }
+  })
+
+  it('names host permission patterns the browser drops as a caveat', () => {
+    expect(
+      findIgnoredHostPermissionPatterns({
+        host_permissions: ['https://foo.*.com/*', 'https://ok.example/*'],
+        optional_host_permissions: ['https://*foo.com/*', '<all_urls>']
+      })
+    ).toEqual(['https://foo.*.com/*', 'https://*foo.com/*'])
+
+    expect(findIgnoredHostPermissionPatterns(undefined)).toEqual([])
+
+    const text = hostPermissionPatternsIgnored('/dist/chrome', [
+      'https://foo.*.com/*'
+    ])
+
+    expect(text).toContain(
+      'lists host permission patterns the browser drops, so they grant no host access.'
+    )
+
+    expect(text).toContain('PATTERN https://foo.*.com/*')
+    expect(text).toContain(
+      'Chrome and Firefox load the extension, Chrome records no error or warning for it'
+    )
+
+    expect(text).not.toMatch(/refuses|won't load/)
+  })
+
+  it('accepts MV3 with no background and tolerates malformed shapes', () => {
+    expect(diagnoseChromiumManifestRefusal({manifest_version: 3})).toBeNull()
+    expect(
+      diagnoseChromiumManifestRefusal({
+        manifest_version: 3,
+        background: {scripts: []}
+      })
+    ).toBeNull()
+
+    expect(diagnoseChromiumManifestRefusal(undefined)).toBeNull()
+    expect(
+      diagnoseChromiumManifestRefusal({manifest_version: 3, background: 'x'})
+    ).toBeNull()
+  })
+})
+
+describe('findChromiumLoadBlockers', () => {
+  it('flags a host wildcard Chrome refuses (CarbonWise: *://*carbonwise*/*)', () => {
+    expect(
+      findInvalidMatchPatterns({
+        content_scripts: [
+          {matches: ['*://*carbonwise*/*', 'https://*.zomato.com/*']}
+        ]
+      })
+    ).toEqual(['*://*carbonwise*/*'])
+  })
+
+  it('keeps legal host wildcards out of the invalid list', () => {
+    expect(
+      findInvalidMatchPatterns({
+        host_permissions: ['*://*/*', 'https://*.example.com/*'],
+        content_scripts: [{matches: ['<all_urls>', 'https://stake.com/*/*']}]
+      })
+    ).toEqual([])
+  })
+
+  const valid = {manifest_version: 3, name: 'x', version: '1.0'}
+
+  it('flags more than 4 keyboard shortcuts (spotify-hotkeys ships 12)', () => {
+    const commands: Record<string, unknown> = {}
+
+    for (let i = 0; i < 5; i++) {
+      commands[`cmd-${i}`] = {suggested_key: {default: `Alt+Shift+${i}`}}
+    }
+
+    expect(findChromiumLoadBlockers({...valid, commands})).toEqual([
+      'commands: 5 shortcuts declared with "suggested_key", Chrome allows at most 4.'
+    ])
+  })
+
+  it('does not flag 4 shortcuts, nor commands without suggested_key', () => {
+    const commands: Record<string, unknown> = {
+      _execute_action: {description: 'no suggested_key, not a shortcut'}
+    }
+
+    for (let i = 0; i < 4; i++) {
+      commands[`cmd-${i}`] = {suggested_key: {default: `Alt+Shift+${i}`}}
+    }
+
+    expect(findChromiumLoadBlockers({...valid, commands})).toEqual([])
+  })
+
+  it('flags a content_scripts group with neither js nor css (fayufox)', () => {
+    expect(
+      findChromiumLoadBlockers({
+        ...valid,
+        content_scripts: [
+          {matches: ['*://*.mozilla.org/*'], js: [], css: []},
+          {matches: ['*://*.example.com/*'], js: ['content.js']}
+        ]
+      })
+    ).toEqual([
+      'content_scripts[0]: declares neither "js" nor "css", Chrome requires at least one.'
+    ])
+  })
+
+  it('flags a malformed base64 manifest key (queup) but accepts a valid one', () => {
+    expect(
+      findChromiumLoadBlockers({...valid, key: 'MIIBIjANBgkqhkiG9w0BAQEF'})
+    ).toEqual([])
+
+    expect(findChromiumLoadBlockers({...valid, key: 'not-base64!!'})).toEqual([
+      'key: not a valid base64 public key, Chrome refuses the extension.'
+    ])
+
+    expect(
+      findChromiumLoadBlockers({...valid, key: 'MIIBIjANBgkqhkiG9w0BAQE'})
+    ).toEqual([
+      'key: not a valid base64 public key, Chrome refuses the extension.'
+    ])
+  })
+
+  it('flags missing/empty/non-string name (fixtures 01/02/26, Chrome 150)', () => {
+    for (const manifest of [
+      {manifest_version: 3, version: '1.0'},
+      {manifest_version: 3, name: '', version: '1.0'},
+      {manifest_version: 3, name: 42, version: '1.0'}
+    ]) {
+      expect(
+        findChromiumLoadBlockers(manifest),
+        JSON.stringify(manifest)
+      ).toEqual([NAME_BLOCKER])
+    }
+
+    expect(findChromiumLoadBlockers(valid)).toEqual([])
+  })
+
+  it('flags a missing or out-of-grammar version', () => {
+    for (const manifest of [
+      {manifest_version: 3, name: 'x'},
+      {manifest_version: 3, name: 'x', version: 'x.y.z'},
+      {manifest_version: 3, name: 'x', version: 1}
+    ]) {
+      expect(
+        findChromiumLoadBlockers(manifest),
+        JSON.stringify(manifest)
+      ).toEqual([VERSION_BLOCKER])
+    }
+  })
+
+  it('flags MV3 WAR shape errors but not the MV2 string form (fixtures 06/07/08/23)', () => {
+    expect(
+      findChromiumLoadBlockers({
+        ...valid,
+        web_accessible_resources: ['img.png']
+      })
+    ).toEqual([
+      'web_accessible_resources[0]: MV2-style entry, MV3 requires {resources, matches|extension_ids|use_dynamic_url} dictionaries.'
+    ])
+
+    expect(
+      findChromiumLoadBlockers({
+        ...valid,
+        web_accessible_resources: [{resources: ['img.png']}]
+      })
+    ).toEqual([
+      "web_accessible_resources[0]: needs one of 'matches', 'extension_ids', or 'use_dynamic_url' beside resources, Chrome refuses the extension without it."
+    ])
+
+    expect(
+      findChromiumLoadBlockers({
+        ...valid,
+        web_accessible_resources: [{matches: ['https://example.com/*']}]
+      })
+    ).toEqual([
+      "web_accessible_resources[0]: 'resources' is required, Chrome refuses the extension without it."
+    ])
+
+    expect(
+      findChromiumLoadBlockers({
+        ...valid,
+        web_accessible_resources: [
+          {resources: ['img.png'], use_dynamic_url: true}
+        ]
+      })
+    ).toEqual([])
+
+    expect(
+      findChromiumLoadBlockers({
+        manifest_version: 2,
+        name: 'x',
+        version: '1.0',
+        web_accessible_resources: ['img.png']
+      })
+    ).toEqual([])
+  })
+
+  it('flags content_scripts grammar Chrome refuses (fixtures 09/10/17/18/27)', () => {
+    const cs = (group: Record<string, unknown>) =>
+      findChromiumLoadBlockers({...valid, content_scripts: [group]})
+    expect(cs({js: ['c.js']})).toEqual([
+      "content_scripts[0]: 'matches' is required, Chrome refuses the extension without it."
+    ])
+
+    expect(cs({matches: [], js: ['c.js']})).toEqual([
+      'content_scripts[0].matches: there must be at least one match, Chrome refuses the extension over an empty list.'
+    ])
+
+    expect(cs({matches: ['<all_urls>'], js: [42]})).toEqual([
+      'content_scripts[0].js[0]: expected a string, got number, Chrome refuses the extension.'
+    ])
+
+    expect(
+      cs({matches: ['<all_urls>'], js: ['c.js'], run_at: 'document_ready'})
+    ).toEqual([
+      'content_scripts[0].run_at: expected "document_start", "document_end" or "document_idle", got "document_ready", Chrome refuses the extension.'
+    ])
+
+    expect(cs({matches: ['<all_urls>'], js: ['c.js'], run_at: 3})).toEqual([
+      'content_scripts[0].run_at: expected "document_start", "document_end" or "document_idle", got 3, Chrome refuses the extension.'
+    ])
+
+    for (const run_at of ['document_start', 'document_end', 'document_idle']) {
+      expect(cs({matches: ['<all_urls>'], js: ['c.js'], run_at})).toEqual([])
+    }
+  })
+
+  it('flags minimum_chrome_version above the browser or out of grammar (fixtures 11/31/32)', () => {
+    expect(
+      findChromiumLoadBlockers(
+        {...valid, minimum_chrome_version: '999.0'},
+        '150.0.7871.24'
+      )
+    ).toEqual([
+      'minimum_chrome_version: requires 999.0 but the resolved browser is 150.0.7871.24, the browser refuses the extension.'
+    ])
+
+    expect(
+      findChromiumLoadBlockers({...valid, minimum_chrome_version: 'banana'})
+    ).toEqual([
+      'minimum_chrome_version: invalid value "banana", Chrome refuses the extension.'
+    ])
+
+    expect(
+      findChromiumLoadBlockers(
+        {...valid, minimum_chrome_version: '100'},
+        '150.0.7871.24'
+      )
+    ).toEqual([])
+
+    expect(
+      findChromiumLoadBlockers({...valid, minimum_chrome_version: '999.0'})
+    ).toEqual([])
+  })
+
+  it('never flags shapes verified to LOAD on Chrome 150 (the temptation list)', () => {
+    expect(
+      findChromiumLoadBlockers({...valid, background: {page: 'bg.html'}})
+    ).toEqual([])
+
+    expect(
+      findChromiumLoadBlockers({
+        ...valid,
+        background: {service_worker: 'sw.js', persistent: true}
+      })
+    ).toEqual([])
+
+    expect(
+      diagnoseChromiumManifestRefusal({...valid, background: {page: 'bg.html'}})
+    ).toBeNull()
+  })
+
+  it('tolerates malformed manifests; an empty one is truthfully flagged', () => {
+    expect(findChromiumLoadBlockers(undefined)).toEqual([])
+    expect(findChromiumLoadBlockers({})).toEqual([
+      NAME_BLOCKER,
+      VERSION_BLOCKER
+    ])
+
+    const malformed = findChromiumLoadBlockers({
+      ...valid,
+      commands: 'x',
+      content_scripts: 'y',
+      web_accessible_resources: 'z'
+    })
+    expect(malformed).toEqual([])
+  })
+})
+
+describe('findLocaleLoadBlockers', () => {
+  let dir: string
+  const valid = {manifest_version: 3, name: 'x', version: '1.0'}
+
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'refusal-locales-'))
+  })
+
+  afterEach(() => {
+    fs.rmSync(dir, {recursive: true, force: true})
+  })
+
+  const writeCatalog = (locale: string, content: string) => {
+    const catalogDir = path.join(dir, '_locales', locale)
+    fs.mkdirSync(catalogDir, {recursive: true})
+    fs.writeFileSync(path.join(catalogDir, 'messages.json'), content)
+  }
+
+  it('flags default_locale with no catalog, missing tree or missing locale (fixtures 03/20)', () => {
+    expect(
+      findLocaleLoadBlockers({...valid, default_locale: 'en'}, dir)
+    ).toEqual([
+      'default_locale: "en" is declared but _locales/en/messages.json is missing, Chrome refuses the whole extension.'
+    ])
+
+    writeCatalog('fr', JSON.stringify({greeting: {message: 'salut'}}))
+    expect(
+      findLocaleLoadBlockers({...valid, default_locale: 'en'}, dir)
+    ).toEqual([
+      'default_locale: "en" is declared but _locales/en/messages.json is missing, Chrome refuses the whole extension.'
+    ])
+  })
+
+  it('flags a populated _locales tree with no default_locale (fixture 04)', () => {
+    writeCatalog('en', JSON.stringify({greeting: {message: 'hi'}}))
+    expect(findLocaleLoadBlockers(valid, dir)).toEqual([
+      '_locales: a locales tree exists but the manifest declares no default_locale, Chrome refuses the whole extension.'
+    ])
+  })
+
+  it('flags an unparseable default catalog (fixture 22), tolerates an empty one (fixture 21)', () => {
+    writeCatalog('en', '{oops')
+    expect(
+      findLocaleLoadBlockers({...valid, default_locale: 'en'}, dir)
+    ).toEqual([
+      'default_locale: _locales/en/messages.json is not valid JSON, Chrome refuses the whole extension.'
+    ])
+
+    writeCatalog('en', '{}')
+    expect(
+      findLocaleLoadBlockers({...valid, default_locale: 'en'}, dir)
+    ).toEqual([])
+  })
+
+  it('flags unresolved __MSG__ variables in name and description (fixtures 05/29)', () => {
+    writeCatalog('en', JSON.stringify({other: {message: 'x'}}))
+    expect(
+      findLocaleLoadBlockers(
+        {...valid, name: '__MSG_appName__', default_locale: 'en'},
+        dir
+      )
+    ).toEqual([
+      '__MSG_appName__: used in the manifest but not defined in _locales/en/messages.json, Chrome refuses the whole extension.'
+    ])
+
+    expect(
+      findLocaleLoadBlockers(
+        {...valid, description: '__MSG_missing__', default_locale: 'en'},
+        dir
+      )
+    ).toEqual([
+      '__MSG_missing__: used in the manifest but not defined in _locales/en/messages.json, Chrome refuses the whole extension.'
+    ])
+  })
+
+  it('honors the verified tolerances: case-insensitive keys and @@predefined (fixtures 24/25/30)', () => {
+    writeCatalog('en', JSON.stringify({appName: {message: 'Cased'}}))
+    expect(
+      findLocaleLoadBlockers(
+        {...valid, name: '__MSG_APPNAME__', default_locale: 'en'},
+        dir
+      )
+    ).toEqual([])
+
+    expect(
+      findLocaleLoadBlockers(
+        {...valid, name: '__MSG_@@ui_locale__', default_locale: 'en'},
+        dir
+      )
+    ).toEqual([])
+
+    expect(
+      findLocaleLoadBlockers(
+        {...valid, name: '__MSG_appName__', default_locale: 'en'},
+        dir
+      )
+    ).toEqual([])
+  })
+
+  it('closes a reference at the first __ like the build gate, so one spelling has one meaning', () => {
+    writeCatalog('en', JSON.stringify({a: {message: 'A'}}))
+    expect(
+      findLocaleLoadBlockers(
+        {...valid, name: '__MSG_a__b__', default_locale: 'en'},
+        dir
+      )
+    ).toEqual([])
+
+    expect(
+      findLocaleLoadBlockers(
+        {
+          ...valid,
+          description: 'Made by __MSG_Missing__ today',
+          default_locale: 'en'
+        },
+        dir
+      )
+    ).toEqual([
+      '__MSG_Missing__: used in the manifest but not defined in _locales/en/messages.json, Chrome refuses the whole extension.'
+    ])
+  })
+
+  it('stays silent without _locales and without default_locale, and on malformed input', () => {
+    expect(findLocaleLoadBlockers(valid, dir)).toEqual([])
+    expect(findLocaleLoadBlockers(undefined, dir)).toEqual([])
+    expect(findLocaleLoadBlockers({...valid, default_locale: 42}, dir)).toEqual(
+      []
+    )
+  })
+})
+
+describe('findMissingManagedSchema', () => {
+  let dir: string
+
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'refusal-schema-'))
+  })
+
+  afterEach(() => {
+    fs.rmSync(dir, {recursive: true, force: true})
+  })
+
+  it('flags a missing schema file and accepts a present one', () => {
+    const manifest = {storage: {managed_schema: 'schema.json'}}
+    expect(findMissingManagedSchema(manifest, dir)).toEqual([
+      'storage.managed_schema: "schema.json" does not exist in the extension directory, Chrome refuses the whole extension.'
+    ])
+
+    fs.writeFileSync(path.join(dir, 'schema.json'), '{}')
+    expect(findMissingManagedSchema(manifest, dir)).toEqual([])
+    expect(findMissingManagedSchema({}, dir)).toEqual([])
+    expect(findMissingManagedSchema(undefined, dir)).toEqual([])
+  })
+})
+
+describe('findUnloadableIconFiles', () => {
+  let dir: string
+
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'refusal-icons-'))
+    fs.mkdirSync(path.join(dir, 'icons'), {recursive: true})
+    fs.writeFileSync(path.join(dir, 'icons/empty.png'), '')
+    fs.writeFileSync(path.join(dir, 'icons/real.png'), 'png-bytes')
+  })
+
+  afterEach(() => {
+    fs.rmSync(dir, {recursive: true, force: true})
+  })
+
+  it('flags empty and missing icon files across icons and default_icon', () => {
+    const findings = findUnloadableIconFiles(
+      {
+        icons: {'16': 'icons/real.png', '128': 'icons/empty.png'},
+        action: {default_icon: 'icons/gone.png'},
+        browser_action: {default_icon: {'32': '/icons/empty.png'}}
+      },
+      dir
+    )
+    expect(findings).toEqual([
+      'icons.128: icon "icons/empty.png" is an empty file (0 bytes), Chrome refuses the whole extension over an icon it cannot load.',
+      'action.default_icon: icon "icons/gone.png" is missing from the extension directory, Chrome refuses the whole extension over an icon it cannot load.',
+      'browser_action.default_icon.32: icon "/icons/empty.png" is an empty file (0 bytes), Chrome refuses the whole extension over an icon it cannot load.'
+    ])
+  })
+
+  it('stays silent for loadable icons and malformed manifests', () => {
+    expect(
+      findUnloadableIconFiles({icons: {'16': 'icons/real.png'}}, dir)
+    ).toEqual([])
+
+    expect(findUnloadableIconFiles(undefined, dir)).toEqual([])
+    expect(
+      findUnloadableIconFiles({icons: 'x', action: {default_icon: 42}}, dir)
+    ).toEqual([])
+
+    expect(findUnloadableIconFiles({icons: {'16': ''}}, dir)).toEqual([])
+  })
+})
+
+describe('a Manifest V2 guest at launch', () => {
+  it('is a refusal on Chrome and its forks, and still runs on Edge', () => {
+    expect(chromiumStillRunsManifestV2('edge')).toBe(true)
+
+    for (const browser of ['chrome', 'chromium', 'brave', 'chromium-based']) {
+      expect(chromiumStillRunsManifestV2(browser)).toBe(false)
+    }
+  })
+
+  it('stays quiet when the build of this session already said it', () => {
+    expect(
+      planManifestV2Launch({browser: 'chrome', builtByThisSession: true})
+    ).toEqual({say: false, refused: true})
+
+    expect(
+      planManifestV2Launch({browser: 'edge', builtByThisSession: true})
+    ).toEqual({say: false, refused: false})
+  })
+
+  it('says it once when nothing built in this session', () => {
+    expect(
+      planManifestV2Launch({browser: 'chrome', builtByThisSession: false})
+    ).toEqual({say: true, refused: true})
+
+    expect(
+      planManifestV2Launch({browser: 'edge', builtByThisSession: false})
+    ).toEqual({say: true, refused: false})
+  })
+
+  it('treats only the manifest version answer as a repeat', () => {
+    const reason =
+      'Cannot install extension because it uses an unsupported manifest version.'
+
+    expect(repeatsManifestV2Refusal(true, reason)).toBe(true)
+    expect(repeatsManifestV2Refusal(false, reason)).toBe(false)
+    expect(repeatsManifestV2Refusal(undefined, reason)).toBe(false)
+    expect(repeatsManifestV2Refusal(true, 'Could not load icon')).toBe(false)
+  })
+
+  it('ends a predicted refusal unless the browser took the guest', () => {
+    expect(endsRunOnlyLaunch(true, 'refused')).toBe(true)
+    expect(endsRunOnlyLaunch(true, 'unknown')).toBe(true)
+    expect(endsRunOnlyLaunch(true, 'loaded')).toBe(false)
+  })
+
+  // A minimum_chrome_version above the browser is one the preflight lets by.
+  it('ends a run the browser refused though nothing predicted it', () => {
+    expect(endsRunOnlyLaunch(false, 'refused')).toBe(true)
+    expect(endsRunOnlyLaunch(false, 'unknown')).toBe(false)
+    expect(endsRunOnlyLaunch(false, 'loaded')).toBe(false)
+  })
+
+  it('carries the sentence of the browser on the frame that ends the run', () => {
+    const sentence =
+      'Cannot install extension because it uses an unsupported manifest version.'
+    const framed = browserRefusesTheExtension(
+      'chrome',
+      '/dist/chrome',
+      sentence
+    )
+
+    expect(framed).toContain('Chrome refuses to load this extension')
+    expect(framed).toContain(sentence)
+    expect(framed.split(sentence)).toHaveLength(2)
+    expect(framed).toContain(
+      'Fix what the browser names, then run the command again.'
+    )
+
+    expect(framed).not.toContain('Read the reason above')
+
+    const unasked = browserRefusesTheExtension('chrome', '/dist/chrome')
+
+    expect(unasked).not.toContain('REASON')
+    expect(unasked).toContain(
+      'Read the reason above, fix the manifest, then run the command again.'
+    )
+  })
+
+  it('names the Chrome versions for Chrome', () => {
+    const text = manifestV2OnChromiumBrowser('chrome', '/dist/chrome')
+
+    expect(text).toContain('Chrome no longer runs it')
+    expect(text).toContain('Chrome 138 was the last version')
+    expect(text).toContain('Chrome 151 removed the flag')
+    expect(text).not.toContain('modern Chromium')
+    expect(text).not.toContain('native dialog')
+  })
+
+  it('names the Chromium version for a fork', () => {
+    const text = manifestV2OnChromiumBrowser('brave', '/dist/brave')
+
+    expect(text).toContain('Chromium no longer runs it')
+    expect(text).toContain('Chromium 151 removed the last flag')
+  })
+
+  it('tells Edge it is deprecated and still runs', () => {
+    const text = manifestV2OnChromiumBrowser('edge', '/dist/edge')
+
+    expect(text).toContain('Microsoft Edge has deprecated and still runs')
+    expect(text).toContain('Edge 157 loads and runs one unpacked')
+    expect(text).toContain('names no final version yet')
+    expect(text).not.toContain('no longer runs it')
+    expect(text).not.toContain('refuses')
+  })
+})

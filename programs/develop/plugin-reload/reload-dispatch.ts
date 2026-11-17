@@ -21,8 +21,8 @@ import type {ReloadInstruction} from './classify-reload'
 import * as reloadMessages from './messages'
 import {projectRelative} from './project-relative'
 
-// Every dev mode reloads through the control-bridge broker (the SW producer's
-// re-injection); CDP/RDP controllers are kept for logging only, NOT reload.
+// Every reload goes through the control-bridge broker, never CDP or RDP. RDP
+// still wakes a suspended Firefox background so a latched reload is delivered.
 export interface UndeliveredReloadContext {
   // True when the caller restarted the extension to ship this build, so a
   // zero-producer broadcast is expected rather than a fault to report.

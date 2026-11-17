@@ -32,15 +32,20 @@ afterEach(async () => {
   await new Promise((resolve) => server.close(() => resolve(undefined)))
 })
 
-function connect() {
+function remoteFirefox() {
   const remote = new RemoteFirefox({
     extension: '/nowhere/dist',
     browser: 'firefox'
   } as never)
 
-  return (
-    remote as unknown as {connectClient: (p: number) => Promise<unknown>}
-  ).connectClient(port)
+  return () =>
+    (
+      remote as unknown as {connectClient: (p: number) => Promise<unknown>}
+    ).connectClient(port)
+}
+
+function connect() {
+  return remoteFirefox()()
 }
 
 describe('a debugger socket that dies on connect', () => {
@@ -52,6 +57,44 @@ describe('a debugger socket that dies on connect', () => {
     expect(output).toMatch(/closed unexpectedly/)
     expect(output).not.toMatch(/\n\s+at /)
     expect(output.match(/closed unexpectedly/g)).toHaveLength(1)
+  })
+
+  it('is said once however many times the same session dials it', async () => {
+    const dial = remoteFirefox()
+
+    for (let attempt = 0; attempt < 5; attempt++) {
+      await expect(dial()).rejects.toMatchObject({
+        code: 'E_BROWSER_CONNECTION_CLOSED'
+      })
+    }
+
+    expect(printed().match(/hit an unexpected error/g)).toHaveLength(1)
+    expect(printed().match(/closed unexpectedly/g)).toHaveLength(1)
+  })
+
+  it('is said again by another session', async () => {
+    await expect(connect()).rejects.toThrow(/closed unexpectedly/)
+    await expect(connect()).rejects.toThrow(/closed unexpectedly/)
+
+    expect(printed().match(/hit an unexpected error/g)).toHaveLength(2)
+  })
+
+  it('codes a connection the browser resets as E_BROWSER_CONNECT', async () => {
+    server.removeAllListeners('connection')
+    server.on('connection', (socket) => socket.resetAndDestroy())
+
+    const error = await connect().then(
+      () => null,
+      (reason: Error & {code?: string}) => reason
+    )
+
+    // Node words a reset by where it caught it, so the words are the cause's.
+    const cause = error?.cause as Error & {code?: string}
+
+    expect(error?.code).toBe('E_BROWSER_CONNECT')
+    expect(cause.code).toBe('ECONNRESET')
+    expect(error?.message).toBe(cause.message)
+    expect(printed().match(/hit an unexpected error/g)).toHaveLength(1)
   })
 
   it('keeps the stack under EXTENSION_DEBUG', async () => {

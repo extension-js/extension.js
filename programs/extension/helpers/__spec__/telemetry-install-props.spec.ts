@@ -1,42 +1,16 @@
-import fs from 'node:fs'
-import os from 'node:os'
-import path from 'node:path'
-import {afterAll, afterEach, describe, expect, it, vi} from 'vitest'
-import {packageManagerName, Telemetry} from '../telemetry'
+import {describe, expect, it} from 'vitest'
+import {packageManagerName, type TelemetryEnv} from '../telemetry'
+import {useTelemetrySandbox} from './telemetry-sandbox'
 
-const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-install-props-'))
-const savedConfigHome = process.env.XDG_CONFIG_HOME
-const savedUserAgent = process.env.npm_config_user_agent
-process.env.XDG_CONFIG_HOME = sandbox
-
-afterAll(() => {
-  if (savedConfigHome === undefined) delete process.env.XDG_CONFIG_HOME
-  else process.env.XDG_CONFIG_HOME = savedConfigHome
-
-  fs.rmSync(sandbox, {recursive: true, force: true})
-})
-
-afterEach(() => {
-  vi.unstubAllGlobals()
-
-  if (savedUserAgent === undefined) delete process.env.npm_config_user_agent
-  else process.env.npm_config_user_agent = savedUserAgent
-})
+const sandbox = useTelemetrySandbox()
 
 async function sentProperties(
-  props: Record<string, unknown>
+  props: Record<string, unknown>,
+  env: TelemetryEnv = {}
 ): Promise<Record<string, unknown>> {
-  const bodies: string[] = []
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(async (_url: unknown, init?: {body?: string}) => {
-      bodies.push(String(init?.body ?? ''))
+  const box = sandbox({env})
+  const telemetry = box.telemetry({})
 
-      return new Response('{"status":1}', {status: 200})
-    })
-  )
-
-  const telemetry = new Telemetry({app: 'extension', version: '9.9.9'})
   telemetry.track('command_failed', {
     command: 'create',
     success: false,
@@ -46,11 +20,10 @@ async function sentProperties(
 
   await telemetry.flush()
 
-  const body = JSON.parse(bodies[0]) as {
-    batch: Array<{properties: Record<string, unknown>}>
-  }
+  const rows = box.sentRows()
+  expect(rows).toHaveLength(1)
 
-  return body.batch[0].properties
+  return rows[0].properties
 }
 
 describe('install outcomes reach the wire', () => {
@@ -61,9 +34,11 @@ describe('install outcomes reach the wire', () => {
       browser_install_seconds: 42
     })
 
-    expect(properties.browser_install).toBe('accepted')
-    expect(properties.browser_install_browser).toBe('chrome')
-    expect(properties.browser_install_seconds).toBe(42)
+    expect(properties).toMatchObject({
+      browser_install: 'accepted',
+      browser_install_browser: 'chrome',
+      browser_install_seconds: 42
+    })
   })
 
   it('sends the dependency install outcome on create', async () => {
@@ -72,24 +47,55 @@ describe('install outcomes reach the wire', () => {
       deps_install_seconds: 31
     })
 
-    expect(properties.deps_install).toBe('installed')
-    expect(properties.deps_install_seconds).toBe(31)
+    expect(properties).toMatchObject({
+      deps_install: 'installed',
+      deps_install_seconds: 31
+    })
   })
 
-  it('drops any value that is not a fixed word or a bounded whole number', async () => {
+  it.each([
+    ['browser_install', '/Users/someone/project'],
+    ['browser_install_browser', 'my-private-build'],
+    ['browser_install_seconds', 1.5],
+    ['browser_install_seconds', 86_401],
+    ['deps_install', 'npm ERR! code ENOENT'],
+    ['deps_install_seconds', -4],
+    ['deps_install_seconds', '31'],
+    ['code', 'ENOENT'],
+    ['code', 'E_lowercase'],
+    ['code', `E_${'X'.repeat(49)}`],
+    ['exit_code', 256],
+    ['exit_code', -1],
+    ['exit_code', 1.5]
+  ])('drops %s=%j, which is not a fixed word or a bounded number', async (key, value) => {
+    const properties = await sentProperties({[key]: value})
+
+    expect(properties).not.toHaveProperty(key)
+  })
+
+  it.each([
+    ['code', 'E_INTERNAL'],
+    ['code', `E_${'X'.repeat(48)}`],
+    ['exit_code', 0],
+    ['exit_code', 255],
+    ['browser_install_seconds', 0],
+    ['browser_install_seconds', 86_400]
+  ])('keeps %s=%j', async (key, value) => {
+    expect(await sentProperties({[key]: value})).toHaveProperty(key, value)
+  })
+
+  it('cuts the command to 32 characters and strips tags to a safe alphabet', async () => {
     const properties = await sentProperties({
-      browser_install: '/Users/someone/project',
-      browser_install_browser: 'my-private-build',
-      browser_install_seconds: 1.5,
-      deps_install: 'npm ERR! code ENOENT',
-      deps_install_seconds: -4
+      command: 'c'.repeat(40),
+      template: ' my template/../x ',
+      source: 'templates?ref=a b'
     })
 
-    expect(properties).not.toHaveProperty('browser_install')
-    expect(properties).not.toHaveProperty('browser_install_browser')
-    expect(properties).not.toHaveProperty('browser_install_seconds')
-    expect(properties).not.toHaveProperty('deps_install')
-    expect(properties).not.toHaveProperty('deps_install_seconds')
+    expect(properties).toMatchObject({
+      command: 'c'.repeat(32),
+      template: 'mytemplate..x',
+      source: 'templatesrefab'
+    })
   })
 })
 
@@ -121,20 +127,16 @@ describe('the package manager that ran the command', () => {
   })
 
   it('sends the name alone on a failure, never the version or the agent', async () => {
-    process.env.npm_config_user_agent =
-      'pnpm/10.28.0 npm/? node/v23.8.0 darwin arm64'
-
-    const properties = await sentProperties({})
+    const properties = await sentProperties(
+      {},
+      {npm_config_user_agent: 'pnpm/10.28.0 npm/? node/v23.8.0 darwin arm64'}
+    )
 
     expect(properties.package_manager).toBe('pnpm')
     expect(JSON.stringify(properties)).not.toContain('10.28.0')
   })
 
   it('sends unknown when no package manager started the run', async () => {
-    delete process.env.npm_config_user_agent
-
-    const properties = await sentProperties({})
-
-    expect(properties.package_manager).toBe('unknown')
+    expect((await sentProperties({})).package_manager).toBe('unknown')
   })
 })

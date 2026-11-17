@@ -295,6 +295,11 @@ export function creatingUserProfile(profilePath: string) {
   return `${getLoggingPrefix('debug')} browser  profile=fresh path=${profilePath}`
 }
 
+// Thrown as plain text: the command that called frames it.
+export function runOnlyUnsupportedBrowser(browser: string) {
+  return `Unsupported browser: ${browser}. Pass a Chromium or Firefox family browser to --browser.`
+}
+
 export function browserInstanceExited(browser: Browser) {
   return `${getLoggingPrefix('info')} ${capitalizedBrowserName(browser)} instance exited.`
 }
@@ -772,6 +777,22 @@ export function enhancedProcessManagementForceKill(browser: Browser) {
   )
 }
 
+// Printed when a forced kill is withheld: the pid could not be dated, or it
+// now belongs to a process that started after the browser was asked to stop.
+export function browserLeftRunning(
+  browser: Browser,
+  pid: number,
+  platform: NodeJS.Platform = process.platform
+) {
+  const stop =
+    platform === 'win32' ? `taskkill /PID ${pid} /T /F` : `kill -9 ${pid}`
+
+  return (
+    `${getLoggingPrefix('warn')} ${capitalizedBrowserName(browser)} (pid ${pid}) did not stop and could not be confirmed as the browser this run started, so it was left running. ` +
+    `To stop it, run ${colors.blue(stop)}.`
+  )
+}
+
 export function enhancedProcessManagementCleanupError(
   browser: Browser,
   error: unknown
@@ -840,6 +861,18 @@ export function messagingClientClosedError(browser: Browser) {
     `${getLoggingPrefix('error')} The ${capitalizedBrowserName(browser)} messaging channel closed unexpectedly.\n` +
     `The browser exited, or its debugging connection was dropped while the dev session was still running.\n` +
     `Check whether the browser window was closed by hand, then run the command again.`
+  )
+}
+
+// The one line a session prints when its debugger socket is gone for good.
+export function debuggerReconnectGaveUp(
+  browser: Browser,
+  port: number,
+  attempts: number
+) {
+  return (
+    `${getLoggingPrefix('error')} Lost the debugging connection to ${capitalizedBrowserName(browser)} on port ${port} and ${attempts} reconnects failed, so reload and HMR have stopped. ` +
+    `Restart the session.`
   )
 }
 
@@ -1026,6 +1059,11 @@ export function chromiumDryRunFlags(flags: string) {
   return `${getLoggingPrefix('info')} ${colors.gray('FLAGS')} ${colors.gray(flags)}`
 }
 
+// Edge has no managed copy: its installer is Microsoft's and installs for
+// the whole machine, so the guidance never points at the browser cache.
+export const EDGE_SYSTEM_INSTALL_SUMMARY =
+  'Install Edge system-wide (the installer may ask for an administrator password)'
+
 export function prettyPuppeteerInstallGuidance(
   browser: Browser,
   cacheDir: string,
@@ -1054,13 +1092,21 @@ export function prettyPuppeteerInstallGuidance(
   const installCommand = preferredManagedInstallCommand(browserNorm)
   const browserDisplay = managedBrowserDisplayName(browserNorm)
 
+  const systemWide = browserNorm === 'edge'
+
   body.push(
-    `${getLoggingPrefix('warn')} ${browserDisplay} isn't available in the managed browser cache.`
+    systemWide
+      ? `${getLoggingPrefix('warn')} ${browserDisplay} isn't installed.`
+      : `${getLoggingPrefix('warn')} ${browserDisplay} isn't available in the managed browser cache.`
   )
 
   body.push('')
   body.push(
-    colors.gray(`Install ${browserDisplay} into the managed browser cache:`)
+    colors.gray(
+      systemWide
+        ? `${EDGE_SYSTEM_INSTALL_SUMMARY}:`
+        : `Install ${browserDisplay} into the managed browser cache:`
+    )
   )
 
   body.push('')
@@ -1104,7 +1150,7 @@ export function prettyPuppeteerInstallGuidance(
     )
   }
 
-  if (finalCachePath) {
+  if (finalCachePath && !systemWide) {
     body.push('')
     body.push(`${dim('PATH')} ${colors.underline(finalCachePath)}`)
   }
