@@ -329,6 +329,7 @@ export function collectContentScriptEntryImports(
 
   // Nothing is emitted while this runs, so one listing serves every scan.
   let emittedAssetNames: string[] | undefined
+
   const emittedNames = () => {
     emittedAssetNames ??= listEmittedAssetNames(compilation)
 

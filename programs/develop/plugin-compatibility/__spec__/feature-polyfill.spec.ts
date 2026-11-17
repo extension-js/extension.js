@@ -12,8 +12,10 @@ const resolution = vi.hoisted(() => ({failWith: undefined as unknown}))
 
 vi.mock('node:module', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:module')>()
+
   const createRequire: typeof actual.createRequire = (from) => {
     const real = actual.createRequire(from)
+
     const resolve = (...args: Parameters<typeof real.resolve>) => {
       if (resolution.failWith) throw resolution.failWith
 

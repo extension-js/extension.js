@@ -333,6 +333,7 @@ describe('how often collectContentScriptEntryImports reads the compilation', () 
       },
       getAsset(name: string) {
         if (!(name in sources)) return undefined
+
         reads.sources[name] = (reads.sources[name] || 0) + 1
 
         return {name, source: {source: () => sources[name]}}
@@ -408,8 +409,9 @@ describe('how often collectContentScriptEntryImports reads the compilation', () 
 
   it('lists no assets when no entry runs in a page', () => {
     const {compilation, reads} = countingCompilation(sources)
-    compilation.entrypoints.delete('content_scripts/content-0')
-    compilation.entrypoints.delete('content_scripts/content-1')
+    const entrypoints = compilation.entrypoints as Map<string, unknown>
+    entrypoints.delete('content_scripts/content-0')
+    entrypoints.delete('content_scripts/content-1')
 
     expect(collectContentScriptEntryImports(compilation, {})).toEqual({})
     expect(reads).toEqual({getAssets: 0, sources: {}})
