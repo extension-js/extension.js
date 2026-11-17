@@ -142,6 +142,34 @@ test('the optional deps smoke keeps macOS off pull requests and names every leg 
   )
 })
 
+test('dependabot groups npm minor and patch bumps and never rebases on its own', () => {
+  const config = fs.readFileSync(
+    path.join(root, '.github', 'dependabot.yml'),
+    'utf8'
+  )
+  const entries = config.split(/\n {2}- package-ecosystem: /).slice(1)
+  const npm = entries.filter((entry) => entry.startsWith('"npm"'))
+
+  assert.equal(npm.length, 1)
+  assert.ok(entries.length >= 2)
+
+  for (const entry of entries) {
+    assert.match(entry, /^ {4}rebase-strategy: "disabled"$/m)
+  }
+
+  for (const applies of ['version-updates', 'security-updates']) {
+    assert.match(
+      npm[0],
+      new RegExp(
+        `applies-to: ${applies}\\n\\s+patterns:\\n\\s+- "\\*"\\n\\s+update-types:\\n\\s+- "minor"\\n\\s+- "patch"\\n`
+      )
+    )
+  }
+
+  // A major left out of every group gets a pull request of its own.
+  assert.doesNotMatch(npm[0], /- "major"/)
+})
+
 test('no ci:test script is an alias of another', () => {
   const bodies = Object.entries(scripts)
     .filter(([name]) => name.startsWith('ci:test:'))
