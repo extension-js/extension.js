@@ -33,8 +33,6 @@ export class AddBaseUriRuntimeModule {
   ) {}
 
   apply(compiler: Compiler) {
-    if (!compiler?.hooks?.compilation) return
-
     const {RuntimeGlobals} = compiler.webpack
     const browser = this.options.browser || 'chrome'
     const gecko = isGeckoBasedBrowser(String(browser))

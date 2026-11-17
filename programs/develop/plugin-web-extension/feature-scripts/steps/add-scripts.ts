@@ -80,71 +80,69 @@ export class AddScripts {
       ...bridgeScripts
     }
 
-    if (compiler?.hooks?.thisCompilation?.tap) {
-      compiler.hooks.thisCompilation.tap(
-        'scripts:validate-include-list',
-        (compilation) => {
-          try {
-            const manifestDir = path.dirname(this.manifestPath)
-            const outputRoot = compilation.options?.output?.path || ''
-            const ErrorCtor = compiler.rspack?.WebpackError || Error
+    compiler.hooks.thisCompilation.tap(
+      'scripts:validate-include-list',
+      (compilation) => {
+        try {
+          const manifestDir = path.dirname(this.manifestPath)
+          const outputRoot = compilation.options?.output?.path || ''
+          const ErrorCtor = compiler.rspack?.WebpackError || Error
 
-            for (const [feature, raw] of Object.entries(scriptFields)) {
-              const rawEntries: string[] = Array.isArray(raw)
-                ? (raw as string[]).filter(Boolean)
-                : raw
-                  ? [raw as string]
-                  : []
+          for (const [feature, raw] of Object.entries(scriptFields)) {
+            const rawEntries: string[] = Array.isArray(raw)
+              ? (raw as string[]).filter(Boolean)
+              : raw
+                ? [raw as string]
+                : []
 
-              for (const entry of rawEntries) {
-                if (!entry || typeof entry !== 'string' || isRemoteUrl(entry)) {
-                  continue
-                }
-
-                let resolved = entry
-
-                if (!fs.existsSync(resolved)) {
-                  resolved = path.isAbsolute(entry)
-                    ? entry
-                    : entry.startsWith('/')
-                      ? path.join(manifestDir, entry.slice(1))
-                      : path.join(manifestDir, entry)
-                }
-
-                if (fs.existsSync(resolved)) continue
-
-                const isPublicRoot =
-                  entry.startsWith('/') && !path.isAbsolute(entry)
-                const displayPath = isPublicRoot
-                  ? outputRoot
-                    ? path.join(outputRoot, entry.slice(1))
-                    : entry
-                  : resolved
-
-                const err = new ErrorCtor(
-                  [
-                    `Check the ${feature.replace('/', '.')} field in your manifest.json file.`,
-                    `The script path must point to an existing file that will be bundled.`,
-                    isPublicRoot
-                      ? `Paths starting with '/' are resolved from the extension output root (served from public/), not your source directory.`
-                      : '',
-                    '',
-                    `NOT FOUND ${displayPath}`
-                  ]
-                    .filter(Boolean)
-                    .join('\n')
-                ) as Error & {file?: string; name?: string}
-                err.file = 'manifest.json'
-                err.name = 'ScriptsMissingFile'
-                ;(compilation.errors ||= []).push(err)
+            for (const entry of rawEntries) {
+              if (!entry || typeof entry !== 'string' || isRemoteUrl(entry)) {
+                continue
               }
+
+              let resolved = entry
+
+              if (!fs.existsSync(resolved)) {
+                resolved = path.isAbsolute(entry)
+                  ? entry
+                  : entry.startsWith('/')
+                    ? path.join(manifestDir, entry.slice(1))
+                    : path.join(manifestDir, entry)
+              }
+
+              if (fs.existsSync(resolved)) continue
+
+              const isPublicRoot =
+                entry.startsWith('/') && !path.isAbsolute(entry)
+              const displayPath = isPublicRoot
+                ? outputRoot
+                  ? path.join(outputRoot, entry.slice(1))
+                  : entry
+                : resolved
+
+              const err = new ErrorCtor(
+                [
+                  `Check the ${feature.replace('/', '.')} field in your manifest.json file.`,
+                  `The script path must point to an existing file that will be bundled.`,
+                  isPublicRoot
+                    ? `Paths starting with '/' are resolved from the extension output root (served from public/), not your source directory.`
+                    : '',
+                  '',
+                  `NOT FOUND ${displayPath}`
+                ]
+                  .filter(Boolean)
+                  .join('\n')
+              ) as Error & {file?: string; name?: string}
+              err.file = 'manifest.json'
+              err.name = 'ScriptsMissingFile'
+              ;(compilation.errors ||= []).push(err)
             }
-          } catch {
-            // ignore guard errors
           }
+        } catch {
+          // ignore guard errors
         }
-      )
-    }
+      }
+    )
 
     const newEntries: Record<
       string,
