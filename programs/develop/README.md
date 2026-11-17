@@ -57,6 +57,8 @@ await extensionPreview(
 )
 ```
 
+The `extension-develop/manifest` entry is deprecated and is removed in the next minor.
+
 ## Features
 
 - Live reload/HMR development server with per-instance browser runners
