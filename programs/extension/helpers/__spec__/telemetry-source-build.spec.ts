@@ -95,6 +95,7 @@ describe('a run from a clone is not a run from an install', () => {
     expect(properties).toEqual({
       $geoip_disable: true,
       $ip: null,
+      $process_person_profile: false,
       app: 'extension',
       arch: process.arch,
       command: 'create',

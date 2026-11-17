@@ -54,6 +54,7 @@ import {
 } from '../helpers/project-folder'
 import {
   markCommandSessionStart,
+  noteRunBrowsers,
   reportCommandFailureNow
 } from '../helpers/telemetry-cli'
 import {
@@ -125,6 +126,7 @@ interface StartCommandDeps {
   loadPreview?: () => Promise<AnyDevelopModule>
   runBrowser?: typeof runOnlyPreviewBrowser
   waitForReady?: typeof runWaitMode
+  noteBrowsers?: typeof noteRunBrowsers
   reportFailure?: typeof reportCommandFailureNow
 }
 
@@ -135,6 +137,7 @@ export function registerStartCommand(
     loadPreview = loadExtensionDevelopPreviewModule,
     runBrowser = runOnlyPreviewBrowser,
     waitForReady = runWaitMode,
+    noteBrowsers = noteRunBrowsers,
     reportFailure = reportCommandFailureNow
   }: StartCommandDeps = {}
 ) {
@@ -343,6 +346,7 @@ export function registerStartCommand(
         if (asJson) process.env.EXTENSION_OUTPUT = 'json'
 
         const list = vendors(browser)
+        noteBrowsers(list)
         let unsupportedBrowser = ''
         let supportedBrowsers: string[] = []
 
