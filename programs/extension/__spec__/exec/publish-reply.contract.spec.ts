@@ -1,4 +1,3 @@
-import {spawn} from 'node:child_process'
 import fs from 'node:fs'
 import http from 'node:http'
 import type {AddressInfo} from 'node:net'
@@ -13,20 +12,10 @@ import {
   expect,
   it
 } from 'vitest'
+import {runCli} from '../helpers/run-cli'
 
 type Reply = {status: number; contentType: string; body: string}
 type Seen = {authorization: string; path: string}
-
-function cliRoot(): string {
-  return path.resolve(__dirname, '../..')
-}
-
-function cliBin(): string {
-  const cjs = path.join(cliRoot(), 'dist', 'cli.cjs')
-  if (fs.existsSync(cjs)) return cjs
-
-  return path.join(cliRoot(), 'dist', 'cli.js')
-}
 
 let server: http.Server
 let api = ''
@@ -89,36 +78,14 @@ function writeStoredLogin(expiresAt: unknown) {
   )
 }
 
-function run(args: string[]) {
-  return new Promise<{code: number; stdout: string; stderr: string}>(
-    (resolve, reject) => {
-      const env: NodeJS.ProcessEnv = {
-        ...process.env,
-        EXTENSION_ENV: 'test',
-        XDG_CONFIG_HOME: configDir,
-        APPDATA: configDir
-      }
-      delete env.EXTENSION_DEV_TOKEN
-      delete env.EXTENSION_DEV_API_URL
-      const child = spawn(
-        process.execPath,
-        [cliBin(), 'publish', projectDir, '--api', api, ...args],
-        {cwd: projectDir, env}
-      )
-      let stdout = ''
-      let stderr = ''
-      child.stdout.setEncoding('utf8').on('data', (chunk) => {
-        stdout += chunk
-      })
+// The helper's env carries no token and no API URL of the developer's.
+async function run(args: string[]) {
+  const result = await runCli(['publish', projectDir, '--api', api, ...args], {
+    cwd: projectDir,
+    env: {XDG_CONFIG_HOME: configDir, APPDATA: configDir}
+  })
 
-      child.stderr.setEncoding('utf8').on('data', (chunk) => {
-        stderr += chunk
-      })
-
-      child.on('error', reject)
-      child.on('close', (code) => resolve({code: code ?? -1, stdout, stderr}))
-    }
-  )
+  return {code: result.status, stdout: result.stdout, stderr: result.stderr}
 }
 
 describe('publish against a loopback platform', () => {

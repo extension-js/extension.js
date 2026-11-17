@@ -1,4 +1,3 @@
-import {spawn} from 'node:child_process'
 import {
   chmodSync,
   existsSync,
@@ -9,13 +8,9 @@ import {
   writeFileSync
 } from 'node:fs'
 import {tmpdir} from 'node:os'
-import {dirname, join, resolve} from 'node:path'
-import {fileURLToPath} from 'node:url'
-import {afterAll, beforeAll, expect, it} from 'vitest'
-
-const __dirname = dirname(fileURLToPath(import.meta.url))
-const cliRoot = resolve(__dirname, '../..')
-const cliBin = resolve(cliRoot, 'dist', 'cli.cjs')
+import {dirname, join} from 'node:path'
+import {afterAll, beforeAll, describe, expect, it} from 'vitest'
+import {framesIn, runCli as spawnCli} from '../helpers/run-cli'
 
 interface Frame {
   ok: boolean
@@ -35,84 +30,28 @@ const NAMED: Record<Source, string> = {
 
 // dev keeps serving after a launch it refused, so its run ends once the
 // failure frame is out. start and preview end by themselves.
-function runCli(
+async function runCli(
   args: string[],
   extraEnv: Record<string, string>,
   untilFailure: boolean
 ) {
-  return new Promise<{code: number | null; stdout: string}>(
-    (resolvePromise, reject) => {
-      const env: NodeJS.ProcessEnv = {
-        ...process.env,
-        NO_COLOR: '1',
-        FORCE_COLOR: '0',
-        EXTENSION_ENV: 'test',
-        EXTENSION_TELEMETRY: '0',
-        ...extraEnv
-      }
-      delete env.VITEST
-      delete env.VITEST_WORKER_ID
+  const marker = args.includes('json') ? '"ok":false' : 'own profile'
+  const run = await spawnCli(args, {
+    timeoutMs: 100_000,
+    env: extraEnv,
+    until: untilFailure ? (output) => output.output.includes(marker) : undefined
+  })
 
-      if (!extraEnv.EXTENSION_USE_SYSTEM_PROFILE) {
-        delete env.EXTENSION_USE_SYSTEM_PROFILE
-        delete env.EXTJS_USE_SYSTEM_PROFILE
-      }
-
-      const child = spawn(process.execPath, [cliBin, ...args], {
-        cwd: cliRoot,
-        stdio: ['ignore', 'pipe', 'pipe'],
-        env,
-        detached: true
-      })
-      let stdout = ''
-
-      const stop = () => {
-        try {
-          if (child.pid) process.kill(-child.pid, 'SIGKILL')
-        } catch {
-          // Already gone
-        }
-      }
-
-      const timer = setTimeout(() => {
-        stop()
-        reject(new Error(`CLI did not report: ${args.join(' ')}\n${stdout}`))
-      }, 100_000)
-
-      const onData = (chunk: Buffer) => {
-        stdout += chunk.toString()
-        const json = args.includes('json')
-
-        if (
-          untilFailure &&
-          stdout.includes(json ? '"ok":false' : 'own profile')
-        ) {
-          stop()
-        }
-      }
-
-      child.stdout.on('data', onData)
-      child.stderr.on('data', onData)
-
-      child.on('close', (code) => {
-        clearTimeout(timer)
-        resolvePromise({code, stdout})
-      })
-    }
-  )
+  return {code: run.status, stdout: run.output}
 }
 
 function failureFrames(stdout: string): Frame[] {
-  return stdout
-    .split('\n')
-    .filter((line) => line.trim().startsWith('{'))
-    .map((line) => JSON.parse(line) as Frame)
-    .filter((frame) => !frame.ok)
+  return framesIn<Frame>(stdout).filter((frame) => !frame.ok)
 }
 
 // A Gecko browser on its own profile has remote debugging off, so the CLI
 // must refuse before spawning it. The stand-in records any spawn it gets.
-export function geckoSystemProfileSpecs(command: Command) {
+function geckoSystemProfileSpecs(command: Command) {
   let work = ''
 
   const project = (source: Source) => join(work, `project-${source}`)
@@ -225,7 +164,7 @@ export function geckoSystemProfileSpecs(command: Command) {
 
       expect(ready.browserPid).toBeUndefined()
     } else {
-      expect(code).not.toBe(0)
+      expect(code).toBe(1)
     }
   }, 120_000)
 
@@ -246,3 +185,12 @@ export function geckoSystemProfileSpecs(command: Command) {
     expect(stdout).not.toMatch(/ready for development/)
   }, 120_000)
 }
+
+// The home is a temp folder, so system profile mode names no real profile,
+// and the browser is a shell script, which Windows does not run.
+describe
+  .skipIf(process.platform === 'win32')
+  .each(['dev', 'start', 'preview'] as Command[])(
+  '%s on a Gecko browser in system profile mode',
+  (command) => geckoSystemProfileSpecs(command)
+)
