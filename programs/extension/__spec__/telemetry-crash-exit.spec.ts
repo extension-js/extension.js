@@ -60,6 +60,8 @@ function runWithInjectedCrash(
         stdio: ['ignore', 'ignore', 'pipe'],
         env: {
           ...process.env,
+          // An opt-out in the shell that runs the suite would silence both.
+          EXTENSION_TELEMETRY_DISABLED: undefined,
           EXTENSION_TELEMETRY: telemetry,
           // Nothing may leave the machine for a spec: the sink is a refused
           // loopback port or the local fake server below.
