@@ -1764,6 +1764,46 @@ describe('bridge producer runtime, executor (Slice 2)', () => {
     })
   })
 
+  it('tabs.query names the url of an own page the browser hides', async () => {
+    const ws = setup({
+      runtime: {
+        getContexts: () =>
+          Promise.resolve([
+            {tabId: -1, documentUrl: 'chrome-extension://abc/bg.html'},
+            {tabId: 7, documentUrl: 'chrome-extension://abc/pages/plain.html'}
+          ])
+      },
+      tabs: {
+        query: (_q: unknown, cb?: (t: unknown[]) => void) => {
+          cb?.([
+            {id: 7, active: true, windowId: 1},
+            {id: 8, active: false, windowId: 1}
+          ])
+
+          return undefined
+        }
+      }
+    })
+    ws.triggerMessage({
+      type: 'command',
+      cmdId: 't-own',
+      op: 'tabs.query',
+      target: {context: 'background'},
+      args: {}
+    })
+
+    await flush()
+    expect(results(ws).find((f) => f.cmdId === 't-own').value).toEqual([
+      {
+        id: 7,
+        url: 'chrome-extension://abc/pages/plain.html',
+        active: true,
+        windowId: 1
+      },
+      {id: 8, active: false, windowId: 1}
+    ])
+  })
+
   it('tabs.query prefers the promisified browser.* namespace when present', async () => {
     let browserUsed = false
     const ws = setup(

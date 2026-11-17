@@ -818,7 +818,20 @@ export const BRIDGE_PRODUCER_SOURCE = `;(function () {
         if (op === "tabs.query") {
           nsCall("tabs", "query", [args || {}], function (err, tabs) {
             if (err) { replyErr(cmdId, "TabsError", (err && err.message) || err); return; }
-            replyOk(cmdId, (tabs || []).map(function (t) { return {id: t.id, url: t.url, title: t.title, active: t.active, windowId: t.windowId}; }));
+            var rows = (tabs || []).map(function (t) { return {id: t.id, url: t.url, title: t.title, active: t.active, windowId: t.windowId}; });
+            var rt = chrome.runtime;
+            var hiddenUrl = rows.some(function (row) { return !row.url; });
+            if (!hiddenUrl || !rt || typeof rt.getContexts !== "function") { replyOk(cmdId, rows); return; }
+            // Chromium hides a tab's url without the tabs permission. The
+            // extension's own pages still name theirs through their context.
+            try {
+              Promise.resolve(rt.getContexts({contextTypes: ["TAB"]})).then(function (list) {
+                var own = {};
+                (list || []).forEach(function (c) { if (typeof c.tabId === "number" && c.tabId >= 0 && c.documentUrl) own[c.tabId] = String(c.documentUrl); });
+                rows.forEach(function (row) { if (!row.url && own[row.id]) row.url = own[row.id]; });
+                replyOk(cmdId, rows);
+              }, function () { replyOk(cmdId, rows); });
+            } catch (eCtx) { replyOk(cmdId, rows); }
           });
           return;
         }
