@@ -408,3 +408,181 @@ describe('env preload keeps two projects apart', () => {
     expect(bundle).not.toContain('second-SHELL')
   }, 120_000)
 })
+
+// A workspace package whose only env file is .env.defaults still reads the
+// workspace root, the folder rule the bundle follows, so both agree.
+const WORKSPACE_CONFIG = `module.exports = {
+  perfBudgets: {
+    seen: [
+      process.env.EXTENSION_PUBLIC_STAGE,
+      process.env.EXTENSION_PUBLIC_A,
+      process.env.EXTENSION_PUBLIC_B,
+      process.env.EXTENSION_PUBLIC_D
+    ].map(String).join('|')
+  }
+}
+`
+const WORKSPACE_ROOT_FILES = {
+  '.env.production':
+    'EXTENSION_PUBLIC_STAGE=root-production\nEXTENSION_PUBLIC_D=root-D\n',
+  '.env.defaults':
+    'EXTENSION_PUBLIC_A=root-defaults-A\nEXTENSION_PUBLIC_B=root-defaults-B\n'
+}
+const PACKAGE_DEFAULTS =
+  'EXTENSION_PUBLIC_A=package-defaults-A\nEXTENSION_PUBLIC_D=package-defaults-D\n'
+
+function workspacePackage(
+  rootFiles: Record<string, string>,
+  packageFiles: Record<string, string>
+) {
+  const root = fs.realpathSync(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-env-workspace-'))
+  )
+  roots.push(root)
+  fs.writeFileSync(
+    path.join(root, 'pnpm-workspace.yaml'),
+    "packages:\n  - 'packages/*'\n"
+  )
+
+  for (const [name, content] of Object.entries(rootFiles)) {
+    fs.writeFileSync(path.join(root, name), content)
+  }
+
+  const dir = path.join(root, 'packages', 'extension')
+  fs.mkdirSync(dir, {recursive: true})
+  fs.writeFileSync(
+    path.join(dir, 'package.json'),
+    JSON.stringify({private: true, name: 'env-workspace', version: '0.0.0'})
+  )
+
+  fs.writeFileSync(
+    path.join(dir, 'manifest.json'),
+    JSON.stringify({
+      manifest_version: 3,
+      name: 'env-workspace',
+      version: '1.0.0',
+      background: {service_worker: 'background.js'}
+    })
+  )
+
+  fs.writeFileSync(
+    path.join(dir, 'background.js'),
+    'console.log("env", [process.env.EXTENSION_PUBLIC_STAGE, process.env.EXTENSION_PUBLIC_A, process.env.EXTENSION_PUBLIC_B, process.env.EXTENSION_PUBLIC_D].map(String).join("|"))\n'
+  )
+
+  for (const [name, content] of Object.entries(packageFiles)) {
+    fs.writeFileSync(path.join(dir, name), content)
+  }
+
+  return dir
+}
+
+describe('env preload in a workspace package', () => {
+  it('goes on to the workspace root when the package has only .env.defaults', async () => {
+    const dir = workspacePackage(WORKSPACE_ROOT_FILES, {
+      '.env.defaults': PACKAGE_DEFAULTS,
+      'extension.config.js': WORKSPACE_CONFIG
+    })
+
+    expect(await seenBy(dir)).toBe(
+      'root-production|package-defaults-A|root-defaults-B|root-D'
+    )
+  })
+
+  it('reads the package defaults alone when the root has no env file', async () => {
+    const dir = workspacePackage(
+      {},
+      {
+        '.env.defaults': PACKAGE_DEFAULTS,
+        'extension.config.js': WORKSPACE_CONFIG
+      }
+    )
+
+    expect(await seenBy(dir)).toBe(
+      'undefined|package-defaults-A|undefined|package-defaults-D'
+    )
+  })
+
+  it('stays in a package that has an env file of its own', async () => {
+    const dir = workspacePackage(WORKSPACE_ROOT_FILES, {
+      '.env': 'EXTENSION_PUBLIC_STAGE=package-dotenv\n',
+      '.env.defaults': PACKAGE_DEFAULTS,
+      'extension.config.js': WORKSPACE_CONFIG
+    })
+
+    expect(await seenBy(dir)).toBe(
+      'package-dotenv|package-defaults-A|undefined|package-defaults-D'
+    )
+  })
+
+  it.each([
+    [
+      'only .env.defaults',
+      {'.env.defaults': PACKAGE_DEFAULTS},
+      'root-production|package-defaults-A|root-defaults-B|root-D'
+    ],
+    [
+      'an env file of its own',
+      {
+        '.env': 'EXTENSION_PUBLIC_STAGE=package-dotenv\n',
+        '.env.defaults': PACKAGE_DEFAULTS
+      },
+      'package-dotenv|package-defaults-A|undefined|package-defaults-D'
+    ]
+  ])(
+    'gives the config and the bundle one reading when the package has %s',
+    async (_label, packageFiles, expected) => {
+      const dir = workspacePackage(WORKSPACE_ROOT_FILES, {
+        ...packageFiles,
+        'extension.config.js': `${WORKSPACE_CONFIG}
+require('node:fs').writeFileSync(require('node:path').join(__dirname, 'seen.txt'), module.exports.perfBudgets.seen)
+`
+      })
+
+      const {extensionBuild} = await import('../../command-build')
+      const previous = process.env.VITEST
+      process.env.VITEST = 'true'
+
+      try {
+        const summary = await extensionBuild(dir, {
+          browser: 'chrome',
+          silent: true,
+          install: false,
+          exitOnError: false
+        } as any)
+        expect(summary.errors_count).toBe(0)
+      } finally {
+        if (previous === undefined) delete process.env.VITEST
+        else process.env.VITEST = previous
+      }
+
+      const bundle = fs.readFileSync(
+        path.join(dir, 'dist', 'chrome', 'background', 'service_worker.js'),
+        'utf-8'
+      )
+      const inlined = expected
+        .split('|')
+        .map((value) => (value === 'undefined' ? null : value))
+
+      expect(fs.readFileSync(path.join(dir, 'seen.txt'), 'utf-8')).toBe(
+        expected
+      )
+
+      for (const value of inlined) {
+        if (value) expect(bundle).toContain(value)
+      }
+
+      for (const absent of [
+        'root-production',
+        'package-dotenv',
+        'root-defaults-A',
+        'root-defaults-B',
+        'root-D',
+        'package-defaults-D'
+      ]) {
+        if (!inlined.includes(absent)) expect(bundle).not.toContain(absent)
+      }
+    },
+    120_000
+  )
+})

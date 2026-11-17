@@ -32,11 +32,6 @@ import {CODES, debugLine, isDebug} from './messaging'
 import type {ParsedJson} from './parse-json-safe'
 import {resolveProjectStructureSync} from './project'
 
-type EnvPreloadResult = {
-  loadedAny: boolean
-  envDir: string
-}
-
 // Keys this module introduced into process.env by loading a dotenv file, as
 // opposed to keys the shell or CI really set. dotenv.config mutates
 // process.env, and the compilation merge treats process.env as the highest
@@ -296,30 +291,22 @@ function findNearestWorkspaceRoot(startDir: string): string | undefined {
   }
 }
 
-function preloadEnvFilesFromDir(
-  envDir: string,
-  order: string[]
-): EnvPreloadResult {
-  let loadedAny = false
+function preloadEnvFilePaths(filePaths: string[]): void {
   // Snapshot before any file loads: a later, stronger file may override an
   // earlier file's value but never a value the shell or CI exported.
   const shellOwned = new Set(
     Object.keys(process.env).filter((key) => !preloadedEnvKeys.has(key))
   )
 
-  for (const filename of order) {
-    const filePath = path.join(envDir, filename)
+  for (const filePath of filePaths) {
     if (!fs.existsSync(filePath)) continue
 
     try {
       applyEnvFile(filePath, shellOwned)
-      loadedAny = true
     } catch {
       // Ignore
     }
   }
-
-  return {loadedAny, envDir}
 }
 
 const PROJECT_CONFIG_FILENAMES = [
@@ -383,19 +370,43 @@ export function projectConfigCandidatePaths(projectPath: string): string[] {
   return dirs.flatMap((dir) => configCandidatesIn(dir))
 }
 
+const ENV_DEFAULTS_FILE = '.env.defaults'
+
+// The folder rule of the bundle's env plugin. .env.defaults is the layer that
+// always merges and never a file a folder is picked for, so it ends no search.
 function preloadEnvFiles(projectDir: string, order: string[]) {
   forgetPreloadedEnv()
 
-  const local = preloadEnvFilesFromDir(projectDir, order)
-  if (local.loadedAny) return local
+  const selectable = order.filter((name) => name !== ENV_DEFAULTS_FILE)
+  const inDir = (dir: string, names: string[]) =>
+    names.map((name) => path.join(dir, name))
+  const hasEnvFile = (dir: string) =>
+    inDir(dir, selectable).some((filePath) => fs.existsSync(filePath))
+  const localDefaults = path.join(projectDir, ENV_DEFAULTS_FILE)
 
-  const workspaceRoot = findNearestWorkspaceRoot(projectDir)
+  if (!hasEnvFile(projectDir)) {
+    const workspaceRoot = findNearestWorkspaceRoot(projectDir)
+    const rootDefaults = workspaceRoot
+      ? path.join(workspaceRoot, ENV_DEFAULTS_FILE)
+      : ''
 
-  if (workspaceRoot && workspaceRoot !== projectDir) {
-    return preloadEnvFilesFromDir(workspaceRoot, order)
+    if (
+      workspaceRoot &&
+      workspaceRoot !== projectDir &&
+      (hasEnvFile(workspaceRoot) || fs.existsSync(rootDefaults))
+    ) {
+      // The package's defaults win over the root's for the keys they declare.
+      preloadEnvFilePaths([
+        rootDefaults,
+        localDefaults,
+        ...inDir(workspaceRoot, selectable)
+      ])
+
+      return
+    }
   }
 
-  return local
+  preloadEnvFilePaths([localDefaults, ...inDir(projectDir, selectable)])
 }
 
 // import.meta.env is not a Node property, so a config that reads it needs the
