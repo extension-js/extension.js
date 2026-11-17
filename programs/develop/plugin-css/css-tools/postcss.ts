@@ -170,10 +170,13 @@ function isTypeScriptConfig(configPath: string): boolean {
   return /\.[mc]?ts$/.test(configPath)
 }
 
+// `outcome.refused` tells a config that was reported and set aside from one
+// that is left for postcss-loader to read (YAML, TypeScript).
 export async function loadUserPostCssConfigObject(
   configPath: string,
   projectPath: string,
-  mode: string
+  mode: string,
+  outcome: {refused: boolean} = {refused: false}
 ): Promise<AnyModule | undefined> {
   let loaded: AnyModule
 
@@ -191,6 +194,12 @@ export async function loadUserPostCssConfigObject(
       return undefined
     } else if (configPath.endsWith('.cjs')) {
       loaded = tryLoadCjsConfig(configPath, {report: true, projectPath})
+
+      if (loaded === undefined) {
+        outcome.refused = true
+
+        return undefined
+      }
     } else {
       try {
         const mod = await import(pathToFileURL(configPath).href)
@@ -209,6 +218,8 @@ export async function loadUserPostCssConfigObject(
               projectPath,
               messages.postCssConfigUnreadable(configPath, importError)
             )
+
+            outcome.refused = true
           }
 
           return undefined
@@ -221,6 +232,8 @@ export async function loadUserPostCssConfigObject(
       messages.postCssConfigUnreadable(configPath, error)
     )
 
+    outcome.refused = true
+
     return undefined
   }
 
@@ -232,6 +245,8 @@ export async function loadUserPostCssConfigObject(
         projectPath,
         messages.postCssConfigUnreadable(configPath, error)
       )
+
+      outcome.refused = true
 
       return undefined
     }
@@ -253,6 +268,8 @@ export async function loadUserPostCssConfigObject(
       projectPath,
       messages.postCssConfigPluginsShape(configPath, typeof plugins)
     )
+
+    outcome.refused = true
 
     return undefined
   }
@@ -522,7 +539,31 @@ export async function maybeUsePostCss(
   projectPath: string,
   opts: StyleLoaderOptions
 ): Promise<Record<string, AnyModule>> {
-  const userPostCssConfig = findPostCssConfig(projectPath)
+  const foundPostCssConfig = findPostCssConfig(projectPath)
+  const {hasPostCss: pkgHasPostCss, config: pkgPostCssConfig} =
+    getPackageJsonConfig(projectPath)
+  const packageJsonConfigWins =
+    pkgHasPostCss && !!pkgPostCssConfig && typeof pkgPostCssConfig === 'object'
+  const fileOutcome = {refused: false}
+  let fileConfigObject: AnyModule
+
+  if (foundPostCssConfig && !packageJsonConfigWins) {
+    try {
+      fileConfigObject = await loadUserPostCssConfigObject(
+        foundPostCssConfig,
+        projectPath,
+        String(opts.mode || 'development'),
+        fileOutcome
+      )
+    } catch {
+      fileConfigObject = undefined
+    }
+  }
+
+  // A config that was reported as set aside never reaches postcss-loader,
+  // so the styles compile and the warning's promise holds.
+  const configRefused = fileOutcome.refused
+  const userPostCssConfig = foundPostCssConfig
   const userConfigMentionsTailwind =
     userConfigMentionsTailwindPlugin(userPostCssConfig)
   const userConfigUsesDirectTailwindReference =
@@ -546,13 +587,15 @@ export async function maybeUsePostCss(
     }
   }
 
-  const {hasPostCss: pkgHasPostCss, config: pkgPostCssConfig} =
-    getPackageJsonConfig(projectPath)
   const tailwindPresent = isUsingTailwind(projectPath)
   const tailwindConfigured = tailwindPresent || userConfigMentionsTailwind
 
   // Only add postcss-loader when there's a clear signal of usage
-  if (!userPostCssConfig && !pkgHasPostCss && !tailwindPresent) {
+  if (
+    (!userPostCssConfig || configRefused) &&
+    !pkgHasPostCss &&
+    !tailwindPresent
+  ) {
     return {}
   }
 
@@ -569,7 +612,10 @@ export async function maybeUsePostCss(
   const shouldInjectTailwindPlugin =
     tailwindConfigured &&
     !pkgHasPostCss &&
-    (!userPostCssConfig || userConfigIsCjsInEsm || userConfigMentionsTailwind)
+    (!userPostCssConfig ||
+      configRefused ||
+      userConfigIsCjsInEsm ||
+      userConfigMentionsTailwind)
   const declaredTailwindMajor = getDeclaredTailwindMajor(projectPath)
 
   if (shouldInjectTailwindPlugin) {
@@ -729,18 +775,10 @@ export async function maybeUsePostCss(
   try {
     let configObject: AnyModule
 
-    if (
-      pkgHasPostCss &&
-      pkgPostCssConfig &&
-      typeof pkgPostCssConfig === 'object'
-    ) {
+    if (packageJsonConfigWins) {
       configObject = pkgPostCssConfig
     } else if (userPostCssConfig) {
-      configObject = await loadUserPostCssConfigObject(
-        userPostCssConfig,
-        projectPath,
-        String(opts.mode || 'development')
-      )
+      configObject = fileConfigObject
     }
 
     if (configObject?.plugins) {
@@ -834,11 +872,12 @@ export async function maybeUsePostCss(
   // it at the right project root, and optionally inject a pre-resolved Tailwind.
   // The found file goes over as is: the loader's own search order differs,
   // and a project that keeps two configs must not get the other one here.
+  // A config that was set aside stays out, or the loader fails on it again.
   const postcssOptions: AnyModule = {
     ident: 'postcss',
     cwd: projectPath,
     config:
-      userConfigIsCjsInEsm || bypassUserConfigForTailwindCompat
+      userConfigIsCjsInEsm || bypassUserConfigForTailwindCompat || configRefused
         ? false
         : (userPostCssConfig ?? projectPath)
   }

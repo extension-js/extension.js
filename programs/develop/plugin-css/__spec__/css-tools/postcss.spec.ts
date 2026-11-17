@@ -47,7 +47,10 @@ describe('postcss detection', () => {
         ...actual,
         existsSync: (p: string) =>
           String(p).endsWith('postcss.config.js') || actual.existsSync(p),
-        readFileSync: actual.readFileSync
+        readFileSync: (p: string, enc: string) =>
+          String(p).endsWith('postcss.config.js')
+            ? 'module.exports = {}'
+            : (actual as any).readFileSync(p, enc)
       }
     })
 
@@ -77,7 +80,10 @@ describe('postcss detection', () => {
         ...actual,
         existsSync: (p: string) =>
           String(p).endsWith('postcss.config.mjs') || actual.existsSync(p),
-        readFileSync: actual.readFileSync
+        readFileSync: (p: string, enc: string) =>
+          String(p).endsWith('postcss.config.mjs')
+            ? 'module.exports = {}'
+            : (actual as any).readFileSync(p, enc)
       }
     })
 
@@ -172,6 +178,10 @@ describe('postcss detection', () => {
         readFileSync: (p: string, enc: string) => {
           if (String(p).endsWith('package.json')) {
             return JSON.stringify({})
+          }
+
+          if (String(p).endsWith('postcss.config.js')) {
+            return 'module.exports = {}'
           }
 
           return (actual as any).readFileSync(p, enc)
@@ -358,7 +368,7 @@ describe('postcss detection', () => {
     expect((opts?.plugins as any[]).length).toBe(2)
   })
 
-  it('injects cwd-stable Tailwind plugin for postcss.config.js with @tailwindcss/postcss', async () => {
+  it('injects cwd-stable Tailwind plugin for a .postcssrc.yml the loader reads, with @tailwindcss/postcss', async () => {
     const tailwindFactory = vi.fn((_opts?: any) => ({
       postcssPlugin: 'tailwindcss'
     }))
@@ -388,12 +398,12 @@ describe('postcss detection', () => {
 
       return {
         ...actual,
-        existsSync: (p: string) => String(p).endsWith('postcss.config.js'),
+        existsSync: (p: string) => String(p).endsWith('.postcssrc.yml'),
         readFileSync: (p: string, enc: string) => {
           if (String(p).endsWith('package.json')) return JSON.stringify({})
 
-          if (String(p).endsWith('postcss.config.js')) {
-            return "export default { plugins: { '@tailwindcss/postcss': {} } }"
+          if (String(p).endsWith('.postcssrc.yml')) {
+            return "plugins:\n  '@tailwindcss/postcss': {}\n"
           }
 
           return (actual as any).readFileSync(p, enc)
@@ -405,7 +415,7 @@ describe('postcss detection', () => {
     const rule = await maybeUsePostCss('/p', {mode: 'development'})
     const opts = rule.options?.postcssOptions
 
-    expect(opts?.config).toBe(path.join('/p', 'postcss.config.js'))
+    expect(opts?.config).toBe(path.join('/p', '.postcssrc.yml'))
     expect(tailwindFactory).toHaveBeenCalledWith({base: '/p'})
     expect((opts?.plugins as any[])[0]).toEqual({
       '@tailwindcss/postcss': false
@@ -467,7 +477,7 @@ describe('postcss detection', () => {
     expect(tailwindFactory).toHaveBeenCalled()
   })
 
-  it('injects cwd-stable Tailwind plugin for postcss.config.mjs with @tailwindcss/postcss', async () => {
+  it('injects cwd-stable Tailwind plugin for a postcss.config.ts the loader reads, with @tailwindcss/postcss', async () => {
     const tailwindFactory = vi.fn((_opts?: any) => ({
       postcssPlugin: 'tailwindcss'
     }))
@@ -497,11 +507,11 @@ describe('postcss detection', () => {
 
       return {
         ...actual,
-        existsSync: (p: string) => String(p).endsWith('postcss.config.mjs'),
+        existsSync: (p: string) => String(p).endsWith('postcss.config.ts'),
         readFileSync: (p: string, enc: string) => {
           if (String(p).endsWith('package.json')) return JSON.stringify({})
 
-          if (String(p).endsWith('postcss.config.mjs')) {
+          if (String(p).endsWith('postcss.config.ts')) {
             return "export default { plugins: { '@tailwindcss/postcss': {} } }"
           }
 
@@ -514,7 +524,7 @@ describe('postcss detection', () => {
     const rule = await maybeUsePostCss('/p', {mode: 'development'})
     const opts = rule.options?.postcssOptions
 
-    expect(opts?.config).toBe(path.join('/p', 'postcss.config.mjs'))
+    expect(opts?.config).toBe(path.join('/p', 'postcss.config.ts'))
     expect(Array.isArray(opts?.plugins)).toBe(true)
     expect((opts?.plugins as any[])[0]).toEqual({
       '@tailwindcss/postcss': false

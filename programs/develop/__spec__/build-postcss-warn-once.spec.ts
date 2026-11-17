@@ -123,19 +123,67 @@ describe('a PostCSS finding is said once per build', () => {
       2
     )
   }, 120_000)
+})
 
-  it('names a config whose plugins PostCSS cannot take once', async () => {
-    const root = project("module.exports = {plugins: 'nope'}\n")
+function emittedCss(root: string, browser: string) {
+  const sheets: string[] = []
+
+  const walk = (dir: string) => {
+    for (const entry of fs.readdirSync(dir, {withFileTypes: true})) {
+      const abs = path.join(dir, entry.name)
+
+      if (entry.isDirectory()) walk(abs)
+      else if (entry.name.endsWith('.css')) {
+        sheets.push(fs.readFileSync(abs, 'utf8'))
+      }
+    }
+  }
+
+  walk(path.join(root, 'dist', browser))
+
+  return sheets.join('\n')
+}
+
+const unusableConfigs = [
+  {
+    name: 'a config that does not parse',
+    config: 'module.exports = {plugins: [\n',
+    says: 'Could not load the PostCSS config'
+  },
+  {
+    name: 'a config whose plugins PostCSS cannot take',
+    config: "module.exports = {plugins: 'nope'}\n",
+    says: 'PostCSS expects an array or an object'
+  },
+  {
+    name: 'a config naming a plugin nobody installed',
+    config:
+      "module.exports = {plugins: {'postcss-plugin-nobody-installed': {}}}\n",
+    says: "Couldn't resolve the PostCSS plugin"
+  }
+]
+
+// Each of these warnings says the build continues, so the build has to
+// finish and ship the sheets the way it would without that config.
+describe.each(unusableConfigs)('$name is set aside', ({config, says}) => {
+  it.each([
+    'chrome',
+    'firefox'
+  ] as const)('warns once and still ships the styles on %s', async (browser) => {
+    const root = project(config)
     const spies = [
       vi.spyOn(console, 'error').mockImplementation(() => {}),
       vi.spyOn(console, 'warn').mockImplementation(() => {})
     ]
 
-    // The loader reads that config again and fails the build over it.
-    await build(root, 'chrome').catch(() => undefined)
+    await build(root, browser)
 
-    expect(
-      printed(spies, 'PostCSS expects an array or an object')
-    ).toHaveLength(1)
+    const css = emittedCss(root, browser)
+
+    expect(css).toContain('.a{color:red}')
+    expect(css).toContain('.b{color:#00f}')
+    expect(printed(spies, says)).toHaveLength(1)
+    expect(printed(spies, 'continue')).toHaveLength(1)
+    expect(printed(spies, 'Loading PostCSS')).toEqual([])
   }, 120_000)
 })
