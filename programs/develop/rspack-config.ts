@@ -187,7 +187,6 @@ export default function webpackConfig(
       manifestPath,
       browser: devOptions.browser,
       define: devOptions.define,
-      clean: devOptions.output.clean,
       zip: devOptions.zip === true,
       zipSource: devOptions.zipSource === true,
       zipFilename: devOptions.zipFilename,
