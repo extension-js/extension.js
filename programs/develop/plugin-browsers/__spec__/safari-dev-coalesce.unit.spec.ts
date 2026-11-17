@@ -272,6 +272,10 @@ const CONTENT_EDIT = {
 const BACKGROUND_EDIT = {changedFiles: ['src/background.js']}
 
 describe('SafariDevPlugin reload seam', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   it('reloads only after the package that replaced the appex', async () => {
     const {broker, sent} = makeBroker()
     const h = harness(broker)
@@ -333,6 +337,38 @@ describe('SafariDevPlugin reload seam', () => {
     expect(h.modes()).toEqual(['full:/init', 'resync:/v2', 'resync:/v4'])
     expect(sent).toHaveLength(2)
     expect(sent.every((s) => s.type === 'content-scripts')).toBe(true)
+  })
+
+  // A tool waiting for the rebuild to be live reads this stamp, and only
+  // the plugin that replaced the appex knows when to write it.
+  it('stamps safari-resync after each rebuild, not after the first package', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    const noted: Array<[string, string | undefined]> = []
+    const h = harness(
+      {
+        broadcastReload: () => 0,
+        noteReloadApplied: (kind, label) => {
+          noted.push([kind, label])
+        }
+      },
+      '/project'
+    )
+
+    await settleFirst(h)
+    expect(noted).toEqual([])
+
+    await h.trigger('/second')
+    h.callFor('/second').resolve()
+    await h.plugin.idle()
+
+    await h.trigger('/third', CONTENT_EDIT)
+    h.callFor('/third').resolve()
+    await h.plugin.idle()
+
+    expect(noted).toEqual([
+      ['safari-resync', undefined],
+      ['safari-resync', 'content_script (src/content/scripts.js)']
+    ])
   })
 
   it('packages normally with no broker attached', async () => {
