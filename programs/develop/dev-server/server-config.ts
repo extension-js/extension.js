@@ -79,14 +79,12 @@ export function buildServerConfig(input: ServerConfigInput): Configuration {
       })
     },
     watchFiles: {
-      // Only public/ is watched outside the compiler: every page the build
-      // knows is a file dependency, so its edit rebuilds and the done hook
-      // refreshes it (html-refresh.ts). A project-wide html glob refreshed
-      // every open page for a demo page the extension never loads.
+      // Meant to watch public/ outside the compiler, but chokidar 5 reads this
+      // glob as a literal path, so it sees no edit (see the loopback spec).
       paths: publicFolder ? [path.join(publicFolder, '**/*')] : [],
       options: {
-        // Prevent startup self-rebuild: initial emit writes dist/**/*.html.
-        // Those generated files must not be treated as source watch inputs.
+        // A literal path to chokidar 5 as well. This watcher only sends
+        // static-changed and never rebuilds, so it guards nothing today.
         ignored: [path.join(input.packageJsonDir, 'dist', '**/*')],
         // Native FS events by default: polling wakes the CPU and adds HMR latency.
         // EXTENSION_WATCH_POLL opts into polling where native events are unreliable.
